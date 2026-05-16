@@ -256,6 +256,24 @@ try:
 except (TypeError, ValueError):
     INDEXNOW_TIMEOUT = 2.5
 
+# Google Indexing API (URL_UPDATED notifications) — pairs with IndexNow.
+# The credentials file is a service-account JSON key uploaded to the
+# repo at ``json/`` (committed intentionally; rotate via Cloud Console
+# whenever you rotate the file). Override with an absolute path via
+# env var if you want to keep secrets outside the working tree.
+GOOGLE_INDEXING_ENABLED = _env_bool("GOOGLE_INDEXING_ENABLED", default=True)
+GOOGLE_INDEXING_CREDENTIALS_PATH = os.environ.get(
+    "GOOGLE_INDEXING_CREDENTIALS_PATH", ""
+).strip()
+try:
+    GOOGLE_INDEXING_TIMEOUT = float(os.environ.get("GOOGLE_INDEXING_TIMEOUT", "10"))
+except (TypeError, ValueError):
+    GOOGLE_INDEXING_TIMEOUT = 10.0
+try:
+    GOOGLE_INDEXING_RETRIES = int(os.environ.get("GOOGLE_INDEXING_RETRIES", "2"))
+except (TypeError, ValueError):
+    GOOGLE_INDEXING_RETRIES = 2
+
 # URL для входа в систему
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'

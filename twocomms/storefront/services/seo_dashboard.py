@@ -270,6 +270,15 @@ def build_category_seo_overrides() -> List[Dict[str, Any]]:
 
 def build_seo_dashboard_context() -> Dict[str, Any]:
     """Top-level helper used by the ``?section=seo`` admin view."""
+    from .indexnow import (
+        is_indexnow_configured,
+        get_indexnow_key,
+        get_indexnow_key_location,
+    )
+    from .google_indexing import get_google_indexing_status
+
+    google_status = get_google_indexing_status()
+
     return {
         "sitemap_summary": build_sitemap_summary(),
         "ai_panel": build_ai_panel(),
@@ -278,4 +287,18 @@ def build_seo_dashboard_context() -> Dict[str, Any]:
         # Phase 21 (PR-A2) — inline editor for category seo_title /
         # seo_h1 / seo_description right inside the custom admin.
         "category_seo_overrides": build_category_seo_overrides(),
+        # Phase 22 — indexing API status (Bing IndexNow + Google Indexing API).
+        "indexing_status": {
+            "indexnow": {
+                "configured": is_indexnow_configured(),
+                "key_present": bool(get_indexnow_key()),
+                "key_location": get_indexnow_key_location(),
+            },
+            "google": {
+                "enabled": google_status.get("enabled"),
+                "configured": google_status.get("configured"),
+                "credentials_present": google_status.get("credentials_present"),
+                "credentials_path": google_status.get("credentials_path"),
+            },
+        },
     }

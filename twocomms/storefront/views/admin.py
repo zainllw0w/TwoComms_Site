@@ -122,6 +122,13 @@ from storefront.services.indexnow import (
     is_indexnow_configured,
     submit_indexnow_urls,
 )
+from storefront.services.google_indexing import (
+    NOTIFICATION_URL_DELETED,
+    NOTIFICATION_URL_UPDATED,
+    get_google_indexing_status,
+    is_google_indexing_configured,
+    submit_google_indexing_urls,
+)
 
 
 # ==================== ADMIN VIEWS ====================
@@ -2010,6 +2017,114 @@ def admin_indexnow_submit(request):
                 f'IndexNow прийняв {len(urls)} URL(-ів).'
                 if ok
                 else f'IndexNow повернув помилку для {len(urls)} URL(-ів). Деталі — у логах.'
+            ),
+        }
+    )
+
+
+@staff_member_required
+def admin_google_indexing_submit(request):
+    """AJAX endpoint: submit URLs to Google Indexing API.
+
+    Mirrors :func:`admin_indexnow_submit` so the admin panel can ping
+    Google in addition to Bing/Yandex via IndexNow. POST JSON body::
+
+        {"type": "product"|"category"|"core"|"all",
+         "ids": [..., ...],
+         "notification": "URL_UPDATED"|"URL_DELETED"}
+
+    Google's Indexing API accepts only one URL per HTTP call, so this
+    view loops the list server-side. Failures are tallied and returned
+    so the UI can surface partial outages without aborting the whole
+    batch.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
+
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
+
+    if not is_google_indexing_configured():
+        status = get_google_indexing_status()
+        return JsonResponse(
+            {
+                'success': False,
+                'error': (
+                    'Google Indexing API не сконфігуровано. '
+                    f'Креденшіали: {status.get("credentials_path") or "—"} '
+                    f'(present={status.get("credentials_present")}).'
+                ),
+            },
+            status=503,
+        )
+
+    target_type = (payload.get('type') or '').strip().lower()
+    raw_ids = payload.get('ids') or []
+    notification = (payload.get('notification') or NOTIFICATION_URL_UPDATED).strip().upper()
+    if notification not in {NOTIFICATION_URL_UPDATED, NOTIFICATION_URL_DELETED}:
+        return JsonResponse(
+            {'success': False, 'error': f'Unknown notification: {notification}'},
+            status=400,
+        )
+
+    try:
+        ids = [int(value) for value in raw_ids if str(value).strip()]
+    except (TypeError, ValueError):
+        return JsonResponse({'success': False, 'error': 'Invalid ids'}, status=400)
+
+    urls: list[str] = []
+
+    if target_type == 'product':
+        if not ids:
+            return JsonResponse({'success': False, 'error': 'Empty ids list'}, status=400)
+        products = Product.objects.filter(pk__in=ids).only('slug', 'status')
+        urls = [u for u in (get_product_public_url(p) for p in products) if u]
+    elif target_type == 'category':
+        if not ids:
+            return JsonResponse({'success': False, 'error': 'Empty ids list'}, status=400)
+        categories = Category.objects.filter(pk__in=ids).only('slug', 'is_active')
+        urls = [u for u in (get_category_public_url(c) for c in categories) if u]
+    elif target_type == 'core':
+        urls = list(get_core_indexnow_urls())
+    elif target_type == 'all':
+        urls = list(get_core_indexnow_urls())
+        urls.extend(filter(None, (
+            get_product_public_url(p)
+            for p in Product.objects.filter(status='published').only('slug', 'status')
+        )))
+        urls.extend(filter(None, (
+            get_category_public_url(c)
+            for c in Category.objects.filter(is_active=True).only('slug', 'is_active')
+        )))
+    else:
+        return JsonResponse(
+            {'success': False, 'error': 'Unknown type (use product|category|core|all)'},
+            status=400,
+        )
+
+    urls = list(dict.fromkeys(urls))
+    if not urls:
+        return JsonResponse(
+            {
+                'success': False,
+                'error': 'Жодного публічного URL для надсилання (можливо, об’єкти неактивні).',
+            },
+            status=400,
+        )
+
+    result = submit_google_indexing_urls(urls, notification_type=notification)
+    return JsonResponse(
+        {
+            'success': bool(result.get('ok')),
+            'count': result.get('total', len(urls)),
+            'submitted': result.get('submitted', 0),
+            'failures': result.get('failures', []),
+            'notification': notification,
+            'message': result.get(
+                'message',
+                f'Google Indexing API: {result.get("submitted", 0)}/{len(urls)} URL.',
             ),
         }
     )

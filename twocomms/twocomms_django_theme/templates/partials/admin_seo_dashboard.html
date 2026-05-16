@@ -147,6 +147,91 @@
     </div>
   </section>
 
+  {# ---------- Phase 22 — Indexing API panel (Bing IndexNow + Google) ---------- #}
+  <section class="seo-card" aria-label="Indexing API panel">
+    <h3>Індексація · IndexNow + Google Indexing API</h3>
+    <p style="color: rgba(255,255,255,0.6); font-size: 0.88rem; margin: 0.25rem 0 0.75rem;">
+      IndexNow стукає в Bing/Yandex, Google Indexing API — у Googlebot.
+      Обидві системи отримують пінг автоматично, коли ви публікуєте,
+      редагуєте або знімаєте з публікації товар чи категорію. Кнопки
+      нижче дозволяють перевідправити вручну (наприклад, після
+      масової міграції).
+    </p>
+
+    <div class="seo-grid" style="margin-bottom: 1rem;">
+      <div class="seo-tile">
+        <div class="seo-tile__count">
+          {% if indexing_status.indexnow.configured %}
+            <span class="seo-pill is-on">IndexNow активний</span>
+          {% else %}
+            <span class="seo-pill is-off">IndexNow не сконфігуровано</span>
+          {% endif %}
+        </div>
+        <div class="seo-tile__label">
+          {% if indexing_status.indexnow.key_location %}
+            Ключ: <a class="seo-tile__url" href="{{ indexing_status.indexnow.key_location }}" target="_blank" rel="noopener">{{ indexing_status.indexnow.key_location }}</a>
+          {% else %}
+            Задайте <code>INDEXNOW_KEY</code> у середовищі.
+          {% endif %}
+        </div>
+      </div>
+      <div class="seo-tile">
+        <div class="seo-tile__count">
+          {% if indexing_status.google.configured %}
+            <span class="seo-pill is-on">Google Indexing активний</span>
+          {% elif indexing_status.google.credentials_present %}
+            <span class="seo-pill is-off">Google вимкнено (env)</span>
+          {% else %}
+            <span class="seo-pill is-off">Google: нема креденшіалів</span>
+          {% endif %}
+        </div>
+        <div class="seo-tile__label">
+          {% if indexing_status.google.credentials_path %}
+            Service account: <code style="word-break: break-all;">{{ indexing_status.google.credentials_path }}</code>
+          {% else %}
+            Завантажте JSON service account у <code>json/</code> або задайте
+            <code>GOOGLE_INDEXING_CREDENTIALS_PATH</code>.
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="seo-quick-links">
+      <button type="button" class="seo-btn-generate"
+              data-action="indexnow-submit"
+              data-target-type="all"
+              {% if not indexing_status.indexnow.configured %}disabled aria-disabled="true"{% endif %}>
+        IndexNow · усі URL
+      </button>
+      <button type="button" class="seo-btn-generate"
+              data-action="indexnow-submit"
+              data-target-type="core"
+              {% if not indexing_status.indexnow.configured %}disabled aria-disabled="true"{% endif %}>
+        IndexNow · core
+      </button>
+      <button type="button" class="seo-btn-generate"
+              data-action="google-indexing-submit"
+              data-target-type="all"
+              {% if not indexing_status.google.configured %}disabled aria-disabled="true"{% endif %}
+              title="Послідовно надсилає кожен URL у Google Indexing API. Стандартна квота — 200/добу.">
+        Google · усі URL
+      </button>
+      <button type="button" class="seo-btn-generate"
+              data-action="google-indexing-submit"
+              data-target-type="core"
+              {% if not indexing_status.google.configured %}disabled aria-disabled="true"{% endif %}
+              title="Надіслати у Google Indexing API лише ключові статичні сторінки (home, catalog, contacts, ...).">
+        Google · core
+      </button>
+    </div>
+    <p style="color: rgba(255,255,255,0.45); font-size: 0.78rem; margin-top: 0.6rem;">
+      Google Indexing API офіційно обмежено типами JobPosting та
+      BroadcastEvent, але приймає й інші URL як підказку. Стежте за
+      квотою у
+      <a href="https://console.cloud.google.com/apis/api/indexing.googleapis.com/quotas" target="_blank" rel="noopener" class="seo-tile__url">Cloud Console &rarr; Quotas</a>.
+    </p>
+  </section>
+
   {# ---------- AI panel ---------- #}
   <section class="seo-card" aria-label="AI generation status">
     <h3>AI-генерація мета-тегів</h3>

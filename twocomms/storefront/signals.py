@@ -16,6 +16,7 @@ from .models import Category, CategoryColorLanding, Product, ProductImage
 from productcolors.models import Color, ProductColorImage, ProductColorVariant
 from .services.feeds_queue import mark_feeds_dirty
 from .services.indexnow import enqueue_indexnow_urls, get_product_public_url
+from .services.google_indexing import enqueue_google_indexing_urls
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,7 @@ def submit_product_to_indexnow_on_save(sender, instance, **kwargs):
         return
 
     transaction.on_commit(lambda: enqueue_indexnow_urls(urls))
+    transaction.on_commit(lambda: enqueue_google_indexing_urls(urls))
 
 
 @receiver(post_delete, sender=Product)
@@ -96,6 +98,9 @@ def submit_product_to_indexnow_on_delete(sender, instance, **kwargs):
         return
 
     transaction.on_commit(lambda: enqueue_indexnow_urls([public_url]))
+    transaction.on_commit(
+        lambda: enqueue_google_indexing_urls([public_url], notification_type="URL_DELETED")
+    )
 
 
 def _enqueue_image_optimization(instance, field_name: str):
@@ -349,6 +354,7 @@ def submit_color_landing_to_indexnow(sender, instance, **kwargs):
         return
 
     transaction.on_commit(lambda: enqueue_indexnow_urls(urls))
+    transaction.on_commit(lambda: enqueue_google_indexing_urls(urls))
 
 
 @receiver(post_delete, sender=CategoryColorLanding)
@@ -360,3 +366,6 @@ def submit_color_landing_to_indexnow_on_delete(sender, instance, **kwargs):
     except Exception:  # pragma: no cover - defensive
         return
     transaction.on_commit(lambda: enqueue_indexnow_urls([url]))
+    transaction.on_commit(
+        lambda: enqueue_google_indexing_urls([url], notification_type="URL_DELETED")
+    )

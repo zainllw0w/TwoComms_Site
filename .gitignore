@@ -125,6 +125,9 @@ id_ecdsa.*
 .htpasswd
 credentials.json
 service_account*.json
+# Google Indexing API service-account folder — uploaded to server via scp,
+# never committed (push protection will block secrets anyway).
+json/
 .venv
 env/
 venv/

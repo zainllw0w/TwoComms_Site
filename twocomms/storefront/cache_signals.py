@@ -15,6 +15,7 @@ from .services.catalog_helpers import (
     bump_public_product_order_version,
 )
 from .services.indexnow import enqueue_indexnow_urls, get_category_public_url
+from .services.google_indexing import enqueue_google_indexing_urls
 
 
 @receiver(pre_save, sender=Category)
@@ -64,6 +65,7 @@ def submit_category_to_indexnow_on_save(sender, instance, **kwargs):
         return
 
     transaction.on_commit(lambda: enqueue_indexnow_urls(urls))
+    transaction.on_commit(lambda: enqueue_google_indexing_urls(urls))
 
 
 @receiver(post_delete, sender=Category)
@@ -73,6 +75,9 @@ def submit_category_to_indexnow_on_delete(sender, instance, **kwargs):
         return
 
     transaction.on_commit(lambda: enqueue_indexnow_urls([public_url]))
+    transaction.on_commit(
+        lambda: enqueue_google_indexing_urls([public_url], notification_type="URL_DELETED")
+    )
 
 
 @receiver([post_save, post_delete], sender=AnalyticsExclusion)
