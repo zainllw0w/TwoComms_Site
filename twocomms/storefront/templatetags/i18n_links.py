@@ -210,25 +210,28 @@ def localized_social_image_path(code: str | None) -> str:
 
     SEO molecular-upgrade US-17 — localized social previews. Each
     language gets its own 1200x630 social card so the SERP/Facebook/
-    Twitter previews speak the visitor's language. The files live
-    under ``static/img/social-preview-{uk,ru,en}.jpg``. If a locale
-    file does not yet exist on disk, the staticfiles manifest will
-    transparently fall back to the canonical UK image (handled by
-    ``ManifestStaticFilesStorage``'s strict mode through a missing
-    file warning, but the URL still resolves to a valid asset; the
-    accompanying CI script checks file presence in pre-deploy).
+    Twitter previews speak the visitor's language.
 
-    Returns the static-relative path so callers can pass it through
-    Django's ``{% static %}`` tag and pick up the cache-busting
-    fingerprint automatically.
+    SAFE FALLBACK BEHAVIOUR (US-17 phase A — 2026-05-16): the
+    localized JPGs (``social-preview-uk.jpg`` / ``-ru.jpg`` / ``-en.jpg``)
+    do not yet exist in the static manifest. Returning their paths
+    triggers ``ValueError: Missing staticfiles manifest entry`` under
+    ``ManifestStaticFilesStorage``, which raised 500s on the homepage
+    and contacts page when the new helper first shipped. Until
+    ``scripts/render_social_previews.py`` is run and the JPGs are
+    collected into ``staticfiles/``, the helper falls back to the
+    canonical ``img/social-preview.jpg`` for every locale. Once the
+    localized assets exist, swap the body to the locale-aware mapping
+    below and CI's missing-asset check will guarantee no regression.
+
+    The mapping is preserved in a comment for the upcoming swap and
+    referenced from ``scripts/render_social_previews.py``.
     """
 
-    code = (code or _DEFAULT_LANG).lower()
-    mapping = {
-        "uk": "img/social-preview-uk.jpg",
-        "ru": "img/social-preview-ru.jpg",
-        "en": "img/social-preview-en.jpg",
-    }
-    # Until per-locale assets ship, every code maps to the canonical
-    # ``social-preview.jpg`` (handled at the static-collect step).
-    return mapping.get(code, "img/social-preview.jpg")
+    # Future locale-aware mapping (kept inline for diff readability):
+    #   uk → img/social-preview-uk.jpg
+    #   ru → img/social-preview-ru.jpg
+    #   en → img/social-preview-en.jpg
+    # Reference assets live in ``static/img/social-preview-*.svg`` and
+    # are converted by ``scripts/render_social_previews.py``.
+    return "img/social-preview.jpg"

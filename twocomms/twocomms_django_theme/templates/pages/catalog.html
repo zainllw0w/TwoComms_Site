@@ -53,10 +53,10 @@ point at themselves.
 {% block og_type %}website{% endblock %}
 {% block og_title %}{% if is_search_page %}{% trans 'Пошук' %}{% if query %}: {{ query }}{% endif %} — TwoComms{% elif category %}{% if category.seo_title %}{{ category.seo_title }}{% else %}{{ category.name }} — TwoComms{% endif %}{% else %}{% trans 'Каталог TwoComms — футболки, худі, лонгсліви з принтами' %}{% endif %}{% endblock %}
 {% block og_description %}{% if is_search_page %}{% trans 'Результати пошуку TwoComms за товарами каталогу.' %}{% elif category %}{% if category.seo_description %}{{ category.seo_description }}{% else %}{% blocktrans with cat=category.name %}{{ cat }} з авторськими принтами від TwoComms. Стріт & мілітарі одяг.{% endblocktrans %}{% endif %}{% else %}{% trans 'Повний каталог стріт та мілітарі одягу TwoComms.' %}{% endif %}{% endblock %}
-{% block og_image %}{% if category and category.cover %}{{ site_base_url }}{{ category.cover.url }}{% else %}{{ site_base_url }}{% static og_locale_image_path %}{% endif %}{% endblock %}
+{% block og_image %}{% if category and category.cover %}{{ site_base_url }}{{ category.cover.url }}{% else %}{{ site_base_url }}{% static 'img/social-preview.jpg' %}{% endif %}{% endblock %}
 {% block twitter_title %}{% if is_search_page %}{% trans 'Пошук' %}{% if query %}: {{ query }}{% endif %} — TwoComms{% elif category %}{% if category.seo_title %}{{ category.seo_title }}{% else %}{{ category.name }} — TwoComms{% endif %}{% else %}{% trans 'Каталог TwoComms — футболки, худі, лонгсліви з принтами' %}{% endif %}{% endblock %}
 {% block twitter_description %}{% if is_search_page %}{% trans 'Результати пошуку TwoComms за товарами каталогу.' %}{% elif category %}{% if category.seo_description %}{{ category.seo_description }}{% else %}{% blocktrans with cat=category.name %}{{ cat }} з авторськими принтами від TwoComms.{% endblocktrans %}{% endif %}{% else %}{% trans 'Каталог стріт та мілітарі одягу TwoComms.' %}{% endif %}{% endblock %}
-{% block twitter_image %}{% if category and category.cover %}{{ site_base_url }}{{ category.cover.url }}{% else %}{{ site_base_url }}{% static og_locale_image_path %}{% endif %}{% endblock %}
+{% block twitter_image %}{% if category and category.cover %}{{ site_base_url }}{{ category.cover.url }}{% else %}{{ site_base_url }}{% static 'img/social-preview.jpg' %}{% endif %}{% endblock %}
 
 {% block breadcrumbs %}{% endblock %}
 
