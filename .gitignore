@@ -101,15 +101,42 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
-# Environments
+# Environments / secrets — НИЧТО ИЗ ЭТОГО НЕ ДОЛЖНО ПОПАДАТЬ В GIT
 .env
-.env.production
+.env.*
+!.env.example
+!.env.sample
+.envrc
+secrets/
+secrets.json
+secrets.yaml
+secrets.yml
+*.pem
+*.p12
+*.pfx
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+id_dsa
+id_dsa.*
+id_ecdsa
+id_ecdsa.*
+.htpasswd
+credentials.json
+service_account*.json
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Temporary debug / SSH wrappers — ПЕРСОНАЛЬНЫЕ скрипты с паролями
+.tmp_*
+**/.tmp_*
+.kiro/scratch/
+**/scratch/
 
 # Spyder project settings
 .spyderproject
