@@ -20,6 +20,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, Sequence
 
+from django.utils.translation import gettext_lazy as _
+
 
 def _block(block_type: str, title: str) -> SimpleNamespace:
     """Build a synthetic block compatible with the existing template.
@@ -71,21 +73,21 @@ def _item(
 # only category roots, ``/catalog/``, ``/custom-print/`` or
 # colour-variant PDPs once those exist. Re-add a colour query only
 # when that page becomes self-canonical and indexable.
-_CURATED_TOP_QUERIES: List[Dict[str, str]] = [
-    {"label": "Купити худі ЗСУ", "url": "/catalog/hoodie/"},
-    {"label": "Чорна футболка з принтом", "url": "/catalog/tshirts/"},
-    {"label": "Тризуб футболка", "url": "/catalog/tshirts/"},
-    {"label": "Лонгслів мілітарі", "url": "/catalog/long-sleeve/"},
-    {"label": "Худі streetwear", "url": "/catalog/hoodie/"},
-    {"label": "Футболка унісекс TwoComms", "url": "/catalog/tshirts/"},
-    {"label": "Кайот худі", "url": "/catalog/hoodie/"},
-    {"label": "Чорний лонгслів", "url": "/catalog/long-sleeve/"},
-    {"label": "Власний принт на футболці", "url": "/custom-print/"},
-    {"label": "Подарунок захиснику", "url": "/catalog/"},
-    {"label": "Жіноча футболка з принтом", "url": "/catalog/tshirts/"},
-    {"label": "Худі для пари", "url": "/catalog/hoodie/"},
-    {"label": "Український стрітвір", "url": "/catalog/"},
-    {"label": "Donate to ZSU merch", "url": "/catalog/"},
+_CURATED_TOP_QUERIES: List[Dict[str, Any]] = [
+    {"label": _("Купити худі ЗСУ"), "url": "/catalog/hoodie/"},
+    {"label": _("Чорна футболка з принтом"), "url": "/catalog/tshirts/"},
+    {"label": _("Тризуб футболка"), "url": "/catalog/tshirts/"},
+    {"label": _("Лонгслів мілітарі"), "url": "/catalog/long-sleeve/"},
+    {"label": _("Худі streetwear"), "url": "/catalog/hoodie/"},
+    {"label": _("Футболка унісекс TwoComms"), "url": "/catalog/tshirts/"},
+    {"label": _("Кайот худі"), "url": "/catalog/hoodie/"},
+    {"label": _("Чорний лонгслів"), "url": "/catalog/long-sleeve/"},
+    {"label": _("Власний принт на футболці"), "url": "/custom-print/"},
+    {"label": _("Подарунок захиснику"), "url": "/catalog/"},
+    {"label": _("Жіноча футболка з принтом"), "url": "/catalog/tshirts/"},
+    {"label": _("Худі для пари"), "url": "/catalog/hoodie/"},
+    {"label": _("Український стрітвір"), "url": "/catalog/"},
+    {"label": _("Donate to ZSU merch"), "url": "/catalog/"},
 ]
 
 
@@ -138,21 +140,21 @@ def get_general_catalog_seo_layout(
     menu_items = _build_top_menu_items(categories or [])
     if menu_items:
         tab_blocks.append({
-            "block": _block("top_menu", "Розділи каталогу"),
+            "block": _block("top_menu", _("Розділи каталогу")),
             "items": menu_items,
         })
 
     filter_items = _build_top_filters_items(available_colors or [])
     if filter_items:
         tab_blocks.append({
-            "block": _block("top_filters", "Фільтр за кольором"),
+            "block": _block("top_filters", _("Фільтр за кольором")),
             "items": filter_items,
         })
 
     query_items = _build_top_queries_items()
     if query_items:
         tab_blocks.append({
-            "block": _block("top_queries", "Популярні запити"),
+            "block": _block("top_queries", _("Популярні запити")),
             "items": query_items,
         })
 

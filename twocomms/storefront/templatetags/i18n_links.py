@@ -23,6 +23,7 @@ from typing import Dict, Iterable
 from django import template
 from django.conf import settings
 from django.urls import translate_url
+from django.utils.translation import gettext_lazy as _
 
 register = template.Library()
 
@@ -30,10 +31,15 @@ register = template.Library()
 _DEFAULT_LANG = "uk"
 _SUPPORTED = ("uk", "ru", "en")
 
+# 2026-05-16 — Phase 17v. Native labels are wrapped in ``gettext_lazy`` so the
+# language switcher emits Ukrainian-only ``Українська`` only on UA renders;
+# the RU/EN renders fall back to translated labels (``Украинский`` /
+# ``Ukrainian``). This eliminates a UA-text leak that the prod scan in
+# ``_scan_prod.sh`` flagged on every /ru/ and /en/ page.
 _NATIVE_LABELS = {
-    "uk": "Українська",
-    "ru": "Русский",
-    "en": "English",
+    "uk": _("Українська"),
+    "ru": _("Русский"),
+    "en": _("English"),
 }
 _SHORT_LABELS = {
     "uk": "UA",

@@ -18,6 +18,7 @@ from django.db.models import Count, Q
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.utils.translation import gettext_lazy as _
 
 from ..models import CategoryColorLanding, Product, Category, SurveySession
 from ..pagination import build_homepage_pagination_items
@@ -63,8 +64,8 @@ CATALOG_SHOWCASE_CARD_CONFIG = (
     {
         'key': 'longsleeves',
         'number': '01',
-        'title': 'Лонгсліви',
-        'subtitle': 'Функціональність. Стиль. Характер.',
+        'title': _('Лонгсліви'),
+        'subtitle': _('Функціональність. Стиль. Характер.'),
         'image': 'img/catalog/catalog-longsleeves.webp',
         'slugs': ('longslivy', 'longsleeves', 'longsleeve', 'longslivi'),
         'tokens': ('лонг', 'long'),
@@ -73,8 +74,8 @@ CATALOG_SHOWCASE_CARD_CONFIG = (
     {
         'key': 'tshirts',
         'number': '02',
-        'title': 'Футболки',
-        'subtitle': 'Графіка, що говорить гучніше за слова.',
+        'title': _('Футболки'),
+        'subtitle': _('Графіка, що говорить гучніше за слова.'),
         'image': 'img/catalog/catalog-tshirts.webp',
         'slugs': ('futbolki', 'futbolky', 'tshirts', 't-shirts', 'tshirt', 'tees'),
         'tokens': ('футбол', 'tshirt', 'shirt', 'tee'),
@@ -83,8 +84,8 @@ CATALOG_SHOWCASE_CARD_CONFIG = (
     {
         'key': 'hoodies',
         'number': '03',
-        'title': 'Худі',
-        'subtitle': 'Тепло. Захист. Нічого зайвого.',
+        'title': _('Худі'),
+        'subtitle': _('Тепло. Захист. Нічого зайвого.'),
         'image': 'img/catalog/catalog-hoodies.webp',
         'slugs': ('hudi', 'hoodie', 'hoodies', 'khudi'),
         'tokens': ('худі', 'hood'),

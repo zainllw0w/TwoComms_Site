@@ -1,5 +1,7 @@
 from copy import deepcopy
 
+from django.utils.translation import gettext_lazy as _
+
 from storefront.models import CatalogOption
 
 
@@ -10,10 +12,10 @@ DEFAULT_SIZE_SETS = {
 }
 
 SOURCE_LABELS = {
-    "product_override": "Індивідуальна сітка товару",
-    "catalog_default": "Сітка каталогу",
-    "preset_detected": "Підказка по категорії",
-    "fallback": "Загальна підказка",
+    "product_override": _("Індивідуальна сітка товару"),
+    "catalog_default": _("Сітка каталогу"),
+    "preset_detected": _("Підказка по категорії"),
+    "fallback": _("Загальна підказка"),
 }
 
 SIZE_GUIDE_PRESETS = {
@@ -26,13 +28,13 @@ SIZE_GUIDE_PRESETS = {
             "fleece",
             "флис",
         ],
-        "title": "Худі",
+        "title": _("Худі"),
         "eyebrow": "Hoodie fit guide",
-        "intro": "Заміри зняті з виробу. Порівнюйте їх зі своїм худі, яке вже добре сидить по корпусу.",
+        "intro": _("Заміри зняті з виробу. Порівнюйте їх зі своїм худі, яке вже добре сидить по корпусу."),
         "columns": [
-            {"key": "size", "label": "Розмір"},
-            {"key": "length", "label": "Довжина"},
-            {"key": "width", "label": "Ширина"},
+            {"key": "size", "label": _("Розмір")},
+            {"key": "length", "label": _("Довжина")},
+            {"key": "width", "label": _("Ширина")},
         ],
         "rows": [
             {"size": "XS", "display_size": "XS", "length": "54", "width": "52"},
@@ -43,16 +45,16 @@ SIZE_GUIDE_PRESETS = {
             {"size": "XXL", "display_size": "XXL", "length": "78", "width": "72"},
         ],
         "legend": [
-            {"label": "Length", "description": "довжина по центру спини без урахування резинки"},
-            {"label": "Width", "description": "ширина виробу по корпусу"},
+            {"label": "Length", "description": _("довжина по центру спини без урахування резинки")},
+            {"label": "Width", "description": _("ширина виробу по корпусу")},
         ],
         "notes": [
-            "Можлива похибка вимірювання: ±2 см.",
-            "Якщо хочете більш вільну посадку, закладайте запас по ширині корпусу.",
+            _("Можлива похибка вимірювання: ±2 см."),
+            _("Якщо хочете більш вільну посадку, закладайте запас по ширині корпусу."),
         ],
         "fit_notes": [
-            "Порівняйте заміри зі своїм худі, яке вже подобається по посадці.",
-            "Для шару під низ або relaxed fit краще орієнтуватися насамперед на ширину.",
+            _("Порівняйте заміри зі своїм худі, яке вже подобається по посадці."),
+            _("Для шару під низ або relaxed fit краще орієнтуватися насамперед на ширину."),
         ],
     },
     "basic_tshirt": {
@@ -68,15 +70,15 @@ SIZE_GUIDE_PRESETS = {
             "базова футболка",
             "basic tee",
         ],
-        "title": "Футболка базова",
+        "title": _("Футболка базова"),
         "eyebrow": "Basic tee fit guide",
-        "intro": "Для футболки дивіться не тільки на довжину, а й на ширину корпусу та плечі. Це дає найбільш точне співпадіння по посадці.",
+        "intro": _("Для футболки дивіться не тільки на довжину, а й на ширину корпусу та плечі. Це дає найбільш точне співпадіння по посадці."),
         "columns": [
-            {"key": "size", "label": "Розмір"},
-            {"key": "length", "label": "Довжина (A)"},
-            {"key": "width", "label": "Ширина (B)"},
-            {"key": "shoulders", "label": "Плечі (C)"},
-            {"key": "sleeve", "label": "Рукав (D)"},
+            {"key": "size", "label": _("Розмір")},
+            {"key": "length", "label": _("Довжина (A)")},
+            {"key": "width", "label": _("Ширина (B)")},
+            {"key": "shoulders", "label": _("Плечі (C)")},
+            {"key": "sleeve", "label": _("Рукав (D)")},
         ],
         "rows": [
             {"size": "S", "display_size": "S", "length": "68,5", "width": "49", "shoulders": "42", "sleeve": "23,5"},
@@ -86,18 +88,18 @@ SIZE_GUIDE_PRESETS = {
             {"size": "XXL", "display_size": "2XL", "length": "76", "width": "58,5", "shoulders": "52", "sleeve": "26,5"},
         ],
         "legend": [
-            {"label": "A", "description": "довжина виробу"},
-            {"label": "B", "description": "ширина по грудях"},
-            {"label": "C", "description": "плечі"},
-            {"label": "D", "description": "довжина рукава"},
+            {"label": "A", "description": _("довжина виробу")},
+            {"label": "B", "description": _("ширина по грудях")},
+            {"label": "C", "description": _("плечі")},
+            {"label": "D", "description": _("довжина рукава")},
         ],
         "notes": [
-            "Заміри зняті з виробу, а не з параметрів тіла.",
-            "Порівнюйте таблицю зі своєю футболкою схожого крою.",
+            _("Заміри зняті з виробу, а не з параметрів тіла."),
+            _("Порівнюйте таблицю зі своєю футболкою схожого крою."),
         ],
         "fit_notes": [
-            "Для стандартної посадки орієнтуйтесь на ширину й плечі.",
-            "Для relaxed fit обирайте розмір з додатковим запасом по ширині корпусу.",
+            _("Для стандартної посадки орієнтуйтесь на ширину й плечі."),
+            _("Для relaxed fit обирайте розмір з додатковим запасом по ширині корпусу."),
         ],
     },
 }
@@ -105,9 +107,9 @@ SIZE_GUIDE_PRESETS = {
 
 def _default_cta():
     return {
-        "title": "Потрібна допомога з розміром?",
-        "text": "Перейдіть у повний size guide або напишіть нам перед оплатою, якщо вагаєтесь між двома розмірами.",
-        "label": "Розмірна сітка",
+        "title": _("Потрібна допомога з розміром?"),
+        "text": _("Перейдіть у повний size guide або напишіть нам перед оплатою, якщо вагаєтесь між двома розмірами."),
+        "label": _("Розмірна сітка"),
         "url_name": "size_guide",
     }
 
@@ -326,7 +328,7 @@ def _build_structured_guide(profile_key, source, size_grid=None, guide_data=None
         "source": source,
         "source_label": SOURCE_LABELS[source],
         "eyebrow": payload.get("eyebrow") or SOURCE_LABELS[source],
-        "title": payload.get("title") or "Розмірна сітка",
+        "title": payload.get("title") or _("Розмірна сітка"),
         "intro": payload.get("intro", ""),
         "columns": columns,
         "rows": rows,
@@ -350,12 +352,12 @@ def _build_visual_fallback(size_grid, source):
         "source": source,
         "source_label": SOURCE_LABELS[source],
         "eyebrow": SOURCE_LABELS[source],
-        "title": getattr(size_grid, "name", "Розмірна сітка"),
-        "intro": description or "Для цього товару доступна лише візуальна схема. Якщо сумніваєтесь, напишіть нам перед оплатою.",
+        "title": getattr(size_grid, "name", _("Розмірна сітка")),
+        "intro": description or _("Для цього товару доступна лише візуальна схема. Якщо сумніваєтесь, напишіть нам перед оплатою."),
         "columns": [],
         "rows": [],
         "legend": [],
-        "notes": ["Перейдіть у повний size guide або зверніться в підтримку, якщо потрібна підказка по посадці."],
+        "notes": [_("Перейдіть у повний size guide або зверніться в підтримку, якщо потрібна підказка по посадці.")],
         "fit_notes": [],
         "cta": _default_cta(),
         "size_grid": size_grid,
@@ -373,14 +375,14 @@ def _build_global_fallback(product=None):
         "source": "fallback",
         "source_label": SOURCE_LABELS["fallback"],
         "eyebrow": "Fit guide",
-        "title": "Підбір розміру",
-        "intro": "Якщо для товару ще немає окремої сітки, звіряйтеся зі своєю річчю схожого типу або напишіть нам перед оплатою.",
+        "title": _("Підбір розміру"),
+        "intro": _("Якщо для товару ще немає окремої сітки, звіряйтеся зі своєю річчю схожого типу або напишіть нам перед оплатою."),
         "columns": [],
         "rows": [],
         "legend": [],
         "notes": [
-            "Порівнюйте ширину, довжину та посадку зі своєю річчю.",
-            "Для нестандартного фіту краще уточнити розмір у підтримки.",
+            _("Порівнюйте ширину, довжину та посадку зі своєю річчю."),
+            _("Для нестандартного фіту краще уточнити розмір у підтримки."),
         ],
         "fit_notes": [],
         "cta": _default_cta(),
@@ -489,7 +491,7 @@ def build_public_size_guide_blocks(size_grids=None):
         extras.append(
             {
                 "title": grid.name,
-                "intro": (grid.description or "").strip() or "Візуальна схема для окремої категорії.",
+                "intro": (grid.description or "").strip() or _("Візуальна схема для окремої категорії."),
                 "image_url": image_payload["image_url"],
                 "image_alt": image_payload["image_alt"],
                 "catalog_name": getattr(getattr(grid, "catalog", None), "name", ""),

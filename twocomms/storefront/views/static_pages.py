@@ -29,6 +29,7 @@ from django.template.response import TemplateResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from storefront.models import Category, CustomPrintLead, CustomPrintModerationStatus, Product, SizeGrid
 from storefront.forms import CustomPrintLeadForm
@@ -167,24 +168,24 @@ def _feed_base_url():
 
 CUSTOM_PRINT_FAQ_ITEMS = [
     {
-        "question": "Чи можна замовити один кастомний виріб для себе?",
-        "answer": "Так. У конфігураторі можна зібрати один худі, футболку або лонгслів для себе, додати принт, контакт і передати заявку менеджеру або в кошик.",
+        "question": _("Чи можна замовити один кастомний виріб для себе?"),
+        "answer": _("Так. У конфігураторі можна зібрати один худі, футболку або лонгслів для себе, додати принт, контакт і передати заявку менеджеру або в кошик."),
     },
     {
-        "question": "Що робити, якщо у мене немає готового файлу для друку?",
-        "answer": "Можна завантажити готовий макет або просто описати ідею в брифі. Менеджер підкаже, як підготувати файл, або допоможе допрацювати дизайн під друк.",
+        "question": _("Що робити, якщо у мене немає готового файлу для друку?"),
+        "answer": _("Можна завантажити готовий макет або просто описати ідею в брифі. Менеджер підкаже, як підготувати файл, або допоможе допрацювати дизайн під друк."),
     },
     {
-        "question": "Чи можна друкувати на своєму одязі?",
-        "answer": "Так. Конфігуратор підтримує сценарій зі своїм виробом: додайте опис речі, матеріал, колір і важливі деталі, щоб менеджер міг коректно порахувати замовлення.",
+        "question": _("Чи можна друкувати на своєму одязі?"),
+        "answer": _("Так. Конфігуратор підтримує сценарій зі своїм виробом: додайте опис речі, матеріал, колір і важливі деталі, щоб менеджер міг коректно порахувати замовлення."),
     },
     {
-        "question": "Чи можна повернути або обміняти кастомний виріб?",
-        "answer": "Кастомний одяг, виготовлений за індивідуальним замовленням, не підлягає поверненню чи обміну, якщо його виконано належним чином і він відповідає погодженим параметрам. Якщо є виробничий брак або відхилення від погодженого макета, зверніться до нас через контакти й ми розглянемо ситуацію окремо.",
+        "question": _("Чи можна повернути або обміняти кастомний виріб?"),
+        "answer": _("Кастомний одяг, виготовлений за індивідуальним замовленням, не підлягає поверненню чи обміну, якщо його виконано належним чином і він відповідає погодженим параметрам. Якщо є виробничий брак або відхилення від погодженого макета, зверніться до нас через контакти й ми розглянемо ситуацію окремо."),
     },
     {
-        "question": "Як оформити партію для бренду, команди або події?",
-        "answer": "Оберіть формат для команди або бренду, вкажіть кількість, розміри та контакт. Після цього ми допоможемо узгодити тираж, принт, дедлайни й умови для партії.",
+        "question": _("Як оформити партію для бренду, команди або події?"),
+        "answer": _("Оберіть формат для команди або бренду, вкажіть кількість, розміри та контакт. Після цього ми допоможемо узгодити тираж, принт, дедлайни й умови для партії."),
     },
 ]
 
@@ -730,7 +731,7 @@ def _build_page_context(request, page_key):
         "faq_items": page.get("faq_items", []),
         "footer_content": deepcopy(FOOTER_CONTENT),
         "breadcrumb_items": [
-            {"name": "Головна", "url": reverse("home")},
+            {"name": _("Головна"), "url": reverse("home")},
             {"name": page["hero_title"], "url": request.path},
         ],
     }
@@ -747,7 +748,7 @@ def _build_page_context(request, page_key):
         categories = [
             {
                 "title": category.name,
-                "text": category.description or "Категорія каталогу TwoComms з окремою підбіркою товарів.",
+                "text": category.description or _("Категорія каталогу TwoComms з окремою підбіркою товарів."),
                 "url": reverse("catalog_by_cat", kwargs={"cat_slug": category.slug}),
             }
             for category in Category.objects.filter(is_active=True).only("name", "slug", "description")
@@ -756,7 +757,11 @@ def _build_page_context(request, page_key):
         latest_products = [
             {
                 "title": product.title,
-                "text": f"Сторінка товару{f' у категорії {product.category.name}' if getattr(product, 'category', None) else ''}.",
+                "text": (
+                    _("Сторінка товару у категорії %(category)s.") % {"category": product.category.name}
+                    if getattr(product, "category", None)
+                    else _("Сторінка товару.")
+                ),
                 "url": reverse("product", kwargs={"slug": product.slug}),
             }
             for product in (
@@ -770,12 +775,12 @@ def _build_page_context(request, page_key):
         ]
         context["dynamic_groups"] = [
             {
-                "title": "Категорії каталогу",
+                "title": _("Категорії каталогу"),
                 "eyebrow": "Catalog map",
                 "items": categories,
             },
             {
-                "title": "Актуальні товарні сторінки",
+                "title": _("Актуальні товарні сторінки"),
                 "eyebrow": "Fresh product links",
                 "items": latest_products,
             },

@@ -22,6 +22,49 @@ from urllib.parse import urlencode
 from django.apps import apps
 from django.db import DatabaseError
 from django.db.models import QuerySet
+from django.utils.translation import gettext_lazy as _
+
+
+# 2026-05-16 — Phase 17v. The Color model is shared with admin tools and
+# does not use ``django-modeltranslation`` (Color rows store a single
+# Ukrainian display name in the ``name`` column). To keep the colour
+# filter chips fully localised we pre-register the catalogue colours as
+# gettext msgids; ``_translate_color_label`` looks them up at render
+# time and falls back to the raw DB value (humanised slug) for unknown
+# colours. The mapping is intentionally generous — extra entries are a
+# no-op when the colour is not in the catalogue, but they keep the .po
+# stable as new colours arrive.
+_KNOWN_COLOR_NAMES = (
+    "Чорний",
+    "Білий",
+    "Сірий",
+    "Кайот",
+    "Олива",
+    "Хакі",
+    "Бежевий",
+    "Червоний",
+    "Зелений",
+    "Синій",
+    "Темно-синій",
+    "Жовтий",
+    "Помаранчевий",
+    "Рожевий",
+    "Ментол",
+    "Фіолетовий",
+    "Коричневий",
+    "Бордовий",
+    "Бело-бордовий",
+    "бело-бордовий",
+)
+_COLOR_LABEL_LOOKUP = {name: _(name) for name in _KNOWN_COLOR_NAMES}
+
+
+def _translate_color_label(label: str):
+    """Return a lazy translation for a known colour, or the raw label."""
+
+    if not label:
+        return label
+    return _COLOR_LABEL_LOOKUP.get(label.strip(), label)
 
 
 # Maximum number of colour slugs we accept in a single ``?color=`` value.
@@ -211,7 +254,7 @@ def build_available_colors(
 
         chips.append({
             "slug": slug,
-            "label": label,
+            "label": _translate_color_label(label),
             "primary_hex": primary,
             "secondary_hex": secondary,
             "count": entry["count"],
@@ -301,7 +344,7 @@ def build_home_color_chips(
         url = f"{target_path}?{urlencode([('color', slug)])}"
         chips.append({
             "slug": slug,
-            "label": label,
+            "label": _translate_color_label(label),
             "primary_hex": primary,
             "secondary_hex": secondary,
             "count": entry["count"],
