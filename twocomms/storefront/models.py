@@ -229,9 +229,9 @@ class SizeGrid(models.Model):
 class PrintProposal(models.Model):
     """Заявка пользователя на предложенный принт"""
     STATUS_CHOICES = [
-        ("pending", "На розгляді"),
-        ("approved", "Схвалено"),
-        ("rejected", "Відхилено"),
+        ("pending", _("На розгляді")),
+        ("approved", _("Схвалено")),
+        ("rejected", _("Відхилено")),
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="print_proposals", verbose_name="Користувач")
@@ -856,16 +856,16 @@ class ProductImage(models.Model):
 
 class ProductFAQ(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='faqs')
-    question = models.CharField(max_length=255, verbose_name='Питання')
-    answer = models.TextField(verbose_name='Відповідь')
-    order = models.PositiveIntegerField(default=0, verbose_name='Порядок')
-    is_active = models.BooleanField(default=True, verbose_name='Активне')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Створено')
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='Оновлено')
+    question = models.CharField(max_length=255, verbose_name=_('Питання'))
+    answer = models.TextField(verbose_name=_('Відповідь'))
+    order = models.PositiveIntegerField(default=0, verbose_name=_('Порядок'))
+    is_active = models.BooleanField(default=True, verbose_name=_('Активне'))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Створено'))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_('Оновлено'))
 
     class Meta:
-        verbose_name = 'FAQ товару'
-        verbose_name_plural = 'FAQ товарів'
+        verbose_name = _('FAQ товару')
+        verbose_name_plural = _('FAQ товарів')
         ordering = ['order', 'id']
         indexes = [
             models.Index(fields=['product', 'order'], name='idx_product_faq_order'),
@@ -878,16 +878,16 @@ class ProductFAQ(models.Model):
 
 class PromoCodeGroup(models.Model):
     """Группа промокодов с ограничением 'один на аккаунт'"""
-    name = models.CharField(max_length=100, verbose_name='Назва групи')
-    description = models.TextField(blank=True, null=True, verbose_name='Опис групи')
-    one_per_account = models.BooleanField(default=True, verbose_name='Один промокод на акаунт з групи')
-    is_active = models.BooleanField(default=True, verbose_name='Активна')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Створено')
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='Оновлено')
+    name = models.CharField(max_length=100, verbose_name=_('Назва групи'))
+    description = models.TextField(blank=True, null=True, verbose_name=_('Опис групи'))
+    one_per_account = models.BooleanField(default=True, verbose_name=_('Один промокод на акаунт з групи'))
+    is_active = models.BooleanField(default=True, verbose_name=_('Активна'))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Створено'))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_('Оновлено'))
 
     class Meta:
-        verbose_name = 'Група промокодів'
-        verbose_name_plural = 'Групи промокодів'
+        verbose_name = _('Група промокодів')
+        verbose_name_plural = _('Групи промокодів')
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['is_active', '-created_at'], name='idx_group_active_created'),
@@ -899,22 +899,22 @@ class PromoCodeGroup(models.Model):
 
 class PromoCode(models.Model):
     DISCOUNT_TYPES = [
-        ('percentage', 'Відсоток'),
-        ('fixed', 'Фіксована сума'),
+        ('percentage', _('Відсоток')),
+        ('fixed', _('Фіксована сума')),
     ]
 
     PROMO_TYPES = [
-        ('regular', 'Звичайний промокод'),
-        ('voucher', 'Ваучер (фіксована сума)'),
-        ('grouped', 'Груповий промокод'),
+        ('regular', _('Звичайний промокод')),
+        ('voucher', _('Ваучер (фіксована сума)')),
+        ('grouped', _('Груповий промокод')),
     ]
 
     # Основні поля
-    code = models.CharField(max_length=20, unique=True, blank=True, verbose_name='Код промокоду')
-    promo_type = models.CharField(max_length=10, choices=PROMO_TYPES, default='regular', verbose_name='Тип промокоду')
-    discount_type = models.CharField(max_length=10, choices=DISCOUNT_TYPES, verbose_name='Тип знижки')
-    discount_value = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Значення знижки')
-    description = models.TextField(blank=True, null=True, verbose_name='Опис')
+    code = models.CharField(max_length=20, unique=True, blank=True, verbose_name=_('Код промокоду'))
+    promo_type = models.CharField(max_length=10, choices=PROMO_TYPES, default='regular', verbose_name=_('Тип промокоду'))
+    discount_type = models.CharField(max_length=10, choices=DISCOUNT_TYPES, verbose_name=_('Тип знижки'))
+    discount_value = models.DecimalField(max_digits=10, decimal_places=2, verbose_name=_('Значення знижки'))
+    description = models.TextField(blank=True, null=True, verbose_name=_('Опис'))
 
     # Группировка
     group = models.ForeignKey(
@@ -923,33 +923,33 @@ class PromoCode(models.Model):
         null=True,
         blank=True,
         related_name='promo_codes',
-        verbose_name='Група'
+        verbose_name=_('Група')
     )
 
     # Ограничения использования
-    max_uses = models.PositiveIntegerField(default=0, verbose_name='Максимальна кількість використань (0 = безліміт)')
-    current_uses = models.PositiveIntegerField(default=0, verbose_name='Поточна кількість використань')
-    one_time_per_user = models.BooleanField(default=False, verbose_name='Одноразове використання на користувача')
+    max_uses = models.PositiveIntegerField(default=0, verbose_name=_('Максимальна кількість використань (0 = безліміт)'))
+    current_uses = models.PositiveIntegerField(default=0, verbose_name=_('Поточна кількість використань'))
+    one_time_per_user = models.BooleanField(default=False, verbose_name=_('Одноразове використання на користувача'))
     min_order_amount = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         null=True,
         blank=True,
-        verbose_name='Мінімальна сума замовлення'
+        verbose_name=_('Мінімальна сума замовлення')
     )
 
     # Период действия
-    valid_from = models.DateTimeField(null=True, blank=True, verbose_name='Дійсний з')
-    valid_until = models.DateTimeField(null=True, blank=True, verbose_name='Дійсний до')
+    valid_from = models.DateTimeField(null=True, blank=True, verbose_name=_('Дійсний з'))
+    valid_until = models.DateTimeField(null=True, blank=True, verbose_name=_('Дійсний до'))
 
     # Статус
-    is_active = models.BooleanField(default=True, verbose_name='Активний')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Створено')
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='Оновлено')
+    is_active = models.BooleanField(default=True, verbose_name=_('Активний'))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Створено'))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_('Оновлено'))
 
     class Meta:
-        verbose_name = 'Промокод'
-        verbose_name_plural = 'Промокоди'
+        verbose_name = _('Промокод')
+        verbose_name_plural = _('Промокоди')
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['is_active', '-created_at'], name='idx_promo_active_created'),
@@ -959,7 +959,7 @@ class PromoCode(models.Model):
         ]
 
     def __str__(self):
-        type_label = dict(self.PROMO_TYPES).get(self.promo_type, 'Промокод')
+        type_label = dict(self.PROMO_TYPES).get(self.promo_type, _('Промокод'))
         return f'{self.code} ({type_label}) - {self.get_discount_display()}'
 
     def get_discount_display(self):
@@ -967,7 +967,7 @@ class PromoCode(models.Model):
         if self.discount_type == 'percentage':
             return f'{self.discount_value}%'
         else:
-            return f'{self.discount_value} грн'
+            return _('%(value)s грн') % {'value': self.discount_value}
 
     def is_valid_now(self):
         """Проверяет, действителен ли промокод по времени"""
@@ -991,27 +991,27 @@ class PromoCode(models.Model):
     def can_be_used_by_user(self, user):
         """Проверяет, может ли конкретный пользователь использовать промокод"""
         if not user or not user.is_authenticated:
-            return False, 'Промокоди доступні тільки для зареєстрованих користувачів'
+            return False, _('Промокоди доступні тільки для зареєстрованих користувачів')
 
         if not self.can_be_used():
             if not self.is_active:
-                return False, 'Промокод неактивний'
+                return False, _('Промокод неактивний')
             if not self.is_valid_now():
-                return False, 'Промокод недійсний за часом'
+                return False, _('Промокод недійсний за часом')
             if self.max_uses > 0 and self.current_uses >= self.max_uses:
-                return False, 'Промокод вичерпано'
-            return False, 'Промокод неактивний або вичерпаний'
+                return False, _('Промокод вичерпано')
+            return False, _('Промокод неактивний або вичерпаний')
 
         # Проверка one_time_per_user
         if self.one_time_per_user:
             if PromoCodeUsage.objects.filter(user=user, promo_code=self).exists():
-                return False, 'Ви вже використали цей промокод'
+                return False, _('Ви вже використали цей промокод')
 
         # Проверка группы (one_per_account)
         if self.group and self.group.one_per_account:
             # Проверяем, использовал ли пользователь какой-либо промокод из этой группы
             if PromoCodeUsage.objects.filter(user=user, group=self.group).exists():
-                return False, f'Ви вже використали промокод з групи "{self.group.name}"'
+                return False, _('Ви вже використали промокод з групи "%(group)s"') % {'group': self.group.name}
 
         return True, 'OK'
 
@@ -1091,13 +1091,13 @@ class PromoCodeUsage(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='promo_usages',
-        verbose_name='Користувач'
+        verbose_name=_('Користувач')
     )
     promo_code = models.ForeignKey(
         PromoCode,
         on_delete=models.CASCADE,
         related_name='usages',
-        verbose_name='Промокод'
+        verbose_name=_('Промокод')
     )
     group = models.ForeignKey(
         PromoCodeGroup,
@@ -1105,7 +1105,7 @@ class PromoCodeUsage(models.Model):
         null=True,
         blank=True,
         related_name='usages',
-        verbose_name='Група'
+        verbose_name=_('Група')
     )
     order = models.ForeignKey(
         'orders.Order',
@@ -1113,13 +1113,13 @@ class PromoCodeUsage(models.Model):
         null=True,
         blank=True,
         related_name='promo_usages',
-        verbose_name='Замовлення'
+        verbose_name=_('Замовлення')
     )
-    used_at = models.DateTimeField(auto_now_add=True, verbose_name='Використано')
+    used_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Використано'))
 
     class Meta:
-        verbose_name = 'Використання промокоду'
-        verbose_name_plural = 'Використання промокодів'
+        verbose_name = _('Використання промокоду')
+        verbose_name_plural = _('Використання промокодів')
         ordering = ['-used_at']
         indexes = [
             models.Index(fields=['user', 'promo_code'], name='idx_usage_user_promo'),
@@ -1137,22 +1137,22 @@ class UserPromoCode(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='promo_grants',
-        verbose_name='Користувач'
+        verbose_name=_('Користувач')
     )
     promo_code = models.ForeignKey(
         PromoCode,
         on_delete=models.CASCADE,
         related_name='user_grants',
-        verbose_name='Промокод'
+        verbose_name=_('Промокод')
     )
-    survey_key = models.CharField(max_length=100, verbose_name='Ключ опитування')
-    source = models.CharField(max_length=50, default='survey', verbose_name='Джерело')
-    expires_at = models.DateTimeField(null=True, blank=True, verbose_name='Діє до')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Створено')
+    survey_key = models.CharField(max_length=100, verbose_name=_('Ключ опитування'))
+    source = models.CharField(max_length=50, default='survey', verbose_name=_('Джерело'))
+    expires_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Діє до'))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Створено'))
 
     class Meta:
-        verbose_name = 'Промокод користувача'
-        verbose_name_plural = 'Промокоди користувача'
+        verbose_name = _('Промокод користувача')
+        verbose_name_plural = _('Промокоди користувача')
         unique_together = [('user', 'survey_key')]
         indexes = [
             models.Index(fields=['user', 'survey_key'], name='idx_user_survey_promo'),
@@ -1166,8 +1166,8 @@ class UserPromoCode(models.Model):
 class SurveySession(models.Model):
     """Сесія проходження опитування користувачем."""
     STATUS_CHOICES = [
-        ('in_progress', 'В процесі'),
-        ('completed', 'Завершено'),
+        ('in_progress', _('В процесі')),
+        ('completed', _('Завершено')),
     ]
 
     user = models.ForeignKey(

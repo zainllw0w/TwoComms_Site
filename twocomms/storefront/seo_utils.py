@@ -10,6 +10,8 @@ from typing import List, Dict, Optional
 from urllib.parse import urljoin
 from django.conf import settings
 from django.utils import timezone
+from django.utils.translation import gettext as _
+from django.utils.translation import get_language
 from .models import Product, Category
 from .services.size_guides import resolve_product_sizes
 from .services.policy import (
@@ -661,41 +663,43 @@ class StructuredDataGenerator:
         schema = {
             "@context": "https://schema.org",
             "@type": "Product",
-            # SEO v1.0 Phase 4 (2026-05-12) — finding (HHH). Google's
-            # multilingual rich-result eligibility requires Product
-            # nodes to declare ``inLanguage`` so the snippet language
-            # is bound to the catalog source. Hard-code uk-UA because
-            # all Product entries are authored in Ukrainian; the
-            # parallel RU/EN renders are noindex (Phase 1 Path A) so
-            # they don't generate competing schema.
-            "inLanguage": "uk-UA",
+            # SEO v1.1 (2026-05-16) — Phase 17v. Derive inLanguage from
+            # the active locale so /ru/ and /en/ Product schemas declare
+            # the correct language. Previously hardcoded uk-UA, which
+            # caused Google Search Console to flag /ru/ and /en/ as
+            # "schema language doesn't match page language".
+            "inLanguage": StructuredDataGenerator._resolve_inlanguage_code(),
             "name": product.title,
             "description": description,
             "sku": f"TC-{product.id}",
             "mpn": f"TC-{product.id}",  # Manufacturer Part Number
             "url": product_canonical_url,
             "image": images[0] if len(images) == 1 else images,
-            "material": material,
+            "material": StructuredDataGenerator._localized_attr(
+                product, "material", fallback=str(material or "")
+            ),
             "countryOfOrigin": {
                 "@type": "Country",
-                "name": "Україна"
+                "name": _("Україна"),
             },
             "additionalProperty": [
                 {
                     "@type": "PropertyValue",
-                    "name": "Матеріал",
-                    "value": material
+                    "name": _("Матеріал"),
+                    "value": StructuredDataGenerator._localized_attr(
+                        product, "material", fallback=str(material or "")
+                    ),
                 },
                 {
                     "@type": "PropertyValue",
-                    "name": "Країна виробництва",
-                    "value": "Україна"
+                    "name": _("Країна виробництва"),
+                    "value": _("Україна"),
                 },
                 {
                     "@type": "PropertyValue",
-                    "name": "Стиль",
-                    "value": "Стріт & Мілітарі"
-                }
+                    "name": _("Стиль"),
+                    "value": _("Стріт & Мілітарі"),
+                },
             ],
             "brand": {
                 "@type": "Brand",
@@ -731,7 +735,7 @@ class StructuredDataGenerator:
                     "address": {
                         "@type": "PostalAddress",
                         "addressCountry": "UA",
-                        "addressLocality": "Україна"
+                        "addressLocality": _("Харків"),
                     }
                 },
                 "shippingDetails": StructuredDataGenerator._get_weight_based_shipping_details()
@@ -827,30 +831,31 @@ class StructuredDataGenerator:
         # Добавляем реальные цвета из вариантов
         try:
             from productcolors.models import ProductColorVariant
+            from storefront.services.color_filter import _translate_color_label
             color_names = []
             color_variants = ProductColorVariant.objects.filter(product=product).select_related('color')
             for variant in color_variants:
                 if variant.color and variant.color.name:
-                    color_names.append(variant.color.name)
+                    color_names.append(str(_translate_color_label(variant.color.name)))
             if color_names:
                 unique_colors = list(dict.fromkeys(color_names))[:5]
                 schema["color"] = ", ".join(unique_colors)
                 schema["additionalProperty"].append({
                     "@type": "PropertyValue",
-                    "name": "Колір",
+                    "name": _("Колір"),
                     "value": ", ".join(unique_colors)
                 })
             else:
                 schema["additionalProperty"].append({
                     "@type": "PropertyValue",
-                    "name": "Колір",
-                    "value": "Різні кольори"
+                    "name": _("Колір"),
+                    "value": _("Різні кольори"),
                 })
         except Exception:
             schema["additionalProperty"].append({
                 "@type": "PropertyValue",
-                "name": "Колір",
-                "value": "Різні кольори"
+                "name": _("Колір"),
+                "value": _("Різні кольори"),
             })
 
         # Добавляем размеры
@@ -859,7 +864,7 @@ class StructuredDataGenerator:
             schema["size"] = ", ".join(resolved_sizes)
             schema["additionalProperty"].append({
                 "@type": "PropertyValue",
-                "name": "Розміри",
+                "name": _("Розміри"),
                 "value": ", ".join(resolved_sizes)
             })
 
@@ -919,7 +924,10 @@ class StructuredDataGenerator:
                 "@type": "ListItem",
                 "@id": item_url,
                 "position": i + 1,
-                "name": breadcrumb.get("name", ""),
+                # Force-resolve gettext_lazy proxies so json.dumps does
+                # not blow up with "Object of type __proxy__ is not
+                # JSON serializable" when callers pass localized labels.
+                "name": str(breadcrumb.get("name", "")),
                 "item": item_url
             })
 
@@ -930,6 +938,40 @@ class StructuredDataGenerator:
             schema["@id"] = f"{item_urls[-1].rstrip('/')}/#breadcrumbs"
 
         return schema
+
+    @staticmethod
+    def _resolve_inlanguage_code() -> str:
+        """Map the active Django locale to a Google-friendly inLanguage code.
+
+        SEO v1.1 (2026-05-16) — Phase 17v. Previously hardcoded ``uk-UA``
+        on every locale, which made Google flag /ru/ and /en/ pages as
+        schema-language mismatch. Now derived from ``get_language()``:
+            uk → uk-UA   ru → ru-UA   en → en-US
+        Defaults to uk-UA if no locale is active (e.g. background tasks).
+        """
+        lang = (get_language() or "uk").split("-", 1)[0].lower()
+        return {
+            "uk": "uk-UA",
+            "ru": "ru-UA",
+            "en": "en-US",
+        }.get(lang, "uk-UA")
+
+    @staticmethod
+    def _localized_attr(obj, attr: str, fallback: str = "") -> str:
+        """Pick a locale-specific model attribute with a UA fallback.
+
+        Used by Product schema to surface ``material_ru`` / ``material_en``
+        when modeltranslation has populated them, otherwise falls back to
+        the canonical Ukrainian field. ``fallback`` is the literal value
+        to return if both the localized and base attributes are empty.
+        """
+        lang = (get_language() or "uk").split("-", 1)[0].lower()
+        if lang and lang != "uk":
+            localized = getattr(obj, f"{attr}_{lang}", None)
+            if localized:
+                return localized
+        base = getattr(obj, attr, None) or getattr(obj, f"{attr}_uk", None)
+        return base or fallback
 
     @staticmethod
     def generate_organization_schema() -> Dict:
@@ -949,7 +991,7 @@ class StructuredDataGenerator:
             "name": "TwoComms",
             "url": base_url,
             "logo": logo_url,
-            "description": (
+            "description": _(
                 "TwoComms — український streetwear / military-adjacent бренд "
                 "одягу з Харкова, створений навколо ідеї продовження після "
                 "критичної точки: не крапка, а продовження."
@@ -962,7 +1004,7 @@ class StructuredDataGenerator:
                 "@type": "ContactPoint",
                 "telephone": "+380966543212",
                 "contactType": "customer support",
-                "availableLanguage": "uk",
+                "availableLanguage": ["uk", "ru", "en"],
             },
         }
 
@@ -980,7 +1022,7 @@ class StructuredDataGenerator:
             "@id": f"{base_url}#website",
             "name": "TwoComms",
             "url": base_url,
-            "description": "Магазин стріт & мілітарі одягу з ексклюзивним дизайном",
+            "description": _("Магазин стріт & мілітарі одягу з ексклюзивним дизайном"),
             "potentialAction": {
                 "@type": "SearchAction",
                 "target": {

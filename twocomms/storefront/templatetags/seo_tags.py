@@ -7,6 +7,7 @@ from django.conf import settings
 from django import template
 from django.utils.safestring import mark_safe
 from django.urls import reverse
+from django.utils.translation import gettext_lazy as _
 
 register = template.Library()
 
@@ -52,11 +53,11 @@ def seo_title(context, product=None, category=None):
     """Возвращает SEO заголовок"""
     if product:
         meta_data = _get_product_seo_meta(product)
-        return meta_data.get('title', 'TwoComms — Стріт & Мілітарі Одяг')
+        return meta_data.get('title', _('TwoComms — Стріт & Мілітарі Одяг'))
     elif category:
         meta_data = _get_category_seo_meta(category)
-        return meta_data.get('title', 'TwoComms — Стріт & Мілітарі Одяг')
-    return 'TwoComms — Стріт & Мілітарі Одяг'
+        return meta_data.get('title', _('TwoComms — Стріт & Мілітарі Одяг'))
+    return _('TwoComms — Стріт & Мілітарі Одяг')
 
 
 @register.simple_tag(takes_context=True)
@@ -64,11 +65,11 @@ def seo_description(context, product=None, category=None):
     """Возвращает SEO описание"""
     if product:
         meta_data = _get_product_seo_meta(product)
-        return meta_data.get('description', 'TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном.')
+        return meta_data.get('description', _('TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном.'))
     elif category:
         meta_data = _get_category_seo_meta(category)
-        return meta_data.get('description', 'TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном.')
-    return 'TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном.'
+        return meta_data.get('description', _('TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном.'))
+    return _('TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном.')
 
 
 @register.simple_tag(takes_context=True)
@@ -76,11 +77,11 @@ def seo_keywords(context, product=None, category=None):
     """Возвращает SEO ключевые слова"""
     if product:
         meta_data = _get_product_seo_meta(product)
-        return meta_data.get('keywords', 'стріт одяг, мілітарі одяг, TwoComms')
+        return meta_data.get('keywords', _('стріт одяг, мілітарі одяг, TwoComms'))
     elif category:
         meta_data = _get_category_seo_meta(category)
-        return meta_data.get('keywords', 'стріт одяг, мілітарі одяг, TwoComms')
-    return 'стріт одяг, мілітарі одяг, TwoComms'
+        return meta_data.get('keywords', _('стріт одяг, мілітарі одяг, TwoComms'))
+    return _('стріт одяг, мілітарі одяг, TwoComms')
 
 
 @register.simple_tag(takes_context=True)
@@ -136,14 +137,14 @@ def seo_meta_tags(context, product=None, category=None):
     else:
         # Базовые мета-теги для главной страницы
         meta_data = {
-            'title': 'TwoComms — Стріт & Мілітарі Одяг',
-            'description': 'TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю.',
-            'keywords': 'стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг',
-            'og_title': 'TwoComms — Стріт & Мілітарі Одяг',
-            'og_description': 'TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером.',
+            'title': _('TwoComms — Стріт & Мілітарі Одяг'),
+            'description': _('TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю.'),
+            'keywords': _('стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг'),
+            'og_title': _('TwoComms — Стріт & Мілітарі Одяг'),
+            'og_description': _('TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером.'),
             'og_image': '',
-            'twitter_title': 'TwoComms — Стріт & Мілітарі Одяг',
-            'twitter_description': 'TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером.',
+            'twitter_title': _('TwoComms — Стріт & Мілітарі Одяг'),
+            'twitter_description': _('TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером.'),
             'twitter_image': ''
         }
 
@@ -253,7 +254,7 @@ def breadcrumbs(request, product=None, category=None, current_name=None):
     """
     breadcrumb_list = [
         {
-            'name': 'Головна',
+            'name': _('Головна'),
             'url': reverse('home')
         }
     ]
@@ -270,7 +271,7 @@ def breadcrumbs(request, product=None, category=None, current_name=None):
 
     if category or product:
         breadcrumb_list.append({
-            'name': 'Каталог',
+            'name': _('Каталог'),
             'url': reverse('catalog')
         })
 

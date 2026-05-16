@@ -2,6 +2,7 @@ import logging
 from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
+from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.http import JsonResponse
@@ -39,7 +40,7 @@ def create_order(request):
     cart = get_cart_from_session(request)
     custom_cart = request.session.get(SESSION_CUSTOM_CART_KEY) or {}
     if not cart and not (isinstance(custom_cart, dict) and custom_cart):
-        messages.error(request, "Ваш кошик порожній")
+        messages.error(request, _("Ваш кошик порожній"))
         return redirect('cart')
 
     # Split custom-print items into approved (join the order) and pending
@@ -65,7 +66,7 @@ def create_order(request):
         if not cart and not approved_custom_leads:
             messages.info(
                 request,
-                "Кастомний принт ще очікує на перевірку менеджера. Оплата стане доступною після погодження."
+                _("Кастомний принт ще очікує на перевірку менеджера. Оплата стане доступною після погодження.")
             )
             return redirect('cart')
 
@@ -110,19 +111,19 @@ def create_order(request):
         pay_type = request.POST.get('pay_type', 'online_full')
 
     if raw_phone and not phone:
-        messages.error(request, "Вкажіть коректний український номер телефону. Можна без +380.")
+        messages.error(request, _("Вкажіть коректний український номер телефону. Можна без +380."))
         return redirect('cart')
 
     # Validate required fields
     if not all([full_name, phone, city, np_office]):
-        messages.error(request, "Будь ласка, заповніть всі обов'язкові поля")
+        messages.error(request, _("Будь ласка, заповніть всі обов'язкові поля"))
         return redirect('cart')
 
     # Prepay is disabled when custom items are present
     if approved_custom_leads and pay_type == 'prepay_200':
         messages.error(
             request,
-            "Передплата 200 грн недоступна з кастомним принтом. Оберіть повну онлайн-оплату."
+            _("Передплата 200 грн недоступна з кастомним принтом. Оберіть повну онлайн-оплату.")
         )
         return redirect('cart')
 
@@ -228,7 +229,7 @@ def create_order(request):
 
     except Exception as e:
         logger.error(f"Error creating order: {e}", exc_info=True)
-        messages.error(request, "Сталася помилка при оформленні замовлення. Спробуйте ще раз.")
+        messages.error(request, _("Сталася помилка при оформленні замовлення. Спробуйте ще раз."))
         return redirect('cart')
 
 

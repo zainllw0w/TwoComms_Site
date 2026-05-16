@@ -13,6 +13,7 @@ import re
 from django.shortcuts import render, get_object_or_404
 from django.http import Http404, HttpResponsePermanentRedirect, JsonResponse
 from django.urls import reverse
+from django.utils.translation import gettext_lazy as _
 
 from ..models import Product
 from ..services.catalog_helpers import (
@@ -426,8 +427,8 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
 
     # Генерируем breadcrumbs для SEO
     breadcrumbs = [
-        {'name': 'Головна', 'url': reverse('home')},
-        {'name': 'Каталог', 'url': reverse('catalog')},
+        {'name': _('Головна'), 'url': reverse('home')},
+        {'name': _('Каталог'), 'url': reverse('catalog')},
     ]
 
     if product.category:

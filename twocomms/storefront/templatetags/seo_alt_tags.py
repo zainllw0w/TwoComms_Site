@@ -3,6 +3,7 @@ SEO оптимизированные alt-теги для TwoComms
 """
 
 from django import template
+from django.utils.translation import gettext as _
 
 register = template.Library()
 
@@ -10,7 +11,8 @@ register = template.Library()
 class SEOAltTextGenerator:
     """Генератор SEO-оптимизированных alt-текстов"""
 
-    # SEO ключевые слова
+    # SEO ключевые слова. Hосители — UA (как ключи поиска по тексту);
+    # display values оборачиваем в _() при выводе.
     SEO_KEYWORDS = {
         'product_types': {
             'футболка': ['футболка', 'базова футболка', 'принтована футболка', 'чоловіча футболка', 'жіноча футболка'],
@@ -49,16 +51,25 @@ class SEOAltTextGenerator:
         # Определяем цвет
         color = cls._detect_color(product_title, color_name)
 
+        # Локализуем product_type / color
+        product_type_label = _(product_type)
+        color_label = _(color) if color else ''
+
         # Генерируем alt-текст в зависимости от типа изображения
         if image_type == 'main':
-            alt_text = f"{product_title} - {color} {product_type} TwoComms"
+            alt_text = f"{product_title} - {color_label} {product_type_label} TwoComms"
         elif image_type == 'gallery':
             photo_num = f" {photo_number}" if photo_number else ""
-            alt_text = f"{product_title} - {color} {product_type} - фото{photo_num} TwoComms"
+            alt_text = _("%(title)s - %(color)s %(type)s - фото%(num)s TwoComms") % {
+                'title': product_title, 'color': color_label,
+                'type': product_type_label, 'num': photo_num,
+            }
         elif image_type == 'thumbnail':
-            alt_text = f"{product_title} - {color} {product_type} - мініатюра TwoComms"
+            alt_text = _("%(title)s - %(color)s %(type)s - мініатюра TwoComms") % {
+                'title': product_title, 'color': color_label, 'type': product_type_label,
+            }
         else:
-            alt_text = f"{product_title} - {color} {product_type} TwoComms"
+            alt_text = f"{product_title} - {color_label} {product_type_label} TwoComms"
 
         # Ограничиваем длину
         return cls._limit_length(alt_text, 125)
@@ -69,9 +80,9 @@ class SEOAltTextGenerator:
         category_name = category.name if hasattr(category, 'name') else str(category)
 
         if image_type == 'icon':
-            alt_text = f"{category_name} іконка - TwoComms"
+            alt_text = _("%(name)s іконка - TwoComms") % {'name': category_name}
         elif image_type == 'cover':
-            alt_text = f"{category_name} категорія - TwoComms магазин"
+            alt_text = _("%(name)s категорія - TwoComms магазин") % {'name': category_name}
         else:
             alt_text = f"{category_name} - TwoComms"
 
@@ -81,26 +92,26 @@ class SEOAltTextGenerator:
     def generate_logo_alt_text(cls, logo_type='main'):
         """Генерирует alt-текст для логотипа"""
         if logo_type == 'main':
-            return "TwoComms логотип - стріт & мілітарі одяг"
+            return _("TwoComms логотип - стріт & мілітарі одяг")
         elif logo_type == 'small':
-            return "TwoComms логотип"
+            return _("TwoComms логотип")
         elif logo_type == 'floating':
-            return "TwoComms логотип - декоративний"
+            return _("TwoComms логотип - декоративний")
         else:
-            return "TwoComms логотип - стріт & мілітарі одяг"
+            return _("TwoComms логотип - стріт & мілітарі одяг")
 
     @classmethod
     def generate_avatar_alt_text(cls, username=None):
         """Генерирует alt-текст для аватара"""
         if username:
-            return f"Аватар користувача {username} - TwoComms"
+            return _("Аватар користувача %(name)s - TwoComms") % {'name': username}
         else:
-            return "Аватар користувача - TwoComms"
+            return _("Аватар користувача - TwoComms")
 
     @classmethod
     def generate_social_alt_text(cls, social_network):
         """Генерирует alt-текст для социальной сети"""
-        return f"Вхід через {social_network} - TwoComms"
+        return _("Вхід через %(network)s - TwoComms") % {'network': social_network}
 
     @classmethod
     def _detect_product_type(cls, title, category):
@@ -120,7 +131,7 @@ class SEOAltTextGenerator:
                 if keyword in category_lower:
                     return product_type
 
-        # По умолчанию
+        # По умолчанию (UA raw)
         return 'одяг'
 
     @classmethod
@@ -139,7 +150,7 @@ class SEOAltTextGenerator:
                 if variation in title_lower:
                     return variation
 
-        # По умолчанию
+        # По умолчанию (raw UA -> ловится gettext'ом в caller)
         return 'різнокольоровий'
 
     @classmethod
@@ -213,19 +224,19 @@ def seo_alt_smart(image_context, **kwargs):
         return SEOAltTextGenerator.generate_avatar_alt_text(username)
 
     elif image_context == 'social':
-        social_network = kwargs.get('social_network', 'соціальна мережа')
+        social_network = kwargs.get('social_network', _('соціальна мережа'))
         return SEOAltTextGenerator.generate_social_alt_text(social_network)
 
     else:
         # Fallback для неизвестных типов
-        return kwargs.get('fallback', 'Зображення TwoComms')
+        return kwargs.get('fallback', _('Зображення TwoComms'))
 
 
 @register.filter
 def seo_alt_optimize(alt_text):
     """Оптимизирует существующий alt-текст"""
     if not alt_text:
-        return "Зображення TwoComms"
+        return _("Зображення TwoComms")
 
     # Проверяем, нужно ли улучшать
     alt_lower = alt_text.lower()
@@ -239,7 +250,7 @@ def seo_alt_optimize(alt_text):
         elif 'аватар' in alt_lower:
             return SEOAltTextGenerator.generate_avatar_alt_text()
         else:
-            return f"{alt_text} - TwoComms"
+            return _("%(text)s - TwoComms") % {'text': alt_text}
 
     # Если уже хороший, просто возвращаем
     return alt_text

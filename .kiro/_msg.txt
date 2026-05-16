@@ -1,0 +1,62 @@
+i18n: massive cross-locale cleanup — JSON-LD + meta + flash + breadcrumbs + model labels
+
+Combined output of two parallel sub-agents (P0 + P1) plus a manual P0
+fix on storefront/seo_utils.py.
+
+JSON-LD localization (P0, manual): seo_utils.py
+- Add _resolve_inlanguage_code(): maps active Django locale -> uk-UA /
+  ru-UA / en-US so /ru/ and /en/ Product schemas no longer announce
+  themselves as uk-UA (Google Search Console schema-language mismatch).
+- Add _localized_attr() helper: resolves Product.material_<lang> with
+  UA fallback so the schema's `material` is in the active locale.
+- generate_organization_schema(): description now via gettext, plus
+  contactPoint.availableLanguage expanded to uk/ru/en.
+- generate_website_schema(): description via gettext.
+- generate_product_schema(): inLanguage dynamic, all
+  additionalProperty[].name/value (Матеріал, Колір, Стиль, Розміри,
+  Країна виробництва, Стріт & Мілітарі, Різні кольори) wrapped in
+  gettext, color names re-routed through _translate_color_label() so
+  variant chips localize per locale, addressLocality switched from
+  «Україна» to localized «Харків» (the actual city).
+
+Meta-tag fallbacks (P1): seo_tags.py + base.html + seo_alt_tags.py
+- Wrap fallback seo_title / seo_description / seo_keywords defaults in
+  gettext so /ru/ and /en/ pages without explicit overrides still emit
+  RU/EN meta. Same for og:title/og:description/og:image:alt and
+  twitter:* defaults in base.html. seo_alt_smart / seo_alt_optimize
+  and the SEO_KEYWORDS dict for img-alt generation now resolve per
+  locale.
+
+Color labels (P1): catalog_helpers.py
+- New _color_label() helper. Raw UA keys preserved for matching;
+  display routes via gettext so chip text and alt-text localize.
+
+Flash messages (P1): cart, checkout, auth, profile, api views
+- Wrap ~150 user-facing messages.error/success/info/warning calls and
+  JsonResponse user-facing messages in gettext. Form labels in
+  auth.py, payment/delivery validation strings, custom-print status
+  badges, Nova Poshta error responses.
+
+Breadcrumbs (P1): catalog, product, static_pages views
+- Wrap «Головна», «Каталог», «Про бренд», «Кастомний принт» labels in
+  gettext_lazy so JSON-LD BreadcrumbList and visible breadcrumbs
+  localize.
+
+Model verbose_name + Choices (P1): storefront/models.py + orders/models.py
+- Wrap public-facing Choices labels in gettext_lazy:
+  - PromoCode (DISCOUNT_TYPES, PROMO_TYPES + verbose_names)
+  - PromoCodeGroup, PromoCodeUsage, UserPromoCode
+  - ProductFAQ, PrintProposal, SurveySession
+  - Order (STATUS, PAY_TYPE, PAYMENT_STATUS, cancellation_reason)
+- Skipped admin-only models per scope.
+
+Translations:
+- 1811 → 1961 translated msgids, 0 fuzzy, 481 untranslated remain
+  (all admin/CRM/management per scope).
+- New translations: 150 manual entries via polib (P0+P1 fixes).
+  Glossary: TwoComms, Харьков/Kharkiv, ВСУ/AFU, Новая Почта/Nova
+  Poshta, корзина/cart, худи/hoodie, лонгслив/long sleeve,
+  койот/coyote, стрит/street, милитари/military, не точка/not a period.
+
+Tests: 45/45 OK (test_seo_multilingual_index_2026_05_15 +
+test_color_category_landing_view + test_phase9_color_filter).

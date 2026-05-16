@@ -14,6 +14,7 @@ import logging
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
+from django.utils.translation import gettext as _
 
 from ..models import CustomPrintLead, Product, SurveySession, UserAction
 from ..services.catalog_helpers import get_categories_cached
@@ -364,13 +365,13 @@ def product_availability(request, product_id):
             'success': True,
             'available': True,
             'in_stock': True,
-            'message': 'Товар доступний'
+            'message': _('Товар доступний')
         })
 
     except Product.DoesNotExist:
         return JsonResponse({
             'success': False,
-            'error': 'Product not found'
+            'error': _('Товар не знайдено')
         }, status=404)
 
 
@@ -417,7 +418,7 @@ def get_related_products(request, product_id):
     except Product.DoesNotExist:
         return JsonResponse({
             'success': False,
-            'error': 'Product not found'
+            'error': _('Товар не знайдено')
         }, status=404)
 
 
@@ -441,7 +442,7 @@ def newsletter_subscribe(request):
         if not email:
             return JsonResponse({
                 'success': False,
-                'error': 'Email обов\'язковий'
+                'error': _('Email обов\'язковий')
             }, status=400)
 
         # TODO: Сохранить email в БД или отправить в сервис рассылок
@@ -449,7 +450,7 @@ def newsletter_subscribe(request):
 
         return JsonResponse({
             'success': True,
-            'message': 'Дякуємо за підписку!'
+            'message': _('Дякуємо за підписку!')
         })
 
     except Exception as e:
@@ -485,14 +486,14 @@ def contact_form(request):
         if not all([name, email, message]):
             return JsonResponse({
                 'success': False,
-                'error': 'Всі поля обов\'язкові'
+                'error': _('Всі поля обов\'язкові')
             }, status=400)
 
         # TODO: Отправить email администратору или сохранить в БД
 
         return JsonResponse({
             'success': True,
-            'message': 'Ваше повідомлення надіслано!'
+            'message': _('Ваше повідомлення надіслано!')
         })
 
     except Exception as e:

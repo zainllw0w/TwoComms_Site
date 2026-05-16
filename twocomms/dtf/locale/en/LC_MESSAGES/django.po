@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: dtf 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-15 21:54+0300\n"
+"POT-Creation-Date: 2026-05-16 12:57+0300\n"
 "PO-Revision-Date: 2026-02-06 00:00+0000\n"
 "Language: en\n"
 "MIME-Version: 1.0\n"
@@ -155,9 +155,14 @@ msgstr "Download the gang list file"
 
 #: dtf/forms.py:96
 #, fuzzy
-#| msgid "Формат файлу не підтримується для готового ганг-листа. Використайте PDF або PNG."
-msgid "Формат файлу не підтримується для готового макета 60 см (ганг-лист). Використайте PDF або PNG."
-msgstr "The file format is not supported for the finished gang list. Use PDF or PNG."
+#| msgid ""
+#| "Формат файлу не підтримується для готового ганг-листа. Використайте PDF "
+#| "або PNG."
+msgid ""
+"Формат файлу не підтримується для готового макета 60 см (ганг-лист). "
+"Використайте PDF або PNG."
+msgstr ""
+"The file format is not supported for the finished gang list. Use PDF or PNG."
 
 #: dtf/forms.py:100 dtf/forms.py:360
 #, python-format
@@ -166,7 +171,8 @@ msgstr "The file is huge. Maximum %(max_size)s MB"
 
 #: dtf/forms.py:102
 msgid "Файл не пройшов перевірку безпеки. Завантажте коректний PDF або PNG."
-msgstr "The file did not pass the security check. Download the correct PDF or PNG."
+msgstr ""
+"The file did not pass the security check. Download the correct PDF or PNG."
 
 #: dtf/forms.py:112
 msgid "Довжина має бути більшою за нуль"
@@ -564,8 +570,10 @@ msgid "Щось пішло не так"
 msgstr "Something went wrong"
 
 #: dtf/templates/dtf/500.html:12
-msgid "Ми вже працюємо над цим. Спробуйте оновити сторінку або поверніться пізніше."
-msgstr "We are already working on it. Try refreshing the page or come back later."
+msgid ""
+"Ми вже працюємо над цим. Спробуйте оновити сторінку або поверніться пізніше."
+msgstr ""
+"We are already working on it. Try refreshing the page or come back later."
 
 #: dtf/templates/dtf/500.html:15
 msgid "Зв'язатися"
@@ -759,7 +767,9 @@ msgid "План розвитку"
 msgstr ""
 
 #: dtf/templates/dtf/admin/tabs/dashboard.html:11
-msgid "Тут буде зведений огляд KPI, SLA менеджерів та фінансова аналітика в одному місці."
+msgid ""
+"Тут буде зведений огляд KPI, SLA менеджерів та фінансова аналітика в одному "
+"місці."
 msgstr ""
 
 #: dtf/templates/dtf/admin/tabs/dashboard.html:14
@@ -1045,7 +1055,8 @@ msgid "Користувачі"
 msgstr "How to use"
 
 #: dtf/templates/dtf/admin/tabs/users.html:5
-msgid "Користувачі спільні з основним сайтом twocomms.shop (єдина авторизація)."
+msgid ""
+"Користувачі спільні з основним сайтом twocomms.shop (єдина авторизація)."
 msgstr ""
 
 #: dtf/templates/dtf/admin/tabs/users.html:13 dtf/templates/dtf/base.html:289
@@ -1086,8 +1097,11 @@ msgid "DTF друк у рулоні 60 см — TwoComms"
 msgstr "DTF roll printing 60 cm — TwoComms"
 
 #: dtf/templates/dtf/base.html:9
-msgid "DTF друк 60 см: швидкий розрахунок метражу, перевірка макета та доставка НП."
-msgstr "DTF printing 60 cm: quick meter calculation, artwork check, and Nova Poshta delivery."
+msgid ""
+"DTF друк 60 см: швидкий розрахунок метражу, перевірка макета та доставка НП."
+msgstr ""
+"DTF printing 60 cm: quick meter calculation, artwork check, and Nova Poshta "
+"delivery."
 
 #: dtf/templates/dtf/base.html:12
 msgid "DTF друк у рулоні 60 см"
@@ -1444,9 +1458,12 @@ msgstr "Order number"
 
 #: dtf/templates/dtf/cabinet_orders.html:12
 #, fuzzy
-#| msgid "Для отримання рахунку/реквізитів залиште заявку на сторінці замовлення."
-msgid "Від модерації до отримання: повний трекінг, оплата і повторне замовлення."
-msgstr "To receive invoice/payment details, submit a request on the order page."
+#| msgid ""
+#| "Для отримання рахунку/реквізитів залиште заявку на сторінці замовлення."
+msgid ""
+"Від модерації до отримання: повний трекінг, оплата і повторне замовлення."
+msgstr ""
+"To receive invoice/payment details, submit a request on the order page."
 
 #: dtf/templates/dtf/cabinet_orders.html:47 dtf/templates/dtf/order.html:286
 #: dtf/templates/dtf/preflight.html:152 dtf/views.py:1008
@@ -1644,9 +1661,13 @@ msgstr ""
 
 #: dtf/templates/dtf/constructor_landing.html:27
 #, fuzzy
-#| msgid "Підтвердження макета клієнтом означає згоду з метражем, строками та вартістю."
+#| msgid ""
+#| "Підтвердження макета клієнтом означає згоду з метражем, строками та "
+#| "вартістю."
 msgid "Після підтвердження менеджером узгодимо матеріал, тираж і логістику."
-msgstr "Artwork approval by customer means agreement with total meters, timeline, and price."
+msgstr ""
+"Artwork approval by customer means agreement with total meters, timeline, "
+"and price."
 
 #: dtf/templates/dtf/effects_lab.html:67
 msgid "Локальна QA-сторінка для перевірки ефектів після змін та HTMX swap."
@@ -1849,7 +1870,9 @@ msgid "або на"
 msgstr ""
 
 #: dtf/templates/dtf/effects_lab.html:212
-msgid "Safe margin — зона безпеки від краю файлу. Мінімум 20 пікселів, щоб уникнути обрізу."
+msgid ""
+"Safe margin — зона безпеки від краю файлу. Мінімум 20 пікселів, щоб уникнути "
+"обрізу."
 msgstr ""
 
 #: dtf/templates/dtf/effects_lab.html:213
@@ -1862,7 +1885,9 @@ msgstr ""
 
 #: dtf/templates/dtf/effects_lab.html:220
 #: dtf/templates/dtf/effects_lab.html:221
-msgid "Файл пройшов автоматичну перевірку. Далі — ручний контроль менеджера перед друком."
+msgid ""
+"Файл пройшов автоматичну перевірку. Далі — ручний контроль менеджера перед "
+"друком."
 msgstr ""
 
 #: dtf/templates/dtf/effects_lab.html:226
@@ -2243,7 +2268,9 @@ msgid "Текстура і край"
 msgstr "Texture and edge"
 
 #: dtf/templates/dtf/index.html:723
-msgid "Короткі практичні матеріали, що допомагають уникати браку і прискорюють запуск друку."
+msgid ""
+"Короткі практичні матеріали, що допомагають уникати браку і прискорюють "
+"запуск друку."
 msgstr ""
 
 #: dtf/templates/dtf/index.html:740
@@ -2317,7 +2344,8 @@ msgstr "Communication channel"
 
 #: dtf/templates/dtf/order.html:222
 msgid "Надішліть архів або посилання — менеджер допоможе з підготовкою."
-msgstr "Send an archive or a link - the manager will help with the preparation."
+msgstr ""
+"Send an archive or a link - the manager will help with the preparation."
 
 #: dtf/templates/dtf/order.html:225 dtf/templates/dtf/preflight.html:66
 msgid "Файли (multiple)"
@@ -2416,8 +2444,11 @@ msgid "Перевірка файлу"
 msgstr "Check the file"
 
 #: dtf/templates/dtf/preflight.html:42
-msgid "Перевірка файла без замовлення. Отримаєте рекомендації та попередній звіт."
-msgstr "Checking the file without an order. You will receive recommendations and a preliminary report."
+msgid ""
+"Перевірка файла без замовлення. Отримаєте рекомендації та попередній звіт."
+msgstr ""
+"Checking the file without an order. You will receive recommendations and a "
+"preliminary report."
 
 #: dtf/templates/dtf/preflight.html:62
 msgid "Файли для перевірки"
@@ -2464,7 +2495,8 @@ msgid "Продовжити як замовлення"
 msgstr "Continue as an order"
 
 #: dtf/templates/dtf/preflight.html:114
-msgid "Рекомендації носять консультативний характер — остаточне рішення за вами."
+msgid ""
+"Рекомендації носять консультативний характер — остаточне рішення за вами."
 msgstr "Recommendations are advisory in nature - the final decision is yours."
 
 #: dtf/templates/dtf/preflight.html:122
@@ -2524,7 +2556,9 @@ msgid "Готові вироби + DTF під ключ"
 msgstr ""
 
 #: dtf/templates/dtf/products.html:12
-msgid "Можемо підібрати blank-вироби, надрукувати і зібрати партію без окремого аутсорсу."
+msgid ""
+"Можемо підібрати blank-вироби, надрукувати і зібрати партію без окремого "
+"аутсорсу."
 msgstr ""
 
 #: dtf/templates/dtf/products.html:22
@@ -3098,351 +3132,3 @@ msgstr "Order status"
 #: dtf/views.py:1846
 msgid "Промокод видалено"
 msgstr ""
-
-#~ msgid "Допомога"
-#~ msgstr "Help"
-
-#~ msgid "DTF друк рулоном 60 см. Ручна перевірка макета перед друком."
-#~ msgstr "DTF roll printing 60 cm. Manual artwork check before printing."
-
-#~ msgid "Менеджер"
-#~ msgstr "Manager"
-
-#~ msgid "Графік"
-#~ msgstr "Schedule"
-
-#~ msgid "Пн–Пт: 10:00–18:00"
-#~ msgstr "Mon–Fri: 10:00–18:00"
-
-#~ msgid "Нова Пошта по Україні. Вкажіть місто та відділення при оформленні."
-#~ msgstr "Nova Poshta across Ukraine. Specify the city and department when ordering."
-
-#~ msgid "Оплата після перевірки макета. Надсилаємо реквізити у ваш канал зв'язку."
-#~ msgstr "Payment after checking the layout. We send details to your communication channel."
-
-#~ msgid "Юридичні"
-#~ msgstr "Legal"
-
-#~ msgid "Оферта та політика конфіденційності надаються за запитом."
-#~ msgstr "The offer and privacy policy are available upon request."
-
-#~ msgid "Галерея робіт"
-#~ msgstr "Gallery of works"
-
-#~ msgid "Реальні кейси, макро‑деталі та порівняння до/після."
-#~ msgstr "Real cases, macro details and before/after comparisons."
-
-#~ msgid "Додамо реальні роботи"
-#~ msgstr "Let's add real jobs"
-
-#~ msgid "Hot Peel"
-#~ msgstr "Hot Peel"
-
-#~ msgid "грн/м"
-#~ msgstr "UAH/m"
-
-#~ msgid "Не відклеїться?"
-#~ msgstr "Will it peel off?"
-
-#~ msgid "DTF витримує багато циклів прання за умови правильного переносу."
-#~ msgstr "DTF withstands many wash cycles when transferred correctly."
-
-#~ msgid "Є білий шар?"
-#~ msgstr "Is there a white underbase?"
-
-#~ msgid "Так, використовується білий підклад для насичених кольорів."
-#~ msgstr "Yes, we use a white underbase for saturated colors."
-
-#~ msgid "DTF друк в рулоні"
-#~ msgstr "DTF roll printing"
-
-#~ msgid "60 см, Hot Peel, все включено"
-#~ msgstr "60 cm, Hot Peel, all included"
-
-#~ msgid "Швидкий розрахунок, ручна перевірка макета, друк та доставка Новою Поштою."
-#~ msgstr "Quick calculation, manual artwork check, printing and Nova Poshta delivery."
-
-#~ msgid "Розрахувати / Замовити"
-#~ msgstr "Calculate / Order"
-
-#~ msgid "Фото друкуючої головки DTF (hero)"
-#~ msgstr "DTF printhead photo (hero)"
-
-#~ msgid "НП"
-#~ msgstr "NP"
-
-#~ msgid "PDF/PNG рекомендовано"
-#~ msgstr "PDF/PNG recommended"
-
-#~ msgid "≈ ЦІНА"
-#~ msgstr "≈ PRICE"
-
-#~ msgid "Надішліть ганг-лист або файли для допомоги."
-#~ msgstr "Send your gang sheet or files for assistance."
-
-#~ msgid "Менеджер перевіряє, підтверджує метраж та узгоджує правки."
-#~ msgstr "Manager checks, confirms total meters, and agrees edits with you."
-
-#~ msgid "Після перевірки надсилаємо реквізити у вибраний канал."
-#~ msgstr "After review we send payment details via your chosen channel."
-
-#~ msgid "Базова ціна та знижки від метражу. Точну суму підтвердить менеджер."
-#~ msgstr "Base price and volume discounts. Final amount is confirmed by manager."
-
-#~ msgid "Наші роботи"
-#~ msgstr "Our works"
-
-#~ msgid "Кілька реальних прикладів з макро та готовим результатом."
-#~ msgstr "Several real examples with macro and final result."
-
-#~ msgid "Дивитись всі роботи"
-#~ msgstr "View all works"
-
-#~ msgid "PDF/PNG, ширина 60 см, прозорість для фону. Додаткові вимоги та шаблони — на окремій сторінці."
-#~ msgstr "PDF/PNG, 60 cm width, transparent background. More requirements and templates are on a separate page."
-
-#~ msgid "Перейти до вимог"
-#~ msgstr "Go to requirements"
-
-#~ msgid "FAQ"
-#~ msgstr "FAQ"
-
-#~ msgid "Як переносити?"
-#~ msgstr "How to transfer?"
-
-#~ msgid "Надаємо інструкцію під ваш прес та матеріал."
-#~ msgstr "We provide instructions for your press and material."
-
-#~ msgid "Якщо макет слабкий?"
-#~ msgstr "What if artwork quality is low?"
-
-#~ msgid "Менеджер підкаже, як виправити, або запропонує допомогу."
-#~ msgstr "Manager will suggest fixes or offer assistance."
-
-#~ msgid "Нова Пошта по Україні. Оплата після перевірки макета. Реквізити надсилаємо у зручний канал."
-#~ msgstr "Nova Poshta delivery across Ukraine. Payment after artwork review. We send details to your preferred channel."
-
-#~ msgid "Детальніше"
-#~ msgstr "Learn more"
-
-#~ msgid "TEMP: Оновлюємо повний юридичний текст. Нижче коротка робоча версія для DTF сайту."
-#~ msgstr "TEMP: Full legal text is being updated. Below is the short working version for the DTF site."
-
-#~ msgid "Ми використовуємо контактні дані лише для обробки звернень і замовлень DTF."
-#~ msgstr "We use contact data only to process DTF inquiries and orders."
-
-#~ msgid "Передача даних третім сторонам відбувається тільки для доставки, оплати або за вимогою закону."
-#~ msgstr "Data is shared with third parties only for delivery, payment, or legal requirements."
-
-#~ msgid "Для видалення або уточнення ваших даних зверніться через сторінку Контактів."
-#~ msgstr "To delete or clarify your data, contact us via the Contacts page."
-
-#~ msgid "TEMP: Публічні реквізити оновлюються. Актуальні реквізити менеджер надсилає перед оплатою."
-#~ msgstr "TEMP: Public payment details are being updated. Manager sends current details before payment."
-
-#~ msgid "Оплата узгоджується після ручної перевірки макета і підтвердження деталей."
-#~ msgstr "Payment is agreed after manual artwork review and detail confirmation."
-
-#~ msgid "За потреби реквізити дублюються у Telegram/WhatsApp/Instagram."
-#~ msgstr "If needed, payment details are duplicated in Telegram/WhatsApp/Instagram."
-
-#~ msgid "Повернення та рекламації"
-#~ msgstr "Returns and claims"
-
-#~ msgid "TEMP: Розділ уточнюється. Нижче діє базовий порядок для DTF замовлень."
-#~ msgstr "TEMP: This section is being refined. The basic procedure for DTF orders is active below."
-
-#~ msgid "Якщо є виробничий брак, надішліть номер замовлення, фото/відео та опис проблеми."
-#~ msgstr "If there is a production defect, send your order number, photos/video, and issue description."
-
-#~ msgid "Рекламації розглядаються після перевірки файлу, партії друку та умов переносу."
-#~ msgstr "Claims are reviewed after checking the file, print batch, and transfer conditions."
-
-#~ msgid "Рішення: переробка, часткова компенсація або інший узгоджений формат."
-#~ msgstr "Resolution: reprint, partial compensation, or another agreed format."
-
-#~ msgid "Умови користування"
-#~ msgstr "Terms of use"
-
-#~ msgid "TEMP: Повна публічна оферта буде розміщена після юридичного оновлення."
-#~ msgstr "TEMP: The full public offer will be published after legal update."
-
-#~ msgid "Остаточні параметри замовлення підтверджуються менеджером перед запуском у друк."
-#~ msgstr "Final order parameters are confirmed by manager before printing."
-
-#~ msgid "Терміни виконання залежать від завантаження виробництва та логістики перевізника."
-#~ msgstr "Turnaround time depends on production load and carrier logistics."
-
-#~ msgid "Замовити DTF друк"
-#~ msgstr "Order DTF printing"
-
-#~ msgid "Замовлення DTF"
-#~ msgstr "DTF order"
-
-#~ msgid "Оберіть формат: готовий ганг-лист або допомога з підготовкою."
-#~ msgstr "Choose the format: a ready-made gang list or help with preparation."
-
-#~ msgid "Є готовий ганг-лист (60 см)"
-#~ msgstr "There is a ready-made gang list (60 cm)"
-
-#~ msgid "Готовий ганг-лист 60 см"
-#~ msgstr "Ready gang sheet 60 cm"
-
-#~ msgid "Ready"
-#~ msgstr "Ready"
-
-#~ msgid "Preview"
-#~ msgstr "Preview"
-
-#~ msgid "Перший кадр PDF або PNG (після завантаження)."
-#~ msgstr "First frame PDF or PNG (after upload)."
-
-#~ msgid "Preflight Terminal"
-#~ msgstr "Preflight Terminal"
-
-#~ msgid "Перевірки допомагають уникнути сюрпризів. WARN не блокує замовлення."
-#~ msgstr "Inspections help to avoid surprises. WARN does not block orders."
-
-#~ msgid "Тонкі лінії"
-#~ msgstr "Thin lines"
-
-#~ msgid "Можуть не пропечататись"
-#~ msgstr "They may not be printed"
-
-#~ msgid "Прозорість"
-#~ msgstr "Transparency"
-
-#~ msgid "Ширина"
-#~ msgstr "Width"
-
-#~ msgid "60 см — OK"
-#~ msgstr "60 cm"
-
-#~ msgid "Я розумію можливі ризики та погоджуюсь"
-#~ msgstr "I understand the possible risks and agree"
-
-#~ msgid "SUMMARY"
-#~ msgstr "Summary"
-
-#~ msgid "Файли для розкладки"
-#~ msgstr "Files for layout"
-
-#~ msgid "Менеджер підтвердить метраж та вартість"
-#~ msgstr "The manager will confirm the footage and cost"
-
-#~ msgid "Після перевірки ви отримаєте список OK/WARN та рекомендації."
-#~ msgstr "After verification, you will receive an OK/WARN list and recommendations."
-
-#~ msgid "OK/WARN звіт"
-#~ msgstr "OK/WARN report"
-
-#~ msgid "Розрахунок: довжина файлу × кількість копій = загальний метраж."
-#~ msgstr "Calculation: file length × number of copies = total meters."
-
-#~ msgid "Файл 2.5 м × 10 копій = 25 м. Розрахунок за відповідною ціною."
-#~ msgstr "File 2.5 m × 10 copies = 25 m. Pricing is based on the corresponding tier."
-
-#~ msgid "Cutoff / терміни"
-#~ msgstr "Cutoff / deadlines"
-
-#~ msgid "Cutoff на виробництво: після підтвердження макета."
-#~ msgstr "Production cutoff: after artwork approval."
-
-#~ msgid "Стандартний термін: 24–48 год (узгоджується менеджером)."
-#~ msgstr "Standard turnaround: 24–48 hours (confirmed by manager)."
-
-#~ msgid "Доставка: за тарифами Нової Пошти."
-#~ msgstr "Delivery: according to Nova Poshta tariffs."
-
-#~ msgid "Quality / Lab Proof"
-#~ msgstr "Quality / Lab Proof"
-
-#~ msgid "Які перевірки входять у QC?"
-#~ msgstr "What inspections are included in QC?"
-
-#~ msgid "Контроль кольору, реєстрації та прання. Нічого зайвого — тільки факти."
-#~ msgstr "Color registration and wash durability control. Nothing extra, only facts."
-
-#~ msgid "QC макро"
-#~ msgstr "QC macro"
-
-#~ msgid "QC контроль білої підкладки"
-#~ msgstr "QC control of the white substrate"
-
-#~ msgid "QC контроль порошку"
-#~ msgstr "QC control of the powder"
-
-#~ msgid "QC фінішний огляд"
-#~ msgstr "QC finish inspection"
-
-#~ msgid "QC чек"
-#~ msgstr "QC check"
-
-#~ msgid "PDF або PNG"
-#~ msgstr "PDF or PNG"
-
-#~ msgid "Ширина 60 см"
-#~ msgstr "Width 60 cm"
-
-#~ msgid "Прозорий фон"
-#~ msgstr "Transparent background"
-
-#~ msgid "Рекомендовано 300 DPI"
-#~ msgstr "300 DPI is recommended"
-
-#~ msgid "Без зайвих відступів"
-#~ msgstr "Without unnecessary indents"
-
-#~ msgid "Кольори у CMYK/RGB"
-#~ msgstr "Colors in CMYK/RGB"
-
-#~ msgid "Типові помилки"
-#~ msgstr "Typical mistakes"
-
-#~ msgid "Приклад OK vs RISK"
-#~ msgstr "An example of OK vs RISK"
-
-#~ msgid "Шаблони 60 см"
-#~ msgstr "The template is 60 cm"
-
-#~ msgid "Скачати шаблон 60 см"
-#~ msgstr "Download template 60 cm"
-
-#~ msgid "Перейти до шаблонів"
-#~ msgstr "Go to templates"
-
-#~ msgid "Не вмієте підготувати?"
-#~ msgstr "Don't know how to prepare?"
-
-#~ msgid "Надішліть файли — менеджер допоможе з розкладкою."
-#~ msgstr "Send the files - the manager will help with the layout."
-
-#~ msgid "Pipeline"
-#~ msgstr "Production stages"
-
-#~ msgid "QC Report"
-#~ msgstr "QC report"
-
-#~ msgid "PDF/AI/Figma для швидкої підготовки ганг-листів."
-#~ msgstr "PDF/AI/Figma for quick preparation of gang lists."
-
-#~ msgid "Download PDF"
-#~ msgstr "Download PDF"
-
-#~ msgid "Adobe Illustrator"
-#~ msgstr "Adobe Illustrator"
-
-#~ msgid "Figma"
-#~ msgstr "Figma"
-
-#~ msgid "Реквізити на оплату надішлемо після перевірки макета."
-#~ msgstr "Payment details will be sent after artwork review."
-
-#~ msgid "Перевірити статус"
-#~ msgstr "Check status"
-
-#~ msgid "Телефон не збігається із замовленням"
-#~ msgstr "Phone does not match the order"
-
-#~ msgid "Від %(tier.min)s м"
-#~ msgstr "From %(tier.min)s m"

@@ -12,6 +12,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.utils.translation import gettext as _, gettext_lazy as _lazy
 
 from ..models import Product
 from accounts.models import UserProfile, FavoriteProduct
@@ -39,12 +40,12 @@ class LoginForm(forms.Form):
     """Форма входа в систему."""
 
     username = forms.CharField(
-        label="Логін",
+        label=_lazy("Логін"),
         max_length=150,
         widget=forms.TextInput(attrs={"class": "form-control bg-elevate"})
     )
     password = forms.CharField(
-        label="Пароль",
+        label=_lazy("Пароль"),
         widget=forms.PasswordInput(attrs={"class": "form-control bg-elevate"})
     )
 
@@ -53,16 +54,16 @@ class RegisterForm(forms.Form):
     """Форма регистрации нового пользователя."""
 
     username = forms.CharField(
-        label="Логін",
+        label=_lazy("Логін"),
         max_length=150,
         widget=forms.TextInput(attrs={"class": "form-control bg-elevate"})
     )
     password1 = forms.CharField(
-        label="Пароль",
+        label=_lazy("Пароль"),
         widget=forms.PasswordInput(attrs={"class": "form-control bg-elevate"})
     )
     password2 = forms.CharField(
-        label="Повтор паролю",
+        label=_lazy("Повтор паролю"),
         widget=forms.PasswordInput(attrs={"class": "form-control bg-elevate"})
     )
 
@@ -72,11 +73,11 @@ class RegisterForm(forms.Form):
 
         # Минимальная длина
         if len(username) < 3:
-            raise ValidationError("Логін повинен містити мінімум 3 символи")
+            raise ValidationError(_("Логін повинен містити мінімум 3 символи"))
 
         # Проверка на допустимые символы (латиница, цифры, . _ -)
         if not re.match(r'^[a-zA-Z0-9._-]+$', username):
-            raise ValidationError("Логін може містити тільки латинські літери, цифри та символи ._-")
+            raise ValidationError(_("Логін може містити тільки латинські літери, цифри та символи ._-"))
 
         return username
 
@@ -88,7 +89,7 @@ class RegisterForm(forms.Form):
 
         if password1 and password2:
             if password1 != password2:
-                self.add_error("password2", "Паролі не співпадають")
+                self.add_error("password2", _("Паролі не співпадають"))
 
         return data
 
@@ -101,7 +102,7 @@ class ProfileSetupForm(forms.Form):
         super().__init__(*args, **kwargs)
 
     full_name = forms.CharField(
-        label="ПІБ",
+        label=_lazy("ПІБ"),
         max_length=200,
         required=False,
         widget=forms.TextInput(attrs={
@@ -110,7 +111,7 @@ class ProfileSetupForm(forms.Form):
         })
     )
     phone = forms.CharField(
-        label="Телефон",
+        label=_lazy("Телефон"),
         required=True,
         widget=forms.TextInput(attrs={
             "class": "form-control bg-elevate",
@@ -121,7 +122,7 @@ class ProfileSetupForm(forms.Form):
         })
     )
     email = forms.EmailField(
-        label="Email",
+        label=_lazy("Email"),
         required=False,
         widget=forms.EmailInput(attrs={
             "class": "form-control bg-elevate",
@@ -129,7 +130,7 @@ class ProfileSetupForm(forms.Form):
         })
     )
     telegram = forms.CharField(
-        label="Telegram",
+        label=_lazy("Telegram"),
         required=False,
         widget=forms.TextInput(attrs={
             "class": "form-control bg-elevate",
@@ -137,7 +138,7 @@ class ProfileSetupForm(forms.Form):
         })
     )
     instagram = forms.CharField(
-        label="Instagram",
+        label=_lazy("Instagram"),
         required=False,
         widget=forms.TextInput(attrs={
             "class": "form-control bg-elevate",
@@ -145,7 +146,7 @@ class ProfileSetupForm(forms.Form):
         })
     )
     city = forms.CharField(
-        label="Місто",
+        label=_lazy("Місто"),
         required=False,
         widget=forms.TextInput(attrs={
             "class": "form-control bg-elevate",
@@ -158,7 +159,7 @@ class ProfileSetupForm(forms.Form):
         })
     )
     np_office = forms.CharField(
-        label="Відділення/Поштомат НП",
+        label=_lazy("Відділення/Поштомат НП"),
         required=False,
         widget=forms.TextInput(attrs={
             "class": "form-control bg-elevate",
@@ -191,29 +192,29 @@ class ProfileSetupForm(forms.Form):
         widget=forms.HiddenInput(attrs={"data-np-warehouse-token": "1"}),
     )
     pay_type = forms.ChoiceField(
-        label="Тип оплати",
+        label=_lazy("Тип оплати"),
         required=False,
         choices=(
-            ("partial", "Часткова передоплата"),
-            ("full", "Повна передоплата")
+            ("partial", _lazy("Часткова передоплата")),
+            ("full", _lazy("Повна передоплата"))
         ),
         widget=forms.Select(attrs={"class": "form-select bg-elevate"})
     )
-    avatar = forms.ImageField(label="Аватар", required=False)
+    avatar = forms.ImageField(label=_lazy("Аватар"), required=False)
     is_ubd = forms.BooleanField(
-        label="Я — УБД",
+        label=_lazy("Я — УБД"),
         required=False,
         widget=forms.CheckboxInput(attrs={"class": "form-check-input"})
     )
     ubd_doc = forms.ImageField(
-        label="Фото посвідчення УБД",
+        label=_lazy("Фото посвідчення УБД"),
         required=False
     )
 
     def clean(self):
         data = super().clean()
         if data.get("is_ubd") and not data.get("ubd_doc") and not self.has_existing_ubd_doc:
-            self.add_error("ubd_doc", "Для УБД додайте фото посвідчення")
+            self.add_error("ubd_doc", _("Для УБД додайте фото посвідчення"))
         try:
             delivery_selection = resolve_optional_delivery_selection(data)
         except NovaPoshtaSelectionError as exc:
@@ -239,7 +240,7 @@ class ProfileSetupForm(forms.Form):
     def clean_phone(self):
         phone = normalize_checkout_phone(self.cleaned_data.get("phone", ""))
         if not phone:
-            raise ValidationError("Введіть коректний український номер телефону. Можна без +380.")
+            raise ValidationError(_("Введіть коректний український номер телефону. Можна без +380."))
         return phone
 
 
@@ -304,7 +305,7 @@ def login_view(request):
 
             return redirect('home')
         else:
-            form.add_error(None, "Невірний логін або пароль")
+            form.add_error(None, _("Невірний логін або пароль"))
 
     return render(request, 'pages/auth_login.html', {
         'form': form,
@@ -335,7 +336,7 @@ def register_view(request):
 
         # Проверяем уникальность username
         if User.objects.filter(username=username).exists():
-            form.add_error('username', 'Користувач з таким логіном вже існує')
+            form.add_error('username', _('Користувач з таким логіном вже існує'))
         else:
             try:
                 # КРИТИЧЕСКОЕ: Валидируем пароль ПЕРЕД созданием пользователя
@@ -386,10 +387,10 @@ def register_view(request):
                 else:
                     # Переводим стандартные ошибки Django на украинский
                     error_messages = {
-                        'This password is too short': 'Пароль занадто короткий. Мінімум 8 символів.',
-                        'This password is too common': 'Цей пароль занадто простий. Оберіть складніший пароль.',
-                        'This password is entirely numeric': 'Пароль не може складатися лише з цифр.',
-                        'The password is too similar to the': 'Пароль занадто схожий на логін.',
+                        'This password is too short': _('Пароль занадто короткий. Мінімум 8 символів.'),
+                        'This password is too common': _('Цей пароль занадто простий. Оберіть складніший пароль.'),
+                        'This password is entirely numeric': _('Пароль не може складатися лише з цифр.'),
+                        'The password is too similar to the': _('Пароль занадто схожий на логін.'),
                     }
 
                     error_text = str(e)
@@ -407,7 +408,7 @@ def register_view(request):
             except Exception as e:
                 # Логируем неожиданные ошибки
                 logger.error(f"Unexpected error during registration: {e}", exc_info=True)
-                form.add_error(None, 'Виникла помилка при реєстрації. Спробуйте ще раз або зверніться до підтримки.')
+                form.add_error(None, _('Виникла помилка при реєстрації. Спробуйте ще раз або зверніться до підтримки.'))
 
     return render(request, 'pages/auth_register.html', {'form': form})
 

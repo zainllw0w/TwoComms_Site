@@ -15,6 +15,7 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_POST
 from django.views.decorators.cache import never_cache
 from django.contrib import messages
+from django.utils.translation import gettext as _
 from django_ratelimit.decorators import ratelimit
 from decimal import Decimal, ROUND_HALF_UP
 import logging
@@ -163,11 +164,11 @@ def _format_custom_placement_descriptor(spec: dict) -> str:
 
 def _custom_print_status_label(status: str) -> str:
     return {
-        CustomPrintModerationStatus.DRAFT: 'Передаємо менеджеру на перевірку',
-        CustomPrintModerationStatus.AWAITING_REVIEW: 'На перевірці менеджера',
-        CustomPrintModerationStatus.APPROVED: 'Погоджено менеджером',
-        CustomPrintModerationStatus.REJECTED: 'Відхилено менеджером',
-    }.get(status, 'На перевірці менеджера')
+        CustomPrintModerationStatus.DRAFT: _('Передаємо менеджеру на перевірку'),
+        CustomPrintModerationStatus.AWAITING_REVIEW: _('На перевірці менеджера'),
+        CustomPrintModerationStatus.APPROVED: _('Погоджено менеджером'),
+        CustomPrintModerationStatus.REJECTED: _('Відхилено менеджером'),
+    }.get(status, _('На перевірці менеджера'))
 
 
 def _promote_legacy_custom_draft(lead, session_item: dict | None) -> tuple[str, bool]:
@@ -239,7 +240,7 @@ def _build_custom_cart_entry_payload(key: str, item: dict, lead=None) -> tuple[d
 
     moderation_status = getattr(lead, 'moderation_status', '') or item.get('moderation_status') or CustomPrintModerationStatus.DRAFT
     if lead:
-        moderation_status, _ = _promote_legacy_custom_draft(lead, item)
+        moderation_status, _promoted = _promote_legacy_custom_draft(lead, item)
     is_draft = moderation_status == CustomPrintModerationStatus.DRAFT
     is_awaiting = moderation_status == CustomPrintModerationStatus.AWAITING_REVIEW
     is_approved = moderation_status == CustomPrintModerationStatus.APPROVED
@@ -271,7 +272,7 @@ def _build_custom_cart_entry_payload(key: str, item: dict, lead=None) -> tuple[d
         'key': key,
         'lead_id': item.get('lead_id'),
         'lead_number': item.get('lead_number') or getattr(lead, 'lead_number', '') or '',
-        'label': item.get('label') or 'Кастомний виріб',
+        'label': item.get('label') or _('Кастомний виріб'),
         'product_type': product_type,
         'product_label': item.get('product_label') or (getattr(lead, 'pricing_snapshot_json', {}) or {}).get('product_label') or PRODUCT_LABELS.get(product_type, ''),
         'placements_display': ', '.join(placement_descriptors or zone_labels),
@@ -308,9 +309,9 @@ def _build_custom_cart_entry_payload(key: str, item: dict, lead=None) -> tuple[d
         'manager_note': getattr(lead, 'manager_note', '') if lead is not None else '',
         'approved_price': getattr(lead, 'approved_price', None) if lead is not None else None,
         'included_in_payment': is_approved,
-        'price_caption': 'Орієнтовна ціна' if is_pending else ('Фінальна ціна' if is_approved else 'Ціна'),
-        'payment_note': 'Не входить до оплати зараз' if is_pending else ('Додано до рахунку' if is_approved else ''),
-        'pending_price_note': 'Ціна узгоджується після модерації' if is_pending else '',
+        'price_caption': _('Орієнтовна ціна') if is_pending else (_('Фінальна ціна') if is_approved else _('Ціна')),
+        'payment_note': _('Не входить до оплати зараз') if is_pending else (_('Додано до рахунку') if is_approved else ''),
+        'pending_price_note': _('Ціна узгоджується після модерації') if is_pending else '',
         'show_manager_contact': is_pending,
     }
 
@@ -460,7 +461,7 @@ def view_cart(request):
                     if not profile.phone:
                         messages.error(
                             request,
-                            'Вкажіть коректний український номер телефону. Можна без +380.'
+                            _('Вкажіть коректний український номер телефону. Можна без +380.')
                         )
                         return redirect('cart')
                     profile.city = delivery_selection.city
@@ -489,14 +490,14 @@ def view_cart(request):
                             # В случае ошибки не обновляем pay_type
 
                     profile.save()
-                    messages.success(request, 'Дані доставки успішно оновлено!')
+                    messages.success(request, _('Дані доставки успішно оновлено!'))
                 except NovaPoshtaSelectionError as exc:
                     messages.error(request, _message_for_delivery_selection_error(exc))
                 except Exception as e:
                     cart_logger.error('Error saving profile: %s', e, exc_info=True)
-                    messages.error(request, 'Помилка при збереженні даних. Спробуйте ще раз.')
+                    messages.error(request, _('Помилка при збереженні даних. Спробуйте ще раз.'))
             else:
-                messages.error(request, 'Будь ласка, увійдіть, щоб зберегти дані доставки.')
+                messages.error(request, _('Будь ласка, увійдіть, щоб зберегти дані доставки.'))
         elif form_type == 'guest_order':
             from storefront import views as legacy_views
             return legacy_views.process_guest_order(request)
@@ -672,7 +673,7 @@ def view_cart(request):
             from django.contrib import messages as dj_messages
             dj_messages.info(
                 request,
-                "Кастомну позицію відхилено менеджером — її видалено з кошика. За потреби ви можете створити нову заявку."
+                _("Кастомну позицію відхилено менеджером — її видалено з кошика. За потреби ви можете створити нову заявку.")
             )
         except Exception:
             pass
@@ -854,7 +855,7 @@ def update_cart(request):
         if qty < 1:
             return JsonResponse({
                 'success': False,
-                'error': 'Кількість має бути не менше 1'
+                'error': _('Кількість має бути не менше 1')
             }, status=400)
 
         cart = get_cart_from_session(request)
@@ -862,7 +863,7 @@ def update_cart(request):
         if cart_key not in cart:
             return JsonResponse({
                 'success': False,
-                'error': 'Товар не знайдено у кошику'
+                'error': _('Товар не знайдено у кошику')
             }, status=404)
 
         # Обновляем количество
@@ -877,7 +878,7 @@ def update_cart(request):
         except Product.DoesNotExist:
             return JsonResponse({
                 'success': False,
-                'error': 'Товар не знайдено'
+                'error': _('Товар не знайдено')
             }, status=404)
 
         # Рассчитываем новые суммы
@@ -1090,7 +1091,7 @@ def apply_promo_code(request):
         if not code:
             return JsonResponse({
                 'success': False,
-                'error': 'Введіть промокод'
+                'error': _('Введіть промокод')
             }, status=400)
 
         # Ищем промокод
@@ -1099,7 +1100,7 @@ def apply_promo_code(request):
         except PromoCode.DoesNotExist:
             return JsonResponse({
                 'success': False,
-                'error': 'Промокод не знайдено'
+                'error': _('Промокод не знайдено')
             }, status=404)
 
         # НОВАЯ ЛОГИКА: Проверяем авторизацию и права пользователя
@@ -1107,8 +1108,8 @@ def apply_promo_code(request):
             return JsonResponse({
                 'success': False,
                 'auth_required': True,
-                'error': 'Промокоди доступні тільки для зареєстрованих користувачів',
-                'message': 'Будь ласка, увійдіть в акаунт або зареєструйтесь, щоб використати промокод'
+                'error': _('Промокоди доступні тільки для зареєстрованих користувачів'),
+                'message': _('Будь ласка, увійдіть в акаунт або зареєструйтесь, щоб використати промокод')
             }, status=403)
 
         # Проверяем, может ли пользователь использовать этот промокод
@@ -1131,11 +1132,11 @@ def apply_promo_code(request):
             if promo_code.min_order_amount and subtotal < promo_code.min_order_amount:
                 return JsonResponse({
                     'success': False,
-                    'error': f'Мінімальна сума замовлення для цього промокоду: {promo_code.min_order_amount} грн'
+                    'error': _('Мінімальна сума замовлення для цього промокоду: %(amount)s грн') % {'amount': promo_code.min_order_amount}
                 }, status=400)
             return JsonResponse({
                 'success': False,
-                'error': 'Промокод не застосовується до цього замовлення'
+                'error': _('Промокод не застосовується до цього замовлення')
             }, status=400)
 
         # Сохраняем промокод в сессию (временно, до создания заказа)
@@ -1158,12 +1159,14 @@ def apply_promo_code(request):
 
         # Формируем сообщение с учетом типа промокода
         promo_type_label = dict(PromoCode.PROMO_TYPES).get(promo_code.promo_type, '')
-        message = f'Промокод застосовано! Знижка: {discount} грн'
+        message = _('Промокод застосовано! Знижка: %(discount)s грн') % {'discount': discount}
 
         if promo_code.promo_type == 'voucher':
-            message = f'Ваучер застосовано! Знижка: {discount} грн'
+            message = _('Ваучер застосовано! Знижка: %(discount)s грн') % {'discount': discount}
         elif promo_code.group:
-            message = f'Промокод з групи "{promo_code.group.name}" застосовано! Знижка: {discount} грн'
+            message = _('Промокод з групи "%(group)s" застосовано! Знижка: %(discount)s грн') % {
+                'group': promo_code.group.name, 'discount': discount,
+            }
 
         return JsonResponse({
             'ok': True,
@@ -1187,7 +1190,7 @@ def apply_promo_code(request):
         )
         return JsonResponse({
             'success': False,
-            'error': 'Помилка при застосуванні промокоду'
+            'error': _('Помилка при застосуванні промокоду')
         }, status=400)
 
 
@@ -1222,7 +1225,7 @@ def remove_promo_code(request):
             'subtotal': float(subtotal),
             'discount': 0.0,
             'total': float(total),
-            'message': 'Промокод видалено'
+            'message': _('Промокод видалено')
         })
 
     except Exception as e:
@@ -1233,7 +1236,7 @@ def remove_promo_code(request):
         )
         return JsonResponse({
             'success': False,
-            'error': 'Помилка при видаленні промокоду'
+            'error': _('Помилка при видаленні промокоду')
         }, status=400)
 
 
@@ -1432,13 +1435,13 @@ def contact_manager(request):
         if not full_name or len(full_name) < 3:
             return JsonResponse({
                 'success': False,
-                'error': 'ПІБ повинно містити мінімум 3 символи'
+                'error': _('ПІБ повинно містити мінімум 3 символи')
             })
 
         if not phone:
             return JsonResponse({
                 'success': False,
-                'error': 'Введіть коректний номер телефону'
+                'error': _('Введіть коректний номер телефону')
             })
 
         # Получаем корзину
@@ -1447,7 +1450,7 @@ def contact_manager(request):
         if not cart:
             return JsonResponse({
                 'success': False,
-                'error': 'Кошик порожній'
+                'error': _('Кошик порожній')
             })
 
         # Получаем товары из БД
@@ -1506,14 +1509,14 @@ def contact_manager(request):
             )
             return JsonResponse({
                 'success': False,
-                'error': 'Не вдалося відправити повідомлення. Спробуйте пізніше'
+                'error': _('Не вдалося відправити повідомлення. Спробуйте пізніше')
             })
 
     except Exception as e:
         cart_logger.error(f"Error processing contact manager request: {e}", exc_info=True)
         return JsonResponse({
             'success': False,
-            'error': 'Сталася помилка. Спробуйте ще раз'
+            'error': _('Сталася помилка. Спробуйте ще раз')
         })
 
 
@@ -1701,14 +1704,14 @@ def _lookup_rate_limited_response() -> JsonResponse:
     return JsonResponse(
         {
             'ok': False,
-            'error': 'Забагато запитів. Спробуйте ще раз за хвилину.',
+            'error': _('Забагато запитів. Спробуйте ще раз за хвилину.'),
         },
         status=429,
     )
 
 
 def _message_for_delivery_selection_error(exc: NovaPoshtaSelectionError) -> str:
-    return exc.message or 'Оберіть коректні дані доставки зі списку Нової пошти.'
+    return exc.message or _('Оберіть коректні дані доставки зі списку Нової пошти.')
 
 
 @require_GET
@@ -1740,7 +1743,7 @@ def nova_poshta_city_search(request):
         return JsonResponse(
             {
                 'ok': False,
-                'error': 'Не вдалося отримати список міст Нової пошти.',
+                'error': _('Не вдалося отримати список міст Нової пошти.'),
             },
             status=502,
         )
@@ -1764,7 +1767,7 @@ def nova_poshta_warehouse_search(request):
         return JsonResponse(
             {
                 'ok': False,
-                'error': 'Спочатку оберіть місто зі списку Нової пошти.',
+                'error': _('Спочатку оберіть місто зі списку Нової пошти.'),
             },
             status=400,
         )
@@ -1797,7 +1800,7 @@ def nova_poshta_warehouse_search(request):
         return JsonResponse(
             {
                 'ok': False,
-                'error': 'Не вдалося отримати список відділень Нової пошти.',
+                'error': _('Не вдалося отримати список відділень Нової пошти.'),
             },
             status=502,
         )

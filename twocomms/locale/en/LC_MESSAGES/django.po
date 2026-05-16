@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-05-16 11:40+0300\n"
+"POT-Creation-Date: 2026-05-16 12:57+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -122,7 +122,7 @@ msgstr "Telegram"
 msgid "Резервний Telegram"
 msgstr ""
 
-#: management/forms.py:85 storefront/support_content.py:168 storefront/support_content.py:224 storefront/support_content.py:685 storefront/support_content.py:695 storefront/support_content.py:713 storefront/support_content.py:738 storefront/support_content.py:767 twocomms_django_theme/templates/pages/catalog.html:74 twocomms_django_theme/templates/pages/catalog.html:111 twocomms_django_theme/templates/pages/catalog.html:148 twocomms_django_theme/templates/pages/catalog.html:152 twocomms_django_theme/templates/pages/catalog.html:179 twocomms_django_theme/templates/pages/pro_brand.html:1757 twocomms_django_theme/templates/partials/footer.html:120 twocomms_django_theme/templates/partials/header.html:15 twocomms_django_theme/templates/partials/header.html:396
+#: management/forms.py:85 storefront/support_content.py:168 storefront/support_content.py:224 storefront/support_content.py:685 storefront/support_content.py:695 storefront/support_content.py:713 storefront/support_content.py:738 storefront/support_content.py:767 storefront/templatetags/seo_tags.py:274 storefront/views/catalog.py:888 storefront/views/product.py:431 twocomms_django_theme/templates/pages/catalog.html:74 twocomms_django_theme/templates/pages/catalog.html:111 twocomms_django_theme/templates/pages/catalog.html:148 twocomms_django_theme/templates/pages/catalog.html:152 twocomms_django_theme/templates/pages/catalog.html:179 twocomms_django_theme/templates/pages/pro_brand.html:1757 twocomms_django_theme/templates/partials/footer.html:120 twocomms_django_theme/templates/partials/header.html:15 twocomms_django_theme/templates/partials/header.html:396
 msgid "Каталог"
 msgstr "Catalog"
 
@@ -187,7 +187,7 @@ msgstr ""
 msgid "Власник"
 msgstr ""
 
-#: management/models.py:119 management/models.py:135 management/models.py:1108
+#: management/models.py:119 management/models.py:135 management/models.py:1108 orders/models.py:79
 msgid "Інше"
 msgstr "Other"
 
@@ -487,7 +487,7 @@ msgstr "Paused"
 msgid "Зупинено"
 msgstr "Stopped"
 
-#: management/models.py:326
+#: management/models.py:326 storefront/models.py:1170
 msgid "Завершено"
 msgstr "Finished"
 
@@ -639,7 +639,7 @@ msgstr ""
 msgid "Результати парсингу"
 msgstr ""
 
-#: management/models.py:474 management/models.py:2094 twocomms_django_theme/templates/pages/my_promocodes.html:36
+#: management/models.py:474 management/models.py:2094 storefront/models.py:946 twocomms_django_theme/templates/pages/my_promocodes.html:36
 msgid "Активний"
 msgstr "Active"
 
@@ -671,7 +671,7 @@ msgstr "Report"
 msgid "Звіти"
 msgstr "Reports"
 
-#: management/models.py:559 management/models.py:1081 management/models.py:1180
+#: management/models.py:559 management/models.py:1081 management/models.py:1180 storefront/models.py:1094 storefront/models.py:1140
 msgid "Користувач"
 msgstr "User"
 
@@ -1059,9 +1059,9 @@ msgstr "Who is it (if different)"
 msgid "Основний"
 msgstr ""
 
-#: management/models.py:937
+#: management/models.py:937 storefront/models.py:861
 msgid "Порядок"
-msgstr ""
+msgstr "Order"
 
 #: management/models.py:940
 msgid "Контакт магазину"
@@ -1155,7 +1155,7 @@ msgstr "Category"
 msgid "Розмір"
 msgstr "Size"
 
-#: management/models.py:1044 storefront/models.py:142 twocomms_django_theme/templates/pages/custom_print.html:304 twocomms_django_theme/templates/pages/product_detail.html:333 twocomms_django_theme/templates/pages/product_detail.html:335 twocomms_django_theme/templates/pages/product_detail.html:346 twocomms_django_theme/templates/pages/product_detail.html:349 twocomms_django_theme/templates/pages/product_detail_new.html:167 twocomms_django_theme/templates/partials/mini_cart.html:76 twocomms_django_theme/templates/partials/product_card.html:83
+#: management/models.py:1044 storefront/models.py:142 storefront/seo_utils.py:845 storefront/seo_utils.py:851 storefront/seo_utils.py:857 twocomms_django_theme/templates/pages/custom_print.html:304 twocomms_django_theme/templates/pages/product_detail.html:333 twocomms_django_theme/templates/pages/product_detail.html:335 twocomms_django_theme/templates/pages/product_detail.html:346 twocomms_django_theme/templates/pages/product_detail.html:349 twocomms_django_theme/templates/pages/product_detail_new.html:167 twocomms_django_theme/templates/partials/mini_cart.html:76 twocomms_django_theme/templates/partials/product_card.html:83
 msgid "Колір"
 msgstr "Color"
 
@@ -1211,7 +1211,7 @@ msgstr "Completed"
 msgid "Перенесено"
 msgstr "Rescheduled"
 
-#: management/models.py:1114
+#: management/models.py:1114 orders/models.py:16
 msgid "Скасовано"
 msgstr "Cancelled"
 
@@ -1219,7 +1219,7 @@ msgstr "Cancelled"
 msgid "Пропущено"
 msgstr ""
 
-#: management/models.py:1130
+#: management/models.py:1130 storefront/models.py:863 storefront/models.py:885 storefront/models.py:947 storefront/models.py:1151
 msgid "Створено"
 msgstr "Created"
 
@@ -1287,7 +1287,7 @@ msgstr ""
 msgid "Коли приховано"
 msgstr ""
 
-#: management/models.py:1184 management/models.py:2122
+#: management/models.py:1184 management/models.py:2122 storefront/models.py:1150
 msgid "Діє до"
 msgstr "Valid until"
 
@@ -1667,7 +1667,7 @@ msgstr ""
 msgid "Підтверджено"
 msgstr "Confirmed"
 
-#: management/models.py:1554 management/models.py:1668 management/models.py:2418 twocomms_django_theme/templates/pages/my_reviews.html:122 twocomms_django_theme/templates/pages/my_reviews.html:137
+#: management/models.py:1554 management/models.py:1668 management/models.py:2418 storefront/models.py:234 twocomms_django_theme/templates/pages/my_reviews.html:122 twocomms_django_theme/templates/pages/my_reviews.html:137
 msgid "Відхилено"
 msgstr "Rejected"
 
@@ -1723,9 +1723,9 @@ msgstr ""
 msgid "База (грн)"
 msgstr ""
 
-#: management/models.py:1640
+#: management/models.py:1640 storefront/models.py:902
 msgid "Відсоток"
-msgstr ""
+msgstr "Percentage"
 
 #: management/models.py:1641
 msgid "Нараховано (грн)"
@@ -1755,11 +1755,11 @@ msgstr ""
 msgid "Нарахування менеджера"
 msgstr ""
 
-#: management/models.py:1666 twocomms_django_theme/templates/pages/my_orders.html:175
+#: management/models.py:1666 orders/models.py:12 twocomms_django_theme/templates/pages/my_orders.html:175
 msgid "В обробці"
 msgstr "Processing"
 
-#: management/models.py:1667
+#: management/models.py:1667 storefront/models.py:233
 msgid "Схвалено"
 msgstr "Approved"
 
@@ -2171,9 +2171,9 @@ msgstr ""
 msgid "Коли"
 msgstr "When"
 
-#: management/models.py:2224
+#: management/models.py:2224 storefront/models.py:1149
 msgid "Джерело"
-msgstr ""
+msgstr "Source"
 
 #: management/models.py:2230
 msgid "Подія follow-up"
@@ -2314,6 +2314,86 @@ msgstr ""
 #: management/models.py:2453
 msgid "Поправки до score"
 msgstr ""
+
+#: orders/models.py:13
+msgid "Готується до відправлення"
+msgstr "Preparing for shipment"
+
+#: orders/models.py:14 twocomms_django_theme/templates/pages/my_orders.html:197
+msgid "Відправлено"
+msgstr "Shipped"
+
+#: orders/models.py:15 twocomms_django_theme/templates/pages/my_orders.html:68 twocomms_django_theme/templates/pages/my_orders.html:208
+msgid "Отримано"
+msgstr "Received"
+
+#: orders/models.py:20 twocomms_django_theme/templates/pages/cart.html:459 twocomms_django_theme/templates/pages/cart.html:605 twocomms_django_theme/templates/pages/my_orders.html:359 twocomms_django_theme/templates/pages/order_success.html:1483 twocomms_django_theme/templates/pages/order_success.html:1576
+msgid "Онлайн оплата (повна сума)"
+msgstr "Online payment (full amount)"
+
+#: orders/models.py:21 twocomms_django_theme/templates/pages/my_orders.html:361 twocomms_django_theme/templates/pages/order_success.html:1481
+msgid "Передплата 200 грн"
+msgstr "Prepayment 200 UAH"
+
+#: orders/models.py:22 twocomms_django_theme/templates/pages/my_orders.html:363 twocomms_django_theme/templates/pages/order_success.html:1485
+msgid "Оплата при отриманні"
+msgstr "Cash on delivery"
+
+#: orders/models.py:24 twocomms_django_theme/templates/pages/my_orders.html:414
+msgid "Повна оплата"
+msgstr "Full payment"
+
+#: orders/models.py:25 twocomms_django_theme/templates/pages/my_orders.html:405
+msgid "Часткова оплата"
+msgstr "Partial payment"
+
+#: orders/models.py:29 twocomms_django_theme/templates/pages/my_orders.html:382
+msgid "Не оплачено"
+msgstr "Not paid"
+
+#: orders/models.py:30 twocomms_django_theme/templates/pages/my_orders.html:380
+msgid "На перевірці"
+msgstr "Under review"
+
+#: orders/models.py:31 twocomms_django_theme/templates/pages/my_orders.html:378
+msgid "Внесена передплата"
+msgstr "Prepayment received"
+
+#: orders/models.py:32 twocomms_django_theme/templates/pages/my_orders.html:376
+msgid "Оплачено повністю"
+msgstr "Paid in full"
+
+#: orders/models.py:34
+msgid "Внесена передплата (старе)"
+msgstr "Prepayment received (legacy)"
+
+#: orders/models.py:73
+msgid "Немає товару"
+msgstr "Out of stock"
+
+#: orders/models.py:74
+msgid "Немає принта"
+msgstr "No print"
+
+#: orders/models.py:75
+msgid "Фейковий номер"
+msgstr "Fake number"
+
+#: orders/models.py:76
+msgid "Не виходить на зв’язок"
+msgstr "Unreachable"
+
+#: orders/models.py:77
+msgid "Передумав"
+msgstr "Changed mind"
+
+#: orders/models.py:78
+msgid "Не влаштувала передоплата"
+msgstr "Prepayment unacceptable"
+
+#: orders/models.py:81
+msgid "Причина скасування"
+msgstr "Cancellation reason"
 
 #: storefront/custom_print_config.py:15 twocomms_django_theme/templates/pages/custom_print.html:749
 msgid "Подарункова упаковка"
@@ -2539,13 +2619,17 @@ msgstr "Send a photo or a description — the manager will quote it manually."
 msgid "Головне тут: опис виробу, зони і чітке формулювання задачі."
 msgstr "What matters here: a description of the item, the print zones and a clear brief."
 
-#: storefront/models.py:141 twocomms_django_theme/templates/pages/custom_print.html:325
+#: storefront/models.py:141 storefront/seo_utils.py:688 twocomms_django_theme/templates/pages/custom_print.html:325
 msgid "Матеріал"
 msgstr "Material"
 
 #: storefront/models.py:143
 msgid "Кастомна опція"
 msgstr "Custom option"
+
+#: storefront/models.py:232
+msgid "На розгляді"
+msgstr "Pending"
 
 #: storefront/models.py:262
 msgid "Нова"
@@ -2591,7 +2675,7 @@ msgstr "Mix"
 msgid "Чернетка"
 msgstr "Draft"
 
-#: storefront/models.py:304 twocomms_django_theme/templates/pages/cart.html:115
+#: storefront/models.py:304 storefront/views/cart.py:168 storefront/views/cart.py:171 twocomms_django_theme/templates/pages/cart.html:115
 msgid "На перевірці менеджера"
 msgstr "Under manager review"
 
@@ -2599,7 +2683,7 @@ msgstr "Under manager review"
 msgid "Погоджено — оплата доступна"
 msgstr "Approved — payment available"
 
-#: storefront/models.py:306
+#: storefront/models.py:306 storefront/views/cart.py:170
 msgid "Відхилено менеджером"
 msgstr "Declined by manager"
 
@@ -2622,6 +2706,192 @@ msgstr "Published"
 #: storefront/models.py:507
 msgid "Архів"
 msgstr "Archive"
+
+#: storefront/models.py:859
+msgid "Питання"
+msgstr "Question"
+
+#: storefront/models.py:860
+msgid "Відповідь"
+msgstr "Answer"
+
+#: storefront/models.py:862
+msgid "Активне"
+msgstr "Active"
+
+#: storefront/models.py:864 storefront/models.py:886 storefront/models.py:948
+msgid "Оновлено"
+msgstr "Updated"
+
+#: storefront/models.py:867 twocomms_django_theme/templates/pages/product_detail.html:398
+msgid "FAQ товару"
+msgstr "Product FAQ"
+
+#: storefront/models.py:868
+msgid "FAQ товарів"
+msgstr "Product FAQs"
+
+#: storefront/models.py:881
+msgid "Назва групи"
+msgstr "Group name"
+
+#: storefront/models.py:882
+msgid "Опис групи"
+msgstr "Group description"
+
+#: storefront/models.py:883
+msgid "Один промокод на акаунт з групи"
+msgstr "One promo code per account from the group"
+
+#: storefront/models.py:884
+msgid "Активна"
+msgstr "Active"
+
+#: storefront/models.py:889
+msgid "Група промокодів"
+msgstr "Promo code group"
+
+#: storefront/models.py:890
+msgid "Групи промокодів"
+msgstr "Promo code groups"
+
+#: storefront/models.py:903
+msgid "Фіксована сума"
+msgstr "Fixed amount"
+
+#: storefront/models.py:907
+msgid "Звичайний промокод"
+msgstr "Regular promo code"
+
+#: storefront/models.py:908
+msgid "Ваучер (фіксована сума)"
+msgstr "Voucher (fixed amount)"
+
+#: storefront/models.py:909
+msgid "Груповий промокод"
+msgstr "Grouped promo code"
+
+#: storefront/models.py:913
+msgid "Код промокоду"
+msgstr "Promo code"
+
+#: storefront/models.py:914
+msgid "Тип промокоду"
+msgstr "Promo code type"
+
+#: storefront/models.py:915
+msgid "Тип знижки"
+msgstr "Discount type"
+
+#: storefront/models.py:916
+msgid "Значення знижки"
+msgstr "Discount value"
+
+#: storefront/models.py:917 twocomms_django_theme/templates/pages/product_detail.html:393 twocomms_django_theme/templates/pages/product_detail_new.html:279
+msgid "Опис"
+msgstr "Description"
+
+#: storefront/models.py:926 storefront/models.py:1108
+msgid "Група"
+msgstr "Group"
+
+#: storefront/models.py:930
+msgid "Максимальна кількість використань (0 = безліміт)"
+msgstr "Max uses (0 = unlimited)"
+
+#: storefront/models.py:931
+msgid "Поточна кількість використань"
+msgstr "Current uses"
+
+#: storefront/models.py:932
+msgid "Одноразове використання на користувача"
+msgstr "Single use per user"
+
+#: storefront/models.py:938
+msgid "Мінімальна сума замовлення"
+msgstr "Minimum order amount"
+
+#: storefront/models.py:942
+msgid "Дійсний з"
+msgstr "Valid from"
+
+#: storefront/models.py:943
+msgid "Дійсний до"
+msgstr "Valid until"
+
+#: storefront/models.py:951 storefront/models.py:962 storefront/models.py:1100 storefront/models.py:1146 twocomms_django_theme/templates/pages/cart.html:642 twocomms_django_theme/templates/pages/cart.html:750
+msgid "Промокод"
+msgstr "Promo code"
+
+#: storefront/models.py:952
+msgid "Промокоди"
+msgstr "Promo codes"
+
+#: storefront/models.py:970
+#, python-format
+msgid "%(value)s грн"
+msgstr "%(value)s UAH"
+
+#: storefront/models.py:994 storefront/views/cart.py:1111
+msgid "Промокоди доступні тільки для зареєстрованих користувачів"
+msgstr "Promo codes are available only for registered users"
+
+#: storefront/models.py:998
+msgid "Промокод неактивний"
+msgstr "Promo code is inactive"
+
+#: storefront/models.py:1000
+msgid "Промокод недійсний за часом"
+msgstr "Promo code is out of date range"
+
+#: storefront/models.py:1002
+msgid "Промокод вичерпано"
+msgstr "Promo code is exhausted"
+
+#: storefront/models.py:1003
+msgid "Промокод неактивний або вичерпаний"
+msgstr "Promo code is inactive or exhausted"
+
+#: storefront/models.py:1008
+msgid "Ви вже використали цей промокод"
+msgstr "You have already used this promo code"
+
+#: storefront/models.py:1014
+#, python-format
+msgid "Ви вже використали промокод з групи \"%(group)s\""
+msgstr "You have already used a promo code from group \"%(group)s\""
+
+#: storefront/models.py:1116
+msgid "Замовлення"
+msgstr "Order"
+
+#: storefront/models.py:1118 twocomms_django_theme/templates/pages/my_promocodes.html:106
+msgid "Використано"
+msgstr "Used"
+
+#: storefront/models.py:1121
+msgid "Використання промокоду"
+msgstr "Promo code usage"
+
+#: storefront/models.py:1122
+msgid "Використання промокодів"
+msgstr "Promo code usages"
+
+#: storefront/models.py:1148
+msgid "Ключ опитування"
+msgstr "Survey key"
+
+#: storefront/models.py:1154
+msgid "Промокод користувача"
+msgstr "User promo code"
+
+#: storefront/models.py:1155
+msgid "Промокоди користувача"
+msgstr "User promo codes"
+
+#: storefront/models.py:1169
+msgid "В процесі"
+msgstr "In progress"
 
 #: storefront/models.py:1704
 msgid "Desktop"
@@ -2662,6 +2932,61 @@ msgstr "Click"
 #: storefront/models.py:1919
 msgid "Недійсна підписка"
 msgstr "Invalid subscription"
+
+#: storefront/seo_utils.py:683 storefront/seo_utils.py:696 storefront/support_content.py:321 twocomms_django_theme/templates/pages/contacts.html:48
+msgid "Україна"
+msgstr "Ukraine"
+
+#: storefront/seo_utils.py:695
+msgid "Країна виробництва"
+msgstr "Country of origin"
+
+#: storefront/seo_utils.py:700
+msgid "Стиль"
+msgstr "Style"
+
+#: storefront/seo_utils.py:701
+msgid "Стріт & Мілітарі"
+msgstr "Street & military"
+
+#: storefront/seo_utils.py:738 twocomms_django_theme/templates/pages/pro_brand.html:1302
+msgid "Харків"
+msgstr "Kharkiv"
+
+#: storefront/seo_utils.py:852 storefront/seo_utils.py:858
+msgid "Різні кольори"
+msgstr "Various colors"
+
+#: storefront/seo_utils.py:867
+msgid "Розміри"
+msgstr "Sizes"
+
+#: storefront/seo_utils.py:995 twocomms_django_theme/templates/pages/pro_brand.html:54
+msgid "TwoComms — український streetwear / military-adjacent бренд одягу з Харкова, створений навколо ідеї продовження після критичної точки: не крапка, а продовження."
+msgstr "TwoComms is a Ukrainian streetwear / military-adjacent apparel brand from Kharkiv, built around the idea of continuation after a critical point: not a period, a continuation."
+
+#: storefront/seo_utils.py:1025
+msgid "Магазин стріт & мілітарі одягу з ексклюзивним дизайном"
+msgstr "Street & military apparel store with exclusive design"
+
+#: storefront/services/catalog_helpers.py:98
+msgid "Товар TwoComms"
+msgstr "TwoComms product"
+
+#: storefront/services/catalog_helpers.py:103
+#, python-format
+msgid "%(title)s — головне фото товару TwoComms"
+msgstr "%(title)s — main TwoComms product photo"
+
+#: storefront/services/catalog_helpers.py:105
+#, python-format
+msgid "%(title)s — %(color)s — фото%(number)s TwoComms"
+msgstr "%(title)s — %(color)s — photo%(number)s TwoComms"
+
+#: storefront/services/catalog_helpers.py:108
+#, python-format
+msgid "%(title)s — фото%(number)s TwoComms"
+msgstr "%(title)s — photo%(number)s TwoComms"
 
 #: storefront/services/color_seo_copy.py:521
 msgid "вибраний"
@@ -3225,7 +3550,7 @@ msgstr "Shopping"
 msgid "Доставка і оплата"
 msgstr "Delivery & payment"
 
-#: storefront/support_content.py:170 storefront/support_content.py:450 storefront/support_content.py:696 twocomms_django_theme/templates/pages/pro_brand.html:1760 twocomms_django_theme/templates/partials/footer.html:122
+#: storefront/support_content.py:170 storefront/support_content.py:450 storefront/support_content.py:696 storefront/views/static_pages.py:1014 storefront/views/static_pages.py:1017 twocomms_django_theme/templates/pages/pro_brand.html:1760 twocomms_django_theme/templates/partials/footer.html:122
 msgid "Кастомний принт"
 msgstr "Custom print"
 
@@ -3253,7 +3578,7 @@ msgstr "Garment care"
 msgid "Бренд"
 msgstr "Brand"
 
-#: storefront/support_content.py:186 storefront/support_content.py:739 twocomms_django_theme/templates/partials/footer.html:138 twocomms_django_theme/templates/partials/header.html:18
+#: storefront/support_content.py:186 storefront/support_content.py:739 storefront/views/static_pages.py:909 storefront/views/static_pages.py:916 twocomms_django_theme/templates/partials/footer.html:138 twocomms_django_theme/templates/partials/header.html:18
 msgid "Про бренд"
 msgstr "About the brand"
 
@@ -3468,10 +3793,6 @@ msgstr "FAQ"
 #: storefront/support_content.py:315
 msgid "Купити футболку"
 msgstr "Buy a t-shirt"
-
-#: storefront/support_content.py:321 twocomms_django_theme/templates/pages/contacts.html:48
-msgid "Україна"
-msgstr "Ukraine"
 
 #: storefront/support_content.py:322
 msgid "Базовий сценарій доставки"
@@ -4033,7 +4354,7 @@ msgstr "A human-friendly site map that doesn't duplicate the content of support 
 msgid "Основні розділи магазину"
 msgstr "Main store sections"
 
-#: storefront/support_content.py:694 storefront/support_content.py:740 storefront/support_content.py:768 storefront/views/legacy_stubs.py:114 storefront/views/legacy_stubs.py:133 storefront/views/static_pages.py:734 twocomms_django_theme/templates/pages/catalog.html:73 twocomms_django_theme/templates/pages/catalog.html:110 twocomms_django_theme/templates/pages/catalog.html:145 twocomms_django_theme/templates/partials/header.html:386
+#: storefront/support_content.py:694 storefront/support_content.py:740 storefront/support_content.py:768 storefront/templatetags/seo_tags.py:257 storefront/views/catalog.py:887 storefront/views/legacy_stubs.py:114 storefront/views/legacy_stubs.py:133 storefront/views/product.py:430 storefront/views/static_pages.py:734 storefront/views/static_pages.py:908 storefront/views/static_pages.py:1013 twocomms_django_theme/templates/pages/catalog.html:73 twocomms_django_theme/templates/pages/catalog.html:110 twocomms_django_theme/templates/pages/catalog.html:145 twocomms_django_theme/templates/partials/header.html:386
 msgid "Головна"
 msgstr "Home"
 
@@ -4397,6 +4718,313 @@ msgstr "Russian"
 msgid "English"
 msgstr "English"
 
+#: storefront/templatetags/seo_alt_tags.py:63
+#, python-format
+msgid "%(title)s - %(color)s %(type)s - фото%(num)s TwoComms"
+msgstr "%(title)s — %(color)s %(type)s — photo%(num)s TwoComms"
+
+#: storefront/templatetags/seo_alt_tags.py:68
+#, python-format
+msgid "%(title)s - %(color)s %(type)s - мініатюра TwoComms"
+msgstr "%(title)s — %(color)s %(type)s — thumbnail TwoComms"
+
+#: storefront/templatetags/seo_alt_tags.py:83
+#, python-format
+msgid "%(name)s іконка - TwoComms"
+msgstr "%(name)s icon — TwoComms"
+
+#: storefront/templatetags/seo_alt_tags.py:85
+#, python-format
+msgid "%(name)s категорія - TwoComms магазин"
+msgstr "%(name)s category — TwoComms store"
+
+#: storefront/templatetags/seo_alt_tags.py:95 storefront/templatetags/seo_alt_tags.py:101
+msgid "TwoComms логотип - стріт & мілітарі одяг"
+msgstr "TwoComms logo — street & military apparel"
+
+#: storefront/templatetags/seo_alt_tags.py:97 twocomms_django_theme/templates/pages/index.html:330 twocomms_django_theme/templates/pages/index.html:336 twocomms_django_theme/templates/pages/index.html:339 twocomms_django_theme/templates/pages/index.html:342 twocomms_django_theme/templates/pages/order_success.html:1591 twocomms_django_theme/templates/pages/order_success.html:1594 twocomms_django_theme/templates/pages/order_success.html:1597 twocomms_django_theme/templates/pages/order_success.html:1600 twocomms_django_theme/templates/pages/order_success.html:1603 twocomms_django_theme/templates/pages/wholesale.html:2343 twocomms_django_theme/templates/pages/wholesale.html:2349 twocomms_django_theme/templates/pages/wholesale.html:2352 twocomms_django_theme/templates/pages/wholesale.html:2355 twocomms_django_theme/templates/pages/wholesale.html:2624 twocomms_django_theme/templates/pages/wholesale.html:2630 twocomms_django_theme/templates/pages/wholesale.html:2633 twocomms_django_theme/templates/pages/wholesale.html:2636
+msgid "TwoComms логотип"
+msgstr "TwoComms logo"
+
+#: storefront/templatetags/seo_alt_tags.py:99 twocomms_django_theme/templates/pages/wholesale.html:2346 twocomms_django_theme/templates/pages/wholesale.html:2627
+msgid "TwoComms логотип - декоративний"
+msgstr "TwoComms logo — decorative"
+
+#: storefront/templatetags/seo_alt_tags.py:107
+#, python-format
+msgid "Аватар користувача %(name)s - TwoComms"
+msgstr "User avatar %(name)s — TwoComms"
+
+#: storefront/templatetags/seo_alt_tags.py:109 twocomms_django_theme/templates/pages/auth_profile_setup.html:70
+msgid "Аватар користувача - TwoComms"
+msgstr "User avatar - TwoComms"
+
+#: storefront/templatetags/seo_alt_tags.py:114
+#, python-format
+msgid "Вхід через %(network)s - TwoComms"
+msgstr "Sign in via %(network)s — TwoComms"
+
+#: storefront/templatetags/seo_alt_tags.py:227
+msgid "соціальна мережа"
+msgstr "social network"
+
+#: storefront/templatetags/seo_alt_tags.py:232 storefront/templatetags/seo_alt_tags.py:239
+msgid "Зображення TwoComms"
+msgstr "TwoComms image"
+
+#: storefront/templatetags/seo_alt_tags.py:253
+#, python-format
+msgid "%(text)s - TwoComms"
+msgstr "%(text)s — TwoComms"
+
+#: storefront/templatetags/seo_tags.py:56 storefront/templatetags/seo_tags.py:59 storefront/templatetags/seo_tags.py:60 storefront/templatetags/seo_tags.py:140 storefront/templatetags/seo_tags.py:143 storefront/templatetags/seo_tags.py:146 twocomms_django_theme/templates/base.html:71 twocomms_django_theme/templates/base.html:131 twocomms_django_theme/templates/base.html:198
+msgid "TwoComms — Стріт & Мілітарі Одяг"
+msgstr "TwoComms — Street & Military Apparel"
+
+#: storefront/templatetags/seo_tags.py:68 storefront/templatetags/seo_tags.py:71 storefront/templatetags/seo_tags.py:72
+msgid "TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном."
+msgstr "TwoComms — street & military apparel store with exclusive design."
+
+#: storefront/templatetags/seo_tags.py:80 storefront/templatetags/seo_tags.py:83 storefront/templatetags/seo_tags.py:84
+msgid "стріт одяг, мілітарі одяг, TwoComms"
+msgstr "street apparel, military apparel, TwoComms"
+
+#: storefront/templatetags/seo_tags.py:141 twocomms_django_theme/templates/base.html:97 twocomms_django_theme/templates/base.html:133 twocomms_django_theme/templates/base.html:200
+msgid "TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю."
+msgstr "TwoComms — street & military apparel store with exclusive design. T-shirts, hoodies, longsleeves with character. Quality apparel for modern style."
+
+#: storefront/templatetags/seo_tags.py:142
+msgid "стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг"
+msgstr "street apparel, military apparel, t-shirts, hoodies, longsleeves, TwoComms, exclusive design, quality clothing"
+
+#: storefront/templatetags/seo_tags.py:144 storefront/templatetags/seo_tags.py:147
+msgid "TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером."
+msgstr "TwoComms — street & military apparel store with exclusive design. T-shirts, hoodies, longsleeves with character."
+
+#: storefront/views/api.py:368
+msgid "Товар доступний"
+msgstr "Product is available"
+
+#: storefront/views/api.py:374 storefront/views/api.py:421 storefront/views/cart.py:881
+msgid "Товар не знайдено"
+msgstr "Product not found"
+
+#: storefront/views/api.py:445
+msgid "Email обов'язковий"
+msgstr "Email is required"
+
+#: storefront/views/api.py:453
+msgid "Дякуємо за підписку!"
+msgstr "Thanks for subscribing!"
+
+#: storefront/views/api.py:489
+msgid "Всі поля обов'язкові"
+msgstr "All fields are required"
+
+#: storefront/views/api.py:496
+msgid "Ваше повідомлення надіслано!"
+msgstr "Your message has been sent!"
+
+#: storefront/views/auth.py:76
+msgid "Логін повинен містити мінімум 3 символи"
+msgstr "Login must contain at least 3 characters"
+
+#: storefront/views/auth.py:80
+msgid "Логін може містити тільки латинські літери, цифри та символи ._-"
+msgstr "Login may contain only Latin letters, digits, and ._- characters"
+
+#: storefront/views/auth.py:92
+msgid "Паролі не співпадають"
+msgstr "Passwords do not match"
+
+#: storefront/views/auth.py:217
+msgid "Для УБД додайте фото посвідчення"
+msgstr "For UBD, please attach a photo of the certificate"
+
+#: storefront/views/auth.py:243 storefront/views/profile.py:131
+msgid "Введіть коректний український номер телефону. Можна без +380."
+msgstr ""
+
+#: storefront/views/auth.py:308
+msgid "Невірний логін або пароль"
+msgstr "Wrong login or password"
+
+#: storefront/views/auth.py:339
+msgid "Користувач з таким логіном вже існує"
+msgstr "A user with this login already exists"
+
+#: storefront/views/auth.py:390
+msgid "Пароль занадто короткий. Мінімум 8 символів."
+msgstr "Password is too short. At least 8 characters."
+
+#: storefront/views/auth.py:391
+msgid "Цей пароль занадто простий. Оберіть складніший пароль."
+msgstr "This password is too common. Choose a stronger password."
+
+#: storefront/views/auth.py:392
+msgid "Пароль не може складатися лише з цифр."
+msgstr "Password cannot be entirely numeric."
+
+#: storefront/views/auth.py:393
+msgid "Пароль занадто схожий на логін."
+msgstr "Password is too similar to the login."
+
+#: storefront/views/auth.py:411
+msgid "Виникла помилка при реєстрації. Спробуйте ще раз або зверніться до підтримки."
+msgstr "An error occurred during registration. Try again or contact support."
+
+#: storefront/views/cart.py:167 twocomms_django_theme/templates/pages/cart.html:115
+msgid "Передаємо менеджеру на перевірку"
+msgstr "Sending to the manager for review"
+
+#: storefront/views/cart.py:169 twocomms_django_theme/templates/pages/my_orders.html:312
+msgid "Погоджено менеджером"
+msgstr "Approved by the manager"
+
+#: storefront/views/cart.py:275
+msgid "Кастомний виріб"
+msgstr "Custom product"
+
+#: storefront/views/cart.py:312
+msgid "Орієнтовна ціна"
+msgstr "Estimated price"
+
+#: storefront/views/cart.py:312
+msgid "Фінальна ціна"
+msgstr "Final price"
+
+#: storefront/views/cart.py:312 twocomms_django_theme/templates/partials/category_seo_blocks.html:35
+msgid "Ціна"
+msgstr "Price"
+
+#: storefront/views/cart.py:313
+msgid "Не входить до оплати зараз"
+msgstr "Not included in this payment"
+
+#: storefront/views/cart.py:313
+msgid "Додано до рахунку"
+msgstr "Added to invoice"
+
+#: storefront/views/cart.py:314
+msgid "Ціна узгоджується після модерації"
+msgstr "Price is set after moderation"
+
+#: storefront/views/cart.py:464 storefront/views/checkout.py:114
+msgid "Вкажіть коректний український номер телефону. Можна без +380."
+msgstr "Enter a valid Ukrainian phone number. With or without +380."
+
+#: storefront/views/cart.py:493
+msgid "Дані доставки успішно оновлено!"
+msgstr "Delivery details successfully updated!"
+
+#: storefront/views/cart.py:498
+msgid "Помилка при збереженні даних. Спробуйте ще раз."
+msgstr "Error saving data. Please try again."
+
+#: storefront/views/cart.py:500
+msgid "Будь ласка, увійдіть, щоб зберегти дані доставки."
+msgstr "Please sign in to save delivery details."
+
+#: storefront/views/cart.py:676
+msgid "Кастомну позицію відхилено менеджером — її видалено з кошика. За потреби ви можете створити нову заявку."
+msgstr "The custom item was rejected by the manager and removed from the cart. You can create a new request if needed."
+
+#: storefront/views/cart.py:858
+msgid "Кількість має бути не менше 1"
+msgstr "Quantity must be at least 1"
+
+#: storefront/views/cart.py:866
+msgid "Товар не знайдено у кошику"
+msgstr "Item not found in cart"
+
+#: storefront/views/cart.py:1094
+msgid "Введіть промокод"
+msgstr "Enter a promo code"
+
+#: storefront/views/cart.py:1103
+msgid "Промокод не знайдено"
+msgstr "Promo code not found"
+
+#: storefront/views/cart.py:1112
+msgid "Будь ласка, увійдіть в акаунт або зареєструйтесь, щоб використати промокод"
+msgstr "Please sign in or sign up to use a promo code"
+
+#: storefront/views/cart.py:1135
+#, python-format
+msgid "Мінімальна сума замовлення для цього промокоду: %(amount)s грн"
+msgstr "Minimum order amount for this promo code: %(amount)s UAH"
+
+#: storefront/views/cart.py:1139
+msgid "Промокод не застосовується до цього замовлення"
+msgstr "Promo code does not apply to this order"
+
+#: storefront/views/cart.py:1162
+#, python-format
+msgid "Промокод застосовано! Знижка: %(discount)s грн"
+msgstr "Promo code applied! Discount: %(discount)s UAH"
+
+#: storefront/views/cart.py:1165
+#, python-format
+msgid "Ваучер застосовано! Знижка: %(discount)s грн"
+msgstr "Voucher applied! Discount: %(discount)s UAH"
+
+#: storefront/views/cart.py:1167
+#, python-format
+msgid "Промокод з групи \"%(group)s\" застосовано! Знижка: %(discount)s грн"
+msgstr "Promo code from group \"%(group)s\" applied! Discount: %(discount)s UAH"
+
+#: storefront/views/cart.py:1193
+msgid "Помилка при застосуванні промокоду"
+msgstr "Error applying promo code"
+
+#: storefront/views/cart.py:1228
+msgid "Промокод видалено"
+msgstr "Promo code removed"
+
+#: storefront/views/cart.py:1239
+msgid "Помилка при видаленні промокоду"
+msgstr "Error removing promo code"
+
+#: storefront/views/cart.py:1438
+msgid "ПІБ повинно містити мінімум 3 символи"
+msgstr "Full name must contain at least 3 characters"
+
+#: storefront/views/cart.py:1444
+msgid "Введіть коректний номер телефону"
+msgstr "Enter a valid phone number"
+
+#: storefront/views/cart.py:1453 twocomms_django_theme/templates/pages/cart.html:364
+msgid "Кошик порожній"
+msgstr "Cart is empty"
+
+#: storefront/views/cart.py:1512
+msgid "Не вдалося відправити повідомлення. Спробуйте пізніше"
+msgstr "Could not send message. Please try later"
+
+#: storefront/views/cart.py:1519
+msgid "Сталася помилка. Спробуйте ще раз"
+msgstr "An error occurred. Please try again"
+
+#: storefront/views/cart.py:1707
+msgid "Забагато запитів. Спробуйте ще раз за хвилину."
+msgstr "Too many requests. Please try again in a minute."
+
+#: storefront/views/cart.py:1714
+msgid "Оберіть коректні дані доставки зі списку Нової пошти."
+msgstr "Select valid delivery details from the Nova Poshta list."
+
+#: storefront/views/cart.py:1746
+msgid "Не вдалося отримати список міст Нової пошти."
+msgstr "Could not fetch the Nova Poshta city list."
+
+#: storefront/views/cart.py:1770
+msgid "Спочатку оберіть місто зі списку Нової пошти."
+msgstr "First select a city from the Nova Poshta list."
+
+#: storefront/views/cart.py:1803
+msgid "Не вдалося отримати список відділень Нової пошти."
+msgstr "Could not fetch the Nova Poshta warehouse list."
+
 #: storefront/views/catalog.py:68
 msgid "Функціональність. Стиль. Характер."
 msgstr "Functionality. Style. Character."
@@ -4408,6 +5036,26 @@ msgstr "Graphics that speak louder than words."
 #: storefront/views/catalog.py:88
 msgid "Тепло. Захист. Нічого зайвого."
 msgstr "Warmth. Protection. Nothing extra."
+
+#: storefront/views/checkout.py:43
+msgid "Ваш кошик порожній"
+msgstr "Your cart is empty"
+
+#: storefront/views/checkout.py:69
+msgid "Кастомний принт ще очікує на перевірку менеджера. Оплата стане доступною після погодження."
+msgstr "The custom print is still awaiting manager review. Payment will be available after approval."
+
+#: storefront/views/checkout.py:119
+msgid "Будь ласка, заповніть всі обов'язкові поля"
+msgstr "Please fill in all required fields"
+
+#: storefront/views/checkout.py:126
+msgid "Передплата 200 грн недоступна з кастомним принтом. Оберіть повну онлайн-оплату."
+msgstr "200 UAH prepayment is not available with custom print. Choose full online payment."
+
+#: storefront/views/checkout.py:232
+msgid "Сталася помилка при оформленні замовлення. Спробуйте ще раз."
+msgstr "An error occurred while placing the order. Please try again."
 
 #: storefront/views/legacy_stubs.py:75
 msgid "Який мінімальний обсяг оптового замовлення у TwoComms?"
@@ -4464,6 +5112,65 @@ msgstr "Cooperation with TwoComms"
 #: storefront/views/legacy_stubs.py:134
 msgid "Оптові закупівлі та дропшипінг"
 msgstr "Wholesale and dropshipping"
+
+#: storefront/views/profile.py:190
+msgid "Налаштування push-сповіщень оновлено."
+msgstr "Push notification settings updated."
+
+#: storefront/views/profile.py:222
+msgid "Профіль оновлено."
+msgstr "Profile updated."
+
+#: storefront/views/profile.py:427
+msgid "Помилка: "
+msgstr "Error: "
+
+#: storefront/views/profile.py:450
+msgid "Товар вже в обраному"
+msgstr "Item is already in favorites"
+
+#: storefront/views/profile.py:471
+msgid "Товар видалено з обраного"
+msgstr "Item removed from favorites"
+
+#: storefront/views/profile.py:564
+msgid "Пароль успішно змінено"
+msgstr "Password successfully changed"
+
+#: storefront/views/profile.py:721
+msgid "У вас немає балів для покупки"
+msgstr "You have no points to spend"
+
+#: storefront/views/profile.py:733
+msgid "Промокод на знижку 10% успішно придбано! Код: POINTS10"
+msgstr "10% discount promo code successfully purchased! Code: POINTS10"
+
+#: storefront/views/profile.py:736
+#, python-format
+msgid "Помилка при списанні балів: %(error)s"
+msgstr "Error spending points: %(error)s"
+
+#: storefront/views/profile.py:738
+msgid "Недостатньо балів для покупки промокода"
+msgstr "Not enough points to buy a promo code"
+
+#: storefront/views/profile.py:748
+#, python-format
+msgid "Дякуємо за підтримку ЗСУ! Пожертвовано %(points)s балів"
+msgstr "Thank you for supporting AFU! Donated %(points)s points"
+
+#: storefront/views/profile.py:751
+#, python-format
+msgid "Помилка при пожертвуванні: %(error)s"
+msgstr "Error during donation: %(error)s"
+
+#: storefront/views/profile.py:753
+msgid "У вас немає балів для пожертвування"
+msgstr "You have no points to donate"
+
+#: storefront/views/profile.py:756
+msgid "Невідомий товар"
+msgstr "Unknown item"
 
 #: storefront/views/static_pages.py:171
 msgid "Чи можна замовити один кастомний виріб для себе?"
@@ -4553,6 +5260,10 @@ msgstr ""
 #: twocomms_django_theme/templates/404.html:216
 msgid "Повернутися на головну"
 msgstr "Return to home"
+
+#: twocomms_django_theme/templates/base.html:136 twocomms_django_theme/templates/base.html:203 twocomms_django_theme/templates/pages/index.html:15
+msgid "TwoComms — стріт & мілітарі одяг"
+msgstr "TwoComms — street & military apparel"
 
 #: twocomms_django_theme/templates/base.html:1061
 msgid "Перейти до основного вмісту"
@@ -4905,10 +5616,6 @@ msgstr "Points not found"
 msgid "Об'єкт UserPoints не створено для користувача"
 msgstr "UserPoints object not created for user"
 
-#: twocomms_django_theme/templates/pages/auth_profile_setup.html:70
-msgid "Аватар користувача - TwoComms"
-msgstr "User avatar - TwoComms"
-
 #: twocomms_django_theme/templates/pages/auth_profile_setup.html:85
 msgid "Фото профілю"
 msgstr "Profile photo"
@@ -5177,10 +5884,6 @@ msgstr "Your selected items"
 msgid "Кастомний друк"
 msgstr "Custom print"
 
-#: twocomms_django_theme/templates/pages/cart.html:115
-msgid "Передаємо менеджеру на перевірку"
-msgstr "Sending to the manager for review"
-
 #: twocomms_django_theme/templates/pages/cart.html:118
 msgid "✅ Погоджено — можна оплачувати"
 msgstr "✅ Approved — ready for payment"
@@ -5313,10 +6016,6 @@ msgstr "Earn %(n)s points"
 msgid "Бали не нараховуються"
 msgstr "No points awarded"
 
-#: twocomms_django_theme/templates/pages/cart.html:364
-msgid "Кошик порожній"
-msgstr "Cart is empty"
-
 #: twocomms_django_theme/templates/pages/cart.html:365
 msgid "Додайте товари до кошика, щоб зробити замовлення"
 msgstr "Add products to the cart to place an order"
@@ -5369,10 +6068,6 @@ msgstr "Payment type"
 msgid "Оберіть тип оплати"
 msgstr "Choose payment type"
 
-#: twocomms_django_theme/templates/pages/cart.html:459 twocomms_django_theme/templates/pages/cart.html:605 twocomms_django_theme/templates/pages/my_orders.html:359 twocomms_django_theme/templates/pages/order_success.html:1483 twocomms_django_theme/templates/pages/order_success.html:1576
-msgid "Онлайн оплата (повна сума)"
-msgstr "Online payment (full amount)"
-
 #: twocomms_django_theme/templates/pages/cart.html:460 twocomms_django_theme/templates/pages/cart.html:606
 msgid "Передплата 200 грн (решта при отриманні)"
 msgstr "Prepayment UAH 200 (remainder on delivery)"
@@ -5424,10 +6119,6 @@ msgstr "NP branch / parcel locker"
 #: twocomms_django_theme/templates/pages/cart.html:606
 msgid "недоступно з кастомним принтом"
 msgstr "unavailable with custom print"
-
-#: twocomms_django_theme/templates/pages/cart.html:642 twocomms_django_theme/templates/pages/cart.html:750
-msgid "Промокод"
-msgstr "Promo code"
 
 #: twocomms_django_theme/templates/pages/cart.html:652 twocomms_django_theme/templates/pages/cooperation.html:378 twocomms_django_theme/templates/pages/my_promocodes.html:138
 msgid "Знижка:"
@@ -6868,10 +7559,6 @@ msgstr "TwoComms — street & military apparel with exclusive design"
 msgid "Футболки, худі та лонгсліви з авторськими принтами. TwoComms — харківський стрітвеар-бренд, українське виробництво, швидка доставка Новою Поштою."
 msgstr "T-shirts, hoodies and longsleeves with original prints. TwoComms is a Kharkiv-based streetwear brand, made in Ukraine, fast Nova Poshta delivery."
 
-#: twocomms_django_theme/templates/pages/index.html:15
-msgid "TwoComms — стріт & мілітарі одяг"
-msgstr "TwoComms — street & military apparel"
-
 #: twocomms_django_theme/templates/pages/index.html:16
 msgid "Ексклюзивні футболки, худі та лонгсліви від харківського бренду TwoComms. Швидка доставка по Україні."
 msgstr "Exclusive t-shirts, hoodies and longsleeves by Kharkiv-based TwoComms brand. Fast delivery across Ukraine."
@@ -6968,10 +7655,6 @@ msgstr "Take the survey"
 #: twocomms_django_theme/templates/pages/index.html:297
 msgid "Продовжити опитування"
 msgstr "Continue the survey"
-
-#: twocomms_django_theme/templates/pages/index.html:330 twocomms_django_theme/templates/pages/index.html:336 twocomms_django_theme/templates/pages/index.html:339 twocomms_django_theme/templates/pages/index.html:342 twocomms_django_theme/templates/pages/order_success.html:1591 twocomms_django_theme/templates/pages/order_success.html:1594 twocomms_django_theme/templates/pages/order_success.html:1597 twocomms_django_theme/templates/pages/order_success.html:1600 twocomms_django_theme/templates/pages/order_success.html:1603 twocomms_django_theme/templates/pages/wholesale.html:2343 twocomms_django_theme/templates/pages/wholesale.html:2349 twocomms_django_theme/templates/pages/wholesale.html:2352 twocomms_django_theme/templates/pages/wholesale.html:2355 twocomms_django_theme/templates/pages/wholesale.html:2624 twocomms_django_theme/templates/pages/wholesale.html:2630 twocomms_django_theme/templates/pages/wholesale.html:2633 twocomms_django_theme/templates/pages/wholesale.html:2636
-msgid "TwoComms логотип"
-msgstr "TwoComms logo"
 
 #: twocomms_django_theme/templates/pages/index.html:333
 msgid "TwoComms логотип — декоративний"
@@ -7086,10 +7769,6 @@ msgstr "We use answers solely for analytics and service improvement. Contact det
 msgid "Відстежуйте статус ваших замовлень"
 msgstr "Track the status of your orders"
 
-#: twocomms_django_theme/templates/pages/my_orders.html:68 twocomms_django_theme/templates/pages/my_orders.html:208
-msgid "Отримано"
-msgstr "Received"
-
 #: twocomms_django_theme/templates/pages/my_orders.html:80
 msgid "Очікується"
 msgstr "Pending"
@@ -7131,10 +7810,6 @@ msgstr "Receive notifications"
 msgid "Готується"
 msgstr "Preparing"
 
-#: twocomms_django_theme/templates/pages/my_orders.html:197
-msgid "Відправлено"
-msgstr "Shipped"
-
 #: twocomms_django_theme/templates/pages/my_orders.html:227
 msgid "Товари в замовленні"
 msgstr "Order items"
@@ -7156,49 +7831,13 @@ msgstr "Type:"
 msgid "Статус:"
 msgstr "Status:"
 
-#: twocomms_django_theme/templates/pages/my_orders.html:312
-msgid "Погоджено менеджером"
-msgstr "Approved by the manager"
-
 #: twocomms_django_theme/templates/pages/my_orders.html:319
 msgid "Кастомне замовлення"
 msgstr "Custom order"
 
-#: twocomms_django_theme/templates/pages/my_orders.html:361 twocomms_django_theme/templates/pages/order_success.html:1481
-msgid "Передплата 200 грн"
-msgstr "Prepayment 200 UAH"
-
-#: twocomms_django_theme/templates/pages/my_orders.html:363 twocomms_django_theme/templates/pages/order_success.html:1485
-msgid "Оплата при отриманні"
-msgstr "Cash on delivery"
-
 #: twocomms_django_theme/templates/pages/my_orders.html:368 twocomms_django_theme/templates/pages/my_orders.html:391
 msgid "Змінити спосіб оплати"
 msgstr "Change payment method"
-
-#: twocomms_django_theme/templates/pages/my_orders.html:376
-msgid "Оплачено повністю"
-msgstr "Paid in full"
-
-#: twocomms_django_theme/templates/pages/my_orders.html:378
-msgid "Внесена передплата"
-msgstr "Prepayment received"
-
-#: twocomms_django_theme/templates/pages/my_orders.html:380
-msgid "На перевірці"
-msgstr "Under review"
-
-#: twocomms_django_theme/templates/pages/my_orders.html:382
-msgid "Не оплачено"
-msgstr "Not paid"
-
-#: twocomms_django_theme/templates/pages/my_orders.html:405
-msgid "Часткова оплата"
-msgstr "Partial payment"
-
-#: twocomms_django_theme/templates/pages/my_orders.html:414
-msgid "Повна оплата"
-msgstr "Full payment"
 
 #: twocomms_django_theme/templates/pages/my_orders.html:423
 msgid "Зберегти"
@@ -7315,10 +7954,6 @@ msgstr "Was valid until:"
 #: twocomms_django_theme/templates/pages/my_promocodes.html:95
 msgid "Використані промокоди"
 msgstr "Used promo codes"
-
-#: twocomms_django_theme/templates/pages/my_promocodes.html:106
-msgid "Використано"
-msgstr "Used"
 
 #: twocomms_django_theme/templates/pages/my_promocodes.html:130
 msgid "Дата використання:"
@@ -7693,10 +8328,6 @@ msgstr "TwoComms — apparel with character, code and Kharkiv origin"
 msgid "Про бренд TwoComms"
 msgstr "About TwoComms brand"
 
-#: twocomms_django_theme/templates/pages/pro_brand.html:54
-msgid "TwoComms — український streetwear / military-adjacent бренд одягу з Харкова, створений навколо ідеї продовження після критичної точки: не крапка, а продовження."
-msgstr "TwoComms — Ukrainian streetwear / military-adjacent apparel brand from Kharkiv built around the idea of continuation after a critical point: not a full stop, a continuation."
-
 #: twocomms_django_theme/templates/pages/pro_brand.html:99
 msgid "Футболки TwoComms"
 msgstr "TwoComms t-shirts"
@@ -7792,10 +8423,6 @@ msgstr "Mark"
 #: twocomms_django_theme/templates/pages/pro_brand.html:1301 twocomms_django_theme/templates/pages/pro_brand.html:1389
 msgid "Походження"
 msgstr "Origins"
-
-#: twocomms_django_theme/templates/pages/pro_brand.html:1302
-msgid "Харків"
-msgstr "Kharkiv"
 
 #: twocomms_django_theme/templates/pages/pro_brand.html:1303
 msgid "Принти"
@@ -8280,17 +8907,9 @@ msgstr "Only one color is available for this product."
 msgid "Інформація про товар"
 msgstr "Product information"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:393 twocomms_django_theme/templates/pages/product_detail_new.html:279
-msgid "Опис"
-msgstr "Description"
-
 #: twocomms_django_theme/templates/pages/product_detail.html:396 twocomms_django_theme/templates/pages/product_detail_new.html:281
 msgid "Догляд"
 msgstr "Care"
-
-#: twocomms_django_theme/templates/pages/product_detail.html:398
-msgid "FAQ товару"
-msgstr "Product FAQ"
 
 #: twocomms_django_theme/templates/pages/product_detail.html:407
 #, python-format
@@ -8712,10 +9331,6 @@ msgstr "Build order"
 msgid "Завантажити прайс (Excel)"
 msgstr "Download price list (Excel)"
 
-#: twocomms_django_theme/templates/pages/wholesale.html:2346 twocomms_django_theme/templates/pages/wholesale.html:2627
-msgid "TwoComms логотип - декоративний"
-msgstr "TwoComms logo — decorative"
-
 #: twocomms_django_theme/templates/pages/wholesale.html:2365
 msgid "Система ціноутворення"
 msgstr "Pricing system"
@@ -8950,10 +9565,6 @@ msgstr "Category SEO blocks"
 #: twocomms_django_theme/templates/partials/category_seo_blocks.html:26
 msgid "Найкращі ціни"
 msgstr "Best prices"
-
-#: twocomms_django_theme/templates/partials/category_seo_blocks.html:35
-msgid "Ціна"
-msgstr "Price"
 
 #: twocomms_django_theme/templates/partials/category_seo_blocks.html:66
 msgid "SEO-розділи категорії"
@@ -9298,12 +9909,3 @@ msgstr "Product sections"
 #: twocomms_django_theme/templates/partials/product_seo_landing.html:43
 msgid "Топ запити для цієї моделі"
 msgstr "Top queries for this model"
-
-#~ msgid "TwoComms — Стріт & Мілітарі Одяг | Головна"
-#~ msgstr "TwoComms — Street & Military Apparel | Home"
-
-#~ msgid "Категорії"
-#~ msgstr "Categories"
-
-#~ msgid "Новинки"
-#~ msgstr "New arrivals"

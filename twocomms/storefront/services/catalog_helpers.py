@@ -12,6 +12,7 @@ from django.apps import apps
 from django.core.cache import BaseCache
 from django.db import DatabaseError
 from django.db.models import QuerySet
+from django.utils.translation import gettext as _
 
 from cache_utils import get_cache
 from .image_variants import build_optimized_image_payload
@@ -21,6 +22,11 @@ logger = logging.getLogger(__name__)
 PUBLIC_PRODUCT_ORDER_VERSION_CACHE_KEY = "products:public_order_version"
 PUBLIC_CATEGORY_VERSION_CACHE_KEY = "categories:public_version"
 
+# Raw UA labels are kept here so dictionary equality comparisons remain
+# locale-independent. Display lookups go through ``_color_label`` which
+# wraps them in ``gettext`` — this gives the user-visible text in the
+# active locale (RU / EN) without breaking the matching code that uses
+# label equality (``primary_name != secondary_name``).
 _COLOR_LABELS_BY_HEX = {
     "000000": "Чорний",
     "050505": "Чорний",
@@ -46,15 +52,31 @@ _COLOR_LABELS_BY_NAME = {
 }
 
 
+def _color_label(raw: str | None) -> str:
+    """Translate a raw UA color label to the active locale.
+
+    Falls back to the raw value when no translation catalogue entry
+    exists. ``gettext`` (eager) is used because callers immediately
+    feed the result into ``f"..."`` formatting.
+    """
+    if not raw:
+        return ''
+    return _(raw)
+
+
 def _display_color_name(color) -> str:
     name = (getattr(color, 'name', '') or '').strip()
     if name:
-        return _COLOR_LABELS_BY_NAME.get(name.lower(), name)
+        raw = _COLOR_LABELS_BY_NAME.get(name.lower(), name)
+        return _color_label(raw)
 
     primary = (getattr(color, 'primary_hex', '') or '').strip().lstrip('#').upper()
     secondary = (getattr(color, 'secondary_hex', '') or '').strip().lstrip('#').upper()
-    primary_name = _COLOR_LABELS_BY_HEX.get(primary)
-    secondary_name = _COLOR_LABELS_BY_HEX.get(secondary)
+    primary_raw = _COLOR_LABELS_BY_HEX.get(primary)
+    secondary_raw = _COLOR_LABELS_BY_HEX.get(secondary)
+
+    primary_name = _color_label(primary_raw) if primary_raw else None
+    secondary_name = _color_label(secondary_raw) if secondary_raw else None
 
     if primary_name and secondary_name and primary_name != secondary_name:
         return f'{primary_name}/{secondary_name}'
@@ -67,21 +89,23 @@ def _display_color_name(color) -> str:
 
 def build_product_image_alt(product, stored_alt: str | None = None, *, color_name: str = '', index: int | None = None, main: bool = False) -> str:
     """
-    Return stored ALT text or a stable Ukrainian fallback for product images.
+    Return stored ALT text or a localized fallback for product images.
     """
     value = (stored_alt or '').strip()
     if value:
         return value
 
-    title = (getattr(product, 'title', '') or 'Товар TwoComms').strip()
+    title = (getattr(product, 'title', '') or _('Товар TwoComms')).strip()
     color = (color_name or '').strip()
     number = f' {index}' if index else ''
 
     if main:
-        return f'{title} — головне фото товару TwoComms'
+        return _('%(title)s — головне фото товару TwoComms') % {'title': title}
     if color:
-        return f'{title} — {color} — фото{number} TwoComms'
-    return f'{title} — фото{number} TwoComms'
+        return _('%(title)s — %(color)s — фото%(number)s TwoComms') % {
+            'title': title, 'color': color, 'number': number,
+        }
+    return _('%(title)s — фото%(number)s TwoComms') % {'title': title, 'number': number}
 
 
 def get_categories_cached(cache_backend: BaseCache, timeout: int = 600):

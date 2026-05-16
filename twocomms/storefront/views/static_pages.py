@@ -905,15 +905,15 @@ def about(request):
     """
     brand_page_url = f"{settings.SITE_BASE_URL}{reverse('about')}"
     breadcrumb_items = [
-        {"name": "Головна", "url": reverse("home")},
-        {"name": "Про бренд", "url": brand_page_url},
+        {"name": _("Головна"), "url": reverse("home")},
+        {"name": _("Про бренд"), "url": brand_page_url},
     ]
 
     return render(
         request,
         "pages/pro_brand.html",
         {
-            "page_title": "Про бренд",
+            "page_title": _("Про бренд"),
             "brand_page_url": brand_page_url,
             "faq_items": deepcopy(PRO_BRAND_FAQ_ITEMS),
             "breadcrumb_items": breadcrumb_items,
@@ -1010,11 +1010,11 @@ def custom_print(request):
         track_event_url=request.build_absolute_uri(reverse("track_event")),
     )
     breadcrumb_items = [
-        {"name": "Головна", "url": reverse("home")},
-        {"name": "Кастомний принт", "url": reverse("custom_print")},
+        {"name": _("Головна"), "url": reverse("home")},
+        {"name": _("Кастомний принт"), "url": reverse("custom_print")},
     ]
     response = render(request, 'pages/custom_print.html', {
-        'page_title': 'Кастомний принт',
+        'page_title': _('Кастомний принт'),
         'custom_print_config': config,
         'breadcrumb_items': breadcrumb_items,
         'faq_items': CUSTOM_PRINT_FAQ_ITEMS,

@@ -884,8 +884,8 @@ def category_color_landing(request, cat_slug, color_slug):
     attach_preferred_card_image(products, [landing.color_slug])
 
     breadcrumb_items = [
-        {"name": "Головна", "url": "/"},
-        {"name": "Каталог", "url": reverse("catalog")},
+        {"name": _("Головна"), "url": "/"},
+        {"name": _("Каталог"), "url": reverse("catalog")},
         {
             "name": landing.category.name,
             "url": reverse("catalog_by_cat", kwargs={"cat_slug": landing.category.slug}),

@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models, IntegrityError, transaction
 from django.db.models import Max
+from django.utils.translation import gettext_lazy as _
 from storefront.models import Product, PromoCode
 from productcolors.models import ProductColorVariant
 from django.utils import timezone
@@ -8,29 +9,29 @@ from django.utils import timezone
 
 class Order(models.Model):
     STATUS_CHOICES = [
-        ('new', 'В обробці'),
-        ('prep', 'Готується до відправлення'),
-        ('ship', 'Відправлено'),
-        ('done', 'Отримано'),
-        ('cancelled', 'Скасовано'),
+        ('new', _('В обробці')),
+        ('prep', _('Готується до відправлення')),
+        ('ship', _('Відправлено')),
+        ('done', _('Отримано')),
+        ('cancelled', _('Скасовано')),
     ]
 
     PAY_TYPE_CHOICES = [
-        ('online_full', 'Онлайн оплата (повна сума)'),
-        ('prepay_200', 'Передплата 200 грн'),
-        ('cod', 'Оплата при отриманні'),
+        ('online_full', _('Онлайн оплата (повна сума)')),
+        ('prepay_200', _('Передплата 200 грн')),
+        ('cod', _('Оплата при отриманні')),
         # Legacy values (для обратной совместимости)
-        ('full', 'Повна оплата'),
-        ('partial', 'Часткова оплата'),
+        ('full', _('Повна оплата')),
+        ('partial', _('Часткова оплата')),
     ]
 
     PAYMENT_STATUS_CHOICES = [
-        ('unpaid', 'Не оплачено'),
-        ('checking', 'На перевірці'),
-        ('prepaid', 'Внесена передплата'),  # Было 'partial'
-        ('paid', 'Оплачено повністю'),
+        ('unpaid', _('Не оплачено')),
+        ('checking', _('На перевірці')),
+        ('prepaid', _('Внесена передплата')),  # Было 'partial'
+        ('paid', _('Оплачено повністю')),
         # Legacy value (для обратной совместимости)
-        ('partial', 'Внесена передплата (старе)'),
+        ('partial', _('Внесена передплата (старе)')),
     ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='orders', null=True, blank=True)
@@ -69,15 +70,15 @@ class Order(models.Model):
         blank=True,
         null=True,
         choices=[
-            ('out_of_stock', 'Немає товару'),
-            ('no_print', 'Немає принта'),
-            ('fake_number', 'Фейковий номер'),
-            ('no_contact', 'Не виходить на зв’язок'),
-            ('changed_mind', 'Передумав'),
-            ('prepayment_refused', 'Не влаштувала передоплата'),
-            ('other', 'Інше'),
+            ('out_of_stock', _('Немає товару')),
+            ('no_print', _('Немає принта')),
+            ('fake_number', _('Фейковий номер')),
+            ('no_contact', _('Не виходить на зв’язок')),
+            ('changed_mind', _('Передумав')),
+            ('prepayment_refused', _('Не влаштувала передоплата')),
+            ('other', _('Інше')),
         ],
-        verbose_name='Причина скасування'
+        verbose_name=_('Причина скасування')
     )
     cancellation_comment = models.CharField(
         max_length=255,

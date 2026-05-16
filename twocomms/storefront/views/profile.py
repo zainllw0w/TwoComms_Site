@@ -15,6 +15,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.urls import reverse
+from django.utils.translation import gettext as _
 
 from accounts.models import UserProfile, FavoriteProduct, UserPoints, PointsHistory
 from orders.models import Order
@@ -127,7 +128,7 @@ def edit_profile(request):
 
         phone = normalize_checkout_phone(request.POST.get('phone', ''))
         if not phone:
-            messages.error(request, 'Введіть коректний український номер телефону. Можна без +380.')
+            messages.error(request, _('Введіть коректний український номер телефону. Можна без +380.'))
             return redirect('profile_setup')
 
         try:
@@ -186,7 +187,7 @@ def profile_setup(request):
         prof.push_marketing_enabled = 'push_marketing_enabled' in request.POST
         prof.push_order_updates_enabled = 'push_order_updates_enabled' in request.POST
         prof.save(update_fields=['push_marketing_enabled', 'push_order_updates_enabled'])
-        messages.success(request, 'Налаштування push-сповіщень оновлено.')
+        messages.success(request, _('Налаштування push-сповіщень оновлено.'))
         return redirect(f"{reverse('profile_setup')}#push-preferences")
 
     if request.method == 'POST':
@@ -218,7 +219,7 @@ def profile_setup(request):
                 request.user.email = form.cleaned_data['email']
                 request.user.save()
 
-            messages.success(request, 'Профіль оновлено.')
+            messages.success(request, _('Профіль оновлено.'))
             return redirect('profile_setup')
     else:
         initial = {
@@ -423,7 +424,7 @@ def toggle_favorite(request, product_id):
     except Exception as e:
         return JsonResponse({
             'success': False,
-            'message': 'Помилка: ' + str(e)
+            'message': _('Помилка: ') + str(e)
         }, status=400)
 
 
@@ -446,7 +447,7 @@ def add_to_favorites(request, product_id):
         else:
             return JsonResponse({
                 'success': True,
-                'message': 'Товар вже в обраному'
+                'message': _('Товар вже в обраному')
             })
     except Product.DoesNotExist:
         return JsonResponse({
@@ -467,7 +468,7 @@ def remove_from_favorites(request, product_id):
         favorite.delete()
         return JsonResponse({
             'success': True,
-            'message': 'Товар видалено з обраного'
+            'message': _('Товар видалено з обраного')
         })
     except FavoriteProduct.DoesNotExist:
         return JsonResponse({
@@ -560,7 +561,7 @@ def settings(request):
 
                 return JsonResponse({
                     'success': True,
-                    'message': 'Пароль успішно змінено'
+                    'message': _('Пароль успішно змінено')
                 })
             else:
                 return JsonResponse({
@@ -717,7 +718,7 @@ def purchase_with_points(request):
     try:
         user_points_obj = UserPoints.objects.get(user=request.user)
     except UserPoints.DoesNotExist:
-        messages.error(request, 'У вас немає балів для покупки')
+        messages.error(request, _('У вас немає балів для покупки'))
         return redirect('buy_with_points')
 
     if item_id == 'promo_10':
@@ -729,12 +730,12 @@ def purchase_with_points(request):
                 user_points_obj.spend_points(100, 'Покупка промокода на знижку 10%')
                 messages.success(
                     request,
-                    'Промокод на знижку 10% успішно придбано! Код: POINTS10'
+                    _('Промокод на знижку 10% успішно придбано! Код: POINTS10')
                 )
             except Exception as e:
-                messages.error(request, f'Помилка при списанні балів: {e}')
+                messages.error(request, _('Помилка при списанні балів: %(error)s') % {'error': e})
         else:
-            messages.error(request, 'Недостатньо балів для покупки промокода')
+            messages.error(request, _('Недостатньо балів для покупки промокода'))
 
     elif item_id == 'donate_zsu':
         # Донат на ЗСУ
@@ -744,14 +745,14 @@ def purchase_with_points(request):
                 user_points_obj.spend_points(points_to_donate, 'Донат на ЗСУ')
                 messages.success(
                     request,
-                    f'Дякуємо за підтримку ЗСУ! Пожертвовано {points_to_donate} балів'
+                    _('Дякуємо за підтримку ЗСУ! Пожертвовано %(points)s балів') % {'points': points_to_donate}
                 )
             except Exception as e:
-                messages.error(request, f'Помилка при пожертвуванні: {e}')
+                messages.error(request, _('Помилка при пожертвуванні: %(error)s') % {'error': e})
         else:
-            messages.error(request, 'У вас немає балів для пожертвування')
+            messages.error(request, _('У вас немає балів для пожертвування'))
 
     else:
-        messages.error(request, 'Невідомий товар')
+        messages.error(request, _('Невідомий товар'))
 
     return redirect('buy_with_points')
