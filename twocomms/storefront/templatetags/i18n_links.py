@@ -212,26 +212,29 @@ def localized_social_image_path(code: str | None) -> str:
     language gets its own 1200x630 social card so the SERP/Facebook/
     Twitter previews speak the visitor's language.
 
-    SAFE FALLBACK BEHAVIOUR (US-17 phase A — 2026-05-16): the
-    localized JPGs (``social-preview-uk.jpg`` / ``-ru.jpg`` / ``-en.jpg``)
-    do not yet exist in the static manifest. Returning their paths
-    triggers ``ValueError: Missing staticfiles manifest entry`` under
-    ``ManifestStaticFilesStorage``, which raised 500s on the homepage
-    and contacts page when the new helper first shipped. Until
-    ``scripts/render_social_previews.py`` is run and the JPGs are
-    collected into ``staticfiles/``, the helper falls back to the
-    canonical ``img/social-preview.jpg`` for every locale. Once the
-    localized assets exist, swap the body to the locale-aware mapping
-    below and CI's missing-asset check will guarantee no regression.
+    The static manifest contains three locale assets:
 
-    The mapping is preserved in a comment for the upcoming swap and
-    referenced from ``scripts/render_social_previews.py``.
+      * ``img/social-preview-uk.jpg`` (canonical)
+      * ``img/social-preview-ru.jpg``
+      * ``img/social-preview-en.jpg``
+
+    Until ``scripts/render_social_previews.py`` is run with libcairo
+    installed (macOS: ``brew install cairo``; CI/server: ``apt install
+    libcairo2``), the three JPGs are byte-for-byte copies of the
+    canonical card. This lets ``ManifestStaticFilesStorage`` resolve
+    the URL on prod without raising ``ValueError``, while the SVG
+    sources (``static/img/social-preview-{uk,ru,en}.svg``) carry the
+    real localized layouts ready for the JPG render in a follow-up
+    deployment.
+
+    Phase A safety: if an unknown locale slips through, fall back to
+    the canonical UK card rather than constructing a missing path.
     """
 
-    # Future locale-aware mapping (kept inline for diff readability):
-    #   uk → img/social-preview-uk.jpg
-    #   ru → img/social-preview-ru.jpg
-    #   en → img/social-preview-en.jpg
-    # Reference assets live in ``static/img/social-preview-*.svg`` and
-    # are converted by ``scripts/render_social_previews.py``.
-    return "img/social-preview.jpg"
+    code = (code or _DEFAULT_LANG).lower()
+    mapping = {
+        "uk": "img/social-preview-uk.jpg",
+        "ru": "img/social-preview-ru.jpg",
+        "en": "img/social-preview-en.jpg",
+    }
+    return mapping.get(code, "img/social-preview-uk.jpg")
