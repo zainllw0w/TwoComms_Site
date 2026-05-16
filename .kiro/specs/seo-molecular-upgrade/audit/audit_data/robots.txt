@@ -1,0 +1,195 @@
+# TwoComms robots.txt — canonical source.
+# Primary rules apply to every crawler that honours User-agent: *.
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /admin-panel/
+Disallow: /accounts/
+Disallow: /orders/
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /api/
+Disallow: /debug/
+Disallow: /dev/
+Disallow: /*?utm_*
+Disallow: /*&utm_*
+Disallow: /*?gclid=
+Disallow: /*?fbclid=
+Disallow: /*?yclid=
+Disallow: /*?msclkid=
+Disallow: /*?ref=
+Disallow: /*?ref_=
+Disallow: /*?sort=
+Disallow: /*?order=
+
+# Google Ads crawlers ignore User-agent: * per spec — explicit blocks required.
+User-agent: AdsBot-Google
+Allow: /
+Disallow: /admin/
+Disallow: /admin-panel/
+Disallow: /accounts/
+Disallow: /orders/
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /api/
+Disallow: /debug/
+Disallow: /dev/
+
+User-agent: AdsBot-Google-Mobile
+Allow: /
+Disallow: /admin/
+Disallow: /admin-panel/
+Disallow: /accounts/
+Disallow: /orders/
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /api/
+Disallow: /debug/
+Disallow: /dev/
+
+User-agent: AdsBot-Google-Mobile-Apps
+Allow: /
+Disallow: /admin/
+Disallow: /admin-panel/
+Disallow: /accounts/
+Disallow: /orders/
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /api/
+Disallow: /debug/
+Disallow: /dev/
+
+# AI answer engines: explicit opt-in for citations and model discovery.
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /admin/
+Disallow: /admin-panel/
+Disallow: /accounts/
+Disallow: /orders/
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /api/
+Disallow: /debug/
+Disallow: /dev/
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /admin/
+Disallow: /admin-panel/
+Disallow: /accounts/
+Disallow: /orders/
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /api/
+Disallow: /debug/
+Disallow: /dev/
+
+User-agent: Claude-SearchBot
+Allow: /
+Disallow: /admin/
+Disallow: /admin-panel/
+Disallow: /accounts/
+Disallow: /orders/
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /api/
+Disallow: /debug/
+Disallow: /dev/
+
+User-agent: Claude-User
+Allow: /
+Disallow: /admin/
+Disallow: /admin-panel/
+Disallow: /accounts/
+Disallow: /orders/
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /api/
+Disallow: /debug/
+Disallow: /dev/
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /admin/
+Disallow: /admin-panel/
+Disallow: /accounts/
+Disallow: /orders/
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /api/
+Disallow: /debug/
+Disallow: /dev/
+
+User-agent: Perplexity-User
+Allow: /
+Disallow: /admin/
+Disallow: /admin-panel/
+Disallow: /accounts/
+Disallow: /orders/
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /api/
+Disallow: /debug/
+Disallow: /dev/
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /admin/
+Disallow: /admin-panel/
+Disallow: /accounts/
+Disallow: /orders/
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /api/
+Disallow: /debug/
+Disallow: /dev/
+
+User-agent: GPTBot
+Allow: /
+Disallow: /admin/
+Disallow: /admin-panel/
+Disallow: /accounts/
+Disallow: /orders/
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /api/
+Disallow: /debug/
+Disallow: /dev/
+
+User-agent: CCBot
+Allow: /
+Disallow: /admin/
+Disallow: /admin-panel/
+Disallow: /accounts/
+Disallow: /orders/
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /api/
+Disallow: /debug/
+Disallow: /dev/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /admin/
+Disallow: /admin-panel/
+Disallow: /accounts/
+Disallow: /orders/
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /api/
+Disallow: /debug/
+Disallow: /dev/
+
+User-agent: anthropic-ai
+Allow: /
+Disallow: /admin/
+Disallow: /admin-panel/
+Disallow: /accounts/
+Disallow: /orders/
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /api/
+Disallow: /debug/
+Disallow: /dev/
+
+Sitemap: https://twocomms.shop/sitemap.xml

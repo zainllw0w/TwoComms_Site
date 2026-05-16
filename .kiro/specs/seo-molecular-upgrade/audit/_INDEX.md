@@ -5,9 +5,9 @@
 
 | # | Subtask | Subagent | Output | Status |
 |---|---------|----------|--------|--------|
-| 1 | Content density / uniqueness / keyword density | general-task-execution | `audit/01_content.md` | queued |
-| 2 | Schema.org coverage matrix | general-task-execution | `audit/02_schema.md` | completed |
-| 3 | URL / slug / canonical strategy | general-task-execution | `audit/03_urls.md` | queued |
+| 1 | Content density / uniqueness / keyword density | general-task-execution | `audit/01_content.md` | done |
+| 2 | Schema.org coverage matrix | general-task-execution | `audit/02_schema.md` | done |
+| 3 | URL / slug / canonical strategy | general-task-execution | `audit/03_urls.md` | done |
 | 4 | Internal linking graph | general-task-execution | `audit/04_linking.md` | completed |
 | 5 | Tech debt (templates + python + dead code) | general-task-execution | `audit/05_tech_debt.md` | queued |
 | 6 | Keyword universe (uk/ru/en, HF/MF/LF) | general-task-execution | `audit/06_keywords.md` | queued |

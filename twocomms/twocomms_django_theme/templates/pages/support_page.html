@@ -51,20 +51,32 @@
       "name": "{{ page.hero_title|escapejs }}",
       "description": "{{ page.meta_description|escapejs }}",
       "url": "{{ site_base_url }}{{ request.path|escapejs }}",
-      {# SEO v1.0 Phase 12 (2026-05-12) — finding (BBB). AboutPage and
-         CollectionPage entries (e.g. /pro-brand/, /novyny/) were
-         missing both datePublished and dateModified, which Google
-         Search Console flagged as "missing field" warnings on
-         structured data. Both fields are optional in the spec but
-         their presence unlocks the "Last updated" timestamp in SERP
-         and feeds AI surfaces (SGE/Perplexity) with freshness signal.
-         We expose them only when the page definition declares
-         ``published_at`` / ``updated_at`` so static legal/utility
-         pages do not accidentally claim a fake publish date. #}
-      {# Dates are ISO-8601 strings declared by us in support_content.py
-         — they contain no JSON-special chars, so we skip escapejs (which
-         turns hyphens into \u002D and uglifies the JSON-LD for humans
-         inspecting source). #}
+      {% comment %}
+      SEO v1.0 Phase 12 (2026-05-12) — finding (BBB). AboutPage and
+      CollectionPage entries (e.g. /pro-brand/, /novyny/) were missing
+      both datePublished and dateModified, which Google Search Console
+      flagged as "missing field" warnings on structured data. Both
+      fields are optional in the spec but their presence unlocks the
+      "Last updated" timestamp in SERP and feeds AI surfaces
+      (SGE/Perplexity) with freshness signal. We expose them only when
+      the page definition declares published_at / updated_at so static
+      legal/utility pages do not accidentally claim a fake publish date.
+
+      SEO 2026-05-16 — finding (CRITICAL). The two multiline {# … #}
+      blocks that previously sat here LEAKED into the rendered HTML
+      because Django's {# #} comment is single-line only — multiline
+      requires {% comment %}…{% endcomment %}. As a result every
+      support_page.html render emitted broken JSON-LD on /delivery/,
+      /faq/, /dopomoga/, /povernennya-ta-obmin/, /novyny/, /mapa-saytu/,
+      /doglyad-za-odyagom/, /rozmirna-sitka/ — Google saw zero
+      WebPage / CollectionPage / BreadcrumbList structured data on
+      these pages. Replaced both with {% comment %} blocks.
+
+      Dates are ISO-8601 strings declared by us in support_content.py
+      — they contain no JSON-special chars, so we skip escapejs (which
+      turns hyphens into \u002D and uglifies the JSON-LD for humans
+      inspecting source).
+      {% endcomment %}
       {% if page.published_at %}"datePublished": "{{ page.published_at }}",{% endif %}
       {% if page.updated_at %}"dateModified": "{{ page.updated_at }}",{% endif %}
       "isPartOf": {

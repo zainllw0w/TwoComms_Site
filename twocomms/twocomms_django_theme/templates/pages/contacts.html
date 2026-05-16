@@ -2,11 +2,13 @@
 {% load static i18n %}
 {% load seo_tags %}
 
-{# SEO Audit 2026-05-15 (Part 4) — contacts title was 20 chars, the
+{% comment %}
+  SEO Audit 2026-05-15 (Part 4) — contacts title was 20 chars, the
    shortest meta_title across the storefront. Extended with the channel
    inventory (телефон, Telegram, Instagram) and a geo qualifier so the
    page can rank on "TwoComms контакти Харків" / "TwoComms телефон"
-   long-tail queries. #}
+   long-tail queries.
+   {% endcomment %}
 {% block title %}{% trans 'Контакти TwoComms — телефон, Telegram, Instagram | Харків' %}{% endblock %}
 {% block description %}{% trans "Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Офіційні магазини та форма зворотного зв'язку." %}{% endblock %}
 {% block keywords %}{% trans 'контакти TwoComms, телефон, telegram, instagram, зворотній зв’язок, магазини TwoComms' %}{% endblock %}
@@ -16,7 +18,8 @@
 {% block twitter_description %}{% trans "Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Швидка відповідь на будь-які питання." %}{% endblock %}
 
 {% block structured_data %}
-{# SEO v1.0 Phase 12 (2026-05-12) — finding (HHH). The /contacts/ page
+{% comment %}
+  SEO v1.0 Phase 12 (2026-05-12) — finding (HHH). The /contacts/ page
    was returning a generic Organization node inside the ContactPage
    mainEntity, which Google maps to «business unknown» rather than to
    the «online clothing store» category. Upgrading the @type to
@@ -33,7 +36,8 @@
    ClothingStore as a sub-entity of the same brand instead of a
    separate company. ``address.addressLocality`` updated to «Харків»
    and ``address.addressRegion`` to ``UA-63`` so NAP is consistent
-   with the rest of the brand surface. #}
+   with the rest of the brand surface.
+   {% endcomment %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",

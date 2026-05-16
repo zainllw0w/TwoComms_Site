@@ -1,0 +1,210 @@
+STATUS ROBOTS                           CANONICAL                                                              TITLE ← URL
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+200    index, follow, max-image-previ   https://twocomms.shop/product/classic-tshirt/                          Футболка класична — купити футболку TwoComms  ← https://twocomms.shop/product/classic-tshirt/
+200    index, follow, max-image-previ   https://twocomms.shop/product/hoodie-classic/                          Худі класичне — купити худі TwoComms  ← https://twocomms.shop/product/hoodie-classic/
+200    index, follow, max-image-previ   https://twocomms.shop/product/longsleeve-classic/                      Класичний лонгслів — купити лонгслів TwoComms  ← https://twocomms.shop/product/longsleeve-classic/
+200    index, follow, max-image-previ   https://twocomms.shop/product/my-little-baby/                          Футболка «My Little Baby» — купити футболку TwoComms  ← https://twocomms.shop/product/my-little-baby/
+200    index, follow, max-image-previ   https://twocomms.shop/product/where-mi-present-ts/                     Футболка «Де Мої Подарунки, Мразота?» — TwoComms  ← https://twocomms.shop/product/where-mi-present-ts/
+200    index, follow, max-image-previ   https://twocomms.shop/product/in-shee/                                 Футболка «Тильний В Єб*Ло» — купити футболку TwoComms  ← https://twocomms.shop/product/in-shee/
+200    index, follow, max-image-previ   https://twocomms.shop/product/classic-tshirt/black/                    Футболка класична — чорний — TwoComms  ← https://twocomms.shop/product/classic-tshirt/black/
+200    index, follow, max-image-previ   https://twocomms.shop/product/classic-tshirt/                          Футболка класична — чорний, розмір M — TwoComms  ← https://twocomms.shop/product/classic-tshirt/black/m/
+200    index, follow, max-image-previ   https://twocomms.shop/product/classic-tshirt/                          Футболка класична — чорний, розмір M, оверсайз — TwoComms  ← https://twocomms.shop/product/classic-tshirt/black/m/oversize/
+200    index, follow, max-image-previ   https://twocomms.shop/product/classic-tshirt/                          Футболка класична — розмір M — TwoComms  ← https://twocomms.shop/product/classic-tshirt/m/
+200    index, follow, max-image-previ   https://twocomms.shop/product/classic-tshirt/                          Футболка класична — розмір M, оверсайз — TwoComms  ← https://twocomms.shop/product/classic-tshirt/m/oversize/
+200    index, follow, max-image-previ   https://twocomms.shop/product/my-little-baby/black/                    Футболка «My Little Baby» — чорний — TwoComms  ← https://twocomms.shop/product/my-little-baby/black/
+200    index, follow, max-image-previ   https://twocomms.shop/product/my-little-baby/coyote/                   Футболка «My Little Baby» — кайот — TwoComms  ← https://twocomms.shop/product/my-little-baby/coyote/
+200    index, follow, max-image-previ   https://twocomms.shop/product/my-little-baby/                          Футболка «My Little Baby» — чорний, розмір M — TwoComms  ← https://twocomms.shop/product/my-little-baby/black/m/
+200    index, follow, max-image-previ   https://twocomms.shop/product/my-little-baby/                          Футболка «My Little Baby» — кайот, розмір M — TwoComms  ← https://twocomms.shop/product/my-little-baby/coyote/m/
+200    index, follow, max-image-previ   https://twocomms.shop/product/my-little-baby/                          Футболка «My Little Baby» — чорний, розмір M, оверсайз — TwoComms  ← https://twocomms.shop/product/my-little-baby/black/m/oversize/
+200    index, follow, max-image-previ   https://twocomms.shop/product/where-mi-present-ts/black/               Футболка «Де Мої Подарунки, Мразота?» — чорний — TwoComms  ← https://twocomms.shop/product/where-mi-present-ts/black/
+200    index, follow, max-image-previ   https://twocomms.shop/product/where-mi-present-ts/coyote/              Футболка «Де Мої Подарунки, Мразота?» — кайот — TwoComms  ← https://twocomms.shop/product/where-mi-present-ts/coyote/
+200    index, follow, max-image-previ   https://twocomms.shop/product/where-mi-present-ts/                     Футболка «Де Мої Подарунки, Мразота?» — чорний, розмір M — TwoComms  ← https://twocomms.shop/product/where-mi-present-ts/black/m/
+200    index, follow, max-image-previ   https://twocomms.shop/product/where-mi-present-ts/                     Футболка «Де Мої Подарунки, Мразота?» — кайот, розмір M — TwoComms  ← https://twocomms.shop/product/where-mi-present-ts/coyote/m/
+200    index, follow, max-image-previ   https://twocomms.shop/catalog/                                         Каталог TwoComms — футболки, худі, лонгсліви з принтами  ← https://twocomms.shop/catalog/
+200    index, follow, max-image-previ   https://twocomms.shop/catalog/tshirts/                                 Футболки TwoComms — стрітвеар та мілітарі-принти від  ← https://twocomms.shop/catalog/tshirts/
+200    index, follow, max-image-previ   https://twocomms.shop/catalog/hoodie/                                  Худі TwoComms — теплі толстовки зі стрітвеар-принтами та  ← https://twocomms.shop/catalog/hoodie/
+200    index, follow, max-image-previ   https://twocomms.shop/catalog/long-sleeve/                             Лонгсліви TwoComms — лаконічний стрітвеар з рукавами на  ← https://twocomms.shop/catalog/long-sleeve/
+200    noindex, follow                  https://twocomms.shop/catalog/                                         Каталог TwoComms — футболки, худі, лонгсліви з принтами  ← https://twocomms.shop/catalog/?color=black
+200    noindex, follow                  https://twocomms.shop/catalog/tshirts/                                 Футболки TwoComms — стрітвеар та мілітарі-принти від  ← https://twocomms.shop/catalog/tshirts/?color=black
+200    noindex, follow                  https://twocomms.shop/catalog/                                         Каталог TwoComms — футболки, худі, лонгсліви з принтами  ← https://twocomms.shop/catalog/?color=coyote
+200    index, follow, max-image-previ   https://twocomms.shop/catalog/?page=2                                  Каталог TwoComms — футболки, худі, лонгсліви з принтами — сторінка 2  ← https://twocomms.shop/catalog/?page=2
+200    index, follow, max-image-previ   https://twocomms.shop/catalog/tshirts/?page=2                          Футболки TwoComms — стрітвеар та мілітарі-принти від — сторінка 2  ← https://twocomms.shop/catalog/tshirts/?page=2
+200    noindex, follow, max-image-pre   https://twocomms.shop/product/classic-tshirt/                          Футболка класична — купити футболку TwoComms  ← https://twocomms.shop/product/classic-tshirt/?color=black
+200    index, follow, max-image-previ   https://twocomms.shop/product/classic-tshirt/oversize/                 Футболка класична — оверсайз фіт — TwoComms  ← https://twocomms.shop/product/classic-tshirt/?fit=oversize
+200    index, follow, max-image-previ   https://twocomms.shop/product/classic-tshirt/                          Футболка класична — розмір M — TwoComms  ← https://twocomms.shop/product/classic-tshirt/?size=m
+200    index, follow, max-image-previ   https://twocomms.shop/                                                 TwoComms — стріт & мілітарі одяг з Харкова  ← https://twocomms.shop/?utm_source=test&utm_medium=audit
+200    index, follow, max-image-previ   https://twocomms.shop/product/classic-tshirt/                          Футболка класична — купити футболку TwoComms  ← https://twocomms.shop/product/classic-tshirt/?utm_source=test
+200    index, follow, max-image-previ   https://twocomms.shop/                                                 TwoComms — стріт & мілітарі одяг з Харкова  ← https://twocomms.shop/?gclid=abc123
+200    index, follow, max-image-previ   https://twocomms.shop/                                                 TwoComms — стріт & мілітарі одяг з Харкова  ← https://twocomms.shop/?fbclid=xyz789
+-1                                                                                                               ← https://twocomms.shop/search/?q=футболка
+200    noindex, follow                  https://twocomms.shop/catalog/                                         Пошук — TwoComms  ← https://twocomms.shop/search/
+200    index, follow, max-image-previ   https://twocomms.shop/                                                 TwoComms — стріт & мілітарі одяг з Харкова  ← https://twocomms.shop/
+200    index, follow, max-image-previ   https://twocomms.shop/ru/                                              TwoComms — стрит и милитари одежда из Харькова  ← https://twocomms.shop/ru/
+200    index, follow, max-image-previ   https://twocomms.shop/en/                                              TwoComms — street & military apparel from Kharkiv  ← https://twocomms.shop/en/
+200    index, follow, max-image-previ   https://twocomms.shop/ru/catalog/                                      Каталог TwoComms — футболки, худи, лонгсливы с принтами  ← https://twocomms.shop/ru/catalog/
+200    index, follow, max-image-previ   https://twocomms.shop/en/catalog/                                      TwoComms catalogue — t-shirts, hoodies and longsleeves with prints  ← https://twocomms.shop/en/catalog/
+200    index, follow, max-image-previ   https://twocomms.shop/ru/product/classic-tshirt/                       Классическая футболка — купить футболку TwoComms  ← https://twocomms.shop/ru/product/classic-tshirt/
+200    index, follow, max-image-previ   https://twocomms.shop/en/product/classic-tshirt/                       Classic T-shirt — buy a TwoComms tee  ← https://twocomms.shop/en/product/classic-tshirt/
+404    noindex, follow                  https://twocomms.shop/                                                 404 — Щось пішло не так  ← https://twocomms.shop/blog/
+404    noindex, follow                  https://twocomms.shop/                                                 404 — Щось пішло не так  ← https://twocomms.shop/blog/feed/
+404    noindex, follow                  https://twocomms.shop/                                                 404 — Щось пішло не так  ← https://twocomms.shop/news/feed/
+404    noindex, follow                  https://twocomms.shop/                                                 404 — Щось пішло не так  ← https://twocomms.shop/avtory/
+404    noindex, follow                  https://twocomms.shop/                                                 404 — Щось пішло не так  ← https://twocomms.shop/avtory/twocomms/
+404    noindex, follow                  https://twocomms.shop/                                                 404 — Щось пішло не так  ← https://twocomms.shop/team/
+404    noindex, follow                  https://twocomms.shop/                                                 404 — Щось пішло не так  ← https://twocomms.shop/help/
+404    noindex, follow                  https://twocomms.shop/                                                 404 — Щось пішло не так  ← https://twocomms.shop/dopomoga/feed/
+200                                                                                                              ← https://twocomms.shop/llms.txt
+200                                                                                                              ← https://twocomms.shop/llms-full.txt
+200    index, follow, max-image-previ   https://twocomms.shop/catalog/                                         Каталог TwoComms — футболки, худі, лонгсліви з принтами  ← https://twocomms.shop/catalog
+200    index, follow, max-image-previ   https://twocomms.shop/product/classic-tshirt/                          Футболка класична — купити футболку TwoComms  ← https://twocomms.shop/product/classic-tshirt
+404    noindex, follow                  https://twocomms.shop/                                                 404 — Щось пішло не так  ← https://twocomms.shop/Catalog/
+404    noindex, follow                  https://twocomms.shop/                                                 404 — Щось пішло не так  ← https://twocomms.shop/PRODUCT/classic-tshirt/
+200    index, follow, max-image-previ   https://twocomms.shop/contacts/                                        Контакти TwoComms — телефон, Telegram, Instagram | Харків  ← https://twocomms.shop/contacts/
+200    index, follow, max-image-previ   https://twocomms.shop/delivery/                                        Доставка і оплата TwoComms — Нова Пошта, 1-2 дні по Україні  ← https://twocomms.shop/delivery/
+200    index, follow, max-image-previ   https://twocomms.shop/povernennya-ta-obmin/                            Повернення та обмін товарів | TwoComms  ← https://twocomms.shop/povernennya-ta-obmin/
+200    index, follow, max-image-previ   https://twocomms.shop/faq/                                             FAQ — оплата, доставка, розміри і сервіс | TwoComms  ← https://twocomms.shop/faq/
+200    index, follow, max-image-previ   https://twocomms.shop/dopomoga/                                        Допомога — умови замовлення, оплата і підтримка | TwoComms  ← https://twocomms.shop/dopomoga/
+200    index, follow, max-image-previ   https://twocomms.shop/rozmirna-sitka/                                  Розмірна сітка і поради по посадці | TwoComms  ← https://twocomms.shop/rozmirna-sitka/
+200    index, follow, max-image-previ   https://twocomms.shop/doglyad-za-odyagom/                              Догляд за одягом TwoComms — як прати, зберігати DTF-принт  ← https://twocomms.shop/doglyad-za-odyagom/
+200    index, follow, max-image-previ   https://twocomms.shop/vidstezhennya-zamovlennya/                       Відстеження замовлення, статуси і TTN | TwoComms  ← https://twocomms.shop/vidstezhennya-zamovlennya/
+200    index, follow, max-image-previ   https://twocomms.shop/mapa-saytu/                                      Карта сайту TwoComms — каталог, підтримка та бренд  ← https://twocomms.shop/mapa-saytu/
+200    index, follow, max-image-previ   https://twocomms.shop/cooperation/                                     Співпраця з TwoComms — дропшипінг, опт і бренд-партнерства  ← https://twocomms.shop/cooperation/
+200    index, follow, max-image-previ   https://twocomms.shop/wholesale/                                       Оптові закупівлі та дропшипінг одягу — TwoComms  ← https://twocomms.shop/wholesale/
+200    index, follow, max-image-previ   https://twocomms.shop/custom-print/                                    DTF-конфігуратор кастомного одягу — TwoComms  ← https://twocomms.shop/custom-print/
+200    index, follow, max-image-previ   https://twocomms.shop/novyny/                                          Новини, новинки та апдейти бренду | TwoComms  ← https://twocomms.shop/novyny/
+200    index, follow, max-image-previ   https://twocomms.shop/pro-brand/                                       TwoComms — харківський бренд одягу про характер, стійкість і продовження  ← https://twocomms.shop/pro-brand/
+
+
+=== Title uniqueness for classic-tshirt path-URLs ===
+  https://twocomms.shop/product/classic-tshirt/
+    Футболка класична — купити футболку TwoComms
+  https://twocomms.shop/product/classic-tshirt/black/
+    Футболка класична — чорний — TwoComms
+  https://twocomms.shop/product/classic-tshirt/black/m/
+    Футболка класична — чорний, розмір M — TwoComms
+  https://twocomms.shop/product/classic-tshirt/black/m/oversize/
+    Футболка класична — чорний, розмір M, оверсайз — TwoComms
+  https://twocomms.shop/product/classic-tshirt/m/
+    Футболка класична — розмір M — TwoComms
+  https://twocomms.shop/product/classic-tshirt/m/oversize/
+    Футболка класична — розмір M, оверсайз — TwoComms
+  https://twocomms.shop/product/classic-tshirt/?color=black
+    Футболка класична — купити футболку TwoComms
+  https://twocomms.shop/product/classic-tshirt/?fit=oversize
+    Футболка класична — оверсайз фіт — TwoComms
+  https://twocomms.shop/product/classic-tshirt/?size=m
+    Футболка класична — розмір M — TwoComms
+  https://twocomms.shop/product/classic-tshirt/?utm_source=test
+    Футболка класична — купити футболку TwoComms
+  https://twocomms.shop/ru/product/classic-tshirt/
+    Классическая футболка — купить футболку TwoComms
+  https://twocomms.shop/en/product/classic-tshirt/
+    Classic T-shirt — buy a TwoComms tee
+  https://twocomms.shop/product/classic-tshirt
+    Футболка класична — купити футболку TwoComms
+
+
+=== Title uniqueness for my-little-baby path-URLs ===
+  https://twocomms.shop/product/my-little-baby/
+    Футболка «My Little Baby» — купити футболку TwoComms
+  https://twocomms.shop/product/my-little-baby/black/
+    Футболка «My Little Baby» — чорний — TwoComms
+  https://twocomms.shop/product/my-little-baby/coyote/
+    Футболка «My Little Baby» — кайот — TwoComms
+  https://twocomms.shop/product/my-little-baby/black/m/
+    Футболка «My Little Baby» — чорний, розмір M — TwoComms
+  https://twocomms.shop/product/my-little-baby/coyote/m/
+    Футболка «My Little Baby» — кайот, розмір M — TwoComms
+  https://twocomms.shop/product/my-little-baby/black/m/oversize/
+    Футболка «My Little Baby» — чорний, розмір M, оверсайз — TwoComms
+
+
+=== Title uniqueness for where-mi-present-ts path-URLs ===
+  https://twocomms.shop/product/where-mi-present-ts/
+    Футболка «Де Мої Подарунки, Мразота?» — TwoComms
+  https://twocomms.shop/product/where-mi-present-ts/black/
+    Футболка «Де Мої Подарунки, Мразота?» — чорний — TwoComms
+  https://twocomms.shop/product/where-mi-present-ts/coyote/
+    Футболка «Де Мої Подарунки, Мразота?» — кайот — TwoComms
+  https://twocomms.shop/product/where-mi-present-ts/black/m/
+    Футболка «Де Мої Подарунки, Мразота?» — чорний, розмір M — TwoComms
+  https://twocomms.shop/product/where-mi-present-ts/coyote/m/
+    Футболка «Де Мої Подарунки, Мразота?» — кайот, розмір M — TwoComms
+
+
+=== Hreflang sets (sample) ===
+
+  https://twocomms.shop/product/classic-tshirt/
+    uk-UA: https://twocomms.shop/product/classic-tshirt/
+    ru-UA: https://twocomms.shop/ru/product/classic-tshirt/
+    en-UA: https://twocomms.shop/en/product/classic-tshirt/
+    x-default: https://twocomms.shop/product/classic-tshirt/
+
+  https://twocomms.shop/product/hoodie-classic/
+    uk-UA: https://twocomms.shop/product/hoodie-classic/
+    ru-UA: https://twocomms.shop/ru/product/hoodie-classic/
+    en-UA: https://twocomms.shop/en/product/hoodie-classic/
+    x-default: https://twocomms.shop/product/hoodie-classic/
+
+  https://twocomms.shop/product/longsleeve-classic/
+    uk-UA: https://twocomms.shop/product/longsleeve-classic/
+    ru-UA: https://twocomms.shop/ru/product/longsleeve-classic/
+    en-UA: https://twocomms.shop/en/product/longsleeve-classic/
+    x-default: https://twocomms.shop/product/longsleeve-classic/
+
+  https://twocomms.shop/product/my-little-baby/
+    uk-UA: https://twocomms.shop/product/my-little-baby/
+    ru-UA: https://twocomms.shop/ru/product/my-little-baby/
+    en-UA: https://twocomms.shop/en/product/my-little-baby/
+    x-default: https://twocomms.shop/product/my-little-baby/
+
+  https://twocomms.shop/product/where-mi-present-ts/
+    uk-UA: https://twocomms.shop/product/where-mi-present-ts/
+    ru-UA: https://twocomms.shop/ru/product/where-mi-present-ts/
+    en-UA: https://twocomms.shop/en/product/where-mi-present-ts/
+    x-default: https://twocomms.shop/product/where-mi-present-ts/
+
+
+=== Query-string facets ===
+  url=https://twocomms.shop/catalog/?color=black
+    status=200 robots=noindex, follow canonical=https://twocomms.shop/catalog/
+    title=Каталог TwoComms — футболки, худі, лонгсліви з принтами
+  url=https://twocomms.shop/catalog/tshirts/?color=black
+    status=200 robots=noindex, follow canonical=https://twocomms.shop/catalog/tshirts/
+    title=Футболки TwoComms — стрітвеар та мілітарі-принти від
+  url=https://twocomms.shop/catalog/?color=coyote
+    status=200 robots=noindex, follow canonical=https://twocomms.shop/catalog/
+    title=Каталог TwoComms — футболки, худі, лонгсліви з принтами
+  url=https://twocomms.shop/catalog/?page=2
+    status=200 robots=index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1 canonical=https://twocomms.shop/catalog/?page=2
+    title=Каталог TwoComms — футболки, худі, лонгсліви з принтами — сторінка 2
+  url=https://twocomms.shop/catalog/tshirts/?page=2
+    status=200 robots=index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1 canonical=https://twocomms.shop/catalog/tshirts/?page=2
+    title=Футболки TwoComms — стрітвеар та мілітарі-принти від — сторінка 2
+  url=https://twocomms.shop/product/classic-tshirt/?color=black
+    status=200 robots=noindex, follow, max-image-preview:large canonical=https://twocomms.shop/product/classic-tshirt/
+    title=Футболка класична — купити футболку TwoComms
+  url=https://twocomms.shop/product/classic-tshirt/?fit=oversize
+    status=200 robots=index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1 canonical=https://twocomms.shop/product/classic-tshirt/oversize/
+    title=Футболка класична — оверсайз фіт — TwoComms
+  url=https://twocomms.shop/product/classic-tshirt/?size=m
+    status=200 robots=index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1 canonical=https://twocomms.shop/product/classic-tshirt/
+    title=Футболка класична — розмір M — TwoComms
+  url=https://twocomms.shop/?utm_source=test&utm_medium=audit
+    status=200 robots=index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1 canonical=https://twocomms.shop/
+    title=TwoComms — стріт & мілітарі одяг з Харкова
+  url=https://twocomms.shop/product/classic-tshirt/?utm_source=test
+    status=200 robots=index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1 canonical=https://twocomms.shop/product/classic-tshirt/
+    title=Футболка класична — купити футболку TwoComms
+  url=https://twocomms.shop/?gclid=abc123
+    status=200 robots=index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1 canonical=https://twocomms.shop/
+    title=TwoComms — стріт & мілітарі одяг з Харкова
+  url=https://twocomms.shop/?fbclid=xyz789
+    status=200 robots=index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1 canonical=https://twocomms.shop/
+    title=TwoComms — стріт & мілітарі одяг з Харкова
+  url=https://twocomms.shop/search/?q=футболка
+    status=-1 robots=None canonical=None
+    title=
+  url=https://twocomms.shop/search/
+    status=200 robots=noindex, follow canonical=https://twocomms.shop/catalog/
+    title=Пошук — TwoComms

@@ -92,9 +92,11 @@ graphs can deduplicate the home page across crawls. Added explicit
   }
 }
 </script>
-{# SEO 2026-05-16 (P1-3) — explicit BreadcrumbList for the homepage.
-   Single-item breadcrumb is accepted by Google and gives AI agents
-   the canonical entry point for the brand's URL graph. #}
+{% comment %}
+SEO 2026-05-16 (P1-3) — explicit BreadcrumbList for the homepage.
+Single-item breadcrumb is accepted by Google and gives AI agents the
+canonical entry point for the brand's URL graph.
+{% endcomment %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
