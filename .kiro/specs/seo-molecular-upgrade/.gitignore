@@ -1,0 +1,15 @@
+# Heavy raw artifacts — keep on disk for reference but don't commit
+audit/raw_html/
+audit/raw_pdp/
+audit/.tmp_linking/
+audit/.tmp_pages/
+audit/_tmp/
+audit/audit_data/page_texts.json
+audit/audit_data/probe_results.json
+audit/audit_data/search_results.html
+audit/audit_data/sitemap-*.xml
+audit/audit_data/01_content_raw.json
+audit/audit_data/05_tech_debt_raw.json
+audit/04_linking_graph.json
+audit/02_schema_raw.json
+audit/03_urls_raw.json
