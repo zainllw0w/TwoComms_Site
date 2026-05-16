@@ -754,6 +754,17 @@
   color: #ffd24d;
 }
 
+/* SEO 2026-05-16 — visible postal address marker for Local SEO + AI agents. */
+.footer-contact__address {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: rgba(255, 246, 234, 0.78);
+  font-size: 0.9rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
 .footer-bottom {
   display: flex;
   justify-content: center;

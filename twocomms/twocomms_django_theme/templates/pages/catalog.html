@@ -201,7 +201,11 @@ point at themselves.
             {% endcomment %}
             {% if query %}{% blocktrans with q=query %}Результати пошуку: «{{ q }}»{% endblocktrans %}{% else %}{% trans 'Пошук у каталозі' %}{% endif %}
             {% else %}
-            {% trans 'Каталог' %}<br>{% trans 'одягу' %}
+            {# SEO 2026-05-16 — H1 was «Каталог<br>одягу», which read as «Каталогодягу» #}
+            {# to crawlers that strip <br> without inserting whitespace (Semrush, some #}
+            {# AI agents). Replaced with a single semantically correct phrase that reads #}
+            {# the same to humans (CSS handles the line break) and to bots. #}
+            {% trans 'Каталог одягу TwoComms' %}
             {% endif %}
           </h1>
           {% if category and category.description %}

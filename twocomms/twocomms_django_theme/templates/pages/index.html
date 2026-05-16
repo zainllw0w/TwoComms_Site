@@ -2,14 +2,15 @@
 
 {# SEO v1.0 Phase 12 (2026-05-12) — finding (VV). Pagination on the home grid was rendering an identical <title> for every ?page=N which Search Console flags as duplicate-title. Suffix the title with the page number so each paginator state is unique. #}
 {# SEO Audit 2026-05-15 (Part 4) — homepage title cleanup. The legacy "| Головна" suffix was a navigation echo that wasted ~9 chars of SERP real estate without adding semantic value. Replace with "з Харкова" (geo-signal) to push LocalSEO and free up the truncation budget for the brand line. #}
-{% block title %}{% trans 'TwoComms — стріт & мілітарі одяг з Харкова' %}{% if page_obj and page_obj.number > 1 %} — {% blocktrans with n=page_obj.number %}сторінка {{ n }}{% endblocktrans %}{% endif %}{% endblock %}
+{# SEO 2026-05-16 — Semrush flagged the previous title (42 chars) as below the 50-60 char SERP cap; adding the three core product categories pushes the snippet to ~58 chars and packs three high-intent commercial keywords without truncation. #}
+{% block title %}{% trans 'TwoComms — стріт та мілітарі одяг з Харкова: футболки, худі' %}{% if page_obj and page_obj.number > 1 %} — {% blocktrans with n=page_obj.number %}сторінка {{ n }}{% endblocktrans %}{% endif %}{% endblock %}
 
 {# SEO 2026-05-16 — uniqueness fix for "Crawled, currently not indexed" on /?page=N. Search Console #}
 {# treats paginated pages as thin near-duplicates when meta description is identical. Each paginator #}
 {# state now declares which page it is + a hint at the unique product slice it lists, while keeping the #}
 {# canonical UVP for /?page=1. Combined with the existing per-page <title> ("сторінка N") and a #}
 {# self-canonical on each paginator URL, this gives Google enough uniqueness signal to index the page. #}
-{% block description %}{% if page_obj and page_obj.number > 1 %}{% blocktrans with n=page_obj.number total=paginator.num_pages %}TwoComms — каталог стрітвір та мілітарі одягу, сторінка {{ n }} з {{ total }}. Нові футболки, худі, лонгсліви з авторськими принтами та швидка доставка по Україні.{% endblocktrans %}{% else %}{% trans 'TwoComms — український магазин стріт і мілітарі одягу: футболки, худі, лонгсліви, кастомний друк і швидка доставка по Україні.' %}{% endif %}{% endblock %}
+{% block description %}{% if page_obj and page_obj.number > 1 %}{% blocktrans with n=page_obj.number total=paginator.num_pages %}TwoComms — каталог стрітвір та мілітарі одягу, сторінка {{ n }} з {{ total }}. Нові футболки, худі, лонгсліви з авторськими принтами та швидка доставка по Україні.{% endblocktrans %}{% else %}{# SEO 2026-05-16 — expanded from 126 to ~155 chars to hit Semrush's 140-160 SERP-snippet sweet spot. Now surfaces the Kharkiv geo-signal, DTF tech keyword and Nova Poshta delivery USP that drive CTR. #}{% trans 'TwoComms — харківський бренд стрітвір та мілітарі одягу: футболки, худі, лонгсліви, кастомний DTF-друк, доставка Новою Поштою по всій Україні.' %}{% endif %}{% endblock %}
 
 {% block keywords %}{% trans 'стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг, одяг з характером, стріт стиль, мілітарі стиль' %}{% endblock %}
 

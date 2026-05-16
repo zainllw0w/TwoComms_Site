@@ -169,6 +169,17 @@
         <span aria-hidden="true">✉</span>
         <span>info@twocomms.shop</span>
       </a>
+      {# SEO 2026-05-16 — surface a visible postal address marker so crawlers (Semrush #}
+      {# Local SEO checker, AI agents, Google Knowledge Panel) see a NAP triple — name, #}
+      {# phone, address — without descending into JSON-LD. We don't run a public retail #}
+      {# store, so we render the brand's operations region instead of a street address. #}
+      <span class="footer-contact__address" itemscope itemtype="https://schema.org/PostalAddress" aria-label="{% trans 'Регіон роботи TwoComms' %}">
+        <span aria-hidden="true">📍</span>
+        <span>
+          <span itemprop="addressLocality">{% trans 'Харків' %}</span>,
+          <span itemprop="addressCountry">{% trans 'Україна' %}</span>
+        </span>
+      </span>
     </div>
 
     <div class="footer-bottom">
