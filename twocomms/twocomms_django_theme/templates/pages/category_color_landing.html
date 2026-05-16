@@ -12,7 +12,7 @@
 {% block og_type %}website{% endblock %}
 {% block og_title %}{{ landing.seo_title }}{% endblock %}
 {% block og_description %}{{ landing.seo_description }}{% endblock %}
-{% block og_image %}{% if category.cover %}{{ site_base_url }}{{ category.cover.url }}{% else %}{{ site_base_url }}{% static 'img/social-preview.jpg' %}{% endif %}{% endblock %}
+{% block og_image %}{% if category.cover %}{{ site_base_url }}{{ category.cover.url }}{% else %}{{ site_base_url }}{% static og_locale_image_path %}{% endif %}{% endblock %}
 
 {% block twitter_url %}{{ canonical_url }}{% endblock %}
 {% block twitter_title %}{{ landing.seo_title }}{% endblock %}

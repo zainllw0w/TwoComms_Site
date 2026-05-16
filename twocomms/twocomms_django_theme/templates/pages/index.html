@@ -63,7 +63,17 @@ SEO 2026-05-16 (P1-3 / P3.5) — added stable ``@id`` for the WebPage
 node so it can be referenced from BreadcrumbList and so AI knowledge
 graphs can deduplicate the home page across crawls. Added explicit
 ``isPartOf`` / ``about`` links pointing at WebSite + Organization.
+
+SEO molecular-upgrade US-16 (2026-05-16) — homepage commerce signals.
+The OnlineStore + AggregateOffer node anchored to #storefront tells
+Google the real catalogue ``priceRange`` and a verified
+``lowPrice/highPrice/offerCount`` triple, eliminating the SERP price
+hallucination that previously rendered "200 200 грн" by stitching the
+survey banner's two ``200`` mentions together. Combined with the
+numeric-decoupling fix in the survey banner below, this fully removes
+the misleading price snippet.
 {% endcomment %}
+{% homepage_storefront_schema %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -206,7 +216,16 @@ canonical entry point for the brand's URL graph.
             </div>
             <div class="sl-bonus-info">
               <span class="sl-kicker">{% trans 'Бонус за фідбек' %}</span>
-              <span class="sl-amount">-{{ survey_reward.amount_uah|default:200 }} {% trans 'грн' %}</span>
+              {# SEO molecular-upgrade US-16 (2026-05-16) — numeric decoupling. #}
+              {# The previous markup ``-{{ amount }} грн`` placed two raw "200" #}
+              {# numbers in close proximity (this span + the right-panel banner #}
+              {# title), which Google's price-snippet heuristic stitched into a #}
+              {# fictitious "200 200,00 грн" homepage price. Wrapping the #}
+              {# amount in an explicit "Промокод на" prefix injects a #}
+              {# non-numeric token between the two values so the heuristic can #}
+              {# no longer concatenate them. The DOM order also matters here #}
+              {# because rendered text scrapes are linear. #}
+              <span class="sl-amount">{% blocktrans with amount=survey_reward.amount_uah|default:200 %}Промокод на {{ amount }} грн{% endblocktrans %}</span>
             </div>
           </div>
           <p class="sl-desc">{% trans 'Промокод активується автоматично одразу після проходження та діє на весь асортимент.' %}</p>
@@ -239,7 +258,13 @@ canonical entry point for the brand's URL graph.
           <div class="survey-panel-dark sr-banner">
             <div class="sr-banner-text">
               <h3 class="sr-banner-title">
-                {% blocktrans with amount=survey_reward.amount_uah|default:200 %}ВИГРАЙ {{ amount }} ГРН{% endblocktrans %}<br>{% trans 'ЗА ОПИТУВАННЯ!' %}
+                {# SEO molecular-upgrade US-16 (2026-05-16) — numeric #}
+                {# decoupling. Replaced "ВИГРАЙ 200 ГРН" with #}
+                {# "ВИГРАЙ ПРОМОКОД на 200 грн" so the two homepage #}
+                {# "200" mentions (this banner + the left-panel #}
+                {# "Промокод на 200 грн" amount) can no longer be #}
+                {# concatenated by Google's price-snippet extractor. #}
+                {% blocktrans with amount=survey_reward.amount_uah|default:200 %}ВИГРАЙ ПРОМОКОД<br>на {{ amount }} грн{% endblocktrans %}
               </h3>
               <p class="sr-banner-desc">
                 {% trans 'Дай відповідь на кілька запитань та забери свій промокод!' %}
@@ -247,13 +272,15 @@ canonical entry point for the brand's URL graph.
             </div>
             <div class="sr-banner-icon" id="survey-gift-icon-container">
               <!-- ИКОНКА КОРЗИНЫ / ПОДАРУНКА ЗНАХОДИТЬСЯ ТУТ -->
-              <svg width="100" height="100" viewBox="0 0 100 100" fill="none" style="filter: drop-shadow(0 0 20px rgba(255,140,66,0.5));">
+              <svg width="100" height="100" viewBox="0 0 100 100" fill="none" style="filter: drop-shadow(0 0 20px rgba(255,140,66,0.5));" aria-hidden="true">
   
   <!-- Second Banknote (Behind the first) -->
   <g transform="translate(25, 22) rotate(-15)">
     <rect x="0" y="0" width="38" height="55" rx="3" fill="url(#noteGradDark)" stroke="#e66820" stroke-width="2"/>
     <rect x="3" y="3" width="32" height="49" rx="1" fill="none" stroke="rgba(255,209,140,0.2)" stroke-width="1"/>
-    <text x="19" y="24" font-family="Inter, Arial, sans-serif" font-weight="900" font-size="12" fill="rgba(255,255,255,0.6)" text-anchor="middle">200</text>
+    <!-- SEO molecular-upgrade US-16 — replaced visible "200" with currency glyph -->
+    <!-- so SVG text scrape no longer adds a third "200" to the home DOM. -->
+    <text x="19" y="28" font-family="Inter, Arial, sans-serif" font-weight="900" font-size="16" fill="rgba(255,255,255,0.6)" text-anchor="middle">₴</text>
   </g>
 
   <!-- The Main Banknote -->
@@ -262,10 +289,9 @@ canonical entry point for the brand's URL graph.
     <rect x="0" y="0" width="40" height="55" rx="3" fill="url(#noteGrad)" stroke="#FFd18c" stroke-width="2"/>
     <!-- Inner border -->
     <rect x="4" y="4" width="32" height="47" rx="1" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1" stroke-dasharray="3 3"/>
-    <!-- "200" text -->
-    <text x="20" y="24" font-family="Inter, Arial, sans-serif" font-weight="900" font-size="14" fill="#fff" text-anchor="middle">200</text>
-    <!-- Grivna symbol -->
-    <text x="20" y="42" font-family="Inter, Arial, sans-serif" font-weight="900" font-size="18" fill="#fff" text-anchor="middle">₴</text>
+    <!-- Currency glyph + bonus marker (US-16 numeric decoupling) -->
+    <text x="20" y="26" font-family="Inter, Arial, sans-serif" font-weight="900" font-size="18" fill="#fff" text-anchor="middle">₴</text>
+    <text x="20" y="42" font-family="Inter, Arial, sans-serif" font-weight="800" font-size="9" fill="#fff" text-anchor="middle">BONUS</text>
   </g>
 
   <!-- Main Box -->

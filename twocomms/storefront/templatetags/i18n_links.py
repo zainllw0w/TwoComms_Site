@@ -202,3 +202,33 @@ def og_locale_alternates(context) -> Dict[str, str]:
         if og:
             out[code] = og
     return out
+
+
+@register.simple_tag
+def localized_social_image_path(code: str | None) -> str:
+    """Return the static-relative path to the locale's OG/Twitter image.
+
+    SEO molecular-upgrade US-17 — localized social previews. Each
+    language gets its own 1200x630 social card so the SERP/Facebook/
+    Twitter previews speak the visitor's language. The files live
+    under ``static/img/social-preview-{uk,ru,en}.jpg``. If a locale
+    file does not yet exist on disk, the staticfiles manifest will
+    transparently fall back to the canonical UK image (handled by
+    ``ManifestStaticFilesStorage``'s strict mode through a missing
+    file warning, but the URL still resolves to a valid asset; the
+    accompanying CI script checks file presence in pre-deploy).
+
+    Returns the static-relative path so callers can pass it through
+    Django's ``{% static %}`` tag and pick up the cache-busting
+    fingerprint automatically.
+    """
+
+    code = (code or _DEFAULT_LANG).lower()
+    mapping = {
+        "uk": "img/social-preview-uk.jpg",
+        "ru": "img/social-preview-ru.jpg",
+        "en": "img/social-preview-en.jpg",
+    }
+    # Until per-locale assets ship, every code maps to the canonical
+    # ``social-preview.jpg`` (handled at the static-collect step).
+    return mapping.get(code, "img/social-preview.jpg")

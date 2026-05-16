@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="TwoComms — street &amp; military apparel from Kharkiv">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0a0a10"/>
+      <stop offset="55%" stop-color="#11131a"/>
+      <stop offset="100%" stop-color="#1c2030"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.4" r="0.55">
+      <stop offset="0%" stop-color="rgba(99,102,241,0.35)"/>
+      <stop offset="60%" stop-color="rgba(99,102,241,0.06)"/>
+      <stop offset="100%" stop-color="rgba(99,102,241,0)"/>
+    </radialGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#a78bfa"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <g opacity="0.05" stroke="#ffffff" stroke-width="1">
+    <line x1="0" y1="0" x2="1200" y2="630"/>
+    <line x1="0" y1="630" x2="1200" y2="0"/>
+    <line x1="600" y1="0" x2="600" y2="630"/>
+    <line x1="0" y1="315" x2="1200" y2="315"/>
+  </g>
+  <rect x="0" y="0" width="6" height="630" fill="url(#accent)"/>
+  <g transform="translate(80, 200)">
+    <text font-family="Inter, Arial, sans-serif" font-weight="900" font-size="120" fill="#ffffff" letter-spacing="-2">TWOCOMMS</text>
+    <text y="60" font-family="Inter, Arial, sans-serif" font-weight="600" font-size="34" fill="#a78bfa" letter-spacing="6">STREET &amp; MILITARY APPAREL</text>
+    <text y="118" font-family="Inter, Arial, sans-serif" font-weight="500" font-size="24" fill="rgba(255,255,255,0.65)" letter-spacing="1">Kharkiv · from UAH 880 · ships across Ukraine</text>
+  </g>
+  <g transform="translate(940, 240)" fill="#ffffff">
+    <path d="M 60 110 q 0 30 -25 50 l 12 14 q 38 -28 38 -64 q 0 -22 -16 -22 q -14 0 -14 11 q 0 11 14 11 z M 130 110 q 0 30 -25 50 l 12 14 q 38 -28 38 -64 q 0 -22 -16 -22 q -14 0 -14 11 q 0 11 14 11 z" />
+  </g>
+  <g transform="translate(80, 560)">
+    <text font-family="Inter, Arial, sans-serif" font-weight="600" font-size="22" fill="rgba(255,255,255,0.5)" letter-spacing="2">TWOCOMMS.SHOP · UKRAINIAN VETERAN-FOUNDED STREETWEAR</text>
+  </g>
+</svg>

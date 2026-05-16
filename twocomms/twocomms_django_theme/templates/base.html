@@ -125,9 +125,21 @@
   <meta property="og:title" content="{% block og_title %}{% trans 'TwoComms — Стріт & Мілітарі Одяг' %}{% endblock %}">
   <meta property="og:description"
     content="{% block og_description %}{% trans 'TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю.' %}{% endblock %}">
+  {% comment %}
+  SEO molecular-upgrade US-17 (2026-05-16) — localized social
+  previews. Each indexable locale points at its own 1200x630 card so
+  SERP image thumbnails and Facebook / Twitter / Telegram embeds
+  speak the visitor's language. The fallback chain is:
+  static/img/social-preview-{uk,ru,en}.jpg → static/img/social-
+  preview.jpg (legacy uk-UA card). Child templates can still
+  override the {% raw %}{% block og_image %}{% endraw %} when a
+  product / category needs a context-specific image.
+  {% endcomment %}
+  {% localized_social_image_path LANGUAGE_CODE as og_locale_image_path %}
   <meta property="og:image"
-    content="{% block og_image %}{{ site_base_url }}{% static 'img/social-preview.jpg' %}{% endblock %}">
+    content="{% block og_image %}{{ site_base_url }}{% static og_locale_image_path %}{% endblock %}">
   <meta property="og:image:alt" content="{% block og_image_alt %}{% trans 'TwoComms — стріт & мілітарі одяг' %}{% endblock %}">
+  <meta property="og:image:type" content="image/jpeg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:site_name" content="TwoComms">
@@ -193,7 +205,7 @@
   <meta name="twitter:description"
     content="{% block twitter_description %}{% trans 'TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю.' %}{% endblock %}">
   <meta name="twitter:image"
-    content="{% block twitter_image %}{{ site_base_url }}{% static 'img/social-preview.jpg' %}{% endblock %}">
+    content="{% block twitter_image %}{{ site_base_url }}{% static og_locale_image_path %}{% endblock %}">
   <meta name="twitter:image:alt" content="{% block twitter_image_alt %}{% trans 'TwoComms — стріт & мілітарі одяг' %}{% endblock %}">
   {% endblock %}
 

@@ -116,6 +116,72 @@ def _safe_product_display_image(product) -> object | None:
         return None
 
 
+# ---------------------------------------------------------------------------
+# Homepage commerce signals (US-16 — eliminate Google price-snippet
+# hallucination "200 200 грн" by providing explicit priceRange and
+# AggregateOffer derived from real Product data).
+# ---------------------------------------------------------------------------
+
+
+def _homepage_price_aggregate() -> Dict[str, object]:
+    """Compute live low/high price + offer count across the catalogue.
+
+    Used both inside ``Organization.priceRange`` (text form) and as the
+    standalone ``AggregateOffer`` node on the homepage. Errors during
+    aggregation are non-fatal — Google handles a missing AggregateOffer
+    gracefully, but we never want a 500 on the home view because of a
+    schema helper. Returns an empty dict on any DB failure.
+    """
+    try:
+        active_qs = Product.objects.filter(price__isnull=False).only(
+            "price", "discount_percent"
+        )
+        prices: List[int] = []
+        for product in active_qs:
+            base_price = int(product.price or 0)
+            if base_price <= 0:
+                continue
+            if product.discount_percent and product.discount_percent > 0:
+                final_price = int(base_price * (100 - product.discount_percent) / 100)
+            else:
+                final_price = base_price
+            if final_price > 0:
+                prices.append(final_price)
+        if not prices:
+            return {}
+        return {
+            "lowPrice": min(prices),
+            "highPrice": max(prices),
+            "offerCount": len(prices),
+        }
+    except Exception:
+        return {}
+
+
+def _homepage_price_range_text() -> str:
+    """Render ``priceRange`` as a single string ("880-2550 UAH")."""
+    aggregate = _homepage_price_aggregate()
+    if not aggregate:
+        # Fall back to the published catalogue range from the brand brief
+        # (BrandDNA / SEO/napolke-veteran-brands-2026.md) so the property
+        # is never empty even when the DB is unavailable.
+        return "880-2550 UAH"
+    return f"{aggregate['lowPrice']}-{aggregate['highPrice']} UAH"
+
+
+def _organization_same_as() -> List[str]:
+    """Curated ``sameAs`` list for Organization / OnlineStore.
+
+    Owner-confirmed handles only; placeholders for unconfirmed channels
+    must be added by the owner in a follow-up task (US-13). Adding a
+    fake handle would mislead AI Knowledge Graphs.
+    """
+    return [
+        "https://instagram.com/twocomms",
+        "https://t.me/twocomms",
+    ]
+
+
 class SEOKeywordGenerator:
     """Генератор ключевых слов на основе анализа контента"""
 
@@ -1016,16 +1082,34 @@ class StructuredDataGenerator:
         and Google's Knowledge Panel can resolve TwoComms as a
         Kharkiv-rooted brand instead of inferring "Ukraine, location
         unknown" from the contact channels alone.
+
+        SEO molecular-upgrade US-13 / homepage commerce signals —
+        ``image`` (1200x630 social preview) so Knowledge Panel has a
+        non-SVG visual fallback, ``slogan`` for AI-cite snippet,
+        explicit ``knowsLanguage`` triple and Brand-typed alias.
+        ``sameAs`` left at minimum verified set (Instagram + Telegram);
+        adding more requires owner-confirmed handles.
         """
         base_url = _build_absolute_url("")
         logo_url = _build_absolute_url("static/img/logo.svg")
+        social_image = _build_absolute_url(DEFAULT_SOCIAL_IMAGE_PATH)
         return {
             "@context": "https://schema.org",
-            "@type": "Organization",
+            "@type": ["Organization", "OnlineStore"],
             "@id": f"{base_url}#organization",
             "name": "TwoComms",
+            "alternateName": "TwoComms / TWOCOMMS",
             "url": base_url,
-            "logo": logo_url,
+            "logo": {
+                "@type": "ImageObject",
+                "url": logo_url,
+                "contentUrl": logo_url,
+                "caption": "TwoComms logo",
+            },
+            "image": social_image,
+            "slogan": _(
+                "Не крапка, а продовження. Український streetwear із Харкова."
+            ),
             "description": _(
                 "TwoComms — український streetwear / military-adjacent бренд "
                 "одягу з Харкова, створений навколо ідеї продовження після "
@@ -1048,16 +1132,29 @@ class StructuredDataGenerator:
                 "addressRegion": "UA-63",
                 "addressLocality": _("Харків"),
             },
+            "areaServed": {
+                "@type": "Country",
+                "name": "Ukraine",
+                "identifier": "UA",
+            },
+            "knowsLanguage": ["uk", "ru", "en"],
+            "currenciesAccepted": "UAH",
+            "paymentAccepted": "Cash, Credit Card, Apple Pay, Google Pay",
+            "priceRange": _homepage_price_range_text(),
             "founder": {"@id": f"{base_url}#founder"},
-            "sameAs": [
-                "https://instagram.com/twocomms",
-                "https://t.me/twocomms",
-            ],
+            "sameAs": _organization_same_as(),
             "contactPoint": {
                 "@type": "ContactPoint",
                 "telephone": "+380966543212",
                 "contactType": "customer support",
                 "availableLanguage": ["uk", "ru", "en"],
+                "areaServed": "UA",
+            },
+            "brand": {
+                "@type": "Brand",
+                "@id": f"{base_url}#brand",
+                "name": "TwoComms",
+                "logo": logo_url,
             },
         }
 
@@ -1085,6 +1182,75 @@ class StructuredDataGenerator:
                 "query-input": "required name=search_term_string",
             },
         }
+
+    @staticmethod
+    def generate_homepage_storefront_schema() -> Dict:
+        """Storefront commerce node for the homepage (US-16).
+
+        Why this exists
+        ---------------
+        The homepage previously emitted only ``WebPage`` + ``ItemList``
+        (categories), without any explicit price signal. Google's SERP
+        renderer therefore fell back to heuristic price extraction,
+        which scraped the survey banner ("ВИГРАЙ 200 ГРН" + "-200 грн")
+        and rendered ``200 200,00 грн`` underneath the ru-UA homepage
+        snippet — actively misleading prospective customers.
+
+        Mitigation strategy: emit an ``OnlineStore`` node anchored to
+        ``#storefront`` with explicit ``priceRange`` derived from live
+        catalogue prices, plus a ``makesOffer`` AggregateOffer that
+        resolves Google's price-snippet attribution to the real
+        catalogue range. Combined with the survey-banner numeric
+        decoupling fix in ``index.html``, this removes the hallucinated
+        ``200 200 грн`` price entirely.
+
+        The node references the canonical Organization ``@id`` so the
+        Knowledge Graph stays deduplicated.
+        """
+        base_url = _build_absolute_url("")
+        social_image = _build_absolute_url(DEFAULT_SOCIAL_IMAGE_PATH)
+        aggregate = _homepage_price_aggregate()
+
+        node: Dict[str, object] = {
+            "@context": "https://schema.org",
+            "@type": "OnlineStore",
+            "@id": f"{base_url}#storefront",
+            "name": "TwoComms",
+            "url": base_url,
+            "image": social_image,
+            "logo": _build_absolute_url("static/img/logo.svg"),
+            "description": _(
+                "Український онлайн-магазин стріт- та мілітарі-одягу TwoComms: "
+                "футболки, худі, лонгсліви та кастомний DTF-друк."
+            ),
+            "telephone": "+380966543212",
+            "currenciesAccepted": "UAH",
+            "paymentAccepted": "Cash, Credit Card, Apple Pay, Google Pay",
+            "priceRange": _homepage_price_range_text(),
+            "areaServed": {"@type": "Country", "name": "Ukraine", "identifier": "UA"},
+            "parentOrganization": {"@id": f"{base_url}#organization"},
+            "sameAs": _organization_same_as(),
+            "contactPoint": {
+                "@type": "ContactPoint",
+                "telephone": "+380966543212",
+                "contactType": "customer support",
+                "availableLanguage": ["uk", "ru", "en"],
+                "areaServed": "UA",
+            },
+        }
+
+        if aggregate:
+            node["makesOffer"] = {
+                "@type": "AggregateOffer",
+                "priceCurrency": "UAH",
+                "lowPrice": aggregate["lowPrice"],
+                "highPrice": aggregate["highPrice"],
+                "offerCount": aggregate["offerCount"],
+                "availability": "https://schema.org/InStock",
+                "seller": {"@id": f"{base_url}#organization"},
+            }
+
+        return node
 
     @staticmethod
     def generate_faq_schema(faq_items: List[Dict]) -> Dict:

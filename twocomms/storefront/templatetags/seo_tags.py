@@ -412,6 +412,25 @@ def website_schema():
 
 
 @register.simple_tag
+def homepage_storefront_schema():
+    """JSON-LD ``OnlineStore`` + ``AggregateOffer`` for the homepage.
+
+    Use exclusively on ``pages/index.html``. Anchored to ``#storefront``
+    so it never collides with the global ``#organization`` /
+    ``#online-store`` (legacy contacts page) nodes. Together with the
+    survey-banner numeric decoupling, this kills the SERP "200 200 грн"
+    price hallucination.
+
+    See ``StructuredDataGenerator.generate_homepage_storefront_schema``
+    for the full rationale (US-16 in the seo-molecular-upgrade spec).
+    """
+    schema = _seo_utils().StructuredDataGenerator.generate_homepage_storefront_schema()
+    return mark_safe(
+        f'<script type="application/ld+json">{json.dumps(schema, ensure_ascii=False, indent=2)}</script>'
+    )
+
+
+@register.simple_tag
 def online_store_schema():
     """OnlineStore JSON-LD with verified phone and Ukraine-wide service area.
 

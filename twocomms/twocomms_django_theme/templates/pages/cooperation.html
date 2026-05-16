@@ -13,10 +13,10 @@
 {% block keywords %}{% trans 'співпраця TwoComms, дропшипінг одягу, опт одягу, бренд партнерство, співпраця з блогерами, співпраця з дизайнерами' %}{% endblock %}
 {% block og_title %}{% trans 'Співпраця з TwoComms — дропшипінг, опт і бренд-партнерства' %}{% endblock %}
 {% block og_description %}{% trans 'Оберіть формат співпраці з TwoComms: дропшипінг, оптові закупівлі, спільні колекції, робота з дизайнерами, блогерами та медіа.' %}{% endblock %}
-{% block og_image %}{{ site_base_url }}{% static 'img/social-preview.jpg' %}{% endblock %}
+{% block og_image %}{{ site_base_url }}{% static og_locale_image_path %}{% endblock %}
 {% block twitter_title %}{% trans 'Співпраця з TwoComms — дропшипінг, опт і бренд-партнерства' %}{% endblock %}
 {% block twitter_description %}{% trans 'TwoComms відкриває партнерські маршрути для магазинів, брендів, дизайнерів, блогерів та медіа.' %}{% endblock %}
-{% block twitter_image %}{{ site_base_url }}{% static 'img/social-preview.jpg' %}{% endblock %}
+{% block twitter_image %}{{ site_base_url }}{% static og_locale_image_path %}{% endblock %}
 
 {% block structured_data %}
 <script type="application/ld+json">
