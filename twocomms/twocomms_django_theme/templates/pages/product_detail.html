@@ -660,14 +660,8 @@ CSS rules на mobile FCP/LCP window.
   long-form sections plus a 4-item FAQ — all server-rendered so AI
   crawlers can cite them. See
   ``storefront/services/product_seo_block.py``.
-
-  ROLLOUT NOTE — the ``{% raw %}{% product_seo_block product %}{% endraw %}``
-  call is commented out until the next Passenger restart picks up
-  the new ``seo_tags.product_seo_block`` inclusion tag. Once the
-  worker has the new code, uncomment the line below in a follow-up
-  template-only commit.
-  {# {% product_seo_block product %} #}
   {% endcomment %}
+  {% product_seo_block product %}
 
   {% include "partials/product_reviews.html" %}
 
