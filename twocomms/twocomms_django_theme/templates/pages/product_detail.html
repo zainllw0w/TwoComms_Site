@@ -652,6 +652,17 @@ CSS rules на mobile FCP/LCP window.
     </section>
   </div>
 
+  {% comment %}
+  SEO molecular-upgrade US-3 (2026-05-16) — per-product SEO block.
+  Adds 600–1000 unique words below the main product card so each
+  PDP no longer shares 80% of its text with every other PDP. The
+  helper auto-detects a topic key from slug/title and renders 7
+  long-form sections plus a 4-item FAQ — all server-rendered so AI
+  crawlers can cite them. See
+  ``storefront/services/product_seo_block.py``.
+  {% endcomment %}
+  {% product_seo_block product %}
+
   {% include "partials/product_reviews.html" %}
 
   {% if recommended_products %}

@@ -430,6 +430,36 @@ def homepage_storefront_schema():
     )
 
 
+@register.inclusion_tag(
+    "partials/product_seo_block.html", takes_context=True
+)
+def product_seo_block(context, product):
+    """Render the per-product SEO content block (US-3).
+
+    Generates seven self-contained sections (hero_intro, who_for,
+    how_to_style, care, delivery, why_us, faq) with topic-aware
+    narratives. Drops in just before the existing PDP tabs panel so
+    Google / AI search bots see hundreds of unique long-form words per
+    SKU instead of the boilerplate that previously caused 80%+ pairwise
+    overlap (audit/01b_pdp_findings.md).
+
+    See ``storefront.services.product_seo_block.build_product_seo_block``
+    for the full rationale and the topic detection table.
+    """
+    if product is None:
+        return {"block": None, "request": context.get("request")}
+    try:
+        from storefront.services.product_seo_block import build_product_seo_block
+
+        block = build_product_seo_block(
+            product, language_code=context.get("LANGUAGE_CODE")
+        )
+    except Exception:
+        # Defensive: never let the SEO block break the PDP render.
+        block = None
+    return {"block": block, "request": context.get("request"), "product": product}
+
+
 @register.simple_tag
 def online_store_schema():
     """OnlineStore JSON-LD with verified phone and Ukraine-wide service area.

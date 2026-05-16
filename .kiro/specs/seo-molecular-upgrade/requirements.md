@@ -143,6 +143,8 @@
 
 **Главная цель спеки.** Закрывает **критическую находку #1** аудита: PDP overlap 80%+.
 
+**Status:** 🟡 **PHASE A DONE** (2026-05-16) — template-only генератор `build_product_seo_block` + 7 секций + 4 FAQ × 3 языка + auto-detected topics (kharkiv / pokrovsk / 225-OSP / business / reality-bends / military / street / generic) интегрирован в `product_detail.html` ниже карточки товара. БД-миграция `topic_narrative` (Phase B) — отдельная итерация.
+
 **As** Google / Bing / AI-search bot
 **I want** видеть на каждой PDP **уникальный** контентный блок с уникальной комбинацией ключей, тематикой принта и стилистических деталей
 **So that** каждая из 65 PDP имела самостоятельный ranking signal и не считалась near-duplicate.

@@ -1,0 +1,64 @@
+{% load i18n %}
+{% comment %}
+SEO molecular-upgrade US-3 — per-product SEO content block.
+
+Renders the seven sections returned by
+``storefront.services.product_seo_block.build_product_seo_block``
+plus the per-product FAQ list. Designed to drop into the bottom of
+the PDP without touching the existing ``tc-tab-panel`` cluster.
+
+Why server-rendered (no JS):
+* AI search crawlers (ChatGPT Search, Claude Search, Perplexity) read
+  the initial HTML; lazy-loaded sections never get cited.
+* The block adds ~600–1000 unique words per PDP, lifting the audit's
+  ≤30% pairwise 5-gram Jaccard target from "impossible" to default.
+* Server-render keeps rendering predictable for Lighthouse / CWV
+  (sections are static text, so they don't shift layout).
+
+The block degrades gracefully: when ``block`` is ``None`` (helper
+exception or admin disabled the section) the include emits nothing.
+{% endcomment %}
+{% if block %}
+<section class="pdp-seo-block" aria-labelledby="pdp-seo-heading"
+         data-pdp-seo-language="{{ block.language }}"
+         data-pdp-seo-topic="{{ block.topic }}">
+  <h2 class="visually-hidden" id="pdp-seo-heading">
+    {% blocktrans with title=product.title %}Детальніше про {{ title }}{% endblocktrans %}
+  </h2>
+  <div class="pdp-seo-grid">
+    {% for section in block.sections %}
+      <article class="pdp-seo-section pdp-seo-section--{{ section.id }}"
+               aria-labelledby="pdp-seo-{{ section.id }}-heading">
+        <h3 id="pdp-seo-{{ section.id }}-heading"
+            class="pdp-seo-section__heading"
+            {% if section.speakable %}data-speakable="true"{% endif %}>
+          {{ section.heading }}
+        </h3>
+        {% for paragraph in section.paragraphs %}
+          <p class="pdp-seo-section__copy"
+             {% if section.speakable and forloop.first %}data-speakable="true"{% endif %}>
+            {{ paragraph }}
+          </p>
+        {% endfor %}
+      </article>
+    {% endfor %}
+
+    {% if block.faq %}
+    <article class="pdp-seo-section pdp-seo-section--faq"
+             aria-labelledby="pdp-seo-faq-heading">
+      <h3 id="pdp-seo-faq-heading" class="pdp-seo-section__heading">
+        {% blocktrans with title=product.title %}Часті питання про {{ title }}{% endblocktrans %}
+      </h3>
+      <div class="pdp-seo-faq">
+        {% for item in block.faq %}
+        <details class="pdp-seo-faq__item">
+          <summary class="pdp-seo-faq__question">{{ item.question }}</summary>
+          <div class="pdp-seo-faq__answer">{{ item.answer }}</div>
+        </details>
+        {% endfor %}
+      </div>
+    </article>
+    {% endif %}
+  </div>
+</section>
+{% endif %}

@@ -2995,3 +2995,111 @@ html[data-route-name="product"] .breadcrumb-nav {
     animation: none;
   }
 }
+
+
+/* =========================================================================
+   SEO molecular-upgrade US-3 — per-product SEO content block.
+   Renders below the main product card (and above reviews) with
+   readable typography and grid spacing that doesn't compete with the
+   purchase-flow surface.
+   ========================================================================= */
+
+.pdp-seo-block {
+  margin: clamp(40px, 6vw, 64px) auto;
+  padding: clamp(24px, 4vw, 40px) clamp(20px, 4vw, 32px);
+  max-width: 1080px;
+  background: rgba(15, 18, 24, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+  color: var(--pdp-text, #e5e7eb);
+}
+
+.pdp-seo-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(20px, 3vw, 32px);
+}
+
+@media (min-width: 768px) {
+  .pdp-seo-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .pdp-seo-section--hero_intro,
+  .pdp-seo-section--faq {
+    grid-column: 1 / -1;
+  }
+}
+
+.pdp-seo-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pdp-seo-section__heading {
+  margin: 0;
+  font-size: clamp(1.05rem, 1.5vw, 1.2rem);
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.pdp-seo-section__copy {
+  margin: 0;
+  font-size: 0.96rem;
+  line-height: 1.65;
+  color: rgba(229, 231, 235, 0.85);
+}
+
+.pdp-seo-faq {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 16px;
+}
+
+.pdp-seo-faq__item {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 10px;
+  padding: 12px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.pdp-seo-faq__item[open] {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.pdp-seo-faq__question {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.92);
+  list-style: none;
+  position: relative;
+  padding-right: 28px;
+}
+
+.pdp-seo-faq__question::after {
+  content: "+";
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.1rem;
+  color: rgba(167, 139, 250, 0.9);
+  transition: transform 0.2s ease;
+}
+
+.pdp-seo-faq__item[open] .pdp-seo-faq__question::after {
+  content: "−";
+}
+
+.pdp-seo-faq__answer {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.06);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: rgba(229, 231, 235, 0.78);
+}
