@@ -1,0 +1,394 @@
+{
+  "pdps": [
+    {
+      "row": "pdp-classic-tshirt",
+      "values": {
+        "pdp-classic-tshirt": 1.0,
+        "pdp-hoodie-classic": 0.279,
+        "pdp-kharkiv-district-ts": 0.583,
+        "pdp-my-little-baby": 0.566,
+        "pdp-where-mi-present-hd": 0.213
+      }
+    },
+    {
+      "row": "pdp-hoodie-classic",
+      "values": {
+        "pdp-classic-tshirt": 0.279,
+        "pdp-hoodie-classic": 1.0,
+        "pdp-kharkiv-district-ts": 0.204,
+        "pdp-my-little-baby": 0.202,
+        "pdp-where-mi-present-hd": 0.624
+      }
+    },
+    {
+      "row": "pdp-kharkiv-district-ts",
+      "values": {
+        "pdp-classic-tshirt": 0.583,
+        "pdp-hoodie-classic": 0.204,
+        "pdp-kharkiv-district-ts": 1.0,
+        "pdp-my-little-baby": 0.592,
+        "pdp-where-mi-present-hd": 0.204
+      }
+    },
+    {
+      "row": "pdp-my-little-baby",
+      "values": {
+        "pdp-classic-tshirt": 0.566,
+        "pdp-hoodie-classic": 0.202,
+        "pdp-kharkiv-district-ts": 0.592,
+        "pdp-my-little-baby": 1.0,
+        "pdp-where-mi-present-hd": 0.204
+      }
+    },
+    {
+      "row": "pdp-where-mi-present-hd",
+      "values": {
+        "pdp-classic-tshirt": 0.213,
+        "pdp-hoodie-classic": 0.624,
+        "pdp-kharkiv-district-ts": 0.204,
+        "pdp-my-little-baby": 0.204,
+        "pdp-where-mi-present-hd": 1.0
+      }
+    }
+  ],
+  "categories": [
+    {
+      "row": "cat-hoodie",
+      "values": {
+        "cat-hoodie": 1.0,
+        "cat-long-sleeve": 0.019,
+        "cat-tshirts": 0.013,
+        "catalog-root": 0.01
+      }
+    },
+    {
+      "row": "cat-long-sleeve",
+      "values": {
+        "cat-hoodie": 0.019,
+        "cat-long-sleeve": 1.0,
+        "cat-tshirts": 0.009,
+        "catalog-root": 0.003
+      }
+    },
+    {
+      "row": "cat-tshirts",
+      "values": {
+        "cat-hoodie": 0.013,
+        "cat-long-sleeve": 0.009,
+        "cat-tshirts": 1.0,
+        "catalog-root": 0.019
+      }
+    },
+    {
+      "row": "catalog-root",
+      "values": {
+        "cat-hoodie": 0.01,
+        "cat-long-sleeve": 0.003,
+        "cat-tshirts": 0.019,
+        "catalog-root": 1.0
+      }
+    }
+  ],
+  "support": [
+    {
+      "row": "sup-cooperation",
+      "values": {
+        "sup-cooperation": 1.0,
+        "sup-custom-print": 0.0,
+        "sup-delivery": 0.0,
+        "sup-doglyad": 0.0,
+        "sup-dopomoga": 0.0,
+        "sup-faq": 0.0,
+        "sup-mapa-saytu": 0.0,
+        "sup-novyny": 0.0,
+        "sup-polityka": 0.0,
+        "sup-povernennya": 0.0,
+        "sup-pro-brand": 0.0,
+        "sup-rozmirna-sitka": 0.0,
+        "sup-umovy": 0.0,
+        "sup-vidstezhennya": 0.0,
+        "sup-wholesale": 0.0
+      }
+    },
+    {
+      "row": "sup-custom-print",
+      "values": {
+        "sup-cooperation": 0.0,
+        "sup-custom-print": 1.0,
+        "sup-delivery": 0.0,
+        "sup-doglyad": 0.0,
+        "sup-dopomoga": 0.003,
+        "sup-faq": 0.016,
+        "sup-mapa-saytu": 0.0,
+        "sup-novyny": 0.0,
+        "sup-polityka": 0.0,
+        "sup-povernennya": 0.039,
+        "sup-pro-brand": 0.0,
+        "sup-rozmirna-sitka": 0.0,
+        "sup-umovy": 0.0,
+        "sup-vidstezhennya": 0.0,
+        "sup-wholesale": 0.0
+      }
+    },
+    {
+      "row": "sup-delivery",
+      "values": {
+        "sup-cooperation": 0.0,
+        "sup-custom-print": 0.0,
+        "sup-delivery": 1.0,
+        "sup-doglyad": 0.0,
+        "sup-dopomoga": 0.002,
+        "sup-faq": 0.021,
+        "sup-mapa-saytu": 0.0,
+        "sup-novyny": 0.0,
+        "sup-polityka": 0.0,
+        "sup-povernennya": 0.0,
+        "sup-pro-brand": 0.0,
+        "sup-rozmirna-sitka": 0.0,
+        "sup-umovy": 0.0,
+        "sup-vidstezhennya": 0.0,
+        "sup-wholesale": 0.0
+      }
+    },
+    {
+      "row": "sup-doglyad",
+      "values": {
+        "sup-cooperation": 0.0,
+        "sup-custom-print": 0.0,
+        "sup-delivery": 0.0,
+        "sup-doglyad": 1.0,
+        "sup-dopomoga": 0.0,
+        "sup-faq": 0.0,
+        "sup-mapa-saytu": 0.0,
+        "sup-novyny": 0.0,
+        "sup-polityka": 0.0,
+        "sup-povernennya": 0.0,
+        "sup-pro-brand": 0.0,
+        "sup-rozmirna-sitka": 0.0,
+        "sup-umovy": 0.0,
+        "sup-vidstezhennya": 0.0,
+        "sup-wholesale": 0.0
+      }
+    },
+    {
+      "row": "sup-dopomoga",
+      "values": {
+        "sup-cooperation": 0.0,
+        "sup-custom-print": 0.003,
+        "sup-delivery": 0.002,
+        "sup-doglyad": 0.0,
+        "sup-dopomoga": 1.0,
+        "sup-faq": 0.01,
+        "sup-mapa-saytu": 0.001,
+        "sup-novyny": 0.0,
+        "sup-polityka": 0.0,
+        "sup-povernennya": 0.012,
+        "sup-pro-brand": 0.0,
+        "sup-rozmirna-sitka": 0.0,
+        "sup-umovy": 0.0,
+        "sup-vidstezhennya": 0.0,
+        "sup-wholesale": 0.0
+      }
+    },
+    {
+      "row": "sup-faq",
+      "values": {
+        "sup-cooperation": 0.0,
+        "sup-custom-print": 0.016,
+        "sup-delivery": 0.021,
+        "sup-doglyad": 0.0,
+        "sup-dopomoga": 0.01,
+        "sup-faq": 1.0,
+        "sup-mapa-saytu": 0.0,
+        "sup-novyny": 0.0,
+        "sup-polityka": 0.0,
+        "sup-povernennya": 0.052,
+        "sup-pro-brand": 0.0,
+        "sup-rozmirna-sitka": 0.0,
+        "sup-umovy": 0.0,
+        "sup-vidstezhennya": 0.0,
+        "sup-wholesale": 0.0
+      }
+    },
+    {
+      "row": "sup-mapa-saytu",
+      "values": {
+        "sup-cooperation": 0.0,
+        "sup-custom-print": 0.0,
+        "sup-delivery": 0.0,
+        "sup-doglyad": 0.0,
+        "sup-dopomoga": 0.001,
+        "sup-faq": 0.0,
+        "sup-mapa-saytu": 1.0,
+        "sup-novyny": 0.005,
+        "sup-polityka": 0.0,
+        "sup-povernennya": 0.0,
+        "sup-pro-brand": 0.0,
+        "sup-rozmirna-sitka": 0.0,
+        "sup-umovy": 0.0,
+        "sup-vidstezhennya": 0.0,
+        "sup-wholesale": 0.0
+      }
+    },
+    {
+      "row": "sup-novyny",
+      "values": {
+        "sup-cooperation": 0.0,
+        "sup-custom-print": 0.0,
+        "sup-delivery": 0.0,
+        "sup-doglyad": 0.0,
+        "sup-dopomoga": 0.0,
+        "sup-faq": 0.0,
+        "sup-mapa-saytu": 0.005,
+        "sup-novyny": 1.0,
+        "sup-polityka": 0.0,
+        "sup-povernennya": 0.0,
+        "sup-pro-brand": 0.0,
+        "sup-rozmirna-sitka": 0.0,
+        "sup-umovy": 0.0,
+        "sup-vidstezhennya": 0.0,
+        "sup-wholesale": 0.0
+      }
+    },
+    {
+      "row": "sup-polityka",
+      "values": {
+        "sup-cooperation": 0.0,
+        "sup-custom-print": 0.0,
+        "sup-delivery": 0.0,
+        "sup-doglyad": 0.0,
+        "sup-dopomoga": 0.0,
+        "sup-faq": 0.0,
+        "sup-mapa-saytu": 0.0,
+        "sup-novyny": 0.0,
+        "sup-polityka": 1.0,
+        "sup-povernennya": 0.0,
+        "sup-pro-brand": 0.0,
+        "sup-rozmirna-sitka": 0.0,
+        "sup-umovy": 0.0,
+        "sup-vidstezhennya": 0.0,
+        "sup-wholesale": 0.0
+      }
+    },
+    {
+      "row": "sup-povernennya",
+      "values": {
+        "sup-cooperation": 0.0,
+        "sup-custom-print": 0.039,
+        "sup-delivery": 0.0,
+        "sup-doglyad": 0.0,
+        "sup-dopomoga": 0.012,
+        "sup-faq": 0.052,
+        "sup-mapa-saytu": 0.0,
+        "sup-novyny": 0.0,
+        "sup-polityka": 0.0,
+        "sup-povernennya": 1.0,
+        "sup-pro-brand": 0.0,
+        "sup-rozmirna-sitka": 0.002,
+        "sup-umovy": 0.0,
+        "sup-vidstezhennya": 0.0,
+        "sup-wholesale": 0.0
+      }
+    },
+    {
+      "row": "sup-pro-brand",
+      "values": {
+        "sup-cooperation": 0.0,
+        "sup-custom-print": 0.0,
+        "sup-delivery": 0.0,
+        "sup-doglyad": 0.0,
+        "sup-dopomoga": 0.0,
+        "sup-faq": 0.0,
+        "sup-mapa-saytu": 0.0,
+        "sup-novyny": 0.0,
+        "sup-polityka": 0.0,
+        "sup-povernennya": 0.0,
+        "sup-pro-brand": 1.0,
+        "sup-rozmirna-sitka": 0.0,
+        "sup-umovy": 0.0,
+        "sup-vidstezhennya": 0.0,
+        "sup-wholesale": 0.0
+      }
+    },
+    {
+      "row": "sup-rozmirna-sitka",
+      "values": {
+        "sup-cooperation": 0.0,
+        "sup-custom-print": 0.0,
+        "sup-delivery": 0.0,
+        "sup-doglyad": 0.0,
+        "sup-dopomoga": 0.0,
+        "sup-faq": 0.0,
+        "sup-mapa-saytu": 0.0,
+        "sup-novyny": 0.0,
+        "sup-polityka": 0.0,
+        "sup-povernennya": 0.002,
+        "sup-pro-brand": 0.0,
+        "sup-rozmirna-sitka": 1.0,
+        "sup-umovy": 0.0,
+        "sup-vidstezhennya": 0.0,
+        "sup-wholesale": 0.0
+      }
+    },
+    {
+      "row": "sup-umovy",
+      "values": {
+        "sup-cooperation": 0.0,
+        "sup-custom-print": 0.0,
+        "sup-delivery": 0.0,
+        "sup-doglyad": 0.0,
+        "sup-dopomoga": 0.0,
+        "sup-faq": 0.0,
+        "sup-mapa-saytu": 0.0,
+        "sup-novyny": 0.0,
+        "sup-polityka": 0.0,
+        "sup-povernennya": 0.0,
+        "sup-pro-brand": 0.0,
+        "sup-rozmirna-sitka": 0.0,
+        "sup-umovy": 1.0,
+        "sup-vidstezhennya": 0.0,
+        "sup-wholesale": 0.0
+      }
+    },
+    {
+      "row": "sup-vidstezhennya",
+      "values": {
+        "sup-cooperation": 0.0,
+        "sup-custom-print": 0.0,
+        "sup-delivery": 0.0,
+        "sup-doglyad": 0.0,
+        "sup-dopomoga": 0.0,
+        "sup-faq": 0.0,
+        "sup-mapa-saytu": 0.0,
+        "sup-novyny": 0.0,
+        "sup-polityka": 0.0,
+        "sup-povernennya": 0.0,
+        "sup-pro-brand": 0.0,
+        "sup-rozmirna-sitka": 0.0,
+        "sup-umovy": 0.0,
+        "sup-vidstezhennya": 1.0,
+        "sup-wholesale": 0.0
+      }
+    },
+    {
+      "row": "sup-wholesale",
+      "values": {
+        "sup-cooperation": 0.0,
+        "sup-custom-print": 0.0,
+        "sup-delivery": 0.0,
+        "sup-doglyad": 0.0,
+        "sup-dopomoga": 0.0,
+        "sup-faq": 0.0,
+        "sup-mapa-saytu": 0.0,
+        "sup-novyny": 0.0,
+        "sup-polityka": 0.0,
+        "sup-povernennya": 0.0,
+        "sup-pro-brand": 0.0,
+        "sup-rozmirna-sitka": 0.0,
+        "sup-umovy": 0.0,
+        "sup-vidstezhennya": 0.0,
+        "sup-wholesale": 1.0
+      }
+    }
+  ]
+}

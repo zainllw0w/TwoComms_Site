@@ -8,186 +8,211 @@ Public API:
   * ``build_copy(product)`` → dict of fields ready to assign.
   * ``looks_like_phase13_autofill(field, value)`` → True if value
     matches the Phase 13 generator signature (safe to overwrite).
+
+Phase 17v (2026-05-16) — DATA-LEVEL TRANSLATION. The static UA copy in
+``THEMES`` (sibling module) and ``CATEGORY_COMMON`` is wrapped with
+``gettext_lazy``; translations live in the standard ``django.po``
+files for ``ru`` and ``en``. ``_fmt`` casts every value to ``str`` so
+the lazy proxies resolve at request time using the active locale.
 """
 from __future__ import annotations
 
 from typing import Iterable
 
+from django.utils.translation import gettext_lazy as _, pgettext_lazy
+
 
 # --- per-category labels & base copy ---------------------------------------
 
-LABEL_NOM = {"tshirts": "футболка", "hoodie": "худі", "long-sleeve": "лонгслів"}
-LABEL_ACC = {"tshirts": "футболку", "hoodie": "худі", "long-sleeve": "лонгслів"}
-LABEL_GEN = {"tshirts": "футболки", "hoodie": "худі", "long-sleeve": "лонгсліва"}
+# Phase 17v: case-aware labels. Ukrainian «худі» / «лонгслів» are
+# invariant across nominative/accusative/genitive, so we use ``pgettext``
+# with explicit context to give translators a chance to inflect the
+# Russian forms (футболка/футболку/футболки → футболка/футболку/футболки;
+# худи is invariant; лонгслив → лонгслива genitive).
+LABEL_NOM = {
+    "tshirts":     pgettext_lazy("nominative", "футболка"),
+    "hoodie":      pgettext_lazy("nominative", "худі"),
+    "long-sleeve": pgettext_lazy("nominative", "лонгслів"),
+}
+LABEL_ACC = {
+    "tshirts":     pgettext_lazy("accusative", "футболку"),
+    "hoodie":      pgettext_lazy("accusative", "худі"),
+    "long-sleeve": pgettext_lazy("accusative", "лонгслів"),
+}
+LABEL_GEN = {
+    "tshirts":     pgettext_lazy("genitive", "футболки"),
+    "hoodie":      pgettext_lazy("genitive", "худі"),
+    "long-sleeve": pgettext_lazy("genitive", "лонгсліва"),
+}
 
 
-def _nom(cat):  return LABEL_NOM.get(cat, "товар")
-def _acc(cat):  return LABEL_ACC.get(cat, "товар")
-def _gen(cat):  return LABEL_GEN.get(cat, "товару")
+def _nom(cat):  return str(LABEL_NOM.get(cat, pgettext_lazy("nominative", "товар")))
+def _acc(cat):  return str(LABEL_ACC.get(cat, pgettext_lazy("accusative", "товар")))
+def _gen(cat):  return str(LABEL_GEN.get(cat, pgettext_lazy("genitive", "товару")))
 def _nom_cap(cat): return _nom(cat).capitalize()
 
 
 CATEGORY_COMMON = {
     "tshirts": {
-        "para_material": (
+        "para_material": _(
             "Виготовлена зі щільного бавовняного трикотажу 180–220 г/м²: "
             "не просвічується, добре тримає форму після прання, м'яка до шкіри. "
             "Принт нанесено методом DTF-друку — насичені кольори, тонкі деталі "
             "та стійкість до 50+ циклів прання при дотриманні правил догляду."
         ),
-        "para_style": (
+        "para_style": _(
             "Універсальна форма: пасує і для сольного носіння, і для шарування "
             "під сорочку, худі або легку куртку. Поєднується з джинсами, "
             "карго-штанами, шортами чи спідницею. Доступні regular та "
             "oversize-силуети, розміри XS–XXL."
         ),
-        "care": (
+        "care": _(
             "Прати при 30 °C у режимі для бавовни, навиворіт, без агресивних "
             "відбілювачів. Сушити на повітрі, без сушильної машини. Прасувати "
             "з вивороту або через тканину — не торкайтеся праскою принта."
         ),
-        "audience_base": (
+        "audience_base": _(
             "Підійде тим, хто шукає базову, але авторську футболку — без "
             "масмаркету і копій західних брендів. Для щоденного носіння у "
             "місті, активного відпочинку чи як подарунок патріотичним рідним."
         ),
         "kw_base": [
-            "футболка TwoComms", "купити футболку", "футболка з принтом",
-            "патріотична футболка", "українська футболка", "футболка ЗСУ",
-            "стрітвір футболка", "футболка унісекс", "DTF друк",
+            _("футболка TwoComms"), _("купити футболку"), _("футболка з принтом"),
+            _("патріотична футболка"), _("українська футболка"), _("футболка ЗСУ"),
+            _("стрітвір футболка"), _("футболка унісекс"), _("DTF друк"),
         ],
         "faq_size": (
-            "Як обрати розмір футболки?",
-            "Орієнтуйтеся на розмірну сітку. Для regular fit — свій звичний "
-            "розмір; для oversize — на 1 менший (помірний оверсайз) або свій "
-            "(виразний). У сумнівах між двома — беріть більший.",
+            _("Як обрати розмір футболки?"),
+            _("Орієнтуйтеся на розмірну сітку. Для regular fit — свій звичний "
+              "розмір; для oversize — на 1 менший (помірний оверсайз) або свій "
+              "(виразний). У сумнівах між двома — беріть більший."),
         ),
         "faq_care": (
-            "Як прати футболку, щоб принт не зіпсувався?",
-            "Виверніть навиворіт, прийте при 30 °C у режимі для бавовни без "
-            "відбілювачів. Сушіть на повітрі. Прасувати можна з вивороту або "
-            "через марлю. DTF-принт витримує 50+ циклів такого прання.",
+            _("Як прати футболку, щоб принт не зіпсувався?"),
+            _("Виверніть навиворіт, прийте при 30 °C у режимі для бавовни без "
+              "відбілювачів. Сушіть на повітрі. Прасувати можна з вивороту або "
+              "через марлю. DTF-принт витримує 50+ циклів такого прання."),
         ),
         "faq_delivery": (
-            "Як швидко доставимо футболку?",
-            "Новою Поштою — 1–3 робочі дні по всій Україні. Відділення/"
-            "поштомат від 85 ₴, кур'єр від 180 ₴. Замовлення до 14:00 "
-            "відправляємо того ж дня.",
+            _("Як швидко доставимо футболку?"),
+            _("Новою Поштою — 1–3 робочі дні по всій Україні. Відділення/"
+              "поштомат від 85 ₴, кур'єр від 180 ₴. Замовлення до 14:00 "
+              "відправляємо того ж дня."),
         ),
         "faq_custom": (
-            "Чи можна замовити футболку зі своїм принтом?",
-            "Так — у TwoComms є сервіс кастомного друку. Надішліть макет, "
-            "оберіть колір і розмір, ми надрукуємо й доставимо. Мінімальне "
-            "замовлення — 1 одиниця.",
+            _("Чи можна замовити футболку зі своїм принтом?"),
+            _("Так — у TwoComms є сервіс кастомного друку. Надішліть макет, "
+              "оберіть колір і розмір, ми надрукуємо й доставимо. Мінімальне "
+              "замовлення — 1 одиниця."),
         ),
     },
     "hoodie": {
-        "para_material": (
+        "para_material": _(
             "Худі виготовлене зі щільного трикотажу з начосом 280–320 г/м²: "
             "тримає тепло, добре сидить, не витягується після прання. Капюшон "
             "двошаровий, із плетеним шнурком; манжети та низ — посилена "
             "резинка. Принт нанесено DTF-друком — стійка фарба, що передає всі "
             "деталі ілюстрації."
         ),
-        "para_style": (
+        "para_style": _(
             "Базовий шар streetwear-гардероба: сидить як у regular, так і в "
             "oversize-силуеті, поєднується з футболкою, лонгслівом або "
             "сорочкою. Підходить для прохолодної погоди, активного відпочинку "
             "та щоденного носіння. Розміри XS–XXL."
         ),
-        "care": (
+        "care": _(
             "Прати при 30 °C, навиворіт, без агресивних засобів. Сушити "
             "природним способом — не на батареї та не в сушильній машині. "
             "Прасувати лише з вивороту або через тканину. При перших пранні "
             "можлива усадка до 2% — це природна властивість бавовни."
         ),
-        "audience_base": (
+        "audience_base": _(
             "Для тих, хто шукає тепле стильне худі з характером — без "
             "масмаркетного «лубочного» патріотизму та копій західних брендів. "
             "Для міста, активного відпочинку, або як патріотичний подарунок."
         ),
         "kw_base": [
-            "худі TwoComms", "купити худі", "худі з принтом",
-            "патріотичне худі", "українське худі", "худі ЗСУ",
-            "стрітвір худі", "худі унісекс", "тепле худі", "DTF друк",
+            _("худі TwoComms"), _("купити худі"), _("худі з принтом"),
+            _("патріотичне худі"), _("українське худі"), _("худі ЗСУ"),
+            _("стрітвір худі"), _("худі унісекс"), _("тепле худі"), _("DTF друк"),
         ],
         "faq_size": (
-            "Як обрати розмір худі?",
-            "Для класичного силуету — свій звичний розмір; для oversize — на "
-            "1 більший. Якщо плануєте шарувати худі поверх сорочки/лонгсліва, "
-            "рекомендуємо взяти на розмір більший за звичний.",
+            _("Як обрати розмір худі?"),
+            _("Для класичного силуету — свій звичний розмір; для oversize — на "
+              "1 більший. Якщо плануєте шарувати худі поверх сорочки/лонгсліва, "
+              "рекомендуємо взяти на розмір більший за звичний."),
         ),
         "faq_care": (
-            "Як прати худі, щоб не зіпсувалося?",
-            "Прання при 30 °C, режим для бавовни, навиворіт, без відбілювачів. "
-            "Сушити горизонтально або на плічках — не на батареї та не в "
-            "сушарці. Прасування лише з вивороту, не торкайтеся праскою "
-            "принта.",
+            _("Як прати худі, щоб не зіпсувалося?"),
+            _("Прання при 30 °C, режим для бавовни, навиворіт, без відбілювачів. "
+              "Сушити горизонтально або на плічках — не на батареї та не в "
+              "сушарці. Прасування лише з вивороту, не торкайтеся праскою "
+              "принта."),
         ),
         "faq_delivery": (
-            "Як швидко доставимо худі?",
-            "Новою Поштою — 1–3 робочі дні. Відділення/поштомат від 85 ₴, "
-            "адресна кур'єрська доставка від 180 ₴. Замовлення до 14:00 "
-            "йдуть того ж дня.",
+            _("Як швидко доставимо худі?"),
+            _("Новою Поштою — 1–3 робочі дні. Відділення/поштомат від 85 ₴, "
+              "адресна кур'єрська доставка від 180 ₴. Замовлення до 14:00 "
+              "йдуть того ж дня."),
         ),
         "faq_custom": (
-            "Чи можна замовити худі зі своїм принтом?",
-            "Так — оформіть кастомний друк через нашу форму: завантажте "
-            "макет, оберіть колір і розмір базового худі, ми надрукуємо й "
-            "доставимо персональну модель.",
+            _("Чи можна замовити худі зі своїм принтом?"),
+            _("Так — оформіть кастомний друк через нашу форму: завантажте "
+              "макет, оберіть колір і розмір базового худі, ми надрукуємо й "
+              "доставимо персональну модель."),
         ),
     },
     "long-sleeve": {
-        "para_material": (
+        "para_material": _(
             "Лонгслів виготовлений з бавовняного трикотажу 200–240 г/м² — "
             "щільнішого за футбольний, легшого за худі. Манжети — двошарова "
             "резинка, тримає рукав на місці. Принт нанесено DTF-друком: "
             "насичені стійкі кольори, тонкі деталі."
         ),
-        "para_style": (
+        "para_style": _(
             "Універсальний базовий шар streetwear-гардероба: можна носити "
             "окремо у прохолодну погоду, шарувати під худі або легку куртку. "
             "Поєднується з джинсами, карго та темним низом. Силуети — regular "
             "та oversize, розміри XS–XXL."
         ),
-        "care": (
+        "care": _(
             "Прати при 30 °C у режимі для бавовни, навиворіт. Сушити на "
             "повітрі, без сушильної машини. Прасувати з вивороту або через "
             "тканину. Мінімальна усадка (до 2%) при першому пранні є "
             "природною властивістю бавовни."
         ),
-        "audience_base": (
+        "audience_base": _(
             "Для тих, кому замало футболки, але худі поки зайве. Базовий шар "
             "із характером, добре виглядає самостійно і у багатошаровому "
             "образі. Гарний для активного відпочинку та повсякденного носіння."
         ),
         "kw_base": [
-            "лонгслів TwoComms", "купити лонгслів", "лонгслів з принтом",
-            "український лонгслів", "патріотичний лонгслів", "лонгслів ЗСУ",
-            "стрітвір лонгслів", "лонгслів унісекс", "DTF друк",
+            _("лонгслів TwoComms"), _("купити лонгслів"), _("лонгслів з принтом"),
+            _("український лонгслів"), _("патріотичний лонгслів"), _("лонгслів ЗСУ"),
+            _("стрітвір лонгслів"), _("лонгслів унісекс"), _("DTF друк"),
         ],
         "faq_size": (
-            "Як обрати розмір лонгсліва?",
-            "Для класичного (regular) силуету — свій звичний розмір; для "
-            "oversize — на 1 більший. Якщо плануєте шарувати лонгслів під "
-            "худі або куртку, беріть свій звичний розмір.",
+            _("Як обрати розмір лонгсліва?"),
+            _("Для класичного (regular) силуету — свій звичний розмір; для "
+              "oversize — на 1 більший. Якщо плануєте шарувати лонгслів під "
+              "худі або куртку, беріть свій звичний розмір."),
         ),
         "faq_care": (
-            "Як прати лонгслів, щоб принт залишився яскравим?",
-            "Прання при 30 °C, навиворіт, без відбілювачів. Сушити природним "
-            "способом. Прасування лише з вивороту або через тканину, не "
-            "торкаючись праскою принта.",
+            _("Як прати лонгслів, щоб принт залишився яскравим?"),
+            _("Прання при 30 °C, навиворіт, без відбілювачів. Сушити природним "
+              "способом. Прасування лише з вивороту або через тканину, не "
+              "торкаючись праскою принта."),
         ),
         "faq_delivery": (
-            "Як довго їде доставка?",
-            "Новою Поштою — 1–3 робочі дні. Відділення/поштомат від 85 ₴, "
-            "адресна кур'єрська від 180 ₴. Оформлюйте до 14:00 — відправимо "
-            "сьогодні.",
+            _("Як довго їде доставка?"),
+            _("Новою Поштою — 1–3 робочі дні. Відділення/поштомат від 85 ₴, "
+              "адресна кур'єрська від 180 ₴. Оформлюйте до 14:00 — відправимо "
+              "сьогодні."),
         ),
         "faq_custom": (
-            "Чи можна замовити лонгслів зі своїм принтом?",
-            "Так — у TwoComms є сервіс кастомного друку. Надішліть макет, "
-            "оберіть колір і розмір лонгсліва — ми надрукуємо й доставимо.",
+            _("Чи можна замовити лонгслів зі своїм принтом?"),
+            _("Так — у TwoComms є сервіс кастомного друку. Надішліть макет, "
+              "оберіть колір і розмір лонгсліва — ми надрукуємо й доставимо."),
         ),
     },
 }
@@ -271,8 +296,10 @@ def get_theme_for_product(product) -> dict | None:
 
 # --- Field builders --------------------------------------------------------
 
-def _fmt(text: str, cat: str) -> str:
-    return text.format(
+def _fmt(text, cat: str) -> str:
+    # ``text`` may be a ``gettext_lazy`` proxy (Phase 17v) — coerce to ``str``
+    # so the active locale is materialised before we ``.format()`` it.
+    return str(text).format(
         nom=_nom(cat), nom_cap=_nom_cap(cat),
         acc=_acc(cat), gen=_gen(cat),
     )
@@ -307,24 +334,24 @@ def build_copy(product) -> dict:
         alt_short = theme["alt_short"]
     else:
         # Fallback (products not yet mapped in THEMES).
-        intro_short = (
-            f"{_nom_cap(cat)} TwoComms: {product.title} — авторський "
-            f"streetwear з мілітарним ДНК, DTF-друк, бавовна."
-        )
-        intro_long = (
-            f"{product.title} — {_nom(cat)} TwoComms у мілітарно-"
-            f"streetwear ДНК. Виготовлена в Україні, з авторським "
-            f"принтом і якісним DTF-друком."
-        )
-        audience_extra = "Гарний вибір для щоденного носіння у місті."
-        kw_list = [product.title] + common["kw_base"]
-        theme_faq_q = f"Що особливого в цій моделі?"
-        theme_faq_a = (
-            f"Це авторська модель TwoComms з мілітарно-streetwear ДНК. "
-            f"DTF-друк, щільна бавовна, пошиття в Україні. Частина "
-            f"прибутку йде на підтримку ЗСУ."
-        )
-        alt_short = "авторський принт"
+        intro_short = _(
+            "{nom_cap} TwoComms: {title} — авторський "
+            "streetwear з мілітарним ДНК, DTF-друк, бавовна."
+        ).format(nom_cap=_nom_cap(cat), title=product.title)
+        intro_long = _(
+            "{title} — {nom} TwoComms у мілітарно-"
+            "streetwear ДНК. Виготовлена в Україні, з авторським "
+            "принтом і якісним DTF-друком."
+        ).format(nom=_nom(cat), title=product.title)
+        audience_extra = str(_("Гарний вибір для щоденного носіння у місті."))
+        kw_list = [product.title] + [str(k) for k in common["kw_base"]]
+        theme_faq_q = str(_("Що особливого в цій моделі?"))
+        theme_faq_a = str(_(
+            "Це авторська модель TwoComms з мілітарно-streetwear ДНК. "
+            "DTF-друк, щільна бавовна, пошиття в Україні. Частина "
+            "прибутку йде на підтримку ЗСУ."
+        ))
+        alt_short = str(_("авторський принт"))
 
     # SEO title: «{product.title} — купити {acc} TwoComms»
     #
@@ -341,7 +368,11 @@ def build_copy(product) -> dict:
     # also tightened it from the historical phase-13 limit because the
     # full SERP title display cap on Google mobile in 2026 is ~60 chars.
     t = product.title.strip()
-    seo_title = f"{t} — купити {_acc(cat)} TwoComms"
+    # 17v: «купити» suffix is locale-aware. The {acc} placeholder is filled
+    # via the per-locale ``LABEL_ACC`` (gettext_lazy) so RU shows «купить»,
+    # EN shows «buy», and the article surfaces in the correct grammar.
+    seo_title_template = _("{title} — купити {acc} TwoComms")
+    seo_title = str(seo_title_template).format(title=t, acc=_acc(cat))
     SEO_TITLE_MAX = 60
     if len(seo_title) > SEO_TITLE_MAX:
         # Trim the product title (preserving the suffix) and avoid
@@ -356,8 +387,9 @@ def build_copy(product) -> dict:
 
     # SEO description (≤320): intro_short + short call-to-action.
     seo_description = (
-        f"{intro_short} Шиємо в Україні, DTF-друк, бавовна. "
-        f"Доставка Новою Поштою. Підтримуємо ЗСУ."
+        f"{intro_short} "
+        + str(_("Шиємо в Україні, DTF-друк, бавовна. "
+                "Доставка Новою Поштою. Підтримуємо ЗСУ."))
     )
     if len(seo_description) > 320:
         seo_description = seo_description[:317].rstrip() + "…"
@@ -365,7 +397,8 @@ def build_copy(product) -> dict:
     # SEO keywords (≤300): joined comma list.
     kw_line, size = "", 300
     for k in kw_list:
-        tentative = (kw_line + ", " + k) if kw_line else k
+        k_str = str(k)
+        tentative = (kw_line + ", " + k_str) if kw_line else k_str
         if len(tentative) > size:
             break
         kw_line = tentative
@@ -375,26 +408,30 @@ def build_copy(product) -> dict:
     alt = alt[:200]
 
     # Short description (≤300)
-    short = intro_short
+    short = str(intro_short)
     if len(short) > 300:
         short = short[:297].rstrip() + "…"
 
     # Full description: plain-text paragraphs separated by blank line.
-    full_parts = [intro_long, common["para_material"], common["para_style"],
-                  audience_extra + " " + common["audience_base"]]
+    full_parts = [
+        str(intro_long),
+        str(common["para_material"]),
+        str(common["para_style"]),
+        str(audience_extra) + " " + str(common["audience_base"]),
+    ]
     full = "\n\n".join(p.strip() for p in full_parts if p and p.strip())
 
     # Target audience: theme-specific + base.
-    target = (audience_extra + " " + common["audience_base"]).strip()
+    target = (str(audience_extra) + " " + str(common["audience_base"])).strip()
 
-    care = common["care"]
+    care = str(common["care"])
 
     faqs = [
-        (theme_faq_q, theme_faq_a),
-        common["faq_size"],
-        common["faq_care"],
-        common["faq_delivery"],
-        common["faq_custom"],
+        (str(theme_faq_q), str(theme_faq_a)),
+        (str(common["faq_size"][0]), str(common["faq_size"][1])),
+        (str(common["faq_care"][0]), str(common["faq_care"][1])),
+        (str(common["faq_delivery"][0]), str(common["faq_delivery"][1])),
+        (str(common["faq_custom"][0]), str(common["faq_custom"][1])),
     ]
 
     return {

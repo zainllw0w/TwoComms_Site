@@ -1,0 +1,29 @@
+{
+  "children": [
+    [
+      "https://twocomms.shop/sitemap-static.xml",
+      54
+    ],
+    [
+      "https://twocomms.shop/sitemap-products.xml",
+      195
+    ],
+    [
+      "https://twocomms.shop/sitemap-product-variants.xml",
+      118
+    ],
+    [
+      "https://twocomms.shop/sitemap-categories.xml",
+      9
+    ],
+    [
+      "https://twocomms.shop/sitemap-color-categories.xml",
+      0
+    ],
+    [
+      "https://twocomms.shop/sitemap-images.xml",
+      208
+    ]
+  ],
+  "total_urls": 519
+}

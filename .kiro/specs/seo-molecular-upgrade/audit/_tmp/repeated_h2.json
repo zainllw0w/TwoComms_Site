@@ -1,0 +1,64 @@
+[
+  {
+    "text": "twocomms",
+    "pages": [
+      "filter-color-black",
+      "home",
+      "sup-doglyad",
+      "sup-faq",
+      "sup-novyny",
+      "sup-polityka",
+      "sup-rozmirna-sitka",
+      "sup-umovy",
+      "sup-vidstezhennya"
+    ]
+  },
+  {
+    "text": "створи свій дизайн",
+    "pages": [
+      "cat-hoodie",
+      "cat-long-sleeve",
+      "cat-tshirts",
+      "catalog-root",
+      "filter-color-black",
+      "search-tshirt"
+    ]
+  },
+  {
+    "text": "кому підійде",
+    "pages": [
+      "pdp-classic-tshirt",
+      "pdp-hoodie-classic",
+      "pdp-kharkiv-district-ts",
+      "pdp-my-little-baby",
+      "pdp-where-mi-present-hd"
+    ]
+  },
+  {
+    "text": "відгуки про товар",
+    "pages": [
+      "pdp-classic-tshirt",
+      "pdp-hoodie-classic",
+      "pdp-kharkiv-district-ts",
+      "pdp-my-little-baby",
+      "pdp-where-mi-present-hd"
+    ]
+  },
+  {
+    "text": "поширені запитання",
+    "pages": [
+      "sup-delivery",
+      "sup-dopomoga",
+      "sup-faq",
+      "sup-povernennya"
+    ]
+  },
+  {
+    "text": "футболка базова",
+    "pages": [
+      "pdp-classic-tshirt",
+      "pdp-kharkiv-district-ts",
+      "pdp-my-little-baby"
+    ]
+  }
+]

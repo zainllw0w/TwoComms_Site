@@ -1,0 +1,421 @@
+[
+  {
+    "path": "/",
+    "diff": {
+      "title": {
+        "uk": "TwoComms — стріт & мілітарі одяг з Харкова",
+        "ru": "TwoComms — стрит и милитари одежда из Харькова",
+        "en": "TwoComms — street & military apparel from Kharkiv",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "description": {
+        "uk": "TwoComms — український магазин стріт і мілітарі одягу: футболки, худі, лонгсліви, кастомний друк і швидка доставка по Україні.",
+        "ru": "TwoComms — украинский магазин стрит и милитари одежды: футболки, худи, лонгсливы, кастомный принт и быстрая доставка по Украине.",
+        "en": "TwoComms — Ukrainian streetwear & military apparel store: t-shirts, hoodies, longsleeves, custom print and fast Ukraine-wide shipping.",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "og_title": {
+        "uk": "TwoComms — стріт & мілітарі одяг з ексклюзивним дизайном",
+        "ru": "TwoComms — стрит & милитари одежда с эксклюзивным дизайном",
+        "en": "TwoComms — street & military apparel with exclusive design",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "og_description": {
+        "uk": "Футболки, худі та лонгсліви з авторськими принтами. TwoComms — харківський стрітвеар-бренд, українське виробництво, швидка доставка Новою Поштою.",
+        "ru": "Футболки, худи и лонгсливы с авторскими принтами. TwoComms — харьковский стритвир-бренд, украинское производство, быстрая доставка Новой Почтой.",
+        "en": "T-shirts, hoodies and longsleeves with original prints. TwoComms is a Kharkiv-based streetwear brand, made in Ukraine, fast Nova Poshta delivery.",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "h1": {
+        "uk": [
+          "TwoComms — бренд: Стріт & мілітарі одяг"
+        ],
+        "ru": [
+          "TwoComms — бренд: Стрит & милитари одежда"
+        ],
+        "en": [
+          "TwoComms — the brand: Street & military apparel"
+        ],
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      }
+    }
+  },
+  {
+    "path": "/catalog/hoodie/",
+    "diff": {
+      "title": {
+        "uk": "Худі TwoComms — теплі толстовки зі стрітвеар-принтами та",
+        "ru": "Худи TwoComms — купить худи с принтом в Украине",
+        "en": "TwoComms Hoodies — buy a printed hoodie in Ukraine",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "description": {
+        "uk": "Худі TwoComms з фліс-підкладкою, посадкою oversize та авторськими принтами. Стрітвеар і мілітарі стилі, виготовлено в Україні, доставка від 1 дня.",
+        "ru": "Худи TwoComms: тёплый хлопок, авторская DTF-печать, oversize и regular силуэт. Доставка Новой Почтой, поддерживаем ВСУ.",
+        "en": "TwoComms Hoodies: warm cotton, author DTF print, oversize and regular fits. Nova Poshta delivery, we support Ukraine's army.",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "og_title": {
+        "uk": "Худі TwoComms — теплі толстовки зі стрітвеар-принтами та",
+        "ru": "Худи TwoComms — купить худи с принтом в Украине",
+        "en": "TwoComms Hoodies — buy a printed hoodie in Ukraine",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "og_description": {
+        "uk": "Худі TwoComms з фліс-підкладкою, посадкою oversize та авторськими принтами. Стрітвеар і мілітарі стилі, виготовлено в Україні, доставка від 1 дня.",
+        "ru": "Худи TwoComms: тёплый хлопок, авторская DTF-печать, oversize и regular силуэт. Доставка Новой Почтой, поддерживаем ВСУ.",
+        "en": "TwoComms Hoodies: warm cotton, author DTF print, oversize and regular fits. Nova Poshta delivery, we support Ukraine's army.",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "h1": {
+        "uk": [
+          "Худі від українського бренду TwoComms — стрітвеар, мілітарі, преміум фліс"
+        ],
+        "ru": [
+          "Худи TwoComms — авторские принты, тёплый хлопок"
+        ],
+        "en": [
+          "TwoComms Hoodies — author prints, warm cotton"
+        ],
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      }
+    }
+  },
+  {
+    "path": "/about/",
+    "note": "incomplete triple",
+    "locales": []
+  },
+  {
+    "path": "/faq/",
+    "diff": {
+      "title": {
+        "uk": "FAQ — оплата, доставка, розміри і сервіс | TwoComms",
+        "ru": "FAQ — оплата, доставка, размеры и сервис | TwoComms",
+        "en": "FAQ — payment, delivery, sizes and service | TwoComms",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "description": {
+        "uk": "FAQ TwoComms: відповіді про оформлення замовлення, оплату, доставку, розміри, повернення, бали, кастомний друк і догляд за одягом.",
+        "ru": "FAQ TwoComms: ответы об оформлении заказа, оплате, доставке, размерах, возврате, баллах, кастомной печати и уходе за одеждой.",
+        "en": "TwoComms FAQ: answers about checkout, payment, delivery, sizes, returns, points, custom print, and garment care.",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "og_title": {
+        "uk": "FAQ — оплата, доставка, розміри і сервіс | TwoComms",
+        "ru": "FAQ — оплата, доставка, размеры и сервис | TwoComms",
+        "en": "FAQ — payment, delivery, sizes and service | TwoComms",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "og_description": {
+        "uk": "FAQ TwoComms: відповіді про оформлення замовлення, оплату, доставку, розміри, повернення, бали, кастомний друк і догляд за одягом.",
+        "ru": "FAQ TwoComms: ответы об оформлении заказа, оплате, доставке, размерах, возврате, баллах, кастомной печати и уходе за одеждой.",
+        "en": "TwoComms FAQ: answers about checkout, payment, delivery, sizes, returns, points, custom print, and garment care.",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "h1": {
+        "uk": [
+          "Поширені питання по покупці та сервісу"
+        ],
+        "ru": [
+          "Частые вопросы о покупке и сервисе"
+        ],
+        "en": [
+          "Frequently asked questions about purchase and service"
+        ],
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      }
+    }
+  },
+  {
+    "path": "/dopomoga/",
+    "diff": {
+      "title": {
+        "uk": "Допомога — умови замовлення, оплата і підтримка | TwoComms",
+        "ru": "Помощь — условия заказа, оплата и поддержка | TwoComms",
+        "en": "Help — order terms, payment and support | TwoComms",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "description": {
+        "uk": "Центр допомоги TwoComms: як оформити замовлення, як працюють доставка, оплата, бали, промокоди, кастомний друк і сервісні звернення.",
+        "ru": "Центр помощи TwoComms: как оформить заказ, как работают доставка, оплата, баллы, промокоды, кастомная печать и сервисные обращения.",
+        "en": "TwoComms help center: how to place an order, how delivery, payment, points, promo codes, custom print, and service requests work.",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "og_title": {
+        "uk": "Допомога — умови замовлення, оплата і підтримка | TwoComms",
+        "ru": "Помощь — условия заказа, оплата и поддержка | TwoComms",
+        "en": "Help — order terms, payment and support | TwoComms",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "og_description": {
+        "uk": "Центр допомоги TwoComms: як оформити замовлення, як працюють доставка, оплата, бали, промокоди, кастомний друк і сервісні звернення.",
+        "ru": "Центр помощи TwoComms: как оформить заказ, как работают доставка, оплата, баллы, промокоды, кастомная печать и сервисные обращения.",
+        "en": "TwoComms help center: how to place an order, how delivery, payment, points, promo codes, custom print, and service requests work.",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "h1": {
+        "uk": [
+          "Допомога та базові правила сайту"
+        ],
+        "ru": [
+          "Помощь и базовые правила сайта"
+        ],
+        "en": [
+          "Help and site basics"
+        ],
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      }
+    }
+  },
+  {
+    "path": "/wholesale/",
+    "diff": {
+      "title": {
+        "uk": "Оптові закупівлі та дропшипінг одягу — TwoComms",
+        "ru": "Оптовые закупки и дропшиппинг одежды — TwoComms",
+        "en": "Wholesale and dropshipping apparel — TwoComms",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "description": {
+        "uk": "Оптовий одяг TwoComms: футболки та худі з фірмовим дизайном, старт від 8 одиниць, персональні прайси, швидке відвантаження та підтримка менеджера. Дропшипінг і класичний опт для магазинів та мереж.",
+        "ru": "Оптовая одежда TwoComms: футболки и худи с фирменным дизайном, старт от 8 единиц, персональные прайсы, быстрая отгрузка и поддержка менеджера. Дропшиппинг и классический опт для магазинов и сетей.",
+        "en": "TwoComms wholesale apparel: t-shirts and hoodies with branded design, start from 8 units, personal price lists, fast shipping and manager support. Dropshipping and classic wholesale for stores and chains.",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "og_title": {
+        "uk": "TwoComms — оптові закупівлі та дропшипінг українського стріт одягу",
+        "ru": "TwoComms — оптовые закупки и дропшипинг украинской стрит-одежды",
+        "en": "TwoComms — wholesale and dropshipping of Ukrainian streetwear",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "og_description": {
+        "uk": "Отримайте вигідні умови для магазинів та дропшиперів: старт від 8 одиниць, фіксовані ціни за договором, швидке відвантаження та підтримка менеджера бренду TwoComms.",
+        "ru": "Получите выгодные условия для магазинов и дропшиперов: старт от 8 единиц, фиксированные цены по договору, быстрая отгрузка и поддержка менеджера бренда TwoComms.",
+        "en": "Get favorable terms for stores and dropshippers: start from 8 units, fixed contract prices, fast shipping and TwoComms brand manager support.",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "h1": {
+        "uk": [
+          "Оптові закупівлі TwoComms"
+        ],
+        "ru": [
+          "Оптовые закупки TwoComms"
+        ],
+        "en": [
+          "Wholesale purchases TwoComms"
+        ],
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      }
+    }
+  },
+  {
+    "path": "/product/20-twocomms-legend/black/",
+    "diff": {
+      "title": {
+        "uk": "Худі «Дрони навколо 2.0» — чорний — TwoComms",
+        "ru": "Худи «Дроны Вокруг 2.0» — чёрный — TwoComms",
+        "en": "Hoodie «Drones Around 2.0» — black — TwoComms",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "description": {
+        "uk": "Худі «Дрони навколо 2.0» (чорний) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном, доставка Новою Поштою.",
+        "ru": "Худи «Дроны Вокруг 2.0» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном, доставка Новою Поштою.",
+        "en": "Hoodie «Drones Around 2.0» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном, доставка Новою Поштою.",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "og_title": {
+        "uk": "Худі «Дрони навколо 2.0» — чорний — TwoComms",
+        "ru": "Худи «Дроны Вокруг 2.0» — чёрный — TwoComms",
+        "en": "Hoodie «Drones Around 2.0» — black — TwoComms",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "og_description": {
+        "uk": "Худі «Дрони навколо 2.0» (чорний) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном, доставка Новою Поштою.",
+        "ru": "Худи «Дроны Вокруг 2.0» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном, доставка Новою Поштою.",
+        "en": "Hoodie «Drones Around 2.0» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном, доставка Новою Поштою.",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "h1": {
+        "uk": [
+          "Худі «Дрони навколо 2.0»"
+        ],
+        "ru": [
+          "Худи «Дроны Вокруг 2.0»"
+        ],
+        "en": [
+          "Hoodie «Drones Around 2.0»"
+        ],
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      }
+    }
+  },
+  {
+    "path": "/product/225-tshirt/classic/",
+    "diff": {
+      "title": {
+        "uk": "Футболка 225ОШП — класичний фіт — TwoComms",
+        "ru": "Футболка «225 ОШБр» — класичний фіт — TwoComms",
+        "en": "T-shirt «225th Assault Brigade» — класичний фіт — TwoComms",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "description": {
+        "uk": "Футболка 225ОШП, класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконічний стрітвеар від українського бренду TwoComms.",
+        "ru": "Футболка «225 ОШБр», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконічний стрітвеар від українського бренду TwoComms.",
+        "en": "T-shirt «225th Assault Brigade», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконічний стрітвеар від українського бренду TwoComms.",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "og_title": {
+        "uk": "Футболка 225ОШП — класичний фіт — TwoComms",
+        "ru": "Футболка «225 ОШБр» — класичний фіт — TwoComms",
+        "en": "T-shirt «225th Assault Brigade» — класичний фіт — TwoComms",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "og_description": {
+        "uk": "Футболка 225ОШП, класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконічний стрітвеар від українського бренду TwoComms.",
+        "ru": "Футболка «225 ОШБр», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконічний стрітвеар від українського бренду TwoComms.",
+        "en": "T-shirt «225th Assault Brigade», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконічний стрітвеар від українського бренду TwoComms.",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "h1": {
+        "uk": [
+          "Футболка 225ОШП"
+        ],
+        "ru": [
+          "Футболка «225 ОШБр»"
+        ],
+        "en": [
+          "T-shirt «225th Assault Brigade»"
+        ],
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      }
+    }
+  },
+  {
+    "path": "/product/225-tshirt/oversize/",
+    "diff": {
+      "title": {
+        "uk": "Футболка 225ОШП — оверсайз фіт — TwoComms",
+        "ru": "Футболка «225 ОШБр» — оверсайз фіт — TwoComms",
+        "en": "T-shirt «225th Assault Brigade» — оверсайз фіт — TwoComms",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "description": {
+        "uk": "Футболка 225ОШП, оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконічний стрітвеар від українського бренду TwoComms.",
+        "ru": "Футболка «225 ОШБр», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконічний стрітвеар від українського бренду TwoComms.",
+        "en": "T-shirt «225th Assault Brigade», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконічний стрітвеар від українського бренду TwoComms.",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "og_title": {
+        "uk": "Футболка 225ОШП — оверсайз фіт — TwoComms",
+        "ru": "Футболка «225 ОШБр» — оверсайз фіт — TwoComms",
+        "en": "T-shirt «225th Assault Brigade» — оверсайз фіт — TwoComms",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "og_description": {
+        "uk": "Футболка 225ОШП, оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконічний стрітвеар від українського бренду TwoComms.",
+        "ru": "Футболка «225 ОШБр», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконічний стрітвеар від українського бренду TwoComms.",
+        "en": "T-shirt «225th Assault Brigade», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконічний стрітвеар від українського бренду TwoComms.",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "h1": {
+        "uk": [
+          "Футболка 225ОШП"
+        ],
+        "ru": [
+          "Футболка «225 ОШБр»"
+        ],
+        "en": [
+          "T-shirt «225th Assault Brigade»"
+        ],
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      }
+    }
+  },
+  {
+    "path": "/product/bentejne-hd/",
+    "diff": {
+      "title": {
+        "uk": "Худі «Життя Бентежне» — купити худі TwoComms",
+        "ru": "Худи «Жизнь Тревожная» — купить худи TwoComms",
+        "en": "Hoodie «Life Is Restless» — buy at TwoComms",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "description": {
+        "uk": "Худі «Життя Бентежне» TwoComms — ліричний принт про красу неспокою. Шиємо в Україні, DTF-друк, бавовна. Доставка Новою Поштою. Підтримуємо ЗСУ.",
+        "ru": "Худи «Жизнь Тревожная» TwoComms: лаконичный принт о тревожном поколении — без пафоса, с тихой силой. Шьём в Украине, DTF-печать, хлопок. Доставка Новой...",
+        "en": "Hoodie «Life Is Restless» TwoComms: a minimal print about a restless generation — no pathos, just quiet strength. Made in Ukraine, DTF print, cotton. Nova...",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "og_title": {
+        "uk": "Худі «Життя Бентежне» — купити худі TwoComms",
+        "ru": "Худи «Жизнь Тревожная» — купить худи TwoComms",
+        "en": "Hoodie «Life Is Restless» — buy at TwoComms",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "og_description": {
+        "uk": "Худі «Життя Бентежне» TwoComms — ліричний принт про красу неспокою. Шиємо в Україні, DTF-друк, бавовна. Доставка Новою Поштою. Підтримуємо ЗСУ.",
+        "ru": "Худи «Жизнь Тревожная» TwoComms: лаконичный принт о тревожном поколении — без пафоса, с тихой силой. Шьём в Украине, DTF-печать, хлопок. Доставка Новой...",
+        "en": "Hoodie «Life Is Restless» TwoComms: a minimal print about a restless generation — no pathos, just quiet strength. Made in Ukraine, DTF print, cotton. Nova...",
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      },
+      "h1": {
+        "uk": [
+          "Худі «Життя Бентежне»"
+        ],
+        "ru": [
+          "Худи «Жизнь Тревожная»"
+        ],
+        "en": [
+          "Hoodie «Life Is Restless»"
+        ],
+        "ru_same_as_uk": false,
+        "en_same_as_uk": false
+      }
+    }
+  }
+]

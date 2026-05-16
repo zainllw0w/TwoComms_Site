@@ -1,0 +1,695 @@
+[
+  {
+    "phrase": "Харків, Україна",
+    "count": 100,
+    "examples": [
+      [
+        "https://twocomms.shop/en/",
+        "jsonld[0][0]:Organization.foundingLocation.name",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/catalog/",
+        "jsonld[0][0]:Organization.foundingLocation.name",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/catalog/hoodie/",
+        "jsonld[0][0]:Organization.foundingLocation.name",
+        "en"
+      ]
+    ],
+    "source_refs": [
+      "storefront/seo_utils.py:1037:                \"name\": _(\"Харків, Україна\"),",
+      "locale/ru/LC_MESSAGES/django.po:594:msgid \"Харків, Україна\"",
+      "locale/en/LC_MESSAGES/django.po:603:msgid \"Харків, Україна\""
+    ]
+  },
+  {
+    "phrase": "бавовна",
+    "count": 100,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/225-tshirt/classic/",
+        "jsonld[2][0]:.@graph[0].material",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/225-tshirt/classic/",
+        "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/225-tshirt/oversize/",
+        "jsonld[2][0]:.@graph[0].material",
+        "en"
+      ]
+    ],
+    "source_refs": [
+      "storefront/migrations/0054_phase10c_extended_seo_copy.py:300:бавовна 200+ г/м² може бути замало для холодних спалень — оберіть",
+      "storefront/migrations/0054_phase10c_extended_seo_copy.py:334:        (\"Худі бавовна\",                      \"/catalog/hoodie/\"),",
+      "storefront/migrations/0054_phase10c_extended_seo_copy.py:381:        (\"Футболка бавовна\",                  \"/catalog/tshirts/\"),",
+      "storefront/migrations/0054_phase10c_extended_seo_copy.py:442:        (\"Лонгслів бавовна\",                  \"/catalog/long-sleeve/\"),",
+      "storefront/migrations/0058_phase21_seed_category_seo_overrides.py:17:            \"100% бавовна, друк DTF, доставка Новою Поштою по Україні за 1–3 дні.\""
+    ]
+  },
+  {
+    "phrase": "трьохнитка",
+    "count": 18,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/20-twocomms-legend/black/",
+        "jsonld[2][0]:.@graph[0].material",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/20-twocomms-legend/black/",
+        "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/bentejne-hd/",
+        "jsonld[2][0]:.@graph[0].material",
+        "en"
+      ]
+    ],
+    "source_refs": [
+      "storefront/seo_utils.py:102:        return \"трьохнитка\"",
+      "storefront/services/product_seo_autofill.py:138:    320 г/м² трьохнитка. Branch on category so each PDP gets a",
+      "storefront/services/product_seo_autofill.py:148:            \"відправляємо, інакше трьохнитка сяде. Прасування з вивороту \""
+    ]
+  },
+  {
+    "phrase": "Худі",
+    "count": 16,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/20-twocomms-legend/black/",
+        "h2[1]",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/bentejne-hd/",
+        "h2[1]",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/glory-of-ukraine-hd/black/",
+        "h2[1]",
+        "en"
+      ]
+    ],
+    "source_refs": []
+  },
+  {
+    "phrase": "Футболка базова",
+    "count": 12,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/225-tshirt/classic/",
+        "h2[1]",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/225-tshirt/oversize/",
+        "h2[1]",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/business-money/black/",
+        "h2[1]",
+        "en"
+      ]
+    ],
+    "source_refs": [
+      "storefront/tests/test_product_size_guides.py:118:            title=\"Футболка базова чорна\",",
+      "storefront/tests/test_product_size_guides.py:241:            title=\"Футболка базова чорна\",",
+      "storefront/tests/test_static_support_pages.py:125:        self.assertNotContains(response, \"Футболка базова\")",
+      "storefront/services/size_guides.py:73:        \"title\": _(\"Футболка базова\"),",
+      "locale/ru/LC_MESSAGES/django.po:652:#| msgid \"Футболка базова\""
+    ]
+  },
+  {
+    "phrase": "Чому класична посадка",
+    "count": 6,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/225-tshirt/classic/",
+        "h3[0]",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/business-money/classic/",
+        "h3[0]",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/death-gbs-ass-ts/classic/",
+        "h3[0]",
+        "en"
+      ]
+    ],
+    "source_refs": [
+      "storefront/tests/test_phase16_fit_seo.py:130:        self.assertIn(\"Чому класична посадка\", html)",
+      "storefront/services/product_seo_landing.py:84:        \"h3\": \"Чому класична посадка\","
+    ]
+  },
+  {
+    "phrase": "Кайот, Black",
+    "count": 6,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/my-little-baby/coyote/",
+        "jsonld[2][0]:.@graph[0].additionalProperty[8].value",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/my-little-baby/coyote/",
+        "jsonld[2][0]:.@graph[0].color",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/pojuy-ts/oversize/",
+        "jsonld[2][0]:.@graph[0].additionalProperty[8].value",
+        "en"
+      ]
+    ],
+    "source_refs": []
+  },
+  {
+    "phrase": "Чому оверсайз-посадка",
+    "count": 5,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/225-tshirt/oversize/",
+        "h3[0]",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/classic-tshirt/oversize/",
+        "h3[0]",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/last-breath/oversize/",
+        "h3[0]",
+        "en"
+      ]
+    ],
+    "source_refs": [
+      "storefront/tests/test_phase16_fit_seo.py:124:        self.assertIn(\"Чому оверсайз-посадка\", html)",
+      "storefront/tests/test_phase16_fit_seo.py:140:        self.assertNotIn(\"Чому оверсайз-посадка\", classic)",
+      "storefront/services/product_seo_landing.py:71:        \"h3\": \"Чому оверсайз-посадка\","
+    ]
+  },
+  {
+    "phrase": "Рожевий",
+    "count": 4,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/",
+        "jsonld[2][0]:.@graph[0].additionalProperty[8].value",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/",
+        "jsonld[2][0]:.@graph[0].color",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/pink/",
+        "jsonld[2][0]:.@graph[0].additionalProperty[8].value",
+        "en"
+      ]
+    ],
+    "source_refs": [
+      "storefront/tests/test_phase19h_seo_admin_overrides.py:41:        cls.pink = Color.objects.create(name=\"Рожевий\", primary_hex=\"#F7A1B9\")",
+      "storefront/custom_print_config.py:417:                        {\"value\": \"thermo_pink\", \"label\": \"Рожевий (Термо)\", \"hex\": \"#e78ba7\"}",
+      "storefront/services/color_filter.py:51:    \"Рожевий\",",
+      "twocomms_django_theme/templates/pages/admin_product_edit_unified.html:1112:      '#FFC0CB': 'Рожевий',",
+      "twocomms_django_theme/templates/pages/add_product_new.html:862:        '#FFC0CB': 'Рожевий',"
+    ]
+  },
+  {
+    "phrase": "Hoodie «Drones Around 2.0» (black) — авторський streetwear від TwoComms. Якісний стріт & м",
+    "count": 3,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/20-twocomms-legend/black/",
+        "meta_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/20-twocomms-legend/black/",
+        "og_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/20-twocomms-legend/black/",
+        "twitter_description",
+        "en"
+      ]
+    ],
+    "source_refs": []
+  },
+  {
+    "phrase": "T-shirt «225th Assault Brigade» — класичний фіт — TwoComms",
+    "count": 3,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/225-tshirt/classic/",
+        "title",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/225-tshirt/classic/",
+        "og_title",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/225-tshirt/classic/",
+        "twitter_title",
+        "en"
+      ]
+    ],
+    "source_refs": []
+  },
+  {
+    "phrase": "T-shirt «225th Assault Brigade», класичний фіт — щільна бавовна, DTF-друк, доставка Новою ",
+    "count": 3,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/225-tshirt/classic/",
+        "meta_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/225-tshirt/classic/",
+        "og_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/225-tshirt/classic/",
+        "twitter_description",
+        "en"
+      ]
+    ],
+    "source_refs": []
+  },
+  {
+    "phrase": "T-shirt «225th Assault Brigade» — оверсайз фіт — TwoComms",
+    "count": 3,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/225-tshirt/oversize/",
+        "title",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/225-tshirt/oversize/",
+        "og_title",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/225-tshirt/oversize/",
+        "twitter_title",
+        "en"
+      ]
+    ],
+    "source_refs": []
+  },
+  {
+    "phrase": "T-shirt «225th Assault Brigade», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою П",
+    "count": 3,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/225-tshirt/oversize/",
+        "meta_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/225-tshirt/oversize/",
+        "og_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/225-tshirt/oversize/",
+        "twitter_description",
+        "en"
+      ]
+    ],
+    "source_refs": []
+  },
+  {
+    "phrase": "T-shirt «Business Is Math» (black) — авторський streetwear від TwoComms. Якісний стріт & м",
+    "count": 3,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/business-money/black/",
+        "meta_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/business-money/black/",
+        "og_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/business-money/black/",
+        "twitter_description",
+        "en"
+      ]
+    ],
+    "source_refs": []
+  },
+  {
+    "phrase": "T-shirt «Business Is Math» — класичний фіт — TwoComms",
+    "count": 3,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/business-money/classic/",
+        "title",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/business-money/classic/",
+        "og_title",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/business-money/classic/",
+        "twitter_title",
+        "en"
+      ]
+    ],
+    "source_refs": []
+  },
+  {
+    "phrase": "T-shirt «Business Is Math», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Пошто",
+    "count": 3,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/business-money/classic/",
+        "meta_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/business-money/classic/",
+        "og_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/business-money/classic/",
+        "twitter_description",
+        "en"
+      ]
+    ],
+    "source_refs": []
+  },
+  {
+    "phrase": "Classic T-shirt (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одя",
+    "count": 3,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/classic-tshirt/black/",
+        "meta_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/classic-tshirt/black/",
+        "og_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/classic-tshirt/black/",
+        "twitter_description",
+        "en"
+      ]
+    ],
+    "source_refs": []
+  },
+  {
+    "phrase": "Classic T-shirt — оверсайз фіт — TwoComms",
+    "count": 3,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/classic-tshirt/oversize/",
+        "title",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/classic-tshirt/oversize/",
+        "og_title",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/classic-tshirt/oversize/",
+        "twitter_title",
+        "en"
+      ]
+    ],
+    "source_refs": []
+  },
+  {
+    "phrase": "Classic T-shirt, оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Ук",
+    "count": 3,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/classic-tshirt/oversize/",
+        "meta_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/classic-tshirt/oversize/",
+        "og_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/classic-tshirt/oversize/",
+        "twitter_description",
+        "en"
+      ]
+    ],
+    "source_refs": []
+  },
+  {
+    "phrase": "T-shirt «Last Breath» — класичний фіт — TwoComms",
+    "count": 3,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/death-gbs-ass-ts/classic/",
+        "title",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/death-gbs-ass-ts/classic/",
+        "og_title",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/death-gbs-ass-ts/classic/",
+        "twitter_title",
+        "en"
+      ]
+    ],
+    "source_refs": []
+  },
+  {
+    "phrase": "T-shirt «Last Breath», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по ",
+    "count": 3,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/death-gbs-ass-ts/classic/",
+        "meta_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/death-gbs-ass-ts/classic/",
+        "og_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/death-gbs-ass-ts/classic/",
+        "twitter_description",
+        "en"
+      ]
+    ],
+    "source_refs": []
+  },
+  {
+    "phrase": "Hoodie «Glory of Ukraine» (black) — авторський streetwear від TwoComms. Якісний стріт & мі",
+    "count": 3,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/glory-of-ukraine-hd/black/",
+        "meta_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/glory-of-ukraine-hd/black/",
+        "og_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/glory-of-ukraine-hd/black/",
+        "twitter_description",
+        "en"
+      ]
+    ],
+    "source_refs": []
+  },
+  {
+    "phrase": "Hoodie «Reality Bends» — рожевий — TwoComms",
+    "count": 3,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/pink/",
+        "title",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/pink/",
+        "og_title",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/pink/",
+        "twitter_title",
+        "en"
+      ]
+    ],
+    "source_refs": []
+  },
+  {
+    "phrase": "Hoodie «Reality Bends» (рожевий) — авторський streetwear від TwoComms. Якісний стріт & міл",
+    "count": 3,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/pink/",
+        "meta_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/pink/",
+        "og_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/pink/",
+        "twitter_description",
+        "en"
+      ]
+    ],
+    "source_refs": []
+  },
+  {
+    "phrase": "Classic Hoodie (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг",
+    "count": 3,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/hoodie-classic/black/",
+        "meta_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/hoodie-classic/black/",
+        "og_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/hoodie-classic/black/",
+        "twitter_description",
+        "en"
+      ]
+    ],
+    "source_refs": []
+  },
+  {
+    "phrase": "Longsleeve «Stockless Punch» (black) — авторський streetwear від TwoComms. Якісний стріт &",
+    "count": 3,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/in-shee-ls/black/",
+        "meta_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/in-shee-ls/black/",
+        "og_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/in-shee-ls/black/",
+        "twitter_description",
+        "en"
+      ]
+    ],
+    "source_refs": []
+  },
+  {
+    "phrase": "T-shirt «Skull and Rose» — класичний фіт — TwoComms",
+    "count": 3,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/last-breath/classic/",
+        "title",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/last-breath/classic/",
+        "og_title",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/last-breath/classic/",
+        "twitter_title",
+        "en"
+      ]
+    ],
+    "source_refs": []
+  },
+  {
+    "phrase": "T-shirt «Skull and Rose», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою ",
+    "count": 3,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/last-breath/classic/",
+        "meta_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/last-breath/classic/",
+        "og_description",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/last-breath/classic/",
+        "twitter_description",
+        "en"
+      ]
+    ],
+    "source_refs": []
+  },
+  {
+    "phrase": "T-shirt «Skull and Rose» — оверсайз фіт — TwoComms",
+    "count": 3,
+    "examples": [
+      [
+        "https://twocomms.shop/en/product/last-breath/oversize/",
+        "title",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/last-breath/oversize/",
+        "og_title",
+        "en"
+      ],
+      [
+        "https://twocomms.shop/en/product/last-breath/oversize/",
+        "twitter_title",
+        "en"
+      ]
+    ],
+    "source_refs": []
+  }
+]

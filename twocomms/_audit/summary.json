@@ -1,0 +1,5215 @@
+{
+  "totals": {
+    "scanned": 153,
+    "ok": 150,
+    "errors": 3,
+    "indexable": 150,
+    "noindex": 0
+  },
+  "issue_types": {
+    "http_error": 3,
+    "description_length": 47,
+    "title_length": 14
+  },
+  "leak_field_buckets": {
+    "jsonld": 297,
+    "h2": 34,
+    "meta_description": 46,
+    "og_description": 46,
+    "twitter_description": 46,
+    "title": 24,
+    "og_title": 24,
+    "twitter_title": 24,
+    "h3": 11,
+    "og_image_alt": 2
+  },
+  "leaks_by_locale": {
+    "en": 302,
+    "ru": 252
+  },
+  "hot_pages": [
+    {
+      "url": "https://twocomms.shop/en/rozmirna-sitka/",
+      "locale": "en",
+      "leaks": 17,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.name",
+          "value": "Як зняти мірки і обрати розмір TwoComms",
+          "markers": [
+            "cyr:Як",
+            "cyr:зняти",
+            "cyr:мірки",
+            "cyr:і",
+            "cyr:обрати"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.description",
+          "value": "Покрокова інструкція, як з’ясувати свій розмір TwoComms за власною футболкою чи худі без рулетки на тілі.",
+          "markers": [
+            "cyr:Покрокова",
+            "cyr:інструкція",
+            "cyr:як",
+            "cyr:з",
+            "cyr:ясувати"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.tool[0].name",
+          "value": "Сантиметрова стрічка або лінійка",
+          "markers": [
+            "cyr:Сантиметрова",
+            "cyr:стрічка",
+            "cyr:або",
+            "cyr:лінійка"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.supply[0].name",
+          "value": "Своя річ для звірки",
+          "markers": [
+            "cyr:Своя",
+            "cyr:річ",
+            "cyr:для",
+            "cyr:звірки"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.step[0].name",
+          "value": "Покладіть свою річ на рівну поверхню",
+          "markers": [
+            "cyr:Покладіть",
+            "cyr:свою",
+            "cyr:річ",
+            "cyr:на",
+            "cyr:рівну"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.step[0].text",
+          "value": "Розправте футболку чи худі на столі, без складок. Це базова умова для точних мірок.",
+          "markers": [
+            "cyr:Розправте",
+            "cyr:футболку",
+            "cyr:чи",
+            "cyr:худі",
+            "cyr:на"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.step[1].name",
+          "value": "Зніміть ширину по грудях",
+          "markers": [
+            "cyr:Зніміть",
+            "cyr:ширину",
+            "cyr:по",
+            "cyr:грудях"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.step[1].text",
+          "value": "Виміряйте відстань від одного бокового шва до іншого на 2–3 см нижче пройми.",
+          "markers": [
+            "cyr:Виміряйте",
+            "cyr:відстань",
+            "cyr:від",
+            "cyr:одного",
+            "cyr:бокового"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.step[2].name",
+          "value": "Зніміть довжину виробу",
+          "markers": [
+            "cyr:Зніміть",
+            "cyr:довжину",
+            "cyr:виробу"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/ru/rozmirna-sitka/",
+      "locale": "ru",
+      "leaks": 17,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.name",
+          "value": "Як зняти мірки і обрати розмір TwoComms",
+          "markers": [
+            "ua:і",
+            "ua:розмір"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.description",
+          "value": "Покрокова інструкція, як з’ясувати свій розмір TwoComms за власною футболкою чи худі без рулетки на тілі.",
+          "markers": [
+            "ua:і",
+            "ua:розмір"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.tool[0].name",
+          "value": "Сантиметрова стрічка або лінійка",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.supply[0].name",
+          "value": "Своя річ для звірки",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.step[0].name",
+          "value": "Покладіть свою річ на рівну поверхню",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.step[0].text",
+          "value": "Розправте футболку чи худі на столі, без складок. Це базова умова для точних мірок.",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.step[1].name",
+          "value": "Зніміть ширину по грудях",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.step[1].text",
+          "value": "Виміряйте відстань від одного бокового шва до іншого на 2–3 см нижче пройми.",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.step[2].name",
+          "value": "Зніміть довжину виробу",
+          "markers": [
+            "ua:і"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/en/doglyad-za-odyagom/",
+      "locale": "en",
+      "leaks": 16,
+      "issues": 1,
+      "leak_summary": [
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.name",
+          "value": "Як прати і доглядати за одягом TwoComms з DTF-принтом",
+          "markers": [
+            "cyr:Як",
+            "cyr:прати",
+            "cyr:і",
+            "cyr:доглядати",
+            "cyr:за"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.description",
+          "value": "Покрокова інструкція з догляду за футболками, худі та лонгслівами TwoComms, щоб зберегти форму, колір і яскравість DTF-п",
+          "markers": [
+            "cyr:Покрокова",
+            "cyr:інструкція",
+            "cyr:з",
+            "cyr:догляду",
+            "cyr:за"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.tool[0].name",
+          "value": "Пральна машина",
+          "markers": [
+            "cyr:Пральна",
+            "cyr:машина"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.tool[1].name",
+          "value": "Праска",
+          "markers": [
+            "cyr:Праска"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.supply[0].name",
+          "value": "Делікатний пральний засіб",
+          "markers": [
+            "cyr:Делікатний",
+            "cyr:пральний",
+            "cyr:засіб"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.step[0].name",
+          "value": "Виверніть виріб навиворіт",
+          "markers": [
+            "cyr:Виверніть",
+            "cyr:виріб",
+            "cyr:навиворіт"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.step[0].text",
+          "value": "Перед пранням обов’язково виверніть футболку, худі чи лонгслів навиворіт, щоб мінімізувати тертя по принту.",
+          "markers": [
+            "cyr:Перед",
+            "cyr:пранням",
+            "cyr:обов",
+            "cyr:язково",
+            "cyr:виверніть"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.step[1].name",
+          "value": "Періть на 30 °C у делікатному режимі",
+          "markers": [
+            "cyr:Періть",
+            "cyr:на",
+            "cyr:у",
+            "cyr:делікатному",
+            "cyr:режимі"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.step[1].text",
+          "value": "Використовуйте температуру не вище 30 °C і делікатний режим. Уникайте відбілювачів і агресивних плямовивідників.",
+          "markers": [
+            "cyr:Використовуйте",
+            "cyr:температуру",
+            "cyr:не",
+            "cyr:вище",
+            "cyr:і"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "title_length",
+          "value": 25
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/en/product/pojuy-ts/oversize/",
+      "locale": "en",
+      "leaks": 13,
+      "issues": 2,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "T-shirt «i don't give a damn — it's a philosophy» — оверсайз фіт — TwoComms",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "T-shirt «i don't give a damn — it's a philosophy», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всі",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "T-shirt «i don't give a damn — it's a philosophy» — оверсайз фіт — TwoComms",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "T-shirt «i don't give a damn — it's a philosophy», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всі",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "T-shirt «i don't give a damn — it's a philosophy» — оверсайз фіт — TwoComms",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "T-shirt «i don't give a damn — it's a philosophy», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всі",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "h2[1]",
+          "value": "Футболка базова",
+          "markers": [
+            "cyr:Футболка",
+            "cyr:базова"
+          ]
+        },
+        {
+          "field": "h3[0]",
+          "value": "Чому оверсайз-посадка",
+          "markers": [
+            "cyr:Чому",
+            "cyr:оверсайз-посадка"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "title_length",
+          "value": 75
+        },
+        {
+          "type": "description_length",
+          "value": 196
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/en/product/where-mi-present-ts/classic/",
+      "locale": "en",
+      "leaks": 13,
+      "issues": 2,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "T-shirt «Where Are My Gifts, You Bastards?» — класичний фіт — TwoComms",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "T-shirt «Where Are My Gifts, You Bastards?», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Укр",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "T-shirt «Where Are My Gifts, You Bastards?» — класичний фіт — TwoComms",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "T-shirt «Where Are My Gifts, You Bastards?», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Укр",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "T-shirt «Where Are My Gifts, You Bastards?» — класичний фіт — TwoComms",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "T-shirt «Where Are My Gifts, You Bastards?», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Укр",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "h2[1]",
+          "value": "Футболка базова",
+          "markers": [
+            "cyr:Футболка",
+            "cyr:базова"
+          ]
+        },
+        {
+          "field": "h3[0]",
+          "value": "Чому класична посадка",
+          "markers": [
+            "cyr:Чому",
+            "cyr:класична",
+            "cyr:посадка"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "title_length",
+          "value": 70
+        },
+        {
+          "type": "description_length",
+          "value": 191
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/ru/doglyad-za-odyagom/",
+      "locale": "ru",
+      "leaks": 13,
+      "issues": 1,
+      "leak_summary": [
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.name",
+          "value": "Як прати і доглядати за одягом TwoComms з DTF-принтом",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.description",
+          "value": "Покрокова інструкція з догляду за футболками, худі та лонгслівами TwoComms, щоб зберегти форму, колір і яскравість DTF-п",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.supply[0].name",
+          "value": "Делікатний пральний засіб",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.step[0].name",
+          "value": "Виверніть виріб навиворіт",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.step[0].text",
+          "value": "Перед пранням обов’язково виверніть футболку, худі чи лонгслів навиворіт, щоб мінімізувати тертя по принту.",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.step[1].name",
+          "value": "Періть на 30 °C у делікатному режимі",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.step[1].text",
+          "value": "Використовуйте температуру не вище 30 °C і делікатний режим. Уникайте відбілювачів і агресивних плямовивідників.",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.step[2].name",
+          "value": "Не сушіть у барабанній сушарці на високій температурі",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:HowTo.step[2].text",
+          "value": "Сушіть розправленим на плічках або горизонтально. Високотемпературна сушарка пришвидшує усадку і пошкоджує принт.",
+          "markers": [
+            "ua:і"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "title_length",
+          "value": 24
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/pink/",
+      "locale": "en",
+      "leaks": 13,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "Hoodie «Reality Bends» — рожевий — TwoComms",
+          "markers": [
+            "cyr:рожевий"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "Hoodie «Reality Bends» (рожевий) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним диза",
+          "markers": [
+            "cyr:рожевий",
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "Hoodie «Reality Bends» — рожевий — TwoComms",
+          "markers": [
+            "cyr:рожевий"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Hoodie «Reality Bends» (рожевий) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним диза",
+          "markers": [
+            "cyr:рожевий",
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт"
+          ]
+        },
+        {
+          "field": "og_image_alt",
+          "value": "Hoodie «Reality Bends» — Рожевий — photo 1 TwoComms",
+          "markers": [
+            "cyr:Рожевий"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "Hoodie «Reality Bends» — рожевий — TwoComms",
+          "markers": [
+            "cyr:рожевий"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Hoodie «Reality Bends» (рожевий) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним диза",
+          "markers": [
+            "cyr:рожевий",
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт"
+          ]
+        },
+        {
+          "field": "h2[1]",
+          "value": "Худі",
+          "markers": [
+            "cyr:Худі"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "трьохнитка",
+          "markers": [
+            "cyr:трьохнитка"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/en/product/death-gbs-ass-ts/classic/",
+      "locale": "en",
+      "leaks": 12,
+      "issues": 1,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "T-shirt «Last Breath» — класичний фіт — TwoComms",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "T-shirt «Last Breath», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лакон",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "T-shirt «Last Breath» — класичний фіт — TwoComms",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "T-shirt «Last Breath», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лакон",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "T-shirt «Last Breath» — класичний фіт — TwoComms",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "T-shirt «Last Breath», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лакон",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "h3[0]",
+          "value": "Чому класична посадка",
+          "markers": [
+            "cyr:Чому",
+            "cyr:класична",
+            "cyr:посадка"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "description_length",
+          "value": 169
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/en/product/my-little-baby/coyote/",
+      "locale": "en",
+      "leaks": 12,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "T-shirt «My Little Baby» — кайот — TwoComms",
+          "markers": [
+            "cyr:кайот"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "T-shirt «My Little Baby» (кайот) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним диза",
+          "markers": [
+            "cyr:кайот",
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "T-shirt «My Little Baby» — кайот — TwoComms",
+          "markers": [
+            "cyr:кайот"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "T-shirt «My Little Baby» (кайот) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним диза",
+          "markers": [
+            "cyr:кайот",
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "T-shirt «My Little Baby» — кайот — TwoComms",
+          "markers": [
+            "cyr:кайот"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "T-shirt «My Little Baby» (кайот) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним диза",
+          "markers": [
+            "cyr:кайот",
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт"
+          ]
+        },
+        {
+          "field": "h2[1]",
+          "value": "Футболка базова",
+          "markers": [
+            "cyr:Футболка",
+            "cyr:базова"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/en/product/225-tshirt/classic/",
+      "locale": "en",
+      "leaks": 11,
+      "issues": 1,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "T-shirt «225th Assault Brigade» — класичний фіт — TwoComms",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "T-shirt «225th Assault Brigade», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 ",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "T-shirt «225th Assault Brigade» — класичний фіт — TwoComms",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "T-shirt «225th Assault Brigade», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 ",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "T-shirt «225th Assault Brigade» — класичний фіт — TwoComms",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "T-shirt «225th Assault Brigade», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 ",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "h2[1]",
+          "value": "Футболка базова",
+          "markers": [
+            "cyr:Футболка",
+            "cyr:базова"
+          ]
+        },
+        {
+          "field": "h3[0]",
+          "value": "Чому класична посадка",
+          "markers": [
+            "cyr:Чому",
+            "cyr:класична",
+            "cyr:посадка"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "description_length",
+          "value": 179
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/en/product/225-tshirt/oversize/",
+      "locale": "en",
+      "leaks": 11,
+      "issues": 1,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "T-shirt «225th Assault Brigade» — оверсайз фіт — TwoComms",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "T-shirt «225th Assault Brigade», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 д",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "T-shirt «225th Assault Brigade» — оверсайз фіт — TwoComms",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "T-shirt «225th Assault Brigade», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 д",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "T-shirt «225th Assault Brigade» — оверсайз фіт — TwoComms",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "T-shirt «225th Assault Brigade», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 д",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "h2[1]",
+          "value": "Футболка базова",
+          "markers": [
+            "cyr:Футболка",
+            "cyr:базова"
+          ]
+        },
+        {
+          "field": "h3[0]",
+          "value": "Чому оверсайз-посадка",
+          "markers": [
+            "cyr:Чому",
+            "cyr:оверсайз-посадка"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "description_length",
+          "value": 178
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/en/product/business-money/classic/",
+      "locale": "en",
+      "leaks": 11,
+      "issues": 1,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "T-shirt «Business Is Math» — класичний фіт — TwoComms",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "T-shirt «Business Is Math», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. ",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "T-shirt «Business Is Math» — класичний фіт — TwoComms",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "T-shirt «Business Is Math», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. ",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "T-shirt «Business Is Math» — класичний фіт — TwoComms",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "T-shirt «Business Is Math», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. ",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "h2[1]",
+          "value": "Футболка базова",
+          "markers": [
+            "cyr:Футболка",
+            "cyr:базова"
+          ]
+        },
+        {
+          "field": "h3[0]",
+          "value": "Чому класична посадка",
+          "markers": [
+            "cyr:Чому",
+            "cyr:класична",
+            "cyr:посадка"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "description_length",
+          "value": 174
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/en/product/classic-tshirt/oversize/",
+      "locale": "en",
+      "leaks": 11,
+      "issues": 1,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "Classic T-shirt — оверсайз фіт — TwoComms",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "Classic T-shirt, оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконічний с",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "Classic T-shirt — оверсайз фіт — TwoComms",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Classic T-shirt, оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконічний с",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "Classic T-shirt — оверсайз фіт — TwoComms",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Classic T-shirt, оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконічний с",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "h2[1]",
+          "value": "Футболка базова",
+          "markers": [
+            "cyr:Футболка",
+            "cyr:базова"
+          ]
+        },
+        {
+          "field": "h3[0]",
+          "value": "Чому оверсайз-посадка",
+          "markers": [
+            "cyr:Чому",
+            "cyr:оверсайз-посадка"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "description_length",
+          "value": 162
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/en/product/red-leaves-ts/classic/",
+      "locale": "en",
+      "leaks": 11,
+      "issues": 1,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "T-shirt «Red Leaves» — класичний фіт — TwoComms",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "T-shirt «Red Leaves», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконі",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "T-shirt «Red Leaves» — класичний фіт — TwoComms",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "T-shirt «Red Leaves», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконі",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "T-shirt «Red Leaves» — класичний фіт — TwoComms",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "T-shirt «Red Leaves», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконі",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "h2[1]",
+          "value": "Футболка базова",
+          "markers": [
+            "cyr:Футболка",
+            "cyr:базова"
+          ]
+        },
+        {
+          "field": "h3[0]",
+          "value": "Чому класична посадка",
+          "markers": [
+            "cyr:Чому",
+            "cyr:класична",
+            "cyr:посадка"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "description_length",
+          "value": 168
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/en/product/last-breath/classic/",
+      "locale": "en",
+      "leaks": 10,
+      "issues": 1,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "T-shirt «Skull and Rose» — класичний фіт — TwoComms",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "T-shirt «Skull and Rose», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Ла",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "T-shirt «Skull and Rose» — класичний фіт — TwoComms",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "T-shirt «Skull and Rose», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Ла",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "T-shirt «Skull and Rose» — класичний фіт — TwoComms",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "T-shirt «Skull and Rose», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Ла",
+          "markers": [
+            "cyr:класичний",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "h3[0]",
+          "value": "Чому класична посадка",
+          "markers": [
+            "cyr:Чому",
+            "cyr:класична",
+            "cyr:посадка"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "description_length",
+          "value": 172
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/en/product/last-breath/oversize/",
+      "locale": "en",
+      "leaks": 10,
+      "issues": 1,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "T-shirt «Skull and Rose» — оверсайз фіт — TwoComms",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "T-shirt «Skull and Rose», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лак",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "T-shirt «Skull and Rose» — оверсайз фіт — TwoComms",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "T-shirt «Skull and Rose», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лак",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "T-shirt «Skull and Rose» — оверсайз фіт — TwoComms",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "T-shirt «Skull and Rose», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лак",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "h3[0]",
+          "value": "Чому оверсайз-посадка",
+          "markers": [
+            "cyr:Чому",
+            "cyr:оверсайз-посадка"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "description_length",
+          "value": 171
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/en/product/twocomms-beliveidea-ts/oversize/",
+      "locale": "en",
+      "leaks": 10,
+      "issues": 1,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "T-shirt «Trust your crazy idea» — оверсайз фіт — TwoComms",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "T-shirt «Trust your crazy idea», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 д",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "T-shirt «Trust your crazy idea» — оверсайз фіт — TwoComms",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "T-shirt «Trust your crazy idea», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 д",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "T-shirt «Trust your crazy idea» — оверсайз фіт — TwoComms",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "T-shirt «Trust your crazy idea», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 д",
+          "markers": [
+            "cyr:оверсайз",
+            "cyr:фіт",
+            "cyr:щільна",
+            "cyr:бавовна",
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "h3[0]",
+          "value": "Чому оверсайз-посадка",
+          "markers": [
+            "cyr:Чому",
+            "cyr:оверсайз-посадка"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "description_length",
+          "value": 178
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/ru/product/225-tshirt/classic/",
+      "locale": "ru",
+      "leaks": 9,
+      "issues": 1,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "Футболка «225 ОШБр» — класичний фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "Футболка «225 ОШБр», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконіч",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "Футболка «225 ОШБр» — класичний фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Футболка «225 ОШБр», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконіч",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "Футболка «225 ОШБр» — класичний фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Футболка «225 ОШБр», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконіч",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "description_length",
+          "value": 167
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/ru/product/225-tshirt/oversize/",
+      "locale": "ru",
+      "leaks": 9,
+      "issues": 1,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "Футболка «225 ОШБр» — оверсайз фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "Футболка «225 ОШБр», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконічн",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "Футболка «225 ОШБр» — оверсайз фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Футболка «225 ОШБр», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконічн",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "Футболка «225 ОШБр» — оверсайз фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Футболка «225 ОШБр», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконічн",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "description_length",
+          "value": 166
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/ru/product/business-money/classic/",
+      "locale": "ru",
+      "leaks": 9,
+      "issues": 1,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "Футболка «Бизнес — Это Математика» — класичний фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "Футболка «Бизнес — Это Математика», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "Футболка «Бизнес — Это Математика» — класичний фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Футболка «Бизнес — Это Математика», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "Футболка «Бизнес — Это Математика» — класичний фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Футболка «Бизнес — Это Математика», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "description_length",
+          "value": 182
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/ru/product/classic-tshirt/oversize/",
+      "locale": "ru",
+      "leaks": 9,
+      "issues": 1,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "Футболка классическая — оверсайз фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "Футболка классическая, оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконі",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "Футболка классическая — оверсайз фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Футболка классическая, оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконі",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "Футболка классическая — оверсайз фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Футболка классическая, оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лаконі",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "description_length",
+          "value": 168
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/ru/product/death-gbs-ass-ts/classic/",
+      "locale": "ru",
+      "leaks": 9,
+      "issues": 1,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "Футболка «Череп С Задницей» — класичний фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "Футболка «Череп С Задницей», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні.",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "Футболка «Череп С Задницей» — класичний фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Футболка «Череп С Задницей», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні.",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "Футболка «Череп С Задницей» — класичний фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Футболка «Череп С Задницей», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні.",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "description_length",
+          "value": 175
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/ru/product/last-breath/classic/",
+      "locale": "ru",
+      "leaks": 9,
+      "issues": 1,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "Футболка «Череп С Розой» — класичний фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "Футболка «Череп С Розой», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Ла",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "Футболка «Череп С Розой» — класичний фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Футболка «Череп С Розой», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Ла",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "Футболка «Череп С Розой» — класичний фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Футболка «Череп С Розой», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Ла",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "description_length",
+          "value": 172
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/ru/product/last-breath/oversize/",
+      "locale": "ru",
+      "leaks": 9,
+      "issues": 1,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "Футболка «Череп С Розой» — оверсайз фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "Футболка «Череп С Розой», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лак",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "Футболка «Череп С Розой» — оверсайз фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Футболка «Череп С Розой», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лак",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "Футболка «Череп С Розой» — оверсайз фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Футболка «Череп С Розой», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лак",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "description_length",
+          "value": 171
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/ru/product/pojuy-ts/oversize/",
+      "locale": "ru",
+      "leaks": 9,
+      "issues": 1,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "Футболка «мне поЖуй — это философия» — оверсайз фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "Футболка «мне поЖуй — это философия», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за ",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "Футболка «мне поЖуй — это философия» — оверсайз фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Футболка «мне поЖуй — это философия», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за ",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "Футболка «мне поЖуй — это философия» — оверсайз фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Футболка «мне поЖуй — это философия», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за ",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "description_length",
+          "value": 183
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/ru/product/red-leaves-ts/classic/",
+      "locale": "ru",
+      "leaks": 9,
+      "issues": 1,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "Футболка «Red Leaves» — класичний фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "Футболка «Red Leaves», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лакон",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "Футболка «Red Leaves» — класичний фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Футболка «Red Leaves», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лакон",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "Футболка «Red Leaves» — класичний фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Футболка «Red Leaves», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за 1–3 дні. Лакон",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "description_length",
+          "value": 169
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/ru/product/twocomms-beliveidea-ts/oversize/",
+      "locale": "ru",
+      "leaks": 9,
+      "issues": 1,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "Футболка «Доверяй своей безумной идее» — оверсайз фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "Футболка «Доверяй своей безумной идее», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні з",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "Футболка «Доверяй своей безумной идее» — оверсайз фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Футболка «Доверяй своей безумной идее», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні з",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "Футболка «Доверяй своей безумной идее» — оверсайз фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Футболка «Доверяй своей безумной идее», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні з",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "description_length",
+          "value": 185
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/ru/product/where-mi-present-ts/classic/",
+      "locale": "ru",
+      "leaks": 9,
+      "issues": 1,
+      "leak_summary": [
+        {
+          "field": "title",
+          "value": "Футболка «Где Мои Подарки, Мразота?» — класичний фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "meta_description",
+          "value": "Футболка «Где Мои Подарки, Мразота?», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "og_title",
+          "value": "Футболка «Где Мои Подарки, Мразота?» — класичний фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Футболка «Где Мои Подарки, Мразота?», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "twitter_title",
+          "value": "Футболка «Где Мои Подарки, Мразота?» — класичний фіт — TwoComms",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Футболка «Где Мои Подарки, Мразота?», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Україні за",
+          "markers": [
+            "ua:і",
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "description_length",
+          "value": 184
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/en/product/20-twocomms-legend/black/",
+      "locale": "en",
+      "leaks": 7,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "meta_description",
+          "value": "Hoodie «Drones Around 2.0» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним ди",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Hoodie «Drones Around 2.0» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним ди",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Hoodie «Drones Around 2.0» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним ди",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "h2[1]",
+          "value": "Худі",
+          "markers": [
+            "cyr:Худі"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "трьохнитка",
+          "markers": [
+            "cyr:трьохнитка"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "трьохнитка",
+          "markers": [
+            "cyr:трьохнитка"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/en/product/business-money/black/",
+      "locale": "en",
+      "leaks": 7,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "meta_description",
+          "value": "T-shirt «Business Is Math» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним ди",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "T-shirt «Business Is Math» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним ди",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "T-shirt «Business Is Math» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним ди",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "h2[1]",
+          "value": "Футболка базова",
+          "markers": [
+            "cyr:Футболка",
+            "cyr:базова"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/en/product/classic-tshirt/black/",
+      "locale": "en",
+      "leaks": 7,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "meta_description",
+          "value": "Classic T-shirt (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном, дос",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Classic T-shirt (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном, дос",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Classic T-shirt (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном, дос",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "h2[1]",
+          "value": "Футболка базова",
+          "markers": [
+            "cyr:Футболка",
+            "cyr:базова"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/en/product/glory-of-ukraine-hd/black/",
+      "locale": "en",
+      "leaks": 7,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "meta_description",
+          "value": "Hoodie «Glory of Ukraine» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним диз",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Hoodie «Glory of Ukraine» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним диз",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Hoodie «Glory of Ukraine» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним диз",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "h2[1]",
+          "value": "Худі",
+          "markers": [
+            "cyr:Худі"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "трьохнитка",
+          "markers": [
+            "cyr:трьохнитка"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "трьохнитка",
+          "markers": [
+            "cyr:трьохнитка"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/",
+      "locale": "en",
+      "leaks": 7,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "og_image_alt",
+          "value": "Hoodie «Reality Bends» — Рожевий — photo 1 TwoComms",
+          "markers": [
+            "cyr:Рожевий"
+          ]
+        },
+        {
+          "field": "h2[1]",
+          "value": "Худі",
+          "markers": [
+            "cyr:Худі"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "трьохнитка",
+          "markers": [
+            "cyr:трьохнитка"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "трьохнитка",
+          "markers": [
+            "cyr:трьохнитка"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[8].value",
+          "value": "Рожевий",
+          "markers": [
+            "cyr:Рожевий"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].color",
+          "value": "Рожевий",
+          "markers": [
+            "cyr:Рожевий"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/en/product/hoodie-classic/black/",
+      "locale": "en",
+      "leaks": 7,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "meta_description",
+          "value": "Classic Hoodie (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном, дост",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Classic Hoodie (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном, дост",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Classic Hoodie (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайном, дост",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "h2[1]",
+          "value": "Худі",
+          "markers": [
+            "cyr:Худі"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "трьохнитка",
+          "markers": [
+            "cyr:трьохнитка"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "трьохнитка",
+          "markers": [
+            "cyr:трьохнитка"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/en/product/v2-0-pokrovsk/black/",
+      "locale": "en",
+      "leaks": 7,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "meta_description",
+          "value": "Hoodie «Pokrovsk V2.0» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайн",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Hoodie «Pokrovsk V2.0» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайн",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Hoodie «Pokrovsk V2.0» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайн",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "h2[1]",
+          "value": "Худі",
+          "markers": [
+            "cyr:Худі"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "трьохнитка",
+          "markers": [
+            "cyr:трьохнитка"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "трьохнитка",
+          "markers": [
+            "cyr:трьохнитка"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/ru/product/20-twocomms-legend/black/",
+      "locale": "ru",
+      "leaks": 7,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "meta_description",
+          "value": "Худи «Дроны Вокруг 2.0» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним диза",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Худи «Дроны Вокруг 2.0» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним диза",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Худи «Дроны Вокруг 2.0» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним диза",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "h2[1]",
+          "value": "Худі",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/ru/product/glory-of-ukraine-hd/black/",
+      "locale": "ru",
+      "leaks": 7,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "meta_description",
+          "value": "Худи «Glory of Ukraine» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним диза",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Худи «Glory of Ukraine» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним диза",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Худи «Glory of Ukraine» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним диза",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "h2[1]",
+          "value": "Худі",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/ru/product/hd-twocomms-reality-bends-future-2026/pink/",
+      "locale": "ru",
+      "leaks": 7,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "meta_description",
+          "value": "Худи «Reality Bends» (рожевий) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайн",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Худи «Reality Bends» (рожевий) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайн",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Худи «Reality Bends» (рожевий) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайн",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "h2[1]",
+          "value": "Худі",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/ru/product/v2-0-pokrovsk/black/",
+      "locale": "ru",
+      "leaks": 7,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "meta_description",
+          "value": "Худи «Покровск V2.0» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайно",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Худи «Покровск V2.0» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайно",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Худи «Покровск V2.0» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайно",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "h2[1]",
+          "value": "Худі",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/en/pro-brand/",
+      "locale": "en",
+      "leaks": 6,
+      "issues": 2,
+      "leak_summary": [
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[6][0]:Person.jobTitle",
+          "value": "Засновник TwoComms",
+          "markers": [
+            "cyr:Засновник"
+          ]
+        },
+        {
+          "field": "jsonld[6][0]:Person.description",
+          "value": "Засновник TwoComms, харків’янин, побудував бренд як ідею продовження після критичної точки.",
+          "markers": [
+            "cyr:Засновник",
+            "cyr:харків",
+            "cyr:янин",
+            "cyr:побудував",
+            "cyr:бренд"
+          ]
+        },
+        {
+          "field": "jsonld[6][0]:Person.knowsAbout[1]",
+          "value": "мілітарна естетика",
+          "markers": [
+            "cyr:мілітарна",
+            "cyr:естетика"
+          ]
+        },
+        {
+          "field": "jsonld[6][0]:Person.knowsAbout[2]",
+          "value": "DTF-друк",
+          "markers": [
+            "cyr:друк"
+          ]
+        },
+        {
+          "field": "jsonld[6][0]:Person.knowsAbout[3]",
+          "value": "український streetwear",
+          "markers": [
+            "cyr:український"
+          ]
+        }
+      ],
+      "issue_summary": [
+        {
+          "type": "title_length",
+          "value": 77
+        },
+        {
+          "type": "description_length",
+          "value": 183
+        }
+      ]
+    },
+    {
+      "url": "https://twocomms.shop/en/product/in-shee-ls/black/",
+      "locale": "en",
+      "leaks": 6,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "meta_description",
+          "value": "Longsleeve «Stockless Punch» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним ",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Longsleeve «Stockless Punch» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним ",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Longsleeve «Stockless Punch» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним ",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/en/product/lord-of-the-lending-hd/black/",
+      "locale": "en",
+      "leaks": 6,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "meta_description",
+          "value": "Hoodie «Lord Of The Lending» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним ",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Hoodie «Lord Of The Lending» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним ",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Hoodie «Lord Of The Lending» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним ",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "трьохнитка",
+          "markers": [
+            "cyr:трьохнитка"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "трьохнитка",
+          "markers": [
+            "cyr:трьохнитка"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/en/product/pokrovsk-girl-ls/black/",
+      "locale": "en",
+      "leaks": 6,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "meta_description",
+          "value": "Longsleeve «Girl from Pokrovsk» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивн",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Longsleeve «Girl from Pokrovsk» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивн",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Longsleeve «Girl from Pokrovsk» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивн",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/en/product/red-leaves-ls/black/",
+      "locale": "en",
+      "leaks": 6,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "meta_description",
+          "value": "Longsleeve «Red Leaves» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизай",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Longsleeve «Red Leaves» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизай",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Longsleeve «Red Leaves» (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизай",
+          "markers": [
+            "cyr:авторський",
+            "cyr:від",
+            "cyr:Якісний",
+            "cyr:стріт",
+            "cyr:мілітарі"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "cyr:Харків",
+            "cyr:Україна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "cyr:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/ru/product/business-money/black/",
+      "locale": "ru",
+      "leaks": 6,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "meta_description",
+          "value": "Футболка «Бизнес — Это Математика» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклю",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Футболка «Бизнес — Это Математика» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклю",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Футболка «Бизнес — Это Математика» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклю",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/ru/product/classic-tshirt/black/",
+      "locale": "ru",
+      "leaks": 6,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "meta_description",
+          "value": "Футболка классическая (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайн",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Футболка классическая (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайн",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Футболка классическая (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизайн",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/ru/product/in-shee-ls/black/",
+      "locale": "ru",
+      "leaks": 6,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "meta_description",
+          "value": "Лонгслив «Тыльный В Еб*Ло» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним д",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Лонгслив «Тыльный В Еб*Ло» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним д",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Лонгслив «Тыльный В Еб*Ло» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним д",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/ru/product/lord-of-the-lending-hd/black/",
+      "locale": "ru",
+      "leaks": 6,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "meta_description",
+          "value": "Худи «Это Моя Посадка» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизай",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Худи «Это Моя Посадка» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизай",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Худи «Это Моя Посадка» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним дизай",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/ru/product/my-little-baby/coyote/",
+      "locale": "ru",
+      "leaks": 6,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "meta_description",
+          "value": "Футболка «My Little Baby» (кайот) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним диз",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Футболка «My Little Baby» (кайот) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним диз",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Футболка «My Little Baby» (кайот) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзивним диз",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": []
+    },
+    {
+      "url": "https://twocomms.shop/ru/product/pokrovsk-girl-ls/black/",
+      "locale": "ru",
+      "leaks": 6,
+      "issues": 0,
+      "leak_summary": [
+        {
+          "field": "meta_description",
+          "value": "Лонгслив «Девушка Из Покровска» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзив",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "og_description",
+          "value": "Лонгслив «Девушка Из Покровска» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзив",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "twitter_description",
+          "value": "Лонгслив «Девушка Из Покровска» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг з ексклюзив",
+          "markers": [
+            "ua:і",
+            "ua:одяг"
+          ]
+        },
+        {
+          "field": "jsonld[0][0]:Organization.foundingLocation.name",
+          "value": "Харків, Україна",
+          "markers": [
+            "ua:і"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].material",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        },
+        {
+          "field": "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "value": "бавовна",
+          "markers": [
+            "ua:бавовна"
+          ]
+        }
+      ],
+      "issue_summary": []
+    }
+  ],
+  "phrase_clusters": [
+    {
+      "phrase": "Харків, Україна",
+      "count": 100,
+      "examples": [
+        [
+          "https://twocomms.shop/en/",
+          "jsonld[0][0]:Organization.foundingLocation.name",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/catalog/",
+          "jsonld[0][0]:Organization.foundingLocation.name",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/catalog/hoodie/",
+          "jsonld[0][0]:Organization.foundingLocation.name",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/catalog/long-sleeve/",
+          "jsonld[0][0]:Organization.foundingLocation.name",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/catalog/tshirts/",
+          "jsonld[0][0]:Organization.foundingLocation.name",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/cooperation/",
+          "jsonld[0][0]:Organization.foundingLocation.name",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/custom-print/",
+          "jsonld[0][0]:Organization.foundingLocation.name",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/delivery/",
+          "jsonld[0][0]:Organization.foundingLocation.name",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "бавовна",
+      "count": 100,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/225-tshirt/classic/",
+          "jsonld[2][0]:.@graph[0].material",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/225-tshirt/classic/",
+          "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/225-tshirt/oversize/",
+          "jsonld[2][0]:.@graph[0].material",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/225-tshirt/oversize/",
+          "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/business-money/black/",
+          "jsonld[2][0]:.@graph[0].material",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/business-money/black/",
+          "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/business-money/classic/",
+          "jsonld[2][0]:.@graph[0].material",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/business-money/classic/",
+          "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "трьохнитка",
+      "count": 18,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/20-twocomms-legend/black/",
+          "jsonld[2][0]:.@graph[0].material",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/20-twocomms-legend/black/",
+          "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/bentejne-hd/",
+          "jsonld[2][0]:.@graph[0].material",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/bentejne-hd/",
+          "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/glory-of-ukraine-hd/black/",
+          "jsonld[2][0]:.@graph[0].material",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/glory-of-ukraine-hd/black/",
+          "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/",
+          "jsonld[2][0]:.@graph[0].material",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/",
+          "jsonld[2][0]:.@graph[0].additionalProperty[0].value",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "Худі",
+      "count": 16,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/20-twocomms-legend/black/",
+          "h2[1]",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/bentejne-hd/",
+          "h2[1]",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/glory-of-ukraine-hd/black/",
+          "h2[1]",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/",
+          "h2[1]",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/pink/",
+          "h2[1]",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/hoodie-classic/black/",
+          "h2[1]",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/v2-0-pokrovsk/black/",
+          "h2[1]",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/where-mi-present-hd/",
+          "h2[1]",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "Футболка базова",
+      "count": 12,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/225-tshirt/classic/",
+          "h2[1]",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/225-tshirt/oversize/",
+          "h2[1]",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/business-money/black/",
+          "h2[1]",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/business-money/classic/",
+          "h2[1]",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/classic-tshirt/black/",
+          "h2[1]",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/classic-tshirt/oversize/",
+          "h2[1]",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/dvoznachni-summy/",
+          "h2[1]",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/hool-ts/",
+          "h2[1]",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "Чому класична посадка",
+      "count": 6,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/225-tshirt/classic/",
+          "h3[0]",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/business-money/classic/",
+          "h3[0]",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/death-gbs-ass-ts/classic/",
+          "h3[0]",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/last-breath/classic/",
+          "h3[0]",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/red-leaves-ts/classic/",
+          "h3[0]",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/where-mi-present-ts/classic/",
+          "h3[0]",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "Кайот, Black",
+      "count": 6,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/my-little-baby/coyote/",
+          "jsonld[2][0]:.@graph[0].additionalProperty[8].value",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/my-little-baby/coyote/",
+          "jsonld[2][0]:.@graph[0].color",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/pojuy-ts/oversize/",
+          "jsonld[2][0]:.@graph[0].additionalProperty[8].value",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/pojuy-ts/oversize/",
+          "jsonld[2][0]:.@graph[0].color",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/where-mi-present-ts/classic/",
+          "jsonld[2][0]:.@graph[0].additionalProperty[8].value",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/where-mi-present-ts/classic/",
+          "jsonld[2][0]:.@graph[0].color",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "Чому оверсайз-посадка",
+      "count": 5,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/225-tshirt/oversize/",
+          "h3[0]",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/classic-tshirt/oversize/",
+          "h3[0]",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/last-breath/oversize/",
+          "h3[0]",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/pojuy-ts/oversize/",
+          "h3[0]",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/twocomms-beliveidea-ts/oversize/",
+          "h3[0]",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "Рожевий",
+      "count": 4,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/",
+          "jsonld[2][0]:.@graph[0].additionalProperty[8].value",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/",
+          "jsonld[2][0]:.@graph[0].color",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/pink/",
+          "jsonld[2][0]:.@graph[0].additionalProperty[8].value",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/pink/",
+          "jsonld[2][0]:.@graph[0].color",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "Hoodie «Drones Around 2.0» (black) — авторський streetwear від TwoComms. Якісний стріт & м",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/20-twocomms-legend/black/",
+          "meta_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/20-twocomms-legend/black/",
+          "og_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/20-twocomms-legend/black/",
+          "twitter_description",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "T-shirt «225th Assault Brigade» — класичний фіт — TwoComms",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/225-tshirt/classic/",
+          "title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/225-tshirt/classic/",
+          "og_title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/225-tshirt/classic/",
+          "twitter_title",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "T-shirt «225th Assault Brigade», класичний фіт — щільна бавовна, DTF-друк, доставка Новою ",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/225-tshirt/classic/",
+          "meta_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/225-tshirt/classic/",
+          "og_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/225-tshirt/classic/",
+          "twitter_description",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "T-shirt «225th Assault Brigade» — оверсайз фіт — TwoComms",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/225-tshirt/oversize/",
+          "title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/225-tshirt/oversize/",
+          "og_title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/225-tshirt/oversize/",
+          "twitter_title",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "T-shirt «225th Assault Brigade», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою П",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/225-tshirt/oversize/",
+          "meta_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/225-tshirt/oversize/",
+          "og_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/225-tshirt/oversize/",
+          "twitter_description",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "T-shirt «Business Is Math» (black) — авторський streetwear від TwoComms. Якісний стріт & м",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/business-money/black/",
+          "meta_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/business-money/black/",
+          "og_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/business-money/black/",
+          "twitter_description",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "T-shirt «Business Is Math» — класичний фіт — TwoComms",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/business-money/classic/",
+          "title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/business-money/classic/",
+          "og_title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/business-money/classic/",
+          "twitter_title",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "T-shirt «Business Is Math», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Пошто",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/business-money/classic/",
+          "meta_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/business-money/classic/",
+          "og_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/business-money/classic/",
+          "twitter_description",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "Classic T-shirt (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одя",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/classic-tshirt/black/",
+          "meta_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/classic-tshirt/black/",
+          "og_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/classic-tshirt/black/",
+          "twitter_description",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "Classic T-shirt — оверсайз фіт — TwoComms",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/classic-tshirt/oversize/",
+          "title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/classic-tshirt/oversize/",
+          "og_title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/classic-tshirt/oversize/",
+          "twitter_title",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "Classic T-shirt, оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всій Ук",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/classic-tshirt/oversize/",
+          "meta_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/classic-tshirt/oversize/",
+          "og_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/classic-tshirt/oversize/",
+          "twitter_description",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "T-shirt «Last Breath» — класичний фіт — TwoComms",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/death-gbs-ass-ts/classic/",
+          "title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/death-gbs-ass-ts/classic/",
+          "og_title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/death-gbs-ass-ts/classic/",
+          "twitter_title",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "T-shirt «Last Breath», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по ",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/death-gbs-ass-ts/classic/",
+          "meta_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/death-gbs-ass-ts/classic/",
+          "og_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/death-gbs-ass-ts/classic/",
+          "twitter_description",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "Hoodie «Glory of Ukraine» (black) — авторський streetwear від TwoComms. Якісний стріт & мі",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/glory-of-ukraine-hd/black/",
+          "meta_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/glory-of-ukraine-hd/black/",
+          "og_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/glory-of-ukraine-hd/black/",
+          "twitter_description",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "Hoodie «Reality Bends» — рожевий — TwoComms",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/pink/",
+          "title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/pink/",
+          "og_title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/pink/",
+          "twitter_title",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "Hoodie «Reality Bends» (рожевий) — авторський streetwear від TwoComms. Якісний стріт & міл",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/pink/",
+          "meta_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/pink/",
+          "og_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/hd-twocomms-reality-bends-future-2026/pink/",
+          "twitter_description",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "Classic Hoodie (black) — авторський streetwear від TwoComms. Якісний стріт & мілітарі одяг",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/hoodie-classic/black/",
+          "meta_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/hoodie-classic/black/",
+          "og_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/hoodie-classic/black/",
+          "twitter_description",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "Longsleeve «Stockless Punch» (black) — авторський streetwear від TwoComms. Якісний стріт &",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/in-shee-ls/black/",
+          "meta_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/in-shee-ls/black/",
+          "og_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/in-shee-ls/black/",
+          "twitter_description",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "T-shirt «Skull and Rose» — класичний фіт — TwoComms",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/last-breath/classic/",
+          "title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/last-breath/classic/",
+          "og_title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/last-breath/classic/",
+          "twitter_title",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "T-shirt «Skull and Rose», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою ",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/last-breath/classic/",
+          "meta_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/last-breath/classic/",
+          "og_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/last-breath/classic/",
+          "twitter_description",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "T-shirt «Skull and Rose» — оверсайз фіт — TwoComms",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/last-breath/oversize/",
+          "title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/last-breath/oversize/",
+          "og_title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/last-breath/oversize/",
+          "twitter_title",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "T-shirt «Skull and Rose», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою п",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/last-breath/oversize/",
+          "meta_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/last-breath/oversize/",
+          "og_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/last-breath/oversize/",
+          "twitter_description",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "Hoodie «Lord Of The Lending» (black) — авторський streetwear від TwoComms. Якісний стріт &",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/lord-of-the-lending-hd/black/",
+          "meta_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/lord-of-the-lending-hd/black/",
+          "og_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/lord-of-the-lending-hd/black/",
+          "twitter_description",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "T-shirt «My Little Baby» — кайот — TwoComms",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/my-little-baby/coyote/",
+          "title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/my-little-baby/coyote/",
+          "og_title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/my-little-baby/coyote/",
+          "twitter_title",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "T-shirt «My Little Baby» (кайот) — авторський streetwear від TwoComms. Якісний стріт & міл",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/my-little-baby/coyote/",
+          "meta_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/my-little-baby/coyote/",
+          "og_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/my-little-baby/coyote/",
+          "twitter_description",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "T-shirt «i don't give a damn — it's a philosophy» — оверсайз фіт — TwoComms",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/pojuy-ts/oversize/",
+          "title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/pojuy-ts/oversize/",
+          "og_title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/pojuy-ts/oversize/",
+          "twitter_title",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "T-shirt «i don't give a damn — it's a philosophy», оверсайз фіт — щільна бавовна, DTF-друк",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/pojuy-ts/oversize/",
+          "meta_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/pojuy-ts/oversize/",
+          "og_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/pojuy-ts/oversize/",
+          "twitter_description",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "Longsleeve «Girl from Pokrovsk» (black) — авторський streetwear від TwoComms. Якісний стрі",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/pokrovsk-girl-ls/black/",
+          "meta_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/pokrovsk-girl-ls/black/",
+          "og_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/pokrovsk-girl-ls/black/",
+          "twitter_description",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "Longsleeve «Red Leaves» (black) — авторський streetwear від TwoComms. Якісний стріт & мілі",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/red-leaves-ls/black/",
+          "meta_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/red-leaves-ls/black/",
+          "og_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/red-leaves-ls/black/",
+          "twitter_description",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "T-shirt «Red Leaves» — класичний фіт — TwoComms",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/red-leaves-ts/classic/",
+          "title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/red-leaves-ts/classic/",
+          "og_title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/red-leaves-ts/classic/",
+          "twitter_title",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "T-shirt «Red Leaves», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по в",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/red-leaves-ts/classic/",
+          "meta_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/red-leaves-ts/classic/",
+          "og_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/red-leaves-ts/classic/",
+          "twitter_description",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "T-shirt «Trust your crazy idea» — оверсайз фіт — TwoComms",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/twocomms-beliveidea-ts/oversize/",
+          "title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/twocomms-beliveidea-ts/oversize/",
+          "og_title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/twocomms-beliveidea-ts/oversize/",
+          "twitter_title",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "T-shirt «Trust your crazy idea», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою П",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/twocomms-beliveidea-ts/oversize/",
+          "meta_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/twocomms-beliveidea-ts/oversize/",
+          "og_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/twocomms-beliveidea-ts/oversize/",
+          "twitter_description",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "Hoodie «Pokrovsk V2.0» (black) — авторський streetwear від TwoComms. Якісний стріт & міліт",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/v2-0-pokrovsk/black/",
+          "meta_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/v2-0-pokrovsk/black/",
+          "og_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/v2-0-pokrovsk/black/",
+          "twitter_description",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "T-shirt «Where Are My Gifts, You Bastards?» — класичний фіт — TwoComms",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/where-mi-present-ts/classic/",
+          "title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/where-mi-present-ts/classic/",
+          "og_title",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/where-mi-present-ts/classic/",
+          "twitter_title",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "T-shirt «Where Are My Gifts, You Bastards?», класичний фіт — щільна бавовна, DTF-друк, дос",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/en/product/where-mi-present-ts/classic/",
+          "meta_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/where-mi-present-ts/classic/",
+          "og_description",
+          "en"
+        ],
+        [
+          "https://twocomms.shop/en/product/where-mi-present-ts/classic/",
+          "twitter_description",
+          "en"
+        ]
+      ]
+    },
+    {
+      "phrase": "Худи «Дроны Вокруг 2.0» (чёрный) — авторський streetwear від TwoComms. Якісний стріт & міл",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/ru/product/20-twocomms-legend/black/",
+          "meta_description",
+          "ru"
+        ],
+        [
+          "https://twocomms.shop/ru/product/20-twocomms-legend/black/",
+          "og_description",
+          "ru"
+        ],
+        [
+          "https://twocomms.shop/ru/product/20-twocomms-legend/black/",
+          "twitter_description",
+          "ru"
+        ]
+      ]
+    },
+    {
+      "phrase": "Футболка «225 ОШБр» — класичний фіт — TwoComms",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/ru/product/225-tshirt/classic/",
+          "title",
+          "ru"
+        ],
+        [
+          "https://twocomms.shop/ru/product/225-tshirt/classic/",
+          "og_title",
+          "ru"
+        ],
+        [
+          "https://twocomms.shop/ru/product/225-tshirt/classic/",
+          "twitter_title",
+          "ru"
+        ]
+      ]
+    },
+    {
+      "phrase": "Футболка «225 ОШБр», класичний фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по вс",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/ru/product/225-tshirt/classic/",
+          "meta_description",
+          "ru"
+        ],
+        [
+          "https://twocomms.shop/ru/product/225-tshirt/classic/",
+          "og_description",
+          "ru"
+        ],
+        [
+          "https://twocomms.shop/ru/product/225-tshirt/classic/",
+          "twitter_description",
+          "ru"
+        ]
+      ]
+    },
+    {
+      "phrase": "Футболка «225 ОШБр» — оверсайз фіт — TwoComms",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/ru/product/225-tshirt/oversize/",
+          "title",
+          "ru"
+        ],
+        [
+          "https://twocomms.shop/ru/product/225-tshirt/oversize/",
+          "og_title",
+          "ru"
+        ],
+        [
+          "https://twocomms.shop/ru/product/225-tshirt/oversize/",
+          "twitter_title",
+          "ru"
+        ]
+      ]
+    },
+    {
+      "phrase": "Футболка «225 ОШБр», оверсайз фіт — щільна бавовна, DTF-друк, доставка Новою Поштою по всі",
+      "count": 3,
+      "examples": [
+        [
+          "https://twocomms.shop/ru/product/225-tshirt/oversize/",
+          "meta_description",
+          "ru"
+        ],
+        [
+          "https://twocomms.shop/ru/product/225-tshirt/oversize/",
+          "og_description",
+          "ru"
+        ],
+        [
+          "https://twocomms.shop/ru/product/225-tshirt/oversize/",
+          "twitter_description",
+          "ru"
+        ]
+      ]
+    }
+  ]
+}
