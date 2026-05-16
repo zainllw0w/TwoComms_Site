@@ -896,6 +896,23 @@ def ensure_compress_offline(enabled_flag):
             RuntimeWarning
         )
         return False
+    try:
+        import json
+        manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+    except (OSError, ValueError) as exc:
+        warnings.warn(
+            "COMPRESS_OFFLINE=True, но manifest CACHE/manifest.json нельзя прочитать. "
+            f"Отключаем offline-компрессию до следующего успешного compress: {exc}",
+            RuntimeWarning
+        )
+        return False
+    if not isinstance(manifest, dict) or not manifest:
+        warnings.warn(
+            "COMPRESS_OFFLINE=True, но manifest CACHE/manifest.json пустой или некорректный. "
+            "Запустите 'python manage.py compress' перед деплоем, чтобы включить offline-компрессию.",
+            RuntimeWarning
+        )
+        return False
     return True
 
 
