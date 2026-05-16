@@ -4788,6 +4788,8 @@ msgid ""
 "Схоже, ми припливли <strong>кудись не туди</strong>.<br>\n"
 "                Сторінка, яку ви шукаєте, <strong>не існує</strong> або була переміщена."
 msgstr ""
+"Looks like we drifted <strong>off course</strong>.<br>\n"
+"                The page you're looking for <strong>doesn't exist</strong> or has been moved."
 
 #: twocomms_django_theme/templates/404.html:216
 msgid "Повернутися на головну"
@@ -5232,6 +5234,8 @@ msgid ""
 "Telegram!</strong> Миттєві сповіщення про нові замовлення, зміну статусів та"
 " відстеження посилок."
 msgstr ""
+"<strong style=\"color: #a78bfa;\">📱 Get notifications on Telegram!</strong> "
+"Instant updates on new orders, status changes and parcel tracking."
 
 #: twocomms_django_theme/templates/pages/auth_profile_setup.html:211
 msgid ""
@@ -5239,6 +5243,9 @@ msgid ""
 "\"Отримувати статуси\", потім <strong>напишіть боту будь-яке повідомлення "
 "протягом 5 хвилин</strong> для підтвердження."
 msgstr ""
+"<strong style=\"color: #fbbf24;\">📝 How to connect:</strong> Click \"Receive"
+" statuses\", then <strong>send the bot any message within 5 minutes</strong>"
+" to confirm."
 
 #: twocomms_django_theme/templates/pages/auth_profile_setup.html:232
 msgid "Потрібен для перевірки підписки у випадку конкурсів"
@@ -5329,6 +5336,8 @@ msgid ""
 "Зараз визначимо, чи може цей пристрій отримувати системні сповіщення від "
 "TwoComms."
 msgstr ""
+"We'll check whether this device can receive system notifications from "
+"TwoComms."
 
 #: twocomms_django_theme/templates/pages/auth_profile_setup.html:411
 msgid "Увімкнути в цьому браузері"
@@ -5347,6 +5356,8 @@ msgid ""
 "Запуски нових колекцій, важливі анонси та релевантні пропозиції, коли вони "
 "дійсно можуть бути корисними."
 msgstr ""
+"New collection launches, important announcements and relevant offers when "
+"they can genuinely be useful."
 
 #: twocomms_django_theme/templates/pages/auth_profile_setup.html:435
 msgid "Статуси замовлення та доставки"
@@ -5357,6 +5368,8 @@ msgid ""
 "Оперативні повідомлення про підтвердження, відправлення, рух посилки та інші"
 " персональні оновлення по ваших замовленнях."
 msgstr ""
+"Real-time notifications about confirmation, dispatch, parcel movement and "
+"other personal updates on your orders."
 
 #: twocomms_django_theme/templates/pages/auth_profile_setup.html:442
 msgid "iPhone та iPad: як увімкнути push правильно"
@@ -5380,6 +5393,9 @@ msgid ""
 "Android і сучасних мобільних браузерах достатньо дозволити сповіщення для "
 "цього сайту."
 msgstr ""
+"This installs TwoComms as a fast web app, without the App Store. On desktop,"
+" Android and modern mobile browsers it's enough to allow notifications for "
+"this site."
 
 #: twocomms_django_theme/templates/pages/auth_profile_setup.html:456
 msgid "Зберегти push-налаштування"
@@ -5387,19 +5403,21 @@ msgstr "Save push settings"
 
 #: twocomms_django_theme/templates/pages/auth_profile_setup.html:472
 msgid "Обов'язкові поля"
-msgstr ""
+msgstr "Required fields"
 
 #: twocomms_django_theme/templates/pages/auth_profile_setup.html:473
 msgid ""
 "Поля з позначкою <span class=\"required\">*</span> є обов'язковими для "
 "заповнення"
-msgstr ""
+msgstr "Fields marked with <span class=\"required\">*</span> are required"
 
 #: twocomms_django_theme/templates/pages/auth_profile_setup.html:487
 msgid ""
 "Якщо ви є учасником бойових дій, відмітьте це та завантажте фото посвідчення"
 " для отримання спеціальних умов"
 msgstr ""
+"If you're a combat veteran, tick this option and upload a photo of your ID "
+"to get special terms"
 
 #: twocomms_django_theme/templates/pages/auth_register.html:10
 msgid "Створення акаунту"
@@ -5502,6 +5520,8 @@ msgid ""
 "Кожна пожертва допомагає нашим захисникам. Ваші бали будуть конвертовані в "
 "реальну допомогу для Збройних Сил України."
 msgstr ""
+"Every donation helps our defenders. Your points will be converted into real "
+"support for the Armed Forces of Ukraine."
 
 #: twocomms_django_theme/templates/pages/cart.html:8
 #: twocomms_django_theme/templates/pages/cart.html:38
@@ -8609,6 +8629,8 @@ msgid ""
 "відміткою нашої сторінки, і ми даруємо вам промокод на знижку 10%% на "
 "наступне замовлення!"
 msgstr ""
+"Share your impressions of the purchase! Leave a review on Instagram with a "
+"tag of our page, and we'll send you a 10%% promo code for your next order!"
 
 #: twocomms_django_theme/templates/pages/order_success.html:1734
 msgid "Ваш промокод на знижку"
@@ -8658,12 +8680,16 @@ msgid ""
 "Оптовий прайс-лист TwoComms для футболок і худі: актуальні гуртові ціни, "
 "пороги по кількості, базові умови співпраці та завантаження XLSX-файлу."
 msgstr ""
+"TwoComms wholesale price list for t-shirts and hoodies: current bulk prices,"
+" quantity tiers, basic cooperation terms and XLSX download."
 
 #: twocomms_django_theme/templates/pages/pricelist.html:7
 msgid ""
 "оптовий прайс-лист, гуртові ціни TwoComms, опт футболки, опт худі, прайс-"
 "лист одягу"
 msgstr ""
+"wholesale price list, TwoComms wholesale prices, wholesale t-shirts, "
+"wholesale hoodies, apparel price list"
 
 #: twocomms_django_theme/templates/pages/pricelist.html:9
 #: twocomms_django_theme/templates/pages/pricelist.html:11
@@ -8671,6 +8697,8 @@ msgid ""
 "Актуальний прайс-лист TwoComms для гуртових замовлень: футболки, худі, "
 "пороги за кількістю та завантаження XLSX."
 msgstr ""
+"Current TwoComms price list for bulk orders: t-shirts, hoodies, quantity "
+"tiers and XLSX download."
 
 #: twocomms_django_theme/templates/pages/pricelist.html:19
 msgid "Оптові ціни TwoComms"
@@ -10033,6 +10061,8 @@ msgid ""
 "Вигідні ціни для дропшипінгу та оптових закупівель.<br>\n"
 "          Якісний стріт & мілітарі одяг з ексклюзивними принтами."
 msgstr ""
+"Favorable prices for dropshipping and wholesale.<br>\n"
+"          Quality street & military apparel with exclusive prints."
 
 #: twocomms_django_theme/templates/pages/wholesale.html:2294
 msgid "Напишіть нам для співпраці в Telegram"
@@ -10215,6 +10245,8 @@ msgid ""
 "90%% Бавовна, 10%% Поліестер<br>\n"
 "              Трьохнитка пеньє"
 msgstr ""
+"90%% cotton, 10%% polyester<br>\n"
+"              three-thread peignoir"
 
 #: twocomms_django_theme/templates/pages/wholesale.html:2750
 #: twocomms_django_theme/templates/pages/wholesale.html:2816
@@ -10236,6 +10268,8 @@ msgid ""
 "95%% Бавовна, 5%% Еластан<br>\n"
 "              Кулір пеньє"
 msgstr ""
+"95%% cotton, 5%% elastane<br>\n"
+"              peignoir jersey"
 
 #: twocomms_django_theme/templates/pages/wholesale.html:2851
 msgid "Оптовий SEO layer"
