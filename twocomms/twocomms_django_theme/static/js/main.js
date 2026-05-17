@@ -869,6 +869,19 @@ function refreshMiniCart() {
 }
 window.refreshMiniCart = refreshMiniCart;
 window.openMiniCart = openMiniCart;
+window.closeMiniCart = closeMiniCart;
+window.toggleMiniCart = toggleMiniCart;
+
+// Делегированный обработчик для кнопки «Продовжити покупки» внутри мини-корзины.
+// Inline onclick="closeMiniCart(...)" не работает, потому что main.js загружается
+// как ES-модуль (область видимости изолирована). Через data-атрибут — работает
+// и в исходной разметке, и при динамической перерисовке через refreshMiniCart.
+document.addEventListener('click', function (e) {
+  const btn = e.target && e.target.closest && e.target.closest('[data-mini-cart-continue]');
+  if (!btn) return;
+  e.preventDefault();
+  try { closeMiniCart('continue'); } catch (_) {}
+});
 
 // Обновляем сводку при загрузке - DEFERRED до после LCP
 document.addEventListener('DOMContentLoaded', () => {
