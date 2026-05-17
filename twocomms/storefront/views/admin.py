@@ -826,19 +826,33 @@ def _custom_print_contact_links(lead) -> dict:
 
     links = {"raw": raw_value, "channel": channel}
 
-    if channel == "telegram" and cleaned_handle:
+    # 1) Якщо клієнт підтвердив Telegram через бота — використовуємо його дані з пріоритетом
+    verified_id = getattr(lead, "telegram_verified_user_id", None)
+    verified_username = (getattr(lead, "telegram_verified_username", "") or "").strip()
+    verified_phone = (getattr(lead, "telegram_verified_phone", "") or "").strip()
+    if verified_username:
+        links["telegram"] = f"https://t.me/{verified_username.lstrip('@')}"
+    elif verified_id:
+        links["telegram"] = f"tg://user?id={verified_id}"
+    if verified_phone:
+        verified_digits = "".join(ch for ch in verified_phone if ch.isdigit() or ch == "+")
+        if verified_digits:
+            links["phone"] = f"tel:{verified_digits}"
+
+    # 2) Канальні посилання з contact_value (якщо ще не виставлені)
+    if "telegram" not in links and channel == "telegram" and cleaned_handle:
         if cleaned_handle.startswith("http"):
             links["telegram"] = cleaned_handle
         else:
             links["telegram"] = f"https://t.me/{cleaned_handle.lstrip('@')}"
-    elif channel == "whatsapp":
+    if channel == "whatsapp":
         wa_digits = digits.lstrip("+")
         if wa_digits:
             links["whatsapp"] = f"https://wa.me/{wa_digits}"
-    elif channel == "phone" and digits:
+    if "phone" not in links and channel == "phone" and digits:
         links["phone"] = f"tel:{digits}"
 
-    # Если в контакте лежит телефон при любом канале — даём кнопку звонка
+    # 3) Якщо в contact_value лежить телефон при будь-якому каналі — даємо кнопку дзвінка
     if digits and len(digits) >= 9 and "phone" not in links:
         links["phone"] = f"tel:{digits}"
 

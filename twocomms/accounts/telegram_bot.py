@@ -22,8 +22,11 @@ class TelegramBot:
         self.bot_token = getattr(settings, 'TELEGRAM_BOT_TOKEN', '')
         self.base_url = f"https://api.telegram.org/bot{self.bot_token}"
 
-    def send_message(self, chat_id, text, parse_mode='HTML'):
-        """Отправляет сообщение пользователю"""
+    def send_message(self, chat_id, text, parse_mode='HTML', reply_markup=None):
+        """Отправляет сообщение пользователю.
+
+        Поддерживает inline и reply keyboard через `reply_markup` (dict).
+        """
         if not self.bot_token:
             return False
 
@@ -31,13 +34,17 @@ class TelegramBot:
         data = {
             'chat_id': chat_id,
             'text': text,
-            'parse_mode': parse_mode
+            'parse_mode': parse_mode,
         }
+        if reply_markup is not None:
+            import json as _json
+            data['reply_markup'] = _json.dumps(reply_markup, ensure_ascii=False)
 
         try:
-            response = requests.post(url, json=data, timeout=10)
+            response = requests.post(url, data=data, timeout=10)
             return response.status_code == 200
         except Exception as e:
+            print(f"❌ send_message failed: {e}")
             return False
 
     def set_webhook(self, webhook_url):
@@ -90,6 +97,15 @@ class TelegramBot:
         """
         try:
             print(f"🔵 process_start_command: user_id={user_id}, username={username}, start_param={start_param}")
+
+            # ── Custom Print verification flow ──
+            # Сценарій: користувач натиснув «Підтвердити Telegram» на сайті,
+            # сайт відкриває t.me/<bot>?start=verify_<token>. Бот має показати
+            # ReplyKeyboard з кнопкою «Поділитись номером». При успіху флоу
+            # завершується у `process_contact_message`.
+            if start_param and start_param.startswith("verify_"):
+                token = start_param[len("verify_"):].strip()
+                return self.handle_verification_start(user_id=user_id, username=username, token=token)
 
             # Ищем пользователя по telegram_id
             profile = UserProfile.objects.filter(telegram_id=user_id).first()
@@ -392,8 +408,14 @@ class TelegramBot:
                 user_id = message['from']['id']
                 username = message['from'].get('username')
                 text = message.get('text', '')
+                contact = message.get('contact')
 
-                print(f"🟡 Message from user_id={user_id}, username={username}, text={text}")
+                print(f"🟡 Message from user_id={user_id}, username={username}, text={text}, contact={'yes' if contact else 'no'}")
+
+                # ── Telegram прислал contact (через KeyboardButton request_contact=True) ──
+                if contact and isinstance(contact, dict):
+                    print(f"🟢 Processing contact share")
+                    return self.process_contact_message(user_id=user_id, username=username, contact=contact)
 
                 # Обрабатываем команду /start
                 if text and text.startswith('/start'):
@@ -418,6 +440,192 @@ class TelegramBot:
 
         except Exception as e:
             print(f"❌ Webhook error: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def handle_verification_start(self, *, user_id, username, token):
+        """Обработка /start verify_<token> — пользователь подтверждает Telegram
+        в форме кастомного принта.
+
+        Бот:
+        1. Находит TelegramVerificationSession по token (active, не истёкшая).
+        2. Помечает её bot_opened.
+        3. Шлёт сообщение с инструкцией + ReplyKeyboard «📱 Поділитися номером».
+        4. Когда юзер тапнет — Telegram пришлёт contact, обработается в
+           process_contact_message.
+        """
+        try:
+            from accounts.models import TelegramVerificationSession
+
+            session = (
+                TelegramVerificationSession.objects.filter(token=token)
+                .order_by("-created_at")
+                .first()
+            )
+            if not session:
+                self.send_message(
+                    user_id,
+                    "🔍 <b>Сесію верифікації не знайдено.</b>\n\n"
+                    "Поверніться на сайт TwoComms і натисніть «Підтвердити Telegram» ще раз.",
+                )
+                return False
+            if session.is_expired or not session.is_active:
+                self.send_message(
+                    user_id,
+                    "⏱ <b>Час сесії вийшов або її скасовано.</b>\n\n"
+                    "Поверніться на сайт TwoComms і натисніть «Підтвердити Telegram» знову — "
+                    "ми створимо нову сесію (вона діє 5 хвилин).",
+                )
+                return False
+
+            session.mark_bot_opened()
+
+            instruction = (
+                "👋 <b>Підтвердження Telegram для TwoComms</b>\n\n"
+                "Щоб ми могли звʼязатися з вами по замовленню, натисніть кнопку нижче — "
+                "Telegram автоматично передасть нам ваш номер телефону.\n\n"
+                "🔒 Ми збережемо ваш номер тільки для звʼязку по конкретному замовленню. "
+                "Вам не доведеться писати його вручну, і ми не зможемо помилитися.\n\n"
+                "Після підтвердження поверніться на сайт — форма заповниться автоматично."
+            )
+
+            reply_markup = {
+                "keyboard": [
+                    [
+                        {
+                            "text": "📱 Поділитися номером телефону",
+                            "request_contact": True,
+                        }
+                    ]
+                ],
+                "resize_keyboard": True,
+                "one_time_keyboard": True,
+                "selective": False,
+            }
+
+            self.send_message(user_id, instruction, reply_markup=reply_markup)
+            return True
+        except Exception as exc:
+            print(f"❌ handle_verification_start failed: {exc}")
+            import traceback
+            traceback.print_exc()
+            return False
+
+    def process_contact_message(self, *, user_id, username, contact):
+        """Получили объект contact (через KeyboardButton request_contact=True).
+
+        Если есть active TelegramVerificationSession, привязанная к этому user_id
+        (через bot_opened или pending), помечаем её verified и убираем клавиатуру.
+
+        Иначе сохраняем номер в UserProfile.phone (если уже есть привязка по
+        telegram_id) — это полезно для авторизованных пользователей.
+        """
+        try:
+            from accounts.models import TelegramVerificationSession
+            from django.utils import timezone as _tz
+
+            phone = (contact.get("phone_number") or "").strip()
+            first_name = (contact.get("first_name") or "").strip()
+            last_name = (contact.get("last_name") or "").strip()
+            shared_user_id = contact.get("user_id")
+
+            # Шукаємо сесію: спочатку «bot_opened» цього юзера, потім будь-яку
+            # активну, що могла бути ініційована через інший Telegram-акаунт
+            # (наприклад на iPad, а тапнули на mobile — рідко, але можливо).
+            now = _tz.now()
+            session = (
+                TelegramVerificationSession.objects
+                .filter(status=TelegramVerificationSession.STATUS_BOT_OPENED, expires_at__gt=now)
+                .order_by("-created_at")
+                .first()
+            )
+            # Серед активних beorder, знаходимо ту, яку не пізніше ніж 5 хв тому
+            # відкрила саме ця особа (за chat_id). Якщо нема bot_opened — спробуємо pending.
+            if not session:
+                session = (
+                    TelegramVerificationSession.objects
+                    .filter(status=TelegramVerificationSession.STATUS_PENDING, expires_at__gt=now)
+                    .order_by("-created_at")
+                    .first()
+                )
+
+            if session and session.is_active:
+                session.mark_verified(
+                    telegram_user_id=int(shared_user_id) if shared_user_id else int(user_id),
+                    phone=phone,
+                    username=username or "",
+                    first_name=first_name,
+                    last_name=last_name,
+                    chat_id=int(user_id),
+                )
+
+                # Якщо є привʼязаний лід — оновлюємо його контактні поля
+                lead = session.lead
+                if lead is not None:
+                    try:
+                        from storefront.models import CustomPrintLead
+
+                        update_fields = []
+                        # Зберігаємо verified-блок
+                        lead.telegram_verified_user_id = session.telegram_user_id
+                        lead.telegram_verified_username = session.telegram_username
+                        lead.telegram_verified_phone = session.phone
+                        lead.telegram_verified_first_name = session.telegram_first_name
+                        lead.telegram_verified_last_name = session.telegram_last_name
+                        lead.telegram_verified_at = session.completed_at
+                        update_fields.extend([
+                            "telegram_verified_user_id",
+                            "telegram_verified_username",
+                            "telegram_verified_phone",
+                            "telegram_verified_first_name",
+                            "telegram_verified_last_name",
+                            "telegram_verified_at",
+                        ])
+                        # Якщо контакт у формі був порожнім або «email-у-телеграмі» —
+                        # підмінюємо на верифікований username
+                        if session.telegram_username and (
+                            not lead.contact_value or "@" not in (lead.contact_value or "") or " " in (lead.contact_value or "")
+                        ):
+                            lead.contact_value = f"@{session.telegram_username.lstrip('@')}"
+                            update_fields.append("contact_value")
+                        lead.save(update_fields=list(set(update_fields)))
+                    except Exception as exc:
+                        print(f"❌ Failed to attach verification to lead: {exc}")
+
+                # Якщо є привʼязаний user — оновимо UserProfile.phone (best-effort)
+                if session.user is not None:
+                    try:
+                        profile, _ = UserProfile.objects.get_or_create(user=session.user)
+                        if not profile.phone and phone:
+                            profile.phone = phone
+                            profile.save(update_fields=["phone"])
+                        if not profile.telegram_id:
+                            profile.telegram_id = int(user_id)
+                            profile.save(update_fields=["telegram_id"])
+                    except Exception:
+                        pass
+
+                self.send_message(
+                    user_id,
+                    "✅ <b>Готово! Контакт підтверджено.</b>\n\n"
+                    "Тепер можна повернутися на сайт TwoComms — форма заповниться автоматично, "
+                    "а менеджер звʼяжеться з вами по цьому номеру.",
+                    reply_markup={"remove_keyboard": True},
+                )
+                return True
+
+            # Немає активної сесії — все одно дякуємо й приберемо клавіатуру.
+            self.send_message(
+                user_id,
+                "🤔 <b>Сесію верифікації не знайдено.</b>\n\n"
+                "Можливо, вона вже завершилась або була скасована. "
+                "Поверніться на сайт TwoComms і натисніть «Підтвердити Telegram» ще раз.",
+                reply_markup={"remove_keyboard": True},
+            )
+            return False
+        except Exception as exc:
+            print(f"❌ process_contact_message failed: {exc}")
             import traceback
             traceback.print_exc()
             return False

@@ -175,21 +175,33 @@ def _build_contact_links(lead) -> dict[str, str]:
 
     links: dict[str, str] = {}
 
-    if channel == "telegram" and cleaned:
+    # 1) Если клиент подтвердил Telegram через бота — используем его данные с приоритетом
+    verified_id = getattr(lead, "telegram_verified_user_id", None)
+    verified_username = (getattr(lead, "telegram_verified_username", "") or "").strip()
+    verified_phone = (getattr(lead, "telegram_verified_phone", "") or "").strip()
+    if verified_username:
+        links["telegram"] = f"https://t.me/{verified_username.lstrip('@')}"
+    elif verified_id:
+        links["telegram"] = f"tg://user?id={verified_id}"
+    if verified_phone:
+        links["phone"] = f"tel:{_normalize_phone_digits(verified_phone)}"
+
+    # 2) Канальные ссылки из contact_value (если ещё не выставлены)
+    if "telegram" not in links and channel == "telegram" and cleaned:
         if cleaned.startswith("http"):
             links["telegram"] = cleaned
         else:
             links["telegram"] = f"https://t.me/{cleaned.lstrip('@')}"
-    elif channel == "whatsapp":
+    if channel == "whatsapp":
         digits = _normalize_phone_digits(raw_value).lstrip("+")
         if digits:
             links["whatsapp"] = f"https://wa.me/{digits}"
-    elif channel == "phone":
+    if "phone" not in links and channel == "phone":
         digits = _normalize_phone_digits(raw_value)
         if digits:
             links["phone"] = f"tel:{digits}"
 
-    # Если нашли телефон в любом формате (например клиент написал "+380..." в телеграм-канале)
+    # 3) Если в contact_value лежит номер при любом канале — даём кнопку звонка
     digits = _normalize_phone_digits(raw_value)
     if digits and "phone" not in links and len(digits) >= 9:
         links.setdefault("phone", f"tel:{digits}")
@@ -269,8 +281,7 @@ def _moderation_reply_markup(lead):
         return None
     approve_url = _build_moderation_action_url(lead, "approve")
     reject_url = _build_moderation_action_url(lead, "reject")
-    contact_url = _primary_contact_link(lead)
-    emoji = _channel_emoji(lead)
+    links = _build_contact_links(lead)
 
     rows = [
         [
@@ -278,8 +289,37 @@ def _moderation_reply_markup(lead):
             {"text": "❌ Відхилити", "url": reject_url},
         ]
     ]
-    if contact_url and contact_url != TELEGRAM_MANAGER_URL:
-        rows.append([{"text": f"{emoji} Звʼязатися з клієнтом", "url": contact_url}])
+    contact_row = []
+    if links.get("phone"):
+        contact_row.append({"text": "📞 Зателефонувати", "url": links["phone"]})
+    if links.get("telegram"):
+        contact_row.append({"text": "✈️ Telegram", "url": links["telegram"]})
+    if links.get("whatsapp"):
+        contact_row.append({"text": "💬 WhatsApp", "url": links["whatsapp"]})
+    if contact_row:
+        # По 2 кнопки в строку максимум
+        for i in range(0, len(contact_row), 2):
+            rows.append(contact_row[i : i + 2])
+    rows.append([{"text": "🗂 Відкрити в панелі", "url": _build_admin_panel_link(lead)}])
+    return {"inline_keyboard": rows}
+
+
+def _info_reply_markup_full(lead):
+    """Inline keyboard for «новая заявка» (без approve/reject) с быстрыми контактами."""
+    if lead is None:
+        return None
+    links = _build_contact_links(lead)
+    rows = []
+    contact_row = []
+    if links.get("phone"):
+        contact_row.append({"text": "📞 Зателефонувати", "url": links["phone"]})
+    if links.get("telegram"):
+        contact_row.append({"text": "✈️ Telegram", "url": links["telegram"]})
+    if links.get("whatsapp"):
+        contact_row.append({"text": "💬 WhatsApp", "url": links["whatsapp"]})
+    if contact_row:
+        for i in range(0, len(contact_row), 2):
+            rows.append(contact_row[i : i + 2])
     rows.append([{"text": "🗂 Відкрити в панелі", "url": _build_admin_panel_link(lead)}])
     return {"inline_keyboard": rows}
 
@@ -301,7 +341,7 @@ def _section_header(emoji: str, title: str) -> str:
 def _format_lead_attachments_summary(lead) -> str:
     attachments = list(getattr(lead.attachments, "all", lambda: [])()) if getattr(lead, "pk", None) else []
     if not attachments:
-        return "немає"
+        return "❗ клієнт не завантажив жодного файла"
 
     images = sum(1 for a in attachments if _is_image_attachment(a))
     docs = len(attachments) - images
@@ -311,6 +351,17 @@ def _format_lead_attachments_summary(lead) -> str:
     if docs:
         parts.append(f"{docs} документ(и)")
     return ", ".join(parts) or f"{len(attachments)} файл(ів)"
+
+
+def _attachments_by_zone(lead) -> dict[str, list]:
+    """Группирует attachment по placement_zone (или placement_key)."""
+    if not getattr(lead, "pk", None):
+        return {}
+    grouped: dict[str, list] = {}
+    for attachment in getattr(lead.attachments, "all", lambda: [])():
+        zone = getattr(attachment, "placement_zone", "") or ""
+        grouped.setdefault(zone, []).append(attachment)
+    return grouped
 
 
 def _format_pricing_block(lead) -> list[str]:
@@ -359,15 +410,56 @@ def _format_product_block(lead) -> list[str]:
 
 
 def _format_placement_block(lead) -> list[str]:
-    placement_lines = [
-        f"  ◦ {escape(_format_placement_descriptor(spec, include_text=True))}"
-        for spec in _placement_specs_for_lead(lead)
-    ]
-    rows = ["• <b>Зони друку:</b>"] if placement_lines else ["• <b>Зони друку:</b> —"]
-    rows.extend(placement_lines)
+    """Зоны нанесения с явным отображением «есть / нет файла» для каждой зоны.
+
+    Логика:
+    - Если в спецификации зоны указано «требуется файл» (`requires_artwork_file`)
+      и для зоны нет attachment — добавляем красную метку «❗ файл не завантажено».
+    - Если файл есть — «✅ файл прикріплено (×N)».
+    - Если зона текстовая (full_text) — отдельная пометка «текст-режим, файл не потрібен».
+    """
+    specs = _placement_specs_for_lead(lead)
+    files_by_zone = _attachments_by_zone(lead)
+
+    rows = ["• <b>Зони друку:</b>"] if specs else ["• <b>Зони друку:</b> —"]
+
+    for spec in specs:
+        descriptor = _format_placement_descriptor(spec, include_text=True)
+        placement_key = spec.get("placement_key") or spec.get("zone") or ""
+        files_here = files_by_zone.get(placement_key, []) or files_by_zone.get(spec.get("zone") or "", [])
+        is_text_only = spec.get("mode") == "full_text"
+        requires_file = spec.get("requires_artwork_file")
+        if requires_file is None:
+            requires_file = not is_text_only
+
+        if is_text_only:
+            file_marker = "📝 текст-режим"
+        elif files_here:
+            file_marker = f"✅ файл прикріплено (×{len(files_here)})"
+        elif requires_file:
+            file_marker = "❗ файл не завантажено"
+        else:
+            file_marker = "ℹ️ файл не потрібен"
+
+        rows.append(f"  ◦ {escape(descriptor)} — <i>{file_marker}</i>")
+
     if getattr(lead, "placement_note", ""):
         rows.append(_bold("Примітка по зонам", lead.placement_note))
-    rows.append(_bold("Файли", _format_lead_attachments_summary(lead)))
+
+    rows.append(_bold("Файли всього", _format_lead_attachments_summary(lead)))
+
+    # Аларм: «маю готовий файл», але нічого не завантажено
+    service_kind = (getattr(lead, "service_kind", "") or "").strip()
+    total_files = len(list(getattr(lead.attachments, "all", lambda: [])())) if getattr(lead, "pk", None) else 0
+    if service_kind == "ready" and total_files == 0:
+        rows.append(
+            "  ⚠️ <b>Клієнт обрав «маю готовий файл», але не прикріпив його — потрібно уточнити.</b>"
+        )
+    elif service_kind == "adjust" and total_files == 0:
+        rows.append(
+            "  ⚠️ <b>Клієнт обрав «потрібно допрацювати файл», але файл відсутній — попросіть надіслати.</b>"
+        )
+
     return rows
 
 
@@ -379,8 +471,31 @@ def _format_contact_block(lead) -> list[str]:
         _bold("Контакт", raw_contact or "—"),
     ]
     digits = _normalize_phone_digits(raw_contact)
-    if digits and len(digits) >= 9 and (getattr(lead, "contact_channel", "") or "").lower() != "phone":
+    channel = (getattr(lead, "contact_channel", "") or "").strip().lower()
+    if digits and len(digits) >= 9 and channel != "phone":
         rows.append(_bold("Телефон у контакті", digits))
+
+    # Verified Telegram (через бота поделился контактом)
+    if getattr(lead, "telegram_verified_at", None):
+        verified_username = (getattr(lead, "telegram_verified_username", "") or "").strip()
+        verified_phone = (getattr(lead, "telegram_verified_phone", "") or "").strip()
+        verified_id = getattr(lead, "telegram_verified_user_id", None)
+        verified_pieces = []
+        if verified_username:
+            verified_pieces.append(f"@{verified_username.lstrip('@')}")
+        if verified_phone:
+            verified_pieces.append(verified_phone)
+        if verified_id:
+            verified_pieces.append(f"id:{verified_id}")
+        verified_text = " · ".join(verified_pieces) or "так"
+        rows.append(f"• ✅ <b>Telegram підтверджено через бота:</b> {escape(verified_text)}")
+    elif channel == "telegram":
+        # Канал Telegram, но клиент не верифицировался через бота — это потенциальный случай,
+        # когда вместо @username пишут email или непонятный текст. Подсветим менеджеру.
+        rows.append(
+            "• ⚠️ <i>Telegram не підтверджено через бота — перевірте контакт перед дзвінком.</i>"
+        )
+
     if getattr(lead, "brand_name", ""):
         rows.append(_bold("Бренд / команда", lead.brand_name))
     return rows
@@ -596,6 +711,11 @@ def _claim_notification_slot(lead, *, scope: str) -> bool:
             last_notification_at=now,
             notification_count=models_F_increment(),
         )
+        # Если записи нет в БД (тесты с моками или удалённый лид) — не блокируем.
+        if updated == 0:
+            exists = CustomPrintLead.objects.filter(pk=lead.pk).exists()
+            if not exists:
+                return True
     except Exception:
         # Не блокируем уведомление, если БД временно недоступна (тесты,
         # отсутствие миграции и т.п.) — лучше отправить, чем потерять.
@@ -719,7 +839,7 @@ def notify_new_custom_print_lead(lead) -> bool:
         success = notifier.send_admin_message(
             message,
             parse_mode="HTML",
-            reply_markup=_info_reply_markup(lead),
+            reply_markup=_info_reply_markup_full(lead),
         )
         success = _send_attachments(notifier, lead) or success
         return success

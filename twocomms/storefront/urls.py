@@ -410,6 +410,22 @@ urlpatterns = [
         _module_view('storefront.views.static_pages', 'custom_print_moderation_action'),
         name='custom_print_moderation_action',
     ),
+    # Telegram contact verification flow (через бота заказов)
+    path(
+        'custom-print/telegram-verify/start/',
+        _module_view('storefront.views.telegram_verify', 'telegram_verify_start'),
+        name='custom_print_telegram_verify_start',
+    ),
+    path(
+        'custom-print/telegram-verify/status/',
+        _module_view('storefront.views.telegram_verify', 'telegram_verify_status'),
+        name='custom_print_telegram_verify_status',
+    ),
+    path(
+        'custom-print/telegram-verify/cancel/',
+        _module_view('storefront.views.telegram_verify', 'telegram_verify_cancel'),
+        name='custom_print_telegram_verify_cancel',
+    ),
     path('delivery/', _module_view('storefront.views.static_pages', 'delivery'), name='delivery'),
     path('cooperation/', views.cooperation, name='cooperation'),
     path('pro-brand/', views.about, name='about'),

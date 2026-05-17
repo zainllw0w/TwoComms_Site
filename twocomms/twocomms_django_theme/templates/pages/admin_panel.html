@@ -2623,6 +2623,30 @@
                   <div class="custom-print-hero__contact-meta">
                     <div><strong>Канал:</strong> {{ custom_print_selected_lead.get_contact_channel_display|default:"—" }}</div>
                     <div><strong>Контакт:</strong> {{ custom_print_selected_lead.contact_value|default:"—" }}</div>
+                    {% if custom_print_selected_lead.telegram_verified_at %}
+                      <div style="margin-top:0.4rem;padding:0.5rem 0.6rem;border-radius:10px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.4);">
+                        <div style="color:#bbf7d0;font-weight:700;">✅ Telegram підтверджено через бота</div>
+                        {% if custom_print_selected_lead.telegram_verified_username %}
+                          <div style="font-size:0.8rem;margin-top:2px;">
+                            <strong>@username:</strong> @{{ custom_print_selected_lead.telegram_verified_username }}
+                          </div>
+                        {% endif %}
+                        {% if custom_print_selected_lead.telegram_verified_phone %}
+                          <div style="font-size:0.8rem;margin-top:2px;">
+                            <strong>Телефон:</strong> {{ custom_print_selected_lead.telegram_verified_phone }}
+                          </div>
+                        {% endif %}
+                        {% if custom_print_selected_lead.telegram_verified_user_id %}
+                          <div style="font-size:0.72rem;margin-top:2px;color:rgba(255,255,255,0.6);">
+                            id: {{ custom_print_selected_lead.telegram_verified_user_id }}
+                          </div>
+                        {% endif %}
+                      </div>
+                    {% elif custom_print_selected_lead.contact_channel == 'telegram' %}
+                      <div style="margin-top:0.4rem;padding:0.5rem 0.6rem;border-radius:10px;background:rgba(250,204,21,0.08);border:1px solid rgba(250,204,21,0.32);font-size:0.78rem;color:#fde68a;">
+                        ⚠️ Telegram не підтверджено через бота — перевірте контакт перед дзвінком.
+                      </div>
+                    {% endif %}
                     {% if custom_print_selected_lead.brand_name %}
                       <div><strong>Бренд / команда:</strong> {{ custom_print_selected_lead.brand_name }}</div>
                     {% endif %}

@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils import timezone
 
 # Persistent cart for cross-device synchronization.
 # Imported here so Django app loader registers the model.
@@ -186,3 +187,206 @@ def create_user_related_models(sender, instance, created, **kwargs):
     if created:
         UserProfile.objects.get_or_create(user=instance)
         UserPoints.objects.get_or_create(user=instance)
+
+
+# ───────────────────────────────────────────────────────────────────────────
+# Telegram Contact Verification (для кастомного принта і не тільки)
+# ───────────────────────────────────────────────────────────────────────────
+
+
+class TelegramVerificationSession(models.Model):
+    """Одноразова сесія верифікації Telegram-контакту через бота.
+
+    Сценарій: користувач на сайті обирає канал «Telegram», натискає
+    «Підтвердити Telegram». Сайт створює запис із `token` і повертає
+    deep-link `t.me/<bot>?start=verify_<token>`. Бот при /start verify_*
+    показує ReplyKeyboard з кнопкою «📱 Поділитись номером», користувач
+    тисне — Telegram надсилає Contact, бот зберігає у цій моделі phone +
+    username + user_id. Сайт поллить статус і автоматично заповнює форму.
+    """
+
+    STATUS_PENDING = "pending"
+    STATUS_BOT_OPENED = "bot_opened"
+    STATUS_VERIFIED = "verified"
+    STATUS_EXPIRED = "expired"
+    STATUS_CANCELLED = "cancelled"
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Очікує підтвердження"),
+        (STATUS_BOT_OPENED, "Користувач відкрив бота"),
+        (STATUS_VERIFIED, "Підтверджено"),
+        (STATUS_EXPIRED, "Прострочено"),
+        (STATUS_CANCELLED, "Скасовано"),
+    ]
+
+    PURPOSE_CUSTOM_PRINT = "custom_print"
+    PURPOSE_PROFILE_LINK = "profile_link"
+    PURPOSE_CHOICES = [
+        (PURPOSE_CUSTOM_PRINT, "Контакт у формі кастомного принта"),
+        (PURPOSE_PROFILE_LINK, "Привʼязка профілю"),
+    ]
+
+    token = models.CharField(
+        max_length=64,
+        unique=True,
+        db_index=True,
+        verbose_name="Токен сесії",
+    )
+    purpose = models.CharField(
+        max_length=32,
+        choices=PURPOSE_CHOICES,
+        default=PURPOSE_CUSTOM_PRINT,
+        verbose_name="Призначення",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+        verbose_name="Статус",
+    )
+    session_key = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        verbose_name="Ключ сесії браузера",
+    )
+    user = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="telegram_verification_sessions",
+        verbose_name="Користувач (якщо авторизований)",
+    )
+    lead = models.ForeignKey(
+        "storefront.CustomPrintLead",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="telegram_verifications",
+        verbose_name="Заявка на кастомний принт",
+    )
+    initial_name = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+        verbose_name="Імʼя клієнта на момент створення",
+    )
+
+    # Дані, отримані від Telegram після поділу контактом
+    telegram_user_id = models.BigIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Telegram user_id",
+    )
+    telegram_username = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name="Telegram username",
+    )
+    telegram_first_name = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+        verbose_name="Імʼя у Telegram",
+    )
+    telegram_last_name = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+        verbose_name="Прізвище у Telegram",
+    )
+    phone = models.CharField(
+        max_length=32,
+        blank=True,
+        default="",
+        verbose_name="Телефон, отриманий з Telegram",
+    )
+    chat_id = models.BigIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="chat_id у боті",
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    expires_at = models.DateTimeField(verbose_name="Діє до")
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name="Підтверджено о")
+    last_polled_at = models.DateTimeField(null=True, blank=True, verbose_name="Останній полл")
+
+    class Meta:
+        verbose_name = "Сесія верифікації Telegram"
+        verbose_name_plural = "Сесії верифікації Telegram"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["status", "expires_at"], name="idx_tgverify_status"),
+            models.Index(fields=["session_key"], name="idx_tgverify_session"),
+        ]
+
+    def __str__(self):
+        return f"TGVerify {self.token[:8]}… [{self.status}]"
+
+    @property
+    def is_expired(self) -> bool:
+        return timezone.now() >= self.expires_at
+
+    @property
+    def is_active(self) -> bool:
+        return self.status in {self.STATUS_PENDING, self.STATUS_BOT_OPENED} and not self.is_expired
+
+    @property
+    def is_verified(self) -> bool:
+        return self.status == self.STATUS_VERIFIED
+
+    def mark_bot_opened(self):
+        if self.status == self.STATUS_PENDING:
+            self.status = self.STATUS_BOT_OPENED
+            self.save(update_fields=["status"])
+
+    def mark_verified(
+        self,
+        *,
+        telegram_user_id: int,
+        phone: str,
+        username: str = "",
+        first_name: str = "",
+        last_name: str = "",
+        chat_id: int | None = None,
+    ):
+        self.telegram_user_id = telegram_user_id
+        self.telegram_username = (username or "").lstrip("@")
+        self.telegram_first_name = first_name or ""
+        self.telegram_last_name = last_name or ""
+        self.phone = phone
+        if chat_id is not None:
+            self.chat_id = chat_id
+        self.status = self.STATUS_VERIFIED
+        self.completed_at = timezone.now()
+        self.save(
+            update_fields=[
+                "telegram_user_id",
+                "telegram_username",
+                "telegram_first_name",
+                "telegram_last_name",
+                "phone",
+                "chat_id",
+                "status",
+                "completed_at",
+            ]
+        )
+
+    def mark_polled(self):
+        self.last_polled_at = timezone.now()
+        self.save(update_fields=["last_polled_at"])
+
+    def to_public_dict(self) -> dict:
+        return {
+            "token": self.token,
+            "status": self.status,
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "verified": self.is_verified,
+            "phone": self.phone if self.is_verified else "",
+            "telegram_username": self.telegram_username if self.is_verified else "",
+            "telegram_first_name": self.telegram_first_name if self.is_verified else "",
+            "telegram_last_name": self.telegram_last_name if self.is_verified else "",
+            "telegram_user_id": self.telegram_user_id if self.is_verified else None,
+        }

@@ -110,6 +110,13 @@ class CustomPrintLeadForm(forms.Form):
     contact_channel = forms.ChoiceField(choices=CustomPrintContactChannel.choices)
     contact_value = forms.CharField(max_length=255)
     brief = forms.CharField(required=False, widget=forms.Textarea)
+    # Поля з верифікації Telegram (заповнюються при підтвердженні через бота)
+    telegram_verification_token = forms.CharField(required=False, max_length=64)
+    telegram_verified_user_id = forms.CharField(required=False, max_length=32)
+    telegram_verified_username = forms.CharField(required=False, max_length=100)
+    telegram_verified_phone = forms.CharField(required=False, max_length=32)
+    telegram_verified_first_name = forms.CharField(required=False, max_length=120)
+    telegram_verified_last_name = forms.CharField(required=False, max_length=120)
 
     def __init__(self, *args, require_artwork_files=None, **kwargs):
         self.require_artwork_files = require_artwork_files
@@ -123,6 +130,34 @@ class CustomPrintLeadForm(forms.Form):
         if requires_artwork_file is None:
             return spec.get("mode") != "full_text"
         return bool(requires_artwork_file)
+
+    def _collect_verification_data(self) -> dict:
+        """Збирає дані з полів верифікації Telegram, якщо вони присутні."""
+        data = self.data
+        username = (data.get("telegram_verified_username") or "").strip().lstrip("@")
+        phone = (data.get("telegram_verified_phone") or "").strip()
+        user_id_raw = (data.get("telegram_verified_user_id") or "").strip()
+        first_name = (data.get("telegram_verified_first_name") or "").strip()
+        last_name = (data.get("telegram_verified_last_name") or "").strip()
+
+        if not (username or phone or user_id_raw):
+            return {}
+
+        try:
+            user_id_int = int(user_id_raw) if user_id_raw else None
+        except (TypeError, ValueError):
+            user_id_int = None
+
+        from django.utils import timezone as _tz
+
+        return {
+            "telegram_verified_user_id": user_id_int,
+            "telegram_verified_username": username,
+            "telegram_verified_phone": phone,
+            "telegram_verified_first_name": first_name,
+            "telegram_verified_last_name": last_name,
+            "telegram_verified_at": _tz.now(),
+        }
 
     @staticmethod
     def _parse_json_field(raw_value, default, field_name):
@@ -145,23 +180,45 @@ class CustomPrintLeadForm(forms.Form):
         channel = (self.cleaned_data.get("contact_channel") or "").strip()
 
         if channel == CustomPrintContactChannel.PHONE:
-            if len(normalize_phone(value)) < 10:
-                raise forms.ValidationError("Введіть коректний номер телефону.")
+            digits = normalize_phone(value)
+            # Український формат: 380XXXXXXXXX (12 цифр) або хоча б 10 цифр
+            if not (len(digits) >= 10 or (len(digits) == 12 and digits.startswith("380"))):
+                raise forms.ValidationError(
+                    "Введіть коректний український номер телефону (наприклад +380XXXXXXXXX)."
+                )
             return value
 
         if channel == CustomPrintContactChannel.WHATSAPP:
-            if len(normalize_phone(value)) < 10:
-                raise forms.ValidationError("Введіть коректний номер для WhatsApp.")
+            digits = normalize_phone(value)
+            if not (len(digits) >= 10 or (len(digits) == 12 and digits.startswith("380"))):
+                raise forms.ValidationError(
+                    "Введіть коректний номер для WhatsApp (наприклад +380XXXXXXXXX)."
+                )
             return value
 
         if channel == CustomPrintContactChannel.TELEGRAM:
+            # Якщо клієнт пройшов верифікацію через бота — приймаємо будь-який
+            # формат, бо ми вже маємо підтверджений username/phone.
+            verified_username = (self.data.get("telegram_verified_username") or "").strip()
+            verified_phone = (self.data.get("telegram_verified_phone") or "").strip()
+            if verified_username or verified_phone:
+                return value or (f"@{verified_username.lstrip('@')}" if verified_username else value)
+
             if value.startswith("https://t.me/"):
                 return value
             if value.startswith("@") and len(value) > 1:
                 return value
             if re.fullmatch(r"[A-Za-z0-9_]{3,}", value):
                 return value
-            raise forms.ValidationError("Вкажіть Telegram у форматі @username або посилання.")
+            # Якщо схоже на email — окрема, зрозуміла помилка з порадою
+            if re.search(r"@.+\.[a-zA-Z]{2,}", value):
+                raise forms.ValidationError(
+                    "Це схоже на email, а не на Telegram-логін. "
+                    "Натисніть «Підтвердити Telegram через бота» — ми отримаємо ваш номер автоматично."
+                )
+            raise forms.ValidationError(
+                "Вкажіть Telegram у форматі @username, або натисніть «Підтвердити Telegram через бота»."
+            )
 
         return value
 
@@ -348,7 +405,27 @@ class CustomPrintLeadForm(forms.Form):
         elif source == "custom_print_cart":
             create_kwargs["moderation_status"] = CustomPrintModerationStatus.DRAFT
 
+        # Verification data (опціонально, якщо клієнт пройшов підтвердження через бота)
+        verification_data = self._collect_verification_data()
+        if verification_data:
+            create_kwargs.update(verification_data)
+
         lead = CustomPrintLead.objects.create(**create_kwargs)
+
+        # Зв'язок з TelegramVerificationSession (якщо є валідний токен)
+        verification_token = (self.data.get("telegram_verification_token") or "").strip()
+        if verification_token:
+            try:
+                from accounts.models import TelegramVerificationSession
+
+                session = TelegramVerificationSession.objects.filter(
+                    token=verification_token
+                ).first()
+                if session and not session.lead_id:
+                    session.lead = lead
+                    session.save(update_fields=["lead"])
+            except Exception:
+                pass
         placement_specs = self.cleaned_data.get("placement_specs_json") or []
         file_spec_map = {}
         for spec in placement_specs:

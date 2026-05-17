@@ -5100,10 +5100,24 @@ main {
 .cp-hero-logo-on-cloth--hoodie {
   top: 46.3%;
   left: 30.4%;
-  width: 4.7%;
+  width: 13%;
   transform: translate(-50%, -50%) rotate(-1deg);
-  opacity: 0.84;
+  opacity: 0.92;
   mix-blend-mode: screen;
+  animation: cp-hero-tee-logo-pulse 3.4s 0.4s ease-in-out infinite;
+  will-change: transform, opacity, filter;
+}
+
+.cp-hero-logo-on-cloth--hoodie img {
+  width: 26%;
+  margin-bottom: 0.1rem;
+}
+
+.cp-hero-logo-on-cloth--hoodie strong {
+  color: #ffffff;
+  font-size: 0.78rem;
+  line-height: 0.92;
+  letter-spacing: 0.08em;
 }
 
 .cp-hero-logo-on-cloth--hoodie span {
@@ -5111,6 +5125,15 @@ main {
   font-size: 0.46rem;
   font-weight: 800;
   letter-spacing: 0.08em;
+}
+
+.cp-hero-logo-on-cloth--hoodie small {
+  margin-top: 0.12rem;
+  color: #f0bf6a;
+  font-size: 0.32rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
 }
 
 .cp-hero-logo-on-cloth--tee {
@@ -5148,10 +5171,33 @@ main {
 .cp-hero-logo-on-cloth--longsleeve {
   top: 42.5%;
   right: 27.7%;
-  width: 3.85%;
+  width: 11%;
   transform: translate(50%, -50%) rotate(2deg);
-  opacity: 0.78;
+  opacity: 0.9;
   mix-blend-mode: screen;
+  animation: cp-hero-tee-logo-pulse 3.6s 0.8s ease-in-out infinite;
+  will-change: transform, opacity, filter;
+}
+
+.cp-hero-logo-on-cloth--longsleeve img {
+  width: 26%;
+  margin-bottom: 0.1rem;
+}
+
+.cp-hero-logo-on-cloth--longsleeve strong {
+  color: #ffffff;
+  font-size: 0.74rem;
+  line-height: 0.92;
+  letter-spacing: 0.08em;
+}
+
+.cp-hero-logo-on-cloth--longsleeve small {
+  margin-top: 0.12rem;
+  color: #f0bf6a;
+  font-size: 0.3rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
 }
 
 .cp-hero-print-zone {
@@ -5998,5 +6044,385 @@ main {
 
   .cp-hero-signature::after {
     display: none;
+  }
+}
+
+
+/* ════════════════════════════════════════════════════════════════════
+   Telegram Verification — кнопка під полем контакта і модалка
+   ════════════════════════════════════════════════════════════════════ */
+
+.cp-tg-verify-shell {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 14px;
+  border: 1px dashed rgba(56, 165, 231, 0.45);
+  background: linear-gradient(135deg, rgba(56, 165, 231, 0.06), rgba(56, 165, 231, 0.02));
+}
+
+.cp-tg-verify-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 46px;
+  padding: 0.7rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(56, 165, 231, 0.65);
+  background: linear-gradient(135deg, #38a5e7, #1d6fa6);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  box-shadow: 0 8px 22px rgba(56, 165, 231, 0.28);
+}
+
+.cp-tg-verify-cta:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(56, 165, 231, 0.36);
+}
+
+.cp-tg-verify-cta:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.cp-tg-verify-cta svg {
+  width: 18px;
+  height: 18px;
+}
+
+.cp-tg-verify-hint {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+  line-height: 1.45;
+}
+
+.cp-tg-verify-state {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid rgba(34, 197, 94, 0.55);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.16), rgba(34, 197, 94, 0.04));
+}
+
+.cp-tg-verify-state-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.cp-tg-verify-state strong {
+  display: block;
+  color: #bbf7d0;
+  font-size: 0.95rem;
+}
+
+.cp-tg-verify-state small {
+  display: block;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.cp-tg-verify-state-reset {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  font-size: 1.2rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+/* === Modal === */
+.cp-tg-modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(2, 4, 10, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 9000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.cp-tg-modal-overlay.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.cp-tg-modal-card {
+  position: relative;
+  width: min(440px, 100%);
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  padding: clamp(1.4rem, 3vw, 2rem);
+  border-radius: 22px;
+  border: 1px solid rgba(56, 165, 231, 0.32);
+  background:
+    radial-gradient(ellipse at top, rgba(56, 165, 231, 0.18), transparent 55%),
+    linear-gradient(180deg, rgba(11, 13, 22, 0.96), rgba(8, 10, 18, 0.98));
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.6);
+  color: #f5f6fb;
+}
+
+.cp-tg-modal-close {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 1.4rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.cp-tg-modal-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.cp-tg-modal-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0.25rem auto 0.85rem;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  border: 1px solid rgba(56, 165, 231, 0.45);
+  background: rgba(56, 165, 231, 0.16);
+  color: #bfdbfe;
+}
+
+.cp-tg-modal-icon svg {
+  width: 32px;
+  height: 32px;
+}
+
+.cp-tg-modal-title {
+  margin: 0 0 0.4rem;
+  font-size: clamp(1.2rem, 2.2vw, 1.45rem);
+  text-align: center;
+  letter-spacing: -0.01em;
+}
+
+.cp-tg-modal-subtitle {
+  margin: 0 0 1.1rem;
+  text-align: center;
+  font-size: 0.92rem;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.5;
+}
+
+.cp-tg-modal-state {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.cp-tg-modal-steps {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cp-tg-modal-steps li {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 0.65rem;
+  align-items: start;
+  padding: 0.65rem 0.8rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.cp-tg-modal-steps li span {
+  width: 26px;
+  height: 26px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(56, 165, 231, 0.22);
+  color: #bfdbfe;
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+.cp-tg-modal-actions {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.cp-tg-modal-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  padding: 0.8rem 1.1rem;
+  border-radius: 14px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.cp-tg-modal-btn--primary {
+  border: 1px solid rgba(56, 165, 231, 0.55);
+  background: linear-gradient(135deg, #38a5e7, #1d6fa6);
+  color: #fff;
+  box-shadow: 0 10px 26px rgba(56, 165, 231, 0.32);
+}
+
+.cp-tg-modal-btn--primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px rgba(56, 165, 231, 0.42);
+}
+
+.cp-tg-modal-btn--secondary {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+.cp-tg-modal-btn--secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.cp-tg-modal-btn--ghost {
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.cp-tg-modal-btn--ghost:hover {
+  color: #fff;
+}
+
+.cp-tg-modal-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.cp-tg-modal-note {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.62);
+  text-align: center;
+  line-height: 1.5;
+}
+
+.cp-tg-modal-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: #bfdbfe;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+
+.cp-tg-modal-spinner {
+  display: inline-flex;
+  gap: 0.4rem;
+  justify-content: center;
+  margin: 0.4rem auto;
+}
+
+.cp-tg-modal-spinner span {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(56, 165, 231, 0.85);
+  animation: cp-tg-pulse 1.2s infinite ease-in-out;
+}
+
+.cp-tg-modal-spinner span:nth-child(2) {
+  animation-delay: 0.18s;
+}
+
+.cp-tg-modal-spinner span:nth-child(3) {
+  animation-delay: 0.36s;
+}
+
+@keyframes cp-tg-pulse {
+  0%, 80%, 100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.cp-tg-modal-headline {
+  margin: 0 0 0.2rem;
+  text-align: center;
+  font-size: 1.1rem;
+}
+
+.cp-tg-modal-subline {
+  margin: 0 0 0.5rem;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.cp-tg-modal-timer {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: #bfdbfe;
+  letter-spacing: 0.04em;
+}
+
+.cp-tg-modal-success-icon,
+.cp-tg-modal-error-icon {
+  text-align: center;
+  font-size: 3rem;
+  line-height: 1;
+}
+
+@media (max-width: 480px) {
+  .cp-tg-modal-overlay {
+    padding: 0.6rem;
+  }
+  .cp-tg-modal-card {
+    border-radius: 18px;
+    padding: 1.25rem 1.1rem;
   }
 }

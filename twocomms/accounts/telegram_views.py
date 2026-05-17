@@ -13,6 +13,20 @@ from .telegram_bot import telegram_bot
 def telegram_webhook(request):
     """Обрабатывает webhook от Telegram"""
     try:
+        # Опциональная проверка X-Telegram-Bot-Api-Secret-Token, если в env задан
+        # TELEGRAM_BOT_WEBHOOK_SECRET. Если не задан — пропускаем.
+        import os
+        import hmac
+        expected_secret = (os.environ.get("TELEGRAM_BOT_WEBHOOK_SECRET") or "").strip()
+        if expected_secret:
+            received = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "") or ""
+            if not hmac.compare_digest(received, expected_secret):
+                print(f"❌ Telegram webhook secret mismatch: got '{received[:8]}...'")
+                # Возвращаем 200 чтобы Telegram не повторял; Telegram сам не имеет
+                # стандартного механизма «отмены», но в реальном boom-сценарии
+                # лучше тихо отклонить.
+                return JsonResponse({'ok': True, 'rejected': True})
+
         # Получаем данные от Telegram
         update_data = json.loads(request.body.decode('utf-8'))
 

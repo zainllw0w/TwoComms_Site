@@ -248,6 +248,11 @@
               <strong>A4</strong>
             </span>
           </span>
+          <span class="cp-hero-logo-on-cloth cp-hero-logo-on-cloth--hoodie" aria-hidden="true">
+            <img src="{% static 'img/logo.svg' %}" alt="">
+            <strong>TWOCOMMS</strong>
+            <small>FOR THE ONES WHO CREATE</small>
+          </span>
           <span class="cp-hero-logo-on-cloth cp-hero-logo-on-cloth--tee" aria-hidden="true">
             <img src="{% static 'img/logo.svg' %}" alt="">
             <strong>TWOCOMMS</strong>
@@ -266,6 +271,11 @@
               <span>{% trans 'ваш принт' %}</span>
               <strong>A4</strong>
             </span>
+          </span>
+          <span class="cp-hero-logo-on-cloth cp-hero-logo-on-cloth--longsleeve" aria-hidden="true">
+            <img src="{% static 'img/logo.svg' %}" alt="">
+            <strong>TWOCOMMS</strong>
+            <small>FOR THE ONES WHO CREATE</small>
           </span>
         </figure>
 
@@ -806,6 +816,29 @@
                 <input id="cp-contact-value" name="contact_value" type="text" data-contact-value-input placeholder="{% trans '@username або +380...' %}">
               </label>
 
+              <div class="cp-tg-verify-shell" data-tg-verify-shell hidden>
+                <button type="button"
+                        class="cp-tg-verify-cta"
+                        data-tg-verify-trigger>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                  </svg>
+                  <span>{% trans 'Підтвердити Telegram через бота' %}</span>
+                </button>
+                <div class="cp-tg-verify-hint">
+                  {% trans 'Бот сам отримає номер телефону — не потрібно нічого вводити вручну.' %}
+                </div>
+                <div class="cp-tg-verify-state" data-tg-verify-state hidden>
+                  <div class="cp-tg-verify-state-icon" aria-hidden="true">✅</div>
+                  <div>
+                    <strong data-tg-verify-state-title>{% trans 'Telegram підтверджено' %}</strong>
+                    <small data-tg-verify-state-meta></small>
+                  </div>
+                  <button type="button" class="cp-tg-verify-state-reset" data-tg-verify-reset aria-label="{% trans 'Підтвердити інший номер' %}">×</button>
+                </div>
+              </div>
+
               <div class="cp-status-box" data-status-box aria-live="polite">
                 {% trans 'Контакт + кнопка нижче. Чорнетка відразу зберігається локально.' %}
               </div>
@@ -962,10 +995,106 @@
 </section>
 
 {{ custom_print_config|json_script:"customPrintConfiguratorConfig" }}
+
+{# === Telegram Verification Modal === #}
+<div class="cp-tg-modal-overlay" data-tg-verify-modal hidden role="dialog" aria-modal="true" aria-labelledby="cp-tg-modal-title">
+  <div class="cp-tg-modal-card">
+    <button type="button" class="cp-tg-modal-close" data-tg-verify-close aria-label="{% trans 'Закрити' %}">&times;</button>
+
+    <div class="cp-tg-modal-icon" aria-hidden="true">
+      <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="60" y1="4" x2="28" y2="36"/>
+        <polygon points="60 4 38 60 28 36 4 26 60 4"/>
+      </svg>
+    </div>
+
+    <h2 class="cp-tg-modal-title" id="cp-tg-modal-title">{% trans 'Підтвердження Telegram' %}</h2>
+    <p class="cp-tg-modal-subtitle">{% trans 'Це гарантує, що менеджер зможе зв’язатися з вами по правильному номеру.' %}</p>
+
+    {# State 1: intro / start #}
+    <div class="cp-tg-modal-state" data-tg-verify-screen="intro">
+      <ol class="cp-tg-modal-steps">
+        <li><span>1</span> {% trans 'Натисніть «Відкрити бота TwoComms» — ми перенесемо вас у Telegram.' %}</li>
+        <li><span>2</span> {% trans 'У боті натисніть «📱 Поділитися номером» (це кнопка під полем введення).' %}</li>
+        <li><span>3</span> {% trans 'Поверніться сюди — ми автоматично заповнимо контакт і збережемо номер.' %}</li>
+      </ol>
+      <div class="cp-tg-modal-actions">
+        <button type="button" class="cp-tg-modal-btn cp-tg-modal-btn--primary" data-tg-verify-open-bot>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+          {% trans 'Відкрити бота TwoComms' %}
+        </button>
+        <button type="button" class="cp-tg-modal-btn cp-tg-modal-btn--ghost" data-tg-verify-manual>
+          {% trans 'Ввести @username вручну' %}
+        </button>
+      </div>
+      <div class="cp-tg-modal-note">
+        🔒 {% trans 'Ваш номер бачить лише менеджер по цьому замовленню. Ми не використовуємо його для розсилок.' %}
+      </div>
+    </div>
+
+    {# State 2: waiting for contact #}
+    <div class="cp-tg-modal-state" data-tg-verify-screen="waiting" hidden>
+      <div class="cp-tg-modal-spinner" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
+      <h3 class="cp-tg-modal-headline">{% trans 'Очікуємо ваш контакт у боті…' %}</h3>
+      <p class="cp-tg-modal-subline">
+        {% trans 'У відкритому Telegram-боті натисніть кнопку «📱 Поділитися номером».' %}
+      </p>
+      <div class="cp-tg-modal-timer" data-tg-verify-timer>05:00</div>
+
+      <div class="cp-tg-modal-actions">
+        <button type="button" class="cp-tg-modal-btn cp-tg-modal-btn--secondary" data-tg-verify-reopen-bot>
+          {% trans 'Відкрити бота ще раз' %}
+        </button>
+        <button type="button" class="cp-tg-modal-btn cp-tg-modal-btn--ghost" data-tg-verify-cancel>
+          {% trans 'Скасувати' %}
+        </button>
+      </div>
+      <div class="cp-tg-modal-note">
+        💡 {% trans 'Якщо бот не відкрився — натисніть «Відкрити бота ще раз» або скопіюйте посилання.' %}
+        <button type="button" class="cp-tg-modal-link" data-tg-verify-copy-link>{% trans 'Скопіювати посилання' %}</button>
+      </div>
+    </div>
+
+    {# State 3: success #}
+    <div class="cp-tg-modal-state" data-tg-verify-screen="success" hidden>
+      <div class="cp-tg-modal-success-icon" aria-hidden="true">✅</div>
+      <h3 class="cp-tg-modal-headline">{% trans 'Telegram підтверджено!' %}</h3>
+      <p class="cp-tg-modal-subline" data-tg-verify-success-meta></p>
+      <div class="cp-tg-modal-actions">
+        <button type="button" class="cp-tg-modal-btn cp-tg-modal-btn--primary" data-tg-verify-close>
+          {% trans 'Продовжити оформлення' %}
+        </button>
+      </div>
+    </div>
+
+    {# State 4: expired / error #}
+    <div class="cp-tg-modal-state" data-tg-verify-screen="error" hidden>
+      <div class="cp-tg-modal-error-icon" aria-hidden="true">⏱</div>
+      <h3 class="cp-tg-modal-headline" data-tg-verify-error-title>{% trans 'Сесія завершилась' %}</h3>
+      <p class="cp-tg-modal-subline" data-tg-verify-error-message>
+        {% trans 'Ми не отримали ваш контакт за 5 хвилин. Спробуйте знову або введіть @username вручну.' %}
+      </p>
+      <div class="cp-tg-modal-actions">
+        <button type="button" class="cp-tg-modal-btn cp-tg-modal-btn--primary" data-tg-verify-retry>
+          {% trans 'Спробувати ще раз' %}
+        </button>
+        <button type="button" class="cp-tg-modal-btn cp-tg-modal-btn--ghost" data-tg-verify-manual>
+          {% trans 'Ввести вручну' %}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
   {{ block.super }}
   <script src="{% static 'js/custom-print-submission-policy.js' %}" defer></script>
   <script src="{% static 'js/custom-print-configurator.js' %}?v=20260428-custom-print-cache-v2" defer></script>
+  <script src="{% static 'js/custom-print-telegram-verify.js' %}?v=20260517-tg-verify" defer></script>
 {% endblock %}

@@ -399,6 +399,41 @@ class CustomPrintLead(models.Model):
         default=0,
         verbose_name="Лічильник Telegram-сповіщень",
     )
+    # ── Telegram contact verification (поделился номером через бота) ──
+    telegram_verified_user_id = models.BigIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Telegram user_id (підтверджено через бота)",
+    )
+    telegram_verified_username = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name="Telegram @username (підтверджено)",
+    )
+    telegram_verified_phone = models.CharField(
+        max_length=32,
+        blank=True,
+        default="",
+        verbose_name="Телефон (підтверджено через Telegram)",
+    )
+    telegram_verified_first_name = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+        verbose_name="Імʼя у Telegram",
+    )
+    telegram_verified_last_name = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+        verbose_name="Прізвище у Telegram",
+    )
+    telegram_verified_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Коли підтверджено Telegram",
+    )
     order = models.ForeignKey(
         "orders.Order",
         on_delete=models.SET_NULL,
