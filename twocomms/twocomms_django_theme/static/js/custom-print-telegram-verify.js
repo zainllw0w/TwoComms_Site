@@ -81,6 +81,13 @@
     const modal = document.querySelector("[data-tg-verify-modal]");
     if (!verifyShell || !trigger || !modal) return;
 
+    // ─── Portal: переносим модалку в <body> чтобы position: fixed
+    // работал относительно viewport (родительские transform/perspective
+    // ломают fixed → элемент привязывается к ближайшему transformed-предку).
+    if (modal.parentElement !== document.body) {
+      document.body.appendChild(modal);
+    }
+
     const screens = {
       intro: modal.querySelector('[data-tg-verify-screen="intro"]'),
       waiting: modal.querySelector('[data-tg-verify-screen="waiting"]'),

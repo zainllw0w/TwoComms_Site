@@ -5100,24 +5100,10 @@ main {
 .cp-hero-logo-on-cloth--hoodie {
   top: 46.3%;
   left: 30.4%;
-  width: 13%;
+  width: 4.7%;
   transform: translate(-50%, -50%) rotate(-1deg);
-  opacity: 0.92;
+  opacity: 0.84;
   mix-blend-mode: screen;
-  animation: cp-hero-tee-logo-pulse 3.4s 0.4s ease-in-out infinite;
-  will-change: transform, opacity, filter;
-}
-
-.cp-hero-logo-on-cloth--hoodie img {
-  width: 26%;
-  margin-bottom: 0.1rem;
-}
-
-.cp-hero-logo-on-cloth--hoodie strong {
-  color: #ffffff;
-  font-size: 0.78rem;
-  line-height: 0.92;
-  letter-spacing: 0.08em;
 }
 
 .cp-hero-logo-on-cloth--hoodie span {
@@ -5125,15 +5111,6 @@ main {
   font-size: 0.46rem;
   font-weight: 800;
   letter-spacing: 0.08em;
-}
-
-.cp-hero-logo-on-cloth--hoodie small {
-  margin-top: 0.12rem;
-  color: #f0bf6a;
-  font-size: 0.32rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  white-space: nowrap;
 }
 
 .cp-hero-logo-on-cloth--tee {
@@ -5171,33 +5148,10 @@ main {
 .cp-hero-logo-on-cloth--longsleeve {
   top: 42.5%;
   right: 27.7%;
-  width: 11%;
+  width: 3.85%;
   transform: translate(50%, -50%) rotate(2deg);
-  opacity: 0.9;
+  opacity: 0.78;
   mix-blend-mode: screen;
-  animation: cp-hero-tee-logo-pulse 3.6s 0.8s ease-in-out infinite;
-  will-change: transform, opacity, filter;
-}
-
-.cp-hero-logo-on-cloth--longsleeve img {
-  width: 26%;
-  margin-bottom: 0.1rem;
-}
-
-.cp-hero-logo-on-cloth--longsleeve strong {
-  color: #ffffff;
-  font-size: 0.74rem;
-  line-height: 0.92;
-  letter-spacing: 0.08em;
-}
-
-.cp-hero-logo-on-cloth--longsleeve small {
-  margin-top: 0.12rem;
-  color: #f0bf6a;
-  font-size: 0.3rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  white-space: nowrap;
 }
 
 .cp-hero-print-zone {
@@ -5654,39 +5608,10 @@ main {
   }
 }
 
-/*
- * Защита от overlap на широких экранах 1320–1700px:
- * исходный stage (`width: min(150%, 1180px)` + `transform: translateX(-50%)`)
- * на этой ширине физически перекрывает левую/правую колонки hero.
- * Сужаем stage до своей колонки и компенсируем визуальный масштаб
- * чуть большим max-width, чтобы он всё равно оставался крупным.
- */
-@media (min-width: 1321px) and (max-width: 1700px) {
-  .cp-hero--reference {
-    grid-template-columns: minmax(320px, 0.74fr) minmax(0, 1.42fr) minmax(264px, 0.56fr);
-    column-gap: clamp(0.7rem, 1.2vw, 1.1rem);
-  }
-
-  .cp-hero-stage {
-    width: min(118%, 980px);
-  }
-
-  .cp-hero-options {
-    width: min(100%, 296px);
-    margin-top: 24px;
-  }
-
-  .cp-hero-palette {
-    right: 4%;
-    left: 4%;
-  }
-}
-
 @media (max-width: 1320px) {
   .cp-hero--reference {
-    grid-template-columns: minmax(270px, 0.68fr) minmax(0, 1.32fr) minmax(244px, 0.58fr);
+    grid-template-columns: minmax(270px, 0.68fr) minmax(430px, 1.28fr) minmax(244px, 0.58fr);
     padding-inline: 24px;
-    column-gap: clamp(0.6rem, 1vw, 0.95rem);
   }
 
   .cp-hero--reference .cp-hero-title {
@@ -5694,17 +5619,12 @@ main {
   }
 
   .cp-hero-stage {
-    width: min(112%, 940px);
-  }
-
-  .cp-hero-palette {
-    right: 4%;
-    left: 4%;
+    width: min(140%, 1060px);
   }
 
   .cp-hero-options {
-    width: min(100%, 280px);
-    margin-top: 28px;
+    width: min(100%, 294px);
+    margin-top: 34px;
   }
 
   .cp-hero-proof-row {
@@ -6158,7 +6078,10 @@ main {
   background: rgba(2, 4, 10, 0.78);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  z-index: 9000;
+  /* Гарантуємо, що модалка завжди над усіма sticky/header/нижніми навами */
+  z-index: 99999;
+  /* Захист: запобігаємо власному transform який міг би прийти від батьківських стилів */
+  transform: none !important;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease;

@@ -36,7 +36,7 @@
 
 {% block extra_css %}
   {{ block.super }}
-  <link rel="stylesheet" href="{% static 'css/custom-print-configurator.css' %}?v=20260428-custom-print-cache-v2">
+  <link rel="stylesheet" href="{% static 'css/custom-print-configurator.css' %}?v=20260517-hero-revert">
   <style>
     .cp-breadcrumbs {
       display: flex;
@@ -248,11 +248,6 @@
               <strong>A4</strong>
             </span>
           </span>
-          <span class="cp-hero-logo-on-cloth cp-hero-logo-on-cloth--hoodie" aria-hidden="true">
-            <img src="{% static 'img/logo.svg' %}" alt="">
-            <strong>TWOCOMMS</strong>
-            <small>FOR THE ONES WHO CREATE</small>
-          </span>
           <span class="cp-hero-logo-on-cloth cp-hero-logo-on-cloth--tee" aria-hidden="true">
             <img src="{% static 'img/logo.svg' %}" alt="">
             <strong>TWOCOMMS</strong>
@@ -271,11 +266,6 @@
               <span>{% trans 'ваш принт' %}</span>
               <strong>A4</strong>
             </span>
-          </span>
-          <span class="cp-hero-logo-on-cloth cp-hero-logo-on-cloth--longsleeve" aria-hidden="true">
-            <img src="{% static 'img/logo.svg' %}" alt="">
-            <strong>TWOCOMMS</strong>
-            <small>FOR THE ONES WHO CREATE</small>
           </span>
         </figure>
 
@@ -1095,6 +1085,6 @@
 {% block extra_js %}
   {{ block.super }}
   <script src="{% static 'js/custom-print-submission-policy.js' %}" defer></script>
-  <script src="{% static 'js/custom-print-configurator.js' %}?v=20260428-custom-print-cache-v2" defer></script>
-  <script src="{% static 'js/custom-print-telegram-verify.js' %}?v=20260517-tg-verify" defer></script>
+  <script src="{% static 'js/custom-print-configurator.js' %}?v=20260517-tg-verify-portal" defer></script>
+  <script src="{% static 'js/custom-print-telegram-verify.js' %}?v=20260517-tg-verify-portal" defer></script>
 {% endblock %}
