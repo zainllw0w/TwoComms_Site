@@ -244,8 +244,85 @@ def profile_setup(request):
         {
             'form': form,
             'profile': prof,
+            'auth_providers': _auth_providers_context(request.user, prof),
         },
     )
+
+
+def _auth_providers_context(user, profile):
+    """Повертає опис всіх методів авторизації / привʼязок для UI карток.
+
+    Кожен elementaru: {key, label, status, meta, icon, ...}
+    Викликається з шаблону профілю.
+    """
+    providers = []
+
+    # 1) Логін/пароль
+    has_password = user.has_usable_password()
+    providers.append({
+        'key': 'password',
+        'label': _('Логін і пароль'),
+        'connected': has_password,
+        'meta': user.username if has_password else _('Пароль не встановлено'),
+        'description': _('Звичайний вхід на сайт за логіном і паролем.'),
+        'icon_class': 'fa-solid fa-key',
+        'action_url': reverse('profile_setup') + '#set-password',
+        'action_label': _('Змінити пароль') if has_password else _('Встановити пароль'),
+    })
+
+    # 2) Google
+    google_meta = ''
+    google_connected = False
+    try:
+        social_auth = user.social_auth.filter(provider='google-oauth2').first()
+        if social_auth:
+            google_connected = True
+            extra = social_auth.extra_data or {}
+            google_meta = (
+                extra.get('email')
+                or extra.get('name')
+                or social_auth.uid
+                or _('Підключено')
+            )
+    except Exception:
+        google_connected = False
+
+    providers.append({
+        'key': 'google',
+        'label': _('Google'),
+        'connected': google_connected,
+        'meta': google_meta if google_connected else _('Не підключено'),
+        'description': _('Швидкий вхід через ваш Google-акаунт.'),
+        'icon_url': '/static/img/google.svg',
+        'action_url': '/oauth/login/google-oauth2/?next=/profile/setup/',
+        'action_label': _('Підключити') if not google_connected else _('Перепідключити'),
+        'is_oauth_link': True,
+    })
+
+    # 3) Telegram
+    tg_connected = bool(profile.telegram_id)
+    if tg_connected:
+        bits = []
+        if profile.telegram:
+            bits.append(profile.telegram if profile.telegram.startswith('@') else f"@{profile.telegram}")
+        if profile.phone:
+            bits.append(profile.phone)
+        tg_meta = ' · '.join(bits) if bits else _('Підключено')
+    else:
+        tg_meta = _('Не підключено')
+
+    providers.append({
+        'key': 'telegram',
+        'label': _('Telegram'),
+        'connected': tg_connected,
+        'meta': tg_meta,
+        'description': _('Сповіщення про замовлення в Telegram + швидкий вхід без паролю.'),
+        'icon_class': 'fa-brands fa-telegram',
+        'action_label': _('Підключити Telegram') if not tg_connected else _("Перепривʼязати"),
+        'is_telegram': True,
+    })
+
+    return providers
 
 
 @login_required

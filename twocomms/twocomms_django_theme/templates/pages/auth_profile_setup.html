@@ -57,6 +57,69 @@
       </div>
       {% endif %}
 
+      {# Способи входу — карткова сітка #}
+      {% if auth_providers %}
+      <div class="profile-card mb-4" id="auth-methods-card">
+        <div class="form-section">
+          <div class="section-header">
+            <div class="section-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 1a4 4 0 0 0-4 4v3H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2h-4V5a4 4 0 0 0-4-4zm0 2a2 2 0 0 1 2 2v3h-4V5a2 2 0 0 1 2-2zm0 11a2 2 0 1 1 0 4 2 2 0 0 1 0-4z"/>
+              </svg>
+            </div>
+            <h3 class="section-title">{% trans 'Способи входу' %}</h3>
+          </div>
+          <p class="text-secondary small mb-3" style="margin-top:-.4rem">
+            {% trans 'Підключіть кілька способів — і входьте з будь-якого з них. Дані синхронізовані: бали, замовлення, обране — все на одному акаунті.' %}
+          </p>
+          <div class="auth-methods">
+            {% for p in auth_providers %}
+              <div class="auth-method-card {% if p.connected %}is-connected{% endif %}" data-provider="{{ p.key }}">
+                <div class="auth-method-icon">
+                  {% if p.icon_url %}
+                    <img src="{{ p.icon_url }}" alt="{{ p.label }}">
+                  {% elif p.icon_class %}
+                    <i class="{{ p.icon_class }}"></i>
+                  {% else %}
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                  {% endif %}
+                </div>
+                <div class="auth-method-body">
+                  <div class="auth-method-title">
+                    {{ p.label }}
+                    <span class="auth-method-status">{% if p.connected %}{% trans 'Підключено' %}{% else %}{% trans 'Не підключено' %}{% endif %}</span>
+                  </div>
+                  <div class="auth-method-meta">{{ p.meta }}</div>
+                  {% if p.description %}<div class="auth-method-meta" style="opacity:.65;font-size:.78rem">{{ p.description }}</div>{% endif %}
+                </div>
+                <div class="auth-method-action">
+                  {% if p.is_telegram %}
+                    {% if p.connected %}
+                      <button type="button" class="auth-method-btn auth-method-btn--ghost"
+                              data-tg-link-trigger>{% trans "Перепривʼязати" %}</button>
+                      <button type="button" class="auth-method-btn auth-method-btn--danger"
+                              data-tg-unlink-trigger>{% trans "Відʼєднати" %}</button>
+                    {% else %}
+                      <button type="button" class="auth-method-btn"
+                              data-tg-link-trigger>{{ p.action_label }}</button>
+                    {% endif %}
+                  {% elif p.is_oauth_link %}
+                    <a href="{{ p.action_url }}" class="auth-method-btn {% if p.connected %}auth-method-btn--ghost{% endif %}">
+                      {{ p.action_label }}
+                    </a>
+                  {% else %}
+                    <a href="{{ p.action_url }}" class="auth-method-btn {% if p.connected %}auth-method-btn--ghost{% endif %}">
+                      {{ p.action_label }}
+                    </a>
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
       <!-- Основная форма -->
       <div class="profile-card">
         <form method="post" enctype="multipart/form-data" class="profile-form" data-np-form="profile" data-np-optional="1">
@@ -163,29 +226,19 @@
                     {{ form.telegram }}
                     <div class="telegram-button-container" style="display: flex; align-items: center; gap: 6px;">
                       {% if user.userprofile.telegram_id %}
-                        <button type="button" class="btn btn-success btn-sm telegram-status-btn" disabled>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <span class="badge bg-success" style="padding:.45rem .75rem;font-size:.75rem;font-weight:700;display:inline-flex;align-items:center;gap:.3rem">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                           </svg>
                           {% trans 'Підтверджено' %}
-                        </button>
-                        <button type="button" class="btn btn-danger btn-sm" onclick="resetTelegram()" title="{% trans "Переприв'язати Telegram" %}" style="
-                          padding: 4px 8px;
-                          font-size: 16px;
-                          line-height: 1;
-                          display: inline-flex;
-                          align-items: center;
-                          justify-content: center;
-                        ">
-                          <i class="fas fa-times"></i>
-                        </button>
+                        </span>
                       {% else %}
-                        <button type="button" class="btn btn-primary btn-sm telegram-confirm-btn" 
-                                onclick="confirmTelegram()">
+                        <button type="button" class="btn btn-primary btn-sm telegram-confirm-btn"
+                                data-tg-link-trigger>
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.14 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06-.01.13-.02.2z"/>
                           </svg>
-                          📱 {% trans 'Отримувати статуси' %}
+                          {% trans 'Підтвердити' %}
                         </button>
                       {% endif %}
                     </div>
@@ -194,7 +247,7 @@
                     background: linear-gradient(135deg, rgba(139,92,246,.12), rgba(99,102,241,.08));
                     border: 1px solid rgba(139,92,246,.25);
                     border-radius: 8px;
-                    padding: 12px;
+                    padding: 10px 12px;
                     margin-top: 8px;
                     display: flex;
                     align-items: flex-start;
@@ -204,11 +257,8 @@
                       <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
                     </svg>
                     <div style="flex: 1;">
-                      <p style="margin: 0 0 8px 0; color: rgba(229,231,235,.9); font-size: 0.95rem; line-height: 1.5;">
-                        {% blocktrans %}<strong style="color: #a78bfa;">📱 Отримуйте сповіщення в Telegram!</strong> Миттєві сповіщення про нові замовлення, зміну статусів та відстеження посилок.{% endblocktrans %}
-                      </p>
-                      <p style="margin: 0; color: rgba(229,231,235,.7); font-size: 0.85rem; line-height: 1.4;">
-                        {% blocktrans %}<strong style="color: #fbbf24;">📝 Як підключити:</strong> Натисніть "Отримувати статуси", потім <strong>напишіть боту будь-яке повідомлення протягом 5 хвилин</strong> для підтвердження.{% endblocktrans %}
+                      <p style="margin: 0; color: rgba(229,231,235,.85); font-size: 0.88rem; line-height: 1.45;">
+                        {% trans 'Натисніть «Підтвердити», увійдіть у бот TwoComms і поділіться номером — Telegram прив’яжеться автоматично.' %}
                       </p>
                     </div>
                   </div>
@@ -622,81 +672,6 @@ function resetTelegram() {
   });
 }
 
-// Функция для подтверждения Telegram
-function confirmTelegram() {
-  
-  const telegramInput = document.querySelector('input[name="telegram"]');
-  let telegramUsername = telegramInput.value.trim();
-  
-  
-  if (!telegramUsername) {
-    alert('Пожалуйста, введите ваш Telegram username');
-    return;
-  }
-  
-  // Автоматически добавляем @ если его нет
-  if (!telegramUsername.startsWith('@')) {
-    telegramUsername = '@' + telegramUsername;
-    telegramInput.value = telegramUsername;
-  }
-  
-  // Открываем Telegram бота
-  const botUrl = 'https://t.me/twocommsbot?start=' + encodeURIComponent(telegramUsername);
-  window.open(botUrl, '_blank');
-  
-  // Показываем инструкцию
-  alert('Откроется Telegram бот. Напишите любое сообщение для подтверждения. Статус обновится автоматически.');
-  
-  // Показываем индикатор загрузки
-  showTelegramLoadingIndicator();
-  
-  // Запускаем проверку статуса только если пользователь авторизован
-  // Проверяем наличие CSRF токена как индикатор авторизации
-  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-  if (csrfToken) {
-    startTelegramStatusCheck();
-  } else {
-    hideTelegramLoadingIndicator();
-  }
-}
-
-// Функция для проверки статуса подтверждения Telegram
-function checkTelegramStatus() {
-  
-  fetch('/accounts/telegram/status/', {
-    method: 'GET',
-    credentials: 'same-origin',
-    headers: {
-      'X-Requested-With': 'XMLHttpRequest',
-      'Content-Type': 'application/json',
-    }
-  })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      return response.json();
-    })
-    .then(data => {
-      if (data.is_confirmed) {
-        // Обновляем кнопку на подтвержденную
-        updateTelegramButton(true);
-        // Останавливаем проверку
-        stopTelegramStatusCheck();
-      } else if (data.error) {
-        // Если есть ошибка (например, пользователь не авторизован)
-        stopTelegramStatusCheck();
-        hideTelegramLoadingIndicator();
-      } else {
-      }
-    })
-    .catch(error => {
-      // Останавливаем проверку при любой ошибке
-      stopTelegramStatusCheck();
-      hideTelegramLoadingIndicator();
-    });
-}
-
 // Функция для обновления кнопки Telegram
 function updateTelegramButton(isConfirmed) {
   const buttonContainer = document.querySelector('.telegram-button-container');
@@ -704,163 +679,77 @@ function updateTelegramButton(isConfirmed) {
   
   if (isConfirmed) {
     buttonContainer.innerHTML = `
-      <button type="button" class="btn btn-success btn-sm telegram-status-btn" disabled>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+      <span class="badge bg-success" style="padding:.45rem .75rem;font-size:.75rem;font-weight:700;display:inline-flex;align-items:center;gap:.3rem">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
         </svg>
         Підтверджено
-      </button>
-      <button type="button" class="btn btn-danger btn-sm" onclick="resetTelegram()" title="Переприв'язати Telegram" style="
-        padding: 4px 8px;
-        font-size: 16px;
-        line-height: 1;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-      ">
-        <i class="fas fa-times"></i>
-      </button>
+      </span>
     `;
   } else {
     buttonContainer.innerHTML = `
-      <button type="button" class="btn btn-primary btn-sm telegram-confirm-btn" 
-              onclick="confirmTelegram()">
+      <button type="button" class="btn btn-primary btn-sm telegram-confirm-btn" data-tg-link-trigger>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.14 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06-.01.13-.02.2z"/>
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
         </svg>
-        📱 Получать статусы
+        Підтвердити
       </button>
     `;
   }
 }
 
-// Переменные для управления проверкой статуса
-let telegramStatusInterval = null;
-let telegramStatusCheckCount = 0;
-const MAX_TELEGRAM_STATUS_CHECKS = 30; // Максимум 30 проверок (1 минута при интервале 2 сек)
-let telegramStatusTimeout = null; // Таймаут для принудительной остановки
-
-// Функция для запуска проверки статуса
-function startTelegramStatusCheck() {
-  // Останавливаем предыдущую проверку если есть
-  stopTelegramStatusCheck();
-  
-  // Сбрасываем счетчик
-  telegramStatusCheckCount = 0;
-  
-  // Устанавливаем таймаут на 5 минут для принудительной остановки
-  telegramStatusTimeout = setTimeout(() => {
-    console.warn('Таймаут проверки статуса Telegram (5 минут)');
-    stopTelegramStatusCheck();
-    hideTelegramLoadingIndicator();
-  }, 5 * 60 * 1000); // 5 минут
-  
-  // Запускаем проверку каждые 2 секунды для быстрого отклика
-  telegramStatusInterval = setInterval(() => {
-    telegramStatusCheckCount++;
-    
-    if (telegramStatusCheckCount >= MAX_TELEGRAM_STATUS_CHECKS) {
-      // Прекращаем проверку после 1 минуты
-      stopTelegramStatusCheck();
-      hideTelegramLoadingIndicator();
-      alert('⏰ Проверка Telegram остановлена. Если бот подтвердил аккаунт, обновите страницу.');
-      return;
-    }
-    
-    checkTelegramStatus();
-  }, 2000); // 2 секунды
-  
-  // Первая проверка сразу
-  checkTelegramStatus();
-  
-  // Дополнительная проверка через 1 секунду для быстрого отклика
-  setTimeout(() => {
-    checkTelegramStatus();
-  }, 1000);
-}
-
-// Функция для остановки проверки статуса
-function stopTelegramStatusCheck() {
-  if (telegramStatusInterval) {
-    clearInterval(telegramStatusInterval);
-    telegramStatusInterval = null;
-  }
-  if (telegramStatusTimeout) {
-    clearTimeout(telegramStatusTimeout);
-    telegramStatusTimeout = null;
-  }
-}
-
-// Функция для показа индикатора загрузки
-function showTelegramLoadingIndicator() {
-  const buttonContainer = document.querySelector('.telegram-button-container');
-  if (!buttonContainer) return;
-  
-  buttonContainer.innerHTML = `
-    <button type="button" class="btn btn-warning btn-sm telegram-loading-btn" disabled>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="spinning">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-      </svg>
-      🔄 Проверяем...
-    </button>
-  `;
-}
-
-// Функция для скрытия индикатора загрузки
-function hideTelegramLoadingIndicator() {
-  const buttonContainer = document.querySelector('.telegram-button-container');
-  if (!buttonContainer) return;
-  
-  // Возвращаем обычную кнопку
-  updateTelegramButton(false);
-}
-
-// Сохраняем изначальный Telegram username
-let initialTelegramUsername = '';
-document.addEventListener('DOMContentLoaded', function() {
-  const telegramInput = document.querySelector('input[name="telegram"]');
-  if (telegramInput) {
-    // Сохраняем БЕЗ trim() чтобы отслеживать ВСЕ изменения
-    initialTelegramUsername = telegramInput.value;
-    console.log('🔵 Initial Telegram username:', initialTelegramUsername);
-    
-    // Отслеживаем изменения в поле Telegram
-    telegramInput.addEventListener('input', function() {
-      // Сравниваем БЕЗ trim() - любое изменение, даже пробел
-      const currentValue = this.value;
-      const buttonContainer = document.querySelector('.telegram-button-container');
-      
-      console.log('🔴 Input changed:', {
-        initial: initialTelegramUsername,
-        current: currentValue,
-        changed: currentValue !== initialTelegramUsername
-      });
-      
-      // Если значение изменилось ХОТЬ НА ОДИН СИМВОЛ
-      if (currentValue !== initialTelegramUsername && buttonContainer) {
-        // Проверяем все кнопки в контейнере
-        const allButtons = buttonContainer.querySelectorAll('button');
-        console.log('🟡 Buttons found:', allButtons.length);
-        
-        allButtons.forEach(btn => {
-          const isDisabled = btn.disabled || btn.hasAttribute('disabled');
-          const text = btn.textContent || btn.innerText;
-          console.log('🟢 Button:', {
-            disabled: isDisabled,
-            text: text.trim(),
-            includes: text.includes('підтверджено') || text.includes('Підтверджено')
-          });
-          
-          // Если кнопка disabled И содержит текст "підтверджено"
-          if (isDisabled && (text.includes('підтверджено') || text.includes('Підтверджено'))) {
-            console.log('✅ RESETTING BUTTON!');
-            // Сбрасываем на кнопку "Підтвердити"
-            updateTelegramButton(false);
-          }
+// ── Підвʼязка/відвʼязка Telegram через універсальну модалку ──
+document.addEventListener('DOMContentLoaded', function () {
+  function bindTelegramTriggers() {
+    document.querySelectorAll('[data-tg-link-trigger]').forEach(function (btn) {
+      if (btn.dataset.tgLinkBound === '1') return;
+      btn.dataset.tgLinkBound = '1';
+      btn.addEventListener('click', function (event) {
+        event.preventDefault();
+        if (!window.TelegramVerify) {
+          alert('Модуль верифікації Telegram ще не завантажився. Спробуйте знову через секунду.');
+          return;
+        }
+        window.TelegramVerify.start({
+          purpose: 'profile_link',
+          onSuccess: function () {
+            // Після успішної привʼязки оновлюємо UI без перезавантаження.
+            location.reload();
+          },
         });
-      }
+      });
+    });
+    document.querySelectorAll('[data-tg-unlink-trigger]').forEach(function (btn) {
+      if (btn.dataset.tgUnlinkBound === '1') return;
+      btn.dataset.tgUnlinkBound = '1';
+      btn.addEventListener('click', function (event) {
+        event.preventDefault();
+        if (!confirm('Відвʼязати Telegram від акаунту? Сповіщення про замовлення припинять надходити.')) return;
+        var csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+        var csrfToken = csrfInput ? csrfInput.value : '';
+        fetch('/accounts/telegram/unlink/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+          credentials: 'same-origin',
+        })
+          .then(function (response) { return response.json(); })
+          .then(function (data) {
+            if (data && data.success) {
+              location.reload();
+            } else {
+              alert('Не вдалося відвʼязати: ' + ((data && data.error) || 'невідома помилка'));
+            }
+          })
+          .catch(function () {
+            alert('Помилка мережі при відвʼязуванні.');
+          });
+      });
     });
   }
+  bindTelegramTriggers();
+  // Якщо UI оновлено динамічно (наприклад після reload), переподписуємося.
+  var observer = new MutationObserver(bindTelegramTriggers);
+  observer.observe(document.body, { childList: true, subtree: true });
 });
 </script>
 {% endblock %}

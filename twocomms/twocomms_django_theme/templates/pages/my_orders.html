@@ -153,8 +153,8 @@
           <!-- Кнопка подтверждения Telegram для получения уведомлений -->
           {% if not user.userprofile.telegram_id %}
           <div class="delivery-compact-item telegram-notification-item">
-            <button type="button" class="btn btn-primary btn-sm telegram-notification-btn" 
-                    onclick="confirmTelegramFromOrders()">
+            <button type="button" class="btn btn-primary btn-sm telegram-notification-btn"
+                    data-tg-link-trigger data-tg-purpose="profile_link">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.14 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06-.01.13-.02.2z"/>
               </svg>
@@ -915,47 +915,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Функция для подтверждения Telegram из заказов
-function confirmTelegramFromOrders() {
-  // Открываем Telegram бота
-  const botUrl = 'https://t.me/twocommsbot?start=orders';
-  window.open(botUrl, '_blank');
-  
-  // Показываем инструкцию
-  alert('Откроется Telegram бот. Напишите любое сообщение для подтверждения. Статус обновится автоматически.');
-  
-  // Запускаем проверку статуса
-  startTelegramStatusCheckFromOrders();
-}
-
-// Функция для проверки статуса подтверждения Telegram из заказов
-function checkTelegramStatusFromOrders() {
-  fetch('/accounts/telegram/status/')
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      return response.json();
-    })
-    .then(data => {
-      if (data.is_confirmed) {
-        // Скрываем кнопку подтверждения
-        hideTelegramNotificationButton();
-        // Останавливаем проверку
-        stopTelegramStatusCheckFromOrders();
-      } else if (data.error) {
-        // Если есть ошибка (например, пользователь не авторизован)
-        console.error('Ошибка API:', data.error);
-        stopTelegramStatusCheckFromOrders();
-      }
-    })
-    .catch(error => {
-      console.error('Ошибка проверки статуса Telegram:', error);
-      // Останавливаем проверку при любой ошибке
-      stopTelegramStatusCheckFromOrders();
-    });
-}
-
 // Функция для скрытия кнопки уведомлений Telegram
 function hideTelegramNotificationButton() {
   const notificationItems = document.querySelectorAll('.telegram-notification-item');
@@ -964,48 +923,28 @@ function hideTelegramNotificationButton() {
   });
 }
 
-// Переменные для управления проверкой статуса из заказов
-let telegramStatusIntervalFromOrders = null;
-let telegramStatusCheckCountFromOrders = 0;
-const MAX_TELEGRAM_STATUS_CHECKS_FROM_ORDERS = 150; // Максимум 150 проверок (5 минут при интервале 2 сек)
-
-// Функция для запуска проверки статуса из заказов
-function startTelegramStatusCheckFromOrders() {
-  // Останавливаем предыдущую проверку если есть
-  stopTelegramStatusCheckFromOrders();
-  
-  // Сбрасываем счетчик
-  telegramStatusCheckCountFromOrders = 0;
-  
-  // Запускаем проверку каждые 2 секунды для быстрого отклика
-  telegramStatusIntervalFromOrders = setInterval(() => {
-    telegramStatusCheckCountFromOrders++;
-    
-    if (telegramStatusCheckCountFromOrders >= MAX_TELEGRAM_STATUS_CHECKS_FROM_ORDERS) {
-      // Прекращаем проверку после 5 минут
-      stopTelegramStatusCheckFromOrders();
-      return;
-    }
-    
-    checkTelegramStatusFromOrders();
-  }, 2000); // 2 секунды
-  
-  // Первая проверка сразу
-  checkTelegramStatusFromOrders();
-  
-  // Дополнительная проверка через 1 секунду для быстрого отклика
-  setTimeout(() => {
-    checkTelegramStatusFromOrders();
-  }, 1000);
-}
-
-// Функция для остановки проверки статуса из заказов
-function stopTelegramStatusCheckFromOrders() {
-  if (telegramStatusIntervalFromOrders) {
-    clearInterval(telegramStatusIntervalFromOrders);
-    telegramStatusIntervalFromOrders = null;
-  }
-}
+// ── Універсальна модалка верифікації Telegram ──
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('[data-tg-link-trigger]').forEach(function (btn) {
+    if (btn.dataset.tgLinkBound === '1') return;
+    btn.dataset.tgLinkBound = '1';
+    btn.addEventListener('click', function (event) {
+      event.preventDefault();
+      if (!window.TelegramVerify) {
+        alert('Модуль верифікації Telegram ще не завантажився.');
+        return;
+      }
+      var purpose = btn.dataset.tgPurpose || 'profile_link';
+      window.TelegramVerify.start({
+        purpose: purpose,
+        onSuccess: function () {
+          hideTelegramNotificationButton();
+          location.reload();
+        },
+      });
+    });
+  });
+});
 </script>
 
 {% endblock %}

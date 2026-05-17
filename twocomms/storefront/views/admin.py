@@ -17,7 +17,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.conf import settings
-from django.db import transaction
+from django.db import models, transaction
 from django.db.models import (
     Avg,
     Case,
@@ -480,6 +480,8 @@ def _build_orders_context(request):
 
 def _build_users_context():
     """Собирает данные для вкладки пользователей."""
+    from storefront.models import SiteSession  # local import to avoid cycles
+
     users_qs = (
         User.objects.select_related('userprofile', 'points')
         .prefetch_related('orders', 'orders__items')
@@ -505,6 +507,37 @@ def _build_users_context():
     }
 
     order_status_template = {code: 0 for code, _ in Order.STATUS_CHOICES}
+
+    # Online — пользователи, у которых last_seen ≥ now−5min хоть в одной сессии.
+    online_threshold = timezone.now() - timedelta(minutes=5)
+    online_user_ids = set(
+        SiteSession.objects.filter(
+            user_id__in=user_ids,
+            last_seen__gte=online_threshold,
+            is_bot=False,
+        ).values_list('user_id', flat=True)
+    )
+    last_seen_map = {
+        row['user_id']: row['last_seen']
+        for row in SiteSession.objects.filter(user_id__in=user_ids)
+        .values('user_id')
+        .annotate(last_seen=models.Max('last_seen'))
+    } if user_ids else {}
+
+    # Привʼязка соц. провайдерів (Google) — щоб показувати в карточках
+    social_map = {}
+    try:
+        from social_django.models import UserSocialAuth
+
+        for sa in UserSocialAuth.objects.filter(user_id__in=user_ids).values(
+            'user_id', 'provider', 'extra_data'
+        ):
+            social_map.setdefault(sa['user_id'], []).append({
+                'provider': sa['provider'],
+                'extra_data': sa['extra_data'] or {},
+            })
+    except Exception:
+        social_map = {}
 
     user_data = []
     for user in users:
@@ -551,6 +584,25 @@ def _build_users_context():
             else:
                 promo_entries.append(entry)
 
+        # Методи входу
+        socials = social_map.get(user.id, [])
+        google_link = next((s for s in socials if s['provider'] == 'google-oauth2'), None)
+        google_email = ''
+        if google_link:
+            google_email = (google_link.get('extra_data') or {}).get('email') or ''
+
+        auth_methods = {
+            'has_password': user.has_usable_password(),
+            'google_connected': bool(google_link),
+            'google_email': google_email,
+            'telegram_connected': bool(profile and profile.telegram_id),
+            'telegram_username': profile.telegram if profile else '',
+            'telegram_id': profile.telegram_id if profile else None,
+        }
+
+        is_online = user.id in online_user_ids
+        last_seen = last_seen_map.get(user.id) or user.last_login
+
         user_data.append({
             'user': user,
             'profile': profile,
@@ -563,6 +615,10 @@ def _build_users_context():
             'promocodes': promo_entries,
             'used_promocodes': used_promos,
             'is_manager': getattr(profile, 'is_manager', False),
+            'auth_methods': auth_methods,
+            'is_online': is_online,
+            'last_seen_at': last_seen,
+            'date_joined': user.date_joined,
         })
 
     return {'user_data': user_data}

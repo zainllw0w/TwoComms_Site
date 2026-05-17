@@ -41,7 +41,7 @@ if (!window.resetDropshipperTelegram) {
           console.log('🟡 Replacing buttons...');
           
           buttonContainer.innerHTML = `
-            <button type="button" class="ds-btn telegram-confirm-btn" onclick="confirmDropshipperTelegram()" style="
+            <button type="button" class="ds-btn telegram-confirm-btn" data-tg-link-trigger data-tg-purpose="dropshipper_link" style="
               background: linear-gradient(135deg, #8b5cf6, #6366f1) !important;
               border: none !important;
               color: white !important;
@@ -212,7 +212,7 @@ if (!window.resetDropshipperTelegram) {
                     <i class="fas fa-times"></i>
                   </button>
                 {% else %}
-                  <button type="button" class="ds-btn telegram-confirm-btn" onclick="confirmDropshipperTelegram()" style="
+                  <button type="button" class="ds-btn telegram-confirm-btn" data-tg-link-trigger data-tg-purpose="dropshipper_link" style="
                     background: linear-gradient(135deg, #8b5cf6, #6366f1) !important;
                     border: none !important;
                     color: white !important;
@@ -347,229 +347,35 @@ if (!window.resetDropshipperTelegram) {
 
 <script>
 console.log('🟦 Dropshipper company panel script loaded (bottom)');
-console.log('✅ window.resetDropshipperTelegram already defined:', typeof window.resetDropshipperTelegram);
 
-// Функция для подтверждения Telegram дропшипера
-function confirmDropshipperTelegram() {
-  const telegramInput = document.querySelector('input[name="telegram"]');
-  let telegramUsername = telegramInput.value.trim();
-  
-  if (!telegramUsername) {
-    alert('Будь ласка, введіть ваш Telegram username');
-    return;
-  }
-  
-  // Автоматически добавляем @ если его нет
-  if (!telegramUsername.startsWith('@')) {
-    telegramUsername = '@' + telegramUsername;
-    telegramInput.value = telegramUsername;
-  }
-  
-  // Открываем Telegram бота
-  const botUrl = 'https://t.me/twocommsbot?start=' + encodeURIComponent(telegramUsername);
-  window.open(botUrl, '_blank');
-  
-  // Показываем инструкцию
-  alert('Відкриється Telegram бот. Напишіть будь-яке повідомлення для підтвердження протягом 5 хвилин. Статус оновиться автоматично.');
-  
-  // Показываем индикатор загрузки
-  showDropshipperTelegramLoadingIndicator();
-  
-  // Запускаем проверку статуса
-  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-  if (csrfToken) {
-    startDropshipperTelegramStatusCheck();
-  } else {
-    hideDropshipperTelegramLoadingIndicator();
-  }
-}
-
-// Функция для проверки статуса подтверждения Telegram
-function checkDropshipperTelegramStatus() {
-  fetch('/accounts/telegram/status/', {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'same-origin'
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.telegram_confirmed) {
-      // Telegram подтвержден
-      hideDropshipperTelegramLoadingIndicator();
-      updateDropshipperTelegramButton(true);
-      stopDropshipperTelegramStatusCheck();
-    }
-  })
-  .catch(error => {
-    console.error('Error checking Telegram status:', error);
-  });
-}
-
-// Запускаем периодическую проверку статуса
-let dropshipperTelegramCheckInterval;
-function startDropshipperTelegramStatusCheck() {
-  checkDropshipperTelegramStatus();
-  dropshipperTelegramCheckInterval = setInterval(checkDropshipperTelegramStatus, 5000); // каждые 5 секунд
-  
-  // Автоматически останавливаем через 5 минут
-  setTimeout(stopDropshipperTelegramStatusCheck, 5 * 60 * 1000);
-}
-
-function stopDropshipperTelegramStatusCheck() {
-  if (dropshipperTelegramCheckInterval) {
-    clearInterval(dropshipperTelegramCheckInterval);
-    dropshipperTelegramCheckInterval = null;
-    hideDropshipperTelegramLoadingIndicator();
-  }
-}
-
-// Показываем индикатор загрузки
-function showDropshipperTelegramLoadingIndicator() {
-  const buttonContainer = document.querySelector('.telegram-button-container');
-  if (buttonContainer) {
-    const existingBtn = buttonContainer.querySelector('.telegram-confirm-btn');
-    if (existingBtn) {
-      existingBtn.innerHTML = `
-        <svg class="spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <circle cx="12" cy="12" r="10" stroke-width="4" stroke-opacity="0.25"/>
-          <path d="M12 2a10 10 0 0 1 10 10" stroke-width="4" stroke-linecap="round"/>
-        </svg>
-        <span>Очікування підтвердження...</span>
-      `;
-      existingBtn.disabled = true;
-      existingBtn.style.opacity = '0.7';
-      existingBtn.style.cursor = 'not-allowed';
-    }
-  }
-}
-
-function hideDropshipperTelegramLoadingIndicator() {
-  const buttonContainer = document.querySelector('.telegram-button-container');
-  if (buttonContainer) {
-    const existingBtn = buttonContainer.querySelector('.telegram-confirm-btn');
-    if (existingBtn && !existingBtn.classList.contains('confirmed')) {
-      existingBtn.innerHTML = `
-        <i class="fab fa-telegram"></i>
-        <span>Підтвердити Telegram</span>
-      `;
-      existingBtn.disabled = false;
-      existingBtn.style.opacity = '1';
-      existingBtn.style.cursor = 'pointer';
-    }
-  }
-}
-
-// Обновляем кнопку после подтверждения
-function updateDropshipperTelegramButton(confirmed) {
-  const buttonContainer = document.querySelector('.telegram-button-container');
-  if (buttonContainer && confirmed) {
-    buttonContainer.innerHTML = `
-      <button type="button" class="ds-btn" disabled style="
-        background: linear-gradient(135deg, #10b981, #059669);
-        border: none;
-        color: white;
-        border-radius: 10px;
-        padding: 12px 20px;
-        font-weight: 700;
-        font-size: 0.95rem;
-        cursor: not-allowed;
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        opacity: 0.7;
-      ">
-        <i class="fas fa-check-circle"></i>
-        <span>Telegram підтверджено</span>
-      </button>
-    `;
-  }
-}
-
-// Стили для spinner
-const style = document.createElement('style');
-style.textContent = `
-  .spinner {
-    animation: spin 1s linear infinite;
-  }
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-`;
-document.head.appendChild(style);
-
-// Сохраняем изначальный Telegram username
-let initialTelegramUsername = '';
-document.addEventListener('DOMContentLoaded', function() {
-  const telegramInput = document.querySelector('input[name="telegram"]');
-  if (telegramInput) {
-    // Сохраняем БЕЗ trim() чтобы отслеживать ВСЕ изменения
-    initialTelegramUsername = telegramInput.value;
-    console.log('🔵 Initial Telegram username:', initialTelegramUsername);
-    
-    // Отслеживаем изменения в поле Telegram
-    telegramInput.addEventListener('input', function() {
-      // Сравниваем БЕЗ trim() - любое изменение, даже пробел
-      const currentValue = this.value;
-      const buttonContainer = document.querySelector('.telegram-button-container');
-      
-      console.log('🔴 Input changed:', {
-        initial: initialTelegramUsername,
-        current: currentValue,
-        changed: currentValue !== initialTelegramUsername
-      });
-      
-      // Если значение изменилось ХОТЬ НА ОДИН СИМВОЛ
-      if (currentValue !== initialTelegramUsername && buttonContainer) {
-        // Проверяем все кнопки в контейнере
-        const allButtons = buttonContainer.querySelectorAll('button');
-        console.log('🟡 Buttons found:', allButtons.length);
-        
-        allButtons.forEach(btn => {
-          const isDisabled = btn.disabled || btn.hasAttribute('disabled');
-          const text = btn.textContent || btn.innerText;
-          console.log('🟢 Button:', {
-            disabled: isDisabled,
-            text: text.trim(),
-            includes: text.includes('підтверджено') || text.includes('Підтверджено')
-          });
-          
-          // Если кнопка disabled И содержит текст "підтверджено"
-          if (isDisabled && (text.includes('підтверджено') || text.includes('Підтверджено'))) {
-            console.log('✅ RESETTING BUTTON!');
-            // Сбрасываем на кнопку "Підтвердити"
-            buttonContainer.innerHTML = `
-              <button type="button" class="ds-btn telegram-confirm-btn" onclick="confirmDropshipperTelegram()" style="
-                background: linear-gradient(135deg, #8b5cf6, #6366f1) !important;
-                border: none !important;
-                color: white !important;
-                border-radius: 8px !important;
-                padding: 10px 16px !important;
-                font-weight: 700 !important;
-                font-size: 0.85rem !important;
-                cursor: pointer !important;
-                transition: all 0.2s !important;
-                display: inline-flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                gap: 8px !important;
-                white-space: nowrap !important;
-                height: 100% !important;
-                min-height: 44px !important;
-              " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 20px rgba(139,92,246,.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-                <i class="fab fa-telegram"></i>
-                <span>Підтвердити</span>
-              </button>
-            `;
-          }
+// ── Биндинги для универсальной модалки Telegram ──
+document.addEventListener('DOMContentLoaded', function () {
+  function bindDropshipperTriggers() {
+    document.querySelectorAll('[data-tg-link-trigger]').forEach(function (btn) {
+      if (btn.dataset.tgLinkBound === '1') return;
+      btn.dataset.tgLinkBound = '1';
+      btn.addEventListener('click', function (event) {
+        event.preventDefault();
+        if (!window.TelegramVerify) {
+          alert('Модуль верифікації Telegram ще не завантажився. Спробуйте через секунду.');
+          return;
+        }
+        var purpose = btn.dataset.tgPurpose || 'dropshipper_link';
+        window.TelegramVerify.start({
+          purpose: purpose,
+          onSuccess: function () {
+            location.reload();
+          },
         });
-      }
+      });
     });
   }
+  bindDropshipperTriggers();
+  var observer = new MutationObserver(bindDropshipperTriggers);
+  observer.observe(document.body, { childList: true, subtree: true });
 });
 
+// Legacy: переотвʼязка через стара кнопка з onclick="resetDropshipperTelegram()" — лишаємо.
 // === Динамическое изменение формы payment_details в зависимости от payment_method ===
 (function() {
   const paymentMethodSelect = document.querySelector('select[name="payment_method"]');

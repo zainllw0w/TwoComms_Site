@@ -12,11 +12,15 @@
         </div>
       </div>
 
-      <a href="{% url 'social:begin' 'google-oauth2' %}" class="btn btn-outline-light w-100 mb-3 d-flex align-items-center justify-content-center" style="gap:.5rem">
+      <a href="{% url 'social:begin' 'google-oauth2' %}" class="btn btn-outline-light w-100 mb-2 d-flex align-items-center justify-content-center" style="gap:.5rem">
         <img src="{% static 'img/google.svg' %}" alt="{% trans 'Вхід через Google - TwoComms' %}" width="18" height="18" loading="lazy">
         <span>{% trans 'Продовжити через Google' %}</span>
       </a>
-      <div class="text-secondary small mb-3">{% trans 'Ми створимо акаунт на основі вашого Google профілю' %}</div>
+      <button type="button" class="btn btn-outline-light w-100 mb-3 d-flex align-items-center justify-content-center" style="gap:.5rem;background:linear-gradient(135deg,#229ED9,#1576a8);border-color:#229ED9;color:#fff" data-tg-login-trigger>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>
+        <span>{% trans 'Продовжити через Telegram' %}</span>
+      </button>
+      <div class="text-secondary small mb-3">{% trans 'Ми створимо акаунт автоматично — без паролю.' %}</div>
 
       {% if form.non_field_errors %}
       <div class="alert alert-danger" role="alert">
@@ -114,6 +118,26 @@
       var p2 = document.getElementById('id_password2');
       if(t1 && p1){ t1.addEventListener('click', function(){ p1.type = (p1.type==='password' ? 'text' : 'password'); }); }
       if(t2 && p2){ t2.addEventListener('click', function(){ p2.type = (p2.type==='password' ? 'text' : 'password'); }); }
+
+      // Telegram login trigger
+      var tgBtn = document.querySelector('[data-tg-login-trigger]');
+      if(tgBtn){
+        tgBtn.addEventListener('click', function(){
+          if(!window.TelegramVerify){
+            alert('Модуль верифікації Telegram ще не завантажився. Спробуйте за секунду.');
+            return;
+          }
+          var nextUrl = '';
+          try{
+            var p = new URLSearchParams(window.location.search);
+            nextUrl = p.get('next') || '';
+          }catch(_){ }
+          window.TelegramVerify.start({
+            purpose: 'login',
+            next: nextUrl || '/profile/setup/',
+          });
+        });
+      }
     }catch(_){ }
   });
 })();

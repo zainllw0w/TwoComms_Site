@@ -515,11 +515,15 @@ class TelegramBot:
     def process_contact_message(self, *, user_id, username, contact):
         """Получили объект contact (через KeyboardButton request_contact=True).
 
-        Если есть active TelegramVerificationSession, привязанная к этому user_id
-        (через bot_opened или pending), помечаем её verified и убираем клавиатуру.
-
-        Иначе сохраняем номер в UserProfile.phone (если уже есть привязка по
-        telegram_id) — это полезно для авторизованных пользователей.
+        Підтримує всі purpose з TelegramVerificationSession:
+        - custom_print  → привʼязати до ліда (legacy)
+        - profile_link  → привʼязати telegram_id до UserProfile сесії
+        - login         → лише зберегти дані в сесії; логін станеться у JS-сайту
+        - dropshipper_link → схоже на profile_link
+        - management_bind  → не обробляється тут (інший бот, проте сесію
+                              позначаємо verified, щоб UI міг закрити модалку
+                              і управління-бот сам опрацював bind у своєму
+                              webhook через окремий код)
         """
         try:
             from accounts.models import TelegramVerificationSession
@@ -530,9 +534,6 @@ class TelegramBot:
             last_name = (contact.get("last_name") or "").strip()
             shared_user_id = contact.get("user_id")
 
-            # Шукаємо сесію: спочатку «bot_opened» цього юзера, потім будь-яку
-            # активну, що могла бути ініційована через інший Telegram-акаунт
-            # (наприклад на iPad, а тапнули на mobile — рідко, але можливо).
             now = _tz.now()
             session = (
                 TelegramVerificationSession.objects
@@ -540,8 +541,6 @@ class TelegramBot:
                 .order_by("-created_at")
                 .first()
             )
-            # Серед активних beorder, знаходимо ту, яку не пізніше ніж 5 хв тому
-            # відкрила саме ця особа (за chat_id). Якщо нема bot_opened — спробуємо pending.
             if not session:
                 session = (
                     TelegramVerificationSession.objects
@@ -551,8 +550,11 @@ class TelegramBot:
                 )
 
             if session and session.is_active:
+                effective_user_id = (
+                    int(shared_user_id) if shared_user_id else int(user_id)
+                )
                 session.mark_verified(
-                    telegram_user_id=int(shared_user_id) if shared_user_id else int(user_id),
+                    telegram_user_id=effective_user_id,
                     phone=phone,
                     username=username or "",
                     first_name=first_name,
@@ -560,62 +562,17 @@ class TelegramBot:
                     chat_id=int(user_id),
                 )
 
-                # Якщо є привʼязаний лід — оновлюємо його контактні поля
-                lead = session.lead
-                if lead is not None:
-                    try:
-                        from storefront.models import CustomPrintLead
-
-                        update_fields = []
-                        # Зберігаємо verified-блок
-                        lead.telegram_verified_user_id = session.telegram_user_id
-                        lead.telegram_verified_username = session.telegram_username
-                        lead.telegram_verified_phone = session.phone
-                        lead.telegram_verified_first_name = session.telegram_first_name
-                        lead.telegram_verified_last_name = session.telegram_last_name
-                        lead.telegram_verified_at = session.completed_at
-                        update_fields.extend([
-                            "telegram_verified_user_id",
-                            "telegram_verified_username",
-                            "telegram_verified_phone",
-                            "telegram_verified_first_name",
-                            "telegram_verified_last_name",
-                            "telegram_verified_at",
-                        ])
-                        # Якщо контакт у формі був порожнім або «email-у-телеграмі» —
-                        # підмінюємо на верифікований username
-                        if session.telegram_username and (
-                            not lead.contact_value or "@" not in (lead.contact_value or "") or " " in (lead.contact_value or "")
-                        ):
-                            lead.contact_value = f"@{session.telegram_username.lstrip('@')}"
-                            update_fields.append("contact_value")
-                        lead.save(update_fields=list(set(update_fields)))
-                    except Exception as exc:
-                        print(f"❌ Failed to attach verification to lead: {exc}")
-
-                # Якщо є привʼязаний user — оновимо UserProfile.phone (best-effort)
-                if session.user is not None:
-                    try:
-                        profile, _ = UserProfile.objects.get_or_create(user=session.user)
-                        if not profile.phone and phone:
-                            profile.phone = phone
-                            profile.save(update_fields=["phone"])
-                        if not profile.telegram_id:
-                            profile.telegram_id = int(user_id)
-                            profile.save(update_fields=["telegram_id"])
-                    except Exception:
-                        pass
+                # Виконуємо purpose-specific обробку
+                self._post_verify_purpose_action(session)
 
                 self.send_message(
                     user_id,
                     "✅ <b>Готово! Контакт підтверджено.</b>\n\n"
-                    "Тепер можна повернутися на сайт TwoComms — форма заповниться автоматично, "
-                    "а менеджер звʼяжеться з вами по цьому номеру.",
+                    "Поверніться на сайт TwoComms — далі продовжимо там автоматично.",
                     reply_markup={"remove_keyboard": True},
                 )
                 return True
 
-            # Немає активної сесії — все одно дякуємо й приберемо клавіатуру.
             self.send_message(
                 user_id,
                 "🤔 <b>Сесію верифікації не знайдено.</b>\n\n"
@@ -629,6 +586,160 @@ class TelegramBot:
             import traceback
             traceback.print_exc()
             return False
+
+    def _post_verify_purpose_action(self, session):
+        """Виконати дії, специфічні для purpose, після successful verify."""
+        try:
+            from accounts.models import TelegramVerificationSession
+
+            purpose = session.purpose
+            if purpose == TelegramVerificationSession.PURPOSE_CUSTOM_PRINT:
+                self._apply_custom_print_purpose(session)
+            elif purpose in {
+                TelegramVerificationSession.PURPOSE_PROFILE_LINK,
+                TelegramVerificationSession.PURPOSE_DROPSHIPPER_LINK,
+            }:
+                self._apply_profile_link_purpose(session)
+            elif purpose == TelegramVerificationSession.PURPOSE_MANAGEMENT_BIND:
+                self._apply_management_bind_purpose(session)
+            elif purpose == TelegramVerificationSession.PURPOSE_LOGIN:
+                # login — нічого тут не робимо. Сайт сам викличе complete.
+                pass
+        except Exception as exc:
+            print(f"❌ post-verify purpose action failed: {exc}")
+            import traceback
+            traceback.print_exc()
+
+    def _apply_custom_print_purpose(self, session):
+        """Legacy: оновлюємо CustomPrintLead контактні поля."""
+        lead = session.lead
+        if lead is None:
+            # best-effort оновлення UserProfile, якщо session.user
+            self._sync_user_profile_from_session(session)
+            return
+        try:
+            update_fields = []
+            lead.telegram_verified_user_id = session.telegram_user_id
+            lead.telegram_verified_username = session.telegram_username
+            lead.telegram_verified_phone = session.phone
+            lead.telegram_verified_first_name = session.telegram_first_name
+            lead.telegram_verified_last_name = session.telegram_last_name
+            lead.telegram_verified_at = session.completed_at
+            update_fields.extend([
+                "telegram_verified_user_id",
+                "telegram_verified_username",
+                "telegram_verified_phone",
+                "telegram_verified_first_name",
+                "telegram_verified_last_name",
+                "telegram_verified_at",
+            ])
+            if session.telegram_username and (
+                not lead.contact_value or "@" not in (lead.contact_value or "") or " " in (lead.contact_value or "")
+            ):
+                lead.contact_value = f"@{session.telegram_username.lstrip('@')}"
+                update_fields.append("contact_value")
+            lead.save(update_fields=list(set(update_fields)))
+        except Exception as exc:
+            print(f"❌ Failed to attach verification to lead: {exc}")
+        # окремо синхронізуємо UserProfile
+        self._sync_user_profile_from_session(session)
+
+    def _apply_profile_link_purpose(self, session):
+        """Привʼязка Telegram до UserProfile авторизованого юзера.
+
+        Якщо інший UserProfile уже має той самий telegram_id — ми його
+        відвʼязуємо (переносимо до нового користувача), щоб уникнути
+        дублювання. Це ризиковано, тому обережно: якщо існує конфлікт,
+        ми просто зберігаємо у новому профілі і не руйнуємо існуючий.
+        """
+        if not session.user_id:
+            return
+        try:
+            profile, _ = UserProfile.objects.get_or_create(user_id=session.user_id)
+
+            # Якщо existing telegram_id належить іншому профілю — забираємо.
+            tg_id = session.telegram_user_id
+            if tg_id:
+                conflicting = (
+                    UserProfile.objects
+                    .filter(telegram_id=tg_id)
+                    .exclude(user_id=session.user_id)
+                    .first()
+                )
+                if conflicting and conflicting.user_id != session.user_id:
+                    conflicting.telegram_id = None
+                    conflicting.save(update_fields=["telegram_id"])
+
+            updates = []
+            if tg_id:
+                profile.telegram_id = tg_id
+                updates.append("telegram_id")
+            if session.telegram_username:
+                profile.telegram = f"@{session.telegram_username.lstrip('@')}"
+                updates.append("telegram")
+            if session.phone:
+                profile.phone = session.phone
+                updates.append("phone")
+            if updates:
+                profile.save(update_fields=list(set(updates)))
+        except Exception as exc:
+            print(f"❌ profile_link purpose failed: {exc}")
+
+    def _apply_management_bind_purpose(self, session):
+        """Привʼязка менеджмент-бота: фіксуємо chat_id в UserProfile.
+
+        UI-логіка: користувач у management-кабінеті натискає «Привʼязати»,
+        ми створюємо verify-сесію (через основний бот). Після verify
+        у session є chat_id (це id main-бота). Ми зберігаємо chat_id для
+        management-бота окремо — оскільки це інший бот, треба отримати
+        його chat_id. Найпростіше: ми зберігаємо username Telegram,
+        а далі management-бот при першому /start користувача знайде його
+        за tg_manager_username і запише власний chat_id.
+        """
+        if not session.user_id:
+            return
+        try:
+            profile, _ = UserProfile.objects.get_or_create(user_id=session.user_id)
+            updates = []
+            if session.telegram_username:
+                profile.tg_manager_username = session.telegram_username.lstrip("@")
+                updates.append("tg_manager_username")
+            # Не пишемо tg_manager_chat_id — це чат у іншому боті.
+            # Натомість зберігаємо bind_code, щоб management-бот зміг
+            # звʼязати акаунт при /start <code>.
+            if session.metadata and isinstance(session.metadata, dict):
+                code = session.metadata.get("bind_code") or ""
+                if code:
+                    profile.tg_manager_bind_code = code
+                    updates.append("tg_manager_bind_code")
+            # Також зберігаємо phone у UserProfile.phone, якщо порожній
+            if session.phone and not profile.phone:
+                profile.phone = session.phone
+                updates.append("phone")
+            if updates:
+                profile.save(update_fields=list(set(updates)))
+        except Exception as exc:
+            print(f"❌ management_bind purpose failed: {exc}")
+
+    def _sync_user_profile_from_session(self, session):
+        if not session.user_id:
+            return
+        try:
+            profile, _ = UserProfile.objects.get_or_create(user_id=session.user_id)
+            updates = []
+            if session.phone and not profile.phone:
+                profile.phone = session.phone
+                updates.append("phone")
+            if session.telegram_user_id and not profile.telegram_id:
+                profile.telegram_id = session.telegram_user_id
+                updates.append("telegram_id")
+            if session.telegram_username and not profile.telegram:
+                profile.telegram = f"@{session.telegram_username.lstrip('@')}"
+                updates.append("telegram")
+            if updates:
+                profile.save(update_fields=list(set(updates)))
+        except Exception:
+            pass
 
     def process_any_message(self, user_id, username=None, text=''):
         """Обрабатывает любое сообщение от пользователя"""

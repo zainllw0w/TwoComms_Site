@@ -1599,6 +1599,39 @@
                           {% if user.is_manager %}Зняти менеджера{% else %}Призначити менеджером{% endif %}
                         </button>
                       </div>
+
+                      {# Расширенная информация: онлайн-статус, last_seen, методы входу #}
+                      <div class="user-presence-row">
+                        <span class="presence-dot {% if user.is_online %}is-online{% else %}is-offline{% endif %}" aria-hidden="true"></span>
+                        <span class="presence-text">
+                          {% if user.is_online %}
+                            <strong>Онлайн</strong>
+                          {% elif user.last_seen_at %}
+                            Був(ла) {{ user.last_seen_at|timesince }} тому
+                          {% else %}
+                            Ще не заходив(ла)
+                          {% endif %}
+                        </span>
+                      </div>
+                      <div class="user-presence-row" style="font-size:.78rem;color:rgba(255,255,255,.6)">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8a3 3 0 1 0 0 6 3 3 0 0 0 0-6zm0-6C5.5 2 1 6.5 1 12s4.5 10 11 10 11-4.5 11-10S18.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8z"/></svg>
+                        <span>Зареєстрований {{ user.date_joined|date:"d.m.Y" }}</span>
+                      </div>
+
+                      <div class="user-auth-badges">
+                        <span class="auth-badge {% if user.auth_methods.has_password %}is-on{% endif %}" title="Логін / пароль">
+                          <i class="fa-solid fa-key"></i>
+                          {% if user.auth_methods.has_password %}Пароль{% else %}Без пароля{% endif %}
+                        </span>
+                        <span class="auth-badge {% if user.auth_methods.google_connected %}is-on{% endif %}" title="Google">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M21.35 11.1H12v3.5h5.4c-.5 2.4-2.6 3.7-5.4 3.7-3.1 0-5.6-2.5-5.6-5.6S8.9 7.1 12 7.1c1.4 0 2.7.5 3.7 1.4l2.5-2.5C16.6 4.5 14.4 3.6 12 3.6 7.2 3.6 3.4 7.4 3.4 12.2S7.2 20.8 12 20.8c5 0 8.4-3.5 8.4-8.4 0-.6-.05-1.05-.05-1.3z"/></svg>
+                          {% if user.auth_methods.google_connected %}Google{% if user.auth_methods.google_email %} · {{ user.auth_methods.google_email|truncatechars:18 }}{% endif %}{% else %}Google ✕{% endif %}
+                        </span>
+                        <span class="auth-badge {% if user.auth_methods.telegram_connected %}is-on{% endif %}" title="Telegram">
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>
+                          {% if user.auth_methods.telegram_connected %}TG{% if user.auth_methods.telegram_username %} · {{ user.auth_methods.telegram_username|truncatechars:18 }}{% endif %}{% else %}TG ✕{% endif %}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>

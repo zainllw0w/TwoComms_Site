@@ -220,9 +220,15 @@ class TelegramVerificationSession(models.Model):
 
     PURPOSE_CUSTOM_PRINT = "custom_print"
     PURPOSE_PROFILE_LINK = "profile_link"
+    PURPOSE_LOGIN = "login"
+    PURPOSE_MANAGEMENT_BIND = "management_bind"
+    PURPOSE_DROPSHIPPER_LINK = "dropshipper_link"
     PURPOSE_CHOICES = [
         (PURPOSE_CUSTOM_PRINT, "Контакт у формі кастомного принта"),
         (PURPOSE_PROFILE_LINK, "Привʼязка профілю"),
+        (PURPOSE_LOGIN, "Вхід через Telegram"),
+        (PURPOSE_MANAGEMENT_BIND, "Привʼязка менеджмент-бота"),
+        (PURPOSE_DROPSHIPPER_LINK, "Привʼязка дропшипера"),
     ]
 
     token = models.CharField(
@@ -307,6 +313,25 @@ class TelegramVerificationSession(models.Model):
         blank=True,
         verbose_name="chat_id у боті",
     )
+
+    # Додаткові метадані (наприклад: code прив'язки menager-бота, next URL для логіна)
+    metadata = models.JSONField(
+        blank=True,
+        null=True,
+        default=dict,
+        verbose_name="Метадані сесії",
+    )
+    # Якщо purpose=LOGIN — після successful login тут лежить id користувача,
+    # під яким залогінили (новий чи existing).
+    resolved_user = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="telegram_resolved_sessions",
+        verbose_name="Користувач (визначений після верифікації)",
+    )
+    consumed_at = models.DateTimeField(null=True, blank=True, verbose_name="Використано (login виконано)")
 
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     expires_at = models.DateTimeField(verbose_name="Діє до")

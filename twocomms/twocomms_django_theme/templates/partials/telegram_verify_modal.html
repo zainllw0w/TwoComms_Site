@@ -1,0 +1,93 @@
+{% load i18n %}
+{# Універсальна модалка верифікації Telegram. Підключається в base.html
+   один раз і використовується через window.TelegramVerify.start(...). #}
+<div class="tgv-modal-overlay" data-tg-verify-modal-universal hidden role="dialog" aria-modal="true" aria-labelledby="tgv-modal-title">
+  <div class="tgv-modal-card">
+    <button type="button" class="tgv-modal-close" data-tg-verify-close aria-label="{% trans 'Закрити' %}">&times;</button>
+
+    <div class="tgv-modal-icon" aria-hidden="true">
+      <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="60" y1="4" x2="28" y2="36"/>
+        <polygon points="60 4 38 60 28 36 4 26 60 4"/>
+      </svg>
+    </div>
+
+    <h2 class="tgv-modal-title" id="tgv-modal-title" data-tg-verify-title>{% trans 'Підтвердження Telegram' %}</h2>
+    <p class="tgv-modal-subtitle" data-tg-verify-subtitle>
+      {% trans 'Натисніть «Відкрити бота TwoComms» і поділіться номером — далі ми все зробимо самі.' %}
+    </p>
+
+    {# State 1: intro #}
+    <div class="tgv-modal-state" data-tg-verify-screen="intro">
+      <ol class="tgv-modal-steps">
+        <li><span>1</span> {% trans 'Натисніть «Відкрити бота TwoComms» — ми перенесемо вас у Telegram.' %}</li>
+        <li><span>2</span> {% trans 'У боті натисніть «📱 Поділитися номером» (це кнопка під полем введення).' %}</li>
+        <li><span>3</span> {% trans 'Поверніться сюди — ми завершимо все автоматично.' %}</li>
+      </ol>
+      <div class="tgv-modal-actions">
+        <button type="button" class="tgv-modal-btn tgv-modal-btn--primary" data-tg-verify-open-bot>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+          {% trans 'Відкрити бота TwoComms' %}
+        </button>
+        <button type="button" class="tgv-modal-btn tgv-modal-btn--ghost" data-tg-verify-close>
+          {% trans 'Скасувати' %}
+        </button>
+      </div>
+      <div class="tgv-modal-note">
+        🔒 {% trans 'Ми збережемо ваш номер тільки для звʼязку. Без розсилок і третіх осіб.' %}
+      </div>
+    </div>
+
+    {# State 2: waiting #}
+    <div class="tgv-modal-state" data-tg-verify-screen="waiting" hidden>
+      <div class="tgv-modal-spinner" aria-hidden="true"><span></span><span></span><span></span></div>
+      <h3 class="tgv-modal-headline">{% trans 'Очікуємо ваш контакт у боті…' %}</h3>
+      <p class="tgv-modal-subline">{% trans 'У відкритому Telegram-боті натисніть кнопку «📱 Поділитися номером».' %}</p>
+      <div class="tgv-modal-timer" data-tg-verify-timer>05:00</div>
+      <div class="tgv-modal-actions">
+        <button type="button" class="tgv-modal-btn tgv-modal-btn--secondary" data-tg-verify-reopen-bot>
+          {% trans 'Відкрити бота ще раз' %}
+        </button>
+        <button type="button" class="tgv-modal-btn tgv-modal-btn--ghost" data-tg-verify-cancel>
+          {% trans 'Скасувати' %}
+        </button>
+      </div>
+      <div class="tgv-modal-note">
+        💡 {% trans 'Якщо бот не відкрився — скопіюйте посилання:' %}
+        <button type="button" class="tgv-modal-link" data-tg-verify-copy-link>{% trans 'Скопіювати посилання' %}</button>
+      </div>
+    </div>
+
+    {# State 3: success #}
+    <div class="tgv-modal-state" data-tg-verify-screen="success" hidden>
+      <div class="tgv-modal-success-icon" aria-hidden="true">✅</div>
+      <h3 class="tgv-modal-headline">{% trans 'Telegram підтверджено!' %}</h3>
+      <p class="tgv-modal-subline" data-tg-verify-success-meta></p>
+      <div class="tgv-modal-actions">
+        <button type="button" class="tgv-modal-btn tgv-modal-btn--primary" data-tg-verify-continue data-tg-verify-close>
+          {% trans 'Готово' %}
+        </button>
+      </div>
+    </div>
+
+    {# State 4: error #}
+    <div class="tgv-modal-state" data-tg-verify-screen="error" hidden>
+      <div class="tgv-modal-error-icon" aria-hidden="true">⏱</div>
+      <h3 class="tgv-modal-headline" data-tg-verify-error-title>{% trans 'Сесія завершилась' %}</h3>
+      <p class="tgv-modal-subline" data-tg-verify-error-message>
+        {% trans 'Спробуйте ще раз — нова сесія діятиме 5 хвилин.' %}
+      </p>
+      <div class="tgv-modal-actions">
+        <button type="button" class="tgv-modal-btn tgv-modal-btn--primary" data-tg-verify-retry>
+          {% trans 'Спробувати ще раз' %}
+        </button>
+        <button type="button" class="tgv-modal-btn tgv-modal-btn--ghost" data-tg-verify-close>
+          {% trans 'Закрити' %}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

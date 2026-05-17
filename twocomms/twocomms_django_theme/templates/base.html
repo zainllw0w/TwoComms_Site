@@ -847,6 +847,10 @@
 
   {% block extra_css %}{% endblock %}
 
+  <link rel="stylesheet" href="{% static 'css/telegram-verify.css' %}"
+        media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="{% static 'css/telegram-verify.css' %}"></noscript>
+
   {% comment %}
   Phase 21 (2026-05-10) — inline Organization JSON-LD removed.
   The single source of truth is now ``{% organization_schema %}`` (see
@@ -1486,6 +1490,10 @@
   {% endif %}
 
   {% block extra_js %}{% endblock %}
+
+  {# Універсальна модалка верифікації Telegram + JS-контролер #}
+  {% include 'partials/telegram_verify_modal.html' %}
+  <script defer src="{% static 'js/telegram-verify.js' %}?v=20260517"></script>
 
   <!-- Favorites visibility rules moved to static/css/cls-ultimate.css (2026-04-20). -->
 
