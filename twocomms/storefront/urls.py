@@ -87,19 +87,23 @@ urlpatterns = [
         ),
         name='catalog_pagination_legacy',
     ),
-    path('catalog/<slug:cat_slug>/', views.catalog, name='catalog_by_cat'),
-    path(
-        'catalog/<slug:cat_slug>/<slug:color_slug>/',
-        views.category_color_landing,
-        name='catalog_by_cat_color',
-    ),
     # SEO molecular-upgrade US-5 (2026-05-16) — thematic landings.
+    # MUST be defined BEFORE ``catalog/<slug:cat_slug>/`` because Django
+    # URL routing is order-sensitive and the slug pattern would
+    # otherwise capture ``theme`` as ``cat_slug`` and ``military`` as
+    # ``color_slug``, returning 404 from the colour-landing view.
     # See ``views.catalog.thematic_landing`` for the keyword-match
     # algorithm and editorial copy table.
     path(
         'catalog/theme/<slug:theme_slug>/',
         views.thematic_landing,
         name='catalog_theme_landing',
+    ),
+    path('catalog/<slug:cat_slug>/', views.catalog, name='catalog_by_cat'),
+    path(
+        'catalog/<slug:cat_slug>/<slug:color_slug>/',
+        views.category_color_landing,
+        name='catalog_by_cat_color',
     ),
     path('product/<slug:slug>/', views.product_detail, name='product'),
     # Phase 7.2 — path-style variant URLs. Up to three ``slug`` segments

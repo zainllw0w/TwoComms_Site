@@ -265,20 +265,21 @@ class ThematicLandingSitemap(Sitemap):
 
     Lists the four indexable themes (military / streetwear / patriotic /
     kharkiv-edition) registered in
-    ``storefront.views.catalog.THEMATIC_LANDINGS_CONFIG``. Each theme
-    is publishable across all three locales via i18n alternates.
+    ``storefront.views.catalog.THEMATIC_LANDINGS_CONFIG``.
+
+    Note: i18n flags intentionally disabled — thematic landings are
+    served on a single canonical URL per theme; locale switching is
+    driven by the visitor's session, not by the URL path. Enabling
+    ``i18n=True`` would emit duplicate ``<loc>`` triples that Google
+    consolidates as canonical-only-and-points-at-itself, polluting
+    the sitemap with 3x noise.
     """
 
     changefreq = 'weekly'
     priority = 0.7
     protocol = 'https'
-    i18n = True
-    alternates = True
-    x_default = True
 
     def items(self):
-        # Hard-coded theme slugs match THEMATIC_LANDINGS_CONFIG keys.
-        # Keep in sync if a new theme is added to the view module.
         return [
             'military',
             'streetwear',
