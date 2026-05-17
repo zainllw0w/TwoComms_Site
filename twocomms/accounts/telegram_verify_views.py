@@ -137,11 +137,13 @@ def _expire_old_sessions(session_key: str):
             )
 
 
+# Зберігаємо як рядкові літерали (а не як атрибути класу), щоб уникнути
+# проблем з порядком імпорту модулів і кешуванням .pyc на проді.
 _ALLOWED_PURPOSES = {
-    TelegramVerificationSession.PURPOSE_PROFILE_LINK,
-    TelegramVerificationSession.PURPOSE_LOGIN,
-    TelegramVerificationSession.PURPOSE_DROPSHIPPER_LINK,
-    TelegramVerificationSession.PURPOSE_MANAGEMENT_BIND,
+    "profile_link",
+    "login",
+    "dropshipper_link",
+    "management_bind",
 }
 
 
@@ -192,17 +194,13 @@ def telegram_verify_start(request):
         return JsonResponse({"ok": False, "error": "Невідомий purpose."}, status=400)
 
     # Авторизаційні гарантії
-    if purpose in {
-        TelegramVerificationSession.PURPOSE_PROFILE_LINK,
-        TelegramVerificationSession.PURPOSE_DROPSHIPPER_LINK,
-        TelegramVerificationSession.PURPOSE_MANAGEMENT_BIND,
-    }:
+    if purpose in {"profile_link", "dropshipper_link", "management_bind"}:
         if not request.user.is_authenticated:
             return JsonResponse(
                 {"ok": False, "error": "Потрібна авторизація."}, status=401
             )
 
-    if purpose == TelegramVerificationSession.PURPOSE_LOGIN and request.user.is_authenticated:
+    if purpose == "login" and request.user.is_authenticated:
         return JsonResponse(
             {"ok": False, "error": "Ви вже авторизовані. Перезавантажте сторінку."},
             status=400,
@@ -419,7 +417,7 @@ def telegram_login_complete(request):
     session = TelegramVerificationSession.objects.filter(token=token).first()
     if not session:
         return JsonResponse({"ok": False, "error": "session not found"}, status=404)
-    if session.purpose != TelegramVerificationSession.PURPOSE_LOGIN:
+    if session.purpose != "login":
         return JsonResponse({"ok": False, "error": "wrong purpose"}, status=400)
     if not session.is_verified:
         return JsonResponse({"ok": False, "error": "not verified yet"}, status=409)

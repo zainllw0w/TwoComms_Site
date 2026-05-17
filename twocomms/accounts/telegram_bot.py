@@ -590,19 +590,14 @@ class TelegramBot:
     def _post_verify_purpose_action(self, session):
         """Виконати дії, специфічні для purpose, після successful verify."""
         try:
-            from accounts.models import TelegramVerificationSession
-
             purpose = session.purpose
-            if purpose == TelegramVerificationSession.PURPOSE_CUSTOM_PRINT:
+            if purpose == "custom_print":
                 self._apply_custom_print_purpose(session)
-            elif purpose in {
-                TelegramVerificationSession.PURPOSE_PROFILE_LINK,
-                TelegramVerificationSession.PURPOSE_DROPSHIPPER_LINK,
-            }:
+            elif purpose in {"profile_link", "dropshipper_link"}:
                 self._apply_profile_link_purpose(session)
-            elif purpose == TelegramVerificationSession.PURPOSE_MANAGEMENT_BIND:
+            elif purpose == "management_bind":
                 self._apply_management_bind_purpose(session)
-            elif purpose == TelegramVerificationSession.PURPOSE_LOGIN:
+            elif purpose == "login":
                 # login — нічого тут не робимо. Сайт сам викличе complete.
                 pass
         except Exception as exc:
