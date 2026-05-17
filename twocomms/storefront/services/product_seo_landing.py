@@ -614,14 +614,26 @@ def _category_layout_for_product(product) -> Dict[str, Any]:
 # ----------------------------------------------------- public API
 
 def build_landing(product, *, fit_code: Optional[str] = None) -> Dict[str, Any]:
-    """Public entry point. Returns dict suitable for template context."""
-    # Admin override path.
+    """Public entry point. Returns dict suitable for template context.
+
+    SEO molecular-upgrade US-6 finishing (2026-05-17) — top_queries_items
+    now comes from ``product_search_keywords.build_product_search_keywords``
+    so every chip points at a *different* indexable URL (colour landing,
+    theme landing, design-triplet sibling, category peer, support page)
+    rather than back at the same product. The legacy
+    ``_top_queries_for_product`` is kept below as ``_legacy_top_queries``
+    for reference; remove after a few weeks of stable production.
+    """
+    from .product_search_keywords import build_product_search_keywords
+
+    chips = build_product_search_keywords(product)
+
     override = (getattr(product, "seo_bottom_html", "") or "").strip()
     if override:
         return {
             "override_html":     override,
             "landing_html":      "",
-            "top_queries_items": _top_queries_for_product(product, fit_code=fit_code),
+            "top_queries_items": chips,
             "category_layout":   _category_layout_for_product(product),
             "fit_code":          fit_code or "",
         }
@@ -629,7 +641,12 @@ def build_landing(product, *, fit_code: Optional[str] = None) -> Dict[str, Any]:
     return {
         "override_html":     "",
         "landing_html":      _build_landing_html(product, fit_code=fit_code),
-        "top_queries_items": _top_queries_for_product(product, fit_code=fit_code),
+        "top_queries_items": chips,
         "category_layout":   _category_layout_for_product(product),
         "fit_code":          fit_code or "",
     }
+
+
+# ----------------------------------------------------- legacy (will be removed)
+_legacy_top_queries = _top_queries_for_product
+

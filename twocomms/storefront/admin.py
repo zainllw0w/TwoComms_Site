@@ -144,7 +144,7 @@ class ProductAdmin(TabbedTranslationAdmin):
             'classes': ('collapse',),
         }),
         ('SEO (ручне керування)', {
-            'fields': ('seo_title', 'seo_description', 'seo_keywords', 'seo_bottom_html', 'seo_schema'),
+            'fields': ('seo_title', 'seo_description', 'seo_keywords', 'search_keywords', 'seo_bottom_html', 'seo_schema'),
             'description': (
                 'Заповніть ці поля, щоб повністю контролювати мета-теги і Schema. '
                 'AI ніколи не перезаписує ці поля автоматично.'

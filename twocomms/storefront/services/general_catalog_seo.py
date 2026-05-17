@@ -92,11 +92,62 @@ _CURATED_TOP_QUERIES: List[Dict[str, Any]] = [
 
 
 def _build_top_menu_items(categories) -> List[SimpleNamespace]:
-    return [
-        _item(label=c.name, url=f"/catalog/{c.slug}/")
-        for c in categories
-        if getattr(c, "is_active", True) and getattr(c, "slug", "")
-    ]
+    """SEO molecular-upgrade US-6 (2026-05-17) — расширенное top-menu.
+
+    Раньше показывали только категории (3 ссылки). Теперь top_menu —
+    полная карта внутренней навигации сайта со всеми SEO-ценными
+    маршрутами: категории + тематические landings + сервисные страницы
+    + бренд. Это разгружает crawl-budget (Google не должен искать
+    delivery/care/returns по нескольким страницам), повышает in-degree
+    каждой support-страницы и закрывает hub-spoke архитектуру.
+    """
+    items: List[SimpleNamespace] = []
+
+    # 1. Базовые категории (все активные).
+    for c in categories or []:
+        if getattr(c, "is_active", True) and getattr(c, "slug", ""):
+            items.append(_item(label=c.name, url=f"/catalog/{c.slug}/"))
+
+    # 2. Тематические landings (US-5).
+    items.extend([
+        _item(label=str(_("Військовий streetwear")), url="/catalog/theme/military/"),
+        _item(label=str(_("Стрітвір з кодом")), url="/catalog/theme/streetwear/"),
+        _item(label=str(_("Патріотичний одяг")), url="/catalog/theme/patriotic/"),
+        _item(label=str(_("Харківська лінія")), url="/catalog/theme/kharkiv-edition/"),
+    ])
+
+    # 3. Кастомний друк (high-intent commercial route).
+    items.append(_item(label=str(_("Кастомний DTF-друк")), url="/custom-print/"))
+
+    # 4. Сервісні сторінки — keyword-rich anchors під FAQ /
+    # «<page> + brand» інтенти.
+    items.extend([
+        _item(label=str(_("Доставка і оплата")), url="/delivery/"),
+        _item(label=str(_("Розмірна сітка")), url="/rozmirna-sitka/"),
+        _item(label=str(_("Догляд за одягом")), url="/doglyad-za-odyagom/"),
+        _item(label=str(_("Повернення та обмін")), url="/povernennya-ta-obmin/"),
+        _item(label=str(_("FAQ")), url="/faq/"),
+        _item(label=str(_("Допомога")), url="/dopomoga/"),
+    ])
+
+    # 5. B2B + бренд + контакт.
+    items.extend([
+        _item(label=str(_("Опт і дропшипінг")), url="/wholesale/"),
+        _item(label=str(_("Співпраця з брендами")), url="/cooperation/"),
+        _item(label=str(_("Про бренд TwoComms")), url="/pro-brand/"),
+        _item(label=str(_("Контакти")), url="/contacts/"),
+    ])
+
+    # Дедуп по url, на випадок якщо адмін зареєстрував категорію зі
+    # slug, що збігається з тематичним.
+    seen = set()
+    unique: List[SimpleNamespace] = []
+    for it in items:
+        if it.url in seen:
+            continue
+        seen.add(it.url)
+        unique.append(it)
+    return unique
 
 
 def _build_top_filters_items(available_colors) -> List[SimpleNamespace]:

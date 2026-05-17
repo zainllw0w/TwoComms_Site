@@ -115,16 +115,19 @@ def get_category_seo_layout(category) -> Dict[str, Any]:
     contract, not editorial priority. ``best_prices`` is returned as a
     single block (the first active one) so the template can render it
     as a real ``<table>`` element.
+
+    SEO molecular-upgrade US-6 (2026-05-17) — when ``top_menu`` is
+    empty in the DB we synthesize it from
+    ``general_catalog_seo._build_top_menu_items`` so every category
+    page gets the same broad internal-navigation set as the catalog
+    root. Admins can still override per-category by adding a real
+    ``CategorySeoBlock(top_menu)`` row.
     """
     blocks = get_category_seo_blocks(category)
-    if not blocks:
-        return {"tab_blocks": [], "best_prices": None, "has_any": False}
 
     by_type: Dict[str, Dict[str, Any]] = {}
     for entry in blocks:
         btype = entry["block"].block_type
-        # Take the first active block of each type — admins are not
-        # expected to register two ``top_filters`` for the same category.
         by_type.setdefault(btype, entry)
 
     tab_blocks: List[Dict[str, Any]] = []
@@ -132,6 +135,11 @@ def get_category_seo_layout(category) -> Dict[str, Any]:
         entry = by_type.get(btype)
         if entry and entry["items"]:
             tab_blocks.append(entry)
+            continue
+        if btype == "top_menu":
+            synthetic = _synthesize_top_menu(category)
+            if synthetic:
+                tab_blocks.append(synthetic)
 
     best_prices = by_type.get("best_prices")
     if best_prices and not best_prices["items"]:
@@ -142,3 +150,37 @@ def get_category_seo_layout(category) -> Dict[str, Any]:
         "best_prices": best_prices,
         "has_any": bool(tab_blocks or best_prices),
     }
+
+
+def _synthesize_top_menu(current_category) -> Dict[str, Any] | None:
+    """Build an in-memory ``top_menu`` block for a category page.
+
+    Re-uses ``_build_top_menu_items`` from the general catalog so the
+    same SEO-rich link list (categories + thematic + service + brand
+    + B2B) renders on every category landing without a DB row.
+    """
+    try:
+        from .general_catalog_seo import _build_top_menu_items, _block
+        from ..models import Category
+    except Exception:
+        return None
+
+    try:
+        categories = list(
+            Category.objects.filter(is_active=True).order_by("order", "id")
+        )
+    except Exception:
+        categories = []
+
+    items = _build_top_menu_items(categories)
+    if not items:
+        return None
+
+    # Drop the current category's own URL so the menu doesn't link
+    # back at itself.
+    current_url = f"/catalog/{current_category.slug}/" if current_category else ""
+    if current_url:
+        items = [it for it in items if getattr(it, "url", "") != current_url]
+
+    block = _block("top_menu", str("Розділи каталогу"))
+    return {"block": block, "items": items}

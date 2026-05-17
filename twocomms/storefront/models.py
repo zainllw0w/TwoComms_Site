@@ -615,6 +615,26 @@ class Product(models.Model):
         ),
     )
     seo_schema = models.JSONField(blank=True, default=dict, verbose_name='Structured data')
+    # SEO molecular-upgrade US-6 (2026-05-17) — admin-editable per-product
+    # search-keywords used by the «Часті пошуки» strip on PDP. Each item
+    # is a dict with ``label``, ``url``, optional ``weight`` (sort order,
+    # higher first). Custom items always rendered before auto-generated
+    # ones so the admin can curate the strip without losing the auto fallback.
+    #
+    # Stored as a flat list of dicts: ``[{"label": "...", "url": "...",
+    # "weight": 100, "description": ""}, ...]``. The url MUST be an
+    # internal absolute path or relative to root (e.g. /catalog/tshirts/).
+    # Validation lives in ``storefront.services.product_search_keywords``.
+    search_keywords = models.JSONField(
+        blank=True,
+        default=list,
+        verbose_name='Часті пошуки (manual override)',
+        help_text=(
+            'Список словників [{"label": "купити чорну футболку оверсайз", '
+            '"url": "/catalog/tshirts/black/", "weight": 100}]. '
+            'Auto-generated chips додаються після manual.'
+        ),
+    )
     recommendation_tags = models.JSONField(blank=True, default=list, verbose_name='Теги рекомендацій')
 
     # Дропшип цены
