@@ -127,10 +127,13 @@ from storefront.services.google_indexing import (
     NOTIFICATION_URL_UPDATED,
     get_daily_quota,
     get_google_indexing_status,
+    get_quota_summary,
+    get_quota_window_hours,
     get_recent_submissions,
-    get_today_summary,
+    get_quota_summary,
     get_urls_already_submitted_today,
     get_urls_successful_in_last_days,
+    get_urls_successful_in_last_hours,
     is_google_indexing_configured,
     submit_google_indexing_urls,
 )
@@ -2218,6 +2221,13 @@ def admin_google_indexing_submit(request):
     except (TypeError, ValueError):
         skip_recent_days = 0
     skip_recent_days = max(0, min(60, skip_recent_days))
+    try:
+        skip_recent_hours = int(payload.get('skip_recent_hours') or 0)
+    except (TypeError, ValueError):
+        skip_recent_hours = 0
+    # Cap at 60 days = 1440 hours. Lets ops express "skip last week" /
+    # "skip last 12h" without giving them a way to brick the queue.
+    skip_recent_hours = max(0, min(1440, skip_recent_hours))
 
     try:
         ids = [int(value) for value in raw_ids if str(value).strip()]
@@ -2270,16 +2280,17 @@ def admin_google_indexing_submit(request):
 
     if dry_run:
         # Preview-only mode — used by the JS panel to confirm size
-        # before firing real requests.
-        # Effective rotation window: explicit days override the
-        # legacy "today only" toggle but the latter still works as
-        # a shorthand for "days=1".
-        effective_days = skip_recent_days
-        if skip_existing and effective_days < 1:
-            effective_days = 1
-        if effective_days > 0:
-            already_filter = get_urls_successful_in_last_days(
-                urls, days=effective_days, notification_type=notification
+        # before firing real requests. ``skip_recent_hours`` is the
+        # canonical knob; legacy ``skip_existing`` / ``skip_recent_days``
+        # widen the window if larger.
+        effective_hours = skip_recent_hours
+        if skip_existing and effective_hours < get_quota_window_hours():
+            effective_hours = get_quota_window_hours()
+        if skip_recent_days > 0 and effective_hours < skip_recent_days * 24:
+            effective_hours = skip_recent_days * 24
+        if effective_hours > 0:
+            already_filter = get_urls_successful_in_last_hours(
+                urls, hours=effective_hours, notification_type=notification
             )
         else:
             already_filter = set()
@@ -2290,15 +2301,15 @@ def admin_google_indexing_submit(request):
             'preview': urls[:25],
             'snapshot': snapshot_meta,
             'skip_existing_count': len(already_filter),
-            'skip_recent_days': effective_days,
-            'summary': get_today_summary(),
+            'skip_recent_hours': effective_hours,
+            'summary': get_quota_summary(),
             'message': f'Готово до відправки: {len(urls) - len(already_filter)} URL '
-                       f'(пропущено за {effective_days or 0} днів: {len(already_filter)}).',
+                       f'(пропущено за {effective_hours} год: {len(already_filter)}).',
         })
 
     quota_limit = None
     if respect_quota:
-        summary = get_today_summary()
+        summary = get_quota_summary()
         remaining = max(0, int(summary.get('remaining_quota') or 0))
         quota_limit = remaining
 
@@ -2308,6 +2319,7 @@ def admin_google_indexing_submit(request):
         source='admin',
         skip_already_submitted_today=skip_existing,
         skip_recent_success_days=skip_recent_days,
+        skip_recent_success_hours=skip_recent_hours,
         quota_limit=quota_limit,
     )
     return JsonResponse(
@@ -2320,7 +2332,7 @@ def admin_google_indexing_submit(request):
             'failures': result.get('failures', []),
             'notification': notification,
             'snapshot': snapshot_meta,
-            'summary': get_today_summary(),
+            'summary': get_quota_summary(),
             'message': result.get(
                 'message',
                 f'Google Indexing API: {result.get("submitted", 0)}/{len(urls)} URL.',
@@ -2339,8 +2351,10 @@ def admin_google_indexing_preview(request):
     Query params:
         ``groups``            — comma-separated subset of ALL_GROUPS.
         ``languages``         — comma-separated subset of LANGUAGES.
-        ``skip_recent_days``  — rolling window (0-60) of days to dedupe
-                                successful submissions against.
+        ``skip_recent_hours`` — rolling window (0-1440) of hours to
+                                dedupe successful submissions against.
+                                Falls back to ``skip_recent_days*24``
+                                for legacy clients.
     """
     if request.method != 'GET':
         return JsonResponse({'success': False, 'error': 'Method not allowed'}, status=405)
@@ -2350,24 +2364,33 @@ def admin_google_indexing_preview(request):
     groups = [g.strip() for g in groups_raw.split(',') if g.strip()] or list(ALL_GROUPS)
     languages = [l.strip() for l in langs_raw.split(',') if l.strip()] or get_supported_languages()
     try:
-        skip_recent_days = int(request.GET.get('skip_recent_days') or 0)
+        skip_recent_hours = int(request.GET.get('skip_recent_hours') or 0)
     except (TypeError, ValueError):
-        skip_recent_days = 0
-    skip_recent_days = max(0, min(60, skip_recent_days))
+        skip_recent_hours = 0
+    if not skip_recent_hours:
+        try:
+            days_legacy = int(request.GET.get('skip_recent_days') or 0)
+        except (TypeError, ValueError):
+            days_legacy = 0
+        skip_recent_hours = max(0, days_legacy) * 24
+    skip_recent_hours = max(0, min(1440, skip_recent_hours))
 
     snapshot = build_targets(groups=groups, languages=languages)
     all_urls = snapshot.all_urls
-    already_today = get_urls_already_submitted_today(
-        all_urls, notification_type=NOTIFICATION_URL_UPDATED,
+    quota_window = get_quota_window_hours()
+    already_window_24h = get_urls_successful_in_last_hours(
+        all_urls,
+        hours=quota_window,
+        notification_type=NOTIFICATION_URL_UPDATED,
     )
-    if skip_recent_days > 0:
-        already_window = get_urls_successful_in_last_days(
+    if skip_recent_hours > 0:
+        already_window = get_urls_successful_in_last_hours(
             all_urls,
-            days=skip_recent_days,
+            hours=skip_recent_hours,
             notification_type=NOTIFICATION_URL_UPDATED,
         )
     else:
-        already_window = set(already_today)
+        already_window = set(already_window_24h)
 
     pending = [u for u in all_urls if u not in already_window]
 
@@ -2378,12 +2401,13 @@ def admin_google_indexing_preview(request):
         'group_labels': GROUP_LABELS,
         'supported_languages': get_supported_languages(),
         'default_language': get_default_language(),
-        'already_submitted_today': len(already_today),
+        'already_submitted_today': len(already_window_24h),
         'already_in_window': len(already_window),
-        'skip_recent_days': skip_recent_days,
+        'skip_recent_hours': skip_recent_hours,
+        'quota_window_hours': quota_window,
         'pending_count': len(pending),
         'pending_preview': pending[:20],
-        'summary': get_today_summary(),
+        'summary': get_quota_summary(),
     })
     return JsonResponse(result)
 
@@ -2427,10 +2451,16 @@ def admin_google_indexing_resolve(request):
         )
 
     try:
-        skip_recent_days = int(payload.get('skip_recent_days') or 0)
+        skip_recent_hours = int(payload.get('skip_recent_hours') or 0)
     except (TypeError, ValueError):
-        skip_recent_days = 0
-    skip_recent_days = max(0, min(60, skip_recent_days))
+        skip_recent_hours = 0
+    if not skip_recent_hours:
+        try:
+            legacy_days = int(payload.get('skip_recent_days') or 0)
+        except (TypeError, ValueError):
+            legacy_days = 0
+        skip_recent_hours = max(0, legacy_days) * 24
+    skip_recent_hours = max(0, min(1440, skip_recent_hours))
 
     respect_quota = bool(payload.get('respect_quota'))
     explicit_urls = payload.get('urls') or None
@@ -2445,18 +2475,18 @@ def admin_google_indexing_resolve(request):
 
     all_urls = list(dict.fromkeys(all_urls))
 
-    # Filter by rotation window.
+    # Filter by rotation window (rolling hours).
     skipped_recent = 0
-    if skip_recent_days > 0:
-        already = get_urls_successful_in_last_days(
-            all_urls, days=skip_recent_days, notification_type=notification,
+    if skip_recent_hours > 0:
+        already = get_urls_successful_in_last_hours(
+            all_urls, hours=skip_recent_hours, notification_type=notification,
         )
         if already:
             skipped_recent = len(already)
             all_urls = [u for u in all_urls if u not in already]
 
-    # Cap by today's remaining quota.
-    summary = get_today_summary()
+    # Cap by current rolling-quota remaining.
+    summary = get_quota_summary()
     remaining = max(0, int(summary.get('remaining_quota') or 0))
     skipped_quota = 0
     if respect_quota and remaining < len(all_urls):
@@ -2479,8 +2509,11 @@ def admin_google_indexing_resolve(request):
         'snapshot': snapshot_meta,
         'skipped_recent': skipped_recent,
         'skipped_quota': skipped_quota,
-        'skip_recent_days': skip_recent_days,
+        'skip_recent_hours': skip_recent_hours,
         'remaining_quota': remaining,
+        'can_submit_now': bool(summary.get('can_submit_now')),
+        'quota_resets_at': summary.get('quota_resets_at'),
+        'next_slot_in_seconds': summary.get('next_slot_in_seconds'),
         'summary': summary,
     })
 
@@ -2549,34 +2582,41 @@ def admin_google_indexing_history(request):
             'error_message': (row['error_message'] or '')[:300],
         })
 
-    summary = get_today_summary()
+    summary = get_quota_summary()
 
-    # Per-group breakdown for today (using the canonical target builder).
+    # Per-group breakdown over the rolling quota window (default 24h).
     group_breakdown = []
-    today = summary.get('today')
-    if today:
-        from storefront.services.index_targets import (
-            ALL_GROUPS as TGT_GROUPS,
-            GROUP_LABELS as TGT_LABELS,
-            build_targets,
+    from storefront.services.index_targets import (
+        ALL_GROUPS as TGT_GROUPS,
+        GROUP_LABELS as TGT_LABELS,
+        build_targets,
+    )
+    from datetime import timedelta
+    from django.utils import timezone as djtz
+    window_hours = int(summary.get('window_hours') or 24)
+    cutoff = djtz.now() - timedelta(hours=window_hours)
+    snapshot = build_targets()
+    for group in TGT_GROUPS:
+        urls = snapshot.per_group.get(group) or []
+        if not urls:
+            continue
+        sent_in_window = (
+            GoogleIndexingSubmission.objects
+            .filter(submitted_at__gte=cutoff, url__in=urls, status='success')
+            .values('url').distinct().count()
         )
-        snapshot = build_targets()
-        for group in TGT_GROUPS:
-            urls = snapshot.per_group.get(group) or []
-            if not urls:
-                continue
-            sent_today = (
-                GoogleIndexingSubmission.objects
-                .filter(submission_date=today, url__in=urls, status='success')
-                .values('url').distinct().count()
-            )
-            group_breakdown.append({
-                'group': group,
-                'label': TGT_LABELS.get(group, group),
-                'total': len(urls),
-                'submitted_today': sent_today,
-                'pending_today': max(0, len(urls) - sent_today),
-            })
+        group_breakdown.append({
+            'group': group,
+            'label': TGT_LABELS.get(group, group),
+            'total': len(urls),
+            # Keep ``submitted_today`` / ``pending_today`` for legacy
+            # JS that still reads those keys; the numbers now reflect
+            # the rolling 24h window.
+            'submitted_today': sent_in_window,
+            'pending_today': max(0, len(urls) - sent_in_window),
+            'submitted_in_window': sent_in_window,
+            'pending_in_window': max(0, len(urls) - sent_in_window),
+        })
 
     return JsonResponse({
         'success': True,

@@ -508,31 +508,44 @@
       </div>
     </div>
 
-    {# ---------- Top stats: today's quota, throughput, last submission ---------- #}
+    {# ---------- Top stats: rolling-quota, throughput, ETA to free slot ---------- #}
     <div class="seo-indexing__stats">
       <div class="seo-indexing__stat is-quota">
         <span class="seo-indexing__stat-value" data-gix-stat="remaining">{{ indexing_status.google.summary.remaining_quota|default:"—" }}</span>
-        <span class="seo-indexing__stat-label">Залишок квоти на {{ indexing_status.google.summary.today|default:"сьогодні" }}</span>
+        <span class="seo-indexing__stat-label">Залишок квоти (rolling 24h)</span>
         <div class="seo-indexing__progress" aria-hidden="true">
-          {% with submitted=indexing_status.google.summary.submitted_today|default:0 quota=indexing_status.google.summary.quota|default:200 %}
+          {% with submitted=indexing_status.google.summary.submitted_in_window|default:0 quota=indexing_status.google.summary.quota|default:200 %}
             <div class="seo-indexing__progress-fill" data-gix-progress style="width: {% widthratio submitted quota 100 %}%"></div>
           {% endwith %}
         </div>
         <span class="seo-indexing__stat-hint">
-          з ліміту <span data-gix-stat="quota">{{ indexing_status.google.summary.quota|default:200 }}</span>/добу
+          з ліміту <span data-gix-stat="quota">{{ indexing_status.google.summary.quota|default:200 }}</span> / 24 год
         </span>
       </div>
       <div class="seo-indexing__stat">
-        <span class="seo-indexing__stat-value" data-gix-stat="submitted">{{ indexing_status.google.summary.submitted_today|default:0 }}</span>
-        <span class="seo-indexing__stat-label">Відправлено за сьогодні</span>
+        <span class="seo-indexing__stat-value" data-gix-stat="submitted">{{ indexing_status.google.summary.submitted_in_window|default:0 }}</span>
+        <span class="seo-indexing__stat-label">Відправлено за {{ indexing_status.google.summary.window_hours|default:24 }} год</span>
       </div>
       <div class="seo-indexing__stat is-success">
-        <span class="seo-indexing__stat-value" data-gix-stat="success">{{ indexing_status.google.summary.succeeded_today|default:0 }}</span>
+        <span class="seo-indexing__stat-value" data-gix-stat="success">{{ indexing_status.google.summary.succeeded_in_window|default:0 }}</span>
         <span class="seo-indexing__stat-label">Прийнято Google</span>
       </div>
-      <div class="seo-indexing__stat is-error">
-        <span class="seo-indexing__stat-value" data-gix-stat="failed">{{ indexing_status.google.summary.failed_today|default:0 }}</span>
-        <span class="seo-indexing__stat-label">Помилок</span>
+      <div class="seo-indexing__stat {% if indexing_status.google.summary.can_submit_now %}is-success{% else %}is-error{% endif %}"
+           data-gix-eta-tile
+           data-gix-can-submit="{{ indexing_status.google.summary.can_submit_now|yesno:'1,0' }}"
+           data-gix-resets-at="{{ indexing_status.google.summary.quota_resets_at|default:'' }}">
+        <span class="seo-indexing__stat-value" data-gix-eta>
+          {% if indexing_status.google.summary.can_submit_now %}можна
+          {% else %}—:—:—{% endif %}
+        </span>
+        <span class="seo-indexing__stat-label">
+          <span data-gix-eta-label>
+            {% if indexing_status.google.summary.can_submit_now %}можна запускати{% else %}наступний слот через{% endif %}
+          </span>
+        </span>
+        <span class="seo-indexing__stat-hint" data-gix-eta-when>
+          {% if indexing_status.google.summary.can_submit_now %}квота вільна{% else %}{{ indexing_status.google.summary.quota_resets_at|default:'' }}{% endif %}
+        </span>
       </div>
     </div>
 
@@ -599,20 +612,22 @@
 
           <label class="seo-indexing__form-title" style="margin-top: 0.7rem;">Ротація · пропускати за останні</label>
           <div class="seo-indexing__rotation">
-            <input type="number" id="gix-skip-days" min="0" max="60" step="1" value="1" class="seo-indexing__input seo-indexing__rotation-input">
-            <span class="seo-indexing__rotation-suffix">днів</span>
+            <input type="number" id="gix-skip-hours" min="0" max="1440" step="1" value="24" class="seo-indexing__input seo-indexing__rotation-input">
+            <span class="seo-indexing__rotation-suffix">годин</span>
             <div class="seo-indexing__rotation-presets">
-              <button type="button" class="seo-indexing__chip is-static" data-gix-days="0">0 (відключено)</button>
-              <button type="button" class="seo-indexing__chip is-static" data-gix-days="1">1 (сьогодні)</button>
-              <button type="button" class="seo-indexing__chip is-static" data-gix-days="3">3 (ротація 600/200)</button>
-              <button type="button" class="seo-indexing__chip is-static" data-gix-days="7">7 (тиждень)</button>
-              <button type="button" class="seo-indexing__chip is-static" data-gix-days="30">30 (місяць)</button>
+              <button type="button" class="seo-indexing__chip is-static" data-gix-hours="0">0 (відключено)</button>
+              <button type="button" class="seo-indexing__chip is-static" data-gix-hours="6">6 год</button>
+              <button type="button" class="seo-indexing__chip is-static" data-gix-hours="12">12 год</button>
+              <button type="button" class="seo-indexing__chip is-static is-active" data-gix-hours="24">24 год (квота)</button>
+              <button type="button" class="seo-indexing__chip is-static" data-gix-hours="48">48 год</button>
+              <button type="button" class="seo-indexing__chip is-static" data-gix-hours="72">72 год</button>
+              <button type="button" class="seo-indexing__chip is-static" data-gix-hours="168">168 год (тиждень)</button>
             </div>
             <p class="seo-indexing__rotation-hint">
-              При <code>0</code> система не звертає уваги на історію.
-              При <code>1</code> пропускає лише сьогодні.
-              <strong>Для 600+ URL з лімітом 200/добу — ставте <code>3</code></strong> і запускайте 3 дні поспіль:
-              кожен день індексується свіжа третина каталогу.
+              Google рахує квоту як <strong>rolling-window 24 години</strong> — слот, зайнятий запитом о 14:00, звільняється о 14:00 наступної доби.
+              При <code>24</code> панель пропускає всі URL, що вже відправлені у поточному вікні (не дублює квоту).
+              Для розкатки 600+ URL з лімітом 200/добу ставте <code>24</code> і запускайте раз на добу — кожен запуск піде свіжими URL.
+              Таймер «наступний слот» показує, коли можна запускати знову.
             </p>
           </div>
 

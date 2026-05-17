@@ -139,6 +139,25 @@ def get_daily_quota() -> int:
     return max(1, value)
 
 
+def get_quota_window_hours() -> int:
+    """Length (in hours) of the rolling quota window we enforce client-side.
+
+    Google's documented quota is "200 publish requests per 24 hours per
+    project" — but they enforce it as a rolling window: the slot used
+    by request *r* frees up exactly 24h after ``r.submitted_at``. We
+    mirror that rather than a calendar-day reset so the admin sees a
+    truthful "next slot at 14:23" countdown instead of "after midnight".
+    Override via ``settings.GOOGLE_INDEXING_QUOTA_WINDOW_HOURS`` if
+    Google ever changes the policy.
+    """
+    raw = getattr(settings, "GOOGLE_INDEXING_QUOTA_WINDOW_HOURS", 24)
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        value = 24
+    return max(1, value)
+
+
 # ---------------------------------------------------------------------------
 # Submission audit log helpers (Phase 22)
 # ---------------------------------------------------------------------------
@@ -160,28 +179,57 @@ def get_today() -> "date":  # noqa: F821
     return djtz.localdate()
 
 
+def _now_aware():
+    from django.utils import timezone as djtz
+    return djtz.now()
+
+
 def get_urls_already_submitted_today(
     urls: Iterable[str],
     *,
     notification_type: str = NOTIFICATION_URL_UPDATED,
 ) -> set[str]:
-    """Return URLs that already have a successful submission for today.
+    """Backwards-compat wrapper: dedupe by the configured rolling window.
 
-    Used to deduplicate manual bulk reruns so we don't burn quota on
-    pages Google has already accepted in this calendar day.
+    Now delegates to :func:`get_urls_successful_in_last_hours` with the
+    quota window (default 24h) so callers that historically said
+    "skip already-submitted today" automatically benefit from the
+    rolling-window precision.
     """
+    return get_urls_successful_in_last_hours(
+        urls,
+        hours=get_quota_window_hours(),
+        notification_type=notification_type,
+    )
+
+
+def get_urls_successful_in_last_hours(
+    urls: Iterable[str],
+    *,
+    hours: int,
+    notification_type: str = NOTIFICATION_URL_UPDATED,
+) -> set[str]:
+    """Return URLs with a successful submission in the last ``hours`` hours.
+
+    Uses ``submitted_at`` (the precise UTC timestamp), not the calendar
+    ``submission_date``, so 24-hour math lines up with Google's rolling
+    quota window. ``hours <= 0`` is a no-op.
+    """
+    if hours <= 0:
+        return set()
     try:
         from storefront.models import GoogleIndexingSubmission
-    except Exception:  # pragma: no cover - defensive (model may not be migrated yet)
+    except Exception:  # pragma: no cover - defensive
         return set()
 
     url_list = [u for u in urls if u]
     if not url_list:
         return set()
 
-    today = get_today()
+    from datetime import timedelta
+    cutoff = _now_aware() - timedelta(hours=hours)
     qs = GoogleIndexingSubmission.objects.filter(
-        submission_date=today,
+        submitted_at__gte=cutoff,
         notification_type=notification_type,
         status="success",
         url__in=url_list,
@@ -195,69 +243,122 @@ def get_urls_successful_in_last_days(
     days: int,
     notification_type: str = NOTIFICATION_URL_UPDATED,
 ) -> set[str]:
-    """Return URLs that had a successful submission in the last ``days`` days
-    (calendar days, inclusive of today).
+    """Backwards-compat alias for :func:`get_urls_successful_in_last_hours`.
 
-    ``days=0`` is a no-op (returns empty set).
-    ``days=1`` means "today only" — equivalent to
-    :func:`get_urls_already_submitted_today` but allows arbitrary
-    rolling windows so the operator can build a "send a different
-    third of the catalog every day" rotation.
+    ``days=N`` is treated as ``hours=N*24`` so existing callers still
+    work after the rolling-window switch.
     """
     if days <= 0:
         return set()
+    return get_urls_successful_in_last_hours(
+        urls,
+        hours=int(days) * 24,
+        notification_type=notification_type,
+    )
+
+
+def get_quota_summary() -> dict[str, Any]:
+    """Rolling-window quota snapshot for the admin dashboard.
+
+    Returns the current state of the 24-hour Google indexing quota:
+    how many submissions counted toward it, when the next slot frees
+    up, and whether a new run can start *right now*.
+    """
+    quota = get_daily_quota()
+    window_hours = get_quota_window_hours()
+    fallback = {
+        "now": _now_aware().isoformat(),
+        "quota": quota,
+        "window_hours": window_hours,
+        "submitted_in_window": 0,
+        "succeeded_in_window": 0,
+        "failed_in_window": 0,
+        "remaining_quota": quota,
+        "can_submit_now": True,
+        "oldest_submission_at": None,
+        "quota_resets_at": None,
+        "next_slot_at": None,
+        "next_slot_in_seconds": 0,
+        "last_submitted_at": None,
+        # Legacy keys (kept so existing front-end code keeps working
+        # until the new fields are wired everywhere).
+        "today": str(get_today()),
+        "submitted_today": 0,
+        "succeeded_today": 0,
+        "failed_today": 0,
+    }
+
     try:
         from storefront.models import GoogleIndexingSubmission
     except Exception:  # pragma: no cover
-        return set()
-
-    url_list = [u for u in urls if u]
-    if not url_list:
-        return set()
+        return fallback
 
     from datetime import timedelta
-    cutoff = get_today() - timedelta(days=max(0, days - 1))
-    qs = GoogleIndexingSubmission.objects.filter(
-        submission_date__gte=cutoff,
-        notification_type=notification_type,
-        status="success",
-        url__in=url_list,
-    ).values_list("url", flat=True)
-    return set(qs)
+    now = _now_aware()
+    cutoff = now - timedelta(hours=window_hours)
+
+    qs = GoogleIndexingSubmission.objects.filter(submitted_at__gte=cutoff)
+    in_window = list(
+        qs.order_by("submitted_at").values_list("submitted_at", "status")
+    )
+    submitted_in_window = len(in_window)
+    succeeded_in_window = sum(1 for _, s in in_window if s == "success")
+    failed_in_window = submitted_in_window - succeeded_in_window
+    remaining = max(0, quota - submitted_in_window)
+    can_submit_now = remaining > 0
+
+    oldest_at = in_window[0][0] if in_window else None
+    last_at = in_window[-1][0] if in_window else None
+    quota_resets_at = (oldest_at + timedelta(hours=window_hours)) if oldest_at else None
+    if can_submit_now:
+        next_slot_at = now
+        next_slot_in_seconds = 0
+    elif quota_resets_at:
+        next_slot_at = quota_resets_at
+        next_slot_in_seconds = max(0, int((quota_resets_at - now).total_seconds()))
+    else:
+        next_slot_at = None
+        next_slot_in_seconds = 0
+
+    # Legacy "today" stats — preserved for any consumer that still
+    # reads ``submitted_today`` / ``succeeded_today``.
+    today = get_today()
+    today_qs = GoogleIndexingSubmission.objects.filter(submission_date=today)
+    submitted_today = today_qs.count()
+    succeeded_today = today_qs.filter(status="success").count()
+    failed_today = submitted_today - succeeded_today
+
+    return {
+        "now": now.isoformat(),
+        "quota": quota,
+        "window_hours": window_hours,
+        "submitted_in_window": submitted_in_window,
+        "succeeded_in_window": succeeded_in_window,
+        "failed_in_window": failed_in_window,
+        "remaining_quota": remaining,
+        "can_submit_now": can_submit_now,
+        "oldest_submission_at": oldest_at.isoformat() if oldest_at else None,
+        "quota_resets_at": quota_resets_at.isoformat() if quota_resets_at else None,
+        "next_slot_at": next_slot_at.isoformat() if next_slot_at else None,
+        "next_slot_in_seconds": next_slot_in_seconds,
+        "last_submitted_at": last_at.isoformat() if last_at else None,
+        # Legacy.
+        "today": str(today),
+        "submitted_today": submitted_today,
+        "succeeded_today": succeeded_today,
+        "failed_today": failed_today,
+    }
 
 
 def get_today_summary() -> dict[str, Any]:
-    """Quota/throughput snapshot for the admin dashboard."""
-    try:
-        from storefront.models import GoogleIndexingSubmission
-    except Exception:  # pragma: no cover
-        return {
-            "today": str(get_today()),
-            "quota": get_daily_quota(),
-            "submitted_today": 0,
-            "succeeded_today": 0,
-            "failed_today": 0,
-            "remaining_quota": get_daily_quota(),
-            "last_submitted_at": None,
-        }
+    """Backwards-compat alias for :func:`get_quota_summary`.
 
-    today = get_today()
-    qs = GoogleIndexingSubmission.objects.filter(submission_date=today)
-    total = qs.count()
-    succeeded = qs.filter(status="success").count()
-    failed = total - succeeded
-    last = qs.order_by("-submitted_at").values_list("submitted_at", flat=True).first()
-
-    quota = get_daily_quota()
-    return {
-        "today": str(today),
-        "quota": quota,
-        "submitted_today": total,
-        "succeeded_today": succeeded,
-        "failed_today": failed,
-        "remaining_quota": max(0, quota - total),
-        "last_submitted_at": last.isoformat() if last else None,
-    }
+    Older callers expected the legacy "calendar today" semantics; the
+    summary still includes ``submitted_today`` etc. for them, but the
+    canonical numbers are now ``submitted_in_window`` /
+    ``remaining_quota`` driven by the rolling 24h window.
+    """
+    return get_quota_summary()
 
 
 def get_recent_submissions(*, limit: int = 50) -> list[dict[str, Any]]:
@@ -498,6 +599,7 @@ def submit_google_indexing_urls(
     source: str = "",
     skip_already_submitted_today: bool = False,
     skip_recent_success_days: int = 0,
+    skip_recent_success_hours: int = 0,
     quota_limit: int | None = None,
 ) -> dict[str, Any]:
     """Submit a list of URLs to the Google Indexing API.
@@ -508,19 +610,15 @@ def submit_google_indexing_urls(
         timeout / retries: HTTP knobs (defaults via ``settings``).
         source: short label that ends up in the audit log
             (e.g. ``"admin"``, ``"signal"``, ``"cron"``).
-        skip_already_submitted_today: when True, URLs that already have
-            a *successful* submission for today are dropped before any
-            HTTP call. Use this for manual bulk reruns so the daily
-            quota is not burned on duplicates.
-        skip_recent_success_days: when >0, drop URLs that had any
-            successful submission in the rolling window of N calendar
-            days (inclusive of today). Lets the operator rotate a
-            large catalog over multiple days inside the daily quota.
-            ``1`` is equivalent to ``skip_already_submitted_today``.
+        skip_already_submitted_today: legacy shortcut — equivalent to
+            ``skip_recent_success_hours=24`` (the configured quota window).
+        skip_recent_success_days: legacy knob, treated as ``hours = days*24``.
+        skip_recent_success_hours: rolling-window dedupe in *hours*.
+            URLs with a successful submission inside that window are
+            dropped before any HTTP call so the daily quota is not
+            burned on duplicates. ``0`` disables the filter.
         quota_limit: if set, caps the number of HTTP calls so the
-            daily Google quota is not exceeded. Combined with
-            the skip-flags above it lets the admin keep sending until
-            the quota is empty without retrying URLs.
+            rolling Google quota is not exceeded.
 
     Returns a dict::
 
@@ -577,16 +675,21 @@ def submit_google_indexing_urls(
         }
 
     skipped_already = 0
-    # Combine the two skip-by-history switches: ``days`` is the
-    # canonical knob, ``skip_already_submitted_today`` is just shorthand
-    # for "1 day". Take the larger window when both are passed so the
-    # caller never indexes a URL inside the explicit rotation window.
-    effective_days = int(skip_recent_success_days or 0)
-    if skip_already_submitted_today and effective_days < 1:
-        effective_days = 1
-    if effective_days > 0:
-        already = get_urls_successful_in_last_days(
-            normalized, days=effective_days, notification_type=notification_type
+    # Combine the three skip-by-history switches:
+    #   * skip_recent_success_hours — canonical (rolling-hours window).
+    #   * skip_recent_success_days  — legacy: hours = days * 24.
+    #   * skip_already_submitted_today — legacy: same as the configured
+    #     quota window (24h by default).
+    # Take the *longest* window across all three so the caller never
+    # re-submits a URL inside any explicitly requested rotation.
+    effective_hours = max(0, int(skip_recent_success_hours or 0))
+    if skip_recent_success_days and int(skip_recent_success_days) > 0:
+        effective_hours = max(effective_hours, int(skip_recent_success_days) * 24)
+    if skip_already_submitted_today:
+        effective_hours = max(effective_hours, get_quota_window_hours())
+    if effective_hours > 0:
+        already = get_urls_successful_in_last_hours(
+            normalized, hours=effective_hours, notification_type=notification_type
         )
         if already:
             skipped_already = len(already)
@@ -743,10 +846,13 @@ __all__ = [
     "get_google_indexing_status",
     "get_credentials_path",
     "get_daily_quota",
+    "get_quota_window_hours",
+    "get_quota_summary",
     "get_today_summary",
     "get_recent_submissions",
     "get_urls_already_submitted_today",
     "get_urls_successful_in_last_days",
+    "get_urls_successful_in_last_hours",
     "reset_token_cache",
     "submit_google_indexing_urls",
     "enqueue_google_indexing_urls",

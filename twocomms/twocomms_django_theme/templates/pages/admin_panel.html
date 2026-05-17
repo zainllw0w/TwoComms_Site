@@ -5283,25 +5283,115 @@ document.addEventListener('DOMContentLoaded', function() {
   };
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-  const readSkipDays = () => {
-    const el = $('#gix-skip-days');
+  const readSkipHours = () => {
+    const el = $('#gix-skip-hours');
     if (!el) return 0;
     const n = parseInt(el.value, 10);
-    return clamp(isNaN(n) ? 0 : n, 0, 60);
+    return clamp(isNaN(n) ? 0 : n, 0, 1440);
+  };
+  const fmtHHMMSS = (totalSeconds) => {
+    if (totalSeconds == null || totalSeconds < 0) totalSeconds = 0;
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = Math.floor(totalSeconds % 60);
+    const pad = (v) => String(v).padStart(2, '0');
+    return `${pad(h)}:${pad(m)}:${pad(s)}`;
+  };
+  const fmtClock = (iso) => {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      const pad = (v) => String(v).padStart(2, '0');
+      return `${pad(d.getHours())}:${pad(d.getMinutes())} (${d.toLocaleDateString('uk-UA')})`;
+    } catch (_) { return iso; }
   };
 
   function applySummary(summary) {
     if (!summary) return;
-    panel.querySelectorAll('[data-gix-stat="submitted"]').forEach(el => el.textContent = summary.submitted_today != null ? summary.submitted_today : '—');
-    panel.querySelectorAll('[data-gix-stat="success"]').forEach(el => el.textContent = summary.succeeded_today != null ? summary.succeeded_today : '—');
-    panel.querySelectorAll('[data-gix-stat="failed"]').forEach(el => el.textContent = summary.failed_today != null ? summary.failed_today : '—');
+    const submittedInWindow = summary.submitted_in_window != null ? summary.submitted_in_window : summary.submitted_today;
+    const succeededInWindow = summary.succeeded_in_window != null ? summary.succeeded_in_window : summary.succeeded_today;
+    const failedInWindow = summary.failed_in_window != null ? summary.failed_in_window : summary.failed_today;
+    panel.querySelectorAll('[data-gix-stat="submitted"]').forEach(el => el.textContent = submittedInWindow != null ? submittedInWindow : '—');
+    panel.querySelectorAll('[data-gix-stat="success"]').forEach(el => el.textContent = succeededInWindow != null ? succeededInWindow : '—');
+    panel.querySelectorAll('[data-gix-stat="failed"]').forEach(el => el.textContent = failedInWindow != null ? failedInWindow : '—');
     panel.querySelectorAll('[data-gix-stat="remaining"]').forEach(el => el.textContent = summary.remaining_quota != null ? summary.remaining_quota : '—');
     panel.querySelectorAll('[data-gix-stat="quota"]').forEach(el => el.textContent = summary.quota != null ? summary.quota : '200');
     const fill = $('[data-gix-progress]');
     if (fill && summary.quota) {
-      const pct = Math.min(100, Math.round((summary.submitted_today || 0) / summary.quota * 100));
+      const pct = Math.min(100, Math.round((submittedInWindow || 0) / summary.quota * 100));
       fill.style.width = pct + '%';
     }
+    // Sync ETA tile: ``can_submit_now`` is the canonical answer.
+    const etaTile = $('[data-gix-eta-tile]');
+    if (etaTile) {
+      const canNow = !!summary.can_submit_now;
+      etaTile.dataset.gixCanSubmit = canNow ? '1' : '0';
+      etaTile.dataset.gixResetsAt = summary.quota_resets_at || '';
+      etaTile.classList.toggle('is-success', canNow);
+      etaTile.classList.toggle('is-error', !canNow);
+      const labelEl = $('[data-gix-eta-label]');
+      if (labelEl) labelEl.textContent = canNow ? 'можна запускати' : 'наступний слот через';
+      const whenEl = $('[data-gix-eta-when]');
+      if (whenEl) {
+        whenEl.textContent = canNow
+          ? 'квота вільна'
+          : (summary.quota_resets_at ? `о ${fmtClock(summary.quota_resets_at)}` : '');
+      }
+      // Run-button gate: when quota is empty, prevent accidental clicks
+      // — the run will fail on the resolve step anyway, but the
+      // disabled state is much friendlier feedback.
+      const submitBtn = $('#gix-submit-btn');
+      if (submitBtn && !currentJob) {
+        submitBtn.disabled = !canNow;
+        submitBtn.classList.toggle('is-blocked', !canNow);
+      }
+    }
+    // Restart the ticking countdown so it shows live HH:MM:SS until
+    // the next free slot.
+    restartEtaTimer();
+  }
+
+  // ---- live ETA timer ----
+  let etaTimer = 0;
+  function restartEtaTimer() {
+    clearInterval(etaTimer);
+    const tile = $('[data-gix-eta-tile]');
+    if (!tile) return;
+    const tick = () => {
+      const canNow = tile.dataset.gixCanSubmit === '1';
+      const etaEl = $('[data-gix-eta]');
+      if (canNow) {
+        if (etaEl) etaEl.textContent = 'можна';
+        return;
+      }
+      const resetIso = tile.dataset.gixResetsAt;
+      if (!resetIso) {
+        if (etaEl) etaEl.textContent = '—:—:—';
+        return;
+      }
+      const remainingSec = Math.max(0, Math.floor((new Date(resetIso) - new Date()) / 1000));
+      if (etaEl) etaEl.textContent = fmtHHMMSS(remainingSec);
+      if (remainingSec === 0) {
+        // Free slot just became available — flip the tile and
+        // un-block the submit button without waiting for a refresh.
+        tile.dataset.gixCanSubmit = '1';
+        tile.classList.add('is-success');
+        tile.classList.remove('is-error');
+        const labelEl = $('[data-gix-eta-label]');
+        if (labelEl) labelEl.textContent = 'можна запускати';
+        const whenEl = $('[data-gix-eta-when]');
+        if (whenEl) whenEl.textContent = 'квота вільна';
+        const submitBtn = $('#gix-submit-btn');
+        if (submitBtn && !currentJob) {
+          submitBtn.disabled = false;
+          submitBtn.classList.remove('is-blocked');
+        }
+        // Also nudge the server-side stats to confirm.
+        refreshHistory();
+      }
+    };
+    tick();
+    etaTimer = setInterval(tick, 1000);
   }
 
   function renderHistory(rows) {
@@ -5352,8 +5442,8 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
     try {
-      const skipDays = readSkipDays();
-      const url = `${PREVIEW_ENDPOINT}?groups=${encodeURIComponent(groups.join(','))}&languages=${encodeURIComponent(langs.join(','))}&skip_recent_days=${skipDays}`;
+      const skipHours = readSkipHours();
+      const url = `${PREVIEW_ENDPOINT}?groups=${encodeURIComponent(groups.join(','))}&languages=${encodeURIComponent(langs.join(','))}&skip_recent_hours=${skipHours}`;
       const response = await fetch(url, {
         method: 'GET',
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
@@ -5364,12 +5454,10 @@ document.addEventListener('DOMContentLoaded', function() {
       const total = data.total || 0;
       const alreadyWindow = data.already_in_window != null ? data.already_in_window : (data.already_submitted_today || 0);
       const willSend = data.pending_count != null ? data.pending_count : Math.max(0, total - alreadyWindow);
-      let metaText;
-      if (skipDays > 0) {
-        metaText = `(${alreadyWindow} вже в індексі за останні ${skipDays} ${skipDays === 1 ? 'день' : 'днів'} · готово ${willSend})`;
-      } else {
-        metaText = `(${alreadyWindow} вже сьогодні · готово ${willSend})`;
-      }
+      const windowText = skipHours > 0
+        ? `${skipHours} год`
+        : `${data.quota_window_hours || 24} год (квота)`;
+      const metaText = `(${alreadyWindow} вже в індексі за ${windowText} · готово ${willSend})`;
       setPreviewText(`${total} → ${willSend}`, metaText);
       const list = $('[data-gix-preview-list]');
       if (list) {
@@ -5581,7 +5669,7 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
     const respectQuota = ($('#gix-respect-quota') || {}).checked;
-    const skipDays = readSkipDays();
+    const skipHours = readSkipHours();
     const notification = ($('input[name="gix-notification"]:checked') || {}).value || 'URL_UPDATED';
     const alsoIndexNow = ($('#gix-also-indexnow') || {}).checked;
 
@@ -5599,7 +5687,7 @@ document.addEventListener('DOMContentLoaded', function() {
           groups: groups,
           languages: langs,
           notification: notification,
-          skip_recent_days: skipDays,
+          skip_recent_hours: skipHours,
           respect_quota: respectQuota,
         }),
       });
@@ -5614,9 +5702,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const skippedRecent = resolvedData.skipped_recent || 0;
     const skippedQuota = resolvedData.skipped_quota || 0;
 
+    if (resolvedData.summary) applySummary(resolvedData.summary);
+
+    if (resolvedData.can_submit_now === false && respectQuota) {
+      const sec = resolvedData.next_slot_in_seconds || 0;
+      alert(`Денна квота вичерпана.\nНаступний слот через ${fmtHHMMSS(sec)} (о ${fmtClock(resolvedData.quota_resets_at)}).\nЗачекай або зніми «Не виходити за денний ліміт».`);
+      return;
+    }
+
     if (!urls.length) {
       const reason = skippedRecent > 0
-        ? `Усі URL уже надіслані за останні ${skipDays} днів.`
+        ? `Усі URL уже надіслані за останні ${skipHours} годин.`
         : 'Немає URL для відправки після фільтрації.';
       alert(reason);
       return;
@@ -5626,11 +5722,9 @@ document.addEventListener('DOMContentLoaded', function() {
       `Готово до відправки: ${urls.length} URL`,
       `Партіями по ${BATCH_SIZE}, очікуваний час ≈ ${Math.ceil(urls.length * 0.7 / 60)} хв`,
     ];
-    if (skippedRecent) lines.push(`Пропущено за ${skipDays} днів: ${skippedRecent}`);
+    if (skippedRecent) lines.push(`Пропущено за ${skipHours} год: ${skippedRecent}`);
     if (skippedQuota) lines.push(`Обрізано за квотою: ${skippedQuota}`);
     if (!confirm(lines.join('\n') + '\n\nЗапустити?')) return;
-
-    if (resolvedData.summary) applySummary(resolvedData.summary);
 
     await submitInChunks(urls, { notification, alsoIndexNow });
   }
@@ -5673,8 +5767,8 @@ document.addEventListener('DOMContentLoaded', function() {
       alert('Виберіть хоча б одну мову.');
       return;
     }
-    const skipDays = readSkipDays();
-    if (!confirm(`Доіндексувати "${group}" (тільки те, що ще не надіслано за останні ${skipDays || 1} днів)?`)) return;
+    const skipHours = readSkipHours() || 24;
+    if (!confirm(`Доіндексувати "${group}" (тільки те, що ще не надіслано за останні ${skipHours} год)?`)) return;
     let resolvedData;
     try {
       const resp = await fetch(RESOLVE_ENDPOINT, {
@@ -5685,7 +5779,7 @@ document.addEventListener('DOMContentLoaded', function() {
           groups: [group],
           languages: langs,
           notification: 'URL_UPDATED',
-          skip_recent_days: skipDays || 1,
+          skip_recent_hours: skipHours,
           respect_quota: true,
         }),
       });
@@ -5696,11 +5790,16 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
     const urls = resolvedData.urls || [];
-    if (!urls.length) {
-      alert(`У групі "${group}" немає URL для відправки (усі вже в індексі за останні ${skipDays || 1} днів).`);
+    if (resolvedData.summary) applySummary(resolvedData.summary);
+    if (resolvedData.can_submit_now === false) {
+      const sec = resolvedData.next_slot_in_seconds || 0;
+      alert(`Квота вичерпана. Наступний слот через ${fmtHHMMSS(sec)}.`);
       return;
     }
-    if (resolvedData.summary) applySummary(resolvedData.summary);
+    if (!urls.length) {
+      alert(`У групі "${group}" немає URL для відправки (усі вже в індексі за ${skipHours} год).`);
+      return;
+    }
     await submitInChunks(urls, {
       notification: 'URL_UPDATED',
       alsoIndexNow: ($('#gix-also-indexnow') || {}).checked,
@@ -5720,14 +5819,14 @@ document.addEventListener('DOMContentLoaded', function() {
       if (tab.dataset.tab === 'history') refreshHistory();
       return;
     }
-    const dayPreset = event.target.closest('[data-gix-days]');
+    const dayPreset = event.target.closest('[data-gix-hours]');
     if (dayPreset) {
       event.preventDefault();
-      const v = parseInt(dayPreset.dataset.gixDays, 10);
-      const input = $('#gix-skip-days');
+      const v = parseInt(dayPreset.dataset.gixHours, 10);
+      const input = $('#gix-skip-hours');
       if (input && !isNaN(v)) {
         input.value = v;
-        $$('#indexing-panel [data-gix-days]').forEach(b => b.classList.toggle('is-active', b === dayPreset));
+        $$('#indexing-panel [data-gix-hours]').forEach(b => b.classList.toggle('is-active', b === dayPreset));
         refreshPreview();
       }
       return;
@@ -5769,12 +5868,12 @@ document.addEventListener('DOMContentLoaded', function() {
   // Reactive preview / history.
   ['change', 'input'].forEach(evt => {
     panel.addEventListener(evt, function(event) {
-      if (event.target.matches('[data-gix-groups] input, [data-gix-langs] input, #gix-skip-days')) {
+      if (event.target.matches('[data-gix-groups] input, [data-gix-langs] input, #gix-skip-hours')) {
         // Mark matching preset chip.
-        if (event.target.id === 'gix-skip-days') {
+        if (event.target.id === 'gix-skip-hours') {
           const v = parseInt(event.target.value, 10);
-          $$('#indexing-panel [data-gix-days]').forEach(b => {
-            b.classList.toggle('is-active', parseInt(b.dataset.gixDays, 10) === v);
+          $$('#indexing-panel [data-gix-hours]').forEach(b => {
+            b.classList.toggle('is-active', parseInt(b.dataset.gixHours, 10) === v);
           });
         }
         refreshPreview();

@@ -277,7 +277,8 @@ def build_seo_dashboard_context() -> Dict[str, Any]:
     )
     from .google_indexing import (
         get_google_indexing_status,
-        get_today_summary,
+        get_quota_summary,
+        get_quota_window_hours,
         get_recent_submissions,
     )
     from .index_targets import (
@@ -289,36 +290,37 @@ def build_seo_dashboard_context() -> Dict[str, Any]:
     )
 
     google_status = get_google_indexing_status()
-    google_summary = get_today_summary()
+    google_summary = get_quota_summary()
     google_recent = get_recent_submissions(limit=50)
 
-    # Per-section breakdown for today: how many URLs in each group,
-    # how many already submitted today (success), how many remain.
+    # Per-section breakdown over the rolling 24h quota window.
     breakdown: list[dict] = []
     try:
         snapshot = build_targets()
-        if google_summary.get("today"):
-            from storefront.models import GoogleIndexingSubmission
-            for group in ALL_GROUPS:
-                urls = snapshot.per_group.get(group) or []
-                if not urls:
-                    continue
-                sent_today = (
-                    GoogleIndexingSubmission.objects
-                    .filter(
-                        submission_date=google_summary["today"],
-                        url__in=urls,
-                        status="success",
-                    )
-                    .values("url").distinct().count()
-                )
-                breakdown.append({
-                    "group": group,
-                    "label": GROUP_LABELS.get(group, group),
-                    "total": len(urls),
-                    "submitted_today": sent_today,
-                    "pending_today": max(0, len(urls) - sent_today),
-                })
+        from storefront.models import GoogleIndexingSubmission
+        from datetime import timedelta
+        from django.utils import timezone as djtz
+        window_hours = int(google_summary.get("window_hours") or get_quota_window_hours())
+        cutoff = djtz.now() - timedelta(hours=window_hours)
+        for group in ALL_GROUPS:
+            urls = snapshot.per_group.get(group) or []
+            if not urls:
+                continue
+            sent_in_window = (
+                GoogleIndexingSubmission.objects
+                .filter(submitted_at__gte=cutoff, url__in=urls, status="success")
+                .values("url").distinct().count()
+            )
+            breakdown.append({
+                "group": group,
+                "label": GROUP_LABELS.get(group, group),
+                "total": len(urls),
+                # Keep legacy keys until the template renames them.
+                "submitted_today": sent_in_window,
+                "pending_today": max(0, len(urls) - sent_in_window),
+                "submitted_in_window": sent_in_window,
+                "pending_in_window": max(0, len(urls) - sent_in_window),
+            })
     except Exception:
         breakdown = []
 
