@@ -234,3 +234,121 @@ class CartSyncCrossSessionIntegrationTests(TestCase):
         # Корзина с device 1 должна быть видна device 2.
         self.assertIn('cart', request2.session)
         self.assertEqual(request2.session['cart'][self._cart_key()]['qty'], 2)
+
+    def test_change_on_device_a_immediately_visible_on_device_b(self):
+        """
+        Регрессия: каждый запрос должен сравнивать ревизию DB-кошика и подтягивать
+        свежие данные. Раньше middleware ставил флаг и больше не читал DB до конца
+        сессии — поэтому изменение на одном устройстве не появлялось на другом
+        без relogin.
+        """
+
+        from django.http import HttpResponse
+        from django.test import RequestFactory
+        from importlib import import_module
+
+        from accounts.cart_middleware import CartSyncMiddleware
+
+        factory = RequestFactory()
+        middleware = CartSyncMiddleware(get_response=lambda r: None)
+        engine = import_module('django.contrib.sessions.backends.db')
+
+        # Device A добавил X (сессия + DB).
+        request_a = factory.post('/uk/cart/add/')
+        request_a.session = engine.SessionStore()
+        request_a.user = self.user
+        request_a.path = '/uk/cart/add/'
+        middleware.process_request(request_a)
+        request_a.session['cart'] = {
+            self._cart_key(): {
+                'product_id': self.product.id,
+                'qty': 1,
+                'size': 'M',
+                'color_variant_id': None,
+            }
+        }
+        request_a.session.modified = True
+        middleware.process_response(request_a, HttpResponse(status=200))
+
+        # Device B первый запрос: видит корзину с X.
+        request_b = factory.get('/uk/')
+        request_b.session = engine.SessionStore()
+        request_b.user = self.user
+        request_b.path = '/uk/'
+        middleware.process_request(request_b)
+        self.assertEqual(request_b.session['cart'][self._cart_key()]['qty'], 1)
+        middleware.process_response(request_b, HttpResponse(status=200))
+
+        # Device A добавил ещё одну позицию (увеличил qty до 3).
+        request_a2 = factory.post('/uk/cart/add/')
+        request_a2.session = request_a.session
+        request_a2.user = self.user
+        request_a2.path = '/uk/cart/add/'
+        middleware.process_request(request_a2)
+        request_a2.session['cart'][self._cart_key()]['qty'] = 3
+        request_a2.session.modified = True
+        middleware.process_response(request_a2, HttpResponse(status=200))
+
+        # Device B второй запрос (та же сессия!) должен сразу увидеть qty=3.
+        request_b2 = factory.get('/uk/')
+        request_b2.session = request_b.session
+        request_b2.user = self.user
+        request_b2.path = '/uk/'
+        middleware.process_request(request_b2)
+        self.assertEqual(request_b2.session['cart'][self._cart_key()]['qty'], 3)
+
+    def test_remove_on_device_a_propagates_to_device_b(self):
+        """
+        Удаление товара на одном устройстве должно очищать корзину на другом
+        при следующем запросе (а не возрождать удалённый товар через merge).
+        """
+
+        from django.http import HttpResponse
+        from django.test import RequestFactory
+        from importlib import import_module
+
+        from accounts.cart_middleware import CartSyncMiddleware
+
+        factory = RequestFactory()
+        middleware = CartSyncMiddleware(get_response=lambda r: None)
+        engine = import_module('django.contrib.sessions.backends.db')
+
+        # DB и обе сессии стартуют с X.
+        UserCart.objects.create(
+            user=self.user,
+            cart_data={
+                self._cart_key(): {
+                    'product_id': self.product.id,
+                    'qty': 1,
+                    'size': 'M',
+                    'color_variant_id': None,
+                }
+            },
+        )
+
+        # Device B сначала синхронизировался → видит X.
+        request_b = factory.get('/uk/')
+        request_b.session = engine.SessionStore()
+        request_b.user = self.user
+        request_b.path = '/uk/'
+        middleware.process_request(request_b)
+        middleware.process_response(request_b, HttpResponse(status=200))
+        self.assertIn(self._cart_key(), request_b.session.get('cart', {}))
+
+        # Device A удалил X.
+        request_a = factory.post('/uk/cart/remove/')
+        request_a.session = engine.SessionStore()
+        request_a.user = self.user
+        request_a.path = '/uk/cart/remove/'
+        middleware.process_request(request_a)
+        request_a.session['cart'] = {}
+        request_a.session.modified = True
+        middleware.process_response(request_a, HttpResponse(status=200))
+
+        # Device B при следующем запросе должен увидеть пустую корзину.
+        request_b2 = factory.get('/uk/')
+        request_b2.session = request_b.session
+        request_b2.user = self.user
+        request_b2.path = '/uk/'
+        middleware.process_request(request_b2)
+        self.assertEqual(request_b2.session.get('cart', {}), {})

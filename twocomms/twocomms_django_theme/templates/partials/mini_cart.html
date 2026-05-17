@@ -88,21 +88,37 @@
         </div>
       </div>
     {% endfor %}
-    <div class="d-flex justify-content-between align-items-center">
-      <div class="fw-semibold">{% trans 'Разом' %}</div>
-      <div class="fw-semibold">{{ combined_total|default:total }} {% trans 'грн' %}</div>
+    <div class="mini-cart-summary">
+      <div class="mini-cart-summary__label">{% trans 'Разом' %}</div>
+      <div class="mini-cart-summary__amount">
+        <span class="mini-cart-summary__value">{{ combined_total|default:total }}</span>
+        <span class="mini-cart-summary__currency">{% trans 'грн' %}</span>
+      </div>
     </div>
     {% if custom_items %}
-    <div class="text-secondary small" style="margin-top:-6px;">
+    <div class="mini-cart-custom-note">
       {% trans 'Кастомні позиції очікують підтвердження менеджером. Фінальну ціну узгоджуєте в кошику.' %}
     </div>
     {% endif %}
-    <a href="{% url 'cart' %}" class="btn btn-cta w-100 mini-cart-primary-cta">
-      <span class="mini-cart-primary-cta-label">{% trans 'Оформити замовлення' %}</span>
-      <svg class="mini-cart-primary-cta-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M5 12h14"/>
-        <path d="m12 5 7 7-7 7"/>
-      </svg>
+    <a href="{% url 'cart' %}" class="mini-cart-primary-cta">
+      <span class="mini-cart-primary-cta__icon" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 6h2l2.4 12.06A2 2 0 0 0 9.36 20h7.28a2 2 0 0 0 1.96-1.94L19 8H6"/>
+          <circle cx="9" cy="22" r="1.5"/>
+          <circle cx="17" cy="22" r="1.5"/>
+        </svg>
+      </span>
+      <span class="mini-cart-primary-cta__body">
+        <span class="mini-cart-primary-cta__label">{% trans 'Оформити замовлення' %}</span>
+        <span class="mini-cart-primary-cta__hint">{% trans 'Перейти до оплати та доставки' %}</span>
+      </span>
+      <span class="mini-cart-primary-cta__arrow" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 12h14"/>
+          <path d="m12 5 7 7-7 7"/>
+        </svg>
+      </span>
+      <span class="mini-cart-primary-cta__shine" aria-hidden="true"></span>
     </a>
     <div class="mini-cart-action-grid{% if custom_items %} mini-cart-action-grid--single{% endif %}"{% if not custom_items %} data-mono-status-scope{% endif %}>
       <button type="button" class="mini-cart-action-tile mini-cart-action-tile--back" data-mini-cart-continue aria-label="{% trans 'Продовжити покупки' %}" onclick="if(typeof closeMiniCart==='function'){closeMiniCart('continue');} return false;">
