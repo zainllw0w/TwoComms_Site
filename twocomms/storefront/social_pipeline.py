@@ -63,11 +63,30 @@ def _get_current_user(strategy):
 def _merge_user_data(*, source: "User", target: "User") -> None:
     """Переносимо все важливе з `source` на `target`.
 
+    Захист: ніколи не видаляємо superuser або staff. Якщо source —
+    superuser/staff, операція skip-иться.
+
     Нічого не перезаписуємо у target, якщо там уже є дані. Беремо лише ті
     поля, що порожні.
     """
     from accounts.models import UserPoints, FavoriteProduct
     from orders.models import Order
+
+    # SAFETY GUARD: не чіпаємо адмінів/staff
+    if source.is_superuser or source.is_staff:
+        logger.warning(
+            "merge_user_data: refused to merge source user '%s' (is_staff=%s, is_superuser=%s)",
+            source.username, source.is_staff, source.is_superuser,
+        )
+        raise ValueError("Cannot merge admin/staff source user")
+    if target.is_superuser or target.is_staff:
+        # Зливати В адміна теж не варто — це може випадково підняти права
+        # звичайному юзеру, якщо source мав щось гачкове.
+        logger.warning(
+            "merge_user_data: refused: target '%s' is staff/superuser",
+            target.username,
+        )
+        raise ValueError("Cannot merge into admin/staff target user")
 
     with transaction.atomic():
         # 1) Базові поля User

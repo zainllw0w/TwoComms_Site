@@ -839,6 +839,35 @@ def _build_custom_print_orders_context(request):
     contact_links = _custom_print_contact_links(selected_lead) if selected_lead else {}
     attachment_cards = _custom_print_attachment_cards(selected_lead) if selected_lead else []
 
+    # Прикріплюємо людиноорієнтовані labels (для шаблона), щоб
+    # адмін-панель показувала "Преміум" замість "premium" та назву
+    # кольору з PRODUCT_MATRIX замість сирого слаг-значення.
+    if selected_lead is not None:
+        try:
+            from storefront.custom_print_config import (
+                resolve_lead_display_labels,
+                resolve_fabric_badge,
+            )
+            display_labels = resolve_lead_display_labels(selected_lead)
+            fabric_badge = resolve_fabric_badge(display_labels.get("fabric_value") or "")
+            selected_lead.fit_display = display_labels.get("fit_label") or ""
+            selected_lead.fabric_display = display_labels.get("fabric_label") or ""
+            selected_lead.color_display = {
+                "label": display_labels.get("color_label") or "",
+                "hex": display_labels.get("color_hex") or "",
+            }
+            selected_lead.fabric_badge = fabric_badge
+        except Exception:
+            # На випадок, якщо custom_print_config не імпортується (наприклад,
+            # під час міграцій) — не валимо панель.
+            selected_lead.fit_display = selected_lead.fit
+            selected_lead.fabric_display = selected_lead.fabric
+            selected_lead.color_display = {
+                "label": selected_lead.color_choice,
+                "hex": "",
+            }
+            selected_lead.fabric_badge = {}
+
     return {
         "custom_print_orders": leads,
         "custom_print_total": base_qs.count(),

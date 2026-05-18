@@ -112,7 +112,14 @@ def base_payload(**overrides):
 
 
 class CustomPrintLeadFormLogicTests(unittest.TestCase):
-    def test_ready_manager_submission_allows_missing_files_for_upload_backed_placements(self):
+    def test_ready_manager_submission_now_blocks_missing_files_for_upload_backed_placements(self):
+        """CP-UX-2026-05-18 regression.
+
+        Раніше менеджер-сабмішн пропускав кейс «обрав готовий файл, але не
+        прикріпив»: клієнт міг надіслати порожню заявку. Після фікса для
+        service_kind=ready / adjust файли є обовʼязковими ЗАВЖДИ, навіть
+        якщо view передає require_artwork_files=False.
+        """
         payload = base_payload(
             placements=["back"],
             placement_specs_json=json.dumps(
@@ -168,7 +175,8 @@ class CustomPrintLeadFormLogicTests(unittest.TestCase):
 
         form = CustomPrintLeadForm(payload, {}, require_artwork_files=False)
 
-        self.assertTrue(form.is_valid(), form.errors)
+        self.assertFalse(form.is_valid())
+        self.assertIn("files", form.errors)
 
     def test_ready_cart_submission_still_requires_missing_files_for_upload_backed_placements(self):
         payload = base_payload(

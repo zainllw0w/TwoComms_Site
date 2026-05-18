@@ -46,13 +46,26 @@ class Command(BaseCommand):
 
         merged = 0
         skipped = 0
+        already_merged = set()
         for profile in qs:
             tg_user = profile.user
+            if tg_user.pk in already_merged:
+                continue
             tg_email = (tg_user.email or "").strip().lower()
             tg_phone = (profile.phone or "").strip()
 
-            # Шукаємо потенційного кандидата на merge
-            candidates = User.objects.exclude(pk=tg_user.pk)
+            # Не чіпаємо адмінів
+            if tg_user.is_staff or tg_user.is_superuser:
+                self.stdout.write(
+                    f"  skip TG-user '{tg_user.username}' — staff/superuser"
+                )
+                skipped += 1
+                continue
+
+            # Шукаємо потенційного кандидата на merge — лише серед НЕ адмінів
+            candidates = User.objects.exclude(pk=tg_user.pk).filter(
+                is_staff=False, is_superuser=False
+            )
 
             email_match = None
             if tg_email:
@@ -66,7 +79,7 @@ class Command(BaseCommand):
             google_match = None
             if tg_email:
                 google_match = (
-                    User.objects.exclude(pk=tg_user.pk)
+                    candidates
                     .filter(
                         social_auth__provider="google-oauth2",
                         social_auth__user__email__iexact=tg_email,
@@ -77,6 +90,9 @@ class Command(BaseCommand):
             other = email_match or phone_match or google_match
             if not other:
                 skipped += 1
+                continue
+            if other.pk in already_merged:
+                # Уже мерджили в попередній ітерації
                 continue
 
             self.stdout.write(
@@ -89,6 +105,7 @@ class Command(BaseCommand):
             try:
                 _merge_user_data(source=other, target=tg_user)
                 merged += 1
+                already_merged.add(other.pk)
                 self.stdout.write(self.style.SUCCESS(f"     merged ✓"))
             except Exception as exc:
                 self.stderr.write(self.style.ERROR(f"     failed: {exc}"))

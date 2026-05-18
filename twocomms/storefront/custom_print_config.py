@@ -549,6 +549,119 @@ PRODUCT_MATRIX = {
 }
 
 
+# ── Display label resolvers (admin/notifications/UI) ─────────────────
+#
+# Поточна модель CustomPrintLead зберігає сирі слаги ("black", "premium",
+# "regular") у полях fit/fabric/color_choice. Ці резолвери повертають
+# людиноорієнтовані лейбли з PRODUCT_MATRIX, з фолбеком на статичні
+# словники FIT_LABELS / FABRIC_LABELS, щоб старі ліди не зламалися.
+
+def resolve_color_label(product_type: str, color_value: str, fabric_value: str = "") -> dict:
+    """Повертає {"label": "Чорний", "hex": "#151515"} для color_choice.
+
+    Якщо це термо-варіант (футболка oversize + thermo) — шукає в
+    fabrics[fit][thermo].colors. Інакше — у головному products.colors.
+    Для невідомого color_value повертає сам слаг як label.
+    """
+    if not color_value:
+        return {"label": "", "hex": ""}
+    matrix = PRODUCT_MATRIX.get(product_type) or {}
+
+    # 1) Перевіряємо thermo-кольори (тільки для футболки + thermo тканини).
+    if product_type == "tshirt" and fabric_value == "thermo":
+        fabrics_by_fit = matrix.get("fabrics") or {}
+        for fabric_list in fabrics_by_fit.values():
+            for fabric_def in fabric_list or []:
+                if fabric_def.get("value") != "thermo":
+                    continue
+                for c in fabric_def.get("colors") or []:
+                    if c.get("value") == color_value:
+                        return {
+                            "label": str(c.get("label") or color_value),
+                            "hex": c.get("hex") or "",
+                        }
+
+    # 2) Звичайні кольори продукту.
+    for c in matrix.get("colors") or []:
+        if c.get("value") == color_value:
+            return {
+                "label": str(c.get("label") or color_value),
+                "hex": c.get("hex") or "",
+            }
+
+    return {"label": color_value, "hex": ""}
+
+
+def resolve_fabric_label(product_type: str, fit_value: str, fabric_value: str) -> str:
+    """Повертає 'Преміум' для 'premium' з PRODUCT_MATRIX[type].fabrics[fit][...].label.
+
+    Fallback: FABRIC_LABELS, потім сам слаг.
+    """
+    if not fabric_value:
+        return ""
+    matrix = PRODUCT_MATRIX.get(product_type) or {}
+    fabrics_map = matrix.get("fabrics") or {}
+    candidates = []
+    if fit_value and fabrics_map.get(fit_value):
+        candidates.extend(fabrics_map[fit_value])
+    # На випадок коли fit невідомий — пробігаємо всі fabrics.
+    for fabrics_list in fabrics_map.values():
+        for fabric_def in fabrics_list or []:
+            candidates.append(fabric_def)
+    for fabric_def in candidates:
+        if fabric_def.get("value") == fabric_value:
+            label = str(fabric_def.get("label") or "").strip()
+            if label:
+                return label
+    return FABRIC_LABELS.get(fabric_value, fabric_value)
+
+
+def resolve_fit_label(product_type: str, fit_value: str) -> str:
+    """Повертає 'Класичний' для 'regular' з PRODUCT_MATRIX[type].fits[i].label."""
+    if not fit_value:
+        return ""
+    matrix = PRODUCT_MATRIX.get(product_type) or {}
+    for fit_def in matrix.get("fits") or []:
+        if fit_def.get("value") == fit_value:
+            label = str(fit_def.get("label") or "").strip()
+            if label:
+                return label
+    return FIT_LABELS.get(fit_value, fit_value)
+
+
+def resolve_lead_display_labels(lead) -> dict:
+    """High-level helper: повертає дікт display-полів для lead-обʼєкта.
+
+    Використовується в адмін-панелі та notification-формуванні.
+    """
+    product_type = getattr(lead, "product_type", "") or ""
+    fit = getattr(lead, "fit", "") or ""
+    fabric = getattr(lead, "fabric", "") or ""
+    color_choice = getattr(lead, "color_choice", "") or ""
+    color_info = resolve_color_label(product_type, color_choice, fabric)
+    return {
+        "fit_label": resolve_fit_label(product_type, fit),
+        "fabric_label": resolve_fabric_label(product_type, fit, fabric),
+        "fabric_value": fabric,
+        "color_label": color_info["label"],
+        "color_hex": color_info["hex"],
+        "color_value": color_choice,
+    }
+
+
+# Короткі іконки + опис для тканин — щоб у адміна одразу видно що преміум.
+FABRIC_BADGES = {
+    "premium": {"emoji": "💎", "tone": "premium", "note": "320 г/м², акуратна обробка"},
+    "thermo": {"emoji": "🌡", "tone": "thermo", "note": "реагує на тепло тіла"},
+    "standard": {"emoji": "📦", "tone": "standard", "note": "базова щільність"},
+}
+
+
+def resolve_fabric_badge(fabric_value: str) -> dict:
+    """Повертає {"emoji", "tone", "note"} для тканини або порожній dict."""
+    return dict(FABRIC_BADGES.get(fabric_value or "", {}))
+
+
 STAGE_PROFILES = {
     "hoodie": {
         "default_fit": "regular",

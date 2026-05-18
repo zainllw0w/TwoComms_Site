@@ -621,6 +621,41 @@
     word-break: break-word;
   }
 
+  /* Fabric pills та color swatch для кастомного принта (CP-UX-2026-05-18). */
+  .custom-print-fabric-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.32rem;
+    padding: 0.18rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    background: rgba(255,255,255,0.06);
+    color: #f4f4f5;
+    border: 1px solid rgba(255,255,255,0.08);
+    line-height: 1.2;
+  }
+  .custom-print-fabric-pill--premium {
+    background: linear-gradient(135deg, rgba(215,164,80,0.22), rgba(215,164,80,0.08));
+    color: #f4d6a0;
+    border-color: rgba(215,164,80,0.45);
+  }
+  .custom-print-fabric-pill--thermo {
+    background: linear-gradient(135deg, rgba(231,139,167,0.22), rgba(231,139,167,0.08));
+    color: #f5c4d4;
+    border-color: rgba(231,139,167,0.45);
+  }
+  .custom-print-color-swatch {
+    display: inline-block;
+    width: 1.05rem;
+    height: 1.05rem;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.25);
+    margin-right: 0.4rem;
+    vertical-align: -3px;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.4) inset;
+  }
+
   @media (max-width: 880px) {
     .custom-print-hero {
       grid-template-columns: minmax(0, 1fr);
@@ -2764,9 +2799,35 @@
                 <div class="custom-print-summary-grid">
                   <div class="custom-print-kv"><small>Виріб</small><strong>{{ custom_print_selected_lead.get_product_type_display }}</strong></div>
                   <div class="custom-print-kv"><small>Послуга</small><strong>{{ custom_print_selected_lead.get_service_kind_display }}</strong></div>
-                  <div class="custom-print-kv"><small>Fit</small><strong>{{ custom_print_selected_lead.fit|default:"—" }}</strong></div>
-                  <div class="custom-print-kv"><small>Тканина</small><strong>{{ custom_print_selected_lead.fabric|default:"—" }}</strong></div>
-                  <div class="custom-print-kv"><small>Колір</small><strong>{{ custom_print_selected_lead.color_choice|default:"—" }}</strong></div>
+                  <div class="custom-print-kv"><small>Fit</small><strong>{{ custom_print_selected_lead.fit_display|default:custom_print_selected_lead.fit|default:"—" }}</strong></div>
+                  <div class="custom-print-kv">
+                    <small>Тканина</small>
+                    <strong>
+                      {% if custom_print_selected_lead.fabric_display %}
+                        {% if custom_print_selected_lead.fabric == "premium" %}
+                          <span class="custom-print-fabric-pill custom-print-fabric-pill--premium" title="{{ custom_print_selected_lead.fabric_badge.note }}">💎 {{ custom_print_selected_lead.fabric_display }}</span>
+                        {% elif custom_print_selected_lead.fabric == "thermo" %}
+                          <span class="custom-print-fabric-pill custom-print-fabric-pill--thermo" title="{{ custom_print_selected_lead.fabric_badge.note }}">🌡 {{ custom_print_selected_lead.fabric_display }}</span>
+                        {% else %}
+                          <span class="custom-print-fabric-pill" title="{{ custom_print_selected_lead.fabric_badge.note }}">📦 {{ custom_print_selected_lead.fabric_display }}</span>
+                        {% endif %}
+                      {% else %}—{% endif %}
+                    </strong>
+                  </div>
+                  <div class="custom-print-kv">
+                    <small>Колір</small>
+                    <strong>
+                      {% if custom_print_selected_lead.color_display.label %}
+                        {% if custom_print_selected_lead.color_display.hex %}
+                          <span class="custom-print-color-swatch" style="background: {{ custom_print_selected_lead.color_display.hex }};" aria-hidden="true"></span>
+                        {% endif %}
+                        {{ custom_print_selected_lead.color_display.label }}
+                        {% if custom_print_selected_lead.color_display.hex %}
+                          <small style="color: rgba(255,255,255,0.45); font-weight: 400;">{{ custom_print_selected_lead.color_display.hex }}</small>
+                        {% endif %}
+                      {% else %}—{% endif %}
+                    </strong>
+                  </div>
                   <div class="custom-print-kv"><small>Кількість</small><strong>{{ custom_print_selected_lead.quantity }} шт</strong></div>
                   <div class="custom-print-kv"><small>Розміри</small><strong>{{ custom_print_selected_lead.sizes_note|default:"—" }}</strong></div>
                   <div class="custom-print-kv"><small>Режим розмірів</small><strong>{{ custom_print_selected_lead.get_size_mode_display|default:"—" }}</strong></div>

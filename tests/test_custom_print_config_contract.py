@@ -4,7 +4,79 @@ from storefront.custom_print_config import (
     build_custom_print_config,
     build_placement_specs,
     normalize_custom_print_snapshot,
+    resolve_color_label,
+    resolve_fabric_badge,
+    resolve_fabric_label,
+    resolve_fit_label,
+    resolve_lead_display_labels,
 )
+
+
+class CustomPrintLabelResolverTests(unittest.TestCase):
+    """CP-UX-2026-05-18: резолвери для адмінки і Telegram-уведомлень."""
+
+    def test_resolve_color_label_returns_label_and_hex_for_hoodie(self):
+        result = resolve_color_label("hoodie", "black", "")
+        self.assertEqual(result, {"label": "Чорний", "hex": "#151515"})
+
+    def test_resolve_color_label_returns_graphite(self):
+        result = resolve_color_label("hoodie", "graphite", "")
+        self.assertEqual(result["label"], "Графіт")
+        self.assertEqual(result["hex"], "#3b3b3f")
+
+    def test_resolve_color_label_for_thermo_tshirt_uses_thermo_palette(self):
+        result = resolve_color_label("tshirt", "thermo_green", "thermo")
+        self.assertEqual(result["label"], "Зелений (Термо)")
+
+    def test_resolve_color_label_unknown_value_returns_raw(self):
+        result = resolve_color_label("hoodie", "unknown_slug", "")
+        self.assertEqual(result, {"label": "unknown_slug", "hex": ""})
+
+    def test_resolve_color_label_empty_returns_empty(self):
+        self.assertEqual(resolve_color_label("hoodie", "", ""), {"label": "", "hex": ""})
+
+    def test_resolve_fabric_label_premium_hoodie(self):
+        self.assertEqual(resolve_fabric_label("hoodie", "regular", "premium"), "Преміум")
+
+    def test_resolve_fabric_label_thermo_tshirt(self):
+        self.assertEqual(resolve_fabric_label("tshirt", "oversize", "thermo"), "Термо")
+
+    def test_resolve_fabric_label_falls_back_to_static_dict(self):
+        # Тип тканини, якого немає в матриці продукту, повинен резолвитися
+        # через FABRIC_LABELS (статичний словник).
+        result = resolve_fabric_label("longsleeve", "", "premium")
+        self.assertEqual(result, "Преміум")
+
+    def test_resolve_fit_label_hoodie_regular(self):
+        self.assertEqual(resolve_fit_label("hoodie", "regular"), "Класичний")
+
+    def test_resolve_fit_label_hoodie_oversize(self):
+        self.assertEqual(resolve_fit_label("hoodie", "oversize"), "Оверсайз")
+
+    def test_resolve_fabric_badge_premium_has_emoji_and_note(self):
+        badge = resolve_fabric_badge("premium")
+        self.assertEqual(badge.get("emoji"), "💎")
+        self.assertIn("г/м²", badge.get("note", ""))
+
+    def test_resolve_fabric_badge_thermo(self):
+        badge = resolve_fabric_badge("thermo")
+        self.assertEqual(badge.get("emoji"), "🌡")
+
+    def test_resolve_fabric_badge_unknown_returns_empty_dict(self):
+        self.assertEqual(resolve_fabric_badge("alien_fabric"), {})
+
+    def test_resolve_lead_display_labels_returns_resolved_strings(self):
+        class _Lead:
+            product_type = "hoodie"
+            fit = "oversize"
+            fabric = "premium"
+            color_choice = "graphite"
+
+        labels = resolve_lead_display_labels(_Lead())
+        self.assertEqual(labels["fit_label"], "Оверсайз")
+        self.assertEqual(labels["fabric_label"], "Преміум")
+        self.assertEqual(labels["color_label"], "Графіт")
+        self.assertEqual(labels["color_hex"], "#3b3b3f")
 
 
 class CustomPrintConfigContractTests(unittest.TestCase):

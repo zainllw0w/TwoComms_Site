@@ -15,13 +15,28 @@
     const artworkIssues = Array.isArray(settings.artworkIssues) ? settings.artworkIssues : [];
     const estimateRequired = !!settings.estimateRequired;
     const isCustomerGarment = !!settings.isCustomerGarment;
+    const serviceKind = (settings.serviceKind || "").trim();
+    // Для режимів "готовий файл" та "потрібно допрацювати" файли є частиною
+    // самої задачі: без них менеджер не зможе нічого зробити, тому блокуємо
+    // навіть кнопку "Надіслати менеджеру", щоб клієнт не надіслав пусту заявку.
+    const artworkRequiredForLead = serviceKind === "ready" || serviceKind === "adjust";
 
-    const leadReady = baseIssues.length === 0;
-    const cartReady = leadReady && artworkIssues.length === 0 && !estimateRequired && !isCustomerGarment;
+    const leadReady = baseIssues.length === 0
+      && (!artworkRequiredForLead || artworkIssues.length === 0);
+    const cartReady = baseIssues.length === 0
+      && artworkIssues.length === 0
+      && !estimateRequired
+      && !isCustomerGarment;
 
-    let leadHint = firstIssue(baseIssues, "Бот відправить заявку в Telegram");
-    if (leadReady && artworkIssues.length) {
+    let leadHint;
+    if (baseIssues.length) {
+      leadHint = baseIssues[0];
+    } else if (artworkRequiredForLead && artworkIssues.length) {
+      leadHint = artworkIssues[0];
+    } else if (artworkIssues.length) {
       leadHint = "Макети можна додати пізніше — менеджер побачить, яких файлів не вистачає.";
+    } else {
+      leadHint = "Бот відправить заявку в Telegram";
     }
 
     let cartHint = "Передзамовлення зі снимком конфігурації";

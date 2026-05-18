@@ -134,6 +134,31 @@ class CustomPrintNotificationUnitTests(unittest.TestCase):
         self.assertIn("A2", message)
         self.assertIn("https://twocomms.shop/admin-panel/?section=custom_print_orders&lead=42", message)
 
+    def test_build_message_resolves_color_label_from_product_matrix(self):
+        """Колір повинен виводитися як 'Графіт', а не сирим 'graphite'.
+
+        Регрес-тест для CP-UX-2026-05-18: до фіксу адмін бачив 'graphite'.
+        """
+        lead = FakeLead()
+
+        message = _build_message(lead)
+
+        # Лейбл повинен бути в повідомленні, а сирий слаг — ні.
+        self.assertIn("Графіт", message)
+        self.assertNotIn("graphite", message)
+        # Hex кольору додається в окремому highlighted-рядку.
+        self.assertIn("#3b3b3f", message)
+
+    def test_build_message_marks_premium_fabric_explicitly(self):
+        """Премиум должна быть выделена отдельной строкой с эмодзи 💎."""
+        lead = FakeLead()
+
+        message = _build_message(lead)
+
+        self.assertIn("Тип тканини", message)
+        self.assertIn("Преміум", message)
+        self.assertIn("💎", message)
+
     def test_notify_new_custom_print_lead_sends_summary_then_captioned_files(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             image_path = Path(temp_dir) / "back.png"

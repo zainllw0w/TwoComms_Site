@@ -551,7 +551,15 @@
                   <strong>{% trans 'Активні зони' %}</strong>
                   <span>{% trans 'Перший друк входить у базову ціну. Додаткові зони можна вмикати і вимикати прямо на сцені.' %}</span>
                 </div>
-                <div class="cp-mini-chip-row cp-mini-chip-row--zones" data-zone-list></div>
+                <div class="cp-zone-hint" data-zone-multi-hint>
+                  <span class="cp-zone-hint-icon" aria-hidden="true">
+                    <svg viewBox="0 0 16 16" width="14" height="14" fill="none">
+                      <path d="M3 8.5l3 3 7-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </span>
+                  <span>{% trans 'Можна обрати' %} <strong>{% trans 'кілька зон' %}</strong> {% trans '— перший друк уже включено в базову ціну, кожна додаткова рахується окремо.' %}</span>
+                </div>
+                <div class="cp-zone-card-grid" data-zone-list></div>
                 <label class="cp-field" for="cp-placement-note" data-placement-note-wrap hidden>
                   <span>{% trans 'Нестандартна зона' %}</span>
                   <textarea id="cp-placement-note" name="placement_note" rows="3" data-placement-note-input placeholder="{% trans 'Опиши ідею — менеджер перевірить, чи можемо зробити.' %}"></textarea>
@@ -867,6 +875,21 @@
         </div>
       </div>
     </form>
+
+    {# Mobile sticky bar — видимий тільки на мобільних, показує ціну та основну дію поточного шага. #}
+    <div class="cp-mobile-bottom-bar" data-mobile-bottom-bar hidden role="region" aria-label="{% trans 'Підсумок та основна дія' %}">
+      <div class="cp-mobile-bottom-bar-info">
+        <small data-mobile-bar-label>{% trans 'Поточна ціна' %}</small>
+        <strong data-mobile-bar-total>{% trans '—' %}</strong>
+        <span class="cp-mobile-bar-meta" data-mobile-bar-meta></span>
+      </div>
+      <button type="button" class="cp-mobile-bottom-bar-action" data-mobile-bar-action>
+        <span class="cp-mobile-bottom-bar-label" data-mobile-bar-action-label>{% trans 'Далі' %}</span>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" aria-hidden="true">
+          <path d="M5 12h14M13 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
 
     <div class="cp-support-stack">
       {% comment %}

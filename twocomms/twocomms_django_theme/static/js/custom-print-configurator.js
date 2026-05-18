@@ -139,6 +139,12 @@
     stepBackButtons: root.querySelectorAll("[data-step-back]"),
     stepNextButtons: root.querySelectorAll("[data-step-next]"),
     stepSkipButtons: root.querySelectorAll("[data-step-skip]"),
+    mobileBar: root.querySelector("[data-mobile-bottom-bar]") || document.querySelector("[data-mobile-bottom-bar]"),
+    mobileBarTotal: root.querySelector("[data-mobile-bar-total]") || document.querySelector("[data-mobile-bar-total]"),
+    mobileBarLabel: root.querySelector("[data-mobile-bar-label]") || document.querySelector("[data-mobile-bar-label]"),
+    mobileBarMeta: root.querySelector("[data-mobile-bar-meta]") || document.querySelector("[data-mobile-bar-meta]"),
+    mobileBarAction: root.querySelector("[data-mobile-bar-action]") || document.querySelector("[data-mobile-bar-action]"),
+    mobileBarActionLabel: root.querySelector("[data-mobile-bar-action-label]") || document.querySelector("[data-mobile-bar-action-label]"),
   };
   const progressHome = dom.progressShell ? document.createComment("cp-progress-home") : null;
   if (progressHome && dom.progressShell?.parentNode) {
@@ -277,6 +283,7 @@
     bindFinalActions();
     bindGenericInputs();
     bindHeroMotion();
+    bindMobileBottomBar();
     loadDraft();
     setActiveStep(STATE.ui.current_step || "mode", { silent: true });
     refreshAll();
@@ -1042,12 +1049,24 @@
     }
     zones.forEach((z) => {
       const isActive = STATE.print.zones.includes(z);
+      const meta = getZoneCardMeta(z);
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "cp-mini-chip cp-mini-chip--zone";
+      btn.className = "cp-zone-card";
       if (isActive) btn.classList.add("is-active");
       btn.dataset.choiceValue = z;
-      btn.textContent = (CONFIG.zone_labels && CONFIG.zone_labels[z]) || z;
+      btn.setAttribute("aria-pressed", isActive ? "true" : "false");
+      btn.innerHTML = `
+        <span class="cp-zone-card-check" aria-hidden="true">
+          <svg viewBox="0 0 16 16" width="14" height="14">
+            <path d="M3 8.5l3 3 7-8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <span class="cp-zone-card-icon" aria-hidden="true">${meta.icon}</span>
+        <strong class="cp-zone-card-title">${escapeHtml(meta.title)}</strong>
+        <small class="cp-zone-card-hint">${escapeHtml(meta.hint)}</small>
+        ${meta.badge ? `<span class="cp-zone-card-badge">${escapeHtml(meta.badge)}</span>` : ""}
+      `;
       btn.addEventListener("click", () => {
         toggleZone(z);
       });
@@ -1061,6 +1080,35 @@
     renderBackSizeOptions();
     renderSleeveControls();
     renderZoneOverlay();
+  }
+
+  function getZoneCardMeta(zone) {
+    const labels = (CONFIG.zone_labels || {});
+    const fallbackLabel = labels[zone] || zone;
+    const meta = {
+      front: {
+        title: labels.front || "Спереду",
+        hint: "Класичне розміщення головного принта",
+        icon: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" width="22" height="22" aria-hidden="true"><path d="M9 7l3-2h8l3 2 3 2v6l-3-1v14H9V14l-3 1V9l3-2z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><rect x="13" y="13" width="6" height="8" rx="1" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>',
+      },
+      back: {
+        title: labels.back || "Спина",
+        hint: "Більший формат для сильного візуалу",
+        icon: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" width="22" height="22" aria-hidden="true"><path d="M9 7l3-2h8l3 2 3 2v6l-3-1v14H9V14l-3 1V9l3-2z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><rect x="11.5" y="11" width="9" height="13" rx="1.6" stroke="currentColor" stroke-width="1.4" fill="none"/></svg>',
+      },
+      sleeve: {
+        title: labels.sleeve || "Рукави",
+        hint: "Текст або символи на рукаві (можна обидва рукави)",
+        icon: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" width="22" height="22" aria-hidden="true"><path d="M5 11l4-4h6v18H8l-3-2V11z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M27 11l-4-4h-6v18h7l3-2V11z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
+      },
+      custom: {
+        title: labels.custom || "Інша зона",
+        hint: "Опишіть нестандартне розміщення в полі нижче",
+        icon: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" width="22" height="22" aria-hidden="true"><path d="M16 4l3 7 7 1-5 5 1.5 7L16 21l-6.5 3L11 17l-5-5 7-1z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
+        badge: "Менеджер",
+      },
+    };
+    return meta[zone] || { title: fallbackLabel, hint: "Окрема зона нанесення", icon: '<svg viewBox="0 0 32 32" width="22" height="22" aria-hidden="true"><circle cx="16" cy="16" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>' };
   }
 
   function toggleZone(zone) {
@@ -1378,7 +1426,10 @@
   function renderDropzones() {
     if (!dom.dropzoneGrid) return;
     dom.dropzoneGrid.querySelectorAll(".cp-dropzone").forEach((el) => el.remove());
+    dom.dropzoneGrid.querySelectorAll(".cp-dropzone-progress").forEach((el) => el.remove());
     const placements = getRequiredArtworkPlacements();
+    const serviceKind = STATE.artwork.service_kind || "";
+    const isUploadRequired = serviceKind === "ready" || serviceKind === "adjust";
     if (!STATE.print.zones.length) {
       if (dom.dropzoneEmpty) {
         dom.dropzoneEmpty.hidden = false;
@@ -1394,6 +1445,26 @@
       return;
     }
     if (dom.dropzoneEmpty) dom.dropzoneEmpty.hidden = true;
+
+    // Прогрес-блок над dropzones для режимів з обовʼязковим аплоадом.
+    if (isUploadRequired) {
+      const filledCount = placements.filter((p) => (filesByPlacement.get(p.placement_key) || []).length > 0).length;
+      const totalCount = placements.length;
+      const progress = document.createElement("div");
+      progress.className = "cp-dropzone-progress";
+      if (filledCount === totalCount) progress.classList.add("is-complete");
+      progress.innerHTML = `
+        <div class="cp-dropzone-progress-text">
+          <strong>${filledCount === totalCount ? "Усі макети додані" : "Додайте макет на кожну зону"}</strong>
+          <small>${filledCount} з ${totalCount} ${totalCount === 1 ? "зона" : "зон"} ${filledCount === totalCount ? "✅" : "·  ⚠ обовʼязково"}</small>
+        </div>
+        <div class="cp-dropzone-progress-bar" aria-hidden="true">
+          <span style="width: ${Math.round((filledCount / totalCount) * 100)}%"></span>
+        </div>
+      `;
+      dom.dropzoneGrid.parentNode?.insertBefore(progress, dom.dropzoneGrid);
+    }
+
     placements.forEach((placement) => {
       const wrap = document.createElement("label");
       wrap.className = "cp-dropzone";
@@ -1402,14 +1473,25 @@
       const label = getDropzoneTitle(placement);
       const filesInfo = filesByPlacement.get(placement.placement_key) || [];
       const metaLabel = getDropzoneMeta(placement, filesInfo.length);
+      const status = filesInfo.length > 0 ? "ok" : (isUploadRequired ? "missing" : "optional");
+      wrap.dataset.status = status;
+      const statusBadgeText = status === "ok"
+        ? "Готово"
+        : status === "missing"
+          ? "Потрібен файл"
+          : "За бажанням";
       wrap.innerHTML = `
+        <div class="cp-dropzone-status-badge" aria-hidden="true">
+          <span class="cp-dropzone-status-dot"></span>
+          <span class="cp-dropzone-status-text">${escapeHtml(statusBadgeText)}</span>
+        </div>
         <div class="cp-dropzone-head">
           <small>Макет</small>
           <strong>${label}</strong>
         </div>
         <input type="file" multiple accept="image/*,application/pdf,.ai,.eps,.psd,.tiff,.svg" data-dropzone-input>
         <div class="cp-dropzone-body">
-          <span class="cp-dropzone-cta">+ Завантажити файл</span>
+          <span class="cp-dropzone-cta">${filesInfo.length ? "+ Додати ще файл" : "+ Завантажити файл"}</span>
           <span class="cp-dropzone-meta" data-dropzone-meta>${metaLabel}</span>
         </div>
         ${filesInfo.length ? `<ul class="cp-dropzone-list">${filesInfo.map((f) => `<li>${escapeHtml(f.name)} <small>${formatBytes(f.size)}</small></li>`).join("")}</ul>` : ""}
@@ -1418,9 +1500,9 @@
       input.addEventListener("change", (event) => {
         const files = Array.from(event.target.files || []);
         if (files.length) {
-          filesByPlacement.set(placement.placement_key, files);
-        } else {
-          deletePlacementFiles(placement.placement_key);
+          // append (а не replace) щоб не втрачалися попередні
+          const existing = filesByPlacement.get(placement.placement_key) || [];
+          filesByPlacement.set(placement.placement_key, [...existing, ...files]);
         }
         renderDropzones();
         refreshAll();
@@ -2124,6 +2206,7 @@
     updateB2bMeta();
     renderReceipt();
     updateFinalActionsAvailability();
+    renderMobileBottomBar();
   }
 
   function updateFlowPhase() {
@@ -2242,18 +2325,23 @@
     const pricing = computePricing();
     const baseIssues = getSharedSubmissionIssues();
     const artworkIssues = getArtworkValidationIssues();
+    const serviceKind = STATE.artwork.service_kind || "";
+    const artworkRequiredForLead = serviceKind === "ready" || serviceKind === "adjust";
     if (submissionPolicy?.buildFinalActionPolicy) {
       return submissionPolicy.buildFinalActionPolicy({
         baseIssues,
         artworkIssues,
         estimateRequired: pricing.estimate_required,
         isCustomerGarment: STATE.product.type === "customer_garment",
+        serviceKind,
       });
     }
+    const leadReady = baseIssues.length === 0
+      && (!artworkRequiredForLead || artworkIssues.length === 0);
     return {
-      leadReady: baseIssues.length === 0,
+      leadReady,
       cartReady: baseIssues.length === 0 && artworkIssues.length === 0 && !pricing.estimate_required && STATE.product.type !== "customer_garment",
-      leadHint: baseIssues[0] || "Бот відправить заявку в Telegram",
+      leadHint: baseIssues[0] || (artworkRequiredForLead && artworkIssues[0]) || "Бот відправить заявку в Telegram",
       cartHint: artworkIssues[0] || baseIssues[0] || "Передзамовлення зі снимком конфігурації",
     };
   }
@@ -2493,6 +2581,104 @@
     }
     if (dom.leadActionHint) {
       dom.leadActionHint.textContent = actionPolicy.leadHint;
+    }
+  }
+
+  // ── Mobile bottom bar (sticky на мобільному) ───────────────
+  function renderMobileBottomBar() {
+    if (!dom.mobileBar) return;
+    const stepKey = STATE.ui.current_step || "mode";
+    const lobby = isLobbyPhase();
+    const stageVisible = !lobby && STAGE_VISIBLE_AFTER.has(stepKey);
+    // Bar показуємо тільки після того як обрано режим (вийшли з lobby).
+    if (lobby && !STATE.product.type) {
+      dom.mobileBar.hidden = true;
+      return;
+    }
+    dom.mobileBar.hidden = false;
+
+    const pricing = computePricing();
+    if (dom.mobileBarTotal) {
+      if (!STATE.product.type) {
+        dom.mobileBarTotal.textContent = "Оберіть виріб";
+      } else if (pricing.estimate_required || pricing.base_price === null) {
+        dom.mobileBarTotal.textContent = "Прорахунок з менеджером";
+      } else if (pricing.final_total !== null && pricing.final_total !== undefined) {
+        dom.mobileBarTotal.textContent = formatPrice(pricing.final_total);
+      } else {
+        dom.mobileBarTotal.textContent = "—";
+      }
+    }
+    if (dom.mobileBarLabel) {
+      dom.mobileBarLabel.textContent = pricing.estimate_required ? "Орієнтир" : "Поточна ціна";
+    }
+    if (dom.mobileBarMeta) {
+      const qty = STATE.order.quantity || 0;
+      if (qty > 1 && pricing.unit_total) {
+        dom.mobileBarMeta.textContent = `${formatPrice(pricing.unit_total)} × ${qty}`;
+      } else {
+        dom.mobileBarMeta.textContent = "";
+      }
+    }
+    // Текст кнопки залежить від кроку.
+    const stepLabels = {
+      mode: { label: "Обрати формат", target: "mode" },
+      product: { label: "До виробу", target: "product" },
+      config: { label: "Налаштувати", target: "config" },
+      zones: { label: "До зон", target: "zones" },
+      artwork: { label: "До макета", target: "artwork" },
+      quantity: { label: "До кількості", target: "quantity" },
+      gift: { label: "До подарунку", target: "gift" },
+      contact: { label: "Надіслати менеджеру", target: "submit" },
+    };
+    const policy = buildActionPolicy();
+    const stepIndex = getStepIndex(stepKey);
+    const isLastStep = stepKey === "contact";
+    const nextStepKey = STEPS[stepIndex + 1] || stepKey;
+    const labelInfo = stepLabels[stepKey] || { label: "Далі", target: stepKey };
+    if (dom.mobileBarActionLabel) {
+      if (isLastStep) {
+        dom.mobileBarActionLabel.textContent = "Надіслати";
+      } else {
+        const nextLabel = stepLabels[nextStepKey]?.label || "Далі";
+        dom.mobileBarActionLabel.textContent = nextLabel;
+      }
+    }
+    if (dom.mobileBarAction) {
+      dom.mobileBarAction.classList.toggle("is-disabled", isLastStep && !policy.leadReady);
+      dom.mobileBarAction.dataset.stepTarget = isLastStep ? "submit" : nextStepKey;
+    }
+  }
+
+  function bindMobileBottomBar() {
+    if (!dom.mobileBarAction) return;
+    dom.mobileBarAction.addEventListener("click", () => {
+      const target = dom.mobileBarAction.dataset.stepTarget;
+      if (target === "submit") {
+        handleSubmitLead();
+        return;
+      }
+      if (target) {
+        navigateToStep(target);
+      }
+    });
+  }
+
+  function navigateToStep(stepKey) {
+    if (!stepKey || !STEPS.includes(stepKey)) return;
+    STATE.ui.current_step = stepKey;
+    // Помічаємо всі попередні кроки як завершені.
+    const idx = STEPS.indexOf(stepKey);
+    if (!(STATE.ui.done_steps instanceof Set)) {
+      STATE.ui.done_steps = new Set();
+    }
+    STEPS.slice(0, idx).forEach((step) => STATE.ui.done_steps.add(step));
+    refreshAll();
+    persistDraft();
+    // Скролимо до секції плавно.
+    const sectionEl = root.querySelector(`[data-step="${stepKey}"]`);
+    if (sectionEl) {
+      sectionEl.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }
 

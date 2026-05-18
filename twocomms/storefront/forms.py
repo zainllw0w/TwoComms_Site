@@ -289,7 +289,18 @@ class CustomPrintLeadForm(forms.Form):
         required_artwork_specs = [spec for spec in placement_specs if self._spec_requires_artwork_file(spec)]
         required_artwork_file_count = len(required_artwork_specs)
         require_artwork_files = self.require_artwork_files
-        if require_artwork_files is None:
+        # Для режимів "готовий файл" і "потрібно допрацювати" аплоад файлів
+        # завжди обовʼязковий, незалежно від кнопки (cart vs lead). Раніше
+        # для submission_type == "lead" валідація зникала і клієнт міг
+        # надіслати заявку без жодного файлу — тепер цей шлях закрито.
+        # Навіть якщо view-функція передала require_artwork_files=False,
+        # для READY/ADJUST силою примушуємо True. design — лишається без файлів.
+        if service_kind in {
+            CustomPrintServiceKind.READY,
+            CustomPrintServiceKind.ADJUST,
+        }:
+            require_artwork_files = True
+        elif require_artwork_files is None:
             require_artwork_files = submission_type != "lead"
 
         if "custom" in placements and not placement_note:

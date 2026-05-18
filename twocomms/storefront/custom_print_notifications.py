@@ -18,6 +18,10 @@ from storefront.custom_print_config import (
     TRIAGE_LABELS,
     ZONE_LABELS,
     build_placement_specs,
+    resolve_color_label,
+    resolve_fabric_badge,
+    resolve_fabric_label,
+    resolve_fit_label,
 )
 
 
@@ -389,15 +393,47 @@ def _format_pricing_block(lead) -> list[str]:
 
 
 def _format_product_block(lead) -> list[str]:
+    product_type = getattr(lead, "product_type", "") or ""
+    fit_value = getattr(lead, "fit", "") or ""
+    fabric_value = getattr(lead, "fabric", "") or ""
+    color_value = getattr(lead, "color_choice", "") or ""
+
     parts = [escape(lead.get_product_type_display())]
-    if getattr(lead, "fit", ""):
-        parts.append(escape(FIT_LABELS.get(lead.fit, lead.fit)))
-    if getattr(lead, "fabric", ""):
-        parts.append(escape(FABRIC_LABELS.get(lead.fabric, lead.fabric)))
-    if getattr(lead, "color_choice", ""):
-        parts.append(escape(lead.color_choice))
+    fit_label = resolve_fit_label(product_type, fit_value)
+    if fit_label:
+        parts.append(escape(fit_label))
+    fabric_label = resolve_fabric_label(product_type, fit_value, fabric_value)
+    if fabric_label:
+        parts.append(escape(fabric_label))
+    color_info = resolve_color_label(product_type, color_value, fabric_value)
+    if color_info["label"]:
+        color_text = color_info["label"]
+        if color_info["hex"]:
+            color_text = f"{color_text} ({color_info['hex']})"
+        parts.append(escape(color_text))
 
     rows = [f"• <b>Виріб:</b> {' / '.join(parts)}"]
+
+    # Окремий highlighted-рядок для тканини, щоб у Telegram-чаті
+    # менеджер одразу бачив тип (преміум/термо/стандарт).
+    fabric_badge = resolve_fabric_badge(fabric_value)
+    if fabric_label and fabric_badge:
+        emoji = fabric_badge.get("emoji") or ""
+        note = fabric_badge.get("note") or ""
+        fabric_line = f"• <b>Тип тканини:</b> {emoji} <b>{escape(fabric_label)}</b>"
+        if note:
+            fabric_line += f" <i>({escape(note)})</i>"
+        rows.append(fabric_line)
+    elif fabric_label:
+        rows.append(f"• <b>Тип тканини:</b> <b>{escape(fabric_label)}</b>")
+
+    # Окремий рядок для кольору з hex-кодом, щоб був чіткий візуал.
+    if color_info["label"]:
+        color_line = f"• <b>Колір виробу:</b> <b>{escape(color_info['label'])}</b>"
+        if color_info["hex"]:
+            color_line += f" <code>{escape(color_info['hex'])}</code>"
+        rows.append(color_line)
+
     if getattr(lead, "add_ons", None):
         mapped_addons = [ADDON_LABELS.get(a, a) for a in lead.add_ons]
         if mapped_addons:
@@ -619,14 +655,16 @@ def _snapshot_product_label(snapshot: dict) -> str:
     fabric = (product.get("fabric") or "").strip()
     color = (product.get("color") or "").strip()
     if fit:
-        details.append(FIT_LABELS.get(fit, fit))
+        details.append(resolve_fit_label(product_type, fit))
     if fabric:
-        details.append(FABRIC_LABELS.get(fabric, fabric))
+        details.append(resolve_fabric_label(product_type, fit, fabric))
     if color:
-        details.append(color)
+        color_info = resolve_color_label(product_type, color, fabric)
+        if color_info["label"]:
+            details.append(color_info["label"])
     if not details:
         return base
-    return f"{base} · {' / '.join(details)}"
+    return f"{base} · {' / '.join(filter(None, details))}"
 
 
 def _snapshot_placements_text(snapshot: dict) -> str:
