@@ -514,9 +514,53 @@
     },
   };
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", ensureController);
-  } else {
+  // ── Auto-bind for [data-tg-mini-login] (mini-profile в шапці) ──
+  // Це дозволяє додавати кнопку «Увійти через Telegram» у будь-яке
+  // місце сайту без дублювання обробників.
+  function bindMiniLoginTriggers(root) {
+    var scope = root || document;
+    var nodes = scope.querySelectorAll
+      ? scope.querySelectorAll("[data-tg-mini-login]")
+      : [];
+    Array.prototype.forEach.call(nodes, function (btn) {
+      if (btn.dataset.tgMiniBound === "1") return;
+      btn.dataset.tgMiniBound = "1";
+      btn.addEventListener("click", function (event) {
+        event.preventDefault();
+        var nextUrl = btn.getAttribute("data-next") || "";
+        if (!nextUrl) {
+          // Якщо ми вже на /login або /register — редіректимо на профіль.
+          var path = (location && location.pathname) || "/";
+          if (path.startsWith("/login") || path.startsWith("/register")) {
+            nextUrl = "/profile/setup/";
+          } else {
+            nextUrl = path + (location.search || "");
+          }
+        }
+        ensureController().start({
+          purpose: "login",
+          next: nextUrl,
+        });
+      });
+    });
+  }
+
+  function init() {
     ensureController();
+    bindMiniLoginTriggers(document);
+    try {
+      var observer = new MutationObserver(function () {
+        bindMiniLoginTriggers(document);
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
   }
 })();
