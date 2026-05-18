@@ -175,6 +175,7 @@ SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.social_uid',
     'social_core.pipeline.social_auth.auth_allowed',
     'social_core.pipeline.social_auth.social_user',
+    'storefront.social_pipeline.merge_with_authenticated_user',
     'social_core.pipeline.user.get_username',
     'storefront.social_pipeline.require_email',
     'social_core.pipeline.social_auth.associate_by_email',
