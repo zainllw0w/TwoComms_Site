@@ -72,21 +72,18 @@ def _merge_user_data(*, source: "User", target: "User") -> None:
     from accounts.models import UserPoints, FavoriteProduct
     from orders.models import Order
 
-    # SAFETY GUARD: не чіпаємо адмінів/staff
+    # SAFETY GUARD: ніколи не видаляємо superuser/staff як source
+    # (це призведе до видалення адміна).
     if source.is_superuser or source.is_staff:
         logger.warning(
             "merge_user_data: refused to merge source user '%s' (is_staff=%s, is_superuser=%s)",
             source.username, source.is_staff, source.is_superuser,
         )
         raise ValueError("Cannot merge admin/staff source user")
-    if target.is_superuser or target.is_staff:
-        # Зливати В адміна теж не варто — це може випадково підняти права
-        # звичайному юзеру, якщо source мав щось гачкове.
-        logger.warning(
-            "merge_user_data: refused: target '%s' is staff/superuser",
-            target.username,
-        )
-        raise ValueError("Cannot merge into admin/staff target user")
+
+    # Залити В адміна — дозволено: source — звичайний юзер,
+    # target — той самий реальний користувач, що адмінить сайт.
+    # Права не змінюються (беремо їх з target).
 
     with transaction.atomic():
         # 1) Базові поля User

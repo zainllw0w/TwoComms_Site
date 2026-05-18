@@ -54,15 +54,12 @@ class Command(BaseCommand):
             tg_email = (tg_user.email or "").strip().lower()
             tg_phone = (profile.phone or "").strip()
 
-            # Не чіпаємо адмінів
-            if tg_user.is_staff or tg_user.is_superuser:
-                self.stdout.write(
-                    f"  skip TG-user '{tg_user.username}' — staff/superuser"
-                )
-                skipped += 1
-                continue
+            # Не чіпаємо адмінів як TG-юзера, лише якщо вони джерело.
+            # Якщо TG-юзер — admin, то він залишається target і
+            # пів-аккаунт Google вливається в нього. Це безпечно.
 
             # Шукаємо потенційного кандидата на merge — лише серед НЕ адмінів
+            # (адміна не можна зливати, бо source видаляється).
             candidates = User.objects.exclude(pk=tg_user.pk).filter(
                 is_staff=False, is_superuser=False
             )
