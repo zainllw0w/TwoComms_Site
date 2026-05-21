@@ -834,6 +834,18 @@ class StructuredDataGenerator:
                 "itemCondition": "https://schema.org/NewCondition",
                 "url": product_canonical_url,
                 "priceValidUntil": StructuredDataGenerator._get_dynamic_price_valid_until(),
+                # SEO 2026-05-19 (VILNI deep review §4.5, §13.12) — explicit
+                # production/handling window for MadeToOrder DTF print so
+                # Google Shopping and AI Search can compare apples-to-apples
+                # against in-stock competitors. 3–5 days mirrors the value
+                # already exposed in ``OfferShippingDetails.deliveryTime``
+                # and the /delivery/ page copy.
+                "deliveryLeadTime": {
+                    "@type": "QuantitativeValue",
+                    "minValue": 3,
+                    "maxValue": 5,
+                    "unitCode": "DAY",
+                },
                 "hasMerchantReturnPolicy": {
                     "@type": "MerchantReturnPolicy",
                     "returnPolicyCategory": RETURN_POLICY["category"],
@@ -1247,6 +1259,37 @@ class StructuredDataGenerator:
                 "@id": f"{base_url}#brand",
                 "name": "TwoComms",
                 "logo": logo_url,
+            },
+            # SEO 2026-05-19 (VILNI deep review §13.2) — Organization-level
+            # MerchantReturnPolicy is required by Google Merchant Listings
+            # to surface store-wide trust signals (return window + free
+            # return method). Per-Offer override remains in
+            # ``generate_product_schema`` for DTF custom-print exceptions.
+            "hasMerchantReturnPolicy": {
+                "@type": "MerchantReturnPolicy",
+                "applicableCountry": APPLICABLE_COUNTRY,
+                "returnPolicyCategory": RETURN_POLICY["category"],
+                "merchantReturnDays": RETURN_POLICY["days"],
+                "returnMethod": RETURN_POLICY["method"],
+                "returnFees": RETURN_POLICY["fees_type"],
+                "returnShippingFeesAmount": (
+                    StructuredDataGenerator._get_return_shipping_amount()
+                ),
+            },
+            # SEO 2026-05-19 (VILNI deep review §13.3) — declare the
+            # «TWOCOMMS Бали» loyalty program with schema.org/MemberProgram
+            # so Google can surface it in merchant knowledge panels and AI
+            # answer engines (Perplexity, ChatGPT Search) when users ask
+            # about loyalty / discount benefits.
+            "hasMemberProgram": {
+                "@type": "MemberProgram",
+                "name": "TWOCOMMS Бали",
+                "description": _(
+                    "Бали за покупки та промокоди для постійних клієнтів TwoComms; "
+                    "можна обміняти на знижки або донати на ЗСУ."
+                ),
+                "url": f"{base_url}faq/",
+                "hostingOrganization": {"@id": f"{base_url}#organization"},
             },
         }
 

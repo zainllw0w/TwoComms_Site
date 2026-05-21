@@ -70,7 +70,7 @@
     },
     "currenciesAccepted": "UAH",
     "paymentAccepted": "Cash, Credit Card, Apple Pay, Google Pay, Bank transfer",
-    "priceRange": "₴₴",
+    "priceRange": "{{ price_range|default:'660-2550 UAH' }}",
     "contactPoint": [
       {
         "@type": "ContactPoint",
@@ -81,8 +81,7 @@
       }
     ],
     "sameAs": [
-      "https://instagram.com/twocomms",
-      "https://t.me/twocomms"
+      {% for link in same_as_links %}"{{ link|escapejs }}"{% if not forloop.last %}, {% endif %}{% empty %}"https://instagram.com/twocomms", "https://t.me/twocomms"{% endfor %}
     ]
   }
 }
@@ -189,17 +188,22 @@
     </div>
   </div>
 
-  <!-- Store Locations -->
+  {# SEO 2026-05-19 (VILNI deep review §3.2) — removed two placeholder
+     store cards («Хрещатик 22 Київ» / «Соборний 15 Львів»). Even though
+     the addresses were CSS-blurred, the literal NAP was still in the
+     HTML and contradicted the canonical Kharkiv-online positioning,
+     creating a conflicting Local Pack signal. Replaced with an honest
+     online-only block. #}
   <div class="row mb-5">
     <div class="col-12">
       <div class="store-locations">
         <div class="locations-header">
-          <h2 class="locations-title">{% trans 'Наші магазини' %}</h2>
+          <h2 class="locations-title">{% trans 'Як ми працюємо' %}</h2>
           <p class="locations-subtitle">
-            {% trans 'Відвідайте наші партнерські магазини' %}
+            {% trans 'Онлайн-магазин з відправкою з Харкова по всій Україні.' %}
           </p>
         </div>
-        
+
         <div class="locations-grid">
           <div class="location-card">
             <div class="location-icon">
@@ -208,13 +212,12 @@
               </svg>
             </div>
             <div class="location-content">
-              <h3 class="location-title">{% blocktrans %}Магазин №1{% endblocktrans %}</h3>
-              <p class="location-address blurred">
-                {% blocktrans %}вул. Хрещатик, 22<br>
-                Київ, 01001{% endblocktrans %}
+              <h3 class="location-title">{% trans 'Звідки відправляємо' %}</h3>
+              <p class="location-address">
+                {% trans 'Харків, Україна' %}
               </p>
               <div class="location-hours">
-                <span class="hours-label">{% trans 'Графік роботи:' %}</span>
+                <span class="hours-label">{% trans 'Графік відповідей:' %}</span>
                 <span class="hours-time">{% trans 'Пн-Нд: 10:00 - 22:00' %}</span>
               </div>
             </div>
@@ -223,18 +226,17 @@
           <div class="location-card">
             <div class="location-icon">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm12 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm-1.5-6V9.5h2.5l1.96 2.5H16.5z"/>
               </svg>
             </div>
             <div class="location-content">
-              <h3 class="location-title">{% blocktrans %}Магазин №2{% endblocktrans %}</h3>
-              <p class="location-address blurred">
-                {% blocktrans %}пр. Соборний, 15<br>
-                Львів, 79000{% endblocktrans %}
+              <h3 class="location-title">{% trans 'Доставка' %}</h3>
+              <p class="location-address">
+                {% trans 'Нова Пошта по Україні: 1–3 дні' %}
               </p>
               <div class="location-hours">
-                <span class="hours-label">{% trans 'Графік роботи:' %}</span>
-                <span class="hours-time">{% trans 'Пн-Нд: 10:00 - 22:00' %}</span>
+                <span class="hours-label">{% trans 'Безкоштовно від:' %}</span>
+                <span class="hours-time">{% trans '3000 грн замовлення' %}</span>
               </div>
             </div>
           </div>

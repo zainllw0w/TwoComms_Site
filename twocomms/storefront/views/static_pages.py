@@ -1216,9 +1216,20 @@ def contacts(request):
         {"name": _("Головна"), "url": reverse("home")},
         {"name": _("Контакти"), "url": reverse("contacts")},
     ]
+    # SEO 2026-05-19 (VILNI deep review §3.2, §4.7, §4.11) — supply the
+    # ClothingStore JSON-LD with the dynamic catalogue price range and
+    # the curated sameAs list, so /contacts/ no longer ships the
+    # non-standard "₴₴" placeholder nor a stale 2-link social list that
+    # drifts from the canonical Organization node on /.
+    from storefront.seo_utils import (
+        _homepage_price_range_text,
+        _organization_same_as,
+    )
     return render(request, 'pages/contacts.html', {
         'page_title': 'Контакти',
         'breadcrumb_items': breadcrumb_items,
+        'price_range': _homepage_price_range_text(),
+        'same_as_links': _organization_same_as(),
     })
 
 
