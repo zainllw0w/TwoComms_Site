@@ -229,6 +229,22 @@ def product_graph(product, breadcrumbs=None, canonical_path=None,
     product_node.pop("@context", None)
 
     nodes = [product_node]
+
+    # SEO 2026-05-19 (VILNI deep review §13.1) — emit a sibling
+    # ``ProductGroup`` node on the canonical PDP (no variant selected
+    # via URL) so Google can cluster colour/fit variants under one
+    # group head with ``variesBy`` + ``hasVariant``. On variant pages
+    # the base Product carries ``isVariantOf`` referencing the base
+    # ``@id``, which together with the ProductGroup emitted on /
+    # base/ canonicalises the cluster.
+    if selected_variant is None:
+        group_node = (
+            _seo_utils().StructuredDataGenerator.generate_product_group_schema(product)
+        )
+        if group_node:
+            group_node.pop("@context", None)
+            nodes.append(group_node)
+
     if breadcrumbs:
         breadcrumb_node = (
             _seo_utils().StructuredDataGenerator.generate_breadcrumb_schema(breadcrumbs)

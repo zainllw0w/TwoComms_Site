@@ -179,10 +179,30 @@ class ProductVariantSitemap(Sitemap):
                     })
 
             # Fit options — only active ones are user-facing.
-            for fit in product.fit_options.all():
-                if fit.is_active and fit.code:
+            active_fits = [
+                fit for fit in product.fit_options.all()
+                if fit.is_active and fit.code
+            ]
+            for fit in active_fits:
+                entries.append({
+                    'loc': f'{base_path}/{fit.code}/',
+                    'lastmod': lastmod,
+                })
+
+            # SEO 2026-05-19 (VILNI deep review §12.3 / §12.4 TASK I).
+            # 2-segment ``/product/<slug>/<color>/<fit>/`` URLs are
+            # self-canonical (see ``services.variant_meta``) so Google
+            # can index them for combined long-tail queries like
+            # "чорна футболка оверсайз з принтом". Listing them in the
+            # sitemap accelerates discovery without bloating crawl —
+            # ~300-400 extra URLs at current catalogue size.
+            colour_slugs = [
+                cv.slug for cv in product.color_variants.all() if cv.slug
+            ]
+            for colour_slug in colour_slugs:
+                for fit in active_fits:
                     entries.append({
-                        'loc': f'{base_path}/{fit.code}/',
+                        'loc': f'{base_path}/{colour_slug}/{fit.code}/',
                         'lastmod': lastmod,
                     })
 

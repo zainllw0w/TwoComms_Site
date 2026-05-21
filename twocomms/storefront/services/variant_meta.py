@@ -104,7 +104,24 @@ def build_variant_meta(inputs: VariantMetaInputs) -> dict:
         and not inputs.color_slug
         and not inputs.fit_code
     )
+    # SEO 2026-05-19 (VILNI deep review §12.3/§12.4 — TASK I).
+    # A 2-segment URL composed of *colour + fit* (no size) is a
+    # high-commercial-intent long-tail combo ("чорна футболка
+    # оверсайз з принтом"). Indexing it as self-canonical lets the
+    # site rank for that combined query instead of collapsing all
+    # signal onto the base PDP. Size-bearing combos still consolidate
+    # to base (size has near-zero search demand and creates crawl
+    # noise — audit §12.3 point 2).
+    is_color_fit_combo = (
+        inputs.segments_count == 2
+        and bool(inputs.color_slug)
+        and bool(inputs.fit_code)
+        and not inputs.size_code
+    )
     if inputs.segments_count == 1 and not is_size_only_single:
+        canonical_path = inputs.current_path
+        is_self_canonical = True
+    elif is_color_fit_combo:
         canonical_path = inputs.current_path
         is_self_canonical = True
     else:
@@ -118,7 +135,27 @@ def build_variant_meta(inputs: VariantMetaInputs) -> dict:
         # carries Google's primary keyword weight. Multi-segment combos
         # keep the suffix order (color → size → fit).
         fit_lead = inputs.fit_label and inputs.segments_count == 1
-        if fit_lead:
+        if is_color_fit_combo:
+            # SEO 2026-05-19 (VILNI deep review §12.4 — TASK I).
+            # Targeted copy for the colour + fit combo page so it
+            # ranks for combined queries like "чорна футболка
+            # оверсайз з принтом" instead of fighting the base PDP
+            # for unspecific queries. Title leads with the product
+            # name (Google rewards brand/product-first templates),
+            # bakes in colour and fit as a comma-separated qualifier,
+            # closes with «TwoComms» for brand affinity.
+            color_lc = _lowercase_first(inputs.color_name or "")
+            fit_lc = _lowercase_first(inputs.fit_label or "")
+            page_title = (
+                f"{inputs.product_title} — {color_lc}, {fit_lc} фіт — TwoComms"
+            )
+            page_description = (
+                f"{color_lc.capitalize()} {inputs.product_title.lower()} "
+                f"у {fit_lc} фіті — DTF-друк, щільна бавовна, доставка "
+                f"з Харкова Новою Поштою по всій Україні за 1–3 дні. "
+                f"Український streetwear від бренду TwoComms."
+            )
+        elif fit_lead:
             # SEO v1.0 Phase 12 (2026-05-12) — finding (III) follow-up.
             # The «{fit_label} {product_title} — купити в TwoComms» pattern
             # generated three different problems at once:

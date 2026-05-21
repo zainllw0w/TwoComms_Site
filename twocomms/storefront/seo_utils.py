@@ -478,6 +478,23 @@ class SEOKeywordGenerator:
         if stored_title:
             return _truncate_at_word_boundary(stored_title, 60)
 
+        # SEO 2026-05-19 (VILNI deep review §13.13 — PDP title
+        # optimisation for low-CTR products). The «бентежне» print
+        # series ships under product slugs prefixed with
+        # ``bentejne-``. Their default titles read like internal
+        # codes («Бентежне худі 02») and bury the actual commercial
+        # intent (apparel category + print theme). Prefer a clearer
+        # commercial template so SERP recovery is possible:
+        #   «Принт «Бентежне» — {category} | TwoComms»
+        # The product.title stays untouched for use in product cards;
+        # this only affects the <title> tag and OG titles.
+        slug = (getattr(product, "slug", "") or "").lower()
+        if slug.startswith("bentejne-") and product.category:
+            patterned = (
+                f"Принт «Бентежне» — {product.category.name} | TwoComms"
+            )
+            return _truncate_at_word_boundary(patterned, 60)
+
         title = f"{product.title} - TwoComms"
 
         if product.category:
@@ -1086,6 +1103,89 @@ class StructuredDataGenerator:
                     schema[key] = value
 
         return schema
+
+    @staticmethod
+    def generate_product_group_schema(product: Product) -> Optional[Dict]:
+        """Generate a ``ProductGroup`` schema for the base PDP.
+
+        SEO 2026-05-19 (VILNI deep review §13.1). Google's
+        product-variants guidance (Search Central, Feb 2024) recommends
+        wrapping multi-variant products in ``ProductGroup`` so the
+        search engine can consolidate ranking signals across colour
+        and fit pages. We emit this **alongside** the base ``Product``
+        node inside the @graph on the canonical PDP — the base Product
+        keeps its rich-result eligibility while the ProductGroup gives
+        Google an explicit cluster head with ``variesBy`` + ``hasVariant``.
+
+        Returns ``None`` when the product has no real variants (no
+        colour variants and no fit options), so the caller can skip
+        emitting an empty group node.
+        """
+        try:
+            from productcolors.models import ProductColorVariant
+            color_variants = list(
+                ProductColorVariant.objects.filter(product=product).select_related("color")
+            )
+        except Exception:
+            color_variants = []
+
+        try:
+            fit_options = list(
+                product.fit_options.filter(is_active=True).order_by("order", "id")
+            )
+        except Exception:
+            fit_options = []
+
+        if not color_variants and not fit_options:
+            return None
+
+        base_url = _build_absolute_url(f"product/{product.slug}/")
+        base_product_id = f"{base_url}#product"
+        group_id = f"{base_url}#product-group"
+
+        varies_by: List[str] = []
+        if color_variants:
+            varies_by.append("https://schema.org/color")
+        if fit_options:
+            # ``sizeGroup`` is schema.org's canonical property for
+            # fit / cut (regular / oversize / relaxed).
+            varies_by.append("https://schema.org/sizeGroup")
+        # Size selection is always present for apparel — declare it so
+        # Google can match against Merchant feed size dimensions even
+        # though the size URLs collapse to base via canonical.
+        varies_by.append("https://schema.org/size")
+
+        description = _truncate_at_word_boundary(
+            _pick_product_description_source(product)
+            or f"Якісний {product.category.name.lower() if product.category else 'одяг'} з ексклюзивним дизайном від TwoComms",
+            320,
+        )
+
+        group: Dict = {
+            "@context": "https://schema.org",
+            "@type": "ProductGroup",
+            "@id": group_id,
+            "productGroupID": product.slug,
+            "name": product.title,
+            "description": description,
+            "url": base_url,
+            "inLanguage": StructuredDataGenerator._resolve_inlanguage_code(),
+            "brand": {"@id": f"{_build_absolute_url('')}#brand"},
+            "variesBy": varies_by,
+            "hasVariant": [{"@id": base_product_id}],
+        }
+
+        # Append colour-variant Product nodes by stable @id (the actual
+        # rich Product payload for each variant URL is emitted on its
+        # own self-canonical page; here we only need the reference).
+        for variant in color_variants:
+            slug = (getattr(variant, "slug", "") or "").strip()
+            if not slug:
+                continue
+            variant_url = _build_absolute_url(f"product/{product.slug}/{slug}/")
+            group["hasVariant"].append({"@id": f"{variant_url}#product"})
+
+        return group
 
     @staticmethod
     def generate_google_merchant_schema(product: Product) -> Dict:

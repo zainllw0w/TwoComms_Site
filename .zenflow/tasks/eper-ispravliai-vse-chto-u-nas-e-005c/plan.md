@@ -22,22 +22,23 @@ Focus on what's truly missing or wrong.
 - Add Organization-level `MerchantReturnPolicy` (Google Merchant docs).
 - Add `MemberProgram` describing TWOCOMMS Бали (Google loyalty schema).
 
-### [ ] Step 3: PDP — wrap Product into `ProductGroup` with `productGroupID`, `variesBy`, full `hasVariant`
-- Extend `generate_product_schema` to emit `ProductGroup` when variants exist (color/fit/size).
-- Each variant a full `Product` with `sku`, `color`, `size`, `image`, `url`, `offers`.
+### [x] Step 3: PDP — emit `ProductGroup` alongside base `Product` in @graph
+- Added `generate_product_group_schema()` in `seo_utils.py` with `productGroupID`, `variesBy`, `hasVariant` refs by stable `@id`.
+- `product_graph` template tag now emits the ProductGroup node next to the base Product on canonical PDP (no variant URL).
 
-### [ ] Step 4: Offer — add `deliveryLeadTime` (3-5 days) for `MadeToOrder`
-- Append `deliveryLeadTime` `QuantitativeValue` to `Offer` payload to clarify lead time alongside `MadeToOrder` availability.
+### [x] Step 4: Offer — add `deliveryLeadTime` (3-5 days) for `MadeToOrder`
+- `deliveryLeadTime` QuantitativeValue (3-5 DAY) added to Offer in `generate_product_schema`.
 
-### [ ] Step 5: variant_meta.py — index 2-segment color+fit URLs (self-canonical)
-- When `segments_count == 2` and both `color_slug` + `fit_code` present (no `size_code`), set `is_self_canonical = True` and `canonical_path = current_path`.
-- Generate richer title/description for the color+fit combination.
+### [x] Step 5: variant_meta.py — index 2-segment color+fit URLs (self-canonical)
+- `is_color_fit_combo` branch sets self-canonical for `/product/<slug>/<color>/<fit>/`.
+- Dedicated title/description for the combo page.
+- `ProductVariantSitemap` now emits the 2-segment combos for discovery.
 
-### [ ] Step 6: PDP titles for low-CTR "бентежне" products
-- For products whose slug starts with `bentejne-`, prefer a clearer commercial title pattern in `pages/product_detail.html` SEO fallback / `seo_title` helper — emphasize «Принт «Бентежне» — {category} | TwoComms» so SERP recovery is possible (audit §13.13 Recovery math: +13 clicks/28d).
+### [x] Step 6: PDP titles for low-CTR "бентежне" products
+- `SEOKeywordGenerator.generate_meta_title` returns «Принт «Бентежне» — {category} | TwoComms» for `bentejne-*` slugs (only when `seo_title` is empty).
 
-### [ ] Step 7: Extend llms.txt with commerce-intent facts
-- Add pricing range, shipping window, founding info, mission, signature line, custom-print lead time, and reviews/AggregateRating policy. Pulled from audit §5.6.
+### [x] Step 7: Extend llms.txt with commerce-intent facts
+- Added Commerce facts (currency, price range, payment methods, shipping window, lead time, return policy, loyalty), Brand mission/signature line, and Reviews policy.
 
 ### [ ] Step 8: Django check + commit + push + deploy
 - Run `python manage.py check` to ensure no syntax/runtime errors.
