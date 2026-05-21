@@ -40,6 +40,7 @@ Focus on what's truly missing or wrong.
 ### [x] Step 7: Extend llms.txt with commerce-intent facts
 - Added Commerce facts (currency, price range, payment methods, shipping window, lead time, return policy, loyalty), Brand mission/signature line, and Reviews policy.
 
-### [ ] Step 8: Django check + commit + push + deploy
-- Run `python manage.py check` to ensure no syntax/runtime errors.
-- Commit, push to origin, then SSH deploy `git pull` on prod.
+### [x] Step 8: Django check + commit + push + deploy
+- `python manage.py check` — System check identified no issues.
+- Commit `c0b1c813` pushed to `origin/main`.
+- SSH deploy executed: `git pull` fast-forwarded prod from `f1ed2849` to `c0b1c813`.
