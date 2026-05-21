@@ -64,20 +64,49 @@
       "addressRegion": "UA-63",
       "addressLocality": "{% trans 'Харків' %}"
     },
-    "areaServed": {
-      "@type": "Country",
-      "name": "{% trans 'Україна' %}"
-    },
+    "areaServed": [
+      {"@type": "Country", "name": "{% trans 'Україна' %}", "identifier": "UA"},
+      {"@type": "City", "name": "{% trans 'Харків' %}"}
+    ],
     "currenciesAccepted": "UAH",
     "paymentAccepted": "Cash, Credit Card, Apple Pay, Google Pay, Bank transfer",
     "priceRange": "{{ price_range|default:'660-2550 UAH' }}",
+    {% comment %}
+    SEO 2026-05-19 (VILNI deep review §4.3). Add ``geo`` coordinates
+    of the Kharkiv operations centre (no physical street address —
+    online-only store) plus ``openingHoursSpecification`` describing
+    the Telegram / phone support window. This lights up the
+    ClothingStore as a typed local entity for AI knowledge graphs
+    and Google's Knowledge Panel without violating guidelines on
+    fake street addresses. ``streetAddress`` deliberately omitted.
+    {% endcomment %}
+    "geo": {
+      "@type": "GeoCoordinates",
+      "latitude": 50.0040,
+      "longitude": 36.2308,
+      "name": "{% trans 'Харків — центр обслуговування TwoComms' %}"
+    },
+    "openingHoursSpecification": [
+      {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+        "opens": "10:00",
+        "closes": "22:00"
+      }
+    ],
     "contactPoint": [
       {
         "@type": "ContactPoint",
         "telephone": "+380966543212",
         "contactType": "customer service",
         "availableLanguage": ["Ukrainian", "Russian"],
-        "areaServed": "UA"
+        "areaServed": "UA",
+        "hoursAvailable": {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+          "opens": "10:00",
+          "closes": "22:00"
+        }
       }
     ],
     "sameAs": [
