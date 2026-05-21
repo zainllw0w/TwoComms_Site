@@ -572,6 +572,37 @@ class ServicePageSeoMetaRegressionTests(SimpleTestCase):
                 self.assertContains(response, 'aria-label="Breadcrumb"', html=False)
 
 
+class ContactsSeoSignalRegressionTests(TestCase):
+    def test_contacts_use_real_catalog_price_range_without_placeholder_addresses(self):
+        category = Category.objects.create(
+            name="Contacts SEO products",
+            slug="contacts-seo-products",
+            is_active=True,
+        )
+        Product.objects.create(
+            title="Entry product",
+            slug="entry-product",
+            category=category,
+            price=880,
+            status="published",
+        )
+        Product.objects.create(
+            title="Premium product",
+            slug="premium-product",
+            category=category,
+            price=2550,
+            status="published",
+        )
+
+        response = self.client.get(reverse("contacts"), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '"priceRange": "880-2550 UAH"', html=False)
+        self.assertNotContains(response, '"priceRange": "₴₴"', html=False)
+        self.assertNotContains(response, "Хрещатик", html=False)
+        self.assertNotContains(response, "Соборний", html=False)
+
+
 class CategoryNavigationSeoRegressionTests(TestCase):
     def setUp(self):
         self.client = Client()

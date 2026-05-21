@@ -32,6 +32,7 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
 from storefront.models import Category, CustomPrintLead, CustomPrintModerationStatus, Product, SizeGrid
+from storefront.seo_utils import _homepage_price_range_text
 from storefront.forms import CustomPrintLeadForm
 from storefront.custom_print_config import (
     ADDON_LABELS,

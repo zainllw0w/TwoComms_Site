@@ -9340,3 +9340,21 @@ msgstr "Product sections"
 
 msgid "Топ запити для цієї моделі"
 msgstr "Top queries for this model"
+
+msgid "TwoComms — стріт та мілітарі одяг з Харкова: футболки, худі"
+msgstr "TwoComms — street and military apparel from Kharkiv: t-shirts, hoodies"
+
+msgid ""
+"TwoComms — харківський бренд стрітвір та мілітарі одягу: футболки, худі, "
+"лонгсліви, кастомний DTF-друк, доставка Новою Поштою по всій Україні."
+msgstr ""
+"TwoComms is a Kharkiv streetwear and military apparel brand: t-shirts, "
+"hoodies, longsleeves, custom DTF print and Nova Poshta delivery across "
+"Ukraine."
+
+msgid ""
+"Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Онлайн-консультації та "
+"форма зворотного зв'язку."
+msgstr ""
+"Contact TwoComms by phone, Telegram or Instagram. Online consultations and "
+"feedback form."

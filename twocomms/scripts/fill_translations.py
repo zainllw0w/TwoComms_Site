@@ -114,9 +114,17 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "ru": "TwoComms — стрит & милитари одежда | Главная",
         "en": "TwoComms — Street & Military Apparel | Home",
     },
+    "TwoComms — стріт та мілітарі одяг з Харкова: футболки, худі": {
+        "ru": "TwoComms — стрит и милитари одежда из Харькова: футболки, худи",
+        "en": "TwoComms — street and military apparel from Kharkiv: t-shirts, hoodies",
+    },
     "TwoComms — український магазин стріт і мілітарі одягу: футболки, худі, лонгсліви, кастомний друк і швидка доставка по Україні.": {
         "ru": "TwoComms — украинский магазин стрит и милитари одежды: футболки, худи, лонгсливы, кастомный принт и быстрая доставка по Украине.",
         "en": "TwoComms — Ukrainian streetwear & military apparel store: t-shirts, hoodies, longsleeves, custom print and fast Ukraine-wide shipping.",
+    },
+    "TwoComms — харківський бренд стрітвір та мілітарі одягу: футболки, худі, лонгсліви, кастомний DTF-друк, доставка Новою Поштою по всій Україні.": {
+        "ru": "TwoComms — харьковский бренд стритвир и милитари одежды: футболки, худи, лонгсливы, кастомная DTF-печать, доставка Новой Почтой по всей Украине.",
+        "en": "TwoComms is a Kharkiv streetwear and military apparel brand: t-shirts, hoodies, longsleeves, custom DTF print and Nova Poshta delivery across Ukraine.",
     },
     "TwoComms — стріт & мілітарі одяг з ексклюзивним дизайном": {
         "ru": "TwoComms — стрит & милитари одежда с эксклюзивным дизайном",
@@ -1683,6 +1691,10 @@ TRANSLATIONS_PHASE_17P: dict[str, dict[str, str]] = {
     "TwoComms — український онлайн-магазин стрітвір- і мілітарі-одягу: футболки, худі, лонгсліви та кастомний DTF-друк.": {
         "ru": "TwoComms — украинский онлайн-магазин стритвир- и милитари-одежды: футболки, худи, лонгсливы и кастомная DTF-печать.",
         "en": "TwoComms is the Ukrainian online store of streetwear and military-style apparel: t-shirts, hoodies, longsleeves and custom DTF print.",
+    },
+    "Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Онлайн-консультації та форма зворотного зв'язку.": {
+        "ru": "Свяжитесь с TwoComms: телефон, Telegram, Instagram. Онлайн-консультации и форма обратной связи.",
+        "en": "Contact TwoComms by phone, Telegram or Instagram. Online consultations and feedback form.",
     },
     "Україна": {"ru": "Украина", "en": "Ukraine"},
 

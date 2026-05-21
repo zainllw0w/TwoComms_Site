@@ -143,6 +143,34 @@ class MultilingualRobotsTests(TestCase):
         self.assertIn('hreflang="ru-UA" href="https://twocomms.shop/ru/"', body)
         self.assertIn('hreflang="en-UA" href="https://twocomms.shop/en/"', body)
 
+    def test_homepage_ru_meta_is_translated(self):
+        response = self.client.get("/ru/")
+
+        self.assertContains(
+            response,
+            "<title>TwoComms — стрит и милитари одежда из Харькова: футболки, худи</title>",
+            html=False,
+        )
+        self.assertContains(
+            response,
+            'content="TwoComms — харьковский бренд стритвир и милитари одежды: футболки, худи, лонгсливы, кастомная DTF-печать, доставка Новой Почтой по всей Украине."',
+            html=False,
+        )
+
+    def test_homepage_en_meta_is_translated(self):
+        response = self.client.get("/en/")
+
+        self.assertContains(
+            response,
+            "<title>TwoComms — street and military apparel from Kharkiv: t-shirts, hoodies</title>",
+            html=False,
+        )
+        self.assertContains(
+            response,
+            'content="TwoComms is a Kharkiv streetwear and military apparel brand: t-shirts, hoodies, longsleeves, custom DTF print and Nova Poshta delivery across Ukraine."',
+            html=False,
+        )
+
 
 class SitemapI18nFlagsTests(TestCase):
     """Sanity checks on sitemap class flags — no XML parsing here."""

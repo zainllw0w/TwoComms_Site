@@ -10,7 +10,7 @@
    long-tail queries.
    {% endcomment %}
 {% block title %}{% trans 'Контакти TwoComms — телефон, Telegram, Instagram | Харків' %}{% endblock %}
-{% block description %}{% trans "Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Офіційні магазини та форма зворотного зв'язку." %}{% endblock %}
+{% block description %}{% trans "Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Онлайн-консультації та форма зворотного зв'язку." %}{% endblock %}
 {% block keywords %}{% trans 'контакти TwoComms, телефон, telegram, instagram, зворотній зв’язок, магазини TwoComms' %}{% endblock %}
 {% block og_title %}{% trans 'Контакти TwoComms — телефон, Telegram, Instagram | Харків' %}{% endblock %}
 {% block og_description %}{% trans "Зв'яжіться з TwoComms: телефон, Telegram, Instagram. Швидка відповідь на будь-які питання." %}{% endblock %}
@@ -217,12 +217,14 @@
     </div>
   </div>
 
-  {# SEO 2026-05-19 (VILNI deep review §3.2) — removed two placeholder
+  {% comment %}
+  SEO 2026-05-19 (VILNI deep review §3.2) — removed two placeholder
      store cards («Хрещатик 22 Київ» / «Соборний 15 Львів»). Even though
      the addresses were CSS-blurred, the literal NAP was still in the
      HTML and contradicted the canonical Kharkiv-online positioning,
      creating a conflicting Local Pack signal. Replaced with an honest
-     online-only block. #}
+     online-only block.
+  {% endcomment %}
   <div class="row mb-5">
     <div class="col-12">
       <div class="store-locations">
