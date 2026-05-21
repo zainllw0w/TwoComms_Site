@@ -42,75 +42,6 @@ function initDeferredInstallPrompts() {
 initDeferredInstallPrompts();
 
 const ANALYTICS_BRAND_NAME = 'TwoComms';
-const COPY_ATTRIBUTION_MIN_LENGTH = 4;
-const COPY_ATTRIBUTION_LABEL = 'Скопійовано з TwoComms';
-
-function closestElementFromNode(node) {
-  if (!node) {
-    return null;
-  }
-  if (node.nodeType === Node.ELEMENT_NODE) {
-    return node;
-  }
-  return node.parentElement || null;
-}
-
-function getCanonicalCopyUrl() {
-  const canonical = document.querySelector('link[rel="canonical"]');
-  const href = canonical ? canonical.getAttribute('href') : '';
-  if (href) {
-    try {
-      return new URL(href, window.location.origin).href;
-    } catch (_) { }
-  }
-  return window.location.href.split('#')[0];
-}
-
-function shouldSkipCopyAttribution(selection) {
-  if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
-    return true;
-  }
-  const text = selection.toString().trim();
-  if (!text || text.length < COPY_ATTRIBUTION_MIN_LENGTH || text.includes(COPY_ATTRIBUTION_LABEL)) {
-    return true;
-  }
-  const anchor = closestElementFromNode(selection.anchorNode);
-  const focus = closestElementFromNode(selection.focusNode);
-  const excludedSelector = [
-    'input',
-    'textarea',
-    'select',
-    '[contenteditable="true"]',
-    '[data-copy-raw]',
-    '[data-share-copy]',
-    '.copyable-text',
-    '.order-number-copy',
-    'pre',
-    'code',
-  ].join(',');
-  return Boolean(
-    anchor?.closest(excludedSelector) ||
-    focus?.closest(excludedSelector)
-  );
-}
-
-function initCopyAttribution() {
-  document.addEventListener('copy', (event) => {
-    const selection = window.getSelection ? window.getSelection() : null;
-    if (!event.clipboardData || shouldSkipCopyAttribution(selection)) {
-      return;
-    }
-
-    const selectedText = selection.toString().trim();
-    const sourceUrl = getCanonicalCopyUrl();
-    const plainText = `${selectedText}\n\n${COPY_ATTRIBUTION_LABEL}: ${sourceUrl}`;
-    const htmlText = `${escapeHtml(selectedText).replace(/\n/g, '<br>')}<p>${COPY_ATTRIBUTION_LABEL}: <a href="${escapeHtml(sourceUrl)}">${escapeHtml(sourceUrl)}</a></p>`;
-
-    event.clipboardData.setData('text/plain', plainText);
-    event.clipboardData.setData('text/html', htmlText);
-    event.preventDefault();
-  });
-}
 
 function isProtectedImageTarget(target) {
   return Boolean(target?.closest?.(
@@ -132,7 +63,6 @@ function initProtectedImageInteractions() {
   }, { capture: true });
 }
 
-initCopyAttribution();
 initProtectedImageInteractions();
 
 function getAnalyticsTrackingContext() {

@@ -243,7 +243,7 @@ class HomepagePaginationCssTests(SimpleTestCase):
         self.assertIn("dragstart", js)
         self.assertIn("[data-twc-image-protected]", js)
 
-    def test_main_js_adds_copy_attribution_without_touching_raw_copy_controls(self):
+    def test_main_js_does_not_inject_copy_attribution(self):
         js_path = (
             Path(__file__).resolve().parents[2]
             / "twocomms_django_theme"
@@ -253,12 +253,9 @@ class HomepagePaginationCssTests(SimpleTestCase):
         )
         js = js_path.read_text(encoding="utf-8")
 
-        self.assertIn("COPY_ATTRIBUTION_LABEL = 'Скопійовано з TwoComms'", js)
-        self.assertIn("event.clipboardData.setData('text/plain'", js)
-        self.assertIn("event.clipboardData.setData('text/html'", js)
-        self.assertIn("[data-copy-raw]", js)
-        self.assertIn("[data-share-copy]", js)
-        self.assertIn(".copyable-text", js)
+        self.assertNotIn("Скопійовано з TwoComms", js)
+        self.assertNotIn("COPY_ATTRIBUTION_LABEL", js)
+        self.assertNotIn("initCopyAttribution", js)
 
     def test_home_pagination_mobile_reserves_edge_gutter(self):
         css_path = (
