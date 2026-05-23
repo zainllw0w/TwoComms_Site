@@ -415,6 +415,14 @@ def _buyme_offer_id(product_id: int, variant_id: int | None, size: str, color_ua
     return _truncate(f"buyme-{int(product_id)}-{variant_part}-{color_part}-{size_part}", 64)
 
 
+def _buyme_group_id(offer: FeedOffer) -> str:
+    product_id = int(offer.product.id)
+    if offer.variant_id:
+        return _truncate(f"buyme-{product_id}-v{offer.variant_id}", 64)
+    color_part = _ascii_token(offer.color_ua, "color").lower()
+    return _truncate(f"buyme-{product_id}-default-{color_part}", 64)
+
+
 def _buyme_retail_price(offer: FeedOffer) -> int:
     product = offer.product
     candidates = [
@@ -1017,7 +1025,7 @@ def build_buyme_feed_xml(base_url: str | None = None) -> bytes:
             {
                 "id": offer_id,
                 "available": "true",
-                "group_id": f"buyme-{int(product.id)}",
+                "group_id": _buyme_group_id(offer),
             },
         )
         ET.SubElement(offer_el, "name").text = _buyme_base_name(product)

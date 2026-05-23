@@ -364,7 +364,23 @@ class MarketplaceFeedServiceTests(TestCase):
         offer_ids = {offer.attrib["id"] for offer in offers}
         names = {offer.findtext("name") for offer in offers}
 
-        self.assertEqual(group_ids, {f"buyme-{self.product.id}"})
+        self.assertEqual(len(group_ids), 2)
+        for group_id in group_ids:
+            grouped_offers = [offer for offer in offers if offer.attrib.get("group_id") == group_id]
+            grouped_colors = {
+                param.text
+                for offer in grouped_offers
+                for param in offer.findall("param")
+                if param.attrib.get("name") == "Колір"
+            }
+            grouped_sizes = {
+                param.text
+                for offer in grouped_offers
+                for param in offer.findall("param")
+                if param.attrib.get("name") == "Розмір"
+            }
+            self.assertEqual(len(grouped_colors), 1, group_id)
+            self.assertEqual(grouped_sizes, {"S", "M", "L", "XL", "XXL"}, group_id)
         self.assertEqual(len(offer_ids), 10)
         self.assertEqual(names, {"Брендова футболка унісекс «Довіряй своїй божевільній ідеї»"})
 
