@@ -948,6 +948,12 @@
           </svg>
           SEO
         </a>
+        <a href="?section=blog" class="admin-nav-item {% if section == 'blog' %}active{% endif %}">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M5 3h12a2 2 0 0 1 2 2v14.5a.5.5 0 0 1-.8.4L15 17.5H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm1 4v2h10V7H6zm0 4v2h7v-2H6z"/>
+          </svg>
+          Блог
+        </a>
         {# Phase 21 (PR-A1) — reviews moderation tab. #}
         <a href="?section=reviews" class="admin-nav-item {% if section == 'reviews' %}active{% endif %}">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -3183,6 +3189,9 @@
 
     {% elif section == 'seo' %}
       {% include "partials/admin_seo_dashboard.html" %}
+
+    {% elif section == 'blog' %}
+      {% include "partials/admin_blog.html" %}
 
     {% elif section == 'reviews' %}
       {# Phase 21 (PR-A1) — review moderation queue. #}

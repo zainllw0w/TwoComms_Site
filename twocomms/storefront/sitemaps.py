@@ -6,7 +6,8 @@
 """
 from django.contrib.sitemaps import Sitemap
 from django.urls import reverse
-from .models import Product, Category
+from django.utils import timezone
+from .models import BlogCategory, BlogPost, Product, Category
 
 
 # Static routes that should appear in sitemap.
@@ -26,7 +27,7 @@ PUBLIC_STATIC_ROUTE_NAMES = [
     'care_guide',
     'order_tracking',
     'site_map_page',
-    'news',
+    'blog',
     'returns',
     'privacy_policy',
     'terms_of_service',
@@ -244,6 +245,54 @@ class CategorySitemap(Sitemap):
 
     def location(self, obj):
         return reverse('catalog_by_cat', kwargs={'cat_slug': obj.slug})
+
+
+class BlogCategorySitemap(Sitemap):
+    changefreq = 'weekly'
+    priority = 0.7
+    protocol = 'https'
+    i18n = True
+    alternates = True
+    x_default = True
+
+    def items(self):
+        return (
+            BlogCategory.objects
+            .filter(is_active=True)
+            .exclude(slug='')
+            .only('slug', 'updated_at')
+            .order_by('order', 'name')
+        )
+
+    def lastmod(self, obj):
+        return getattr(obj, 'updated_at', None)
+
+    def location(self, obj):
+        return reverse('blog_category', kwargs={'slug': obj.slug})
+
+
+class BlogPostSitemap(Sitemap):
+    changefreq = 'weekly'
+    priority = 0.8
+    protocol = 'https'
+    i18n = True
+    alternates = True
+    x_default = True
+
+    def items(self):
+        return (
+            BlogPost.objects
+            .filter(is_published=True, published_at__lte=timezone.now())
+            .exclude(slug='')
+            .only('slug', 'updated_at', 'published_at')
+            .order_by('-published_at', '-id')
+        )
+
+    def lastmod(self, obj):
+        return getattr(obj, 'updated_at', None) or getattr(obj, 'published_at', None)
+
+    def location(self, obj):
+        return reverse('blog_post', kwargs={'slug': obj.slug})
 
 
 

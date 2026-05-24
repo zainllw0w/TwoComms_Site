@@ -99,6 +99,7 @@ from .static_pages import (
     sitemap_section_categories,
     sitemap_section_color_categories,
     sitemap_section_thematic,
+    sitemap_section_blog,
     sitemap_images,
     buyme_feed_xml,
     google_merchant_feed,
@@ -129,6 +130,17 @@ from .static_pages import (
     privacy_policy,
     terms_of_service,
     test_analytics_events,
+)
+
+from .blog import (
+    blog_index,
+    blog_category,
+    blog_post,
+    legacy_blog_redirect,
+    admin_blog_category_create,
+    admin_blog_category_update,
+    admin_blog_post_create,
+    admin_blog_post_update,
 )
 
 from .platform import (
@@ -390,7 +402,7 @@ __all__ = [
 
     # Static Pages
     'csp_report',
-    'robots_txt', 'llms_txt', 'llms_full_txt', 'custom_sitemap', 'static_sitemap', 'google_merchant_feed', 'rozetka_feed_xml', 'kasta_feed_xml',
+    'robots_txt', 'llms_txt', 'llms_full_txt', 'custom_sitemap', 'static_sitemap', 'sitemap_section_blog', 'google_merchant_feed', 'rozetka_feed_xml', 'kasta_feed_xml',
     'buyme_feed_xml',
     'static_verification_file', 'indexnow_key_file', 'about', 'contacts', 'custom_print', 'custom_print_lead',
     'custom_print_safe_exit', 'custom_print_add_to_cart', 'custom_print_remove',
@@ -399,6 +411,11 @@ __all__ = [
     'order_tracking', 'site_map_page', 'news', 'returns',
     'privacy_policy', 'terms_of_service', 'test_analytics_events',
     'prom_feed_xml', 'uaprom_products_feed',
+
+    # Blog
+    'blog_index', 'blog_category', 'blog_post', 'legacy_blog_redirect',
+    'admin_blog_category_create', 'admin_blog_category_update',
+    'admin_blog_post_create', 'admin_blog_post_update',
 
     # Surveys
     'survey_start_or_resume', 'survey_current_question', 'survey_submit_answer',

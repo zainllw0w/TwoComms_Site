@@ -413,7 +413,7 @@ FOOTER_CONTENT = {
             "title": _("Бренд"),
             "links": [
                 {"label": _("Про бренд"), "url_name": "about"},
-                {"label": _("Новини"), "url_name": "news"},
+                {"label": _("Новини та блог"), "url_name": "blog"},
                 {"label": _("Контакти"), "url_name": "contacts"},
                 {"label": _("Карта сайту"), "url_name": "site_map_page"},
             ],
@@ -451,7 +451,7 @@ SUPPORT_PAGE_DEFINITIONS = {
         ],
         "intro_links": [
             {"label": _("Каталог"), "url_name": "catalog"},
-            {"label": _("Новини"), "url_name": "news"},
+            {"label": _("Новини та блог"), "url_name": "blog"},
             {"label": _("Доставка"), "url_name": "delivery"},
             {"label": _("Контакти"), "url_name": "contacts"},
         ],

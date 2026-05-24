@@ -9358,3 +9358,117 @@ msgid ""
 msgstr ""
 "Contact TwoComms by phone, Telegram or Instagram. Online consultations and "
 "feedback form."
+
+msgid "Новини та блог"
+msgstr "News and blog"
+
+msgid "Блог"
+msgstr "Blog"
+
+msgid "Додати пост"
+msgstr "Add post"
+
+msgid "Відкрити блог"
+msgstr "Open blog"
+
+msgid "Панель блогу"
+msgstr "Blog panel"
+
+msgid "Категорії блогу"
+msgstr "Blog categories"
+
+msgid "Додати категорію"
+msgstr "Add category"
+
+msgid "Редагувати"
+msgstr "Edit"
+
+msgid "Категорії ще не створені."
+msgstr "No categories have been created yet."
+
+msgid "Пости блогу"
+msgstr "Blog posts"
+
+msgid "Перегляди"
+msgstr "Views"
+
+msgid "Унікальні"
+msgstr "Unique"
+
+msgid "Перегляд"
+msgstr "View"
+
+msgid "Пости ще не створені."
+msgstr "No posts have been created yet."
+
+msgid "Читати"
+msgstr "Read"
+
+msgid "Адмін"
+msgstr "Admin"
+
+msgid "Категорія"
+msgstr "Category"
+
+msgid "Усі публікації"
+msgstr "All posts"
+
+msgid "У цій категорії поки немає постів"
+msgstr "There are no posts in this category yet"
+
+msgid "Коли матеріал буде опубліковано, він зʼявиться тут."
+msgstr "When a story is published, it will appear here."
+
+msgid "Глибше по темі"
+msgstr "Deeper on the topic"
+
+msgid "Добірка матеріалів оновлюється за датою, щоб нові публікації швидко отримували свою сторінку, внутрішні посилання і зрозумілу SEO-структуру."
+msgstr "The collection is updated by date so new publications quickly get their page, internal links and a clear SEO structure."
+
+msgid "усі матеріали"
+msgstr "all materials"
+
+msgid "Публічний контекст:"
+msgstr "Public context:"
+
+msgid "Далі читати"
+msgstr "Read next"
+
+msgid "Повʼязані публікації"
+msgstr "Related posts"
+
+msgid "TwoComms editorial"
+msgstr "TwoComms editorial"
+
+msgid "Офіційні новини бренда, огляди речей, корисні знання про матеріали, принти, посадку і внутрішній характер TwoComms."
+msgstr "Official brand news, product reviews and useful knowledge about materials, prints, fit and the inner character of TwoComms."
+
+msgid "Публікації"
+msgstr "Publications"
+
+msgid "Публікації готуються"
+msgstr "Publications are being prepared"
+
+msgid "Після публікації матеріали зʼявляться тут за датою."
+msgstr "After publication, materials will appear here by date."
+
+msgid "Навігація за наміром"
+msgstr "Navigation by intent"
+
+msgid "Новини бренда, огляди продукції і практичні знання"
+msgstr "Brand news, product reviews and practical knowledge"
+
+msgid "Цей розділ збирає матеріали для тих, хто хоче швидко зрозуміти, що нового у TwoComms, як вибирати речі, як доглядати за принтом і чому деталі виробу мають значення."
+msgstr "This section gathers materials for people who want to quickly understand what is new at TwoComms, how to choose pieces, how to care for prints and why product details matter."
+
+msgid "новини TwoComms"
+msgstr "TwoComms news"
+
+msgid "огляди худі та футболок"
+msgstr "hoodie and T-shirt reviews"
+
+msgid "догляд за DTF принтом"
+msgstr "DTF print care"
+
+msgid "одяг з характером"
+msgstr "clothing with character"

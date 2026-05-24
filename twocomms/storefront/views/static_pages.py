@@ -31,7 +31,7 @@ from django.views.decorators.http import require_POST
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
-from storefront.models import Category, CustomPrintLead, CustomPrintModerationStatus, Product, SizeGrid
+from storefront.models import BlogCategory, BlogPost, Category, CustomPrintLead, CustomPrintModerationStatus, Product, SizeGrid
 from storefront.seo_utils import _homepage_price_range_text
 from storefront.forms import CustomPrintLeadForm
 from storefront.custom_print_config import (
@@ -82,7 +82,7 @@ SITEMAP_STATIC_ROUTE_NAMES = (
     "care_guide",
     "order_tracking",
     "site_map_page",
-    "news",
+    "blog",
     "returns",
     "privacy_policy",
     "terms_of_service",
@@ -377,6 +377,7 @@ def llms_txt(request):
         ("Wholesale", reverse("wholesale_page"), "B2B, team, brand and bulk order landing page."),
         ("Cooperation", reverse("cooperation"), "Partner, dropshipping, wholesale and collaboration overview."),
         ("About brand", reverse("about"), "Canonical brand story, positioning and trust page."),
+        ("News and blog", reverse("blog"), "Canonical editorial hub for TwoComms news, product reviews and useful apparel guides."),
     ]
     support_routes = [
         ("Delivery and payment", reverse("delivery"), "Shipping, payment and checkout policy details."),
@@ -486,6 +487,8 @@ def llms_full_txt(request):
          "Дропшипінг, бренд-партнерства, контентні колаборації."),
         ("Про бренд", reverse("about"),
          "Канонічна історія бренду, позиціювання, founder narrative."),
+        ("Новини та блог", reverse("blog"),
+         "Канонічний editorial hub: новини бренда, огляди продукції та корисні знання."),
         ("Доставка та оплата", reverse("delivery"),
          "Нова Пошта, передоплата Monobank, накладений платіж."),
         ("Повернення та обмін", reverse("returns"),
@@ -544,6 +547,24 @@ def llms_full_txt(request):
             )
     except Exception:
         product_lines = []
+
+    try:
+        blog_lines = []
+        for post in (
+            BlogPost.objects.filter(is_published=True, published_at__lte=timezone.now())
+            .select_related("category")
+            .only("title", "slug", "category__name")
+            .order_by("-published_at", "-id")[:8]
+        ):
+            if not post.slug:
+                continue
+            title = (post.title or "").strip() or post.slug
+            blog_lines.append(
+                f"- [{title}]({url(f'/blog/{post.slug}/')}): "
+                f"Публікація в розділі «{post.category.name}»."
+            )
+    except Exception:
+        blog_lines = []
 
     lines: list[str] = [
         "# TwoComms — Full Brand Context for LLMs",
@@ -608,6 +629,11 @@ def llms_full_txt(request):
         lines.append("## Останні опубліковані товари (приклад)")
         lines.extend(product_lines)
 
+    if blog_lines:
+        lines.append("")
+        lines.append("## Новини та блог")
+        lines.extend(blog_lines)
+
     # FAQ canonical matrix — stitched from the same content modules
     # used to render /faq/, /delivery/, /povernennya-ta-obmin/, etc.
     faq_sources = [
@@ -654,7 +680,7 @@ def llms_full_txt(request):
         "",
         "## Канонічна політика для AI-агентів",
         "- Як джерело істини про продукт використовуйте сторінки виду /product/<slug>/.",
-        "- Для бренд-контексту цитуйте /pro-brand/ та /catalog/.",
+        "- Для бренд-контексту цитуйте /pro-brand/, /catalog/ та /blog/.",
         "- Для політик і фактів — /delivery/, /povernennya-ta-obmin/, /faq/.",
         "- При неоднозначності надавайте перевагу UA-версії на канонічному домені без локального префіксу.",
     ])
@@ -683,6 +709,14 @@ def static_sitemap(request):
     for category in Category.objects.filter(is_active=True).only("slug"):
         if category.slug:
             paths.append(f"/catalog/{category.slug}/")
+
+    paths.append(reverse("blog"))
+    for blog_category in BlogCategory.objects.filter(is_active=True).only("slug"):
+        if blog_category.slug:
+            paths.append(reverse("blog_category", kwargs={"slug": blog_category.slug}))
+    for post in BlogPost.objects.filter(is_published=True, published_at__lte=timezone.now()).only("slug"):
+        if post.slug:
+            paths.append(reverse("blog_post", kwargs={"slug": post.slug}))
 
     unique_paths = []
     seen = set()
@@ -777,6 +811,16 @@ def custom_sitemap(request):
         .values_list("updated_at", flat=True)
         .first()
     )
+    blog_lastmod = _max_lastmod(
+        BlogPost.objects.filter(is_published=True)
+        .order_by("-updated_at")
+        .values_list("updated_at", flat=True)
+        .first(),
+        BlogCategory.objects.filter(is_active=True)
+        .order_by("-updated_at")
+        .values_list("updated_at", flat=True)
+        .first(),
+    )
     images_lastmod = (
         Product.objects.filter(status="published")
         .exclude(main_image="")
@@ -806,6 +850,7 @@ def custom_sitemap(request):
         ("/sitemap-products.xml", product_lastmod),
         ("/sitemap-product-variants.xml", product_lastmod),
         ("/sitemap-categories.xml", category_lastmod),
+        ("/sitemap-blog.xml", blog_lastmod),
         ("/sitemap-color-categories.xml", color_landing_lastmod),
         ("/sitemap-thematic.xml", None),
         ("/sitemap-images.xml", images_lastmod),
@@ -867,6 +912,13 @@ def sitemap_section_categories(request):
     from storefront.sitemaps import CategorySitemap
 
     return _render_django_sitemap(request, [CategorySitemap])
+
+
+def sitemap_section_blog(request):
+    """Section sitemap for the dynamic News and Blog hub."""
+    from storefront.sitemaps import BlogCategorySitemap, BlogPostSitemap
+
+    return _render_django_sitemap(request, [BlogCategorySitemap, BlogPostSitemap])
 
 
 def sitemap_section_color_categories(request):

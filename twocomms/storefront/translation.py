@@ -16,6 +16,8 @@ from __future__ import annotations
 from modeltranslation.translator import TranslationOptions, register
 
 from storefront.models import (
+    BlogCategory,
+    BlogPost,
     Category,
     Product,
     ProductFAQ,
@@ -32,6 +34,32 @@ class CategoryTranslationOptions(TranslationOptions):
         "seo_title",
         "seo_h1",
         "seo_description",
+    )
+
+
+@register(BlogCategory)
+class BlogCategoryTranslationOptions(TranslationOptions):
+    fields = (
+        "name",
+        "description",
+        "seo_title",
+        "seo_h1",
+        "seo_description",
+        "bottom_title",
+        "bottom_text",
+    )
+
+
+@register(BlogPost)
+class BlogPostTranslationOptions(TranslationOptions):
+    fields = (
+        "title",
+        "excerpt",
+        "content_html",
+        "cover_alt",
+        "seo_title",
+        "seo_description",
+        "seo_keywords",
     )
 
 

@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{{ meta_title }}{% endblock %}
+{% block description %}{{ meta_description }}{% endblock %}
+{% block canonical %}{{ site_base_url }}{{ canonical_path }}{% endblock %}
+{% block og_title %}{{ meta_title }}{% endblock %}
+{% block og_description %}{{ meta_description }}{% endblock %}
+{% block twitter_title %}{{ meta_title }}{% endblock %}
+{% block twitter_description %}{{ meta_description }}{% endblock %}
+
+{% block structured_data %}
+  <script type="application/ld+json">{{ article_schema|safe }}</script>
+  <script type="application/ld+json">{{ breadcrumb_schema|safe }}</script>
+{% endblock %}
+
+{% block content %}
+<main class="blog-shell article-shell">
+  <article class="blog-article" data-scroll-reveal>
+    <header class="blog-article-head">
+      <div class="blog-card-meta">
+        <a href="{% url 'blog_category' slug=post.category.slug %}">{{ post.category.name }}</a>
+        <span>{{ post.published_at|date:"d.m.Y" }}</span>
+      </div>
+      <h1>{{ post.title }}</h1>
+      {% if post.excerpt %}
+        <p class="blog-lead">{{ post.excerpt }}</p>
+      {% endif %}
+      {% if is_blog_admin %}
+        <div class="blog-article-counters">
+          <span>{% trans 'Перегляди' %}: {{ post.view_count }}</span>
+          <span>{% trans 'Унікальні' %}: {{ post.unique_view_count }}</span>
+          <a href="{% url 'admin_blog_post_update' pk=post.pk %}">{% trans 'Редагувати' %}</a>
+        </div>
+      {% endif %}
+    </header>
+
+    <div class="blog-article-media">
+      {% if post.cover_image %}
+        <img src="{{ post.cover_image.url }}" alt="{{ post.cover_alt|default:post.title }}" fetchpriority="high">
+      {% else %}
+        <span class="blog-card-signal" aria-hidden="true"></span>
+        <span class="blog-card-monogram">TWOCOMMS</span>
+      {% endif %}
+    </div>
+
+    <div class="blog-article-grid">
+      <aside class="blog-article-aside">
+        <a href="{% url 'blog' %}">{% trans 'Новини та блог' %}</a>
+        <a href="{% url 'blog_category' slug=post.category.slug %}">{{ post.category.name }}</a>
+        {% if post.source_url %}
+          <a href="{{ post.source_url }}" rel="nofollow noopener" target="_blank">{% trans 'Джерело' %}</a>
+        {% endif %}
+      </aside>
+      <div class="blog-article-content">
+        {{ post.content_html|safe }}
+        {% if post.source_url %}
+          <p class="blog-source">{% trans 'Публічний контекст:' %} <a href="{{ post.source_url }}" rel="nofollow noopener" target="_blank">{{ post.source_url }}</a></p>
+        {% endif %}
+      </div>
+    </div>
+  </article>
+
+  {% if related_posts %}
+    <section class="blog-related">
+      <div class="blog-section-head">
+        <p class="blog-kicker">{% trans 'Далі читати' %}</p>
+        <h2>{% trans 'Повʼязані публікації' %}</h2>
+      </div>
+      <div class="blog-related-grid">
+        {% for post in related_posts %}
+          {% include "partials/blog_post_card.html" with post=post %}
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+</main>
+{% endblock %}

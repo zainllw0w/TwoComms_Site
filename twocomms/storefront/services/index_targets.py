@@ -33,6 +33,7 @@ from typing import Iterable
 from django.conf import settings
 from django.urls import reverse
 from django.utils import translation
+from django.utils import timezone
 
 from .indexnow import build_absolute_url, get_site_base_url
 
@@ -42,6 +43,7 @@ GROUP_PRODUCTS = "products"
 GROUP_CATEGORIES = "categories"
 GROUP_PRODUCT_VARIANTS = "product_variants"
 GROUP_COLOR_LANDINGS = "color_landings"
+GROUP_BLOG = "blog"
 
 ALL_GROUPS = (
     GROUP_STATIC,
@@ -49,6 +51,7 @@ ALL_GROUPS = (
     GROUP_CATEGORIES,
     GROUP_PRODUCT_VARIANTS,
     GROUP_COLOR_LANDINGS,
+    GROUP_BLOG,
 )
 
 GROUP_LABELS = {
@@ -57,6 +60,7 @@ GROUP_LABELS = {
     GROUP_CATEGORIES: "Категорії",
     GROUP_PRODUCT_VARIANTS: "Варіанти товарів (колір/крій)",
     GROUP_COLOR_LANDINGS: "Color × Category лендинги",
+    GROUP_BLOG: "Новини та блог",
 }
 
 
@@ -112,7 +116,7 @@ PUBLIC_STATIC_ROUTE_NAMES = (
     "care_guide",
     "order_tracking",
     "site_map_page",
-    "news",
+    "blog",
     "returns",
     "privacy_policy",
     "terms_of_service",
@@ -258,6 +262,37 @@ def build_color_landing_urls(languages: Iterable[str]) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# Blog
+# ---------------------------------------------------------------------------
+
+def build_blog_urls(languages: Iterable[str]) -> list[str]:
+    from ..models import BlogCategory, BlogPost
+
+    category_slugs = list(
+        BlogCategory.objects
+        .filter(is_active=True)
+        .exclude(slug="")
+        .values_list("slug", flat=True)
+    )
+    post_slugs = list(
+        BlogPost.objects
+        .filter(is_published=True, published_at__lte=timezone.now())
+        .exclude(slug="")
+        .values_list("slug", flat=True)
+    )
+
+    out: list[str] = []
+    for lang in languages:
+        prefix = build_lang_prefix(lang)
+        out.append(build_absolute_url(f"{prefix}/blog/"))
+        for slug in category_slugs:
+            out.append(build_absolute_url(f"{prefix}/blog/category/{slug}/"))
+        for slug in post_slugs:
+            out.append(build_absolute_url(f"{prefix}/blog/{slug}/"))
+    return _dedupe(out)
+
+
+# ---------------------------------------------------------------------------
 # Aggregator
 # ---------------------------------------------------------------------------
 
@@ -267,6 +302,7 @@ GROUP_BUILDERS = {
     GROUP_CATEGORIES: build_category_urls,
     GROUP_PRODUCT_VARIANTS: build_product_variant_urls,
     GROUP_COLOR_LANDINGS: build_color_landing_urls,
+    GROUP_BLOG: build_blog_urls,
 }
 
 
@@ -361,6 +397,7 @@ __all__ = [
     "GROUP_CATEGORIES",
     "GROUP_PRODUCT_VARIANTS",
     "GROUP_COLOR_LANDINGS",
+    "GROUP_BLOG",
     "ALL_GROUPS",
     "GROUP_LABELS",
     "TargetSnapshot",
@@ -370,6 +407,7 @@ __all__ = [
     "build_category_urls",
     "build_product_variant_urls",
     "build_color_landing_urls",
+    "build_blog_urls",
     "get_supported_languages",
     "get_default_language",
 ]

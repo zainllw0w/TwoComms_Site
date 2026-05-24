@@ -19,6 +19,8 @@ from storefront.services.catalog import ensure_color_identity
 from storefront.custom_print_config import build_placement_specs, normalize_custom_print_snapshot
 
 from .models import (
+    BlogCategory,
+    BlogPost,
     CustomPrintBusinessKind,
     Product,
     ProductFAQ,
@@ -1236,6 +1238,146 @@ class CategoryForm(forms.ModelForm):
         if commit:
             instance.save()
         return instance
+
+
+def _model_fields(model, names):
+    existing = {field.name for field in model._meta.fields}
+    return [name for name in names if name in existing]
+
+
+class BlogCategoryForm(forms.ModelForm):
+    class Meta:
+        model = BlogCategory
+        fields = _model_fields(
+            BlogCategory,
+            [
+                "name",
+                "name_uk",
+                "name_ru",
+                "name_en",
+                "slug",
+                "description",
+                "description_uk",
+                "description_ru",
+                "description_en",
+                "seo_title",
+                "seo_title_uk",
+                "seo_title_ru",
+                "seo_title_en",
+                "seo_h1",
+                "seo_h1_uk",
+                "seo_h1_ru",
+                "seo_h1_en",
+                "seo_description",
+                "seo_description_uk",
+                "seo_description_ru",
+                "seo_description_en",
+                "bottom_title",
+                "bottom_title_uk",
+                "bottom_title_ru",
+                "bottom_title_en",
+                "bottom_text",
+                "bottom_text_uk",
+                "bottom_text_ru",
+                "bottom_text_en",
+                "order",
+                "is_active",
+            ],
+        )
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 3}),
+            "description_uk": forms.Textarea(attrs={"rows": 3}),
+            "description_ru": forms.Textarea(attrs={"rows": 3}),
+            "description_en": forms.Textarea(attrs={"rows": 3}),
+            "seo_description": forms.Textarea(attrs={"rows": 2}),
+            "seo_description_uk": forms.Textarea(attrs={"rows": 2}),
+            "seo_description_ru": forms.Textarea(attrs={"rows": 2}),
+            "seo_description_en": forms.Textarea(attrs={"rows": 2}),
+            "bottom_text": forms.Textarea(attrs={"rows": 4}),
+            "bottom_text_uk": forms.Textarea(attrs={"rows": 4}),
+            "bottom_text_ru": forms.Textarea(attrs={"rows": 4}),
+            "bottom_text_en": forms.Textarea(attrs={"rows": 4}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name, field in self.fields.items():
+            if name.endswith(("_uk", "_ru", "_en")):
+                field.required = False
+        if "order" in self.fields:
+            self.fields["order"].required = False
+            self.fields["order"].initial = 0
+
+    def clean_order(self):
+        return self.cleaned_data.get("order") or 0
+
+
+class BlogPostForm(forms.ModelForm):
+    class Meta:
+        model = BlogPost
+        fields = _model_fields(
+            BlogPost,
+            [
+                "category",
+                "title",
+                "title_uk",
+                "title_ru",
+                "title_en",
+                "slug",
+                "excerpt",
+                "excerpt_uk",
+                "excerpt_ru",
+                "excerpt_en",
+                "content_html",
+                "content_html_uk",
+                "content_html_ru",
+                "content_html_en",
+                "cover_image",
+                "cover_alt",
+                "cover_alt_uk",
+                "cover_alt_ru",
+                "cover_alt_en",
+                "source_url",
+                "published_at",
+                "is_published",
+                "seo_title",
+                "seo_title_uk",
+                "seo_title_ru",
+                "seo_title_en",
+                "seo_description",
+                "seo_description_uk",
+                "seo_description_ru",
+                "seo_description_en",
+                "seo_keywords",
+                "seo_keywords_uk",
+                "seo_keywords_ru",
+                "seo_keywords_en",
+            ],
+        )
+        widgets = {
+            "published_at": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+            "excerpt": forms.Textarea(attrs={"rows": 3}),
+            "excerpt_uk": forms.Textarea(attrs={"rows": 3}),
+            "excerpt_ru": forms.Textarea(attrs={"rows": 3}),
+            "excerpt_en": forms.Textarea(attrs={"rows": 3}),
+            "content_html": forms.Textarea(attrs={"rows": 12}),
+            "content_html_uk": forms.Textarea(attrs={"rows": 12}),
+            "content_html_ru": forms.Textarea(attrs={"rows": 12}),
+            "content_html_en": forms.Textarea(attrs={"rows": 12}),
+            "seo_description": forms.Textarea(attrs={"rows": 2}),
+            "seo_description_uk": forms.Textarea(attrs={"rows": 2}),
+            "seo_description_ru": forms.Textarea(attrs={"rows": 2}),
+            "seo_description_en": forms.Textarea(attrs={"rows": 2}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["category"].queryset = BlogCategory.objects.filter(is_active=True).order_by("order", "name")
+        for name, field in self.fields.items():
+            if name.endswith(("_uk", "_ru", "_en")):
+                field.required = False
+        if self.instance and self.instance.pk and self.instance.published_at:
+            self.initial["published_at"] = self.instance.published_at.strftime("%Y-%m-%dT%H:%M")
 
 
 class PrintProposalForm(forms.ModelForm):

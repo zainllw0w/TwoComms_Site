@@ -149,6 +149,26 @@ urlpatterns = [
     path('profile/setup/', views.profile_setup_db, name='profile_setup'),
     # admin panel
     path('admin-panel/', admin_panel_view, name='admin_panel'),
+    path(
+        'admin-panel/blog/category/create/',
+        _module_view('storefront.views.blog', 'admin_blog_category_create'),
+        name='admin_blog_category_create',
+    ),
+    path(
+        'admin-panel/blog/category/<int:pk>/edit/',
+        _module_view('storefront.views.blog', 'admin_blog_category_update'),
+        name='admin_blog_category_update',
+    ),
+    path(
+        'admin-panel/blog/post/create/',
+        _module_view('storefront.views.blog', 'admin_blog_post_create'),
+        name='admin_blog_post_create',
+    ),
+    path(
+        'admin-panel/blog/post/<int:pk>/edit/',
+        _module_view('storefront.views.blog', 'admin_blog_post_update'),
+        name='admin_blog_post_update',
+    ),
     # Phase 21 (PR-A1/A2) — review moderation + SEO overrides inside
     # the custom admin. ``staff_member_required`` is enforced inside
     # the view functions (they live in ``views.admin``).
@@ -434,13 +454,20 @@ urlpatterns = [
     path('cooperation/', views.cooperation, name='cooperation'),
     path('pro-brand/', views.about, name='about'),
     path('about/', RedirectView.as_view(url='/pro-brand/', permanent=True), name='about_legacy'),
+    path('blog', _module_view('storefront.views.blog', 'legacy_blog_redirect'), name='blog_no_slash'),
+    path('blog/', _module_view('storefront.views.blog', 'blog_index'), name='blog'),
+    path('blog/category/<slug:slug>/', _module_view('storefront.views.blog', 'blog_category'), name='blog_category'),
+    path('blog/<slug:slug>/', _module_view('storefront.views.blog', 'blog_post'), name='blog_post'),
+    path('news', _module_view('storefront.views.blog', 'legacy_blog_redirect'), name='news_no_slash'),
+    path('news/', _module_view('storefront.views.blog', 'legacy_blog_redirect'), name='news_legacy'),
+    path('novyny', _module_view('storefront.views.blog', 'legacy_blog_redirect'), name='novyny_no_slash'),
     path('dopomoga/', _module_view('storefront.views.static_pages', 'help_center'), name='help_center'),
     path('faq/', _module_view('storefront.views.static_pages', 'faq'), name='faq'),
     path('rozmirna-sitka/', _module_view('storefront.views.static_pages', 'size_guide'), name='size_guide'),
     path('doglyad-za-odyagom/', _module_view('storefront.views.static_pages', 'care_guide'), name='care_guide'),
     path('vidstezhennya-zamovlennya/', _module_view('storefront.views.static_pages', 'order_tracking'), name='order_tracking'),
     path('mapa-saytu/', _module_view('storefront.views.static_pages', 'site_map_page'), name='site_map_page'),
-    path('novyny/', _module_view('storefront.views.static_pages', 'news'), name='news'),
+    path('novyny/', _module_view('storefront.views.blog', 'legacy_blog_redirect'), name='news'),
     # SEO v1.0 Phase 8 (2026-05-12) — finding (B21). Liveness probe used
     # by external uptime monitoring (BetterStack/UptimeRobot/Pingdom).
     # Returns 200 with a minimal JSON payload, no DB hits.

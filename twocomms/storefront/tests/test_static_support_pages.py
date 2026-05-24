@@ -34,7 +34,6 @@ class SupportStaticPagesTests(SimpleTestCase):
             "care_guide",
             "order_tracking",
             "site_map_page",
-            "news",
             "returns",
             "privacy_policy",
             "terms_of_service",
@@ -44,6 +43,12 @@ class SupportStaticPagesTests(SimpleTestCase):
             with self.subTest(route_name=route_name):
                 response = self.client.get(reverse(route_name), secure=True)
                 self.assertEqual(response.status_code, 200)
+
+    def test_legacy_news_route_redirects_to_blog(self):
+        response = self.client.get(reverse("news"), secure=True, follow=False)
+
+        self.assertEqual(response.status_code, 301)
+        self.assertEqual(response["Location"], reverse("blog"))
 
     def test_help_center_links_to_faq_without_rendering_duplicate_faq_block(self):
         response = self.client.get(reverse("help_center"), secure=True)
@@ -125,11 +130,15 @@ class SupportStaticPagesTests(SimpleTestCase):
         self.assertNotContains(response, "Футболка базова")
         self.assertNotContains(response, "Довжина (A)")
 
+    @patch("storefront.views.static_pages.BlogPost.objects.filter")
+    @patch("storefront.views.static_pages.BlogCategory.objects.filter")
     @patch("storefront.views.static_pages.Category.objects.filter")
     @patch("storefront.views.static_pages.Product.objects.filter")
-    def test_sitemap_contains_support_pages(self, product_filter_mock, category_filter_mock):
+    def test_sitemap_contains_support_pages(self, product_filter_mock, category_filter_mock, blog_category_filter_mock, blog_post_filter_mock):
         product_filter_mock.return_value.only.return_value = []
         category_filter_mock.return_value.only.return_value = []
+        blog_category_filter_mock.return_value.only.return_value = []
+        blog_post_filter_mock.return_value.only.return_value = []
 
         request = self.factory.get(reverse("django.contrib.sitemaps.views.sitemap"))
         response = static_sitemap(request)

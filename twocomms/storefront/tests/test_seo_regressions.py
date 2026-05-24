@@ -560,7 +560,6 @@ class ServicePageSeoMetaRegressionTests(SimpleTestCase):
             reverse("privacy_policy"),
             reverse("terms_of_service"),
             reverse("about"),
-            reverse("news"),
             reverse("size_guide"),
         ]
 

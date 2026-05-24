@@ -2,6 +2,9 @@ from django.contrib import admin, messages
 from modeltranslation.admin import TabbedTranslationAdmin
 from .models import (
     AnalyticsExclusion,
+    BlogCategory,
+    BlogPost,
+    BlogPostView,
     CatalogColorSeoOverride,
     Category,
     CategoryColorLanding,
@@ -118,6 +121,69 @@ class CategoryAdmin(TabbedTranslationAdmin):
             'classes': ('collapse',),
         }),
     )
+
+
+@admin.register(BlogCategory)
+class BlogCategoryAdmin(TabbedTranslationAdmin):
+    list_display = ("name", "slug", "order", "is_active", "updated_at")
+    list_filter = ("is_active",)
+    search_fields = ("name", "slug", "description")
+    prepopulated_fields = {"slug": ("name",)}
+    readonly_fields = ("created_at", "updated_at")
+    fieldsets = (
+        ("Основне", {
+            "fields": ("name", "slug", "description", "order", "is_active"),
+        }),
+        ("SEO", {
+            "fields": ("seo_title", "seo_h1", "seo_description", "bottom_title", "bottom_text"),
+        }),
+        ("Службове", {
+            "fields": ("created_at", "updated_at"),
+            "classes": ("collapse",),
+        }),
+    )
+
+
+@admin.register(BlogPost)
+class BlogPostAdmin(TabbedTranslationAdmin):
+    list_display = ("title", "category", "is_published", "published_at", "view_count", "unique_view_count")
+    list_filter = ("is_published", "category", "published_at")
+    search_fields = ("title", "slug", "excerpt", "seo_keywords")
+    prepopulated_fields = {"slug": ("title",)}
+    readonly_fields = ("created_at", "updated_at", "view_count", "unique_view_count")
+    fieldsets = (
+        ("Основне", {
+            "fields": ("category", "title", "slug", "excerpt", "content_html", "cover_image", "cover_alt", "source_url"),
+        }),
+        ("Публікація", {
+            "fields": ("is_published", "published_at"),
+        }),
+        ("SEO", {
+            "fields": ("seo_title", "seo_description", "seo_keywords"),
+        }),
+        ("Аналітика", {
+            "fields": ("view_count", "unique_view_count"),
+            "classes": ("collapse",),
+        }),
+        ("Службове", {
+            "fields": ("created_at", "updated_at"),
+            "classes": ("collapse",),
+        }),
+    )
+
+
+@admin.register(BlogPostView)
+class BlogPostViewAdmin(admin.ModelAdmin):
+    list_display = ("post", "visitor_key", "user", "views", "last_seen")
+    list_filter = ("last_seen",)
+    search_fields = ("post__title", "visitor_key", "user_agent", "path")
+    readonly_fields = ("post", "visitor_key", "user", "ip_address", "user_agent", "path", "views", "first_seen", "last_seen")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Product)

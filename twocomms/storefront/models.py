@@ -113,6 +113,124 @@ class Category(models.Model):
         return self.name
 
 
+class BlogCategory(models.Model):
+    name = models.CharField(max_length=140, unique=True, verbose_name="Назва")
+    slug = models.SlugField(max_length=160, unique=True, verbose_name="URL slug")
+    description = models.TextField(blank=True, verbose_name="Опис")
+    seo_title = models.CharField(max_length=180, blank=True, verbose_name="SEO Title")
+    seo_h1 = models.CharField(max_length=180, blank=True, verbose_name="SEO H1")
+    seo_description = models.CharField(max_length=320, blank=True, verbose_name="SEO Description")
+    bottom_title = models.CharField(max_length=180, blank=True, verbose_name="Нижній SEO-заголовок")
+    bottom_text = models.TextField(blank=True, verbose_name="Нижній SEO-текст")
+    is_active = models.BooleanField(default=True, verbose_name="Активна")
+    order = models.PositiveIntegerField(default=0, verbose_name="Порядок")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Оновлено")
+
+    class Meta:
+        verbose_name = "Категорія блогу"
+        verbose_name_plural = "Категорії блогу"
+        ordering = ["order", "name"]
+        indexes = [
+            models.Index(fields=["is_active", "order"], name="idx_blogcat_active_order"),
+            models.Index(fields=["slug"], name="idx_blogcat_slug"),
+        ]
+
+    def __str__(self):
+        return self.name
+
+    def get_absolute_url(self):
+        from django.urls import reverse
+
+        return reverse("blog_category", kwargs={"slug": self.slug})
+
+
+class BlogPostQuerySet(models.QuerySet):
+    def published(self):
+        return (
+            self.filter(is_published=True, published_at__lte=timezone.now())
+            .exclude(slug="")
+            .select_related("category")
+        )
+
+
+class BlogPost(models.Model):
+    category = models.ForeignKey(
+        BlogCategory,
+        on_delete=models.PROTECT,
+        related_name="posts",
+        verbose_name="Категорія",
+    )
+    title = models.CharField(max_length=220, verbose_name="Заголовок")
+    slug = models.SlugField(max_length=180, unique=True, verbose_name="URL slug")
+    excerpt = models.TextField(blank=True, verbose_name="Короткий опис")
+    content_html = models.TextField(verbose_name="HTML-контент")
+    cover_image = models.ImageField(upload_to="blog/covers/", blank=True, null=True, verbose_name="Обкладинка")
+    cover_alt = models.CharField(max_length=180, blank=True, verbose_name="Alt обкладинки")
+    source_url = models.URLField(blank=True, verbose_name="Джерело")
+    seo_title = models.CharField(max_length=180, blank=True, verbose_name="SEO Title")
+    seo_description = models.CharField(max_length=320, blank=True, verbose_name="SEO Description")
+    seo_keywords = models.CharField(max_length=320, blank=True, verbose_name="SEO keywords")
+    is_published = models.BooleanField(default=True, verbose_name="Опубліковано")
+    published_at = models.DateTimeField(default=timezone.now, verbose_name="Дата публікації")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Оновлено")
+    view_count = models.PositiveIntegerField(default=0, verbose_name="Перегляди")
+    unique_view_count = models.PositiveIntegerField(default=0, verbose_name="Унікальні перегляди")
+
+    objects = BlogPostQuerySet.as_manager()
+
+    class Meta:
+        verbose_name = "Пост блогу"
+        verbose_name_plural = "Пости блогу"
+        ordering = ["-published_at", "-id"]
+        indexes = [
+            models.Index(fields=["is_published", "-published_at"], name="idx_blogpost_pub_date"),
+            models.Index(fields=["category", "is_published"], name="idx_blogpost_cat_pub"),
+            models.Index(fields=["slug"], name="idx_blogpost_slug"),
+        ]
+
+    def __str__(self):
+        return self.title
+
+    def get_absolute_url(self):
+        from django.urls import reverse
+
+        return reverse("blog_post", kwargs={"slug": self.slug})
+
+
+class BlogPostView(models.Model):
+    post = models.ForeignKey(BlogPost, on_delete=models.CASCADE, related_name="view_events")
+    visitor_key = models.CharField(max_length=64)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="blog_post_views",
+    )
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    user_agent = models.TextField(blank=True)
+    path = models.CharField(max_length=300, blank=True)
+    views = models.PositiveIntegerField(default=1)
+    first_seen = models.DateTimeField(auto_now_add=True)
+    last_seen = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Перегляд поста блогу"
+        verbose_name_plural = "Перегляди постів блогу"
+        constraints = [
+            models.UniqueConstraint(fields=["post", "visitor_key"], name="uniq_blog_post_view_key"),
+        ]
+        indexes = [
+            models.Index(fields=["post", "last_seen"], name="idx_blogview_post_seen"),
+            models.Index(fields=["visitor_key"], name="idx_blogview_visitor"),
+        ]
+
+    def __str__(self):
+        return f"{self.post_id}:{self.visitor_key}"
+
+
 class Catalog(models.Model):
     name = models.CharField(max_length=200, verbose_name='Назва каталогу')
     slug = models.SlugField(unique=True, verbose_name='URL slug')

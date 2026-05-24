@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{{ meta_title }}{% endblock %}
+{% block description %}{{ meta_description }}{% endblock %}
+{% block canonical %}{{ site_base_url }}{{ canonical_path }}{% endblock %}
+{% block og_title %}{{ meta_title }}{% endblock %}
+{% block og_description %}{{ meta_description }}{% endblock %}
+{% block twitter_title %}{{ meta_title }}{% endblock %}
+{% block twitter_description %}{{ meta_description }}{% endblock %}
+
+{% block structured_data %}
+  <script type="application/ld+json">{{ collection_schema|safe }}</script>
+{% endblock %}
+
+{% block content %}
+<main class="blog-shell">
+  <section class="blog-hero" data-scroll-reveal>
+    <div class="blog-hero-copy">
+      <p class="blog-kicker">{% trans 'TwoComms editorial' %}</p>
+      <h1>{% trans 'Новини та блог' %}</h1>
+      <p class="blog-lead">
+        {% trans 'Офіційні новини бренда, огляди речей, корисні знання про матеріали, принти, посадку і внутрішній характер TwoComms.' %}
+      </p>
+      <div class="blog-hero-actions">
+        {% if is_blog_admin %}
+          <a class="blog-admin-button" href="{{ admin_blog_post_create_url }}">{% trans 'Додати пост' %}</a>
+          <a class="blog-admin-button secondary" href="{{ admin_blog_url }}">{% trans 'Панель блогу' %}</a>
+        {% endif %}
+      </div>
+    </div>
+    <div class="blog-hero-panel" aria-hidden="true">
+      <div class="blog-hero-date">{{ posts.0.published_at|date:"d.m" }}</div>
+      <div class="blog-hero-lines">
+        <span></span><span></span><span></span>
+      </div>
+      <div class="blog-hero-mark">TWC</div>
+    </div>
+  </section>
+
+  <nav class="blog-category-strip" aria-label="{% trans 'Категорії блогу' %}">
+    <a class="active" href="{% url 'blog' %}">{% trans 'Усі публікації' %}</a>
+    {% for category in blog_categories %}
+      <a href="{% url 'blog_category' slug=category.slug %}">{{ category.name }}</a>
+    {% endfor %}
+  </nav>
+
+  <section class="blog-timeline" aria-label="{% trans 'Публікації' %}">
+    {% for post in posts %}
+      {% include "partials/blog_post_card.html" with post=post %}
+    {% empty %}
+      <div class="blog-empty">
+        <h2>{% trans 'Публікації готуються' %}</h2>
+        <p>{% trans 'Після публікації матеріали зʼявляться тут за датою.' %}</p>
+      </div>
+    {% endfor %}
+  </section>
+
+  <section class="blog-seo-band" data-scroll-reveal>
+    <div>
+      <p class="blog-kicker">{% trans 'Навігація за наміром' %}</p>
+      <h2>{% trans 'Новини бренда, огляди продукції і практичні знання' %}</h2>
+      <p>
+        {% trans 'Цей розділ збирає матеріали для тих, хто хоче швидко зрозуміти, що нового у TwoComms, як вибирати речі, як доглядати за принтом і чому деталі виробу мають значення.' %}
+      </p>
+    </div>
+    <div class="blog-query-cloud">
+      <span>{% trans 'новини TwoComms' %}</span>
+      <span>{% trans 'огляди худі та футболок' %}</span>
+      <span>{% trans 'догляд за DTF принтом' %}</span>
+      <span>{% trans 'український streetwear' %}</span>
+      <span>{% trans 'одяг з характером' %}</span>
+    </div>
+  </section>
+</main>
+{% endblock %}

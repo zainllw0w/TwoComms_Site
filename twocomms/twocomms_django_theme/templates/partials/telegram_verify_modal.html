@@ -1,6 +1,8 @@
 {% load i18n %}
-{# Універсальна модалка верифікації Telegram. Підключається в base.html
-   один раз і використовується через window.TelegramVerify.start(...). #}
+{% comment %}
+Універсальна модалка верифікації Telegram. Підключається в base.html
+один раз і використовується через window.TelegramVerify.start(...).
+{% endcomment %}
 <div class="tgv-modal-overlay" data-tg-verify-modal-universal hidden role="dialog" aria-modal="true" aria-labelledby="tgv-modal-title">
   <div class="tgv-modal-card">
     <button type="button" class="tgv-modal-close" data-tg-verify-close aria-label="{% trans 'Закрити' %}">&times;</button>

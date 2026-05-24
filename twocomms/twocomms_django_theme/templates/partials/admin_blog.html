@@ -1,0 +1,58 @@
+{% load i18n %}
+<section class="admin-blog-section">
+  <div class="admin-blog-head">
+    <div>
+      <p class="blog-kicker">{% trans 'Новини та блог' %}</p>
+      <h2>{% trans 'Блог' %}</h2>
+    </div>
+    <div class="admin-blog-actions">
+      <a class="blog-admin-button" href="{% url 'admin_blog_post_create' %}">{% trans 'Додати пост' %}</a>
+      <a class="blog-admin-button secondary" href="{% url 'blog' %}">{% trans 'Відкрити блог' %}</a>
+    </div>
+  </div>
+
+  <div class="admin-blog-grid">
+    <article class="admin-blog-panel">
+      <div class="admin-blog-panel-head">
+        <h3>{% trans 'Категорії блогу' %}</h3>
+        <a href="{% url 'admin_blog_category_create' %}">{% trans 'Додати категорію' %}</a>
+      </div>
+      <div class="admin-blog-list">
+        {% for category in blog_categories %}
+          <div class="admin-blog-row">
+            <div>
+              <strong>{{ category.name }}</strong>
+              <span>/blog/category/{{ category.slug }}/</span>
+            </div>
+            <a href="{% url 'admin_blog_category_update' pk=category.pk %}">{% trans 'Редагувати' %}</a>
+          </div>
+        {% empty %}
+          <p class="admin-blog-empty">{% trans 'Категорії ще не створені.' %}</p>
+        {% endfor %}
+      </div>
+    </article>
+
+    <article class="admin-blog-panel">
+      <div class="admin-blog-panel-head">
+        <h3>{% trans 'Пости блогу' %}</h3>
+        <span>{{ blog_posts|length }}</span>
+      </div>
+      <div class="admin-blog-list">
+        {% for post in blog_posts %}
+          <div class="admin-blog-row">
+            <div>
+              <strong>{{ post.title }}</strong>
+              <span>{{ post.category.name }} · {{ post.published_at|date:"d.m.Y H:i" }} · {% trans 'Перегляди' %}: {{ post.view_count }} · {% trans 'Унікальні' %}: {{ post.unique_view_count }}</span>
+            </div>
+            <div class="admin-blog-row-actions">
+              <a href="{% url 'blog_post' slug=post.slug %}">{% trans 'Перегляд' %}</a>
+              <a href="{% url 'admin_blog_post_update' pk=post.pk %}">{% trans 'Редагувати' %}</a>
+            </div>
+          </div>
+        {% empty %}
+          <p class="admin-blog-empty">{% trans 'Пости ще не створені.' %}</p>
+        {% endfor %}
+      </div>
+    </article>
+  </div>
+</section>

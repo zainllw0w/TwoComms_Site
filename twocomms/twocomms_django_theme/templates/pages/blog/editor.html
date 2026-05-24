@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{{ editor_title }} | TwoComms{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<main class="blog-shell">
+  <section class="blog-editor">
+    <div class="blog-section-head">
+      <p class="blog-kicker">{% trans 'Адмін' %}</p>
+      <h1>{{ editor_title }}</h1>
+    </div>
+    <form method="post" enctype="multipart/form-data" class="blog-editor-form">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      <div class="blog-form-grid">
+        {% for field in form %}
+          <label class="blog-form-field{% if field.field.widget.input_type == 'checkbox' %} checkbox{% endif %}">
+            <span>{{ field.label }}</span>
+            {{ field }}
+            {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+            {{ field.errors }}
+          </label>
+        {% endfor %}
+      </div>
+      <div class="blog-editor-actions">
+        <button type="submit" class="blog-admin-button">{% trans 'Зберегти' %}</button>
+        <a class="blog-admin-button secondary" href="{% url 'admin_panel' %}?section=blog">{% trans 'Назад' %}</a>
+      </div>
+    </form>
+  </section>
+</main>
+{% endblock %}

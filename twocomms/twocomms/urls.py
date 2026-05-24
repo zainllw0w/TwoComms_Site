@@ -6,7 +6,24 @@ from django.contrib import admin
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.views.generic.base import RedirectView
 from storefront import views as storefront_views
-from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+
+
+def spectacular_schema_view(request, *args, **kwargs):
+    from drf_spectacular.views import SpectacularAPIView
+
+    return SpectacularAPIView.as_view()(request, *args, **kwargs)
+
+
+def spectacular_swagger_view(request, *args, **kwargs):
+    from drf_spectacular.views import SpectacularSwaggerView
+
+    return SpectacularSwaggerView.as_view(url_name='api-schema')(request, *args, **kwargs)
+
+
+def spectacular_redoc_view(request, *args, **kwargs):
+    from drf_spectacular.views import SpectacularRedocView
+
+    return SpectacularRedocView.as_view(url_name='api-schema')(request, *args, **kwargs)
 
 urlpatterns = [
     # Phase 17a — language switcher endpoint (POST). Stays outside i18n_patterns
@@ -29,6 +46,7 @@ urlpatterns = [
     path('sitemap-products.xml', storefront_views.sitemap_section_products, name='sitemap_products'),
     path('sitemap-product-variants.xml', storefront_views.sitemap_section_product_variants, name='sitemap_product_variants'),
     path('sitemap-categories.xml', storefront_views.sitemap_section_categories, name='sitemap_categories'),
+    path('sitemap-blog.xml', storefront_views.sitemap_section_blog, name='sitemap_blog'),
     path('sitemap-color-categories.xml', storefront_views.sitemap_section_color_categories, name='sitemap_color_categories'),
     path('sitemap-thematic.xml', storefront_views.sitemap_section_thematic, name='sitemap_thematic'),
     path('sitemap-images.xml', storefront_views.sitemap_images, name='sitemap_images'),
@@ -54,11 +72,11 @@ urlpatterns = [
     # REST API endpoints
     path("api/", include("storefront.api_urls")),
     # OpenAPI 3 Schema
-    path('api/schema/', SpectacularAPIView.as_view(), name='api-schema'),
+    path('api/schema/', spectacular_schema_view, name='api-schema'),
     # Swagger UI (интерактивная документация)
-    path('api/docs/', SpectacularSwaggerView.as_view(url_name='api-schema'), name='api-docs'),
+    path('api/docs/', spectacular_swagger_view, name='api-docs'),
     # ReDoc (альтернативная документация)
-    path('api/redoc/', SpectacularRedocView.as_view(url_name='api-schema'), name='api-redoc'),
+    path('api/redoc/', spectacular_redoc_view, name='api-redoc'),
     # Browsable API auth (login/logout для DRF)
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
 

@@ -1132,6 +1132,9 @@ def admin_panel(request):
     elif section == 'seo':
         from storefront.services.seo_dashboard import build_seo_dashboard_context
         context.update(build_seo_dashboard_context())
+    elif section == 'blog':
+        from storefront.views.blog import build_admin_blog_context
+        context.update(build_admin_blog_context())
     elif section == 'reviews':
         # Phase 21 (PR-A1) — moderation queue inside the custom admin
         # so the team doesn't need to bounce through Django-admin for

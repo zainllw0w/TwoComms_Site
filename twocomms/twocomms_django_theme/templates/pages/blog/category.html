@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{{ meta_title }}{% endblock %}
+{% block description %}{{ meta_description }}{% endblock %}
+{% block canonical %}{{ site_base_url }}{{ canonical_path }}{% endblock %}
+{% block og_title %}{{ meta_title }}{% endblock %}
+{% block og_description %}{{ meta_description }}{% endblock %}
+{% block twitter_title %}{{ meta_title }}{% endblock %}
+{% block twitter_description %}{{ meta_description }}{% endblock %}
+
+{% block structured_data %}
+  <script type="application/ld+json">{{ collection_schema|safe }}</script>
+{% endblock %}
+
+{% block content %}
+<main class="blog-shell">
+  <section class="blog-hero compact" data-scroll-reveal>
+    <div class="blog-hero-copy">
+      <p class="blog-kicker">{% trans 'Категорія' %}</p>
+      <h1>{{ blog_title }}</h1>
+      {% if active_category.description %}
+        <p class="blog-lead">{{ active_category.description }}</p>
+      {% endif %}
+      {% if is_blog_admin %}
+        <div class="blog-hero-actions">
+          <a class="blog-admin-button" href="{{ admin_blog_post_create_url }}">{% trans 'Додати пост' %}</a>
+          <a class="blog-admin-button secondary" href="{{ admin_blog_url }}">{% trans 'Панель блогу' %}</a>
+        </div>
+      {% endif %}
+    </div>
+    <div class="blog-hero-panel" aria-hidden="true">
+      <div class="blog-hero-date">{{ posts|length }}</div>
+      <div class="blog-hero-lines">
+        <span></span><span></span><span></span>
+      </div>
+      <div class="blog-hero-mark">CAT</div>
+    </div>
+  </section>
+
+  <nav class="blog-category-strip" aria-label="{% trans 'Категорії блогу' %}">
+    <a href="{% url 'blog' %}">{% trans 'Усі публікації' %}</a>
+    {% for category in blog_categories %}
+      <a href="{% url 'blog_category' slug=category.slug %}" class="{% if category.pk == active_category.pk %}active{% endif %}">{{ category.name }}</a>
+    {% endfor %}
+  </nav>
+
+  <section class="blog-timeline" aria-label="{{ active_category.name }}">
+    {% for post in posts %}
+      {% include "partials/blog_post_card.html" with post=post %}
+    {% empty %}
+      <div class="blog-empty">
+        <h2>{% trans 'У цій категорії поки немає постів' %}</h2>
+        <p>{% trans 'Коли матеріал буде опубліковано, він зʼявиться тут.' %}</p>
+      </div>
+    {% endfor %}
+  </section>
+
+  <section class="blog-seo-band" data-scroll-reveal>
+    <div>
+      <p class="blog-kicker">{% trans 'Глибше по темі' %}</p>
+      <h2>{{ active_category.bottom_title|default:active_category.name }}</h2>
+      <p>
+        {% if active_category.bottom_text %}
+          {{ active_category.bottom_text }}
+        {% else %}
+          {% trans 'Добірка матеріалів оновлюється за датою, щоб нові публікації швидко отримували свою сторінку, внутрішні посилання і зрозумілу SEO-структуру.' %}
+        {% endif %}
+      </p>
+    </div>
+    <div class="blog-query-cloud">
+      <a href="{% url 'blog' %}">{% trans 'усі матеріали' %}</a>
+      {% for category in blog_categories %}
+        <a href="{% url 'blog_category' slug=category.slug %}">{{ category.name }}</a>
+      {% endfor %}
+    </div>
+  </section>
+</main>
+{% endblock %}

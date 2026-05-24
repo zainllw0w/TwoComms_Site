@@ -23,7 +23,7 @@ CORE_INDEXNOW_ROUTE_NAMES = (
     "care_guide",
     "order_tracking",
     "site_map_page",
-    "news",
+    "blog",
     "returns",
     "privacy_policy",
     "terms_of_service",
