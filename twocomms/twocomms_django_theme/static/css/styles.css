@@ -23041,3 +23041,139 @@ a[href*="favorites"] .bottom-nav-icon.has-items::before {
     padding: 16px;
   }
 }
+
+/* Override generic aside link styles to fix capsule pill stacking */
+.blog-article-aside .blog-back-link,
+.blog-article-aside .blog-source-badge,
+.blog-article-aside .blog-toc a {
+  background: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  white-space: normal !important;
+}
+
+/* Premium TOC navigation style */
+.blog-toc a {
+  font-size: 0.88rem;
+  color: rgba(248, 250, 252, 0.55);
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: block;
+  line-height: 1.4;
+  border-left: 2px solid transparent;
+  padding-left: 12px !important;
+  position: relative;
+}
+.blog-toc a::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%) scaleY(0);
+  width: 2px;
+  height: 14px;
+  background: #fb923c;
+  transition: transform 0.2s ease;
+  transform-origin: center;
+}
+.blog-toc a.active::before,
+.blog-toc a:hover::before {
+  transform: translateY(-50%) scaleY(1);
+}
+.blog-toc a.active {
+  color: #fb923c !important;
+  font-weight: 750;
+}
+
+/* Premium article content typography styling overrides */
+.blog-article-content > p:first-of-type::first-letter {
+  float: left;
+  font-size: clamp(3.2rem, 8vw, 4.5rem);
+  line-height: 0.85;
+  font-weight: 900;
+  margin-right: 0.5rem;
+  margin-top: 0.15rem;
+  color: #fb923c;
+  text-shadow: 0 0 12px rgba(251, 146, 60, 0.25);
+}
+.blog-article-content code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9em;
+  background: rgba(251, 146, 60, 0.08);
+  color: #fed7aa;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(251, 146, 60, 0.15);
+}
+.blog-article-content pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: #090a0f;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 16px;
+  overflow-x: auto;
+  margin: 1.6rem 0;
+}
+.blog-article-content pre code {
+  background: none;
+  border: none;
+  color: #f8fafc;
+  padding: 0;
+  font-size: 0.88rem;
+}
+.blog-article-content ul, .blog-article-content ol {
+  margin: 0 0 1.6rem;
+  padding-left: 24px;
+}
+.blog-article-content ul li {
+  list-style-type: none;
+  position: relative;
+  margin-bottom: 8px;
+}
+.blog-article-content ul li::before {
+  content: "•";
+  color: #fb923c;
+  font-weight: 900;
+  display: inline-block;
+  width: 1em;
+  margin-left: -1em;
+  position: absolute;
+}
+.blog-article-content ol li {
+  margin-bottom: 8px;
+}
+.blog-article-content hr {
+  border: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15) 50%, transparent);
+  margin: 2.5rem 0;
+}
+
+/* Fallback cover monogram visual adjustments */
+.blog-article-placeholder .blog-card-monogram {
+  font-size: clamp(3rem, 8vw, 6.5rem);
+  letter-spacing: 0.12em;
+  background: linear-gradient(135deg, rgba(255,255,255,0.9) 30%, rgba(251,146,60,0.8) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 4px 24px rgba(251, 146, 60, 0.25));
+}
+
+/* Category Strip horizontal fading overflow mask */
+.blog-category-strip {
+  mask-image: linear-gradient(to right, transparent, #000 20px, #000 calc(100% - 20px), transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 20px, #000 calc(100% - 20px), transparent);
+}
+
+/* Collapsing layout adjustments on tablet/mobile */
+@media (max-width:919px){
+  .blog-hero-panel {
+    display: none !important;
+  }
+  .blog-hero {
+    grid-template-columns: 1fr;
+    min-height: auto;
+    gap: 24px;
+  }
+}
+
