@@ -15,43 +15,75 @@
 {% endblock %}
 
 {% block content %}
+<div class="blog-progress-container" aria-hidden="true">
+  <div class="blog-progress-bar" id="blogProgressBar"></div>
+</div>
+
 <main class="blog-shell article-shell">
   <article class="blog-article" data-scroll-reveal>
     <header class="blog-article-head">
       <div class="blog-card-meta">
-        <a href="{% url 'blog_category' slug=post.category.slug %}">{{ post.category.name }}</a>
-        <span>{{ post.published_at|date:"d.m.Y" }}</span>
+        <a href="{% url 'blog_category' slug=post.category.slug %}" class="blog-card-cat-badge">{{ post.category.name }}</a>
+        <span class="blog-card-date"><i class="far fa-calendar-alt" aria-hidden="true"></i> {{ post.published_at|date:"d.m.Y" }}</span>
+        <span class="blog-card-readtime"><i class="far fa-clock" aria-hidden="true"></i> <span id="readingTime"></span> {% trans 'хв читання' %}</span>
       </div>
       <h1>{{ post.title }}</h1>
       {% if post.excerpt %}
         <p class="blog-lead">{{ post.excerpt }}</p>
       {% endif %}
-      {% if is_blog_admin %}
-        <div class="blog-article-counters">
-          <span>{% trans 'Перегляди' %}: {{ post.view_count }}</span>
-          <span>{% trans 'Унікальні' %}: {{ post.unique_view_count }}</span>
-          <a href="{% url 'admin_blog_post_update' pk=post.pk %}">{% trans 'Редагувати' %}</a>
-        </div>
-      {% endif %}
     </header>
 
     <div class="blog-article-media">
       {% if post.cover_image %}
-        <img src="{{ post.cover_image.url }}" alt="{{ post.cover_alt|default:post.title }}" fetchpriority="high">
+        <img src="{{ post.cover_image.url }}" alt="{{ post.cover_alt|default:post.title }}" fetchpriority="high" width="1200" height="630">
       {% else %}
-        <span class="blog-card-signal" aria-hidden="true"></span>
-        <span class="blog-card-monogram">TWOCOMMS</span>
+        <div class="blog-article-placeholder">
+          <svg class="blog-placeholder-svg" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="article-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+              </pattern>
+              <radialGradient id="article-glow" cx="50%" cy="50%" r="60%">
+                <stop offset="0%" stop-color="rgba(251,146,60,0.15)"/>
+                <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+              </radialGradient>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#article-grid)" />
+            <rect width="100%" height="100%" fill="url(#article-glow)" />
+          </svg>
+          <span class="blog-card-signal" aria-hidden="true"></span>
+          <span class="blog-card-monogram">TWOCOMMS</span>
+        </div>
       {% endif %}
     </div>
 
     <div class="blog-article-grid">
       <aside class="blog-article-aside">
-        <a href="{% url 'blog' %}">{% trans 'Новини та блог' %}</a>
-        <a href="{% url 'blog_category' slug=post.category.slug %}">{{ post.category.name }}</a>
-        {% if post.source_url %}
-          <a href="{{ post.source_url }}" rel="nofollow noopener" target="_blank">{% trans 'Джерело' %}</a>
-        {% endif %}
+        <div class="blog-aside-sticky">
+          <div class="blog-aside-nav">
+            <a href="{% url 'blog' %}" class="blog-back-link">
+              <i class="fas fa-arrow-left" aria-hidden="true"></i> <span>{% trans 'Усі публікації' %}</span>
+            </a>
+          </div>
+          
+          <div class="blog-toc-container">
+            <div class="blog-toc-title">{% trans 'Зміст' %}</div>
+            <nav class="blog-toc" id="blogTOC">
+              <!-- Populate dynamically using Javascript -->
+            </nav>
+          </div>
+
+          {% if post.source_url %}
+            <div class="blog-aside-source">
+              <span class="source-badge-title">{% trans 'Джерело матеріалу' %}</span>
+              <a href="{{ post.source_url }}" rel="nofollow noopener" target="_blank" class="blog-source-badge">
+                <i class="fas fa-external-link-alt" aria-hidden="true"></i> <span>{% trans 'Читати першоджерело' %}</span>
+              </a>
+            </div>
+          {% endif %}
+        </div>
       </aside>
+      
       <div class="blog-article-content">
         {{ post.content_html|safe }}
         {% if post.source_url %}
@@ -60,6 +92,20 @@
       </div>
     </div>
   </article>
+
+  {% if is_blog_admin %}
+    <div class="blog-admin-toolbar">
+      <div class="blog-admin-metric" title="{% trans 'Усього переглядів' %}">
+        <i class="far fa-eye" aria-hidden="true"></i> <span>{{ post.view_count }}</span>
+      </div>
+      <div class="blog-admin-metric" title="{% trans 'Унікальні перегляди' %}">
+        <i class="far fa-user" aria-hidden="true"></i> <span>{{ post.unique_view_count }}</span>
+      </div>
+      <a href="{% url 'admin_blog_post_update' pk=post.pk %}" class="blog-admin-edit-btn" title="{% trans 'Редагувати статтю' %}">
+        <i class="fas fa-edit" aria-hidden="true"></i> <span>{% trans 'Редагувати' %}</span>
+      </a>
+    </div>
+  {% endif %}
 
   {% if related_posts %}
     <section class="blog-related">
@@ -75,4 +121,97 @@
     </section>
   {% endif %}
 </main>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // 1. Reading progress bar
+    const progressBar = document.getElementById('blogProgressBar');
+    window.addEventListener('scroll', () => {
+      const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+      const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+      const scrolled = height > 0 ? (winScroll / height) * 100 : 0;
+      if (progressBar) {
+        progressBar.style.width = scrolled + '%';
+      }
+    });
+
+    // 2. Reading time calculation
+    const contentEl = document.querySelector('.blog-article-content');
+    if (contentEl) {
+      const text = contentEl.textContent || contentEl.innerText;
+      const wpm = 180; // Average reading speed in Ukrainian
+      const words = text.trim().split(/\s+/).length;
+      const time = Math.max(1, Math.round(words / wpm));
+      const readingTimeEl = document.getElementById('readingTime');
+      if (readingTimeEl) {
+        readingTimeEl.textContent = time;
+      }
+    }
+
+    // 3. Dynamic TOC generation & Scrollspy
+    const tocContainer = document.getElementById('blogTOC');
+    const headings = contentEl ? contentEl.querySelectorAll('h2, h3') : [];
+    
+    if (tocContainer && headings.length > 0) {
+      const ul = document.createElement('ul');
+      const spyElements = [];
+
+      headings.forEach((heading, index) => {
+        if (!heading.id) {
+          heading.id = 'heading-' + index;
+        }
+
+        const li = document.createElement('li');
+        li.className = 'toc-item ' + (heading.tagName.toLowerCase() === 'h3' ? 'toc-h3' : 'toc-h2');
+        
+        const a = document.createElement('a');
+        a.href = '#' + heading.id;
+        a.textContent = heading.textContent;
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          history.pushState(null, null, '#' + heading.id);
+        });
+
+        li.appendChild(a);
+        ul.appendChild(li);
+        
+        spyElements.push({
+          heading: heading,
+          tocLink: a
+        });
+      });
+
+      tocContainer.appendChild(ul);
+
+      // Scrollspy logic
+      function activeTOCItem() {
+        const scrollPosition = window.scrollY + 100;
+        let activeIndex = -1;
+
+        for (let i = 0; i < spyElements.length; i++) {
+          if (spyElements[i].heading.offsetTop <= scrollPosition) {
+            activeIndex = i;
+          } else {
+            break;
+          }
+        }
+
+        spyElements.forEach((el, index) => {
+          if (index === activeIndex) {
+            el.tocLink.classList.add('active');
+          } else {
+            el.tocLink.classList.remove('active');
+          }
+        });
+      }
+
+      window.addEventListener('scroll', activeTOCItem);
+      activeTOCItem(); // Run once initially
+    } else if (tocContainer) {
+      const parent = tocContainer.closest('.blog-toc-container');
+      if (parent) parent.style.display = 'none';
+    }
+  });
+</script>
 {% endblock %}

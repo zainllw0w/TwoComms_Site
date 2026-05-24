@@ -16,6 +16,7 @@
 {% block content %}
 <main class="blog-shell">
   <section class="blog-hero compact" data-scroll-reveal>
+    <div class="blog-hero-glow" aria-hidden="true"></div>
     <div class="blog-hero-copy">
       <p class="blog-kicker">{% trans 'Категорія' %}</p>
       <h1>{{ blog_title }}</h1>
@@ -24,13 +25,20 @@
       {% endif %}
       {% if is_blog_admin %}
         <div class="blog-hero-actions">
-          <a class="blog-admin-button" href="{{ admin_blog_post_create_url }}">{% trans 'Додати пост' %}</a>
-          <a class="blog-admin-button secondary" href="{{ admin_blog_url }}">{% trans 'Панель блогу' %}</a>
+          <a class="blog-admin-button" href="{{ admin_blog_post_create_url }}">
+            <i class="fas fa-plus" aria-hidden="true"></i> <span>{% trans 'Додати пост' %}</span>
+          </a>
+          <a class="blog-admin-button secondary" href="{{ admin_blog_url }}">
+            <i class="fas fa-cog" aria-hidden="true"></i> <span>{% trans 'Панель блогу' %}</span>
+          </a>
         </div>
       {% endif %}
     </div>
     <div class="blog-hero-panel" aria-hidden="true">
-      <div class="blog-hero-date">{{ posts|length }}</div>
+      <div class="blog-hero-date">
+        <span class="blog-count-indicator">{% trans 'Матеріалів' %}</span>
+        {{ posts|length }}
+      </div>
       <div class="blog-hero-lines">
         <span></span><span></span><span></span>
       </div>
