@@ -22,6 +22,15 @@
     const links = new Map();
     rail.querySelectorAll('[data-month-target]').forEach(link => {
       links.set(link.getAttribute('data-month-target'), link);
+      link.addEventListener('click', (event) => {
+        const marker = document.getElementById('month-' + link.getAttribute('data-month-target'));
+        if (!marker) return;
+        event.preventDefault();
+        marker.scrollIntoView({
+          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+          block: 'start'
+        });
+      });
     });
 
     const activate = (key) => {

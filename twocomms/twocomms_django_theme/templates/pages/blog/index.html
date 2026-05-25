@@ -20,18 +20,16 @@
       <p class="blog-kicker">{% trans 'TwoComms editorial' %}</p>
       <h1>{% trans 'Новини та блог' %}</h1>
       <p class="blog-lead">
-        {% trans 'Офіційні новини бренда, огляди речей, практичні знання про матеріали, кастомні принти і внутрішній характер TwoComms.' %}
+        {% trans 'Офіційні новини TwoComms, огляди продукції, матеріали про DTF-друк, колаборації та внутрішній розвиток бренда.' %}
       </p>
       <div class="blog-hero-actions">
-        {% if featured_post %}
-          <a class="blog-primary-link" href="{% url 'blog_post' slug=featured_post.slug %}">
-            <i class="fas fa-arrow-right" aria-hidden="true"></i>
-            <span>{% trans 'Читати останнє' %}</span>
-          </a>
-        {% endif %}
-        <a class="blog-secondary-link" href="{{ custom_print_url }}">
-          <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
-          <span>{% trans 'Створити свій принт' %}</span>
+        <a class="blog-primary-link" href="#blog-feed">
+          <i class="fas fa-arrow-down" aria-hidden="true"></i>
+          <span>{% trans 'До публікацій' %}</span>
+        </a>
+        <a class="blog-secondary-link" href="{% url 'blog_category' slug='brand-news' %}">
+          <i class="fas fa-newspaper" aria-hidden="true"></i>
+          <span>{% trans 'Новини бренда' %}</span>
         </a>
         {% if is_blog_admin %}
           <a class="blog-admin-button" href="{{ admin_blog_post_create_url }}">
@@ -45,42 +43,91 @@
       <div class="blog-hero-stats" aria-label="{% trans 'Стан блогу' %}">
         <span><strong>{{ posts|length }}</strong>{% trans 'матеріалів' %}</span>
         <span><strong>{{ blog_categories|length }}</strong>{% trans 'категорії' %}</span>
-        <span><strong>TWC</strong>{% trans 'редакція бренда' %}</span>
+        <span><strong>SEO</strong>{% trans 'структура за темами' %}</span>
       </div>
     </div>
 
-    <div class="blog-hero-feature">
-      {% if featured_post %}
-        <a class="blog-hero-media" href="{% url 'blog_post' slug=featured_post.slug %}" aria-label="{{ featured_post.title }}">
-          {% if featured_post.cover_image %}
-            <img src="{{ featured_post.cover_image.url }}" alt="{{ featured_post.cover_alt|default:featured_post.title }}" fetchpriority="high" width="960" height="600">
-          {% else %}
-            <div class="blog-cover-fallback blog-cover-fallback--hero">
-              <span class="blog-cover-grid"></span>
-              <span class="blog-cover-orbit"></span>
-              <span class="blog-cover-word">TWO<br>COMMS</span>
-            </div>
-          {% endif %}
-        </a>
-        <div class="blog-hero-feature-copy">
-          <div class="blog-card-meta">
-            <a href="{% url 'blog_category' slug=featured_post.category.slug %}" class="blog-card-cat-badge">{{ featured_post.category.name }}</a>
-            <span class="blog-card-date">{{ featured_post.published_at|date:"d.m.Y" }}</span>
-          </div>
+    <div class="blog-hero-lab" aria-label="{% trans 'Напрями редакції' %}">
+      <div class="blog-hero-lab-card">
+        <span class="blog-lab-ring"></span>
+        <span class="blog-lab-logo">TWC</span>
+        <span class="blog-lab-chip blog-lab-chip--news">{% trans 'Новини' %}</span>
+        <span class="blog-lab-chip blog-lab-chip--reviews">{% trans 'Огляди' %}</span>
+        <span class="blog-lab-chip blog-lab-chip--dtf">DTF</span>
+        <span class="blog-lab-chip blog-lab-chip--collab">{% trans 'Колаби' %}</span>
+        <div class="blog-lab-feed" aria-hidden="true">
+          <i></i><i></i><i></i><i></i>
+        </div>
+      </div>
+      <div class="blog-hero-lab-copy">
+        <p class="blog-kicker">{% trans 'Останній матеріал' %}</p>
+        {% if featured_post %}
           <h2><a href="{% url 'blog_post' slug=featured_post.slug %}">{{ featured_post.title }}</a></h2>
-          {% if featured_post.excerpt %}<p>{{ featured_post.excerpt }}</p>{% endif %}
-        </div>
-      {% else %}
-        <div class="blog-hero-media">
-          <div class="blog-cover-fallback blog-cover-fallback--hero">
-            <span class="blog-cover-grid"></span>
-            <span class="blog-cover-orbit"></span>
-            <span class="blog-cover-word">TWO<br>COMMS</span>
-          </div>
-        </div>
-      {% endif %}
+          <p>{{ featured_post.excerpt }}</p>
+          <a class="blog-read-link" href="{% url 'blog_post' slug=featured_post.slug %}">
+            <span>{% trans 'Відкрити матеріал' %}</span>
+            <i class="fas fa-arrow-right" aria-hidden="true"></i>
+          </a>
+        {% else %}
+          <h2>{% trans 'Матеріали готуються' %}</h2>
+          <p>{% trans 'Тут зʼявлятимуться новини бренда, огляди речей і практичні знання.' %}</p>
+        {% endif %}
+      </div>
     </div>
   </section>
+
+  <section class="blog-topic-dock" aria-label="{% trans 'Тематика блогу' %}" data-scroll-reveal>
+    <a href="{% url 'blog_category' slug='brand-news' %}">
+      <i class="fas fa-bullhorn" aria-hidden="true"></i>
+      <span>{% trans 'Новини бренда' %}</span>
+      <em>{% trans 'оновлення, фонд, медіа' %}</em>
+    </a>
+    <a href="{% url 'blog_category' slug='product-reviews' %}">
+      <i class="fas fa-tshirt" aria-hidden="true"></i>
+      <span>{% trans 'Огляди продукції' %}</span>
+      <em>{% trans 'посадка, тканини, принти' %}</em>
+    </a>
+    <a href="{% url 'blog_category' slug='guides' %}">
+      <i class="fas fa-layer-group" aria-hidden="true"></i>
+      <span>{% trans 'Корисні знання' %}</span>
+      <em>{% trans 'DTF, догляд, вибір' %}</em>
+    </a>
+  </section>
+
+  {% if featured_post %}
+    <section class="blog-featured-strip" aria-label="{% trans 'Свіжа публікація' %}" data-scroll-reveal>
+      <a class="blog-featured-media" href="{% url 'blog_post' slug=featured_post.slug %}" aria-label="{{ featured_post.title }}">
+        {% if featured_post.cover_image %}
+          <img src="{{ featured_post.cover_image.url }}" alt="{{ featured_post.cover_alt|default:featured_post.title }}" fetchpriority="high" width="960" height="600">
+        {% else %}
+          <div class="blog-cover-fallback {% if featured_post.slug == 'twocomms-veteran-fund-progress' %}blog-cover-fallback--fund{% else %}blog-cover-fallback--hero{% endif %}">
+            <span class="blog-cover-grid"></span>
+            <span class="blog-cover-orbit"></span>
+            {% if featured_post.slug == 'twocomms-veteran-fund-progress' %}
+              <span class="blog-fund-mark">УВФ</span>
+              <span class="blog-fund-plus">+</span>
+              <span class="blog-cover-word">TWC</span>
+              <span class="blog-fund-subline">DTF / 2 з 4</span>
+            {% else %}
+              <span class="blog-cover-word">TWO<br>COMMS</span>
+            {% endif %}
+          </div>
+        {% endif %}
+      </a>
+      <div class="blog-featured-copy">
+        <div class="blog-card-meta">
+          <a href="{% url 'blog_category' slug=featured_post.category.slug %}" class="blog-card-cat-badge">{{ featured_post.category.name }}</a>
+          <span class="blog-card-date">{{ featured_post.published_at|date:"d.m.Y" }}</span>
+        </div>
+        <h2><a href="{% url 'blog_post' slug=featured_post.slug %}">{{ featured_post.title }}</a></h2>
+        {% if featured_post.excerpt %}<p>{{ featured_post.excerpt }}</p>{% endif %}
+        <a class="blog-primary-link" href="{% url 'blog_post' slug=featured_post.slug %}">
+          <span>{% trans 'Читати публікацію' %}</span>
+          <i class="fas fa-arrow-right" aria-hidden="true"></i>
+        </a>
+      </div>
+    </section>
+  {% endif %}
 
   <nav class="blog-category-strip" aria-label="{% trans 'Категорії блогу' %}">
     <a class="active" href="{% url 'blog' %}">{% trans 'Усі публікації' %}</a>
@@ -89,7 +136,7 @@
     {% endfor %}
   </nav>
 
-  <section class="blog-editorial-board" aria-label="{% trans 'Публікації' %}">
+  <section class="blog-editorial-board" id="blog-feed" aria-label="{% trans 'Публікації' %}">
     {% if timeline_months %}
       <aside class="blog-month-rail" data-month-rail aria-label="{% trans 'Архів за місяцями' %}">
         <span class="blog-rail-title">{% trans 'Архів' %}</span>

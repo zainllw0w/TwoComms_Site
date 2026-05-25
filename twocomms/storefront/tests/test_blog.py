@@ -67,6 +67,9 @@ class BlogPublicTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Новини та блог")
+        self.assertContains(response, "blog-hero-lab")
+        self.assertContains(response, "blog-featured-strip")
+        self.assertContains(response, "blog-topic-dock")
         self.assertContains(response, self.post.title)
         self.assertContains(response, self.other_post.title)
         self.assertContains(response, reverse("blog_category", kwargs={"slug": self.category.slug}))
@@ -83,6 +86,7 @@ class BlogPublicTests(TestCase):
         self.assertContains(response, "Додати пост")
         self.assertContains(response, "Перегляди")
         self.assertContains(response, "Унікальні")
+        self.assertContains(response, "Редагувати")
         self.assertContains(response, reverse("admin_panel") + "?section=blog")
 
     def test_legacy_news_urls_redirect_permanently_to_canonical_blog(self):
@@ -132,6 +136,7 @@ class BlogPublicTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "article-source-card")
         self.assertContains(response, "article-custom-print-cta")
+        self.assertContains(response, "blog-article-media-badges")
         self.assertContains(response, reverse("custom_print"))
         self.assertContains(response, "Створити кастомний принт")
 

@@ -4,10 +4,17 @@
     {% if post.cover_image %}
       <img src="{{ post.cover_image.url }}" alt="{{ post.cover_alt|default:post.title }}" loading="lazy" width="720" height="450">
     {% else %}
-      <div class="blog-cover-fallback">
+      <div class="blog-cover-fallback {% if post.slug == 'twocomms-veteran-fund-progress' %}blog-cover-fallback--fund{% endif %}">
         <span class="blog-cover-grid"></span>
         <span class="blog-cover-orbit"></span>
-        <span class="blog-cover-word">TWC</span>
+        {% if post.slug == 'twocomms-veteran-fund-progress' %}
+          <span class="blog-fund-mark">УВФ</span>
+          <span class="blog-fund-plus">+</span>
+          <span class="blog-cover-word">TWC</span>
+          <span class="blog-fund-subline">DTF / 2 з 4</span>
+        {% else %}
+          <span class="blog-cover-word">TWC</span>
+        {% endif %}
       </div>
     {% endif %}
     <span class="blog-card-date-chip">
@@ -34,6 +41,10 @@
           <i class="far fa-eye" aria-hidden="true"></i> {% trans 'Перегляди' %}: {{ post.view_count }} ·
           <i class="far fa-user" aria-hidden="true"></i> {% trans 'Унікальні' %}: {{ post.unique_view_count }}
         </span>
+        <a class="blog-card-edit-link" href="{% url 'admin_blog_post_update' pk=post.pk %}">
+          <i class="fas fa-pen" aria-hidden="true"></i>
+          <span>{% trans 'Редагувати' %}</span>
+        </a>
       {% endif %}
     </div>
   </div>

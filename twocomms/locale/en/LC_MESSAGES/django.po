@@ -9562,3 +9562,96 @@ msgstr "News and Blog | TwoComms"
 
 msgid "Новини TwoComms, блог бренда, огляди продукції та корисні матеріали про український одяг зі змістом."
 msgstr "TwoComms news, brand blog, product reviews and useful materials about Ukrainian apparel with meaning."
+
+msgid "Офіційні новини TwoComms, огляди продукції, матеріали про DTF-друк, колаборації та внутрішній розвиток бренда."
+msgstr "Official TwoComms news, product reviews, DTF printing materials, collaborations and internal brand development."
+
+msgid "До публікацій"
+msgstr "Go to posts"
+
+msgid "Новини бренда"
+msgstr "Brand news"
+
+msgid "структура за темами"
+msgstr "topic structure"
+
+msgid "Напрями редакції"
+msgstr "Editorial directions"
+
+msgid "Огляди"
+msgstr "Reviews"
+
+msgid "Колаби"
+msgstr "Collabs"
+
+msgid "Останній матеріал"
+msgstr "Latest material"
+
+msgid "Відкрити матеріал"
+msgstr "Open material"
+
+msgid "Матеріали готуються"
+msgstr "Materials are in progress"
+
+msgid "Тут зʼявлятимуться новини бренда, огляди речей і практичні знання."
+msgstr "Brand news, product reviews and practical knowledge will appear here."
+
+msgid "Тематика блогу"
+msgstr "Blog topics"
+
+msgid "оновлення, фонд, медіа"
+msgstr "updates, fund, media"
+
+msgid "Огляди продукції"
+msgstr "Product reviews"
+
+msgid "посадка, тканини, принти"
+msgstr "fit, fabrics, prints"
+
+msgid "Корисні знання"
+msgstr "Useful knowledge"
+
+msgid "DTF, догляд, вибір"
+msgstr "DTF, care, choice"
+
+msgid "Свіжа публікація"
+msgstr "Fresh publication"
+
+msgid "Читати публікацію"
+msgstr "Read publication"
+
+msgid "хв читання"
+msgstr "min read"
+
+msgid "Український ветеранський фонд"
+msgstr "Ukrainian Veterans Fund"
+
+msgid "Внутрішній прогрес"
+msgstr "Internal progress"
+
+msgid "Виробництво"
+msgstr "Production"
+
+msgid "власний друк"
+msgstr "in-house printing"
+
+msgid "Можливості"
+msgstr "Capabilities"
+
+msgid "кастом і колаборації"
+msgstr "custom and collaborations"
+
+msgid "Посилання веде на першоджерело, де описано історію Артема Синіло, ветеранський досвід і запуск TwoComms."
+msgstr "The link opens the original source describing Artem Synilo, veteran experience and the launch of TwoComms."
+
+msgid "Контакт і колаборації"
+msgstr "Contact and collaborations"
+
+msgid "Усього переглядів"
+msgstr "Total views"
+
+msgid "Унікальні перегляди"
+msgstr "Unique views"
+
+msgid "Редагувати статтю"
+msgstr "Edit article"

@@ -38,9 +38,15 @@
             <span>{% trans 'Усі публікації' %}</span>
           </a>
           {% if post.source_url %}
-            <a href="{{ post.source_url }}" rel="nofollow noopener" target="_blank" class="blog-secondary-link">
-              <i class="fas fa-up-right-from-square" aria-hidden="true"></i>
-              <span>{% trans 'Першоджерело' %}</span>
+          <a href="{{ post.source_url }}" rel="nofollow noopener" target="_blank" class="blog-secondary-link">
+            <i class="fas fa-up-right-from-square" aria-hidden="true"></i>
+            <span>{% trans 'Першоджерело' %}</span>
+          </a>
+          {% endif %}
+          {% if is_blog_admin %}
+            <a href="{% url 'admin_blog_post_update' pk=post.pk %}" class="blog-admin-button secondary">
+              <i class="fas fa-pen" aria-hidden="true"></i>
+              <span>{% trans 'Редагувати' %}</span>
             </a>
           {% endif %}
         </div>
@@ -50,30 +56,44 @@
         {% if post.cover_image %}
           <img src="{{ post.cover_image.url }}" alt="{{ post.cover_alt|default:post.title }}" fetchpriority="high" width="1200" height="750">
         {% else %}
-          <div class="blog-cover-fallback blog-cover-fallback--article">
+          <div class="blog-cover-fallback blog-cover-fallback--article {% if post.slug == 'twocomms-veteran-fund-progress' %}blog-cover-fallback--fund{% endif %}">
             <span class="blog-cover-grid"></span>
             <span class="blog-cover-orbit"></span>
-            <span class="blog-cover-word">TWO<br>COMMS</span>
+            {% if post.slug == 'twocomms-veteran-fund-progress' %}
+              <span class="blog-fund-mark">УВФ</span>
+              <span class="blog-fund-plus">+</span>
+              <span class="blog-cover-word">TWC</span>
+              <span class="blog-fund-subline">DTF production / 2 з 4</span>
+            {% else %}
+              <span class="blog-cover-word">TWO<br>COMMS</span>
+            {% endif %}
           </div>
         {% endif %}
+        <div class="blog-article-media-badges" aria-hidden="true">
+          <span>TwoComms</span>
+          <i></i>
+          <span>{% trans 'Український ветеранський фонд' %}</span>
+          <i></i>
+          <span>DTF</span>
+        </div>
       </div>
     </header>
 
     <div class="blog-article-impact" aria-label="{% trans 'Коротко' %}">
       <div>
-        <span>{% trans 'Прогрес' %}</span>
+        <span>{% trans 'Внутрішній прогрес' %}</span>
         <strong>2/4</strong>
         <em>{% trans 'етапи закрито' %}</em>
       </div>
       <div>
-        <span>{% trans 'Фокус' %}</span>
-        <strong>{% trans 'Custom' %}</strong>
-        <em>{% trans 'напрям принтів' %}</em>
+        <span>{% trans 'Виробництво' %}</span>
+        <strong>DTF</strong>
+        <em>{% trans 'власний друк' %}</em>
       </div>
       <div>
-        <span>{% trans 'Далі' %}</span>
-        <strong>{% trans 'Scale' %}</strong>
-        <em>{% trans 'матеріали і відео' %}</em>
+        <span>{% trans 'Можливості' %}</span>
+        <strong>B2B/B2C</strong>
+        <em>{% trans 'кастом і колаборації' %}</em>
       </div>
     </div>
 
@@ -106,7 +126,7 @@
             <div>
               <span>{% trans 'Публічний контекст' %}</span>
               <h2>{% trans 'Офіційна історія Українського ветеранського фонду' %}</h2>
-              <p>{% trans 'Посилання веде на першоджерело, де описано історію Артема Синіло і запуск TwoComms.' %}</p>
+              <p>{% trans 'Посилання веде на першоджерело, де описано історію Артема Синіло, ветеранський досвід і запуск TwoComms.' %}</p>
             </div>
             <a href="{{ post.source_url }}" rel="nofollow noopener" target="_blank">
               <i class="fas fa-up-right-from-square" aria-hidden="true"></i>
@@ -117,12 +137,12 @@
 
         <section class="article-custom-print-cta">
           <div class="article-cta-copy">
-            <span>{% trans 'Кастомний напрям' %}</span>
+            <span>{% trans 'Контакт і колаборації' %}</span>
             <h2>{{ cta_label }}</h2>
             <p>{{ cta_text }}</p>
           </div>
           <a href="{{ cta_url }}" class="article-action-btn">
-            <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
+            <i class="fas fa-paper-plane" aria-hidden="true"></i>
             <span>{{ cta_label }}</span>
           </a>
         </section>
