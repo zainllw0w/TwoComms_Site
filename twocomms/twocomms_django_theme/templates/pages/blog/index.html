@@ -37,7 +37,7 @@
     <div class="blog-hero-panel" aria-hidden="true">
       <div class="blog-hero-date">
         <span class="blog-live-indicator"><span></span>{% trans 'Нове' %}</span>
-        {{ posts.0.published_at|date:"d.05" }}
+        {{ posts.0.published_at|date:"d.m" }}
       </div>
       <div class="blog-hero-lines">
         <span></span><span></span><span></span>
@@ -81,4 +81,26 @@
     </div>
   </section>
 </main>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const revealElements = document.querySelectorAll('[data-scroll-reveal]');
+    if ('IntersectionObserver' in window && revealElements.length > 0) {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('revealed');
+            observer.unobserve(entry.target);
+          }
+        });
+      }, {
+        threshold: 0.08,
+        rootMargin: '0px 0px -6% 0px'
+      });
+      revealElements.forEach(el => observer.observe(el));
+    } else {
+      revealElements.forEach(el => el.classList.add('revealed'));
+    }
+  });
+</script>
 {% endblock %}

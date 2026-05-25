@@ -19,6 +19,9 @@
   <div class="blog-progress-bar" id="blogProgressBar"></div>
 </div>
 
+<div class="blog-ambient-glow-1" aria-hidden="true"></div>
+<div class="blog-ambient-glow-2" aria-hidden="true"></div>
+
 <main class="blog-shell article-shell">
   <article class="blog-article" data-scroll-reveal>
     <header class="blog-article-head">
@@ -211,6 +214,25 @@
     } else if (tocContainer) {
       const parent = tocContainer.closest('.blog-toc-container');
       if (parent) parent.style.display = 'none';
+    }
+
+    // 4. Scroll Reveal
+    const revealElements = document.querySelectorAll('[data-scroll-reveal]');
+    if ('IntersectionObserver' in window && revealElements.length > 0) {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('revealed');
+            observer.unobserve(entry.target);
+          }
+        });
+      }, {
+        threshold: 0.05,
+        rootMargin: '0px 0px -5% 0px'
+      });
+      revealElements.forEach(el => observer.observe(el));
+    } else {
+      revealElements.forEach(el => el.classList.add('revealed'));
     }
   });
 </script>
