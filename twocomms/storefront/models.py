@@ -1,12 +1,16 @@
+import io
 import uuid
 from decimal import Decimal, ROUND_HALF_UP
+from pathlib import Path
 
 from django.db import IntegrityError, models, transaction
 from django.db.models import F
 from django.contrib.auth.models import User
 from django.conf import settings
+from django.core.files.base import ContentFile
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from PIL import Image, ImageOps
 
 
 class Category(models.Model):
@@ -168,6 +172,9 @@ class BlogPost(models.Model):
     cover_image = models.ImageField(upload_to="blog/covers/", blank=True, null=True, verbose_name="Обкладинка")
     cover_alt = models.CharField(max_length=180, blank=True, verbose_name="Alt обкладинки")
     source_url = models.URLField(blank=True, verbose_name="Джерело")
+    cta_label = models.CharField(max_length=140, blank=True, verbose_name="CTA текст")
+    cta_url = models.CharField(max_length=300, blank=True, verbose_name="CTA URL")
+    cta_text = models.CharField(max_length=260, blank=True, verbose_name="CTA підпис")
     seo_title = models.CharField(max_length=180, blank=True, verbose_name="SEO Title")
     seo_description = models.CharField(max_length=320, blank=True, verbose_name="SEO Description")
     seo_keywords = models.CharField(max_length=320, blank=True, verbose_name="SEO keywords")
@@ -197,6 +204,33 @@ class BlogPost(models.Model):
         from django.urls import reverse
 
         return reverse("blog_post", kwargs={"slug": self.slug})
+
+    def save(self, *args, **kwargs):
+        self._optimize_cover_image()
+        super().save(*args, **kwargs)
+
+    def _optimize_cover_image(self):
+        if not self.cover_image or getattr(self.cover_image, "_committed", True):
+            return
+
+        self.cover_image.file.seek(0)
+        with Image.open(self.cover_image.file) as image:
+            image = ImageOps.exif_transpose(image)
+            if image.mode in ("RGBA", "LA", "P"):
+                canvas = Image.new("RGB", image.size, "#0b0b0f")
+                if image.mode == "P":
+                    image = image.convert("RGBA")
+                canvas.paste(image, mask=image.getchannel("A") if "A" in image.getbands() else None)
+                image = canvas
+            else:
+                image = image.convert("RGB")
+
+            image.thumbnail((1600, 1000), Image.Resampling.LANCZOS)
+            output = io.BytesIO()
+            image.save(output, format="WEBP", quality=84, method=6)
+
+        stem = Path(self.cover_image.name).stem or f"cover-{uuid.uuid4().hex[:10]}"
+        self.cover_image.save(f"{stem}.webp", ContentFile(output.getvalue()), save=False)
 
 
 class BlogPostView(models.Model):

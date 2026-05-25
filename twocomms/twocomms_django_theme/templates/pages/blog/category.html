@@ -14,35 +14,33 @@
 {% endblock %}
 
 {% block content %}
-<main class="blog-shell">
-  <section class="blog-hero compact" data-scroll-reveal>
-    <div class="blog-hero-glow" aria-hidden="true"></div>
+<main class="blog-shell blog-shell--wide">
+  <section class="blog-hero blog-hero--category" data-scroll-reveal>
     <div class="blog-hero-copy">
       <p class="blog-kicker">{% trans 'Категорія' %}</p>
       <h1>{{ blog_title }}</h1>
       {% if active_category.description %}
         <p class="blog-lead">{{ active_category.description }}</p>
       {% endif %}
-      {% if is_blog_admin %}
-        <div class="blog-hero-actions">
+      <div class="blog-hero-actions">
+        <a class="blog-secondary-link" href="{% url 'blog' %}">
+          <i class="fas fa-layer-group" aria-hidden="true"></i>
+          <span>{% trans 'Усі публікації' %}</span>
+        </a>
+        {% if is_blog_admin %}
           <a class="blog-admin-button" href="{{ admin_blog_post_create_url }}">
             <i class="fas fa-plus" aria-hidden="true"></i> <span>{% trans 'Додати пост' %}</span>
           </a>
           <a class="blog-admin-button secondary" href="{{ admin_blog_url }}">
             <i class="fas fa-cog" aria-hidden="true"></i> <span>{% trans 'Панель блогу' %}</span>
           </a>
-        </div>
-      {% endif %}
+        {% endif %}
+      </div>
     </div>
-    <div class="blog-hero-panel" aria-hidden="true">
-      <div class="blog-hero-date">
-        <span class="blog-count-indicator">{% trans 'Матеріалів' %}</span>
-        {{ posts|length }}
-      </div>
-      <div class="blog-hero-lines">
-        <span></span><span></span><span></span>
-      </div>
-      <div class="blog-hero-mark">CAT</div>
+    <div class="blog-category-signal" aria-hidden="true">
+      <span>{% trans 'Матеріалів' %}</span>
+      <strong>{{ posts|length }}</strong>
+      <em>{{ active_category.name }}</em>
     </div>
   </section>
 
@@ -53,31 +51,40 @@
     {% endfor %}
   </nav>
 
-  <section class="blog-timeline" aria-label="{{ active_category.name }}">
-    {% for post in posts %}
-      {% include "partials/blog_post_card.html" with post=post %}
-    {% empty %}
-      <div class="blog-empty">
-        <h2>{% trans 'У цій категорії поки немає постів' %}</h2>
-        <p>{% trans 'Коли матеріал буде опубліковано, він зʼявиться тут.' %}</p>
-      </div>
-    {% endfor %}
+  <section class="blog-editorial-board" aria-label="{{ active_category.name }}">
+    {% if timeline_months %}
+      <aside class="blog-month-rail" data-month-rail aria-label="{% trans 'Архів за місяцями' %}">
+        <span class="blog-rail-title">{% trans 'Архів' %}</span>
+        {% for month in timeline_months %}
+          <a href="#month-{{ month.key }}" data-month-target="{{ month.key }}" class="{% if forloop.first %}active{% endif %}">{{ month.label }}</a>
+        {% endfor %}
+      </aside>
+    {% endif %}
+
+    <div class="blog-timeline blog-timeline--wide">
+      {% for post in posts %}
+        {% ifchanged post.published_at|date:"Y-m" %}
+          <div class="blog-month-anchor" id="month-{{ post.published_at|date:'Y-m' }}" data-month-marker="{{ post.published_at|date:'Y-m' }}">
+            <span>{{ post.published_at|date:"F Y" }}</span>
+          </div>
+        {% endifchanged %}
+        {% include "partials/blog_post_card.html" with post=post %}
+      {% empty %}
+        <div class="blog-empty">
+          <h2>{% trans 'Публікації готуються' %}</h2>
+          <p>{% trans 'У цій категорії скоро зʼявляться матеріали.' %}</p>
+        </div>
+      {% endfor %}
+    </div>
   </section>
 
-  <section class="blog-seo-band" data-scroll-reveal>
+  <section class="blog-seo-band blog-seo-band--split" data-scroll-reveal>
     <div>
       <p class="blog-kicker">{% trans 'Глибше по темі' %}</p>
-      <h2>{{ active_category.bottom_title|default:active_category.name }}</h2>
-      <p>
-        {% if active_category.bottom_text %}
-          {{ active_category.bottom_text }}
-        {% else %}
-          {% trans 'Добірка матеріалів оновлюється за датою, щоб нові публікації швидко отримували свою сторінку, внутрішні посилання і зрозумілу SEO-структуру.' %}
-        {% endif %}
-      </p>
+      <h2>{{ active_category.bottom_title|default:blog_title }}</h2>
+      <p>{{ active_category.bottom_text|default:active_category.description }}</p>
     </div>
     <div class="blog-query-cloud">
-      <a href="{% url 'blog' %}">{% trans 'усі матеріали' %}</a>
       {% for category in blog_categories %}
         <a href="{% url 'blog_category' slug=category.slug %}">{{ category.name }}</a>
       {% endfor %}
@@ -85,25 +92,5 @@
   </section>
 </main>
 
-<script>
-  document.addEventListener('DOMContentLoaded', function() {
-    const revealElements = document.querySelectorAll('[data-scroll-reveal]');
-    if ('IntersectionObserver' in window && revealElements.length > 0) {
-      const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('revealed');
-            observer.unobserve(entry.target);
-          }
-        });
-      }, {
-        threshold: 0.08,
-        rootMargin: '0px 0px -6% 0px'
-      });
-      revealElements.forEach(el => observer.observe(el));
-    } else {
-      revealElements.forEach(el => el.classList.add('revealed'));
-    }
-  });
-</script>
+{% include "partials/blog_scroll_script.html" %}
 {% endblock %}

@@ -19,61 +19,70 @@
   <div class="blog-progress-bar" id="blogProgressBar"></div>
 </div>
 
-<div class="blog-ambient-glow-1" aria-hidden="true"></div>
-<div class="blog-ambient-glow-2" aria-hidden="true"></div>
-
 <main class="blog-shell article-shell">
   <article class="blog-article" data-scroll-reveal>
-    <header class="blog-article-head">
-      <div class="blog-card-meta">
-        <a href="{% url 'blog_category' slug=post.category.slug %}" class="blog-card-cat-badge">{{ post.category.name }}</a>
-        <span class="blog-card-date"><i class="far fa-calendar-alt" aria-hidden="true"></i> {{ post.published_at|date:"d.m.Y" }}</span>
-        <span class="blog-card-readtime"><i class="far fa-clock" aria-hidden="true"></i> <span id="readingTime"></span> {% trans 'хв читання' %}</span>
+    <header class="blog-article-hero">
+      <div class="blog-article-copy">
+        <div class="blog-card-meta">
+          <a href="{% url 'blog_category' slug=post.category.slug %}" class="blog-card-cat-badge">{{ post.category.name }}</a>
+          <span class="blog-card-date"><i class="far fa-calendar-alt" aria-hidden="true"></i> {{ post.published_at|date:"d.m.Y" }}</span>
+          <span class="blog-card-readtime"><i class="far fa-clock" aria-hidden="true"></i> <span id="readingTime">1</span> {% trans 'хв читання' %}</span>
+        </div>
+        <h1>{{ post.title }}</h1>
+        {% if post.excerpt %}
+          <p class="blog-lead">{{ post.excerpt }}</p>
+        {% endif %}
+        <div class="blog-article-actions">
+          <a href="{% url 'blog' %}" class="blog-secondary-link">
+            <i class="fas fa-arrow-left" aria-hidden="true"></i>
+            <span>{% trans 'Усі публікації' %}</span>
+          </a>
+          {% if post.source_url %}
+            <a href="{{ post.source_url }}" rel="nofollow noopener" target="_blank" class="blog-secondary-link">
+              <i class="fas fa-up-right-from-square" aria-hidden="true"></i>
+              <span>{% trans 'Першоджерело' %}</span>
+            </a>
+          {% endif %}
+        </div>
       </div>
-      <h1>{{ post.title }}</h1>
-      {% if post.excerpt %}
-        <p class="blog-lead">{{ post.excerpt }}</p>
-      {% endif %}
+
+      <div class="blog-article-media">
+        {% if post.cover_image %}
+          <img src="{{ post.cover_image.url }}" alt="{{ post.cover_alt|default:post.title }}" fetchpriority="high" width="1200" height="750">
+        {% else %}
+          <div class="blog-cover-fallback blog-cover-fallback--article">
+            <span class="blog-cover-grid"></span>
+            <span class="blog-cover-orbit"></span>
+            <span class="blog-cover-word">TWO<br>COMMS</span>
+          </div>
+        {% endif %}
+      </div>
     </header>
 
-    <div class="blog-article-media">
-      {% if post.cover_image %}
-        <img src="{{ post.cover_image.url }}" alt="{{ post.cover_alt|default:post.title }}" fetchpriority="high" width="1200" height="630">
-      {% else %}
-        <div class="blog-article-placeholder">
-          <svg class="blog-placeholder-svg" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <pattern id="article-grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
-              </pattern>
-              <radialGradient id="article-glow" cx="50%" cy="50%" r="60%">
-                <stop offset="0%" stop-color="rgba(251,146,60,0.15)"/>
-                <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
-              </radialGradient>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#article-grid)" />
-            <rect width="100%" height="100%" fill="url(#article-glow)" />
-          </svg>
-          <span class="blog-card-signal" aria-hidden="true"></span>
-          <span class="blog-card-monogram">TWOCOMMS</span>
-        </div>
-      {% endif %}
+    <div class="blog-article-impact" aria-label="{% trans 'Коротко' %}">
+      <div>
+        <span>{% trans 'Прогрес' %}</span>
+        <strong>2/4</strong>
+        <em>{% trans 'етапи закрито' %}</em>
+      </div>
+      <div>
+        <span>{% trans 'Фокус' %}</span>
+        <strong>{% trans 'Custom' %}</strong>
+        <em>{% trans 'напрям принтів' %}</em>
+      </div>
+      <div>
+        <span>{% trans 'Далі' %}</span>
+        <strong>{% trans 'Scale' %}</strong>
+        <em>{% trans 'матеріали і відео' %}</em>
+      </div>
     </div>
 
     <div class="blog-article-grid">
       <aside class="blog-article-aside">
         <div class="blog-aside-sticky">
-          <div class="blog-aside-nav">
-            <a href="{% url 'blog' %}" class="blog-back-link">
-              <i class="fas fa-arrow-left" aria-hidden="true"></i> <span>{% trans 'Усі публікації' %}</span>
-            </a>
-          </div>
-          
           <div class="blog-toc-container">
             <div class="blog-toc-title">{% trans 'Зміст' %}</div>
-            <nav class="blog-toc" id="blogTOC">
-              <!-- Populate dynamically using Javascript -->
-            </nav>
+            <nav class="blog-toc" id="blogTOC"></nav>
           </div>
 
           {% if post.source_url %}
@@ -86,12 +95,37 @@
           {% endif %}
         </div>
       </aside>
-      
-      <div class="blog-article-content">
-        {{ post.content_html|safe }}
+
+      <div class="blog-article-main">
+        <div class="blog-article-content">
+          {{ post.content_html|safe }}
+        </div>
+
         {% if post.source_url %}
-          <p class="blog-source">{% trans 'Публічний контекст:' %} <a href="{{ post.source_url }}" rel="nofollow noopener" target="_blank">{{ post.source_url }}</a></p>
+          <section class="article-source-card">
+            <div>
+              <span>{% trans 'Публічний контекст' %}</span>
+              <h2>{% trans 'Офіційна історія Українського ветеранського фонду' %}</h2>
+              <p>{% trans 'Посилання веде на першоджерело, де описано історію Артема Синіло і запуск TwoComms.' %}</p>
+            </div>
+            <a href="{{ post.source_url }}" rel="nofollow noopener" target="_blank">
+              <i class="fas fa-up-right-from-square" aria-hidden="true"></i>
+              <span>{% trans 'Відкрити джерело' %}</span>
+            </a>
+          </section>
         {% endif %}
+
+        <section class="article-custom-print-cta">
+          <div class="article-cta-copy">
+            <span>{% trans 'Кастомний напрям' %}</span>
+            <h2>{{ cta_label }}</h2>
+            <p>{{ cta_text }}</p>
+          </div>
+          <a href="{{ cta_url }}" class="article-action-btn">
+            <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
+            <span>{{ cta_label }}</span>
+          </a>
+        </section>
       </div>
     </div>
   </article>
@@ -127,113 +161,62 @@
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    // 1. Reading progress bar
     const progressBar = document.getElementById('blogProgressBar');
-    window.addEventListener('scroll', () => {
+    const updateProgress = () => {
       const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
       const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
       const scrolled = height > 0 ? (winScroll / height) * 100 : 0;
-      if (progressBar) {
-        progressBar.style.width = scrolled + '%';
-      }
-    });
+      if (progressBar) progressBar.style.width = scrolled + '%';
+    };
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    updateProgress();
 
-    // 2. Reading time calculation
     const contentEl = document.querySelector('.blog-article-content');
     if (contentEl) {
-      const text = contentEl.textContent || contentEl.innerText;
-      const wpm = 180; // Average reading speed in Ukrainian
-      const words = text.trim().split(/\s+/).length;
-      const time = Math.max(1, Math.round(words / wpm));
+      const words = (contentEl.textContent || '').trim().split(/\s+/).filter(Boolean).length;
       const readingTimeEl = document.getElementById('readingTime');
-      if (readingTimeEl) {
-        readingTimeEl.textContent = time;
-      }
+      if (readingTimeEl) readingTimeEl.textContent = Math.max(1, Math.round(words / 180));
     }
 
-    // 3. Dynamic TOC generation & Scrollspy
     const tocContainer = document.getElementById('blogTOC');
     const headings = contentEl ? contentEl.querySelectorAll('h2, h3') : [];
-    
     if (tocContainer && headings.length > 0) {
       const ul = document.createElement('ul');
       const spyElements = [];
-
       headings.forEach((heading, index) => {
-        if (!heading.id) {
-          heading.id = 'heading-' + index;
-        }
-
+        if (!heading.id) heading.id = 'heading-' + index;
         const li = document.createElement('li');
         li.className = 'toc-item ' + (heading.tagName.toLowerCase() === 'h3' ? 'toc-h3' : 'toc-h2');
-        
         const a = document.createElement('a');
         a.href = '#' + heading.id;
         a.textContent = heading.textContent;
-        a.addEventListener('click', (e) => {
-          e.preventDefault();
+        a.addEventListener('click', (event) => {
+          event.preventDefault();
           heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          history.pushState(null, null, '#' + heading.id);
+          history.pushState(null, '', '#' + heading.id);
         });
-
         li.appendChild(a);
         ul.appendChild(li);
-        
-        spyElements.push({
-          heading: heading,
-          tocLink: a
-        });
+        spyElements.push({ heading, tocLink: a });
       });
-
       tocContainer.appendChild(ul);
 
-      // Scrollspy logic
-      function activeTOCItem() {
-        const scrollPosition = window.scrollY + 100;
+      const activeTOCItem = () => {
+        const scrollPosition = window.scrollY + 130;
         let activeIndex = -1;
-
         for (let i = 0; i < spyElements.length; i++) {
-          if (spyElements[i].heading.offsetTop <= scrollPosition) {
-            activeIndex = i;
-          } else {
-            break;
-          }
+          if (spyElements[i].heading.offsetTop <= scrollPosition) activeIndex = i;
         }
-
-        spyElements.forEach((el, index) => {
-          if (index === activeIndex) {
-            el.tocLink.classList.add('active');
-          } else {
-            el.tocLink.classList.remove('active');
-          }
-        });
-      }
-
-      window.addEventListener('scroll', activeTOCItem);
-      activeTOCItem(); // Run once initially
+        spyElements.forEach((item, index) => item.tocLink.classList.toggle('active', index === activeIndex));
+      };
+      window.addEventListener('scroll', activeTOCItem, { passive: true });
+      activeTOCItem();
     } else if (tocContainer) {
       const parent = tocContainer.closest('.blog-toc-container');
-      if (parent) parent.style.display = 'none';
+      if (parent) parent.hidden = true;
     }
 
-    // 4. Scroll Reveal
-    const revealElements = document.querySelectorAll('[data-scroll-reveal]');
-    if ('IntersectionObserver' in window && revealElements.length > 0) {
-      const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('revealed');
-            observer.unobserve(entry.target);
-          }
-        });
-      }, {
-        threshold: 0.05,
-        rootMargin: '0px 0px -5% 0px'
-      });
-      revealElements.forEach(el => observer.observe(el));
-    } else {
-      revealElements.forEach(el => el.classList.add('revealed'));
-    }
+    document.querySelectorAll('[data-scroll-reveal]').forEach(el => el.classList.add('revealed'));
   });
 </script>
 {% endblock %}

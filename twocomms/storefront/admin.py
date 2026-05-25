@@ -155,6 +155,9 @@ class BlogPostAdmin(TabbedTranslationAdmin):
         ("Основне", {
             "fields": ("category", "title", "slug", "excerpt", "content_html", "cover_image", "cover_alt", "source_url"),
         }),
+        ("CTA / перелінковка", {
+            "fields": ("cta_label", "cta_url", "cta_text"),
+        }),
         ("Публікація", {
             "fields": ("is_published", "published_at"),
         }),

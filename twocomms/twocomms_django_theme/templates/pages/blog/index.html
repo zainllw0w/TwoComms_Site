@@ -14,16 +14,25 @@
 {% endblock %}
 
 {% block content %}
-<main class="blog-shell">
-  <section class="blog-hero" data-scroll-reveal>
-    <div class="blog-hero-glow" aria-hidden="true"></div>
+<main class="blog-shell blog-shell--wide">
+  <section class="blog-hero blog-hero--magazine" data-scroll-reveal>
     <div class="blog-hero-copy">
       <p class="blog-kicker">{% trans 'TwoComms editorial' %}</p>
       <h1>{% trans 'Новини та блог' %}</h1>
       <p class="blog-lead">
-        {% trans 'Офіційні новини бренда, огляди речей, корисні знання про матеріали, принти, посадку і внутрішній характер TwoComms.' %}
+        {% trans 'Офіційні новини бренда, огляди речей, практичні знання про матеріали, кастомні принти і внутрішній характер TwoComms.' %}
       </p>
       <div class="blog-hero-actions">
+        {% if featured_post %}
+          <a class="blog-primary-link" href="{% url 'blog_post' slug=featured_post.slug %}">
+            <i class="fas fa-arrow-right" aria-hidden="true"></i>
+            <span>{% trans 'Читати останнє' %}</span>
+          </a>
+        {% endif %}
+        <a class="blog-secondary-link" href="{{ custom_print_url }}">
+          <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
+          <span>{% trans 'Створити свій принт' %}</span>
+        </a>
         {% if is_blog_admin %}
           <a class="blog-admin-button" href="{{ admin_blog_post_create_url }}">
             <i class="fas fa-plus" aria-hidden="true"></i> <span>{% trans 'Додати пост' %}</span>
@@ -33,16 +42,43 @@
           </a>
         {% endif %}
       </div>
+      <div class="blog-hero-stats" aria-label="{% trans 'Стан блогу' %}">
+        <span><strong>{{ posts|length }}</strong>{% trans 'матеріалів' %}</span>
+        <span><strong>{{ blog_categories|length }}</strong>{% trans 'категорії' %}</span>
+        <span><strong>TWC</strong>{% trans 'редакція бренда' %}</span>
+      </div>
     </div>
-    <div class="blog-hero-panel" aria-hidden="true">
-      <div class="blog-hero-date">
-        <span class="blog-live-indicator"><span></span>{% trans 'Нове' %}</span>
-        {{ posts.0.published_at|date:"d.m" }}
-      </div>
-      <div class="blog-hero-lines">
-        <span></span><span></span><span></span>
-      </div>
-      <div class="blog-hero-mark">TWC</div>
+
+    <div class="blog-hero-feature">
+      {% if featured_post %}
+        <a class="blog-hero-media" href="{% url 'blog_post' slug=featured_post.slug %}" aria-label="{{ featured_post.title }}">
+          {% if featured_post.cover_image %}
+            <img src="{{ featured_post.cover_image.url }}" alt="{{ featured_post.cover_alt|default:featured_post.title }}" fetchpriority="high" width="960" height="600">
+          {% else %}
+            <div class="blog-cover-fallback blog-cover-fallback--hero">
+              <span class="blog-cover-grid"></span>
+              <span class="blog-cover-orbit"></span>
+              <span class="blog-cover-word">TWO<br>COMMS</span>
+            </div>
+          {% endif %}
+        </a>
+        <div class="blog-hero-feature-copy">
+          <div class="blog-card-meta">
+            <a href="{% url 'blog_category' slug=featured_post.category.slug %}" class="blog-card-cat-badge">{{ featured_post.category.name }}</a>
+            <span class="blog-card-date">{{ featured_post.published_at|date:"d.m.Y" }}</span>
+          </div>
+          <h2><a href="{% url 'blog_post' slug=featured_post.slug %}">{{ featured_post.title }}</a></h2>
+          {% if featured_post.excerpt %}<p>{{ featured_post.excerpt }}</p>{% endif %}
+        </div>
+      {% else %}
+        <div class="blog-hero-media">
+          <div class="blog-cover-fallback blog-cover-fallback--hero">
+            <span class="blog-cover-grid"></span>
+            <span class="blog-cover-orbit"></span>
+            <span class="blog-cover-word">TWO<br>COMMS</span>
+          </div>
+        </div>
+      {% endif %}
     </div>
   </section>
 
@@ -53,18 +89,34 @@
     {% endfor %}
   </nav>
 
-  <section class="blog-timeline" aria-label="{% trans 'Публікації' %}">
-    {% for post in posts %}
-      {% include "partials/blog_post_card.html" with post=post %}
-    {% empty %}
-      <div class="blog-empty">
-        <h2>{% trans 'Публікації готуються' %}</h2>
-        <p>{% trans 'Після публікації матеріали зʼявляться тут за датою.' %}</p>
-      </div>
-    {% endfor %}
+  <section class="blog-editorial-board" aria-label="{% trans 'Публікації' %}">
+    {% if timeline_months %}
+      <aside class="blog-month-rail" data-month-rail aria-label="{% trans 'Архів за місяцями' %}">
+        <span class="blog-rail-title">{% trans 'Архів' %}</span>
+        {% for month in timeline_months %}
+          <a href="#month-{{ month.key }}" data-month-target="{{ month.key }}" class="{% if forloop.first %}active{% endif %}">{{ month.label }}</a>
+        {% endfor %}
+      </aside>
+    {% endif %}
+
+    <div class="blog-timeline blog-timeline--wide">
+      {% for post in posts %}
+        {% ifchanged post.published_at|date:"Y-m" %}
+          <div class="blog-month-anchor" id="month-{{ post.published_at|date:'Y-m' }}" data-month-marker="{{ post.published_at|date:'Y-m' }}">
+            <span>{{ post.published_at|date:"F Y" }}</span>
+          </div>
+        {% endifchanged %}
+        {% include "partials/blog_post_card.html" with post=post %}
+      {% empty %}
+        <div class="blog-empty">
+          <h2>{% trans 'Публікації готуються' %}</h2>
+          <p>{% trans 'Після публікації матеріали зʼявляться тут за датою.' %}</p>
+        </div>
+      {% endfor %}
+    </div>
   </section>
 
-  <section class="blog-seo-band" data-scroll-reveal>
+  <section class="blog-seo-band blog-seo-band--split" data-scroll-reveal>
     <div>
       <p class="blog-kicker">{% trans 'Навігація за наміром' %}</p>
       <h2>{% trans 'Новини бренда, огляди продукції і практичні знання' %}</h2>
@@ -82,25 +134,5 @@
   </section>
 </main>
 
-<script>
-  document.addEventListener('DOMContentLoaded', function() {
-    const revealElements = document.querySelectorAll('[data-scroll-reveal]');
-    if ('IntersectionObserver' in window && revealElements.length > 0) {
-      const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('revealed');
-            observer.unobserve(entry.target);
-          }
-        });
-      }, {
-        threshold: 0.08,
-        rootMargin: '0px 0px -6% 0px'
-      });
-      revealElements.forEach(el => observer.observe(el));
-    } else {
-      revealElements.forEach(el => el.classList.add('revealed'));
-    }
-  });
-</script>
+{% include "partials/blog_scroll_script.html" %}
 {% endblock %}

@@ -9472,3 +9472,93 @@ msgstr "DTF print care"
 
 msgid "одяг з характером"
 msgstr "clothing with character"
+
+msgid "Офіційні новини бренда, огляди речей, практичні знання про матеріали, кастомні принти і внутрішній характер TwoComms."
+msgstr "Official brand news, product reviews, practical knowledge about materials, custom prints and the inner character of TwoComms."
+
+msgid "Читати останнє"
+msgstr "Read the latest"
+
+msgid "Стан блогу"
+msgstr "Blog status"
+
+msgid "матеріалів"
+msgstr "stories"
+
+msgid "категорії"
+msgstr "categories"
+
+msgid "редакція бренда"
+msgstr "brand editorial"
+
+msgid "Архів за місяцями"
+msgstr "Archive by month"
+
+msgid "Матеріалів"
+msgstr "Stories"
+
+msgid "У цій категорії скоро зʼявляться матеріали."
+msgstr "Stories will appear in this category soon."
+
+msgid "Першоджерело"
+msgstr "Original source"
+
+msgid "Коротко"
+msgstr "Briefly"
+
+msgid "Прогрес"
+msgstr "Progress"
+
+msgid "етапи закрито"
+msgstr "stages complete"
+
+msgid "Фокус"
+msgstr "Focus"
+
+msgid "Custom"
+msgstr "Custom"
+
+msgid "напрям принтів"
+msgstr "print direction"
+
+msgid "Scale"
+msgstr "Scale"
+
+msgid "матеріали і відео"
+msgstr "materials and video"
+
+msgid "Зміст"
+msgstr "Contents"
+
+msgid "Джерело матеріалу"
+msgstr "Source material"
+
+msgid "Читати першоджерело"
+msgstr "Read original source"
+
+msgid "Публічний контекст"
+msgstr "Public context"
+
+msgid "Офіційна історія Українського ветеранського фонду"
+msgstr "Official story from the Ukrainian Veterans Fund"
+
+msgid "Посилання веде на першоджерело, де описано історію Артема Синіло і запуск TwoComms."
+msgstr "The link opens the original source describing Artem Synilo and the launch of TwoComms."
+
+msgid "Відкрити джерело"
+msgstr "Open source"
+
+msgid "Кастомний напрям"
+msgstr "Custom direction"
+
+msgid "Створити кастомний принт"
+msgstr "Create a custom print"
+
+msgid "Переходьте у конструктор, якщо хочете перетворити ідею, символ або командний знак у власний принт TwoComms."
+msgstr "Open the builder if you want to turn an idea, symbol or team mark into a custom TwoComms print."
+
+msgid "Новини та блог | TwoComms"
+msgstr "News and Blog | TwoComms"
+
+msgid "Новини TwoComms, блог бренда, огляди продукції та корисні матеріали про український одяг зі змістом."
+msgstr "TwoComms news, brand blog, product reviews and useful materials about Ukrainian apparel with meaning."

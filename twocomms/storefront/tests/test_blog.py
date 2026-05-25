@@ -1,7 +1,12 @@
+import io
+import tempfile
+
 from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
+from PIL import Image
 
 from storefront.models import BlogCategory, BlogPost
 from storefront.services.index_targets import build_blog_urls
@@ -120,6 +125,39 @@ class BlogPublicTests(TestCase):
         self.assertEqual(self.post.unique_view_count, 1)
         self.assertContains(first, '"@type": "Article"', html=False)
         self.assertContains(first, self.post.source_url)
+
+    def test_article_page_renders_editorial_source_and_custom_print_cta_blocks(self):
+        response = self.client.get(reverse("blog_post", kwargs={"slug": self.post.slug}), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "article-source-card")
+        self.assertContains(response, "article-custom-print-cta")
+        self.assertContains(response, reverse("custom_print"))
+        self.assertContains(response, "Створити кастомний принт")
+
+    def test_uploaded_cover_image_is_converted_to_webp_with_stable_ratio(self):
+        image = Image.new("RGB", (2400, 1600), "#f97316")
+        buffer = io.BytesIO()
+        image.save(buffer, format="JPEG")
+        upload = SimpleUploadedFile("raw-cover.jpg", buffer.getvalue(), content_type="image/jpeg")
+
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            post = BlogPost.objects.create(
+                category=self.category,
+                title="Пост із фото",
+                slug="cover-conversion",
+                excerpt="Перевірка конвертації.",
+                content_html="<p>Контент.</p>",
+                cover_image=upload,
+                cover_alt="Тестова обкладинка",
+                published_at=timezone.now(),
+                is_published=True,
+            )
+
+            self.assertTrue(post.cover_image.name.endswith(".webp"))
+            with Image.open(post.cover_image.path) as optimized:
+                self.assertEqual(optimized.format, "WEBP")
+                self.assertLessEqual(max(optimized.size), 1600)
 
     def test_sitemaps_and_index_targets_include_blog_urls(self):
         post_sitemap = BlogPostSitemap()

@@ -1,0 +1,42 @@
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const revealElements = document.querySelectorAll('[data-scroll-reveal]');
+    if ('IntersectionObserver' in window && revealElements.length > 0) {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('revealed');
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.08, rootMargin: '0px 0px -6% 0px' });
+      revealElements.forEach(el => observer.observe(el));
+    } else {
+      revealElements.forEach(el => el.classList.add('revealed'));
+    }
+
+    const rail = document.querySelector('[data-month-rail]');
+    const markers = document.querySelectorAll('[data-month-marker]');
+    if (!rail || markers.length === 0 || !('IntersectionObserver' in window)) return;
+
+    const links = new Map();
+    rail.querySelectorAll('[data-month-target]').forEach(link => {
+      links.set(link.getAttribute('data-month-target'), link);
+    });
+
+    const activate = (key) => {
+      links.forEach(link => link.classList.remove('active'));
+      const current = links.get(key);
+      if (current) current.classList.add('active');
+    };
+
+    const monthObserver = new IntersectionObserver((entries) => {
+      const visible = entries
+        .filter(entry => entry.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+      if (visible) activate(visible.target.getAttribute('data-month-marker'));
+    }, { threshold: 0.18, rootMargin: '-18% 0px -68% 0px' });
+
+    markers.forEach(marker => monthObserver.observe(marker));
+  });
+</script>

@@ -1338,6 +1338,15 @@ class BlogPostForm(forms.ModelForm):
                 "cover_alt_ru",
                 "cover_alt_en",
                 "source_url",
+                "cta_label",
+                "cta_label_uk",
+                "cta_label_ru",
+                "cta_label_en",
+                "cta_url",
+                "cta_text",
+                "cta_text_uk",
+                "cta_text_ru",
+                "cta_text_en",
                 "published_at",
                 "is_published",
                 "seo_title",
@@ -1368,6 +1377,10 @@ class BlogPostForm(forms.ModelForm):
             "seo_description_uk": forms.Textarea(attrs={"rows": 2}),
             "seo_description_ru": forms.Textarea(attrs={"rows": 2}),
             "seo_description_en": forms.Textarea(attrs={"rows": 2}),
+            "cta_text": forms.Textarea(attrs={"rows": 2}),
+            "cta_text_uk": forms.Textarea(attrs={"rows": 2}),
+            "cta_text_ru": forms.Textarea(attrs={"rows": 2}),
+            "cta_text_en": forms.Textarea(attrs={"rows": 2}),
         }
 
     def __init__(self, *args, **kwargs):

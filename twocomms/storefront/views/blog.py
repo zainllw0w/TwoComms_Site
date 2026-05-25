@@ -11,6 +11,7 @@ from django.db.models import F
 from django.http import HttpResponsePermanentRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.formats import date_format
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
@@ -39,6 +40,21 @@ def _active_categories():
     return BlogCategory.objects.filter(is_active=True).order_by("order", "name")
 
 
+def _timeline_months(posts: list[BlogPost]) -> list[dict[str, str]]:
+    months: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for post in posts:
+        if not post.published_at:
+            continue
+        published_at = timezone.localtime(post.published_at)
+        key = published_at.strftime("%Y-%m")
+        if key in seen:
+            continue
+        seen.add(key)
+        months.append({"key": key, "label": date_format(published_at, "F Y")})
+    return months
+
+
 def _blog_context(request, *, title: str | None = None) -> dict:
     categories = list(_active_categories())
     return {
@@ -47,6 +63,7 @@ def _blog_context(request, *, title: str | None = None) -> dict:
         "is_blog_admin": bool(getattr(request.user, "is_staff", False)),
         "admin_blog_url": f"{reverse('admin_panel')}?section=blog",
         "admin_blog_post_create_url": reverse("admin_blog_post_create"),
+        "custom_print_url": reverse("custom_print"),
     }
 
 
@@ -111,6 +128,8 @@ def blog_index(request):
     context.update(
         {
             "posts": posts,
+            "featured_post": posts[0] if posts else None,
+            "timeline_months": _timeline_months(posts),
             "active_category": None,
             "meta_title": _("Новини та блог | TwoComms"),
             "meta_description": _(
@@ -147,6 +166,8 @@ def blog_category(request, slug):
     context.update(
         {
             "posts": posts,
+            "featured_post": posts[0] if posts else None,
+            "timeline_months": _timeline_months(posts),
             "active_category": category,
             "meta_title": category.seo_title or f"{category.name} | Новини та блог TwoComms",
             "meta_description": category.seo_description or category.description,
@@ -215,6 +236,11 @@ def blog_post(request, slug):
         {
             "post": post,
             "related_posts": related,
+            "cta_url": post.cta_url or reverse("custom_print"),
+            "cta_label": post.cta_label or _("Створити кастомний принт"),
+            "cta_text": post.cta_text or _(
+                "Переходьте у конструктор, якщо хочете перетворити ідею, символ або командний знак у власний принт TwoComms."
+            ),
             "active_category": post.category,
             "meta_title": post.seo_title or f"{post.title} | TwoComms",
             "meta_description": post.seo_description or post.excerpt,
