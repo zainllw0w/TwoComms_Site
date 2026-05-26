@@ -194,7 +194,11 @@ class BlogAdminTests(TestCase):
             excerpt="Огляд посадки та матеріалів.",
             content_html="<p>Огляд.</p>",
             published_at=timezone.now(),
+            view_count=24,
+            unique_view_count=9,
         )
+        self.post.cover_image = "blog/covers/admin-preview.webp"
+        self.post.save(update_fields=["cover_image"])
 
     def test_custom_admin_blog_section_lists_posts_and_categories(self):
         self.client.force_login(self.staff)
@@ -207,6 +211,16 @@ class BlogAdminTests(TestCase):
         self.assertContains(response, self.post.title)
         self.assertContains(response, "Категорії блогу")
         self.assertContains(response, "Пости блогу")
+        self.assertContains(response, "admin-blog-overview")
+        self.assertContains(response, "admin-blog-preview")
+        self.assertContains(response, "admin-preview.webp")
+        self.assertContains(response, "24")
+        self.assertContains(response, "9")
+        self.assertContains(response, "Опубліковано")
+        self.assertContains(response, reverse("admin_blog_post_update", kwargs={"pk": self.post.pk}))
+        self.assertContains(response, reverse("admin_blog_post_delete", kwargs={"pk": self.post.pk}))
+        self.assertContains(response, reverse("admin_blog_category_update", kwargs={"pk": self.category.pk}))
+        self.assertContains(response, reverse("admin_blog_category_delete", kwargs={"pk": self.category.pk}))
 
     def test_custom_admin_can_create_category_and_post(self):
         self.client.force_login(self.staff)
@@ -242,3 +256,32 @@ class BlogAdminTests(TestCase):
 
         self.assertEqual(post_response.status_code, 302)
         self.assertTrue(BlogPost.objects.filter(slug="new-post", category=category).exists())
+
+    def test_custom_admin_can_delete_post_and_empty_category(self):
+        self.client.force_login(self.staff)
+        empty_category = BlogCategory.objects.create(name="Порожня категорія", slug="empty-category")
+
+        post_response = self.client.post(
+            reverse("admin_blog_post_delete", kwargs={"pk": self.post.pk}),
+            secure=True,
+        )
+        self.assertEqual(post_response.status_code, 302)
+        self.assertFalse(BlogPost.objects.filter(pk=self.post.pk).exists())
+
+        category_response = self.client.post(
+            reverse("admin_blog_category_delete", kwargs={"pk": empty_category.pk}),
+            secure=True,
+        )
+        self.assertEqual(category_response.status_code, 302)
+        self.assertFalse(BlogCategory.objects.filter(pk=empty_category.pk).exists())
+
+    def test_custom_admin_does_not_delete_category_with_posts(self):
+        self.client.force_login(self.staff)
+
+        response = self.client.post(
+            reverse("admin_blog_category_delete", kwargs={"pk": self.category.pk}),
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(BlogCategory.objects.filter(pk=self.category.pk).exists())

@@ -7,7 +7,8 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db import IntegrityError, transaction
-from django.db.models import F
+from django.db.models import Count, F, IntegerField, Q, Sum, Value
+from django.db.models.functions import Coalesce
 from django.http import HttpResponsePermanentRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -264,9 +265,31 @@ def blog_post(request, slug):
 
 
 def build_admin_blog_context():
+    categories = (
+        BlogCategory.objects.annotate(
+            posts_count=Count("posts", distinct=True),
+            published_count=Count("posts", filter=Q(posts__is_published=True), distinct=True),
+            draft_count=Count("posts", filter=Q(posts__is_published=False), distinct=True),
+            total_views=Coalesce(Sum("posts__view_count"), Value(0), output_field=IntegerField()),
+            total_unique_views=Coalesce(Sum("posts__unique_view_count"), Value(0), output_field=IntegerField()),
+        )
+        .order_by("order", "name")
+    )
+    posts = BlogPost.objects.select_related("category").order_by("-published_at", "-id")
+    stats = posts.aggregate(
+        total_posts=Count("id"),
+        published_posts=Count("id", filter=Q(is_published=True)),
+        draft_posts=Count("id", filter=Q(is_published=False)),
+        posts_with_cover=Count("id", filter=Q(cover_image__isnull=False) & ~Q(cover_image="")),
+        total_views=Coalesce(Sum("view_count"), Value(0), output_field=IntegerField()),
+        total_unique_views=Coalesce(Sum("unique_view_count"), Value(0), output_field=IntegerField()),
+    )
+    stats["active_categories"] = categories.filter(is_active=True).count()
+    stats["total_categories"] = categories.count()
     return {
-        "blog_categories": BlogCategory.objects.order_by("order", "name"),
-        "blog_posts": BlogPost.objects.select_related("category").order_by("-published_at", "-id"),
+        "blog_categories": categories,
+        "blog_posts": posts,
+        "blog_stats": stats,
         "blog_category_form": BlogCategoryForm(),
         "blog_post_form": BlogPostForm(),
     }
@@ -298,6 +321,19 @@ def admin_blog_category_update(request, pk):
 
 
 @staff_member_required
+def admin_blog_category_delete(request, pk):
+    category = get_object_or_404(BlogCategory, pk=pk)
+    if request.method != "POST":
+        return _admin_redirect()
+    if category.posts.exists():
+        messages.warning(request, "Категорію не видалено: спочатку перемістіть або видаліть її пости.")
+        return _admin_redirect()
+    category.delete()
+    messages.success(request, "Категорію блогу видалено.")
+    return _admin_redirect()
+
+
+@staff_member_required
 def admin_blog_post_create(request):
     form = BlogPostForm(request.POST or None, request.FILES or None)
     if request.method == "POST" and form.is_valid():
@@ -316,3 +352,13 @@ def admin_blog_post_update(request, pk):
         messages.success(request, "Пост блогу оновлено.")
         return _admin_redirect()
     return render(request, "pages/blog/editor.html", {"form": form, "editor_title": "Редагування поста блогу", "post": post})
+
+
+@staff_member_required
+def admin_blog_post_delete(request, pk):
+    post = get_object_or_404(BlogPost, pk=pk)
+    if request.method != "POST":
+        return _admin_redirect()
+    post.delete()
+    messages.success(request, "Пост блогу видалено.")
+    return _admin_redirect()

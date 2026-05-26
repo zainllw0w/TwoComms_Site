@@ -160,6 +160,11 @@ urlpatterns = [
         name='admin_blog_category_update',
     ),
     path(
+        'admin-panel/blog/category/<int:pk>/delete/',
+        _module_view('storefront.views.blog', 'admin_blog_category_delete'),
+        name='admin_blog_category_delete',
+    ),
+    path(
         'admin-panel/blog/post/create/',
         _module_view('storefront.views.blog', 'admin_blog_post_create'),
         name='admin_blog_post_create',
@@ -168,6 +173,11 @@ urlpatterns = [
         'admin-panel/blog/post/<int:pk>/edit/',
         _module_view('storefront.views.blog', 'admin_blog_post_update'),
         name='admin_blog_post_update',
+    ),
+    path(
+        'admin-panel/blog/post/<int:pk>/delete/',
+        _module_view('storefront.views.blog', 'admin_blog_post_delete'),
+        name='admin_blog_post_delete',
     ),
     # Phase 21 (PR-A1/A2) — review moderation + SEO overrides inside
     # the custom admin. ``staff_member_required`` is enforced inside

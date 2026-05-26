@@ -1,58 +1,264 @@
 {% load i18n %}
-<section class="admin-blog-section">
-  <div class="admin-blog-head">
+<section class="admin-blog-section admin-blog-console" data-admin-blog-console>
+  <div class="admin-blog-head admin-blog-console-head">
     <div>
       <p class="blog-kicker">{% trans 'Новини та блог' %}</p>
-      <h2>{% trans 'Блог' %}</h2>
+      <h2>{% trans 'Редакційна панель' %}</h2>
+      <p class="admin-blog-subtitle">
+        {% trans 'Керуйте публікаціями, категоріями, обкладинками, SEO-полями і показниками читання з одного місця.' %}
+      </p>
     </div>
     <div class="admin-blog-actions">
-      <a class="blog-admin-button" href="{% url 'admin_blog_post_create' %}">{% trans 'Додати пост' %}</a>
-      <a class="blog-admin-button secondary" href="{% url 'blog' %}">{% trans 'Відкрити блог' %}</a>
+      <a class="blog-admin-button" href="{% url 'admin_blog_post_create' %}">
+        <i class="fas fa-plus" aria-hidden="true"></i>
+        <span>{% trans 'Додати пост' %}</span>
+      </a>
+      <a class="blog-admin-button secondary" href="{% url 'admin_blog_category_create' %}">
+        <i class="fas fa-layer-group" aria-hidden="true"></i>
+        <span>{% trans 'Додати категорію' %}</span>
+      </a>
+      <a class="blog-admin-button secondary" href="{% url 'blog' %}">
+        <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i>
+        <span>{% trans 'Відкрити блог' %}</span>
+      </a>
     </div>
   </div>
 
-  <div class="admin-blog-grid">
-    <article class="admin-blog-panel">
-      <div class="admin-blog-panel-head">
-        <h3>{% trans 'Категорії блогу' %}</h3>
-        <a href="{% url 'admin_blog_category_create' %}">{% trans 'Додати категорію' %}</a>
-      </div>
-      <div class="admin-blog-list">
-        {% for category in blog_categories %}
-          <div class="admin-blog-row">
-            <div>
-              <strong>{{ category.name }}</strong>
-              <span>/blog/category/{{ category.slug }}/</span>
-            </div>
-            <a href="{% url 'admin_blog_category_update' pk=category.pk %}">{% trans 'Редагувати' %}</a>
-          </div>
-        {% empty %}
-          <p class="admin-blog-empty">{% trans 'Категорії ще не створені.' %}</p>
-        {% endfor %}
-      </div>
-    </article>
+  <div class="admin-blog-overview" aria-label="{% trans 'Показники блогу' %}">
+    <div class="admin-blog-stat-card accent">
+      <span>{% trans 'Пости' %}</span>
+      <strong>{{ blog_stats.total_posts|default:0 }}</strong>
+      <em>{{ blog_stats.published_posts|default:0 }} {% trans 'опубліковано' %}</em>
+    </div>
+    <div class="admin-blog-stat-card">
+      <span>{% trans 'Унікальні читачі' %}</span>
+      <strong>{{ blog_stats.total_unique_views|default:0 }}</strong>
+      <em>{{ blog_stats.total_views|default:0 }} {% trans 'усіх переглядів' %}</em>
+    </div>
+    <div class="admin-blog-stat-card">
+      <span>{% trans 'Категорії' %}</span>
+      <strong>{{ blog_stats.total_categories|default:0 }}</strong>
+      <em>{{ blog_stats.active_categories|default:0 }} {% trans 'активні' %}</em>
+    </div>
+    <div class="admin-blog-stat-card">
+      <span>{% trans 'Обкладинки' %}</span>
+      <strong>{{ blog_stats.posts_with_cover|default:0 }}</strong>
+      <em>{% trans 'постів із превʼю' %}</em>
+    </div>
+  </div>
 
-    <article class="admin-blog-panel">
+  <div class="admin-blog-toolbar" role="search">
+    <label class="admin-blog-search">
+      <i class="fas fa-search" aria-hidden="true"></i>
+      <input type="search" data-blog-search placeholder="{% trans 'Пошук за назвою, slug або категорією' %}">
+    </label>
+    <label>
+      <span>{% trans 'Статус' %}</span>
+      <select data-blog-status-filter>
+        <option value="all">{% trans 'Усі статуси' %}</option>
+        <option value="published">{% trans 'Опубліковано' %}</option>
+        <option value="draft">{% trans 'Чернетки' %}</option>
+      </select>
+    </label>
+    <label>
+      <span>{% trans 'Категорія' %}</span>
+      <select data-blog-category-filter>
+        <option value="all">{% trans 'Усі категорії' %}</option>
+        {% for category in blog_categories %}
+          <option value="{{ category.slug }}">{{ category.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </div>
+
+  <div class="admin-blog-layout">
+    <article class="admin-blog-panel admin-blog-posts-panel">
       <div class="admin-blog-panel-head">
-        <h3>{% trans 'Пости блогу' %}</h3>
-        <span>{{ blog_posts|length }}</span>
+        <div>
+          <h3>{% trans 'Пости блогу' %}</h3>
+          <p>{% trans 'Превʼю, статус, перегляди, SEO-редагування і швидкі дії.' %}</p>
+        </div>
+        <span data-blog-visible-count>{{ blog_posts|length }}</span>
       </div>
-      <div class="admin-blog-list">
+
+      <div class="admin-blog-posts-grid">
         {% for post in blog_posts %}
-          <div class="admin-blog-row">
-            <div>
-              <strong>{{ post.title }}</strong>
-              <span>{{ post.category.name }} · {{ post.published_at|date:"d.m.Y H:i" }} · {% trans 'Перегляди' %}: {{ post.view_count }} · {% trans 'Унікальні' %}: {{ post.unique_view_count }}</span>
+          <article class="admin-blog-post-card"
+                   data-blog-post
+                   data-title="{{ post.title|lower }}"
+                   data-slug="{{ post.slug|lower }}"
+                   data-category="{{ post.category.slug }}"
+                   data-category-name="{{ post.category.name|lower }}"
+                   data-status="{% if post.is_published %}published{% else %}draft{% endif %}">
+            <a class="admin-blog-preview" href="{% url 'blog_post' slug=post.slug %}" aria-label="{{ post.title }}">
+              {% if post.cover_image %}
+                <img src="{{ post.cover_image.url }}" alt="{{ post.cover_alt|default:post.title }}" loading="lazy" width="360" height="225">
+              {% else %}
+                <span class="blog-cover-fallback {% if post.slug == 'twocomms-veteran-fund-progress' %}blog-cover-fallback--fund{% endif %}">
+                  <span class="blog-cover-grid"></span>
+                  <span class="blog-cover-orbit"></span>
+                  {% if post.slug == 'twocomms-veteran-fund-progress' %}
+                    <span class="blog-fund-mark">УВФ</span>
+                    <span class="blog-fund-plus">+</span>
+                    <span class="blog-cover-word">TWC</span>
+                    <span class="blog-fund-subline">DTF / 2 з 4</span>
+                  {% else %}
+                    <span class="blog-cover-word">TWC</span>
+                  {% endif %}
+                </span>
+              {% endif %}
+              <span class="admin-blog-status-pill {% if post.is_published %}is-live{% else %}is-draft{% endif %}">
+                {% if post.is_published %}{% trans 'Опубліковано' %}{% else %}{% trans 'Чернетка' %}{% endif %}
+              </span>
+            </a>
+
+            <div class="admin-blog-post-body">
+              <div class="blog-card-meta">
+                <a href="{% url 'blog_category' slug=post.category.slug %}" class="blog-card-cat-badge">{{ post.category.name }}</a>
+                <span class="blog-card-date">{{ post.published_at|date:"d.m.Y H:i" }}</span>
+              </div>
+              <h4>{{ post.title }}</h4>
+              <p>{{ post.excerpt|default:post.seo_description|truncatechars:138 }}</p>
+
+              <div class="admin-blog-metrics">
+                <span title="{% trans 'Усього переглядів' %}">
+                  <i class="fas fa-eye" aria-hidden="true"></i>
+                  {{ post.view_count }}
+                </span>
+                <span title="{% trans 'Унікальні перегляди' %}">
+                  <i class="fas fa-user-check" aria-hidden="true"></i>
+                  {{ post.unique_view_count }}
+                </span>
+                <span title="{% trans 'URL slug' %}">
+                  <i class="fas fa-link" aria-hidden="true"></i>
+                  {{ post.slug }}
+                </span>
+              </div>
+
+              <div class="admin-blog-card-actions">
+                <a href="{% url 'blog_post' slug=post.slug %}" class="admin-blog-icon-link" title="{% trans 'Перегляд' %}">
+                  <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                  <span>{% trans 'Перегляд' %}</span>
+                </a>
+                <a href="{% url 'admin_blog_post_update' pk=post.pk %}" class="admin-blog-icon-link primary" title="{% trans 'Редагувати' %}">
+                  <i class="fas fa-pen" aria-hidden="true"></i>
+                  <span>{% trans 'Редагувати' %}</span>
+                </a>
+                <form method="post" action="{% url 'admin_blog_post_delete' pk=post.pk %}" class="admin-blog-delete-form" data-confirm="{% trans 'Видалити цей пост блогу?' %}">
+                  {% csrf_token %}
+                  <button type="submit" title="{% trans 'Видалити' %}">
+                    <i class="fas fa-trash" aria-hidden="true"></i>
+                    <span>{% trans 'Видалити' %}</span>
+                  </button>
+                </form>
+              </div>
             </div>
-            <div class="admin-blog-row-actions">
-              <a href="{% url 'blog_post' slug=post.slug %}">{% trans 'Перегляд' %}</a>
-              <a href="{% url 'admin_blog_post_update' pk=post.pk %}">{% trans 'Редагувати' %}</a>
-            </div>
-          </div>
+          </article>
         {% empty %}
           <p class="admin-blog-empty">{% trans 'Пости ще не створені.' %}</p>
         {% endfor %}
       </div>
     </article>
+
+    <aside class="admin-blog-panel admin-blog-categories-panel">
+      <div class="admin-blog-panel-head">
+        <div>
+          <h3>{% trans 'Категорії блогу' %}</h3>
+          <p>{% trans 'SEO-сторінки, порядок, активність і статистика за темами.' %}</p>
+        </div>
+        <a href="{% url 'admin_blog_category_create' %}">{% trans 'Додати' %}</a>
+      </div>
+
+      <div class="admin-blog-category-list">
+        {% for category in blog_categories %}
+          <article class="admin-blog-category-card">
+            <div class="admin-blog-category-top">
+              <div>
+                <strong>{{ category.name }}</strong>
+                <span>/blog/category/{{ category.slug }}/</span>
+              </div>
+              <em class="{% if category.is_active %}is-live{% else %}is-draft{% endif %}">
+                {% if category.is_active %}{% trans 'Активна' %}{% else %}{% trans 'Вимкнена' %}{% endif %}
+              </em>
+            </div>
+            <p>{{ category.description|default:category.seo_description|truncatechars:110 }}</p>
+            <div class="admin-blog-category-metrics">
+              <span><strong>{{ category.posts_count|default:0 }}</strong>{% trans 'постів' %}</span>
+              <span><strong>{{ category.published_count|default:0 }}</strong>{% trans 'live' %}</span>
+              <span><strong>{{ category.total_unique_views|default:0 }}</strong>{% trans 'унік.' %}</span>
+            </div>
+            <div class="admin-blog-card-actions">
+              <a href="{% url 'blog_category' slug=category.slug %}" class="admin-blog-icon-link" title="{% trans 'Перегляд' %}">
+                <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                <span>{% trans 'Перегляд' %}</span>
+              </a>
+              <a href="{% url 'admin_blog_category_update' pk=category.pk %}" class="admin-blog-icon-link primary" title="{% trans 'Редагувати' %}">
+                <i class="fas fa-pen" aria-hidden="true"></i>
+                <span>{% trans 'Редагувати' %}</span>
+              </a>
+              <form method="post" action="{% url 'admin_blog_category_delete' pk=category.pk %}" class="admin-blog-delete-form" data-confirm="{% trans 'Видалити категорію блогу?' %}">
+                {% csrf_token %}
+                <button type="submit" {% if category.posts_count %}disabled title="{% trans 'Спочатку перемістіть або видаліть пости' %}"{% else %}title="{% trans 'Видалити' %}"{% endif %}>
+                  <i class="fas fa-trash" aria-hidden="true"></i>
+                  <span>{% trans 'Видалити' %}</span>
+                </button>
+              </form>
+            </div>
+          </article>
+        {% empty %}
+          <p class="admin-blog-empty">{% trans 'Категорії ще не створені.' %}</p>
+        {% endfor %}
+      </div>
+    </aside>
   </div>
 </section>
+
+<script>
+  (function () {
+    const root = document.querySelector('[data-admin-blog-console]');
+    if (!root) return;
+    const search = root.querySelector('[data-blog-search]');
+    const statusFilter = root.querySelector('[data-blog-status-filter]');
+    const categoryFilter = root.querySelector('[data-blog-category-filter]');
+    const count = root.querySelector('[data-blog-visible-count]');
+    const posts = Array.from(root.querySelectorAll('[data-blog-post]'));
+
+    function applyFilters() {
+      const query = (search && search.value || '').trim().toLowerCase();
+      const status = statusFilter ? statusFilter.value : 'all';
+      const category = categoryFilter ? categoryFilter.value : 'all';
+      let visible = 0;
+
+      posts.forEach((post) => {
+        const haystack = [
+          post.dataset.title || '',
+          post.dataset.slug || '',
+          post.dataset.category || '',
+          post.dataset.categoryName || '',
+        ].join(' ');
+        const matchesQuery = !query || haystack.includes(query);
+        const matchesStatus = status === 'all' || post.dataset.status === status;
+        const matchesCategory = category === 'all' || post.dataset.category === category;
+        const show = matchesQuery && matchesStatus && matchesCategory;
+        post.hidden = !show;
+        if (show) visible += 1;
+      });
+
+      if (count) count.textContent = visible;
+    }
+
+    [search, statusFilter, categoryFilter].forEach((control) => {
+      if (control) control.addEventListener('input', applyFilters);
+      if (control && control.tagName === 'SELECT') control.addEventListener('change', applyFilters);
+    });
+
+    root.querySelectorAll('.admin-blog-delete-form').forEach((form) => {
+      form.addEventListener('submit', (event) => {
+        const message = form.dataset.confirm;
+        if (message && !window.confirm(message)) {
+          event.preventDefault();
+        }
+      });
+    });
+  })();
+</script>
