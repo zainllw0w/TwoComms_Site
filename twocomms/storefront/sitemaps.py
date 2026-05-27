@@ -260,7 +260,8 @@ class BlogCategorySitemap(Sitemap):
             BlogCategory.objects
             .filter(is_active=True)
             .exclude(slug='')
-            .only('slug', 'updated_at')
+            .select_related('parent')
+            .only('slug', 'parent', 'parent__slug', 'updated_at')
             .order_by('order', 'name')
         )
 
@@ -268,7 +269,7 @@ class BlogCategorySitemap(Sitemap):
         return getattr(obj, 'updated_at', None)
 
     def location(self, obj):
-        return reverse('blog_category', kwargs={'slug': obj.slug})
+        return obj.get_absolute_url()
 
 
 class BlogPostSitemap(Sitemap):

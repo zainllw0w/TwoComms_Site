@@ -8,7 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
 
-from storefront.models import BlogCategory, BlogPost
+from storefront.models import BlogCategory, BlogPost, BlogPostBlock
 from storefront.services.index_targets import build_blog_urls
 from storefront.sitemaps import BlogCategorySitemap, BlogPostSitemap
 
@@ -130,15 +130,54 @@ class BlogPublicTests(TestCase):
         self.assertContains(first, '"@type": "Article"', html=False)
         self.assertContains(first, self.post.source_url)
 
-    def test_article_page_renders_editorial_source_and_custom_print_cta_blocks(self):
+    def test_article_page_renders_editorial_source_and_custom_print_cta_blocks_when_attached(self):
+        BlogPostBlock.objects.create(
+            post=self.post,
+            block_type=BlogPostBlock.BlockType.SOURCE_LIST,
+            sort_order=10,
+            payload={
+                "sources": [
+                    {
+                        "label": {"uk": "Читати першоджерело"},
+                        "url": self.post.source_url,
+                    }
+                ]
+            },
+        )
+        BlogPostBlock.objects.create(
+            post=self.post,
+            block_type=BlogPostBlock.BlockType.CTA_GROUP,
+            sort_order=20,
+            payload={
+                "layout": "full",
+                "buttons": [
+                    {
+                        "provider": "custom_print",
+                        "label": {"uk": "Створити кастомний принт"},
+                        "url": reverse("custom_print"),
+                    }
+                ],
+            },
+        )
+
         response = self.client.get(reverse("blog_post", kwargs={"slug": self.post.slug}), secure=True)
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "article-source-card")
-        self.assertContains(response, "article-custom-print-cta")
-        self.assertContains(response, "blog-article-media-badges")
+        self.assertContains(response, "article-cta-row")
         self.assertContains(response, reverse("custom_print"))
         self.assertContains(response, "Створити кастомний принт")
+        self.assertNotContains(response, "blog-article-media-badges")
+
+    def test_article_page_renders_custom_cover_caption_when_set(self):
+        self.post.cover_caption = "TWOCOMMS / Custom cover caption"
+        self.post.save(update_fields=["cover_caption"])
+
+        response = self.client.get(reverse("blog_post", kwargs={"slug": self.post.slug}), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "blog-article-media-caption")
+        self.assertContains(response, "TWOCOMMS / Custom cover caption")
 
     def test_uploaded_cover_image_is_converted_to_webp_with_stable_ratio(self):
         image = Image.new("RGB", (2400, 1600), "#f97316")

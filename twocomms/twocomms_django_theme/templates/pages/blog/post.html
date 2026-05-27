@@ -12,6 +12,7 @@
 {% block structured_data %}
   <script type="application/ld+json">{{ article_schema|safe }}</script>
   <script type="application/ld+json">{{ breadcrumb_schema|safe }}</script>
+  {% if block_schema %}<script type="application/ld+json">{{ block_schema|safe }}</script>{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -24,7 +25,7 @@
     <header class="blog-article-hero">
       <div class="blog-article-copy">
         <div class="blog-card-meta">
-          <a href="{% url 'blog_category' slug=post.category.slug %}" class="blog-card-cat-badge">{{ post.category.name }}</a>
+          <a href="{{ post.category.get_absolute_url }}" class="blog-card-cat-badge">{{ post.category.name }}</a>
           <span class="blog-card-date"><i class="far fa-calendar-alt" aria-hidden="true"></i> {{ post.published_at|date:"d.m.Y" }}</span>
           <span class="blog-card-readtime"><i class="far fa-clock" aria-hidden="true"></i> <span id="readingTime">1</span> {% trans 'хв читання' %}</span>
         </div>
@@ -52,50 +53,23 @@
         </div>
       </div>
 
-      <div class="blog-article-media">
-        {% if post.cover_image %}
-          <img src="{{ post.cover_image.url }}" alt="{{ post.cover_alt|default:post.title }}" fetchpriority="high" width="1200" height="750">
-        {% else %}
-          <div class="blog-cover-fallback blog-cover-fallback--article {% if post.slug == 'twocomms-veteran-fund-progress' %}blog-cover-fallback--fund{% endif %}">
-            <span class="blog-cover-grid"></span>
-            <span class="blog-cover-orbit"></span>
-            {% if post.slug == 'twocomms-veteran-fund-progress' %}
-              <span class="blog-fund-mark">УВФ</span>
-              <span class="blog-fund-plus">+</span>
-              <span class="blog-cover-word">TWC</span>
-              <span class="blog-fund-subline">DTF production / 2 з 4</span>
-            {% else %}
+      <figure class="blog-article-media-frame">
+        <div class="blog-article-media">
+          {% if post.cover_image %}
+            <img src="{{ post.cover_image.url }}" alt="{{ post.cover_alt|default:post.title }}" fetchpriority="high" width="1200" height="750">
+          {% else %}
+            <div class="blog-cover-fallback blog-cover-fallback--article">
+              <span class="blog-cover-grid"></span>
+              <span class="blog-cover-orbit"></span>
               <span class="blog-cover-word">TWO<br>COMMS</span>
-            {% endif %}
-          </div>
-        {% endif %}
-        <div class="blog-article-media-badges" aria-hidden="true">
-          <span>TwoComms</span>
-          <i></i>
-          <span>{% trans 'Український ветеранський фонд' %}</span>
-          <i></i>
-          <span>DTF</span>
+            </div>
+          {% endif %}
         </div>
-      </div>
+        {% if post.cover_caption %}
+          <figcaption class="blog-article-media-caption">{{ post.cover_caption }}</figcaption>
+        {% endif %}
+      </figure>
     </header>
-
-    <div class="blog-article-impact" aria-label="{% trans 'Коротко' %}">
-      <div>
-        <span>{% trans 'Внутрішній прогрес' %}</span>
-        <strong>2/4</strong>
-        <em>{% trans 'етапи закрито' %}</em>
-      </div>
-      <div>
-        <span>{% trans 'Виробництво' %}</span>
-        <strong>DTF</strong>
-        <em>{% trans 'власний друк' %}</em>
-      </div>
-      <div>
-        <span>{% trans 'Можливості' %}</span>
-        <strong>B2B/B2C</strong>
-        <em>{% trans 'кастом і колаборації' %}</em>
-      </div>
-    </div>
 
     <div class="blog-article-grid">
       <aside class="blog-article-aside">
@@ -118,34 +92,8 @@
 
       <div class="blog-article-main">
         <div class="blog-article-content">
-          {{ post.content_html|safe }}
+          {{ blocks_html|safe }}
         </div>
-
-        {% if post.source_url %}
-          <section class="article-source-card">
-            <div>
-              <span>{% trans 'Публічний контекст' %}</span>
-              <h2>{% trans 'Офіційна історія Українського ветеранського фонду' %}</h2>
-              <p>{% trans 'Посилання веде на першоджерело, де описано історію Артема Синіло, ветеранський досвід і запуск TwoComms.' %}</p>
-            </div>
-            <a href="{{ post.source_url }}" rel="nofollow noopener" target="_blank">
-              <i class="fas fa-up-right-from-square" aria-hidden="true"></i>
-              <span>{% trans 'Відкрити джерело' %}</span>
-            </a>
-          </section>
-        {% endif %}
-
-        <section class="article-custom-print-cta">
-          <div class="article-cta-copy">
-            <span>{% trans 'Контакт і колаборації' %}</span>
-            <h2>{{ cta_label }}</h2>
-            <p>{{ cta_text }}</p>
-          </div>
-          <a href="{{ cta_url }}" class="article-action-btn">
-            <i class="fas fa-paper-plane" aria-hidden="true"></i>
-            <span>{{ cta_label }}</span>
-          </a>
-        </section>
       </div>
     </div>
   </article>
@@ -235,6 +183,26 @@
       const parent = tocContainer.closest('.blog-toc-container');
       if (parent) parent.hidden = true;
     }
+
+    document.querySelectorAll('[data-youtube-id]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const videoId = button.dataset.youtubeId;
+        if (!videoId || button.dataset.loaded === '1') return;
+        const iframe = document.createElement('iframe');
+        iframe.src = 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(videoId) + '?autoplay=1&rel=0';
+        iframe.title = button.getAttribute('aria-label') || 'YouTube video';
+        iframe.width = '960';
+        iframe.height = '540';
+        iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+        iframe.allowFullscreen = true;
+        iframe.loading = 'lazy';
+        iframe.style.width = '100%';
+        iframe.style.aspectRatio = '16 / 9';
+        iframe.style.border = '0';
+        button.dataset.loaded = '1';
+        button.replaceWith(iframe);
+      }, { once: true });
+    });
 
     document.querySelectorAll('[data-scroll-reveal]').forEach(el => el.classList.add('revealed'));
   });

@@ -8,6 +8,8 @@ from django.db.models import F
 from django.contrib.auth.models import User
 from django.conf import settings
 from django.core.files.base import ContentFile
+from django.core.exceptions import ValidationError
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from PIL import Image, ImageOps
@@ -118,6 +120,14 @@ class Category(models.Model):
 
 
 class BlogCategory(models.Model):
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.PROTECT,
+        related_name="children",
+        blank=True,
+        null=True,
+        verbose_name="Батьківська категорія",
+    )
     name = models.CharField(max_length=140, unique=True, verbose_name="Назва")
     slug = models.SlugField(max_length=160, unique=True, verbose_name="URL slug")
     description = models.TextField(blank=True, verbose_name="Опис")
@@ -136,6 +146,7 @@ class BlogCategory(models.Model):
         verbose_name_plural = "Категорії блогу"
         ordering = ["order", "name"]
         indexes = [
+            models.Index(fields=["parent", "is_active", "order"], name="idx_blogcat_parent_active"),
             models.Index(fields=["is_active", "order"], name="idx_blogcat_active_order"),
             models.Index(fields=["slug"], name="idx_blogcat_slug"),
         ]
@@ -143,9 +154,22 @@ class BlogCategory(models.Model):
     def __str__(self):
         return self.name
 
-    def get_absolute_url(self):
-        from django.urls import reverse
+    def clean(self):
+        super().clean()
+        if self.parent_id and self.pk and self.parent_id == self.pk:
+            raise ValidationError({"parent": "Категорія не може бути власним батьком."})
+        parent = self.parent
+        while parent is not None:
+            if self.pk and parent.pk == self.pk:
+                raise ValidationError({"parent": "Категорія не може бути вкладена у власну дочірню категорію."})
+            parent = parent.parent
 
+    def get_absolute_url(self):
+        if self.parent_id and self.parent:
+            return reverse(
+                "blog_category_nested",
+                kwargs={"parent_slug": self.parent.slug, "slug": self.slug},
+            )
         return reverse("blog_category", kwargs={"slug": self.slug})
 
 
@@ -171,6 +195,7 @@ class BlogPost(models.Model):
     content_html = models.TextField(verbose_name="HTML-контент")
     cover_image = models.ImageField(upload_to="blog/covers/", blank=True, null=True, verbose_name="Обкладинка")
     cover_alt = models.CharField(max_length=180, blank=True, verbose_name="Alt обкладинки")
+    cover_caption = models.TextField(blank=True, verbose_name="Підпис обкладинки")
     source_url = models.URLField(blank=True, verbose_name="Джерело")
     cta_label = models.CharField(max_length=140, blank=True, verbose_name="CTA текст")
     cta_url = models.CharField(max_length=300, blank=True, verbose_name="CTA URL")
@@ -231,6 +256,150 @@ class BlogPost(models.Model):
 
         stem = Path(self.cover_image.name).stem or f"cover-{uuid.uuid4().hex[:10]}"
         self.cover_image.save(f"{stem}.webp", ContentFile(output.getvalue()), save=False)
+
+
+class BlogMediaAsset(models.Model):
+    file = models.ImageField(upload_to="blog/media/", verbose_name="Файл")
+    width = models.PositiveIntegerField(default=0, verbose_name="Ширина")
+    height = models.PositiveIntegerField(default=0, verbose_name="Висота")
+    alt = models.JSONField(default=dict, blank=True, verbose_name="Alt за мовами")
+    caption = models.JSONField(default=dict, blank=True, verbose_name="Підпис за мовами")
+    credit = models.JSONField(default=dict, blank=True, verbose_name="Автор/джерело за мовами")
+    focal_x = models.PositiveSmallIntegerField(default=50, verbose_name="Фокус X")
+    focal_y = models.PositiveSmallIntegerField(default=50, verbose_name="Фокус Y")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Оновлено")
+
+    class Meta:
+        verbose_name = "Медіа блогу"
+        verbose_name_plural = "Медіа блогу"
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return self.file.name or f"Blog media #{self.pk}"
+
+    def save(self, *args, **kwargs):
+        self._read_dimensions()
+        super().save(*args, **kwargs)
+
+    def _read_dimensions(self):
+        if not self.file:
+            return
+        try:
+            self.file.seek(0)
+            with Image.open(self.file) as image:
+                self.width, self.height = image.size
+        except Exception:
+            return
+        finally:
+            try:
+                self.file.seek(0)
+            except Exception:
+                pass
+
+
+class BlogPostBlock(models.Model):
+    class BlockType(models.TextChoices):
+        RICH_TEXT = "rich_text", "Текст"
+        IMAGE = "image", "Зображення"
+        GALLERY = "gallery", "Галерея"
+        YOUTUBE_VIDEO = "youtube_video", "YouTube"
+        CTA_GROUP = "cta_group", "CTA / соцмережі"
+        PRODUCT_CTA = "product_cta", "Товар"
+        METRIC_CARDS = "metric_cards", "Метрики"
+        TABLE_SPECS = "table_specs", "Таблиця / specs"
+        QUOTE = "quote", "Цитата"
+        CALLOUT = "callout", "Callout"
+        FAQ = "faq", "FAQ"
+        SOURCE_LIST = "source_list", "Джерела"
+        LOCKED_CONTENT = "locked_content", "Прихований контент"
+        PROMO_CLAIM = "promo_claim", "Промокод"
+
+    post = models.ForeignKey(BlogPost, on_delete=models.CASCADE, related_name="blocks", verbose_name="Пост")
+    block_type = models.CharField(max_length=32, choices=BlockType.choices, verbose_name="Тип блоку")
+    sort_order = models.PositiveIntegerField(default=0, verbose_name="Порядок")
+    is_enabled = models.BooleanField(default=True, verbose_name="Увімкнено")
+    payload = models.JSONField(default=dict, blank=True, verbose_name="Дані блоку")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Оновлено")
+
+    class Meta:
+        verbose_name = "Блок поста блогу"
+        verbose_name_plural = "Блоки постів блогу"
+        ordering = ["post", "sort_order", "id"]
+        indexes = [
+            models.Index(fields=["post", "is_enabled", "sort_order"], name="idx_blogblock_post_order"),
+            models.Index(fields=["block_type"], name="idx_blogblock_type"),
+        ]
+
+    def __str__(self):
+        return f"{self.post_id}:{self.block_type}:{self.sort_order}"
+
+
+class BlogPromoCampaign(models.Model):
+    DISCOUNT_TYPES = [
+        ("percentage", _("Відсоток")),
+        ("fixed", _("Фіксована сума")),
+    ]
+
+    name = models.CharField(max_length=160, verbose_name="Назва кампанії")
+    code_prefix = models.CharField(max_length=8, default="BLOG", verbose_name="Префікс коду")
+    discount_type = models.CharField(max_length=10, choices=DISCOUNT_TYPES, verbose_name="Тип знижки")
+    discount_value = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Значення знижки")
+    max_claims = models.PositiveIntegerField(default=0, verbose_name="Максимум видач (0 = безліміт)")
+    valid_days = models.PositiveIntegerField(default=14, verbose_name="Днів дії після видачі")
+    min_order_amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name="Мін. сума")
+    one_time_per_user = models.BooleanField(default=True, verbose_name="Одноразово для користувача")
+    is_active = models.BooleanField(default=True, verbose_name="Активна")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Оновлено")
+
+    class Meta:
+        verbose_name = "Промо-кампанія блогу"
+        verbose_name_plural = "Промо-кампанії блогу"
+        ordering = ["-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["is_active", "-created_at"], name="idx_blogpromo_active"),
+        ]
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def claims_count(self):
+        return self.claims.count()
+
+    def can_claim(self):
+        return self.is_active and (self.max_claims == 0 or self.claims.count() < self.max_claims)
+
+
+class BlogPromoClaim(models.Model):
+    campaign = models.ForeignKey(
+        BlogPromoCampaign,
+        on_delete=models.PROTECT,
+        related_name="claims",
+        verbose_name="Кампанія",
+    )
+    post = models.ForeignKey(BlogPost, on_delete=models.CASCADE, related_name="promo_claims", verbose_name="Пост")
+    block = models.ForeignKey(BlogPostBlock, on_delete=models.CASCADE, related_name="promo_claims", verbose_name="Блок")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="blog_promo_claims")
+    promo_code = models.OneToOneField("PromoCode", on_delete=models.PROTECT, related_name="blog_claim")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
+
+    class Meta:
+        verbose_name = "Видача промокоду з блогу"
+        verbose_name_plural = "Видачі промокодів з блогу"
+        constraints = [
+            models.UniqueConstraint(fields=["campaign", "user"], name="uniq_blogpromo_campaign_user"),
+            models.UniqueConstraint(fields=["block", "user"], name="uniq_blogpromo_block_user"),
+        ]
+        indexes = [
+            models.Index(fields=["post", "created_at"], name="idx_blogclaim_post_created"),
+            models.Index(fields=["user", "created_at"], name="idx_blogclaim_user_created"),
+        ]
+
+    def __str__(self):
+        return f"{self.user_id}:{self.campaign_id}:{self.promo_code_id}"
 
 
 class BlogPostView(models.Model):

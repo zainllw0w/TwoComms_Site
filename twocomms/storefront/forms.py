@@ -20,6 +20,7 @@ from storefront.custom_print_config import build_placement_specs, normalize_cust
 
 from .models import (
     BlogCategory,
+    BlogMediaAsset,
     BlogPost,
     CustomPrintBusinessKind,
     Product,
@@ -1251,6 +1252,7 @@ class BlogCategoryForm(forms.ModelForm):
         fields = _model_fields(
             BlogCategory,
             [
+                "parent",
                 "name",
                 "name_uk",
                 "name_ru",
@@ -1301,6 +1303,12 @@ class BlogCategoryForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if "parent" in self.fields:
+            qs = BlogCategory.objects.filter(is_active=True).order_by("order", "name")
+            if self.instance and self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+            self.fields["parent"].queryset = qs
+            self.fields["parent"].required = False
         for name, field in self.fields.items():
             if name.endswith(("_uk", "_ru", "_en")):
                 field.required = False
@@ -1313,6 +1321,8 @@ class BlogCategoryForm(forms.ModelForm):
 
 
 class BlogPostForm(forms.ModelForm):
+    blocks_json = forms.CharField(required=False, widget=forms.HiddenInput(attrs={"data-blog-blocks-json": "1"}))
+
     class Meta:
         model = BlogPost
         fields = _model_fields(
@@ -1337,6 +1347,10 @@ class BlogPostForm(forms.ModelForm):
                 "cover_alt_uk",
                 "cover_alt_ru",
                 "cover_alt_en",
+                "cover_caption",
+                "cover_caption_uk",
+                "cover_caption_ru",
+                "cover_caption_en",
                 "source_url",
                 "cta_label",
                 "cta_label_uk",
@@ -1362,7 +1376,7 @@ class BlogPostForm(forms.ModelForm):
                 "seo_keywords_ru",
                 "seo_keywords_en",
             ],
-        )
+        ) + ["blocks_json"]
         widgets = {
             "published_at": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
             "excerpt": forms.Textarea(attrs={"rows": 3}),
@@ -1377,6 +1391,10 @@ class BlogPostForm(forms.ModelForm):
             "seo_description_uk": forms.Textarea(attrs={"rows": 2}),
             "seo_description_ru": forms.Textarea(attrs={"rows": 2}),
             "seo_description_en": forms.Textarea(attrs={"rows": 2}),
+            "cover_caption": forms.Textarea(attrs={"rows": 2}),
+            "cover_caption_uk": forms.Textarea(attrs={"rows": 2}),
+            "cover_caption_ru": forms.Textarea(attrs={"rows": 2}),
+            "cover_caption_en": forms.Textarea(attrs={"rows": 2}),
             "cta_text": forms.Textarea(attrs={"rows": 2}),
             "cta_text_uk": forms.Textarea(attrs={"rows": 2}),
             "cta_text_ru": forms.Textarea(attrs={"rows": 2}),
@@ -1391,6 +1409,35 @@ class BlogPostForm(forms.ModelForm):
                 field.required = False
         if self.instance and self.instance.pk and self.instance.published_at:
             self.initial["published_at"] = self.instance.published_at.strftime("%Y-%m-%dT%H:%M")
+        if self.instance and self.instance.pk:
+            from storefront.services.blog_blocks import admin_blocks_json
+
+            self.initial["blocks_json"] = admin_blocks_json(self.instance)
+
+
+class BlogMediaAssetForm(forms.ModelForm):
+    alt_text = forms.CharField(max_length=180, required=False)
+    caption_text = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 2}))
+    credit_text = forms.CharField(max_length=180, required=False)
+
+    class Meta:
+        model = BlogMediaAsset
+        fields = ["file", "alt_text", "caption_text", "credit_text"]
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        alt = (self.cleaned_data.get("alt_text") or "").strip()
+        caption = (self.cleaned_data.get("caption_text") or "").strip()
+        credit = (self.cleaned_data.get("credit_text") or "").strip()
+        if alt:
+            instance.alt = {"uk": alt}
+        if caption:
+            instance.caption = {"uk": caption}
+        if credit:
+            instance.credit = {"uk": credit}
+        if commit:
+            instance.save()
+        return instance
 
 
 class PrintProposalForm(forms.ModelForm):

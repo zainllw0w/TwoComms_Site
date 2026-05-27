@@ -3,7 +3,11 @@ from modeltranslation.admin import TabbedTranslationAdmin
 from .models import (
     AnalyticsExclusion,
     BlogCategory,
+    BlogMediaAsset,
     BlogPost,
+    BlogPostBlock,
+    BlogPromoCampaign,
+    BlogPromoClaim,
     BlogPostView,
     CatalogColorSeoOverride,
     Category,
@@ -144,6 +148,13 @@ class BlogCategoryAdmin(TabbedTranslationAdmin):
     )
 
 
+class BlogPostBlockInline(admin.TabularInline):
+    model = BlogPostBlock
+    extra = 0
+    fields = ("block_type", "sort_order", "is_enabled", "payload")
+    ordering = ("sort_order", "id")
+
+
 @admin.register(BlogPost)
 class BlogPostAdmin(TabbedTranslationAdmin):
     list_display = ("title", "category", "is_published", "published_at", "view_count", "unique_view_count")
@@ -151,9 +162,10 @@ class BlogPostAdmin(TabbedTranslationAdmin):
     search_fields = ("title", "slug", "excerpt", "seo_keywords")
     prepopulated_fields = {"slug": ("title",)}
     readonly_fields = ("created_at", "updated_at", "view_count", "unique_view_count")
+    inlines = (BlogPostBlockInline,)
     fieldsets = (
         ("Основне", {
-            "fields": ("category", "title", "slug", "excerpt", "content_html", "cover_image", "cover_alt", "source_url"),
+            "fields": ("category", "title", "slug", "excerpt", "content_html", "cover_image", "cover_alt", "cover_caption", "source_url"),
         }),
         ("CTA / перелінковка", {
             "fields": ("cta_label", "cta_url", "cta_text"),
@@ -173,6 +185,34 @@ class BlogPostAdmin(TabbedTranslationAdmin):
             "classes": ("collapse",),
         }),
     )
+
+
+@admin.register(BlogMediaAsset)
+class BlogMediaAssetAdmin(admin.ModelAdmin):
+    list_display = ("id", "file", "width", "height", "created_at")
+    search_fields = ("file",)
+    readonly_fields = ("width", "height", "created_at", "updated_at")
+
+
+@admin.register(BlogPromoCampaign)
+class BlogPromoCampaignAdmin(admin.ModelAdmin):
+    list_display = ("name", "code_prefix", "discount_type", "discount_value", "max_claims", "is_active", "created_at")
+    list_filter = ("is_active", "discount_type")
+    search_fields = ("name", "code_prefix")
+
+
+@admin.register(BlogPromoClaim)
+class BlogPromoClaimAdmin(admin.ModelAdmin):
+    list_display = ("campaign", "post", "block", "user", "promo_code", "created_at")
+    list_filter = ("campaign", "created_at")
+    search_fields = ("campaign__name", "post__title", "user__username", "promo_code__code")
+    readonly_fields = ("campaign", "post", "block", "user", "promo_code", "created_at")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(BlogPostView)

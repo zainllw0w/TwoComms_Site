@@ -268,11 +268,12 @@ def build_color_landing_urls(languages: Iterable[str]) -> list[str]:
 def build_blog_urls(languages: Iterable[str]) -> list[str]:
     from ..models import BlogCategory, BlogPost
 
-    category_slugs = list(
+    categories = list(
         BlogCategory.objects
         .filter(is_active=True)
         .exclude(slug="")
-        .values_list("slug", flat=True)
+        .select_related("parent")
+        .only("slug", "parent", "parent__slug")
     )
     post_slugs = list(
         BlogPost.objects
@@ -285,8 +286,12 @@ def build_blog_urls(languages: Iterable[str]) -> list[str]:
     for lang in languages:
         prefix = build_lang_prefix(lang)
         out.append(build_absolute_url(f"{prefix}/blog/"))
-        for slug in category_slugs:
-            out.append(build_absolute_url(f"{prefix}/blog/category/{slug}/"))
+        for category in categories:
+            if category.parent_id and category.parent:
+                path = f"/blog/category/{category.parent.slug}/{category.slug}/"
+            else:
+                path = f"/blog/category/{category.slug}/"
+            out.append(build_absolute_url(f"{prefix}{path}"))
         for slug in post_slugs:
             out.append(build_absolute_url(f"{prefix}/blog/{slug}/"))
     return _dedupe(out)
