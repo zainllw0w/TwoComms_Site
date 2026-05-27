@@ -18,6 +18,7 @@ PyMySQL==1.1.2
 cryptography==45.0.7
 cffi==1.17.1
 pycparser==2.22
+bleach==6.3.0
 
 # Типизация
 typing_extensions==4.15.0

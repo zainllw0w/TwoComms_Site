@@ -6,24 +6,100 @@
 
 {% block content %}
 <main class="blog-shell">
-  <section class="blog-editor">
+  <section class="blog-editor blog-structured-editor"
+           {% if is_post_editor %}
+           data-blog-block-editor
+           data-media-upload-endpoint="{% url 'admin_blog_media_upload' %}"
+           {% if post %}data-preview-endpoint="{% url 'admin_blog_post_preview' pk=post.pk %}"{% endif %}
+           {% endif %}>
     <div class="blog-section-head">
       <p class="blog-kicker">{% trans 'Адмін' %}</p>
       <h1>{{ editor_title }}</h1>
     </div>
-    <form method="post" enctype="multipart/form-data" class="blog-editor-form">
+
+    <form method="post" enctype="multipart/form-data" class="blog-editor-form" data-blog-editor-form>
       {% csrf_token %}
       {{ form.non_field_errors }}
-      <div class="blog-form-grid">
-        {% for field in form %}
-          <label class="blog-form-field{% if field.field.widget.input_type == 'checkbox' %} checkbox{% endif %}">
-            <span>{{ field.label }}</span>
-            {{ field }}
-            {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
-            {{ field.errors }}
-          </label>
-        {% endfor %}
+
+      <div class="blog-builder-layout{% if not is_post_editor %} blog-builder-layout--form-only{% endif %}">
+        {% if is_post_editor %}
+        <aside class="blog-builder-sidebar">
+          <h2>{% trans 'Блоки' %}</h2>
+          <p>{% trans 'Додавайте готові блоки без ручного CSS або raw HTML.' %}</p>
+          <div class="blog-block-palette" data-block-palette>
+            <button type="button" data-add-block="rich_text"><i class="fas fa-align-left"></i><span>Текст / H2 / H3</span></button>
+            <button type="button" data-add-block="image"><i class="fas fa-image"></i><span>Фото + підпис</span></button>
+            <button type="button" data-add-block="cta_group"><i class="fas fa-share-nodes"></i><span>CTA / соцмережі</span></button>
+            <button type="button" data-add-block="metric_cards"><i class="fas fa-chart-simple"></i><span>Метрики / етапи</span></button>
+            <button type="button" data-add-block="callout"><i class="fas fa-circle-info"></i><span>Callout</span></button>
+            <button type="button" data-add-block="quote"><i class="fas fa-quote-left"></i><span>Цитата</span></button>
+            <button type="button" data-add-block="youtube_video"><i class="fab fa-youtube"></i><span>YouTube</span></button>
+            <button type="button" data-add-block="faq"><i class="fas fa-question"></i><span>FAQ</span></button>
+            <button type="button" data-add-block="source_list"><i class="fas fa-link"></i><span>Джерела</span></button>
+            <button type="button" data-add-block="product_cta"><i class="fas fa-shirt"></i><span>Товар / магазин</span></button>
+            <button type="button" data-add-block="promo_claim"><i class="fas fa-ticket"></i><span>Промокод</span></button>
+            <button type="button" data-add-block="locked_content"><i class="fas fa-lock"></i><span>Прихований текст</span></button>
+          </div>
+          <div class="blog-media-uploader" data-media-uploader>
+            <h3>{% trans 'Медіа' %}</h3>
+            <input type="file" accept="image/*" data-media-file>
+            <input type="text" placeholder="{% trans 'Alt українською' %}" data-media-alt>
+            <textarea rows="2" placeholder="{% trans 'Підпис під фото' %}" data-media-caption></textarea>
+            <input type="text" placeholder="{% trans 'Автор або джерело' %}" data-media-credit>
+            <button type="button" class="blog-admin-button secondary" data-upload-media>
+              <i class="fas fa-upload" aria-hidden="true"></i>
+              <span>{% trans 'Завантажити і вставити' %}</span>
+            </button>
+            <p data-media-status></p>
+          </div>
+        </aside>
+        {% endif %}
+
+        <section class="blog-builder-main">
+          <div class="blog-form-grid">
+            {% for field in form %}
+              <label class="blog-form-field{% if field.field.widget.input_type == 'checkbox' %} checkbox{% endif %}{% if field.name == 'blocks_json' %} hidden{% endif %}">
+                <span>{{ field.label }}</span>
+                {{ field }}
+                {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+                {{ field.errors }}
+              </label>
+            {% endfor %}
+          </div>
+
+          {% if is_post_editor %}
+            <div class="blog-block-canvas" data-block-canvas aria-label="{% trans 'Структура статті' %}">
+              <div class="blog-block-empty" data-block-empty>{% trans 'Блоки ще не додані. Виберіть тип зліва.' %}</div>
+            </div>
+          {% endif %}
+        </section>
+
+        {% if is_post_editor %}
+        <aside class="blog-builder-preview">
+          <section class="blog-seo-checks">
+            <h2>SEO</h2>
+            <p>{% trans 'Title: рекомендовано 45-60 символів, warning після 65. Description: рекомендовано 120-155, warning після 160.' %}</p>
+            <ul>
+              <li>{% trans 'H1 береться з назви поста.' %}</li>
+              <li>{% trans 'H2/H3 outline формується з текстових і FAQ-блоків.' %}</li>
+              <li>{% trans 'Порожні RU/EN значення показують fallback з української.' %}</li>
+            </ul>
+          </section>
+          <section class="blog-server-preview">
+            <div class="blog-editor-header">
+              <h2>{% trans 'Live preview' %}</h2>
+              <button type="button" class="blog-admin-button secondary" data-render-preview {% if not post %}disabled{% endif %}>
+                {% trans 'Оновити' %}
+              </button>
+            </div>
+            <div class="blog-article-content" data-preview-pane>
+              {% trans 'Збережіть пост один раз, щоб увімкнути server-side preview.' %}
+            </div>
+          </section>
+        </aside>
+        {% endif %}
       </div>
+
       <div class="blog-editor-actions">
         <button type="submit" class="blog-admin-button">{% trans 'Зберегти' %}</button>
         <a class="blog-admin-button secondary" href="{% url 'admin_panel' %}?section=blog">{% trans 'Назад' %}</a>
@@ -32,126 +108,238 @@
   </section>
 </main>
 
+{% if is_post_editor %}
+{{ form.blocks_json.value|default:"[]"|json_script:"blog-blocks-initial" }}
+
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    const textareas = document.querySelectorAll('textarea[name^="content_html"]');
-    
-    textareas.forEach(textarea => {
-      // 1. Create a styled container
-      const container = document.createElement('div');
-      container.className = 'blog-editor-wrapper';
-      
-      // Insert container in place of textarea
-      textarea.parentNode.insertBefore(container, textarea);
-      
-      // 2. Create Header containing Tabs and Helper actions
-      const header = document.createElement('div');
-      header.className = 'blog-editor-header';
-      
-      // Left side: Switcher tabs
-      const tabs = document.createElement('div');
-      tabs.className = 'blog-editor-tabs';
-      tabs.innerHTML = `
-        <button type="button" class="blog-tab-btn active" data-tab="edit">{% trans 'Редагувати' %}</button>
-        <button type="button" class="blog-tab-btn" data-tab="preview">{% trans 'Передперегляд' %}</button>
-      `;
-      
-      // Right side: Helper buttons for layouts
-      const helpers = document.createElement('div');
-      helpers.className = 'blog-editor-helpers';
-      
-      const snippetButtons = [
-        { label: 'H2', snippet: '<h2>Заголовок розділу</h2>\n', icon: 'fa-heading' },
-        { label: 'H3', snippet: '<h3>Підзаголовок</h3>\n', icon: 'fa-heading' },
-        { label: 'Цитата', snippet: '<blockquote class="article-quote-monospaced">\n  <p>Текст цитати тут...</p>\n  <cite>— Автор цитати</cite>\n</blockquote>\n', icon: 'fa-quote-left' },
-        { label: 'Порада', snippet: '<div class="article-callout type-tip">\n  <div class="callout-icon"><i class="fas fa-lightbulb" aria-hidden="true"></i></div>\n  <div class="callout-content">\n    <strong>Порада:</strong> Тут корисна порада для читача...\n  </div>\n</div>\n', icon: 'fa-lightbulb' },
-        { label: 'Інфо', snippet: '<div class="article-callout type-info">\n  <div class="callout-icon"><i class="fas fa-info-circle" aria-hidden="true"></i></div>\n  <div class="callout-content">\n    <strong>Важливо:</strong> Інформаційне повідомлення...\n  </div>\n</div>\n', icon: 'fa-info-circle' },
-        { label: 'Галерея', snippet: '<div class="article-gallery col-2">\n  <figure>\n    <img src="/static/img/placeholder.jpg" alt="Опис зображення 1">\n    <figcaption>Підпис до зображення 1</figcaption>\n  </figure>\n  <figure>\n    <img src="/static/img/placeholder.jpg" alt="Опис зображення 2">\n    <figcaption>Підпис до зображення 2</figcaption>\n  </figure>\n</div>\n', icon: 'fa-images' },
-        { label: 'Етапи', snippet: '<div class="article-stage-board">\n  <div class="stage-card done"><span>01</span><strong>Закритий етап</strong><p>Коротко опишіть результат.</p></div>\n  <div class="stage-card"><span>02</span><strong>Наступний етап</strong><p>Коротко опишіть план.</p></div>\n</div>\n', icon: 'fa-list-check' },
-        { label: 'Техблок', snippet: '<div class="article-tech-specs">\n  <div><span>DTF</span><strong>Власний друк</strong><p>Коротко опишіть технічну перевагу.</p></div>\n  <div><span>Color</span><strong>Контроль кольору</strong><p>Коротко опишіть якість.</p></div>\n  <div><span>Speed</span><strong>Швидкість</strong><p>Коротко опишіть користь для клієнта.</p></div>\n</div>\n', icon: 'fa-microchip' },
-        { label: 'CTA ряд', snippet: '<div class="article-cta-row">\n  <a href="https://t.me/twocomms" target="_blank" rel="noopener" class="article-link-card">\n    <i class="fab fa-telegram" aria-hidden="true"></i>\n    <span>Написати в Telegram</span>\n    <em>Коротко опишіть дію</em>\n  </a>\n  <a href="/custom-print/" class="article-link-card">\n    <i class="fas fa-arrow-right" aria-hidden="true"></i>\n    <span>Створити принт</span>\n    <em>Коротко опишіть дію</em>\n  </a>\n</div>\n', icon: 'fa-paper-plane' },
-        { label: 'Кнопка дії', snippet: '<div class="article-action-box">\n  <a href="/custom-print/" class="article-action-btn">Створити кастомний принт <i class="fas fa-arrow-right" aria-hidden="true"></i></a>\n</div>\n', icon: 'fa-link' }
-      ];
-      
-      snippetButtons.forEach(btn => {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'blog-helper-btn';
-        b.title = btn.label;
-        b.innerHTML = `<i class="fas ${btn.icon}" aria-hidden="true"></i> <span>${btn.label}</span>`;
-        b.addEventListener('click', (e) => {
-          e.preventDefault();
-          insertAtCursor(textarea, btn.snippet);
-        });
-        helpers.appendChild(b);
+  document.addEventListener('DOMContentLoaded', function () {
+    const root = document.querySelector('[data-blog-block-editor]');
+    if (!root) return;
+    const canvas = root.querySelector('[data-block-canvas]');
+    const empty = root.querySelector('[data-block-empty]');
+    const hidden = root.querySelector('[data-blog-blocks-json]');
+    const previewPane = root.querySelector('[data-preview-pane]');
+    const previewButton = root.querySelector('[data-render-preview]');
+    const previewEndpoint = root.dataset.previewEndpoint;
+    const mediaEndpoint = root.dataset.mediaUploadEndpoint;
+    const csrf = root.querySelector('input[name="csrfmiddlewaretoken"]');
+    let blocks = [];
+    let dragIndex = null;
+
+    try {
+      const initial = JSON.parse(document.getElementById('blog-blocks-initial').textContent || '[]');
+      blocks = Array.isArray(initial) ? initial : JSON.parse(initial || '[]');
+    } catch (error) {
+      blocks = [];
+    }
+    if (!Array.isArray(blocks)) {
+      blocks = [];
+    }
+    blocks = blocks
+      .map((block) => ({
+        id: block.id || null,
+        type: block.type || block.block_type,
+        is_enabled: block.is_enabled !== false,
+        payload: block.payload || {}
+      }))
+      .filter((block) => Boolean(block.type));
+
+    const defaults = {
+      rich_text: { html: { uk: '<h2>Заголовок розділу</h2><p>Текст блоку...</p>' } },
+      image: { caption: { uk: 'Підпис під фото' } },
+      cta_group: { layout: 'cards', buttons: [{ provider: 'telegram', label: { uk: 'Написати в Telegram' }, url: 'https://t.me/twocomms' }] },
+      metric_cards: { cards: [{ label: { uk: 'Внутрішній прогрес' }, value: '2/4', caption: { uk: 'етапи закрито' } }] },
+      callout: { tone: 'info', title: { uk: 'Важливо' }, body: { uk: 'Текст підказки.' } },
+      quote: { text: { uk: 'Текст цитати.' }, cite: { uk: 'TwoComms editorial' } },
+      youtube_video: { url: 'https://www.youtube.com/watch?v=', title: { uk: 'Відео' } },
+      faq: { items: [{ question: { uk: 'Питання?' }, answer: { uk: 'Відповідь.' } }] },
+      source_list: { sources: [{ label: { uk: 'Джерело' }, url: 'https://twocomms.shop/' }] },
+      product_cta: { product_id: '', title: { uk: 'Купити товар' }, button_label: { uk: 'До товару' } },
+      promo_claim: { campaign_id: '', title: { uk: 'Отримати промокод' }, button_label: { uk: 'Забрати знижку' } },
+      locked_content: { teaser: { uk: 'Увійдіть, щоб побачити цей текст.' }, html: { uk: '<p>Прихований текст.</p>' } }
+    };
+
+    function clone(value) {
+      if (window.structuredClone) {
+        return window.structuredClone(value);
+      }
+      return JSON.parse(JSON.stringify(value));
+    }
+
+    function sync() {
+      hidden.value = JSON.stringify(blocks.map((block, index) => ({ ...block, sort_order: index * 10 })));
+      empty.hidden = blocks.length > 0;
+    }
+
+    function moveBlock(from, to) {
+      if (from === to || from < 0 || to < 0 || from >= blocks.length || to >= blocks.length) return;
+      const [item] = blocks.splice(from, 1);
+      blocks.splice(to, 0, item);
+      renderCanvas();
+    }
+
+    function renderCanvas() {
+      canvas.querySelectorAll('[data-block-card]').forEach((node) => node.remove());
+      blocks.forEach((block, index) => {
+        const card = document.createElement('article');
+        card.className = 'blog-block-card';
+        card.dataset.blockCard = block.type;
+        card.dataset.index = index;
+        card.draggable = true;
+        card.innerHTML = `
+          <div class="blog-block-card-head">
+            <span class="drag-handle" title="{% trans 'Перетягнути' %}"><i class="fas fa-grip-vertical"></i></span>
+            <strong>${block.type}</strong>
+            <div>
+              <button type="button" data-move-up="${index}" title="{% trans 'Вище' %}"><i class="fas fa-arrow-up"></i></button>
+              <button type="button" data-move-down="${index}" title="{% trans 'Нижче' %}"><i class="fas fa-arrow-down"></i></button>
+              <button type="button" data-toggle="${index}" title="{% trans 'Увімкнути або вимкнути' %}"><i class="fas ${block.is_enabled === false ? 'fa-eye-slash' : 'fa-eye'}"></i></button>
+              <button type="button" data-duplicate="${index}" title="{% trans 'Дублювати' %}"><i class="fas fa-copy"></i></button>
+              <button type="button" data-remove="${index}" title="{% trans 'Видалити' %}"><i class="fas fa-trash"></i></button>
+            </div>
+          </div>
+          <textarea data-payload="${index}" spellcheck="false">${JSON.stringify(block.payload || {}, null, 2)}</textarea>
+        `;
+        canvas.appendChild(card);
       });
-      
-      header.appendChild(tabs);
-      header.appendChild(helpers);
-      container.appendChild(header);
-      
-      // 3. Create editor body to hold textarea & preview pane
-      const body = document.createElement('div');
-      body.className = 'blog-editor-body';
-      
-      // Move textarea inside body container
-      textarea.parentNode.removeChild(textarea);
-      body.appendChild(textarea);
-      textarea.classList.add('blog-editor-textarea');
-      
-      // Create preview HTML pane
-      const preview = document.createElement('div');
-      preview.className = 'blog-editor-preview blog-article-content hidden';
-      body.appendChild(preview);
-      
-      container.appendChild(body);
-      
-      // Tab switcher toggles
-      const tabButtons = tabs.querySelectorAll('.blog-tab-btn');
-      tabButtons.forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          e.preventDefault();
-          tabButtons.forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          
-          const mode = btn.getAttribute('data-tab');
-          if (mode === 'preview') {
-            textarea.classList.add('hidden');
-            preview.classList.remove('hidden');
-            helpers.classList.add('disabled-helpers');
-            
-            // Set content or placeholder
-            preview.innerHTML = textarea.value.trim() 
-              ? textarea.value 
-              : `<p style="opacity: 0.5; font-style: italic;">{% trans 'Тут зʼявиться передперегляд вашого контенту...' %}</p>`;
-          } else {
-            textarea.classList.remove('hidden');
-            preview.classList.add('hidden');
-            helpers.classList.remove('disabled-helpers');
-            textarea.focus();
-          }
-        });
+      sync();
+    }
+
+    root.querySelectorAll('[data-add-block]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const type = button.dataset.addBlock;
+        blocks.push({ type, is_enabled: true, payload: clone(defaults[type] || {}) });
+        renderCanvas();
       });
     });
-    
-    function insertAtCursor(myField, myValue) {
-      if (document.selection) {
-        myField.focus();
-        const sel = document.selection.createRange();
-        sel.text = myValue;
-      } else if (myField.selectionStart || myField.selectionStart === 0) {
-        const startPos = myField.selectionStart;
-        const endPos = myField.selectionEnd;
-        myField.value = myField.value.substring(0, startPos)
-          + myValue
-          + myField.value.substring(endPos, myField.value.length);
-        myField.selectionStart = startPos + myValue.length;
-        myField.selectionEnd = startPos + myValue.length;
-      } else {
-        myField.value += myValue;
-      }
-      myField.dispatchEvent(new Event('input'));
+
+    const mediaUploadButton = root.querySelector('[data-upload-media]');
+    if (mediaUploadButton && mediaEndpoint) {
+      mediaUploadButton.addEventListener('click', async () => {
+        const fileInput = root.querySelector('[data-media-file]');
+        const status = root.querySelector('[data-media-status]');
+        const altInput = root.querySelector('[data-media-alt]');
+        const captionInput = root.querySelector('[data-media-caption]');
+        const creditInput = root.querySelector('[data-media-credit]');
+        if (!fileInput || !fileInput.files || !fileInput.files[0]) {
+          if (status) status.textContent = '{% trans "Виберіть файл." %}';
+          return;
+        }
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        formData.append('alt_text', altInput ? altInput.value : '');
+        formData.append('caption_text', captionInput ? captionInput.value : '');
+        formData.append('credit_text', creditInput ? creditInput.value : '');
+        if (status) status.textContent = '{% trans "Завантажуємо..." %}';
+        const response = await fetch(mediaEndpoint, {
+          method: 'POST',
+          headers: { 'X-CSRFToken': csrf ? csrf.value : '' },
+          body: formData
+        });
+        const data = await response.json();
+        if (!response.ok || !data.ok) {
+          if (status) status.textContent = '{% trans "Не вдалося завантажити медіа." %}';
+          return;
+        }
+        blocks.push({
+          type: 'image',
+          is_enabled: true,
+          payload: {
+            media_id: data.asset.id,
+            alt: { uk: altInput ? altInput.value : '' },
+            caption: { uk: captionInput ? captionInput.value : '' }
+          }
+        });
+        if (status) status.textContent = '{% trans "Медіа додано в статтю." %}';
+        fileInput.value = '';
+        renderCanvas();
+      });
     }
+
+    canvas.addEventListener('input', (event) => {
+      const index = event.target.dataset.payload;
+      if (index === undefined) return;
+      try {
+        blocks[Number(index)].payload = JSON.parse(event.target.value || '{}');
+        event.target.classList.remove('has-error');
+      } catch (error) {
+        event.target.classList.add('has-error');
+      }
+      sync();
+    });
+
+    canvas.addEventListener('click', (event) => {
+      const remove = event.target.closest('[data-remove]');
+      const duplicate = event.target.closest('[data-duplicate]');
+      const moveUp = event.target.closest('[data-move-up]');
+      const moveDown = event.target.closest('[data-move-down]');
+      const toggle = event.target.closest('[data-toggle]');
+      if (moveUp) {
+        moveBlock(Number(moveUp.dataset.moveUp), Number(moveUp.dataset.moveUp) - 1);
+      }
+      if (moveDown) {
+        moveBlock(Number(moveDown.dataset.moveDown), Number(moveDown.dataset.moveDown) + 1);
+      }
+      if (toggle) {
+        const index = Number(toggle.dataset.toggle);
+        blocks[index].is_enabled = blocks[index].is_enabled === false;
+        renderCanvas();
+      }
+      if (remove) {
+        blocks.splice(Number(remove.dataset.remove), 1);
+        renderCanvas();
+      }
+      if (duplicate) {
+        const copy = clone(blocks[Number(duplicate.dataset.duplicate)]);
+        copy.id = null;
+        blocks.splice(Number(duplicate.dataset.duplicate) + 1, 0, copy);
+        renderCanvas();
+      }
+    });
+
+    canvas.addEventListener('dragstart', (event) => {
+      const card = event.target.closest('[data-block-card]');
+      if (!card) return;
+      dragIndex = Number(card.dataset.index);
+      card.classList.add('is-dragging');
+    });
+
+    canvas.addEventListener('dragend', () => {
+      dragIndex = null;
+      canvas.querySelectorAll('.is-dragging').forEach((node) => node.classList.remove('is-dragging'));
+    });
+
+    canvas.addEventListener('dragover', (event) => {
+      if (dragIndex === null) return;
+      event.preventDefault();
+    });
+
+    canvas.addEventListener('drop', (event) => {
+      const card = event.target.closest('[data-block-card]');
+      if (!card || dragIndex === null) return;
+      event.preventDefault();
+      moveBlock(dragIndex, Number(card.dataset.index));
+    });
+
+    if (previewButton && previewEndpoint) {
+      previewButton.addEventListener('click', async () => {
+        sync();
+        previewPane.textContent = '{% trans "Оновлюємо preview..." %}';
+        const response = await fetch(previewEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrf ? csrf.value : ''
+          },
+          body: JSON.stringify({ blocks })
+        });
+        previewPane.innerHTML = await response.text();
+      });
+    }
+
+    root.querySelector('[data-blog-editor-form]').addEventListener('submit', sync);
+    renderCanvas();
   });
 </script>
+{% endif %}
 {% endblock %}

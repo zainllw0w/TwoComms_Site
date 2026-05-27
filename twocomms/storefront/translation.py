@@ -57,6 +57,7 @@ class BlogPostTranslationOptions(TranslationOptions):
         "excerpt",
         "content_html",
         "cover_alt",
+        "cover_caption",
         "cta_label",
         "cta_text",
         "seo_title",

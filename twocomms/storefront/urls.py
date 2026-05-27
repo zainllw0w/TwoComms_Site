@@ -179,6 +179,16 @@ urlpatterns = [
         _module_view('storefront.views.blog', 'admin_blog_post_delete'),
         name='admin_blog_post_delete',
     ),
+    path(
+        'admin-panel/blog/post/<int:pk>/preview/',
+        _module_view('storefront.views.blog', 'admin_blog_post_preview'),
+        name='admin_blog_post_preview',
+    ),
+    path(
+        'admin-panel/blog/media/upload/',
+        _module_view('storefront.views.blog', 'admin_blog_media_upload'),
+        name='admin_blog_media_upload',
+    ),
     # Phase 21 (PR-A1/A2) — review moderation + SEO overrides inside
     # the custom admin. ``staff_member_required`` is enforced inside
     # the view functions (they live in ``views.admin``).
@@ -466,7 +476,17 @@ urlpatterns = [
     path('about/', RedirectView.as_view(url='/pro-brand/', permanent=True), name='about_legacy'),
     path('blog', _module_view('storefront.views.blog', 'legacy_blog_redirect'), name='blog_no_slash'),
     path('blog/', _module_view('storefront.views.blog', 'blog_index'), name='blog'),
+    path(
+        'blog/category/<slug:parent_slug>/<slug:slug>/',
+        _module_view('storefront.views.blog', 'blog_category'),
+        name='blog_category_nested',
+    ),
     path('blog/category/<slug:slug>/', _module_view('storefront.views.blog', 'blog_category'), name='blog_category'),
+    path(
+        'blog/<slug:slug>/promo/<int:block_id>/claim/',
+        _module_view('storefront.views.blog', 'blog_promo_claim'),
+        name='blog_promo_claim',
+    ),
     path('blog/<slug:slug>/', _module_view('storefront.views.blog', 'blog_post'), name='blog_post'),
     path('news', _module_view('storefront.views.blog', 'legacy_blog_redirect'), name='news_no_slash'),
     path('news/', _module_view('storefront.views.blog', 'legacy_blog_redirect'), name='news_legacy'),

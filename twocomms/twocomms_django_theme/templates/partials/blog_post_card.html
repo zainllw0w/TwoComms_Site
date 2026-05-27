@@ -4,17 +4,10 @@
     {% if post.cover_image %}
       <img src="{{ post.cover_image.url }}" alt="{{ post.cover_alt|default:post.title }}" loading="lazy" width="720" height="450">
     {% else %}
-      <div class="blog-cover-fallback {% if post.slug == 'twocomms-veteran-fund-progress' %}blog-cover-fallback--fund{% endif %}">
+      <div class="blog-cover-fallback">
         <span class="blog-cover-grid"></span>
         <span class="blog-cover-orbit"></span>
-        {% if post.slug == 'twocomms-veteran-fund-progress' %}
-          <span class="blog-fund-mark">УВФ</span>
-          <span class="blog-fund-plus">+</span>
-          <span class="blog-cover-word">TWC</span>
-          <span class="blog-fund-subline">DTF / 2 з 4</span>
-        {% else %}
-          <span class="blog-cover-word">TWC</span>
-        {% endif %}
+        <span class="blog-cover-word">TWC</span>
       </div>
     {% endif %}
     <span class="blog-card-date-chip">
@@ -24,7 +17,7 @@
   </a>
   <div class="blog-card-body">
     <div class="blog-card-meta">
-      <a href="{% url 'blog_category' slug=post.category.slug %}" class="blog-card-cat-badge">{{ post.category.name }}</a>
+      <a href="{{ post.category.get_absolute_url }}" class="blog-card-cat-badge">{{ post.category.name }}</a>
       <span class="blog-card-date">{{ post.published_at|date:"d.m.Y" }}</span>
     </div>
     <h2><a href="{% url 'blog_post' slug=post.slug %}">{{ post.title }}</a></h2>

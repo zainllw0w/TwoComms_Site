@@ -9,15 +9,16 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.db import IntegrityError, transaction
 from django.db.models import Count, F, IntegerField, Q, Sum, Value
 from django.db.models.functions import Coalesce
-from django.http import HttpResponsePermanentRedirect
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponsePermanentRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.formats import date_format
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
-from storefront.forms import BlogCategoryForm, BlogPostForm
-from storefront.models import BlogCategory, BlogPost, BlogPostView
+from storefront.forms import BlogCategoryForm, BlogMediaAssetForm, BlogPostForm
+from storefront.models import BlogCategory, BlogPost, BlogPostBlock, BlogPostView
+from storefront.services.blog_blocks import create_blog_promo_claim, render_post_blocks, sync_post_blocks
 from storefront.tracking import is_bot
 from storefront.utm_utils import get_client_ip
 
@@ -38,7 +39,15 @@ def _published_posts():
 
 
 def _active_categories():
-    return BlogCategory.objects.filter(is_active=True).order_by("order", "name")
+    return BlogCategory.objects.filter(is_active=True).select_related("parent").order_by("parent__order", "order", "name")
+
+
+def _posts_for_category(category: BlogCategory):
+    queryset = _published_posts()
+    if category.parent_id:
+        return queryset.filter(category=category)
+    child_ids = list(category.children.filter(is_active=True).values_list("id", flat=True))
+    return queryset.filter(Q(category=category) | Q(category_id__in=child_ids))
 
 
 def _timeline_months(posts: list[BlogPost]) -> list[dict[str, str]]:
@@ -159,9 +168,15 @@ def blog_index(request):
     return render(request, "pages/blog/index.html", context)
 
 
-def blog_category(request, slug):
-    category = get_object_or_404(_active_categories(), slug=slug)
-    posts = list(_published_posts().filter(category=category))
+def blog_category(request, slug, parent_slug=None):
+    if parent_slug:
+        parent = get_object_or_404(_active_categories(), slug=parent_slug, parent__isnull=True)
+        category = get_object_or_404(_active_categories(), slug=slug, parent=parent)
+    else:
+        category = get_object_or_404(_active_categories(), slug=slug)
+        if category.parent_id:
+            return HttpResponsePermanentRedirect(category.get_absolute_url())
+    posts = list(_posts_for_category(category))
     title = category.seo_h1 or category.name
     context = _blog_context(request, title=title)
     context.update(
@@ -201,12 +216,7 @@ def blog_post(request, slug):
     post = get_object_or_404(_published_posts(), slug=slug)
     record_blog_post_view(request, post)
     post.refresh_from_db(fields=["view_count", "unique_view_count"])
-    related = list(
-        _published_posts()
-        .filter(category=post.category)
-        .exclude(pk=post.pk)
-        .order_by("-published_at", "-id")[:3]
-    )
+    related = list(_related_posts(post))
     if len(related) < 3:
         related.extend(
             list(
@@ -231,17 +241,15 @@ def blog_post(request, slug):
     }
     if post.cover_image:
         article_schema["image"] = [_absolute_url(request, post.cover_image.url)]
+    blocks_html, block_schema = render_post_blocks(post, request=request)
 
     context = _blog_context(request, title=post.title)
     context.update(
         {
             "post": post,
             "related_posts": related,
-            "cta_url": post.cta_url or reverse("custom_print"),
-            "cta_label": post.cta_label or _("Створити кастомний принт"),
-            "cta_text": post.cta_text or _(
-                "Переходьте у конструктор, якщо хочете перетворити ідею, символ або командний знак у власний принт TwoComms."
-            ),
+            "blocks_html": blocks_html,
+            "block_schema": _json(block_schema) if block_schema else "",
             "active_category": post.category,
             "meta_title": post.seo_title or f"{post.title} | TwoComms",
             "meta_description": post.seo_description or post.excerpt,
@@ -262,6 +270,23 @@ def blog_post(request, slug):
         }
     )
     return render(request, "pages/blog/post.html", context)
+
+
+def _related_posts(post: BlogPost) -> list[BlogPost]:
+    related: list[BlogPost] = []
+    seen = {post.pk}
+
+    def extend_from(queryset, limit):
+        nonlocal related
+        for item in queryset.exclude(pk__in=seen).order_by("-published_at", "-id")[:limit]:
+            related.append(item)
+            seen.add(item.pk)
+
+    extend_from(_published_posts().filter(category=post.category), 3)
+    if len(related) < 3 and post.category.parent_id:
+        sibling_ids = list(post.category.parent.children.filter(is_active=True).values_list("id", flat=True))
+        extend_from(_published_posts().filter(category_id__in=sibling_ids), 3 - len(related))
+    return related
 
 
 def build_admin_blog_context():
@@ -306,7 +331,7 @@ def admin_blog_category_create(request):
         form.save()
         messages.success(request, "Категорію блогу створено.")
         return _admin_redirect()
-    return render(request, "pages/blog/editor.html", {"form": form, "editor_title": "Нова категорія блогу"})
+    return render(request, "pages/blog/editor.html", {"form": form, "editor_title": "Нова категорія блогу", "is_post_editor": False})
 
 
 @staff_member_required
@@ -317,7 +342,7 @@ def admin_blog_category_update(request, pk):
         form.save()
         messages.success(request, "Категорію блогу оновлено.")
         return _admin_redirect()
-    return render(request, "pages/blog/editor.html", {"form": form, "editor_title": "Редагування категорії блогу"})
+    return render(request, "pages/blog/editor.html", {"form": form, "editor_title": "Редагування категорії блогу", "is_post_editor": False})
 
 
 @staff_member_required
@@ -325,8 +350,8 @@ def admin_blog_category_delete(request, pk):
     category = get_object_or_404(BlogCategory, pk=pk)
     if request.method != "POST":
         return _admin_redirect()
-    if category.posts.exists():
-        messages.warning(request, "Категорію не видалено: спочатку перемістіть або видаліть її пости.")
+    if category.posts.exists() or category.children.exists():
+        messages.warning(request, "Категорію не видалено: спочатку перемістіть пости та дочірні категорії.")
         return _admin_redirect()
     category.delete()
     messages.success(request, "Категорію блогу видалено.")
@@ -337,10 +362,11 @@ def admin_blog_category_delete(request, pk):
 def admin_blog_post_create(request):
     form = BlogPostForm(request.POST or None, request.FILES or None)
     if request.method == "POST" and form.is_valid():
-        form.save()
+        post = form.save()
+        sync_post_blocks(post, form.cleaned_data.get("blocks_json") or "")
         messages.success(request, "Пост блогу створено.")
         return _admin_redirect()
-    return render(request, "pages/blog/editor.html", {"form": form, "editor_title": "Новий пост блогу"})
+    return render(request, "pages/blog/editor.html", {"form": form, "editor_title": "Новий пост блогу", "post": None, "is_post_editor": True})
 
 
 @staff_member_required
@@ -348,10 +374,11 @@ def admin_blog_post_update(request, pk):
     post = get_object_or_404(BlogPost, pk=pk)
     form = BlogPostForm(request.POST or None, request.FILES or None, instance=post)
     if request.method == "POST" and form.is_valid():
-        form.save()
+        post = form.save()
+        sync_post_blocks(post, form.cleaned_data.get("blocks_json") or "")
         messages.success(request, "Пост блогу оновлено.")
         return _admin_redirect()
-    return render(request, "pages/blog/editor.html", {"form": form, "editor_title": "Редагування поста блогу", "post": post})
+    return render(request, "pages/blog/editor.html", {"form": form, "editor_title": "Редагування поста блогу", "post": post, "is_post_editor": True})
 
 
 @staff_member_required
@@ -362,3 +389,68 @@ def admin_blog_post_delete(request, pk):
     post.delete()
     messages.success(request, "Пост блогу видалено.")
     return _admin_redirect()
+
+
+@staff_member_required
+def admin_blog_post_preview(request, pk):
+    post = get_object_or_404(BlogPost, pk=pk)
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except ValueError:
+        return HttpResponseBadRequest("Invalid JSON")
+    blocks = payload.get("blocks")
+    if not isinstance(blocks, list):
+        return HttpResponseBadRequest("Missing blocks")
+    html, _schema = render_post_blocks(post, request=request, blocks_data=blocks)
+    return HttpResponse(html)
+
+
+@staff_member_required
+def admin_blog_media_upload(request):
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "POST required"}, status=405)
+    form = BlogMediaAssetForm(request.POST, request.FILES)
+    if not form.is_valid():
+        return JsonResponse({"ok": False, "errors": form.errors}, status=400)
+    asset = form.save()
+    return JsonResponse(
+        {
+            "ok": True,
+            "asset": {
+                "id": asset.pk,
+                "url": asset.file.url,
+                "width": asset.width,
+                "height": asset.height,
+                "alt": asset.alt,
+                "caption": asset.caption,
+            },
+        }
+    )
+
+
+def blog_promo_claim(request, slug, block_id):
+    post = get_object_or_404(_published_posts(), slug=slug)
+    block = get_object_or_404(
+        BlogPostBlock.objects.select_related("post"),
+        pk=block_id,
+        post=post,
+        block_type=BlogPostBlock.BlockType.PROMO_CLAIM,
+        is_enabled=True,
+    )
+    if not getattr(request.user, "is_authenticated", False):
+        return redirect(f"{reverse('login')}?next={request.path}")
+    if request.method != "POST":
+        return redirect(post.get_absolute_url())
+    try:
+        with transaction.atomic():
+            _claim, created = create_blog_promo_claim(post=post, block=block, user=request.user)
+    except Exception:
+        messages.warning(request, "Промокод недоступний або вже вичерпаний.")
+        return redirect(post.get_absolute_url())
+    if created:
+        messages.success(request, "Промокод додано до вашого акаунта.")
+    else:
+        messages.info(request, "Цей промокод уже закріплений за вашим акаунтом.")
+    return redirect(post.get_absolute_url())
