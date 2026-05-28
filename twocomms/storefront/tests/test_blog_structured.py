@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import io
 import tempfile
+from pathlib import Path
 from decimal import Decimal
 
 from django.contrib.auth.models import User
@@ -116,6 +117,28 @@ class BlogStructuredPublicTests(TestCase):
         self.assertContains(response, "2/4")
         self.assertContains(response, "Написати в Telegram")
         self.assertContains(response, "article-structured-block")
+        self.assertContains(response, "article-metric-board")
+        self.assertContains(response, "article-cta-panel")
+        self.assertContains(response, "article-link-card--telegram")
+
+    def test_built_css_keeps_python_rendered_blog_block_classes(self):
+        css_path = Path(__file__).resolve().parents[2] / "twocomms_django_theme" / "static" / "css" / "styles.purged.css"
+        css = css_path.read_text(encoding="utf-8")
+
+        for css_class in (
+            ".article-structured-block",
+            ".article-metric-board",
+            ".article-cta-panel",
+            ".article-link-card",
+            ".article-source-card",
+            ".article-video-lite",
+            ".article-spec-table",
+            ".article-product-cta",
+            ".article-promo-claim",
+            ".blog-block-visual-preview",
+        ):
+            with self.subTest(css_class=css_class):
+                self.assertIn(css_class, css)
 
     def test_nested_category_url_filters_child_and_flat_url_redirects(self):
         child_post = BlogPost.objects.create(
@@ -267,8 +290,21 @@ class BlogStructuredAdminTests(TestCase):
         self.assertContains(response, "data-block-palette")
         self.assertContains(response, "data-preview-endpoint")
         self.assertContains(response, "data-media-upload-endpoint")
+        self.assertContains(response, "data-block-visual-preview")
+        self.assertContains(response, "scheduleServerPreview")
+        self.assertContains(response, "renderInlinePreview")
         self.assertContains(response, "SEO")
         self.assertContains(response, "45-60")
+
+    def test_admin_create_editor_has_unsaved_server_preview(self):
+        self.client.force_login(self.staff)
+
+        response = self.client.get(reverse("admin_blog_post_create"), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("admin_blog_post_preview_new"))
+        self.assertContains(response, "data-block-visual-preview")
+        self.assertNotContains(response, 'data-render-preview disabled')
 
     def test_category_editor_does_not_boot_post_block_composer(self):
         self.client.force_login(self.staff)
@@ -305,6 +341,38 @@ class BlogStructuredAdminTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Server-side preview.")
         self.assertContains(response, "article-callout", html=False)
+
+    def test_admin_preview_endpoint_supports_unsaved_posts(self):
+        self.client.force_login(self.staff)
+
+        response = self.client.post(
+            reverse("admin_blog_post_preview_new"),
+            data=json.dumps(
+                {
+                    "blocks": [
+                        {
+                            "type": "cta_group",
+                            "payload": {
+                                "layout": "cards",
+                                "buttons": [
+                                    {
+                                        "provider": "instagram",
+                                        "label": {"uk": "Відкрити Instagram"},
+                                        "url": "twocomms",
+                                    }
+                                ],
+                            },
+                        }
+                    ]
+                }
+            ),
+            content_type="application/json",
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Відкрити Instagram")
+        self.assertContains(response, "article-cta-panel", html=False)
 
     def test_admin_preview_handles_unsaved_promo_block(self):
         self.client.force_login(self.staff)

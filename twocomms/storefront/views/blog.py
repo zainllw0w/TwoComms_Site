@@ -394,6 +394,16 @@ def admin_blog_post_delete(request, pk):
 @staff_member_required
 def admin_blog_post_preview(request, pk):
     post = get_object_or_404(BlogPost, pk=pk)
+    return _render_admin_blog_preview(request, post)
+
+
+@staff_member_required
+def admin_blog_post_preview_new(request):
+    post = BlogPost(title="Preview", slug="preview", content_html="")
+    return _render_admin_blog_preview(request, post)
+
+
+def _render_admin_blog_preview(request, post):
     if request.method != "POST":
         return HttpResponseBadRequest("POST required")
     try:

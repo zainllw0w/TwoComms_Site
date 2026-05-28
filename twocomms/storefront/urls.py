@@ -185,6 +185,11 @@ urlpatterns = [
         name='admin_blog_post_preview',
     ),
     path(
+        'admin-panel/blog/post/preview/',
+        _module_view('storefront.views.blog', 'admin_blog_post_preview_new'),
+        name='admin_blog_post_preview_new',
+    ),
+    path(
         'admin-panel/blog/media/upload/',
         _module_view('storefront.views.blog', 'admin_blog_media_upload'),
         name='admin_blog_media_upload',

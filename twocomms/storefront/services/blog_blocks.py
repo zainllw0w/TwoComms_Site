@@ -115,6 +115,11 @@ def external_attrs(url: str) -> str:
     return ""
 
 
+def css_token(value: str, fallback: str = "item") -> str:
+    token = re.sub(r"[^a-z0-9_-]+", "-", str(value or "").lower()).strip("-")
+    return token or fallback
+
+
 def youtube_id(url: str) -> str:
     parsed = urlparse(url or "")
     if parsed.netloc.endswith("youtu.be"):
@@ -215,26 +220,39 @@ class BlogBlockRenderer:
             label = escape(localized(card.get("label"), self.language))
             value = escape(str(card.get("value") or ""))
             caption = escape(localized(card.get("caption"), self.language))
+            status = css_token(card.get("status") or card.get("state") or "", "")
+            status_class = f" is-{status}" if status else ""
             if label or value or caption:
                 cards_html.append(
-                    f"<div><span>{label}</span><strong>{value}</strong><em>{caption}</em></div>"
+                    f'<div class="article-metric-card stage-card{status_class}">'
+                    f'<span class="article-metric-label">{label}</span>'
+                    f'<strong class="article-metric-value">{value}</strong>'
+                    f'<em class="article-metric-caption">{caption}</em>'
+                    "</div>"
                 )
         if not cards_html:
             return ""
         return (
-            '<section class="article-structured-block blog-article-impact article-metric-cards">'
+            '<section class="article-structured-block blog-article-impact article-stage-board article-metric-board article-metric-cards">'
             + "".join(cards_html)
             + "</section>"
         )
 
     def cta_group(self, payload: dict) -> str:
-        layout = escape(str(payload.get("layout") or "cards"))
+        layout = css_token(payload.get("layout") or "cards", "cards")
+        if layout not in {"full", "split", "cards", "compact"}:
+            layout = "cards"
+        eyebrow = escape(localized(payload.get("eyebrow") or payload.get("kicker"), self.language))
+        title = escape(localized(payload.get("title"), self.language))
+        body = sanitize_rich_html(localized(payload.get("body") or payload.get("description"), self.language))
         buttons = []
         for button in payload.get("buttons") or []:
-            provider = escape(str(button.get("provider") or "link"))
+            raw_provider = str(button.get("provider") or "link")
+            provider = css_token(raw_provider, "link")
+            style = css_token(button.get("style") or payload.get("style") or "solid", "solid")
             label = escape(localized(button.get("label"), self.language, "Відкрити"))
             caption = escape(localized(button.get("caption") or button.get("description"), self.language))
-            url = normalize_url(str(button.get("url") or ""), provider)
+            url = normalize_url(str(button.get("url") or ""), raw_provider)
             attrs = external_attrs(url)
             icon = {
                 "telegram": "fab fa-telegram",
@@ -242,16 +260,26 @@ class BlogBlockRenderer:
                 "tiktok": "fab fa-tiktok",
                 "product": "fas fa-shirt",
                 "custom_print": "fas fa-print",
+                "catalog": "fas fa-store",
+                "internal": "fas fa-link",
             }.get(provider, "fas fa-arrow-right")
             buttons.append(
-                f'<a href="{escape(url)}" class="article-link-card article-link-card--{provider}"{attrs}>'
-                f'<i class="{icon}" aria-hidden="true"></i><span>{label}</span><em>{caption}</em></a>'
+                f'<a href="{escape(url)}" class="article-link-card article-link-card--{provider} article-link-card--{style}" data-provider="{provider}"{attrs}>'
+                f'<i class="{icon}" aria-hidden="true"></i>'
+                f'<span>{label}</span><em>{caption}</em></a>'
             )
         if not buttons:
             return ""
+        intro = ""
+        if eyebrow or title or body:
+            eyebrow_html = f"<span>{eyebrow}</span>" if eyebrow else ""
+            title_html = f"<h2>{title}</h2>" if title else ""
+            body_html = f"<div>{body}</div>" if body else ""
+            intro = f'<div class="article-cta-copy">{eyebrow_html}{title_html}{body_html}</div>'
         return (
-            f'<section class="article-structured-block article-cta-row cta-layout-{layout}" '
+            f'<section class="article-structured-block article-cta-panel article-cta-row cta-layout-{layout}" '
             f'style="--cta-count:{min(len(buttons), 5)}">'
+            + intro
             + "".join(buttons)
             + "</section>"
         )
@@ -302,11 +330,21 @@ class BlogBlockRenderer:
         for source in payload.get("sources") or []:
             label = escape(localized(source.get("label"), self.language, "Джерело"))
             url = normalize_url(str(source.get("url") or ""))
-            items.append(f'<li><a href="{escape(url)}"{external_attrs(url)}>{label}</a></li>')
+            items.append(
+                f'<li><a class="article-source-link" href="{escape(url)}"{external_attrs(url)}>'
+                f'<i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i>{label}</a></li>'
+            )
         if not items:
             return ""
         title = escape(localized(payload.get("title"), self.language, "Джерела"))
-        return f'<section class="article-structured-block article-source-card"><div><h2>{title}</h2><ul>' + "".join(items) + "</ul></div></section>"
+        description = escape(localized(payload.get("description"), self.language, "Посилання відкриваються у новій вкладці, якщо ведуть на зовнішній ресурс."))
+        return (
+            '<section class="article-structured-block article-source-card article-source-list">'
+            f'<div class="article-source-copy"><span>Першоджерела</span><h2>{title}</h2><p>{description}</p></div>'
+            '<ul class="article-source-links">'
+            + "".join(items)
+            + "</ul></section>"
+        )
 
     def youtube_video(self, payload: dict) -> str:
         video_id = youtube_id(str(payload.get("url") or ""))
@@ -376,7 +414,7 @@ class BlogBlockRenderer:
             return ""
         title = escape(localized(payload.get("title"), self.language))
         title_html = f"<h2>{title}</h2>" if title else ""
-        return f'<section class="article-structured-block article-spec-table">{title_html}<table><tbody>{"".join(rows)}</tbody></table></section>'
+        return f'<section class="article-structured-block article-spec-table article-tech-specs-table">{title_html}<table><tbody>{"".join(rows)}</tbody></table></section>'
 
     def product_cta(self, payload: dict) -> str:
         product_id = payload.get("product_id")

@@ -10,7 +10,7 @@
            {% if is_post_editor %}
            data-blog-block-editor
            data-media-upload-endpoint="{% url 'admin_blog_media_upload' %}"
-           {% if post %}data-preview-endpoint="{% url 'admin_blog_post_preview' pk=post.pk %}"{% endif %}
+           data-preview-endpoint="{% if post %}{% url 'admin_blog_post_preview' pk=post.pk %}{% else %}{% url 'admin_blog_post_preview_new' %}{% endif %}"
            {% endif %}>
     <div class="blog-section-head">
       <p class="blog-kicker">{% trans 'Адмін' %}</p>
@@ -88,12 +88,12 @@
           <section class="blog-server-preview">
             <div class="blog-editor-header">
               <h2>{% trans 'Live preview' %}</h2>
-              <button type="button" class="blog-admin-button secondary" data-render-preview {% if not post %}disabled{% endif %}>
+              <button type="button" class="blog-admin-button secondary" data-render-preview>
                 {% trans 'Оновити' %}
               </button>
             </div>
             <div class="blog-article-content" data-preview-pane>
-              {% trans 'Збережіть пост один раз, щоб увімкнути server-side preview.' %}
+              {% trans 'Додайте блок або натисніть «Оновити», щоб побачити server-side preview.' %}
             </div>
           </section>
         </aside>
@@ -125,6 +125,8 @@
     const csrf = root.querySelector('input[name="csrfmiddlewaretoken"]');
     let blocks = [];
     let dragIndex = null;
+    let previewTimer = null;
+    let previewGeneration = 0;
 
     try {
       const initial = JSON.parse(document.getElementById('blog-blocks-initial').textContent || '[]');
@@ -166,9 +168,152 @@
       return JSON.parse(JSON.stringify(value));
     }
 
+    function escapeHtml(value) {
+      return String(value === undefined || value === null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function localText(value, fallback = '') {
+      if (typeof value === 'string') return value || fallback;
+      if (!value || typeof value !== 'object') return fallback;
+      return value.uk || value.ru || value.en || Object.values(value).find(Boolean) || fallback;
+    }
+
+    function plainText(html, fallback = '') {
+      const node = document.createElement('div');
+      node.innerHTML = String(html || '');
+      return (node.textContent || '').trim() || fallback;
+    }
+
+    function cssToken(value, fallback = 'item') {
+      const token = String(value || '').toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+      return token || fallback;
+    }
+
+    function iconFor(provider) {
+      return {
+        telegram: 'fab fa-telegram',
+        instagram: 'fab fa-instagram',
+        tiktok: 'fab fa-tiktok',
+        product: 'fas fa-shirt',
+        custom_print: 'fas fa-print',
+        catalog: 'fas fa-store',
+        internal: 'fas fa-link'
+      }[provider] || 'fas fa-arrow-right';
+    }
+
+    function renderInlinePreview(block) {
+      const payload = block.payload || {};
+      if (block.is_enabled === false) {
+        return '<div class="blog-block-preview-muted">{% trans "Блок вимкнений і не буде показаний у статті." %}</div>';
+      }
+      if (block.type === 'cta_group') {
+        const buttons = Array.isArray(payload.buttons) ? payload.buttons.slice(0, 5) : [];
+        const layout = ['full', 'split', 'cards', 'compact'].includes(payload.layout) ? payload.layout : 'cards';
+        const intro = localText(payload.title) || localText(payload.body) || localText(payload.description)
+          ? `<div class="article-cta-copy">${localText(payload.eyebrow || payload.kicker) ? `<span>${escapeHtml(localText(payload.eyebrow || payload.kicker))}</span>` : ''}${localText(payload.title) ? `<h2>${escapeHtml(localText(payload.title))}</h2>` : ''}${localText(payload.body || payload.description) ? `<div>${escapeHtml(plainText(localText(payload.body || payload.description)))}</div>` : ''}</div>`
+          : '';
+        const cards = buttons.map((button) => {
+          const provider = cssToken(button.provider || 'link', 'link');
+          const style = cssToken(button.style || payload.style || 'solid', 'solid');
+          const label = escapeHtml(localText(button.label, 'Відкрити'));
+          const caption = escapeHtml(localText(button.caption || button.description));
+          return `<a href="#" class="article-link-card article-link-card--${provider} article-link-card--${style}" tabindex="-1"><i class="${iconFor(provider)}" aria-hidden="true"></i><span>${label}</span><em>${caption}</em></a>`;
+        }).join('');
+        return `<section class="article-structured-block article-cta-panel article-cta-row cta-layout-${layout}" style="--cta-count:${Math.max(1, Math.min(buttons.length || 1, 5))}">${intro}${cards || '<div class="blog-block-preview-muted">CTA</div>'}</section>`;
+      }
+      if (block.type === 'metric_cards') {
+        const cards = Array.isArray(payload.cards) ? payload.cards : [];
+        return `<section class="article-structured-block blog-article-impact article-stage-board article-metric-board article-metric-cards">${cards.map((card) => `<div class="article-metric-card stage-card"><span class="article-metric-label">${escapeHtml(localText(card.label))}</span><strong class="article-metric-value">${escapeHtml(card.value || '')}</strong><em class="article-metric-caption">${escapeHtml(localText(card.caption))}</em></div>`).join('') || '<div class="article-metric-card stage-card"><span>Метрика</span><strong>2/4</strong><em>етапи</em></div>'}</section>`;
+      }
+      if (block.type === 'callout') {
+        return `<aside class="article-structured-block article-callout type-${cssToken(payload.tone || 'info', 'info')}"><div class="callout-icon"><i class="fas fa-info-circle" aria-hidden="true"></i></div><div class="callout-content"><strong>${escapeHtml(localText(payload.title, 'Важливо'))}</strong><p>${escapeHtml(plainText(localText(payload.body), 'Текст підказки.'))}</p></div></aside>`;
+      }
+      if (block.type === 'quote') {
+        return `<blockquote class="article-structured-block article-quote-monospaced"><div>${escapeHtml(plainText(localText(payload.text), 'Текст цитати.'))}</div>${localText(payload.cite) ? `<cite>${escapeHtml(localText(payload.cite))}</cite>` : ''}</blockquote>`;
+      }
+      if (block.type === 'faq') {
+        const items = Array.isArray(payload.items) ? payload.items : [];
+        return `<section class="article-structured-block article-faq">${items.map((item) => `<details open><summary>${escapeHtml(localText(item.question, 'Питання?'))}</summary><div>${escapeHtml(plainText(localText(item.answer), 'Відповідь.'))}</div></details>`).join('') || '<details open><summary>FAQ</summary><div>Відповідь</div></details>'}</section>`;
+      }
+      if (block.type === 'source_list') {
+        const sources = Array.isArray(payload.sources) ? payload.sources : [];
+        return `<section class="article-structured-block article-source-card article-source-list"><div class="article-source-copy"><span>Першоджерела</span><h2>${escapeHtml(localText(payload.title, 'Джерела'))}</h2><p>${escapeHtml(localText(payload.description, 'Посилання для перевірки інформації.'))}</p></div><ul class="article-source-links">${sources.map((source) => `<li><a class="article-source-link" href="#" tabindex="-1"><i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i>${escapeHtml(localText(source.label, 'Джерело'))}</a></li>`).join('')}</ul></section>`;
+      }
+      if (block.type === 'youtube_video') {
+        return `<section class="article-structured-block article-video-lite"><button type="button"><span class="blog-block-video-fallback"><i class="fab fa-youtube" aria-hidden="true"></i>${escapeHtml(localText(payload.title, 'YouTube video'))}</span><span class="article-video-play"><i class="fas fa-play" aria-hidden="true"></i></span></button></section>`;
+      }
+      if (block.type === 'table_specs') {
+        const rows = Array.isArray(payload.rows) ? payload.rows : [];
+        return `<section class="article-structured-block article-spec-table article-tech-specs-table">${localText(payload.title) ? `<h2>${escapeHtml(localText(payload.title))}</h2>` : ''}<table><tbody>${rows.map((row) => `<tr><th>${escapeHtml(localText(row.label))}</th><td>${escapeHtml(localText(row.value))}</td></tr>`).join('') || '<tr><th>Параметр</th><td>Значення</td></tr>'}</tbody></table></section>`;
+      }
+      if (block.type === 'image') {
+        return `<figure class="article-structured-block article-image-block blog-block-image-preview"><div><i class="fas fa-image" aria-hidden="true"></i><span>media_id: ${escapeHtml(payload.media_id || 'new')}</span></div>${localText(payload.caption) ? `<figcaption>${escapeHtml(localText(payload.caption))}</figcaption>` : ''}</figure>`;
+      }
+      if (block.type === 'product_cta') {
+        return `<section class="article-structured-block article-product-cta"><div><h2>${escapeHtml(localText(payload.title, 'Купити товар'))}</h2><p>product_id: ${escapeHtml(payload.product_id || '')}</p></div><a class="article-action-btn" href="#" tabindex="-1">${escapeHtml(localText(payload.button_label, 'До товару'))}</a></section>`;
+      }
+      if (block.type === 'promo_claim') {
+        return `<section class="article-structured-block article-promo-claim"><div><h2>${escapeHtml(localText(payload.title, 'Отримати промокод'))}</h2><p>${escapeHtml(localText(payload.body, 'Персональна знижка після авторизації.'))}</p></div><button type="button" class="article-action-btn">${escapeHtml(localText(payload.button_label, 'Забрати знижку'))}</button></section>`;
+      }
+      if (block.type === 'locked_content') {
+        return `<section class="article-structured-block article-locked-content is-locked"><p>${escapeHtml(localText(payload.teaser, 'Увійдіть, щоб побачити цей текст.'))}</p><div><a href="#" tabindex="-1">Увійти</a><a href="#" tabindex="-1">Зареєструватися</a></div></section>`;
+      }
+      return `<section class="article-structured-block article-rich-text"><p>${escapeHtml(plainText(localText(payload.html), 'Текст блоку...'))}</p></section>`;
+    }
+
+    function renderBlockPreview(card, block) {
+      const preview = card.querySelector('[data-block-visual-preview]');
+      if (!preview) return;
+      preview.innerHTML = renderInlinePreview(block);
+    }
+
     function sync() {
       hidden.value = JSON.stringify(blocks.map((block, index) => ({ ...block, sort_order: index * 10 })));
       empty.hidden = blocks.length > 0;
+    }
+
+    async function renderServerPreview(auto = false) {
+      if (!previewEndpoint || !previewPane) return;
+      const generation = ++previewGeneration;
+      sync();
+      if (!auto) {
+        previewPane.textContent = '{% trans "Оновлюємо preview..." %}';
+      } else {
+        previewPane.dataset.previewState = 'loading';
+      }
+      try {
+        const response = await fetch(previewEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrf ? csrf.value : ''
+          },
+          body: JSON.stringify({ blocks })
+        });
+        const html = await response.text();
+        if (generation === previewGeneration) {
+          previewPane.innerHTML = response.ok ? html : '{% trans "Preview тимчасово недоступний." %}';
+        }
+      } catch (error) {
+        if (generation === previewGeneration) {
+          previewPane.textContent = '{% trans "Preview тимчасово недоступний." %}';
+        }
+      } finally {
+        if (generation === previewGeneration) {
+          delete previewPane.dataset.previewState;
+        }
+      }
+    }
+
+    function scheduleServerPreview() {
+      if (!previewEndpoint || !previewPane) return;
+      window.clearTimeout(previewTimer);
+      previewTimer = window.setTimeout(() => renderServerPreview(true), 650);
     }
 
     function moveBlock(from, to) {
@@ -182,7 +327,7 @@
       canvas.querySelectorAll('[data-block-card]').forEach((node) => node.remove());
       blocks.forEach((block, index) => {
         const card = document.createElement('article');
-        card.className = 'blog-block-card';
+        card.className = `blog-block-card${block.is_enabled === false ? ' is-disabled' : ''}`;
         card.dataset.blockCard = block.type;
         card.dataset.index = index;
         card.draggable = true;
@@ -198,11 +343,14 @@
               <button type="button" data-remove="${index}" title="{% trans 'Видалити' %}"><i class="fas fa-trash"></i></button>
             </div>
           </div>
+          <div class="blog-block-visual-preview" data-block-visual-preview="${index}" aria-label="{% trans 'Візуальний preview блоку' %}"></div>
           <textarea data-payload="${index}" spellcheck="false">${JSON.stringify(block.payload || {}, null, 2)}</textarea>
         `;
         canvas.appendChild(card);
+        renderBlockPreview(card, block);
       });
       sync();
+      scheduleServerPreview();
     }
 
     root.querySelectorAll('[data-add-block]').forEach((button) => {
@@ -262,10 +410,12 @@
       try {
         blocks[Number(index)].payload = JSON.parse(event.target.value || '{}');
         event.target.classList.remove('has-error');
+        renderBlockPreview(event.target.closest('[data-block-card]'), blocks[Number(index)]);
+        sync();
+        scheduleServerPreview();
       } catch (error) {
         event.target.classList.add('has-error');
       }
-      sync();
     });
 
     canvas.addEventListener('click', (event) => {
@@ -322,19 +472,7 @@
     });
 
     if (previewButton && previewEndpoint) {
-      previewButton.addEventListener('click', async () => {
-        sync();
-        previewPane.textContent = '{% trans "Оновлюємо preview..." %}';
-        const response = await fetch(previewEndpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrf ? csrf.value : ''
-          },
-          body: JSON.stringify({ blocks })
-        });
-        previewPane.innerHTML = await response.text();
-      });
+      previewButton.addEventListener('click', () => renderServerPreview(false));
     }
 
     root.querySelector('[data-blog-editor-form]').addEventListener('submit', sync);

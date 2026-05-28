@@ -16,7 +16,11 @@ module.exports = {
         /^reveal/, /^stagger/, /^perf-lite/, /^effects-lite/, /^bg-/,
         /^text-/, /^border-/, /^d-/, /^align-/, /^justify-/, /^flex/,
         /^position-/, /^top-/, /^bottom-/, /^start-/, /^end-/, /^z-/,
-        /^ratio/, /^object-fit/, /^w-/, /^h-/, /^min-vh/, /^max-vh/
+        /^ratio/, /^object-fit/, /^w-/, /^h-/, /^min-vh/, /^max-vh/,
+        /^article-/, /^blog-article-/, /^blog-block-/, /^blog-builder-/,
+        /^blog-media-uploader/, /^blog-seo-/, /^blog-server-preview/,
+        /^cta-layout-/, /^callout-/, /^type-/,
+        /^stage-card$/, /^is-complete$/, /^is-done$/, /^is-progress$/, /^is-planned$/, /^is-disabled$/
       ],
       defaultExtractor: (content) => content.match(/[\w-/:()]+(?<!:)/g) || []
     })
