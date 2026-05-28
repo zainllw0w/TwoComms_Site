@@ -11,7 +11,7 @@ from django.middleware.csrf import get_token
 from django.urls import reverse
 from django.utils import timezone, translation
 
-from storefront.models import BlogMediaAsset, BlogPost, BlogPostBlock, BlogPromoClaim, BlogPromoCampaign, Product
+from storefront.models import BlogMediaAsset, BlogPost, BlogPostBlock, BlogPromoClaim, BlogPromoCampaign, Product, ProductStatus
 
 
 ALLOWED_RICH_TEXT_TAGS = [
@@ -418,8 +418,10 @@ class BlogBlockRenderer:
 
     def product_cta(self, payload: dict) -> str:
         product_id = payload.get("product_id")
+        if not product_id:
+            return ""
         try:
-            product = Product.objects.get(pk=product_id, is_active=True)
+            product = Product.objects.get(pk=product_id, status=ProductStatus.PUBLISHED)
         except (Product.DoesNotExist, TypeError, ValueError):
             return ""
         label = escape(localized(payload.get("button_label"), self.language, "Купити товар"))

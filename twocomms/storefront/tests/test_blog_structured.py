@@ -121,6 +121,35 @@ class BlogStructuredPublicTests(TestCase):
         self.assertContains(response, "article-cta-panel")
         self.assertContains(response, "article-link-card--telegram")
 
+    def test_product_cta_with_empty_product_id_does_not_break_article(self):
+        post = BlogPost.objects.create(
+            category=self.product_reviews,
+            title="Огляд з товарним блоком",
+            slug="review-with-empty-product-cta",
+            excerpt="Огляд.",
+            content_html="<p>Legacy fallback.</p>",
+            published_at=timezone.now(),
+            is_published=True,
+        )
+        BlogPostBlock.objects.create(
+            post=post,
+            block_type=BlogPostBlock.BlockType.RICH_TEXT,
+            sort_order=10,
+            payload={"html": {"uk": "<p>Основний текст огляду.</p>"}},
+        )
+        BlogPostBlock.objects.create(
+            post=post,
+            block_type=BlogPostBlock.BlockType.PRODUCT_CTA,
+            sort_order=20,
+            payload={"product_id": "", "title": {"uk": "Купити товар"}, "button_label": {"uk": "До товару"}},
+        )
+
+        response = self.client.get(reverse("blog_post", kwargs={"slug": post.slug}), secure=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Основний текст огляду")
+        self.assertNotContains(response, "Server Error")
+
     def test_built_css_keeps_python_rendered_blog_block_classes(self):
         css_path = Path(__file__).resolve().parents[2] / "twocomms_django_theme" / "static" / "css" / "styles.purged.css"
         css = css_path.read_text(encoding="utf-8")
@@ -136,6 +165,8 @@ class BlogStructuredPublicTests(TestCase):
             ".article-product-cta",
             ".article-promo-claim",
             ".blog-block-visual-preview",
+            ".blog-block-modal",
+            ".blog-editor-workbench",
         ):
             with self.subTest(css_class=css_class):
                 self.assertIn(css_class, css)
@@ -280,7 +311,7 @@ class BlogStructuredAdminTests(TestCase):
             is_published=True,
         )
 
-    def test_admin_editor_exposes_visual_block_composer_and_server_preview(self):
+    def test_admin_editor_exposes_unified_visual_canvas_and_block_modal(self):
         self.client.force_login(self.staff)
 
         response = self.client.get(reverse("admin_blog_post_update", kwargs={"pk": self.post.pk}), secure=True)
@@ -288,11 +319,15 @@ class BlogStructuredAdminTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "data-blog-block-editor")
         self.assertContains(response, "data-block-palette")
-        self.assertContains(response, "data-preview-endpoint")
         self.assertContains(response, "data-media-upload-endpoint")
         self.assertContains(response, "data-block-visual-preview")
-        self.assertContains(response, "scheduleServerPreview")
+        self.assertContains(response, "data-block-modal")
+        self.assertContains(response, "openBlockModal")
         self.assertContains(response, "renderInlinePreview")
+        self.assertContains(response, "blog-editor-workbench")
+        self.assertContains(response, "blog-editor-settings")
+        self.assertNotContains(response, "Live preview")
+        self.assertNotContains(response, "blog-builder-preview")
         self.assertContains(response, "SEO")
         self.assertContains(response, "45-60")
 
@@ -302,9 +337,9 @@ class BlogStructuredAdminTests(TestCase):
         response = self.client.get(reverse("admin_blog_post_create"), secure=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, reverse("admin_blog_post_preview_new"))
         self.assertContains(response, "data-block-visual-preview")
-        self.assertNotContains(response, 'data-render-preview disabled')
+        self.assertContains(response, "data-block-modal")
+        self.assertNotContains(response, "data-render-preview")
 
     def test_category_editor_does_not_boot_post_block_composer(self):
         self.client.force_login(self.staff)

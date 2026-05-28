@@ -10,7 +10,6 @@
            {% if is_post_editor %}
            data-blog-block-editor
            data-media-upload-endpoint="{% url 'admin_blog_media_upload' %}"
-           data-preview-endpoint="{% if post %}{% url 'admin_blog_post_preview' pk=post.pk %}{% else %}{% url 'admin_blog_post_preview_new' %}{% endif %}"
            {% endif %}>
     <div class="blog-section-head">
       <p class="blog-kicker">{% trans 'Адмін' %}</p>
@@ -21,83 +20,94 @@
       {% csrf_token %}
       {{ form.non_field_errors }}
 
-      <div class="blog-builder-layout{% if not is_post_editor %} blog-builder-layout--form-only{% endif %}">
-        {% if is_post_editor %}
-        <aside class="blog-builder-sidebar">
-          <h2>{% trans 'Блоки' %}</h2>
-          <p>{% trans 'Додавайте готові блоки без ручного CSS або raw HTML.' %}</p>
-          <div class="blog-block-palette" data-block-palette>
-            <button type="button" data-add-block="rich_text"><i class="fas fa-align-left"></i><span>Текст / H2 / H3</span></button>
-            <button type="button" data-add-block="image"><i class="fas fa-image"></i><span>Фото + підпис</span></button>
-            <button type="button" data-add-block="cta_group"><i class="fas fa-share-nodes"></i><span>CTA / соцмережі</span></button>
-            <button type="button" data-add-block="metric_cards"><i class="fas fa-chart-simple"></i><span>Метрики / етапи</span></button>
-            <button type="button" data-add-block="callout"><i class="fas fa-circle-info"></i><span>Callout</span></button>
-            <button type="button" data-add-block="quote"><i class="fas fa-quote-left"></i><span>Цитата</span></button>
-            <button type="button" data-add-block="youtube_video"><i class="fab fa-youtube"></i><span>YouTube</span></button>
-            <button type="button" data-add-block="faq"><i class="fas fa-question"></i><span>FAQ</span></button>
-            <button type="button" data-add-block="source_list"><i class="fas fa-link"></i><span>Джерела</span></button>
-            <button type="button" data-add-block="product_cta"><i class="fas fa-shirt"></i><span>Товар / магазин</span></button>
-            <button type="button" data-add-block="promo_claim"><i class="fas fa-ticket"></i><span>Промокод</span></button>
-            <button type="button" data-add-block="locked_content"><i class="fas fa-lock"></i><span>Прихований текст</span></button>
-          </div>
-          <div class="blog-media-uploader" data-media-uploader>
-            <h3>{% trans 'Медіа' %}</h3>
-            <input type="file" accept="image/*" data-media-file>
-            <input type="text" placeholder="{% trans 'Alt українською' %}" data-media-alt>
-            <textarea rows="2" placeholder="{% trans 'Підпис під фото' %}" data-media-caption></textarea>
-            <input type="text" placeholder="{% trans 'Автор або джерело' %}" data-media-credit>
-            <button type="button" class="blog-admin-button secondary" data-upload-media>
-              <i class="fas fa-upload" aria-hidden="true"></i>
-              <span>{% trans 'Завантажити і вставити' %}</span>
-            </button>
-            <p data-media-status></p>
-          </div>
-        </aside>
-        {% endif %}
-
-        <section class="blog-builder-main">
-          <div class="blog-form-grid">
-            {% for field in form %}
-              <label class="blog-form-field{% if field.field.widget.input_type == 'checkbox' %} checkbox{% endif %}{% if field.name == 'blocks_json' %} hidden{% endif %}">
-                <span>{{ field.label }}</span>
-                {{ field }}
-                {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
-                {{ field.errors }}
-              </label>
-            {% endfor %}
-          </div>
+      <div class="blog-builder-layout{% if is_post_editor %} blog-builder-layout--unified{% else %} blog-builder-layout--form-only{% endif %}">
+        <section class="blog-builder-main blog-editor-workbench">
+          <details class="blog-editor-settings" {% if not is_post_editor %}open{% endif %}>
+            <summary>
+              <span>{% trans 'Налаштування поста' %}</span>
+              <em>{% trans 'Назва, SEO, категорія, мови, обкладинка' %}</em>
+            </summary>
+            <div class="blog-form-grid">
+              {% for field in form %}
+                <label class="blog-form-field{% if field.field.widget.input_type == 'checkbox' %} checkbox{% endif %}{% if field.name == 'blocks_json' %} hidden{% endif %}">
+                  <span>{{ field.label }}</span>
+                  {{ field }}
+                  {% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}
+                  {{ field.errors }}
+                </label>
+              {% endfor %}
+            </div>
+          </details>
 
           {% if is_post_editor %}
+            <div class="blog-editor-toolbar">
+              <div>
+                <h2>{% trans 'Полотно статті' %}</h2>
+                <p>{% trans 'Блоки редагуються у модальному вікні, а тут одразу видно фінальний вигляд.' %}</p>
+              </div>
+              <div class="blog-seo-checks">
+                <span>SEO</span>
+                <small>{% trans 'H1 = назва поста. Title 45-60, warning після 65. Description 120-155, warning після 160.' %}</small>
+              </div>
+            </div>
+
+            <div class="blog-block-palette" data-block-palette>
+              <button type="button" data-add-block="rich_text"><i class="fas fa-align-left"></i><span>Текст</span></button>
+              <button type="button" data-add-block="image"><i class="fas fa-image"></i><span>Фото</span></button>
+              <button type="button" data-add-block="cta_group"><i class="fas fa-share-nodes"></i><span>CTA</span></button>
+              <button type="button" data-add-block="youtube_video"><i class="fab fa-youtube"></i><span>YouTube</span></button>
+              <button type="button" data-add-block="faq"><i class="fas fa-question"></i><span>FAQ</span></button>
+              <button type="button" data-add-block="source_list"><i class="fas fa-link"></i><span>Джерела</span></button>
+              <button type="button" data-add-block="table_specs"><i class="fas fa-table"></i><span>Таблиця</span></button>
+              <button type="button" data-add-block="metric_cards"><i class="fas fa-chart-simple"></i><span>Метрики</span></button>
+              <button type="button" data-add-block="callout"><i class="fas fa-circle-info"></i><span>Callout</span></button>
+              <button type="button" data-add-block="quote"><i class="fas fa-quote-left"></i><span>Цитата</span></button>
+              <button type="button" data-add-block="product_cta"><i class="fas fa-shirt"></i><span>Товар</span></button>
+              <button type="button" data-add-block="promo_claim"><i class="fas fa-ticket"></i><span>Промо</span></button>
+              <button type="button" data-add-block="locked_content"><i class="fas fa-lock"></i><span>Lock</span></button>
+            </div>
+
+            <details class="blog-media-uploader" data-media-uploader>
+              <summary>{% trans 'Завантажити фото у статтю' %}</summary>
+              <div>
+                <input type="file" accept="image/*" data-media-file>
+                <input type="text" placeholder="{% trans 'Alt українською' %}" data-media-alt>
+                <textarea rows="2" placeholder="{% trans 'Підпис під фото' %}" data-media-caption></textarea>
+                <input type="text" placeholder="{% trans 'Автор або джерело' %}" data-media-credit>
+                <button type="button" class="blog-admin-button secondary" data-upload-media>
+                  <i class="fas fa-upload" aria-hidden="true"></i>
+                  <span>{% trans 'Завантажити і вставити' %}</span>
+                </button>
+                <p data-media-status></p>
+              </div>
+            </details>
+
             <div class="blog-block-canvas" data-block-canvas aria-label="{% trans 'Структура статті' %}">
-              <div class="blog-block-empty" data-block-empty>{% trans 'Блоки ще не додані. Виберіть тип зліва.' %}</div>
+              <div class="blog-block-empty" data-block-empty>{% trans 'Додайте перший блок зверху. Він одразу зʼявиться тут у фінальному стилі.' %}</div>
+            </div>
+
+            <div class="blog-block-modal" data-block-modal hidden>
+              <div class="blog-block-modal-backdrop" data-block-modal-close></div>
+              <section class="blog-block-modal-panel" role="dialog" aria-modal="true" aria-labelledby="blog-block-modal-title">
+                <header>
+                  <div>
+                    <span>{% trans 'Редагування блоку' %}</span>
+                    <h2 id="blog-block-modal-title" data-block-modal-title>{% trans 'Блок' %}</h2>
+                  </div>
+                  <button type="button" data-block-modal-close aria-label="{% trans 'Закрити' %}"><i class="fas fa-xmark" aria-hidden="true"></i></button>
+                </header>
+                <div class="blog-block-modal-body" data-block-modal-body></div>
+                <details class="blog-block-json-panel">
+                  <summary>{% trans 'Advanced JSON' %}</summary>
+                  <textarea data-block-modal-json spellcheck="false"></textarea>
+                </details>
+                <footer>
+                  <button type="button" class="blog-admin-button secondary" data-block-modal-close>{% trans 'Готово' %}</button>
+                </footer>
+              </section>
             </div>
           {% endif %}
         </section>
-
-        {% if is_post_editor %}
-        <aside class="blog-builder-preview">
-          <section class="blog-seo-checks">
-            <h2>SEO</h2>
-            <p>{% trans 'Title: рекомендовано 45-60 символів, warning після 65. Description: рекомендовано 120-155, warning після 160.' %}</p>
-            <ul>
-              <li>{% trans 'H1 береться з назви поста.' %}</li>
-              <li>{% trans 'H2/H3 outline формується з текстових і FAQ-блоків.' %}</li>
-              <li>{% trans 'Порожні RU/EN значення показують fallback з української.' %}</li>
-            </ul>
-          </section>
-          <section class="blog-server-preview">
-            <div class="blog-editor-header">
-              <h2>{% trans 'Live preview' %}</h2>
-              <button type="button" class="blog-admin-button secondary" data-render-preview>
-                {% trans 'Оновити' %}
-              </button>
-            </div>
-            <div class="blog-article-content" data-preview-pane>
-              {% trans 'Додайте блок або натисніть «Оновити», щоб побачити server-side preview.' %}
-            </div>
-          </section>
-        </aside>
-        {% endif %}
       </div>
 
       <div class="blog-editor-actions">
@@ -118,15 +128,15 @@
     const canvas = root.querySelector('[data-block-canvas]');
     const empty = root.querySelector('[data-block-empty]');
     const hidden = root.querySelector('[data-blog-blocks-json]');
-    const previewPane = root.querySelector('[data-preview-pane]');
-    const previewButton = root.querySelector('[data-render-preview]');
-    const previewEndpoint = root.dataset.previewEndpoint;
     const mediaEndpoint = root.dataset.mediaUploadEndpoint;
     const csrf = root.querySelector('input[name="csrfmiddlewaretoken"]');
+    const modal = root.querySelector('[data-block-modal]');
+    const modalTitle = root.querySelector('[data-block-modal-title]');
+    const modalBody = root.querySelector('[data-block-modal-body]');
+    const modalJson = root.querySelector('[data-block-modal-json]');
     let blocks = [];
     let dragIndex = null;
-    let previewTimer = null;
-    let previewGeneration = 0;
+    let editingIndex = null;
 
     try {
       const initial = JSON.parse(document.getElementById('blog-blocks-initial').textContent || '[]');
@@ -151,6 +161,7 @@
       image: { caption: { uk: 'Підпис під фото' } },
       cta_group: { layout: 'cards', buttons: [{ provider: 'telegram', label: { uk: 'Написати в Telegram' }, url: 'https://t.me/twocomms' }] },
       metric_cards: { cards: [{ label: { uk: 'Внутрішній прогрес' }, value: '2/4', caption: { uk: 'етапи закрито' } }] },
+      table_specs: { title: { uk: 'Характеристики' }, rows: [{ label: { uk: 'Параметр' }, value: { uk: 'Значення' } }] },
       callout: { tone: 'info', title: { uk: 'Важливо' }, body: { uk: 'Текст підказки.' } },
       quote: { text: { uk: 'Текст цитати.' }, cite: { uk: 'TwoComms editorial' } },
       youtube_video: { url: 'https://www.youtube.com/watch?v=', title: { uk: 'Відео' } },
@@ -159,6 +170,22 @@
       product_cta: { product_id: '', title: { uk: 'Купити товар' }, button_label: { uk: 'До товару' } },
       promo_claim: { campaign_id: '', title: { uk: 'Отримати промокод' }, button_label: { uk: 'Забрати знижку' } },
       locked_content: { teaser: { uk: 'Увійдіть, щоб побачити цей текст.' }, html: { uk: '<p>Прихований текст.</p>' } }
+    };
+
+    const blockLabels = {
+      rich_text: 'Текст',
+      image: 'Фото',
+      cta_group: 'CTA / соцмережі',
+      metric_cards: 'Метрики',
+      callout: 'Callout',
+      quote: 'Цитата',
+      youtube_video: 'YouTube',
+      faq: 'FAQ',
+      source_list: 'Джерела',
+      table_specs: 'Таблиця',
+      product_cta: 'Товар',
+      promo_claim: 'Промокод',
+      locked_content: 'Прихований текст'
     };
 
     function clone(value) {
@@ -272,48 +299,164 @@
       preview.innerHTML = renderInlinePreview(block);
     }
 
+    function labelFor(type) {
+      return blockLabels[type] || type;
+    }
+
     function sync() {
       hidden.value = JSON.stringify(blocks.map((block, index) => ({ ...block, sort_order: index * 10 })));
       empty.hidden = blocks.length > 0;
     }
 
-    async function renderServerPreview(auto = false) {
-      if (!previewEndpoint || !previewPane) return;
-      const generation = ++previewGeneration;
+    function refreshBlock(index) {
+      const card = canvas.querySelector(`[data-index="${index}"]`);
+      if (!card) return;
+      renderBlockPreview(card, blocks[index]);
       sync();
-      if (!auto) {
-        previewPane.textContent = '{% trans "Оновлюємо preview..." %}';
-      } else {
-        previewPane.dataset.previewState = 'loading';
-      }
-      try {
-        const response = await fetch(previewEndpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrf ? csrf.value : ''
-          },
-          body: JSON.stringify({ blocks })
-        });
-        const html = await response.text();
-        if (generation === previewGeneration) {
-          previewPane.innerHTML = response.ok ? html : '{% trans "Preview тимчасово недоступний." %}';
-        }
-      } catch (error) {
-        if (generation === previewGeneration) {
-          previewPane.textContent = '{% trans "Preview тимчасово недоступний." %}';
-        }
-      } finally {
-        if (generation === previewGeneration) {
-          delete previewPane.dataset.previewState;
-        }
+      if (modalJson && editingIndex === index) {
+        modalJson.value = JSON.stringify(blocks[index].payload || {}, null, 2);
       }
     }
 
-    function scheduleServerPreview() {
-      if (!previewEndpoint || !previewPane) return;
-      window.clearTimeout(previewTimer);
-      previewTimer = window.setTimeout(() => renderServerPreview(true), 650);
+    function localizedField(label, key, payload, multiline = false) {
+      const value = escapeHtml(localText(payload[key]));
+      if (multiline) {
+        return `<label class="blog-modal-field"><span>${label}</span><textarea rows="4" data-locale-key="${key}">${value}</textarea></label>`;
+      }
+      return `<label class="blog-modal-field"><span>${label}</span><input type="text" data-locale-key="${key}" value="${value}"></label>`;
+    }
+
+    function directField(label, key, payload, type = 'text') {
+      return `<label class="blog-modal-field"><span>${label}</span><input type="${type}" data-direct-key="${key}" value="${escapeHtml(payload[key] || '')}"></label>`;
+    }
+
+    function directTextarea(label, key, payload) {
+      return `<label class="blog-modal-field"><span>${label}</span><textarea rows="3" data-direct-key="${key}">${escapeHtml(payload[key] || '')}</textarea></label>`;
+    }
+
+    function selectField(label, key, payload, options) {
+      const value = String(payload[key] || options[0][0]);
+      const opts = options.map(([optionValue, optionLabel]) => `<option value="${optionValue}"${value === optionValue ? ' selected' : ''}>${optionLabel}</option>`).join('');
+      return `<label class="blog-modal-field"><span>${label}</span><select data-direct-key="${key}">${opts}</select></label>`;
+    }
+
+    function listControls(listName, items, fields, addLabel) {
+      const rows = items.map((item, index) => {
+        const controls = fields.map((field) => {
+          const value = field.localized ? localText(item[field.key]) : (item[field.key] || '');
+          if (field.type === 'select') {
+            const opts = field.options.map(([optionValue, optionLabel]) => `<option value="${optionValue}"${String(value || field.options[0][0]) === optionValue ? ' selected' : ''}>${optionLabel}</option>`).join('');
+            return `<label><span>${field.label}</span><select data-list="${listName}" data-index="${index}" data-field="${field.key}"${field.localized ? ' data-localized="1"' : ''}>${opts}</select></label>`;
+          }
+          return `<label><span>${field.label}</span><input type="${field.type || 'text'}" data-list="${listName}" data-index="${index}" data-field="${field.key}"${field.localized ? ' data-localized="1"' : ''} value="${escapeHtml(value)}"></label>`;
+        }).join('');
+        return `<div class="blog-modal-list-row">${controls}<button type="button" data-remove-list-item="${listName}" data-index="${index}" aria-label="{% trans 'Видалити' %}"><i class="fas fa-trash" aria-hidden="true"></i></button></div>`;
+      }).join('');
+      return `<div class="blog-modal-list" data-list-shell="${listName}">${rows}<button type="button" class="blog-admin-button secondary" data-add-list-item="${listName}">${addLabel}</button></div>`;
+    }
+
+    function modalFields(block) {
+      const payload = block.payload || {};
+      if (block.type === 'cta_group') {
+        if (!Array.isArray(payload.buttons)) payload.buttons = [];
+        return [
+          selectField('Layout', 'layout', payload, [['cards', 'Cards'], ['full', 'Full'], ['split', 'Split'], ['compact', 'Compact']]),
+          localizedField('Заголовок над CTA', 'title', payload),
+          localizedField('Опис', 'body', payload, true),
+          listControls('buttons', payload.buttons, [
+            { key: 'provider', label: 'Тип', type: 'select', options: [['telegram', 'Telegram'], ['instagram', 'Instagram'], ['tiktok', 'TikTok'], ['product', 'Product'], ['custom_print', 'Custom print'], ['catalog', 'Catalog'], ['link', 'Link']] },
+            { key: 'label', label: 'Текст', localized: true },
+            { key: 'caption', label: 'Підпис', localized: true },
+            { key: 'url', label: 'URL' },
+            { key: 'style', label: 'Style', type: 'select', options: [['solid', 'Solid'], ['outline', 'Outline']] },
+          ], '+ CTA')
+        ].join('');
+      }
+      if (block.type === 'metric_cards') {
+        if (!Array.isArray(payload.cards)) payload.cards = [];
+        return listControls('cards', payload.cards, [
+          { key: 'label', label: 'Назва', localized: true },
+          { key: 'value', label: 'Значення' },
+          { key: 'caption', label: 'Підпис', localized: true },
+          { key: 'status', label: 'Status', type: 'select', options: [['', 'Default'], ['complete', 'Complete'], ['progress', 'Progress'], ['planned', 'Planned']] },
+        ], '+ Метрика');
+      }
+      if (block.type === 'faq') {
+        if (!Array.isArray(payload.items)) payload.items = [];
+        return listControls('items', payload.items, [
+          { key: 'question', label: 'Питання', localized: true },
+          { key: 'answer', label: 'Відповідь', localized: true },
+        ], '+ Питання');
+      }
+      if (block.type === 'source_list') {
+        if (!Array.isArray(payload.sources)) payload.sources = [];
+        return localizedField('Заголовок', 'title', payload) + localizedField('Опис', 'description', payload, true) + listControls('sources', payload.sources, [
+          { key: 'label', label: 'Назва', localized: true },
+          { key: 'url', label: 'URL' },
+        ], '+ Джерело');
+      }
+      if (block.type === 'table_specs') {
+        if (!Array.isArray(payload.rows)) payload.rows = [];
+        return localizedField('Заголовок', 'title', payload) + listControls('rows', payload.rows, [
+          { key: 'label', label: 'Назва', localized: true },
+          { key: 'value', label: 'Значення', localized: true },
+        ], '+ Рядок');
+      }
+      if (block.type === 'rich_text') return localizedField('HTML / текст українською', 'html', payload, true);
+      if (block.type === 'image') return directField('Media ID', 'media_id', payload, 'number') + localizedField('Alt', 'alt', payload) + localizedField('Підпис', 'caption', payload, true);
+      if (block.type === 'youtube_video') return directField('YouTube URL', 'url', payload) + localizedField('Назва', 'title', payload);
+      if (block.type === 'callout') return selectField('Tone', 'tone', payload, [['info', 'Info'], ['tip', 'Tip'], ['warning', 'Warning']]) + localizedField('Заголовок', 'title', payload) + localizedField('Текст', 'body', payload, true);
+      if (block.type === 'quote') return localizedField('Цитата', 'text', payload, true) + localizedField('Автор / джерело', 'cite', payload);
+      if (block.type === 'product_cta') return directField('Product ID', 'product_id', payload, 'number') + localizedField('Заголовок', 'title', payload) + localizedField('Кнопка', 'button_label', payload);
+      if (block.type === 'promo_claim') return directField('Campaign ID', 'campaign_id', payload, 'number') + localizedField('Заголовок', 'title', payload) + localizedField('Опис', 'body', payload, true) + localizedField('Кнопка', 'button_label', payload);
+      if (block.type === 'locked_content') return localizedField('Teaser', 'teaser', payload, true) + localizedField('Прихований HTML', 'html', payload, true);
+      return directTextarea('Payload', '_raw', payload);
+    }
+
+    function openBlockModal(index) {
+      editingIndex = index;
+      const block = blocks[index];
+      if (!modal || !block) return;
+      if (modalTitle) modalTitle.textContent = labelFor(block.type);
+      if (modalBody) modalBody.innerHTML = modalFields(block);
+      if (modalJson) {
+        modalJson.value = JSON.stringify(block.payload || {}, null, 2);
+        modalJson.classList.remove('has-error');
+      }
+      modal.hidden = false;
+      document.documentElement.classList.add('blog-modal-open');
+    }
+
+    function closeBlockModal() {
+      editingIndex = null;
+      if (modal) modal.hidden = true;
+      document.documentElement.classList.remove('blog-modal-open');
+    }
+
+    function setLocalized(payload, key, value) {
+      if (!payload[key] || typeof payload[key] !== 'object' || Array.isArray(payload[key])) payload[key] = {};
+      payload[key].uk = value;
+    }
+
+    function applyModalControl(input) {
+      if (editingIndex === null || !blocks[editingIndex]) return;
+      const payload = blocks[editingIndex].payload || {};
+      blocks[editingIndex].payload = payload;
+      if (input.dataset.localeKey) {
+        setLocalized(payload, input.dataset.localeKey, input.value);
+      }
+      if (input.dataset.directKey) {
+        payload[input.dataset.directKey] = input.value;
+      }
+      if (input.dataset.list) {
+        const list = payload[input.dataset.list] || [];
+        const item = list[Number(input.dataset.index)];
+        if (item) {
+          if (input.dataset.localized) setLocalized(item, input.dataset.field, input.value);
+          else item[input.dataset.field] = input.value;
+        }
+      }
+      refreshBlock(editingIndex);
     }
 
     function moveBlock(from, to) {
@@ -334,8 +477,9 @@
         card.innerHTML = `
           <div class="blog-block-card-head">
             <span class="drag-handle" title="{% trans 'Перетягнути' %}"><i class="fas fa-grip-vertical"></i></span>
-            <strong>${block.type}</strong>
+            <strong>${labelFor(block.type)}</strong>
             <div>
+              <button type="button" data-edit="${index}" title="{% trans 'Налаштувати' %}"><i class="fas fa-pen"></i></button>
               <button type="button" data-move-up="${index}" title="{% trans 'Вище' %}"><i class="fas fa-arrow-up"></i></button>
               <button type="button" data-move-down="${index}" title="{% trans 'Нижче' %}"><i class="fas fa-arrow-down"></i></button>
               <button type="button" data-toggle="${index}" title="{% trans 'Увімкнути або вимкнути' %}"><i class="fas ${block.is_enabled === false ? 'fa-eye-slash' : 'fa-eye'}"></i></button>
@@ -344,13 +488,11 @@
             </div>
           </div>
           <div class="blog-block-visual-preview" data-block-visual-preview="${index}" aria-label="{% trans 'Візуальний preview блоку' %}"></div>
-          <textarea data-payload="${index}" spellcheck="false">${JSON.stringify(block.payload || {}, null, 2)}</textarea>
         `;
         canvas.appendChild(card);
         renderBlockPreview(card, block);
       });
       sync();
-      scheduleServerPreview();
     }
 
     root.querySelectorAll('[data-add-block]').forEach((button) => {
@@ -404,26 +546,16 @@
       });
     }
 
-    canvas.addEventListener('input', (event) => {
-      const index = event.target.dataset.payload;
-      if (index === undefined) return;
-      try {
-        blocks[Number(index)].payload = JSON.parse(event.target.value || '{}');
-        event.target.classList.remove('has-error');
-        renderBlockPreview(event.target.closest('[data-block-card]'), blocks[Number(index)]);
-        sync();
-        scheduleServerPreview();
-      } catch (error) {
-        event.target.classList.add('has-error');
-      }
-    });
-
     canvas.addEventListener('click', (event) => {
+      const edit = event.target.closest('[data-edit]');
       const remove = event.target.closest('[data-remove]');
       const duplicate = event.target.closest('[data-duplicate]');
       const moveUp = event.target.closest('[data-move-up]');
       const moveDown = event.target.closest('[data-move-down]');
       const toggle = event.target.closest('[data-toggle]');
+      if (edit) {
+        openBlockModal(Number(edit.dataset.edit));
+      }
       if (moveUp) {
         moveBlock(Number(moveUp.dataset.moveUp), Number(moveUp.dataset.moveUp) - 1);
       }
@@ -471,8 +603,59 @@
       moveBlock(dragIndex, Number(card.dataset.index));
     });
 
-    if (previewButton && previewEndpoint) {
-      previewButton.addEventListener('click', () => renderServerPreview(false));
+    if (modal) {
+      modal.addEventListener('click', (event) => {
+        if (event.target.closest('[data-block-modal-close]')) {
+          closeBlockModal();
+        }
+        const addList = event.target.closest('[data-add-list-item]');
+        const removeList = event.target.closest('[data-remove-list-item]');
+        if (editingIndex === null || !blocks[editingIndex]) return;
+        const payload = blocks[editingIndex].payload || {};
+        blocks[editingIndex].payload = payload;
+        if (addList) {
+          const listName = addList.dataset.addListItem;
+          if (!Array.isArray(payload[listName])) payload[listName] = [];
+          const defaultsByList = {
+            buttons: { provider: 'telegram', label: { uk: 'Нова кнопка' }, url: '' },
+            cards: { label: { uk: 'Назва' }, value: '', caption: { uk: 'Підпис' } },
+            items: { question: { uk: 'Питання?' }, answer: { uk: 'Відповідь.' } },
+            sources: { label: { uk: 'Джерело' }, url: '' },
+            rows: { label: { uk: 'Параметр' }, value: { uk: 'Значення' } }
+          };
+          payload[listName].push(clone(defaultsByList[listName] || {}));
+          modalBody.innerHTML = modalFields(blocks[editingIndex]);
+          refreshBlock(editingIndex);
+        }
+        if (removeList) {
+          const listName = removeList.dataset.removeListItem;
+          const index = Number(removeList.dataset.index);
+          if (Array.isArray(payload[listName])) payload[listName].splice(index, 1);
+          modalBody.innerHTML = modalFields(blocks[editingIndex]);
+          refreshBlock(editingIndex);
+        }
+      });
+      modal.addEventListener('input', (event) => {
+        if (event.target === modalJson) {
+          if (editingIndex === null || !blocks[editingIndex]) return;
+          try {
+            blocks[editingIndex].payload = JSON.parse(modalJson.value || '{}');
+            modalJson.classList.remove('has-error');
+            modalBody.innerHTML = modalFields(blocks[editingIndex]);
+            refreshBlock(editingIndex);
+          } catch (error) {
+            modalJson.classList.add('has-error');
+          }
+          return;
+        }
+        applyModalControl(event.target);
+      });
+      modal.addEventListener('change', (event) => {
+        applyModalControl(event.target);
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !modal.hidden) closeBlockModal();
+      });
     }
 
     root.querySelector('[data-blog-editor-form]').addEventListener('submit', sync);
