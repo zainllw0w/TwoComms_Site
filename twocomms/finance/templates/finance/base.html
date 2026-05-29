@@ -73,6 +73,14 @@
                     </div>
                 </div>
 
+                <div class="fin-balance-card fin-balance-card--frozen" title="Собівартість залишків складу (зі storage)">
+                    <div class="fin-balance-card__label">Заморожено в складі</div>
+                    <div class="fin-balance-card__value">
+                        {% if fin_frozen_warehouse is not None %}{{ fin_frozen_warehouse }}{% else %}—{% endif %}
+                    </div>
+                    <div class="fin-balance-card__hint">за собівартістю · дані складу</div>
+                </div>
+
                 <div class="fin-accounts">
                     <div class="fin-accounts__head">
                         <span>Мої рахунки</span>

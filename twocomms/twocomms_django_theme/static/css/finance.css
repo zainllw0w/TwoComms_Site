@@ -226,6 +226,11 @@ a { color: inherit; }
     background: linear-gradient(135deg, rgba(111, 149, 255, 0.12), rgba(111, 149, 255, 0.03));
     border-color: rgba(111, 149, 255, 0.22);
 }
+.fin-balance-card--frozen {
+    background: linear-gradient(135deg, rgba(167, 139, 250, 0.12), rgba(167, 139, 250, 0.03));
+    border-color: rgba(167, 139, 250, 0.24);
+}
+.fin-balance-card__hint { font-size: 10px; color: var(--fin-muted); margin-top: 3px; }
 .fin-balance-card__label { font-size: 11px; color: var(--fin-text-2); text-transform: uppercase; letter-spacing: 0.05em; }
 .fin-balance-card__value { font-size: 22px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; }
 

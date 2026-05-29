@@ -33,6 +33,7 @@ def finance_shell_context(request):
         from .models import get_default_company
         from .services import balances as balance_service
         from .services import serializers as ser
+        from .services import warehouse_link
     except Exception:
         return {}
 
@@ -46,12 +47,15 @@ def finance_shell_context(request):
         planned = balance_service.planned_totals(company, month_start, month_end)
         forecast = (total + planned['income'] + planned['expense'])
         accounts = balance_service.account_sidebar_data(company)
+        frozen = warehouse_link.frozen_in_warehouse()
 
         return {
             'fin_company_name': company.name,
             'fin_base_currency': ser.currency_symbol(company.base_currency),
             'fin_total_balance': ser.money(total, company.base_currency),
             'fin_accounts': accounts,
+            'fin_frozen_warehouse': ser.money(frozen, company.base_currency),
+            'fin_frozen_raw': frozen,
             'fin_planned_income': ser.money(planned['income'], company.base_currency, signed=True),
             'fin_planned_expense': ser.money(planned['expense'], company.base_currency, signed=True),
             'fin_forecast_balance': ser.money(forecast, company.base_currency),
