@@ -173,11 +173,13 @@ MIDDLEWARE = [
     "twocomms.middleware.SimpleRateLimitMiddleware",  # Rate limiting (ПОСЛЕ статики!)
     "twocomms.image_middleware.ImageOptimizationMiddleware",  # Enabled with caching
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "twocomms.middleware.SocialAuthStateCookieMiddleware",  # OAuth state fallback before social-auth callback validation
     "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
+    "social_django.middleware.SocialAuthExceptionMiddleware",  # Redirect social-auth errors instead of leaking 500s
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "twocomms.middleware.SubdomainRedirectFallbackMiddleware",  # SEO редиректы (skip dtf.*)
     "accounts.cart_middleware.CartSyncMiddleware",  # синхронизация корзины между устройствами

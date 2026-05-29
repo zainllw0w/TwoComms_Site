@@ -4,11 +4,14 @@
 
 from django.http import HttpResponsePermanentRedirect, HttpResponse
 from django.conf import settings
+from django.core import signing
 from django.utils.deprecation import MiddlewareMixin
 from django.core.cache import cache
 from django.core.exceptions import DisallowedHost
 from django.contrib.redirects.middleware import RedirectFallbackMiddleware
+from django.utils.crypto import constant_time_compare
 import os
+import re
 import time
 
 
@@ -71,6 +74,115 @@ class WWWRedirectMiddleware(MiddlewareMixin):
             return HttpResponsePermanentRedirect(non_www_url)
 
         return None
+
+
+SOCIAL_AUTH_STATE_COOKIE_MAX_AGE = 10 * 60
+SOCIAL_AUTH_STATE_COOKIE_SALT = "twocomms.social-auth-state.v1"
+SOCIAL_AUTH_STATE_COOKIE_PREFIX = "twc_oauth_state_"
+SOCIAL_AUTH_STATE_PATH_RE = re.compile(
+    r"^/(?:oauth|social)/(?P<action>login|complete)/(?P<backend>[-\w]+)/?$"
+)
+
+
+def _social_auth_state_cookie_name(backend: str) -> str:
+    safe_backend = re.sub(r"[^A-Za-z0-9_]", "_", backend or "")
+    return f"{SOCIAL_AUTH_STATE_COOKIE_PREFIX}{safe_backend}"
+
+
+def build_social_auth_state_cookie(backend: str, state: str) -> str:
+    return signing.dumps(
+        {"backend": backend, "state": state},
+        salt=SOCIAL_AUTH_STATE_COOKIE_SALT,
+    )
+
+
+class SocialAuthStateCookieMiddleware(MiddlewareMixin):
+    """Short-lived double-submit cookie fallback for OAuth state.
+
+    python-social-auth stores OAuth ``state`` only in the Django session.
+    If the browser loses or rotates that session during the Google handoff,
+    the callback raises AuthStateMissing before our merge pipeline can run.
+    The signed cookie is not a login credential; it only lets us restore the
+    exact random state value when it matches the callback parameter.
+    """
+
+    def _match_social_auth_path(self, request):
+        return SOCIAL_AUTH_STATE_PATH_RE.match(getattr(request, "path", "") or "")
+
+    def process_request(self, request):
+        match = self._match_social_auth_path(request)
+        if not match or match.group("action") != "complete":
+            return None
+        if not hasattr(request, "session"):
+            return None
+
+        backend = match.group("backend")
+        session_key = f"{backend}_state"
+        if request.session.get(session_key):
+            return None
+
+        request_state = request.GET.get("state") or request.GET.get("redirect_state")
+        if not request_state:
+            return None
+
+        cookie_name = _social_auth_state_cookie_name(backend)
+        signed_value = request.COOKIES.get(cookie_name)
+        if not signed_value:
+            return None
+
+        try:
+            payload = signing.loads(
+                signed_value,
+                salt=SOCIAL_AUTH_STATE_COOKIE_SALT,
+                max_age=SOCIAL_AUTH_STATE_COOKIE_MAX_AGE,
+            )
+        except signing.BadSignature:
+            return None
+
+        cookie_backend = payload.get("backend") if isinstance(payload, dict) else ""
+        cookie_state = payload.get("state") if isinstance(payload, dict) else ""
+        if (
+            cookie_backend == backend
+            and cookie_state
+            and constant_time_compare(str(cookie_state), str(request_state))
+        ):
+            request.session[session_key] = cookie_state
+            request.session.modified = True
+        return None
+
+    def process_response(self, request, response):
+        match = self._match_social_auth_path(request)
+        if not match:
+            return response
+        if not hasattr(request, "session"):
+            return response
+
+        backend = match.group("backend")
+        cookie_name = _social_auth_state_cookie_name(backend)
+        cookie_domain = getattr(settings, "SESSION_COOKIE_DOMAIN", None)
+        cookie_samesite = getattr(settings, "SESSION_COOKIE_SAMESITE", "Lax")
+
+        if match.group("action") == "login":
+            state = request.session.get(f"{backend}_state")
+            if state:
+                response.set_cookie(
+                    cookie_name,
+                    build_social_auth_state_cookie(backend, state),
+                    max_age=SOCIAL_AUTH_STATE_COOKIE_MAX_AGE,
+                    path="/",
+                    domain=cookie_domain,
+                    secure=getattr(settings, "SESSION_COOKIE_SECURE", False),
+                    httponly=True,
+                    samesite=cookie_samesite,
+                )
+        elif match.group("action") == "complete":
+            response.delete_cookie(
+                cookie_name,
+                path="/",
+                domain=cookie_domain,
+                samesite=cookie_samesite,
+            )
+        return response
 
 
 class SubdomainURLRoutingMiddleware(MiddlewareMixin):
