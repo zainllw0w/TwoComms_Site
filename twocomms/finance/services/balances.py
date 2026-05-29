@@ -34,12 +34,15 @@ def total_actual_balance(company, on_date=None) -> Decimal:
 def planned_totals(company, date_from, date_to):
     """Планові доходи/витрати за період у базовій валюті.
 
-    Витрати повертаються від'ємними (для відображення у панелі).
+    ``date_from=None`` → без нижньої межі (включає прострочені, ще не проведені
+    планові платежі). Витрати повертаються від'ємними (для відображення у панелі).
     """
     qs = Transaction.objects.filter(
         company=company, status=Transaction.STATUS_PLANNED,
-        date_actual__date__gte=date_from, date_actual__date__lte=date_to,
+        date_actual__date__lte=date_to,
     )
+    if date_from is not None:
+        qs = qs.filter(date_actual__date__gte=date_from)
     income = Decimal('0')
     expense = Decimal('0')
     for t in qs:

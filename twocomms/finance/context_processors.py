@@ -40,11 +40,13 @@ def finance_shell_context(request):
     try:
         company = get_default_company()
         today = timezone.localdate()
-        month_start = today.replace(day=1)
-        month_end = (month_start + dt.timedelta(days=32)).replace(day=1) - dt.timedelta(days=1)
+        # Прогноз на місяць вперед від сьогодні + усі прострочені, ще не проведені
+        # планові платежі (нижня межа відкрита). Так панель не «обнуляється»,
+        # коли всі плани лежать у наступному календарному місяці.
+        horizon = today + dt.timedelta(days=30)
 
         total = balance_service.total_actual_balance(company)
-        planned = balance_service.planned_totals(company, month_start, month_end)
+        planned = balance_service.planned_totals(company, None, horizon)
         forecast = (total + planned['income'] + planned['expense'])
         accounts = balance_service.account_sidebar_data(company)
         frozen = warehouse_link.frozen_in_warehouse()
@@ -59,7 +61,7 @@ def finance_shell_context(request):
             'fin_planned_income': ser.money(planned['income'], company.base_currency, signed=True),
             'fin_planned_expense': ser.money(planned['expense'], company.base_currency, signed=True),
             'fin_forecast_balance': ser.money(forecast, company.base_currency),
-            'fin_planned_period_label': '1 міс',
+            'fin_planned_period_label': '30 дн',
         }
     except Exception:
         # На випадок незастосованих міграцій тощо — не ламаємо сторінку.
