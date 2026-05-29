@@ -1,6 +1,12 @@
 """Finance views package."""
 from .shell import (  # noqa: F401
-    ai_advisor, users,
+    users,
+)
+from .ai import (  # noqa: F401
+    ai_advisor_page,
+    ai_chat_api,
+    ai_check_payments_api,
+    ai_check_report_api,
 )
 from .calendar_views import (  # noqa: F401
     calendar,

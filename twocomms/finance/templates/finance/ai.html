@@ -1,0 +1,43 @@
+{% extends 'finance/base.html' %}
+{% load static %}
+{% block title %}AI радник — TwoComms Finance{% endblock %}
+
+{% block content %}
+<div class="fin-ai-layout">
+    <aside class="fin-ai-sidebar">
+        <div class="fin-ai-priv">🔒 Зашифровано · AI не вчиться на твоїх цифрах</div>
+        <div class="fin-ai-menu">
+            <div class="fin-ai-menu__group">Розмова</div>
+            <button type="button" class="fin-ai-menu__item is-active" data-tool="chat">💬 Фінансовий чат</button>
+            <div class="fin-ai-menu__group">Інструменти</div>
+            <button type="button" class="fin-ai-menu__item" data-tool="check_report">📋 Перевірити звіт</button>
+            <button type="button" class="fin-ai-menu__item" data-tool="check_payments">🧾 Перевірити платежі</button>
+            <a class="fin-ai-menu__item" href="{% url 'finance_accounts' %}">📥 Імпорт виписки</a>
+            <a class="fin-ai-menu__item" href="{% url 'finance_report' 'cashflow' %}">📄 Звіт</a>
+        </div>
+        <label class="fin-checkbox fin-ai-autoconfirm"><input type="checkbox" id="fin-ai-autoconfirm"> Автопідтвердження дій</label>
+    </aside>
+
+    <main class="fin-ai-main">
+        <div class="fin-ai-messages" id="fin-ai-messages">
+            <div class="fin-ai-welcome">
+                <h2>Привіт! Я ваш фінансовий радник 👋</h2>
+                <p>Запитайте про доходи, витрати, прогноз чи борги — відповім на основі ваших даних.</p>
+                <div class="fin-ai-cards">
+                    {% for p in quick_prompts %}
+                    <button type="button" class="fin-ai-card" data-prompt="{{ p.title }}"><span>{{ p.icon }}</span>{{ p.title }}</button>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <form class="fin-ai-input" id="fin-ai-form">
+            <input type="text" class="fin-input" id="fin-ai-question" placeholder="Спитай: куди пішли гроші цього місяця?" autocomplete="off">
+            <button type="submit" class="fin-btn fin-btn--primary">Надіслати</button>
+        </form>
+    </main>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/finance-ai.js' %}?v=20260529a"></script>
+{% endblock %}
