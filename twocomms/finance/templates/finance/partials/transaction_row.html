@@ -1,0 +1,22 @@
+{# Рядок операції журналу. Очікує r = serialized transaction dict. #}
+<tr class="fin-row fin-row--{{ r.type }}{% if r.is_planned %} is-planned{% endif %}"
+    data-txn-id="{{ r.id }}" data-txn-type="{{ r.type }}">
+    <td class="fin-col-check"><input type="checkbox" class="fin-row-check" value="{{ r.id }}" aria-label="Обрати"></td>
+    <td class="fin-cell-date">
+        <span class="fin-date">{{ r.date }}</span>
+        <span class="fin-time">{{ r.time }}</span>
+        {% if r.is_planned %}<span class="fin-badge fin-badge--planned">план</span>{% endif %}
+    </td>
+    <td class="fin-col-amount fin-amount--{{ r.amount_class }}">{{ r.amount_display }}</td>
+    <td class="fin-cell-account">
+        <span class="fin-acc-name">{{ r.account_name }}</span>
+        {% if r.running_balance %}<span class="fin-acc-balance">{{ r.running_balance }}</span>{% endif %}
+    </td>
+    <td>{% if r.counterparty %}{{ r.counterparty }}{% else %}<span class="fin-specify">Вказати</span>{% endif %}</td>
+    <td>{% if r.category %}{{ r.category }}{% else %}<span class="fin-specify">Вказати</span>{% endif %}</td>
+    <td>{% if r.project %}{{ r.project }}{% else %}<span class="fin-muted-cell">—</span>{% endif %}</td>
+    <td class="fin-cell-comment">
+        {{ r.comment }}
+        {% for t in r.tags %}<span class="fin-tag-chip">{{ t.name }}</span>{% endfor %}
+    </td>
+</tr>

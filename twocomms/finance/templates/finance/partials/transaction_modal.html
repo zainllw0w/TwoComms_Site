@@ -1,0 +1,143 @@
+{# Універсальна модалка операції: дохід / витрата / переказ / редагування.
+   Поля показуються/ховаються залежно від типу через JS (finance-transactions.js). #}
+<div class="fin-modal-overlay" id="fin-txn-modal" hidden>
+  <div class="fin-modal-card fin-modal-card--txn" role="dialog" aria-modal="true" aria-labelledby="fin-txn-title">
+    <div class="fin-modal-head">
+      <div class="fin-txn-tabs" id="fin-txn-tabs">
+        <button type="button" class="fin-txn-tab" data-type="income">+ Дохід</button>
+        <button type="button" class="fin-txn-tab" data-type="expense">− Витрата</button>
+        <button type="button" class="fin-txn-tab" data-type="transfer">⇄ Переказ</button>
+      </div>
+      <button type="button" class="fin-modal-close" data-fin-close aria-label="Закрити">×</button>
+    </div>
+
+    <form class="fin-modal-body" id="fin-txn-form">
+      {% csrf_token %}
+      <input type="hidden" name="type" id="fin-txn-type" value="income">
+      <input type="hidden" name="status" id="fin-txn-status" value="actual">
+      <input type="hidden" id="fin-txn-id" value="">
+
+      <div class="fin-form-alert" id="fin-txn-alert" hidden></div>
+
+      <!-- Рахунок (для доходу/витрати) -->
+      <div class="fin-field-group" data-show="income,expense">
+        <label class="fin-field">
+          <span id="fin-account-label">На рахунок</span>
+          <select name="account" id="fin-txn-account" class="fin-select" data-field></select>
+        </label>
+      </div>
+
+      <!-- Рахунки переказу -->
+      <div class="fin-field-group fin-field-row" data-show="transfer">
+        <label class="fin-field">
+          <span>З рахунку</span>
+          <select name="from_account" id="fin-txn-from" class="fin-select" data-field></select>
+        </label>
+        <label class="fin-field">
+          <span>На рахунок</span>
+          <select name="to_account" id="fin-txn-to" class="fin-select" data-field></select>
+        </label>
+      </div>
+
+      <div class="fin-field-row">
+        <label class="fin-field">
+          <span>Сума</span>
+          <input type="number" step="0.01" name="amount" id="fin-txn-amount" class="fin-input" data-field required>
+        </label>
+        <label class="fin-field fin-field--cur">
+          <span>Валюта</span>
+          <input type="text" name="currency" id="fin-txn-currency" class="fin-input" readonly>
+        </label>
+      </div>
+
+      <!-- Сума зарахування (різні валюти переказу) -->
+      <div class="fin-field-group" data-show="transfer" id="fin-to-amount-wrap" hidden>
+        <label class="fin-field">
+          <span>Сума зарахування</span>
+          <input type="number" step="0.01" name="to_amount" id="fin-txn-to-amount" class="fin-input">
+        </label>
+      </div>
+
+      <!-- Категорія + контрагент (дохід/витрата) -->
+      <div class="fin-field-group" data-show="income,expense">
+        <label class="fin-field">
+          <span>Категорія</span>
+          <div class="fin-combo">
+            <select name="category" id="fin-txn-category" class="fin-select" data-field></select>
+            <button type="button" class="fin-combo-add" data-create="category" title="Створити категорію">+</button>
+          </div>
+        </label>
+        <label class="fin-field">
+          <span>Мій контрагент</span>
+          <div class="fin-combo">
+            <select name="counterparty" id="fin-txn-counterparty" class="fin-select" data-field></select>
+            <button type="button" class="fin-combo-add" data-create="counterparty" title="Створити контрагента">+</button>
+          </div>
+        </label>
+      </div>
+
+      <!-- Дати -->
+      <label class="fin-field">
+        <span id="fin-date-label">Фактична дата</span>
+        <input type="datetime-local" name="date_actual" id="fin-txn-date" class="fin-input" data-field>
+      </label>
+
+      <button type="button" class="fin-toggle-link" id="fin-toggle-agreement" data-show="income,expense">
+        Дата угоди відрізняється
+      </button>
+      <label class="fin-field" id="fin-agreement-wrap" hidden>
+        <span>Дата угоди</span>
+        <input type="datetime-local" name="date_agreement" id="fin-txn-agreement" class="fin-input">
+      </label>
+
+      <button type="button" class="fin-toggle-link" id="fin-toggle-recurring" data-show="income,expense">
+        Зробити повторюваним
+      </button>
+      <div class="fin-recurring" id="fin-recurring-wrap" hidden>
+        <select name="recurrence" id="fin-txn-recurrence" class="fin-select">
+          <option value="">Не повторювати в майбутньому</option>
+          <option value="daily">Щодня</option>
+          <option value="weekly">Щотижня</option>
+          <option value="monthly">Щомісяця</option>
+          <option value="yearly">Щороку</option>
+        </select>
+      </div>
+
+      <!-- Додаткові поля -->
+      <button type="button" class="fin-toggle-link" id="fin-toggle-extra">
+        Додати проект, тег, коментар, файл
+      </button>
+      <div class="fin-extra" id="fin-extra-wrap" hidden>
+        <label class="fin-field">
+          <span>Проект</span>
+          <div class="fin-combo">
+            <select name="project" id="fin-txn-project" class="fin-select"></select>
+            <button type="button" class="fin-combo-add" data-create="project" title="Створити проект">+</button>
+          </div>
+        </label>
+        <label class="fin-field">
+          <span>Теги</span>
+          <div class="fin-tags-field" id="fin-txn-tags" data-selected=""></div>
+        </label>
+        <label class="fin-field">
+          <span>Коментар</span>
+          <textarea name="comment" id="fin-txn-comment" class="fin-input fin-textarea" rows="2"></textarea>
+        </label>
+      </div>
+
+      <!-- Дії редагування (тільки в режимі редагування) -->
+      <div class="fin-edit-actions" id="fin-edit-actions" hidden>
+        <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" id="fin-act-duplicate">Дублювати</button>
+        <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" id="fin-act-convert" data-show="income,expense">Змінити в переказ</button>
+        <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" id="fin-act-split" data-show="income,expense">Розділити</button>
+        <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" id="fin-act-mark-actual" hidden>Позначити фактичною</button>
+        <button type="button" class="fin-btn fin-btn--danger fin-btn--sm" id="fin-act-delete">Видалити</button>
+      </div>
+
+      <div class="fin-modal-foot">
+        <button type="button" class="fin-btn fin-btn--ghost" id="fin-txn-similar">+ Додати і створити схожий</button>
+        <button type="submit" class="fin-btn fin-btn--primary" id="fin-txn-submit">Додати дохід</button>
+      </div>
+    </form>
+  </div>
+</div>

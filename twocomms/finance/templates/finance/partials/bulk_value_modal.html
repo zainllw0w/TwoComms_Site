@@ -1,0 +1,19 @@
+{# Невелика модалка вибору значення для масової дії (категорія/проект/контрагент/тег). #}
+<div class="fin-modal-overlay" id="fin-bulk-modal" hidden>
+  <div class="fin-modal-card fin-modal-card--sm" role="dialog" aria-modal="true">
+    <div class="fin-modal-head">
+      <h3 id="fin-bulk-title">Масова дія</h3>
+      <button type="button" class="fin-modal-close" data-fin-close aria-label="Закрити">×</button>
+    </div>
+    <div class="fin-modal-body">
+      <label class="fin-field">
+        <span id="fin-bulk-label">Оберіть значення</span>
+        <select id="fin-bulk-value" class="fin-select"></select>
+      </label>
+      <div class="fin-modal-foot">
+        <button type="button" class="fin-btn fin-btn--ghost" data-fin-close>Відміна</button>
+        <button type="button" class="fin-btn fin-btn--primary" id="fin-bulk-apply">Застосувати</button>
+      </div>
+    </div>
+  </div>
+</div>

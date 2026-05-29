@@ -1,0 +1,140 @@
+{% extends 'finance/base.html' %}
+{% load static %}
+
+{% block title %}Платежі — TwoComms Finance{% endblock %}
+
+{% block content %}
+<div class="fin-page-head">
+    <div>
+        <h1 class="fin-page-title">Платежі</h1>
+        <p class="fin-page-subtitle">Журнал доходів, витрат, переказів і планових платежів.</p>
+    </div>
+</div>
+
+{# Дані довідників для JS-модалок #}
+{{ dropdowns|json_script:"fin-dropdowns" }}
+
+<!-- Панель фільтрів -->
+<form class="fin-filters" id="fin-filters" method="get" autocomplete="off">
+    <div class="fin-filters__row">
+        <label class="fin-period">
+            <select name="period" class="fin-select" id="fin-period">
+                <option value="all" {% if current_filters.period == 'all' %}selected{% endif %}>За весь час</option>
+                <option value="today" {% if current_filters.period == 'today' %}selected{% endif %}>Сьогодні</option>
+                <option value="yesterday" {% if current_filters.period == 'yesterday' %}selected{% endif %}>Вчора</option>
+                <option value="week" {% if current_filters.period == 'week' %}selected{% endif %}>Поточний тиждень</option>
+                <option value="month" {% if current_filters.period == 'month' %}selected{% endif %}>Поточний місяць</option>
+                <option value="last_month" {% if current_filters.period == 'last_month' %}selected{% endif %}>Минулий місяць</option>
+                <option value="quarter" {% if current_filters.period == 'quarter' %}selected{% endif %}>Квартал</option>
+                <option value="year" {% if current_filters.period == 'year' %}selected{% endif %}>Рік</option>
+                <option value="custom" {% if current_filters.period == 'custom' %}selected{% endif %}>Довільний діапазон</option>
+            </select>
+        </label>
+
+        <div class="fin-custom-range" id="fin-custom-range" {% if current_filters.period != 'custom' %}hidden{% endif %}>
+            <input type="date" name="date_from" class="fin-input" value="{{ request.GET.date_from }}">
+            <span>—</span>
+            <input type="date" name="date_to" class="fin-input" value="{{ request.GET.date_to }}">
+        </div>
+
+        <label class="fin-search">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 10-.7.7l.27.28v.79l5 5 1.5-1.5-5-5zm-6 0A4.5 4.5 0 1114 9.5 4.49 4.49 0 019.5 14z"/></svg>
+            <input type="search" name="search" class="fin-input" placeholder="Пошук по рахунках, клієнтах, коментарях"
+                   value="{{ current_filters.search }}">
+        </label>
+
+        <div class="fin-amount-range">
+            <span class="fin-amount-range__label">Сума</span>
+            <input type="number" step="0.01" name="amount_min" class="fin-input fin-input--sm" placeholder="Від" value="{{ current_filters.amount_min }}">
+            <input type="number" step="0.01" name="amount_max" class="fin-input fin-input--sm" placeholder="До" value="{{ current_filters.amount_max }}">
+        </div>
+
+        <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" id="fin-advanced-filter-btn">
+            <svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><path d="M3 5h18v2l-7 7v5l-4-2v-3L3 7z" fill="currentColor"/></svg>
+            Фільтр
+        </button>
+        <button type="submit" class="fin-btn fin-btn--primary fin-btn--sm">Застосувати</button>
+        <a href="{% url 'finance_home' %}" class="fin-btn fin-btn--ghost fin-btn--sm" title="Скинути">Скинути</a>
+    </div>
+</form>
+
+<!-- Панель масових дій (прихована поки немає вибраних) -->
+<div class="fin-bulkbar" id="fin-bulkbar" hidden>
+    <span class="fin-bulkbar__count"><b id="fin-bulk-count">0</b> обрано</span>
+    <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="set_category">Категорія</button>
+    <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="set_project">Проект</button>
+    <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="set_counterparty">Контрагент</button>
+    <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="add_tag">Тег</button>
+    <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="mark_actual">Позначити фактичними</button>
+    <button type="button" class="fin-btn fin-btn--danger fin-btn--sm" data-bulk="delete">Видалити</button>
+</div>
+
+<!-- Таблиця операцій -->
+<div class="fin-table-wrap">
+    <table class="fin-table" id="fin-table">
+        <thead>
+            <tr>
+                <th class="fin-col-check"><input type="checkbox" id="fin-check-all" aria-label="Обрати всі"></th>
+                <th>Дата</th>
+                <th class="fin-col-amount">Сума</th>
+                <th>Рахунок / залишок</th>
+                <th>Контрагент</th>
+                <th>Категорія</th>
+                <th>Проект</th>
+                <th>Коментар</th>
+            </tr>
+        </thead>
+        <tbody id="fin-table-body">
+            {% for r in rows %}
+            {% include 'finance/partials/transaction_row.html' with r=r %}
+            {% empty %}
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if not rows and not planned_rows %}
+    <div class="fin-empty-state" id="fin-empty">
+        <div class="fin-empty-state__icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13h2l3 7 4-16 3 9h6"/></svg>
+        </div>
+        <h2>Ще немає операцій</h2>
+        <p>Додайте перший дохід, витрату або переказ за допомогою кнопок угорі.</p>
+        <div class="fin-empty-cta">
+            <button type="button" class="fin-btn fin-btn--primary" data-fin-modal="income">+ Дохід</button>
+            <button type="button" class="fin-btn fin-btn--ghost" data-fin-modal="expense">− Витрата</button>
+            <button type="button" class="fin-btn fin-btn--ghost" data-fin-modal="transfer">⇄ Переказ</button>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Група планових платежів -->
+    {% if planned_rows %}
+    <div class="fin-planned-group" id="fin-planned-group">
+        <button type="button" class="fin-planned-group__head" id="fin-planned-toggle" aria-expanded="true">
+            <svg class="fin-planned-group__chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
+            <span>Планові платежі</span>
+            <span class="fin-planned-group__count">{{ planned_count }}</span>
+        </button>
+        <table class="fin-table fin-table--planned" id="fin-planned-table">
+            <tbody>
+                {% for r in planned_rows %}
+                {% include 'finance/partials/transaction_row.html' with r=r %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+
+<div class="fin-table-meta">Показано {{ rows|length }} з {{ total_count }} фактичних операцій</div>
+{% endblock %}
+
+{% block modals %}
+{% include 'finance/partials/transaction_modal.html' %}
+{% include 'finance/partials/advanced_filter_modal.html' %}
+{% include 'finance/partials/bulk_value_modal.html' %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/finance-transactions.js' %}?v=20260529a"></script>
+{% endblock %}

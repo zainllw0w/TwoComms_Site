@@ -1,0 +1,154 @@
+"""Фільтрація та вибірка операцій для журналу платежів (ТЗ §3)."""
+from __future__ import annotations
+
+import datetime as dt
+from decimal import Decimal, InvalidOperation
+
+from django.db.models import Q
+from django.utils import timezone
+
+from ..models import Transaction
+
+
+def period_range(period: str, date_from=None, date_to=None):
+    """Повертає (start_date, end_date) за назвою періоду.
+
+    Підтримує: all, today, yesterday, week, month, last_month, quarter, year, custom.
+    """
+    today = timezone.localdate()
+    if period == 'today':
+        return today, today
+    if period == 'yesterday':
+        y = today - dt.timedelta(days=1)
+        return y, y
+    if period == 'week':
+        start = today - dt.timedelta(days=today.weekday())
+        return start, today
+    if period == 'month':
+        return today.replace(day=1), today
+    if period == 'last_month':
+        first_this = today.replace(day=1)
+        last_prev = first_this - dt.timedelta(days=1)
+        return last_prev.replace(day=1), last_prev
+    if period == 'quarter':
+        q_start_month = 3 * ((today.month - 1) // 3) + 1
+        return today.replace(month=q_start_month, day=1), today
+    if period == 'year':
+        return today.replace(month=1, day=1), today
+    if period == 'custom':
+        return (_parse_date(date_from), _parse_date(date_to))
+    return None, None  # all
+
+
+def _parse_date(value):
+    if not value:
+        return None
+    try:
+        return dt.date.fromisoformat(value)
+    except (ValueError, TypeError):
+        return None
+
+
+def _parse_decimal(value):
+    if value in (None, ''):
+        return None
+    try:
+        return Decimal(str(value).replace(' ', '').replace(',', '.'))
+    except (InvalidOperation, ValueError):
+        return None
+
+
+def _csv_ids(value):
+    if not value:
+        return []
+    if isinstance(value, (list, tuple)):
+        raw = value
+    else:
+        raw = str(value).split(',')
+    out = []
+    for v in raw:
+        v = str(v).strip()
+        if v.isdigit():
+            out.append(int(v))
+    return out
+
+
+def filter_transactions(company, params, *, include_planned=True):
+    """Будує queryset операцій за параметрами запиту (GET/dict).
+
+    Не включає дочірні частини split? — навпаки: показуємо дітей,
+    приховуємо батьків, що розділені (excluded_from_reports).
+    """
+    qs = (Transaction.objects.filter(company=company)
+          .select_related('account', 'to_account', 'category', 'counterparty', 'project')
+          .prefetch_related('tags'))
+
+    # Період (за датою грошей).
+    period = params.get('period', 'all')
+    start, end = period_range(period, params.get('date_from'), params.get('date_to'))
+    if start:
+        qs = qs.filter(date_actual__date__gte=start)
+    if end:
+        qs = qs.filter(date_actual__date__lte=end)
+
+    # Пошук.
+    search = (params.get('search') or params.get('q') or '').strip()
+    if search:
+        qs = qs.filter(
+            Q(comment__icontains=search)
+            | Q(account__name__icontains=search)
+            | Q(to_account__name__icontains=search)
+            | Q(counterparty__name__icontains=search)
+            | Q(category__name__icontains=search)
+            | Q(project__name__icontains=search)
+            | Q(tags__name__icontains=search)
+            | Q(external_id__icontains=search)
+            | Q(linked_invoice__number__icontains=search)
+        ).distinct()
+
+    # Сума (за абсолютним значенням).
+    amount_min = _parse_decimal(params.get('amount_min'))
+    amount_max = _parse_decimal(params.get('amount_max'))
+    if amount_min is not None:
+        qs = qs.filter(amount__gte=amount_min)
+    if amount_max is not None:
+        qs = qs.filter(amount__lte=amount_max)
+
+    # Розширені фільтри (мультивибір через CSV id).
+    acc_ids = _csv_ids(params.get('accounts'))
+    if acc_ids:
+        qs = qs.filter(Q(account_id__in=acc_ids) | Q(to_account_id__in=acc_ids))
+    cat_ids = _csv_ids(params.get('categories'))
+    if cat_ids:
+        qs = qs.filter(category_id__in=cat_ids)
+    proj_ids = _csv_ids(params.get('projects'))
+    if proj_ids:
+        qs = qs.filter(project_id__in=proj_ids)
+    cp_ids = _csv_ids(params.get('counterparties'))
+    if cp_ids:
+        qs = qs.filter(counterparty_id__in=cp_ids)
+    tag_ids = _csv_ids(params.get('tags'))
+    if tag_ids:
+        qs = qs.filter(tags__id__in=tag_ids).distinct()
+
+    types = [t for t in (params.get('types') or '').split(',') if t]
+    if types:
+        qs = qs.filter(type__in=types)
+
+    statuses = [s for s in (params.get('statuses') or '').split(',') if s]
+    if statuses:
+        qs = qs.filter(status__in=statuses)
+    elif not include_planned:
+        qs = qs.exclude(status=Transaction.STATUS_PLANNED)
+
+    # Приховати оригінали розділених платежів (показуємо дітей).
+    qs = qs.filter(excluded_from_reports=False)
+
+    return qs
+
+
+def split_actual_planned(qs):
+    """Розділяє queryset на фактичні та планові для журналу."""
+    actual = qs.exclude(status=Transaction.STATUS_PLANNED)
+    planned = qs.filter(status=Transaction.STATUS_PLANNED)
+    return actual, planned
