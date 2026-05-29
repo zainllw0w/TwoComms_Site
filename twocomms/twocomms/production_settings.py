@@ -93,6 +93,10 @@ if _allowed_hosts_env:
         ALLOWED_HOSTS.append('storage.twocomms.shop')
     if 'www.storage.twocomms.shop' not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append('www.storage.twocomms.shop')
+    if 'fin.twocomms.shop' not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append('fin.twocomms.shop')
+    if 'www.fin.twocomms.shop' not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append('www.fin.twocomms.shop')
 else:
     # Значения по умолчанию: ваш домен(ы)
     ALLOWED_HOSTS = [
@@ -109,6 +113,8 @@ else:
         'www.management.twocomms.shop',
         'storage.twocomms.shop',
         'www.storage.twocomms.shop',
+        'fin.twocomms.shop',
+        'www.fin.twocomms.shop',
     ]
 
 _csrf_origins_env = os.environ.get('CSRF_TRUSTED_ORIGINS')
@@ -139,6 +145,10 @@ CSRF_TRUSTED_ORIGINS.extend([
     'http://storage.twocomms.shop',
     'https://www.storage.twocomms.shop',
     'http://www.storage.twocomms.shop',
+    'https://fin.twocomms.shop',
+    'http://fin.twocomms.shop',
+    'https://www.fin.twocomms.shop',
+    'http://www.fin.twocomms.shop',
 ])
 CSRF_FAILURE_VIEW = 'twocomms.csrf.csrf_failure'
 
