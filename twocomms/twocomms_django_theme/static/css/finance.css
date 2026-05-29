@@ -254,21 +254,41 @@ a { color: inherit; }
 .fin-accounts__manage:hover { color: var(--fin-accent); }
 .fin-accounts__list { display: flex; flex-direction: column; gap: 4px; }
 .fin-account {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    padding: 8px 9px;
+    padding: 8px 9px 8px 14px;
     border-radius: var(--fin-radius-sm);
     text-decoration: none;
     color: var(--fin-text);
+    background: none;
+    border: none;
+    width: 100%;
+    cursor: pointer;
+    text-align: left;
     transition: background 0.12s ease;
 }
 .fin-account:hover { background: rgba(255, 255, 255, 0.05); }
+.fin-account__stripe {
+    position: absolute; left: 3px; top: 50%; transform: translateY(-50%);
+    width: 3px; height: 0; border-radius: 3px; background: var(--fin-pos);
+    transition: height 0.15s ease;
+}
+.fin-account.is-selected { background: rgba(52, 211, 153, 0.08); }
+.fin-account.is-selected .fin-account__stripe { height: 64%; }
+.fin-account.is-selected .fin-account__name { color: var(--fin-pos); font-weight: 600; }
 .fin-account__name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fin-account__balance { font-size: 13px; font-weight: 700; color: var(--fin-text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .fin-accounts__empty { font-size: 12px; color: var(--fin-muted); padding: 6px 2px; }
+.fin-accounts__head-tools { display: inline-flex; align-items: center; gap: 8px; }
+.fin-accounts__reset { background: rgba(52,211,153,0.14); border: none; color: var(--fin-pos); font-size: 11px; border-radius: 999px; padding: 2px 9px; cursor: pointer; }
+.fin-accounts__hint { font-size: 11px; color: var(--fin-pos); margin: 2px 0 6px; }
 
+.fin-planned { display: block; text-decoration: none; color: inherit; cursor: pointer; transition: border-color 0.15s ease; }
+.fin-planned:hover { border-color: rgba(243,164,61,0.4); }
+.fin-planned__cta { font-size: 11px; color: var(--fin-accent); margin-top: 8px; text-align: right; }
 .fin-planned__period {
     font-size: 11px;
     background: rgba(255, 255, 255, 0.06);

@@ -44,5 +44,60 @@
                 }
             });
         });
+
+        // ---- Фільтр журналу за рахунками (зелена полоска) ----
+        // Клік по рахунку у лівій панелі вмикає/вимикає його у фільтрі та веде
+        // у журнал платежів із параметром ?accounts=. Нічого не обрано → усі.
+        var accBtns = Array.prototype.slice.call(document.querySelectorAll('.fin-account[data-account-id]'));
+        var resetBtn = document.getElementById('fin-accounts-reset');
+        var hint = document.getElementById('fin-accounts-hint');
+
+        function currentAccountSet() {
+            // Джерело правди — URL журналу (?accounts=); інакше localStorage.
+            var fromUrl = new URLSearchParams(window.location.search).get('accounts');
+            if (fromUrl !== null) {
+                return new Set(fromUrl.split(',').filter(Boolean));
+            }
+            try {
+                return new Set(JSON.parse(localStorage.getItem('fin_selected_accounts') || '[]').map(String));
+            } catch (e) { return new Set(); }
+        }
+
+        function persist(set) {
+            try { localStorage.setItem('fin_selected_accounts', JSON.stringify(Array.from(set))); } catch (e) {}
+        }
+
+        function paintSelection(set) {
+            accBtns.forEach(function (b) {
+                b.classList.toggle('is-selected', set.has(String(b.dataset.accountId)));
+            });
+            var has = set.size > 0;
+            if (resetBtn) resetBtn.hidden = !has;
+            if (hint) hint.hidden = !has;
+        }
+
+        if (accBtns.length) {
+            var sel = currentAccountSet();
+            // Синхронізуємо localStorage з URL, якщо ми у журналі з фільтром.
+            if (new URLSearchParams(window.location.search).has('accounts')) persist(sel);
+            paintSelection(sel);
+
+            accBtns.forEach(function (b) {
+                b.addEventListener('click', function () {
+                    var id = String(b.dataset.accountId);
+                    var s = currentAccountSet();
+                    if (s.has(id)) s.delete(id); else s.add(id);
+                    persist(s);
+                    paintSelection(s);
+                    var qs = s.size ? ('?accounts=' + Array.from(s).join(',')) : '';
+                    window.location.href = '/' + qs;
+                });
+            });
+
+            if (resetBtn) resetBtn.addEventListener('click', function () {
+                persist(new Set());
+                window.location.href = '/';
+            });
+        }
     });
 })();

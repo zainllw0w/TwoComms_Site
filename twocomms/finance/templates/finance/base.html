@@ -84,24 +84,29 @@
                 <div class="fin-accounts">
                     <div class="fin-accounts__head">
                         <span>Мої рахунки</span>
-                        <a href="{% url 'finance_accounts' %}" class="fin-accounts__manage" title="Керування рахунками">⚙</a>
+                        <span class="fin-accounts__head-tools">
+                            <button type="button" class="fin-accounts__reset" id="fin-accounts-reset" title="Показати всі рахунки" hidden>усі</button>
+                            <a href="{% url 'finance_accounts' %}" class="fin-accounts__manage" title="Керування рахунками">⚙</a>
+                        </span>
                     </div>
+                    <div class="fin-accounts__hint" id="fin-accounts-hint" hidden>Фільтр журналу за обраними рахунками</div>
                     <div class="fin-accounts__list" id="fin-accounts-list">
                         {% for acc in fin_accounts %}
-                        <a class="fin-account" href="?account={{ acc.id }}">
+                        <button type="button" class="fin-account" data-account-id="{{ acc.id }}">
+                            <span class="fin-account__stripe" aria-hidden="true"></span>
                             <span class="fin-account__name">{{ acc.name }}</span>
                             <span class="fin-account__balance">{{ acc.balance_display }}</span>
-                        </a>
+                        </button>
                         {% empty %}
                         <div class="fin-accounts__empty">Ще немає рахунків</div>
                         {% endfor %}
                     </div>
                 </div>
 
-                <div class="fin-planned">
+                <a class="fin-planned" href="{% url 'finance_home' %}?statuses=planned" title="Показати планові платежі">
                     <div class="fin-planned__head">
                         <span>Планові платежі</span>
-                        <span class="fin-planned__period">{{ fin_planned_period_label|default:"1 міс" }}</span>
+                        <span class="fin-planned__period">{{ fin_planned_period_label|default:"30 дн" }}</span>
                     </div>
                     <div class="fin-planned__row">
                         <span>Планові доходи</span>
@@ -111,7 +116,8 @@
                         <span>Планові витрати</span>
                         <strong class="is-neg">{% if fin_planned_expense is not None %}{{ fin_planned_expense }}{% else %}—{% endif %}</strong>
                     </div>
-                </div>
+                    <div class="fin-planned__cta">Переглянути планові →</div>
+                </a>
 
                 <div class="fin-balance-card fin-balance-card--forecast">
                     <div class="fin-balance-card__label">Всього з урах. майбутніх платежів</div>

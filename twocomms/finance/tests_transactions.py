@@ -150,3 +150,15 @@ class PaymentsViewTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         txn = Transaction.objects.get(id=resp.json()['transaction']['id'])
         self.assertEqual(txn.attachments.count(), 1)
+
+    def test_journal_filters_by_accounts_param(self):
+        acc2 = Account.objects.create(company=self.company, name='ФОП', currency='UAH',
+                                      initial_balance=Decimal('0'), current_balance=Decimal('0'))
+        t1 = txn_service.create_transaction(user=self.user, type=Transaction.TYPE_INCOME,
+                                            amount=Decimal('111'), account=self.acc)
+        t2 = txn_service.create_transaction(user=self.user, type=Transaction.TYPE_INCOME,
+                                            amount=Decimal('222'), account=acc2)
+        resp = self._get('/?accounts=%s' % acc2.id)
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, '222')
+        self.assertNotContains(resp, '+111')
