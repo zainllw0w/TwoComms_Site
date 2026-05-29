@@ -32,6 +32,12 @@ urlpatterns = [
     path('api/invoices/<int:invoice_id>/delete/', views.invoice_delete_api, name='finance_invoice_delete_api'),
     path('api/invoices/<int:invoice_id>/pay/', views.invoice_pay_api, name='finance_invoice_pay_api'),
     path('rules/', views.rules, name='finance_rules'),
+    path('api/rules/save/', views.rule_save_api, name='finance_rule_save_api'),
+    path('api/rules/<int:rule_id>/save/', views.rule_save_api, name='finance_rule_update_api'),
+    path('api/rules/<int:rule_id>/toggle/', views.rule_toggle_api, name='finance_rule_toggle_api'),
+    path('api/rules/<int:rule_id>/delete/', views.rule_delete_api, name='finance_rule_delete_api'),
+    path('api/rules/<int:rule_id>/preview/', views.rule_preview_api, name='finance_rule_preview_api'),
+    path('api/rules/<int:rule_id>/apply/', views.rule_apply_api, name='finance_rule_apply_api'),
     path('users/', views.users, name='finance_users'),
     path('accounts/', views.accounts, name='finance_accounts'),
 

@@ -1,6 +1,6 @@
 """Finance views package."""
 from .shell import (  # noqa: F401
-    ai_advisor, rules, users,
+    ai_advisor, users,
 )
 from .calendar_views import (  # noqa: F401
     calendar,
@@ -20,6 +20,14 @@ from .invoices import (  # noqa: F401
     invoice_print,
     invoice_delete_api,
     invoice_pay_api,
+)
+from .rules import (  # noqa: F401
+    rules,
+    rule_save_api,
+    rule_toggle_api,
+    rule_delete_api,
+    rule_preview_api,
+    rule_apply_api,
 )
 from .payments import (  # noqa: F401
     payments,

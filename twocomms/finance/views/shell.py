@@ -8,8 +8,6 @@ from ..permissions import finance_access_required
 _SECTIONS = {
     'finance_ai': ('ai', 'AI радник',
                    'Фінансовий помічник: аналіз витрат, прогноз, перевірка платежів.'),
-    'finance_rules': ('rules', 'Автоправила',
-                      'Автоматичне заповнення категорій, проектів і контрагентів.'),
     'finance_users': ('users', 'Користувачі', 'Доступи, ролі та ефективність використання.'),
 }
 
@@ -24,11 +22,6 @@ def _shell(request, url_name):
 @finance_access_required
 def ai_advisor(request):
     return _shell(request, 'finance_ai')
-
-
-@finance_access_required
-def rules(request):
-    return _shell(request, 'finance_rules')
 
 
 @finance_access_required

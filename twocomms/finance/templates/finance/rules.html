@@ -1,0 +1,103 @@
+{% extends 'finance/base.html' %}
+{% load static %}
+{% block title %}Автоправила — TwoComms Finance{% endblock %}
+
+{% block content %}
+<div class="fin-page-head">
+    <div>
+        <h1 class="fin-page-title">Автоправила</h1>
+        <p class="fin-page-subtitle">Автоматичне заповнення категорій, проектів і контрагентів.</p>
+    </div>
+    <div class="fin-page-actions">
+        <button type="button" class="fin-btn fin-btn--primary" id="fin-rule-add">+ Нове правило</button>
+    </div>
+</div>
+
+{{ dropdowns|json_script:"fin-dropdowns" }}
+{{ fields|json_script:"fin-rule-fields" }}
+{{ operators|json_script:"fin-rule-operators" }}
+{{ actions|json_script:"fin-rule-actions" }}
+
+{% if rules %}
+<div class="fin-rules-list">
+    {% for r in rules %}
+    <div class="fin-rule-card{% if not r.is_enabled %} is-off{% endif %}" data-rule-id="{{ r.id }}"
+         data-rule='{"id":{{ r.id }},"name":"{{ r.name|escapejs }}","transaction_type":"{{ r.transaction_type }}","priority":{{ r.priority }},"is_enabled":{{ r.is_enabled|yesno:"true,false" }},"conditions":{{ r.conditions|default:"[]"|safe }},"actions":{{ r.actions|default:"[]"|safe }}}'>
+        <label class="fin-switch">
+            <input type="checkbox" class="fin-rule-toggle" {% if r.is_enabled %}checked{% endif %}>
+            <span class="fin-switch__ui"></span>
+        </label>
+        <div class="fin-rule-card__main">
+            <div class="fin-rule-card__name">{{ r.name }}</div>
+            <div class="fin-rule-card__meta">
+                {% if r.transaction_type %}{{ r.transaction_type }}{% else %}будь-який тип{% endif %}
+                · {{ r.conditions_count }} умов · {{ r.actions_count }} дій · застосовано {{ r.applied_count }}×
+            </div>
+        </div>
+        <div class="fin-rule-card__prio">пріоритет {{ r.priority }}</div>
+        <div class="fin-rule-card__actions">
+            <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm fin-rule-apply" data-id="{{ r.id }}">Застосувати</button>
+            <button type="button" class="fin-icon-btn fin-icon-btn--sm fin-rule-edit" data-id="{{ r.id }}" title="Редагувати">✎</button>
+            <button type="button" class="fin-icon-btn fin-icon-btn--sm fin-rule-del" data-id="{{ r.id }}" title="Видалити">🗑</button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="fin-empty-state">
+    <div class="fin-empty-state__icon"><svg viewBox="0 0 24 24"><path d="M3 13h2l3 7 4-16 3 9h6"/></svg></div>
+    <h2>Створіть правила один раз — економте час щодня</h2>
+    <p>Автоправила автоматично проставляють категорії, проекти й контрагентів для нових та імпортованих операцій.</p>
+    <div class="fin-empty-cta"><button type="button" class="fin-btn fin-btn--primary" id="fin-rule-add-2">Створити своє перше правило</button></div>
+</div>
+{% endif %}
+
+<!-- Конструктор правила -->
+<div class="fin-modal-overlay" id="fin-rule-modal" hidden>
+  <div class="fin-modal-card fin-modal-card--txn" role="dialog" aria-modal="true">
+    <div class="fin-modal-head"><h3 id="fin-rule-title">Нове правило</h3><button type="button" class="fin-modal-close" data-fin-close>×</button></div>
+    <form class="fin-modal-body" id="fin-rule-form">
+      <div class="fin-form-alert" id="fin-rule-alert" hidden></div>
+      <input type="hidden" id="fin-rule-id">
+      <div class="fin-field-row">
+        <label class="fin-field"><span>Ім'я</span><input class="fin-input" id="fin-rule-name"></label>
+        <label class="fin-field fin-field--cur"><span>Пріоритет</span><input type="number" class="fin-input" id="fin-rule-priority" value="100"></label>
+      </div>
+      <label class="fin-field"><span>Застосовувати для</span>
+        <select class="fin-select" id="fin-rule-type">
+          <option value="">Будь-який тип</option>
+          <option value="income">Дохід</option>
+          <option value="expense">Витрата</option>
+          <option value="transfer">Переказ</option>
+        </select>
+      </label>
+      <label class="fin-checkbox"><input type="checkbox" id="fin-rule-enabled" checked> Правило увімкнено</label>
+
+      <div class="fin-rule-section">
+        <div class="fin-rule-section__head"><span>Умови (всі мають виконуватись)</span>
+          <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" id="fin-add-condition">+ Умова</button>
+        </div>
+        <div id="fin-conditions"></div>
+      </div>
+
+      <div class="fin-rule-section">
+        <div class="fin-rule-section__head"><span>Дії</span>
+          <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" id="fin-add-action">+ Дія</button>
+        </div>
+        <div id="fin-actions"></div>
+      </div>
+
+      <label class="fin-checkbox"><input type="checkbox" id="fin-rule-existing"> Застосувати до існуючих операцій після збереження</label>
+
+      <div class="fin-modal-foot">
+        <button type="button" class="fin-btn fin-btn--ghost" data-fin-close>Відміна</button>
+        <button type="submit" class="fin-btn fin-btn--primary">Додати правило</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/finance-rules.js' %}?v=20260529a"></script>
+{% endblock %}
