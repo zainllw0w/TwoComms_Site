@@ -745,3 +745,67 @@ body.fin-modal-open { overflow: hidden; }
     .fin-day-summary { grid-template-columns: 1fr 1fr; }
 }
 
+/* ===================== Блок 6: Аналітика ===================== */
+.fin-report-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.fin-report-card {
+    display: block; text-decoration: none; padding: 18px;
+    background: var(--fin-panel); border: 1px solid var(--fin-border);
+    border-radius: var(--fin-radius-lg); color: var(--fin-text);
+    transition: transform 0.12s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.fin-report-card:hover { transform: translateY(-2px); border-color: var(--fin-accent); box-shadow: var(--fin-shadow); }
+.fin-report-card__title { font-weight: 700; font-size: 16px; }
+.fin-report-card__desc { font-size: 13px; color: var(--fin-text-2); margin-top: 4px; }
+.fin-report-card--ai { background: linear-gradient(135deg, rgba(255,126,41,0.14), rgba(111,149,255,0.08)); border-color: rgba(255,126,41,0.3); }
+
+.fin-report-head { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+.fin-back-link { color: var(--fin-text-2); text-decoration: none; font-size: 13px; }
+.fin-back-link:hover { color: var(--fin-accent); }
+.fin-report-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.fin-kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.fin-kpi {
+    background: var(--fin-panel); border: 1px solid var(--fin-border);
+    border-radius: var(--fin-radius-md); padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 6px;
+}
+.fin-kpi span { font-size: 12px; color: var(--fin-text-2); }
+.fin-kpi strong { font-size: 22px; font-variant-numeric: tabular-nums; }
+.fin-kpi--pos strong { color: var(--fin-pos); }
+.fin-kpi--neg strong { color: var(--fin-neg); }
+
+.fin-chart-block {
+    background: var(--fin-panel); border: 1px solid var(--fin-border);
+    border-radius: var(--fin-radius-lg); padding: 16px; margin-bottom: 16px;
+}
+.fin-chart-title { margin: 0 0 12px; font-size: 14px; color: var(--fin-text-2); }
+.fin-chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+.fin-statement-bar { margin-bottom: 14px; max-width: 320px; }
+.fin-row--overdue td { background: rgba(251,113,133,0.05); }
+.fin-badge--overdue { background: rgba(251,113,133,0.18); color: var(--fin-neg); }
+
+.fin-balance-sheet { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.fin-balance-col { background: var(--fin-panel); border: 1px solid var(--fin-border); border-radius: var(--fin-radius-lg); padding: 16px; }
+.fin-balance-col__title { margin: 0 0 12px; font-size: 15px; }
+.fin-balance-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--fin-border); font-size: 14px; }
+.fin-balance-total { display: flex; justify-content: space-between; padding-top: 12px; font-weight: 700; }
+.fin-balance-check { margin-top: 14px; padding: 12px; border-radius: var(--fin-radius-md); text-align: center; font-weight: 600; }
+.fin-balance-check.is-ok { background: rgba(52,211,153,0.12); color: var(--fin-pos); }
+.fin-balance-check.is-warn { background: rgba(251,113,133,0.12); color: var(--fin-neg); }
+
+.fin-progress { display: inline-block; width: 90px; height: 8px; background: var(--fin-bg-800); border-radius: 999px; overflow: hidden; vertical-align: middle; }
+.fin-progress__bar { height: 100%; background: var(--fin-accent); }
+.fin-progress__label { font-size: 12px; margin-left: 8px; color: var(--fin-text-2); }
+
+.fin-metrics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.fin-metric-card { background: var(--fin-panel); border: 1px solid var(--fin-border); border-radius: var(--fin-radius-md); padding: 16px; display: flex; flex-direction: column; gap: 6px; }
+.fin-metric-card span { font-size: 12px; color: var(--fin-text-2); }
+.fin-metric-card strong { font-size: 20px; font-variant-numeric: tabular-nums; }
+.fin-metric-card--custom { border-color: rgba(255,126,41,0.3); }
+
+@media (max-width: 760px) {
+    .fin-chart-grid { grid-template-columns: 1fr; }
+    .fin-balance-sheet { grid-template-columns: 1fr; }
+}
+

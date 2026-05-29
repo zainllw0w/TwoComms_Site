@@ -1,10 +1,17 @@
 """Finance views package."""
 from .shell import (  # noqa: F401
-    analytics, ai_advisor, invoices, rules, users,
+    ai_advisor, invoices, rules, users,
 )
 from .calendar_views import (  # noqa: F401
     calendar,
     calendar_day_api,
+)
+from .analytics import (  # noqa: F401
+    analytics,
+    report,
+    report_export,
+    metric_create_api,
+    debt_settle_api,
 )
 from .payments import (  # noqa: F401
     payments,

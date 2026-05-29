@@ -1,0 +1,25 @@
+{% extends 'finance/base.html' %}
+
+{% block title %}Аналітика — TwoComms Finance{% endblock %}
+
+{% block content %}
+<div class="fin-page-head">
+    <div>
+        <h1 class="fin-page-title">Аналітика</h1>
+        <p class="fin-page-subtitle">Звіти будуються з ваших операцій у реальному часі.</p>
+    </div>
+</div>
+
+<div class="fin-report-cards">
+    {% for c in cards %}
+    <a class="fin-report-card" href="{% url 'finance_report' c.kind %}">
+        <div class="fin-report-card__title">{{ c.title }}</div>
+        <div class="fin-report-card__desc">{{ c.desc }}</div>
+    </a>
+    {% endfor %}
+    <a class="fin-report-card fin-report-card--ai" href="{% url 'finance_ai' %}">
+        <div class="fin-report-card__title">AI радник</div>
+        <div class="fin-report-card__desc">Запитай про свої фінанси</div>
+    </a>
+</div>
+{% endblock %}

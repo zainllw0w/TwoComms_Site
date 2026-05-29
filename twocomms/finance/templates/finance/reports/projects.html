@@ -1,0 +1,26 @@
+{% extends 'finance/base.html' %}
+{% block title %}{{ title }} — TwoComms Finance{% endblock %}
+
+{% block content %}
+{% include 'finance/partials/report_header.html' %}
+
+<div class="fin-table-wrap">
+    <table class="fin-table">
+        <thead><tr><th>Проект</th><th class="fin-col-amount">Дохід</th><th class="fin-col-amount">Витрата</th><th class="fin-col-amount">Прибуток</th><th>Маржа</th><th>Частка</th></tr></thead>
+        <tbody>
+            {% for r in rows %}
+            <tr>
+                <td>{{ r.name }}</td>
+                <td class="fin-col-amount fin-amount--pos">{{ r.income_d }}</td>
+                <td class="fin-col-amount fin-amount--neg">{{ r.expense_d }}</td>
+                <td class="fin-col-amount">{{ r.profit_d }}</td>
+                <td>{{ r.margin|floatformat:1 }}%</td>
+                <td>{{ r.share|floatformat:1 }}%</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6"><div class="fin-day-empty">Немає даних за період.</div></td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

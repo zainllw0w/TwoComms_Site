@@ -1,0 +1,40 @@
+{% extends 'finance/base.html' %}
+{% load static %}
+{% block title %}{{ title }} — TwoComms Finance{% endblock %}
+
+{% block content %}
+{% include 'finance/partials/report_header.html' %}
+
+<div class="fin-kpi-row">
+    <div class="fin-kpi fin-kpi--pos"><span>Поступлення</span><strong>{{ cash_in }}</strong></div>
+    <div class="fin-kpi fin-kpi--neg"><span>Списання</span><strong>{{ cash_out }}</strong></div>
+    <div class="fin-kpi"><span>Чистий потік</span><strong>{{ net }}</strong></div>
+</div>
+
+{% if data.cash_in or data.cash_out %}
+<div class="fin-chart-block">
+    <h3 class="fin-chart-title">Рух коштів за період</h3>
+    <canvas id="fin-chart-series" height="90"></canvas>
+</div>
+<div class="fin-chart-grid">
+    <div class="fin-chart-block">
+        <h3 class="fin-chart-title">Поступлення за категоріями</h3>
+        <canvas id="fin-chart-income" height="180"></canvas>
+    </div>
+    <div class="fin-chart-block">
+        <h3 class="fin-chart-title">Списання за категоріями</h3>
+        <canvas id="fin-chart-expense" height="180"></canvas>
+    </div>
+</div>
+{% else %}
+<div class="fin-empty-state"><h2>Немає даних за період</h2><p>Оберіть інший період або додайте операції.</p></div>
+{% endif %}
+
+<script id="fin-chart-data" type="application/json">{{ chart_data|safe }}</script>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="{% static 'js/finance-charts.js' %}?v=20260529a"></script>
+<script>document.addEventListener('DOMContentLoaded',function(){FinanceCharts.renderCashflow();});</script>
+{% endblock %}

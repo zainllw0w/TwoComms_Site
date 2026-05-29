@@ -17,6 +17,10 @@ urlpatterns = [
 
     # --- Розділи ---
     path('analytic/', views.analytics, name='finance_analytics'),
+    path('analytic/report/<str:kind>/', views.report, name='finance_report'),
+    path('analytic/report/<str:kind>/export/', views.report_export, name='finance_report_export'),
+    path('api/metrics/create/', views.metric_create_api, name='finance_metric_create_api'),
+    path('api/debt/<int:txn_id>/settle/', views.debt_settle_api, name='finance_debt_settle_api'),
     path('ai/', views.ai_advisor, name='finance_ai'),
     path('calendar/', views.calendar, name='finance_calendar'),
     path('invoices/', views.invoices, name='finance_invoices'),

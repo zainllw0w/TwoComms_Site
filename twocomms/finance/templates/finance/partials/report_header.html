@@ -1,0 +1,16 @@
+{# Шапка звіту: назад, назва, період, експорт. Очікує title, kind, period. #}
+<div class="fin-report-head">
+    <a href="{% url 'finance_analytics' %}" class="fin-back-link">‹ Назад до звітів</a>
+    <h1 class="fin-page-title">{{ title }}</h1>
+    <form class="fin-report-filters" method="get">
+        <select name="period" class="fin-select" onchange="this.form.submit()">
+            <option value="month" {% if period == 'month' %}selected{% endif %}>Поточний місяць</option>
+            <option value="last_month" {% if period == 'last_month' %}selected{% endif %}>Минулий місяць</option>
+            <option value="quarter" {% if period == 'quarter' %}selected{% endif %}>Квартал</option>
+            <option value="year" {% if period == 'year' %}selected{% endif %}>Рік</option>
+            <option value="all" {% if period == 'all' %}selected{% endif %}>За весь час</option>
+        </select>
+        {% if request.GET.account %}<input type="hidden" name="account" value="{{ request.GET.account }}">{% endif %}
+        <a href="{% url 'finance_report_export' kind %}?{{ request.GET.urlencode }}" class="fin-btn fin-btn--ghost fin-btn--sm">Експорт XLSX</a>
+    </form>
+</div>

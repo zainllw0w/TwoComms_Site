@@ -1,0 +1,28 @@
+{% extends 'finance/base.html' %}
+{% block title %}{{ title }} — TwoComms Finance{% endblock %}
+
+{% block content %}
+{% include 'finance/partials/report_header.html' %}
+
+<div class="fin-table-wrap">
+    <table class="fin-table">
+        <thead><tr><th>Категорія</th><th class="fin-col-amount">План</th><th class="fin-col-amount">Факт</th><th class="fin-col-amount">Відхилення</th><th>Виконання</th></tr></thead>
+        <tbody>
+            {% for r in rows %}
+            <tr>
+                <td>{{ r.category }}</td>
+                <td class="fin-col-amount">{{ r.plan_d }}</td>
+                <td class="fin-col-amount">{{ r.fact_d }}</td>
+                <td class="fin-col-amount">{{ r.deviation_d }}</td>
+                <td>
+                    <div class="fin-progress"><div class="fin-progress__bar" style="width:{% if r.completion > 100 %}100{% else %}{{ r.completion }}{% endif %}%"></div></div>
+                    <span class="fin-progress__label">{{ r.completion|floatformat:0 }}%</span>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5"><div class="fin-day-empty">Немає даних за період.</div></td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

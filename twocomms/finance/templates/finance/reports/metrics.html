@@ -1,0 +1,64 @@
+{% extends 'finance/base.html' %}
+{% block title %}{{ title }} — TwoComms Finance{% endblock %}
+
+{% block content %}
+{% include 'finance/partials/report_header.html' %}
+
+<div class="fin-page-actions" style="margin-bottom:16px;">
+    <button type="button" class="fin-btn fin-btn--primary" id="fin-metric-add">+ Налаштувати показник</button>
+</div>
+
+<div class="fin-metrics-grid">
+    {% for m in data.base %}
+    <div class="fin-metric-card"><span>{{ m.name }}</span><strong>{{ m.value_d }}</strong></div>
+    {% endfor %}
+    {% for m in data.custom %}
+    <div class="fin-metric-card fin-metric-card--custom"><span>{{ m.name }}</span><strong>{{ m.value_d }}</strong></div>
+    {% endfor %}
+</div>
+
+<!-- Модалка створення KPI -->
+<div class="fin-modal-overlay" id="fin-metric-modal" hidden>
+  <div class="fin-modal-card" role="dialog" aria-modal="true">
+    <div class="fin-modal-head"><h3>Новий показник</h3><button type="button" class="fin-modal-close" data-fin-close>×</button></div>
+    <form class="fin-modal-body" id="fin-metric-form">
+      <div class="fin-form-alert" id="fin-metric-alert" hidden></div>
+      <label class="fin-field"><span>Назва показника</span><input type="text" class="fin-input" id="fin-metric-name"></label>
+      <label class="fin-field"><span>Виручка (категорії доходів)</span>
+        <div class="fin-checklist">
+          {% for c in income_categories %}<label><input type="checkbox" class="m-income" value="{{ c.id }}"> {{ c.name }}</label>{% endfor %}
+        </div>
+      </label>
+      <label class="fin-field"><span>Змінні витрати (категорії)</span>
+        <div class="fin-checklist">
+          {% for c in expense_categories %}<label><input type="checkbox" class="m-expense" value="{{ c.id }}"> {{ c.name }}</label>{% endfor %}
+        </div>
+      </label>
+      <div class="fin-modal-foot">
+        <button type="button" class="fin-btn fin-btn--ghost" data-fin-close>Відміна</button>
+        <button type="submit" class="fin-btn fin-btn--primary">Зберегти</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  function csrf(){var m=document.cookie.match(/csrftoken=([^;]+)/);return m?m[1]:'';}
+  var modal=document.getElementById('fin-metric-modal');
+  document.getElementById('fin-metric-add').addEventListener('click',function(){modal.hidden=false;document.body.classList.add('fin-modal-open');});
+  modal.querySelectorAll('[data-fin-close]').forEach(function(b){b.addEventListener('click',function(){modal.hidden=true;document.body.classList.remove('fin-modal-open');});});
+  document.getElementById('fin-metric-form').addEventListener('submit',function(e){
+    e.preventDefault();
+    var name=document.getElementById('fin-metric-name').value.trim();
+    var alert=document.getElementById('fin-metric-alert');
+    if(!name){alert.textContent='Вкажіть назву';alert.hidden=false;return;}
+    var inc=Array.prototype.slice.call(document.querySelectorAll('.m-income:checked')).map(function(i){return i.value;});
+    var exp=Array.prototype.slice.call(document.querySelectorAll('.m-expense:checked')).map(function(i){return i.value;});
+    fetch('/api/metrics/create/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':csrf()},
+      body:JSON.stringify({name:name,income_categories:inc,expense_categories:exp})})
+      .then(function(r){return r.json();}).then(function(d){if(d.ok)location.reload();else{alert.textContent=d.error;alert.hidden=false;}});
+  });
+});
+</script>
+{% endblock %}

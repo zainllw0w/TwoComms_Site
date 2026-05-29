@@ -1,0 +1,27 @@
+{% extends 'finance/base.html' %}
+{% block title %}{{ title }} — TwoComms Finance{% endblock %}
+
+{% block content %}
+{% include 'finance/partials/report_header.html' %}
+
+<div class="fin-balance-sheet">
+    <div class="fin-balance-col">
+        <h3 class="fin-balance-col__title">Активи</h3>
+        {% for r in data.assets %}
+        <div class="fin-balance-row"><span>{{ r.name }}</span><strong>{{ r.amount_d }}</strong></div>
+        {% endfor %}
+        <div class="fin-balance-total"><span>Разом активи</span><strong>{{ total_assets }}</strong></div>
+    </div>
+    <div class="fin-balance-col">
+        <h3 class="fin-balance-col__title">Пасиви</h3>
+        {% for r in data.liabilities %}
+        <div class="fin-balance-row"><span>{{ r.name }}</span><strong>{{ r.amount_d }}</strong></div>
+        {% endfor %}
+        <div class="fin-balance-total"><span>Разом пасиви</span><strong>{{ total_liabilities }}</strong></div>
+    </div>
+</div>
+
+<div class="fin-balance-check {% if data.balanced %}is-ok{% else %}is-warn{% endif %}">
+    {% if data.balanced %}✓ Активи дорівнюють пасивам{% else %}Розбіжність: {{ difference }}{% endif %}
+</div>
+{% endblock %}

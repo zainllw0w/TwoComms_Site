@@ -6,8 +6,6 @@ from django.shortcuts import render
 from ..permissions import finance_access_required
 
 _SECTIONS = {
-    'finance_analytics': ('analytics', 'Аналітика',
-                          'Cash Flow, P&L, дебіторка, кредиторка, баланс, план/факт.'),
     'finance_ai': ('ai', 'AI радник',
                    'Фінансовий помічник: аналіз витрат, прогноз, перевірка платежів.'),
     'finance_invoices': ('invoices', 'Рахунки-фактури',
@@ -23,11 +21,6 @@ def _shell(request, url_name):
     return render(request, 'finance/coming_soon.html', {
         'section_title': title, 'section_subtitle': subtitle, 'active_tab': tab,
     })
-
-
-@finance_access_required
-def analytics(request):
-    return _shell(request, 'finance_analytics')
 
 
 @finance_access_required

@@ -1,0 +1,25 @@
+{% extends 'finance/base.html' %}
+{% block title %}{{ title }} — TwoComms Finance{% endblock %}
+
+{% block content %}
+{% include 'finance/partials/report_header.html' %}
+
+<div class="fin-table-wrap">
+    <table class="fin-table">
+        <thead><tr><th>Дата</th><th>Користувач</th><th>Дія</th><th>Об'єкт</th><th>Опис</th></tr></thead>
+        <tbody>
+            {% for l in logs %}
+            <tr>
+                <td>{{ l.created_at|date:'d.m.Y H:i' }}</td>
+                <td>{{ l.user.get_username|default:'система' }}</td>
+                <td><span class="fin-badge">{{ l.action }}</span></td>
+                <td>{{ l.entity_type }}{% if l.entity_id %} #{{ l.entity_id }}{% endif %}</td>
+                <td>{{ l.summary }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5"><div class="fin-day-empty">Історія порожня.</div></td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,75 @@
+"""Тести Блоку 6: звіти Cash Flow, P&L, дебіторка, баланс, рендер сторінок."""
+from __future__ import annotations
+
+import datetime as dt
+from decimal import Decimal
+
+from django.contrib.auth import get_user_model
+from django.test import TestCase, override_settings
+from django.utils import timezone
+
+from finance.models import Account, Transaction, get_default_company
+from finance.services import reports as rep
+from finance.services import reports_debt as repd
+from finance.services import transactions as txn_service
+
+User = get_user_model()
+
+
+@override_settings(ALLOWED_HOSTS=['fin.twocomms.shop', 'testserver'])
+class ReportsTests(TestCase):
+    FIN_HOST = 'fin.twocomms.shop'
+
+    def setUp(self):
+        self.user = User.objects.create_superuser('fin_r', 'r@x.com', 'x')
+        self.company = get_default_company()
+        self.acc = Account.objects.create(company=self.company, name='Банк', currency='UAH',
+                                           initial_balance=Decimal('0'), current_balance=Decimal('0'))
+        now = timezone.now()
+        txn_service.create_transaction(user=self.user, type=Transaction.TYPE_INCOME,
+                                       amount=Decimal('1000'), account=self.acc, date_actual=now)
+        txn_service.create_transaction(user=self.user, type=Transaction.TYPE_EXPENSE,
+                                       amount=Decimal('400'), account=self.acc, date_actual=now)
+        # Переказ не має впливати на P&L.
+        acc2 = Account.objects.create(company=self.company, name='Каса', currency='UAH')
+        txn_service.create_transaction(user=self.user, type=Transaction.TYPE_TRANSFER,
+                                       amount=Decimal('200'), account=self.acc, to_account=acc2,
+                                       to_amount=Decimal('200'), date_actual=now)
+
+    def test_cash_flow_excludes_transfers(self):
+        data = rep.cash_flow(self.company, {'period': 'year'})
+        self.assertEqual(data['cash_in'], Decimal('1000'))
+        self.assertEqual(data['cash_out'], Decimal('400'))
+        self.assertEqual(data['net'], Decimal('600'))
+
+    def test_pnl_profit(self):
+        data = rep.pnl(self.company, {'period': 'year'})
+        self.assertEqual(data['income'], Decimal('1000'))
+        self.assertEqual(data['expenses'], Decimal('400'))
+        self.assertEqual(data['profit'], Decimal('600'))
+
+    def test_receivables_from_planned(self):
+        txn_service.create_transaction(user=self.user, type=Transaction.TYPE_INCOME,
+                                       amount=Decimal('750'), account=self.acc,
+                                       status=Transaction.STATUS_PLANNED,
+                                       date_actual=timezone.now() + dt.timedelta(days=5))
+        data = repd.receivables(self.company)
+        self.assertEqual(data['total'], Decimal('750'))
+
+    def test_balance_sheet_balanced(self):
+        data = repd.balance_sheet(self.company)
+        # Активи (гроші 600 + дебіторка) мають дорівнювати пасивам (капітал 0 + прибуток 600).
+        self.assertTrue(data['balanced'])
+
+    def test_report_pages_render(self):
+        self.client.force_login(self.user)
+        for kind in ('cashflow', 'pnl', 'receivables', 'payables', 'statement',
+                     'projects', 'audit', 'balance', 'plan_fact', 'metrics'):
+            resp = self.client.get(f'/analytic/report/{kind}/', HTTP_HOST=self.FIN_HOST)
+            self.assertEqual(resp.status_code, 200, f'{kind} → {resp.status_code}')
+
+    def test_export_xlsx(self):
+        self.client.force_login(self.user)
+        resp = self.client.get('/analytic/report/projects/export/?period=year', HTTP_HOST=self.FIN_HOST)
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('spreadsheet', resp['Content-Type'])

@@ -1,0 +1,52 @@
+{% extends 'finance/base.html' %}
+{% block title %}{{ title }} — TwoComms Finance{% endblock %}
+
+{% block content %}
+{% include 'finance/partials/report_header.html' %}
+
+<div class="fin-kpi-row">
+    <div class="fin-kpi {% if is_payable %}fin-kpi--neg{% else %}fin-kpi--pos{% endif %}">
+        <span>Всього {% if is_payable %}заборгованість{% else %}очікується{% endif %}</span><strong>{{ total }}</strong>
+    </div>
+</div>
+
+<div class="fin-table-wrap">
+    <table class="fin-table">
+        <thead><tr><th>Контрагент</th><th class="fin-col-amount">Сума</th><th>Дата</th><th>Проект</th><th>Статус</th><th>Коментар</th><th></th></tr></thead>
+        <tbody>
+            {% for r in rows %}
+            <tr class="{% if r.overdue %}fin-row--overdue{% endif %}">
+                <td>{{ r.counterparty }}</td>
+                <td class="fin-col-amount">{{ r.amount_d }}</td>
+                <td>{{ r.date }}{% if r.overdue %} <span class="fin-badge fin-badge--overdue">прострочено</span>{% endif %}</td>
+                <td>{{ r.project|default:'—' }}</td>
+                <td>{{ r.status }}</td>
+                <td>{{ r.comment }}</td>
+                <td>
+                    {% if r.source == 'planned' %}
+                    <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm fin-debt-settle" data-txn="{{ r.id }}">Погасити</button>
+                    {% elif r.source == 'invoice' %}
+                    <a class="fin-btn fin-btn--ghost fin-btn--sm" href="{% url 'finance_invoices' %}">Рахунок</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7"><div class="fin-day-empty">Немає записів.</div></td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  function csrf(){var m=document.cookie.match(/csrftoken=([^;]+)/);return m?m[1]:'';}
+  document.querySelectorAll('.fin-debt-settle').forEach(function(b){
+    b.addEventListener('click', function(){
+      if(!confirm('Погасити (позначити фактичним)?'))return;
+      fetch('/api/debt/'+b.dataset.txn+'/settle/',{method:'POST',headers:{'X-CSRFToken':csrf(),'X-Requested-With':'XMLHttpRequest'}})
+        .then(function(r){return r.json();}).then(function(d){if(d.ok)location.reload();});
+    });
+  });
+});
+</script>
+{% endblock %}
