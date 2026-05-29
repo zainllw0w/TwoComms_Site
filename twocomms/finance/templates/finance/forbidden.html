@@ -1,0 +1,27 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Немає доступу — TwoComms Finance</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/finance.css' %}?v=20260529a">
+    <link rel="icon" href="{% static 'img/logo.svg' %}" type="image/svg+xml">
+</head>
+<body class="fin-body fin-body--auth">
+    <div class="fin-auth-screen">
+        <div class="fin-auth-card fin-auth-card--center">
+            <h1 class="fin-forbidden-title">🔒 Немає доступу</h1>
+            <p class="fin-auth-sub">
+                Користувач <strong>{{ username }}</strong> не має прав адміністратора для фінансового кабінету.
+            </p>
+            <p class="fin-auth-footnote">Доступ мають лише адміністратори та суперкористувачі. Зверніться до власника.</p>
+            <div class="fin-forbidden-actions">
+                <a href="{% url 'finance_logout' %}" class="fin-btn fin-btn--ghost">Вийти</a>
+                <a href="https://twocomms.shop/" class="fin-btn fin-btn--primary">Головний сайт</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

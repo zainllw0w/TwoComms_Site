@@ -1,0 +1,51 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TwoComms Finance — Вхід</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/finance.css' %}?v=20260529a">
+  <meta name="theme-color" content="#0b0e14">
+  <link rel="icon" href="{% static 'img/logo.svg' %}" type="image/svg+xml">
+</head>
+<body class="fin-body fin-body--auth">
+  <div class="fin-auth-screen">
+    <div class="fin-auth-card">
+      <div class="fin-auth-header">
+        <img src="{% static 'img/logo.svg' %}" alt="TwoComms" class="fin-auth-logo">
+        <div>
+          <p class="fin-eyebrow">TwoComms</p>
+          <h1>Finance</h1>
+          <p class="fin-auth-sub">Кабінет управлінського обліку. Доступ лише для адміністраторів.</p>
+        </div>
+      </div>
+      <form method="post" class="fin-auth-form">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+        {% if form.non_field_errors %}
+          <div class="fin-auth-error">
+            {% for err in form.non_field_errors %}<div>{{ err }}</div>{% endfor %}
+          </div>
+        {% endif %}
+        <label class="fin-field">
+          <span>Логін або email</span>
+          {{ form.username }}
+        </label>
+        <label class="fin-field">
+          <span>Пароль</span>
+          {{ form.password }}
+        </label>
+        <button type="submit" class="fin-btn fin-btn--primary fin-btn--block">Увійти</button>
+      </form>
+      <div class="fin-auth-divider"><span>або</span></div>
+      <a class="fin-btn fin-btn--ghost fin-btn--block fin-auth-oauth" href="{% url 'social:begin' 'google-oauth2' %}">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" class="fin-auth-oauth-icon">
+        <span>Увійти через Google</span>
+      </a>
+      <p class="fin-auth-footnote">Та сама база користувачів, що й на twocomms.shop</p>
+    </div>
+  </div>
+</body>
+</html>

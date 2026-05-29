@@ -1,0 +1,186 @@
+"""Транзакції, повторення та вкладення — ядро фінансової логіки."""
+from __future__ import annotations
+
+from decimal import Decimal
+
+from django.conf import settings
+from django.db import models
+
+from .models_core import Account, Category, Counterparty, Company, Project, Tag
+
+
+class RecurrenceRule(models.Model):
+    """Правило повторення планового платежу."""
+
+    FREQ_CHOICES = [
+        ('daily', 'Щодня'),
+        ('weekly', 'Щотижня'),
+        ('monthly', 'Щомісяця'),
+        ('yearly', 'Щороку'),
+        ('custom', 'Інше'),
+    ]
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='recurrence_rules')
+    frequency = models.CharField(max_length=12, choices=FREQ_CHOICES, default='monthly')
+    interval = models.PositiveIntegerField(default=1)
+    by_day = models.CharField(max_length=32, blank=True, default='')  # напр. 'MO,WE'
+    by_month_day = models.PositiveIntegerField(blank=True, null=True)
+    start_date = models.DateField()
+    end_date = models.DateField(blank=True, null=True)
+    count = models.PositiveIntegerField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = 'Правило повторення'
+        verbose_name_plural = 'Правила повторення'
+
+    def __str__(self):
+        return f'{self.get_frequency_display()} x{self.interval}'
+
+
+class Attachment(models.Model):
+    """Вкладення до операції/інвойсу (макс. 10 МБ перевіряється у формі)."""
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='attachments')
+    file = models.FileField(upload_to='finance/attachments/')
+    original_name = models.CharField(max_length=255, blank=True, default='')
+    content_type = models.CharField(max_length=128, blank=True, default='')
+    size = models.PositiveIntegerField(default=0)
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+                                    blank=True, null=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Вкладення'
+        verbose_name_plural = 'Вкладення'
+
+    def __str__(self):
+        return self.original_name or self.file.name
+
+
+class Transaction(models.Model):
+    """Єдина сутність операції: дохід, витрата, переказ.
+
+    Ключові облікові поля:
+    - date_actual    — дата руху грошей (для балансу, Cash Flow, календаря);
+    - date_agreement — дата угоди/документа (для P&L, дебіторки/кредиторки).
+    Статус ``planned`` не впливає на фактичний баланс, лише на прогноз.
+    """
+
+    TYPE_INCOME = 'income'
+    TYPE_EXPENSE = 'expense'
+    TYPE_TRANSFER = 'transfer'
+    TYPE_CHOICES = [
+        (TYPE_INCOME, 'Дохід'),
+        (TYPE_EXPENSE, 'Витрата'),
+        (TYPE_TRANSFER, 'Переказ'),
+    ]
+
+    STATUS_ACTUAL = 'actual'
+    STATUS_PLANNED = 'planned'
+    STATUS_DRAFT = 'draft'
+    STATUS_CANCELLED = 'cancelled'
+    STATUS_CHOICES = [
+        (STATUS_ACTUAL, 'Фактична'),
+        (STATUS_PLANNED, 'Планова'),
+        (STATUS_DRAFT, 'Чернетка'),
+        (STATUS_CANCELLED, 'Скасована'),
+    ]
+
+    SOURCE_CHOICES = [
+        ('manual', 'Вручну'),
+        ('import', 'Імпорт виписки'),
+        ('integration', 'Банківська інтеграція'),
+        ('invoice', 'Інвойс'),
+        ('rule', 'Автоправило'),
+        ('recurring', 'Повторення'),
+        ('ai', 'AI радник'),
+    ]
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='transactions')
+    type = models.CharField(max_length=12, choices=TYPE_CHOICES)
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default=STATUS_ACTUAL)
+
+    amount = models.DecimalField(max_digits=18, decimal_places=2)
+    currency = models.CharField(max_length=3, default='UAH')
+    amount_base = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal('0'))
+
+    # Для переказів: account = джерело, to_account = отримувач.
+    account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='transactions',
+                                blank=True, null=True)
+    to_account = models.ForeignKey(Account, on_delete=models.PROTECT, related_name='incoming_transfers',
+                                   blank=True, null=True)
+    exchange_rate = models.DecimalField(max_digits=18, decimal_places=6, blank=True, null=True)
+    to_amount = models.DecimalField(max_digits=18, decimal_places=2, blank=True, null=True)
+
+    date_actual = models.DateTimeField()
+    date_agreement = models.DateTimeField(blank=True, null=True)
+
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, blank=True, null=True,
+                                 related_name='transactions')
+    counterparty = models.ForeignKey(Counterparty, on_delete=models.SET_NULL, blank=True, null=True,
+                                     related_name='transactions')
+    project = models.ForeignKey(Project, on_delete=models.SET_NULL, blank=True, null=True,
+                                related_name='transactions')
+    tags = models.ManyToManyField(Tag, blank=True, related_name='transactions')
+    comment = models.TextField(blank=True, default='')
+    attachments = models.ManyToManyField(Attachment, blank=True, related_name='transactions')
+
+    source = models.CharField(max_length=16, choices=SOURCE_CHOICES, default='manual')
+    external_id = models.CharField(max_length=128, blank=True, default='')
+
+    is_recurring = models.BooleanField(default=False)
+    recurrence_rule = models.ForeignKey(RecurrenceRule, on_delete=models.SET_NULL, blank=True,
+                                        null=True, related_name='transactions')
+    parent_transaction = models.ForeignKey('self', on_delete=models.CASCADE, blank=True, null=True,
+                                           related_name='children')
+    is_split = models.BooleanField(default=False)
+    split_group = models.CharField(max_length=64, blank=True, default='')
+
+    linked_invoice = models.ForeignKey('finance.Invoice', on_delete=models.SET_NULL, blank=True,
+                                       null=True, related_name='payments')
+
+    excluded_from_reports = models.BooleanField(default=False)
+    is_demo = models.BooleanField(default=False)
+
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True,
+                                   null=True, related_name='+')
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True,
+                                   null=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Операція'
+        verbose_name_plural = 'Операції'
+        ordering = ['-date_actual', '-id']
+        indexes = [
+            models.Index(fields=['company', 'type', 'status']),
+            models.Index(fields=['date_actual']),
+            models.Index(fields=['date_agreement']),
+            models.Index(fields=['external_id']),
+        ]
+
+    def __str__(self):
+        return f'{self.get_type_display()} {self.amount} {self.currency} ({self.date_actual:%Y-%m-%d})'
+
+    @property
+    def signed_amount(self) -> Decimal:
+        """Сума зі знаком: доходи +, витрати −, перекази 0 для P&L-сенсу."""
+        if self.type == self.TYPE_INCOME:
+            return self.amount
+        if self.type == self.TYPE_EXPENSE:
+            return -self.amount
+        return Decimal('0')
+
+    @property
+    def is_actual(self) -> bool:
+        return self.status == self.STATUS_ACTUAL
+
+    @property
+    def is_planned(self) -> bool:
+        return self.status == self.STATUS_PLANNED
+
+    @property
+    def planned_date(self):
+        """Дата для прогнозу/календаря планових операцій."""
+        return self.date_actual

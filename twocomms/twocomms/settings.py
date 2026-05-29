@@ -95,6 +95,8 @@ ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') if os.environ.get
     'www.management.twocomms.shop',
     'storage.twocomms.shop',
     'www.storage.twocomms.shop',
+    'fin.twocomms.shop',
+    'www.fin.twocomms.shop',
 ]
 
 
@@ -153,6 +155,9 @@ INSTALLED_APPS = [
 
     # Warehouse / Storage Subdomain App
     "warehouse.apps.WarehouseConfig",
+
+    # Finance Subdomain App (fin.twocomms.shop)
+    "finance.apps.FinanceConfig",
 ]
 
 # Явно переопределим список middleware, чтобы исключить любые лишние строки
@@ -202,6 +207,7 @@ TEMPLATES = [
                 'social_django.context_processors.backends',
                 'social_django.context_processors.login_redirect',
                 'management.context_processors.management_shell_context',
+                'finance.context_processors.finance_shell_context',
             ],
         },
     },
@@ -1079,6 +1085,8 @@ CSRF_TRUSTED_ORIGINS = [
     'https://www.management.twocomms.shop',
     'https://storage.twocomms.shop',
     'https://www.storage.twocomms.shop',
+    'https://fin.twocomms.shop',
+    'https://www.fin.twocomms.shop',
     'https://*.twocomms.shop',
     # удалён домен pythonanywhere по требованию
 ]

@@ -1,0 +1,137 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}TwoComms Finance{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/finance.css' %}?v=20260529a">
+    <meta name="theme-color" content="#0b0e14">
+    <meta name="application-name" content="TwoComms Finance">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="TwoComms Finance">
+    <link rel="icon" href="{% static 'img/logo.svg' %}" type="image/svg+xml">
+    <link rel="mask-icon" href="{% static 'img/logo.svg' %}" color="#ff7e29">
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="fin-body" data-url-name="{{ request.resolver_match.url_name }}">
+
+    <!-- ===== Верхня темна шапка ===== -->
+    <header class="fin-header">
+        <div class="fin-header__left">
+            <div class="fin-brand-mark">
+                <img src="{% static 'img/logo.svg' %}" alt="TwoComms">
+            </div>
+            <button type="button" class="fin-company" id="fin-company-switch" title="Змінити компанію">
+                <span class="fin-company__name">{{ fin_company_name|default:"TwoComms" }}</span>
+                <span class="fin-company__hint">Змінити компанію</span>
+                <svg class="fin-company__chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
+            </button>
+        </div>
+
+        <nav class="fin-tabs" id="fin-tabs">
+            <a href="{% url 'finance_home' %}" class="fin-tab{% if active_tab == 'payments' %} active{% endif %}">Платежі</a>
+            <a href="{% url 'finance_analytics' %}" class="fin-tab{% if active_tab == 'analytics' %} active{% endif %}">Аналітика</a>
+            <a href="{% url 'finance_ai' %}" class="fin-tab{% if active_tab == 'ai' %} active{% endif %}">AI радник</a>
+            <a href="{% url 'finance_calendar' %}" class="fin-tab{% if active_tab == 'calendar' %} active{% endif %}">Календар</a>
+            <a href="{% url 'finance_invoices' %}" class="fin-tab{% if active_tab == 'invoices' %} active{% endif %}">Рахунки-фактури</a>
+            <a href="{% url 'finance_rules' %}" class="fin-tab{% if active_tab == 'rules' %} active{% endif %}">Автоправила</a>
+            <a href="{% url 'finance_users' %}" class="fin-tab{% if active_tab == 'users' %} active{% endif %}">Користувачі</a>
+        </nav>
+
+        <div class="fin-header__actions">
+            <div class="fin-quick-actions">
+                <button type="button" class="fin-quick fin-quick--income" data-fin-modal="income">
+                    <span class="fin-quick__plus">+</span> Дохід
+                </button>
+                <button type="button" class="fin-quick fin-quick--expense" data-fin-modal="expense">
+                    <span class="fin-quick__minus">−</span> Витрата
+                </button>
+                <button type="button" class="fin-quick fin-quick--transfer" data-fin-modal="transfer">
+                    <span class="fin-quick__swap">⇄</span> Переказ
+                </button>
+            </div>
+            <a href="{% url 'finance_logout' %}" class="fin-icon-btn" title="Вийти" aria-label="Вийти">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 13v-2H7V8l-5 4 5 4v-3h9zM19 3h-8v2h8v14h-8v2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/></svg>
+            </a>
+        </div>
+
+        <button type="button" class="fin-burger" id="fin-burger" aria-label="Меню" aria-expanded="false">
+            <span></span><span></span><span></span>
+        </button>
+    </header>
+
+    <div class="fin-workspace">
+        <!-- ===== Ліва фінансова панель ===== -->
+        <aside class="fin-sidebar" id="fin-sidebar">
+            <div class="fin-sidebar__scroll">
+                <div class="fin-balance-card">
+                    <div class="fin-balance-card__label">Всього на рахунках</div>
+                    <div class="fin-balance-card__value" id="fin-total-balance">
+                        {% if fin_total_balance is not None %}{{ fin_total_balance }}{% else %}— {{ fin_base_currency|default:"₴" }}{% endif %}
+                    </div>
+                </div>
+
+                <div class="fin-accounts">
+                    <div class="fin-accounts__head">
+                        <span>Мої рахунки</span>
+                        <a href="{% url 'finance_accounts' %}" class="fin-accounts__manage" title="Керування рахунками">⚙</a>
+                    </div>
+                    <div class="fin-accounts__list" id="fin-accounts-list">
+                        {% for acc in fin_accounts %}
+                        <a class="fin-account" href="?account={{ acc.id }}">
+                            <span class="fin-account__name">{{ acc.name }}</span>
+                            <span class="fin-account__balance">{{ acc.balance_display }}</span>
+                        </a>
+                        {% empty %}
+                        <div class="fin-accounts__empty">Ще немає рахунків</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="fin-planned">
+                    <div class="fin-planned__head">
+                        <span>Планові платежі</span>
+                        <span class="fin-planned__period">{{ fin_planned_period_label|default:"1 міс" }}</span>
+                    </div>
+                    <div class="fin-planned__row">
+                        <span>Планові доходи</span>
+                        <strong class="is-pos">{% if fin_planned_income is not None %}{{ fin_planned_income }}{% else %}—{% endif %}</strong>
+                    </div>
+                    <div class="fin-planned__row">
+                        <span>Планові витрати</span>
+                        <strong class="is-neg">{% if fin_planned_expense is not None %}{{ fin_planned_expense }}{% else %}—{% endif %}</strong>
+                    </div>
+                </div>
+
+                <div class="fin-balance-card fin-balance-card--forecast">
+                    <div class="fin-balance-card__label">Всього з урах. майбутніх платежів</div>
+                    <div class="fin-balance-card__value">
+                        {% if fin_forecast_balance is not None %}{{ fin_forecast_balance }}{% else %}—{% endif %}
+                    </div>
+                </div>
+
+                <a href="{% url 'finance_accounts' %}" class="fin-add-integration">
+                    <span>+ Додати інтеграцію</span>
+                </a>
+            </div>
+        </aside>
+        <div class="fin-sidebar__backdrop" id="fin-sidebar-backdrop"></div>
+
+        <!-- ===== Основний контент ===== -->
+        <main class="fin-main">
+            <div class="fin-content">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    {% block modals %}{% endblock %}
+
+    <span class="fin-version">v0.1</span>
+
+    <script src="{% static 'js/finance.js' %}?v=20260529a"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

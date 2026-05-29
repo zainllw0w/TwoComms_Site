@@ -1,0 +1,20 @@
+{% extends 'finance/base.html' %}
+
+{% block title %}{{ section_title }} — TwoComms Finance{% endblock %}
+
+{% block content %}
+<div class="fin-page-head">
+    <div>
+        <h1 class="fin-page-title">{{ section_title }}</h1>
+        {% if section_subtitle %}<p class="fin-page-subtitle">{{ section_subtitle }}</p>{% endif %}
+    </div>
+</div>
+
+<div class="fin-empty-state">
+    <div class="fin-empty-state__icon">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13h2l3 7 4-16 3 9h6"/></svg>
+    </div>
+    <h2>Розділ готується</h2>
+    <p>Каркас фінансового кабінету розгорнуто. Наповнення цього розділу з'явиться найближчим часом.</p>
+</div>
+{% endblock %}

@@ -95,6 +95,11 @@ class SubdomainURLRoutingMiddleware(MiddlewareMixin):
             request.urlconf = 'twocomms.urls_management'
             return None
 
+        # Финансовый кабинет (fin.twocomms.shop)
+        if host.startswith('fin.'):
+            request.urlconf = 'twocomms.urls_fin'
+            return None
+
         # Storage / warehouse поддомен
         if host.startswith('storage.'):
             request.urlconf = 'twocomms.urls_storage'
