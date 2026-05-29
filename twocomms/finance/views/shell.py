@@ -16,8 +16,6 @@ _SECTIONS = {
     'finance_rules': ('rules', 'Автоправила',
                       'Автоматичне заповнення категорій, проектів і контрагентів.'),
     'finance_users': ('users', 'Користувачі', 'Доступи, ролі та ефективність використання.'),
-    'finance_accounts': ('payments', 'Рахунки',
-                         'Керування рахунками, стартові баланси та інтеграції.'),
 }
 
 
@@ -56,8 +54,3 @@ def rules(request):
 @finance_access_required
 def users(request):
     return _shell(request, 'finance_users')
-
-
-@finance_access_required
-def accounts(request):
-    return _shell(request, 'finance_accounts')

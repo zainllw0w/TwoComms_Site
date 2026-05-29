@@ -1,0 +1,225 @@
+{% extends 'finance/base.html' %}
+{% load static %}
+
+{% block title %}Рахунки — TwoComms Finance{% endblock %}
+
+{% block content %}
+<div class="fin-page-head">
+    <div>
+        <h1 class="fin-page-title">Рахунки</h1>
+        <p class="fin-page-subtitle">Керування рахунками, стартові баланси та інтеграції.</p>
+    </div>
+    <div class="fin-page-actions">
+        <button type="button" class="fin-btn fin-btn--ghost" id="fin-import-btn">Імпорт виписки</button>
+        <button type="button" class="fin-btn fin-btn--primary" id="fin-add-account-btn">+ Додати рахунок</button>
+    </div>
+</div>
+
+<div class="fin-hint">
+    <svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><path d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9a10 10 0 100 20 10 10 0 000-20z"/></svg>
+    Якщо залишки не збігаються — відредагуйте стартовий баланс (поки немає операцій) або створіть коригувальну операцію.
+</div>
+
+<div class="fin-accounts-manage" id="fin-accounts-list">
+    {% for a in accounts %}
+    <div class="fin-acc-card{% if a.is_archived %} is-archived{% endif %}" data-account-id="{{ a.id }}" draggable="true">
+        <span class="fin-acc-drag" title="Перетягніть">⠿</span>
+        <div class="fin-acc-card__main">
+            <div class="fin-acc-card__name">{{ a.name }}
+                {% if a.integration %}<span class="fin-acc-card__integration">{{ a.integration }}</span>{% endif %}
+                {% if a.is_archived %}<span class="fin-badge">архів</span>{% endif %}
+            </div>
+            <div class="fin-acc-card__meta">{{ a.type_display }} · {{ a.currency }}</div>
+        </div>
+        <div class="fin-acc-card__balance">{{ a.current_balance }} {{ a.balance_display }}</div>
+        <div class="fin-acc-card__actions">
+            <button type="button" class="fin-icon-btn fin-icon-btn--sm" data-acc-edit="{{ a.id }}" title="Редагувати">✎</button>
+            <button type="button" class="fin-icon-btn fin-icon-btn--sm" data-acc-archive="{{ a.id }}" data-archived="{{ a.is_archived|yesno:'1,0' }}" title="Архівувати">⌫</button>
+            {% if not a.has_transactions %}
+            <button type="button" class="fin-icon-btn fin-icon-btn--sm" data-acc-delete="{{ a.id }}" title="Видалити">🗑</button>
+            {% endif %}
+        </div>
+    </div>
+    {% empty %}
+    <div class="fin-empty-state">
+        <h2>Ще немає рахунків</h2>
+        <p>Додайте перший рахунок вручну або підключіть банк/сервіс.</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block modals %}
+{{ accounts|json_script:"fin-accounts-data" }}
+
+<!-- Вибір способу додавання рахунку -->
+<div class="fin-modal-overlay" id="fin-addacc-modal" hidden>
+  <div class="fin-modal-card" role="dialog" aria-modal="true">
+    <div class="fin-modal-head">
+      <h3 id="fin-addacc-title">Оберіть спосіб додавання рахунку</h3>
+      <button type="button" class="fin-modal-close" data-fin-close aria-label="Закрити">×</button>
+    </div>
+    <div class="fin-modal-body">
+      <div class="fin-method-cards" id="fin-method-cards">
+        <button type="button" class="fin-method-card" data-method="manual">
+          <span class="fin-method-card__icon">✍</span>
+          <span class="fin-method-card__title">Створити рахунок вручну</span>
+          <span class="fin-method-card__desc">Готівка, картка, банк зі стартовим балансом</span>
+        </button>
+        <button type="button" class="fin-method-card" data-method="integration">
+          <span class="fin-method-card__icon">⚡</span>
+          <span class="fin-method-card__title">Автоматичне підключення банку чи сервісу</span>
+          <span class="fin-method-card__desc">PrivatBank, monobank, Wise, Payoneer та інші</span>
+        </button>
+      </div>
+
+      <!-- Форма ручного рахунку -->
+      <form class="fin-method-pane" id="fin-manual-pane" hidden>
+        <div class="fin-form-alert" id="fin-acc-alert" hidden></div>
+        <label class="fin-field">
+          <span>Валюта</span>
+          <select class="fin-select" id="fin-acc-currency">
+            {% for c in currencies %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+          </select>
+        </label>
+        <label class="fin-field">
+          <span>Тип рахунку</span>
+          <select class="fin-select" id="fin-acc-type">
+            {% for val, label in account_types %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+          </select>
+        </label>
+        <label class="fin-field">
+          <span>Назва</span>
+          <input type="text" class="fin-input" id="fin-acc-name" placeholder="Напр. ПриватБанк ФОП">
+        </label>
+        <label class="fin-field">
+          <span>Стартовий баланс</span>
+          <input type="number" step="0.01" class="fin-input" id="fin-acc-initial" value="0">
+          <small class="fin-field-help">Сума на рахунку на момент додавання (не дохід).</small>
+        </label>
+        <div class="fin-modal-foot">
+          <button type="button" class="fin-btn fin-btn--ghost" data-back-method>Назад</button>
+          <button type="submit" class="fin-btn fin-btn--primary">Додати рахунок</button>
+        </div>
+      </form>
+
+      <!-- Вибір провайдера інтеграції -->
+      <div class="fin-method-pane" id="fin-integration-pane" hidden>
+        <div class="fin-integ-filters">
+          <input type="search" class="fin-input" id="fin-integ-search" placeholder="Пошук банку чи сервісу">
+          <select class="fin-select" id="fin-integ-country">
+            <option value="all">Всі країни</option>
+            <option value="UA">Україна</option>
+            <option value="INT">Міжнародні</option>
+          </select>
+        </div>
+        <div class="fin-integ-list" id="fin-integ-list">
+          {% for p in providers %}
+          <button type="button" class="fin-integ-item" data-provider="{{ p.key }}" data-country="{{ p.country }}">{{ p.name }}</button>
+          {% endfor %}
+        </div>
+        <div class="fin-modal-foot">
+          <button type="button" class="fin-btn fin-btn--ghost" data-back-method>Назад</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- QR-підключення -->
+<div class="fin-modal-overlay" id="fin-qr-modal" hidden>
+  <div class="fin-modal-card fin-modal-card--sm" role="dialog" aria-modal="true">
+    <div class="fin-modal-head">
+      <h3>Підключення інтеграції</h3>
+      <button type="button" class="fin-modal-close" data-fin-close aria-label="Закрити">×</button>
+    </div>
+    <div class="fin-modal-body fin-qr-body">
+      <div class="fin-qr-status" id="fin-qr-status">Для підключення відскануйте код</div>
+      <div class="fin-qr-box" id="fin-qr-box"><canvas id="fin-qr-canvas" width="180" height="180"></canvas></div>
+      <div class="fin-qr-spinner" id="fin-qr-spinner" hidden>Перевіряємо підключення…</div>
+      <!-- Прив'язка рахунку після успіху -->
+      <div class="fin-qr-link" id="fin-qr-link" hidden>
+        <div class="fin-qr-success">✓ Підключено</div>
+        <label class="fin-field">
+          <span>Прив'язати до рахунку</span>
+          <select class="fin-select" id="fin-qr-account"><option value="">Створити новий рахунок</option></select>
+        </label>
+        <label class="fin-field" id="fin-qr-newname-wrap">
+          <span>Назва нового рахунку</span>
+          <input type="text" class="fin-input" id="fin-qr-newname" placeholder="Напр. monobank">
+        </label>
+        <label class="fin-field">
+          <span>Синхронізувати з дати</span>
+          <input type="date" class="fin-input" id="fin-qr-syncfrom">
+        </label>
+      </div>
+      <div class="fin-modal-foot">
+        <button type="button" class="fin-btn fin-btn--ghost" id="fin-qr-refresh">Оновити код</button>
+        <button type="button" class="fin-btn fin-btn--ghost" id="fin-qr-cancel">Скасувати</button>
+        <button type="button" class="fin-btn fin-btn--primary" id="fin-qr-finish" hidden>Завершити</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Імпорт виписки -->
+<div class="fin-modal-overlay" id="fin-import-modal" hidden>
+  <div class="fin-modal-card" role="dialog" aria-modal="true">
+    <div class="fin-modal-head">
+      <h3>Імпорт виписки</h3>
+      <button type="button" class="fin-modal-close" data-fin-close aria-label="Закрити">×</button>
+    </div>
+    <div class="fin-modal-body">
+      <div class="fin-form-alert" id="fin-import-alert" hidden></div>
+      <label class="fin-field">
+        <span>Рахунок</span>
+        <select class="fin-select" id="fin-import-account"></select>
+      </label>
+      <label class="fin-field">
+        <span>Файл виписки (CSV / XLSX)</span>
+        <input type="file" class="fin-input" id="fin-import-file" accept=".csv,.xlsx,.xls">
+        <small class="fin-field-help">Колонки: дата, сума (+дохід/−витрата), коментар. Дублі пропускаються.</small>
+      </label>
+      <label class="fin-checkbox"><input type="checkbox" id="fin-import-rules" checked> Застосувати автоправила</label>
+      <div class="fin-import-preview" id="fin-import-preview" hidden>
+        <div class="fin-import-preview__head">Передогляд (<span id="fin-import-count">0</span> рядків)</div>
+        <div class="fin-import-preview__list" id="fin-import-preview-list"></div>
+      </div>
+      <div class="fin-modal-foot">
+        <button type="button" class="fin-btn fin-btn--ghost" id="fin-import-preview-btn">Передогляд</button>
+        <button type="button" class="fin-btn fin-btn--primary" id="fin-import-confirm-btn" disabled>Імпортувати</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Редагування рахунку -->
+<div class="fin-modal-overlay" id="fin-editacc-modal" hidden>
+  <div class="fin-modal-card fin-modal-card--sm" role="dialog" aria-modal="true">
+    <div class="fin-modal-head">
+      <h3>Редагувати рахунок</h3>
+      <button type="button" class="fin-modal-close" data-fin-close aria-label="Закрити">×</button>
+    </div>
+    <form class="fin-modal-body" id="fin-editacc-form">
+      <input type="hidden" id="fin-editacc-id">
+      <label class="fin-field"><span>Назва</span><input type="text" class="fin-input" id="fin-editacc-name"></label>
+      <label class="fin-field"><span>Стартовий баланс</span><input type="number" step="0.01" class="fin-input" id="fin-editacc-initial"></label>
+      <label class="fin-field"><span>Поточний залишок має дорівнювати</span>
+        <div class="fin-combo">
+          <input type="number" step="0.01" class="fin-input" id="fin-editacc-target" placeholder="напр. фактичний у банку">
+          <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" id="fin-editacc-correct">Коригувати</button>
+        </div>
+      </label>
+      <div class="fin-modal-foot">
+        <button type="button" class="fin-btn fin-btn--ghost" data-fin-close>Відміна</button>
+        <button type="submit" class="fin-btn fin-btn--primary">Зберегти</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="{% static 'js/finance-accounts.js' %}?v=20260529a"></script>
+{% endblock %}

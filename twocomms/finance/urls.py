@@ -37,6 +37,26 @@ urlpatterns = [
     path('api/transactions/<int:txn_id>/split/', views.transaction_split_api, name='finance_txn_split_api'),
     path('api/transactions/<int:txn_id>/mark-actual/', views.transaction_mark_actual_api, name='finance_txn_mark_actual_api'),
 
+    # --- API: рахунки ---
+    path('api/accounts/create/', views.account_create_api, name='finance_account_create_api'),
+    path('api/accounts/reorder/', views.accounts_reorder_api, name='finance_accounts_reorder_api'),
+    path('api/accounts/<int:account_id>/update/', views.account_update_api, name='finance_account_update_api'),
+    path('api/accounts/<int:account_id>/archive/', views.account_archive_api, name='finance_account_archive_api'),
+    path('api/accounts/<int:account_id>/delete/', views.account_delete_api, name='finance_account_delete_api'),
+    path('api/accounts/<int:account_id>/correct/', views.account_correct_balance_api, name='finance_account_correct_api'),
+
+    # --- API: інтеграції ---
+    path('api/integrations/providers/', views.integration_providers_api, name='finance_integration_providers_api'),
+    path('api/integrations/start/', views.integration_start_api, name='finance_integration_start_api'),
+    path('api/integrations/<int:conn_id>/status/', views.integration_status_api, name='finance_integration_status_api'),
+    path('api/integrations/<int:conn_id>/refresh-qr/', views.integration_refresh_qr_api, name='finance_integration_refresh_qr_api'),
+    path('api/integrations/<int:conn_id>/link/', views.integration_link_api, name='finance_integration_link_api'),
+    path('api/integrations/<int:conn_id>/cancel/', views.integration_cancel_api, name='finance_integration_cancel_api'),
+
+    # --- API: імпорт виписки ---
+    path('api/import/preview/', views.import_preview_api, name='finance_import_preview_api'),
+    path('api/import/confirm/', views.import_confirm_api, name='finance_import_confirm_api'),
+
     # Журнал платежів — головна
     path('', views.payments, name='finance_home'),
 ]
