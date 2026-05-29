@@ -1,0 +1,109 @@
+{% extends 'finance/base.html' %}
+{% block title %}Рахунки-фактури — TwoComms Finance{% endblock %}
+
+{% block content %}
+<div class="fin-page-head">
+    <div>
+        <h1 class="fin-page-title">Рахунки-фактури</h1>
+        <p class="fin-page-subtitle">Виставлення рахунків клієнтам, ПДВ, контроль оплат.</p>
+    </div>
+    <div class="fin-page-actions">
+        <a href="{% url 'finance_invoice_new' %}" class="fin-btn fin-btn--primary">+ Новий рахунок</a>
+    </div>
+</div>
+
+<div class="fin-subtabs">
+    <a href="?tab=invoices" class="fin-subtab{% if tab != 'vat' %} active{% endif %}">Рахунки-фактури</a>
+    <a href="?tab=vat" class="fin-subtab{% if tab == 'vat' %} active{% endif %}">ПДВ</a>
+</div>
+
+{% if tab == 'vat' %}
+<div class="fin-table-wrap">
+    <table class="fin-table">
+        <thead><tr><th>Рахунок</th><th>Дата</th><th>Контрагент</th><th class="fin-col-amount">Без ПДВ</th><th class="fin-col-amount">ПДВ</th><th class="fin-col-amount">З ПДВ</th><th>Статус</th></tr></thead>
+        <tbody>
+            {% for r in vat_rows %}
+            <tr><td>№{{ r.number }}</td><td>{{ r.date }}</td><td>{{ r.counterparty }}</td>
+                <td class="fin-col-amount">{{ r.subtotal }}</td><td class="fin-col-amount">{{ r.tax }}</td>
+                <td class="fin-col-amount">{{ r.total }}</td><td>{{ r.status }}</td></tr>
+            {% empty %}
+            <tr><td colspan="7"><div class="fin-day-empty">Рахунків з ПДВ немає.</div></td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+{% if invoices %}
+<div class="fin-table-wrap">
+    <table class="fin-table">
+        <thead><tr><th>Номер</th><th>Дата</th><th>Оплата до</th><th>Платник</th><th class="fin-col-amount">Сума</th><th class="fin-col-amount">Оплачено</th><th class="fin-col-amount">Залишок</th><th>Статус</th><th></th></tr></thead>
+        <tbody>
+            {% for inv in invoices %}
+            <tr class="fin-invoice-row" data-id="{{ inv.id }}">
+                <td><a href="{% url 'finance_invoice_edit' inv.id %}">№{{ inv.number }}</a></td>
+                <td>{{ inv.issue_date|date:'d.m.Y' }}</td>
+                <td>{{ inv.due_date|date:'d.m.Y'|default:'—' }}</td>
+                <td>{{ inv.payer }}</td>
+                <td class="fin-col-amount">{{ inv.total }}</td>
+                <td class="fin-col-amount fin-amount--pos">{{ inv.paid }}</td>
+                <td class="fin-col-amount">{{ inv.due }}</td>
+                <td><span class="fin-status fin-status--{{ inv.status }}">{{ inv.status_display }}</span></td>
+                <td class="fin-invoice-actions">
+                    <a class="fin-icon-btn fin-icon-btn--sm" href="{% url 'finance_invoice_print' inv.id %}" target="_blank" title="Друк/PDF">🖶</a>
+                    <button type="button" class="fin-icon-btn fin-icon-btn--sm fin-inv-pay" data-id="{{ inv.id }}" title="Оплата">₴</button>
+                    <button type="button" class="fin-icon-btn fin-icon-btn--sm fin-inv-del" data-id="{{ inv.id }}" title="Видалити">🗑</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="fin-empty-state">
+    <div class="fin-empty-state__icon"><svg viewBox="0 0 24 24"><path d="M5 4h14a1 1 0 011 1v14l-5-3-5 3-5-3-5 3V5a1 1 0 011-1z"/></svg></div>
+    <h2>Ще немає рахунків</h2>
+    <p>Створюйте рахунки клієнтам із позиціями, ПДВ, знижкою та доставкою. Оплати автоматично зменшують дебіторку.</p>
+    <div class="fin-empty-cta"><a href="{% url 'finance_invoice_new' %}" class="fin-btn fin-btn--primary">+ Новий рахунок</a></div>
+</div>
+{% endif %}
+{% endif %}
+
+<!-- Оплата рахунку -->
+<div class="fin-modal-overlay" id="fin-pay-modal" hidden>
+  <div class="fin-modal-card fin-modal-card--sm" role="dialog" aria-modal="true">
+    <div class="fin-modal-head"><h3>Оплата рахунку</h3><button type="button" class="fin-modal-close" data-fin-close>×</button></div>
+    <div class="fin-modal-body">
+      <label class="fin-field"><span>Рахунок зарахування</span>
+        <select class="fin-select" id="fin-pay-account">
+          {% for a in dropdowns.accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="fin-field"><span>Сума (порожньо = повний залишок)</span><input type="number" step="0.01" class="fin-input" id="fin-pay-amount"></label>
+      <div class="fin-modal-foot">
+        <button type="button" class="fin-btn fin-btn--ghost" data-fin-close>Відміна</button>
+        <button type="button" class="fin-btn fin-btn--primary" id="fin-pay-apply">Зарахувати</button>
+      </div>
+    </div>
+  </div>
+</div>
+{{ dropdowns|json_script:"fin-dropdowns" }}
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  function csrf(){var m=document.cookie.match(/csrftoken=([^;]+)/);return m?m[1]:'';}
+  var payModal=document.getElementById('fin-pay-modal'); var payId=null;
+  document.querySelectorAll('.fin-inv-pay').forEach(function(b){b.addEventListener('click',function(){payId=b.dataset.id;payModal.hidden=false;document.body.classList.add('fin-modal-open');});});
+  payModal.querySelectorAll('[data-fin-close]').forEach(function(b){b.addEventListener('click',function(){payModal.hidden=true;document.body.classList.remove('fin-modal-open');});});
+  document.getElementById('fin-pay-apply').addEventListener('click',function(){
+    fetch('/api/invoices/'+payId+'/pay/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':csrf()},
+      body:JSON.stringify({account:document.getElementById('fin-pay-account').value,amount:document.getElementById('fin-pay-amount').value})})
+      .then(function(r){return r.json();}).then(function(d){if(d.ok)location.reload();else alert(d.error||'Помилка');});
+  });
+  document.querySelectorAll('.fin-inv-del').forEach(function(b){b.addEventListener('click',function(){
+    if(!confirm('Видалити рахунок?'))return;
+    fetch('/api/invoices/'+b.dataset.id+'/delete/',{method:'POST',headers:{'X-CSRFToken':csrf()}})
+      .then(function(r){return r.json();}).then(function(d){if(d.ok)location.reload();});
+  });});
+});
+</script>
+{% endblock %}

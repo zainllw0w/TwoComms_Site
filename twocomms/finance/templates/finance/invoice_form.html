@@ -1,0 +1,105 @@
+{% extends 'finance/base.html' %}
+{% load static %}
+{% block title %}{% if invoice %}Рахунок №{{ invoice.number }}{% else %}Новий рахунок{% endif %} — TwoComms Finance{% endblock %}
+
+{% block content %}
+<div class="fin-report-head">
+    <a href="{% url 'finance_invoices' %}" class="fin-back-link">‹ Назад до рахунків</a>
+    <h1 class="fin-page-title">{% if invoice %}Рахунок №{{ invoice.number }}{% else %}Новий рахунок{% endif %}</h1>
+</div>
+
+<form id="fin-invoice-form" class="fin-invoice-form"
+      data-save-url="{% if invoice %}{% url 'finance_invoice_update_api' invoice.id %}{% else %}{% url 'finance_invoice_save_api' %}{% endif %}">
+    <div class="fin-form-alert" id="fin-inv-alert" hidden></div>
+
+    <div class="fin-invoice-grid">
+        <div class="fin-card">
+            <h3 class="fin-card__title">Реквізити рахунку</h3>
+            <div class="fin-field-row">
+                <label class="fin-field"><span>Номер рахунку</span><input class="fin-input" id="inv-number" value="{{ invoice.number|default:next_number }}"></label>
+                <label class="fin-field fin-field--cur"><span>Валюта</span>
+                    <select class="fin-select" id="inv-currency">{% for c in currencies %}<option value="{{ c }}" {% if invoice.currency == c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select>
+                </label>
+            </div>
+            <div class="fin-field-row">
+                <label class="fin-field"><span>Дата створення</span><input type="date" class="fin-input" id="inv-issue" value="{{ invoice.issue_date|date:'Y-m-d' }}"></label>
+                <label class="fin-field"><span>Дата оплати</span><input type="date" class="fin-input" id="inv-due" value="{{ invoice.due_date|date:'Y-m-d' }}"></label>
+            </div>
+            <label class="fin-field"><span>Статус</span>
+                <select class="fin-select" id="inv-status">{% for v,l in statuses %}<option value="{{ v }}" {% if invoice.status == v %}selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+            </label>
+            <label class="fin-checkbox"><input type="checkbox" id="inv-vat" {% if invoice.vat_enabled %}checked{% endif %}> Враховувати ПДВ</label>
+            <label class="fin-field" id="inv-vat-rate-wrap" {% if not invoice.vat_enabled %}hidden{% endif %}><span>Ставка ПДВ, %</span><input type="number" step="0.01" class="fin-input" id="inv-vat-rate" value="{{ invoice.vat_rate|default:20 }}"></label>
+        </div>
+
+        <div class="fin-card">
+            <h3 class="fin-card__title">Дані постачальника</h3>
+            <label class="fin-field"><span>Назва компанії</span><input class="fin-input" id="inv-sup-name" value="{{ invoice.supplier_name }}"></label>
+            <div class="fin-field-row">
+                <label class="fin-field"><span>ЄДРПОУ</span><input class="fin-input" id="inv-sup-edrpou" value="{{ invoice.supplier_edrpou }}"></label>
+                <label class="fin-field"><span>IBAN</span><input class="fin-input" id="inv-sup-iban" value="{{ invoice.supplier_iban }}"></label>
+            </div>
+            <label class="fin-field"><span>Адреса</span><input class="fin-input" id="inv-sup-address" value="{{ invoice.supplier_address }}"></label>
+        </div>
+
+        <div class="fin-card">
+            <h3 class="fin-card__title">Дані отримувача (платника)</h3>
+            <label class="fin-field"><span>Контрагент</span>
+                <select class="fin-select" id="inv-counterparty"><option value="">— оберіть —</option>
+                {% for c in dropdowns.counterparties %}<option value="{{ c.id }}" {% if invoice.counterparty_id == c.id %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+                </select>
+            </label>
+            <label class="fin-field"><span>Назва компанії</span><input class="fin-input" id="inv-pay-name" value="{{ invoice.payer_name }}"></label>
+            <div class="fin-field-row">
+                <label class="fin-field"><span>ЄДРПОУ</span><input class="fin-input" id="inv-pay-edrpou" value="{{ invoice.payer_edrpou }}"></label>
+                <label class="fin-field"><span>IBAN</span><input class="fin-input" id="inv-pay-iban" value="{{ invoice.payer_iban }}"></label>
+            </div>
+            <label class="fin-field"><span>Адреса</span><input class="fin-input" id="inv-pay-address" value="{{ invoice.payer_address }}"></label>
+        </div>
+    </div>
+
+    <div class="fin-card">
+        <h3 class="fin-card__title">Позиції</h3>
+        <table class="fin-items-table">
+            <thead><tr><th>Товар / послуга</th><th>К-сть</th><th>Ціна</th><th>Сума</th><th></th></tr></thead>
+            <tbody id="inv-items">
+                {% for it in items %}
+                <tr class="inv-item">
+                    <td><input class="fin-input inv-item-name" value="{{ it.name }}"></td>
+                    <td><input type="number" step="0.001" class="fin-input fin-input--sm inv-item-qty" value="{{ it.quantity }}"></td>
+                    <td><input type="number" step="0.01" class="fin-input fin-input--sm inv-item-price" value="{{ it.unit_price }}"></td>
+                    <td class="inv-item-amount">{{ it.amount }}</td>
+                    <td><button type="button" class="fin-icon-btn fin-icon-btn--sm inv-item-del">×</button></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" id="inv-add-item">+ Додати позицію</button>
+    </div>
+
+    <div class="fin-invoice-totals">
+        <div class="fin-card fin-card--totals">
+            <div class="fin-field-row">
+                <label class="fin-field"><span>Знижка</span><input type="number" step="0.01" class="fin-input" id="inv-discount" value="{{ invoice.discount_amount|default:0 }}"></label>
+                <label class="fin-field"><span>Доставка</span><input type="number" step="0.01" class="fin-input" id="inv-delivery" value="{{ invoice.delivery_amount|default:0 }}"></label>
+            </div>
+            <div class="fin-totals-rows">
+                <div class="fin-total-row"><span>Сума без ПДВ</span><strong id="inv-subtotal">0</strong></div>
+                <div class="fin-total-row" id="inv-tax-row" {% if not invoice.vat_enabled %}hidden{% endif %}><span>ПДВ</span><strong id="inv-tax">0</strong></div>
+                <div class="fin-total-row fin-total-row--grand"><span>Загальна сума</span><strong id="inv-total">0</strong></div>
+            </div>
+        </div>
+    </div>
+
+    <label class="fin-field"><span>Нотатки</span><textarea class="fin-input fin-textarea" id="inv-notes" rows="2">{{ invoice.notes }}</textarea></label>
+
+    <div class="fin-modal-foot">
+        {% if invoice %}<a href="{% url 'finance_invoice_print' invoice.id %}" target="_blank" class="fin-btn fin-btn--ghost">Друк / PDF</a>{% endif %}
+        <button type="submit" class="fin-btn fin-btn--primary">{% if invoice %}Зберегти зміни{% else %}Створити рахунок{% endif %}</button>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/finance-invoice.js' %}?v=20260529a"></script>
+{% endblock %}
