@@ -914,3 +914,32 @@ body.fin-modal-open { overflow: hidden; }
     .fin-ai-msg, .fin-ai-issues { max-width: 92%; }
 }
 
+/* ===================== Блок 10: Користувачі + ефективність ===================== */
+.fin-users-layout { display: grid; grid-template-columns: 1fr 320px; gap: 16px; align-items: start; }
+.fin-users-note { font-size: 12px; color: var(--fin-muted); padding: 12px 14px; }
+.fin-role-badge { padding: 2px 10px; border-radius: 999px; font-size: 12px; background: rgba(111,149,255,0.14); color: #b9cbff; }
+.fin-role-badge--owner { background: rgba(255,126,41,0.16); color: var(--fin-accent); }
+
+.fin-eff-panel { background: var(--fin-panel); border: 1px solid var(--fin-border); border-radius: var(--fin-radius-lg); padding: 18px; }
+.fin-eff-title { margin: 0 0 14px; font-size: 15px; }
+.fin-eff-gauge { display: flex; justify-content: center; margin-bottom: 8px; }
+.fin-eff-circle {
+    width: 120px; height: 120px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 22px; font-weight: 800;
+    background: conic-gradient(var(--fin-accent) calc(var(--pct) * 1%), var(--fin-bg-800) 0);
+}
+.fin-eff-circle span { width: 92px; height: 92px; border-radius: 50%; background: var(--fin-panel); display: grid; place-items: center; }
+.fin-eff-sub { font-size: 12px; color: var(--fin-text-2); text-align: center; margin: 0 0 14px; }
+.fin-eff-list { display: flex; flex-direction: column; gap: 6px; }
+.fin-eff-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--fin-radius-sm); background: var(--fin-bg-800); font-size: 13px; }
+.fin-eff-item.is-done { opacity: 0.7; }
+.fin-eff-check { width: 20px; text-align: center; color: var(--fin-muted); }
+.fin-eff-item.is-done .fin-eff-check { color: var(--fin-pos); }
+.fin-eff-label { flex: 1; }
+.fin-eff-cta { font-size: 12px; color: var(--fin-accent); text-decoration: none; }
+.fin-eff-cta:hover { text-decoration: underline; }
+
+@media (max-width: 880px) {
+    .fin-users-layout { grid-template-columns: 1fr; }
+}
+

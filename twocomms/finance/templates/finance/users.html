@@ -1,0 +1,50 @@
+{% extends 'finance/base.html' %}
+{% block title %}Користувачі — TwoComms Finance{% endblock %}
+
+{% block content %}
+<div class="fin-page-head">
+    <div>
+        <h1 class="fin-page-title">Користувачі</h1>
+        <p class="fin-page-subtitle">Доступи, ролі та ефективність використання.</p>
+    </div>
+</div>
+
+<div class="fin-users-layout">
+    <div class="fin-table-wrap">
+        <table class="fin-table">
+            <thead><tr><th>Ім'я</th><th>Email</th><th>Права доступу</th><th>Останній вхід</th><th>Статус</th></tr></thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td>{{ u.name }}</td>
+                    <td>{{ u.email|default:'—' }}</td>
+                    <td><span class="fin-role-badge{% if u.is_superuser %} fin-role-badge--owner{% endif %}">{{ u.role }}</span></td>
+                    <td>{{ u.last_login|date:'d.m.Y H:i'|default:'—' }}</td>
+                    <td>{% if u.active %}<span class="is-pos">● Активний</span>{% else %}<span class="fin-muted-cell">● Вимкнено</span>{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="fin-users-note">Доступ до фінансового кабінету мають лише адміністратори (staff) та власники (superuser). Керування правами користувачів — у Django-адмінці.</p>
+    </div>
+
+    <aside class="fin-eff-panel">
+        <h3 class="fin-eff-title">Ефективність використання</h3>
+        <div class="fin-eff-gauge">
+            <div class="fin-eff-circle" style="--pct: {{ effectiveness.percent }}">
+                <span>{{ effectiveness.done }}/{{ effectiveness.total }}</span>
+            </div>
+        </div>
+        <p class="fin-eff-sub">Розрахунок базується на налаштуваннях кабінету.</p>
+        <div class="fin-eff-list">
+            {% for i in effectiveness.items %}
+            <div class="fin-eff-item{% if i.done %} is-done{% endif %}">
+                <span class="fin-eff-check">{% if i.done %}✓{% else %}○{% endif %}</span>
+                <span class="fin-eff-label">{{ i.label }}</span>
+                {% if not i.done %}<a href="{{ i.url }}" class="fin-eff-cta">{{ i.cta }}</a>{% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </aside>
+</div>
+{% endblock %}

@@ -1,5 +1,5 @@
 """Finance views package."""
-from .shell import (  # noqa: F401
+from .users import (  # noqa: F401
     users,
 )
 from .ai import (  # noqa: F401
