@@ -10,7 +10,6 @@ _SECTIONS = {
                           'Cash Flow, P&L, дебіторка, кредиторка, баланс, план/факт.'),
     'finance_ai': ('ai', 'AI радник',
                    'Фінансовий помічник: аналіз витрат, прогноз, перевірка платежів.'),
-    'finance_calendar': ('calendar', 'Календар', 'Прогноз залишку коштів по днях.'),
     'finance_invoices': ('invoices', 'Рахунки-фактури',
                          'Виставлення рахунків клієнтам, ПДВ, контроль оплат.'),
     'finance_rules': ('rules', 'Автоправила',
@@ -34,11 +33,6 @@ def analytics(request):
 @finance_access_required
 def ai_advisor(request):
     return _shell(request, 'finance_ai')
-
-
-@finance_access_required
-def calendar(request):
-    return _shell(request, 'finance_calendar')
 
 
 @finance_access_required

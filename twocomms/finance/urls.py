@@ -57,6 +57,9 @@ urlpatterns = [
     path('api/import/preview/', views.import_preview_api, name='finance_import_preview_api'),
     path('api/import/confirm/', views.import_confirm_api, name='finance_import_confirm_api'),
 
+    # --- API: календар ---
+    path('api/calendar/day/<str:date_str>/', views.calendar_day_api, name='finance_calendar_day_api'),
+
     # Журнал платежів — головна
     path('', views.payments, name='finance_home'),
 ]

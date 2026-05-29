@@ -1,0 +1,75 @@
+{% extends 'finance/base.html' %}
+{% load static %}
+
+{% block title %}Календар — TwoComms Finance{% endblock %}
+
+{% block content %}
+<div class="fin-page-head">
+    <div>
+        <h1 class="fin-page-title">Календар</h1>
+        <p class="fin-page-subtitle">Прогноз залишку коштів по днях.</p>
+    </div>
+</div>
+
+{{ dropdowns|json_script:"fin-dropdowns" }}
+
+<div class="fin-cal-toolbar">
+    <a class="fin-icon-btn" href="?year={{ prev_year }}&month={{ prev_month }}" aria-label="Попередній місяць">‹</a>
+    <div class="fin-cal-title">{{ grid.month_name|capfirst }} {{ grid.year }}</div>
+    <a class="fin-icon-btn" href="?year={{ next_year }}&month={{ next_month }}" aria-label="Наступний місяць">›</a>
+</div>
+
+<div class="fin-calendar">
+    <div class="fin-cal-weekdays">
+        {% for wd in grid.weekdays %}<div class="fin-cal-weekday">{{ wd }}</div>{% endfor %}
+    </div>
+    <div class="fin-cal-grid">
+        {% for _ in grid.lead_blanks %}<div class="fin-cal-cell fin-cal-cell--blank"></div>{% endfor %}
+        {% for d in grid.days %}
+        <button type="button"
+                class="fin-cal-cell{% if d.is_today %} is-today{% endif %}{% if d.is_future %} is-future{% endif %}{% if d.negative %} is-negative{% endif %}"
+                data-date="{{ d.date }}">
+            <span class="fin-cal-day">{{ d.day }}</span>
+            {% if d.income_display %}<span class="fin-cal-in">{{ d.income_display }}</span>{% endif %}
+            {% if d.expense_display %}<span class="fin-cal-out">{{ d.expense_display }}</span>{% endif %}
+            <span class="fin-cal-end">{{ d.end_display }}</span>
+        </button>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Панель вибраного дня -->
+<div class="fin-day-panel" id="fin-day-panel" hidden>
+    <div class="fin-day-panel__head">
+        <h3 id="fin-day-title">День</h3>
+        <div class="fin-day-actions">
+            <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-day-add="income">+ Дохід</button>
+            <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-day-add="expense">− Витрата</button>
+            <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-day-add="transfer">⇄ Переказ</button>
+            <button type="button" class="fin-modal-close" id="fin-day-close" aria-label="Закрити">×</button>
+        </div>
+    </div>
+    <div class="fin-day-summary">
+        <div class="fin-day-stat"><span>Залишок на початок</span><strong id="fin-day-start">—</strong></div>
+        <div class="fin-day-stat"><span>Доходи за день</span><strong class="is-pos" id="fin-day-income">—</strong></div>
+        <div class="fin-day-stat"><span>Витрати за день</span><strong class="is-neg" id="fin-day-expense">—</strong></div>
+        <div class="fin-day-stat"><span>Залишок на кінець</span><strong id="fin-day-end">—</strong></div>
+    </div>
+    <div class="fin-table-wrap">
+        <table class="fin-table">
+            <thead><tr><th>Час</th><th>Сума</th><th>Рахунок</th><th>Категорія</th><th>Контрагент</th><th>Коментар</th></tr></thead>
+            <tbody id="fin-day-txns"></tbody>
+        </table>
+        <div class="fin-day-empty" id="fin-day-empty" hidden>Платежів за цей день немає.</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block modals %}
+{% include 'finance/partials/transaction_modal.html' %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/finance-transactions.js' %}?v=20260529a"></script>
+<script src="{% static 'js/finance-calendar.js' %}?v=20260529a"></script>
+{% endblock %}
