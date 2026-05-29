@@ -74,3 +74,49 @@ class TransactionServiceTests(TestCase):
         self.assertEqual(txn.type, Transaction.TYPE_TRANSFER)
         self.acc2.refresh_from_db()
         self.assertEqual(self.acc2.current_balance, Decimal('5100'))
+
+
+class PaymentsViewTests(TestCase):
+    """Журнал і API-ендпоінти рендеряться/відповідають для адміна."""
+
+    FIN_HOST = 'fin.twocomms.shop'
+
+    def setUp(self):
+        self.user = User.objects.create_superuser('fin_root2', 'r2@x.com', 'x')
+        self.company = get_default_company()
+        self.acc = Account.objects.create(company=self.company, name='Каса', currency='UAH',
+                                           initial_balance=Decimal('1000'), current_balance=Decimal('1000'))
+        self.client.force_login(self.user)
+
+    def _get(self, path):
+        from django.test import override_settings
+        with override_settings(ALLOWED_HOSTS=['fin.twocomms.shop', 'testserver']):
+            return self.client.get(path, HTTP_HOST=self.FIN_HOST)
+
+    def test_journal_renders(self):
+        txn_service.create_transaction(user=self.user, type=Transaction.TYPE_INCOME,
+                                       amount=Decimal('250'), account=self.acc)
+        resp = self._get('/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Платежі')
+        self.assertContains(resp, 'fin-table')
+
+    def test_dropdowns_api(self):
+        from django.test import override_settings
+        with override_settings(ALLOWED_HOSTS=['fin.twocomms.shop', 'testserver']):
+            resp = self.client.get('/api/dropdowns/', HTTP_HOST=self.FIN_HOST)
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()['ok'])
+
+    def test_create_via_api(self):
+        from django.test import override_settings
+        import json as _json
+        with override_settings(ALLOWED_HOSTS=['fin.twocomms.shop', 'testserver']):
+            resp = self.client.post('/api/transactions/create/',
+                                    data=_json.dumps({'type': 'income', 'amount': '500',
+                                                      'account': self.acc.id}),
+                                    content_type='application/json', HTTP_HOST=self.FIN_HOST)
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()['ok'])
+        self.acc.refresh_from_db()
+        self.assertEqual(self.acc.current_balance, Decimal('1500'))
