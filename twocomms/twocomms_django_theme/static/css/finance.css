@@ -489,6 +489,7 @@ a { color: inherit; }
 .fin-custom-range { display: flex; align-items: center; gap: 6px; }
 .fin-amount-range { display: flex; align-items: center; gap: 6px; }
 .fin-amount-range__label { font-size: 13px; color: var(--fin-text-2); }
+.fin-export-group { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
 
 /* Bulk bar */
 .fin-bulkbar {

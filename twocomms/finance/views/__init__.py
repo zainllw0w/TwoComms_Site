@@ -37,6 +37,7 @@ from .rules import (  # noqa: F401
 )
 from .payments import (  # noqa: F401
     payments,
+    payments_export,
     transaction_create_api,
     transaction_detail_api,
     transaction_update_api,

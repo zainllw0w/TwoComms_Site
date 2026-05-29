@@ -4,8 +4,9 @@ from __future__ import annotations
 import json
 from decimal import Decimal
 
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
+from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from ..models import (
@@ -80,6 +81,79 @@ def payments(request):
 def dropdowns_api(request):
     company = get_default_company()
     return JsonResponse({'ok': True, **ser.serialize_dropdowns(company)})
+
+
+# ----------------------------- Експорт відфільтрованих платежів -----------------------------
+
+def _export_rows(company, params):
+    """Список рядків (dict) поточної відфільтрованої вибірки журналу."""
+    qs = filter_service.filter_transactions(company, params)
+    rows = []
+    for t in qs.select_related('account', 'to_account', 'category', 'counterparty', 'project')[:10000]:
+        rows.append({
+            'date': timezone.localtime(t.date_actual).strftime('%Y-%m-%d %H:%M') if t.date_actual else '',
+            'type': t.get_type_display(),
+            'status': t.get_status_display(),
+            'amount': str(t.amount),
+            'currency': t.currency,
+            'account': t.account.name if t.account else '',
+            'to_account': t.to_account.name if t.to_account else '',
+            'category': t.category.name if t.category else '',
+            'counterparty': t.counterparty.name if t.counterparty else '',
+            'project': t.project.name if t.project else '',
+            'comment': t.comment or '',
+        })
+    return rows
+
+
+_EXPORT_COLS = [
+    ('date', 'Дата'), ('type', 'Тип'), ('status', 'Статус'), ('amount', 'Сума'),
+    ('currency', 'Валюта'), ('account', 'Рахунок'), ('to_account', 'На рахунок'),
+    ('category', 'Категорія'), ('counterparty', 'Контрагент'), ('project', 'Проект'),
+    ('comment', 'Коментар'),
+]
+
+
+@finance_access_required
+@require_GET
+def payments_export(request):
+    """Експорт поточного відфільтрованого журналу у XLSX або XML (?format=)."""
+    company = get_default_company()
+    fmt = (request.GET.get('format') or 'xlsx').lower()
+    rows = _export_rows(company, request.GET)
+    stamp = timezone.localtime(timezone.now()).strftime('%Y%m%d_%H%M')
+
+    if fmt == 'xml':
+        import xml.etree.ElementTree as ET
+        from xml.dom import minidom
+        root = ET.Element('payments', {'exported': stamp, 'count': str(len(rows))})
+        for r in rows:
+            el = ET.SubElement(root, 'payment')
+            for key, _label in _EXPORT_COLS:
+                child = ET.SubElement(el, key)
+                child.text = str(r.get(key, ''))
+        raw = ET.tostring(root, encoding='utf-8')
+        pretty = minidom.parseString(raw).toprettyxml(indent='  ', encoding='utf-8')
+        resp = HttpResponse(pretty, content_type='application/xml; charset=utf-8')
+        resp['Content-Disposition'] = f'attachment; filename="payments_{stamp}.xml"'
+        return resp
+
+    # XLSX за замовчуванням.
+    try:
+        from openpyxl import Workbook
+    except ImportError:
+        return JsonResponse({'ok': False, 'error': 'openpyxl недоступний'}, status=500)
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Платежі'
+    ws.append([label for _key, label in _EXPORT_COLS])
+    for r in rows:
+        ws.append([(float(r['amount']) if _key == 'amount' and r['amount'] else r.get(_key, ''))
+                   for _key, _label in _EXPORT_COLS])
+    resp = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    resp['Content-Disposition'] = f'attachment; filename="payments_{stamp}.xlsx"'
+    wb.save(resp)
+    return resp
 
 
 # ----------------------------- CRUD операцій -----------------------------

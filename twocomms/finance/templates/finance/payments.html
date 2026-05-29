@@ -55,6 +55,10 @@
         </button>
         <button type="submit" class="fin-btn fin-btn--primary fin-btn--sm">Застосувати</button>
         <a href="{% url 'finance_home' %}" class="fin-btn fin-btn--ghost fin-btn--sm" title="Скинути">Скинути</a>
+        <span class="fin-export-group">
+            <a href="{% url 'finance_payments_export' %}?{{ request.GET.urlencode }}&format=xlsx" class="fin-btn fin-btn--ghost fin-btn--sm" title="Експорт у XLSX">XLSX</a>
+            <a href="{% url 'finance_payments_export' %}?{{ request.GET.urlencode }}&format=xml" class="fin-btn fin-btn--ghost fin-btn--sm" title="Експорт у XML">XML</a>
+        </span>
     </div>
 </form>
 
