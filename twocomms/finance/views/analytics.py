@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+from decimal import Decimal
 
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
@@ -33,6 +34,16 @@ def _m(company, v, signed=False):
     return ser.money(v, company.base_currency, signed=signed)
 
 
+def _breakdown(company, rows, total):
+    """Категорійна розбивка з відсотками для таблиць під графіками."""
+    out = []
+    for r in rows:
+        amt = Decimal(str(r['total']))
+        pct = round(float(amt / total * 100), 1) if total else 0.0
+        out.append({'name': r['name'], 'amount': _m(company, amt), 'pct': pct})
+    return out
+
+
 @finance_access_required
 def analytics(request):
     company = get_default_company()
@@ -51,11 +62,27 @@ def report(request, kind):
 
     if kind == 'cashflow':
         data = rep.cash_flow(company, request.GET)
+        bi = _breakdown(company, data['income_by_category'], data['cash_in'])
+        be = _breakdown(company, data['expense_by_category'], data['cash_out'])
+        net = data['net']
+        insights = [f"За період надійшло {_m(company, data['cash_in'])}, списано {_m(company, data['cash_out'])}."]
+        if net >= 0:
+            insights.append(f"Чистий потік додатний: {_m(company, net, signed=True)} — приплив перевищує відплив.")
+        else:
+            insights.append(f"Чистий потік від'ємний: {_m(company, net, signed=True)} — витрати перевищили надходження.")
+        if bi:
+            insights.append(f"Найбільше надходжень — «{bi[0]['name']}» ({bi[0]['pct']}%).")
+        if be:
+            insights.append(f"Найбільша стаття списань — «{be[0]['name']}» ({be[0]['pct']}%).")
         ctx.update({
             'title': 'Cash flow', 'data': data,
             'cash_in': _m(company, data['cash_in']),
             'cash_out': _m(company, data['cash_out']),
             'net': _m(company, data['net'], signed=True),
+            'net_positive': net >= 0,
+            'breakdown_income': bi,
+            'breakdown_expense': be,
+            'insights': insights,
             'chart_data': json.dumps({
                 'series': data['series'],
                 'income_by_category': data['income_by_category'],
@@ -66,12 +93,28 @@ def report(request, kind):
 
     if kind == 'pnl':
         data = rep.pnl(company, request.GET)
+        bi = _breakdown(company, data['income_by_category'], data['income'])
+        be = _breakdown(company, data['expense_by_category'], data['expenses'])
+        profit = data['profit']
+        insights = [f"Доходи {_m(company, data['income'])}, витрати {_m(company, data['expenses'])}."]
+        if profit >= 0:
+            insights.append(f"Прибуток {_m(company, profit, signed=True)} за маржі {round(data['margin'], 1)}% — бізнес у плюсі.")
+        else:
+            insights.append(f"Збиток {_m(company, profit, signed=True)} — витрати перевищили доходи за період.")
+        if be:
+            insights.append(f"Найбільша стаття витрат — «{be[0]['name']}» ({be[0]['pct']}% витрат).")
+        if bi:
+            insights.append(f"Основне джерело доходу — «{bi[0]['name']}» ({bi[0]['pct']}%).")
         ctx.update({
             'title': 'P&L', 'data': data,
             'income': _m(company, data['income']),
             'expenses': _m(company, data['expenses']),
             'profit': _m(company, data['profit'], signed=True),
             'margin': round(data['margin'], 1),
+            'profit_positive': profit >= 0,
+            'breakdown_income': bi,
+            'breakdown_expense': be,
+            'insights': insights,
             'chart_data': json.dumps({
                 'series': data['series'],
                 'income_by_category': data['income_by_category'],

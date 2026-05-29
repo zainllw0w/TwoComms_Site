@@ -834,6 +834,37 @@ body.fin-modal-open { overflow: hidden; }
 .fin-chart-title { margin: 0 0 12px; font-size: 14px; color: var(--fin-text-2); }
 .fin-chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
+/* Висновки */
+.fin-insight-card {
+    background: linear-gradient(135deg, rgba(255,126,41,0.10), rgba(111,149,255,0.05));
+    border: 1px solid rgba(255,126,41,0.22); border-radius: var(--fin-radius-lg);
+    padding: 14px 18px; margin-bottom: 16px;
+}
+.fin-insight-card__title { font-weight: 700; font-size: 14px; margin-bottom: 8px; }
+.fin-insight-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+.fin-insight-list li { font-size: 13px; color: var(--fin-text); line-height: 1.45; }
+
+/* Графік + легенда-розбивка */
+.fin-chart-with-legend { display: grid; grid-template-columns: 160px 1fr; gap: 16px; align-items: center; }
+.fin-chart-canvas { position: relative; height: 160px; }
+.fin-breakdown { display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; }
+.fin-breakdown__row { display: grid; grid-template-columns: 12px 1fr auto auto; gap: 8px; align-items: center; font-size: 12.5px; }
+.fin-breakdown__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fin-breakdown__pct { color: var(--fin-text-2); font-variant-numeric: tabular-nums; }
+.fin-breakdown__amt { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fin-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; background: #94a3b8; }
+.fin-breakdown__row:nth-child(1) .fin-dot { background: #ff7e29; }
+.fin-breakdown__row:nth-child(2) .fin-dot { background: #6f95ff; }
+.fin-breakdown__row:nth-child(3) .fin-dot { background: #34d399; }
+.fin-breakdown__row:nth-child(4) .fin-dot { background: #fb7185; }
+.fin-breakdown__row:nth-child(5) .fin-dot { background: #f3a43d; }
+.fin-breakdown__row:nth-child(6) .fin-dot { background: #a78bfa; }
+.fin-breakdown__row:nth-child(7) .fin-dot { background: #22d3ee; }
+.fin-breakdown__row:nth-child(8) .fin-dot { background: #facc15; }
+.fin-breakdown__row:nth-child(9) .fin-dot { background: #fb923c; }
+.fin-breakdown__row:nth-child(10) .fin-dot { background: #94a3b8; }
+#fin-chart-series { max-height: 280px; }
+
 .fin-statement-bar { margin-bottom: 14px; max-width: 320px; }
 .fin-row--overdue td { background: rgba(251,113,133,0.05); }
 .fin-badge--overdue { background: rgba(251,113,133,0.18); color: var(--fin-neg); }
@@ -860,6 +891,8 @@ body.fin-modal-open { overflow: hidden; }
 @media (max-width: 760px) {
     .fin-chart-grid { grid-template-columns: 1fr; }
     .fin-balance-sheet { grid-template-columns: 1fr; }
+    .fin-chart-with-legend { grid-template-columns: 1fr; }
+    .fin-chart-canvas { height: 200px; max-width: 240px; margin: 0 auto; }
 }
 
 /* ===================== Блок 7: Рахунки-фактури ===================== */

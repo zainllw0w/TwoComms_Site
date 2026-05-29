@@ -8,22 +8,46 @@
 <div class="fin-kpi-row">
     <div class="fin-kpi fin-kpi--pos"><span>Поступлення</span><strong>{{ cash_in }}</strong></div>
     <div class="fin-kpi fin-kpi--neg"><span>Списання</span><strong>{{ cash_out }}</strong></div>
-    <div class="fin-kpi"><span>Чистий потік</span><strong>{{ net }}</strong></div>
+    <div class="fin-kpi {% if net_positive %}fin-kpi--pos{% else %}fin-kpi--neg{% endif %}"><span>Чистий потік</span><strong>{{ net }}</strong></div>
 </div>
 
 {% if data.cash_in or data.cash_out %}
+{% if insights %}
+<div class="fin-insight-card">
+    <div class="fin-insight-card__title">📌 Висновки</div>
+    <ul class="fin-insight-list">
+        {% for line in insights %}<li>{{ line }}</li>{% endfor %}
+    </ul>
+</div>
+{% endif %}
+
 <div class="fin-chart-block">
     <h3 class="fin-chart-title">Рух коштів за період</h3>
-    <canvas id="fin-chart-series" height="90"></canvas>
+    <canvas id="fin-chart-series" height="92"></canvas>
 </div>
+
 <div class="fin-chart-grid">
     <div class="fin-chart-block">
         <h3 class="fin-chart-title">Поступлення за категоріями</h3>
-        <canvas id="fin-chart-income" height="180"></canvas>
+        <div class="fin-chart-with-legend">
+            <div class="fin-chart-canvas"><canvas id="fin-chart-income"></canvas></div>
+            <div class="fin-breakdown">
+                {% for r in breakdown_income %}
+                <div class="fin-breakdown__row"><span class="fin-dot" style="--i:{{ forloop.counter0 }}"></span><span class="fin-breakdown__name">{{ r.name }}</span><span class="fin-breakdown__pct">{{ r.pct }}%</span><span class="fin-breakdown__amt">{{ r.amount }}</span></div>
+                {% empty %}<div class="fin-day-empty">Немає поступлень</div>{% endfor %}
+            </div>
+        </div>
     </div>
     <div class="fin-chart-block">
         <h3 class="fin-chart-title">Списання за категоріями</h3>
-        <canvas id="fin-chart-expense" height="180"></canvas>
+        <div class="fin-chart-with-legend">
+            <div class="fin-chart-canvas"><canvas id="fin-chart-expense"></canvas></div>
+            <div class="fin-breakdown">
+                {% for r in breakdown_expense %}
+                <div class="fin-breakdown__row"><span class="fin-dot" style="--i:{{ forloop.counter0 }}"></span><span class="fin-breakdown__name">{{ r.name }}</span><span class="fin-breakdown__pct">{{ r.pct }}%</span><span class="fin-breakdown__amt">{{ r.amount }}</span></div>
+                {% empty %}<div class="fin-day-empty">Немає списань</div>{% endfor %}
+            </div>
+        </div>
     </div>
 </div>
 {% else %}
@@ -35,6 +59,6 @@
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="{% static 'js/finance-charts.js' %}?v=20260530a"></script>
+<script src="{% static 'js/finance-charts.js' %}?v=20260530b"></script>
 <script>document.addEventListener('DOMContentLoaded',function(){FinanceCharts.renderCashflow();});</script>
 {% endblock %}
