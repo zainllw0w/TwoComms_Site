@@ -508,6 +508,119 @@
   color: #fff;
 }
 
+.survey-question-hint {
+  color: rgba(255, 209, 140, 0.78);
+}
+
+.survey-info-card,
+.survey-choice-card,
+.survey-maxdiff-card,
+.survey-budget-row {
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.survey-info-card {
+  border-color: rgba(255, 140, 66, 0.32);
+  background: rgba(255, 140, 66, 0.11);
+}
+
+.survey-choice-card-label,
+.survey-maxdiff-label {
+  font-weight: 700;
+  color: #fff;
+}
+
+.survey-choice-card-desc {
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.survey-segment-row,
+.survey-maxdiff-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.7rem;
+}
+
+.survey-segment-btn {
+  min-height: 36px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.82);
+  padding: 0.45rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.survey-segment-btn.selected,
+.survey-maxdiff-card.best-selected .survey-maxdiff-best,
+.survey-maxdiff-card.worst-selected .survey-maxdiff-worst {
+  border-color: rgba(255, 140, 66, 0.9);
+  background: rgba(255, 140, 66, 0.2);
+  color: #fff;
+}
+
+.survey-maxdiff-card.best-selected {
+  border-color: rgba(34, 197, 94, 0.45);
+}
+
+.survey-maxdiff-card.worst-selected {
+  border-color: rgba(248, 113, 113, 0.45);
+}
+
+.survey-context-pill,
+.survey-budget-total {
+  align-self: flex-start;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 209, 140, 0.22);
+  background: rgba(255, 209, 140, 0.1);
+  color: #ffd18c;
+  padding: 0.32rem 0.62rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.survey-budget-total.complete {
+  border-color: rgba(34, 197, 94, 0.45);
+  color: #86efac;
+}
+
+.survey-budget-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.survey-budget-row label {
+  min-width: 0;
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.survey-budget-value {
+  text-align: right;
+  color: #ffd18c;
+  font-weight: 800;
+}
+
+.survey-budget-slider {
+  grid-column: 1 / -1;
+}
+
+.survey-contact-channels {
+  margin-top: 0;
+}
+
 .survey-option-info {
   border: none;
   background: rgba(255, 255, 255, 0.1);

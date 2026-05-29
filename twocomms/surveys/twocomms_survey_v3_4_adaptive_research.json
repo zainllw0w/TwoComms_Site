@@ -1,0 +1,4772 @@
+{
+  "schema_version": "3.4",
+  "survey_key": "twocomms_survey_v3_4_adaptive_research",
+  "language": "uk",
+  "status": "review_candidate_after_external_ai_qa_v4",
+  "created_at": "2026-05-30",
+  "supersedes": "twocomms_survey_v3_3_adaptive_research",
+  "purpose_ru": "Умный адаптивный опрос для главной страницы TWOCOMMS: сбор информации для владельца, маркетинга, бизнес-аналитики, продуктовых решений и конверсии в покупку/кастом/контакт. Версия 3.1 усиливает скоринг низких оценок, заменяет ложную биполярную ось military/streetwear на двухосевую модель, добавляет smart-skip для фокусного продукта и динамические ценовые диапазоны по категориям.\nV3.2 patch: устраняет runtime-коллизии smart-skip/show-if, разгружает mobile style screen, вводит early quality gates и B2B-aware price ladder. V3.3 закрывает B2B/project-budget логику, уточняет balanced-crossover сегмент и добавляет чистый B2B skip для style-boundary.",
+  "site_context_snapshot": {
+    "brand_positioning": "Ukrainian streetwear / military-adjacent apparel with meaningful prints, dense base, clean fit, Kharkiv character, philosophy of continuation.",
+    "homepage_observations": [
+      "На главной есть feedback bonus: промокод 200 грн, около 5 минут, можно вернуться позже.",
+      "На главной есть блок 'Build your own apparel' с конструктором кастома: выбор основы, принта, материалов, деталей и цены.",
+      "Сайт позиционирует бренд как streetwear / military-adjacent / made in Ukraine.",
+      "Видна потенциальная конфликтная фраза 'Registered users only', которую лучше заменить на прохождение без регистрации + сохранение промокода после завершения."
+    ],
+    "custom_print_context": [
+      "Конфигуратор поддерживает файл/идею, доработку макета, дизайн с нуля, зоны печати, количество, размеры, подарок и контакт.",
+      "Кастом имеет сценарии: для себя/подарка, команд и офисов, брендов, собственный предмет одежды.",
+      "Цены на кастом могут стартовать от печати на футболке/худи, но точная цена зависит от зон, размера, тиража и сложности макета."
+    ]
+  },
+  "reward": {
+    "type": "promo_code_discount_fixed_uah",
+    "amount_uah": 200,
+    "expires_in_days": 5,
+    "title_uk": "Промокод на знижку 200 грн",
+    "short_terms_uk": "Промокод створюється після завершення опитування. Діє 5 днів, один раз у кошику. Опитування можна пройти без реєстрації; щоб зберегти промокод в акаунті — увійди після завершення."
+  },
+  "research_model": {
+    "core_idea_ru": "Не 200 линейных вопросов, а 200+ возможных траекторий. Сначала собираем контекст, затем scoring engine выбирает 1–2 самые полезные ветки. Один бал в оценке действительно может сменить вектор: разные threshold'ы активируют разные prompt variants, модули и next best action.",
+    "decision_questions_for_owner": [
+      "Кто реально приходит на сайт и с какой задачей?",
+      "Что сильнее всего мешает первой покупке?",
+      "Что мешает повторной покупке?",
+      "Где цена кажется высокой: из-за продукта, доверия, сравнения, доставки или отсутствия доказательств ценности?",
+      "Какой баланс military / military-adjacent / streetwear / minimal нужно держать?",
+      "Есть ли реальный спрос на кастом, какой именно кастом и что мешает заявке?",
+      "Что запускать дальше: кепки, штаны, женская линия, комплекты, сумки/хип-паки, патчи/PVC?",
+      "Какой контент увеличит доверие: отзывы, тесты DTF, посадка на людях, объяснение смыслов, backstage?",
+      "Какой CTA показывать после опроса: каталог, кастом-конструктор, скидка, размерная сетка, отзывы, менеджер, сотрудничество?"
+    ],
+    "respondent_views": [
+      "buyer_repeat",
+      "buyer_once",
+      "cart_abandoned",
+      "considering",
+      "browsing",
+      "gift_buyer",
+      "custom_personal",
+      "custom_team_unit",
+      "partner_b2b",
+      "streetwear_fan",
+      "military_core",
+      "military_adjacent",
+      "minimal_casual",
+      "women_line_interest"
+    ],
+    "principles": [
+      "Спочатку сценарій і етап, потім оцінки.",
+      "Не питати про досвід, якого користувач не мав.",
+      "Кожен шлях має закінчитися аналітичним сегментом і next best action.",
+      "Не перевантажувати: до 18 питань, але дозволити кілька питань на одній сторінці, якщо вони дуже короткі.",
+      "Використовувати не тільки rating scales, а й MaxDiff/forced choice, reaction cards, price ladder, purchase-intent matrix, budget allocation only for high-intent users.",
+      "Давати текстові поля тільки там, де закриті варіанти можуть втратити важливий сигнал: кастомна ідея, конкретна нестача, інше джерело, відкрита критика.",
+      "Позитивних користувачів питати, що зберегти; нейтральних — що не дало 10/10; негативних — що зламало довіру."
+    ]
+  },
+  "caps": {
+    "target_questions_min": 10,
+    "target_questions_max": 16,
+    "hard_max_questions": 18,
+    "max_dynamic_modules_per_session": 2,
+    "max_text_questions_total": 2,
+    "max_heavy_interactions_total": 2,
+    "max_questions_per_screen": 3,
+    "min_core_answered_before_module_selection": 7,
+    "module_max_questions": {
+      "prints_style_lab": 5,
+      "custom_lab": 6,
+      "price_value_lab": 4,
+      "quality_trust_lab": 4,
+      "assortment_lab": 5,
+      "ux_checkout_lab": 4,
+      "service_loyalty_lab": 4,
+      "partner_lab": 4,
+      "marketing_content_lab": 3,
+      "closing": 4
+    }
+  },
+  "ui_copy": {
+    "homepage_block": {
+      "badge_uk": "Опитування",
+      "title_uk": "Допоможи TWOCOMMS стати точнішим — отримай промокод на 200 грн",
+      "subtitle_uk": "Не довга анкета, а короткий адаптивний квіз. Відповіді допоможуть нам зрозуміти, які речі, прінти, кастом і сервіс справді потрібні.",
+      "note_uk": "Можна пройти без реєстрації. Промокод покажемо після завершення; за бажанням його можна зберегти в акаунті.",
+      "cta_start_uk": "Почати",
+      "cta_continue_uk": "Продовжити",
+      "micro_trust_uk": "≈3–5 хв · без спаму · контакт лише за згодою"
+    },
+    "modal": {
+      "title_uk": "Короткий квіз про TWOCOMMS",
+      "subtitle_uk": "Питання підлаштовуються під твої відповіді — зайвого не питатимемо.",
+      "privacy_hint_uk": "Використовуємо відповіді тільки для аналітики, покращення колекцій, кастому й сервісу.",
+      "button_next_uk": "Далі",
+      "button_back_once_uk": "Назад",
+      "button_skip_uk": "Пропустити",
+      "button_close_uk": "Закрити",
+      "thanks_title_uk": "Дякуємо — це справді допомагає",
+      "thanks_text_uk": "Твій промокод на 200 грн готовий. Він діє до {expiry_date}.",
+      "copy_code_uk": "Скопіювати код"
+    },
+    "progress_milestones": [
+      {
+        "after_answered": 2,
+        "text_uk": "Ми вже зрозуміли твій сценарій — далі тільки релевантне."
+      },
+      {
+        "after_answered": 6,
+        "text_uk": "Залишилось трохи: зараз уточнюємо, що реально впливає на покупку."
+      },
+      {
+        "after_answered": 10,
+        "text_uk": "Фініш близько. Останні відповіді допоможуть вибрати, що покращувати першим."
+      }
+    ],
+    "micro_animations": {
+      "style_axis": "Легка анімація шкали: military ↔ streetwear, без гучного звуку.",
+      "cards": "Картки вибору трохи піднімаються при hover/tap; вибрані мають короткий tactile pulse.",
+      "between_modules": "Після core-блоку коротка transition-картка: 'Окей, тепер 2 питання саме по твоєму сценарію'.",
+      "reward": "У фіналі промокод розкривається як картка/стікер, не як сухий текст.",
+      "avoid": "Не робити довгі заставки між кожним питанням — анімація має прискорювати відчуття, а не затримувати."
+    }
+  },
+  "question_types": {
+    "single_choice": {
+      "description": "Один варіант",
+      "fallback": "radio"
+    },
+    "multi_choice": {
+      "description": "Кілька варіантів з max_select",
+      "fallback": "checkbox"
+    },
+    "slider_1_10": {
+      "description": "Оцінка 1–10",
+      "fallback": "buttons_1_10"
+    },
+    "slider_0_10": {
+      "description": "NPS 0–10",
+      "fallback": "buttons_0_10"
+    },
+    "bipolar_slider_1_10": {
+      "description": "Шкала між двома полюсами",
+      "fallback": "buttons_1_10_with_labels"
+    },
+    "maxdiff_best_worst": {
+      "description": "Користувач обирає найважливіше й найменш важливе з короткого набору",
+      "fallback": "rank_top_bottom"
+    },
+    "forced_pair": {
+      "description": "Вибір між двома trade-off варіантами",
+      "fallback": "single_choice"
+    },
+    "concept_reaction_cards": {
+      "description": "Картки-концепти: хочу / можливо / не моє",
+      "fallback": "matrix"
+    },
+    "purchase_intent_matrix": {
+      "description": "Матриця попиту: купив би / цікаво / не потрібно",
+      "fallback": "single_choice_per_row"
+    },
+    "price_ladder_by_product": {
+      "description": "Упрощенный Van Westendorp / price ladder для основного продукту",
+      "fallback": "price_range_single_choice"
+    },
+    "budget_allocation_100": {
+      "description": "Розподіл 100 балів між напрямами — тільки для high-intent або repeat",
+      "fallback": "rank_top_3"
+    },
+    "text_short": {
+      "description": "Короткий текст",
+      "fallback": "textarea_limited"
+    },
+    "contact_capture": {
+      "description": "Контакт з вибором каналу",
+      "fallback": "text_short"
+    },
+    "info_card": {
+      "description": "Короткий пояснювальний екран без відповіді",
+      "fallback": "static_block"
+    },
+    "dual_axis_slider_1_10": {
+      "description": "Две независимые шкалы 1–10 для измерения не взаимоисключающих стилевых векторов, например military-code и streetwear-fit.",
+      "fallback": "two_slider_1_10_or_button_scale_cards",
+      "mobile_rule": "Показывать как две короткие горизонтальные шкалы на одном экране только если интерфейс помещается без скролла; иначе двумя быстрыми карточками подряд."
+    },
+    "smart_skip_auto_answer": {
+      "description": "Вопрос не показывается пользователю, если ответ логически выводится из предыдущего ответа; значение сохраняется в analytics как auto_answered.",
+      "fallback": "skip_question"
+    },
+    "tap_reaction_cards": {
+      "description": "Карточки-концепты с быстрым выбором хочу / возможно / не мое, без длинных матриц.",
+      "fallback": "single_choice_per_concept"
+    }
+  },
+  "engine": {
+    "module_selection_strategy": "weighted_priority_with_anti_repetition",
+    "flow_summary_ru": "Первые 6–8 ответов строят профиль. Затем движок начисляет баллы модулям и показывает не больше двух модулей. Внутри модулей вопрос формулируется с учетом stage, goal, score thresholds и предыдущих барьеров.",
+    "score_initialization": {
+      "prints_style_lab": 0,
+      "custom_lab": 0,
+      "price_value_lab": 0,
+      "quality_trust_lab": 0,
+      "assortment_lab": 0,
+      "ux_checkout_lab": 0,
+      "service_loyalty_lab": 0,
+      "partner_lab": 0,
+      "marketing_content_lab": 0
+    },
+    "module_scoring_rules": [
+      {
+        "if": {
+          "answer": "q010_entry_goal",
+          "in": [
+            "custom_personal",
+            "custom_team_unit",
+            "gift"
+          ]
+        },
+        "add": {
+          "custom_lab": 5
+        }
+      },
+      {
+        "if": {
+          "answer": "q010_entry_goal",
+          "eq": "partner"
+        },
+        "add": {
+          "partner_lab": 6,
+          "custom_lab": 2
+        }
+      },
+      {
+        "if": {
+          "answer": "q020_purchase_stage",
+          "in": [
+            "cart_abandoned",
+            "considering"
+          ]
+        },
+        "add": {
+          "price_value_lab": 2,
+          "quality_trust_lab": 2,
+          "ux_checkout_lab": 2
+        }
+      },
+      {
+        "if": {
+          "answer": "q020_purchase_stage",
+          "in": [
+            "bought_once",
+            "bought_repeat"
+          ]
+        },
+        "add": {
+          "service_loyalty_lab": 4,
+          "quality_trust_lab": 3
+        }
+      },
+      {
+        "if": {
+          "answer": "q040_military_code_interest",
+          "gte": 7
+        },
+        "add": {
+          "prints_style_lab": 3,
+          "custom_lab": 1
+        }
+      },
+      {
+        "if": {
+          "answer": "q041_streetwear_fit_interest",
+          "gte": 7
+        },
+        "add": {
+          "prints_style_lab": 2,
+          "assortment_lab": 2
+        }
+      },
+      {
+        "if": {
+          "all": [
+            {
+              "answer": "q040_military_code_interest",
+              "gte": 7
+            },
+            {
+              "answer": "q041_streetwear_fit_interest",
+              "gte": 7
+            }
+          ]
+        },
+        "add": {
+          "prints_style_lab": 4,
+          "assortment_lab": 2
+        },
+        "label": "tactical_streetwear_hybrid_signal"
+      },
+      {
+        "if": {
+          "all": [
+            {
+              "answer": "q040_military_code_interest",
+              "lte": 3
+            },
+            {
+              "answer": "q041_streetwear_fit_interest",
+              "lte": 3
+            }
+          ]
+        },
+        "add": {
+          "marketing_content_lab": 2
+        },
+        "label": "low_style_fit_signal"
+      },
+      {
+        "if": {
+          "answer": "q052_not_10_reason",
+          "includes_any": [
+            "price",
+            "unclear_value"
+          ]
+        },
+        "add": {
+          "price_value_lab": 5
+        }
+      },
+      {
+        "if": {
+          "answer": "q052_not_10_reason",
+          "includes_any": [
+            "quality_trust",
+            "size_fit",
+            "need_photos"
+          ]
+        },
+        "add": {
+          "quality_trust_lab": 4
+        }
+      },
+      {
+        "if": {
+          "answer": "q052_not_10_reason",
+          "includes_any": [
+            "prints_not_mine",
+            "style_balance"
+          ]
+        },
+        "add": {
+          "prints_style_lab": 5
+        }
+      },
+      {
+        "if": {
+          "answer": "q052_not_10_reason",
+          "includes_any": [
+            "custom_missing"
+          ]
+        },
+        "add": {
+          "custom_lab": 5
+        }
+      },
+      {
+        "if": {
+          "answer": "q052_not_10_reason",
+          "includes_any": [
+            "women_missing",
+            "more_categories"
+          ]
+        },
+        "add": {
+          "assortment_lab": 5
+        }
+      },
+      {
+        "if": {
+          "answer": "q070_main_barrier",
+          "eq": "price"
+        },
+        "add": {
+          "price_value_lab": 6
+        }
+      },
+      {
+        "if": {
+          "answer": "q070_main_barrier",
+          "in": [
+            "quality_trust",
+            "size_fit",
+            "need_more_proof"
+          ]
+        },
+        "add": {
+          "quality_trust_lab": 5
+        }
+      },
+      {
+        "if": {
+          "answer": "q070_main_barrier",
+          "eq": "no_my_print"
+        },
+        "add": {
+          "prints_style_lab": 6
+        }
+      },
+      {
+        "if": {
+          "answer": "q070_main_barrier",
+          "eq": "checkout"
+        },
+        "add": {
+          "ux_checkout_lab": 6
+        }
+      },
+      {
+        "if": {
+          "answer": "q080_priority_tradeoff",
+          "eq": "custom"
+        },
+        "add": {
+          "custom_lab": 6
+        }
+      },
+      {
+        "if": {
+          "answer": "q080_priority_tradeoff",
+          "in": [
+            "caps",
+            "pants",
+            "women_line",
+            "sets",
+            "accessories"
+          ]
+        },
+        "add": {
+          "assortment_lab": 6
+        }
+      },
+      {
+        "if": {
+          "answer": "q080_priority_tradeoff",
+          "eq": "prints"
+        },
+        "add": {
+          "prints_style_lab": 6
+        }
+      },
+      {
+        "if": {
+          "answer": "q080_priority_tradeoff",
+          "eq": "lower_prices"
+        },
+        "add": {
+          "price_value_lab": 5
+        }
+      },
+      {
+        "if": {
+          "answer": "q053_low_score_reason",
+          "includes_any": [
+            "too_military",
+            "not_enough_military",
+            "not_my_style",
+            "too_aggressive"
+          ]
+        },
+        "add": {
+          "prints_style_lab": 5
+        }
+      },
+      {
+        "if": {
+          "answer": "q053_low_score_reason",
+          "includes_any": [
+            "quality_doubt",
+            "not_enough_trust"
+          ]
+        },
+        "add": {
+          "quality_trust_lab": 5
+        }
+      },
+      {
+        "if": {
+          "answer": "q053_low_score_reason",
+          "includes_any": [
+            "price"
+          ]
+        },
+        "add": {
+          "price_value_lab": 5
+        }
+      },
+      {
+        "if": {
+          "answer": "q053_low_score_reason",
+          "includes_any": [
+            "site_confusing",
+            "checkout_friction"
+          ]
+        },
+        "add": {
+          "ux_checkout_lab": 5
+        }
+      },
+      {
+        "if": {
+          "answer": "q053_low_score_reason",
+          "includes_any": [
+            "assortment"
+          ]
+        },
+        "add": {
+          "assortment_lab": 5
+        }
+      },
+      {
+        "if": {
+          "answer": "q053_low_score_reason",
+          "includes_any": [
+            "other"
+          ]
+        },
+        "add": {
+          "marketing_content_lab": 1
+        },
+        "note_ru": "Other не должен выбирать модуль сам по себе, но повышает ценность открытого ответа."
+      },
+      {
+        "if": {
+          "answer": "q305_custom_quantity",
+          "in": [
+            "21_50",
+            "50_plus"
+          ]
+        },
+        "add": {
+          "custom_lab": 3,
+          "price_value_lab": 2,
+          "partner_lab": 2
+        },
+        "reason_ru": "Крупный тираж — это не только кастом, но и бюджет/операционка. Нужно не потерять B2B/team intent."
+      }
+    ],
+    "tie_breakers": [
+      "low_score_reason",
+      "main_barrier",
+      "entry_goal",
+      "purchase_stage",
+      "priority_tradeoff",
+      "style_two_axis_segment",
+      "time_on_site_or_clicked_custom",
+      "primary_product_focus"
+    ],
+    "anti_repetition_rules": [
+      "Не показувати два модулі з однаковим змістом бар'єру, якщо один уже дав достатній сигнал.",
+      "Якщо користувач двічі обрав 'не знаю / не актуально', знизити складність і перейти до closing.",
+      "Якщо answered_questions >= 15, показати тільки closing і next best action."
+    ],
+    "interaction_complexity_policy": {
+      "goal_ru": "Сохранить глубину исследования без мобильного drop-off. Сложные механики разрешены только если они выглядят как короткие карточки, а не как таблицы.",
+      "device_rules": {
+        "mobile": [
+          "Не показывать больше 4 карточек в одном MaxDiff/Reaction экране.",
+          "Budget allocation 100 на мобильном заменять на rank_top_3, если пользователь не high-intent или repeat customer.",
+          "Матрицы показывать как последовательность карточек: одна идея = один быстрый выбор.",
+          "Если пользователь пропустил 2 вопроса подряд после 8 ответов, сразу переходить к closing."
+        ],
+        "desktop": [
+          "Можно показывать MaxDiff до 5 элементов, но без таблиц с 8+ строками.",
+          "Budget allocation разрешен только как optional deep-dive для engaged users."
+        ]
+      },
+      "heavy_question_guards": {
+        "maxdiff_best_worst": {
+          "max_items": 4,
+          "fallback_on_mobile": "forced_pair_or_rank_top_bottom",
+          "max_seconds_target": 18
+        },
+        "budget_allocation_100": {
+          "show_only_if_any": [
+            "bought_repeat",
+            "custom_team_unit",
+            "partner",
+            "high_intent_nonbuyer"
+          ],
+          "fallback": "rank_top_3",
+          "max_seconds_target": 20
+        },
+        "purchase_intent_matrix": {
+          "render_as": "cards_not_table",
+          "max_rows_per_screen": 4
+        },
+        "price_ladder_by_product": {
+          "render_as": "4 short rows with same category-specific ranges",
+          "fallback": "single comfortable price range"
+        }
+      },
+      "screen_rules": [
+        "V3.2: не объединять два слайдера стиля и длинный вопрос q045 на одном мобильном экране.",
+        "V3.2: q035 нельзя авто-заполнять значением not_sure; not_sure не физический продукт.",
+        "V3.2: для B2B/командных сценариев price ladder должен использовать оптовые/тиражные якоря, а не розничный product range."
+      ]
+    },
+    "next_best_action_confidence_gate": {
+      "min_confidence_for_specific_cta": 0.68,
+      "confidence_inputs": [
+        "selected_module_score",
+        "direct_user_intent",
+        "barrier_match",
+        "stage_match",
+        "custom_demand_score",
+        "price_sensitivity_segment"
+      ],
+      "if_below_threshold": {
+        "action": "neutral_catalog_or_promo_code",
+        "cta_uk": "Перейти до каталогу з промокодом",
+        "secondary_uk": "Або подивитись новинки TWOCOMMS"
+      },
+      "reason_ru": "Если движок не уверен, лучше показать нейтральный полезный CTA, чем ошибиться и выглядеть как навязчивый спам."
+    },
+    "runtime_quality_gates": {
+      "purpose_ru": "V3.2: quality gates должны влиять не только на финальный отчет, но и на выбор модулей в процессе прохождения.",
+      "evaluation_moments": [
+        "after_core_decision_questions",
+        "before_dynamic_module_selection",
+        "before_next_best_action_selection"
+      ],
+      "rules": [
+        {
+          "id": "runtime_contradiction_price",
+          "if": {
+            "all": [
+              {
+                "answer": "q400_price_value_score",
+                "gte": 9
+              },
+              {
+                "answer": "q070_main_barrier",
+                "eq": "price"
+              },
+              {
+                "answer": "q404_discount_dependency",
+                "in": [
+                  "almost_required",
+                  "only_sale"
+                ]
+              }
+            ]
+          },
+          "actions": [
+            "tag inconsistent_price_signal",
+            "multiply module score price_value_lab by 0.65 before final module selection",
+            "do not select price_value_lab if another module is within 1 score point and has higher confidence",
+            "route to q401_price_objection only if price_value_lab already selected for other non-contradictory reasons"
+          ],
+          "reason_ru": "Если человек одновременно считает цену оправданной, называет цену главным барьером и покупает только по скидкам, сигнал по цене нельзя использовать как полный приоритет."
+        },
+        {
+          "id": "not_sure_product_context",
+          "if": {
+            "answer": "q030_product_interest",
+            "includes": "not_sure"
+          },
+          "actions": [
+            "do not auto-answer q035",
+            "avoid product-specific price ladder unless B2B/custom intent exists",
+            "prefer assortment or quality_trust module over price_ladder"
+          ],
+          "reason_ru": "Пока продукт не выбран, точные ценовые диапазоны могут создавать шум."
+        },
+        {
+          "id": "style_midpoint_crossover_definition",
+          "if": {
+            "all": [
+              {
+                "answer": "q040_military_code_interest",
+                "between": [
+                  4,
+                  6
+                ]
+              },
+              {
+                "answer": "q041_streetwear_fit_interest",
+                "between": [
+                  4,
+                  6
+                ]
+              },
+              {
+                "answer": "q010_entry_goal",
+                "not_eq": "partner"
+              },
+              {
+                "answer": "q020_purchase_stage",
+                "not_eq": "partner_discussion"
+              }
+            ]
+          },
+          "actions": [
+            "tag casual_crossover_backbone",
+            "set derived_fields.style_two_axis_segment = 'urban_casual_balanced'",
+            "do not mark as low confidence only because both axes are mid-range",
+            "prefer balanced collection CTA or everyday capsule CTA over neutral generic CTA",
+            "if q045_style_boundary in [not_sure, null], keep style personalization confidence medium, not low"
+          ],
+          "reason_ru": "V3.3: 4–6 на обеих независимых осях — не обязательно шум. Для TWOCOMMS это может быть ядро: повседневная городская вещь со скрытым military-кодом, без перегруза и ролевого military."
+        },
+        {
+          "id": "style_boundary_missing_only_soft_flag",
+          "if": {
+            "all": [
+              {
+                "answer": "q040_military_code_interest",
+                "between": [
+                  4,
+                  6
+                ]
+              },
+              {
+                "answer": "q041_streetwear_fit_interest",
+                "between": [
+                  4,
+                  6
+                ]
+              },
+              {
+                "answer": "q045_style_boundary",
+                "in": [
+                  "not_sure",
+                  null
+                ]
+              },
+              {
+                "answer": "q010_entry_goal",
+                "not_eq": "partner"
+              }
+            ]
+          },
+          "actions": [
+            "tag style_boundary_missing_soft",
+            "do not suppress NBA",
+            "avoid aggressive military CTA; use balanced/capsule CTA"
+          ],
+          "reason_ru": "Если человек не выбрал границу стиля, это снижает точность тона, но не делает его неопределенным пользователем."
+        }
+      ]
+    }
+  },
+  "screens": [
+    {
+      "id": "s010_context",
+      "order": 10,
+      "type": "compact_pair",
+      "questions": [
+        "q010_entry_goal",
+        "q020_purchase_stage"
+      ],
+      "reason_ru": "Две быстрые контекстные переменные можно показать на одной странице: меньше ощущения длинного опроса."
+    },
+    {
+      "id": "s020_product",
+      "order": 20,
+      "type": "smart_product_focus",
+      "questions": [
+        "q030_product_interest",
+        "q035_primary_product_focus"
+      ],
+      "reason_ru": "Сначала широкий интерес, потом primary focus. Если выбран только один конкретный продукт — q035 не показывается и автоматически заполняется, чтобы не раздражать пользователя.",
+      "smart_skip_rules": [
+        {
+          "question": "q035_primary_product_focus",
+          "if": "count(answers.q030_product_interest) == 1 AND answers.q030_product_interest[0] != 'not_sure'",
+          "action": "auto_answer_from_q030_and_skip",
+          "do_not_auto_answer_if": [
+            "not_sure"
+          ],
+          "reason_ru": "V3.2: not_sure является абстрактным токеном, а не физическим продуктом. Его нельзя авто-подставлять как primary product."
+        }
+      ]
+    },
+    {
+      "id": "s030_style_axes",
+      "order": 30,
+      "type": "dual_axis_slider_screen",
+      "questions": [
+        "q040_military_code_interest",
+        "q041_streetwear_fit_interest"
+      ],
+      "reason_ru": "V3.2: две независимые оси стиля остаются на одном быстром визуальном экране. Не смешивать с длинным текстовым вопросом, чтобы снизить mobile cognitive load.",
+      "skip_rules": [
+        {
+          "id": "skip_style_sliders_for_pure_b2b",
+          "if": "answers.q010_entry_goal == 'partner' OR answers.q020_purchase_stage == 'partner_discussion'",
+          "action": "skip_screen",
+          "set_flag": "style_axes_skipped_for_b2b",
+          "reason_ru": "V3.4: чистый B2B-партнер мыслит спросом своей аудитории, маржой, тиражом и логистикой, а не личным retail-стилем. Не заставлять его проходить личные style sliders.",
+          "fallback_ru": "Если партнер позже выберет retail/product-style request, стиль можно уточнить в partner_lab или менеджерском follow-up."
+        }
+      ],
+      "notes_ru": "V3.4: экран двух style sliders пропускается для pure B2B, но остается для retail, gift, military, volunteer, streetwear и custom_team_unit, где стиль влияет на продукт."
+    },
+    {
+      "id": "s031_style_boundary",
+      "order": 31,
+      "type": "single_choice_card",
+      "questions": [
+        "q045_style_boundary"
+      ],
+      "reason_ru": "V3.2: вопрос о границе/табу бренда вынесен отдельно, потому что он требует чтения и осознанного выбора. На мобильном показывать карточками, не списком.",
+      "skip_rules": [
+        {
+          "id": "skip_pure_b2b_partner",
+          "if": "answers.q010_entry_goal == 'partner' OR answers.q020_purchase_stage == 'partner_discussion'",
+          "action": "skip_screen",
+          "set_flag": "style_boundary_skipped_for_b2b",
+          "reason_ru": "Чистым B2B/оптовым партнерам не нужно тратить фокус на эстетические табу розничных принтов. Для них важнее маржа, тираж, логистика и качество нанесения.",
+          "fallback_ru": "Если B2B-партнер позже выберет retail/product-style module, стиль можно уточнить в партнерском модуле отдельно."
+        }
+      ],
+      "notes_ru": "V3.3: экран q045 пропускается для чистого B2B, чтобы не создавать нерелевантное трение."
+    },
+    {
+      "id": "s040_overall",
+      "order": 40,
+      "type": "score_then_reason",
+      "questions": [
+        "q050_overall",
+        "q051_overall_keep",
+        "q052_not_10_reason",
+        "q053_low_score_reason"
+      ],
+      "reason_ru": "Один бал меняет тип уточнения: positive preserve / not 10 / low-score diagnostic."
+    },
+    {
+      "id": "s050_decision",
+      "order": 50,
+      "type": "decision_drivers",
+      "questions": [
+        "q060_purchase_driver_maxdiff",
+        "q070_main_barrier",
+        "q080_priority_tradeoff"
+      ],
+      "reason_ru": "MaxDiff + barrier + owner tradeoff дают бизнес-сигнал лучше, чем несколько обычных рейтингов."
+    },
+    {
+      "id": "s060_transition",
+      "order": 60,
+      "type": "micro_transition",
+      "questions": [
+        "q085_mini_summary_consent"
+      ],
+      "reason_ru": "Короткая пауза повышает ощущение персонализации перед динамическим модулем."
+    },
+    {
+      "id": "s900_closing",
+      "order": 900,
+      "type": "closing",
+      "questions": [
+        "q900_open_missed",
+        "q910_next_best_action_preference",
+        "q920_contact_permission",
+        "q921_contact_bundle",
+        "q930_promo_delivery"
+      ],
+      "reason_ru": "Финал соединяет сбор обратной связи, контакт и next best action."
+    }
+  ],
+  "modules": {
+    "prints_style_lab": {
+      "title_uk": "Прінти та стиль",
+      "why_ru": "Ключевой модуль для определения баланса military / military-adjacent / streetwear, тем, форматов и запретов.",
+      "entry_questions": [
+        "q200_print_reaction_cards",
+        "q201_print_format_maxdiff",
+        "q202_wanted_themes"
+      ],
+      "optional_questions": [
+        "q203_print_no_go",
+        "q204_print_idea_text"
+      ],
+      "max_questions": 5,
+      "activation_priority": "high if print/style barrier, style_axis extreme, priority prints, or product interest strongly apparel/print driven"
+    },
+    "custom_lab": {
+      "title_uk": "Кастом і персоналізація",
+      "why_ru": "Нужен не только для military/volunteer: gift, streetwear, team, brand, one-off, own garment and B2B тоже важны.",
+      "entry_questions": [
+        "q300_custom_interest",
+        "q301_custom_scenario",
+        "q302_custom_config_friction"
+      ],
+      "optional_questions": [
+        "q303_custom_value_addons",
+        "q304_custom_price_extra",
+        "q305_custom_quantity",
+        "q306_custom_try_condition",
+        "q307_custom_idea_text"
+      ],
+      "max_questions": 6,
+      "activation_priority": "highest if entry_goal custom/gift/team/partner, custom barrier, priority custom, clicked custom builder, product custom_item"
+    },
+    "price_value_lab": {
+      "title_uk": "Ціна та цінність",
+      "entry_questions": [
+        "q400_price_value_score",
+        "q401_price_objection",
+        "q402_more_pay_for"
+      ],
+      "optional_questions": [
+        "q403_price_ladder",
+        "q404_discount_dependency"
+      ],
+      "max_questions": 4,
+      "activation_priority": "high if price barrier, low price-value score, discount dependence, cart abandoned"
+    },
+    "quality_trust_lab": {
+      "title_uk": "Якість, довіра, розмір",
+      "entry_questions": [
+        "q500_quality_basis",
+        "q503_trust_needed",
+        "q504_size_confidence"
+      ],
+      "optional_questions": [
+        "q501_quality_buyer",
+        "q502_quality_issue"
+      ],
+      "max_questions": 4,
+      "activation_priority": "high if quality/size/proof barrier or buyer stage"
+    },
+    "assortment_lab": {
+      "title_uk": "Асортимент і наступні дропи",
+      "entry_questions": [
+        "q600_assortment_purchase_matrix",
+        "q601_next_drop_priority"
+      ],
+      "optional_questions": [
+        "q602_women_line_need",
+        "q603_assortment_budget_allocation",
+        "q604_missing_product_text"
+      ],
+      "max_questions": 5,
+      "activation_priority": "high if user selected caps/pants/women/sets/accessories or priority assortment"
+    },
+    "ux_checkout_lab": {
+      "title_uk": "Сайт, кошик, оформлення",
+      "entry_questions": [
+        "q700_site_ease",
+        "q701_site_pain",
+        "q702_checkout_blocker"
+      ],
+      "optional_questions": [
+        "q703_checkout_helper"
+      ],
+      "max_questions": 4,
+      "activation_priority": "high if checkout barrier, cart abandoned, low site score"
+    },
+    "service_loyalty_lab": {
+      "title_uk": "Досвід покупця і повторна покупка",
+      "entry_questions": [
+        "q800_customer_satisfaction",
+        "q801_repeat_reason",
+        "q802_recommend"
+      ],
+      "optional_questions": [
+        "q803_nps_reason"
+      ],
+      "max_questions": 4,
+      "activation_priority": "only buyer_once/buyer_repeat or strong NPS need"
+    },
+    "partner_lab": {
+      "title_uk": "Співпраця / опт / команди / бренди",
+      "entry_questions": [
+        "q850_partner_type",
+        "q851_partner_volume",
+        "q852_partner_need"
+      ],
+      "optional_questions": [
+        "q853_partner_contact_intent"
+      ],
+      "max_questions": 4,
+      "activation_priority": "highest if partner intent or team/unit/brand scenario"
+    },
+    "marketing_content_lab": {
+      "title_uk": "Канали й контент",
+      "entry_questions": [
+        "q880_found_us",
+        "q881_content_channels",
+        "q882_content_needed"
+      ],
+      "max_questions": 3,
+      "activation_priority": "default low-priority module; can run near closing if no stronger module selected"
+    }
+  },
+  "questions": [
+    {
+      "id": "q010_entry_goal",
+      "section": "core",
+      "order": 10,
+      "type": "single_choice",
+      "prompt_uk": "Що ти зараз шукаєш у TWOCOMMS?",
+      "options": [
+        {
+          "value": "ready_for_self",
+          "label_uk": "Готову річ для себе"
+        },
+        {
+          "value": "gift",
+          "label_uk": "Подарунок"
+        },
+        {
+          "value": "custom_personal",
+          "label_uk": "Кастомний прінт / свою ідею"
+        },
+        {
+          "value": "custom_team_unit",
+          "label_uk": "Одяг для команди, підрозділу або бренду"
+        },
+        {
+          "value": "just_browsing_brand",
+          "label_uk": "Просто знайомлюсь із брендом"
+        },
+        {
+          "value": "partner",
+          "label_uk": "Співпраця / опт / дроп"
+        },
+        {
+          "value": "other",
+          "label_uk": "Інше"
+        }
+      ],
+      "required": true,
+      "analytics_tags": [
+        "intent",
+        "entry_goal"
+      ],
+      "estimated_seconds": 8
+    },
+    {
+      "id": "q020_purchase_stage",
+      "section": "core",
+      "order": 20,
+      "type": "single_choice",
+      "prompt_uk": "На якому ти етапі з TWOCOMMS зараз?",
+      "options": [
+        {
+          "value": "bought_repeat",
+          "label_uk": "Вже купував/ла 2+ рази"
+        },
+        {
+          "value": "bought_once",
+          "label_uk": "Вже купував/ла 1 раз"
+        },
+        {
+          "value": "cart_abandoned",
+          "label_uk": "Додавав/ла в кошик, але не купив/ла"
+        },
+        {
+          "value": "considering",
+          "label_uk": "Розглядаю покупку, але ще не купував/ла"
+        },
+        {
+          "value": "browsing",
+          "label_uk": "Просто дивлюсь, поки без планів"
+        },
+        {
+          "value": "custom_request",
+          "label_uk": "Хочу прорахувати кастом"
+        },
+        {
+          "value": "partner_discussion",
+          "label_uk": "Хочу обговорити співпрацю"
+        }
+      ],
+      "required": true,
+      "analytics_tags": [
+        "funnel_stage"
+      ],
+      "estimated_seconds": 8
+    },
+    {
+      "id": "q030_product_interest",
+      "section": "core",
+      "order": 30,
+      "type": "multi_choice",
+      "prompt_uk": "Які речі тобі найцікавіші? Обери до 3.",
+      "options": [
+        {
+          "value": "tshirt",
+          "label_uk": "Футболки"
+        },
+        {
+          "value": "hoodie",
+          "label_uk": "Худі"
+        },
+        {
+          "value": "zip_hoodie",
+          "label_uk": "Зіп-худі"
+        },
+        {
+          "value": "sweatshirt",
+          "label_uk": "Світшоти"
+        },
+        {
+          "value": "longsleeve",
+          "label_uk": "Лонгсліви"
+        },
+        {
+          "value": "pants",
+          "label_uk": "Штани / джогери"
+        },
+        {
+          "value": "caps",
+          "label_uk": "Кепки / шапки"
+        },
+        {
+          "value": "women_line",
+          "label_uk": "Жіноча лінія"
+        },
+        {
+          "value": "sets",
+          "label_uk": "Комплекти верх+низ"
+        },
+        {
+          "value": "bags",
+          "label_uk": "Сумки / хіп-паки"
+        },
+        {
+          "value": "patches_pvc",
+          "label_uk": "Патчі / PVC-бірки"
+        },
+        {
+          "value": "not_sure",
+          "label_uk": "Ще не знаю"
+        }
+      ],
+      "max_select": 3,
+      "required": true,
+      "analytics_tags": [
+        "product_demand"
+      ],
+      "estimated_seconds": 12,
+      "selection_rules": {
+        "max_select": 3,
+        "exclusive_values": [
+          "not_sure"
+        ],
+        "if_not_sure_selected": "clear_other_selected_options",
+        "reason_ru": "not_sure не должен смешиваться с конкретными продуктами, иначе q035 и price ladder получают шум."
+      },
+      "ui_hint_uk": "Можна обрати кілька, але якщо вагаєшся — обери «Ще не знаю»."
+    },
+    {
+      "id": "q035_primary_product_focus",
+      "section": "core",
+      "order": 35,
+      "type": "single_choice",
+      "prompt_uk": "Якщо обрати тільки одну річ для першої покупки, що це буде?",
+      "options": [
+        {
+          "value": "tshirt",
+          "label_uk": "Футболку"
+        },
+        {
+          "value": "hoodie",
+          "label_uk": "Худі"
+        },
+        {
+          "value": "zip_hoodie",
+          "label_uk": "Зіп-худі"
+        },
+        {
+          "value": "sweatshirt",
+          "label_uk": "Світшот"
+        },
+        {
+          "value": "longsleeve",
+          "label_uk": "Лонгслів"
+        },
+        {
+          "value": "pants",
+          "label_uk": "Штани / джогери"
+        },
+        {
+          "value": "caps",
+          "label_uk": "Кепку / шапку"
+        },
+        {
+          "value": "women_line",
+          "label_uk": "Жіночу модель"
+        },
+        {
+          "value": "custom_item",
+          "label_uk": "Кастомну річ"
+        },
+        {
+          "value": "not_sure",
+          "label_uk": "Поки не знаю"
+        }
+      ],
+      "required": false,
+      "analytics_tags": [
+        "primary_product",
+        "smart_skip_candidate",
+        "smart_skip_v3_2_not_sure_guard"
+      ],
+      "estimated_seconds": 8,
+      "dynamic_behavior": {
+        "options_source": "answers.q030_product_interest",
+        "include_only_selected_products": true,
+        "abstract_tokens": [
+          "not_sure"
+        ],
+        "concrete_product_values": [
+          "tshirt",
+          "hoodie",
+          "zip_hoodie",
+          "sweatshirt",
+          "longsleeve",
+          "pants",
+          "caps",
+          "women_line",
+          "sets",
+          "bags",
+          "patches_pvc",
+          "custom_item"
+        ],
+        "additional_options_if": [
+          {
+            "if": {
+              "answer": "q010_entry_goal",
+              "in": [
+                "custom_personal",
+                "custom_team_unit"
+              ]
+            },
+            "include": [
+              "custom_item"
+            ]
+          },
+          {
+            "if": {
+              "answer": "q030_product_interest",
+              "includes": "not_sure"
+            },
+            "include": [
+              "not_sure",
+              "custom_item"
+            ]
+          }
+        ],
+        "skip_if": "count(answers.q030_product_interest) == 1 AND answers.q030_product_interest[0] != 'not_sure'",
+        "auto_answer_from": "answers.q030_product_interest[0] only when it is a concrete product value",
+        "store_auto_answer_flag": "q035_auto_answered",
+        "show_if": "count(answers.q030_product_interest) >= 2 OR answers.q030_product_interest includes 'not_sure' OR answers.q010_entry_goal in ['custom_personal','custom_team_unit']",
+        "error_guard": {
+          "if_only_not_sure_selected": "show q035 with options ['not_sure','custom_item'] and do not auto-answer",
+          "if_no_valid_product_after_filters": "fallback to ['tshirt','hoodie','custom_item','not_sure']"
+        },
+        "reason_ru": "V3.2: устраняет коллизию между smart-skip и show-if. Auto-answer работает только для одного конкретного продукта; 'not_sure' остается видимым выбором."
+      }
+    },
+    {
+      "id": "q040_military_code_interest",
+      "section": "core",
+      "order": 40,
+      "type": "slider_1_10",
+      "prompt_uk": "Наскільки тобі близький military-код у TWOCOMMS: фронтовий контекст, символи, підрозділи, тактичний вайб?",
+      "scale": {
+        "min": 1,
+        "max": 10,
+        "left_label_uk": "Не моє",
+        "right_label_uk": "Дуже близько"
+      },
+      "required": true,
+      "analytics_tags": [
+        "style_military_intensity",
+        "two_axis_style",
+        "b2b_skip_guard_v3_4"
+      ],
+      "estimated_seconds": 7,
+      "ui_hint_uk": "Оціни саме military-код, не загальну якість дизайну.",
+      "skip_if": {
+        "any": [
+          {
+            "answer": "q010_entry_goal",
+            "eq": "partner"
+          },
+          {
+            "answer": "q020_purchase_stage",
+            "eq": "partner_discussion"
+          }
+        ],
+        "reason_ru": "V3.4: не задавать personal style sliders чистому B2B/partner сегменту."
+      }
+    },
+    {
+      "id": "q041_streetwear_fit_interest",
+      "section": "core",
+      "order": 41,
+      "type": "slider_1_10",
+      "prompt_uk": "Наскільки тобі важливо, щоб речі виглядали як повноцінний streetwear, який можна носити щодня?",
+      "scale": {
+        "min": 1,
+        "max": 10,
+        "left_label_uk": "Не важливо",
+        "right_label_uk": "Дуже важливо"
+      },
+      "required": true,
+      "analytics_tags": [
+        "style_streetwear_intensity",
+        "two_axis_style",
+        "b2b_skip_guard_v3_4"
+      ],
+      "estimated_seconds": 7,
+      "ui_hint_uk": "Тут про посадку, вайб, носибельність і самовираження, а не про military-тему.",
+      "skip_if": {
+        "any": [
+          {
+            "answer": "q010_entry_goal",
+            "eq": "partner"
+          },
+          {
+            "answer": "q020_purchase_stage",
+            "eq": "partner_discussion"
+          }
+        ],
+        "reason_ru": "V3.4: не задавать personal style sliders чистому B2B/partner сегменту."
+      }
+    },
+    {
+      "id": "q045_style_boundary",
+      "section": "core",
+      "order": 45,
+      "type": "single_choice",
+      "prompt_uk": "Де для тебе проходить межа: що вже було б «занадто» в прінтах?",
+      "options": [
+        {
+          "value": "too_direct_patriotic",
+          "label_uk": "Занадто прямолінійний патріотизм"
+        },
+        {
+          "value": "too_war_roleplay",
+          "label_uk": "Виглядає як військова рольова гра, а не одяг"
+        },
+        {
+          "value": "too_aggressive",
+          "label_uk": "Занадто агресивно / грубо"
+        },
+        {
+          "value": "too_meme",
+          "label_uk": "Занадто мемно / несолідно"
+        },
+        {
+          "value": "too_minimal",
+          "label_uk": "Занадто тихо, не вистачає характеру"
+        },
+        {
+          "value": "too_civilian",
+          "label_uk": "Занадто цивільно, губиться military-код"
+        },
+        {
+          "value": "no_boundary",
+          "label_uk": "Мені ок сміливі речі, якщо зроблено сильно"
+        },
+        {
+          "value": "not_sure",
+          "label_uk": "Поки не знаю"
+        }
+      ],
+      "required": false,
+      "analytics_tags": [
+        "brand_tone_boundary",
+        "b2b_skip_guard_v3_3"
+      ],
+      "estimated_seconds": 12,
+      "ui_rendering": {
+        "mobile": "one_question_focus_card; max 4 options visible, बाकी under 'show more'",
+        "desktop": "single_choice_cards",
+        "avoid": "long_checkbox_list_on_same_screen_as_sliders"
+      },
+      "skip_if": {
+        "any": [
+          {
+            "answer": "q010_entry_goal",
+            "eq": "partner"
+          },
+          {
+            "answer": "q020_purchase_stage",
+            "eq": "partner_discussion"
+          }
+        ],
+        "reason_ru": "V3.3: не задавать style-boundary чистому B2B/partner сегменту."
+      }
+    },
+    {
+      "id": "q050_overall",
+      "section": "core",
+      "order": 50,
+      "type": "slider_1_10",
+      "prompt_uk": "Як ти загалом оцінюєш перше/поточне враження від TWOCOMMS?",
+      "scale": {
+        "min": 1,
+        "max": 10,
+        "left_label_uk": "Не зайшло",
+        "right_label_uk": "Дуже чіпляє"
+      },
+      "required": true,
+      "analytics_tags": [
+        "overall_score"
+      ],
+      "estimated_seconds": 7
+    },
+    {
+      "id": "q051_overall_keep",
+      "section": "core",
+      "order": 51,
+      "type": "multi_choice",
+      "prompt_uk": "Що нам точно варто зберегти в TWOCOMMS? Обери до 3.",
+      "options": [
+        {
+          "value": "prints",
+          "label_uk": "Прінти / стиль"
+        },
+        {
+          "value": "meaning",
+          "label_uk": "Меседжі та сенси"
+        },
+        {
+          "value": "quality",
+          "label_uk": "Щільна база / якість"
+        },
+        {
+          "value": "kharkiv_character",
+          "label_uk": "Харківський характер"
+        },
+        {
+          "value": "military_adjacent",
+          "label_uk": "Military-adjacent код"
+        },
+        {
+          "value": "streetwear",
+          "label_uk": "Streetwear-подачу"
+        },
+        {
+          "value": "custom",
+          "label_uk": "Кастом / персоналізацію"
+        },
+        {
+          "value": "site",
+          "label_uk": "Подачу на сайті"
+        },
+        {
+          "value": "other",
+          "label_uk": "Інше"
+        }
+      ],
+      "max_select": 3,
+      "show_if": {
+        "answer": "q050_overall",
+        "gte": 9
+      },
+      "analytics_tags": [
+        "positive_drivers"
+      ],
+      "estimated_seconds": 10
+    },
+    {
+      "id": "q052_not_10_reason",
+      "section": "core",
+      "order": 52,
+      "type": "multi_choice",
+      "prompt_uk": "Ми знаємо, що ідеалу не існує. Що не дало поставити 10/10? Обери до 3.",
+      "options": [
+        {
+          "value": "prints_not_mine",
+          "label_uk": "Не до кінця мій стиль прінтів"
+        },
+        {
+          "value": "style_balance",
+          "label_uk": "Баланс military/streetwear не ідеальний"
+        },
+        {
+          "value": "price",
+          "label_uk": "Ціна здається зависокою"
+        },
+        {
+          "value": "unclear_value",
+          "label_uk": "Не до кінця зрозуміло, за що саме плачу"
+        },
+        {
+          "value": "quality_trust",
+          "label_uk": "Не вистачає впевненості в якості"
+        },
+        {
+          "value": "size_fit",
+          "label_uk": "Не впевнений/а в розмірі або посадці"
+        },
+        {
+          "value": "need_photos",
+          "label_uk": "Хочу більше фото/відео на людях"
+        },
+        {
+          "value": "women_missing",
+          "label_uk": "Не вистачає жіночих моделей"
+        },
+        {
+          "value": "more_categories",
+          "label_uk": "Не вистачає штанів/кепок/комплектів"
+        },
+        {
+          "value": "custom_missing",
+          "label_uk": "Не вистачає зрозумілого кастому"
+        },
+        {
+          "value": "checkout",
+          "label_uk": "Сайт/оформлення можна спростити"
+        },
+        {
+          "value": "other",
+          "label_uk": "Інше"
+        }
+      ],
+      "max_select": 3,
+      "show_if": {
+        "answer": "q050_overall",
+        "between": [
+          7,
+          8
+        ]
+      },
+      "analytics_tags": [
+        "not_10_reason"
+      ],
+      "estimated_seconds": 12
+    },
+    {
+      "id": "q053_low_score_reason",
+      "section": "core",
+      "order": 53,
+      "type": "multi_choice",
+      "prompt_uk": "Що найбільше зіпсувало або послабило враження? Обери до 3.",
+      "options": [
+        {
+          "value": "not_my_style",
+          "label_uk": "Не мій стиль"
+        },
+        {
+          "value": "too_military",
+          "label_uk": "Занадто military"
+        },
+        {
+          "value": "not_enough_military",
+          "label_uk": "Навпаки, мало military"
+        },
+        {
+          "value": "too_aggressive",
+          "label_uk": "Занадто жорстко"
+        },
+        {
+          "value": "price",
+          "label_uk": "Ціна"
+        },
+        {
+          "value": "quality_doubt",
+          "label_uk": "Сумнів у якості"
+        },
+        {
+          "value": "site_confusing",
+          "label_uk": "Сайт/навігація"
+        },
+        {
+          "value": "checkout_friction",
+          "label_uk": "Оформлення/реєстрація"
+        },
+        {
+          "value": "not_enough_trust",
+          "label_uk": "Мало довіри/відгуків"
+        },
+        {
+          "value": "assortment",
+          "label_uk": "Не знайшов/ла потрібну річ"
+        },
+        {
+          "value": "other",
+          "label_uk": "Інше"
+        }
+      ],
+      "max_select": 3,
+      "show_if": {
+        "answer": "q050_overall",
+        "lte": 6
+      },
+      "analytics_tags": [
+        "low_score_reason"
+      ],
+      "estimated_seconds": 12
+    },
+    {
+      "id": "q060_purchase_driver_maxdiff",
+      "section": "core",
+      "order": 60,
+      "type": "maxdiff_best_worst",
+      "prompt_uk": "Що найбільше і найменше впливає на твоє рішення купити?",
+      "options": [
+        {
+          "value": "print_design",
+          "label_uk": "Прінт / дизайн"
+        },
+        {
+          "value": "brand_meaning",
+          "label_uk": "Сенс і позиція бренду"
+        },
+        {
+          "value": "quality",
+          "label_uk": "Якість тканини, пошиву, нанесення"
+        },
+        {
+          "value": "fit_size",
+          "label_uk": "Посадка і розмір"
+        },
+        {
+          "value": "price",
+          "label_uk": "Ціна"
+        },
+        {
+          "value": "trust_proof",
+          "label_uk": "Довіра: відгуки, фото, гарантії"
+        },
+        {
+          "value": "custom",
+          "label_uk": "Можливість кастому"
+        },
+        {
+          "value": "delivery_payment",
+          "label_uk": "Доставка й оплата"
+        }
+      ],
+      "instruction_uk": "Обери 1 найважливіше і 1 найменш важливе. Так ми краще зрозуміємо реальний пріоритет.",
+      "required": true,
+      "analytics_tags": [
+        "purchase_driver_maxdiff"
+      ],
+      "estimated_seconds": 14
+    },
+    {
+      "id": "q070_main_barrier",
+      "section": "core",
+      "order": 70,
+      "type": "single_choice",
+      "prompt_uk": "Що зараз найбільше може зупинити тебе від покупки?",
+      "options": [
+        {
+          "value": "no_barrier",
+          "label_uk": "Нічого, я можу купити"
+        },
+        {
+          "value": "price",
+          "label_uk": "Ціна зависока або неясна цінність"
+        },
+        {
+          "value": "quality_trust",
+          "label_uk": "Не впевнений/а у якості"
+        },
+        {
+          "value": "size_fit",
+          "label_uk": "Боюсь не вгадати розмір/посадку"
+        },
+        {
+          "value": "no_my_print",
+          "label_uk": "Не бачу прінта, який точно мій"
+        },
+        {
+          "value": "need_more_proof",
+          "label_uk": "Мало фото/відео/відгуків"
+        },
+        {
+          "value": "checkout",
+          "label_uk": "Оформлення/оплата/реєстрація"
+        },
+        {
+          "value": "delivery",
+          "label_uk": "Доставка/терміни"
+        },
+        {
+          "value": "custom_unclear",
+          "label_uk": "Кастом цікавий, але незрозумілий"
+        },
+        {
+          "value": "not_now",
+          "label_uk": "Просто не зараз"
+        },
+        {
+          "value": "other",
+          "label_uk": "Інше"
+        }
+      ],
+      "required": true,
+      "analytics_tags": [
+        "main_barrier"
+      ],
+      "estimated_seconds": 10
+    },
+    {
+      "id": "q080_priority_tradeoff",
+      "section": "core",
+      "order": 80,
+      "type": "single_choice",
+      "prompt_uk": "Якби ми могли покращити тільки один напрям найближчим часом, що важливіше?",
+      "options": [
+        {
+          "value": "prints",
+          "label_uk": "Більше сильних нових прінтів"
+        },
+        {
+          "value": "quality_fit",
+          "label_uk": "Кращі базові речі: тканина, посадка, пошив"
+        },
+        {
+          "value": "custom",
+          "label_uk": "Кастомний прінт і персоналізація"
+        },
+        {
+          "value": "lower_prices",
+          "label_uk": "Нижчі ціни / більше акцій"
+        },
+        {
+          "value": "women_line",
+          "label_uk": "Жіноча лінія"
+        },
+        {
+          "value": "pants",
+          "label_uk": "Штани / комплекти"
+        },
+        {
+          "value": "caps",
+          "label_uk": "Кепки / аксесуари"
+        },
+        {
+          "value": "proof_content",
+          "label_uk": "Більше фото, відео й доказів якості"
+        },
+        {
+          "value": "site_checkout",
+          "label_uk": "Простіший сайт / checkout"
+        }
+      ],
+      "required": true,
+      "analytics_tags": [
+        "owner_priority"
+      ],
+      "estimated_seconds": 10
+    },
+    {
+      "id": "q085_mini_summary_consent",
+      "section": "core",
+      "order": 85,
+      "type": "info_card",
+      "prompt_uk": "Окей, далі ми поставимо кілька питань саме під твій сценарій. Зайвого не буде.",
+      "show_after_core": true,
+      "estimated_seconds": 2
+    },
+    {
+      "id": "q200_print_reaction_cards",
+      "section": "prints_style_lab",
+      "order": 200,
+      "type": "concept_reaction_cards",
+      "prompt_uk": "Оціни напрямки прінтів: що хочеться бачити більше?",
+      "concepts": [
+        {
+          "value": "military_core",
+          "label_uk": "Military-core",
+          "description_uk": "Спеціальності, підрозділи, фронтовий код, пряма впізнаваність для своїх."
+        },
+        {
+          "value": "military_adjacent",
+          "label_uk": "Military-adjacent",
+          "description_uk": "Натяки, символи, дисципліна, форма — без прямолінійного мерчу."
+        },
+        {
+          "value": "streetwear_statement",
+          "label_uk": "Streetwear statement",
+          "description_uk": "Сильний меседж, графіка, характер, але носибельно щодня."
+        },
+        {
+          "value": "minimal_code",
+          "label_uk": "Мінімальний код",
+          "description_uk": "Малий знак, типографіка, тиха впізнаваність."
+        },
+        {
+          "value": "irony_meme",
+          "label_uk": "Іронія / мем",
+          "description_uk": "Гумор, контекст, гострі фрази."
+        },
+        {
+          "value": "premium_quiet",
+          "label_uk": "Тихі преміальні речі",
+          "description_uk": "Менше шуму, більше тканини, посадки й деталей."
+        }
+      ],
+      "scale_options": [
+        "хочу більше",
+        "можливо",
+        "не моє"
+      ],
+      "analytics_tags": [
+        "print_direction_demand"
+      ],
+      "estimated_seconds": 25
+    },
+    {
+      "id": "q201_print_format_maxdiff",
+      "section": "prints_style_lab",
+      "order": 201,
+      "type": "maxdiff_best_worst",
+      "prompt_uk": "Який формат прінта найкращий, а який найменш цікавий?",
+      "options": [
+        {
+          "value": "small_chest",
+          "label_uk": "Малий знак на грудях"
+        },
+        {
+          "value": "front_center",
+          "label_uk": "Прінт спереду по центру"
+        },
+        {
+          "value": "back_big",
+          "label_uk": "Великий прінт на спині"
+        },
+        {
+          "value": "sleeve",
+          "label_uk": "Рукав"
+        },
+        {
+          "value": "patch_style",
+          "label_uk": "Патч / шеврон-стиль"
+        },
+        {
+          "value": "text_only",
+          "label_uk": "Тільки текст / фраза"
+        },
+        {
+          "value": "graphic_text",
+          "label_uk": "Графіка + текст"
+        },
+        {
+          "value": "tone_on_tone",
+          "label_uk": "Тон-в-тон, ледь помітно"
+        }
+      ],
+      "analytics_tags": [
+        "print_format_preference"
+      ],
+      "estimated_seconds": 14
+    },
+    {
+      "id": "q202_wanted_themes",
+      "section": "prints_style_lab",
+      "order": 202,
+      "type": "multi_choice",
+      "prompt_uk": "Які теми/напрями прінтів ти хотів/ла б бачити частіше? Обери до 3.",
+      "options": [
+        {
+          "value": "drones",
+          "label_uk": "Дрони / FPV / БпЛА"
+        },
+        {
+          "value": "sappers",
+          "label_uk": "Сапери / інженерка"
+        },
+        {
+          "value": "medic",
+          "label_uk": "Медик / евак"
+        },
+        {
+          "value": "artillery",
+          "label_uk": "Артилерія"
+        },
+        {
+          "value": "air_defense",
+          "label_uk": "ППО"
+        },
+        {
+          "value": "infantry",
+          "label_uk": "Піхота / штурм"
+        },
+        {
+          "value": "signals_reb_cyber",
+          "label_uk": "Зв’язок / РЕБ / кібер"
+        },
+        {
+          "value": "volunteer",
+          "label_uk": "Волонтерство / донати"
+        },
+        {
+          "value": "kharkiv",
+          "label_uk": "Харківський код"
+        },
+        {
+          "value": "two_commas_philosophy",
+          "label_uk": "Філософія TwoComms / не крапка"
+        },
+        {
+          "value": "irony_memes",
+          "label_uk": "Іронія / меми"
+        },
+        {
+          "value": "abstract_art",
+          "label_uk": "Абстракція / арт"
+        },
+        {
+          "value": "minimal_symbols",
+          "label_uk": "Мінімальні символи"
+        },
+        {
+          "value": "no_more_themes",
+          "label_uk": "Теми не головне — важливіше стиль"
+        }
+      ],
+      "max_select": 3,
+      "analytics_tags": [
+        "print_theme_demand"
+      ],
+      "estimated_seconds": 14
+    },
+    {
+      "id": "q203_print_no_go",
+      "section": "prints_style_lab",
+      "order": 203,
+      "type": "multi_choice",
+      "prompt_uk": "Що в прінтах краще НЕ посилювати? Обери до 3.",
+      "options": [
+        {
+          "value": "direct_patriotic_cliche",
+          "label_uk": "Прямолінійні патріотичні кліше"
+        },
+        {
+          "value": "war_exploitation",
+          "label_uk": "Відчуття експлуатації війни"
+        },
+        {
+          "value": "too_much_swearing",
+          "label_uk": "Забагато мату/грубої лексики"
+        },
+        {
+          "value": "too_childish",
+          "label_uk": "Мультяшність / дитячість"
+        },
+        {
+          "value": "too_complex",
+          "label_uk": "Сенс занадто складний без пояснення"
+        },
+        {
+          "value": "too_much_text",
+          "label_uk": "Забагато тексту"
+        },
+        {
+          "value": "too_aggressive",
+          "label_uk": "Занадто агресивно"
+        },
+        {
+          "value": "too_minimal",
+          "label_uk": "Занадто мінімально"
+        },
+        {
+          "value": "nothing",
+          "label_uk": "Нічого з цього"
+        },
+        {
+          "value": "other",
+          "label_uk": "Інше"
+        }
+      ],
+      "max_select": 3,
+      "analytics_tags": [
+        "print_boundaries"
+      ],
+      "estimated_seconds": 12
+    },
+    {
+      "id": "q204_print_idea_text",
+      "section": "prints_style_lab",
+      "order": 204,
+      "type": "text_short",
+      "prompt_uk": "Є конкретна тема/фраза/ідея прінта, яку ти хотів/ла б побачити?",
+      "required": false,
+      "max_chars": 220,
+      "placeholder_uk": "Напр.: тема, фраза, підрозділ, вайб, референс…",
+      "show_if": {
+        "module_text_slots_available": true,
+        "any": [
+          {
+            "answer": "q202_wanted_themes",
+            "includes": "other"
+          },
+          {
+            "answer": "q080_priority_tradeoff",
+            "eq": "prints"
+          }
+        ]
+      },
+      "analytics_tags": [
+        "ugc_print_idea"
+      ],
+      "estimated_seconds": 25
+    },
+    {
+      "id": "q300_custom_interest",
+      "section": "custom_lab",
+      "order": 300,
+      "type": "single_choice",
+      "prompt_uk": "Наскільки тобі цікава річ з кастомним прінтом або персоналізацією?",
+      "options": [
+        {
+          "value": "ready_now",
+          "label_uk": "Цікаво, я б розглянув/ла зараз"
+        },
+        {
+          "value": "later",
+          "label_uk": "Цікаво, але не прямо зараз"
+        },
+        {
+          "value": "if_easy",
+          "label_uk": "Можливо, якщо буде зрозуміло й красиво"
+        },
+        {
+          "value": "team_brand",
+          "label_uk": "Цікаво для команди/підрозділу/бренду"
+        },
+        {
+          "value": "gift",
+          "label_uk": "Цікаво як подарунок"
+        },
+        {
+          "value": "not_interested",
+          "label_uk": "Не цікаво"
+        }
+      ],
+      "required": true,
+      "analytics_tags": [
+        "custom_intent_level"
+      ],
+      "estimated_seconds": 8
+    },
+    {
+      "id": "q301_custom_scenario",
+      "section": "custom_lab",
+      "order": 301,
+      "type": "multi_choice",
+      "prompt_uk": "Який кастомний сценарій найближчий? Обери до 2.",
+      "options": [
+        {
+          "value": "own_file",
+          "label_uk": "Є готовий макет / файл"
+        },
+        {
+          "value": "need_adapt_file",
+          "label_uk": "Є файл або референс, треба адаптувати"
+        },
+        {
+          "value": "idea_need_design",
+          "label_uk": "Є ідея, потрібен дизайн з нуля"
+        },
+        {
+          "value": "name_callsign",
+          "label_uk": "Позивний / ім’я / нік"
+        },
+        {
+          "value": "unit_team",
+          "label_uk": "Підрозділ / команда / бригада"
+        },
+        {
+          "value": "brand_logo",
+          "label_uk": "Логотип бренду / компанії"
+        },
+        {
+          "value": "gift_personal",
+          "label_uk": "Персональний подарунок"
+        },
+        {
+          "value": "own_garment",
+          "label_uk": "Друк на своєму одязі"
+        },
+        {
+          "value": "not_sure",
+          "label_uk": "Поки не знаю"
+        }
+      ],
+      "max_select": 2,
+      "show_if": {
+        "answer": "q300_custom_interest",
+        "neq": "not_interested"
+      },
+      "analytics_tags": [
+        "custom_scenario"
+      ],
+      "estimated_seconds": 12
+    },
+    {
+      "id": "q302_custom_config_friction",
+      "section": "custom_lab",
+      "order": 302,
+      "type": "multi_choice",
+      "prompt_uk": "Що найбільше зупиняє від кастомного замовлення? Обери до 3.",
+      "options": [
+        {
+          "value": "no_preview",
+          "label_uk": "Не бачу прев’ю, як виглядатиме результат"
+        },
+        {
+          "value": "unclear_final_price",
+          "label_uk": "Не зрозуміла кінцева ціна"
+        },
+        {
+          "value": "quality_fear",
+          "label_uk": "Боюсь за якість друку"
+        },
+        {
+          "value": "file_preparation",
+          "label_uk": "Не знаю, як підготувати макет"
+        },
+        {
+          "value": "zone_size_confusion",
+          "label_uk": "Не знаю, який розмір/зону прінта обрати"
+        },
+        {
+          "value": "need_manager",
+          "label_uk": "Потрібна консультація менеджера"
+        },
+        {
+          "value": "deadline",
+          "label_uk": "Не зрозуміло, скільки чекати"
+        },
+        {
+          "value": "return_policy",
+          "label_uk": "Хвилює, що кастом не повертається"
+        },
+        {
+          "value": "quantity",
+          "label_uk": "Не знаю, чи можна 1 штуку / малий тираж"
+        },
+        {
+          "value": "nothing",
+          "label_uk": "Нічого не зупиняє"
+        },
+        {
+          "value": "other",
+          "label_uk": "Інше"
+        }
+      ],
+      "max_select": 3,
+      "show_if": {
+        "answer": "q300_custom_interest",
+        "neq": "not_interested"
+      },
+      "analytics_tags": [
+        "custom_barriers"
+      ],
+      "estimated_seconds": 14
+    },
+    {
+      "id": "q303_custom_value_addons",
+      "section": "custom_lab",
+      "order": 303,
+      "type": "multi_choice",
+      "prompt_uk": "За що в кастомі ти готовий/а доплатити, якщо це реально покращує результат? Обери до 3.",
+      "options": [
+        {
+          "value": "designer_help",
+          "label_uk": "Допомога дизайнера"
+        },
+        {
+          "value": "extra_print_zone",
+          "label_uk": "Додаткова зона друку"
+        },
+        {
+          "value": "premium_base",
+          "label_uk": "Щільніша / преміальна база"
+        },
+        {
+          "value": "pvc_patch",
+          "label_uk": "PVC-бірка / патч / бренд-деталь"
+        },
+        {
+          "value": "gift_pack",
+          "label_uk": "Подарункове пакування"
+        },
+        {
+          "value": "urgent",
+          "label_uk": "Швидше виготовлення"
+        },
+        {
+          "value": "photo_preview",
+          "label_uk": "Красиве прев’ю перед друком"
+        },
+        {
+          "value": "bulk_packaging",
+          "label_uk": "Пакування/листівки для команди або бренду"
+        },
+        {
+          "value": "not_pay_extra",
+          "label_uk": "Не готовий/а доплачувати"
+        }
+      ],
+      "max_select": 3,
+      "show_if": {
+        "answer": "q300_custom_interest",
+        "neq": "not_interested"
+      },
+      "analytics_tags": [
+        "custom_willingness_to_pay_addons"
+      ],
+      "estimated_seconds": 12
+    },
+    {
+      "id": "q304_custom_price_extra",
+      "section": "custom_lab",
+      "order": 304,
+      "type": "single_choice",
+      "prompt_uk": "Яка доплата за персоналізацію здається нормальною, якщо результат виглядає якісно?",
+      "options": [
+        {
+          "value": "0",
+          "label_uk": "Не готовий/а доплачувати"
+        },
+        {
+          "value": "up_to_150",
+          "label_uk": "До 150 грн"
+        },
+        {
+          "value": "150_300",
+          "label_uk": "150–300 грн"
+        },
+        {
+          "value": "300_500",
+          "label_uk": "300–500 грн"
+        },
+        {
+          "value": "500_1000",
+          "label_uk": "500–1000 грн"
+        },
+        {
+          "value": "1000_plus",
+          "label_uk": "1000+ грн, якщо це складний/командний проєкт"
+        },
+        {
+          "value": "depends",
+          "label_uk": "Залежить від макета й кількості"
+        }
+      ],
+      "show_if": {
+        "answer": "q300_custom_interest",
+        "neq": "not_interested"
+      },
+      "analytics_tags": [
+        "custom_price_threshold"
+      ],
+      "estimated_seconds": 10
+    },
+    {
+      "id": "q305_custom_quantity",
+      "section": "custom_lab",
+      "order": 305,
+      "type": "single_choice",
+      "prompt_uk": "Якщо це кастом, яка кількість найімовірніша?",
+      "options": [
+        {
+          "value": "1",
+          "label_uk": "1 штука"
+        },
+        {
+          "value": "2_5",
+          "label_uk": "2–5 штук"
+        },
+        {
+          "value": "6_20",
+          "label_uk": "6–20 штук"
+        },
+        {
+          "value": "21_50",
+          "label_uk": "21–50 штук"
+        },
+        {
+          "value": "50_plus",
+          "label_uk": "50+ штук"
+        },
+        {
+          "value": "not_sure",
+          "label_uk": "Поки не знаю"
+        }
+      ],
+      "show_if": {
+        "answer": "q300_custom_interest",
+        "in": [
+          "ready_now",
+          "team_brand",
+          "gift",
+          "if_easy"
+        ]
+      },
+      "analytics_tags": [
+        "custom_quantity"
+      ],
+      "estimated_seconds": 8
+    },
+    {
+      "id": "q306_custom_try_condition",
+      "section": "custom_lab",
+      "order": 306,
+      "type": "multi_choice",
+      "prompt_uk": "Що найсильніше підштовхнуло б тебе спробувати кастом? Обери до 2.",
+      "options": [
+        {
+          "value": "instant_price",
+          "label_uk": "Ціна одразу по кроках"
+        },
+        {
+          "value": "visual_preview",
+          "label_uk": "Прев’ю прінта на речі"
+        },
+        {
+          "value": "real_examples",
+          "label_uk": "Галерея реальних робіт"
+        },
+        {
+          "value": "manager_fast",
+          "label_uk": "Швидкий контакт із менеджером"
+        },
+        {
+          "value": "designer_help",
+          "label_uk": "Допомога з макетом"
+        },
+        {
+          "value": "quality_tests",
+          "label_uk": "Тест DTF після прання/розтягування"
+        },
+        {
+          "value": "first_custom_discount",
+          "label_uk": "Знижка на перше кастом-замовлення"
+        },
+        {
+          "value": "one_item_clear",
+          "label_uk": "Чітко видно, що можна замовити від 1 штуки"
+        }
+      ],
+      "max_select": 2,
+      "show_if": {
+        "answer": "q300_custom_interest",
+        "neq": "not_interested"
+      },
+      "analytics_tags": [
+        "custom_conversion_trigger"
+      ],
+      "estimated_seconds": 12
+    },
+    {
+      "id": "q307_custom_idea_text",
+      "section": "custom_lab",
+      "order": 307,
+      "type": "text_short",
+      "prompt_uk": "Якщо є своя ідея кастому — опиши її одним реченням.",
+      "required": false,
+      "max_chars": 220,
+      "placeholder_uk": "Напр.: худі з позивним, футболки для команди, лого бренду…",
+      "show_if": {
+        "module_text_slots_available": true,
+        "answer": "q300_custom_interest",
+        "in": [
+          "ready_now",
+          "team_brand",
+          "gift"
+        ]
+      },
+      "analytics_tags": [
+        "custom_lead_idea"
+      ],
+      "estimated_seconds": 25
+    },
+    {
+      "id": "q400_price_value_score",
+      "section": "price_value_lab",
+      "order": 400,
+      "type": "slider_1_10",
+      "prompt_uk": "Як ти сприймаєш ціну відносно цінності TWOCOMMS?",
+      "scale": {
+        "min": 1,
+        "max": 10,
+        "left_label_uk": "Дорого / не бачу цінності",
+        "right_label_uk": "Ціна виглядає виправданою"
+      },
+      "analytics_tags": [
+        "price_value_score"
+      ],
+      "estimated_seconds": 7
+    },
+    {
+      "id": "q401_price_objection",
+      "section": "price_value_lab",
+      "order": 401,
+      "type": "single_choice",
+      "prompt_uk": "Якщо ціна здається високою — що саме не переконує?",
+      "options": [
+        {
+          "value": "mass_market_compare",
+          "label_uk": "Порівнюю із дешевшим мас-маркетом"
+        },
+        {
+          "value": "quality_proof_missing",
+          "label_uk": "Не бачу достатньо доказів якості"
+        },
+        {
+          "value": "print_not_unique_enough",
+          "label_uk": "Прінт/ідея не виглядає настільки унікально"
+        },
+        {
+          "value": "delivery_total",
+          "label_uk": "Разом із доставкою виходить дорого"
+        },
+        {
+          "value": "discount_only",
+          "label_uk": "Купую тільки зі знижкою"
+        },
+        {
+          "value": "income_timing",
+          "label_uk": "Зараз не той момент по бюджету"
+        },
+        {
+          "value": "price_ok",
+          "label_uk": "Ціна ок"
+        },
+        {
+          "value": "other",
+          "label_uk": "Інше"
+        }
+      ],
+      "show_if": {
+        "any": [
+          {
+            "answer": "q400_price_value_score",
+            "lte": 7
+          },
+          {
+            "answer": "q070_main_barrier",
+            "eq": "price"
+          }
+        ]
+      },
+      "analytics_tags": [
+        "price_objection_reason"
+      ],
+      "estimated_seconds": 10
+    },
+    {
+      "id": "q402_more_pay_for",
+      "section": "price_value_lab",
+      "order": 402,
+      "type": "multi_choice",
+      "prompt_uk": "Що має бути в речі, щоб ти спокійніше заплатив/ла більше? Обери до 3.",
+      "options": [
+        {
+          "value": "denser_fabric",
+          "label_uk": "Щільніша / приємніша тканина"
+        },
+        {
+          "value": "better_fit",
+          "label_uk": "Краща посадка"
+        },
+        {
+          "value": "durable_print",
+          "label_uk": "Довговічніший прінт"
+        },
+        {
+          "value": "limited_drop",
+          "label_uk": "Лімітований дроп"
+        },
+        {
+          "value": "custom",
+          "label_uk": "Кастомізація"
+        },
+        {
+          "value": "premium_details",
+          "label_uk": "Бірки, пакування, деталі"
+        },
+        {
+          "value": "brand_story",
+          "label_uk": "Історія бренду / ветеранський контекст / сенс"
+        },
+        {
+          "value": "proof_content",
+          "label_uk": "Фото/відео/відгуки, які доводять якість"
+        },
+        {
+          "value": "support_army",
+          "label_uk": "Зрозумілий внесок у підтримку війська/ініціатив"
+        },
+        {
+          "value": "nothing_price_main",
+          "label_uk": "Нічого, для мене ціна головне"
+        }
+      ],
+      "max_select": 3,
+      "analytics_tags": [
+        "value_drivers"
+      ],
+      "estimated_seconds": 12
+    },
+    {
+      "id": "q403_price_ladder",
+      "section": "price_value_lab",
+      "order": 403,
+      "type": "price_ladder_by_product",
+      "prompt_uk": "Оціни ціну для обраної речі: де межа «вигідно», «дорого» і «занадто дорого»?",
+      "product_source": "runtime_price_context: B2B/TeamUnit override first, else answers.q035_primary_product_focus || auto_answer_from_q030_product_interest",
+      "ladder_points": [
+        "too_cheap_quality_doubt",
+        "good_deal",
+        "expensive_but_possible",
+        "too_expensive_no_buy"
+      ],
+      "input_mode": "ranges_not_free_numbers",
+      "analytics_tags": [
+        "price_ladder_dynamic",
+        "project_budget_ladder_v3_3",
+        "large_quantity_budget_context",
+        "b2b_price_ladder_guard",
+        "price_ladder",
+        "product_specific_price_ranges",
+        "v3_2_runtime_price_context",
+        "v3_4_pointer_fix",
+        "q403_compile_safe_context_map"
+      ],
+      "estimated_seconds": 25,
+      "dynamic_matrix_ranges": {
+        "tshirt": [
+          {
+            "value": "under_600",
+            "label_uk": "до 600 грн"
+          },
+          {
+            "value": "600_800",
+            "label_uk": "600–800 грн"
+          },
+          {
+            "value": "800_1000",
+            "label_uk": "800–1000 грн"
+          },
+          {
+            "value": "1000_1300",
+            "label_uk": "1000–1300 грн"
+          },
+          {
+            "value": "1300_plus",
+            "label_uk": "1300+ грн"
+          }
+        ],
+        "longsleeve": [
+          {
+            "value": "under_700",
+            "label_uk": "до 700 грн"
+          },
+          {
+            "value": "700_900",
+            "label_uk": "700–900 грн"
+          },
+          {
+            "value": "900_1200",
+            "label_uk": "900–1200 грн"
+          },
+          {
+            "value": "1200_1500",
+            "label_uk": "1200–1500 грн"
+          },
+          {
+            "value": "1500_plus",
+            "label_uk": "1500+ грн"
+          }
+        ],
+        "sweatshirt": [
+          {
+            "value": "under_1200",
+            "label_uk": "до 1200 грн"
+          },
+          {
+            "value": "1200_1600",
+            "label_uk": "1200–1600 грн"
+          },
+          {
+            "value": "1600_2000",
+            "label_uk": "1600–2000 грн"
+          },
+          {
+            "value": "2000_2400",
+            "label_uk": "2000–2400 грн"
+          },
+          {
+            "value": "2400_plus",
+            "label_uk": "2400+ грн"
+          }
+        ],
+        "hoodie": [
+          {
+            "value": "under_1600",
+            "label_uk": "до 1600 грн"
+          },
+          {
+            "value": "1600_2000",
+            "label_uk": "1600–2000 грн"
+          },
+          {
+            "value": "2000_2400",
+            "label_uk": "2000–2400 грн"
+          },
+          {
+            "value": "2400_3000",
+            "label_uk": "2400–3000 грн"
+          },
+          {
+            "value": "3000_plus",
+            "label_uk": "3000+ грн"
+          }
+        ],
+        "zip_hoodie": [
+          {
+            "value": "under_1800",
+            "label_uk": "до 1800 грн"
+          },
+          {
+            "value": "1800_2300",
+            "label_uk": "1800–2300 грн"
+          },
+          {
+            "value": "2300_2800",
+            "label_uk": "2300–2800 грн"
+          },
+          {
+            "value": "2800_3400",
+            "label_uk": "2800–3400 грн"
+          },
+          {
+            "value": "3400_plus",
+            "label_uk": "3400+ грн"
+          }
+        ],
+        "pants": [
+          {
+            "value": "under_1200",
+            "label_uk": "до 1200 грн"
+          },
+          {
+            "value": "1200_1600",
+            "label_uk": "1200–1600 грн"
+          },
+          {
+            "value": "1600_2200",
+            "label_uk": "1600–2200 грн"
+          },
+          {
+            "value": "2200_2800",
+            "label_uk": "2200–2800 грн"
+          },
+          {
+            "value": "2800_plus",
+            "label_uk": "2800+ грн"
+          }
+        ],
+        "caps": [
+          {
+            "value": "under_450",
+            "label_uk": "до 450 грн"
+          },
+          {
+            "value": "450_650",
+            "label_uk": "450–650 грн"
+          },
+          {
+            "value": "650_850",
+            "label_uk": "650–850 грн"
+          },
+          {
+            "value": "850_1200",
+            "label_uk": "850–1200 грн"
+          },
+          {
+            "value": "1200_plus",
+            "label_uk": "1200+ грн"
+          }
+        ],
+        "women_line": [
+          {
+            "value": "under_900",
+            "label_uk": "до 900 грн"
+          },
+          {
+            "value": "900_1300",
+            "label_uk": "900–1300 грн"
+          },
+          {
+            "value": "1300_1800",
+            "label_uk": "1300–1800 грн"
+          },
+          {
+            "value": "1800_2400",
+            "label_uk": "1800–2400 грн"
+          },
+          {
+            "value": "2400_plus",
+            "label_uk": "2400+ грн"
+          }
+        ],
+        "sets": [
+          {
+            "value": "under_2500",
+            "label_uk": "до 2500 грн"
+          },
+          {
+            "value": "2500_3500",
+            "label_uk": "2500–3500 грн"
+          },
+          {
+            "value": "3500_4500",
+            "label_uk": "3500–4500 грн"
+          },
+          {
+            "value": "4500_6000",
+            "label_uk": "4500–6000 грн"
+          },
+          {
+            "value": "6000_plus",
+            "label_uk": "6000+ грн"
+          }
+        ],
+        "bags": [
+          {
+            "value": "under_600",
+            "label_uk": "до 600 грн"
+          },
+          {
+            "value": "600_900",
+            "label_uk": "600–900 грн"
+          },
+          {
+            "value": "900_1300",
+            "label_uk": "900–1300 грн"
+          },
+          {
+            "value": "1300_1800",
+            "label_uk": "1300–1800 грн"
+          },
+          {
+            "value": "1800_plus",
+            "label_uk": "1800+ грн"
+          }
+        ],
+        "patches_pvc": [
+          {
+            "value": "under_150",
+            "label_uk": "до 150 грн"
+          },
+          {
+            "value": "150_300",
+            "label_uk": "150–300 грн"
+          },
+          {
+            "value": "300_500",
+            "label_uk": "300–500 грн"
+          },
+          {
+            "value": "500_800",
+            "label_uk": "500–800 грн"
+          },
+          {
+            "value": "800_plus",
+            "label_uk": "800+ грн"
+          }
+        ],
+        "custom_item": [
+          {
+            "value": "under_1000",
+            "label_uk": "до 1000 грн"
+          },
+          {
+            "value": "1000_1600",
+            "label_uk": "1000–1600 грн"
+          },
+          {
+            "value": "1600_2400",
+            "label_uk": "1600–2400 грн"
+          },
+          {
+            "value": "2400_3500",
+            "label_uk": "2400–3500 грн"
+          },
+          {
+            "value": "3500_plus",
+            "label_uk": "3500+ грн"
+          }
+        ],
+        "fallback": [
+          {
+            "value": "low",
+            "label_uk": "нижче середньої ціни ринку"
+          },
+          {
+            "value": "medium",
+            "label_uk": "середня ціна ринку"
+          },
+          {
+            "value": "high",
+            "label_uk": "дорожче середнього"
+          },
+          {
+            "value": "premium",
+            "label_uk": "преміум-рівень"
+          }
+        ],
+        "b2b_wholesale_fallback": [
+          {
+            "value": "bulk_low",
+            "label_uk": "Опт: до 800 грн/од (базовий тираж)"
+          },
+          {
+            "value": "bulk_medium",
+            "label_uk": "Опт: 800–1200 грн/од (середній плюс)"
+          },
+          {
+            "value": "bulk_high",
+            "label_uk": "Опт: 1200–1600 грн/од (преміум деталізація)"
+          },
+          {
+            "value": "bulk_too_expensive",
+            "label_uk": "Опт: понад 1600 грн/од (задорого для нашого бюджету)"
+          }
+        ],
+        "team_unit_bulk_fallback": [
+          {
+            "value": "team_low",
+            "label_uk": "Команда/підрозділ: до 900 грн/од"
+          },
+          {
+            "value": "team_medium",
+            "label_uk": "Команда/підрозділ: 900–1400 грн/од"
+          },
+          {
+            "value": "team_high",
+            "label_uk": "Команда/підрозділ: 1400–2000 грн/од"
+          },
+          {
+            "value": "team_premium",
+            "label_uk": "Команда/підрозділ: 2000+ грн/од, якщо складний кастом"
+          }
+        ],
+        "team_unit_project_budget_fallback": [
+          {
+            "value": "budget_under_20k",
+            "label_uk": "Бюджет проєкту: до 20 000 грн"
+          },
+          {
+            "value": "budget_20k_50k",
+            "label_uk": "Бюджет проєкту: 20 000–50 000 грн"
+          },
+          {
+            "value": "budget_50k_100k",
+            "label_uk": "Бюджет проєкту: 50 000–100 000 грн"
+          },
+          {
+            "value": "budget_100k_200k",
+            "label_uk": "Бюджет проєкту: 100 000–200 000 грн"
+          },
+          {
+            "value": "budget_200k_plus",
+            "label_uk": "Бюджет проєкту: понад 200 000 грн"
+          }
+        ]
+      },
+      "range_note_ru": "Диапазоны являются исследовательскими якорями, не публичным прайсом. Их нужно сверить с реальными ценами перед запуском.",
+      "show_if": {
+        "any": [
+          {
+            "answer": "q035_primary_product_focus",
+            "not_in": [
+              "not_sure",
+              null
+            ]
+          },
+          {
+            "answer": "q010_entry_goal",
+            "in": [
+              "partner",
+              "custom_team_unit"
+            ]
+          },
+          {
+            "answer": "q020_purchase_stage",
+            "in": [
+              "partner_discussion",
+              "custom_request"
+            ]
+          }
+        ]
+      },
+      "mobile_rendering": "accordion_rows_or_stepper; do not render as a wide table",
+      "routing_modifiers": [
+        {
+          "priority": 1,
+          "if": "(answers.q010_entry_goal == 'custom_team_unit' OR answers.q020_purchase_stage == 'custom_request') AND answers.q305_custom_quantity in ['21_50','50_plus']",
+          "use_range_key": "team_unit_project_budget_fallback",
+          "use_prompt_variant": "team_unit_project_budget",
+          "use_ladder_points": "team_unit_project_budget",
+          "set_price_context_key": "team_unit_project_budget",
+          "label_ru": "large team/unit project budget intent",
+          "reason_ru": "При 21+ штуках пользователь думает общим бюджетом проекта, а не только ценой одной вещи. Так снижается когнитивное трение."
+        },
+        {
+          "if": "answers.q010_entry_goal == 'partner' OR answers.q020_purchase_stage == 'partner_discussion'",
+          "use_range_key": "b2b_wholesale_fallback",
+          "label_ru": "B2B/wholesale intent",
+          "use_prompt_variant": "b2b_wholesale_per_unit",
+          "use_ladder_points": "b2b_wholesale_per_unit",
+          "set_price_context_key": "b2b_wholesale_per_unit",
+          "priority": 2,
+          "reason_ru": "Pure B2B/partner: measuring acceptable wholesale unit economics, not retail product price."
+        },
+        {
+          "if": "answers.q010_entry_goal == 'custom_team_unit' OR answers.q020_purchase_stage == 'custom_request'",
+          "use_range_key": "team_unit_bulk_fallback",
+          "label_ru": "team/unit/custom bulk intent",
+          "use_prompt_variant": "team_unit_per_unit",
+          "use_ladder_points": "team_unit_per_unit",
+          "set_price_context_key": "team_unit_per_unit",
+          "priority": 3,
+          "reason_ru": "Team/unit/custom order under 21 pcs: use per-unit team price with matching ladder point context."
+        },
+        {
+          "else": "use answers.q035_primary_product_focus; if not available use fallback"
+        }
+      ],
+      "b2b_warning_ru": "Не использовать розничные диапазоны для partner/custom_team_unit. Для них вопрос должен измерять приемлемую цену за единицу в тираже или диапазон бюджета проекта.",
+      "prompt_variants": {
+        "retail_product": "Оціни ціну для обраної речі: де межа «вигідно», «дорого» і «занадто дорого»?",
+        "b2b_wholesale_per_unit": "Для опту важлива ціна за одиницю в тираже. Який діапазон виглядає прийнятним для співпраці?",
+        "team_unit_per_unit": "Для команди/підрозділу: яка ціна за одиницю в тираже виглядає прийнятною?",
+        "team_unit_project_budget": "Якщо говорити про весь кастом-проєкт/тираж, який загальний бюджет виглядає реалістичним?",
+        "fallback": "Оціни приблизний ціновий рівень, який здається нормальним для такої речі."
+      },
+      "ladder_points_by_context": {
+        "retail_product": [
+          "too_cheap_quality_doubt",
+          "good_deal",
+          "expensive_but_possible",
+          "too_expensive_no_buy"
+        ],
+        "b2b_wholesale_per_unit": [
+          "too_low_quality_or_margin_doubt",
+          "good_unit_cost",
+          "stretch_unit_cost",
+          "unit_cost_too_high"
+        ],
+        "team_unit_project_budget": [
+          "budget_too_low_for_quality",
+          "comfortable_project_budget",
+          "stretch_project_budget",
+          "project_budget_too_high"
+        ],
+        "team_unit_per_unit": [
+          "too_low_for_production_costs",
+          "comfortable_team_unit_price",
+          "stretch_team_unit_price",
+          "team_unit_price_too_high"
+        ]
+      },
+      "budget_logic_ru": "V3.4: для больших кастомных тиражей 21+ переключаемся на общий бюджет проекта; для team/custom до 20 шт — цена за единицу с team_unit_per_unit ladder; для pure B2B/partner — wholesale unit economics.",
+      "range_context_map": {
+        "tshirt": "retail_product",
+        "longsleeve": "retail_product",
+        "sweatshirt": "retail_product",
+        "hoodie": "retail_product",
+        "zip_hoodie": "retail_product",
+        "pants": "retail_product",
+        "caps": "retail_product",
+        "women_line": "retail_product",
+        "sets": "retail_product",
+        "bags": "retail_product",
+        "patches_pvc": "retail_product",
+        "custom_item": "retail_product",
+        "fallback": "retail_product",
+        "b2b_wholesale_fallback": "b2b_wholesale_per_unit",
+        "team_unit_bulk_fallback": "team_unit_per_unit",
+        "team_unit_project_budget_fallback": "team_unit_project_budget"
+      },
+      "compile_time_validation_rules": [
+        {
+          "id": "every_use_range_key_exists",
+          "rule": "Every routing_modifiers.use_range_key must exist in dynamic_matrix_ranges."
+        },
+        {
+          "id": "every_use_ladder_points_exists",
+          "rule": "Every routing_modifiers.use_ladder_points must exist in ladder_points_by_context."
+        },
+        {
+          "id": "every_range_key_has_context",
+          "rule": "Every dynamic_matrix_ranges key must have a range_context_map value."
+        },
+        {
+          "id": "every_context_has_ladder_points",
+          "rule": "Every range_context_map value must exist in ladder_points_by_context."
+        }
+      ]
+    },
+    {
+      "id": "q404_discount_dependency",
+      "section": "price_value_lab",
+      "order": 404,
+      "type": "single_choice",
+      "prompt_uk": "Наскільки для тебе важлива знижка, щоб зробити покупку?",
+      "options": [
+        {
+          "value": "not_needed",
+          "label_uk": "Не критично, куплю якщо річ моя"
+        },
+        {
+          "value": "nice_bonus",
+          "label_uk": "Приємний бонус, але не головне"
+        },
+        {
+          "value": "helps_decide",
+          "label_uk": "Знижка може допомогти вирішити"
+        },
+        {
+          "value": "almost_required",
+          "label_uk": "Без знижки майже не купую"
+        },
+        {
+          "value": "only_sale",
+          "label_uk": "Купую тільки на акціях"
+        }
+      ],
+      "analytics_tags": [
+        "discount_dependency"
+      ],
+      "estimated_seconds": 8
+    },
+    {
+      "id": "q500_quality_basis",
+      "section": "quality_trust_lab",
+      "order": 500,
+      "type": "single_choice",
+      "prompt_uk": "На чому базується твоє враження про якість TWOCOMMS?",
+      "options": [
+        {
+          "value": "wore",
+          "label_uk": "Вже купував/ла і носив/ла"
+        },
+        {
+          "value": "saw_live",
+          "label_uk": "Бачив/ла наживо"
+        },
+        {
+          "value": "reviews",
+          "label_uk": "Бачив/ла відгуки/фото"
+        },
+        {
+          "value": "site_only",
+          "label_uk": "Тільки сайт/фото/опис"
+        },
+        {
+          "value": "cant_evaluate",
+          "label_uk": "Поки не можу оцінити"
+        }
+      ],
+      "analytics_tags": [
+        "quality_basis"
+      ],
+      "estimated_seconds": 8
+    },
+    {
+      "id": "q501_quality_buyer",
+      "section": "quality_trust_lab",
+      "order": 501,
+      "type": "slider_1_10",
+      "prompt_uk": "Як ти оцінюєш якість речі після носіння/прання?",
+      "scale": {
+        "min": 1,
+        "max": 10,
+        "left_label_uk": "Є проблеми",
+        "right_label_uk": "Дуже задоволений/а"
+      },
+      "show_if": {
+        "answer": "q500_quality_basis",
+        "eq": "wore"
+      },
+      "analytics_tags": [
+        "actual_quality_score"
+      ],
+      "estimated_seconds": 7
+    },
+    {
+      "id": "q502_quality_issue",
+      "section": "quality_trust_lab",
+      "order": 502,
+      "type": "multi_choice",
+      "prompt_uk": "Якщо з якістю були нюанси — що саме? Обери до 3.",
+      "options": [
+        {
+          "value": "fabric_density",
+          "label_uk": "Тканина / щільність"
+        },
+        {
+          "value": "fit",
+          "label_uk": "Посадка"
+        },
+        {
+          "value": "seams",
+          "label_uk": "Шви / пошив"
+        },
+        {
+          "value": "print_cracks",
+          "label_uk": "Прінт тріскається"
+        },
+        {
+          "value": "print_peels",
+          "label_uk": "Прінт відшаровується"
+        },
+        {
+          "value": "print_fades",
+          "label_uk": "Прінт тьмяніє"
+        },
+        {
+          "value": "touch",
+          "label_uk": "Прінт неприємний на дотик"
+        },
+        {
+          "value": "size_after_wash",
+          "label_uk": "Посадка/розмір після прання"
+        },
+        {
+          "value": "no_issue",
+          "label_uk": "Нюансів не було"
+        },
+        {
+          "value": "other",
+          "label_uk": "Інше"
+        }
+      ],
+      "max_select": 3,
+      "show_if": {
+        "any": [
+          {
+            "answer": "q501_quality_buyer",
+            "lte": 8
+          },
+          {
+            "answer": "q500_quality_basis",
+            "eq": "wore"
+          }
+        ]
+      },
+      "analytics_tags": [
+        "quality_issues"
+      ],
+      "estimated_seconds": 12
+    },
+    {
+      "id": "q503_trust_needed",
+      "section": "quality_trust_lab",
+      "order": 503,
+      "type": "multi_choice",
+      "prompt_uk": "Що найкраще додало б довіри до якості перед покупкою? Обери до 3.",
+      "options": [
+        {
+          "value": "close_video",
+          "label_uk": "Відео тканини й прінта зблизька"
+        },
+        {
+          "value": "fit_on_people",
+          "label_uk": "Фото/відео на людях різної комплекції"
+        },
+        {
+          "value": "wash_test",
+          "label_uk": "Тест прінта після прання"
+        },
+        {
+          "value": "stretch_test",
+          "label_uk": "Тест прінта на розтягування"
+        },
+        {
+          "value": "real_reviews",
+          "label_uk": "Реальні відгуки покупців"
+        },
+        {
+          "value": "gsm_composition",
+          "label_uk": "Чіткий склад, щільність, догляд"
+        },
+        {
+          "value": "size_guide",
+          "label_uk": "Краща розмірна сітка"
+        },
+        {
+          "value": "return_exchange",
+          "label_uk": "Зрозумілий обмін/повернення"
+        },
+        {
+          "value": "production_process",
+          "label_uk": "Показ виробництва / контролю якості"
+        }
+      ],
+      "max_select": 3,
+      "analytics_tags": [
+        "trust_evidence_needed"
+      ],
+      "estimated_seconds": 12
+    },
+    {
+      "id": "q504_size_confidence",
+      "section": "quality_trust_lab",
+      "order": 504,
+      "type": "single_choice",
+      "prompt_uk": "Наскільки тобі зрозуміло, який розмір обрати?",
+      "options": [
+        {
+          "value": "clear",
+          "label_uk": "Зрозуміло"
+        },
+        {
+          "value": "mostly_clear",
+          "label_uk": "Майже зрозуміло, але є сумніви"
+        },
+        {
+          "value": "unclear",
+          "label_uk": "Не зрозуміло"
+        },
+        {
+          "value": "need_manager",
+          "label_uk": "Хочу підбір розміру через менеджера"
+        },
+        {
+          "value": "not_relevant",
+          "label_uk": "Не актуально"
+        }
+      ],
+      "analytics_tags": [
+        "size_confidence"
+      ],
+      "estimated_seconds": 8
+    },
+    {
+      "id": "q600_assortment_purchase_matrix",
+      "section": "assortment_lab",
+      "order": 600,
+      "type": "purchase_intent_matrix",
+      "prompt_uk": "Що з нового асортименту має найбільший шанс на покупку?",
+      "rows": [
+        {
+          "value": "caps",
+          "label_uk": "Кепки / шапки"
+        },
+        {
+          "value": "pants",
+          "label_uk": "Штани / джогери"
+        },
+        {
+          "value": "women_line",
+          "label_uk": "Жіноча лінія"
+        },
+        {
+          "value": "sets",
+          "label_uk": "Комплекти верх+низ"
+        },
+        {
+          "value": "bags",
+          "label_uk": "Сумки / хіп-паки"
+        },
+        {
+          "value": "patches_pvc",
+          "label_uk": "Патчі / PVC-бірки"
+        },
+        {
+          "value": "outerwear",
+          "label_uk": "Верхній одяг"
+        },
+        {
+          "value": "minimal_capsule",
+          "label_uk": "Більш мінімалістична капсула"
+        },
+        {
+          "value": "military_core_capsule",
+          "label_uk": "Більш military-капсула"
+        }
+      ],
+      "columns": [
+        "купив/ла б",
+        "цікаво подивитись",
+        "не потрібно"
+      ],
+      "analytics_tags": [
+        "assortment_purchase_intent"
+      ],
+      "estimated_seconds": 30
+    },
+    {
+      "id": "q601_next_drop_priority",
+      "section": "assortment_lab",
+      "order": 601,
+      "type": "single_choice",
+      "prompt_uk": "Якби наступний дроп був тільки в одному напрямі, що обрати?",
+      "options": [
+        {
+          "value": "caps",
+          "label_uk": "Кепки / шапки"
+        },
+        {
+          "value": "pants",
+          "label_uk": "Штани / джогери"
+        },
+        {
+          "value": "women_line",
+          "label_uk": "Жіноча лінія"
+        },
+        {
+          "value": "sets",
+          "label_uk": "Комплекти"
+        },
+        {
+          "value": "bags",
+          "label_uk": "Сумки / хіп-паки"
+        },
+        {
+          "value": "patches_pvc",
+          "label_uk": "Патчі / PVC-бірки"
+        },
+        {
+          "value": "outerwear",
+          "label_uk": "Верхній одяг"
+        },
+        {
+          "value": "new_prints_existing_models",
+          "label_uk": "Краще більше прінтів на існуючих моделях"
+        }
+      ],
+      "analytics_tags": [
+        "next_drop_priority"
+      ],
+      "estimated_seconds": 8
+    },
+    {
+      "id": "q602_women_line_need",
+      "section": "assortment_lab",
+      "order": 602,
+      "type": "multi_choice",
+      "prompt_uk": "Якщо жіноча лінія цікава — що саме важливо? Обери до 3.",
+      "options": [
+        {
+          "value": "female_fit",
+          "label_uk": "Жіноча посадка, а не просто менший унісекс"
+        },
+        {
+          "value": "oversize_fit",
+          "label_uk": "Оверсайз, але з нормальною посадкою"
+        },
+        {
+          "value": "small_sizes",
+          "label_uk": "Менші розміри"
+        },
+        {
+          "value": "less_aggressive_prints",
+          "label_uk": "Менш агресивні прінти"
+        },
+        {
+          "value": "same_military_prints",
+          "label_uk": "Ті самі military-прінти"
+        },
+        {
+          "value": "more_minimal",
+          "label_uk": "Більше мінімалізму"
+        },
+        {
+          "value": "colors",
+          "label_uk": "Інші кольори"
+        },
+        {
+          "value": "sets",
+          "label_uk": "Комплекти"
+        },
+        {
+          "value": "not_sure",
+          "label_uk": "Поки не знаю"
+        }
+      ],
+      "max_select": 3,
+      "show_if": {
+        "any": [
+          {
+            "answer": "q030_product_interest",
+            "includes": "women_line"
+          },
+          {
+            "answer": "q600_assortment_purchase_matrix",
+            "row": "women_line",
+            "column": "купив/ла б"
+          },
+          {
+            "answer": "q080_priority_tradeoff",
+            "eq": "women_line"
+          }
+        ]
+      },
+      "analytics_tags": [
+        "women_line_requirements"
+      ],
+      "estimated_seconds": 12
+    },
+    {
+      "id": "q603_assortment_budget_allocation",
+      "section": "assortment_lab",
+      "order": 603,
+      "type": "budget_allocation_100",
+      "prompt_uk": "Уяви, що в нас є 100 балів ресурсу на наступний запуск. Куди їх варто вкласти?",
+      "buckets": [
+        {
+          "value": "new_prints",
+          "label_uk": "Нові прінти"
+        },
+        {
+          "value": "better_base",
+          "label_uk": "Краща база/посадка"
+        },
+        {
+          "value": "custom",
+          "label_uk": "Кастом"
+        },
+        {
+          "value": "new_categories",
+          "label_uk": "Нові категорії"
+        },
+        {
+          "value": "women_line",
+          "label_uk": "Жіноча лінія"
+        },
+        {
+          "value": "content_proof",
+          "label_uk": "Фото/відео/тести якості"
+        }
+      ],
+      "show_if": {
+        "any": [
+          {
+            "answer": "q020_purchase_stage",
+            "in": [
+              "bought_once",
+              "bought_repeat",
+              "considering"
+            ]
+          },
+          {
+            "answer": "q050_overall",
+            "gte": 8
+          }
+        ]
+      },
+      "analytics_tags": [
+        "resource_allocation_signal"
+      ],
+      "estimated_seconds": 30
+    },
+    {
+      "id": "q604_missing_product_text",
+      "section": "assortment_lab",
+      "order": 604,
+      "type": "text_short",
+      "prompt_uk": "Якщо є конкретна річ, якої не вистачає, напиши коротко.",
+      "max_chars": 180,
+      "required": false,
+      "placeholder_uk": "Напр.: карго-штани, жіночий оверсайз, кепка з маленьким знаком…",
+      "show_if": {
+        "module_text_slots_available": true,
+        "any": [
+          {
+            "answer": "q601_next_drop_priority",
+            "exists": true
+          },
+          {
+            "answer": "q080_priority_tradeoff",
+            "in": [
+              "women_line",
+              "pants",
+              "caps"
+            ]
+          }
+        ]
+      },
+      "analytics_tags": [
+        "missing_product_text"
+      ],
+      "estimated_seconds": 20
+    },
+    {
+      "id": "q700_site_ease",
+      "section": "ux_checkout_lab",
+      "order": 700,
+      "type": "slider_1_10",
+      "prompt_uk": "Наскільки зручно користуватися сайтом TWOCOMMS?",
+      "scale": {
+        "min": 1,
+        "max": 10,
+        "left_label_uk": "Незручно",
+        "right_label_uk": "Дуже зручно"
+      },
+      "analytics_tags": [
+        "site_ease"
+      ],
+      "estimated_seconds": 7
+    },
+    {
+      "id": "q701_site_pain",
+      "section": "ux_checkout_lab",
+      "order": 701,
+      "type": "multi_choice",
+      "prompt_uk": "Що на сайті заважало або могло б бути зручнішим? Обери до 3.",
+      "options": [
+        {
+          "value": "navigation",
+          "label_uk": "Навігація / категорії"
+        },
+        {
+          "value": "filters_search",
+          "label_uk": "Фільтри / пошук"
+        },
+        {
+          "value": "product_photos",
+          "label_uk": "Фото/відео товару"
+        },
+        {
+          "value": "product_description",
+          "label_uk": "Опис товару"
+        },
+        {
+          "value": "size_chart",
+          "label_uk": "Розмірна сітка"
+        },
+        {
+          "value": "custom_builder",
+          "label_uk": "Конструктор кастому"
+        },
+        {
+          "value": "cart",
+          "label_uk": "Кошик"
+        },
+        {
+          "value": "speed",
+          "label_uk": "Швидкість сайту"
+        },
+        {
+          "value": "language",
+          "label_uk": "Мова / тексти"
+        },
+        {
+          "value": "nothing",
+          "label_uk": "Нічого не заважало"
+        },
+        {
+          "value": "other",
+          "label_uk": "Інше"
+        }
+      ],
+      "max_select": 3,
+      "show_if": {
+        "any": [
+          {
+            "answer": "q700_site_ease",
+            "lte": 8
+          },
+          {
+            "answer": "q070_main_barrier",
+            "eq": "checkout"
+          }
+        ]
+      },
+      "analytics_tags": [
+        "site_pain"
+      ],
+      "estimated_seconds": 12
+    },
+    {
+      "id": "q702_checkout_blocker",
+      "section": "ux_checkout_lab",
+      "order": 702,
+      "type": "multi_choice",
+      "prompt_uk": "Якщо справа доходила до оформлення — що могло зупинити? Обери до 3.",
+      "options": [
+        {
+          "value": "delivery_cost",
+          "label_uk": "Ціна/умови доставки"
+        },
+        {
+          "value": "payment_methods",
+          "label_uk": "Способи оплати"
+        },
+        {
+          "value": "registration_required",
+          "label_uk": "Реєстрація або вхід заважають"
+        },
+        {
+          "value": "promo_code",
+          "label_uk": "Не зрозуміло, де застосувати промокод"
+        },
+        {
+          "value": "cart_confusing",
+          "label_uk": "Кошик/оформлення незрозумілі"
+        },
+        {
+          "value": "contact_required",
+          "label_uk": "Не хочу залишати контакт одразу"
+        },
+        {
+          "value": "trust_checkout",
+          "label_uk": "Не вистачає довіри на етапі оплати"
+        },
+        {
+          "value": "nothing",
+          "label_uk": "Нічого не зупиняло"
+        },
+        {
+          "value": "not_reached",
+          "label_uk": "Не доходив/ла до оформлення"
+        }
+      ],
+      "max_select": 3,
+      "analytics_tags": [
+        "checkout_blocker"
+      ],
+      "estimated_seconds": 12
+    },
+    {
+      "id": "q703_checkout_helper",
+      "section": "ux_checkout_lab",
+      "order": 703,
+      "type": "single_choice",
+      "prompt_uk": "Що найшвидше зробило б покупку простішою?",
+      "options": [
+        {
+          "value": "guest_checkout",
+          "label_uk": "Гостьове оформлення без обов’язкової реєстрації"
+        },
+        {
+          "value": "more_payment",
+          "label_uk": "Більше способів оплати"
+        },
+        {
+          "value": "delivery_clarity",
+          "label_uk": "Простіші умови доставки/обміну"
+        },
+        {
+          "value": "size_helper",
+          "label_uk": "Підказка з розміром"
+        },
+        {
+          "value": "one_click",
+          "label_uk": "Швидке замовлення в 1 клік"
+        },
+        {
+          "value": "telegram_checkout",
+          "label_uk": "Оформити/уточнити через Telegram"
+        },
+        {
+          "value": "nothing",
+          "label_uk": "Все ок"
+        }
+      ],
+      "analytics_tags": [
+        "checkout_improvement"
+      ],
+      "estimated_seconds": 8
+    },
+    {
+      "id": "q800_customer_satisfaction",
+      "section": "service_loyalty_lab",
+      "order": 800,
+      "type": "slider_1_10",
+      "prompt_uk": "Якщо ти вже купував/ла: наскільки ти задоволений/а покупкою загалом?",
+      "scale": {
+        "min": 1,
+        "max": 10,
+        "left_label_uk": "Не задоволений/а",
+        "right_label_uk": "Дуже задоволений/а"
+      },
+      "show_if": {
+        "answer": "q020_purchase_stage",
+        "in": [
+          "bought_once",
+          "bought_repeat"
+        ]
+      },
+      "analytics_tags": [
+        "customer_satisfaction"
+      ],
+      "estimated_seconds": 7
+    },
+    {
+      "id": "q801_repeat_reason",
+      "section": "service_loyalty_lab",
+      "order": 801,
+      "type": "multi_choice",
+      "prompt_uk": "Що може змусити тебе купити знову? Обери до 3.",
+      "options": [
+        {
+          "value": "new_prints",
+          "label_uk": "Нові сильні прінти"
+        },
+        {
+          "value": "stable_quality",
+          "label_uk": "Стабільна якість"
+        },
+        {
+          "value": "bonus_discount",
+          "label_uk": "Персональна знижка / бонус"
+        },
+        {
+          "value": "new_categories",
+          "label_uk": "Нові категорії: штани, кепки, жіноче"
+        },
+        {
+          "value": "custom",
+          "label_uk": "Кастом / персоналізація"
+        },
+        {
+          "value": "limited_drop",
+          "label_uk": "Лімітований дроп"
+        },
+        {
+          "value": "better_fit",
+          "label_uk": "Краща посадка"
+        },
+        {
+          "value": "faster_delivery",
+          "label_uk": "Швидша доставка"
+        },
+        {
+          "value": "community",
+          "label_uk": "Ком’юніті / закриті анонси"
+        }
+      ],
+      "max_select": 3,
+      "show_if": {
+        "answer": "q020_purchase_stage",
+        "in": [
+          "bought_once",
+          "bought_repeat"
+        ]
+      },
+      "analytics_tags": [
+        "repeat_purchase_driver"
+      ],
+      "estimated_seconds": 12
+    },
+    {
+      "id": "q802_recommend",
+      "section": "service_loyalty_lab",
+      "order": 802,
+      "type": "slider_0_10",
+      "prompt_uk": "Наскільки ймовірно, що ти порадиш TWOCOMMS друзям?",
+      "scale": {
+        "min": 0,
+        "max": 10,
+        "left_label_uk": "Не пораджу",
+        "right_label_uk": "Точно пораджу"
+      },
+      "show_if": {
+        "answer": "q020_purchase_stage",
+        "in": [
+          "bought_once",
+          "bought_repeat"
+        ]
+      },
+      "analytics_tags": [
+        "nps"
+      ],
+      "estimated_seconds": 8
+    },
+    {
+      "id": "q803_nps_reason",
+      "section": "service_loyalty_lab",
+      "order": 803,
+      "type": "single_choice",
+      "prompt_uk": "Що найбільше впливає на твою готовність радити TWOCOMMS?",
+      "options": [
+        {
+          "value": "prints",
+          "label_uk": "Прінти / стиль"
+        },
+        {
+          "value": "quality",
+          "label_uk": "Якість"
+        },
+        {
+          "value": "price",
+          "label_uk": "Ціна"
+        },
+        {
+          "value": "brand_story",
+          "label_uk": "Історія бренду / сенс"
+        },
+        {
+          "value": "service",
+          "label_uk": "Сервіс"
+        },
+        {
+          "value": "delivery",
+          "label_uk": "Доставка"
+        },
+        {
+          "value": "custom",
+          "label_uk": "Кастом"
+        },
+        {
+          "value": "not_ready",
+          "label_uk": "Поки не готовий/а радити"
+        }
+      ],
+      "show_if": {
+        "answer": "q020_purchase_stage",
+        "in": [
+          "bought_once",
+          "bought_repeat"
+        ]
+      },
+      "analytics_tags": [
+        "nps_reason"
+      ],
+      "estimated_seconds": 8
+    },
+    {
+      "id": "q850_partner_type",
+      "section": "partner_lab",
+      "order": 850,
+      "type": "single_choice",
+      "prompt_uk": "Який формат співпраці тобі цікавий?",
+      "options": [
+        {
+          "value": "wholesale",
+          "label_uk": "Опт"
+        },
+        {
+          "value": "dropshipping",
+          "label_uk": "Дропшипінг"
+        },
+        {
+          "value": "corporate_merch",
+          "label_uk": "Корпоративний мерч"
+        },
+        {
+          "value": "unit_team_order",
+          "label_uk": "Замовлення для підрозділу/команди"
+        },
+        {
+          "value": "collab",
+          "label_uk": "Колаба / спільний дроп"
+        },
+        {
+          "value": "retail_partner",
+          "label_uk": "Продаж у магазині/просторі"
+        },
+        {
+          "value": "not_sure",
+          "label_uk": "Поки не знаю"
+        }
+      ],
+      "analytics_tags": [
+        "partner_type"
+      ],
+      "estimated_seconds": 8
+    },
+    {
+      "id": "q851_partner_volume",
+      "section": "partner_lab",
+      "order": 851,
+      "type": "single_choice",
+      "prompt_uk": "Який обсяг потенційно цікавий?",
+      "options": [
+        {
+          "value": "1_5",
+          "label_uk": "1–5 штук"
+        },
+        {
+          "value": "6_20",
+          "label_uk": "6–20 штук"
+        },
+        {
+          "value": "21_50",
+          "label_uk": "21–50 штук"
+        },
+        {
+          "value": "51_100",
+          "label_uk": "51–100 штук"
+        },
+        {
+          "value": "100_plus",
+          "label_uk": "100+ штук"
+        },
+        {
+          "value": "not_sure",
+          "label_uk": "Поки не знаю"
+        }
+      ],
+      "analytics_tags": [
+        "partner_volume"
+      ],
+      "estimated_seconds": 8
+    },
+    {
+      "id": "q852_partner_need",
+      "section": "partner_lab",
+      "order": 852,
+      "type": "multi_choice",
+      "prompt_uk": "Що потрібно, щоб перейти до обговорення співпраці? Обери до 3.",
+      "options": [
+        {
+          "value": "price_list",
+          "label_uk": "Прайс / оптові умови"
+        },
+        {
+          "value": "examples",
+          "label_uk": "Приклади робіт"
+        },
+        {
+          "value": "production_terms",
+          "label_uk": "Терміни виробництва"
+        },
+        {
+          "value": "materials_print",
+          "label_uk": "Інформація про матеріали й друк"
+        },
+        {
+          "value": "design_help",
+          "label_uk": "Допомога з дизайном"
+        },
+        {
+          "value": "packaging",
+          "label_uk": "Пакування/брендування"
+        },
+        {
+          "value": "contract_docs",
+          "label_uk": "Документи/договір"
+        },
+        {
+          "value": "manager_call",
+          "label_uk": "Швидка розмова з менеджером"
+        }
+      ],
+      "max_select": 3,
+      "analytics_tags": [
+        "partner_conversion_needs"
+      ],
+      "estimated_seconds": 12
+    },
+    {
+      "id": "q853_partner_contact_intent",
+      "section": "partner_lab",
+      "order": 853,
+      "type": "single_choice",
+      "prompt_uk": "Хочеш залишити контакт, щоб отримати умови співпраці?",
+      "options": [
+        {
+          "value": "yes_now",
+          "label_uk": "Так, зараз"
+        },
+        {
+          "value": "maybe_after_survey",
+          "label_uk": "Можливо після опитування"
+        },
+        {
+          "value": "no",
+          "label_uk": "Ні"
+        }
+      ],
+      "analytics_tags": [
+        "partner_lead_intent"
+      ],
+      "estimated_seconds": 6
+    },
+    {
+      "id": "q880_found_us",
+      "section": "marketing_content_lab",
+      "order": 880,
+      "type": "single_choice",
+      "prompt_uk": "Звідки ти дізнався/лася про TWOCOMMS?",
+      "options": [
+        {
+          "value": "google",
+          "label_uk": "Google / пошукова система"
+        },
+        {
+          "value": "instagram",
+          "label_uk": "Instagram"
+        },
+        {
+          "value": "tiktok",
+          "label_uk": "TikTok"
+        },
+        {
+          "value": "facebook",
+          "label_uk": "Facebook"
+        },
+        {
+          "value": "telegram",
+          "label_uk": "Telegram"
+        },
+        {
+          "value": "friends",
+          "label_uk": "Порада друзів / знайомих"
+        },
+        {
+          "value": "ads",
+          "label_uk": "Реклама"
+        },
+        {
+          "value": "marketplace",
+          "label_uk": "Маркетплейс / сторонній магазин"
+        },
+        {
+          "value": "offline",
+          "label_uk": "Бачив/ла наживо"
+        },
+        {
+          "value": "suspilne_news",
+          "label_uk": "Новини / стаття / сюжет"
+        },
+        {
+          "value": "other",
+          "label_uk": "Інше"
+        }
+      ],
+      "analytics_tags": [
+        "source_attribution"
+      ],
+      "estimated_seconds": 10
+    },
+    {
+      "id": "q881_content_channels",
+      "section": "marketing_content_lab",
+      "order": 881,
+      "type": "multi_choice",
+      "prompt_uk": "Де тобі зручніше бачити новинки й дропи TWOCOMMS? Обери до 2.",
+      "options": [
+        {
+          "value": "instagram",
+          "label_uk": "Instagram"
+        },
+        {
+          "value": "tiktok",
+          "label_uk": "TikTok"
+        },
+        {
+          "value": "telegram",
+          "label_uk": "Telegram"
+        },
+        {
+          "value": "email",
+          "label_uk": "Email"
+        },
+        {
+          "value": "sms",
+          "label_uk": "SMS"
+        },
+        {
+          "value": "site_blog",
+          "label_uk": "Блог/новини на сайті"
+        },
+        {
+          "value": "no_updates",
+          "label_uk": "Не хочу оновлень"
+        }
+      ],
+      "max_select": 2,
+      "analytics_tags": [
+        "preferred_channels"
+      ],
+      "estimated_seconds": 10
+    },
+    {
+      "id": "q882_content_needed",
+      "section": "marketing_content_lab",
+      "order": 882,
+      "type": "multi_choice",
+      "prompt_uk": "Який контент найкраще допоміг би прийняти рішення про покупку? Обери до 3.",
+      "options": [
+        {
+          "value": "fit_video",
+          "label_uk": "Відео/фото на людях"
+        },
+        {
+          "value": "print_meaning",
+          "label_uk": "Пояснення сенсу прінтів"
+        },
+        {
+          "value": "quality_tests",
+          "label_uk": "Тести якості / після прання"
+        },
+        {
+          "value": "production",
+          "label_uk": "Як створюються речі"
+        },
+        {
+          "value": "reviews",
+          "label_uk": "Відгуки покупців"
+        },
+        {
+          "value": "styling",
+          "label_uk": "Як стилізувати речі"
+        },
+        {
+          "value": "custom_examples",
+          "label_uk": "Приклади кастому"
+        },
+        {
+          "value": "founder_story",
+          "label_uk": "Історія бренду / засновника"
+        },
+        {
+          "value": "discounts",
+          "label_uk": "Акції / промокоди"
+        }
+      ],
+      "max_select": 3,
+      "analytics_tags": [
+        "content_to_convert"
+      ],
+      "estimated_seconds": 12
+    },
+    {
+      "id": "q900_open_missed",
+      "section": "closing",
+      "order": 900,
+      "type": "text_short",
+      "prompt_uk": "Є щось важливе, що ми не запитали, але нам точно варто знати?",
+      "max_chars": 260,
+      "required": false,
+      "placeholder_uk": "Можна коротко: критика, ідея, побажання, що зупиняє…",
+      "show_if": {
+        "text_slots_available": true
+      },
+      "analytics_tags": [
+        "open_feedback"
+      ],
+      "estimated_seconds": 25
+    },
+    {
+      "id": "q910_next_best_action_preference",
+      "section": "closing",
+      "order": 910,
+      "type": "single_choice",
+      "prompt_uk": "Що тобі було б найкорисніше після опитування?",
+      "options": [
+        {
+          "value": "catalog_recommendations",
+          "label_uk": "Показати речі, які найближчі до мого стилю"
+        },
+        {
+          "value": "custom_builder",
+          "label_uk": "Відкрити конструктор кастому"
+        },
+        {
+          "value": "quality_proof",
+          "label_uk": "Показати докази якості / догляд / тести"
+        },
+        {
+          "value": "size_help",
+          "label_uk": "Допомогти з розміром"
+        },
+        {
+          "value": "sale_items",
+          "label_uk": "Показати речі зі знижкою"
+        },
+        {
+          "value": "manager",
+          "label_uk": "Написати менеджеру"
+        },
+        {
+          "value": "just_code",
+          "label_uk": "Просто дати промокод"
+        }
+      ],
+      "analytics_tags": [
+        "preferred_next_action"
+      ],
+      "estimated_seconds": 8
+    },
+    {
+      "id": "q920_contact_permission",
+      "section": "closing",
+      "order": 920,
+      "type": "single_choice",
+      "prompt_uk": "Можемо написати тобі уточнення по відповідях або кастому, якщо буде потрібно?",
+      "options": [
+        {
+          "value": "yes",
+          "label_uk": "Так"
+        },
+        {
+          "value": "no",
+          "label_uk": "Ні"
+        }
+      ],
+      "required": false,
+      "analytics_tags": [
+        "contact_permission"
+      ],
+      "estimated_seconds": 6
+    },
+    {
+      "id": "q921_contact_bundle",
+      "section": "closing",
+      "order": 921,
+      "type": "contact_capture",
+      "prompt_uk": "Залиш контакт для зв’язку.",
+      "channels": [
+        "telegram",
+        "instagram",
+        "whatsapp",
+        "phone",
+        "email"
+      ],
+      "placeholder_uk": "@username або номер/пошта",
+      "show_if": {
+        "answer": "q920_contact_permission",
+        "eq": "yes"
+      },
+      "analytics_tags": [
+        "contact_value"
+      ],
+      "estimated_seconds": 18
+    },
+    {
+      "id": "q930_promo_delivery",
+      "section": "closing",
+      "order": 930,
+      "type": "single_choice",
+      "prompt_uk": "Як зручніше отримати промокод?",
+      "options": [
+        {
+          "value": "show_copy_now",
+          "label_uk": "Показати й скопіювати зараз"
+        },
+        {
+          "value": "save_account_after",
+          "label_uk": "Увійти/зареєструватися після опитування, щоб зберегти в акаунті"
+        },
+        {
+          "value": "send_contact",
+          "label_uk": "Надіслати в мій контакт"
+        },
+        {
+          "value": "no_code",
+          "label_uk": "Промокод не потрібен"
+        }
+      ],
+      "analytics_tags": [
+        "promo_delivery_preference"
+      ],
+      "estimated_seconds": 8
+    }
+  ],
+  "derived_segments": {
+    "style_segment": {
+      "basis": "two independent axes: q040_military_code_interest and q041_streetwear_fit_interest",
+      "rules": [
+        {
+          "if": {
+            "q040_military_code_interest": {
+              "gte": 7
+            },
+            "q041_streetwear_fit_interest": {
+              "gte": 7
+            }
+          },
+          "segment": "tactical_streetwear_hybrid",
+          "meaning_ru": "Любит military-код и streetwear-подачу одновременно. Это ключевой сегмент TWOCOMMS, который старая биполярная шкала скрывала в середине."
+        },
+        {
+          "if": {
+            "q040_military_code_interest": {
+              "gte": 7
+            },
+            "q041_streetwear_fit_interest": {
+              "lte": 4
+            }
+          },
+          "segment": "military_core",
+          "meaning_ru": "Нужен более прямой military/frontline код, меньше модной абстракции."
+        },
+        {
+          "if": {
+            "q040_military_code_interest": {
+              "lte": 4
+            },
+            "q041_streetwear_fit_interest": {
+              "gte": 7
+            }
+          },
+          "segment": "streetwear_first",
+          "meaning_ru": "Важно, чтобы вещь работала как streetwear/casual; military может быть только намеком."
+        },
+        {
+          "if": {
+            "q040_military_code_interest": {
+              "between": [
+                4,
+                6
+              ]
+            },
+            "q041_streetwear_fit_interest": {
+              "between": [
+                4,
+                6
+              ]
+            }
+          },
+          "segment": "urban_casual_balanced",
+          "meaning_ru": "Средний интерес к military-коду и streetwear-носибельности: запрос на повседневную городскую базу со скрытыми смыслами, без перегруза прямой военной символикой.",
+          "recommended_cta_ru": "Показывать сбалансированные капсулы, минимальные символы, everyday streetwear и принты с подтекстом.",
+          "confidence_note_ru": "Не считать низкой уверенностью автоматически. Снижать точность только если пользователь одновременно выбрал not_sure в q045 и дал противоречивые ответы дальше."
+        },
+        {
+          "if": {
+            "q040_military_code_interest": {
+              "lte": 3
+            },
+            "q041_streetwear_fit_interest": {
+              "lte": 3
+            }
+          },
+          "segment": "low_style_fit",
+          "meaning_ru": "Вероятно, человеку не близко текущее позиционирование бренда или он пришел не за одеждой."
+        }
+      ],
+      "modifier": "q045_style_boundary adjusts tone risk: too_aggressive, too_war_roleplay, too_civilian, too_minimal.",
+      "v3_3_note_ru": "Середина 4–6/4–6 теперь интерпретируется как urban_casual_balanced, а не как шум. Это защищает сегмент повседневной одежды со скрытым military-кодом."
+    },
+    "purchase_intent_segment": {
+      "rules": [
+        {
+          "if": {
+            "q020_purchase_stage": {
+              "in": [
+                "bought_once",
+                "bought_repeat"
+              ]
+            }
+          },
+          "segment": "customer"
+        },
+        {
+          "if": {
+            "q020_purchase_stage": {
+              "eq": "cart_abandoned"
+            }
+          },
+          "segment": "lost_checkout_or_objection"
+        },
+        {
+          "if": {
+            "q020_purchase_stage": {
+              "eq": "considering"
+            }
+          },
+          "segment": "high_intent_nonbuyer"
+        },
+        {
+          "if": {
+            "q020_purchase_stage": {
+              "eq": "browsing"
+            }
+          },
+          "segment": "low_intent_explorer"
+        },
+        {
+          "if": {
+            "q010_entry_goal": {
+              "in": [
+                "custom_personal",
+                "custom_team_unit"
+              ]
+            }
+          },
+          "segment": "custom_intent"
+        },
+        {
+          "if": {
+            "q010_entry_goal": {
+              "eq": "partner"
+            }
+          },
+          "segment": "partner_intent"
+        }
+      ]
+    },
+    "custom_demand_score": {
+      "formula_ru": "ready_now +3, team_brand +3, gift +2, scenario selected +1, quantity 6+ +2, try_condition selected +1, price_extra >=300 +1, blocker nothing +2",
+      "bands": {
+        "0_2": "low",
+        "3_5": "medium",
+        "6_8": "high",
+        "9_plus": "lead_priority"
+      }
+    },
+    "price_sensitivity_segment": {
+      "formula_ru": "price barrier + price_value_score + discount_dependency + price_ladder. Разделить 'нет денег/жду скидку' и 'не вижу ценности'.",
+      "segments": [
+        "value_unclear",
+        "budget_sensitive",
+        "discount_driven",
+        "price_ok_if_quality_proven",
+        "premium_ready"
+      ]
+    },
+    "assortment_launch_score": {
+      "formula_ru": "Суммировать product_interest, primary_product_focus, purchase_intent_matrix, next_drop_priority, budget_allocation. Отдельно считать caps, pants, women_line, sets, bags, patches_pvc.",
+      "decision_thresholds": {
+        "launch_candidate": ">=15% strong purchase intent among qualified users",
+        "test_content_first": "high curiosity but low buy intent",
+        "do_not_prioritize": "low buy intent and low curiosity"
+      }
+    },
+    "trust_gap_segment": {
+      "segments": [
+        "quality_actual_problem",
+        "quality_proof_missing",
+        "size_fit_unclear",
+        "content_missing",
+        "checkout_trust_gap"
+      ]
+    }
+  },
+  "next_best_action_rules": [
+    {
+      "if": {
+        "nba_confidence": "below_0_68"
+      },
+      "action": "neutral_catalog_or_promo_code",
+      "cta_uk": "Перейти до каталогу з промокодом",
+      "secondary_uk": "Подивитись новинки TWOCOMMS",
+      "reason_ru": "Безопасный fallback, если движок не уверен в персональном CTA."
+    },
+    {
+      "if": {
+        "module": "custom_lab",
+        "custom_demand_score": "high_or_lead_priority"
+      },
+      "action": "open_custom_builder",
+      "cta_uk": "Відкрити конструктор кастому",
+      "secondary_uk": "Показати приклади робіт"
+    },
+    {
+      "if": {
+        "q070_main_barrier": "price"
+      },
+      "action": "show_discount_or_value_page",
+      "cta_uk": "Показати речі зі знижкою",
+      "secondary_uk": "Чому така ціна: тканина, друк, виробництво"
+    },
+    {
+      "if": {
+        "trust_gap_segment": "quality_proof_missing"
+      },
+      "action": "show_quality_proof",
+      "cta_uk": "Показати тести якості й догляд",
+      "secondary_uk": "Відгуки покупців"
+    },
+    {
+      "if": {
+        "trust_gap_segment": "size_fit_unclear"
+      },
+      "action": "show_size_helper",
+      "cta_uk": "Допомогти з розміром",
+      "secondary_uk": "Написати менеджеру"
+    },
+    {
+      "if": {
+        "style_segment": "military_core"
+      },
+      "action": "show_military_adjacent_collection",
+      "cta_uk": "Показати речі з military-кодом"
+    },
+    {
+      "if": {
+        "style_segment": "streetwear_first"
+      },
+      "action": "show_streetwear_collection",
+      "cta_uk": "Показати streetwear-прінти"
+    },
+    {
+      "if": {
+        "q030_product_interest": "women_line"
+      },
+      "action": "collect_women_line_waitlist",
+      "cta_uk": "Отримати перший анонс жіночої лінії"
+    },
+    {
+      "if": {
+        "partner_lab": "selected"
+      },
+      "action": "partner_lead",
+      "cta_uk": "Отримати умови співпраці"
+    },
+    {
+      "default": true,
+      "action": "show_promo_and_catalog",
+      "cta_uk": "Скопіювати промокод і перейти в каталог"
+    },
+    {
+      "id": "nba_urban_casual_balanced",
+      "if": {
+        "style_segment": "urban_casual_balanced"
+      },
+      "action": "show_balanced_everyday_capsule",
+      "cta_uk": "Показати речі на кожен день зі змістом без перегруза",
+      "confidence_floor": 0.62,
+      "reason_ru": "V3.4: унифицирован плоский синтаксис обращения к style_segment, чтобы правило не зависело от поддержки dot-notation в JSON-движке.",
+      "syntax_note_ru": "Не использовать derived_fields.style_two_axis_segment в NBA conditions, если интерпретатор не поддерживает dot-notation."
+    },
+    {
+      "id": "nba_large_custom_project",
+      "if": {
+        "price_context_key": "team_unit_project_budget"
+      },
+      "action": "offer_manager_project_estimate",
+      "cta_uk": "Отримати прорахунок тиражу",
+      "confidence_floor": 0.68,
+      "reason_ru": "Для 21+ одиниць логичнее вести в расчет проекта, а не в обычный каталог."
+    }
+  ],
+  "quality_control_rules": [
+    {
+      "id": "too_fast",
+      "rule": "flag if completed in <45 seconds and answered_questions >=12",
+      "action": "mark_low_confidence_not_delete"
+    },
+    {
+      "id": "straight_line",
+      "rule": "flag if all slider answers identical and no meaningful choices",
+      "action": "lower_weight"
+    },
+    {
+      "id": "contradiction_price",
+      "rule": "price_value_score >=9 but main_barrier price and discount_dependency only_sale",
+      "action": "runtime_gate + keep, tag inconsistent_price_signal, lower_weight_to_0_65_in_price_metrics",
+      "why_ru": "V3.2: противоречивый ценовой сигнал должен снижать вес уже в рантайме, иначе price_value_lab может ошибочно занять слот динамического модуля.",
+      "runtime_effect": "apply before dynamic_module_selection and before next_best_action_selection"
+    },
+    {
+      "id": "experience_mismatch",
+      "rule": "do not show actual quality after wash unless user says wore/bought",
+      "action": "skip_question"
+    },
+    {
+      "id": "text_safety",
+      "rule": "limit text fields, sanitize HTML, store raw + normalized",
+      "action": "sanitize"
+    },
+    {
+      "id": "sensitive_data_minimization",
+      "rule": "do not require military unit, callsign, phone or personal data unless user voluntarily provides it",
+      "action": "contact_only_with_consent"
+    },
+    {
+      "id": "fatigue",
+      "rule": "if user skips 2 questions in a row after 10 answered, jump to closing",
+      "action": "finish_early"
+    },
+    {
+      "id": "auto_answer_transparency",
+      "rule": "if q035 auto-filled from q030, store q035_auto_answered=true and do not count it as user-visible answered question",
+      "action": "preserve_analytics_without_inflating_completion"
+    },
+    {
+      "id": "heavy_ui_mobile_guard",
+      "rule": "if mobile and question_type in [budget_allocation_100, maxdiff_best_worst] and user is not high-intent, use fallback",
+      "action": "reduce_dropoff_risk"
+    },
+    {
+      "id": "style_axis_quality_check",
+      "rule": "if q040 and q041 both equal 5, prefer concept_reaction_cards or q045 boundary to avoid false neutral segment",
+      "action": "ask_one_style_boundary_or_concept_card_if_budget_allows"
+    }
+  ],
+  "analytics_output_schema": {
+    "response_id": "uuid",
+    "session_id": "anonymous_or_user_id_hash",
+    "user_logged_in": "boolean",
+    "started_at": "datetime",
+    "completed_at": "datetime",
+    "answered_questions_count": "int",
+    "skipped_questions_count": "int",
+    "path_modules_shown": "array",
+    "entry_goal": "enum",
+    "purchase_stage": "enum",
+    "primary_product_focus": "enum",
+    "style_axis": "int_1_10",
+    "style_segment": "enum",
+    "overall_score": "int_1_10",
+    "main_barrier": "enum",
+    "purchase_driver_best": "enum",
+    "purchase_driver_worst": "enum",
+    "owner_priority": "enum",
+    "custom_demand_score": "int",
+    "price_sensitivity_segment": "enum",
+    "assortment_launch_scores": "object",
+    "trust_gap_segment": "enum",
+    "next_best_action": "enum",
+    "contact_permission": "boolean",
+    "promo_delivery_preference": "enum",
+    "quality_flags": "array",
+    "derived_fields": [
+      "q035_auto_answered",
+      "military_code_score",
+      "streetwear_fit_score",
+      "style_two_axis_segment",
+      "nba_confidence",
+      "ui_complexity_mode",
+      "response_weight",
+      "project_budget_context",
+      "balanced_crossover_flag",
+      "style_boundary_skipped_for_b2b",
+      "style_axes_skipped_for_b2b",
+      "price_ladder_context_map_key",
+      "q403_ladder_points_context",
+      "q403_compile_validation_passed"
+    ],
+    "new_v3_2_fields": [
+      "q035_auto_answered",
+      "runtime_quality_gate_flags",
+      "price_context_key",
+      "price_ladder_range_source",
+      "style_screen_split_completed",
+      "b2b_price_intent"
+    ],
+    "new_v3_3_fields": [
+      "style_boundary_skipped_for_b2b",
+      "style_two_axis_segment_v3_3",
+      "project_budget_context",
+      "project_budget_range_selected",
+      "price_ladder_prompt_variant",
+      "large_quantity_budget_context",
+      "balanced_crossover_flag"
+    ],
+    "new_v3_4_fields": [
+      "style_axes_skipped_for_b2b",
+      "price_ladder_context_map_key",
+      "q403_ladder_points_context",
+      "q403_compile_validation_passed",
+      "nba_condition_syntax_flattened"
+    ]
+  },
+  "review_brief_for_ai_agents": {
+    "ask_agents_to_criticize_ru": [
+      "Найти вопросы, которые могут давать шумные или социально желательные ответы.",
+      "Проверить, не слишком ли сложные типы вопросов для мобильного пользователя.",
+      "Проверить, где multi_choice лучше заменить на forced choice или наоборот.",
+      "Проверить, достаточно ли кастомный блок собирает бизнес-данные для DTF-конфигуратора.",
+      "Проверить, не перегружен ли блок military-эстетики и не отталкивает ли гражданскую аудиторию.",
+      "Проверить, не теряем ли аналитику по цене из-за диапазонов вместо точных чисел.",
+      "Проверить, какие вопросы можно показывать по 2–3 на одной странице без ухудшения UX.",
+      "Проверить, какие вопросы нужно A/B тестировать: стартовый экран, награда, progress copy, кастом CTA, price ladder.",
+      "Проверить, достаточно ли хорошо финал превращает ответ в действие: каталог, кастом, менеджер, размер, отзывы."
+    ],
+    "known_tradeoffs_ru": [
+      "MaxDiff и budget allocation дают сильные данные, но тяжелее обычных вопросов — их надо показывать не всем.",
+      "Кастомный модуль может быть самым денежным, но если показывать его всем, он утомит нерелевантных пользователей.",
+      "Чем больше интерактива, тем выше вовлечение, но ниже скорость разработки. Поэтому у каждого сложного типа есть fallback.",
+      "Open text полезен для инсайтов, но плохо масштабируется в аналитике — максимум 2 текстовых поля за путь."
+    ],
+    "recommended_agent_roles_ru": [
+      "UX researcher",
+      "E-commerce CRO specialist",
+      "Brand strategist",
+      "Marketing analyst",
+      "Data analyst",
+      "Frontend/product designer",
+      "Founder/business owner",
+      "Customer support manager"
+    ],
+    "v3_1_specific_questions_ru": [
+      "Правильно ли двухосевая модель military_code_score + streetwear_fit_score лучше отражает TWOCOMMS, чем прежняя биполярная ось?",
+      "Не слишком ли широки/узки price ladder диапазоны для каждой категории с учетом реального прайса бренда?",
+      "Достаточно ли smart-skip q035 сохраняет аналитику primary_product_focus без раздражения пользователя?",
+      "Не слишком ли сильный вес +5 у q053_low_score_reason в выборе модулей, или критики должны весить еще сильнее?",
+      "Где mobile fallback может исказить данные по сравнению с desktop enhanced UI?",
+      "Насколько CTA confidence gate снижает риск неуместного финального предложения?"
+    ],
+    "v3_4_specific_review_tasks": [
+      "Validate q403 compile-time pointers: range keys, prompt variants, ladder points and range_context_map.",
+      "Test pure B2B path: partner -> partner_discussion should skip s030_style_axes and s031_style_boundary, then route to partner/B2B modules.",
+      "Test custom_team_unit path with q305_custom_quantity 1_5, 6_20, 21_50, 50_plus: under 21 uses team_unit_per_unit, 21+ uses team_unit_project_budget.",
+      "Test urban_casual_balanced NBA: style_segment flat key should trigger balanced everyday capsule CTA."
+    ]
+  },
+  "external_ai_critique_integration_ru": {
+    "accepted_critical_fixes": [
+      "Добавлен скоринг для q053_low_score_reason, чтобы недовольные пользователи не выпадали из выбора модуля.",
+      "q035_primary_product_focus получает smart-skip: если в q030 выбран ровно один конкретный продукт, q035 автоматически заполняется и не показывается.",
+      "q403_price_ladder получил dynamic_matrix_ranges по продуктам, чтобы футболка, худи, штаны, кепки и кастом не использовали один общий ценовой диапазон.",
+      "Сложные типы вопросов получили mobile-first ограничения и fallback: MaxDiff только в коротких карточках/парах, budget allocation не показывается слабым сегментам и на мобильном заменяется rank_top_3.",
+      "Next Best Action получил confidence gate: если уверенность низкая, финальный CTA становится нейтральным, а не навязчивым."
+    ],
+    "accepted_with_changes": [
+      "Ось military/streetwear не просто заменена на forced-choice, а разделена на две независимые оценки: насколько человеку близок military-код и насколько важна streetwear-подача. Это сохраняет гибридный tactical streetwear сегмент, который старая биполярная шкала размазывала в середине.",
+      "Quality Control теперь не только тегает противоречия, но и снижает вес таких ответов в агрегированных метриках."
+    ],
+    "not_accepted_literally": [
+      "Не стоит бездумно превращать все сложные механики в свайпы. Для некоторых аудиторий TWOCOMMS свайп может выглядеть слишком игровым. В JSON оставлен режим: карточки/тач-селекторы для mobile, но не обязательный swipe-only UI.",
+      "Не стоит расширять Price Ladder только четырьмя продуктами. Добавлены диапазоны и fallback для всех ключевых категорий, включая кастом, кепки, комплекты, сумки, патчи/PVC."
+    ]
+  },
+  "external_ai_critique_integration_v3_2_ru": {
+    "source": "Второй внешний AI review after V3.1",
+    "accepted": [
+      "Smart-skip/show-if collision around q035 when q030 only has not_sure.",
+      "Split overloaded style screen into style axes screen and separate boundary screen.",
+      "Move contradiction_price from only-final quality control to runtime scoring gate.",
+      "Add B2B/team-unit price ladder anchors to avoid retail price confusion."
+    ],
+    "modified_decisions": [
+      "B2B price logic includes partner, partner_discussion, custom_team_unit and custom_request, not only partner.",
+      "q045 remains a core style boundary question, but is rendered as focused card screen and can be skipped if user fatigue rules trigger.",
+      "Runtime price contradiction does not delete price module; it reduces confidence and allows other modules to outrank it."
+    ],
+    "open_questions_for_next_ai_agents": [
+      "Are B2B/team-unit price anchors realistic for TWOCOMMS margins and production costs?",
+      "Should q045 be optional for pure partner users who are not choosing a style for themselves?",
+      "Should q403 be replaced by project-budget question for custom_team_unit if quantity is over 20?",
+      "Does splitting the style screen increase perceived length too much, or does reduced cognitive load compensate?"
+    ]
+  },
+  "external_ai_critique_integration_v3_3_ru": {
+    "source_file": "Вставленная уценка(2).md",
+    "accepted_fully": [
+      "Добавить общий бюджет проекта для больших кастомных тиражей 21+.",
+      "Пропускать style-boundary для чистого B2B/partner-сценария.",
+      "Не трактовать 4–6/4–6 по двум осям как автоматическую неопределенность."
+    ],
+    "accepted_with_modification": [
+      "B2B не всегда должен видеть общий бюджет: для partner/wholesale важна unit economics, а для custom_team_unit 21+ важен project budget. Поэтому в V3.3 есть разные price_context_key.",
+      "Balanced crossover получает персонализацию, но не агрессивную: everyday capsule, hidden military code, balanced collection."
+    ],
+    "owner_takeaway_ru": "V3.3 лучше защищает сегментацию: не теряет городскую balanced-аудиторию, не заставляет B2B читать нерелевантные эстетические вопросы и не мучает крупные командные заказы поштучной математикой."
+  },
+  "external_ai_critique_integration_v3_4_ru": {
+    "source_ru": "external_ai_review_after_v3_3",
+    "accepted_fixes": [
+      "q403 pointer mismatch: add team_unit_per_unit ladder points and explicit context mapping for team_unit_bulk_fallback.",
+      "skip retail personal-style axis sliders for pure B2B partner / partner_discussion users.",
+      "unify next_best_action_rules condition syntax for urban_casual_balanced by using flat style_segment key instead of dot-notation."
+    ],
+    "implementation_note_ru": "V3.4 закрывает production-риски компиляции: несовпадение ключей q403, B2B retail-style friction и неоднородный синтаксис NBA условий.",
+    "qa_focus_for_next_agents": [
+      "Проверить все routing_modifiers q403 на существование use_range_key и use_ladder_points.",
+      "Проверить, что pure B2B не получает retail style questions, но custom_team_unit все еще получает стиль, если он влияет на заказ.",
+      "Проверить, что все next_best_action_rules используют единый плоский синтаксис или движок явно поддерживает dot-notation."
+    ]
+  }
+}

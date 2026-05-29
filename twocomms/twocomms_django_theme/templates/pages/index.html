@@ -251,11 +251,11 @@ canonical entry point for the brand's URL graph.
               <span class="sl-amount">{% blocktrans with amount=survey_reward.amount_uah|default:200 %}Промокод на {{ amount }} грн{% endblocktrans %}</span>
             </div>
           </div>
-          <p class="sl-desc">{% trans 'Промокод активується автоматично одразу після проходження та діє на весь асортимент.' %}</p>
+          <p class="sl-desc">{{ survey_ui_home.note_uk|default:'Промокод показуємо одразу після проходження. Використати код можна після входу в акаунт у кошику.' }}</p>
           <div class="sl-tags">
-            <div class="sl-tag">{% trans '≈ 5 хвилин часу' %}</div>
-            <div class="sl-tag">{% trans 'Один раз на рік' %}</div>
-            <div class="sl-tag">{% trans 'Можна повернутись потім' %}</div>
+            <div class="sl-tag">{{ survey_ui_home.micro_trust_uk|default:'≈3–5 хв · без спаму' }}</div>
+            <div class="sl-tag">{% trans 'Контакт лише за згодою' %}</div>
+            <div class="sl-tag">{% trans 'Промокод одразу' %}</div>
           </div>
         </div>
 
@@ -271,7 +271,7 @@ canonical entry point for the brand's URL graph.
                   <span class="sr-brand-text">TWOCOMMS</span>
                 </span>
               </h2>
-              <p class="sr-subtitle">{% trans 'Коротке опитування без довгої анкети: відповіді допоможуть нам стати кращими.' %}</p>
+              <p class="sr-subtitle">{{ survey_ui_home.subtitle_uk|default:'Короткий адаптивний квіз: питання підлаштовуються під твої відповіді, без зайвої анкети.' }}</p>
             </div>
             <button type="button" class="sr-dismiss" id="featuredToggle">
               {% trans 'БІЛЬШЕ НЕ ПОКАЗУВАТИ' %}
@@ -364,19 +364,17 @@ canonical entry point for the brand's URL graph.
           <div class="sr-footer">
             <div class="sr-footer-pills">
               <span class="sr-pill"><span class="sr-pill-dot"></span> {% trans 'Без форми на одну сторінку' %}</span>
-              <span class="sr-pill"><span class="sr-pill-dot"></span> {% trans 'Лише для зареєстрованих користувачів' %}</span>
+              <span class="sr-pill"><span class="sr-pill-dot"></span> {% trans 'Промокод одразу після опитування' %}</span>
             </div>
             <button
               type="button"
               class="sr-cta"
               data-survey-cta
               data-survey-key="{{ survey_key }}"
-              data-survey-start-text="{% trans 'Пройти опитування' %}"
-              data-survey-continue-text="{% trans 'Продовжити опитування' %}"
-              data-survey-authenticated="{% if request.user.is_authenticated %}1{% else %}0{% endif %}"
-              data-login-url="{% url 'login' %}?next={{ request.path }}"
+              data-survey-start-text="{{ survey_ui_home.cta_start_uk|default:'Почати' }}"
+              data-survey-continue-text="{{ survey_ui_home.cta_continue_uk|default:'Продовжити' }}"
             >
-              <span>{% trans 'Пройти опитування' %}</span>
+              <span>{{ survey_cta_text|default:'Почати' }}</span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/>
               </svg>
@@ -666,13 +664,13 @@ canonical entry point for the brand's URL graph.
     class="survey-modal"
     id="survey-modal"
     aria-hidden="true"
-    data-button-next="{% trans 'Далі' %}"
-    data-button-back="{% trans 'Повернутись на 1 крок' %}"
-    data-button-close="{% trans 'Закрити' %}"
-    data-button-skip="{% trans 'Пропустити' %}"
-    data-thanks-title="{% trans 'Дякуємо!' %}"
-    data-thanks-text="{% trans 'Твій промокод готовий.' %}"
-    data-copy-code="{% trans 'Скопіювати код' %}"
+    data-button-next="{{ survey_ui_modal.button_next_uk|default:'Далі' }}"
+    data-button-back="{{ survey_ui_modal.button_back_once_uk|default:'Назад' }}"
+    data-button-close="{{ survey_ui_modal.button_close_uk|default:'Закрити' }}"
+    data-button-skip="{{ survey_ui_modal.button_skip_uk|default:'Пропустити' }}"
+    data-thanks-title="{{ survey_ui_modal.thanks_title_uk|default:'Дякуємо!' }}"
+    data-thanks-text="{{ survey_ui_modal.thanks_text_uk|default:'Твій промокод готовий. Використати код можна після входу в акаунт у кошику.' }}"
+    data-copy-code="{{ survey_ui_modal.copy_code_uk|default:'Скопіювати код' }}"
   >
     <div class="survey-overlay" data-survey-close></div>
     <div class="survey-dialog" role="dialog" aria-modal="true" aria-labelledby="survey-modal-title">
@@ -686,13 +684,13 @@ canonical entry point for the brand's URL graph.
         <div class="survey-header-main">
           <div class="survey-badge">{% trans 'Опитування' %}</div>
           <h3 class="survey-modal-title" id="survey-modal-title">
-            {% trans 'Коротке опитування про TWOCOMMS' %}
+            {{ survey_ui_modal.title_uk|default:'Короткий квіз про TWOCOMMS' }}
           </h3>
           <p class="survey-modal-subtitle">
-            {% trans 'Твої відповіді допоможуть покращити сайт і колекції. Орієнтовно 5 хвилин.' %}
+            {{ survey_ui_modal.subtitle_uk|default:'Питання підлаштовуються під твої відповіді — зайвого не питатимемо.' }}
           </p>
         </div>
-        <p class="survey-modal-privacy">{% trans 'Ми використовуємо відповіді лише для аналітики та покращення сервісу. Контактні дані — лише за твоєю згодою.' %}</p>
+        <p class="survey-modal-privacy">{{ survey_ui_modal.privacy_hint_uk|default:'Використовуємо відповіді тільки для аналітики, покращення колекцій, кастому й сервісу.' }}</p>
       </div>
 
       <div class="survey-body" id="survey-body">

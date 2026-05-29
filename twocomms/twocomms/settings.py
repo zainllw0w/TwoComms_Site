@@ -725,7 +725,7 @@ MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 # Survey definitions and reports
-SURVEY_DEFINITION_PATH = BASE_DIR / "surveys" / "print_feedback_v1.json"
+SURVEY_DEFINITION_PATH = BASE_DIR / "surveys" / "twocomms_survey_v3_4_adaptive_research.json"
 SURVEY_REPORTS_DIR = MEDIA_ROOT / "survey_reports"
 
 # Email (SMTP)

@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -18,7 +19,7 @@ def _default_survey_path() -> Path:
         getattr(
             settings,
             "SURVEY_DEFINITION_PATH",
-            settings.BASE_DIR / "surveys" / "print_feedback_v1.json",
+            settings.BASE_DIR / "surveys" / "twocomms_survey_v3_4_adaptive_research.json",
         )
     )
 
@@ -73,6 +74,41 @@ def get_soft_hint(answered_count: int) -> str:
     return "Останні штрихи."
 
 
+def create_survey_promocode(
+    survey_key: str,
+    reward_def: Dict[str, Any],
+) -> PromoCode:
+    """Create a one-use promo code for a completed survey."""
+    reward_def = reward_def or {}
+    amount = reward_def.get("amount_uah", 0)
+    expires_in_days = int(reward_def.get("expires_in_days", 5))
+
+    group_name = f"Survey: {survey_key}"
+    promo_group, _ = PromoCodeGroup.objects.get_or_create(
+        name=group_name,
+        defaults={
+            "description": f"Survey reward for {survey_key}",
+            "one_per_account": True,
+            "is_active": True,
+        },
+    )
+
+    now = timezone.now()
+    return PromoCode.objects.create(
+        code=PromoCode.generate_code(),
+        promo_type="voucher",
+        discount_type="fixed",
+        discount_value=amount,
+        description=reward_def.get("title_uk") or f"Survey reward {survey_key}",
+        group=promo_group,
+        max_uses=1,
+        one_time_per_user=True,
+        valid_from=now,
+        valid_until=now + timedelta(days=expires_in_days),
+        is_active=True,
+    )
+
+
 class SurveyEngine:
     """Data-driven survey engine using JSON definition."""
 
@@ -89,12 +125,38 @@ class SurveyEngine:
         for section, items in self.questions_by_section.items():
             items.sort(key=lambda item: item.get("order", 0))
         flow = self.definition.get("flow", {})
-        self.flow_core = flow.get("core", [])
-        self.flow_closing = flow.get("closing", [])
+        self.flow_core = flow.get("core", []) if isinstance(flow, dict) else []
+        self.flow_closing = flow.get("closing", []) if isinstance(flow, dict) else []
+        if not self.flow_core and not self.flow_closing:
+            self.flow_core, self.flow_closing = self._derive_flow_from_screens()
         self.caps = self.definition.get("caps", {})
         self.policy = self.definition.get("policy", {})
         end_conditions = self.definition.get("end_conditions", {})
         self.required_questions = set(end_conditions.get("required_questions", []))
+
+    def _derive_flow_from_screens(self) -> Tuple[List[str], List[str]]:
+        core_ids: List[str] = []
+        closing_ids: List[str] = []
+        screens = self.definition.get("screens", []) or []
+        for screen in sorted(screens, key=lambda item: item.get("order", 0) if isinstance(item, dict) else 0):
+            if not isinstance(screen, dict):
+                continue
+            question_ids = [qid for qid in screen.get("questions", []) if qid in self.questions_by_id]
+            if screen.get("type") == "closing" or screen.get("id", "").startswith("s9"):
+                closing_ids.extend(question_ids)
+            else:
+                core_ids.extend(question_ids)
+        return self._unique_ids(core_ids), self._unique_ids(closing_ids)
+
+    def _unique_ids(self, question_ids: List[str]) -> List[str]:
+        seen = set()
+        unique: List[str] = []
+        for qid in question_ids:
+            if qid in seen:
+                continue
+            seen.add(qid)
+            unique.append(qid)
+        return unique
 
     def get_question(self, question_id: str) -> Optional[Dict[str, Any]]:
         return self.questions_by_id.get(question_id)
@@ -103,20 +165,35 @@ class SurveyEngine:
         self,
         question: Dict[str, Any],
         answer: Any = None,
+        answers: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
+        answers = answers or {}
+        question = question or {}
+        prompt = question.get("prompt_uk") or question.get("prompt")
         payload = {
             "id": question.get("id"),
             "type": question.get("type"),
-            "prompt": question.get("prompt_uk") or question.get("prompt"),
+            "prompt": prompt,
             "help": question.get("help_uk"),
+            "instruction": question.get("instruction_uk"),
+            "ui_hint": question.get("ui_hint_uk"),
             "required": bool(question.get("required")),
             "options": [],
             "scale": question.get("scale"),
             "placeholder": question.get("placeholder_uk"),
             "max_select": question.get("max_select"),
+            "max_chars": question.get("max_chars"),
             "answer": answer,
         }
-        options = question.get("options") or []
+        if question.get("type") == "price_ladder_by_product":
+            payload.update(self._price_ladder_payload(question, answers))
+
+        for key in ("concepts", "scale_options", "rows", "columns", "buckets", "channels"):
+            if key in question:
+                payload[key] = self._localize_items(question.get(key))
+
+        options = payload.get("options") or self._options_for_question(question, answers)
+        payload["options"] = []
         for opt in options:
             payload["options"].append(
                 {
@@ -132,53 +209,177 @@ class SurveyEngine:
             return True
         if isinstance(expr, list):
             return all(self.evaluate_condition(item, context) for item in expr)
+        if isinstance(expr, str):
+            return self._evaluate_string_condition(expr, context)
         if not isinstance(expr, dict):
             return False
 
+        handled = False
+        result = True
+
         if "any" in expr:
-            return any(self.evaluate_condition(item, context) for item in expr.get("any", []))
+            handled = True
+            result = result and any(self.evaluate_condition(item, context) for item in expr.get("any", []))
         if "all" in expr:
-            return all(self.evaluate_condition(item, context) for item in expr.get("all", []))
+            handled = True
+            result = result and all(self.evaluate_condition(item, context) for item in expr.get("all", []))
         if "not" in expr:
-            return not self.evaluate_condition(expr.get("not"), context)
+            handled = True
+            result = result and not self.evaluate_condition(expr.get("not"), context)
+
+        for flag in ("text_slots_available", "module_text_slots_available"):
+            if flag in expr:
+                handled = True
+                result = result and bool(context.get(flag)) == bool(expr.get(flag))
+
+        if "answer" in expr:
+            handled = True
+            left = self._answer_value(expr.get("answer"), context)
+            if "row" in expr:
+                if not isinstance(left, dict):
+                    result = False
+                else:
+                    result = result and left.get(expr.get("row")) == expr.get("column")
+            result = result and self._evaluate_direct_condition(left, expr)
 
         op = expr.get("op")
         var = expr.get("var")
         value = expr.get("value")
-        left = self._resolve_var(var, context)
+        if op or var:
+            handled = True
+            left = self._resolve_var(var, context)
 
-        try:
-            if op == "eq":
-                return left == value
-            if op == "lte":
-                return left is not None and left <= value
-            if op == "gte":
-                return left is not None and left >= value
-            if op == "includes":
-                if left is None:
-                    return False
-                if isinstance(left, (list, tuple, set)):
-                    return value in left
-                if isinstance(left, str):
-                    return value in left
+            try:
+                if op == "eq":
+                    result = result and left == value
+                elif op == "lte":
+                    result = result and left is not None and left <= value
+                elif op == "gte":
+                    result = result and left is not None and left >= value
+                elif op == "includes":
+                    result = result and self._includes(left, value)
+                elif op == "in":
+                    result = result and value is not None and left in value
+                elif op == "exists":
+                    result = result and not self._is_empty(left)
+                elif op:
+                    logger.warning("Unknown operator in survey condition: %s", op)
+                    result = False
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.warning("Condition eval failed for %s: %s", expr, exc)
                 return False
-            if op == "in":
-                if value is None:
+
+        return result if handled else False
+
+    def _evaluate_direct_condition(self, left: Any, expr: Dict[str, Any]) -> bool:
+        try:
+            if "eq" in expr and left != expr.get("eq"):
+                return False
+            if "neq" in expr and left == expr.get("neq"):
+                return False
+            if "not_eq" in expr and left == expr.get("not_eq"):
+                return False
+            if "in" in expr and left not in (expr.get("in") or []):
+                return False
+            if "not_in" in expr and left in (expr.get("not_in") or []):
+                return False
+            if "includes" in expr and not self._includes(left, expr.get("includes")):
+                return False
+            if "includes_any" in expr and not self._includes_any(left, expr.get("includes_any") or []):
+                return False
+            if "contains_any" in expr and not self._includes_any(left, expr.get("contains_any") or []):
+                return False
+            if "gte" in expr and (left is None or left < expr.get("gte")):
+                return False
+            if "lte" in expr and (left is None or left > expr.get("lte")):
+                return False
+            if "gt" in expr and (left is None or left <= expr.get("gt")):
+                return False
+            if "lt" in expr and (left is None or left >= expr.get("lt")):
+                return False
+            if "between" in expr:
+                bounds = expr.get("between") or []
+                if len(bounds) != 2 or left is None or left < bounds[0] or left > bounds[1]:
                     return False
-                return left in value
-            if op == "exists":
-                return left not in (None, "", [], {})
-        except Exception as exc:  # pragma: no cover - defensive
-            logger.warning("Condition eval failed for %s: %s", expr, exc)
+            if "exists" in expr:
+                exists = not self._is_empty(left)
+                if bool(expr.get("exists")) != exists:
+                    return False
+        except TypeError:
+            return False
+        return True
+
+    def _evaluate_string_condition(self, expr: str, context: Dict[str, Any]) -> bool:
+        source = expr.strip()
+        if not source:
+            return True
+        source = re.sub(r"\bAND\b", "and", source, flags=re.IGNORECASE)
+        source = re.sub(r"\bOR\b", "or", source, flags=re.IGNORECASE)
+        source = re.sub(
+            r"answers\.([A-Za-z0-9_]+)\s+includes\s+'([^']*)'",
+            r'_includes(_answer("\1"), "\2")',
+            source,
+        )
+        source = re.sub(
+            r"count\(answers\.([A-Za-z0-9_]+)\)",
+            r'_count(_answer("\1"))',
+            source,
+        )
+        source = re.sub(
+            r"answers\.([A-Za-z0-9_]+)\[0\]",
+            r'_first(_answer("\1"))',
+            source,
+        )
+        source = re.sub(
+            r"answers\.([A-Za-z0-9_]+)",
+            r'_answer("\1")',
+            source,
+        )
+        try:
+            return bool(
+                eval(
+                    source,
+                    {"__builtins__": {}},
+                    {
+                        "_answer": lambda qid: self._answer_value(qid, context),
+                        "_count": lambda value: len(value) if isinstance(value, (list, tuple, set)) else (0 if self._is_empty(value) else 1),
+                        "_first": lambda value: value[0] if isinstance(value, (list, tuple)) and value else None,
+                        "_includes": self._includes,
+                    },
+                )
+            )
+        except Exception as exc:
+            logger.warning("String condition eval failed for %s: %s", expr, exc)
             return False
 
-        if op:
-            logger.warning("Unknown operator in survey condition: %s", op)
+    def _answer_value(self, question_id: Optional[str], context: Dict[str, Any]) -> Any:
+        if not question_id:
+            return None
+        answers = context.get("answers") or {}
+        return answers.get(question_id)
+
+    def _includes(self, left: Any, value: Any) -> bool:
+        if left is None:
+            return False
+        if isinstance(left, (list, tuple, set)):
+            return value in left
+        if isinstance(left, dict):
+            return value in left.values() or value in left.keys()
+        if isinstance(left, str):
+            return str(value) in left
         return False
+
+    def _includes_any(self, left: Any, values: List[Any]) -> bool:
+        return any(self._includes(left, value) for value in values)
 
     def _resolve_var(self, var: Optional[str], context: Dict[str, Any]) -> Any:
         if not var:
             return None
+        if var in context:
+            return context.get(var)
+        answers = context.get("answers") or {}
+        if var in answers:
+            return answers.get(var)
         parts = var.split('.')
         current = context.get(parts[0])
         for part in parts[1:]:
@@ -191,6 +392,32 @@ class SurveyEngine:
     def select_modules(self, answers: Dict[str, Any], meta: Optional[Dict[str, Any]] = None) -> List[str]:
         modules = self.definition.get("modules", {})
         context = {"answers": answers or {}, "meta": meta or {}}
+        engine_def = self.definition.get("engine") or {}
+        if engine_def.get("module_selection_strategy"):
+            scores = dict(engine_def.get("score_initialization") or {key: 0 for key in modules.keys()})
+            for rule in engine_def.get("module_scoring_rules", []) or []:
+                if not isinstance(rule, dict):
+                    continue
+                if self.evaluate_condition(rule.get("if"), context):
+                    for module_key, amount in (rule.get("add") or {}).items():
+                        scores[module_key] = scores.get(module_key, 0) + amount
+
+            if answers.get("q010_entry_goal") == "partner" or answers.get("q020_purchase_stage") == "partner_discussion":
+                scores["partner_lab"] = scores.get("partner_lab", 0) + 4
+            if answers.get("q010_entry_goal") == "custom_team_unit":
+                scores["partner_lab"] = scores.get("partner_lab", 0) + 2
+
+            max_modules = int(self.caps.get("max_dynamic_modules_per_session", 2))
+            order = {module_key: index for index, module_key in enumerate(scores.keys())}
+            selected = [
+                module_key
+                for module_key, score in sorted(scores.items(), key=lambda item: (-item[1], order.get(item[0], 999)))
+                if score > 0 and module_key in modules
+            ]
+            if not selected and "marketing_content_lab" in modules:
+                selected = ["marketing_content_lab"]
+            return selected[:max_modules]
+
         activated: List[str] = []
         for key, module in modules.items():
             activation = module.get("activation")
@@ -228,28 +455,54 @@ class SurveyEngine:
     ) -> Optional[Dict[str, Any]]:
         answers = answers or {}
         history = history or []
+        self._apply_auto_answers(answers, history)
         answered_ids = set(history)
+        answered_ids.update(
+            qid
+            for qid, value in answers.items()
+            if qid in self.questions_by_id and not self._is_empty(value)
+        )
         total_answered = len(history)
         text_max = int(self.caps.get("max_text_questions_total", 999))
-        total_max = int(self.caps.get("total_max_questions", 999))
+        total_max = int(self.caps.get("hard_max_questions", self.caps.get("total_max_questions", 999)))
+        target_max = int(self.caps.get("target_questions_max", total_max))
+        closing_reserve = min(2, len(self.flow_closing)) if self.flow_closing else 0
         module_max_map = self.caps.get("module_max_questions", {}) or {}
         max_followups = int(self.caps.get("max_followups_per_multi_choice", 0))
 
-        context = {"answers": answers, "meta": meta or {}}
         text_count = sum(
             1
             for qid in history
             if self.questions_by_id.get(qid, {}).get("type") in ("text_short", "text_long")
         )
+        context = {
+            "answers": answers,
+            "meta": meta or {},
+            "text_slots_available": text_count < text_max,
+            "module_text_slots_available": text_count < text_max,
+            "answered_count": total_answered,
+        }
 
         def can_ask(question: Dict[str, Any]) -> bool:
             qid = question.get("id")
             if not qid or qid in answered_ids:
                 return False
+            if question.get("skip_if") and self.evaluate_condition(question.get("skip_if"), context):
+                return False
+            dynamic_behavior = question.get("dynamic_behavior") or {}
+            if dynamic_behavior.get("skip_if") and self.evaluate_condition(dynamic_behavior.get("skip_if"), context):
+                return False
+            if dynamic_behavior.get("show_if") and not self.evaluate_condition(dynamic_behavior.get("show_if"), context):
+                return False
             if question.get("show_if") and not self.evaluate_condition(question.get("show_if"), context):
                 return False
             is_required = qid in self.required_questions or question.get("required")
             qtype = question.get("type")
+            section = question.get("section")
+            if section not in ("core", "closing") and total_answered >= max(0, target_max - closing_reserve):
+                return False
+            if total_answered >= total_max and question.get("section") != "closing":
+                return False
             if not is_required and total_answered >= total_max:
                 return False
             if qtype in ("text_short", "text_long") and not is_required and text_count >= text_max:
@@ -295,6 +548,25 @@ class SurveyEngine:
                 return question
 
         return None
+
+    def _apply_auto_answers(self, answers: Dict[str, Any], history: List[str]) -> None:
+        if "q035_primary_product_focus" in answers or "q035_primary_product_focus" in history:
+            return
+        question = self.questions_by_id.get("q035_primary_product_focus")
+        if not question:
+            return
+        selected = answers.get("q030_product_interest")
+        if not isinstance(selected, list) or len(selected) != 1:
+            return
+        entry_goal = answers.get("q010_entry_goal")
+        if entry_goal in ("custom_personal", "custom_team_unit"):
+            return
+        dynamic_behavior = question.get("dynamic_behavior") or {}
+        concrete = set(dynamic_behavior.get("concrete_product_values") or [])
+        value = selected[0]
+        if value in concrete:
+            answers["q035_primary_product_focus"] = value
+            answers[dynamic_behavior.get("store_auto_answer_flag") or "q035_auto_answered"] = True
 
     def _collect_followups(
         self,
@@ -349,7 +621,7 @@ class SurveyEngine:
         qtype = question.get("type")
         required = bool(question.get("required"))
 
-        if answer in (None, ""):
+        if self._is_empty(answer):
             if required:
                 return False, None, "required"
             return True, None, "ok"
@@ -378,6 +650,10 @@ class SurveyEngine:
                 answers_list = list(answer) if isinstance(answer, (list, tuple, set)) else []
             options = {opt.get("value") for opt in question.get("options", [])}
             answers_list = [item for item in answers_list if item in options]
+            exclusive_values = set((question.get("selection_rules") or {}).get("exclusive_values") or [])
+            selected_exclusive = [item for item in answers_list if item in exclusive_values]
+            if selected_exclusive:
+                answers_list = [selected_exclusive[0]]
             if required and not answers_list:
                 return False, None, "required"
             max_select = question.get("max_select")
@@ -394,7 +670,104 @@ class SurveyEngine:
                 text_value = text_value[:limit]
             return True, text_value, "ok"
 
+        if qtype == "maxdiff_best_worst":
+            if not isinstance(answer, dict):
+                return False, None, "invalid"
+            options = {opt.get("value") for opt in question.get("options", [])}
+            best = answer.get("best")
+            worst = answer.get("worst")
+            if best not in options or worst not in options:
+                return False, None, "invalid"
+            if best == worst:
+                return False, None, "distinct_required"
+            return True, {"best": best, "worst": worst}, "ok"
+
+        if qtype in ("concept_reaction_cards", "tap_reaction_cards"):
+            return self._validate_mapping_choice(
+                answer,
+                allowed_keys={item.get("value") for item in question.get("concepts", [])},
+                allowed_values=set(question.get("scale_options") or []),
+                required=required,
+            )
+
+        if qtype == "purchase_intent_matrix":
+            return self._validate_mapping_choice(
+                answer,
+                allowed_keys={item.get("value") for item in question.get("rows", [])},
+                allowed_values=set(question.get("columns") or []),
+                required=required,
+            )
+
+        if qtype == "price_ladder_by_product":
+            ranges = question.get("dynamic_matrix_ranges") or {}
+            allowed = {
+                option.get("value")
+                for options in ranges.values()
+                for option in options
+                if isinstance(option, dict)
+            }
+            if answer not in allowed:
+                return False, None, "invalid"
+            return True, answer, "ok"
+
+        if qtype == "budget_allocation_100":
+            if not isinstance(answer, dict):
+                return False, None, "invalid"
+            allowed_keys = {item.get("value") for item in question.get("buckets", [])}
+            cleaned: Dict[str, int] = {}
+            for key, value in answer.items():
+                if key not in allowed_keys:
+                    continue
+                try:
+                    number = int(value)
+                except (TypeError, ValueError):
+                    return False, None, "invalid"
+                if number < 0 or number > 100:
+                    return False, None, "range"
+                if number:
+                    cleaned[key] = number
+            if required and not cleaned:
+                return False, None, "required"
+            if sum(cleaned.values()) != 100:
+                return False, None, "total_must_be_100"
+            return True, cleaned, "ok"
+
+        if qtype == "contact_capture":
+            if not isinstance(answer, dict):
+                return False, None, "invalid"
+            channel = str(answer.get("channel") or "").strip()
+            value = str(answer.get("value") or "").strip()
+            if channel not in set(question.get("channels") or []):
+                return False, None, "invalid_channel"
+            if not value:
+                return False, None, "required"
+            return True, {"channel": channel, "value": value[:160]}, "ok"
+
+        if qtype == "info_card":
+            return True, True if answer is True else None, "ok"
+
         return True, answer, "ok"
+
+    def _validate_mapping_choice(
+        self,
+        answer: Any,
+        *,
+        allowed_keys: set,
+        allowed_values: set,
+        required: bool,
+    ) -> Tuple[bool, Any, str]:
+        if not isinstance(answer, dict):
+            return False, None, "invalid"
+        cleaned = {
+            str(key): value
+            for key, value in answer.items()
+            if key in allowed_keys and value in allowed_values
+        }
+        if required and not cleaned:
+            return False, None, "required"
+        if not cleaned:
+            return True, None, "ok"
+        return True, cleaned, "ok"
 
     def format_answer(self, question: Dict[str, Any], answer: Any) -> str:
         if answer in (None, ""):
@@ -409,6 +782,8 @@ class SurveyEngine:
             return ", ".join(labels)
         if qtype in ("slider_1_10", "slider_0_10"):
             return str(answer)
+        if isinstance(answer, dict):
+            return ", ".join(f"{key}: {value}" for key, value in answer.items())
         return str(answer)
 
     def _label_for_option(self, question: Dict[str, Any], value: Any) -> Optional[str]:
@@ -417,6 +792,115 @@ class SurveyEngine:
                 return option.get("label_uk") or option.get("label")
         return None
 
+    def _is_empty(self, value: Any) -> bool:
+        return value in (None, "") or value == [] or value == {}
+
+    def _localize_items(self, items: Any) -> Any:
+        if not isinstance(items, list):
+            return items
+        localized = []
+        for item in items:
+            if isinstance(item, dict):
+                localized.append(
+                    {
+                        **item,
+                        "label": item.get("label_uk") or item.get("label") or item.get("value"),
+                        "description": item.get("description_uk") or item.get("description"),
+                    }
+                )
+            else:
+                localized.append(item)
+        return localized
+
+    def _options_for_question(self, question: Dict[str, Any], answers: Dict[str, Any]) -> List[Dict[str, Any]]:
+        options = question.get("options") or []
+        if question.get("id") != "q035_primary_product_focus":
+            return options
+
+        selected = answers.get("q030_product_interest")
+        if not isinstance(selected, list):
+            return options
+
+        dynamic_behavior = question.get("dynamic_behavior") or {}
+        concrete_values = set(dynamic_behavior.get("concrete_product_values") or [])
+        allowed = [value for value in selected if value in concrete_values and value != "not_sure"]
+        context = {"answers": answers, "meta": {}}
+        for item in dynamic_behavior.get("additional_options_if") or []:
+            if self.evaluate_condition(item.get("if"), context):
+                allowed.extend(item.get("include") or [])
+        if "not_sure" in selected:
+            allowed.extend(["not_sure", "custom_item"])
+        if not allowed:
+            allowed = ["tshirt", "hoodie", "custom_item", "not_sure"]
+
+        allowed_set = set(allowed)
+        filtered = [option for option in options if option.get("value") in allowed_set]
+        return filtered or options
+
+    def _price_ladder_payload(self, question: Dict[str, Any], answers: Dict[str, Any]) -> Dict[str, Any]:
+        context_key, range_key = self._price_ladder_context(question, answers)
+        ranges = question.get("dynamic_matrix_ranges") or {}
+        range_options = ranges.get(range_key) or ranges.get("fallback") or []
+        prompt = (
+            (question.get("prompt_variants") or {}).get(context_key)
+            or (question.get("prompt_variants") or {}).get("fallback")
+            or question.get("prompt_uk")
+        )
+        return {
+            "prompt": prompt,
+            "price_context": context_key,
+            "range_key": range_key,
+            "ladder_points": (question.get("ladder_points_by_context") or {}).get(context_key, []),
+            "options": range_options,
+        }
+
+    def _price_ladder_context(self, question: Dict[str, Any], answers: Dict[str, Any]) -> Tuple[str, str]:
+        quantity = answers.get("q305_custom_quantity")
+        entry_goal = answers.get("q010_entry_goal")
+        stage = answers.get("q020_purchase_stage")
+        if (
+            (entry_goal == "custom_team_unit" or stage == "custom_request")
+            and quantity in ("21_50", "50_plus")
+        ):
+            range_key = "team_unit_project_budget_fallback"
+        elif entry_goal == "partner" or stage == "partner_discussion":
+            range_key = "b2b_wholesale_fallback"
+        elif entry_goal == "custom_team_unit" or stage == "custom_request":
+            range_key = "team_unit_bulk_fallback"
+        else:
+            range_key = answers.get("q035_primary_product_focus") or "fallback"
+            if range_key in (None, "", "not_sure"):
+                range_key = "fallback"
+
+        ranges = question.get("dynamic_matrix_ranges") or {}
+        if range_key not in ranges:
+            range_key = "fallback"
+        context_key = (question.get("range_context_map") or {}).get(range_key, "retail_product")
+        return context_key, range_key
+
+    def validate_definition(self) -> List[str]:
+        errors: List[str] = []
+        for question in self.questions:
+            if question.get("type") != "price_ladder_by_product":
+                continue
+            ranges = question.get("dynamic_matrix_ranges") or {}
+            range_context_map = question.get("range_context_map") or {}
+            ladder_points_by_context = question.get("ladder_points_by_context") or {}
+            for item in question.get("routing_modifiers") or []:
+                range_key = item.get("use_range_key")
+                ladder_key = item.get("use_ladder_points")
+                if range_key and range_key not in ranges:
+                    errors.append(f"{question.get('id')}: missing range key {range_key}")
+                if ladder_key and ladder_key not in ladder_points_by_context:
+                    errors.append(f"{question.get('id')}: missing ladder context {ladder_key}")
+            for range_key in ranges.keys():
+                if range_key not in range_context_map:
+                    errors.append(f"{question.get('id')}: missing context for range {range_key}")
+            for range_key, context_key in range_context_map.items():
+                if range_key in ranges and context_key not in ladder_points_by_context:
+                    errors.append(f"{question.get('id')}: missing ladder points for context {context_key}")
+        return errors
+
 
 def award_survey_promocode(
     user,
@@ -424,10 +908,6 @@ def award_survey_promocode(
     reward_def: Dict[str, Any],
 ) -> Tuple[PromoCode, Optional[datetime]]:
     """Create or reuse a promo code for survey reward (idempotent)."""
-    reward_def = reward_def or {}
-    amount = reward_def.get("amount_uah", 0)
-    expires_in_days = int(reward_def.get("expires_in_days", 5))
-
     with transaction.atomic():
         existing = (
             UserPromoCode.objects.select_for_update()
@@ -438,30 +918,7 @@ def award_survey_promocode(
         if existing and existing.promo_code:
             return existing.promo_code, existing.promo_code.valid_until
 
-        group_name = f"Survey: {survey_key}"
-        promo_group, _ = PromoCodeGroup.objects.get_or_create(
-            name=group_name,
-            defaults={
-                "description": f"Survey reward for {survey_key}",
-                "one_per_account": True,
-                "is_active": True,
-            },
-        )
-
-        now = timezone.now()
-        promo_code = PromoCode.objects.create(
-            code=PromoCode.generate_code(),
-            promo_type="voucher",
-            discount_type="fixed",
-            discount_value=amount,
-            description=reward_def.get("title_uk") or f"Survey reward {survey_key}",
-            group=promo_group,
-            max_uses=1,
-            one_time_per_user=True,
-            valid_from=now,
-            valid_until=now + timedelta(days=expires_in_days),
-            is_active=True,
-        )
+        promo_code = create_survey_promocode(survey_key, reward_def)
 
         try:
             UserPromoCode.objects.create(
@@ -483,4 +940,14 @@ def award_survey_promocode(
                 return existing.promo_code, existing.promo_code.valid_until
             raise
 
+    return promo_code, promo_code.valid_until
+
+
+def award_anonymous_survey_promocode(
+    survey_key: str,
+    reward_def: Dict[str, Any],
+) -> Tuple[PromoCode, Optional[datetime]]:
+    """Create a one-use survey promo code for an anonymous browser session."""
+    with transaction.atomic():
+        promo_code = create_survey_promocode(survey_key, reward_def)
     return promo_code, promo_code.valid_until

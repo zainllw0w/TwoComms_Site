@@ -8,9 +8,10 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
-from ..models import SurveySession
+from ..models import PromoCode, SurveySession
 from ..services.survey_engine import (
     SurveyEngine,
+    award_anonymous_survey_promocode,
     award_survey_promocode,
     get_soft_hint,
     load_survey_definition,
@@ -22,17 +23,14 @@ from ..utm_utils import parse_user_agent
 logger = logging.getLogger(__name__)
 
 
+ANONYMOUS_SURVEY_SESSION_KEY = "anonymous_survey_sessions"
+
+
 def _json_body(request) -> Dict[str, Any]:
     try:
         return json.loads(request.body.decode("utf-8") or "{}")
     except Exception:
         return {}
-
-
-def _auth_guard(request):
-    if not request.user.is_authenticated:
-        return JsonResponse({"success": False, "error": "auth_required"}, status=401)
-    return None
 
 
 def _definition_or_error():
@@ -42,25 +40,131 @@ def _definition_or_error():
     return definition, None
 
 
-def _serialize_state(session: SurveySession, engine: SurveyEngine) -> Dict[str, Any]:
-    answers = session.answers or {}
-    question = engine.get_question(session.current_question_id) if session.current_question_id else None
+def _is_authenticated(request) -> bool:
+    return bool(getattr(getattr(request, "user", None), "is_authenticated", False))
+
+
+def _anonymous_survey_bucket(request) -> Dict[str, Any]:
+    bucket = request.session.get(ANONYMOUS_SURVEY_SESSION_KEY)
+    return bucket if isinstance(bucket, dict) else {}
+
+
+def _save_anonymous_survey_state(request, survey_key: str, state: Dict[str, Any]) -> None:
+    bucket = _anonymous_survey_bucket(request)
+    bucket[survey_key] = state
+    request.session[ANONYMOUS_SURVEY_SESSION_KEY] = bucket
+    request.session.modified = True
+
+
+def _get_anonymous_survey_state(
+    request,
+    survey_key: str,
+    *,
+    create: bool = False,
+    device_data: Dict[str, Any] | None = None,
+) -> tuple[Dict[str, Any] | None, bool]:
+    bucket = _anonymous_survey_bucket(request)
+    state = bucket.get(survey_key)
+    if isinstance(state, dict):
+        return state, False
+    if not create:
+        return None, False
+
+    state = {
+        "survey_key": survey_key,
+        "status": "in_progress",
+        "answers": {},
+        "history": [],
+        "current_question_id": None,
+        "back_used": False,
+        "version": 1,
+        "module_order": [],
+        "device_type": (device_data or {}).get("device_type"),
+        "user_agent": request.META.get("HTTP_USER_AGENT", "")[:500],
+        "awarded_promocode_id": None,
+    }
+    _save_anonymous_survey_state(request, survey_key, state)
+    return state, True
+
+
+def _promo_payload(promo_code: PromoCode | None) -> Dict[str, Any] | None:
+    if not promo_code:
+        return None
+    return {
+        "code": promo_code.code,
+        "expires_at": promo_code.valid_until.isoformat() if promo_code.valid_until else None,
+    }
+
+
+def _serialize_payload(
+    *,
+    engine: SurveyEngine,
+    survey_key: str,
+    status: str,
+    answers: Dict[str, Any],
+    history: list[str],
+    current_question_id: str | None,
+    version: int,
+    back_used: bool,
+    promo_code: PromoCode | None = None,
+    session_id: int | None = None,
+) -> Dict[str, Any]:
+    question = engine.get_question(current_question_id) if current_question_id else None
     payload = {
         "success": True,
-        "status": session.status,
-        "session_id": session.id,
-        "version": session.version,
-        "back_used": session.back_used,
-        "answered_count": len(session.history or []),
-        "soft_hint": get_soft_hint(len(session.history or [])),
-        "question": engine.serialize_question(question, answers.get(question.get("id"))) if question else None,
+        "status": status,
+        "session_id": session_id,
+        "version": version,
+        "back_used": back_used,
+        "answered_count": len(history or []),
+        "soft_hint": get_soft_hint(len(history or [])),
+        "question": engine.serialize_question(
+            question,
+            answers.get(question.get("id")),
+            answers=answers,
+        ) if question else None,
     }
-    if session.awarded_promocode:
-        payload["promo"] = {
-            "code": session.awarded_promocode.code,
-            "expires_at": session.awarded_promocode.valid_until.isoformat() if session.awarded_promocode.valid_until else None,
-        }
+    promo = _promo_payload(promo_code)
+    if promo:
+        payload["promo"] = promo
     return payload
+
+
+def _serialize_state(session: SurveySession, engine: SurveyEngine) -> Dict[str, Any]:
+    return _serialize_payload(
+        engine=engine,
+        survey_key=session.survey_key,
+        status=session.status,
+        answers=session.answers or {},
+        history=session.history or [],
+        current_question_id=session.current_question_id,
+        version=session.version,
+        back_used=session.back_used,
+        promo_code=session.awarded_promocode,
+        session_id=session.id,
+    )
+
+
+def _anonymous_promocode(state: Dict[str, Any]) -> PromoCode | None:
+    promo_id = state.get("awarded_promocode_id")
+    if not promo_id:
+        return None
+    return PromoCode.objects.filter(pk=promo_id).first()
+
+
+def _serialize_anonymous_state(state: Dict[str, Any], engine: SurveyEngine) -> Dict[str, Any]:
+    return _serialize_payload(
+        engine=engine,
+        survey_key=state.get("survey_key", ""),
+        status=state.get("status", "in_progress"),
+        answers=state.get("answers") or {},
+        history=state.get("history") or [],
+        current_question_id=state.get("current_question_id"),
+        version=int(state.get("version") or 1),
+        back_used=bool(state.get("back_used")),
+        promo_code=_anonymous_promocode(state),
+        session_id=None,
+    )
 
 
 def _ensure_current_question(session: SurveySession, engine: SurveyEngine) -> None:
@@ -75,6 +179,19 @@ def _ensure_current_question(session: SurveySession, engine: SurveyEngine) -> No
     if question:
         session.current_question_id = question.get("id")
         session.save(update_fields=["current_question_id", "last_activity_at"])
+
+
+def _ensure_anonymous_current_question(state: Dict[str, Any], engine: SurveyEngine) -> None:
+    if state.get("current_question_id"):
+        return
+    question = engine.get_next_question(
+        state.get("answers") or {},
+        state.get("history") or [],
+        meta=None,
+        module_order=state.get("module_order") or None,
+    )
+    if question:
+        state["current_question_id"] = question.get("id")
 
 
 def _required_satisfied(engine: SurveyEngine, answers: Dict[str, Any]) -> bool:
@@ -100,12 +217,29 @@ def _complete_session(session: SurveySession, definition: Dict[str, Any]) -> Sur
     return session
 
 
+def _complete_anonymous_session(
+    request,
+    state: Dict[str, Any],
+    definition: Dict[str, Any],
+) -> Dict[str, Any]:
+    if state.get("status") == "completed":
+        return state
+
+    promo_code = _anonymous_promocode(state)
+    if not promo_code:
+        reward_def = definition.get("reward", {})
+        promo_code, _ = award_anonymous_survey_promocode(state.get("survey_key", ""), reward_def)
+        state["awarded_promocode_id"] = promo_code.id
+
+    state["status"] = "completed"
+    state["completed_at"] = timezone.now().isoformat()
+    state["current_question_id"] = None
+    _save_anonymous_survey_state(request, state.get("survey_key", ""), state)
+    return state
+
+
 @require_http_methods(["POST"])
 def survey_start_or_resume(request):
-    auth_response = _auth_guard(request)
-    if auth_response:
-        return auth_response
-
     definition, error_response = _definition_or_error()
     if error_response:
         return error_response
@@ -114,6 +248,29 @@ def survey_start_or_resume(request):
     survey_key = definition.get("survey_key", "print_feedback_v1")
 
     device_data = parse_user_agent(request.META.get("HTTP_USER_AGENT", ""))
+
+    if not _is_authenticated(request):
+        state, created = _get_anonymous_survey_state(
+            request,
+            survey_key,
+            create=True,
+            device_data=device_data,
+        )
+        if not state:
+            return JsonResponse({"success": False, "error": "session_unavailable"}, status=500)
+
+        if state.get("status") != "completed":
+            _ensure_anonymous_current_question(state, engine)
+            _save_anonymous_survey_state(request, survey_key, state)
+
+        if created:
+            record_survey_event(
+                request,
+                "survey_start",
+                question_id=state.get("current_question_id"),
+                metadata={"created": True, "survey_key": survey_key, "anonymous": True},
+            )
+        return JsonResponse(_serialize_anonymous_state(state, engine))
 
     created = False
     try:
@@ -154,16 +311,22 @@ def survey_start_or_resume(request):
 
 @require_http_methods(["GET"])
 def survey_current_question(request):
-    auth_response = _auth_guard(request)
-    if auth_response:
-        return auth_response
-
     definition, error_response = _definition_or_error()
     if error_response:
         return error_response
 
     engine = SurveyEngine(definition)
     survey_key = definition.get("survey_key", "print_feedback_v1")
+
+    if not _is_authenticated(request):
+        state, _ = _get_anonymous_survey_state(request, survey_key)
+        if not state:
+            return JsonResponse({"success": False, "error": "session_not_found"}, status=404)
+        if state.get("status") != "completed":
+            _ensure_anonymous_current_question(state, engine)
+            _save_anonymous_survey_state(request, survey_key, state)
+        return JsonResponse(_serialize_anonymous_state(state, engine))
+
     session = SurveySession.objects.filter(user=request.user, survey_key=survey_key).first()
     if not session:
         return JsonResponse({"success": False, "error": "session_not_found"}, status=404)
@@ -177,10 +340,6 @@ def survey_current_question(request):
 
 @require_http_methods(["POST"])
 def survey_submit_answer(request):
-    auth_response = _auth_guard(request)
-    if auth_response:
-        return auth_response
-
     definition, error_response = _definition_or_error()
     if error_response:
         return error_response
@@ -194,6 +353,95 @@ def survey_submit_answer(request):
 
     if not question_id:
         return JsonResponse({"success": False, "error": "missing_question"}, status=400)
+
+    if not _is_authenticated(request):
+        state, _ = _get_anonymous_survey_state(request, survey_key)
+        if not state:
+            return JsonResponse({"success": False, "error": "session_not_found"}, status=404)
+        if state.get("status") == "completed":
+            return JsonResponse(_serialize_anonymous_state(state, engine))
+
+        if client_version is not None and int(client_version) != int(state.get("version") or 1):
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "version_conflict",
+                    "current": _serialize_anonymous_state(state, engine),
+                },
+                status=409,
+            )
+
+        if state.get("current_question_id") and state.get("current_question_id") != question_id:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "question_mismatch",
+                    "current": _serialize_anonymous_state(state, engine),
+                },
+                status=409,
+            )
+
+        question = engine.get_question(question_id)
+        if not question:
+            return JsonResponse({"success": False, "error": "question_not_found"}, status=404)
+
+        valid, cleaned, reason = engine.validate_answer(question, answer)
+        if not valid:
+            return JsonResponse({"success": False, "error": reason}, status=400)
+
+        answers = state.get("answers") or {}
+        answers[question_id] = cleaned
+        history = state.get("history") or []
+        if question_id in history:
+            history = [qid for qid in history if qid != question_id]
+        history.append(question_id)
+
+        state["answers"] = answers
+        state["history"] = history
+        state["version"] = int(state.get("version") or 1) + 1
+
+        next_question = engine.get_next_question(
+            state["answers"],
+            state["history"],
+            meta=None,
+            module_order=state.get("module_order") or None,
+        )
+
+        if next_question:
+            state["current_question_id"] = next_question.get("id")
+            _save_anonymous_survey_state(request, survey_key, state)
+            record_survey_event(
+                request,
+                "survey_skip" if answer is None else "survey_answer",
+                question_id=question_id,
+                metadata={
+                    "question_type": question.get("type"),
+                    "next_question_id": state.get("current_question_id"),
+                    "survey_key": survey_key,
+                    "anonymous": True,
+                },
+            )
+            return JsonResponse(_serialize_anonymous_state(state, engine))
+
+        min_required = int(definition.get("end_conditions", {}).get("min_answered_questions", 0))
+        if len(state.get("history") or []) < min_required and not _required_satisfied(engine, state.get("answers") or {}):
+            logger.warning("Anonymous survey ended early for survey %s", survey_key)
+
+        _save_anonymous_survey_state(request, survey_key, state)
+        record_survey_event(
+            request,
+            "survey_skip" if answer is None else "survey_answer",
+            question_id=question_id,
+            metadata={"question_type": question.get("type"), "survey_key": survey_key, "anonymous": True},
+        )
+        state = _complete_anonymous_session(request, state, definition)
+        record_survey_event(
+            request,
+            "survey_complete",
+            question_id=question_id,
+            metadata={"question_type": question.get("type"), "survey_key": survey_key, "anonymous": True},
+        )
+        return JsonResponse(_serialize_anonymous_state(state, engine))
 
     try:
         with transaction.atomic():
@@ -285,10 +533,6 @@ def survey_submit_answer(request):
 
 @require_http_methods(["POST"])
 def survey_back_one_step(request):
-    auth_response = _auth_guard(request)
-    if auth_response:
-        return auth_response
-
     definition, error_response = _definition_or_error()
     if error_response:
         return error_response
@@ -297,6 +541,42 @@ def survey_back_one_step(request):
     survey_key = definition.get("survey_key", "print_feedback_v1")
     payload = _json_body(request)
     client_version = payload.get("version")
+
+    if not _is_authenticated(request):
+        state, _ = _get_anonymous_survey_state(request, survey_key)
+        if not state:
+            return JsonResponse({"success": False, "error": "session_not_found"}, status=404)
+        if state.get("status") == "completed":
+            return JsonResponse(_serialize_anonymous_state(state, engine))
+        if state.get("back_used"):
+            return JsonResponse({"success": False, "error": "back_used"}, status=400)
+        if client_version is not None and int(client_version) != int(state.get("version") or 1):
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "version_conflict",
+                    "current": _serialize_anonymous_state(state, engine),
+                },
+                status=409,
+            )
+
+        history = state.get("history") or []
+        if not history:
+            return JsonResponse({"success": False, "error": "no_history"}, status=400)
+
+        last_question_id = history.pop()
+        state["history"] = history
+        state["current_question_id"] = last_question_id
+        state["back_used"] = True
+        state["version"] = int(state.get("version") or 1) + 1
+        _save_anonymous_survey_state(request, survey_key, state)
+        record_survey_event(
+            request,
+            "survey_back",
+            question_id=last_question_id,
+            metadata={"client_version": client_version, "survey_key": survey_key, "anonymous": True},
+        )
+        return JsonResponse(_serialize_anonymous_state(state, engine))
 
     try:
         with transaction.atomic():
@@ -342,15 +622,25 @@ def survey_back_one_step(request):
 
 @require_http_methods(["POST"])
 def survey_close(request):
-    auth_response = _auth_guard(request)
-    if auth_response:
-        return auth_response
-
     definition, error_response = _definition_or_error()
     if error_response:
         return error_response
 
     survey_key = definition.get("survey_key", "print_feedback_v1")
+
+    if not _is_authenticated(request):
+        state, _ = _get_anonymous_survey_state(request, survey_key)
+        if state:
+            state["last_activity_at"] = timezone.now().isoformat()
+            _save_anonymous_survey_state(request, survey_key, state)
+            record_survey_event(
+                request,
+                "survey_close",
+                question_id=state.get("current_question_id"),
+                metadata={"survey_key": survey_key, "anonymous": True},
+            )
+        return JsonResponse({"success": True})
+
     session = SurveySession.objects.filter(user=request.user, survey_key=survey_key).first()
     if session:
         SurveySession.objects.filter(pk=session.pk).update(last_activity_at=timezone.now())
@@ -365,16 +655,36 @@ def survey_close(request):
 
 @require_http_methods(["POST"])
 def survey_complete(request):
-    auth_response = _auth_guard(request)
-    if auth_response:
-        return auth_response
-
     definition, error_response = _definition_or_error()
     if error_response:
         return error_response
 
     engine = SurveyEngine(definition)
     survey_key = definition.get("survey_key", "print_feedback_v1")
+
+    if not _is_authenticated(request):
+        state, _ = _get_anonymous_survey_state(request, survey_key)
+        if not state:
+            return JsonResponse({"success": False, "error": "session_not_found"}, status=404)
+
+        if state.get("status") == "completed":
+            return JsonResponse(_serialize_anonymous_state(state, engine))
+
+        min_required = int(definition.get("end_conditions", {}).get("min_answered_questions", 0))
+        if len(state.get("history") or []) < min_required:
+            return JsonResponse({"success": False, "error": "not_enough_answers"}, status=400)
+
+        if not _required_satisfied(engine, state.get("answers") or {}):
+            return JsonResponse({"success": False, "error": "required_missing"}, status=400)
+
+        state = _complete_anonymous_session(request, state, definition)
+        record_survey_event(
+            request,
+            "survey_complete",
+            metadata={"completed_via": "explicit_endpoint", "survey_key": survey_key, "anonymous": True},
+        )
+        return JsonResponse(_serialize_anonymous_state(state, engine))
+
     session = SurveySession.objects.filter(user=request.user, survey_key=survey_key).first()
     if not session:
         return JsonResponse({"success": False, "error": "session_not_found"}, status=404)

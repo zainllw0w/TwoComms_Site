@@ -35,6 +35,34 @@ function buildOptionTooltip(helpText) {
   return { infoBtn, tooltip };
 }
 
+function isPlainObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function hasMeaningfulAnswer(question, answer) {
+  if (!question) return false;
+  if (question.type === 'info_card') return true;
+  if (Array.isArray(answer)) return answer.length > 0;
+  if (question.type === 'maxdiff_best_worst') {
+    return isPlainObject(answer) && answer.best && answer.worst && answer.best !== answer.worst;
+  }
+  if (question.type === 'budget_allocation_100') {
+    if (!isPlainObject(answer)) return false;
+    return Object.values(answer).reduce((sum, value) => sum + (parseInt(value, 10) || 0), 0) === 100;
+  }
+  if (question.type === 'contact_capture') {
+    return isPlainObject(answer) && answer.channel && `${answer.value || ''}`.trim().length > 0;
+  }
+  if (
+    question.type === 'concept_reaction_cards' ||
+    question.type === 'tap_reaction_cards' ||
+    question.type === 'purchase_intent_matrix'
+  ) {
+    return isPlainObject(answer) && Object.keys(answer).length > 0;
+  }
+  return !!answer || answer === 0;
+}
+
 export function initSurvey() {
   const cta = document.querySelector('[data-survey-cta]');
   if (!cta) return;
@@ -108,17 +136,6 @@ export function initSurvey() {
     }).catch(() => {});
   };
 
-  const openAuthPanel = () => {
-    const mobile = window.innerWidth < 576;
-    const toggle = document.getElementById(mobile ? 'user-toggle-mobile' : 'user-toggle');
-    if (toggle) {
-      toggle.click();
-      return;
-    }
-    const loginUrl = cta.dataset.loginUrl || '/login/';
-    window.location.href = loginUrl;
-  };
-
   const showLoading = () => {
     bodyContainer.innerHTML = '<div class="survey-loading"><div class="survey-spinner"></div><div class="survey-loading-text">Завантаження…</div></div>';
   };
@@ -136,8 +153,15 @@ export function initSurvey() {
 
   const updateActionButtons = () => {
     const required = state.question?.required;
-    const hasAnswer = Array.isArray(state.answer) ? state.answer.length > 0 : !!state.answer || state.answer === 0;
+    const hasAnswer = hasMeaningfulAnswer(state.question, state.answer);
     nextBtn.disabled = required ? !hasAnswer : false;
+    const partialStructuredAnswer = isPlainObject(state.answer) && Object.keys(state.answer).length > 0;
+    if (
+      partialStructuredAnswer &&
+      ['budget_allocation_100', 'maxdiff_best_worst', 'contact_capture'].includes(state.question?.type)
+    ) {
+      nextBtn.disabled = !hasAnswer;
+    }
     skipBtn.style.display = required ? 'none' : '';
     backBtn.disabled = state.backUsed || state.answeredCount <= 0;
   };
@@ -194,8 +218,66 @@ export function initSurvey() {
       container.appendChild(help);
     }
 
+    if (question.instruction || question.ui_hint) {
+      const hint = document.createElement('div');
+      hint.className = 'survey-question-help survey-question-hint';
+      hint.textContent = question.instruction || question.ui_hint;
+      container.appendChild(hint);
+    }
+
     const optionsWrap = document.createElement('div');
     optionsWrap.className = 'survey-options';
+
+    const renderChoiceCards = (items, choices, descriptionKey = 'description') => {
+      const current = isPlainObject(state.answer) ? { ...state.answer } : {};
+      const refresh = () => {
+        optionsWrap.querySelectorAll('[data-choice-card]').forEach((card) => {
+          const key = card.dataset.value;
+          card.querySelectorAll('[data-choice]').forEach((button) => {
+            button.classList.toggle('selected', current[key] === button.dataset.choice);
+          });
+        });
+      };
+
+      (items || []).forEach((item) => {
+        const card = document.createElement('div');
+        card.className = 'survey-choice-card';
+        card.dataset.choiceCard = '1';
+        card.dataset.value = item.value;
+
+        const label = document.createElement('div');
+        label.className = 'survey-choice-card-label';
+        label.textContent = item.label || item.value;
+        card.appendChild(label);
+
+        if (item[descriptionKey]) {
+          const desc = document.createElement('div');
+          desc.className = 'survey-choice-card-desc';
+          desc.textContent = item[descriptionKey];
+          card.appendChild(desc);
+        }
+
+        const group = document.createElement('div');
+        group.className = 'survey-segment-row';
+        (choices || []).forEach((choice) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'survey-segment-btn';
+          button.dataset.choice = choice;
+          button.textContent = choice;
+          button.addEventListener('click', () => {
+            current[item.value] = choice;
+            state.answer = { ...current };
+            refresh();
+            updateActionButtons();
+          });
+          group.appendChild(button);
+        });
+        card.appendChild(group);
+        optionsWrap.appendChild(card);
+      });
+      refresh();
+    };
 
     if (question.type === 'slider_1_10' || question.type === 'slider_0_10') {
       const scale = question.scale || { min: 1, max: 10 };
@@ -225,6 +307,56 @@ export function initSurvey() {
       optionsWrap.appendChild(sliderValue);
       optionsWrap.appendChild(slider);
       optionsWrap.appendChild(scaleLabels);
+    } else if (question.type === 'info_card') {
+      state.answer = true;
+      const card = document.createElement('div');
+      card.className = 'survey-info-card';
+      card.textContent = 'Далі покажемо тільки релевантні питання.';
+      optionsWrap.appendChild(card);
+    } else if (question.type === 'maxdiff_best_worst') {
+      const current = isPlainObject(state.answer) ? { ...state.answer } : {};
+      const refresh = () => {
+        optionsWrap.querySelectorAll('.survey-maxdiff-card').forEach((card) => {
+          card.classList.toggle('best-selected', current.best === card.dataset.value);
+          card.classList.toggle('worst-selected', current.worst === card.dataset.value);
+        });
+      };
+      (question.options || []).forEach((opt) => {
+        const card = document.createElement('div');
+        card.className = 'survey-maxdiff-card';
+        card.dataset.value = opt.value;
+
+        const label = document.createElement('div');
+        label.className = 'survey-maxdiff-label';
+        label.textContent = opt.label;
+        card.appendChild(label);
+
+        const actions = document.createElement('div');
+        actions.className = 'survey-maxdiff-actions';
+        [
+          ['best', 'Найважливіше'],
+          ['worst', 'Найменш важливо'],
+        ].forEach(([key, labelText]) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = `survey-segment-btn survey-maxdiff-${key}`;
+          button.textContent = labelText;
+          button.addEventListener('click', () => {
+            current[key] = opt.value;
+            if (current.best && current.worst && current.best === current.worst) {
+              const other = key === 'best' ? 'worst' : 'best';
+              delete current[other];
+            }
+            state.answer = { ...current };
+            refresh();
+            updateActionButtons();
+          });
+          actions.appendChild(button);
+        });
+        card.appendChild(actions);
+        optionsWrap.appendChild(card);
+      });
+      refresh();
     } else if (question.type === 'single_choice') {
       (question.options || []).forEach((opt) => {
         const option = document.createElement('button');
@@ -284,6 +416,114 @@ export function initSurvey() {
         });
         optionsWrap.appendChild(option);
       });
+    } else if (question.type === 'price_ladder_by_product') {
+      if (question.price_context) {
+        const context = document.createElement('div');
+        context.className = 'survey-context-pill';
+        context.textContent = question.price_context === 'retail_product' ? 'Роздрібна ціна' : 'Ціна під твій сценарій';
+        optionsWrap.appendChild(context);
+      }
+      (question.options || []).forEach((opt) => {
+        const option = document.createElement('button');
+        option.type = 'button';
+        option.className = 'survey-option survey-price-option';
+        option.dataset.value = opt.value;
+        option.innerHTML = `<span>${opt.label}</span>`;
+        if (state.answer === opt.value) {
+          option.classList.add('selected');
+        }
+        option.addEventListener('click', () => {
+          state.answer = opt.value;
+          optionsWrap.querySelectorAll('.survey-price-option').forEach((el) => el.classList.remove('selected'));
+          option.classList.add('selected');
+          updateActionButtons();
+        });
+        optionsWrap.appendChild(option);
+      });
+    } else if (question.type === 'concept_reaction_cards' || question.type === 'tap_reaction_cards') {
+      renderChoiceCards(question.concepts || [], question.scale_options || []);
+    } else if (question.type === 'purchase_intent_matrix') {
+      renderChoiceCards(question.rows || [], question.columns || []);
+    } else if (question.type === 'budget_allocation_100') {
+      const current = isPlainObject(state.answer) ? { ...state.answer } : {};
+      const totalLine = document.createElement('div');
+      totalLine.className = 'survey-budget-total';
+
+      const refreshTotal = () => {
+        const total = Object.values(current).reduce((sum, value) => sum + (parseInt(value, 10) || 0), 0);
+        totalLine.textContent = `Розподілено ${total}/100`;
+        totalLine.classList.toggle('complete', total === 100);
+        state.answer = Object.entries(current).reduce((acc, [key, value]) => {
+          const number = parseInt(value, 10) || 0;
+          if (number > 0) acc[key] = number;
+          return acc;
+        }, {});
+        updateActionButtons();
+      };
+
+      optionsWrap.appendChild(totalLine);
+      (question.buckets || []).forEach((bucket) => {
+        const row = document.createElement('div');
+        row.className = 'survey-budget-row';
+
+        const label = document.createElement('label');
+        label.textContent = bucket.label || bucket.value;
+        row.appendChild(label);
+
+        const value = document.createElement('span');
+        value.className = 'survey-budget-value';
+        value.textContent = current[bucket.value] || 0;
+
+        const input = document.createElement('input');
+        input.type = 'range';
+        input.min = 0;
+        input.max = 100;
+        input.step = 5;
+        input.value = current[bucket.value] || 0;
+        input.className = 'survey-slider survey-budget-slider';
+        input.addEventListener('input', () => {
+          current[bucket.value] = parseInt(input.value, 10) || 0;
+          value.textContent = current[bucket.value];
+          refreshTotal();
+        });
+
+        row.appendChild(value);
+        row.appendChild(input);
+        optionsWrap.appendChild(row);
+      });
+      refreshTotal();
+    } else if (question.type === 'contact_capture') {
+      const current = isPlainObject(state.answer) ? { ...state.answer } : {};
+      const channelRow = document.createElement('div');
+      channelRow.className = 'survey-segment-row survey-contact-channels';
+      (question.channels || []).forEach((channel) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'survey-segment-btn';
+        button.textContent = channel;
+        button.dataset.channel = channel;
+        if (current.channel === channel) button.classList.add('selected');
+        button.addEventListener('click', () => {
+          current.channel = channel;
+          state.answer = { ...current };
+          channelRow.querySelectorAll('.survey-segment-btn').forEach((el) => el.classList.remove('selected'));
+          button.classList.add('selected');
+          updateActionButtons();
+        });
+        channelRow.appendChild(button);
+      });
+      const input = document.createElement('input');
+      input.className = 'survey-text';
+      input.type = 'text';
+      input.placeholder = question.placeholder || '';
+      input.value = current.value || '';
+      input.addEventListener('input', () => {
+        current.value = input.value;
+        state.answer = { ...current };
+        updateActionButtons();
+      });
+      optionsWrap.appendChild(channelRow);
+      optionsWrap.appendChild(input);
     } else {
       const input = document.createElement(question.type === 'text_long' ? 'textarea' : 'input');
       input.className = 'survey-text';
@@ -292,6 +532,9 @@ export function initSurvey() {
       }
       if (question.placeholder) {
         input.placeholder = question.placeholder;
+      }
+      if (question.max_chars) {
+        input.maxLength = parseInt(question.max_chars, 10);
       }
       input.value = state.answer || '';
       input.addEventListener('input', () => {
@@ -357,14 +600,7 @@ export function initSurvey() {
       },
       body: JSON.stringify({}),
     })
-      .then((response) => {
-        if (response.status === 401) {
-          closeModal();
-          openAuthPanel();
-          return null;
-        }
-        return response.json();
-      })
+      .then((response) => response.json())
       .then((data) => {
         if (!data) return;
         updateFromResponse(data);
@@ -451,11 +687,6 @@ export function initSurvey() {
   cta.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
-    const isAuthed = cta.dataset.surveyAuthenticated === '1';
-    if (!isAuthed) {
-      openAuthPanel();
-      return;
-    }
     startSurvey();
   });
 

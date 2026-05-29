@@ -24,6 +24,7 @@ HOME_BOOTSTRAP_SUBSET_FILE = (
 MAIN_JS_FILE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "static" / "js" / "main.js"
 STYLES_CSS_FILE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "static" / "css" / "styles.css"
 STYLES_PURGED_CSS_FILE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "static" / "css" / "styles.purged.css"
+SURVEY_JS_FILE = REPO_ROOT / "twocomms" / "twocomms_django_theme" / "static" / "js" / "modules" / "survey.js"
 
 
 class BaseTemplateSourceGuardsTests(unittest.TestCase):
@@ -64,6 +65,18 @@ class BaseTemplateSourceGuardsTests(unittest.TestCase):
             [],
             "index.html must not use multiline {# ... #} comments because they leak into rendered HTML",
         )
+
+    def test_home_survey_can_start_for_anonymous_visitors(self):
+        content = HOME_TEMPLATE.read_text(encoding="utf-8")
+        survey_js = SURVEY_JS_FILE.read_text(encoding="utf-8")
+
+        self.assertNotIn("Лише для зареєстрованих користувачів", content)
+        self.assertNotIn("data-survey-authenticated", content)
+        self.assertIn("Використати код можна після входу", content)
+        self.assertNotIn("dataset.surveyAuthenticated", survey_js)
+        self.assertIn("maxdiff_best_worst", survey_js)
+        self.assertIn("price_ladder_by_product", survey_js)
+        self.assertIn("budget_allocation_100", survey_js)
 
     def test_base_template_keeps_homepage_footer_and_rum_assets(self):
         content = BASE_TEMPLATE.read_text(encoding="utf-8")
