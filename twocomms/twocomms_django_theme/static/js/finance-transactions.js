@@ -20,6 +20,14 @@
     }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); });
   }
 
+  function apiForm(url, formData) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
+      body: formData,
+    }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); });
+  }
+
   var DROPDOWNS = {};
   try { DROPDOWNS = JSON.parse(document.getElementById('fin-dropdowns').textContent); } catch (e) {}
 
@@ -28,7 +36,6 @@
   if (!modal || !form) return;
 
   var TYPE_LABELS = { income: 'Додати дохід', expense: 'Додати витрату', transfer: 'Додати переказ' };
-  var ACCOUNT_LABELS = { income: 'На рахунок', expense: 'З рахунку', transfer: '' };
   var DATE_LABELS = { income: 'Фактична дата', expense: 'Дата списання', transfer: 'Дата переказу коштів' };
 
   var els = {
@@ -48,14 +55,18 @@
     agreement: document.getElementById('fin-txn-agreement'),
     project: document.getElementById('fin-txn-project'),
     comment: document.getElementById('fin-txn-comment'),
+    file: document.getElementById('fin-txn-file'),
+    attachList: document.getElementById('fin-attach-list'),
+    recurrence: document.getElementById('fin-txn-recurrence'),
     submit: document.getElementById('fin-txn-submit'),
     similar: document.getElementById('fin-txn-similar'),
     alert: document.getElementById('fin-txn-alert'),
-    accountLabel: document.getElementById('fin-account-label'),
     dateLabel: document.getElementById('fin-date-label'),
     editActions: document.getElementById('fin-edit-actions'),
     markActual: document.getElementById('fin-act-mark-actual'),
     tags: document.getElementById('fin-txn-tags'),
+    statusToggle: document.getElementById('fin-status-toggle'),
+    statusHint: document.getElementById('fin-status-hint'),
   };
 
   function opt(value, label, selected) {
@@ -94,15 +105,43 @@
     return (DROPDOWNS.accounts || []).find(function (a) { return String(a.id) === String(id); });
   }
 
+  // Підставляє валюту обраного рахунку (користувач може змінити вручну).
   function syncCurrency() {
     var type = els.type.value;
     var accId = type === 'transfer' ? els.from.value : els.account.value;
     var acc = accountById(accId);
-    if (acc) els.currency.value = acc.currency;
+    if (acc && els.currency) els.currency.value = acc.currency;
     if (type === 'transfer') {
       var toAcc = accountById(els.to.value);
       var diff = acc && toAcc && acc.currency !== toAcc.currency;
       els.toAmountWrap.hidden = !diff;
+    }
+  }
+
+  // --- Статус Факт / План ---
+  function setStatus(status) {
+    els.status.value = status;
+    if (els.statusToggle) {
+      els.statusToggle.querySelectorAll('.fin-status-opt').forEach(function (b) {
+        b.classList.toggle('is-active', b.dataset.status === status);
+      });
+    }
+  }
+
+  function isFutureDate(value) {
+    if (!value) return false;
+    var d = new Date(value);
+    return !isNaN(d.getTime()) && d.getTime() > Date.now();
+  }
+
+  // Авто-план: майбутня дата → План.
+  function syncStatusFromDate() {
+    var future = isFutureDate(els.date.value);
+    if (future) {
+      setStatus('planned');
+      if (els.statusHint) els.statusHint.hidden = false;
+    } else {
+      if (els.statusHint) els.statusHint.hidden = true;
     }
   }
 
@@ -127,6 +166,19 @@
       .map(function (c) { return c.dataset.id; });
   }
 
+  function renderAttachments(list) {
+    if (!els.attachList) return;
+    els.attachList.innerHTML = '';
+    (list || []).forEach(function (a) {
+      var row = document.createElement('a');
+      row.className = 'fin-attach-item';
+      row.href = a.url || '#'; row.target = '_blank';
+      row.textContent = '📎 ' + (a.name || 'файл');
+      els.attachList.appendChild(row);
+    });
+  }
+
+  // Згортувані секції: показуємо лише потрібні для типу, але завжди згорнуті.
   function applyTypeVisibility(type) {
     modal.querySelectorAll('[data-show]').forEach(function (el) {
       var types = el.getAttribute('data-show').split(',');
@@ -134,11 +186,19 @@
       el.hidden = !show;
       el.querySelectorAll('[data-field]').forEach(function (f) { f.disabled = !show; });
     });
-    els.accountLabel.textContent = ACCOUNT_LABELS[type] || '';
     els.dateLabel.textContent = DATE_LABELS[type] || 'Дата';
     els.submit.textContent = els.id.value ? 'Зберегти зміни' : (TYPE_LABELS[type] || 'Додати');
     modal.querySelectorAll('.fin-txn-tab').forEach(function (tab) {
       tab.classList.toggle('active', tab.dataset.type === type);
+    });
+  }
+
+  function collapseDisclosures() {
+    ['agreement', 'recurring', 'extra'].forEach(function (key) {
+      var btn = document.getElementById('fin-toggle-' + key);
+      var wrap = document.getElementById('fin-' + key + '-wrap');
+      if (wrap) wrap.hidden = true;
+      if (btn) btn.setAttribute('aria-expanded', 'false');
     });
   }
 
@@ -162,19 +222,23 @@
   function openModal(type, txn) {
     form.reset();
     els.id.value = '';
-    els.status.value = 'actual';
     showAlert('');
     populateAccounts();
+    collapseDisclosures();
+    renderAttachments([]);
     els.editActions.hidden = true;
     els.similar.hidden = false;
     els.date.value = nowLocal();
+    setStatus('actual');
+    if (els.statusHint) els.statusHint.hidden = true;
 
     if (txn) {
       // Режим редагування.
       els.id.value = txn.id;
-      els.status.value = txn.status;
+      setStatus(txn.status);
       setType(txn.type);
       els.amount.value = txn.amount;
+      if (txn.currency && els.currency) els.currency.value = txn.currency;
       if (txn.type === 'transfer') {
         if (txn.account_id) els.from.value = txn.account_id;
         if (txn.to_account_id) els.to.value = txn.to_account_id;
@@ -189,10 +253,12 @@
       if (txn.project_id) els.project.value = txn.project_id;
       els.comment.value = txn.comment || '';
       renderTags((txn.tags || []).map(function (t) { return t.id; }));
+      renderAttachments(txn.attachments || []);
       els.editActions.hidden = false;
       els.similar.hidden = true;
       els.markActual.hidden = txn.status !== 'planned';
       syncCurrency();
+      if (txn.currency && els.currency) els.currency.value = txn.currency;
     } else {
       setType(type || 'income');
     }
@@ -208,42 +274,45 @@
   // Expose to shell quick-action buttons (finance.js calls FinanceModals.open).
   window.FinanceModals = { open: function (kind) { openModal(kind); } };
 
-  // --- Збір payload ---
-  function collectPayload() {
+  // --- Збір payload у FormData (підтримка файлів) ---
+  function collectFormData() {
     var type = els.type.value;
-    var p = {
-      type: type,
-      status: els.status.value,
-      amount: els.amount.value,
-      date_actual: els.date.value,
-      comment: els.comment.value,
-      project: els.project.value,
-      tags: selectedTagIds().join(','),
-    };
-    if (els.agreement.value) p.date_agreement = els.agreement.value;
+    var fd = new FormData();
+    fd.append('type', type);
+    fd.append('status', els.status.value);
+    fd.append('amount', els.amount.value || '');
+    fd.append('date_actual', els.date.value || '');
+    fd.append('comment', els.comment.value || '');
+    fd.append('project', els.project.value || '');
+    fd.append('tags', selectedTagIds().join(','));
+    if (els.agreement.value) fd.append('date_agreement', els.agreement.value);
+    if (els.recurrence && els.recurrence.value) fd.append('recurrence', els.recurrence.value);
     if (type === 'transfer') {
-      p.from_account = els.from.value;
-      p.to_account = els.to.value;
-      if (!els.toAmountWrap.hidden && els.toAmount.value) p.to_amount = els.toAmount.value;
+      fd.append('from_account', els.from.value || '');
+      fd.append('to_account', els.to.value || '');
+      if (!els.toAmountWrap.hidden && els.toAmount.value) fd.append('to_amount', els.toAmount.value);
     } else {
-      p.account = els.account.value;
-      p.currency = els.currency.value;
-      p.category = els.category.value;
-      p.counterparty = els.counterparty.value;
+      fd.append('account', els.account.value || '');
+      fd.append('currency', els.currency ? els.currency.value : 'UAH');
+      fd.append('category', els.category.value || '');
+      fd.append('counterparty', els.counterparty.value || '');
     }
-    return p;
+    if (els.file && els.file.files) {
+      for (var i = 0; i < els.file.files.length; i++) fd.append('attachments', els.file.files[i]);
+    }
+    return fd;
   }
 
   function save(keepOpen) {
     var id = els.id.value;
     var url = id ? '/api/transactions/' + id + '/update/' : '/api/transactions/create/';
     showAlert('');
-    return api(url, 'POST', collectPayload()).then(function (res) {
+    return apiForm(url, collectFormData()).then(function (res) {
       if (res.ok && res.data.ok) {
         if (keepOpen) {
           var type = els.type.value;
-          form.reset(); els.id.value = ''; populateAccounts();
-          els.date.value = nowLocal(); setType(type);
+          form.reset(); els.id.value = ''; populateAccounts(); collapseDisclosures();
+          renderAttachments([]); els.date.value = nowLocal(); setStatus('actual'); setType(type);
         } else {
           window.location.reload();
         }
@@ -264,11 +333,24 @@
   els.account.addEventListener('change', syncCurrency);
   els.from.addEventListener('change', syncCurrency);
   els.to.addEventListener('change', syncCurrency);
+  els.date.addEventListener('change', syncStatusFromDate);
+  els.date.addEventListener('input', syncStatusFromDate);
 
+  if (els.statusToggle) {
+    els.statusToggle.querySelectorAll('.fin-status-opt').forEach(function (b) {
+      b.addEventListener('click', function () { setStatus(b.dataset.status); });
+    });
+  }
+
+  // Згортувані секції (chevron + aria-expanded).
   ['agreement', 'recurring', 'extra'].forEach(function (key) {
     var btn = document.getElementById('fin-toggle-' + key);
     var wrap = document.getElementById('fin-' + key + '-wrap');
-    if (btn && wrap) btn.addEventListener('click', function () { wrap.hidden = !wrap.hidden; });
+    if (btn && wrap) btn.addEventListener('click', function () {
+      var open = wrap.hidden;
+      wrap.hidden = !open;
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
   });
 
   form.addEventListener('submit', function (e) { e.preventDefault(); save(false); });
@@ -380,7 +462,6 @@
       var action = btn.dataset.bulk;
       if (action === 'delete') { if (confirm('Видалити обрані операції?')) runBulk('delete'); return; }
       if (action === 'mark_actual') { runBulk('mark_actual'); return; }
-      // Дії з вибором значення.
       pendingBulk = action;
       var map = { set_category: ['expense_categories', 'Категорія'], set_project: ['projects', 'Проект'],
                   set_counterparty: ['counterparties', 'Контрагент'], add_tag: ['tags', 'Тег'] };

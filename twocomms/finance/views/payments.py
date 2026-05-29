@@ -28,6 +28,25 @@ def _body(request):
     return request.POST
 
 
+_MAX_ATTACHMENT = 10 * 1024 * 1024  # 10 МБ
+
+
+def _attach_files(request, txn):
+    """Створює Attachment з request.FILES і прив'язує до операції (макс. 10 МБ)."""
+    from ..models import Attachment
+    files = request.FILES.getlist('attachments') or request.FILES.getlist('file')
+    company = get_default_company()
+    for f in files:
+        if f.size > _MAX_ATTACHMENT:
+            continue
+        att = Attachment.objects.create(
+            company=company, file=f, original_name=f.name[:255],
+            content_type=getattr(f, 'content_type', '') or '', size=f.size,
+            uploaded_by=request.user if request.user.is_authenticated else None,
+        )
+        txn.attachments.add(att)
+
+
 # ----------------------------- Журнал -----------------------------
 
 @finance_access_required
@@ -78,6 +97,8 @@ def transaction_create_api(request):
         return JsonResponse({'ok': False, 'error': str(e), 'field': e.field}, status=400)
 
     txn = txn_service.create_transaction(user=request.user, **kwargs)
+    if request.FILES:
+        _attach_files(request, txn)
     return JsonResponse({'ok': True, 'transaction': ser.serialize_transaction(txn)})
 
 
@@ -103,6 +124,8 @@ def transaction_update_api(request, txn_id):
 
     tags = kwargs.pop('tags', None)
     txn_service.update_transaction(txn, user=request.user, tags=tags, **kwargs)
+    if request.FILES:
+        _attach_files(request, txn)
     return JsonResponse({'ok': True, 'transaction': ser.serialize_transaction(txn)})
 
 

@@ -120,3 +120,33 @@ class PaymentsViewTests(TestCase):
         self.assertTrue(resp.json()['ok'])
         self.acc.refresh_from_db()
         self.assertEqual(self.acc.current_balance, Decimal('1500'))
+
+    def test_future_date_auto_plan(self):
+        """Майбутня дата → операція стає плановою і не змінює фактичний баланс."""
+        from django.test import override_settings
+        from django.utils import timezone
+        import datetime as dt
+        future = (timezone.now() + dt.timedelta(days=7)).strftime('%Y-%m-%dT%H:%M')
+        with override_settings(ALLOWED_HOSTS=['fin.twocomms.shop', 'testserver']):
+            resp = self.client.post('/api/transactions/create/', data={
+                'type': 'expense', 'amount': '300', 'account': self.acc.id,
+                'currency': 'UAH', 'date_actual': future, 'status': 'actual',
+            }, HTTP_HOST=self.FIN_HOST)
+        self.assertEqual(resp.status_code, 200)
+        txn = Transaction.objects.get(id=resp.json()['transaction']['id'])
+        self.assertEqual(txn.status, Transaction.STATUS_PLANNED)
+        self.acc.refresh_from_db()
+        self.assertEqual(self.acc.current_balance, Decimal('1000'))  # план не чіпає баланс
+
+    def test_create_with_file_attachment(self):
+        from django.test import override_settings
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        f = SimpleUploadedFile('receipt.txt', b'hello', content_type='text/plain')
+        with override_settings(ALLOWED_HOSTS=['fin.twocomms.shop', 'testserver']):
+            resp = self.client.post('/api/transactions/create/', data={
+                'type': 'income', 'amount': '100', 'account': self.acc.id,
+                'currency': 'UAH', 'attachments': f,
+            }, HTTP_HOST=self.FIN_HOST)
+        self.assertEqual(resp.status_code, 200)
+        txn = Transaction.objects.get(id=resp.json()['transaction']['id'])
+        self.assertEqual(txn.attachments.count(), 1)

@@ -90,6 +90,11 @@ def parse_transaction_payload(data, *, txn_type):
     date_actual = _parse_dt(data.get('date_actual'), default_now=True)
     date_agreement = _parse_dt(data.get('date_agreement')) if data.get('date_agreement') else None
 
+    # Авто-план: якщо фактична дата у майбутньому — операція стає плановою.
+    # (Підтвердження/проведення планової виставляє дату «зараз», тож вона лишається фактичною.)
+    if date_actual and date_actual > timezone.now():
+        status = Transaction.STATUS_PLANNED
+
     kwargs = {
         'type': txn_type,
         'status': status,

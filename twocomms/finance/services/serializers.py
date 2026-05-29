@@ -93,6 +93,8 @@ def serialize_transaction(txn: Transaction, *, running_balance=None) -> dict:
         'project': txn.project.name if txn.project else '',
         'comment': txn.comment,
         'tags': [{'id': t.id, 'name': t.name} for t in txn.tags.all()],
+        'attachments': [{'id': a.id, 'name': a.original_name or 'файл',
+                         'url': (a.file.url if a.file else '')} for a in txn.attachments.all()],
         'source': txn.source,
         'to_amount': str(txn.to_amount) if txn.to_amount is not None else '',
     }

@@ -600,6 +600,34 @@ body.fin-modal-open { overflow: hidden; }
     text-align: left; padding: 2px 0; font-size: 13px; font-weight: 500;
 }
 .fin-toggle-link:hover { text-decoration: underline; }
+
+/* Факт / План перемикач */
+.fin-status-toggle { display: flex; align-items: center; gap: 0; }
+.fin-status-opt {
+    flex: 0 0 auto; padding: 7px 18px; cursor: pointer; font-size: 13px; font-weight: 600;
+    background: var(--fin-bg-800); color: var(--fin-text-2);
+    border: 1px solid var(--fin-border-strong); border-right: none;
+}
+.fin-status-opt:first-child { border-radius: var(--fin-radius-sm) 0 0 var(--fin-radius-sm); }
+.fin-status-opt:last-of-type { border-radius: 0 var(--fin-radius-sm) var(--fin-radius-sm) 0; border-right: 1px solid var(--fin-border-strong); }
+.fin-status-opt.is-active { background: rgba(255,126,41,0.16); border-color: var(--fin-accent); color: var(--fin-accent); }
+.fin-status-hint { margin-left: 10px; font-size: 11px; color: var(--fin-accent); }
+
+/* Згортувані секції з шевроном */
+.fin-disclosure {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    background: none; border: none; cursor: pointer; text-align: left;
+    padding: 7px 0; font-size: 13px; font-weight: 500; color: var(--fin-accent);
+}
+.fin-disclosure:hover { color: var(--fin-accent-strong); }
+.fin-disclosure__chev { display: inline-block; transition: transform 0.15s ease; font-size: 11px; }
+.fin-disclosure[aria-expanded="true"] .fin-disclosure__chev { transform: rotate(90deg); }
+.fin-disclosure__body { margin: 2px 0 6px; }
+
+.fin-attach-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.fin-attach-item { font-size: 12px; color: var(--fin-info); text-decoration: none; }
+.fin-attach-item:hover { text-decoration: underline; }
+
 .fin-recurring, .fin-extra { display: flex; flex-direction: column; gap: 12px; padding: 8px 0; }
 .fin-tags-field { display: flex; flex-wrap: wrap; gap: 6px; }
 .fin-tag-toggle {
