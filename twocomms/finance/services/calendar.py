@@ -17,6 +17,7 @@ from django.utils import timezone
 
 from ..models import Transaction
 from . import currency as currency_service
+from .timeutil import day_end, day_start
 
 WEEKDAYS_UK = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'нд']
 MONTHS_UK = ['', 'січень', 'лютий', 'березень', 'квітень', 'травень', 'червень',
@@ -56,14 +57,15 @@ def opening_total(company, before_date, params=None) -> Decimal:
         total += currency_service.convert(company, acc.initial_balance, acc.currency)
     # Фактичні операції до before_date.
     qs = _base_filter(company, params).filter(status=Transaction.STATUS_ACTUAL,
-                                              date_actual__date__lt=before_date)
+                                              date_actual__lt=day_start(before_date))
     inc = qs.filter(type=Transaction.TYPE_INCOME).aggregate(s=Sum('amount_base'))['s'] or Decimal('0')
     exp = qs.filter(type=Transaction.TYPE_EXPENSE).aggregate(s=Sum('amount_base'))['s'] or Decimal('0')
     return total + inc - exp
 
 
 def _day_sums(company, day, params=None):
-    qs = _base_filter(company, params).filter(date_actual__date=day)
+    qs = _base_filter(company, params).filter(date_actual__gte=day_start(day),
+                                              date_actual__lte=day_end(day))
     def agg(status, ttype):
         return qs.filter(status=status, type=ttype).aggregate(s=Sum('amount_base'))['s'] or Decimal('0')
     return {
@@ -124,7 +126,8 @@ def day_detail(company, day, params=None):
     expense = sums['actual_out'] + sums['planned_out']
     end = start + income - expense
 
-    txns = (_base_filter(company, params).filter(date_actual__date=day)
+    txns = (_base_filter(company, params).filter(date_actual__gte=day_start(day),
+                                                 date_actual__lte=day_end(day))
             .select_related('account', 'to_account', 'category', 'counterparty', 'project')
             .order_by('date_actual'))
     return {

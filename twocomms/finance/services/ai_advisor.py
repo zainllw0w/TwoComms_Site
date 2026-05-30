@@ -6,9 +6,10 @@
 from __future__ import annotations
 
 import datetime as dt
+from collections import Counter
 from decimal import Decimal
 
-from django.db.models import Count, Sum
+from django.db.models import Sum
 from django.utils import timezone
 
 from ..models import Transaction
@@ -139,9 +140,14 @@ def check_payments(company):
     if no_proj:
         issues.append({'level': 'info', 'text': f'{no_proj} операцій без проекту'})
 
-    # Потенційні дублі: однакові сума+дата+рахунок.
-    dups = (actual.values('account', 'amount', 'date_actual__date')
-            .annotate(c=Count('id')).filter(c__gt=1).count())
+    # Потенційні дублі: однакові сума+дата+рахунок. Групуємо у Python за
+    # локальною датою, щоб не залежати від tz-таблиць MySQL (CONVERT_TZ).
+    seen = Counter()
+    for acc_id, amt, da in actual.values_list('account', 'amount', 'date_actual'):
+        if da is None:
+            continue
+        seen[(acc_id, amt, timezone.localtime(da).date())] += 1
+    dups = sum(1 for cnt in seen.values() if cnt > 1)
     if dups:
         issues.append({'level': 'warning', 'text': f'{dups} груп потенційних дублів (однакові сума/дата/рахунок)'})
 

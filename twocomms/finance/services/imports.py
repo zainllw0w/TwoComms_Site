@@ -15,6 +15,7 @@ from django.utils import timezone
 
 from ..models import Transaction, get_default_company
 from . import transactions as txn_service
+from .timeutil import day_end, day_start
 
 
 def _parse_amount(raw):
@@ -144,7 +145,8 @@ def _is_duplicate(company, account, *, external_id, date, amount, comment):
     # Фолбек: дата+сума+рахунок+коментар.
     return Transaction.objects.filter(
         company=company, account=account, amount=abs(amount),
-        date_actual__date=date.date(), comment=comment[:255],
+        date_actual__gte=day_start(date.date()), date_actual__lte=day_end(date.date()),
+        comment=comment[:255],
     ).exists()
 
 

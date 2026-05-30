@@ -8,6 +8,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from ..models import Transaction
+from .timeutil import day_end, day_start
 
 
 def period_range(period: str, date_from=None, date_to=None):
@@ -87,9 +88,9 @@ def filter_transactions(company, params, *, include_planned=True):
     period = params.get('period', 'all')
     start, end = period_range(period, params.get('date_from'), params.get('date_to'))
     if start:
-        qs = qs.filter(date_actual__date__gte=start)
+        qs = qs.filter(date_actual__gte=day_start(start))
     if end:
-        qs = qs.filter(date_actual__date__lte=end)
+        qs = qs.filter(date_actual__lte=day_end(end))
 
     # Пошук.
     search = (params.get('search') or params.get('q') or '').strip()

@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from ..models import Account, Transaction
 from . import currency as currency_service
+from .timeutil import day_end, day_start
 
 
 def recalc_account_balance(account: Account) -> Decimal:
@@ -39,10 +40,10 @@ def planned_totals(company, date_from, date_to):
     """
     qs = Transaction.objects.filter(
         company=company, status=Transaction.STATUS_PLANNED,
-        date_actual__date__lte=date_to,
+        date_actual__lte=day_end(date_to),
     )
     if date_from is not None:
-        qs = qs.filter(date_actual__date__gte=date_from)
+        qs = qs.filter(date_actual__gte=day_start(date_from))
     income = Decimal('0')
     expense = Decimal('0')
     for t in qs:

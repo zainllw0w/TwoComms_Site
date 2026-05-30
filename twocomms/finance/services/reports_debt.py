@@ -8,6 +8,7 @@ from django.db.models import Sum
 from ..models import Invoice, Transaction
 from . import balances as balance_service
 from . import reports as core_reports
+from .timeutil import day_end, day_start
 
 
 def _planned(company, ttype):
@@ -116,10 +117,10 @@ def plan_fact(company, params):
     start, end = core_reports.resolve_period(params)
     actual = (Transaction.objects.filter(company=company, status=Transaction.STATUS_ACTUAL)
               .exclude(type=Transaction.TYPE_TRANSFER).exclude(excluded_from_reports=True)
-              .filter(date_actual__date__gte=start, date_actual__date__lte=end))
+              .filter(date_actual__gte=day_start(start), date_actual__lte=day_end(end)))
     planned = (Transaction.objects.filter(company=company, status=Transaction.STATUS_PLANNED)
                .exclude(type=Transaction.TYPE_TRANSFER)
-               .filter(date_actual__date__gte=start, date_actual__date__lte=end))
+               .filter(date_actual__gte=day_start(start), date_actual__lte=day_end(end)))
 
     rows = []
     for cat in company.categories.filter(is_active=True):
@@ -155,7 +156,7 @@ def metrics(company, params):
     custom = []
     start, end = core_reports.resolve_period(params)
     actual = (Transaction.objects.filter(company=company, status=Transaction.STATUS_ACTUAL)
-              .filter(date_actual__date__gte=start, date_actual__date__lte=end))
+              .filter(date_actual__gte=day_start(start), date_actual__lte=day_end(end)))
     for m in company.metrics.all():
         inc_ids = list(m.income_categories.values_list('id', flat=True))
         exp_ids = list(m.expense_categories.values_list('id', flat=True))

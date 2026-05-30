@@ -645,6 +645,13 @@ body.fin-modal-open { overflow: hidden; }
 .fin-disclosure[aria-expanded="true"] .fin-disclosure__chev { transform: rotate(90deg); }
 .fin-disclosure__body { margin: 2px 0 6px; }
 
+/* Атрибут hidden має ховати елемент навіть якщо клас задає display:flex/grid.
+   Інакше згортувані секції модалки не ховаються. */
+.fin-modal-body [hidden],
+.fin-field-group[hidden],
+.fin-disclosure__body[hidden],
+.fin-field[hidden] { display: none !important; }
+
 .fin-attach-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 .fin-attach-item { font-size: 12px; color: var(--fin-info); text-decoration: none; }
 .fin-attach-item:hover { text-decoration: underline; }

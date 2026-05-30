@@ -15,6 +15,7 @@ from django.db.models.functions import Coalesce
 
 from ..models import Invoice, Transaction
 from . import filters as filter_service
+from .timeutil import day_end, day_start
 
 
 def resolve_period(params):
@@ -58,7 +59,7 @@ def _actual(company):
 def cash_flow(company, params):
     start, end = resolve_period(params)
     qs = _apply_dim_filters(_actual(company), params).filter(
-        date_actual__date__gte=start, date_actual__date__lte=end)
+        date_actual__gte=day_start(start), date_actual__lte=day_end(end))
 
     cash_in = qs.filter(type=Transaction.TYPE_INCOME).aggregate(s=Sum('amount_base'))['s'] or Decimal('0')
     cash_out = qs.filter(type=Transaction.TYPE_EXPENSE).aggregate(s=Sum('amount_base'))['s'] or Decimal('0')
@@ -132,8 +133,8 @@ def Q_or_date(start, end):
     """P&L діапазон: date_agreement у межах, або (немає угоди) date_actual у межах."""
     from django.db.models import Q
     return (
-        (Q(date_agreement__date__gte=start) & Q(date_agreement__date__lte=end))
-        | (Q(date_agreement__isnull=True) & Q(date_actual__date__gte=start) & Q(date_actual__date__lte=end))
+        (Q(date_agreement__gte=day_start(start)) & Q(date_agreement__lte=day_end(end)))
+        | (Q(date_agreement__isnull=True) & Q(date_actual__gte=day_start(start)) & Q(date_actual__lte=day_end(end)))
     )
 
 
@@ -142,14 +143,14 @@ def Q_or_date(start, end):
 def account_statement(company, account, params):
     from .calendar import opening_total  # повторне використання логіки залишку
     start, end = resolve_period(params)
-    qs = (_actual(company).filter(date_actual__date__gte=start, date_actual__date__lte=end)
+    qs = (_actual(company).filter(date_actual__gte=day_start(start), date_actual__lte=day_end(end))
           .filter(account=account).select_related('category', 'counterparty', 'project')
           .order_by('date_actual'))
     # Початковий залишок рахунку: initial + рух до start (тільки цей рахунок).
-    prior = _actual(company).filter(account=account, date_actual__date__lt=start)
+    prior = _actual(company).filter(account=account, date_actual__lt=day_start(start))
     prior_in = prior.filter(type=Transaction.TYPE_INCOME).aggregate(s=Sum('amount'))['s'] or Decimal('0')
     prior_out = prior.filter(type=Transaction.TYPE_EXPENSE).aggregate(s=Sum('amount'))['s'] or Decimal('0')
-    prior_tin = (_actual(company).filter(to_account=account, date_actual__date__lt=start)
+    prior_tin = (_actual(company).filter(to_account=account, date_actual__lt=day_start(start))
                  .aggregate(s=Sum('to_amount'))['s'] or Decimal('0'))
     prior_tout = prior.filter(type=Transaction.TYPE_TRANSFER).aggregate(s=Sum('amount'))['s'] or Decimal('0')
     opening = account.initial_balance + prior_in - prior_out + prior_tin - prior_tout
@@ -172,7 +173,7 @@ def account_statement(company, account, params):
 def projects_report(company, params):
     start, end = resolve_period(params)
     qs = _actual(company).exclude(type=Transaction.TYPE_TRANSFER).filter(
-        date_actual__date__gte=start, date_actual__date__lte=end)
+        date_actual__gte=day_start(start), date_actual__lte=day_end(end))
     total_income = qs.filter(type=Transaction.TYPE_INCOME).aggregate(s=Sum('amount_base'))['s'] or Decimal('0')
 
     rows = []
