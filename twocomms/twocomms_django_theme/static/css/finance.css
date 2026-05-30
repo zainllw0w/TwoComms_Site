@@ -535,11 +535,15 @@ a { color: inherit; }
         display: none;
     }
 
-    /* Іконки (налаштування, вихід) - справа в першому ряду */
+    /* header__actions розкривається — діти стають прямими flex-елементами хедера */
     .fin-header__actions {
+        display: contents;
+    }
+
+    /* Шестерня — крайня справа в першому ряду */
+    .fin-icon-btn--settings {
         order: 2;
-        flex: 0 0 auto;
-        gap: 8px;
+        flex-shrink: 0;
         margin-left: auto;
     }
 
@@ -548,14 +552,14 @@ a { color: inherit; }
         display: none !important;
     }
 
-    /* Кнопки доходів/витрат - окремий ряд на всю ширину */
+    /* Кнопки доходів/витрат - окремий ряд на всю ширину, по центру */
     .fin-quick-actions {
         order: 3;
         flex: 1 1 100%;
         width: 100%;
         display: flex;
         gap: 8px;
-        justify-content: stretch;
+        justify-content: center;
     }
 
     .fin-quick {
