@@ -1707,31 +1707,36 @@ body.fin-settings-open { overflow: hidden; }
         -webkit-overflow-scrolling: touch;
     }
 
-    /* Таблиці: красивий card layout для мобільних */
+    /* Таблиці: красивий card layout для мобільних (тільки журнал платежів — .fin-row) */
     .fin-table-wrap {
         border-radius: var(--fin-radius-md);
-        overflow: visible;
-        background: transparent;
-        border: none;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
-    .fin-table thead {
-        display: none;
-    }
-
-    .fin-table,
-    .fin-table tbody {
+    /* Журнал платежів: card-layout (рядки мають клас .fin-row) */
+    .fin-table:has(.fin-row),
+    .fin-table:has(.fin-row) tbody {
         display: block;
         width: 100%;
     }
 
-    .fin-table tbody {
+    .fin-table:has(.fin-row) {
+        background: transparent;
+        border: none;
+    }
+
+    .fin-table:has(.fin-row) thead {
+        display: none;
+    }
+
+    .fin-table:has(.fin-row) tbody {
         display: flex;
         flex-direction: column;
         gap: 12px;
     }
 
-    .fin-table tr {
+    .fin-row {
         display: flex;
         flex-direction: column;
         padding: 0;
@@ -1743,13 +1748,13 @@ body.fin-settings-open { overflow: hidden; }
         overflow: hidden;
     }
 
-    .fin-table tr:hover {
+    .fin-row:hover {
         background: rgba(255, 255, 255, 0.05);
         border-color: var(--fin-border-strong);
     }
 
     /* Checkbox в правому верхньому куті */
-    .fin-table .fin-col-check {
+    .fin-row .fin-col-check {
         position: absolute !important;
         right: 12px;
         top: 12px;
@@ -1759,12 +1764,12 @@ body.fin-settings-open { overflow: hidden; }
         display: block !important;
     }
 
-    .fin-table .fin-col-check::before {
+    .fin-row .fin-col-check::before {
         display: none !important;
     }
 
     /* Дата та час - header картки */
-    .fin-table .fin-cell-date {
+    .fin-row .fin-cell-date {
         padding: 14px 50px 12px 16px !important;
         background: rgba(255, 255, 255, 0.02);
         border-bottom: 1px solid var(--fin-border);
@@ -1772,9 +1777,10 @@ body.fin-settings-open { overflow: hidden; }
         flex-direction: column;
         align-items: flex-start;
         gap: 2px;
+        white-space: normal;
     }
 
-    .fin-table .fin-cell-date::before {
+    .fin-row .fin-cell-date::before {
         display: none !important;
     }
 
@@ -1792,7 +1798,7 @@ body.fin-settings-open { overflow: hidden; }
     }
 
     /* Сума - велика і помітна справа вгорі */
-    .fin-table .fin-col-amount {
+    .fin-row .fin-col-amount {
         position: absolute !important;
         top: 14px;
         right: 50px;
@@ -1804,12 +1810,12 @@ body.fin-settings-open { overflow: hidden; }
         width: auto !important;
     }
 
-    .fin-table .fin-col-amount::before {
+    .fin-row .fin-col-amount::before {
         display: none !important;
     }
 
     /* Всі інші td */
-    .fin-table td {
+    .fin-row td {
         padding: 10px 16px;
         border: none;
         display: flex;
@@ -1819,7 +1825,7 @@ body.fin-settings-open { overflow: hidden; }
         width: 100%;
     }
 
-    .fin-table td::before {
+    .fin-row td::before {
         content: attr(data-label);
         font-weight: 600;
         font-size: 10px;
@@ -1845,7 +1851,7 @@ body.fin-settings-open { overflow: hidden; }
     }
 
     /* Коментар */
-    .fin-table .fin-cell-comment {
+    .fin-row .fin-cell-comment {
         padding: 12px 16px !important;
         max-width: none;
         background: rgba(255, 255, 255, 0.02);
@@ -1853,7 +1859,7 @@ body.fin-settings-open { overflow: hidden; }
         display: block !important;
     }
 
-    .fin-table .fin-cell-comment::before {
+    .fin-row .fin-cell-comment::before {
         content: 'Коментар';
         display: block !important;
         font-size: 10px;
