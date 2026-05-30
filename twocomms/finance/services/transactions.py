@@ -46,13 +46,16 @@ def create_transaction(*, user, type, amount, account=None, to_account=None,
                        counterparty=None, project=None, tags=None, comment='',
                        to_amount=None, exchange_rate=None, source='manual',
                        linked_invoice=None, recurrence_rule=None, external_id='',
-                       is_demo=False) -> Transaction:
+                       is_demo=False, is_business=None, external_data=None, mcc=None) -> Transaction:
     """Створення операції з повним перерахунком."""
     company = get_default_company()
     if date_actual is None:
         date_actual = timezone.now()
     if currency is None:
         currency = account.currency if account else company.base_currency
+    # Бізнес/особисте: явне значення або успадкування від рахунку-джерела.
+    if is_business is None:
+        is_business = bool(account.is_business) if account is not None else False
 
     txn = Transaction(
         company=company, type=type, status=status, amount=Decimal(amount),
@@ -63,7 +66,8 @@ def create_transaction(*, user, type, amount, account=None, to_account=None,
         category=category, counterparty=counterparty, project=project,
         comment=comment or '', source=source, linked_invoice=linked_invoice,
         recurrence_rule=recurrence_rule, is_recurring=bool(recurrence_rule),
-        external_id=external_id or '', is_demo=is_demo,
+        external_id=external_id or '', is_demo=is_demo, is_business=is_business,
+        external_data=external_data or {}, mcc=mcc,
         created_by=user if getattr(user, 'is_authenticated', False) else None,
     )
     txn.amount_base = _compute_amount_base(company, txn)

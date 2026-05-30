@@ -13,10 +13,12 @@
         {% if r.running_balance %}<span class="fin-acc-balance">{{ r.running_balance }}</span>{% endif %}
     </td>
     <td>{% if r.counterparty %}{{ r.counterparty }}{% else %}<span class="fin-specify">Вказати</span>{% endif %}</td>
-    <td>{% if r.category %}{{ r.category }}{% else %}<span class="fin-specify">Вказати</span>{% endif %}</td>
+    <td>{% if r.category %}{{ r.category }}{% elif r.mcc_label %}<span class="fin-mcc-auto" title="Авто-категорія за MCC {{ r.mcc }}">{{ r.mcc_label }}</span>{% else %}<span class="fin-specify">Вказати</span>{% endif %}</td>
     <td>{% if r.project %}{{ r.project }}{% else %}<span class="fin-muted-cell">—</span>{% endif %}</td>
     <td class="fin-cell-comment">
         {{ r.comment }}
+        {% if r.is_business %}<span class="fin-badge fin-badge--biz">бізнес</span>{% endif %}
+        {% if r.cashback %}<span class="fin-badge fin-badge--cashback" title="Кешбек">+{{ r.cashback }}</span>{% endif %}
         {% for t in r.tags %}<span class="fin-tag-chip">{{ t.name }}</span>{% endfor %}
     </td>
 </tr>

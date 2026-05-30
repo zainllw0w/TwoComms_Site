@@ -107,5 +107,9 @@ def accounts_overview(company):
             'is_archived': acc.is_archived, 'is_active': acc.is_active,
             'has_transactions': has_txns,
             'integration': acc.integration.get_provider_display() if acc.integration else None,
+            'is_business': acc.is_business,
+            'external_kind': acc.external_kind,
+            'masked_pan': acc.masked_pan,
+            'auto_sync': acc.auto_sync,
         })
     return items

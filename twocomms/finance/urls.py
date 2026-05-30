@@ -74,6 +74,17 @@ urlpatterns = [
     path('api/integrations/<int:conn_id>/link/', views.integration_link_api, name='finance_integration_link_api'),
     path('api/integrations/<int:conn_id>/cancel/', views.integration_cancel_api, name='finance_integration_cancel_api'),
 
+    # --- API: Monobank (підключення за токеном) ---
+    path('api/integrations/mono/connect/', views.mono_connect_api, name='finance_mono_connect_api'),
+    path('api/integrations/mono/connections/', views.mono_connections_api, name='finance_mono_connections_api'),
+    path('api/integrations/mono/<int:conn_id>/accounts/', views.mono_accounts_api, name='finance_mono_accounts_api'),
+    path('api/integrations/mono/<int:conn_id>/link/', views.mono_link_api, name='finance_mono_link_api'),
+    path('api/integrations/mono/<int:conn_id>/sync/', views.mono_sync_api, name='finance_mono_sync_api'),
+    path('api/integrations/mono/<int:conn_id>/disconnect/', views.mono_disconnect_api, name='finance_mono_disconnect_api'),
+    path('api/integrations/mono/account/<int:account_id>/settings/', views.mono_account_settings_api, name='finance_mono_account_settings_api'),
+    # Вебхук: секрет у шляху автентифікує виклик (без сесії/CSRF).
+    path('hooks/mono/<int:conn_id>/<str:secret>/', views.mono_webhook, name='finance_mono_webhook'),
+
     # --- API: імпорт виписки ---
     path('api/import/preview/', views.import_preview_api, name='finance_import_preview_api'),
     path('api/import/confirm/', views.import_confirm_api, name='finance_import_confirm_api'),

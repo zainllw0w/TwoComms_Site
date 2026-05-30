@@ -81,6 +81,12 @@ else:
             "Generate a secure key with: python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'"
         )
 
+# Окремий ключ для шифрування секретів інтеграцій (банківські API-токени).
+# Якщо не заданий — деривація йде від SECRET_KEY (див. finance.services.crypto).
+# У проді бажано фіксувати окремий FINANCE_TOKEN_KEY, щоб ротація SECRET_KEY
+# не знеструмлювала збережені токени.
+FINANCE_TOKEN_KEY = os.environ.get('FINANCE_TOKEN_KEY', '')
+
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '').split(',') if os.environ.get('ALLOWED_HOSTS') else [
     'test.com',
     'www.test.com',

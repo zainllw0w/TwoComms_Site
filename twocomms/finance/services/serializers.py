@@ -96,8 +96,29 @@ def serialize_transaction(txn: Transaction, *, running_balance=None) -> dict:
         'attachments': [{'id': a.id, 'name': a.original_name or 'файл',
                          'url': (a.file.url if a.file else '')} for a in txn.attachments.all()],
         'source': txn.source,
+        'is_business': txn.is_business,
+        'mcc': txn.mcc,
+        'mcc_label': _mcc_label(txn.mcc) if txn.mcc else '',
+        'cashback': _cashback_display(txn),
+        'counter_name': (txn.external_data or {}).get('counter_name', ''),
         'to_amount': str(txn.to_amount) if txn.to_amount is not None else '',
     }
+
+
+def _mcc_label(mcc):
+    from . import mcc as mcc_mod
+    return mcc_mod.label_for_mcc(mcc)
+
+
+def _cashback_display(txn):
+    """Кешбек у грн з external_data (Monobank віддає копійки)."""
+    cb = (txn.external_data or {}).get('cashback_amount')
+    if not cb:
+        return ''
+    try:
+        return money(Decimal(int(cb)) / Decimal('100'), txn.currency)
+    except (TypeError, ValueError):
+        return ''
 
 
 def serialize_dropdowns(company) -> dict:

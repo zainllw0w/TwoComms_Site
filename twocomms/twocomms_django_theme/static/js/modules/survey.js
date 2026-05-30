@@ -587,25 +587,46 @@ export function initSurvey() {
     renderQuestion(data.question);
   };
 
+  /**
+   * Resolve CSRF token: cookie → meta tag → force-set via lightweight GET.
+   * Returns a Promise that always resolves to the best available token
+   * (empty string in the worst case, which lets Django return a clear 403).
+   */
+  const resolveCSRFToken = () => {
+    const fromCookie = getCookie('csrftoken');
+    if (fromCookie) return Promise.resolve(fromCookie);
+    // Fallback: some base templates store the token in a <meta> tag.
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    const fromMeta = meta ? (meta.getAttribute('content') || '') : '';
+    if (fromMeta) return Promise.resolve(fromMeta);
+    // Last resort: hit the home page (lightweight HEAD) so the server
+    // sets the csrftoken cookie, then re-read it.
+    return fetch('/', { method: 'HEAD', credentials: 'same-origin' })
+      .then(() => getCookie('csrftoken') || '')
+      .catch(() => '');
+  };
+
   const startSurvey = () => {
     showLoading();
     openModal();
     resetButtons();
-    fetch(`${BASE_URL}/start/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-        'X-CSRFToken': getCookie('csrftoken'),
-      },
-      body: JSON.stringify({}),
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        if (!data) return;
-        updateFromResponse(data);
+    resolveCSRFToken().then((token) => {
+      fetch(`${BASE_URL}/start/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': token,
+        },
+        body: JSON.stringify({}),
       })
-      .catch(() => showError());
+        .then((response) => response.json())
+        .then((data) => {
+          if (!data) return;
+          updateFromResponse(data);
+        })
+        .catch(() => showError());
+    });
   };
 
   const submitAnswer = (payload) => {

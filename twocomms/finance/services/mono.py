@@ -1,0 +1,507 @@
+"""Інтеграція Monobank Personal API → наші моделі рахунків/операцій.
+
+Відповідає за:
+- підключення за токеном (валідація + шифрування + збереження);
+- виявлення рахунків клієнта (картки, ФОП-рахунки, банки) і створення/
+  оновлення локальних ``Account`` з прив'язкою через ``external_account_id``;
+- синхронізацію виписки (backfill історії + інкрементальне доповнення) з
+  антидублями за ``external_id`` (= 'mono:' + statement item id);
+- класифікацію бізнес/особисте (ФОП → бізнес; картка → особисте);
+- розпізнавання внутрішніх переказів між власними рахунками;
+- обробку вебхука (push нової транзакції).
+
+Безпека: токен зберігається лише зашифрованим (див. ``services.crypto``);
+у логах/відповідях фігурує лише маска/відбиток. Усі грошові зміни проходять
+через ``services.transactions`` (єдина точка перерахунку балансів + аудит).
+"""
+from __future__ import annotations
+
+import datetime as dt
+import secrets
+from decimal import Decimal
+
+from django.db import transaction as db_transaction
+from django.utils import timezone
+
+from ..models import Account, IntegrationConnection, Transaction, get_default_company
+from . import audit as audit_service
+from . import mono_api
+from . import transactions as txn_service
+
+EXTERNAL_PREFIX = 'mono'
+# Картки monobank, які за замовчуванням вважаємо особистими.
+PERSONAL_CARD_TYPES = {'black', 'white', 'platinum', 'iron', 'yellow', 'eaid'}
+
+
+def _kind_for(mono_account: mono_api.MonoAccount) -> str:
+    return 'fop' if mono_account.is_fop else 'card'
+
+
+def _is_business_account(mono_account: mono_api.MonoAccount) -> bool:
+    """ФОП-рахунок → бізнес; інші картки → особисте (за замовчуванням)."""
+    return mono_account.is_fop
+
+
+def _money(minor_units) -> Decimal:
+    """Копійки (int) → гривні (Decimal з 2 знаками)."""
+    return (Decimal(int(minor_units or 0)) / Decimal('100')).quantize(Decimal('0.01'))
+
+
+def _account_label(mono_account: mono_api.MonoAccount, client_name='') -> str:
+    if mono_account.is_fop:
+        base = 'monobank ФОП'
+    else:
+        base = f'monobank {mono_account.type or "картка"}'.strip()
+    pan = mono_account.pan
+    suffix = f' {pan[-4:]}' if pan and len(pan) >= 4 else ''
+    return f'{base}{suffix} ({mono_account.currency})'
+
+
+# ----------------------------- Підключення -----------------------------
+
+@db_transaction.atomic
+def connect_with_token(raw_token: str, *, user, existing_conn=None) -> IntegrationConnection:
+    """Валідує токен через API, шифрує і зберігає підключення monobank.
+
+    Повторне підключення тим самим токеном оновлює наявний conn (за відбитком).
+    Кидає ``mono_api.MonoApiError`` за невалідного токена.
+    """
+    from . import crypto
+
+    client = mono_api.MonoClient(raw_token)
+    info = client.client_info()  # кине MonoAuthError якщо токен битий
+    company = get_default_company()
+    fp = crypto.fingerprint(raw_token)
+
+    conn = existing_conn or IntegrationConnection.objects.filter(
+        company=company, provider='monobank', token_fingerprint=fp,
+    ).first()
+    if conn is None:
+        conn = IntegrationConnection(company=company, provider='monobank')
+
+    conn.connection_method = 'token'
+    conn.set_token(raw_token)
+    conn.status = 'success'
+    conn.error_message = ''
+    conn.client_name = (info.get('name') or '')[:255]
+    conn.external_client_id = (info.get('clientId') or '')[:128]
+    if not conn.webhook_secret:
+        conn.webhook_secret = secrets.token_urlsafe(24)
+    # Кешуємо client-info, щоб discover/link не витрачали ліміт 1 запит/60с.
+    conn.meta = {**(conn.meta or {}), 'client_info': info,
+                 'client_info_at': timezone.now().isoformat()}
+    conn.last_sync_at = timezone.now()
+    conn.save()
+
+    audit_service.log_action(
+        user, 'connect', 'integration', conn.id,
+        summary=f'Підключено monobank (токен {conn.token_mask})',
+        source='integration', company=company,
+    )
+    return conn
+
+
+def _client_for(conn: IntegrationConnection, *, use_cache=True) -> mono_api.MonoClient:
+    """Будує MonoClient і (за наявності) підставляє кешований client-info,
+    щоб не витрачати ліміт 1 запит/60с на повторні виклики у тому ж флоу."""
+    client = mono_api.MonoClient(conn.get_token())
+    if use_cache:
+        cached = (conn.meta or {}).get('client_info')
+        if cached:
+            client.seed_client_info(cached)
+    return client
+
+
+def discover_accounts(conn: IntegrationConnection) -> list:
+    """Повертає рахунки клієнта для UI-вибору (з кешу client-info, без зайвих запитів)."""
+    client = _client_for(conn)
+    out = []
+    for a in client.accounts():
+        out.append({
+            'external_id': a.id,
+            'kind': _kind_for(a),
+            'type': a.type,
+            'currency': a.currency,
+            'balance': str(_money(a.balance)),
+            'iban': a.iban,
+            'pan': a.pan,
+            'is_business': _is_business_account(a),
+            'label': _account_label(a, conn.client_name),
+            'linked': Account.objects.filter(
+                company=conn.company, external_account_id=a.id).exists(),
+        })
+    return out
+
+
+def register_webhook(conn: IntegrationConnection) -> bool:
+    """Best-effort реєстрація вебхука у Monobank для push нових транзакцій.
+
+    URL = https://fin.<domain>/hooks/mono/<conn>/<secret>/. Monobank вимагає
+    публічний HTTPS і робить тестовий GET, тож у DEBUG/локально пропускаємо.
+    Повертає True, якщо вебхук встановлено.
+    """
+    from django.conf import settings
+
+    if getattr(settings, 'DEBUG', False):
+        return False
+    base = getattr(settings, 'FINANCE_PUBLIC_BASE', '') or getattr(settings, 'FIN_PUBLIC_BASE', '')
+    if not base:
+        host = (getattr(settings, 'FIN_HOST', '') or 'fin.twocomms.shop')
+        base = f'https://{host}'
+    if not conn.webhook_secret:
+        conn.webhook_secret = secrets.token_urlsafe(24)
+        conn.save(update_fields=['webhook_secret'])
+    url = f'{base.rstrip("/")}/hooks/mono/{conn.id}/{conn.webhook_secret}/'
+    try:
+        mono_api.MonoClient(conn.get_token()).set_webhook(url)
+    except mono_api.MonoApiError:
+        return False
+    conn.webhook_url = url
+    conn.save(update_fields=['webhook_url'])
+    return True
+
+
+@db_transaction.atomic
+def link_mono_account(conn: IntegrationConnection, mono_account: mono_api.MonoAccount,
+                      *, user, account=None, sync_from=None) -> Account:
+    """Створює/прив'язує локальний Account до зовнішнього рахунку monobank.
+
+    Баланс виставляємо одразу з client-info через initial_balance (НЕ як дохід),
+    щоб картка показувала актуальну суму без жодного statement-запиту. Подальші
+    імпорти виписки лише уточнюють initial через back-calc (_reconcile_balance).
+    """
+    company = conn.company
+    is_business = _is_business_account(mono_account)
+    is_new = account is None
+    if account is None:
+        account = Account.objects.filter(
+            company=company, external_account_id=mono_account.id).first()
+        is_new = account is None
+    if account is None:
+        last = company.accounts.order_by('-sort_order').first()
+        account = Account(
+            company=company, name=_account_label(mono_account, conn.client_name),
+            type='card' if not mono_account.is_fop else 'bank',
+            currency=mono_account.currency, sort_order=(last.sort_order + 1) if last else 0,
+        )
+    account.integration = conn
+    account.external_account_id = mono_account.id
+    account.external_kind = _kind_for(mono_account)
+    account.iban = mono_account.iban or ''
+    account.masked_pan = mono_account.pan or ''
+    account.is_business = is_business
+    account.auto_sync = True
+    # Початковий баланс новоствореного рахунку = фактичний баланс у банку.
+    # Для вже наявного рахунку баланс не чіпаємо (його дотягне _reconcile_balance).
+    if is_new:
+        account.initial_balance = _money(mono_account.balance)
+    account.save()
+    account.recalc_balance(save=True)
+
+    if sync_from:
+        conn.sync_from = sync_from
+        conn.save(update_fields=['sync_from'])
+
+    audit_service.log_action(
+        user, 'link', 'integration', conn.id,
+        summary=f'Привʼязано рахунок {account.name}', source='integration', company=company,
+    )
+    return account
+
+
+def disconnect(conn: IntegrationConnection, *, user, wipe_token=True) -> None:
+    """Відключає інтеграцію: знищує токен, відвʼязує рахунки (операції лишаються)."""
+    conn.status = 'disconnected'
+    if wipe_token:
+        conn.encrypted_token = ''
+        conn.token_fingerprint = ''
+        conn.token_mask = ''
+        conn.auto_sync = False
+    conn.save(update_fields=['status', 'encrypted_token', 'token_fingerprint',
+                             'token_mask', 'auto_sync'])
+    for acc in conn.accounts.all():
+        acc.auto_sync = False
+        acc.save(update_fields=['auto_sync'])
+    audit_service.log_action(user, 'disconnect', 'integration', conn.id,
+                             summary=conn.get_provider_display(), company=conn.company)
+
+
+# ----------------------------- Імпорт виписки -----------------------------
+
+def _external_id(item_id: str) -> str:
+    return f'{EXTERNAL_PREFIX}:{item_id}'
+
+
+def _statement_window(frm: dt.datetime, to: dt.datetime):
+    """Розбиває [frm, to] на вікна ≤ 31 доба (вимога API), у хронологічному
+    порядку (старіші — першими), щоб імпорт ішов від давніх до свіжих."""
+    windows = []
+    step = dt.timedelta(days=30)  # запас від ліміту 31 доба
+    cursor = frm
+    while cursor < to:
+        end = min(cursor + step, to)
+        windows.append((cursor, end))
+        cursor = end
+    return windows
+
+
+@db_transaction.atomic
+def _import_item(account: Account, item: dict, *, user, apply_rules=True):
+    """Створює операцію з одного StatementItem (idempotent за external_id)."""
+    company = account.company
+    ext = _external_id(item.get('id', ''))
+    if not item.get('id') or Transaction.objects.filter(
+            company=company, external_id=ext).exists():
+        return None
+    # Не імпортуємо «hold» (заблоковані, ще не проведені) — лише фактичні.
+    if item.get('hold'):
+        return None
+
+    amount_minor = int(item.get('amount', 0) or 0)
+    if amount_minor == 0:
+        return None
+    when = timezone.datetime.fromtimestamp(int(item.get('time', 0)), tz=dt.timezone.utc)
+    txn_type = Transaction.TYPE_INCOME if amount_minor > 0 else Transaction.TYPE_EXPENSE
+    comment = (item.get('description') or item.get('comment') or '').strip()[:1000]
+    mcc = item.get('mcc')
+    try:
+        mcc = int(mcc) if mcc is not None else None
+    except (TypeError, ValueError):
+        mcc = None
+
+    # Зберігаємо багаті дані провайдера для подальшого аналізу/фільтрів.
+    external_data = {
+        'provider': 'monobank',
+        'mcc': mcc,
+        'original_mcc': item.get('originalMcc'),
+        'operation_amount': item.get('operationAmount'),
+        'operation_currency': item.get('currencyCode'),
+        'commission_rate': item.get('commissionRate'),
+        'cashback_amount': item.get('cashbackAmount'),
+        'balance_after': item.get('balance'),
+        'counter_iban': item.get('counterIban', ''),
+        'counter_name': item.get('counterName', ''),
+        'counter_edrpou': item.get('counterEdrpou', ''),
+        'receipt_id': item.get('receiptId', ''),
+    }
+    # Прибираємо порожні значення, щоб JSON був компактним.
+    external_data = {k: v for k, v in external_data.items() if v not in (None, '', 0)}
+
+    txn = txn_service.create_transaction(
+        user=user, type=txn_type, amount=abs(_money(amount_minor)),
+        account=account, currency=account.currency, date_actual=when,
+        comment=comment, source='integration', external_id=ext,
+        external_data=external_data, mcc=mcc,
+    )
+    # is_business успадковується від account у create_transaction (ФОП → бізнес).
+    if apply_rules:
+        try:
+            from . import rules_engine
+            rules_engine.apply_rules_to_transaction(txn, user=user, source='integration')
+        except Exception:  # noqa: BLE001 — правила не мають ламати імпорт
+            pass
+    return txn
+
+
+def import_statement(account: Account, items: list, *, user, apply_rules=True) -> dict:
+    """Імпортує список StatementItem у рахунок. Повертає статистику."""
+    created = skipped = 0
+    for item in items:
+        txn = _import_item(account, item, user=user, apply_rules=apply_rules)
+        if txn is None:
+            skipped += 1
+        else:
+            created += 1
+    return {'created': created, 'skipped': skipped}
+
+
+def _reconcile_balance(account: Account, mono_balance_minor: int) -> None:
+    """Доводить current_balance рахунку до фактичного балансу Monobank.
+
+    Виписка може не покривати всю історію, тож після імпорту виставляємо
+    ``initial_balance`` так, щоб current_balance == баланс у банку (back-calc):
+        initial = mono_balance − (рух за фактичними операціями рахунку).
+    """
+    account.recalc_balance(save=True)
+    account.refresh_from_db()
+    target = _money(mono_balance_minor)
+    diff = target - account.current_balance
+    if diff != 0:
+        account.initial_balance = (account.initial_balance + diff).quantize(Decimal('0.01'))
+        account.save(update_fields=['initial_balance'])
+        account.recalc_balance(save=True)
+
+
+@db_transaction.atomic
+def sync_account(account: Account, *, user, apply_rules=True, full=False,
+                 client=None, max_windows=None) -> dict:
+    """Синхронізує одну прив'язку: тягне виписку (свіжі — першими) та звіряє баланс.
+
+    Дві фази, що поважають ліміт Monobank (1 запит/60с):
+      1) **інкремент** — нові операції від (last_sync_at − 3 доби) до now;
+      2) **backfill** — добір історії вглиб через курсор ``backfill_until`` у
+         conn.meta, вікнами по ≤30 діб, поки не дійдемо до sync_from / −365 діб.
+    ``max_windows`` обмежує к-сть statement-запитів за прогін. На 429 — м'яко
+    зупиняємось (``rate_limited=True``), курсор зберігається для наступного разу.
+    (``full`` лишено для сумісності виклику; глибину добору задає ``max_windows``.)
+    """
+    conn = account.integration
+    if conn is None or not conn.has_token or not account.external_account_id:
+        return {'created': 0, 'skipped': 0, 'error': 'Рахунок не підключено до API'}
+
+    client = client or _client_for(conn, use_cache=False)
+    now = timezone.now()
+    meta = dict(conn.meta or {})
+    cur_key = f'backfill_until_{account.external_account_id}'
+    floor = (timezone.make_aware(dt.datetime.combine(conn.sync_from, dt.time.min))
+             if conn.sync_from else now - dt.timedelta(days=365))
+
+    totals = {'created': 0, 'skipped': 0, 'rate_limited': False}
+    budget = max_windows or 999
+
+    # Фаза 1: інкремент (свіжі операції) — виконується завжди.
+    inc_from = (conn.last_sync_at - dt.timedelta(days=3)) if conn.last_sync_at else floor
+    for w_from, w_to in reversed(_statement_window(inc_from, now)):  # свіжі першими
+        if budget <= 0:
+            break
+        try:
+            items = client.statement(account.external_account_id,
+                                     int(w_from.timestamp()), int(w_to.timestamp()))
+        except mono_api.MonoRateLimitError:
+            totals['rate_limited'] = True
+            break
+        r = import_statement(account, items, user=user, apply_rules=apply_rules)
+        totals['created'] += r['created']; totals['skipped'] += r['skipped']
+        budget -= 1
+
+    # Фаза 2: backfill вглиб (від курсора донизу до floor), теж свіжі-першими.
+    until = meta.get(cur_key)
+    until_dt = dt.datetime.fromisoformat(until) if until else now
+    if timezone.is_naive(until_dt):
+        until_dt = timezone.make_aware(until_dt)
+    while budget > 0 and not totals['rate_limited'] and until_dt > floor:
+        w_from = max(until_dt - dt.timedelta(days=30), floor)
+        try:
+            items = client.statement(account.external_account_id,
+                                     int(w_from.timestamp()), int(until_dt.timestamp()))
+        except mono_api.MonoRateLimitError:
+            totals['rate_limited'] = True
+            break
+        r = import_statement(account, items, user=user, apply_rules=apply_rules)
+        totals['created'] += r['created']; totals['skipped'] += r['skipped']
+        until_dt = w_from
+        budget -= 1
+    meta[cur_key] = until_dt.isoformat()
+
+    # Баланс беремо з кешованого/свіжого client-info (без зайвого запиту).
+    try:
+        for a in client.accounts():
+            if a.id == account.external_account_id:
+                _reconcile_balance(account, a.balance)
+                break
+    except mono_api.MonoApiError:
+        pass
+
+    conn.meta = meta
+    update_fields = ['meta']
+    if not totals['rate_limited']:
+        conn.last_sync_at = now
+        conn.error_message = ''
+        update_fields += ['last_sync_at', 'error_message']
+    conn.save(update_fields=update_fields)
+    return totals
+
+
+def sync_connection(conn: IntegrationConnection, *, user, full=False,
+                    max_windows_per_account=None) -> dict:
+    """Синхронізує всі авто-рахунки підключення під одним клієнтом (спільний кеш)."""
+    summary = {'accounts': 0, 'created': 0, 'skipped': 0, 'errors': [], 'rate_limited': False}
+    # Один свіжий client-info на весь прогін (для звірки балансів усіх рахунків).
+    client = _client_for(conn, use_cache=False)
+    try:
+        client.client_info(refresh=True)
+    except mono_api.MonoApiError:
+        pass
+    for account in conn.accounts.filter(auto_sync=True):
+        try:
+            res = sync_account(account, user=user, full=full, client=client,
+                               max_windows=max_windows_per_account)
+            summary['accounts'] += 1
+            summary['created'] += res.get('created', 0)
+            summary['skipped'] += res.get('skipped', 0)
+            summary['rate_limited'] = summary['rate_limited'] or res.get('rate_limited', False)
+        except mono_api.MonoApiError as exc:
+            summary['errors'].append(f'{account.name}: {exc}')
+    reconcile_internal_transfers(conn.company, user=user)
+    return summary
+
+
+# ----------------------------- Внутрішні перекази -----------------------------
+
+@db_transaction.atomic
+def reconcile_internal_transfers(company, *, user, window_hours=72) -> int:
+    """Розпізнає перекази між власними рахунками (напр. ФОП → особиста картка).
+
+    Зустрічна пара = витрата на одному рахунку + дохід на іншому на ту саму
+    суму в межах вікна. Перетворюємо їх на один Transfer (не дохід/витрата),
+    щоб не подвоювати P&L. Працює лише з імпортованими (integration) парами.
+    """
+    qs = (Transaction.objects.filter(
+            company=company, source='integration', status=Transaction.STATUS_ACTUAL,
+            type=Transaction.TYPE_EXPENSE)
+          .exclude(account__isnull=True))
+    window = dt.timedelta(hours=window_hours)
+    matched = 0
+    # Матеріалізуємо список наперед: у циклі ми міняємо type/видаляємо рядки,
+    # тож стрімити з курсора (iterator) небезпечно на частині бекендів.
+    for expense in list(qs):
+        income = (Transaction.objects.filter(
+                    company=company, source='integration',
+                    status=Transaction.STATUS_ACTUAL, type=Transaction.TYPE_INCOME,
+                    amount=expense.amount, currency=expense.currency,
+                    date_actual__gte=expense.date_actual - window,
+                    date_actual__lte=expense.date_actual + window)
+                  .exclude(account_id=expense.account_id)
+                  .exclude(account__isnull=True)
+                  .filter(account__integration__company=company)
+                  .order_by('date_actual')
+                  .first())
+        if income is None:
+            continue
+        # Витрату перетворюємо на переказ → income-рахунок, дубль-дохід видаляємо.
+        to_account = income.account
+        income_id = income.id
+        txn_service.delete_transaction(income, user=user)
+        txn_service.convert_to_transfer(expense, user=user, to_account=to_account,
+                                        to_amount=expense.amount)
+        # Переказ між власними рахунками не є ні доходом, ні витратою бізнесу.
+        Transaction.objects.filter(pk=expense.pk).update(is_business=False)
+        audit_service.log_action(
+            user, 'reconcile', 'transaction', expense.id,
+            summary=f'Зведено у переказ (дубль #{income_id} видалено)',
+            source='integration', company=company,
+        )
+        matched += 1
+    return matched
+
+
+# ----------------------------- Вебхук -----------------------------
+
+@db_transaction.atomic
+def process_webhook(conn: IntegrationConnection, payload: dict, *, user=None) -> dict:
+    """Обробляє push Monobank: {type:'StatementItem', data:{account, statementItem}}."""
+    data = (payload or {}).get('data') or {}
+    ext_account_id = data.get('account', '')
+    item = data.get('statementItem') or {}
+    account = Account.objects.filter(
+        company=conn.company, external_account_id=ext_account_id).first()
+    if account is None:
+        return {'ok': False, 'error': 'unknown account'}
+    txn = _import_item(account, item, user=user, apply_rules=True)
+    if txn is not None:
+        # Оновлюємо баланс із поля balance у вебхуку, якщо є.
+        if 'balance' in item:
+            _reconcile_balance(account, item.get('balance'))
+        conn.last_sync_at = timezone.now()
+        conn.save(update_fields=['last_sync_at'])
+    return {'ok': True, 'created': 1 if txn else 0}

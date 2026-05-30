@@ -46,6 +46,12 @@ def _apply_dim_filters(qs, params):
         ids = [i for i in str(params['counterparties']).split(',') if i.isdigit()]
         if ids:
             qs = qs.filter(counterparty_id__in=ids)
+    # Бізнес / особисте — наскрізний зріз для всіх звітів.
+    scope = (params.get('scope') or '').strip()
+    if scope == 'business':
+        qs = qs.filter(is_business=True)
+    elif scope == 'personal':
+        qs = qs.filter(is_business=False)
     return qs
 
 

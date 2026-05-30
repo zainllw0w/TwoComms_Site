@@ -71,6 +71,8 @@ def payments(request):
             'search': request.GET.get('search', ''),
             'amount_min': request.GET.get('amount_min', ''),
             'amount_max': request.GET.get('amount_max', ''),
+            'scope': request.GET.get('scope', ''),
+            'mcc_group': request.GET.get('mcc_group', ''),
         },
     }
     return render(request, 'finance/payments.html', context)
@@ -318,6 +320,10 @@ def transactions_bulk_api(request):
         for t in qs.filter(status=Transaction.STATUS_PLANNED):
             txn_service.mark_planned_actual(t, user=request.user)
             affected += 1
+    elif action == 'set_business':
+        # value приходить рядком '1'/'0' — bool('0') == True, тож парсимо явно.
+        flag = str(data.get('value', '')).strip().lower() in ('1', 'true', 'on', 'yes')
+        affected = qs.update(is_business=flag)
     else:
         return JsonResponse({'ok': False, 'error': 'Невідома дія'}, status=400)
 

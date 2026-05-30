@@ -49,6 +49,12 @@ def cache_page_for_anon(timeout, key_prefix=None):
     Избегаем проблем с кэшированием персональных данных для авторизованных пользователей.
     Для authenticated пользователей кэширование отключается.
 
+    IMPORTANT: When serving a cached response, we force Django to set the
+    CSRF cookie via ``get_token(request)``.  Without this, anonymous
+    visitors who land on a cached page never receive a ``csrftoken``
+    cookie, causing all subsequent AJAX POST requests (e.g. survey
+    start) to fail with a 403 CSRF error.
+
     Args:
         timeout (int): Время кэширования в секундах
 
@@ -69,6 +75,13 @@ def cache_page_for_anon(timeout, key_prefix=None):
             cache_key = _build_anon_cache_key(request, view_func, key_prefix)
             cached_response = cache.get(cache_key)
             if cached_response is not None:
+                # Ensure CSRF cookie is set even on cached responses.
+                # Django's CsrfViewMiddleware only sets the cookie when
+                # request.META['CSRF_COOKIE_USED'] is True.  Calling
+                # get_token() sets that flag so the middleware's
+                # process_response() will emit the Set-Cookie header.
+                from django.middleware.csrf import get_token
+                get_token(request)
                 return cached_response
 
             response = view_func(request, *args, **kwargs)

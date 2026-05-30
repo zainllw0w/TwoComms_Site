@@ -10,6 +10,7 @@
         <p class="fin-page-subtitle">Керування рахунками, стартові баланси та інтеграції.</p>
     </div>
     <div class="fin-page-actions">
+        <button type="button" class="fin-btn fin-btn--ghost" id="fin-mono-settings-btn" hidden>monobank</button>
         <button type="button" class="fin-btn fin-btn--ghost" id="fin-import-btn">Імпорт виписки</button>
         <button type="button" class="fin-btn fin-btn--primary" id="fin-add-account-btn">+ Додати рахунок</button>
     </div>
@@ -29,7 +30,9 @@
                 {% if a.integration %}<span class="fin-acc-card__integration">{{ a.integration }}</span>{% endif %}
                 {% if a.is_archived %}<span class="fin-badge">архів</span>{% endif %}
             </div>
-            <div class="fin-acc-card__meta">{{ a.type_display }} · {{ a.currency }}</div>
+            <div class="fin-acc-card__meta">{{ a.type_display }} · {{ a.currency }}
+                {% if a.is_business %}<span class="fin-badge fin-badge--biz">бізнес</span>{% else %}{% if a.integration %}<span class="fin-badge">особисте</span>{% endif %}{% endif %}
+            </div>
         </div>
         <div class="fin-acc-card__balance">{{ a.current_balance }} {{ a.balance_display }}</div>
         <div class="fin-acc-card__actions">
@@ -162,6 +165,87 @@
   </div>
 </div>
 
+<!-- Monobank: підключення за API-токеном -->
+<div class="fin-modal-overlay" id="fin-mono-modal" hidden>
+  <div class="fin-modal-card" role="dialog" aria-modal="true">
+    <div class="fin-modal-head">
+      <h3>Підключення monobank</h3>
+      <button type="button" class="fin-modal-close" data-fin-close aria-label="Закрити">×</button>
+    </div>
+    <div class="fin-modal-body">
+      <!-- Крок 1: вибір способу (токен / QR) -->
+      <div class="fin-mono-step" id="fin-mono-step-choose">
+        <div class="fin-method-cards">
+          <button type="button" class="fin-method-card" data-mono-mode="token">
+            <span class="fin-method-card__icon">🔑</span>
+            <span class="fin-method-card__title">За API-токеном</span>
+            <span class="fin-method-card__desc">Рекомендовано. Доступ до всіх карток і ФОП-рахунків, автосинхронізація.</span>
+          </button>
+          <button type="button" class="fin-method-card" data-mono-mode="qr">
+            <span class="fin-method-card__icon">▦</span>
+            <span class="fin-method-card__title">За QR-кодом</span>
+            <span class="fin-method-card__desc">Одноразове підтвердження у застосунку.</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Крок 2: введення токена -->
+      <form class="fin-mono-step" id="fin-mono-step-token" hidden>
+        <div class="fin-form-alert" id="fin-mono-alert" hidden></div>
+        <div class="fin-hint fin-hint--sm">
+          Токен видається у застосунку monobank: <b>Налаштування → Сервіси для розробників</b>
+          (<a href="https://api.monobank.ua" target="_blank" rel="noopener">api.monobank.ua</a>).
+          Він зберігається лише в зашифрованому вигляді й ніколи не показується повторно.
+        </div>
+        <label class="fin-field">
+          <span>API-токен</span>
+          <input type="password" class="fin-input" id="fin-mono-token" autocomplete="off"
+                 placeholder="Вставте токен monobank" spellcheck="false">
+          <small class="fin-field-help">Дані передаються лише на наш сервер по HTTPS і одразу шифруються.</small>
+        </label>
+        <div class="fin-modal-foot">
+          <button type="button" class="fin-btn fin-btn--ghost" data-mono-back>Назад</button>
+          <button type="submit" class="fin-btn fin-btn--primary" id="fin-mono-connect-btn">Підключити</button>
+        </div>
+      </form>
+
+      <!-- Крок 3: вибір рахунків -->
+      <div class="fin-mono-step" id="fin-mono-step-accounts" hidden>
+        <div class="fin-mono-client" id="fin-mono-client"></div>
+        <div class="fin-form-alert" id="fin-mono-acc-alert" hidden></div>
+        <label class="fin-field">
+          <span>Синхронізувати з дати</span>
+          <input type="date" class="fin-input" id="fin-mono-syncfrom">
+          <small class="fin-field-help">Порожньо — підтягнемо історію за останній рік.</small>
+        </label>
+        <div class="fin-mono-acc-list" id="fin-mono-acc-list"></div>
+        <div class="fin-modal-foot">
+          <button type="button" class="fin-btn fin-btn--ghost" data-fin-close>Пізніше</button>
+          <button type="button" class="fin-btn fin-btn--primary" id="fin-mono-link-btn">Підключити обрані</button>
+        </div>
+      </div>
+
+      <!-- Крок 4: прогрес -->
+      <div class="fin-mono-step" id="fin-mono-step-progress" hidden>
+        <div class="fin-qr-spinner">Синхронізуємо операції… Це може зайняти до хвилини через ліміти monobank.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Monobank: налаштування підключення -->
+<div class="fin-modal-overlay" id="fin-mono-settings-modal" hidden>
+  <div class="fin-modal-card" role="dialog" aria-modal="true">
+    <div class="fin-modal-head">
+      <h3>Налаштування monobank</h3>
+      <button type="button" class="fin-modal-close" data-fin-close aria-label="Закрити">×</button>
+    </div>
+    <div class="fin-modal-body" id="fin-mono-settings-body">
+      <div class="fin-qr-spinner">Завантаження…</div>
+    </div>
+  </div>
+</div>
+
 <!-- Імпорт виписки -->
 <div class="fin-modal-overlay" id="fin-import-modal" hidden>
   <div class="fin-modal-card" role="dialog" aria-modal="true">
@@ -221,5 +305,5 @@
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-<script src="{% static 'js/finance-accounts.js' %}?v=20260530a"></script>
+<script src="{% static 'js/finance-accounts.js' %}?v=20260530b"></script>
 {% endblock %}

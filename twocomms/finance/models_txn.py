@@ -127,6 +127,13 @@ class Transaction(models.Model):
 
     source = models.CharField(max_length=16, choices=SOURCE_CHOICES, default='manual')
     external_id = models.CharField(max_length=128, blank=True, default='')
+    # Сирі дані провайдера для багатшого аналізу: mcc, cashbackAmount,
+    # commissionRate, counterIban/counterName, operationAmount/currencyCode тощо.
+    # Дозволяє фільтрувати/аналізувати без окремих колонок під кожне поле.
+    external_data = models.JSONField(default=dict, blank=True)
+    # MCC (Merchant Category Code) винесено окремою колонкою для індексованого
+    # групування витрат за категоріями мерчанта.
+    mcc = models.PositiveIntegerField(blank=True, null=True, db_index=True)
 
     is_recurring = models.BooleanField(default=False)
     recurrence_rule = models.ForeignKey(RecurrenceRule, on_delete=models.SET_NULL, blank=True,
@@ -140,6 +147,10 @@ class Transaction(models.Model):
                                        null=True, related_name='payments')
 
     excluded_from_reports = models.BooleanField(default=False)
+    # Бізнес vs особиста транзакція. За замовчуванням успадковує is_business
+    # рахунку (ФОП → бізнес; особиста картка → особисте), але кожну операцію
+    # можна перекваліфікувати вручну для коректної бізнес-статистики.
+    is_business = models.BooleanField(default=False, db_index=True)
     is_demo = models.BooleanField(default=False)
 
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, blank=True,

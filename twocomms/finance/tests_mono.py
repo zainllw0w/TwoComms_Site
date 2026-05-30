@@ -1,0 +1,273 @@
+"""Тести інтеграції Monobank: шифрування токена, мапінг виписки, антидублі,
+звірка балансу, бізнес/особисте, перетворення внутрішніх переказів, безпека
+вебхука. Зовнішній API мокаємо — реальні запити до monobank не йдуть.
+"""
+from __future__ import annotations
+
+from decimal import Decimal
+from unittest import mock
+
+from django.contrib.auth import get_user_model
+from django.test import TestCase, Client
+
+from finance.models import Account, IntegrationConnection, Transaction, get_default_company
+from finance.services import crypto, mono as mono_service
+from finance.services import mono_api
+
+User = get_user_model()
+
+
+def _item(_id, amount, t=1714000000, desc='op', hold=False, balance=None, mcc=None):
+    d = {'id': _id, 'time': t, 'amount': amount, 'description': desc, 'hold': hold}
+    if balance is not None:
+        d['balance'] = balance
+    if mcc is not None:
+        d['mcc'] = mcc
+    return d
+
+
+class CryptoTests(TestCase):
+    def test_encrypt_roundtrip(self):
+        token = 'fake-test-token-DO-NOT-USE-0000000000000'
+        enc = crypto.encrypt(token)
+        self.assertNotIn(token, enc)  # не зберігаємо у відкритому вигляді
+        self.assertEqual(crypto.decrypt(enc), token)
+
+    def test_fingerprint_stable_and_masking(self):
+        token = 'secrettoken123456'
+        self.assertEqual(crypto.fingerprint(token), crypto.fingerprint(token))
+        self.assertNotEqual(crypto.fingerprint(token), crypto.fingerprint('other'))
+        self.assertTrue(crypto.mask(token).endswith(token[-4:]))
+        self.assertNotIn(token[:6], crypto.mask(token))
+
+    def test_decrypt_garbage_raises(self):
+        with self.assertRaises(crypto.TokenCryptoError):
+            crypto.decrypt('not-a-valid-token')
+
+
+class MonoApiHelperTests(TestCase):
+    def test_iso_alpha(self):
+        self.assertEqual(mono_api.iso_alpha(980), 'UAH')
+        self.assertEqual(mono_api.iso_alpha(840), 'USD')
+        self.assertEqual(mono_api.iso_alpha(99999), 'UAH')  # фолбек
+
+    def test_account_business_detection(self):
+        fop = mono_api.MonoAccount('a', 's', 0, 0, 'fop', 980, [], 'UA1')
+        card = mono_api.MonoAccount('b', 's', 0, 0, 'black', 980, ['1234'], 'UA2')
+        self.assertTrue(mono_service._is_business_account(fop))
+        self.assertFalse(mono_service._is_business_account(card))
+
+
+class MonoSyncTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_superuser('fin_m', 'm@x.com', 'x')
+        self.company = get_default_company()
+        self.conn = IntegrationConnection.objects.create(
+            company=self.company, provider='monobank', status='success',
+            connection_method='token')
+        self.conn.set_token('TESTTOKEN1234567890')
+        self.conn.save()
+        self.acc = Account.objects.create(
+            company=self.company, name='mono black', currency='UAH',
+            integration=self.conn, external_account_id='acc-1',
+            external_kind='card', is_business=False)
+
+    def test_import_maps_amount_and_type(self):
+        items = [_item('m1', 50000), _item('m2', -20000)]  # +500 / -200 грн
+        res = mono_service.import_statement(self.acc, items, user=self.user, apply_rules=False)
+        self.assertEqual(res['created'], 2)
+        inc = Transaction.objects.get(external_id='mono:m1')
+        exp = Transaction.objects.get(external_id='mono:m2')
+        self.assertEqual(inc.type, Transaction.TYPE_INCOME)
+        self.assertEqual(inc.amount, Decimal('500.00'))
+        self.assertEqual(exp.type, Transaction.TYPE_EXPENSE)
+        self.assertEqual(exp.amount, Decimal('200.00'))
+
+    def test_dedup_by_external_id(self):
+        items = [_item('m1', 50000)]
+        mono_service.import_statement(self.acc, items, user=self.user, apply_rules=False)
+        res = mono_service.import_statement(self.acc, items, user=self.user, apply_rules=False)
+        self.assertEqual(res['created'], 0)
+        self.assertEqual(res['skipped'], 1)
+        self.assertEqual(Transaction.objects.filter(external_id='mono:m1').count(), 1)
+
+    def test_hold_and_zero_skipped(self):
+        items = [_item('h1', 10000, hold=True), _item('z1', 0)]
+        res = mono_service.import_statement(self.acc, items, user=self.user, apply_rules=False)
+        self.assertEqual(res['created'], 0)
+
+    def test_business_inherited_from_account(self):
+        self.acc.is_business = True
+        self.acc.save()
+        mono_service.import_statement(self.acc, [_item('b1', 50000)],
+                                     user=self.user, apply_rules=False)
+        self.assertTrue(Transaction.objects.get(external_id='mono:b1').is_business)
+
+    def test_rich_data_and_mcc_captured(self):
+        item = _item('r1', -15000, mcc=5411, balance=84000)  # супермаркет
+        item['cashbackAmount'] = 150
+        item['operationAmount'] = -15000
+        item['currencyCode'] = 980
+        mono_service.import_statement(self.acc, [item], user=self.user, apply_rules=False)
+        txn = Transaction.objects.get(external_id='mono:r1')
+        self.assertEqual(txn.mcc, 5411)
+        self.assertEqual(txn.external_data.get('cashback_amount'), 150)
+        self.assertEqual(txn.external_data.get('provider'), 'monobank')
+        from finance.services import mcc as mcc_mod
+        self.assertEqual(mcc_mod.group_for_mcc(5411), 'groceries')
+        self.assertEqual(mcc_mod.group_for_mcc(99999), 'other')
+
+    def test_reconcile_balance_backcalc(self):
+        # Імпортуємо рух на +500, але банк каже баланс 1500 → initial має дотягнутись.
+        mono_service.import_statement(self.acc, [_item('m1', 50000)],
+                                     user=self.user, apply_rules=False)
+        mono_service._reconcile_balance(self.acc, 150000)  # 1500 грн
+        self.acc.refresh_from_db()
+        self.assertEqual(self.acc.current_balance, Decimal('1500.00'))
+
+    def test_internal_transfer_reconciliation(self):
+        other = Account.objects.create(
+            company=self.company, name='mono fop', currency='UAH',
+            integration=self.conn, external_account_id='acc-2',
+            external_kind='fop', is_business=True)
+        # ФОП -200 (витрата) і картка +200 (дохід) у близький час → переказ.
+        mono_service.import_statement(other, [_item('e1', -20000, t=1714000000)],
+                                     user=self.user, apply_rules=False)
+        mono_service.import_statement(self.acc, [_item('i1', 20000, t=1714000100)],
+                                     user=self.user, apply_rules=False)
+        matched = mono_service.reconcile_internal_transfers(self.company, user=self.user)
+        self.assertEqual(matched, 1)
+        expense = Transaction.objects.get(external_id='mono:e1')
+        self.assertEqual(expense.type, Transaction.TYPE_TRANSFER)
+        self.assertFalse(expense.is_business)
+        self.assertFalse(Transaction.objects.filter(external_id='mono:i1').exists())
+
+    def test_process_webhook_creates_txn(self):
+        payload = {'type': 'StatementItem',
+                   'data': {'account': 'acc-1',
+                            'statementItem': _item('w1', 33000, balance=33000)}}
+        res = mono_service.process_webhook(self.conn, payload, user=self.user)
+        self.assertTrue(res['ok'])
+        self.assertEqual(Transaction.objects.filter(external_id='mono:w1').count(), 1)
+
+    def test_sync_account_pulls_statement_and_sets_balance(self):
+        # Мокаємо statement (одна операція) і accounts (баланс) — без мережі.
+        import datetime as _dt
+        ma = mono_api.MonoAccount('acc-1', 's', 99900, 0, 'black', 980, ['1234'], 'UA1')
+        with mock.patch.object(mono_api.MonoClient, 'statement',
+                               return_value=[_item('s1', 12300)]) as m_stmt, \
+             mock.patch.object(mono_api.MonoClient, 'accounts', return_value=[ma]):
+            res = mono_service.sync_account(self.acc, user=self.user,
+                                            apply_rules=False, max_windows=1)
+        self.assertTrue(m_stmt.called)
+        self.assertGreaterEqual(res['created'], 1)
+        self.acc.refresh_from_db()
+        # Баланс зведено до значення банку (999.00), а не лише до руху операцій.
+        self.assertEqual(self.acc.current_balance, Decimal('999.00'))
+        # Курсор backfill збережено в meta для наступного прогону.
+        self.conn.refresh_from_db()
+        self.assertTrue(any(k.startswith('backfill_until_') for k in self.conn.meta))
+
+    def test_sync_account_rate_limit_soft_stop(self):
+        with mock.patch.object(mono_api.MonoClient, 'statement',
+                               side_effect=mono_api.MonoRateLimitError('429')), \
+             mock.patch.object(mono_api.MonoClient, 'accounts', return_value=[]):
+            res = mono_service.sync_account(self.acc, user=self.user,
+                                            apply_rules=False, max_windows=2)
+        self.assertTrue(res['rate_limited'])
+        # last_sync_at не оновлюється при rate-limit (щоб добрати наступного разу).
+
+
+
+class MonoConnectTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_superuser('fin_c', 'c@x.com', 'x')
+        self.company = get_default_company()
+
+    def test_connect_with_token_validates_and_encrypts(self):
+        # connect_with_token робить реальний client.client_info() — мокаємо його.
+        fake = {'name': 'Іван', 'clientId': 'cid', 'accounts': [], 'jars': []}
+        with mock.patch.object(mono_api.MonoClient, 'client_info', return_value=fake):
+            conn = mono_service.connect_with_token('RAWTOKEN1234567', user=self.user)
+        self.assertEqual(conn.status, 'success')
+        self.assertEqual(conn.client_name, 'Іван')
+        self.assertEqual(conn.external_client_id, 'cid')
+        self.assertTrue(conn.encrypted_token)
+        self.assertNotIn('RAWTOKEN', conn.encrypted_token)
+        self.assertEqual(conn.get_token(), 'RAWTOKEN1234567')
+        self.assertTrue(conn.webhook_secret)
+        # client-info кешується в meta для подальших discover/link без зайвих запитів.
+        self.assertIn('client_info', conn.meta)
+
+
+class MonoWebhookSecurityTests(TestCase):
+    FIN_HOST = 'fin.twocomms.shop'
+
+    def setUp(self):
+        self.company = get_default_company()
+        self.conn = IntegrationConnection.objects.create(
+            company=self.company, provider='monobank', status='success',
+            webhook_secret='goodsecret')
+        self.client = Client()
+
+    def test_webhook_rejects_bad_secret(self):
+        from django.test import override_settings
+        url = f'/hooks/mono/{self.conn.id}/wrongsecret/'
+        with override_settings(ALLOWED_HOSTS=['fin.twocomms.shop', 'testserver']):
+            resp = self.client.post(url, data='{}', content_type='application/json',
+                                    HTTP_HOST=self.FIN_HOST)
+        self.assertEqual(resp.status_code, 403)
+
+    def test_webhook_accepts_good_secret(self):
+        from django.test import override_settings
+        url = f'/hooks/mono/{self.conn.id}/goodsecret/'
+        with override_settings(ALLOWED_HOSTS=['fin.twocomms.shop', 'testserver']):
+            resp = self.client.post(url, data='{"data":{}}', content_type='application/json',
+                                    HTTP_HOST=self.FIN_HOST)
+        self.assertEqual(resp.status_code, 200)
+
+
+class BusinessScopeAndMccFilterTests(TestCase):
+    def setUp(self):
+        from finance.services import transactions as txn_service
+        self.user = User.objects.create_superuser('fin_f', 'f@x.com', 'x')
+        self.company = get_default_company()
+        self.acc = Account.objects.create(company=self.company, name='card', currency='UAH')
+        self.t_biz = txn_service.create_transaction(
+            user=self.user, type=Transaction.TYPE_EXPENSE, amount=Decimal('100'),
+            account=self.acc, is_business=True, mcc=5411)  # продукти
+        self.t_pers = txn_service.create_transaction(
+            user=self.user, type=Transaction.TYPE_EXPENSE, amount=Decimal('50'),
+            account=self.acc, is_business=False, mcc=5541)  # паливо
+
+    def test_scope_filter(self):
+        from finance.services import filters
+        biz = filters.filter_transactions(self.company, {'scope': 'business'})
+        self.assertIn(self.t_biz, biz)
+        self.assertNotIn(self.t_pers, biz)
+        pers = filters.filter_transactions(self.company, {'scope': 'personal'})
+        self.assertIn(self.t_pers, pers)
+        self.assertNotIn(self.t_biz, pers)
+
+    def test_mcc_group_filter(self):
+        from finance.services import filters
+        groceries = filters.filter_transactions(self.company, {'mcc_group': 'groceries'})
+        self.assertIn(self.t_biz, groceries)
+        self.assertNotIn(self.t_pers, groceries)
+
+    def test_bulk_set_business_zero_is_false(self):
+        # Регресія: bool('0') == True; перевіряємо, що '0' робить is_business=False.
+        from finance.views.payments import transactions_bulk_api
+        from django.test import RequestFactory
+        import json as _json
+        rf = RequestFactory()
+        req = rf.post('/api/transactions/bulk/',
+                      data=_json.dumps({'action': 'set_business',
+                                        'ids': f'{self.t_biz.id}', 'value': '0'}),
+                      content_type='application/json')
+        req.user = self.user
+        resp = transactions_bulk_api(req)
+        self.assertEqual(resp.status_code, 200)
+        self.t_biz.refresh_from_db()
+        self.assertFalse(self.t_biz.is_business)
+

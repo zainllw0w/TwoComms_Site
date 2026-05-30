@@ -252,6 +252,8 @@
       if (txn.date_agreement) els.agreement.value = txn.date_agreement;
       if (txn.project_id) els.project.value = txn.project_id;
       els.comment.value = txn.comment || '';
+      var bizEl = document.getElementById('fin-txn-business');
+      if (bizEl) bizEl.checked = !!txn.is_business;
       renderTags((txn.tags || []).map(function (t) { return t.id; }));
       renderAttachments(txn.attachments || []);
       els.editActions.hidden = false;
@@ -299,6 +301,11 @@
     }
     if (els.file && els.file.files) {
       for (var i = 0; i < els.file.files.length; i++) fd.append('attachments', els.file.files[i]);
+    }
+    // Бізнес/особисте — лише для доходів/витрат (перекази нейтральні).
+    if (type !== 'transfer') {
+      var bizEl = document.getElementById('fin-txn-business');
+      fd.append('is_business', bizEl && bizEl.checked ? '1' : '0');
     }
     return fd;
   }
@@ -462,6 +469,7 @@
       var action = btn.dataset.bulk;
       if (action === 'delete') { if (confirm('Видалити обрані операції?')) runBulk('delete'); return; }
       if (action === 'mark_actual') { runBulk('mark_actual'); return; }
+      if (action === 'set_business') { runBulk('set_business', btn.dataset.value); return; }
       pendingBulk = action;
       var map = { set_category: ['expense_categories', 'Категорія'], set_project: ['projects', 'Проект'],
                   set_counterparty: ['counterparties', 'Контрагент'], add_tag: ['tags', 'Тег'] };

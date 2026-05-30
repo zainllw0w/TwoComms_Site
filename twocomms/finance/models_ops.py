@@ -44,11 +44,33 @@ class IntegrationConnection(models.Model):
         ('disconnected', 'Відключено'),
     ]
 
+    METHOD_CHOICES = [
+        ('qr', 'QR-код'),
+        ('token', 'API-токен'),
+        ('manual', 'Ручний імпорт'),
+    ]
+
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='integrations')
     provider = models.CharField(max_length=32, choices=PROVIDER_CHOICES)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    connection_method = models.CharField(max_length=12, choices=METHOD_CHOICES, default='qr')
     provider_account_id = models.CharField(max_length=128, blank=True, default='')
     credentials_ref = models.CharField(max_length=128, blank=True, default='')
+
+    # --- Зашифрований доступ через API-токен (напр. Monobank Personal) ---
+    # Сам токен НІКОЛИ не зберігається у відкритому вигляді: лише Fernet-шифротекст.
+    encrypted_token = models.TextField(blank=True, default='')
+    token_fingerprint = models.CharField(max_length=32, blank=True, default='', db_index=True)
+    token_mask = models.CharField(max_length=32, blank=True, default='')
+    # Випадковий секрет у шляху URL вебхука — захист від підробних викликів.
+    webhook_secret = models.CharField(max_length=64, blank=True, default='')
+    webhook_url = models.URLField(blank=True, default='')
+    auto_sync = models.BooleanField(default=True)
+    # Дані клієнта від провайдера (ім'я, ідентифікатор) — для відображення.
+    client_name = models.CharField(max_length=255, blank=True, default='')
+    external_client_id = models.CharField(max_length=128, blank=True, default='')
+    meta = models.JSONField(default=dict, blank=True)
+
     sync_from = models.DateField(blank=True, null=True)
     last_sync_at = models.DateTimeField(blank=True, null=True)
     error_message = models.CharField(max_length=512, blank=True, default='')
@@ -60,6 +82,23 @@ class IntegrationConnection(models.Model):
 
     def __str__(self):
         return f'{self.get_provider_display()} ({self.get_status_display()})'
+
+    # --- Робота з токеном через сервіс шифрування ---
+    def set_token(self, raw_token: str) -> None:
+        """Шифрує і зберігає токен (+ відбиток і маску). Не save() сам по собі."""
+        from .services import crypto
+        self.encrypted_token = crypto.encrypt(raw_token)
+        self.token_fingerprint = crypto.fingerprint(raw_token)
+        self.token_mask = crypto.mask(raw_token)
+
+    def get_token(self) -> str:
+        """Розшифровує збережений токен (кидає TokenCryptoError за невдачі)."""
+        from .services import crypto
+        return crypto.decrypt(self.encrypted_token)
+
+    @property
+    def has_token(self) -> bool:
+        return bool(self.encrypted_token)
 
 
 class AutomationRule(models.Model):

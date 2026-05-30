@@ -49,6 +49,14 @@
             <input type="number" step="0.01" name="amount_max" class="fin-input fin-input--sm" placeholder="До" value="{{ current_filters.amount_max }}">
         </div>
 
+        <label class="fin-scope-filter" title="Бізнес / особисте">
+            <select name="scope" class="fin-select fin-select--sm" id="fin-scope">
+                <option value="" {% if not current_filters.scope %}selected{% endif %}>Усі</option>
+                <option value="business" {% if current_filters.scope == 'business' %}selected{% endif %}>Бізнес</option>
+                <option value="personal" {% if current_filters.scope == 'personal' %}selected{% endif %}>Особисті</option>
+            </select>
+        </label>
+
         <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" id="fin-advanced-filter-btn">
             <svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><path d="M3 5h18v2l-7 7v5l-4-2v-3L3 7z" fill="currentColor"/></svg>
             Фільтр
@@ -70,6 +78,8 @@
     <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="set_counterparty">Контрагент</button>
     <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="add_tag">Тег</button>
     <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="mark_actual">Позначити фактичними</button>
+    <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="set_business" data-value="1">→ Бізнес</button>
+    <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="set_business" data-value="0">→ Особисті</button>
     <button type="button" class="fin-btn fin-btn--danger fin-btn--sm" data-bulk="delete">Видалити</button>
 </div>
 
@@ -140,5 +150,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/finance-transactions.js' %}?v=20260530c"></script>
+<script src="{% static 'js/finance-transactions.js' %}?v=20260530d"></script>
 {% endblock %}

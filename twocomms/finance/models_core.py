@@ -85,6 +85,15 @@ class Account(models.Model):
         'finance.IntegrationConnection', on_delete=models.SET_NULL,
         blank=True, null=True, related_name='accounts',
     )
+    # Прив'язка до зовнішнього рахунку провайдера (Monobank account id / jar id).
+    external_account_id = models.CharField(max_length=128, blank=True, default='', db_index=True)
+    external_kind = models.CharField(max_length=16, blank=True, default='')  # card/fop/jar
+    iban = models.CharField(max_length=64, blank=True, default='')
+    masked_pan = models.CharField(max_length=32, blank=True, default='')
+    # Бізнес vs особистий рахунок. ФОП-рахунки — завжди бізнес; на звичайних
+    # картках операції особисті за замовчуванням (можна перемикати поштучно).
+    is_business = models.BooleanField(default=False)
+    auto_sync = models.BooleanField(default=True)
     sort_order = models.PositiveIntegerField(default=0)
     is_demo = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

@@ -142,6 +142,24 @@ def filter_transactions(company, params, *, include_planned=True):
     elif not include_planned:
         qs = qs.exclude(status=Transaction.STATUS_PLANNED)
 
+    # Бізнес / особисте.
+    scope = (params.get('scope') or '').strip()
+    if scope == 'business':
+        qs = qs.filter(is_business=True)
+    elif scope == 'personal':
+        qs = qs.filter(is_business=False)
+
+    # Фільтр за групою MCC (продукти, паливо, кафе...). Резолвимо у діапазони MCC.
+    mcc_group = (params.get('mcc_group') or '').strip()
+    if mcc_group:
+        from . import mcc as mcc_mod
+        ranges = [(lo, hi) for (lo, hi), key in mcc_mod._RANGES if key == mcc_group]
+        if ranges:
+            q = Q()
+            for lo, hi in ranges:
+                q |= Q(mcc__gte=lo, mcc__lte=hi)
+            qs = qs.filter(q)
+
     # Приховати оригінали розділених платежів (показуємо дітей).
     qs = qs.filter(excluded_from_reports=False)
 

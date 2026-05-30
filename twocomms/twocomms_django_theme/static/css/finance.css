@@ -1037,3 +1037,26 @@ body.fin-modal-open { overflow: hidden; }
     .fin-users-layout { grid-template-columns: 1fr; }
 }
 
+/* --- Monobank інтеграція --- */
+.fin-badge--biz { background: rgba(34,197,94,0.18); color: #22c55e; }
+.fin-hint--sm { font-size: 12px; padding: 8px 10px; margin-bottom: 12px; }
+.fin-mono-acc-list { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; max-height: 320px; overflow-y: auto; }
+.fin-mono-acc { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--fin-border); border-radius: 10px; cursor: pointer; }
+.fin-mono-acc:hover { border-color: var(--fin-border-strong); }
+.fin-mono-acc input { margin-top: 3px; }
+.fin-mono-acc__main { display: flex; flex-direction: column; gap: 2px; }
+.fin-mono-acc__main small { color: var(--fin-muted); font-size: 12px; }
+.fin-mono-conn { border: 1px solid var(--fin-border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.fin-mono-conn__head { display: flex; align-items: center; gap: 8px; }
+.fin-mono-conn__meta { color: var(--fin-muted); font-size: 12px; margin: 6px 0 10px; }
+.fin-mono-acc-rows { display: flex; flex-direction: column; gap: 6px; }
+.fin-mono-acc-row { display: flex; align-items: center; gap: 12px; padding: 8px 10px; background: var(--fin-bg-800); border-radius: 8px; }
+.fin-mono-acc-row__name { flex: 1; }
+.fin-mono-acc-row__name small { color: var(--fin-muted); }
+.fin-chk { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--fin-muted); cursor: pointer; white-space: nowrap; }
+.fin-client { color: var(--fin-muted); font-size: 13px; margin-bottom: 10px; }
+.fin-badge--cashback { background: rgba(56,189,248,0.16); color: #38bdf8; }
+.fin-mcc-auto { color: var(--fin-muted); font-style: italic; }
+.fin-select--sm { padding: 4px 8px; font-size: 13px; }
+.fin-scope-filter { display: inline-flex; align-items: center; }
+

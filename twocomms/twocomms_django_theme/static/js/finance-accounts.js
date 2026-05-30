@@ -122,6 +122,7 @@
   }
   document.querySelectorAll('.fin-integ-item').forEach(function (it) {
     it.addEventListener('click', function () {
+      if (it.dataset.provider === 'monobank') { hide(addModal); openMono(); return; }
       api('/api/integrations/start/', 'POST', { provider: it.dataset.provider }).then(function (res) {
         if (!res.data.ok) return;
         currentConn = res.data.connection_id;
@@ -252,6 +253,176 @@
         if (res.data.ok) window.location.reload(); else alert(res.data.error || 'Помилка');
       });
     });
+  });
+
+  // --- Monobank: підключення за токеном ---
+  var monoModal = document.getElementById('fin-mono-modal');
+  var monoConn = null;
+  function monoStep(id) {
+    ['choose', 'token', 'accounts', 'progress'].forEach(function (s) {
+      var el = document.getElementById('fin-mono-step-' + s);
+      if (el) el.hidden = (s !== id);
+    });
+  }
+  function openMono() { monoStep('choose'); show(monoModal); }
+  document.querySelectorAll('[data-mono-mode]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (b.dataset.monoMode === 'token') monoStep('token');
+      else {
+        // QR-режим використовує загальний потік інтеграцій monobank.
+        hide(monoModal);
+        api('/api/integrations/start/', 'POST', { provider: 'monobank' }).then(function (res) {
+          if (!res.data.ok) return;
+          currentConn = res.data.connection_id;
+          qrStatus.hidden = false; qrStatus.textContent = 'Для підключення відскануйте код';
+          document.getElementById('fin-qr-box').hidden = false;
+          qrLink.hidden = true; qrFinish.hidden = true; qrSpinner.hidden = true;
+          drawQR(res.data.qr_payload); show(qrModal); startPolling();
+        });
+      }
+    });
+  });
+  document.querySelectorAll('[data-mono-back]').forEach(function (b) {
+    b.addEventListener('click', function () { monoStep('choose'); });
+  });
+
+  var monoTokenForm = document.getElementById('fin-mono-step-token');
+  if (monoTokenForm) monoTokenForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var alert = document.getElementById('fin-mono-alert');
+    var btn = document.getElementById('fin-mono-connect-btn');
+    var token = document.getElementById('fin-mono-token').value.trim();
+    if (!token) { alert.textContent = 'Введіть токен'; alert.hidden = false; return; }
+    alert.hidden = true; btn.disabled = true; btn.textContent = 'Перевіряємо…';
+    api('/api/integrations/mono/connect/', 'POST', { token: token }).then(function (res) {
+      btn.disabled = false; btn.textContent = 'Підключити';
+      if (!res.data.ok) { alert.textContent = res.data.error || 'Помилка'; alert.hidden = false; return; }
+      document.getElementById('fin-mono-token').value = '';
+      monoConn = res.data.connection.id;
+      loadMonoAccounts();
+    });
+  });
+
+  function loadMonoAccounts() {
+    monoStep('accounts');
+    var list = document.getElementById('fin-mono-acc-list');
+    list.innerHTML = '<div class="fin-qr-spinner">Отримуємо рахунки…</div>';
+    api('/api/integrations/mono/' + monoConn + '/accounts/').then(function (res) {
+      if (!res.data.ok) { list.innerHTML = '<div class="fin-form-alert">' + (res.data.error || 'Помилка') + '</div>'; return; }
+      list.innerHTML = '';
+      res.data.accounts.forEach(function (a) {
+        var row = document.createElement('label');
+        row.className = 'fin-mono-acc';
+        var biz = a.is_business ? '<span class="fin-badge fin-badge--biz">ФОП / бізнес</span>' : '<span class="fin-badge">особисте</span>';
+        var linked = a.linked ? ' <span class="fin-badge">вже підключено</span>' : '';
+        row.innerHTML = '<input type="checkbox" value="' + a.external_id + '"' + (a.linked ? ' disabled' : ' checked') + '>' +
+          '<span class="fin-mono-acc__main"><b>' + a.label + '</b>' + biz + linked +
+          '<small>' + a.balance + ' ' + a.currency + (a.iban ? ' · ' + a.iban : '') + '</small></span>';
+        list.appendChild(row);
+      });
+      var client = document.getElementById('fin-mono-client');
+      client.textContent = '';
+    });
+  }
+
+  var monoLinkBtn = document.getElementById('fin-mono-link-btn');
+  if (monoLinkBtn) monoLinkBtn.addEventListener('click', function () {
+    var ids = Array.prototype.slice.call(
+      document.querySelectorAll('#fin-mono-acc-list input[type=checkbox]:checked:not(:disabled)'))
+      .map(function (c) { return c.value; });
+    if (!ids.length) {
+      var al = document.getElementById('fin-mono-acc-alert');
+      al.textContent = 'Оберіть хоча б один рахунок'; al.hidden = false; return;
+    }
+    monoStep('progress');
+    api('/api/integrations/mono/' + monoConn + '/link/', 'POST', {
+      external_ids: ids,
+      sync_from: document.getElementById('fin-mono-syncfrom').value || '',
+    }).then(function (res) {
+      if (res.data.ok) window.location.reload();
+      else { monoStep('accounts'); var al = document.getElementById('fin-mono-acc-alert'); al.textContent = res.data.error || 'Помилка'; al.hidden = false; }
+    });
+  });
+
+  // --- Monobank: налаштування підключень ---
+  var monoSettingsModal = document.getElementById('fin-mono-settings-modal');
+  var monoSettingsBtn = document.getElementById('fin-mono-settings-btn');
+
+  function renderMonoSettings(conns) {
+    var body = document.getElementById('fin-mono-settings-body');
+    if (!conns.length) { body.innerHTML = '<div class="fin-empty-state"><p>Немає активних підключень monobank.</p></div>'; return; }
+    body.innerHTML = '';
+    conns.forEach(function (c) {
+      var wrap = document.createElement('div');
+      wrap.className = 'fin-mono-conn';
+      var head = '<div class="fin-mono-conn__head"><b>' + (c.client_name || 'monobank') + '</b>' +
+        '<span class="fin-badge">' + (c.token_mask || '') + '</span></div>' +
+        '<div class="fin-mono-conn__meta">Остання синхронізація: ' + (c.last_sync_at || '—') +
+        (c.error ? ' · <span class="fin-amount--neg">' + c.error + '</span>' : '') + '</div>';
+      var accs = c.accounts.map(function (a) {
+        return '<div class="fin-mono-acc-row" data-acc="' + a.id + '">' +
+          '<span class="fin-mono-acc-row__name">' + a.name + ' <small>' + a.balance + ' ' + a.currency + '</small></span>' +
+          '<label class="fin-chk" title="Бізнес-рахунок"><input type="checkbox" data-acc-biz="' + a.id + '"' + (a.is_business ? ' checked' : '') + '> бізнес</label>' +
+          '<label class="fin-chk" title="Автосинхронізація"><input type="checkbox" data-acc-sync="' + a.id + '"' + (a.auto_sync ? ' checked' : '') + '> синк</label>' +
+          '</div>';
+      }).join('');
+      var foot = '<div class="fin-modal-foot">' +
+        '<button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-mono-disconnect="' + c.id + '">Відключити</button>' +
+        '<button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-mono-add="' + c.id + '">+ Ще рахунок</button>' +
+        '<button type="button" class="fin-btn fin-btn--primary fin-btn--sm" data-mono-sync="' + c.id + '">Синхронізувати</button>' +
+        '</div>';
+      wrap.innerHTML = head + '<div class="fin-mono-acc-rows">' + accs + '</div>' + foot;
+      body.appendChild(wrap);
+    });
+    bindMonoSettingsEvents();
+  }
+
+  function bindMonoSettingsEvents() {
+    document.querySelectorAll('[data-acc-biz]').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        api('/api/integrations/mono/account/' + cb.dataset.accBiz + '/settings/', 'POST', { is_business: cb.checked });
+      });
+    });
+    document.querySelectorAll('[data-acc-sync]').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        api('/api/integrations/mono/account/' + cb.dataset.accSync + '/settings/', 'POST', { auto_sync: cb.checked });
+      });
+    });
+    document.querySelectorAll('[data-mono-sync]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        b.disabled = true; b.textContent = 'Синхронізуємо…';
+        api('/api/integrations/mono/' + b.dataset.monoSync + '/sync/', 'POST', {}).then(function (res) {
+          if (res.data.ok) window.location.reload();
+          else { b.disabled = false; b.textContent = 'Синхронізувати'; alert(res.data.error || 'Помилка'); }
+        });
+      });
+    });
+    document.querySelectorAll('[data-mono-disconnect]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (!confirm('Відключити monobank? Операції залишаться, синхронізація зупиниться.')) return;
+        api('/api/integrations/mono/' + b.dataset.monoDisconnect + '/disconnect/', 'POST').then(function (res) {
+          if (res.data.ok) window.location.reload();
+        });
+      });
+    });
+    document.querySelectorAll('[data-mono-add]').forEach(function (b) {
+      b.addEventListener('click', function () { monoConn = b.dataset.monoAdd; hide(monoSettingsModal); loadMonoAccounts(); show(monoModal); });
+    });
+  }
+
+  function loadMonoSettings() {
+    show(monoSettingsModal);
+    var body = document.getElementById('fin-mono-settings-body');
+    body.innerHTML = '<div class="fin-qr-spinner">Завантаження…</div>';
+    api('/api/integrations/mono/connections/').then(function (res) {
+      if (res.data.ok) renderMonoSettings(res.data.connections);
+    });
+  }
+  if (monoSettingsBtn) monoSettingsBtn.addEventListener('click', loadMonoSettings);
+
+  // Показуємо кнопку «monobank», якщо є хоч одне підключення.
+  api('/api/integrations/mono/connections/').then(function (res) {
+    if (res.data.ok && res.data.connections.length && monoSettingsBtn) monoSettingsBtn.hidden = false;
   });
 
   // --- Drag-and-drop сортування ---

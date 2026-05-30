@@ -105,6 +105,8 @@ def parse_transaction_payload(data, *, txn_type):
         'project': _optional_fk(Project, company, data.get('project')),
         'tags': _tags(company, data.get('tags')),
     }
+    if 'is_business' in data:
+        kwargs['is_business'] = str(data.get('is_business')).lower() in ('1', 'true', 'on', 'yes')
 
     if txn_type == Transaction.TYPE_TRANSFER:
         from_acc = _account(company, data.get('from_account') or data.get('account'), 'from_account')
