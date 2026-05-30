@@ -52,8 +52,9 @@
             <a href="{% url 'management_home' %}" class="tab{% if request.resolver_match.url_name == 'management_home' or request.resolver_match.url_name == 'management_invoices' or request.resolver_match.url_name == 'management_contracts' or request.resolver_match.url_name == 'management_commercial_offer_email' or request.resolver_match.url_name == 'management_shops' %} active{% endif %}">Менеджмент</a>
             <a href="{% url 'management_reports' %}" class="tab{% if request.resolver_match.url_name == 'management_reports' %} active{% endif %}">Звітність</a>
             <a href="{% url 'management_stats' %}" class="tab{% if request.resolver_match.url_name == 'management_stats' or request.resolver_match.url_name == 'management_stats_admin' or request.resolver_match.url_name == 'management_stats_admin_user' %} active{% endif %}">Статистика</a>
+            <a href="{% url 'management_profile' %}" class="tab{% if request.resolver_match.url_name == 'management_profile' %} active{% endif %}">Профіль</a>
             <a href="{% url 'management_payouts' %}" class="tab{% if request.resolver_match.url_name == 'management_payouts' %} active{% endif %}">Виплати</a>
-                        <a href="{% url 'management_info' %}" class="tab{% if request.resolver_match.url_name == 'management_info' %} active{% endif %}">Інформація</a>
+            <a href="{% url 'management_info' %}" class="tab{% if request.resolver_match.url_name == 'management_info' %} active{% endif %}">Інформація</a>
             {% if request.user.is_staff %}
             <a href="{% url 'management_parsing' %}" class="tab{% if request.resolver_match.url_name == 'management_parsing' %} active{% endif %}">Парсинг</a>
             <a href="{% url 'management_admin' %}" class="tab{% if request.resolver_match.url_name == 'management_admin' %} active{% endif %}">Адміністрування</a>
