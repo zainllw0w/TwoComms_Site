@@ -321,10 +321,18 @@ def _product_cards_queryset():
     )
 
 
+HOME_SURVEY_VISIBILITY_CACHE_VERSION = "survey-visible-20260530"
+
+
+def homepage_cache_prefix(request, view_func):
+    base_prefix = public_product_listing_cache_prefix(request, view_func)
+    return f"{base_prefix}:{HOME_SURVEY_VISIBILITY_CACHE_VERSION}"
+
+
 @ensure_csrf_cookie
 @cache_page_for_anon(
     300,
-    key_prefix=public_product_listing_cache_prefix,
+    key_prefix=homepage_cache_prefix,
 )  # Phase 4.1: 5-мин кэш для анонимов; cart/favs-бейджи идут AJAX, не в кэше
 def home(request):
     """
