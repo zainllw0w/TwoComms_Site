@@ -1704,10 +1704,12 @@ body.fin-settings-open { overflow: hidden; }
         -webkit-overflow-scrolling: touch;
     }
 
-    /* Таблиці: card layout */
+    /* Таблиці: красивий card layout для мобільних */
     .fin-table-wrap {
         border-radius: var(--fin-radius-md);
         overflow: visible;
+        background: transparent;
+        border: none;
     }
 
     .fin-table thead {
@@ -1715,21 +1717,27 @@ body.fin-settings-open { overflow: hidden; }
     }
 
     .fin-table,
-    .fin-table tbody,
-    .fin-table tr,
-    .fin-table td {
+    .fin-table tbody {
         display: block;
         width: 100%;
     }
 
+    .fin-table tbody {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
     .fin-table tr {
-        padding: 14px;
-        margin-bottom: 10px;
-        border-bottom: none;
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+        margin: 0;
+        border: 1px solid var(--fin-border);
         border-radius: var(--fin-radius-md);
         background: var(--fin-bg-800);
-        border: 1px solid var(--fin-border);
         position: relative;
+        overflow: hidden;
     }
 
     .fin-table tr:hover {
@@ -1737,45 +1745,141 @@ body.fin-settings-open { overflow: hidden; }
         border-color: var(--fin-border-strong);
     }
 
+    /* Checkbox в правому верхньому куті */
+    .fin-table .fin-col-check {
+        position: absolute !important;
+        right: 12px;
+        top: 12px;
+        width: auto;
+        padding: 0 !important;
+        z-index: 2;
+        display: block !important;
+    }
+
+    .fin-table .fin-col-check::before {
+        display: none !important;
+    }
+
+    /* Дата та час - header картки */
+    .fin-table .fin-cell-date {
+        padding: 14px 50px 12px 16px !important;
+        background: rgba(255, 255, 255, 0.02);
+        border-bottom: 1px solid var(--fin-border);
+        display: flex !important;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+    }
+
+    .fin-table .fin-cell-date::before {
+        display: none !important;
+    }
+
+    .fin-date {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--fin-text);
+        display: block;
+    }
+
+    .fin-time {
+        font-size: 11px;
+        color: var(--fin-muted);
+        display: block;
+    }
+
+    /* Сума - велика і помітна справа вгорі */
+    .fin-table .fin-col-amount {
+        position: absolute !important;
+        top: 14px;
+        right: 50px;
+        padding: 0 !important;
+        text-align: right;
+        font-size: 18px !important;
+        font-weight: 800 !important;
+        display: block !important;
+        width: auto !important;
+    }
+
+    .fin-table .fin-col-amount::before {
+        display: none !important;
+    }
+
+    /* Всі інші td */
     .fin-table td {
-        padding: 6px 0;
+        padding: 10px 16px;
         border: none;
         display: flex;
-        justify-content: space-between;
-        align-items: center;
-        min-height: 32px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        width: 100%;
     }
 
     .fin-table td::before {
         content: attr(data-label);
         font-weight: 600;
-        font-size: 11px;
+        font-size: 10px;
         color: var(--fin-text-2);
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        flex: 0 0 auto;
-        margin-right: 12px;
+        display: block;
     }
 
-    .fin-col-check {
-        position: absolute;
-        right: 14px;
-        top: 14px;
-        width: auto;
+    /* Рахунок */
+    .fin-acc-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--fin-text);
+        display: block;
     }
 
-    .fin-col-check::before {
-        display: none;
+    .fin-acc-balance {
+        font-size: 12px;
+        color: var(--fin-muted);
+        display: block;
+        margin-top: 2px;
     }
 
-    .fin-col-amount {
-        text-align: right;
-        font-size: 16px;
-        font-weight: 700;
-    }
-
-    .fin-cell-comment {
+    /* Коментар */
+    .fin-table .fin-cell-comment {
+        padding: 12px 16px !important;
         max-width: none;
+        background: rgba(255, 255, 255, 0.02);
+        border-top: 1px solid var(--fin-border);
+        display: block !important;
+    }
+
+    .fin-table .fin-cell-comment::before {
+        content: 'Коментар';
+        display: block !important;
+        font-size: 10px;
+        color: var(--fin-text-2);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 6px;
+    }
+
+    /* Кнопка "Вказати" */
+    .fin-specify {
+        display: inline-block;
+        padding: 6px 12px;
+        background: rgba(255, 126, 41, 0.12);
+        border: 1px solid rgba(255, 126, 41, 0.3);
+        border-radius: 6px;
+        color: var(--fin-accent);
+        font-size: 12px;
+        font-weight: 600;
+        text-align: center;
+        margin-top: 4px;
+    }
+
+    /* Badges та теги */
+    .fin-tag-chip,
+    .fin-badge {
+        margin-left: 0;
+        margin-top: 4px;
+        display: inline-block;
     }
 
     /* Графіки responsive */
