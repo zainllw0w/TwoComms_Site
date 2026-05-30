@@ -58,6 +58,20 @@ def manager_profile(request):
 
     history = ManagerLevelHistory.objects.filter(user=user).order_by('-changed_at')[:10]
 
+    # Для кандидатів - розрахувати потенціал
+    candidate_potential = None
+    if level.level == ManagerLevel.Level.CANDIDATE:
+        from management.services.candidate_potential import calculate_candidate_potential
+        candidate_potential = calculate_candidate_potential(user)
+
+    # Статистика активності
+    from management.services.activity_tracking import get_activity_stats, get_today_activity
+    activity_stats = get_activity_stats(user, days=7)
+    today_activity = get_today_activity(user)
+
+    # Історія рівнів для візуалізації прогресу (для всіх, включно з адмінами)
+    level_progression_history = _build_level_progression_history(user, level)
+
     context = {
         'has_level': True,
         'level': level,
@@ -68,9 +82,75 @@ def manager_profile(request):
         'history': history,
         'unlocked_features': get_unlocked_features(level.level),
         'locked_features': get_locked_features(level.level),
+        'candidate_potential': candidate_potential,
+        'activity_stats': activity_stats,
+        'today_activity': today_activity,
+        'level_progression_history': level_progression_history,
     }
 
     return render(request, 'management/profile.html', context)
+
+
+def _build_level_progression_history(user, current_level) -> list:
+    """
+    Побудувати історію прогресії рівнів для візуалізації
+
+    Показує всі рівні від Candidate до Admin з позначками:
+    - completed: пройдений рівень
+    - current: поточний рівень
+    - locked: майбутній рівень
+    """
+    all_levels = [
+        ('candidate', 'Менеджер-кандидат'),
+        ('level_1', 'Менеджер 1-го рівня'),
+        ('level_2', 'Менеджер 2-го рівня'),
+        ('top_manager', 'Топ-менеджер'),
+        ('project_manager', 'Project-менеджер'),
+        ('admin', 'Адміністратор'),
+    ]
+
+    # Отримати історію змін рівнів
+    history = ManagerLevelHistory.objects.filter(user=user).order_by('changed_at')
+
+    # Визначити які рівні пройдені
+    passed_levels = set()
+    for record in history:
+        if record.old_level:
+            passed_levels.add(record.old_level)
+
+    # Поточний рівень
+    current_level_code = current_level.level
+
+    # Побудувати список
+    result = []
+    current_reached = False
+
+    for level_code, level_name in all_levels:
+        # Знайти дату досягнення цього рівня
+        achieved_at = None
+        for record in history:
+            if record.new_level == level_code:
+                achieved_at = record.changed_at
+                break
+
+        if level_code == current_level_code:
+            status = 'current'
+            current_reached = True
+        elif level_code in passed_levels or (achieved_at and achieved_at < current_level.assigned_at):
+            status = 'completed'
+        elif current_reached:
+            status = 'locked'
+        else:
+            status = 'locked'
+
+        result.append({
+            'code': level_code,
+            'name': level_name,
+            'status': status,
+            'achieved_at': achieved_at,
+        })
+
+    return result
 
 
 @login_required(login_url='management_login')

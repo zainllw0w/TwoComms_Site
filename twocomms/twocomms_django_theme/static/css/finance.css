@@ -1707,14 +1707,14 @@ body.fin-settings-open { overflow: hidden; }
         -webkit-overflow-scrolling: touch;
     }
 
-    /* Таблиці: красивий card layout для мобільних (тільки журнал платежів — .fin-row) */
+    /* Журнал платежів: компактний список (рядки мають клас .fin-row) */
     .fin-table-wrap {
-        border-radius: var(--fin-radius-md);
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
+        border-radius: 0;
+        overflow-x: visible;
+        background: transparent;
+        border: none;
     }
 
-    /* Журнал платежів: card-layout (рядки мають клас .fin-row) */
     .fin-table:has(.fin-row),
     .fin-table:has(.fin-row) tbody {
         display: block;
@@ -1731,35 +1731,43 @@ body.fin-settings-open { overflow: hidden; }
     }
 
     .fin-table:has(.fin-row) tbody {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
+        display: block;
     }
 
+    /* Компактний рядок-транзакція: сітка 2 колонки (контент / сума) */
     .fin-row {
-        display: flex;
-        flex-direction: column;
-        padding: 0;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-areas:
+            "date amount"
+            "title title"
+            "account account";
+        column-gap: 12px;
+        row-gap: 2px;
+        align-items: baseline;
+        padding: 12px 2px;
         margin: 0;
-        border: 1px solid var(--fin-border);
-        border-radius: var(--fin-radius-md);
-        background: var(--fin-bg-800);
+        border: none;
+        border-bottom: 1px solid var(--fin-border);
+        border-radius: 0;
+        background: transparent;
         position: relative;
-        overflow: hidden;
     }
 
-    .fin-row:hover {
-        background: rgba(255, 255, 255, 0.05);
-        border-color: var(--fin-border-strong);
+    .fin-row:active {
+        background: rgba(255, 255, 255, 0.03);
     }
 
-    /* Checkbox в правому верхньому куті */
+    /* Checkbox прихований за замовчуванням, з'являється при bulk-режимі */
     .fin-row .fin-col-check {
         position: absolute !important;
-        right: 12px;
-        top: 12px;
+        left: -100px;
+        top: 14px;
         width: auto;
         padding: 0 !important;
+        margin: 0 !important;
+        opacity: 0;
+        transition: left 0.2s ease, opacity 0.2s ease;
         z-index: 2;
         display: block !important;
     }
@@ -1768,16 +1776,26 @@ body.fin-settings-open { overflow: hidden; }
         display: none !important;
     }
 
-    /* Дата та час - header картки */
+    .fin-body.fin-bulk-mode .fin-row {
+        padding-left: 34px;
+    }
+
+    .fin-body.fin-bulk-mode .fin-row .fin-col-check {
+        left: 4px;
+        opacity: 1;
+    }
+
+    /* Дата — сірим, верхній лівий */
     .fin-row .fin-cell-date {
-        padding: 14px 50px 12px 16px !important;
-        background: rgba(255, 255, 255, 0.02);
-        border-bottom: 1px solid var(--fin-border);
+        grid-area: date;
+        padding: 0 !important;
+        background: none;
+        border: none;
         display: flex !important;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 2px;
-        white-space: normal;
+        flex-direction: row;
+        align-items: baseline;
+        gap: 8px;
+        white-space: nowrap;
     }
 
     .fin-row .fin-cell-date::before {
@@ -1785,110 +1803,109 @@ body.fin-settings-open { overflow: hidden; }
     }
 
     .fin-date {
-        font-size: 15px;
-        font-weight: 700;
-        color: var(--fin-text);
-        display: block;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--fin-text-2);
+        display: inline;
     }
 
     .fin-time {
         font-size: 11px;
         color: var(--fin-muted);
-        display: block;
+        display: inline;
     }
 
-    /* Сума - велика і помітна справа вгорі */
+    /* Сума — жирним, верхній правий */
     .fin-row .fin-col-amount {
-        position: absolute !important;
-        top: 14px;
-        right: 50px;
+        grid-area: amount;
         padding: 0 !important;
         text-align: right;
-        font-size: 18px !important;
-        font-weight: 800 !important;
+        font-size: 15px !important;
+        font-weight: 700 !important;
         display: block !important;
         width: auto !important;
+        white-space: nowrap;
+        align-self: baseline;
     }
 
     .fin-row .fin-col-amount::before {
         display: none !important;
     }
 
-    /* Всі інші td */
-    .fin-row td {
-        padding: 10px 16px;
-        border: none;
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 4px;
-        width: 100%;
-    }
-
-    .fin-row td::before {
-        content: attr(data-label);
-        font-weight: 600;
-        font-size: 10px;
-        color: var(--fin-text-2);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
+    /* Контрагент — головний рядок (назва транзакції), білим */
+    .fin-row td[data-label="Контрагент"] {
+        grid-area: title;
+        padding: 0 !important;
         display: block;
-    }
-
-    /* Рахунок */
-    .fin-acc-name {
-        font-size: 14px;
+        font-size: 15px;
         font-weight: 600;
         color: var(--fin-text);
-        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .fin-row td[data-label="Контрагент"]::before {
+        display: none !important;
+    }
+
+    /* Рахунок — підрядок, сірим */
+    .fin-row .fin-cell-account {
+        grid-area: account;
+        padding: 0 !important;
+        display: flex !important;
+        flex-direction: row;
+        align-items: baseline;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .fin-row .fin-cell-account::before {
+        display: none !important;
+    }
+
+    .fin-acc-name {
+        font-size: 13px;
+        font-weight: 400;
+        color: var(--fin-text-2);
+        display: inline;
     }
 
     .fin-acc-balance {
         font-size: 12px;
         color: var(--fin-muted);
-        display: block;
-        margin-top: 2px;
+        display: inline;
+        margin: 0;
     }
 
-    /* Коментар */
+    /* Приховуємо менш важливі колонки в компактному списку */
+    .fin-row td[data-label="Категорія"],
+    .fin-row td[data-label="Проект"],
     .fin-row .fin-cell-comment {
-        padding: 12px 16px !important;
-        max-width: none;
-        background: rgba(255, 255, 255, 0.02);
-        border-top: 1px solid var(--fin-border);
-        display: block !important;
+        display: none !important;
     }
 
-    .fin-row .fin-cell-comment::before {
-        content: 'Коментар';
-        display: block !important;
-        font-size: 10px;
+    /* "Вказати" — компактний інлайн-лінк замість кнопки */
+    .fin-row td[data-label="Контрагент"] .fin-specify {
+        display: inline;
+        padding: 0;
+        background: none;
+        border: none;
         color: var(--fin-text-2);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 6px;
+        font-size: 15px;
+        font-weight: 500;
+        margin: 0;
     }
 
-    /* Кнопка "Вказати" */
-    .fin-specify {
-        display: inline-block;
-        padding: 6px 12px;
-        background: rgba(255, 126, 41, 0.12);
-        border: 1px solid rgba(255, 126, 41, 0.3);
-        border-radius: 6px;
-        color: var(--fin-accent);
-        font-size: 12px;
-        font-weight: 600;
-        text-align: center;
-        margin-top: 4px;
+    /* Badges — інлайн біля дати */
+    .fin-row .fin-badge {
+        margin-left: 6px;
+        font-size: 9px;
+        vertical-align: middle;
     }
 
-    /* Badges та теги */
-    .fin-tag-chip,
-    .fin-badge {
-        margin-left: 0;
-        margin-top: 4px;
-        display: inline-block;
+    .fin-tag-chip {
+        display: none !important;
     }
 
     /* Графіки responsive */

@@ -11,6 +11,42 @@
             <p>Зверніться до адміністратора для призначення рівня.</p>
         </div>
     {% else %}
+        <!-- Візуалізація шляху розвитку (для всіх рівнів, включно з адмінами) -->
+        <div class="level-progression-visual">
+            <h2>Ваш шлях розвитку</h2>
+            <div class="levels-timeline">
+                {% for lvl in level_progression_history %}
+                <div class="timeline-item timeline-{{ lvl.status }}">
+                    <div class="timeline-marker">
+                        {% if lvl.status == 'completed' %}
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        {% elif lvl.status == 'current' %}
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="9"></circle>
+                                <circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"></circle>
+                            </svg>
+                        {% else %}
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="9"></circle>
+                            </svg>
+                        {% endif %}
+                    </div>
+                    <div class="timeline-content">
+                        <div class="timeline-title">{{ lvl.name }}</div>
+                        {% if lvl.achieved_at %}
+                            <div class="timeline-date">{{ lvl.achieved_at|date:"d.m.Y" }}</div>
+                        {% endif %}
+                        {% if lvl.status == 'current' %}
+                            <div class="timeline-badge">Поточний рівень</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
         <!-- Карточка поточного рівня -->
         <div class="level-card">
             <div class="level-header">
@@ -28,90 +64,106 @@
             </div>
         </div>
 
-        <!-- Фінансові умови (для Level 1+) -->
-        {% if level.level != 'candidate' %}
-        <div class="financial-conditions">
-            <h2>Фінансові умови</h2>
-            <div class="conditions-grid">
-                <div class="condition-item">
-                    <span class="condition-label">Тижнева ставка:</span>
-                    <span class="condition-value">{{ level.weekly_salary_uah }} грн</span>
-                </div>
-                <div class="condition-item">
-                    <span class="condition-label">Відсоток від замовлення:</span>
-                    <span class="condition-value">{{ level.commission_percent }}%</span>
-                </div>
-                <div class="condition-item">
-                    <span class="condition-label">Дата початку нарахувань:</span>
-                    <span class="condition-value">{{ level.salary_start_date|date:"d.m.Y" }}</span>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Поточний тижневий KPI -->
-        {% if level.level != 'candidate' %}
-        <div class="weekly-kpi">
-            <h2>Тижневий KPI</h2>
-            <div class="kpi-summary">
-                <div class="kpi-item">
-                    <span class="kpi-label">Конверсії за тиждень:</span>
-                    <span class="kpi-value">{{ kpi_status.conversions }} / {{ kpi_status.conversions_target }}</span>
-                </div>
-                <div class="kpi-progress">
-                    <div class="progress-bar">
-                        <div class="progress-fill" style="width: {{ kpi_status.conversions_progress_pct }}%"></div>
+        <!-- Потенціал кандидата (тільки для Менеджера-кандидата) -->
+        {% if candidate_potential %}
+        <div class="candidate-potential-section">
+            <h2>Потенціал кандидата</h2>
+            <p class="potential-intro">
+                Зважена оцінка якості роботи за шкалою 0–10. Враховує MOSAIC та KPD рейтинги,
+                результативність, активність, follow-up та повноту даних. Допомагає оцінити
+                потенціал, навіть якщо ще не зроблено 2 конверсії.
+            </p>
+            <div class="potential-card">
+                <div class="potential-score-display potential-grade-{{ candidate_potential.grade|slugify }}">
+                    <div class="score-circle">
+                        <div class="score-value">{{ candidate_potential.score }}</div>
+                        <div class="score-max">/ 10</div>
                     </div>
-                    <span class="progress-text">{{ kpi_status.conversions_progress_pct }}%</span>
+                    <div class="score-grade">
+                        <div class="grade-letter">{{ candidate_potential.grade }}</div>
+                        <div class="grade-label">Оцінка потенціалу</div>
+                    </div>
                 </div>
-                <div class="kpi-item">
-                    <span class="kpi-label">Прогнозована ставка:</span>
-                    <span class="kpi-value kpi-status-{{ kpi_status.kpi_status }}">
-                        {{ kpi_status.projected_salary }} грн ({{ kpi_status.kpi_multiplier|floatformat:0 }}%)
-                    </span>
-                </div>
-                <div class="kpi-item">
-                    <span class="kpi-label">Днів до кінця тижня:</span>
-                    <span class="kpi-value">{{ kpi_status.days_remaining }}</span>
-                </div>
-            </div>
-        </div>
-        {% endif %}
 
-        <!-- Прогрес до наступного рівня -->
-        {% if progression.next_level %}
-        <div class="progression-section">
-            <h2>Прогрес до наступного рівня</h2>
-            <div class="progression-card">
-                <div class="progression-header">
-                    <span class="current-level">{{ level_desc.name }}</span>
-                    <span class="arrow">→</span>
-                    <span class="next-level">{{ progression.next_level }}</span>
+                <div class="potential-recommendation">
+                    <h3>Висновок</h3>
+                    <p>{{ candidate_potential.recommendation }}</p>
                 </div>
-                <div class="progression-bar">
-                    <div class="progress-fill" style="width: {{ progression.progress_pct }}%"></div>
+
+                <div class="potential-components">
+                    <h3>Компоненти оцінки</h3>
+                    <div class="components-grid">
+                        <div class="component-item">
+                            <div class="component-header">
+                                <span class="component-name">Якість обробки (MOSAIC + KPD) · 30%</span>
+                                <span class="component-score">{{ candidate_potential.components.quality.score }}/10</span>
+                            </div>
+                            <div class="component-bar">
+                                <div class="component-fill" data-score="{{ candidate_potential.components.quality.score }}"></div>
+                            </div>
+                        </div>
+                        <div class="component-item">
+                            <div class="component-header">
+                                <span class="component-name">Результативність (конверсії) · 25%</span>
+                                <span class="component-score">{{ candidate_potential.components.results.score }}/10</span>
+                            </div>
+                            <div class="component-bar">
+                                <div class="component-fill" data-score="{{ candidate_potential.components.results.score }}"></div>
+                            </div>
+                        </div>
+                        <div class="component-item">
+                            <div class="component-header">
+                                <span class="component-name">Активність та зусилля · 20%</span>
+                                <span class="component-score">{{ candidate_potential.components.activity.score }}/10</span>
+                            </div>
+                            <div class="component-bar">
+                                <div class="component-fill" data-score="{{ candidate_potential.components.activity.score }}"></div>
+                            </div>
+                        </div>
+                        <div class="component-item">
+                            <div class="component-header">
+                                <span class="component-name">Якість follow-up · 15%</span>
+                                <span class="component-score">{{ candidate_potential.components.followup.score }}/10</span>
+                            </div>
+                            <div class="component-bar">
+                                <div class="component-fill" data-score="{{ candidate_potential.components.followup.score }}"></div>
+                            </div>
+                        </div>
+                        <div class="component-item">
+                            <div class="component-header">
+                                <span class="component-name">Повнота даних · 10%</span>
+                                <span class="component-score">{{ candidate_potential.components.data_quality.score }}/10</span>
+                            </div>
+                            <div class="component-bar">
+                                <div class="component-fill" data-score="{{ candidate_potential.components.data_quality.score }}"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <span class="progress-percentage">{{ progression.progress_pct }}%</span>
 
-                <div class="progression-conditions">
-                    <h3>Умови переходу:</h3>
-                    <p>{{ progression.description }}</p>
-
-                    {% if progression.conditions %}
-                    <ul class="conditions-list">
-                        {% for condition in progression.conditions %}
-                        <li class="condition {% if condition.is_met %}met{% else %}not-met{% endif %}">
-                            <span class="condition-icon">{% if condition.is_met %}✓{% else %}○{% endif %}</span>
-                            <span class="condition-text">{{ condition.description }}</span>
-                            <span class="condition-progress">{{ condition.current }} / {{ condition.target }}</span>
-                        </li>
-                        {% endfor %}
-                    </ul>
+                <div class="potential-details">
+                    <div class="detail-chip">
+                        <span class="chip-label">Всього клієнтів</span>
+                        <span class="chip-value">{{ candidate_potential.details.total_clients }}</span>
+                    </div>
+                    <div class="detail-chip">
+                        <span class="chip-label">Конверсій</span>
+                        <span class="chip-value">{{ candidate_potential.details.conversions }}</span>
+                    </div>
+                    <div class="detail-chip">
+                        <span class="chip-label">Conversion rate</span>
+                        <span class="chip-value">{{ candidate_potential.details.conversion_rate }}%</span>
+                    </div>
+                    {% if candidate_potential.components.quality.mosaic_avg %}
+                    <div class="detail-chip">
+                        <span class="chip-label">MOSAIC</span>
+                        <span class="chip-value">{{ candidate_potential.components.quality.mosaic_avg }}</span>
+                    </div>
                     {% endif %}
-
-                    {% if progression.requirements_met %}
-                    <div class="status-message success">
-                        <strong>Умови виконано!</strong> Очікуйте рішення відповідальної особи.
+                    {% if candidate_potential.components.quality.kpd_avg %}
+                    <div class="detail-chip">
+                        <span class="chip-label">KPD</span>
+                        <span class="chip-value">{{ candidate_potential.components.quality.kpd_avg }}</span>
                     </div>
                     {% endif %}
                 </div>
@@ -119,213 +171,154 @@
         </div>
         {% endif %}
 
-        <!-- Доступні функції -->
-        <div class="features-section">
-            <h2>Доступні функції</h2>
-            <ul class="features-list unlocked">
-                {% for feature in unlocked_features %}
-                <li>
-                    <span class="feature-icon">{{ feature.icon }}</span>
-                    <span class="feature-name">{{ feature.name }}</span>
-                </li>
-                {% endfor %}
-            </ul>
+        <!-- Статистика активного часу -->
+        <div class="activity-stats-section">
+            <h2>Активність</h2>
+            <div class="activity-grid">
+                <div class="activity-card">
+                    <div class="activity-icon">⏱️</div>
+                    <div class="activity-value">{{ today_activity.active_hours }} год</div>
+                    <div class="activity-label">Активний час сьогодні</div>
+                </div>
+                <div class="activity-card">
+                    <div class="activity-icon">👁️</div>
+                    <div class="activity-value">{{ today_activity.idle_hours }} год</div>
+                    <div class="activity-label">Вкладка відкрита (неактивна)</div>
+                </div>
+                <div class="activity-card">
+                    <div class="activity-icon">📊</div>
+                    <div class="activity-value">{{ today_activity.activity_rate }}%</div>
+                    <div class="activity-label">Відсоток активності</div>
+                </div>
+                <div class="activity-card">
+                    <div class="activity-icon">📅</div>
+                    <div class="activity-value">{{ activity_stats.active_days }}/7</div>
+                    <div class="activity-label">Активних днів за тиждень</div>
+                </div>
+            </div>
+
+            <div class="activity-week-summary">
+                <h3>За останні 7 днів</h3>
+                <div class="week-stats">
+                    <div class="week-stat">
+                        <span class="stat-label">Активний час:</span>
+                        <span class="stat-value">{{ activity_stats.active_hours }} год</span>
+                    </div>
+                    <div class="week-stat">
+                        <span class="stat-label">Відкритий (неактивний):</span>
+                        <span class="stat-value">{{ activity_stats.idle_hours }} год</span>
+                    </div>
+                    <div class="week-stat">
+                        <span class="stat-label">Загалом:</span>
+                        <span class="stat-value">{{ activity_stats.total_hours }} год</span>
+                    </div>
+                    <div class="week-stat">
+                        <span class="stat-label">Середньо/день:</span>
+                        <span class="stat-value">{{ activity_stats.avg_active_per_day }} год</span>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <!-- Заблоковані функції -->
-        {% if locked_features %}
-        <div class="features-section">
-            <h2>Заблоковані функції</h2>
-            <ul class="features-list locked">
-                {% for feature in locked_features %}
-                <li>
-                    <span class="feature-icon">{{ feature.icon }}</span>
-                    <span class="feature-name">{{ feature.name }}</span>
-                </li>
-                {% endfor %}
-            </ul>
-        </div>
-        {% endif %}
+        {% include "management/profile_sections.html" %}
 
-        <!-- Історія підвищень -->
-        {% if history %}
-        <div class="history-section">
-            <h2>Історія змін рівня</h2>
-            <table class="history-table">
-                <thead>
-                    <tr>
-                        <th>Дата</th>
-                        <th>Зміна</th>
-                        <th>Ставка</th>
-                        <th>Відсоток</th>
-                        <th>Хто змінив</th>
-                        <th>Коментар</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in history %}
-                    <tr>
-                        <td>{{ item.changed_at|date:"d.m.Y H:i" }}</td>
-                        <td>
-                            {% if item.old_level %}
-                                {{ item.get_old_level_display }} → {{ item.get_new_level_display }}
-                            {% else %}
-                                Призначено: {{ item.get_new_level_display }}
-                            {% endif %}
-                        </td>
-                        <td>{{ item.new_weekly_salary }} грн</td>
-                        <td>{{ item.new_commission_percent }}%</td>
-                        <td>{{ item.changed_by.username|default:"—" }}</td>
-                        <td>{{ item.reason|default:"—" }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% endif %}
     {% endif %}
 </div>
 
+<script>
+  // Заповнення прогрес-барів компонентів (CSP-safe, без inline style width)
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.component-fill[data-score]').forEach(function (el) {
+      var s = parseFloat(el.getAttribute('data-score')) || 0;
+      el.style.width = Math.max(0, Math.min(100, s * 10)) + '%';
+    });
+  });
+</script>
+
 <style>
-.manager-profile-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-}
+.manager-profile-container { max-width: 1100px; margin: 0 auto; padding: 20px; }
 
-.level-card {
-    background: white;
-    border-radius: 8px;
-    padding: 24px;
-    margin-bottom: 24px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
+/* Шлях розвитку */
+.level-progression-visual { background: var(--card-bg, #fff); border-radius: 14px; padding: 28px; margin-bottom: 22px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+.level-progression-visual h2 { margin: 0 0 8px; font-size: 20px; }
+.levels-timeline { display: flex; justify-content: space-between; align-items: flex-start; margin-top: 28px; position: relative; gap: 8px; }
+.levels-timeline::before { content: ''; position: absolute; top: 22px; left: 22px; right: 22px; height: 3px; background: #e7e9ee; z-index: 0; border-radius: 2px; }
+.timeline-item { flex: 1; display: flex; flex-direction: column; align-items: center; position: relative; z-index: 1; }
+.timeline-marker { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; background: #e7e9ee; color: #9aa0ad; border: 3px solid #fff; }
+.timeline-completed .timeline-marker { background: #2e7d32; color: #fff; }
+.timeline-current .timeline-marker { background: #1565c0; color: #fff; box-shadow: 0 0 0 4px rgba(21,101,192,0.18); }
+.timeline-content { text-align: center; }
+.timeline-title { font-weight: 600; font-size: 12.5px; line-height: 1.25; }
+.timeline-date { font-size: 11px; color: #8a8f99; margin-top: 2px; }
+.timeline-badge { display: inline-block; margin-top: 6px; padding: 3px 10px; background: #1565c0; color: #fff; border-radius: 10px; font-size: 10.5px; font-weight: 600; }
 
-.level-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
+/* Карточка рівня */
+.level-card, .financial-conditions, .weekly-kpi, .progression-section, .features-section, .history-section,
+.candidate-potential-section, .activity-stats-section {
+    background: var(--card-bg, #fff); border-radius: 14px; padding: 24px; margin-bottom: 22px; box-shadow: 0 2px 10px rgba(0,0,0,0.08);
 }
-
-.level-badge {
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-weight: 600;
-    font-size: 14px;
-}
-
+.level-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+.level-header h1 { font-size: 24px; margin: 0; }
+.level-badge { padding: 7px 16px; border-radius: 18px; font-weight: 600; font-size: 13px; white-space: nowrap; }
 .level-candidate { background: #e3f2fd; color: #1976d2; }
 .level-level_1 { background: #e8f5e9; color: #388e3c; }
 .level-level_2 { background: #fff3e0; color: #f57c00; }
 .level-top_manager { background: #f3e5f5; color: #7b1fa2; }
 .level-project_manager { background: #fce4ec; color: #c2185b; }
 .level-admin { background: #ffebee; color: #d32f2f; }
+.level-description { color: #5a606b; margin: 0 0 12px; }
+.level-meta { display: flex; flex-wrap: wrap; gap: 18px; font-size: 13px; color: #8a8f99; }
 
-.financial-conditions, .weekly-kpi, .progression-section, .features-section, .history-section {
-    background: white;
-    border-radius: 8px;
-    padding: 24px;
-    margin-bottom: 24px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
+/* Потенціал кандидата */
+.potential-intro { color: #5a606b; font-size: 14px; margin: 0 0 18px; line-height: 1.5; }
+.potential-score-display { display: flex; align-items: center; justify-content: center; gap: 36px; padding: 28px; border-radius: 14px; color: #fff; margin-bottom: 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.potential-grade-f, .potential-grade-d { background: linear-gradient(135deg, #c0392b 0%, #e74c3c 100%); }
+.potential-grade-c, .potential-grade-c-, .potential-grade-c\+ { background: linear-gradient(135deg, #e08e0b 0%, #f39c12 100%); }
+.potential-grade-a, .potential-grade-a-, .potential-grade-b\+, .potential-grade-b, .potential-grade-b- { background: linear-gradient(135deg, #1e8449 0%, #2ecc71 100%); }
+.potential-grade-a\+ { background: linear-gradient(135deg, #117a65 0%, #16a085 100%); }
+.score-circle { width: 116px; height: 116px; border-radius: 50%; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 8px 22px rgba(0,0,0,0.22); }
+.score-value { font-size: 44px; font-weight: 800; line-height: 1; color: #2c3e50; }
+.score-max { font-size: 15px; color: #7f8c8d; margin-top: 2px; }
+.score-grade { text-align: center; }
+.grade-letter { font-size: 56px; font-weight: 800; line-height: 1; }
+.grade-label { font-size: 14px; opacity: 0.92; margin-top: 4px; }
+.potential-recommendation { padding: 18px 20px; background: #eef4fb; border-left: 4px solid #1565c0; border-radius: 8px; margin-bottom: 24px; }
+.potential-recommendation h3 { margin: 0 0 8px; color: #1565c0; font-size: 15px; }
+.potential-recommendation p { margin: 0; color: #2c3e50; }
+.potential-components h3, .potential-details + .potential-components h3 { font-size: 15px; margin: 0 0 14px; }
+.components-grid { display: grid; gap: 14px; }
+.component-item { padding: 14px 16px; background: #f7f8fa; border-radius: 10px; }
+.component-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.component-name { font-weight: 600; font-size: 13.5px; }
+.component-score { font-weight: 700; color: #1565c0; }
+.component-bar { height: 8px; background: #e7e9ee; border-radius: 4px; overflow: hidden; }
+.component-fill { height: 100%; width: 0; background: linear-gradient(90deg, #43a047, #8bc34a); transition: width .5s ease; }
+.potential-details { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.detail-chip { display: flex; flex-direction: column; gap: 2px; padding: 10px 16px; background: #f7f8fa; border-radius: 10px; min-width: 120px; }
+.chip-label { font-size: 12px; color: #8a8f99; }
+.chip-value { font-size: 18px; font-weight: 700; color: #2c3e50; }
 
-.conditions-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 16px;
-    margin-top: 16px;
-}
+/* Активність */
+.activity-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-top: 6px; }
+.activity-card { padding: 20px; border-radius: 12px; color: #fff; text-align: center; background: linear-gradient(135deg, #5b6ad0 0%, #6a4aa0 100%); }
+.activity-icon { font-size: 26px; margin-bottom: 8px; }
+.activity-value { font-size: 26px; font-weight: 800; margin-bottom: 4px; }
+.activity-label { font-size: 12.5px; opacity: 0.92; }
+.activity-week-summary { margin-top: 22px; padding: 18px; background: #f7f8fa; border-radius: 10px; }
+.activity-week-summary h3 { margin: 0 0 12px; font-size: 15px; }
+.week-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.week-stat { display: flex; justify-content: space-between; padding: 10px 14px; background: #fff; border-radius: 8px; }
+.week-stat .stat-label { color: #8a8f99; font-size: 13px; }
+.week-stat .stat-value { font-weight: 700; color: #2c3e50; }
 
-.condition-item {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.condition-label {
-    font-size: 14px;
-    color: #666;
-}
-
-.condition-value {
-    font-size: 18px;
-    font-weight: 600;
-    color: #333;
-}
-
-.progress-bar {
-    width: 100%;
-    height: 24px;
-    background: #e0e0e0;
-    border-radius: 12px;
-    overflow: hidden;
-    margin: 8px 0;
-}
-
-.progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #4caf50, #8bc34a);
-    transition: width 0.3s ease;
-}
-
-.kpi-status-excellent { color: #4caf50; }
-.kpi-status-good { color: #8bc34a; }
-.kpi-status-poor { color: #ff9800; }
-.kpi-status-failed { color: #f44336; }
-
-.features-list {
-    list-style: none;
-    padding: 0;
-    margin-top: 16px;
-}
-
-.features-list li {
-    padding: 12px;
-    margin-bottom: 8px;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.features-list.unlocked li {
-    background: #e8f5e9;
-}
-
-.features-list.locked li {
-    background: #ffebee;
-    opacity: 0.7;
-}
-
-.history-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 16px;
-}
-
-.history-table th,
-.history-table td {
-    padding: 12px;
-    text-align: left;
-    border-bottom: 1px solid #e0e0e0;
-}
-
-.history-table th {
-    background: #f5f5f5;
-    font-weight: 600;
-}
-
-.status-message {
-    padding: 16px;
-    border-radius: 4px;
-    margin-top: 16px;
-}
-
-.status-message.success {
-    background: #e8f5e9;
-    color: #2e7d32;
-    border-left: 4px solid #4caf50;
+@media (max-width: 768px) {
+    .levels-timeline { flex-direction: column; align-items: stretch; gap: 0; }
+    .levels-timeline::before { left: 22px; right: auto; top: 22px; bottom: 22px; width: 3px; height: auto; }
+    .timeline-item { flex-direction: row; align-items: center; gap: 14px; margin-bottom: 16px; }
+    .timeline-marker { margin-bottom: 0; }
+    .timeline-content { text-align: left; }
+    .potential-score-display { flex-direction: column; gap: 18px; }
+    .activity-grid { grid-template-columns: 1fr 1fr; }
 }
 </style>
 {% endblock %}

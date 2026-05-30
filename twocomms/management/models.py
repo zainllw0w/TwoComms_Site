@@ -1072,6 +1072,7 @@ class ManagementDailyActivity(models.Model):
     """
     Aggregated manager activity per local day (Europe/Kiev).
     Active time counts only when the Management tab is visible + focused and user is not idle.
+    Idle time counts when tab is open but not focused/active.
     """
 
     user = models.ForeignKey(
@@ -1082,6 +1083,7 @@ class ManagementDailyActivity(models.Model):
     )
     date = models.DateField(db_index=True, verbose_name=_("Дата (локальна)"))
     active_seconds = models.PositiveIntegerField(default=0, verbose_name=_("Активний час (сек)"))
+    idle_seconds = models.PositiveIntegerField(default=0, verbose_name=_("Відкритий але неактивний час (сек)"))
     last_seen_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Остання активність"))
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -1986,6 +1988,8 @@ class ManagerLevelHistory(models.Model):
     new_level = models.CharField(
         max_length=20,
         choices=ManagerLevel.Level.choices,
+        null=True,
+        blank=True,
         verbose_name=_('Новий рівень'),
     )
     changed_at = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name=_('Дата зміни'))

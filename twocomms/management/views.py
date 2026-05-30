@@ -1538,6 +1538,9 @@ def admin_overview(request):
     progress_points_pct = min(100, int(user_points_today / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
 
     if tab == 'managers':
+        from management.services.manager_levels import get_current_level, get_level_display_name
+        from management.services.level_progression import get_progression_status
+
         for u in users:
             last_login = u.last_login
             online = False
@@ -1547,6 +1550,12 @@ def admin_overview(request):
                 online = (timezone.now() - last_login) <= timedelta(minutes=5)
             user_clients = Client.objects.filter(owner=u).order_by('-created_at')
             points_stats = get_user_stats(u)
+
+            level_obj = get_current_level(u)
+            level_code = level_obj.level if level_obj else ''
+            level_label = get_level_display_name(level_obj.level) if level_obj else 'Без рівня'
+            progression = get_progression_status(u)
+
             admin_user_data.append({
                 'id': u.id,
                 'name': u.get_full_name() or u.username,
@@ -1557,6 +1566,14 @@ def admin_overview(request):
                 'points_total': points_stats['points_total'],
                 'online': online,
                 'last_login': last_login_local.strftime('%d.%m.%Y %H:%M') if last_login_local else 'Немає даних',
+                'level_code': level_code,
+                'level_label': level_label,
+                'weekly_salary': level_obj.weekly_salary_uah if level_obj else 0,
+                'commission_percent': str(level_obj.commission_percent) if level_obj else '0',
+                'salary_start_date': level_obj.salary_start_date.isoformat() if level_obj and level_obj.salary_start_date else '',
+                'level_progress_pct': progression.get('progress_pct', 0),
+                'level_requirements_met': progression.get('requirements_met', False),
+                'level_next': progression.get('next_level') or '',
             })
 
     bot_username = get_manager_bot_username()

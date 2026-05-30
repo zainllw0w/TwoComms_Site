@@ -3,6 +3,32 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/management-stats.css' %}">
+<style>
+.level-cell { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
+.level-badge-sm { display: inline-block; padding: 3px 10px; border-radius: 10px; font-size: 11.5px; font-weight: 600; white-space: nowrap; width: fit-content; }
+.level-badge-sm.level-candidate { background: #e3f2fd; color: #1976d2; }
+.level-badge-sm.level-level_1 { background: #e8f5e9; color: #388e3c; }
+.level-badge-sm.level-level_2 { background: #fff3e0; color: #f57c00; }
+.level-badge-sm.level-top_manager { background: #f3e5f5; color: #7b1fa2; }
+.level-badge-sm.level-project_manager { background: #fce4ec; color: #c2185b; }
+.level-badge-sm.level-admin { background: #ffebee; color: #d32f2f; }
+.level-badge-sm.level-none { background: #eceff1; color: #607d8b; }
+.level-mini-progress { width: 130px; height: 6px; background: #e7e9ee; border-radius: 3px; overflow: hidden; }
+.level-mini-fill { height: 100%; width: 0; background: linear-gradient(90deg, #43a047, #8bc34a); }
+.level-ready { font-size: 10.5px; color: #e65100; font-weight: 600; }
+.row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.assign-level-form .form-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; font-size: 13px; }
+.assign-level-form .form-field > span { color: #5a606b; font-weight: 600; }
+.assign-level-form input, .assign-level-form select, .assign-level-form textarea {
+    padding: 9px 12px; border: 1px solid #d6dae1; border-radius: 8px; font-size: 14px; font-family: inherit; background: #fff;
+}
+.assign-level-form .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.assign-level-hint { font-size: 12px; color: #8a8f99; margin: 4px 0 12px; line-height: 1.4; }
+.assign-level-feedback { font-size: 13px; min-height: 18px; margin-bottom: 10px; }
+.assign-level-feedback.success { color: #2e7d32; }
+.assign-level-feedback.error { color: #c62828; }
+@media (max-width: 560px) { .assign-level-form .form-row { grid-template-columns: 1fr; } }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -682,6 +708,7 @@
                 <tr>
                     <th>Користувач</th>
                     <th>Статус</th>
+                    <th>Рівень</th>
                     <th>Сьогодні (клієнти)</th>
                     <th>Всього (клієнти)</th>
                     <th>Бали сьогодні</th>
@@ -689,7 +716,7 @@
                     <th>Окупність</th>
                     <th>Онлайн</th>
                     <th>Останній вхід</th>
-                    <th>Огляд</th>
+                    <th>Дії</th>
                 </tr>
             </thead>
             <tbody>
@@ -697,6 +724,19 @@
                 <tr>
                     <td>{{ u.name }}</td>
                     <td>{{ u.role }}</td>
+                    <td>
+                        <div class="level-cell">
+                            <span class="level-badge-sm level-{{ u.level_code|default:'none' }}">{{ u.level_label }}</span>
+                            {% if u.level_next %}
+                            <div class="level-mini-progress" title="Прогрес до наступного рівня">
+                                <div class="level-mini-fill" data-pct="{{ u.level_progress_pct }}"></div>
+                            </div>
+                            {% if u.level_requirements_met %}
+                                <span class="level-ready" title="Умови переходу виконано">★ Готовий до підвищення</span>
+                            {% endif %}
+                            {% endif %}
+                        </div>
+                    </td>
                     <td>{{ u.today }}</td>
                     <td>{{ u.total }}</td>
                     <td>{{ u.points_today }}</td>
@@ -717,7 +757,16 @@
                     </td>
                     <td>{{ u.last_login }}</td>
                     <td>
-                        <button type="button" class="btn-ghost small admin-overview" data-user-id="{{ u.id }}">Огляд</button>
+                        <div class="row-actions">
+                            <button type="button" class="btn-ghost small admin-overview" data-user-id="{{ u.id }}">Огляд</button>
+                            <button type="button" class="btn-ghost small assign-level-btn"
+                                    data-user-id="{{ u.id }}"
+                                    data-user-name="{{ u.name }}"
+                                    data-level="{{ u.level_code }}"
+                                    data-salary="{{ u.weekly_salary }}"
+                                    data-percent="{{ u.commission_percent }}"
+                                    data-start="{{ u.salary_start_date }}">Призначити рівень</button>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
@@ -757,10 +806,142 @@
 </div>
 
 {{ admin_user_data|json_script:"admin-users-data" }}
+
+<!-- Модал призначення рівня менеджера -->
+<div id="assign-level-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="assign-level-title" hidden>
+    <div class="modal-card" tabindex="-1">
+        <div class="modal-header">
+            <div>
+                <p class="eyebrow">Рівні менеджерів</p>
+                <h3 id="assign-level-title">Призначити рівень</h3>
+                <div id="assign-level-subtitle" class="admin-overview-subtitle"></div>
+            </div>
+            <button type="button" class="modal-close" aria-label="Закрити">×</button>
+        </div>
+        <div class="modal-body">
+            <form id="assign-level-form" class="assign-level-form">
+                <input type="hidden" name="user_id" id="assign-level-user-id">
+                <label class="form-field">
+                    <span>Рівень</span>
+                    <select name="level" id="assign-level-select" required>
+                        <option value="candidate">Менеджер-кандидат</option>
+                        <option value="level_1">Менеджер 1-го рівня</option>
+                        <option value="level_2">Менеджер 2-го рівня</option>
+                        <option value="top_manager">Топ-менеджер</option>
+                        <option value="project_manager">Project-менеджер</option>
+                        <option value="admin">Адміністратор</option>
+                    </select>
+                </label>
+                <div class="form-row">
+                    <label class="form-field">
+                        <span>Тижнева ставка (грн)</span>
+                        <input type="number" name="weekly_salary" id="assign-level-salary" min="0" step="1" value="0">
+                    </label>
+                    <label class="form-field">
+                        <span>Відсоток від замовлення (%)</span>
+                        <input type="number" name="commission_percent" id="assign-level-percent" min="0" max="100" step="0.01" value="0">
+                    </label>
+                </div>
+                <label class="form-field">
+                    <span>Дата початку нарахувань</span>
+                    <input type="date" name="start_date" id="assign-level-start">
+                </label>
+                <label class="form-field">
+                    <span>Коментар (необов'язково)</span>
+                    <textarea name="comment" id="assign-level-comment" rows="2" placeholder="Причина призначення / умови"></textarea>
+                </label>
+                <p class="assign-level-hint">Для рівня «Менеджер-кандидат» ставка не нараховується — вкладка «Виплати» буде заблокована, але відсоток рахується внутрішньо.</p>
+                <div class="assign-level-feedback" id="assign-level-feedback" role="status" aria-live="polite"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-ghost modal-close">Скасувати</button>
+                    <button type="submit" class="btn-primary" id="assign-level-submit">Призначити</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endif %}
 {% endblock %}
 
 {% block extra_js %}
+{% if admin_tab == 'managers' %}
+<script>
+(function () {
+    function getCookie(name) {
+        let v = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const c = cookies[i].trim();
+                if (c.substring(0, name.length + 1) === (name + '=')) {
+                    v = decodeURIComponent(c.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return v;
+    }
+
+    // Заповнення міні progress-барів рівнів
+    document.querySelectorAll('.level-mini-fill[data-pct]').forEach(function (el) {
+        const p = parseInt(el.getAttribute('data-pct'), 10) || 0;
+        el.style.width = Math.max(0, Math.min(100, p)) + '%';
+    });
+
+    const modal = document.getElementById('assign-level-modal');
+    if (!modal) return;
+    const form = document.getElementById('assign-level-form');
+    const feedback = document.getElementById('assign-level-feedback');
+    const submitBtn = document.getElementById('assign-level-submit');
+
+    function openModal() { modal.hidden = false; }
+    function closeModal() { modal.hidden = true; if (feedback) { feedback.textContent = ''; feedback.className = 'assign-level-feedback'; } }
+
+    document.addEventListener('click', function (e) {
+        const trigger = e.target.closest('.assign-level-btn');
+        if (trigger) {
+            document.getElementById('assign-level-user-id').value = trigger.dataset.userId || '';
+            document.getElementById('assign-level-subtitle').textContent = trigger.dataset.userName || '';
+            document.getElementById('assign-level-select').value = trigger.dataset.level || 'candidate';
+            document.getElementById('assign-level-salary').value = trigger.dataset.salary || '0';
+            document.getElementById('assign-level-percent').value = trigger.dataset.percent || '0';
+            const start = trigger.dataset.start || '';
+            document.getElementById('assign-level-start').value = start || new Date().toISOString().slice(0, 10);
+            openModal();
+            return;
+        }
+        if (e.target.closest('.modal-close') && !modal.hidden) { closeModal(); }
+        if (e.target === modal) { closeModal(); }
+    });
+
+    form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        submitBtn.disabled = true;
+        feedback.textContent = 'Збереження…';
+        feedback.className = 'assign-level-feedback';
+        try {
+            const fd = new FormData(form);
+            const res = await fetch('{% url "management_admin_assign_level_api" %}', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken'), 'X-Requested-With': 'XMLHttpRequest' },
+                body: fd,
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.success) {
+                throw new Error(data.error || 'Помилка збереження');
+            }
+            feedback.textContent = data.message || 'Збережено';
+            feedback.className = 'assign-level-feedback success';
+            setTimeout(function () { window.location.reload(); }, 700);
+        } catch (err) {
+            feedback.textContent = err.message || 'Помилка';
+            feedback.className = 'assign-level-feedback error';
+            submitBtn.disabled = false;
+        }
+    });
+})();
+</script>
+{% endif %}
 {% if admin_tab == 'invoices' %}
 <script>
 function getCookie(name) {

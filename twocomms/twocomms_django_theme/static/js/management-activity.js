@@ -79,9 +79,27 @@
     const deltaSec = Math.max(0, Math.min(60, Math.round((now - lastTick) / 1000)));
     lastTick = now;
 
-    const active = isVisible && isFocused && (now - lastInteraction) < IDLE_MS;
-    if (!active || deltaSec <= 0) return;
+    if (deltaSec <= 0) return;
+
+    // Визначити чи користувач активний чи просто відкрита вкладка
+    const isActive = isVisible && isFocused && (now - lastInteraction) < IDLE_MS;
+    const isOpen = isVisible; // Вкладка відкрита (видима)
+
+    let activeSec = 0;
+    let idleSec = 0;
+
+    if (isActive) {
+      // Активний час - користувач взаємодіє
+      activeSec = deltaSec;
+    } else if (isOpen) {
+      // Відкритий але неактивний час - вкладка видима але немає взаємодії
+      idleSec = deltaSec;
+    }
+    // Якщо вкладка не видима - не рахуємо нічого
+
+    if (activeSec === 0 && idleSec === 0) return;
     if (inFlight) return;
+
     const token = resolveCsrfToken();
     if (!token) return;
     inFlight = true;
@@ -95,7 +113,10 @@
           'X-CSRFToken': token,
           'X-Requested-With': 'XMLHttpRequest',
         },
-        body: JSON.stringify({ active_seconds: deltaSec }),
+        body: JSON.stringify({
+          active_seconds: activeSec,
+          idle_seconds: idleSec
+        }),
       });
     } catch (e) {
       // ignore

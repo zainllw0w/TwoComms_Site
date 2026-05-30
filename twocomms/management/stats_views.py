@@ -211,14 +211,22 @@ def activity_pulse(request):
     except Exception:
         payload = {}
 
-    raw = payload.get("active_seconds")
+    raw_active = payload.get("active_seconds")
+    raw_idle = payload.get("idle_seconds", 0)
+
     try:
-        active_seconds = int(raw)
+        active_seconds = int(raw_active)
     except Exception:
         active_seconds = 0
 
+    try:
+        idle_seconds = int(raw_idle)
+    except Exception:
+        idle_seconds = 0
+
     # Clamp to avoid abuse and to keep increments sane.
     active_seconds = max(0, min(active_seconds, 60))
+    idle_seconds = max(0, min(idle_seconds, 300))  # До 5 хвилин idle за раз
 
     now = timezone.now()
     day = timezone.localdate(now)
@@ -226,6 +234,7 @@ def activity_pulse(request):
     obj, _ = ManagementDailyActivity.objects.get_or_create(user=request.user, date=day)
     ManagementDailyActivity.objects.filter(pk=obj.pk).update(
         active_seconds=F("active_seconds") + active_seconds,
+        idle_seconds=F("idle_seconds") + idle_seconds,
         last_seen_at=now,
     )
 

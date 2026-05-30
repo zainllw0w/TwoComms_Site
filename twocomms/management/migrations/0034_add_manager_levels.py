@@ -91,6 +91,7 @@ class Migration(migrations.Migration):
                     verbose_name='Попередній рівень',
                 )),
                 ('new_level', models.CharField(
+                    blank=True,
                     choices=[
                         ('candidate', 'Менеджер-кандидат'),
                         ('level_1', 'Менеджер 1-го рівня'),
@@ -100,6 +101,7 @@ class Migration(migrations.Migration):
                         ('admin', 'Адміністратор'),
                     ],
                     max_length=20,
+                    null=True,
                     verbose_name='Новий рівень',
                 )),
                 ('changed_at', models.DateTimeField(auto_now_add=True, db_index=True, verbose_name='Дата зміни')),

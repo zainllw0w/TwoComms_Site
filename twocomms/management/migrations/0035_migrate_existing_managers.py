@@ -65,7 +65,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('management', '0034_add_manager_levels'),
-        ('accounts', '0001_initial'),  # Залежність від accounts app
+        ('accounts', '0017_userprofile_manager_base_salary_uah_and_more'),
     ]
 
     operations = [

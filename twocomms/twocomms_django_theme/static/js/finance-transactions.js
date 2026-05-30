@@ -409,10 +409,19 @@
     withId(function (id) { api('/api/transactions/' + id + '/mark-actual/', 'POST').then(function () { window.location.reload(); }); });
   });
 
-  // --- Клік по рядку → редагування ---
+  // --- Клік по рядку → редагування (або toggle у bulk-режимі) ---
   document.querySelectorAll('.fin-row').forEach(function (row) {
     row.addEventListener('click', function (e) {
       if (e.target.closest('.fin-col-check')) return;
+      // У bulk-режимі клік перемикає вибір, не відкриває модалку
+      if (document.body.classList.contains('fin-bulk-mode')) {
+        var check = row.querySelector('.fin-row-check');
+        if (check) {
+          check.checked = !check.checked;
+          check.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        return;
+      }
       var id = row.dataset.txnId;
       api('/api/transactions/' + id + '/').then(function (res) {
         if (res.data.ok) openModal(res.data.transaction.type, res.data.transaction);
@@ -448,12 +457,32 @@
     var ids = selectedIds();
     if (bulkbar) bulkbar.hidden = ids.length === 0;
     if (bulkCount) bulkCount.textContent = ids.length;
+    // Мобільний bulk-режим: показуємо чекбокси доки є вибрані
+    document.body.classList.toggle('fin-bulk-mode', ids.length > 0);
   }
   if (checkAll) checkAll.addEventListener('change', function () {
     rowChecks().forEach(function (c) { c.checked = checkAll.checked; });
     refreshBulk();
   });
   rowChecks().forEach(function (c) { c.addEventListener('change', refreshBulk); });
+
+  // --- Long-press на рядку активує bulk-режим (мобільні) ---
+  (function () {
+    var timer = null;
+    document.querySelectorAll('.fin-row').forEach(function (row) {
+      var check = row.querySelector('.fin-row-check');
+      if (!check) return;
+      row.addEventListener('touchstart', function () {
+        timer = setTimeout(function () {
+          check.checked = true;
+          refreshBulk();
+          if (navigator.vibrate) navigator.vibrate(15);
+        }, 450);
+      }, { passive: true });
+      row.addEventListener('touchend', function () { clearTimeout(timer); });
+      row.addEventListener('touchmove', function () { clearTimeout(timer); }, { passive: true });
+    });
+  })();
 
   // Bulk-дії
   var bulkModal = document.getElementById('fin-bulk-modal');
