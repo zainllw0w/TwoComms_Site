@@ -33,6 +33,15 @@ def _json_body(request) -> Dict[str, Any]:
         return {}
 
 
+def _parse_client_version(value: Any) -> tuple[int | None, JsonResponse | None]:
+    if value is None:
+        return None, None
+    try:
+        return int(value), None
+    except (TypeError, ValueError):
+        return None, JsonResponse({"success": False, "error": "invalid_version"}, status=400)
+
+
 def _definition_or_error():
     definition = load_survey_definition()
     if not definition:
@@ -352,11 +361,13 @@ def survey_submit_answer(request):
     survey_key = definition.get("survey_key", "print_feedback_v1")
     payload = _json_body(request)
     question_id = payload.get("question_id")
-    client_version = payload.get("version")
+    client_version, version_error = _parse_client_version(payload.get("version"))
     answer = payload.get("answer")
 
     if not question_id:
         return JsonResponse({"success": False, "error": "missing_question"}, status=400)
+    if version_error:
+        return version_error
 
     if not _is_authenticated(request):
         state, _ = _get_anonymous_survey_state(request, survey_key)
@@ -365,7 +376,7 @@ def survey_submit_answer(request):
         if state.get("status") == "completed":
             return JsonResponse(_serialize_anonymous_state(state, engine))
 
-        if client_version is not None and int(client_version) != int(state.get("version") or 1):
+        if client_version is not None and client_version != int(state.get("version") or 1):
             return JsonResponse(
                 {
                     "success": False,
@@ -456,7 +467,7 @@ def survey_submit_answer(request):
             if session.status == 'completed':
                 return JsonResponse(_serialize_state(session, engine))
 
-            if client_version is not None and int(client_version) != session.version:
+            if client_version is not None and client_version != session.version:
                 return JsonResponse({"success": False, "error": "version_conflict", "current": _serialize_state(session, engine)}, status=409)
 
             if session.current_question_id and session.current_question_id != question_id:
@@ -544,7 +555,9 @@ def survey_back_one_step(request):
     engine = SurveyEngine(definition)
     survey_key = definition.get("survey_key", "print_feedback_v1")
     payload = _json_body(request)
-    client_version = payload.get("version")
+    client_version, version_error = _parse_client_version(payload.get("version"))
+    if version_error:
+        return version_error
 
     if not _is_authenticated(request):
         state, _ = _get_anonymous_survey_state(request, survey_key)
@@ -554,7 +567,7 @@ def survey_back_one_step(request):
             return JsonResponse(_serialize_anonymous_state(state, engine))
         if state.get("back_used"):
             return JsonResponse({"success": False, "error": "back_used"}, status=400)
-        if client_version is not None and int(client_version) != int(state.get("version") or 1):
+        if client_version is not None and client_version != int(state.get("version") or 1):
             return JsonResponse(
                 {
                     "success": False,
@@ -592,7 +605,7 @@ def survey_back_one_step(request):
                 return JsonResponse(_serialize_state(session, engine))
             if session.back_used:
                 return JsonResponse({"success": False, "error": "back_used"}, status=400)
-            if client_version is not None and int(client_version) != session.version:
+            if client_version is not None and client_version != session.version:
                 return JsonResponse({"success": False, "error": "version_conflict", "current": _serialize_state(session, engine)}, status=409)
 
             history = session.history or []

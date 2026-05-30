@@ -18,11 +18,30 @@
   display: grid;
   gap: 1rem;
   margin: 1rem 0;
+  min-width: 0;
+  width: 100%;
 }
 @media (min-width: 900px) {
   .survey-container-v3 {
     grid-template-columns: 280px 1fr;
   }
+}
+
+.survey-unified-block {
+  min-height: 300px;
+}
+
+#survey-section {
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.survey-content-unified {
+  position: relative;
+  z-index: 2;
+  display: block !important;
+  max-height: none !important;
+  overflow: visible !important;
 }
 
 
@@ -117,6 +136,7 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  min-width: 0;
 }
 .sr-header-row {
   display: flex;
@@ -129,7 +149,7 @@
   color: #fff;
   font-size: clamp(1.2rem, 2vw, 1.5rem);
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 .sr-brand-wrapper {
   display: inline-flex;
@@ -148,7 +168,14 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   font-weight: 900;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
+}
+
+#survey-section .featured-floating-logos img {
+  display: block;
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
 }
 .sr-subtitle {
   margin: 0.25rem 0 0 0;
@@ -189,7 +216,7 @@
   line-height: 1.1;
   color: #fff;
   text-transform: uppercase;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 .sr-banner-desc {
   margin: 0.5rem 0 0 0;
@@ -253,7 +280,15 @@
   .sl-panel-light, .survey-panel-dark:not(.sr-banner) {
     display: none !important;
   }
+  .survey-unified-block {
+    min-height: 330px;
+  }
   .survey-container-v3 { display: block; margin: 0.5rem 0; gap: 0; }
+
+  #survey-section .featured-floating-logos,
+  #survey-section .sr-brand-logo {
+    display: none;
+  }
   
   .sr-header-row {
     flex-direction: column;
@@ -302,26 +337,125 @@
   .sr-footer-pills {
     display: flex;
     flex-direction: row;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     justify-content: center;
     gap: 0.4rem;
     width: 100%;
   }
   .sr-pill {
-    flex: 1;
+    flex: 1 1 10.5rem;
     justify-content: center;
     text-align: center;
-    font-size: 0.6rem !important;
-    padding: 0.35rem 0.2rem !important;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 0.72rem !important;
+    line-height: 1.25;
+    padding: 0.45rem 0.55rem !important;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
   .sr-cta {
     width: 100%;
     justify-content: center;
     padding: 0.85rem !important;
     font-size: 1rem !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .survey-unified-block {
+    min-height: 360px;
+    padding: 0.85rem;
+  }
+
+  .sr-banner {
+    min-height: 142px;
+  }
+
+  .sr-banner-icon {
+    width: 72px !important;
+    height: 72px !important;
+  }
+
+  .sr-banner-icon svg {
+    width: 72px;
+    height: 72px;
+  }
+
+  .sr-banner-title {
+    font-size: 1rem !important;
+  }
+}
+
+@media (max-width: 420px) and (max-height: 700px) {
+  .survey-unified-block {
+    min-height: 0;
+    padding: 0.75rem;
+  }
+
+  .survey-container-v3 {
+    margin: 0;
+  }
+
+  .survey-right-panel {
+    gap: 0.6rem;
+  }
+
+  .sr-header-row {
+    gap: 0.35rem;
+  }
+
+  .sr-title {
+    font-size: 1rem !important;
+    line-height: 1.16;
+  }
+
+  .sr-subtitle {
+    font-size: 0.75rem !important;
+    line-height: 1.32;
+  }
+
+  .sr-banner {
+    min-height: 112px;
+    padding: 0.85rem !important;
+  }
+
+  .sr-banner-title {
+    font-size: 0.92rem !important;
+    line-height: 1.12;
+  }
+
+  .sr-banner-desc {
+    font-size: 0.72rem !important;
+    line-height: 1.28;
+    margin-top: 0.3rem;
+  }
+
+  .sr-banner-icon {
+    height: 58px !important;
+    width: 58px !important;
+  }
+
+  .sr-banner-icon svg {
+    height: 58px;
+    width: 58px;
+  }
+
+  .sr-footer {
+    gap: 0.55rem;
+  }
+
+  .sr-footer-pills {
+    gap: 0.3rem;
+  }
+
+  .sr-pill {
+    flex-basis: 8rem;
+    font-size: 0.66rem !important;
+    padding: 0.32rem 0.4rem !important;
+  }
+
+  .sr-cta {
+    min-height: 46px;
+    padding: 0.7rem !important;
   }
 }
 .survey-modal {

@@ -64,6 +64,7 @@ V34_DEFINITION_PATH = (
     / "surveys"
     / "twocomms_survey_v3_4_adaptive_research.json"
 )
+V34_SURVEY_KEY = "twocomms_survey_v3_4_adaptive_research_reset_20260530"
 
 
 class SurveyEngineTests(TestCase):
@@ -88,7 +89,7 @@ class SurveyEngineTests(TestCase):
         definition = load_survey_definition(V34_DEFINITION_PATH)
         engine = SurveyEngine(definition)
 
-        self.assertEqual(definition["survey_key"], "twocomms_survey_v3_4_adaptive_research")
+        self.assertEqual(definition["survey_key"], V34_SURVEY_KEY)
         self.assertEqual(engine.flow_core[:3], ["q010_entry_goal", "q020_purchase_stage", "q030_product_interest"])
         self.assertIn("q930_promo_delivery", engine.flow_closing)
         self.assertEqual(engine.validate_definition(), [])
@@ -413,6 +414,61 @@ class SurveyViewTests(TestCase):
             session = SurveySession.objects.get(user=user, survey_key="test_survey")
             queue_mock.assert_called_once_with(session.id, "FINAL", background=True)
 
+    def test_invalid_client_version_returns_json_error_for_anonymous_and_authenticated(self):
+        anonymous_start = self.client.post(reverse("survey_start_or_resume"), data="{}", content_type="application/json", secure=True)
+        question_id = anonymous_start.json()["question"]["id"]
+        anonymous_response = self.client.post(
+            reverse("survey_submit_answer"),
+            data=json.dumps({
+                "question_id": question_id,
+                "answer": 3,
+                "version": "not-a-number",
+            }),
+            content_type="application/json",
+            secure=True,
+        )
+
+        self.assertEqual(anonymous_response.status_code, 400)
+        self.assertEqual(anonymous_response.json()["error"], "invalid_version")
+
+        anonymous_back_response = self.client.post(
+            reverse("survey_back_one_step"),
+            data=json.dumps({"version": "not-a-number"}),
+            content_type="application/json",
+            secure=True,
+        )
+
+        self.assertEqual(anonymous_back_response.status_code, 400)
+        self.assertEqual(anonymous_back_response.json()["error"], "invalid_version")
+
+        user = User.objects.create_user(username="surveyversion", password="pass1234")
+        self.client.force_login(user)
+        auth_start = self.client.post(reverse("survey_start_or_resume"), data="{}", content_type="application/json", secure=True)
+        auth_question_id = auth_start.json()["question"]["id"]
+        auth_response = self.client.post(
+            reverse("survey_submit_answer"),
+            data=json.dumps({
+                "question_id": auth_question_id,
+                "answer": 3,
+                "version": "not-a-number",
+            }),
+            content_type="application/json",
+            secure=True,
+        )
+
+        self.assertEqual(auth_response.status_code, 400)
+        self.assertEqual(auth_response.json()["error"], "invalid_version")
+
+        auth_back_response = self.client.post(
+            reverse("survey_back_one_step"),
+            data=json.dumps({"version": "not-a-number"}),
+            content_type="application/json",
+            secure=True,
+        )
+
+        self.assertEqual(auth_back_response.status_code, 400)
+        self.assertEqual(auth_back_response.json()["error"], "invalid_version")
+
     @override_settings(SURVEY_DEFINITION_PATH=V34_DEFINITION_PATH)
     def test_v34_anonymous_partner_path_skips_style_questions(self):
         clear_survey_definition_cache()
@@ -443,6 +499,6 @@ class SurveyViewTests(TestCase):
 
         self.assertEqual(payload["question"]["id"], "q050_overall")
         bucket = self.client.session["anonymous_survey_sessions"]
-        answers = bucket["twocomms_survey_v3_4_adaptive_research"]["answers"]
+        answers = bucket[V34_SURVEY_KEY]["answers"]
         self.assertNotIn("q040_military_code_interest", answers)
         self.assertNotIn("q041_streetwear_fit_interest", answers)

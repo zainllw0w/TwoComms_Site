@@ -197,7 +197,7 @@ canonical entry point for the brand's URL graph.
   </div>
 </section>
 {% endcache %}
-<section class="mb-4 mb-md-5 reveal" id="featured-section">
+<section class="mb-4 mb-md-5" id="survey-section">
   <!-- Компактный блок опитування в стиле рекомендаций -->
   <div class="featured-unified-block survey-unified-block">
     <!-- Фоновые эффекты -->
@@ -213,19 +213,19 @@ canonical entry point for the brand's URL graph.
       <div class="featured-gradient-2"></div>
       <div class="featured-floating-logos">
               <div class="floating-logo logo-1">
-                <img src="{% static 'img/logo.svg' %}" alt="{% trans 'TwoComms логотип — стріт & мілітарі одяг' %}" width="14" height="14" loading="lazy" decoding="async">
+                <img src="{% static 'img/logo.svg' %}" alt="" aria-hidden="true" width="14" height="14" loading="lazy" decoding="async">
               </div>
               <div class="floating-logo logo-2">
-                <img src="{% static 'img/logo.svg' %}" alt="{% trans 'TwoComms логотип — стріт & мілітарі одяг' %}" width="12" height="12" loading="lazy" decoding="async">
+                <img src="{% static 'img/logo.svg' %}" alt="" aria-hidden="true" width="12" height="12" loading="lazy" decoding="async">
               </div>
               <div class="floating-logo logo-3">
-                <img src="{% static 'img/logo.svg' %}" alt="{% trans 'TwoComms логотип — стріт & мілітарі одяг' %}" width="16" height="16" loading="lazy" decoding="async">
+                <img src="{% static 'img/logo.svg' %}" alt="" aria-hidden="true" width="16" height="16" loading="lazy" decoding="async">
               </div>
       </div>
     </div>
     
-    <!-- Скрываемый контент (референсный 2-колоночный дизайн V3) -->
-    <div class="featured-content-unified collapsed" id="featured-content" style="display: block; max-height: none; overflow: visible;">
+    <!-- Контент опитування всегда открыт: старый featured-toggle мог оставлять на mobile только тонкую оранжевую полосу. -->
+    <div class="survey-content-unified" id="survey-content">
       <div class="survey-container-v3">
         
         <!-- Left Panel -->
@@ -267,15 +267,12 @@ canonical entry point for the brand's URL graph.
                 {% trans 'Допоможи покращити' %}
                 <span class="sr-brand-wrapper">
                   {# Phase 21 — explicit width/height + aspect-ratio so the browser reserves space before CSS resolves the 0.85em height (fixes CLS warning). Actual rendered size still comes from .sr-brand-logo in home.css. #}
-                  <img src="{% static 'img/logo.svg' %}" alt="TwoComms" class="sr-brand-logo" width="680" height="737">
+                  <img src="{% static 'img/logo.svg' %}" alt="" aria-hidden="true" class="sr-brand-logo" width="680" height="737">
                   <span class="sr-brand-text">TWOCOMMS</span>
                 </span>
               </h2>
               <p class="sr-subtitle">{{ survey_ui_home.subtitle_uk|default:'Короткий адаптивний квіз: питання підлаштовуються під твої відповіді, без зайвої анкети.' }}</p>
             </div>
-            <button type="button" class="sr-dismiss" id="featuredToggle">
-              {% trans 'БІЛЬШЕ НЕ ПОКАЗУВАТИ' %}
-            </button>
           </div>
 
           <div class="survey-panel-dark sr-banner">
