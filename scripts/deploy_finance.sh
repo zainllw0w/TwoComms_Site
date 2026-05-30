@@ -29,8 +29,9 @@ sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no "$HOST" bash -lc "'
   if [ -f finance/migrations/0001_initial.py ] && ! git ls-files --error-unmatch finance/migrations/0001_initial.py >/dev/null 2>&1; then
     rm -f finance/migrations/0001_initial.py
   fi
-  echo \"== git pull ==\"
-  git pull --ff-only origin main
+  echo \"== git fetch + reset to origin/main (resilient to force-push) ==\"
+  git fetch origin main
+  git reset --hard origin/main
   echo \"== makemigrations finance ==\"
   python manage.py makemigrations finance
   echo \"== migrate ==\"
