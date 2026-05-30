@@ -179,6 +179,7 @@ a { color: inherit; }
     border: 1px solid var(--fin-border);
     border-radius: 10px;
     cursor: pointer;
+    flex-shrink: 0;
 }
 .fin-burger span { display: block; height: 2px; width: 18px; margin: 0 auto; background: var(--fin-text); border-radius: 2px; transition: transform 0.2s ease, opacity 0.2s ease; }
 
@@ -461,34 +462,92 @@ a { color: inherit; }
 }
 
 @media (max-width: 900px) {
-    /* Бургер зліва */
-    .fin-burger {
-        display: flex;
-        order: -1; /* Переміщуємо на початок */
-        margin-right: 12px;
-    }
-
-    /* Header без накладання */
+    /* Header на мобільних */
     .fin-header {
         height: auto;
         min-height: var(--fin-header-h);
         flex-wrap: nowrap;
         position: relative;
+        padding: 12px 14px;
+        gap: 12px;
     }
 
+    /* Бургер ЗЛІВА - перший елемент */
+    .fin-burger {
+        display: flex !important;
+        order: -10 !important; /* Найменший order = перший */
+        margin-right: 0;
+        flex-shrink: 0;
+    }
+
+    /* Logo та компанія */
     .fin-header__left {
-        order: 1;
+        order: 0;
+        flex: 0 0 auto;
+        gap: 8px;
     }
 
-    /* Tabs - ховаємо на мобільних, показуємо в sidebar */
+    .fin-brand-mark {
+        width: 36px;
+        height: 36px;
+    }
+
+    .fin-company {
+        padding: 4px 8px;
+    }
+
+    .fin-company__name {
+        font-size: 13px;
+    }
+
+    .fin-company__hint {
+        display: none;
+    }
+
+    /* Tabs - ПОВНІСТЮ ховаємо на мобільних */
     .fin-tabs {
         display: none !important;
+        visibility: hidden !important;
+    }
+
+    /* Кнопки доходів/витрат - центруємо */
+    .fin-header__actions {
+        order: 1;
+        flex: 1 1 auto;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .fin-quick-actions {
+        display: flex;
+        gap: 6px;
+        justify-content: center;
+        flex-wrap: nowrap;
+    }
+
+    .fin-quick {
+        padding: 8px 12px;
+        font-size: 12px;
+        gap: 4px;
+        flex-shrink: 0;
+    }
+
+    .fin-quick__plus,
+    .fin-quick__minus,
+    .fin-quick__swap {
+        font-size: 13px;
+    }
+
+    /* Іконки (налаштування, вихід) - справа */
+    .fin-icon-btn {
+        order: 2;
+        flex-shrink: 0;
     }
 
     /* Sidebar з правильним z-index */
     .fin-sidebar {
         position: fixed;
-        top: 0; /* Від самого верху */
+        top: 0;
         left: 0;
         bottom: 0;
         height: 100vh;
@@ -496,7 +555,7 @@ a { color: inherit; }
         max-width: 85vw;
         transform: translateX(-100%);
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        z-index: 100; /* Вище за все */
+        z-index: 100 !important; /* Вище за все */
         box-shadow: 20px 0 60px rgba(0, 0, 0, 0.7);
         border-right: 1px solid var(--fin-border-strong);
     }
@@ -511,20 +570,15 @@ a { color: inherit; }
         inset: 0;
         background: rgba(0, 0, 0, 0.6);
         backdrop-filter: blur(4px);
-        z-index: 99;
+        z-index: 99 !important;
     }
 
     .fin-body.fin-sidebar-open .fin-sidebar__backdrop {
         display: block;
     }
 
-    /* Додаємо навігацію в sidebar */
-    .fin-sidebar__scroll::before {
-        content: '';
-        display: block;
-        padding: 16px 14px;
-        border-bottom: 1px solid var(--fin-border);
-        margin: 0 -14px 14px;
+    .fin-sidebar__scroll {
+        padding-top: 20px;
     }
 
     /* Кнопки доходів/витрат - центруємо */
