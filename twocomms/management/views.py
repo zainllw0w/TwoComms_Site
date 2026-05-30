@@ -6262,6 +6262,23 @@ def payouts(request):
     if not user_is_management(request.user):
         return redirect('management_login')
 
+    # Перевірка рівня доступу
+    try:
+        from management.services.manager_levels import get_current_level, has_permission
+        from management.services.level_progression import get_progression_status
+
+        user_level = get_current_level(request.user)
+
+        # Якщо рівень Candidate - показати locked state
+        if user_level and user_level.level == 'candidate':
+            progression = get_progression_status(request.user)
+            return render(request, 'management/payouts_locked.html', {
+                'level': user_level,
+                'progression': progression,
+            })
+    except Exception:
+        pass  # Якщо щось не так з рівнями, показати звичайну сторінку
+
     import re
 
     from django.db import models

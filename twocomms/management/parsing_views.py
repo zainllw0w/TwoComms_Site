@@ -36,9 +36,27 @@ DEFAULT_MODERATION_PAGE_SIZE = 25
 
 
 def _require_admin_json(request):
-    if request.user.is_staff:
+    """Перевірка доступу до парсингу - тільки Top Manager+"""
+    # Суперюзери та staff мають доступ
+    if request.user.is_staff or request.user.is_superuser:
         return None
-    return JsonResponse({"success": False, "error": "Доступ лише для адміністраторів."}, status=403)
+
+    # Перевірка рівня менеджера
+    try:
+        from management.services.manager_levels import get_current_level, LEVEL_HIERARCHY
+
+        user_level = get_current_level(request.user)
+        if user_level and user_level.is_active:
+            # Top Manager, Project Manager, Admin мають доступ
+            level_rank = LEVEL_HIERARCHY.get(user_level.level, -1)
+            top_manager_rank = LEVEL_HIERARCHY.get('top_manager', 999)
+
+            if level_rank >= top_manager_rank:
+                return None
+    except Exception:
+        pass
+
+    return JsonResponse({"success": False, "error": "Доступ лише для Топ-менеджерів та вище."}, status=403)
 
 
 def _normalize_city_filter(raw_value) -> str:

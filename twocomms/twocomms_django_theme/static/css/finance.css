@@ -482,85 +482,98 @@ a { color: inherit; }
 }
 
 @media (max-width: 900px) {
-    /* Header на мобільних */
+    /* Header: двохрядна сітка — ряд1 (бургер+лого+іконки), ряд2 (кнопки дій) */
     .fin-header {
         height: auto;
         min-height: var(--fin-header-h);
-        flex-wrap: nowrap;
+        flex-wrap: wrap;
         position: relative;
-        padding: 12px 14px;
-        gap: 12px;
+        padding: 10px 14px;
+        gap: 10px;
+        row-gap: 10px;
     }
 
     /* Бургер ЗЛІВА - перший елемент */
     .fin-burger {
         display: flex !important;
-        order: -10 !important; /* Найменший order = перший */
-        margin-right: 0;
+        order: 0;
+        margin: 0;
         flex-shrink: 0;
     }
 
-    /* Logo та компанія */
+    /* Logo та компанія - після бургера */
     .fin-header__left {
-        order: 0;
-        flex: 0 0 auto;
+        order: 1;
+        flex: 1 1 auto;
+        min-width: 0;
         gap: 8px;
     }
 
     .fin-brand-mark {
         width: 36px;
         height: 36px;
+        flex-shrink: 0;
     }
 
     .fin-company {
         padding: 4px 8px;
+        min-width: 0;
     }
 
     .fin-company__name {
-        font-size: 13px;
+        font-size: 14px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .fin-company__hint {
         display: none;
     }
 
+    .fin-company__chev {
+        display: none;
+    }
+
+    /* Іконки (налаштування, вихід) - справа в першому ряду */
+    .fin-header__actions {
+        order: 2;
+        flex: 0 0 auto;
+        gap: 8px;
+        margin-left: auto;
+    }
+
     /* Tabs - ПОВНІСТЮ ховаємо на мобільних */
     .fin-tabs {
         display: none !important;
-        visibility: hidden !important;
     }
 
-    /* Кнопки доходів/витрат - центруємо */
-    .fin-header__actions {
-        order: 1;
-        flex: 1 1 auto;
-        justify-content: center;
-        gap: 8px;
-    }
-
+    /* Кнопки доходів/витрат - окремий ряд на всю ширину */
     .fin-quick-actions {
+        order: 3;
+        flex: 1 1 100%;
+        width: 100%;
         display: flex;
-        gap: 6px;
-        justify-content: center;
-        flex-wrap: nowrap;
+        gap: 8px;
+        justify-content: stretch;
     }
 
     .fin-quick {
-        padding: 8px 12px;
-        font-size: 12px;
+        flex: 1 1 0;
+        justify-content: center;
+        padding: 10px 8px;
+        font-size: 13px;
         gap: 4px;
-        flex-shrink: 0;
+        min-width: 0;
     }
 
     .fin-quick__plus,
     .fin-quick__minus,
     .fin-quick__swap {
-        font-size: 13px;
+        font-size: 14px;
     }
 
-    /* Іконки (налаштування, вихід) - справа */
     .fin-icon-btn {
-        order: 2;
         flex-shrink: 0;
     }
 
@@ -571,11 +584,12 @@ a { color: inherit; }
         left: 0;
         bottom: 0;
         height: 100vh;
+        height: 100dvh;
         width: var(--fin-sidebar-w);
-        max-width: 85vw;
+        max-width: 86vw;
         transform: translateX(-100%);
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        z-index: 100 !important; /* Вище за все */
+        z-index: 100 !important;
         box-shadow: 20px 0 60px rgba(0, 0, 0, 0.7);
         border-right: 1px solid var(--fin-border-strong);
     }
@@ -601,68 +615,20 @@ a { color: inherit; }
         padding-top: 20px;
     }
 
-    /* Кнопки доходів/витрат - центруємо */
-    .fin-header__actions {
-        flex: 1;
-        justify-content: center;
-        order: 2;
-    }
-
-    .fin-quick-actions {
-        display: flex;
-        gap: 8px;
-        justify-content: center;
-    }
-
-    .fin-quick {
-        flex: 0 0 auto;
-    }
-
     .fin-content {
         padding: 18px 16px 60px;
     }
 }
 
-@media (max-width: 640px) {
-    .fin-header {
-        padding: 12px 14px;
-        gap: 12px;
-    }
-
-    .fin-burger {
-        margin-right: 8px;
-    }
-
-    .fin-brand-mark {
-        width: 36px;
-        height: 36px;
-    }
-
-    .fin-company {
-        padding: 4px 8px;
-    }
-
+@media (max-width: 480px) {
+    /* Дуже компактний header — ховаємо назву компанії, лишаємо лого */
     .fin-company__name {
-        font-size: 13px;
-    }
-
-    .fin-quick-actions {
-        gap: 6px;
+        display: none;
     }
 
     .fin-quick {
-        padding: 8px 12px;
+        padding: 10px 6px;
         font-size: 12px;
-    }
-
-    .fin-quick__plus,
-    .fin-quick__minus,
-    .fin-quick__swap {
-        font-size: 14px;
-    }
-
-    .fin-company__hint {
-        display: none;
     }
 
     .fin-page-title {
@@ -670,7 +636,7 @@ a { color: inherit; }
     }
 
     .fin-sidebar {
-        max-width: 90vw;
+        max-width: 92vw;
     }
 }
 
@@ -964,13 +930,7 @@ body.fin-modal-open { overflow: hidden; }
 @media (max-width: 640px) {
     .fin-field-row { flex-direction: column; gap: 12px; }
     .fin-field--cur { max-width: none; }
-    .fin-table thead { display: none; }
-    .fin-table, .fin-table tbody, .fin-table tr, .fin-table td { display: block; width: 100%; }
-    .fin-table tr { padding: 8px 6px; position: relative; }
-    .fin-table td { padding: 4px 12px; border: none; }
-    .fin-col-check { position: absolute; right: 8px; top: 8px; width: auto; }
-    .fin-col-amount { text-align: left; font-size: 16px; }
-    .fin-cell-comment { max-width: none; }
+    /* Table card-layout консолідовано в блоці @media 900px нижче */
 }
 
 /* ===================== Блок 4: Рахунки + інтеграції ===================== */
