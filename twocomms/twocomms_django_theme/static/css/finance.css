@@ -1060,3 +1060,488 @@ body.fin-modal-open { overflow: hidden; }
 .fin-select--sm { padding: 4px 8px; font-size: 13px; }
 .fin-scope-filter { display: inline-flex; align-items: center; }
 
+/* ===================== Панель налаштувань ===================== */
+.fin-settings-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: flex;
+    justify-content: flex-end;
+}
+.fin-settings-panel[hidden] { display: none; }
+
+.fin-settings-panel__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(4, 6, 10, 0.7);
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.fin-settings-panel.is-open .fin-settings-panel__backdrop { opacity: 1; }
+
+.fin-settings-panel__content {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    height: 100%;
+    background: var(--fin-panel-strong);
+    border-left: 1px solid var(--fin-border-strong);
+    box-shadow: -20px 0 60px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.fin-settings-panel.is-open .fin-settings-panel__content { transform: translateX(0); }
+
+.fin-settings-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--fin-border);
+}
+.fin-settings-panel__header h3 { margin: 0; font-size: 20px; font-weight: 700; }
+
+.fin-settings-panel__body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.fin-settings-section {
+    background: var(--fin-panel);
+    border: 1px solid var(--fin-border);
+    border-radius: var(--fin-radius-lg);
+    padding: 18px 20px;
+}
+.fin-settings-section__title {
+    margin: 0 0 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--fin-text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.fin-settings-section__content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.fin-setting-row {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.fin-setting-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+}
+.fin-setting-label--disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.fin-setting-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    background: var(--fin-bg-800);
+    border-radius: var(--fin-radius-md);
+}
+
+.fin-settings-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.fin-settings-hint {
+    font-size: 12px;
+    color: var(--fin-text-2);
+    margin: 8px 0 0;
+    line-height: 1.5;
+}
+
+body.fin-settings-open { overflow: hidden; }
+
+/* ===================== Toast повідомлення ===================== */
+.fin-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 100;
+    padding: 14px 20px;
+    background: var(--fin-panel-strong);
+    border: 1px solid var(--fin-border-strong);
+    border-radius: var(--fin-radius-md);
+    box-shadow: var(--fin-shadow);
+    font-size: 14px;
+    font-weight: 500;
+    max-width: 360px;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    pointer-events: none;
+}
+.fin-toast.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+.fin-toast--success {
+    border-color: rgba(52, 211, 153, 0.4);
+    background: linear-gradient(135deg, rgba(52, 211, 153, 0.14), rgba(52, 211, 153, 0.06));
+    color: var(--fin-pos);
+}
+.fin-toast--error {
+    border-color: rgba(251, 113, 133, 0.4);
+    background: linear-gradient(135deg, rgba(251, 113, 133, 0.14), rgba(251, 113, 133, 0.06));
+    color: var(--fin-neg);
+}
+.fin-toast--info {
+    border-color: rgba(111, 149, 255, 0.4);
+    background: linear-gradient(135deg, rgba(111, 149, 255, 0.14), rgba(111, 149, 255, 0.06));
+    color: var(--fin-info);
+}
+
+/* ===================== Покращена мобільна адаптація ===================== */
+
+/* Оптимізація шрифтів для LCP */
+@font-face {
+    font-family: 'Inter';
+    font-display: swap;
+}
+
+/* Покращення анімацій для 60fps */
+.fin-sidebar,
+.fin-settings-panel__content,
+.fin-modal-overlay,
+.fin-tabs,
+.fin-burger span {
+    will-change: transform;
+}
+
+/* Плавніші переходи */
+.fin-sidebar,
+.fin-settings-panel__content {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fin-modal-overlay {
+    transition: opacity 0.25s ease, backdrop-filter 0.25s ease;
+}
+
+/* Покращення для touch devices */
+@media (hover: none) and (pointer: coarse) {
+    .fin-quick,
+    .fin-btn,
+    .fin-icon-btn,
+    .fin-account,
+    .fin-tab {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    .fin-table tbody tr {
+        cursor: default;
+    }
+}
+
+/* Адаптація для малих екранів */
+@media (max-width: 900px) {
+    /* Хедер: кнопки доходів/витрат по центру */
+    .fin-header {
+        flex-wrap: wrap;
+        height: auto;
+        min-height: var(--fin-header-h);
+        padding: 12px 14px;
+    }
+
+    .fin-header__left {
+        order: 1;
+        flex: 0 0 auto;
+    }
+
+    .fin-burger {
+        order: 2;
+        margin-left: auto;
+    }
+
+    .fin-tabs {
+        order: 3;
+        width: 100%;
+        margin-top: 8px;
+    }
+
+    .fin-header__actions {
+        order: 4;
+        width: 100%;
+        justify-content: center;
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--fin-border);
+    }
+
+    .fin-quick-actions {
+        flex: 1;
+        justify-content: center;
+        max-width: 100%;
+    }
+
+    .fin-quick {
+        flex: 1;
+        justify-content: center;
+        max-width: 140px;
+    }
+
+    /* Sidebar з кращою анімацією */
+    .fin-sidebar {
+        box-shadow: 20px 0 60px rgba(0, 0, 0, 0.6);
+    }
+
+    /* Модалки на весь екран на малих пристроях */
+    .fin-modal-overlay {
+        padding: 0;
+        align-items: stretch;
+    }
+
+    .fin-modal-card {
+        max-width: 100%;
+        border-radius: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .fin-modal-body {
+        flex: 1;
+        overflow-y: auto;
+    }
+}
+
+@media (max-width: 640px) {
+    /* Компактніший хедер */
+    .fin-header {
+        padding: 10px 12px;
+    }
+
+    .fin-brand-mark {
+        width: 36px;
+        height: 36px;
+    }
+
+    .fin-company__name {
+        font-size: 14px;
+    }
+
+    .fin-quick {
+        font-size: 12px;
+        padding: 7px 10px;
+    }
+
+    .fin-quick__plus,
+    .fin-quick__minus,
+    .fin-quick__swap {
+        font-size: 14px;
+    }
+
+    /* Панель налаштувань на весь екран */
+    .fin-settings-panel__content {
+        max-width: 100%;
+        border-left: none;
+    }
+
+    .fin-settings-panel__body {
+        padding: 16px;
+    }
+
+    /* Toast внизу по центру */
+    .fin-toast {
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        max-width: none;
+    }
+
+    /* Таблиці: card layout */
+    .fin-table-wrap {
+        border-radius: var(--fin-radius-md);
+    }
+
+    .fin-table thead {
+        display: none;
+    }
+
+    .fin-table,
+    .fin-table tbody,
+    .fin-table tr,
+    .fin-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .fin-table tr {
+        padding: 12px;
+        margin-bottom: 8px;
+        border-bottom: 1px solid var(--fin-border);
+        border-radius: var(--fin-radius-sm);
+        background: var(--fin-bg-800);
+    }
+
+    .fin-table tr:hover {
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .fin-table td {
+        padding: 4px 0;
+        border: none;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .fin-table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        font-size: 12px;
+        color: var(--fin-text-2);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .fin-col-check {
+        position: absolute;
+        right: 12px;
+        top: 12px;
+        width: auto;
+    }
+
+    .fin-col-amount {
+        text-align: right;
+        font-size: 16px;
+    }
+
+    /* Графіки на всю ширину */
+    .fin-chart-canvas {
+        height: 240px;
+        max-width: 100%;
+    }
+
+    .fin-chart-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Календар компактніший */
+    .fin-cal-cell {
+        min-height: 70px;
+        padding: 6px 4px;
+    }
+
+    .fin-cal-day {
+        font-size: 12px;
+    }
+
+    .fin-cal-in,
+    .fin-cal-out {
+        font-size: 10px;
+    }
+
+    .fin-cal-end {
+        font-size: 11px;
+    }
+}
+
+@media (max-width: 375px) {
+    /* Дуже малі екрани */
+    .fin-header {
+        padding: 8px 10px;
+    }
+
+    .fin-quick span:not([class]) {
+        display: none;
+    }
+
+    .fin-quick {
+        padding: 8px;
+        min-width: 40px;
+    }
+
+    .fin-page-title {
+        font-size: 18px;
+    }
+
+    .fin-content {
+        padding: 14px 12px 60px;
+    }
+}
+
+/* Landscape орієнтація на мобільних */
+@media (max-height: 500px) and (orientation: landscape) {
+    .fin-header {
+        position: relative;
+        height: auto;
+        min-height: 56px;
+    }
+
+    .fin-sidebar {
+        top: 56px;
+        height: calc(100vh - 56px);
+    }
+
+    .fin-modal-card {
+        max-height: 100vh;
+        overflow-y: auto;
+    }
+}
+
+/* Покращення для великих екранів */
+@media (min-width: 1440px) {
+    .fin-content {
+        max-width: 1600px;
+        margin: 0 auto;
+    }
+
+    .fin-sidebar {
+        width: 320px;
+        flex: 0 0 320px;
+    }
+}
+
+/* Темна тема для iOS/Android */
+@media (prefers-color-scheme: dark) {
+    .fin-body {
+        color-scheme: dark;
+    }
+}
+
+/* Зменшення руху для accessibility */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Покращення контрасту для accessibility */
+@media (prefers-contrast: high) {
+    .fin-body {
+        --fin-border: rgba(255, 255, 255, 0.2);
+        --fin-border-strong: rgba(255, 255, 255, 0.3);
+    }
+}
+

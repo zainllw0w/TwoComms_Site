@@ -6,13 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}TwoComms Finance{% endblock %}</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/finance.css' %}?v=20260530d">
+    <link rel="stylesheet" href="{% static 'css/finance.css' %}?v=20260530e">
     <meta name="theme-color" content="#0b0e14">
     <meta name="application-name" content="TwoComms Finance">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="TwoComms Finance">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="TWC Finance">
+    <meta name="mobile-web-app-capable" content="yes">
     <link rel="icon" href="{% static 'img/logo.svg' %}" type="image/svg+xml">
     <link rel="mask-icon" href="{% static 'img/logo.svg' %}" color="#ff7e29">
+    <link rel="manifest" href="{% static 'finance-manifest.json' %}">
+    <link rel="apple-touch-icon" href="{% static 'img/favicon-180x180.png' %}">
     {% block extra_head %}{% endblock %}
 </head>
 <body class="fin-body" data-url-name="{{ request.resolver_match.url_name }}">
@@ -52,6 +56,9 @@
                     <span class="fin-quick__swap">⇄</span> Переказ
                 </button>
             </div>
+            <button type="button" class="fin-icon-btn" id="fin-settings-btn" title="Налаштування" aria-label="Налаштування">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94L14.4 2.81a.488.488 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+            </button>
             <a href="{% url 'finance_logout' %}" class="fin-icon-btn" title="Вийти" aria-label="Вийти">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 13v-2H7V8l-5 4 5 4v-3h9zM19 3h-8v2h8v14h-8v2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/></svg>
             </a>
@@ -143,9 +150,103 @@
 
     {% block modals %}{% endblock %}
 
+    <!-- Панель налаштувань -->
+    <div class="fin-settings-panel" id="fin-settings-panel" hidden>
+        <div class="fin-settings-panel__backdrop" id="fin-settings-backdrop"></div>
+        <aside class="fin-settings-panel__content">
+            <div class="fin-settings-panel__header">
+                <h3>Налаштування</h3>
+                <button type="button" class="fin-modal-close" id="fin-settings-close" aria-label="Закрити">&times;</button>
+            </div>
+            <div class="fin-settings-panel__body">
+                <section class="fin-settings-section">
+                    <h4 class="fin-settings-section__title">Push-повідомлення</h4>
+                    <div class="fin-settings-section__content">
+                        <div class="fin-setting-row">
+                            <label class="fin-setting-label">
+                                <span>Увімкнути повідомлення</span>
+                                <div class="fin-switch">
+                                    <input type="checkbox" id="push-enabled">
+                                    <span class="fin-switch__ui"></span>
+                                </div>
+                            </label>
+                        </div>
+
+                        <div class="fin-setting-row" id="push-settings-content" hidden>
+                            <div class="fin-setting-group">
+                                <label class="fin-setting-label">
+                                    <span>Щоденний звіт</span>
+                                    <div class="fin-switch">
+                                        <input type="checkbox" id="push-daily-enabled">
+                                        <span class="fin-switch__ui"></span>
+                                    </div>
+                                </label>
+                                <div class="fin-field" id="daily-time-field" hidden>
+                                    <span>Час відправки</span>
+                                    <input type="time" class="fin-input" id="push-daily-time" value="20:00">
+                                    <small class="fin-field-help">Щоденний звіт про доходи та витрати</small>
+                                </div>
+                            </div>
+
+                            <div class="fin-setting-group">
+                                <label class="fin-setting-label">
+                                    <span>Тижневий звіт</span>
+                                    <div class="fin-switch">
+                                        <input type="checkbox" id="push-weekly-enabled">
+                                        <span class="fin-switch__ui"></span>
+                                    </div>
+                                </label>
+                                <div class="fin-field" id="weekly-day-field" hidden>
+                                    <span>День тижня</span>
+                                    <select class="fin-select" id="push-weekly-day">
+                                        <option value="1">Понеділок</option>
+                                        <option value="2">Вівторок</option>
+                                        <option value="3">Середа</option>
+                                        <option value="4">Четвер</option>
+                                        <option value="5">П'ятниця</option>
+                                        <option value="6">Субота</option>
+                                        <option value="0">Неділя</option>
+                                    </select>
+                                    <small class="fin-field-help">Підсумок за тиждень</small>
+                                </div>
+                            </div>
+
+                            <div class="fin-setting-group">
+                                <label class="fin-setting-label fin-setting-label--disabled">
+                                    <span>Дублювати в Telegram</span>
+                                    <div class="fin-switch">
+                                        <input type="checkbox" id="telegram-notifications" disabled>
+                                        <span class="fin-switch__ui"></span>
+                                    </div>
+                                </label>
+                                <small class="fin-field-help">Скоро буде доступно</small>
+                            </div>
+                        </div>
+
+                        <div class="fin-settings-actions">
+                            <button type="button" class="fin-btn fin-btn--primary" id="save-settings-btn">Зберегти</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="fin-settings-section">
+                    <h4 class="fin-settings-section__title">Додаток</h4>
+                    <div class="fin-settings-section__content">
+                        <button type="button" class="fin-btn fin-btn--ghost fin-btn--block" id="install-app-btn" hidden>
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z"/></svg>
+                            Встановити додаток
+                        </button>
+                        <p class="fin-settings-hint" id="install-hint" hidden>Встановіть додаток для швидкого доступу з головного екрану</p>
+                    </div>
+                </section>
+            </div>
+        </aside>
+    </div>
+
     <span class="fin-version">v0.1</span>
 
-    <script src="{% static 'js/finance.js' %}?v=20260530c"></script>
+    <script src="{% static 'js/finance.js' %}?v=20260530e"></script>
+    <script src="{% static 'js/finance-pwa.js' %}?v=20260530a"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

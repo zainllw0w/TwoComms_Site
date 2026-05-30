@@ -35,6 +35,11 @@ from .models_ops import (  # noqa: F401
     IntegrationConnection,
     RuleApplication,
 )
+from .models_settings import (  # noqa: F401
+    UserSettings,
+    PushSubscription,
+    NotificationLog,
+)
 
 __all__ = [
     'Account', 'Category', 'Company', 'Counterparty', 'CurrencyRate',
@@ -43,4 +48,5 @@ __all__ = [
     'Invoice', 'InvoiceItem',
     'AuditLog', 'AutomationRule', 'BudgetPlan', 'FinancialMetric',
     'IntegrationConnection', 'RuleApplication',
+    'UserSettings', 'PushSubscription', 'NotificationLog',
 ]

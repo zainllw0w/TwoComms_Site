@@ -85,6 +85,13 @@ urlpatterns = [
     # Вебхук: секрет у шляху автентифікує виклик (без сесії/CSRF).
     path('hooks/mono/<int:conn_id>/<str:secret>/', views.mono_webhook, name='finance_mono_webhook'),
 
+    # --- API: налаштування та push-повідомлення ---
+    path('api/settings/get/', views.settings_get_api, name='finance_settings_get_api'),
+    path('api/settings/save/', views.settings_save_api, name='finance_settings_save_api'),
+    path('api/push/subscribe/', views.push_subscribe_api, name='finance_push_subscribe_api'),
+    path('api/push/unsubscribe/', views.push_unsubscribe_api, name='finance_push_unsubscribe_api'),
+    path('api/notifications/history/', views.notification_history_api, name='finance_notification_history_api'),
+
     # --- API: імпорт виписки ---
     path('api/import/preview/', views.import_preview_api, name='finance_import_preview_api'),
     path('api/import/confirm/', views.import_confirm_api, name='finance_import_confirm_api'),
