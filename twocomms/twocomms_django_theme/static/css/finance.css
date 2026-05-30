@@ -1091,11 +1091,161 @@ body.fin-modal-open { overflow: hidden; }
 .fin-metric-card strong { font-size: 20px; font-variant-numeric: tabular-nums; }
 .fin-metric-card--custom { border-color: rgba(255,126,41,0.3); }
 
+/* Мобільна адаптація аналітики */
+@media (max-width: 900px) {
+    .fin-report-cards {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .fin-kpi-row {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    .fin-kpi {
+        padding: 12px 14px;
+    }
+
+    .fin-kpi strong {
+        font-size: 18px;
+    }
+
+    .fin-chart-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .fin-chart-block {
+        padding: 14px;
+    }
+
+    /* Графіки на мобільних */
+    .fin-chart-with-legend {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .fin-chart-canvas {
+        height: 220px;
+        max-width: 100%;
+        margin: 0 auto;
+    }
+
+    #fin-chart-series {
+        max-height: 240px;
+    }
+
+    .fin-breakdown {
+        max-height: none;
+        padding: 12px;
+        background: var(--fin-bg-800);
+        border-radius: var(--fin-radius-md);
+    }
+
+    .fin-breakdown__row {
+        padding: 8px 0;
+        border-bottom: 1px solid var(--fin-border);
+    }
+
+    .fin-breakdown__row:last-child {
+        border-bottom: none;
+    }
+
+    .fin-balance-sheet {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .fin-metrics-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .fin-report-filters {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .fin-report-filters .fin-select,
+    .fin-report-filters .fin-btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 640px) {
+    .fin-kpi-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .fin-kpi {
+        padding: 10px 12px;
+    }
+
+    .fin-kpi span {
+        font-size: 11px;
+    }
+
+    .fin-kpi strong {
+        font-size: 16px;
+    }
+
+    .fin-chart-canvas {
+        height: 200px;
+    }
+
+    .fin-chart-block {
+        padding: 12px;
+    }
+
+    .fin-chart-title {
+        font-size: 13px;
+        margin-bottom: 10px;
+    }
+
+    .fin-breakdown__row {
+        font-size: 11px;
+        grid-template-columns: 10px 1fr auto;
+        gap: 6px;
+    }
+
+    .fin-breakdown__pct {
+        display: none; /* Ховаємо відсотки на дуже малих екранах */
+    }
+
+    .fin-breakdown__amt {
+        font-size: 12px;
+    }
+
+    .fin-insight-card {
+        padding: 12px 14px;
+    }
+
+    .fin-insight-card__title {
+        font-size: 13px;
+    }
+
+    .fin-insight-list li {
+        font-size: 12px;
+    }
+
+    .fin-balance-col {
+        padding: 12px;
+    }
+
+    .fin-balance-row {
+        font-size: 13px;
+        padding: 6px 0;
+    }
+}
+
 @media (max-width: 760px) {
-    .fin-chart-grid { grid-template-columns: 1fr; }
-    .fin-balance-sheet { grid-template-columns: 1fr; }
-    .fin-chart-with-legend { grid-template-columns: 1fr; }
-    .fin-chart-canvas { height: 200px; max-width: 240px; margin: 0 auto; }
+    .fin-cal-cell { min-height: 64px; padding: 4px 5px; }
+    .fin-cal-in, .fin-cal-out { font-size: 10px; }
+    .fin-cal-end { font-size: 10px; }
+    .fin-day-summary { grid-template-columns: 1fr 1fr; }
 }
 
 /* ===================== Блок 7: Рахунки-фактури ===================== */

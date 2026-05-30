@@ -5,6 +5,7 @@ from . import shop_views
 from . import stats_views
 from . import lead_views
 from . import parsing_views
+from . import views_levels
 
 urlpatterns = [
     path('login/', auth_views.LoginView.as_view(
@@ -89,5 +90,11 @@ urlpatterns = [
     path('parsing/api/status/', parsing_views.parser_status_api, name='management_parser_status_api'),
     path('parsing/api/moderation/', parsing_views.parser_moderation_api, name='management_parser_moderation_api'),
     path('parsing/api/leads/<int:lead_id>/action/', parsing_views.lead_moderation_action_api, name='management_lead_moderation_action_api'),
+    # Manager levels system
+    path('profile/', views_levels.manager_profile, name='management_profile'),
+    path('api/levels/progression/', views_levels.manager_progression_api, name='management_levels_progression_api'),
+    path('api/levels/weekly-kpi/', views_levels.manager_weekly_kpi_api, name='management_levels_weekly_kpi_api'),
+    path('admin-panel/levels/assign/', views_levels.admin_assign_level_api, name='management_admin_assign_level_api'),
+    path('admin-panel/levels/list/', views_levels.admin_managers_list_api, name='management_admin_managers_list_api'),
     path('', views.home, name='management_home'),
 ]

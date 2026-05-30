@@ -6,6 +6,10 @@
   var PIE = ['#ff7e29', '#6f95ff', '#34d399', '#fb7185', '#f3a43d', '#a78bfa', '#22d3ee', '#facc15', '#fb923c', '#94a3b8'];
   var GRID = 'rgba(255,255,255,0.06)', TICK = '#9aa4b8';
 
+  // Визначаємо чи це мобільний пристрій
+  var isMobile = window.innerWidth <= 900;
+  var isSmallMobile = window.innerWidth <= 640;
+
   function data() {
     try { return JSON.parse(document.getElementById('fin-chart-data').textContent); }
     catch (e) { return {}; }
@@ -20,7 +24,8 @@
     if (!window.Chart) return;
     Chart.defaults.color = TICK;
     Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
-    Chart.defaults.font.size = 12;
+    Chart.defaults.font.size = isMobile ? 11 : 12;
+    Chart.defaults.plugins.legend.display = !isSmallMobile; // Ховаємо легенду на малих екранах
   }
 
   function seriesChart(d, posLabel, negLabel, netLabel) {
@@ -30,26 +35,59 @@
     var inData = d.series.map(function (s) { return s.in; });
     var outData = d.series.map(function (s) { return s.out; });
     var netData = d.series.map(function (s) { return (s.in || 0) - (s.out || 0); });
+
     new Chart(el, {
       data: {
         labels: labels,
         datasets: [
-          { type: 'bar', label: posLabel, data: inData, backgroundColor: POS, borderRadius: 6, maxBarThickness: 34, order: 2 },
-          { type: 'bar', label: negLabel, data: outData, backgroundColor: NEG, borderRadius: 6, maxBarThickness: 34, order: 2 },
+          { type: 'bar', label: posLabel, data: inData, backgroundColor: POS, borderRadius: isMobile ? 4 : 6, maxBarThickness: isMobile ? 24 : 34, order: 2 },
+          { type: 'bar', label: negLabel, data: outData, backgroundColor: NEG, borderRadius: isMobile ? 4 : 6, maxBarThickness: isMobile ? 24 : 34, order: 2 },
           { type: 'line', label: netLabel, data: netData, borderColor: LINE, backgroundColor: LINE,
-            borderWidth: 2, tension: 0.35, pointRadius: 3, pointBackgroundColor: LINE, order: 1, fill: false },
+            borderWidth: isMobile ? 1.5 : 2, tension: 0.35, pointRadius: isMobile ? 2 : 3, pointBackgroundColor: LINE, order: 1, fill: false },
         ],
       },
       options: {
-        responsive: true, maintainAspectRatio: false,
+        responsive: true,
+        maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { labels: { usePointStyle: true, boxWidth: 8, padding: 16 } },
-          tooltip: { callbacks: { label: function (c) { return c.dataset.label + ': ' + fmt(c.parsed.y) + ' ₴'; } } },
+          legend: {
+            display: !isSmallMobile,
+            labels: {
+              usePointStyle: true,
+              boxWidth: isMobile ? 6 : 8,
+              padding: isMobile ? 10 : 16,
+              font: { size: isMobile ? 10 : 12 }
+            }
+          },
+          tooltip: {
+            enabled: true,
+            callbacks: {
+              label: function (c) { return c.dataset.label + ': ' + fmt(c.parsed.y) + ' ₴'; }
+            },
+            titleFont: { size: isMobile ? 11 : 12 },
+            bodyFont: { size: isMobile ? 10 : 11 },
+            padding: isMobile ? 8 : 10
+          },
         },
         scales: {
-          x: { ticks: { color: TICK }, grid: { display: false } },
-          y: { ticks: { color: TICK, callback: function (v) { return fmt(v); } }, grid: { color: GRID } },
+          x: {
+            ticks: {
+              color: TICK,
+              font: { size: isMobile ? 10 : 11 },
+              maxRotation: isMobile ? 45 : 0,
+              minRotation: isMobile ? 45 : 0
+            },
+            grid: { display: false }
+          },
+          y: {
+            ticks: {
+              color: TICK,
+              font: { size: isMobile ? 10 : 11 },
+              callback: function (v) { return fmt(v); }
+            },
+            grid: { color: GRID }
+          },
         },
       },
     });
@@ -62,14 +100,28 @@
       type: 'doughnut',
       data: {
         labels: rows.map(function (r) { return r.name; }),
-        datasets: [{ data: rows.map(function (r) { return r.total; }),
-          backgroundColor: PIE, borderColor: 'rgba(11,14,20,0.6)', borderWidth: 2 }],
+        datasets: [{
+          data: rows.map(function (r) { return r.total; }),
+          backgroundColor: PIE,
+          borderColor: 'rgba(11,14,20,0.6)',
+          borderWidth: isMobile ? 1 : 2
+        }],
       },
       options: {
-        responsive: true, maintainAspectRatio: false, cutout: '62%',
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: isMobile ? '65%' : '62%',
         plugins: {
           legend: { display: false },
-          tooltip: { callbacks: { label: function (c) { return c.label + ': ' + fmt(c.parsed) + ' ₴'; } } },
+          tooltip: {
+            enabled: true,
+            callbacks: {
+              label: function (c) { return c.label + ': ' + fmt(c.parsed) + ' ₴'; }
+            },
+            titleFont: { size: isMobile ? 11 : 12 },
+            bodyFont: { size: isMobile ? 10 : 11 },
+            padding: isMobile ? 8 : 10
+          },
         },
       },
     });

@@ -1,0 +1,331 @@
+{% extends "management/base.html" %}
+{% load static %}
+
+{% block title %}Профіль менеджера{% endblock %}
+
+{% block content %}
+<div class="manager-profile-container">
+    {% if not has_level %}
+        <div class="no-level-message">
+            <h2>{{ message }}</h2>
+            <p>Зверніться до адміністратора для призначення рівня.</p>
+        </div>
+    {% else %}
+        <!-- Карточка поточного рівня -->
+        <div class="level-card">
+            <div class="level-header">
+                <h1>{{ level_desc.name }}</h1>
+                <span class="level-badge level-{{ level.level }}">{{ level_desc.name }}</span>
+            </div>
+            <div class="level-info">
+                <p class="level-description">{{ level_desc.description }}</p>
+                <div class="level-meta">
+                    <span>Призначено: {{ level.assigned_at|date:"d.m.Y" }}</span>
+                    {% if level.assigned_by %}
+                        <span>Призначив: {{ level.assigned_by.username }}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Фінансові умови (для Level 1+) -->
+        {% if level.level != 'candidate' %}
+        <div class="financial-conditions">
+            <h2>Фінансові умови</h2>
+            <div class="conditions-grid">
+                <div class="condition-item">
+                    <span class="condition-label">Тижнева ставка:</span>
+                    <span class="condition-value">{{ level.weekly_salary_uah }} грн</span>
+                </div>
+                <div class="condition-item">
+                    <span class="condition-label">Відсоток від замовлення:</span>
+                    <span class="condition-value">{{ level.commission_percent }}%</span>
+                </div>
+                <div class="condition-item">
+                    <span class="condition-label">Дата початку нарахувань:</span>
+                    <span class="condition-value">{{ level.salary_start_date|date:"d.m.Y" }}</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Поточний тижневий KPI -->
+        {% if level.level != 'candidate' %}
+        <div class="weekly-kpi">
+            <h2>Тижневий KPI</h2>
+            <div class="kpi-summary">
+                <div class="kpi-item">
+                    <span class="kpi-label">Конверсії за тиждень:</span>
+                    <span class="kpi-value">{{ kpi_status.conversions }} / {{ kpi_status.conversions_target }}</span>
+                </div>
+                <div class="kpi-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: {{ kpi_status.conversions_progress_pct }}%"></div>
+                    </div>
+                    <span class="progress-text">{{ kpi_status.conversions_progress_pct }}%</span>
+                </div>
+                <div class="kpi-item">
+                    <span class="kpi-label">Прогнозована ставка:</span>
+                    <span class="kpi-value kpi-status-{{ kpi_status.kpi_status }}">
+                        {{ kpi_status.projected_salary }} грн ({{ kpi_status.kpi_multiplier|floatformat:0 }}%)
+                    </span>
+                </div>
+                <div class="kpi-item">
+                    <span class="kpi-label">Днів до кінця тижня:</span>
+                    <span class="kpi-value">{{ kpi_status.days_remaining }}</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Прогрес до наступного рівня -->
+        {% if progression.next_level %}
+        <div class="progression-section">
+            <h2>Прогрес до наступного рівня</h2>
+            <div class="progression-card">
+                <div class="progression-header">
+                    <span class="current-level">{{ level_desc.name }}</span>
+                    <span class="arrow">→</span>
+                    <span class="next-level">{{ progression.next_level }}</span>
+                </div>
+                <div class="progression-bar">
+                    <div class="progress-fill" style="width: {{ progression.progress_pct }}%"></div>
+                </div>
+                <span class="progress-percentage">{{ progression.progress_pct }}%</span>
+
+                <div class="progression-conditions">
+                    <h3>Умови переходу:</h3>
+                    <p>{{ progression.description }}</p>
+
+                    {% if progression.conditions %}
+                    <ul class="conditions-list">
+                        {% for condition in progression.conditions %}
+                        <li class="condition {% if condition.is_met %}met{% else %}not-met{% endif %}">
+                            <span class="condition-icon">{% if condition.is_met %}✓{% else %}○{% endif %}</span>
+                            <span class="condition-text">{{ condition.description }}</span>
+                            <span class="condition-progress">{{ condition.current }} / {{ condition.target }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+
+                    {% if progression.requirements_met %}
+                    <div class="status-message success">
+                        <strong>Умови виконано!</strong> Очікуйте рішення відповідальної особи.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Доступні функції -->
+        <div class="features-section">
+            <h2>Доступні функції</h2>
+            <ul class="features-list unlocked">
+                {% for feature in unlocked_features %}
+                <li>
+                    <span class="feature-icon">{{ feature.icon }}</span>
+                    <span class="feature-name">{{ feature.name }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- Заблоковані функції -->
+        {% if locked_features %}
+        <div class="features-section">
+            <h2>Заблоковані функції</h2>
+            <ul class="features-list locked">
+                {% for feature in locked_features %}
+                <li>
+                    <span class="feature-icon">{{ feature.icon }}</span>
+                    <span class="feature-name">{{ feature.name }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <!-- Історія підвищень -->
+        {% if history %}
+        <div class="history-section">
+            <h2>Історія змін рівня</h2>
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>Зміна</th>
+                        <th>Ставка</th>
+                        <th>Відсоток</th>
+                        <th>Хто змінив</th>
+                        <th>Коментар</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in history %}
+                    <tr>
+                        <td>{{ item.changed_at|date:"d.m.Y H:i" }}</td>
+                        <td>
+                            {% if item.old_level %}
+                                {{ item.get_old_level_display }} → {{ item.get_new_level_display }}
+                            {% else %}
+                                Призначено: {{ item.get_new_level_display }}
+                            {% endif %}
+                        </td>
+                        <td>{{ item.new_weekly_salary }} грн</td>
+                        <td>{{ item.new_commission_percent }}%</td>
+                        <td>{{ item.changed_by.username|default:"—" }}</td>
+                        <td>{{ item.reason|default:"—" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    {% endif %}
+</div>
+
+<style>
+.manager-profile-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.level-card {
+    background: white;
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.level-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.level-badge {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.level-candidate { background: #e3f2fd; color: #1976d2; }
+.level-level_1 { background: #e8f5e9; color: #388e3c; }
+.level-level_2 { background: #fff3e0; color: #f57c00; }
+.level-top_manager { background: #f3e5f5; color: #7b1fa2; }
+.level-project_manager { background: #fce4ec; color: #c2185b; }
+.level-admin { background: #ffebee; color: #d32f2f; }
+
+.financial-conditions, .weekly-kpi, .progression-section, .features-section, .history-section {
+    background: white;
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.conditions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.condition-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.condition-label {
+    font-size: 14px;
+    color: #666;
+}
+
+.condition-value {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 24px;
+    background: #e0e0e0;
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 8px 0;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4caf50, #8bc34a);
+    transition: width 0.3s ease;
+}
+
+.kpi-status-excellent { color: #4caf50; }
+.kpi-status-good { color: #8bc34a; }
+.kpi-status-poor { color: #ff9800; }
+.kpi-status-failed { color: #f44336; }
+
+.features-list {
+    list-style: none;
+    padding: 0;
+    margin-top: 16px;
+}
+
+.features-list li {
+    padding: 12px;
+    margin-bottom: 8px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.features-list.unlocked li {
+    background: #e8f5e9;
+}
+
+.features-list.locked li {
+    background: #ffebee;
+    opacity: 0.7;
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+}
+
+.history-table th,
+.history-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.history-table th {
+    background: #f5f5f5;
+    font-weight: 600;
+}
+
+.status-message {
+    padding: 16px;
+    border-radius: 4px;
+    margin-top: 16px;
+}
+
+.status-message.success {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border-left: 4px solid #4caf50;
+}
+</style>
+{% endblock %}
