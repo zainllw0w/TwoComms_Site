@@ -202,6 +202,10 @@ def _required_satisfied(engine: SurveyEngine, answers: Dict[str, Any]) -> bool:
     return True
 
 
+def _queue_survey_report_after_commit(session_id: int, status: str) -> None:
+    transaction.on_commit(lambda: queue_survey_report(session_id, status, background=True))
+
+
 def _complete_session(session: SurveySession, definition: Dict[str, Any]) -> SurveySession:
     if session.status == 'completed':
         return session
@@ -213,7 +217,7 @@ def _complete_session(session: SurveySession, definition: Dict[str, Any]) -> Sur
     session.completed_at = timezone.now()
     session.current_question_id = None
     session.save(update_fields=["awarded_promocode", "status", "completed_at", "current_question_id", "last_activity_at"])
-    queue_survey_report(session.id, "FINAL")
+    _queue_survey_report_after_commit(session.id, "FINAL")
     return session
 
 

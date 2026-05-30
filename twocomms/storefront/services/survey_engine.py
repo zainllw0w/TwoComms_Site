@@ -774,23 +774,51 @@ class SurveyEngine:
             return ""
         qtype = question.get("type")
         if qtype in ("single_choice",):
-            return self._label_for_option(question, answer) or str(answer)
+            return self._label_for_value(question, answer) or str(answer)
         if qtype in ("multi_choice", "multi_select"):
             if not isinstance(answer, (list, tuple, set)):
                 return str(answer)
-            labels = [self._label_for_option(question, item) or str(item) for item in answer]
+            labels = [self._label_for_value(question, item) or str(item) for item in answer]
             return ", ".join(labels)
         if qtype in ("slider_1_10", "slider_0_10"):
             return str(answer)
+        if qtype == "maxdiff_best_worst" and isinstance(answer, dict):
+            best = self._label_for_value(question, answer.get("best")) or answer.get("best", "")
+            worst = self._label_for_value(question, answer.get("worst")) or answer.get("worst", "")
+            return f"Найважливіше: {best}; найменш важливо: {worst}"
+        if qtype in ("concept_reaction_cards", "tap_reaction_cards", "purchase_intent_matrix") and isinstance(answer, dict):
+            return ", ".join(
+                f"{self._label_for_value(question, key) or key}: {value}"
+                for key, value in answer.items()
+            )
+        if qtype == "budget_allocation_100" and isinstance(answer, dict):
+            return ", ".join(
+                f"{self._label_for_value(question, key) or key}: {value}"
+                for key, value in answer.items()
+            )
+        if qtype == "price_ladder_by_product":
+            return self._label_for_value(question, answer) or str(answer)
+        if qtype == "contact_capture" and isinstance(answer, dict):
+            channel = answer.get("channel", "")
+            value = answer.get("value", "")
+            return f"{channel}: {value}".strip(": ")
         if isinstance(answer, dict):
             return ", ".join(f"{key}: {value}" for key, value in answer.items())
         return str(answer)
 
-    def _label_for_option(self, question: Dict[str, Any], value: Any) -> Optional[str]:
-        for option in question.get("options", []) or []:
-            if option.get("value") == value:
-                return option.get("label_uk") or option.get("label")
+    def _label_for_value(self, question: Dict[str, Any], value: Any) -> Optional[str]:
+        for key in ("options", "concepts", "rows", "buckets"):
+            for option in question.get(key, []) or []:
+                if option.get("value") == value:
+                    return option.get("label_uk") or option.get("label")
+        for options in (question.get("dynamic_matrix_ranges") or {}).values():
+            for option in options or []:
+                if option.get("value") == value:
+                    return option.get("label_uk") or option.get("label")
         return None
+
+    def _label_for_option(self, question: Dict[str, Any], value: Any) -> Optional[str]:
+        return self._label_for_value(question, value)
 
     def _is_empty(self, value: Any) -> bool:
         return value in (None, "") or value == [] or value == {}

@@ -16,6 +16,7 @@ import sys
 from datetime import timedelta
 from pathlib import Path
 import html
+from threading import Thread
 
 try:  # pragma: no cover - depends on environment
     from celery import shared_task  # type: ignore
@@ -46,6 +47,7 @@ except Exception:  # pragma: no cover - Celery not installed or unusable
 
 from django.apps import apps
 from django.conf import settings
+from django.db import close_old_connections
 from django.core.management import call_command
 from django.utils import timezone
 
@@ -345,10 +347,47 @@ def send_survey_report_task(session_id: int, status: str) -> bool:
     return sent
 
 
-def queue_survey_report(session_id: int, status: str) -> bool:
+def _run_survey_report_background(session_id: int, status: str) -> None:
+    """Run report generation outside the request thread."""
+    close_old_connections()
+    try:
+        send_survey_report_task(session_id, status)
+    except Exception as exc:  # pragma: no cover - defensive background guard
+        logger.warning(
+            "Survey report background task failed (session=%s, status=%s): %s",
+            session_id,
+            status,
+            exc,
+            exc_info=True,
+        )
+    finally:
+        close_old_connections()
+
+
+def queue_survey_report(session_id: int, status: str, *, background: bool = False, sync_fallback: bool = True) -> bool:
     """
     Try to enqueue survey report via Celery, fallback to sync when broker/worker is unavailable.
     """
+    if background:
+        try:
+            worker = Thread(
+                target=_run_survey_report_background,
+                args=(session_id, status),
+                daemon=True,
+                name=f"survey-report-{session_id}-{status.lower()}",
+            )
+            worker.start()
+            return True
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning(
+                "Survey report background start failed (session=%s, status=%s): %s",
+                session_id,
+                status,
+                exc,
+                exc_info=True,
+            )
+            return False
+
     try:
         send_survey_report_task.delay(session_id, status)
         return True
@@ -360,6 +399,8 @@ def queue_survey_report(session_id: int, status: str) -> bool:
             exc,
             exc_info=True,
         )
+        if not sync_fallback:
+            return False
         try:
             return bool(send_survey_report_task(session_id, status))
         except Exception as sync_exc:  # pragma: no cover - defensive

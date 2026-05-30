@@ -4,10 +4,12 @@ Tests for survey engine, promo award idempotency, and access rules.
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
+from openpyxl import load_workbook
 
 from storefront.models import PromoCode, SurveySession, UserAction, UserPromoCode
 from storefront.services.survey_engine import (
@@ -16,6 +18,8 @@ from storefront.services.survey_engine import (
     clear_survey_definition_cache,
     load_survey_definition,
 )
+from storefront.services.survey_reports import build_survey_report
+from storefront.tasks import queue_survey_report
 
 
 TEST_DEFINITION = {
@@ -214,6 +218,62 @@ class SurveyPromoCodeTests(TestCase):
         self.assertEqual(user.promo_grants.count(), 1)
 
 
+class SurveyReportTests(TestCase):
+    def test_report_workbook_has_admin_friendly_overview_answers_and_signals(self):
+        user = User.objects.create_user(
+            username="surveyuser",
+            email="admin-readable@example.com",
+            password="pass1234",
+        )
+        promo, _ = award_survey_promocode(user, "test_survey", TEST_DEFINITION["reward"])
+        session = SurveySession.objects.create(
+            user=user,
+            survey_key="test_survey",
+            status="completed",
+            answers={"q1": 7, "q2": "a", "q3": "Better checkout"},
+            history=["q1", "q2", "q3"],
+            awarded_promocode=promo,
+        )
+
+        with TemporaryDirectory() as temp_dir:
+            report_path = Path(temp_dir) / "survey-report.xlsx"
+            build_survey_report(session, TEST_DEFINITION, "FINAL", report_path)
+
+            workbook = load_workbook(report_path)
+            self.assertEqual(workbook.sheetnames[:3], ["Overview", "Answers", "Signals"])
+
+            overview = workbook["Overview"]
+            self.assertEqual(overview["A1"].value, "TWOCOMMS Survey Report")
+            self.assertEqual(overview["A4"].value, "Status")
+            self.assertEqual(overview["B4"].value, "FINAL")
+            self.assertEqual(overview.freeze_panes, "A8")
+
+            answers = workbook["Answers"]
+            self.assertEqual(
+                [answers.cell(row=1, column=col).value for col in range(1, 7)],
+                ["#", "Section", "Question ID", "Question", "Answer", "Type"],
+            )
+            self.assertEqual(answers.freeze_panes, "A2")
+            self.assertEqual(answers.auto_filter.ref, "A1:F4")
+
+            signals = workbook["Signals"]
+            self.assertEqual(signals["A1"].value, "Signal")
+            self.assertEqual(signals["B1"].value, "Value")
+            self.assertIn("Answered questions", [signals.cell(row=row, column=1).value for row in range(2, 12)])
+
+
+class SurveyTaskQueueTests(TestCase):
+    def test_background_survey_report_queue_returns_without_inline_report_generation(self):
+        with patch("storefront.tasks.send_survey_report_task") as report_task, patch("storefront.tasks.Thread") as thread_cls:
+            queued = queue_survey_report(123, "FINAL", background=True)
+
+        self.assertTrue(queued)
+        report_task.delay.assert_not_called()
+        report_task.assert_not_called()
+        thread_cls.assert_called_once()
+        thread_cls.return_value.start.assert_called_once()
+
+
 class SurveyViewTests(TestCase):
     def setUp(self):
         self.temp_dir = TemporaryDirectory()
@@ -310,6 +370,48 @@ class SurveyViewTests(TestCase):
         self.assertEqual(UserAction.objects.filter(action_type="survey_answer").count(), 1)
         answer_action = UserAction.objects.get(action_type="survey_answer")
         self.assertEqual(answer_action.metadata.get("question_id"), "q1")
+
+    def test_authenticated_completion_returns_promo_before_report_generation(self):
+        user = User.objects.create_user(username="surveyuser", password="pass1234")
+        self.client.force_login(user)
+
+        start_response = self.client.post(reverse("survey_start_or_resume"), data="{}", content_type="application/json", secure=True)
+        start_payload = start_response.json()
+        first_answer = self.client.post(
+            reverse("survey_submit_answer"),
+            data=json.dumps({
+                "question_id": "q1",
+                "answer": 3,
+                "version": start_payload["version"],
+            }),
+            content_type="application/json",
+            secure=True,
+        )
+        first_payload = first_answer.json()
+
+        with patch("storefront.views.survey.queue_survey_report") as queue_mock:
+            with self.captureOnCommitCallbacks(execute=False) as callbacks:
+                complete_response = self.client.post(
+                    reverse("survey_submit_answer"),
+                    data=json.dumps({
+                        "question_id": "q3",
+                        "answer": "Better checkout",
+                        "version": first_payload["version"],
+                    }),
+                    content_type="application/json",
+                    secure=True,
+                )
+
+            self.assertEqual(complete_response.status_code, 200)
+            complete_payload = complete_response.json()
+            self.assertEqual(complete_payload["status"], "completed")
+            self.assertIn("promo", complete_payload)
+            queue_mock.assert_not_called()
+            self.assertEqual(len(callbacks), 1)
+
+            callbacks[0]()
+            session = SurveySession.objects.get(user=user, survey_key="test_survey")
+            queue_mock.assert_called_once_with(session.id, "FINAL", background=True)
 
     @override_settings(SURVEY_DEFINITION_PATH=V34_DEFINITION_PATH)
     def test_v34_anonymous_partner_path_skips_style_questions(self):
