@@ -91,6 +91,8 @@ def _get_anonymous_survey_state(
         "device_type": (device_data or {}).get("device_type"),
         "user_agent": request.META.get("HTTP_USER_AGENT", "")[:500],
         "awarded_promocode_id": None,
+        "started_at": timezone.now().isoformat(),
+        "last_activity_at": timezone.now().isoformat(),
     }
     _save_anonymous_survey_state(request, survey_key, state)
     return state, True
@@ -248,6 +250,14 @@ def _complete_anonymous_session(
     state["completed_at"] = timezone.now().isoformat()
     state["current_question_id"] = None
     _save_anonymous_survey_state(request, state.get("survey_key", ""), state)
+
+    # 2026-05-30: Generate and send survey report for anonymous users synchronously
+    try:
+        from ..services.survey_reports import send_anonymous_survey_report
+        send_anonymous_survey_report(state, definition, "FINAL")
+    except Exception as e:
+        logger.error("Failed to send anonymous survey report: %s", e, exc_info=True)
+
     return state
 
 
@@ -414,6 +424,7 @@ def survey_submit_answer(request):
         state["answers"] = answers
         state["history"] = history
         state["version"] = int(state.get("version") or 1) + 1
+        state["last_activity_at"] = timezone.now().isoformat()
 
         next_question = engine.get_next_question(
             state["answers"],
@@ -586,6 +597,7 @@ def survey_back_one_step(request):
         state["current_question_id"] = last_question_id
         state["back_used"] = True
         state["version"] = int(state.get("version") or 1) + 1
+        state["last_activity_at"] = timezone.now().isoformat()
         _save_anonymous_survey_state(request, survey_key, state)
         record_survey_event(
             request,

@@ -1009,7 +1009,6 @@
 
 {{ custom_print_config|json_script:"customPrintConfiguratorConfig" }}
 
-{# === Telegram Verification Modal === #}
 <div class="cp-tg-modal-overlay" data-tg-verify-modal hidden role="dialog" aria-modal="true" aria-labelledby="cp-tg-modal-title">
   <div class="cp-tg-modal-card">
     <button type="button" class="cp-tg-modal-close" data-tg-verify-close aria-label="{% trans 'Закрити' %}">&times;</button>
@@ -1024,7 +1023,6 @@
     <h2 class="cp-tg-modal-title" id="cp-tg-modal-title">{% trans 'Підтвердження Telegram' %}</h2>
     <p class="cp-tg-modal-subtitle">{% trans 'Це гарантує, що менеджер зможе зв’язатися з вами по правильному номеру.' %}</p>
 
-    {# State 1: intro / start #}
     <div class="cp-tg-modal-state" data-tg-verify-screen="intro">
       <ol class="cp-tg-modal-steps">
         <li><span>1</span> {% trans 'Натисніть «Відкрити бота TwoComms» — ми перенесемо вас у Telegram.' %}</li>
@@ -1048,7 +1046,6 @@
       </div>
     </div>
 
-    {# State 2: waiting for contact #}
     <div class="cp-tg-modal-state" data-tg-verify-screen="waiting" hidden>
       <div class="cp-tg-modal-spinner" aria-hidden="true">
         <span></span><span></span><span></span>
@@ -1073,7 +1070,6 @@
       </div>
     </div>
 
-    {# State 3: success #}
     <div class="cp-tg-modal-state" data-tg-verify-screen="success" hidden>
       <div class="cp-tg-modal-success-icon" aria-hidden="true">✅</div>
       <h3 class="cp-tg-modal-headline">{% trans 'Telegram підтверджено!' %}</h3>
@@ -1085,7 +1081,6 @@
       </div>
     </div>
 
-    {# State 4: expired / error #}
     <div class="cp-tg-modal-state" data-tg-verify-screen="error" hidden>
       <div class="cp-tg-modal-error-icon" aria-hidden="true">⏱</div>
       <h3 class="cp-tg-modal-headline" data-tg-verify-error-title>{% trans 'Сесія завершилась' %}</h3>

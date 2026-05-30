@@ -256,3 +256,107 @@ def resolve_report_path(session, definition: Optional[Dict[str, Any]] = None) ->
     parts.append(f"s{session.id}")
     filename = f"opituvannia_{'_'.join(parts)}.xlsx"
     return base_dir / filename
+
+
+class AnonymousSurveySession:
+    """Mock/wrapper class that mimics SurveySession for anonymous users.
+    
+    Allows using the same Excel builder and path resolution logic without DB persistence.
+    """
+    def __init__(self, state: Dict[str, Any], awarded_promocode=None):
+        self.id = "anon"
+        self.survey_key = state.get("survey_key", "print_feedback_v1")
+        self.status = state.get("status", "completed")
+        self.answers = state.get("answers", {})
+        self.history = state.get("history", [])
+        self.current_question_id = state.get("current_question_id")
+        self.back_used = state.get("back_used", False)
+        self.version = state.get("version", 1)
+        self.device_type = state.get("device_type")
+        self.user_agent = state.get("user_agent")
+        self.module_order = state.get("module_order", [])
+
+        # Datetime parsing
+        def parse_dt(val):
+            if not val:
+                return timezone.now()
+            try:
+                from django.utils.dateparse import parse_datetime
+                dt = parse_datetime(val)
+                if not dt:
+                    return timezone.now()
+                return timezone.is_aware(dt) and dt or timezone.make_aware(dt)
+            except Exception:
+                return timezone.now()
+
+        self.started_at = parse_dt(state.get("started_at"))
+        self.last_activity_at = parse_dt(state.get("last_activity_at"))
+        self.completed_at = parse_dt(state.get("completed_at")) if state.get("completed_at") else None
+
+        class MockUser:
+            id = 0
+            username = "Анонім"
+            email = ""
+
+        self.user = MockUser()
+        self.user_id = 0
+        self.awarded_promocode = awarded_promocode
+
+
+def send_anonymous_survey_report(state: Dict[str, Any], definition: Dict[str, Any], status: str) -> bool:
+    """Generate and send survey report to Telegram for anonymous users synchronously."""
+    import html
+    from storefront.models import PromoCode
+    from orders.telegram_notifications import telegram_notifier
+
+    # 1. Resolve awarded promo code
+    promo_code = None
+    promo_id = state.get("awarded_promocode_id")
+    if promo_id:
+        try:
+            promo_code = PromoCode.objects.get(id=promo_id)
+        except PromoCode.DoesNotExist:
+            pass
+
+    # 2. Build mock session
+    session = AnonymousSurveySession(state, promo_code)
+
+    # 3. Build report
+    report_path = resolve_report_path(session, definition)
+    build_survey_report(session, definition, status, report_path)
+
+    # 4. Prepare caption
+    def fmt_dt(value):
+        if not value:
+            return "—"
+        return timezone.localtime(value).strftime("%d.%m.%Y %H:%M")
+
+    title = html.escape(get_survey_title(definition))
+    status_text = "✅ Завершено (Анонімно)"
+
+    caption_lines = [
+        f"<b>{title}</b>",
+        f"Статус: {status_text}",
+        f"Користувач: Анонімний відвідувач",
+    ]
+
+    code = promo_code.code if promo_code else ""
+    expires = fmt_dt(promo_code.valid_until) if promo_code and promo_code.valid_until else ""
+    if code:
+        if expires:
+            caption_lines.append(f"Промокод: {code} (до {expires})")
+        else:
+            caption_lines.append(f"Промокод: {code}")
+
+    caption_lines.extend([
+        f"Початок: {fmt_dt(session.started_at)}",
+        f"Остання активність: {fmt_dt(session.last_activity_at)}",
+    ])
+    if session.completed_at:
+        caption_lines.append(f"Завершено: {fmt_dt(session.completed_at)}")
+
+    caption = "\n".join(caption_lines)
+
+    # 5. Send report
+    return telegram_notifier.send_admin_document(str(report_path), caption, filename=Path(report_path).name)
+

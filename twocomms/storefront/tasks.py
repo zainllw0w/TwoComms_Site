@@ -334,16 +334,17 @@ def send_survey_report_task(session_id: int, status: str) -> bool:
     caption = "\n".join(caption_lines)
     sent = telegram_notifier.send_admin_document(str(report_path), caption, filename=Path(report_path).name)
     if sent:
-        session.report_status = status
-        session.report_file_path = str(report_path)
-        session.last_report_version = session.version
-        session.last_report_sent_at = timezone.now()
-        session.save(update_fields=[
-            'report_status',
-            'report_file_path',
-            'last_report_version',
-            'last_report_sent_at',
-        ])
+        if hasattr(session, "save"):
+            session.report_status = status
+            session.report_file_path = str(report_path)
+            session.last_report_version = session.version
+            session.last_report_sent_at = timezone.now()
+            session.save(update_fields=[
+                'report_status',
+                'report_file_path',
+                'last_report_version',
+                'last_report_sent_at',
+            ])
     return sent
 
 
@@ -368,6 +369,26 @@ def queue_survey_report(session_id: int, status: str, *, background: bool = Fals
     """
     Try to enqueue survey report via Celery, fallback to sync when broker/worker is unavailable.
     """
+    # 2026-05-30: Under Passenger (Apache/cPanel), background threads are frozen
+    # immediately after the request thread exits. We must run it synchronously.
+    # Also, on the production host (DEBUG = False), we do not run a Celery worker,
+    # so we must bypass Celery delay to avoid queuing tasks to a void.
+    is_passenger = "PASSENGER_APP_ENV" in os.environ or "passenger_wsgi" in sys.modules
+    is_production = not getattr(settings, 'DEBUG', True)
+
+    if is_passenger or is_production:
+        try:
+            return bool(send_survey_report_task(session_id, status))
+        except Exception as sync_exc:
+            logger.warning(
+                "Survey report sync fallback failed (session=%s, status=%s): %s",
+                session_id,
+                status,
+                sync_exc,
+                exc_info=True,
+            )
+            return False
+
     if background:
         try:
             worker = Thread(
@@ -386,11 +407,14 @@ def queue_survey_report(session_id: int, status: str, *, background: bool = Fals
                 exc,
                 exc_info=True,
             )
-            return False
 
+    # Try enqueuing with Celery if available and not dummy shim
     try:
-        send_survey_report_task.delay(session_id, status)
-        return True
+        # Check if delay is not the sync shim
+        is_shim = getattr(send_survey_report_task, 'delay', None) and getattr(send_survey_report_task.delay, '__code__', None) and 'direct sync' in (send_survey_report_task.delay.__doc__ or '')
+        if not is_shim:
+            send_survey_report_task.delay(session_id, status)
+            return True
     except Exception as exc:
         logger.warning(
             "Survey report queue failed (session=%s, status=%s): %s",
@@ -399,19 +423,22 @@ def queue_survey_report(session_id: int, status: str, *, background: bool = Fals
             exc,
             exc_info=True,
         )
-        if not sync_fallback:
-            return False
-        try:
-            return bool(send_survey_report_task(session_id, status))
-        except Exception as sync_exc:  # pragma: no cover - defensive
-            logger.warning(
-                "Survey report sync fallback failed (session=%s, status=%s): %s",
-                session_id,
-                status,
-                sync_exc,
-                exc_info=True,
-            )
-            return False
+
+    if not sync_fallback:
+        return False
+
+    # Synchronous inline execution fallback
+    try:
+        return bool(send_survey_report_task(session_id, status))
+    except Exception as sync_exc:  # pragma: no cover - defensive
+        logger.warning(
+            "Survey report sync fallback failed (session=%s, status=%s): %s",
+            session_id,
+            status,
+            sync_exc,
+            exc_info=True,
+        )
+        return False
 
 
 @shared_task

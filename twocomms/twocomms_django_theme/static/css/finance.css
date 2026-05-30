@@ -216,6 +216,51 @@ a { color: inherit; }
     z-index: 45;
 }
 
+/* Мобільна навігація в sidebar */
+.fin-mobile-nav {
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+    padding: 16px 0;
+    margin: 0 -14px 16px;
+    border-bottom: 1px solid var(--fin-border);
+}
+
+.fin-mobile-nav__item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    color: var(--fin-text-2);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.fin-mobile-nav__item:hover {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--fin-text);
+}
+
+.fin-mobile-nav__item.active {
+    background: rgba(255, 126, 41, 0.12);
+    color: var(--fin-accent);
+    border-left: 3px solid var(--fin-accent);
+    padding-left: 17px;
+}
+
+.fin-mobile-nav__item svg {
+    flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+    .fin-mobile-nav {
+        display: flex;
+    }
+}
+
+
 .fin-balance-card {
     background: linear-gradient(135deg, rgba(255, 126, 41, 0.14), rgba(255, 126, 41, 0.04));
     border: 1px solid rgba(255, 126, 41, 0.22);
@@ -416,47 +461,143 @@ a { color: inherit; }
 }
 
 @media (max-width: 900px) {
-    .fin-burger { display: flex; }
-    .fin-tabs {
-        position: fixed;
-        top: var(--fin-header-h);
-        left: 0; right: 0;
-        background: var(--fin-panel-strong);
-        border-bottom: 1px solid var(--fin-border);
-        padding: 8px 14px;
-        gap: 6px;
-        transform: translateY(-12px);
-        opacity: 0;
-        pointer-events: none;
-        transition: transform 0.2s ease, opacity 0.2s ease;
-        z-index: 55;
-        overflow-x: auto;
+    /* Бургер зліва */
+    .fin-burger {
+        display: flex;
+        order: -1; /* Переміщуємо на початок */
+        margin-right: 12px;
     }
-    .fin-body.fin-menu-open .fin-tabs { transform: translateY(0); opacity: 1; pointer-events: auto; }
 
+    /* Header без накладання */
+    .fin-header {
+        height: auto;
+        min-height: var(--fin-header-h);
+        flex-wrap: nowrap;
+        position: relative;
+    }
+
+    .fin-header__left {
+        order: 1;
+    }
+
+    /* Tabs - ховаємо на мобільних, показуємо в sidebar */
+    .fin-tabs {
+        display: none !important;
+    }
+
+    /* Sidebar з правильним z-index */
     .fin-sidebar {
         position: fixed;
-        top: var(--fin-header-h);
+        top: 0; /* Від самого верху */
         left: 0;
         bottom: 0;
-        height: auto;
+        height: 100vh;
+        width: var(--fin-sidebar-w);
+        max-width: 85vw;
         transform: translateX(-100%);
-        transition: transform 0.25s ease;
-        z-index: 50;
-        box-shadow: var(--fin-shadow);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 100; /* Вище за все */
+        box-shadow: 20px 0 60px rgba(0, 0, 0, 0.7);
+        border-right: 1px solid var(--fin-border-strong);
     }
-    .fin-body.fin-sidebar-open .fin-sidebar { transform: translateX(0); }
-    .fin-body.fin-sidebar-open .fin-sidebar__backdrop { display: block; }
 
-    .fin-content { padding: 18px 16px 60px; }
+    .fin-body.fin-sidebar-open .fin-sidebar {
+        transform: translateX(0);
+    }
+
+    .fin-sidebar__backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(4px);
+        z-index: 99;
+    }
+
+    .fin-body.fin-sidebar-open .fin-sidebar__backdrop {
+        display: block;
+    }
+
+    /* Додаємо навігацію в sidebar */
+    .fin-sidebar__scroll::before {
+        content: '';
+        display: block;
+        padding: 16px 14px;
+        border-bottom: 1px solid var(--fin-border);
+        margin: 0 -14px 14px;
+    }
+
+    /* Кнопки доходів/витрат - центруємо */
+    .fin-header__actions {
+        flex: 1;
+        justify-content: center;
+        order: 2;
+    }
+
+    .fin-quick-actions {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+    }
+
+    .fin-quick {
+        flex: 0 0 auto;
+    }
+
+    .fin-content {
+        padding: 18px 16px 60px;
+    }
 }
 
 @media (max-width: 640px) {
-    .fin-header { padding: 0 14px; gap: 10px; }
-    .fin-quick-actions { gap: 6px; }
-    .fin-quick { padding: 8px 10px; }
-    .fin-company__hint { display: none; }
-    .fin-page-title { font-size: 20px; }
+    .fin-header {
+        padding: 12px 14px;
+        gap: 12px;
+    }
+
+    .fin-burger {
+        margin-right: 8px;
+    }
+
+    .fin-brand-mark {
+        width: 36px;
+        height: 36px;
+    }
+
+    .fin-company {
+        padding: 4px 8px;
+    }
+
+    .fin-company__name {
+        font-size: 13px;
+    }
+
+    .fin-quick-actions {
+        gap: 6px;
+    }
+
+    .fin-quick {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+
+    .fin-quick__plus,
+    .fin-quick__minus,
+    .fin-quick__swap {
+        font-size: 14px;
+    }
+
+    .fin-company__hint {
+        display: none;
+    }
+
+    .fin-page-title {
+        font-size: 20px;
+    }
+
+    .fin-sidebar {
+        max-width: 90vw;
+    }
 }
 
 /* ===================== Блок 3: Платежі ===================== */
@@ -490,6 +631,60 @@ a { color: inherit; }
 .fin-amount-range { display: flex; align-items: center; gap: 6px; }
 .fin-amount-range__label { font-size: 13px; color: var(--fin-text-2); }
 .fin-export-group { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
+
+/* Мобільні фільтри */
+@media (max-width: 640px) {
+    .fin-filters__row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .fin-period,
+    .fin-search,
+    .fin-custom-range,
+    .fin-amount-range {
+        width: 100%;
+        flex: 1 1 auto;
+    }
+
+    .fin-period .fin-select {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .fin-search {
+        order: -1; /* Пошук першим */
+    }
+
+    .fin-custom-range,
+    .fin-amount-range {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+
+    .fin-custom-range .fin-input,
+    .fin-amount-range .fin-input {
+        width: 100%;
+    }
+
+    .fin-amount-range__label {
+        font-size: 12px;
+        margin-bottom: 4px;
+    }
+
+    .fin-export-group {
+        width: 100%;
+        margin-left: 0;
+        justify-content: stretch;
+    }
+
+    .fin-export-group .fin-btn {
+        flex: 1;
+    }
+}
+
 
 /* Bulk bar */
 .fin-bulkbar {
@@ -1259,59 +1454,33 @@ body.fin-settings-open { overflow: hidden; }
     }
 }
 
-/* Адаптація для малих екранів */
+/* iPhone 17 Pro Max та подібні великі смартфони (430px width) */
 @media (max-width: 900px) {
-    /* Хедер: кнопки доходів/витрат по центру */
-    .fin-header {
-        flex-wrap: wrap;
-        height: auto;
-        min-height: var(--fin-header-h);
-        padding: 12px 14px;
-    }
-
-    .fin-header__left {
-        order: 1;
-        flex: 0 0 auto;
-    }
-
-    .fin-burger {
-        order: 2;
-        margin-left: auto;
-    }
-
-    .fin-tabs {
-        order: 3;
-        width: 100%;
-        margin-top: 8px;
-    }
-
-    .fin-header__actions {
-        order: 4;
-        width: 100%;
-        justify-content: center;
-        margin-top: 12px;
-        padding-top: 12px;
-        border-top: 1px solid var(--fin-border);
-    }
-
-    .fin-quick-actions {
-        flex: 1;
-        justify-content: center;
-        max-width: 100%;
-    }
-
-    .fin-quick {
-        flex: 1;
-        justify-content: center;
-        max-width: 140px;
-    }
-
-    /* Sidebar з кращою анімацією */
+    /* Sidebar на весь екран по висоті */
     .fin-sidebar {
-        box-shadow: 20px 0 60px rgba(0, 0, 0, 0.6);
+        padding-top: env(safe-area-inset-top, 0);
+        padding-bottom: env(safe-area-inset-bottom, 0);
     }
 
-    /* Модалки на весь екран на малих пристроях */
+    .fin-sidebar__scroll {
+        padding-top: 20px;
+    }
+
+    /* Header з safe area */
+    .fin-header {
+        padding-top: max(12px, env(safe-area-inset-top, 0));
+        padding-left: max(14px, env(safe-area-inset-left, 0));
+        padding-right: max(14px, env(safe-area-inset-right, 0));
+    }
+
+    /* Content з safe area */
+    .fin-content {
+        padding-left: max(16px, env(safe-area-inset-left, 0));
+        padding-right: max(16px, env(safe-area-inset-right, 0));
+        padding-bottom: max(60px, env(safe-area-inset-bottom, 0));
+    }
+
+    /* Модалки на весь екран */
     .fin-modal-overlay {
         padding: 0;
         align-items: stretch;
@@ -1328,33 +1497,195 @@ body.fin-settings-open { overflow: hidden; }
     .fin-modal-body {
         flex: 1;
         overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Таблиці: card layout */
+    .fin-table-wrap {
+        border-radius: var(--fin-radius-md);
+        overflow: visible;
+    }
+
+    .fin-table thead {
+        display: none;
+    }
+
+    .fin-table,
+    .fin-table tbody,
+    .fin-table tr,
+    .fin-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .fin-table tr {
+        padding: 14px;
+        margin-bottom: 10px;
+        border-bottom: none;
+        border-radius: var(--fin-radius-md);
+        background: var(--fin-bg-800);
+        border: 1px solid var(--fin-border);
+        position: relative;
+    }
+
+    .fin-table tr:hover {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: var(--fin-border-strong);
+    }
+
+    .fin-table td {
+        padding: 6px 0;
+        border: none;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        min-height: 32px;
+    }
+
+    .fin-table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        font-size: 11px;
+        color: var(--fin-text-2);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        flex: 0 0 auto;
+        margin-right: 12px;
+    }
+
+    .fin-col-check {
+        position: absolute;
+        right: 14px;
+        top: 14px;
+        width: auto;
+    }
+
+    .fin-col-check::before {
+        display: none;
+    }
+
+    .fin-col-amount {
+        text-align: right;
+        font-size: 16px;
+        font-weight: 700;
+    }
+
+    .fin-cell-comment {
+        max-width: none;
+    }
+
+    /* Графіки responsive */
+    .fin-chart-canvas {
+        height: 240px;
+        max-width: 100%;
+    }
+
+    .fin-chart-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    .fin-chart-with-legend {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    /* Календар компактніший */
+    .fin-cal-cell {
+        min-height: 80px;
+        padding: 8px 6px;
+    }
+
+    .fin-cal-day {
+        font-size: 13px;
+    }
+
+    .fin-cal-in,
+    .fin-cal-out {
+        font-size: 11px;
+    }
+
+    .fin-cal-end {
+        font-size: 12px;
+    }
+
+    /* KPI cards */
+    .fin-kpi-row {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+
+    /* Balance sheet */
+    .fin-balance-sheet {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    /* AI layout */
+    .fin-ai-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .fin-ai-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .fin-ai-msg,
+    .fin-ai-issues {
+        max-width: 92%;
+    }
+
+    /* Users layout */
+    .fin-users-layout {
+        grid-template-columns: 1fr;
+    }
+
+    /* Invoice grid */
+    .fin-invoice-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .fin-card--totals {
+        width: 100%;
+    }
+
+    /* Report cards */
+    .fin-report-cards {
+        grid-template-columns: 1fr;
     }
 }
 
 @media (max-width: 640px) {
-    /* Компактніший хедер */
+    /* Компактніший header */
     .fin-header {
-        padding: 10px 12px;
+        padding-top: max(10px, env(safe-area-inset-top, 0));
+        padding-bottom: 10px;
+        gap: 8px;
     }
 
     .fin-brand-mark {
-        width: 36px;
-        height: 36px;
+        width: 34px;
+        height: 34px;
+    }
+
+    .fin-company {
+        padding: 4px 6px;
     }
 
     .fin-company__name {
-        font-size: 14px;
+        font-size: 12px;
     }
 
     .fin-quick {
-        font-size: 12px;
+        font-size: 11px;
         padding: 7px 10px;
+        gap: 4px;
     }
 
     .fin-quick__plus,
     .fin-quick__minus,
     .fin-quick__swap {
-        font-size: 14px;
+        font-size: 13px;
     }
 
     /* Панель налаштувань на весь екран */
@@ -1371,102 +1702,72 @@ body.fin-settings-open { overflow: hidden; }
     .fin-toast {
         left: 16px;
         right: 16px;
-        bottom: 16px;
+        bottom: max(16px, env(safe-area-inset-bottom, 16px));
         max-width: none;
     }
 
-    /* Таблиці: card layout */
-    .fin-table-wrap {
-        border-radius: var(--fin-radius-md);
+    .fin-page-title {
+        font-size: 18px;
     }
 
-    .fin-table thead {
-        display: none;
+    .fin-content {
+        padding-top: 14px;
     }
 
-    .fin-table,
-    .fin-table tbody,
-    .fin-table tr,
-    .fin-table td {
-        display: block;
-        width: 100%;
+    .fin-sidebar {
+        max-width: 90vw;
     }
 
-    .fin-table tr {
-        padding: 12px;
-        margin-bottom: 8px;
-        border-bottom: 1px solid var(--fin-border);
-        border-radius: var(--fin-radius-sm);
-        background: var(--fin-bg-800);
-    }
-
-    .fin-table tr:hover {
-        background: rgba(255, 255, 255, 0.05);
-    }
-
-    .fin-table td {
-        padding: 4px 0;
-        border: none;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .fin-table td::before {
-        content: attr(data-label);
-        font-weight: 600;
-        font-size: 12px;
-        color: var(--fin-text-2);
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-    }
-
-    .fin-col-check {
-        position: absolute;
-        right: 12px;
-        top: 12px;
-        width: auto;
-    }
-
-    .fin-col-amount {
-        text-align: right;
-        font-size: 16px;
-    }
-
-    /* Графіки на всю ширину */
-    .fin-chart-canvas {
-        height: 240px;
-        max-width: 100%;
-    }
-
-    .fin-chart-grid {
+    /* Інтеграції */
+    .fin-integ-list {
         grid-template-columns: 1fr;
     }
 
-    /* Календар компактніший */
-    .fin-cal-cell {
-        min-height: 70px;
-        padding: 6px 4px;
+    .fin-import-row {
+        grid-template-columns: 1fr;
+        gap: 4px;
     }
 
-    .fin-cal-day {
-        font-size: 12px;
+    .fin-import-row__amt {
+        text-align: left;
     }
 
-    .fin-cal-in,
-    .fin-cal-out {
-        font-size: 10px;
+    /* Day summary */
+    .fin-day-summary {
+        grid-template-columns: 1fr 1fr;
     }
 
-    .fin-cal-end {
-        font-size: 11px;
+    /* Metrics grid */
+    .fin-metrics-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Field rows */
+    .fin-field-row {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .fin-field--cur {
+        max-width: none;
     }
 }
 
 @media (max-width: 375px) {
-    /* Дуже малі екрани */
+    /* Дуже малі екрани (iPhone SE, etc) */
     .fin-header {
-        padding: 8px 10px;
+        padding-left: max(10px, env(safe-area-inset-left, 0));
+        padding-right: max(10px, env(safe-area-inset-right, 0));
+        gap: 6px;
+    }
+
+    .fin-burger {
+        margin-right: 6px;
+    }
+
+    .fin-brand-mark {
+        width: 32px;
+        height: 32px;
     }
 
     .fin-quick span:not([class]) {
@@ -1476,14 +1777,20 @@ body.fin-settings-open { overflow: hidden; }
     .fin-quick {
         padding: 8px;
         min-width: 40px;
+        justify-content: center;
     }
 
     .fin-page-title {
-        font-size: 18px;
+        font-size: 16px;
     }
 
     .fin-content {
-        padding: 14px 12px 60px;
+        padding: 12px;
+        padding-bottom: max(60px, env(safe-area-inset-bottom, 60px));
+    }
+
+    .fin-sidebar {
+        max-width: 95vw;
     }
 }
 
@@ -1496,13 +1803,27 @@ body.fin-settings-open { overflow: hidden; }
     }
 
     .fin-sidebar {
-        top: 56px;
-        height: calc(100vh - 56px);
+        top: 0;
+        height: 100vh;
     }
 
     .fin-modal-card {
         max-height: 100vh;
         overflow-y: auto;
+    }
+
+    .fin-sidebar__scroll {
+        padding-top: 12px;
+        padding-bottom: 12px;
+    }
+
+    .fin-mobile-nav {
+        padding: 8px 0;
+        margin-bottom: 12px;
+    }
+
+    .fin-mobile-nav__item {
+        padding: 8px 20px;
     }
 }
 
@@ -1544,4 +1865,3 @@ body.fin-settings-open { overflow: hidden; }
         --fin-border-strong: rgba(255, 255, 255, 0.3);
     }
 }
-

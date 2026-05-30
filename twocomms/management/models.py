@@ -1898,6 +1898,221 @@ class TelephonyWebhookLog(models.Model):
         return f"{self.provider}:{self.external_event_id}"
 
 
+class ManagerLevel(models.Model):
+    """Поточний рівень менеджера з фінансовими умовами"""
+
+    class Level(models.TextChoices):
+        CANDIDATE = 'candidate', _('Менеджер-кандидат')
+        LEVEL_1 = 'level_1', _('Менеджер 1-го рівня')
+        LEVEL_2 = 'level_2', _('Менеджер 2-го рівня')
+        TOP_MANAGER = 'top_manager', _('Топ-менеджер')
+        PROJECT_MANAGER = 'project_manager', _('Project-менеджер')
+        ADMIN = 'admin', _('Адміністратор')
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='manager_level',
+        verbose_name=_('Менеджер'),
+    )
+    level = models.CharField(
+        max_length=20,
+        choices=Level.choices,
+        default=Level.CANDIDATE,
+        db_index=True,
+        verbose_name=_('Рівень'),
+    )
+    assigned_at = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name=_('Дата призначення'))
+    assigned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_manager_levels',
+        verbose_name=_('Призначив'),
+    )
+
+    # Фінансові умови
+    weekly_salary_uah = models.PositiveIntegerField(
+        default=0,
+        verbose_name=_('Тижнева ставка (грн)'),
+        help_text=_('Базова тижнева ставка, виплачується при виконанні KPI'),
+    )
+    commission_percent = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name=_('Відсоток від замовлення'),
+        help_text=_('Відсоток від суми замовлення'),
+    )
+    salary_start_date = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name=_('Дата початку нарахувань'),
+        help_text=_('З якої дати починаються нарахування ставки'),
+    )
+
+    # Метадані
+    assignment_comment = models.TextField(blank=True, verbose_name=_('Коментар при призначенні'))
+    is_active = models.BooleanField(default=True, db_index=True, verbose_name=_('Активний'))
+
+    class Meta:
+        verbose_name = _('Рівень менеджера')
+        verbose_name_plural = _('Рівні менеджерів')
+        indexes = [
+            models.Index(fields=['level', 'is_active'], name='mgmt_level_level_active'),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.get_level_display()}"
+
+
+class ManagerLevelHistory(models.Model):
+    """Історія змін рівнів менеджера"""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='manager_level_history',
+        verbose_name=_('Менеджер'),
+    )
+    old_level = models.CharField(
+        max_length=20,
+        choices=ManagerLevel.Level.choices,
+        null=True,
+        blank=True,
+        verbose_name=_('Попередній рівень'),
+    )
+    new_level = models.CharField(
+        max_length=20,
+        choices=ManagerLevel.Level.choices,
+        verbose_name=_('Новий рівень'),
+    )
+    changed_at = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name=_('Дата зміни'))
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='manager_level_changes_made',
+        verbose_name=_('Змінив'),
+    )
+
+    # Фінансові умови на момент зміни
+    old_weekly_salary = models.PositiveIntegerField(default=0, verbose_name=_('Попередня ставка'))
+    new_weekly_salary = models.PositiveIntegerField(default=0, verbose_name=_('Нова ставка'))
+    old_commission_percent = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name=_('Попередній відсоток'),
+    )
+    new_commission_percent = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=Decimal('0'),
+        verbose_name=_('Новий відсоток'),
+    )
+
+    reason = models.TextField(blank=True, verbose_name=_('Причина/коментар'))
+
+    class Meta:
+        verbose_name = _('Історія рівня менеджера')
+        verbose_name_plural = _('Історія рівнів менеджерів')
+        ordering = ['-changed_at']
+        indexes = [
+            models.Index(fields=['user', '-changed_at'], name='mgmt_lvlhist_user_date'),
+        ]
+
+    def __str__(self):
+        old = self.get_old_level_display() if self.old_level else 'Немає'
+        new = self.get_new_level_display()
+        return f"{self.user.username}: {old} → {new}"
+
+
+class WeeklySalaryAccrual(models.Model):
+    """Тижневі нарахування ставки на основі KPI"""
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', _('Очікує')
+        ACCRUED = 'accrued', _('Нараховано')
+        CANCELLED = 'cancelled', _('Скасовано')
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='weekly_salary_accruals',
+        verbose_name=_('Менеджер'),
+    )
+    week_start = models.DateField(db_index=True, verbose_name=_('Початок тижня'))
+    week_end = models.DateField(verbose_name=_('Кінець тижня'))
+
+    # KPI метрики за тиждень
+    conversions_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name=_('Кількість конверсій'),
+        help_text=_('Кількість конверсій (ORDER або TEST_BATCH) за тиждень'),
+    )
+    processed_clients_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name=_('Оброблено клієнтів'),
+        help_text=_('Кількість оброблених клієнтів за тиждень'),
+    )
+
+    # Розрахунок ставки
+    base_weekly_salary = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name=_('Базова ставка (грн)'),
+        help_text=_('Базова тижнева ставка з ManagerLevel'),
+    )
+    kpi_multiplier = models.DecimalField(
+        max_digits=3,
+        decimal_places=2,
+        verbose_name=_('KPI множник'),
+        help_text=_('0.0 (0 конверсій), 0.5 (1 конверсія), 1.0 (2+ конверсії)'),
+    )
+    accrued_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        verbose_name=_('Нараховано (грн)'),
+        help_text=_('base_weekly_salary × kpi_multiplier'),
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+        verbose_name=_('Статус'),
+    )
+    frozen_until = models.DateTimeField(
+        verbose_name=_('Заморожено до'),
+        help_text=_('Дата, до якої нарахування заморожене'),
+    )
+
+    note = models.TextField(blank=True, verbose_name=_('Примітка'))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Створено'))
+
+    class Meta:
+        verbose_name = _('Тижневе нарахування ставки')
+        verbose_name_plural = _('Тижневі нарахування ставок')
+        ordering = ['-week_start']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'week_start'],
+                name='mgmt_weekly_salary_user_week_unique',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['user', '-week_start'], name='mgmt_wksal_user_week'),
+            models.Index(fields=['status', 'frozen_until'], name='mgmt_wksal_status_frozen'),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.week_start} ({self.accrued_amount} грн)"
+
+
 class CallRecord(models.Model):
     class Direction(models.TextChoices):
         INBOUND = "inbound", _("Вхідний")

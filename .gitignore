@@ -139,6 +139,9 @@ venv.bak/
 .tmp_*
 **/.tmp_*
 .kiro/scratch/
+# Workspace MCP-конфиг с секретами (Context7 API key, web-to-mcp slug и т.п.).
+# Шаблон — .kiro/settings/mcp.example.json — коммитим, реальный mcp.json — нет.
+.kiro/settings/mcp.json
 **/scratch/
 
 # Spyder project settings
@@ -239,3 +242,5 @@ tmp/critical-extraction/
 **/free_proc.sh
 /kr
 **/authorized_keys*
+
+.deploy_pass

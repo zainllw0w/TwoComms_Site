@@ -33,6 +33,54 @@
 - Перед деплоем: убедись, что коммит и `git push` выполнены. После
   деплоя — кратко отчитайся, что прошло (pull, миграции, рестарт).
 
+### Чек-лист деплоя
+
+После `git pull` на сервере выполняй шаги именно в таком порядке. Шаги
+1, 4 и 6 — обязательные всегда; остальные — по флагам ниже. Все шаги
+в одной SSH-сессии под активированным venv.
+
+1. **`git pull`** (или `git fetch && git reset --hard origin/main` если
+   на сервере накопились конфликты).
+2. **`python manage.py migrate --no-input`** — если коммит трогает
+   `models.py` или содержит файлы в `*/migrations/`.
+3. **`python manage.py collectstatic --no-input`** — если коммит
+   меняет файлы в `static/` (CSS, JS, изображения, шрифты, manifest)
+   или добавляет новые. Это перезаписывает `staticfiles/staticfiles.json`,
+   из которого `ManifestStaticFilesStorage` читает хеш-маппинг.
+   Если этот шаг пропустить, любая ссылка на новый ассет через
+   `{% static %}` валит весь рендер с
+   `ValueError: Missing staticfiles manifest entry for '...'`
+   и сайт уходит в 500.
+4. **`python manage.py compress --force`** — если коммит трогает CSS/JS,
+   которые попадают внутрь `{% compress %}` блоков (по умолчанию это
+   `base.html` и шаблоны, что наследуют его). Без него django-compressor
+   валит рендер с
+   `OfflineGenerationError: ... key "..." is missing from offline manifest`.
+   Делать всегда после `collectstatic`, потому что compressor читает
+   уже хешированные пути.
+5. **Telegram / cron перезапуски** — если правил `accounts/telegram_bot.py`,
+   `cron/*.sh` и т.п. (специфика конкретной фичи).
+6. **`touch tmp/restart.txt`** — рестарт Passenger. Делать **последним**:
+   процесс перечитает `staticfiles.json` и compressor manifest при
+   следующем запросе.
+
+После рестарта ждать ~5–10 секунд и делать sanity-curl минимум на
+`/`, `/admin-panel/`, `/product/<slug>/` (хотя бы один товар) —
+ожидать 200 (или 302 для админки, если без авторизации).
+
+### Когда какой шаг нужен (быстрый матчер)
+
+- Изменён `*.py` в `models.py` или `migrations/` → нужен шаг 2.
+- Добавлены/удалены файлы в `static/` или `twocomms_django_theme/static/` → нужен шаг 3.
+- Изменены CSS/JS, на которые ссылаются шаблоны → нужны шаги 3 и 4.
+- Добавлены новые шаблоны с `{% static %}` на новые файлы → нужны 3 и 4.
+- Изменены только `views/`, `services/`, `templates/` без новых
+  ассетов → нужен только 1 и 6.
+- Если при ошибке 500 в логе Django видно `ManifestStaticFilesStorage`
+  / `OfflineGenerationError` — это значит шаг 3 или 4 был пропущен.
+  Откати в обратном порядке: `compress --force` → `collectstatic --no-input`
+  → `touch restart.txt`.
+
 ## Защита от циклов и тупиков
 
 Если при выполнении задачи я ловлю одну и ту же ошибку дважды подряд:

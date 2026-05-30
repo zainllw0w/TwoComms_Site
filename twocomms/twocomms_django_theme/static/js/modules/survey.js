@@ -136,13 +136,28 @@ export function initSurvey() {
     }).catch(() => {});
   };
 
+  const scrollToTop = () => {
+    bodyContainer.scrollTop = 0;
+    requestAnimationFrame(() => {
+      bodyContainer.scrollTop = 0;
+    });
+    setTimeout(() => {
+      bodyContainer.scrollTop = 0;
+    }, 40);
+    setTimeout(() => {
+      bodyContainer.scrollTop = 0;
+    }, 100);
+  };
+
   const showLoading = () => {
     bodyContainer.innerHTML = '<div class="survey-loading"><div class="survey-spinner"></div><div class="survey-loading-text">Завантаження…</div></div>';
+    scrollToTop();
   };
 
   const showError = (message) => {
     const text = message || 'Сталася помилка. Спробуйте ще раз.';
     bodyContainer.innerHTML = `<div class="survey-error">${text}</div>`;
+    scrollToTop();
   };
 
   const resetButtons = () => {
@@ -181,6 +196,7 @@ export function initSurvey() {
         </div>
       </div>
     `;
+    scrollToTop();
     const copyBtn = bodyContainer.querySelector('.survey-copy-btn');
     if (copyBtn && code) {
       copyBtn.addEventListener('click', () => {
@@ -547,6 +563,7 @@ export function initSurvey() {
     container.appendChild(optionsWrap);
     bodyContainer.innerHTML = '';
     bodyContainer.appendChild(container);
+    scrollToTop();
     nextBtn.style.display = '';
     skipBtn.style.display = '';
     backBtn.style.display = '';

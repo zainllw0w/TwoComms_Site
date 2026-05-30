@@ -1,0 +1,115 @@
+{
+  "_comment": "Шаблон workspace MCP-конфига для TwoComms. Скопируй в mcp.json и подставь свои секреты. Сам mcp.json в .gitignore — не коммить.",
+  "mcpServers": {
+    "fetch": {
+      "command": "uvx",
+      "args": ["mcp-server-fetch"],
+      "env": {},
+      "disabled": true,
+      "autoApprove": []
+    },
+    "context7": {
+      "_comment": "Получить ключ: https://context7.com — вкладка API keys",
+      "url": "https://mcp.context7.com/mcp/oauth",
+      "headers": {
+        "CONTEXT7_API_KEY": "ctx7sk-XXXX"
+      },
+      "disabled": false,
+      "autoApprove": ["resolve-library-id", "query-docs"]
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest"],
+      "env": {},
+      "disabled": false,
+      "autoApprove": []
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "env": {},
+      "disabled": false,
+      "autoApprove": ["sequentialthinking"]
+    },
+    "nx-mcp": {
+      "command": "npx",
+      "args": ["-y", "nx-mcp@latest"],
+      "env": {},
+      "disabled": false,
+      "autoApprove": ["nx_docs"]
+    },
+    "google-search": {
+      "command": "npx",
+      "args": ["-y", "@mcp-server/google-search-mcp"],
+      "env": {},
+      "disabled": false,
+      "autoApprove": ["search"]
+    },
+    "google-drive": {
+      "_comment": "OAuth: см. https://github.com/piotr-agier/google-drive-mcp",
+      "command": "npx",
+      "args": ["-y", "@piotr-agier/google-drive-mcp"],
+      "env": {
+        "GOOGLE_DRIVE_OAUTH_CREDENTIALS": "",
+        "GOOGLE_DRIVE_MCP_TOKEN_PATH": "",
+        "DEBUG": ""
+      },
+      "disabled": true,
+      "autoApprove": []
+    },
+    "google-gmail": {
+      "command": "npx",
+      "args": ["-y", "@gongrzhe/server-gmail-autoauth-mcp"],
+      "env": {},
+      "disabled": true,
+      "autoApprove": []
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["@playwright/mcp@latest"],
+      "env": {},
+      "disabled": false,
+      "autoApprove": []
+    },
+    "web-to-mcp": {
+      "_comment": "Получить персональный slug: https://web-to-mcp.com (после регистрации)",
+      "url": "https://web-to-mcp.com/mcp/<your-slug>/",
+      "disabled": false,
+      "autoApprove": ["get_html_for_reference"]
+    },
+    "linear": {
+      "_comment": "OAuth-flow: открой Kiro -> MCP servers -> linear -> Connect",
+      "url": "https://mcp.linear.app/mcp",
+      "disabled": false,
+      "autoApprove": []
+    },
+    "serena": {
+      "_comment": "Локальный сервис, запусти: uvx serena-mcp --transport http --port 9121",
+      "url": "http://localhost:9121/mcp",
+      "disabled": false,
+      "autoApprove": []
+    },
+    "notion": {
+      "_comment": "OAuth-flow через браузер при первом подключении",
+      "url": "https://mcp.notion.com/mcp",
+      "disabled": false,
+      "autoApprove": []
+    },
+    "facebook-ads": {
+      "_comment": "Официальный Meta Ads MCP. Kiro не умеет в OAuth Dynamic Client Registration, поэтому ходим через stdio-прокси mcp-remote — он сам открывает браузер для Facebook OAuth и кеширует токен в ~/.mcp-auth. Доки: https://www.facebook.com/business/help/1456422242197840",
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.facebook.com/ads"],
+      "env": {},
+      "disabled": false,
+      "autoApprove": []
+    }
+  },
+  "powers": {
+    "mcpServers": {
+      "power-context7-context7": {
+        "url": "https://mcp.context7.com/mcp",
+        "autoApprove": ["resolve-library-id", "query-docs"]
+      }
+    }
+  }
+}

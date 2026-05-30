@@ -19,7 +19,6 @@
       {% trans 'Натисніть «Відкрити бота TwoComms» і поділіться номером — далі ми все зробимо самі.' %}
     </p>
 
-    {# State 1: intro #}
     <div class="tgv-modal-state" data-tg-verify-screen="intro">
       <ol class="tgv-modal-steps">
         <li><span>1</span> {% trans 'Натисніть «Відкрити бота TwoComms» — ми перенесемо вас у Telegram.' %}</li>
@@ -43,7 +42,6 @@
       </div>
     </div>
 
-    {# State 2: waiting #}
     <div class="tgv-modal-state" data-tg-verify-screen="waiting" hidden>
       <div class="tgv-modal-spinner" aria-hidden="true"><span></span><span></span><span></span></div>
       <h3 class="tgv-modal-headline">{% trans 'Очікуємо ваш контакт у боті…' %}</h3>
@@ -63,7 +61,6 @@
       </div>
     </div>
 
-    {# State 3: success #}
     <div class="tgv-modal-state" data-tg-verify-screen="success" hidden>
       <div class="tgv-modal-success-icon" aria-hidden="true">✅</div>
       <h3 class="tgv-modal-headline">{% trans 'Telegram підтверджено!' %}</h3>
@@ -75,7 +72,6 @@
       </div>
     </div>
 
-    {# State 4: error #}
     <div class="tgv-modal-state" data-tg-verify-screen="error" hidden>
       <div class="tgv-modal-error-icon" aria-hidden="true">⏱</div>
       <h3 class="tgv-modal-headline" data-tg-verify-error-title>{% trans 'Сесія завершилась' %}</h3>
