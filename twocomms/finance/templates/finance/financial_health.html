@@ -1,0 +1,289 @@
+{% extends 'finance/base.html' %}
+{% load static %}
+
+{% block title %}Фінансове здоров'я — TwoComms Finance{% endblock %}
+
+{% block content %}
+<div class="fin-page-head">
+    <div>
+        <h1 class="fin-page-title fin-gradient-text">Фінансове здоров'я</h1>
+        <p class="fin-page-subtitle">Комплексний огляд фінансового стану компанії</p>
+    </div>
+</div>
+
+<!-- Health Score -->
+<div class="fin-health-score fin-health-score--{{ score_class }}">
+    <div class="fin-health-score__circle">
+        <svg viewBox="0 0 120 120" class="fin-health-score__svg">
+            <circle cx="60" cy="60" r="54" class="fin-health-score__bg"/>
+            <circle cx="60" cy="60" r="54" class="fin-health-score__progress"
+                    style="stroke-dashoffset: {{ 339|add:0 }};"
+                    data-score="{{ health_score }}"/>
+        </svg>
+        <div class="fin-health-score__value">
+            <span class="fin-health-score__number">{{ health_score }}</span>
+            <span class="fin-health-score__max">/100</span>
+        </div>
+    </div>
+    <div class="fin-health-score__info">
+        <div class="fin-health-score__label">{{ score_label }}</div>
+        <div class="fin-health-score__desc">Загальна оцінка фінансового здоров'я</div>
+    </div>
+</div>
+
+<!-- Основні метрики -->
+<div class="fin-kpi-row">
+    <div class="fin-kpi fin-kpi--info">
+        <div class="fin-kpi__label">Поточний баланс</div>
+        <div class="fin-kpi__value">{{ current_balance }}</div>
+        <div class="fin-kpi__hint">Всі рахунки</div>
+    </div>
+
+    <div class="fin-kpi {% if data.forecast_3m >= 0 %}fin-kpi--pos{% else %}fin-kpi--neg{% endif %}">
+        <div class="fin-kpi__label">Прогноз 3 міс.</div>
+        <div class="fin-kpi__value">{{ forecast_3m }}</div>
+        <div class="fin-kpi__hint">Очікуваний баланс</div>
+    </div>
+
+    <div class="fin-kpi {% if data.business_profit_month >= 0 %}fin-kpi--pos{% else %}fin-kpi--neg{% endif %}">
+        <div class="fin-kpi__label">Прибуток за місяць</div>
+        <div class="fin-kpi__value">{{ business_profit }}</div>
+        <div class="fin-kpi__hint">Бізнес-операції</div>
+    </div>
+
+    <div class="fin-kpi fin-kpi--neutral">
+        <div class="fin-kpi__label">Особисті витрати</div>
+        <div class="fin-kpi__value">{{ personal_expenses }}</div>
+        <div class="fin-kpi__hint">За місяць</div>
+    </div>
+
+    <div class="fin-kpi fin-kpi--info">
+        <div class="fin-kpi__label">Заморожено у складі</div>
+        <div class="fin-kpi__value">{{ frozen_warehouse }}</div>
+        <div class="fin-kpi__hint">Товари + розхідники</div>
+    </div>
+</div>
+
+<!-- Попередження -->
+{% if data.warnings %}
+<div class="fin-section">
+    <h3 class="fin-section-title">⚠️ Попередження</h3>
+    <div class="fin-warnings">
+        {% for warning in data.warnings %}
+        <div class="fin-warning fin-warning--{{ warning.type }}">
+            <span class="fin-warning__icon">{{ warning.icon }}</span>
+            <span class="fin-warning__message">{{ warning.message }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Рекомендації -->
+{% if data.recommendations %}
+<div class="fin-section">
+    <h3 class="fin-section-title">💡 Рекомендації</h3>
+    <div class="fin-recommendations">
+        {% for rec in data.recommendations %}
+        <div class="fin-recommendation">
+            <span class="fin-recommendation__icon">{{ rec.icon }}</span>
+            <span class="fin-recommendation__message">{{ rec.message }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Найближчі платежі -->
+{% if upcoming_payments %}
+<div class="fin-section">
+    <h3 class="fin-section-title">📅 Найближчі планові платежі</h3>
+    <div class="fin-table-wrap">
+        <table class="fin-table">
+            <thead>
+                <tr>
+                    <th>Дата</th>
+                    <th>Сума</th>
+                    <th>Рахунок</th>
+                    <th>Категорія</th>
+                    <th>Коментар</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in upcoming_payments %}
+                <tr>
+                    <td>{{ p.date }}</td>
+                    <td class="fin-amount--{{ p.amount_class }}">{{ p.amount_display }}</td>
+                    <td>{{ p.account_name }}</td>
+                    <td>{{ p.category|default:"—" }}</td>
+                    <td>{{ p.comment|default:"—" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Деталізація складу -->
+<div class="fin-section">
+    <h3 class="fin-section-title">📦 Структура замороженого капіталу</h3>
+    <div class="fin-breakdown-cards">
+        <div class="fin-breakdown-card">
+            <div class="fin-breakdown-card__label">Товари</div>
+            <div class="fin-breakdown-card__value">{{ data.warehouse_breakdown.stock_value|floatformat:0 }} ₴</div>
+            <div class="fin-breakdown-card__qty">{{ data.warehouse_breakdown.stock_qty }} шт</div>
+        </div>
+        <div class="fin-breakdown-card">
+            <div class="fin-breakdown-card__label">Принти</div>
+            <div class="fin-breakdown-card__value">{{ data.warehouse_breakdown.print_value|floatformat:0 }} ₴</div>
+            <div class="fin-breakdown-card__qty">{{ data.warehouse_breakdown.print_qty }} шт</div>
+        </div>
+        <div class="fin-breakdown-card">
+            <div class="fin-breakdown-card__label">Розхідники</div>
+            <div class="fin-breakdown-card__value">{{ data.warehouse_breakdown.consumable_value|floatformat:0 }} ₴</div>
+            <div class="fin-breakdown-card__qty">{{ data.warehouse_breakdown.consumable_qty }}</div>
+        </div>
+    </div>
+</div>
+
+<style>
+.fin-health-score {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    background: #1a1d24;
+    border: 1px solid #2d3139;
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 24px;
+}
+.fin-health-score__circle {
+    position: relative;
+    width: 120px;
+    height: 120px;
+}
+.fin-health-score__svg {
+    transform: rotate(-90deg);
+    width: 120px;
+    height: 120px;
+}
+.fin-health-score__bg {
+    fill: none;
+    stroke: #2d3139;
+    stroke-width: 8;
+}
+.fin-health-score__progress {
+    fill: none;
+    stroke-width: 8;
+    stroke-linecap: round;
+    stroke-dasharray: 339;
+    transition: stroke-dashoffset 1s ease;
+}
+.fin-health-score--excellent .fin-health-score__progress { stroke: #10b981; }
+.fin-health-score--good .fin-health-score__progress { stroke: #3b82f6; }
+.fin-health-score--fair .fin-health-score__progress { stroke: #f59e0b; }
+.fin-health-score--poor .fin-health-score__progress { stroke: #ef4444; }
+.fin-health-score__value {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+.fin-health-score__number {
+    font-size: 32px;
+    font-weight: 800;
+    color: #fff;
+}
+.fin-health-score__max {
+    font-size: 14px;
+    color: #9ca3af;
+}
+.fin-health-score__label {
+    font-size: 24px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+}
+.fin-health-score__desc {
+    font-size: 14px;
+    color: #9ca3af;
+}
+.fin-warnings, .fin-recommendations {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.fin-warning, .fin-recommendation {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    background: #1a1d24;
+    border: 1px solid #2d3139;
+}
+.fin-warning--critical {
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+.fin-warning--warning {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.1);
+}
+.fin-warning--info {
+    border-color: #3b82f6;
+    background: rgba(59, 130, 246, 0.1);
+}
+.fin-recommendation {
+    border-color: #10b981;
+    background: rgba(16, 185, 129, 0.05);
+}
+.fin-warning__icon, .fin-recommendation__icon {
+    font-size: 20px;
+}
+.fin-breakdown-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+}
+.fin-breakdown-card {
+    background: #1a1d24;
+    border: 1px solid #2d3139;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+}
+.fin-breakdown-card__label {
+    font-size: 13px;
+    color: #9ca3af;
+    margin-bottom: 8px;
+}
+.fin-breakdown-card__value {
+    font-size: 24px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+}
+.fin-breakdown-card__qty {
+    font-size: 12px;
+    color: #6b7280;
+}
+</style>
+
+<script>
+// Анімація health score circle
+document.addEventListener('DOMContentLoaded', () => {
+    const progress = document.querySelector('.fin-health-score__progress');
+    if (progress) {
+        const score = parseInt(progress.getAttribute('data-score'), 10);
+        const circumference = 339;
+        const offset = circumference - (score / 100 * circumference);
+        setTimeout(() => {
+            progress.style.strokeDashoffset = offset;
+        }, 100);
+    }
+});
+</script>
+{% endblock %}

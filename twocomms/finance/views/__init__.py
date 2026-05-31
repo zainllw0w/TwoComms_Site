@@ -1,4 +1,7 @@
 """Finance views package."""
+from .dashboard import (  # noqa: F401
+    financial_health,
+)
 from .users import (  # noqa: F401
     users,
 )

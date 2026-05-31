@@ -16,6 +16,7 @@ urlpatterns = [
     path('logout/', auth_views.LogoutView.as_view(next_page='finance_login'), name='finance_logout'),
 
     # --- Розділи ---
+    path('health/', views.financial_health, name='finance_health'),
     path('analytic/', views.analytics, name='finance_analytics'),
     path('analytic/report/<str:kind>/', views.report, name='finance_report'),
     path('analytic/report/<str:kind>/export/', views.report_export, name='finance_report_export'),
