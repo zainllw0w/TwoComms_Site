@@ -4,7 +4,7 @@
  */
 
 // CountUp для анімації чисел
-function animateValue(element, start, end, duration) {
+function animateValue(element, start, end, duration, prefix = '', suffix = '') {
     if (!element) return;
 
     const range = end - start;
@@ -20,7 +20,7 @@ function animateValue(element, start, end, duration) {
 
         // Форматування числа з пробілами
         const formatted = Math.round(current).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-        element.textContent = formatted;
+        element.textContent = `${prefix}${formatted}${suffix}`;
     }, 16);
 }
 
@@ -28,26 +28,20 @@ function animateValue(element, start, end, duration) {
 function initCountUp() {
     document.querySelectorAll('.fin-kpi__value, .fin-balance-card__value').forEach(el => {
         const text = el.textContent.trim();
-        const match = text.match(/^([-+]?)(\d[\d\s]*)/);
+        const match = text.match(/^([-+−]?)(\d[\d\s]*)(.*)$/);
 
         if (match) {
             const sign = match[1];
             const number = parseInt(match[2].replace(/\s/g, ''), 10);
+            const suffix = match[3] || '';
 
             if (!isNaN(number) && number > 0) {
                 el.setAttribute('data-target', number);
-                el.textContent = '0';
+                el.textContent = `${sign}0${suffix}`;
 
                 // Запускаємо анімацію після невеликої затримки
                 setTimeout(() => {
-                    animateValue(el, 0, number, 1500);
-
-                    // Додаємо знак назад після анімації
-                    if (sign) {
-                        setTimeout(() => {
-                            el.textContent = sign + el.textContent;
-                        }, 1500);
-                    }
+                    animateValue(el, 0, number, 1500, sign, suffix);
                 }, 100);
             }
         }

@@ -2203,3 +2203,54 @@ body.fin-settings-open { overflow: hidden; }
         --fin-border-strong: rgba(255, 255, 255, 0.3);
     }
 }
+
+/* Desktop shell layout guard: keep the account sidebar in its own column.
+   Some responsive overrides below 1100px and landscape-height rules can make
+   the main content visually claim the sidebar's first row. */
+@media (min-width: 901px) {
+    .fin-workspace {
+        display: grid;
+        grid-template-columns: var(--fin-sidebar-w) minmax(0, 1fr);
+        align-items: start;
+    }
+
+    .fin-sidebar {
+        grid-column: 1;
+        grid-row: 1;
+        width: var(--fin-sidebar-w);
+        max-width: none;
+        position: sticky;
+        top: 0;
+        align-self: start;
+        transform: none;
+    }
+
+    .fin-sidebar__scroll {
+        padding-top: 16px;
+    }
+
+    .fin-main {
+        grid-column: 2;
+        grid-row: 1;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .fin-content {
+        width: 100%;
+    }
+
+    .fin-sidebar__backdrop {
+        display: none !important;
+    }
+}
+
+@media (min-width: 1440px) {
+    .fin-workspace {
+        grid-template-columns: 320px minmax(0, 1fr);
+    }
+
+    .fin-sidebar {
+        width: 320px;
+    }
+}

@@ -101,6 +101,21 @@ def balance_sheet(company, params=None):
         {'name': 'Гроші на рахунках', 'amount': money},
         {'name': 'Дебіторська заборгованість', 'amount': recv},
     ]
+    # Заморожений капітал як актив: товар на складі + товар у контрагентів.
+    try:
+        from . import warehouse_link
+        frozen_wh = warehouse_link.frozen_in_warehouse()
+        if frozen_wh:
+            assets.append({'name': 'Товар на складі (собівартість)', 'amount': frozen_wh})
+    except Exception:
+        pass
+    try:
+        from . import consignment as consignment_service
+        frozen_cons = consignment_service.consignment_frozen_total(company)
+        if frozen_cons:
+            assets.append({'name': 'Товар у контрагентів (реалізація)', 'amount': frozen_cons})
+    except Exception:
+        pass
     liabilities = [
         {'name': 'Кредиторська заборгованість', 'amount': pay},
         {'name': 'Капітал (стартові внески)', 'amount': capital},
