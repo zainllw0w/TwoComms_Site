@@ -73,6 +73,12 @@ def financial_health_dashboard(company) -> dict:
     frozen = warehouse_link.frozen_in_warehouse()
     warehouse_breakdown = warehouse_link.warehouse_breakdown()
 
+    # 5b. Заморожено під реалізацію (магазини) + борг магазинів
+    from . import consignment as consignment_service
+    frozen_consignment = consignment_service.consignment_frozen_total(company)
+    consignment_breakdown = consignment_service.consignment_frozen_breakdown(company)
+    resellers_debt = consignment_service.resellers_debt_total(company)
+
     # 6. Найближчі планові платежі (наступні 30 днів)
     upcoming_end = today + timezone.timedelta(days=30)
     upcoming_payments = Transaction.objects.filter(
@@ -170,6 +176,27 @@ def financial_health_dashboard(company) -> dict:
     except Exception:
         pass
 
+    # Попередження про прострочені борги магазинів
+    try:
+        from .models import Reseller
+        overdue_resellers = []
+        for r in Reseller.objects.filter(company=company).exclude(status=Reseller.STATUS_CLOSED):
+            od = consignment_service.reseller_overdue_days(r)
+            if od > 0:
+                overdue_resellers.append((r.name, od))
+        if overdue_resellers:
+            overdue_resellers.sort(key=lambda x: x[1], reverse=True)
+            worst = overdue_resellers[0]
+            warnings.append({
+                'type': 'warning',
+                'icon': '⏰',
+                'message': f'Прострочка виплат: {len(overdue_resellers)} магазин(ів), '
+                           f'найбільше «{worst[0]}» — {worst[1]} дн',
+            })
+            health_score -= min(15, len(overdue_resellers) * 5)
+    except Exception:
+        pass
+
     # Обмежуємо health_score
     health_score = max(0, min(100, health_score))
 
@@ -180,6 +207,9 @@ def financial_health_dashboard(company) -> dict:
         'personal_expenses_month': personal_expenses_month,
         'frozen_in_warehouse': frozen,
         'warehouse_breakdown': warehouse_breakdown,
+        'frozen_in_consignment': frozen_consignment,
+        'consignment_breakdown': consignment_breakdown,
+        'resellers_debt_total': resellers_debt,
         'upcoming_payments': list(upcoming_payments),
         'warnings': warnings,
         'recommendations': recommendations,

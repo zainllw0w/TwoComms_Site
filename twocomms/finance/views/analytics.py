@@ -29,6 +29,7 @@ REPORT_CARDS = [
     {'kind': 'warehouse_dynamics', 'title': 'Динаміка складу', 'desc': 'Рух товарів по днях'},
     {'kind': 'warehouse_structure', 'title': 'Структура складу', 'desc': 'Розподіл за категоріями'},
     {'kind': 'warehouse_turnover', 'title': 'Оборотність складу', 'desc': 'Швидкість обороту товарів'},
+    {'kind': 'resellers', 'title': 'Магазини під реалізацію', 'desc': 'Борги та заморожені товари по магазинах'},
     {'kind': 'audit', 'title': 'Історія дій', 'desc': 'Журнал змін'},
     {'kind': 'balance', 'title': 'Баланс', 'desc': 'Активи та пасиви'},
     {'kind': 'plan_fact', 'title': 'План/Факт', 'desc': 'Порівняння плану і факту'},
@@ -341,6 +342,34 @@ def report(request, kind):
             'avg_days': data['avg_days_in_stock'],
         })
         return render(request, 'finance/reports/warehouse_turnover.html', ctx)
+
+    if kind == 'resellers':
+        from finance.services import consignment as cons
+        from ..models import Reseller
+        rows = []
+        total_debt = Decimal('0')
+        total_frozen = Decimal('0')
+        for r in Reseller.objects.filter(company=company).select_related('counterparty'):
+            debt = cons.reseller_debt(r)
+            frozen = cons.reseller_frozen(r)
+            total_debt += debt
+            total_frozen += frozen
+            rows.append({
+                'id': r.id, 'name': r.name,
+                'counterparty': r.counterparty.name if r.counterparty else '—',
+                'status': r.get_status_display(),
+                'debt': _m(company, debt), 'debt_raw': debt,
+                'frozen': _m(company, frozen), 'frozen_raw': frozen,
+                'overdue_days': cons.reseller_overdue_days(r),
+            })
+        rows.sort(key=lambda x: x['debt_raw'] + x['frozen_raw'], reverse=True)
+        ctx.update({
+            'title': 'Магазини під реалізацію',
+            'rows': rows,
+            'total_debt': _m(company, total_debt),
+            'total_frozen': _m(company, total_frozen),
+        })
+        return render(request, 'finance/reports/resellers.html', ctx)
 
     ctx.update({'title': 'Звіт', 'section_subtitle': 'Невідомий звіт'})
     return render(request, 'finance/coming_soon.html',

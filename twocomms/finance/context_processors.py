@@ -34,6 +34,7 @@ def finance_shell_context(request):
         from .services import balances as balance_service
         from .services import serializers as ser
         from .services import warehouse_link
+        from .services import consignment as consignment_service
     except Exception:
         return {}
 
@@ -50,6 +51,7 @@ def finance_shell_context(request):
         forecast = (total + planned['income'] + planned['expense'])
         accounts = balance_service.account_sidebar_data(company)
         frozen = warehouse_link.frozen_in_warehouse()
+        frozen_consignment = consignment_service.consignment_frozen_total(company)
 
         return {
             'fin_company_name': company.name,
@@ -59,6 +61,8 @@ def finance_shell_context(request):
             'fin_frozen_warehouse': ser.money(frozen, company.base_currency),
             'fin_frozen_raw': frozen,
             'fin_frozen_warehouse_url': 'https://storage.twocomms.shop/',
+            'fin_frozen_consignment': ser.money(frozen_consignment, company.base_currency),
+            'fin_frozen_consignment_raw': frozen_consignment,
             'fin_planned_income': ser.money(planned['income'], company.base_currency, signed=True),
             'fin_planned_expense': ser.money(planned['expense'], company.base_currency, signed=True),
             'fin_forecast_balance': ser.money(forecast, company.base_currency),

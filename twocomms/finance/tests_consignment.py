@@ -1,7 +1,7 @@
 """Тести модуля «Магазини під реалізацію» (consignment)."""
 from decimal import Decimal
 
-from django.test import TestCase
+from django.test import TestCase, Client
 from django.utils import timezone
 
 from finance.models import (
@@ -310,3 +310,59 @@ class ConsignmentPaymentSaleTestCase(TestCase):
                           creates_debt=True)
         # борг виріс на 2*900 = 1800
         self.assertEqual(svc.reseller_debt(self.reseller), debt_before + Decimal('1800'))
+
+
+class ConsignmentIntegrationTestCase(TestCase):
+    """КРОК 6: інтеграція з дашбордом, сайдбаром, аналітикою."""
+
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        self.user = User.objects.create_user(username='cons_staff', password='x', is_staff=True)
+        self.company = Company.objects.create(name='Test Co', base_currency='UAH')
+        self.cp = Counterparty.objects.create(company=self.company, name='Військторг', type='client')
+        self.reseller = svc.create_reseller(
+            user=self.user, name='Військторг', counterparty=self.cp,
+            terms_kind='onetime', terms={'due_days': 14},
+        )
+        svc.create_shipment(
+            user=self.user, reseller=self.reseller, date=timezone.localdate(),
+            debt_amount=Decimal('72000'),
+            items=[{'title': 'Худі', 'qty': 5, 'unit_cost': '500', 'is_consignment': True}],
+        )
+
+    def test_dashboard_includes_consignment(self):
+        from finance.services import dashboard
+        data = dashboard.financial_health_dashboard(self.company)
+        self.assertEqual(data['frozen_in_consignment'], Decimal('2500'))
+        self.assertEqual(data['resellers_debt_total'], Decimal('72000'))
+        self.assertIn('consignment_breakdown', data)
+
+    def test_consignment_frozen_total(self):
+        self.assertEqual(svc.consignment_frozen_total(self.company), Decimal('2500'))
+
+    def test_resellers_debt_total(self):
+        self.assertEqual(svc.resellers_debt_total(self.company), Decimal('72000'))
+
+    def test_list_page_200(self):
+        c = Client(HTTP_HOST='fin.twocomms.shop')
+        c.force_login(self.user)
+        r = c.get('/consignment/', secure=True, follow=True)
+        self.assertEqual(r.status_code, 200)
+
+    def test_detail_page_200(self):
+        c = Client(HTTP_HOST='fin.twocomms.shop')
+        c.force_login(self.user)
+        r = c.get(f'/consignment/{self.reseller.id}/', secure=True, follow=True)
+        self.assertEqual(r.status_code, 200)
+
+    def test_resellers_report_200(self):
+        c = Client(HTTP_HOST='fin.twocomms.shop')
+        c.force_login(self.user)
+        r = c.get('/analytic/report/resellers/', secure=True, follow=True)
+        self.assertEqual(r.status_code, 200)
+
+    def test_api_requires_staff(self):
+        c = Client(HTTP_HOST='fin.twocomms.shop')
+        r = c.get(f'/api/consignment/resellers/{self.reseller.id}/stats/', secure=True)
+        self.assertIn(r.status_code, (401, 403, 302))

@@ -40,6 +40,8 @@ def financial_health(request):
         'business_profit': _m(data['business_profit_month'], signed=True),
         'personal_expenses': _m(data['personal_expenses_month']),
         'frozen_warehouse': _m(data['frozen_in_warehouse']),
+        'frozen_consignment': _m(data['frozen_in_consignment']),
+        'resellers_debt': _m(data['resellers_debt_total']),
         'health_score': score,
         'score_class': score_class,
         'score_label': score_label,

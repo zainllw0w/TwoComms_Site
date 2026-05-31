@@ -129,6 +129,16 @@
                     </a>
                 </div>
 
+                <div class="fin-balance-card fin-balance-card--consignment fin-balance-card--clickable" title="Собівартість товару, переданого магазинам під реалізацію">
+                    <a href="{% url 'finance_consignment' %}" class="fin-balance-card__link">
+                        <div class="fin-balance-card__label">Заморожено під реалізацію</div>
+                        <div class="fin-balance-card__value">
+                            {% if fin_frozen_consignment is not None %}{{ fin_frozen_consignment }}{% else %}—{% endif %}
+                        </div>
+                        <div class="fin-balance-card__hint">товар у магазинах · деталі →</div>
+                    </a>
+                </div>
+
                 <div class="fin-accounts">
                     <div class="fin-accounts__head">
                         <span>Мої рахунки</span>

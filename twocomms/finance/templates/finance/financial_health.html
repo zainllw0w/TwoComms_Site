@@ -62,6 +62,18 @@
         <div class="fin-kpi__value">{{ frozen_warehouse }}</div>
         <div class="fin-kpi__hint">Товари + розхідники</div>
     </div>
+
+    <div class="fin-kpi fin-kpi--info">
+        <div class="fin-kpi__label">Заморожено під реалізацію</div>
+        <div class="fin-kpi__value">{{ frozen_consignment }}</div>
+        <div class="fin-kpi__hint">Товар у магазинах</div>
+    </div>
+
+    <div class="fin-kpi fin-kpi--neg">
+        <div class="fin-kpi__label">Борг магазинів</div>
+        <div class="fin-kpi__value">{{ resellers_debt }}</div>
+        <div class="fin-kpi__hint">До отримання від реалізаторів</div>
+    </div>
 </div>
 
 <!-- Попередження -->
