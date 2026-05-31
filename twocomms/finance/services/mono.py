@@ -334,7 +334,7 @@ def _reconcile_balance(account: Account, mono_balance_minor: int) -> None:
 
 @db_transaction.atomic
 def sync_account(account: Account, *, user, apply_rules=True, full=False,
-                 client=None, max_windows=None) -> dict:
+                 client=None, max_windows=None, reconcile_balance=True) -> dict:
     """Синхронізує одну прив'язку: тягне виписку (свіжі — першими) та звіряє баланс.
 
     Дві фази, що поважають ліміт Monobank (1 запит/60с):
@@ -344,6 +344,8 @@ def sync_account(account: Account, *, user, apply_rules=True, full=False,
     ``max_windows`` обмежує к-сть statement-запитів за прогін. На 429 — м'яко
     зупиняємось (``rate_limited=True``), курсор зберігається для наступного разу.
     (``full`` лишено для сумісності виклику; глибину добору задає ``max_windows``.)
+    ``reconcile_balance=False`` використовується cron-командою, щоб не робити
+    додатковий client-info запит у тому ж короткому polling-прогоні.
     """
     conn = account.integration
     if conn is None or not conn.has_token or not account.external_account_id:
@@ -393,14 +395,15 @@ def sync_account(account: Account, *, user, apply_rules=True, full=False,
         budget -= 1
     meta[cur_key] = until_dt.isoformat()
 
-    # Баланс беремо з кешованого/свіжого client-info (без зайвого запиту).
-    try:
-        for a in client.accounts():
-            if a.id == account.external_account_id:
-                _reconcile_balance(account, a.balance)
-                break
-    except mono_api.MonoApiError:
-        pass
+    if reconcile_balance:
+        # Баланс беремо з кешованого/свіжого client-info (без зайвого запиту).
+        try:
+            for a in client.accounts():
+                if a.id == account.external_account_id:
+                    _reconcile_balance(account, a.balance)
+                    break
+        except mono_api.MonoApiError:
+            pass
 
     conn.meta = meta
     update_fields = ['meta']

@@ -12,11 +12,11 @@ from __future__ import annotations
 import datetime as dt
 import json
 
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from ..models import Account, IntegrationConnection, get_default_company
 from ..permissions import finance_access_required
@@ -216,7 +216,7 @@ def mono_connections_api(request):
 # ----------------------------- Вебхук (публічний, секрет у шляху) -----------------------------
 
 @csrf_exempt
-@require_POST
+@require_http_methods(["GET", "POST"])
 def mono_webhook(request, conn_id, secret):
     """Push нової транзакції від Monobank. Автентифікація — секрет у шляху URL."""
     import hmac
@@ -226,6 +226,8 @@ def mono_webhook(request, conn_id, secret):
         return JsonResponse({'ok': False}, status=404)
     if not hmac.compare_digest(secret, conn.webhook_secret):
         return JsonResponse({'ok': False}, status=403)
+    if request.method == 'GET':
+        return HttpResponse(status=200)
     try:
         payload = json.loads(request.body or '{}')
     except (ValueError, TypeError):

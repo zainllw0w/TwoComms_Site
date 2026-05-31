@@ -5,9 +5,11 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from io import StringIO
 from unittest import mock
 
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.test import TestCase, Client
 
 from finance.models import Account, IntegrationConnection, Transaction, get_default_company
@@ -218,6 +220,13 @@ class MonoWebhookSecurityTests(TestCase):
                                     HTTP_HOST=self.FIN_HOST)
         self.assertEqual(resp.status_code, 403)
 
+    def test_webhook_validation_get_accepts_good_secret(self):
+        from django.test import override_settings
+        url = f'/hooks/mono/{self.conn.id}/goodsecret/'
+        with override_settings(ALLOWED_HOSTS=['fin.twocomms.shop', 'testserver']):
+            resp = self.client.get(url, HTTP_HOST=self.FIN_HOST)
+        self.assertEqual(resp.status_code, 200)
+
     def test_webhook_accepts_good_secret(self):
         from django.test import override_settings
         url = f'/hooks/mono/{self.conn.id}/goodsecret/'
@@ -225,6 +234,41 @@ class MonoWebhookSecurityTests(TestCase):
             resp = self.client.post(url, data='{"data":{}}', content_type='application/json',
                                     HTTP_HOST=self.FIN_HOST)
         self.assertEqual(resp.status_code, 200)
+
+
+class MonoCronCommandTests(TestCase):
+    def setUp(self):
+        self.company = get_default_company()
+        self.conn = IntegrationConnection.objects.create(
+            company=self.company, provider='monobank', status='success',
+            connection_method='token')
+        self.conn.set_token('TESTTOKEN1234567890')
+        self.conn.save()
+        self.acc_1 = Account.objects.create(
+            company=self.company, name='mono one', currency='UAH',
+            integration=self.conn, external_account_id='acc-1',
+            external_kind='card', is_business=False)
+        self.acc_2 = Account.objects.create(
+            company=self.company, name='mono two', currency='UAH',
+            integration=self.conn, external_account_id='acc-2',
+            external_kind='card', is_business=False)
+
+    def test_default_cron_sync_rotates_one_account_without_client_info(self):
+        out = StringIO()
+        with mock.patch.object(mono_api.MonoClient, 'client_info',
+                               side_effect=AssertionError('client-info should not be called')), \
+             mock.patch.object(mono_api.MonoClient, 'accounts',
+                               side_effect=AssertionError('accounts should not be called')), \
+             mock.patch.object(mono_api.MonoClient, 'statement', return_value=[]) as m_stmt:
+            call_command('finance_mono_sync', stdout=out)
+            self.assertEqual(m_stmt.call_count, 1)
+            self.assertEqual(m_stmt.call_args.args[0], 'acc-1')
+            self.conn.refresh_from_db()
+            self.assertEqual(self.conn.meta.get('mono_sync_next_account_index'), 1)
+
+            call_command('finance_mono_sync', stdout=out)
+            self.assertEqual(m_stmt.call_count, 2)
+            self.assertEqual(m_stmt.call_args.args[0], 'acc-2')
 
 
 class BusinessScopeAndMccFilterTests(TestCase):
@@ -270,4 +314,3 @@ class BusinessScopeAndMccFilterTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.t_biz.refresh_from_db()
         self.assertFalse(self.t_biz.is_business)
-
