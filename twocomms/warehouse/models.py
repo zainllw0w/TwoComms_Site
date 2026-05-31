@@ -624,3 +624,86 @@ class WarehouseSettings(models.Model):
         if not self.evening_reminder_chat_ids:
             return []
         return [c.strip() for c in self.evening_reminder_chat_ids.split(",") if c.strip()]
+
+
+
+# ---------------------------------------------------------------------------
+# Consumable Items (розхідні матеріали)
+# ---------------------------------------------------------------------------
+
+
+class ConsumableItem(models.Model):
+    """Розхідний матеріал (пакети, фарба, клей, плівка тощо)."""
+
+    CATEGORY_CHOICES = [
+        ("ink", "Фарба для принтера"),
+        ("glue", "Клей"),
+        ("film", "Плівка (рулони)"),
+        ("tags", "Брендовані бірки"),
+        ("patches", "Шеврони"),
+        ("bags_small", "Пакети малі"),
+        ("bags_medium", "Пакети середні"),
+        ("bags_large", "Пакети великі"),
+        ("bags_branded", "Брендовані пакети"),
+        ("cleaner", "Очисна рідина"),
+        ("other", "Інше"),
+    ]
+
+    category = models.CharField(max_length=32, choices=CATEGORY_CHOICES, verbose_name="Категорія")
+    name = models.CharField(max_length=255, verbose_name="Назва")
+    quantity = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal("0.00"), verbose_name="Залишок"
+    )
+    unit = models.CharField(max_length=16, default="шт", verbose_name="Одиниця виміру")
+    cost_per_unit = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal("0.00"), verbose_name="Ціна за одиницю"
+    )
+    total_cost = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal("0.00"), verbose_name="Загальна вартість"
+    )
+    supplier = models.ForeignKey(
+        "finance.Counterparty",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="consumable_supplies",
+        verbose_name="Постачальник",
+    )
+    purchase_date = models.DateField(verbose_name="Дата закупівлі")
+    min_stock_alert = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="Мінімальний залишок для сповіщення",
+    )
+    notes = models.TextField(blank=True, default="", verbose_name="Примітки")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["category", "name"]
+        indexes = [
+            models.Index(fields=["category"], name="warehouse_co_categor_idx"),
+            models.Index(fields=["quantity"], name="warehouse_co_quantit_idx"),
+        ]
+        verbose_name = "Розхідний матеріал"
+        verbose_name_plural = "Розхідні матеріали"
+
+    def __str__(self) -> str:
+        return f"{self.get_category_display()}: {self.name} ({self.quantity} {self.unit})"
+
+    @property
+    def frozen_value(self) -> Decimal:
+        """Загальна вартість залишку."""
+        return self.quantity * self.cost_per_unit
+
+    @property
+    def is_low_stock(self) -> bool:
+        """Чи залишок нижче мінімального."""
+        return self.quantity <= self.min_stock_alert
+
+    def save(self, *args, **kwargs):
+        # Автоматично рахуємо total_cost
+        self.total_cost = self.quantity * self.cost_per_unit
+        super().save(*args, **kwargs)
+
