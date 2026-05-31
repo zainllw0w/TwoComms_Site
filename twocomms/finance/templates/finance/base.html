@@ -24,9 +24,9 @@
     <!-- ===== Верхня темна шапка ===== -->
     <header class="fin-header">
         <div class="fin-header__left">
-            <div class="fin-brand-mark">
+            <a href="{% url 'finance_home' %}" class="fin-brand-mark" title="На головну">
                 <img src="{% static 'img/logo.svg' %}" alt="TwoComms">
-            </div>
+            </a>
             <button type="button" class="fin-company" id="fin-company-switch" title="Змінити компанію">
                 <span class="fin-company__name">{{ fin_company_name|default:"TwoComms" }}</span>
                 <span class="fin-company__hint">Змінити компанію</span>

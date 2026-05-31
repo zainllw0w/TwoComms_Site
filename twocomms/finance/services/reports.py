@@ -366,8 +366,9 @@ def balance_forecast_report(company, months: int = 6):
     - Прогнозований баланс на кінець кожного місяця
     - Попередження якщо баланс може стати негативним
     """
-    from . import balances as balance_service
     import calendar
+    from django.utils import timezone
+    from . import balances as balance_service
 
     today = timezone.localdate()
     current_balance = balance_service.total_actual_balance(company)
