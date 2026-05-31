@@ -65,6 +65,7 @@ from .payments import (  # noqa: F401
     transactions_bulk_api,
     dropdowns_api,
     quick_create_entity_api,
+    planned_totals_api,
 )
 from .accounts import (  # noqa: F401
     accounts,

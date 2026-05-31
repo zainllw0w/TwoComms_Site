@@ -194,10 +194,46 @@ function showToast(message, type = 'info') {
     }, 3000);
 }
 
+// Перемикач періоду планових платежів у сайдбарі
+function initPlannedPeriodSwitcher() {
+    const sel = document.getElementById('fin-planned-period');
+    if (!sel) return;
+
+    // Відновлюємо збережений період
+    const saved = localStorage.getItem('fin-planned-period');
+    if (saved) {
+        sel.value = saved;
+        if (sel.value === saved) loadPlanned(saved);
+    }
+
+    sel.addEventListener('change', () => {
+        localStorage.setItem('fin-planned-period', sel.value);
+        loadPlanned(sel.value);
+    });
+}
+
+function loadPlanned(period) {
+    fetch('/api/planned-totals/?period=' + encodeURIComponent(period))
+        .then(r => r.json())
+        .then(res => {
+            if (!res.ok) return;
+            const inc = document.getElementById('fin-planned-income');
+            const exp = document.getElementById('fin-planned-expense');
+            const fc = document.getElementById('fin-forecast-value');
+            if (inc) inc.textContent = res.income;
+            if (exp) exp.textContent = res.expense;
+            if (fc) fc.textContent = res.forecast;
+        })
+        .catch(() => { /* мовчазно */ });
+}
+
 // Ініціалізація при завантаженні сторінки
 document.addEventListener('DOMContentLoaded', () => {
     // Запускаємо CountUp анімацію
     initCountUp();
+
+    // Перемикач періоду планових платежів
+    initPlannedPeriodSwitcher();
 
     // Ініціалізуємо lazy-loading для графіків
     initLazyCharts();

@@ -344,6 +344,23 @@ class ConsignmentIntegrationTestCase(TestCase):
     def test_resellers_debt_total(self):
         self.assertEqual(svc.resellers_debt_total(self.company), Decimal('72000'))
 
+    def test_shipment_payment_monthly_autocomputes_periods(self):
+        """Поставка зі щомісячною виплатою авто-розраховує кількість місяців."""
+        r = svc.create_reseller(user=self.user, name='Авто-розстрочка', terms_kind='onetime',
+                                terms={'due_days': 14})
+        svc.create_shipment(user=self.user, reseller=r, date=timezone.localdate(),
+                            debt_amount=Decimal('72000'), payment_monthly=Decimal('12000'))
+        r.refresh_from_db()
+        self.assertEqual(r.terms_kind, 'installment')
+        self.assertEqual(r.terms['amount'], '12000')
+        self.assertEqual(r.terms['periods'], 6)  # ceil(72000/12000)
+
+    def test_compute_periods(self):
+        self.assertEqual(svc.compute_periods(Decimal('72000'), Decimal('12000')), 6)
+        self.assertEqual(svc.compute_periods(Decimal('70000'), Decimal('12000')), 6)  # ceil
+        self.assertEqual(svc.compute_periods(Decimal('0'), Decimal('12000')), 0)
+        self.assertEqual(svc.compute_periods(Decimal('1000'), Decimal('0')), 0)
+
     def test_list_page_200(self):
         c = Client(HTTP_HOST='fin.twocomms.shop')
         c.force_login(self.user)

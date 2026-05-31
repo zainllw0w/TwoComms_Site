@@ -76,6 +76,14 @@ def _add_period(date: dt.date, period: str, every: int) -> dt.date:
     return dt.date(year, month, day)
 
 
+def compute_periods(debt: Decimal, monthly: Decimal) -> int:
+    """Скільки періодів потрібно щоб закрити борг при фіксованій виплаті."""
+    if monthly is None or monthly <= 0:
+        return 0
+    import math
+    return int(math.ceil(float(debt) / float(monthly)))
+
+
 def expected_due_date(reseller: Reseller, from_date: dt.date) -> dt.date:
     """Очікувана дата першого платежу за умовами магазину."""
     terms = reseller.terms or {}
@@ -191,11 +199,13 @@ def delete_reseller(reseller: Reseller, *, user, force: bool = False) -> bool:
 @db_transaction.atomic
 def create_shipment(*, user, reseller, date, number='', debt_amount=Decimal('0'),
                     currency=None, comment='', items=None, attachments=None,
-                    external_source='', external_ref='') -> ConsignmentShipment:
+                    external_source='', external_ref='', payment_monthly=None) -> ConsignmentShipment:
     """Створює поставку + позиції + (за наявності боргу) планову income-транзакцію.
 
     items: список dict з ключами source_kind, stock_item(opt), title, print_name,
     color, size, qty, unit_cost, unit_price, is_consignment, comment, external_ref.
+    payment_monthly: якщо задано — оновлює умови оплати магазину на розстрочку
+    з цією щомісячною сумою та авто-розрахованою кількістю місяців (ceil борг/сума).
     """
     company = reseller.company
     currency = currency or company.base_currency
@@ -216,6 +226,21 @@ def create_shipment(*, user, reseller, date, number='', debt_amount=Decimal('0')
             debt_from_items += item.line_total
 
     debt_total = debt_amount + debt_from_items
+
+    # Якщо вказано щомісячну виплату — налаштовуємо розстрочку з авто-кількістю
+    # місяців (скільки потрібно щоб закрити весь поточний борг магазину).
+    if payment_monthly is not None and Decimal(str(payment_monthly)) > 0:
+        monthly = Decimal(str(payment_monthly))
+        total_debt_after = reseller_debt(reseller) + debt_total
+        periods = compute_periods(total_debt_after, monthly)
+        anchor = (reseller.terms or {}).get('anchor_day', 5)
+        update_reseller(
+            reseller, user=user, terms_kind=Reseller.TERMS_INSTALLMENT,
+            terms={'period': 'month', 'every': 1, 'amount': str(monthly),
+                   'periods': periods, 'anchor_day': anchor},
+        )
+        reseller.refresh_from_db()
+
     if debt_total > 0:
         due = expected_due_date(reseller, date)
         txn = txn_service.create_transaction(

@@ -60,6 +60,7 @@ urlpatterns = [
     # --- API: довідники + операції ---
     path('export/', views.payments_export, name='finance_payments_export'),
     path('api/dropdowns/', views.dropdowns_api, name='finance_dropdowns_api'),
+    path('api/planned-totals/', views.planned_totals_api, name='finance_planned_totals_api'),
     path('api/entity/create/', views.quick_create_entity_api, name='finance_quick_create_entity_api'),
     path('api/transactions/create/', views.transaction_create_api, name='finance_txn_create_api'),
     path('api/transactions/bulk/', views.transactions_bulk_api, name='finance_txn_bulk_api'),

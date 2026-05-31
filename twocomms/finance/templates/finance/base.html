@@ -129,13 +129,13 @@
                     </a>
                 </div>
 
-                <div class="fin-balance-card fin-balance-card--consignment fin-balance-card--clickable" title="Собівартість товару, переданого магазинам під реалізацію">
+                <div class="fin-balance-card fin-balance-card--consignment fin-balance-card--clickable" title="Товар під реалізацію (собівартість) + борг магазинів — усі гроші у контрагентів">
                     <a href="{% url 'finance_consignment' %}" class="fin-balance-card__link">
-                        <div class="fin-balance-card__label">Заморожено під реалізацію</div>
+                        <div class="fin-balance-card__label">Заморожено в контрагентах</div>
                         <div class="fin-balance-card__value">
-                            {% if fin_frozen_consignment is not None %}{{ fin_frozen_consignment }}{% else %}—{% endif %}
+                            {% if fin_counterparties_total is not None %}{{ fin_counterparties_total }}{% else %}—{% endif %}
                         </div>
-                        <div class="fin-balance-card__hint">товар у магазинах · деталі →</div>
+                        <div class="fin-balance-card__hint">товар {{ fin_counterparties_frozen }} + борг {{ fin_counterparties_debt }} →</div>
                     </a>
                 </div>
 
@@ -161,25 +161,31 @@
                     </div>
                 </div>
 
-                <a class="fin-planned" href="{% url 'finance_home' %}?statuses=planned" title="Показати планові платежі">
+                <div class="fin-planned" id="fin-planned-block">
                     <div class="fin-planned__head">
                         <span>Планові платежі</span>
-                        <span class="fin-planned__period">{{ fin_planned_period_label|default:"30 дн" }}</span>
+                        <select class="fin-planned__select" id="fin-planned-period" title="Період прогнозу">
+                            <option value="week">7 дн</option>
+                            <option value="month" selected>30 дн</option>
+                            <option value="quarter">90 дн</option>
+                            <option value="year">рік</option>
+                            <option value="all">весь час</option>
+                        </select>
                     </div>
                     <div class="fin-planned__row">
                         <span>Планові доходи</span>
-                        <strong class="is-pos">{% if fin_planned_income is not None %}{{ fin_planned_income }}{% else %}—{% endif %}</strong>
+                        <strong class="is-pos" id="fin-planned-income">{% if fin_planned_income is not None %}{{ fin_planned_income }}{% else %}—{% endif %}</strong>
                     </div>
                     <div class="fin-planned__row">
                         <span>Планові витрати</span>
-                        <strong class="is-neg">{% if fin_planned_expense is not None %}{{ fin_planned_expense }}{% else %}—{% endif %}</strong>
+                        <strong class="is-neg" id="fin-planned-expense">{% if fin_planned_expense is not None %}{{ fin_planned_expense }}{% else %}—{% endif %}</strong>
                     </div>
-                    <div class="fin-planned__cta">Переглянути планові →</div>
-                </a>
+                    <a class="fin-planned__cta" href="{% url 'finance_home' %}?statuses=planned">Переглянути планові →</a>
+                </div>
 
                 <div class="fin-balance-card fin-balance-card--forecast">
                     <div class="fin-balance-card__label">Всього з урах. майбутніх платежів</div>
-                    <div class="fin-balance-card__value">
+                    <div class="fin-balance-card__value" id="fin-forecast-value">
                         {% if fin_forecast_balance is not None %}{{ fin_forecast_balance }}{% else %}—{% endif %}
                     </div>
                 </div>

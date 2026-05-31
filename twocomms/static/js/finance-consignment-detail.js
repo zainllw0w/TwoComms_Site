@@ -53,6 +53,33 @@
     const addItemBtn = document.getElementById('cons-add-item-row');
     if (addItemBtn) addItemBtn.addEventListener('click', addItemRow);
 
+    // Авто-розрахунок кількості місяців за щомісячною виплатою.
+    function recalcMonths() {
+        const debtField = parseFloat(document.getElementById('cons-ship-debt').value) || 0;
+        let itemsDebt = 0;
+        document.querySelectorAll('.fin-cons-item-row').forEach(row => {
+            const isCons = row.querySelector('.ci-consignment').checked;
+            if (isCons) return; // консигнація не борг
+            const qty = parseInt(row.querySelector('.ci-qty').value, 10) || 0;
+            const cost = parseFloat(row.querySelector('.ci-cost').value) || 0;
+            itemsDebt += qty * cost;
+        });
+        const total = debtField + itemsDebt;
+        const monthly = parseFloat(document.getElementById('cons-ship-monthly').value) || 0;
+        const hint = document.getElementById('cons-ship-months-hint');
+        if (monthly > 0 && total > 0) {
+            const months = Math.ceil(total / monthly);
+            hint.textContent = months + ' міс. (борг ' + total.toLocaleString('uk') + ' ₴)';
+        } else {
+            hint.textContent = total > 0 ? ('борг ' + total.toLocaleString('uk') + ' ₴') : '—';
+        }
+    }
+    const monthlyEl = document.getElementById('cons-ship-monthly');
+    const debtEl = document.getElementById('cons-ship-debt');
+    if (monthlyEl) monthlyEl.addEventListener('input', recalcMonths);
+    if (debtEl) debtEl.addEventListener('input', recalcMonths);
+    if (itemsRows) itemsRows.addEventListener('input', recalcMonths);
+
     const shipForm = document.getElementById('cons-shipment-form');
     if (shipForm) {
         shipForm.addEventListener('submit', function (e) {
@@ -77,6 +104,7 @@
             fd.append('date', document.getElementById('cons-ship-date').value);
             fd.append('number', document.getElementById('cons-ship-number').value);
             fd.append('debt_amount', document.getElementById('cons-ship-debt').value || 0);
+            fd.append('payment_monthly', document.getElementById('cons-ship-monthly').value || '');
             fd.append('comment', document.getElementById('cons-ship-comment').value);
             fd.append('items', JSON.stringify(items));
             const files = document.getElementById('cons-ship-files').files;

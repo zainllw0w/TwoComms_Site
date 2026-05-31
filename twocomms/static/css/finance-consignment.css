@@ -90,3 +90,24 @@
     .fin-cons-item-row .fin-input { max-width: none !important; }
     .fin-modal-overlay { padding: 16px 10px; }
 }
+
+/* Перемикач періоду планових платежів у сайдбарі */
+.fin-planned__select {
+    background: var(--fin-bg-800, #131824);
+    border: 1px solid var(--fin-border, rgba(255,255,255,0.12));
+    border-radius: 8px;
+    color: var(--fin-accent, #f3a43d);
+    font-size: 12px;
+    padding: 2px 6px;
+    cursor: pointer;
+}
+.fin-planned__select:focus { outline: none; border-color: var(--fin-accent, #f3a43d); }
+.fin-planned__cta {
+    display: block;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--fin-accent, #f3a43d);
+    text-decoration: none;
+}
+.fin-planned__cta:hover { text-decoration: underline; }
+.fin-balance-card--consignment .fin-balance-card__value { color: var(--fin-info, #6f95ff); }

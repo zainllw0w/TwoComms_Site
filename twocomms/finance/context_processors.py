@@ -51,7 +51,11 @@ def finance_shell_context(request):
         forecast = (total + planned['income'] + planned['expense'])
         accounts = balance_service.account_sidebar_data(company)
         frozen = warehouse_link.frozen_in_warehouse()
+        # «Заморожено в контрагентах» = собівартість товару під реалізацію + борг
+        # магазинів (усі гроші, що «висять» у контрагентів).
         frozen_consignment = consignment_service.consignment_frozen_total(company)
+        resellers_debt = consignment_service.resellers_debt_total(company)
+        counterparties_total = frozen_consignment + resellers_debt
 
         return {
             'fin_company_name': company.name,
@@ -61,8 +65,10 @@ def finance_shell_context(request):
             'fin_frozen_warehouse': ser.money(frozen, company.base_currency),
             'fin_frozen_raw': frozen,
             'fin_frozen_warehouse_url': 'https://storage.twocomms.shop/',
-            'fin_frozen_consignment': ser.money(frozen_consignment, company.base_currency),
-            'fin_frozen_consignment_raw': frozen_consignment,
+            'fin_counterparties_total': ser.money(counterparties_total, company.base_currency),
+            'fin_counterparties_total_raw': counterparties_total,
+            'fin_counterparties_frozen': ser.money(frozen_consignment, company.base_currency),
+            'fin_counterparties_debt': ser.money(resellers_debt, company.base_currency),
             'fin_planned_income': ser.money(planned['income'], company.base_currency, signed=True),
             'fin_planned_expense': ser.money(planned['expense'], company.base_currency, signed=True),
             'fin_forecast_balance': ser.money(forecast, company.base_currency),

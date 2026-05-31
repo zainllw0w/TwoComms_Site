@@ -357,3 +357,42 @@ def quick_create_entity_api(request):
         return JsonResponse({'ok': False, 'error': 'Невідомий тип'}, status=400)
 
     return JsonResponse({'ok': True, 'id': obj.id, 'name': obj.name})
+
+
+# Горизонти прогнозу для перемикача планових платежів у сайдбарі.
+_PLANNED_HORIZONS = {
+    'week': (7, '7 дн'),
+    'month': (30, '30 дн'),
+    'quarter': (90, '90 дн'),
+    'year': (365, 'рік'),
+    'all': (3650, 'весь час'),
+}
+
+
+@finance_access_required(api=True)
+@require_GET
+def planned_totals_api(request):
+    """Планові доходи/витрати + прогноз балансу за обраний горизонт (сайдбар).
+
+    Включає прострочені (ще не проведені) планові платежі (date_from=None).
+    """
+    from ..services import balances as balance_service
+
+    company = get_default_company()
+    period = request.GET.get('period', 'month')
+    days, label = _PLANNED_HORIZONS.get(period, _PLANNED_HORIZONS['month'])
+
+    today = timezone.localdate()
+    horizon = today + timezone.timedelta(days=days)
+    total = balance_service.total_actual_balance(company)
+    planned = balance_service.planned_totals(company, None, horizon)
+    forecast = total + planned['income'] + planned['expense']
+
+    return JsonResponse({
+        'ok': True,
+        'period': period,
+        'label': label,
+        'income': ser.money(planned['income'], company.base_currency, signed=True),
+        'expense': ser.money(planned['expense'], company.base_currency, signed=True),
+        'forecast': ser.money(forecast, company.base_currency),
+    })

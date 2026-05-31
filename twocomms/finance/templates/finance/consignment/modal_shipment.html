@@ -22,6 +22,21 @@
                 <input type="number" step="0.01" name="debt_amount" id="cons-ship-debt" class="fin-input" value="0">
             </label>
 
+            <div class="fin-field-row">
+                <label class="fin-field">
+                    <span>Щомісячна виплата (₴) — необов'язково</span>
+                    <input type="number" step="0.01" name="payment_monthly" id="cons-ship-monthly" class="fin-input" placeholder="напр. 12000">
+                </label>
+                <div class="fin-field">
+                    <span>Розрахунок</span>
+                    <div class="fin-input fin-input--readonly" id="cons-ship-months-hint" style="display:flex;align-items:center;color:var(--fin-text-2)">—</div>
+                </div>
+            </div>
+            <p class="fin-muted-cell" style="font-size:12px;margin:-6px 0 0">
+                Якщо вказати щомісячну виплату — система автоматично визначить за скільки місяців
+                магазин закриє борг і складе графік у планових доходах.
+            </p>
+
             <div class="fin-cons-items">
                 <div class="fin-cons-items__head">
                     <span>Позиції товару</span>

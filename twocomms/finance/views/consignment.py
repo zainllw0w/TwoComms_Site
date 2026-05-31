@@ -294,6 +294,7 @@ def consignment_shipment_create_api(request, reseller_id):
             items=items, attachments=attachments,
             external_source=data.get('external_source', ''),
             external_ref=data.get('external_ref', ''),
+            payment_monthly=_dec(data.get('payment_monthly')) if data.get('payment_monthly') else None,
         )
     except ValueError as e:
         return JsonResponse({'ok': False, 'error': str(e)}, status=400)
