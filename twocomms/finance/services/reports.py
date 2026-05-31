@@ -197,5 +197,84 @@ def projects_report(company, params):
             'margin': float(profit / income * 100) if income else 0.0,
             'share': float(income / total_income * 100) if total_income else 0.0,
         })
+
+
+# ----------------------------- Owner's Drawings -----------------------------
+
+def owner_drawings_report(company, params):
+    """Звіт по виводах власника (Owner's Drawings) — розподіл прибутку.
+
+    Owner's Drawings — це перекази між власними рахунками (ФОП → особиста картка),
+    які не є витратою бізнесу, а розподілом прибутку. Виключаються з P&L.
+    """
+    start, end = resolve_period(params)
+
+    # Знаходимо системну категорію "Вивід на особисте"
+    owner_cat = company.categories.filter(
+        is_system=True, name='Вивід на особисте'
+    ).first()
+
+    # Всі перекази з цією категорією
+    qs = (_actual(company).filter(
+            type=Transaction.TYPE_TRANSFER,
+            date_actual__gte=day_start(start),
+            date_actual__lte=day_end(end))
+          .select_related('account', 'to_account'))
+
+    if owner_cat:
+        qs = qs.filter(category=owner_cat)
+
+    # Також включаємо перекази без категорії, але з is_business=False
+    # (старі перекази до створення категорії)
+    qs_legacy = (_actual(company).filter(
+            type=Transaction.TYPE_TRANSFER,
+            is_business=False,
+            category__isnull=True,
+            date_actual__gte=day_start(start),
+            date_actual__lte=day_end(end))
+          .select_related('account', 'to_account'))
+
+    # Об'єднуємо
+    all_transfers = list(qs) + list(qs_legacy)
+
+    # Рахуємо загальну суму виведень
+    total_withdrawn = sum((t.amount for t in all_transfers), Decimal('0'))
+
+    # Групуємо по місяцях для тренду
+    by_month = {}
+    for t in all_transfers:
+        month_key = t.date_actual.strftime('%Y-%m')
+        if month_key not in by_month:
+            by_month[month_key] = Decimal('0')
+        by_month[month_key] += t.amount
+
+    # Рахуємо бізнес-прибуток за той самий період для порівняння
+    business_qs = (_actual(company).filter(
+            is_business=True,
+            date_actual__gte=day_start(start),
+            date_actual__lte=day_end(end))
+          .exclude(type=Transaction.TYPE_TRANSFER))
+
+    business_income = business_qs.filter(
+        type=Transaction.TYPE_INCOME
+    ).aggregate(s=Sum('amount_base'))['s'] or Decimal('0')
+
+    business_expense = business_qs.filter(
+        type=Transaction.TYPE_EXPENSE
+    ).aggregate(s=Sum('amount_base'))['s'] or Decimal('0')
+
+    business_profit = business_income - business_expense
+
+    # Відсоток виведення від прибутку
+    withdrawal_percent = float(total_withdrawn / business_profit * 100) if business_profit > 0 else 0.0
+
+    return {
+        'total_withdrawn': total_withdrawn,
+        'business_profit': business_profit,
+        'withdrawal_percent': withdrawal_percent,
+        'transfers': all_transfers,
+        'by_month': sorted(by_month.items()),
+        'period': (start.isoformat(), end.isoformat()),
+    }
     rows.sort(key=lambda r: r['income'], reverse=True)
     return {'rows': rows, 'total_income': total_income, 'period': (start.isoformat(), end.isoformat())}

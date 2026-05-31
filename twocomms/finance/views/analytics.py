@@ -19,6 +19,7 @@ from ..services import serializers as ser
 REPORT_CARDS = [
     {'kind': 'cashflow', 'title': 'Гроші / Cash flow', 'desc': 'Рух грошових коштів'},
     {'kind': 'pnl', 'title': 'P&L', 'desc': 'Прибутки та збитки'},
+    {'kind': 'owner_drawings', 'title': 'Вивід на особисте', 'desc': 'Розподіл прибутку власником'},
     {'kind': 'receivables', 'title': 'Дебіторка', 'desc': 'Хто винен компанії'},
     {'kind': 'payables', 'title': 'Кредиторка', 'desc': 'Кому винна компанія'},
     {'kind': 'statement', 'title': 'Виписка за рахунком', 'desc': 'Рух по рахунку'},
@@ -122,6 +123,33 @@ def report(request, kind):
             }),
         })
         return render(request, 'finance/reports/pnl.html', ctx)
+
+    if kind == 'owner_drawings':
+        data = rep.owner_drawings_report(company, request.GET)
+        insights = []
+        if data['total_withdrawn'] > 0:
+            insights.append(f"За період виведено {_m(company, data['total_withdrawn'])} на особисті потреби.")
+            if data['business_profit'] > 0:
+                insights.append(f"Бізнес-прибуток за період: {_m(company, data['business_profit'])}.")
+                insights.append(f"Виведено {data['withdrawal_percent']:.1f}% від прибутку — {'помірний' if data['withdrawal_percent'] < 50 else 'високий'} рівень.")
+            else:
+                insights.append(f"Увага: виведення при збитковості бізнесу ({_m(company, data['business_profit'], signed=True)}).")
+        else:
+            insights.append("За період не було виведень на особисті потреби.")
+
+        ctx.update({
+            'title': 'Вивід на особисте',
+            'data': data,
+            'total_withdrawn': _m(company, data['total_withdrawn']),
+            'business_profit': _m(company, data['business_profit'], signed=True),
+            'withdrawal_percent': round(data['withdrawal_percent'], 1),
+            'insights': insights,
+            'transfers': [ser.serialize_transaction(t) for t in data['transfers']],
+            'chart_data': json.dumps({
+                'by_month': [{'month': m, 'amount': float(a)} for m, a in data['by_month']],
+            }),
+        })
+        return render(request, 'finance/reports/owner_drawings.html', ctx)
 
     if kind == 'receivables':
         data = repd.receivables(company)
