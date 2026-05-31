@@ -1,0 +1,114 @@
+{% extends 'finance/base.html' %}
+{% load static %}
+
+{% block title %}Магазини під реалізацію — TwoComms Finance{% endblock %}
+
+{% block content %}
+{{ dropdowns|json_script:"fin-dropdowns" }}
+
+<div class="fin-page-head">
+    <div>
+        <h1 class="fin-page-title">Магазини під реалізацію</h1>
+        <p class="fin-page-subtitle">Магазини, яким передано товар під реалізацію або в борг з виплатами.</p>
+    </div>
+    <div class="fin-page-actions">
+        <button type="button" class="fin-btn fin-btn--primary" id="cons-add-btn">+ Магазин</button>
+    </div>
+</div>
+
+<!-- KPI -->
+<div class="fin-kpi-row">
+    <div class="fin-kpi fin-kpi--neutral">
+        <div class="fin-kpi__label">Магазинів</div>
+        <div class="fin-kpi__value">{{ total_count }}</div>
+        <div class="fin-kpi__hint">Усього в роботі</div>
+    </div>
+    <div class="fin-kpi fin-kpi--neg">
+        <div class="fin-kpi__label">Загальний борг</div>
+        <div class="fin-kpi__value">{{ total_debt }}</div>
+        <div class="fin-kpi__hint">Очікувані надходження</div>
+    </div>
+    <div class="fin-kpi fin-kpi--info">
+        <div class="fin-kpi__label">Заморожено під реалізацію</div>
+        <div class="fin-kpi__value">{{ total_frozen }}</div>
+        <div class="fin-kpi__hint">Собівартість товару в магазинах</div>
+    </div>
+    <div class="fin-kpi fin-kpi--neutral">
+        <div class="fin-kpi__label">Найближча виплата</div>
+        <div class="fin-kpi__value" style="font-size:18px">{{ soonest_payment|default:"—" }}</div>
+        <div class="fin-kpi__hint">За графіками магазинів</div>
+    </div>
+</div>
+
+<!-- Фільтри -->
+<form class="fin-filters" method="get">
+    <div class="fin-filters__row">
+        <label class="fin-period">
+            <select name="status" class="fin-select" onchange="this.form.submit()">
+                <option value="">Усі статуси</option>
+                {% for val, label in statuses %}
+                <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label class="fin-search">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 10-.7.7l.27.28v.79l5 5 1.5-1.5-5-5zm-6 0A4.5 4.5 0 1114 9.5 4.49 4.49 0 019.5 14z"/></svg>
+            <input type="search" name="q" class="fin-input" placeholder="Пошук по назві магазину" value="{{ q }}">
+        </label>
+        <button type="submit" class="fin-btn fin-btn--primary fin-btn--sm">Застосувати</button>
+        {% if status_filter or q %}
+        <a href="{% url 'finance_consignment' %}" class="fin-btn fin-btn--ghost fin-btn--sm">Скинути</a>
+        {% endif %}
+    </div>
+</form>
+
+<!-- Список магазинів -->
+<div class="fin-accounts-manage">
+    {% for r in rows %}
+    <a href="{% url 'finance_consignment_detail' r.id %}" class="fin-acc-card fin-cons-card" data-reseller-id="{{ r.id }}">
+        <div class="fin-acc-card__main">
+            <div class="fin-acc-card__name">
+                {{ r.name }}
+                {% if r.status == 'paused' %}<span class="fin-badge">пауза</span>{% endif %}
+                {% if r.status == 'closed' %}<span class="fin-badge">закрито</span>{% endif %}
+                {% if r.overdue_days > 0 %}<span class="fin-badge fin-badge--overdue">прострочка {{ r.overdue_days }} дн</span>{% endif %}
+            </div>
+            <div class="fin-acc-card__meta">
+                {% if r.counterparty %}{{ r.counterparty }} · {% endif %}{{ r.terms_display }}
+                {% if r.next_payment %} · виплата {{ r.next_payment }}{% endif %}
+            </div>
+        </div>
+        <div class="fin-cons-card__sums">
+            <div class="fin-cons-card__debt" title="Борг">{{ r.debt }}</div>
+            <div class="fin-cons-card__frozen" title="Заморожено під реалізацію">❄ {{ r.frozen }}</div>
+        </div>
+    </a>
+    {% empty %}
+    <div class="fin-empty-state">
+        <h2>Ще немає магазинів</h2>
+        <p>Додайте перший магазин, якому передаєте товар під реалізацію.</p>
+        <button type="button" class="fin-btn fin-btn--primary" id="cons-add-empty-btn">+ Додати магазин</button>
+    </div>
+    {% endfor %}
+</div>
+
+<style>
+.fin-cons-card__sums { text-align: right; white-space: nowrap; }
+.fin-cons-card__debt { font-weight: 700; color: var(--fin-neg); font-variant-numeric: tabular-nums; }
+.fin-cons-card__frozen { font-size: 12px; color: var(--fin-info); margin-top: 2px; }
+.fin-badge--overdue { background: rgba(251,113,133,0.16); color: #ffd7dd; }
+.fin-cons-card { text-decoration: none; color: inherit; cursor: pointer; }
+.fin-cons-card:hover { border-color: rgba(255,126,41,0.32); }
+@media (max-width: 640px) {
+    .fin-cons-card__sums { text-align: left; margin-top: 6px; }
+}
+</style>
+{% endblock %}
+
+{% block modals %}
+{% include 'finance/consignment/modal_reseller.html' %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/finance-consignment.js' %}?v=1"></script>
+{% endblock %}

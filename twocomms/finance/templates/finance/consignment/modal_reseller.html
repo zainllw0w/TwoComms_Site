@@ -1,0 +1,102 @@
+{# Модалка створення/редагування магазину-реалізатора #}
+<div class="fin-modal-overlay" id="cons-reseller-modal" hidden>
+    <div class="fin-modal-card">
+        <div class="fin-modal-head">
+            <h3 id="cons-reseller-modal-title">Новий магазин</h3>
+            <button type="button" class="fin-modal-close" data-cons-close>×</button>
+        </div>
+        <form id="cons-reseller-form" class="fin-modal-body">
+            <input type="hidden" name="reseller_id" id="cons-reseller-id">
+
+            <label class="fin-field">
+                <span>Назва магазину *</span>
+                <input type="text" name="name" id="cons-reseller-name" class="fin-input" required>
+            </label>
+
+            <label class="fin-field">
+                <span>Контрагент</span>
+                <select name="counterparty_id" id="cons-reseller-cp" class="fin-select">
+                    <option value="">— не вказано —</option>
+                </select>
+            </label>
+
+            <label class="fin-field">
+                <span>Статус</span>
+                <select name="status" id="cons-reseller-status" class="fin-select">
+                    <option value="active">Активний</option>
+                    <option value="paused">Призупинено</option>
+                    <option value="closed">Закрито</option>
+                </select>
+            </label>
+
+            <label class="fin-field">
+                <span>Умови оплати</span>
+                <select name="terms_kind" id="cons-terms-kind" class="fin-select">
+                    <option value="installment">Розстрочка (період × сума)</option>
+                    <option value="onetime">Одноразово (через N днів)</option>
+                    <option value="periodic">Безстроково періодично</option>
+                </select>
+            </label>
+
+            <!-- Параметри: onetime -->
+            <div class="fin-terms-group" data-terms="onetime" hidden>
+                <label class="fin-field">
+                    <span>Віддати протягом (днів)</span>
+                    <input type="number" name="due_days" id="cons-due-days" class="fin-input" value="14" min="1">
+                </label>
+            </div>
+
+            <!-- Параметри: installment / periodic -->
+            <div class="fin-terms-group" data-terms="installment periodic" hidden>
+                <div class="fin-field-row">
+                    <label class="fin-field">
+                        <span>Період</span>
+                        <select name="period" id="cons-period" class="fin-select">
+                            <option value="month">Раз на місяць</option>
+                            <option value="week">Раз на тиждень</option>
+                        </select>
+                    </label>
+                    <label class="fin-field">
+                        <span>Кожні N періодів</span>
+                        <input type="number" name="every" id="cons-every" class="fin-input" value="1" min="1">
+                    </label>
+                </div>
+                <div class="fin-field-row">
+                    <label class="fin-field" data-terms-only="installment">
+                        <span>Сума за період (₴)</span>
+                        <input type="number" step="0.01" name="amount" id="cons-amount" class="fin-input" placeholder="12000">
+                    </label>
+                    <label class="fin-field" data-terms-only="installment">
+                        <span>Кількість періодів</span>
+                        <input type="number" name="periods" id="cons-periods" class="fin-input" placeholder="безстроково">
+                    </label>
+                </div>
+                <label class="fin-field">
+                    <span>День місяця для виплати</span>
+                    <input type="number" name="anchor_day" id="cons-anchor" class="fin-input" value="5" min="1" max="28">
+                </label>
+            </div>
+
+            <div class="fin-field-row">
+                <label class="fin-field">
+                    <span>Телефон</span>
+                    <input type="text" name="phone" id="cons-phone" class="fin-input">
+                </label>
+                <label class="fin-field">
+                    <span>Відповідальний</span>
+                    <input type="text" name="responsible" id="cons-responsible" class="fin-input">
+                </label>
+            </div>
+
+            <label class="fin-field">
+                <span>Нотатки</span>
+                <textarea name="notes" id="cons-notes" class="fin-input" rows="2"></textarea>
+            </label>
+
+            <div class="fin-modal-foot">
+                <button type="button" class="fin-btn fin-btn--ghost" data-cons-close>Скасувати</button>
+                <button type="submit" class="fin-btn fin-btn--primary">Зберегти</button>
+            </div>
+        </form>
+    </div>
+</div>

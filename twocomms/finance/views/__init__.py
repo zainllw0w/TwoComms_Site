@@ -2,6 +2,19 @@
 from .dashboard import (  # noqa: F401
     financial_health,
 )
+from .consignment import (  # noqa: F401
+    consignment_list,
+    consignment_detail,
+    consignment_reseller_create_api,
+    consignment_reseller_update_api,
+    consignment_reseller_delete_api,
+    consignment_shipment_create_api,
+    consignment_shipment_delete_api,
+    consignment_sale_create_api,
+    consignment_payable_txns_api,
+    consignment_payment_api,
+    consignment_stats_api,
+)
 from .users import (  # noqa: F401
     users,
 )

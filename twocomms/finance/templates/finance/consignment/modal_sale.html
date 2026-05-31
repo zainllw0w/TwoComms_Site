@@ -1,0 +1,39 @@
+{# Модалка фіксації продажу товару під реалізацію #}
+<div class="fin-modal-overlay" id="cons-sale-modal" hidden>
+    <div class="fin-modal-card">
+        <div class="fin-modal-head">
+            <h3>Продаж товару</h3>
+            <button type="button" class="fin-modal-close" data-cons-close>×</button>
+        </div>
+        <form id="cons-sale-form" class="fin-modal-body">
+            <input type="hidden" name="item_id" id="cons-sale-item-id">
+            <p class="fin-muted-cell" id="cons-sale-title"></p>
+
+            <div class="fin-field-row">
+                <label class="fin-field">
+                    <span>Кількість *</span>
+                    <input type="number" name="qty" id="cons-sale-qty" class="fin-input" min="1" required>
+                </label>
+                <label class="fin-field">
+                    <span>Ціна за одиницю (₴)</span>
+                    <input type="number" step="0.01" name="unit_price" id="cons-sale-price" class="fin-input">
+                </label>
+            </div>
+
+            <label class="fin-field">
+                <span>Дата</span>
+                <input type="date" name="date" id="cons-sale-date" class="fin-input">
+            </label>
+
+            <label class="fin-check-inline">
+                <input type="checkbox" name="creates_debt" id="cons-sale-debt">
+                Сформувати борг магазину за проданий товар
+            </label>
+
+            <div class="fin-modal-foot">
+                <button type="button" class="fin-btn fin-btn--ghost" data-cons-close>Скасувати</button>
+                <button type="submit" class="fin-btn fin-btn--primary">Зафіксувати продаж</button>
+            </div>
+        </form>
+    </div>
+</div>

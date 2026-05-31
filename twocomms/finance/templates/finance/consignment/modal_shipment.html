@@ -1,0 +1,64 @@
+{# Модалка створення поставки магазину #}
+<div class="fin-modal-overlay" id="cons-shipment-modal" hidden>
+    <div class="fin-modal-card fin-modal-card--wide">
+        <div class="fin-modal-head">
+            <h3>Нова поставка</h3>
+            <button type="button" class="fin-modal-close" data-cons-close>×</button>
+        </div>
+        <form id="cons-shipment-form" class="fin-modal-body" enctype="multipart/form-data">
+            <div class="fin-field-row">
+                <label class="fin-field">
+                    <span>Дата відправки *</span>
+                    <input type="date" name="date" id="cons-ship-date" class="fin-input" required>
+                </label>
+                <label class="fin-field">
+                    <span>Номер накладної</span>
+                    <input type="text" name="number" id="cons-ship-number" class="fin-input">
+                </label>
+            </div>
+
+            <label class="fin-field">
+                <span>Ручна сума боргу (₴) — якщо товарів немає в списку</span>
+                <input type="number" step="0.01" name="debt_amount" id="cons-ship-debt" class="fin-input" value="0">
+            </label>
+
+            <div class="fin-cons-items">
+                <div class="fin-cons-items__head">
+                    <span>Позиції товару</span>
+                    <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" id="cons-add-item-row">+ Позиція</button>
+                </div>
+                <div id="cons-items-rows"></div>
+            </div>
+
+            <label class="fin-field">
+                <span>Файли (накладні, фото) — можна декілька</span>
+                <input type="file" name="files" id="cons-ship-files" class="fin-input" multiple>
+            </label>
+
+            <label class="fin-field">
+                <span>Коментар</span>
+                <textarea name="comment" id="cons-ship-comment" class="fin-input" rows="2"></textarea>
+            </label>
+
+            <div class="fin-modal-foot">
+                <button type="button" class="fin-btn fin-btn--ghost" data-cons-close>Скасувати</button>
+                <button type="submit" class="fin-btn fin-btn--primary">Створити поставку</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<template id="cons-item-row-tpl">
+    <div class="fin-cons-item-row">
+        <input type="text" class="fin-input ci-title" placeholder="Назва (Худі Sphynx)">
+        <input type="text" class="fin-input ci-print" placeholder="Принт">
+        <input type="text" class="fin-input ci-size" placeholder="Розмір" style="max-width:80px">
+        <input type="number" class="fin-input ci-qty" placeholder="К-сть" style="max-width:80px">
+        <input type="number" step="0.01" class="fin-input ci-cost" placeholder="Собів." style="max-width:100px">
+        <input type="number" step="0.01" class="fin-input ci-price" placeholder="Ціна" style="max-width:100px">
+        <label class="fin-cons-item-row__cons" title="Під реалізацію (інакше — в борг)">
+            <input type="checkbox" class="ci-consignment" checked> ❄
+        </label>
+        <button type="button" class="fin-btn fin-btn--danger fin-btn--sm ci-del">✕</button>
+    </div>
+</template>

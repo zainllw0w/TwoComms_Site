@@ -1,0 +1,92 @@
+/* Магазини під реалізацію (consignment) — стилі модалок та елементів. */
+
+/* Модальні вікна (узгоджено з fin-* токенами) */
+.fin-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(4, 6, 10, 0.66);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 16px;
+    z-index: 1000;
+    overflow-y: auto;
+}
+.fin-modal-overlay[hidden] { display: none; }
+
+.fin-modal-card {
+    width: 100%;
+    max-width: 520px;
+    background: var(--fin-panel-strong, #111621);
+    border: 1px solid var(--fin-border, rgba(255, 255, 255, 0.12));
+    border-radius: var(--fin-radius-lg, 18px);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+    animation: consModalIn 0.2s ease-out;
+}
+.fin-modal-card--wide { max-width: 760px; }
+
+@keyframes consModalIn {
+    from { opacity: 0; transform: translateY(-12px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.fin-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--fin-border, rgba(255, 255, 255, 0.08));
+}
+.fin-modal-head h3 { margin: 0; font-size: 18px; font-weight: 700; }
+.fin-modal-close {
+    background: transparent;
+    border: none;
+    color: var(--fin-text-2, #9aa4b8);
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+    transition: color 0.15s ease;
+}
+.fin-modal-close:hover { color: var(--fin-text, #fff); }
+
+.fin-modal-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; }
+
+.fin-modal-foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 8px;
+    padding-top: 14px;
+    border-top: 1px solid var(--fin-border, rgba(255, 255, 255, 0.06));
+}
+
+/* Поля форми */
+.fin-field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.fin-field > span { color: var(--fin-text-2, #9aa4b8); }
+.fin-field-row { display: flex; gap: 12px; }
+.fin-field-row .fin-field { flex: 1; }
+
+.fin-radio-row { display: flex; gap: 18px; flex-wrap: wrap; }
+.fin-radio-row label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.fin-check-inline { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+
+/* Рядки позицій поставки */
+.fin-cons-items { border: 1px solid var(--fin-border, rgba(255,255,255,0.08)); border-radius: 10px; padding: 12px; }
+.fin-cons-items__head {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;
+    font-size: 13px; color: var(--fin-text-2, #9aa4b8);
+}
+.fin-cons-item-row {
+    display: flex; gap: 6px; align-items: center; margin-bottom: 8px; flex-wrap: wrap;
+}
+.fin-cons-item-row .fin-input { flex: 1; min-width: 90px; }
+.fin-cons-item-row__cons { display: flex; align-items: center; gap: 4px; white-space: nowrap; font-size: 13px; }
+
+.fin-pay-group { display: flex; flex-direction: column; gap: 14px; }
+
+@media (max-width: 640px) {
+    .fin-field-row { flex-direction: column; }
+    .fin-cons-item-row { flex-direction: column; align-items: stretch; }
+    .fin-cons-item-row .fin-input { max-width: none !important; }
+    .fin-modal-overlay { padding: 16px 10px; }
+}

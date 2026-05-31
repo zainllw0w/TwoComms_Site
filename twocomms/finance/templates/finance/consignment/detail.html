@@ -1,0 +1,174 @@
+{% extends 'finance/base.html' %}
+{% load static %}
+
+{% block title %}{{ reseller.name }} — Магазини під реалізацію{% endblock %}
+
+{% block content %}
+{{ dropdowns|json_script:"fin-dropdowns" }}
+
+<div class="fin-page-head">
+    <div>
+        <h1 class="fin-page-title">{{ reseller.name }}</h1>
+        <p class="fin-page-subtitle">
+            {% if reseller.counterparty %}{{ reseller.counterparty.name }} · {% endif %}
+            {{ reseller.get_terms_kind_display }} · {{ reseller.get_status_display }}
+        </p>
+    </div>
+    <div class="fin-page-actions">
+        <a href="{% url 'finance_consignment' %}" class="fin-btn fin-btn--ghost fin-btn--sm">← Список</a>
+        <button type="button" class="fin-btn fin-btn--ghost" id="cons-edit-btn">Редагувати</button>
+        <button type="button" class="fin-btn fin-btn--ghost" id="cons-shipment-btn">+ Поставка</button>
+        <button type="button" class="fin-btn fin-btn--primary" id="cons-payment-btn">Погасити</button>
+    </div>
+</div>
+
+<!-- KPI -->
+<div class="fin-kpi-row">
+    <div class="fin-kpi fin-kpi--neg">
+        <div class="fin-kpi__label">Борг</div>
+        <div class="fin-kpi__value">{{ debt }}</div>
+        <div class="fin-kpi__hint">Очікувані надходження</div>
+    </div>
+    <div class="fin-kpi fin-kpi--info">
+        <div class="fin-kpi__label">Заморожено під реалізацію</div>
+        <div class="fin-kpi__value">{{ frozen }}</div>
+        <div class="fin-kpi__hint">{{ frozen_qty }} од. товару</div>
+    </div>
+    <div class="fin-kpi {% if overdue_days > 0 %}fin-kpi--neg{% else %}fin-kpi--neutral{% endif %}">
+        <div class="fin-kpi__label">Прострочка</div>
+        <div class="fin-kpi__value">{{ overdue_days }} дн</div>
+        <div class="fin-kpi__hint">Найбільша затримка</div>
+    </div>
+    <div class="fin-kpi fin-kpi--pos">
+        <div class="fin-kpi__label">Виплачено всього</div>
+        <div class="fin-kpi__value">{{ payments_total }}</div>
+        <div class="fin-kpi__hint">За весь час</div>
+    </div>
+    <div class="fin-kpi fin-kpi--neutral">
+        <div class="fin-kpi__label">Виручка за період</div>
+        <div class="fin-kpi__value">{{ revenue_period }}</div>
+        <div class="fin-kpi__hint">{{ sold_qty_period }} од. продано</div>
+    </div>
+</div>
+
+<!-- Графіки -->
+<div class="fin-chart-grid">
+    <div class="fin-chart-block">
+        <h3 class="fin-chart-title">Виплати по місяцях</h3>
+        <div class="fin-chart-canvas"><canvas id="consPaymentsChart" height="220"></canvas></div>
+    </div>
+    <div class="fin-chart-block">
+        <h3 class="fin-chart-title">Графік очікуваних виплат</h3>
+        <div class="fin-chart-canvas"><canvas id="consScheduleChart" height="220"></canvas></div>
+    </div>
+</div>
+
+<!-- Товари під реалізацію -->
+<div class="fin-section">
+    <h3 class="fin-section-title">Товари під реалізацію</h3>
+    <div class="fin-table-wrap">
+        <table class="fin-table">
+            <thead>
+                <tr>
+                    <th>Назва</th><th>Принт</th><th>Колір</th><th>Розмір</th>
+                    <th>К-сть</th><th>Продано</th><th>Залишок</th>
+                    <th class="fin-col-amount">Заморожено</th><th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for it in items %}
+                <tr>
+                    <td>{{ it.title }}</td>
+                    <td>{{ it.print_name|default:"—" }}</td>
+                    <td>{{ it.color|default:"—" }}</td>
+                    <td>{{ it.size|default:"—" }}</td>
+                    <td>{{ it.qty }}</td>
+                    <td>{{ it.sold_qty }}</td>
+                    <td>{{ it.remaining }}</td>
+                    <td class="fin-col-amount">{% if it.is_consignment %}{{ it.frozen }}{% else %}<span class="fin-muted-cell">борг</span>{% endif %}</td>
+                    <td>
+                        {% if it.is_consignment and it.remaining > 0 %}
+                        <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm"
+                                data-cons-sale="{{ it.id }}" data-title="{{ it.title }}"
+                                data-price="{{ it.unit_price }}" data-remaining="{{ it.remaining }}">Продаж</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="9" class="fin-empty">Немає товарів. Додайте поставку.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Поставки -->
+<div class="fin-section">
+    <h3 class="fin-section-title">Поставки</h3>
+    <div class="fin-table-wrap">
+        <table class="fin-table">
+            <thead>
+                <tr><th>Дата</th><th>Номер</th><th class="fin-col-amount">Борг</th><th>Позицій</th><th>Файли</th><th>Коментар</th><th></th></tr>
+            </thead>
+            <tbody>
+                {% for s in shipments %}
+                <tr>
+                    <td>{{ s.date }}</td>
+                    <td>{{ s.number|default:"—" }}</td>
+                    <td class="fin-col-amount">{{ s.total_debt }}</td>
+                    <td>{{ s.items_count }}</td>
+                    <td>
+                        {% for a in s.attachments %}<a href="{{ a.url }}" target="_blank" class="fin-tag-chip">{{ a.name }}</a>{% empty %}—{% endfor %}
+                    </td>
+                    <td class="fin-cell-comment">{{ s.comment|default:"" }}</td>
+                    <td><button type="button" class="fin-btn fin-btn--danger fin-btn--sm" data-cons-ship-del="{{ s.id }}">✕</button></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="fin-empty">Немає поставок</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Історія (timeline) -->
+<div class="fin-section">
+    <h3 class="fin-section-title">Історія</h3>
+    <div class="fin-table-wrap">
+        <table class="fin-table">
+            <thead><tr><th>Дата</th><th>Подія</th><th class="fin-col-amount">Сума</th></tr></thead>
+            <tbody>
+                {% for e in timeline %}
+                <tr>
+                    <td>{{ e.date }}</td>
+                    <td>
+                        {% if e.kind == 'shipment' %}📦 {% elif e.kind == 'payment' %}💰 {% else %}🛒 {% endif %}
+                        {{ e.label }}
+                    </td>
+                    <td class="fin-col-amount {% if e.sign == '+' %}fin-amount--neg{% elif e.sign == '-' %}fin-amount--pos{% endif %}">
+                        {% if e.sign %}{{ e.sign }}{% endif %}{{ e.amount|floatformat:2 }} ₴
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3" class="fin-empty">Історія порожня</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script id="cons-chart-data" type="application/json">{{ chart_data|safe }}</script>
+{% endblock %}
+
+{% block modals %}
+{% include 'finance/consignment/modal_reseller.html' %}
+{% include 'finance/consignment/modal_shipment.html' %}
+{% include 'finance/consignment/modal_payment.html' %}
+{% include 'finance/consignment/modal_sale.html' %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="{% static 'js/finance-consignment.js' %}?v=1"></script>
+<script src="{% static 'js/finance-consignment-detail.js' %}?v=1"></script>
+{% endblock %}

@@ -17,6 +17,18 @@ urlpatterns = [
 
     # --- Розділи ---
     path('health/', views.financial_health, name='finance_health'),
+    # Магазини під реалізацію (consignment)
+    path('consignment/', views.consignment_list, name='finance_consignment'),
+    path('consignment/<int:reseller_id>/', views.consignment_detail, name='finance_consignment_detail'),
+    path('api/consignment/resellers/create/', views.consignment_reseller_create_api, name='finance_consignment_reseller_create_api'),
+    path('api/consignment/resellers/<int:reseller_id>/update/', views.consignment_reseller_update_api, name='finance_consignment_reseller_update_api'),
+    path('api/consignment/resellers/<int:reseller_id>/delete/', views.consignment_reseller_delete_api, name='finance_consignment_reseller_delete_api'),
+    path('api/consignment/resellers/<int:reseller_id>/shipments/create/', views.consignment_shipment_create_api, name='finance_consignment_shipment_create_api'),
+    path('api/consignment/shipments/<int:shipment_id>/delete/', views.consignment_shipment_delete_api, name='finance_consignment_shipment_delete_api'),
+    path('api/consignment/items/<int:item_id>/sale/', views.consignment_sale_create_api, name='finance_consignment_sale_create_api'),
+    path('api/consignment/resellers/<int:reseller_id>/payable-txns/', views.consignment_payable_txns_api, name='finance_consignment_payable_txns_api'),
+    path('api/consignment/resellers/<int:reseller_id>/payment/', views.consignment_payment_api, name='finance_consignment_payment_api'),
+    path('api/consignment/resellers/<int:reseller_id>/stats/', views.consignment_stats_api, name='finance_consignment_stats_api'),
     path('analytic/', views.analytics, name='finance_analytics'),
     path('analytic/report/<str:kind>/', views.report, name='finance_report'),
     path('analytic/report/<str:kind>/export/', views.report_export, name='finance_report_export'),
