@@ -6,7 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}TwoComms Finance{% endblock %}</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/finance.css' %}?v=20260531e">
+    <link rel="stylesheet" href="{% static 'css/finance.css' %}?v=20260531f">
+    <link rel="stylesheet" href="{% static 'css/finance-fixes.css' %}?v=1">
     <meta name="theme-color" content="#0b0e14">
     <meta name="application-name" content="TwoComms Finance">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -109,13 +110,13 @@
                     </div>
                 </div>
 
-                <div class="fin-balance-card fin-balance-card--frozen" title="Собівартість залишків складу">
+                <div class="fin-balance-card fin-balance-card--frozen fin-balance-card--clickable" title="Собівартість залишків складу">
                     <a href="{{ fin_frozen_warehouse_url }}" class="fin-balance-card__link">
                         <div class="fin-balance-card__label">Заморожено в складі</div>
                         <div class="fin-balance-card__value">
                             {% if fin_frozen_warehouse is not None %}{{ fin_frozen_warehouse }}{% else %}—{% endif %}
                         </div>
-                        <div class="fin-balance-card__hint">за собівартістю · дані складу</div>
+                        <div class="fin-balance-card__hint">за собівартістю · дані складу →</div>
                     </a>
                 </div>
 

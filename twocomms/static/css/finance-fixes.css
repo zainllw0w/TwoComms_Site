@@ -1,0 +1,30 @@
+/* Виправлення стилів для клікабельної картки складу */
+.fin-balance-card__link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s ease;
+}
+
+.fin-balance-card__link:hover {
+    text-decoration: none;
+}
+
+.fin-balance-card--clickable {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.fin-balance-card--clickable:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 126, 41, 0.3);
+    transform: translateY(-1px);
+}
+
+.fin-balance-card--clickable .fin-balance-card__hint {
+    transition: color 0.2s ease;
+}
+
+.fin-balance-card--clickable:hover .fin-balance-card__hint {
+    color: #ff7e29;
+}
