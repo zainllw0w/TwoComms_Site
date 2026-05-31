@@ -9,46 +9,21 @@
 <!-- KPI Cards -->
 <div class="fin-kpi-row">
     <div class="fin-kpi fin-kpi--neg">
-        <div class="fin-kpi__icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
-                <path d="M21 3v5h-5"/>
-            </svg>
-        </div>
-        <div class="fin-kpi__body">
-            <div class="fin-kpi__label">Особисті витрати</div>
-            <div class="fin-kpi__value">{{ total_personal }}</div>
-            <div class="fin-kpi__hint">Поза бізнесом</div>
-        </div>
+        <div class="fin-kpi__label">Особисті витрати</div>
+        <div class="fin-kpi__value">{{ total_personal }}</div>
+        <div class="fin-kpi__hint">Поза бізнесом</div>
     </div>
 
     <div class="fin-kpi fin-kpi--info">
-        <div class="fin-kpi__icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"/>
-                <path d="M12 6v6l4 2"/>
-            </svg>
-        </div>
-        <div class="fin-kpi__body">
-            <div class="fin-kpi__label">Відсоток від доходу</div>
-            <div class="fin-kpi__value">{{ personal_percent }}%</div>
-            <div class="fin-kpi__hint">Особисті/Дохід</div>
-        </div>
+        <div class="fin-kpi__label">Відсоток від доходу</div>
+        <div class="fin-kpi__value">{{ personal_percent }}%</div>
+        <div class="fin-kpi__hint">Особисті/Дохід</div>
     </div>
 
     <div class="fin-kpi fin-kpi--neutral">
-        <div class="fin-kpi__icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-                <circle cx="9" cy="7" r="4"/>
-                <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-        </div>
-        <div class="fin-kpi__body">
-            <div class="fin-kpi__label">Бізнес-витрати</div>
-            <div class="fin-kpi__value">{{ business_expenses }}</div>
-            <div class="fin-kpi__hint">Для порівняння</div>
-        </div>
+        <div class="fin-kpi__label">Бізнес-витрати</div>
+        <div class="fin-kpi__value">{{ business_expenses }}</div>
+        <div class="fin-kpi__hint">Для порівняння</div>
     </div>
 </div>
 

@@ -58,6 +58,7 @@ def finance_shell_context(request):
             'fin_accounts': accounts,
             'fin_frozen_warehouse': ser.money(frozen, company.base_currency),
             'fin_frozen_raw': frozen,
+            'fin_frozen_warehouse_url': 'https://storage.twocomms.shop/',
             'fin_planned_income': ser.money(planned['income'], company.base_currency, signed=True),
             'fin_planned_expense': ser.money(planned['expense'], company.base_currency, signed=True),
             'fin_forecast_balance': ser.money(forecast, company.base_currency),

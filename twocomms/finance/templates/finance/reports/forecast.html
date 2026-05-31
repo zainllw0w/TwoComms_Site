@@ -21,42 +21,21 @@
 <!-- KPI Cards -->
 <div class="fin-kpi-row">
     <div class="fin-kpi fin-kpi--pos">
-        <div class="fin-kpi__icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-            </svg>
-        </div>
-        <div class="fin-kpi__body">
-            <div class="fin-kpi__label">Поточний баланс</div>
-            <div class="fin-kpi__value">{{ current_balance }}</div>
-            <div class="fin-kpi__hint">Фактичний на сьогодні</div>
-        </div>
+        <div class="fin-kpi__label">Поточний баланс</div>
+        <div class="fin-kpi__value">{{ current_balance }}</div>
+        <div class="fin-kpi__hint">Фактичний на сьогодні</div>
     </div>
 
     <div class="fin-kpi {% if data.final_balance >= 0 %}fin-kpi--pos{% else %}fin-kpi--neg{% endif %}">
-        <div class="fin-kpi__icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-            </svg>
-        </div>
-        <div class="fin-kpi__body">
-            <div class="fin-kpi__label">Прогноз через {{ months }} міс.</div>
-            <div class="fin-kpi__value">{{ final_balance }}</div>
-            <div class="fin-kpi__hint">З урахуванням планів</div>
-        </div>
+        <div class="fin-kpi__label">Прогноз через {{ months }} міс.</div>
+        <div class="fin-kpi__value">{{ final_balance }}</div>
+        <div class="fin-kpi__hint">З урахуванням планів</div>
     </div>
 
     <div class="fin-kpi fin-kpi--info">
-        <div class="fin-kpi__icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-            </svg>
-        </div>
-        <div class="fin-kpi__body">
-            <div class="fin-kpi__label">Зміна балансу</div>
-            <div class="fin-kpi__value">{{ data.final_balance|add:"-"|add:data.current_balance|floatformat:0 }} ₴</div>
-            <div class="fin-kpi__hint">За період</div>
-        </div>
+        <div class="fin-kpi__label">Зміна балансу</div>
+        <div class="fin-kpi__value">{{ data.final_balance|add:"-"|add:data.current_balance|floatformat:0 }} ₴</div>
+        <div class="fin-kpi__hint">За період</div>
     </div>
 </div>
 
