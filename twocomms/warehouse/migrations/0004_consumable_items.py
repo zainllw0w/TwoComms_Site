@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('finance', '0007_recurrence_improvements'),
-        ('warehouse', '0003_merge_20260531_0134'),
+        ('warehouse', '0002_writeoffrequest_packaging_used'),
     ]
 
     operations = [
