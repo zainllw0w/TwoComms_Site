@@ -198,6 +198,14 @@ def projects_report(company, params):
             'share': float(income / total_income * 100) if total_income else 0.0,
         })
 
+    # Сортуємо за прибутком (найприбутковіші зверху).
+    rows.sort(key=lambda r: r['profit'], reverse=True)
+    return {
+        'rows': rows,
+        'total_income': total_income,
+        'period': (start.isoformat(), end.isoformat()),
+    }
+
 
 # ----------------------------- Owner's Drawings -----------------------------
 
@@ -293,8 +301,7 @@ def personal_expenses_report(company, params):
             is_business=False,
             type=Transaction.TYPE_EXPENSE,
             date_actual__gte=day_start(start),
-            date_actual__lte=day_end(end))
-          .select_related('category'))
+            date_actual__lte=day_end(end)))
 
     # Загальна сума особистих витрат
     total_personal = qs.aggregate(s=Sum('amount_base'))['s'] or Decimal('0')
@@ -318,11 +325,11 @@ def personal_expenses_report(company, params):
 
     # Тренд по місяцях
     by_month = {}
-    for t in qs.only('date_actual', 'amount_base'):
-        month_key = t.date_actual.strftime('%Y-%m')
+    for t in qs.values('date_actual', 'amount_base'):
+        month_key = t['date_actual'].strftime('%Y-%m')
         if month_key not in by_month:
             by_month[month_key] = Decimal('0')
-        by_month[month_key] += t.amount_base
+        by_month[month_key] += t['amount_base']
 
     # Загальний дохід за період (для розрахунку відсотка)
     all_income = (_actual(company).filter(
