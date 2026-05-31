@@ -111,3 +111,11 @@
 }
 .fin-planned__cta:hover { text-decoration: underline; }
 .fin-balance-card--consignment .fin-balance-card__value { color: var(--fin-info, #6f95ff); }
+
+/* Колір рахунку — поле вибору у модалці редагування */
+.fin-color-combo { display: flex; gap: 8px; align-items: center; }
+.fin-color-input {
+    width: 44px; height: 38px; padding: 2px; border: 1px solid var(--fin-border, rgba(255,255,255,0.12));
+    border-radius: 8px; background: var(--fin-bg-800, #131824); cursor: pointer; flex: 0 0 auto;
+}
+.fin-color-combo .fin-input { flex: 1; }

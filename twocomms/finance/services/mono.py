@@ -456,6 +456,54 @@ def _reconcile_balance(account: Account, mono_balance_minor: int) -> None:
         account.recalc_balance(save=True)
 
 
+def reconcile_balances_from_client(conn: IntegrationConnection, client=None) -> int:
+    """Фінальний back-calc балансів усіх рахунків підключення проти client-info.
+
+    ВАЖЛИВО: викликається ПІСЛЯ reconcile_internal_transfers, бо той мутує
+    транзакції (перетворює витрати на перекази, видаляє дублі-доходи). Тільки
+    після усіх мутацій ми можемо гарантовано прив'язати current_balance до
+    реального балансу банку — інакше баланс у сайдбарі «дрейфує».
+    Повертає к-сть звірених рахунків. Не кидає винятки (best-effort).
+    """
+    try:
+        client = client or _client_for(conn, use_cache=True)
+        by_ext = {a.id: a for a in client.accounts()}
+    except mono_api.MonoApiError:
+        return 0
+    n = 0
+    for account in conn.accounts.filter(external_account_id__in=by_ext.keys()):
+        try:
+            _reconcile_balance(account, by_ext[account.external_account_id].balance)
+            n += 1
+        except Exception:  # noqa: BLE001 — звірка балансу не має ламати флоу
+            continue
+    return n
+
+
+def reconcile_balance_from_statement(account: Account) -> bool:
+    """Перепинає current_balance до останнього достовірного ``balance_after``
+    зі ВЛАСНОЇ виписки рахунку — БЕЗ запиту до API (для cron, що поважає ліміти).
+
+    Перекази, отримані з чужого рахунку (account != self), мають чужий
+    balance_after, тож беремо лише статемент-айтеми, де ``account == self``.
+    Повертає True, якщо вдалося звірити.
+    """
+    last = (Transaction.objects.filter(
+                status=Transaction.STATUS_ACTUAL, account=account)
+            .exclude(external_data__balance_after__isnull=True)
+            .order_by('-date_actual', '-id').first())
+    if not last:
+        return False
+    ba = (last.external_data or {}).get('balance_after')
+    if ba is None:
+        return False
+    try:
+        _reconcile_balance(account, int(ba))
+    except Exception:  # noqa: BLE001
+        return False
+    return True
+
+
 @db_transaction.atomic
 def sync_account(account: Account, *, user, apply_rules=True, full=False,
                  client=None, max_windows=None, reconcile_balance=True) -> dict:
@@ -560,6 +608,9 @@ def sync_connection(conn: IntegrationConnection, *, user, full=False,
         except mono_api.MonoApiError as exc:
             summary['errors'].append(f'{account.name}: {exc}')
     reconcile_internal_transfers(conn.company, user=user)
+    # Фінальний back-calc балансів ПІСЛЯ reconcile — гарантує, що сайдбар
+    # завжди показує реальний баланс банку (reconcile міг змінити транзакції).
+    reconcile_balances_from_client(conn, client=client)
     return summary
 
 
@@ -730,10 +781,12 @@ def process_webhook(conn: IntegrationConnection, payload: dict, *, user=None) ->
         return {'ok': False, 'error': 'unknown account'}
     txn = _import_item(account, item, user=user, apply_rules=True)
     if txn is not None:
-        # Оновлюємо баланс із поля balance у вебхуку, якщо є.
+        # Спершу зводимо внутрішні перекази (може змінити транзакції рахунку),
+        # і ЛИШЕ ПОТІМ робимо back-calc балансу проти банку — інакше баланс
+        # дрейфує, бо reconcile мутує дані вже після фіксації initial_balance.
+        reconcile_internal_transfers(conn.company, user=user)
         if 'balance' in item:
             _reconcile_balance(account, item.get('balance'))
-        reconcile_internal_transfers(conn.company, user=user)
         conn.last_sync_at = timezone.now()
         conn.save(update_fields=['last_sync_at'])
     return {'ok': True, 'created': 1 if txn else 0}

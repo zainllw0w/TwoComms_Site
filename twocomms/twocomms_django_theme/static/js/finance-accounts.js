@@ -218,16 +218,36 @@
       document.getElementById('fin-editacc-name').value = a ? a.name : '';
       document.getElementById('fin-editacc-initial').value = a ? a.initial_balance : '';
       document.getElementById('fin-editacc-target').value = '';
+      var hex = (a && a.color) ? a.color : '';
+      var hexEl = document.getElementById('fin-editacc-color-hex');
+      var pickEl = document.getElementById('fin-editacc-color');
+      if (hexEl) hexEl.value = hex;
+      if (pickEl) pickEl.value = /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : '#e8edf7';
       show(editModal);
     });
+  });
+  // Синхронізація color-picker ↔ hex-поле
+  var colorPick = document.getElementById('fin-editacc-color');
+  var colorHex = document.getElementById('fin-editacc-color-hex');
+  if (colorPick && colorHex) {
+    colorPick.addEventListener('input', function () { colorHex.value = colorPick.value; });
+    colorHex.addEventListener('input', function () {
+      if (/^#[0-9a-fA-F]{6}$/.test(colorHex.value)) colorPick.value = colorHex.value;
+    });
+  }
+  var colorClear = document.getElementById('fin-editacc-color-clear');
+  if (colorClear) colorClear.addEventListener('click', function () {
+    if (colorHex) colorHex.value = '';
   });
   var editForm = document.getElementById('fin-editacc-form');
   if (editForm) editForm.addEventListener('submit', function (e) {
     e.preventDefault();
     var id = document.getElementById('fin-editacc-id').value;
+    var colorVal = colorHex ? colorHex.value.trim() : '';
     api('/api/accounts/' + id + '/update/', 'POST', {
       name: document.getElementById('fin-editacc-name').value,
       initial_balance: document.getElementById('fin-editacc-initial').value,
+      color: colorVal,
     }).then(function (res) { if (res.data.ok) window.location.reload(); });
   });
   var correctBtn = document.getElementById('fin-editacc-correct');

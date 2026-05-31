@@ -99,6 +99,8 @@ class Account(models.Model):
         'finance.Counterparty', on_delete=models.SET_NULL, blank=True, null=True,
         related_name='accounts',
     )
+    # Власний колір тексту рахунку (HEX, напр. '#34d399'). Порожньо = типовий.
+    color = models.CharField(max_length=16, blank=True, default='')
     auto_sync = models.BooleanField(default=True)
     sort_order = models.PositiveIntegerField(default=0)
     is_demo = models.BooleanField(default=False)

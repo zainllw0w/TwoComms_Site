@@ -92,6 +92,15 @@ class Command(BaseCommand):
 
             if processed:
                 mono_service.reconcile_internal_transfers(conn.company, user=None)
+                # Фінальне перепинання балансів синхронізованих рахунків через
+                # balance_after з уже імпортованих виписок — БЕЗ запиту до API
+                # (поважаємо ліміт). Гарантує коректний баланс у сайдбарі навіть
+                # після того, як reconcile змінив транзакції.
+                for account in selected:
+                    try:
+                        mono_service.reconcile_balance_from_statement(account)
+                    except Exception:  # noqa: BLE001
+                        pass
 
             conn.refresh_from_db(fields=['meta'])
             meta = dict(conn.meta or {})

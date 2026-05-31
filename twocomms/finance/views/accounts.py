@@ -59,7 +59,7 @@ def account_update_api(request, account_id):
     acc = get_object_or_404(Account, id=account_id, company=company)
     data = _body(request)
     fields = {}
-    for key in ('name', 'currency', 'type', 'initial_balance'):
+    for key in ('name', 'currency', 'type', 'initial_balance', 'color', 'is_business'):
         if key in data:
             fields[key] = data[key]
     account_service.update_account(acc, user=request.user, **fields)

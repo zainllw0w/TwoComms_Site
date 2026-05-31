@@ -151,8 +151,8 @@
                     <div class="fin-accounts__list" id="fin-accounts-list">
                         {% for acc in fin_accounts %}
                         <button type="button" class="fin-account" data-account-id="{{ acc.id }}">
-                            <span class="fin-account__stripe" aria-hidden="true"></span>
-                            <span class="fin-account__name">{{ acc.name }}</span>
+                            <span class="fin-account__stripe" aria-hidden="true"{% if acc.color %} style="background:{{ acc.color }}"{% endif %}></span>
+                            <span class="fin-account__name"{% if acc.color %} style="color:{{ acc.color }}"{% endif %}>{{ acc.name }}</span>
                             <span class="fin-account__balance">{{ acc.balance_display }}</span>
                         </button>
                         {% empty %}

@@ -111,5 +111,6 @@ def accounts_overview(company):
             'external_kind': acc.external_kind,
             'masked_pan': acc.masked_pan,
             'auto_sync': acc.auto_sync,
+            'color': acc.color or '',
         })
     return items

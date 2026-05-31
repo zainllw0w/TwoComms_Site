@@ -26,7 +26,7 @@
     <div class="fin-acc-card{% if a.is_archived %} is-archived{% endif %}" data-account-id="{{ a.id }}" draggable="true">
         <span class="fin-acc-drag" title="Перетягніть">⠿</span>
         <div class="fin-acc-card__main">
-            <div class="fin-acc-card__name">{{ a.name }}
+            <div class="fin-acc-card__name"{% if a.color %} style="color:{{ a.color }}"{% endif %}>{{ a.name }}
                 {% if a.integration %}<span class="fin-acc-card__integration">{{ a.integration }}</span>{% endif %}
                 {% if a.is_archived %}<span class="fin-badge">архів</span>{% endif %}
             </div>
@@ -288,6 +288,14 @@
       <input type="hidden" id="fin-editacc-id">
       <label class="fin-field"><span>Назва</span><input type="text" class="fin-input" id="fin-editacc-name"></label>
       <label class="fin-field"><span>Стартовий баланс</span><input type="number" step="0.01" class="fin-input" id="fin-editacc-initial"></label>
+      <label class="fin-field"><span>Колір тексту рахунку</span>
+        <div class="fin-combo fin-color-combo">
+          <input type="color" class="fin-color-input" id="fin-editacc-color" value="#e8edf7">
+          <input type="text" class="fin-input" id="fin-editacc-color-hex" placeholder="#e8edf7 або порожньо">
+          <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" id="fin-editacc-color-clear">Скинути</button>
+        </div>
+        <small class="fin-field-help">Застосується до назви рахунку в боковому меню та списку.</small>
+      </label>
       <label class="fin-field"><span>Поточний залишок має дорівнювати</span>
         <div class="fin-combo">
           <input type="number" step="0.01" class="fin-input" id="fin-editacc-target" placeholder="напр. фактичний у банку">
@@ -305,5 +313,5 @@
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-<script src="{% static 'js/finance-accounts.js' %}?v=20260530b"></script>
+<script src="{% static 'js/finance-accounts.js' %}?v=20260601a"></script>
 {% endblock %}
