@@ -20,6 +20,7 @@ from management.services.manager_levels import (
     promote_manager,
     demote_manager,
     has_permission,
+    LEVEL_HIERARCHY,
 )
 from management.services.weekly_kpi import (
     get_current_week_kpi_status,
@@ -112,34 +113,25 @@ def _build_level_progression_history(user, current_level) -> list:
     # Отримати історію змін рівнів
     history = ManagerLevelHistory.objects.filter(user=user).order_by('changed_at')
 
-    # Визначити які рівні пройдені
-    passed_levels = set()
-    for record in history:
-        if record.old_level:
-            passed_levels.add(record.old_level)
-
     # Поточний рівень
     current_level_code = current_level.level
+    current_rank = LEVEL_HIERARCHY.get(current_level_code, 0)
 
-    # Побудувати список
+    # Побудувати список: статус визначається рангом рівня відносно поточного
     result = []
-    current_reached = False
-
     for level_code, level_name in all_levels:
-        # Знайти дату досягнення цього рівня
+        # Знайти дату досягнення цього рівня (якщо була в історії)
         achieved_at = None
         for record in history:
             if record.new_level == level_code:
                 achieved_at = record.changed_at
                 break
 
-        if level_code == current_level_code:
+        rank = LEVEL_HIERARCHY.get(level_code, 0)
+        if rank == current_rank:
             status = 'current'
-            current_reached = True
-        elif level_code in passed_levels or (achieved_at and achieved_at < current_level.assigned_at):
+        elif rank < current_rank:
             status = 'completed'
-        elif current_reached:
-            status = 'locked'
         else:
             status = 'locked'
 

@@ -119,8 +119,20 @@ def management_shell_context(request):
     except NoReverseMatch:
         stats_url = ""
 
+    # Рівень менеджера для відображення в sidebar
+    try:
+        from management.services.manager_levels import get_current_level, get_level_display_name
+        level_obj = get_current_level(user)
+        level_label = get_level_display_name(level_obj.level) if level_obj else ""
+        level_code = level_obj.level if level_obj else ""
+    except Exception:
+        level_label = ""
+        level_code = ""
+
     return {
         "management_shell_role_label": management_role_label(user),
         "management_shell_stats_url": stats_url,
+        "management_shell_level_label": level_label,
+        "management_shell_level_code": level_code,
         **build_management_shell_metrics(user, profile),
     }

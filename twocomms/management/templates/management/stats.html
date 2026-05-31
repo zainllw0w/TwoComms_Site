@@ -142,6 +142,11 @@
             <div class="kpi-value">{{ stats_payload.summary.active_hhmm }}</div>
             <div class="kpi-sub muted">Тільки активність у вкладці • {{ stats_payload.summary.points_per_active_hour }} бал/год</div>
           </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Вкладка відкрита</div>
+            <div class="kpi-value">{{ stats_payload.summary.open_hhmm }}</div>
+            <div class="kpi-sub muted">Загалом відкрито • з них неактивно {{ stats_payload.summary.idle_hhmm }}</div>
+          </div>
         <div class="kpi-card">
           <div class="kpi-label">Передзвони</div>
           <div class="kpi-value">{{ stats_payload.summary.followups.missed_effective }}/{{ stats_payload.summary.followups.total }}</div>

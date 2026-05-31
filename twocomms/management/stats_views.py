@@ -232,11 +232,18 @@ def activity_pulse(request):
     day = timezone.localdate(now)
 
     obj, _ = ManagementDailyActivity.objects.get_or_create(user=request.user, date=day)
-    ManagementDailyActivity.objects.filter(pk=obj.pk).update(
-        active_seconds=F("active_seconds") + active_seconds,
-        idle_seconds=F("idle_seconds") + idle_seconds,
-        last_seen_at=now,
-    )
+    try:
+        ManagementDailyActivity.objects.filter(pk=obj.pk).update(
+            active_seconds=F("active_seconds") + active_seconds,
+            idle_seconds=F("idle_seconds") + idle_seconds,
+            last_seen_at=now,
+        )
+    except Exception:
+        # Fallback якщо idle_seconds поле ще не існує (міграція не застосована)
+        ManagementDailyActivity.objects.filter(pk=obj.pk).update(
+            active_seconds=F("active_seconds") + active_seconds,
+            last_seen_at=now,
+        )
 
     return JsonResponse({"ok": True})
 

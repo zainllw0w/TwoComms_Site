@@ -47,7 +47,7 @@ def get_activity_stats(user, days=7) -> dict:
 
     for record in records:
         active_sec = record.active_seconds or 0
-        idle_sec = record.idle_seconds or 0
+        idle_sec = getattr(record, 'idle_seconds', 0) or 0
 
         total_active_seconds += active_sec
         total_idle_seconds += idle_sec

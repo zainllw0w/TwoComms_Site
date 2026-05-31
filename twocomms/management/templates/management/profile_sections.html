@@ -11,14 +11,17 @@
             <span class="condition-label">Відсоток від замовлення:</span>
             <span class="condition-value">{{ level.commission_percent }}%</span>
         </div>
+        {% if level.salary_start_date %}
         <div class="condition-item">
             <span class="condition-label">Дата початку нарахувань:</span>
             <span class="condition-value">{{ level.salary_start_date|date:"d.m.Y" }}</span>
         </div>
+        {% endif %}
     </div>
 </div>
 
-<!-- Поточний тижневий KPI -->
+<!-- Поточний тижневий KPI (лише якщо є тижнева ставка) -->
+{% if level.weekly_salary_uah > 0 %}
 <div class="weekly-kpi">
     <h2>Тижневий KPI</h2>
     <div class="kpi-summary">
@@ -28,7 +31,7 @@
         </div>
         <div class="kpi-progress">
             <div class="progress-bar">
-                <div class="progress-fill" style="width: {{ kpi_status.conversions_progress_pct }}%"></div>
+                <div class="progress-fill" data-pct="{{ kpi_status.conversions_progress_pct }}"></div>
             </div>
             <span class="progress-text">{{ kpi_status.conversions_progress_pct }}%</span>
         </div>
@@ -45,6 +48,7 @@
     </div>
 </div>
 {% endif %}
+{% endif %}
 
 <!-- Прогрес до наступного рівня -->
 {% if progression.next_level %}
@@ -57,7 +61,7 @@
             <span class="next-level">{{ progression.next_level }}</span>
         </div>
         <div class="progression-bar">
-            <div class="progress-fill" style="width: {{ progression.progress_pct }}%"></div>
+            <div class="progress-fill" data-pct="{{ progression.progress_pct }}"></div>
         </div>
         <span class="progress-percentage">{{ progression.progress_pct }}%</span>
 

@@ -410,6 +410,14 @@
                 </div>
 
                 <div class="profile-readonly" aria-label="Дані менеджера">
+                    {% if management_shell_level_label %}
+                    <div class="profile-readonly__item">
+                        <div class="profile-readonly__label">Рівень</div>
+                        <div class="profile-readonly__value">
+                            <span class="level-badge-sm level-{{ management_shell_level_code }}">{{ management_shell_level_label }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
                     <div class="profile-readonly__item">
                         <div class="profile-readonly__label">Статус / посада</div>
                         <div class="profile-readonly__value">{{ management_shell_role_label|default:request.user.userprofile.manager_position|default:"—" }}</div>
@@ -417,6 +425,12 @@
                     <div class="profile-readonly__item">
                         <div class="profile-readonly__label">Умови</div>
                         <div class="profile-readonly__value">{{ request.user.userprofile.manager_base_salary_uah|default:0 }} грн • {{ request.user.userprofile.manager_commission_percent|default:0 }}%</div>
+                    </div>
+                    <div class="profile-readonly__item">
+                        <div class="profile-readonly__label"></div>
+                        <div class="profile-readonly__value">
+                            <a href="{% url 'management_profile' %}" class="profile-link-btn">Переглянути профіль →</a>
+                        </div>
                     </div>
                 </div>
 

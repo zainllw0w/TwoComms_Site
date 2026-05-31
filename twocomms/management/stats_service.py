@@ -1255,6 +1255,10 @@ def get_stats_payload(*, user, range_current: StatsRange, include_shadow: bool =
     # Activity (daily)
     act_qs = ManagementDailyActivity.objects.filter(user=user, date__gte=range_current.start_date, date__lte=range_current.end_date)
     active_seconds = int(act_qs.aggregate(s=Sum("active_seconds")).get("s") or 0)
+    try:
+        idle_seconds = int(act_qs.aggregate(s=Sum("idle_seconds")).get("s") or 0)
+    except Exception:
+        idle_seconds = 0
     points_per_active_hour = round((float(points) / (float(active_seconds) / 3600.0)), 2) if active_seconds > 0 else 0.0
 
     # Reports discipline (per day)
@@ -1604,6 +1608,10 @@ def get_stats_payload(*, user, range_current: StatsRange, include_shadow: bool =
             "points_per_client": points_per_client,
             "active_seconds": active_seconds,
             "active_hhmm": _format_hhmm(active_seconds),
+            "idle_seconds": idle_seconds,
+            "idle_hhmm": _format_hhmm(idle_seconds),
+            "open_seconds": active_seconds + idle_seconds,
+            "open_hhmm": _format_hhmm(active_seconds + idle_seconds),
             "points_per_active_hour": points_per_active_hour,
             "kpd": kpd,
             "kpd_prev": kpd_prev,

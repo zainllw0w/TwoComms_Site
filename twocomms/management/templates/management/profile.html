@@ -232,6 +232,10 @@
       var s = parseFloat(el.getAttribute('data-score')) || 0;
       el.style.width = Math.max(0, Math.min(100, s * 10)) + '%';
     });
+    document.querySelectorAll('.progress-fill[data-pct]').forEach(function (el) {
+      var p = parseFloat(el.getAttribute('data-pct')) || 0;
+      el.style.width = Math.max(0, Math.min(100, p)) + '%';
+    });
   });
 </script>
 

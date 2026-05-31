@@ -85,11 +85,31 @@ LEVEL_HIERARCHY = {
 
 
 def get_current_level(user) -> Optional[ManagerLevel]:
-    """Отримати поточний рівень менеджера"""
+    """Отримати поточний рівень менеджера.
+
+    Якщо у staff/superuser немає явного запису ManagerLevel — повертаємо
+    віртуальний (незбережений) рівень «Адміністратор», щоб адміністрація
+    бачила свій профіль як найвищий ранг без потреби створювати запис вручну.
+    """
     try:
         return user.manager_level
     except ManagerLevel.DoesNotExist:
+        if getattr(user, 'is_superuser', False) or getattr(user, 'is_staff', False):
+            return _build_virtual_admin_level(user)
         return None
+
+
+def _build_virtual_admin_level(user) -> ManagerLevel:
+    """Віртуальний рівень ADMIN для staff/superuser без запису в БД (не зберігається)."""
+    return ManagerLevel(
+        user=user,
+        level=ManagerLevel.Level.ADMIN,
+        weekly_salary_uah=0,
+        commission_percent=Decimal('0'),
+        salary_start_date=None,
+        assignment_comment='Системний рівень адміністратора',
+        is_active=True,
+    )
 
 
 def get_level_display_name(level: str) -> str:
