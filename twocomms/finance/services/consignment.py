@@ -197,7 +197,7 @@ def delete_reseller(reseller: Reseller, *, user, force: bool = False) -> bool:
 # ----------------------------- Поставка -----------------------------
 
 @db_transaction.atomic
-def create_shipment(*, user, reseller, date, number='', debt_amount=Decimal('0'),
+def create_shipment(*, user, reseller, date, number='', ttn='', debt_amount=Decimal('0'),
                     currency=None, comment='', items=None, attachments=None,
                     external_source='', external_ref='', payment_monthly=None) -> ConsignmentShipment:
     """Створює поставку + позиції + (за наявності боргу) планову income-транзакцію.
@@ -212,7 +212,7 @@ def create_shipment(*, user, reseller, date, number='', debt_amount=Decimal('0')
     debt_amount = Decimal(str(debt_amount or 0))
 
     shipment = ConsignmentShipment.objects.create(
-        company=company, reseller=reseller, number=number or '', date=date,
+        company=company, reseller=reseller, number=number or '', ttn=ttn or '', date=date,
         debt_amount=debt_amount, currency=currency, comment=comment or '',
         external_source=external_source or '', external_ref=external_ref or '',
     )
@@ -242,19 +242,13 @@ def create_shipment(*, user, reseller, date, number='', debt_amount=Decimal('0')
         reseller.refresh_from_db()
 
     if debt_total > 0:
-        due = expected_due_date(reseller, date)
-        txn = txn_service.create_transaction(
-            user=user, type=Transaction.TYPE_INCOME, status=Transaction.STATUS_PLANNED,
-            amount=debt_total, currency=currency, account=None,
-            counterparty=reseller.counterparty,
-            date_actual=timezone.make_aware(dt.datetime.combine(due, dt.time(12, 0))),
-            comment=f'Поставка №{number or shipment.id} → {reseller.name}',
-            source='consignment', is_business=True,
+        txns = _spawn_debt_schedule(
+            user=user, reseller=reseller, shipment=shipment, debt_total=debt_total,
+            currency=currency, from_date=date, number=number,
         )
-        txn.reseller = reseller
-        txn.save(update_fields=['reseller'])
-        shipment.debt_txn = txn
-        shipment.save(update_fields=['debt_txn'])
+        if txns:
+            shipment.debt_txn = txns[0]
+            shipment.save(update_fields=['debt_txn'])
 
     audit_service.log_action(
         user, 'create', 'consignment_shipment', shipment.id,
@@ -262,6 +256,56 @@ def create_shipment(*, user, reseller, date, number='', debt_amount=Decimal('0')
         company=company,
     )
     return shipment
+
+
+def _spawn_debt_schedule(*, user, reseller, shipment, debt_total, currency, from_date, number):
+    """Створює планові income-транзакції боргу поставки.
+
+    Якщо умови — розстрочка з фіксованою щомісячною сумою, борг розбивається на
+    кілька планових транзакцій (по сумі на місяць, остання — залишок), щоб прогноз
+    і календар коректно показували суму до отримання за кожен період. Інакше —
+    одна планова транзакція на дату першого платежу.
+
+    Кожна транзакція маркується ``external_data.consignment_shipment_id`` для
+    подальшого видалення разом з поставкою.
+    """
+    terms = reseller.terms or {}
+    amount_str = terms.get('amount')
+    monthly = Decimal(str(amount_str)) if amount_str not in (None, '', 0) else None
+    period = terms.get('period', 'month')
+    every = int(terms.get('every', 1) or 1)
+
+    # Дати/суми платежів.
+    installments: list[tuple[dt.date, Decimal]] = []
+    if reseller.terms_kind == Reseller.TERMS_INSTALLMENT and monthly and monthly > 0:
+        remaining = debt_total
+        cursor = _add_period(from_date, period, every)
+        guard = 0
+        while remaining > 0 and guard < 600:
+            part = monthly if remaining >= monthly else remaining
+            installments.append((cursor, part))
+            remaining -= part
+            cursor = _add_period(cursor, period, every)
+            guard += 1
+    else:
+        installments.append((expected_due_date(reseller, from_date), debt_total))
+
+    created = []
+    for idx, (due, part) in enumerate(installments, 1):
+        suffix = f' (платіж {idx}/{len(installments)})' if len(installments) > 1 else ''
+        txn = txn_service.create_transaction(
+            user=user, type=Transaction.TYPE_INCOME, status=Transaction.STATUS_PLANNED,
+            amount=part, currency=currency, account=None,
+            counterparty=reseller.counterparty,
+            date_actual=timezone.make_aware(dt.datetime.combine(due, dt.time(12, 0))),
+            comment=f'Поставка №{number or shipment.id} → {reseller.name}{suffix}',
+            source='consignment', is_business=True,
+            external_data={'consignment_shipment_id': shipment.id, 'installment': idx},
+        )
+        txn.reseller = reseller
+        txn.save(update_fields=['reseller'])
+        created.append(txn)
+    return created
 
 
 def _create_item(company, shipment, reseller, raw: dict) -> ConsignmentItem:
@@ -305,6 +349,20 @@ def _create_item(company, shipment, reseller, raw: dict) -> ConsignmentItem:
 def delete_shipment(shipment: ConsignmentShipment, *, user) -> None:
     company = shipment.company
     sid = shipment.id
+    # Видаляємо всі планові транзакції розкладу цієї поставки (їх може бути
+    # кілька — за кількістю місяців розстрочки). Маркер у external_data.
+    reseller = shipment.reseller
+    planned = reseller.transactions.filter(
+        status=Transaction.STATUS_PLANNED, type=Transaction.TYPE_INCOME,
+        source='consignment',
+    )
+    for txn in list(planned):
+        if (txn.external_data or {}).get('consignment_shipment_id') == sid:
+            try:
+                txn_service.delete_transaction(txn, user=user)
+            except Exception:
+                pass
+    # Фолбек: якщо стара поставка з єдиним debt_txn без маркера.
     if shipment.debt_txn_id:
         try:
             txn_service.delete_transaction(shipment.debt_txn, user=user)
@@ -662,3 +720,150 @@ def import_from_management(reseller, external_ref: str, *, user) -> list:
     Поки no-op: повертає порожній список. Підключиться без зміни схеми.
     """
     return []
+
+
+# ----------------------------- Інтеграція з менеджментом -----------------------------
+
+def _management_models():
+    """Повертає (WholesaleInvoice, Shop) або (None, None) якщо недоступні."""
+    try:
+        from orders.models import WholesaleInvoice
+    except Exception:
+        WholesaleInvoice = None
+    try:
+        from management.models import Shop
+    except Exception:
+        Shop = None
+    return WholesaleInvoice, Shop
+
+
+def list_management_orders(limit: int = 50) -> list[dict]:
+    """Список оптових замовлень (WholesaleInvoice) для вибору при поставці."""
+    WholesaleInvoice, _ = _management_models()
+    if WholesaleInvoice is None:
+        return []
+    try:
+        qs = WholesaleInvoice.objects.order_by('-id')[:limit]
+        out = []
+        for inv in qs:
+            out.append({
+                'id': inv.id,
+                'number': inv.invoice_number,
+                'company': inv.company_name,
+                'phone': getattr(inv, 'contact_phone', ''),
+                'amount': str(inv.total_amount or 0),
+                'status': inv.get_status_display() if hasattr(inv, 'get_status_display') else inv.status,
+                'tshirts': getattr(inv, 'total_tshirts', 0),
+                'hoodies': getattr(inv, 'total_hoodies', 0),
+            })
+        return out
+    except Exception:
+        return []
+
+
+def list_management_test_batches(limit: int = 50) -> list[dict]:
+    """Список тестових партій (Shop type=test) для вибору при поставці."""
+    _, Shop = _management_models()
+    if Shop is None:
+        return []
+    try:
+        type_test = getattr(getattr(Shop, 'ShopType', None), 'TEST', 'test')
+        qs = Shop.objects.filter(shop_type=type_test).order_by('-id')[:limit]
+        out = []
+        for shop in qs:
+            pkg = shop.test_package or {}
+            qty = pkg.get('total_qty')
+            if qty is None and isinstance(pkg.get('sizes'), dict):
+                qty = sum(int(v or 0) for v in pkg['sizes'].values())
+            out.append({
+                'id': shop.id,
+                'name': shop.name,
+                'product': str(shop.test_product) if getattr(shop, 'test_product', None) else '',
+                'qty': qty or 0,
+                'connected_at': shop.test_connected_at.isoformat() if getattr(shop, 'test_connected_at', None) else '',
+                'period_days': getattr(shop, 'test_period_days', 14),
+            })
+        return out
+    except Exception:
+        return []
+
+
+def parse_management_order_items(invoice_id: int) -> list[dict]:
+    """Парсить позиції оптового замовлення у формат ConsignmentItem.
+
+    Повертає список dict готових до передачі у create_shipment(items=...).
+    Позиції — боргові (is_consignment=False) за замовчуванням, бо це продаж.
+    """
+    WholesaleInvoice, _ = _management_models()
+    if WholesaleInvoice is None:
+        return []
+    try:
+        inv = WholesaleInvoice.objects.filter(id=invoice_id).first()
+        if inv is None:
+            return []
+        details = inv.order_details or {}
+        order_items = details.get('order_items', []) or details.get('items', [])
+        out = []
+        for it in order_items:
+            product = it.get('product', {}) if isinstance(it.get('product'), dict) else {}
+            title = (it.get('display_title') or it.get('title')
+                     or product.get('title') or 'Товар')
+            qty = int(it.get('quantity', 0) or 0)
+            unit_price = it.get('unit_price') or it.get('price') or 0
+            out.append({
+                'source_kind': ConsignmentItem.SOURCE_EXTERNAL,
+                'external_ref': str(product.get('id') or ''),
+                'title': str(title)[:255],
+                'print_name': str(it.get('extra_description', ''))[:128],
+                'color': str(it.get('color', ''))[:64],
+                'size': str(it.get('size', ''))[:16],
+                'qty': qty,
+                'unit_cost': str(unit_price),
+                'unit_price': str(unit_price),
+                'is_consignment': False,  # оптове замовлення — це борг
+            })
+        return out
+    except Exception:
+        return []
+
+
+def parse_management_test_batch_items(shop_id: int) -> list[dict]:
+    """Парсить тестову партію у позиції під реалізацію (заморожено, не борг)."""
+    _, Shop = _management_models()
+    if Shop is None:
+        return []
+    try:
+        shop = Shop.objects.filter(id=shop_id).first()
+        if shop is None:
+            return []
+        pkg = shop.test_package or {}
+        product_title = str(shop.test_product) if getattr(shop, 'test_product', None) else 'Тестова партія'
+        color = pkg.get('color', '')
+        out = []
+        sizes = pkg.get('sizes')
+        if isinstance(sizes, dict):
+            for size, qty in sizes.items():
+                q = int(qty or 0)
+                if q <= 0:
+                    continue
+                out.append({
+                    'source_kind': ConsignmentItem.SOURCE_EXTERNAL,
+                    'external_ref': str(shop.id),
+                    'title': product_title[:255], 'color': str(color)[:64],
+                    'size': str(size)[:16], 'qty': q,
+                    'unit_cost': '0', 'unit_price': '0',
+                    'is_consignment': True,  # тестова партія — під реалізацію
+                })
+        else:
+            total = pkg.get('total_qty', 0)
+            if total:
+                out.append({
+                    'source_kind': ConsignmentItem.SOURCE_EXTERNAL,
+                    'external_ref': str(shop.id),
+                    'title': product_title[:255], 'color': str(color)[:64],
+                    'size': '', 'qty': int(total),
+                    'unit_cost': '0', 'unit_price': '0', 'is_consignment': True,
+                })
+        return out
+    except Exception:
+        return []

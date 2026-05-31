@@ -127,7 +127,7 @@ def consignment_detail(request, reseller_id):
     shipments = []
     for s in reseller.shipments.prefetch_related('items', 'attachments').all():
         shipments.append({
-            'id': s.id, 'number': s.number, 'date': s.date.isoformat(),
+            'id': s.id, 'number': s.number, 'ttn': s.ttn, 'date': s.date.isoformat(),
             'total_debt': ser.money(s.total_debt, company.base_currency),
             'comment': s.comment,
             'attachments': [{'name': a.original_name or a.file.name,
@@ -288,6 +288,7 @@ def consignment_shipment_create_api(request, reseller_id):
             user=request.user, reseller=reseller,
             date=_parse_date(data.get('date')),
             number=data.get('number', ''),
+            ttn=data.get('ttn', ''),
             debt_amount=_dec(data.get('debt_amount', 0)),
             currency=data.get('currency') or company.base_currency,
             comment=data.get('comment', ''),
@@ -389,3 +390,49 @@ def consignment_stats_api(request, reseller_id):
         'schedule': stats['schedule'],
         'timeline': stats['timeline'],
     })
+
+
+@finance_access_required(api=True)
+@require_GET
+def consignment_reseller_get_api(request, reseller_id):
+    """Дані магазину для заповнення форми редагування."""
+    company = get_default_company()
+    r = get_object_or_404(Reseller, id=reseller_id, company=company)
+    return JsonResponse({
+        'ok': True,
+        'reseller': {
+            'id': r.id, 'name': r.name,
+            'counterparty_id': r.counterparty_id,
+            'status': r.status, 'terms_kind': r.terms_kind,
+            'terms': r.terms or {}, 'contacts': r.contacts or {},
+            'notes': r.notes,
+        },
+    })
+
+
+@finance_access_required(api=True)
+@require_GET
+def consignment_management_orders_api(request):
+    """Список оптових замовлень менеджменту для вибору при поставці."""
+    return JsonResponse({'ok': True, 'orders': svc.list_management_orders()})
+
+
+@finance_access_required(api=True)
+@require_GET
+def consignment_management_tests_api(request):
+    """Список тестових партій менеджменту."""
+    return JsonResponse({'ok': True, 'batches': svc.list_management_test_batches()})
+
+
+@finance_access_required(api=True)
+@require_GET
+def consignment_management_order_items_api(request, invoice_id):
+    """Позиції конкретного оптового замовлення (для підстановки в поставку)."""
+    return JsonResponse({'ok': True, 'items': svc.parse_management_order_items(invoice_id)})
+
+
+@finance_access_required(api=True)
+@require_GET
+def consignment_management_test_items_api(request, shop_id):
+    """Позиції тестової партії (для підстановки в поставку)."""
+    return JsonResponse({'ok': True, 'items': svc.parse_management_test_batch_items(shop_id)})

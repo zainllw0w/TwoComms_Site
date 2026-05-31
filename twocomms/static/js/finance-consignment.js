@@ -74,9 +74,15 @@
 
     const termsKindEl = document.getElementById('cons-terms-kind');
     if (termsKindEl) termsKindEl.addEventListener('change', syncTermsGroups);
+    window.consignmentSyncTerms = syncTermsGroups;
 
     function openResellerModal() {
         if (!modal) return;
+        // Скидаємо у режим створення
+        document.getElementById('cons-reseller-id').value = '';
+        document.getElementById('cons-reseller-form').reset();
+        const titleEl = document.getElementById('cons-reseller-modal-title');
+        if (titleEl) titleEl.textContent = 'Новий магазин';
         fillCounterparties(document.getElementById('cons-reseller-cp'));
         syncTermsGroups();
         openModal(modal);

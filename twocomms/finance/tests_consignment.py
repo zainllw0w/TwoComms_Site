@@ -126,7 +126,7 @@ class ConsignmentServiceTestCase(TestCase):
         self.assertEqual(sched[0]['kind'], 'onetime')
 
     def test_create_shipment_makes_planned_debt(self):
-        """Поставка з ручним боргом створює планову income-транзакцію."""
+        """Поставка створює розклад планових income-транзакцій (магазин на розстрочці 12000/6)."""
         ship = svc.create_shipment(
             user=None, reseller=self.reseller, date=timezone.localdate(),
             number='TTN-1', debt_amount=Decimal('72000'),
@@ -134,9 +134,12 @@ class ConsignmentServiceTestCase(TestCase):
         self.assertIsNotNone(ship.debt_txn)
         self.assertEqual(ship.debt_txn.type, Transaction.TYPE_INCOME)
         self.assertEqual(ship.debt_txn.status, Transaction.STATUS_PLANNED)
-        self.assertEqual(ship.debt_txn.amount, Decimal('72000'))
+        # Розстрочка 12000 → перший інсталмент 12000, усього 6 транзакцій
+        self.assertEqual(ship.debt_txn.amount, Decimal('12000'))
         self.assertEqual(ship.debt_txn.reseller_id, self.reseller.id)
-        # Борг магазину = 72000
+        planned = self.reseller.transactions.filter(status='planned', type='income')
+        self.assertEqual(planned.count(), 6)
+        # Загальний борг магазину = 72000
         self.assertEqual(svc.reseller_debt(self.reseller), Decimal('72000'))
 
     def test_shipment_debt_from_items(self):
@@ -162,9 +165,10 @@ class ConsignmentServiceTestCase(TestCase):
         )
         data = reports_debt.receivables(self.company)
         reseller_rows = [r for r in data['rows'] if r.get('reseller_id') == self.reseller.id]
-        self.assertEqual(len(reseller_rows), 1)
+        # Розстрочка 12000 → 6 рядків у дебіторці, сума = 72000
+        self.assertEqual(len(reseller_rows), 6)
         self.assertEqual(reseller_rows[0]['reseller'], 'Військторг')
-        self.assertEqual(reseller_rows[0]['amount'], Decimal('72000'))
+        self.assertEqual(sum(r['amount'] for r in reseller_rows), Decimal('72000'))
 
     def test_shipment_does_not_touch_balance(self):
         """Планова поставка не змінює баланс рахунків."""
@@ -360,6 +364,47 @@ class ConsignmentIntegrationTestCase(TestCase):
         self.assertEqual(svc.compute_periods(Decimal('70000'), Decimal('12000')), 6)  # ceil
         self.assertEqual(svc.compute_periods(Decimal('0'), Decimal('12000')), 0)
         self.assertEqual(svc.compute_periods(Decimal('1000'), Decimal('0')), 0)
+
+    def test_shipment_spawns_installment_schedule(self):
+        """Поставка 72000 при 12000/міс → 6 планових транзакцій, не одна."""
+        r = svc.create_reseller(user=self.user, name='Розклад', terms_kind='onetime',
+                                terms={'due_days': 14})
+        svc.create_shipment(user=self.user, reseller=r, date=timezone.localdate(),
+                            debt_amount=Decimal('72000'), payment_monthly=Decimal('12000'))
+        planned = r.transactions.filter(status='planned', type='income')
+        self.assertEqual(planned.count(), 6)  # 6 інсталментів по 12000
+        amounts = sorted([t.amount for t in planned])
+        self.assertEqual(amounts, [Decimal('12000')] * 6)
+        # Загальний борг = 72000
+        self.assertEqual(svc.reseller_debt(r), Decimal('72000'))
+
+    def test_installment_remainder(self):
+        """Борг 70000 при 12000/міс → 5×12000 + 1×10000."""
+        r = svc.create_reseller(user=self.user, name='Залишок', terms_kind='onetime',
+                                terms={'due_days': 14})
+        svc.create_shipment(user=self.user, reseller=r, date=timezone.localdate(),
+                            debt_amount=Decimal('70000'), payment_monthly=Decimal('12000'))
+        planned = r.transactions.filter(status='planned', type='income')
+        self.assertEqual(planned.count(), 6)
+        total = sum(t.amount for t in planned)
+        self.assertEqual(total, Decimal('70000'))
+        self.assertTrue(any(t.amount == Decimal('10000') for t in planned))
+
+    def test_delete_shipment_removes_all_installments(self):
+        r = svc.create_reseller(user=self.user, name='ВидаленняРозкладу', terms_kind='onetime',
+                                terms={'due_days': 14})
+        ship = svc.create_shipment(user=self.user, reseller=r, date=timezone.localdate(),
+                                   debt_amount=Decimal('72000'), payment_monthly=Decimal('12000'))
+        self.assertEqual(r.transactions.filter(status='planned').count(), 6)
+        svc.delete_shipment(ship, user=self.user)
+        self.assertEqual(r.transactions.filter(status='planned').count(), 0)
+
+    def test_management_helpers_graceful(self):
+        """Менеджмент-хелпери не падають (повертають списки)."""
+        self.assertIsInstance(svc.list_management_orders(), list)
+        self.assertIsInstance(svc.list_management_test_batches(), list)
+        self.assertIsInstance(svc.parse_management_order_items(999999), list)
+        self.assertIsInstance(svc.parse_management_test_batch_items(999999), list)
 
     def test_list_page_200(self):
         c = Client(HTTP_HOST='fin.twocomms.shop')

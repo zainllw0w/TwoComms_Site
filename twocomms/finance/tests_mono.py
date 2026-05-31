@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+import datetime as dt
 from decimal import Decimal
 from io import StringIO
 from unittest import mock
@@ -161,6 +162,78 @@ class MonoSyncTests(TestCase):
         expense = Transaction.objects.get(external_id='mono:e1')
         self.assertEqual(expense.type, Transaction.TYPE_TRANSFER)
         self.assertFalse(expense.is_business)
+        self.assertFalse(Transaction.objects.filter(external_id='mono:i1').exists())
+
+    def test_consumed_internal_transfer_income_is_not_reimported(self):
+        other = Account.objects.create(
+            company=self.company, name='mono fop', currency='UAH',
+            integration=self.conn, external_account_id='acc-2',
+            external_kind='fop', is_business=True)
+        expense_item = _item('e1', -100000, t=1716921500)
+        income_item = _item('i1', 100000, t=1716921500)
+
+        mono_service.import_statement(other, [expense_item], user=self.user, apply_rules=False)
+        mono_service.import_statement(self.acc, [income_item], user=self.user, apply_rules=False)
+        mono_service.reconcile_internal_transfers(self.company, user=self.user)
+
+        res = mono_service.import_statement(self.acc, [income_item], user=self.user, apply_rules=False)
+
+        self.assertEqual(res['created'], 0)
+        self.assertEqual(res['skipped'], 1)
+        self.assertFalse(Transaction.objects.filter(external_id='mono:i1').exists())
+        transfer = Transaction.objects.get(external_id='mono:e1')
+        self.assertIn('mono:i1', transfer.external_data.get('consumed_external_ids', []))
+
+    def test_reconcile_removes_income_duplicate_for_existing_transfer(self):
+        from finance.services import transactions as txn_service
+
+        other = Account.objects.create(
+            company=self.company, name='mono fop', currency='UAH',
+            integration=self.conn, external_account_id='acc-2',
+            external_kind='fop', is_business=True)
+        transfer = txn_service.create_transaction(
+            user=self.user, type=Transaction.TYPE_TRANSFER, amount=Decimal('1000'),
+            account=other, to_account=self.acc, to_amount=Decimal('1000'),
+            source='integration', external_id='mono:e1',
+            date_actual=dt.datetime.fromtimestamp(1717095780, tz=dt.timezone.utc),
+        )
+        txn_service.create_transaction(
+            user=self.user, type=Transaction.TYPE_INCOME, amount=Decimal('1000'),
+            account=self.acc, source='integration', external_id='mono:i1',
+            date_actual=dt.datetime.fromtimestamp(1717095780, tz=dt.timezone.utc),
+        )
+
+        matched = mono_service.reconcile_internal_transfers(self.company, user=self.user)
+
+        self.assertEqual(matched, 1)
+        self.assertFalse(Transaction.objects.filter(external_id='mono:i1').exists())
+        transfer.refresh_from_db()
+        self.assertEqual(transfer.type, Transaction.TYPE_TRANSFER)
+        self.assertIn('mono:i1', transfer.external_data.get('consumed_external_ids', []))
+
+    def test_webhook_reconciles_internal_transfer_pair(self):
+        Account.objects.create(
+            company=self.company, name='mono fop', currency='UAH',
+            integration=self.conn, external_account_id='acc-2',
+            external_kind='fop', is_business=True)
+        mono_service.process_webhook(
+            self.conn,
+            {'type': 'StatementItem',
+             'data': {'account': 'acc-2',
+                      'statementItem': _item('e1', -100000, t=1716921500)}},
+            user=self.user,
+        )
+        mono_service.process_webhook(
+            self.conn,
+            {'type': 'StatementItem',
+             'data': {'account': 'acc-1',
+                      'statementItem': _item('i1', 100000, t=1716921500)}},
+            user=self.user,
+        )
+
+        transfer = Transaction.objects.get(external_id='mono:e1')
+        self.assertEqual(transfer.type, Transaction.TYPE_TRANSFER)
+        self.assertEqual(transfer.to_account, self.acc)
         self.assertFalse(Transaction.objects.filter(external_id='mono:i1').exists())
 
     def test_process_webhook_creates_txn(self):

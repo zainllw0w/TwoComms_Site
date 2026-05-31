@@ -108,6 +108,7 @@ class ConsignmentShipment(models.Model):
                                 related_name='consignment_shipments')
     reseller = models.ForeignKey(Reseller, on_delete=models.CASCADE, related_name='shipments')
     number = models.CharField(max_length=64, blank=True, default='', verbose_name='Номер накладної')
+    ttn = models.CharField(max_length=64, blank=True, default='', verbose_name='ТТН Нової Пошти')
     date = models.DateField(verbose_name='Дата відправки')
     # Ручна сума боргу (коли товарів немає в БД — заповнюємо вручну).
     debt_amount = models.DecimalField(max_digits=18, decimal_places=2, default=Decimal('0'))

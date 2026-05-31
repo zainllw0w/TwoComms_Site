@@ -108,13 +108,14 @@
     <div class="fin-table-wrap">
         <table class="fin-table">
             <thead>
-                <tr><th>Дата</th><th>Номер</th><th class="fin-col-amount">Борг</th><th>Позицій</th><th>Файли</th><th>Коментар</th><th></th></tr>
+                <tr><th>Дата</th><th>Номер</th><th>ТТН</th><th class="fin-col-amount">Борг</th><th>Позицій</th><th>Файли</th><th>Коментар</th><th></th></tr>
             </thead>
             <tbody>
                 {% for s in shipments %}
                 <tr>
                     <td>{{ s.date }}</td>
                     <td>{{ s.number|default:"—" }}</td>
+                    <td>{{ s.ttn|default:"—" }}</td>
                     <td class="fin-col-amount">{{ s.total_debt }}</td>
                     <td>{{ s.items_count }}</td>
                     <td>
@@ -124,7 +125,7 @@
                     <td><button type="button" class="fin-btn fin-btn--danger fin-btn--sm" data-cons-ship-del="{{ s.id }}">✕</button></td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="7" class="fin-empty">Немає поставок</td></tr>
+                <tr><td colspan="8" class="fin-empty">Немає поставок</td></tr>
                 {% endfor %}
             </tbody>
         </table>

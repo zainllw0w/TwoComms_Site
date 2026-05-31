@@ -90,6 +90,9 @@ class Command(BaseCommand):
                 skipped += res.get('skipped', 0)
                 rate_limited = rate_limited or res.get('rate_limited', False)
 
+            if processed:
+                mono_service.reconcile_internal_transfers(conn.company, user=None)
+
             conn.refresh_from_db(fields=['meta'])
             meta = dict(conn.meta or {})
             meta['mono_sync_next_account_index'] = (start + max_accounts) % len(accounts)

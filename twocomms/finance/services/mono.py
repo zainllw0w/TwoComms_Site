@@ -31,6 +31,7 @@ from . import transactions as txn_service
 EXTERNAL_PREFIX = 'mono'
 # Картки monobank, які за замовчуванням вважаємо особистими.
 PERSONAL_CARD_TYPES = {'black', 'white', 'platinum', 'iron', 'yellow', 'eaid'}
+CONSUMED_EXTERNAL_IDS_KEY = 'consumed_external_ids'
 
 
 def _kind_for(mono_account: mono_api.MonoAccount) -> str:
@@ -232,6 +233,100 @@ def _external_id(item_id: str) -> str:
     return f'{EXTERNAL_PREFIX}:{item_id}'
 
 
+def _amount_bounds(amount: Decimal, tolerance_percent=2.0) -> tuple[Decimal, Decimal]:
+    tolerance = amount * Decimal(str(tolerance_percent)) / Decimal('100')
+    return amount - tolerance, amount + tolerance
+
+
+def _consumed_external_ids(txn: Transaction) -> list[str]:
+    raw = (txn.external_data or {}).get(CONSUMED_EXTERNAL_IDS_KEY) or []
+    if isinstance(raw, str):
+        raw = [raw]
+    return [str(v) for v in raw if v]
+
+
+def _mark_transfer_consumed_income(
+    transfer: Transaction,
+    *,
+    income_external_id: str,
+    income_amount: Decimal,
+    income_account_id: int | None,
+    income_date=None,
+) -> None:
+    """Запам'ятовує incoming StatementItem, який уже зведено в transfer.
+
+    Monobank може повторно віддати той самий вхідний item через webhook/backfill.
+    Оскільки income-рядок ми видаляємо, dedupe за ``Transaction.external_id`` вже
+    не спрацьовує. Маркер на transfer робить повторний імпорт ідемпотентним.
+    """
+    if not income_external_id:
+        return
+    transfer.refresh_from_db(fields=['external_data'])
+    data = dict(transfer.external_data or {})
+    consumed = _consumed_external_ids(transfer)
+    if income_external_id not in consumed:
+        consumed.append(income_external_id)
+    data[CONSUMED_EXTERNAL_IDS_KEY] = consumed
+    data['matched_income_external_id'] = income_external_id
+    data['matched_income_amount'] = str(income_amount)
+    if income_account_id:
+        data['matched_income_account_id'] = income_account_id
+    if income_date:
+        data['matched_income_date'] = income_date.isoformat()
+    Transaction.objects.filter(pk=transfer.pk).update(external_data=data)
+    transfer.external_data = data
+
+
+def _matches_counterparty_hint(transfer: Transaction, hint: dict) -> bool:
+    counter_iban = (hint or {}).get('counter_iban', '')
+    if counter_iban and transfer.account and transfer.account.iban:
+        return counter_iban == transfer.account.iban
+
+    counter_name = ((hint or {}).get('counter_name') or '').lower()
+    if counter_name and transfer.account and transfer.account.name.lower() in counter_name:
+        return True
+    return False
+
+
+def _find_matching_existing_transfer(
+    account: Account,
+    *,
+    amount: Decimal,
+    when,
+    external_id: str = '',
+    hint: dict | None = None,
+    window_hours=168,
+    tolerance_percent=2.0,
+) -> Transaction | None:
+    """Шукає вже створений transfer, який відповідає incoming income item."""
+    if amount <= 0 or when is None:
+        return None
+
+    min_amount, max_amount = _amount_bounds(amount, tolerance_percent)
+    window = dt.timedelta(hours=window_hours)
+    qs = (Transaction.objects.filter(
+            company=account.company, source='integration',
+            status=Transaction.STATUS_ACTUAL, type=Transaction.TYPE_TRANSFER,
+            to_account=account, currency=account.currency,
+            date_actual__gte=when - window, date_actual__lte=when + window)
+          .exclude(account_id=account.id)
+          .select_related('account', 'to_account')
+          .order_by('date_actual'))
+
+    fallback = None
+    for transfer in qs:
+        target = transfer.to_amount if transfer.to_amount is not None else transfer.amount
+        if target is None or not (min_amount <= target <= max_amount):
+            continue
+        if external_id and external_id in _consumed_external_ids(transfer):
+            return transfer
+        if _matches_counterparty_hint(transfer, hint or {}):
+            return transfer
+        if fallback is None:
+            fallback = transfer
+    return fallback
+
+
 def _statement_window(frm: dt.datetime, to: dt.datetime):
     """Розбиває [frm, to] на вікна ≤ 31 доба (вимога API), у хронологічному
     порядку (старіші — першими), щоб імпорт ішов від давніх до свіжих."""
@@ -303,8 +398,20 @@ def _import_item(account: Account, item: dict, *, user, apply_rules=True):
             return txn
         return None
 
+    amount = abs(_money(amount_minor))
+    if txn_type == Transaction.TYPE_INCOME:
+        transfer = _find_matching_existing_transfer(
+            account, amount=amount, when=when, external_id=ext, hint=external_data,
+        )
+        if transfer is not None:
+            _mark_transfer_consumed_income(
+                transfer, income_external_id=ext, income_amount=amount,
+                income_account_id=account.id, income_date=when,
+            )
+            return None
+
     txn = txn_service.create_transaction(
-        user=user, type=txn_type, amount=abs(_money(amount_minor)),
+        user=user, type=txn_type, amount=amount,
         account=account, currency=account.currency, date_actual=when,
         comment=comment, source='integration', external_id=ext,
         status=Transaction.STATUS_DRAFT if item.get('hold') else Transaction.STATUS_ACTUAL,
@@ -458,6 +565,46 @@ def sync_connection(conn: IntegrationConnection, *, user, full=False,
 
 # ----------------------------- Внутрішні перекази -----------------------------
 
+def _reconcile_income_duplicates_for_existing_transfers(
+    company, *, user, window_hours=168, tolerance_percent=2.0,
+) -> int:
+    """Видаляє income-дублі, якщо matching transfer уже існує.
+
+    Це покриває legacy-стан: outgoing уже був перетворений на синій transfer,
+    але incoming statement item пізніше знову імпортувався як зелений дохід.
+    """
+    incomes = (Transaction.objects.filter(
+            company=company, source='integration', status=Transaction.STATUS_ACTUAL,
+            type=Transaction.TYPE_INCOME)
+        .exclude(account__isnull=True)
+        .select_related('account'))
+    matched = 0
+    for income in list(incomes):
+        transfer = _find_matching_existing_transfer(
+            income.account, amount=income.amount, when=income.date_actual,
+            external_id=income.external_id, hint=income.external_data or {},
+            window_hours=window_hours, tolerance_percent=tolerance_percent,
+        )
+        if transfer is None:
+            continue
+
+        income_id = income.id
+        income_external_id = income.external_id
+        _mark_transfer_consumed_income(
+            transfer, income_external_id=income_external_id,
+            income_amount=income.amount, income_account_id=income.account_id,
+            income_date=income.date_actual,
+        )
+        txn_service.delete_transaction(income, user=user)
+        audit_service.log_action(
+            user, 'reconcile', 'transaction', transfer.id,
+            summary=f'Прибрано дубль income #{income_id} для переказу #{transfer.id}',
+            source='integration', company=company,
+        )
+        matched += 1
+    return matched
+
+
 @db_transaction.atomic
 def reconcile_internal_transfers(company, *, user, window_hours=168, tolerance_percent=2.0) -> int:
     """Розпізнає перекази між власними рахунками (напр. ФОП → особиста картка).
@@ -477,7 +624,10 @@ def reconcile_internal_transfers(company, *, user, window_hours=168, tolerance_p
             type=Transaction.TYPE_EXPENSE)
           .exclude(account__isnull=True))
     window = dt.timedelta(hours=window_hours)
-    matched = 0
+    matched = _reconcile_income_duplicates_for_existing_transfers(
+        company, user=user, window_hours=window_hours,
+        tolerance_percent=tolerance_percent,
+    )
 
     # Матеріалізуємо список наперед: у циклі ми міняємо type/видаляємо рядки,
     # тож стрімити з курсора (iterator) небезпечно на частині бекендів.
@@ -531,11 +681,19 @@ def reconcile_internal_transfers(company, *, user, window_hours=168, tolerance_p
         # Витрату перетворюємо на переказ → income-рахунок, дубль-дохід видаляємо.
         to_account = income.account
         income_id = income.id
+        income_external_id = income.external_id
         income_amount = income.amount
+        income_account_id = income.account_id
+        income_date = income.date_actual
 
         txn_service.delete_transaction(income, user=user)
-        txn_service.convert_to_transfer(expense, user=user, to_account=to_account,
-                                        to_amount=income_amount)
+        transfer = txn_service.convert_to_transfer(
+            expense, user=user, to_account=to_account, to_amount=income_amount)
+        _mark_transfer_consumed_income(
+            transfer, income_external_id=income_external_id,
+            income_amount=income_amount, income_account_id=income_account_id,
+            income_date=income_date,
+        )
 
         # Переказ між власними рахунками не є ні доходом, ні витратою бізнесу.
         # Призначаємо системну категорію "Вивід на особисте" (Owner's Drawings)
@@ -575,6 +733,7 @@ def process_webhook(conn: IntegrationConnection, payload: dict, *, user=None) ->
         # Оновлюємо баланс із поля balance у вебхуку, якщо є.
         if 'balance' in item:
             _reconcile_balance(account, item.get('balance'))
+        reconcile_internal_transfers(conn.company, user=user)
         conn.last_sync_at = timezone.now()
         conn.save(update_fields=['last_sync_at'])
     return {'ok': True, 'created': 1 if txn else 0}

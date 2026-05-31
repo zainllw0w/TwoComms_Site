@@ -15,6 +15,25 @@
                     <span>Номер накладної</span>
                     <input type="text" name="number" id="cons-ship-number" class="fin-input">
                 </label>
+                <label class="fin-field">
+                    <span>ТТН Нової Пошти</span>
+                    <input type="text" name="ttn" id="cons-ship-ttn" class="fin-input" placeholder="напр. 2045...">
+                </label>
+            </div>
+
+            <!-- Джерело позицій -->
+            <label class="fin-field">
+                <span>Джерело товарів</span>
+                <select id="cons-ship-source" class="fin-select">
+                    <option value="manual">Вручну</option>
+                    <option value="order">З оптового замовлення (менеджмент)</option>
+                    <option value="test">З тестової партії (менеджмент)</option>
+                </select>
+            </label>
+            <div class="fin-field" id="cons-ship-mgmt-wrap" hidden>
+                <span id="cons-ship-mgmt-label">Оберіть замовлення</span>
+                <select id="cons-ship-mgmt-select" class="fin-select"><option value="">—</option></select>
+                <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" id="cons-ship-mgmt-load" style="margin-top:6px">Підтягнути позиції</button>
             </div>
 
             <label class="fin-field">

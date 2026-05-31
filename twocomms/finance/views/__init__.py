@@ -14,6 +14,11 @@ from .consignment import (  # noqa: F401
     consignment_payable_txns_api,
     consignment_payment_api,
     consignment_stats_api,
+    consignment_reseller_get_api,
+    consignment_management_orders_api,
+    consignment_management_tests_api,
+    consignment_management_order_items_api,
+    consignment_management_test_items_api,
 )
 from .users import (  # noqa: F401
     users,

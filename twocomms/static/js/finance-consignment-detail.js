@@ -53,6 +53,91 @@
     const addItemBtn = document.getElementById('cons-add-item-row');
     if (addItemBtn) addItemBtn.addEventListener('click', addItemRow);
 
+    // Заповнення рядка позиції даними з менеджменту
+    function addItemRowFilled(it) {
+        if (!itemTpl || !itemsRows) return;
+        const node = itemTpl.content.cloneNode(true);
+        node.querySelector('.ci-title').value = it.title || '';
+        node.querySelector('.ci-print').value = it.print_name || '';
+        node.querySelector('.ci-size').value = it.size || '';
+        node.querySelector('.ci-qty').value = it.qty || 0;
+        node.querySelector('.ci-cost').value = it.unit_cost || 0;
+        node.querySelector('.ci-price').value = it.unit_price || 0;
+        node.querySelector('.ci-consignment').checked = !!it.is_consignment;
+        node.querySelector('.ci-del').addEventListener('click', function (e) {
+            e.target.closest('.fin-cons-item-row').remove();
+        });
+        itemsRows.appendChild(node);
+    }
+
+    // Вибір джерела (вручну / замовлення / тестова партія)
+    const sourceSel = document.getElementById('cons-ship-source');
+    const mgmtWrap = document.getElementById('cons-ship-mgmt-wrap');
+    const mgmtSelect = document.getElementById('cons-ship-mgmt-select');
+    const mgmtLabel = document.getElementById('cons-ship-mgmt-label');
+
+    function loadMgmtList(kind) {
+        const url = kind === 'order'
+            ? '/api/consignment/management/orders/'
+            : '/api/consignment/management/tests/';
+        mgmtSelect.innerHTML = '<option value="">— завантаження… —</option>';
+        fetch(url).then(r => r.json()).then(res => {
+            mgmtSelect.innerHTML = '<option value="">— оберіть —</option>';
+            const list = res.orders || res.batches || [];
+            if (!list.length) {
+                mgmtSelect.innerHTML = '<option value="">немає даних</option>';
+                return;
+            }
+            list.forEach(o => {
+                const opt = document.createElement('option');
+                opt.value = o.id;
+                opt.textContent = kind === 'order'
+                    ? (o.number + ' · ' + o.company + ' · ' + o.amount + ' ₴')
+                    : (o.name + ' · ' + (o.product || '') + ' · ' + o.qty + ' шт');
+                mgmtSelect.appendChild(opt);
+            });
+        }).catch(() => { mgmtSelect.innerHTML = '<option value="">помилка</option>'; });
+    }
+
+    if (sourceSel) {
+        sourceSel.addEventListener('change', function () {
+            const kind = sourceSel.value;
+            if (kind === 'manual') {
+                mgmtWrap.hidden = true;
+            } else {
+                mgmtWrap.hidden = false;
+                mgmtLabel.textContent = kind === 'order' ? 'Оберіть замовлення' : 'Оберіть тестову партію';
+                loadMgmtList(kind);
+            }
+        });
+    }
+
+    const mgmtLoadBtn = document.getElementById('cons-ship-mgmt-load');
+    if (mgmtLoadBtn) {
+        mgmtLoadBtn.addEventListener('click', function () {
+            const kind = sourceSel.value;
+            const id = mgmtSelect.value;
+            if (!id) { alert('Оберіть джерело'); return; }
+            const url = kind === 'order'
+                ? '/api/consignment/management/orders/' + id + '/items/'
+                : '/api/consignment/management/tests/' + id + '/items/';
+            fetch(url).then(r => r.json()).then(res => {
+                const items = res.items || [];
+                if (!items.length) { alert('Позицій не знайдено'); return; }
+                // Очищаємо порожні рядки і додаємо підтягнуті
+                itemsRows.innerHTML = '';
+                items.forEach(addItemRowFilled);
+                recalcMonths();
+                // Підставляємо ТТН/номер якщо порожні
+                if (kind === 'order') {
+                    const numEl = document.getElementById('cons-ship-number');
+                    const opt = mgmtSelect.options[mgmtSelect.selectedIndex];
+                    if (numEl && !numEl.value && opt) numEl.value = (opt.textContent.split(' · ')[0] || '');
+                }
+            }).catch(() => alert('Помилка завантаження'));
+        });
+    }
+
     // Авто-розрахунок кількості місяців за щомісячною виплатою.
     function recalcMonths() {
         const debtField = parseFloat(document.getElementById('cons-ship-debt').value) || 0;
@@ -103,6 +188,7 @@
             const fd = new FormData();
             fd.append('date', document.getElementById('cons-ship-date').value);
             fd.append('number', document.getElementById('cons-ship-number').value);
+            fd.append('ttn', document.getElementById('cons-ship-ttn').value);
             fd.append('debt_amount', document.getElementById('cons-ship-debt').value || 0);
             fd.append('payment_monthly', document.getElementById('cons-ship-monthly').value || '');
             fd.append('comment', document.getElementById('cons-ship-comment').value);
@@ -231,15 +317,45 @@
         });
     }
 
-    // ---------- Редагувати магазин (відкрити модалку з заповненням) ----------
+    // ---------- Редагувати магазин (відкрити модалку із заповненням) ----------
     const editBtn = document.getElementById('cons-edit-btn');
     if (editBtn) {
         editBtn.addEventListener('click', () => {
-            const addBtn = document.getElementById('cons-add-btn');
-            // Перевикористовуємо модалку магазину (заповнення — з даних на сторінці).
-            openModal(document.getElementById('cons-reseller-modal'));
-            document.getElementById('cons-reseller-id').value = resellerId;
-            document.getElementById('cons-reseller-modal-title').textContent = 'Редагувати магазин';
+            fetch('/api/consignment/resellers/' + resellerId + '/get/')
+                .then(r => r.json())
+                .then(res => {
+                    if (!res.ok) return;
+                    const d = res.reseller;
+                    // Заповнюємо селект контрагентів (з dropdowns)
+                    const cpSel = document.getElementById('cons-reseller-cp');
+                    if (cpSel) {
+                        cpSel.innerHTML = '<option value="">— не вказано —</option>';
+                        (dropdowns.counterparties || []).forEach(cp => {
+                            const o = document.createElement('option');
+                            o.value = cp.id; o.textContent = cp.name;
+                            if (cp.id === d.counterparty_id) o.selected = true;
+                            cpSel.appendChild(o);
+                        });
+                    }
+                    document.getElementById('cons-reseller-id').value = d.id;
+                    document.getElementById('cons-reseller-name').value = d.name;
+                    document.getElementById('cons-reseller-status').value = d.status;
+                    document.getElementById('cons-terms-kind').value = d.terms_kind;
+                    document.getElementById('cons-notes').value = d.notes || '';
+                    document.getElementById('cons-phone').value = (d.contacts || {}).phone || '';
+                    document.getElementById('cons-responsible').value = (d.contacts || {}).responsible || '';
+                    const t = d.terms || {};
+                    if (document.getElementById('cons-due-days')) document.getElementById('cons-due-days').value = t.due_days || 14;
+                    if (document.getElementById('cons-period')) document.getElementById('cons-period').value = t.period || 'month';
+                    if (document.getElementById('cons-every')) document.getElementById('cons-every').value = t.every || 1;
+                    if (document.getElementById('cons-amount')) document.getElementById('cons-amount').value = t.amount || '';
+                    if (document.getElementById('cons-periods')) document.getElementById('cons-periods').value = t.periods || '';
+                    if (document.getElementById('cons-anchor')) document.getElementById('cons-anchor').value = t.anchor_day || 5;
+                    document.getElementById('cons-reseller-modal-title').textContent = 'Редагувати магазин';
+                    // Синхронізуємо видимість груп умов
+                    if (window.consignmentSyncTerms) window.consignmentSyncTerms();
+                    openModal(document.getElementById('cons-reseller-modal'));
+                });
         });
     }
 
