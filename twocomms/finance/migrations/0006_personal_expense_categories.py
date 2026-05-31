@@ -61,7 +61,7 @@ def reverse_personal_expense_categories(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('finance', '0005_merge_20260531_1409'),
+        ('finance', '0004_owner_drawings_category'),
     ]
 
     operations = [

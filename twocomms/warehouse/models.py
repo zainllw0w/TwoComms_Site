@@ -567,6 +567,12 @@ class WriteOffRequest(models.Model):
         blank=True,
         related_name="warehouse_writeoffs_completed",
     )
+    packaging_used = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Використане пакування",
+        help_text='{"bags_branded": 1, "tags": 2}',
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -706,4 +712,3 @@ class ConsumableItem(models.Model):
         # Автоматично рахуємо total_cost
         self.total_cost = self.quantity * self.cost_per_unit
         super().save(*args, **kwargs)
-

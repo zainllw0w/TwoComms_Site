@@ -28,6 +28,62 @@ class RecurrenceRule(models.Model):
     start_date = models.DateField()
     end_date = models.DateField(blank=True, null=True)
     count = models.PositiveIntegerField(blank=True, null=True)
+    next_occurrence = models.DateField(
+        blank=True,
+        null=True,
+        help_text='Дата наступного автоматичного створення планової транзакції',
+    )
+    auto_create = models.BooleanField(
+        default=True,
+        help_text='Автоматично створювати планові транзакції',
+    )
+    notification_days_before = models.PositiveIntegerField(
+        default=3,
+        help_text='За скільки днів надсилати нагадування',
+    )
+    last_generated_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text='Коли останній раз генерували транзакцію',
+    )
+    template_amount = models.DecimalField(
+        max_digits=18,
+        decimal_places=2,
+        blank=True,
+        null=True,
+        help_text='Сума шаблону для створення транзакцій',
+    )
+    template_account = models.ForeignKey(
+        Account,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='recurrence_rules_as_template',
+        help_text='Рахунок шаблону',
+    )
+    template_category = models.ForeignKey(
+        Category,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='recurrence_rules_as_template',
+        help_text='Категорія шаблону',
+    )
+    template_type = models.CharField(
+        max_length=12,
+        choices=[('income', 'Дохід'), ('expense', 'Витрата')],
+        default='expense',
+        help_text='Тип транзакції шаблону',
+    )
+    template_comment = models.TextField(
+        blank=True,
+        default='',
+        help_text='Коментар шаблону',
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text='Чи активне правило',
+    )
 
     class Meta:
         verbose_name = 'Правило повторення'

@@ -75,7 +75,12 @@ class PushSubscription(models.Model):
         db_table = 'finance_push_subscriptions'
         verbose_name = 'Push-підписка'
         verbose_name_plural = 'Push-підписки'
-        unique_together = [['user', 'endpoint']]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'endpoint'],
+                name='unique_user_endpoint',
+            ),
+        ]
 
     def __str__(self):
         return f'Push-підписка {self.user.username}'
