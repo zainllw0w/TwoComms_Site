@@ -1,0 +1,296 @@
+/* Анімації та UI/UX покращення — БЛОК 6 */
+
+/* Fade-in анімація для рядків */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fin-row {
+    animation: fadeInUp 0.3s ease-out;
+    animation-fill-mode: both;
+}
+
+.fin-row:nth-child(1) { animation-delay: 0.05s; }
+.fin-row:nth-child(2) { animation-delay: 0.1s; }
+.fin-row:nth-child(3) { animation-delay: 0.15s; }
+.fin-row:nth-child(4) { animation-delay: 0.2s; }
+.fin-row:nth-child(5) { animation-delay: 0.25s; }
+
+/* Skeleton loader */
+.fin-skeleton {
+    background: linear-gradient(90deg, #1a1d24 25%, #2d3139 50%, #1a1d24 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+    border-radius: 4px;
+    height: 20px;
+    margin-bottom: 8px;
+}
+
+@keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.fin-skeleton__line {
+    height: 16px;
+    margin-bottom: 8px;
+    background: inherit;
+    border-radius: 4px;
+}
+
+.fin-skeleton__line:last-child {
+    width: 60%;
+}
+
+/* Hover-ефекти для карток */
+.fin-kpi,
+.fin-balance-card,
+.fin-report-card {
+    transition: all 0.2s ease;
+}
+
+.fin-kpi:hover,
+.fin-balance-card:hover,
+.fin-report-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+.fin-report-card:hover {
+    border-color: rgba(255, 126, 41, 0.5);
+}
+
+/* Анімація прогрес-барів */
+@keyframes fillProgress {
+    from {
+        width: 0;
+    }
+}
+
+.fin-progress-bar {
+    animation: fillProgress 1s ease-out;
+}
+
+/* Pulse анімація для важливих метрик */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.fin-kpi--pulse {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+/* Smooth transitions для всіх інтерактивних елементів */
+.fin-btn,
+.fin-tab,
+.fin-quick,
+.fin-icon-btn {
+    transition: all 0.2s ease;
+}
+
+.fin-btn:hover {
+    transform: translateY(-1px);
+}
+
+.fin-btn:active {
+    transform: translateY(0);
+}
+
+/* Анімація для модальних вікон */
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.fin-modal[open] {
+    animation: modalFadeIn 0.2s ease-out;
+}
+
+/* Анімація для dropdown меню */
+@keyframes dropdownSlide {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fin-dropdown-menu {
+    animation: dropdownSlide 0.2s ease-out;
+}
+
+/* Ripple ефект для кнопок */
+.fin-btn {
+    position: relative;
+    overflow: hidden;
+}
+
+.fin-btn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.fin-btn:active::after {
+    width: 300px;
+    height: 300px;
+}
+
+/* Анімація для чисел (буде використовуватись з CountUp.js) */
+.fin-kpi__value,
+.fin-balance-card__value {
+    transition: color 0.3s ease;
+}
+
+/* Loading spinner */
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.fin-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-top-color: #ff7e29;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+/* Fade-in для графіків */
+@keyframes chartFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fin-chart-block {
+    animation: chartFadeIn 0.5s ease-out;
+}
+
+/* Smooth scroll */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Focus states з анімацією */
+.fin-input:focus,
+.fin-select:focus,
+.fin-textarea:focus {
+    outline: none;
+    border-color: #ff7e29;
+    box-shadow: 0 0 0 3px rgba(255, 126, 41, 0.1);
+    transition: all 0.2s ease;
+}
+
+/* Анімація для badges */
+.fin-badge {
+    transition: all 0.2s ease;
+}
+
+.fin-badge:hover {
+    transform: scale(1.05);
+}
+
+/* Shimmer ефект для завантаження */
+@keyframes shimmer {
+    0% {
+        background-position: -1000px 0;
+    }
+    100% {
+        background-position: 1000px 0;
+    }
+}
+
+.fin-shimmer {
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.05) 50%,
+        rgba(255, 255, 255, 0) 100%
+    );
+    background-size: 1000px 100%;
+    animation: shimmer 2s infinite;
+}
+
+/* Стилі для toast нотифікацій */
+@keyframes toastSlideIn {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.fin-toast {
+    animation: toastSlideIn 0.3s ease-out;
+}
+
+/* Покращення для таблиць */
+.fin-table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.fin-table tbody tr:hover {
+    background-color: rgba(255, 126, 41, 0.05);
+}
+
+/* Анімація для фільтрів */
+.fin-filters {
+    transition: all 0.3s ease;
+}
+
+/* Micro-interactions для іконок */
+.fin-icon-btn svg,
+.fin-quick svg {
+    transition: transform 0.2s ease;
+}
+
+.fin-icon-btn:hover svg,
+.fin-quick:hover svg {
+    transform: scale(1.1);
+}
+
+/* Gradient text для заголовків */
+.fin-gradient-text {
+    background: linear-gradient(135deg, #ff7e29 0%, #ff9f5a 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
