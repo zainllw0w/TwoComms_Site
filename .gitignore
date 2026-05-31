@@ -244,3 +244,7 @@ tmp/critical-extraction/
 **/authorized_keys*
 
 .deploy_pass
+
+.playwright-mcp/
+consignment-detail.png
+*.playwright-mcp
