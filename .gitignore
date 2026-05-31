@@ -248,3 +248,6 @@ tmp/critical-extraction/
 .playwright-mcp/
 consignment-detail.png
 *.playwright-mcp
+
+shipment-modal.png
+*.png
