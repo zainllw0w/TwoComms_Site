@@ -206,3 +206,107 @@ class ConsignmentServiceTestCase(TestCase):
         self.assertEqual(stats['frozen'], Decimal('2500'))
         self.assertEqual(stats['frozen_qty'], 5)
         self.assertTrue(len(stats['timeline']) >= 1)
+
+
+class ConsignmentPaymentSaleTestCase(TestCase):
+    """КРОК 3: виплати, продажі, edge cases."""
+
+    def setUp(self):
+        self.company = Company.objects.create(name='Test Co', base_currency='UAH')
+        self.cp = Counterparty.objects.create(company=self.company, name='Військторг', type='client')
+        self.reseller = svc.create_reseller(
+            user=None, name='Військторг', counterparty=self.cp,
+            terms_kind=Reseller.TERMS_ONETIME, terms={'due_days': 14},
+        )
+        self.cash = Account.objects.create(company=self.company, name='Каса', type='cash',
+                                           currency='UAH', initial_balance=Decimal('0'))
+        # Поставка на 72000 боргу
+        svc.create_shipment(user=None, reseller=self.reseller, date=timezone.localdate(),
+                            debt_amount=Decimal('72000'))
+
+    def test_manual_cash_payment_partial(self):
+        """Часткова готівкова виплата зменшує борг і збільшує баланс каси."""
+        svc.register_payment(user=None, reseller=self.reseller, mode='manual_cash',
+                             amount=Decimal('12000'), account=self.cash)
+        self.cash.refresh_from_db()
+        self.assertEqual(self.cash.current_balance, Decimal('12000'))  # +actual income
+        self.assertEqual(svc.reseller_debt(self.reseller), Decimal('60000'))  # 72000-12000
+        self.assertEqual(self.reseller.payments.count(), 1)
+
+    def test_full_payment_cancels_debt(self):
+        """Повна виплата закриває планову (status=cancelled)."""
+        svc.register_payment(user=None, reseller=self.reseller, mode='manual_cash',
+                             amount=Decimal('72000'), account=self.cash)
+        self.assertEqual(svc.reseller_debt(self.reseller), Decimal('0'))
+
+    def test_overpayment_no_negative(self):
+        """Виплата більша за борг → борг 0, не йде в мінус."""
+        svc.register_payment(user=None, reseller=self.reseller, mode='manual_cash',
+                             amount=Decimal('80000'), account=self.cash)
+        self.assertEqual(svc.reseller_debt(self.reseller), Decimal('0'))
+        p = self.reseller.payments.first()
+        self.assertIn('переплата', p.comment)
+
+    def test_pick_txn_links_account_counterparty(self):
+        """pick_txn привʼязує рахунок до контрагента при згоді."""
+        from finance.services import transactions as txn_service
+        card = Account.objects.create(company=self.company, name='Картка', type='card',
+                                      currency='UAH', initial_balance=Decimal('0'))
+        existing = txn_service.create_transaction(
+            user=None, type=Transaction.TYPE_INCOME, amount=Decimal('12000'),
+            account=card, currency='UAH', date_actual=timezone.now(),
+        )
+        svc.register_payment(user=None, reseller=self.reseller, mode='pick_txn',
+                             txn=existing, amount=Decimal('12000'), link_account_cp=True)
+        card.refresh_from_db()
+        self.assertEqual(card.counterparty_id, self.cp.id)  # привʼязано
+        existing.refresh_from_db()
+        self.assertEqual(existing.reseller_id, self.reseller.id)
+        self.assertEqual(svc.reseller_debt(self.reseller), Decimal('60000'))
+
+    def test_payable_candidates_priority(self):
+        """Кандидати сортуються: рахунок контрагента > без привʼязки."""
+        from finance.services import transactions as txn_service
+        linked = Account.objects.create(company=self.company, name='Привʼязана', type='card',
+                                        currency='UAH', counterparty=self.cp)
+        txn_service.create_transaction(user=None, type=Transaction.TYPE_INCOME,
+                                       amount=Decimal('5000'), account=linked,
+                                       currency='UAH', date_actual=timezone.now())
+        cands = svc.payable_txn_candidates(self.reseller)
+        self.assertTrue(len(cands) >= 1)
+        self.assertTrue(cands[0]['_priority'] >= 1)
+
+    def test_register_sale(self):
+        """Продаж збільшує sold_qty та зменшує заморожено."""
+        ship = svc.create_shipment(
+            user=None, reseller=self.reseller, date=timezone.localdate(),
+            items=[{'title': 'Худі', 'qty': 10, 'unit_cost': '500',
+                    'unit_price': '900', 'is_consignment': True}],
+        )
+        item = ship.items.first()
+        svc.register_sale(user=None, item=item, qty=3, unit_price=Decimal('900'))
+        item.refresh_from_db()
+        self.assertEqual(item.sold_qty, 3)
+        self.assertEqual(item.frozen_value, Decimal('3500'))  # (10-3)*500
+
+    def test_sale_over_qty_raises(self):
+        ship = svc.create_shipment(
+            user=None, reseller=self.reseller, date=timezone.localdate(),
+            items=[{'title': 'Худі', 'qty': 5, 'unit_cost': '500', 'is_consignment': True}],
+        )
+        item = ship.items.first()
+        with self.assertRaises(ValueError):
+            svc.register_sale(user=None, item=item, qty=6)
+
+    def test_sale_creates_debt(self):
+        ship = svc.create_shipment(
+            user=None, reseller=self.reseller, date=timezone.localdate(),
+            items=[{'title': 'Худі', 'qty': 10, 'unit_cost': '500',
+                    'unit_price': '900', 'is_consignment': True}],
+        )
+        item = ship.items.first()
+        debt_before = svc.reseller_debt(self.reseller)
+        svc.register_sale(user=None, item=item, qty=2, unit_price=Decimal('900'),
+                          creates_debt=True)
+        # борг виріс на 2*900 = 1800
+        self.assertEqual(svc.reseller_debt(self.reseller), debt_before + Decimal('1800'))

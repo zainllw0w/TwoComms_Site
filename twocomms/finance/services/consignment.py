@@ -377,6 +377,180 @@ def resellers_debt_total(company) -> Decimal:
     return agg['s'] or Decimal('0')
 
 
+# ----------------------------- Виплати -----------------------------
+
+def _apply_to_debt(reseller: Reseller, amount: Decimal, *, user) -> Decimal:
+    """Зменшує планові борги магазину на ``amount`` (FIFO за датою).
+
+    Повертає суму, що залишилась незастосованою (переплата). Планову, повністю
+    покриту, скасовуємо (status=cancelled), часткову — зменшуємо.
+    """
+    remaining = Decimal(str(amount))
+    planned = (reseller.transactions
+               .filter(status=Transaction.STATUS_PLANNED, type=Transaction.TYPE_INCOME)
+               .exclude(excluded_from_reports=True)
+               .order_by('date_actual'))
+    for txn in planned:
+        if remaining <= 0:
+            break
+        debt = txn.amount
+        if remaining >= debt:
+            # Повне покриття — борг закрито (факт проведено окремою виплатою).
+            txn_service.update_transaction(txn, user=user, status=Transaction.STATUS_CANCELLED)
+            remaining -= debt
+        else:
+            # Часткове — зменшуємо суму планової.
+            txn_service.update_transaction(txn, user=user, amount=debt - remaining)
+            remaining = Decimal('0')
+    return remaining
+
+
+@db_transaction.atomic
+def register_payment(*, user, reseller, mode, amount=None, txn=None, account=None,
+                     date=None, link_account_cp=False, comment='') -> ResellerPayment:
+    """Реєструє виплату магазину та гасить борг.
+
+    mode='manual_cash' → створює нову actual income-транзакцію (готівка) на
+        ``amount`` через ``account`` (recalc балансу), прив'язує reseller.
+    mode='pick_txn'    → використовує наявну actual income ``txn``; ``amount``
+        обов'язковий. Опційно прив'язує account до контрагента магазину.
+    Потім зменшує планові борги на ``amount``. Надлишок не йде в мінус.
+    """
+    company = reseller.company
+    date = date or timezone.localdate()
+
+    if mode == 'manual_cash':
+        if amount is None or Decimal(str(amount)) <= 0:
+            raise ValueError('Сума виплати обовʼязкова')
+        amount = Decimal(str(amount))
+        paid_txn = txn_service.create_transaction(
+            user=user, type=Transaction.TYPE_INCOME, status=Transaction.STATUS_ACTUAL,
+            amount=amount, account=account,
+            currency=account.currency if account else company.base_currency,
+            counterparty=reseller.counterparty,
+            date_actual=timezone.make_aware(dt.datetime.combine(date, dt.time(12, 0))),
+            comment=comment or f'Виплата від {reseller.name}',
+            source='consignment', is_business=True,
+        )
+        paid_txn.reseller = reseller
+        paid_txn.save(update_fields=['reseller'])
+    elif mode == 'pick_txn':
+        if txn is None:
+            raise ValueError('Не обрано транзакцію')
+        if amount is None or Decimal(str(amount)) <= 0:
+            raise ValueError('Сума виплати обовʼязкова')
+        amount = Decimal(str(amount))
+        paid_txn = txn
+        # Прив'язуємо транзакцію до магазину.
+        if paid_txn.reseller_id != reseller.id:
+            paid_txn.reseller = reseller
+            paid_txn.save(update_fields=['reseller'])
+        # Прив'язуємо рахунок до контрагента (за згодою), якщо ще не привʼязаний.
+        if (link_account_cp and reseller.counterparty_id and paid_txn.account_id
+                and not paid_txn.account.counterparty_id):
+            paid_txn.account.counterparty = reseller.counterparty
+            paid_txn.account.save(update_fields=['counterparty'])
+    else:
+        raise ValueError(f'Невідомий mode: {mode}')
+
+    payment = ResellerPayment.objects.create(
+        company=company, reseller=reseller, date=date, amount=amount,
+        currency=paid_txn.currency, txn=paid_txn, comment=comment or '',
+    )
+    overpay = _apply_to_debt(reseller, amount, user=user)
+    if overpay > 0:
+        payment.comment = (payment.comment + f' (переплата {overpay})').strip()
+        payment.save(update_fields=['comment'])
+
+    audit_service.log_action(
+        user, 'create', 'reseller_payment', payment.id,
+        summary=f'Виплата {amount} від {reseller.name}', company=company,
+    )
+    return payment
+
+
+def payable_txn_candidates(reseller: Reseller) -> list:
+    """Кандидати-транзакції для погашення (actual income).
+
+    Пріоритет: транзакції рахунків, привʼязаних до контрагента магазину,
+    потім транзакції без привʼязки рахунку до контрагента. Уже привʼязані до
+    іншого магазину — виключаємо.
+    """
+    from .serializers import serialize_transaction
+    company = reseller.company
+    qs = (Transaction.objects
+          .filter(company=company, type=Transaction.TYPE_INCOME,
+                  status=Transaction.STATUS_ACTUAL)
+          .filter(reseller__isnull=True)
+          .select_related('account', 'account__counterparty')
+          .order_by('-date_actual')[:100])
+    out = []
+    for t in qs:
+        acc_cp = t.account.counterparty_id if t.account_id else None
+        priority = 0
+        if reseller.counterparty_id and acc_cp == reseller.counterparty_id:
+            priority = 2
+        elif not acc_cp:
+            priority = 1
+        data = serialize_transaction(t)
+        data['account_has_counterparty'] = bool(acc_cp)
+        data['_priority'] = priority
+        out.append(data)
+    out.sort(key=lambda d: (d['_priority'], d['date_actual'] or ''), reverse=True)
+    return out
+
+
+# ----------------------------- Продаж позиції -----------------------------
+
+@db_transaction.atomic
+def register_sale(*, user, item: ConsignmentItem, qty, date=None, unit_price=None,
+                  creates_debt=False) -> ConsignmentSale:
+    """Фіксація продажу позиції під реалізацію.
+
+    Збільшує ``sold_qty`` (валідація ≤ qty), зменшує frozen_value. Опційно
+    створює планову income-транзакцію (борг магазину за проданий товар).
+    """
+    qty = int(qty)
+    if qty <= 0:
+        raise ValueError('Кількість має бути додатньою')
+    if item.sold_qty + qty > item.qty:
+        raise ValueError(
+            f'Не можна продати {qty}: залишок {item.remaining_qty} з {item.qty}')
+
+    date = date or timezone.localdate()
+    unit_price = Decimal(str(unit_price)) if unit_price is not None else item.unit_price
+    reseller = item.reseller
+    company = reseller.company
+
+    sale = ConsignmentSale.objects.create(
+        company=company, reseller=reseller, item=item, qty=qty, date=date,
+        unit_price=unit_price, creates_debt=bool(creates_debt),
+    )
+    item.sold_qty += qty
+    item.save(update_fields=['sold_qty'])
+
+    if creates_debt and unit_price > 0:
+        due = expected_due_date(reseller, date)
+        txn = txn_service.create_transaction(
+            user=user, type=Transaction.TYPE_INCOME, status=Transaction.STATUS_PLANNED,
+            amount=unit_price * qty, currency=company.base_currency, account=None,
+            counterparty=reseller.counterparty,
+            date_actual=timezone.make_aware(dt.datetime.combine(due, dt.time(12, 0))),
+            comment=f'Продаж {qty} × {item.title} → {reseller.name}',
+            source='consignment', is_business=True,
+        )
+        txn.reseller = reseller
+        txn.save(update_fields=['reseller'])
+        sale.debt_txn = txn
+        sale.save(update_fields=['debt_txn'])
+
+    audit_service.log_action(
+        user, 'create', 'consignment_sale', sale.id,
+        summary=f'Продаж {qty} × {item.title} ({reseller.name})', company=company,
+    )
+    return sale
+
+
 # ----------------------------- Статистика магазину -----------------------------
 
 def reseller_timeline(reseller: Reseller) -> list[dict]:
