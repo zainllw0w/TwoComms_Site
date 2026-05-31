@@ -20,7 +20,7 @@ class Command(BaseCommand):
             '--tolerance',
             type=float,
             default=2.0,
-            help='Толерантність по сумі в відсотках (за замовчуванням 2.0%)',
+            help='Толерантність по сумі в відсотках (за замовчуванням 2.0)',
         )
         parser.add_argument(
             '--user',
