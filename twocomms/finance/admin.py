@@ -7,6 +7,8 @@ from .models import (
     Account, AuditLog, AutomationRule, BudgetPlan, Category, Company,
     Counterparty, CurrencyRate, FinancialMetric, IntegrationConnection,
     Invoice, InvoiceItem, Project, Tag, Transaction,
+    Reseller, ConsignmentShipment, ConsignmentItem, ResellerPayment,
+    ConsignmentSale,
 )
 
 
@@ -57,6 +59,43 @@ class AuditLogAdmin(admin.ModelAdmin):
     list_filter = ('action', 'entity_type', 'source')
     search_fields = ('summary', 'entity_id')
     date_hierarchy = 'created_at'
+
+
+class ConsignmentItemInline(admin.TabularInline):
+    model = ConsignmentItem
+    extra = 0
+    raw_id_fields = ('stock_item', 'reseller')
+
+
+@admin.register(Reseller)
+class ResellerAdmin(admin.ModelAdmin):
+    list_display = ('name', 'status', 'terms_kind', 'counterparty', 'created_at')
+    list_filter = ('status', 'terms_kind')
+    search_fields = ('name',)
+    raw_id_fields = ('counterparty',)
+
+
+@admin.register(ConsignmentShipment)
+class ConsignmentShipmentAdmin(admin.ModelAdmin):
+    list_display = ('id', 'reseller', 'number', 'date', 'debt_amount', 'currency')
+    list_filter = ('currency', 'external_source')
+    search_fields = ('number',)
+    raw_id_fields = ('reseller', 'debt_txn')
+    inlines = [ConsignmentItemInline]
+
+
+@admin.register(ResellerPayment)
+class ResellerPaymentAdmin(admin.ModelAdmin):
+    list_display = ('id', 'reseller', 'date', 'amount', 'currency')
+    raw_id_fields = ('reseller', 'txn')
+    date_hierarchy = 'date'
+
+
+@admin.register(ConsignmentSale)
+class ConsignmentSaleAdmin(admin.ModelAdmin):
+    list_display = ('id', 'reseller', 'item', 'qty', 'date', 'unit_price', 'creates_debt')
+    raw_id_fields = ('reseller', 'item', 'debt_txn')
+    date_hierarchy = 'date'
 
 
 for _model in (CurrencyRate, Category, Counterparty, Project, Tag,

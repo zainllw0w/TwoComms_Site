@@ -93,6 +93,12 @@ class Account(models.Model):
     # Бізнес vs особистий рахунок. ФОП-рахунки — завжди бізнес; на звичайних
     # картках операції особисті за замовчуванням (можна перемикати поштучно).
     is_business = models.BooleanField(default=False)
+    # Прив'язка рахунку до контрагента (напр. особиста картка магазину-реалізатора).
+    # Дозволяє авто-розпізнавати контрагента при погашенні боргів через цей рахунок.
+    counterparty = models.ForeignKey(
+        'finance.Counterparty', on_delete=models.SET_NULL, blank=True, null=True,
+        related_name='accounts',
+    )
     auto_sync = models.BooleanField(default=True)
     sort_order = models.PositiveIntegerField(default=0)
     is_demo = models.BooleanField(default=False)

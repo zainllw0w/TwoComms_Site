@@ -40,6 +40,13 @@ from .models_settings import (  # noqa: F401
     PushSubscription,
     NotificationLog,
 )
+from .models_consignment import (  # noqa: F401
+    Reseller,
+    ConsignmentShipment,
+    ConsignmentItem,
+    ResellerPayment,
+    ConsignmentSale,
+)
 
 __all__ = [
     'Account', 'Category', 'Company', 'Counterparty', 'CurrencyRate',
@@ -49,4 +56,6 @@ __all__ = [
     'AuditLog', 'AutomationRule', 'BudgetPlan', 'FinancialMetric',
     'IntegrationConnection', 'RuleApplication',
     'UserSettings', 'PushSubscription', 'NotificationLog',
+    'Reseller', 'ConsignmentShipment', 'ConsignmentItem',
+    'ResellerPayment', 'ConsignmentSale',
 ]

@@ -194,6 +194,10 @@ class Transaction(models.Model):
     is_recurring = models.BooleanField(default=False)
     recurrence_rule = models.ForeignKey(RecurrenceRule, on_delete=models.SET_NULL, blank=True,
                                         null=True, related_name='transactions')
+    # Прив'язка до магазину-реалізатора (модуль consignment). Для планових
+    # боргів магазину та фактичних виплат — дозволяє reseller.transactions.
+    reseller = models.ForeignKey('finance.Reseller', on_delete=models.SET_NULL, blank=True,
+                                 null=True, related_name='transactions')
     parent_transaction = models.ForeignKey('self', on_delete=models.CASCADE, blank=True, null=True,
                                            related_name='children')
     is_split = models.BooleanField(default=False)
