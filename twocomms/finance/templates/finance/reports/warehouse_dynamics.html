@@ -1,0 +1,80 @@
+{% extends 'finance/base.html' %}
+{% load static %}
+
+{% block title %}Динаміка складу — TwoComms Finance{% endblock %}
+
+{% block content %}
+{% include 'finance/partials/report_header.html' with title=title %}
+
+<!-- KPI -->
+<div class="fin-kpi-row">
+    <div class="fin-kpi fin-kpi--info">
+        <div class="fin-kpi__label">Поточна вартість складу</div>
+        <div class="fin-kpi__value">{{ current_value }}</div>
+        <div class="fin-kpi__hint">Товари + принти + розхідники</div>
+    </div>
+</div>
+
+<!-- Chart: Динаміка по днях -->
+<div class="fin-chart-block">
+    <h3 class="fin-chart-title">Рух складу по днях</h3>
+    <div class="fin-chart-canvas">
+        <canvas id="dynamicsChart" height="400"></canvas>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script>
+const chartData = {{ chart_data|safe }};
+
+const ctx = document.getElementById('dynamicsChart').getContext('2d');
+new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: chartData.dates,
+        datasets: [
+            {
+                label: 'Додано',
+                data: chartData.added,
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                fill: true,
+            },
+            {
+                label: 'Продано',
+                data: chartData.sold,
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                fill: true,
+            },
+            {
+                label: 'Списано',
+                data: chartData.written_off,
+                borderColor: '#ef4444',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                fill: true,
+            },
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                labels: { color: '#e5e7eb' }
+            }
+        },
+        scales: {
+            x: {
+                ticks: { color: '#9ca3af' },
+                grid: { color: 'rgba(255,255,255,0.05)' }
+            },
+            y: {
+                ticks: { color: '#9ca3af' },
+                grid: { color: 'rgba(255,255,255,0.05)' }
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

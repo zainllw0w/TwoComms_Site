@@ -26,6 +26,9 @@ REPORT_CARDS = [
     {'kind': 'payables', 'title': 'Кредиторка', 'desc': 'Кому винна компанія'},
     {'kind': 'statement', 'title': 'Виписка за рахунком', 'desc': 'Рух по рахунку'},
     {'kind': 'projects', 'title': 'Проекти', 'desc': 'Прибутковість проектів'},
+    {'kind': 'warehouse_dynamics', 'title': 'Динаміка складу', 'desc': 'Рух товарів по днях'},
+    {'kind': 'warehouse_structure', 'title': 'Структура складу', 'desc': 'Розподіл за категоріями'},
+    {'kind': 'warehouse_turnover', 'title': 'Оборотність складу', 'desc': 'Швидкість обороту товарів'},
     {'kind': 'audit', 'title': 'Історія дій', 'desc': 'Журнал змін'},
     {'kind': 'balance', 'title': 'Баланс', 'desc': 'Активи та пасиви'},
     {'kind': 'plan_fact', 'title': 'План/Факт', 'desc': 'Порівняння плану і факту'},
@@ -297,6 +300,47 @@ def report(request, kind):
                     'income_categories': company.categories.exclude(type='expense'),
                     'expense_categories': company.categories.exclude(type='income')})
         return render(request, 'finance/reports/metrics.html', ctx)
+
+    # БЛОК 5: Аналітика складу
+    if kind == 'warehouse_dynamics':
+        from finance.services import warehouse_analytics as wa
+        data = wa.warehouse_dynamics(days=int(request.GET.get('days', 90)))
+        ctx.update({
+            'title': 'Динаміка складу',
+            'data': data,
+            'current_value': _m(company, data['current_value']),
+            'chart_data': json.dumps({
+                'dates': data['dates'],
+                'added': data['added_value'],
+                'sold': data['sold_value'],
+                'written_off': data['written_off_value'],
+            }),
+        })
+        return render(request, 'finance/reports/warehouse_dynamics.html', ctx)
+
+    if kind == 'warehouse_structure':
+        from finance.services import warehouse_analytics as wa
+        data = wa.warehouse_structure()
+        ctx.update({
+            'title': 'Структура складу',
+            'data': data,
+            'total_value': _m(company, data['total_value']),
+            'chart_data': json.dumps({
+                'categories': [{'name': c['name'], 'value': float(c['value'])} for c in data['by_category']],
+                'consumables': [{'name': c['name'], 'value': float(c['value'])} for c in data['by_consumable_category']],
+            }),
+        })
+        return render(request, 'finance/reports/warehouse_structure.html', ctx)
+
+    if kind == 'warehouse_turnover':
+        from finance.services import warehouse_analytics as wa
+        data = wa.warehouse_turnover()
+        ctx.update({
+            'title': 'Оборотність складу',
+            'data': data,
+            'avg_days': data['avg_days_in_stock'],
+        })
+        return render(request, 'finance/reports/warehouse_turnover.html', ctx)
 
     ctx.update({'title': 'Звіт', 'section_subtitle': 'Невідомий звіт'})
     return render(request, 'finance/coming_soon.html',

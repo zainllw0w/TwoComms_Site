@@ -1,0 +1,98 @@
+{% extends 'finance/base.html' %}
+{% load static %}
+
+{% block title %}Структура складу — TwoComms Finance{% endblock %}
+
+{% block content %}
+{% include 'finance/partials/report_header.html' with title=title %}
+
+<!-- KPI -->
+<div class="fin-kpi-row">
+    <div class="fin-kpi fin-kpi--info">
+        <div class="fin-kpi__label">Загальна вартість</div>
+        <div class="fin-kpi__value">{{ total_value }}</div>
+        <div class="fin-kpi__hint">Весь склад</div>
+    </div>
+</div>
+
+<!-- Топ категорій -->
+<div class="fin-section">
+    <h3 class="fin-section-title">Топ-10 категорій за вартістю</h3>
+    <div class="fin-table-wrap">
+        <table class="fin-table">
+            <thead>
+                <tr>
+                    <th>Категорія</th>
+                    <th>Кількість</th>
+                    <th>Вартість</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cat in data.by_category %}
+                <tr>
+                    <td><strong>{{ cat.name }}</strong></td>
+                    <td>{{ cat.quantity }} шт</td>
+                    <td>{{ cat.value|floatformat:0 }} ₴</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3" class="fin-empty">Немає даних</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Топ товарів -->
+<div class="fin-section">
+    <h3 class="fin-section-title">Топ-10 товарів за вартістю</h3>
+    <div class="fin-table-wrap">
+        <table class="fin-table">
+            <thead>
+                <tr>
+                    <th>Товар</th>
+                    <th>Кількість</th>
+                    <th>Вартість</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in data.by_item %}
+                <tr>
+                    <td>{{ item.name }}</td>
+                    <td>{{ item.quantity }} шт</td>
+                    <td>{{ item.value|floatformat:0 }} ₴</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3" class="fin-empty">Немає даних</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Розхідники -->
+<div class="fin-section">
+    <h3 class="fin-section-title">Розхідні матеріали за категоріями</h3>
+    <div class="fin-table-wrap">
+        <table class="fin-table">
+            <thead>
+                <tr>
+                    <th>Категорія</th>
+                    <th>Кількість</th>
+                    <th>Вартість</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in data.by_consumable_category %}
+                <tr>
+                    <td><strong>{{ c.name }}</strong></td>
+                    <td>{{ c.quantity }}</td>
+                    <td>{{ c.value|floatformat:0 }} ₴</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3" class="fin-empty">Немає розхідників</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

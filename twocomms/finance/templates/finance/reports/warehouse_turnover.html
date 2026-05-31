@@ -1,0 +1,110 @@
+{% extends 'finance/base.html' %}
+{% load static %}
+
+{% block title %}Оборотність складу — TwoComms Finance{% endblock %}
+
+{% block content %}
+{% include 'finance/partials/report_header.html' with title=title %}
+
+<!-- KPI -->
+<div class="fin-kpi-row">
+    <div class="fin-kpi fin-kpi--info">
+        <div class="fin-kpi__label">Середній час на складі</div>
+        <div class="fin-kpi__value">{{ avg_days }} днів</div>
+        <div class="fin-kpi__hint">В середньому</div>
+    </div>
+</div>
+
+<!-- Мертвий запас -->
+<div class="fin-section">
+    <h3 class="fin-section-title">🔴 Мертвий запас (> 90 днів без продажу)</h3>
+    <div class="fin-table-wrap">
+        <table class="fin-table">
+            <thead>
+                <tr>
+                    <th>Товар</th>
+                    <th>Кількість</th>
+                    <th>Вартість</th>
+                    <th>Днів без продажу</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in data.dead_stock %}
+                <tr>
+                    <td>{{ item.name }}</td>
+                    <td>{{ item.quantity }} шт</td>
+                    <td>{{ item.value|floatformat:0 }} ₴</td>
+                    <td class="fin-text--danger">{{ item.days_since_sale }} днів</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="fin-empty">✅ Немає мертвого запасу</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Повільні товари -->
+<div class="fin-section">
+    <h3 class="fin-section-title">🟡 Повільні товари (60-90 днів)</h3>
+    <div class="fin-table-wrap">
+        <table class="fin-table">
+            <thead>
+                <tr>
+                    <th>Товар</th>
+                    <th>Кількість</th>
+                    <th>Вартість</th>
+                    <th>Днів без продажу</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in data.slow_movers %}
+                <tr>
+                    <td>{{ item.name }}</td>
+                    <td>{{ item.quantity }} шт</td>
+                    <td>{{ item.value|floatformat:0 }} ₴</td>
+                    <td class="fin-text--warning">{{ item.days_since_sale }} днів</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="fin-empty">Немає повільних товарів</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Швидкі товари -->
+<div class="fin-section">
+    <h3 class="fin-section-title">🟢 Швидкі товари (< 30 днів)</h3>
+    <div class="fin-table-wrap">
+        <table class="fin-table">
+            <thead>
+                <tr>
+                    <th>Товар</th>
+                    <th>Кількість</th>
+                    <th>Вартість</th>
+                    <th>Днів з останнього продажу</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in data.fast_movers %}
+                <tr>
+                    <td>{{ item.name }}</td>
+                    <td>{{ item.quantity }} шт</td>
+                    <td>{{ item.value|floatformat:0 }} ₴</td>
+                    <td class="fin-text--success">{{ item.days_since_sale }} днів</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="fin-empty">Немає швидких товарів</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.fin-text--danger { color: #ef4444; }
+.fin-text--warning { color: #f59e0b; }
+.fin-text--success { color: #10b981; }
+</style>
+{% endblock %}
