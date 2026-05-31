@@ -28,3 +28,12 @@
 .fin-balance-card--clickable:hover .fin-balance-card__hint {
     color: #ff7e29;
 }
+
+/* Іконки бізнес/особисте */
+.fin-icon-badge {
+    display: inline-block;
+    font-size: 14px;
+    margin-right: 6px;
+    opacity: 0.8;
+    vertical-align: middle;
+}
