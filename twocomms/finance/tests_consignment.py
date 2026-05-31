@@ -8,6 +8,8 @@ from finance.models import (
     Account, Company, Counterparty, Transaction,
     Reseller, ConsignmentShipment, ConsignmentItem, ResellerPayment, ConsignmentSale,
 )
+from finance.services import consignment as svc
+from finance.services import reports_debt
 
 
 class ConsignmentModelsTestCase(TestCase):
@@ -87,3 +89,120 @@ class ConsignmentModelsTestCase(TestCase):
         )
         self.assertEqual(txn.reseller, self.reseller)
         self.assertIn(txn, self.reseller.transactions.all())
+
+
+class ConsignmentServiceTestCase(TestCase):
+    """КРОК 2: сервіс ядро (умови, поставки, борг, заморожено, статистика)."""
+
+    def setUp(self):
+        self.company = Company.objects.create(name='Test Co', base_currency='UAH')
+        self.cp = Counterparty.objects.create(company=self.company, name='Військторг', type='client')
+        self.reseller = svc.create_reseller(
+            user=None, name='Військторг', counterparty=self.cp,
+            terms_kind=Reseller.TERMS_INSTALLMENT,
+            terms={'period': 'month', 'every': 1, 'amount': '12000', 'periods': 6, 'anchor_day': 5},
+        )
+
+    def test_validate_terms(self):
+        self.assertEqual(svc.validate_terms('onetime', {'due_days': 14}), {'due_days': 14})
+        with self.assertRaises(ValueError):
+            svc.validate_terms('onetime', {'due_days': 0})
+        with self.assertRaises(ValueError):
+            svc.validate_terms('installment', {'period': 'year'})
+        out = svc.validate_terms('installment', {'period': 'month', 'amount': '12000', 'periods': 6})
+        self.assertEqual(out['amount'], '12000')
+        self.assertEqual(out['periods'], 6)
+
+    def test_payment_schedule_installment(self):
+        sched = svc.payment_schedule(self.reseller)
+        # periods=6 → 6 платежів
+        self.assertEqual(len(sched), 6)
+        self.assertEqual(sched[0]['amount'], '12000')
+
+    def test_payment_schedule_onetime(self):
+        r = svc.create_reseller(user=None, name='Тест', terms_kind='onetime', terms={'due_days': 14})
+        sched = svc.payment_schedule(r)
+        self.assertEqual(len(sched), 1)
+        self.assertEqual(sched[0]['kind'], 'onetime')
+
+    def test_create_shipment_makes_planned_debt(self):
+        """Поставка з ручним боргом створює планову income-транзакцію."""
+        ship = svc.create_shipment(
+            user=None, reseller=self.reseller, date=timezone.localdate(),
+            number='TTN-1', debt_amount=Decimal('72000'),
+        )
+        self.assertIsNotNone(ship.debt_txn)
+        self.assertEqual(ship.debt_txn.type, Transaction.TYPE_INCOME)
+        self.assertEqual(ship.debt_txn.status, Transaction.STATUS_PLANNED)
+        self.assertEqual(ship.debt_txn.amount, Decimal('72000'))
+        self.assertEqual(ship.debt_txn.reseller_id, self.reseller.id)
+        # Борг магазину = 72000
+        self.assertEqual(svc.reseller_debt(self.reseller), Decimal('72000'))
+
+    def test_shipment_debt_from_items(self):
+        """Боргові позиції формують борг, консигнаційні — ні."""
+        ship = svc.create_shipment(
+            user=None, reseller=self.reseller, date=timezone.localdate(),
+            items=[
+                {'title': 'Футболка', 'qty': 10, 'unit_cost': '300', 'is_consignment': False},
+                {'title': 'Худі', 'qty': 5, 'unit_cost': '500', 'is_consignment': True},
+            ],
+        )
+        # борг = 10*300 = 3000 (худі під реалізацію не в борг)
+        self.assertEqual(ship.debt_txn.amount, Decimal('3000'))
+        # заморожено = 5*500 = 2500
+        self.assertEqual(svc.reseller_frozen(self.reseller), Decimal('2500'))
+        self.assertEqual(svc.reseller_frozen_qty(self.reseller), 5)
+
+    def test_consignment_in_receivables(self):
+        """Борг магазину з'являється в дебіторці з полем reseller."""
+        svc.create_shipment(
+            user=None, reseller=self.reseller, date=timezone.localdate(),
+            debt_amount=Decimal('72000'),
+        )
+        data = reports_debt.receivables(self.company)
+        reseller_rows = [r for r in data['rows'] if r.get('reseller_id') == self.reseller.id]
+        self.assertEqual(len(reseller_rows), 1)
+        self.assertEqual(reseller_rows[0]['reseller'], 'Військторг')
+        self.assertEqual(reseller_rows[0]['amount'], Decimal('72000'))
+
+    def test_shipment_does_not_touch_balance(self):
+        """Планова поставка не змінює баланс рахунків."""
+        acc = Account.objects.create(company=self.company, name='Каса', type='cash',
+                                     currency='UAH', initial_balance=Decimal('5000'))
+        acc.recalc_balance(save=True)
+        before = acc.current_balance
+        svc.create_shipment(user=None, reseller=self.reseller, date=timezone.localdate(),
+                            debt_amount=Decimal('72000'))
+        acc.refresh_from_db()
+        self.assertEqual(acc.current_balance, before)
+
+    def test_frozen_total_and_breakdown(self):
+        svc.create_shipment(
+            user=None, reseller=self.reseller, date=timezone.localdate(),
+            items=[{'title': 'Худі', 'qty': 5, 'unit_cost': '500', 'is_consignment': True}],
+        )
+        self.assertEqual(svc.consignment_frozen_total(self.company), Decimal('2500'))
+        bd = svc.consignment_frozen_breakdown(self.company)
+        self.assertEqual(bd['total'], Decimal('2500'))
+        self.assertEqual(bd['qty'], 5)
+        self.assertEqual(len(bd['by_reseller']), 1)
+
+    def test_delete_reseller_blocked_with_debt(self):
+        svc.create_shipment(user=None, reseller=self.reseller, date=timezone.localdate(),
+                            debt_amount=Decimal('1000'))
+        self.assertFalse(svc.delete_reseller(self.reseller, user=None))
+        # force=True видаляє
+        self.assertTrue(svc.delete_reseller(self.reseller, user=None, force=True))
+
+    def test_reseller_stats(self):
+        svc.create_shipment(
+            user=None, reseller=self.reseller, date=timezone.localdate(),
+            debt_amount=Decimal('72000'),
+            items=[{'title': 'Худі', 'qty': 5, 'unit_cost': '500', 'is_consignment': True}],
+        )
+        stats = svc.reseller_stats(self.reseller)
+        self.assertEqual(stats['debt'], Decimal('72000'))
+        self.assertEqual(stats['frozen'], Decimal('2500'))
+        self.assertEqual(stats['frozen_qty'], 5)
+        self.assertTrue(len(stats['timeline']) >= 1)

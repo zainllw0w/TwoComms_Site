@@ -14,7 +14,7 @@ from .timeutil import day_end, day_start
 def _planned(company, ttype):
     return (Transaction.objects.filter(company=company, status=Transaction.STATUS_PLANNED, type=ttype)
             .exclude(excluded_from_reports=True)
-            .select_related('counterparty', 'project', 'account', 'category'))
+            .select_related('counterparty', 'project', 'account', 'category', 'reseller'))
 
 
 def receivables(company, params=None):
@@ -30,6 +30,8 @@ def receivables(company, params=None):
         rows.append({
             'source': 'planned', 'id': t.id,
             'counterparty': t.counterparty.name if t.counterparty else '—',
+            'reseller': t.reseller.name if t.reseller_id else '',
+            'reseller_id': t.reseller_id,
             'amount': amount, 'date': due.isoformat() if due else '',
             'project': t.project.name if t.project else '',
             'comment': t.comment, 'status': 'Планується',
@@ -65,6 +67,8 @@ def payables(company, params=None):
         rows.append({
             'source': 'planned', 'id': t.id,
             'counterparty': t.counterparty.name if t.counterparty else '—',
+            'reseller': t.reseller.name if t.reseller_id else '',
+            'reseller_id': t.reseller_id,
             'amount': amount, 'date': due.isoformat() if due else '',
             'project': t.project.name if t.project else '',
             'comment': t.comment, 'status': 'Планується',
