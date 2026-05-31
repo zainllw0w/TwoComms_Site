@@ -278,3 +278,78 @@ def owner_drawings_report(company, params):
     }
     rows.sort(key=lambda r: r['income'], reverse=True)
     return {'rows': rows, 'total_income': total_income, 'period': (start.isoformat(), end.isoformat())}
+
+
+# ----------------------------- Personal Expenses -----------------------------
+
+def personal_expenses_report(company, params):
+    """Звіт по особистих витратах — куди йдуть гроші поза бізнесом.
+
+    Показує детальну розбивку особистих витрат по категоріях,
+    відсоток від загального доходу, тренд по місяцях.
+    """
+    start, end = resolve_period(params)
+
+    # Тільки особисті витрати (is_business=False)
+    qs = (_actual(company).filter(
+            is_business=False,
+            type=Transaction.TYPE_EXPENSE,
+            date_actual__gte=day_start(start),
+            date_actual__lte=day_end(end))
+          .select_related('category'))
+
+    # Загальна сума особистих витрат
+    total_personal = qs.aggregate(s=Sum('amount_base'))['s'] or Decimal('0')
+
+    # Групування по категоріях
+    by_category = (qs.values('category__name', 'category__icon', 'category__color')
+                   .annotate(total=Sum('amount_base'))
+                   .order_by('-total'))
+
+    categories = []
+    for row in by_category:
+        amount = row['total'] or Decimal('0')
+        pct = float(amount / total_personal * 100) if total_personal else 0.0
+        categories.append({
+            'name': row['category__name'] or 'Без категорії',
+            'icon': row['category__icon'] or '💳',
+            'color': row['category__color'] or '#6b7280',
+            'amount': amount,
+            'pct': pct,
+        })
+
+    # Тренд по місяцях
+    by_month = {}
+    for t in qs.only('date_actual', 'amount_base'):
+        month_key = t.date_actual.strftime('%Y-%m')
+        if month_key not in by_month:
+            by_month[month_key] = Decimal('0')
+        by_month[month_key] += t.amount_base
+
+    # Загальний дохід за період (для розрахунку відсотка)
+    all_income = (_actual(company).filter(
+            type=Transaction.TYPE_INCOME,
+            date_actual__gte=day_start(start),
+            date_actual__lte=day_end(end))
+          .aggregate(s=Sum('amount_base'))['s'] or Decimal('0'))
+
+    # Відсоток особистих витрат від доходу
+    personal_percent = float(total_personal / all_income * 100) if all_income > 0 else 0.0
+
+    # Бізнес-витрати для порівняння
+    business_expenses = (_actual(company).filter(
+            is_business=True,
+            type=Transaction.TYPE_EXPENSE,
+            date_actual__gte=day_start(start),
+            date_actual__lte=day_end(end))
+          .aggregate(s=Sum('amount_base'))['s'] or Decimal('0'))
+
+    return {
+        'total_personal': total_personal,
+        'total_income': all_income,
+        'business_expenses': business_expenses,
+        'personal_percent': personal_percent,
+        'categories': categories,
+        'by_month': sorted(by_month.items()),
+        'period': (start.isoformat(), end.isoformat()),
+    }

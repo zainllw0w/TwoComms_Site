@@ -1,0 +1,263 @@
+{% extends 'finance/base.html' %}
+{% load static %}
+
+{% block title %}Особисті витрати — TwoComms Finance{% endblock %}
+
+{% block content %}
+{% include 'finance/partials/report_header.html' with title=title %}
+
+<!-- KPI Cards -->
+<div class="fin-kpi-row">
+    <div class="fin-kpi fin-kpi--neg">
+        <div class="fin-kpi__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+                <path d="M21 3v5h-5"/>
+            </svg>
+        </div>
+        <div class="fin-kpi__body">
+            <div class="fin-kpi__label">Особисті витрати</div>
+            <div class="fin-kpi__value">{{ total_personal }}</div>
+            <div class="fin-kpi__hint">Поза бізнесом</div>
+        </div>
+    </div>
+
+    <div class="fin-kpi fin-kpi--info">
+        <div class="fin-kpi__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 6v6l4 2"/>
+            </svg>
+        </div>
+        <div class="fin-kpi__body">
+            <div class="fin-kpi__label">Відсоток від доходу</div>
+            <div class="fin-kpi__value">{{ personal_percent }}%</div>
+            <div class="fin-kpi__hint">Особисті/Дохід</div>
+        </div>
+    </div>
+
+    <div class="fin-kpi fin-kpi--neutral">
+        <div class="fin-kpi__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+        </div>
+        <div class="fin-kpi__body">
+            <div class="fin-kpi__label">Бізнес-витрати</div>
+            <div class="fin-kpi__value">{{ business_expenses }}</div>
+            <div class="fin-kpi__hint">Для порівняння</div>
+        </div>
+    </div>
+</div>
+
+<!-- Insights -->
+{% if insights %}
+<div class="fin-insight-card">
+    <div class="fin-insight-card__head">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+        <span>Висновки</span>
+    </div>
+    <ul class="fin-insight-list">
+        {% for insight in insights %}
+        <li>{{ insight }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<!-- Charts Grid -->
+<div class="fin-chart-grid">
+    <!-- Pie Chart: Структура витрат -->
+    {% if data.categories %}
+    <div class="fin-chart-block">
+        <h3 class="fin-chart-title">Структура особистих витрат</h3>
+        <div class="fin-chart-with-legend">
+            <div class="fin-chart-canvas">
+                <canvas id="categoriesChart"></canvas>
+            </div>
+            <div class="fin-breakdown">
+                {% for cat in data.categories %}
+                <div class="fin-breakdown__row">
+                    <span class="fin-category-icon">{{ cat.icon }}</span>
+                    <span class="fin-breakdown__name">{{ cat.name }}</span>
+                    <span class="fin-breakdown__pct">{{ cat.pct|floatformat:1 }}%</span>
+                    <span class="fin-breakdown__amt">{{ cat.amount|floatformat:0 }} ₴</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Bar Chart: Тренд по місяцях -->
+    {% if data.by_month %}
+    <div class="fin-chart-block">
+        <h3 class="fin-chart-title">Динаміка по місяцях</h3>
+        <div class="fin-chart-canvas">
+            <canvas id="trendChart" height="300"></canvas>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Empty State -->
+{% if not data.categories %}
+<div class="fin-empty-state">
+    <div class="fin-empty-state__icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+            <path d="M21 3v5h-5"/>
+        </svg>
+    </div>
+    <h2>Немає особистих витрат за період</h2>
+    <p>Позначте транзакції як особисті, щоб побачити аналітику тут.</p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chartData = {{ chart_data|safe }};
+
+    {% if data.categories %}
+    // Pie Chart: Структура витрат
+    const ctxPie = document.getElementById('categoriesChart');
+    if (ctxPie) {
+        new Chart(ctxPie, {
+            type: 'doughnut',
+            data: {
+                labels: chartData.categories.map(c => c.name),
+                datasets: [{
+                    data: chartData.categories.map(c => c.amount),
+                    backgroundColor: chartData.categories.map(c => c.color),
+                    borderWidth: 0,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(17, 22, 33, 0.95)',
+                        padding: 12,
+                        titleColor: '#e8edf7',
+                        bodyColor: '#9aa4b8',
+                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed.toLocaleString('uk-UA');
+                                const percent = ((context.parsed / context.dataset.data.reduce((a,b) => a+b, 0)) * 100).toFixed(1);
+                                return `${label}: ${value} ₴ (${percent}%)`;
+                            }
+                        }
+                    }
+                },
+                animation: {
+                    animateRotate: true,
+                    animateScale: true,
+                    duration: 1000,
+                    easing: 'easeOutQuart'
+                }
+            }
+        });
+    }
+    {% endif %}
+
+    {% if data.by_month %}
+    // Bar Chart: Тренд
+    const ctxBar = document.getElementById('trendChart');
+    if (ctxBar) {
+        new Chart(ctxBar, {
+            type: 'bar',
+            data: {
+                labels: chartData.by_month.map(d => d.month),
+                datasets: [{
+                    label: 'Особисті витрати',
+                    data: chartData.by_month.map(d => d.amount),
+                    backgroundColor: 'rgba(251, 113, 133, 0.8)',
+                    borderColor: 'rgba(251, 113, 133, 1)',
+                    borderWidth: 2,
+                    borderRadius: 8,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(17, 22, 33, 0.95)',
+                        padding: 12,
+                        titleColor: '#e8edf7',
+                        bodyColor: '#9aa4b8',
+                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                        borderWidth: 1,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                return context.parsed.y.toLocaleString('uk-UA') + ' ₴';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.05)',
+                            drawBorder: false,
+                        },
+                        ticks: {
+                            color: '#9aa4b8',
+                            callback: function(value) {
+                                return value.toLocaleString('uk-UA') + ' ₴';
+                            }
+                        }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#9aa4b8' }
+                    }
+                },
+                animation: {
+                    duration: 1000,
+                    easing: 'easeOutQuart'
+                }
+            }
+        });
+    }
+    {% endif %}
+});
+</script>
+
+<style>
+.fin-category-icon {
+    font-size: 18px;
+    margin-right: 8px;
+}
+
+.fin-chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 24px;
+    margin-top: 24px;
+}
+
+@media (max-width: 768px) {
+    .fin-chart-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}

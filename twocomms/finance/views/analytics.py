@@ -20,6 +20,7 @@ REPORT_CARDS = [
     {'kind': 'cashflow', 'title': 'Гроші / Cash flow', 'desc': 'Рух грошових коштів'},
     {'kind': 'pnl', 'title': 'P&L', 'desc': 'Прибутки та збитки'},
     {'kind': 'owner_drawings', 'title': 'Вивід на особисте', 'desc': 'Розподіл прибутку власником'},
+    {'kind': 'personal_expenses', 'title': 'Особисті витрати', 'desc': 'Куди йдуть гроші поза бізнесом'},
     {'kind': 'receivables', 'title': 'Дебіторка', 'desc': 'Хто винен компанії'},
     {'kind': 'payables', 'title': 'Кредиторка', 'desc': 'Кому винна компанія'},
     {'kind': 'statement', 'title': 'Виписка за рахунком', 'desc': 'Рух по рахунку'},
@@ -150,6 +151,39 @@ def report(request, kind):
             }),
         })
         return render(request, 'finance/reports/owner_drawings.html', ctx)
+
+    if kind == 'personal_expenses':
+        data = rep.personal_expenses_report(company, request.GET)
+        insights = []
+        if data['total_personal'] > 0:
+            insights.append(f"За період витрачено {_m(company, data['total_personal'])} на особисті потреби.")
+            if data['total_income'] > 0:
+                insights.append(f"Це {data['personal_percent']:.1f}% від загального доходу.")
+            if data['business_expenses'] > 0:
+                ratio = float(data['total_personal'] / data['business_expenses'] * 100)
+                insights.append(f"Співвідношення особисті/бізнес витрати: {ratio:.1f}%.")
+            if data['categories']:
+                top_cat = data['categories'][0]
+                insights.append(f"Найбільша стаття витрат — «{top_cat['name']}» ({top_cat['pct']:.1f}%).")
+        else:
+            insights.append("За період не було особистих витрат.")
+
+        ctx.update({
+            'title': 'Особисті витрати',
+            'data': data,
+            'total_personal': _m(company, data['total_personal']),
+            'total_income': _m(company, data['total_income']),
+            'business_expenses': _m(company, data['business_expenses']),
+            'personal_percent': round(data['personal_percent'], 1),
+            'insights': insights,
+            'chart_data': json.dumps({
+                'categories': [{'name': c['name'], 'amount': float(c['amount']),
+                               'color': c['color'], 'icon': c['icon']}
+                              for c in data['categories']],
+                'by_month': [{'month': m, 'amount': float(a)} for m, a in data['by_month']],
+            }),
+        })
+        return render(request, 'finance/reports/personal_expenses.html', ctx)
 
     if kind == 'receivables':
         data = repd.receivables(company)
