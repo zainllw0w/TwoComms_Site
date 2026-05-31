@@ -276,8 +276,6 @@ def owner_drawings_report(company, params):
         'by_month': sorted(by_month.items()),
         'period': (start.isoformat(), end.isoformat()),
     }
-    rows.sort(key=lambda r: r['income'], reverse=True)
-    return {'rows': rows, 'total_income': total_income, 'period': (start.isoformat(), end.isoformat())}
 
 
 # ----------------------------- Personal Expenses -----------------------------
