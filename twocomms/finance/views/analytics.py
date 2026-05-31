@@ -19,6 +19,7 @@ from ..services import serializers as ser
 REPORT_CARDS = [
     {'kind': 'cashflow', 'title': 'Гроші / Cash flow', 'desc': 'Рух грошових коштів'},
     {'kind': 'pnl', 'title': 'P&L', 'desc': 'Прибутки та збитки'},
+    {'kind': 'forecast', 'title': 'Прогноз балансу', 'desc': 'Прогноз на 6 місяців вперед'},
     {'kind': 'owner_drawings', 'title': 'Вивід на особисте', 'desc': 'Розподіл прибутку власником'},
     {'kind': 'personal_expenses', 'title': 'Особисті витрати', 'desc': 'Куди йдуть гроші поза бізнесом'},
     {'kind': 'receivables', 'title': 'Дебіторка', 'desc': 'Хто винен компанії'},
@@ -184,6 +185,43 @@ def report(request, kind):
             }),
         })
         return render(request, 'finance/reports/personal_expenses.html', ctx)
+
+    if kind == 'forecast':
+        months = int(request.GET.get('months', 6))
+        data = rep.balance_forecast_report(company, months=months)
+
+        insights = []
+        if data['final_balance'] < 0:
+            insights.append(f"⚠️ Увага! Прогнозований баланс через {months} міс. буде негативним: {_m(company, data['final_balance'], signed=True)}.")
+        elif data['final_balance'] < Decimal('10000'):
+            insights.append(f"⚠️ Попередження: прогнозований баланс через {months} міс. буде низьким: {_m(company, data['final_balance'])}.")
+        else:
+            insights.append(f"✅ Прогнозований баланс через {months} міс.: {_m(company, data['final_balance'])} — стабільна ситуація.")
+
+        negative_months = [m for m in data['forecast'] if m['is_negative']]
+        if negative_months:
+            first_neg = negative_months[0]
+            insights.append(f"⚠️ Перший негативний баланс очікується в {first_neg['month_name']}.")
+
+        if data['total_planned_income'] > 0:
+            insights.append(f"Заплановано надходжень: {_m(company, data['total_planned_income'])}.")
+        if data['total_planned_expense'] > 0:
+            insights.append(f"Заплановано витрат: {_m(company, data['total_planned_expense'])}.")
+
+        ctx.update({
+            'title': 'Прогноз балансу',
+            'data': data,
+            'months': months,
+            'current_balance': _m(company, data['current_balance']),
+            'final_balance': _m(company, data['final_balance'], signed=True),
+            'insights': insights,
+            'chart_data': json.dumps({
+                'forecast': [{'month': m['month'], 'balance': float(m['ending_balance']),
+                             'income': float(m['planned_income']), 'expense': float(m['planned_expense'])}
+                            for m in data['forecast']],
+            }),
+        })
+        return render(request, 'finance/reports/forecast.html', ctx)
 
     if kind == 'receivables':
         data = repd.receivables(company)

@@ -1,0 +1,220 @@
+{% extends 'finance/base.html' %}
+{% load static %}
+
+{% block title %}Прогноз балансу — TwoComms Finance{% endblock %}
+
+{% block content %}
+<div class="fin-page-head">
+    <div>
+        <h1 class="fin-page-title">{{ title }}</h1>
+        <p class="fin-page-subtitle">Прогноз на {{ months }} місяців з урахуванням планових платежів</p>
+    </div>
+    <div class="fin-page-actions">
+        <select class="fin-select" id="months-select" onchange="window.location.href='?months='+this.value">
+            <option value="3" {% if months == 3 %}selected{% endif %}>3 місяці</option>
+            <option value="6" {% if months == 6 %}selected{% endif %}>6 місяців</option>
+            <option value="12" {% if months == 12 %}selected{% endif %}>12 місяців</option>
+        </select>
+    </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="fin-kpi-row">
+    <div class="fin-kpi fin-kpi--pos">
+        <div class="fin-kpi__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+        </div>
+        <div class="fin-kpi__body">
+            <div class="fin-kpi__label">Поточний баланс</div>
+            <div class="fin-kpi__value">{{ current_balance }}</div>
+            <div class="fin-kpi__hint">Фактичний на сьогодні</div>
+        </div>
+    </div>
+
+    <div class="fin-kpi {% if data.final_balance >= 0 %}fin-kpi--pos{% else %}fin-kpi--neg{% endif %}">
+        <div class="fin-kpi__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+            </svg>
+        </div>
+        <div class="fin-kpi__body">
+            <div class="fin-kpi__label">Прогноз через {{ months }} міс.</div>
+            <div class="fin-kpi__value">{{ final_balance }}</div>
+            <div class="fin-kpi__hint">З урахуванням планів</div>
+        </div>
+    </div>
+
+    <div class="fin-kpi fin-kpi--info">
+        <div class="fin-kpi__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+        </div>
+        <div class="fin-kpi__body">
+            <div class="fin-kpi__label">Зміна балансу</div>
+            <div class="fin-kpi__value">{{ data.final_balance|add:"-"|add:data.current_balance|floatformat:0 }} ₴</div>
+            <div class="fin-kpi__hint">За період</div>
+        </div>
+    </div>
+</div>
+
+<!-- Insights -->
+{% if insights %}
+<div class="fin-insight-card">
+    <div class="fin-insight-card__head">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+        <span>Висновки</span>
+    </div>
+    <ul class="fin-insight-list">
+        {% for insight in insights %}
+        <li>{{ insight }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<!-- Chart: Прогноз балансу -->
+<div class="fin-chart-block">
+    <h3 class="fin-chart-title">Динаміка балансу по місяцях</h3>
+    <div class="fin-chart-canvas">
+        <canvas id="forecastChart" height="100"></canvas>
+    </div>
+</div>
+
+<!-- Table: Деталізація по місяцях -->
+<div class="fin-section">
+    <h3 class="fin-section-title">Деталізація прогнозу</h3>
+    <div class="fin-table-wrap">
+        <table class="fin-table">
+            <thead>
+                <tr>
+                    <th>Місяць</th>
+                    <th class="fin-col-amount">Планові надходження</th>
+                    <th class="fin-col-amount">Планові витрати</th>
+                    <th class="fin-col-amount">Зміна</th>
+                    <th class="fin-col-amount">Баланс на кінець</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in data.forecast %}
+                <tr class="fin-row {% if m.is_negative %}fin-row--danger{% elif m.is_warning %}fin-row--warning{% endif %}">
+                    <td><strong>{{ m.month_name }}</strong></td>
+                    <td class="fin-col-amount">
+                        <span class="fin-amount fin-amount--pos">+{{ m.planned_income|floatformat:0 }} ₴</span>
+                    </td>
+                    <td class="fin-col-amount">
+                        <span class="fin-amount fin-amount--neg">−{{ m.planned_expense|floatformat:0 }} ₴</span>
+                    </td>
+                    <td class="fin-col-amount">
+                        <span class="fin-amount {% if m.net_change >= 0 %}fin-amount--pos{% else %}fin-amount--neg{% endif %}">
+                            {{ m.net_change|floatformat:0 }} ₴
+                        </span>
+                    </td>
+                    <td class="fin-col-amount">
+                        <strong class="{% if m.is_negative %}fin-amount--neg{% elif m.is_warning %}fin-amount--warning{% else %}fin-amount--pos{% endif %}">
+                            {{ m.ending_balance|floatformat:0 }} ₴
+                        </strong>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const chartData = {{ chart_data|safe }};
+
+    // Line Chart: Прогноз балансу
+    const ctx = document.getElementById('forecastChart');
+    if (ctx) {
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartData.forecast.map(d => d.month),
+                datasets: [
+                    {
+                        label: 'Прогнозований баланс',
+                        data: chartData.forecast.map(d => d.balance),
+                        borderColor: 'rgba(52, 211, 153, 1)',
+                        backgroundColor: 'rgba(52, 211, 153, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(17, 22, 33, 0.95)',
+                        padding: 12,
+                        titleColor: '#e8edf7',
+                        bodyColor: '#9aa4b8',
+                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                        borderWidth: 1,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                return 'Баланс: ' + context.parsed.y.toLocaleString('uk-UA') + ' ₴';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.05)',
+                            drawBorder: false,
+                        },
+                        ticks: {
+                            color: '#9aa4b8',
+                            callback: function(value) {
+                                return value.toLocaleString('uk-UA') + ' ₴';
+                            }
+                        }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#9aa4b8' }
+                    }
+                },
+                animation: {
+                    duration: 1500,
+                    easing: 'easeOutQuart'
+                }
+            }
+        });
+    }
+});
+</script>
+
+<style>
+.fin-row--danger {
+    background-color: rgba(251, 113, 133, 0.1);
+}
+
+.fin-row--warning {
+    background-color: rgba(251, 191, 36, 0.1);
+}
+
+.fin-amount--warning {
+    color: #fbbf24;
+}
+</style>
+{% endblock %}

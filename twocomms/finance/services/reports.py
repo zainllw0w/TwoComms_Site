@@ -353,3 +353,79 @@ def personal_expenses_report(company, params):
         'by_month': sorted(by_month.items()),
         'period': (start.isoformat(), end.isoformat()),
     }
+
+
+
+# ----------------------------- Balance Forecast -----------------------------
+
+def balance_forecast_report(company, months: int = 6):
+    """Прогноз балансу на N місяців вперед з урахуванням recurring платежів.
+
+    Показує:
+    - Поточний баланс
+    - Заплановані надходження по місяцях
+    - Заплановані витрати по місяцях (включно з recurring)
+    - Прогнозований баланс на кінець кожного місяця
+    - Попередження якщо баланс може стати негативним
+    """
+    from . import balances as balance_service
+    import calendar
+
+    today = timezone.localdate()
+    current_balance = balance_service.total_actual_balance(company)
+
+    forecast = []
+    running_balance = current_balance
+
+    for month_offset in range(months):
+        # Розраховуємо діапазон місяця
+        if month_offset == 0:
+            month_start = today
+        else:
+            month_start = dt.date(today.year, today.month, 1) + dt.timedelta(days=32 * month_offset)
+            month_start = month_start.replace(day=1)
+
+        # Останній день місяця
+        last_day = calendar.monthrange(month_start.year, month_start.month)[1]
+        month_end = dt.date(month_start.year, month_start.month, last_day)
+
+        # Планові операції за цей місяць
+        planned_qs = Transaction.objects.filter(
+            company=company,
+            status=Transaction.STATUS_PLANNED,
+            date_actual__gte=day_start(month_start),
+            date_actual__lte=day_end(month_end),
+        )
+
+        planned_income = planned_qs.filter(
+            type=Transaction.TYPE_INCOME
+        ).aggregate(s=Sum("amount_base"))["s"] or Decimal("0")
+
+        planned_expense = planned_qs.filter(
+            type=Transaction.TYPE_EXPENSE
+        ).aggregate(s=Sum("amount_base"))["s"] or Decimal("0")
+
+        # Прогнозований баланс на кінець місяця
+        month_balance = running_balance + planned_income - planned_expense
+
+        forecast.append({
+            "month": month_start.strftime("%Y-%m"),
+            "month_name": month_start.strftime("%B %Y"),
+            "planned_income": planned_income,
+            "planned_expense": planned_expense,
+            "net_change": planned_income - planned_expense,
+            "ending_balance": month_balance,
+            "is_negative": month_balance < 0,
+            "is_warning": month_balance < Decimal("10000"),  # Попередження якщо < 10k
+        })
+
+        running_balance = month_balance
+
+    return {
+        "current_balance": current_balance,
+        "forecast": forecast,
+        "final_balance": running_balance,
+        "total_planned_income": sum((m["planned_income"] for m in forecast), Decimal("0")),
+        "total_planned_expense": sum((m["planned_expense"] for m in forecast), Decimal("0")),
+    }
+
