@@ -49,6 +49,14 @@ urlpatterns = [
 
     # History
     path("history/", views.history_list, name="history"),
+
+    # Consumables (розхідні матеріали)
+    path("consumables/", views.consumables_list, name="consumables_list"),
+    path("consumables/new/", views.consumable_create, name="consumable_create"),
+    path("consumables/<int:pk>/", views.consumable_detail, name="consumable_detail"),
+    path("consumables/<int:pk>/edit/", views.consumable_edit, name="consumable_edit"),
+    path("consumables/<int:pk>/adjust/", views.consumable_adjust, name="consumable_adjust"),
+    path("api/consumables/low-stock/", views.consumables_low_stock_api, name="consumables_low_stock_api"),
     path("history/verify/", views.history_verify, name="history_verify"),
 
     # Finance

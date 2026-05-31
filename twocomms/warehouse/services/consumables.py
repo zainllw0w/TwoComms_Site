@@ -147,6 +147,8 @@ def get_low_stock_consumables() -> list[ConsumableItem]:
     Returns:
         Список ConsumableItem де quantity <= min_stock_alert
     """
+    from django.db import models
+
     return list(
         ConsumableItem.objects.filter(
             quantity__lte=models.F("min_stock_alert")

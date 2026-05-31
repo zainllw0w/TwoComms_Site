@@ -1,0 +1,201 @@
+{% extends 'warehouse/base.html' %}
+{% load static %}
+
+{% block title %}{{ consumable.name }} — Розхідні матеріали{% endblock %}
+
+{% block content %}
+<div class="storage-page-head">
+    <div>
+        <h1 class="storage-page-title">{{ consumable.name }}</h1>
+        <p class="storage-page-subtitle">{{ consumable.get_category_display }}</p>
+    </div>
+    <div class="storage-btn-group">
+        <a href="{% url 'warehouse:consumable_edit' consumable.pk %}" class="storage-btn storage-btn--ghost">Редагувати</a>
+        <a href="{% url 'warehouse:consumables_list' %}" class="storage-btn storage-btn--ghost">← Назад</a>
+    </div>
+</div>
+
+<!-- Інформаційні картки -->
+<div class="storage-info-grid">
+    <div class="storage-info-card">
+        <div class="storage-info-card__label">Поточний залишок</div>
+        <div class="storage-info-card__value {% if consumable.quantity <= consumable.min_stock_alert %}storage-text--danger{% endif %}">
+            {{ consumable.quantity }} {{ consumable.unit }}
+        </div>
+        {% if consumable.quantity <= consumable.min_stock_alert %}
+        <div class="storage-info-card__hint storage-text--danger">⚠️ Низький залишок!</div>
+        {% endif %}
+    </div>
+
+    <div class="storage-info-card">
+        <div class="storage-info-card__label">Собівартість за одиницю</div>
+        <div class="storage-info-card__value">{{ consumable.cost_per_unit|floatformat:2 }} ₴</div>
+    </div>
+
+    <div class="storage-info-card">
+        <div class="storage-info-card__label">Загальна вартість</div>
+        <div class="storage-info-card__value">{{ consumable.total_cost|floatformat:2 }} ₴</div>
+    </div>
+
+    <div class="storage-info-card">
+        <div class="storage-info-card__label">Мінімальний залишок</div>
+        <div class="storage-info-card__value">{{ consumable.min_stock_alert }} {{ consumable.unit }}</div>
+    </div>
+</div>
+
+<!-- Додаткова інформація -->
+<div class="storage-section">
+    <h2 class="storage-section-title">Інформація</h2>
+    <dl class="storage-dl">
+        <dt>Постачальник:</dt>
+        <dd>{% if consumable.supplier %}{{ consumable.supplier.name }}{% else %}<span class="storage-muted">Не вказано</span>{% endif %}</dd>
+
+        <dt>Дата закупівлі:</dt>
+        <dd>{{ consumable.purchase_date|date:"d.m.Y" }}</dd>
+
+        <dt>Примітки:</dt>
+        <dd>{% if consumable.notes %}{{ consumable.notes }}{% else %}<span class="storage-muted">—</span>{% endif %}</dd>
+    </dl>
+</div>
+
+<!-- Форми коригування -->
+<div class="storage-actions-grid">
+    <div class="storage-action-card">
+        <h3>➕ Додати партію</h3>
+        <form method="post" action="{% url 'warehouse:consumable_adjust' consumable.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add">
+            <div class="storage-form-group">
+                <label>Кількість ({{ consumable.unit }})</label>
+                <input type="number" step="0.01" name="quantity" class="storage-input" required>
+            </div>
+            <div class="storage-form-group">
+                <label>Ціна за одиницю (₴)</label>
+                <input type="number" step="0.01" name="cost_per_unit" class="storage-input" value="{{ consumable.cost_per_unit }}" required>
+            </div>
+            <div class="storage-form-group">
+                <label>Коментар</label>
+                <input type="text" name="comment" class="storage-input" placeholder="Опціонально">
+            </div>
+            <button type="submit" class="storage-btn storage-btn--primary storage-btn--block">Додати</button>
+        </form>
+    </div>
+
+    <div class="storage-action-card">
+        <h3>➖ Списати</h3>
+        <form method="post" action="{% url 'warehouse:consumable_adjust' consumable.pk %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="use">
+            <div class="storage-form-group">
+                <label>Кількість ({{ consumable.unit }})</label>
+                <input type="number" step="0.01" name="quantity" class="storage-input" max="{{ consumable.quantity }}" required>
+            </div>
+            <div class="storage-form-group">
+                <label>Коментар</label>
+                <input type="text" name="comment" class="storage-input" placeholder="Причина списання">
+            </div>
+            <button type="submit" class="storage-btn storage-btn--danger storage-btn--block">Списати</button>
+        </form>
+    </div>
+</div>
+
+<!-- Історія руху -->
+<div class="storage-section">
+    <h2 class="storage-section-title">Історія руху</h2>
+    <div class="storage-table-wrap">
+        <table class="storage-table">
+            <thead>
+                <tr>
+                    <th>Дата</th>
+                    <th>Зміна</th>
+                    <th>Залишок після</th>
+                    <th>Причина</th>
+                    <th>Коментар</th>
+                    <th>Користувач</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in movements %}
+                <tr>
+                    <td>{{ m.created_at|date:"d.m.Y H:i" }}</td>
+                    <td class="{% if m.delta > 0 %}storage-text--success{% else %}storage-text--danger{% endif %}">
+                        {% if m.delta > 0 %}+{% endif %}{{ m.delta }} {{ consumable.unit }}
+                    </td>
+                    <td>{{ m.quantity_after }} {{ consumable.unit }}</td>
+                    <td>{{ m.get_reason_display }}</td>
+                    <td>{{ m.comment|default:"—" }}</td>
+                    <td>{% if m.created_by %}{{ m.created_by.username }}{% else %}<span class="storage-muted">Система</span>{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="storage-empty">Немає історії руху</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.storage-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+.storage-info-card {
+    background: #1a1d24;
+    border: 1px solid #2d3139;
+    border-radius: 8px;
+    padding: 16px;
+}
+.storage-info-card__label {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-bottom: 8px;
+}
+.storage-info-card__value {
+    font-size: 24px;
+    font-weight: 700;
+    color: #fff;
+}
+.storage-info-card__hint {
+    font-size: 12px;
+    margin-top: 4px;
+}
+.storage-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
+}
+.storage-action-card {
+    background: #1a1d24;
+    border: 1px solid #2d3139;
+    border-radius: 8px;
+    padding: 20px;
+}
+.storage-action-card h3 {
+    margin: 0 0 16px 0;
+    font-size: 18px;
+}
+.storage-text--danger {
+    color: #ef4444;
+}
+.storage-text--success {
+    color: #10b981;
+}
+.storage-dl {
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    gap: 12px;
+}
+.storage-dl dt {
+    font-weight: 600;
+    color: #9ca3af;
+}
+.storage-dl dd {
+    margin: 0;
+}
+</style>
+{% endblock %}

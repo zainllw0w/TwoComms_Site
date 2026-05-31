@@ -17,6 +17,14 @@ from .history import history_list, history_verify  # noqa: F401
 from .finance import finance_dashboard  # noqa: F401
 from .auth_views import login_view, logout_view  # noqa: F401
 from .errors import handler404, handler500  # noqa: F401
+from .consumables import (  # noqa: F401
+    consumables_list,
+    consumable_detail,
+    consumable_create,
+    consumable_edit,
+    consumable_adjust,
+    consumables_low_stock_api,
+)
 from .settings import (  # noqa: F401
     settings_index,
     settings_categories,

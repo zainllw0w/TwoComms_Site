@@ -1,0 +1,141 @@
+{% extends 'warehouse/base.html' %}
+{% load static %}
+
+{% block title %}{% if is_create %}Новий розхідник{% else %}Редагування: {{ consumable.name }}{% endif %} — Склад{% endblock %}
+
+{% block content %}
+<div class="storage-page-head">
+    <div>
+        <h1 class="storage-page-title">{% if is_create %}Новий розхідник{% else %}Редагування: {{ consumable.name }}{% endif %}</h1>
+    </div>
+    <a href="{% if is_create %}{% url 'warehouse:consumables_list' %}{% else %}{% url 'warehouse:consumable_detail' consumable.pk %}{% endif %}" class="storage-btn storage-btn--ghost">← Назад</a>
+</div>
+
+<div class="storage-form-container">
+    <form method="post" class="storage-form">
+        {% csrf_token %}
+
+        <div class="storage-form-group">
+            <label for="id_category">Категорія *</label>
+            <select name="category" id="id_category" class="storage-select" required>
+                {% for cat_value, cat_label in categories %}
+                <option value="{{ cat_value }}" {% if consumable.category == cat_value %}selected{% endif %}>{{ cat_label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="storage-form-group">
+            <label for="id_name">Назва *</label>
+            <input type="text" name="name" id="id_name" class="storage-input" value="{{ consumable.name }}" required>
+        </div>
+
+        {% if is_create %}
+        <div class="storage-form-row">
+            <div class="storage-form-group">
+                <label for="id_quantity">Початкова кількість *</label>
+                <input type="number" step="0.01" name="quantity" id="id_quantity" class="storage-input" value="0" required>
+            </div>
+
+            <div class="storage-form-group">
+                <label for="id_unit">Одиниця виміру *</label>
+                <input type="text" name="unit" id="id_unit" class="storage-input" value="шт" required>
+            </div>
+        </div>
+
+        <div class="storage-form-row">
+            <div class="storage-form-group">
+                <label for="id_cost_per_unit">Ціна за одиницю (₴) *</label>
+                <input type="number" step="0.01" name="cost_per_unit" id="id_cost_per_unit" class="storage-input" value="0" required>
+            </div>
+
+            <div class="storage-form-group">
+                <label for="id_purchase_date">Дата закупівлі *</label>
+                <input type="date" name="purchase_date" id="id_purchase_date" class="storage-input" value="{{ today|date:'Y-m-d' }}" required>
+            </div>
+        </div>
+        {% else %}
+        <div class="storage-form-row">
+            <div class="storage-form-group">
+                <label for="id_unit">Одиниця виміру *</label>
+                <input type="text" name="unit" id="id_unit" class="storage-input" value="{{ consumable.unit }}" required>
+            </div>
+
+            <div class="storage-form-group">
+                <label for="id_cost_per_unit">Ціна за одиницю (₴) *</label>
+                <input type="number" step="0.01" name="cost_per_unit" id="id_cost_per_unit" class="storage-input" value="{{ consumable.cost_per_unit }}" required>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="storage-form-group">
+            <label for="id_min_stock_alert">Мінімальний залишок для сповіщення *</label>
+            <input type="number" step="0.01" name="min_stock_alert" id="id_min_stock_alert" class="storage-input" value="{% if consumable %}{{ consumable.min_stock_alert }}{% else %}0{% endif %}" required>
+        </div>
+
+        <div class="storage-form-group">
+            <label for="id_supplier_id">Постачальник</label>
+            <select name="supplier_id" id="id_supplier_id" class="storage-select">
+                <option value="">Не вказано</option>
+                {% for s in suppliers %}
+                <option value="{{ s.id }}" {% if consumable.supplier_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="storage-form-group">
+            <label for="id_notes">Примітки</label>
+            <textarea name="notes" id="id_notes" class="storage-textarea" rows="3">{{ consumable.notes }}</textarea>
+        </div>
+
+        <div class="storage-form-actions">
+            <button type="submit" class="storage-btn storage-btn--primary">{% if is_create %}Створити{% else %}Зберегти{% endif %}</button>
+            <a href="{% if is_create %}{% url 'warehouse:consumables_list' %}{% else %}{% url 'warehouse:consumable_detail' consumable.pk %}{% endif %}" class="storage-btn storage-btn--ghost">Скасувати</a>
+        </div>
+    </form>
+</div>
+
+<style>
+.storage-form-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+.storage-form {
+    background: #1a1d24;
+    border: 1px solid #2d3139;
+    border-radius: 8px;
+    padding: 24px;
+}
+.storage-form-group {
+    margin-bottom: 20px;
+}
+.storage-form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #e5e7eb;
+}
+.storage-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+.storage-input, .storage-select, .storage-textarea {
+    width: 100%;
+    padding: 10px 12px;
+    background: #0f1117;
+    border: 1px solid #2d3139;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 14px;
+}
+.storage-input:focus, .storage-select:focus, .storage-textarea:focus {
+    outline: none;
+    border-color: #ff7e29;
+}
+.storage-form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+}
+</style>
+{% endblock %}
