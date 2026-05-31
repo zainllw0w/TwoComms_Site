@@ -250,11 +250,7 @@ def _import_item(account: Account, item: dict, *, user, apply_rules=True):
     """Створює операцію з одного StatementItem (idempotent за external_id)."""
     company = account.company
     ext = _external_id(item.get('id', ''))
-    if not item.get('id') or Transaction.objects.filter(
-            company=company, external_id=ext).exists():
-        return None
-    # Не імпортуємо «hold» (заблоковані, ще не проведені) — лише фактичні.
-    if item.get('hold'):
+    if not item.get('id'):
         return None
 
     amount_minor = int(item.get('amount', 0) or 0)
@@ -279,6 +275,7 @@ def _import_item(account: Account, item: dict, *, user, apply_rules=True):
         'commission_rate': item.get('commissionRate'),
         'cashback_amount': item.get('cashbackAmount'),
         'balance_after': item.get('balance'),
+        'hold': True if item.get('hold') else False,
         'counter_iban': item.get('counterIban', ''),
         'counter_name': item.get('counterName', ''),
         'counter_edrpou': item.get('counterEdrpou', ''),
@@ -287,14 +284,34 @@ def _import_item(account: Account, item: dict, *, user, apply_rules=True):
     # Прибираємо порожні значення, щоб JSON був компактним.
     external_data = {k: v for k, v in external_data.items() if v not in (None, '', 0)}
 
+    existing = Transaction.objects.filter(company=company, external_id=ext).first()
+    if existing is not None:
+        if existing.external_data.get('hold') and not item.get('hold'):
+            external_data.pop('hold', None)
+            txn = txn_service.update_transaction(
+                existing, user=user, type=txn_type, amount=abs(_money(amount_minor)),
+                account=account, currency=account.currency, date_actual=when,
+                comment=comment, status=Transaction.STATUS_ACTUAL,
+                external_data=external_data, mcc=mcc,
+            )
+            if apply_rules:
+                try:
+                    from . import rules_engine
+                    rules_engine.apply_rules_to_transaction(txn, user=user, source='integration')
+                except Exception:  # noqa: BLE001 — правила не мають ламати імпорт
+                    pass
+            return txn
+        return None
+
     txn = txn_service.create_transaction(
         user=user, type=txn_type, amount=abs(_money(amount_minor)),
         account=account, currency=account.currency, date_actual=when,
         comment=comment, source='integration', external_id=ext,
+        status=Transaction.STATUS_DRAFT if item.get('hold') else Transaction.STATUS_ACTUAL,
         external_data=external_data, mcc=mcc,
     )
     # is_business успадковується від account у create_transaction (ФОП → бізнес).
-    if apply_rules:
+    if apply_rules and txn.status == Transaction.STATUS_ACTUAL:
         try:
             from . import rules_engine
             rules_engine.apply_rules_to_transaction(txn, user=user, source='integration')

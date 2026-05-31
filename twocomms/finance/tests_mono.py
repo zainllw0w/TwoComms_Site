@@ -93,10 +93,29 @@ class MonoSyncTests(TestCase):
         self.assertEqual(res['skipped'], 1)
         self.assertEqual(Transaction.objects.filter(external_id='mono:m1').count(), 1)
 
-    def test_hold_and_zero_skipped(self):
+    def test_hold_imports_as_draft_and_zero_skipped(self):
         items = [_item('h1', 10000, hold=True), _item('z1', 0)]
         res = mono_service.import_statement(self.acc, items, user=self.user, apply_rules=False)
-        self.assertEqual(res['created'], 0)
+        self.assertEqual(res['created'], 1)
+        txn = Transaction.objects.get(external_id='mono:h1')
+        self.assertEqual(txn.status, Transaction.STATUS_DRAFT)
+        self.assertTrue(txn.external_data.get('hold'))
+        self.acc.refresh_from_db()
+        self.assertEqual(self.acc.current_balance, Decimal('0.00'))
+
+    def test_settled_hold_updates_existing_transaction_to_actual(self):
+        mono_service.import_statement(
+            self.acc, [_item('h1', -8000, hold=True, balance=100000)],
+            user=self.user, apply_rules=False)
+        mono_service.import_statement(
+            self.acc, [_item('h1', -8000, hold=False, balance=92000)],
+            user=self.user, apply_rules=False)
+        self.assertEqual(Transaction.objects.filter(external_id='mono:h1').count(), 1)
+        txn = Transaction.objects.get(external_id='mono:h1')
+        self.assertEqual(txn.status, Transaction.STATUS_ACTUAL)
+        self.assertFalse(txn.external_data.get('hold', False))
+        self.acc.refresh_from_db()
+        self.assertEqual(self.acc.current_balance, Decimal('-80.00'))
 
     def test_business_inherited_from_account(self):
         self.acc.is_business = True
