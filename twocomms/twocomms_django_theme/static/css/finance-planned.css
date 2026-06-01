@@ -72,6 +72,8 @@
 }
 .fin-oblig__chip[data-cp-history] { cursor: pointer; }
 .fin-oblig__chip[data-cp-history]:hover { color: #c7d2fe; background: rgba(129,140,248,.12); }
+.fin-oblig__chip--est { color: #fbbf24; background: rgba(251,191,36,.12); }
+.fin-field-hint { display: block; margin-top: 4px; font-size: 11px; color: #fbbf24; }
 
 .fin-oblig__numbers { text-align: right; min-width: 120px; }
 .fin-oblig__amount { font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; }

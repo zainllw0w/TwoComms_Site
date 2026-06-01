@@ -42,6 +42,9 @@
   var settleModal = document.getElementById('fin-settle-modal');
   var settleEls = {
     txnId: document.getElementById('fin-settle-txn-id'),
+    amount: document.getElementById('fin-settle-amount'),
+    amountLabel: document.getElementById('fin-settle-amount-label'),
+    amountHint: document.getElementById('fin-settle-amount-hint'),
     account: document.getElementById('fin-settle-account'),
     accountLabel: document.getElementById('fin-settle-account-label'),
     counterparty: document.getElementById('fin-settle-counterparty'),
@@ -62,11 +65,18 @@
     var type = card.getAttribute('data-type');
     var title = card.getAttribute('data-title') || '';
     var amount = card.getAttribute('data-per-amount') || '';
+    var estimated = card.getAttribute('data-estimated') === '1';
     settleEls.txnId.value = txnId;
     settleEls.alert.hidden = true;
     settleEls.title.textContent = type === 'income' ? 'Підтвердити надходження' : 'Сплатити платіж';
     settleEls.accountLabel.textContent = type === 'income' ? 'Рахунок зарахування *' : 'Рахунок списання *';
-    settleEls.summary.textContent = title + (amount ? ' · ' + amount : '');
+    settleEls.summary.textContent = title + (amount ? ' · ' + (estimated ? '≈ ' : '') + amount : '');
+    // Сума: для орієнтовних просимо ввести фактичну, для точних — лишаємо як план.
+    if (settleEls.amount) {
+      settleEls.amount.value = card.getAttribute('data-per-amount') || '';
+      settleEls.amountLabel.textContent = estimated ? 'Фактична сума *' : 'Сума';
+      if (settleEls.amountHint) settleEls.amountHint.hidden = !estimated;
+    }
     fillSelect(settleEls.account, DROPDOWNS.accounts || [], 'Оберіть рахунок');
     fillSelect(settleEls.counterparty, DROPDOWNS.counterparties || [], 'Без контрагента',
                card.getAttribute('data-counterparty-id'));
@@ -85,6 +95,7 @@
         account_id: settleEls.account.value || '',
         counterparty_id: settleEls.counterparty.value || '',
         date: settleEls.date.value || '',
+        amount: (settleEls.amount && settleEls.amount.value) || '',
         link_account_cp: settleEls.linkCp.checked ? '1' : '',
       };
       settleEls.submit.disabled = true;
@@ -102,7 +113,9 @@
     ruleId: document.getElementById('fin-plan-rule-id'),
     title: document.getElementById('fin-plan-title'),
     amount: document.getElementById('fin-plan-amount'),
+    amountType: document.getElementById('fin-plan-amount-type'),
     frequency: document.getElementById('fin-plan-frequency'),
+    interval: document.getElementById('fin-plan-interval'),
     category: document.getElementById('fin-plan-category'),
     counterparty: document.getElementById('fin-plan-counterparty'),
     endMode: document.getElementById('fin-plan-end-mode'),
@@ -126,10 +139,17 @@
     planEls.alert.hidden = true;
     planEls.title.value = card.getAttribute('data-title') || '';
     planEls.amount.value = card.getAttribute('data-per-amount') || '';
+    // Прелоад поточного графіка правила, щоб редагування показувало реальний
+    // стан, а зміна періодичності справді застосовувалась.
+    if (planEls.amountType) planEls.amountType.value = card.getAttribute('data-estimated') === '1' ? '1' : '0';
+    if (planEls.frequency) planEls.frequency.value = card.getAttribute('data-frequency') || 'monthly';
+    if (planEls.interval) planEls.interval.value = card.getAttribute('data-interval') || '1';
     fillSelect(planEls.category, categoryItems(card.getAttribute('data-type')), 'Без категорії');
     fillSelect(planEls.counterparty, DROPDOWNS.counterparties || [], 'Без контрагента',
                card.getAttribute('data-counterparty-id'));
-    planEls.endMode.value = 'never';
+    planEls.endMode.value = card.getAttribute('data-end-mode') || 'never';
+    planEls.endDate.value = card.getAttribute('data-end-date') || '';
+    planEls.count.value = card.getAttribute('data-count') || '';
     syncPlanEnd();
     openModal(planModal);
   }
@@ -144,7 +164,9 @@
       var body = {
         title: planEls.title.value || '',
         amount: planEls.amount.value || '',
+        amount_is_estimated: (planEls.amountType && planEls.amountType.value === '1') ? '1' : '0',
         frequency: planEls.frequency.value || '',
+        interval: (planEls.interval && planEls.interval.value) || '1',
         category_id: planEls.category.value || '',
         counterparty_id: planEls.counterparty.value || '',
         end_mode: planEls.endMode.value || 'never',

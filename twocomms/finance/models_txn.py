@@ -68,6 +68,13 @@ class RecurrenceRule(models.Model):
         null=True,
         help_text='Сума шаблону для створення транзакцій',
     )
+    # Чи сума орієнтовна (предполагаемая): для комуналки/змінних рахунків точну
+    # суму знаємо лише при оплаті. Орієнтовні платежі показуються з «≈», а при
+    # погашенні просять увести фактичну суму.
+    amount_is_estimated = models.BooleanField(
+        default=False,
+        help_text='Сума орієнтовна — уточнюється при оплаті',
+    )
     template_account = models.ForeignKey(
         Account,
         on_delete=models.SET_NULL,
@@ -151,6 +158,19 @@ class RecurrenceRule(models.Model):
         if self.end_mode == self.END_COUNT and self.count:
             return f'{self.count} разів'
         return 'безстроково'
+
+    @property
+    def repeat_badge(self) -> str:
+        """Компактний індикатор «скільки разів» для списку (як ×6 у магазинах).
+
+        ``×N`` для обмеженої кількості повторень, ``∞`` для безстрокових,
+        ``до ДД.ММ`` для обмежених датою.
+        """
+        if self.end_mode == self.END_COUNT and self.count:
+            return f'×{self.count}'
+        if self.end_mode == self.END_UNTIL and self.end_date:
+            return f'до {self.end_date.strftime("%d.%m")}'
+        return '∞'
 
 
 
@@ -253,6 +273,9 @@ class Transaction(models.Model):
     mcc = models.PositiveIntegerField(blank=True, null=True, db_index=True)
 
     is_recurring = models.BooleanField(default=False)
+    # Орієнтовна сума (предполагаемая): для планових платежів зі змінною сумою.
+    # Точну суму вводять при погашенні. Не впливає на облік фактичних.
+    amount_is_estimated = models.BooleanField(default=False)
     recurrence_rule = models.ForeignKey(RecurrenceRule, on_delete=models.SET_NULL, blank=True,
                                         null=True, related_name='transactions')
     # Прив'язка до магазину-реалізатора (модуль consignment). Для планових

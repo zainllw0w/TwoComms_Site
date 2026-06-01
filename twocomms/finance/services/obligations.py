@@ -36,7 +36,14 @@ def _new_group(kind, ttype):
         'category': '',
         'currency': 'UAH',
         'per_amount': Decimal('0'),
+        'amount_is_estimated': False,
         'frequency_label': '',
+        'repeat_badge': '',
+        'frequency': '',
+        'interval': 1,
+        'end_mode': '',
+        'end_date_iso': '',
+        'count': None,
         'remaining_label': '',
         'remaining_count': None,
         'remaining_amount': None,
@@ -114,6 +121,13 @@ def planned_obligations(company) -> dict:
             g['rule_id'] = rule.id
             g['title'] = rule.title or first.comment or 'Повторюваний платіж'
             g['frequency_label'] = rule.frequency_label
+            g['repeat_badge'] = rule.repeat_badge
+            g['frequency'] = rule.frequency
+            g['interval'] = rule.interval or 1
+            g['end_mode'] = rule.end_mode
+            g['end_date_iso'] = rule.end_date.isoformat() if rule.end_date else ''
+            g['count'] = rule.count
+            g['amount_is_estimated'] = bool(rule.amount_is_estimated)
             g['per_amount'] = rule.template_amount or first.amount
             rem = recurring_service.remaining(rule)
             g['remaining_label'] = rem['label']
@@ -130,6 +144,7 @@ def planned_obligations(company) -> dict:
         else:  # onetime
             g['title'] = first.comment or (g['counterparty'] or g['category'] or 'Разовий платіж')
             g['per_amount'] = first.amount
+            g['amount_is_estimated'] = bool(first.amount_is_estimated)
             g['frequency_label'] = ''
             g['remaining_label'] = ''
 

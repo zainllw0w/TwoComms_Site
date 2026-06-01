@@ -294,8 +294,12 @@
       var recTitle = document.getElementById('fin-txn-rec-title');
       var recUntil = document.getElementById('fin-txn-rec-until');
       var recCount = document.getElementById('fin-txn-rec-count');
+      var recInterval = document.getElementById('fin-txn-rec-interval');
+      var recEst = document.getElementById('fin-txn-rec-est');
       if (recEnd) fd.append('recurrence_end_mode', recEnd.value || 'never');
       if (recTitle && recTitle.value) fd.append('recurrence_title', recTitle.value);
+      if (recInterval && recInterval.value) fd.append('recurrence_interval', recInterval.value);
+      if (recEst) fd.append('recurrence_amount_estimated', recEst.value || '0');
       if (recEnd && recEnd.value === 'until' && recUntil && recUntil.value) fd.append('recurrence_until', recUntil.value);
       if (recEnd && recEnd.value === 'count' && recCount && recCount.value) fd.append('recurrence_count', recCount.value);
     }

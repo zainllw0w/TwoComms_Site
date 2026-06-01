@@ -11,6 +11,12 @@
 
       <p class="fin-settle-summary" id="fin-settle-summary"></p>
 
+      <label class="fin-field" id="fin-settle-amount-wrap">
+        <span id="fin-settle-amount-label">Фактична сума</span>
+        <input type="number" step="0.01" min="0" id="fin-settle-amount" class="fin-input">
+        <small class="fin-field-hint" id="fin-settle-amount-hint" hidden>Сума була орієнтовною — уведіть фактично сплачену.</small>
+      </label>
+
       <label class="fin-field">
         <span id="fin-settle-account-label">Рахунок зарахування *</span>
         <select id="fin-settle-account" class="fin-select"></select>

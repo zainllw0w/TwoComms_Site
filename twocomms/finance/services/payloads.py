@@ -130,6 +130,9 @@ def parse_transaction_payload(data, *, txn_type):
         kwargs['currency'] = (data.get('currency') or (acc.currency if acc else company.base_currency))
         kwargs['category'] = _optional_fk(Category, company, data.get('category'))
         kwargs['counterparty'] = _optional_fk(Counterparty, company, data.get('counterparty'))
+        if 'amount_is_estimated' in data:
+            kwargs['amount_is_estimated'] = (str(data.get('amount_is_estimated')).lower()
+                                             in ('1', 'true', 'on', 'yes'))
 
     return kwargs
 
@@ -184,6 +187,9 @@ def parse_recurrence_payload(data) -> dict | None:
         if count <= 0:
             raise PayloadError('Вкажіть кількість повторень', 'recurrence_count')
 
+    estimated = (str(data.get('recurrence_amount_estimated') or '').lower()
+                 in ('1', 'true', 'on', 'yes'))
+
     return {
         'frequency': freq,
         'interval': interval,
@@ -191,5 +197,6 @@ def parse_recurrence_payload(data) -> dict | None:
         'end_date': end_date,
         'count': count,
         'title': (data.get('recurrence_title') or '').strip(),
+        'amount_is_estimated': estimated,
     }
 

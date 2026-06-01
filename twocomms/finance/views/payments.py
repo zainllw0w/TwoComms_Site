@@ -332,9 +332,18 @@ def transaction_settle_api(request, txn_id):
     if data.get('date'):
         date_actual = payload_service._parse_dt(str(data.get('date')))
 
+    amount = None
+    if data.get('amount') not in (None, ''):
+        try:
+            amount = payload_service._decimal(data.get('amount'), 'amount')
+        except payload_service.PayloadError as e:
+            return JsonResponse({'ok': False, 'error': str(e)}, status=400)
+        if amount is not None and amount <= 0:
+            return JsonResponse({'ok': False, 'error': 'Сума має бути більшою за 0'}, status=400)
+
     recurring_service.settle_occurrence(
         txn, user=request.user, account=account, counterparty=counterparty,
-        date_actual=date_actual,
+        date_actual=date_actual, amount=amount,
         link_account_cp=str(data.get('link_account_cp', '')).lower() in ('1', 'true', 'on', 'yes'),
     )
     return JsonResponse({'ok': True, 'transaction': ser.serialize_transaction(txn)})
@@ -360,6 +369,9 @@ def recurrence_update_api(request, rule_id):
             fields['amount'] = payload_service._decimal(data.get('amount'), 'amount')
         except payload_service.PayloadError as e:
             return JsonResponse({'ok': False, 'error': str(e)}, status=400)
+    if 'amount_is_estimated' in data:
+        fields['amount_is_estimated'] = (str(data.get('amount_is_estimated')).lower()
+                                         in ('1', 'true', 'on', 'yes'))
     if 'title' in data:
         fields['title'] = data.get('title') or ''
     if data.get('category_id'):

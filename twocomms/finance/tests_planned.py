@@ -121,6 +121,64 @@ class RecurrenceLifecycleTests(TestCase):
         rule.refresh_from_db()
         self.assertEqual(rule.template_amount, Decimal('4200'))
 
+    def test_change_frequency_rebuilds_future_no_stale(self):
+        """Зміна періодичності перебудовує майбутні екземпляри під новий графік."""
+        txn = self._seed_expense(status=Transaction.STATUS_ACTUAL,
+                                 date=timezone.now() - dt.timedelta(days=2))
+        rule = recurring_service.create_rule_from_transaction(
+            txn, user=self.user, frequency='monthly', end_mode=RecurrenceRule.END_NEVER)
+        monthly_future = set(rule.transactions
+                             .filter(status=Transaction.STATUS_PLANNED)
+                             .values_list('id', flat=True))
+        self.assertTrue(monthly_future)
+        # Перемикаємо на щотижня — старі місячні планові мають зникнути.
+        recurring_service.update_plan(rule, user=self.user, frequency='weekly')
+        rule.refresh_from_db()
+        self.assertEqual(rule.frequency, 'weekly')
+        remaining_ids = set(rule.transactions
+                            .filter(status=Transaction.STATUS_PLANNED)
+                            .values_list('id', flat=True))
+        # Жодного «осиротілого» місячного планового не лишилось.
+        self.assertFalse(monthly_future & remaining_ids)
+        # Новий тижневий графік згенерував більше екземплярів у межах горизонту.
+        self.assertGreater(len(remaining_ids), len(monthly_future))
+        # Фактична (проведена) не зачеплена.
+        txn.refresh_from_db()
+        self.assertEqual(txn.status, Transaction.STATUS_ACTUAL)
+
+    def test_estimated_amount_flag_propagates_and_settles_with_actual(self):
+        """Орієнтовна сума переноситься на екземпляри; при оплаті вводять фактичну."""
+        txn = self._seed_expense()
+        rule = recurring_service.create_rule_from_transaction(
+            txn, user=self.user, frequency='monthly', end_mode=RecurrenceRule.END_NEVER,
+            amount_is_estimated=True)
+        self.assertTrue(rule.amount_is_estimated)
+        for f in rule.transactions.filter(status=Transaction.STATUS_PLANNED):
+            self.assertTrue(f.amount_is_estimated)
+        # Погашення з фактичною сумою знімає позначку «орієнтовна».
+        nxt = rule.transactions.filter(status=Transaction.STATUS_PLANNED).order_by('date_actual').first()
+        recurring_service.settle_occurrence(nxt, user=self.user, account=self.acc,
+                                            amount=Decimal('3450'))
+        nxt.refresh_from_db()
+        self.assertEqual(nxt.amount, Decimal('3450'))
+        self.assertFalse(nxt.amount_is_estimated)
+        self.assertEqual(nxt.status, Transaction.STATUS_ACTUAL)
+
+    def test_obligation_exposes_schedule_for_edit(self):
+        """Згорнуте зобов'язання віддає поточний графік для прелоаду модалки."""
+        txn = self._seed_expense()
+        recurring_service.create_rule_from_transaction(
+            txn, user=self.user, frequency='monthly', interval=2,
+            end_mode=RecurrenceRule.END_COUNT, count=6, amount_is_estimated=True)
+        data = obligations_service.planned_obligations(self.company)
+        g = data['expense'][0]
+        self.assertEqual(g['frequency'], 'monthly')
+        self.assertEqual(g['interval'], 2)
+        self.assertEqual(g['end_mode'], RecurrenceRule.END_COUNT)
+        self.assertEqual(g['count'], 6)
+        self.assertTrue(g['amount_is_estimated'])
+        self.assertEqual(g['repeat_badge'], '×6')
+
 
 class CounterpartyHistoryTests(TestCase):
     def setUp(self):

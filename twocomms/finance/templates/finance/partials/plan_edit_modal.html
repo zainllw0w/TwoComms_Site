@@ -21,6 +21,16 @@
           <input type="number" step="0.01" id="fin-plan-amount" class="fin-input">
         </label>
         <label class="fin-field">
+          <span>Тип суми</span>
+          <select id="fin-plan-amount-type" class="fin-select">
+            <option value="0">Точна</option>
+            <option value="1">Орієнтовна (≈)</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="fin-field-row">
+        <label class="fin-field">
           <span>Періодичність</span>
           <select id="fin-plan-frequency" class="fin-select">
             <option value="daily">Щодня</option>
@@ -28,6 +38,10 @@
             <option value="monthly">Щомісяця</option>
             <option value="yearly">Щороку</option>
           </select>
+        </label>
+        <label class="fin-field">
+          <span>Кожні (кратність)</span>
+          <input type="number" min="1" step="1" id="fin-plan-interval" class="fin-input" value="1">
         </label>
       </div>
 
@@ -57,7 +71,7 @@
         <input type="number" min="1" id="fin-plan-count" class="fin-input">
       </label>
 
-      <p class="fin-plan-note">Зміни застосуються до майбутніх платежів. Уже проведені — не зміняться.</p>
+      <p class="fin-plan-note">Зміни застосуються до майбутніх платежів. Якщо змінити періодичність чи межу — майбутні платежі перебудуються під новий графік. Уже проведені — не зміняться.</p>
 
       <div class="fin-modal-foot">
         <button type="button" class="fin-btn fin-btn--ghost" data-plan-close>Скасувати</button>

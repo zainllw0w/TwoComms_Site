@@ -121,6 +121,7 @@ def generate_planned_transaction(rule: RecurrenceRule, for_date: dt.date, *, use
         recurrence_rule=rule,
         source='recurring',
         is_business=rule.template_is_business,
+        amount_is_estimated=rule.amount_is_estimated,
     )
 
     rule.last_generated_at = timezone.now()
@@ -194,7 +195,8 @@ def create_rule_from_transaction(txn: Transaction, *, user, frequency: str, inte
                                  end_mode: str = RecurrenceRule.END_NEVER,
                                  end_date: dt.date | None = None,
                                  count: int | None = None,
-                                 title: str = '') -> RecurrenceRule:
+                                 title: str = '',
+                                 amount_is_estimated: bool = False) -> RecurrenceRule:
     """Робить транзакцію першим екземпляром повторюваного зобов'язання.
 
     Створює ``RecurrenceRule`` з полів транзакції-шаблону, прив'язує саму
@@ -217,6 +219,7 @@ def create_rule_from_transaction(txn: Transaction, *, user, frequency: str, inte
         end_date=end_date if end_mode == RecurrenceRule.END_UNTIL else None,
         count=int(count) if (end_mode == RecurrenceRule.END_COUNT and count) else None,
         template_amount=txn.amount,
+        amount_is_estimated=bool(amount_is_estimated),
         template_account=txn.account,
         template_category=txn.category,
         template_counterparty=txn.counterparty,
@@ -233,7 +236,8 @@ def create_rule_from_transaction(txn: Transaction, *, user, frequency: str, inte
     txn.recurrence_rule = rule
     txn.is_recurring = True
     txn.source = txn.source or 'recurring'
-    txn.save(update_fields=['recurrence_rule', 'is_recurring', 'source'])
+    txn.amount_is_estimated = bool(amount_is_estimated)
+    txn.save(update_fields=['recurrence_rule', 'is_recurring', 'source', 'amount_is_estimated'])
 
     # Наступна дата після першого екземпляра — звідси й матеріалізуємо.
     rule.next_occurrence = calculate_next_occurrence(rule, start)
@@ -289,20 +293,65 @@ def remaining(rule: RecurrenceRule) -> dict:
     }
 
 
+def _reschedule(rule: RecurrenceRule, *, user) -> None:
+    """Перебудовує майбутні планові екземпляри під новий графік правила.
+
+    Викликається, коли змінилися періодичність/кратність/межа повторення. Щоб
+    не лишалося «осиротілих» копій на старому графіку (напр. місячні після
+    переходу на тижневі), видаляємо всі ще НЕ проведені планові від сьогодні,
+    перераховуємо ``by_month_day`` та ``next_occurrence`` від якоря (остання
+    проведена дата або старт) і матеріалізуємо наперед заново. Проведені
+    (фактичні) екземпляри не чіпаємо — історія лишається правдивою.
+    """
+    today = timezone.localdate()
+
+    # Прибрати ще не проведені планові від сьогодні (старий графік).
+    for ftxn in rule.transactions.filter(
+            status=Transaction.STATUS_PLANNED, date_actual__date__gte=today):
+        txn_service.delete_transaction(ftxn, user=user)
+
+    # Якір — остання проведена дата; якщо проведених немає, стартова дата.
+    last_actual = (rule.transactions
+                   .filter(status=Transaction.STATUS_ACTUAL)
+                   .order_by('-date_actual').first())
+
+    # Для місячних тримаємо день місяця синхронним зі стартом (якщо не задано).
+    if rule.frequency == 'monthly' and not rule.by_month_day and rule.start_date:
+        rule.by_month_day = rule.start_date.day
+        rule.save(update_fields=['by_month_day'])
+
+    if last_actual and last_actual.date_actual:
+        rule.next_occurrence = calculate_next_occurrence(rule, last_actual.date_actual.date())
+    else:
+        # Ще нічого не проводили — генеруємо від стартової дати включно.
+        rule.next_occurrence = rule.start_date
+    rule.save(update_fields=['next_occurrence'])
+    materialize(rule, user=user)
+
+
 @db_transaction.atomic
-def update_plan(rule: RecurrenceRule, *, user, amount=None, title=None, category=None,
+def update_plan(rule: RecurrenceRule, *, user, amount=None, amount_is_estimated=None,
+                title=None, category=None,
                 counterparty=None, project=None, account=None,
                 frequency=None, interval=None, end_mode=None, end_date=None, count=None,
                 apply_to_future: bool = True) -> RecurrenceRule:
-    """Редагує план зобов'язання (напр. «комуналка виросла»).
+    """Редагує план зобов'язання (напр. «комуналка виросла» або «тепер раз на 2 міс»).
 
-    Оновлює поля-шаблон правила і, якщо ``apply_to_future``, переносить зміни на
-    всі ще НЕ проведені (планові, з датою від сьогодні) екземпляри. Уже проведені
-    фактичні транзакції не чіпаються (історія лишається правдивою).
+    Оновлює поля-шаблон правила. Якщо змінився графік (періодичність/кратність/
+    межа повторення) — повністю перебудовує майбутні планові екземпляри під
+    новий графік (див. ``_reschedule``), тож зміна реально застосовується, а не
+    лишає старі копії. Якщо змінилися лише реквізити/сума — переносить їх на ще
+    НЕ проведені екземпляри. Уже проведені фактичні транзакції не чіпаються.
     """
+    # Знімок графіка ДО змін — щоб зрозуміти, чи треба перебудовувати екземпляри.
+    old_schedule = (rule.frequency, rule.interval, rule.end_mode,
+                    rule.end_date, rule.count)
+
     fields = []
     if amount is not None:
         rule.template_amount = Decimal(str(amount)); fields.append('template_amount')
+    if amount_is_estimated is not None:
+        rule.amount_is_estimated = bool(amount_is_estimated); fields.append('amount_is_estimated')
     if title is not None:
         rule.title = str(title)[:255]; fields.append('title')
     if category is not None:
@@ -314,6 +363,11 @@ def update_plan(rule: RecurrenceRule, *, user, amount=None, title=None, category
     if account is not None:
         rule.template_account = account; fields.append('template_account')
     if frequency in _FREQ_VALID:
+        # Зміна періодичності → день місяця наново від старту (для monthly).
+        if frequency != rule.frequency:
+            rule.by_month_day = (rule.start_date.day if frequency == 'monthly'
+                                 and rule.start_date else None)
+            fields.append('by_month_day')
         rule.frequency = frequency; fields.append('frequency')
     if interval is not None:
         rule.interval = max(1, int(interval)); fields.append('interval')
@@ -325,6 +379,15 @@ def update_plan(rule: RecurrenceRule, *, user, amount=None, title=None, category
     if fields:
         rule.save(update_fields=list(set(fields)))
 
+    schedule_changed = (rule.frequency, rule.interval, rule.end_mode,
+                        rule.end_date, rule.count) != old_schedule
+
+    if schedule_changed:
+        # Перебудовуємо майбутні екземпляри під новий графік (з перенесенням
+        # актуальних реквізитів/суми, бо template вже оновлено).
+        _reschedule(rule, user=user)
+        return rule
+
     if apply_to_future:
         today = timezone.localdate()
         future = rule.transactions.filter(
@@ -335,6 +398,8 @@ def update_plan(rule: RecurrenceRule, *, user, amount=None, title=None, category
             upd = {}
             if amount is not None:
                 upd['amount'] = rule.template_amount
+            if amount_is_estimated is not None:
+                upd['amount_is_estimated'] = rule.amount_is_estimated
             if category is not None:
                 upd['category'] = rule.template_category
             if counterparty is not None:
@@ -346,24 +411,28 @@ def update_plan(rule: RecurrenceRule, *, user, amount=None, title=None, category
             if upd:
                 txn_service.update_transaction(ftxn, user=user, **upd)
 
-    # Якщо змінилися межі — підтягнути/прибрати майбутні екземпляри.
     materialize(rule, user=user)
     return rule
 
 
 @db_transaction.atomic
 def settle_occurrence(txn: Transaction, *, user, account=None, counterparty=None,
-                      date_actual=None, link_account_cp: bool = False) -> Transaction:
+                      date_actual=None, amount=None, link_account_cp: bool = False) -> Transaction:
     """Проводить планову транзакцію як фактичну з вибором рахунку та контрагента.
 
     Для доходу ``account`` — рахунок, КУДИ надійшли кошти; для витрати — рахунок,
     З ЯКОГО списано. ``counterparty`` фіксує, з ким була операція; за згодою
     рахунок прив'язується до контрагента (для авто-розпізнавання надалі та
-    історії по контрагенту). Після проведення підтягуємо наступний екземпляр
-    повторюваного правила, щоб зобов'язання лишалося «живим».
+    історії по контрагенту). ``amount`` — фактична сума (для орієнтовних платежів,
+    де планували приблизно, а платимо точно); після уведення фактичної суми
+    позначка «орієнтовна» знімається. Після проведення підтягуємо наступний
+    екземпляр повторюваного правила, щоб зобов'язання лишалося «живим».
     """
     fields = {'status': Transaction.STATUS_ACTUAL,
               'date_actual': date_actual or timezone.now()}
+    if amount is not None:
+        fields['amount'] = Decimal(str(amount))
+        fields['amount_is_estimated'] = False
     if account is not None:
         fields['account'] = account
     if counterparty is not None:

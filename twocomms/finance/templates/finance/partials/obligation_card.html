@@ -11,12 +11,18 @@
          data-counterparty-id="{{ g.counterparty_id|default:'' }}"
          data-per-amount="{{ g.per_amount }}"
          data-currency="{{ g.currency }}"
+         data-estimated="{% if g.amount_is_estimated %}1{% else %}0{% endif %}"
+         data-frequency="{{ g.frequency|default:'' }}"
+         data-interval="{{ g.interval|default:'1' }}"
+         data-end-mode="{{ g.end_mode|default:'' }}"
+         data-end-date="{{ g.end_date_iso|default:'' }}"
+         data-count="{{ g.count|default:'' }}"
          data-title="{{ g.title }}">
     <div class="fin-oblig__main">
         <div class="fin-oblig__title-row">
             <span class="fin-oblig__title">{{ g.title }}</span>
             {% if g.kind == 'recurring' %}
-            <span class="fin-oblig__badge fin-oblig__badge--repeat" title="Повторюваний платіж">⟳ {{ g.frequency_label }}</span>
+            <span class="fin-oblig__badge fin-oblig__badge--repeat" title="Повторюваний платіж">⟳ {{ g.frequency_label }} {{ g.repeat_badge }}</span>
             {% elif g.kind == 'installment' %}
             <span class="fin-oblig__badge fin-oblig__badge--install" title="Розстрочка боргу">▦ розстрочка</span>
             {% else %}
@@ -24,6 +30,7 @@
             {% endif %}
         </div>
         <div class="fin-oblig__meta">
+            {% if g.amount_is_estimated %}<span class="fin-oblig__chip fin-oblig__chip--est" title="Орієнтовна сума — уточнюється при оплаті">≈ орієнтовна</span>{% endif %}
             {% if g.counterparty %}<span class="fin-oblig__chip" data-cp-history>👤 {{ g.counterparty }}</span>{% endif %}
             {% if g.category %}<span class="fin-oblig__chip">🏷 {{ g.category }}</span>{% endif %}
             {% if g.account %}<span class="fin-oblig__chip">💳 {{ g.account }}</span>{% endif %}
@@ -31,7 +38,7 @@
     </div>
 
     <div class="fin-oblig__numbers">
-        <div class="fin-oblig__amount">{{ g.per_amount_display }}{% if g.kind != 'onetime' %}<span class="fin-oblig__per">/ період</span>{% endif %}</div>
+        <div class="fin-oblig__amount">{% if g.amount_is_estimated %}≈ {% endif %}{{ g.per_amount_display }}{% if g.kind != 'onetime' %}<span class="fin-oblig__per">/ період</span>{% endif %}</div>
         {% if g.remaining_label %}
         <div class="fin-oblig__remaining">
             {{ g.remaining_label }}{% if g.remaining_amount_display %} · {{ g.remaining_amount_display }}{% endif %}

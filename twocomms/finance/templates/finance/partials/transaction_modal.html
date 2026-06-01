@@ -122,6 +122,19 @@
             <span>Назва зобов'язання (опційно)</span>
             <input type="text" name="recurrence_title" id="fin-txn-rec-title" class="fin-input" placeholder="Напр. Комуналка">
           </label>
+          <div class="fin-field-row">
+            <label class="fin-field">
+              <span>Кожні (кратність)</span>
+              <input type="number" min="1" step="1" name="recurrence_interval" id="fin-txn-rec-interval" class="fin-input" value="1">
+            </label>
+            <label class="fin-field">
+              <span>Тип суми</span>
+              <select name="recurrence_amount_estimated" id="fin-txn-rec-est" class="fin-select">
+                <option value="0">Точна</option>
+                <option value="1">Орієнтовна (≈)</option>
+              </select>
+            </label>
+          </div>
           <label class="fin-field">
             <span>Завершення</span>
             <select name="recurrence_end_mode" id="fin-txn-rec-end" class="fin-select">
