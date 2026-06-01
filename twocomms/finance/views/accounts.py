@@ -7,6 +7,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_GET, require_POST
 
+from .. import account_icons
 from ..models import Account, IntegrationConnection, get_default_company
 from ..permissions import finance_access_required
 from ..services import accounts as account_service
@@ -32,6 +33,9 @@ def accounts(request):
         'providers': integ_service.PROVIDER_CATALOG,
         'currencies': ['UAH', 'USD', 'EUR', 'PLN', 'GBP'],
         'account_types': Account.TYPE_CHOICES,
+        'bank_presets': account_icons.bank_presets_list(),
+        'bank_presets_map': account_icons.bank_presets_map(),
+        'emoji_presets': account_icons.EMOJI_PRESETS,
     }
     return render(request, 'finance/accounts.html', context)
 
@@ -59,9 +63,21 @@ def account_update_api(request, account_id):
     acc = get_object_or_404(Account, id=account_id, company=company)
     data = _body(request)
     fields = {}
-    for key in ('name', 'currency', 'type', 'initial_balance', 'color', 'is_business'):
+    for key in ('name', 'currency', 'type', 'initial_balance', 'color', 'is_business',
+                'icon_type', 'icon_value'):
         if key in data:
             fields[key] = data[key]
+    # Іконка-картка: нове фото обробляємо у легкий WEBP; при перемиканні на
+    # емодзі/банк/без — прибираємо раніше збережене зображення.
+    icon_file = request.FILES.get('icon_image')
+    if icon_file is not None:
+        try:
+            fields['icon_image'] = account_icons.process_account_icon(icon_file)
+        except ValueError as exc:
+            return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+        fields['icon_type'] = 'image'
+    elif 'icon_type' in data and data.get('icon_type') != 'image':
+        fields['icon_image'] = ''
     account_service.update_account(acc, user=request.user, **fields)
     return JsonResponse({'ok': True})
 

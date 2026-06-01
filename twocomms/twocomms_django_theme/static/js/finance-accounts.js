@@ -208,48 +208,196 @@
     });
   });
 
-  // --- Редагування / архів / видалення ---
+  // --- Редагування рахунку: назва, баланс, іконка-картка, колір ---
   var editModal = document.getElementById('fin-editacc-modal');
   function accById(id) { return ACCOUNTS.find(function (a) { return String(a.id) === String(id); }); }
+
+  var BANK_PRESETS = {};
+  try { BANK_PRESETS = JSON.parse(document.getElementById('fin-bank-presets').textContent); } catch (e) {}
+
+  // Поточний стан іконки в модалці.
+  var iconState = { type: '', value: '', data: '', file: null, previewSrc: '' };
+
+  var previewIcon = document.getElementById('fin-editacc-preview-icon');
+  var previewName = document.getElementById('fin-editacc-preview-name');
+  var nameInput = document.getElementById('fin-editacc-name');
+  var colorPick = document.getElementById('fin-editacc-color');
+  var colorHex = document.getElementById('fin-editacc-color-hex');
+  var iconFileInput = document.getElementById('fin-editacc-icon-file');
+  var iconRemoveBtn = document.getElementById('fin-editacc-icon-remove');
+
+  function curColor() {
+    var v = colorHex ? colorHex.value.trim() : '';
+    return /^#[0-9a-fA-F]{6}$/.test(v) ? v : '';
+  }
+  function renderPreviewIcon() {
+    if (!previewIcon) return;
+    previewIcon.className = 'fin-acc-icon';
+    previewIcon.removeAttribute('style');
+    previewIcon.innerHTML = '';
+    var t = iconState.type;
+    if (t === 'emoji' && iconState.value) {
+      previewIcon.classList.add('fin-acc-icon--emoji');
+      previewIcon.textContent = iconState.value;
+      previewIcon.hidden = false;
+    } else if (t === 'bank' && BANK_PRESETS[iconState.value]) {
+      var b = BANK_PRESETS[iconState.value];
+      previewIcon.classList.add('fin-acc-icon--bank');
+      previewIcon.style.background = b.bg; previewIcon.style.color = b.fg;
+      previewIcon.textContent = b.label;
+      previewIcon.hidden = false;
+    } else if (t === 'image' && (iconState.previewSrc || iconState.data)) {
+      previewIcon.classList.add('fin-acc-icon--image');
+      var img = document.createElement('img');
+      img.src = iconState.previewSrc || iconState.data; img.alt = '';
+      previewIcon.appendChild(img);
+      previewIcon.hidden = false;
+    } else {
+      previewIcon.hidden = true;
+    }
+  }
+  function renderPreviewName() {
+    if (!previewName) return;
+    previewName.textContent = (nameInput && nameInput.value.trim()) || 'Назва рахунку';
+    previewName.style.color = curColor() || '';
+  }
+  function setActiveTab(type) {
+    document.querySelectorAll('[data-icon-tab]').forEach(function (t) {
+      t.classList.toggle('is-active', t.dataset.iconTab === type);
+    });
+    document.querySelectorAll('[data-icon-pane]').forEach(function (p) {
+      p.hidden = type === '' || p.dataset.iconPane !== type;
+    });
+  }
+  function markActiveOption() {
+    document.querySelectorAll('[data-icon-pick]').forEach(function (o) {
+      o.classList.toggle('is-active',
+        o.dataset.iconPick === iconState.type && o.dataset.value === iconState.value);
+    });
+  }
+  function setIconType(type) {
+    iconState.type = type;
+    if (type !== 'image') { iconState.file = null; iconState.previewSrc = ''; }
+    if (type === '') iconState.value = '';
+    if (iconRemoveBtn) iconRemoveBtn.hidden = !(type === 'image' && (iconState.data || iconState.previewSrc));
+    setActiveTab(type);
+    markActiveOption();
+    renderPreviewIcon();
+  }
+
+  document.querySelectorAll('[data-icon-tab]').forEach(function (t) {
+    t.addEventListener('click', function () { setIconType(t.dataset.iconTab); });
+  });
+  document.querySelectorAll('[data-icon-pick]').forEach(function (o) {
+    o.addEventListener('click', function () {
+      iconState.type = o.dataset.iconPick;
+      iconState.value = o.dataset.value;
+      markActiveOption();
+      renderPreviewIcon();
+    });
+  });
+  if (iconFileInput) iconFileInput.addEventListener('change', function () {
+    var f = iconFileInput.files && iconFileInput.files[0];
+    if (!f) return;
+    iconState.type = 'image'; iconState.value = ''; iconState.file = f;
+    var reader = new FileReader();
+    reader.onload = function () {
+      iconState.previewSrc = reader.result;
+      if (iconRemoveBtn) iconRemoveBtn.hidden = false;
+      renderPreviewIcon();
+    };
+    reader.readAsDataURL(f);
+  });
+  if (iconRemoveBtn) iconRemoveBtn.addEventListener('click', function () {
+    iconState.data = ''; iconState.file = null; iconState.previewSrc = '';
+    if (iconFileInput) iconFileInput.value = '';
+    setIconType('');
+  });
+
+  function markActiveColorSwatch() {
+    var c = curColor();
+    document.querySelectorAll('.fin-color-swatch').forEach(function (s) {
+      s.classList.toggle('is-active', (s.dataset.color || '') === c);
+    });
+  }
+
   document.querySelectorAll('[data-acc-edit]').forEach(function (b) {
     b.addEventListener('click', function () {
       var a = accById(b.dataset.accEdit);
       document.getElementById('fin-editacc-id').value = b.dataset.accEdit;
-      document.getElementById('fin-editacc-name').value = a ? a.name : '';
+      if (nameInput) nameInput.value = a ? a.name : '';
       document.getElementById('fin-editacc-initial').value = a ? a.initial_balance : '';
       document.getElementById('fin-editacc-target').value = '';
       var hex = (a && a.color) ? a.color : '';
-      var hexEl = document.getElementById('fin-editacc-color-hex');
-      var pickEl = document.getElementById('fin-editacc-color');
-      if (hexEl) hexEl.value = hex;
-      if (pickEl) pickEl.value = /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : '#e8edf7';
+      if (colorHex) colorHex.value = hex;
+      if (colorPick) colorPick.value = /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : '#e8edf7';
+      iconState = {
+        type: (a && a.icon_type) || '', value: (a && a.icon_value) || '',
+        data: (a && a.icon_data) || '', file: null, previewSrc: '',
+      };
+      if (iconFileInput) iconFileInput.value = '';
+      setActiveTab(iconState.type);
+      markActiveOption();
+      if (iconRemoveBtn) iconRemoveBtn.hidden = !(iconState.type === 'image' && iconState.data);
+      markActiveColorSwatch();
+      renderPreviewIcon();
+      renderPreviewName();
       show(editModal);
     });
   });
-  // Синхронізація color-picker ↔ hex-поле
-  var colorPick = document.getElementById('fin-editacc-color');
-  var colorHex = document.getElementById('fin-editacc-color-hex');
+
+  // Синхронізація color-picker ↔ hex ↔ свотчі ↔ передогляд
   if (colorPick && colorHex) {
-    colorPick.addEventListener('input', function () { colorHex.value = colorPick.value; });
+    colorPick.addEventListener('input', function () {
+      colorHex.value = colorPick.value; markActiveColorSwatch(); renderPreviewName();
+    });
     colorHex.addEventListener('input', function () {
       if (/^#[0-9a-fA-F]{6}$/.test(colorHex.value)) colorPick.value = colorHex.value;
+      markActiveColorSwatch(); renderPreviewName();
     });
   }
+  document.querySelectorAll('.fin-color-swatch').forEach(function (s) {
+    s.addEventListener('click', function () {
+      var c = s.dataset.color || '';
+      if (colorHex) colorHex.value = c;
+      if (colorPick && /^#[0-9a-fA-F]{6}$/.test(c)) colorPick.value = c;
+      markActiveColorSwatch(); renderPreviewName();
+    });
+  });
+  if (nameInput) nameInput.addEventListener('input', renderPreviewName);
   var colorClear = document.getElementById('fin-editacc-color-clear');
   if (colorClear) colorClear.addEventListener('click', function () {
     if (colorHex) colorHex.value = '';
+    markActiveColorSwatch(); renderPreviewName();
   });
+
   var editForm = document.getElementById('fin-editacc-form');
   if (editForm) editForm.addEventListener('submit', function (e) {
     e.preventDefault();
     var id = document.getElementById('fin-editacc-id').value;
-    var colorVal = colorHex ? colorHex.value.trim() : '';
-    api('/api/accounts/' + id + '/update/', 'POST', {
-      name: document.getElementById('fin-editacc-name').value,
-      initial_balance: document.getElementById('fin-editacc-initial').value,
-      color: colorVal,
-    }).then(function (res) { if (res.data.ok) window.location.reload(); });
+    var fd = new FormData();
+    fd.append('name', nameInput ? nameInput.value : '');
+    fd.append('initial_balance', document.getElementById('fin-editacc-initial').value);
+    fd.append('color', curColor());
+    fd.append('icon_type', iconState.type);
+    fd.append('icon_value', (iconState.type === 'bank' || iconState.type === 'emoji') ? iconState.value : '');
+    if (iconState.type === 'image' && iconState.file) fd.append('icon_image', iconState.file);
+    var btn = editForm.querySelector('button[type=submit]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Зберігаємо…'; }
+    fetch('/api/accounts/' + id + '/update/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
+      body: fd,
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (d.ok) { window.location.reload(); return; }
+      if (btn) { btn.disabled = false; btn.textContent = 'Зберегти'; }
+      alert(d.error || 'Помилка збереження');
+    }).catch(function () {
+      if (btn) { btn.disabled = false; btn.textContent = 'Зберегти'; }
+      alert('Помилка мережі');
+    });
   });
+
   var correctBtn = document.getElementById('fin-editacc-correct');
   if (correctBtn) correctBtn.addEventListener('click', function () {
     var id = document.getElementById('fin-editacc-id').value;

@@ -73,6 +73,9 @@ def account_sidebar_data(company):
             'currency': acc.currency,
             'balance': acc.current_balance,
             'color': acc.color or '',
+            'icon_type': acc.icon_type or '',
+            'icon_value': acc.icon_value or '',
+            'icon_data': acc.icon_image or '',
             'balance_display': f'{acc.current_balance:,.0f} {_symbol(acc.currency)}'.replace(',', ' '),
         })
     return items

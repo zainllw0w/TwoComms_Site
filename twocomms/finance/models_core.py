@@ -101,6 +101,25 @@ class Account(models.Model):
     )
     # Власний колір тексту рахунку (HEX, напр. '#34d399'). Порожньо = типовий.
     color = models.CharField(max_length=16, blank=True, default='')
+    # Іконка-«картка» рахунку для швидкого візуального розрізнення.
+    # icon_type: '' (немає), 'emoji', 'bank' (брендова плитка), 'image' (своє фото).
+    ICON_NONE = ''
+    ICON_EMOJI = 'emoji'
+    ICON_BANK = 'bank'
+    ICON_IMAGE = 'image'
+    ICON_TYPE_CHOICES = [
+        (ICON_NONE, 'Без іконки'),
+        (ICON_EMOJI, 'Емодзі'),
+        (ICON_BANK, 'Банк'),
+        (ICON_IMAGE, 'Своє зображення'),
+    ]
+    icon_type = models.CharField(max_length=10, blank=True, default='', choices=ICON_TYPE_CHOICES)
+    # Для emoji — сам символ; для bank — ключ пресету (mono/privat/...).
+    icon_value = models.CharField(max_length=64, blank=True, default='')
+    # Своє зображення зберігаємо вже стиснутим у WEBP як data-URI (важкий
+    # оригінал відкидається ще на сервері). Так іконка працює однаково
+    # локально й на проді без додаткового налаштування роздачі media.
+    icon_image = models.TextField(blank=True, default='')
     auto_sync = models.BooleanField(default=True)
     sort_order = models.PositiveIntegerField(default=0)
     is_demo = models.BooleanField(default=False)

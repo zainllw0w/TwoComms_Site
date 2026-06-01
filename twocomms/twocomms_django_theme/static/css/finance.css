@@ -2254,3 +2254,86 @@ body.fin-settings-open { overflow: hidden; }
         width: 320px;
     }
 }
+
+/* ===================== Іконки-картки рахунків ===================== */
+/* Прямокутна «картка» сталого розміру — щоб рахунки легко розрізнялись. */
+.fin-acc-icon {
+    flex: 0 0 auto;
+    width: 34px; height: 21px;
+    border-radius: 5px;
+    display: inline-flex; align-items: center; justify-content: center;
+    overflow: hidden; line-height: 1; font-size: 13px;
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.10);
+}
+.fin-acc-icon--emoji { font-size: 14px; background: rgba(255, 255, 255, 0.05); }
+.fin-acc-icon--bank {
+    font-weight: 800; font-size: 9px; letter-spacing: 0.2px;
+    text-transform: none; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+.fin-acc-icon--image { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); background: #0b0e14; }
+.fin-acc-icon--image img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* У боковому меню — трохи компактніша картка. */
+.fin-acc-icon--sidebar { width: 28px; height: 18px; border-radius: 4px; font-size: 11px; }
+.fin-acc-icon--sidebar.fin-acc-icon--emoji { font-size: 12px; }
+.fin-acc-icon--sidebar.fin-acc-icon--bank { font-size: 8px; }
+.fin-account { gap: 8px; }
+
+/* ----------- Модалка редагування рахунку: передогляд ----------- */
+.fin-acc-preview {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; border-radius: var(--fin-radius-md);
+    background: var(--fin-bg-800); border: 1px solid var(--fin-border);
+}
+.fin-acc-preview__name { font-weight: 600; font-size: 15px; color: var(--fin-text); }
+
+/* ----------- Пікер іконки ----------- */
+.fin-icon-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.fin-icon-tab {
+    padding: 6px 12px; border-radius: 999px; cursor: pointer; font-size: 12px; font-weight: 600;
+    border: 1px solid var(--fin-border-strong); background: rgba(255, 255, 255, 0.03);
+    color: var(--fin-text-2);
+}
+.fin-icon-tab.is-active { color: var(--fin-accent); border-color: var(--fin-accent); background: rgba(255, 126, 41, 0.12); }
+.fin-icon-pane { margin-top: 10px; }
+.fin-icon-pane[hidden] { display: none !important; }
+.fin-icon-grid {
+    display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px;
+}
+.fin-icon-grid--bank { grid-template-columns: repeat(4, 1fr); }
+.fin-icon-opt {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 8px 4px; cursor: pointer; border-radius: var(--fin-radius-sm);
+    border: 1px solid transparent; background: rgba(255, 255, 255, 0.02);
+}
+.fin-icon-opt:hover { background: rgba(255, 255, 255, 0.06); }
+.fin-icon-opt.is-active { border-color: var(--fin-accent); background: rgba(255, 126, 41, 0.10); }
+.fin-icon-opt small { font-size: 10px; color: var(--fin-muted); text-align: center; line-height: 1.1; }
+.fin-bank-opt { padding: 8px 6px; }
+
+/* ----------- Колір назви: свотчі + свій колір ----------- */
+.fin-color-swatches { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+.fin-color-swatch {
+    width: 26px; height: 26px; border-radius: 50%; cursor: pointer; padding: 0;
+    border: 2px solid transparent; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+    background: var(--fin-bg-800);
+}
+.fin-color-swatch.is-active { border-color: var(--fin-text); }
+.fin-color-swatch__default {
+    display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;
+    font-size: 13px; font-weight: 700; color: var(--fin-text-2);
+}
+.fin-color-row { display: flex; align-items: center; gap: 8px; }
+.fin-color-pick {
+    flex: 0 0 auto; width: 40px; height: 38px; border-radius: var(--fin-radius-sm);
+    overflow: hidden; border: 1px solid var(--fin-border-strong); cursor: pointer; padding: 0;
+    display: inline-flex;
+}
+.fin-color-input { width: 150%; height: 150%; margin: -25%; border: none; background: none; cursor: pointer; padding: 0; }
+.fin-color-hex { flex: 1; min-width: 0; }
+.fin-color-row .fin-btn { flex: 0 0 auto; }
+
+@media (max-width: 640px) {
+    .fin-icon-grid { grid-template-columns: repeat(6, 1fr); }
+    .fin-icon-grid--bank { grid-template-columns: repeat(3, 1fr); }
+}

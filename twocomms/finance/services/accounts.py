@@ -112,5 +112,8 @@ def accounts_overview(company):
             'masked_pan': acc.masked_pan,
             'auto_sync': acc.auto_sync,
             'color': acc.color or '',
+            'icon_type': acc.icon_type or '',
+            'icon_value': acc.icon_value or '',
+            'icon_data': acc.icon_image or '',
         })
     return items
