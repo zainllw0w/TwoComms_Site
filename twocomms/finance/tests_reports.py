@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import datetime as dt
 from decimal import Decimal
+from pathlib import Path
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.utils import timezone
@@ -64,9 +66,40 @@ class ReportsTests(TestCase):
     def test_report_pages_render(self):
         self.client.force_login(self.user)
         for kind in ('cashflow', 'pnl', 'receivables', 'payables', 'statement',
+                     'forecast', 'owner_drawings', 'personal_expenses',
                      'projects', 'audit', 'balance', 'plan_fact', 'metrics'):
             resp = self.client.get(f'/analytic/report/{kind}/', HTTP_HOST=self.FIN_HOST)
             self.assertEqual(resp.status_code, 200, f'{kind} → {resp.status_code}')
+
+    def test_analytics_report_insight_icons_have_scoped_sizes(self):
+        css_path = settings.BASE_DIR / 'static' / 'css' / 'finance-fixes.css'
+        css = css_path.read_text(encoding='utf-8')
+
+        for expected in (
+            '.fin-insight-card__head',
+            '.fin-insight-card__head svg',
+            'width: 18px',
+            'height: 18px',
+            'flex: 0 0 18px',
+        ):
+            self.assertIn(expected, css)
+
+        for template_name in (
+            'personal_expenses.html',
+            'owner_drawings.html',
+            'forecast.html',
+        ):
+            template_path = (
+                Path(settings.BASE_DIR)
+                / 'finance'
+                / 'templates'
+                / 'finance'
+                / 'reports'
+                / template_name
+            )
+            html = template_path.read_text(encoding='utf-8')
+            self.assertIn('class="fin-insight-card__head"', html)
+            self.assertNotIn('<style>', html)
 
     def test_export_xlsx(self):
         self.client.force_login(self.user)

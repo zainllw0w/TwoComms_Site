@@ -31,7 +31,7 @@
 {% if insights %}
 <div class="fin-insight-card">
     <div class="fin-insight-card__head">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M12 2L2 7l10 5 10-5-10-5z"/>
             <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
         </svg>
@@ -57,7 +57,7 @@
             </div>
             <div class="fin-breakdown">
                 {% for cat in data.categories %}
-                <div class="fin-breakdown__row">
+                <div class="fin-breakdown__row fin-breakdown__row--icon">
                     <span class="fin-category-icon">{{ cat.icon }}</span>
                     <span class="fin-breakdown__name">{{ cat.name }}</span>
                     <span class="fin-breakdown__pct">{{ cat.pct|floatformat:1 }}%</span>
@@ -216,37 +216,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<style>
-/* Рядок легенди: іконка фіксованого розміру + назва + % + сума.
-   Перевизначаємо grid (глобальний — 12px під крапку, а тут емодзі). */
-.fin-chart-with-legend .fin-breakdown__row {
-    grid-template-columns: 22px 1fr auto auto;
-}
-.fin-category-icon {
-    font-size: 15px;
-    line-height: 1;
-    width: 22px;
-    flex: 0 0 22px;
-    text-align: center;
-    overflow: hidden;
-}
-/* Гарантуємо, що doughnut не розтягується вертикально. */
-.fin-chart-with-legend .fin-chart-canvas {
-    height: 200px;
-    max-width: 220px;
-}
-
-.fin-chart-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    gap: 24px;
-    margin-top: 24px;
-}
-
-@media (max-width: 768px) {
-    .fin-chart-grid {
-        grid-template-columns: 1fr;
-    }
-}
-</style>
 {% endblock %}

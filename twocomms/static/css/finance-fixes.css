@@ -37,3 +37,179 @@
     opacity: 0.8;
     vertical-align: middle;
 }
+
+/* Аналітика: стабільні KPI, висновки та іконки звітів */
+.fin-kpi__label,
+.fin-kpi > span:first-child {
+    color: var(--fin-text-2);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.25;
+}
+
+.fin-kpi__value,
+.fin-kpi > strong {
+    color: var(--fin-text);
+    font-size: 22px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+    line-height: 1.16;
+    overflow-wrap: anywhere;
+}
+
+.fin-kpi__hint {
+    color: var(--fin-text-2);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.fin-kpi--pos .fin-kpi__value,
+.fin-kpi--pos > strong {
+    color: var(--fin-pos);
+}
+
+.fin-kpi--neg .fin-kpi__value,
+.fin-kpi--neg > strong {
+    color: var(--fin-neg);
+}
+
+.fin-kpi--info .fin-kpi__value {
+    color: var(--fin-info);
+}
+
+.fin-insight-card {
+    overflow: hidden;
+}
+
+.fin-insight-card__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    color: var(--fin-text);
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+.fin-insight-card__head svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    color: var(--fin-accent);
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.fin-insight-card__head span {
+    min-width: 0;
+}
+
+.fin-insight-card__head + .fin-insight-list {
+    padding-left: 18px;
+}
+
+.fin-breakdown__row--icon {
+    grid-template-columns: 22px minmax(0, 1fr) auto auto;
+}
+
+.fin-category-icon {
+    display: inline-grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 15px;
+    line-height: 1;
+    text-align: center;
+}
+
+.fin-chart-with-legend .fin-chart-canvas {
+    min-height: 180px;
+}
+
+.fin-chart-canvas canvas {
+    display: block;
+    max-width: 100%;
+}
+
+.fin-row--danger {
+    background-color: rgba(251, 113, 133, 0.1);
+}
+
+.fin-row--warning {
+    background-color: rgba(251, 191, 36, 0.1);
+}
+
+.fin-amount--warning {
+    color: #fbbf24;
+}
+
+@media (max-width: 640px) {
+    .fin-kpi__value,
+    .fin-kpi > strong {
+        font-size: 18px;
+    }
+
+    .fin-breakdown__row--icon {
+        grid-template-columns: 22px minmax(0, 1fr) auto;
+    }
+}
+
+/* Desktop shell guard: sidebar and main content stay in separate columns. */
+@media (min-width: 901px) {
+    .fin-workspace {
+        display: grid;
+        grid-template-columns: var(--fin-sidebar-w) minmax(0, 1fr);
+        align-items: start;
+    }
+
+    .fin-sidebar {
+        grid-column: 1;
+        grid-row: 1;
+        width: var(--fin-sidebar-w);
+        max-width: none;
+        min-height: 0;
+        position: sticky;
+        top: 0;
+        align-self: start;
+        transform: none;
+        overflow: hidden;
+    }
+
+    .fin-sidebar__scroll {
+        min-height: 0;
+        overscroll-behavior: contain;
+    }
+
+    .fin-main {
+        grid-column: 2;
+        grid-row: 1;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .fin-content {
+        width: 100%;
+    }
+
+    .fin-sidebar__backdrop {
+        display: none;
+    }
+}
+
+@media (min-width: 1440px) {
+    .fin-workspace {
+        grid-template-columns: 320px minmax(0, 1fr);
+    }
+
+    .fin-sidebar {
+        width: 320px;
+    }
+}
