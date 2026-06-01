@@ -6,72 +6,77 @@
 {% block content %}
 <div class="manager-profile-container">
     {% if not has_level %}
-        <div class="no-level-message">
+        <div class="mp-empty reveal">
+            <div class="mp-empty__icon">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <circle cx="12" cy="8" r="4"></circle>
+                    <path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"></path>
+                </svg>
+            </div>
             <h2>{{ message }}</h2>
             <p>Зверніться до адміністратора для призначення рівня.</p>
         </div>
     {% else %}
-        <!-- Візуалізація шляху розвитку (для всіх рівнів, включно з адмінами) -->
-        <div class="level-progression-visual">
-            <h2>Ваш шлях розвитку</h2>
-            <div class="levels-timeline">
+        <!-- Hero: поточний рівень + шлях розвитку (компактно, в одній картці) -->
+        <div class="mp-card mp-hero reveal">
+            <div class="mp-hero__head">
+                <div class="mp-hero__lead">
+                    <p class="eyebrow">Ваш рівень</p>
+                    <div class="mp-hero__titlebar">
+                        <h1 class="mp-hero__title">{{ level_desc.name }}</h1>
+                        <span class="level-badge level-{{ level.level }}">{{ level_desc.name }}</span>
+                    </div>
+                    {% if level_desc.description %}
+                    <p class="mp-hero__desc">{{ level_desc.description }}</p>
+                    {% endif %}
+                    <div class="mp-hero__meta">
+                        <span class="mp-meta-chip">
+                            <span class="mp-meta-chip__label">Призначено</span>
+                            <span class="mp-meta-chip__value">{{ level.assigned_at|date:"d.m.Y" }}</span>
+                        </span>
+                        {% if level.assigned_by %}
+                        <span class="mp-meta-chip">
+                            <span class="mp-meta-chip__label">Призначив</span>
+                            <span class="mp-meta-chip__value">{{ level.assigned_by.username }}</span>
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="mp-timeline">
                 {% for lvl in level_progression_history %}
-                <div class="timeline-item timeline-{{ lvl.status }}">
-                    <div class="timeline-marker">
+                <div class="mp-timeline__item is-{{ lvl.status }}">
+                    <div class="mp-timeline__marker">
                         {% if lvl.status == 'completed' %}
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
                                 <polyline points="20 6 9 17 4 12"></polyline>
                             </svg>
                         {% elif lvl.status == 'current' %}
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="12" cy="12" r="9"></circle>
-                                <circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"></circle>
-                            </svg>
-                        {% else %}
-                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="12" cy="12" r="9"></circle>
-                            </svg>
+                            <span class="mp-timeline__pulse"></span>
                         {% endif %}
                     </div>
-                    <div class="timeline-content">
-                        <div class="timeline-title">{{ lvl.name }}</div>
-                        {% if lvl.achieved_at %}
-                            <div class="timeline-date">{{ lvl.achieved_at|date:"d.m.Y" }}</div>
-                        {% endif %}
-                        {% if lvl.status == 'current' %}
-                            <div class="timeline-badge">Поточний рівень</div>
-                        {% endif %}
-                    </div>
+                    <div class="mp-timeline__title">{{ lvl.name }}</div>
+                    {% if lvl.achieved_at %}
+                        <div class="mp-timeline__date">{{ lvl.achieved_at|date:"d.m.Y" }}</div>
+                    {% endif %}
+                    {% if lvl.status == 'current' %}
+                        <span class="mp-timeline__badge">Поточний</span>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
         </div>
 
-        <!-- Карточка поточного рівня -->
-        <div class="level-card">
-            <div class="level-header">
-                <h1>{{ level_desc.name }}</h1>
-                <span class="level-badge level-{{ level.level }}">{{ level_desc.name }}</span>
-            </div>
-            <div class="level-info">
-                <p class="level-description">{{ level_desc.description }}</p>
-                <div class="level-meta">
-                    <span>Призначено: {{ level.assigned_at|date:"d.m.Y" }}</span>
-                    {% if level.assigned_by %}
-                        <span>Призначив: {{ level.assigned_by.username }}</span>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
         <!-- Потенціал кандидата (тільки для Менеджера-кандидата) -->
         {% if candidate_potential %}
-        <div class="candidate-potential-section">
-            <h2>Потенціал кандидата</h2>
+        <div class="mp-card candidate-potential-section reveal">
+            <div class="mp-section-head">
+                <h2>Потенціал кандидата</h2>
+            </div>
             <p class="potential-intro">
                 Зважена оцінка якості роботи за шкалою 0–10. Враховує MOSAIC та KPD рейтинги,
-                результативність, активність, follow-up та повноту даних. Допомагає оцінити
-                потенціал, навіть якщо ще не зроблено 2 конверсії.
+                результативність, активність, follow-up та повноту даних.
             </p>
             <div class="potential-card">
                 <div class="potential-score-display potential-grade-{{ candidate_potential.grade|slugify }}">
@@ -172,48 +177,50 @@
         {% endif %}
 
         <!-- Статистика активного часу -->
-        <div class="activity-stats-section">
-            <h2>Активність</h2>
+        <div class="mp-card activity-stats-section reveal">
+            <div class="mp-section-head">
+                <h2>Активність</h2>
+                <span class="mp-section-sub">за останні 7 днів</span>
+            </div>
             <div class="activity-grid">
                 <div class="activity-card">
                     <div class="activity-icon">⏱️</div>
-                    <div class="activity-value">{{ today_activity.active_hours }} год</div>
+                    <div class="activity-value">{{ today_activity.active_hours }}<span class="activity-unit">год</span></div>
                     <div class="activity-label">Активний час сьогодні</div>
                 </div>
                 <div class="activity-card">
                     <div class="activity-icon">👁️</div>
-                    <div class="activity-value">{{ today_activity.idle_hours }} год</div>
+                    <div class="activity-value">{{ today_activity.idle_hours }}<span class="activity-unit">год</span></div>
                     <div class="activity-label">Вкладка відкрита (неактивна)</div>
                 </div>
                 <div class="activity-card">
                     <div class="activity-icon">📊</div>
-                    <div class="activity-value">{{ today_activity.activity_rate }}%</div>
+                    <div class="activity-value">{{ today_activity.activity_rate }}<span class="activity-unit">%</span></div>
                     <div class="activity-label">Відсоток активності</div>
                 </div>
                 <div class="activity-card">
                     <div class="activity-icon">📅</div>
-                    <div class="activity-value">{{ activity_stats.active_days }}/7</div>
+                    <div class="activity-value">{{ activity_stats.active_days }}<span class="activity-unit">/7</span></div>
                     <div class="activity-label">Активних днів за тиждень</div>
                 </div>
             </div>
 
             <div class="activity-week-summary">
-                <h3>За останні 7 днів</h3>
                 <div class="week-stats">
                     <div class="week-stat">
-                        <span class="stat-label">Активний час:</span>
+                        <span class="stat-label">Активний час</span>
                         <span class="stat-value">{{ activity_stats.active_hours }} год</span>
                     </div>
                     <div class="week-stat">
-                        <span class="stat-label">Відкритий (неактивний):</span>
+                        <span class="stat-label">Відкритий (неактивний)</span>
                         <span class="stat-value">{{ activity_stats.idle_hours }} год</span>
                     </div>
                     <div class="week-stat">
-                        <span class="stat-label">Загалом:</span>
+                        <span class="stat-label">Загалом</span>
                         <span class="stat-value">{{ activity_stats.total_hours }} год</span>
                     </div>
                     <div class="week-stat">
-                        <span class="stat-label">Середньо/день:</span>
+                        <span class="stat-label">Середньо / день</span>
                         <span class="stat-value">{{ activity_stats.avg_active_per_day }} год</span>
                     </div>
                 </div>
@@ -240,88 +247,301 @@
 </script>
 
 <style>
-.manager-profile-container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+.manager-profile-container { max-width: 1080px; margin: 0 auto; padding: 4px 0 28px; }
 
-/* Шлях розвитку */
-.level-progression-visual { background: var(--card-bg, #fff); border-radius: 14px; padding: 28px; margin-bottom: 22px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
-.level-progression-visual h2 { margin: 0 0 8px; font-size: 20px; }
-.levels-timeline { display: flex; justify-content: space-between; align-items: flex-start; margin-top: 28px; position: relative; gap: 8px; }
-.levels-timeline::before { content: ''; position: absolute; top: 22px; left: 22px; right: 22px; height: 3px; background: #e7e9ee; z-index: 0; border-radius: 2px; }
-.timeline-item { flex: 1; display: flex; flex-direction: column; align-items: center; position: relative; z-index: 1; }
-.timeline-marker { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; background: #e7e9ee; color: #9aa0ad; border: 3px solid #fff; }
-.timeline-completed .timeline-marker { background: #2e7d32; color: #fff; }
-.timeline-current .timeline-marker { background: #1565c0; color: #fff; box-shadow: 0 0 0 4px rgba(21,101,192,0.18); }
-.timeline-content { text-align: center; }
-.timeline-title { font-weight: 600; font-size: 12.5px; line-height: 1.25; }
-.timeline-date { font-size: 11px; color: #8a8f99; margin-top: 2px; }
-.timeline-badge { display: inline-block; margin-top: 6px; padding: 3px 10px; background: #1565c0; color: #fff; border-radius: 10px; font-size: 10.5px; font-weight: 600; }
-
-/* Карточка рівня */
-.level-card, .financial-conditions, .weekly-kpi, .progression-section, .features-section, .history-section,
-.candidate-potential-section, .activity-stats-section {
-    background: var(--card-bg, #fff); border-radius: 14px; padding: 24px; margin-bottom: 22px; box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+/* ── Базова картка в стилі менеджменту ───────────────────────── */
+.mp-card {
+    background:
+        radial-gradient(circle at top right, rgba(255, 126, 41, 0.05), transparent 46%),
+        rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 22px;
+    margin-bottom: 16px;
 }
-.level-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
-.level-header h1 { font-size: 24px; margin: 0; }
-.level-badge { padding: 7px 16px; border-radius: 18px; font-weight: 600; font-size: 13px; white-space: nowrap; }
-.level-candidate { background: #e3f2fd; color: #1976d2; }
-.level-level_1 { background: #e8f5e9; color: #388e3c; }
-.level-level_2 { background: #fff3e0; color: #f57c00; }
-.level-top_manager { background: #f3e5f5; color: #7b1fa2; }
-.level-project_manager { background: #fce4ec; color: #c2185b; }
-.level-admin { background: #ffebee; color: #d32f2f; }
-.level-description { color: #5a606b; margin: 0 0 12px; }
-.level-meta { display: flex; flex-wrap: wrap; gap: 18px; font-size: 13px; color: #8a8f99; }
+.mp-section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+.mp-section-head h2 {
+    margin: 0;
+    font-size: 1.05rem;
+    letter-spacing: 0.04em;
+    color: var(--text-primary);
+}
+.mp-section-sub {
+    color: var(--muted);
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
 
-/* Потенціал кандидата */
-.potential-intro { color: #5a606b; font-size: 14px; margin: 0 0 18px; line-height: 1.5; }
-.potential-score-display { display: flex; align-items: center; justify-content: center; gap: 36px; padding: 28px; border-radius: 14px; color: #fff; margin-bottom: 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-.potential-grade-f, .potential-grade-d { background: linear-gradient(135deg, #c0392b 0%, #e74c3c 100%); }
-.potential-grade-c, .potential-grade-c-, .potential-grade-c\+ { background: linear-gradient(135deg, #e08e0b 0%, #f39c12 100%); }
-.potential-grade-a, .potential-grade-a-, .potential-grade-b\+, .potential-grade-b, .potential-grade-b- { background: linear-gradient(135deg, #1e8449 0%, #2ecc71 100%); }
-.potential-grade-a\+ { background: linear-gradient(135deg, #117a65 0%, #16a085 100%); }
-.score-circle { width: 116px; height: 116px; border-radius: 50%; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 0 8px 22px rgba(0,0,0,0.22); }
-.score-value { font-size: 44px; font-weight: 800; line-height: 1; color: #2c3e50; }
-.score-max { font-size: 15px; color: #7f8c8d; margin-top: 2px; }
+/* ── Empty state ─────────────────────────────────────────────── */
+.mp-empty {
+    text-align: center;
+    padding: 48px 24px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+}
+.mp-empty__icon {
+    width: 64px; height: 64px;
+    margin: 0 auto 14px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    color: var(--accent);
+    background: rgba(243, 164, 61, 0.1);
+    border: 1px solid rgba(243, 164, 61, 0.25);
+}
+.mp-empty h2 { margin: 0 0 6px; font-size: 1.1rem; color: var(--text-primary); }
+.mp-empty p { margin: 0; color: var(--text-secondary); }
+
+/* ── Hero (рівень + таймлайн) ────────────────────────────────── */
+.mp-hero { padding: 22px 24px; }
+.mp-hero__titlebar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin: 2px 0 0;
+}
+.mp-hero__title {
+    margin: 0;
+    font-size: 1.55rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    color: var(--text-primary);
+}
+.mp-hero__desc {
+    margin: 10px 0 0;
+    color: var(--text-secondary);
+    font-size: 0.92rem;
+    line-height: 1.5;
+    max-width: 64ch;
+}
+.mp-hero__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+}
+.mp-meta-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.04);
+    font-size: 0.82rem;
+}
+.mp-meta-chip__label { color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.72rem; }
+.mp-meta-chip__value { color: var(--text-primary); font-weight: 700; }
+
+/* Level badges (translucent, на тему) */
+.level-badge {
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+.level-candidate { background: rgba(59, 130, 246, 0.14); color: #bfdbfe; border-color: rgba(59, 130, 246, 0.4); }
+.level-level_1 { background: rgba(34, 197, 94, 0.14); color: #bbf7d0; border-color: rgba(34, 197, 94, 0.45); }
+.level-level_2 { background: rgba(255, 126, 41, 0.14); color: #ffb347; border-color: rgba(255, 126, 41, 0.45); }
+.level-top_manager { background: rgba(168, 85, 247, 0.14); color: #e9d5ff; border-color: rgba(168, 85, 247, 0.45); }
+.level-project_manager { background: rgba(236, 72, 153, 0.14); color: #fbcfe8; border-color: rgba(236, 72, 153, 0.45); }
+.level-admin { background: rgba(239, 68, 68, 0.14); color: #fecaca; border-color: rgba(239, 68, 68, 0.45); }
+
+/* ── Таймлайн рівнів ─────────────────────────────────────────── */
+.mp-timeline {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 22px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    position: relative;
+}
+.mp-timeline::before {
+    content: '';
+    position: absolute;
+    top: calc(20px + 15px);
+    left: 18px; right: 18px;
+    height: 2px;
+    background: var(--border);
+    z-index: 0;
+}
+.mp-timeline__item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+}
+.mp-timeline__marker {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg-800);
+    border: 2px solid var(--border);
+    color: var(--muted);
+    margin-bottom: 9px;
+    transition: transform 0.2s ease;
+}
+.mp-timeline__item.is-completed .mp-timeline__marker {
+    background: rgba(34, 197, 94, 0.16);
+    border-color: rgba(34, 197, 94, 0.6);
+    color: #4ade80;
+}
+.mp-timeline__item.is-current .mp-timeline__marker {
+    background: rgba(255, 126, 41, 0.18);
+    border-color: var(--accent-strong);
+    color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(255, 126, 41, 0.14);
+}
+.mp-timeline__pulse {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--accent-strong);
+    box-shadow: 0 0 0 0 rgba(255, 126, 41, 0.55);
+    animation: mpPulse 1.8s ease-out infinite;
+}
+@keyframes mpPulse {
+    0% { box-shadow: 0 0 0 0 rgba(255, 126, 41, 0.5); }
+    70% { box-shadow: 0 0 0 8px rgba(255, 126, 41, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 126, 41, 0); }
+}
+.mp-timeline__title { font-weight: 600; font-size: 0.76rem; line-height: 1.25; color: var(--text-secondary); }
+.mp-timeline__item.is-current .mp-timeline__title,
+.mp-timeline__item.is-completed .mp-timeline__title { color: var(--text-primary); }
+.mp-timeline__date { font-size: 0.68rem; color: var(--muted); margin-top: 3px; }
+.mp-timeline__badge {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 2px 9px;
+    background: rgba(255, 126, 41, 0.16);
+    color: var(--accent);
+    border: 1px solid rgba(255, 126, 41, 0.4);
+    border-radius: 999px;
+    font-size: 0.64rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+/* ── Потенціал кандидата ─────────────────────────────────────── */
+.potential-intro { color: var(--text-secondary); font-size: 0.9rem; margin: 0 0 16px; line-height: 1.5; }
+.potential-score-display {
+    display: flex; align-items: center; justify-content: center; gap: 32px;
+    padding: 24px; border-radius: var(--radius-md); margin-bottom: 20px;
+    color: #fff;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.85), rgba(118, 75, 162, 0.85));
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.potential-grade-f, .potential-grade-d { background: linear-gradient(135deg, rgba(192, 57, 43, 0.9), rgba(231, 76, 60, 0.9)); }
+.potential-grade-c, .potential-grade-c-, .potential-grade-c\+ { background: linear-gradient(135deg, rgba(224, 142, 11, 0.9), rgba(243, 156, 18, 0.9)); }
+.potential-grade-a, .potential-grade-a-, .potential-grade-b\+, .potential-grade-b, .potential-grade-b- { background: linear-gradient(135deg, rgba(30, 132, 73, 0.9), rgba(46, 204, 113, 0.9)); }
+.potential-grade-a\+ { background: linear-gradient(135deg, rgba(17, 122, 101, 0.9), rgba(22, 160, 133, 0.9)); }
+.score-circle {
+    width: 104px; height: 104px; border-radius: 50%;
+    background: rgba(255, 255, 255, 0.96);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3);
+}
+.score-value { font-size: 2.5rem; font-weight: 800; line-height: 1; color: #1f2733; }
+.score-max { font-size: 0.85rem; color: #5a6573; margin-top: 2px; }
 .score-grade { text-align: center; }
-.grade-letter { font-size: 56px; font-weight: 800; line-height: 1; }
-.grade-label { font-size: 14px; opacity: 0.92; margin-top: 4px; }
-.potential-recommendation { padding: 18px 20px; background: #eef4fb; border-left: 4px solid #1565c0; border-radius: 8px; margin-bottom: 24px; }
-.potential-recommendation h3 { margin: 0 0 8px; color: #1565c0; font-size: 15px; }
-.potential-recommendation p { margin: 0; color: #2c3e50; }
-.potential-components h3, .potential-details + .potential-components h3 { font-size: 15px; margin: 0 0 14px; }
-.components-grid { display: grid; gap: 14px; }
-.component-item { padding: 14px 16px; background: #f7f8fa; border-radius: 10px; }
-.component-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.component-name { font-weight: 600; font-size: 13.5px; }
-.component-score { font-weight: 700; color: #1565c0; }
-.component-bar { height: 8px; background: #e7e9ee; border-radius: 4px; overflow: hidden; }
-.component-fill { height: 100%; width: 0; background: linear-gradient(90deg, #43a047, #8bc34a); transition: width .5s ease; }
-.potential-details { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
-.detail-chip { display: flex; flex-direction: column; gap: 2px; padding: 10px 16px; background: #f7f8fa; border-radius: 10px; min-width: 120px; }
-.chip-label { font-size: 12px; color: #8a8f99; }
-.chip-value { font-size: 18px; font-weight: 700; color: #2c3e50; }
+.grade-letter { font-size: 3.2rem; font-weight: 800; line-height: 1; }
+.grade-label { font-size: 0.85rem; opacity: 0.92; margin-top: 4px; }
+.potential-recommendation {
+    padding: 16px 18px;
+    background: rgba(56, 189, 248, 0.08);
+    border-left: 3px solid #38bdf8;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+.potential-recommendation h3 { margin: 0 0 6px; color: #7dd3fc; font-size: 0.92rem; }
+.potential-recommendation p { margin: 0; color: var(--text-primary); line-height: 1.5; }
+.potential-components h3 { font-size: 0.92rem; margin: 0 0 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; }
+.components-grid { display: grid; gap: 10px; }
+.component-item { padding: 13px 15px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); border-radius: 12px; }
+.component-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 9px; }
+.component-name { font-weight: 600; font-size: 0.82rem; color: var(--text-secondary); }
+.component-score { font-weight: 800; color: var(--accent); font-size: 0.85rem; white-space: nowrap; }
+.component-bar { height: 7px; background: rgba(255, 255, 255, 0.06); border-radius: 999px; overflow: hidden; }
+.component-fill { height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, #ffb347, #ff7e29); transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1); }
+.potential-details { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.detail-chip {
+    display: flex; flex-direction: column; gap: 3px;
+    padding: 11px 16px; border-radius: 12px; min-width: 116px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+}
+.chip-label { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.chip-value { font-size: 1.2rem; font-weight: 800; color: var(--text-primary); }
 
-/* Активність */
-.activity-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-top: 6px; }
-.activity-card { padding: 20px; border-radius: 12px; color: #fff; text-align: center; background: linear-gradient(135deg, #5b6ad0 0%, #6a4aa0 100%); }
-.activity-icon { font-size: 26px; margin-bottom: 8px; }
-.activity-value { font-size: 26px; font-weight: 800; margin-bottom: 4px; }
-.activity-label { font-size: 12.5px; opacity: 0.92; }
-.activity-week-summary { margin-top: 22px; padding: 18px; background: #f7f8fa; border-radius: 10px; }
-.activity-week-summary h3 { margin: 0 0 12px; font-size: 15px; }
-.week-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
-.week-stat { display: flex; justify-content: space-between; padding: 10px 14px; background: #fff; border-radius: 8px; }
-.week-stat .stat-label { color: #8a8f99; font-size: 13px; }
-.week-stat .stat-value { font-weight: 700; color: #2c3e50; }
+/* ── Активність ──────────────────────────────────────────────── */
+.activity-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.activity-card {
+    padding: 16px 18px;
+    border-radius: var(--radius-md);
+    text-align: center;
+    background:
+        radial-gradient(circle at top, rgba(255, 126, 41, 0.08), transparent 55%),
+        rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+.activity-card:hover { transform: translateY(-2px); border-color: rgba(255, 126, 41, 0.28); }
+.activity-icon { font-size: 1.5rem; margin-bottom: 8px; opacity: 0.9; }
+.activity-value { font-size: 1.7rem; font-weight: 800; color: var(--text-primary); line-height: 1; }
+.activity-unit { font-size: 0.85rem; font-weight: 700; color: var(--text-secondary); margin-left: 3px; }
+.activity-label { font-size: 0.76rem; color: var(--text-secondary); margin-top: 7px; line-height: 1.3; }
+.activity-week-summary { margin-top: 16px; }
+.week-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.week-stat {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    padding: 11px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+.week-stat .stat-label { color: var(--text-secondary); font-size: 0.82rem; }
+.week-stat .stat-value { font-weight: 800; color: var(--text-primary); font-size: 0.92rem; white-space: nowrap; }
+
+/* ── Reveal-анімація карток ──────────────────────────────────── */
+.reveal { opacity: 0; transform: translateY(14px); animation: mpReveal 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+.reveal:nth-child(1) { animation-delay: 0.02s; }
+.reveal:nth-child(2) { animation-delay: 0.09s; }
+.reveal:nth-child(3) { animation-delay: 0.16s; }
+.reveal:nth-child(4) { animation-delay: 0.23s; }
+.reveal:nth-child(5) { animation-delay: 0.30s; }
+.reveal:nth-child(6) { animation-delay: 0.37s; }
+.reveal:nth-child(7) { animation-delay: 0.44s; }
+.reveal:nth-child(8) { animation-delay: 0.50s; }
+@keyframes mpReveal { to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+    .reveal { animation: none; opacity: 1; transform: none; }
+    .mp-timeline__pulse { animation: none; }
+}
 
 @media (max-width: 768px) {
-    .levels-timeline { flex-direction: column; align-items: stretch; gap: 0; }
-    .levels-timeline::before { left: 22px; right: auto; top: 22px; bottom: 22px; width: 3px; height: auto; }
-    .timeline-item { flex-direction: row; align-items: center; gap: 14px; margin-bottom: 16px; }
-    .timeline-marker { margin-bottom: 0; }
-    .timeline-content { text-align: left; }
-    .potential-score-display { flex-direction: column; gap: 18px; }
+    .mp-timeline { flex-direction: column; align-items: stretch; gap: 4px; padding-top: 16px; }
+    .mp-timeline::before { left: 15px; right: auto; top: 36px; bottom: 14px; width: 2px; height: auto; }
+    .mp-timeline__item { flex-direction: row; align-items: center; gap: 12px; text-align: left; padding: 4px 0; }
+    .mp-timeline__marker { margin-bottom: 0; flex: 0 0 auto; }
+    .mp-timeline__badge { margin-top: 0; margin-left: auto; }
+    .potential-score-display { flex-direction: column; gap: 16px; }
     .activity-grid { grid-template-columns: 1fr 1fr; }
 }
 </style>

@@ -1,19 +1,21 @@
 <!-- Фінансові умови (для Level 1+) -->
 {% if level.level != 'candidate' %}
-<div class="financial-conditions">
-    <h2>Фінансові умови</h2>
+<div class="mp-card financial-conditions reveal">
+    <div class="mp-section-head">
+        <h2>Фінансові умови</h2>
+    </div>
     <div class="conditions-grid">
         <div class="condition-item">
-            <span class="condition-label">Тижнева ставка:</span>
+            <span class="condition-label">Тижнева ставка</span>
             <span class="condition-value">{{ level.weekly_salary_uah }} грн</span>
         </div>
         <div class="condition-item">
-            <span class="condition-label">Відсоток від замовлення:</span>
+            <span class="condition-label">Відсоток від замовлення</span>
             <span class="condition-value">{{ level.commission_percent }}%</span>
         </div>
         {% if level.salary_start_date %}
         <div class="condition-item">
-            <span class="condition-label">Дата початку нарахувань:</span>
+            <span class="condition-label">Дата початку нарахувань</span>
             <span class="condition-value">{{ level.salary_start_date|date:"d.m.Y" }}</span>
         </div>
         {% endif %}
@@ -22,11 +24,13 @@
 
 <!-- Поточний тижневий KPI (лише якщо є тижнева ставка) -->
 {% if level.weekly_salary_uah > 0 %}
-<div class="weekly-kpi">
-    <h2>Тижневий KPI</h2>
+<div class="mp-card weekly-kpi reveal">
+    <div class="mp-section-head">
+        <h2>Тижневий KPI</h2>
+    </div>
     <div class="kpi-summary">
         <div class="kpi-item">
-            <span class="kpi-label">Конверсії за тиждень:</span>
+            <span class="kpi-label">Конверсії за тиждень</span>
             <span class="kpi-value">{{ kpi_status.conversions }} / {{ kpi_status.conversions_target }}</span>
         </div>
         <div class="kpi-progress">
@@ -36,13 +40,13 @@
             <span class="progress-text">{{ kpi_status.conversions_progress_pct }}%</span>
         </div>
         <div class="kpi-item">
-            <span class="kpi-label">Прогнозована ставка:</span>
+            <span class="kpi-label">Прогнозована ставка</span>
             <span class="kpi-value kpi-status-{{ kpi_status.kpi_status }}">
                 {{ kpi_status.projected_salary }} грн ({{ kpi_status.kpi_multiplier|floatformat:0 }}%)
             </span>
         </div>
         <div class="kpi-item">
-            <span class="kpi-label">Днів до кінця тижня:</span>
+            <span class="kpi-label">Днів до кінця тижня</span>
             <span class="kpi-value">{{ kpi_status.days_remaining }}</span>
         </div>
     </div>
@@ -52,28 +56,36 @@
 
 <!-- Прогрес до наступного рівня -->
 {% if progression.next_level %}
-<div class="progression-section">
-    <h2>Прогрес до наступного рівня</h2>
+<div class="mp-card progression-section reveal">
+    <div class="mp-section-head">
+        <h2>Прогрес до наступного рівня</h2>
+    </div>
     <div class="progression-card">
         <div class="progression-header">
             <span class="current-level">{{ level_desc.name }}</span>
             <span class="arrow">→</span>
             <span class="next-level">{{ progression.next_level }}</span>
+            <span class="progress-percentage">{{ progression.progress_pct }}%</span>
         </div>
         <div class="progression-bar">
             <div class="progress-fill" data-pct="{{ progression.progress_pct }}"></div>
         </div>
-        <span class="progress-percentage">{{ progression.progress_pct }}%</span>
 
         <div class="progression-conditions">
-            <h3>Умови переходу:</h3>
+            <h3>Умови переходу</h3>
             <p>{{ progression.description }}</p>
 
             {% if progression.conditions %}
             <ul class="conditions-list">
                 {% for condition in progression.conditions %}
                 <li class="condition {% if condition.is_met %}met{% else %}not-met{% endif %}">
-                    <span class="condition-icon">{% if condition.is_met %}✓{% else %}○{% endif %}</span>
+                    <span class="condition-icon">
+                        {% if condition.is_met %}
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        {% else %}
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle></svg>
+                        {% endif %}
+                    </span>
                     <span class="condition-text">{{ condition.description }}</span>
                     <span class="condition-progress">{{ condition.current }} / {{ condition.target }}</span>
                 </li>
@@ -92,8 +104,10 @@
 {% endif %}
 
 <!-- Доступні функції -->
-<div class="features-section">
-    <h2>Доступні функції</h2>
+<div class="mp-card features-section reveal">
+    <div class="mp-section-head">
+        <h2>Доступні функції</h2>
+    </div>
     <ul class="features-list unlocked">
         {% for feature in unlocked_features %}
         <li>
@@ -106,8 +120,10 @@
 
 <!-- Заблоковані функції -->
 {% if locked_features %}
-<div class="features-section">
-    <h2>Заблоковані функції</h2>
+<div class="mp-card features-section reveal">
+    <div class="mp-section-head">
+        <h2>Заблоковані функції</h2>
+    </div>
     <ul class="features-list locked">
         {% for feature in locked_features %}
         <li>
@@ -121,172 +137,172 @@
 
 <!-- Історія підвищень -->
 {% if history %}
-<div class="history-section">
-    <h2>Історія змін рівня</h2>
-    <table class="history-table">
-        <thead>
-            <tr>
-                <th>Дата</th>
-                <th>Зміна</th>
-                <th>Ставка</th>
-                <th>Відсоток</th>
-                <th>Хто змінив</th>
-                <th>Коментар</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in history %}
-            <tr>
-                <td>{{ item.changed_at|date:"d.m.Y H:i" }}</td>
-                <td>
-                    {% if item.old_level %}
-                        {{ item.get_old_level_display }} → {{ item.get_new_level_display }}
-                    {% else %}
-                        Призначено: {{ item.get_new_level_display }}
-                    {% endif %}
-                </td>
-                <td>{{ item.new_weekly_salary }} грн</td>
-                <td>{{ item.new_commission_percent }}%</td>
-                <td>{{ item.changed_by.username|default:"—" }}</td>
-                <td>{{ item.reason|default:"—" }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<div class="mp-card history-section reveal">
+    <div class="mp-section-head">
+        <h2>Історія змін рівня</h2>
+    </div>
+    <div class="history-scroll">
+        <table class="history-table">
+            <thead>
+                <tr>
+                    <th>Дата</th>
+                    <th>Зміна</th>
+                    <th>Ставка</th>
+                    <th>Відсоток</th>
+                    <th>Хто змінив</th>
+                    <th>Коментар</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in history %}
+                <tr>
+                    <td>{{ item.changed_at|date:"d.m.Y H:i" }}</td>
+                    <td>
+                        {% if item.old_level %}
+                            {{ item.get_old_level_display }} → {{ item.get_new_level_display }}
+                        {% else %}
+                            Призначено: {{ item.get_new_level_display }}
+                        {% endif %}
+                    </td>
+                    <td>{{ item.new_weekly_salary }} грн</td>
+                    <td>{{ item.new_commission_percent }}%</td>
+                    <td>{{ item.changed_by.username|default:"—" }}</td>
+                    <td>{{ item.reason|default:"—" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endif %}
 
 <style>
-.manager-profile-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
+/* ── Фінансові умови ─────────────────────────────────────────── */
+.conditions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.condition-item {
+    display: flex; flex-direction: column; gap: 5px;
+    padding: 13px 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: 12px;
 }
+.condition-label { font-size: 0.74rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.condition-value { font-size: 1.25rem; font-weight: 800; color: var(--text-primary); }
 
-.level-card, .financial-conditions, .weekly-kpi, .progression-section, .features-section, .history-section {
-    background: white;
-    border-radius: 8px;
-    padding: 24px;
-    margin-bottom: 24px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+/* ── Тижневий KPI ────────────────────────────────────────────── */
+.kpi-summary { display: grid; gap: 12px; }
+.kpi-item {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    padding: 11px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
+    border-radius: 10px;
 }
+.kpi-label { color: var(--text-secondary); font-size: 0.85rem; }
+.kpi-value { font-weight: 800; color: var(--text-primary); font-size: 0.95rem; white-space: nowrap; }
+.kpi-progress { display: flex; align-items: center; gap: 12px; }
+.progress-bar {
+    flex: 1;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 999px;
+    overflow: hidden;
+}
+.progress-fill { height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, #4ade80, #22c55e); transition: width 0.9s cubic-bezier(0.22, 1, 0.36, 1); }
+.progress-text { font-weight: 800; color: var(--text-primary); font-size: 0.85rem; min-width: 42px; text-align: right; }
+.kpi-status-excellent { color: #4ade80; }
+.kpi-status-good { color: #a3e635; }
+.kpi-status-poor { color: #fbbf24; }
+.kpi-status-failed { color: #f87171; }
 
-.level-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+/* ── Прогрес до наступного рівня ─────────────────────────────── */
+.progression-header {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+    margin-bottom: 12px;
+}
+.current-level, .next-level {
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+}
+.next-level { background: rgba(255, 126, 41, 0.14); border-color: rgba(255, 126, 41, 0.4); color: var(--accent); }
+.progression-header .arrow { color: var(--muted); font-size: 1.1rem; }
+.progress-percentage { margin-left: auto; font-weight: 800; color: var(--accent); font-size: 1rem; }
+.progression-bar {
+    width: 100%;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 999px;
+    overflow: hidden;
     margin-bottom: 16px;
 }
-
-.level-badge {
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-weight: 600;
-    font-size: 14px;
+.progression-bar .progress-fill { background: linear-gradient(90deg, #ffb347, #ff7e29); }
+.progression-conditions h3 { font-size: 0.85rem; margin: 0 0 6px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; }
+.progression-conditions > p { margin: 0 0 14px; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; }
+.conditions-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.conditions-list .condition {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 14px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border);
 }
-
-.level-candidate { background: #e3f2fd; color: #1976d2; }
-.level-level_1 { background: #e8f5e9; color: #388e3c; }
-.level-level_2 { background: #fff3e0; color: #f57c00; }
-.level-top_manager { background: #f3e5f5; color: #7b1fa2; }
-.level-project_manager { background: #fce4ec; color: #c2185b; }
-.level-admin { background: #ffebee; color: #d32f2f; }
-
-.conditions-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 16px;
-    margin-top: 16px;
+.condition-icon {
+    width: 24px; height: 24px; flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
 }
-
-.condition-item {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.condition-label {
-    font-size: 14px;
-    color: #666;
-}
-
-.condition-value {
-    font-size: 18px;
-    font-weight: 600;
-    color: #333;
-}
-
-.progress-bar {
-    width: 100%;
-    height: 24px;
-    background: #e0e0e0;
-    border-radius: 12px;
-    overflow: hidden;
-    margin: 8px 0;
-}
-
-.progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #4caf50, #8bc34a);
-    transition: width 0.3s ease;
-}
-
-.kpi-status-excellent { color: #4caf50; }
-.kpi-status-good { color: #8bc34a; }
-.kpi-status-poor { color: #ff9800; }
-.kpi-status-failed { color: #f44336; }
-
-.features-list {
-    list-style: none;
-    padding: 0;
-    margin-top: 16px;
-}
-
-.features-list li {
-    padding: 12px;
-    margin-bottom: 8px;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.features-list.unlocked li {
-    background: #e8f5e9;
-}
-
-.features-list.locked li {
-    background: #ffebee;
-    opacity: 0.7;
-}
-
-.history-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 16px;
-}
-
-.history-table th,
-.history-table td {
-    padding: 12px;
-    text-align: left;
-    border-bottom: 1px solid #e0e0e0;
-}
-
-.history-table th {
-    background: #f5f5f5;
-    font-weight: 600;
-}
-
+.condition.met .condition-icon { background: rgba(34, 197, 94, 0.16); color: #4ade80; }
+.condition.not-met .condition-icon { background: rgba(255, 255, 255, 0.05); color: var(--muted); }
+.condition.met { border-color: rgba(34, 197, 94, 0.3); }
+.condition-text { flex: 1; color: var(--text-primary); font-size: 0.88rem; }
+.condition-progress { font-weight: 800; color: var(--text-secondary); font-size: 0.85rem; white-space: nowrap; }
 .status-message {
-    padding: 16px;
-    border-radius: 4px;
-    margin-top: 16px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    margin-top: 14px;
+}
+.status-message.success {
+    background: rgba(34, 197, 94, 0.1);
+    color: #bbf7d0;
+    border-left: 3px solid #22c55e;
 }
 
-.status-message.success {
-    background: #e8f5e9;
-    color: #2e7d32;
-    border-left: 4px solid #4caf50;
+/* ── Функції ─────────────────────────────────────────────────── */
+.features-list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; }
+.features-list li {
+    padding: 11px 14px;
+    border-radius: 10px;
+    display: flex; align-items: center; gap: 12px;
+    border: 1px solid var(--border);
+    font-size: 0.88rem;
+    color: var(--text-primary);
 }
+.features-list.unlocked li { background: rgba(34, 197, 94, 0.08); border-color: rgba(34, 197, 94, 0.22); }
+.features-list.locked li { background: rgba(255, 255, 255, 0.02); color: var(--text-secondary); opacity: 0.7; }
+.feature-icon { font-size: 1.1rem; flex: 0 0 auto; }
+
+/* ── Історія ─────────────────────────────────────────────────── */
+.history-scroll { overflow-x: auto; }
+.history-table { width: 100%; border-collapse: collapse; min-width: 560px; }
+.history-table th, .history-table td {
+    padding: 11px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+}
+.history-table th {
+    color: var(--muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.72rem;
+}
+.history-table td { color: var(--text-secondary); }
+.history-table tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
+.history-table tbody tr:last-child td { border-bottom: none; }
 </style>
