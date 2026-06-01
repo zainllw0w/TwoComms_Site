@@ -9,6 +9,7 @@ from django.utils import timezone
 from ..models import (
     Account, Category, Counterparty, Project, Tag, Transaction, get_default_company,
 )
+from ..models import RecurrenceRule
 
 
 class PayloadError(ValueError):
@@ -131,3 +132,64 @@ def parse_transaction_payload(data, *, txn_type):
         kwargs['counterparty'] = _optional_fk(Counterparty, company, data.get('counterparty'))
 
     return kwargs
+
+
+_FREQ_VALID = {'daily', 'weekly', 'monthly', 'yearly'}
+
+
+def parse_recurrence_payload(data) -> dict | None:
+    """Розбирає налаштування повторення з модалки операції.
+
+    Очікує:
+      recurrence            — '' | daily | weekly | monthly | yearly
+      recurrence_interval   — кратність (кожні N), за замовчуванням 1
+      recurrence_end_mode   — never | until | count
+      recurrence_until      — дата (YYYY-MM-DD) для режиму until
+      recurrence_count      — ціле для режиму count
+      recurrence_title      — людська назва зобов'язання (опційно)
+
+    Повертає dict параметрів для recurring.create_rule_from_transaction або
+    None, якщо повторення не задано. Кидає PayloadError при невалідних даних.
+    """
+    freq = (data.get('recurrence') or '').strip()
+    if not freq:
+        return None
+    if freq not in _FREQ_VALID:
+        raise PayloadError('Невідома періодичність повторення', 'recurrence')
+
+    try:
+        interval = max(1, int(data.get('recurrence_interval') or 1))
+    except (TypeError, ValueError):
+        interval = 1
+
+    end_mode = (data.get('recurrence_end_mode') or RecurrenceRule.END_NEVER).strip()
+    if end_mode not in dict(RecurrenceRule.END_CHOICES):
+        end_mode = RecurrenceRule.END_NEVER
+
+    end_date = None
+    count = None
+    if end_mode == RecurrenceRule.END_UNTIL:
+        raw = data.get('recurrence_until')
+        if not raw:
+            raise PayloadError('Вкажіть дату завершення повторення', 'recurrence_until')
+        try:
+            end_date = dt.date.fromisoformat(str(raw)[:10])
+        except (ValueError, TypeError):
+            raise PayloadError('Невірна дата завершення', 'recurrence_until')
+    elif end_mode == RecurrenceRule.END_COUNT:
+        try:
+            count = int(data.get('recurrence_count') or 0)
+        except (TypeError, ValueError):
+            count = 0
+        if count <= 0:
+            raise PayloadError('Вкажіть кількість повторень', 'recurrence_count')
+
+    return {
+        'frequency': freq,
+        'interval': interval,
+        'end_mode': end_mode,
+        'end_date': end_date,
+        'count': count,
+        'title': (data.get('recurrence_title') or '').strip(),
+    }
+

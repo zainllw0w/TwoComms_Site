@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}TwoComms Finance{% endblock %}</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/finance.css' %}?v=20260601a">
+    <link rel="stylesheet" href="{% static 'css/finance.css' %}?v=20260601b">
     <link rel="stylesheet" href="{% static 'css/finance-fixes.css' %}?v=1">
     <link rel="stylesheet" href="{% static 'css/finance-animations.css' %}?v=1">
     <link rel="stylesheet" href="{% static 'css/finance-filters.css' %}?v=1">
@@ -43,6 +43,7 @@
             <a href="{% url 'finance_home' %}" class="fin-tab{% if active_tab == 'payments' %} active{% endif %}">Платежі</a>
             <a href="{% url 'finance_health' %}" class="fin-tab{% if active_tab == 'health' %} active{% endif %}">Здоров'я</a>
             <a href="{% url 'finance_consignment' %}" class="fin-tab{% if active_tab == 'consignment' %} active{% endif %}">Магазини</a>
+            <a href="{% url 'finance_planned' %}" class="fin-tab{% if active_tab == 'planned' %} active{% endif %}">Планові</a>
             <a href="{% url 'finance_analytics' %}" class="fin-tab{% if active_tab == 'analytics' %} active{% endif %}">Аналітика</a>
             <a href="{% url 'finance_ai' %}" class="fin-tab{% if active_tab == 'ai' %} active{% endif %}">AI радник</a>
             <a href="{% url 'finance_calendar' %}" class="fin-tab{% if active_tab == 'calendar' %} active{% endif %}">Календар</a>
@@ -90,6 +91,10 @@
                     <a href="{% url 'finance_consignment' %}" class="fin-mobile-nav__item{% if active_tab == 'consignment' %} active{% endif %}">
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 7h-3V6a4 4 0 0 0-8 0v1H5a1 1 0 0 0-1 1v11a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8a1 1 0 0 0-1-1zm-9-1a2 2 0 0 1 4 0v1h-4V6z"/></svg>
                         <span>Магазини</span>
+                    </a>
+                    <a href="{% url 'finance_planned' %}" class="fin-mobile-nav__item{% if active_tab == 'planned' %} active{% endif %}">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+                        <span>Планові</span>
                     </a>
                     <a href="{% url 'finance_ai' %}" class="fin-mobile-nav__item{% if active_tab == 'ai' %} active{% endif %}">
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
@@ -182,7 +187,7 @@
                         <span>Планові витрати</span>
                         <strong class="is-neg" id="fin-planned-expense">{% if fin_planned_expense is not None %}{{ fin_planned_expense }}{% else %}—{% endif %}</strong>
                     </div>
-                    <a class="fin-planned__cta" href="{% url 'finance_home' %}?statuses=planned">Переглянути планові →</a>
+                    <a class="fin-planned__cta" href="{% url 'finance_planned' %}">Керувати плановими →</a>
                 </div>
 
                 <div class="fin-balance-card fin-balance-card--forecast">

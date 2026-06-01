@@ -1,0 +1,115 @@
+/* TwoComms Finance — розділ «Планові платежі» (зобов'язання). */
+
+.fin-plan-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.fin-plan-kpi {
+  background: var(--fin-panel);
+  border: 1px solid var(--fin-border);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+.fin-plan-kpi__label { font-size: 12px; color: var(--fin-muted); margin-bottom: 6px; }
+.fin-plan-kpi__value { font-size: 22px; font-weight: 700; line-height: 1.1; }
+.fin-plan-kpi__hint { font-size: 11px; color: var(--fin-muted); margin-top: 6px; }
+.fin-plan-kpi--in .fin-plan-kpi__value { color: #34d399; }
+.fin-plan-kpi--out .fin-plan-kpi__value { color: #f87171; }
+.fin-plan-kpi--net-pos .fin-plan-kpi__value { color: #34d399; }
+.fin-plan-kpi--net-neg .fin-plan-kpi__value { color: #fbbf24; }
+.fin-plan-kpi--overdue { border-color: #f8717155; background: linear-gradient(180deg, #f8717112, transparent); }
+.fin-plan-kpi--overdue .fin-plan-kpi__value { color: #f87171; }
+
+.fin-plan-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.fin-plan-col {
+  background: var(--fin-panel);
+  border: 1px solid var(--fin-border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.fin-plan-col__head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 13px 16px; font-weight: 600; font-size: 14px;
+  border-bottom: 1px solid var(--fin-border);
+}
+.fin-plan-col__head--in { color: #34d399; }
+.fin-plan-col__head--out { color: #f87171; }
+.fin-plan-col__sum { font-variant-numeric: tabular-nums; }
+.fin-plan-list { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+.fin-plan-empty { padding: 24px; text-align: center; color: var(--fin-muted); font-size: 13px; }
+
+/* Картка зобов'язання */
+.fin-oblig {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 14px;
+  align-items: start;
+  padding: 12px 14px;
+  background: var(--fin-bg-850);
+  border: 1px solid var(--fin-border);
+  border-radius: 12px;
+}
+.fin-oblig.is-overdue { border-color: #f8717166; background: linear-gradient(180deg, #f8717110, transparent); }
+.fin-oblig__title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fin-oblig__title { font-weight: 600; font-size: 14px; }
+.fin-oblig__badge {
+  font-size: 11px; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--fin-border); color: var(--fin-muted);
+  white-space: nowrap;
+}
+.fin-oblig__badge--repeat { color: #818cf8; border-color: #818cf855; background: #818cf814; }
+.fin-oblig__badge--install { color: #38bdf8; border-color: #38bdf855; background: #38bdf814; }
+.fin-oblig__meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.fin-oblig__chip {
+  font-size: 11px; color: var(--fin-muted);
+  background: rgba(255,255,255,.04); padding: 2px 8px; border-radius: 8px;
+}
+.fin-oblig__chip[data-cp-history] { cursor: pointer; }
+.fin-oblig__chip[data-cp-history]:hover { color: #c7d2fe; background: rgba(129,140,248,.12); }
+
+.fin-oblig__numbers { text-align: right; min-width: 120px; }
+.fin-oblig__amount { font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; }
+.fin-oblig__per { font-size: 11px; color: var(--fin-muted); font-weight: 400; margin-left: 3px; }
+.fin-oblig__remaining { font-size: 11px; color: #a5b4fc; margin-top: 3px; }
+.fin-oblig__due { font-size: 11px; color: var(--fin-muted); margin-top: 3px; }
+.fin-oblig__due.is-overdue { color: #f87171; font-weight: 600; }
+.fin-oblig__actions {
+  grid-column: 1 / -1;
+  display: flex; gap: 6px; flex-wrap: wrap;
+  border-top: 1px dashed var(--fin-border); padding-top: 8px;
+}
+
+/* Історія контрагента */
+.fin-modal-card--wide { max-width: 760px; width: 96%; }
+.fin-cp-totals { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.fin-cp-total {
+  flex: 1 1 110px; background: var(--fin-bg-850);
+  border: 1px solid var(--fin-border); border-radius: 10px; padding: 8px 10px;
+}
+.fin-cp-total span { display: block; font-size: 11px; color: var(--fin-muted); }
+.fin-cp-total b { font-size: 15px; }
+.fin-cp-total .is-pos { color: #34d399; }
+.fin-cp-total .is-neg { color: #f87171; }
+.fin-cp-accounts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.fin-cp-acc {
+  font-size: 11px; padding: 3px 9px; border-radius: 8px;
+  background: rgba(255,255,255,.04); color: var(--fin-muted);
+}
+.fin-cp-acc.is-linked { color: #c7d2fe; background: rgba(129,140,248,.12); }
+.fin-cp-tx-wrap { max-height: 360px; overflow: auto; }
+.fin-table--cp { width: 100%; font-size: 13px; }
+.fin-table--cp th { text-align: left; color: var(--fin-muted); font-weight: 500; padding: 6px 8px; }
+.fin-table--cp td { padding: 6px 8px; border-top: 1px solid var(--fin-border); }
+
+.fin-plan-note { font-size: 12px; color: var(--fin-muted); margin: 4px 0 0; }
+
+@media (max-width: 860px) {
+  .fin-plan-kpis { grid-template-columns: repeat(2, 1fr); }
+  .fin-plan-columns { grid-template-columns: 1fr; }
+}

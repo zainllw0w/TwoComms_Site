@@ -20,12 +20,27 @@ class RecurrenceRule(models.Model):
         ('custom', 'Інше'),
     ]
 
+    # Режим завершення повторення (керує розрахунком «скільки залишилось»):
+    #   never — безстроково; until — до дати end_date; count — рівно N разів.
+    END_NEVER = 'never'
+    END_UNTIL = 'until'
+    END_COUNT = 'count'
+    END_CHOICES = [
+        (END_NEVER, 'Безстроково'),
+        (END_UNTIL, 'До дати'),
+        (END_COUNT, 'Певну кількість разів'),
+    ]
+
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='recurrence_rules')
+    # Людська назва зобов'язання (напр. «Комуналка», «Оренда офісу») — показується
+    # одним рядком у списку планових замість дублів-копій за кожен період.
+    title = models.CharField(max_length=255, blank=True, default='')
     frequency = models.CharField(max_length=12, choices=FREQ_CHOICES, default='monthly')
     interval = models.PositiveIntegerField(default=1)
     by_day = models.CharField(max_length=32, blank=True, default='')  # напр. 'MO,WE'
     by_month_day = models.PositiveIntegerField(blank=True, null=True)
     start_date = models.DateField()
+    end_mode = models.CharField(max_length=8, choices=END_CHOICES, default=END_NEVER)
     end_date = models.DateField(blank=True, null=True)
     count = models.PositiveIntegerField(blank=True, null=True)
     next_occurrence = models.DateField(
@@ -80,6 +95,24 @@ class RecurrenceRule(models.Model):
         default='',
         help_text='Коментар шаблону',
     )
+    template_counterparty = models.ForeignKey(
+        Counterparty,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='recurrence_rules_as_template',
+        help_text='Контрагент шаблону',
+    )
+    template_project = models.ForeignKey(
+        Project,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='recurrence_rules_as_template',
+        help_text='Проєкт шаблону',
+    )
+    template_currency = models.CharField(max_length=3, blank=True, default='UAH')
+    template_is_business = models.BooleanField(default=True)
     is_active = models.BooleanField(
         default=True,
         help_text='Чи активне правило',
@@ -90,7 +123,35 @@ class RecurrenceRule(models.Model):
         verbose_name_plural = 'Правила повторення'
 
     def __str__(self):
-        return f'{self.get_frequency_display()} x{self.interval}'
+        return self.title or f'{self.get_frequency_display()} x{self.interval}'
+
+    # ------------------------------------------------------------------
+    # Допоміжні властивості для відображення «повторюваний / скільки лишилось».
+    # ------------------------------------------------------------------
+    @property
+    def frequency_label(self) -> str:
+        """Короткий людський опис періодичності: «щомісяця», «кожні 2 тижні»."""
+        every = self.interval or 1
+        base = {
+            'daily': ('щодня', 'дні'),
+            'weekly': ('щотижня', 'тижні'),
+            'monthly': ('щомісяця', 'місяці'),
+            'yearly': ('щороку', 'роки'),
+            'custom': ('за графіком', 'періоди'),
+        }.get(self.frequency, ('за графіком', 'періоди'))
+        if every == 1:
+            return base[0]
+        return f'кожні {every} {base[1]}'
+
+    @property
+    def end_label(self) -> str:
+        """Людський опис межі повторення для UI."""
+        if self.end_mode == self.END_UNTIL and self.end_date:
+            return f'до {self.end_date.strftime("%d.%m.%Y")}'
+        if self.end_mode == self.END_COUNT and self.count:
+            return f'{self.count} разів'
+        return 'безстроково'
+
 
 
 class Attachment(models.Model):

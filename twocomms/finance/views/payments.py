@@ -57,13 +57,33 @@ def payments(request):
     actual_qs, planned_qs = filter_service.split_actual_planned(qs)
 
     actual_rows = [ser.serialize_transaction(t) for t in actual_qs[:500]]
-    planned_rows = [ser.serialize_transaction(t) for t in planned_qs[:500]]
+
+    # Планові згортаємо в один рядок на серію (повторюване правило / розстрочка
+    # магазину), щоб не дублювати «платіж 1/6, 2/6…». Показуємо найближчий
+    # екземпляр із позначкою періодичності та лічильником решти серії.
+    from ..services import obligations as obligations_service
+    planned_total = planned_qs.count()
+    seen_groups = {}
+    planned_rows = []
+    for t in planned_qs.select_related('recurrence_rule', 'reseller')[:500]:
+        key = obligations_service._group_key(t)
+        if key[0] in ('rule', 'shipment'):
+            grp = seen_groups.get(key)
+            if grp is None:
+                row = ser.serialize_transaction(t)
+                row['series_count'] = 1
+                seen_groups[key] = row
+                planned_rows.append(row)
+            else:
+                grp['series_count'] += 1
+            continue
+        planned_rows.append(ser.serialize_transaction(t))
 
     context = {
         'active_tab': 'payments',
         'rows': actual_rows,
         'planned_rows': planned_rows,
-        'planned_count': planned_qs.count(),
+        'planned_count': planned_total,
         'total_count': actual_qs.count(),
         'dropdowns': ser.serialize_dropdowns(company),
         'current_filters': {
@@ -169,12 +189,19 @@ def transaction_create_api(request):
         return JsonResponse({'ok': False, 'error': 'Невірний тип операції'}, status=400)
     try:
         kwargs = payload_service.parse_transaction_payload(data, txn_type=txn_type)
+        recurrence = (payload_service.parse_recurrence_payload(data)
+                      if txn_type != Transaction.TYPE_TRANSFER else None)
     except payload_service.PayloadError as e:
         return JsonResponse({'ok': False, 'error': str(e), 'field': e.field}, status=400)
 
     txn = txn_service.create_transaction(user=request.user, **kwargs)
     if request.FILES:
         _attach_files(request, txn)
+    # Повторюваний платіж: робимо транзакцію першим екземпляром правила і
+    # матеріалізуємо наступні наперед (у журналі групуються в один рядок).
+    if recurrence:
+        from ..services import recurring as recurring_service
+        recurring_service.create_rule_from_transaction(txn, user=request.user, **recurrence)
     return JsonResponse({'ok': True, 'transaction': ser.serialize_transaction(txn)})
 
 
@@ -273,6 +300,105 @@ def transaction_mark_actual_api(request, txn_id):
     txn = get_object_or_404(Transaction, id=txn_id, company=company)
     txn_service.mark_planned_actual(txn, user=request.user)
     return JsonResponse({'ok': True, 'transaction': ser.serialize_transaction(txn)})
+
+
+# ----------------------------- Погашення планових + повторення -----------------------------
+
+@finance_access_required(api=True)
+@require_POST
+def transaction_settle_api(request, txn_id):
+    """Погасити/провести планову операцію з вибором рахунку та контрагента.
+
+    Дохід → рахунок, КУДИ надійшли кошти; витрата → рахунок, З ЯКОГО списано.
+    Контрагент фіксує, з ким операція; за згодою рахунок прив'язується до
+    контрагента (історія по контрагенту). Якщо операція повторювана —
+    наступний екземпляр підтягується автоматично.
+    """
+    from ..services import recurring as recurring_service
+    company = get_default_company()
+    txn = get_object_or_404(Transaction, id=txn_id, company=company)
+    data = _body(request)
+
+    account = None
+    if data.get('account_id'):
+        account = company.accounts.filter(id=data.get('account_id')).first()
+        if account is None:
+            return JsonResponse({'ok': False, 'error': 'Рахунок не знайдено'}, status=400)
+    counterparty = None
+    if data.get('counterparty_id'):
+        counterparty = company.counterparties.filter(id=data.get('counterparty_id')).first()
+
+    date_actual = None
+    if data.get('date'):
+        date_actual = payload_service._parse_dt(str(data.get('date')))
+
+    recurring_service.settle_occurrence(
+        txn, user=request.user, account=account, counterparty=counterparty,
+        date_actual=date_actual,
+        link_account_cp=str(data.get('link_account_cp', '')).lower() in ('1', 'true', 'on', 'yes'),
+    )
+    return JsonResponse({'ok': True, 'transaction': ser.serialize_transaction(txn)})
+
+
+@finance_access_required(api=True)
+@require_POST
+def recurrence_update_api(request, rule_id):
+    """Редагувати план повторюваного зобов'язання (напр. комуналка виросла).
+
+    Зміни переносяться на майбутні (ще не проведені) екземпляри; історія
+    фактичних платежів лишається без змін.
+    """
+    from ..models import RecurrenceRule
+    from ..services import recurring as recurring_service
+    company = get_default_company()
+    rule = get_object_or_404(RecurrenceRule, id=rule_id, company=company)
+    data = _body(request)
+
+    fields = {}
+    if data.get('amount') not in (None, ''):
+        try:
+            fields['amount'] = payload_service._decimal(data.get('amount'), 'amount')
+        except payload_service.PayloadError as e:
+            return JsonResponse({'ok': False, 'error': str(e)}, status=400)
+    if 'title' in data:
+        fields['title'] = data.get('title') or ''
+    if data.get('category_id'):
+        fields['category'] = company.categories.filter(id=data.get('category_id')).first()
+    if data.get('counterparty_id'):
+        fields['counterparty'] = company.counterparties.filter(id=data.get('counterparty_id')).first()
+    if data.get('account_id'):
+        fields['account'] = company.accounts.filter(id=data.get('account_id')).first()
+    if data.get('frequency'):
+        fields['frequency'] = data.get('frequency')
+    if data.get('interval'):
+        fields['interval'] = data.get('interval')
+    if data.get('end_mode'):
+        fields['end_mode'] = data.get('end_mode')
+        if data.get('end_mode') == RecurrenceRule.END_UNTIL and data.get('end_date'):
+            import datetime as _dt
+            try:
+                fields['end_date'] = _dt.date.fromisoformat(str(data.get('end_date'))[:10])
+            except (ValueError, TypeError):
+                pass
+        if data.get('end_mode') == RecurrenceRule.END_COUNT and data.get('count'):
+            fields['count'] = data.get('count')
+
+    recurring_service.update_plan(rule, user=request.user, **fields)
+    return JsonResponse({'ok': True})
+
+
+@finance_access_required(api=True)
+@require_POST
+def recurrence_stop_api(request, rule_id):
+    """Зупинити повторення: деактивувати правило та прибрати майбутні планові."""
+    from ..models import RecurrenceRule
+    from ..services import recurring as recurring_service
+    company = get_default_company()
+    rule = get_object_or_404(RecurrenceRule, id=rule_id, company=company)
+    data = _body(request)
+    delete_future = str(data.get('delete_future', '1')).lower() in ('1', 'true', 'on', 'yes')
+    recurring_service.stop_rule(rule, user=request.user, delete_future=delete_future)
+    return JsonResponse({'ok': True})
 
 
 # ----------------------------- Масові дії -----------------------------

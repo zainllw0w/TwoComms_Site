@@ -62,6 +62,11 @@ urlpatterns = [
     path('users/', views.users, name='finance_users'),
     path('accounts/', views.accounts, name='finance_accounts'),
 
+    # --- Планові платежі (зобов'язання) ---
+    path('planned/', views.planned, name='finance_planned'),
+    path('api/planned/obligations/', views.planned_obligations_api, name='finance_planned_obligations_api'),
+    path('api/counterparties/<int:counterparty_id>/history/', views.counterparty_history_api, name='finance_counterparty_history_api'),
+
     # --- API: довідники + операції ---
     path('export/', views.payments_export, name='finance_payments_export'),
     path('api/dropdowns/', views.dropdowns_api, name='finance_dropdowns_api'),
@@ -76,6 +81,9 @@ urlpatterns = [
     path('api/transactions/<int:txn_id>/convert-transfer/', views.transaction_convert_transfer_api, name='finance_txn_convert_transfer_api'),
     path('api/transactions/<int:txn_id>/split/', views.transaction_split_api, name='finance_txn_split_api'),
     path('api/transactions/<int:txn_id>/mark-actual/', views.transaction_mark_actual_api, name='finance_txn_mark_actual_api'),
+    path('api/transactions/<int:txn_id>/settle/', views.transaction_settle_api, name='finance_txn_settle_api'),
+    path('api/recurrence/<int:rule_id>/update/', views.recurrence_update_api, name='finance_recurrence_update_api'),
+    path('api/recurrence/<int:rule_id>/stop/', views.recurrence_stop_api, name='finance_recurrence_stop_api'),
 
     # --- API: рахунки ---
     path('api/accounts/create/', views.account_create_api, name='finance_account_create_api'),

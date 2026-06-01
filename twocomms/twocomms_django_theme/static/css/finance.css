@@ -803,6 +803,8 @@ a { color: inherit; }
 }
 .fin-badge { display: inline-block; padding: 1px 7px; font-size: 10px; border-radius: 999px; margin-left: 6px; }
 .fin-badge--planned { background: rgba(243, 164, 61, 0.16); color: var(--fin-accent); }
+.fin-badge--repeat { background: rgba(129,140,248,0.16); color: #a5b4fc; }
+.fin-badge--series { background: rgba(56,189,248,0.16); color: #38bdf8; }
 .fin-row--transfer { opacity: 0.96; }
 .fin-table-meta { margin-top: 10px; font-size: 12px; color: var(--fin-muted); }
 

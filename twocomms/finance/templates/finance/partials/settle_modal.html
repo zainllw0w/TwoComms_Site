@@ -1,0 +1,40 @@
+{# Модалка погашення/проведення планового платежу з вибором рахунку та контрагента. #}
+<div class="fin-modal-overlay" id="fin-settle-modal" hidden>
+  <div class="fin-modal-card">
+    <div class="fin-modal-head">
+      <h3 id="fin-settle-title">Погасити платіж</h3>
+      <button type="button" class="fin-modal-close" data-settle-close aria-label="Закрити">×</button>
+    </div>
+    <form class="fin-modal-body" id="fin-settle-form">
+      <div class="fin-form-alert" id="fin-settle-alert" hidden></div>
+      <input type="hidden" id="fin-settle-txn-id" value="">
+
+      <p class="fin-settle-summary" id="fin-settle-summary"></p>
+
+      <label class="fin-field">
+        <span id="fin-settle-account-label">Рахунок зарахування *</span>
+        <select id="fin-settle-account" class="fin-select"></select>
+      </label>
+
+      <label class="fin-field">
+        <span>Контрагент</span>
+        <select id="fin-settle-counterparty" class="fin-select"></select>
+      </label>
+
+      <label class="fin-checkbox" id="fin-settle-link-wrap">
+        <input type="checkbox" id="fin-settle-link-cp" value="1">
+        Прив'язати рахунок до контрагента (для історії та авто-розпізнавання)
+      </label>
+
+      <label class="fin-field">
+        <span>Дата проведення</span>
+        <input type="date" id="fin-settle-date" class="fin-input">
+      </label>
+
+      <div class="fin-modal-foot">
+        <button type="button" class="fin-btn fin-btn--ghost" data-settle-close>Скасувати</button>
+        <button type="submit" class="fin-btn fin-btn--primary" id="fin-settle-submit">Підтвердити</button>
+      </div>
+    </form>
+  </div>
+</div>

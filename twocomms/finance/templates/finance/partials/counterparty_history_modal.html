@@ -1,0 +1,21 @@
+{# Модалка історії по контрагенту: операції, рахунки, підсумки. #}
+<div class="fin-modal-overlay" id="fin-cp-modal" hidden>
+  <div class="fin-modal-card fin-modal-card--wide">
+    <div class="fin-modal-head">
+      <h3 id="fin-cp-title">Історія контрагента</h3>
+      <button type="button" class="fin-modal-close" data-cp-close aria-label="Закрити">×</button>
+    </div>
+    <div class="fin-modal-body">
+      <div class="fin-cp-totals" id="fin-cp-totals"></div>
+      <div class="fin-cp-accounts" id="fin-cp-accounts"></div>
+      <div class="fin-cp-tx-wrap">
+        <table class="fin-table fin-table--cp">
+          <thead>
+            <tr><th>Дата</th><th>Сума</th><th>Рахунок</th><th>Статус</th><th>Коментар</th></tr>
+          </thead>
+          <tbody id="fin-cp-tx-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

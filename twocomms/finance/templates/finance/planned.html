@@ -1,0 +1,85 @@
+{% extends 'finance/base.html' %}
+{% load static %}
+
+{% block title %}Планові платежі — TwoComms Finance{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/finance-planned.css' %}?v=20260601a">
+{% endblock %}
+
+{% block content %}
+<div class="fin-page-head">
+    <div>
+        <h1 class="fin-page-title">Планові платежі</h1>
+        <p class="fin-page-subtitle">Повторювані та разові зобов'язання — доходи й витрати в одному місці. Кожне повторення показано одним рядком: періодичність, сума, скільки лишилось.</p>
+    </div>
+</div>
+
+{{ dropdowns|json_script:"fin-dropdowns" }}
+
+<!-- KPI -->
+<div class="fin-plan-kpis">
+    <div class="fin-plan-kpi fin-plan-kpi--in">
+        <div class="fin-plan-kpi__label">Планові надходження</div>
+        <div class="fin-plan-kpi__value">{{ income_sum }}</div>
+        <div class="fin-plan-kpi__hint">{{ income_count }} зобов'язан.</div>
+    </div>
+    <div class="fin-plan-kpi fin-plan-kpi--out">
+        <div class="fin-plan-kpi__label">Планові витрати</div>
+        <div class="fin-plan-kpi__value">{{ expense_sum }}</div>
+        <div class="fin-plan-kpi__hint">{{ expense_count }} зобов'язан.</div>
+    </div>
+    <div class="fin-plan-kpi {% if net_positive %}fin-plan-kpi--net-pos{% else %}fin-plan-kpi--net-neg{% endif %}">
+        <div class="fin-plan-kpi__label">Чистий плановий потік</div>
+        <div class="fin-plan-kpi__value">{{ net }}</div>
+        <div class="fin-plan-kpi__hint">{% if net_positive %}очікується приріст{% else %}очікується відтік{% endif %}</div>
+    </div>
+    <div class="fin-plan-kpi {% if overdue_count %}fin-plan-kpi--overdue{% else %}fin-plan-kpi--ok{% endif %}">
+        <div class="fin-plan-kpi__label">Прострочено</div>
+        <div class="fin-plan-kpi__value">{{ overdue_count }}</div>
+        <div class="fin-plan-kpi__hint">{% if overdue_count %}↓{{ overdue_expense }} · ↑{{ overdue_income }}{% else %}все за графіком{% endif %}</div>
+    </div>
+</div>
+
+<div class="fin-plan-columns">
+    <!-- Доходи -->
+    <section class="fin-plan-col">
+        <header class="fin-plan-col__head fin-plan-col__head--in">
+            <span>↑ Очікувані надходження</span>
+            <span class="fin-plan-col__sum">{{ income_sum }}</span>
+        </header>
+        <div class="fin-plan-list">
+            {% for g in income %}
+            {% include 'finance/partials/obligation_card.html' with g=g %}
+            {% empty %}
+            <div class="fin-plan-empty">Немає запланованих надходжень</div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- Витрати -->
+    <section class="fin-plan-col">
+        <header class="fin-plan-col__head fin-plan-col__head--out">
+            <span>↓ Майбутні витрати</span>
+            <span class="fin-plan-col__sum">{{ expense_sum }}</span>
+        </header>
+        <div class="fin-plan-list">
+            {% for g in expense %}
+            {% include 'finance/partials/obligation_card.html' with g=g %}
+            {% empty %}
+            <div class="fin-plan-empty">Немає запланованих витрат</div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block modals %}
+{% include 'finance/partials/settle_modal.html' %}
+{% include 'finance/partials/plan_edit_modal.html' %}
+{% include 'finance/partials/counterparty_history_modal.html' %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/finance-planned.js' %}?v=20260601a"></script>
+{% endblock %}

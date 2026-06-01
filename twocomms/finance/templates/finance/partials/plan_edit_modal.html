@@ -1,0 +1,68 @@
+{# Модалка редагування плану повторюваного зобов'язання (напр. комуналка виросла).
+   Зміни застосовуються до майбутніх (ще не проведених) платежів. #}
+<div class="fin-modal-overlay" id="fin-plan-modal" hidden>
+  <div class="fin-modal-card">
+    <div class="fin-modal-head">
+      <h3>Змінити план</h3>
+      <button type="button" class="fin-modal-close" data-plan-close aria-label="Закрити">×</button>
+    </div>
+    <form class="fin-modal-body" id="fin-plan-form">
+      <div class="fin-form-alert" id="fin-plan-alert" hidden></div>
+      <input type="hidden" id="fin-plan-rule-id" value="">
+
+      <label class="fin-field">
+        <span>Назва</span>
+        <input type="text" id="fin-plan-title" class="fin-input" placeholder="Напр. Комуналка">
+      </label>
+
+      <div class="fin-field-row">
+        <label class="fin-field">
+          <span>Сума за період</span>
+          <input type="number" step="0.01" id="fin-plan-amount" class="fin-input">
+        </label>
+        <label class="fin-field">
+          <span>Періодичність</span>
+          <select id="fin-plan-frequency" class="fin-select">
+            <option value="daily">Щодня</option>
+            <option value="weekly">Щотижня</option>
+            <option value="monthly">Щомісяця</option>
+            <option value="yearly">Щороку</option>
+          </select>
+        </label>
+      </div>
+
+      <label class="fin-field">
+        <span>Категорія</span>
+        <select id="fin-plan-category" class="fin-select"></select>
+      </label>
+      <label class="fin-field">
+        <span>Контрагент</span>
+        <select id="fin-plan-counterparty" class="fin-select"></select>
+      </label>
+
+      <label class="fin-field">
+        <span>Завершення</span>
+        <select id="fin-plan-end-mode" class="fin-select">
+          <option value="never">Безстроково</option>
+          <option value="until">До дати</option>
+          <option value="count">Певну кількість разів</option>
+        </select>
+      </label>
+      <label class="fin-field" id="fin-plan-until-wrap" hidden>
+        <span>Дата завершення</span>
+        <input type="date" id="fin-plan-end-date" class="fin-input">
+      </label>
+      <label class="fin-field" id="fin-plan-count-wrap" hidden>
+        <span>Кількість повторень</span>
+        <input type="number" min="1" id="fin-plan-count" class="fin-input">
+      </label>
+
+      <p class="fin-plan-note">Зміни застосуються до майбутніх платежів. Уже проведені — не зміняться.</p>
+
+      <div class="fin-modal-foot">
+        <button type="button" class="fin-btn fin-btn--ghost" data-plan-close>Скасувати</button>
+        <button type="submit" class="fin-btn fin-btn--primary">Зберегти план</button>
+      </div>
+    </form>
+  </div>
+</div>

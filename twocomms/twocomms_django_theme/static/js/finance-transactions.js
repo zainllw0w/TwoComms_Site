@@ -288,7 +288,17 @@
     fd.append('project', els.project.value || '');
     fd.append('tags', selectedTagIds().join(','));
     if (els.agreement.value) fd.append('date_agreement', els.agreement.value);
-    if (els.recurrence && els.recurrence.value) fd.append('recurrence', els.recurrence.value);
+    if (els.recurrence && els.recurrence.value) {
+      fd.append('recurrence', els.recurrence.value);
+      var recEnd = document.getElementById('fin-txn-rec-end');
+      var recTitle = document.getElementById('fin-txn-rec-title');
+      var recUntil = document.getElementById('fin-txn-rec-until');
+      var recCount = document.getElementById('fin-txn-rec-count');
+      if (recEnd) fd.append('recurrence_end_mode', recEnd.value || 'never');
+      if (recTitle && recTitle.value) fd.append('recurrence_title', recTitle.value);
+      if (recEnd && recEnd.value === 'until' && recUntil && recUntil.value) fd.append('recurrence_until', recUntil.value);
+      if (recEnd && recEnd.value === 'count' && recCount && recCount.value) fd.append('recurrence_count', recCount.value);
+    }
     if (type === 'transfer') {
       fd.append('from_account', els.from.value || '');
       fd.append('to_account', els.to.value || '');
@@ -359,6 +369,25 @@
       btn.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
   });
+
+  // Повторення: показуємо додаткові опції лише коли обрано періодичність.
+  (function () {
+    var recSel = els.recurrence;
+    var recOpts = document.getElementById('fin-recurring-opts');
+    var recEnd = document.getElementById('fin-txn-rec-end');
+    var untilWrap = document.getElementById('fin-txn-rec-until-wrap');
+    var countWrap = document.getElementById('fin-txn-rec-count-wrap');
+    function syncRecOpts() {
+      if (recOpts) recOpts.hidden = !(recSel && recSel.value);
+    }
+    function syncRecEnd() {
+      if (!recEnd) return;
+      if (untilWrap) untilWrap.hidden = recEnd.value !== 'until';
+      if (countWrap) countWrap.hidden = recEnd.value !== 'count';
+    }
+    if (recSel) recSel.addEventListener('change', syncRecOpts);
+    if (recEnd) recEnd.addEventListener('change', syncRecEnd);
+  })();
 
   form.addEventListener('submit', function (e) { e.preventDefault(); save(false); });
   els.similar.addEventListener('click', function () { save(true); });

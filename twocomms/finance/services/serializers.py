@@ -105,6 +105,10 @@ def serialize_transaction(txn: Transaction, *, running_balance=None) -> dict:
         'card_transfer': _is_card_transfer(txn),
         'card_transfer_label': _card_transfer_label(txn),
         'to_amount': str(txn.to_amount) if txn.to_amount is not None else '',
+        'is_recurring': bool(txn.recurrence_rule_id),
+        'recurrence_rule_id': txn.recurrence_rule_id,
+        'recurrence_label': (txn.recurrence_rule.frequency_label if txn.recurrence_rule_id else ''),
+        'reseller_id': txn.reseller_id,
     }
 
 

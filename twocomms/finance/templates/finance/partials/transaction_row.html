@@ -6,6 +6,8 @@
         <span class="fin-date">{{ r.date }}</span>
         <span class="fin-time">{{ r.time }}</span>
         {% if r.is_planned %}<span class="fin-badge fin-badge--planned">план</span>{% endif %}
+        {% if r.recurrence_label %}<span class="fin-badge fin-badge--repeat" title="Повторюваний платіж — деталі у розділі «Планові»">⟳ {{ r.recurrence_label }}</span>{% endif %}
+        {% if r.series_count and r.series_count > 1 %}<span class="fin-badge fin-badge--series" title="Згорнуто {{ r.series_count }} платежів серії">×{{ r.series_count }}</span>{% endif %}
     </td>
     <td class="fin-col-amount fin-amount--{{ r.amount_class }}" data-label="Сума">{{ r.amount_display }}</td>
     <td class="fin-cell-account" data-label="Рахунок">

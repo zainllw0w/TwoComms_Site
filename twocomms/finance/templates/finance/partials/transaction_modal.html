@@ -107,13 +107,39 @@
         <span class="fin-disclosure__chev" aria-hidden="true">▸</span> Зробити повторюваним
       </button>
       <div class="fin-recurring fin-disclosure__body" id="fin-recurring-wrap" hidden>
-        <select name="recurrence" id="fin-txn-recurrence" class="fin-select">
-          <option value="">Не повторювати в майбутньому</option>
-          <option value="daily">Щодня</option>
-          <option value="weekly">Щотижня</option>
-          <option value="monthly">Щомісяця</option>
-          <option value="yearly">Щороку</option>
-        </select>
+        <label class="fin-field">
+          <span>Періодичність</span>
+          <select name="recurrence" id="fin-txn-recurrence" class="fin-select">
+            <option value="">Не повторювати в майбутньому</option>
+            <option value="daily">Щодня</option>
+            <option value="weekly">Щотижня</option>
+            <option value="monthly">Щомісяця</option>
+            <option value="yearly">Щороку</option>
+          </select>
+        </label>
+        <div class="fin-recurring__opts" id="fin-recurring-opts" hidden>
+          <label class="fin-field">
+            <span>Назва зобов'язання (опційно)</span>
+            <input type="text" name="recurrence_title" id="fin-txn-rec-title" class="fin-input" placeholder="Напр. Комуналка">
+          </label>
+          <label class="fin-field">
+            <span>Завершення</span>
+            <select name="recurrence_end_mode" id="fin-txn-rec-end" class="fin-select">
+              <option value="never">Безстроково</option>
+              <option value="until">До дати</option>
+              <option value="count">Певну кількість разів</option>
+            </select>
+          </label>
+          <label class="fin-field" id="fin-txn-rec-until-wrap" hidden>
+            <span>Дата завершення</span>
+            <input type="date" name="recurrence_until" id="fin-txn-rec-until" class="fin-input">
+          </label>
+          <label class="fin-field" id="fin-txn-rec-count-wrap" hidden>
+            <span>Скільки разів</span>
+            <input type="number" min="1" name="recurrence_count" id="fin-txn-rec-count" class="fin-input">
+          </label>
+          <p class="fin-plan-note">Платіж показуватиметься одним рядком у розділі «Планові» з лічильником, скільки лишилось.</p>
+        </div>
       </div>
 
       <button type="button" class="fin-disclosure" id="fin-toggle-extra" aria-expanded="false">
