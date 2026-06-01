@@ -23,6 +23,7 @@ from django.utils import timezone
 
 from ..models import RecurrenceRule, Transaction, get_default_company
 from . import transactions as txn_service
+from .timeutil import day_end, day_start
 
 # Наскільки наперед матеріалізуємо планові для безстрокових/довгих правил.
 DEFAULT_HORIZON_DAYS = 120
@@ -97,7 +98,8 @@ def generate_planned_transaction(rule: RecurrenceRule, for_date: dt.date, *, use
     existing = Transaction.objects.filter(
         company=rule.company,
         recurrence_rule=rule,
-        date_actual__date=for_date,
+        date_actual__gte=day_start(for_date),
+        date_actual__lte=day_end(for_date),
     ).exclude(status=Transaction.STATUS_CANCELLED).exists()
     if existing:
         return None
