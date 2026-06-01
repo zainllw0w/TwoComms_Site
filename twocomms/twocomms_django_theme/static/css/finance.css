@@ -686,12 +686,42 @@ a { color: inherit; }
 .fin-btn--danger { background: rgba(251, 113, 133, 0.14); border-color: rgba(251, 113, 133, 0.4); color: #ffd7dd; }
 .fin-btn--danger:hover { background: rgba(251, 113, 133, 0.22); }
 
+/* Панель-перемикач фільтрів: усе сховано за однією кнопкою */
+.fin-filterbar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; flex-wrap: wrap; margin-bottom: 12px;
+}
+.fin-filterbar__toggle {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 14px;
+    font-size: 13.5px; font-weight: 600; color: var(--fin-text-2);
+    background: var(--fin-panel-strong);
+    border: 1px solid var(--fin-border);
+    border-radius: 10px; cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.fin-filterbar__toggle:hover { border-color: rgba(243,164,61,0.45); color: var(--fin-text); }
+.fin-filterbar__toggle.is-open { border-color: rgba(243,164,61,0.5); color: var(--fin-text); background: rgba(243,164,61,0.06); }
+.fin-filterbar__count {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 18px; height: 18px; padding: 0 5px;
+    font-size: 11px; font-weight: 700; color: #1a1205;
+    background: var(--fin-accent); border-radius: 999px;
+}
+.fin-filterbar__chev { transition: transform 0.2s ease; opacity: 0.7; }
+.fin-filterbar__toggle.is-open .fin-filterbar__chev { transform: rotate(180deg); }
+
 /* Фільтри */
 .fin-filters {
     margin-bottom: 14px;
     max-width: 100%;
     overflow-x: hidden;
+    background: var(--fin-panel);
+    border: 1px solid var(--fin-border);
+    border-radius: var(--fin-radius-md);
+    padding: 14px;
 }
+.fin-filters[hidden] { display: none; }
 .fin-filters__row {
     display: flex;
     flex-wrap: wrap;

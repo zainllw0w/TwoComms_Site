@@ -14,8 +14,22 @@
 {# Дані довідників для JS-модалок #}
 {{ dropdowns|json_script:"fin-dropdowns" }}
 
-<!-- Панель фільтрів -->
-<form class="fin-filters" id="fin-filters" method="get" autocomplete="off">
+<!-- Панель фільтрів: усе сховано за однією кнопкою «Фільтри» -->
+<div class="fin-filterbar">
+    <button type="button" class="fin-filterbar__toggle" id="fin-filters-toggle"
+            aria-expanded="false" aria-controls="fin-filters">
+        <svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><path d="M3 5h18v2l-7 7v5l-4-2v-3L3 7z" fill="currentColor"/></svg>
+        <span>Фільтри</span>
+        {% if active_filter_count %}<span class="fin-filterbar__count" title="Активних фільтрів">{{ active_filter_count }}</span>{% endif %}
+        <svg class="fin-filterbar__chev" viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z" fill="currentColor"/></svg>
+    </button>
+    <span class="fin-export-group">
+        <a href="{% url 'finance_payments_export' %}?{{ request.GET.urlencode }}&format=xlsx" class="fin-btn fin-btn--ghost fin-btn--sm" title="Експорт у XLSX">XLSX</a>
+        <a href="{% url 'finance_payments_export' %}?{{ request.GET.urlencode }}&format=xml" class="fin-btn fin-btn--ghost fin-btn--sm" title="Експорт у XML">XML</a>
+    </span>
+</div>
+
+<form class="fin-filters" id="fin-filters" method="get" autocomplete="off" {% if not active_filter_count %}hidden{% endif %}>
     {# Зберігаємо обрану кількість на сторінці при застосуванні фільтрів. #}
     <input type="hidden" name="per_page" value="{{ per_page }}">
     <div class="fin-filters__row">
@@ -65,10 +79,6 @@
         </button>
         <button type="submit" class="fin-btn fin-btn--primary fin-btn--sm">Застосувати</button>
         <a href="{% url 'finance_home' %}" class="fin-btn fin-btn--ghost fin-btn--sm" title="Скинути">Скинути</a>
-        <span class="fin-export-group">
-            <a href="{% url 'finance_payments_export' %}?{{ request.GET.urlencode }}&format=xlsx" class="fin-btn fin-btn--ghost fin-btn--sm" title="Експорт у XLSX">XLSX</a>
-            <a href="{% url 'finance_payments_export' %}?{{ request.GET.urlencode }}&format=xml" class="fin-btn fin-btn--ghost fin-btn--sm" title="Експорт у XML">XML</a>
-        </span>
     </div>
 </form>
 

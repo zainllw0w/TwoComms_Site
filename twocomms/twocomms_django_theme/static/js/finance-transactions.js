@@ -509,6 +509,29 @@
     });
   }
 
+  // --- Згортання панелі фільтрів в одну кнопку «Фільтри» ---
+  (function () {
+    var toggle = document.getElementById('fin-filters-toggle');
+    var panel = document.getElementById('fin-filters');
+    if (!toggle || !panel) return;
+    function paint(open) {
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      toggle.classList.toggle('is-open', open);
+    }
+    function setOpen(open) {
+      panel.hidden = !open;
+      paint(open);
+      try { localStorage.setItem('fin_filters_open', open ? '1' : '0'); } catch (e) {}
+    }
+    var saved = null;
+    try { saved = localStorage.getItem('fin_filters_open'); } catch (e) {}
+    // Якщо є активні фільтри — завжди показуємо панель (щоб вони були на видноті).
+    if (!panel.hidden) { paint(true); }
+    else if (saved === '1') { setOpen(true); }
+    else { paint(false); }
+    toggle.addEventListener('click', function () { setOpen(panel.hidden); });
+  })();
+
   // --- Пагінація: перемикач кількості на сторінці + перехід по сторінках ---
   (function () {
     function goWith(mutate) {

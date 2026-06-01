@@ -106,6 +106,17 @@ def payments(request):
 
     actual_rows = [ser.serialize_transaction(t) for t in page_items]
 
+    # Скільки фільтрів реально застосовано — для бейджа на згорнутій кнопці «Фільтри».
+    gp = request.GET
+    active_filter_count = 0
+    if gp.get('period') and gp.get('period') != 'all':
+        active_filter_count += 1
+    for _k in ('search', 'amount_min', 'amount_max', 'scope', 'mcc_group',
+               'date_from', 'date_to', 'accounts', 'categories', 'counterparties',
+               'tags', 'types', 'tab'):
+        if gp.get(_k):
+            active_filter_count += 1
+
     # Планові згортаємо в один рядок на серію (повторюване правило / розстрочка
     # магазину), щоб не дублювати «платіж 1/6, 2/6…». Показуємо найближчий
     # екземпляр із позначкою періодичності та лічильником решти серії.
@@ -139,6 +150,7 @@ def payments(request):
         'page_end': page_end,
         'per_page': 'all' if per_page is None else per_page,
         'per_page_options': _PER_PAGE_OPTIONS,
+        'active_filter_count': active_filter_count,
         'dropdowns': ser.serialize_dropdowns(company),
         'current_filters': {
             'period': request.GET.get('period', 'all'),

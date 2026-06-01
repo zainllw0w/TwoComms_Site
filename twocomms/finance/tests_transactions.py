@@ -130,6 +130,24 @@ class PaymentsViewTests(TestCase):
         resp4 = self._get('/?per_page=25')
         self.assertEqual(len(resp4.context['rows']), 15)
 
+    def test_filters_collapsed_by_default(self):
+        # Без активних фільтрів — панель згорнута (form має hidden), кнопка «Фільтри» є.
+        resp = self._get('/')
+        self.assertContains(resp, 'fin-filters-toggle')
+        self.assertEqual(resp.context['active_filter_count'], 0)
+        body = resp.content.decode('utf-8')
+        self.assertIn('id="fin-filters"', body)
+        # Форма фільтрів рендериться з атрибутом hidden.
+        self.assertRegex(body, r'<form[^>]*id="fin-filters"[^>]*\shidden')
+
+    def test_filters_expanded_when_active(self):
+        # Є активний фільтр (пошук) → панель розгорнута + лічильник.
+        resp = self._get('/?search=opti')
+        self.assertEqual(resp.context['active_filter_count'], 1)
+        body = resp.content.decode('utf-8')
+        self.assertNotRegex(body, r'<form[^>]*id="fin-filters"[^>]*\shidden')
+        self.assertIn('fin-filterbar__count', body)
+
     def test_dropdowns_api(self):
         from django.test import override_settings
         with override_settings(ALLOWED_HOSTS=['fin.twocomms.shop', 'testserver']):
