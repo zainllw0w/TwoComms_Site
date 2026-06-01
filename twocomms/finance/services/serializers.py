@@ -101,8 +101,58 @@ def serialize_transaction(txn: Transaction, *, running_balance=None) -> dict:
         'mcc_label': _mcc_label(txn.mcc) if txn.mcc else '',
         'cashback': _cashback_display(txn),
         'counter_name': (txn.external_data or {}).get('counter_name', ''),
+        'counter_iban': (txn.external_data or {}).get('counter_iban', ''),
+        'card_transfer': _is_card_transfer(txn),
+        'card_transfer_label': _card_transfer_label(txn),
         'to_amount': str(txn.to_amount) if txn.to_amount is not None else '',
     }
+
+
+# MFO (код банку у позиціях 4:10 українського IBAN) → назва банку.
+_BANK_BY_MFO = {
+    '322001': 'monobank',
+    '305299': 'ПриватБанк',
+    '300465': 'Ощадбанк',
+    '320478': 'Райффайзен',
+    '300335': 'Райффайзен',
+    '334851': 'ПУМБ',
+    '322313': 'А-Банк',
+    '307770': 'OTP Bank',
+    '380805': 'Sense Bank',
+    '300023': 'Укрексімбанк',
+    '320649': 'Sense Bank',
+}
+
+
+def bank_from_iban(iban: str) -> str:
+    """Назва банку за MFO в IBAN (UA + 2 контрольні + 6 MFO). '' якщо невідомо."""
+    if not iban or len(iban) < 10 or not iban.upper().startswith('UA'):
+        return ''
+    return _BANK_BY_MFO.get(iban[4:10], '')
+
+
+def _is_card_transfer(txn) -> bool:
+    """Витрата, що фактично є переказом на чужу картку/рахунок (P2P).
+
+    Ознака: є counter_iban або counter_name (Monobank P2P), тип — витрата
+    (внутрішні перекази між власними рахунками — окремий тип transfer).
+    """
+    if txn.type != Transaction.TYPE_EXPENSE:
+        return False
+    ed = txn.external_data or {}
+    return bool(ed.get('counter_iban') or ed.get('counter_name'))
+
+
+def _card_transfer_label(txn) -> str:
+    """Підпис отримувача P2P-переказу: банк (за IBAN) або ім'я контрагента."""
+    if not _is_card_transfer(txn):
+        return ''
+    ed = txn.external_data or {}
+    bank = bank_from_iban(ed.get('counter_iban', ''))
+    name = ed.get('counter_name', '')
+    if bank and name:
+        return f'{bank} · {name}'
+    return bank or name or 'переказ на картку'
 
 
 def _mcc_label(mcc):

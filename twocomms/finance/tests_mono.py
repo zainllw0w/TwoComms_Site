@@ -20,13 +20,24 @@ from finance.services import mono_api
 User = get_user_model()
 
 
-def _item(_id, amount, t=1714000000, desc='op', hold=False, balance=None, mcc=None):
+def _item(_id, amount, t=1714000000, desc='op', hold=False, balance=None, mcc=None,
+          counter_iban=None, counter_name=None):
     d = {'id': _id, 'time': t, 'amount': amount, 'description': desc, 'hold': hold}
     if balance is not None:
         d['balance'] = balance
     if mcc is not None:
         d['mcc'] = mcc
+    if counter_iban is not None:
+        d['counterIban'] = counter_iban
+    if counter_name is not None:
+        d['counterName'] = counter_name
     return d
+
+
+# IBAN-и для тестів власних переказів.
+IBAN_BLACK = 'UA000000000000000000000000001'
+IBAN_FOP = 'UA000000000000000000000000002'
+IBAN_FOREIGN = 'UA999999999999999999999999999'
 
 
 class CryptoTests(TestCase):
@@ -73,7 +84,7 @@ class MonoSyncTests(TestCase):
         self.acc = Account.objects.create(
             company=self.company, name='mono black', currency='UAH',
             integration=self.conn, external_account_id='acc-1',
-            external_kind='card', is_business=False)
+            external_kind='card', is_business=False, iban=IBAN_BLACK)
 
     def test_import_maps_amount_and_type(self):
         items = [_item('m1', 50000), _item('m2', -20000)]  # +500 / -200 грн
@@ -93,6 +104,34 @@ class MonoSyncTests(TestCase):
         self.assertEqual(res['created'], 0)
         self.assertEqual(res['skipped'], 1)
         self.assertEqual(Transaction.objects.filter(external_id='mono:m1').count(), 1)
+
+    def test_auto_categorize_by_mcc(self):
+        """Витрата з MCC автоматично отримує відповідну категорію."""
+        from finance.models import Category
+        # 5411 = супермаркети → 'Продукти'. apply_rules=False, щоб перевірити суто MCC.
+        mono_service.import_statement(
+            self.acc, [_item('g1', -25000, mcc=5411)], user=self.user, apply_rules=False)
+        exp = Transaction.objects.get(external_id='mono:g1')
+        self.assertIsNotNone(exp.category)
+        self.assertEqual(exp.category.name, 'Продукти')
+        # Категорія створена один раз — повторний імпорт не дублює.
+        mono_service.import_statement(
+            self.acc, [_item('g2', -13000, mcc=5411)], user=self.user, apply_rules=False)
+        self.assertEqual(Category.objects.filter(company=self.company, name='Продукти').count(), 1)
+
+    def test_auto_categorize_skips_unknown_mcc(self):
+        """Невідомий MCC ('other') не нав'язує категорію."""
+        mono_service.import_statement(
+            self.acc, [_item('u1', -5000, mcc=9999)], user=self.user, apply_rules=False)
+        exp = Transaction.objects.get(external_id='mono:u1')
+        self.assertIsNone(exp.category)
+
+    def test_auto_categorize_skips_income(self):
+        """Доходи не категоризуються за MCC (лише витрати)."""
+        mono_service.import_statement(
+            self.acc, [_item('i9', 50000, mcc=5411)], user=self.user, apply_rules=False)
+        inc = Transaction.objects.get(external_id='mono:i9')
+        self.assertIsNone(inc.category)
 
     def test_hold_imports_as_draft_and_zero_skipped(self):
         items = [_item('h1', 10000, hold=True), _item('z1', 0)]
@@ -151,26 +190,49 @@ class MonoSyncTests(TestCase):
         other = Account.objects.create(
             company=self.company, name='mono fop', currency='UAH',
             integration=self.conn, external_account_id='acc-2',
-            external_kind='fop', is_business=True)
-        # ФОП -200 (витрата) і картка +200 (дохід) у близький час → переказ.
-        mono_service.import_statement(other, [_item('e1', -20000, t=1714000000)],
-                                     user=self.user, apply_rules=False)
+            external_kind='fop', is_business=True, iban=IBAN_FOP)
+        # ФОП -200 (витрата на ВЛАСНУ картку: counterIban = IBAN black) і картка
+        # +200 (дохід) у близький час → внутрішній переказ.
+        mono_service.import_statement(
+            other, [_item('e1', -20000, t=1714000000, counter_iban=IBAN_BLACK)],
+            user=self.user, apply_rules=False)
         mono_service.import_statement(self.acc, [_item('i1', 20000, t=1714000100)],
                                      user=self.user, apply_rules=False)
         matched = mono_service.reconcile_internal_transfers(self.company, user=self.user)
         self.assertEqual(matched, 1)
         expense = Transaction.objects.get(external_id='mono:e1')
         self.assertEqual(expense.type, Transaction.TYPE_TRANSFER)
+        self.assertEqual(expense.to_account, self.acc)
         self.assertFalse(expense.is_business)
         self.assertFalse(Transaction.objects.filter(external_id='mono:i1').exists())
+
+    def test_transfer_to_foreign_card_stays_expense(self):
+        """Переказ на ЧУЖУ картку (counterIban не власний) лишається витратою."""
+        other = Account.objects.create(
+            company=self.company, name='mono fop', currency='UAH',
+            integration=self.conn, external_account_id='acc-2',
+            external_kind='fop', is_business=True, iban=IBAN_FOP)
+        # Витрата на чужу картку + випадковий дохід на ФОП у той самий час/суму.
+        mono_service.import_statement(
+            self.acc, [_item('e1', -20000, t=1714000000, counter_iban=IBAN_FOREIGN,
+                             counter_name='414960****7321')],
+            user=self.user, apply_rules=False)
+        mono_service.import_statement(other, [_item('i1', 20000, t=1714000100)],
+                                     user=self.user, apply_rules=False)
+        matched = mono_service.reconcile_internal_transfers(self.company, user=self.user)
+        self.assertEqual(matched, 0)  # НЕ зведено
+        expense = Transaction.objects.get(external_id='mono:e1')
+        self.assertEqual(expense.type, Transaction.TYPE_EXPENSE)  # лишилась витратою
+        # Випадковий дохід НЕ видалено.
+        self.assertTrue(Transaction.objects.filter(external_id='mono:i1').exists())
 
     def test_consumed_internal_transfer_income_is_not_reimported(self):
         other = Account.objects.create(
             company=self.company, name='mono fop', currency='UAH',
             integration=self.conn, external_account_id='acc-2',
-            external_kind='fop', is_business=True)
-        expense_item = _item('e1', -100000, t=1716921500)
-        income_item = _item('i1', 100000, t=1716921500)
+            external_kind='fop', is_business=True, iban=IBAN_FOP)
+        expense_item = _item('e1', -100000, t=1716921500, counter_iban=IBAN_BLACK)
+        income_item = _item('i1', 100000, t=1716921500, counter_iban=IBAN_FOP)
 
         mono_service.import_statement(other, [expense_item], user=self.user, apply_rules=False)
         mono_service.import_statement(self.acc, [income_item], user=self.user, apply_rules=False)
@@ -190,7 +252,7 @@ class MonoSyncTests(TestCase):
         other = Account.objects.create(
             company=self.company, name='mono fop', currency='UAH',
             integration=self.conn, external_account_id='acc-2',
-            external_kind='fop', is_business=True)
+            external_kind='fop', is_business=True, iban=IBAN_FOP)
         transfer = txn_service.create_transaction(
             user=self.user, type=Transaction.TYPE_TRANSFER, amount=Decimal('1000'),
             account=other, to_account=self.acc, to_amount=Decimal('1000'),
@@ -201,6 +263,7 @@ class MonoSyncTests(TestCase):
             user=self.user, type=Transaction.TYPE_INCOME, amount=Decimal('1000'),
             account=self.acc, source='integration', external_id='mono:i1',
             date_actual=dt.datetime.fromtimestamp(1717095780, tz=dt.timezone.utc),
+            external_data={'counter_iban': IBAN_FOP},
         )
 
         matched = mono_service.reconcile_internal_transfers(self.company, user=self.user)
@@ -215,19 +278,21 @@ class MonoSyncTests(TestCase):
         Account.objects.create(
             company=self.company, name='mono fop', currency='UAH',
             integration=self.conn, external_account_id='acc-2',
-            external_kind='fop', is_business=True)
+            external_kind='fop', is_business=True, iban=IBAN_FOP)
         mono_service.process_webhook(
             self.conn,
             {'type': 'StatementItem',
              'data': {'account': 'acc-2',
-                      'statementItem': _item('e1', -100000, t=1716921500)}},
+                      'statementItem': _item('e1', -100000, t=1716921500,
+                                             counter_iban=IBAN_BLACK)}},
             user=self.user,
         )
         mono_service.process_webhook(
             self.conn,
             {'type': 'StatementItem',
              'data': {'account': 'acc-1',
-                      'statementItem': _item('i1', 100000, t=1716921500)}},
+                      'statementItem': _item('i1', 100000, t=1716921500,
+                                             counter_iban=IBAN_FOP)}},
             user=self.user,
         )
 

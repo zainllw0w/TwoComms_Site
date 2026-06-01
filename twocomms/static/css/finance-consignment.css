@@ -119,3 +119,16 @@
     border-radius: 8px; background: var(--fin-bg-800, #131824); cursor: pointer; flex: 0 0 auto;
 }
 .fin-color-combo .fin-input { flex: 1; }
+
+/* Індикатор переказу на чужу картку (P2P) у журналі платежів */
+.fin-card-xfer {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    font-size: 11px;
+    border-radius: 999px;
+    background: rgba(111, 149, 255, 0.14);
+    color: #b9cbff;
+    white-space: nowrap;
+    vertical-align: middle;
+}

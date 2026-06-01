@@ -9,7 +9,7 @@
     </td>
     <td class="fin-col-amount fin-amount--{{ r.amount_class }}" data-label="Сума">{{ r.amount_display }}</td>
     <td class="fin-cell-account" data-label="Рахунок">
-        <span class="fin-acc-name">{{ r.account_name }}</span>
+        <span class="fin-acc-name">{{ r.account_name }}{% if r.card_transfer %} <span class="fin-card-xfer" title="Переказ на картку: {{ r.card_transfer_label }}">💳 → {{ r.card_transfer_label }}</span>{% endif %}</span>
         {% if r.running_balance %}<span class="fin-acc-balance">{{ r.running_balance }}</span>{% endif %}
     </td>
     <td data-label="Контрагент">{% if r.counterparty %}{{ r.counterparty }}{% else %}<span class="fin-specify">Вказати</span>{% endif %}</td>

@@ -2,15 +2,31 @@
 <div class="fin-report-head">
     <a href="{% url 'finance_analytics' %}" class="fin-back-link">‹ Назад до звітів</a>
     <h1 class="fin-page-title">{{ title }}</h1>
-    <form class="fin-report-filters" method="get">
-        <select name="period" class="fin-select" onchange="this.form.submit()">
+    <form class="fin-report-filters" method="get" id="fin-report-filters">
+        <select name="period" class="fin-select" id="fin-report-period" onchange="finReportPeriodChange(this)">
+            <option value="today" {% if period == 'today' %}selected{% endif %}>Сьогодні</option>
+            <option value="week" {% if period == 'week' %}selected{% endif %}>Поточний тиждень</option>
             <option value="month" {% if period == 'month' %}selected{% endif %}>Поточний місяць</option>
             <option value="last_month" {% if period == 'last_month' %}selected{% endif %}>Минулий місяць</option>
             <option value="quarter" {% if period == 'quarter' %}selected{% endif %}>Квартал</option>
             <option value="year" {% if period == 'year' %}selected{% endif %}>Рік</option>
+            <option value="custom" {% if period == 'custom' %}selected{% endif %}>Довільний діапазон</option>
             <option value="all" {% if period == 'all' %}selected{% endif %}>За весь час</option>
         </select>
+        <span class="fin-report-range" id="fin-report-range" {% if period != 'custom' %}hidden{% endif %}>
+            <input type="date" name="date_from" class="fin-input fin-input--sm" value="{{ request.GET.date_from }}">
+            <span>—</span>
+            <input type="date" name="date_to" class="fin-input fin-input--sm" value="{{ request.GET.date_to }}">
+            <button type="submit" class="fin-btn fin-btn--primary fin-btn--sm">OK</button>
+        </span>
         {% if request.GET.account %}<input type="hidden" name="account" value="{{ request.GET.account }}">{% endif %}
         <a href="{% url 'finance_report_export' kind %}?{{ request.GET.urlencode }}" class="fin-btn fin-btn--ghost fin-btn--sm">Експорт XLSX</a>
     </form>
 </div>
+<script>
+function finReportPeriodChange(sel){
+    var range = document.getElementById('fin-report-range');
+    if (sel.value === 'custom'){ range.hidden = false; }
+    else { range.hidden = true; sel.form.submit(); }
+}
+</script>

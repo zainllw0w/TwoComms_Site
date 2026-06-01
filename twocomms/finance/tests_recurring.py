@@ -149,6 +149,7 @@ class ForecastTestCase(TestCase):
             type='bank',
             currency='UAH',
             initial_balance=Decimal('50000'),
+            current_balance=Decimal('50000'),
         )
 
     def test_balance_forecast_report(self):
@@ -159,6 +160,7 @@ class ForecastTestCase(TestCase):
             type=Transaction.TYPE_INCOME,
             status=Transaction.STATUS_PLANNED,
             amount=Decimal('100000'),
+            amount_base=Decimal('100000'),
             currency='UAH',
             account=self.account,
             date_actual=timezone.now() + dt.timedelta(days=15),
@@ -169,6 +171,7 @@ class ForecastTestCase(TestCase):
             type=Transaction.TYPE_EXPENSE,
             status=Transaction.STATUS_PLANNED,
             amount=Decimal('30000'),
+            amount_base=Decimal('30000'),
             currency='UAH',
             account=self.account,
             date_actual=timezone.now() + dt.timedelta(days=20),
@@ -194,6 +197,7 @@ class ForecastTestCase(TestCase):
             type=Transaction.TYPE_EXPENSE,
             status=Transaction.STATUS_PLANNED,
             amount=Decimal('80000'),  # Більше ніж баланс
+            amount_base=Decimal('80000'),
             currency='UAH',
             account=self.account,
             date_actual=timezone.now() + dt.timedelta(days=10),

@@ -313,7 +313,6 @@ def _find_matching_existing_transfer(
           .select_related('account', 'to_account')
           .order_by('date_actual'))
 
-    fallback = None
     for transfer in qs:
         target = transfer.to_amount if transfer.to_amount is not None else transfer.amount
         if target is None or not (min_amount <= target <= max_amount):
@@ -322,9 +321,9 @@ def _find_matching_existing_transfer(
             return transfer
         if _matches_counterparty_hint(transfer, hint or {}):
             return transfer
-        if fallback is None:
-            fallback = transfer
-    return fallback
+    # БЕЗ нестрогого fallback за самою сумою: лише підтверджений збіг (consumed-id
+    # або counterparty hint за IBAN/іменем), щоб не видаляти легітимні доходи.
+    return None
 
 
 def _statement_window(frm: dt.datetime, to: dt.datetime):
@@ -424,7 +423,25 @@ def _import_item(account: Account, item: dict, *, user, apply_rules=True):
             rules_engine.apply_rules_to_transaction(txn, user=user, source='integration')
         except Exception:  # noqa: BLE001 — правила не мають ламати імпорт
             pass
+    # Авто-категоризація за MCC (лише витрати без категорії — правила мають
+    # пріоритет). Призначає finance.Category, що відповідає групі MCC monobank.
+    _auto_categorize_by_mcc(txn)
     return txn
+
+
+def _auto_categorize_by_mcc(txn) -> None:
+    """Призначає категорію витраті за MCC, якщо її ще не визначено правилами."""
+    if (txn.type != Transaction.TYPE_EXPENSE or txn.category_id
+            or txn.status != Transaction.STATUS_ACTUAL or txn.mcc is None):
+        return
+    try:
+        from . import mcc as mcc_mod
+        cat = mcc_mod.get_or_create_category_for_mcc(txn.company, txn.mcc)
+        if cat is not None:
+            Transaction.objects.filter(pk=txn.pk).update(category=cat)
+            txn.category = cat
+    except Exception:  # noqa: BLE001 — категоризація не має ламати імпорт
+        pass
 
 
 def import_statement(account: Account, items: list, *, user, apply_rules=True) -> dict:
@@ -682,69 +699,52 @@ def reconcile_internal_transfers(company, *, user, window_hours=168, tolerance_p
 
     # Матеріалізуємо список наперед: у циклі ми міняємо type/видаляємо рядки,
     # тож стрімити з курсора (iterator) небезпечно на частині бекендів.
-    for expense in list(qs):
-        # Розрахунок діапазону сум з толерантністю
-        tolerance = expense.amount * Decimal(str(tolerance_percent / 100))
-        min_amount = expense.amount - tolerance
-        max_amount = expense.amount + tolerance
+    # Карта IBAN → власний рахунок: надійне розпізнавання ВЛАСНИХ переказів.
+    own_by_iban = {a.iban: a for a in company.accounts.exclude(iban='') if a.iban}
 
-        # Базовий пошук за сумою з толерантністю
-        income_qs = (Transaction.objects.filter(
+    for expense in list(qs):
+        # ВНУТРІШНІЙ переказ підтверджуємо ЛИШЕ якщо counter_iban витрати збігається
+        # з IBAN одного з ВЛАСНИХ рахунків. Перекази на чужі картки/ФОП (іншій людині)
+        # лишаються ВИТРАТОЮ. Це усуває хибне злиття за часом+сумою (попередній баг,
+        # коли переказ на чужу картку рахувався як переказ на власний ФОП).
+        expense_counter_iban = (expense.external_data or {}).get('counter_iban', '')
+        if not expense_counter_iban:
+            continue  # без IBAN призначення не можемо підтвердити власний переказ
+        dest = own_by_iban.get(expense_counter_iban)
+        if dest is None or dest.id == expense.account_id:
+            continue  # призначення — НЕ наш рахунок → це реальна витрата, не чіпаємо
+
+        # Підтверджено внутрішній переказ на власний рахунок dest. Шукаємо
+        # зустрічний дохід саме на dest (для точного to_amount з урахуванням комісії).
+        min_amount, max_amount = _amount_bounds(expense.amount, tolerance_percent)
+        income = (Transaction.objects.filter(
                     company=company, source='integration',
                     status=Transaction.STATUS_ACTUAL, type=Transaction.TYPE_INCOME,
+                    account=dest, currency=expense.currency,
                     amount__gte=min_amount, amount__lte=max_amount,
-                    currency=expense.currency,
                     date_actual__gte=expense.date_actual - window,
                     date_actual__lte=expense.date_actual + window)
-                  .exclude(account_id=expense.account_id)
-                  .exclude(account__isnull=True))
+                  .order_by('date_actual').first())
 
-        # Спроба 1: Пошук за IBAN контрагента (найточніший)
-        income = None
-        expense_counter_iban = (expense.external_data or {}).get('counter_iban', '')
-        if expense_counter_iban and expense.account:
-            # Шукаємо дохід, де counter_iban збігається з IBAN рахунку витрати
-            for candidate in income_qs:
-                candidate_counter_iban = (candidate.external_data or {}).get('counter_iban', '')
-                if candidate_counter_iban == expense.account.iban and expense.account.iban:
-                    income = candidate
-                    break
+        # Витрату перетворюємо на переказ → власний рахунок dest; дубль-дохід (за
+        # наявності) видаляємо. Якщо доходу ще немає — переказ усе одно валідний
+        # (підтверджено IBAN), to_amount беремо = сумі витрати.
+        income_id = income.id if income else None
+        income_external_id = income.external_id if income else ''
+        income_amount = income.amount if income is not None else expense.amount
+        income_account_id = income.account_id if income else dest.id
+        income_date = income.date_actual if income else None
 
-        # Спроба 2: Пошук за назвою контрагента (менш точний)
-        if income is None:
-            expense_counter_name = (expense.external_data or {}).get('counter_name', '').lower()
-            if expense_counter_name:
-                for candidate in income_qs:
-                    candidate_counter_name = (candidate.external_data or {}).get('counter_name', '').lower()
-                    # Перевірка чи назва контрагента доходу містить назву рахунку витрати
-                    if (expense.account and expense.account.name.lower() in candidate_counter_name) or \
-                       (candidate.account and candidate.account.name.lower() in expense_counter_name):
-                        income = candidate
-                        break
-
-        # Спроба 3: Просто найближчий за часом з підходящою сумою
-        if income is None:
-            income = income_qs.order_by('date_actual').first()
-
-        if income is None:
-            continue
-
-        # Витрату перетворюємо на переказ → income-рахунок, дубль-дохід видаляємо.
-        to_account = income.account
-        income_id = income.id
-        income_external_id = income.external_id
-        income_amount = income.amount
-        income_account_id = income.account_id
-        income_date = income.date_actual
-
-        txn_service.delete_transaction(income, user=user)
+        if income is not None:
+            txn_service.delete_transaction(income, user=user)
         transfer = txn_service.convert_to_transfer(
-            expense, user=user, to_account=to_account, to_amount=income_amount)
-        _mark_transfer_consumed_income(
-            transfer, income_external_id=income_external_id,
-            income_amount=income_amount, income_account_id=income_account_id,
-            income_date=income_date,
-        )
+            expense, user=user, to_account=dest, to_amount=income_amount)
+        if income_external_id:
+            _mark_transfer_consumed_income(
+                transfer, income_external_id=income_external_id,
+                income_amount=income_amount, income_account_id=income_account_id,
+                income_date=income_date,
+            )
 
         # Переказ між власними рахунками не є ні доходом, ні витратою бізнесу.
         # Призначаємо системну категорію "Вивід на особисте" (Owner's Drawings)
@@ -758,9 +758,12 @@ def reconcile_internal_transfers(company, *, user, window_hours=168, tolerance_p
 
         Transaction.objects.filter(pk=expense.pk).update(**update_fields)
 
+        diff_note = (f', різниця {abs(expense.amount - income_amount):.2f}'
+                     if income is not None else '')
         audit_service.log_action(
             user, 'reconcile', 'transaction', expense.id,
-            summary=f'Зведено у переказ (дубль #{income_id} видалено, різниця {abs(expense.amount - income_amount):.2f})',
+            summary=f'Зведено у переказ на власний {dest.name}'
+                    + (f' (дубль #{income_id} видалено{diff_note})' if income_id else ''),
             source='integration', company=company,
         )
         matched += 1

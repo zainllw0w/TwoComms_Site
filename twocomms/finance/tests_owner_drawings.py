@@ -33,6 +33,7 @@ class OwnerDrawingsTestCase(TestCase):
             currency='UAH',
             is_business=True,
             initial_balance=Decimal('100000'),
+            iban='UA000000000000000000000000010',
         )
 
         self.personal_account = Account.objects.create(
@@ -42,11 +43,12 @@ class OwnerDrawingsTestCase(TestCase):
             currency='UAH',
             is_business=False,
             initial_balance=Decimal('0'),
+            iban='UA000000000000000000000000011',
         )
 
     def test_reconcile_with_exact_match(self):
         """Тест злиття переказів з точним збігом сум."""
-        # Створюємо витрату на ФОП
+        # Створюємо витрату на ФОП (переказ на ВЛАСНУ особисту картку)
         expense = Transaction.objects.create(
             company=self.company,
             type=Transaction.TYPE_EXPENSE,
@@ -57,6 +59,7 @@ class OwnerDrawingsTestCase(TestCase):
             date_actual=timezone.now(),
             source='integration',
             external_id='mono:exp1',
+            external_data={'counter_iban': self.personal_account.iban},
         )
 
         # Створюємо дохід на особистій картці
@@ -93,7 +96,7 @@ class OwnerDrawingsTestCase(TestCase):
 
     def test_reconcile_with_commission(self):
         """Тест злиття переказів з комісією (різниця в сумі)."""
-        # Витрата 5000 грн
+        # Витрата 5000 грн (переказ на ВЛАСНУ особисту картку)
         expense = Transaction.objects.create(
             company=self.company,
             type=Transaction.TYPE_EXPENSE,
@@ -104,6 +107,7 @@ class OwnerDrawingsTestCase(TestCase):
             date_actual=timezone.now(),
             source='integration',
             external_id='mono:exp2',
+            external_data={'counter_iban': self.personal_account.iban},
         )
 
         # Дохід 4950 грн (комісія 50 грн = 1%)
@@ -158,6 +162,7 @@ class OwnerDrawingsTestCase(TestCase):
             type=Transaction.TYPE_INCOME,
             status=Transaction.STATUS_ACTUAL,
             amount=Decimal('50000'),
+            amount_base=Decimal('50000'),
             currency='UAH',
             account=self.fop_account,
             date_actual=timezone.now(),
@@ -170,14 +175,15 @@ class OwnerDrawingsTestCase(TestCase):
             type=Transaction.TYPE_EXPENSE,
             status=Transaction.STATUS_ACTUAL,
             amount=Decimal('30000'),
+            amount_base=Decimal('30000'),
             currency='UAH',
             account=self.fop_account,
             date_actual=timezone.now(),
             is_business=True,
         )
 
-        # Генеруємо звіт
-        data = reports.owner_drawings_report(self.company, {})
+        # Генеруємо звіт (period='all' — стійко до меж місяця)
+        data = reports.owner_drawings_report(self.company, {'period': 'all'})
 
         # Перевіряємо результати
         self.assertEqual(data['total_withdrawn'], Decimal('10000'))
@@ -208,6 +214,7 @@ class OwnerDrawingsTestCase(TestCase):
             type=Transaction.TYPE_INCOME,
             status=Transaction.STATUS_ACTUAL,
             amount=Decimal('50000'),
+            amount_base=Decimal('50000'),
             currency='UAH',
             account=self.fop_account,
             date_actual=timezone.now(),
@@ -219,6 +226,7 @@ class OwnerDrawingsTestCase(TestCase):
             type=Transaction.TYPE_EXPENSE,
             status=Transaction.STATUS_ACTUAL,
             amount=Decimal('30000'),
+            amount_base=Decimal('30000'),
             currency='UAH',
             account=self.fop_account,
             date_actual=timezone.now(),
@@ -226,7 +234,7 @@ class OwnerDrawingsTestCase(TestCase):
         )
 
         # P&L звіт
-        pnl_data = reports.pnl(self.company, {})
+        pnl_data = reports.pnl(self.company, {'period': 'all'})
 
         # Прибуток має бути 20000, без врахування переказу
         self.assertEqual(pnl_data['profit'], Decimal('20000'))

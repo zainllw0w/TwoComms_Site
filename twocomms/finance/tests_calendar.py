@@ -35,7 +35,9 @@ class CalendarServiceTests(TestCase):
         self.assertGreaterEqual(day['end_balance'], Decimal('1500'))
 
     def test_planned_affects_forecast_not_actual(self):
-        future = timezone.now() + dt.timedelta(days=3)
+        # Локальний полудень +3 дні — детерміновано (без UTC/local зсуву меж доби).
+        future_date = timezone.localdate() + dt.timedelta(days=3)
+        future = timezone.make_aware(dt.datetime.combine(future_date, dt.time(12, 0)))
         txn_service.create_transaction(user=self.user, type=Transaction.TYPE_EXPENSE,
                                        amount=Decimal('300'), account=self.acc,
                                        status=Transaction.STATUS_PLANNED, date_actual=future)
@@ -43,8 +45,8 @@ class CalendarServiceTests(TestCase):
         self.acc.refresh_from_db()
         self.assertEqual(self.acc.current_balance, Decimal('1000'))
         # Але в календарі майбутній день показує витрату.
-        grid = cal_service.month_grid(self.company, future.year, future.month)
-        day = next(d for d in grid['days'] if d['day'] == future.day)
+        grid = cal_service.month_grid(self.company, future_date.year, future_date.month)
+        day = next(d for d in grid['days'] if d['day'] == future_date.day)
         self.assertEqual(day['expense'], Decimal('300'))
 
     def test_day_detail_lists_transactions(self):
