@@ -380,6 +380,9 @@ def _import_item(account: Account, item: dict, *, user, apply_rules=True):
 
     existing = Transaction.objects.filter(company=company, external_id=ext).first()
     if existing is not None:
+        # hold знято (операція фіналізована банком) — оновлюємо суму/дату/прапор.
+        # Сама операція вже була ACTUAL (hold-кошти зняті одразу), тож статус
+        # лишаємо фактичним — змінюється лише уточнена сума/дата проведення.
         if existing.external_data.get('hold') and not item.get('hold'):
             external_data.pop('hold', None)
             txn = txn_service.update_transaction(
@@ -409,11 +412,16 @@ def _import_item(account: Account, item: dict, *, user, apply_rules=True):
             )
             return None
 
+    # ВАЖЛИВО: hold-операції (заблоковані кошти) створюємо як ФАКТИЧНІ — банк уже
+    # зняв/заблокував гроші й вони входять у баланс рахунку, тож мають одразу
+    # враховуватись в аналітиці (cash flow / P&L / особисті витрати). Прапор
+    # hold лишається в external_data для інформації; коли hold знімається —
+    # просто оновлюємо суму (гілка existing вище).
     txn = txn_service.create_transaction(
         user=user, type=txn_type, amount=amount,
         account=account, currency=account.currency, date_actual=when,
         comment=comment, source='integration', external_id=ext,
-        status=Transaction.STATUS_DRAFT if item.get('hold') else Transaction.STATUS_ACTUAL,
+        status=Transaction.STATUS_ACTUAL,
         external_data=external_data, mcc=mcc,
     )
     # is_business успадковується від account у create_transaction (ФОП → бізнес).

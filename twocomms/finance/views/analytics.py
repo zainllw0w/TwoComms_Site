@@ -60,12 +60,28 @@ def analytics(request):
     })
 
 
+def _smart_default_period(company):
+    """Дефолтний період звіту: 'month', але якщо за поточний місяць немає
+    фактичних операцій — 'all' (щоб не показувати порожньо, коли дані за інший
+    період, напр. на початку місяця)."""
+    from django.utils import timezone
+    from .. models import Transaction
+    from ..services.timeutil import day_start
+    month_start = timezone.localdate().replace(day=1)
+    has_this_month = (Transaction.objects.filter(
+        company=company, status=Transaction.STATUS_ACTUAL,
+        date_actual__gte=day_start(month_start)).exists())
+    return 'month' if has_this_month else 'all'
+
+
 @finance_access_required
 def report(request, kind):
     company = get_default_company()
+    # Якщо період не заданий явно — обираємо розумний дефолт.
+    period = request.GET.get('period') or _smart_default_period(company)
     ctx = {'active_tab': 'analytics', 'kind': kind,
            'dropdowns': ser.serialize_dropdowns(company),
-           'period': request.GET.get('period', 'month')}
+           'period': period}
 
     if kind == 'cashflow':
         data = rep.cash_flow(company, request.GET)

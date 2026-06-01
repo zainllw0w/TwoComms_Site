@@ -133,15 +133,21 @@ class MonoSyncTests(TestCase):
         inc = Transaction.objects.get(external_id='mono:i9')
         self.assertIsNone(inc.category)
 
-    def test_hold_imports_as_draft_and_zero_skipped(self):
+    def test_hold_imports_as_actual_and_counts_in_balance(self):
+        """Hold-операції (заблоковані кошти) — фактичні: входять у баланс та звіти.
+
+        Monobank блокує/знімає кошти одразу, тож такі операції мають враховуватись
+        в аналітиці. Прапор hold зберігається в external_data; нульові — пропускаємо.
+        """
         items = [_item('h1', 10000, hold=True), _item('z1', 0)]
         res = mono_service.import_statement(self.acc, items, user=self.user, apply_rules=False)
         self.assertEqual(res['created'], 1)
         txn = Transaction.objects.get(external_id='mono:h1')
-        self.assertEqual(txn.status, Transaction.STATUS_DRAFT)
+        self.assertEqual(txn.status, Transaction.STATUS_ACTUAL)
         self.assertTrue(txn.external_data.get('hold'))
+        # +100 грн дохід відображено у балансі одразу.
         self.acc.refresh_from_db()
-        self.assertEqual(self.acc.current_balance, Decimal('0.00'))
+        self.assertEqual(self.acc.current_balance, Decimal('100.00'))
 
     def test_settled_hold_updates_existing_transaction_to_actual(self):
         mono_service.import_statement(

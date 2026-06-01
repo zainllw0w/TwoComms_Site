@@ -217,9 +217,23 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <style>
+/* Рядок легенди: іконка фіксованого розміру + назва + % + сума.
+   Перевизначаємо grid (глобальний — 12px під крапку, а тут емодзі). */
+.fin-chart-with-legend .fin-breakdown__row {
+    grid-template-columns: 22px 1fr auto auto;
+}
 .fin-category-icon {
-    font-size: 18px;
-    margin-right: 8px;
+    font-size: 15px;
+    line-height: 1;
+    width: 22px;
+    flex: 0 0 22px;
+    text-align: center;
+    overflow: hidden;
+}
+/* Гарантуємо, що doughnut не розтягується вертикально. */
+.fin-chart-with-legend .fin-chart-canvas {
+    height: 200px;
+    max-width: 220px;
 }
 
 .fin-chart-grid {

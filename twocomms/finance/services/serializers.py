@@ -140,11 +140,36 @@ def _is_card_transfer(txn) -> bool:
     if txn.type != Transaction.TYPE_EXPENSE:
         return False
     ed = txn.external_data or {}
-    return bool(ed.get('counter_iban') or ed.get('counter_name'))
+    if ed.get('counter_iban') or ed.get('counter_name'):
+        return True
+    # Перекази на чужу картку monobank часто не мають counter_iban/name —
+    # розпізнаємо за MCC грошових переказів або за маскою картки в коментарі.
+    from . import mcc as mcc_mod
+    if txn.mcc is not None and mcc_mod.group_for_mcc(txn.mcc) == 'cash_finance':
+        return True
+    if _card_mask_in_comment(txn.comment):
+        return True
+    return False
+
+
+_CARD_MASK_RE = None
+
+
+def _card_mask_in_comment(comment: str) -> str:
+    """Повертає маску картки з коментаря (напр. '414960****7321') або ''."""
+    global _CARD_MASK_RE
+    if not comment:
+        return ''
+    if _CARD_MASK_RE is None:
+        import re
+        # 4-6 цифр + зірочки + 2-4 цифри (маска картки monobank P2P).
+        _CARD_MASK_RE = re.compile(r'\b(\d{4,6}\*{2,}\d{2,4})\b')
+    m = _CARD_MASK_RE.search(comment)
+    return m.group(1) if m else ''
 
 
 def _card_transfer_label(txn) -> str:
-    """Підпис отримувача P2P-переказу: банк (за IBAN) або ім'я контрагента."""
+    """Підпис отримувача P2P-переказу: банк (за IBAN) або ім'я контрагента/маска."""
     if not _is_card_transfer(txn):
         return ''
     ed = txn.external_data or {}
@@ -152,7 +177,13 @@ def _card_transfer_label(txn) -> str:
     name = ed.get('counter_name', '')
     if bank and name:
         return f'{bank} · {name}'
-    return bank or name or 'переказ на картку'
+    if bank or name:
+        return bank or name
+    # Без IBAN/імені — маска картки з коментаря.
+    mask = _card_mask_in_comment(txn.comment)
+    if mask:
+        return f'картка {mask}'
+    return 'переказ на картку'
 
 
 def _mcc_label(mcc):
