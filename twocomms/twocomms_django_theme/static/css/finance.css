@@ -1477,7 +1477,7 @@ body.fin-modal-open { overflow: hidden; }
 .fin-settings-panel {
     position: fixed;
     inset: 0;
-    z-index: 90;
+    z-index: 120;
     display: flex;
     justify-content: flex-end;
 }
@@ -1526,6 +1526,10 @@ body.fin-modal-open { overflow: hidden; }
     gap: 24px;
 }
 
+.fin-settings-panel__body > .fin-settings-section {
+    flex: 0 0 auto;
+}
+
 .fin-settings-section {
     background: var(--fin-panel);
     border: 1px solid var(--fin-border);
@@ -1544,6 +1548,93 @@ body.fin-modal-open { overflow: hidden; }
     display: flex;
     flex-direction: column;
     gap: 16px;
+}
+
+.fin-settings-nav {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
+    gap: 8px;
+}
+
+.fin-settings-nav__item {
+    display: flex;
+    align-items: center;
+    min-height: 42px;
+    padding: 10px 12px;
+    color: var(--fin-text-2);
+    text-decoration: none;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid var(--fin-border);
+    border-radius: var(--fin-radius-sm);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.fin-settings-nav__item:hover,
+.fin-settings-nav__item.is-active {
+    color: var(--fin-accent);
+    background: rgba(255, 126, 41, 0.10);
+    border-color: rgba(255, 126, 41, 0.30);
+}
+
+.fin-settings-section--push {
+    padding: 0;
+    overflow: hidden;
+}
+
+.fin-settings-disclosure {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 18px 20px;
+    color: var(--fin-text);
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+}
+
+.fin-settings-disclosure strong,
+.fin-settings-disclosure small {
+    display: block;
+}
+
+.fin-settings-disclosure strong {
+    font-size: 14px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.fin-settings-disclosure small {
+    margin-top: 3px;
+    color: var(--fin-text-2);
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.fin-settings-disclosure__chev {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+    fill: currentColor;
+    color: var(--fin-text-2);
+    transition: transform 0.18s ease, color 0.18s ease;
+}
+
+.fin-settings-disclosure[aria-expanded="true"] .fin-settings-disclosure__chev {
+    color: var(--fin-accent);
+    transform: rotate(90deg);
+}
+
+.fin-settings-section--push > .fin-settings-section__content {
+    padding: 0 20px 18px;
 }
 
 .fin-setting-row {
@@ -1588,6 +1679,7 @@ body.fin-modal-open { overflow: hidden; }
     line-height: 1.5;
 }
 
+body.fin-sidebar-open,
 body.fin-settings-open { overflow: hidden; }
 
 /* ===================== Toast повідомлення ===================== */
@@ -1678,10 +1770,25 @@ body.fin-settings-open { overflow: hidden; }
     .fin-sidebar {
         padding-top: env(safe-area-inset-top, 0);
         padding-bottom: env(safe-area-inset-bottom, 0);
+        touch-action: pan-y pinch-zoom;
     }
 
     .fin-sidebar__scroll {
         padding-top: 20px;
+    }
+
+    .fin-body {
+        overscroll-behavior-x: contain;
+    }
+
+    .fin-settings-panel__content {
+        width: min(420px, 92vw);
+        max-width: calc(100vw - env(safe-area-inset-left, 0px));
+        height: 100vh;
+        height: 100dvh;
+        padding-top: env(safe-area-inset-top, 0);
+        padding-bottom: env(safe-area-inset-bottom, 0);
+        touch-action: pan-y pinch-zoom;
     }
 
     /* Header з safe area */
@@ -2035,8 +2142,9 @@ body.fin-settings-open { overflow: hidden; }
 
     /* Панель налаштувань на весь екран */
     .fin-settings-panel__content {
-        max-width: 100%;
-        border-left: none;
+        width: min(420px, 92vw);
+        max-width: calc(100vw - env(safe-area-inset-left, 0px));
+        border-left: 1px solid var(--fin-border-strong);
     }
 
     .fin-settings-panel__body {
@@ -2136,6 +2244,10 @@ body.fin-settings-open { overflow: hidden; }
 
     .fin-sidebar {
         max-width: 95vw;
+    }
+
+    .fin-settings-panel__content {
+        width: min(420px, 94vw);
     }
 }
 

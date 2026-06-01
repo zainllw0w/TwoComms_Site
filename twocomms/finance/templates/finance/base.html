@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}TwoComms Finance{% endblock %}</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/finance.css' %}?v=20260601b">
+    <link rel="stylesheet" href="{% static 'css/finance.css' %}?v=20260601c">
     <link rel="stylesheet" href="{% static 'css/finance-fixes.css' %}?v=1">
     <link rel="stylesheet" href="{% static 'css/finance-animations.css' %}?v=1">
     <link rel="stylesheet" href="{% static 'css/finance-filters.css' %}?v=1">
@@ -64,12 +64,12 @@
                     <span class="fin-quick__swap">⇄</span> Переказ
                 </button>
             </div>
-            <button type="button" class="fin-icon-btn fin-icon-btn--settings" id="fin-settings-btn" title="Налаштування" aria-label="Налаштування">
+            <button type="button" class="fin-icon-btn fin-icon-btn--settings" id="fin-settings-btn" title="Налаштування" aria-label="Налаштування" aria-controls="fin-settings-panel" aria-expanded="false">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94L14.4 2.81a.488.488 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
             </button>
         </div>
 
-        <button type="button" class="fin-burger" id="fin-burger" aria-label="Меню" aria-expanded="false">
+        <button type="button" class="fin-burger" id="fin-burger" aria-label="Меню" aria-controls="fin-sidebar" aria-expanded="false">
             <span></span><span></span><span></span>
         </button>
     </header>
@@ -78,46 +78,6 @@
         <!-- ===== Ліва фінансова панель ===== -->
         <aside class="fin-sidebar" id="fin-sidebar">
             <div class="fin-sidebar__scroll">
-                <!-- Навігація для мобільних -->
-                <nav class="fin-mobile-nav">
-                    <a href="{% url 'finance_home' %}" class="fin-mobile-nav__item{% if active_tab == 'payments' %} active{% endif %}">
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14z"/><path d="M7 12h2v5H7zm4-3h2v8h-2zm4-3h2v11h-2z"/></svg>
-                        <span>Платежі</span>
-                    </a>
-                    <a href="{% url 'finance_analytics' %}" class="fin-mobile-nav__item{% if active_tab == 'analytics' %} active{% endif %}">
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
-                        <span>Аналітика</span>
-                    </a>
-                    <a href="{% url 'finance_consignment' %}" class="fin-mobile-nav__item{% if active_tab == 'consignment' %} active{% endif %}">
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 7h-3V6a4 4 0 0 0-8 0v1H5a1 1 0 0 0-1 1v11a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V8a1 1 0 0 0-1-1zm-9-1a2 2 0 0 1 4 0v1h-4V6z"/></svg>
-                        <span>Магазини</span>
-                    </a>
-                    <a href="{% url 'finance_planned' %}" class="fin-mobile-nav__item{% if active_tab == 'planned' %} active{% endif %}">
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
-                        <span>Планові</span>
-                    </a>
-                    <a href="{% url 'finance_ai' %}" class="fin-mobile-nav__item{% if active_tab == 'ai' %} active{% endif %}">
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
-                        <span>AI радник</span>
-                    </a>
-                    <a href="{% url 'finance_calendar' %}" class="fin-mobile-nav__item{% if active_tab == 'calendar' %} active{% endif %}">
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z"/></svg>
-                        <span>Календар</span>
-                    </a>
-                    <a href="{% url 'finance_invoices' %}" class="fin-mobile-nav__item{% if active_tab == 'invoices' %} active{% endif %}">
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>
-                        <span>Рахунки</span>
-                    </a>
-                    <a href="{% url 'finance_rules' %}" class="fin-mobile-nav__item{% if active_tab == 'rules' %} active{% endif %}">
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg>
-                        <span>Автоправила</span>
-                    </a>
-                    <a href="{% url 'finance_users' %}" class="fin-mobile-nav__item{% if active_tab == 'users' %} active{% endif %}">
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-                        <span>Користувачі</span>
-                    </a>
-                </nav>
-
                 <div class="fin-balance-card">
                     <div class="fin-balance-card__label">Всього на рахунках</div>
                     <div class="fin-balance-card__value" id="fin-total-balance">
@@ -223,9 +183,31 @@
                 <button type="button" class="fin-modal-close" id="fin-settings-close" aria-label="Закрити">&times;</button>
             </div>
             <div class="fin-settings-panel__body">
-                <section class="fin-settings-section">
-                    <h4 class="fin-settings-section__title">Push-повідомлення</h4>
-                    <div class="fin-settings-section__content">
+                <section class="fin-settings-section fin-settings-section--nav">
+                    <h4 class="fin-settings-section__title">Меню</h4>
+                    <nav class="fin-settings-nav" aria-label="Фінансова навігація">
+                        <a href="{% url 'finance_home' %}" class="fin-settings-nav__item{% if active_tab == 'payments' %} is-active{% endif %}">Платежі</a>
+                        <a href="{% url 'finance_health' %}" class="fin-settings-nav__item{% if active_tab == 'health' %} is-active{% endif %}">Здоров'я</a>
+                        <a href="{% url 'finance_consignment' %}" class="fin-settings-nav__item{% if active_tab == 'consignment' %} is-active{% endif %}">Магазини</a>
+                        <a href="{% url 'finance_planned' %}" class="fin-settings-nav__item{% if active_tab == 'planned' %} is-active{% endif %}">Планові</a>
+                        <a href="{% url 'finance_analytics' %}" class="fin-settings-nav__item{% if active_tab == 'analytics' %} is-active{% endif %}">Аналітика</a>
+                        <a href="{% url 'finance_ai' %}" class="fin-settings-nav__item{% if active_tab == 'ai' %} is-active{% endif %}">AI радник</a>
+                        <a href="{% url 'finance_calendar' %}" class="fin-settings-nav__item{% if active_tab == 'calendar' %} is-active{% endif %}">Календар</a>
+                        <a href="{% url 'finance_invoices' %}" class="fin-settings-nav__item{% if active_tab == 'invoices' %} is-active{% endif %}">Рахунки-фактури</a>
+                        <a href="{% url 'finance_rules' %}" class="fin-settings-nav__item{% if active_tab == 'rules' %} is-active{% endif %}">Автоправила</a>
+                        <a href="{% url 'finance_users' %}" class="fin-settings-nav__item{% if active_tab == 'users' %} is-active{% endif %}">Користувачі</a>
+                    </nav>
+                </section>
+
+                <section class="fin-settings-section fin-settings-section--push">
+                    <button type="button" class="fin-settings-disclosure" id="fin-push-disclosure" aria-expanded="false" aria-controls="fin-push-settings-content">
+                        <span>
+                            <strong>Push-повідомлення</strong>
+                            <small>Щоденні та тижневі фінансові звіти</small>
+                        </span>
+                        <svg class="fin-settings-disclosure__chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+                    </button>
+                    <div class="fin-settings-section__content" id="fin-push-settings-content" hidden>
                         <div class="fin-setting-row">
                             <label class="fin-setting-label">
                                 <span>Увімкнути повідомлення</span>
@@ -319,8 +301,8 @@
 
     <span class="fin-version">v0.1</span>
 
-    <script src="{% static 'js/finance.js' %}?v=20260531b"></script>
-    <script src="{% static 'js/finance-pwa.js' %}?v=20260531b"></script>
+    <script src="{% static 'js/finance.js' %}?v=20260601c"></script>
+    <script src="{% static 'js/finance-pwa.js' %}?v=20260601c"></script>
     <script src="{% static 'js/finance-ui-enhancements.js' %}?v=2"></script>
     {% block extra_js %}{% endblock %}
 </body>

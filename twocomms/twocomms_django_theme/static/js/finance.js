@@ -8,28 +8,138 @@
         var body = document.body;
         var burger = document.getElementById('fin-burger');
         var backdrop = document.getElementById('fin-sidebar-backdrop');
+        var EDGE_SWIPE_WIDTH = 28;
+        var MIN_SWIPE_DISTANCE = 72;
+        var SWIPE_AXIS_RATIO = 1.35;
+        var SWIPE_CANCEL_Y = 44;
+        var swipe = null;
 
-        // Бургер відкриває вкладки + сайдбар на мобільних.
+        function isMobileDrawerViewport() {
+            return window.matchMedia ? window.matchMedia('(max-width: 900px)').matches : window.innerWidth <= 900;
+        }
+
+        function setSidebarOpen(open) {
+            if (open && !isMobileDrawerViewport()) return;
+            if (open && window.FinanceSettings && typeof window.FinanceSettings.close === 'function') {
+                window.FinanceSettings.close();
+            }
+            body.classList.toggle('fin-sidebar-open', open);
+            body.classList.toggle('fin-menu-open', open);
+            body.classList.toggle('fin-any-drawer-open', open || body.classList.contains('fin-settings-open'));
+            if (burger) burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+
+        function openSettingsDrawer() {
+            setSidebarOpen(false);
+            if (window.FinanceSettings && typeof window.FinanceSettings.open === 'function') {
+                window.FinanceSettings.open();
+            }
+        }
+
+        function resetSwipe() {
+            swipe = null;
+        }
+
+        function onTouchStart(e) {
+            if (!isMobileDrawerViewport() || !e.touches || e.touches.length !== 1) return;
+            var touch = e.touches[0];
+            var viewportWidth = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+            var side = null;
+
+            if (touch.clientX <= EDGE_SWIPE_WIDTH) {
+                side = 'left';
+            } else if (touch.clientX >= viewportWidth - EDGE_SWIPE_WIDTH) {
+                side = 'right';
+            }
+            if (!side) return;
+
+            swipe = {
+                side: side,
+                startX: touch.clientX,
+                startY: touch.clientY,
+                cancelled: false,
+                horizontal: false
+            };
+        }
+
+        function onTouchMove(e) {
+            if (!swipe || !e.touches || e.touches.length !== 1) return;
+            var touch = e.touches[0];
+            var deltaX = touch.clientX - swipe.startX;
+            var deltaY = touch.clientY - swipe.startY;
+            var absX = Math.abs(deltaX);
+            var absY = Math.abs(deltaY);
+
+            if (absY > SWIPE_CANCEL_Y && Math.abs(deltaX) <= Math.abs(deltaY)) {
+                swipe.cancelled = true;
+                resetSwipe();
+                return;
+            }
+            if ((swipe.side === 'left' && deltaX < -8) || (swipe.side === 'right' && deltaX > 8)) {
+                swipe.cancelled = true;
+                resetSwipe();
+                return;
+            }
+            if (absX > 16 && absX > absY * SWIPE_AXIS_RATIO) {
+                swipe.horizontal = true;
+                if (e.cancelable) e.preventDefault();
+            }
+        }
+
+        function onTouchEnd(e) {
+            if (!swipe || swipe.cancelled) {
+                resetSwipe();
+                return;
+            }
+            var touch = e.changedTouches && e.changedTouches[0];
+            if (!touch) {
+                resetSwipe();
+                return;
+            }
+            var side = swipe.side;
+            var deltaX = touch.clientX - swipe.startX;
+            var deltaY = touch.clientY - swipe.startY;
+            var isHorizontal = Math.abs(deltaX) >= MIN_SWIPE_DISTANCE &&
+                Math.abs(deltaX) > Math.abs(deltaY) * SWIPE_AXIS_RATIO;
+
+            resetSwipe();
+            if (!isHorizontal) return;
+
+            if (side === 'left' && deltaX > 0) {
+                setSidebarOpen(true);
+            } else if (side === 'right' && deltaX < 0) {
+                openSettingsDrawer();
+            }
+        }
+
+        window.FinanceSidebar = {
+            open: function () { setSidebarOpen(true); },
+            close: function () { setSidebarOpen(false); },
+            isOpen: function () { return body.classList.contains('fin-sidebar-open'); }
+        };
+
+        // Бургер відкриває фінансові показники на мобільних.
         if (burger) {
             burger.addEventListener('click', function () {
-                var open = body.classList.toggle('fin-sidebar-open');
-                body.classList.toggle('fin-menu-open', open);
-                burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+                setSidebarOpen(!body.classList.contains('fin-sidebar-open'));
             });
         }
         if (backdrop) {
             backdrop.addEventListener('click', function () {
-                body.classList.remove('fin-sidebar-open', 'fin-menu-open');
-                if (burger) burger.setAttribute('aria-expanded', 'false');
+                setSidebarOpen(false);
             });
         }
 
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
-                body.classList.remove('fin-sidebar-open', 'fin-menu-open');
-                if (burger) burger.setAttribute('aria-expanded', 'false');
+                setSidebarOpen(false);
             }
         });
+
+        document.addEventListener('touchstart', onTouchStart, { passive: true });
+        document.addEventListener('touchmove', onTouchMove, { passive: false });
+        document.addEventListener('touchend', onTouchEnd, { passive: true });
+        document.addEventListener('touchcancel', resetSwipe, { passive: true });
 
         // Швидкі дії: справжні модалки додаються у Блоці 3.
         // Поки лишаємо хук, щоб кнопки не виглядали «мертвими».

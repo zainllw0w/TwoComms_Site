@@ -5,6 +5,16 @@
 
     let deferredPrompt = null;
     let swRegistration = null;
+    let settingsCloseTimer = null;
+
+    window.FinanceSettings = {
+        open: openSettings,
+        close: closeSettings,
+        isOpen: function () {
+            const panel = document.getElementById('fin-settings-panel');
+            return !!panel && !panel.hidden;
+        }
+    };
 
     document.addEventListener('DOMContentLoaded', function () {
         // ===== Service Worker реєстрація =====
@@ -68,6 +78,8 @@
         const settingsPanel = document.getElementById('fin-settings-panel');
         const settingsClose = document.getElementById('fin-settings-close');
         const settingsBackdrop = document.getElementById('fin-settings-backdrop');
+        const pushDisclosure = document.getElementById('fin-push-disclosure');
+        const pushDisclosureContent = document.getElementById('fin-push-settings-content');
 
         if (settingsBtn && settingsPanel) {
             settingsBtn.addEventListener('click', function () {
@@ -81,6 +93,14 @@
                 if (e.key === 'Escape' && !settingsPanel.hidden) {
                     closeSettings();
                 }
+            });
+        }
+
+        if (pushDisclosure && pushDisclosureContent) {
+            pushDisclosure.addEventListener('click', function () {
+                const open = pushDisclosure.getAttribute('aria-expanded') !== 'true';
+                pushDisclosure.setAttribute('aria-expanded', open ? 'true' : 'false');
+                pushDisclosureContent.hidden = !open;
             });
         }
 
@@ -98,7 +118,7 @@
                 if (this.checked) {
                     requestNotificationPermission();
                 }
-                pushSettingsContent.hidden = !this.checked;
+                if (pushSettingsContent) pushSettingsContent.hidden = !this.checked;
             });
         }
 
@@ -136,9 +156,18 @@
     // ===== Функції =====
     function openSettings() {
         const panel = document.getElementById('fin-settings-panel');
+        const settingsBtn = document.getElementById('fin-settings-btn');
+        const burger = document.getElementById('fin-burger');
         if (panel) {
+            if (settingsCloseTimer) {
+                clearTimeout(settingsCloseTimer);
+                settingsCloseTimer = null;
+            }
+            document.body.classList.remove('fin-sidebar-open', 'fin-menu-open');
+            document.body.classList.add('fin-settings-open', 'fin-any-drawer-open');
+            if (burger) burger.setAttribute('aria-expanded', 'false');
+            if (settingsBtn) settingsBtn.setAttribute('aria-expanded', 'true');
             panel.hidden = false;
-            document.body.classList.add('fin-settings-open');
             // Анімація
             requestAnimationFrame(function () {
                 panel.classList.add('is-open');
@@ -148,11 +177,19 @@
 
     function closeSettings() {
         const panel = document.getElementById('fin-settings-panel');
+        const settingsBtn = document.getElementById('fin-settings-btn');
         if (panel) {
+            if (settingsCloseTimer) {
+                clearTimeout(settingsCloseTimer);
+                settingsCloseTimer = null;
+            }
             panel.classList.remove('is-open');
-            setTimeout(function () {
+            if (settingsBtn) settingsBtn.setAttribute('aria-expanded', 'false');
+            settingsCloseTimer = setTimeout(function () {
                 panel.hidden = true;
                 document.body.classList.remove('fin-settings-open');
+                document.body.classList.toggle('fin-any-drawer-open', document.body.classList.contains('fin-sidebar-open'));
+                settingsCloseTimer = null;
             }, 300);
         }
     }
