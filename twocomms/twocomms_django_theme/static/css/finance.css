@@ -36,6 +36,10 @@ html, body {
 }
 
 .fin-body {
+    --fin-left-drawer-progress: 0px;
+    --fin-right-drawer-progress: 0px;
+    --fin-left-drawer-ratio: 0;
+    --fin-right-drawer-ratio: 0;
     margin: 0;
     min-height: 100vh;
     color: var(--fin-text);
@@ -613,11 +617,24 @@ a { color: inherit; }
         inset: 0;
         background: rgba(0, 0, 0, 0.6);
         backdrop-filter: blur(4px);
+        opacity: 0;
+        transition: opacity 0.3s ease;
         z-index: 99 !important;
     }
 
     .fin-body.fin-sidebar-open .fin-sidebar__backdrop {
         display: block;
+        opacity: 1;
+    }
+
+    .fin-body.fin-sidebar-peeking .fin-sidebar {
+        transform: translateX(calc(-100% + var(--fin-left-drawer-progress, 0px)));
+    }
+
+    .fin-body.fin-sidebar-peeking .fin-sidebar__backdrop {
+        display: block;
+        opacity: calc(var(--fin-left-drawer-ratio, 0) * 0.6);
+        pointer-events: none;
     }
 
     .fin-sidebar__scroll {
@@ -1508,6 +1525,15 @@ body.fin-modal-open { overflow: hidden; }
 }
 .fin-settings-panel.is-open .fin-settings-panel__content { transform: translateX(0); }
 
+.fin-body.fin-settings-peeking .fin-settings-panel__content {
+    transform: translateX(calc(100% - var(--fin-right-drawer-progress, 0px)));
+}
+
+.fin-body.fin-settings-peeking .fin-settings-panel__backdrop {
+    opacity: calc(var(--fin-right-drawer-ratio, 0) * 0.7);
+    pointer-events: none;
+}
+
 .fin-settings-panel__header {
     display: flex;
     align-items: center;
@@ -1744,6 +1770,15 @@ body.fin-settings-open { overflow: hidden; }
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.fin-body.fin-drawer-dragging .fin-sidebar,
+.fin-body.fin-drawer-dragging .fin-settings-panel__content {
+    transition: none;
+}
+
+.fin-body.fin-drawer-dragging {
+    user-select: none;
+}
+
 .fin-modal-overlay {
     transition: opacity 0.25s ease, backdrop-filter 0.25s ease;
 }
@@ -1779,6 +1814,14 @@ body.fin-settings-open { overflow: hidden; }
 
     .fin-body {
         overscroll-behavior-x: contain;
+        touch-action: pan-y pinch-zoom;
+    }
+
+    .fin-tabs,
+    .fin-table-wrap,
+    .fin-sidebar__scroll,
+    .fin-settings-panel__body {
+        touch-action: pan-x pan-y pinch-zoom;
     }
 
     .fin-settings-panel__content {

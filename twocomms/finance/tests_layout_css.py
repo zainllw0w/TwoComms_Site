@@ -87,17 +87,40 @@ class FinanceMobileDrawerStructureTests(SimpleTestCase):
         self.assertIn('id="fin-push-settings-content" hidden', template)
         self.assertIn('id="push-settings-content" hidden', template)
 
-    def test_finance_js_uses_edge_swipes_for_left_and_right_drawers(self):
+    def test_finance_js_uses_pointer_drags_for_safe_smooth_drawers(self):
         js = self._read("twocomms_django_theme/static/js/finance.js")
 
-        self.assertIn("EDGE_SWIPE_WIDTH", js)
-        self.assertIn("MIN_SWIPE_DISTANCE", js)
-        self.assertIn("touchstart", js)
-        self.assertIn("touchmove", js)
-        self.assertIn("touchend", js)
-        self.assertIn("passive: false", js)
+        self.assertIn("SAFE_EDGE_GUARD", js)
+        self.assertIn("EDGE_OPEN_ZONE", js)
+        self.assertIn("CENTER_DRAG_THRESHOLD", js)
+        self.assertIn("pointerdown", js)
+        self.assertIn("pointermove", js)
+        self.assertIn("pointercancel", js)
+        self.assertIn("setPointerCapture", js)
+        self.assertIn("releasePointerCapture", js)
+        self.assertIn("isInteractiveGestureTarget", js)
+        self.assertIn("setDrawerProgress", js)
+        self.assertIn("fin-drawer-dragging", js)
+        self.assertIn("fin-sidebar-peeking", js)
+        self.assertIn("fin-settings-peeking", js)
         self.assertIn("window.FinanceSettings.open()", js)
-        self.assertIn("Math.abs(deltaX) <= Math.abs(deltaY)", js)
+
+    def test_mobile_drawers_have_drag_progress_css_states(self):
+        css = self._read("twocomms_django_theme/static/css/finance.css")
+
+        self.assertIn("--fin-left-drawer-progress", css)
+        self.assertIn("--fin-right-drawer-progress", css)
+        self.assertIn(".fin-body.fin-sidebar-peeking .fin-sidebar", css)
+        self.assertIn(".fin-body.fin-settings-peeking .fin-settings-panel__content", css)
+        self.assertIn(".fin-body.fin-drawer-dragging .fin-sidebar", css)
+        self.assertIn(".fin-body.fin-drawer-dragging .fin-settings-panel__content", css)
+        self.assertRegex(
+            css,
+            r"\.fin-body\.fin-drawer-dragging\s+\.fin-sidebar,\s*"
+            r"\.fin-body\.fin-drawer-dragging\s+\.fin-settings-panel__content\s*\{[^}]*"
+            r"transition:\s*none;",
+        )
+        self.assertIn("touch-action: pan-y pinch-zoom;", css)
 
     def test_settings_js_exposes_panel_api_and_push_disclosure(self):
         js = self._read("twocomms_django_theme/static/js/finance-pwa.js")

@@ -7,12 +7,22 @@
     document.addEventListener('DOMContentLoaded', function () {
         var body = document.body;
         var burger = document.getElementById('fin-burger');
+        var sidebar = document.getElementById('fin-sidebar');
         var backdrop = document.getElementById('fin-sidebar-backdrop');
-        var EDGE_SWIPE_WIDTH = 28;
-        var MIN_SWIPE_DISTANCE = 72;
-        var SWIPE_AXIS_RATIO = 1.35;
-        var SWIPE_CANCEL_Y = 44;
-        var swipe = null;
+        var settingsPanel = document.getElementById('fin-settings-panel');
+        var settingsContent = settingsPanel ? settingsPanel.querySelector('.fin-settings-panel__content') : null;
+        var SAFE_EDGE_GUARD = 20;
+        var EDGE_OPEN_ZONE = 104;
+        var EDGE_DRAG_THRESHOLD = 12;
+        var CENTER_DRAG_THRESHOLD = 34;
+        var EDGE_AXIS_RATIO = 1.25;
+        var CENTER_AXIS_RATIO = 1.75;
+        var VERTICAL_CANCEL_DISTANCE = 42;
+        var DRAWER_OPEN_RATIO = 0.42;
+        var DRAWER_OPEN_FLING = 0.55;
+        var DRAWER_MIN_RELEASE = 72;
+        var DRAWER_SETTLE_MS = 320;
+        var drawerDrag = null;
 
         function isMobileDrawerViewport() {
             return window.matchMedia ? window.matchMedia('(max-width: 900px)').matches : window.innerWidth <= 900;
@@ -36,79 +46,227 @@
             }
         }
 
-        function resetSwipe() {
-            swipe = null;
+        function viewportWidth() {
+            return window.visualViewport ? window.visualViewport.width : window.innerWidth;
         }
 
-        function onTouchStart(e) {
-            if (!isMobileDrawerViewport() || !e.touches || e.touches.length !== 1) return;
-            var touch = e.touches[0];
-            var viewportWidth = window.visualViewport ? window.visualViewport.width : window.innerWidth;
-            var side = null;
+        function isInteractiveGestureTarget(target) {
+            return !!(target && target.closest(
+                'a, button, input, select, textarea, label, [role="button"], [contenteditable="true"], ' +
+                '.fin-sidebar, .fin-settings-panel, .fin-modal-overlay, .fin-table-wrap, .fin-tabs'
+            ));
+        }
 
-            if (touch.clientX <= EDGE_SWIPE_WIDTH) {
-                side = 'left';
-            } else if (touch.clientX >= viewportWidth - EDGE_SWIPE_WIDTH) {
-                side = 'right';
+        function clamp(value, min, max) {
+            return Math.min(Math.max(value, min), max);
+        }
+
+        function drawerWidth(side) {
+            var width = 0;
+            if (side === 'left' && sidebar) {
+                width = sidebar.getBoundingClientRect().width;
+            } else if (side === 'right' && settingsContent) {
+                width = settingsContent.getBoundingClientRect().width;
             }
-            if (!side) return;
+            return width || Math.min(420, viewportWidth() * 0.92);
+        }
 
-            swipe = {
-                side: side,
-                startX: touch.clientX,
-                startY: touch.clientY,
-                cancelled: false,
-                horizontal: false
+        function setDrawerProgress(side, progress, width) {
+            var safeWidth = width || drawerWidth(side);
+            var nextProgress = clamp(progress, 0, safeWidth);
+            var ratio = safeWidth ? clamp(nextProgress / safeWidth, 0, 1) : 0;
+            if (side === 'left') {
+                body.style.setProperty('--fin-left-drawer-progress', nextProgress + 'px');
+                body.style.setProperty('--fin-left-drawer-ratio', ratio.toFixed(3));
+            } else {
+                body.style.setProperty('--fin-right-drawer-progress', nextProgress + 'px');
+                body.style.setProperty('--fin-right-drawer-ratio', ratio.toFixed(3));
+            }
+            return nextProgress;
+        }
+
+        function clearDrawerProgress(side) {
+            if (!side || side === 'left') {
+                body.style.removeProperty('--fin-left-drawer-progress');
+                body.style.removeProperty('--fin-left-drawer-ratio');
+                body.classList.remove('fin-sidebar-peeking');
+            }
+            if (!side || side === 'right') {
+                body.style.removeProperty('--fin-right-drawer-progress');
+                body.style.removeProperty('--fin-right-drawer-ratio');
+                body.classList.remove('fin-settings-peeking');
+            }
+        }
+
+        function hideSettingsPreview() {
+            if (!settingsPanel || body.classList.contains('fin-settings-open')) return;
+            window.setTimeout(function () {
+                if (
+                    settingsPanel &&
+                    !body.classList.contains('fin-settings-open') &&
+                    !body.classList.contains('fin-settings-peeking')
+                ) {
+                    settingsPanel.hidden = true;
+                }
+            }, DRAWER_SETTLE_MS);
+        }
+
+        function prepareDrawerPreview(side) {
+            if (side === 'right' && settingsPanel) {
+                settingsPanel.hidden = false;
+                settingsPanel.classList.remove('is-open');
+            }
+            if (side === 'left' && window.FinanceSettings && typeof window.FinanceSettings.close === 'function') {
+                window.FinanceSettings.close();
+            }
+            body.classList.add('fin-drawer-dragging');
+            body.classList.toggle('fin-sidebar-peeking', side === 'left');
+            body.classList.toggle('fin-settings-peeking', side === 'right');
+            return drawerWidth(side);
+        }
+
+        function releasePointerCapture() {
+            if (
+                drawerDrag &&
+                drawerDrag.captureTarget &&
+                typeof drawerDrag.captureTarget.releasePointerCapture === 'function'
+            ) {
+                try {
+                    drawerDrag.captureTarget.releasePointerCapture(drawerDrag.pointerId);
+                } catch (err) {}
+            }
+        }
+
+        function resetDrawerDrag() {
+            var side = drawerDrag ? drawerDrag.side : null;
+            releasePointerCapture();
+            drawerDrag = null;
+            body.classList.remove('fin-drawer-dragging');
+            clearDrawerProgress(side);
+            if (side === 'right') hideSettingsPreview();
+        }
+
+        function startDrawerDrag(side, e) {
+            if (!drawerDrag || drawerDrag.active) return;
+            drawerDrag.active = true;
+            drawerDrag.side = side;
+            drawerDrag.width = prepareDrawerPreview(side);
+            drawerDrag.lastX = e.clientX;
+            drawerDrag.lastTime = window.performance ? performance.now() : Date.now();
+
+            if (e.target && typeof e.target.setPointerCapture === 'function') {
+                try {
+                    e.target.setPointerCapture(e.pointerId);
+                    drawerDrag.captureTarget = e.target;
+                } catch (err) {}
+            }
+        }
+
+        function dragProgressFromEvent(e) {
+            if (!drawerDrag || !drawerDrag.side) return 0;
+            var deltaX = e.clientX - drawerDrag.startX;
+            if (drawerDrag.side === 'left') return clamp(deltaX, 0, drawerDrag.width);
+            return clamp(-deltaX, 0, drawerDrag.width);
+        }
+
+        function candidateSideFromEdge(x, width) {
+            if (x <= SAFE_EDGE_GUARD || x >= width - SAFE_EDGE_GUARD) return null;
+            if (x <= EDGE_OPEN_ZONE) return 'left';
+            if (x >= width - EDGE_OPEN_ZONE) return 'right';
+            return null;
+        }
+
+        function onPointerDown(e) {
+            if (
+                !window.PointerEvent ||
+                !isMobileDrawerViewport() ||
+                body.classList.contains('fin-any-drawer-open') ||
+                (e.pointerType === 'mouse' && e.button !== 0) ||
+                e.isPrimary === false ||
+                isInteractiveGestureTarget(e.target)
+            ) {
+                return;
+            }
+
+            var width = viewportWidth();
+            var startSide = candidateSideFromEdge(e.clientX, width);
+            var fromSystemEdge = e.clientX <= SAFE_EDGE_GUARD || e.clientX >= width - SAFE_EDGE_GUARD;
+            if (fromSystemEdge) return;
+
+            drawerDrag = {
+                pointerId: e.pointerId,
+                startX: e.clientX,
+                startY: e.clientY,
+                side: startSide,
+                active: false,
+                width: 0,
+                lastX: e.clientX,
+                lastTime: window.performance ? performance.now() : Date.now(),
+                velocityX: 0,
+                captureTarget: null
             };
         }
 
-        function onTouchMove(e) {
-            if (!swipe || !e.touches || e.touches.length !== 1) return;
-            var touch = e.touches[0];
-            var deltaX = touch.clientX - swipe.startX;
-            var deltaY = touch.clientY - swipe.startY;
+        function onPointerMove(e) {
+            if (!drawerDrag || e.pointerId !== drawerDrag.pointerId) return;
+
+            var deltaX = e.clientX - drawerDrag.startX;
+            var deltaY = e.clientY - drawerDrag.startY;
             var absX = Math.abs(deltaX);
             var absY = Math.abs(deltaY);
+            var now = window.performance ? performance.now() : Date.now();
+            var elapsed = Math.max(now - drawerDrag.lastTime, 1);
+            drawerDrag.velocityX = (e.clientX - drawerDrag.lastX) / elapsed;
+            drawerDrag.lastX = e.clientX;
+            drawerDrag.lastTime = now;
 
-            if (absY > SWIPE_CANCEL_Y && Math.abs(deltaX) <= Math.abs(deltaY)) {
-                swipe.cancelled = true;
-                resetSwipe();
-                return;
+            if (!drawerDrag.active) {
+                if (absY >= VERTICAL_CANCEL_DISTANCE && absY > absX) {
+                    resetDrawerDrag();
+                    return;
+                }
+
+                if (drawerDrag.side) {
+                    if ((drawerDrag.side === 'left' && deltaX < -8) || (drawerDrag.side === 'right' && deltaX > 8)) {
+                        resetDrawerDrag();
+                        return;
+                    }
+                    if (absX >= EDGE_DRAG_THRESHOLD && absX > absY * EDGE_AXIS_RATIO) {
+                        startDrawerDrag(drawerDrag.side, e);
+                    }
+                } else if (absX >= CENTER_DRAG_THRESHOLD && absX > absY * CENTER_AXIS_RATIO) {
+                    startDrawerDrag(deltaX > 0 ? 'left' : 'right', e);
+                }
             }
-            if ((swipe.side === 'left' && deltaX < -8) || (swipe.side === 'right' && deltaX > 8)) {
-                swipe.cancelled = true;
-                resetSwipe();
-                return;
-            }
-            if (absX > 16 && absX > absY * SWIPE_AXIS_RATIO) {
-                swipe.horizontal = true;
-                if (e.cancelable) e.preventDefault();
-            }
+
+            if (!drawerDrag || !drawerDrag.active) return;
+            if (e.cancelable) e.preventDefault();
+            setDrawerProgress(drawerDrag.side, dragProgressFromEvent(e), drawerDrag.width);
         }
 
-        function onTouchEnd(e) {
-            if (!swipe || swipe.cancelled) {
-                resetSwipe();
-                return;
-            }
-            var touch = e.changedTouches && e.changedTouches[0];
-            if (!touch) {
-                resetSwipe();
-                return;
-            }
-            var side = swipe.side;
-            var deltaX = touch.clientX - swipe.startX;
-            var deltaY = touch.clientY - swipe.startY;
-            var isHorizontal = Math.abs(deltaX) >= MIN_SWIPE_DISTANCE &&
-                Math.abs(deltaX) > Math.abs(deltaY) * SWIPE_AXIS_RATIO;
+        function onPointerEnd(e) {
+            if (!drawerDrag || e.pointerId !== drawerDrag.pointerId) return;
+            var side = drawerDrag.side;
+            var progress = drawerDrag.active ? dragProgressFromEvent(e) : 0;
+            var width = drawerDrag.width || drawerWidth(side);
+            var velocity = drawerDrag.velocityX || 0;
+            var flungOpen = side === 'left' ? velocity >= DRAWER_OPEN_FLING : velocity <= -DRAWER_OPEN_FLING;
+            var shouldOpen = drawerDrag.active && (
+                progress >= width * DRAWER_OPEN_RATIO ||
+                (progress >= DRAWER_MIN_RELEASE && flungOpen)
+            );
 
-            resetSwipe();
-            if (!isHorizontal) return;
+            releasePointerCapture();
+            drawerDrag = null;
+            body.classList.remove('fin-drawer-dragging');
+            clearDrawerProgress(side);
 
-            if (side === 'left' && deltaX > 0) {
+            if (shouldOpen && side === 'left') {
                 setSidebarOpen(true);
-            } else if (side === 'right' && deltaX < 0) {
+            } else if (shouldOpen && side === 'right') {
                 openSettingsDrawer();
+            } else if (side === 'right') {
+                hideSettingsPreview();
             }
         }
 
@@ -136,10 +294,10 @@
             }
         });
 
-        document.addEventListener('touchstart', onTouchStart, { passive: true });
-        document.addEventListener('touchmove', onTouchMove, { passive: false });
-        document.addEventListener('touchend', onTouchEnd, { passive: true });
-        document.addEventListener('touchcancel', resetSwipe, { passive: true });
+        document.addEventListener('pointerdown', onPointerDown, { passive: true });
+        document.addEventListener('pointermove', onPointerMove, { passive: false });
+        document.addEventListener('pointerup', onPointerEnd, { passive: true });
+        document.addEventListener('pointercancel', resetDrawerDrag, { passive: true });
 
         // Швидкі дії: справжні модалки додаються у Блоці 3.
         // Поки лишаємо хук, щоб кнопки не виглядали «мертвими».
