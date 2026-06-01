@@ -844,6 +844,40 @@ a { color: inherit; }
 .fin-row--transfer { opacity: 0.96; }
 .fin-table-meta { margin-top: 10px; font-size: 12px; color: var(--fin-muted); }
 
+/* Пагінація + перемикач кількості на сторінці */
+.fin-pagination {
+    margin-top: 14px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px;
+}
+.fin-pagination__info { font-size: 12.5px; color: var(--fin-muted); }
+.fin-pagination__info b { color: var(--fin-text-2); font-variant-numeric: tabular-nums; }
+.fin-pagination__right { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.fin-pager { display: inline-flex; align-items: center; gap: 4px; }
+.fin-pager__btn {
+    min-width: 32px; height: 32px; padding: 0 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 13px; font-variant-numeric: tabular-nums;
+    color: var(--fin-text-2);
+    background: var(--fin-panel-strong);
+    border: 1px solid var(--fin-border);
+    border-radius: 8px; cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.fin-pager__btn:hover:not(:disabled):not(.is-current) { border-color: rgba(243,164,61,0.45); color: var(--fin-text); }
+.fin-pager__btn.is-current {
+    background: var(--fin-accent); border-color: var(--fin-accent);
+    color: #1a1205; font-weight: 700; cursor: default;
+}
+.fin-pager__btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.fin-pager__gap { color: var(--fin-muted); padding: 0 2px; }
+.fin-perpage { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--fin-muted); }
+.fin-perpage .fin-select--sm { min-width: 72px; }
+@media (max-width: 640px) {
+    .fin-pagination { flex-direction: column; align-items: stretch; }
+    .fin-pagination__right { justify-content: space-between; }
+}
+
 /* Група планових */
 .fin-planned-group { border-top: 2px dashed var(--fin-border-strong); }
 .fin-planned-group__head {

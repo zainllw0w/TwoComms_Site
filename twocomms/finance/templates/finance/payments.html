@@ -16,6 +16,8 @@
 
 <!-- Панель фільтрів -->
 <form class="fin-filters" id="fin-filters" method="get" autocomplete="off">
+    {# Зберігаємо обрану кількість на сторінці при застосуванні фільтрів. #}
+    <input type="hidden" name="per_page" value="{{ per_page }}">
     <div class="fin-filters__row">
         <label class="fin-period">
             <select name="period" class="fin-select" id="fin-period">
@@ -141,7 +143,36 @@
     {% endif %}
 </div>
 
-<div class="fin-table-meta">Показано {{ rows|length }} з {{ total_count }} фактичних операцій</div>
+<!-- Пагінація + перемикач кількості на сторінці -->
+<div class="fin-pagination" id="fin-pagination">
+    <div class="fin-pagination__info">
+        {% if total_count %}Показано <b>{{ page_start }}–{{ page_end }}</b> з <b>{{ total_count }}</b> фактичних операцій{% else %}Немає фактичних операцій{% endif %}
+    </div>
+    <div class="fin-pagination__right">
+        {% if page_obj and page_obj.paginator.num_pages > 1 %}
+        <nav class="fin-pager" aria-label="Сторінки">
+            <button type="button" class="fin-pager__btn" data-page="{% if page_obj.has_previous %}{{ page_obj.previous_page_number }}{% else %}1{% endif %}" {% if not page_obj.has_previous %}disabled{% endif %} aria-label="Попередня">‹</button>
+            {% for num in page_range_display %}
+                {% if num is None %}
+                    <span class="fin-pager__gap">…</span>
+                {% elif num == page_obj.number %}
+                    <span class="fin-pager__btn is-current" aria-current="page">{{ num }}</span>
+                {% else %}
+                    <button type="button" class="fin-pager__btn" data-page="{{ num }}">{{ num }}</button>
+                {% endif %}
+            {% endfor %}
+            <button type="button" class="fin-pager__btn" data-page="{% if page_obj.has_next %}{{ page_obj.next_page_number }}{% else %}{{ page_obj.paginator.num_pages }}{% endif %}" {% if not page_obj.has_next %}disabled{% endif %} aria-label="Наступна">›</button>
+        </nav>
+        {% endif %}
+        <label class="fin-perpage">
+            <span>На сторінці</span>
+            <select class="fin-select fin-select--sm" id="fin-perpage-select" aria-label="Кількість на сторінці">
+                {% for opt in per_page_options %}<option value="{{ opt }}" {% if per_page == opt %}selected{% endif %}>{{ opt }}</option>{% endfor %}
+                <option value="all" {% if per_page == 'all' %}selected{% endif %}>Всі</option>
+            </select>
+        </label>
+    </div>
+</div>
 {% endblock %}
 
 {% block modals %}

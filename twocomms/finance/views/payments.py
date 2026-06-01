@@ -50,13 +50,61 @@ def _attach_files(request, txn):
 
 # ----------------------------- Журнал -----------------------------
 
+_PER_PAGE_OPTIONS = [10, 25, 50, 100]
+_PER_PAGE_DEFAULT = 10
+
+
+def _resolve_per_page(raw):
+    """Скільки операцій показувати на сторінці. 'all' → без розбивки, інакше зі списку."""
+    if str(raw).lower() == 'all':
+        return None
+    try:
+        val = int(raw)
+    except (TypeError, ValueError):
+        return _PER_PAGE_DEFAULT
+    return val if val in _PER_PAGE_OPTIONS else _PER_PAGE_DEFAULT
+
+
 @finance_access_required
 def payments(request):
+    from django.core.paginator import Paginator
+
     company = get_default_company()
     qs = filter_service.filter_transactions(company, request.GET)
     actual_qs, planned_qs = filter_service.split_actual_planned(qs)
 
-    actual_rows = [ser.serialize_transaction(t) for t in actual_qs[:500]]
+    total_count = actual_qs.count()
+    per_page = _resolve_per_page(request.GET.get('per_page', _PER_PAGE_DEFAULT))
+
+    # Пагінація фактичних операцій (планові — окрема згорнута секція, не діляться).
+    page_obj = None
+    if per_page is None:
+        page_items = list(actual_qs[:2000])
+        page_start = 1 if page_items else 0
+        page_end = len(page_items)
+    else:
+        paginator = Paginator(actual_qs, per_page)
+        page_obj = paginator.get_page(request.GET.get('page') or 1)
+        page_items = list(page_obj.object_list)
+        page_start = page_obj.start_index()
+        page_end = page_obj.end_index()
+
+    # Компактний список сторінок для пагінатора: 1 … (n-1) n (n+1) … last.
+    # None означає роздільник «…». Рахуємо у в'ю, щоб шаблон лишався простим.
+    page_range_display = []
+    if page_obj and page_obj.paginator.num_pages > 1:
+        last = page_obj.paginator.num_pages
+        cur = page_obj.number
+        wanted = {1, last, cur, cur - 1, cur + 1}
+        shown = sorted(n for n in wanted if 1 <= n <= last)
+        prev = 0
+        for n in shown:
+            if n - prev > 1:
+                page_range_display.append(None)
+            page_range_display.append(n)
+            prev = n
+
+    actual_rows = [ser.serialize_transaction(t) for t in page_items]
 
     # Планові згортаємо в один рядок на серію (повторюване правило / розстрочка
     # магазину), щоб не дублювати «платіж 1/6, 2/6…». Показуємо найближчий
@@ -84,7 +132,13 @@ def payments(request):
         'rows': actual_rows,
         'planned_rows': planned_rows,
         'planned_count': planned_total,
-        'total_count': actual_qs.count(),
+        'total_count': total_count,
+        'page_obj': page_obj,
+        'page_range_display': page_range_display,
+        'page_start': page_start,
+        'page_end': page_end,
+        'per_page': 'all' if per_page is None else per_page,
+        'per_page_options': _PER_PAGE_OPTIONS,
         'dropdowns': ser.serialize_dropdowns(company),
         'current_filters': {
             'period': request.GET.get('period', 'all'),

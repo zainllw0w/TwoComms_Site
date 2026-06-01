@@ -101,6 +101,29 @@ class PaymentsViewTests(TestCase):
         self.assertContains(resp, 'Платежі')
         self.assertContains(resp, 'fin-table')
 
+    def test_journal_pagination(self):
+        # 15 фактичних операцій → за замовчуванням сторінка показує 10.
+        for i in range(15):
+            txn_service.create_transaction(user=self.user, type=Transaction.TYPE_INCOME,
+                                           amount=Decimal('10'), account=self.acc)
+        resp = self._get('/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.context['rows']), 10)
+        self.assertEqual(resp.context['total_count'], 15)
+        self.assertEqual(resp.context['per_page'], 10)
+        self.assertEqual(resp.context['page_obj'].paginator.num_pages, 2)
+        # Друга сторінка — решта 5.
+        resp2 = self._get('/?page=2')
+        self.assertEqual(len(resp2.context['rows']), 5)
+        # per_page=all → без розбивки.
+        resp3 = self._get('/?per_page=all')
+        self.assertEqual(len(resp3.context['rows']), 15)
+        self.assertEqual(resp3.context['per_page'], 'all')
+        self.assertIsNone(resp3.context['page_obj'])
+        # per_page=25 → усі 15 на одній сторінці.
+        resp4 = self._get('/?per_page=25')
+        self.assertEqual(len(resp4.context['rows']), 15)
+
     def test_dropdowns_api(self):
         from django.test import override_settings
         with override_settings(ALLOWED_HOSTS=['fin.twocomms.shop', 'testserver']):

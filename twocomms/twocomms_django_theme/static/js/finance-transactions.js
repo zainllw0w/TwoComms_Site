@@ -509,6 +509,25 @@
     });
   }
 
+  // --- Пагінація: перемикач кількості на сторінці + перехід по сторінках ---
+  (function () {
+    function goWith(mutate) {
+      var params = new URLSearchParams(window.location.search);
+      mutate(params);
+      window.location.search = params.toString();
+    }
+    var perPage = document.getElementById('fin-perpage-select');
+    if (perPage) perPage.addEventListener('change', function () {
+      goWith(function (p) { p.set('per_page', perPage.value); p.delete('page'); });
+    });
+    document.querySelectorAll('.fin-pager__btn[data-page]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (btn.disabled) return;
+        goWith(function (p) { p.set('page', btn.dataset.page); });
+      });
+    });
+  })();
+
   // --- Масовий вибір ---
   var checkAll = document.getElementById('fin-check-all');
   var bulkbar = document.getElementById('fin-bulkbar');
