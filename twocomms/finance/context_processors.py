@@ -41,13 +41,14 @@ def finance_shell_context(request):
     try:
         company = get_default_company()
         today = timezone.localdate()
-        # Прогноз на місяць вперед від сьогодні + усі прострочені, ще не проведені
-        # планові платежі (нижня межа відкрита). Так панель не «обнуляється»,
-        # коли всі плани лежать у наступному календарному місяці.
+        # Прогноз на місяць вперед від сьогодні. Рахуємо лише від сьогодні,
+        # щоб прострочені (ще не погашені) планові не задвоювали суму:
+        # якщо повторюване зобов'язання 2500/міс мало прострочений платіж
+        # І свіжий — панель показувала 5000 замість 2500.
         horizon = today + dt.timedelta(days=30)
 
         total = balance_service.total_actual_balance(company)
-        planned = balance_service.planned_totals(company, None, horizon)
+        planned = balance_service.planned_totals(company, today, horizon)
         forecast = (total + planned['income'] + planned['expense'])
         accounts = balance_service.account_sidebar_data(company)
         frozen = warehouse_link.frozen_in_warehouse()

@@ -616,7 +616,7 @@ def planned_totals_api(request):
     today = timezone.localdate()
     horizon = today + timezone.timedelta(days=days)
     total = balance_service.total_actual_balance(company)
-    planned = balance_service.planned_totals(company, None, horizon)
+    planned = balance_service.planned_totals(company, today, horizon)
     forecast = total + planned['income'] + planned['expense']
 
     return JsonResponse({
