@@ -156,10 +156,12 @@
       </div>
 
       <button type="button" class="fin-disclosure" id="fin-toggle-extra" aria-expanded="false">
-        <span class="fin-disclosure__chev" aria-hidden="true">▸</span> Додати проект, тег, коментар, файл
+        <span class="fin-disclosure__chev" aria-hidden="true">▸</span> Додати тег, коментар, файл
       </button>
       <div class="fin-extra fin-disclosure__body" id="fin-extra-wrap" hidden>
-        <label class="fin-field">
+        {# Поле «Проект» приховано — працюємо над одним проектом. Select лишається у DOM
+           (на нього спирається JS), але не відображається. #}
+        <label class="fin-field" hidden>
           <span>Проект</span>
           <div class="fin-combo">
             <select name="project" id="fin-txn-project" class="fin-select"></select>

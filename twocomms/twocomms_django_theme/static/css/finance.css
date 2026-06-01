@@ -817,6 +817,20 @@ a { color: inherit; }
 .fin-acc-balance { display: block; font-size: 12px; color: var(--fin-muted); }
 .fin-specify { color: var(--fin-accent); font-size: 13px; }
 .fin-muted-cell { color: var(--fin-muted); }
+
+/* Планова дата операції (в журналі — у слоті прибраної колонки «Проект», лише для планових) */
+.fin-cell-plandate { white-space: nowrap; }
+.fin-plandate {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px;
+    font-size: 12px; font-variant-numeric: tabular-nums;
+    color: var(--fin-accent);
+    background: rgba(243, 164, 61, 0.10);
+    border: 1px solid rgba(243, 164, 61, 0.22);
+    border-radius: 999px;
+}
+.fin-plandate svg { width: 13px; height: 13px; fill: currentColor; flex: none; }
+.fin-plandate__time { color: var(--fin-muted); font-size: 11px; }
 .fin-cell-comment { max-width: 280px; }
 .fin-tag-chip {
     display: inline-block; margin-left: 6px; padding: 1px 8px;
@@ -2042,6 +2056,7 @@ body.fin-settings-open { overflow: hidden; }
     /* Приховуємо менш важливі колонки в компактному списку */
     .fin-row td[data-label="Категорія"],
     .fin-row td[data-label="Проект"],
+    .fin-row td[data-label="Планова дата"],
     .fin-row .fin-cell-comment {
         display: none !important;
     }

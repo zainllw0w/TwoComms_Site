@@ -6,8 +6,7 @@
         <span class="fin-date">{{ r.date }}</span>
         <span class="fin-time">{{ r.time }}</span>
         {% if r.is_planned %}<span class="fin-badge fin-badge--planned">план</span>{% endif %}
-        {% if r.recurrence_label %}<span class="fin-badge fin-badge--repeat" title="Повторюваний платіж — деталі у розділі «Планові»">⟳ {{ r.recurrence_label }}</span>{% endif %}
-        {% if r.series_count and r.series_count > 1 %}<span class="fin-badge fin-badge--series" title="Згорнуто {{ r.series_count }} платежів серії">×{{ r.series_count }}</span>{% endif %}
+        {% if r.recurrence_label %}<span class="fin-badge fin-badge--repeat" title="Повторюваний платіж — деталі у розділі «Планові»">⟳ {{ r.recurrence_label }}{% if r.recurrence_badge %} {{ r.recurrence_badge }}{% endif %}</span>{% elif r.series_count and r.series_count > 1 %}<span class="fin-badge fin-badge--series" title="Згорнуто {{ r.series_count }} платежів серії">×{{ r.series_count }}</span>{% endif %}
     </td>
     <td class="fin-col-amount fin-amount--{{ r.amount_class }}" data-label="Сума">{{ r.amount_display }}</td>
     <td class="fin-cell-account" data-label="Рахунок">
@@ -16,7 +15,9 @@
     </td>
     <td data-label="Контрагент">{% if r.counterparty %}{{ r.counterparty }}{% else %}<span class="fin-specify">Вказати</span>{% endif %}</td>
     <td data-label="Категорія">{% if r.category %}{{ r.category }}{% elif r.mcc_label %}<span class="fin-mcc-auto" title="Авто-категорія за MCC {{ r.mcc }}">{{ r.mcc_label }}</span>{% else %}<span class="fin-specify">Вказати</span>{% endif %}</td>
-    <td data-label="Проект">{% if r.project %}{{ r.project }}{% else %}<span class="fin-muted-cell">—</span>{% endif %}</td>
+    {# Колонку «Проект» приховано (працюємо над одним проектом). Для планових рядків
+       у цьому слоті показуємо заплановану дату операції; у фактичних — слота немає. #}
+    {% if r.is_planned %}<td class="fin-cell-plandate" data-label="Планова дата"><span class="fin-plandate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10h5v5H7zM5 22h14a2 2 0 002-2V6a2 2 0 00-2-2h-1V2h-2v2H8V2H6v2H5a2 2 0 00-2 2v14a2 2 0 002 2zm0-16h14v3H5z"/></svg>{{ r.date }}{% if r.time %}<span class="fin-plandate__time">{{ r.time }}</span>{% endif %}</span></td>{% endif %}
     <td class="fin-cell-comment">
         {% if r.is_business %}<span class="fin-icon-badge" title="Бізнес">💼</span>{% else %}<span class="fin-icon-badge" title="Особисте">👤</span>{% endif %}
         {{ r.comment }}

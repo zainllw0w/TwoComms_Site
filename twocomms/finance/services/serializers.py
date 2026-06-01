@@ -108,6 +108,9 @@ def serialize_transaction(txn: Transaction, *, running_balance=None) -> dict:
         'is_recurring': bool(txn.recurrence_rule_id),
         'recurrence_rule_id': txn.recurrence_rule_id,
         'recurrence_label': (txn.recurrence_rule.frequency_label if txn.recurrence_rule_id else ''),
+        # Компактний індикатор межі повторення (∞ безстроково / ×N разів / до ДД.ММ)
+        # — щоб у журналі планові показувались так само красиво, як ×6 у магазинів.
+        'recurrence_badge': (txn.recurrence_rule.repeat_badge if txn.recurrence_rule_id else ''),
         # Поточні налаштування правила — щоб модалка редагування показувала
         # реальний стан повторення (а не порожній бланк).
         'recurrence_frequency': (txn.recurrence_rule.frequency if txn.recurrence_rule_id else ''),
