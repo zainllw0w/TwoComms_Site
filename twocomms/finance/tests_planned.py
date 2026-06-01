@@ -245,6 +245,58 @@ class RecurrenceApiWiringTests(TestCase):
         self.assertEqual(rule.frequency, 'monthly')
         self.assertTrue(rule.transactions.exists())
 
+    def test_update_api_enables_recurrence_on_existing_payment(self):
+        """Редагування наявного разового платежу з recurrence створює правило.
+
+        Регресія: «Зробити повторюваним» на існуючому платежі (як Оренда «Влада
+        мама») раніше ігнорувалось — update_api не читав recurrence.
+        """
+        future = timezone.now() + dt.timedelta(days=4)
+        txn = txn_service.create_transaction(
+            user=self.user, type=Transaction.TYPE_EXPENSE, amount=Decimal('2500'),
+            account=self.acc, currency='UAH', category=self.cat,
+            status=Transaction.STATUS_PLANNED, date_actual=future, comment='Оренда квартиры')
+        self.assertIsNone(txn.recurrence_rule_id)
+        resp = self._post(f'/api/transactions/{txn.id}/update/', {
+            'type': 'expense', 'amount': '2500', 'account': self.acc.id,
+            'category': self.cat.id,
+            'date_actual': future.strftime('%Y-%m-%dT%H:%M'),
+            'recurrence': 'monthly', 'recurrence_end_mode': 'never',
+            'recurrence_title': 'Оренда', 'recurrence_amount_estimated': '1',
+        })
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()['ok'])
+        txn.refresh_from_db()
+        self.assertIsNotNone(txn.recurrence_rule_id)
+        rule = txn.recurrence_rule
+        self.assertEqual(rule.frequency, 'monthly')
+        self.assertTrue(rule.amount_is_estimated)
+        # Матеріалізувалися майбутні екземпляри (горизонт 120 дн).
+        self.assertGreaterEqual(rule.transactions.count(), 2)
+
+    def test_update_api_changes_existing_rule_schedule(self):
+        """Повторне редагування повторюваного платежу оновлює графік правила."""
+        future = timezone.now() + dt.timedelta(days=4)
+        txn = txn_service.create_transaction(
+            user=self.user, type=Transaction.TYPE_EXPENSE, amount=Decimal('2500'),
+            account=self.acc, currency='UAH', category=self.cat,
+            status=Transaction.STATUS_PLANNED, date_actual=future, comment='Оренда')
+        recurring_service.create_rule_from_transaction(
+            txn, user=self.user, frequency='monthly', end_mode=RecurrenceRule.END_NEVER)
+        txn.refresh_from_db()
+        self._post(f'/api/transactions/{txn.id}/update/', {
+            'type': 'expense', 'amount': '2700', 'account': self.acc.id,
+            'category': self.cat.id,
+            'date_actual': future.strftime('%Y-%m-%dT%H:%M'),
+            'recurrence': 'monthly', 'recurrence_interval': '2',
+            'recurrence_end_mode': 'count', 'recurrence_count': '5',
+        })
+        rule = RecurrenceRule.objects.get(id=txn.recurrence_rule_id)
+        self.assertEqual(rule.interval, 2)
+        self.assertEqual(rule.end_mode, RecurrenceRule.END_COUNT)
+        self.assertEqual(rule.count, 5)
+        self.assertEqual(rule.template_amount, Decimal('2700'))
+
     def test_settle_api_marks_actual_with_account(self):
         txn = txn_service.create_transaction(
             user=self.user, type=Transaction.TYPE_EXPENSE, amount=Decimal('500'),

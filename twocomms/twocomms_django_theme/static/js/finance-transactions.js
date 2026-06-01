@@ -261,6 +261,7 @@
       els.markActual.hidden = txn.status !== 'planned';
       syncCurrency();
       if (txn.currency && els.currency) els.currency.value = txn.currency;
+      prefillRecurrence(txn);
     } else {
       setType(type || 'income');
     }
@@ -271,6 +272,34 @@
   function closeModal() {
     modal.hidden = true;
     document.body.classList.remove('fin-modal-open');
+  }
+
+  // Прелоад секції повторення при редагуванні: показує реальний графік правила,
+  // щоб «Зробити повторюваним» не виглядав вимкненим і зберігав поточний стан.
+  function prefillRecurrence(txn) {
+    var sel = els.recurrence;
+    if (!sel) return;
+    var fire = function (el) { if (el && el.dispatchEvent) el.dispatchEvent(new Event('change')); };
+    if (!txn.is_recurring || !txn.recurrence_frequency) { sel.value = ''; fire(sel); return; }
+    var wrap = document.getElementById('fin-recurring-wrap');
+    var toggle = document.getElementById('fin-toggle-recurring');
+    if (wrap) wrap.hidden = false;
+    if (toggle) toggle.setAttribute('aria-expanded', 'true');
+    sel.value = txn.recurrence_frequency;
+    var end = document.getElementById('fin-txn-rec-end');
+    var interval = document.getElementById('fin-txn-rec-interval');
+    var est = document.getElementById('fin-txn-rec-est');
+    var title = document.getElementById('fin-txn-rec-title');
+    var until = document.getElementById('fin-txn-rec-until');
+    var count = document.getElementById('fin-txn-rec-count');
+    if (interval) interval.value = txn.recurrence_interval || '1';
+    if (est) est.value = txn.amount_is_estimated ? '1' : '0';
+    if (title) title.value = txn.recurrence_title || '';
+    if (end) end.value = txn.recurrence_end_mode || 'never';
+    if (until) until.value = txn.recurrence_end_date || '';
+    if (count) count.value = txn.recurrence_count || '';
+    fire(sel);   // показати опції повторення
+    fire(end);   // показати поле дати/кількості за режимом завершення
   }
 
   // Expose to shell quick-action buttons (finance.js calls FinanceModals.open).

@@ -108,6 +108,16 @@ def serialize_transaction(txn: Transaction, *, running_balance=None) -> dict:
         'is_recurring': bool(txn.recurrence_rule_id),
         'recurrence_rule_id': txn.recurrence_rule_id,
         'recurrence_label': (txn.recurrence_rule.frequency_label if txn.recurrence_rule_id else ''),
+        # Поточні налаштування правила — щоб модалка редагування показувала
+        # реальний стан повторення (а не порожній бланк).
+        'recurrence_frequency': (txn.recurrence_rule.frequency if txn.recurrence_rule_id else ''),
+        'recurrence_interval': (txn.recurrence_rule.interval if txn.recurrence_rule_id else 1),
+        'recurrence_end_mode': (txn.recurrence_rule.end_mode if txn.recurrence_rule_id else ''),
+        'recurrence_end_date': (txn.recurrence_rule.end_date.isoformat()
+                                if txn.recurrence_rule_id and txn.recurrence_rule.end_date else ''),
+        'recurrence_count': (txn.recurrence_rule.count if txn.recurrence_rule_id else None),
+        'recurrence_title': (txn.recurrence_rule.title if txn.recurrence_rule_id else ''),
+        'amount_is_estimated': bool(txn.amount_is_estimated),
         'reseller_id': txn.reseller_id,
     }
 

@@ -216,12 +216,15 @@ def transaction_detail_api(request, txn_id):
 @finance_access_required(api=True)
 @require_POST
 def transaction_update_api(request, txn_id):
+    from ..services import recurring as recurring_service
     company = get_default_company()
     txn = get_object_or_404(Transaction, id=txn_id, company=company)
     data = _body(request)
     txn_type = data.get('type', txn.type)
     try:
         kwargs = payload_service.parse_transaction_payload(data, txn_type=txn_type)
+        recurrence = (payload_service.parse_recurrence_payload(data)
+                      if txn_type != Transaction.TYPE_TRANSFER else None)
     except payload_service.PayloadError as e:
         return JsonResponse({'ok': False, 'error': str(e), 'field': e.field}, status=400)
 
@@ -229,6 +232,30 @@ def transaction_update_api(request, txn_id):
     txn_service.update_transaction(txn, user=request.user, tags=tags, **kwargs)
     if request.FILES:
         _attach_files(request, txn)
+
+    # Повторюваність при РЕДАГУВАННІ (раніше ігнорувалась — «Зробити повторюваним»
+    # на наявному платежі не спрацьовував). Вмикання, оновлення або вимикання:
+    if recurrence:
+        if txn.recurrence_rule_id:
+            # Уже повторюваний → оновити графік/суму наявного правила.
+            recurring_service.update_plan(
+                txn.recurrence_rule, user=request.user,
+                amount=txn.amount, amount_is_estimated=recurrence['amount_is_estimated'],
+                title=(recurrence['title'] or None),
+                frequency=recurrence['frequency'], interval=recurrence['interval'],
+                end_mode=recurrence['end_mode'], end_date=recurrence['end_date'],
+                count=recurrence['count'],
+            )
+        else:
+            # Перетворюємо разовий платіж на повторюване зобов'язання.
+            recurring_service.create_rule_from_transaction(txn, user=request.user, **recurrence)
+    # Вимкнення повторення тут НЕ робимо автоматично (щоб редагування суми не
+    # знищило правило) — для цього є кнопка «Зупинити повторення» в «Планових».
+
+    # Операцію могли перебудувати (re-materialize) — повертаємо свіжий стан.
+    txn = Transaction.objects.filter(id=txn_id, company=company).first()
+    if txn is None:
+        return JsonResponse({'ok': True})
     return JsonResponse({'ok': True, 'transaction': ser.serialize_transaction(txn)})
 
 
