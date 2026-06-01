@@ -12,15 +12,20 @@
         var settingsPanel = document.getElementById('fin-settings-panel');
         var settingsContent = settingsPanel ? settingsPanel.querySelector('.fin-settings-panel__content') : null;
         var SAFE_EDGE_GUARD = 20;
-        var EDGE_OPEN_ZONE = 104;
-        var EDGE_DRAG_THRESHOLD = 12;
-        var CENTER_DRAG_THRESHOLD = 34;
-        var EDGE_AXIS_RATIO = 1.25;
-        var CENTER_AXIS_RATIO = 1.75;
-        var VERTICAL_CANCEL_DISTANCE = 42;
-        var DRAWER_OPEN_RATIO = 0.42;
-        var DRAWER_OPEN_FLING = 0.55;
-        var DRAWER_MIN_RELEASE = 72;
+        var EDGE_OPEN_ZONE = 132;
+        var EDGE_DRAG_THRESHOLD = 8;
+        var CENTER_DRAG_THRESHOLD = 22;
+        var CLOSE_DRAG_THRESHOLD = 8;
+        var EDGE_AXIS_RATIO = 1.05;
+        var CENTER_AXIS_RATIO = 1.15;
+        var CLOSE_AXIS_RATIO = 1.05;
+        var VERTICAL_CANCEL_DISTANCE = 64;
+        var DRAWER_OPEN_RATIO = 0.28;
+        var DRAWER_CLOSE_RATIO = 0.72;
+        var DRAWER_OPEN_FLING = 0.35;
+        var DRAWER_CLOSE_FLING = 0.35;
+        var DRAWER_MIN_RELEASE = 44;
+        var DRAWER_MIN_CLOSE = 52;
         var DRAWER_SETTLE_MS = 320;
         var drawerDrag = null;
 
@@ -46,13 +51,28 @@
             }
         }
 
+        function closeSidebarDrawer() {
+            setSidebarOpen(false);
+        }
+
+        function closeSettingsDrawer() {
+            if (window.FinanceSettings && typeof window.FinanceSettings.close === 'function') {
+                window.FinanceSettings.close();
+            }
+        }
+
         function viewportWidth() {
             return window.visualViewport ? window.visualViewport.width : window.innerWidth;
         }
 
-        function isInteractiveGestureTarget(target) {
+        function isControlGestureTarget(target) {
             return !!(target && target.closest(
-                'a, button, input, select, textarea, label, [role="button"], [contenteditable="true"], ' +
+                'a, button, input, select, textarea, label, [role="button"], [contenteditable="true"]'
+            ));
+        }
+
+        function isInteractiveGestureTarget(target) {
+            return isControlGestureTarget(target) || !!(target && target.closest(
                 '.fin-sidebar, .fin-settings-panel, .fin-modal-overlay, .fin-table-wrap, .fin-tabs'
             ));
         }
@@ -111,10 +131,16 @@
             }, DRAWER_SETTLE_MS);
         }
 
-        function prepareDrawerPreview(side) {
+        function currentDrawerSide() {
+            if (body.classList.contains('fin-sidebar-open')) return 'left';
+            if (body.classList.contains('fin-settings-open')) return 'right';
+            return null;
+        }
+
+        function prepareDrawerPreview(side, mode) {
             if (side === 'right' && settingsPanel) {
                 settingsPanel.hidden = false;
-                settingsPanel.classList.remove('is-open');
+                if (mode === 'open') settingsPanel.classList.remove('is-open');
             }
             if (side === 'left' && window.FinanceSettings && typeof window.FinanceSettings.close === 'function') {
                 window.FinanceSettings.close();
@@ -146,13 +172,25 @@
             if (side === 'right') hideSettingsPreview();
         }
 
-        function startDrawerDrag(side, e) {
+        function settleDrawerRelease(side, progress, width, afterSettle) {
+            setDrawerProgress(side, progress, width);
+            body.classList.remove('fin-drawer-dragging');
+            if (typeof afterSettle === 'function') afterSettle();
+            clearDrawerProgress(side);
+            if (side === 'right') hideSettingsPreview();
+        }
+
+        function startDrawerDrag(side, e, mode) {
             if (!drawerDrag || drawerDrag.active) return;
             drawerDrag.active = true;
             drawerDrag.side = side;
-            drawerDrag.width = prepareDrawerPreview(side);
+            drawerDrag.mode = mode || drawerDrag.mode || 'open';
+            drawerDrag.width = prepareDrawerPreview(side, drawerDrag.mode);
             drawerDrag.lastX = e.clientX;
             drawerDrag.lastTime = window.performance ? performance.now() : Date.now();
+            if (drawerDrag.mode === 'close') {
+                setDrawerProgress(side, drawerDrag.width, drawerDrag.width);
+            }
 
             if (e.target && typeof e.target.setPointerCapture === 'function') {
                 try {
@@ -162,9 +200,17 @@
             }
         }
 
+        function startClosingDrawerDrag(side, e) {
+            startDrawerDrag(side, e, 'close');
+        }
+
         function dragProgressFromEvent(e) {
             if (!drawerDrag || !drawerDrag.side) return 0;
             var deltaX = e.clientX - drawerDrag.startX;
+            if (drawerDrag.mode === 'close') {
+                var closeDistance = drawerDrag.side === 'left' ? -deltaX : deltaX;
+                return drawerDrag.width - clamp(closeDistance, 0, drawerDrag.width);
+            }
             if (drawerDrag.side === 'left') return clamp(deltaX, 0, drawerDrag.width);
             return clamp(-deltaX, 0, drawerDrag.width);
         }
@@ -177,12 +223,36 @@
         }
 
         function onPointerDown(e) {
+            var openSide = currentDrawerSide();
             if (
                 !window.PointerEvent ||
                 !isMobileDrawerViewport() ||
-                body.classList.contains('fin-any-drawer-open') ||
                 (e.pointerType === 'mouse' && e.button !== 0) ||
-                e.isPrimary === false ||
+                e.isPrimary === false
+            ) {
+                return;
+            }
+
+            if (openSide) {
+                if (isControlGestureTarget(e.target)) return;
+                drawerDrag = {
+                    mode: 'close',
+                    pointerId: e.pointerId,
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    side: openSide,
+                    active: false,
+                    width: drawerWidth(openSide),
+                    lastX: e.clientX,
+                    lastTime: window.performance ? performance.now() : Date.now(),
+                    velocityX: 0,
+                    captureTarget: null
+                };
+                return;
+            }
+
+            if (
+                body.classList.contains('fin-any-drawer-open') ||
                 isInteractiveGestureTarget(e.target)
             ) {
                 return;
@@ -194,6 +264,7 @@
             if (fromSystemEdge) return;
 
             drawerDrag = {
+                mode: 'open',
                 pointerId: e.pointerId,
                 startX: e.clientX,
                 startY: e.clientY,
@@ -221,12 +292,20 @@
             drawerDrag.lastTime = now;
 
             if (!drawerDrag.active) {
-                if (absY >= VERTICAL_CANCEL_DISTANCE && absY > absX) {
+                if (absY >= VERTICAL_CANCEL_DISTANCE && absY > absX * 1.2) {
                     resetDrawerDrag();
                     return;
                 }
 
-                if (drawerDrag.side) {
+                if (drawerDrag.mode === 'close') {
+                    if ((drawerDrag.side === 'left' && deltaX > 8) || (drawerDrag.side === 'right' && deltaX < -8)) {
+                        resetDrawerDrag();
+                        return;
+                    }
+                    if (absX >= CLOSE_DRAG_THRESHOLD && absX > absY * CLOSE_AXIS_RATIO) {
+                        startClosingDrawerDrag(drawerDrag.side, e);
+                    }
+                } else if (drawerDrag.side) {
                     if ((drawerDrag.side === 'left' && deltaX < -8) || (drawerDrag.side === 'right' && deltaX > 8)) {
                         resetDrawerDrag();
                         return;
@@ -247,26 +326,42 @@
         function onPointerEnd(e) {
             if (!drawerDrag || e.pointerId !== drawerDrag.pointerId) return;
             var side = drawerDrag.side;
+            var mode = drawerDrag.mode || 'open';
             var progress = drawerDrag.active ? dragProgressFromEvent(e) : 0;
             var width = drawerDrag.width || drawerWidth(side);
             var velocity = drawerDrag.velocityX || 0;
             var flungOpen = side === 'left' ? velocity >= DRAWER_OPEN_FLING : velocity <= -DRAWER_OPEN_FLING;
-            var shouldOpen = drawerDrag.active && (
+            var flungClosed = side === 'left' ? velocity <= -DRAWER_CLOSE_FLING : velocity >= DRAWER_CLOSE_FLING;
+            var hiddenDistance = width - progress;
+            var shouldOpen = mode === 'open' && drawerDrag.active && (
                 progress >= width * DRAWER_OPEN_RATIO ||
                 (progress >= DRAWER_MIN_RELEASE && flungOpen)
+            );
+            var shouldClose = mode === 'close' && drawerDrag.active && (
+                progress <= width * DRAWER_CLOSE_RATIO ||
+                hiddenDistance >= DRAWER_MIN_CLOSE ||
+                flungClosed
             );
 
             releasePointerCapture();
             drawerDrag = null;
-            body.classList.remove('fin-drawer-dragging');
-            clearDrawerProgress(side);
 
             if (shouldOpen && side === 'left') {
-                setSidebarOpen(true);
+                settleDrawerRelease(side, width, width, function () {
+                    setSidebarOpen(true);
+                });
             } else if (shouldOpen && side === 'right') {
-                openSettingsDrawer();
+                settleDrawerRelease(side, width, width, openSettingsDrawer);
+            } else if (shouldClose && side === 'left') {
+                settleDrawerRelease(side, 0, width, closeSidebarDrawer);
+            } else if (shouldClose && side === 'right') {
+                settleDrawerRelease(side, 0, width, closeSettingsDrawer);
+            } else if (mode === 'close') {
+                settleDrawerRelease(side, width, width);
             } else if (side === 'right') {
-                hideSettingsPreview();
+                settleDrawerRelease(side, 0, width);
+            } else {
+                settleDrawerRelease(side, 0, width);
             }
         }
 
