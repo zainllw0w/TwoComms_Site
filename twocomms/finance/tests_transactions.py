@@ -100,6 +100,12 @@ class PaymentsViewTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'Платежі')
         self.assertContains(resp, 'fin-table')
+        # Регресія: коментарі шаблону не повинні протікати у вивід як текст
+        # (багаторядкові {# #} рендеряться буквально — використовувати {% comment %}).
+        body = resp.content.decode('utf-8')
+        self.assertNotIn('{#', body)
+        self.assertNotIn('{% comment', body)
+        self.assertNotIn('Проект» приховано', body)
 
     def test_journal_pagination(self):
         # 15 фактичних операцій → за замовчуванням сторінка показує 10.
