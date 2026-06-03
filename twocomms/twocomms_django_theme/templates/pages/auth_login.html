@@ -77,9 +77,15 @@
       var form = document.querySelector('form.vstack');
       var btn = form && form.querySelector('[data-submit-btn]');
       if(form){
-        // Трекинг
+        // Трекинг: вход существующего пользователя — это НЕ Meta-Lead
+        // (Lead = заявка/регистрация). Чтобы не засорять конверсии Lead в
+        // рекламном кабинете, шлём только GTM/GA-событие `login`.
         form.addEventListener('submit', function(){
-          try{ if(window.trackEvent){ window.trackEvent('Lead', {lead_type:'login'}); } }catch(_){ }
+          try{
+            if(window.dataLayer && Array.isArray(window.dataLayer)){
+              window.dataLayer.push({event:'login', method:'password'});
+            }
+          }catch(_){ }
           if(btn){ var sp=btn.querySelector('.spinner-border'); if(sp){ sp.classList.remove('d-none'); } btn.setAttribute('disabled','disabled'); }
         });
       }

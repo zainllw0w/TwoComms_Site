@@ -306,7 +306,15 @@
     selectSizeFromURL();
     state.root.querySelectorAll('input[name="size"]').forEach((input) => {
       input.addEventListener('change', () => {
-        updateCurrentOfferId(state);
+        const offerId = updateCurrentOfferId(state);
+        // Выбор размера — это кастомизация продукта (по аналогии с выбором
+        // цвета). Trekаем CustomizeProduct, как рекомендует Meta
+        // ("A person selects the color/size of a t-shirt").
+        const variantId = state.container.dataset.currentVariant || null;
+        trackCustomizeProduct(state, variantId, offerId, {
+          option: 'size',
+          size: input.value ? String(input.value).toUpperCase() : '',
+        });
       });
     });
   }
@@ -968,18 +976,23 @@
     }
   }
 
-  function trackCustomizeProduct(state, variantId, offerId) {
+  function trackCustomizeProduct(state, variantId, offerId, extra) {
     try {
       if (!window.trackEvent || !offerId) return;
       const payload = document.getElementById('product-analytics-payload');
       const price = parsePrice(payload && payload.dataset.price);
-      window.trackEvent('CustomizeProduct', {
+      const eventData = {
         content_ids: [offerId],
         content_type: 'product',
         variant_id: variantId || null,
         value: price,
         currency: 'UAH',
-      });
+      };
+      if (extra && typeof extra === 'object') {
+        if (extra.option) eventData.customization = extra.option;
+        if (extra.size) eventData.size = extra.size;
+      }
+      window.trackEvent('CustomizeProduct', eventData);
     } catch (_) { }
   }
 

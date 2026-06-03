@@ -14,6 +14,56 @@
 
 import { escapeHtml, getCookie } from './shared.js';
 
+/**
+ * Собирает данные товара (offer_id, цена, название, категория) для событий
+ * AddToWishlist / RemoveFromWishlist. Раньше цена читалась прямо с
+ * .favorite-btn, где атрибута data-product-price нет (он на родительской
+ * карточке .card.product или в #product-detail-container), поэтому value
+ * всегда падал на заглушку 0.01. Теперь ищем данные на ближайшей карточке,
+ * затем на PDP-контейнере, и только потом fallback.
+ */
+function collectWishlistProductData(productId, button) {
+  let price = 0;
+  let title = '';
+  let category = '';
+  let offerId = '';
+
+  const card = button && button.closest ? button.closest('.card.product, [data-product-id]') : null;
+  const pdp = document.getElementById('product-detail-container');
+  const addBtn = document.querySelector('[data-add-to-cart="' + productId + '"]');
+
+  const readFrom = (el) => {
+    if (!el) return;
+    if (!price) {
+      const raw = parseFloat(el.getAttribute('data-product-price') || el.getAttribute('data-price') || '0');
+      if (Number.isFinite(raw) && raw > 0) price = raw;
+    }
+    if (!title) title = el.getAttribute('data-product-title') || el.getAttribute('data-product-name') || '';
+    if (!category) category = el.getAttribute('data-product-category') || '';
+  };
+
+  readFrom(button);
+  readFrom(card);
+  readFrom(addBtn);
+  // PDP: цена лежит в #product-analytics-payload, заголовок — в контейнере.
+  const payload = document.getElementById('product-analytics-payload');
+  if (payload && pdp && String(pdp.getAttribute('data-product-id')) === String(productId)) {
+    if (!price) {
+      const raw = parseFloat(payload.dataset.price || '0');
+      if (Number.isFinite(raw) && raw > 0) price = raw;
+    }
+    if (!title) title = pdp.getAttribute('data-product-title') || '';
+    if (!category) category = pdp.getAttribute('data-product-category') || '';
+    const currentOffer = pdp.getAttribute('data-current-offer-id');
+    if (currentOffer) offerId = currentOffer;
+  }
+
+  if (!offerId) offerId = 'TC-' + productId + '-default-S';
+  if (!Number.isFinite(price) || price <= 0) price = 0.01;
+
+  return { offerId, price, title, category };
+}
+
 export function toggleFavorite(productId, button) {
   if (!button) return;
   button.classList.add('loading');
@@ -32,34 +82,44 @@ export function toggleFavorite(productId, button) {
           button.classList.add('is-favorite');
           try {
             if (window.trackEvent) {
-              const offerId = 'TC-' + productId + '-default-S';
-              let productPrice = parseFloat(button.getAttribute('data-product-price') || '0');
-              if (!productPrice || productPrice === 0) productPrice = 0.01;
-              window.trackEvent('AddToWishlist', {
-                content_ids: [offerId],
+              const info = collectWishlistProductData(productId, button);
+              const meta = (typeof window.buildMetaWithUserData === 'function')
+                ? window.buildMetaWithUserData(undefined)
+                : undefined;
+              const payload = {
+                content_ids: [info.offerId],
                 content_type: 'product',
-                value: productPrice,
+                value: info.price,
                 currency: 'UAH',
                 num_items: 1,
-                contents: [{ id: offerId, quantity: 1, item_price: productPrice }],
-              });
+                contents: [{ id: info.offerId, quantity: 1, item_price: info.price }],
+              };
+              if (info.title) payload.content_name = info.title;
+              if (info.category) payload.content_category = info.category;
+              if (meta) payload.__meta = meta;
+              window.trackEvent('AddToWishlist', payload);
             }
           } catch (_) { }
         } else {
           button.classList.remove('is-favorite');
           try {
             if (window.trackEvent) {
-              const offerId = 'TC-' + productId + '-default-S';
-              let productPrice = parseFloat(button.getAttribute('data-product-price') || '0');
-              if (!productPrice || productPrice === 0) productPrice = 0.01;
-              window.trackEvent('RemoveFromWishlist', {
-                content_ids: [offerId],
+              const info = collectWishlistProductData(productId, button);
+              const meta = (typeof window.buildMetaWithUserData === 'function')
+                ? window.buildMetaWithUserData(undefined)
+                : undefined;
+              const payload = {
+                content_ids: [info.offerId],
                 content_type: 'product',
-                value: productPrice,
+                value: info.price,
                 currency: 'UAH',
                 num_items: 1,
-                contents: [{ id: offerId, quantity: 1, item_price: productPrice }],
-              });
+                contents: [{ id: info.offerId, quantity: 1, item_price: info.price }],
+              };
+              if (info.title) payload.content_name = info.title;
+              if (info.category) payload.content_category = info.category;
+              if (meta) payload.__meta = meta;
+              window.trackEvent('RemoveFromWishlist', payload);
             }
           } catch (_) { }
         }

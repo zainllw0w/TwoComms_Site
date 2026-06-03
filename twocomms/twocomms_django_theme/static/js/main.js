@@ -374,6 +374,12 @@ Object.assign(window.__twcAnalytics, {
   pushBeginCheckoutEvent: pushBeginCheckoutEvent
 });
 
+// Экспонируем helpers глобально, чтобы lazy-модули (favorites.js,
+// custom-print-configurator.js и т.п.) могли строить Advanced Matching meta
+// без дублирования логики.
+window.buildMetaWithUserData = buildMetaWithUserData;
+window.safeGenerateAnalyticsEventId = safeGenerateAnalyticsEventId;
+
 // ===== ОПТИМИЗАЦИЯ ПРОИЗВОДИТЕЛЬНОСТИ =====
 // Анимации появления
 // Оптимизированные настройки IntersectionObserver

@@ -2854,6 +2854,30 @@
       clearDraft();
       const number = data?.lead_number ? ` №${data.lead_number}` : "";
       showStatus(`Дякуємо! Заявка${number} вже у менеджера.`, "success");
+      try {
+        if (window.trackEvent) {
+          const pricing = computePricing();
+          const leadValue = (pricing && Number.isFinite(pricing.final_total) && pricing.final_total > 0)
+            ? pricing.final_total
+            : 0;
+          const eventId = (typeof window.safeGenerateAnalyticsEventId === "function")
+            ? window.safeGenerateAnalyticsEventId()
+            : String(Date.now());
+          const meta = (typeof window.buildMetaWithUserData === "function")
+            ? window.buildMetaWithUserData(eventId)
+            : { event_id: eventId };
+          const leadPayload = {
+            content_name: "Custom print lead",
+            content_category: "custom-print",
+            currency: "UAH",
+            event_id: eventId,
+            __meta: meta,
+          };
+          if (leadValue > 0) leadPayload.value = leadValue;
+          if (data?.lead_number) leadPayload.lead_number = String(data.lead_number);
+          window.trackEvent("Lead", leadPayload);
+        }
+      } catch (_) { }
     } catch (error) {
       console.error("[custom-print v2] submit lead failed", error);
       showStatus("Сервер тимчасово недоступний. Спробуйте через кілька хвилин.", "error");
@@ -2889,6 +2913,35 @@
       }
       clearDraft();
       showStatus(`Додано в кошик · ${formatPrice(pricing.final_total)}. Перейти до оформлення?`, "success");
+      try {
+        if (window.trackEvent) {
+          const cartValue = (pricing && Number.isFinite(pricing.final_total) && pricing.final_total > 0)
+            ? pricing.final_total
+            : 0;
+          const qty = (pricing && pricing.quantity) || STATE.order.quantity || 1;
+          const offerId = data?.offer_id || data?.cart_key || ("custom-" + (STATE.product.type || "garment"));
+          const eventId = (typeof window.safeGenerateAnalyticsEventId === "function")
+            ? window.safeGenerateAnalyticsEventId()
+            : String(Date.now());
+          const meta = (typeof window.buildMetaWithUserData === "function")
+            ? window.buildMetaWithUserData(eventId)
+            : { event_id: eventId };
+          const unitPrice = qty > 0 ? (cartValue / qty) : cartValue;
+          const cartPayload = {
+            content_ids: [offerId],
+            content_type: "product",
+            content_name: "Custom print",
+            content_category: "custom-print",
+            currency: "UAH",
+            num_items: qty,
+            contents: [{ id: offerId, quantity: qty, item_price: unitPrice, brand: "TwoComms" }],
+            event_id: eventId,
+            __meta: meta,
+          };
+          if (cartValue > 0) cartPayload.value = cartValue;
+          window.trackEvent("AddToCart", cartPayload);
+        }
+      } catch (_) { }
       if (data.cart_url) {
         setTimeout(() => { window.location.href = data.cart_url; }, 1200);
       }

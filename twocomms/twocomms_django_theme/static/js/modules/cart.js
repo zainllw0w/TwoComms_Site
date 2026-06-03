@@ -771,6 +771,23 @@ class CartPageController {
           const data = await response.json();
           if (data.success) {
             alert('✅ Дякуємо! Менеджер зв\'яжеться з вами найближчим часом.');
+            try {
+              if (window.trackEvent) {
+                const eventId = (typeof window.safeGenerateAnalyticsEventId === 'function')
+                  ? window.safeGenerateAnalyticsEventId()
+                  : String(Date.now());
+                const meta = (typeof window.buildMetaWithUserData === 'function')
+                  ? window.buildMetaWithUserData(eventId)
+                  : { event_id: eventId };
+                window.trackEvent('Lead', {
+                  content_name: 'Cart consultation request',
+                  content_category: 'consultation',
+                  currency: 'UAH',
+                  event_id: eventId,
+                  __meta: meta,
+                });
+              }
+            } catch (_) { }
             form.reset();
             closeModal();
           } else {

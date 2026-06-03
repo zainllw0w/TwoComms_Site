@@ -28,7 +28,6 @@
       var input = typeof selector === 'string' ? document.querySelector(selector) : selector;
       if (!input) { return; }
       var v = parseInt(input.value || '1', 10) || 1; input.value = Math.max(1, v + 1);
-      try { if (window.trackEvent) { var pid = (document.querySelector('[data-add-to-cart]') || {}).getAttribute && document.querySelector('[data-add-to-cart]').getAttribute('data-add-to-cart'); if (pid) { window.trackEvent('CustomizeProduct', { content_ids: [String(pid)], content_type: 'product', action: 'inc_qty' }); } } } catch (_) { }
     };
   }
   if (typeof window.QtyDec !== 'function') {
@@ -36,7 +35,6 @@
       var input = typeof selector === 'string' ? document.querySelector(selector) : selector;
       if (!input) { return; }
       var v = parseInt(input.value || '1', 10) || 1; input.value = Math.max(1, v - 1);
-      try { if (window.trackEvent) { var pid = (document.querySelector('[data-add-to-cart]') || {}).getAttribute && document.querySelector('[data-add-to-cart]').getAttribute('data-add-to-cart'); if (pid) { window.trackEvent('CustomizeProduct', { content_ids: [String(pid)], content_type: 'product', action: 'dec_qty' }); } } } catch (_) { }
     };
   }
   if (typeof window.CartRemoveKey !== 'function') {
