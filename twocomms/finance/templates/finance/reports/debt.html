@@ -10,6 +10,21 @@
     </div>
 </div>
 
+{% if aging_rows %}
+<div class="fin-section">
+    <h3 class="fin-section-title">Дебіторка за віком (aging)</h3>
+    <div class="fin-hs-aging">
+        {% for row in aging_rows %}
+        <div class="fin-hs-aging__row">
+            <span class="fin-hs-aging__label">{{ row.label }}</span>
+            <span class="fin-hs-aging__bar fin-aging--{{ row.risk }}"><span style="width: {{ row.pct }}%"></span></span>
+            <span class="fin-hs-aging__val">{{ row.value }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 <div class="fin-table-wrap">
     <table class="fin-table fin-table--debt">
         <thead><tr><th>Контрагент</th><th class="fin-col-amount">Сума</th><th>Дата</th><th>Проект</th><th>Статус</th><th>Коментар</th><th></th></tr></thead>

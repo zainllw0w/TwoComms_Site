@@ -246,8 +246,46 @@ def report(request, kind):
 
     if kind == 'receivables':
         data = repd.receivables(company)
+        # Розбивка дебіторки за віком (aging) — переюзаємо логіку рушія здоров'я.
+        from django.utils import timezone as _tz
+        today = _tz.localdate()
+        aging = {'not_due': Decimal('0'), 'd0_30': Decimal('0'), 'd31_60': Decimal('0'),
+                 'd61_90': Decimal('0'), 'd90_plus': Decimal('0')}
+        for r in data['rows']:
+            amt = Decimal(str(r['amount']))
+            due = r.get('date')
+            overdue_days = 0
+            if due:
+                try:
+                    due_d = dt.date.fromisoformat(str(due)[:10])
+                    overdue_days = (today - due_d).days
+                except (ValueError, TypeError):
+                    overdue_days = 0
+            if overdue_days <= 0:
+                aging['not_due'] += amt
+            elif overdue_days <= 30:
+                aging['d0_30'] += amt
+            elif overdue_days <= 60:
+                aging['d31_60'] += amt
+            elif overdue_days <= 90:
+                aging['d61_90'] += amt
+            else:
+                aging['d90_plus'] += amt
+        total_ar = data['total'] or Decimal('1')
+        aging_rows = [
+            {'label': 'Не прострочено', 'value': _m(company, aging['not_due']),
+             'pct': round(float(aging['not_due'] / total_ar * 100), 1), 'risk': 'ok'},
+            {'label': '1–30 днів', 'value': _m(company, aging['d0_30']),
+             'pct': round(float(aging['d0_30'] / total_ar * 100), 1), 'risk': 'low'},
+            {'label': '31–60 днів', 'value': _m(company, aging['d31_60']),
+             'pct': round(float(aging['d31_60'] / total_ar * 100), 1), 'risk': 'mid'},
+            {'label': '61–90 днів', 'value': _m(company, aging['d61_90']),
+             'pct': round(float(aging['d61_90'] / total_ar * 100), 1), 'risk': 'high'},
+            {'label': '90+ днів', 'value': _m(company, aging['d90_plus']),
+             'pct': round(float(aging['d90_plus'] / total_ar * 100), 1), 'risk': 'crit'},
+        ]
         ctx.update({'title': 'Дебіторка', 'rows': _fmt_debt(company, data['rows']),
-                    'total': _m(company, data['total'])})
+                    'total': _m(company, data['total']), 'aging_rows': aging_rows})
         return render(request, 'finance/reports/debt.html', ctx)
 
     if kind == 'payables':

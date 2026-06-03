@@ -3015,3 +3015,10 @@ body.fin-settings-open { overflow: hidden; }
         padding-bottom: 84px;
     }
 }
+
+/* AR aging — кольори ризику за віком боргу. */
+.fin-hs-aging__bar.fin-aging--ok span { background: #34d399; }
+.fin-hs-aging__bar.fin-aging--low span { background: #6f95ff; }
+.fin-hs-aging__bar.fin-aging--mid span { background: #f59e0b; }
+.fin-hs-aging__bar.fin-aging--high span { background: #fb923c; }
+.fin-hs-aging__bar.fin-aging--crit span { background: #ef4444; }
