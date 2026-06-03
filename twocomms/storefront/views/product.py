@@ -33,13 +33,13 @@ def _resolve_og_availability_flag(product) -> bool:
 
     SEO v1.0 Phase 11 (2026-05-12) — finding (UU)+(QQ). Open Graph's
     ``product:availability`` only knows two binary states (`instock` /
-    `out of stock`), so we collapse the richer Schema.org availability
-    URI from ``StructuredDataGenerator._get_product_availability`` —
-    which now also emits ``MadeToOrder`` for DTF on-demand items
-    (finding QQ) — into a single boolean. Both ``InStock`` and
-    ``MadeToOrder`` map to True so Facebook Catalog / Pinterest Rich
-    Pins / Telegram previews treat on-demand prints as purchasable.
-    Only ``OutOfStock`` (admin disabled the product) maps to False.
+    `out of stock`), so we collapse the Schema.org availability URI from
+    ``StructuredDataGenerator._get_product_availability`` into a single
+    boolean. The generator emits ``InStock`` for every purchasable item
+    (including made-to-order DTF prints, see finding GSC availability
+    2026-06-04) so Facebook Catalog / Pinterest Rich Pins / Telegram
+    previews treat on-demand prints as purchasable. Only ``OutOfStock``
+    (admin disabled the product) maps to False.
     """
     from ..seo_utils import StructuredDataGenerator
 

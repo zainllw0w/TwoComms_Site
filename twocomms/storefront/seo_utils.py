@@ -621,37 +621,44 @@ class StructuredDataGenerator:
         Google Shopping, Facebook Catalog, Pinterest Rich Pins and
         Perplexity / SGE shopping answers.
 
+        SEO 2026-06-04 — finding (GSC availability). Search Console started
+        flagging «Недопустимое перечислимое значение в поле availability»
+        on every PDP, plus the critical «set one of hasVariant.offers /
+        review / aggregateRating» error. Root cause: the previous revision
+        emitted ``https://schema.org/MadeToOrder`` for on-demand items.
+        Although ``MadeToOrder`` is a real schema.org enum, Google's
+        Product / merchant-listing spec does **not** accept it — the
+        documented ``availability`` enum is limited to BackOrder,
+        Discontinued, InStock, InStoreOnly, LimitedAvailability,
+        OnlineOnly, OutOfStock, PreOrder, PreSale and SoldOut
+        (developers.google.com/search/docs/appearance/structured-data/
+        product-snippet, updated 2026-02-20). An invalid ``availability``
+        makes Google discard the whole ``Offer``, which in turn leaves the
+        Product / ProductGroup with none of the required
+        offers/review/aggregateRating triplet → critical error.
+
         New rules (in priority order):
 
         1. ``is_dropship_available=False`` → admin explicitly disabled
            sale of the product → OutOfStock (true negative).
-        2. Any colour variant with ``stock > 0`` → InStock (kept for the
-           rare cases when admins do track finished pieces).
-        3. Variants exist but all stock=0 → ``MadeToOrder`` — the
-           Schema.org-blessed value for on-demand items. Google's rich
-           result spec accepts MadeToOrder as a valid availability state
-           and surfaces the product without the «out of stock» badge.
+        2. Any colour variant with ``stock > 0`` → InStock.
+        3. Variants exist but all stock=0 → InStock. TwoComms is a
+           made-to-order DTF shop: the item is always purchasable and
+           ships in the 3–5 day window already declared via
+           ``deliveryLeadTime`` / ``OfferShippingDetails.deliveryTime``.
+           ``InStock`` is the Google-accepted value that keeps the
+           product purchasable without the «out of stock» badge.
         4. No variants at all → InStock (legacy fallback for products
            authored before the colour matrix was introduced).
         """
         if not getattr(product, "is_dropship_available", True):
             return "https://schema.org/OutOfStock"
 
-        try:
-            from productcolors.models import ProductColorVariant
-
-            variants = ProductColorVariant.objects.filter(product=product).only("stock")
-            if variants.exists():
-                has_stock = any(int(getattr(variant, "stock", 0) or 0) > 0 for variant in variants)
-                if has_stock:
-                    return "https://schema.org/InStock"
-                # All variants report stock=0 → DTF on-demand. Use the
-                # Schema.org MadeToOrder URI so Google still considers
-                # the product purchasable.
-                return "https://schema.org/MadeToOrder"
-        except Exception:
-            pass
-
+        # Every other state collapses to InStock: a made-to-order DTF
+        # garment is always available to buy regardless of the per-variant
+        # stock counter (which admins rarely maintain). Kept the variant
+        # lookup out of the hot path entirely — the answer no longer
+        # depends on it, so we avoid an extra query per schema render.
         return "https://schema.org/InStock"
 
     @staticmethod
@@ -852,7 +859,7 @@ class StructuredDataGenerator:
                 "url": product_canonical_url,
                 "priceValidUntil": StructuredDataGenerator._get_dynamic_price_valid_until(),
                 # SEO 2026-05-19 (VILNI deep review §4.5, §13.12) — explicit
-                # production/handling window for MadeToOrder DTF print so
+                # production/handling window for made-to-order DTF print so
                 # Google Shopping and AI Search can compare apples-to-apples
                 # against in-stock competitors. 3–5 days mirrors the value
                 # already exposed in ``OfferShippingDetails.deliveryTime``

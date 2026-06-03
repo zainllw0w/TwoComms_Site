@@ -255,18 +255,48 @@ class ProductPageSeoRegressionTests(TestCase):
             schema_base["url"], f"https://twocomms.shop/product/{self.product.slug}/"
         )
 
-    def test_product_schema_uses_variant_stock_for_availability(self):
+    def test_product_schema_uses_instock_for_made_to_order(self):
+        """SEO 2026-06-04 (GSC availability) — TwoComms is a made-to-order
+        DTF shop, so a purchasable product must emit the Google-accepted
+        ``InStock`` enum even when every ``ProductColorVariant.stock`` is 0.
+        Previously the generator emitted ``MadeToOrder``, which Google's
+        Product spec rejects ("Недопустимое перечислимое значение в поле
+        availability"), discarding the whole Offer and triggering the
+        critical offers/review/aggregateRating error. Only an admin
+        explicitly disabling the product (``is_dropship_available=False``)
+        may surface ``OutOfStock``.
+        """
         color = Color.objects.create(name="Black", primary_hex="#000000")
         variant = ProductColorVariant.objects.create(product=self.product, color=color, stock=0)
 
+        # All variants stock=0 but product still sellable → InStock.
+        schema = json.loads(get_product_schema(self.product))
+        self.assertEqual(schema["offers"]["availability"], "https://schema.org/InStock")
+
+        # A tracked variant with positive stock stays InStock too.
+        variant.stock = 3
+        variant.save(update_fields=["stock"])
+        schema = json.loads(get_product_schema(self.product))
+        self.assertEqual(schema["offers"]["availability"], "https://schema.org/InStock")
+
+        # Admin disabled the product → the only path to OutOfStock.
+        self.product.is_dropship_available = False
+        self.product.save(update_fields=["is_dropship_available"])
         schema = json.loads(get_product_schema(self.product))
         self.assertEqual(schema["offers"]["availability"], "https://schema.org/OutOfStock")
 
-        variant.stock = 3
-        variant.save(update_fields=["stock"])
+    def test_product_schema_never_emits_made_to_order(self):
+        """Guard against a regression to the GSC-rejected ``MadeToOrder``
+        availability enum anywhere in the Product schema (top-level Offer).
+        """
+        Color = __import__(
+            "productcolors.models", fromlist=["Color"]
+        ).Color
+        color = Color.objects.create(name="Olive", primary_hex="#59604A")
+        ProductColorVariant.objects.create(product=self.product, color=color, stock=0)
 
-        schema = json.loads(get_product_schema(self.product))
-        self.assertEqual(schema["offers"]["availability"], "https://schema.org/InStock")
+        schema_json = get_product_schema(self.product)
+        self.assertNotIn("MadeToOrder", schema_json)
 
 
 class VariantCanonicalPhase21Tests(SimpleTestCase):
