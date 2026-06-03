@@ -23,6 +23,9 @@ from .consignment import (  # noqa: F401
 from .users import (  # noqa: F401
     users,
 )
+from .shell import (  # noqa: F401
+    finance_service_worker,
+)
 from .ai import (  # noqa: F401
     ai_advisor_page,
     ai_chat_api,

@@ -135,6 +135,9 @@ urlpatterns = [
     # --- API: календар ---
     path('api/calendar/day/<str:date_str>/', views.calendar_day_api, name='finance_calendar_day_api'),
 
+    # Service worker (з кореня субдомену — щоб scope '/' працював для PWA).
+    path('finance-sw.js', views.finance_service_worker, name='finance_sw'),
+
     # Журнал платежів — головна
     path('', views.payments, name='finance_home'),
 ]

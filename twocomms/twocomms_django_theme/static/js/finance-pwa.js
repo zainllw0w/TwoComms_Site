@@ -19,7 +19,9 @@
     document.addEventListener('DOMContentLoaded', function () {
         // ===== Service Worker реєстрація =====
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/static/js/finance-sw.js', { scope: '/' })
+            // Реєструємо з кореня субдомену (/finance-sw.js віддається Django-в'ю
+            // з заголовком Service-Worker-Allowed: /), щоб scope '/' був дозволений.
+            navigator.serviceWorker.register('/finance-sw.js', { scope: '/' })
                 .then(function (registration) {
                     console.log('[Finance PWA] Service Worker registered:', registration.scope);
                     swRegistration = registration;
