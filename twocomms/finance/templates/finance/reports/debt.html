@@ -11,18 +11,18 @@
 </div>
 
 <div class="fin-table-wrap">
-    <table class="fin-table">
+    <table class="fin-table fin-table--debt">
         <thead><tr><th>Контрагент</th><th class="fin-col-amount">Сума</th><th>Дата</th><th>Проект</th><th>Статус</th><th>Коментар</th><th></th></tr></thead>
         <tbody>
             {% for r in rows %}
-            <tr class="{% if r.overdue %}fin-row--overdue{% endif %}">
-                <td>{{ r.counterparty }}</td>
-                <td class="fin-col-amount">{{ r.amount_d }}</td>
-                <td>{{ r.date }}{% if r.overdue %} <span class="fin-badge fin-badge--overdue">прострочено</span>{% endif %}</td>
-                <td>{{ r.project|default:'—' }}</td>
-                <td>{{ r.status }}</td>
-                <td>{{ r.comment }}</td>
-                <td>
+            <tr class="fin-debt-row {% if r.overdue %}fin-row--overdue{% endif %}">
+                <td data-label="Контрагент">{{ r.counterparty }}</td>
+                <td class="fin-col-amount" data-label="Сума">{{ r.amount_d }}</td>
+                <td data-label="Дата">{{ r.date }}{% if r.overdue %} <span class="fin-badge fin-badge--overdue">прострочено</span>{% endif %}</td>
+                <td data-label="Проект">{{ r.project|default:'—' }}</td>
+                <td data-label="Статус">{{ r.status }}</td>
+                <td data-label="Коментар">{{ r.comment|default:'—' }}</td>
+                <td class="fin-debt-row__act">
                     {% if r.source == 'planned' %}
                     <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm fin-debt-settle" data-txn="{{ r.id }}">Погасити</button>
                     {% elif r.source == 'invoice' %}

@@ -1966,9 +1966,9 @@ body.fin-settings-open { overflow: hidden; }
         grid-template-areas:
             "date amount"
             "title title"
-            "account account";
+            "account category";
         column-gap: 12px;
-        row-gap: 2px;
+        row-gap: 3px;
         align-items: baseline;
         padding: 12px 2px;
         margin: 0;
@@ -2104,12 +2104,28 @@ body.fin-settings-open { overflow: hidden; }
     }
 
     /* Приховуємо менш важливі колонки в компактному списку */
-    .fin-row td[data-label="Категорія"],
     .fin-row td[data-label="Проект"],
     .fin-row td[data-label="Планова дата"],
     .fin-row .fin-cell-comment {
         display: none !important;
     }
+
+    /* Категорія — компактний підпис праворуч у meta-рядку. */
+    .fin-row td[data-label="Категорія"] {
+        grid-area: category;
+        padding: 0 !important;
+        display: block;
+        text-align: right;
+        font-size: 12px;
+        color: var(--fin-text-2);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 52vw;
+        justify-self: end;
+    }
+    .fin-row td[data-label="Категорія"]::before { display: none !important; }
+    .fin-row td[data-label="Категорія"] .fin-specify { color: var(--fin-muted); font-size: 12px; }
 
     /* "Вказати" — компактний інлайн-лінк замість кнопки */
     .fin-row td[data-label="Контрагент"] .fin-specify {
@@ -2901,4 +2917,101 @@ body.fin-settings-open { overflow: hidden; }
     .fin-hs-two-col { grid-template-columns: 1fr; }
     .fin-hs-recs { grid-template-columns: 1fr; }
     .fin-hs-gauge { align-self: center; }
+}
+
+/* Дебіторка/кредиторка — карткова розкладка на телефоні (без вилазання). */
+@media (max-width: 760px) {
+    .fin-table--debt { display: block; }
+    .fin-table--debt thead { display: none; }
+    .fin-table--debt tbody { display: block; }
+    .fin-table--debt tr.fin-debt-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 4px 10px;
+        padding: 12px;
+        margin-bottom: 10px;
+        background: var(--fin-panel);
+        border: 1px solid var(--fin-border);
+        border-radius: 12px;
+    }
+    .fin-table--debt tr.fin-debt-row.fin-row--overdue {
+        border-color: rgba(251,113,133,0.4);
+        background: rgba(251,113,133,0.06);
+    }
+    .fin-table--debt tr.fin-debt-row td {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 2px 0;
+        border: none;
+        font-size: 13px;
+    }
+    .fin-table--debt tr.fin-debt-row td::before {
+        content: attr(data-label);
+        color: var(--fin-muted);
+        font-size: 11px;
+        flex: 0 0 auto;
+    }
+    /* Контрагент — заголовок картки на всю ширину. */
+    .fin-table--debt tr.fin-debt-row td[data-label="Контрагент"] {
+        grid-column: 1 / -1;
+        font-weight: 700;
+        font-size: 14px;
+        color: var(--fin-text);
+    }
+    .fin-table--debt tr.fin-debt-row td[data-label="Контрагент"]::before { display: none; }
+    .fin-table--debt tr.fin-debt-row td[data-label="Сума"] {
+        grid-column: 1 / -1;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+    }
+    /* Ховаємо порожні/менш важливі поля у компактному режимі. */
+    .fin-table--debt tr.fin-debt-row td[data-label="Проект"],
+    .fin-table--debt tr.fin-debt-row td[data-label="Коментар"] { display: none; }
+    .fin-debt-row__act {
+        grid-column: 1 / -1;
+        justify-content: flex-end !important;
+    }
+    .fin-debt-row__act::before { display: none !important; }
+}
+
+/* Панель масових дій на телефоні — закріплена знизу, з'являється лише при
+   виділенні (бо .fin-bulkbar має [hidden] доки нічого не обрано). Компактна,
+   з горизонтальним скролом кнопок, поверх контенту. */
+@media (max-width: 760px) {
+    .fin-bulkbar {
+        position: fixed;
+        left: 8px;
+        right: 8px;
+        bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+        margin: 0;
+        z-index: 90;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 10px 12px;
+        background: var(--fin-panel-strong, #11161f);
+        border: 1px solid rgba(255, 126, 41, 0.4);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+        scrollbar-width: none;
+    }
+    .fin-bulkbar::-webkit-scrollbar { display: none; }
+    .fin-bulkbar__count {
+        position: sticky;
+        left: 0;
+        flex: 0 0 auto;
+        background: var(--fin-panel-strong, #11161f);
+        padding-right: 6px;
+        margin-right: 2px;
+        font-weight: 700;
+        color: var(--fin-text);
+    }
+    .fin-bulkbar .fin-btn {
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+    /* Щоб закріплена панель не перекривала останні рядки журналу. */
+    .fin-body.fin-bulk-mode .fin-content {
+        padding-bottom: 84px;
+    }
 }
