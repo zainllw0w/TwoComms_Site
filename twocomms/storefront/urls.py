@@ -258,6 +258,12 @@ urlpatterns = [
         _module_view('storefront.views.admin', 'admin_order_payment_snapshots'),
         name='admin_order_payment_snapshots',
     ),
+    # Ручне створення замовлень адміністратором
+    path(
+        'admin-panel/orders/manual/create/',
+        _module_view('storefront.views.manual_orders', 'manual_order_create'),
+        name='manual_order_create',
+    ),
     # Analytics: managed exclusion list + session drilldown.
     path(
         'admin-panel/analytics/exclusions/',

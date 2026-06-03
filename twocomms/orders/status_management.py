@@ -66,7 +66,7 @@ def _sync_loyalty_points(order: Order, *, old_status: str) -> None:
     user_points = UserPoints.get_or_create_points(order.user)
     total_points = 0
     for item in order.items.all():
-        if item.product.points_reward > 0:
+        if item.product and item.product.points_reward > 0:
             total_points += item.product.points_reward * item.qty
 
     if total_points <= 0:

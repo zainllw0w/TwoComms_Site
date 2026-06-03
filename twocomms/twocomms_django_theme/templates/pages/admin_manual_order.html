@@ -1,0 +1,946 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Створення замовлення вручну{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
+
+{% block extra_css %}
+<style>
+  .mo-page {
+    --mo-bg: #0a121d;
+    --mo-surface: rgba(13, 23, 36, 0.92);
+    --mo-surface-2: rgba(17, 28, 43, 0.96);
+    --mo-line: rgba(148, 163, 184, 0.18);
+    --mo-line-strong: rgba(148, 163, 184, 0.30);
+    --mo-text: #f8fafc;
+    --mo-muted: #94a3b8;
+    --mo-accent: #f97316;
+    --mo-accent-soft: rgba(249, 115, 22, 0.16);
+    --mo-success: #34d399;
+    --mo-danger: #fb7185;
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 8px 0 96px;
+    color: var(--mo-text);
+  }
+
+  .mo-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .mo-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--mo-muted);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.92rem;
+    transition: color 0.18s ease;
+  }
+  .mo-back:hover { color: var(--mo-text); }
+
+  .mo-title {
+    margin: 0;
+    font-size: clamp(1.5rem, 3.4vw, 2.2rem);
+    font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+  .mo-subtitle {
+    margin: 6px 0 0;
+    color: var(--mo-muted);
+    font-size: 0.95rem;
+    max-width: 60ch;
+  }
+
+  .mo-card {
+    border: 1px solid var(--mo-line);
+    border-radius: 22px;
+    background:
+      linear-gradient(180deg, rgba(13, 23, 36, 0.95), rgba(10, 17, 27, 0.92));
+    padding: 22px;
+    margin-bottom: 18px;
+    box-shadow: 0 22px 60px rgba(2, 8, 23, 0.26);
+  }
+
+  .mo-card__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .mo-card__index {
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+    font-size: 0.92rem;
+    color: var(--mo-accent);
+    background: var(--mo-accent-soft);
+    border: 1px solid rgba(249, 115, 22, 0.32);
+  }
+  .mo-card__title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+  .mo-card__hint {
+    margin: 2px 0 0;
+    font-size: 0.82rem;
+    color: var(--mo-muted);
+  }
+
+  .mo-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .mo-grid--full { grid-template-columns: 1fr; }
+
+  .mo-field { display: flex; flex-direction: column; gap: 6px; }
+  .mo-field--full { grid-column: 1 / -1; }
+  .mo-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: rgba(226, 232, 240, 0.86);
+  }
+  .mo-label .req { color: var(--mo-accent); margin-left: 2px; }
+
+  .mo-input,
+  .mo-select,
+  .mo-textarea {
+    width: 100%;
+    border: 1px solid var(--mo-line-strong);
+    border-radius: 12px;
+    background: rgba(8, 14, 23, 0.7);
+    color: var(--mo-text);
+    padding: 12px 14px;
+    font-size: 0.95rem;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease;
+    outline: none;
+  }
+  .mo-input::placeholder,
+  .mo-textarea::placeholder { color: rgba(148, 163, 184, 0.7); }
+  .mo-input:focus,
+  .mo-select:focus,
+  .mo-textarea:focus {
+    border-color: var(--mo-accent);
+    box-shadow: 0 0 0 3px var(--mo-accent-soft);
+  }
+  .mo-input.is-invalid,
+  .mo-select.is-invalid { border-color: var(--mo-danger); }
+  .mo-textarea { min-height: 84px; resize: vertical; }
+  .mo-select option { color: #0b1220; }
+
+  .mo-field-error {
+    display: none;
+    color: var(--mo-danger);
+    font-size: 0.78rem;
+  }
+
+  /* Nova Poshta selector reuse */
+  .np-selector { position: relative; }
+  .np-selector-results {
+    position: absolute;
+    z-index: 30;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    max-height: 280px;
+    overflow-y: auto;
+    background: var(--mo-surface-2);
+    border: 1px solid var(--mo-line-strong);
+    border-radius: 12px;
+    box-shadow: 0 24px 60px rgba(2, 8, 23, 0.5);
+    padding: 6px;
+  }
+  .np-selector-option {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--mo-text);
+    cursor: pointer;
+    transition: background 0.14s ease;
+  }
+  .np-selector-option:hover { background: rgba(249, 115, 22, 0.14); }
+  .np-selector-option-main { font-weight: 600; font-size: 0.92rem; }
+  .np-selector-option-meta { font-size: 0.78rem; color: var(--mo-muted); margin-top: 2px; }
+  .np-selector-status {
+    font-size: 0.78rem;
+    color: var(--mo-muted);
+    min-height: 1em;
+  }
+  .np-selector-status.is-loading { color: #60a5fa; }
+  .np-selector-status.is-success { color: var(--mo-success); }
+  .np-selector-status.is-error { color: var(--mo-danger); }
+  .np-selector-kind {
+    display: inline-flex;
+    gap: 6px;
+    margin: 8px 0 4px;
+    flex-wrap: wrap;
+  }
+  .np-selector-kind-btn {
+    border: 1px solid var(--mo-line-strong);
+    background: rgba(8, 14, 23, 0.6);
+    color: var(--mo-muted);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.14s ease;
+  }
+  .np-selector-kind-btn.is-active {
+    color: var(--mo-text);
+    border-color: var(--mo-accent);
+    background: var(--mo-accent-soft);
+  }
+  .cart-form-error { display: none; color: var(--mo-danger); font-size: 0.78rem; margin-top: 4px; }
+  .cart-form-input-error { border-color: var(--mo-danger) !important; }
+
+  /* Items */
+  .mo-item-tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .mo-item-tab {
+    border: 1px solid var(--mo-line-strong);
+    background: rgba(8, 14, 23, 0.6);
+    color: var(--mo-muted);
+    border-radius: 12px;
+    padding: 9px 16px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.16s ease;
+  }
+  .mo-item-tab.is-active {
+    color: var(--mo-text);
+    border-color: var(--mo-accent);
+    background: var(--mo-accent-soft);
+  }
+  .mo-picker-pane { display: none; }
+  .mo-picker-pane.is-active { display: block; }
+
+  .mo-product-search { margin-bottom: 10px; }
+  .mo-product-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+    max-height: 340px;
+    overflow-y: auto;
+    padding: 4px;
+  }
+  .mo-product-card {
+    border: 1px solid var(--mo-line);
+    border-radius: 14px;
+    background: rgba(8, 14, 23, 0.55);
+    padding: 10px;
+    cursor: pointer;
+    transition: border-color 0.16s ease, transform 0.16s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .mo-product-card:hover { border-color: var(--mo-accent); transform: translateY(-2px); }
+  .mo-product-card__img {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 10px;
+    object-fit: cover;
+    background: rgba(148, 163, 184, 0.12);
+  }
+  .mo-product-card__img--ph { display: grid; place-items: center; color: var(--mo-muted); }
+  .mo-product-card__title { font-size: 0.84rem; font-weight: 600; line-height: 1.25; }
+  .mo-product-card__price { font-size: 0.82rem; color: var(--mo-accent); font-weight: 700; }
+  .mo-empty-hint { color: var(--mo-muted); font-size: 0.86rem; padding: 18px 4px; text-align: center; }
+
+  .mo-items { display: flex; flex-direction: column; gap: 12px; }
+  .mo-line {
+    border: 1px solid var(--mo-line);
+    border-radius: 16px;
+    background: rgba(8, 14, 23, 0.6);
+    padding: 14px;
+  }
+  .mo-line__top {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .mo-line__img {
+    width: 52px; height: 52px;
+    border-radius: 10px;
+    object-fit: cover;
+    flex: 0 0 auto;
+    background: rgba(148, 163, 184, 0.12);
+  }
+  .mo-line__name { font-weight: 700; font-size: 0.95rem; }
+  .mo-line__tag {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .mo-line__tag--catalog { color: #93c5fd; background: rgba(59, 130, 246, 0.16); }
+  .mo-line__tag--custom { color: #fcd34d; background: rgba(251, 191, 36, 0.16); }
+  .mo-line__remove {
+    margin-left: auto;
+    flex: 0 0 auto;
+    border: 0;
+    background: rgba(251, 113, 133, 0.14);
+    color: var(--mo-danger);
+    border-radius: 10px;
+    width: 34px; height: 34px;
+    cursor: pointer;
+    display: grid; place-items: center;
+    transition: background 0.14s ease;
+  }
+  .mo-line__remove:hover { background: rgba(251, 113, 133, 0.26); }
+  .mo-line__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 10px;
+  }
+  .mo-line__field { display: flex; flex-direction: column; gap: 4px; }
+  .mo-line__field label { font-size: 0.74rem; color: var(--mo-muted); }
+  .mo-line__sub {
+    text-align: right;
+    margin-top: 10px;
+    font-size: 0.85rem;
+    color: var(--mo-muted);
+  }
+  .mo-line__sub b { color: var(--mo-text); }
+
+  /* Payment presets */
+  .mo-presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+  .mo-preset {
+    display: flex; align-items: center; gap: 10px;
+    border: 1px solid var(--mo-line-strong);
+    border-radius: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: all 0.16s ease;
+  }
+  .mo-preset.is-active { border-color: var(--mo-accent); background: var(--mo-accent-soft); }
+  .mo-preset input { accent-color: var(--mo-accent); }
+  .mo-preset span { font-size: 0.88rem; font-weight: 600; }
+
+  .mo-summary {
+    position: sticky;
+    bottom: 0;
+    margin-top: 6px;
+    border: 1px solid var(--mo-line-strong);
+    border-radius: 18px;
+    background: var(--mo-surface-2);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    box-shadow: 0 -10px 40px rgba(2, 8, 23, 0.4);
+  }
+  .mo-summary__total { font-size: 0.86rem; color: var(--mo-muted); }
+  .mo-summary__total b { display: block; font-size: 1.6rem; color: var(--mo-text); font-weight: 800; }
+  .mo-submit {
+    border: 0;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #f97316, #fb923c);
+    color: #0b1220;
+    font-weight: 800;
+    font-size: 1rem;
+    padding: 14px 28px;
+    cursor: pointer;
+    transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+    box-shadow: 0 12px 30px rgba(249, 115, 22, 0.3);
+  }
+  .mo-submit:hover { transform: translateY(-1px); }
+  .mo-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  .mo-alert {
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 0.9rem;
+    margin-bottom: 16px;
+    display: none;
+  }
+  .mo-alert.is-error { display: block; background: rgba(251, 113, 133, 0.14); color: #fecaca; border: 1px solid rgba(251, 113, 133, 0.4); }
+  .mo-alert.is-success { display: block; background: rgba(52, 211, 153, 0.14); color: #bbf7d0; border: 1px solid rgba(52, 211, 153, 0.4); }
+
+  .mo-sale-source-wrap { display: flex; flex-direction: column; gap: 8px; }
+  .mo-source-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .mo-source-chip {
+    border: 1px solid var(--mo-line-strong);
+    background: rgba(8, 14, 23, 0.6);
+    color: var(--mo-muted);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.14s ease;
+  }
+  .mo-source-chip.is-active { color: var(--mo-text); border-color: var(--mo-accent); background: var(--mo-accent-soft); }
+
+  @media (max-width: 640px) {
+    .mo-grid { grid-template-columns: 1fr; }
+    .mo-card { padding: 16px; border-radius: 18px; }
+    .mo-summary { flex-direction: column; align-items: stretch; }
+    .mo-submit { width: 100%; }
+    .mo-product-list { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mo-page"
+     data-np-city-search-url="{% url 'cart_np_city_search' %}"
+     data-np-warehouse-search-url="{% url 'cart_np_warehouse_search' %}"
+     data-create-url="{% url 'manual_order_create' %}">
+
+  <div class="mo-topbar">
+    <a href="{% url 'admin_panel' %}?section=orders" class="mo-back">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      До замовлень
+    </a>
+  </div>
+
+  <div style="margin-bottom: 22px;">
+    <h1 class="mo-title">Створення замовлення вручну</h1>
+    <p class="mo-subtitle">Замовлення з продажів поза сайтом (Instagram, Bezet, офлайн тощо). Після створення прийде сповіщення в Telegram із кнопками для ТТН і списання зі складу — так само, як для замовлень із сайту.</p>
+  </div>
+
+  <div class="mo-alert" id="moAlert"></div>
+
+  <!-- 1. Клієнт -->
+  <section class="mo-card">
+    <div class="mo-card__head">
+      <span class="mo-card__index">1</span>
+      <div>
+        <h2 class="mo-card__title">Клієнт</h2>
+        <p class="mo-card__hint">Дані одержувача для ТТН</p>
+      </div>
+    </div>
+    <div class="mo-grid">
+      <div class="mo-field">
+        <label class="mo-label" for="moFullName">ПІБ<span class="req">*</span></label>
+        <input type="text" id="moFullName" class="mo-input" placeholder="Прізвище Імʼя По батькові" autocomplete="off">
+        <div class="mo-field-error" data-error-for="moFullName"></div>
+      </div>
+      <div class="mo-field">
+        <label class="mo-label" for="moPhone">Телефон<span class="req">*</span></label>
+        <input type="tel" id="moPhone" class="mo-input" placeholder="+380XXXXXXXXX" autocomplete="off" data-uk-phone-field>
+        <div class="mo-field-error" data-error-for="moPhone"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. Доставка -->
+  <section class="mo-card">
+    <div class="mo-card__head">
+      <span class="mo-card__index">2</span>
+      <div>
+        <h2 class="mo-card__title">Доставка Нова Пошта</h2>
+        <p class="mo-card__hint">Обирайте місто та відділення зі списку — потрібно для автоматичної ТТН</p>
+      </div>
+    </div>
+    <div data-np-form id="moNpForm">
+      <input type="hidden" name="np_settlement_ref" data-np-settlement-ref>
+      <input type="hidden" name="np_city_ref" data-np-city-ref>
+      <input type="hidden" name="np_city_token" data-np-city-token>
+      <input type="hidden" name="np_warehouse_ref" data-np-warehouse-ref>
+      <input type="hidden" name="np_warehouse_token" data-np-warehouse-token>
+
+      <div class="mo-grid mo-grid--full">
+        <div class="mo-field">
+          <label class="mo-label" for="moCity">Місто<span class="req">*</span></label>
+          <div class="np-selector">
+            <input type="text" id="moCity" class="mo-input" name="city" placeholder="Почніть вводити місто" autocomplete="off" data-np-city-input aria-autocomplete="list">
+            <div class="np-selector-results" data-np-city-results hidden></div>
+          </div>
+          <div class="np-selector-status" data-np-city-status></div>
+        </div>
+        <div class="mo-field">
+          <label class="mo-label" for="moWarehouse">Відділення / поштомат<span class="req">*</span></label>
+          <div class="np-selector">
+            <input type="text" id="moWarehouse" class="mo-input" name="np_office" placeholder="Оберіть відділення або поштомат" autocomplete="off" data-np-warehouse-input aria-autocomplete="list">
+            <div class="np-selector-results" data-np-warehouse-results hidden></div>
+          </div>
+          <div class="np-selector-kind" data-np-kind-toggle>
+            <button type="button" class="np-selector-kind-btn is-active" data-kind="all">Усі пункти</button>
+            <button type="button" class="np-selector-kind-btn" data-kind="branch">Відділення</button>
+            <button type="button" class="np-selector-kind-btn" data-kind="postomat">Поштомат</button>
+          </div>
+          <div class="np-selector-status" data-np-warehouse-status></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. Товари -->
+  <section class="mo-card">
+    <div class="mo-card__head">
+      <span class="mo-card__index">3</span>
+      <div>
+        <h2 class="mo-card__title">Товари</h2>
+        <p class="mo-card__hint">Додайте товари з каталогу або вкажіть позицію вручну</p>
+      </div>
+    </div>
+
+    <div class="mo-item-tabs">
+      <button type="button" class="mo-item-tab is-active" data-picker-tab="catalog">З каталогу</button>
+      <button type="button" class="mo-item-tab" data-picker-tab="custom">Поза каталогом</button>
+    </div>
+
+    <div class="mo-picker-pane is-active" data-picker-pane="catalog">
+      <input type="text" id="moProductSearch" class="mo-input mo-product-search" placeholder="Пошук товару за назвою…" autocomplete="off">
+      <div class="mo-product-list" id="moProductList"></div>
+    </div>
+
+    <div class="mo-picker-pane" data-picker-pane="custom">
+      <div class="mo-grid">
+        <div class="mo-field mo-field--full">
+          <label class="mo-label" for="moCustomTitle">Назва товару<span class="req">*</span></label>
+          <input type="text" id="moCustomTitle" class="mo-input" placeholder="Напр. Термо-футболка XL" autocomplete="off">
+        </div>
+        <div class="mo-field">
+          <label class="mo-label" for="moCustomPrice">Ціна, грн<span class="req">*</span></label>
+          <input type="number" id="moCustomPrice" class="mo-input" min="0" step="1" placeholder="0">
+        </div>
+        <div class="mo-field">
+          <label class="mo-label" for="moCustomSize">Розмір</label>
+          <input type="text" id="moCustomSize" class="mo-input" placeholder="M / L / XL" autocomplete="off">
+        </div>
+        <div class="mo-field">
+          <label class="mo-label" for="moCustomColor">Колір</label>
+          <input type="text" id="moCustomColor" class="mo-input" placeholder="Чорний" autocomplete="off">
+        </div>
+        <div class="mo-field">
+          <label class="mo-label" for="moCustomQty">Кількість</label>
+          <input type="number" id="moCustomQty" class="mo-input" min="1" step="1" value="1">
+        </div>
+      </div>
+      <button type="button" class="mo-item-tab is-active" id="moAddCustom" style="margin-top: 12px;">+ Додати позицію</button>
+    </div>
+
+    <div style="height: 16px;"></div>
+    <div class="mo-items" id="moItems"></div>
+    <p class="mo-empty-hint" id="moItemsEmpty">Ще не додано жодного товару.</p>
+  </section>
+
+  <!-- 4. Оплата та джерело -->
+  <section class="mo-card">
+    <div class="mo-card__head">
+      <span class="mo-card__index">4</span>
+      <div>
+        <h2 class="mo-card__title">Оплата та джерело</h2>
+        <p class="mo-card__hint">Спосіб оплати впливає на суму післяплати у ТТН</p>
+      </div>
+    </div>
+
+    <div class="mo-field mo-field--full" style="margin-bottom: 16px;">
+      <label class="mo-label">Спосіб оплати</label>
+      <div class="mo-presets" id="moPresets">
+        {% for key, preset in payment_presets.items %}
+          <label class="mo-preset {% if key == default_payment_preset %}is-active{% endif %}" data-preset="{{ key }}">
+            <input type="radio" name="payment_preset" value="{{ key }}" {% if key == default_payment_preset %}checked{% endif %}>
+            <span>{{ preset.label }}</span>
+          </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="mo-field mo-field--full">
+      <label class="mo-label" for="moSaleSource">Джерело продажу</label>
+      <div class="mo-sale-source-wrap">
+        <div class="mo-source-chips" id="moSourceChips">
+          {% for src in sale_source_presets %}
+            <button type="button" class="mo-source-chip" data-source="{{ src }}">{{ src }}</button>
+          {% endfor %}
+        </div>
+        <input type="text" id="moSaleSource" class="mo-input" placeholder="Оберіть або впишіть джерело (напр. рекомендація)" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="mo-field mo-field--full" style="margin-top: 16px;">
+      <label class="mo-label" for="moComment">Коментар менеджера</label>
+      <textarea id="moComment" class="mo-textarea" placeholder="Додаткова інформація про замовлення…"></textarea>
+    </div>
+  </section>
+
+  <div class="mo-summary">
+    <div class="mo-summary__total">
+      Разом до сплати
+      <b><span id="moTotal">0</span> грн</b>
+    </div>
+    <button type="button" class="mo-submit" id="moSubmit">Створити замовлення</button>
+  </div>
+
+  <script type="application/json" id="moProductsData">{{ products_json|safe }}</script>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'js/modules/nova-poshta-form-bridge.js' %}?v=20260422a"></script>
+<script>
+(function () {
+  'use strict';
+
+  var page = document.querySelector('.mo-page');
+  if (!page) return;
+
+  var CREATE_URL = page.dataset.createUrl;
+  var products = [];
+  try {
+    products = JSON.parse(document.getElementById('moProductsData').textContent || '[]');
+  } catch (e) { products = []; }
+  var productMap = {};
+  products.forEach(function (p) { productMap[p.id] = p; });
+
+  // ── state ──────────────────────────────────────────────
+  var items = [];   // {uid, kind, product_id, title, image, unit_price, qty, size, color_variant_id, color_name, sizes, variants}
+  var uidSeq = 1;
+
+  function csrf() {
+    var m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+
+  function fmt(n) {
+    return (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('uk-UA');
+  }
+
+  // ── tabs ───────────────────────────────────────────────
+  page.querySelectorAll('[data-picker-tab]').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      var key = tab.dataset.pickerTab;
+      page.querySelectorAll('[data-picker-tab]').forEach(function (t) { t.classList.toggle('is-active', t === tab); });
+      page.querySelectorAll('[data-picker-pane]').forEach(function (pane) {
+        pane.classList.toggle('is-active', pane.dataset.pickerPane === key);
+      });
+    });
+  });
+
+  // ── product catalog ────────────────────────────────────
+  var listEl = document.getElementById('moProductList');
+  var searchEl = document.getElementById('moProductSearch');
+
+  function renderProductList(query) {
+    var q = (query || '').trim().toLowerCase();
+    var filtered = products.filter(function (p) {
+      return !q || p.title.toLowerCase().indexOf(q) !== -1;
+    });
+    listEl.innerHTML = '';
+    if (!filtered.length) {
+      listEl.innerHTML = '<p class="mo-empty-hint">Нічого не знайдено.</p>';
+      return;
+    }
+    filtered.forEach(function (p) {
+      var card = document.createElement('div');
+      card.className = 'mo-product-card';
+      var img = p.image
+        ? '<img src="' + p.image + '" alt="" class="mo-product-card__img" loading="lazy">'
+        : '<div class="mo-product-card__img mo-product-card__img--ph">—</div>';
+      card.innerHTML = img +
+        '<div class="mo-product-card__title">' + escapeHtml(p.title) + '</div>' +
+        '<div class="mo-product-card__price">' + fmt(p.price) + ' грн</div>';
+      card.addEventListener('click', function () { addCatalogItem(p); });
+      listEl.appendChild(card);
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  searchEl.addEventListener('input', function () { renderProductList(searchEl.value); });
+
+  // ── add items ──────────────────────────────────────────
+  function addCatalogItem(p) {
+    items.push({
+      uid: uidSeq++,
+      kind: 'catalog',
+      product_id: p.id,
+      title: p.title,
+      image: p.image,
+      unit_price: p.price,
+      qty: 1,
+      size: (p.sizes && p.sizes[0]) || '',
+      sizes: p.sizes || [],
+      variants: p.variants || [],
+      color_variant_id: (p.variants && p.variants[0] && p.variants[0].id) || '',
+      color_name: ''
+    });
+    renderItems();
+  }
+
+  document.getElementById('moAddCustom').addEventListener('click', function () {
+    var title = document.getElementById('moCustomTitle').value.trim();
+    var price = document.getElementById('moCustomPrice').value;
+    var size = document.getElementById('moCustomSize').value.trim();
+    var color = document.getElementById('moCustomColor').value.trim();
+    var qty = parseInt(document.getElementById('moCustomQty').value, 10) || 1;
+    if (!title) { flash('Вкажіть назву товару поза каталогом.', 'error'); return; }
+    if (price === '' || Number(price) < 0) { flash('Вкажіть коректну ціну для позиції.', 'error'); return; }
+    items.push({
+      uid: uidSeq++,
+      kind: 'custom',
+      title: title,
+      image: '',
+      unit_price: Number(price),
+      qty: qty,
+      size: size,
+      color_name: color
+    });
+    document.getElementById('moCustomTitle').value = '';
+    document.getElementById('moCustomPrice').value = '';
+    document.getElementById('moCustomSize').value = '';
+    document.getElementById('moCustomColor').value = '';
+    document.getElementById('moCustomQty').value = '1';
+    renderItems();
+  });
+
+  // ── render added items ─────────────────────────────────
+  var itemsEl = document.getElementById('moItems');
+  var itemsEmptyEl = document.getElementById('moItemsEmpty');
+
+  function renderItems() {
+    itemsEl.innerHTML = '';
+    itemsEmptyEl.style.display = items.length ? 'none' : 'block';
+
+    items.forEach(function (it) {
+      var line = document.createElement('div');
+      line.className = 'mo-line';
+
+      var imgHtml = it.image
+        ? '<img src="' + it.image + '" class="mo-line__img" alt="">'
+        : '<div class="mo-line__img"></div>';
+
+      var tag = it.kind === 'custom'
+        ? '<span class="mo-line__tag mo-line__tag--custom">Поза каталогом</span>'
+        : '<span class="mo-line__tag mo-line__tag--catalog">Каталог</span>';
+
+      var fields = '';
+
+      // price
+      fields += field('Ціна, грн', '<input type="number" class="mo-input" min="0" step="1" value="' + it.unit_price + '" data-edit="unit_price">');
+      // qty
+      fields += field('Кількість', '<input type="number" class="mo-input" min="1" step="1" value="' + it.qty + '" data-edit="qty">');
+
+      if (it.kind === 'catalog') {
+        // size select
+        if (it.sizes && it.sizes.length) {
+          var sizeOpts = it.sizes.map(function (s) {
+            return '<option value="' + escapeHtml(s) + '"' + (s === it.size ? ' selected' : '') + '>' + escapeHtml(s) + '</option>';
+          }).join('');
+          fields += field('Розмір', '<select class="mo-select" data-edit="size">' + sizeOpts + '</select>');
+        } else {
+          fields += field('Розмір', '<input type="text" class="mo-input" value="' + escapeHtml(it.size) + '" data-edit="size">');
+        }
+        // color variant
+        if (it.variants && it.variants.length) {
+          var colorOpts = it.variants.map(function (v) {
+            return '<option value="' + v.id + '"' + (String(v.id) === String(it.color_variant_id) ? ' selected' : '') + '>' + escapeHtml(v.name) + '</option>';
+          }).join('');
+          fields += field('Колір', '<select class="mo-select" data-edit="color_variant_id">' + colorOpts + '</select>');
+        }
+      } else {
+        fields += field('Розмір', '<input type="text" class="mo-input" value="' + escapeHtml(it.size) + '" data-edit="size">');
+        fields += field('Колір', '<input type="text" class="mo-input" value="' + escapeHtml(it.color_name) + '" data-edit="color_name">');
+      }
+
+      line.innerHTML =
+        '<div class="mo-line__top">' +
+          imgHtml +
+          '<div><div class="mo-line__name">' + escapeHtml(it.title) + '</div>' + tag + '</div>' +
+          '<button type="button" class="mo-line__remove" data-remove aria-label="Видалити">' +
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>' +
+          '</button>' +
+        '</div>' +
+        '<div class="mo-line__grid">' + fields + '</div>' +
+        '<div class="mo-line__sub">Сума: <b>' + fmt(it.unit_price * it.qty) + ' грн</b></div>';
+
+      // bind edits
+      line.querySelectorAll('[data-edit]').forEach(function (input) {
+        input.addEventListener('input', function () { onEdit(it, input); });
+        input.addEventListener('change', function () { onEdit(it, input); });
+      });
+      line.querySelector('[data-remove]').addEventListener('click', function () {
+        items = items.filter(function (x) { return x.uid !== it.uid; });
+        renderItems();
+      });
+
+      itemsEl.appendChild(line);
+    });
+
+    updateTotal();
+  }
+
+  function field(label, control) {
+    return '<div class="mo-line__field"><label>' + label + '</label>' + control + '</div>';
+  }
+
+  function onEdit(it, input) {
+    var key = input.dataset.edit;
+    var val = input.value;
+    if (key === 'unit_price') { it.unit_price = Math.max(0, Number(val) || 0); }
+    else if (key === 'qty') { it.qty = Math.max(1, parseInt(val, 10) || 1); }
+    else { it[key] = val; }
+    // refresh subtotal text only (avoid full re-render to keep focus)
+    var line = input.closest('.mo-line');
+    if (line) {
+      var sub = line.querySelector('.mo-line__sub b');
+      if (sub) sub.textContent = fmt(it.unit_price * it.qty) + ' грн';
+    }
+    updateTotal();
+  }
+
+  function updateTotal() {
+    var total = items.reduce(function (acc, it) { return acc + it.unit_price * it.qty; }, 0);
+    document.getElementById('moTotal').textContent = fmt(total);
+  }
+
+  // ── payment presets ────────────────────────────────────
+  page.querySelectorAll('#moPresets .mo-preset').forEach(function (label) {
+    label.addEventListener('click', function () {
+      page.querySelectorAll('#moPresets .mo-preset').forEach(function (l) { l.classList.remove('is-active'); });
+      label.classList.add('is-active');
+      var radio = label.querySelector('input');
+      if (radio) radio.checked = true;
+    });
+  });
+
+  // ── sale source chips ──────────────────────────────────
+  var saleInput = document.getElementById('moSaleSource');
+  page.querySelectorAll('#moSourceChips .mo-source-chip').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      saleInput.value = chip.dataset.source;
+      page.querySelectorAll('#moSourceChips .mo-source-chip').forEach(function (c) { c.classList.remove('is-active'); });
+      chip.classList.add('is-active');
+    });
+  });
+  saleInput.addEventListener('input', function () {
+    page.querySelectorAll('#moSourceChips .mo-source-chip').forEach(function (c) {
+      c.classList.toggle('is-active', c.dataset.source === saleInput.value);
+    });
+  });
+
+  // ── alert ──────────────────────────────────────────────
+  var alertEl = document.getElementById('moAlert');
+  var alertTimer = null;
+  function flash(msg, type) {
+    alertEl.textContent = msg;
+    alertEl.className = 'mo-alert is-' + (type || 'error');
+    window.clearTimeout(alertTimer);
+    if (type === 'error') {
+      alertTimer = window.setTimeout(function () { alertEl.className = 'mo-alert'; }, 6000);
+    }
+    alertEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  // ── submit ─────────────────────────────────────────────
+  var submitBtn = document.getElementById('moSubmit');
+
+  submitBtn.addEventListener('click', function () {
+    var fullName = document.getElementById('moFullName').value.trim();
+    var phone = document.getElementById('moPhone').value.trim();
+
+    if (!fullName) { flash('Вкажіть ПІБ клієнта.', 'error'); return; }
+    if (!phone) { flash('Вкажіть телефон клієнта.', 'error'); return; }
+
+    var cityToken = page.querySelector('[data-np-city-token]').value;
+    var whToken = page.querySelector('[data-np-warehouse-token]').value;
+    if (!cityToken || !whToken) {
+      flash('Оберіть місто та відділення Нової пошти зі списку.', 'error');
+      return;
+    }
+
+    if (!items.length) { flash('Додайте хоча б один товар.', 'error'); return; }
+
+    var payload = {
+      full_name: fullName,
+      phone: phone,
+      city: page.querySelector('[data-np-city-input]').value.trim(),
+      np_office: page.querySelector('[data-np-warehouse-input]').value.trim(),
+      np_settlement_ref: page.querySelector('[data-np-settlement-ref]').value,
+      np_city_ref: page.querySelector('[data-np-city-ref]').value,
+      np_city_token: cityToken,
+      np_warehouse_ref: page.querySelector('[data-np-warehouse-ref]').value,
+      np_warehouse_token: whToken,
+      payment_preset: (page.querySelector('input[name="payment_preset"]:checked') || {}).value || 'cod',
+      sale_source: saleInput.value.trim(),
+      manager_comment: document.getElementById('moComment').value.trim(),
+      items: items.map(function (it) {
+        if (it.kind === 'custom') {
+          return {
+            kind: 'custom',
+            title: it.title,
+            unit_price: it.unit_price,
+            qty: it.qty,
+            size: it.size,
+            color_name: it.color_name
+          };
+        }
+        return {
+          kind: 'catalog',
+          product_id: it.product_id,
+          color_variant_id: it.color_variant_id || '',
+          size: it.size,
+          qty: it.qty,
+          unit_price: it.unit_price
+        };
+      })
+    };
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Створюємо…';
+
+    fetch(CREATE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrf(),
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: JSON.stringify(payload)
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+      .then(function (res) {
+        if (!res.ok || !res.data.success) {
+          flash(res.data.message || 'Не вдалося створити замовлення.', 'error');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Створити замовлення';
+          return;
+        }
+        flash(res.data.message + ' Перенаправляємо…', 'success');
+        window.setTimeout(function () {
+          window.location.href = res.data.redirect_url;
+        }, 1200);
+      })
+      .catch(function () {
+        flash('Помилка мережі. Спробуйте ще раз.', 'error');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Створити замовлення';
+      });
+  });
+
+  // ── init ───────────────────────────────────────────────
+  renderProductList('');
+  renderItems();
+})();
+</script>
+{% endblock %}

@@ -140,8 +140,11 @@ class TikTokEventsService:
             getter = getattr(item.product, "get_offer_id", None)
             if callable(getter):
                 offer_id = getter(color_variant_id, size)
-            else:
+            elif item.product_id:
                 offer_id = build_offer_id(item.product.id, color_variant_id, size)
+            else:
+                # Позиція поза каталогом — стабільний offer_id за номером позиції.
+                offer_id = f"manual-{item.pk}"
 
             content: Dict[str, Any] = {
                 'content_id': offer_id,

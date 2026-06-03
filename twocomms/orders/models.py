@@ -34,6 +34,25 @@ class Order(models.Model):
         ('partial', _('Внесена передплата (старе)')),
     ]
 
+    SOURCE_CHOICES = [
+        ('web', _('Сайт')),
+        ('manual', _('Створено вручну')),
+    ]
+
+    # Пресети джерела продажу для ручних замовлень (UI-підказки).
+    # Поле ``sale_source`` лишається вільним текстом, тому оператор може
+    # обрати варіант зі списку або вписати власний.
+    SALE_SOURCE_PRESETS = [
+        'Bezet',
+        'Muyme',
+        'Instagram',
+        'Знайомі',
+        'OLX',
+        'Telegram',
+        'Офлайн магазин',
+        'Інше',
+    ]
+
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='orders', null=True, blank=True)
     order_number = models.CharField(max_length=20, unique=True, blank=True)
     session_key = models.CharField(max_length=40, blank=True, null=True)
@@ -102,6 +121,34 @@ class Order(models.Model):
     utm_content = models.CharField(max_length=255, blank=True, null=True, db_index=True, verbose_name='UTM Content')
     utm_term = models.CharField(max_length=255, blank=True, null=True, db_index=True, verbose_name='UTM Term')
 
+    # Ручне створення замовлень (адмін створює замовлення з продажів поза сайтом)
+    source = models.CharField(
+        max_length=10,
+        choices=SOURCE_CHOICES,
+        default='web',
+        db_index=True,
+        verbose_name='Джерело замовлення (спосіб створення)',
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_orders',
+        verbose_name='Створив (адмін)',
+    )
+    sale_source = models.CharField(
+        max_length=120,
+        blank=True,
+        default='',
+        verbose_name='Джерело продажу (звідки клієнт)',
+    )
+    manager_comment = models.TextField(
+        blank=True,
+        default='',
+        verbose_name='Коментар менеджера',
+    )
+
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
 
@@ -166,6 +213,11 @@ class Order(models.Model):
         if self.user:
             return f"{self.user.first_name} {self.user.last_name}".strip() or self.user.username
         return "Гість"
+
+    @property
+    def is_manual(self):
+        """Замовлення створене вручну адміністратором (не через сайт)."""
+        return self.source == 'manual'
 
     def get_payment_status_display(self):
         """Возвращает отображаемое название статуса оплаты"""
@@ -285,7 +337,7 @@ class Order(models.Model):
 
 class OrderItem(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
-    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, null=True, blank=True)
     color_variant = models.ForeignKey(ProductColorVariant, on_delete=models.PROTECT, null=True, blank=True)
     title = models.CharField(max_length=200)
     size = models.CharField(max_length=16, blank=True)
@@ -294,12 +346,17 @@ class OrderItem(models.Model):
     qty = models.PositiveIntegerField(default=1)
     unit_price = models.DecimalField(max_digits=12, decimal_places=2)
     line_total = models.DecimalField(max_digits=12, decimal_places=2)
+    # Позиція поза каталогом (наприклад термо-футболка, якої немає в товарах).
+    is_custom = models.BooleanField(default=False, verbose_name='Позиція поза каталогом')
+    color_name_custom = models.CharField(max_length=100, blank=True, default='', verbose_name='Колір (для позиції поза каталогом)')
 
     def __str__(self):
         return f'{self.title} × {self.qty}'
 
     def get_offer_id(self):
         """Генерирует offer_id для синхронизации с Google Merchant Feed и пикселями"""
+        if not self.product_id:
+            return ''
         from storefront.utils.analytics_helpers import get_offer_id
 
         color_variant_id = self.color_variant.id if self.color_variant else None
@@ -353,14 +410,18 @@ class OrderItem(models.Model):
                     return hex_map[primary]
                 if secondary and secondary in hex_map:
                     return hex_map[secondary]
-        return None
+        # Позиція поза каталогом — колір зберігається текстом.
+        custom = (self.color_name_custom or '').strip()
+        return custom or None
 
     @property
     def product_image(self):
         """Возвращает изображение товара с учетом выбранного цвета"""
         if self.color_variant and self.color_variant.images.exists():
             return self.color_variant.images.first().image
-        return self.product.main_image
+        if self.product_id:
+            return self.product.main_image
+        return None
 
 
 class WholesaleInvoice(models.Model):

@@ -22861,3 +22861,59 @@ html[data-route-name="blog_post"] body{
 .blog-modal-open{overflow:hidden}
 @media (max-width:900px){.blog-editor-toolbar{grid-template-columns:1fr}.blog-builder-layout--unified .blog-block-palette{position:static;grid-template-columns:repeat(2,minmax(0,1fr))}.blog-media-uploader>div{grid-template-columns:1fr}.blog-block-modal{padding:10px}.blog-block-modal-panel{max-height:92vh;border-radius:18px}.blog-modal-list-row{grid-template-columns:1fr}.blog-modal-list-row button{width:100%}}
 @media (max-width:520px){.blog-editor-settings summary{display:grid;min-height:0;padding:14px}.blog-editor-settings summary em{text-align:left}.blog-builder-layout--unified .blog-block-palette{grid-template-columns:repeat(2,minmax(0,1fr));padding:8px}.blog-builder-layout--unified .blog-block-palette button{min-height:42px;padding:0 8px}.blog-block-card-head{align-items:flex-start}.blog-block-card-head strong{width:100%;order:-1}.blog-block-modal-body{padding:14px}.blog-block-modal-panel header,.blog-block-modal-panel footer{padding:14px}.blog-block-json-panel{margin:0 14px 14px}}
+
+
+/* === Ручне створення замовлень (admin) === */
+.orders-admin-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+.manual-order-create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 20px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: #0b1220;
+  background: linear-gradient(135deg, #f97316, #fb923c);
+  box-shadow: 0 10px 26px rgba(249, 115, 22, 0.3);
+  text-decoration: none;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.manual-order-create-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px rgba(249, 115, 22, 0.42);
+  color: #0b1220;
+}
+.order-source-badge {
+  white-space: nowrap;
+}
+.order-manual-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.22);
+}
+.order-manual-meta__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: rgba(248, 250, 252, 0.82);
+}
+.order-manual-meta__item svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: #fbbf24;
+}
+@media (max-width: 640px) {
+  .orders-admin-toolbar { justify-content: stretch; }
+  .manual-order-create-btn { width: 100%; justify-content: center; }
+}

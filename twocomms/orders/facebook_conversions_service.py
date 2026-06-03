@@ -463,8 +463,10 @@ class FacebookConversionsService:
                 getter = getattr(item.product, "get_offer_id", None)
                 if callable(getter):
                     offer_id = getter(color_variant_id, size)
-                else:
+                elif item.product_id:
                     offer_id = build_offer_id(item.product.id, color_variant_id, size)
+                else:
+                    offer_id = f"manual-{item.pk}"
                 content_ids.append(offer_id)
 
             custom_data.content_ids = content_ids
@@ -488,8 +490,10 @@ class FacebookConversionsService:
                 getter = getattr(item.product, "get_offer_id", None)
                 if callable(getter):
                     offer_id = getter(color_variant_id, size)
-                else:
+                elif item.product_id:
                     offer_id = build_offer_id(item.product.id, color_variant_id, size)
+                else:
+                    offer_id = f"manual-{item.pk}"
 
                 content = Content(
                     product_id=offer_id,  # Используем offer_id вместо product.id
