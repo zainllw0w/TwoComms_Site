@@ -1885,7 +1885,7 @@ body.fin-settings-open { overflow: hidden; }
        preventDefault лише коли жест реально активувався. */
     .fin-body {
         overscroll-behavior-x: contain;
-        touch-action: pan-y;
+        touch-action: pan-y pinch-zoom;
     }
 
     .fin-settings-panel__content {

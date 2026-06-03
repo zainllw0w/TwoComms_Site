@@ -1,7 +1,7 @@
 """Тести модуля «Магазини під реалізацію» (consignment)."""
 from decimal import Decimal
 
-from django.test import TestCase, Client
+from django.test import TestCase, Client, override_settings
 from django.utils import timezone
 
 from finance.models import (
@@ -316,6 +316,8 @@ class ConsignmentPaymentSaleTestCase(TestCase):
         self.assertEqual(svc.reseller_debt(self.reseller), debt_before + Decimal('1800'))
 
 
+@override_settings(ALLOWED_HOSTS=['fin.twocomms.shop', 'testserver'],
+                   ROOT_URLCONF='twocomms.urls_fin')
 class ConsignmentIntegrationTestCase(TestCase):
     """КРОК 6: інтеграція з дашбордом, сайдбаром, аналітикою."""
 
