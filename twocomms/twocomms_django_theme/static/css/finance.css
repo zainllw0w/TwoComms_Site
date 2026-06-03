@@ -1883,23 +1883,19 @@ body.fin-settings-open { overflow: hidden; }
     .fin-sidebar {
         padding-top: env(safe-area-inset-top, 0);
         padding-bottom: env(safe-area-inset-bottom, 0);
-        touch-action: pan-y pinch-zoom;
+        touch-action: pan-y;
     }
 
     .fin-sidebar__scroll {
         padding-top: 20px;
     }
 
+    /* Дозволяємо горизонтальні жести (відкриття/закриття шухляд).
+       Вертикальний скрол сторінки лишається природним. JS сам викликає
+       preventDefault лише коли жест реально активувався. */
     .fin-body {
         overscroll-behavior-x: contain;
-        touch-action: pan-y pinch-zoom;
-    }
-
-    .fin-tabs,
-    .fin-table-wrap,
-    .fin-sidebar__scroll,
-    .fin-settings-panel__body {
-        touch-action: pan-x pan-y pinch-zoom;
+        touch-action: pan-y;
     }
 
     .fin-settings-panel__content {
@@ -1909,7 +1905,7 @@ body.fin-settings-open { overflow: hidden; }
         height: 100dvh;
         padding-top: env(safe-area-inset-top, 0);
         padding-bottom: env(safe-area-inset-bottom, 0);
-        touch-action: pan-y pinch-zoom;
+        touch-action: pan-y;
     }
 
     /* Header з safe area */

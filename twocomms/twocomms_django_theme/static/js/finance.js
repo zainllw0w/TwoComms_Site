@@ -11,22 +11,21 @@
         var backdrop = document.getElementById('fin-sidebar-backdrop');
         var settingsPanel = document.getElementById('fin-settings-panel');
         var settingsContent = settingsPanel ? settingsPanel.querySelector('.fin-settings-panel__content') : null;
-        var SAFE_EDGE_GUARD = 20;
-        var EDGE_OPEN_ZONE = 132;
-        var EDGE_DRAG_THRESHOLD = 8;
-        var CENTER_DRAG_THRESHOLD = 22;
-        var CLOSE_DRAG_THRESHOLD = 8;
-        var EDGE_AXIS_RATIO = 1.05;
-        var CENTER_AXIS_RATIO = 1.15;
-        var CLOSE_AXIS_RATIO = 1.05;
-        var VERTICAL_CANCEL_DISTANCE = 64;
-        var DRAWER_OPEN_RATIO = 0.28;
-        var DRAWER_CLOSE_RATIO = 0.72;
-        var DRAWER_OPEN_FLING = 0.35;
-        var DRAWER_CLOSE_FLING = 0.35;
-        var DRAWER_MIN_RELEASE = 44;
-        var DRAWER_MIN_CLOSE = 52;
-        var DRAWER_SETTLE_MS = 320;
+        // ── Жести шухляд (edge-swipe drawer) ────────────────────────────
+        // Відкриття: палець стартує в крайовій зоні екрана (ліва → бургер,
+        // права → налаштування) і тягне всередину. Закриття: коли шухляда
+        // відкрита, тягнемо у зворотний бік. Поріг низький — невеликого руху
+        // або «кидка» достатньо, щоб шухляда плавно доїхала сама.
+        var EDGE_ZONE = 44;            // px від краю екрана — звідки можна починати відкривати
+        var ACTIVATE_PX = 8;           // горизонтальний зсув, щоб «схопити» жест
+        var AXIS_RATIO = 1.0;          // горизонталь має домінувати над вертикаллю
+        var VERTICAL_CANCEL = 16;      // якщо одразу пішли вертикально — це скрол, не жест
+        var OPEN_COMMIT_RATIO = 0.30;  // відкрити, якщо протягнули ≥30% ширини
+        var CLOSE_COMMIT_RATIO = 0.30; // закрити, якщо відвели назад ≥30% ширини
+        var FLING_VELOCITY = 0.30;     // px/ms — «кидок» завершує дію незалежно від відстані
+        var MIN_OPEN_PX = 36;
+        var MIN_CLOSE_PX = 44;
+        var SETTLE_MS = 320;
         var drawerDrag = null;
 
         function isMobileDrawerViewport() {
@@ -68,12 +67,6 @@
         function isControlGestureTarget(target) {
             return !!(target && target.closest(
                 'a, button, input, select, textarea, label, [role="button"], [contenteditable="true"]'
-            ));
-        }
-
-        function isInteractiveGestureTarget(target) {
-            return isControlGestureTarget(target) || !!(target && target.closest(
-                '.fin-sidebar, .fin-settings-panel, .fin-modal-overlay, .fin-table-wrap, .fin-tabs'
             ));
         }
 
@@ -128,7 +121,7 @@
                 ) {
                     settingsPanel.hidden = true;
                 }
-            }, DRAWER_SETTLE_MS);
+            }, SETTLE_MS);
         }
 
         function currentDrawerSide() {
@@ -137,6 +130,7 @@
             return null;
         }
 
+        // Готуємо DOM до «підглядання» шухляди під час перетягування.
         function prepareDrawerPreview(side, mode) {
             if (side === 'right' && settingsPanel) {
                 settingsPanel.hidden = false;
@@ -174,24 +168,23 @@
 
         function settleDrawerRelease(side, progress, width, afterSettle) {
             setDrawerProgress(side, progress, width);
+            // Знімаємо клас перетягування → вмикається CSS-transition і
+            // шухляда плавно доїжджає до кінцевого стану (open/close).
             body.classList.remove('fin-drawer-dragging');
             if (typeof afterSettle === 'function') afterSettle();
             clearDrawerProgress(side);
             if (side === 'right') hideSettingsPreview();
         }
 
-        function startDrawerDrag(side, e, mode) {
-            if (!drawerDrag || drawerDrag.active) return;
+        // Активуємо перетягування: фіксуємо ширину, вмикаємо peek-стан.
+        function activateDrag(e) {
             drawerDrag.active = true;
-            drawerDrag.side = side;
-            drawerDrag.mode = mode || drawerDrag.mode || 'open';
-            drawerDrag.width = prepareDrawerPreview(side, drawerDrag.mode);
-            drawerDrag.lastX = e.clientX;
-            drawerDrag.lastTime = window.performance ? performance.now() : Date.now();
+            drawerDrag.width = prepareDrawerPreview(drawerDrag.side, drawerDrag.mode);
             if (drawerDrag.mode === 'close') {
-                setDrawerProgress(side, drawerDrag.width, drawerDrag.width);
+                setDrawerProgress(drawerDrag.side, drawerDrag.width, drawerDrag.width);
+            } else {
+                setDrawerProgress(drawerDrag.side, 0, drawerDrag.width);
             }
-
             if (e.target && typeof e.target.setPointerCapture === 'function') {
                 try {
                     e.target.setPointerCapture(e.pointerId);
@@ -200,10 +193,7 @@
             }
         }
 
-        function startClosingDrawerDrag(side, e) {
-            startDrawerDrag(side, e, 'close');
-        }
-
+        // Поточний прогрес (0..width) з координат вказівника.
         function dragProgressFromEvent(e) {
             if (!drawerDrag || !drawerDrag.side) return 0;
             var deltaX = e.clientX - drawerDrag.startX;
@@ -215,25 +205,22 @@
             return clamp(-deltaX, 0, drawerDrag.width);
         }
 
-        function candidateSideFromEdge(x, width) {
-            if (x <= SAFE_EDGE_GUARD || x >= width - SAFE_EDGE_GUARD) return null;
-            if (x <= EDGE_OPEN_ZONE) return 'left';
-            if (x >= width - EDGE_OPEN_ZONE) return 'right';
-            return null;
-        }
-
         function onPointerDown(e) {
-            var openSide = currentDrawerSide();
             if (
                 !window.PointerEvent ||
                 !isMobileDrawerViewport() ||
-                (e.pointerType === 'mouse' && e.button !== 0) ||
+                (e.pointerType === 'mouse') ||
                 e.isPrimary === false
             ) {
+                // Жести лише для тач-екранів на мобільному вьюпорті.
                 return;
             }
 
+            var openSide = currentDrawerSide();
+
+            // ── Шухляда відкрита → готуємо жест закриття ──
             if (openSide) {
+                // Тап по контролу всередині шухляди не повинен її тягнути.
                 if (isControlGestureTarget(e.target)) return;
                 drawerDrag = {
                     mode: 'close',
@@ -251,26 +238,25 @@
                 return;
             }
 
-            if (
-                body.classList.contains('fin-any-drawer-open') ||
-                isInteractiveGestureTarget(e.target)
-            ) {
-                return;
-            }
+            // Якщо відкрита модалка — не перехоплюємо.
+            if (body.classList.contains('fin-any-drawer-open')) return;
 
+            // ── Шухляда закрита → жест відкриття лише з крайової зони ──
             var width = viewportWidth();
-            var startSide = candidateSideFromEdge(e.clientX, width);
-            var fromSystemEdge = e.clientX <= SAFE_EDGE_GUARD || e.clientX >= width - SAFE_EDGE_GUARD;
-            if (fromSystemEdge) return;
+            var x = e.clientX;
+            var side = null;
+            if (x <= EDGE_ZONE) side = 'left';
+            else if (x >= width - EDGE_ZONE) side = 'right';
+            if (!side) return;
 
             drawerDrag = {
                 mode: 'open',
                 pointerId: e.pointerId,
                 startX: e.clientX,
                 startY: e.clientY,
-                side: startSide,
+                side: side,
                 active: false,
-                width: 0,
+                width: drawerWidth(side),
                 lastX: e.clientX,
                 lastTime: window.performance ? performance.now() : Date.now(),
                 velocityX: 0,
@@ -287,34 +273,28 @@
             var absY = Math.abs(deltaY);
             var now = window.performance ? performance.now() : Date.now();
             var elapsed = Math.max(now - drawerDrag.lastTime, 1);
+            // Згладжена миттєва швидкість (для розпізнавання «кидка»).
             drawerDrag.velocityX = (e.clientX - drawerDrag.lastX) / elapsed;
             drawerDrag.lastX = e.clientX;
             drawerDrag.lastTime = now;
 
             if (!drawerDrag.active) {
-                if (absY >= VERTICAL_CANCEL_DISTANCE && absY > absX * 1.2) {
+                // Вертикальний намір раніше за горизонтальний → це скрол, відпускаємо.
+                if (absY >= VERTICAL_CANCEL && absY > absX) {
                     resetDrawerDrag();
                     return;
                 }
-
-                if (drawerDrag.mode === 'close') {
-                    if ((drawerDrag.side === 'left' && deltaX > 8) || (drawerDrag.side === 'right' && deltaX < -8)) {
-                        resetDrawerDrag();
-                        return;
-                    }
-                    if (absX >= CLOSE_DRAG_THRESHOLD && absX > absY * CLOSE_AXIS_RATIO) {
-                        startClosingDrawerDrag(drawerDrag.side, e);
-                    }
-                } else if (drawerDrag.side) {
-                    if ((drawerDrag.side === 'left' && deltaX < -8) || (drawerDrag.side === 'right' && deltaX > 8)) {
-                        resetDrawerDrag();
-                        return;
-                    }
-                    if (absX >= EDGE_DRAG_THRESHOLD && absX > absY * EDGE_AXIS_RATIO) {
-                        startDrawerDrag(drawerDrag.side, e);
-                    }
-                } else if (absX >= CENTER_DRAG_THRESHOLD && absX > absY * CENTER_AXIS_RATIO) {
-                    startDrawerDrag(deltaX > 0 ? 'left' : 'right', e);
+                // Рух у «неправильний» бік скасовує жест.
+                var wrongWay = drawerDrag.mode === 'open'
+                    ? (drawerDrag.side === 'left' ? deltaX < -4 : deltaX > 4)
+                    : (drawerDrag.side === 'left' ? deltaX > 4 : deltaX < -4);
+                if (wrongWay) {
+                    resetDrawerDrag();
+                    return;
+                }
+                // Достатній горизонтальний зсув із домінуванням по X → активуємо.
+                if (absX >= ACTIVATE_PX && absX >= absY * AXIS_RATIO) {
+                    activateDrag(e);
                 }
             }
 
@@ -327,29 +307,38 @@
             if (!drawerDrag || e.pointerId !== drawerDrag.pointerId) return;
             var side = drawerDrag.side;
             var mode = drawerDrag.mode || 'open';
-            var progress = drawerDrag.active ? dragProgressFromEvent(e) : 0;
+            var active = drawerDrag.active;
+            var progress = active ? dragProgressFromEvent(e) : (mode === 'close' ? drawerDrag.width : 0);
             var width = drawerDrag.width || drawerWidth(side);
             var velocity = drawerDrag.velocityX || 0;
-            var flungOpen = side === 'left' ? velocity >= DRAWER_OPEN_FLING : velocity <= -DRAWER_OPEN_FLING;
-            var flungClosed = side === 'left' ? velocity <= -DRAWER_CLOSE_FLING : velocity >= DRAWER_CLOSE_FLING;
-            var hiddenDistance = width - progress;
-            var shouldOpen = mode === 'open' && drawerDrag.active && (
-                progress >= width * DRAWER_OPEN_RATIO ||
-                (progress >= DRAWER_MIN_RELEASE && flungOpen)
+            // Швидкість у бік відкриття/закриття (з урахуванням боку).
+            var openVel = side === 'left' ? velocity : -velocity;   // >0 = тягне відкривати
+            var flungOpen = openVel >= FLING_VELOCITY;
+            var flungClosed = openVel <= -FLING_VELOCITY;
+            var hidden = width - progress;
+
+            var shouldOpen = mode === 'open' && active && (
+                progress >= width * OPEN_COMMIT_RATIO ||
+                (progress >= MIN_OPEN_PX && flungOpen)
             );
-            var shouldClose = mode === 'close' && drawerDrag.active && (
-                progress <= width * DRAWER_CLOSE_RATIO ||
-                hiddenDistance >= DRAWER_MIN_CLOSE ||
-                flungClosed
+            var shouldClose = mode === 'close' && active && (
+                hidden >= width * CLOSE_COMMIT_RATIO ||
+                (hidden >= MIN_CLOSE_PX && flungClosed)
             );
 
             releasePointerCapture();
             drawerDrag = null;
 
+            if (!active) {
+                // Жест не активувався (звичайний тап) — нічого не робимо.
+                clearDrawerProgress(side);
+                body.classList.remove('fin-drawer-dragging');
+                if (side === 'right') hideSettingsPreview();
+                return;
+            }
+
             if (shouldOpen && side === 'left') {
-                settleDrawerRelease(side, width, width, function () {
-                    setSidebarOpen(true);
-                });
+                settleDrawerRelease(side, width, width, function () { setSidebarOpen(true); });
             } else if (shouldOpen && side === 'right') {
                 settleDrawerRelease(side, width, width, openSettingsDrawer);
             } else if (shouldClose && side === 'left') {
@@ -357,10 +346,10 @@
             } else if (shouldClose && side === 'right') {
                 settleDrawerRelease(side, 0, width, closeSettingsDrawer);
             } else if (mode === 'close') {
+                // Не дотягнули до закриття → лишаємо відкритою.
                 settleDrawerRelease(side, width, width);
-            } else if (side === 'right') {
-                settleDrawerRelease(side, 0, width);
             } else {
+                // Не дотягнули до відкриття → ховаємо назад.
                 settleDrawerRelease(side, 0, width);
             }
         }
