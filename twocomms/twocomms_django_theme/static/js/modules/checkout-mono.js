@@ -426,7 +426,8 @@ function requestMonobankPay() {
       np_city_token: getAnyVal('np_city_token'),
       np_warehouse_ref: getAnyVal('np_warehouse_ref'),
       np_warehouse_token: getAnyVal('np_warehouse_token'),
-      pay_type: getPayType()
+      pay_type: getPayType(),
+      email: getAnyVal('email')
     };
   }
   const effectivePayType = getPayType();

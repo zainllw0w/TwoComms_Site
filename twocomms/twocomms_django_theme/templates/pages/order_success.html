@@ -1701,17 +1701,19 @@
           <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
           <polyline points="22,6 12,13 2,6"/>
         </svg>
-        {% trans 'Отримати чек на email' %}
+        {% trans 'Отримати квитанцію на email' %}
       </h2>
-      <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 1rem;">{% trans 'Введіть вашу email адресу, і ми надішлемо чек про оплату' %}</p>
+      <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 1rem;">{% trans 'Введіть email — і ми надішлемо красиву квитанцію про оплату з деталями замовлення та фото товарів.' %}</p>
       <div class="email-form-group">
-        <input type="email" class="email-input" placeholder="your.email@example.com" id="receipt-email-input">
-        <button type="button" class="btn-send-receipt" id="send-receipt-btn">
+        <input type="email" class="email-input" placeholder="your.email@example.com" id="receipt-email-input"
+               value="{% if order and order.email %}{{ order.email }}{% elif user.is_authenticated and user.email %}{{ user.email }}{% elif user.is_authenticated and user.userprofile.email %}{{ user.userprofile.email }}{% endif %}">
+        <button type="button" class="btn-send-receipt" id="send-receipt-btn"
+                {% if order %}data-receipt-url="{% url 'order_send_receipt' order.id %}"{% endif %}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: inline-block; margin-right: 0.5rem;">
             <line x1="22" y1="2" x2="11" y2="13"/>
             <polygon points="22 2 15 22 11 13 2 9 22 2"/>
           </svg>
-          {% trans 'Відправити чек' %}
+          {% trans 'Відправити квитанцію' %}
         </button>
       </div>
       <div id="receipt-message" style="margin-top: 1rem; display: none;"></div>
@@ -1768,28 +1770,72 @@
 </div>
 
 <script>
-// Email чек - UI пока, функционал позже
+// Email-квитанція — реальна відправка на бекенд
 document.addEventListener('DOMContentLoaded', function() {
   const emailInput = document.getElementById('receipt-email-input');
   const sendBtn = document.getElementById('send-receipt-btn');
   const messageDiv = document.getElementById('receipt-message');
-  
-  if (sendBtn) {
-    sendBtn.addEventListener('click', function() {
-      const email = emailInput.value.trim();
-      if (!email || !email.includes('@')) {
-        messageDiv.style.display = 'block';
-        messageDiv.innerHTML = '<p style="color: #ef4444; margin: 0;">{% trans "Будь ласка, введіть коректну email адресу" %}</p>';
-        return;
-      }
-      
-      // UI показываем успех, функционал добавим позже
-      sendBtn.disabled = true;
-      sendBtn.textContent = '{% trans "Відправляється..." %}';
-      messageDiv.style.display = 'block';
-      messageDiv.innerHTML = '<p style="color: #10b981; margin: 0;">✅ {% trans "Чек буде відправлено на" %} ' + email + '. {% trans "Функціонал буде додано найближчим часом." %}</p>';
-    });
+
+  if (!sendBtn || !emailInput) return;
+
+  function readCookie(name) {
+    const value = '; ' + document.cookie;
+    const parts = value.split('; ' + name + '=');
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return '';
   }
+
+  const defaultLabel = sendBtn.innerHTML;
+
+  function showMessage(color, html) {
+    messageDiv.style.display = 'block';
+    messageDiv.innerHTML = '<p style="color: ' + color + '; margin: 0;">' + html + '</p>';
+  }
+
+  sendBtn.addEventListener('click', function() {
+    const email = (emailInput.value || '').trim();
+    const url = sendBtn.getAttribute('data-receipt-url');
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showMessage('#ef4444', '{% trans "Будь ласка, введіть коректну email адресу" %}');
+      return;
+    }
+    if (!url) {
+      showMessage('#ef4444', '{% trans "Квитанція доступна лише для оформленого замовлення." %}');
+      return;
+    }
+
+    sendBtn.disabled = true;
+    sendBtn.textContent = '{% trans "Надсилаємо..." %}';
+
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': readCookie('csrftoken'),
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify({ email: email })
+    })
+      .then(function(r) { return r.json().then(function(data) { return { ok: r.ok, data: data }; }); })
+      .then(function(res) {
+        if (res.ok && res.data && res.data.success) {
+          showMessage('#10b981', '✅ {% trans "Квитанцію надіслано на" %} ' + email + '. {% trans "Перевірте вхідні (та папку Спам)." %}');
+          sendBtn.innerHTML = '✅ {% trans "Надіслано" %}';
+        } else {
+          const err = (res.data && res.data.error) ? res.data.error : '{% trans "Не вдалося надіслати. Спробуйте пізніше." %}';
+          showMessage('#ef4444', err);
+          sendBtn.disabled = false;
+          sendBtn.innerHTML = defaultLabel;
+        }
+      })
+      .catch(function() {
+        showMessage('#ef4444', '{% trans "Помилка мережі. Спробуйте ще раз." %}');
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = defaultLabel;
+      });
+  });
 });
 </script>
 {% endblock %}

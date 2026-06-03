@@ -94,6 +94,7 @@ def create_order(request):
             city = delivery_selection.city
             np_office = delivery_selection.np_office
             pay_type = (request.POST.get('pay_type') or profile.pay_type or 'online_full').strip()
+            customer_email = (request.POST.get('email') or getattr(profile, 'email', '') or user.email or '').strip()
         except UserProfile.DoesNotExist:
             full_name = request.POST.get('full_name', '')
             raw_phone = request.POST.get('phone', '')
@@ -101,6 +102,7 @@ def create_order(request):
             city = delivery_selection.city
             np_office = delivery_selection.np_office
             pay_type = request.POST.get('pay_type', 'online_full')
+            customer_email = (request.POST.get('email') or user.email or '').strip()
     else:
         user = None
         full_name = request.POST.get('full_name', '')
@@ -109,6 +111,7 @@ def create_order(request):
         city = delivery_selection.city
         np_office = delivery_selection.np_office
         pay_type = request.POST.get('pay_type', 'online_full')
+        customer_email = (request.POST.get('email') or '').strip()
 
     if raw_phone and not phone:
         messages.error(request, _("Вкажіть коректний український номер телефону. Можна без +380."))
@@ -129,11 +132,26 @@ def create_order(request):
 
     try:
         with transaction.atomic():
+            # Validate optional email
+            normalized_email = None
+            if customer_email:
+                try:
+                    from django.core.validators import validate_email as _validate_email
+                    from django.core.exceptions import ValidationError as _ValidationError
+                    try:
+                        _validate_email(customer_email)
+                        normalized_email = customer_email
+                    except _ValidationError:
+                        normalized_email = None
+                except Exception:
+                    normalized_email = None
+
             # Create Order
             order = Order(
                 user=user,
                 full_name=full_name,
                 phone=phone,
+                email=normalized_email,
                 city=city,
                 np_office=np_office,
                 pay_type=pay_type,

@@ -466,6 +466,19 @@ def view_cart(request):
                         return redirect('cart')
                     profile.city = delivery_selection.city
                     profile.np_office = delivery_selection.np_office
+                    # Email опціонально: зберігаємо у профіль для майбутнього предзаповнення
+                    posted_email = (request.POST.get('email') or '').strip()
+                    if posted_email:
+                        try:
+                            from django.core.validators import validate_email as _validate_email
+                            from django.core.exceptions import ValidationError as _ValidationError
+                            try:
+                                _validate_email(posted_email)
+                                profile.email = posted_email
+                            except _ValidationError:
+                                pass
+                        except Exception:
+                            pass
                     apply_nova_poshta_refs(
                         profile,
                         {

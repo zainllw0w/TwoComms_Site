@@ -454,6 +454,8 @@ def monobank_create_invoice(request):
         phone = normalize_checkout_phone(raw_phone)
         city = delivery_selection.city
         np_office = delivery_selection.np_office
+        # Email опціонально: з форми → з профілю → з акаунту
+        customer_email = _body_override('email', getattr(prof, 'email', '') or (request.user.email or ''))
 
         pay_type_raw = (body.get('pay_type') or prof.pay_type or 'online_full')
         normalized_pay_type = (pay_type_raw or '').strip().lower()
@@ -473,6 +475,7 @@ def monobank_create_invoice(request):
         city = delivery_selection.city
         np_office = delivery_selection.np_office
         pay_type = body.get('pay_type', 'online_full')
+        customer_email = (body.get('email') or '').strip()
         monobank_logger.info(f'Guest user: pay_type={pay_type}')
 
         # Валидация для гостей
@@ -506,6 +509,20 @@ def monobank_create_invoice(request):
         pay_type = 'online_full'
         monobank_logger.info(f'✅ Normalized full to online_full')
     monobank_logger.info(f'🔍 AFTER normalization: pay_type={pay_type}')
+
+    # Email опціональний. Якщо вказано некоректний — просто ігноруємо (не блокуємо оплату).
+    normalized_email = ''
+    if customer_email:
+        try:
+            from django.core.validators import validate_email as _validate_email
+            from django.core.exceptions import ValidationError as _ValidationError
+            try:
+                _validate_email(customer_email)
+                normalized_email = customer_email
+            except _ValidationError:
+                monobank_logger.info(f'Ignoring invalid checkout email: {customer_email!r}')
+        except Exception:
+            normalized_email = ''
 
     # Создаем заказ в транзакции
     try:
@@ -542,6 +559,7 @@ def monobank_create_invoice(request):
                 user=request.user if request.user.is_authenticated else None,
                 full_name=full_name,
                 phone=phone,
+                email=normalized_email or None,
                 city=city,
                 np_office=np_office,
                 session_key=request.session.session_key,
@@ -1231,6 +1249,14 @@ def _apply_monobank_status(order, status_value, payload=None, source='webhook'):
         except Exception:
             # Не блокируем основной поток при ошибке уведомления
             pass
+
+        # Лист-квитанція клієнту (якщо є email). Не блокуємо основний потік.
+        try:
+            if getattr(order, 'email', None):
+                from orders.email_receipt import send_order_receipt_email
+                send_order_receipt_email(order)
+        except Exception:
+            monobank_logger.warning('Failed to send receipt email for order %s', order.pk, exc_info=True)
 
     return status_lower
 
