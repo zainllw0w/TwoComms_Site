@@ -1,7 +1,8 @@
 {% load static %}
+{% with url_name=request.resolver_match.url_name|default:'' %}
 <nav class="wh-bottom-nav">
     <a href="{% url 'warehouse:dashboard' %}"
-       class="wh-bottom-nav__item {% if active_section == 'dashboard' %}active{% endif %}">
+       class="wh-bottom-nav__item {% if url_name == 'dashboard' or url_name == 'today' %}active{% endif %}">
         <span class="wh-bottom-nav__icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 12L12 3l9 9"/>
@@ -11,7 +12,7 @@
         Головна
     </a>
     <a href="{% url 'warehouse:category_list' %}"
-       class="wh-bottom-nav__item {% if active_section == 'categories' %}active{% endif %}">
+       class="wh-bottom-nav__item {% if url_name == 'category_list' or url_name == 'category_detail' or url_name == 'category_bulk_add' %}active{% endif %}">
         <span class="wh-bottom-nav__icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M16 4l2 2-6 6 6 6-2 2"/>
@@ -22,7 +23,7 @@
         Одяг
     </a>
     <a href="{% url 'warehouse:print_list' %}"
-       class="wh-bottom-nav__item {% if active_section == 'prints' %}active{% endif %}">
+       class="wh-bottom-nav__item {% if url_name == 'print_list' or url_name == 'print_detail' or url_name == 'print_create' or url_name == 'print_edit' %}active{% endif %}">
         <span class="wh-bottom-nav__icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="9" width="18" height="10" rx="2"/>
@@ -32,24 +33,26 @@
         </span>
         Принти
     </a>
-    <a href="{% url 'warehouse:history' %}"
-       class="wh-bottom-nav__item {% if active_section == 'history' %}active{% endif %}">
+    <a href="{% url 'warehouse:consumables_list' %}"
+       class="wh-bottom-nav__item {% if url_name == 'consumables_list' or url_name == 'consumable_detail' or url_name == 'consumable_create' or url_name == 'consumable_edit' %}active{% endif %}">
         <span class="wh-bottom-nav__icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="9"/>
-                <path d="M12 7v5l3 2"/>
+                <path d="M3 7l9-4 9 4-9 4-9-4z"/>
+                <path d="M3 7v10l9 4 9-4V7"/>
+                <path d="M12 11v10"/>
             </svg>
         </span>
-        Історія
+        Розхідники
     </a>
-    <a href="{% url 'warehouse:finance' %}"
-       class="wh-bottom-nav__item {% if active_section == 'finance' %}active{% endif %}">
+    <a href="{% url 'warehouse:settings' %}"
+       class="wh-bottom-nav__item {% if 'settings' in url_name %}active{% endif %}">
         <span class="wh-bottom-nav__icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 1v22"/>
-                <path d="M17 5H9.5a3.5 3.5 0 1 0 0 7h5a3.5 3.5 0 1 1 0 7H6"/>
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
             </svg>
         </span>
-        Фінанси
+        Налаштування
     </a>
 </nav>
+{% endwith %}

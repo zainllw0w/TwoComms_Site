@@ -48,3 +48,60 @@
         },
     };
 })();
+
+/* Header left drawer (burger menu) */
+(function () {
+    'use strict';
+
+    function init() {
+        var btn = document.getElementById('wh-burger-btn');
+        var drawer = document.getElementById('wh-drawer');
+        var backdrop = document.getElementById('wh-drawer-backdrop');
+        if (!btn || !drawer || !backdrop) { return; }
+        var closeBtn = document.getElementById('wh-drawer-close');
+
+        function open() {
+            drawer.classList.add('open');
+            backdrop.classList.add('open');
+            document.body.classList.add('wh-drawer-open');
+            btn.setAttribute('aria-expanded', 'true');
+            drawer.setAttribute('aria-hidden', 'false');
+        }
+
+        function close() {
+            drawer.classList.remove('open');
+            backdrop.classList.remove('open');
+            document.body.classList.remove('wh-drawer-open');
+            btn.setAttribute('aria-expanded', 'false');
+            drawer.setAttribute('aria-hidden', 'true');
+        }
+
+        function toggle() {
+            if (drawer.classList.contains('open')) { close(); } else { open(); }
+        }
+
+        btn.addEventListener('click', toggle);
+        backdrop.addEventListener('click', close);
+        if (closeBtn) { closeBtn.addEventListener('click', close); }
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') { close(); }
+        });
+
+        // Swipe-left to close
+        var startX = null;
+        drawer.addEventListener('touchstart', function (e) {
+            startX = e.touches[0].clientX;
+        }, { passive: true });
+        drawer.addEventListener('touchmove', function (e) {
+            if (startX === null) { return; }
+            if (e.touches[0].clientX - startX < -50) { close(); startX = null; }
+        }, { passive: true });
+        drawer.addEventListener('touchend', function () { startX = null; });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
