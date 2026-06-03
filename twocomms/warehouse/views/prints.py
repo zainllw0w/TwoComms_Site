@@ -311,6 +311,17 @@ def _save_print(request, instance):
 
 @warehouse_admin_required
 @require_POST
+def print_delete(request, slug):
+    """Повне видалення принта разом із варіантами кольорів."""
+    pr = get_object_or_404(Print, slug=slug)
+    name = pr.name
+    pr.delete()  # CASCADE на PrintColorVariant
+    messages.success(request, f"Принт «{name}» видалено.")
+    return redirect("warehouse:print_list")
+
+
+@warehouse_admin_required
+@require_POST
 def print_adjust(request):
     """AJAX endpoint: +/- variant or set absolute."""
     try:

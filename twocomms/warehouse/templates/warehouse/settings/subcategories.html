@@ -45,6 +45,11 @@
                     {% if sub.is_active %}Приховати{% else %}Активувати{% endif %}
                 </button>
             </form>
+            <form method="post" action="{% url 'warehouse:settings_subcategory_delete' pk=sub.pk %}"
+                  onsubmit="return confirm('Видалити крій «{{ sub.name|escapejs }}»? Це незворотно.');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn--ghost btn--small btn--danger-ghost" title="Видалити" aria-label="Видалити">🗑</button>
+            </form>
         </div>
     </li>
 {% empty %}

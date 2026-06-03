@@ -10,6 +10,7 @@ from .prints import (  # noqa: F401
     print_detail,
     print_create,
     print_edit,
+    print_delete,
     print_adjust,
 )
 from .write_off import write_off_entry, write_off_submit  # noqa: F401
@@ -23,6 +24,7 @@ from .consumables import (  # noqa: F401
     consumable_create,
     consumable_edit,
     consumable_adjust,
+    consumable_delete,
     consumables_low_stock_api,
 )
 from .settings import (  # noqa: F401
@@ -30,18 +32,24 @@ from .settings import (  # noqa: F401
     settings_categories,
     settings_category_form,
     settings_category_toggle,
+    settings_category_delete,
     settings_subcategories,
     settings_subcategory_form,
     settings_subcategory_toggle,
+    settings_subcategory_delete,
     settings_colors,
     settings_color_form,
     settings_color_create_ajax,
     settings_telegram,
     settings_telegram_test,
+    settings_notifications,
+    settings_notifications_test,
     settings_print_categories,
     settings_print_category_form,
     settings_print_category_toggle,
+    settings_print_category_delete,
     settings_consumable_categories,
     settings_consumable_category_form,
     settings_consumable_category_toggle,
+    settings_consumable_category_delete,
 )

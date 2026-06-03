@@ -34,6 +34,7 @@ urlpatterns = [
     path("prints/new/", views.print_create, name="print_create"),
     path("prints/<slug:slug>/", views.print_detail, name="print_detail"),
     path("prints/<slug:slug>/edit/", views.print_edit, name="print_edit"),
+    path("prints/<slug:slug>/delete/", views.print_delete, name="print_delete"),
 
     # Write-off (from Telegram or Order)
     path(
@@ -56,6 +57,7 @@ urlpatterns = [
     path("consumables/<int:pk>/", views.consumable_detail, name="consumable_detail"),
     path("consumables/<int:pk>/edit/", views.consumable_edit, name="consumable_edit"),
     path("consumables/<int:pk>/adjust/", views.consumable_adjust, name="consumable_adjust"),
+    path("consumables/<int:pk>/delete/", views.consumable_delete, name="consumable_delete"),
     path("api/consumables/low-stock/", views.consumables_low_stock_api, name="consumables_low_stock_api"),
     path("history/verify/", views.history_verify, name="history_verify"),
 
@@ -81,6 +83,11 @@ urlpatterns = [
         name="settings_category_toggle",
     ),
     path(
+        "settings/categories/<slug:slug>/delete/",
+        views.settings_category_delete,
+        name="settings_category_delete",
+    ),
+    path(
         "settings/subcategories/",
         views.settings_subcategories,
         name="settings_subcategories",
@@ -99,6 +106,11 @@ urlpatterns = [
         "settings/subcategories/<int:pk>/toggle/",
         views.settings_subcategory_toggle,
         name="settings_subcategory_toggle",
+    ),
+    path(
+        "settings/subcategories/<int:pk>/delete/",
+        views.settings_subcategory_delete,
+        name="settings_subcategory_delete",
     ),
     path(
         "settings/print-categories/",
@@ -121,6 +133,11 @@ urlpatterns = [
         name="settings_print_category_toggle",
     ),
     path(
+        "settings/print-categories/<int:pk>/delete/",
+        views.settings_print_category_delete,
+        name="settings_print_category_delete",
+    ),
+    path(
         "settings/consumable-categories/",
         views.settings_consumable_categories,
         name="settings_consumable_categories",
@@ -140,6 +157,13 @@ urlpatterns = [
         views.settings_consumable_category_toggle,
         name="settings_consumable_category_toggle",
     ),
+    path(
+        "settings/consumable-categories/<int:pk>/delete/",
+        views.settings_consumable_category_delete,
+        name="settings_consumable_category_delete",
+    ),
+    path("settings/notifications/", views.settings_notifications, name="settings_notifications"),
+    path("settings/notifications/test/", views.settings_notifications_test, name="settings_notifications_test"),
     path("settings/telegram/", views.settings_telegram, name="settings_telegram"),
     path(
         "settings/telegram/test/",

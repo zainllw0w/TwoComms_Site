@@ -110,4 +110,10 @@
         </tbody>
     </table>
 </div>
+
+<form method="post" action="{% url 'warehouse:consumable_delete' consumable.pk %}" class="mt-24"
+      onsubmit="return confirm('Видалити розхідник «{{ consumable.name|escapejs }}» та всю його історію? Це незворотно.');">
+    {% csrf_token %}
+    <button type="submit" class="btn btn--danger btn--block">🗑 Видалити розхідник</button>
+</form>
 {% endblock %}

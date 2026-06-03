@@ -90,6 +90,12 @@
 <div class="wh-card text-muted">{{ print.description|linebreaks }}</div>
 {% endif %}
 
+<form method="post" action="{% url 'warehouse:print_delete' slug=print.slug %}" class="mt-24"
+      onsubmit="return confirm('Видалити принт «{{ print.name|escapejs }}» разом з усіма варіантами? Це незворотно.');">
+    {% csrf_token %}
+    <button type="submit" class="btn btn--danger btn--block">🗑 Видалити принт</button>
+</form>
+
 {% endblock %}
 
 {% block extra_head %}

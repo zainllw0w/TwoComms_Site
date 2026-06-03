@@ -181,6 +181,25 @@ def consumable_adjust(request, pk):
     return redirect('warehouse:consumable_detail', pk=consumable.pk)
 
 
+@require_POST
+@login_required
+def consumable_delete(request, pk):
+    """Повне видалення розхідного матеріалу разом з історією рухів."""
+    consumable = get_object_or_404(ConsumableItem, pk=pk)
+    name = consumable.name
+    # Прибираємо рухи (GenericFK не каскадиться автоматично).
+    from django.contrib.contenttypes.models import ContentType
+    from warehouse.models import StockMovement
+
+    StockMovement.objects.filter(
+        content_type=ContentType.objects.get_for_model(ConsumableItem),
+        object_id=consumable.pk,
+    ).delete()
+    consumable.delete()
+    messages.success(request, f'Розхідник "{name}" видалено')
+    return redirect('warehouse:consumables_list')
+
+
 @login_required
 def consumables_low_stock_api(request):
     """API для отримання розхідників з низьким залишком."""

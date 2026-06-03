@@ -162,6 +162,24 @@ def settings_print_category_toggle(request, pk: int):
     return redirect("warehouse:settings_print_categories")
 
 
+@warehouse_admin_required
+@require_POST
+def settings_print_category_delete(request, pk: int):
+    instance = get_object_or_404(PrintCategory, pk=pk)
+    name = instance.name
+    # SET_NULL на Print.category — принти не зникнуть, лише втратять категорію.
+    affected = instance.prints.count()
+    instance.delete()
+    if affected:
+        messages.success(
+            request,
+            f"Категорію «{name}» видалено. {affected} принт(ів) лишилися без категорії.",
+        )
+    else:
+        messages.success(request, f"Категорію «{name}» видалено.")
+    return redirect("warehouse:settings_print_categories")
+
+
 # ---------------------------------------------------------------------------
 # Consumable categories CRUD
 # ---------------------------------------------------------------------------
@@ -223,6 +241,25 @@ def settings_consumable_category_toggle(request, pk: int):
         request,
         f"Категорія «{instance.name}» {'активна' if instance.is_active else 'прихована'}",
     )
+    return redirect("warehouse:settings_consumable_categories")
+
+
+@warehouse_admin_required
+@require_POST
+def settings_consumable_category_delete(request, pk: int):
+    instance = get_object_or_404(ConsumableCategory, pk=pk)
+    name = instance.name
+    # PROTECT на ConsumableItem.category_fk — не даємо видалити з позиціями.
+    items_count = instance.items.count()
+    if items_count:
+        messages.error(
+            request,
+            f"Не можна видалити «{name}»: до неї прив'язано {items_count} позицій. "
+            f"Спершу перенесіть або видаліть розхідники цієї категорії.",
+        )
+        return redirect("warehouse:settings_consumable_categories")
+    instance.delete()
+    messages.success(request, f"Категорію «{name}» видалено.")
     return redirect("warehouse:settings_consumable_categories")
 
 
@@ -323,6 +360,33 @@ def settings_category_toggle(request, slug: str):
     messages.success(
         request,
         f"Категорія «{instance.name}» {'активована' if instance.is_active else 'прихована'}",
+    )
+    return redirect("warehouse:settings_categories")
+
+
+@warehouse_admin_required
+@require_POST
+def settings_category_delete(request, slug: str):
+    instance = get_object_or_404(StorageCategory, slug=slug)
+    name = instance.name
+    # StockItem має PROTECT на subcategory → рахуємо залишки, щоб не зламати облік.
+    from warehouse.models import StockItem
+
+    stock_lines = StockItem.objects.filter(subcategory__category=instance).count()
+    if stock_lines:
+        messages.error(
+            request,
+            f"Не можна видалити «{name}»: у її кроях є {stock_lines} складських позицій. "
+            f"Спершу обнуліть/видаліть залишки або приховайте категорію.",
+        )
+        return redirect("warehouse:settings_categories")
+    # Підкатегорії без позицій можна видалити каскадно.
+    sub_count = instance.subcategories.count()
+    instance.delete()
+    messages.success(
+        request,
+        f"Категорію «{name}» видалено разом із {sub_count} кроями." if sub_count
+        else f"Категорію «{name}» видалено.",
     )
     return redirect("warehouse:settings_categories")
 
@@ -441,6 +505,25 @@ def settings_subcategory_toggle(request, pk: int):
     )
 
 
+@warehouse_admin_required
+@require_POST
+def settings_subcategory_delete(request, pk: int):
+    instance = get_object_or_404(StorageSubcategory, pk=pk)
+    name = instance.name
+    category_slug = instance.category.slug
+    stock_lines = instance.stock_items.count()
+    if stock_lines:
+        messages.error(
+            request,
+            f"Не можна видалити крій «{name}»: на ньому {stock_lines} складських позицій. "
+            f"Спершу обнуліть/видаліть залишки або приховайте крій.",
+        )
+    else:
+        instance.delete()
+        messages.success(request, f"Крій «{name}» видалено.")
+    return redirect(f"{reverse('warehouse:settings_subcategories')}?category={category_slug}")
+
+
 # ---------------------------------------------------------------------------
 # Colors CRUD (warehouse can create colors that are NOT used on site)
 # ---------------------------------------------------------------------------
@@ -500,6 +583,77 @@ def settings_color_form(request, pk: int | None = None):
         "active_section": "settings",
     }
     return render(request, "warehouse/settings/color_form.html", context)
+
+
+# ---------------------------------------------------------------------------
+# Push notification preferences
+# ---------------------------------------------------------------------------
+
+
+@warehouse_admin_required
+def settings_notifications(request):
+    """Налаштування пуш-сповіщень + дублювання в Telegram."""
+    from warehouse.models import WarehouseSettings
+
+    ws = WarehouseSettings.load()
+
+    if request.method == "POST":
+        ws.push_enabled = request.POST.get("push_enabled") == "on"
+        freq = (request.POST.get("push_frequency") or "").strip()
+        valid_freq = {c[0] for c in WarehouseSettings.Frequency.choices}
+        if freq in valid_freq:
+            ws.push_frequency = freq
+        ws.push_to_telegram = request.POST.get("push_to_telegram") == "on"
+        try:
+            day = int(request.POST.get("push_weekly_day") or 0)
+        except (ValueError, TypeError):
+            day = 0
+        ws.push_weekly_day = max(0, min(day, 6))
+
+        valid_content = {c[0] for c in WarehouseSettings.PUSH_CONTENT_CHOICES}
+        selected = [c for c in request.POST.getlist("push_content") if c in valid_content]
+        ws.push_content = selected
+        ws.save()
+        messages.success(request, "Налаштування сповіщень збережено.")
+        return redirect("warehouse:settings_notifications")
+
+    context = {
+        "ws": ws,
+        "frequency_choices": WarehouseSettings.Frequency.choices,
+        "content_choices": WarehouseSettings.PUSH_CONTENT_CHOICES,
+        "selected_content": set(ws.get_push_content()),
+        "weekdays": [
+            (0, "Понеділок"), (1, "Вівторок"), (2, "Середа"), (3, "Четвер"),
+            (4, "П'ятниця"), (5, "Субота"), (6, "Неділя"),
+        ],
+        "active_section": "settings",
+    }
+    return render(request, "warehouse/settings/notifications.html", context)
+
+
+@warehouse_admin_required
+@require_POST
+def settings_notifications_test(request):
+    """Надіслати тестовий звіт зараз (через налаштований канал)."""
+    from warehouse.tasks import send_storage_report_task
+    from warehouse.models import WarehouseSettings
+
+    ws = WarehouseSettings.load()
+    if not ws.push_enabled:
+        messages.error(request, "Спершу увімкніть пуш-сповіщення та збережіть налаштування.")
+        return redirect("warehouse:settings_notifications")
+
+    result = send_storage_report_task(force_period=ws.push_frequency)
+    sent = result.get("sent", 0) if isinstance(result, dict) else 0
+    if sent:
+        messages.success(request, f"Тестовий звіт надіслано ({sent} отримувач(ів)).")
+    else:
+        messages.warning(
+            request,
+            "Звіт сформовано, але не доставлено. Перевірте, що увімкнено "
+            "«Дублювати в Telegram» і налаштовано Storage-бот та chat_id.",
+        )
+    return redirect("warehouse:settings_notifications")
 
 
 # ---------------------------------------------------------------------------

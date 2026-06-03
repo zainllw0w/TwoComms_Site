@@ -742,6 +742,10 @@ class WriteOffRequest(models.Model):
 class WarehouseSettings(models.Model):
     """Налаштування модуля (singleton)."""
 
+    class Frequency(models.TextChoices):
+        DAILY = "daily", "Щоденний пуш"
+        WEEKLY = "weekly", "Щотижневий звіт"
+
     evening_reminder_enabled = models.BooleanField(default=True)
     evening_reminder_hour = models.PositiveSmallIntegerField(default=22)
     evening_reminder_minute = models.PositiveSmallIntegerField(default=0)
@@ -753,6 +757,42 @@ class WarehouseSettings(models.Model):
     )
 
     last_reminder_sent_at = models.DateTimeField(null=True, blank=True)
+
+    # --- Push / нотифікації ---
+    push_enabled = models.BooleanField(
+        default=False, verbose_name="Пуш-сповіщення увімкнено"
+    )
+    push_frequency = models.CharField(
+        max_length=16,
+        choices=Frequency.choices,
+        default=Frequency.DAILY,
+        verbose_name="Частота",
+    )
+    push_to_telegram = models.BooleanField(
+        default=True, verbose_name="Дублювати в Telegram"
+    )
+    push_weekly_day = models.PositiveSmallIntegerField(
+        default=0,
+        verbose_name="День тижневого звіту",
+        help_text="0 = понеділок … 6 = неділя (для щотижневого звіту).",
+    )
+    # Які блоки показувати у сповіщенні (JSON-список ключів).
+    push_content = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="Вміст сповіщення",
+        help_text='Список блоків: ["movements","unverified","low_stock","frozen_value","prints"]',
+    )
+
+    PUSH_CONTENT_CHOICES = (
+        ("movements", "Кількість рухів за період"),
+        ("unverified", "Неперевірені рухи"),
+        ("low_stock", "Розхідники на межі"),
+        ("frozen_value", "Заморожені гроші"),
+        ("prints", "Принти (залишки)"),
+    )
+
+    DEFAULT_PUSH_CONTENT = ["movements", "unverified", "low_stock"]
 
     class Meta:
         verbose_name = "Налаштування складу"
@@ -775,6 +815,13 @@ class WarehouseSettings(models.Model):
         if not self.evening_reminder_chat_ids:
             return []
         return [c.strip() for c in self.evening_reminder_chat_ids.split(",") if c.strip()]
+
+    def get_push_content(self) -> list[str]:
+        """Повертає обрані блоки вмісту (із дефолтом, якщо порожньо)."""
+        if isinstance(self.push_content, list) and self.push_content:
+            valid = {c[0] for c in self.PUSH_CONTENT_CHOICES}
+            return [c for c in self.push_content if c in valid]
+        return list(self.DEFAULT_PUSH_CONTENT)
 
 
 

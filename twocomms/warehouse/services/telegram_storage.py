@@ -245,3 +245,39 @@ def send_evening_reminder(
         if result and result.get("ok"):
             sent += 1
     return sent
+
+
+def build_report_text(*, blocks: list[str], period_label: str, stats: dict) -> str:
+    """Складає текст звіту з обраних блоків (для пуш/Telegram).
+
+    ``blocks`` — підмножина ключів WarehouseSettings.PUSH_CONTENT_CHOICES.
+    ``stats`` — словник із готовими значеннями (рахується у tasks).
+    """
+    lines = [f"📦 <b>Звіт по складу</b> · {period_label}", ""]
+    labels = {
+        "movements": ("🔄 Рухів", lambda: str(stats.get("movements_count", 0))),
+        "unverified": ("⏳ Не перевірено", lambda: str(stats.get("unverified_count", 0))),
+        "low_stock": ("⚠️ Розхідники на межі", lambda: str(stats.get("low_stock_count", 0))),
+        "frozen_value": ("💰 Заморожено", lambda: f"{stats.get('frozen_value', 0):,.0f} ₴".replace(",", "\u00a0")),
+        "prints": ("🎨 Принтів (шт)", lambda: str(stats.get("prints_qty", 0))),
+    }
+    for key in blocks:
+        if key in labels:
+            title, getter = labels[key]
+            lines.append(f"{title}: <b>{getter()}</b>")
+    if len(lines) == 2:  # тільки заголовок — нема блоків
+        lines.append("Немає обраних блоків для показу.")
+    return "\n".join(lines)
+
+
+def send_report(*, chat_ids: Iterable[str], blocks: list[str], period_label: str, stats: dict, report_url: str | None = None) -> int:
+    text = build_report_text(blocks=blocks, period_label=period_label, stats=stats)
+    keyboard = None
+    if report_url:
+        keyboard = {"inline_keyboard": [[{"text": "📊 Відкрити склад", "url": report_url}]]}
+    sent = 0
+    for chat_id in chat_ids:
+        result = send_message(chat_id, text, reply_markup=keyboard)
+        if result and result.get("ok"):
+            sent += 1
+    return sent

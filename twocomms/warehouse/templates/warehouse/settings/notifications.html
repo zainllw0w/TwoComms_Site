@@ -1,0 +1,128 @@
+{% extends "warehouse/base.html" %}
+{% block title %}Сповіщення — Налаштування{% endblock %}
+{% block header_title %}Сповіщення{% endblock %}
+
+{% block content %}
+<a href="{% url 'warehouse:settings' %}" class="text-muted text-small">← Назад до налаштувань</a>
+
+<p class="text-small text-muted mt-12 mb-16">
+    Пуш-сповіщення про стан складу. Можна дублювати в Telegram, обрати
+    частоту й те, що саме показувати.
+</p>
+
+<form method="post" id="notif-form">
+    {% csrf_token %}
+
+    {# ---- Master toggle ---- #}
+    <div class="wh-card wh-switch-card">
+        <label class="wh-switch">
+            <input type="checkbox" name="push_enabled" id="push-enabled"
+                   {% if ws.push_enabled %}checked{% endif %}>
+            <span class="wh-switch__track"><span class="wh-switch__thumb"></span></span>
+        </label>
+        <div class="wh-switch-card__body">
+            <div class="wh-list__title">Пуш-сповіщення</div>
+            <div class="wh-list__meta">Увімкнути регулярні сповіщення про склад</div>
+        </div>
+    </div>
+
+    <div id="notif-options" {% if not ws.push_enabled %}class="is-disabled"{% endif %}>
+        {# ---- Frequency ---- #}
+        <h2 class="wh-section-title">Частота</h2>
+        <div class="wh-radio-cards">
+            {% for value, label in frequency_choices %}
+            <label class="wh-radio-card{% if ws.push_frequency == value %} is-active{% endif %}">
+                <input type="radio" name="push_frequency" value="{{ value }}"
+                       {% if ws.push_frequency == value %}checked{% endif %}>
+                <span class="wh-radio-card__icon">{% if value == 'daily' %}📅{% else %}🗓️{% endif %}</span>
+                <span class="wh-radio-card__title">{{ label }}</span>
+                <span class="wh-radio-card__desc">
+                    {% if value == 'daily' %}Коротке зведення щодня{% else %}Підсумок раз на тиждень{% endif %}
+                </span>
+            </label>
+            {% endfor %}
+        </div>
+
+        <div class="form-field" id="weekly-day-field"
+             {% if ws.push_frequency != 'weekly' %}hidden{% endif %}>
+            <label for="push_weekly_day">День тижневого звіту</label>
+            <select name="push_weekly_day" id="push_weekly_day">
+                {% for num, name in weekdays %}
+                <option value="{{ num }}" {% if ws.push_weekly_day == num %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        {# ---- Telegram duplication ---- #}
+        <h2 class="wh-section-title">Канали</h2>
+        <div class="wh-card wh-switch-card">
+            <label class="wh-switch">
+                <input type="checkbox" name="push_to_telegram"
+                       {% if ws.push_to_telegram %}checked{% endif %}>
+                <span class="wh-switch__track"><span class="wh-switch__thumb"></span></span>
+            </label>
+            <div class="wh-switch-card__body">
+                <div class="wh-list__title">Дублювати в Telegram</div>
+                <div class="wh-list__meta">
+                    Надсилати те саме повідомлення у Storage-бот.
+                    <a href="{% url 'warehouse:settings_telegram' %}">Перевірити бота →</a>
+                </div>
+            </div>
+        </div>
+
+        {# ---- Content ---- #}
+        <h2 class="wh-section-title">Що показувати</h2>
+        <div class="wh-check-grid">
+            {% for value, label in content_choices %}
+            <label class="wh-check-tile{% if value in selected_content %} is-active{% endif %}">
+                <input type="checkbox" name="push_content" value="{{ value }}"
+                       {% if value in selected_content %}checked{% endif %}>
+                <span class="wh-check-tile__check">✓</span>
+                <span class="wh-check-tile__label">{{ label }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn--primary btn--block mt-16">Зберегти</button>
+</form>
+
+{% if ws.push_enabled %}
+<form method="post" action="{% url 'warehouse:settings_notifications_test' %}" class="mt-12">
+    {% csrf_token %}
+    <button type="submit" class="btn btn--ghost btn--block">📨 Надіслати тестовий звіт зараз</button>
+    <p class="form-help mt-8">Сформує звіт за поточними налаштуваннями й надішле в Telegram (якщо увімкнено дублювання).</p>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+    var enabled = document.getElementById('push-enabled');
+    var options = document.getElementById('notif-options');
+    var weeklyField = document.getElementById('weekly-day-field');
+
+    function syncEnabled() {
+        if (!options) return;
+        options.classList.toggle('is-disabled', !enabled.checked);
+    }
+    if (enabled) enabled.addEventListener('change', syncEnabled);
+
+    document.querySelectorAll('input[name="push_frequency"]').forEach(function (r) {
+        r.addEventListener('change', function () {
+            document.querySelectorAll('.wh-radio-card').forEach(function (c) {
+                c.classList.toggle('is-active', c.contains(r) && r.checked);
+            });
+            if (weeklyField) weeklyField.hidden = (document.querySelector('input[name="push_frequency"]:checked').value !== 'weekly');
+        });
+    });
+
+    document.querySelectorAll('.wh-check-tile input').forEach(function (i) {
+        i.addEventListener('change', function () {
+            i.closest('.wh-check-tile').classList.toggle('is-active', i.checked);
+        });
+    });
+})();
+</script>
+{% endblock %}

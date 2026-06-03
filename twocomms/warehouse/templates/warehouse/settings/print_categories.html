@@ -38,6 +38,12 @@
                     {% if cat.is_active %}🚫{% else %}✓{% endif %}
                 </button>
             </form>
+            <form method="post" action="{% url 'warehouse:settings_print_category_delete' pk=cat.id %}"
+                  style="display:inline;"
+                  onsubmit="return confirm('Видалити категорію «{{ cat.name|escapejs }}»? Принти лишаться без категорії.');">
+                {% csrf_token %}
+                <button type="submit" class="btn btn--ghost btn--small btn--danger-ghost" title="Видалити" aria-label="Видалити">🗑</button>
+            </form>
         </span>
     </li>
 {% empty %}
