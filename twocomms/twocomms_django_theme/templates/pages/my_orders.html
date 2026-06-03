@@ -8,6 +8,93 @@
 
 {% block content %}
 {% csrf_token %}
+<style>
+/* ===== Order status track (client, scoped .myo) ===== */
+.myo-track { --m-line:rgba(148,163,184,.22); --m-muted:#9aa6b8; --m-text:#f1f5f9;
+  --m-blue:#3b82f6; --m-amber:#f59e0b; --m-violet:#8b5cf6; --m-green:#22c55e; --m-red:#fb7185;
+  margin:14px 16px 4px; padding:14px 12px 12px; border-radius:16px;
+  background:rgba(255,255,255,.03); border:1px solid var(--m-line); }
+.myo-track * { box-sizing:border-box; }
+.myo-stage { display:flex; align-items:center; gap:8px; margin:0 4px 14px; font-size:.82rem; }
+.myo-stage__dot { width:9px; height:9px; border-radius:50%; flex:0 0 auto; }
+.myo-stage__name { font-weight:700; color:var(--m-text); }
+.myo-stage__count { margin-left:auto; font-size:.74rem; font-weight:700; color:var(--m-muted); letter-spacing:.02em; }
+.myo-track[data-status="new"]  .myo-stage__dot { background:var(--m-blue);  box-shadow:0 0 8px rgba(59,130,246,.6); }
+.myo-track[data-status="prep"] .myo-stage__dot { background:var(--m-amber); box-shadow:0 0 8px rgba(245,158,11,.6); }
+.myo-track[data-status="ship"] .myo-stage__dot { background:var(--m-violet);box-shadow:0 0 8px rgba(139,92,246,.6); }
+.myo-track[data-status="done"] .myo-stage__dot { background:var(--m-green); box-shadow:0 0 8px rgba(34,197,94,.6); }
+.myo-rail { display:flex; align-items:flex-start; }
+.myo-node { flex:1 1 0; display:flex; flex-direction:column; align-items:center; gap:8px; min-width:0; position:relative; z-index:1; }
+.myo-node__dot { width:40px; height:40px; border-radius:50%; display:grid; place-items:center; flex:0 0 auto;
+  background:rgba(148,163,184,.1); border:2px solid var(--m-line); color:var(--m-muted);
+  transition:transform .25s ease, background .25s ease, border-color .25s ease, color .25s ease, box-shadow .25s ease; position:relative; }
+.myo-node__dot svg { width:17px; height:17px; }
+.myo-node__label { font-size:.72rem; font-weight:600; color:var(--m-muted); text-align:center; line-height:1.2; transition:color .2s ease; }
+.myo-seg { flex:1 1 0; height:3px; margin-top:19px; border-radius:999px; background:var(--m-line); position:relative; overflow:hidden; }
+.myo-seg__fill { position:absolute; inset:0; width:0; border-radius:999px; transition:width .5s ease; }
+
+.myo-node.is-done .myo-node__dot { background:rgba(34,197,94,.18); border-color:var(--m-green); color:var(--m-green); box-shadow:0 0 0 4px rgba(34,197,94,.1); }
+.myo-node.is-done .myo-node__dot svg { animation:myo-checkpop .45s cubic-bezier(.18,.89,.32,1.28) both; }
+.myo-node.is-done .myo-node__label { color:var(--m-green); }
+.myo-seg.is-fill .myo-seg__fill { width:100%; background:linear-gradient(90deg,var(--m-green),rgba(34,197,94,.55)); }
+.myo-seg.is-fill .myo-seg__fill::after { content:''; position:absolute; top:0; bottom:0; width:40%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent); transform:translateX(-120%); animation:myo-comet 2.8s ease-in-out infinite; }
+@keyframes myo-comet { 0% { transform:translateX(-120%); } 55%,100% { transform:translateX(320%); } }
+@keyframes myo-checkpop { 0% { transform:scale(0) rotate(-12deg); opacity:0; } 60% { transform:scale(1.25) rotate(4deg); opacity:1; } 100% { transform:scale(1) rotate(0); } }
+
+.myo-node.is-active .myo-node__label { color:var(--m-text); font-weight:700; }
+.myo-node.is-active[data-step="new"]  .myo-node__dot { background:rgba(59,130,246,.2);  border-color:var(--m-blue);  color:var(--m-blue); }
+.myo-node.is-active[data-step="prep"] .myo-node__dot { background:rgba(245,158,11,.2);  border-color:var(--m-amber); color:var(--m-amber); animation:myo-pulse 1.4s ease-in-out infinite; }
+.myo-node.is-active[data-step="ship"] .myo-node__dot { background:rgba(139,92,246,.2);  border-color:var(--m-violet);color:var(--m-violet); }
+.myo-node.is-active[data-step="done"] .myo-node__dot { background:rgba(34,197,94,.22);  border-color:var(--m-green); color:var(--m-green); }
+@keyframes myo-pulse { 0%,100% { box-shadow:0 0 0 0 rgba(245,158,11,.5); } 50% { box-shadow:0 0 0 8px rgba(245,158,11,0); } }
+
+.myo-seg.is-flow { background:rgba(139,92,246,.18); }
+.myo-seg.is-flow .myo-seg__fill { width:100%; background:repeating-linear-gradient(90deg,var(--m-violet) 0 8px, rgba(139,92,246,.25) 8px 16px);
+  background-size:200% 100%; animation:myo-flow 1s linear infinite; }
+.myo-seg.is-flow::after { content:''; position:absolute; top:50%; left:0; width:13px; height:13px; margin-top:-6.5px; border-radius:50%;
+  background:var(--m-violet); box-shadow:0 0 10px 2px rgba(139,92,246,.8),0 0 0 3px rgba(139,92,246,.25); animation:myo-courier 1.6s ease-in-out infinite; }
+@keyframes myo-flow { 0% { background-position:0 0; } 100% { background-position:-200% 0; } }
+@keyframes myo-courier { 0% { left:-4px; } 100% { left:calc(100% - 9px); } }
+
+.myo-track[data-status="done"] .myo-node[data-step="done"] .myo-node__dot::after { content:''; position:absolute; inset:-6px; border-radius:50%; border:2px solid rgba(34,197,94,.45); animation:myo-ring 1.8s ease-out infinite; }
+@keyframes myo-ring { 0% { transform:scale(.7); opacity:.9; } 100% { transform:scale(1.5); opacity:0; } }
+.myo-sparkles { position:absolute; inset:0; pointer-events:none; }
+.myo-sparkles i { position:absolute; top:50%; left:50%; width:5px; height:5px; border-radius:50%; opacity:0; animation:myo-spark 1.4s ease-out forwards; }
+.myo-sparkles i:nth-child(1) { --tx:-26px; --ty:-22px; animation-delay:.15s; background:#86efac; }
+.myo-sparkles i:nth-child(2) { --tx:24px;  --ty:-24px; animation-delay:.25s; background:#fcd34d; }
+.myo-sparkles i:nth-child(3) { --tx:-30px; --ty:14px;  animation-delay:.1s;  background:#5eead4; }
+.myo-sparkles i:nth-child(4) { --tx:28px;  --ty:16px;  animation-delay:.3s;  background:#86efac; }
+.myo-sparkles i:nth-child(5) { --tx:0;     --ty:-32px; animation-delay:.2s;  background:#a7f3d0; }
+@keyframes myo-spark { 0% { transform:translate(-50%,-50%) scale(.2); opacity:0; } 30% { opacity:1; } 100% { transform:translate(calc(-50% + var(--tx)),calc(-50% + var(--ty))) scale(1); opacity:0; } }
+
+.myo-track.is-cancelled { opacity:.85; border-color:rgba(251,113,133,.3); background:rgba(251,113,133,.06); }
+.myo-track.is-cancelled .myo-node__dot { border-style:dashed; }
+.myo-cancel { display:flex; align-items:center; gap:8px; margin:10px 16px 0; padding:10px 14px; border-radius:12px;
+  background:rgba(251,113,133,.12); border:1px solid rgba(251,113,133,.3); color:#fecaca; font-size:.86rem; }
+
+@media (prefers-reduced-motion:reduce) {
+  .myo-node.is-active[data-step="prep"] .myo-node__dot, .myo-seg.is-flow .myo-seg__fill, .myo-seg.is-flow::after,
+  .myo-seg.is-fill .myo-seg__fill::after, .myo-node.is-done .myo-node__dot svg, .myo-sparkles i,
+  .myo-track[data-status="done"] .myo-node[data-step="done"] .myo-node__dot::after { animation:none; }
+  .myo-sparkles i { display:none; }
+}
+@media (max-width:640px) {
+  .myo-node__dot { width:36px; height:36px; }
+  .myo-node__dot svg { width:15px; height:15px; }
+  .myo-node__label { font-size:.64rem; }
+  .myo-seg { margin-top:17px; }
+  .myo-seg.is-flow::after { width:11px; height:11px; margin-top:-5.5px; }
+}
+@media (max-width:380px) {
+  .myo-track { margin:14px 10px 4px; padding:12px 8px 10px; }
+  .myo-node__dot { width:30px; height:30px; }
+  .myo-node__dot svg { width:13px; height:13px; }
+  .myo-node__label { font-size:.56rem; }
+  .myo-seg { margin-top:14px; }
+  .myo-stage { font-size:.74rem; }
+}
+</style>
 <div class="orders-page">
   <!-- Заголовок страницы -->
   <div class="orders-header">
@@ -164,50 +251,69 @@
           {% endif %}
         </div>
 
-        <!-- Этапы статуса заказа (горизонтальные) -->
-        <div class="order-status-track">
-          <div class="status-step {% if o.status == 'new' %}active{% elif o.status in 'prep,ship,done' %}completed{% endif %}">
-            <div class="status-step-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-              </svg>
+        <!-- Етапи статусу замовлення -->
+        {% if o.status == 'cancelled' %}
+          <div class="myo-track is-cancelled" data-status="cancelled">
+            <div class="myo-rail">
+              <div class="myo-node" data-step="new">
+                <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></div>
+                <div class="myo-node__label">{% trans 'В обробці' %}</div>
+              </div>
+              <div class="myo-seg"><div class="myo-seg__fill"></div></div>
+              <div class="myo-node" data-step="prep">
+                <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4z"/></svg></div>
+                <div class="myo-node__label">{% trans 'Готується' %}</div>
+              </div>
+              <div class="myo-seg"><div class="myo-seg__fill"></div></div>
+              <div class="myo-node" data-step="ship">
+                <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg></div>
+                <div class="myo-node__label">{% trans 'Відправлено' %}</div>
+              </div>
+              <div class="myo-seg"><div class="myo-seg__fill"></div></div>
+              <div class="myo-node" data-step="done">
+                <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
+                <div class="myo-node__label">{% trans 'Отримано' %}</div>
+              </div>
             </div>
-            <div class="status-step-label">{% trans 'В обробці' %}</div>
           </div>
-          
-          <div class="status-connector {% if o.status in 'prep,ship,done' %}completed{% endif %}"></div>
-          
-          <div class="status-step {% if o.status == 'prep' %}active{% elif o.status in 'ship,done' %}completed{% endif %}">
-            <div class="status-step-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
-              </svg>
+          <div class="myo-cancel">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"/></svg>
+            <span>{% trans 'Замовлення скасовано' %}</span>
+          </div>
+        {% else %}
+          <div class="myo-track" data-status="{{ o.status }}">
+            <div class="myo-stage">
+              <span class="myo-stage__dot"></span>
+              <span class="myo-stage__name">
+                {% if o.status == 'new' %}{% trans 'В обробці' %}{% elif o.status == 'prep' %}{% trans 'Готується до відправлення' %}{% elif o.status == 'ship' %}{% trans 'Відправлено · в дорозі' %}{% elif o.status == 'done' %}{% trans 'Отримано' %}{% endif %}
+              </span>
+              <span class="myo-stage__count">
+                {% if o.status == 'new' %}{% trans 'Етап' %} 1 / 4{% elif o.status == 'prep' %}{% trans 'Етап' %} 2 / 4{% elif o.status == 'ship' %}{% trans 'Етап' %} 3 / 4{% elif o.status == 'done' %}{% trans 'Готово' %} · 4 / 4{% endif %}
+              </span>
             </div>
-            <div class="status-step-label">{% trans 'Готується' %}</div>
-          </div>
-          
-          <div class="status-connector {% if o.status in 'ship,done' %}completed{% endif %}"></div>
-          
-          <div class="status-step {% if o.status == 'ship' %}active{% elif o.status == 'done' %}completed{% endif %}">
-            <div class="status-step-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
-              </svg>
+            <div class="myo-rail">
+              <div class="myo-node {% if o.status == 'new' %}is-active{% elif o.status == 'prep' or o.status == 'ship' or o.status == 'done' %}is-done{% endif %}" data-step="new">
+                <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></div>
+                <div class="myo-node__label">{% trans 'В обробці' %}</div>
+              </div>
+              <div class="myo-seg {% if o.status == 'prep' or o.status == 'ship' or o.status == 'done' %}is-fill{% endif %}"><div class="myo-seg__fill"></div></div>
+              <div class="myo-node {% if o.status == 'prep' %}is-active{% elif o.status == 'ship' or o.status == 'done' %}is-done{% endif %}" data-step="prep">
+                <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm12 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg></div>
+                <div class="myo-node__label">{% trans 'Готується' %}</div>
+              </div>
+              <div class="myo-seg {% if o.status == 'ship' or o.status == 'done' %}is-fill{% endif %}"><div class="myo-seg__fill"></div></div>
+              <div class="myo-node {% if o.status == 'ship' %}is-active{% elif o.status == 'done' %}is-done{% endif %}" data-step="ship">
+                <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg></div>
+                <div class="myo-node__label">{% trans 'Відправлено' %}</div>
+              </div>
+              <div class="myo-seg {% if o.status == 'done' %}is-fill{% elif o.status == 'ship' %}is-flow{% endif %}"><div class="myo-seg__fill"></div></div>
+              <div class="myo-node {% if o.status == 'done' %}is-active is-done{% endif %}" data-step="done">
+                <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>{% if o.status == 'done' %}<span class="myo-sparkles"><i></i><i></i><i></i><i></i><i></i></span>{% endif %}</div>
+                <div class="myo-node__label">{% trans 'Отримано' %}</div>
+              </div>
             </div>
-            <div class="status-step-label">{% trans 'Відправлено' %}</div>
           </div>
-          
-          <div class="status-connector {% if o.status == 'done' %}completed{% endif %}"></div>
-          
-          <div class="status-step {% if o.status == 'done' %}active{% endif %}">
-            <div class="status-step-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-              </svg>
-            </div>
-            <div class="status-step-label">{% trans 'Отримано' %}</div>
-          </div>
-        </div>
+        {% endif %}
 
         <!-- Товары в заказе -->
         <div class="order-items-section">
