@@ -110,7 +110,8 @@ def _should_process(field_file) -> bool:
 def process_image_field(field_file, *,
                         max_width: int = MAX_WIDTH,
                         max_height: int = MAX_HEIGHT,
-                        quality: int = WEBP_QUALITY) -> Optional[str]:
+                        quality: int = WEBP_QUALITY,
+                        min_bytes: int = MIN_PROCESS_BYTES) -> Optional[str]:
     """Resize + re-encode the upload in place. Returns the new filename.
 
     Safe to call from a ``pre_save`` signal — the model's ``.save()``
@@ -120,6 +121,10 @@ def process_image_field(field_file, *,
 
     Returns ``None`` and leaves the field untouched when the upload
     looks already-fine (small, missing, or non-image).
+
+    ``min_bytes`` lets callers force conversion of even tiny uploads
+    (pass ``0``). Default keeps the storefront behaviour of skipping
+    sub-50 KB icons.
     """
     if not _should_process(field_file):
         return None
@@ -134,7 +139,7 @@ def process_image_field(field_file, *,
         size_hint = upload.size
     except Exception:
         size_hint = 0
-    if size_hint and size_hint < MIN_PROCESS_BYTES:
+    if min_bytes and size_hint and size_hint < min_bytes:
         return None
 
     # The file pointer may have already been read by Django; rewind.
