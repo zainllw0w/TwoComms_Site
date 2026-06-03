@@ -576,6 +576,14 @@
   });
   rowChecks().forEach(function (c) { c.addEventListener('change', refreshBulk); });
 
+  // Кнопка «✕» — зняти весь вибір і сховати панель.
+  var bulkClear = document.getElementById('fin-bulk-clear');
+  if (bulkClear) bulkClear.addEventListener('click', function () {
+    rowChecks().forEach(function (c) { c.checked = false; });
+    if (checkAll) checkAll.checked = false;
+    refreshBulk();
+  });
+
   // --- Long-press на рядку активує bulk-режим (мобільні) ---
   (function () {
     var timer = null;

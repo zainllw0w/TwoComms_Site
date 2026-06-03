@@ -84,16 +84,21 @@
 
 <!-- Панель масових дій (прихована поки немає вибраних) -->
 <div class="fin-bulkbar" id="fin-bulkbar" hidden>
-    <span class="fin-bulkbar__count"><b id="fin-bulk-count">0</b> обрано</span>
-    <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="set_category">Категорія</button>
-    {% comment %}«Проект» приховано — працюємо над одним проектом.
-    <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="set_project">Проект</button>{% endcomment %}
-    <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="set_counterparty">Контрагент</button>
-    <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="add_tag">Тег</button>
-    <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="mark_actual">Позначити фактичними</button>
-    <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="set_business" data-value="1">→ Бізнес</button>
-    <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="set_business" data-value="0">→ Особисті</button>
-    <button type="button" class="fin-btn fin-btn--danger fin-btn--sm" data-bulk="delete">Видалити</button>
+    <div class="fin-bulkbar__head">
+        <span class="fin-bulkbar__count"><b id="fin-bulk-count">0</b> обрано</span>
+        <button type="button" class="fin-bulkbar__clear" id="fin-bulk-clear" aria-label="Зняти вибір" title="Зняти вибір">✕</button>
+    </div>
+    <div class="fin-bulkbar__actions">
+        <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="set_category">Категорія</button>
+        {% comment %}«Проект» приховано — працюємо над одним проектом.
+        <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="set_project">Проект</button>{% endcomment %}
+        <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="set_counterparty">Контрагент</button>
+        <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="add_tag">Тег</button>
+        <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="mark_actual">Провести</button>
+        <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="set_business" data-value="1">→ Бізнес</button>
+        <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-bulk="set_business" data-value="0">→ Особисті</button>
+        <button type="button" class="fin-btn fin-btn--danger fin-btn--sm" data-bulk="delete">Видалити</button>
+    </div>
 </div>
 
 <!-- Таблиця операцій -->

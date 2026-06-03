@@ -55,12 +55,13 @@ def finance_shell_context(request):
         accounts = balance_service.account_sidebar_data(company)
 
         # Дати найближчого планового доходу/витрати (для сайдбару на телефоні).
-        from ..models import Transaction as _Txn
+        from .models import Transaction as _Txn
+        from .services.timeutil import day_end as _day_end
 
         def _nearest_planned(ttype):
             t = (_Txn.objects.filter(
                     company=company, status=_Txn.STATUS_PLANNED, type=ttype,
-                    date_actual__lte=dt.datetime.combine(horizon, dt.time.max))
+                    date_actual__lte=_day_end(horizon))
                  .exclude(excluded_from_reports=True)
                  .order_by('date_actual').first())
             if t is None or not t.date_actual:
