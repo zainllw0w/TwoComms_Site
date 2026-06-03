@@ -863,7 +863,7 @@ a { color: inherit; }
     border-radius: 999px;
 }
 .fin-plandate svg { width: 13px; height: 13px; fill: currentColor; flex: none; }
-.fin-plandate__time { color: var(--fin-muted); font-size: 11px; }
+.fin-plandate__time { color: var(--fin-muted); font-size: 11px; margin-left: 4px; }
 .fin-plandate__lbl { display: none; }
 .fin-cell-comment { max-width: 280px; }
 .fin-tag-chip {
