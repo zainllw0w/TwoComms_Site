@@ -280,6 +280,64 @@ class MonoSyncTests(TestCase):
         self.assertEqual(transfer.type, Transaction.TYPE_TRANSFER)
         self.assertIn('mono:i1', transfer.external_data.get('consumed_external_ids', []))
 
+    def test_income_without_iban_absorbed_into_existing_transfer(self):
+        """РЕГРЕСІЯ (скрін: дубль перекладу): переказ ФОП→black створено першим,
+        а вхідний дохід на black прийшов пізнішим cron-прогоном БЕЗ counterIban
+        (типовий P2P на особисту картку). Має поглинутись у переказ, а не
+        створити зелений дохід-дубль."""
+        from finance.services import transactions as txn_service
+
+        fop = Account.objects.create(
+            company=self.company, name='mono fop', currency='UAH',
+            integration=self.conn, external_account_id='acc-2',
+            external_kind='fop', is_business=True, iban=IBAN_FOP)
+        # 1) Переказ уже зведено раніше (income тоді ще не імпортувався) — тож
+        #    matched_income_external_id відсутній.
+        txn_service.create_transaction(
+            user=self.user, type=Transaction.TYPE_TRANSFER, amount=Decimal('1000'),
+            account=fop, to_account=self.acc, to_amount=Decimal('1000'),
+            source='integration', external_id='mono:e1',
+            date_actual=dt.datetime.fromtimestamp(1717095780, tz=dt.timezone.utc),
+        )
+        # 2) Пізніше cron тягне вхідний item на black БЕЗ counterIban/counterName.
+        income_item = _item('i1', 100000, t=1717095790)  # 1000 грн, без реквізитів
+        res = mono_service.import_statement(self.acc, [income_item],
+                                            user=self.user, apply_rules=False)
+
+        # Дохід НЕ створено — поглинуто у наявний переказ.
+        self.assertEqual(res['created'], 0)
+        self.assertEqual(res['skipped'], 1)
+        self.assertFalse(Transaction.objects.filter(external_id='mono:i1').exists())
+        transfer = Transaction.objects.get(external_id='mono:e1')
+        self.assertEqual(transfer.type, Transaction.TYPE_TRANSFER)
+        self.assertIn('mono:i1', transfer.external_data.get('consumed_external_ids', []))
+
+    def test_two_distinct_incomes_not_both_absorbed_by_one_transfer(self):
+        """Один переказ поглинає РІВНО один дохід. Другий легітимний дохід тієї
+        ж суми лишається доходом (захист від помилкового видалення)."""
+        from finance.services import transactions as txn_service
+
+        fop = Account.objects.create(
+            company=self.company, name='mono fop', currency='UAH',
+            integration=self.conn, external_account_id='acc-2',
+            external_kind='fop', is_business=True, iban=IBAN_FOP)
+        txn_service.create_transaction(
+            user=self.user, type=Transaction.TYPE_TRANSFER, amount=Decimal('1000'),
+            account=fop, to_account=self.acc, to_amount=Decimal('1000'),
+            source='integration', external_id='mono:e1',
+            date_actual=dt.datetime.fromtimestamp(1717095780, tz=dt.timezone.utc),
+        )
+        # Перший дохід → поглинається.
+        mono_service.import_statement(
+            self.acc, [_item('i1', 100000, t=1717095790)],
+            user=self.user, apply_rules=False)
+        # Другий дохід тієї ж суми (інший item) → НЕ поглинається тим же переказом.
+        res = mono_service.import_statement(
+            self.acc, [_item('i2', 100000, t=1717096000)],
+            user=self.user, apply_rules=False)
+        self.assertEqual(res['created'], 1)
+        self.assertTrue(Transaction.objects.filter(external_id='mono:i2').exists())
+
     def test_webhook_reconciles_internal_transfer_pair(self):
         Account.objects.create(
             company=self.company, name='mono fop', currency='UAH',

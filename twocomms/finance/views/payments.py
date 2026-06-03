@@ -606,6 +606,7 @@ def planned_totals_api(request):
     """Планові доходи/витрати + прогноз балансу за обраний горизонт (сайдбар).
 
     Включає прострочені (ще не проведені) планові платежі (date_from=None).
+    Додатково повертає дату найближчого планового доходу/витрати.
     """
     from ..services import balances as balance_service
 
@@ -618,6 +619,7 @@ def planned_totals_api(request):
     total = balance_service.total_actual_balance(company)
     planned = balance_service.planned_totals(company, None, horizon)
     forecast = total + planned['income'] + planned['expense']
+    next_income, next_expense = _next_planned_dates(company, horizon)
 
     return JsonResponse({
         'ok': True,
@@ -626,4 +628,24 @@ def planned_totals_api(request):
         'income': ser.money(planned['income'], company.base_currency, signed=True),
         'expense': ser.money(planned['expense'], company.base_currency, signed=True),
         'forecast': ser.money(forecast, company.base_currency),
+        'next_income_date': next_income,
+        'next_expense_date': next_expense,
     })
+
+
+def _next_planned_dates(company, horizon):
+    """Дати найближчого планового доходу та витрати (рядок ДД.ММ або '')."""
+    from django.utils import timezone as _tz
+    from ..services.timeutil import day_end
+
+    def _nearest(ttype):
+        t = (Transaction.objects.filter(
+                company=company, status=Transaction.STATUS_PLANNED, type=ttype,
+                date_actual__lte=day_end(horizon))
+             .exclude(excluded_from_reports=True)
+             .order_by('date_actual').first())
+        if t is None or not t.date_actual:
+            return ''
+        return _tz.localtime(t.date_actual).strftime('%d.%m')
+
+    return _nearest(Transaction.TYPE_INCOME), _nearest(Transaction.TYPE_EXPENSE)

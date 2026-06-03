@@ -364,6 +364,7 @@ a { color: inherit; }
 }
 .fin-planned__row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; padding: 4px 0; }
 .fin-planned__row strong { font-variant-numeric: tabular-nums; }
+.fin-planned__next { font-size: 11px; color: var(--fin-muted); margin: -2px 0 4px; text-align: right; }
 .is-pos { color: var(--fin-pos); }
 .is-neg { color: var(--fin-neg); }
 
@@ -494,12 +495,15 @@ a { color: inherit; }
 
 @media (max-width: 900px) {
     /* Header: один ряд — бургер | лого | дії (дохід/витрата/переказ) | шестерня.
-       Кнопки дій вбудовані між бургером і шестернею, а не окремим рядком знизу. */
+       Кнопки дій вбудовані між бургером і шестернею, а не окремим рядком знизу.
+       Sticky — щоб шапка лишалась угорі при скролі (зручний доступ до дій). */
     .fin-header {
         height: auto;
         min-height: var(--fin-header-h);
         flex-wrap: nowrap;
-        position: relative;
+        position: sticky;
+        top: 0;
+        z-index: 60;
         padding: 10px 12px;
         gap: 8px;
     }
@@ -2667,6 +2671,21 @@ body.fin-settings-open { overflow: hidden; }
     transition: color 0.15s ease, border-color 0.15s ease;
 }
 .fin-cp-card__edit:hover { color: var(--fin-text); border-color: var(--fin-border-strong, rgba(255,255,255,0.2)); }
+.fin-cp-card__del {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+    border: 1px solid var(--fin-border);
+    background: transparent;
+    color: var(--fin-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+.fin-cp-card__del:hover { color: var(--fin-neg); border-color: rgba(251,113,133,0.4); }
 .fin-cp-card__sums {
     display: grid;
     grid-template-columns: repeat(3, 1fr);

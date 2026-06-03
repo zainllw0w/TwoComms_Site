@@ -217,6 +217,16 @@ function loadPlanned(period) {
             if (inc) inc.textContent = res.income;
             if (exp) exp.textContent = res.expense;
             if (fc) fc.textContent = res.forecast;
+            const niDate = document.getElementById('fin-planned-next-income');
+            const neDate = document.getElementById('fin-planned-next-expense');
+            if (niDate) {
+                if (res.next_income_date) { niDate.textContent = 'найближчий: ' + res.next_income_date; niDate.hidden = false; }
+                else { niDate.hidden = true; }
+            }
+            if (neDate) {
+                if (res.next_expense_date) { neDate.textContent = 'найближчий: ' + res.next_expense_date; neDate.hidden = false; }
+                else { neDate.hidden = true; }
+            }
         })
         .catch(() => { /* мовчазно */ });
 }

@@ -127,7 +127,9 @@
   });
 
   document.querySelectorAll('[data-cp-delete]').forEach(function (btn) {
-    btn.addEventListener('click', function () {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
       var id = btn.getAttribute('data-cp-delete');
       doDelete(id, false);
     });

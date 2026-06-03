@@ -14,19 +14,25 @@
         // ── Жести шухляд (edge-swipe drawer) ────────────────────────────
         // Відкриття: палець стартує в крайовій зоні екрана (ліва → бургер,
         // права → налаштування) і тягне всередину. Закриття: коли шухляда
-        // відкрита, тягнемо у зворотний бік. Поріг низький — невеликого руху
-        // або «кидка» достатньо, щоб шухляда плавно доїхала сама.
-        var EDGE_ZONE = 44;            // px від краю екрана — звідки можна починати відкривати
-        var ACTIVATE_PX = 8;           // горизонтальний зсув, щоб «схопити» жест
-        var AXIS_RATIO = 1.0;          // горизонталь має домінувати над вертикаллю
-        var VERTICAL_CANCEL = 16;      // якщо одразу пішли вертикально — це скрол, не жест
-        var OPEN_COMMIT_RATIO = 0.30;  // відкрити, якщо протягнули ≥30% ширини
-        var CLOSE_COMMIT_RATIO = 0.30; // закрити, якщо відвели назад ≥30% ширини
-        var FLING_VELOCITY = 0.30;     // px/ms — «кидок» завершує дію незалежно від відстані
-        var MIN_OPEN_PX = 36;
-        var MIN_CLOSE_PX = 44;
+        // відкрита, тягнемо у зворотний бік. Пороги навмисно прощаючі — щоб
+        // жест надійно спрацьовував навіть при діагональному русі великим
+        // пальцем (типова проблема «не завжди відкривається»).
+        var EDGE_ZONE = 40;            // px від краю екрана — звідки можна починати відкривати
+        var ACTIVATE_PX = 6;           // горизонтальний зсув, щоб «схопити» жест
+        var AXIS_RATIO = 0.7;          // горизонталь має бути ≥0.7× вертикалі (прощає діагональ)
+        var VERTICAL_CANCEL = 30;      // більший вертикальний дрейф дозволено до скасування
+        var OPEN_COMMIT_RATIO = 0.22;  // відкрити, якщо протягнули ≥22% ширини
+        var CLOSE_COMMIT_RATIO = 0.28; // закрити, якщо відвели назад ≥28% ширини
+        var FLING_VELOCITY = 0.25;     // px/ms — «кидок» завершує дію незалежно від відстані
+        var MIN_OPEN_PX = 28;
+        var MIN_CLOSE_PX = 40;
         var SETTLE_MS = 320;
         var drawerDrag = null;
+
+        function hapticTick() {
+            // М'який тактильний відгук при завершенні жесту (де підтримується).
+            try { if (navigator.vibrate) navigator.vibrate(8); } catch (e) {}
+        }
 
         function isMobileDrawerViewport() {
             return window.matchMedia ? window.matchMedia('(max-width: 900px)').matches : window.innerWidth <= 900;
@@ -280,14 +286,14 @@
 
             if (!drawerDrag.active) {
                 // Вертикальний намір раніше за горизонтальний → це скрол, відпускаємо.
-                if (absY >= VERTICAL_CANCEL && absY > absX) {
+                if (absY >= VERTICAL_CANCEL && absY > absX * 1.3) {
                     resetDrawerDrag();
                     return;
                 }
-                // Рух у «неправильний» бік скасовує жест.
+                // Рух у «неправильний» бік скасовує жест (з невеликим допуском).
                 var wrongWay = drawerDrag.mode === 'open'
-                    ? (drawerDrag.side === 'left' ? deltaX < -4 : deltaX > 4)
-                    : (drawerDrag.side === 'left' ? deltaX > 4 : deltaX < -4);
+                    ? (drawerDrag.side === 'left' ? deltaX < -8 : deltaX > 8)
+                    : (drawerDrag.side === 'left' ? deltaX > 8 : deltaX < -8);
                 if (wrongWay) {
                     resetDrawerDrag();
                     return;
@@ -338,12 +344,16 @@
             }
 
             if (shouldOpen && side === 'left') {
+                hapticTick();
                 settleDrawerRelease(side, width, width, function () { setSidebarOpen(true); });
             } else if (shouldOpen && side === 'right') {
+                hapticTick();
                 settleDrawerRelease(side, width, width, openSettingsDrawer);
             } else if (shouldClose && side === 'left') {
+                hapticTick();
                 settleDrawerRelease(side, 0, width, closeSidebarDrawer);
             } else if (shouldClose && side === 'right') {
+                hapticTick();
                 settleDrawerRelease(side, 0, width, closeSettingsDrawer);
             } else if (mode === 'close') {
                 // Не дотягнули до закриття → лишаємо відкритою.

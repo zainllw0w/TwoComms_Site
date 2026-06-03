@@ -288,6 +288,17 @@ def _matches_counterparty_hint(transfer: Transaction, hint: dict) -> bool:
     return False
 
 
+def _transfer_already_absorbed_income(transfer: Transaction) -> bool:
+    """True, якщо переказ уже «поглинув» зустрічний дохід (вхідну ногу).
+
+    Один переказ має поглинати РІВНО один income. Якщо вже є matched-маркер —
+    другий дохід тієї ж суми НЕ матчимо до цього ж переказу (захист від
+    помилкового видалення легітимного другого доходу).
+    """
+    data = transfer.external_data or {}
+    return bool(data.get('matched_income_external_id'))
+
+
 def _find_matching_existing_transfer(
     account: Account,
     *,
@@ -298,7 +309,21 @@ def _find_matching_existing_transfer(
     window_hours=168,
     tolerance_percent=2.0,
 ) -> Transaction | None:
-    """Шукає вже створений transfer, який відповідає incoming income item."""
+    """Шукає вже створений transfer, який відповідає incoming income item.
+
+    ВАЖЛИВО: integration-перекази створює ЛИШЕ ``reconcile_internal_transfers``
+    і ЛИШЕ після підтвердження, що counter_iban вихідної ноги = IBAN власного
+    рахунку. Тобто будь-який integration-transfer на цей ``account`` — це вже
+    доведений ВНУТРІШНІЙ переказ. Тому зведення його вхідної ноги (income) за
+    сумою+часом БЕЗПЕЧНЕ (на відміну від загального випадку довільних доходів).
+
+    Порядок матчингу (від найнадійнішого):
+      1) external_id уже у consumed-списку переказу (ідемпотентність повтору);
+      2) збіг counterparty hint (counter_iban/counter_name);
+      3) integration-переказ, що ще НЕ поглинув income, із сумою в толерантності
+         та в межах вікна — обираємо найближчий за часом.
+    Друга нога перевіряється проти ``to_amount`` переказу (сума зарахування).
+    """
     if amount <= 0 or when is None:
         return None
 
@@ -313,17 +338,26 @@ def _find_matching_existing_transfer(
           .select_related('account', 'to_account')
           .order_by('date_actual'))
 
+    fallback = None
+    fallback_gap = None
     for transfer in qs:
         target = transfer.to_amount if transfer.to_amount is not None else transfer.amount
         if target is None or not (min_amount <= target <= max_amount):
             continue
+        # 1) Точна ідемпотентність: цей же item уже зведено в цей переказ.
         if external_id and external_id in _consumed_external_ids(transfer):
             return transfer
+        # 2) Підтверджений збіг за реквізитами контрагента.
         if _matches_counterparty_hint(transfer, hint or {}):
             return transfer
-    # БЕЗ нестрогого fallback за самою сумою: лише підтверджений збіг (consumed-id
-    # або counterparty hint за IBAN/іменем), щоб не видаляти легітимні доходи.
-    return None
+        # 3) Кандидат на безпечне зведення за сумою+часом: лише переказ, що ще
+        #    НЕ поглинув income. Обираємо найближчий за часом.
+        if not _transfer_already_absorbed_income(transfer):
+            gap = abs((transfer.date_actual - when).total_seconds())
+            if fallback is None or gap < fallback_gap:
+                fallback = transfer
+                fallback_gap = gap
+    return fallback
 
 
 def _statement_window(frm: dt.datetime, to: dt.datetime):

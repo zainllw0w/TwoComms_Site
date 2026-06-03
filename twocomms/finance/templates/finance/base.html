@@ -142,10 +142,12 @@
                         <span>Планові доходи</span>
                         <strong class="is-pos" id="fin-planned-income">{% if fin_planned_income is not None %}{{ fin_planned_income }}{% else %}—{% endif %}</strong>
                     </div>
+                    {% if fin_planned_next_income_date %}<div class="fin-planned__next" id="fin-planned-next-income">найближчий: {{ fin_planned_next_income_date }}</div>{% else %}<div class="fin-planned__next" id="fin-planned-next-income" hidden></div>{% endif %}
                     <div class="fin-planned__row">
                         <span>Планові витрати</span>
                         <strong class="is-neg" id="fin-planned-expense">{% if fin_planned_expense is not None %}{{ fin_planned_expense }}{% else %}—{% endif %}</strong>
                     </div>
+                    {% if fin_planned_next_expense_date %}<div class="fin-planned__next" id="fin-planned-next-expense">найближчий: {{ fin_planned_next_expense_date }}</div>{% else %}<div class="fin-planned__next" id="fin-planned-next-expense" hidden></div>{% endif %}
                     <a class="fin-planned__cta" href="{% url 'finance_planned' %}">Керувати плановими →</a>
                 </div>
 
@@ -328,10 +330,10 @@
       window.FIN_VAPID_PUBLIC_KEY = "{{ fin_vapid_public_key|default:'' }}";
       window.FIN_PUSH_ENABLED = {% if fin_push_enabled %}true{% else %}false{% endif %};
     </script>
-    <script src="{% static 'js/finance.js' %}?v=20260602a"></script>
+    <script src="{% static 'js/finance.js' %}?v=20260603b"></script>
     <script src="{% static 'js/finance-transactions.js' %}?v=20260603a"></script>
     <script src="{% static 'js/finance-pwa.js' %}?v=20260603a"></script>
-    <script src="{% static 'js/finance-ui-enhancements.js' %}?v=2"></script>
+    <script src="{% static 'js/finance-ui-enhancements.js' %}?v=3"></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
