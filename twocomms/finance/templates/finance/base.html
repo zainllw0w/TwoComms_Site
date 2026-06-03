@@ -43,25 +43,24 @@
             <a href="{% url 'finance_home' %}" class="fin-tab{% if active_tab == 'payments' %} active{% endif %}">Платежі</a>
             <a href="{% url 'finance_health' %}" class="fin-tab{% if active_tab == 'health' %} active{% endif %}">Здоров'я</a>
             <a href="{% url 'finance_consignment' %}" class="fin-tab{% if active_tab == 'consignment' %} active{% endif %}">Магазини</a>
+            <a href="{% url 'finance_counterparties' %}" class="fin-tab{% if active_tab == 'counterparties' %} active{% endif %}">Контрагенти</a>
             <a href="{% url 'finance_planned' %}" class="fin-tab{% if active_tab == 'planned' %} active{% endif %}">Планові</a>
             <a href="{% url 'finance_analytics' %}" class="fin-tab{% if active_tab == 'analytics' %} active{% endif %}">Аналітика</a>
-            <a href="{% url 'finance_ai' %}" class="fin-tab{% if active_tab == 'ai' %} active{% endif %}">AI радник</a>
             <a href="{% url 'finance_calendar' %}" class="fin-tab{% if active_tab == 'calendar' %} active{% endif %}">Календар</a>
             <a href="{% url 'finance_invoices' %}" class="fin-tab{% if active_tab == 'invoices' %} active{% endif %}">Рахунки-фактури</a>
             <a href="{% url 'finance_rules' %}" class="fin-tab{% if active_tab == 'rules' %} active{% endif %}">Автоправила</a>
-            <a href="{% url 'finance_users' %}" class="fin-tab{% if active_tab == 'users' %} active{% endif %}">Користувачі</a>
         </nav>
 
         <div class="fin-header__actions">
             <div class="fin-quick-actions">
                 <button type="button" class="fin-quick fin-quick--income" data-fin-modal="income">
-                    <span class="fin-quick__plus">+</span> Дохід
+                    <span class="fin-quick__plus">+</span> <span class="fin-quick__label">Дохід</span>
                 </button>
                 <button type="button" class="fin-quick fin-quick--expense" data-fin-modal="expense">
-                    <span class="fin-quick__minus">−</span> Витрата
+                    <span class="fin-quick__minus">−</span> <span class="fin-quick__label">Витрата</span>
                 </button>
                 <button type="button" class="fin-quick fin-quick--transfer" data-fin-modal="transfer">
-                    <span class="fin-quick__swap">⇄</span> Переказ
+                    <span class="fin-quick__swap">⇄</span> <span class="fin-quick__label">Переказ</span>
                 </button>
             </div>
             <button type="button" class="fin-icon-btn fin-icon-btn--settings" id="fin-settings-btn" title="Налаштування" aria-label="Налаштування" aria-controls="fin-settings-panel" aria-expanded="false">
@@ -174,6 +173,17 @@
 
     {% block modals %}{% endblock %}
 
+    {% comment %}
+       Глобальна модалка операції (дохід/витрата/переказ).
+       Раніше підключалася лише на «Платежах»/«Календарі», тож кнопки швидких
+       дій у шапці були «мертві» на інших сторінках. Тепер модалка доступна
+       скрізь. Сторінки з власним списком операцій (платежі, календар)
+       НЕ дублюють її у своєму block modals. Довідники беруться зі сторінкового
+       #fin-dropdowns, а якщо його немає — із запасного #fin-dropdowns-shell.
+    {% endcomment %}
+    {% include 'finance/partials/transaction_modal.html' %}
+    {{ fin_dropdowns|json_script:"fin-dropdowns-shell" }}
+
     <!-- Панель налаштувань -->
     <div class="fin-settings-panel" id="fin-settings-panel" hidden>
         <div class="fin-settings-panel__backdrop" id="fin-settings-backdrop"></div>
@@ -189,13 +199,12 @@
                         <a href="{% url 'finance_home' %}" class="fin-settings-nav__item{% if active_tab == 'payments' %} is-active{% endif %}">Платежі</a>
                         <a href="{% url 'finance_health' %}" class="fin-settings-nav__item{% if active_tab == 'health' %} is-active{% endif %}">Здоров'я</a>
                         <a href="{% url 'finance_consignment' %}" class="fin-settings-nav__item{% if active_tab == 'consignment' %} is-active{% endif %}">Магазини</a>
+                        <a href="{% url 'finance_counterparties' %}" class="fin-settings-nav__item{% if active_tab == 'counterparties' %} is-active{% endif %}">Контрагенти</a>
                         <a href="{% url 'finance_planned' %}" class="fin-settings-nav__item{% if active_tab == 'planned' %} is-active{% endif %}">Планові</a>
                         <a href="{% url 'finance_analytics' %}" class="fin-settings-nav__item{% if active_tab == 'analytics' %} is-active{% endif %}">Аналітика</a>
-                        <a href="{% url 'finance_ai' %}" class="fin-settings-nav__item{% if active_tab == 'ai' %} is-active{% endif %}">AI радник</a>
                         <a href="{% url 'finance_calendar' %}" class="fin-settings-nav__item{% if active_tab == 'calendar' %} is-active{% endif %}">Календар</a>
                         <a href="{% url 'finance_invoices' %}" class="fin-settings-nav__item{% if active_tab == 'invoices' %} is-active{% endif %}">Рахунки-фактури</a>
                         <a href="{% url 'finance_rules' %}" class="fin-settings-nav__item{% if active_tab == 'rules' %} is-active{% endif %}">Автоправила</a>
-                        <a href="{% url 'finance_users' %}" class="fin-settings-nav__item{% if active_tab == 'users' %} is-active{% endif %}">Користувачі</a>
                     </nav>
                 </section>
 
@@ -302,6 +311,7 @@
     <span class="fin-version">v0.1</span>
 
     <script src="{% static 'js/finance.js' %}?v=20260602a"></script>
+    <script src="{% static 'js/finance-transactions.js' %}?v=20260603a"></script>
     <script src="{% static 'js/finance-pwa.js' %}?v=20260601c"></script>
     <script src="{% static 'js/finance-ui-enhancements.js' %}?v=2"></script>
     {% block extra_js %}{% endblock %}

@@ -1,0 +1,220 @@
+{% extends 'finance/base.html' %}
+{% load static %}
+
+{% block title %}{{ cp.name }} — Контрагент — TwoComms Finance{% endblock %}
+
+{% block content %}
+{{ dropdowns|json_script:"fin-dropdowns" }}
+
+<div class="fin-page-head fin-cp-head">
+    <div class="fin-cp-head__id">
+        <a href="{% url 'finance_counterparties' %}" class="fin-back" title="До списку">←</a>
+        <span class="fin-cp-ava fin-cp-ava--lg" style="background:{{ color }}1f;color:{{ color }};border-color:{{ color }}55">{{ initials }}</span>
+        <div>
+            <h1 class="fin-page-title">{{ cp.name }}</h1>
+            <p class="fin-page-subtitle">
+                <span class="fin-cp-type fin-cp-type--{{ cp.type }}">{{ cp_type_display }}</span>
+                {% if cp.group %} · {{ cp.group }}{% endif %}
+                {% if cp.edrpou %} · ЄДРПОУ {{ cp.edrpou }}{% endif %}
+            </p>
+        </div>
+    </div>
+    <div class="fin-page-actions">
+        <button type="button" class="fin-btn fin-btn--ghost" data-cp-edit="{{ cp.id }}">Редагувати</button>
+        <button type="button" class="fin-btn fin-btn--danger" data-cp-delete="{{ cp.id }}">Видалити</button>
+    </div>
+</div>
+
+<!-- KPI -->
+<div class="fin-kpi-row">
+    <div class="fin-kpi fin-kpi--pos">
+        <div class="fin-kpi__label">Отримано</div>
+        <div class="fin-kpi__value">{{ totals.received }}</div>
+        <div class="fin-kpi__hint">Фактичні надходження</div>
+    </div>
+    <div class="fin-kpi fin-kpi--neg">
+        <div class="fin-kpi__label">Сплачено</div>
+        <div class="fin-kpi__value">{{ totals.paid }}</div>
+        <div class="fin-kpi__hint">Фактичні виплати</div>
+    </div>
+    <div class="fin-kpi {% if totals.net_positive %}fin-kpi--pos{% else %}fin-kpi--neg{% endif %}">
+        <div class="fin-kpi__label">Баланс співпраці</div>
+        <div class="fin-kpi__value">{{ totals.net }}</div>
+        <div class="fin-kpi__hint">Отримано − сплачено</div>
+    </div>
+    <div class="fin-kpi fin-kpi--info">
+        <div class="fin-kpi__label">Оборот</div>
+        <div class="fin-kpi__value">{{ totals.turnover }}</div>
+        <div class="fin-kpi__hint">Сер. чек {{ totals.avg_check }}</div>
+    </div>
+</div>
+
+<!-- Доп. метрики -->
+<div class="fin-cp-metrics">
+    <div class="fin-cp-metric"><span>Операцій</span><strong>{{ stats.actual_count }}</strong></div>
+    <div class="fin-cp-metric"><span>Планових</span><strong>{{ stats.planned_count }}</strong></div>
+    <div class="fin-cp-metric"><span>Місяців активності</span><strong>{{ stats.months_active }}</strong></div>
+    <div class="fin-cp-metric"><span>Очікується</span><strong class="is-pos">{{ totals.planned_in }}</strong></div>
+    <div class="fin-cp-metric"><span>Маємо сплатити</span><strong class="is-neg">{{ totals.planned_out }}</strong></div>
+    {% if stats.first_date %}<div class="fin-cp-metric"><span>Перша операція</span><strong>{{ stats.first_date }}</strong></div>{% endif %}
+    {% if stats.last_date %}<div class="fin-cp-metric"><span>Остання операція</span><strong>{{ stats.last_date }}</strong></div>{% endif %}
+</div>
+
+<div class="fin-cp-cols">
+    <div class="fin-cp-col-main">
+        <!-- Графік помісячного обороту -->
+        <div class="fin-chart-block">
+            <h3 class="fin-chart-title">Динаміка співпраці по місяцях</h3>
+            <div class="fin-chart-canvas"><canvas id="cpMonthlyChart" height="110"></canvas></div>
+        </div>
+
+        <!-- Операції -->
+        <div class="fin-section">
+            <h3 class="fin-section-title">Операції <span class="fin-section-count">{{ transactions|length }}</span></h3>
+            <div class="fin-table-wrap">
+                <table class="fin-table fin-table--cp">
+                    <thead>
+                        <tr><th>Дата</th><th class="fin-col-amount">Сума</th><th>Рахунок</th><th>Категорія</th><th>Статус</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for t in transactions %}
+                        <tr class="fin-cp-tx">
+                            <td data-label="Дата"><span class="fin-date">{{ t.date }}</span></td>
+                            <td class="fin-col-amount" data-label="Сума"><span class="fin-amount fin-amount--{{ t.amount_class }}">{{ t.amount_display }}</span></td>
+                            <td data-label="Рахунок">{{ t.account_name }}</td>
+                            <td data-label="Категорія">{{ t.category|default:"—" }}</td>
+                            <td data-label="Статус">{% if t.is_planned %}<span class="fin-badge">план</span>{% else %}<span class="fin-badge fin-badge--ok">факт</span>{% endif %}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="fin-muted-cell">Операцій із цим контрагентом ще немає</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <aside class="fin-cp-col-side">
+        <!-- Реквізити / контакти -->
+        <div class="fin-cp-panel">
+            <h4 class="fin-cp-panel__title">Реквізити</h4>
+            <dl class="fin-cp-reqs">
+                {% if cp.iban %}<dt>IBAN</dt><dd>{{ cp.iban }}</dd>{% endif %}
+                {% if cp.edrpou %}<dt>ЄДРПОУ</dt><dd>{{ cp.edrpou }}</dd>{% endif %}
+                {% if cp.country %}<dt>Країна</dt><dd>{{ cp.country }}</dd>{% endif %}
+                {% if cp.address %}<dt>Адреса</dt><dd>{{ cp.address }}</dd>{% endif %}
+                {% if contacts.phone %}<dt>Телефон</dt><dd><a href="tel:{{ contacts.phone }}">{{ contacts.phone }}</a></dd>{% endif %}
+                {% if contacts.email %}<dt>Email</dt><dd><a href="mailto:{{ contacts.email }}">{{ contacts.email }}</a></dd>{% endif %}
+                {% if contacts.telegram %}<dt>Telegram</dt><dd>{{ contacts.telegram }}</dd>{% endif %}
+                {% if contacts.responsible %}<dt>Відповідальний</dt><dd>{{ contacts.responsible }}</dd>{% endif %}
+                {% if contacts.website %}<dt>Сайт</dt><dd>{{ contacts.website }}</dd>{% endif %}
+                {% if contacts.note %}<dt>Примітка</dt><dd>{{ contacts.note }}</dd>{% endif %}
+            </dl>
+            {% if not cp.iban and not cp.edrpou and not cp.address and not contacts %}
+            <p class="fin-muted-cell">Реквізити не заповнені. <button type="button" class="fin-link-btn" data-cp-edit="{{ cp.id }}">Додати</button></p>
+            {% endif %}
+        </div>
+
+        <!-- Рахунки -->
+        {% if accounts %}
+        <div class="fin-cp-panel">
+            <h4 class="fin-cp-panel__title">Задіяні рахунки</h4>
+            <ul class="fin-cp-acc-list">
+                {% for a in accounts %}
+                <li>
+                    <span class="fin-cp-acc-name">{{ a.name }}{% if a.linked %} <span class="fin-badge fin-badge--ok">прив'язаний</span>{% endif %}</span>
+                    <span class="fin-cp-acc-bal">{{ a.balance }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <!-- Категорії -->
+        {% if categories %}
+        <div class="fin-cp-panel">
+            <h4 class="fin-cp-panel__title">Структура за категоріями</h4>
+            <ul class="fin-cp-cat-list">
+                {% for c in categories|slice:":8" %}
+                <li>
+                    <span class="fin-cp-cat-icon" style="color:{{ c.color }}">{{ c.icon }}</span>
+                    <span class="fin-cp-cat-name">{{ c.name }}</span>
+                    <span class="fin-cp-cat-sum">{% if c.in_d %}{{ c.in_d }}{% else %}{{ c.out_d }}{% endif %}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <!-- Магазини -->
+        {% if resellers %}
+        <div class="fin-cp-panel">
+            <h4 class="fin-cp-panel__title">Магазини-реалізатори</h4>
+            <ul class="fin-cp-acc-list">
+                {% for r in resellers %}
+                <li><a href="{% url 'finance_consignment_detail' r.id %}" class="fin-cp-acc-name">{{ r.name }}</a><span class="fin-badge">{{ r.status }}</span></li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <!-- Журнал дій -->
+        <div class="fin-cp-panel">
+            <h4 class="fin-cp-panel__title">Історія дій</h4>
+            {% if audit %}
+            <ul class="fin-cp-audit">
+                {% for a in audit %}
+                <li>
+                    <span class="fin-cp-audit__dot fin-cp-audit__dot--{{ a.action }}"></span>
+                    <div>
+                        <div class="fin-cp-audit__sum">{{ a.summary }}</div>
+                        <div class="fin-cp-audit__meta">{{ a.user }} · {{ a.date }} {{ a.time }}</div>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="fin-muted-cell">Дій ще не зафіксовано.</p>
+            {% endif %}
+        </div>
+    </aside>
+</div>
+{% endblock %}
+
+{% block modals %}
+{% include 'finance/counterparties/modal_counterparty.html' %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="{% static 'js/finance-counterparties.js' %}?v=20260603a"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var chartData = {{ chart_data|safe }};
+    var ctx = document.getElementById('cpMonthlyChart');
+    if (ctx && chartData.monthly && chartData.monthly.length) {
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: chartData.monthly.map(function (d) { return d.month; }),
+                datasets: [
+                    { label: 'Отримано', data: chartData.monthly.map(function (d) { return d.in; }),
+                      backgroundColor: 'rgba(52, 211, 153, 0.7)', borderRadius: 6 },
+                    { label: 'Сплачено', data: chartData.monthly.map(function (d) { return d.out; }),
+                      backgroundColor: 'rgba(251, 113, 133, 0.7)', borderRadius: 6 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { color: '#9aa4b8' } } },
+                scales: {
+                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9aa4b8',
+                         callback: function (v) { return v.toLocaleString('uk-UA'); } } },
+                    x: { grid: { display: false }, ticks: { color: '#9aa4b8' } }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

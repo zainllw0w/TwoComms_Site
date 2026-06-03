@@ -1,0 +1,128 @@
+{% extends 'finance/base.html' %}
+{% load static %}
+
+{% block title %}Контрагенти — TwoComms Finance{% endblock %}
+
+{% block content %}
+{{ dropdowns|json_script:"fin-dropdowns" }}
+
+<div class="fin-page-head">
+    <div>
+        <h1 class="fin-page-title fin-gradient-text">Контрагенти</h1>
+        <p class="fin-page-subtitle">Клієнти, постачальники та партнери — статистика співпраці й керування.</p>
+    </div>
+    <div class="fin-page-actions">
+        <button type="button" class="fin-btn fin-btn--primary" id="cp-add-btn">+ Контрагент</button>
+    </div>
+</div>
+
+<!-- KPI -->
+<div class="fin-kpi-row">
+    <div class="fin-kpi fin-kpi--neutral">
+        <div class="fin-kpi__label">Контрагентів</div>
+        <div class="fin-kpi__value">{{ count }}</div>
+        <div class="fin-kpi__hint">У базі</div>
+    </div>
+    <div class="fin-kpi fin-kpi--pos">
+        <div class="fin-kpi__label">Отримано</div>
+        <div class="fin-kpi__value">{{ totals.received }}</div>
+        <div class="fin-kpi__hint">Фактичні доходи від контрагентів</div>
+    </div>
+    <div class="fin-kpi fin-kpi--neg">
+        <div class="fin-kpi__label">Сплачено</div>
+        <div class="fin-kpi__value">{{ totals.paid }}</div>
+        <div class="fin-kpi__hint">Фактичні витрати на контрагентів</div>
+    </div>
+    <div class="fin-kpi fin-kpi--info">
+        <div class="fin-kpi__label">Очікується (планово)</div>
+        <div class="fin-kpi__value">{{ totals.planned_in }}</div>
+        <div class="fin-kpi__hint">Планові надходження</div>
+    </div>
+</div>
+
+<!-- Фільтри -->
+<form class="fin-filters" method="get" id="cp-filters">
+    <div class="fin-filters__row">
+        <label class="fin-period">
+            <select name="type" class="fin-select" onchange="this.form.submit()">
+                <option value="">Усі типи</option>
+                {% for val, label in types %}
+                <option value="{{ val }}" {% if type_filter == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label class="fin-period">
+            <select name="sort" class="fin-select" onchange="this.form.submit()">
+                <option value="turnover" {% if sort == 'turnover' %}selected{% endif %}>За оборотом</option>
+                <option value="net" {% if sort == 'net' %}selected{% endif %}>За балансом</option>
+                <option value="recent" {% if sort == 'recent' %}selected{% endif %}>За датою</option>
+                <option value="name" {% if sort == 'name' %}selected{% endif %}>За назвою</option>
+            </select>
+        </label>
+        <label class="fin-search">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 10-.7.7l.27.28v.79l5 5 1.5-1.5-5-5zm-6 0A4.5 4.5 0 1114 9.5 4.49 4.49 0 019.5 14z"/></svg>
+            <input type="search" name="q" class="fin-input" placeholder="Пошук за назвою, групою, ЄДРПОУ" value="{{ q }}">
+        </label>
+        <button type="submit" class="fin-btn fin-btn--primary fin-btn--sm">Застосувати</button>
+        {% if type_filter or q or sort != 'turnover' %}
+        <a href="{% url 'finance_counterparties' %}" class="fin-btn fin-btn--ghost fin-btn--sm">Скинути</a>
+        {% endif %}
+    </div>
+</form>
+
+<!-- Список контрагентів -->
+<div class="fin-cp-grid">
+    {% for r in rows %}
+    <a href="{% url 'finance_counterparty_detail' r.id %}" class="fin-cp-card" data-cp-id="{{ r.id }}">
+        <div class="fin-cp-card__top">
+            <span class="fin-cp-ava" style="background:{{ r.color }}1f;color:{{ r.color }};border-color:{{ r.color }}55">{{ r.initials }}</span>
+            <div class="fin-cp-card__id">
+                <div class="fin-cp-card__name">{{ r.name }}</div>
+                <div class="fin-cp-card__meta">
+                    <span class="fin-cp-type fin-cp-type--{{ r.type }}">{{ r.type_display }}</span>
+                    {% if r.group %}<span class="fin-cp-dot">·</span>{{ r.group }}{% endif %}
+                </div>
+            </div>
+            <button type="button" class="fin-cp-card__edit" data-cp-edit="{{ r.id }}" title="Редагувати" aria-label="Редагувати">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            </button>
+        </div>
+        <div class="fin-cp-card__sums">
+            <div class="fin-cp-sum">
+                <span class="fin-cp-sum__label">Отримано</span>
+                <span class="fin-cp-sum__val is-pos">{{ r.received_d }}</span>
+            </div>
+            <div class="fin-cp-sum">
+                <span class="fin-cp-sum__label">Сплачено</span>
+                <span class="fin-cp-sum__val is-neg">{{ r.paid_d }}</span>
+            </div>
+            <div class="fin-cp-sum">
+                <span class="fin-cp-sum__label">Баланс</span>
+                <span class="fin-cp-sum__val">{{ r.net_d }}</span>
+            </div>
+        </div>
+        <div class="fin-cp-card__foot">
+            <span title="Кількість операцій">🧾 {{ r.txn_count }}</span>
+            {% if r.planned_in or r.planned_out %}
+            <span title="Планові">📅 {% if r.planned_in %}+{{ r.planned_in_d }}{% endif %}{% if r.planned_out %} −{{ r.planned_out_d }}{% endif %}</span>
+            {% endif %}
+            {% if r.last_date %}<span class="fin-cp-card__last">остання: {{ r.last_date }}</span>{% endif %}
+        </div>
+    </a>
+    {% empty %}
+    <div class="fin-empty-state">
+        <h2>Ще немає контрагентів</h2>
+        <p>Додайте першого контрагента — клієнта, постачальника чи партнера.</p>
+        <button type="button" class="fin-btn fin-btn--primary" id="cp-add-empty-btn">+ Додати контрагента</button>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block modals %}
+{% include 'finance/counterparties/modal_counterparty.html' %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/finance-counterparties.js' %}?v=20260603a"></script>
+{% endblock %}

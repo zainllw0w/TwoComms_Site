@@ -34,7 +34,7 @@
 
     <div class="fin-kpi fin-kpi--info">
         <div class="fin-kpi__label">Зміна балансу</div>
-        <div class="fin-kpi__value">{{ data.final_balance|add:"-"|add:data.current_balance|floatformat:0 }} ₴</div>
+        <div class="fin-kpi__value">{{ balance_change }}</div>
         <div class="fin-kpi__hint">За період</div>
     </div>
 </div>
@@ -69,7 +69,7 @@
 <div class="fin-section">
     <h3 class="fin-section-title">Деталізація прогнозу</h3>
     <div class="fin-table-wrap">
-        <table class="fin-table">
+        <table class="fin-table fin-table--forecast">
             <thead>
                 <tr>
                     <th>Місяць</th>
@@ -82,19 +82,19 @@
             <tbody>
                 {% for m in data.forecast %}
                 <tr class="fin-row {% if m.is_negative %}fin-row--danger{% elif m.is_warning %}fin-row--warning{% endif %}">
-                    <td><strong>{{ m.month_name }}</strong></td>
-                    <td class="fin-col-amount">
+                    <td data-label="Місяць"><strong>{{ m.month_name }}</strong></td>
+                    <td class="fin-col-amount" data-label="Надходження">
                         <span class="fin-amount fin-amount--pos">+{{ m.planned_income|floatformat:0 }} ₴</span>
                     </td>
-                    <td class="fin-col-amount">
+                    <td class="fin-col-amount" data-label="Витрати">
                         <span class="fin-amount fin-amount--neg">−{{ m.planned_expense|floatformat:0 }} ₴</span>
                     </td>
-                    <td class="fin-col-amount">
+                    <td class="fin-col-amount" data-label="Зміна">
                         <span class="fin-amount {% if m.net_change >= 0 %}fin-amount--pos{% else %}fin-amount--neg{% endif %}">
                             {{ m.net_change|floatformat:0 }} ₴
                         </span>
                     </td>
-                    <td class="fin-col-amount">
+                    <td class="fin-col-amount" data-label="Баланс на кінець">
                         <strong class="{% if m.is_negative %}fin-amount--neg{% elif m.is_warning %}fin-amount--warning{% else %}fin-amount--pos{% endif %}">
                             {{ m.ending_balance|floatformat:0 }} ₴
                         </strong>

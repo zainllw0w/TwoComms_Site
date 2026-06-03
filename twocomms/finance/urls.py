@@ -62,6 +62,14 @@ urlpatterns = [
     path('users/', views.users, name='finance_users'),
     path('accounts/', views.accounts, name='finance_accounts'),
 
+    # --- Контрагенти ---
+    path('counterparties/', views.counterparties, name='finance_counterparties'),
+    path('counterparties/<int:counterparty_id>/', views.counterparty_detail_page, name='finance_counterparty_detail'),
+    path('api/counterparties/create/', views.counterparty_create_api, name='finance_counterparty_create_api'),
+    path('api/counterparties/<int:counterparty_id>/get/', views.counterparty_get_api, name='finance_counterparty_get_api'),
+    path('api/counterparties/<int:counterparty_id>/update/', views.counterparty_update_api, name='finance_counterparty_update_api'),
+    path('api/counterparties/<int:counterparty_id>/delete/', views.counterparty_delete_api, name='finance_counterparty_delete_api'),
+
     # --- Планові платежі (зобов'язання) ---
     path('planned/', views.planned, name='finance_planned'),
     path('api/planned/obligations/', views.planned_obligations_api, name='finance_planned_obligations_api'),

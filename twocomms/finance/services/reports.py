@@ -17,6 +17,15 @@ from ..models import Invoice, Transaction
 from . import filters as filter_service
 from .timeutil import day_end, day_start
 
+# Назви місяців українською (називний відмінок) для підписів у звітах.
+_UK_MONTHS_NOM = ['', 'Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень',
+                  'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень']
+
+
+def _uk_month_year(d) -> str:
+    """Назва місяця українською + рік (напр. «Червень 2026») для UI прогнозу."""
+    return f'{_UK_MONTHS_NOM[d.month]} {d.year}'
+
 
 def resolve_period(params):
     period = params.get('period', 'month')
@@ -416,7 +425,7 @@ def balance_forecast_report(company, months: int = 6):
 
         forecast.append({
             "month": month_start.strftime("%Y-%m"),
-            "month_name": month_start.strftime("%B %Y"),
+            "month_name": _uk_month_year(month_start),
             "planned_income": planned_income,
             "planned_expense": planned_expense,
             "net_change": planned_income - planned_expense,

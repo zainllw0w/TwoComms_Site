@@ -29,7 +29,10 @@
   }
 
   var DROPDOWNS = {};
-  try { DROPDOWNS = JSON.parse(document.getElementById('fin-dropdowns').textContent); } catch (e) {}
+  try {
+    var ddEl = document.getElementById('fin-dropdowns') || document.getElementById('fin-dropdowns-shell');
+    if (ddEl) DROPDOWNS = JSON.parse(ddEl.textContent);
+  } catch (e) {}
 
   var modal = document.getElementById('fin-txn-modal');
   var form = document.getElementById('fin-txn-form');
@@ -472,7 +475,10 @@
   });
 
   // --- Клік по рядку → редагування (або toggle у bulk-режимі) ---
-  document.querySelectorAll('.fin-row').forEach(function (row) {
+  // Прив'язуємось лише до рядків журналу операцій (мають data-txn-id), щоб
+  // на сторінках звітів (де є .fin-row без txn-id) нічого не ламалось при
+  // глобальному підключенні скрипта.
+  document.querySelectorAll('.fin-row[data-txn-id]').forEach(function (row) {
     row.addEventListener('click', function (e) {
       if (e.target.closest('.fin-col-check')) return;
       // У bulk-режимі клік перемикає вибір, не відкриває модалку
@@ -573,7 +579,7 @@
   // --- Long-press на рядку активує bulk-режим (мобільні) ---
   (function () {
     var timer = null;
-    document.querySelectorAll('.fin-row').forEach(function (row) {
+    document.querySelectorAll('.fin-row[data-txn-id]').forEach(function (row) {
       var check = row.querySelector('.fin-row-check');
       if (!check) return;
       row.addEventListener('touchstart', function () {

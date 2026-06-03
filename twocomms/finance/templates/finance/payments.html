@@ -186,11 +186,8 @@
 {% endblock %}
 
 {% block modals %}
-{% include 'finance/partials/transaction_modal.html' %}
 {% include 'finance/partials/advanced_filter_modal.html' %}
 {% include 'finance/partials/bulk_value_modal.html' %}
 {% endblock %}
 
-{% block extra_js %}
-<script src="{% static 'js/finance-transactions.js' %}?v=20260531b"></script>
-{% endblock %}
+{% block extra_js %}{% endblock %}

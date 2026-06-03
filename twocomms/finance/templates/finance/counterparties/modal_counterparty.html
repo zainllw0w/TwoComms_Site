@@ -1,0 +1,65 @@
+{# Модалка створення/редагування контрагента. #}
+<div class="fin-modal-overlay" id="fin-cp-form-modal" hidden>
+  <div class="fin-modal-card" role="dialog" aria-modal="true" aria-labelledby="fin-cp-form-title">
+    <div class="fin-modal-head">
+      <h3 id="fin-cp-form-title">Новий контрагент</h3>
+      <button type="button" class="fin-modal-close" data-cpf-close aria-label="Закрити">×</button>
+    </div>
+    <form class="fin-modal-body" id="fin-cp-form">
+      {% csrf_token %}
+      <input type="hidden" id="fin-cp-id" value="">
+      <div class="fin-form-alert" id="fin-cp-alert" hidden></div>
+
+      <div class="fin-field-row">
+        <label class="fin-field">
+          <span>Назва *</span>
+          <input type="text" id="fin-cp-name" class="fin-input" required placeholder="Напр. ТОВ «Магазин»">
+        </label>
+        <label class="fin-field fin-field--cur">
+          <span>Тип</span>
+          <select id="fin-cp-type" class="fin-select">
+            {% for val, label in types %}
+            <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+
+      <div class="fin-field-row">
+        <label class="fin-field">
+          <span>Група</span>
+          <input type="text" id="fin-cp-group" class="fin-input" placeholder="Напр. Опт, Роздріб">
+        </label>
+        <label class="fin-field">
+          <span>ЄДРПОУ / ІПН</span>
+          <input type="text" id="fin-cp-edrpou" class="fin-input">
+        </label>
+      </div>
+
+      <button type="button" class="fin-disclosure" id="fin-cp-toggle-req" aria-expanded="false">
+        <span class="fin-disclosure__chev" aria-hidden="true">▸</span> Реквізити та контакти
+      </button>
+      <div class="fin-disclosure__body" id="fin-cp-req-wrap" hidden>
+        <div class="fin-field-row">
+          <label class="fin-field"><span>IBAN</span><input type="text" id="fin-cp-iban" class="fin-input"></label>
+          <label class="fin-field"><span>Країна</span><input type="text" id="fin-cp-country" class="fin-input"></label>
+        </div>
+        <label class="fin-field"><span>Адреса</span><input type="text" id="fin-cp-address" class="fin-input"></label>
+        <div class="fin-field-row">
+          <label class="fin-field"><span>Телефон</span><input type="text" id="fin-cp-phone" class="fin-input"></label>
+          <label class="fin-field"><span>Email</span><input type="email" id="fin-cp-email" class="fin-input"></label>
+        </div>
+        <div class="fin-field-row">
+          <label class="fin-field"><span>Telegram</span><input type="text" id="fin-cp-telegram" class="fin-input"></label>
+          <label class="fin-field"><span>Відповідальний</span><input type="text" id="fin-cp-responsible" class="fin-input"></label>
+        </div>
+        <label class="fin-field"><span>Примітка</span><textarea id="fin-cp-note" class="fin-input fin-textarea" rows="2"></textarea></label>
+      </div>
+
+      <div class="fin-modal-foot">
+        <button type="button" class="fin-btn fin-btn--ghost" data-cpf-close>Скасувати</button>
+        <button type="submit" class="fin-btn fin-btn--primary" id="fin-cp-submit">Створити</button>
+      </div>
+    </form>
+  </div>
+</div>

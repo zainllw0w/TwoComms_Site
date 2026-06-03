@@ -61,6 +61,10 @@ def finance_shell_context(request):
         return {
             'fin_company_name': company.name,
             'fin_base_currency': ser.currency_symbol(company.base_currency),
+            # Довідники для модалки операцій (дохід/витрата/переказ) — потрібні на
+            # КОЖНІЙ сторінці кабінету, щоб кнопки швидких дій у шапці працювали
+            # скрізь, а не лише на «Платежах»/«Календарі».
+            'fin_dropdowns': ser.serialize_dropdowns(company),
             'fin_total_balance': ser.money(total, company.base_currency),
             'fin_accounts': accounts,
             'fin_frozen_warehouse': ser.money(frozen, company.base_currency),

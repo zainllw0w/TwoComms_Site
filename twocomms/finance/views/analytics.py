@@ -234,6 +234,7 @@ def report(request, kind):
             'months': months,
             'current_balance': _m(company, data['current_balance']),
             'final_balance': _m(company, data['final_balance'], signed=True),
+            'balance_change': _m(company, data['final_balance'] - data['current_balance'], signed=True),
             'insights': insights,
             'chart_data': json.dumps({
                 'forecast': [{'month': m['month'], 'balance': float(m['ending_balance']),
