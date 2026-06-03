@@ -3037,6 +3037,18 @@ body.fin-settings-open { overflow: hidden; }
 .fin-hs-aging__bar span { display: block; height: 100%; background: linear-gradient(90deg, #f59e0b, #ef4444); border-radius: 999px; }
 .fin-hs-aging__val { font-variant-numeric: tabular-nums; color: var(--fin-text); white-space: nowrap; }
 
+/* Заморожений капітал — картки розбивки складу */
+.fin-breakdown-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.fin-breakdown-card {
+    background: rgba(255,255,255,0.04); border: 1px solid var(--fin-border);
+    border-radius: var(--fin-radius-md, 14px); padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 4px;
+}
+.fin-breakdown-card__label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--fin-muted); }
+.fin-breakdown-card__value { font-size: 19px; font-weight: 800; color: var(--fin-text); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.fin-breakdown-card__qty { font-size: 12px; color: var(--fin-text-2); }
+@media (max-width: 520px) { .fin-breakdown-cards { grid-template-columns: 1fr 1fr; } }
+
 @media (max-width: 860px) {
     .fin-hs-recs { grid-template-columns: 1fr; }
 }

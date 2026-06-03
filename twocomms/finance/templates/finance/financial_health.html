@@ -1,5 +1,6 @@
 {% extends 'finance/base.html' %}
 {% load static %}
+{% load l10n %}
 
 {% block title %}Фінансове здоров'я — TwoComms Finance{% endblock %}
 
@@ -29,7 +30,7 @@
         <div class="fin-hs-hero__conf">
             Довіра до оцінки:
             <strong>{{ scores.data_confidence }}%</strong>
-            <span class="fin-hs-confbar"><span style="width: {{ scores.data_confidence }}%"></span></span>
+            <span class="fin-hs-confbar"><span style="width: {{ scores.data_confidence|unlocalize }}%"></span></span>
         </div>
         <div class="fin-hs-subscores">
             <div class="fin-hs-sub fin-hs-sub--biz">
@@ -162,7 +163,7 @@
                 <div class="fin-hs-layer__row">
                     <span class="fin-hs-layer__row-label">{{ row.label }}</span>
                     <span class="fin-hs-layer__row-bar">
-                        <span class="{% if row.score >= 70 %}is-good{% elif row.score >= 45 %}is-mid{% else %}is-bad{% endif %}" style="width: {{ row.score }}%"></span>
+                        <span class="{% if row.score >= 70 %}is-good{% elif row.score >= 45 %}is-mid{% else %}is-bad{% endif %}" style="width: {{ row.score|unlocalize }}%"></span>
                     </span>
                     <span class="fin-hs-layer__row-score">{{ row.score }}</span>
                 </div>
@@ -183,7 +184,7 @@
             {% for row in aging_rows %}
             <div class="fin-hs-aging__row">
                 <span class="fin-hs-aging__label">{{ row.label }}</span>
-                <span class="fin-hs-aging__bar"><span style="width: {{ row.pct }}%"></span></span>
+                <span class="fin-hs-aging__bar"><span style="width: {{ row.pct|unlocalize }}%"></span></span>
                 <span class="fin-hs-aging__val">{{ row.value }}</span>
             </div>
             {% endfor %}
