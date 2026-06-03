@@ -836,6 +836,47 @@ textarea {
 .wh-mc__cell.qty-low .wh-mc__qty { color: var(--warning); }
 .wh-mc__cell.qty-zero .wh-mc__qty { color: var(--text-dim); }
 
+/* ============= Price-shift flags (batch cost drifted) ============= */
+
+/* Small triangle badge shown on a stock cell when the latest purchase
+   price differs from the weighted-average cost. ▲ = подорожчало,
+   ▼ = подешевшало. Keeps the matrix readable — just a tiny corner mark. */
+.wh-price-flag {
+    font-size: 9px;
+    line-height: 1;
+    font-weight: 700;
+}
+
+/* Table cell: position flag top-right of the number */
+.wh-matrix .qty-cell.has-price-shift {
+    position: relative;
+}
+
+.wh-matrix .qty-cell .wh-price-flag {
+    position: absolute;
+    top: 3px;
+    right: 4px;
+}
+
+/* Mobile card cell */
+.wh-mc__cell.has-price-shift {
+    position: relative;
+}
+
+.wh-mc__cell .wh-price-flag {
+    position: absolute;
+    top: 4px;
+    right: 5px;
+}
+
+.wh-price-flag--up { color: var(--danger); }
+.wh-price-flag--down { color: var(--success); }
+
+/* Slightly tint the whole cell background so a price shift is noticeable
+   without reading the tiny triangle. */
+.qty-cell.has-price-shift.price-up { background: linear-gradient(180deg, transparent 60%, var(--danger-soft) 100%); }
+.qty-cell.has-price-shift.price-down { background: linear-gradient(180deg, transparent 60%, var(--success-soft) 100%); }
+
 /* Toggle: show cards on mobile, table on tablet+ */
 @media (max-width: 599px) {
     .wh-matrix-wrap { display: none; }

@@ -229,6 +229,16 @@ class StockItem(models.Model):
     cost_price = models.DecimalField(
         max_digits=10, decimal_places=2, default=Decimal("0.00"), verbose_name="Собівартість (грн)"
     )
+    last_cost_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        verbose_name="Остання ціна закупки (грн)",
+        help_text=(
+            "Ціна останньої партії. Якщо відрізняється від середньозваженої "
+            "cost_price — значить ціна між партіями змінилась (показуємо мітку)."
+        ),
+    )
     notes = models.CharField(max_length=255, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -254,6 +264,25 @@ class StockItem(models.Model):
     @property
     def frozen_value(self) -> Decimal:
         return Decimal(self.quantity) * Decimal(self.cost_price)
+
+    @property
+    def price_changed(self) -> bool:
+        """True, якщо остання закупка відрізняється від середньозваженої ціни.
+
+        Сигналізує, що собівартість «поплила» між партіями (наприклад,
+        худі дорожчали з 750 до 900). Допуск 0.5 грн, щоб не реагувати
+        на копійки округлення.
+        """
+        if not self.last_cost_price or not self.cost_price:
+            return False
+        return abs(Decimal(self.last_cost_price) - Decimal(self.cost_price)) > Decimal("0.5")
+
+    @property
+    def price_trend(self) -> str:
+        """'up' / 'down' / '' — напрямок зміни останньої ціни проти середньої."""
+        if not self.price_changed:
+            return ""
+        return "up" if Decimal(self.last_cost_price) > Decimal(self.cost_price) else "down"
 
     @property
     def color_display(self) -> str:

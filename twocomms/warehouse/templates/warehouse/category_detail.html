@@ -61,8 +61,8 @@
                     <span class="wh-color-name">{{ row.color_name }}</span>
                 </td>
                 {% for size in matrix.sizes %}
-                {% with qty=row.by_size|dictkey:size|default:0 cost=row.by_size_cost|dictkey:size|default:'0' %}
-                <td class="qty-cell"
+                {% with qty=row.by_size|dictkey:size|default:0 cost=row.by_size_cost|dictkey:size|default:'0' last_cost=row.by_size_last_cost|dictkey:size|default:'0' trend=row.by_size_trend|dictkey:size|default:'' %}
+                <td class="qty-cell{% if trend %} has-price-shift price-{{ trend }}{% endif %}"
                     data-subcategory-id="{{ sub.id }}"
                     data-subcategory-name="{{ sub.name }}"
                     data-size="{{ size }}"
@@ -70,8 +70,11 @@
                     data-color-name="{{ row.color_name }}"
                     data-color-hex="{{ row.color_hex }}"
                     data-quantity="{{ qty }}"
-                    data-cost="{{ cost }}">
+                    data-cost="{{ cost }}"
+                    data-last-cost="{{ last_cost }}"
+                    data-trend="{{ trend }}">
                     <span class="{{ qty|qty_class }}">{{ qty }}</span>
+                    {% if trend %}<span class="wh-price-flag wh-price-flag--{{ trend }}" title="Остання закупка: {{ last_cost }} ₴ (середня {{ cost }} ₴)">{% if trend == 'up' %}▲{% else %}▼{% endif %}</span>{% endif %}
                 </td>
                 {% endwith %}
                 {% endfor %}
@@ -104,8 +107,8 @@
         </div>
         <div class="wh-mc__grid">
             {% for size in matrix.sizes %}
-            {% with qty=row.by_size|dictkey:size|default:0 cost=row.by_size_cost|dictkey:size|default:'0' %}
-            <button type="button" class="wh-mc__cell qty-cell {{ qty|qty_class }}"
+            {% with qty=row.by_size|dictkey:size|default:0 cost=row.by_size_cost|dictkey:size|default:'0' last_cost=row.by_size_last_cost|dictkey:size|default:'0' trend=row.by_size_trend|dictkey:size|default:'' %}
+            <button type="button" class="wh-mc__cell qty-cell {{ qty|qty_class }}{% if trend %} has-price-shift price-{{ trend }}{% endif %}"
                     data-subcategory-id="{{ sub.id }}"
                     data-subcategory-name="{{ sub.name }}"
                     data-size="{{ size }}"
@@ -113,9 +116,12 @@
                     data-color-name="{{ row.color_name }}"
                     data-color-hex="{{ row.color_hex }}"
                     data-quantity="{{ qty }}"
-                    data-cost="{{ cost }}">
+                    data-cost="{{ cost }}"
+                    data-last-cost="{{ last_cost }}"
+                    data-trend="{{ trend }}">
                 <span class="wh-mc__size">{{ size }}</span>
                 <span class="wh-mc__qty">{{ qty }}</span>
+                {% if trend %}<span class="wh-price-flag wh-price-flag--{{ trend }}">{% if trend == 'up' %}▲{% else %}▼{% endif %}</span>{% endif %}
             </button>
             {% endwith %}
             {% endfor %}
@@ -153,6 +159,13 @@
             <span class="wh-adjust-summary__value">
                 <span id="adjust-current-qty">0</span> шт
                 · <span id="adjust-current-cost">0</span> ₴/од
+            </span>
+        </div>
+        <div class="wh-adjust-summary__row" id="adjust-lastcost-row" hidden>
+            <span class="wh-adjust-summary__label">Ост. закупка</span>
+            <span class="wh-adjust-summary__value">
+                <span id="adjust-last-cost">0</span> ₴/од
+                <span class="wh-adjust-summary__delta" id="adjust-spread-badge"></span>
             </span>
         </div>
         <div class="wh-adjust-summary__row" id="adjust-preview-row" hidden>

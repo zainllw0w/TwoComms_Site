@@ -21,6 +21,9 @@
     // Summary widgets
     const adjustCurrentQty = document.getElementById('adjust-current-qty');
     const adjustCurrentCost = document.getElementById('adjust-current-cost');
+    const adjustLastCostRow = document.getElementById('adjust-lastcost-row');
+    const adjustLastCost = document.getElementById('adjust-last-cost');
+    const adjustSpreadBadge = document.getElementById('adjust-spread-badge');
     const adjustPreviewRow = document.getElementById('adjust-preview-row');
     const adjustPreviewQty = document.getElementById('adjust-preview-qty');
     const adjustPreviewCost = document.getElementById('adjust-preview-cost');
@@ -114,10 +117,12 @@
 
     let currentCell = null;
     let pendingDelta = 0;
+    let currentCellCostAtOpen = '0';
 
     function openSheet(cell) {
         currentCell = cell;
         pendingDelta = 0;
+        currentCellCostAtOpen = cell.dataset.cost || '0';
         const subName = cell.dataset.subcategoryName || '';
         const size = cell.dataset.size || '';
         const colorName = cell.dataset.colorName || '';
@@ -129,6 +134,21 @@
         adjustCurrentQty.textContent = qty;
         adjustCurrentCost.textContent = fmtMoney(cost);
         adjustPreviewRow.hidden = true;
+
+        // Last-batch cost vs weighted average (price-shift indicator)
+        const lastCost = parseFloat(cell.dataset.lastCost) || 0;
+        if (adjustLastCostRow && adjustLastCost && adjustSpreadBadge) {
+            if (lastCost > 0 && Math.abs(lastCost - cost) > 0.5) {
+                adjustLastCost.textContent = fmtMoney(lastCost);
+                const diff = lastCost - cost;
+                adjustSpreadBadge.textContent = (diff > 0 ? '+' : '') + fmtMoney(diff) + ' ₴';
+                adjustSpreadBadge.classList.remove('is-positive', 'is-negative');
+                adjustSpreadBadge.classList.add(diff > 0 ? 'is-negative' : 'is-positive');
+                adjustLastCostRow.hidden = false;
+            } else {
+                adjustLastCostRow.hidden = true;
+            }
+        }
 
         // Delta pane defaults
         qtyValue.textContent = '0';
@@ -249,19 +269,36 @@
         fd.append('color_id', currentCell.dataset.colorId || '');
         fd.append('comment', commentSet.value || '');
 
+        const oldQty = parseInt(currentCell.dataset.quantity, 10) || 0;
+
         if (currentTab === 'set') {
-            if (qtySet.value === '') { closeSheet(); return; }
+            const hasQty = qtySet.value !== '';
+            const hasCost = costSetAbs.value !== '';
+            if (!hasQty && !hasCost) { closeSheet(); return; }
             fd.append('mode', 'set');
-            fd.append('quantity', qtySet.value);
-            if (costSetAbs.value) fd.append('cost_price', costSetAbs.value);
+            // Якщо кількість не задано — лишаємо поточну (правимо тільки ціну).
+            fd.append('quantity', hasQty ? qtySet.value : String(oldQty));
+            if (hasCost) fd.append('cost_price', costSetAbs.value);
         } else {
-            if (pendingDelta === 0) { closeSheet(); return; }
-            fd.append('mode', 'delta');
-            fd.append('delta', String(pendingDelta));
-            fd.append('reason', pendingDelta > 0 ? 'manual_add' : 'manual_remove');
-            // Only send purchase price when adding
-            if (pendingDelta > 0 && costSet.value) {
-                fd.append('cost_price', costSet.value);
+            // Delta tab. Можливі сценарії:
+            //  • змінили кількість (pendingDelta != 0) — звичайне коригування;
+            //  • кількість 0, але ввели ціну — це корекція ціни без руху,
+            //    шлемо як mode=set із поточною кількістю (баг-фікс: раніше
+            //    таке мовчки ігнорувалось).
+            const enteredCost = costSet.value;
+            if (pendingDelta === 0) {
+                if (enteredCost === '') { closeSheet(); return; }
+                fd.append('mode', 'set');
+                fd.append('quantity', String(oldQty));
+                fd.append('cost_price', enteredCost);
+            } else {
+                fd.append('mode', 'delta');
+                fd.append('delta', String(pendingDelta));
+                fd.append('reason', pendingDelta > 0 ? 'manual_add' : 'manual_remove');
+                // Ціну закупки враховуємо лише при прибутті (середньозважена).
+                if (pendingDelta > 0 && enteredCost) {
+                    fd.append('cost_price', enteredCost);
+                }
             }
         }
 
@@ -272,6 +309,12 @@
                 updateCellQty(currentCell, data.quantity, data.cost_price);
                 W.flash('Збережено', 'success');
                 closeSheet();
+                // Ціна могла змінитись — перерендеримо мітки спреду через reload,
+                // але тільки якщо змінилась собівартість (щоб не смикати зайвий раз).
+                if (data.cost_price !== undefined &&
+                    String(data.cost_price) !== String(currentCellCostAtOpen)) {
+                    setTimeout(function () { location.reload(); }, 500);
+                }
             } else {
                 W.flash(data.error || 'Помилка', 'error');
             }

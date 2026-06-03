@@ -121,11 +121,13 @@ def stock_matrix_for_category(category: StorageCategory) -> dict:
         color_hex = item.color.primary_hex if item.color else ""
         key = (color_id, color_name, color_hex)
         bucket = subcat_buckets[sub.id]["rows"].setdefault(
-            key, {"_total": 0, "_sizes": {}, "_costs": {}}
+            key, {"_total": 0, "_sizes": {}, "_costs": {}, "_last_costs": {}, "_trends": {}}
         )
         bucket["_sizes"][item.size] = bucket["_sizes"].get(item.size, 0) + item.quantity
         # cost_price per size (per unique StockItem)
         bucket["_costs"][item.size] = str(item.cost_price)
+        bucket["_last_costs"][item.size] = str(item.last_cost_price)
+        bucket["_trends"][item.size] = item.price_trend
         bucket["_total"] += item.quantity
 
     sizes = _sort_sizes(sizes_set)
@@ -140,6 +142,8 @@ def stock_matrix_for_category(category: StorageCategory) -> dict:
         for (color_id, color_name, color_hex), bucket in sub_data["rows"].items():
             by_size = {s: bucket["_sizes"].get(s, 0) for s in sizes}
             by_size_cost = {s: bucket["_costs"].get(s, "0") for s in sizes}
+            by_size_last_cost = {s: bucket["_last_costs"].get(s, "0") for s in sizes}
+            by_size_trend = {s: bucket["_trends"].get(s, "") for s in sizes}
             row_total = bucket["_total"]
             for s, q in by_size.items():
                 subtotal_by_size[s] += q
@@ -153,6 +157,8 @@ def stock_matrix_for_category(category: StorageCategory) -> dict:
                     "color_hex": color_hex,
                     "by_size": by_size,
                     "by_size_cost": by_size_cost,
+                    "by_size_last_cost": by_size_last_cost,
+                    "by_size_trend": by_size_trend,
                     "row_total": row_total,
                 }
             )

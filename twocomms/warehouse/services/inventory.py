@@ -83,7 +83,10 @@ def adjust_stock_item(
             add_qty=delta,
             add_cost=Decimal(cost_price_override),
         )
-    stock_item.save(update_fields=["quantity", "cost_price", "updated_at"])
+        # Запам'ятовуємо ціну саме цієї (останньої) партії, щоб у UI
+        # підсвітити розбіжність із середньозваженою ціною.
+        stock_item.last_cost_price = Decimal(cost_price_override)
+    stock_item.save(update_fields=["quantity", "cost_price", "last_cost_price", "updated_at"])
 
     return StockMovement.objects.create(
         content_type=ContentType.objects.get_for_model(StockItem),
@@ -155,9 +158,11 @@ def set_stock_quantity(
     if delta == 0 and cost_price_override is None:
         return None
     if delta == 0 and cost_price_override is not None:
-        # тільки оновлення собівартості, не створюємо movement
+        # тільки оновлення собівартості, не створюємо movement.
+        # Ручна корекція ціни вирівнює середню й останню — спред зникає.
         stock_item.cost_price = cost_price_override
-        stock_item.save(update_fields=["cost_price", "updated_at"])
+        stock_item.last_cost_price = cost_price_override
+        stock_item.save(update_fields=["cost_price", "last_cost_price", "updated_at"])
         return None
     return adjust_stock_item(
         stock_item=stock_item,
