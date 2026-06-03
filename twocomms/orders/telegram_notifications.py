@@ -535,7 +535,43 @@ class TelegramNotifier:
         # Собираем полное сообщение
         message = f"{order_header}\n{full_block}\n{links}"
 
+        prints_block = self._build_prints_summary(order)
+        if prints_block:
+            message += prints_block
+
         return message
+
+    def _build_prints_summary(self, order):
+        """Блок «🎨 Принти для списання» — перелік прив'язаних принтів за позиціями.
+
+        Безпечно: якщо warehouse недоступний або принтів немає — повертає ''.
+        Допомагає оператору одразу бачити, що під цей одяг є принти,
+        які треба буде списати (наприклад лого на грудь + дизайн на спину).
+        """
+        try:
+            from warehouse.services.matching import find_prints_for_order_item
+        except Exception:
+            return ""
+        try:
+            lines = []
+            total = 0
+            for item in order.items.all():
+                prints = find_prints_for_order_item(item)
+                if not prints:
+                    continue
+                parts = []
+                for pr in prints:
+                    placement = pr.get_placement_display() if getattr(pr, "placement", "") else ""
+                    parts.append(f"{pr.name} ({placement})" if placement else pr.name)
+                    total += 1
+                title = getattr(item, "title", "") or "—"
+                lines.append(f"• <b>{title}</b>: " + ", ".join(parts))
+            if not lines:
+                return ""
+            header = f"\n\n🎨 <b>Принти для списання</b> ({total}):\n"
+            return header + "\n".join(lines)
+        except Exception:
+            return ""
 
     def _build_storage_writeoff_button(self, order):
         """Кнопка «Списати зі складу» — веде на storage субдомен з UUID-токеном.
@@ -551,7 +587,7 @@ class TelegramNotifier:
             writeoff_url = build_storage_writeoff_url(order)
         except Exception:
             return None
-        return {"text": "📦 Списати зі складу", "url": writeoff_url}
+        return {"text": "📦 Списати принти та одяг", "url": writeoff_url}
 
     def _build_order_management_reply_markup(self, order):
         if (

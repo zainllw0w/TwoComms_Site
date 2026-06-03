@@ -10,10 +10,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from orders.models import Order, OrderItem
+from orders.models import Order
 from warehouse.models import (
     MovementReason,
-    Print,
     PrintColorVariant,
     StockItem,
     WriteOffRequest,
@@ -24,7 +23,7 @@ from warehouse.services.inventory import (
     adjust_stock_item,
 )
 from warehouse.services.matching import (
-    find_default_print_for_order_item,
+    find_prints_for_order_item,
     find_stock_items_for_order_item,
 )
 
@@ -38,9 +37,34 @@ def _get_or_create_request(order: Order) -> WriteOffRequest:
     return WriteOffRequest.objects.create(order=order)
 
 
+def _build_print_rows(item):
+    """Готує дані принтів для одного OrderItem.
+
+    Повертає список принтів, кожен зі своїми варіантами та обраним
+    за замовчуванням варіантом (is_default → перший наявний).
+    """
+    prints_data = []
+    for pr in find_prints_for_order_item(item):
+        variants = list(pr.color_variants.all().order_by("order", "id"))
+        if not variants:
+            continue
+        default_variant = next((v for v in variants if v.is_default), None)
+        if default_variant is None:
+            # перший варіант із залишком, інакше просто перший
+            default_variant = next((v for v in variants if v.quantity > 0), variants[0])
+        prints_data.append(
+            {
+                "print": pr,
+                "variants": variants,
+                "default_variant_id": default_variant.id if default_variant else None,
+            }
+        )
+    return prints_data
+
+
 @warehouse_admin_required
 def write_off_entry(request, token):
-    """Сторінка списання: показує позиції замовлення, дозволяє обрати підкатегорію + принт."""
+    """Сторінка списання: одяг + усі прив'язані принти (лого на грудь, дизайн на спину…)."""
     try:
         token_uuid = uuid.UUID(str(token))
     except (ValueError, AttributeError):
@@ -57,16 +81,28 @@ def write_off_entry(request, token):
         wo_request.save(update_fields=["opened_at", "opened_by", "updated_at"])
 
     rows = []
+    total_prints_linked = 0
     for item in order.items.select_related("product", "color_variant__color").all():
         candidates = find_stock_items_for_order_item(item)
-        default_print = find_default_print_for_order_item(item)
-        prints_qs = Print.objects.filter(is_active=True).order_by("name")
+        print_rows = _build_print_rows(item)
+        total_prints_linked += len(print_rows)
+        # авто-вибір кандидата складу: точний збіг або єдиний варіант
+        default_stock_id = None
+        if len(candidates) == 1:
+            default_stock_id = candidates[0].id
+        else:
+            default_sub = next(
+                (c for c in candidates if c.subcategory.is_default and c.quantity > 0),
+                None,
+            )
+            if default_sub:
+                default_stock_id = default_sub.id
         rows.append(
             {
                 "item": item,
                 "candidates": candidates,
-                "default_print": default_print,
-                "all_prints": list(prints_qs),
+                "default_stock_id": default_stock_id,
+                "print_rows": print_rows,
             }
         )
 
@@ -74,6 +110,8 @@ def write_off_entry(request, token):
         "wo_request": wo_request,
         "order": order,
         "rows": rows,
+        "total_prints_linked": total_prints_linked,
+        "completed": wo_request.status == WriteOffRequest.STATUS_COMPLETED,
         "active_section": "write_off",
     }
     return render(request, "warehouse/write_off.html", context)
@@ -94,21 +132,18 @@ def write_off_submit(request, token):
 
     order = wo_request.order
     actions = []
+    errors = []
 
     for item in order.items.all():
         prefix = f"item_{item.pk}_"
-        stock_id_raw = request.POST.get(prefix + "stock_id") or ""
-        qty_raw = request.POST.get(prefix + "qty") or "0"
-        print_variant_raw = request.POST.get(prefix + "print_variant_id") or ""
-        try:
-            qty = int(qty_raw)
-        except ValueError:
-            qty = 0
-        if qty <= 0:
-            continue
 
-        # списуємо StockItem
-        if stock_id_raw and stock_id_raw.isdigit():
+        # --- Одяг ---
+        stock_id_raw = request.POST.get(prefix + "stock_id") or ""
+        try:
+            garment_qty = int(request.POST.get(prefix + "qty") or "0")
+        except ValueError:
+            garment_qty = 0
+        if stock_id_raw and stock_id_raw.isdigit() and garment_qty > 0:
             try:
                 stock_item = StockItem.objects.get(pk=int(stock_id_raw))
             except StockItem.DoesNotExist:
@@ -117,43 +152,67 @@ def write_off_submit(request, token):
                 try:
                     adjust_stock_item(
                         stock_item=stock_item,
-                        delta=-qty,
+                        delta=-garment_qty,
                         user=request.user,
                         reason=MovementReason.ORDER_WRITE_OFF,
                         comment=f"Замовлення #{order.order_number}",
                         order=order,
                         write_off_request=wo_request,
                     )
-                    actions.append(f"одяг {stock_item.subcategory.name} {stock_item.size} ×{qty}")
-                except ValueError as exc:
-                    messages.error(request, f"Помилка списання одягу: {exc}")
-
-        # списуємо PrintColorVariant
-        if print_variant_raw and print_variant_raw.isdigit():
-            try:
-                variant = PrintColorVariant.objects.get(pk=int(print_variant_raw))
-            except PrintColorVariant.DoesNotExist:
-                variant = None
-            if variant is not None:
-                try:
-                    adjust_print_variant(
-                        variant=variant,
-                        delta=-qty,
-                        user=request.user,
-                        reason=MovementReason.PRINT_REMOVE,
-                        comment=f"Замовлення #{order.order_number}",
+                    actions.append(
+                        f"одяг {stock_item.subcategory.name} {stock_item.size} ×{garment_qty}"
                     )
-                    actions.append(f"принт {variant.print.name}/{variant.color_name} ×{qty}")
                 except ValueError as exc:
-                    messages.error(request, f"Помилка списання принта: {exc}")
+                    errors.append(f"одяг {stock_item.subcategory.name}: {exc}")
 
-    wo_request.status = WriteOffRequest.STATUS_COMPLETED
-    wo_request.completed_at = timezone.now()
-    wo_request.completed_by = request.user
-    wo_request.save(update_fields=["status", "completed_at", "completed_by", "updated_at"])
+        # --- Принти (декілька на виріб) ---
+        # Формат: чекбокс name="item_{id}_print_on" value="{variant_id}",
+        # кількість name="item_{id}_print_qty_{variant_id}".
+        selected_variant_ids = request.POST.getlist(prefix + "print_on")
+        for vid_raw in selected_variant_ids:
+            if not str(vid_raw).isdigit():
+                continue
+            try:
+                qty = int(request.POST.get(f"{prefix}print_qty_{vid_raw}") or "0")
+            except ValueError:
+                qty = 0
+            if qty <= 0:
+                continue
+            try:
+                variant = PrintColorVariant.objects.select_related("print").get(pk=int(vid_raw))
+            except PrintColorVariant.DoesNotExist:
+                continue
+            try:
+                adjust_print_variant(
+                    variant=variant,
+                    delta=-qty,
+                    user=request.user,
+                    reason=MovementReason.PRINT_REMOVE,
+                    comment=f"Замовлення #{order.order_number} · {item.title}",
+                )
+                placement = variant.print.get_placement_display() if variant.print.placement else ""
+                label = f"{variant.print.name}"
+                if placement:
+                    label += f" ({placement})"
+                actions.append(f"принт {label}/{variant.color_name} ×{qty}")
+            except ValueError as exc:
+                errors.append(f"принт {variant.print.name}: {exc}")
 
+    # Завершуємо тільки якщо щось списано і немає блокуючих помилок залишку.
+    if actions and not errors:
+        wo_request.status = WriteOffRequest.STATUS_COMPLETED
+        wo_request.completed_at = timezone.now()
+        wo_request.completed_by = request.user
+        wo_request.save(update_fields=["status", "completed_at", "completed_by", "updated_at"])
+
+    for err in errors:
+        messages.error(request, f"Помилка списання: {err}")
     if actions:
         messages.success(request, "Списано: " + ", ".join(actions))
-    else:
+    elif not errors:
         messages.info(request, "Жодних позицій не списано (всі поля пусті).")
+
+    if errors and not actions:
+        # Лишаємо на сторінці, щоб виправити.
+        return redirect("warehouse:write_off", token=wo_request.token)
     return redirect("warehouse:dashboard")

@@ -57,6 +57,39 @@ def find_default_print_for_order_item(order_item) -> Print | None:
     )
 
 
+# Порядок розташувань для зручного сортування (грудь → спина → рукав → ...).
+_PLACEMENT_ORDER = {
+    "chest": 0,
+    "back": 1,
+    "sleeve": 2,
+    "pocket": 3,
+    "full": 4,
+    "other": 5,
+    "": 6,
+}
+
+
+def find_prints_for_order_item(order_item) -> list[Print]:
+    """Усі активні принти, прив'язані до товару позиції замовлення.
+
+    На відміну від :func:`find_default_print_for_order_item`, повертає
+    ПОВНИЙ список (наприклад: лого на грудь + дизайн на спину), щоб
+    оператор міг списати всі принти одного виробу за раз. Сортуються
+    за розташуванням (грудь → спина → рукав → …), потім за назвою.
+    """
+    if order_item is None or order_item.product_id is None:
+        return []
+    prints = (
+        Print.objects.filter(default_products=order_item.product, is_active=True)
+        .prefetch_related("color_variants", "color_variants__colors")
+        .distinct()
+    )
+    return sorted(
+        prints,
+        key=lambda p: (_PLACEMENT_ORDER.get(p.placement or "", 6), p.name.lower()),
+    )
+
+
 def stock_matrix_for_category(category: StorageCategory) -> dict:
     """Побудувати матрицю остатків для категорії.
 

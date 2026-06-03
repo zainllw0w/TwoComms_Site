@@ -1,87 +1,155 @@
 {% extends "warehouse/base.html" %}
 {% load static %}
 {% block title %}Списання — #{{ order.order_number }}{% endblock %}
-{% block header_title %}Замовлення #{{ order.order_number }}{% endblock %}
+{% block header_title %}Списання #{{ order.order_number }}{% endblock %}
 
 {% block content %}
-<div class="wh-card">
-    <div class="text-tiny text-muted">Клієнт</div>
-    <div class="text-bold">{{ order.full_name }}</div>
-    <div class="text-muted text-small">{{ order.phone }} · {{ order.city }} · {{ order.np_office }}</div>
-    {% if order.tracking_number %}
-    <div class="mt-8"><span class="wh-badge wh-badge--success">ТТН: {{ order.tracking_number }}</span></div>
-    {% endif %}
+<div class="wh-card wh-wo-client">
+    <div class="wh-wo-client__row">
+        <div>
+            <div class="text-tiny text-muted">Клієнт</div>
+            <div class="text-bold">{{ order.full_name }}</div>
+            <div class="text-muted text-small">{{ order.phone }} · {{ order.city }} · {{ order.np_office }}</div>
+        </div>
+        <div class="wh-wo-client__badges">
+            {% if order.tracking_number %}<span class="wh-badge wh-badge--success">ТТН: {{ order.tracking_number }}</span>{% endif %}
+            {% if total_prints_linked %}<span class="wh-badge wh-badge--accent">🎨 {{ total_prints_linked }} принт(ів)</span>{% endif %}
+        </div>
+    </div>
 </div>
 
-<form method="post" action="{% url 'warehouse:write_off_submit' token=wo_request.token %}">
+{% if completed %}
+<div class="wh-card text-center">
+    <div class="text-bold" style="font-size:18px;">✅ Замовлення вже списано</div>
+    <p class="text-muted text-small mb-0">Цей запит на списання завершено.</p>
+</div>
+<a href="{% url 'warehouse:dashboard' %}" class="btn btn--ghost btn--block mt-12">← На головну</a>
+{% else %}
+
+<form method="post" action="{% url 'warehouse:write_off_submit' token=wo_request.token %}" id="wo-form">
     {% csrf_token %}
 
-    <h2 class="wh-section-title">Позиції замовлення</h2>
-
     {% for row in rows %}
-    <div class="wh-card">
-        <div class="flex-between mb-8">
-            <div>
-                <div class="text-bold">{{ row.item.title }}</div>
-                <div class="text-muted text-small">
-                    {% if row.item.size %}Розмір: <b>{{ row.item.size }}</b>{% endif %}
-                    {% if row.item.color_variant %} · {{ row.item.color_variant.color.name|default:row.item.color_variant.color.primary_hex }}{% endif %}
+    <div class="wh-wo-item">
+        <div class="wh-wo-item__head">
+            <div class="wh-wo-item__thumb">
+                {% if row.item.product_image %}
+                <img src="{{ row.item.product_image.url }}" alt="{{ row.item.title }}">
+                {% else %}<span>👕</span>{% endif %}
+            </div>
+            <div class="wh-wo-item__info">
+                <div class="wh-wo-item__title">{{ row.item.title }}</div>
+                <div class="wh-wo-item__meta">
+                    {% if row.item.size %}Розмір <b>{{ row.item.size }}</b>{% endif %}
+                    {% if row.item.color_name %} · {{ row.item.color_name }}{% endif %}
+                    {% if row.item.fit_label %} · {{ row.item.fit_label }}{% endif %}
                 </div>
             </div>
-            <div class="text-right">
-                <div class="text-tiny text-muted">К-сть</div>
-                <div class="text-bold" style="font-size: 22px;">×{{ row.item.qty }}</div>
+            <div class="wh-wo-item__qty">×{{ row.item.qty }}</div>
+        </div>
+
+        {# ---------- Одяг ---------- #}
+        <div class="wh-wo-section">
+            <div class="wh-wo-section__label">👕 Одяг зі складу</div>
+            <div class="form-field">
+                <select name="item_{{ row.item.id }}_stock_id">
+                    <option value="">— не списувати одяг —</option>
+                    {% for stock in row.candidates %}
+                    <option value="{{ stock.id }}"
+                            {% if stock.quantity == 0 %}disabled{% endif %}
+                            {% if row.default_stock_id == stock.id %}selected{% endif %}>
+                        {{ stock.subcategory.name }} · {{ stock.color_display }} · {{ stock.size }} (наявно: {{ stock.quantity }})
+                    </option>
+                    {% endfor %}
+                </select>
+                {% if not row.candidates %}
+                <span class="form-help text-danger">Немає відповідної позиції на складі (розмір/колір/категорія).</span>
+                {% endif %}
+            </div>
+            <div class="wh-wo-stepper" data-stepper>
+                <span class="wh-wo-stepper__label">Списати одягу</span>
+                <div class="wh-wo-stepper__controls">
+                    <button type="button" class="wh-wo-stepper__btn" data-step="-1">−</button>
+                    <input type="number" name="item_{{ row.item.id }}_qty" min="0" max="{{ row.item.qty }}"
+                           value="{{ row.item.qty }}" inputmode="numeric">
+                    <button type="button" class="wh-wo-stepper__btn" data-step="1">+</button>
+                </div>
             </div>
         </div>
 
-        <div class="form-field">
-            <label>Підкатегорія (крій) для списання</label>
-            <select name="item_{{ row.item.id }}_stock_id" required>
-                <option value="">— оберіть підкатегорію —</option>
-                {% for stock in row.candidates %}
-                <option value="{{ stock.id }}"
-                        {% if stock.quantity == 0 %}disabled{% endif %}>
-                    {{ stock.subcategory.name }}
-                    · {{ stock.color_display }}
-                    · {{ stock.size }}
-                    (наявно: {{ stock.quantity }})
-                </option>
-                {% endfor %}
-            </select>
-            {% if not row.candidates %}
-            <span class="form-help text-danger">Не знайдено жодної відповідної позиції на складі (розмір/колір/категорія).</span>
-            {% endif %}
-        </div>
+        {# ---------- Принти ---------- #}
+        {% if row.print_rows %}
+        <div class="wh-wo-section">
+            <div class="wh-wo-section__label">🎨 Принти під цей виріб</div>
+            <div class="wh-wo-prints">
+                {% for pdata in row.print_rows %}
+                {% with pr=pdata.print %}
+                <div class="wh-wo-print{% if pr.color_variants.all %} is-on{% endif %}" data-print>
+                    <label class="wh-wo-print__main">
+                        <input type="checkbox" name="item_{{ row.item.id }}_print_on"
+                               value="{{ pdata.default_variant_id }}" data-print-toggle
+                               {% if pdata.default_variant_id %}checked{% endif %}>
+                        <span class="wh-wo-print__thumb">
+                            {% if pr.main_image %}<img src="{{ pr.main_image.url }}" alt="{{ pr.name }}">{% else %}<span>🎨</span>{% endif %}
+                        </span>
+                        <span class="wh-wo-print__body">
+                            <span class="wh-wo-print__name">{{ pr.name }}</span>
+                            <span class="wh-wo-print__tags">
+                                {% if pr.placement %}<span class="wh-wo-print__placement">{{ pr.get_placement_display }}</span>{% endif %}
+                            </span>
+                        </span>
+                        <span class="wh-wo-print__check" aria-hidden="true">✓</span>
+                    </label>
 
-        <div class="form-field">
-            <label>Принт</label>
-            <select name="item_{{ row.item.id }}_print_variant_id">
-                <option value="">— без принта / нічого не списувати —</option>
-                {% for p in row.all_prints %}
-                    {% for v in p.color_variants.all %}
-                    <option value="{{ v.id }}"
-                            {% if row.default_print and row.default_print.id == p.id and v.is_default %}selected{% endif %}>
-                        {{ p.name }} / {{ v.color_name }} (наявно: {{ v.quantity }})
-                    </option>
-                    {% endfor %}
-                {% endfor %}
-            </select>
-            {% if row.default_print %}
-            <span class="form-help">Запропоновано: <b>{{ row.default_print.name }}</b></span>
-            {% endif %}
-        </div>
+                    <div class="wh-wo-print__controls">
+                        {% if pdata.variants|length > 1 %}
+                        <select class="wh-wo-print__variant" data-print-variant
+                                data-item="{{ row.item.id }}">
+                            {% for v in pdata.variants %}
+                            <option value="{{ v.id }}"
+                                    {% if v.id == pdata.default_variant_id %}selected{% endif %}>
+                                {{ v.color_name }} (наявно: {{ v.quantity }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% else %}
+                        {% with v=pdata.variants.0 %}
+                        <span class="wh-wo-print__single">{{ v.color_name }} · наявно {{ v.quantity }}</span>
+                        {% endwith %}
+                        {% endif %}
 
-        <div class="form-field">
-            <label>Списати штук</label>
-            <input type="number" name="item_{{ row.item.id }}_qty"
-                   min="0" max="{{ row.item.qty }}" value="{{ row.item.qty }}" required>
+                        <div class="wh-wo-stepper wh-wo-stepper--sm" data-stepper>
+                            <button type="button" class="wh-wo-stepper__btn" data-step="-1">−</button>
+                            {# одне поле кількості на варіант — імʼя оновлюється JS при зміні варіанта #}
+                            <input type="number"
+                                   name="item_{{ row.item.id }}_print_qty_{{ pdata.default_variant_id }}"
+                                   data-print-qty
+                                   min="0" value="{{ row.item.qty }}" inputmode="numeric">
+                            <button type="button" class="wh-wo-stepper__btn" data-step="1">+</button>
+                        </div>
+                    </div>
+                </div>
+                {% endwith %}
+                {% endfor %}
+            </div>
         </div>
+        {% else %}
+        <div class="wh-wo-section wh-wo-section--empty">
+            <span class="text-muted text-small">Для цього виробу не прив'язано жодного принта.
+            Прив'язати можна у <a href="{% url 'warehouse:print_list' %}">картці принта</a>.</span>
+        </div>
+        {% endif %}
     </div>
     {% endfor %}
 
-    <div class="flex-gap-8 mt-16">
-        <a href="{% url 'warehouse:dashboard' %}" class="btn btn--ghost flex-1">Скасувати</a>
-        <button type="submit" class="btn btn--danger flex-1">📦 Списати</button>
+    <div class="wh-wo-bar">
+        <a href="{% url 'warehouse:dashboard' %}" class="btn btn--ghost">Скасувати</a>
+        <button type="submit" class="btn btn--danger flex-1">📦 Списати обране</button>
     </div>
 </form>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{% static 'warehouse/js/write-off.js' %}" defer></script>
 {% endblock %}

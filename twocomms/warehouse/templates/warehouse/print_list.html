@@ -58,7 +58,7 @@
         <span class="wh-print-group__count">{{ group.prints|length }}</span>
     </h3>
 
-    <div class="wh-grid wh-grid-2">
+    <div class="wh-grid wh-print-grid">
         {% for pr in group.prints %}
         <a href="{{ pr.get_absolute_url }}" class="wh-card wh-print-card">
             <div class="wh-print-card__media">
