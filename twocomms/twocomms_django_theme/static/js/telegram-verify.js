@@ -275,6 +275,30 @@
               (completeData && completeData.error) || "Не вдалося завершити вхід."
             );
           }
+          // Аналітика: нова реєстрація через Telegram → CompleteRegistration,
+          // вхід наявного користувача → лише GTM-подія login (не Meta-Lead,
+          // щоб не засмічувати конверсії). created повертає back-end.
+          try {
+            if (completeData.created) {
+              if (typeof window.trackEvent === "function") {
+                var regEventId = (typeof window.safeGenerateAnalyticsEventId === "function")
+                  ? window.safeGenerateAnalyticsEventId()
+                  : String(Date.now());
+                var regMeta = (typeof window.buildMetaWithUserData === "function")
+                  ? window.buildMetaWithUserData(regEventId)
+                  : { event_id: regEventId };
+                window.trackEvent("CompleteRegistration", {
+                  content_name: "Telegram registration",
+                  status: true,
+                  registration_method: "telegram",
+                  event_id: regEventId,
+                  __meta: regMeta,
+                });
+              }
+            } else if (window.dataLayer && Array.isArray(window.dataLayer)) {
+              window.dataLayer.push({ event: "login", method: "telegram" });
+            }
+          } catch (e) {}
           if (successContinueBtn) {
             successContinueBtn.textContent = "Перейти у профіль";
             successContinueBtn.onclick = () => {

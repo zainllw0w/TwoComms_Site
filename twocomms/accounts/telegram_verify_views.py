@@ -339,8 +339,13 @@ def _generate_unique_username(base: str) -> str:
     return candidate
 
 
-def _resolve_or_create_user(session: TelegramVerificationSession) -> User:
-    """Знаходить existing user за telegram_id, або створює нового."""
+def _resolve_or_create_user(session: TelegramVerificationSession):
+    """Знаходить existing user за telegram_id, або створює нового.
+
+    Повертає кортеж ``(user, created)``, де ``created`` == True означає, що
+    це нова реєстрація (а не вхід наявного користувача). Це потрібно для
+    коректної аналітики: CompleteRegistration шлемо лише для нових акаунтів.
+    """
     tg_id = session.telegram_user_id
     phone = (session.phone or "").strip()
     username = (session.telegram_username or "").lstrip("@")
@@ -361,7 +366,7 @@ def _resolve_or_create_user(session: TelegramVerificationSession) -> User:
             updates.append("telegram")
         if updates:
             profile.save(update_fields=updates)
-        return profile.user
+        return profile.user, False
 
     # Шукаємо за phone (якщо є). Це дозволяє «зливати» вхід через TG з ручним
     # акаунтом, де користувач уже вказав цей телефон.
@@ -372,7 +377,7 @@ def _resolve_or_create_user(session: TelegramVerificationSession) -> User:
             if username and not profile.telegram:
                 profile.telegram = f"@{username}"
             profile.save(update_fields=["telegram_id", "telegram"])
-            return profile.user
+            return profile.user, False
 
     # Створюємо нового user. Username — базується на telegram username або id.
     base_username = username or (f"tg{tg_id}" if tg_id else "tguser")
@@ -397,7 +402,7 @@ def _resolve_or_create_user(session: TelegramVerificationSession) -> User:
             profile.phone = phone
         profile.save()
 
-    return user
+    return user, True
 
 
 @csrf_protect
@@ -428,7 +433,7 @@ def telegram_login_complete(request):
     if session.session_key and session.session_key != session_key:
         return JsonResponse({"ok": False, "error": "session mismatch"}, status=403)
 
-    user = _resolve_or_create_user(session)
+    user, created = _resolve_or_create_user(session)
     auth_login(request, user, backend="django.contrib.auth.backends.ModelBackend")
 
     session.resolved_user = user
@@ -456,5 +461,6 @@ def telegram_login_complete(request):
             "ok": True,
             "redirect": next_url,
             "username": user.username,
+            "created": bool(created),
         }
     )

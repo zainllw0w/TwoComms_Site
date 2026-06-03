@@ -145,12 +145,48 @@ function attachGuestFormPersistence() {
   });
 }
 
+// Обогащение Advanced Matching из форм корзины (auth и guest). Когда
+// пользователь вводит/меняет email, телефон, ФИО или город в корзине, мы
+// синхронизируем эти значения в #am, чтобы последующие события (AddPaymentInfo,
+// InitiateCheckout, Purchase) уходили с максимально полным user_data — даже
+// без перезагрузки страницы. Чем больше совпадений, тем выше Event Match
+// Quality в Meta Events Manager.
+function attachAdvancedMatchingSync() {
+  const forms = [document.getElementById('deliveryForm'), document.getElementById('guest-form')].filter(Boolean);
+  if (!forms.length) return;
+  const am = document.getElementById('am');
+  if (!am) return;
+  const fieldToAttr = {
+    email: 'em',
+    phone: 'ph',
+    full_name: 'fn',
+    city: 'ct',
+  };
+  forms.forEach((form) => {
+    Object.keys(fieldToAttr).forEach((fieldName) => {
+      const input = form.querySelector(`[name="${fieldName}"]`);
+      if (!input) return;
+      const sync = () => {
+        const value = (input.value || '').trim();
+        if (!value) return;
+        const attr = fieldToAttr[fieldName];
+        am.dataset[attr] = (fieldName === 'email') ? value.toLowerCase() : value;
+      };
+      sync();
+      input.addEventListener('input', sync);
+      input.addEventListener('change', sync);
+    });
+  });
+}
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     try { attachGuestFormPersistence(); } catch (_) { }
+    try { attachAdvancedMatchingSync(); } catch (_) { }
   });
 } else {
   try { attachGuestFormPersistence(); } catch (_) { }
+  try { attachAdvancedMatchingSync(); } catch (_) { }
 }
 
 function buildMetaWithUserData(eventId, baseMeta) {
@@ -1784,9 +1820,82 @@ document.addEventListener('click', function (e) {
         event_id: eventId,
         __meta: meta
       });
+
+      // GA4 select_item — дополняет ViewContent данными о позиции в списке
+      // (для воронки каталог → товар). Только в dataLayer (Meta-аналога нет).
+      try {
+        const cards = Array.prototype.slice.call(document.querySelectorAll('.card.product'));
+        const position = cards.indexOf(card);
+        const listName = (document.documentElement.getAttribute('data-route-name') || 'catalog');
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({
+          event: 'select_item',
+          event_id: eventId,
+          ecommerce: {
+            item_list_name: listName,
+            items: [{
+              item_id: offerId,
+              item_name: title || '',
+              item_brand: ANALYTICS_BRAND_NAME,
+              item_category: category || '',
+              price: priceNum || 0,
+              index: position >= 0 ? position + 1 : undefined,
+              quantity: 1,
+              currency: 'UAH'
+            }]
+          }
+        });
+      } catch (_) { }
     }
   } catch (_) { }
 });
+
+// GA4 view_item_list — один push при загрузке листинга каталога/главной.
+// Даёт полную ecommerce-воронку (показ списка → select_item → view_item →
+// add_to_cart → begin_checkout → purchase). Только dataLayer (у Meta нет
+// стандартного события списка; слать массовый ViewContent нежелательно).
+(function () {
+  function pushViewItemList() {
+    try {
+      if (window.__twcViewItemListSent) return;
+      const cards = Array.prototype.slice.call(document.querySelectorAll('.card.product'));
+      if (!cards.length) return;
+      window.__twcViewItemListSent = true;
+      const listName = (document.documentElement.getAttribute('data-route-name') || 'catalog');
+      const items = cards.slice(0, 50).map(function (card, idx) {
+        const pid = card.getAttribute('data-product-id');
+        if (!pid) return null;
+        const offerId = 'TC-' + pid + '-default-S';
+        const price = parseFloat(card.getAttribute('data-product-price') || '0') || 0;
+        return {
+          item_id: offerId,
+          item_name: card.getAttribute('data-product-title') || '',
+          item_brand: ANALYTICS_BRAND_NAME,
+          item_category: card.getAttribute('data-product-category') || '',
+          price: price,
+          index: idx + 1,
+          quantity: 1,
+          currency: 'UAH'
+        };
+      }).filter(Boolean);
+      if (!items.length) return;
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({
+        event: 'view_item_list',
+        event_id: safeGenerateAnalyticsEventId(),
+        ecommerce: {
+          item_list_name: listName,
+          items: items
+        }
+      });
+    } catch (_) { }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { scheduleIdle(pushViewItemList); }, { once: true });
+  } else {
+    scheduleIdle(pushViewItemList);
+  }
+})();
 
 // Опрос монтируется page-scoped импортом (index.html). Дубль init удалён ради экономии startup JS.
 
