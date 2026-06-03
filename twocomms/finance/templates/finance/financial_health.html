@@ -104,6 +104,7 @@
 {% if recommendations %}
 <div class="fin-section">
     <h3 class="fin-section-title">Що зробити першим</h3>
+    <p class="fin-section-sub">Кожна порада розкривається — натисніть «Докладніше», щоб побачити пояснення, найкращі практики та орієнтири (бенчмарки).</p>
     <div class="fin-hs-recs">
         {% for r in recommendations %}
         <div class="fin-hs-rec fin-hs-rec--{{ r.severity }}">
@@ -118,6 +119,55 @@
                 {% for a in r.action %}<li>{{ a }}</li>{% endfor %}
             </ul>
             {% if r.cash_impact %}<div class="fin-hs-rec__cash">💰 {{ r.cash_impact }}</div>{% endif %}
+
+            {% if r.details or r.best_practices or r.benchmark %}
+            <button type="button" class="fin-hs-rec__more" aria-expanded="false">
+                <span class="fin-hs-rec__more-txt">Докладніше</span>
+                <span class="fin-hs-rec__more-ico" aria-hidden="true">▾</span>
+            </button>
+            <div class="fin-hs-rec__details" hidden>
+                {% if r.details %}<p class="fin-hs-rec__expl">{{ r.details }}</p>{% endif %}
+                {% if r.best_practices %}
+                <div class="fin-hs-rec__bp">
+                    <div class="fin-hs-rec__bp-title">Найкращі практики</div>
+                    <ul>
+                        {% for bp in r.best_practices %}<li>{{ bp }}</li>{% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                {% if r.benchmark %}<div class="fin-hs-rec__bench"><b>Орієнтир:</b> {{ r.benchmark }}</div>{% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Розбір оцінки по слоях -->
+{% if layer_breakdown %}
+<div class="fin-section">
+    <h3 class="fin-section-title">Розбір оцінки по слоях</h3>
+    <p class="fin-section-sub">Підсумковий бал складається з трьох контурів. Нижче — із чого формується кожен.</p>
+    <div class="fin-hs-layers">
+        {% for layer in layer_breakdown %}
+        <div class="fin-hs-layer fin-hs-layer--{{ layer.tone }}">
+            <div class="fin-hs-layer__head">
+                <span class="fin-hs-layer__title">{{ layer.title }}</span>
+                <span class="fin-hs-layer__score">{{ layer.score }}{% if layer.incomplete %}<small title="Контур неповний">*</small>{% endif %}</span>
+            </div>
+            <p class="fin-hs-layer__desc">{{ layer.desc }}</p>
+            <div class="fin-hs-layer__rows">
+                {% for row in layer.rows %}
+                <div class="fin-hs-layer__row">
+                    <span class="fin-hs-layer__row-label">{{ row.label }}</span>
+                    <span class="fin-hs-layer__row-bar">
+                        <span class="{% if row.score >= 70 %}is-good{% elif row.score >= 45 %}is-mid{% else %}is-bad{% endif %}" style="width: {{ row.score }}%"></span>
+                    </span>
+                    <span class="fin-hs-layer__row-score">{{ row.score }}</span>
+                </div>
+                {% endfor %}
+            </div>
         </div>
         {% endfor %}
     </div>
@@ -215,6 +265,20 @@ document.addEventListener('DOMContentLoaded', function () {
             if (open) lost.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         });
     }
+    // Розкриття «Докладніше» у картках рекомендацій.
+    document.querySelectorAll('.fin-hs-rec__more').forEach(function (more) {
+        more.addEventListener('click', function () {
+            var card = more.closest('.fin-hs-rec');
+            var details = card ? card.querySelector('.fin-hs-rec__details') : null;
+            if (!details) return;
+            var open = details.hidden;
+            details.hidden = !open;
+            more.setAttribute('aria-expanded', open ? 'true' : 'false');
+            more.classList.toggle('is-open', open);
+            var txt = more.querySelector('.fin-hs-rec__more-txt');
+            if (txt) txt.textContent = open ? 'Згорнути' : 'Докладніше';
+        });
+    });
 });
 </script>
 {% endblock %}

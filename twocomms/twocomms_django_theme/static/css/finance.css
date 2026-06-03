@@ -2939,11 +2939,12 @@ body.fin-settings-open { overflow: hidden; }
 .fin-hs-alert__title { font-weight: 700; font-size: 14px; color: var(--fin-text); }
 .fin-hs-alert__msg { font-size: 13px; color: var(--fin-text-2); }
 
-.fin-hs-recs { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+.fin-hs-recs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .fin-hs-rec {
     background: var(--fin-panel); border: 1px solid var(--fin-border);
     border-radius: var(--fin-radius-md, 14px); padding: 16px;
     border-left: 3px solid var(--fin-border-strong, rgba(255,255,255,0.2));
+    display: flex; flex-direction: column;
 }
 .fin-hs-rec--critical { border-left-color: #ef4444; }
 .fin-hs-rec--high { border-left-color: #fb7185; }
@@ -2966,6 +2967,68 @@ body.fin-settings-open { overflow: hidden; }
 .fin-hs-rec__actions li { font-size: 13px; color: var(--fin-text); line-height: 1.4; }
 .fin-hs-rec__cash { font-size: 12.5px; color: var(--fin-pos); font-weight: 600; }
 
+/* Розкриття «Докладніше» у картках рекомендацій */
+.fin-hs-rec__more {
+    align-self: flex-start; margin-top: 10px;
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--fin-border);
+    color: var(--fin-text-2); cursor: pointer;
+    font-size: 12.5px; font-weight: 600; padding: 5px 12px; border-radius: 999px;
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+.fin-hs-rec__more:hover { background: rgba(255,255,255,0.08); color: var(--fin-text); }
+.fin-hs-rec__more-ico { font-size: 10px; transition: transform 0.2s ease; }
+.fin-hs-rec__more.is-open .fin-hs-rec__more-ico { transform: rotate(180deg); }
+.fin-hs-rec__details {
+    margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--fin-border);
+    animation: finHsReveal 0.25s ease;
+}
+@keyframes finHsReveal { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.fin-hs-rec__expl { font-size: 13px; line-height: 1.55; color: var(--fin-text-2); margin: 0 0 12px; }
+.fin-hs-rec__bp { margin-bottom: 12px; }
+.fin-hs-rec__bp-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--fin-muted); margin-bottom: 6px; }
+.fin-hs-rec__bp ul { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.fin-hs-rec__bp li { position: relative; padding-left: 22px; font-size: 13px; line-height: 1.45; color: var(--fin-text); }
+.fin-hs-rec__bp li::before { content: '✓'; position: absolute; left: 0; top: 0; color: var(--fin-pos); font-weight: 800; }
+.fin-hs-rec__bench { font-size: 12.5px; line-height: 1.45; color: var(--fin-text-2); background: rgba(111,149,255,0.10); border: 1px solid rgba(111,149,255,0.25); border-radius: 10px; padding: 8px 12px; }
+.fin-hs-rec__bench b { color: #b9cbff; }
+
+.fin-section-sub { font-size: 13px; color: var(--fin-muted); margin: -4px 0 14px; line-height: 1.5; }
+
+/* Сітка карток-метрик здоров'я: 5 → 4 → 3 → 2 → 1 рівними колонками */
+.fin-kpi-row.fin-hs-cards { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 1200px) { .fin-kpi-row.fin-hs-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 980px) { .fin-kpi-row.fin-hs-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 680px) { .fin-kpi-row.fin-hs-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 420px) { .fin-kpi-row.fin-hs-cards { grid-template-columns: 1fr; } }
+
+/* Розбір оцінки по слоях */
+.fin-hs-layers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.fin-hs-layer {
+    background: var(--fin-panel); border: 1px solid var(--fin-border);
+    border-radius: var(--fin-radius-md, 14px); padding: 16px 18px;
+    border-top: 3px solid var(--fin-border-strong, rgba(255,255,255,0.2));
+}
+.fin-hs-layer--biz { border-top-color: #3b82f6; }
+.fin-hs-layer--pers { border-top-color: #a78bfa; }
+.fin-hs-layer--bound { border-top-color: #34d399; }
+.fin-hs-layer__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.fin-hs-layer__title { font-size: 15px; font-weight: 700; color: var(--fin-text); }
+.fin-hs-layer__score { font-size: 26px; font-weight: 800; color: var(--fin-text); line-height: 1; }
+.fin-hs-layer__score small { color: var(--fin-accent); font-size: 15px; }
+.fin-hs-layer__desc { font-size: 12px; color: var(--fin-muted); line-height: 1.45; margin: 0 0 14px; }
+.fin-hs-layer__rows { display: flex; flex-direction: column; gap: 9px; }
+.fin-hs-layer__row { display: grid; grid-template-columns: 1fr 70px 30px; gap: 8px; align-items: center; }
+.fin-hs-layer__row-label { font-size: 12.5px; color: var(--fin-text-2); }
+.fin-hs-layer__row-bar { height: 7px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+.fin-hs-layer__row-bar span { display: block; height: 100%; border-radius: 999px; transition: width 0.6s ease; }
+.fin-hs-layer__row-bar .is-good { background: linear-gradient(90deg, #34d399, #10b981); }
+.fin-hs-layer__row-bar .is-mid { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+.fin-hs-layer__row-bar .is-bad { background: linear-gradient(90deg, #fb7185, #ef4444); }
+.fin-hs-layer__row-score { font-size: 12.5px; font-weight: 700; color: var(--fin-text); text-align: right; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 980px) { .fin-hs-layers { grid-template-columns: 1fr; } }
+
 .fin-hs-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .fin-hs-aging { display: flex; flex-direction: column; gap: 10px; }
 .fin-hs-aging__row { display: grid; grid-template-columns: 110px 1fr auto; gap: 10px; align-items: center; font-size: 13px; }
@@ -2974,10 +3037,12 @@ body.fin-settings-open { overflow: hidden; }
 .fin-hs-aging__bar span { display: block; height: 100%; background: linear-gradient(90deg, #f59e0b, #ef4444); border-radius: 999px; }
 .fin-hs-aging__val { font-variant-numeric: tabular-nums; color: var(--fin-text); white-space: nowrap; }
 
+@media (max-width: 860px) {
+    .fin-hs-recs { grid-template-columns: 1fr; }
+}
 @media (max-width: 760px) {
     .fin-hs-hero { flex-direction: column; align-items: flex-start; gap: 18px; text-align: left; }
     .fin-hs-two-col { grid-template-columns: 1fr; }
-    .fin-hs-recs { grid-template-columns: 1fr; }
     .fin-hs-gauge { align-self: center; }
 }
 

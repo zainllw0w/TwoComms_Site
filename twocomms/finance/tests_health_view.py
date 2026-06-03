@@ -40,3 +40,19 @@ class HealthViewTests(TestCase):
         # Sub-scores присутні.
         self.assertContains(r, 'Бізнес')
         self.assertContains(r, 'Межа')
+
+    def test_health_page_has_layer_breakdown(self):
+        """Блок розбору по слоях рендериться з субскорами."""
+        r = self.client.get('/health/', HTTP_HOST=FIN_HOST, secure=True)
+        self.assertEqual(r.status_code, 200)
+        self.assertContains(r, 'Розбір оцінки по слоях')
+        self.assertContains(r, 'fin-hs-layer')
+        self.assertContains(r, 'fin-hs-cards')
+
+    def test_recommendations_are_expandable(self):
+        """Картки рекомендацій мають кнопку «Докладніше» з деталями."""
+        r = self.client.get('/health/', HTTP_HOST=FIN_HOST, secure=True)
+        self.assertEqual(r.status_code, 200)
+        # Хоча б одна рекомендація має згенеруватись для тестових даних.
+        self.assertContains(r, 'fin-hs-rec__more')
+        self.assertContains(r, 'Докладніше')

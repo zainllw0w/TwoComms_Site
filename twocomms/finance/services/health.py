@@ -177,6 +177,13 @@ def gather_metrics(company) -> dict:
     personal_income_m = _sum(pers_month.filter(type=Transaction.TYPE_INCOME))
     personal_expense_m = _sum(pers_month.filter(type=Transaction.TYPE_EXPENSE))
 
+    # ---------- Розбір особистих витрат: житло, продукти, needs/wants ----------
+    # Класифікуємо особисті витрати за назвою категорії (ключові слова), щоб
+    # окремо бачити найважливіші статті: оренда житла та продукти. Для власника
+    # бізнесу це найбільші фіксовані витрати, тож аналізуємо їх окремо.
+    personal_essentials = _personal_essentials_breakdown(
+        pers_month.filter(type=Transaction.TYPE_EXPENSE), personal_expense_m)
+
     # Середні особисті витрати за 6 міс.
     pers_monthly_exp = []
     for (s, e) in _prev_months(today, 6):
@@ -286,6 +293,7 @@ def gather_metrics(company) -> dict:
         'personal_income_m': personal_income_m,
         'personal_expense_m': personal_expense_m,
         'avg_personal_expense': avg_personal_expense,
+        'personal_essentials': personal_essentials,
         'receivables_total': receivables_total,
         'overdue_receivables': overdue_receivables,
         'ar_aging': ar_aging,
@@ -345,6 +353,51 @@ def _owner_draw_month(company, month_start, month_end):
         if src and dst and src.is_business and not dst.is_business:
             total += t.amount_base or t.amount or ZERO
     return total
+
+
+# Ключові слова категорій для класифікації особистих витрат.
+_HOUSING_KW = ('оренд', 'житл', 'квартир', 'комунал', 'коммунал', 'rent', 'аренд',
+               'іпотек', 'ипотек', 'mortgage', 'електроенерг', 'газ', 'опаленн')
+_GROCERY_KW = ('продукт', 'їжа', 'еда', 'groceries', 'супермаркет', 'магазин продукт',
+               'food', 'харчуванн', 'продукти')
+# «Wants» (бажання) — дискреційні витрати, які можна оптимізувати.
+_WANTS_KW = ('ресторан', 'кафе', 'розваг', 'розвлеч', 'подорож', 'travel', 'кіно',
+             'бар', 'алкогол', 'тютюн', 'підписк', 'subscription', 'ігри', 'хобі',
+             'краса', 'салон', 'shopping', 'одяг', 'взуття')
+
+
+def _personal_essentials_breakdown(expense_qs, total_personal):
+    """Розбиває особисті витрати на ключові статті за назвою категорії.
+
+    Повертає суми: housing (житло/оренда/комуналка), groceries (продукти),
+    wants (дискреційні), other; + частки від загальних особистих витрат.
+    Класифікація за ключовими словами категорії — наближена, але дає корисний
+    зріз найважливіших статей (житло й продукти — найбільші для більшості).
+    """
+    housing = groceries = wants = ZERO
+    for row in expense_qs.values('category__name').annotate(s=Sum('amount_base')):
+        name = (row['category__name'] or '').lower()
+        amt = row['s'] or ZERO
+        if any(k in name for k in _HOUSING_KW):
+            housing += amt
+        elif any(k in name for k in _GROCERY_KW):
+            groceries += amt
+        elif any(k in name for k in _WANTS_KW):
+            wants += amt
+    total = total_personal or ZERO
+    other = total - housing - groceries - wants
+    if other < 0:
+        other = ZERO
+
+    def _share(v):
+        return float(v / total * 100) if total > 0 else 0.0
+
+    return {
+        'housing': housing, 'housing_share': _share(housing),
+        'groceries': groceries, 'groceries_share': _share(groceries),
+        'wants': wants, 'wants_share': _share(wants),
+        'other': other, 'other_share': _share(other),
+    }
 
 
 def _data_quality(company, actual_noxfer, business_accounts, personal_accounts):
@@ -578,6 +631,22 @@ def personal_health(m) -> dict:
 
     score = _weighted([(s_cushion, 35), (s_fcf, 30), (s_lifestyle, 20),
                        (100.0 if not incomplete else 40.0, 15)])
+
+    # Частка житла (оренда + комуналка) у особистих витратах і відносно доходу.
+    ess = m.get('personal_essentials') or {}
+    housing = ess.get('housing', ZERO)
+    housing_ratio_income = (float(housing / m['personal_income_m'] * 100)
+                            if m['personal_income_m'] > 0 else 0.0)
+    housing_share = float(ess.get('housing_share', 0.0))
+    # Норма витрат на житло — до 30–35% доходу. Вище — тисне на бюджет.
+    if m['personal_income_m'] > 0 and housing_ratio_income > 35:
+        lost.append(('personal', 'housing', 3,
+                     f'Житло з\'їдає {housing_ratio_income:.0f}% особистого доходу (норма ≤30%)'))
+
+    # Норма заощаджень (savings rate) — частка вільного потоку від доходу.
+    savings_rate = (float(pfcf / m['personal_income_m'] * 100)
+                    if m['personal_income_m'] > 0 else 0.0)
+
     return {
         'score': round(score),
         'incomplete': incomplete,
@@ -585,6 +654,13 @@ def personal_health(m) -> dict:
         'metrics': {
             'emergency_months': round(emergency_months, 1),
             'personal_fcf': float(pfcf),
+            'savings_rate': round(savings_rate, 1),
+            'housing': float(housing),
+            'housing_ratio_income': round(housing_ratio_income, 1),
+            'housing_share': round(housing_share, 1),
+            'groceries': float(ess.get('groceries', ZERO)),
+            'groceries_share': round(float(ess.get('groceries_share', 0.0)), 1),
+            'wants_share': round(float(ess.get('wants_share', 0.0)), 1),
         },
         'subscores': {
             'cushion': round(s_cushion), 'free_cash_flow': round(s_fcf),
