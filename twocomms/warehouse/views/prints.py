@@ -238,20 +238,16 @@ def _save_print(request, instance):
     var_default = request.POST.get("variant_default")  # index str
 
     valid_modes = {c[0] for c in PrintColorVariant.ColorMode.choices}
+    single_combo = (PrintColorVariant.ColorMode.SINGLE, PrintColorVariant.ColorMode.COMBO)
 
     seen_ids = set()
     for idx in range(len(var_qty)):
         mode = (var_modes[idx] if idx < len(var_modes) else "") or PrintColorVariant.ColorMode.SINGLE
         if mode not in valid_modes:
             mode = PrintColorVariant.ColorMode.SINGLE
-        vid = var_ids[idx] if idx < len(var_ids) else ""
+        vid = (var_ids[idx] if idx < len(var_ids) else "").strip()
         colors_raw = var_colors[idx] if idx < len(var_colors) else ""
         color_ids = [int(x) for x in colors_raw.split(",") if x.strip().isdigit()]
-
-        # single/combo вимагають хоча б один колір; mix/standard — ні
-        if mode in (PrintColorVariant.ColorMode.SINGLE, PrintColorVariant.ColorMode.COMBO) and not color_ids:
-            # порожній рядок — пропускаємо
-            continue
 
         try:
             qty = max(int(var_qty[idx] or 0), 0)
@@ -262,14 +258,17 @@ def _save_print(request, instance):
         except (InvalidOperation, ValueError):
             cost = Decimal("0")
 
-        if vid and vid.isdigit():
-            try:
-                variant = PrintColorVariant.objects.get(pk=int(vid), print=instance)
-            except PrintColorVariant.DoesNotExist:
-                variant = PrintColorVariant(print=instance)
-        else:
-            variant = PrintColorVariant(print=instance)
+        # Знаходимо існуючий варіант за id (редагування) або готуємо новий.
+        existing = None
+        if vid.isdigit():
+            existing = PrintColorVariant.objects.filter(pk=int(vid), print=instance).first()
 
+        # Пропускаємо ТІЛЬКИ справді порожній НОВИЙ рядок (шаблон, якого не торкались):
+        # без id, без кольорів, кількість 0 і дефолтний режим.
+        if existing is None and not color_ids and qty == 0 and mode == PrintColorVariant.ColorMode.SINGLE:
+            continue
+
+        variant = existing or PrintColorVariant(print=instance)
         previous_qty = variant.quantity if variant.pk else 0
         variant.color_mode = mode
         variant.cost_price = cost
@@ -277,16 +276,26 @@ def _save_print(request, instance):
         variant.is_default = (str(idx) == str(var_default))
         variant.save()
 
-        # M2M colors
-        if mode in (PrintColorVariant.ColorMode.SINGLE, PrintColorVariant.ColorMode.COMBO):
-            if mode == PrintColorVariant.ColorMode.SINGLE:
-                color_ids = color_ids[:1]
-            variant.colors.set(Color.objects.filter(pk__in=color_ids))
-        else:
+        # --- Кольори (M2M) ---
+        # mix/standard → кольори не потрібні; single/combo → беремо обрані.
+        # Якщо для існуючого single/combo кольори не передані (legacy-варіант
+        # без M2M) — НЕ чіпаємо їх і не перезаписуємо color_name, щоб не
+        # втратити наявний підпис.
+        if mode not in single_combo:
             variant.colors.clear()
-        # Перерахувати підпис/хекс після оновлення M2M
-        variant.sync_color_label(save=True)
+            variant.sync_color_label(save=True)
+        else:
+            if color_ids:
+                if mode == PrintColorVariant.ColorMode.SINGLE:
+                    color_ids = color_ids[:1]
+                variant.colors.set(Color.objects.filter(pk__in=color_ids))
+                variant.sync_color_label(save=True)
+            elif existing is None:
+                # новий рядок без кольору — даємо узагальнений підпис
+                variant.sync_color_label(save=True)
+            # else: існуючий без нових кольорів → лишаємо як є
 
+        # --- Кількість (рух складу) ---
         if qty != previous_qty:
             delta = qty - previous_qty
             try:
@@ -302,7 +311,7 @@ def _save_print(request, instance):
                 pass
         seen_ids.add(variant.pk)
 
-    # delete variants not in the form
+    # Видаляємо лише ті варіанти, рядки яких користувач прибрав з форми.
     instance.color_variants.exclude(pk__in=seen_ids).delete()
 
     messages.success(request, f"Принт «{instance.name}» збережено.")

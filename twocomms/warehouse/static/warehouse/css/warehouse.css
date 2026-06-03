@@ -32,6 +32,13 @@
     box-sizing: border-box;
 }
 
+/* The [hidden] attribute must always win — author rules like
+   `.form-field { display:flex }` have equal specificity and would
+   otherwise override it, leaving JS-toggled fields stuck visible. */
+[hidden] {
+    display: none !important;
+}
+
 /* Flex/grid items default to min-content; let them shrink inside their parent */
 .wh-app, .wh-main, .wh-card, .wh-list__item, .wh-list__body,
 .wh-subcat-block, .wh-subcat-block__head, .wh-subcat-block__title,
@@ -1954,6 +1961,19 @@ textarea {
 
 .variant-colors-picker {
     margin: 10px 0;
+}
+
+/* Labelled sub-section inside a variant card (Тип / Колір) */
+.variant-field {
+    margin: 12px 0;
+}
+
+.variant-field__label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-bottom: 6px;
 }
 
 .wh-color-grid--compact {

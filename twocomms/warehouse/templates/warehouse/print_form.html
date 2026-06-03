@@ -108,13 +108,17 @@
                 <button type="button" class="variant-remove" aria-label="Прибрати">✕</button>
             </div>
 
-            <div class="wh-seg wh-seg--modes" data-seg="mode">
-                {% for value, label in color_mode_choices %}
-                <button type="button" class="wh-seg__btn{% if v.color_mode == value %} is-active{% endif %}" data-val="{{ value }}">{{ label }}</button>
-                {% endfor %}
+            <div class="variant-field">
+                <span class="variant-field__label">Тип кольору</span>
+                <div class="wh-seg wh-seg--modes" data-seg="mode">
+                    {% for value, label in color_mode_choices %}
+                    <button type="button" class="wh-seg__btn{% if v.color_mode == value %} is-active{% endif %}" data-val="{{ value }}">{{ label }}</button>
+                    {% endfor %}
+                </div>
             </div>
 
-            <div class="variant-colors-picker"{% if v.color_mode == 'mix' or v.color_mode == 'standard' %} hidden{% endif %}>
+            <div class="variant-field variant-colors-picker"{% if v.color_mode == 'mix' or v.color_mode == 'standard' %} hidden{% endif %}>
+                <span class="variant-field__label" data-colors-label>Оберіть колір</span>
                 <div class="wh-color-grid wh-color-grid--compact">
                     {% for c in all_colors %}
                     <label class="wh-color-pill">
@@ -229,14 +233,18 @@
             <button type="button" class="variant-remove" aria-label="Прибрати">✕</button>
         </div>
 
-        <div class="wh-seg wh-seg--modes" data-seg="mode">
-            <button type="button" class="wh-seg__btn is-active" data-val="single">Один колір</button>
-            <button type="button" class="wh-seg__btn" data-val="combo">Поєднання кольорів</button>
-            <button type="button" class="wh-seg__btn" data-val="mix">Мікс</button>
-            <button type="button" class="wh-seg__btn" data-val="standard">Стандарт</button>
+        <div class="variant-field">
+            <span class="variant-field__label">Тип кольору</span>
+            <div class="wh-seg wh-seg--modes" data-seg="mode">
+                <button type="button" class="wh-seg__btn is-active" data-val="single">Один колір</button>
+                <button type="button" class="wh-seg__btn" data-val="combo">Поєднання кольорів</button>
+                <button type="button" class="wh-seg__btn" data-val="mix">Мікс</button>
+                <button type="button" class="wh-seg__btn" data-val="standard">Стандарт</button>
+            </div>
         </div>
 
-        <div class="variant-colors-picker">
+        <div class="variant-field variant-colors-picker">
+            <span class="variant-field__label" data-colors-label>Оберіть колір</span>
             <div class="wh-color-grid wh-color-grid--compact">
                 {% for c in all_colors %}
                 <label class="wh-color-pill">

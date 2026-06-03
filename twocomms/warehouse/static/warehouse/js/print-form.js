@@ -54,16 +54,21 @@
             const colorsInput = row.querySelector('.variant-colors-input');
             const picker = row.querySelector('.variant-colors-picker');
             const label = row.querySelector('[data-variant-label]');
+            const colorsLabel = row.querySelector('[data-colors-label]');
             const mode = modeInput.value || 'single';
             const checks = picker ? picker.querySelectorAll('input[type="checkbox"]') : [];
 
             // Picker visibility per mode
             if (picker) picker.hidden = (mode === 'mix' || mode === 'standard');
 
-            // For "single" — enforce a single selected checkbox
+            // Colors-section hint text per mode
+            if (colorsLabel) {
+                colorsLabel.textContent = (mode === 'combo') ? 'Оберіть кольори (кілька)' : 'Оберіть колір';
+            }
+
+            // Collect selected color ids
             const selected = [];
             checks.forEach(function (c) { if (c.checked) selected.push(c.value); });
-
             colorsInput.value = selected.join(',');
 
             // Build human label
@@ -78,7 +83,7 @@
                             names.push(lbl ? lbl.textContent.trim() : c.value);
                         }
                     });
-                    label.textContent = names.length ? names.join(' + ') : (mode === 'combo' ? 'Поєднання' : 'Один колір');
+                    label.textContent = names.length ? names.join(' + ') : (mode === 'combo' ? 'Поєднання кольорів' : 'Один колір');
                 }
             }
         }
@@ -137,14 +142,26 @@
             });
         }
 
+        function addRow() {
+            const clone = tpl.content.cloneNode(true);
+            const row = clone.querySelector('.variant-row');
+            container.appendChild(clone);
+            wireRow(row);
+            reindexDefaults();
+            return row;
+        }
+
         if (addBtn && tpl) {
-            addBtn.addEventListener('click', function () {
-                const clone = tpl.content.cloneNode(true);
-                const row = clone.querySelector('.variant-row');
-                container.appendChild(clone);
-                wireRow(row);
-                reindexDefaults();
-            });
+            addBtn.addEventListener('click', function () { addRow(); });
+        }
+
+        // First variant should always be available: on a brand-new print
+        // (no existing rows) start with one ready-to-fill variant, and
+        // mark it as default so the print has a usable variant out of the box.
+        if (container && tpl && container.querySelectorAll('.variant-row').length === 0) {
+            const first = addRow();
+            const radio = first.querySelector('input[type="radio"][name="variant_default"]');
+            if (radio) radio.checked = true;
         }
 
         // Make sure inputs are synced right before submit (belt-and-suspenders)
