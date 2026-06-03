@@ -120,5 +120,6 @@ from .settings import (  # noqa: F401
     settings_save_api,
     push_subscribe_api,
     push_unsubscribe_api,
+    push_test_api,
     notification_history_api,
 )

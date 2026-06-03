@@ -1,13 +1,11 @@
 """Views для налаштувань користувача та push-повідомлень."""
 import json
-from datetime import datetime, timedelta
 
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods, require_POST
 
 from ..models_settings import UserSettings, PushSubscription, NotificationLog
-from ..models_txn import Transaction
 
 
 @require_http_methods(['GET'])
@@ -22,6 +20,8 @@ def settings_get_api(request):
             'push_daily_time': settings.push_daily_time.strftime('%H:%M'),
             'push_weekly_enabled': settings.push_weekly_enabled,
             'push_weekly_day': settings.push_weekly_day,
+            'push_weekly_time': settings.push_weekly_time.strftime('%H:%M'),
+            'push_health_alerts': settings.push_health_alerts,
             'telegram_notifications': settings.telegram_notifications,
         })
     except UserSettings.DoesNotExist:
@@ -32,6 +32,8 @@ def settings_get_api(request):
             'push_daily_time': '20:00',
             'push_weekly_enabled': False,
             'push_weekly_day': 1,
+            'push_weekly_time': '10:00',
+            'push_health_alerts': True,
             'telegram_notifications': False,
         })
 
@@ -50,6 +52,8 @@ def settings_save_api(request):
         settings.push_daily_time = data.get('push_daily_time', '20:00')
         settings.push_weekly_enabled = data.get('push_weekly_enabled', False)
         settings.push_weekly_day = int(data.get('push_weekly_day', 1))
+        settings.push_weekly_time = data.get('push_weekly_time', '10:00')
+        settings.push_health_alerts = data.get('push_health_alerts', True)
         settings.telegram_notifications = data.get('telegram_notifications', False)
 
         settings.save()
@@ -182,67 +186,37 @@ def notification_history_api(request):
         }, status=400)
 
 
+@require_POST
+@login_required
+def push_test_api(request):
+    """Надіслати тестове push-повідомлення поточному користувачу."""
+    from ..models import get_default_company
+    from ..services import push as push_service
+
+    company = get_default_company()
+    if not push_service.is_configured():
+        return JsonResponse({'success': False,
+                             'error': 'Web Push не налаштований на сервері'}, status=400)
+    report = push_service.build_daily_report(company)
+    result = push_service.send_to_user(
+        request.user, report['title'], report['body'],
+        url='/health/', tag='finance-test', notification_type='custom',
+        report_data=report.get('data'))
+    if not result['ok']:
+        err = result.get('error') or 'Немає активних підписок на цьому пристрої'
+        return JsonResponse({'success': False, 'error': err}, status=400)
+    return JsonResponse({'success': True, 'sent': result['sent']})
+
+
 def generate_daily_report(user, date=None):
-    """Генерувати щоденний звіт для користувача."""
-    if date is None:
-        date = datetime.now().date()
-
-    # Отримуємо транзакції за день
-    transactions = Transaction.objects.filter(
-        account__company__users=user,
-        date=date,
-        status='actual'
-    )
-
-    income = sum(
-        t.amount for t in transactions
-        if t.transaction_type == 'income'
-    )
-    expense = sum(
-        t.amount for t in transactions
-        if t.transaction_type == 'expense'
-    )
-    balance = income - expense
-
-    return {
-        'date': date.isoformat(),
-        'income': float(income),
-        'expense': float(expense),
-        'balance': float(balance),
-        'transactions_count': transactions.count(),
-    }
+    """Сумісність: делегує у сервіс push для побудови щоденного звіту."""
+    from ..models import get_default_company
+    from ..services import push as push_service
+    return push_service.build_daily_report(get_default_company())
 
 
 def generate_weekly_report(user, end_date=None):
-    """Генерувати тижневий звіт для користувача."""
-    if end_date is None:
-        end_date = datetime.now().date()
-
-    start_date = end_date - timedelta(days=7)
-
-    # Отримуємо транзакції за тиждень
-    transactions = Transaction.objects.filter(
-        account__company__users=user,
-        date__gte=start_date,
-        date__lte=end_date,
-        status='actual'
-    )
-
-    income = sum(
-        t.amount for t in transactions
-        if t.transaction_type == 'income'
-    )
-    expense = sum(
-        t.amount for t in transactions
-        if t.transaction_type == 'expense'
-    )
-    balance = income - expense
-
-    return {
-        'start_date': start_date.isoformat(),
-        'end_date': end_date.isoformat(),
-        'income': float(income),
-        'expense': float(expense),
-        'balance': float(balance),
-        'transactions_count': transactions.count(),
-    }
+    """Сумісність: делегує у сервіс push для побудови тижневого звіту."""
+    from ..models import get_default_company
+    from ..services import push as push_service
+    return push_service.build_weekly_report(get_default_company())

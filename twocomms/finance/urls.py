@@ -125,6 +125,7 @@ urlpatterns = [
     path('api/settings/save/', views.settings_save_api, name='finance_settings_save_api'),
     path('api/push/subscribe/', views.push_subscribe_api, name='finance_push_subscribe_api'),
     path('api/push/unsubscribe/', views.push_unsubscribe_api, name='finance_push_unsubscribe_api'),
+    path('api/push/test/', views.push_test_api, name='finance_push_test_api'),
     path('api/notifications/history/', views.notification_history_api, name='finance_notification_history_api'),
 
     # --- API: імпорт виписки ---

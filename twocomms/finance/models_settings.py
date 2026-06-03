@@ -33,6 +33,11 @@ class UserSettings(models.Model):
         ],
         verbose_name='День тижневого звіту'
     )
+    # Час тижневого звіту (раніше прив'язувався до часу щоденного).
+    push_weekly_time = models.TimeField(default='10:00', verbose_name='Час тижневого звіту')
+    # Сповіщення про критичні ризики здоров'я (касовий розрив, прострочка, збиток).
+    push_health_alerts = models.BooleanField(
+        default=True, verbose_name='Сповіщення про фінансові ризики')
     telegram_notifications = models.BooleanField(
         default=False,
         verbose_name='Дублювати в Telegram'

@@ -28,6 +28,8 @@ def finance_shell_context(request):
     if user is None or not user_is_finance_admin(user):
         return {}
 
+    from django.conf import settings as dj_settings
+
     # Імпорти всередині, щоб уникнути навантаження на не-fin запити.
     try:
         from .models import get_default_company
@@ -61,6 +63,9 @@ def finance_shell_context(request):
         return {
             'fin_company_name': company.name,
             'fin_base_currency': ser.currency_symbol(company.base_currency),
+            # Реальний публічний VAPID-ключ для web-push (раніше у JS був placeholder).
+            'fin_vapid_public_key': getattr(dj_settings, 'WEB_PUSH_VAPID_PUBLIC_KEY', ''),
+            'fin_push_enabled': getattr(dj_settings, 'WEB_PUSH_ENABLED', False),
             # Довідники для модалки операцій (дохід/витрата/переказ) — потрібні на
             # КОЖНІЙ сторінці кабінету, щоб кнопки швидких дій у шапці працювали
             # скрізь, а не лише на «Платежах»/«Календарі».

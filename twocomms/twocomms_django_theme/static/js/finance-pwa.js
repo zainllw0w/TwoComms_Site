@@ -138,6 +138,30 @@
             saveSettingsBtn.addEventListener('click', saveSettings);
         }
 
+        const testPushBtn = document.getElementById('test-push-btn');
+        if (testPushBtn) {
+            testPushBtn.addEventListener('click', function () {
+                testPushBtn.disabled = true;
+                fetch('/api/push/test/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                })
+                    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+                    .then(function (res) {
+                        if (res.ok && res.d.success) {
+                            showNotification('Тестове повідомлення надіслано', 'success');
+                        } else {
+                            showNotification(res.d.error || 'Не вдалося надіслати', 'error');
+                        }
+                    })
+                    .catch(function () { showNotification('Помилка мережі', 'error'); })
+                    .finally(function () { testPushBtn.disabled = false; });
+            });
+        }
+
         // Завантажуємо збережені налаштування
         loadSettings();
 
@@ -238,10 +262,17 @@
             console.error('[Finance PWA] No SW registration');
             return;
         }
+        var vapidKey = getVapidPublicKey();
+        if (!vapidKey) {
+            console.warn('[Finance PWA] VAPID key not configured — push disabled');
+            var toggle = document.getElementById('push-enabled');
+            if (toggle) toggle.checked = false;
+            return;
+        }
 
         swRegistration.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(getVapidPublicKey())
+            applicationServerKey: urlBase64ToUint8Array(vapidKey)
         })
             .then(function (subscription) {
                 console.log('[Finance PWA] Push subscription:', subscription);
@@ -279,6 +310,8 @@
             push_daily_time: document.getElementById('push-daily-time')?.value || '20:00',
             push_weekly_enabled: document.getElementById('push-weekly-enabled')?.checked || false,
             push_weekly_day: parseInt(document.getElementById('push-weekly-day')?.value || '1'),
+            push_weekly_time: document.getElementById('push-weekly-time')?.value || '10:00',
+            push_health_alerts: document.getElementById('push-health-alerts')?.checked || false,
             telegram_notifications: document.getElementById('telegram-notifications')?.checked || false
         };
 
@@ -360,6 +393,10 @@
         if (pushDailyTime) pushDailyTime.value = settings.push_daily_time || '20:00';
         if (pushWeeklyEnabled) pushWeeklyEnabled.checked = settings.push_weekly_enabled || false;
         if (pushWeeklyDay) pushWeeklyDay.value = String(settings.push_weekly_day || 1);
+        var weeklyTime = document.getElementById('push-weekly-time');
+        if (weeklyTime) weeklyTime.value = settings.push_weekly_time || '10:00';
+        var healthAlerts = document.getElementById('push-health-alerts');
+        if (healthAlerts) healthAlerts.checked = settings.push_health_alerts !== false;
         if (dailyTimeField) dailyTimeField.hidden = !settings.push_daily_enabled;
         if (weeklyDayField) weeklyDayField.hidden = !settings.push_weekly_enabled;
     }
@@ -420,7 +457,9 @@
     }
 
     function getVapidPublicKey() {
-        // TODO: Замінити на реальний VAPID ключ з сервера
-        return 'BEl62iUYgUivxIkv69yViEuiBIa-Ib37J8xYjEB6LdoeKTHBWMF_ItsQBdWUVZs9hSQF6_WRU0xGSM3jXj8VVOI';
+        // Реальний публічний VAPID-ключ передається з сервера (context processor
+        // → base.html → window.FIN_VAPID_PUBLIC_KEY). Фолбек лишаємо порожнім,
+        // щоб не намагатись підписатись із недійсним ключем.
+        return (window.FIN_VAPID_PUBLIC_KEY || '').trim();
     }
 })();

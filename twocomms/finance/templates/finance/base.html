@@ -262,8 +262,21 @@
                                         <option value="6">Субота</option>
                                         <option value="0">Неділя</option>
                                     </select>
-                                    <small class="fin-field-help">Підсумок за тиждень</small>
+                                    <span style="margin-top:8px">Час відправки</span>
+                                    <input type="time" class="fin-input" id="push-weekly-time" value="10:00">
+                                    <small class="fin-field-help">Підсумок за тиждень + оцінка здоров'я</small>
                                 </div>
+                            </div>
+
+                            <div class="fin-setting-group">
+                                <label class="fin-setting-label">
+                                    <span>Сповіщення про ризики</span>
+                                    <div class="fin-switch">
+                                        <input type="checkbox" id="push-health-alerts">
+                                        <span class="fin-switch__ui"></span>
+                                    </div>
+                                </label>
+                                <small class="fin-field-help">Касовий розрив, прострочена дебіторка, збитковість — не частіше разу на день</small>
                             </div>
 
                             <div class="fin-setting-group">
@@ -279,6 +292,7 @@
                         </div>
 
                         <div class="fin-settings-actions">
+                            <button type="button" class="fin-btn fin-btn--ghost" id="test-push-btn">Тест</button>
                             <button type="button" class="fin-btn fin-btn--primary" id="save-settings-btn">Зберегти</button>
                         </div>
                     </div>
@@ -310,6 +324,10 @@
 
     <span class="fin-version">v0.1</span>
 
+    <script>
+      window.FIN_VAPID_PUBLIC_KEY = "{{ fin_vapid_public_key|default:'' }}";
+      window.FIN_PUSH_ENABLED = {% if fin_push_enabled %}true{% else %}false{% endif %};
+    </script>
     <script src="{% static 'js/finance.js' %}?v=20260602a"></script>
     <script src="{% static 'js/finance-transactions.js' %}?v=20260603a"></script>
     <script src="{% static 'js/finance-pwa.js' %}?v=20260601c"></script>
