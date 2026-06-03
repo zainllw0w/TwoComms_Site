@@ -3100,7 +3100,11 @@ body.fin-settings-open { overflow: hidden; }
     }
     /* Щоб закріплена панель не перекривала останні рядки журналу. */
     .fin-body.fin-bulk-mode .fin-content {
-        padding-bottom: 220px;
+        padding-bottom: 230px;
+    }
+    /* Згорнута панель коротка — менше відступу знизу. */
+    .fin-body.fin-bulk-mode:has(.fin-bulkbar.is-collapsed) .fin-content {
+        padding-bottom: 70px;
     }
 }
 
