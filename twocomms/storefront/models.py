@@ -2023,6 +2023,7 @@ class UserAction(models.Model):
         ('survey_skip', 'Опитування: пропуск'),
         ('survey_close', 'Опитування: закриття'),
         ('survey_complete', 'Опитування: завершення'),
+        ('survey_dismiss', 'Опитування: приховано з головної'),
         ('click', 'Клік'),
         ('scroll', 'Прокрутка'),
         ('time_on_page', 'Час на сторінці'),

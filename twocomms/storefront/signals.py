@@ -10,6 +10,7 @@ from django.conf import settings
 from django.db import transaction
 from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
+from django.utils import timezone
 from .tasks import generate_google_merchant_feed_task, optimize_image_field_task  # noqa: F401 — kept for backward-compat with tests that patch signals.generate_google_merchant_feed_task
 
 from .models import Category, CategoryColorLanding, Product, ProductImage
@@ -369,3 +370,82 @@ def submit_color_landing_to_indexnow_on_delete(sender, instance, **kwargs):
     transaction.on_commit(
         lambda: enqueue_google_indexing_urls([url], notification_type="URL_DELETED")
     )
+
+
+# ===== Survey reward: carry an anonymous promo code into the account =====
+
+from django.contrib.auth.signals import user_logged_in  # noqa: E402
+
+ANONYMOUS_SURVEY_SESSION_KEY = "anonymous_survey_sessions"
+
+
+@receiver(user_logged_in)
+def claim_anonymous_survey_promocode_on_login(sender, request, user, **kwargs):
+    """Attach a promo code earned anonymously to the user that just signed in.
+
+    Anonymous visitors finish the homepage survey and get a raw ``PromoCode``
+    stored only in their Django session (``anonymous_survey_sessions``). The
+    code is useless until they sign in (redemption happens in the cart for an
+    authenticated user), so the thank-you screen nudges them to log in via
+    Google/Telegram. When they do, we move that code into ``UserPromoCode`` so
+    it shows up under "Мої промокоди" and is not lost.
+    """
+    if request is None or user is None:
+        return
+
+    session = getattr(request, "session", None)
+    if session is None:
+        return
+
+    bucket = session.get(ANONYMOUS_SURVEY_SESSION_KEY)
+    if not isinstance(bucket, dict) or not bucket:
+        return
+
+    from .models import PromoCode, UserPromoCode
+
+    changed = False
+    for survey_key, state in list(bucket.items()):
+        if not isinstance(state, dict):
+            continue
+        if state.get("status") != "completed":
+            continue
+        promo_id = state.get("awarded_promocode_id")
+        if not promo_id:
+            continue
+
+        promo = PromoCode.objects.filter(pk=promo_id).first()
+        if not promo:
+            continue
+
+        # Skip codes that already lapsed — no point cluttering the account.
+        if promo.valid_until and timezone.now() >= promo.valid_until:
+            continue
+
+        try:
+            _, created = UserPromoCode.objects.get_or_create(
+                user=user,
+                survey_key=survey_key,
+                defaults={
+                    "promo_code": promo,
+                    "source": "survey_anonymous",
+                    "expires_at": promo.valid_until,
+                },
+            )
+        except Exception:  # pragma: no cover - defensive net
+            logger.warning(
+                "Failed to claim anonymous survey promo for user=%s key=%s",
+                getattr(user, "pk", None),
+                survey_key,
+                exc_info=True,
+            )
+            continue
+
+        if created:
+            # Drop the awarded code from the session bucket so the homepage
+            # block recomputes cleanly; the code now lives on the account.
+            bucket.pop(survey_key, None)
+            changed = True
+
+    if changed:
+        session[ANONYMOUS_SURVEY_SESSION_KEY] = bucket
+        session.modified = True

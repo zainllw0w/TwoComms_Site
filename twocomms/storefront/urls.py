@@ -558,6 +558,7 @@ urlpatterns = [
     path('survey/print-feedback/back/', views.survey_back_one_step, name='survey_back_one_step'),
     path('survey/print-feedback/close/', views.survey_close, name='survey_close'),
     path('survey/print-feedback/complete/', views.survey_complete, name='survey_complete'),
+    path('survey/print-feedback/dismiss/', views.survey_dismiss, name='survey_dismiss'),
     # wholesale prices
     path('pricelist_opt.xlsx', _legacy_view('wholesale_prices_xlsx'), name='wholesale_prices_xlsx'),
     path('pricelist/', _module_view('storefront.views.legacy_stubs', 'pricelist_page'), name='pricelist_page'),

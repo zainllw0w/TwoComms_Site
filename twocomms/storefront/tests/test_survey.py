@@ -241,26 +241,26 @@ class SurveyReportTests(TestCase):
             build_survey_report(session, TEST_DEFINITION, "FINAL", report_path)
 
             workbook = load_workbook(report_path)
-            self.assertEqual(workbook.sheetnames[:3], ["Overview", "Answers", "Signals"])
+            self.assertEqual(workbook.sheetnames[:3], ["Огляд", "Відповіді", "Сигнали"])
 
-            overview = workbook["Overview"]
-            self.assertEqual(overview["A1"].value, "TWOCOMMS Survey Report")
-            self.assertEqual(overview["A4"].value, "Status")
-            self.assertEqual(overview["B4"].value, "FINAL")
-            self.assertEqual(overview.freeze_panes, "A8")
+            overview = workbook["Огляд"]
+            self.assertEqual(overview["A1"].value, "TWOCOMMS · Звіт опитування")
+            self.assertEqual(overview["A5"].value, "Статус")
+            self.assertEqual(overview["B5"].value, "✅ Завершено")
+            self.assertEqual(overview.freeze_panes, "A4")
 
-            answers = workbook["Answers"]
+            answers = workbook["Відповіді"]
             self.assertEqual(
                 [answers.cell(row=1, column=col).value for col in range(1, 7)],
-                ["#", "Section", "Question ID", "Question", "Answer", "Type"],
+                ["№", "Розділ", "ID питання", "Питання", "Відповідь", "Тип"],
             )
             self.assertEqual(answers.freeze_panes, "A2")
             self.assertEqual(answers.auto_filter.ref, "A1:F4")
 
-            signals = workbook["Signals"]
-            self.assertEqual(signals["A1"].value, "Signal")
-            self.assertEqual(signals["B1"].value, "Value")
-            self.assertIn("Answered questions", [signals.cell(row=row, column=1).value for row in range(2, 12)])
+            signals = workbook["Сигнали"]
+            self.assertEqual(signals["A1"].value, "Сигнал")
+            self.assertEqual(signals["B1"].value, "Значення")
+            self.assertIn("Відповідей", [signals.cell(row=row, column=1).value for row in range(2, 12)])
 
 
 class SurveyTaskQueueTests(TestCase):
@@ -502,3 +502,139 @@ class SurveyViewTests(TestCase):
         answers = bucket[V34_SURVEY_KEY]["answers"]
         self.assertNotIn("q040_military_code_interest", answers)
         self.assertNotIn("q041_streetwear_fit_interest", answers)
+
+    def _complete_anonymous_survey(self):
+        """Drive an anonymous run to completion; returns the completion payload."""
+        start_payload = self.client.post(
+            reverse("survey_start_or_resume"), data="{}", content_type="application/json", secure=True
+        ).json()
+        first_payload = self.client.post(
+            reverse("survey_submit_answer"),
+            data=json.dumps({"question_id": "q1", "answer": 3, "version": start_payload["version"]}),
+            content_type="application/json",
+            secure=True,
+        ).json()
+        return self.client.post(
+            reverse("survey_submit_answer"),
+            data=json.dumps({"question_id": "q3", "answer": "x", "version": first_payload["version"]}),
+            content_type="application/json",
+            secure=True,
+        ).json()
+
+    def test_serialized_state_exposes_authenticated_flag(self):
+        anon = self.client.post(
+            reverse("survey_start_or_resume"), data="{}", content_type="application/json", secure=True
+        ).json()
+        self.assertIn("authenticated", anon)
+        self.assertFalse(anon["authenticated"])
+
+        user = User.objects.create_user(username="authflag", password="pass1234")
+        self.client.force_login(user)
+        auth = self.client.post(
+            reverse("survey_start_or_resume"), data="{}", content_type="application/json", secure=True
+        ).json()
+        self.assertTrue(auth["authenticated"])
+
+    def test_anonymous_restart_only_after_promo_expired(self):
+        from django.utils import timezone
+        from datetime import timedelta
+
+        completed = self._complete_anonymous_survey()
+        self.assertEqual(completed["status"], "completed")
+        original_code = completed["promo"]["code"]
+
+        # While the promo is still valid, restart must be ignored (same code).
+        resumed = self.client.post(
+            reverse("survey_start_or_resume"),
+            data=json.dumps({"restart": True}),
+            content_type="application/json",
+            secure=True,
+        ).json()
+        self.assertEqual(resumed.get("status"), "completed")
+        self.assertEqual(resumed["promo"]["code"], original_code)
+
+        # Expire the promo, then a restart must hand out a fresh question.
+        promo = PromoCode.objects.get(code=original_code)
+        promo.valid_until = timezone.now() - timedelta(days=1)
+        promo.save(update_fields=["valid_until"])
+
+        restarted = self.client.post(
+            reverse("survey_start_or_resume"),
+            data=json.dumps({"restart": True}),
+            content_type="application/json",
+            secure=True,
+        ).json()
+        self.assertEqual(restarted.get("status"), "in_progress")
+        self.assertEqual(restarted["question"]["id"], "q1")
+
+    def test_anonymous_dismiss_endpoint_is_noop_ok(self):
+        response = self.client.post(reverse("survey_dismiss"), data="{}", content_type="application/json", secure=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json().get("success"))
+        # Anonymous dismissal is persisted client-side, not as a UserAction.
+        self.assertEqual(UserAction.objects.filter(action_type="survey_dismiss").count(), 0)
+
+    def test_authenticated_dismiss_records_server_marker(self):
+        user = User.objects.create_user(username="dismisser", password="pass1234")
+        self.client.force_login(user)
+        response = self.client.post(reverse("survey_dismiss"), data="{}", content_type="application/json", secure=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json().get("success"))
+        self.assertEqual(
+            UserAction.objects.filter(user=user, action_type="survey_dismiss").count(),
+            1,
+        )
+
+
+class AnonymousSurveyPromoClaimTests(TestCase):
+    """The anonymous reward should land in the account after sign-in."""
+
+    def setUp(self):
+        self.temp_dir = TemporaryDirectory()
+        self.definition_path = Path(self.temp_dir.name) / "survey.json"
+        self.definition_path.write_text(json.dumps(TEST_DEFINITION), encoding="utf-8")
+        self.override = override_settings(SURVEY_DEFINITION_PATH=self.definition_path)
+        self.override.enable()
+        clear_survey_definition_cache()
+        self.client = Client(
+            HTTP_HOST="twocomms.shop",
+            SERVER_PORT="443",
+            **{"wsgi.url_scheme": "https"},
+        )
+
+    def tearDown(self):
+        clear_survey_definition_cache()
+        self.override.disable()
+        self.temp_dir.cleanup()
+
+    def _complete_anonymous_survey(self):
+        start_payload = self.client.post(
+            reverse("survey_start_or_resume"), data="{}", content_type="application/json", secure=True
+        ).json()
+        first_payload = self.client.post(
+            reverse("survey_submit_answer"),
+            data=json.dumps({"question_id": "q1", "answer": 3, "version": start_payload["version"]}),
+            content_type="application/json",
+            secure=True,
+        ).json()
+        return self.client.post(
+            reverse("survey_submit_answer"),
+            data=json.dumps({"question_id": "q3", "answer": "x", "version": first_payload["version"]}),
+            content_type="application/json",
+            secure=True,
+        ).json()
+
+    def test_anonymous_promo_is_claimed_into_account_on_login(self):
+        completed = self._complete_anonymous_survey()
+        code = completed["promo"]["code"]
+        self.assertEqual(UserPromoCode.objects.count(), 0)
+
+        user = User.objects.create_user(username="laterlogin", password="pass1234")
+        # Client.login() fires user_logged_in with the client's session (which
+        # still holds the anonymous bucket), so the claim runs during login.
+        self.assertTrue(self.client.login(username="laterlogin", password="pass1234"))
+
+        grant = UserPromoCode.objects.filter(user=user, survey_key="test_survey").first()
+        self.assertIsNotNone(grant)
+        self.assertEqual(grant.promo_code.code, code)
+        self.assertEqual(grant.source, "survey_anonymous")

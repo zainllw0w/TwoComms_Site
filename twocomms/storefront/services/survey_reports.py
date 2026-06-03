@@ -20,25 +20,48 @@ def build_survey_report(
     status: str,
     file_path: Path,
 ) -> Path:
-    """Build or update Excel report for a survey session."""
+    """Build or update Excel report for a survey session.
+
+    The workbook is structured for a non-technical admin reading it on a
+    phone or laptop: a clean "Огляд" cover sheet with the key facts, a
+    "Відповіді" sheet with every answer in plain language, and a "Сигнали"
+    sheet for quick aggregate reads. All labels are in Ukrainian.
+    """
     engine = SurveyEngine(definition)
     file_path.parent.mkdir(parents=True, exist_ok=True)
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "Overview"
+    ws.title = "Огляд"
 
-    dark_fill = PatternFill(start_color="111827", end_color="111827", fill_type="solid")
-    soft_orange_fill = PatternFill(start_color="FFF7ED", end_color="FFF7ED", fill_type="solid")
-    soft_gray_fill = PatternFill(start_color="F3F4F6", end_color="F3F4F6", fill_type="solid")
+    # Brand-aligned palette (TwoComms orange + neutral greys).
+    brand_orange = "FF8C42"
+    dark_fill = PatternFill(start_color="1C2533", end_color="1C2533", fill_type="solid")
+    orange_fill = PatternFill(start_color=brand_orange, end_color=brand_orange, fill_type="solid")
+    soft_orange_fill = PatternFill(start_color="FFF1E6", end_color="FFF1E6", fill_type="solid")
+    soft_gray_fill = PatternFill(start_color="F4F5F7", end_color="F4F5F7", fill_type="solid")
     green_fill = PatternFill(start_color="DCFCE7", end_color="DCFCE7", fill_type="solid")
     blue_fill = PatternFill(start_color="DBEAFE", end_color="DBEAFE", fill_type="solid")
-    header_font = Font(bold=True, color="FFFFFF")
-    title_font = Font(bold=True, size=16, color="FFFFFF")
-    section_font = Font(bold=True, size=12, color="111827")
-    label_font = Font(bold=True, color="374151")
+    amber_fill = PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid")
+
+    header_font = Font(name="Calibri", bold=True, color="FFFFFF", size=11)
+    title_font = Font(name="Calibri", bold=True, size=18, color="FFFFFF")
+    subtitle_font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
+    section_font = Font(name="Calibri", bold=True, size=12, color="FFFFFF")
+    label_font = Font(name="Calibri", bold=True, color="374151")
+    value_font = Font(name="Calibri", color="111827")
+    note_font = Font(name="Calibri", italic=True, color="4B5563")
+
     thin_gray = Side(style="thin", color="E5E7EB")
     panel_border = Border(left=thin_gray, right=thin_gray, top=thin_gray, bottom=thin_gray)
+
+    status_labels = {
+        "FINAL": "✅ Завершено",
+        "PARTIAL": "⏳ Без активності",
+        "UPDATED": "♻️ Оновлено",
+    }
+    status_text = status_labels.get(status, status)
+    status_fill = green_fill if status == "FINAL" else (amber_fill if status == "PARTIAL" else blue_fill)
 
     def style_header_row(sheet, row: int, max_col: int) -> None:
         for col in range(1, max_col + 1):
@@ -47,16 +70,29 @@ def build_survey_report(
             cell.fill = dark_fill
             cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
             cell.border = panel_border
+        sheet.row_dimensions[row].height = 26
+
+    def section_bar(sheet, cell_range: str, text: str) -> None:
+        first = cell_range.split(":")[0]
+        sheet.merge_cells(cell_range)
+        sheet[first] = text
+        sheet[first].font = section_font
+        sheet[first].fill = orange_fill
+        sheet[first].alignment = Alignment(horizontal="left", vertical="center", indent=1)
+        row_no = int("".join(ch for ch in first if ch.isdigit()))
+        sheet.row_dimensions[row_no].height = 22
 
     def write_pair(sheet, row: int, label: str, value: Any, *, col: int = 1, fill=None) -> None:
         label_cell = sheet.cell(row=row, column=col, value=label)
         value_cell = sheet.cell(row=row, column=col + 1, value=value)
         label_cell.font = label_font
         label_cell.fill = fill or soft_gray_fill
+        value_cell.font = value_font
         value_cell.fill = fill or PatternFill(fill_type=None)
         for cell in (label_cell, value_cell):
-            cell.alignment = Alignment(wrap_text=True, vertical="top")
+            cell.alignment = Alignment(wrap_text=True, vertical="center", indent=1)
             cell.border = panel_border
+        sheet.row_dimensions[row].height = 20
 
     profile = None
     try:
@@ -69,12 +105,12 @@ def build_survey_report(
     completed = (
         timezone.localtime(session.completed_at).strftime("%d.%m.%Y %H:%M")
         if session.completed_at
-        else "–"
+        else "—"
     )
     promo_expires = (
         timezone.localtime(session.awarded_promocode.valid_until).strftime("%d.%m.%Y %H:%M")
         if session.awarded_promocode and session.awarded_promocode.valid_until
-        else ""
+        else "—"
     )
 
     title = get_survey_title(definition)
@@ -84,66 +120,72 @@ def build_survey_report(
         question = engine.get_question(qid)
         if question and question.get("type") in ("text_short", "text_long"):
             text_count += 1
-    promo_code = session.awarded_promocode.code if session.awarded_promocode else ""
+    promo_code = session.awarded_promocode.code if session.awarded_promocode else "—"
     contact_value = " / ".join(
         filter(None, [session.user.email or (profile.email if profile else ""), profile.phone if profile else ""])
-    )
+    ) or "—"
 
+    # --- Cover header -----------------------------------------------------
     ws.merge_cells("A1:F1")
-    ws["A1"] = "TWOCOMMS Survey Report"
+    ws["A1"] = "TWOCOMMS · Звіт опитування"
     ws["A1"].font = title_font
     ws["A1"].fill = dark_fill
     ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
-    ws.row_dimensions[1].height = 28
+    ws.row_dimensions[1].height = 38
 
     ws.merge_cells("A2:F2")
     ws["A2"] = title
-    ws["A2"].font = Font(bold=True, size=12, color="F97316")
+    ws["A2"].font = subtitle_font
+    ws["A2"].fill = orange_fill
     ws["A2"].alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    ws.row_dimensions[2].height = 26
 
-    write_pair(ws, 4, "Status", status, fill=green_fill if status == "FINAL" else blue_fill)
-    write_pair(ws, 5, "User", f"{session.user.username} (ID {session.user_id})")
-    write_pair(ws, 6, "Contact", contact_value)
-    write_pair(ws, 4, "Answered", answered_count, col=4, fill=soft_orange_fill)
-    write_pair(ws, 5, "Promo code", promo_code, col=4)
-    write_pair(ws, 6, "Device", session.device_type or "", col=4)
+    # --- Key facts --------------------------------------------------------
+    section_bar(ws, "A4:F4", "Основне")
+    write_pair(ws, 5, "Статус", status_text, fill=status_fill)
+    write_pair(ws, 6, "Користувач", f"{session.user.username} (ID {session.user_id})")
+    write_pair(ws, 7, "Контакт", contact_value)
+    write_pair(ws, 5, "Відповідей", answered_count, col=4, fill=soft_orange_fill)
+    write_pair(ws, 6, "Промокод", promo_code, col=4, fill=soft_orange_fill)
+    write_pair(ws, 7, "Пристрій", session.device_type or "—", col=4)
 
-    ws["A8"] = "Timeline"
-    ws["A8"].font = section_font
-    ws["D8"] = "Reward"
-    ws["D8"].font = section_font
-    write_pair(ws, 9, "Started at", created)
-    write_pair(ws, 10, "Last activity", last_activity)
-    write_pair(ws, 11, "Completed at", completed)
-    write_pair(ws, 9, "Promo expires", promo_expires, col=4)
-    write_pair(ws, 10, "Text answers", text_count, col=4)
-    write_pair(ws, 11, "Report generated", timezone.localtime(timezone.now()).strftime("%d.%m.%Y %H:%M"), col=4)
+    # --- Timeline + reward ------------------------------------------------
+    section_bar(ws, "A9:C9", "Хронологія")
+    section_bar(ws, "D9:F9", "Винагорода")
+    write_pair(ws, 10, "Початок", created)
+    write_pair(ws, 11, "Остання активність", last_activity)
+    write_pair(ws, 12, "Завершено", completed)
+    write_pair(ws, 10, "Промокод діє до", promo_expires, col=4)
+    write_pair(ws, 11, "Текстових відповідей", text_count, col=4)
+    write_pair(ws, 12, "Звіт сформовано", timezone.localtime(timezone.now()).strftime("%d.%m.%Y %H:%M"), col=4)
 
-    ws["A13"] = "Admin notes"
-    ws["A13"].font = section_font
-    ws.merge_cells("A14:F15")
-    ws["A14"] = (
-        "Use the Answers sheet for exact respondent choices. "
-        "Use the Signals sheet for a quick read on modules, question types, and completion state."
+    # --- Notes ------------------------------------------------------------
+    section_bar(ws, "A14:F14", "Як читати звіт")
+    ws.merge_cells("A15:F16")
+    ws["A15"] = (
+        "Лист «Відповіді» — точні відповіді респондента по кожному питанню. "
+        "Лист «Сигнали» — швидке зведення по модулях, типах питань і стану завершення."
     )
-    ws["A14"].alignment = Alignment(wrap_text=True, vertical="top")
-    for row in ws.iter_rows(min_row=14, max_row=15, min_col=1, max_col=6):
+    ws["A15"].font = note_font
+    ws["A15"].alignment = Alignment(wrap_text=True, vertical="top", indent=1)
+    for row in ws.iter_rows(min_row=15, max_row=16, min_col=1, max_col=6):
         for cell in row:
             cell.fill = soft_gray_fill
             cell.border = panel_border
 
-    ws.freeze_panes = "A8"
+    ws.freeze_panes = "A4"
     ws.sheet_view.showGridLines = False
-    ws.column_dimensions["A"].width = 20
-    ws.column_dimensions["B"].width = 34
-    ws.column_dimensions["C"].width = 4
-    ws.column_dimensions["D"].width = 20
-    ws.column_dimensions["E"].width = 34
-    ws.column_dimensions["F"].width = 4
+    ws.column_dimensions["A"].width = 22
+    ws.column_dimensions["B"].width = 32
+    ws.column_dimensions["C"].width = 6
+    ws.column_dimensions["D"].width = 22
+    ws.column_dimensions["E"].width = 32
+    ws.column_dimensions["F"].width = 6
 
-    ws_answers = wb.create_sheet("Answers")
+    # --- Answers sheet ----------------------------------------------------
+    ws_answers = wb.create_sheet("Відповіді")
     ws_answers.sheet_view.showGridLines = False
-    ws_answers.append(["#", "Section", "Question ID", "Question", "Answer", "Type"])
+    ws_answers.append(["№", "Розділ", "ID питання", "Питання", "Відповідь", "Тип"])
     style_header_row(ws_answers, 1, 6)
 
     answer_row = 2
@@ -171,38 +213,51 @@ def build_survey_report(
             cell = ws_answers.cell(row=answer_row, column=col)
             cell.fill = fill
             cell.border = panel_border
-            cell.alignment = Alignment(wrap_text=True, vertical="top")
+            cell.alignment = Alignment(
+                wrap_text=True,
+                vertical="top",
+                horizontal="center" if col in (1, 6) else "left",
+            )
         answer_row += 1
+
+    if answer_row == 2:
+        ws_answers.append(["—", "—", "—", "Респондент ще не відповів на жодне питання", "—", "—"])
+        for col in range(1, 7):
+            cell = ws_answers.cell(row=2, column=col)
+            cell.border = panel_border
+            cell.alignment = Alignment(wrap_text=True, vertical="top")
+        answer_row = 3
 
     ws_answers.freeze_panes = "A2"
     ws_answers.auto_filter.ref = f"A1:F{max(answer_row - 1, 1)}"
     for column, width in {
-        1: 8,
+        1: 6,
         2: 22,
         3: 28,
         4: 64,
         5: 58,
-        6: 24,
+        6: 22,
     }.items():
         ws_answers.column_dimensions[get_column_letter(column)].width = width
 
-    ws_signals = wb.create_sheet("Signals")
+    # --- Signals sheet ----------------------------------------------------
+    ws_signals = wb.create_sheet("Сигнали")
     ws_signals.sheet_view.showGridLines = False
-    ws_signals.append(["Signal", "Value", "Admin meaning"])
+    ws_signals.append(["Сигнал", "Значення", "Що це означає"])
     style_header_row(ws_signals, 1, 3)
 
     signal_rows = [
-        ("Survey key", session.survey_key, "Which survey definition produced this report"),
-        ("Status", status, "FINAL means the respondent reached the promo screen"),
-        ("Answered questions", answered_count, "Total visible answers stored in session history"),
-        ("Text answers", text_count, "Free-text answers needing manual review"),
-        ("Module order", ", ".join(session.module_order or []), "Dynamic modules selected for this respondent"),
-        ("Promo code", promo_code, "Code shown to the respondent"),
+        ("Ключ опитування", session.survey_key, "Яке визначення опитування сформувало звіт"),
+        ("Статус", status_text, "«Завершено» означає, що респондент дійшов до екрана промокоду"),
+        ("Відповідей", answered_count, "Усього збережених відповідей у сесії"),
+        ("Текстових відповідей", text_count, "Вільні відповіді, які варто переглянути вручну"),
+        ("Порядок модулів", ", ".join(session.module_order or []) or "—", "Динамічні модулі, підібрані для респондента"),
+        ("Промокод", promo_code, "Код, показаний респонденту"),
     ]
     for section, count in sorted(section_counts.items()):
-        signal_rows.append((f"Section: {section or 'n/a'}", count, "Questions answered in this section"))
+        signal_rows.append((f"Розділ: {section or 'н/д'}", count, "Кількість питань у цьому розділі"))
     for qtype, count in sorted(type_counts.items()):
-        signal_rows.append((f"Type: {qtype}", count, "Question type count in this response"))
+        signal_rows.append((f"Тип: {qtype}", count, "Кількість питань цього типу у відповіді"))
 
     for row_index, row_values in enumerate(signal_rows, start=2):
         ws_signals.append(list(row_values))
@@ -211,7 +266,8 @@ def build_survey_report(
             cell = ws_signals.cell(row=row_index, column=col)
             cell.fill = fill
             cell.border = panel_border
-            cell.alignment = Alignment(wrap_text=True, vertical="top")
+            cell.font = value_font if col != 1 else label_font
+            cell.alignment = Alignment(wrap_text=True, vertical="center", indent=1)
 
     ws_signals.freeze_panes = "A2"
     ws_signals.auto_filter.ref = f"A1:C{max(len(signal_rows) + 1, 1)}"
@@ -219,8 +275,8 @@ def build_survey_report(
     ws_signals.column_dimensions["B"].width = 34
     ws_signals.column_dimensions["C"].width = 70
 
-    ws.sheet_properties.tabColor = "F97316"
-    ws_answers.sheet_properties.tabColor = "111827"
+    ws.sheet_properties.tabColor = brand_orange
+    ws_answers.sheet_properties.tabColor = "1C2533"
     ws_signals.sheet_properties.tabColor = "2563EB"
 
     wb.save(file_path)

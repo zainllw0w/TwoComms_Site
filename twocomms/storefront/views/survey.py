@@ -119,6 +119,7 @@ def _serialize_payload(
     back_used: bool,
     promo_code: PromoCode | None = None,
     session_id: int | None = None,
+    authenticated: bool = False,
 ) -> Dict[str, Any]:
     question = engine.get_question(current_question_id) if current_question_id else None
     payload = {
@@ -129,6 +130,12 @@ def _serialize_payload(
         "back_used": back_used,
         "answered_count": len(history or []),
         "soft_hint": get_soft_hint(len(history or [])),
+        # ``authenticated`` lets the client decide whether to render the
+        # "save your promo code — sign in" CTA on the thank-you screen.
+        # It comes from the server (not a template ``data-`` attribute) so
+        # the homepage stays cache-safe and the template-source guard tests
+        # keep passing.
+        "authenticated": bool(authenticated),
         "question": engine.serialize_question(
             question,
             answers.get(question.get("id")),
@@ -153,6 +160,7 @@ def _serialize_state(session: SurveySession, engine: SurveyEngine) -> Dict[str, 
         back_used=session.back_used,
         promo_code=session.awarded_promocode,
         session_id=session.id,
+        authenticated=True,
     )
 
 
@@ -161,6 +169,43 @@ def _anonymous_promocode(state: Dict[str, Any]) -> PromoCode | None:
     if not promo_id:
         return None
     return PromoCode.objects.filter(pk=promo_id).first()
+
+
+def _anonymous_promo_is_expired(state: Dict[str, Any]) -> bool:
+    """True when the anonymous reward exists but its validity window passed.
+
+    Anonymous visitors cannot actually redeem a promo code (redemption
+    requires signing in at checkout), so once the awarded code expires we
+    treat the previous run as spent and allow a fresh attempt. Returns
+    False when there is no awarded code yet (the run is simply unfinished).
+    """
+    promo = _anonymous_promocode(state)
+    if not promo:
+        return False
+    if not promo.valid_until:
+        return False
+    return timezone.now() >= promo.valid_until
+
+
+def _reset_anonymous_state(request, survey_key: str, device_data: Dict[str, Any] | None) -> Dict[str, Any]:
+    """Drop a finished anonymous run and start a clean session in-place."""
+    state = {
+        "survey_key": survey_key,
+        "status": "in_progress",
+        "answers": {},
+        "history": [],
+        "current_question_id": None,
+        "back_used": False,
+        "version": 1,
+        "module_order": [],
+        "device_type": (device_data or {}).get("device_type"),
+        "user_agent": request.META.get("HTTP_USER_AGENT", "")[:500],
+        "awarded_promocode_id": None,
+        "started_at": timezone.now().isoformat(),
+        "last_activity_at": timezone.now().isoformat(),
+    }
+    _save_anonymous_survey_state(request, survey_key, state)
+    return state
 
 
 def _serialize_anonymous_state(state: Dict[str, Any], engine: SurveyEngine) -> Dict[str, Any]:
@@ -175,6 +220,7 @@ def _serialize_anonymous_state(state: Dict[str, Any], engine: SurveyEngine) -> D
         back_used=bool(state.get("back_used")),
         promo_code=_anonymous_promocode(state),
         session_id=None,
+        authenticated=False,
     )
 
 
@@ -273,6 +319,9 @@ def survey_start_or_resume(request):
     device_data = parse_user_agent(request.META.get("HTTP_USER_AGENT", ""))
 
     if not _is_authenticated(request):
+        payload = _json_body(request)
+        wants_restart = bool(payload.get("restart"))
+
         state, created = _get_anonymous_survey_state(
             request,
             survey_key,
@@ -281,6 +330,17 @@ def survey_start_or_resume(request):
         )
         if not state:
             return JsonResponse({"success": False, "error": "session_unavailable"}, status=500)
+
+        # Re-entry after the previous reward expired: allow a brand-new run
+        # so the homepage block can resurface a fresh promo code. The server
+        # validates that the old code is actually expired to avoid farming.
+        if (
+            wants_restart
+            and state.get("status") == "completed"
+            and _anonymous_promo_is_expired(state)
+        ):
+            state = _reset_anonymous_state(request, survey_key, device_data)
+            created = True
 
         if state.get("status") != "completed":
             _ensure_anonymous_current_question(state, engine)
@@ -736,3 +796,24 @@ def survey_complete(request):
         metadata={"completed_via": "explicit_endpoint"},
     )
     return JsonResponse(_serialize_state(session, engine))
+
+
+@require_http_methods(["POST"])
+def survey_dismiss(request):
+    """Hide the homepage survey block for someone who is not interested.
+
+    Anonymous visitors persist the choice client-side (localStorage), because
+    the homepage is cached for everyone. Authenticated users get a server-side
+    marker (a ``survey_dismiss`` UserAction) so the block stays hidden across
+    their devices — the homepage is never cached for signed-in users.
+    """
+    definition = load_survey_definition()
+    survey_key = definition.get("survey_key", "print_feedback_v1") if definition else "print_feedback_v1"
+
+    if _is_authenticated(request):
+        record_survey_event(
+            request,
+            "survey_dismiss",
+            metadata={"survey_key": survey_key, "source": "homepage_block"},
+        )
+    return JsonResponse({"success": True})

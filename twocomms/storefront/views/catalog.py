@@ -20,7 +20,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
-from ..models import CategoryColorLanding, Product, Category, SurveySession
+from ..models import CategoryColorLanding, Product, Category, SurveySession, UserPromoCode, UserAction
 from ..pagination import build_homepage_pagination_items
 from ..services.card_preview import (
     attach_preferred_card_image,
@@ -399,16 +399,40 @@ def home(request):
     survey_reward = survey_def.get('reward', {}) if survey_def else {}
     survey_key = survey_def.get('survey_key', 'print_feedback_v1') if survey_def else 'print_feedback_v1'
     survey_has_active = False
+    survey_block_hidden = False
     if request.user.is_authenticated and survey_def:
         survey_has_active = SurveySession.objects.filter(
             user=request.user,
             survey_key=survey_key,
             status='in_progress',
         ).exists()
+        # Hide the homepage survey block for signed-in users who already
+        # finished it (completed session) or already hold the reward
+        # (UserPromoCode). For anonymous visitors the page is cached for
+        # everyone, so their visibility is handled client-side in survey.js
+        # via localStorage instead.
+        already_completed = SurveySession.objects.filter(
+            user=request.user,
+            survey_key=survey_key,
+            status='completed',
+        ).exists()
+        already_granted = UserPromoCode.objects.filter(
+            user=request.user,
+            survey_key=survey_key,
+        ).exists()
+        already_dismissed = UserAction.objects.filter(
+            user=request.user,
+            action_type='survey_dismiss',
+        ).exists()
+        survey_block_hidden = already_completed or already_granted or already_dismissed
     survey_cta_text = survey_ui_home.get(
         'cta_continue_uk' if survey_has_active else 'cta_start_uk',
         'Пройти опитування',
     )
+
+    # ``expires_in_days`` drives the client-side "show again after the promo
+    # expired" rule for anonymous visitors (see survey.js).
+    survey_expires_in_days = int(survey_reward.get('expires_in_days', 5)) if survey_reward else 5
 
     # Phase 9 — colour chips near the categories block. Each chip
     # links to ``/catalog/?color=<slug>``; no filter is applied to
@@ -440,6 +464,8 @@ def home(request):
             'survey_key': survey_key,
             'survey_cta_text': survey_cta_text,
             'survey_has_active': survey_has_active,
+            'survey_block_hidden': survey_block_hidden,
+            'survey_expires_in_days': survey_expires_in_days,
             'public_product_order_version': public_product_order_version,
             'public_category_version': public_category_version,
             'home_color_chips': home_color_chips,

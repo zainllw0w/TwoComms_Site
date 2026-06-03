@@ -97,6 +97,39 @@ export function initSurvey() {
     thanksTitle: modal.dataset.thanksTitle || 'Дякуємо!',
     thanksText: modal.dataset.thanksText || '',
     copyCode: modal.dataset.copyCode || 'Скопіювати код',
+    authTitle: modal.dataset.authTitle || 'Збережи промокод у акаунті',
+    authText: modal.dataset.authText || 'Увійди, щоб промокод не загубився.',
+    authGoogle: modal.dataset.authGoogle || 'Увійти через Google',
+    authTelegram: modal.dataset.authTelegram || 'Увійти через Telegram',
+  };
+
+  // Survey block / persistence config (anonymous visitors).
+  const section = document.getElementById('survey-section');
+  const surveyKey = modal.dataset.surveyKey
+    || (section && section.getAttribute('data-survey-key'))
+    || 'print_feedback_v1';
+  const storeKey = `tc_survey_state__${surveyKey}`;
+  const loginUrl = modal.dataset.loginUrl || '/login/?next=/cart/';
+  const googleUrl = modal.dataset.googleUrl || '';
+
+  const readStoredState = () => {
+    try {
+      const raw = window.localStorage.getItem(storeKey);
+      return raw ? JSON.parse(raw) : null;
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const writeStoredState = (patch) => {
+    try {
+      const current = readStoredState() || {};
+      const next = { ...current, ...patch };
+      window.localStorage.setItem(storeKey, JSON.stringify(next));
+      return next;
+    } catch (_) {
+      return null;
+    }
   };
 
   const state = {
@@ -181,10 +214,42 @@ export function initSurvey() {
     backBtn.disabled = state.backUsed || state.answeredCount <= 0;
   };
 
-  const renderThanks = (promo) => {
+  const renderThanks = (promo, authenticated) => {
     const expires = promo?.expires_at ? formatExpiry(promo.expires_at) : '';
     const thanksText = strings.thanksText.replace('{expiry_date}', expires || '');
     const code = promo?.code || '';
+
+    // Persist completion for anonymous visitors so the homepage block knows
+    // to stay hidden (while the code is valid) or reappear (once expired).
+    if (!authenticated) {
+      writeStoredState({
+        status: 'completed',
+        code,
+        expiresAt: promo?.expires_at || null,
+        awardedAt: new Date().toISOString(),
+      });
+    }
+
+    const authBlock = !authenticated
+      ? `
+        <div class="survey-auth-cta">
+          <div class="survey-auth-title">${strings.authTitle}</div>
+          <div class="survey-auth-text">${strings.authText}</div>
+          <div class="survey-auth-buttons">
+            ${googleUrl ? `
+            <a class="survey-auth-btn survey-auth-google" href="${googleUrl}?next=/cart/">
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#EA4335" d="M12 10.2v3.9h5.5c-.24 1.4-1.7 4.1-5.5 4.1-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.9 1.5l2.6-2.5C17.1 6.4 14.8 5.4 12 5.4 6.9 5.4 2.8 9.5 2.8 14.6S6.9 23.8 12 23.8c5.8 0 9.6-4.1 9.6-9.8 0-.66-.07-1.16-.16-1.66H12z"/></svg>
+              <span>${strings.authGoogle}</span>
+            </a>` : ''}
+            <button type="button" class="survey-auth-btn survey-auth-telegram" data-survey-tg-login>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>
+              <span>${strings.authTelegram}</span>
+            </button>
+          </div>
+        </div>
+      `
+      : '';
+
     bodyContainer.innerHTML = `
       <div class="survey-thanks">
         <div class="survey-thanks-title">${strings.thanksTitle}</div>
@@ -194,6 +259,7 @@ export function initSurvey() {
           <div class="survey-code">${code}</div>
           <button type="button" class="survey-btn survey-btn-primary survey-copy-btn">${strings.copyCode}</button>
         </div>
+        ${authBlock}
       </div>
     `;
     scrollToTop();
@@ -210,6 +276,19 @@ export function initSurvey() {
         }
       });
     }
+
+    // Telegram login: reuse the global verifier exposed via base.html.
+    const tgBtn = bodyContainer.querySelector('[data-survey-tg-login]');
+    if (tgBtn) {
+      tgBtn.addEventListener('click', () => {
+        if (window.TelegramVerify && typeof window.TelegramVerify.start === 'function') {
+          window.TelegramVerify.start({ purpose: 'login', next: '/cart/' });
+        } else {
+          window.location.href = loginUrl;
+        }
+      });
+    }
+
     nextBtn.style.display = 'none';
     skipBtn.style.display = 'none';
     backBtn.style.display = 'none';
@@ -591,7 +670,7 @@ export function initSurvey() {
       softHint.textContent = data.soft_hint || '';
     }
     if (data.status === 'completed') {
-      renderThanks(data.promo);
+      renderThanks(data.promo, !!data.authenticated);
       updateCTAState('completed');
       return;
     }
@@ -627,6 +706,9 @@ export function initSurvey() {
     showLoading();
     openModal();
     resetButtons();
+    // If the homepage block reappeared after the previous reward expired,
+    // ask the backend for a fresh run so the visitor can earn a new code.
+    const wantsRestart = !!(section && section.getAttribute('data-survey-restart') === '1');
     resolveCSRFToken().then((token) => {
       fetch(`${BASE_URL}/start/`, {
         method: 'POST',
@@ -635,11 +717,14 @@ export function initSurvey() {
           'X-Requested-With': 'XMLHttpRequest',
           'X-CSRFToken': token,
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify(wantsRestart ? { restart: true } : {}),
       })
         .then((response) => response.json())
         .then((data) => {
           if (!data) return;
+          if (wantsRestart && section) {
+            section.removeAttribute('data-survey-restart');
+          }
           updateFromResponse(data);
         })
         .catch(() => showError());

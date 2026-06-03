@@ -863,6 +863,144 @@
   letter-spacing: 0.08em;
 }
 
+/* === Survey thank-you: anonymous login CTA === */
+.survey-auth-cta {
+  margin-top: 0.5rem;
+  padding: 1rem 1.1rem 1.15rem;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(255, 140, 66, 0.12), rgba(255, 205, 118, 0.06));
+  border: 1px solid rgba(255, 165, 102, 0.28);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  text-align: center;
+}
+
+.survey-auth-title {
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.survey-auth-text {
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.survey-auth-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.survey-auth-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.92rem;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+}
+
+.survey-auth-btn:hover {
+  transform: translateY(-1px);
+}
+
+.survey-auth-btn svg {
+  flex-shrink: 0;
+}
+
+.survey-auth-google {
+  background: #fff;
+  color: #1a1a1a;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+.survey-auth-google:hover {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  color: #1a1a1a;
+}
+
+.survey-auth-telegram {
+  background: linear-gradient(135deg, #229ED9, #1576a8);
+  color: #fff;
+}
+
+.survey-auth-telegram:hover {
+  box-shadow: 0 6px 18px rgba(34, 158, 217, 0.35);
+}
+
+.survey-auth-dismiss {
+  margin-top: 0.15rem;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.8rem;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+.survey-auth-dismiss:hover {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+/* "Більше не показувати" — close button on the homepage survey block itself */
+.survey-unified-block {
+  position: relative;
+}
+
+.survey-dismiss-block {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(20, 12, 8, 0.45);
+  color: rgba(255, 255, 255, 0.62);
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.survey-dismiss-block:hover {
+  color: #fff;
+  background: rgba(20, 12, 8, 0.72);
+  border-color: rgba(255, 165, 102, 0.5);
+  transform: scale(1.05);
+}
+
+.survey-dismiss-block svg {
+  width: 15px;
+  height: 15px;
+}
+
+@media (max-width: 768px) {
+  .survey-dismiss-block {
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+  }
+}
+
 .survey-option.shake {
   animation: survey-shake 0.3s ease;
 }

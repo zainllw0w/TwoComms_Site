@@ -197,9 +197,21 @@ canonical entry point for the brand's URL graph.
   </div>
 </section>
 {% endcache %}
-<section class="mb-4 mb-md-5" id="survey-section">
+{% if not survey_block_hidden %}
+<section class="mb-4 mb-md-5" id="survey-section"
+         data-survey-section
+         data-survey-key="{{ survey_key }}"
+         data-survey-expires-days="{{ survey_expires_in_days|default:5 }}"
+         data-survey-authed="{% if request.user.is_authenticated %}1{% else %}0{% endif %}">
   <!-- Компактный блок опитування в стиле рекомендаций -->
   <div class="featured-unified-block survey-unified-block">
+    <button type="button" class="survey-dismiss-block" data-survey-dismiss-block
+            aria-label="{% trans 'Більше не показувати це опитування' %}"
+            title="{% trans 'Більше не показувати' %}">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+      </svg>
+    </button>
     <!-- Фоновые эффекты -->
     <div class="featured-bg-unified">
       <div class="featured-particles">
@@ -383,6 +395,7 @@ canonical entry point for the brand's URL graph.
     </div>
 
 </section>
+{% endif %}
 {% cache 1800 categories_block_i18n LANGUAGE_CODE public_category_version using="fragments" %}
 <section class="mb-4 mb-md-5 reveal categories-section">
   <!-- Единый блок категорий без разделения -->
@@ -603,6 +616,85 @@ canonical entry point for the brand's URL graph.
 {% block extra_js %}
   {{ block.super }}
   <script>
+    // Survey block visibility (anonymous visitors only).
+    // The homepage is cached for everyone, so we cannot decide on the server
+    // whether an anonymous visitor already finished the survey. We persist a
+    // tiny state object in localStorage and reconcile visibility ASAP to avoid
+    // a flash of the block. Rules:
+    //   - dismissed         -> never show again (user clicked "Більше не показувати")
+    //   - completed & active -> hide while the promo code is still valid
+    //   - completed & expired -> show again (fresh chance; backend re-issues a code)
+    // Authenticated visitors are handled fully on the server (survey_block_hidden).
+    (function(){
+      try {
+        var section = document.getElementById('survey-section');
+        if (!section || !section.hasAttribute('data-survey-section')) return;
+
+        var key = section.getAttribute('data-survey-key') || 'print_feedback_v1';
+        var storeKey = 'tc_survey_state__' + key;
+        var isAuthed = section.getAttribute('data-survey-authed') === '1';
+
+        function readState(){
+          try { return JSON.parse(window.localStorage.getItem(storeKey) || 'null'); }
+          catch (_) { return null; }
+        }
+        function writeState(patch){
+          try {
+            var cur = readState() || {};
+            for (var k in patch) { if (Object.prototype.hasOwnProperty.call(patch, k)) cur[k] = patch[k]; }
+            window.localStorage.setItem(storeKey, JSON.stringify(cur));
+          } catch (_) {}
+        }
+        function removeSection(){
+          if (section && section.parentNode) section.parentNode.removeChild(section);
+        }
+
+        // "Більше не показувати" — works without survey.js being loaded.
+        // Signed-in users also get a server marker so it sticks across devices.
+        var dismissBtn = section.querySelector('[data-survey-dismiss-block]');
+        if (dismissBtn) {
+          dismissBtn.addEventListener('click', function(e){
+            e.preventDefault();
+            e.stopPropagation();
+            writeState({ dismissed: true });
+            try {
+              var token = (document.cookie.match(/(?:^|; )csrftoken=([^;]*)/) || [])[1] || '';
+              fetch('/survey/print-feedback/dismiss/', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': decodeURIComponent(token) },
+                credentials: 'same-origin',
+                keepalive: true
+              }).catch(function(){});
+            } catch (_) {}
+            removeSection();
+          });
+        }
+
+        // Anonymous visibility reconciliation (the page is cached for everyone).
+        // Authenticated users are handled fully on the server.
+        if (isAuthed) return;
+
+        var state = readState();
+        if (!state || typeof state !== 'object') return;
+
+        if (state.dismissed === true) {
+          removeSection();
+          return;
+        }
+        if (state.status === 'completed') {
+          var exp = state.expiresAt ? Date.parse(state.expiresAt) : 0;
+          var stillValid = exp && Date.now() < exp;
+          if (stillValid) {
+            removeSection();
+          } else {
+            // Promo expired — let survey.js ask the backend for a fresh run.
+            section.setAttribute('data-survey-restart', '1');
+          }
+        }
+      } catch (_) { /* never block render */ }
+    })();
+  </script>
+  <script>
     // Survey module: lazy-load только по явному намерению пользователя,
     // чтобы не тянуть survey.js в критическую цепочку главной.
     (function(){
@@ -668,6 +760,14 @@ canonical entry point for the brand's URL graph.
     data-thanks-title="{{ survey_ui_modal.thanks_title_uk|default:'Дякуємо!' }}"
     data-thanks-text="{{ survey_ui_modal.thanks_text_uk|default:'Твій промокод готовий. Використати код можна після входу в акаунт у кошику.' }}"
     data-copy-code="{{ survey_ui_modal.copy_code_uk|default:'Скопіювати код' }}"
+    data-survey-key="{{ survey_key }}"
+    data-survey-expires-days="{{ survey_expires_in_days|default:5 }}"
+    data-login-url="{% url 'login' %}?next=/cart/"
+    data-google-url="{% url 'social:begin' 'google-oauth2' %}"
+    data-auth-title="{% trans 'Збережи промокод у акаунті' %}"
+    data-auth-text="{% trans 'Увійди, щоб промокод не загубився — він зʼявиться у розділі «Мої промокоди». Без входу код діє обмежений час.' %}"
+    data-auth-google="{% trans 'Увійти через Google' %}"
+    data-auth-telegram="{% trans 'Увійти через Telegram' %}"
   >
     <div class="survey-overlay" data-survey-close></div>
     <div class="survey-dialog" role="dialog" aria-modal="true" aria-labelledby="survey-modal-title">

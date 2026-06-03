@@ -220,6 +220,7 @@ from .survey import (
     survey_back_one_step,
     survey_close,
     survey_complete,
+    survey_dismiss,
 )
 
 # Оформление заказа
@@ -419,7 +420,7 @@ __all__ = [
 
     # Surveys
     'survey_start_or_resume', 'survey_current_question', 'survey_submit_answer',
-    'survey_back_one_step', 'survey_close', 'survey_complete',
+    'survey_back_one_step', 'survey_close', 'survey_complete', 'survey_dismiss',
 
     # Profile
     'profile', 'edit_profile', 'profile_setup', 'order_history', 'order_detail',
