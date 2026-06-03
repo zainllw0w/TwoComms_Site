@@ -84,13 +84,14 @@ def _build_products_payload():
     """Серіалізує товари каталогу для вибору в формі (inline JSON).
 
     Товарів у магазині небагато (десятки), тож віддаємо одразу на сторінку
-    і фільтруємо на клієнті — без додаткових запитів до сервера.
+    і фільтруємо на клієнті — без додаткових запитів до сервера. Кожен
+    товар містить ``category`` (id + назва) для групування в пікері.
     """
     products = (
         Product.objects.exclude(status=ProductStatus.ARCHIVED)
         .select_related('category')
         .prefetch_related('color_variants__color', 'color_variants__images')
-        .order_by('title')
+        .order_by('category__order', 'category__name', 'title')
     )
     payload = []
     for product in products:
@@ -112,6 +113,7 @@ def _build_products_payload():
         except Exception:  # pragma: no cover - захист від нестандартних сіток
             sizes = []
 
+        category = getattr(product, 'category', None)
         payload.append({
             'id': product.id,
             'title': product.title,
@@ -119,8 +121,20 @@ def _build_products_payload():
             'image': image_url,
             'sizes': sizes,
             'variants': variants,
+            'category_id': getattr(category, 'id', 0) or 0,
+            'category_name': (getattr(category, 'name', '') or 'Інше').strip() or 'Інше',
         })
     return payload
+
+
+def _build_categories_payload():
+    """Список активних категорій (для табів пікера), у порядку показу."""
+    from storefront.models import Category
+
+    return [
+        {'id': c.id, 'name': c.name}
+        for c in Category.objects.filter(is_active=True).order_by('order', 'name')
+    ]
 
 
 def _decimal_or_none(raw):
@@ -248,6 +262,7 @@ def manual_order_create(request):
     if request.method == 'GET':
         context = {
             'products_json': json.dumps(_build_products_payload(), ensure_ascii=False),
+            'categories_json': json.dumps(_build_categories_payload(), ensure_ascii=False),
             'payment_presets': PAYMENT_PRESETS,
             'default_payment_preset': DEFAULT_PAYMENT_PRESET,
             'sale_source_presets': Order.SALE_SOURCE_PRESETS,
@@ -271,10 +286,39 @@ def manual_order_create(request):
             status=422,
         )
 
-    try:
-        delivery_selection = resolve_delivery_selection(data)
-    except NovaPoshtaSelectionError as exc:
-        return JsonResponse({'success': False, 'message': exc.message, 'field': exc.field}, status=422)
+    # Доставка: або Нова Пошта (з підписаними токенами для авто-ТТН),
+    # або ручне введення адреси (без refs — ТТН доведеться робити вручну).
+    delivery_method = str(data.get('delivery_method') or 'np').strip()
+    delivery_refs = {
+        'np_settlement_ref': '',
+        'np_city_ref': '',
+        'np_warehouse_ref': '',
+    }
+    delivery_address_display = ''
+
+    if delivery_method == 'manual':
+        city = str(data.get('city') or '').strip()[:100]
+        np_office = str(data.get('np_office') or '').strip()[:200]
+        if not city or not np_office:
+            return JsonResponse(
+                {'success': False, 'message': 'Вкажіть місто та адресу/відділення доставки.', 'field': 'np_office'},
+                status=422,
+            )
+        delivery_address_display = ', '.join(p for p in (city, np_office) if p)
+    else:
+        delivery_method = 'np'
+        try:
+            delivery_selection = resolve_delivery_selection(data)
+        except NovaPoshtaSelectionError as exc:
+            return JsonResponse({'success': False, 'message': exc.message, 'field': exc.field}, status=422)
+        city = delivery_selection.city
+        np_office = delivery_selection.np_office
+        delivery_refs = {
+            'np_settlement_ref': delivery_selection.settlement_ref,
+            'np_city_ref': delivery_selection.city_ref,
+            'np_warehouse_ref': delivery_selection.warehouse_ref,
+        }
+        delivery_address_display = format_delivery_selection_address(delivery_selection)
 
     # Позиції замовлення
     raw_items = data.get('items')
@@ -321,8 +365,8 @@ def manual_order_create(request):
                 user=None,
                 full_name=full_name[:200],
                 phone=phone,
-                city=delivery_selection.city,
-                np_office=delivery_selection.np_office,
+                city=city,
+                np_office=np_office,
                 pay_type=preset['pay_type'],
                 payment_status=preset['payment_status'],
                 status='new',
@@ -331,11 +375,7 @@ def manual_order_create(request):
                 sale_source=sale_source,
                 manager_comment=manager_comment,
             )
-            apply_nova_poshta_refs(order, {
-                'np_settlement_ref': delivery_selection.settlement_ref,
-                'np_city_ref': delivery_selection.city_ref,
-                'np_warehouse_ref': delivery_selection.warehouse_ref,
-            })
+            apply_nova_poshta_refs(order, delivery_refs)
             order.save()
 
             order_items = []
@@ -374,6 +414,6 @@ def manual_order_create(request):
         'message': f'Замовлення #{order.order_number} створено.',
         'order_id': order.id,
         'order_number': order.order_number,
-        'delivery_address': format_delivery_selection_address(delivery_selection),
+        'delivery_address': delivery_address_display,
         'redirect_url': f"{reverse('admin_panel')}?section=orders",
     })

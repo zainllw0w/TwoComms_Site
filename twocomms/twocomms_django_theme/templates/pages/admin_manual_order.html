@@ -209,6 +209,35 @@
   .cart-form-error { display: none; color: var(--mo-danger); font-size: 0.78rem; margin-top: 4px; }
   .cart-form-input-error { border-color: var(--mo-danger) !important; }
 
+  /* Delivery method tabs */
+  .mo-delivery-tabs { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+  .mo-delivery-tab {
+    flex: 1 1 160px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid var(--mo-line-strong);
+    background: rgba(8, 14, 23, 0.6);
+    color: var(--mo-muted);
+    border-radius: 14px;
+    padding: 13px 16px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.16s ease;
+  }
+  .mo-delivery-tab svg { opacity: 0.85; }
+  .mo-delivery-tab.is-active {
+    color: var(--mo-text);
+    border-color: var(--mo-accent);
+    background: var(--mo-accent-soft);
+    box-shadow: 0 6px 18px rgba(249, 115, 22, 0.16);
+  }
+  .mo-delivery-pane { display: none; }
+  .mo-delivery-pane.is-active { display: block; }
+  .mo-field-hint { font-size: 0.78rem; color: var(--mo-muted); margin-top: 2px; }
+
   /* Items */
   .mo-item-tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
   .mo-item-tab {
@@ -227,41 +256,116 @@
     border-color: var(--mo-accent);
     background: var(--mo-accent-soft);
   }
+  .mo-add-custom-btn {
+    margin-top: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--mo-accent);
+    background: var(--mo-accent-soft);
+    color: var(--mo-text);
+    border-radius: 12px;
+    padding: 11px 20px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.16s ease;
+  }
+  .mo-add-custom-btn:hover { background: rgba(249, 115, 22, 0.26); transform: translateY(-1px); }
   .mo-picker-pane { display: none; }
   .mo-picker-pane.is-active { display: block; }
 
-  .mo-product-search { margin-bottom: 10px; }
+  .mo-product-search { margin-bottom: 12px; }
+
+  /* Category chips */
+  .mo-cat-chips {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+  }
+  .mo-cat-chips::-webkit-scrollbar { height: 4px; }
+  .mo-cat-chips::-webkit-scrollbar-thumb { background: var(--mo-line-strong); border-radius: 999px; }
+  .mo-cat-chip {
+    flex: 0 0 auto;
+    border: 1px solid var(--mo-line-strong);
+    background: rgba(8, 14, 23, 0.6);
+    color: var(--mo-muted);
+    border-radius: 999px;
+    padding: 7px 16px;
+    font-size: 0.84rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.14s ease;
+  }
+  .mo-cat-chip:hover { color: var(--mo-text); border-color: var(--mo-line-strong); }
+  .mo-cat-chip.is-active {
+    color: var(--mo-text);
+    border-color: var(--mo-accent);
+    background: var(--mo-accent-soft);
+  }
+
   .mo-product-list {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 10px;
-    max-height: 340px;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+    max-height: 420px;
     overflow-y: auto;
     padding: 4px;
   }
   .mo-product-card {
     border: 1px solid var(--mo-line);
-    border-radius: 14px;
+    border-radius: 16px;
     background: rgba(8, 14, 23, 0.55);
-    padding: 10px;
+    padding: 0;
     cursor: pointer;
-    transition: border-color 0.16s ease, transform 0.16s ease;
+    transition: border-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    overflow: hidden;
   }
-  .mo-product-card:hover { border-color: var(--mo-accent); transform: translateY(-2px); }
+  .mo-product-card:hover {
+    border-color: var(--mo-accent);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(2, 8, 23, 0.4);
+  }
   .mo-product-card__img {
     width: 100%;
     aspect-ratio: 1 / 1;
-    border-radius: 10px;
     object-fit: cover;
     background: rgba(148, 163, 184, 0.12);
+    display: block;
   }
   .mo-product-card__img--ph { display: grid; place-items: center; color: var(--mo-muted); }
-  .mo-product-card__title { font-size: 0.84rem; font-weight: 600; line-height: 1.25; }
-  .mo-product-card__price { font-size: 0.82rem; color: var(--mo-accent); font-weight: 700; }
-  .mo-empty-hint { color: var(--mo-muted); font-size: 0.86rem; padding: 18px 4px; text-align: center; }
+  .mo-product-card__body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .mo-product-card__title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--mo-text);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .mo-product-card__meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .mo-product-card__price { font-size: 0.9rem; color: var(--mo-accent); font-weight: 800; }
+  .mo-product-card__cat {
+    font-size: 0.68rem;
+    color: var(--mo-muted);
+    background: rgba(148, 163, 184, 0.12);
+    border-radius: 999px;
+    padding: 2px 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 50%;
+  }
+  .mo-empty-hint { color: var(--mo-muted); font-size: 0.86rem; padding: 18px 4px; text-align: center; grid-column: 1 / -1; }
+  .mo-items-divider { height: 1px; background: var(--mo-line); margin: 18px 0; }
 
   .mo-items { display: flex; flex-direction: column; gap: 12px; }
   .mo-line {
@@ -452,38 +556,68 @@
     <div class="mo-card__head">
       <span class="mo-card__index">2</span>
       <div>
-        <h2 class="mo-card__title">Доставка Нова Пошта</h2>
-        <p class="mo-card__hint">Обирайте місто та відділення зі списку — потрібно для автоматичної ТТН</p>
+        <h2 class="mo-card__title">Доставка</h2>
+        <p class="mo-card__hint">Оберіть спосіб доставки. Нова Пошта зі списку — для автоматичної ТТН</p>
       </div>
     </div>
-    <div data-np-form id="moNpForm">
-      <input type="hidden" name="np_settlement_ref" data-np-settlement-ref>
-      <input type="hidden" name="np_city_ref" data-np-city-ref>
-      <input type="hidden" name="np_city_token" data-np-city-token>
-      <input type="hidden" name="np_warehouse_ref" data-np-warehouse-ref>
-      <input type="hidden" name="np_warehouse_token" data-np-warehouse-token>
 
+    <div class="mo-delivery-tabs" id="moDeliveryTabs">
+      <button type="button" class="mo-delivery-tab is-active" data-delivery-tab="np">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm12 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+        Нова Пошта
+      </button>
+      <button type="button" class="mo-delivery-tab" data-delivery-tab="manual">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        Ввести вручну
+      </button>
+    </div>
+
+    <!-- Нова Пошта (автокомпліт) -->
+    <div class="mo-delivery-pane is-active" data-delivery-pane="np">
+      <div data-np-form id="moNpForm">
+        <input type="hidden" name="np_settlement_ref" data-np-settlement-ref>
+        <input type="hidden" name="np_city_ref" data-np-city-ref>
+        <input type="hidden" name="np_city_token" data-np-city-token>
+        <input type="hidden" name="np_warehouse_ref" data-np-warehouse-ref>
+        <input type="hidden" name="np_warehouse_token" data-np-warehouse-token>
+
+        <div class="mo-grid mo-grid--full">
+          <div class="mo-field">
+            <label class="mo-label" for="moCity">Місто<span class="req">*</span></label>
+            <div class="np-selector">
+              <input type="text" id="moCity" class="mo-input" name="city" placeholder="Почніть вводити місто" autocomplete="off" data-np-city-input aria-autocomplete="list">
+              <div class="np-selector-results" data-np-city-results hidden></div>
+            </div>
+            <div class="np-selector-status" data-np-city-status></div>
+          </div>
+          <div class="mo-field">
+            <label class="mo-label" for="moWarehouse">Відділення / поштомат<span class="req">*</span></label>
+            <div class="np-selector">
+              <input type="text" id="moWarehouse" class="mo-input" name="np_office" placeholder="Оберіть відділення або поштомат" autocomplete="off" data-np-warehouse-input aria-autocomplete="list">
+              <div class="np-selector-results" data-np-warehouse-results hidden></div>
+            </div>
+            <div class="np-selector-kind" data-np-kind-toggle>
+              <button type="button" class="np-selector-kind-btn is-active" data-kind="all">Усі пункти</button>
+              <button type="button" class="np-selector-kind-btn" data-kind="branch">Відділення</button>
+              <button type="button" class="np-selector-kind-btn" data-kind="postomat">Поштомат</button>
+            </div>
+            <div class="np-selector-status" data-np-warehouse-status></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ручне введення -->
+    <div class="mo-delivery-pane" data-delivery-pane="manual">
       <div class="mo-grid mo-grid--full">
         <div class="mo-field">
-          <label class="mo-label" for="moCity">Місто<span class="req">*</span></label>
-          <div class="np-selector">
-            <input type="text" id="moCity" class="mo-input" name="city" placeholder="Почніть вводити місто" autocomplete="off" data-np-city-input aria-autocomplete="list">
-            <div class="np-selector-results" data-np-city-results hidden></div>
-          </div>
-          <div class="np-selector-status" data-np-city-status></div>
+          <label class="mo-label" for="moManualCity">Місто / населений пункт<span class="req">*</span></label>
+          <input type="text" id="moManualCity" class="mo-input" placeholder="Напр. Київ" autocomplete="off">
         </div>
         <div class="mo-field">
-          <label class="mo-label" for="moWarehouse">Відділення / поштомат<span class="req">*</span></label>
-          <div class="np-selector">
-            <input type="text" id="moWarehouse" class="mo-input" name="np_office" placeholder="Оберіть відділення або поштомат" autocomplete="off" data-np-warehouse-input aria-autocomplete="list">
-            <div class="np-selector-results" data-np-warehouse-results hidden></div>
-          </div>
-          <div class="np-selector-kind" data-np-kind-toggle>
-            <button type="button" class="np-selector-kind-btn is-active" data-kind="all">Усі пункти</button>
-            <button type="button" class="np-selector-kind-btn" data-kind="branch">Відділення</button>
-            <button type="button" class="np-selector-kind-btn" data-kind="postomat">Поштомат</button>
-          </div>
-          <div class="np-selector-status" data-np-warehouse-status></div>
+          <label class="mo-label" for="moManualOffice">Адреса / відділення<span class="req">*</span></label>
+          <input type="text" id="moManualOffice" class="mo-input" placeholder="Напр. Відділення №12, вул. Хрещатик 1, Укрпошта…" autocomplete="off">
+          <div class="mo-field-hint">Ручний спосіб — без автоматичної ТТН. Її можна буде створити пізніше.</div>
         </div>
       </div>
     </div>
@@ -506,6 +640,7 @@
 
     <div class="mo-picker-pane is-active" data-picker-pane="catalog">
       <input type="text" id="moProductSearch" class="mo-input mo-product-search" placeholder="Пошук товару за назвою…" autocomplete="off">
+      <div class="mo-cat-chips" id="moCatChips"></div>
       <div class="mo-product-list" id="moProductList"></div>
     </div>
 
@@ -532,10 +667,10 @@
           <input type="number" id="moCustomQty" class="mo-input" min="1" step="1" value="1">
         </div>
       </div>
-      <button type="button" class="mo-item-tab is-active" id="moAddCustom" style="margin-top: 12px;">+ Додати позицію</button>
+      <button type="button" class="mo-add-custom-btn" id="moAddCustom">+ Додати позицію</button>
     </div>
 
-    <div style="height: 16px;"></div>
+    <div class="mo-items-divider"></div>
     <div class="mo-items" id="moItems"></div>
     <p class="mo-empty-hint" id="moItemsEmpty">Ще не додано жодного товару.</p>
   </section>
@@ -589,6 +724,7 @@
   </div>
 
   <script type="application/json" id="moProductsData">{{ products_json|safe }}</script>
+  <script type="application/json" id="moCategoriesData">{{ categories_json|safe }}</script>
 </div>
 {% endblock %}
 
@@ -609,9 +745,15 @@
   var productMap = {};
   products.forEach(function (p) { productMap[p.id] = p; });
 
+  var categories = [];
+  try {
+    categories = JSON.parse(document.getElementById('moCategoriesData').textContent || '[]');
+  } catch (e) { categories = []; }
+
   // ── state ──────────────────────────────────────────────
   var items = [];   // {uid, kind, product_id, title, image, unit_price, qty, size, color_variant_id, color_name, sizes, variants}
   var uidSeq = 1;
+  var activeCategory = 'all';   // 'all' | category_id
 
   function csrf() {
     var m = document.cookie.match(/csrftoken=([^;]+)/);
@@ -622,7 +764,7 @@
     return (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('uk-UA');
   }
 
-  // ── tabs ───────────────────────────────────────────────
+  // ── tabs (catalog / custom) ────────────────────────────
   page.querySelectorAll('[data-picker-tab]').forEach(function (tab) {
     tab.addEventListener('click', function () {
       var key = tab.dataset.pickerTab;
@@ -633,6 +775,45 @@
     });
   });
 
+  // ── delivery method tabs (НП / вручну) ─────────────────
+  var deliveryMethod = 'np';
+  page.querySelectorAll('[data-delivery-tab]').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      deliveryMethod = tab.dataset.deliveryTab;
+      page.querySelectorAll('[data-delivery-tab]').forEach(function (t) { t.classList.toggle('is-active', t === tab); });
+      page.querySelectorAll('[data-delivery-pane]').forEach(function (pane) {
+        pane.classList.toggle('is-active', pane.dataset.deliveryPane === deliveryMethod);
+      });
+    });
+  });
+
+  // ── category chips ─────────────────────────────────────
+  var chipsEl = document.getElementById('moCatChips');
+
+  function buildCategoryChips() {
+    if (!chipsEl) return;
+    // Лишаємо тільки категорії, у яких реально є товари.
+    var presentIds = {};
+    products.forEach(function (p) { presentIds[p.category_id] = true; });
+    var usable = categories.filter(function (c) { return presentIds[c.id]; });
+
+    var chips = [{ id: 'all', name: 'Усі' }].concat(usable);
+    chipsEl.innerHTML = '';
+    chips.forEach(function (c) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'mo-cat-chip' + (String(c.id) === String(activeCategory) ? ' is-active' : '');
+      btn.textContent = c.name;
+      btn.addEventListener('click', function () {
+        activeCategory = c.id;
+        chipsEl.querySelectorAll('.mo-cat-chip').forEach(function (x) { x.classList.remove('is-active'); });
+        btn.classList.add('is-active');
+        renderProductList(searchEl.value);
+      });
+      chipsEl.appendChild(btn);
+    });
+  }
+
   // ── product catalog ────────────────────────────────────
   var listEl = document.getElementById('moProductList');
   var searchEl = document.getElementById('moProductSearch');
@@ -640,7 +821,9 @@
   function renderProductList(query) {
     var q = (query || '').trim().toLowerCase();
     var filtered = products.filter(function (p) {
-      return !q || p.title.toLowerCase().indexOf(q) !== -1;
+      var matchesQuery = !q || p.title.toLowerCase().indexOf(q) !== -1;
+      var matchesCat = activeCategory === 'all' || String(p.category_id) === String(activeCategory);
+      return matchesQuery && matchesCat;
     });
     listEl.innerHTML = '';
     if (!filtered.length) {
@@ -652,10 +835,17 @@
       card.className = 'mo-product-card';
       var img = p.image
         ? '<img src="' + p.image + '" alt="" class="mo-product-card__img" loading="lazy">'
-        : '<div class="mo-product-card__img mo-product-card__img--ph">—</div>';
+        : '<div class="mo-product-card__img mo-product-card__img--ph">' +
+          '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>' +
+          '</div>';
       card.innerHTML = img +
-        '<div class="mo-product-card__title">' + escapeHtml(p.title) + '</div>' +
-        '<div class="mo-product-card__price">' + fmt(p.price) + ' грн</div>';
+        '<div class="mo-product-card__body">' +
+          '<div class="mo-product-card__title">' + escapeHtml(p.title) + '</div>' +
+          '<div class="mo-product-card__meta">' +
+            '<span class="mo-product-card__price">' + fmt(p.price) + ' грн</span>' +
+            (p.category_name ? '<span class="mo-product-card__cat">' + escapeHtml(p.category_name) + '</span>' : '') +
+          '</div>' +
+        '</div>';
       card.addEventListener('click', function () { addCatalogItem(p); });
       listEl.appendChild(card);
     });
@@ -862,49 +1052,62 @@
     if (!fullName) { flash('Вкажіть ПІБ клієнта.', 'error'); return; }
     if (!phone) { flash('Вкажіть телефон клієнта.', 'error'); return; }
 
-    var cityToken = page.querySelector('[data-np-city-token]').value;
-    var whToken = page.querySelector('[data-np-warehouse-token]').value;
-    if (!cityToken || !whToken) {
-      flash('Оберіть місто та відділення Нової пошти зі списку.', 'error');
-      return;
+    var payload = {
+      full_name: fullName,
+      phone: phone,
+      delivery_method: deliveryMethod,
+      payment_preset: (page.querySelector('input[name="payment_preset"]:checked') || {}).value || 'cod',
+      sale_source: saleInput.value.trim(),
+      manager_comment: document.getElementById('moComment').value.trim()
+    };
+
+    if (deliveryMethod === 'manual') {
+      var mCity = document.getElementById('moManualCity').value.trim();
+      var mOffice = document.getElementById('moManualOffice').value.trim();
+      if (!mCity || !mOffice) {
+        flash('Вкажіть місто та адресу/відділення доставки.', 'error');
+        return;
+      }
+      payload.city = mCity;
+      payload.np_office = mOffice;
+    } else {
+      var cityToken = page.querySelector('[data-np-city-token]').value;
+      var whToken = page.querySelector('[data-np-warehouse-token]').value;
+      if (!cityToken || !whToken) {
+        flash('Оберіть місто та відділення Нової пошти зі списку (або перейдіть на «Ввести вручну»).', 'error');
+        return;
+      }
+      payload.city = page.querySelector('[data-np-city-input]').value.trim();
+      payload.np_office = page.querySelector('[data-np-warehouse-input]').value.trim();
+      payload.np_settlement_ref = page.querySelector('[data-np-settlement-ref]').value;
+      payload.np_city_ref = page.querySelector('[data-np-city-ref]').value;
+      payload.np_city_token = cityToken;
+      payload.np_warehouse_ref = page.querySelector('[data-np-warehouse-ref]').value;
+      payload.np_warehouse_token = whToken;
     }
 
     if (!items.length) { flash('Додайте хоча б один товар.', 'error'); return; }
 
-    var payload = {
-      full_name: fullName,
-      phone: phone,
-      city: page.querySelector('[data-np-city-input]').value.trim(),
-      np_office: page.querySelector('[data-np-warehouse-input]').value.trim(),
-      np_settlement_ref: page.querySelector('[data-np-settlement-ref]').value,
-      np_city_ref: page.querySelector('[data-np-city-ref]').value,
-      np_city_token: cityToken,
-      np_warehouse_ref: page.querySelector('[data-np-warehouse-ref]').value,
-      np_warehouse_token: whToken,
-      payment_preset: (page.querySelector('input[name="payment_preset"]:checked') || {}).value || 'cod',
-      sale_source: saleInput.value.trim(),
-      manager_comment: document.getElementById('moComment').value.trim(),
-      items: items.map(function (it) {
-        if (it.kind === 'custom') {
-          return {
-            kind: 'custom',
-            title: it.title,
-            unit_price: it.unit_price,
-            qty: it.qty,
-            size: it.size,
-            color_name: it.color_name
-          };
-        }
+    payload.items = items.map(function (it) {
+      if (it.kind === 'custom') {
         return {
-          kind: 'catalog',
-          product_id: it.product_id,
-          color_variant_id: it.color_variant_id || '',
-          size: it.size,
+          kind: 'custom',
+          title: it.title,
+          unit_price: it.unit_price,
           qty: it.qty,
-          unit_price: it.unit_price
+          size: it.size,
+          color_name: it.color_name
         };
-      })
-    };
+      }
+      return {
+        kind: 'catalog',
+        product_id: it.product_id,
+        color_variant_id: it.color_variant_id || '',
+        size: it.size,
+        qty: it.qty,
+        unit_price: it.unit_price
+      };
+    });
 
     submitBtn.disabled = true;
     submitBtn.textContent = 'Створюємо…';
@@ -939,6 +1142,7 @@
   });
 
   // ── init ───────────────────────────────────────────────
+  buildCategoryChips();
   renderProductList('');
   renderItems();
 })();

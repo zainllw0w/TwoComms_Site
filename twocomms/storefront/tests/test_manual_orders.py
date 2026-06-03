@@ -178,6 +178,42 @@ class ManualOrderCreateTests(TestCase):
         self.assertEqual(response.status_code, 422)
         self.assertFalse(response.json()['success'])
 
+    def test_manual_delivery_without_np(self):
+        payload = {
+            'full_name': 'Сидоренко Сидір',
+            'phone': '0631112233',
+            'delivery_method': 'manual',
+            'city': 'Львів',
+            'np_office': 'Укрпошта, вул. Сихівська 5',
+            'payment_preset': 'cod',
+            'items': [
+                {'kind': 'custom', 'title': 'Худі ручне', 'unit_price': 1500, 'qty': 1},
+            ],
+        }
+        response, notify = self._post(payload)
+        self.assertEqual(response.status_code, 200, response.content)
+        data = response.json()
+        self.assertTrue(data['success'], data)
+        order = Order.objects.get(order_number=data['order_number'])
+        self.assertEqual(order.city, 'Львів')
+        self.assertEqual(order.np_office, 'Укрпошта, вул. Сихівська 5')
+        self.assertEqual(order.np_warehouse_ref, '')
+        self.assertEqual(order.np_city_ref, '')
+        notify.assert_called_once()
+
+    def test_manual_delivery_requires_city_and_office(self):
+        payload = {
+            'full_name': 'Без адреси',
+            'phone': '0501234567',
+            'delivery_method': 'manual',
+            'city': '',
+            'np_office': '',
+            'items': [{'kind': 'custom', 'title': 'X', 'unit_price': 10, 'qty': 1}],
+        }
+        response, _ = self._post(payload)
+        self.assertEqual(response.status_code, 422)
+        self.assertFalse(response.json()['success'])
+
     def test_empty_items_rejected(self):
         payload = {'full_name': 'Хтось', 'phone': '0501234567', 'items': []}
         payload.update(_delivery_payload())
