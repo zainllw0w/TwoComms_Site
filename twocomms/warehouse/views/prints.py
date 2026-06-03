@@ -9,6 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from storefront.models import Product
+from productcolors.models import Color
 from warehouse.models import MovementReason, Print, PrintCategory, PrintColorVariant
 from warehouse.permissions import warehouse_admin_required
 from warehouse.services.inventory import (
@@ -20,12 +21,13 @@ from warehouse.services.inventory import (
 @warehouse_admin_required
 def print_list(request):
     selected_cat = (request.GET.get("category") or "").strip()
+    selected_placement = (request.GET.get("placement") or "").strip()
     q = (request.GET.get("q") or "").strip()
 
     prints = (
         Print.objects.filter(is_active=True)
         .select_related("category")
-        .prefetch_related("color_variants")
+        .prefetch_related("color_variants", "color_variants__colors", "garment_colors")
         .order_by("category__order", "category__name", "name")
     )
     if selected_cat:
@@ -33,6 +35,8 @@ def print_list(request):
             prints = prints.filter(category__isnull=True)
         else:
             prints = prints.filter(category__slug=selected_cat)
+    if selected_placement:
+        prints = prints.filter(placement=selected_placement)
     if q:
         prints = prints.filter(name__icontains=q)
 
@@ -56,11 +60,25 @@ def print_list(request):
     all_categories = PrintCategory.objects.filter(is_active=True).order_by("order", "name")
     has_uncategorized = Print.objects.filter(is_active=True, category__isnull=True).exists()
 
+    # Placement filter chips — only показуємо ті, що реально використовуються
+    used_placements = set(
+        Print.objects.filter(is_active=True)
+        .exclude(placement="")
+        .values_list("placement", flat=True)
+    )
+    placement_chips = [
+        {"value": value, "label": label}
+        for value, label in Print.Placement.choices
+        if value in used_placements
+    ]
+
     context = {
         "groups": groups,
         "all_categories": all_categories,
         "has_uncategorized": has_uncategorized,
         "selected_cat": selected_cat,
+        "selected_placement": selected_placement,
+        "placement_chips": placement_chips,
         "query": q,
         "total_count": sum(len(g["prints"]) for g in groups),
         "active_section": "prints",
@@ -70,7 +88,12 @@ def print_list(request):
 
 @warehouse_admin_required
 def print_detail(request, slug):
-    pr = get_object_or_404(Print.objects.prefetch_related("color_variants", "default_products"), slug=slug)
+    pr = get_object_or_404(
+        Print.objects.prefetch_related(
+            "color_variants", "color_variants__colors", "default_products", "garment_colors"
+        ),
+        slug=slug,
+    )
     variants = pr.color_variants.all().order_by("order", "id")
     context = {
         "print": pr,
@@ -112,6 +135,10 @@ def print_create(request):
         "product_groups": product_groups,
         "selected_product_ids": set(),
         "print_categories": print_categories,
+        "all_colors": Color.objects.all().order_by("name", "primary_hex"),
+        "placement_choices": Print.Placement.choices,
+        "garment_fit_choices": Print.GarmentFit.choices,
+        "color_mode_choices": PrintColorVariant.ColorMode.choices,
         "active_section": "prints",
     }
     return render(request, "warehouse/print_form.html", context)
@@ -125,12 +152,21 @@ def print_edit(request, slug):
     product_groups = _build_product_groups()
     selected_product_ids = set(pr.default_products.values_list("id", flat=True))
     print_categories = PrintCategory.objects.filter(is_active=True).order_by("order", "name")
+    variants = pr.color_variants.prefetch_related("colors").order_by("order", "id")
+    # Per-variant selected color ids (for the picker)
+    for v in variants:
+        v.selected_color_ids = list(v.colors.values_list("id", flat=True))
     context = {
         "print": pr,
-        "variants": pr.color_variants.order_by("order", "id"),
+        "variants": variants,
         "product_groups": product_groups,
         "selected_product_ids": selected_product_ids,
         "print_categories": print_categories,
+        "all_colors": Color.objects.all().order_by("name", "primary_hex"),
+        "placement_choices": Print.Placement.choices,
+        "garment_fit_choices": Print.GarmentFit.choices,
+        "color_mode_choices": PrintColorVariant.ColorMode.choices,
+        "selected_garment_color_ids": set(pr.garment_colors.values_list("id", flat=True)),
         "active_section": "prints",
     }
     return render(request, "warehouse/print_form.html", context)
@@ -152,6 +188,21 @@ def _save_print(request, instance):
     if category_id_raw and category_id_raw.isdigit():
         category = PrintCategory.objects.filter(pk=int(category_id_raw)).first()
 
+    # Placement + garment fit
+    placement = (request.POST.get("placement") or "").strip()
+    valid_placements = {c[0] for c in Print.Placement.choices}
+    if placement not in valid_placements:
+        placement = ""
+
+    garment_fit = (request.POST.get("garment_fit") or Print.GarmentFit.ANY).strip()
+    valid_fits = {c[0] for c in Print.GarmentFit.choices}
+    if garment_fit not in valid_fits:
+        garment_fit = Print.GarmentFit.ANY
+
+    garment_color_ids = [
+        int(x) for x in request.POST.getlist("garment_colors[]") if str(x).isdigit()
+    ]
+
     if instance is None:
         instance = Print(name=name, description=description, is_active=is_active, category=category)
     else:
@@ -159,6 +210,8 @@ def _save_print(request, instance):
         instance.description = description
         instance.is_active = is_active
         instance.category = category
+    instance.placement = placement
+    instance.garment_fit = garment_fit
 
     if request.FILES.get("main_image"):
         instance.main_image = request.FILES["main_image"]
@@ -170,27 +223,42 @@ def _save_print(request, instance):
     else:
         instance.default_products.clear()
 
+    # Garment colors (only meaningful for fit == specific, але зберігаємо як є)
+    if garment_fit == Print.GarmentFit.SPECIFIC and garment_color_ids:
+        instance.garment_colors.set(Color.objects.filter(pk__in=garment_color_ids))
+    else:
+        instance.garment_colors.clear()
+
     # Variants (parallel arrays)
     var_ids = request.POST.getlist("variant_id[]")
-    var_names = request.POST.getlist("variant_color_name[]")
-    var_hex = request.POST.getlist("variant_color_hex[]")
+    var_modes = request.POST.getlist("variant_color_mode[]")
+    var_colors = request.POST.getlist("variant_colors[]")  # comma-joined ids per row
     var_qty = request.POST.getlist("variant_quantity[]")
     var_cost = request.POST.getlist("variant_cost[]")
     var_default = request.POST.get("variant_default")  # index str
 
+    valid_modes = {c[0] for c in PrintColorVariant.ColorMode.choices}
+
     seen_ids = set()
-    for idx, (vid, vname, vhex, vqty, vcost) in enumerate(
-        zip(var_ids, var_names, var_hex, var_qty, var_cost)
-    ):
-        vname = (vname or "").strip()
-        if not vname:
+    for idx in range(len(var_qty)):
+        mode = (var_modes[idx] if idx < len(var_modes) else "") or PrintColorVariant.ColorMode.SINGLE
+        if mode not in valid_modes:
+            mode = PrintColorVariant.ColorMode.SINGLE
+        vid = var_ids[idx] if idx < len(var_ids) else ""
+        colors_raw = var_colors[idx] if idx < len(var_colors) else ""
+        color_ids = [int(x) for x in colors_raw.split(",") if x.strip().isdigit()]
+
+        # single/combo вимагають хоча б один колір; mix/standard — ні
+        if mode in (PrintColorVariant.ColorMode.SINGLE, PrintColorVariant.ColorMode.COMBO) and not color_ids:
+            # порожній рядок — пропускаємо
             continue
+
         try:
-            qty = max(int(vqty or 0), 0)
-        except ValueError:
+            qty = max(int(var_qty[idx] or 0), 0)
+        except (ValueError, IndexError):
             qty = 0
         try:
-            cost = Decimal(vcost or "0")
+            cost = Decimal((var_cost[idx] if idx < len(var_cost) else "0") or "0")
         except (InvalidOperation, ValueError):
             cost = Decimal("0")
 
@@ -203,12 +271,22 @@ def _save_print(request, instance):
             variant = PrintColorVariant(print=instance)
 
         previous_qty = variant.quantity if variant.pk else 0
-        variant.color_name = vname
-        variant.color_hex = (vhex or "").strip()
+        variant.color_mode = mode
         variant.cost_price = cost
         variant.order = idx
         variant.is_default = (str(idx) == str(var_default))
         variant.save()
+
+        # M2M colors
+        if mode in (PrintColorVariant.ColorMode.SINGLE, PrintColorVariant.ColorMode.COMBO):
+            if mode == PrintColorVariant.ColorMode.SINGLE:
+                color_ids = color_ids[:1]
+            variant.colors.set(Color.objects.filter(pk__in=color_ids))
+        else:
+            variant.colors.clear()
+        # Перерахувати підпис/хекс після оновлення M2M
+        variant.sync_color_label(save=True)
+
         if qty != previous_qty:
             delta = qty - previous_qty
             try:

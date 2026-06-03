@@ -20,7 +20,7 @@
         Усі <span class="wh-chip__count">{{ total_count }}</span>
     </a>
     {% for cat in all_categories %}
-    <a href="?category={{ cat.slug }}{% if query %}&q={{ query }}{% endif %}"
+    <a href="?category={{ cat.slug }}{% if query %}&q={{ query }}{% endif %}{% if selected_placement %}&placement={{ selected_placement }}{% endif %}"
        class="wh-chip{% if selected_cat == cat.slug %} is-active{% endif %}">
         {% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}
         <span class="wh-chip__count">{{ cat.prints_count }}</span>
@@ -33,6 +33,18 @@
     </a>
     {% endif %}
 </div>
+
+{% if placement_chips %}
+<div class="wh-chip-row wh-chip-row--sub">
+    <span class="wh-chip-row__lbl">Розташування:</span>
+    <a href="?{% if selected_cat %}category={{ selected_cat }}&{% endif %}{% if query %}q={{ query }}{% endif %}"
+       class="wh-chip wh-chip--sm{% if not selected_placement %} is-active{% endif %}">Будь-яке</a>
+    {% for chip in placement_chips %}
+    <a href="?placement={{ chip.value }}{% if selected_cat %}&category={{ selected_cat }}{% endif %}{% if query %}&q={{ query }}{% endif %}"
+       class="wh-chip wh-chip--sm{% if selected_placement == chip.value %} is-active{% endif %}">{{ chip.label }}</a>
+    {% endfor %}
+</div>
+{% endif %}
 
 {% for group in groups %}
 <div class="wh-print-group">
@@ -49,15 +61,37 @@
     <div class="wh-grid wh-grid-2">
         {% for pr in group.prints %}
         <a href="{{ pr.get_absolute_url }}" class="wh-card wh-print-card">
-            {% if pr.main_image %}
-            <img src="{{ pr.main_image.url }}" alt="{{ pr.name }}"
-                 class="wh-print-card__img">
-            {% else %}
-            <div class="wh-print-card__no-img">(без фото)</div>
-            {% endif %}
+            <div class="wh-print-card__media">
+                {% if pr.main_image %}
+                <img src="{{ pr.main_image.url }}" alt="{{ pr.name }}" class="wh-print-card__img">
+                {% else %}
+                <div class="wh-print-card__no-img">(без фото)</div>
+                {% endif %}
+                {% if pr.placement %}
+                <span class="wh-print-card__placement">{{ pr.get_placement_display }}</span>
+                {% endif %}
+            </div>
             <div class="wh-print-card__title">{{ pr.name }}</div>
+            <div class="wh-print-card__chips">
+                {% for v in pr.color_variants.all %}
+                    {% if v.color_mode == 'mix' %}
+                        <span class="wh-pc-chip wh-pc-chip--mix" title="Мікс">Мікс</span>
+                    {% elif v.color_mode == 'standard' %}
+                        <span class="wh-pc-chip wh-pc-chip--std" title="Стандарт">Стд</span>
+                    {% else %}
+                        <span class="wh-pc-chip" title="{{ v.color_name }}">
+                            {% for hex in v.color_swatches %}
+                            <span class="wh-pc-dot" style="background:{{ hex }};"></span>
+                            {% endfor %}
+                        </span>
+                    {% endif %}
+                {% endfor %}
+            </div>
             <div class="wh-print-card__meta">
-                {{ pr.total_quantity }} шт · {{ pr.color_variants.count }} кольорів
+                {{ pr.total_quantity }} шт
+                {% if pr.garment_fit and pr.garment_fit != 'any' %}
+                · <span class="wh-print-card__fit wh-print-card__fit--{{ pr.garment_fit }}">{{ pr.garment_fit_label }}</span>
+                {% endif %}
             </div>
         </a>
         {% endfor %}

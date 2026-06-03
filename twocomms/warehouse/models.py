@@ -347,6 +347,20 @@ class PrintCategory(models.Model):
 class Print(models.Model):
     """Принт як окрема сутність (фото + назва, можливо різні кольори друку)."""
 
+    class Placement(models.TextChoices):
+        CHEST = "chest", "На грудь"
+        BACK = "back", "На спину"
+        SLEEVE = "sleeve", "На рукав"
+        POCKET = "pocket", "Кишеня"
+        FULL = "full", "Повний друк"
+        OTHER = "other", "Інше"
+
+    class GarmentFit(models.TextChoices):
+        ANY = "any", "Будь-яка"
+        DARK = "dark", "Під темну"
+        LIGHT = "light", "Під світлу"
+        SPECIFIC = "specific", "Тільки для кольорів"
+
     name = models.CharField(max_length=160, verbose_name="Назва")
     slug = models.SlugField(max_length=180, unique=True, blank=True)
     category = models.ForeignKey(
@@ -356,6 +370,28 @@ class Print(models.Model):
         blank=True,
         related_name="prints",
         verbose_name="Категорія",
+    )
+    placement = models.CharField(
+        max_length=16,
+        choices=Placement.choices,
+        blank=True,
+        default="",
+        verbose_name="Розташування",
+        help_text="Куди наноситься принт (грудь / спина / рукав).",
+    )
+    garment_fit = models.CharField(
+        max_length=16,
+        choices=GarmentFit.choices,
+        default=GarmentFit.ANY,
+        verbose_name="Під яку одежу",
+        help_text="Під темну / світлу або тільки під конкретні кольори.",
+    )
+    garment_colors = models.ManyToManyField(
+        "productcolors.Color",
+        blank=True,
+        related_name="prints_fit",
+        verbose_name="Кольори одягу",
+        help_text="Заповнюється, коли «Під яку одежу» = «Тільки для кольорів».",
     )
     main_image = models.ImageField(
         upload_to="warehouse/prints/", blank=True, null=True, verbose_name="Основне фото"
@@ -403,14 +439,53 @@ class Print(models.Model):
         agg = self.color_variants.aggregate(v=Sum(F("quantity") * F("cost_price")))
         return Decimal(agg["v"] or 0)
 
+    @property
+    def garment_fit_label(self) -> str:
+        """Короткий ярлик для бейджа «під яку одежу»."""
+        if self.garment_fit == self.GarmentFit.SPECIFIC:
+            names = [c.name or c.primary_hex for c in self.garment_colors.all()]
+            return ", ".join(names) if names else "Обрані кольори"
+        return self.get_garment_fit_display()
+
 
 class PrintColorVariant(models.Model):
-    """Кольоровий варіант принта (Зелений, Білий, Золотий тощо)."""
+    """Кольоровий варіант принта.
+
+    ``color_mode`` визначає логіку:
+      • single   — один конкретний колір друку (бере перший із ``colors``);
+      • combo     — поєднання кількох кольорів (усі з ``colors``);
+      • mix       — мікс (різнобарв'я, конкретні кольори не задаються);
+      • standard  — стандартний друк (без вибору кольору).
+
+    ``color_name`` / ``color_hex`` обчислюються автоматично у ``save()``.
+    """
+
+    class ColorMode(models.TextChoices):
+        SINGLE = "single", "Один колір"
+        COMBO = "combo", "Поєднання кольорів"
+        MIX = "mix", "Мікс"
+        STANDARD = "standard", "Стандарт"
 
     print = models.ForeignKey(
         Print, on_delete=models.CASCADE, related_name="color_variants", verbose_name="Принт"
     )
-    color_name = models.CharField(max_length=80, verbose_name="Назва кольору")
+    color_mode = models.CharField(
+        max_length=16,
+        choices=ColorMode.choices,
+        default=ColorMode.SINGLE,
+        verbose_name="Тип кольору",
+    )
+    colors = models.ManyToManyField(
+        "productcolors.Color",
+        blank=True,
+        related_name="print_variants",
+        verbose_name="Кольори друку",
+        help_text="Один колір для single, кілька для combo. Для mix/standard — порожньо.",
+    )
+    color_name = models.CharField(
+        max_length=120, verbose_name="Підпис кольору", blank=True,
+        help_text="Обчислюється автоматично за типом і обраними кольорами.",
+    )
     color_hex = models.CharField(
         max_length=7,
         blank=True,
@@ -431,7 +506,6 @@ class PrintColorVariant(models.Model):
 
     class Meta:
         ordering = ["order", "id"]
-        unique_together = (("print", "color_name"),)
         verbose_name = "Варіант кольору принта"
         verbose_name_plural = "Варіанти кольорів принтів"
 
@@ -444,6 +518,48 @@ class PrintColorVariant(models.Model):
                 print_id=self.print_id, is_default=True
             ).exclude(pk=self.pk).update(is_default=False)
         super().save(*args, **kwargs)
+
+    def sync_color_label(self, *, save: bool = True) -> None:
+        """Перерахувати ``color_name`` і ``color_hex`` за ``color_mode``+``colors``.
+
+        Викликати ПІСЛЯ того, як M2M ``colors`` встановлено (бо до save()
+        об'єкт ще не має pk і M2M недоступний).
+        """
+        mode = self.color_mode
+        if mode == self.ColorMode.MIX:
+            self.color_name = "Мікс"
+            self.color_hex = ""
+        elif mode == self.ColorMode.STANDARD:
+            self.color_name = "Стандарт"
+            self.color_hex = ""
+        else:
+            cols = list(self.colors.all()) if self.pk else []
+            if mode == self.ColorMode.SINGLE:
+                if cols:
+                    c = cols[0]
+                    self.color_name = c.name or c.primary_hex
+                    self.color_hex = c.primary_hex or ""
+                elif not self.color_name:
+                    self.color_name = "Колір"
+            else:  # COMBO
+                if cols:
+                    self.color_name = " + ".join((c.name or c.primary_hex) for c in cols)
+                    self.color_hex = cols[0].primary_hex or ""
+                elif not self.color_name:
+                    self.color_name = "Поєднання"
+        if save:
+            self.save(update_fields=["color_name", "color_hex", "updated_at"])
+
+    @property
+    def color_swatches(self) -> list[str]:
+        """Список hex-кольорів для індикатора (1+ для combo)."""
+        if self.color_mode in (self.ColorMode.MIX, self.ColorMode.STANDARD):
+            return []
+        if self.pk:
+            hexes = [c.primary_hex for c in self.colors.all() if c.primary_hex]
+            if hexes:
+                return hexes
+        return [self.color_hex] if self.color_hex else []
 
     @property
     def frozen_value(self) -> Decimal:

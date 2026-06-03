@@ -4,7 +4,7 @@
 {% block header_title %}{% if print %}Редагування{% else %}Новий принт{% endif %}{% endblock %}
 
 {% block content %}
-<form method="post" enctype="multipart/form-data"
+<form method="post" enctype="multipart/form-data" id="print-form"
       action="{% if print %}{% url 'warehouse:print_edit' slug=print.slug %}{% else %}{% url 'warehouse:print_create' %}{% endif %}">
     {% csrf_token %}
 
@@ -14,21 +14,34 @@
                value="{{ print.name|default:'' }}" placeholder="напр. «Сабли»">
     </div>
 
-    <div class="form-field">
-        <label for="category_id">Категорія</label>
-        <select name="category_id" id="category_id">
-            <option value="">— без категорії —</option>
-            {% for cat in print_categories %}
-            <option value="{{ cat.id }}"
-                    {% if print and print.category_id == cat.id %}selected{% endif %}>
-                {% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}
-            </option>
-            {% endfor %}
-        </select>
-        <span class="form-help">
-            Опціонально. <a href="{% url 'warehouse:settings_print_categories' %}" target="_blank">
-            Керувати категоріями</a>.
-        </span>
+    <div class="wh-grid wh-grid-2">
+        <div class="form-field">
+            <label for="category_id">Категорія</label>
+            <select name="category_id" id="category_id">
+                <option value="">— без категорії —</option>
+                {% for cat in print_categories %}
+                <option value="{{ cat.id }}"
+                        {% if print and print.category_id == cat.id %}selected{% endif %}>
+                    {% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}
+                </option>
+                {% endfor %}
+            </select>
+            <span class="form-help">
+                <a href="{% url 'warehouse:settings_print_categories' %}" target="_blank">Керувати</a>
+                (брендові, 225, поліцейські…)
+            </span>
+        </div>
+
+        <div class="form-field">
+            <label>Розташування</label>
+            <div class="wh-seg" data-seg="placement">
+                <input type="hidden" name="placement" id="placement-input" value="{{ print.placement|default:'' }}">
+                <button type="button" class="wh-seg__btn{% if not print.placement %} is-active{% endif %}" data-val="">—</button>
+                {% for value, label in placement_choices %}
+                <button type="button" class="wh-seg__btn{% if print.placement == value %} is-active{% endif %}" data-val="{{ value }}">{{ label }}</button>
+                {% endfor %}
+            </div>
+        </div>
     </div>
 
     <div class="form-field">
@@ -39,33 +52,81 @@
         {% endif %}
     </div>
 
+    {# ---------- Під яку одежу ---------- #}
+    <h3 class="wh-section-title">Під яку одежу підходить</h3>
     <div class="form-field">
-        <label for="description">Опис</label>
-        <textarea id="description" name="description" rows="3">{{ print.description|default:'' }}</textarea>
+        <div class="wh-seg" data-seg="garment_fit">
+            <input type="hidden" name="garment_fit" id="garment-fit-input" value="{{ print.garment_fit|default:'any' }}">
+            {% for value, label in garment_fit_choices %}
+            <button type="button" class="wh-seg__btn{% if print.garment_fit == value or not print and value == 'any' %} is-active{% endif %}" data-val="{{ value }}">{{ label }}</button>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="form-field" id="garment-colors-field" hidden>
+        <label>Кольори одягу (оберіть один або кілька)</label>
+        <div class="wh-color-grid">
+            {% for c in all_colors %}
+            <label class="wh-color-pill">
+                <input type="checkbox" name="garment_colors[]" value="{{ c.id }}"
+                       {% if c.id in selected_garment_color_ids %}checked{% endif %}>
+                <span class="wh-color-pill__swatch"
+                      style="background:{{ c.primary_hex }};{% if c.secondary_hex %}background:linear-gradient(135deg,{{ c.primary_hex }} 50%,{{ c.secondary_hex }} 50%);{% endif %}"></span>
+                <span class="wh-color-pill__label">{{ c.name|default:c.primary_hex }}</span>
+            </label>
+            {% endfor %}
+        </div>
     </div>
 
     <div class="form-field">
-        <label>
+        <label for="description">Опис</label>
+        <textarea id="description" name="description" rows="2">{{ print.description|default:'' }}</textarea>
+    </div>
+
+    <div class="form-field">
+        <label class="wh-check-row">
             <input type="checkbox" name="is_active" {% if not print or print.is_active %}checked{% endif %}>
             Активний (відображається на складі)
         </label>
     </div>
 
-    <h3 class="wh-section-title">Варіанти кольорів</h3>
+    {# ---------- Варіанти кольорів друку ---------- #}
+    <h3 class="wh-section-title">Варіанти кольору друку</h3>
+    <p class="text-small text-muted mb-12">
+        Для кожного варіанту оберіть тип: <b>Мікс</b> чи <b>Стандарт</b> —
+        без вибору кольору; <b>Один колір</b> — оберіть один; <b>Поєднання</b> —
+        кілька кольорів.
+    </p>
     <div id="variant-rows">
         {% for v in variants %}
         <div class="wh-card variant-row" data-index="{{ forloop.counter0 }}">
             <input type="hidden" name="variant_id[]" value="{{ v.id }}">
-            <div class="wh-grid wh-grid-2">
-                <div class="form-field">
-                    <label>Назва кольору</label>
-                    <input type="text" name="variant_color_name[]" value="{{ v.color_name }}" required>
-                </div>
-                <div class="form-field">
-                    <label>HEX (опц.)</label>
-                    <input type="text" name="variant_color_hex[]" value="{{ v.color_hex }}" placeholder="#0ABF52">
+            <input type="hidden" name="variant_color_mode[]" class="variant-mode-input" value="{{ v.color_mode }}">
+            <input type="hidden" name="variant_colors[]" class="variant-colors-input" value="{{ v.selected_color_ids|join:',' }}">
+
+            <div class="variant-row__head">
+                <span class="variant-row__label" data-variant-label>{{ v.color_name }}</span>
+                <button type="button" class="variant-remove" aria-label="Прибрати">✕</button>
+            </div>
+
+            <div class="wh-seg wh-seg--modes" data-seg="mode">
+                {% for value, label in color_mode_choices %}
+                <button type="button" class="wh-seg__btn{% if v.color_mode == value %} is-active{% endif %}" data-val="{{ value }}">{{ label }}</button>
+                {% endfor %}
+            </div>
+
+            <div class="variant-colors-picker"{% if v.color_mode == 'mix' or v.color_mode == 'standard' %} hidden{% endif %}>
+                <div class="wh-color-grid wh-color-grid--compact">
+                    {% for c in all_colors %}
+                    <label class="wh-color-pill">
+                        <input type="checkbox" value="{{ c.id }}" {% if c.id in v.selected_color_ids %}checked{% endif %}>
+                        <span class="wh-color-pill__swatch"
+                              style="background:{{ c.primary_hex }};{% if c.secondary_hex %}background:linear-gradient(135deg,{{ c.primary_hex }} 50%,{{ c.secondary_hex }} 50%);{% endif %}"></span>
+                        <span class="wh-color-pill__label">{{ c.name|default:c.primary_hex }}</span>
+                    </label>
+                    {% endfor %}
                 </div>
             </div>
+
             <div class="wh-grid wh-grid-2">
                 <div class="form-field">
                     <label>Кількість</label>
@@ -76,23 +137,19 @@
                     <input type="number" name="variant_cost[]" min="0" step="0.01" value="{{ v.cost_price }}">
                 </div>
             </div>
-            <div class="form-field">
-                <label>
-                    <input type="radio" name="variant_default" value="{{ forloop.counter0 }}" {% if v.is_default %}checked{% endif %}>
-                    За замовчуванням
-                </label>
-            </div>
-            <button type="button" class="btn btn--ghost btn--small variant-remove">Прибрати</button>
+            <label class="wh-check-row">
+                <input type="radio" name="variant_default" value="{{ forloop.counter0 }}" {% if v.is_default %}checked{% endif %}>
+                За замовчуванням
+            </label>
         </div>
         {% endfor %}
     </div>
     <button type="button" class="btn btn--ghost btn--block mt-12" id="add-variant">+ Додати варіант</button>
 
+    {# ---------- Прив'язка товарів ---------- #}
     <h3 class="wh-section-title">Пропонувати для товарів сайту</h3>
     <p class="text-small text-muted mb-12">
-        Оберіть товари, для яких цей принт буде підставлятися
-        автоматично при списанні. Можна обирати в кілька кліків —
-        прокрутіть список або скористайтесь пошуком.
+        Оберіть товари, для яких цей принт підставлятиметься автоматично при списанні.
     </p>
 
     <div class="wh-product-picker" id="product-picker">
@@ -164,16 +221,34 @@
 <template id="variant-template">
     <div class="wh-card variant-row">
         <input type="hidden" name="variant_id[]" value="">
-        <div class="wh-grid wh-grid-2">
-            <div class="form-field">
-                <label>Назва кольору</label>
-                <input type="text" name="variant_color_name[]" required>
-            </div>
-            <div class="form-field">
-                <label>HEX (опц.)</label>
-                <input type="text" name="variant_color_hex[]" placeholder="#0ABF52">
+        <input type="hidden" name="variant_color_mode[]" class="variant-mode-input" value="single">
+        <input type="hidden" name="variant_colors[]" class="variant-colors-input" value="">
+
+        <div class="variant-row__head">
+            <span class="variant-row__label" data-variant-label>Новий варіант</span>
+            <button type="button" class="variant-remove" aria-label="Прибрати">✕</button>
+        </div>
+
+        <div class="wh-seg wh-seg--modes" data-seg="mode">
+            <button type="button" class="wh-seg__btn is-active" data-val="single">Один колір</button>
+            <button type="button" class="wh-seg__btn" data-val="combo">Поєднання кольорів</button>
+            <button type="button" class="wh-seg__btn" data-val="mix">Мікс</button>
+            <button type="button" class="wh-seg__btn" data-val="standard">Стандарт</button>
+        </div>
+
+        <div class="variant-colors-picker">
+            <div class="wh-color-grid wh-color-grid--compact">
+                {% for c in all_colors %}
+                <label class="wh-color-pill">
+                    <input type="checkbox" value="{{ c.id }}">
+                    <span class="wh-color-pill__swatch"
+                          style="background:{{ c.primary_hex }};{% if c.secondary_hex %}background:linear-gradient(135deg,{{ c.primary_hex }} 50%,{{ c.secondary_hex }} 50%);{% endif %}"></span>
+                    <span class="wh-color-pill__label">{{ c.name|default:c.primary_hex }}</span>
+                </label>
+                {% endfor %}
             </div>
         </div>
+
         <div class="wh-grid wh-grid-2">
             <div class="form-field">
                 <label>Кількість</label>
@@ -184,121 +259,14 @@
                 <input type="number" name="variant_cost[]" min="0" step="0.01" value="0">
             </div>
         </div>
-        <div class="form-field">
-            <label>
-                <input type="radio" name="variant_default" value="">
-                За замовчуванням
-            </label>
-        </div>
-        <button type="button" class="btn btn--ghost btn--small variant-remove">Прибрати</button>
+        <label class="wh-check-row">
+            <input type="radio" name="variant_default" value="">
+            За замовчуванням
+        </label>
     </div>
 </template>
 {% endblock %}
 
 {% block extra_scripts %}
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const container = document.getElementById('variant-rows');
-        const tpl = document.getElementById('variant-template');
-        const addBtn = document.getElementById('add-variant');
-
-        function nextIndex() {
-            return container.querySelectorAll('.variant-row').length;
-        }
-        addBtn.addEventListener('click', function () {
-            const idx = nextIndex();
-            const clone = tpl.content.cloneNode(true);
-            const radio = clone.querySelector('input[type=radio]');
-            if (radio) radio.value = idx;
-            const row = clone.querySelector('.variant-row');
-            if (row) row.dataset.index = idx;
-            container.appendChild(clone);
-        });
-        container.addEventListener('click', function (e) {
-            if (e.target.classList.contains('variant-remove')) {
-                e.target.closest('.variant-row').remove();
-            }
-        });
-
-        // ---------- Product picker (checkboxes) ----------
-        const picker = document.getElementById('product-picker');
-        if (!picker) return;
-        const search = document.getElementById('pp-search');
-        const counter = document.getElementById('pp-counter');
-        const allBtn = document.getElementById('pp-all');
-        const clearBtn = document.getElementById('pp-clear');
-        const onlySelectedBtn = document.getElementById('pp-only-selected');
-        const emptyHint = document.getElementById('pp-empty');
-        let onlySelected = false;
-
-        function checkboxes() {
-            return picker.querySelectorAll('.wh-pp-card input[type="checkbox"]');
-        }
-        function cards() {
-            return picker.querySelectorAll('.wh-pp-card');
-        }
-        function refreshCounter() {
-            const total = cards().length;
-            let checked = 0;
-            checkboxes().forEach(function (i) { if (i.checked) checked += 1; });
-            counter.textContent = checked + ' / ' + total;
-            counter.classList.toggle('is-selected', checked > 0);
-        }
-        function applyFilter() {
-            const q = (search.value || '').trim().toLowerCase();
-            let visibleAny = false;
-            picker.querySelectorAll('.wh-pp-group').forEach(function (group) {
-                let groupVisible = 0;
-                group.querySelectorAll('.wh-pp-card').forEach(function (card) {
-                    const name = card.getAttribute('data-name') || '';
-                    const isChecked = card.querySelector('input').checked;
-                    const matchesQuery = !q || name.includes(q);
-                    const matchesFilter = !onlySelected || isChecked;
-                    const visible = matchesQuery && matchesFilter;
-                    card.style.display = visible ? '' : 'none';
-                    if (visible) { groupVisible += 1; visibleAny = true; }
-                });
-                const countEl = group.querySelector('[data-group-count]');
-                if (countEl) countEl.textContent = groupVisible;
-                group.style.display = groupVisible > 0 ? '' : 'none';
-            });
-            emptyHint.hidden = visibleAny;
-        }
-
-        if (search) {
-            search.addEventListener('input', applyFilter);
-        }
-        if (allBtn) allBtn.addEventListener('click', function () {
-            cards().forEach(function (card) {
-                if (card.style.display !== 'none') {
-                    card.querySelector('input').checked = true;
-                }
-            });
-            refreshCounter();
-        });
-        if (clearBtn) clearBtn.addEventListener('click', function () {
-            cards().forEach(function (card) {
-                if (card.style.display !== 'none') {
-                    card.querySelector('input').checked = false;
-                }
-            });
-            refreshCounter();
-        });
-        if (onlySelectedBtn) onlySelectedBtn.addEventListener('click', function () {
-            onlySelected = !onlySelected;
-            onlySelectedBtn.classList.toggle('is-active', onlySelected);
-            onlySelectedBtn.textContent = onlySelected ? 'Показати всі' : 'Показати обрані';
-            applyFilter();
-        });
-
-        picker.addEventListener('change', function (e) {
-            if (e.target && e.target.matches('.wh-pp-card input[type="checkbox"]')) {
-                refreshCounter();
-            }
-        });
-
-        refreshCounter();
-        applyFilter();
-    });
-</script>
+<script src="{% static 'warehouse/js/print-form.js' %}" defer></script>
 {% endblock %}

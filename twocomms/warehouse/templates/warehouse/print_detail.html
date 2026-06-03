@@ -23,11 +23,21 @@
     </div>
 </div>
 
+<div class="wh-print-meta">
+    {% if print.category %}<span class="wh-badge wh-badge--accent">{% if print.category.icon %}{{ print.category.icon }} {% endif %}{{ print.category.name }}</span>{% endif %}
+    {% if print.placement %}<span class="wh-badge">📍 {{ print.get_placement_display }}</span>{% endif %}
+    {% if print.garment_fit and print.garment_fit != 'any' %}<span class="wh-badge wh-badge--{% if print.garment_fit == 'dark' %}dark{% elif print.garment_fit == 'light' %}light{% else %}accent{% endif %}">👕 {{ print.garment_fit_label }}</span>{% endif %}
+</div>
+
 <h2 class="wh-section-title">Варіанти кольорів</h2>
 <div class="wh-list">
     {% for v in variants %}
     <div class="wh-list__item" data-variant-id="{{ v.id }}">
-        <span class="wh-color-dot" style="background:{{ v.color_hex|default:'#888' }};"></span>
+        <span class="wh-print-swatch wh-print-swatch--{{ v.color_mode }}">
+            {% if v.color_mode == 'mix' %}🌈
+            {% elif v.color_mode == 'standard' %}◼
+            {% else %}{% for hex in v.color_swatches %}<span class="wh-pc-dot" style="background:{{ hex }};"></span>{% endfor %}{% endif %}
+        </span>
         <div class="wh-list__body">
             <div class="wh-list__title">{{ v.color_name }}{% if v.is_default %} <span class="wh-badge wh-badge--accent">default</span>{% endif %}</div>
             <div class="wh-list__meta">{{ v.quantity }} шт · {{ v.cost_price|floatformat:0 }} ₴/шт</div>
@@ -47,6 +57,18 @@
     </div>
     {% endfor %}
 </div>
+
+{% if print.garment_fit == 'specific' and print.garment_colors.all %}
+<h2 class="wh-section-title">Підходить під кольори одягу</h2>
+<div class="wh-subcat-block__colors">
+    {% for c in print.garment_colors.all %}
+    <span class="wh-subcat-color-pill">
+        <span class="wh-subcat-color-pill__swatch" style="background:{{ c.primary_hex }};{% if c.secondary_hex %}background:linear-gradient(135deg,{{ c.primary_hex }} 50%,{{ c.secondary_hex }} 50%);{% endif %}"></span>
+        {{ c.name|default:c.primary_hex }}
+    </span>
+    {% endfor %}
+</div>
+{% endif %}
 
 {% if print.default_products.all %}
 <h2 class="wh-section-title">Пропонується для товарів</h2>
