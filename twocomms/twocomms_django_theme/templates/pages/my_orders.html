@@ -94,482 +94,513 @@
   .myo-seg { margin-top:14px; }
   .myo-stage { font-size:.74rem; }
 }
+
+/* ===== Card layout (client orders) ===== */
+.myo-page { --c-line:rgba(148,163,184,.16); --c-line-2:rgba(148,163,184,.28);
+  --c-surface:rgba(17,26,40,.6); --c-surface-2:rgba(8,14,23,.5); --c-text:#f1f5f9; --c-muted:#9aa6b8; --c-accent:#8b5cf6;
+  --m-blue:#3b82f6; --m-amber:#f59e0b; --m-violet:#8b5cf6; --m-green:#22c55e; --m-red:#fb7185;
+  max-width:880px; margin:0 auto; padding:6px 0 64px; }
+.myo-page * { box-sizing:border-box; }
+.myo-page-head { display:flex; align-items:center; gap:14px; padding:0 16px; margin-bottom:18px; }
+.myo-page-head__icon { width:48px; height:48px; flex:0 0 auto; border-radius:14px; display:grid; place-items:center;
+  color:#fff; background:linear-gradient(135deg,#8b5cf6,#6366f1); box-shadow:0 10px 26px rgba(139,92,246,.34); }
+.myo-page-head__title { margin:0; font-size:1.5rem; font-weight:800; color:var(--c-text); letter-spacing:-.01em; }
+.myo-page-head__sub { margin:3px 0 0; font-size:.9rem; color:var(--c-muted); }
+
+.myo-list { display:flex; flex-direction:column; gap:18px; padding:0 16px; }
+.myo-card { position:relative; overflow:hidden; border-radius:20px; border:1px solid var(--c-line);
+  background:linear-gradient(180deg, rgba(17,26,40,.85), rgba(10,16,26,.9));
+  box-shadow:0 18px 50px rgba(2,8,23,.3); border-left:3px solid var(--c-line-2); }
+.myo-card[data-status="new"]  { border-left-color:var(--m-blue); }
+.myo-card[data-status="prep"] { border-left-color:var(--m-amber); }
+.myo-card[data-status="ship"] { border-left-color:var(--m-violet); }
+.myo-card[data-status="done"] { border-left-color:var(--m-green); }
+.myo-card[data-status="cancelled"] { border-left-color:var(--m-red); }
+.myo-card__pad { padding:16px 18px; }
+
+/* head */
+.myo-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.myo-num { display:inline-flex; align-items:center; gap:8px; padding:7px 13px; border-radius:11px; cursor:pointer;
+  background:var(--c-surface-2); border:1px solid var(--c-line-2); color:var(--c-text); font-weight:800; font-size:.95rem;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace; transition:border-color .15s ease, color .15s ease; }
+.myo-num:hover { border-color:var(--c-accent); color:#fff; }
+.myo-num svg { opacity:.55; }
+.myo-pill { display:inline-flex; align-items:center; gap:5px; padding:4px 11px; border-radius:999px; font-size:.74rem; font-weight:800; }
+.myo-pill--paid    { color:#86efac; background:rgba(34,197,94,.16); }
+.myo-pill--prepaid { color:#fcd34d; background:rgba(245,158,11,.16); }
+.myo-pill--checking{ color:#93c5fd; background:rgba(59,130,246,.16); }
+.myo-pill--unpaid  { color:#cbd5e1; background:rgba(148,163,184,.16); }
+.myo-head__spacer { margin-left:auto; }
+.myo-date { display:inline-flex; align-items:center; gap:6px; color:var(--c-muted); font-size:.82rem; white-space:nowrap; }
+.myo-points { display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:999px; font-size:.78rem; font-weight:700;
+  color:#fde68a; background:rgba(251,191,36,.13); border:1px solid rgba(251,191,36,.24); }
+.myo-points.is-earned { color:#86efac; background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.26); }
+.myo-points svg { width:13px; height:13px; }
+
+/* info banner (new) */
+.myo-banner { display:flex; gap:11px; margin-top:14px; padding:12px 15px; border-radius:14px;
+  background:linear-gradient(135deg, rgba(139,92,246,.13), rgba(99,102,241,.06)); border:1px solid rgba(139,92,246,.26); }
+.myo-banner svg { flex:0 0 auto; color:#c4b5fd; margin-top:1px; }
+.myo-banner__title { font-weight:700; color:var(--c-text); font-size:.92rem; }
+.myo-banner__text { font-size:.84rem; color:var(--c-muted); line-height:1.45; margin-top:2px; }
+.myo-banner__text strong { color:#c4b5fd; }
+
+/* shipping / tracking block */
+.myo-ship { margin-top:14px; padding:14px 15px; border-radius:14px; background:var(--c-surface-2); border:1px solid var(--c-line); }
+.myo-ship__row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.myo-ship__ttn { display:inline-flex; align-items:center; gap:8px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-weight:700; color:var(--c-text); font-size:.92rem; }
+.myo-ship__ttn svg { color:var(--c-accent); flex:0 0 auto; }
+.myo-ship__pending { color:var(--m-amber); font-weight:600; font-size:.88rem; display:inline-flex; align-items:center; gap:8px; }
+.myo-ship__pending svg { color:var(--m-amber); }
+.myo-ship__track { margin-left:auto; display:inline-flex; align-items:center; gap:7px; padding:8px 15px; border-radius:11px;
+  font-size:.84rem; font-weight:700; text-decoration:none; color:#0b1220;
+  background:linear-gradient(135deg,#f97316,#fb923c); box-shadow:0 8px 20px rgba(249,115,22,.28); transition:transform .15s ease; }
+.myo-ship__track:hover { transform:translateY(-1px); color:#0b1220; }
+.myo-ship__status { display:inline-flex; align-items:center; gap:8px; margin-top:10px; padding:7px 12px; border-radius:10px;
+  background:rgba(56,189,248,.1); border:1px solid rgba(56,189,248,.24); color:#bae6fd; font-size:.84rem; }
+.myo-ship__status .dot { width:8px; height:8px; border-radius:50%; background:#38bdf8; flex:0 0 auto;
+  animation:myo-pulse-np 2s ease-in-out infinite; }
+@keyframes myo-pulse-np { 0%,100% { box-shadow:0 0 0 0 rgba(56,189,248,.5); } 50% { box-shadow:0 0 0 6px rgba(56,189,248,0); } }
+
+/* delivery facts */
+.myo-facts { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px; }
+.myo-fact { display:flex; align-items:flex-start; gap:9px; padding:11px 13px; border-radius:12px; background:var(--c-surface-2); border:1px solid var(--c-line); }
+.myo-fact svg { flex:0 0 auto; color:var(--c-accent); margin-top:1px; }
+.myo-fact__label { font-size:.72rem; color:var(--c-muted); text-transform:uppercase; letter-spacing:.04em; }
+.myo-fact__value { font-size:.88rem; color:var(--c-text); font-weight:600; word-break:break-word; margin-top:2px; }
+
+/* goods */
+.myo-goods { margin-top:16px; }
+.myo-goods__head { display:flex; align-items:center; gap:8px; font-size:.74rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:.05em; color:var(--c-muted); margin-bottom:10px; }
+.myo-goods__head svg { color:var(--c-accent); }
+.myo-good { display:flex; align-items:center; gap:12px; padding:10px; border-radius:12px; background:var(--c-surface-2); border:1px solid var(--c-line); }
+.myo-good + .myo-good { margin-top:8px; }
+.myo-good__img { width:54px; height:54px; flex:0 0 auto; border-radius:10px; object-fit:cover; background:rgba(148,163,184,.12); }
+.myo-good__ph { display:grid; place-items:center; color:var(--c-muted); }
+.myo-good__main { flex:1 1 auto; min-width:0; }
+.myo-good__title { font-size:.9rem; font-weight:700; color:var(--c-text); }
+.myo-good__specs { display:flex; flex-wrap:wrap; gap:6px; margin-top:5px; align-items:center; }
+.myo-chip { font-size:.74rem; color:var(--c-muted); background:rgba(148,163,184,.1); border-radius:999px; padding:2px 9px; display:inline-flex; align-items:center; gap:5px; }
+.myo-swatch { width:12px; height:12px; border-radius:50%; display:inline-block; border:1px solid rgba(255,255,255,.25);
+  background:var(--primary-color,#888); }
+.myo-swatch[data-secondary]:not([data-secondary=""]) { background:linear-gradient(90deg,var(--primary-color) 50%, var(--secondary-color) 50%); }
+.myo-good__price { text-align:right; flex:0 0 auto; }
+.myo-good__line { font-size:.95rem; font-weight:800; color:var(--c-text); }
+.myo-good__unit { font-size:.74rem; color:var(--c-muted); }
+
+/* payment + total */
+.myo-pay { margin-top:16px; padding:14px 15px; border-radius:14px; background:var(--c-surface-2); border:1px solid var(--c-line); }
+.myo-pay__row { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.myo-pay__method { display:flex; align-items:center; gap:9px; }
+.myo-pay__method-icon { width:34px; height:34px; flex:0 0 auto; border-radius:10px; display:grid; place-items:center; color:var(--c-accent); background:rgba(139,92,246,.14); }
+.myo-pay__method-label { font-size:.72rem; color:var(--c-muted); text-transform:uppercase; letter-spacing:.04em; }
+.myo-pay__method-name { display:flex; align-items:center; gap:6px; font-size:.9rem; font-weight:700; color:var(--c-text); }
+.edit-method-btn { all:unset; cursor:pointer; color:var(--c-muted); display:inline-flex; padding:3px; border-radius:6px; transition:color .15s ease; }
+.edit-method-btn:hover { color:var(--c-accent); }
+.payment-status { font-size:.82rem; font-weight:700; }
+.payment-status .status-paid, .payment-status.status-paid, .payment-status span.status-paid { color:#86efac; }
+.payment-status .status-partial, .payment-status.status-partial { color:#fcd34d; }
+.payment-status .status-checking, .payment-status.status-checking { color:#93c5fd; }
+.payment-status .status-unpaid, .payment-status.status-unpaid { color:#cbd5e1; }
+.myo-promo { display:inline-flex; align-items:center; gap:6px; margin-top:10px; font-size:.82rem; color:#f9a8d4; }
+.myo-promo svg { color:#f472b6; }
+.myo-total { display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-top:12px; padding-top:12px; border-top:1px solid var(--c-line); }
+.myo-total__label { font-size:.85rem; color:var(--c-muted); }
+.myo-total__val { font-size:1.5rem; font-weight:900; color:var(--c-text); }
+.myo-total__val span { font-size:.9rem; font-weight:600; color:var(--c-muted); }
+
+/* payment editor (kept structure for JS) */
+.payment-method-editor { margin-top:12px; padding:12px 14px; border-radius:12px; background:rgba(8,14,23,.7); border:1px solid var(--c-line-2); }
+.payment-method-editor .editor-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.payment-method-editor .editor-title { font-size:.85rem; font-weight:700; color:var(--c-text); }
+.payment-method-editor .close-editor-btn { all:unset; cursor:pointer; color:var(--c-muted); }
+.payment-method-editor .editor-options { display:flex; flex-direction:column; gap:8px; }
+.payment-method-editor .option-item { display:flex; align-items:center; gap:9px; cursor:pointer; color:var(--c-text); font-size:.88rem; }
+.payment-method-editor .option-label { display:inline-flex; align-items:center; gap:7px; }
+.payment-method-editor .editor-actions { margin-top:10px; }
+.payment-method-editor .save-method-btn { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; border-radius:10px; cursor:pointer;
+  border:0; font-size:.84rem; font-weight:700; color:#04240f; background:linear-gradient(135deg,#22c55e,#16a34a); }
+
+/* action buttons */
+.myo-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+.myo-btn { flex:1 1 180px; display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px 18px;
+  border-radius:12px; font-size:.9rem; font-weight:700; cursor:pointer; text-decoration:none; border:1px solid transparent; transition:transform .15s ease, box-shadow .15s ease, background .15s ease; }
+.myo-btn:hover { transform:translateY(-1px); }
+.myo-btn--pay { color:#0b1220; background:linear-gradient(135deg,#f97316,#fb923c); box-shadow:0 10px 24px rgba(249,115,22,.3); border:0; }
+.myo-btn--tg { color:#fff; background:linear-gradient(135deg,#2aabee,#229ed9); box-shadow:0 10px 24px rgba(34,158,217,.28); }
+.myo-btn--tg:hover { color:#fff; }
+.myo-btn--call { color:var(--c-text); background:rgba(148,163,184,.12); border:1px solid var(--c-line-2); }
+.myo-btn--ghost { color:var(--c-text); background:rgba(139,92,246,.14); border:1px solid rgba(139,92,246,.3); }
+.payment-btn { /* legacy class kept for JS; visually a pay button */
+  flex:1 1 180px; display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:12px 18px; border-radius:12px;
+  font-size:.9rem; font-weight:700; cursor:pointer; border:0; color:#0b1220; background:linear-gradient(135deg,#f97316,#fb923c);
+  box-shadow:0 10px 24px rgba(249,115,22,.3); transition:transform .15s ease; }
+.payment-btn:hover { transform:translateY(-1px); }
+
+/* empty */
+.myo-empty { display:flex; flex-direction:column; align-items:center; gap:14px; padding:56px 20px; text-align:center; color:var(--c-muted); }
+.myo-empty svg { opacity:.4; }
+.myo-empty h2 { margin:0; font-size:1.15rem; color:var(--c-text); }
+.myo-empty p { margin:0; font-size:.92rem; }
+.myo-empty a { display:inline-flex; align-items:center; gap:8px; margin-top:6px; padding:11px 22px; border-radius:12px; text-decoration:none;
+  font-weight:700; color:#0b1220; background:linear-gradient(135deg,#f97316,#fb923c); }
+
+@media (max-width:600px) {
+  .myo-facts { grid-template-columns:1fr; }
+  .myo-ship__track { margin-left:0; width:100%; justify-content:center; }
+  .myo-good { flex-wrap:wrap; }
+  .myo-good__price { text-align:left; width:100%; display:flex; gap:14px; align-items:baseline; }
+  .myo-pay__row { gap:10px; }
+}
 </style>
-<div class="orders-page">
-  <!-- Заголовок страницы -->
-  <div class="orders-header">
-    <div class="orders-header-content">
-      <div class="orders-header-icon">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
-        </svg>
-      </div>
-      <div class="orders-header-text">
-        <h1 class="orders-title">{% trans 'Мої замовлення' %}</h1>
-        <p class="orders-subtitle">{% trans 'Відстежуйте статус ваших замовлень' %}</p>
-      </div>
+<div class="orders-page myo-page">
+  <!-- Заголовок -->
+  <div class="myo-page-head">
+    <div class="myo-page-head__icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+    </div>
+    <div>
+      <h1 class="myo-page-head__title">{% trans 'Мої замовлення' %}</h1>
+      <p class="myo-page-head__sub">{% trans 'Відстежуйте статус та керуйте замовленнями' %}</p>
     </div>
   </div>
 
-  <!-- Список заказов -->
-  <div class="orders-container">
+  <div class="myo-list">
     {% for o in orders %}
-      <div class="order-card" data-order-id="{{ o.id }}">
-        <!-- Анимация искр -->
-        <div class="order-sparks">
-          <div class="order-spark order-spark-1"></div>
-          <div class="order-spark order-spark-2"></div>
-          <div class="order-spark order-spark-3"></div>
-        </div>
-        
-        <!-- Заголовок заказа -->
-        <div class="order-header">
-          <div class="order-header-row">
-            <div class="order-number-container">
-              <button class="order-number-btn" onclick="copyOrderNumber('{{ o.order_number }}')" data-order-number="{{ o.order_number }}">
-                <div class="order-number-glow"></div>
-                <div class="order-number-content">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                  </svg>
-                  <span class="order-number-text">#{{ o.order_number }}</span>
-                  <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
-                  </svg>
-                </div>
-              </button>
-            </div>
-            
-            <div class="order-points-card">
-              <div class="points-card-content">
-                {% if o.status == 'done' %}
-                  <div class="points-status earned">
-                    <div class="points-amount">
-                      <span>+{{ o.total_points|default:0 }}</span>
-                      <div class="points-card-icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                        </svg>
-                      </div>
-                    </div>
-                    <div class="points-label">{% trans 'Отримано' %}</div>
-                  </div>
-                {% else %}
-                  <div class="points-status pending">
-                    <div class="points-amount">
-                      <span>{{ o.total_points|default:0 }}</span>
-                      <div class="points-card-icon">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                        </svg>
-                      </div>
-                    </div>
-                    <div class="points-label">{% trans 'Очікується' %}</div>
-                  </div>
-                {% endif %}
-              </div>
-            </div>
-            
-            <div class="order-date-card">
-              <div class="date-card-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
-                </svg>
-              </div>
-              <div class="date-card-content">
-                <div class="date-label">{% trans 'Оформлено' %}</div>
-                <div class="date-value">{{ o.created|date:"d.m.Y" }} {% trans 'о' %} {{ o.created|date:"H:i" }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
+      <article class="myo-card" data-order-id="{{ o.id }}" data-status="{{ o.status }}">
+        <div class="myo-card__pad">
 
-        {% if o.status == 'new' %}
-        <div class="featured-unified-block" style="margin:12px 16px 0 16px;">
-          <div class="featured-content-unified" style="display:flex;align-items:flex-start;gap:12px;">
-            <span class="featured-badge-compact" title="{% trans 'Важливо' %}" aria-hidden="true" style="flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
-              </svg>
-            </span>
-            <div>
-              <div class="featured-title-compact">{% trans 'Ваше замовлення в обробці' %}</div>
-              <div class="featured-subtitle-compact">{% trans "Очікуйте: з вами зв'яжеться менеджер для підтвердження деталей. Або ви можете <strong>оплатити прямо зараз</strong> — так ми відправимо швидше." %}</div>
-            </div>
-          </div>
-        </div>
-        {% endif %}
-
-        <!-- Компактная информация о доставке -->
-        <div class="order-delivery-compact">
-          <div class="delivery-compact-item">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-            </svg>
-            <span>{{ o.city }}, {{ o.np_office }}</span>
-          </div>
-          <div class="delivery-compact-item">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
-            </svg>
-            <span>{{ o.phone }}</span>
-          </div>
-          <div class="delivery-compact-item">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H4v-4h11v4zm0-5H4V9h11v4zm5 5h-4V9h4v9z"/>
-            </svg>
-            <span class="ttn-info">
-              {% if o.tracking_number %}
-                {{ o.tracking_number }}
-              {% else %}
-                <span class="ttn-pending">{% trans 'ТТН очікується' %}</span>
-              {% endif %}
-            </span>
-          </div>
-          {% if o.tracking_number and o.shipment_status %}
-          <div class="delivery-compact-item shipment-status-item">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-            <span class="shipment-status" title="{% blocktrans with status=o.shipment_status %}Статус посилки: {{ status }}{% endblocktrans %}">
-              📦 {{ o.shipment_status|truncatechars:30 }}
-            </span>
-          </div>
-          {% endif %}
-          
-          <!-- Кнопка подтверждения Telegram для получения уведомлений -->
-          {% if not user.userprofile.telegram_id %}
-          <div class="delivery-compact-item telegram-notification-item">
-            <button type="button" class="btn btn-primary btn-sm telegram-notification-btn"
-                    data-tg-link-trigger data-tg-purpose="profile_link">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.14 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06-.01.13-.02.2z"/>
-              </svg>
-              📱 {% trans 'Отримувати сповіщення' %}
+          <!-- Head -->
+          <div class="myo-head">
+            <button type="button" class="myo-num" onclick="copyOrderNumber('{{ o.order_number }}')" data-order-number="{{ o.order_number }}" title="{% trans 'Скопіювати номер' %}">
+              #{{ o.order_number }}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
             </button>
+            {% if o.payment_status == 'paid' %}
+              <span class="myo-pill myo-pill--paid">{% trans 'Оплачено' %}</span>
+            {% elif o.payment_status == 'prepaid' or o.payment_status == 'partial' %}
+              <span class="myo-pill myo-pill--prepaid">{% trans 'Передплата' %}</span>
+            {% elif o.payment_status == 'checking' %}
+              <span class="myo-pill myo-pill--checking">{% trans 'На перевірці' %}</span>
+            {% else %}
+              <span class="myo-pill myo-pill--unpaid">{% trans 'Не оплачено' %}</span>
+            {% endif %}
+            <span class="myo-head__spacer"></span>
+            {% if o.total_points %}
+              <span class="myo-points {% if o.status == 'done' %}is-earned{% endif %}">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                {% if o.status == 'done' %}+{{ o.total_points }} {% trans 'балів' %}{% else %}{{ o.total_points }} {% trans 'балів очікується' %}{% endif %}
+              </span>
+            {% endif %}
+            <span class="myo-date">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
+              {{ o.created|date:"d.m.Y H:i" }}
+            </span>
+          </div>
+
+          <!-- Banner for new -->
+          {% if o.status == 'new' %}
+          <div class="myo-banner">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+            <div>
+              <div class="myo-banner__title">{% trans 'Ваше замовлення в обробці' %}</div>
+              <div class="myo-banner__text">{% trans "Менеджер скоро звʼяжеться для підтвердження. Можна <strong>оплатити зараз</strong> — відправимо швидше." %}</div>
+            </div>
           </div>
           {% endif %}
-        </div>
 
-        <!-- Етапи статусу замовлення -->
-        {% if o.status == 'cancelled' %}
-          <div class="myo-track is-cancelled" data-status="cancelled">
-            <div class="myo-rail">
-              <div class="myo-node" data-step="new">
-                <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></div>
-                <div class="myo-node__label">{% trans 'В обробці' %}</div>
-              </div>
-              <div class="myo-seg"><div class="myo-seg__fill"></div></div>
-              <div class="myo-node" data-step="prep">
-                <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4z"/></svg></div>
-                <div class="myo-node__label">{% trans 'Готується' %}</div>
-              </div>
-              <div class="myo-seg"><div class="myo-seg__fill"></div></div>
-              <div class="myo-node" data-step="ship">
-                <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg></div>
-                <div class="myo-node__label">{% trans 'Відправлено' %}</div>
-              </div>
-              <div class="myo-seg"><div class="myo-seg__fill"></div></div>
-              <div class="myo-node" data-step="done">
-                <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
-                <div class="myo-node__label">{% trans 'Отримано' %}</div>
-              </div>
-            </div>
-          </div>
-          <div class="myo-cancel">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"/></svg>
-            <span>{% trans 'Замовлення скасовано' %}</span>
-          </div>
-        {% else %}
-          <div class="myo-track" data-status="{{ o.status }}">
-            <div class="myo-stage">
-              <span class="myo-stage__dot"></span>
-              <span class="myo-stage__name">
-                {% if o.status == 'new' %}{% trans 'В обробці' %}{% elif o.status == 'prep' %}{% trans 'Готується до відправлення' %}{% elif o.status == 'ship' %}{% trans 'Відправлено · в дорозі' %}{% elif o.status == 'done' %}{% trans 'Отримано' %}{% endif %}
-              </span>
-              <span class="myo-stage__count">
-                {% if o.status == 'new' %}{% trans 'Етап' %} 1 / 4{% elif o.status == 'prep' %}{% trans 'Етап' %} 2 / 4{% elif o.status == 'ship' %}{% trans 'Етап' %} 3 / 4{% elif o.status == 'done' %}{% trans 'Готово' %} · 4 / 4{% endif %}
-              </span>
-            </div>
-            <div class="myo-rail">
-              <div class="myo-node {% if o.status == 'new' %}is-active{% elif o.status == 'prep' or o.status == 'ship' or o.status == 'done' %}is-done{% endif %}" data-step="new">
-                <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></div>
-                <div class="myo-node__label">{% trans 'В обробці' %}</div>
-              </div>
-              <div class="myo-seg {% if o.status == 'prep' or o.status == 'ship' or o.status == 'done' %}is-fill{% endif %}"><div class="myo-seg__fill"></div></div>
-              <div class="myo-node {% if o.status == 'prep' %}is-active{% elif o.status == 'ship' or o.status == 'done' %}is-done{% endif %}" data-step="prep">
-                <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm12 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg></div>
-                <div class="myo-node__label">{% trans 'Готується' %}</div>
-              </div>
-              <div class="myo-seg {% if o.status == 'ship' or o.status == 'done' %}is-fill{% endif %}"><div class="myo-seg__fill"></div></div>
-              <div class="myo-node {% if o.status == 'ship' %}is-active{% elif o.status == 'done' %}is-done{% endif %}" data-step="ship">
-                <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg></div>
-                <div class="myo-node__label">{% trans 'Відправлено' %}</div>
-              </div>
-              <div class="myo-seg {% if o.status == 'done' %}is-fill{% elif o.status == 'ship' %}is-flow{% endif %}"><div class="myo-seg__fill"></div></div>
-              <div class="myo-node {% if o.status == 'done' %}is-active is-done{% endif %}" data-step="done">
-                <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>{% if o.status == 'done' %}<span class="myo-sparkles"><i></i><i></i><i></i><i></i><i></i></span>{% endif %}</div>
-                <div class="myo-node__label">{% trans 'Отримано' %}</div>
+          <!-- Status track -->
+          {% if o.status == 'cancelled' %}
+            <div class="myo-track is-cancelled" data-status="cancelled">
+              <div class="myo-rail">
+                <div class="myo-node" data-step="new">
+                  <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></div>
+                  <div class="myo-node__label">{% trans 'В обробці' %}</div>
+                </div>
+                <div class="myo-seg"><div class="myo-seg__fill"></div></div>
+                <div class="myo-node" data-step="prep">
+                  <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4z"/></svg></div>
+                  <div class="myo-node__label">{% trans 'Готується' %}</div>
+                </div>
+                <div class="myo-seg"><div class="myo-seg__fill"></div></div>
+                <div class="myo-node" data-step="ship">
+                  <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg></div>
+                  <div class="myo-node__label">{% trans 'Відправлено' %}</div>
+                </div>
+                <div class="myo-seg"><div class="myo-seg__fill"></div></div>
+                <div class="myo-node" data-step="done">
+                  <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
+                  <div class="myo-node__label">{% trans 'Отримано' %}</div>
+                </div>
               </div>
             </div>
-          </div>
-        {% endif %}
+            <div class="myo-cancel">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"/></svg>
+              <span>{% trans 'Замовлення скасовано' %}</span>
+            </div>
+          {% else %}
+            <div class="myo-track" data-status="{{ o.status }}">
+              <div class="myo-stage">
+                <span class="myo-stage__dot"></span>
+                <span class="myo-stage__name">
+                  {% if o.status == 'new' %}{% trans 'В обробці' %}{% elif o.status == 'prep' %}{% trans 'Готується до відправлення' %}{% elif o.status == 'ship' %}{% trans 'Відправлено · в дорозі' %}{% elif o.status == 'done' %}{% trans 'Отримано' %}{% endif %}
+                </span>
+                <span class="myo-stage__count">
+                  {% if o.status == 'new' %}{% trans 'Етап' %} 1 / 4{% elif o.status == 'prep' %}{% trans 'Етап' %} 2 / 4{% elif o.status == 'ship' %}{% trans 'Етап' %} 3 / 4{% elif o.status == 'done' %}{% trans 'Готово' %} · 4 / 4{% endif %}
+                </span>
+              </div>
+              <div class="myo-rail">
+                <div class="myo-node {% if o.status == 'new' %}is-active{% elif o.status == 'prep' or o.status == 'ship' or o.status == 'done' %}is-done{% endif %}" data-step="new">
+                  <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></div>
+                  <div class="myo-node__label">{% trans 'В обробці' %}</div>
+                </div>
+                <div class="myo-seg {% if o.status == 'prep' or o.status == 'ship' or o.status == 'done' %}is-fill{% endif %}"><div class="myo-seg__fill"></div></div>
+                <div class="myo-node {% if o.status == 'prep' %}is-active{% elif o.status == 'ship' or o.status == 'done' %}is-done{% endif %}" data-step="prep">
+                  <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm12 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg></div>
+                  <div class="myo-node__label">{% trans 'Готується' %}</div>
+                </div>
+                <div class="myo-seg {% if o.status == 'ship' or o.status == 'done' %}is-fill{% endif %}"><div class="myo-seg__fill"></div></div>
+                <div class="myo-node {% if o.status == 'ship' %}is-active{% elif o.status == 'done' %}is-done{% endif %}" data-step="ship">
+                  <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg></div>
+                  <div class="myo-node__label">{% trans 'Відправлено' %}</div>
+                </div>
+                <div class="myo-seg {% if o.status == 'done' %}is-fill{% elif o.status == 'ship' %}is-flow{% endif %}"><div class="myo-seg__fill"></div></div>
+                <div class="myo-node {% if o.status == 'done' %}is-active is-done{% endif %}" data-step="done">
+                  <div class="myo-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>{% if o.status == 'done' %}<span class="myo-sparkles"><i></i><i></i><i></i><i></i><i></i></span>{% endif %}</div>
+                  <div class="myo-node__label">{% trans 'Отримано' %}</div>
+                </div>
+              </div>
+            </div>
+          {% endif %}
 
-        <!-- Товары в заказе -->
-        <div class="order-items-section">
-          <!-- Анимация кружочков для товаров -->
-          <div class="items-sparks">
-            <div class="items-spark items-spark-1"></div>
-            <div class="items-spark items-spark-2"></div>
-            <div class="items-spark items-spark-3"></div>
-            <div class="items-spark items-spark-4"></div>
+          <!-- Tracking -->
+          {% if o.status != 'cancelled' %}
+          <div class="myo-ship">
+            <div class="myo-ship__row">
+              {% if o.tracking_number %}
+                <span class="myo-ship__ttn">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H4v-4h11v4zm0-5H4V9h11v4zm5 5h-4V9h4v9z"/></svg>
+                  <span class="ttn-info">{{ o.tracking_number }}</span>
+                </span>
+                <a class="myo-ship__track" href="https://novaposhta.ua/tracking/?cargo_number={{ o.tracking_number }}" target="_blank" rel="noopener">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+                  {% trans 'Відстежити' %}
+                </a>
+              {% else %}
+                <span class="myo-ship__pending ttn-info">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+                  {% trans 'ТТН зʼявиться після відправлення' %}
+                </span>
+              {% endif %}
+            </div>
+            {% if o.tracking_number and o.shipment_status %}
+            <div class="myo-ship__status">
+              <span class="dot"></span>
+              <span class="shipment-status">{{ o.shipment_status|truncatechars:48 }}</span>
+            </div>
+            {% endif %}
           </div>
-          
-          <div class="order-items-header">
-            <div class="order-items-title">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
-              </svg>
+          {% endif %}
+
+          <!-- Delivery facts -->
+          <div class="myo-facts">
+            <div class="myo-fact">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+              <div>
+                <div class="myo-fact__label">{% trans 'Доставка' %}</div>
+                <div class="myo-fact__value">{{ o.city }}{% if o.np_office %}, {{ o.np_office }}{% endif %}</div>
+              </div>
+            </div>
+            <div class="myo-fact">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+              <div>
+                <div class="myo-fact__label">{% trans 'Телефон' %}</div>
+                <div class="myo-fact__value">{{ o.phone }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Goods -->
+          <div class="myo-goods">
+            <div class="myo-goods__head">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
               {% trans 'Товари в замовленні' %}
             </div>
-          </div>
-          
-          <div class="order-items-list">
-          {% for it in o.items.all %}
-              <div class="order-item-card">
-                <div class="order-item-image">
-                  {% if it.color_variant and it.color_variant.images.exists %}
-                    <img src="{{ it.color_variant.images.first.image.url }}" alt="{{ it.title }}" class="order-item-img">
-                  {% elif it.product.main_image %}
-                    <img src="{{ it.product.main_image.url }}" alt="{{ it.title }}" class="order-item-img">
-                  {% else %}
-                    <div class="order-item-placeholder">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
-                      </svg>
-                    </div>
-                  {% endif %}
+            {% for it in o.items.all %}
+              <div class="myo-good">
+                {% if it.color_variant and it.color_variant.images.exists %}
+                  <img src="{{ it.color_variant.images.first.image.url }}" alt="{{ it.title }}" class="myo-good__img">
+                {% elif it.product.main_image %}
+                  <img src="{{ it.product.main_image.url }}" alt="{{ it.title }}" class="myo-good__img">
+                {% else %}
+                  <div class="myo-good__img myo-good__ph"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg></div>
+                {% endif %}
+                <div class="myo-good__main">
+                  <div class="myo-good__title">{{ it.title }}</div>
+                  <div class="myo-good__specs">
+                    {% if it.size %}<span class="myo-chip">{% trans 'Розмір' %}: {{ it.size }}</span>{% endif %}
+                    <span class="myo-chip">{{ it.qty }} {% trans 'шт' %}</span>
+                    {% if it.fit_label %}<span class="myo-chip">{{ it.fit_label }}</span>{% endif %}
+                    {% if it.color_variant %}
+                    <span class="myo-chip">
+                      <span class="order-item-swatch myo-swatch" data-primary="{{ it.color_variant.color.primary_hex }}" data-secondary="{{ it.color_variant.color.secondary_hex|default:'' }}"></span>
+                      {{ it.color_variant.color.name|translate_color }}
+                    </span>
+                    {% endif %}
+                  </div>
                 </div>
-                
-                <div class="order-item-content">
-                  <div class="order-item-main">
-                    <div class="order-item-title">{{ it.title }}</div>
-                    <div class="order-item-specs">
-                      <div class="order-item-spec">
-                        <span class="spec-label">{% trans 'Розмір:' %}</span>
-                        <span class="spec-value">{{ it.size }}</span>
-                      </div>
-                      <div class="order-item-spec">
-                        <span class="spec-label">{% trans 'Кількість:' %}</span>
-                        <span class="spec-value">{{ it.qty }} {% trans 'шт' %}</span>
-                      </div>
-                      {% if it.fit_label %}
-                      <div class="order-item-spec">
-                        <span class="spec-label">{% trans 'Посадка:' %}</span>
-                        <span class="spec-value">{{ it.fit_label }}</span>
-                      </div>
-                      {% endif %}
-                      {% if it.color_variant %}
-                      <div class="order-item-spec">
-                        <span class="spec-label">{% trans 'Колір:' %}</span>
-                        <div class="order-item-color">
-                          <span class="order-item-swatch" 
-                                data-primary="{{ it.color_variant.color.primary_hex }}" 
-                                data-secondary="{{ it.color_variant.color.secondary_hex|default:'' }}">
-                          </span>
-                          <span class="color-name">{{ it.color_variant.color.name|translate_color }}</span>
-                        </div>
-                      </div>
-                      {% endif %}
-                    </div>
-                  </div>
-                  
-                  <div class="order-item-side">
-                    <div class="order-item-price">{{ it.line_total }} {% trans 'грн' %}</div>
-                    <div class="order-item-unit-price">{{ it.price }} {% trans 'грн/шт' %}</div>
-                  </div>
+                <div class="myo-good__price">
+                  <div class="myo-good__line">{{ it.line_total }} {% trans 'грн' %}</div>
+                  <div class="myo-good__unit">{{ it.unit_price }} {% trans 'грн/шт' %}</div>
                 </div>
               </div>
             {% endfor %}
             {% for lead in o.custom_print_leads.all %}
-              <div class="order-item-card">
-                <div class="order-item-image">
-                  <div class="order-item-placeholder">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
-                    </svg>
+              <div class="myo-good">
+                <div class="myo-good__img myo-good__ph"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></div>
+                <div class="myo-good__main">
+                  <div class="myo-good__title">{% blocktrans with number=lead.lead_number %}Кастомний виріб {{ number }}{% endblocktrans %}</div>
+                  <div class="myo-good__specs">
+                    <span class="myo-chip">{{ lead.get_product_type_display }}</span>
+                    <span class="myo-chip">{{ lead.quantity }} {% trans 'шт' %}</span>
+                    <span class="myo-chip">{% trans 'Погоджено' %}</span>
                   </div>
                 </div>
-
-                <div class="order-item-content">
-                  <div class="order-item-main">
-                    <div class="order-item-title">{% blocktrans with number=lead.lead_number %}Кастомний виріб {{ number }}{% endblocktrans %}</div>
-                    <div class="order-item-specs">
-                      <div class="order-item-spec">
-                        <span class="spec-label">{% trans 'Тип:' %}</span>
-                        <span class="spec-value">{{ lead.get_product_type_display }}</span>
-                      </div>
-                      <div class="order-item-spec">
-                        <span class="spec-label">{% trans 'Кількість:' %}</span>
-                        <span class="spec-value">{{ lead.quantity }} {% trans 'шт' %}</span>
-                      </div>
-                      <div class="order-item-spec">
-                        <span class="spec-label">{% trans 'Статус:' %}</span>
-                        <span class="spec-value">{% trans 'Погоджено менеджером' %}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="order-item-side">
-                    <div class="order-item-price">{{ lead.final_price_value }} {% trans 'грн' %}</div>
-                    <div class="order-item-unit-price">{% trans 'Кастомне замовлення' %}</div>
-                  </div>
+                <div class="myo-good__price">
+                  <div class="myo-good__line">{{ lead.final_price_value }} {% trans 'грн' %}</div>
+                  <div class="myo-good__unit">{% trans 'Кастом' %}</div>
                 </div>
               </div>
             {% endfor %}
           </div>
-        </div>
 
-        <!-- Компактная сводка -->
-        <div class="order-summary-compact">
-          {% if o.promo_code %}
-            <div class="order-promo-compact">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-              </svg>
-              <span>{{ o.promo_code.code }} (-{{ o.discount_amount }} {% trans 'грн' %})</span>
-            </div>
-          {% endif %}
-          
-          <div class="order-payment-info">
-            <div class="payment-method">
-              <div class="payment-method-icon">
-                {% if o.pay_type == 'full' or o.pay_type == 'online_full' %}
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
-                  </svg>
-                {% elif o.pay_type == 'cod' %}
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 3C7.03 3 3 7.03 3 12s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm1 14.93V17h-2v.93A7.014 7.014 0 0 1 5.07 13H6v-2H5.07A7.014 7.014 0 0 1 11 5.07V6h2v-.93A7.014 7.014 0 0 1 18.93 11H18v2h.93A7.014 7.014 0 0 1 13 17.93z"/>
-                  </svg>
-                {% else %}
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                  </svg>
-                {% endif %}
-              </div>
-              <div class="payment-method-text">
-                <div class="payment-method-label">
-                  <span class="method-text">
-                    {% if o.pay_type == 'full' or o.pay_type == 'online_full' %}
-                      {% trans 'Онлайн оплата (повна сума)' %}
-                    {% elif o.pay_type == 'prepay_200' or o.pay_type == 'partial' %}
-                      {% trans 'Передплата 200 грн' %}
-                    {% elif o.pay_type == 'cod' %}
-                      {% trans 'Оплата при отриманні' %}
-                    {% else %}
-                      {{ o.get_pay_type_display|default:o.pay_type }}
-                    {% endif %}
-                  </span>
-                  <button class="edit-method-btn" onclick="togglePaymentMethodEdit('{{ o.id }}')" title="{% trans 'Змінити спосіб оплати' %}">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                    </svg>
-                  </button>
-                </div>
-                <div class="payment-status" id="payment-status-{{ o.id }}">
-                  {% if o.payment_status == 'paid' %}
-                    <span class="status-paid">{% trans 'Оплачено повністю' %}</span>
-                  {% elif o.payment_status == 'prepaid' or o.payment_status == 'partial' %}
-                    <span class="status-partial">{% trans 'Внесена передплата' %}</span>
-                  {% elif o.payment_status == 'checking' %}
-                    <span class="status-checking">{% trans 'На перевірці' %}</span>
+          <!-- Payment -->
+          <div class="myo-pay order-payment-info">
+            <div class="myo-pay__row">
+              <div class="myo-pay__method">
+                <span class="myo-pay__method-icon payment-method-icon">
+                  {% if o.pay_type == 'full' or o.pay_type == 'online_full' %}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+                  {% elif o.pay_type == 'cod' %}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3C7.03 3 3 7.03 3 12s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm1 14.93V17h-2v.93A7.014 7.014 0 0 1 5.07 13H6v-2H5.07A7.014 7.014 0 0 1 11 5.07V6h2v-.93A7.014 7.014 0 0 1 18.93 11H18v2h.93A7.014 7.014 0 0 1 13 17.93z"/></svg>
                   {% else %}
-                    <span class="status-unpaid">{% trans 'Не оплачено' %}</span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
                   {% endif %}
+                </span>
+                <div>
+                  <div class="myo-pay__method-label">{% trans 'Спосіб оплати' %}</div>
+                  <div class="myo-pay__method-name">
+                    <span class="method-text">
+                      {% if o.pay_type == 'full' or o.pay_type == 'online_full' %}{% trans 'Онлайн (повна сума)' %}{% elif o.pay_type == 'prepay_200' or o.pay_type == 'partial' %}{% trans 'Передплата 200 грн' %}{% elif o.pay_type == 'cod' %}{% trans 'При отриманні' %}{% else %}{{ o.get_pay_type_display|default:o.pay_type }}{% endif %}
+                    </span>
+                    {% if o.payment_status != 'paid' and o.payment_status != 'checking' %}
+                    <button class="edit-method-btn" onclick="togglePaymentMethodEdit('{{ o.id }}')" title="{% trans 'Змінити спосіб оплати' %}">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                    </button>
+                    {% endif %}
+                  </div>
                 </div>
               </div>
-            </div>
-            
-            <div class="payment-method-actions">
-              <div class="payment-method-editor" id="payment-editor-{{ o.id }}" style="display: none;">
-                <div class="editor-header">
-                  <span class="editor-title">{% trans 'Змінити спосіб оплати' %}</span>
-                  <button class="close-editor-btn" onclick="closePaymentMethodEdit('{{ o.id }}')">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                    </svg>
-                  </button>
-                </div>
-                <div class="editor-options">
-                  <label class="option-item">
-                    <input type="radio" name="payment-method-{{ o.id }}" value="partial" {% if o.pay_type == 'partial' or o.pay_type == 'prepay_200' %}checked{% endif %}>
-                    <span class="option-label">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                      </svg>
-                      {% trans 'Часткова оплата' %}
-                    </span>
-                  </label>
-                  <label class="option-item">
-                    <input type="radio" name="payment-method-{{ o.id }}" value="full" {% if o.pay_type == 'full' or o.pay_type == 'online_full' %}checked{% endif %}>
-                    <span class="option-label">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
-                      </svg>
-                      {% trans 'Повна оплата' %}
-                    </span>
-                  </label>
-                </div>
-                <div class="editor-actions">
-                  <button class="save-method-btn" onclick="savePaymentMethod('{{ o.id }}')">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                    </svg>
-                    {% trans 'Зберегти' %}
-                  </button>
-                </div>
-              </div>
-              
-              {% if o.payment_status != 'paid' and o.payment_status != 'checking' %}
-                {% if o.pay_type == 'partial' or o.pay_type == 'prepay_200' %}
-                  <button class="payment-btn payment-btn-partial" onclick="payPartial('{{ o.id }}')">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                    </svg>
-                    {% trans 'Внести передплату' %}
-                  </button>
-                {% elif o.pay_type == 'full' or o.pay_type == 'online_full' %}
-                  <button class="payment-btn payment-btn-full" onclick="payFull('{{ o.id }}')">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
-                    </svg>
-                    {% trans 'Оплатити повністю' %}
-                  </button>
+              <div class="payment-status" id="payment-status-{{ o.id }}">
+                {% if o.payment_status == 'paid' %}
+                  <span class="status-paid">{% trans 'Оплачено повністю' %}</span>
+                {% elif o.payment_status == 'prepaid' or o.payment_status == 'partial' %}
+                  <span class="status-partial">{% trans 'Внесена передплата' %}</span>
+                {% elif o.payment_status == 'checking' %}
+                  <span class="status-checking">{% trans 'На перевірці' %}</span>
+                {% else %}
+                  <span class="status-unpaid">{% trans 'Не оплачено' %}</span>
                 {% endif %}
-              {% endif %}
+              </div>
+            </div>
+
+            <!-- Payment method editor (kept for JS) -->
+            <div class="payment-method-editor" id="payment-editor-{{ o.id }}" style="display: none;">
+              <div class="editor-header">
+                <span class="editor-title">{% trans 'Змінити спосіб оплати' %}</span>
+                <button class="close-editor-btn" onclick="closePaymentMethodEdit('{{ o.id }}')">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                </button>
+              </div>
+              <div class="editor-options">
+                <label class="option-item">
+                  <input type="radio" name="payment-method-{{ o.id }}" value="partial" {% if o.pay_type == 'partial' or o.pay_type == 'prepay_200' %}checked{% endif %}>
+                  <span class="option-label">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                    {% trans 'Часткова оплата' %}
+                  </span>
+                </label>
+                <label class="option-item">
+                  <input type="radio" name="payment-method-{{ o.id }}" value="full" {% if o.pay_type == 'full' or o.pay_type == 'online_full' %}checked{% endif %}>
+                  <span class="option-label">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+                    {% trans 'Повна оплата' %}
+                  </span>
+                </label>
+              </div>
+              <div class="editor-actions">
+                <button class="save-method-btn" onclick="savePaymentMethod('{{ o.id }}')">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                  {% trans 'Зберегти' %}
+                </button>
+              </div>
+            </div>
+
+            {% if o.promo_code %}
+              <div class="myo-promo">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>
+                {{ o.promo_code.code }} (−{{ o.discount_amount }} {% trans 'грн' %})
+              </div>
+            {% endif %}
+
+            <div class="myo-total">
+              <span class="myo-total__label">{% trans 'Разом до сплати' %}</span>
+              <span class="myo-total__val">{{ o.total_sum }}<span> {% trans 'грн' %}</span></span>
             </div>
           </div>
-          
-          <div class="order-final-compact">
-            <span class="order-final-label">{% trans 'Разом:' %}</span>
-            <span class="order-final-amount">{{ o.total_sum }} {% trans 'грн' %}</span>
+
+          <!-- Actions -->
+          <div class="myo-actions">
+            {% if o.payment_status != 'paid' and o.payment_status != 'checking' %}
+              {% if o.pay_type == 'partial' or o.pay_type == 'prepay_200' %}
+                <button class="payment-btn payment-btn-partial" onclick="payPartial('{{ o.id }}')">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                  {% trans 'Внести передплату' %}
+                </button>
+              {% elif o.pay_type == 'full' or o.pay_type == 'online_full' %}
+                <button class="payment-btn payment-btn-full" onclick="payFull('{{ o.id }}')">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+                  {% trans 'Оплатити повністю' %}
+                </button>
+              {% endif %}
+            {% endif %}
+            <a class="myo-btn myo-btn--tg" href="https://t.me/twocomms" target="_blank" rel="noopener">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.14 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06-.01.13-.02.2z"/></svg>
+              {% trans 'Написати менеджеру' %}
+            </a>
+            <a class="myo-btn myo-btn--call" href="tel:+380966543212">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
+              {% trans 'Зателефонувати' %}
+            </a>
+            {% if not user.userprofile.telegram_id %}
+            <button type="button" class="myo-btn myo-btn--ghost telegram-notification-item" data-tg-link-trigger data-tg-purpose="profile_link">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg>
+              {% trans 'Сповіщення в Telegram' %}
+            </button>
+            {% endif %}
           </div>
+
         </div>
-      </div>
+      </article>
     {% empty %}
-      <div class="orders-empty">
-        <div class="orders-empty-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
-          </svg>
-        </div>
-        <h2 class="orders-empty-title">{% trans 'У вас ще немає замовлень' %}</h2>
-        <p class="orders-empty-text">{% trans 'Зробіть перше замовлення, щоб побачити його тут' %}</p>
-        <a href="{% url 'home' %}" class="orders-empty-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-          </svg>
+      <div class="myo-empty">
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+        <h2>{% trans 'У вас ще немає замовлень' %}</h2>
+        <p>{% trans 'Зробіть перше замовлення, щоб побачити його тут' %}</p>
+        <a href="{% url 'home' %}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
           {% trans 'Перейти до покупок' %}
         </a>
       </div>
