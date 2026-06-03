@@ -38,6 +38,15 @@ class UserSettings(models.Model):
     # Сповіщення про критичні ризики здоров'я (касовий розрив, прострочка, збиток).
     push_health_alerts = models.BooleanField(
         default=True, verbose_name='Сповіщення про фінансові ризики')
+    # Нагадування про планові платежі (за день до дати).
+    push_planned_reminders = models.BooleanField(
+        default=False, verbose_name='Нагадування про планові платежі')
+    # Сповіщення про великі операції (понад поріг) під час синку банку.
+    push_large_txn = models.BooleanField(
+        default=False, verbose_name='Сповіщення про великі операції')
+    push_large_txn_threshold = models.DecimalField(
+        max_digits=18, decimal_places=2, default=10000,
+        verbose_name='Поріг великої операції')
     telegram_notifications = models.BooleanField(
         default=False,
         verbose_name='Дублювати в Telegram'
@@ -97,6 +106,8 @@ class NotificationLog(models.Model):
     NOTIFICATION_TYPES = [
         ('daily', 'Щоденний звіт'),
         ('weekly', 'Тижневий звіт'),
+        ('planned', 'Нагадування про платежі'),
+        ('large_txn', 'Велика операція'),
         ('custom', 'Кастомне повідомлення'),
     ]
 

@@ -50,6 +50,34 @@ class PushServiceTests(TestCase):
         self.assertIn('здоров', r['body'].lower())
         self.assertIn('health_score', r['data'])
 
+    def test_planned_reminder_report(self):
+        # Без планових — None.
+        self.assertIsNone(push_service.build_planned_reminder_report(self.company))
+        # З плановим на завтра — є нагадування.
+        Transaction.objects.create(
+            company=self.company, type=Transaction.TYPE_EXPENSE,
+            status=Transaction.STATUS_PLANNED, amount=Decimal('3000'),
+            amount_base=Decimal('3000'), currency='UAH', account=self.acc,
+            date_actual=timezone.now() + timezone.timedelta(hours=20), is_business=True)
+        r = push_service.build_planned_reminder_report(self.company)
+        self.assertIsNotNone(r)
+        self.assertIn('платеж', r['body'].lower())
+
+    def test_settings_save_load_new_fields(self):
+        from django.test import Client
+        import json as _json
+        c = Client()
+        c.force_login(self.user)
+        c.post('/api/settings/save/',
+               data=_json.dumps({'push_enabled': True, 'push_planned_reminders': True,
+                                 'push_large_txn': True, 'push_large_txn_threshold': 25000}),
+               content_type='application/json', HTTP_HOST='fin.twocomms.shop', secure=True)
+        r = c.get('/api/settings/get/', HTTP_HOST='fin.twocomms.shop', secure=True)
+        body = r.json()
+        self.assertTrue(body['push_planned_reminders'])
+        self.assertTrue(body['push_large_txn'])
+        self.assertEqual(body['push_large_txn_threshold'], 25000.0)
+
     @patch('finance.services.push.webpush')
     def test_send_to_user_success(self, mocked):
         mocked.return_value = SimpleNamespace(status_code=201)

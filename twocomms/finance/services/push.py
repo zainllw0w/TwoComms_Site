@@ -208,3 +208,34 @@ def build_health_alert_report(company) -> dict | None:
     return {'title': f'⚠️ {top["title"]}',
             'body': f'{top["message"]}{extra}',
             'data': {'alerts': len(alerts), 'score': health['scores']['portfolio_final']}}
+
+
+def build_planned_reminder_report(company) -> dict | None:
+    """Нагадування про планові платежі на завтра (та прострочені сьогодні)."""
+    import datetime as dt
+    from django.db.models import Sum
+    from decimal import Decimal
+    from ..models import Transaction
+    from . import serializers as ser
+    from .timeutil import day_start, day_end
+
+    today = timezone.localdate()
+    tomorrow = today + dt.timedelta(days=1)
+    qs = (Transaction.objects.filter(
+            company=company, status=Transaction.STATUS_PLANNED,
+            date_actual__gte=day_start(today), date_actual__lte=day_end(tomorrow))
+          .exclude(excluded_from_reports=True))
+    if not qs.exists():
+        return None
+    cur = company.base_currency
+    inc = qs.filter(type=Transaction.TYPE_INCOME).aggregate(s=Sum('amount_base'))['s'] or Decimal('0')
+    exp = qs.filter(type=Transaction.TYPE_EXPENSE).aggregate(s=Sum('amount_base'))['s'] or Decimal('0')
+    count = qs.count()
+    parts = []
+    if exp:
+        parts.append(f'до сплати {ser.money(exp, cur)}')
+    if inc:
+        parts.append(f'надходжень {ser.money(inc, cur)}')
+    body = f'{count} планов(их) платеж(ів) на найближчу добу: {", ".join(parts) or "перевірте календар"}.'
+    return {'title': 'Нагадування про платежі', 'body': body,
+            'data': {'count': count, 'income': float(inc), 'expense': float(exp)}}

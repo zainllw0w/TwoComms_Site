@@ -69,6 +69,15 @@ class Command(BaseCommand):
                 if alert:
                     jobs.append(('custom', alert))
 
+            # Нагадування про планові платежі (раз на день, зранку у вікні 9:00).
+            morning = dt.time(9, 0)
+            if (st.push_planned_reminders
+                    and self._time_match(now, morning)
+                    and not self._already_sent(user, 'planned', today)):
+                rem = push_service.build_planned_reminder_report(company)
+                if rem:
+                    jobs.append(('planned', rem))
+
             for ntype, report in jobs:
                 if report is None:
                     continue

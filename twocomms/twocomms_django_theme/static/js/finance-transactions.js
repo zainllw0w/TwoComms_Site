@@ -584,6 +584,23 @@
     refreshBulk();
   });
 
+  // Кнопка згортання панелі дій (щоб не займала багато місця на телефоні).
+  var bulkToggle = document.getElementById('fin-bulk-toggle');
+  if (bulkToggle && bulkbar) {
+    // Відновлюємо збережений стан.
+    try {
+      if (localStorage.getItem('fin_bulk_collapsed') === '1') {
+        bulkbar.classList.add('is-collapsed');
+        bulkToggle.setAttribute('aria-expanded', 'false');
+      }
+    } catch (e) {}
+    bulkToggle.addEventListener('click', function () {
+      var collapsed = bulkbar.classList.toggle('is-collapsed');
+      bulkToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      try { localStorage.setItem('fin_bulk_collapsed', collapsed ? '1' : '0'); } catch (e) {}
+    });
+  }
+
   // --- Long-press на рядку активує bulk-режим (мобільні) ---
   (function () {
     var timer = null;

@@ -22,6 +22,9 @@ def settings_get_api(request):
             'push_weekly_day': settings.push_weekly_day,
             'push_weekly_time': settings.push_weekly_time.strftime('%H:%M'),
             'push_health_alerts': settings.push_health_alerts,
+            'push_planned_reminders': settings.push_planned_reminders,
+            'push_large_txn': settings.push_large_txn,
+            'push_large_txn_threshold': float(settings.push_large_txn_threshold),
             'telegram_notifications': settings.telegram_notifications,
         })
     except UserSettings.DoesNotExist:
@@ -34,6 +37,9 @@ def settings_get_api(request):
             'push_weekly_day': 1,
             'push_weekly_time': '10:00',
             'push_health_alerts': True,
+            'push_planned_reminders': False,
+            'push_large_txn': False,
+            'push_large_txn_threshold': 10000.0,
             'telegram_notifications': False,
         })
 
@@ -54,6 +60,13 @@ def settings_save_api(request):
         settings.push_weekly_day = int(data.get('push_weekly_day', 1))
         settings.push_weekly_time = data.get('push_weekly_time', '10:00')
         settings.push_health_alerts = data.get('push_health_alerts', True)
+        settings.push_planned_reminders = data.get('push_planned_reminders', False)
+        settings.push_large_txn = data.get('push_large_txn', False)
+        try:
+            settings.push_large_txn_threshold = abs(float(
+                data.get('push_large_txn_threshold', 10000) or 10000))
+        except (TypeError, ValueError):
+            settings.push_large_txn_threshold = 10000
         settings.telegram_notifications = data.get('telegram_notifications', False)
 
         settings.save()

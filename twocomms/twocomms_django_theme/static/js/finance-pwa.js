@@ -136,6 +136,14 @@
             });
         }
 
+        const pushLargeTxn = document.getElementById('push-large-txn');
+        const largeTxnField = document.getElementById('large-txn-field');
+        if (pushLargeTxn && largeTxnField) {
+            pushLargeTxn.addEventListener('change', function () {
+                largeTxnField.hidden = !this.checked;
+            });
+        }
+
         if (saveSettingsBtn) {
             saveSettingsBtn.addEventListener('click', saveSettings);
         }
@@ -144,23 +152,31 @@
         if (testPushBtn) {
             testPushBtn.addEventListener('click', function () {
                 testPushBtn.disabled = true;
-                fetch('/api/push/test/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCookie('csrftoken')
+                // Перед тестом переконуємось, що підписка існує (інакше слати нікому).
+                ensureSubscribed().then(function (ok) {
+                    if (!ok) {
+                        showNotification('Спершу увімкніть сповіщення (дозвіл у браузері)', 'error');
+                        testPushBtn.disabled = false;
+                        return;
                     }
-                })
-                    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
-                    .then(function (res) {
-                        if (res.ok && res.d.success) {
-                            showNotification('Тестове повідомлення надіслано', 'success');
-                        } else {
-                            showNotification(res.d.error || 'Не вдалося надіслати', 'error');
+                    fetch('/api/push/test/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
                         }
                     })
-                    .catch(function () { showNotification('Помилка мережі', 'error'); })
-                    .finally(function () { testPushBtn.disabled = false; });
+                        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+                        .then(function (res) {
+                            if (res.ok && res.d.success) {
+                                showNotification('Тестове повідомлення надіслано', 'success');
+                            } else {
+                                showNotification(res.d.error || 'Не вдалося надіслати', 'error');
+                            }
+                        })
+                        .catch(function () { showNotification('Помилка мережі', 'error'); })
+                        .finally(function () { testPushBtn.disabled = false; });
+                });
             });
         }
 
@@ -233,76 +249,132 @@
     }
 
     function requestNotificationPermission() {
-        if (!('Notification' in window)) {
-            alert('Ваш браузер не підтримує push-повідомлення');
-            document.getElementById('push-enabled').checked = false;
+        if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+            showPushHelp();
+            uncheckPush();
+            return;
+        }
+        // iOS/iPadOS: web push працює ЛИШЕ в установленій PWA (з домашнього екрана).
+        if (isIos() && !isStandalone()) {
+            showNotification('На iPhone/iPad спершу додайте застосунок на головний екран (Поділитися → На екран «Додому»), потім увімкніть сповіщення звідти', 'info');
+            uncheckPush();
             return;
         }
 
         if (Notification.permission === 'granted') {
-            subscribeToPush();
+            subscribeToPush().then(function (ok) {
+                if (ok) showNotification('Сповіщення увімкнено', 'success');
+            });
             return;
         }
-
-        if (Notification.permission !== 'denied') {
-            Notification.requestPermission().then(function (permission) {
-                if (permission === 'granted') {
-                    subscribeToPush();
-                } else {
-                    document.getElementById('push-enabled').checked = false;
-                    alert('Дозвіл на повідомлення відхилено');
-                }
-            });
-        } else {
-            document.getElementById('push-enabled').checked = false;
-            alert('Повідомлення заблоковані в налаштуваннях браузера');
+        if (Notification.permission === 'denied') {
+            showNotification('Сповіщення заблоковані в налаштуваннях браузера. Дозвольте їх для цього сайту і спробуйте знову', 'error');
+            uncheckPush();
+            return;
         }
+        Notification.requestPermission().then(function (permission) {
+            if (permission === 'granted') {
+                subscribeToPush().then(function (ok) {
+                    if (ok) showNotification('Сповіщення увімкнено', 'success');
+                });
+            } else {
+                uncheckPush();
+                showNotification('Дозвіл на сповіщення відхилено', 'error');
+            }
+        });
     }
 
+    function uncheckPush() {
+        var el = document.getElementById('push-enabled');
+        if (el) el.checked = false;
+        var content = document.getElementById('push-settings-content');
+        if (content) content.hidden = true;
+    }
+
+    function isIos() {
+        return /ipad|iphone|ipod/i.test(navigator.userAgent)
+            || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    }
+
+    function isStandalone() {
+        return window.matchMedia('(display-mode: standalone)').matches
+            || window.navigator.standalone === true;
+    }
+
+    function showPushHelp() {
+        showNotification('Ваш браузер не підтримує push-сповіщення', 'error');
+    }
+
+    // Повертає Promise<boolean> — чи успішно підписалися й надіслали на сервер.
     function subscribeToPush() {
-        if (!swRegistration) {
-            console.error('[Finance PWA] No SW registration');
-            return;
-        }
         var vapidKey = getVapidPublicKey();
         if (!vapidKey) {
             console.warn('[Finance PWA] VAPID key not configured — push disabled');
-            var toggle = document.getElementById('push-enabled');
-            if (toggle) toggle.checked = false;
-            return;
+            uncheckPush();
+            return Promise.resolve(false);
         }
-
-        swRegistration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(vapidKey)
-        })
+        if (!('serviceWorker' in navigator)) return Promise.resolve(false);
+        // ВАЖЛИВО: чекаємо доки SW стане АКТИВНИМ (ready), а не лише
+        // зареєстрованим — інакше pushManager.subscribe може мовчки впасти.
+        return navigator.serviceWorker.ready
+            .then(function (reg) {
+                swRegistration = reg;
+                return reg.pushManager.getSubscription().then(function (existing) {
+                    if (existing) return existing;
+                    return reg.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(vapidKey)
+                    });
+                });
+            })
             .then(function (subscription) {
-                console.log('[Finance PWA] Push subscription:', subscription);
-                sendSubscriptionToServer(subscription);
+                return sendSubscriptionToServer(subscription);
+            })
+            .then(function () {
+                return true;
             })
             .catch(function (error) {
                 console.error('[Finance PWA] Push subscription failed:', error);
+                showNotification('Не вдалося підписатися на сповіщення: ' + (error && error.message ? error.message : 'помилка'), 'error');
+                uncheckPush();
+                return false;
             });
     }
 
     function sendSubscriptionToServer(subscription) {
-        fetch('/api/push/subscribe/', {
+        return fetch('/api/push/subscribe/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCookie('csrftoken')
             },
-            body: JSON.stringify({
-                subscription: subscription.toJSON()
-            })
-        })
-            .then(function (response) {
-                if (!response.ok) throw new Error('Subscription failed');
-                console.log('[Finance PWA] Subscription sent to server');
-            })
-            .catch(function (error) {
-                console.error('[Finance PWA] Failed to send subscription:', error);
+            body: JSON.stringify({ subscription: subscription.toJSON() })
+        }).then(function (response) {
+            if (!response.ok) throw new Error('server rejected subscription');
+            console.log('[Finance PWA] Subscription sent to server');
+            return true;
+        });
+    }
+
+    // Гарантує наявність підписки: якщо дозвіл уже надано — підписує (тихо).
+    // Повертає Promise<boolean>.
+    function ensureSubscribed() {
+        if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+            return Promise.resolve(false);
+        }
+        if (Notification.permission === 'granted') {
+            return subscribeToPush();
+        }
+        if (Notification.permission === 'default') {
+            // Потрібен жест користувача — ініціюємо запит дозволу.
+            return new Promise(function (resolve) {
+                Notification.requestPermission().then(function (p) {
+                    if (p === 'granted') subscribeToPush().then(resolve);
+                    else resolve(false);
+                });
             });
+        }
+        return Promise.resolve(false);
     }
 
     function saveSettings() {
@@ -314,6 +386,9 @@
             push_weekly_day: parseInt(document.getElementById('push-weekly-day')?.value || '1'),
             push_weekly_time: document.getElementById('push-weekly-time')?.value || '10:00',
             push_health_alerts: document.getElementById('push-health-alerts')?.checked || false,
+            push_planned_reminders: document.getElementById('push-planned-reminders')?.checked || false,
+            push_large_txn: document.getElementById('push-large-txn')?.checked || false,
+            push_large_txn_threshold: parseFloat(document.getElementById('push-large-txn-threshold')?.value || '10000') || 10000,
             telegram_notifications: document.getElementById('telegram-notifications')?.checked || false
         };
 
@@ -401,6 +476,27 @@
         if (healthAlerts) healthAlerts.checked = settings.push_health_alerts !== false;
         if (dailyTimeField) dailyTimeField.hidden = !settings.push_daily_enabled;
         if (weeklyDayField) weeklyDayField.hidden = !settings.push_weekly_enabled;
+        var plannedRem = document.getElementById('push-planned-reminders');
+        if (plannedRem) plannedRem.checked = !!settings.push_planned_reminders;
+        var largeTxn = document.getElementById('push-large-txn');
+        if (largeTxn) largeTxn.checked = !!settings.push_large_txn;
+        var largeTxnField = document.getElementById('large-txn-field');
+        if (largeTxnField) largeTxnField.hidden = !settings.push_large_txn;
+        var largeTxnThreshold = document.getElementById('push-large-txn-threshold');
+        if (largeTxnThreshold && settings.push_large_txn_threshold) {
+            largeTxnThreshold.value = settings.push_large_txn_threshold;
+        }
+
+        // Авто-переподписка: якщо push увімкнено й дозвіл уже надано, але на
+        // ЦЬОМУ пристрої підписки немає (нова сесія/очищення) — тихо підписуємось.
+        if (settings.push_enabled && 'serviceWorker' in navigator
+                && 'Notification' in window && Notification.permission === 'granted') {
+            navigator.serviceWorker.ready.then(function (reg) {
+                return reg.pushManager.getSubscription();
+            }).then(function (sub) {
+                if (!sub) subscribeToPush();
+            }).catch(function () {});
+        }
     }
 
     function showUpdateNotification() {

@@ -214,7 +214,7 @@
                     <button type="button" class="fin-settings-disclosure" id="fin-push-disclosure" aria-expanded="false" aria-controls="fin-push-settings-content">
                         <span>
                             <strong>Push-повідомлення</strong>
-                            <small>Щоденні та тижневі фінансові звіти</small>
+                            <small>Звіти, ризики, нагадування — оберіть, що отримувати</small>
                         </span>
                         <svg class="fin-settings-disclosure__chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
                     </button>
@@ -282,6 +282,32 @@
                             </div>
 
                             <div class="fin-setting-group">
+                                <label class="fin-setting-label">
+                                    <span>Нагадування про планові платежі</span>
+                                    <div class="fin-switch">
+                                        <input type="checkbox" id="push-planned-reminders">
+                                        <span class="fin-switch__ui"></span>
+                                    </div>
+                                </label>
+                                <small class="fin-field-help">За день до дати запланованого платежу</small>
+                            </div>
+
+                            <div class="fin-setting-group">
+                                <label class="fin-setting-label">
+                                    <span>Великі операції</span>
+                                    <div class="fin-switch">
+                                        <input type="checkbox" id="push-large-txn">
+                                        <span class="fin-switch__ui"></span>
+                                    </div>
+                                </label>
+                                <div class="fin-field" id="large-txn-field" hidden>
+                                    <span>Поріг суми, ₴</span>
+                                    <input type="number" min="0" step="100" class="fin-input" id="push-large-txn-threshold" value="10000">
+                                    <small class="fin-field-help">Сповіщати про нові операції понад цю суму</small>
+                                </div>
+                            </div>
+
+                            <div class="fin-setting-group">
                                 <label class="fin-setting-label fin-setting-label--disabled">
                                     <span>Дублювати в Telegram</span>
                                     <div class="fin-switch">
@@ -331,8 +357,8 @@
       window.FIN_PUSH_ENABLED = {% if fin_push_enabled %}true{% else %}false{% endif %};
     </script>
     <script src="{% static 'js/finance.js' %}?v=20260603b"></script>
-    <script src="{% static 'js/finance-transactions.js' %}?v=20260603a"></script>
-    <script src="{% static 'js/finance-pwa.js' %}?v=20260603a"></script>
+    <script src="{% static 'js/finance-transactions.js' %}?v=20260603c"></script>
+    <script src="{% static 'js/finance-pwa.js' %}?v=20260603c"></script>
     <script src="{% static 'js/finance-ui-enhancements.js' %}?v=3"></script>
     {% block extra_js %}{% endblock %}
 </body>

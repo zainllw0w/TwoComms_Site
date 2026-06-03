@@ -205,12 +205,21 @@ class Category(models.Model):
 
 
 class Counterparty(models.Model):
-    """Контрагент (клієнт/постачальник/інше)."""
+    """Контрагент (клієнт/постачальник/орендодавець/партнер тощо)."""
 
     TYPE_CHOICES = [
         ('client', 'Клієнт'),
         ('supplier', 'Постачальник'),
+        ('reseller_partner', 'Магазин-партнер (реалізація)'),
+        ('collaboration', 'Колаборація'),
+        ('landlord_business', 'Орендодавець (бізнес)'),
+        ('landlord_personal', 'Орендодавець (житло)'),
+        ('contractor', 'Підрядник / виконавець'),
+        ('marketplace', 'Маркетплейс'),
+        ('logistics', 'Логістика / доставка'),
         ('employee', 'Співробітник'),
+        ('investor', 'Інвестор / партнер'),
+        ('bank', 'Банк / фінустанова'),
         ('government', 'Держоргани'),
         ('other', 'Інше'),
     ]
