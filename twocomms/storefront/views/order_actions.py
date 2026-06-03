@@ -44,6 +44,10 @@ def _get_token(request) -> str:
     return (request.POST.get("token") or request.GET.get("token") or "").strip()
 
 
+def _is_ajax(request) -> bool:
+    return request.headers.get("X-Requested-With") == "XMLHttpRequest"
+
+
 def _render_template(request, template_name: str, context: dict, *, status_code: int = 200):
     return render(request, template_name, context, status=status_code)
 
@@ -240,6 +244,38 @@ def _render_waybill_action_page(
     can_delete: bool = False,
 ):
     delete_url = _build_delete_waybill_url(order) if can_delete else ""
+    resolved_can_delete = bool(can_delete and delete_url)
+
+    if _is_ajax(request):
+        field_errors = _hidden_field_errors(form)
+        if form is not None:
+            for bound_field in form.visible_fields():
+                for error in bound_field.errors:
+                    field_errors.append(f"{bound_field.label or bound_field.name}: {error}")
+            for error in form.non_field_errors():
+                field_errors.append(str(error))
+
+        effective_error = error_message
+        if not effective_error and not is_success and field_errors:
+            effective_error = field_errors[0]
+
+        return JsonResponse(
+            {
+                "success": bool(is_success),
+                "is_blocked": bool(is_blocked),
+                "can_submit": bool(can_submit),
+                "can_delete": resolved_can_delete,
+                "delete_url": delete_url,
+                "success_message": success_message,
+                "error_message": effective_error,
+                "helper_message": helper_message,
+                "warnings": warnings or [],
+                "field_errors": field_errors,
+                "tracking_number": getattr(order, "tracking_number", "") or "",
+            },
+            status=status_code,
+        )
+
     return _render_template(
         request,
         WAYBILL_ACTION_TEMPLATE,
@@ -254,7 +290,7 @@ def _render_waybill_action_page(
             "is_blocked": is_blocked,
             "warnings": warnings or [],
             "can_submit": can_submit,
-            "can_delete": bool(can_delete and delete_url),
+            "can_delete": resolved_can_delete,
             "delete_url": delete_url,
             "hidden_field_errors": _hidden_field_errors(form),
             "payment_snapshot": _payment_snapshot_payload(order) if order else None,
@@ -513,8 +549,12 @@ def telegram_order_np_waybill_action(request, order_id: int, action: str):
             can_submit=False,
         )
 
-    initial, helper_message = _build_waybill_initial(service, order)
-    form = TelegramNovaPoshtaWaybillForm(request.POST or None, initial=initial if request.method == "GET" else None)
+    if request.method == "GET":
+        initial, helper_message = _build_waybill_initial(service, order)
+        form = TelegramNovaPoshtaWaybillForm(initial=initial)
+    else:
+        helper_message = ""
+        form = TelegramNovaPoshtaWaybillForm(request.POST)
 
     if request.method == "POST" and form.is_valid():
         created: dict | None = None

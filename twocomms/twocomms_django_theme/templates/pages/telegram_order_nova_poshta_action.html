@@ -278,6 +278,61 @@
     opacity: 0.65;
   }
 
+  .tg-waybill-submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: background 0.3s ease, box-shadow 0.3s ease, transform 0.15s ease;
+  }
+
+  .tg-waybill-submit-spinner {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.45);
+    border-top-color: #ffffff;
+    display: none;
+    animation: tg-waybill-spin 0.7s linear infinite;
+  }
+
+  .tg-waybill-submit.is-loading {
+    cursor: progress;
+    opacity: 0.9;
+  }
+
+  .tg-waybill-submit.is-loading .tg-waybill-submit-spinner {
+    display: inline-block;
+  }
+
+  .tg-waybill-submit.is-success {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    box-shadow: 0 18px 40px rgba(34, 197, 94, 0.3);
+    cursor: default;
+    opacity: 1;
+  }
+
+  .tg-waybill-submit.is-success .tg-waybill-submit-spinner {
+    display: none;
+  }
+
+  .tg-waybill-submit.is-error {
+    background: linear-gradient(135deg, #fb7185, #ef4444);
+    box-shadow: 0 18px 40px rgba(239, 68, 68, 0.28);
+  }
+
+  @keyframes tg-waybill-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tg-waybill-submit-spinner {
+      animation-duration: 1.6s;
+    }
+  }
+
   .tg-waybill-delete {
     min-height: 52px;
     border: 1px solid rgba(251, 113, 133, 0.42);
@@ -521,7 +576,7 @@
   </div>
 
   {% if can_submit and form %}
-    <form method="post" class="tg-waybill-form">
+    <form method="post" class="tg-waybill-form" data-tg-waybill-create>
       {% csrf_token %}
       <input type="hidden" name="token" value="{{ token }}">
 
@@ -856,7 +911,10 @@
             Після натискання кнопки система створить накладну через API Нової пошти, збереже ТТН у замовленні
             і прибере керуючі кнопки з Telegram-повідомлення.
           </p>
-          <button type="submit" class="tg-waybill-submit">Створити ТТН</button>
+          <button type="submit" class="tg-waybill-submit" data-tg-waybill-submit>
+            <span class="tg-waybill-submit-spinner" aria-hidden="true"></span>
+            <span class="tg-waybill-submit-label">Створити ТТН</span>
+          </button>
         </div>
       </div>
     </form>
@@ -966,5 +1024,141 @@
     pollPaymentSnapshot();
     window.setInterval(pollPaymentSnapshot, 5000);
   }
+
+  // === Інтерактивне створення ТТН (loading → success → reload) ===
+  (function initWaybillCreateForm() {
+    const form = document.querySelector('form[data-tg-waybill-create]');
+    if (!form) return;
+
+    const submitButton = form.querySelector('[data-tg-waybill-submit]');
+    const labelEl = submitButton ? submitButton.querySelector('.tg-waybill-submit-label') : null;
+    const stateHost = document.querySelector('.tg-waybill-hero');
+    let isSubmitting = false;
+
+    function setLabel(text) {
+      if (labelEl) {
+        labelEl.textContent = text;
+      } else if (submitButton) {
+        submitButton.textContent = text;
+      }
+    }
+
+    function ensureStateBox() {
+      if (!stateHost) return null;
+      let box = stateHost.querySelector('[data-tg-waybill-live-state]');
+      if (!box) {
+        box = document.createElement('div');
+        box.className = 'tg-waybill-state';
+        box.setAttribute('data-tg-waybill-live-state', '');
+        const helper = stateHost.querySelector('.tg-waybill-helper');
+        if (helper) {
+          helper.parentNode.insertBefore(box, helper);
+        } else {
+          stateHost.appendChild(box);
+        }
+      }
+      return box;
+    }
+
+    function showState(kind, message) {
+      const box = ensureStateBox();
+      if (!box || !message) return;
+      box.className = `tg-waybill-state ${kind}`;
+      box.textContent = message;
+      box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function clearState() {
+      const box = stateHost ? stateHost.querySelector('[data-tg-waybill-live-state]') : null;
+      if (box) box.remove();
+    }
+
+    form.addEventListener('submit', async (event) => {
+      if (isSubmitting) {
+        event.preventDefault();
+        return;
+      }
+      // Прогресивне покращення: працюємо лише якщо доступний fetch.
+      if (typeof window.fetch !== 'function') {
+        return;
+      }
+
+      event.preventDefault();
+      isSubmitting = true;
+      clearState();
+
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.classList.remove('is-success', 'is-error');
+        submitButton.classList.add('is-loading');
+      }
+      setLabel('Створюється ТТН…');
+
+      try {
+        const response = await fetch(form.action || window.location.href, {
+          method: 'POST',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          body: new FormData(form),
+          credentials: 'same-origin',
+        });
+
+        let data = null;
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          data = null;
+        }
+
+        if (response.ok && data && data.success) {
+          if (submitButton) {
+            submitButton.classList.remove('is-loading', 'is-error');
+            submitButton.classList.add('is-success');
+          }
+          setLabel('✓ ТТН створено!');
+          const trackingSuffix = data.tracking_number ? ` №${data.tracking_number}` : '';
+          showState('success', data.success_message || `ТТН успішно створено${trackingSuffix}. Оновлюємо сторінку…`);
+          window.setTimeout(() => {
+            window.location.reload();
+          }, 1500);
+          return;
+        }
+
+        // Помилка або блокування — повертаємо кнопку у робочий стан.
+        const message = (data && (data.error_message || (data.field_errors && data.field_errors[0])))
+          || 'Не вдалося створити ТТН. Спробуйте ще раз.';
+        if (submitButton) {
+          submitButton.classList.remove('is-loading', 'is-success');
+          submitButton.classList.add('is-error');
+          submitButton.disabled = false;
+        }
+        setLabel('Спробувати ще раз');
+        showState(data && data.is_blocked ? 'blocked' : 'error', message);
+        isSubmitting = false;
+
+        if (submitButton) {
+          window.setTimeout(() => {
+            submitButton.classList.remove('is-error');
+            setLabel('Створити ТТН');
+          }, 4000);
+        }
+      } catch (networkError) {
+        console.warn('Telegram waybill create request failed', networkError);
+        if (submitButton) {
+          submitButton.classList.remove('is-loading', 'is-success');
+          submitButton.classList.add('is-error');
+          submitButton.disabled = false;
+        }
+        setLabel('Спробувати ще раз');
+        showState('error', 'Помилка зʼєднання. Перевірте інтернет і спробуйте ще раз.');
+        isSubmitting = false;
+        if (submitButton) {
+          window.setTimeout(() => {
+            submitButton.classList.remove('is-error');
+            setLabel('Створити ТТН');
+          }, 4000);
+        }
+      }
+    });
+  })();
 </script>
 {% endblock %}
