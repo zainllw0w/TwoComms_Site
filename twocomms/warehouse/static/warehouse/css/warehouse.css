@@ -1306,17 +1306,57 @@ textarea {
     color: var(--accent);
 }
 
+/* Active pill highlight under the icon */
+.wh-bottom-nav__item.active .wh-bottom-nav__icon {
+    background: var(--accent-soft);
+    border-radius: 10px;
+}
+
 .wh-bottom-nav__icon {
-    width: 22px;
-    height: 22px;
+    width: 30px;
+    height: 26px;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: background 0.18s ease;
 }
 
 .wh-bottom-nav__icon svg {
-    width: 100%;
-    height: 100%;
+    width: 22px;
+    height: 22px;
+}
+
+/* Center FAB ("+") — raised circular action button */
+.wh-bottom-nav--ctx { align-items: flex-end; }
+
+.wh-bottom-nav__fab {
+    flex: 0 0 auto;
+    width: 56px;
+    height: 56px;
+    margin: 0 6px;
+    transform: translateY(-14px);
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent) 0%, #ff9d52 100%);
+    color: #0b0e14;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 20px rgba(255, 126, 41, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
+    border: 3px solid var(--bg-soft);
+    text-decoration: none;
+    transition: transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.16s ease;
+}
+
+.wh-bottom-nav__fab svg { width: 26px; height: 26px; }
+
+.wh-bottom-nav__fab:hover {
+    color: #0b0e14;
+    transform: translateY(-16px) scale(1.04);
+    box-shadow: 0 10px 26px rgba(255, 126, 41, 0.55), 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.wh-bottom-nav__fab:active {
+    transform: translateY(-12px) scale(0.96);
 }
 
 /* ============= Messages ============= */
@@ -1765,6 +1805,25 @@ textarea {
     color: var(--text-muted);
     flex-shrink: 0;
 }
+
+/* Clickable list rows + low-stock highlight (consumables) */
+a.wh-list__item { text-decoration: none; transition: border-color 0.15s ease, transform 0.1s ease; }
+a.wh-list__item:hover { border-color: var(--border); }
+a.wh-list__item:active { transform: scale(0.992); }
+
+.wh-list__item--warn {
+    border-color: var(--danger);
+    background: linear-gradient(135deg, var(--bg-card) 0%, var(--danger-soft) 160%);
+}
+
+.wh-list__qty {
+    flex-shrink: 0;
+    text-align: right;
+    line-height: 1.15;
+}
+.wh-list__qty b { font-size: 16px; color: var(--text); }
+.wh-list__qty.is-low b { color: var(--danger); }
+.wh-list__qty span { display: block; font-size: 11px; color: var(--text-dim); }
 
 /* ============= Section title ============= */
 

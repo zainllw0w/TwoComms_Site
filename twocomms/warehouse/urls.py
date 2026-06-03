@@ -120,6 +120,26 @@ urlpatterns = [
         views.settings_print_category_toggle,
         name="settings_print_category_toggle",
     ),
+    path(
+        "settings/consumable-categories/",
+        views.settings_consumable_categories,
+        name="settings_consumable_categories",
+    ),
+    path(
+        "settings/consumable-categories/new/",
+        views.settings_consumable_category_form,
+        name="settings_consumable_category_new",
+    ),
+    path(
+        "settings/consumable-categories/<int:pk>/edit/",
+        views.settings_consumable_category_form,
+        name="settings_consumable_category_edit",
+    ),
+    path(
+        "settings/consumable-categories/<int:pk>/toggle/",
+        views.settings_consumable_category_toggle,
+        name="settings_consumable_category_toggle",
+    ),
     path("settings/telegram/", views.settings_telegram, name="settings_telegram"),
     path(
         "settings/telegram/test/",

@@ -13,6 +13,7 @@ from django.views.decorators.http import require_POST
 from productcolors.models import Color
 
 from warehouse.models import (
+    ConsumableCategory,
     PrintCategory,
     StorageCategory,
     StorageSubcategory,
@@ -69,6 +70,8 @@ def settings_index(request):
     colors_count = Color.objects.count()
     print_categories_count = PrintCategory.objects.count()
     print_categories_active = PrintCategory.objects.filter(is_active=True).count()
+    consumable_categories_count = ConsumableCategory.objects.count()
+    consumable_categories_active = ConsumableCategory.objects.filter(is_active=True).count()
 
     # Telegram bot status
     bot_token_set = bool(get_bot_token())
@@ -84,6 +87,8 @@ def settings_index(request):
             "colors": colors_count,
             "print_categories": print_categories_count,
             "print_categories_active": print_categories_active,
+            "consumable_categories": consumable_categories_count,
+            "consumable_categories_active": consumable_categories_active,
             "bot_token_set": bot_token_set,
             "bot_chat_ids_count": bot_chat_ids_count,
         },
@@ -155,6 +160,70 @@ def settings_print_category_toggle(request, pk: int):
         f"Категорія «{instance.name}» {'активна' if instance.is_active else 'прихована'}",
     )
     return redirect("warehouse:settings_print_categories")
+
+
+# ---------------------------------------------------------------------------
+# Consumable categories CRUD
+# ---------------------------------------------------------------------------
+
+
+@warehouse_admin_required
+def settings_consumable_categories(request):
+    categories = (
+        ConsumableCategory.objects.all()
+        .annotate(item_count=Count("items"))
+        .order_by("-is_active", "order", "name")
+    )
+    context = {
+        "categories": categories,
+        "active_section": "settings",
+    }
+    return render(request, "warehouse/settings/consumable_categories.html", context)
+
+
+@warehouse_admin_required
+def settings_consumable_category_form(request, pk: int | None = None):
+    instance = get_object_or_404(ConsumableCategory, pk=pk) if pk else None
+
+    if request.method == "POST":
+        name = (request.POST.get("name") or "").strip()
+        if not name:
+            messages.error(request, "Назва обов'язкова")
+            return redirect(request.path)
+        icon = (request.POST.get("icon") or "").strip()[:8]
+        order = int(request.POST.get("order") or 0)
+        is_active = request.POST.get("is_active") == "on"
+
+        if instance is None:
+            instance = ConsumableCategory(name=name)
+        else:
+            instance.name = name
+        instance.icon = icon
+        instance.order = order
+        instance.is_active = is_active
+        instance.save()
+
+        messages.success(request, f"Категорію «{instance.name}» збережено")
+        return redirect("warehouse:settings_consumable_categories")
+
+    context = {
+        "instance": instance,
+        "active_section": "settings",
+    }
+    return render(request, "warehouse/settings/consumable_category_form.html", context)
+
+
+@warehouse_admin_required
+@require_POST
+def settings_consumable_category_toggle(request, pk: int):
+    instance = get_object_or_404(ConsumableCategory, pk=pk)
+    instance.is_active = not instance.is_active
+    instance.save(update_fields=["is_active", "updated_at"])
+    messages.success(
+        request,
+        f"Категорія «{instance.name}» {'активна' if instance.is_active else 'прихована'}",
+    )
+    return redirect("warehouse:settings_consumable_categories")
 
 
 # ---------------------------------------------------------------------------

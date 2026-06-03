@@ -638,6 +638,47 @@ class WarehouseSettings(models.Model):
 # ---------------------------------------------------------------------------
 
 
+class ConsumableCategory(models.Model):
+    """Редагована категорія розхідників (Для принтера, Для одягу тощо)."""
+
+    name = models.CharField(max_length=120, verbose_name="Назва")
+    slug = models.SlugField(max_length=140, unique=True, blank=True)
+    icon = models.CharField(
+        max_length=8,
+        blank=True,
+        default="",
+        verbose_name="Іконка (emoji)",
+        help_text="Опціонально: одна emoji для індикатора (🖨️ 👕 📦)",
+    )
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["order", "name"]
+        verbose_name = "Категорія розхідників"
+        verbose_name_plural = "Категорії розхідників"
+
+    def __str__(self) -> str:
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base = _slugify(self.name, fallback="consumable-cat")
+            slug = base
+            i = 2
+            while (
+                ConsumableCategory.objects.exclude(pk=self.pk)
+                .filter(slug=slug)
+                .exists()
+            ):
+                slug = f"{base}-{i}"
+                i += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
+
+
 class ConsumableItem(models.Model):
     """Розхідний матеріал (пакети, фарба, клей, плівка тощо)."""
 
@@ -655,7 +696,22 @@ class ConsumableItem(models.Model):
         ("other", "Інше"),
     ]
 
-    category = models.CharField(max_length=32, choices=CATEGORY_CHOICES, verbose_name="Категорія")
+    category = models.CharField(
+        max_length=32,
+        choices=CATEGORY_CHOICES,
+        blank=True,
+        null=True,
+        verbose_name="Категорія (legacy)",
+        help_text="Застаріле поле; нові позиції використовують category_fk.",
+    )
+    category_fk = models.ForeignKey(
+        "ConsumableCategory",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="items",
+        verbose_name="Категорія",
+    )
     name = models.CharField(max_length=255, verbose_name="Назва")
     quantity = models.DecimalField(
         max_digits=10, decimal_places=2, default=Decimal("0.00"), verbose_name="Залишок"
@@ -687,7 +743,7 @@ class ConsumableItem(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["category", "name"]
+        ordering = ["name"]
         indexes = [
             models.Index(fields=["category"], name="warehouse_co_categor_idx"),
             models.Index(fields=["quantity"], name="warehouse_co_quantit_idx"),
@@ -696,7 +752,16 @@ class ConsumableItem(models.Model):
         verbose_name_plural = "Розхідні матеріали"
 
     def __str__(self) -> str:
-        return f"{self.get_category_display()}: {self.name} ({self.quantity} {self.unit})"
+        return f"{self.category_label}: {self.name} ({self.quantity} {self.unit})"
+
+    @property
+    def category_label(self) -> str:
+        """Назва категорії: спочатку нова FK, далі legacy choice, інакше «Без категорії»."""
+        if self.category_fk_id:
+            return self.category_fk.name
+        if self.category:
+            return self.get_category_display()
+        return "Без категорії"
 
     @property
     def frozen_value(self) -> Decimal:

@@ -1,45 +1,144 @@
 {% load static %}
-{% with url_name=request.resolver_match.url_name|default:'' %}
-<nav class="wh-bottom-nav">
-    <a href="{% url 'warehouse:dashboard' %}"
-       class="wh-bottom-nav__item {% if url_name == 'dashboard' or url_name == 'today' %}active{% endif %}">
+{% with url_name=request.resolver_match.url_name|default:'' section=active_section|default:'' %}
+{% comment %}
+  Контекстне нижнє меню.
+  • Розділи одяг / принти / розхідники → 5 слотів:
+    [Домой] [Категорії] [➕ FAB] [контекст] [Керування]
+  • Інші сторінки (головна, історія, фінанси, налаштування) → глобальний
+    перемикач секцій.
+{% endcomment %}
+{% if section == 'categories' or section == 'prints' or section == 'consumables' %}
+<nav class="wh-bottom-nav wh-bottom-nav--ctx">
+    {# ---- Завжди зліва: Домой ---- #}
+    <a href="{% url 'warehouse:dashboard' %}" class="wh-bottom-nav__item">
         <span class="wh-bottom-nav__icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 12L12 3l9 9"/>
-                <path d="M5 10v10h14V10"/>
+                <path d="M3 12L12 3l9 9"/><path d="M5 10v10h14V10"/>
+            </svg>
+        </span>
+        Домой
+    </a>
+
+    {% if section == 'categories' %}
+        <a href="{% url 'warehouse:category_list' %}"
+           class="wh-bottom-nav__item {% if url_name == 'category_list' %}active{% endif %}">
+            <span class="wh-bottom-nav__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+                    <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+                </svg>
+            </span>
+            Категорії
+        </a>
+        {% if category %}
+        <a href="{% url 'warehouse:category_bulk_add' slug=category.slug %}" class="wh-bottom-nav__fab" aria-label="Додати партію">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        </a>
+        {% else %}
+        <a href="{% url 'warehouse:settings_category_new' %}" class="wh-bottom-nav__fab" aria-label="Нова категорія">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        </a>
+        {% endif %}
+        <a href="{% url 'warehouse:settings_subcategories' %}"
+           class="wh-bottom-nav__item {% if url_name == 'settings_subcategories' %}active{% endif %}">
+            <span class="wh-bottom-nav__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12"/>
+                </svg>
+            </span>
+            Крої
+        </a>
+    {% elif section == 'prints' %}
+        <a href="{% url 'warehouse:settings_print_categories' %}"
+           class="wh-bottom-nav__item {% if url_name == 'settings_print_categories' %}active{% endif %}">
+            <span class="wh-bottom-nav__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0l-7.18-7.18a2 2 0 0 1-.59-1.41V4a2 2 0 0 1 2-2h7.99a2 2 0 0 1 1.41.59l6.38 6.38a2 2 0 0 1 0 2.83Z"/><path d="M7 7h.01"/>
+                </svg>
+            </span>
+            Категорії
+        </a>
+        <a href="{% url 'warehouse:print_create' %}" class="wh-bottom-nav__fab" aria-label="Новий принт">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        </a>
+        <a href="{% url 'warehouse:print_list' %}"
+           class="wh-bottom-nav__item {% if url_name == 'print_list' or url_name == 'print_detail' %}active{% endif %}">
+            <span class="wh-bottom-nav__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15l-5-5L5 21"/><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+                </svg>
+            </span>
+            Принти
+        </a>
+    {% elif section == 'consumables' %}
+        <a href="{% url 'warehouse:settings_consumable_categories' %}"
+           class="wh-bottom-nav__item {% if url_name == 'settings_consumable_categories' %}active{% endif %}">
+            <span class="wh-bottom-nav__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+                    <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+                </svg>
+            </span>
+            Категорії
+        </a>
+        <a href="{% url 'warehouse:consumable_create' %}" class="wh-bottom-nav__fab" aria-label="Новий розхідник">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        </a>
+        <a href="{% url 'warehouse:consumables_list' %}?low_stock=1"
+           class="wh-bottom-nav__item {% if url_name == 'consumables_list' %}active{% endif %}">
+            <span class="wh-bottom-nav__icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4M12 17h.01"/>
+                </svg>
+            </span>
+            Низькі
+        </a>
+    {% endif %}
+
+    {# ---- Завжди справа: Керування секцією ---- #}
+    <a href="{% url 'warehouse:settings' %}"
+       class="wh-bottom-nav__item {% if 'settings' in url_name %}active{% endif %}">
+        <span class="wh-bottom-nav__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+        </span>
+        Керування
+    </a>
+</nav>
+{% else %}
+{# ---- Глобальний перемикач секцій ---- #}
+<nav class="wh-bottom-nav">
+    <a href="{% url 'warehouse:dashboard' %}"
+       class="wh-bottom-nav__item {% if section == 'dashboard' or section == 'today' %}active{% endif %}">
+        <span class="wh-bottom-nav__icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12L12 3l9 9"/><path d="M5 10v10h14V10"/>
             </svg>
         </span>
         Головна
     </a>
-    <a href="{% url 'warehouse:category_list' %}"
-       class="wh-bottom-nav__item {% if url_name == 'category_list' or url_name == 'category_detail' or url_name == 'category_bulk_add' %}active{% endif %}">
+    <a href="{% url 'warehouse:category_list' %}" class="wh-bottom-nav__item">
         <span class="wh-bottom-nav__icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M16 4l2 2-6 6 6 6-2 2"/>
-                <rect x="3" y="3" width="6" height="6" rx="1"/>
-                <rect x="3" y="15" width="6" height="6" rx="1"/>
+                <path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23Z"/>
             </svg>
         </span>
         Одяг
     </a>
-    <a href="{% url 'warehouse:print_list' %}"
-       class="wh-bottom-nav__item {% if url_name == 'print_list' or url_name == 'print_detail' or url_name == 'print_create' or url_name == 'print_edit' %}active{% endif %}">
+    <a href="{% url 'warehouse:print_list' %}" class="wh-bottom-nav__item">
         <span class="wh-bottom-nav__icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="9" width="18" height="10" rx="2"/>
-                <path d="M7 9V5h10v4"/>
-                <path d="M7 19h10v3H7z"/>
+                <path d="M21 15l-5-5L5 21"/><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
             </svg>
         </span>
         Принти
     </a>
-    <a href="{% url 'warehouse:consumables_list' %}"
-       class="wh-bottom-nav__item {% if url_name == 'consumables_list' or url_name == 'consumable_detail' or url_name == 'consumable_create' or url_name == 'consumable_edit' %}active{% endif %}">
+    <a href="{% url 'warehouse:consumables_list' %}" class="wh-bottom-nav__item">
         <span class="wh-bottom-nav__icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 7l9-4 9 4-9 4-9-4z"/>
-                <path d="M3 7v10l9 4 9-4V7"/>
-                <path d="M12 11v10"/>
+                <path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/>
             </svg>
         </span>
         Розхідники
@@ -55,4 +154,5 @@
         Налаштування
     </a>
 </nav>
+{% endif %}
 {% endwith %}

@@ -1,0 +1,46 @@
+{% extends "warehouse/base.html" %}
+{% block title %}Категорії розхідників — Налаштування{% endblock %}
+{% block header_title %}Категорії розхідників{% endblock %}
+{% block header_actions %}
+<a href="{% url 'warehouse:settings_consumable_category_new' %}" class="btn btn--primary btn--small">+ Категорія</a>
+{% endblock %}
+
+{% block content %}
+<a href="{% url 'warehouse:settings' %}" class="text-muted text-small">← Назад до налаштувань</a>
+
+<p class="text-small text-muted mb-16">
+    Групи розхідних матеріалів (наприклад: «Для принтера», «Для одягу», «Пакування»).
+    Позиції без категорії показуються як «Без категорії».
+</p>
+
+<ul class="wh-list">
+{% for cat in categories %}
+    <li class="wh-list__item">
+        <span class="wh-list__icon">{{ cat.icon|default:"📦" }}</span>
+        <span class="wh-list__body">
+            <span class="wh-list__title">
+                {{ cat.name }}
+                {% if not cat.is_active %}<span class="wh-badge">прихована</span>{% endif %}
+            </span>
+            <span class="wh-list__meta">{{ cat.item_count|default:0 }} позицій</span>
+        </span>
+        <span class="flex-gap-8">
+            <a href="{% url 'warehouse:settings_consumable_category_edit' pk=cat.id %}"
+               class="btn btn--ghost btn--small">Ред.</a>
+            <form method="post" action="{% url 'warehouse:settings_consumable_category_toggle' pk=cat.id %}"
+                  style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn--ghost btn--small"
+                        title="{% if cat.is_active %}Приховати{% else %}Активувати{% endif %}">
+                    {% if cat.is_active %}🚫{% else %}✓{% endif %}
+                </button>
+            </form>
+        </span>
+    </li>
+{% empty %}
+    <li class="wh-card text-muted text-center">
+        Ще немає жодної категорії. Натисніть «+ Категорія» вище.
+    </li>
+{% endfor %}
+</ul>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "warehouse/base.html" %}
+{% block title %}{% if instance %}{{ instance.name }}{% else %}Нова категорія розхідників{% endif %}{% endblock %}
+{% block header_title %}{% if instance %}Редагування{% else %}Нова категорія{% endif %}{% endblock %}
+
+{% block content %}
+<a href="{% url 'warehouse:settings_consumable_categories' %}" class="text-muted text-small">← Назад до списку</a>
+
+<form method="post" class="wh-card mt-12">
+    {% csrf_token %}
+
+    <div class="form-field">
+        <label for="name">Назва *</label>
+        <input id="name" type="text" name="name" required maxlength="120"
+               value="{{ instance.name|default:'' }}"
+               placeholder="напр. «Для принтера», «Для одягу»">
+    </div>
+
+    <div class="form-field">
+        <label for="icon">Іконка (emoji)</label>
+        <input id="icon" type="text" name="icon" maxlength="8"
+               value="{{ instance.icon|default:'' }}"
+               placeholder="напр. 🖨️ 👕 📦" style="font-size: 22px;">
+        <span class="form-help">Одна emoji для індикатора в списку. Можна залишити порожнім.</span>
+    </div>
+
+    <div class="form-field">
+        <label for="order">Порядок</label>
+        <input id="order" type="number" name="order" value="{{ instance.order|default:0 }}" min="0">
+        <span class="form-help">Менше число — вище у списку.</span>
+    </div>
+
+    <div class="form-field">
+        <label class="flex" style="align-items:center;gap:8px;">
+            <input type="checkbox" name="is_active"
+                   {% if not instance or instance.is_active %}checked{% endif %}
+                   style="width:auto;min-height:auto;">
+            Активна
+        </label>
+    </div>
+
+    <div class="flex-gap-8 mt-16">
+        <a href="{% url 'warehouse:settings_consumable_categories' %}" class="btn btn--ghost flex-1">Скасувати</a>
+        <button type="submit" class="btn btn--primary flex-1">Зберегти</button>
+    </div>
+</form>
+{% endblock %}

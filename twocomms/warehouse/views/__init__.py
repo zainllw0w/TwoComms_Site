@@ -41,4 +41,7 @@ from .settings import (  # noqa: F401
     settings_print_categories,
     settings_print_category_form,
     settings_print_category_toggle,
+    settings_consumable_categories,
+    settings_consumable_category_form,
+    settings_consumable_category_toggle,
 )

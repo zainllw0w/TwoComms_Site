@@ -1,112 +1,63 @@
-{% extends 'warehouse/base.html' %}
-{% load static %}
-
-{% block title %}Розхідні матеріали — Склад{% endblock %}
+{% extends "warehouse/base.html" %}
+{% block title %}Розхідники — Склад{% endblock %}
+{% block header_title %}Розхідники{% endblock %}
+{% block header_actions %}
+<a href="{% url 'warehouse:consumable_create' %}" class="btn btn--primary btn--small">+ Додати</a>
+{% endblock %}
 
 {% block content %}
-<div class="storage-page-head">
-    <div>
-        <h1 class="storage-page-title">Розхідні матеріали</h1>
-        <p class="storage-page-subtitle">Пакети, фарба, клей, плівка та інші витратні матеріали</p>
+<div class="wh-grid wh-grid-3">
+    <div class="wh-card" style="margin-bottom:0;">
+        <div class="wh-card__title">Вартість</div>
+        <div class="wh-card__value">{{ total_value|floatformat:0 }} ₴</div>
     </div>
-    <a href="{% url 'warehouse:consumable_create' %}" class="storage-btn storage-btn--primary">+ Додати розхідник</a>
-</div>
-
-<!-- Статистика -->
-<div class="storage-stats-row">
-    <div class="storage-stat-card">
-        <div class="storage-stat-card__label">Загальна вартість</div>
-        <div class="storage-stat-card__value">{{ total_value|floatformat:0 }} ₴</div>
+    <div class="wh-card{% if low_stock_count %} wh-card--accent{% endif %}" style="margin-bottom:0;">
+        <div class="wh-card__title">Низькі</div>
+        <div class="wh-card__value{% if low_stock_count %} wh-card__value--accent{% endif %}">{{ low_stock_count }}</div>
     </div>
-    <div class="storage-stat-card {% if low_stock_count > 0 %}storage-stat-card--warning{% endif %}">
-        <div class="storage-stat-card__label">Низькі залишки</div>
-        <div class="storage-stat-card__value">{{ low_stock_count }}</div>
-    </div>
-    <div class="storage-stat-card">
-        <div class="storage-stat-card__label">Всього позицій</div>
-        <div class="storage-stat-card__value">{{ consumables.count }}</div>
+    <div class="wh-card" style="margin-bottom:0;">
+        <div class="wh-card__title">Позицій</div>
+        <div class="wh-card__value">{{ total_count }}</div>
     </div>
 </div>
 
-<!-- Фільтри -->
-<form method="get" class="storage-filters">
-    <select name="category" class="storage-select" onchange="this.form.submit()">
-        <option value="">Всі категорії</option>
-        {% for cat_value, cat_label in categories %}
-        <option value="{{ cat_value }}" {% if current_category == cat_value %}selected{% endif %}>{{ cat_label }}</option>
-        {% endfor %}
-    </select>
-
-    <label class="storage-checkbox">
-        <input type="checkbox" name="low_stock" value="1" {% if show_low_stock %}checked{% endif %} onchange="this.form.submit()">
-        <span>Тільки низькі залишки</span>
-    </label>
-
-    {% if current_category or show_low_stock %}
-    <a href="{% url 'warehouse:consumables_list' %}" class="storage-btn storage-btn--ghost">Скинути</a>
-    {% endif %}
-</form>
-
-<!-- Таблиця розхідників -->
-<div class="storage-table-wrap">
-    <table class="storage-table">
-        <thead>
-            <tr>
-                <th>Категорія</th>
-                <th>Назва</th>
-                <th>Залишок</th>
-                <th>Одиниця</th>
-                <th>Ціна/од.</th>
-                <th>Загальна вартість</th>
-                <th>Мін. залишок</th>
-                <th>Постачальник</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for c in consumables %}
-            <tr {% if c.quantity <= c.min_stock_alert %}class="storage-row--warning"{% endif %}>
-                <td>{{ c.get_category_display }}</td>
-                <td><strong>{{ c.name }}</strong></td>
-                <td>
-                    <span class="storage-qty {% if c.quantity <= c.min_stock_alert %}storage-qty--low{% endif %}">
-                        {{ c.quantity }}
-                    </span>
-                </td>
-                <td>{{ c.unit }}</td>
-                <td>{{ c.cost_per_unit|floatformat:2 }} ₴</td>
-                <td>{{ c.total_cost|floatformat:2 }} ₴</td>
-                <td>{{ c.min_stock_alert }}</td>
-                <td>{% if c.supplier %}{{ c.supplier.name }}{% else %}<span class="storage-muted">—</span>{% endif %}</td>
-                <td>
-                    <a href="{% url 'warehouse:consumable_detail' c.pk %}" class="storage-btn storage-btn--sm">Деталі</a>
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="9" class="storage-empty">
-                    <p>Немає розхідних матеріалів</p>
-                    <a href="{% url 'warehouse:consumable_create' %}" class="storage-btn storage-btn--primary">Додати перший</a>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<div class="wh-chip-row">
+    <a href="{% url 'warehouse:consumables_list' %}"
+       class="wh-chip{% if not current_category and not show_low_stock %} is-active{% endif %}">Усі</a>
+    {% for cat in categories %}
+    <a href="?category={{ cat.slug }}"
+       class="wh-chip{% if current_category and current_category.id == cat.id %} is-active{% endif %}">
+        {% if cat.icon %}{{ cat.icon }} {% endif %}{{ cat.name }}
+    </a>
+    {% endfor %}
+    <a href="?low_stock=1" class="wh-chip{% if show_low_stock %} is-active{% endif %}">⚠️ Низькі</a>
 </div>
 
-<style>
-.storage-row--warning {
-    background: rgba(239, 68, 68, 0.1);
-}
-.storage-qty--low {
-    color: #ef4444;
-    font-weight: 600;
-}
-.storage-stat-card--warning {
-    border-color: #f59e0b;
-}
-.storage-stat-card--warning .storage-stat-card__value {
-    color: #f59e0b;
-}
-</style>
+<div class="wh-list">
+    {% for c in consumables %}
+    <a href="{% url 'warehouse:consumable_detail' c.pk %}"
+       class="wh-list__item{% if c.is_low_stock %} wh-list__item--warn{% endif %}">
+        <span class="wh-list__icon">{% if c.category_fk and c.category_fk.icon %}{{ c.category_fk.icon }}{% else %}📦{% endif %}</span>
+        <span class="wh-list__body">
+            <span class="wh-list__title">
+                {{ c.name }}
+                {% if c.is_low_stock %}<span class="wh-badge wh-badge--danger">мало</span>{% endif %}
+            </span>
+            <span class="wh-list__meta">{{ c.category_label }} · {{ c.cost_per_unit|floatformat:2 }} ₴/{{ c.unit }}</span>
+        </span>
+        <span class="wh-list__qty{% if c.is_low_stock %} is-low{% endif %}">
+            <b>{{ c.quantity|floatformat:'-2' }}</b>
+            <span>{{ c.unit }}</span>
+        </span>
+    </a>
+    {% empty %}
+    <div class="wh-card text-muted text-center">
+        {% if current_category or show_low_stock %}
+        Нічого не знайдено за фільтром.
+        {% else %}
+        Розхідників ще немає. Натисніть «+ Додати».
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
 {% endblock %}

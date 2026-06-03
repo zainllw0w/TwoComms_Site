@@ -8,19 +8,27 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from warehouse.models import ConsumableItem
+from warehouse.models import ConsumableCategory, ConsumableItem
 from warehouse.services import consumables as consumables_service
 
 
 @login_required
 def consumables_list(request):
     """Список всіх розхідних матеріалів."""
-    qs = ConsumableItem.objects.all().order_by('category', 'name')
+    qs = (
+        ConsumableItem.objects.select_related('category_fk', 'supplier')
+        .order_by('category_fk__order', 'name')
+    )
 
-    # Фільтр по категорії
-    category = request.GET.get('category')
-    if category:
-        qs = qs.filter(category=category)
+    categories = ConsumableCategory.objects.filter(is_active=True).order_by('order', 'name')
+
+    # Фільтр по категорії (за slug)
+    cat_slug = request.GET.get('category')
+    current_category = None
+    if cat_slug:
+        current_category = categories.filter(slug=cat_slug).first()
+        if current_category:
+            qs = qs.filter(category_fk=current_category)
 
     # Фільтр по низьким залишкам
     low_stock = request.GET.get('low_stock')
@@ -37,9 +45,11 @@ def consumables_list(request):
         'consumables': qs,
         'total_value': total_value,
         'low_stock_count': low_stock_items,
-        'categories': ConsumableItem.CATEGORY_CHOICES,
-        'current_category': category,
+        'total_count': ConsumableItem.objects.count(),
+        'categories': categories,
+        'current_category': current_category,
         'show_low_stock': low_stock == '1',
+        'active_section': 'consumables',
     })
 
 
@@ -60,6 +70,7 @@ def consumable_detail(request, pk):
     return render(request, 'warehouse/consumable_detail.html', {
         'consumable': consumable,
         'movements': movements,
+        'active_section': 'consumables',
     })
 
 
@@ -68,25 +79,20 @@ def consumable_create(request):
     """Створення нового розхідного матеріалу."""
     if request.method == 'POST':
         try:
+            qty = Decimal(request.POST.get('quantity', '0'))
+            cost = Decimal(request.POST.get('cost_per_unit', '0'))
             consumable = ConsumableItem.objects.create(
-                category=request.POST['category'],
+                category_fk_id=request.POST.get('category_id') or None,
                 name=request.POST['name'],
-                quantity=Decimal(request.POST.get('quantity', '0')),
+                quantity=qty,
                 unit=request.POST.get('unit', 'шт'),
-                cost_per_unit=Decimal(request.POST.get('cost_per_unit', '0')),
-                total_cost=Decimal(request.POST.get('quantity', '0')) * Decimal(request.POST.get('cost_per_unit', '0')),
+                cost_per_unit=cost,
+                total_cost=qty * cost,
                 purchase_date=request.POST['purchase_date'],
                 min_stock_alert=Decimal(request.POST.get('min_stock_alert', '0')),
                 notes=request.POST.get('notes', ''),
+                supplier_id=request.POST.get('supplier_id') or None,
             )
-
-            # Якщо вказано постачальника
-            supplier_id = request.POST.get('supplier_id')
-            if supplier_id:
-                from finance.models import Counterparty
-                consumable.supplier_id = supplier_id
-                consumable.save()
-
             messages.success(request, f'Розхідник "{consumable.name}" створено')
             return redirect('warehouse:consumable_detail', pk=consumable.pk)
         except Exception as e:
@@ -97,9 +103,10 @@ def consumable_create(request):
     suppliers = Counterparty.objects.filter(type='supplier').order_by('name')
 
     return render(request, 'warehouse/consumable_form.html', {
-        'categories': ConsumableItem.CATEGORY_CHOICES,
+        'categories': ConsumableCategory.objects.filter(is_active=True).order_by('order', 'name'),
         'suppliers': suppliers,
         'is_create': True,
+        'active_section': 'consumables',
     })
 
 
@@ -110,19 +117,13 @@ def consumable_edit(request, pk):
 
     if request.method == 'POST':
         try:
-            consumable.category = request.POST['category']
+            consumable.category_fk_id = request.POST.get('category_id') or None
             consumable.name = request.POST['name']
             consumable.unit = request.POST.get('unit', 'шт')
             consumable.cost_per_unit = Decimal(request.POST.get('cost_per_unit', '0'))
             consumable.min_stock_alert = Decimal(request.POST.get('min_stock_alert', '0'))
             consumable.notes = request.POST.get('notes', '')
-
-            supplier_id = request.POST.get('supplier_id')
-            if supplier_id:
-                consumable.supplier_id = supplier_id
-            else:
-                consumable.supplier = None
-
+            consumable.supplier_id = request.POST.get('supplier_id') or None
             consumable.save()
             messages.success(request, f'Розхідник "{consumable.name}" оновлено')
             return redirect('warehouse:consumable_detail', pk=consumable.pk)
@@ -134,9 +135,10 @@ def consumable_edit(request, pk):
 
     return render(request, 'warehouse/consumable_form.html', {
         'consumable': consumable,
-        'categories': ConsumableItem.CATEGORY_CHOICES,
+        'categories': ConsumableCategory.objects.filter(is_active=True).order_by('order', 'name'),
         'suppliers': suppliers,
         'is_create': False,
+        'active_section': 'consumables',
     })
 
 
