@@ -152,22 +152,39 @@
 .payment-history-item .history-status { color:var(--o-text); font-weight:600; }
 
 /* ===== Progress track ===== */
-.oadm-track { margin:18px 0 4px; padding:18px 8px 10px; border-radius:16px; background:rgba(8,14,23,.4); border:1px solid var(--o-line); }
+.oadm-track { margin:18px 0 4px; padding:14px 10px 12px; border-radius:16px; background:rgba(8,14,23,.4); border:1px solid var(--o-line); }
+.oadm-stage { display:flex; align-items:center; gap:8px; margin:0 4px 14px; font-size:.8rem; }
+.oadm-stage__dot { width:9px; height:9px; border-radius:50%; flex:0 0 auto; }
+.oadm-stage__name { font-weight:700; color:var(--o-text); }
+.oadm-stage__count { margin-left:auto; font-size:.74rem; font-weight:700; color:var(--o-muted); letter-spacing:.02em; }
+.oadm-track[data-status="new"] .oadm-stage__dot { background:var(--o-blue); box-shadow:0 0 8px rgba(59,130,246,.6); }
+.oadm-track[data-status="prep"] .oadm-stage__dot { background:var(--o-amber); box-shadow:0 0 8px rgba(245,158,11,.6); }
+.oadm-track[data-status="ship"] .oadm-stage__dot { background:var(--o-violet); box-shadow:0 0 8px rgba(139,92,246,.6); }
+.oadm-track[data-status="done"] .oadm-stage__dot { background:var(--o-green); box-shadow:0 0 8px rgba(34,197,94,.6); }
 .oadm-track__rail { display:flex; align-items:flex-start; }
 .oadm-node { flex:1 1 0; display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; min-width:0; position:relative; z-index:1; }
 .oadm-node__dot { width:42px; height:42px; border-radius:50%; display:grid; place-items:center; flex:0 0 auto;
   background:rgba(148,163,184,.1); border:2px solid var(--o-line-2); color:var(--o-muted);
-  transition:all .25s ease; position:relative; }
-.oadm-node__dot svg { width:18px; height:18px; }
+  transition:transform .25s ease, background .25s ease, border-color .25s ease, color .25s ease, box-shadow .25s ease; position:relative; }
+.oadm-node__dot svg { width:18px; height:18px; transition:transform .25s ease; }
+.oadm-node:hover .oadm-node__dot { transform:translateY(-2px) scale(1.06); border-color:var(--o-accent); }
+.oadm-node:hover .oadm-node__label { color:var(--o-text); }
 .oadm-node__label { font-size:.72rem; font-weight:600; color:var(--o-muted); text-align:center; line-height:1.2; transition:color .2s ease; }
 .oadm-seg { flex:1 1 0; height:3px; margin-top:20px; border-radius:999px; background:var(--o-line-2); position:relative; overflow:hidden; }
-.oadm-seg__fill { position:absolute; inset:0; width:0; border-radius:999px; transition:width .4s ease; }
+.oadm-seg__fill { position:absolute; inset:0; width:0; border-radius:999px; transition:width .5s ease; }
 
 /* completed states */
 .oadm-node.is-done .oadm-node__dot { background:rgba(34,197,94,.18); border-color:var(--o-green); color:var(--o-green);
   box-shadow:0 0 0 4px rgba(34,197,94,.1); }
+.oadm-node.is-done .oadm-node__dot svg { animation:oadm-checkpop .45s cubic-bezier(.18,.89,.32,1.28) both; }
 .oadm-node.is-done .oadm-node__label { color:var(--o-green); }
-.oadm-seg.is-fill .oadm-seg__fill { width:100%; background:linear-gradient(90deg,var(--o-green),rgba(34,197,94,.6)); }
+.oadm-seg.is-fill .oadm-seg__fill { width:100%; background:linear-gradient(90deg,var(--o-green),rgba(34,197,94,.55)); }
+/* комета-блік біжить по пройденому шляху */
+.oadm-seg.is-fill .oadm-seg__fill::after { content:''; position:absolute; top:0; bottom:0; width:40%;
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent); transform:translateX(-120%);
+  animation:oadm-comet 2.8s ease-in-out infinite; }
+@keyframes oadm-comet { 0% { transform:translateX(-120%); } 55%,100% { transform:translateX(320%); } }
+@keyframes oadm-checkpop { 0% { transform:scale(0) rotate(-12deg); opacity:0; } 60% { transform:scale(1.25) rotate(4deg); opacity:1; } 100% { transform:scale(1) rotate(0); } }
 
 /* active = prep -> pulse dot */
 .oadm-node.is-active .oadm-node__label { color:var(--o-text); font-weight:700; }
@@ -182,17 +199,33 @@
   50% { box-shadow:0 0 0 8px rgba(245,158,11,0); }
 }
 
-/* flowing segment = "в дорозі" (ship active) */
+/* flowing segment = "в дорозі" (ship active) + кур'єр їде */
+.oadm-seg.is-flow { background:rgba(139,92,246,.18); }
 .oadm-seg.is-flow .oadm-seg__fill { width:100%;
-  background:linear-gradient(90deg, rgba(139,92,246,.25) 0%, var(--o-violet) 50%, rgba(139,92,246,.25) 100%);
-  background-size:220% 100%; animation:oadm-flow 1.1s linear infinite; }
-@keyframes oadm-flow { 0% { background-position:120% 0; } 100% { background-position:-120% 0; } }
+  background:repeating-linear-gradient(90deg, var(--o-violet) 0 8px, rgba(139,92,246,.25) 8px 16px);
+  background-size:200% 100%; animation:oadm-flow 1s linear infinite; }
+.oadm-seg.is-flow::after { content:''; position:absolute; top:50%; left:0; width:14px; height:14px; margin-top:-7px;
+  border-radius:50%; background:var(--o-violet); box-shadow:0 0 10px 2px rgba(139,92,246,.8), 0 0 0 3px rgba(139,92,246,.25);
+  animation:oadm-courier 1.6s ease-in-out infinite; }
+@keyframes oadm-flow { 0% { background-position:0 0; } 100% { background-position:-200% 0; } }
+@keyframes oadm-courier { 0% { left:-4px; } 100% { left:calc(100% - 10px); } }
 
 /* done celebration on final node */
 .oadm-track[data-status="done"] .oadm-node[data-step="done"] .oadm-node__dot::after {
   content:''; position:absolute; inset:-6px; border-radius:50%; border:2px solid rgba(34,197,94,.45);
   animation:oadm-ring 1.8s ease-out infinite; }
 @keyframes oadm-ring { 0% { transform:scale(.7); opacity:.9; } 100% { transform:scale(1.5); opacity:0; } }
+/* sparkles навколо фінального вузла (разовий салют) */
+.oadm-sparkles { position:absolute; inset:0; pointer-events:none; }
+.oadm-sparkles i { position:absolute; top:50%; left:50%; width:5px; height:5px; border-radius:50%; background:var(--o-green);
+  opacity:0; animation:oadm-spark 1.4s ease-out forwards; }
+.oadm-sparkles i:nth-child(1) { --tx:-26px; --ty:-22px; animation-delay:.15s; background:#86efac; }
+.oadm-sparkles i:nth-child(2) { --tx:24px; --ty:-24px; animation-delay:.25s; background:#fcd34d; }
+.oadm-sparkles i:nth-child(3) { --tx:-30px; --ty:14px; animation-delay:.1s; background:#5eead4; }
+.oadm-sparkles i:nth-child(4) { --tx:28px; --ty:16px; animation-delay:.3s; background:#86efac; }
+.oadm-sparkles i:nth-child(5) { --tx:0; --ty:-32px; animation-delay:.2s; background:#a7f3d0; }
+@keyframes oadm-spark { 0% { transform:translate(-50%,-50%) scale(.2); opacity:0; }
+  30% { opacity:1; } 100% { transform:translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(1); opacity:0; } }
 
 /* cancelled track */
 .oadm-track[data-status="cancelled"] { opacity:.55; }
@@ -202,9 +235,66 @@
 
 @media (prefers-reduced-motion:reduce) {
   .oadm-node.is-active[data-step="prep"] .oadm-node__dot,
-  .oadm-seg.is-flow .oadm-seg__fill,
+  .oadm-seg.is-flow .oadm-seg__fill, .oadm-seg.is-flow::after,
+  .oadm-seg.is-fill .oadm-seg__fill::after,
+  .oadm-node.is-done .oadm-node__dot svg,
+  .oadm-sparkles i,
   .oadm-track[data-status="done"] .oadm-node[data-step="done"] .oadm-node__dot::after { animation:none; }
+  .oadm-sparkles i { display:none; }
 }
+
+/* ===== Avatar (ініціали клієнта) ===== */
+.oadm-client-head { display:flex; align-items:center; gap:11px; margin-bottom:10px; }
+.oadm-avatar { width:38px; height:38px; flex:0 0 auto; border-radius:12px; display:grid; place-items:center;
+  font-weight:800; font-size:1rem; color:#0b1220; background:linear-gradient(135deg,#f97316,#fbbf24);
+  box-shadow:0 6px 16px rgba(249,115,22,.3); }
+.oadm-client-head__name { font-size:1rem; font-weight:800; color:var(--o-text); line-height:1.2; word-break:break-word; }
+
+/* ===== Payment facts (розбивка) ===== */
+.oadm-pay-facts { display:flex; flex-direction:column; gap:6px; margin-top:2px; }
+.oadm-fact { display:flex; align-items:center; gap:7px; font-size:.82rem; color:var(--o-muted); }
+.oadm-fact svg { flex:0 0 auto; opacity:.8; }
+.oadm-fact b { color:var(--o-text); font-weight:700; }
+.oadm-fact--cod b { color:var(--o-amber); }
+.oadm-fact--paid b { color:var(--o-green); }
+.oadm-fact--discount b { color:#f472b6; }
+
+/* ===== NP shipment status ===== */
+.oadm-np-status { display:inline-flex; align-items:center; gap:7px; margin-top:2px; padding:6px 11px; border-radius:10px;
+  background:rgba(56,189,248,.1); border:1px solid rgba(56,189,248,.26); font-size:.82rem; color:#bae6fd; }
+.oadm-np-status__dot { width:8px; height:8px; border-radius:50%; background:#38bdf8; flex:0 0 auto;
+  box-shadow:0 0 0 0 rgba(56,189,248,.6); animation:oadm-np-pulse 2s ease-in-out infinite; }
+@keyframes oadm-np-pulse { 0%,100% { box-shadow:0 0 0 0 rgba(56,189,248,.5); } 50% { box-shadow:0 0 0 6px rgba(56,189,248,0); } }
+.oadm-np-status time { color:rgba(186,230,253,.6); margin-left:2px; }
+
+/* ===== Manager comment sticky-note ===== */
+.oadm-note { display:flex; gap:11px; margin-top:14px; padding:13px 15px; border-radius:14px;
+  background:linear-gradient(135deg, rgba(251,191,36,.12), rgba(249,115,22,.06));
+  border:1px solid rgba(251,191,36,.28); border-left:3px solid var(--o-amber); }
+.oadm-note__icon { flex:0 0 auto; color:var(--o-amber); }
+.oadm-note__body { min-width:0; }
+.oadm-note__label { font-size:.7rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:#fcd34d; margin-bottom:3px; }
+.oadm-note__text { font-size:.88rem; color:#fef3c7; line-height:1.45; word-break:break-word; }
+
+/* ===== Source chip ===== */
+.oadm-source-chip { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:999px;
+  font-size:.74rem; font-weight:700; color:#c4b5fd; background:rgba(139,92,246,.14); }
+.oadm-count-chip { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:999px;
+  font-size:.74rem; font-weight:700; color:var(--o-muted); background:rgba(148,163,184,.12); }
+
+/* Items collapse (CSS-only, >3 позицій) */
+.oadm-items__list .oadm-item.oadm-items__more { display:none; }
+.oadm-items__toggle { display:inline-flex; align-items:center; justify-content:center; gap:6px; width:100%; margin-top:8px;
+  padding:8px; border-radius:10px; cursor:pointer; border:1px dashed var(--o-line-2); background:rgba(8,14,23,.4);
+  color:var(--o-muted); font-size:.82rem; font-weight:600; transition:all .15s ease; user-select:none; }
+.oadm-items__toggle:hover { color:var(--o-text); border-color:var(--o-accent); }
+.oadm-items__toggle .oadm-items__toggle-less { display:none; }
+.oadm-items__chk { position:absolute; opacity:0; pointer-events:none; }
+.oadm-items__chk:checked ~ .oadm-items__list .oadm-item.oadm-items__more { display:flex; }
+.oadm-items__chk:checked ~ .oadm-items__toggle .oadm-items__toggle-more { display:none; }
+.oadm-items__chk:checked ~ .oadm-items__toggle .oadm-items__toggle-less { display:inline; }
+.oadm-items__chk:checked ~ .oadm-items__toggle svg { transform:rotate(180deg); }
+.oadm-items__toggle svg { transition:transform .2s ease; }
 
 /* Cancel + reason */
 .oadm-actions-row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:14px; }
@@ -272,14 +362,18 @@
   .oadm-node__dot svg { width:15px; height:15px; }
   .oadm-node__label { font-size:.64rem; }
   .oadm-seg { margin-top:17px; }
+  .oadm-seg.is-flow::after { width:12px; height:12px; margin-top:-6px; }
   .payment-meta-grid { grid-template-columns:1fr; }
 }
 @media (max-width:420px) {
   .oadm-node__dot { width:32px; height:32px; }
-  .oadm-node__label { font-size:.58rem; }
+  .oadm-node__dot svg { width:14px; height:14px; }
+  .oadm-node__label { font-size:.56rem; }
   .oadm-seg { margin-top:15px; }
   .oadm-item { flex-wrap:wrap; }
-  .oadm-item__price { text-align:left; width:100%; display:flex; gap:14px; }
+  .oadm-item__price { text-align:left; width:100%; display:flex; gap:14px; align-items:baseline; }
+  .oadm-stage { font-size:.74rem; }
+  .oadm-avatar { width:34px; height:34px; }
 }
 </style>
 
@@ -392,11 +486,21 @@
               {% else %}
                 <span class="payment-status-pill" data-payment-status-pill style="background:#fbbf24;">Не оплачено</span>
               {% endif %}
+              {% if o.sale_source %}
+                <span class="oadm-source-chip" title="Джерело продажу">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+                  {{ o.sale_source }}
+                </span>
+              {% endif %}
+              <span class="oadm-count-chip" title="Кількість позицій">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+                {{ o.items.count }}
+              </span>
             </div>
             <div class="oadm-head__right">
-              <span class="oadm-date">
+              <span class="oadm-date" title="{{ o.created|date:'d.m.Y H:i' }}">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
-                {{ o.created|date:"d.m.Y H:i" }}
+                {{ o.created|date:"d.m H:i" }} · {{ o.created|timesince }} тому
               </span>
               <span class="oadm-del order-actions-inline">
                 <form method="post" action="{% url 'admin_order_delete' o.id %}" data-order-delete-form data-order-id="{{ o.id }}" data-order-number="{{ o.order_number }}">
@@ -418,8 +522,11 @@
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
                 Клієнт і доставка
               </div>
+              <div class="oadm-client-head">
+                <span class="oadm-avatar">{{ o.full_name|first|upper|default:"?" }}</span>
+                <span class="oadm-client-head__name">{{ o.full_name }}</span>
+              </div>
               <div class="oadm-kv">
-                <div class="oadm-kv__row"><span class="k">Імʼя</span><span class="v">{{ o.full_name }}</span></div>
                 <div class="oadm-kv__row"><span class="k">Телефон</span><span class="v"><a href="tel:{{ o.phone }}">{{ o.phone }}</a></span></div>
                 {% if o.user.email %}<div class="oadm-kv__row"><span class="k">Email</span><span class="v">{{ o.user.email }}</span></div>{% endif %}
                 <div class="oadm-kv__row"><span class="k">Адреса</span><span class="v">{{ o.city }}{% if o.np_office %}, {{ o.np_office }}{% endif %}</span></div>
@@ -427,8 +534,17 @@
                   <span class="k">ТТН</span>
                   <span class="v ttn-info">{% if o.tracking_number %}{{ o.tracking_number }}{% else %}<span class="ttn-pending">очікується</span>{% endif %}</span>
                 </div>
-                {% if o.sale_source %}<div class="oadm-kv__row"><span class="k">Джерело</span><span class="v">{{ o.sale_source }}</span></div>{% endif %}
-                {% if o.manager_comment %}<div class="oadm-kv__row"><span class="k">Коментар</span><span class="v">{{ o.manager_comment }}</span></div>{% endif %}
+                {% if o.shipment_status %}
+                <div class="oadm-kv__row">
+                  <span class="k">НП</span>
+                  <span class="v">
+                    <span class="oadm-np-status">
+                      <span class="oadm-np-status__dot"></span>
+                      {{ o.shipment_status }}{% if o.shipment_status_updated %}<time> · {{ o.shipment_status_updated|date:"d.m H:i" }}</time>{% endif %}
+                    </span>
+                  </span>
+                </div>
+                {% endif %}
               </div>
             </div>
 
@@ -449,6 +565,40 @@
                   <option value="prepaid" {% if o.payment_status_canonical == 'prepaid' %}selected{% endif %}>Внесена передплата</option>
                   <option value="paid" {% if o.payment_status_canonical == 'paid' %}selected{% endif %}>Оплачено повністю</option>
                 </select>
+
+                <div class="oadm-pay-facts">
+                  {% if o.payment_status_canonical == 'paid' %}
+                    <div class="oadm-fact oadm-fact--paid">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                      <span>Оплачено повністю</span>
+                    </div>
+                  {% elif o.payment_snapshot.pay_type == 'prepay_200' %}
+                    <div class="oadm-fact">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1 3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+                      <span>Передплата: <b>{{ o.payment_snapshot.prepayment_amount }} грн</b></span>
+                    </div>
+                    <div class="oadm-fact oadm-fact--cod">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4z"/></svg>
+                      <span>Залишок при отриманні: <b>{{ o.payment_snapshot.remaining_amount }} грн</b></span>
+                    </div>
+                  {% elif o.payment_snapshot.pay_type == 'cod' %}
+                    <div class="oadm-fact oadm-fact--cod">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h4c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4z"/></svg>
+                      <span>Накладений платіж: <b>{{ o.payment_snapshot.cod_amount }} грн</b></span>
+                    </div>
+                  {% else %}
+                    <div class="oadm-fact">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
+                      <span>Очікується оплата: <b>{{ o.payment_snapshot.total_sum }} грн</b></span>
+                    </div>
+                  {% endif %}
+                  {% if o.discount_amount %}
+                    <div class="oadm-fact oadm-fact--discount">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg>
+                      <span>Знижка: <b>−{{ o.discount_amount }} грн</b>{% if o.promo_code %} · {{ o.promo_code.code }}{% endif %}</span>
+                    </div>
+                  {% endif %}
+                </div>
 
                 {% if o.payment_provider %}
                 <div class="payment-meta-wrapper" data-order-id="{{ o.id }}">
@@ -485,6 +635,16 @@
               </div>
             </div>
           </div>
+
+          {% if o.manager_comment %}
+          <div class="oadm-note">
+            <svg class="oadm-note__icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM8 9h8v2H8V9zm5 5H8v-2h5v2zm3-6H8V6h8v2z"/></svg>
+            <div class="oadm-note__body">
+              <div class="oadm-note__label">Коментар менеджера</div>
+              <div class="oadm-note__text">{{ o.manager_comment }}</div>
+            </div>
+          </div>
+          {% endif %}
 
           <!-- Progress track -->
           {% if o.status == 'cancelled' %}
@@ -523,6 +683,15 @@
             </div>
           {% else %}
             <div class="oadm-track" data-status="{{ o.status }}">
+              <div class="oadm-stage">
+                <span class="oadm-stage__dot"></span>
+                <span class="oadm-stage__name">
+                  {% if o.status == 'new' %}В обробці{% elif o.status == 'prep' %}Готується до відправлення{% elif o.status == 'ship' %}Відправлено · в дорозі{% elif o.status == 'done' %}Отримано{% endif %}
+                </span>
+                <span class="oadm-stage__count">
+                  {% if o.status == 'new' %}Етап 1 / 4{% elif o.status == 'prep' %}Етап 2 / 4{% elif o.status == 'ship' %}Етап 3 / 4{% elif o.status == 'done' %}Готово · 4 / 4{% endif %}
+                </span>
+              </div>
               <div class="oadm-track__rail">
                 <div class="oadm-node {% if o.status == 'new' %}is-active{% elif o.status == 'prep' or o.status == 'ship' or o.status == 'done' %}is-done{% endif %}" data-step="new" onclick="updateOrderStatus('{{ o.id }}', 'new')">
                   <div class="oadm-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></div>
@@ -540,7 +709,7 @@
                 </div>
                 <div class="oadm-seg {% if o.status == 'done' %}is-fill{% elif o.status == 'ship' %}is-flow{% endif %}"><div class="oadm-seg__fill"></div></div>
                 <div class="oadm-node {% if o.status == 'done' %}is-active is-done{% endif %}" data-step="done" onclick="updateOrderStatus('{{ o.id }}', 'done')">
-                  <div class="oadm-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
+                  <div class="oadm-node__dot"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>{% if o.status == 'done' %}<span class="oadm-sparkles"><i></i><i></i><i></i><i></i><i></i></span>{% endif %}</div>
                   <div class="oadm-node__label">Отримано</div>
                 </div>
               </div>
@@ -602,9 +771,10 @@
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
               Товари ({{ o.items.count }})
             </div>
+            <input type="checkbox" class="oadm-items__chk" id="items-more-{{ o.id }}">
             <div class="oadm-items__list">
               {% for item in o.items.all %}
-                <div class="oadm-item">
+                <div class="oadm-item{% if forloop.counter > 3 %} oadm-items__more{% endif %}">
                   {% with img=item.product_image %}
                     {% if img %}
                       <img src="{{ img.url }}" alt="{{ item.title }}" class="oadm-item__img">
@@ -630,6 +800,13 @@
                 </div>
               {% endfor %}
             </div>
+            {% if o.items.count > 3 %}
+              <label class="oadm-items__toggle" for="items-more-{{ o.id }}">
+                <span class="oadm-items__toggle-more">Показати ще {{ o.items.count|add:"-3" }}</span>
+                <span class="oadm-items__toggle-less">Згорнути</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+              </label>
+            {% endif %}
           </div>
 
         </div>
