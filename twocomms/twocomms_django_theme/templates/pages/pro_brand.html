@@ -134,12 +134,14 @@ node closes the link.
   "@context": "https://schema.org",
   "@type": "Person",
   "@id": "https://twocomms.shop/#founder",
-  "name": "Bohdan",
+  "name": "{% trans 'Артем Синіло' %}",
+  "alternateName": "Artem Synilo",
   "jobTitle": "{% trans 'Засновник TwoComms' %}",
   "worksFor": {"@id": "https://twocomms.shop/#organization"},
+  "founderOf": {"@id": "https://twocomms.shop/#organization"},
   "url": "{{ brand_page_url }}",
   "image": "https://twocomms.shop{% static 'img/logo.svg' %}",
-  "description": "{% trans 'Засновник TwoComms, харків’янин, побудував бренд як ідею продовження після критичної точки.' %}",
+  "description": "{% trans 'Артем Синіло — засновник TwoComms, ветеран із Харкова. Бренд виріс із його історії продовження після критичної точки: дві коми як знак, що життя триває, а не ставить крапку.' %}",
   "knowsAbout": [
     "{% trans 'streetwear' %}",
     "{% trans 'мілітарна естетика' %}",
@@ -149,6 +151,16 @@ node closes the link.
   "nationality": {
     "@type": "Country",
     "name": "{% trans 'Україна' %}"
+  },
+  "subjectOf": {
+    "@type": "NewsArticle",
+    "headline": "{% trans 'Це не крапка, це продовження: історія Артема Синіла та харківського бренду TwoComms' %}",
+    "url": "https://mva.gov.ua/prescenter/category/86-novini/tse-ne-krapka-tse-prodovzhennya-istoriya-artema-sinila-ta-harkivskogo-brendu-twocomms",
+    "publisher": {
+      "@type": "GovernmentOrganization",
+      "name": "{% trans 'Міністерство у справах ветеранів України' %}",
+      "url": "https://mva.gov.ua"
+    }
   }
 }
 </script>

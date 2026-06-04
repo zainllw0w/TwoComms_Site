@@ -1493,6 +1493,23 @@ class StructuredDataGenerator:
             "paymentAccepted": "Cash, Credit Card, Apple Pay, Google Pay",
             "priceRange": _homepage_price_range_text(),
             "founder": {"@id": f"{base_url}#founder"},
+            "subjectOf": {
+                "@type": "NewsArticle",
+                "headline": _(
+                    "Це не крапка, це продовження: історія Артема Синіла "
+                    "та харківського бренду TwoComms"
+                ),
+                "url": (
+                    "https://mva.gov.ua/prescenter/category/86-novini/"
+                    "tse-ne-krapka-tse-prodovzhennya-istoriya-artema-sinila-"
+                    "ta-harkivskogo-brendu-twocomms"
+                ),
+                "publisher": {
+                    "@type": "GovernmentOrganization",
+                    "name": _("Міністерство у справах ветеранів України"),
+                    "url": "https://mva.gov.ua",
+                },
+            },
             "sameAs": _organization_same_as(),
             "contactPoint": {
                 "@type": "ContactPoint",
