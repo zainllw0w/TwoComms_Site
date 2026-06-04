@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% load static i18n %}
+
+{% block title %}{% trans '410 — Сторінку видалено' %}{% endblock %}
+
+{% comment %}
+410 Gone — сторінка навмисно видалена (напр. тестовий пост блогу).
+410 чесніше за 404: повідомляє пошуковику, що ресурс прибрано назавжди,
+тож Google швидше виключає URL з індексу. noindex + canonical/hreflang
+на головну, щоб не консолідувати сигнали на мертвій адресі.
+{% endcomment %}
+{% block robots %}noindex, follow{% endblock %}
+{% block canonical %}{{ site_base_url }}/{% endblock %}
+{% block hreflang_uk %}{{ site_base_url }}/{% endblock %}
+{% block hreflang_ru %}{{ site_base_url }}/{% endblock %}
+{% block hreflang_en %}{{ site_base_url }}/{% endblock %}
+{% block hreflang_x_default %}{{ site_base_url }}/{% endblock %}
+{% block og_url %}{{ site_base_url }}/{% endblock %}
+{% block twitter_url %}{{ site_base_url }}/{% endblock %}
+
+{% block content %}
+<div class="container-xxl px-0 px-md-3">
+  <div class="tc-gone-wrapper">
+    <div class="tc-gone-card">
+      <h1 class="tc-gone-code">410</h1>
+      <h2 class="tc-gone-title">{% trans 'Цю сторінку видалено' %}</h2>
+      <p class="tc-gone-text">
+        {% blocktrans %}Матеріал, який ви шукали, прибрано назавжди. Але каталог, кастомний друк і нові дописи на місці.{% endblocktrans %}
+      </p>
+      <div class="tc-gone-actions">
+        <a href="{% url 'home' %}" class="tc-gone-btn tc-gone-btn--primary">{% trans 'На головну' %}</a>
+        <a href="{% url 'blog' %}" class="tc-gone-btn tc-gone-btn--ghost">{% trans 'До блогу' %}</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.tc-gone-wrapper{display:flex;align-items:center;justify-content:center;min-height:calc(100vh - 180px);padding:2rem 1rem}
+.tc-gone-card{max-width:560px;text-align:center;padding:3rem 2.4rem;border-radius:24px;background:linear-gradient(160deg,rgba(24,24,32,.92),rgba(10,10,16,.94));border:1px solid rgba(255,255,255,.08);box-shadow:0 30px 60px rgba(0,0,0,.5)}
+.tc-gone-code{font-size:6rem;line-height:1;font-weight:900;margin:0 0 .5rem;background:linear-gradient(to right,#d3b8ff,#9b6cff,#fff,#9b6cff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-3px}
+.tc-gone-title{font-size:1.7rem;font-weight:800;color:#fff;margin:0 0 1rem}
+.tc-gone-text{font-size:1.05rem;line-height:1.6;color:#bfaaff;margin:0 0 2rem}
+.tc-gone-actions{display:flex;flex-wrap:wrap;gap:.75rem;justify-content:center}
+.tc-gone-btn{display:inline-flex;align-items:center;justify-content:center;padding:.95rem 2rem;border-radius:999px;font-weight:700;text-decoration:none;transition:all .35s cubic-bezier(.175,.885,.32,1.275)}
+.tc-gone-btn--primary{color:#fff;background:linear-gradient(135deg,#8b5cf6,#6d28d9);box-shadow:0 10px 30px rgba(109,40,217,.4)}
+.tc-gone-btn--primary:hover{transform:translateY(-3px);color:#fff;box-shadow:0 18px 40px rgba(109,40,217,.55)}
+.tc-gone-btn--ghost{color:#e5e7eb;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.2)}
+.tc-gone-btn--ghost:hover{transform:translateY(-3px);color:#fff;border-color:rgba(139,92,246,.6)}
+@media (max-width:575.98px){.tc-gone-card{padding:2.2rem 1.4rem}.tc-gone-code{font-size:4.5rem}.tc-gone-title{font-size:1.4rem}.tc-gone-actions{flex-direction:column}.tc-gone-btn{width:100%}}
+</style>
+{% endblock %}

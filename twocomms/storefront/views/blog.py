@@ -9,7 +9,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.db import IntegrityError, transaction
 from django.db.models import Count, F, IntegerField, Q, Sum, Value
 from django.db.models.functions import Coalesce
-from django.http import HttpResponse, HttpResponseBadRequest, HttpResponsePermanentRedirect, JsonResponse
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseGone, HttpResponsePermanentRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.formats import date_format
@@ -24,6 +24,12 @@ from storefront.utm_utils import get_client_ip
 
 
 BLOG_SOURCE_URL = "https://veteranfund.com.ua/stories-of-winner/artem-sinilo-istoriia-veterana/"
+
+# Slug-и, видалені назавжди (тестові/сміттєві пости). Повертаємо 410 Gone,
+# а не 404: 410 явно повідомляє пошуковику, що ресурс прибрано навмисно,
+# тож Google швидше виключає URL з індексу. Тримаємо список тут, щоб 410
+# працював навіть після фізичного видалення запису з БД.
+GONE_BLOG_SLUGS = {"111"}
 
 
 def _absolute_url(request, path: str) -> str:
@@ -213,6 +219,8 @@ def blog_category(request, slug, parent_slug=None):
 
 
 def blog_post(request, slug):
+    if slug in GONE_BLOG_SLUGS:
+        return render(request, "410.html", status=410)
     post = get_object_or_404(_published_posts(), slug=slug)
     record_blog_post_view(request, post)
     post.refresh_from_db(fields=["view_count", "unique_view_count"])
