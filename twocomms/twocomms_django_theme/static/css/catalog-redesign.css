@@ -1165,3 +1165,82 @@ html.perf-lite .catalog-print-panel {
 }
 
 /* Phase 9 colour filter chip styles live in css/color-filter.css. */
+
+/* === Конверсійний empty-state каталогу (ТЗ v3, файл 07) === */
+.catalog-empty-state {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.75rem;
+  padding: 3rem 1.5rem;
+  border-radius: 20px;
+  background: linear-gradient(160deg, rgba(24, 24, 32, 0.7), rgba(14, 14, 20, 0.7));
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+}
+.catalog-empty-state > svg {
+  color: #8b5cf6;
+  opacity: 0.85;
+}
+.catalog-empty-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #f4f4f5;
+  margin: 0;
+}
+.catalog-empty-text {
+  font-size: 0.98rem;
+  line-height: 1.55;
+  color: rgba(212, 212, 216, 0.78);
+  margin: 0;
+  max-width: 460px;
+}
+.catalog-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  justify-content: center;
+  margin-top: 0.6rem;
+}
+.catalog-empty-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.8rem 1.8rem;
+  border-radius: 50px;
+  font-weight: 700;
+  font-size: 0.98rem;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+.catalog-empty-btn--primary {
+  color: #fff;
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  box-shadow: 0 8px 24px rgba(139, 92, 246, 0.3);
+}
+.catalog-empty-btn--primary:hover {
+  transform: translateY(-2px);
+  color: #fff;
+  box-shadow: 0 12px 32px rgba(139, 92, 246, 0.42);
+}
+.catalog-empty-btn--ghost {
+  color: #e5e7eb;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.catalog-empty-btn--ghost:hover {
+  transform: translateY(-2px);
+  color: #fff;
+  border-color: rgba(139, 92, 246, 0.6);
+}
+@media (max-width: 575.98px) {
+  .catalog-empty-actions {
+    flex-direction: column;
+    width: 100%;
+    max-width: 320px;
+  }
+  .catalog-empty-btn {
+    width: 100%;
+  }
+}
