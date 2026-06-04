@@ -1080,7 +1080,15 @@ class StructuredDataGenerator:
         # without a full ProductGroup migration. The base product gets a
         # ``hasVariant`` array if any colour variants exist. Stable @ids
         # let the references resolve across crawls.
-        base_product_url = _build_absolute_url(f"product/{product.slug}/")
+        #
+        # SEO 2026-06-04 — finding (GSC ProductGroup). The ``@id`` graph
+        # must stay locale-consistent: the in-page Product node carries the
+        # canonical (locale-prefixed) ``@id``, so the base reference and the
+        # variant URLs are built with the SAME locale prefix derived from
+        # ``canonical_path``. Otherwise an /en/ or /ru/ page emits
+        # references the in-page graph cannot resolve.
+        locale_prefix = StructuredDataGenerator._locale_url_prefix(canonical_path)
+        base_product_url = _build_absolute_url(f"{locale_prefix}product/{product.slug}/")
         base_product_id = f"{base_product_url}#product"
         is_variant_render = (
             selected_variant is not None
@@ -1096,7 +1104,7 @@ class StructuredDataGenerator:
                     slug = (getattr(variant, "slug", "") or "").strip()
                     if not slug:
                         continue
-                    variant_url = _build_absolute_url(f"product/{product.slug}/{slug}/")
+                    variant_url = _build_absolute_url(f"{locale_prefix}product/{product.slug}/{slug}/")
                     variant_ids.append({"@id": f"{variant_url}#product"})
                 if variant_ids:
                     schema["hasVariant"] = variant_ids
@@ -1112,7 +1120,32 @@ class StructuredDataGenerator:
         return schema
 
     @staticmethod
-    def generate_product_group_schema(product: Product) -> Optional[Dict]:
+    def _locale_url_prefix(canonical_path: Optional[str] = None) -> str:
+        """Return the locale URL segment (``""``, ``"ru/"`` or ``"en/"``).
+
+        SEO 2026-06-04 — finding (GSC ProductGroup). The PDP renders under
+        ``/``, ``/ru/`` or ``/en/`` and the base ``Product`` node's ``@id``
+        carries that prefix. The ProductGroup (and its ``hasVariant``
+        children) must use the SAME prefix so the in-page ``@id`` graph
+        references resolve. We derive the prefix from ``canonical_path``
+        when available (most precise — it is what the template used for
+        ``<link rel=canonical>``) and fall back to the active Django
+        locale otherwise.
+        """
+        if canonical_path:
+            stripped = canonical_path.lstrip("/")
+            head = stripped.split("/", 1)[0].lower()
+            if head in ("ru", "en"):
+                return f"{head}/"
+            return ""
+        lang = (get_language() or "uk").split("-", 1)[0].lower()
+        return f"{lang}/" if lang in ("ru", "en") else ""
+
+    @staticmethod
+    def generate_product_group_schema(
+        product: Product,
+        canonical_path: Optional[str] = None,
+    ) -> Optional[Dict]:
         """Generate a ``ProductGroup`` schema for the base PDP.
 
         SEO 2026-05-19 (VILNI deep review §13.1). Google's
@@ -1124,6 +1157,20 @@ class StructuredDataGenerator:
         keeps its rich-result eligibility while the ProductGroup gives
         Google an explicit cluster head with ``variesBy`` + ``hasVariant``.
 
+        SEO 2026-06-04 — finding (GSC ProductGroup). Search Console raised
+        the critical «Задайте значення для одного з: hasVariant.offers,
+        review або aggregateRating» on the ProductGroup object itself.
+        Root cause: ``hasVariant`` carried only bare ``@id`` references to
+        Product nodes that do NOT exist on the page (colour-variant URLs
+        live on their own pages), and the base reference even had a
+        locale mismatch (page rendered under ``/en/`` while the reference
+        pointed at the non-prefixed ``@id``). Per Google's multi-page
+        variant docs, off-page objects do not count, so the ProductGroup
+        ended up with zero resolvable ``offers``. Fix: emit FULL inline
+        ``Product`` variant nodes (each with a valid ``offers`` block) per
+        the documented nested ProductGroup pattern, and keep every ``@id``
+        / ``url`` locale-consistent with the page.
+
         Returns ``None`` when the product has no real variants (no
         colour variants and no fit options), so the caller can skip
         emitting an empty group node.
@@ -1131,7 +1178,9 @@ class StructuredDataGenerator:
         try:
             from productcolors.models import ProductColorVariant
             color_variants = list(
-                ProductColorVariant.objects.filter(product=product).select_related("color")
+                ProductColorVariant.objects.filter(product=product)
+                .select_related("color")
+                .prefetch_related("images")
             )
         except Exception:
             color_variants = []
@@ -1146,7 +1195,8 @@ class StructuredDataGenerator:
         if not color_variants and not fit_options:
             return None
 
-        base_url = _build_absolute_url(f"product/{product.slug}/")
+        prefix = StructuredDataGenerator._locale_url_prefix(canonical_path)
+        base_url = _build_absolute_url(f"{prefix}product/{product.slug}/")
         base_product_id = f"{base_url}#product"
         group_id = f"{base_url}#product-group"
 
@@ -1168,6 +1218,23 @@ class StructuredDataGenerator:
             320,
         )
 
+        availability = StructuredDataGenerator._get_product_availability(product)
+        price = str(product.final_price)
+        price_valid_until = StructuredDataGenerator._get_dynamic_price_valid_until()
+        inlanguage = StructuredDataGenerator._resolve_inlanguage_code()
+
+        def _variant_offer(offer_url: str) -> Dict:
+            return {
+                "@type": "Offer",
+                "price": price,
+                "priceCurrency": "UAH",
+                "availability": availability,
+                "itemCondition": "https://schema.org/NewCondition",
+                "url": offer_url,
+                "priceValidUntil": price_valid_until,
+                "seller": {"@id": f"{_build_absolute_url('')}#organization"},
+            }
+
         group: Dict = {
             "@context": "https://schema.org",
             "@type": "ProductGroup",
@@ -1176,21 +1243,69 @@ class StructuredDataGenerator:
             "name": product.title,
             "description": description,
             "url": base_url,
-            "inLanguage": StructuredDataGenerator._resolve_inlanguage_code(),
+            "inLanguage": inlanguage,
             "brand": {"@id": f"{_build_absolute_url('')}#brand"},
             "variesBy": varies_by,
-            "hasVariant": [{"@id": base_product_id}],
         }
 
-        # Append colour-variant Product nodes by stable @id (the actual
-        # rich Product payload for each variant URL is emitted on its
-        # own self-canonical page; here we only need the reference).
+        # ``hasVariant`` MUST contain at least one resolvable Product with
+        # ``offers``. We emit full inline Product nodes — starting with the
+        # base product (the node also emitted standalone on this page,
+        # sharing its ``@id``) and one per colour variant. This guarantees
+        # the ProductGroup always carries variant offers regardless of how
+        # Google resolves cross-page references.
+        default_image = _safe_product_display_image(product)
+        base_image = _build_absolute_url(default_image.url) if default_image else get_default_social_image_url()
+
+        variants_nodes: List[Dict] = [
+            {
+                "@type": "Product",
+                "@id": base_product_id,
+                "name": product.title,
+                "url": base_url,
+                "image": base_image,
+                "sku": f"TC-{product.id}",
+                "offers": _variant_offer(base_url),
+            }
+        ]
+
+        try:
+            from storefront.services.color_filter import _translate_color_label
+        except Exception:
+            _translate_color_label = None  # type: ignore
+
         for variant in color_variants:
             slug = (getattr(variant, "slug", "") or "").strip()
             if not slug:
                 continue
-            variant_url = _build_absolute_url(f"product/{product.slug}/{slug}/")
-            group["hasVariant"].append({"@id": f"{variant_url}#product"})
+            variant_url = _build_absolute_url(f"{prefix}product/{product.slug}/{slug}/")
+            node: Dict = {
+                "@type": "Product",
+                "@id": f"{variant_url}#product",
+                "name": product.title,
+                "url": variant_url,
+                "sku": f"TC-{product.id}-{slug}",
+                "offers": _variant_offer(variant_url),
+            }
+            # Colour label so Google can map the variant to ``variesBy``.
+            color_obj = getattr(variant, "color", None)
+            color_name = getattr(color_obj, "name", "") if color_obj else ""
+            if color_name and _translate_color_label is not None:
+                node["color"] = str(_translate_color_label(color_name))
+            elif color_name:
+                node["color"] = color_name
+            # Variant image (falls back to the base product image).
+            variant_image = base_image
+            try:
+                first_img = variant.images.all()[:1]
+                for img in first_img:
+                    variant_image = _build_absolute_url(img.image.url)
+            except Exception:
+                pass
+            node["image"] = variant_image
+            variants_nodes.append(node)
+
+        group["hasVariant"] = variants_nodes
 
         return group
 

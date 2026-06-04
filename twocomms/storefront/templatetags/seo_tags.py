@@ -239,7 +239,9 @@ def product_graph(product, breadcrumbs=None, canonical_path=None,
     # base/ canonicalises the cluster.
     if selected_variant is None:
         group_node = (
-            _seo_utils().StructuredDataGenerator.generate_product_group_schema(product)
+            _seo_utils().StructuredDataGenerator.generate_product_group_schema(
+                product, canonical_path=canonical_path
+            )
         )
         if group_node:
             group_node.pop("@context", None)

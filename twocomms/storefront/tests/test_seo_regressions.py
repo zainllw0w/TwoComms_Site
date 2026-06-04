@@ -299,6 +299,79 @@ class ProductPageSeoRegressionTests(TestCase):
         self.assertNotIn("MadeToOrder", schema_json)
 
 
+class ProductGroupSchemaTests(TestCase):
+    """SEO 2026-06-04 (GSC ProductGroup) — the ProductGroup node must carry
+    at least one resolvable variant with ``offers`` and stay locale-
+    consistent with the in-page Product ``@id`` graph. Previously it only
+    held bare ``@id`` references to off-page nodes, which made Google raise
+    the critical «set one of hasVariant.offers / review / aggregateRating».
+    """
+
+    def setUp(self):
+        self.category = Category.objects.create(
+            name="PG Category", slug="pg-category", is_active=True,
+        )
+        self.product = Product.objects.create(
+            title="PG Hoodie", slug="pg-hoodie", category=self.category,
+            price=1200, description="PG coverage.", status="published",
+        )
+        color = Color.objects.create(name="Black", primary_hex="#000000")
+        ProductColorVariant.objects.create(
+            product=self.product, color=color, slug="black", stock=0,
+        )
+
+    def _group(self, canonical_path=None):
+        from storefront.seo_utils import StructuredDataGenerator
+        return StructuredDataGenerator.generate_product_group_schema(
+            self.product, canonical_path=canonical_path
+        )
+
+    def test_group_has_variant_with_resolvable_offers(self):
+        group = self._group()
+        self.assertIsNotNone(group)
+        self.assertEqual(group["@type"], "ProductGroup")
+        variants = group["hasVariant"]
+        # Inline Product nodes, not bare @id refs.
+        self.assertGreaterEqual(len(variants), 2)
+        for node in variants:
+            self.assertEqual(node["@type"], "Product")
+            self.assertIn("offers", node)
+            self.assertEqual(node["offers"]["@type"], "Offer")
+            self.assertEqual(
+                node["offers"]["availability"], "https://schema.org/InStock"
+            )
+            self.assertEqual(node["offers"]["priceCurrency"], "UAH")
+
+    def test_group_id_and_variants_are_locale_consistent(self):
+        group = self._group(canonical_path="/en/product/pg-hoodie/")
+        self.assertTrue(
+            group["@id"].startswith("https://twocomms.shop/en/product/pg-hoodie/")
+        )
+        base_node = group["hasVariant"][0]
+        self.assertEqual(
+            base_node["@id"], "https://twocomms.shop/en/product/pg-hoodie/#product"
+        )
+        # Every variant URL carries the same /en/ prefix.
+        for node in group["hasVariant"]:
+            self.assertIn("/en/product/pg-hoodie/", node["@id"])
+
+    def test_group_base_id_matches_product_node_id(self):
+        """The ProductGroup's base variant @id must equal the standalone
+        Product node @id rendered on the same page, so the in-page graph
+        references resolve.
+        """
+        canonical = "/product/pg-hoodie/"
+        product_schema = json.loads(
+            get_product_schema(self.product, canonical_path=canonical)
+        )
+        group = self._group(canonical_path=canonical)
+        self.assertEqual(product_schema["@id"], group["hasVariant"][0]["@id"])
+
+    def test_group_never_emits_made_to_order(self):
+        group_json = json.dumps(self._group(), ensure_ascii=False)
+        self.assertNotIn("MadeToOrder", group_json)
+
+
 class VariantCanonicalPhase21Tests(SimpleTestCase):
     """Phase 21 (2026-05-10) — size-only one-segment URLs collapse to
     the base product canonical; colour and fit one-segment URLs stay
