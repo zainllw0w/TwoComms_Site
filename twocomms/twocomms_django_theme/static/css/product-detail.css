@@ -515,6 +515,13 @@ html[data-route-name="product"] .breadcrumb-nav {
   background: var(--pdp-violet);
 }
 
+/* Fallback миниатюры видео без постера — чистый брендовый градиент */
+.tc-thumbnail--video-noposter {
+  background:
+    radial-gradient(circle at 50% 38%, rgba(141, 92, 255, 0.42), transparent 62%),
+    linear-gradient(160deg, #1b1430, #0c0916);
+}
+
 /* Пилюля "Відео" в углу главной сцены */
 .tc-media-video-pill {
   position: absolute;
@@ -593,6 +600,13 @@ html[data-route-name="product"] .breadcrumb-nav {
   height: 100%;
   object-fit: cover;
   filter: saturate(1.02) brightness(0.82);
+}
+
+/* Видео без постера — фон сцены остаётся брендовым градиентом, play по центру */
+.tc-video-facade--no-poster {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(141, 92, 255, 0.34), transparent 60%),
+    linear-gradient(165deg, #1b1430, #0a0613);
 }
 
 .tc-video-facade__play {

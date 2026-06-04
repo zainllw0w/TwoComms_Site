@@ -1026,6 +1026,7 @@ _CSP_DEFAULT = (
     "https://www.clarity.ms https://scripts.clarity.ms https://c.clarity.ms "
     "https://c.bing.com "
     "https://cdn.jsdelivr.net https://cdnjs.cloudflare.com "
+    "https://i.ytimg.com https://*.ytimg.com https://img.youtube.com "
     "https://*.google.com.ua; "
     # Fonts
     "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:; "
@@ -1044,11 +1045,12 @@ _CSP_DEFAULT = (
     "https://cdnjs.cloudflare.com https://cdn.jsdelivr.net "
     "https://*.run.app https://*.datah04.com "
     "https://*.tiktokw.us; "
-    # Frames/iframes: GTM preview, Facebook, TikTok Pixel, Server-Side Tagging
+    # Frames/iframes: GTM preview, Facebook, TikTok Pixel, Server-Side Tagging, YouTube (product video)
     "frame-src 'self' https://www.googletagmanager.com https://googletagmanager.com "
     "https://td.doubleclick.net https://bid.g.doubleclick.net "
     "https://www.facebook.com https://connect.facebook.net https://web.facebook.com "
     "https://analytics.tiktok.com https://ads.tiktok.com "
+    "https://www.youtube.com https://www.youtube-nocookie.com "
     "https://*.run.app; "
     # Other security directives
     "object-src 'none'; "

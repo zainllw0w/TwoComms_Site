@@ -208,7 +208,13 @@
       img.alt = state.video.title || 'Відео товару';
       img.loading = 'lazy';
       img.decoding = 'async';
+      img.addEventListener('error', () => {
+        img.remove();
+        button.classList.add('tc-thumbnail--video-noposter');
+      });
       button.appendChild(img);
+    } else {
+      button.classList.add('tc-thumbnail--video-noposter');
     }
 
     const badge = document.createElement('span');
@@ -818,7 +824,15 @@
       poster.alt = state.video.title || '';
       poster.loading = 'lazy';
       poster.decoding = 'async';
+      // Если постер не загрузился (нет hqdefault / сетевой сбой) — убираем
+      // битую картинку, остаётся чистый градиентный фон сцены с play-кнопкой.
+      poster.addEventListener('error', () => {
+        poster.remove();
+        facade.classList.add('tc-video-facade--no-poster');
+      });
       facade.appendChild(poster);
+    } else {
+      facade.classList.add('tc-video-facade--no-poster');
     }
 
     const play = document.createElement('button');
