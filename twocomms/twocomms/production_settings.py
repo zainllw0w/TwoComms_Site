@@ -238,7 +238,30 @@ if os.environ.get('DB_NAME') and os.environ.get('DB_USER'):
                 'PASSWORD': os.environ.get('DB_PASSWORD', ''),
                 'HOST': os.environ.get('DB_HOST', 'localhost'),
                 'PORT': os.environ.get('DB_PORT', '3306'),
-                'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', '300')),
+                # SEO/uptime fix (2026-06-04) — Search Console flagged a
+                # recurring "Ошибка сервера (5xx)" cluster. Root cause in
+                # stderr.log: ``django.db.utils.OperationalError: (2006,
+                # "MySQL server has gone away (ConnectionResetError(104,
+                # 'Connection reset by peer'))")`` raised during
+                # ``connect() -> _request_authentication()``.
+                #
+                # The shared MySQL host runs with ``wait_timeout = 60`` and
+                # a hard ``max_user_connections = 20`` (observed
+                # Threads_connected = 19 at audit time). Persistent
+                # connections (CONN_MAX_AGE=300) meant:
+                #   1. Django reused sockets that MySQL had already killed
+                #      after 60s of idle → "server has gone away".
+                #   2. Each Passenger worker + cron + telegram bot pinned a
+                #      long-lived connection, saturating the 20-slot cap, so
+                #      fresh logins were reset by peer → 5xx on random hits
+                #      (incl. /robots.txt, /?page=1).
+                #
+                # CONN_MAX_AGE=0 closes the connection at the end of every
+                # request: no stale-socket reuse and slots free immediately.
+                # The site serves anonymous traffic from Redis cache, so the
+                # per-request connect overhead is negligible. Override via
+                # DB_CONN_MAX_AGE only if the DB limits are later raised.
+                'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', '0')),
                 'CONN_HEALTH_CHECKS': True,
                 'OPTIONS': _options,
             }
@@ -258,7 +281,10 @@ if os.environ.get('DB_NAME') and os.environ.get('DB_USER'):
                 'PASSWORD': os.environ.get('DB_PASSWORD', ''),
                 'HOST': os.environ.get('DB_HOST', 'localhost'),
                 'PORT': os.environ.get('DB_PORT', '5432'),
-                'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', '300')),
+                # See the MySQL branch above — same shared-host connection
+                # cap applies. Default to 0 (close per request); raise via
+                # DB_CONN_MAX_AGE if the host limits are later relaxed.
+                'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', '0')),
                 'CONN_HEALTH_CHECKS': True,
                 'OPTIONS': {
                     'sslmode': os.environ.get('DB_SSLMODE', 'require')
@@ -295,7 +321,7 @@ if DB_NAME_DTF and 'default' in DATABASES:
             'PASSWORD': DB_PASSWORD_DTF,
             'HOST': DB_HOST_DTF,
             'PORT': DB_PORT_DTF or '3306',
-            'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE_DTF', os.environ.get('DB_CONN_MAX_AGE', '300'))),
+            'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE_DTF', os.environ.get('DB_CONN_MAX_AGE', '0'))),
             'CONN_HEALTH_CHECKS': True,
             'OPTIONS': dtf_options,
         }
@@ -307,7 +333,7 @@ if DB_NAME_DTF and 'default' in DATABASES:
             'PASSWORD': DB_PASSWORD_DTF,
             'HOST': DB_HOST_DTF,
             'PORT': DB_PORT_DTF or '5432',
-            'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE_DTF', os.environ.get('DB_CONN_MAX_AGE', '300'))),
+            'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE_DTF', os.environ.get('DB_CONN_MAX_AGE', '0'))),
             'CONN_HEALTH_CHECKS': True,
             'OPTIONS': {
                 'sslmode': os.environ.get('DB_SSLMODE_DTF', os.environ.get('DB_SSLMODE', 'require'))

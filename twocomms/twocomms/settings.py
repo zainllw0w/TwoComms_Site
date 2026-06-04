@@ -489,7 +489,13 @@ elif DB_ENGINE.startswith('mysql') and DB_NAME and DB_USER:
             'PASSWORD': DB_PASSWORD,
             'HOST': DB_HOST,
             'PORT': DB_PORT or '3306',
-            'CONN_MAX_AGE': 60,
+            # Connection lifetime fix (2026-06-04) — shared MySQL host runs
+            # wait_timeout=60 and max_user_connections=20. Persistent
+            # connections longer than wait_timeout get killed server-side
+            # and trigger "MySQL server has gone away" 5xx errors, while
+            # pinned sockets exhaust the 20-slot cap. Default to 0 (close
+            # per request); override with DB_CONN_MAX_AGE if limits grow.
+            'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', '0')),
             'CONN_HEALTH_CHECKS': True,
             'OPTIONS': {
                 'charset': 'utf8mb4',
@@ -511,7 +517,7 @@ elif (DB_ENGINE.startswith('post') or (DB_NAME and DB_USER)):
             'PASSWORD': DB_PASSWORD,
             'HOST': DB_HOST,
             'PORT': DB_PORT or '5432',
-            'CONN_MAX_AGE': 60,
+            'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', '0')),
             'CONN_HEALTH_CHECKS': True,
             'OPTIONS': {
                 'sslmode': os.environ.get('DB_SSLMODE', 'prefer')
@@ -550,7 +556,7 @@ if DB_NAME_DTF:
             'PASSWORD': DB_PASSWORD_DTF,
             'HOST': DB_HOST_DTF,
             'PORT': DB_PORT_DTF or '3306',
-            'CONN_MAX_AGE': 60,
+            'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE_DTF', os.environ.get('DB_CONN_MAX_AGE', '0'))),
             'CONN_HEALTH_CHECKS': True,
             'OPTIONS': {
                 'charset': 'utf8mb4',
@@ -569,7 +575,7 @@ if DB_NAME_DTF:
             'PASSWORD': DB_PASSWORD_DTF,
             'HOST': DB_HOST_DTF,
             'PORT': DB_PORT_DTF or '5432',
-            'CONN_MAX_AGE': 60,
+            'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE_DTF', os.environ.get('DB_CONN_MAX_AGE', '0'))),
             'CONN_HEALTH_CHECKS': True,
             'OPTIONS': {
                 'sslmode': os.environ.get('DB_SSLMODE_DTF', os.environ.get('DB_SSLMODE', 'prefer')),

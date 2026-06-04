@@ -12,7 +12,7 @@ Catalog views - Каталог товаров и категорий.
 from collections import defaultdict
 
 from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse, Http404
+from django.http import JsonResponse, Http404, HttpResponsePermanentRedirect
 from django.core.paginator import Paginator, EmptyPage
 from django.db.models import Count, Q
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -344,6 +344,14 @@ def home(request):
     - Категории товаров
     - Предпросмотр цветовых вариантов
     """
+    # SEO 2026-06-04 — Search Console flagged ``/?page=1`` as a duplicate of
+    # the homepage root (it renders identical content with canonical → "/").
+    # Collapse it with a 301 so Google retires the duplicate URL and
+    # consolidates signal on "/". Only ``page=1`` is redirected; ``page>=2``
+    # are legitimate paginator states that stay 200.
+    if request.GET.get('page') == '1':
+        return HttpResponsePermanentRedirect(reverse('home'))
+
     # Оптимизированные запросы с select_related и prefetch_related
     featured = apply_public_product_order(
         _product_cards_queryset().filter(
