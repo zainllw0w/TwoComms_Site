@@ -216,17 +216,17 @@ CSS rules на mobile FCP/LCP window.
         </div>
       </div>
 
-      <a class="tc-custom-print-card" href="{% url 'custom_print' %}">
+      <a class="tc-custom-print-card" href="{% url 'custom_print' %}?source=pdp&amp;product={{ product.slug }}">
         <span class="tc-custom-print-mark" aria-hidden="true">
           <img src="{% static 'img/logo.svg' %}" alt="" width="96" height="96" loading="lazy">
         </span>
         <span class="tc-custom-print-copy">
-          <strong>{% trans 'Індивідуальний позивний або бренд?' %}</strong>
-          <small>{% trans 'Створимо принт з нуля під ваш позивний, логотип або ідею. Унікальна річ разом з TwoComms.' %}</small>
+          <strong>{% trans 'Хочеш цей принт інакше?' %}</strong>
+          <small>{% trans 'Зроби схожий варіант на іншому кольорі, основі або додай свій знак у кастомному DTF-друці.' %}</small>
         </span>
         <span class="tc-custom-print-action">
           <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.25V21h3.75L18.8 9.95l-3.75-3.75L4 17.25Zm13.7-8.7-2.25-2.25 1.4-1.4a1.06 1.06 0 0 1 1.5 0l.75.75c.42.42.42 1.08 0 1.5l-1.4 1.4Z" fill="currentColor"/></svg>
-          {% trans 'Створити свій принт' %}
+          {% trans 'Створити свій варіант' %}
           <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path d="m13.17 12-4.58-4.59L10 6l6 6-6 6-1.41-1.41L13.17 12Z" fill="currentColor"/></svg>
         </span>
       </a>

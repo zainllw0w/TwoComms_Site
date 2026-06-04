@@ -5,6 +5,11 @@
 {% block title %}{% trans 'DTF-конфігуратор кастомного одягу — TwoComms' %}{% endblock %}
 {% block description %}{% trans 'Кастомний DTF-конфігуратор для худі, футболок, лонгслівів і свого одягу. Зберіть виріб, зони друку, файл або ідею і передайте весь контекст менеджеру або одразу в кошик.' %}{% endblock %}
 {% block keywords %}{% trans 'dtf друк, кастомний принт, друк на худі, друк на футболках, кастомний одяг, twocomms, dtf конфігуратор' %}{% endblock %}
+{# PDP→Custom prefill (ТЗ v3, файл 08): query-URL (?source=pdp&product=…) #}
+{# помічаємо noindex,follow і canonical веде на чистий /custom-print/, #}
+{# щоб не плодити дублі в індексі. #}
+{% if prefill_noindex %}{% block robots %}noindex, follow{% endblock %}{% endif %}
+{% block canonical %}{{ site_base_url }}{% url 'custom_print' %}{% endblock %}
 {% block og_type %}website{% endblock %}
 {% block og_title %}{% trans 'DTF-конфігуратор кастомного одягу — TwoComms' %}{% endblock %}
 {% block og_description %}{% trans 'Збери річ під свій дизайн: обери основу, тканину, зони друку й макет. Конструктор покаже вигляд і вартість.' %}{% endblock %}
@@ -171,6 +176,15 @@
 {% block content %}
 <section class="cp-page" data-custom-print-root>
   <div class="container-xxl cp-shell" data-shell>
+    {% if prefill_product %}
+    {# PDP→Custom context banner (ТЗ v3, файл 08): показуємо, з якого #}
+    {# товару прийшов користувач, не блокуючи зміну будь-яких параметрів. #}
+    <div class="cp-context-banner" role="note">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 17.25V21h3.75L18.8 9.95l-3.75-3.75L4 17.25Zm13.7-8.7-2.25-2.25 1.4-1.4a1.06 1.06 0 0 1 1.5 0l.75.75c.42.42.42 1.08 0 1.5l-1.4 1.4Z"/></svg>
+      <span class="cp-context-banner-text">{% blocktrans with name=prefill_product.title %}Почали з товару: «{{ name }}». Можеш змінити основу, колір або додати свій знак.{% endblocktrans %}</span>
+      <a class="cp-context-banner-link" href="{% url 'product' prefill_product.slug %}">{% trans 'Повернутись до товару' %}</a>
+    </div>
+    {% endif %}
     <header class="cp-hero cp-hero--premium cp-hero--reference" data-hero>
       <div class="cp-hero-copy">
         <div class="cp-animate-in cp-delay-1">

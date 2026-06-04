@@ -1395,11 +1395,30 @@ def custom_print(request):
         {"name": _("Головна"), "url": reverse("home")},
         {"name": _("Кастомний принт"), "url": reverse("custom_print")},
     ]
+
+    # PDP → Custom prefill (ТЗ v3, файл 08). Якщо користувач прийшов з
+    # картки товару ("Хочеш цей принт інакше?"), показуємо context-banner
+    # «Почали з товару: …» і помічаємо сторінку noindex, щоб query-URL не
+    # створював дублі в індексі. canonical завжди веде на чистий /custom-print/.
+    prefill_source = (request.GET.get("source") or "").strip()[:32]
+    prefill_product_slug = (request.GET.get("product") or "").strip()[:200]
+    prefill_product = None
+    if prefill_source == "pdp" and prefill_product_slug:
+        prefill_product = (
+            Product.objects.filter(status="published", slug=prefill_product_slug)
+            .only("title", "slug")
+            .first()
+        )
+    prefill_noindex = bool(request.GET.get("source") or request.GET.get("product"))
+
     response = render(request, 'pages/custom_print.html', {
         'page_title': _('Кастомний принт'),
         'custom_print_config': config,
         'breadcrumb_items': breadcrumb_items,
         'faq_items': CUSTOM_PRINT_FAQ_ITEMS,
+        'prefill_product': prefill_product,
+        'prefill_source': prefill_source,
+        'prefill_noindex': prefill_noindex,
     })
     response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response["Pragma"] = "no-cache"
