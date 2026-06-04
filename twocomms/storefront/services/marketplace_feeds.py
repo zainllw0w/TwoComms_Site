@@ -628,6 +628,20 @@ def _kasta_description(html: str) -> str:
 
 
 def _video_link(product: Product) -> str:
+    # Приоритет — отдельное поле video_url (YouTube). Преобразуем в
+    # канонический watch-URL, который принимает Merchant Center.
+    direct = _clean_xml_text(getattr(product, "video_url", ""))
+    if direct:
+        try:
+            from storefront.utils.video import extract_youtube_id, youtube_watch_url
+            video_id = extract_youtube_id(direct)
+            if video_id:
+                return iri_to_uri(youtube_watch_url(video_id))
+        except Exception:
+            pass
+        if direct.startswith(("http://", "https://")):
+            return iri_to_uri(direct)
+
     schema = getattr(product, "seo_schema", None)
     candidates = []
     if isinstance(schema, dict):

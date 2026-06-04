@@ -495,6 +495,8 @@ class ProductForm(forms.ModelForm):
             "main_image",
             "home_card_image",
             "points_reward",
+            # Видео товара (YouTube)
+            "video_url",
             # Дополнительные поля для других шаблонов (опциональные)
             "catalog",
             "size_grid",
@@ -530,6 +532,11 @@ class ProductForm(forms.ModelForm):
             "main_image": forms.FileInput(attrs={"class": "form-control d-none", "accept": "image/*", "data-main-image-input": "1"}),
             "home_card_image": forms.FileInput(attrs={"class": "form-control d-none", "accept": "image/*", "data-home-card-image-input": "1"}),
             "main_image_alt": forms.TextInput(attrs={"class": "form-control"}),
+            "video_url": forms.URLInput(attrs={
+                "class": "form-control",
+                "placeholder": "https://www.youtube.com/watch?v=...",
+                "inputmode": "url",
+            }),
             "seo_title": forms.TextInput(attrs={"class": "form-control", "maxlength": "160"}),
             "seo_description": forms.Textarea(attrs={"rows": 3, "class": "form-control", "maxlength": "320"}),
             "seo_keywords": forms.TextInput(attrs={"class": "form-control"}),
@@ -643,10 +650,24 @@ class ProductForm(forms.ModelForm):
             except (ValueError, TypeError):
                 self.add_error(field_name, "Невірний формат ціни")
 
-        return data
+        # Видео товара: нормализуем и валидируем YouTube-ссылку
+        video_url = (data.get('video_url') or '').strip()
+        if video_url:
+            from storefront.utils.video import extract_youtube_id, youtube_watch_url
+            video_id = extract_youtube_id(video_url)
+            if not video_id:
+                self.add_error(
+                    'video_url',
+                    "Вкажіть коректне посилання на YouTube (watch, youtu.be, embed або shorts).",
+                )
+            else:
+                # Сохраняем канонический watch-URL — стабильный формат для
+                # парсинга, schema и merchant feed.
+                data['video_url'] = youtube_watch_url(video_id)
+        else:
+            data['video_url'] = ''
 
-    def save(self, commit=True):
-        is_new = self.instance.pk is None
+        return data
         instance = super().save(commit=False)
         if is_new and not instance.priority:
             instance.priority = self._next_priority()

@@ -1111,6 +1111,31 @@ class StructuredDataGenerator:
             except Exception:
                 pass
 
+        # Видео товара (YouTube) → Schema.org VideoObject. Google Product
+        # rich results поддерживают вложенный VideoObject в поле ``video``,
+        # что усиливает видимость товара в Search/Shopping.
+        try:
+            if getattr(product, "has_video", False):
+                video_id = product.youtube_id
+                if video_id:
+                    upload_date = None
+                    created_at = getattr(product, "created_at", None)
+                    if created_at is not None and hasattr(created_at, "date"):
+                        upload_date = created_at.date().isoformat()
+                    video_obj = {
+                        "@type": "VideoObject",
+                        "name": _("Відео огляд: %(title)s") % {"title": product.title},
+                        "description": description,
+                        "thumbnailUrl": product.video_thumbnail_url,
+                        "contentUrl": product.video_watch_url,
+                        "embedUrl": product.video_embed_url,
+                    }
+                    if upload_date:
+                        video_obj["uploadDate"] = upload_date
+                    schema["video"] = video_obj
+        except Exception:
+            pass
+
         # Respect product.seo_schema as JSON override (merge with generated)
         if product.seo_schema and isinstance(product.seo_schema, dict):
             for key, value in product.seo_schema.items():

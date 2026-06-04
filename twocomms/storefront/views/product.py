@@ -420,6 +420,17 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
     elif not product.main_image and extra_image_urls:
         primary_image_alt = extra_image_urls[0].get("alt") or primary_image_alt
 
+    # Видео товара (YouTube) — отдельный слайд в галерее + структурированные данные.
+    product_video = None
+    if product.has_video:
+        product_video = {
+            "id": product.youtube_id,
+            "embed_url": product.video_embed_url,
+            "watch_url": product.video_watch_url,
+            "thumbnail_url": product.video_thumbnail_url,
+            "title": _("Відео огляд: %(title)s") % {"title": product.title},
+        }
+
     product_faq_items = [
         {"question": faq.question, "answer": faq.answer}
         for faq in product.faqs.filter(is_active=True).order_by("order", "id")
@@ -580,6 +591,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
             'offer_id_map_data': offer_id_map,
             'extra_image_urls': extra_image_urls,
             'primary_image_alt': primary_image_alt,
+            'product_video': product_video,
             'product_faq_items': product_faq_items,
             'available_sizes': available_sizes,
             'size_display_labels': size_context["display_labels"],

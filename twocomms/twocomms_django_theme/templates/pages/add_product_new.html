@@ -319,6 +319,23 @@
                     {% endif %}
                   </div>
 
+                  <!-- Видео товара (YouTube) -->
+                  <div class="info-row">
+                    <div class="info-group" style="flex: 1 1 100%;">
+                      <label class="form-label">
+                        <i class="fab fa-youtube me-2" style="color:#ff0033;"></i>Відео товару (YouTube)
+                      </label>
+                      {{ form.video_url }}
+                      {% if form.video_url.errors %}
+                      <div class="text-danger small mt-1">{{ form.video_url.errors }}</div>
+                      {% endif %}
+                      <div class="form-hint">
+                        <i class="fas fa-info-circle me-1"></i>Посилання на YouTube (watch, youtu.be, embed або shorts).
+                        Відео зʼявиться окремим слайдом у галереї товару.
+                      </div>
+                    </div>
+                  </div>
+
                   <!-- URL slug -->
                   <div class="info-row">
                     <div class="info-group url-slug">

@@ -183,6 +183,15 @@ CSS rules на mobile FCP/LCP window.
             </svg>
           </button>
         </div>
+        {% if product_video %}
+        <button type="button" class="tc-media-video-pill" data-video-open aria-label="{% trans 'Переглянути відео товару' %}">
+          <span class="tc-media-video-pill__icon" aria-hidden="true">
+            <svg width="13" height="13" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+          </span>
+          <span>{% trans 'Відео' %}</span>
+        </button>
+        {% endif %}
+        <div class="tc-media-video-stage" id="productVideoStage" hidden aria-hidden="true"></div>
       </div>
 
       <div class="tc-thumb-shell">
@@ -737,6 +746,7 @@ CSS rules на mobile FCP/LCP window.
 {{ color_variants|json_script:"variant-data" }}
 {{ extra_image_urls|json_script:"product-extra-images" }}
 {{ offer_id_map_data|json_script:"offer-id-map" }}
+{% if product_video %}{{ product_video|json_script:"product-video" }}{% endif %}
 <div
   id="product-analytics-payload"
   data-id="{{ product.id }}"

@@ -19,6 +19,9 @@
       offerIdMap: readOfferMap(container),
       mainImage: document.getElementById('mainProductImage'),
       thumbs: document.getElementById('productThumbnails'),
+      video: readJsonScript('product-video', null),
+      videoStage: document.getElementById('productVideoStage'),
+      videoActive: false,
       viewContentTracked: false,
     };
 
@@ -30,6 +33,7 @@
     initDescriptionCollapse(root);
     initShare(root, container);
     initZoom(state);
+    initVideo(state);
     initStickyAdd(root);
     updateCurrentOfferId(state);
     trackViewContent(state);
@@ -180,10 +184,46 @@
       button.addEventListener('click', () => {
         state.thumbs.querySelectorAll('.tc-thumbnail').forEach((item) => item.classList.remove('active'));
         button.classList.add('active');
+        hideVideo(state);
         setMainImage(state, image);
       });
       state.thumbs.appendChild(button);
     });
+
+    appendVideoThumbnail(state);
+  }
+
+  function appendVideoThumbnail(state) {
+    if (!state.thumbs || !state.video || !state.video.embed_url) return;
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'tc-thumbnail tc-thumbnail--video';
+    button.setAttribute('aria-label', state.video.title || 'Відео товару');
+    button.dataset.videoThumb = '1';
+
+    if (state.video.thumbnail_url) {
+      const img = document.createElement('img');
+      img.src = state.video.thumbnail_url;
+      img.alt = state.video.title || 'Відео товару';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      button.appendChild(img);
+    }
+
+    const badge = document.createElement('span');
+    badge.className = 'tc-thumbnail-video-badge';
+    badge.setAttribute('aria-hidden', 'true');
+    badge.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>';
+    button.appendChild(badge);
+
+    button.addEventListener('click', () => {
+      state.thumbs.querySelectorAll('.tc-thumbnail').forEach((item) => item.classList.remove('active'));
+      button.classList.add('active');
+      showVideo(state);
+    });
+
+    state.thumbs.appendChild(button);
   }
 
   function initThumbnailNav(state) {
@@ -295,6 +335,7 @@
         state.container.dataset.currentVariant = button.getAttribute('data-variant') || 'default';
         const images = imagesForCurrentSelection(state);
         renderThumbnails(state, images);
+        hideVideo(state);
         if (images[0]) setMainImage(state, images[0]);
         const offerId = updateCurrentOfferId(state);
         trackCustomizeProduct(state, button.getAttribute('data-variant'), offerId);
@@ -747,6 +788,88 @@
         openLightbox(state.mainImage.getAttribute('data-zoom') || state.mainImage.currentSrc || state.mainImage.src, state.mainImage.alt);
       }
     });
+  }
+
+  function initVideo(state) {
+    if (!state.video || !state.video.embed_url || !state.videoStage) return;
+    const openButtons = state.root.querySelectorAll('[data-video-open]');
+    openButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        const videoThumb = state.thumbs && state.thumbs.querySelector('[data-video-thumb]');
+        if (videoThumb) {
+          state.thumbs.querySelectorAll('.tc-thumbnail').forEach((item) => item.classList.remove('active'));
+          videoThumb.classList.add('active');
+        }
+        showVideo(state);
+      });
+    });
+  }
+
+  function buildVideoFacade(state) {
+    // Lazy-load: показываем постер с кнопкой play, iframe грузим по клику,
+    // чтобы не тянуть YouTube до того, как пользователь реально захотел видео.
+    const facade = document.createElement('div');
+    facade.className = 'tc-video-facade';
+
+    if (state.video.thumbnail_url) {
+      const poster = document.createElement('img');
+      poster.className = 'tc-video-facade__poster';
+      poster.src = state.video.thumbnail_url;
+      poster.alt = state.video.title || '';
+      poster.loading = 'lazy';
+      poster.decoding = 'async';
+      facade.appendChild(poster);
+    }
+
+    const play = document.createElement('button');
+    play.type = 'button';
+    play.className = 'tc-video-facade__play';
+    play.setAttribute('aria-label', state.video.title || 'Відтворити відео');
+    play.innerHTML = '<svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>';
+    facade.appendChild(play);
+
+    const caption = document.createElement('span');
+    caption.className = 'tc-video-facade__caption';
+    caption.textContent = state.video.title || 'Відео товару';
+    facade.appendChild(caption);
+
+    const mountIframe = () => {
+      const iframe = document.createElement('iframe');
+      const sep = state.video.embed_url.indexOf('?') === -1 ? '?' : '&';
+      iframe.src = `${state.video.embed_url}${sep}autoplay=1&rel=0&modestbranding=1&playsinline=1`;
+      iframe.title = state.video.title || 'Відео товару';
+      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      iframe.setAttribute('allowfullscreen', '');
+      iframe.loading = 'lazy';
+      iframe.className = 'tc-video-frame';
+      state.videoStage.innerHTML = '';
+      state.videoStage.appendChild(iframe);
+    };
+
+    facade.addEventListener('click', mountIframe);
+    return facade;
+  }
+
+  function showVideo(state) {
+    if (!state.video || !state.video.embed_url || !state.videoStage) return;
+    if (!state.videoActive) {
+      state.videoStage.innerHTML = '';
+      state.videoStage.appendChild(buildVideoFacade(state));
+    }
+    state.videoActive = true;
+    state.videoStage.hidden = false;
+    state.videoStage.setAttribute('aria-hidden', 'false');
+    if (state.root) state.root.classList.add('is-video-active');
+  }
+
+  function hideVideo(state) {
+    if (!state.videoStage || !state.videoActive) return;
+    state.videoActive = false;
+    state.videoStage.hidden = true;
+    state.videoStage.setAttribute('aria-hidden', 'true');
+    // Полностью выгружаем iframe, чтобы остановить воспроизведение.
+    state.videoStage.innerHTML = '';
+    if (state.root) state.root.classList.remove('is-video-active');
   }
 
   function openLightbox(src, alt) {

@@ -911,6 +911,15 @@ class Product(models.Model):
         verbose_name='Зображення картки на головній'
     )
     main_image_alt = models.CharField(max_length=200, blank=True, null=True, verbose_name='Alt-текст головного зображення')
+    video_url = models.URLField(
+        max_length=500,
+        blank=True,
+        verbose_name='Відео товару (YouTube)',
+        help_text=(
+            'Посилання на YouTube-відео товару (watch, youtu.be, embed або shorts). '
+            'Зʼявиться у галереї товару окремим слайдом та у структурованих даних.'
+        ),
+    )
     points_reward = models.PositiveIntegerField(default=0, verbose_name='Бали за покупку')
     status = models.CharField(
         max_length=20,
@@ -1047,6 +1056,35 @@ class Product(models.Model):
                 return first_image.image
 
         return None
+
+    @property
+    def youtube_id(self):
+        """YouTube video id parsed from ``video_url`` (empty if none/invalid)."""
+        from storefront.utils.video import extract_youtube_id
+        return extract_youtube_id(self.video_url or '')
+
+    @property
+    def has_video(self):
+        """True when a valid YouTube video is attached to the product."""
+        return bool(self.youtube_id)
+
+    @property
+    def video_embed_url(self):
+        """Privacy-friendly embed URL for the gallery iframe."""
+        from storefront.utils.video import youtube_embed_url
+        return youtube_embed_url(self.youtube_id)
+
+    @property
+    def video_watch_url(self):
+        """Canonical watch URL (used by the Merchant feed video_link)."""
+        from storefront.utils.video import youtube_watch_url
+        return youtube_watch_url(self.youtube_id)
+
+    @property
+    def video_thumbnail_url(self):
+        """Static poster image served by YouTube's CDN."""
+        from storefront.utils.video import youtube_thumbnail_url
+        return youtube_thumbnail_url(self.youtube_id)
 
     def __str__(self):
         return self.title
