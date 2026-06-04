@@ -618,6 +618,60 @@ canonical entry point for the brand's URL graph.
   {% endif %}
 </section>
 
+{% cache 1800 trust_block_v3_i18n LANGUAGE_CODE using="fragments" %}
+{% comment %}
+Trust / E-E-A-T блок (ТЗ v3, файл 04). Розміщено ПІСЛЯ першого
+товарного контакту (новинки), щоб не відсувати товар на mobile.
+Зовнішній proof (Мінветеранів) візуально відділено від внутрішніх
+заяв бренду. Формулювання «писало» (не «підтвердило») — джерело
+опублікувало історію, а не сертифікувало товар.
+{% endcomment %}
+<section class="mb-4 mb-md-5 reveal tc-trust-bento" aria-labelledby="tc-trust-title">
+  <div class="tc-trust-head">
+    <h2 id="tc-trust-title" class="tc-trust-title">{% trans 'Не крапка. Є факти.' %}</h2>
+    <p class="tc-trust-sub">{% trans 'TwoComms виріс не з вигаданого образу, а з реальної історії продовження. Частину фактів можна перевірити у відкритих джерелах.' %}</p>
+  </div>
+  <div class="tc-trust-grid">
+    <article class="tc-trust-card">
+      <h3 class="tc-trust-card-title">{% trans 'Засновано ветераном' %}</h3>
+      <p class="tc-trust-card-text">{% trans 'TwoComms заснував Артем Синіло — ветеран, чия особиста історія стала основою коду бренду.' %}</p>
+      <a class="tc-trust-cta" href="{% url 'about' %}">
+        <span>{% trans 'Про засновника' %}</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m13.17 12-4.58-4.59L10 6l6 6-6 6-1.41-1.41L13.17 12Z"/></svg>
+      </a>
+    </article>
+    <article class="tc-trust-card tc-trust-card--external">
+      <span class="tc-trust-badge-ext">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7ZM5 5h5V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5h-2v5H5V5Z"/></svg>
+        {% trans 'Зовнішнє джерело' %}
+      </span>
+      <h3 class="tc-trust-card-title">{% trans 'Історія у відкритих джерелах' %}</h3>
+      <p class="tc-trust-card-text">{% trans 'Про шлях засновника і появу TwoComms писало Міністерство у справах ветеранів України.' %}</p>
+      <a class="tc-trust-cta" href="https://mva.gov.ua/prescenter/category/86-novini/tse-ne-krapka-tse-prodovzhennya-istoriya-artema-sinila-ta-harkivskogo-brendu-twocomms" target="_blank" rel="noopener">
+        <span>{% trans 'Читати джерело' %}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7ZM5 5h5V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5h-2v5H5V5Z"/></svg>
+      </a>
+    </article>
+    <article class="tc-trust-card">
+      <h3 class="tc-trust-card-title">{% trans 'Власний DTF-напрям' %}</h3>
+      <p class="tc-trust-card-text">{% trans 'Кастомний друк — частина розвитку TwoComms: від ідеї принта до готової речі без втрати характеру.' %}</p>
+      <a class="tc-trust-cta" href="{% url 'custom_print' %}">
+        <span>{% trans 'Створити свій принт' %}</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m13.17 12-4.58-4.59L10 6l6 6-6 6-1.41-1.41L13.17 12Z"/></svg>
+      </a>
+    </article>
+    <article class="tc-trust-card">
+      <h3 class="tc-trust-card-title">{% trans 'Дві коми — код продовження' %}</h3>
+      <p class="tc-trust-card-text">{% trans 'Назва TwoComms — це не декоративний знак. Це символ того, що історія не закінчилась крапкою.' %}</p>
+      <a class="tc-trust-cta" href="{% url 'about' %}">
+        <span>{% trans 'Про бренд' %}</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m13.17 12-4.58-4.59L10 6l6 6-6 6-1.41-1.41L13.17 12Z"/></svg>
+      </a>
+    </article>
+  </div>
+</section>
+{% endcache %}
+
 {% endblock %}
 
 {% block extra_js %}

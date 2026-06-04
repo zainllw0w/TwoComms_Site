@@ -22998,3 +22998,112 @@ html[data-route-name="blog_post"] body{
     padding: 5px 11px;
   }
 }
+
+
+/* === Trust / E-E-A-T bento (головна, ТЗ v3) === */
+.tc-trust-bento {
+  position: relative;
+}
+.tc-trust-head {
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto 1.5rem;
+}
+.tc-trust-title {
+  font-size: clamp(1.5rem, 3.2vw, 2.1rem);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  margin: 0 0 0.6rem;
+  color: #f4f4f5;
+}
+.tc-trust-sub {
+  font-size: 0.98rem;
+  line-height: 1.55;
+  color: rgba(212, 212, 216, 0.82);
+  margin: 0;
+}
+.tc-trust-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.tc-trust-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1.4rem 1.5rem;
+  border-radius: 20px;
+  background: linear-gradient(160deg, rgba(24, 24, 32, 0.92), rgba(14, 14, 20, 0.92));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.tc-trust-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(139, 92, 246, 0.4);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+.tc-trust-card--external {
+  border-color: rgba(96, 165, 250, 0.32);
+  background: linear-gradient(160deg, rgba(20, 28, 44, 0.94), rgba(12, 16, 26, 0.94));
+}
+.tc-trust-badge-ext {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #93c5fd;
+  background: rgba(96, 165, 250, 0.12);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+.tc-trust-card-title {
+  font-size: 1.12rem;
+  font-weight: 700;
+  margin: 0;
+  color: #fafafa;
+}
+.tc-trust-card-text {
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: rgba(212, 212, 216, 0.78);
+  margin: 0;
+  flex: 1 1 auto;
+}
+.tc-trust-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  align-self: flex-start;
+  margin-top: 0.2rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-decoration: none;
+  color: #c4b5fd;
+  transition: gap 0.25s ease, color 0.25s ease;
+}
+.tc-trust-card--external .tc-trust-cta {
+  color: #93c5fd;
+}
+.tc-trust-cta:hover {
+  gap: 11px;
+  color: #ede9fe;
+  text-decoration: none;
+}
+.tc-trust-card--external .tc-trust-cta:hover {
+  color: #dbeafe;
+}
+@media (max-width: 767.98px) {
+  .tc-trust-grid {
+    grid-template-columns: 1fr;
+  }
+  .tc-trust-card {
+    padding: 1.2rem 1.25rem;
+  }
+}
