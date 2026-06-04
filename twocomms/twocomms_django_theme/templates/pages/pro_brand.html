@@ -39,6 +39,16 @@
   "about": {
     "@id": "https://twocomms.shop/#organization"
   },
+  "subjectOf": {
+    "@type": "NewsArticle",
+    "headline": "{% trans 'Це не крапка, це продовження: історія Артема Синіла та харківського бренду TwoComms' %}",
+    "url": "https://mva.gov.ua/prescenter/category/86-novini/tse-ne-krapka-tse-prodovzhennya-istoriya-artema-sinila-ta-harkivskogo-brendu-twocomms",
+    "publisher": {
+      "@type": "GovernmentOrganization",
+      "name": "{% trans 'Міністерство у справах ветеранів України' %}",
+      "url": "https://mva.gov.ua"
+    }
+  },
   "isPartOf": {
     "@type": "WebSite",
     "@id": "https://twocomms.shop/#website",
@@ -47,36 +57,15 @@
   }
 }
 </script>
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  "@id": "https://twocomms.shop/#organization",
-  "name": "TwoComms",
-  "url": "https://twocomms.shop/",
-  "logo": "https://twocomms.shop{% static 'img/logo.svg' %}",
-  "description": "{% trans 'TwoComms — український streetwear / military-adjacent бренд одягу з Харкова, створений навколо ідеї продовження після критичної точки: не крапка, а продовження.' %}",
-  "sameAs": [
-    "https://instagram.com/twocomms",
-    "https://t.me/twocomms"
-  ],
-  "contactPoint": {
-    "@type": "ContactPoint",
-    "telephone": "+380966543212",
-    "contactType": "customer support",
-    "availableLanguage": "uk"
-  }
-}
-</script>
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "WebSite",
-  "@id": "https://twocomms.shop/#website",
-  "name": "TwoComms",
-  "url": "https://twocomms.shop/"
-}
-</script>
+{% comment %}
+SEO 2026-06 — видалено inline Organization + WebSite JSON-LD: вони
+дублювали глобальні ноди з base.html ({% verbatim %}{% organization_schema %}{% endverbatim %} /
+{% verbatim %}{% website_schema %}{% endverbatim %}) з тим самим @id, що Google трактує як
+duplicate/conflicting structured data. Канонічне джерело — генератор
+storefront.seo_utils (повніший: address, founder, subjectOf на mva,
+merchantReturnPolicy, memberProgram). Тут лишаємо лише сторінкові ноди:
+AboutPage, Person (founder), OfferCatalog.
+{% endcomment %}
 {% comment %}
 SEO v1.0 Phase 12 (2026-05-13) — finding (CCC). The brand page now
 emits an OfferCatalog node so AI search engines (Perplexity, ChatGPT
