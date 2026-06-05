@@ -447,6 +447,7 @@ def view_cart(request):
     if request.method == 'POST':
         form_type = request.POST.get('form_type')
         if form_type == 'update_profile':
+            is_autosave = request.POST.get('ajax_autosave') == '1'
             if request.user.is_authenticated:
                 try:
                     profile = request.user.userprofile
@@ -459,6 +460,8 @@ def view_cart(request):
                     raw_phone = request.POST.get('phone') or ''
                     profile.phone = normalize_checkout_phone(raw_phone)
                     if not profile.phone:
+                        if is_autosave:
+                            return JsonResponse({'ok': False, 'reason': 'phone'}, status=200)
                         messages.error(
                             request,
                             _('Вкажіть коректний український номер телефону. Можна без +380.')
@@ -503,13 +506,21 @@ def view_cart(request):
                             # В случае ошибки не обновляем pay_type
 
                     profile.save()
+                    if is_autosave:
+                        return JsonResponse({'ok': True})
                     messages.success(request, _('Дані доставки успішно оновлено!'))
                 except NovaPoshtaSelectionError as exc:
+                    if is_autosave:
+                        return JsonResponse({'ok': False, 'reason': 'delivery'}, status=200)
                     messages.error(request, _message_for_delivery_selection_error(exc))
                 except Exception as e:
                     cart_logger.error('Error saving profile: %s', e, exc_info=True)
+                    if is_autosave:
+                        return JsonResponse({'ok': False, 'reason': 'error'}, status=200)
                     messages.error(request, _('Помилка при збереженні даних. Спробуйте ще раз.'))
             else:
+                if is_autosave:
+                    return JsonResponse({'ok': False, 'reason': 'auth'}, status=200)
                 messages.error(request, _('Будь ласка, увійдіть, щоб зберегти дані доставки.'))
         elif form_type == 'guest_order':
             from storefront import views as legacy_views

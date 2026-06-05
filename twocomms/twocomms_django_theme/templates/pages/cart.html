@@ -412,13 +412,11 @@
             <div class="cart-form-group">
               <label class="cart-form-label">{% trans 'Телефон *' %}</label>
               <div class="cart-form-input-wrapper">
-                <input type="tel" name="phone" class="cart-form-input" placeholder="0931234567"
+                <input type="tel" name="phone" class="cart-form-input" placeholder="{% trans 'Ваш номер телефону' %}"
                        value="{{ prof.phone|default:'' }}" pattern="[+0-9\s\-()]{7,20}" inputmode="tel" autocomplete="tel" required>
                 <div class="cart-form-input-glow"></div>
               </div>
-              <div class="cart-form-hint text-secondary small mt-2" data-phone-hint>
-                {% trans 'Можна вводити 093..., 809..., 380... або +380... — номер приведемо до потрібного формату.' %}
-              </div>
+              <div class="cart-form-hint text-secondary small mt-2" data-phone-hint></div>
             </div>
 
             <div class="cart-form-group">
@@ -520,20 +518,26 @@
             <!-- Кнопка консультации -->
             <div class="cart-form-group">
               <button type="button" class="btn-contact-manager" id="contactManagerBtn">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 8px;">
-                  <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
-                  <path d="M7 9h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z"/>
-                </svg>
-                  💬 {% trans 'Потрібна консультація?' %}
+                <span class="cm-icon" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+                    <circle class="cm-dot cm-dot-1" cx="8" cy="9.5" r="1.3"/>
+                    <circle class="cm-dot cm-dot-2" cx="12" cy="9.5" r="1.3"/>
+                    <circle class="cm-dot cm-dot-3" cx="16" cy="9.5" r="1.3"/>
+                  </svg>
+                  <span class="cm-ping" aria-hidden="true"></span>
+                </span>
+                <span class="cm-text">
+                  <span class="cm-title">{% trans 'Потрібна консультація?' %}</span>
+                  <span class="cm-sub">{% trans 'Менеджер допоможе з вибором і розміром' %}</span>
+                </span>
               </button>
             </div>
-            
-            <button type="submit" class="cart-form-save-btn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-              </svg>
-              {% trans 'Зберегти зміни' %}
-            </button>
+
+            <div class="cart-autosave" data-autosave-indicator aria-live="polite" hidden>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+              <span>{% trans 'Дані збережено' %}</span>
+            </div>
           </form>
           {% endwith %}
         </div>
@@ -580,13 +584,11 @@
             <div class="cart-form-group">
               <label class="cart-form-label">{% trans 'Телефон' %} *</label>
               <div class="cart-form-input-wrapper">
-                <input type="tel" name="phone" class="cart-form-input" placeholder="{% trans '0931234567' %}"
+                <input type="tel" name="phone" class="cart-form-input" placeholder="{% trans 'Ваш номер телефону' %}"
                        pattern="[+0-9\s\-()]{7,20}" inputmode="tel" autocomplete="tel" required>
                 <div class="cart-form-input-glow"></div>
               </div>
-              <div class="cart-form-hint text-secondary small mt-2" data-phone-hint>
-                {% trans 'Можна вводити 093..., 809..., 380... або +380... — номер приведемо до потрібного формату.' %}
-              </div>
+              <div class="cart-form-hint text-secondary small mt-2" data-phone-hint></div>
               {% if guest_form.phone.errors %}
                 <div class="cart-form-error">{{ guest_form.phone.errors.0 }}</div>
               {% endif %}
@@ -702,11 +704,19 @@
             <!-- Кнопка консультации -->
             <div class="cart-form-group">
               <button type="button" class="btn-contact-manager" id="contactManagerBtnGuest">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="margin-right: 8px;">
-                  <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
-                  <path d="M7 9h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z"/>
-                </svg>
-                  💬 {% trans 'Потрібна консультація?' %}
+                <span class="cm-icon" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
+                    <circle class="cm-dot cm-dot-1" cx="8" cy="9.5" r="1.3"/>
+                    <circle class="cm-dot cm-dot-2" cx="12" cy="9.5" r="1.3"/>
+                    <circle class="cm-dot cm-dot-3" cx="16" cy="9.5" r="1.3"/>
+                  </svg>
+                  <span class="cm-ping" aria-hidden="true"></span>
+                </span>
+                <span class="cm-text">
+                  <span class="cm-title">{% trans 'Потрібна консультація?' %}</span>
+                  <span class="cm-sub">{% trans 'Менеджер допоможе з вибором і розміром' %}</span>
+                </span>
               </button>
             </div>
           </form>
@@ -840,37 +850,25 @@
         </div>
         
         <!-- Інформація про бали -->
-        <div class="cart-points-summary" id="cart-points-summary" data-authenticated="{{ request.user.is_authenticated|yesno:'1,0' }}">
-          <div class="cart-points-header">
-            <div class="cart-points-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-              </svg>
+        <div class="cart-points-summary cart-points-compact" id="cart-points-summary" data-authenticated="{{ request.user.is_authenticated|yesno:'1,0' }}">
+          <div class="cart-points-star" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          </div>
+          <div class="cart-points-body">
+            <div class="cart-points-earned {% if total_points <= 0 %}d-none{% endif %}" id="cart-points-earned">
+              <span class="cart-points-amount" id="cart-points-amount">+{% blocktrans count counter=total_points %}{{ counter }} бал{% plural %}{{ counter }} балів{% endblocktrans %}</span>
+              <span class="cart-points-description">{% trans 'Обмінюйте на промокоди або донат на ЗСУ' %}</span>
             </div>
-            <span class="cart-points-title">{% trans 'Бали за замовлення' %}</span>
-          </div>
-          <div class="cart-points-earned {% if total_points <= 0 %}d-none{% endif %}" id="cart-points-earned">
-            <span class="cart-points-amount" id="cart-points-amount">+{% blocktrans count counter=total_points %}{{ counter }} бал{% plural %}{{ counter }} балів{% endblocktrans %}</span>
-            <span class="cart-points-description">{% trans 'буде нараховано після отримання товару' %}</span>
-          </div>
-          <div class="cart-points-none {% if total_points > 0 %}d-none{% endif %}" id="cart-points-none">
-            <span class="cart-points-text">{% trans 'Бали не нараховуються' %}</span>
+            <div class="cart-points-none {% if total_points > 0 %}d-none{% endif %}" id="cart-points-none">
+              <span class="cart-points-text">{% trans 'Бали за це замовлення не нараховуються' %}</span>
+            </div>
           </div>
           {% if not request.user.is_authenticated %}
-          <div class="cart-points-guest" id="cart-points-guest">
-            <div class="cart-points-guest-info">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
-              </svg>
-              <span>{% trans 'Для отримання балів потрібно авторизуватися' %}</span>
-            </div>
-            <a href="{% url 'login' %}" class="cart-points-login-btn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z"/>
-              </svg>
-              {% trans 'Авторизуватися' %}
-            </a>
-          </div>
+          <a href="{% url 'login' %}" class="cart-points-login-pill" id="cart-points-guest">
+            {% trans 'Увійти' %}
+          </a>
           {% endif %}
         </div>
         
@@ -924,8 +922,11 @@
         <span class="mono">mono</span><span class="dot">·</span><span class="pay">pay</span>
       </span>
       <span class="cart-monobank-details">
-        <span class="cart-monobank-text">{% trans 'Онлайн оплата карткою' %}{% if has_custom_items and not all_approved %} <span class="cart-monobank-subtext" data-without-custom-label">{% trans '(без урахування кастомного одягу)' %}</span>{% endif %}</span>
+        <span class="cart-monobank-text">{% trans 'Оплатити онлайн' %}{% if has_custom_items and not all_approved %} <span class="cart-monobank-subtext" data-without-custom-label">{% trans '(без кастомного одягу)' %}</span>{% endif %}</span>
         <span class="cart-monobank-badges" aria-hidden="true">
+          <span class="cart-monobank-badge cart-monobank-badge-card" role="presentation">
+            <span class="badge-text">{% trans 'Картка' %}</span>
+          </span>
           <span class="cart-monobank-badge cart-monobank-badge-gpay" role="presentation">
             <span class="badge-symbol">G</span>
             <span class="badge-text">{% trans 'Pay' %}</span>
@@ -2083,6 +2084,197 @@ body.contact-modal-open .cart-container::after {
     font-size: 0.74rem;
   }
 }
+
+/* ============================================================
+   Cart redesign 2026-06 (iteration 2): контакт-менеджер, авто-сейв,
+   компактні бали, преміальна mono-кнопка, прихований формат-хінт
+   ============================================================ */
+
+/* — Прибираємо інструктивний хінт формату телефону (нормалізація на сервері) — */
+.cart-page-container [data-phone-hint] { display: none !important; }
+
+/* — Кнопка «Звʼязатися з менеджером»: жива, з анімованими крапками — */
+.btn-contact-manager {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  text-align: left;
+  padding: 0.85rem 1.1rem;
+  background: linear-gradient(135deg, rgba(34, 158, 217, 0.16), rgba(99, 102, 241, 0.14));
+  border: 1px solid rgba(56, 189, 248, 0.32);
+  box-shadow: none;
+}
+
+.btn-contact-manager:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, rgba(34, 158, 217, 0.24), rgba(99, 102, 241, 0.2));
+  box-shadow: 0 10px 26px -12px rgba(56, 189, 248, 0.5);
+}
+
+.cm-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 11px;
+  background: rgba(56, 189, 248, 0.16);
+  color: #7dd3fc;
+}
+
+.cm-ping {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.6);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cm-ping { animation: cmPing 2s ease-out infinite; }
+  .cm-dot { animation: cmDot 1.4s ease-in-out infinite; transform-origin: center; }
+  .cm-dot-2 { animation-delay: 0.18s; }
+  .cm-dot-3 { animation-delay: 0.36s; }
+}
+
+@keyframes cmPing {
+  0% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.55); }
+  70%, 100% { box-shadow: 0 0 0 7px rgba(52, 211, 153, 0); }
+}
+
+@keyframes cmDot {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+.cm-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.cm-title { font-size: 0.95rem; font-weight: 700; color: #e8f4fb; line-height: 1.2; }
+.cm-sub { font-size: 0.76rem; color: #93c5fd; line-height: 1.25; }
+
+/* — Індикатор авто-збереження замість кнопки «Зберегти зміни» — */
+.cart-autosave {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: 10px;
+  background: rgba(52, 211, 153, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+  color: #6ee7b7;
+  font-size: 0.82rem;
+  font-weight: 600;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.cart-autosave[hidden] { display: none; }
+.cart-autosave.is-visible { opacity: 1; transform: translateY(0); }
+.cart-autosave.is-saving { background: rgba(148, 163, 184, 0.12); border-color: rgba(148, 163, 184, 0.25); color: #cbd5e1; }
+
+/* — Компактний блок балів + цінність — */
+.cart-points-compact {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.cart-points-compact .cart-points-star {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 11px;
+  background: rgba(251, 191, 36, 0.16);
+  color: #fbbf24;
+}
+
+.cart-points-compact .cart-points-body { flex: 1; min-width: 0; }
+.cart-points-compact .cart-points-earned { gap: 1px; }
+.cart-points-compact .cart-points-amount { font-size: 1.05rem; font-weight: 800; color: #fbbf24; }
+.cart-points-compact .cart-points-description { font-size: 0.76rem; color: #94a3b8; line-height: 1.3; }
+.cart-points-compact .cart-points-none { text-align: left; padding: 0; }
+.cart-points-compact .cart-points-text { font-size: 0.82rem; }
+
+.cart-points-login-pill {
+  flex-shrink: 0;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.14);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  color: #fcd34d;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.cart-points-login-pill:hover { background: rgba(251, 191, 36, 0.24); color: #fde68a; transform: translateY(-1px); }
+
+/* — Mono-кнопка: преміальний вигляд + чипи методів оплати — */
+.cart-monobank-btn {
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.95rem 1.25rem;
+  background:
+    radial-gradient(120% 160% at 0% 0%, rgba(255, 255, 255, 0.12), transparent 45%),
+    linear-gradient(135deg, #1d1130 0%, #5b2bd9 48%, #ff2d7e 100%);
+  box-shadow: 0 14px 34px -14px rgba(123, 47, 220, 0.7);
+  overflow: hidden;
+}
+
+.cart-monobank-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transform: skewX(-18deg);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cart-monobank-btn:not(:disabled)::before { animation: monoSheen 4.5s ease-in-out infinite; }
+}
+
+@keyframes monoSheen {
+  0%, 100% { left: -60%; }
+  55%, 70% { left: 130%; }
+}
+
+.cart-monobank-details { gap: 0.5rem; z-index: 1; order: 1; flex: 1 1 auto; min-width: 0; align-items: flex-start; }
+
+.cart-monobank-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.cart-monobank-logo { z-index: 1; opacity: 0.96; order: 2; flex-shrink: 0; }
+
+/* Чип «Картка» в ряду методів оплати */
+.cart-monobank-badge-card {
+  background: rgba(0, 0, 0, 0.32);
+  height: 28px;
+  padding: 0 0.7rem;
+  font-weight: 600;
+}
 </style>
 {% endblock %}
 
@@ -2250,6 +2442,96 @@ body.contact-modal-open .cart-container::after {
     document.addEventListener('DOMContentLoaded', initAll);
   } else {
     initAll();
+  }
+})();
+</script>
+
+<script>
+/* Авто-збереження даних доставки (auth) замість кнопки «Зберегти зміни».
+   Debounce + fire-and-forget POST з ajax_autosave=1 -> вью повертає компактний
+   JSON і не чіпає Django messages/HTML. Зберігаємо лише коли вказано телефон. */
+(function() {
+  'use strict';
+
+  function init() {
+    var form = document.getElementById('deliveryForm');
+    if (!form || form.dataset.autosaveBound === '1') return;
+    form.dataset.autosaveBound = '1';
+
+    var indicator = document.querySelector('[data-autosave-indicator]');
+    var timer = null;
+    var lastPayload = '';
+
+    function getCsrf() {
+      return (form.querySelector('input[name="csrfmiddlewaretoken"]') || {}).value
+        || (document.querySelector('meta[name="csrf-token"]') || {}).content
+        || (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
+    }
+
+    function showIndicator(state) {
+      if (!indicator) return;
+      indicator.hidden = false;
+      indicator.classList.remove('is-saving');
+      var label = indicator.querySelector('span');
+      if (state === 'saving') {
+        indicator.classList.add('is-saving', 'is-visible');
+        if (label) label.textContent = 'Зберігаємо…';
+      } else if (state === 'saved') {
+        indicator.classList.add('is-visible');
+        if (label) label.textContent = 'Дані збережено';
+        window.clearTimeout(indicator._hideT);
+        indicator._hideT = window.setTimeout(function() {
+          indicator.classList.remove('is-visible');
+          window.setTimeout(function() { indicator.hidden = true; }, 300);
+        }, 2500);
+      }
+    }
+
+    function save() {
+      var phone = form.querySelector('[name="phone"]');
+      if (!phone || !(phone.value || '').trim()) return; // нема сенсу зберігати без телефону
+      // Зберігаємо лише коли доставку валідно обрано (є refs Нової пошти) —
+      // інакше сервер однаково відхилить (delivery) і блимати індикатором зайве.
+      var whRef = form.querySelector('[name="np_warehouse_ref"]');
+      var cityRef = form.querySelector('[name="np_city_ref"]');
+      var settlementRef = form.querySelector('[name="np_settlement_ref"]');
+      var hasCity = (cityRef && cityRef.value) || (settlementRef && settlementRef.value);
+      if (!whRef || !whRef.value || !hasCity) return;
+      var fd = new FormData(form);
+      fd.set('form_type', 'update_profile');
+      fd.set('ajax_autosave', '1');
+      // дедуплікація: не шлемо ідентичні підряд
+      var sig = new URLSearchParams(Array.from(fd.entries()).filter(function(e){ return e[0] !== 'csrfmiddlewaretoken'; })).toString();
+      if (sig === lastPayload) return;
+      lastPayload = sig;
+      showIndicator('saving');
+      fetch(form.action || window.location.pathname, {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCsrf(), 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+        body: fd
+      })
+        .then(function(r) { return r.json().catch(function() { return null; }); })
+        .then(function(d) {
+          if (d && d.ok) { showIndicator('saved'); }
+          else if (indicator) { indicator.classList.remove('is-visible'); indicator.hidden = true; lastPayload = ''; }
+        })
+        .catch(function() { if (indicator) { indicator.classList.remove('is-visible'); indicator.hidden = true; } lastPayload = ''; });
+    }
+
+    function schedule() {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(save, 1000);
+    }
+
+    form.addEventListener('input', schedule);
+    form.addEventListener('change', schedule);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
   }
 })();
 </script>
