@@ -466,9 +466,17 @@ class CartPageController {
               <span class="cart-item-label">Розмір:</span>
               <span class="cart-item-value">${escapeHtml(size)}</span>
             </div>
-            <div class="cart-item-detail">
+            <div class="cart-item-detail cart-item-detail--qty">
               <span class="cart-item-label">Кількість:</span>
-              <span class="cart-item-value">${qty}</span>
+              <div class="cart-qty-stepper">
+                <button type="button" class="cart-qty-btn" data-qty-dec aria-label="Зменшити кількість"${qty <= 1 ? ' disabled' : ''}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 13H5v-2h14v2z"/></svg>
+                </button>
+                <span class="cart-qty-value" data-qty-value>${qty}</span>
+                <button type="button" class="cart-qty-btn" data-qty-inc aria-label="Збільшити кількість">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                </button>
+              </div>
             </div>
             ${fitLabel ? `
             <div class="cart-item-detail">

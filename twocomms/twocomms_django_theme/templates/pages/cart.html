@@ -288,9 +288,17 @@
                     <span class="cart-item-label">{% trans 'Розмір:' %}</span>
                     <span class="cart-item-value">{{ it.size }}</span>
                   </div>
-                  <div class="cart-item-detail">
+                  <div class="cart-item-detail cart-item-detail--qty">
                     <span class="cart-item-label">{% trans 'Кількість:' %}</span>
-                    <span class="cart-item-value">{{ it.qty }}</span>
+                    <div class="cart-qty-stepper">
+                      <button type="button" class="cart-qty-btn" data-qty-dec aria-label="{% trans 'Зменшити кількість' %}"{% if it.qty <= 1 %} disabled{% endif %}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 13H5v-2h14v2z"/></svg>
+                      </button>
+                      <span class="cart-qty-value" data-qty-value>{{ it.qty }}</span>
+                      <button type="button" class="cart-qty-btn" data-qty-inc aria-label="{% trans 'Збільшити кількість' %}">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+                      </button>
+                    </div>
                   </div>
                   {% if it.fit_label %}
                   <div class="cart-item-detail">
@@ -1809,7 +1817,7 @@ body.contact-modal-open .cart-container::after {
   user-select: none;
 }
 
-.pay-method-option:hover:not(.is-disabled) {
+.pay-method-option:hover:not(.is-disabled):not(.is-active) {
   border-color: rgba(139, 92, 246, 0.45);
   background: rgba(15, 23, 42, 0.62);
   transform: translateY(-1px);
@@ -1891,6 +1899,90 @@ body.contact-modal-open .cart-container::after {
   outline-offset: 2px;
 }
 
+/* — Степпер количества прямо в карточке товара — */
+.cart-item-detail--qty {
+  gap: 0.6rem;
+}
+
+.cart-qty-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 2px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.5);
+}
+
+.cart-qty-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 8px;
+  background: rgba(139, 92, 246, 0.16);
+  color: #c4b5fd;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cart-qty-btn:hover:not(:disabled) {
+  background: rgba(139, 92, 246, 0.3);
+  color: #fff;
+}
+
+.cart-qty-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.cart-qty-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cart-qty-btn:focus-visible {
+  outline: 2px solid rgba(139, 92, 246, 0.6);
+  outline-offset: 2px;
+}
+
+.cart-qty-value {
+  min-width: 26px;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  font-variant-numeric: tabular-nums;
+}
+
+/* — Тактильный отклик на тач (на мобильных :hover не срабатывает) — */
+.pay-method-option:active:not(.is-disabled) {
+  transform: scale(0.985);
+}
+
+.cart-monobank-btn:active:not(.loading):not(:disabled) {
+  transform: scale(0.99);
+}
+
+.cart-promo-apply-btn:active,
+.cart-item-remove-btn:active,
+.cart-form-save-btn:active,
+.btn-contact-manager:active {
+  transform: scale(0.96);
+}
+
+/* На сенсорных экранах не «залипает» hover-подъём после тапа. */
+@media (hover: none) {
+  .pay-method-option:hover:not(.is-disabled):not(.is-active) {
+    transform: none;
+    background: rgba(15, 23, 42, 0.45);
+    border-color: rgba(148, 163, 184, 0.18);
+  }
+}
+
 /* — Полировка «До сплати»: делаем итог самым заметным — */
 .cart-summary-total {
   background: linear-gradient(135deg, rgba(52, 211, 153, 0.1), rgba(16, 185, 129, 0.03));
@@ -1954,6 +2046,16 @@ body.contact-modal-open .cart-container::after {
     padding: 0.85rem 0.9rem;
   }
 
+  .cart-qty-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .cart-qty-value {
+    min-width: 30px;
+    font-size: 1rem;
+  }
+
   .cart-item-actions {
     gap: 0.75rem;
   }
@@ -1998,6 +2100,90 @@ body.contact-modal-open .cart-container::after {
       window.CustomCartRemove(btn);
     }
   }, true);
+})();
+</script>
+
+<script>
+/* Степпер количества в карточке товара корзины.
+   Использует существующий эндпоинт /cart/update/ (cart_key + qty) и общий
+   механизм обновления: после ответа диспатчим cartUpdated — cart.js сам
+   пересинхронизирует список и пересчитает все суммы из /cart/items/. */
+(function() {
+  'use strict';
+
+  var MAX_QTY = 99;
+  var inFlight = false;
+
+  function getCsrf() {
+    return (document.querySelector('meta[name="csrf-token"]') || {}).content
+      || (document.querySelector('input[name="csrfmiddlewaretoken"]') || {}).value
+      || (document.cookie.match(/csrftoken=([^;]+)/) || [])[1]
+      || '';
+  }
+
+  function setRowBusy(row, busy) {
+    row.querySelectorAll('.cart-qty-btn').forEach(function(b) { b.disabled = busy; });
+  }
+
+  document.addEventListener('click', function(evt) {
+    var btn = evt.target.closest('.cart-qty-btn');
+    if (!btn) return;
+    evt.preventDefault();
+
+    var row = btn.closest('[data-cart-row]');
+    if (!row) return;
+    var key = row.getAttribute('data-key');
+    if (!key) return;
+
+    var valueEl = row.querySelector('[data-qty-value]');
+    var current = parseInt((valueEl && valueEl.textContent || '1').trim(), 10);
+    if (!isFinite(current) || current < 1) current = 1;
+
+    var dir = btn.hasAttribute('data-qty-inc') ? 1 : -1;
+    var next = current + dir;
+    if (next < 1) next = 1;
+    if (next > MAX_QTY) next = MAX_QTY;
+    if (next === current) return;
+    if (inFlight) return;
+    inFlight = true;
+
+    // Оптимистичное обновление, чтобы реакция была мгновенной.
+    if (valueEl) valueEl.textContent = String(next);
+    setRowBusy(row, true);
+
+    fetch('/cart/update/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        'X-CSRFToken': getCsrf(),
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      credentials: 'same-origin',
+      body: 'cart_key=' + encodeURIComponent(key) + '&qty=' + encodeURIComponent(next)
+    })
+      .then(function(r) { return r.json().catch(function() { return null; }); })
+      .then(function(data) {
+        if (!data || data.ok !== true) {
+          // Откат при ошибке.
+          if (valueEl) valueEl.textContent = String(current);
+          return;
+        }
+        try {
+          document.dispatchEvent(new CustomEvent('cartUpdated', {
+            detail: { action: 'update', key: key, qty: next }
+          }));
+        } catch (_) {}
+        try { if (window.refreshCartSummary) window.refreshCartSummary(); } catch (_) {}
+      })
+      .catch(function() {
+        if (valueEl) valueEl.textContent = String(current);
+      })
+      .finally(function() {
+        inFlight = false;
+        // cart.js пересоберёт строку из /cart/items/ — кнопки восстановятся.
+        setRowBusy(row, false);
+      });
+  });
 })();
 </script>
 

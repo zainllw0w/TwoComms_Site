@@ -1925,7 +1925,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   scheduleIdle(() => {
     if (document.querySelector('.cart-page-container') || document.getElementById('promo-code-input')) {
-      import('./modules/cart.js?v=20260428-pdp-fit-v2')
+      import('./modules/cart.js?v=20260605-cart-qty')
         .then(({ initCartInteractions }) => initCartInteractions())
         .catch(() => { });
     }
