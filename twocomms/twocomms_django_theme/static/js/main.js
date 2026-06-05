@@ -1641,7 +1641,8 @@ document.addEventListener('click', (e) => {
   // Открываем мини-корзину сразу, чтобы пользователь видел текущее состояние
   try { openMiniCart({ skipRefresh: true }); } catch (_) { }
 
-  fetch('/cart/add/', {
+  // Add с одноразовым self-heal при CSRF 403 (застарілий host-only cookie).
+  const addToCartRequest = (isRetry) => fetch('/cart/add/', {
     method: 'POST',
     headers: {
       'X-CSRFToken': getCookie('csrftoken'),
@@ -1649,8 +1650,28 @@ document.addEventListener('click', (e) => {
       'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
     },
     body
-  })
-    .then(r => r.json())
+  }).then(r => {
+    if (r.status === 403 && !isRetry) {
+      // Прибираємо застарілий host-only csrftoken і пробуємо ще раз.
+      try { document.cookie = 'csrftoken=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'; } catch (_) { }
+      return addToCartRequest(true);
+    }
+    if (!r.ok) { return Promise.reject(new Error('HTTP ' + r.status)); }
+    return r.json();
+  });
+
+  const handleAddFailure = () => {
+    // Ніколи не лишаємо міні-кошик у стані нескінченного завантаження:
+    // оновлюємо його реальним станом (refreshMiniCart прибере спінер).
+    try {
+      const p = refreshMiniCart();
+      if (p && p.then) { p.then(() => { try { openMiniCart({ skipRefresh: true }); } catch (_) { } }).catch(() => { }); }
+    } catch (_) { }
+    btn.classList.add('btn-danger');
+    setTimeout(() => btn.classList.remove('btn-danger'), 600);
+  };
+
+  addToCartRequest(false)
     .then(d => {
       if (d && d.ok) {
         if (typeof d.count === 'number') { updateCartBadge(d.count); }
@@ -1671,13 +1692,11 @@ document.addEventListener('click', (e) => {
 
         trackAddToCartAnalytics(d, btn, qty);
       } else {
-        btn.classList.add('btn-danger');
-        setTimeout(() => btn.classList.remove('btn-danger'), 600);
+        handleAddFailure();
       }
     })
     .catch(() => {
-      btn.classList.add('btn-danger');
-      setTimeout(() => btn.classList.remove('btn-danger'), 600);
+      handleAddFailure();
     });
 });
 

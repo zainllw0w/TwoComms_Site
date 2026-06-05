@@ -376,6 +376,21 @@
         },
         body: body
       }).then(function (r) {
+        if (r.status === 403) {
+          // Self-heal застарілого host-only csrftoken і повторна спроба.
+          try { document.cookie = 'csrftoken=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/'; } catch (_) { }
+          return fetch('/cart/add/', {
+            method: 'POST',
+            headers: {
+              'X-CSRFToken': getCookie('csrftoken') || csrfToken,
+              'X-Requested-With': 'XMLHttpRequest',
+              'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+            },
+            body: body
+          });
+        }
+        return r;
+      }).then(function (r) {
         if (!r.ok) {
           throw new Error('Network response was not ok');
         }

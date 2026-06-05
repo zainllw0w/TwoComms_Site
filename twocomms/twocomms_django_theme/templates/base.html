@@ -23,6 +23,18 @@
         var match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
         return match ? decodeURIComponent(match.pop()) : '';
       }
+      // Self-heal: застарілий host-only csrftoken (без атрибута Domain), що
+      // лишився від попередньої конфігурації кук, співіснує з доменним
+      // (.twocomms.shop) cookie. Django читає одну версію, а JS надсилає іншу —
+      // через це POST-запити (напр. додавання в кошик) валяться з 403, а
+      // міні-кошик «вічно вантажиться». Якщо в браузері більше одного cookie
+      // csrftoken — прибираємо саме host-only варіант, лишаючи доменний.
+      try {
+        var csrfCookieCount = (document.cookie.match(/(?:^|;\s*)csrftoken=/g) || []).length;
+        if (csrfCookieCount > 1) {
+          document.cookie = 'csrftoken=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+        }
+      } catch (e) { /* no-op */ }
       var meta = document.querySelector('meta[name="csrf-token"]');
       if (!meta) return;
       var token = getCookie('csrftoken');
