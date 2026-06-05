@@ -465,19 +465,48 @@
             
             <div class="cart-form-group">
               <label class="cart-form-label">{% trans 'Тип оплати *' %}</label>
-              <div class="cart-form-input-wrapper">
-                <select name="pay_type" class="cart-form-select" id="pay_type_auth" required aria-label="{% trans 'Тип оплати' %}">
-                  <option value="">{% trans 'Оберіть тип оплати' %}</option>
-                  <option value="online_full">{% trans 'Онлайн оплата (повна сума)' %}</option>
-                  <option value="prepay_200" {% if not prepay_allowed %}disabled{% endif %}>{% trans 'Передплата 200 грн (решта при отриманні)' %}{% if not prepay_allowed %} {% trans '— недоступно з кастомним принтом' %}{% endif %}</option>
-                </select>
-                {% if has_custom_items %}
-                <div class="cart-form-hint text-secondary small mt-2">
-                  {% trans 'У кошику є кастомний принт, тому передплата 200 грн тимчасово недоступна — менеджер узгодить фінальну ціну.' %}
-                </div>
-                {% endif %}
-                <div class="cart-form-input-glow"></div>
+              <div class="pay-method" data-pay-method>
+                <label class="pay-method-option {% if selected_pay_type == 'online_full' %}is-active{% endif %}" data-pay-tile="online_full">
+                  <span class="pay-method-icon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="2" y="5" width="20" height="14" rx="2.5"/>
+                      <path d="M2 10h20"/>
+                      <path d="M6 15h4"/>
+                    </svg>
+                  </span>
+                  <span class="pay-method-body">
+                    <span class="pay-method-title">{% trans 'Повна оплата онлайн' %}</span>
+                    <span class="pay-method-desc">{% trans 'Картка · Apple Pay · Google Pay' %}</span>
+                  </span>
+                  <span class="pay-method-check" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                  </span>
+                </label>
+                <label class="pay-method-option {% if selected_pay_type == 'prepay_200' %}is-active{% endif %} {% if not prepay_allowed %}is-disabled{% endif %}" data-pay-tile="prepay_200" {% if not prepay_allowed %}data-pay-disabled="1"{% endif %}>
+                  <span class="pay-method-icon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z"/>
+                      <path d="M9 12l2 2 4-4"/>
+                    </svg>
+                  </span>
+                  <span class="pay-method-body">
+                    <span class="pay-method-title">{% trans 'Передплата 200 грн' %}</span>
+                    <span class="pay-method-desc">{% trans 'Решту сплатите при отриманні' %}</span>
+                  </span>
+                  <span class="pay-method-check" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                  </span>
+                </label>
               </div>
+              <select name="pay_type" class="pay-method-native" id="pay_type_auth" required aria-label="{% trans 'Тип оплати' %}" tabindex="-1" aria-hidden="true">
+                <option value="online_full" {% if selected_pay_type == 'online_full' %}selected{% endif %}>{% trans 'Онлайн оплата (повна сума)' %}</option>
+                <option value="prepay_200" {% if selected_pay_type == 'prepay_200' %}selected{% endif %} {% if not prepay_allowed %}disabled{% endif %}>{% trans 'Передплата 200 грн (решта при отриманні)' %}</option>
+              </select>
+              {% if has_custom_items %}
+              <div class="cart-form-hint text-secondary small mt-2">
+                {% trans 'У кошику є кастомний принт, тому передплата 200 грн тимчасово недоступна — менеджер узгодить фінальну ціну.' %}
+              </div>
+              {% endif %}
             </div>
             
             <!-- Кнопка консультации -->
@@ -615,19 +644,48 @@
             
             <div class="cart-form-group">
               <label class="cart-form-label">{% trans 'Тип оплати' %} *</label>
-              <div class="cart-form-input-wrapper">
-                <select name="pay_type" class="cart-form-select" id="pay_type_guest" required aria-label="{% trans 'Тип оплати' %}">
-                  <option value="">{% trans 'Оберіть тип оплати' %}</option>
-                  <option value="online_full">{% trans 'Онлайн оплата (повна сума)' %}</option>
-                  <option value="prepay_200" {% if not prepay_allowed %}disabled{% endif %}>{% trans 'Передплата 200 грн (решта при отриманні)' %}{% if not prepay_allowed %} — {% trans 'недоступно з кастомним принтом' %}{% endif %}</option>
-                </select>
-                {% if has_custom_items %}
-                <div class="cart-form-hint text-secondary small mt-2">
-                  {% trans 'У кошику є кастомний принт, тому передплата 200 грн тимчасово недоступна — менеджер узгодить фінальну ціну.' %}
-                </div>
-                {% endif %}
-                <div class="cart-form-input-glow"></div>
+              <div class="pay-method" data-pay-method>
+                <label class="pay-method-option {% if selected_pay_type == 'online_full' %}is-active{% endif %}" data-pay-tile="online_full">
+                  <span class="pay-method-icon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="2" y="5" width="20" height="14" rx="2.5"/>
+                      <path d="M2 10h20"/>
+                      <path d="M6 15h4"/>
+                    </svg>
+                  </span>
+                  <span class="pay-method-body">
+                    <span class="pay-method-title">{% trans 'Повна оплата онлайн' %}</span>
+                    <span class="pay-method-desc">{% trans 'Картка · Apple Pay · Google Pay' %}</span>
+                  </span>
+                  <span class="pay-method-check" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                  </span>
+                </label>
+                <label class="pay-method-option {% if selected_pay_type == 'prepay_200' %}is-active{% endif %} {% if not prepay_allowed %}is-disabled{% endif %}" data-pay-tile="prepay_200" {% if not prepay_allowed %}data-pay-disabled="1"{% endif %}>
+                  <span class="pay-method-icon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4z"/>
+                      <path d="M9 12l2 2 4-4"/>
+                    </svg>
+                  </span>
+                  <span class="pay-method-body">
+                    <span class="pay-method-title">{% trans 'Передплата 200 грн' %}</span>
+                    <span class="pay-method-desc">{% trans 'Решту сплатите при отриманні' %}</span>
+                  </span>
+                  <span class="pay-method-check" aria-hidden="true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                  </span>
+                </label>
               </div>
+              <select name="pay_type" class="pay-method-native" id="pay_type_guest" required aria-label="{% trans 'Тип оплати' %}" tabindex="-1" aria-hidden="true">
+                <option value="online_full" {% if selected_pay_type == 'online_full' %}selected{% endif %}>{% trans 'Онлайн оплата (повна сума)' %}</option>
+                <option value="prepay_200" {% if selected_pay_type == 'prepay_200' %}selected{% endif %} {% if not prepay_allowed %}disabled{% endif %}>{% trans 'Передплата 200 грн (решта при отриманні)' %}</option>
+              </select>
+              {% if has_custom_items %}
+              <div class="cart-form-hint text-secondary small mt-2">
+                {% trans 'У кошику є кастомний принт, тому передплата 200 грн тимчасово недоступна — менеджер узгодить фінальну ціну.' %}
+              </div>
+              {% endif %}
               {% if guest_form.pay_type.errors %}
                 <div class="cart-form-error">{{ guest_form.pay_type.errors.0 }}</div>
               {% endif %}
@@ -876,43 +934,6 @@
   </div>
 
 
-          {% if request.user.is_authenticated %}
-            <button type="button" class="cart-checkout-btn cart-cta-beam" id="placeOrderBtn" data-monobank-pay-trigger="cart" {% if not has_payable_items %}disabled{% endif %}>
-              <span class="cart-cta-border">
-                <span class="cart-cta-border-spin"></span>
-                <span class="cart-cta-border-bg"></span>
-              </span>
-              <span class="cart-cta-surface">
-                <span class="cart-cta-lines"></span>
-                <span class="cart-cta-hover"></span>
-              </span>
-              <span class="cart-cta-content">
-                <span class="cart-cta-text">{% trans 'Оформити замовлення' %}{% if has_custom_items and not all_approved %} <span class="cart-cta-suffix" data-without-custom-label">{% trans '(без урахування кастомного одягу)' %}</span>{% endif %}</span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="cart-cta-icon">
-                  <path d="M5 12h14"></path>
-                  <path d="m12 5 7 7-7 7"></path>
-                </svg>
-              </span>
-            </button>
-          {% else %}
-            <button type="button" class="cart-checkout-btn cart-cta-beam cart-checkout-btn-guest" id="guestOrderBtn" data-monobank-pay-trigger="cart" {% if not has_payable_items %}disabled{% endif %}>
-              <span class="cart-cta-border">
-                <span class="cart-cta-border-spin"></span>
-                <span class="cart-cta-border-bg"></span>
-              </span>
-              <span class="cart-cta-surface">
-                <span class="cart-cta-lines"></span>
-                <span class="cart-cta-hover"></span>
-              </span>
-              <span class="cart-cta-content">
-                <span class="cart-cta-text">{% trans 'Замовити як гість' %}{% if has_custom_items and not all_approved %} <span class="cart-cta-suffix" data-without-custom-label">{% trans '(без урахування кастомного одягу)' %}</span>{% endif %}</span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="cart-cta-icon">
-                  <path d="M5 12h14"></path>
-                  <path d="m12 5 7 7-7 7"></path>
-                </svg>
-              </span>
-            </button>
-          {% endif %}
           <div class="cart-checkout-note text-secondary mt-3">
             {% if has_custom_items and not has_payable_items %}
               {% trans 'Оплата стане доступною після погодження менеджером. Зараз у кошику немає позицій, які можна оплатити окремо.' %}
@@ -1026,159 +1047,13 @@
 
 {% block extra_css %}
 <style>
-.cart-cta-beam {
-  --cart-accent: #34d399;
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.55rem;
-  width: 100%;
-  min-height: 54px;
-  padding: 0;
-  border: none;
-  border-radius: 999px;
-  background: transparent;
-  color: #fff;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 700;
-  font-size: 0.95rem;
-  overflow: hidden;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.cart-checkout-btn {
-  background: transparent;
-  border: none;
-  padding: 0;
-  box-shadow: none;
-}
-
-.cart-checkout-btn .cart-checkout-btn-glow {
-  display: none;
-}
-
-.cart-cta-beam .cart-cta-content {
-  position: relative;
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 1rem 2.25rem;
-}
-
-.cart-cta-text {
-  color: rgba(255, 255, 255, 0.9);
-  transition: color 0.3s ease;
-}
-
-.cart-cta-icon {
-  width: 16px;
-  height: 16px;
-  transition: transform 0.3s ease;
-}
-
-.cart-cta-beam:hover {
-  transform: scale(1.02);
-  box-shadow: 0 0 44px -12px rgba(52, 211, 153, 0.6);
-}
-
-.cart-cta-beam:hover .cart-cta-icon {
-  transform: translateX(3px);
-}
-
-.cart-cta-beam:hover .cart-cta-text {
-  color: #fff;
-}
-
-.cart-cta-border {
-  position: absolute;
-  inset: 0;
-  padding: 1px;
-  border-radius: 999px;
-  overflow: hidden;
-  z-index: 0;
-}
-
-.cart-cta-border-spin {
-  position: absolute;
-  inset: -120%;
-  background: conic-gradient(from 0deg, transparent 0deg 300deg, var(--cart-accent) 360deg);
-  animation: cart-beam-spin 3s linear infinite;
-}
-
-.cart-cta-border-bg {
-  position: absolute;
-  inset: 1px;
-  border-radius: 999px;
-  background: #050505;
-}
-
-.cart-cta-surface {
-  position: absolute;
-  inset: 2px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: linear-gradient(180deg, rgba(52, 211, 153, 0.22), transparent);
-  z-index: 1;
-}
-
-.cart-cta-lines {
-  position: absolute;
-  inset: 0;
-  background-image: repeating-linear-gradient(90deg, #fff, #fff 1px, transparent 1px, transparent 8px);
-  background-size: 24px 100%;
-  opacity: 0.025;
-  mix-blend-mode: plus-lighter;
-  animation: cart-lines-slide 1.5s linear infinite;
-}
-
-.cart-cta-hover {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  width: 66%;
-  height: 50%;
-  transform: translateX(-50%);
-  background: radial-gradient(circle at 50% 100%, rgba(52, 211, 153, 0.22), transparent 60%);
-  filter: blur(22px);
-  opacity: 0;
-  transition: opacity 0.4s ease;
-}
-
-.cart-cta-beam:hover .cart-cta-hover {
-  opacity: 1;
-}
-
-.cart-cta-beam:focus-visible {
-  outline: 2px solid rgba(52, 211, 153, 0.6);
-  outline-offset: 3px;
-}
-
-.cart-cta-beam:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
-}
-
-@keyframes cart-beam-spin {
-  to { transform: rotate(360deg); }
-}
-
-@keyframes cart-lines-slide {
-  from { background-position: 0 0; }
-  to { background-position: 24px 0; }
-}
-
 .cart-savings-info {
   margin-top: 18px;
   padding: 14px 18px;
-  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.08), rgba(20, 22, 27, 0.9));
   border-radius: 14px;
-  border: 1px solid rgba(79, 70, 229, 0.15);
-  color: #1f2937;
+  border: 1px solid rgba(52, 211, 153, 0.22);
+  color: #d1fae5;
   font-size: 14px;
   display: grid;
   row-gap: 10px;
@@ -1202,22 +1077,22 @@
   align-items: center;
   gap: 16px;
   padding-top: 8px;
-  border-top: 1px solid rgba(79, 70, 229, 0.12);
+  border-top: 1px solid rgba(52, 211, 153, 0.18);
 }
 
 .cart-savings-amount {
   font-weight: 600;
-  color: #2563eb;
+  color: #6ee7b7;
 }
 
 .cart-savings-label {
-  color: #4b5563;
+  color: #94a3b8;
   font-weight: 600;
 }
 
 .cart-savings-highlight {
   font-weight: 600;
-  color: #111827;
+  color: #f1f5f9;
 }
 
 .cart-item-price-old {
@@ -1891,6 +1766,221 @@ body.contact-modal-open .cart-container::after {
     padding: 14px 20px;
   }
 }
+
+/* ============================================================
+   Cart redesign 2026-06 — payment method tiles, summary polish,
+   consistent dark palette, calmer visuals, mobile-first checkout
+   ============================================================ */
+
+/* — Native select становится источником истины, прячем визуально — */
+.pay-method-native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* — Плитки выбора способа оплаты — */
+.pay-method {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
+}
+
+.pay-method-option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  border: 1.5px solid rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.45);
+  cursor: pointer;
+  transition: border-color 0.22s ease, background 0.22s ease, transform 0.22s ease, box-shadow 0.22s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.pay-method-option:hover:not(.is-disabled) {
+  border-color: rgba(139, 92, 246, 0.45);
+  background: rgba(15, 23, 42, 0.62);
+  transform: translateY(-1px);
+}
+
+.pay-method-option.is-active {
+  border-color: rgba(52, 211, 153, 0.65);
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.12), rgba(15, 23, 42, 0.55));
+  box-shadow: 0 10px 26px -14px rgba(52, 211, 153, 0.55);
+}
+
+.pay-method-option.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(0.35);
+}
+
+.pay-method-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: 11px;
+  background: rgba(139, 92, 246, 0.14);
+  color: #c4b5fd;
+  transition: background 0.22s ease, color 0.22s ease;
+}
+
+.pay-method-option.is-active .pay-method-icon {
+  background: rgba(52, 211, 153, 0.18);
+  color: #6ee7b7;
+}
+
+.pay-method-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.pay-method-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  line-height: 1.2;
+}
+
+.pay-method-desc {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  line-height: 1.25;
+}
+
+.pay-method-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(148, 163, 184, 0.35);
+  color: transparent;
+  background: transparent;
+  transition: all 0.22s ease;
+}
+
+.pay-method-option.is-active .pay-method-check {
+  border-color: #34d399;
+  background: #34d399;
+  color: #07140d;
+}
+
+.pay-method-option:focus-visible {
+  outline: 2px solid rgba(139, 92, 246, 0.6);
+  outline-offset: 2px;
+}
+
+/* — Полировка «До сплати»: делаем итог самым заметным — */
+.cart-summary-total {
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.1), rgba(16, 185, 129, 0.03));
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  margin-top: 0.75rem;
+  border-top: none;
+}
+
+.cart-summary-total .cart-summary-value {
+  font-size: 1.45rem;
+}
+
+/* — Спокойнее визуально: убираем дребезжащие «искры» (шум) — */
+.cart-page-sparks,
+.cart-item-sparks {
+  display: none !important;
+}
+
+/* — Mono-кнопка как единственный платёжный CTA: чуть выразительнее — */
+.cart-monobank-btn {
+  min-height: 60px;
+  border-radius: 16px;
+  position: relative;
+}
+
+/* Спиннер виден только во время загрузки — выносим из потока, чтобы не
+   ломал раскладку логотипа/текста и не плодил пустую строку при wrap. */
+.cart-monobank-btn .cart-monobank-spinner {
+  position: absolute;
+  top: 50%;
+  right: 1rem;
+  margin: 0;
+  transform: translateY(-50%) scale(0.6);
+}
+
+.cart-monobank-btn.loading .cart-monobank-spinner {
+  transform: translateY(-50%) scale(1);
+}
+
+@media (max-width: 520px) {
+  .cart-monobank-btn {
+    align-items: center;
+    text-align: left;
+  }
+
+  .cart-monobank-btn .cart-monobank-spinner {
+    top: 0.85rem;
+    right: 0.95rem;
+    transform: scale(0.6);
+  }
+
+  .cart-monobank-btn.loading .cart-monobank-spinner {
+    transform: scale(1);
+  }
+}
+
+/* — Mobile-first полировка корзины — */
+@media (max-width: 768px) {
+  .pay-method-option {
+    padding: 0.85rem 0.9rem;
+  }
+
+  .cart-item-actions {
+    gap: 0.75rem;
+  }
+
+  .cart-item-remove-btn {
+    margin-left: auto;
+  }
+
+  .cart-summary-total .cart-summary-value {
+    font-size: 1.3rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .pay-method-icon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .pay-method-title {
+    font-size: 0.9rem;
+  }
+
+  .pay-method-desc {
+    font-size: 0.74rem;
+  }
+}
 </style>
 {% endblock %}
 
@@ -1908,6 +1998,73 @@ body.contact-modal-open .cart-container::after {
       window.CustomCartRemove(btn);
     }
   }, true);
+})();
+</script>
+
+<script>
+/* Синхронизация плиток выбора оплаты с нативным <select> (источник истины).
+   cart.js слушает change на #pay_type_auth/#pay_type_guest и сам пересчитывает
+   summary и текст кнопок — поэтому мы только меняем value и диспатчим change. */
+(function() {
+  'use strict';
+
+  function initPayMethod(group) {
+    if (!group || group.dataset.payMethodBound === '1') return;
+    group.dataset.payMethodBound = '1';
+
+    // Находим связанный select: ближайший .pay-method-native в общем .cart-form-group
+    var formGroup = group.closest('.cart-form-group') || group.parentElement;
+    var select = formGroup ? formGroup.querySelector('.pay-method-native') : null;
+    if (!select) return;
+
+    var tiles = Array.prototype.slice.call(group.querySelectorAll('[data-pay-tile]'));
+
+    function syncTilesFromSelect() {
+      var value = select.value;
+      tiles.forEach(function(tile) {
+        tile.classList.toggle('is-active', tile.getAttribute('data-pay-tile') === value);
+      });
+    }
+
+    tiles.forEach(function(tile) {
+      var value = tile.getAttribute('data-pay-tile');
+
+      function activate() {
+        if (tile.getAttribute('data-pay-disabled') === '1') return;
+        if (select.value === value) return;
+        select.value = value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        syncTilesFromSelect();
+      }
+
+      tile.addEventListener('click', function(evt) {
+        evt.preventDefault();
+        activate();
+      });
+      tile.setAttribute('tabindex', '0');
+      tile.setAttribute('role', 'button');
+      tile.addEventListener('keydown', function(evt) {
+        if (evt.key === 'Enter' || evt.key === ' ' || evt.key === 'Spacebar') {
+          evt.preventDefault();
+          activate();
+        }
+      });
+    });
+
+    // Если значение селекта меняется программно (напр. ui-fallback) — отражаем в плитках.
+    select.addEventListener('change', syncTilesFromSelect);
+    syncTilesFromSelect();
+  }
+
+  function initAll() {
+    document.querySelectorAll('[data-pay-method]').forEach(initPayMethod);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAll);
+  } else {
+    initAll();
+  }
 })();
 </script>
 {% endblock %}

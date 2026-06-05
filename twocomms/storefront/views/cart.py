@@ -637,6 +637,8 @@ def view_cart(request):
     # Определяем начальное значение для отображения "До сплати"
     # Если выбран prepay_200, показываем 200 грн, иначе полную сумму
     pay_now_amount = None
+    # Предвыбранный способ оплаты для плиток выбора (по умолчанию — повна оплата).
+    selected_pay_type = 'online_full'
     if request.user.is_authenticated:
         try:
             import storefront.views as old_views
@@ -649,6 +651,9 @@ def view_cart(request):
                 normalized_pay_type = prof.pay_type if prof.pay_type else None
             if normalized_pay_type == 'prepay_200':
                 pay_now_amount = Decimal('200.00')
+                selected_pay_type = 'prepay_200'
+            elif normalized_pay_type == 'online_full':
+                selected_pay_type = 'online_full'
         except Exception as e:
             cart_logger.warning('Could not determine pay_now_amount from user profile: %s', e)
 
@@ -708,6 +713,10 @@ def view_cart(request):
         else:
             pay_now_amount = min(pay_now_amount, approved_total)
 
+    # Если передплата недоступна (у кошику є кастомний друк) — не лишаємо її обраною.
+    if not prepay_allowed and selected_pay_type == 'prepay_200':
+        selected_pay_type = 'online_full'
+
     return render(
         request,
         'pages/cart.html',
@@ -729,6 +738,7 @@ def view_cart(request):
             'has_draft_items': has_draft_items,
             'payment_allowed': payment_allowed,
             'prepay_allowed': prepay_allowed,
+            'selected_pay_type': selected_pay_type,
             'subtotal': subtotal,
             'discount': discount,
             'total': total,
