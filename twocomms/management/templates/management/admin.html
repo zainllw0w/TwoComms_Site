@@ -28,6 +28,67 @@
 .assign-level-feedback.success { color: #2e7d32; }
 .assign-level-feedback.error { color: #c62828; }
 @media (max-width: 560px) { .assign-level-form .form-row { grid-template-columns: 1fr; } }
+
+/* === Admin Center: онлайн-індикатор === */
+.online-pill { display: inline-flex; align-items: center; gap: 7px; padding: 4px 11px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; border: 1px solid var(--border); }
+.online-pill .online-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.online-pill.is-online { background: rgba(16,185,129,0.12); color: #6ee7b7; border-color: rgba(16,185,129,0.4); }
+.online-pill.is-online .online-dot { background: #34d399; box-shadow: 0 0 0 0 rgba(52,211,153,0.7); animation: onlinePulse 1.8s infinite; }
+.online-pill.is-offline { background: rgba(255,255,255,0.03); color: var(--muted); }
+.online-pill.is-offline .online-dot { background: #5b626f; }
+@keyframes onlinePulse { 0% { box-shadow: 0 0 0 0 rgba(52,211,153,0.55); } 70% { box-shadow: 0 0 0 7px rgba(52,211,153,0); } 100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); } }
+
+/* === Admin Center: накладні (фільтри/бейджі/drawer) === */
+.inv-center { display: flex; flex-direction: column; gap: 16px; }
+.inv-filters { display: flex; flex-direction: column; gap: 12px; }
+.inv-filter-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.inv-chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 13px; border-radius: 999px; border: 1px solid var(--border); background: rgba(255,255,255,0.03); color: var(--text-secondary); font-size: 12.5px; font-weight: 600; text-decoration: none; transition: all .16s ease; }
+.inv-chip:hover { border-color: rgba(255,255,255,0.2); color: var(--text-primary); }
+.inv-chip.active { background: rgba(255,126,41,0.16); color: var(--accent); border-color: rgba(255,126,41,0.45); box-shadow: 0 0 16px rgba(255,126,41,0.2); }
+.inv-chip-count { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: rgba(255,255,255,0.08); color: var(--text-primary); }
+.inv-filter-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.inv-filter-row select, .inv-filter-row input[type="search"] { padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; background: rgba(255,255,255,0.04); color: var(--text-primary); font-size: 13px; font-family: inherit; }
+.inv-filter-row input[type="search"] { min-width: 240px; flex: 1; }
+.inv-badge { display: inline-block; padding: 4px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; border: 1px solid transparent; }
+.inv-badge.lg { font-size: 13px; padding: 6px 14px; margin-bottom: 14px; }
+.inv-badge.tone-ok { background: rgba(16,185,129,0.14); color: #6ee7b7; border-color: rgba(16,185,129,0.36); }
+.inv-badge.tone-warn { background: rgba(245,158,11,0.14); color: #fcd34d; border-color: rgba(245,158,11,0.36); }
+.inv-badge.tone-bad { background: rgba(239,68,68,0.14); color: #fca5a5; border-color: rgba(239,68,68,0.36); }
+.inv-badge.tone-watch { background: rgba(99,102,241,0.16); color: #c4b5fd; border-color: rgba(99,102,241,0.4); }
+.inv-badge.tone-neutral { background: rgba(255,255,255,0.06); color: var(--text-secondary); border-color: var(--border); }
+.inv-chip.tone-bad.active { background: rgba(239,68,68,0.16); color: #fca5a5; border-color: rgba(239,68,68,0.45); }
+.inv-freeze { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary); }
+.inv-freeze-ring { width: 22px; height: 22px; border-radius: 50%; flex: 0 0 auto; }
+.inv-freeze-ring.big { width: 64px; height: 64px; }
+/* Drawer */
+.inv-drawer-overlay { position: fixed; inset: 0; z-index: 1200; background: rgba(6,8,12,0.62); backdrop-filter: blur(4px); display: flex; justify-content: flex-end; }
+.inv-drawer-card { width: min(520px, 100%); height: 100%; background: linear-gradient(180deg, rgba(23,28,40,0.99), rgba(15,18,27,0.99)); border-left: 1px solid var(--border); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; animation: invSlideIn .24s ease; }
+@keyframes invSlideIn { from { transform: translateX(40px); opacity: .4; } to { transform: translateX(0); opacity: 1; } }
+.inv-drawer-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 22px 24px 14px; border-bottom: 1px solid var(--border); }
+.inv-drawer-header h3 { margin: 4px 0 0; font-size: 1.3rem; color: var(--text-primary); }
+.inv-drawer-body { padding: 20px 24px 32px; overflow-y: auto; }
+.inv-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; margin-bottom: 18px; }
+.inv-fact { display: flex; flex-direction: column; gap: 2px; }
+.inv-fact span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.inv-fact b { font-size: 13.5px; color: var(--text-primary); font-weight: 600; word-break: break-word; }
+.inv-freeze-block { display: flex; align-items: center; gap: 16px; padding: 14px 16px; border-radius: var(--radius-md); background: rgba(255,126,41,0.06); border: 1px solid rgba(255,126,41,0.3); margin-bottom: 18px; }
+.inv-freeze-block > div { display: flex; flex-direction: column; gap: 2px; }
+.inv-freeze-block b { color: var(--text-primary); font-size: 14px; }
+.inv-freeze-block span { font-size: 12px; color: var(--text-secondary); }
+.inv-freeze-ring.big { display: grid; place-items: center; position: relative; }
+.inv-freeze-ring.big::after { content: ''; position: absolute; inset: 6px; border-radius: 50%; background: rgba(17,22,33,0.95); }
+.inv-timeline { list-style: none; margin: 0 0 18px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.inv-timeline li { display: flex; gap: 12px; padding: 8px 0; position: relative; }
+.inv-timeline .inv-tl-dot { width: 12px; height: 12px; border-radius: 50%; margin-top: 3px; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.25); flex: 0 0 auto; }
+.inv-timeline li.done .inv-tl-dot { background: #34d399; border-color: rgba(16,185,129,0.5); }
+.inv-timeline li:not(:last-child)::before { content: ''; position: absolute; left: 5px; top: 20px; bottom: -4px; width: 2px; background: rgba(255,255,255,0.08); }
+.inv-timeline li div { display: flex; flex-direction: column; }
+.inv-timeline li b { font-size: 13px; color: var(--text-primary); }
+.inv-timeline li span { font-size: 11.5px; color: var(--muted); }
+.inv-drawer-links { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.inv-drawer-actions { display: flex; gap: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+@media (max-width: 560px) { .inv-facts { grid-template-columns: 1fr; } .inv-drawer-card { width: 100%; } }
+
 </style>
 {% endblock %}
 
@@ -60,43 +121,98 @@
         </div>
     </div>
     {% if admin_tab == 'invoices' %}
-    <div class="table-shell">
-        <table class="nexus-table">
-            <thead>
-                <tr>
-                    <th>Накладна</th>
-                    <th>Менеджер</th>
-                    <th>Компанія</th>
-                    <th>Сума</th>
-                    <th>Створено</th>
-                    <th>Файл</th>
-                    <th>Дії</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for inv in invoices_for_review %}
-                <tr data-invoice-id="{{ inv.id }}">
-                    <td>#{{ inv.invoice_number }}</td>
-                    <td>{{ inv.created_by.get_full_name|default:inv.created_by.username }}</td>
-                    <td>{{ inv.company_name }}</td>
-                    <td>{{ inv.total_amount }} грн</td>
-                    <td>{{ inv.created_at|date:"d.m.Y H:i" }}</td>
-                    <td>
-                        <a class="btn-ghost small" href="{% url 'management_invoices_download' inv.id %}" target="_blank" rel="noopener">Скачати</a>
-                    </td>
-                    <td style="white-space: nowrap;">
-                        <button type="button" class="btn-ghost small" data-action="approve" data-invoice-id="{{ inv.id }}" style="border-color: rgba(16,185,129,0.4); color: #d1fae5; background: rgba(16,185,129,0.12);">Підтвердити</button>
-                        <button type="button" class="btn-ghost small" data-action="reject" data-invoice-id="{{ inv.id }}" style="border-color: rgba(239,68,68,0.35); color: #fee2e2; background: rgba(239,68,68,0.12);">Відхилити</button>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="7" class="table-empty">Немає накладних на перевірці</td>
-                </tr>
+    <div class="inv-center">
+        <form class="inv-filters" method="get" id="inv-filter-form">
+            <input type="hidden" name="tab" value="invoices">
+            <div class="inv-filter-chips">
+                <a href="?tab=invoices" class="inv-chip{% if not invoice_active_status %} active{% endif %}">
+                    Усі <span class="inv-chip-count">{{ invoices_data.total }}</span>
+                </a>
+                {% for chip in invoices_data.filter_chips %}
+                <a href="?tab=invoices&status={{ chip.code }}{% if invoice_active_manager %}&manager={{ invoice_active_manager }}{% endif %}{% if invoice_active_query %}&q={{ invoice_active_query }}{% endif %}"
+                   class="inv-chip tone-{{ chip.tone }}{% if invoice_active_status == chip.code %} active{% endif %}">
+                    {{ chip.label }} <span class="inv-chip-count">{{ chip.count }}</span>
+                </a>
                 {% endfor %}
-            </tbody>
-        </table>
+            </div>
+            <div class="inv-filter-row">
+                <select name="manager" onchange="document.getElementById('inv-filter-form').submit()">
+                    <option value="">Усі менеджери</option>
+                    {% for m in invoice_managers %}
+                    <option value="{{ m.id }}"{% if invoice_active_manager == m.id %} selected{% endif %}>{{ m.name }}</option>
+                    {% endfor %}
+                </select>
+                <input type="search" name="q" value="{{ invoice_active_query }}" placeholder="Пошук: номер, компанія, менеджер…">
+                {% if invoice_active_status %}<input type="hidden" name="status" value="{{ invoice_active_status }}">{% endif %}
+                <button type="submit" class="btn-ghost small">Застосувати</button>
+            </div>
+        </form>
+
+        <div class="table-shell">
+            <table class="nexus-table inv-table">
+                <thead>
+                    <tr>
+                        <th>Накладна</th>
+                        <th>Менеджер</th>
+                        <th>Компанія</th>
+                        <th>Сума</th>
+                        <th>Статус</th>
+                        <th>Оплата</th>
+                        <th>Створено</th>
+                        <th>Дії</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inv in invoices_data.rows %}
+                    <tr data-invoice-id="{{ inv.id }}">
+                        <td>#{{ inv.number }}</td>
+                        <td>{{ inv.manager }}</td>
+                        <td>{{ inv.company }}</td>
+                        <td>{{ inv.amount }} грн</td>
+                        <td><span class="inv-badge tone-{{ inv.lifecycle_tone }}">{{ inv.lifecycle_label }}</span></td>
+                        <td>
+                            {% if inv.frozen %}
+                                <span class="inv-freeze" title="Доступно після {{ inv.frozen.frozen_until }}">
+                                    <span class="inv-freeze-ring" data-pct="{{ inv.frozen.progress_pct }}"></span>
+                                    {% if inv.frozen.released %}Доступно{% else %}{{ inv.frozen.days_left }} дн{% endif %}
+                                </span>
+                            {% elif inv.paid_at %}
+                                ✓ {{ inv.paid_at }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>{{ inv.created_at }}</td>
+                        <td style="white-space: nowrap;">
+                            <button type="button" class="btn-ghost small inv-detail-btn" data-invoice-id="{{ inv.id }}">Деталі</button>
+                            {% if inv.is_pending %}
+                            <button type="button" class="btn-ghost small inv-approve" data-invoice-id="{{ inv.id }}" style="border-color: rgba(16,185,129,0.4); color: #d1fae5; background: rgba(16,185,129,0.12);">Підтвердити</button>
+                            <button type="button" class="btn-ghost small inv-reject" data-invoice-id="{{ inv.id }}" style="border-color: rgba(239,68,68,0.35); color: #fee2e2; background: rgba(239,68,68,0.12);">Відхилити</button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" class="table-empty">Немає накладних за обраним фільтром</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
+
+    <!-- Invoice drawer -->
+    <div class="inv-drawer-overlay" id="inv-drawer" hidden>
+        <div class="inv-drawer-card" role="dialog" aria-modal="true" aria-labelledby="inv-drawer-title">
+            <div class="inv-drawer-header">
+                <div>
+                    <p class="eyebrow">Накладна</p>
+                    <h3 id="inv-drawer-title">—</h3>
+                </div>
+                <button type="button" class="modal-close" data-inv-drawer-close aria-label="Закрити">×</button>
+            </div>
+            <div class="inv-drawer-body" id="inv-drawer-body"></div>
+        </div>
+    </div>
+    {{ invoices_data.rows|json_script:"inv-rows-data" }}
     {% elif admin_tab == 'payouts' %}
     <div class="admin-payouts">
         <section class="payouts-stats" aria-label="Загальна статистика">
@@ -750,9 +866,9 @@
                     </td>
                     <td>
                         {% if u.online %}
-                            <span class="status-dot online">●</span> Онлайн
+                            <span class="online-pill is-online"><span class="online-dot"></span>Онлайн</span>
                         {% else %}
-                            <span class="status-dot offline">●</span> Оффлайн
+                            <span class="online-pill is-offline"><span class="online-dot"></span>{{ u.last_seen_label }}</span>
                         {% endif %}
                     </td>
                     <td>{{ u.last_login }}</td>
@@ -959,43 +1075,139 @@ function getCookie(name) {
     return cookieValue;
 }
 
-document.addEventListener('click', async (e) => {
-    const btn = e.target.closest('button[data-action][data-invoice-id]');
-    if (!btn) return;
-    const invoiceId = btn.dataset.invoiceId;
-    const action = btn.dataset.action;
-    if (!invoiceId || !action) return;
+(function () {
+    const rowsData = JSON.parse(document.getElementById('inv-rows-data')?.textContent || '[]');
+    const byId = {};
+    rowsData.forEach(r => { byId[r.id] = r; });
 
-    btn.disabled = true;
-    try {
-        if (action === 'approve') {
-            const res = await fetch(`/admin-panel/invoices/${invoiceId}/approve/`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-                body: JSON.stringify({})
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!data.ok) throw new Error(data.error || 'Помилка підтвердження');
-            const row = document.querySelector(`tr[data-invoice-id="${invoiceId}"]`);
-            if (row) row.remove();
-        } else if (action === 'reject') {
-            const reason = prompt('Вкажіть причину відхилення:');
-            if (!reason) { btn.disabled = false; return; }
-            const res = await fetch(`/admin-panel/invoices/${invoiceId}/reject/`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-                body: JSON.stringify({ reason })
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!data.ok) throw new Error(data.error || 'Помилка відхилення');
-            const row = document.querySelector(`tr[data-invoice-id="${invoiceId}"]`);
-            if (row) row.remove();
-        }
-    } catch (err) {
-        alert(err.message || 'Помилка');
-        btn.disabled = false;
+    const drawer = document.getElementById('inv-drawer');
+    const drawerBody = document.getElementById('inv-drawer-body');
+    const drawerTitle = document.getElementById('inv-drawer-title');
+
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+    function fact(label, value) {
+        if (!value) return '';
+        return `<div class="inv-fact"><span>${esc(label)}</span><b>${esc(value)}</b></div>`;
     }
-});
+
+    function buildTimeline(r) {
+        const steps = [
+            ['Створено', r.created_at, true],
+            ['Перевірка', r.reviewed_at, ['approved','link_created','link_copied','awaiting_payment','paid_frozen','paid_released','payment_failed','refunded'].includes(r.lifecycle)],
+            ['Посилання', r.link_created_at, !!r.link_created_at],
+            ['Скопійовано', r.link_copied_at, !!r.link_copied_at],
+            ['Оплачено', r.paid_at, !!r.paid_at],
+            ['Повернення', r.refund_amount ? (r.refund_amount + ' грн') : '', !!r.refund_amount],
+        ];
+        const items = steps.filter(s => s[1]).map(s =>
+            `<li class="${s[2] ? 'done' : ''}"><span class="inv-tl-dot"></span><div><b>${esc(s[0])}</b><span>${esc(s[1])}</span></div></li>`
+        ).join('');
+        return `<ul class="inv-timeline">${items}</ul>`;
+    }
+
+    function openDrawer(id) {
+        const r = byId[id];
+        if (!r) return;
+        drawerTitle.textContent = '#' + r.number;
+        let actions = '';
+        if (r.is_pending) {
+            actions = `<div class="inv-drawer-actions">
+                <button type="button" class="btn-primary small inv-approve" data-invoice-id="${r.id}">Підтвердити</button>
+                <button type="button" class="btn-ghost small inv-reject" data-invoice-id="${r.id}">Відхилити</button>
+            </div>`;
+        }
+        let freezeBlock = '';
+        if (r.frozen) {
+            freezeBlock = `<div class="inv-freeze-block">
+                <div class="inv-freeze-ring big" data-pct="${r.frozen.progress_pct}"></div>
+                <div><b>${r.frozen.released ? 'Винагорода доступна' : 'Заморожено'}</b>
+                <span>${r.frozen.released ? 'Період повернення завершено' : ('Доступно після ' + esc(r.frozen.frozen_until) + ' · ' + r.frozen.days_left + ' дн')}</span>
+                <span>Сума: ${esc(r.frozen.amount)} грн</span></div>
+            </div>`;
+        }
+        drawerBody.innerHTML = `
+            <div class="inv-badge tone-${r.lifecycle_tone} lg">${esc(r.lifecycle_label)}</div>
+            <div class="inv-facts">
+                ${fact('Менеджер', r.manager)}
+                ${fact('Компанія', r.company)}
+                ${fact('Сума', r.amount + ' грн')}
+                ${fact('Одиниць', r.units)}
+                ${fact('Перевірив', r.reviewed_by)}
+                ${fact('Оплачено (факт)', r.paid_amount ? (r.paid_amount + ' грн') : '')}
+                ${fact('Комісія', r.commission_amount ? (r.commission_amount + ' грн (' + r.commission_percent + '%)') : '')}
+                ${fact('Monobank ID', r.monobank_invoice_id)}
+                ${fact('Причина відхилення', r.reject_reason)}
+                ${fact('Причина повернення', r.refund_reason)}
+            </div>
+            ${freezeBlock}
+            ${buildTimeline(r)}
+            <div class="inv-drawer-links">
+                <a class="btn-ghost small" href="${esc(r.download_url)}" target="_blank" rel="noopener">Скачати Excel</a>
+                ${r.payment_url ? `<a class="btn-ghost small" href="${esc(r.payment_url)}" target="_blank" rel="noopener">Посилання на оплату</a>` : ''}
+            </div>
+            ${actions}
+        `;
+        drawer.hidden = false;
+        document.body.style.overflow = 'hidden';
+        paintRings();
+    }
+
+    function closeDrawer() {
+        drawer.hidden = true;
+        document.body.style.overflow = '';
+    }
+
+    function paintRings() {
+        document.querySelectorAll('.inv-freeze-ring[data-pct]').forEach(el => {
+            const pct = Math.max(0, Math.min(100, parseInt(el.dataset.pct || '0', 10)));
+            el.style.background = `conic-gradient(var(--accent, #43a047) ${pct * 3.6}deg, rgba(255,255,255,0.12) 0deg)`;
+        });
+    }
+    paintRings();
+
+    document.addEventListener('click', async (e) => {
+        const detailBtn = e.target.closest('.inv-detail-btn');
+        if (detailBtn) { openDrawer(parseInt(detailBtn.dataset.invoiceId, 10)); return; }
+        if (e.target.closest('[data-inv-drawer-close]') || e.target === drawer) { closeDrawer(); return; }
+
+        const approveBtn = e.target.closest('.inv-approve');
+        const rejectBtn = e.target.closest('.inv-reject');
+        const btn = approveBtn || rejectBtn;
+        if (!btn) return;
+        const invoiceId = btn.dataset.invoiceId;
+        if (!invoiceId) return;
+        btn.disabled = true;
+        try {
+            if (approveBtn) {
+                const res = await fetch(`/admin-panel/invoices/${invoiceId}/approve/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                    body: JSON.stringify({})
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!data.ok) throw new Error(data.error || 'Помилка підтвердження');
+                location.reload();
+            } else if (rejectBtn) {
+                const reason = prompt('Вкажіть причину відхилення:');
+                if (!reason) { btn.disabled = false; return; }
+                const res = await fetch(`/admin-panel/invoices/${invoiceId}/reject/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                    body: JSON.stringify({ reason })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!data.ok) throw new Error(data.error || 'Помилка відхилення');
+                location.reload();
+            }
+        } catch (err) {
+            alert(err.message || 'Помилка');
+            btn.disabled = false;
+        }
+    });
+
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !drawer.hidden) closeDrawer(); });
+})();
 </script>
 {% elif admin_tab == 'payouts' %}
 <script>

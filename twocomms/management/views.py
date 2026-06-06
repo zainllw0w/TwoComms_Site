@@ -1540,14 +1540,26 @@ def admin_overview(request):
     if tab == 'managers':
         from management.services.manager_levels import get_current_level, get_level_display_name
         from management.services.level_progression import get_progression_status
+        from management.services.activity_tracking import get_last_seen_map, compute_online_state
+
+        last_seen_map = get_last_seen_map(users)
 
         for u in users:
             last_login = u.last_login
-            online = False
-            last_login_local = None
-            if last_login:
-                last_login_local = timezone.localtime(last_login)
-                online = (timezone.now() - last_login) <= timedelta(minutes=5)
+            last_login_local = timezone.localtime(last_login) if last_login else None
+            # Онлайн-статус: пріоритет last_seen_at (pulse активності),
+            # фолбек на last_login для сумісності.
+            last_seen_at = last_seen_map.get(u.id)
+            if not last_seen_at and last_login:
+                online_state = {'online': (timezone.now() - last_login) <= timedelta(minutes=5),
+                                'last_seen_label': '', 'last_seen_iso': ''}
+                if online_state['online']:
+                    online_state['last_seen_label'] = 'Онлайн'
+                else:
+                    online_state['last_seen_label'] = last_login_local.strftime('%d.%m.%Y %H:%M') if last_login_local else 'Немає даних'
+            else:
+                online_state = compute_online_state(last_seen_at)
+            online = online_state['online']
             user_clients = Client.objects.filter(owner=u).order_by('-created_at')
             points_stats = get_user_stats(u)
 
@@ -1565,6 +1577,8 @@ def admin_overview(request):
                 'points_today': points_stats['points_today'],
                 'points_total': points_stats['points_total'],
                 'online': online,
+                'last_seen_label': online_state['last_seen_label'],
+                'last_seen_iso': online_state['last_seen_iso'],
                 'last_login': last_login_local.strftime('%d.%m.%Y %H:%M') if last_login_local else 'Немає даних',
                 'level_code': level_code,
                 'level_label': level_label,
@@ -1603,12 +1617,44 @@ def admin_overview(request):
         ctx['dtf_bridge'] = build_dtf_bridge_payload()
 
     if tab == 'invoices':
+        from management.services.invoice_center import build_invoices_payload
+
+        status_filter = (request.GET.get('status') or '').strip()
+        manager_filter = (request.GET.get('manager') or '').strip()
+        query_filter = (request.GET.get('q') or '').strip()
+        try:
+            manager_id = int(manager_filter) if manager_filter else None
+        except (TypeError, ValueError):
+            manager_id = None
+
+        invoices_data = build_invoices_payload(
+            status=status_filter or None,
+            manager_id=manager_id,
+            query=query_filter or None,
+        )
+        ctx['invoices_data'] = invoices_data
+        # Список менеджерів для фільтра (ті, хто створював накладні).
         from orders.models import WholesaleInvoice
-        invoices_for_review = WholesaleInvoice.objects.filter(
-            created_by__isnull=False,
-            review_status='pending',
-        ).select_related('created_by', 'created_by__userprofile').order_by('-created_at')[:200]
-        ctx['invoices_for_review'] = invoices_for_review
+        manager_ids = (
+            WholesaleInvoice.objects.filter(created_by__isnull=False)
+            .exclude(review_status='draft')
+            .values_list('created_by_id', flat=True)
+            .distinct()
+        )
+        invoice_managers = [
+            {'id': u.id, 'name': u.get_full_name() or u.username}
+            for u in get_user_model().objects.filter(id__in=list(manager_ids)).order_by('first_name', 'username')
+        ]
+        ctx['invoice_managers'] = invoice_managers
+        ctx['invoice_active_status'] = status_filter
+        ctx['invoice_active_manager'] = manager_id or ''
+        ctx['invoice_active_query'] = query_filter
+        # Зберігаємо сумісність зі старим контекстом (раптом десь читається).
+        ctx['invoices_for_review'] = [
+            inv for inv in WholesaleInvoice.objects.filter(
+                created_by__isnull=False, review_status='pending'
+            ).select_related('created_by', 'created_by__userprofile').order_by('-created_at')[:200]
+        ]
 
     if tab == 'payouts':
         import re

@@ -194,3 +194,53 @@ def is_user_online(user, threshold_minutes=5) -> bool:
         pass
 
     return False
+
+
+# Поріг «онлайн» за замовчуванням (секунд) — клієнтський pulse оновлює
+# last_seen_at приблизно щохвилини, тож 120с дає стабільний індикатор.
+ONLINE_THRESHOLD_SECONDS = 120
+
+
+def get_last_seen_map(users) -> dict:
+    """Повертає {user_id: last_seen_at} за сьогодні (локальна доба) одним запитом."""
+    today = timezone.localdate()
+    rows = ManagementDailyActivity.objects.filter(
+        user__in=users, date=today
+    ).values_list('user_id', 'last_seen_at')
+    return {uid: seen for uid, seen in rows if seen}
+
+
+def humanize_last_seen(last_seen_at) -> str:
+    """Людиночитна мітка «був(ла) X тому» для офлайн-статусу."""
+    if not last_seen_at:
+        return 'Немає даних'
+    delta = timezone.now() - last_seen_at
+    seconds = int(delta.total_seconds())
+    if seconds < 0:
+        seconds = 0
+    if seconds < 60:
+        return 'щойно'
+    minutes = seconds // 60
+    if minutes < 60:
+        return f'{minutes} хв тому'
+    hours = minutes // 60
+    if hours < 24:
+        return f'{hours} год тому'
+    days = hours // 24
+    if days == 1:
+        return 'вчора'
+    if days < 30:
+        return f'{days} дн тому'
+    return timezone.localtime(last_seen_at).strftime('%d.%m.%Y')
+
+
+def compute_online_state(last_seen_at, *, threshold_seconds: int = ONLINE_THRESHOLD_SECONDS) -> dict:
+    """Повертає {'online': bool, 'last_seen_label': str, 'last_seen_iso': str}."""
+    online = False
+    if last_seen_at:
+        online = (timezone.now() - last_seen_at).total_seconds() <= threshold_seconds
+    return {
+        'online': online,
+        'last_seen_label': 'Онлайн' if online else humanize_last_seen(last_seen_at),
+        'last_seen_iso': last_seen_at.isoformat() if last_seen_at else '',
+    }
