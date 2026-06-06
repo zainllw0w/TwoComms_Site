@@ -68,6 +68,23 @@ class UserProfile(models.Model):
     payment_method = models.CharField(max_length=20, choices=[('card', 'На картку'), ('iban', 'IBAN')], default='card', verbose_name='Спосіб виплати')
     payment_details = models.TextField(blank=True, verbose_name='Реквізити для виплат')
 
+    # Management Admin Center: онбординг-гейт і статус доступу.
+    # Док: twocomms/Management Implementations/03_ONBOARDING_CONTRACTS_DIIA.md
+    ACCESS_STATUS_CHOICES = [
+        ('active', 'Активний'),
+        ('blocked_until_document', 'Заблоковано до підпису документа'),
+        ('suspended', 'Призупинено'),
+        ('archived', 'Архів'),
+    ]
+    access_status = models.CharField(
+        max_length=32, choices=ACCESS_STATUS_CHOICES, default='active', db_index=True,
+        verbose_name='Статус доступу менеджера',
+    )
+    cooperation_started_at = models.DateField(null=True, blank=True, verbose_name='Початок співпраці')
+    onboarding_required_version = models.CharField(
+        max_length=32, blank=True, verbose_name='Необхідна версія правил для підпису',
+    )
+
     class Meta:
         indexes = [
             models.Index(fields=['telegram_id'], name='idx_userprofile_telegram'),

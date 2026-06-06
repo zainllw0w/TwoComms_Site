@@ -500,12 +500,30 @@ class WholesaleInvoice(models.Model):
             ('paid', 'Оплачена'),
             ('pending', 'Ожидает оплаты'),
             ('failed', 'Ошибка оплаты'),
+            ('refunded', 'Повернено'),
         ],
         default='not_paid',
         verbose_name="Статус оплаты"
     )
     payment_url = models.URLField(blank=True, null=True, verbose_name="Посилання на оплату")
     monobank_invoice_id = models.CharField(max_length=128, blank=True, null=True, verbose_name="Monobank invoiceId")
+
+    # === Management Admin Center: повний життєвий цикл оплати ===
+    # Док: twocomms/Management Implementations/04_INVOICE_MONOBANK_PAYMENTS.md
+    monobank_reference = models.CharField(
+        max_length=64, blank=True, db_index=True,
+        verbose_name="Monobank reference (MGMT-INV-{id})",
+    )
+    payment_link_created_at = models.DateTimeField(null=True, blank=True, verbose_name="Посилання створено")
+    payment_link_copied_at = models.DateTimeField(null=True, blank=True, verbose_name="Посилання скопійовано")
+    paid_at = models.DateTimeField(null=True, blank=True, verbose_name="Оплачено")
+    payment_amount_minor = models.BigIntegerField(null=True, blank=True, verbose_name="Фактично оплачено (копійки)")
+    # Повернення / коригування
+    returned_at = models.DateTimeField(null=True, blank=True, verbose_name="Повернення оформлено")
+    refund_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name="Сума повернення")
+    refund_reason = models.TextField(blank=True, verbose_name="Причина повернення")
+    # Кількість одиниць (для KPI «8 одиниць у накладній»)
+    units_count = models.PositiveIntegerField(null=True, blank=True, verbose_name="Кількість одиниць")
 
     class Meta:
         verbose_name = "Оптова накладна"

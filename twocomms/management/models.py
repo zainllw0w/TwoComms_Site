@@ -2020,6 +2020,11 @@ class ManagerLevelHistory(models.Model):
 
     reason = models.TextField(blank=True, verbose_name=_('Причина/коментар'))
 
+    # Re-sign при зміні рівня (док 03): чи потрібен новий документ і чи
+    # блокувати доступ менеджера до моменту підпису.
+    requires_document = models.BooleanField(default=False, verbose_name=_('Потрібен новий документ'))
+    access_blocked_until_signed = models.BooleanField(default=False, verbose_name=_('Блокувати доступ до підпису'))
+
     class Meta:
         verbose_name = _('Історія рівня менеджера')
         verbose_name_plural = _('Історія рівнів менеджерів')
@@ -2677,3 +2682,432 @@ class ScoreAmendment(models.Model):
 
     def __str__(self):
         return f"{self.owner_id}:{self.effective_date}:{self.delta_score}"
+
+
+# =====================================================================
+# Management Admin Center — нові моделі (онбординг, компенсації, ledger,
+# договори, PII, audit). Усе аддитивно: нові таблиці/поля, нічого не
+# видаляємо й не змінюємо семантику існуючих моделей.
+# Док: twocomms/Management Implementations/02_DATA_MODEL_AND_MIGRATIONS.md
+# =====================================================================
+
+
+class ManagerCompensationSettings(models.Model):
+    """Історія умов винагороди менеджера (база, відсоток, заморозка, KPI).
+
+    Окремо від ManagerLevel: рівень = роль/доступ; умови винагороди
+    змінюються частіше й потребують історії. «Поточні» умови = запис із
+    найбільшим effective_from, де effective_to IS NULL.
+    """
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="compensation_settings",
+        verbose_name=_("Менеджер"),
+    )
+    monthly_base_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal("0.00"),
+        verbose_name=_("Базова винагорода за період (грн)"),
+    )
+    weeks_per_month = models.PositiveSmallIntegerField(
+        default=4, verbose_name=_("Тижнів у періоді (для розрахунку тижневої бази)"),
+    )
+    commission_percent = models.DecimalField(
+        max_digits=6, decimal_places=2, default=Decimal("0.00"),
+        verbose_name=_("Відсоток процентної винагороди"),
+    )
+    frozen_days = models.PositiveSmallIntegerField(
+        default=14, verbose_name=_("Період заморозки (днів)"),
+    )
+    kpi_min_paid_invoices_per_week = models.PositiveSmallIntegerField(
+        default=2, verbose_name=_("KPI: мін. оплачених накладних/тиждень"),
+    )
+    kpi_min_units_per_invoice = models.PositiveSmallIntegerField(
+        default=8, verbose_name=_("KPI: мін. одиниць у накладній"),
+    )
+    effective_from = models.DateField(db_index=True, verbose_name=_("Діє з"))
+    effective_to = models.DateField(
+        null=True, blank=True, db_index=True,
+        verbose_name=_("Діє до (null = чинні зараз)"),
+    )
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="compensation_settings_changed",
+        verbose_name=_("Змінив"),
+    )
+    reason = models.CharField(max_length=255, blank=True, verbose_name=_("Причина зміни"))
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Умови винагороди менеджера")
+        verbose_name_plural = _("Умови винагороди менеджерів")
+        ordering = ["owner_id", "-effective_from"]
+        indexes = [
+            models.Index(fields=["owner", "-effective_from"], name="mgmt_comp_owner_eff"),
+            models.Index(fields=["effective_to"], name="mgmt_comp_eff_to"),
+        ]
+
+    @property
+    def weekly_base_amount(self) -> Decimal:
+        weeks = int(self.weeks_per_month or 0)
+        if weeks <= 0:
+            weeks = 4
+        try:
+            return (Decimal(self.monthly_base_amount or 0) / Decimal(weeks)).quantize(Decimal("0.01"))
+        except Exception:
+            return Decimal("0.00")
+
+    def __str__(self):
+        return f"{self.owner_id}: base={self.monthly_base_amount} pct={self.commission_percent} from {self.effective_from}"
+
+
+class ManagerWeeklyReview(models.Model):
+    """Тижневе рішення адміна по базовій винагороді (100/50/custom/0)."""
+
+    class Decision(models.TextChoices):
+        FULL = "full", _("Повна (100%)")
+        HALF = "half", _("Половина (50%)")
+        CUSTOM = "custom", _("Своя сума")
+        NONE = "none", _("Без винагороди (0%)")
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="weekly_reviews",
+        verbose_name=_("Менеджер"),
+    )
+    week_start = models.DateField(db_index=True, verbose_name=_("Початок тижня"))
+    week_end = models.DateField(verbose_name=_("Кінець тижня"))
+
+    kpi_paid_invoices = models.PositiveIntegerField(default=0, verbose_name=_("Оплачених накладних"))
+    kpi_units = models.PositiveIntegerField(default=0, verbose_name=_("Одиниць продано"))
+    kpi_sales_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal("0.00"), verbose_name=_("Сума продажів"),
+    )
+    kpi_processed_clients = models.PositiveIntegerField(default=0, verbose_name=_("Оброблено клієнтів"))
+
+    calculated_weekly_base = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal("0.00"),
+        verbose_name=_("Розрахункова тижнева база"),
+    )
+    admin_decision = models.CharField(
+        max_length=10, choices=Decision.choices, blank=True, db_index=True,
+        verbose_name=_("Рішення адміна"),
+    )
+    awarded_amount = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal("0.00"),
+        verbose_name=_("Нараховано (грн)"),
+    )
+    reason = models.TextField(blank=True, verbose_name=_("Причина (обовʼязково якщо не full)"))
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="weekly_reviews_decided",
+        verbose_name=_("Вирішив"),
+    )
+    decided_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Дата рішення"))
+    ledger_entry = models.ForeignKey(
+        "ManagerEarningsLedger",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="weekly_reviews",
+        verbose_name=_("Запис у ledger"),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Тижневе рішення")
+        verbose_name_plural = _("Тижневі рішення")
+        ordering = ["-week_start"]
+        constraints = [
+            models.UniqueConstraint(fields=["owner", "week_start"], name="mgmt_weekly_review_owner_week"),
+        ]
+        indexes = [
+            models.Index(fields=["owner", "-week_start"], name="mgmt_wreview_owner_wk"),
+            models.Index(fields=["admin_decision", "-week_start"], name="mgmt_wreview_dec_wk"),
+        ]
+
+    def __str__(self):
+        return f"{self.owner_id}:{self.week_start} {self.admin_decision or 'pending'}"
+
+
+class ManagerEarningsLedger(models.Model):
+    """Єдиний шар руху коштів менеджера (вводиться поетапно, фаза 1 — паралельно)."""
+
+    class SourceType(models.TextChoices):
+        INVOICE_COMMISSION = "invoice_commission", _("Процентна винагорода (накладна)")
+        WEEKLY_BASE = "weekly_base", _("Базова винагорода (тиждень)")
+        ADJUSTMENT = "adjustment", _("Коригування")
+        RELEASE = "release", _("Розморозка")
+        WITHDRAWAL = "withdrawal", _("Виплата")
+        REFUND_CANCEL = "refund_cancel", _("Скасування через повернення")
+
+    class Status(models.TextChoices):
+        PENDING = "pending", _("Очікує")
+        FROZEN = "frozen", _("Заморожено")
+        AVAILABLE = "available", _("Доступно")
+        PAID = "paid", _("Виплачено")
+        CANCELLED = "cancelled", _("Скасовано")
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="earnings_ledger",
+        verbose_name=_("Менеджер"),
+    )
+    source_type = models.CharField(max_length=24, choices=SourceType.choices, db_index=True, verbose_name=_("Тип джерела"))
+    source_id = models.CharField(max_length=64, blank=True, db_index=True, verbose_name=_("ID джерела"))
+    amount = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal("0.00"),
+        verbose_name=_("Сума (+ нарахування / - списання)"),
+    )
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDING, db_index=True, verbose_name=_("Статус"))
+    available_at = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name=_("Доступно з"))
+    reason = models.TextField(blank=True, verbose_name=_("Пояснення"))
+    commission_accrual = models.ForeignKey(
+        "ManagerCommissionAccrual",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="ledger_entries",
+        verbose_name=_("Звʼязане нарахування"),
+    )
+    meta = models.JSONField(default=dict, blank=True, verbose_name=_("Мета"))
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="earnings_ledger_created",
+        verbose_name=_("Створив"),
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("Запис ledger винагороди")
+        verbose_name_plural = _("Записи ledger винагороди")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["owner", "status"], name="mgmt_ledger_owner_st"),
+            models.Index(fields=["status", "available_at"], name="mgmt_ledger_st_avail"),
+            models.Index(fields=["source_type", "source_id"], name="mgmt_ledger_src"),
+        ]
+
+    def __str__(self):
+        return f"{self.owner_id}:{self.source_type}:{self.amount} [{self.status}]"
+
+
+class ContractTemplate(models.Model):
+    """Шаблон договору співпраці (ЦПД) для рівня."""
+
+    name = models.CharField(max_length=120, verbose_name=_("Назва"))
+    version = models.CharField(max_length=32, verbose_name=_("Версія"))
+    role_level_scope = models.CharField(max_length=64, blank=True, verbose_name=_("Область (рівень)"))
+    template_file = models.FileField(upload_to="manager_docs/templates/", null=True, blank=True, verbose_name=_("Файл шаблону"))
+    body_text = models.TextField(blank=True, verbose_name=_("Текст шаблону (placeholder до юриста)"))
+    template_variables = models.JSONField(default=dict, blank=True, verbose_name=_("Змінні шаблону"))
+    is_active = models.BooleanField(default=True, db_index=True, verbose_name=_("Активний"))
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Шаблон договору")
+        verbose_name_plural = _("Шаблони договорів")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["is_active", "role_level_scope"], name="mgmt_ctpl_active_scope"),
+        ]
+
+    def __str__(self):
+        return f"{self.name} v{self.version}"
+
+
+class ManagerDocument(models.Model):
+    """Документ менеджера (онбординг/ЦПД), окремо від ManagementContract (товар)."""
+
+    class DocKind(models.TextChoices):
+        ONBOARDING_RULES = "onboarding_rules", _("Правила співпраці")
+        CPD_LEVEL1 = "cpd_level1", _("ЦПД (1 рівень)")
+        CPD_LEVEL2 = "cpd_level2", _("ЦПД (2 рівень)")
+        TOP = "top", _("Топ-менеджер")
+        PROJECT = "project", _("Project-менеджер")
+        OTHER = "other", _("Інше")
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", _("Чернетка")
+        SENT_TO_SIGN = "sent_to_sign", _("Надіслано на підпис")
+        SIGNED = "signed", _("Підписано")
+        REJECTED = "rejected", _("Відхилено")
+        EXPIRED = "expired", _("Прострочено")
+        REVOKED = "revoked", _("Відкликано")
+
+    class SignatureProvider(models.TextChoices):
+        DIIA = "diia", _("Дія.Підпис")
+        VCHASNO = "vchasno", _("Vchasno")
+        MANUAL = "manual", _("Вручну")
+        OTHER = "other", _("Інше")
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="manager_documents",
+        verbose_name=_("Менеджер"),
+    )
+    template = models.ForeignKey(
+        ContractTemplate,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="documents",
+        verbose_name=_("Шаблон"),
+    )
+    doc_kind = models.CharField(max_length=24, choices=DocKind.choices, default=DocKind.OTHER, db_index=True, verbose_name=_("Тип документа"))
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT, db_index=True, verbose_name=_("Статус"))
+    title = models.CharField(max_length=255, blank=True, verbose_name=_("Заголовок"))
+    generated_pdf = models.FileField(upload_to="manager_docs/generated/", null=True, blank=True, verbose_name=_("Згенерований PDF"))
+    signed_file = models.FileField(upload_to="manager_docs/signed/", null=True, blank=True, verbose_name=_("Підписаний файл"))
+    signature_provider = models.CharField(max_length=16, choices=SignatureProvider.choices, blank=True, verbose_name=_("Провайдер підпису"))
+    signature_external_id = models.CharField(max_length=255, blank=True, verbose_name=_("Зовнішній ID підпису"))
+    signed_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Підписано"))
+    required_for_access = models.BooleanField(default=False, verbose_name=_("Потрібен для доступу"))
+    access_blocking = models.BooleanField(default=False, db_index=True, verbose_name=_("Блокує доступ до підпису"))
+    template_version_snapshot = models.CharField(max_length=32, blank=True, verbose_name=_("Версія шаблону (snapshot)"))
+    payload = models.JSONField(default=dict, blank=True, verbose_name=_("Дані документа"))
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="manager_documents_created",
+        verbose_name=_("Створив"),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Документ менеджера")
+        verbose_name_plural = _("Документи менеджерів")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["owner", "status"], name="mgmt_doc_owner_st"),
+            models.Index(fields=["access_blocking", "status"], name="mgmt_doc_block_st"),
+        ]
+
+    def __str__(self):
+        return f"{self.owner_id}:{self.doc_kind}:{self.status}"
+
+
+class ManagerPersonalData(models.Model):
+    """PII менеджера. Значення шифруються на рівні застосунку (Fernet)."""
+
+    class Source(models.TextChoices):
+        MANUAL = "manual", _("Ручний ввід")
+        DIIA_SHARING = "diia_sharing", _("Дія Sharing")
+        UPLOADED_DOC = "uploaded_doc", _("Завантажений документ")
+        OTHER = "other", _("Інше")
+
+    owner = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="personal_data",
+        verbose_name=_("Менеджер"),
+    )
+    full_name_enc = models.BinaryField(null=True, blank=True, editable=False)
+    birth_date_enc = models.BinaryField(null=True, blank=True, editable=False)
+    tax_id_enc = models.BinaryField(null=True, blank=True, editable=False)
+    passport_enc = models.BinaryField(null=True, blank=True, editable=False)
+    address_enc = models.BinaryField(null=True, blank=True, editable=False)
+    phone_enc = models.BinaryField(null=True, blank=True, editable=False)
+    # Маски/хвости для UI (не секрет): останні цифри, щоб показати ****1234.
+    tax_id_tail = models.CharField(max_length=8, blank=True, verbose_name=_("Хвіст ІПН"))
+    passport_tail = models.CharField(max_length=8, blank=True, verbose_name=_("Хвіст паспорта"))
+    source = models.CharField(max_length=16, choices=Source.choices, default=Source.MANUAL, verbose_name=_("Джерело"))
+    consent_version = models.CharField(max_length=32, blank=True, verbose_name=_("Версія згоди"))
+    consent_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Дата згоди"))
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Персональні дані менеджера")
+        verbose_name_plural = _("Персональні дані менеджерів")
+
+    def __str__(self):
+        return f"PII<{self.owner_id}>"
+
+
+class ManagerOnboardingConsent(models.Model):
+    """Згода менеджера при першому вході (18+, правила, ПДн)."""
+
+    class SignedVia(models.TextChoices):
+        CHECKBOX = "checkbox", _("Чекбокс")
+        DIIA = "diia", _("Дія")
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="onboarding_consents",
+        verbose_name=_("Менеджер"),
+    )
+    rules_version = models.CharField(max_length=32, db_index=True, verbose_name=_("Версія правил"))
+    accepted_18plus = models.BooleanField(default=False, verbose_name=_("Підтвердив 18+"))
+    accepted_rules = models.BooleanField(default=False, verbose_name=_("Ознайомлений з правилами"))
+    accepted_pdn = models.BooleanField(default=False, verbose_name=_("Згода на обробку ПДн"))
+    signed_via = models.CharField(max_length=12, choices=SignedVia.choices, default=SignedVia.CHECKBOX, verbose_name=_("Спосіб підтвердження"))
+    diia_signature_id = models.CharField(max_length=255, blank=True, verbose_name=_("ID підпису Дія"))
+    ip = models.GenericIPAddressField(null=True, blank=True, verbose_name=_("IP"))
+    user_agent = models.CharField(max_length=512, blank=True, verbose_name=_("User-Agent"))
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("Згода онбордингу")
+        verbose_name_plural = _("Згоди онбордингу")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["owner", "-created_at"], name="mgmt_consent_owner_dt"),
+            models.Index(fields=["owner", "rules_version"], name="mgmt_consent_owner_ver"),
+        ]
+
+    def __str__(self):
+        return f"{self.owner_id}:{self.rules_version}"
+
+
+class AdminAuditLog(models.Model):
+    """Загальний audit log критичних адмін-дій (гроші/доступ/рівень/PII)."""
+
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="admin_audit_logs",
+        verbose_name=_("Хто"),
+    )
+    actor_role = models.CharField(max_length=64, blank=True, verbose_name=_("Роль"))
+    action = models.CharField(max_length=128, db_index=True, verbose_name=_("Дія"))
+    entity_type = models.CharField(max_length=64, blank=True, db_index=True, verbose_name=_("Тип сутності"))
+    entity_id = models.CharField(max_length=64, blank=True, db_index=True, verbose_name=_("ID сутності"))
+    before = models.JSONField(default=dict, blank=True, verbose_name=_("До"))
+    after = models.JSONField(default=dict, blank=True, verbose_name=_("Після"))
+    reason = models.TextField(blank=True, verbose_name=_("Причина"))
+    ip = models.GenericIPAddressField(null=True, blank=True, verbose_name=_("IP"))
+    user_agent = models.CharField(max_length=512, blank=True, verbose_name=_("User-Agent"))
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("Запис audit log")
+        verbose_name_plural = _("Audit log")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["entity_type", "entity_id", "-created_at"], name="mgmt_audit_entity"),
+            models.Index(fields=["action", "-created_at"], name="mgmt_audit_action"),
+            models.Index(fields=["actor", "-created_at"], name="mgmt_audit_actor"),
+        ]
+
+    def __str__(self):
+        return f"{self.action}:{self.entity_type}:{self.entity_id}"

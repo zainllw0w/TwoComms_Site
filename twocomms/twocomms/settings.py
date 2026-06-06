@@ -334,6 +334,28 @@ MONOBANK_API_BASE = os.environ.get('MONOBANK_API_BASE', 'https://api.monobank.ua
 # Optional override for webhook URL; if empty we build from request context
 MONOBANK_WEBHOOK_URL = os.environ.get('MONOBANK_WEBHOOK_URL', '')
 
+# Management invoice payment links use a SEPARATE acquiring token (`mono_hrefs`),
+# distinct from the storefront cart token (`MONOBANK_TOKEN`). Fall back to the
+# storefront token only if the dedicated one is not configured, so the feature
+# degrades gracefully in environments without the separate token.
+MONOBANK_ACQUIRING_TOKEN = (
+    os.environ.get('mono_hrefs')
+    or os.environ.get('MONOBANK_ACQUIRING_TOKEN')
+    or MONOBANK_TOKEN
+)
+# Absolute base URL of the management subdomain (used for Telegram deep-links and
+# Monobank webHookUrl/redirectUrl for management invoices).
+MANAGEMENT_BASE_URL = os.environ.get(
+    'MANAGEMENT_BASE_URL', 'https://management.twocomms.shop'
+).rstrip('/')
+# Public base domain that hosts the shared Monobank webhook endpoint.
+MONOBANK_PUBLIC_BASE_URL = os.environ.get(
+    'MONOBANK_PUBLIC_BASE_URL', 'https://twocomms.shop'
+).rstrip('/')
+# Fernet key for encrypting manager PII (passport / tax id / etc.).
+# Stored in the application environment (cPanel), never in the repository.
+FIELD_ENCRYPTION_KEY = os.environ.get('FIELD_ENCRYPTION_KEY', '')
+
 # Mono Checkout (order-based flow) configuration
 MONOBANK_CHECKOUT_DELIVERY_METHODS = _env_list('MONOBANK_CHECKOUT_DELIVERY_METHODS', 'pickup,np_brnm,courier,np_box')
 if not MONOBANK_CHECKOUT_DELIVERY_METHODS:
