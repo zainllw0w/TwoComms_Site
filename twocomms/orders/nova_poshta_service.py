@@ -261,24 +261,69 @@ class NovaPoshtaService:
         )
         return None
 
+    # Длина поля Order.shipment_status (CharField). Текст длиннее усекается,
+    # чтобы не падало сохранение и не ломалось сравнение статусов.
+    SHIPMENT_STATUS_MAX_LENGTH = 100
+
+    @staticmethod
+    def _normalize_status_code(raw_code, order_number=""):
+        """Приводит StatusCode к int или None (NP иногда отдаёт строку)."""
+        if raw_code is None:
+            return None
+        try:
+            return int(raw_code)
+        except (TypeError, ValueError):
+            logger.warning(
+                f"Order {order_number}: unexpected StatusCode format ({raw_code})"
+            )
+            return None
+
+    def _get_np_tracking_state(self, order):
+        """Возвращает служебный словарь дедупа из payment_payload."""
+        payload = order.payment_payload if isinstance(order.payment_payload, dict) else {}
+        np_tracking = payload.get('np_tracking')
+        return np_tracking if isinstance(np_tracking, dict) else {}
+
+    def _persist_np_tracking_state(self, order, status_code, status_text):
+        """
+        Сохраняет последний нотифицированный StatusCode в payment_payload.
+
+        Это якорь дедупа: уведомление шлём только когда меняется именно
+        КОД статуса НП, а не свободный текст (который у НП плавает —
+        плата за зберігання, грошові перекази, таймстемпи и т.п.).
+        Возвращает True, если payment_payload был изменён.
+        """
+        payload = order.payment_payload if isinstance(order.payment_payload, dict) else {}
+        np_tracking = payload.get('np_tracking')
+        if not isinstance(np_tracking, dict):
+            np_tracking = {}
+
+        np_tracking['last_status_code'] = status_code
+        np_tracking['last_status_text'] = (status_text or '')[:self.SHIPMENT_STATUS_MAX_LENGTH]
+        np_tracking['last_notified_at'] = timezone.now().isoformat()
+
+        payload['np_tracking'] = np_tracking
+        order.payment_payload = payload
+        return True
+
     def update_order_tracking_status(self, order):
         """
         Обновляет статус посылки для заказа
 
         Алгоритм:
         1. Получает информацию о статусе через API
-        2. Проверяет изменился ли статус
-        3. Обновляет shipment_status в заказе
+        2. Определяет реальное событие по StatusCode (а не по тексту)
+        3. Обновляет shipment_status в заказе (для отображения)
         4. Автоматически меняет status на 'done' если StatusCode=9 (получено)
         5. Меняет payment_status на 'paid' при получении
         6. Отправляет Purchase событие в Facebook
-        7. Отправляет уведомления в Telegram
+        7. Отправляет уведомления в Telegram ТОЛЬКО при смене StatusCode
 
         Args:
             order (Order): Заказ для обновления
 
         Returns:
-            bool: True если статус обновлен, False если нет
+            bool: True если что-то обновлено/отправлено, False если нет
         """
         if not order.tracking_number:
             logger.debug(f"Order {order.order_number}: no tracking number")
@@ -293,115 +338,121 @@ class NovaPoshtaService:
             return False
 
         # Извлекаем данные из ответа API
-        status = tracking_info.get('Status', '')
-        status_code = tracking_info.get('StatusCode')
-        status_description = tracking_info.get('StatusDescription', '')
+        status = (tracking_info.get('Status', '') or '').strip()
+        status_description = (tracking_info.get('StatusDescription', '') or '').strip()
+        status_code = self._normalize_status_code(
+            tracking_info.get('StatusCode'), order.order_number
+        )
 
-        # Нормализуем код статуса (может приходить как строка)
-        try:
-            status_code = int(status_code) if status_code is not None else None
-        except (TypeError, ValueError):
-            logger.warning(
-                f"Order {order.order_number}: unexpected StatusCode format "
-                f"({status_code})"
-            )
-            status_code = None
-
-        # Формируем полное описание статуса для сохранения
+        # Полное описание для отображения, усечённое под длину поля
         full_status = f"{status} - {status_description}" if status_description else status
+        full_status = full_status.strip()[:self.SHIPMENT_STATUS_MAX_LENGTH]
 
-        # КРИТИЧЕСКИ ВАЖНО: Сравниваем только основной Status (без description)
-        # для определения изменения статуса. Description может меняться каждый раз
-        # (например, добавляется время), но это не означает изменение статуса.
-        current_status_base = (order.shipment_status or '').split(' - ')[0].strip()
-        new_status_base = status.strip()
+        old_status = order.shipment_status or ''
+        # Сравниваем только базовый Status (без description) — для текстового слоя
+        current_status_base = old_status.split(' - ')[0].strip()
+        new_status_base = status
+        text_changed = current_status_base != new_status_base
 
-        # Проверяем, изменился ли основной статус
-        status_changed = current_status_base != new_status_base
+        # --- Дедуп по StatusCode (главный признак реального события) ---
+        np_tracking = self._get_np_tracking_state(order)
+        last_notified_code = np_tracking.get('last_status_code')
+        has_dedup_anchor = 'last_status_code' in np_tracking
 
-        if status_changed:
-            old_status = order.shipment_status
-            old_status_base = current_status_base
-
-            # Сохраняем полное описание статуса (с description) для отображения
-            order.shipment_status = full_status.strip()
-            order.shipment_status_updated = timezone.now()
-
-            logger.info(
-                f"Order {order.order_number}: shipment_status changed "
-                f"from '{old_status_base}' to '{new_status_base}' "
-                f"(full: '{old_status}' -> '{full_status}')"
-            )
-
-            # Автоматически меняем статус заказа при получении посылки
-            order_status_changed = self._update_order_status_if_delivered(
-                order, status, status_description, status_code
-            )
-
-            # Явно указываем поля для обновления для гарантии сохранения
-            try:
-                order.save(update_fields=['shipment_status', 'shipment_status_updated', 'status', 'payment_status'])
-                logger.debug(f"Order {order.order_number}: changes saved successfully")
-            except Exception as e:
-                logger.error(
-                    f"Order {order.order_number}: failed to save changes: {e}",
-                    exc_info=True
-                )
-                # Пытаемся сохранить еще раз без update_fields
-                try:
-                    order.save()
-                    logger.info(f"Order {order.order_number}: saved without update_fields")
-                except Exception as e2:
-                    logger.error(
-                        f"Order {order.order_number}: failed to save even without update_fields: {e2}",
-                        exc_info=True
-                    )
-                    return False
-
-            # Отправляем уведомления только если статус действительно изменился
-            if order_status_changed:
-                self._send_delivery_notification(order, full_status)
+        if status_code is not None:
+            if not has_dedup_anchor:
+                # Первый прогон после деплоя для этого заказа: якоря ещё нет.
+                # Не спамим уже доставленные/идущие заказы — уведомляем только
+                # если базовый текст реально изменился относительно сохранённого.
+                should_notify = text_changed
             else:
-                self._send_status_notification(order, old_status, full_status)
-
-            return True
+                should_notify = status_code != last_notified_code
         else:
-            # Если статус посылки не изменился, но заказ еще не "done",
-            # проверяем, нужно ли изменить статус заказа
-            if order.status != 'done':
-                order_status_changed = self._update_order_status_if_delivered(
-                    order, status, status_description, status_code
+            # API не отдал код — откатываемся на текстовую детекцию (legacy)
+            should_notify = text_changed
+
+        # Обновляем текст статуса (для отображения), даже без уведомления
+        if text_changed:
+            order.shipment_status = full_status
+            order.shipment_status_updated = timezone.now()
+            logger.info(
+                f"Order {order.order_number}: shipment_status text changed "
+                f"'{current_status_base}' -> '{new_status_base}' "
+                f"(code={status_code}, notify={should_notify})"
+            )
+
+        if not should_notify:
+            # Нечего сообщать. Но если код впервые увиден — фиксируем якорь,
+            # плюс на случай уже доставленной посылки докручиваем статус заказа.
+            payload_changed = False
+            if status_code is not None and status_code != last_notified_code:
+                payload_changed = self._persist_np_tracking_state(order, status_code, full_status)
+
+            update_fields = []
+            if text_changed:
+                update_fields += ['shipment_status', 'shipment_status_updated']
+            if payload_changed:
+                update_fields.append('payment_payload')
+
+            if update_fields:
+                self._save_order(order, update_fields)
+                return True
+
+            logger.debug(f"Order {order.order_number}: no changes")
+            return False
+
+        # --- Есть реальное событие: обновляем заказ и шлём уведомление ---
+        order_status_changed = self._update_order_status_if_delivered(
+            order, status, status_description, status_code
+        )
+
+        # Фиксируем якорь дедупа по коду
+        self._persist_np_tracking_state(order, status_code, full_status)
+
+        # Гарантированно сохраняем все затронутые поля одним вызовом
+        self._save_order(
+            order,
+            ['shipment_status', 'shipment_status_updated', 'status',
+             'payment_status', 'payment_payload'],
+        )
+
+        # Отправляем уведомление: о доставке либо об изменении статуса
+        if order_status_changed:
+            self._send_delivery_notification(order, full_status)
+        else:
+            self._send_status_notification(order, old_status, full_status)
+
+        return True
+
+    def _save_order(self, order, update_fields):
+        """
+        Сохраняет заказ с указанными полями, с фолбэком на полный save().
+
+        Returns:
+            bool: True если сохранение успешно
+        """
+        try:
+            order.save(update_fields=update_fields)
+            logger.debug(
+                f"Order {order.order_number}: saved fields {update_fields}"
+            )
+            return True
+        except Exception as e:
+            logger.error(
+                f"Order {order.order_number}: failed to save {update_fields}: {e}",
+                exc_info=True,
+            )
+            try:
+                order.save()
+                logger.info(f"Order {order.order_number}: saved without update_fields")
+                return True
+            except Exception as e2:
+                logger.error(
+                    f"Order {order.order_number}: failed to save even without "
+                    f"update_fields: {e2}",
+                    exc_info=True,
                 )
-                if order_status_changed:
-                    # Явно указываем поля для обновления для гарантии сохранения
-                    try:
-                        order.save(update_fields=['status', 'payment_status'])
-                        logger.debug(f"Order {order.order_number}: order status changes saved successfully")
-                    except Exception as e:
-                        logger.error(
-                            f"Order {order.order_number}: failed to save order status changes: {e}",
-                            exc_info=True
-                        )
-                        # Пытаемся сохранить еще раз без update_fields
-                        try:
-                            order.save()
-                            logger.info(f"Order {order.order_number}: saved without update_fields")
-                        except Exception as e2:
-                            logger.error(
-                                f"Order {order.order_number}: failed to save even without update_fields: {e2}",
-                                exc_info=True
-                            )
-                            return False
-
-                    self._send_delivery_notification(order, full_status)
-                    logger.info(
-                        f"Order {order.order_number}: status changed to 'done' "
-                        f"without shipment_status change"
-                    )
-                    return True
-
-        logger.debug(f"Order {order.order_number}: no changes")
-        return False
+                return False
 
     def _update_order_status_if_delivered(self, order, status, status_description, status_code=None):
         """
