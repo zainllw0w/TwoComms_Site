@@ -1,0 +1,128 @@
+/* ============================================================
+   Management Admin Center — редизайн (Огляд + картки менеджерів
+   + drawer-досьє). Тема успадковується з management.css (vars).
+   ============================================================ */
+
+/* ---- Навігація табів ---- */
+.admin-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.admin-tab {
+    display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px;
+    border-radius: 12px; border: 1px solid var(--border); background: rgba(255,255,255,0.03);
+    color: var(--text-secondary); font-size: 13.5px; font-weight: 600; text-decoration: none;
+    transition: all .16s ease;
+}
+.admin-tab:hover { color: var(--text-primary); border-color: rgba(255,255,255,0.16); transform: translateY(-1px); }
+.admin-tab.active {
+    color: #0d1018; background: linear-gradient(135deg, #ffb347, #ff7e29);
+    border-color: #ff9c3d; box-shadow: 0 6px 20px rgba(255,126,41,0.32);
+}
+.admin-tab .tab-count {
+    font-size: 11px; padding: 1px 7px; border-radius: 999px;
+    background: rgba(0,0,0,0.18); color: inherit;
+}
+.admin-tab:not(.active) .tab-count { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+
+/* ---- Дашборд «Огляд» ---- */
+.ov-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+.ov-card {
+    position: relative; overflow: hidden; padding: 18px 18px 16px; border-radius: 18px;
+    border: 1px solid var(--border);
+    background: radial-gradient(circle at top right, rgba(255,126,41,0.10), transparent 55%), rgba(255,255,255,0.03);
+}
+.ov-card .ov-icon { font-size: 22px; opacity: .9; }
+.ov-card .ov-value { font-size: 2rem; font-weight: 800; color: var(--text-primary); margin: 8px 0 2px; letter-spacing: -0.5px; }
+.ov-card .ov-label { font-size: 12.5px; color: var(--text-secondary); }
+.ov-card .ov-sub { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+.ov-card.tone-warn { background: radial-gradient(circle at top right, rgba(245,158,11,0.12), transparent 55%), rgba(255,255,255,0.03); }
+.ov-card.tone-bad { background: radial-gradient(circle at top right, rgba(239,68,68,0.12), transparent 55%), rgba(255,255,255,0.03); }
+.ov-card.tone-ok { background: radial-gradient(circle at top right, rgba(16,185,129,0.12), transparent 55%), rgba(255,255,255,0.03); }
+.ov-card.clickable { cursor: pointer; transition: transform .16s ease, box-shadow .16s ease; }
+.ov-card.clickable:hover { transform: translateY(-2px); box-shadow: 0 14px 36px rgba(0,0,0,0.28); }
+
+.ov-section-title { margin: 26px 0 14px; font-size: 1.05rem; color: var(--text-primary); }
+.ov-feed { display: flex; flex-direction: column; gap: 8px; }
+.ov-feed-row {
+    display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 12px;
+    background: rgba(255,255,255,0.025); border: 1px solid var(--border); font-size: 13px; color: var(--text-secondary);
+}
+.ov-feed-row .ov-feed-amount { margin-left: auto; color: #6ee7b7; font-weight: 700; }
+.ov-feed-row b { color: var(--text-primary); }
+
+/* ---- Картки менеджерів ---- */
+.mgr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.mgr-card {
+    position: relative; padding: 18px; border-radius: 18px; border: 1px solid var(--border);
+    background: linear-gradient(160deg, rgba(255,255,255,0.045), rgba(255,255,255,0.02));
+    cursor: pointer; transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.mgr-card:hover { transform: translateY(-3px); border-color: rgba(255,126,41,0.4); box-shadow: 0 18px 44px rgba(0,0,0,0.3); }
+.mgr-card-head { display: flex; align-items: center; gap: 12px; }
+.mgr-avatar {
+    width: 46px; height: 46px; border-radius: 14px; flex: 0 0 auto; display: grid; place-items: center;
+    font-weight: 800; font-size: 17px; color: #0d1018;
+    background: linear-gradient(135deg, #ffb347, #ff7e29);
+}
+.mgr-card-head .mgr-id { min-width: 0; }
+.mgr-card-head .mgr-name { font-size: 15px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mgr-card-head .mgr-role { font-size: 12px; color: var(--muted); }
+.mgr-level-badge { display: inline-block; margin-top: 10px; padding: 4px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 600; }
+.lvl-candidate { background: rgba(99,102,241,0.16); color: #c4b5fd; }
+.lvl-level_1 { background: rgba(16,185,129,0.14); color: #6ee7b7; }
+.lvl-level_2 { background: rgba(245,158,11,0.16); color: #fcd34d; }
+.lvl-top_manager { background: rgba(168,85,247,0.16); color: #d8b4fe; }
+.lvl-project_manager { background: rgba(236,72,153,0.16); color: #f9a8d4; }
+.lvl-admin { background: rgba(239,68,68,0.16); color: #fca5a5; }
+.lvl-none { background: rgba(255,255,255,0.06); color: var(--muted); }
+.mgr-card-metrics { display: flex; gap: 16px; margin-top: 14px; flex-wrap: wrap; }
+.mgr-metric { display: flex; flex-direction: column; }
+.mgr-metric .m-val { font-size: 16px; font-weight: 700; color: var(--text-primary); }
+.mgr-metric .m-lbl { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.mgr-card-foot { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+.mgr-flags { display: flex; gap: 6px; margin-left: auto; }
+.mgr-flag { width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; font-size: 12px; }
+.mgr-flag.on { background: rgba(16,185,129,0.16); color: #6ee7b7; }
+.mgr-flag.off { background: rgba(255,255,255,0.05); color: var(--muted); }
+
+/* ---- Drawer-досьє ---- */
+.dossier-overlay { position: fixed; inset: 0; z-index: 1300; background: rgba(6,8,12,0.64); backdrop-filter: blur(5px); display: flex; justify-content: flex-end; }
+.dossier-card {
+    width: min(620px, 100%); height: 100%; overflow-y: auto;
+    background: linear-gradient(180deg, rgba(23,28,40,0.99), rgba(14,17,26,0.99));
+    border-left: 1px solid var(--border); box-shadow: var(--shadow-lg);
+    animation: dossierIn .26s cubic-bezier(.2,.7,.3,1);
+}
+@keyframes dossierIn { from { transform: translateX(48px); opacity: .3; } to { transform: translateX(0); opacity: 1; } }
+.dossier-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 14px; padding: 20px 24px; border-bottom: 1px solid var(--border); background: rgba(17,21,32,0.96); backdrop-filter: blur(8px); }
+.dossier-head .mgr-avatar { width: 50px; height: 50px; }
+.dossier-head h3 { margin: 0; font-size: 1.25rem; color: var(--text-primary); }
+.dossier-head .d-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.dossier-head .modal-close { margin-left: auto; }
+.dossier-body { padding: 20px 24px 40px; }
+.dossier-loading { padding: 60px 0; text-align: center; color: var(--muted); }
+.d-section { margin-bottom: 22px; }
+.d-section > h4 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--accent); }
+.d-stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.d-stat { padding: 12px 14px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); }
+.d-stat .v { font-size: 17px; font-weight: 700; color: var(--text-primary); }
+.d-stat .v.ok { color: #6ee7b7; } .d-stat .v.warn { color: #fcd34d; } .d-stat .v.frozen { color: #93c5fd; }
+.d-stat .l { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 3px; }
+.d-list { display: flex; flex-direction: column; gap: 7px; }
+.d-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; background: rgba(255,255,255,0.025); border: 1px solid var(--border); font-size: 12.5px; color: var(--text-secondary); }
+.d-row b { color: var(--text-primary); }
+.d-row .d-row-amount { margin-left: auto; font-weight: 700; color: var(--text-primary); }
+.d-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.d-chip.ok { background: rgba(16,185,129,0.14); color: #6ee7b7; }
+.d-chip.bad { background: rgba(239,68,68,0.14); color: #fca5a5; }
+.d-chip.warn { background: rgba(245,158,11,0.14); color: #fcd34d; }
+.d-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.d-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.d-freeze-mini { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--text-secondary); }
+.d-freeze-bar { flex: 1; height: 6px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+.d-freeze-bar span { display: block; height: 100%; background: linear-gradient(90deg, #ffb347, #34d399); }
+.d-form { display: grid; gap: 10px; }
+.d-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-secondary); }
+.d-form input, .d-form select, .d-form textarea { padding: 9px 11px; border-radius: 10px; border: 1px solid var(--border); background: rgba(255,255,255,0.04); color: var(--text-primary); font-family: inherit; font-size: 13px; }
+.d-form .d-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.d-feedback { font-size: 12.5px; min-height: 16px; }
+.d-feedback.ok { color: #6ee7b7; } .d-feedback.err { color: #fca5a5; }
+@media (max-width: 600px) { .dossier-card { width: 100%; } .d-form .d-form-row { grid-template-columns: 1fr; } }

@@ -1518,9 +1518,9 @@ def admin_overview(request):
     if not request.user.is_staff:
         return redirect('management_home')
 
-    tab = (request.GET.get('tab') or 'managers').strip().lower()
-    if tab not in ('managers', 'invoices', 'shops', 'payouts', 'dtf'):
-        tab = 'managers'
+    tab = (request.GET.get('tab') or 'overview').strip().lower()
+    if tab not in ('overview', 'managers', 'invoices', 'shops', 'payouts', 'dtf'):
+        tab = 'overview'
 
     today_start, today_end = get_today_range()
     admin_user_data = []
@@ -1630,6 +1630,80 @@ def admin_overview(request):
 
     if tab == 'managers':
         ctx['admin_analytics'] = build_admin_economics_summary()
+
+    if tab == 'overview':
+        from decimal import Decimal as _D
+        from datetime import timedelta as _td
+        from django.db.models import Sum as _Sum, Count as _Count
+        from django.db.models.functions import Coalesce
+        from orders.models import WholesaleInvoice
+        from management.models import (
+            ManagerCommissionAccrual, ManagerPayoutRequest, ManagerWeeklyReview,
+            ManagerOnboardingConsent,
+        )
+        from management.services.activity_tracking import get_last_seen_map, ONLINE_THRESHOLD_SECONDS
+
+        now = timezone.now()
+        zero = _D('0')
+        managers_qs = manager_roster_queryset(include_staff=False)
+        manager_ids = list(managers_qs.values_list('id', flat=True))
+        total_managers = len(manager_ids)
+
+        last_seen_map = get_last_seen_map(managers_qs)
+        online_count = sum(
+            1 for uid in manager_ids
+            if last_seen_map.get(uid) and (now - last_seen_map[uid]).total_seconds() <= ONLINE_THRESHOLD_SECONDS
+        )
+
+        awaiting_payment = WholesaleInvoice.objects.filter(
+            created_by__isnull=False, payment_status='pending'
+        ).exclude(monobank_invoice_id__isnull=True).exclude(monobank_invoice_id='').count()
+
+        week_ago = now - _td(days=7)
+        paid_7d = WholesaleInvoice.objects.filter(
+            created_by__isnull=False, payment_status='paid', paid_at__gte=week_ago
+        ).aggregate(cnt=_Count('id'), total=Coalesce(_Sum('total_amount'), zero))
+        frozen_total = ManagerCommissionAccrual.objects.filter(
+            frozen_until__gt=now
+        ).aggregate(total=Coalesce(_Sum('amount'), zero))['total'] or zero
+
+        payout_pending = ManagerPayoutRequest.objects.filter(
+            status__in=[ManagerPayoutRequest.Status.PROCESSING, ManagerPayoutRequest.Status.APPROVED]
+        ).count()
+        weekly_pending = ManagerWeeklyReview.objects.filter(admin_decision='').count()
+
+        # Менеджери без підписаної згоди (онбординг).
+        consented_ids = set(
+            ManagerOnboardingConsent.objects.filter(owner_id__in=manager_ids)
+            .values_list('owner_id', flat=True)
+        )
+        without_consent = sum(1 for uid in manager_ids if uid not in consented_ids)
+
+        # Останні оплати (стрічка).
+        recent_paid = []
+        for inv in (WholesaleInvoice.objects.filter(created_by__isnull=False, payment_status='paid')
+                    .select_related('created_by', 'created_by__userprofile')
+                    .order_by('-paid_at')[:8]):
+            recent_paid.append({
+                'number': inv.invoice_number,
+                'manager': (inv.created_by.get_full_name() or inv.created_by.username) if inv.created_by else '—',
+                'company': inv.company_name,
+                'amount': str(inv.total_amount),
+                'paid_at': timezone.localtime(inv.paid_at).strftime('%d.%m %H:%M') if inv.paid_at else '',
+            })
+
+        ctx['overview'] = {
+            'total_managers': total_managers,
+            'online_count': online_count,
+            'awaiting_payment': awaiting_payment,
+            'paid_7d_count': paid_7d['cnt'] or 0,
+            'paid_7d_total': str(paid_7d['total'] or zero),
+            'frozen_total': str(frozen_total),
+            'payout_pending': payout_pending,
+            'weekly_pending': weekly_pending,
+            'without_consent': without_consent,
+            'recent_paid': recent_paid,
+        }
 
     if tab == 'dtf':
         ctx['dtf_bridge'] = build_dtf_bridge_payload()
@@ -2159,6 +2233,23 @@ def admin_weekly_review_decide_api(request, review_id):
         'awarded_amount': str(review.awarded_amount),
         'decision': review.admin_decision,
     })
+
+
+@login_required(login_url='management_login')
+def admin_manager_dossier_api(request, user_id):
+    """JSON-досьє менеджера для drawer-картки адмін-центру (lazy)."""
+    if not request.user.is_staff:
+        return JsonResponse({'ok': False}, status=403)
+    from management.services.dossier import build_manager_dossier
+    user = get_user_model().objects.filter(id=user_id).select_related('userprofile').first()
+    if not user:
+        return JsonResponse({'ok': False, 'error': 'Менеджера не знайдено'}, status=404)
+    try:
+        dossier = build_manager_dossier(user)
+    except Exception:
+        logger.exception('Failed to build dossier for user %s', user_id)
+        return JsonResponse({'ok': False, 'error': 'Помилка побудови досьє'}, status=500)
+    return JsonResponse({'ok': True, **dossier})
 
 
 def _notify_manager_weekly_review(review):

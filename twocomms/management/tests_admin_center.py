@@ -135,3 +135,51 @@ class AdminInvoicesTabRenderTests(TestCase):
         self.assertIn("R-1", body)
         self.assertIn("R-2", body)  # підтверджена/оплачена теж видима (фікс B-INV2)
         self.assertIn("inv-chip", body)
+
+
+@override_settings(ROOT_URLCONF="twocomms.urls_management",
+                   ALLOWED_HOSTS=["testserver", "management.twocomms.shop"])
+class AdminRedesignTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.staff = User.objects.create_user(username="rd_boss_t", password="x", is_staff=True)
+        cls.manager = User.objects.create_user(username="rd_mgr_t", password="x")
+        cls.manager.userprofile.is_manager = True
+        cls.manager.userprofile.save()
+
+    def test_overview_tab_renders_dashboard(self):
+        self.client.force_login(self.staff)
+        resp = self.client.get("/admin-panel/?tab=overview", HTTP_HOST="management.twocomms.shop", secure=True)
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("ov-grid", resp.content.decode())
+
+    def test_managers_tab_renders_cards_and_dossier(self):
+        self.client.force_login(self.staff)
+        resp = self.client.get("/admin-panel/?tab=managers", HTTP_HOST="management.twocomms.shop", secure=True)
+        body = resp.content.decode()
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("mgr-grid", body)
+        self.assertIn('id="dossier"', body)
+
+    def test_dossier_api_returns_sections(self):
+        self.client.force_login(self.staff)
+        resp = self.client.get(f"/admin-panel/user/{self.manager.id}/dossier/",
+                               HTTP_HOST="management.twocomms.shop", secure=True)
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data["ok"])
+        for key in ("manager", "payouts", "recent_paid_invoices", "contract", "mosaic", "compensation"):
+            self.assertIn(key, data)
+
+    def test_assign_level_works(self):
+        self.client.force_login(self.staff)
+        resp = self.client.post(
+            "/admin-panel/levels/assign/",
+            {"user_id": self.manager.id, "level": "level_1", "weekly_salary": "1500",
+             "commission_percent": "7.5", "start_date": "2026-06-01", "comment": "тест"},
+            HTTP_HOST="management.twocomms.shop", secure=True, HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()["success"])
+        from management.services.manager_levels import get_current_level
+        self.assertEqual(get_current_level(self.manager).level, "level_1")

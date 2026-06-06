@@ -3,6 +3,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/management-stats.css' %}">
+<link rel="stylesheet" href="{% static 'css/management-admin.css' %}">
 <style>
 .level-cell { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
 .level-badge-sm { display: inline-block; padding: 3px 10px; border-radius: 10px; font-size: 11.5px; font-weight: 600; white-space: nowrap; width: fit-content; }
@@ -137,21 +138,76 @@
                     Магазини
                 {% elif admin_tab == 'dtf' %}
                     DTF-міст
+                {% elif admin_tab == 'managers' %}
+                    Менеджери
                 {% else %}
-                    Менеджери та прогрес
+                    Огляд
                 {% endif %}
             </h2>
-            <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
-                <a href="?tab=managers" class="btn-ghost small{% if admin_tab == 'managers' %} active{% endif %}">Менеджери та прогрес</a>
-                <a href="?tab=invoices" class="btn-ghost small{% if admin_tab == 'invoices' %} active{% endif %}">Накладні</a>
-                <a href="?tab=payouts" class="btn-ghost small{% if admin_tab == 'payouts' %} active{% endif %}">Виплати</a>
-                <a href="?tab=shops" class="btn-ghost small{% if admin_tab == 'shops' %} active{% endif %}">Магазини</a>
-                <a href="?tab=dtf" class="btn-ghost small{% if admin_tab == 'dtf' %} active{% endif %}">DTF-міст</a>
-                <a href="{% url 'management_stats_admin' %}" class="btn-ghost small">Статистика менеджерів</a>
+            <div class="admin-tabs">
+                <a href="?tab=overview" class="admin-tab{% if admin_tab == 'overview' %} active{% endif %}">📊 Огляд</a>
+                <a href="?tab=managers" class="admin-tab{% if admin_tab == 'managers' %} active{% endif %}">👥 Менеджери</a>
+                <a href="?tab=invoices" class="admin-tab{% if admin_tab == 'invoices' %} active{% endif %}">🧾 Накладні</a>
+                <a href="?tab=shops" class="admin-tab{% if admin_tab == 'shops' %} active{% endif %}">🏪 Магазини</a>
+                <a href="?tab=dtf" class="admin-tab{% if admin_tab == 'dtf' %} active{% endif %}">🖨️ DTF-міст</a>
+                <a href="{% url 'management_stats_admin' %}" class="admin-tab">📈 Статистика</a>
             </div>
         </div>
     </div>
-    {% if admin_tab == 'invoices' %}
+    {% if admin_tab == 'overview' %}
+    <div class="ov-grid">
+        <a href="?tab=managers" class="ov-card clickable tone-ok">
+            <div class="ov-icon">👥</div>
+            <div class="ov-value">{{ overview.online_count }}<span style="font-size:1rem;color:var(--muted);">/{{ overview.total_managers }}</span></div>
+            <div class="ov-label">Менеджерів онлайн</div>
+        </a>
+        <a href="?tab=invoices&status=awaiting_payment" class="ov-card clickable tone-warn">
+            <div class="ov-icon">⏳</div>
+            <div class="ov-value">{{ overview.awaiting_payment }}</div>
+            <div class="ov-label">Очікують оплату</div>
+        </a>
+        <div class="ov-card tone-ok">
+            <div class="ov-icon">💰</div>
+            <div class="ov-value">{{ overview.paid_7d_count }}</div>
+            <div class="ov-label">Оплачено за 7 днів</div>
+            <div class="ov-sub">{{ overview.paid_7d_total }} грн</div>
+        </div>
+        <div class="ov-card">
+            <div class="ov-icon">🔒</div>
+            <div class="ov-value">{{ overview.frozen_total }}</div>
+            <div class="ov-label">Заморожено винагород, грн</div>
+        </div>
+        <a href="?tab=managers" class="ov-card clickable">
+            <div class="ov-icon">💸</div>
+            <div class="ov-value">{{ overview.payout_pending }}</div>
+            <div class="ov-label">Заявки на виплату</div>
+        </a>
+        <a href="?tab=managers" class="ov-card clickable tone-warn">
+            <div class="ov-icon">📅</div>
+            <div class="ov-value">{{ overview.weekly_pending }}</div>
+            <div class="ov-label">Тижневі рішення очікують</div>
+        </a>
+        <a href="?tab=managers" class="ov-card clickable {% if overview.without_consent %}tone-bad{% endif %}">
+            <div class="ov-icon">📋</div>
+            <div class="ov-value">{{ overview.without_consent }}</div>
+            <div class="ov-label">Без підписаної згоди</div>
+        </a>
+    </div>
+
+    {% if overview.recent_paid %}
+    <h3 class="ov-section-title">Останні оплати</h3>
+    <div class="ov-feed">
+        {% for p in overview.recent_paid %}
+        <div class="ov-feed-row">
+            <span>💳</span>
+            <span><b>{{ p.manager }}</b> · {{ p.company }} · <code>{{ p.number }}</code></span>
+            <span class="ov-feed-amount">{{ p.amount }} грн</span>
+            <span style="color:var(--muted);font-size:11.5px;">{{ p.paid_at }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% elif admin_tab == 'invoices' %}
     <div class="inv-center">
         <form class="inv-filters" method="get" id="inv-filter-form">
             <input type="hidden" name="tab" value="invoices">
@@ -902,87 +958,58 @@
     {% else %}
     {% include "management/components/admin_control_center.html" %}
 
-    <div class="table-shell">
-        <table class="nexus-table">
-            <thead>
-                <tr>
-                    <th>Користувач</th>
-                    <th>Статус</th>
-                    <th>Рівень</th>
-                    <th>Сьогодні (клієнти)</th>
-                    <th>Всього (клієнти)</th>
-                    <th>Бали сьогодні</th>
-                    <th>Бали всього</th>
-                    <th>Окупність</th>
-                    <th>MOSAIC</th>
-                    <th>Онлайн</th>
-                    <th>Останній вхід</th>
-                    <th>Дії</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for u in admin_user_data %}
-                <tr>
-                    <td>{{ u.name }}</td>
-                    <td>{{ u.role }}</td>
-                    <td>
-                        <div class="level-cell">
-                            <span class="level-badge-sm level-{{ u.level_code|default:'none' }}">{{ u.level_label }}</span>
-                            {% if u.level_next %}
-                            <div class="level-mini-progress" title="Прогрес до наступного рівня">
-                                <div class="level-mini-fill" data-pct="{{ u.level_progress_pct }}"></div>
-                            </div>
-                            {% if u.level_requirements_met %}
-                                <span class="level-ready" title="Умови переходу виконано">★ Готовий до підвищення</span>
-                            {% endif %}
-                            {% endif %}
-                        </div>
-                    </td>
-                    <td>{{ u.today }}</td>
-                    <td>{{ u.total }}</td>
-                    <td>{{ u.points_today }}</td>
-                    <td>{{ u.points_total }}</td>
-                    <td>
-                        {% for econ in admin_analytics.rows %}
-                            {% if econ.id == u.id %}
-                                {{ econ.payback|floatformat:2 }}x
-                            {% endif %}
-                        {% endfor %}
-                    </td>
-                    <td>
-                        {% if u.mosaic_score is not None %}
-                            <span class="mosaic-badge" data-score="{{ u.mosaic_score|floatformat:0 }}" title="MOSAIC {{ u.mosaic_score|floatformat:0 }} · довіра {{ u.mosaic_confidence|floatformat:2 }}">
-                                <span class="mosaic-ring"></span>
-                                <b>{{ u.mosaic_score|floatformat:0 }}</b>
-                            </span>
-                        {% else %}
-                            <span class="mosaic-empty" title="Снапшот ще не розраховано">—</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if u.online %}
-                            <span class="online-pill is-online"><span class="online-dot"></span>Онлайн</span>
-                        {% else %}
-                            <span class="online-pill is-offline"><span class="online-dot"></span>{{ u.last_seen_label }}</span>
-                        {% endif %}
-                    </td>
-                    <td>{{ u.last_login }}</td>
-                    <td>
-                        <div class="row-actions">
-                            <button type="button" class="btn-ghost small admin-overview" data-user-id="{{ u.id }}">Огляд</button>
-                            <button type="button" class="btn-ghost small assign-level-btn"
-                                    data-user-id="{{ u.id }}"
-                                    data-user-name="{{ u.name }}"
-                                    data-level="{{ u.level_code }}"
-                                    data-salary="{{ u.weekly_salary }}"
-                                    data-percent="{{ u.commission_percent }}"
-                                    data-start="{{ u.salary_start_date }}">Призначити рівень</button>
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="mgr-grid">
+        {% for u in admin_user_data %}
+        <div class="mgr-card" data-user-id="{{ u.id }}" data-user-name="{{ u.name }}"
+             data-level="{{ u.level_code }}" data-salary="{{ u.weekly_salary }}"
+             data-percent="{{ u.commission_percent }}" data-start="{{ u.salary_start_date }}">
+            <div class="mgr-card-head">
+                <div class="mgr-avatar">{{ u.name|slice:":1"|upper }}</div>
+                <div class="mgr-id">
+                    <div class="mgr-name">{{ u.name }}</div>
+                    <div class="mgr-role">{{ u.role }}</div>
+                </div>
+            </div>
+            <span class="mgr-level-badge lvl-{{ u.level_code|default:'none' }}">{{ u.level_label }}</span>
+            <div class="mgr-card-metrics">
+                <div class="mgr-metric"><span class="m-val">{{ u.today }}</span><span class="m-lbl">Сьогодні</span></div>
+                <div class="mgr-metric"><span class="m-val">{{ u.total }}</span><span class="m-lbl">Клієнтів</span></div>
+                <div class="mgr-metric"><span class="m-val">{{ u.points_today }}</span><span class="m-lbl">Бали</span></div>
+                {% if u.mosaic_score is not None %}
+                <div class="mgr-metric"><span class="m-val">{{ u.mosaic_score|floatformat:0 }}</span><span class="m-lbl">MOSAIC</span></div>
+                {% endif %}
+            </div>
+            <div class="mgr-card-foot">
+                {% if u.online %}
+                <span class="online-pill is-online"><span class="online-dot"></span>Онлайн</span>
+                {% else %}
+                <span class="online-pill is-offline"><span class="online-dot"></span>{{ u.last_seen_label }}</span>
+                {% endif %}
+                <div class="mgr-flags">
+                    {% if u.level_requirements_met %}<span class="mgr-flag on" title="Готовий до підвищення">★</span>{% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <p class="wr-empty">Немає менеджерів.</p>
+        {% endfor %}
+    </div>
+
+    <!-- Drawer-досьє менеджера -->
+    <div class="dossier-overlay" id="dossier" hidden>
+        <div class="dossier-card" role="dialog" aria-modal="true">
+            <div class="dossier-head">
+                <div class="mgr-avatar" id="dossier-avatar">—</div>
+                <div>
+                    <h3 id="dossier-name">—</h3>
+                    <div class="d-sub" id="dossier-sub"></div>
+                </div>
+                <button type="button" class="modal-close" data-dossier-close aria-label="Закрити">×</button>
+            </div>
+            <div class="dossier-body" id="dossier-body">
+                <div class="dossier-loading">Завантаження…</div>
+            </div>
+        </div>
     </div>
     {% endif %}
 </section>
@@ -1496,250 +1523,246 @@ document.addEventListener('click', async (e) => {
 <script src="{% static 'js/management-shops.js' %}"></script>
 {% elif admin_tab == 'managers' %}
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    const body = document.body;
-    const adminDataEl = document.getElementById('admin-users-data');
-    const adminModal = document.getElementById('admin-overview-modal');
-    const adminModalTitle = document.getElementById('admin-overview-title');
-    const adminModalSubtitle = document.getElementById('admin-overview-subtitle');
-    const adminModalList = document.getElementById('admin-overview-list');
-    const adminChips = document.getElementById('admin-overview-chips');
-    const adminSearch = document.getElementById('admin-overview-search');
-    const adminLoadMore = document.getElementById('admin-overview-load-more');
-    let adminUsers = [];
-    if (adminDataEl) {
-        try { adminUsers = JSON.parse(adminDataEl.textContent); } catch (e) { adminUsers = []; }
+(function () {
+    function getCookie(name) {
+        const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+        return m ? decodeURIComponent(m.pop()) : '';
+    }
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+    const dossier = document.getElementById('dossier');
+    const body = document.getElementById('dossier-body');
+    const elName = document.getElementById('dossier-name');
+    const elSub = document.getElementById('dossier-sub');
+    const elAvatar = document.getElementById('dossier-avatar');
+    let currentUserId = null;
+
+    const LEVELS = [
+        ['candidate', 'Менеджер-кандидат'], ['level_1', 'Менеджер 1-го рівня'],
+        ['level_2', 'Менеджер 2-го рівня'], ['top_manager', 'Топ-менеджер'],
+        ['project_manager', 'Project-менеджер'], ['admin', 'Адміністратор'],
+    ];
+
+    function openDossier(userId, name) {
+        currentUserId = userId;
+        elName.textContent = name || '—';
+        elSub.textContent = '';
+        elAvatar.textContent = (name || '—').slice(0, 1).toUpperCase();
+        body.innerHTML = '<div class="dossier-loading">Завантаження…</div>';
+        dossier.hidden = false;
+        document.body.style.overflow = 'hidden';
+        fetch(`/admin-panel/user/${userId}/dossier/`, { headers: { 'Accept': 'application/json' } })
+            .then(r => r.json())
+            .then(d => { if (d.ok) renderDossier(d); else body.innerHTML = `<div class="dossier-loading">${esc(d.error || 'Помилка')}</div>`; })
+            .catch(() => { body.innerHTML = '<div class="dossier-loading">Помилка завантаження</div>'; });
     }
 
-    // Apply gauge arc if present
-    const arcFill = document.getElementById('gauge-arc-fill');
-    if (arcFill) {
-        const arcLen = 251.3;
-        const init = parseFloat(arcFill.dataset.progress || '0');
-        arcFill.style.strokeDashoffset = arcLen * (1 - init / 100);
+    function closeDossier() { dossier.hidden = true; document.body.style.overflow = ''; }
+
+    function chip(ok, textOk, textNo) {
+        return ok ? `<span class="d-chip ok">✓ ${esc(textOk)}</span>` : `<span class="d-chip bad">✕ ${esc(textNo)}</span>`;
     }
 
-    let adminModalOpener = null;
-    const adminCloseModal = () => {
-        if (!adminModal) return;
-        adminModal.classList.remove('show');
-        adminModal.hidden = true;
-        body.classList.remove('modal-open');
-        if (adminModalOpener && typeof adminModalOpener.focus === 'function') {
-            adminModalOpener.focus();
-        }
-    };
-    if (adminModal) {
-        adminModal.querySelectorAll('.modal-close').forEach(btn => btn.addEventListener('click', adminCloseModal));
-        adminModal.addEventListener('click', (e) => { if (e.target === adminModal) adminCloseModal(); });
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && adminModal.classList.contains('show')) {
-                adminCloseModal();
+    function renderDossier(d) {
+        const m = d.manager, p = d.payouts, c = d.contract, comp = d.compensation;
+        elSub.textContent = `${m.level_label}${m.position ? ' · ' + m.position : ''}${m.online ? ' · 🟢 онлайн' : ' · ' + m.last_seen_label}`;
+
+        // Винагорода
+        const frozenItems = (p.frozen_items || []).map(f =>
+            `<div class="d-row"><span>🔒 ${esc(f.invoice || 'коригування')}</span><span style="color:var(--muted);">до ${esc(f.frozen_until)} (${f.days_left} дн)</span><span class="d-row-amount">${esc(f.amount)} грн</span></div>`
+        ).join('') || '<div class="d-row" style="color:var(--muted);">Немає заморожених сум</div>';
+
+        // Останні оплачені накладні
+        const paid = (d.recent_paid_invoices || []).map(inv => {
+            let freeze = '';
+            if (inv.frozen_until && !inv.released) {
+                freeze = `<div class="d-freeze-mini"><span>🔒</span><div class="d-freeze-bar"><span style="width:${Math.max(5, 100 - (inv.days_left*100/14))}%;"></span></div><span>${inv.days_left} дн</span></div>`;
+            } else if (inv.released) {
+                freeze = `<div class="d-freeze-mini" style="color:#6ee7b7;">🟢 Доступно</div>`;
             }
-        });
+            return `<div class="d-row" style="flex-direction:column;align-items:stretch;gap:6px;">
+                <div style="display:flex;gap:10px;align-items:center;"><b>${esc(inv.number)}</b> <span style="color:var(--muted);">${esc(inv.company)}</span><span class="d-row-amount">${esc(inv.amount)} грн</span></div>
+                <div style="display:flex;gap:10px;font-size:11.5px;color:var(--muted);">Оплачено ${esc(inv.paid_at)}${inv.commission ? ' · комісія ' + esc(inv.commission) + ' грн' : ''}</div>
+                ${freeze}
+            </div>`;
+        }).join('') || '<div class="d-row" style="color:var(--muted);">Ще немає оплачених накладних</div>';
+
+        // Заявки на виплату
+        const reqs = (d.payout_requests || []).map(r => {
+            const actions = r.status === 'processing'
+                ? `<button class="btn-ghost small d-payout" data-act="approve" data-id="${r.id}">Схвалити</button>
+                   <button class="btn-ghost small d-payout" data-act="paid" data-id="${r.id}">Виплачено</button>
+                   <button class="btn-ghost small d-payout" data-act="reject" data-id="${r.id}">Відхилити</button>`
+                : `<span class="d-chip ${r.status==='paid'?'ok':r.status==='rejected'?'bad':'warn'}">${esc(r.status_label)}</span>`;
+            return `<div class="d-row"><span>${esc(r.created_at)}</span><span class="d-row-amount">${esc(r.amount)} грн</span>${actions}</div>`;
+        }).join('') || '<div class="d-row" style="color:var(--muted);">Немає заявок</div>';
+
+        // Тижневі рішення
+        const weekly = (d.pending_reviews || []).map(r =>
+            `<div class="d-row" style="flex-wrap:wrap;gap:8px;">
+                <span><b>${esc(r.week_start)}–${esc(r.week_end)}</b> · база ${esc(r.base)} грн · 💳${r.paid_invoices} 📦${r.units}</span>
+                <span style="display:flex;gap:5px;width:100%;">
+                    <button class="btn-primary small d-wr" data-id="${r.id}" data-dec="full" data-base="${esc(r.base)}">100%</button>
+                    <button class="btn-ghost small d-wr" data-id="${r.id}" data-dec="half" data-base="${esc(r.base)}">50%</button>
+                    <button class="btn-ghost small d-wr" data-id="${r.id}" data-dec="custom" data-base="${esc(r.base)}">Своя</button>
+                    <button class="btn-ghost small d-wr" data-id="${r.id}" data-dec="none" data-base="${esc(r.base)}">0%</button>
+                </span>
+            </div>`
+        ).join('');
+
+        const opts = LEVELS.map(([code, label]) => `<option value="${code}"${code===m.level_code?' selected':''}>${esc(label)}</option>`).join('');
+
+        body.innerHTML = `
+        <div class="d-section">
+            <h4>Рівень та умови</h4>
+            <form class="d-form" id="d-assign-form">
+                <label>Рівень<select name="level">${opts}</select></label>
+                <div class="d-form-row">
+                    <label>Тижнева ставка (грн)<input type="number" name="weekly_salary" min="0" step="1" value="${esc(m.weekly_salary)}"></label>
+                    <label>Відсоток (%)<input type="number" name="commission_percent" min="0" max="100" step="0.01" value="${esc(m.commission_percent)}"></label>
+                </div>
+                <label>Дата початку нарахувань<input type="date" name="start_date" value="${esc(m.salary_start_date)}"></label>
+                <label>Коментар<textarea name="comment" rows="2" placeholder="Причина / умови"></textarea></label>
+                <div class="d-feedback" id="d-assign-feedback"></div>
+                <div class="d-actions"><button type="submit" class="btn-primary small">Зберегти рівень</button></div>
+            </form>
+        </div>
+
+        <div class="d-section">
+            <h4>Винагорода</h4>
+            <div class="d-stat-row">
+                <div class="d-stat"><div class="v ok">${esc(p.available)}</div><div class="l">Доступно, грн</div></div>
+                <div class="d-stat"><div class="v frozen">${esc(p.frozen)}</div><div class="l">Заморожено, грн</div></div>
+                <div class="d-stat"><div class="v">${esc(p.balance)}</div><div class="l">Баланс, грн</div></div>
+                <div class="d-stat"><div class="v">${esc(p.paid_total)}</div><div class="l">Виплачено, грн</div></div>
+            </div>
+            <div class="d-list" style="margin-top:10px;">${frozenItems}</div>
+        </div>
+
+        <div class="d-section">
+            <h4>Заявки на виплату</h4>
+            <div class="d-list">${reqs}</div>
+        </div>
+
+        ${weekly ? `<div class="d-section"><h4>Тижневі рішення (очікують)</h4><div class="d-list">${weekly}</div></div>` : ''}
+
+        <div class="d-section">
+            <h4>Останні оплачені накладні</h4>
+            <div class="d-list">${paid}</div>
+        </div>
+
+        <div class="d-section">
+            <h4>Договір, Дія та доступ</h4>
+            <div class="d-chips">
+                ${chip(c.onboarding_signed, 'Умови прийнято' + (c.consent_version ? ' (v' + esc(c.consent_version) + ')' : ''), 'Умови не прийнято')}
+                ${chip(c.diia_signed, 'Дія.Підпис', 'Дія не підписана')}
+                ${chip(c.pii_present, 'PII надано', 'PII відсутні')}
+            </div>
+            <div class="d-row" style="margin-top:10px;color:var(--muted);">
+                Статус доступу: <b style="color:var(--text-primary);">${esc(c.access_status)}</b>${c.consent_at ? ' · згода від ' + esc(c.consent_at) : ''}
+            </div>
+            <div class="d-row" style="margin-top:8px;color:var(--muted);font-size:11.5px;">
+                Договір співпраці (ЦПД) — текстова заглушка до фіналізації юристом. Підписання Дією додамо згодом.
+            </div>
+        </div>
+
+        <div class="d-section">
+            <h4>MOSAIC (shadow)</h4>
+            <div class="d-stat-row">
+                <div class="d-stat"><div class="v">${d.mosaic.score != null ? Math.round(d.mosaic.score) : '—'}</div><div class="l">Score</div></div>
+                <div class="d-stat"><div class="v">${d.mosaic.confidence != null ? d.mosaic.confidence.toFixed(2) : '—'}</div><div class="l">Довіра</div></div>
+                <div class="d-stat"><div class="v" style="font-size:13px;">${esc(d.mosaic.date || '—')}</div><div class="l">Снапшот</div></div>
+            </div>
+        </div>`;
     }
-    const clientsUrlTemplate = "{% url 'management_admin_user_clients' 0 %}";
-    const state = {
-        userId: null,
-        offset: 0,
-        limit: 80,
-        total: 0,
-        hasMore: false,
-        query: '',
-        loaded: [],
-    };
 
-    const setChips = (user) => {
-        if (!adminChips) return;
-        const chips = [];
-        const mk = (label, value, tone='') => {
-            const el = document.createElement('div');
-            el.className = `admin-chip ${tone}`.trim();
-            el.textContent = `${label}: ${value}`;
-            return el;
-        };
-        chips.push(mk('Сьогодні', `${user.today} клієнтів`, 'accent'));
-        chips.push(mk('Бали', `${user.points_today}`, 'accent'));
-        chips.push(mk('Всього', `${user.total} клієнтів`, ''));
-        chips.push(mk('Бали', `${user.points_total}`, ''));
-        adminChips.innerHTML = '';
-        chips.forEach(c => adminChips.appendChild(c));
-    };
+    // Відкриття по кліку на картку
+    document.addEventListener('click', (e) => {
+        const card = e.target.closest('.mgr-card');
+        if (card) { openDossier(card.dataset.userId, card.dataset.userName); return; }
+        if (e.target.closest('[data-dossier-close]') || e.target === dossier) { closeDossier(); return; }
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && dossier && !dossier.hidden) closeDossier(); });
 
-    const escapeText = (v) => (v === null || v === undefined) ? '' : String(v);
+    // Призначення рівня (self-contained, надійний submit)
+    document.addEventListener('submit', async (e) => {
+        const form = e.target.closest('#d-assign-form');
+        if (!form) return;
+        e.preventDefault();
+        const fb = document.getElementById('d-assign-feedback');
+        const btn = form.querySelector('button[type="submit"]');
+        btn.disabled = true; fb.textContent = 'Збереження…'; fb.className = 'd-feedback';
+        try {
+            const fd = new FormData(form);
+            fd.append('user_id', currentUserId);
+            const res = await fetch('{% url "management_admin_assign_level_api" %}', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken'), 'X-Requested-With': 'XMLHttpRequest' },
+                body: fd,
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.success) throw new Error(data.error || 'Помилка');
+            fb.textContent = data.message || 'Збережено'; fb.className = 'd-feedback ok';
+            setTimeout(() => window.location.reload(), 800);
+        } catch (err) {
+            fb.textContent = err.message || 'Помилка'; fb.className = 'd-feedback err';
+            btn.disabled = false;
+        }
+    });
 
-    const pill = (text, cls) => {
-        const el = document.createElement('span');
-        el.className = `pill ${cls || ''}`.trim();
-        el.textContent = escapeText(text);
-        return el;
-    };
-
-    const renderOverview = () => {
-        if (!adminModalList) return;
-        adminModalList.innerHTML = '';
-        if (!state.loaded.length) {
-            const empty = document.createElement('div');
-            empty.className = 'table-empty';
-            empty.textContent = state.query ? 'Нічого не знайдено' : 'Немає клієнтів';
-            adminModalList.appendChild(empty);
+    // Дії в досьє (виплати + тижневі рішення)
+    document.addEventListener('click', async (e) => {
+        const payoutBtn = e.target.closest('.d-payout');
+        const wrBtn = e.target.closest('.d-wr');
+        if (payoutBtn) {
+            const act = payoutBtn.dataset.act, id = payoutBtn.dataset.id;
+            let payload = {};
+            if (act === 'reject') {
+                const reason = prompt('Причина відхилення:');
+                if (!reason) return;
+                payload = { reason };
+            }
+            payoutBtn.disabled = true;
+            try {
+                const res = await fetch(`/admin-panel/payouts/api/request/${id}/${act}/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                    body: JSON.stringify(payload),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!data.ok) throw new Error(data.error || 'Помилка');
+                openDossier(currentUserId, elName.textContent);
+            } catch (err) { alert(err.message || 'Помилка'); payoutBtn.disabled = false; }
             return;
         }
-        const groups = new Map();
-        for (const c of state.loaded) {
-            const key = c.created_date_label || '—';
-            if (!groups.has(key)) groups.set(key, []);
-            groups.get(key).push(c);
-        }
-        for (const [label, clients] of groups.entries()) {
-            const group = document.createElement('div');
-            group.className = 'overview-group';
-            const head = document.createElement('div');
-            head.className = 'overview-group-title';
-            head.textContent = `${label} • ${clients.length}`;
-            group.appendChild(head);
-
-            for (const c of clients) {
-                const details = document.createElement('details');
-                details.className = 'client-item';
-
-                const summary = document.createElement('summary');
-                summary.className = 'client-summary';
-
-                const left = document.createElement('div');
-                left.className = 'client-left';
-                const shop = document.createElement('div');
-                shop.className = 'client-shop';
-                shop.textContent = escapeText(c.shop);
-                const sub = document.createElement('div');
-                sub.className = 'client-sub';
-                const subParts = [];
-                if (c.phone) subParts.push(escapeText(c.phone));
-                if (c.full_name) subParts.push(escapeText(c.full_name));
-                sub.textContent = subParts.join(' • ') || '—';
-                left.appendChild(shop);
-                left.appendChild(sub);
-
-                const right = document.createElement('div');
-                right.className = 'client-right';
-                right.appendChild(pill(c.result, `result result-${escapeText(c.result_code)}`));
-                right.appendChild(pill(c.role, `role role-${escapeText(c.role_code)}`));
-                right.appendChild(pill(`+${c.points || 0}`, 'points'));
-                if (c.next_call && c.next_call !== '–') {
-                    right.appendChild(pill(c.next_call, `next next-${escapeText(c.next_call_status)}`));
-                }
-                const created = document.createElement('div');
-                created.className = 'client-created';
-                created.textContent = escapeText(c.created);
-                right.appendChild(created);
-
-                summary.appendChild(left);
-                summary.appendChild(right);
-                details.appendChild(summary);
-
-                const body = document.createElement('div');
-                body.className = 'client-details';
-
-                const rows = [
-                    ['ПІБ', c.full_name || '—'],
-                    ['Телефон', c.phone || '—'],
-                    ['Статус', c.role || '—'],
-                    ['Джерело', c.source || '—'],
-                    ['Підсумок', (c.result || '—') + (c.details ? ` • ${c.details}` : '')],
-                    ['Наступний дзвінок', c.next_call || '—'],
-                ];
-                rows.forEach(([k, v]) => {
-                    const row = document.createElement('div');
-                    row.className = 'client-detail';
-                    const kk = document.createElement('div');
-                    kk.className = 'client-k';
-                    kk.textContent = k;
-                    const vv = document.createElement('div');
-                    vv.className = 'client-v';
-                    vv.textContent = escapeText(v);
-                    row.appendChild(kk);
-                    row.appendChild(vv);
-                    body.appendChild(row);
+        if (wrBtn) {
+            const id = wrBtn.dataset.id, dec = wrBtn.dataset.dec, base = parseFloat(wrBtn.dataset.base || '0');
+            let amount = null, reason = '';
+            if (dec === 'custom') {
+                const raw = prompt('Сума винагороди (грн):', base ? base.toFixed(2) : '');
+                if (raw === null) return;
+                amount = parseFloat(String(raw).replace(',', '.'));
+                if (isNaN(amount) || amount < 0) { alert('Невірна сума'); return; }
+            }
+            if (dec !== 'full') {
+                reason = prompt('Причина рішення (обов\'язково):', '') || '';
+                if (!reason.trim()) { alert('Причина обов\'язкова'); return; }
+            }
+            wrBtn.disabled = true;
+            try {
+                const res = await fetch(`/admin-panel/weekly-reviews/${id}/decide/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                    body: JSON.stringify({ decision: dec, amount, reason }),
                 });
-                details.appendChild(body);
-                group.appendChild(details);
-            }
-            adminModalList.appendChild(group);
+                const data = await res.json().catch(() => ({}));
+                if (!data.ok) throw new Error(data.error || 'Помилка');
+                openDossier(currentUserId, elName.textContent);
+            } catch (err) { alert(err.message || 'Помилка'); wrBtn.disabled = false; }
+            return;
         }
-    };
-
-    const setLoading = () => {
-        if (!adminModalList) return;
-        adminModalList.innerHTML = '<div class="table-empty">Завантаження…</div>';
-    };
-
-    const fetchPage = (reset = false) => {
-        if (!state.userId) return;
-        if (reset) {
-            state.offset = 0;
-            state.loaded = [];
-        }
-        setLoading();
-        const url = new URL(clientsUrlTemplate.replace('/0/', `/${state.userId}/`), window.location.origin);
-        url.searchParams.set('offset', String(state.offset));
-        url.searchParams.set('limit', String(state.limit));
-        if (state.query) url.searchParams.set('q', state.query);
-        fetch(url.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' }})
-            .then(r => r.json())
-            .then(data => {
-                if (!data || !data.ok) throw new Error('bad');
-                state.total = data.total || 0;
-                state.hasMore = !!data.has_more;
-                state.loaded = state.loaded.concat(data.clients || []);
-                state.offset = state.loaded.length;
-                renderOverview();
-                if (adminLoadMore) adminLoadMore.style.display = state.hasMore ? 'inline-flex' : 'none';
-            })
-            .catch(() => {
-                if (!adminModalList) return;
-                adminModalList.innerHTML = '<div class="table-empty">Помилка завантаження</div>';
-                if (adminLoadMore) adminLoadMore.style.display = 'none';
-            });
-    };
-
-    if (adminLoadMore) {
-        adminLoadMore.addEventListener('click', () => fetchPage(false));
-    }
-    if (adminSearch) {
-        let t = null;
-        adminSearch.addEventListener('input', () => {
-            clearTimeout(t);
-            t = setTimeout(() => {
-                state.query = adminSearch.value.trim();
-                fetchPage(true);
-            }, 280);
-        });
-    }
-
-    document.querySelectorAll('.admin-overview').forEach(btn => {
-        btn.addEventListener('click', () => {
-            if (!adminModal) return;
-            const uid = parseInt(btn.dataset.userId, 10);
-            const user = adminUsers.find(u => u.id === uid);
-            if (!user) return;
-            adminModalOpener = btn;
-            adminModalTitle.textContent = `Огляд: ${user.name}`;
-            if (adminModalSubtitle) {
-                adminModalSubtitle.textContent = `${user.role} • Останній вхід: ${user.last_login}`;
-            }
-            if (adminSearch) adminSearch.value = '';
-            state.userId = uid;
-            state.query = '';
-            setChips(user);
-            fetchPage(true);
-            adminModal.hidden = false;
-            adminModal.classList.add('show');
-            body.classList.add('modal-open');
-            const modalCard = adminModal.querySelector('.modal-card');
-            if (modalCard) modalCard.focus();
-        });
     });
-});
+})();
 </script>
 {% endif %}
 {% endblock %}
