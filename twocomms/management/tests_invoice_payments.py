@@ -126,6 +126,17 @@ class ApplyStatusAndCommissionTests(TestCase):
         inv.refresh_from_db()
         self.assertEqual(inv.payment_status, "paid")
 
+    def test_poll_command_confirms_pending(self):
+        from django.core.management import call_command
+        inv = _invoice(self.manager, number="INV-POLL-1", payment_status="pending",
+                       monobank_invoice_id="mpoll", payment_link_created_at=timezone.now())
+        with patch("storefront.views.monobank._monobank_api_request",
+                   return_value={"invoiceId": "mpoll", "status": "success", "amount": 100000}):
+            call_command("poll_wholesale_invoice_payments")
+        inv.refresh_from_db()
+        self.assertEqual(inv.payment_status, "paid")
+        self.assertEqual(ManagerCommissionAccrual.objects.filter(invoice=inv).count(), 1)
+
 
 @override_settings(
     ROOT_URLCONF="twocomms.urls_management",
