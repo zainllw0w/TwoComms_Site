@@ -137,6 +137,16 @@ class ApplyStatusAndCommissionTests(TestCase):
         self.assertEqual(inv.payment_status, "paid")
         self.assertEqual(ManagerCommissionAccrual.objects.filter(invoice=inv).count(), 1)
 
+    def test_paid_triggers_notification_once(self):
+        from unittest.mock import patch as _patch
+        inv = _invoice(self.manager, number="INV-NOTIFY-1", payment_status="pending", monobank_invoice_id="mn")
+        with _patch("management.services.notify.notify_invoice_paid") as mock_notify:
+            invoice_payments.apply_payment_status(inv, "success", amount_minor=100000)
+            self.assertEqual(mock_notify.call_count, 1)
+            # Повторне застосування paid не шле вдруге.
+            invoice_payments.apply_payment_status(inv, "success", amount_minor=100000)
+            self.assertEqual(mock_notify.call_count, 1)
+
 
 @override_settings(
     ROOT_URLCONF="twocomms.urls_management",

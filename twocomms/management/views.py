@@ -4917,8 +4917,14 @@ def invoices_list_api(request):
         return JsonResponse({'ok': False}, status=403)
 
     from orders.models import WholesaleInvoice
+    from management.models import ManagerCommissionAccrual
+    from management.services import invoice_center
 
     invoices = WholesaleInvoice.objects.filter(created_by=request.user).order_by('-created_at')[:200]
+    accr_map = {
+        a.invoice_id: a
+        for a in ManagerCommissionAccrual.objects.filter(invoice__in=invoices)
+    }
     data = []
     for inv in invoices:
         download_filename = ''
@@ -4926,6 +4932,10 @@ def invoices_list_api(request):
             download_filename = os.path.basename(inv.file_path) if inv.file_path else ''
         except Exception:
             download_filename = ''
+        accr = accr_map.get(inv.id)
+        lifecycle = invoice_center.derive_lifecycle(inv, accr)
+        label, tone = invoice_center.LIFECYCLE.get(lifecycle, (lifecycle, 'neutral'))
+        frozen = invoice_center._frozen_progress(accr) if lifecycle in ('paid_frozen', 'paid_released') else None
         data.append({
             'id': inv.id,
             'invoice_number': inv.invoice_number,
@@ -4947,6 +4957,14 @@ def invoices_list_api(request):
             'payment_status': inv.payment_status,
             'payment_url': inv.payment_url,
             'download_filename': download_filename,
+            # Життєвий цикл + оплата (для бейджів/заморозки у менеджера).
+            'lifecycle': lifecycle,
+            'lifecycle_label': label,
+            'lifecycle_tone': tone,
+            'paid_at': timezone.localtime(inv.paid_at).strftime('%d.%m.%Y %H:%M') if inv.paid_at else '',
+            'link_copied_at': timezone.localtime(inv.payment_link_copied_at).strftime('%d.%m.%Y %H:%M') if inv.payment_link_copied_at else '',
+            'commission_amount': str(accr.amount) if accr else '',
+            'frozen': frozen,
         })
     return JsonResponse({'ok': True, 'invoices': data})
 
@@ -5203,6 +5221,12 @@ def invoices_create_payment_api(request, invoice_id):
             "Надішліть посилання клієнту для оплати.",
         ],
     )
+    # Адміну — повідомлення про створення посилання (детально).
+    try:
+        from management.services.notify import notify_payment_link_created
+        notify_payment_link_created(invoice)
+    except Exception:
+        pass
 
     return JsonResponse({'ok': True, 'payment_url': payment_url, 'monobank_invoice_id': monobank_invoice_id})
 

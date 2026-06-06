@@ -134,6 +134,15 @@ def apply_payment_status(invoice, status, amount_minor=None) -> bool:
 
     if fields:
         invoice.save(update_fields=list(dict.fromkeys(fields)))
+        # Сповіщення про оплату — лише при реальному переході в paid.
+        if "payment_status" in fields and invoice.payment_status == "paid":
+            try:
+                from management.models import ManagerCommissionAccrual
+                from management.services.notify import notify_invoice_paid
+                accrual = ManagerCommissionAccrual.objects.filter(invoice=invoice).first()
+                notify_invoice_paid(invoice, accrual)
+            except Exception as exc:
+                logger.warning("paid notification failed for invoice %s: %s", invoice.id, exc)
         return True
     return False
 

@@ -11,6 +11,13 @@
         --tc-text: rgba(255, 255, 255, 0.95);
     }
 
+    /* Бейдж життєвого циклу + блок заморозки винагороди */
+    .invoice-life-badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; vertical-align: middle; margin-left: 8px; white-space: nowrap; }
+    .invoice-freeze { margin-top: 8px; }
+    .invoice-freeze-bar { height: 6px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+    .invoice-freeze-bar span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #ffb347, #34d399); transition: width .4s ease; }
+    .invoice-freeze-text { margin-top: 5px; font-size: 12px; color: rgba(255,255,255,0.7); }
+
     .order-form-container {
         max-width: 1400px;
         margin: 0 auto;
@@ -4776,15 +4783,52 @@
             ? `<div class="invoice-reject-reason"><span class="label">Причина:</span> ${escapeHtml(inv.review_reject_reason)}</div>`
             : '';
 
+        // Бейдж життєвого циклу (оплачено/очікує/тощо) — менеджер бачить статус.
+        const toneColors = {
+            ok: ['rgba(16,185,129,0.14)', '#6ee7b7', 'rgba(16,185,129,0.4)'],
+            warn: ['rgba(245,158,11,0.14)', '#fcd34d', 'rgba(245,158,11,0.4)'],
+            bad: ['rgba(239,68,68,0.14)', '#fca5a5', 'rgba(239,68,68,0.4)'],
+            watch: ['rgba(99,102,241,0.16)', '#c4b5fd', 'rgba(99,102,241,0.4)'],
+            neutral: ['rgba(255,255,255,0.06)', 'rgba(255,255,255,0.7)', 'rgba(255,255,255,0.12)'],
+        };
+        const tc = toneColors[inv.lifecycle_tone] || toneColors.neutral;
+        const badgeHtml = inv.lifecycle_label
+            ? `<span class="invoice-life-badge" style="background:${tc[0]};color:${tc[1]};border:1px solid ${tc[2]};">${escapeHtml(inv.lifecycle_label)}</span>`
+            : '';
+
+        // Блок заморозки винагороди після оплати.
+        let freezeHtml = '';
+        if (inv.frozen) {
+            const f = inv.frozen;
+            const txt = f.released
+                ? `Винагорода доступна (${escapeHtml(f.amount)} грн)`
+                : `Заморожено ${escapeHtml(f.amount)} грн · доступно ${escapeHtml(f.frozen_until)} (${f.days_left} дн)`;
+            const fillPct = Math.max(0, Math.min(100, f.progress_pct || 0));
+            freezeHtml = `<div class="invoice-freeze">
+                <div class="invoice-freeze-bar"><span style="width:${fillPct}%;"></span></div>
+                <div class="invoice-freeze-text">${f.released ? '🟢' : '🔒'} ${txt}</div>
+            </div>`;
+        }
+
+        // Кнопка оновлення статусу, поки очікуємо оплату.
+        const canRefresh = ['link_created', 'link_copied', 'awaiting_payment'].includes(inv.lifecycle);
+        const refreshBtnHtml = canRefresh
+            ? `<button class="action-btn" onclick="refreshInvoiceStatus('${invoiceId}')" title="Оновити статус оплати" style="background:#3b82f6;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"/></svg>
+                Оновити статус
+            </button>`
+            : '';
+
         const item = document.createElement('div');
         item.className = 'invoice-item';
         item.dataset.invoiceId = invoiceId;
         item.innerHTML = `
         <div class="invoice-info">
-            <div class="invoice-name">${escapeHtml(displayTitle)}</div>
+            <div class="invoice-name">${escapeHtml(displayTitle)} ${badgeHtml}</div>
             <div class="invoice-date">${escapeHtml(inv.created_at || '')} • ${escapeHtml(inv.company_name || '')}</div>
             <div class="invoice-stats">${escapeHtml(statsText)}</div>
             <div class="invoice-total">${escapeHtml(totalAmount)}</div>
+            ${freezeHtml}
             ${rejectReasonHtml}
         </div>
         <div class="invoice-actions">
@@ -4803,6 +4847,7 @@
                 </svg>
                 Видалити
             </button>
+            ${refreshBtnHtml}
             <button class="action-btn main-action-btn" onclick="handleMainAction('${invoiceId}')" title="Основна дія" style="background: ${state.bg};" data-invoice-id="${invoiceId}" ${state.disabled ? 'disabled' : ''}>
                 ${iconSvg(state.icon)}
                 ${escapeHtml(state.label)}
