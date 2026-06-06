@@ -17,6 +17,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import transaction
 from .models import Order
 from .telegram_notifications import TelegramNotifier
 
@@ -278,52 +279,46 @@ class NovaPoshtaService:
             )
             return None
 
-    def _get_np_tracking_state(self, order):
-        """Возвращает служебный словарь дедупа из payment_payload."""
-        payload = order.payment_payload if isinstance(order.payment_payload, dict) else {}
-        np_tracking = payload.get('np_tracking')
-        return np_tracking if isinstance(np_tracking, dict) else {}
-
-    def _persist_np_tracking_state(self, order, status_code, status_text):
+    def _status_indicates_delivered(self, status, status_description, status_code=None):
         """
-        Сохраняет последний нотифицированный StatusCode в payment_payload.
+        Чистая проверка «посылка получена» без сайд-эффектов.
 
-        Это якорь дедупа: уведомление шлём только когда меняется именно
-        КОД статуса НП, а не свободный текст (который у НП плавает —
-        плата за зберігання, грошові перекази, таймстемпи и т.п.).
-        Возвращает True, если payment_payload был изменён.
+        1. ПРИОРИТЕТ: StatusCode == 9 (надёжно)
+        2. РЕЗЕРВ: ключевые слова в тексте статуса/описания
         """
-        payload = order.payment_payload if isinstance(order.payment_payload, dict) else {}
-        np_tracking = payload.get('np_tracking')
-        if not isinstance(np_tracking, dict):
-            np_tracking = {}
+        if status_code == self.STATUS_RECEIVED:
+            return True
 
-        np_tracking['last_status_code'] = status_code
-        np_tracking['last_status_text'] = (status_text or '')[:self.SHIPMENT_STATUS_MAX_LENGTH]
-        np_tracking['last_notified_at'] = timezone.now().isoformat()
-
-        payload['np_tracking'] = np_tracking
-        order.payment_payload = payload
-        return True
+        delivered_keywords = [
+            'отримано', 'получено', 'доставлено', 'вручено',
+            'отримано відправлення', 'получено получателем',
+            'отримано одержувачем', 'вручено адресату',
+        ]
+        status_lower = (status or '').lower().strip()
+        description_lower = (status_description or '').lower().strip()
+        return any(
+            keyword in status_lower or keyword in description_lower
+            for keyword in delivered_keywords
+        )
 
     def update_order_tracking_status(self, order):
         """
-        Обновляет статус посылки для заказа
+        Обновляет статус посылки для заказа.
 
         Алгоритм:
-        1. Получает информацию о статусе через API
-        2. Определяет реальное событие по StatusCode (а не по тексту)
-        3. Обновляет shipment_status в заказе (для отображения)
-        4. Автоматически меняет status на 'done' если StatusCode=9 (получено)
-        5. Меняет payment_status на 'paid' при получении
-        6. Отправляет Purchase событие в Facebook
-        7. Отправляет уведомления в Telegram ТОЛЬКО при смене StatusCode
+        1. Тянет статус через API (вне блокировки).
+        2. В одной транзакции с ``select_for_update`` берёт row-lock на заказ,
+           перечитывает актуальное состояние, решает по StatusCode нужно ли
+           уведомление, меняет поля и фиксирует якорь дедупа.
+        3. После коммита (вне блокировки) шлёт Telegram/Facebook уведомления.
 
-        Args:
-            order (Order): Заказ для обновления
+        Row-lock гарантирует, что параллельные потоки/процессы (несколько
+        worker'ов Passenger + middleware fallback) не обработают один заказ
+        одновременно и не зашлют дубликаты — второй поток дождётся коммита
+        первого и увидит уже обновлённый якорь.
 
         Returns:
-            bool: True если что-то обновлено/отправлено, False если нет
+            bool: True если что-то изменилось/отправлено, False если нет
         """
         if not order.tracking_number:
             logger.debug(f"Order {order.order_number}: no tracking number")
@@ -348,203 +343,140 @@ class NovaPoshtaService:
         full_status = f"{status} - {status_description}" if status_description else status
         full_status = full_status.strip()[:self.SHIPMENT_STATUS_MAX_LENGTH]
 
-        old_status = order.shipment_status or ''
-        # Сравниваем только базовый Status (без description) — для текстового слоя
-        current_status_base = old_status.split(' - ')[0].strip()
-        new_status_base = status
-        text_changed = current_status_base != new_status_base
-
-        # --- Дедуп по StatusCode (главный признак реального события) ---
-        np_tracking = self._get_np_tracking_state(order)
-        last_notified_code = np_tracking.get('last_status_code')
-        has_dedup_anchor = 'last_status_code' in np_tracking
-
-        if status_code is not None:
-            if not has_dedup_anchor:
-                # Первый прогон после деплоя для этого заказа: якоря ещё нет.
-                # Не спамим уже доставленные/идущие заказы — уведомляем только
-                # если базовый текст реально изменился относительно сохранённого.
-                should_notify = text_changed
-            else:
-                should_notify = status_code != last_notified_code
-        else:
-            # API не отдал код — откатываемся на текстовую детекцию (legacy)
-            should_notify = text_changed
-
-        # Обновляем текст статуса (для отображения), даже без уведомления
-        if text_changed:
-            order.shipment_status = full_status
-            order.shipment_status_updated = timezone.now()
-            logger.info(
-                f"Order {order.order_number}: shipment_status text changed "
-                f"'{current_status_base}' -> '{new_status_base}' "
-                f"(code={status_code}, notify={should_notify})"
+        try:
+            decision = self._apply_tracking_update(
+                order.pk, status, status_description, status_code, full_status
             )
+        except ObjectDoesNotExist:
+            logger.warning(f"Order pk={order.pk} disappeared during tracking update")
+            return False
+        except Exception as e:
+            logger.error(
+                f"Order {order.order_number}: failed to apply tracking update: {e}",
+                exc_info=True,
+            )
+            return False
 
-        if not should_notify:
-            # Нечего сообщать. Но если код впервые увиден — фиксируем якорь,
-            # плюс на случай уже доставленной посылки докручиваем статус заказа.
-            payload_changed = False
-            if status_code is not None and status_code != last_notified_code:
-                payload_changed = self._persist_np_tracking_state(order, status_code, full_status)
-
-            update_fields = []
-            if text_changed:
-                update_fields += ['shipment_status', 'shipment_status_updated']
-            if payload_changed:
-                update_fields.append('payment_payload')
-
-            if update_fields:
-                self._save_order(order, update_fields)
-                return True
-
+        if decision is None:
             logger.debug(f"Order {order.order_number}: no changes")
             return False
 
-        # --- Есть реальное событие: обновляем заказ и шлём уведомление ---
-        order_status_changed = self._update_order_status_if_delivered(
-            order, status, status_description, status_code
-        )
+        # Синхронизируем переданный объект с зафиксированным состоянием,
+        # чтобы вызывающий код и уведомления видели свежие данные.
+        fresh = decision['order']
+        order.status = fresh.status
+        order.payment_status = fresh.payment_status
+        order.shipment_status = fresh.shipment_status
+        order.shipment_status_updated = fresh.shipment_status_updated
+        order.payment_payload = fresh.payment_payload
 
-        # Фиксируем якорь дедупа по коду
-        self._persist_np_tracking_state(order, status_code, full_status)
+        if not decision['notify']:
+            return decision['changed']
 
-        # Гарантированно сохраняем все затронутые поля одним вызовом
-        self._save_order(
-            order,
-            ['shipment_status', 'shipment_status_updated', 'status',
-             'payment_status', 'payment_payload'],
-        )
-
-        # Отправляем уведомление: о доставке либо об изменении статуса
-        if order_status_changed:
+        # --- Уведомления и внешние события: строго вне транзакции/лока ---
+        if decision['is_delivery']:
+            if decision['payment_status_changed']:
+                self._send_facebook_purchase_event(order)
+            self._send_admin_delivery_notification(
+                order, decision['old_order_status'], decision['payment_status_changed']
+            )
             self._send_delivery_notification(order, full_status)
         else:
-            self._send_status_notification(order, old_status, full_status)
+            self._send_status_notification(order, decision['old_shipment_status'], full_status)
 
         return True
 
-    def _save_order(self, order, update_fields):
+    def _apply_tracking_update(self, order_pk, status, status_description, status_code, full_status):
         """
-        Сохраняет заказ с указанными полями, с фолбэком на полный save().
+        Атомарно (с row-lock) применяет изменение статуса к заказу.
 
-        Returns:
-            bool: True если сохранение успешно
+        Возвращает dict с флагами для последующей отправки уведомлений
+        или None, если изменений нет.
         """
-        try:
-            order.save(update_fields=update_fields)
-            logger.debug(
-                f"Order {order.order_number}: saved fields {update_fields}"
-            )
-            return True
-        except Exception as e:
-            logger.error(
-                f"Order {order.order_number}: failed to save {update_fields}: {e}",
-                exc_info=True,
-            )
-            try:
-                order.save()
-                logger.info(f"Order {order.order_number}: saved without update_fields")
-                return True
-            except Exception as e2:
-                logger.error(
-                    f"Order {order.order_number}: failed to save even without "
-                    f"update_fields: {e2}",
-                    exc_info=True,
-                )
-                return False
+        with transaction.atomic():
+            order = Order.objects.select_for_update().get(pk=order_pk)
 
-    def _update_order_status_if_delivered(self, order, status, status_description, status_code=None):
-        """
-        Автоматически меняет статус заказа на 'done' при получении посылки.
-
-        ЛОГИКА ОПРЕДЕЛЕНИЯ ПОЛУЧЕНИЯ:
-        1. ПРИОРИТЕТ: Проверка StatusCode == 9 (надежный метод)
-        2. РЕЗЕРВ: Проверка по ключевым словам в тексте статуса
-
-        При получении посылки:
-        1. Меняет status на 'done' (получено)
-        2. Если payment_status != 'paid' → меняет на 'paid'
-        3. Отправляет Purchase событие в Facebook Conversions API
-        4. Отправляет уведомление админу
-
-        Args:
-            order (Order): Заказ
-            status (str): Статус посылки (текст)
-            status_description (str): Описание статуса (текст)
-            status_code (int, optional): Код статуса Nova Poshta (StatusCode)
-
-        Returns:
-            bool: True если статус заказа был изменен
-        """
-        # МЕТОД 1: Проверка по коду статуса (НАДЕЖНО)
-        is_delivered_by_code = status_code == self.STATUS_RECEIVED
-
-        # МЕТОД 2: Проверка по ключевым словам (РЕЗЕРВНЫЙ)
-        delivered_keywords = [
-            'отримано', 'получено', 'доставлено', 'вручено',
-            'отримано отримувачем', 'получено получателем',
-            'отримано одержувачем', 'вручено адресату'
-        ]
-
-        status_lower = (status or '').lower().strip()
-        description_lower = (status_description or '').lower().strip()
-
-        is_delivered_by_keywords = any(
-            keyword in status_lower or keyword in description_lower
-            for keyword in delivered_keywords
-        )
-
-        # Объединяем результаты (приоритет StatusCode)
-        is_delivered = is_delivered_by_code or is_delivered_by_keywords
-
-        # Логируем анализ
-        logger.debug(
-            f"Order {order.order_number} delivery check: "
-            f"StatusCode={status_code}, is_delivered_by_code={is_delivered_by_code}, "
-            f"is_delivered_by_keywords={is_delivered_by_keywords}, "
-            f"final_is_delivered={is_delivered}"
-        )
-
-        # Если посылка получена и статус заказа еще не 'done'
-        if is_delivered and order.status != 'done':
+            old_shipment_status = order.shipment_status or ''
             old_order_status = order.status
-            old_payment_status = order.payment_status
 
-            # 1. Меняем статус заказа
-            order.status = 'done'
-            logger.info(
-                f"✅ Order {order.order_number}: status changed from "
-                f"'{old_order_status}' to 'done' (parcel received, StatusCode={status_code})"
-            )
+            current_status_base = old_shipment_status.split(' - ')[0].strip()
+            text_changed = current_status_base != status
 
-            # 2. Автоматически меняем payment_status на 'paid' если посылка получена
-            # ВАЖНО: Когда посылка получена (отримано), статус оплаты меняется на 'paid'
-            # независимо от того, была ли предоплата или нет.
-            # Предоплата (prepaid) меняется на 'paid' только когда посылка полностью получена.
-            payment_status_changed = False
-            if order.payment_status != 'paid':
-                order.payment_status = 'paid'
-                payment_status_changed = True
-                logger.info(
-                    f"💰 Order {order.order_number}: payment_status changed "
-                    f"from '{old_payment_status}' to 'paid' (parcel received - full payment)"
-                )
+            payload = order.payment_payload if isinstance(order.payment_payload, dict) else {}
+            np_tracking = payload.get('np_tracking')
+            if not isinstance(np_tracking, dict):
+                np_tracking = {}
+            last_notified_code = np_tracking.get('last_status_code')
+            has_anchor = 'last_status_code' in np_tracking
 
-                # 3. Отправляем Purchase событие в Facebook Conversions API
-                self._send_facebook_purchase_event(order)
+            # Решение об уведомлении строится на StatusCode, а не на тексте
+            if status_code is not None:
+                if not has_anchor:
+                    # Якоря ещё нет (старый заказ): не спамим, если базовый
+                    # текст не изменился — просто инициализируем якорь.
+                    should_notify = text_changed
+                else:
+                    should_notify = status_code != last_notified_code
             else:
-                logger.debug(
-                    f"💰 Order {order.order_number}: payment_status already 'paid', "
-                    f"no change needed"
-                )
+                should_notify = text_changed
 
-            # 4. Отправляем уведомление админу об автоматическом изменении статуса
-            self._send_admin_delivery_notification(order, old_order_status, payment_status_changed)
+            update_fields = []
 
-            return True
+            if text_changed:
+                order.shipment_status = full_status
+                order.shipment_status_updated = timezone.now()
+                update_fields += ['shipment_status', 'shipment_status_updated']
 
-        return False
+            is_delivery = False
+            payment_status_changed = False
+
+            if should_notify:
+                if (
+                    self._status_indicates_delivered(status, status_description, status_code)
+                    and order.status != 'done'
+                ):
+                    order.status = 'done'
+                    is_delivery = True
+                    update_fields.append('status')
+                    logger.info(
+                        f"✅ Order {order.order_number}: status '{old_order_status}' -> 'done' "
+                        f"(parcel received, StatusCode={status_code})"
+                    )
+                    if order.payment_status != 'paid':
+                        order.payment_status = 'paid'
+                        payment_status_changed = True
+                        update_fields.append('payment_status')
+
+                # Фиксируем якорь дедупа по коду
+                np_tracking['last_status_code'] = status_code
+                np_tracking['last_status_text'] = (full_status or '')[:self.SHIPMENT_STATUS_MAX_LENGTH]
+                np_tracking['last_notified_at'] = timezone.now().isoformat()
+                payload['np_tracking'] = np_tracking
+                order.payment_payload = payload
+                update_fields.append('payment_payload')
+            elif status_code is not None and status_code != last_notified_code:
+                # Молча инициализируем/обновляем якорь без уведомления
+                np_tracking['last_status_code'] = status_code
+                np_tracking['last_status_text'] = (full_status or '')[:self.SHIPMENT_STATUS_MAX_LENGTH]
+                np_tracking['last_notified_at'] = timezone.now().isoformat()
+                payload['np_tracking'] = np_tracking
+                order.payment_payload = payload
+                update_fields.append('payment_payload')
+
+            if not update_fields:
+                return None
+
+            order.save(update_fields=update_fields)
+
+            return {
+                'order': order,
+                'changed': True,
+                'notify': should_notify,
+                'is_delivery': is_delivery,
+                'payment_status_changed': payment_status_changed,
+                'old_order_status': old_order_status,
+                'old_shipment_status': old_shipment_status,
+            }
 
     def _send_facebook_purchase_event(self, order):
         """
