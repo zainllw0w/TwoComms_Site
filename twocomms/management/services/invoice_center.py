@@ -36,7 +36,6 @@ FILTER_ORDER = [
     "review",
     "approved",
     "link_created",
-    "link_copied",
     "awaiting_payment",
     "paid_frozen",
     "paid_released",
@@ -70,13 +69,13 @@ def derive_lifecycle(invoice, accrual=None, *, now=None) -> str:
     if payment == "failed":
         return "payment_failed"
     if payment == "pending":
-        if invoice.payment_link_copied_at:
-            return "link_copied"
+        # Посилання сформоване й (зазвичай) надіслане клієнту → очікуємо оплату.
         return "awaiting_payment"
     # not_paid
     if invoice.payment_url:
+        # Скопійоване посилання = вже надіслане клієнту → очікуємо оплату.
         if invoice.payment_link_copied_at:
-            return "link_copied"
+            return "awaiting_payment"
         return "link_created"
     return "approved"
 

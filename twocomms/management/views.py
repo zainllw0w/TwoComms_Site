@@ -1568,18 +1568,11 @@ def admin_overview(request):
         for u in users:
             last_login = u.last_login
             last_login_local = timezone.localtime(last_login) if last_login else None
-            # Онлайн-статус: пріоритет last_seen_at (pulse активності),
-            # фолбек на last_login для сумісності.
+            # Онлайн ТІЛЬКИ за реальною активністю (pulse → last_seen_at).
+            # last_login НЕ робить менеджера "онлайн" (інакше щойно залогінений
+            # адмін показувався б онлайн без активності).
             last_seen_at = last_seen_map.get(u.id)
-            if not last_seen_at and last_login:
-                online_state = {'online': (timezone.now() - last_login) <= timedelta(minutes=5),
-                                'last_seen_label': '', 'last_seen_iso': ''}
-                if online_state['online']:
-                    online_state['last_seen_label'] = 'Онлайн'
-                else:
-                    online_state['last_seen_label'] = last_login_local.strftime('%d.%m.%Y %H:%M') if last_login_local else 'Немає даних'
-            else:
-                online_state = compute_online_state(last_seen_at)
+            online_state = compute_online_state(last_seen_at)
             online = online_state['online']
             user_clients = Client.objects.filter(owner=u).order_by('-created_at')
             points_stats = get_user_stats(u)
@@ -1594,6 +1587,15 @@ def admin_overview(request):
             mosaic_confidence = float(mosaic['score_confidence']) if mosaic else None
 
             prof = getattr(u, 'userprofile', None)
+            avatar_url = ''
+            try:
+                if prof and getattr(prof, 'avatar', None):
+                    avatar_url = prof.avatar.url
+            except Exception:
+                avatar_url = ''
+            role_label = management_role_label(u)
+            is_excluded = role_label == 'Виключений менеджер'
+            is_manager_flag = bool(getattr(prof, 'is_manager', False))
             last_payout = last_payout_map.get(u.id)
             last_payout_label = ''
             if last_payout and last_payout['paid_at']:
@@ -1604,7 +1606,7 @@ def admin_overview(request):
             admin_user_data.append({
                 'id': u.id,
                 'name': u.get_full_name() or u.username,
-                'role': management_role_label(u),
+                'role': role_label,
                 'today': u.today_clients,
                 'total': u.total_clients,
                 'points_today': points_stats['points_today'],
@@ -1626,6 +1628,9 @@ def admin_overview(request):
                 'position': (getattr(prof, 'manager_position', '') or '').strip(),
                 'on_rate': on_rate,
                 'last_payout_label': last_payout_label,
+                'avatar_url': avatar_url,
+                'is_excluded': is_excluded,
+                'is_manager': is_manager_flag,
             })
 
     bot_username = get_manager_bot_username()
@@ -2273,6 +2278,47 @@ def admin_manager_dossier_api(request, user_id):
         logger.exception('Failed to build dossier for user %s', user_id)
         return JsonResponse({'ok': False, 'error': 'Помилка побудови досьє'}, status=500)
     return JsonResponse({'ok': True, **dossier})
+
+
+@login_required(login_url='management_login')
+@require_POST
+def admin_manager_toggle_active_api(request, user_id):
+    """Виключити/повернути менеджера. Виключений = is_manager=False:
+    втрачає доступ до сайту, але історія/статистика/топи зберігаються
+    (roster тримає його за історією). Пише AdminAuditLog."""
+    if not request.user.is_staff:
+        return JsonResponse({'ok': False}, status=403)
+    import json
+    from management.models import AdminAuditLog
+    target = get_user_model().objects.filter(id=user_id).select_related('userprofile').first()
+    if not target:
+        return JsonResponse({'ok': False, 'error': 'Користувача не знайдено'}, status=404)
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        payload = {}
+    action = (payload.get('action') or '').strip()  # 'exclude' | 'restore'
+    prof, _ = UserProfile.objects.get_or_create(user=target)
+    before = bool(prof.is_manager)
+    if action == 'exclude':
+        prof.is_manager = False
+        prof.access_status = 'archived'
+    elif action == 'restore':
+        prof.is_manager = True
+        prof.access_status = 'active'
+    else:
+        return JsonResponse({'ok': False, 'error': 'Невідома дія'}, status=400)
+    prof.save(update_fields=['is_manager', 'access_status'])
+    try:
+        AdminAuditLog.objects.create(
+            actor=request.user, actor_role='staff',
+            action='manager_exclude' if action == 'exclude' else 'manager_restore',
+            entity_type='UserProfile', entity_id=str(target.id),
+            before={'is_manager': before}, after={'is_manager': prof.is_manager},
+        )
+    except Exception:
+        pass
+    return JsonResponse({'ok': True, 'is_manager': prof.is_manager})
 
 
 def _notify_manager_weekly_review(review):

@@ -174,11 +174,22 @@ def build_manager_dossier(user) -> dict:
         except Exception:
             days_worked = None
 
+    is_manager_flag = bool(getattr(profile, "is_manager", False))
+    avatar_url = ""
+    try:
+        if profile and getattr(profile, "avatar", None):
+            avatar_url = profile.avatar.url
+    except Exception:
+        avatar_url = ""
+
     return {
         "manager": {
             "id": user.id,
             "name": _name(user),
             "username": user.username,
+            "avatar_url": avatar_url,
+            "is_manager": is_manager_flag,
+            "excluded": (not is_manager_flag),
             "position": (getattr(profile, "manager_position", "") or "").strip(),
             "level_code": level_code,
             "level_label": level_label,

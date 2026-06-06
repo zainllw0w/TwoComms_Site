@@ -53,8 +53,9 @@ class InvoiceLifecycleTests(TestCase):
             payment_url="https://pay.mono/x", payment_link_created_at=timezone.now(),
         )
         self.assertEqual(invoice_center.derive_lifecycle(inv), "link_created")
+        # Скопійоване посилання = надіслане клієнту → очікуємо оплату.
         inv.payment_link_copied_at = timezone.now()
-        self.assertEqual(invoice_center.derive_lifecycle(inv), "link_copied")
+        self.assertEqual(invoice_center.derive_lifecycle(inv), "awaiting_payment")
 
     def test_awaiting_payment(self):
         inv = _make_invoice(self.manager, number="A-5", payment_status="pending", payment_url="https://pay.mono/x")
@@ -194,3 +195,22 @@ class AdminRedesignTests(TestCase):
         self.assertTrue(resp.json()["success"])
         from management.services.manager_levels import get_current_level
         self.assertEqual(get_current_level(self.manager).level, "level_1")
+
+    def test_exclude_and_restore_manager(self):
+        self.client.force_login(self.staff)
+        # Виключити
+        r = self.client.post(f"/admin-panel/user/{self.manager.id}/toggle-active/",
+                             data='{"action": "exclude"}', content_type="application/json",
+                             HTTP_HOST="management.twocomms.shop", secure=True)
+        self.assertEqual(r.status_code, 200)
+        self.assertFalse(r.json()["is_manager"])
+        self.manager.userprofile.refresh_from_db()
+        self.assertFalse(self.manager.userprofile.is_manager)
+        self.assertEqual(self.manager.userprofile.access_status, "archived")
+        # Повернути
+        r = self.client.post(f"/admin-panel/user/{self.manager.id}/toggle-active/",
+                             data='{"action": "restore"}', content_type="application/json",
+                             HTTP_HOST="management.twocomms.shop", secure=True)
+        self.assertTrue(r.json()["is_manager"])
+        self.manager.userprofile.refresh_from_db()
+        self.assertTrue(self.manager.userprofile.is_manager)

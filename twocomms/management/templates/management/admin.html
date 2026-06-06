@@ -58,6 +58,11 @@
 .inv-badge.tone-watch { background: rgba(99,102,241,0.16); color: #c4b5fd; border-color: rgba(99,102,241,0.4); }
 .inv-badge.tone-neutral { background: rgba(255,255,255,0.06); color: var(--text-secondary); border-color: var(--border); }
 .inv-chip.tone-bad.active { background: rgba(239,68,68,0.16); color: #fca5a5; border-color: rgba(239,68,68,0.45); }
+/* Таблиця накладних: горизонтальний скрол + дії в один акуратний ряд (фікс overflow) */
+.inv-center .table-shell { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.inv-table { min-width: 880px; }
+.inv-table td:last-child { white-space: nowrap; }
+.inv-table td:last-child .btn-ghost { margin: 2px 2px; }
 .inv-freeze { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary); }
 .inv-freeze-ring { width: 22px; height: 22px; border-radius: 50%; flex: 0 0 auto; }
 .inv-freeze-ring.big { width: 64px; height: 64px; }
@@ -990,25 +995,29 @@
     <h3 class="mgr-list-title">Усі менеджери <span class="mgr-count">{{ admin_user_data|length }}</span></h3>
     <div class="mgr-grid">
         {% for u in admin_user_data %}
-        <div class="mgr-card" data-user-id="{{ u.id }}" data-user-name="{{ u.name }}"
-             data-level="{{ u.level_code }}" data-salary="{{ u.weekly_salary }}"
-             data-percent="{{ u.commission_percent }}" data-start="{{ u.salary_start_date }}">
+        <div class="mgr-card{% if u.is_excluded %} is-excluded{% endif %}" data-user-id="{{ u.id }}" data-user-name="{{ u.name }}">
             <div class="mgr-card-head">
-                <div class="mgr-mosaic-ring" data-score="{{ u.mosaic_score|default:'' }}">
-                    <span class="mgr-avatar">{{ u.name|slice:":1"|upper }}</span>
+                <div class="mgr-avatar-wrap">
+                    <span class="mgr-avatar">
+                        {% if u.avatar_url %}<img src="{{ u.avatar_url }}" alt="">{% else %}{{ u.name|slice:":1"|upper }}{% endif %}
+                    </span>
+                    {% if u.online %}<span class="mgr-online-dot" title="Онлайн"></span>{% else %}<span class="mgr-offline-dot" title="{{ u.last_seen_label }}"></span>{% endif %}
                 </div>
                 <div class="mgr-id">
                     <div class="mgr-name">{{ u.name }}</div>
                     <div class="mgr-role">{{ u.position|default:u.role }}</div>
                 </div>
-                {% if u.online %}
-                <span class="mgr-online-dot" title="Онлайн"></span>
+                {% if u.mosaic_score is not None %}
+                <div class="mgr-gauge" data-score="{{ u.mosaic_score|floatformat:0 }}" title="MOSAIC {{ u.mosaic_score|floatformat:0 }} · довіра {{ u.mosaic_confidence|floatformat:2 }}">
+                    <svg viewBox="0 0 46 46"><circle class="g-track" cx="23" cy="23" r="19"></circle><circle class="g-fill" cx="23" cy="23" r="19"></circle></svg>
+                    <span class="g-num">{{ u.mosaic_score|floatformat:0 }}<small>MOSAIC</small></span>
+                </div>
                 {% endif %}
             </div>
             <div class="mgr-badges-row">
+                {% if u.is_excluded %}<span class="mgr-excluded-badge">Виключений</span>{% endif %}
                 <span class="mgr-level-badge lvl-{{ u.level_code|default:'none' }}">{{ u.level_label }}</span>
                 {% if u.on_rate %}<span class="mgr-rate-badge on">На ставці</span>{% else %}<span class="mgr-rate-badge off">Без ставки</span>{% endif %}
-                {% if u.mosaic_score is not None %}<span class="mgr-mosaic-pill" data-score="{{ u.mosaic_score|floatformat:0 }}">MOSAIC {{ u.mosaic_score|floatformat:0 }}</span>{% endif %}
             </div>
             <div class="mgr-card-metrics">
                 <div class="mgr-metric"><span class="m-val">{{ u.weekly_salary }}</span><span class="m-lbl">Ставка/тиж</span></div>
@@ -1654,6 +1663,7 @@ document.addEventListener('click', async (e) => {
         <div class="d-section">
             <h4>Рівень та умови</h4>
             <a class="btn-ghost small" href="/stats/admin/${m.id}/" target="_blank" rel="noopener" style="margin-bottom:10px;display:inline-block;">📊 Повна статистика та рекомендації</a>
+            ${m.excluded ? '<div class="d-chip bad" style="margin:0 0 10px;">Виключений з менеджерів — немає доступу до сайту</div>' : ''}
             <form class="d-form" id="d-assign-form">
                 <label>Рівень<select name="level">${opts}</select></label>
                 <div class="d-form-row">
@@ -1663,7 +1673,12 @@ document.addEventListener('click', async (e) => {
                 <label>Дата початку нарахувань<input type="date" name="start_date" value="${esc(m.salary_start_date)}"></label>
                 <label>Коментар<textarea name="comment" rows="2" placeholder="Причина / умови"></textarea></label>
                 <div class="d-feedback" id="d-assign-feedback"></div>
-                <div class="d-actions"><button type="submit" class="btn-primary small">Зберегти рівень</button></div>
+                <div class="d-actions">
+                    <button type="submit" class="btn-primary small">Зберегти рівень</button>
+                    ${m.excluded
+                        ? '<button type="button" class="btn-ghost small d-toggle-active" data-action="restore">Повернути в менеджери</button>'
+                        : '<button type="button" class="btn-ghost small d-toggle-active" data-action="exclude" style="border-color:rgba(239,68,68,0.4);color:#fca5a5;">Виключити з менеджерів</button>'}
+                </div>
             </form>
         </div>
 
@@ -1724,14 +1739,19 @@ document.addEventListener('click', async (e) => {
         if (e.target.closest('[data-dossier-close]') || e.target === dossier) { closeDossier(); return; }
     });
 
-    // Фарбування MOSAIC-кілець на картках (semi-ring): червоний→жовтий→зелений
+    // Фарбування кругових MOSAIC-гейджів (SVG): червоний→жовтий→зелений
     function paintMosaicRings() {
-        document.querySelectorAll('.mgr-mosaic-ring[data-score]').forEach(el => {
-            const raw = el.dataset.score;
-            if (raw === '' || raw == null) { el.style.background = 'rgba(255,255,255,0.06)'; return; }
-            const s = Math.max(0, Math.min(100, parseFloat(raw) || 0));
+        const C = 2 * Math.PI * 19; // довжина кола r=19
+        document.querySelectorAll('.mgr-gauge[data-score]').forEach(el => {
+            const fill = el.querySelector('.g-fill');
+            if (!fill) return;
+            const s = Math.max(0, Math.min(100, parseFloat(el.dataset.score) || 0));
             const color = s >= 70 ? '#34d399' : s >= 45 ? '#fbbf24' : '#f87171';
-            el.style.background = `conic-gradient(${color} ${s * 3.6}deg, rgba(255,255,255,0.08) 0deg)`;
+            fill.style.stroke = color;
+            fill.style.strokeDasharray = C.toFixed(2);
+            fill.style.strokeDashoffset = (C * (1 - s / 100)).toFixed(2);
+            const num = el.querySelector('.g-num');
+            if (num) num.style.color = color;
         });
     }
     paintMosaicRings();
@@ -1765,6 +1785,26 @@ document.addEventListener('click', async (e) => {
 
     // Дії в досьє (виплати + тижневі рішення)
     document.addEventListener('click', async (e) => {
+        const toggleBtn = e.target.closest('.d-toggle-active');
+        if (toggleBtn) {
+            const action = toggleBtn.dataset.action;
+            const msg = action === 'exclude'
+                ? 'Виключити менеджера? Він втратить доступ до сайту, але статистика збережеться.'
+                : 'Повернути менеджера у роботу (відновити доступ)?';
+            if (!confirm(msg)) return;
+            toggleBtn.disabled = true;
+            try {
+                const res = await fetch(`/admin-panel/user/${currentUserId}/toggle-active/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                    body: JSON.stringify({ action }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!data.ok) throw new Error(data.error || 'Помилка');
+                setTimeout(() => window.location.reload(), 500);
+            } catch (err) { alert(err.message || 'Помилка'); toggleBtn.disabled = false; }
+            return;
+        }
         const payoutBtn = e.target.closest('.d-payout');
         const wrBtn = e.target.closest('.d-wr');
         if (payoutBtn) {
