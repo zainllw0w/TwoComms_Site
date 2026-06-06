@@ -184,6 +184,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "management.middleware.ManagementOnboardingGate",  # онбординг-гейт менеджерів (за прапором)
     "django.contrib.messages.middleware.MessageMiddleware",
     "social_django.middleware.SocialAuthExceptionMiddleware",  # Redirect social-auth errors instead of leaking 500s
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -355,6 +356,11 @@ MONOBANK_PUBLIC_BASE_URL = os.environ.get(
 # Fernet key for encrypting manager PII (passport / tax id / etc.).
 # Stored in the application environment (cPanel), never in the repository.
 FIELD_ENCRYPTION_KEY = os.environ.get('FIELD_ENCRYPTION_KEY', '')
+
+# Management onboarding gate (doc 03). OFF by default so existing managers are
+# never locked out until the owner enables it and the consent flow is seeded.
+MANAGEMENT_ONBOARDING_ENABLED = _env_bool('MANAGEMENT_ONBOARDING_ENABLED', default=False)
+MANAGEMENT_RULES_VERSION = os.environ.get('MANAGEMENT_RULES_VERSION', '1')
 
 # Mono Checkout (order-based flow) configuration
 MONOBANK_CHECKOUT_DELIVERY_METHODS = _env_list('MONOBANK_CHECKOUT_DELIVERY_METHODS', 'pickup,np_brnm,courier,np_box')

@@ -5250,6 +5250,73 @@ def invoices_payment_return(request):
     return render(request, 'management/invoice_payment_return.html', {'invoice': invoice})
 
 
+@login_required(login_url='management_login')
+def management_onboarding(request):
+    """Сторінка онбордингу: підтвердження 18+/правил/згоди на ПДн."""
+    from django.conf import settings as _settings
+    profile = getattr(request.user, 'userprofile', None)
+    required_version = (getattr(profile, 'onboarding_required_version', '') or
+                        getattr(_settings, 'MANAGEMENT_RULES_VERSION', '1'))
+    # Якщо вже не gated — на робоче місце.
+    try:
+        from management.middleware import manager_is_gated
+        if request.user.is_staff or not manager_is_gated(request.user):
+            return redirect('management_home')
+    except Exception:
+        pass
+    return render(request, 'management/onboarding.html', {
+        'rules_version': required_version,
+    })
+
+
+@login_required(login_url='management_login')
+@require_POST
+def management_onboarding_consent_api(request):
+    """Фіксує згоду онбордингу (18+/правила/ПДн)."""
+    import json
+    from django.conf import settings as _settings
+    from management.models import ManagerOnboardingConsent
+
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        payload = {}
+
+    accepted_18 = bool(payload.get('accepted_18plus'))
+    accepted_rules = bool(payload.get('accepted_rules'))
+    accepted_pdn = bool(payload.get('accepted_pdn'))
+    if not (accepted_18 and accepted_rules and accepted_pdn):
+        return JsonResponse({'ok': False, 'error': 'Потрібно підтвердити всі пункти'}, status=400)
+
+    profile = getattr(request.user, 'userprofile', None)
+    required_version = (getattr(profile, 'onboarding_required_version', '') or
+                        getattr(_settings, 'MANAGEMENT_RULES_VERSION', '1'))
+
+    ip = request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip() or request.META.get('REMOTE_ADDR')
+    ManagerOnboardingConsent.objects.create(
+        owner=request.user,
+        rules_version=required_version,
+        accepted_18plus=accepted_18,
+        accepted_rules=accepted_rules,
+        accepted_pdn=accepted_pdn,
+        signed_via=ManagerOnboardingConsent.SignedVia.CHECKBOX,
+        ip=ip or None,
+        user_agent=(request.META.get('HTTP_USER_AGENT', '') or '')[:512],
+    )
+    # Якщо доступ був заблокований лише через згоду — знімаємо блок.
+    if profile and profile.access_status == 'blocked_until_document':
+        # Знімаємо тільки якщо немає документів, що блокують.
+        from management.models import ManagerDocument
+        has_blocking_doc = ManagerDocument.objects.filter(
+            owner=request.user, access_blocking=True
+        ).exclude(status=ManagerDocument.Status.SIGNED).exists()
+        if not has_blocking_doc:
+            profile.access_status = 'active'
+            profile.save(update_fields=['access_status'])
+
+    return JsonResponse({'ok': True, 'redirect': '/'})
+
+
 def _default_manager_name(user):
     try:
         prof = user.userprofile

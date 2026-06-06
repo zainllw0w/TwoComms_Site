@@ -1,0 +1,99 @@
+{% extends "management/base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+.onb-wrap { max-width: 600px; margin: 48px auto; }
+.onb-card { background: var(--panel-strong, rgba(255,255,255,0.03)); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 22px; padding: 38px 34px; }
+.onb-card h1 { margin: 0 0 6px; font-size: 1.6rem; color: var(--text-primary, #fff); }
+.onb-card .onb-lead { color: var(--text-secondary, #9aa4b8); margin: 0 0 24px; line-height: 1.5; }
+.onb-check { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 14px; background: rgba(255,255,255,0.03); border: 1px solid var(--border, rgba(255,255,255,0.08)); margin-bottom: 12px; cursor: pointer; transition: border-color .16s ease, background .16s ease; }
+.onb-check:hover { border-color: rgba(255,126,41,0.4); }
+.onb-check input { width: 20px; height: 20px; margin-top: 2px; flex: 0 0 auto; accent-color: var(--accent, #f3a43d); }
+.onb-check span { color: var(--text-primary, #fff); font-size: 14px; line-height: 1.45; }
+.onb-check span small { display: block; color: var(--muted, #6c7382); font-size: 12px; margin-top: 3px; }
+.onb-actions { margin-top: 22px; }
+.onb-actions button { width: 100%; }
+.onb-actions button:disabled { opacity: .5; cursor: not-allowed; }
+.onb-feedback { margin-top: 12px; font-size: 13px; min-height: 18px; }
+.onb-feedback.error { color: #fca5a5; }
+.onb-note { margin-top: 18px; font-size: 12px; color: var(--muted, #6c7382); line-height: 1.5; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="onb-wrap">
+    <div class="onb-card">
+        <p class="eyebrow">Ознайомчий етап співпраці</p>
+        <h1>Вітаємо в команді TwoComms</h1>
+        <p class="onb-lead">Перед початком роботи підтвердіть кілька пунктів. Без цього доступ до робочого місця менеджера закрито.</p>
+
+        <form id="onb-form">
+            <label class="onb-check">
+                <input type="checkbox" name="accepted_18plus">
+                <span>Мені виповнилося 18 років.</span>
+            </label>
+            <label class="onb-check">
+                <input type="checkbox" name="accepted_rules">
+                <span>Я ознайомився(лась) з правилами співпраці.
+                    <small>Текст правил — на сторінці інформації (фінальна редакція погоджується з юристом).</small>
+                </span>
+            </label>
+            <label class="onb-check">
+                <input type="checkbox" name="accepted_pdn">
+                <span>Я надаю згоду на обробку моїх персональних даних.
+                    <small>Дані використовуються лише для оформлення співпраці та виплат.</small>
+                </span>
+            </label>
+
+            <div class="onb-actions">
+                <button type="submit" class="btn-primary" id="onb-submit" disabled>Підтвердити та продовжити</button>
+            </div>
+            <div class="onb-feedback" id="onb-feedback"></div>
+        </form>
+
+        <p class="onb-note">Версія правил: {{ rules_version }}. Підтвердження фіксується з датою та IP для прозорості співпраці.</p>
+    </div>
+</div>
+
+<script>
+(function () {
+    const form = document.getElementById('onb-form');
+    const submit = document.getElementById('onb-submit');
+    const feedback = document.getElementById('onb-feedback');
+    const checks = Array.from(form.querySelectorAll('input[type="checkbox"]'));
+
+    function getCookie(name) {
+        const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+        return m ? decodeURIComponent(m.pop()) : '';
+    }
+    function refresh() { submit.disabled = !checks.every(c => c.checked); }
+    checks.forEach(c => c.addEventListener('change', refresh));
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        submit.disabled = true;
+        feedback.textContent = '';
+        feedback.className = 'onb-feedback';
+        try {
+            const res = await fetch('{% url "management_onboarding_consent_api" %}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify({
+                    accepted_18plus: checks[0].checked,
+                    accepted_rules: checks[1].checked,
+                    accepted_pdn: checks[2].checked,
+                }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!data.ok) throw new Error(data.error || 'Помилка');
+            window.location.href = data.redirect || '/';
+        } catch (err) {
+            feedback.textContent = err.message || 'Помилка';
+            feedback.className = 'onb-feedback error';
+            refresh();
+        }
+    });
+})();
+</script>
+{% endblock %}
