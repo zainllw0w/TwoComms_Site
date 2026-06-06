@@ -1,4 +1,61 @@
 {% extends "management/base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/management-admin.css' %}">
+<style>
+.rep-wrap { display: flex; flex-direction: column; gap: 18px; }
+.rep-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+.rep-card {
+    position: relative; padding: 18px; border-radius: 18px; border: 1px solid var(--border);
+    background: linear-gradient(160deg, rgba(255,255,255,0.045), rgba(255,255,255,0.02));
+    display: flex; flex-direction: column; gap: 14px; transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+.rep-card:hover { transform: translateY(-2px); border-color: rgba(255,126,41,0.32); box-shadow: 0 16px 40px rgba(0,0,0,0.26); }
+.rep-card-top { display: flex; align-items: center; gap: 14px; }
+.rep-gauge { position: relative; width: 64px; height: 64px; flex: 0 0 auto; }
+.rep-gauge svg { width: 64px; height: 64px; transform: rotate(-90deg); }
+.rep-gauge .g-track { fill: none; stroke: rgba(255,255,255,0.10); stroke-width: 6; }
+.rep-gauge .g-fill { fill: none; stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset .7s cubic-bezier(.2,.7,.3,1); }
+.rep-gauge .g-num { position: absolute; inset: 0; display: grid; place-items: center; flex-direction: column; font-size: 16px; font-weight: 800; color: var(--text-primary); }
+.rep-gauge .g-num small { font-size: 8px; color: var(--muted); display: block; line-height: 1; letter-spacing: .05em; margin-top: 1px; }
+.rep-head { min-width: 0; flex: 1; }
+.rep-date { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+.rep-time { font-size: 12px; color: var(--muted); }
+.rep-manager { display: inline-flex; align-items: center; gap: 6px; margin-top: 5px; font-size: 12.5px; color: var(--text-secondary); }
+.rep-manager .rep-ava { width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; font-size: 10px; font-weight: 800; color: #0d1018; background: linear-gradient(135deg,#ffb347,#ff7e29); }
+.rep-metrics { display: flex; gap: 10px; }
+.rep-metric { flex: 1; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); }
+.rep-metric .v { font-size: 18px; font-weight: 800; color: var(--text-primary); }
+.rep-metric .v.pts { color: var(--accent); }
+.rep-metric .l { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 2px; }
+.rep-actions { display: flex; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border); }
+.rep-actions .btn-ghost.small { flex: 1; text-align: center; }
+.rep-overview-btn { flex: 1; padding: 8px 14px; border-radius: 10px; font-size: 12.5px; font-weight: 600; cursor: pointer; border: 1px solid rgba(255,126,41,0.4); background: rgba(255,126,41,0.12); color: var(--accent); transition: all .15s ease; }
+.rep-overview-btn:hover { background: rgba(255,126,41,0.2); }
+
+/* Модалка огляду звіту */
+.rep-modal-overlay { position: fixed; inset: 0; z-index: 1300; background: rgba(6,8,12,0.72); backdrop-filter: blur(6px); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
+.rep-modal-card { width: min(720px, 100%); max-height: calc(100vh - 80px); overflow-y: auto; background: linear-gradient(180deg, rgba(26,31,44,0.99), rgba(16,19,28,0.99)); border: 1px solid var(--border); border-radius: 22px; box-shadow: 0 40px 100px rgba(0,0,0,0.55); animation: dossierIn .26s cubic-bezier(.2,.7,.3,1); }
+.rep-modal-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 14px; padding: 20px 24px; border-bottom: 1px solid var(--border); background: rgba(20,24,35,0.97); backdrop-filter: blur(8px); border-radius: 22px 22px 0 0; }
+.rep-modal-head h3 { margin: 0; font-size: 1.2rem; color: var(--text-primary); }
+.rep-modal-head .sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.rep-modal-head .modal-close { margin-left: auto; }
+.rep-modal-body { padding: 18px 24px 32px; display: flex; flex-direction: column; gap: 10px; }
+.rep-cl { padding: 13px 15px; border-radius: 14px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); }
+.rep-cl-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rep-cl-shop { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.rep-cl-when { font-size: 11.5px; color: var(--muted); margin-left: auto; }
+.rep-cl-sub { font-size: 12.5px; color: var(--text-secondary); margin-top: 3px; }
+.rep-cl-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.rep-cl-badge { padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(255,255,255,0.06); color: var(--text-secondary); }
+.rep-cl-badge.res { background: rgba(99,102,241,0.16); color: #c4b5fd; }
+.rep-cl-det { margin-top: 9px; font-size: 12px; color: var(--text-secondary); display: grid; gap: 3px; }
+.rep-cl-det .muted { color: var(--muted); }
+.rep-empty { color: var(--muted); font-size: 13px; padding: 14px; text-align: center; }
+@media (max-width: 520px) { .rep-grid { grid-template-columns: 1fr; } .rep-modal-card { width: 100%; } }
+</style>
+{% endblock %}
 
 {% block content %}
     {% if denied %}
@@ -6,11 +63,12 @@
         <div class="table-empty">У вас немає доступу до звітності.</div>
     </div>
     {% else %}
-    <div class="clients-panel">
+    <div class="admin-panel">
         <div class="panel-header">
             <div>
                 <p class="eyebrow">Звітність</p>
-                <h2>Відправлені звіти</h2>
+                <h2>{% if is_admin %}Звіти менеджерів{% else %}Мої звіти{% endif %}</h2>
+                <div class="muted" style="margin-top:6px;">{% if is_admin %}Усі надіслані звіти команди.{% else %}Тут лише ваші звіти.{% endif %}</div>
             </div>
             <form method="post" action="{% url 'management_send_report' %}">
                 {% csrf_token %}
@@ -21,72 +79,54 @@
         </div>
 
         {% if reports %}
-        <div class="table-shell">
-            <table class="nexus-table">
-                <thead>
-                    <tr>
-                        <th>Дата</th>
-                        <th>Менеджер</th>
-                        <th>Бали (сьогодні)</th>
-                        <th>Оброблено</th>
-                        <th>Файл</th>
-                        <th>Огляд</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for r in reports %}
-                    <tr>
-                        <td>{{ r.created_at|date:"d.m.Y H:i" }}</td>
-                        <td>{{ r.owner.get_full_name|default:r.owner.username }}</td>
-                        <td>{{ r.points }}</td>
-                        <td>{{ r.processed }}</td>
-                        <td>
-                            {% if r.file %}
-                                <a class="btn-ghost small" href="{{ r.file.url }}" download>Скачати</a>
-                            {% else %}
-                                –
-                            {% endif %}
-                        </td>
-                        <td>
-                            <button type="button" class="btn-ghost small report-overview" data-report-id="{{ r.id }}">Огляд</button>
-                            <div class="report-clients" data-report-id="{{ r.id }}" style="display:none;">
-                                {% if r.clients %}
-                                    {% for c in r.clients %}
-                                    <div class="overview-card">
-                                        <div class="overview-head">
-                                            <div class="overview-main">
-                                                <div class="overview-shop">{{ c.shop }}</div>
-                                                <div class="overview-date">{{ c.created }}</div>
-                                            <div class="overview-sub">{{ c.full_name }} • {{ c.phone }}</div>
-                                        </div>
-                                        <div class="overview-meta">
-                                                <span class="status-badge role-{{ c.role_code|default_if_none:'manager' }}">{{ c.role }}</span>
-                                                <span class="overview-result result-{{ c.result_code }}">{{ c.result }}</span>
-                                        </div>
-                                            <button type="button" class="icon-btn ghost toggle-details" aria-label="Деталі">
-                                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5z"/></svg>
-                                            </button>
-                                        </div>
-                                        <div class="overview-details">
-                                            <div><span class="muted">Джерело:</span> {{ c.source }}</div>
-                                            <div><span class="muted">Підсумок:</span> {{ c.result }}{% if c.details %} • {{ c.details }}{% endif %}</div>
-                                            <div><span class="muted">Наступний дзвінок:</span> {{ c.next_call }}</div>
-                                        </div>
-                                    </div>
-                                    {% endfor %}
-                                {% else %}
-                                    <div class="table-empty" style="margin: 12px 0;">Немає клієнтів у цьому звіті.</div>
-                                {% endif %}
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="rep-grid">
+            {% for r in reports %}
+            <div class="rep-card" data-report-id="{{ r.id }}">
+                <div class="rep-card-top">
+                    <div class="rep-gauge" data-pct="{{ r.kpi_clients_pct }}">
+                        <svg viewBox="0 0 64 64"><circle class="g-track" cx="32" cy="32" r="27"></circle><circle class="g-fill" cx="32" cy="32" r="27"></circle></svg>
+                        <span class="g-num">{{ r.kpi_clients_pct }}%<small>KPI</small></span>
+                    </div>
+                    <div class="rep-head">
+                        <div class="rep-date">{{ r.created_at|date:"d.m.Y" }}</div>
+                        <div class="rep-time">{{ r.created_at|date:"H:i" }}</div>
+                        {% if is_admin %}
+                        <span class="rep-manager"><span class="rep-ava">{{ r.owner_name|slice:":1"|upper }}</span>{{ r.owner_name }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="rep-metrics">
+                    <div class="rep-metric"><div class="v pts">{{ r.points }}</div><div class="l">Бали</div></div>
+                    <div class="rep-metric"><div class="v">{{ r.processed }}</div><div class="l">Оброблено</div></div>
+                </div>
+                <div class="rep-actions">
+                    {% if r.file %}
+                    <a class="btn-ghost small" href="{{ r.file.url }}" download>Скачати</a>
+                    {% endif %}
+                    <button type="button" class="rep-overview-btn" data-report-id="{{ r.id }}">Огляд</button>
+                </div>
+            </div>
+            {% endfor %}
         </div>
         {% else %}
             <div class="table-empty">Звітів поки немає. Відправте перший звіт.</div>
         {% endif %}
+    </div>
+
+    <!-- Дані звітів для модалки -->
+    {{ reports_json|json_script:"reports-data" }}
+
+    <div class="rep-modal-overlay" id="rep-modal" hidden>
+        <div class="rep-modal-card" role="dialog" aria-modal="true">
+            <div class="rep-modal-head">
+                <div>
+                    <h3 id="rep-modal-title">Огляд звіту</h3>
+                    <div class="sub" id="rep-modal-sub"></div>
+                </div>
+                <button type="button" class="modal-close" data-rep-close aria-label="Закрити">×</button>
+            </div>
+            <div class="rep-modal-body" id="rep-modal-body"></div>
+        </div>
     </div>
     {% endif %}
 {% endblock %}
@@ -94,7 +134,7 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // Підтягнути заповнення дуги в сайдбарі
+    // Сайдбар дуга
     const arcFill = document.getElementById('gauge-arc-fill');
     if (arcFill) {
         const arcLen = 251.3;
@@ -102,30 +142,76 @@ document.addEventListener('DOMContentLoaded', () => {
         arcFill.style.strokeDashoffset = arcLen * (1 - init / 100);
     }
 
-    document.querySelectorAll('.report-overview').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const id = btn.dataset.reportId;
-            const block = document.querySelector('.report-clients[data-report-id="'+id+'"]');
-            if (!block) return;
-            block.style.display = block.style.display === 'none' ? 'block' : 'none';
-            block.querySelectorAll('.toggle-details').forEach(t => {
-                t.addEventListener('click', () => {
-                    const details = t.closest('.overview-card').querySelector('.overview-details');
-                    details.classList.toggle('show');
-                }, { once: true });
-            });
-        });
+    // KPI-кільця карток звітів
+    const C = 2 * Math.PI * 27;
+    document.querySelectorAll('.rep-gauge[data-pct]').forEach(el => {
+        const fill = el.querySelector('.g-fill');
+        if (!fill) return;
+        const p = Math.max(0, Math.min(100, parseFloat(el.dataset.pct) || 0));
+        const color = p >= 100 ? '#34d399' : p >= 60 ? '#fbbf24' : '#f87171';
+        fill.style.stroke = color;
+        fill.style.strokeDasharray = C.toFixed(2);
+        fill.style.strokeDashoffset = (C * (1 - p / 100)).toFixed(2);
+        const num = el.querySelector('.g-num'); if (num) num.style.color = color;
     });
 
-    // Confirm if норма не виконана
+    // Модалка огляду
+    const data = JSON.parse(document.getElementById('reports-data')?.textContent || '[]');
+    const byId = {}; data.forEach(r => byId[r.id] = r);
+    const modal = document.getElementById('rep-modal');
+    const title = document.getElementById('rep-modal-title');
+    const sub = document.getElementById('rep-modal-sub');
+    const body = document.getElementById('rep-modal-body');
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+    function openModal(id) {
+        const r = byId[id];
+        if (!r) return;
+        title.textContent = 'Звіт за ' + esc(r.date);
+        sub.textContent = `${r.manager} · ${r.points} балів · ${r.processed} оброблено`;
+        const clients = r.clients || [];
+        if (!clients.length) {
+            body.innerHTML = '<div class="rep-empty">Немає клієнтів у цьому звіті.</div>';
+        } else {
+            body.innerHTML = clients.map(c => `
+                <div class="rep-cl">
+                    <div class="rep-cl-top">
+                        <span class="rep-cl-shop">${esc(c.shop)}</span>
+                        <span class="rep-cl-when">${esc(c.created)}</span>
+                    </div>
+                    <div class="rep-cl-sub">${esc(c.full_name)}${c.phone ? ' · ' + esc(c.phone) : ''}</div>
+                    <div class="rep-cl-badges">
+                        <span class="rep-cl-badge">${esc(c.role)}</span>
+                        <span class="rep-cl-badge res">${esc(c.result)}</span>
+                    </div>
+                    <div class="rep-cl-det">
+                        ${c.source ? `<div><span class="muted">Джерело:</span> ${esc(c.source)}</div>` : ''}
+                        ${c.details ? `<div><span class="muted">Деталі:</span> ${esc(c.details)}</div>` : ''}
+                        <div><span class="muted">Наступний дзвінок:</span> ${esc(c.next_call)}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        modal.hidden = false;
+        document.body.style.overflow = 'hidden';
+    }
+    function closeModal() { modal.hidden = true; document.body.style.overflow = ''; }
+
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.rep-overview-btn');
+        if (btn) { openModal(parseInt(btn.dataset.reportId, 10)); return; }
+        if (e.target.closest('[data-rep-close]') || e.target === modal) { closeModal(); return; }
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal && !modal.hidden) closeModal(); });
+
+    // Підтвердження якщо норма не виконана
     const reportBtn = document.getElementById('report-submit');
     if (reportBtn && reportBtn.closest('form')) {
         reportBtn.closest('form').addEventListener('submit', (e) => {
             const pts = parseInt(reportBtn.dataset.progressPoints || '0', 10);
             const cls = parseInt(reportBtn.dataset.progressClients || '0', 10);
             if (pts < 100 || cls < 100) {
-                const ok = confirm('Денна норма не заповнена (бали або клієнти). Відправити звіт зараз?');
-                if (!ok) e.preventDefault();
+                if (!confirm('Денна норма не заповнена (бали або клієнти). Відправити звіт зараз?')) e.preventDefault();
             }
         });
     }

@@ -2471,12 +2471,17 @@ def reports(request):
         if not clients and r.processed > 0:
             fallback_limit = max(1, min(100, r.processed))
             clients = list(Client.objects.filter(owner=r.owner).order_by('-created_at')[:fallback_limit])
+        kpi_clients_pct = min(100, int(r.processed / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
+        kpi_points_pct = min(100, int(r.points / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
         reports_list.append({
             'id': r.id,
             'created_at': r.created_at,
             'owner': r.owner,
+            'owner_name': r.owner.get_full_name() or r.owner.username,
             'points': r.points,
             'processed': r.processed,
+            'kpi_clients_pct': kpi_clients_pct,
+            'kpi_points_pct': kpi_points_pct,
             'file': r.file,
             'clients': [
                 {
@@ -2501,8 +2506,23 @@ def reports(request):
     bot_username = get_manager_bot_username()
     reminders = get_reminders(request.user, stats=stats, report_sent=report_sent_today)
 
+    # JSON-safe дані для модалки огляду (тільки потрібні поля).
+    reports_json = [
+        {
+            'id': item['id'],
+            'date': timezone.localtime(item['created_at']).strftime('%d.%m.%Y %H:%M'),
+            'manager': item['owner_name'],
+            'points': item['points'],
+            'processed': item['processed'],
+            'clients': item['clients'],
+        }
+        for item in reports_list
+    ]
+
     return render(request, 'management/reports.html', {
         'reports': reports_list,
+        'reports_json': reports_json,
+        'is_admin': request.user.is_staff,
         'user_points_today': stats['points_today'],
         'user_points_total': stats['points_total'],
         'processed_today': stats['processed_today'],

@@ -173,6 +173,41 @@ class AdminRedesignTests(TestCase):
             self.assertIn("by_processed", data)
             self.assertIn("by_mosaic", data)
 
+    def test_reports_manager_sees_only_own(self):
+        from management.models import Client as Cl, Report
+        import json, re
+        m2 = User.objects.create_user(username="rep_other", password="x")
+        m2.userprofile.is_manager = True
+        m2.userprofile.save()
+        Cl.objects.create(shop_name="S", phone="+380", full_name="F", owner=self.manager)
+        Report.objects.create(owner=self.manager, points=90, processed=6)
+        Report.objects.create(owner=m2, points=50, processed=3)
+        self.client.force_login(self.manager)
+        r = self.client.get("/reports/", HTTP_HOST="management.twocomms.shop", secure=True)
+        self.assertEqual(r.status_code, 200)
+        body = r.content.decode()
+        self.assertIn("rep-grid", body)
+        mm = re.search(r'id="reports-data"[^>]*>(.*?)</script>', body, re.S)
+        data = json.loads(mm.group(1)) if mm else []
+        managers = {d["manager"] for d in data}
+        self.assertNotIn(m2.get_full_name() or m2.username, managers)  # чужі звіти не витікають
+
+    def test_reports_admin_sees_all(self):
+        from management.models import Report
+        import json, re
+        m2 = User.objects.create_user(username="rep_other2", password="x")
+        m2.userprofile.is_manager = True
+        m2.userprofile.save()
+        Report.objects.create(owner=self.manager, points=10, processed=1)
+        Report.objects.create(owner=m2, points=20, processed=2)
+        self.client.force_login(self.staff)
+        r = self.client.get("/reports/", HTTP_HOST="management.twocomms.shop", secure=True)
+        self.assertEqual(r.status_code, 200)
+        mm = re.search(r'id="reports-data"[^>]*>(.*?)</script>', r.content.decode(), re.S)
+        data = json.loads(mm.group(1)) if mm else []
+        managers = {d["manager"] for d in data}
+        self.assertGreaterEqual(len(managers), 2)
+
     def test_dossier_api_returns_sections(self):
         self.client.force_login(self.staff)
         resp = self.client.get(f"/admin-panel/user/{self.manager.id}/dossier/",
