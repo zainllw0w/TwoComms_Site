@@ -112,6 +112,13 @@
 .wr-decided-row b { margin-left: auto; color: var(--text-primary, #fff); }
 .wr-decision-full { color: #6ee7b7; } .wr-decision-half { color: #fcd34d; } .wr-decision-custom { color: #c4b5fd; } .wr-decision-none { color: #fca5a5; }
 
+/* === Admin Center: MOSAIC бейдж === */
+.mosaic-badge { position: relative; display: inline-grid; place-items: center; width: 42px; height: 42px; }
+.mosaic-badge .mosaic-ring { position: absolute; inset: 0; border-radius: 50%; }
+.mosaic-badge::after { content: ''; position: absolute; inset: 4px; border-radius: 50%; background: rgba(17,22,33,0.95); }
+.mosaic-badge b { position: relative; z-index: 1; font-size: 13px; font-weight: 700; color: var(--text-primary, #fff); }
+.mosaic-empty { color: var(--muted, #6c7382); }
+
 
 </style>
 {% endblock %}
@@ -907,6 +914,7 @@
                     <th>Бали сьогодні</th>
                     <th>Бали всього</th>
                     <th>Окупність</th>
+                    <th>MOSAIC</th>
                     <th>Онлайн</th>
                     <th>Останній вхід</th>
                     <th>Дії</th>
@@ -940,6 +948,16 @@
                                 {{ econ.payback|floatformat:2 }}x
                             {% endif %}
                         {% endfor %}
+                    </td>
+                    <td>
+                        {% if u.mosaic_score is not None %}
+                            <span class="mosaic-badge" data-score="{{ u.mosaic_score|floatformat:0 }}" title="MOSAIC {{ u.mosaic_score|floatformat:0 }} · довіра {{ u.mosaic_confidence|floatformat:2 }}">
+                                <span class="mosaic-ring"></span>
+                                <b>{{ u.mosaic_score|floatformat:0 }}</b>
+                            </span>
+                        {% else %}
+                            <span class="mosaic-empty" title="Снапшот ще не розраховано">—</span>
+                        {% endif %}
                     </td>
                     <td>
                         {% if u.online %}
@@ -1079,6 +1097,15 @@
     document.querySelectorAll('.level-mini-fill[data-pct]').forEach(function (el) {
         const p = parseInt(el.getAttribute('data-pct'), 10) || 0;
         el.style.width = Math.max(0, Math.min(100, p)) + '%';
+    });
+
+    // Фарбування MOSAIC-кілець (0..100): червоний -> жовтий -> зелений.
+    document.querySelectorAll('.mosaic-badge[data-score]').forEach(function (el) {
+        const s = Math.max(0, Math.min(100, parseInt(el.dataset.score, 10) || 0));
+        const ring = el.querySelector('.mosaic-ring');
+        if (!ring) return;
+        const color = s >= 70 ? '#34d399' : s >= 45 ? '#fbbf24' : '#f87171';
+        ring.style.background = `conic-gradient(${color} ${s * 3.6}deg, rgba(255,255,255,0.10) 0deg)`;
     });
 
     const modal = document.getElementById('assign-level-modal');

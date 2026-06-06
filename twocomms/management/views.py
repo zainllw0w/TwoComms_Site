@@ -1544,6 +1544,18 @@ def admin_overview(request):
 
         last_seen_map = get_last_seen_map(users)
 
+        # MOSAIC: останній нічний снапшот по кожному менеджеру (shadow-показник).
+        from management.models import NightlyScoreSnapshot
+        mosaic_map = {}
+        snap_rows = (
+            NightlyScoreSnapshot.objects.filter(owner__in=users)
+            .order_by('owner_id', '-snapshot_date')
+            .values('owner_id', 'mosaic_score', 'score_confidence', 'snapshot_date')
+        )
+        for row in snap_rows:
+            if row['owner_id'] not in mosaic_map:
+                mosaic_map[row['owner_id']] = row
+
         for u in users:
             last_login = u.last_login
             last_login_local = timezone.localtime(last_login) if last_login else None
@@ -1568,6 +1580,10 @@ def admin_overview(request):
             level_label = get_level_display_name(level_obj.level) if level_obj else 'Без рівня'
             progression = get_progression_status(u)
 
+            mosaic = mosaic_map.get(u.id)
+            mosaic_score = float(mosaic['mosaic_score']) if mosaic else None
+            mosaic_confidence = float(mosaic['score_confidence']) if mosaic else None
+
             admin_user_data.append({
                 'id': u.id,
                 'name': u.get_full_name() or u.username,
@@ -1588,6 +1604,8 @@ def admin_overview(request):
                 'level_progress_pct': progression.get('progress_pct', 0),
                 'level_requirements_met': progression.get('requirements_met', False),
                 'level_next': progression.get('next_level') or '',
+                'mosaic_score': mosaic_score,
+                'mosaic_confidence': mosaic_confidence,
             })
 
     bot_username = get_manager_bot_username()
