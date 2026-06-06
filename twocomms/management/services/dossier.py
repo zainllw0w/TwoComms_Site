@@ -65,10 +65,15 @@ def build_manager_dossier(user) -> dict:
 
     # Останні оплачені накладні.
     recent_paid = []
-    paid_qs = (WholesaleInvoice.objects.filter(created_by=user, payment_status="paid")
-               .order_by("-paid_at", "-created_at")[:8])
-    accr_by_inv = {a.invoice_id: a for a in ManagerCommissionAccrual.objects.filter(invoice__in=paid_qs)}
-    for inv in paid_qs:
+    paid_list = list(
+        WholesaleInvoice.objects.filter(created_by=user, payment_status="paid")
+        .order_by("-paid_at", "-created_at")[:8]
+    )
+    accr_by_inv = {
+        a.invoice_id: a
+        for a in ManagerCommissionAccrual.objects.filter(invoice_id__in=[i.id for i in paid_list])
+    }
+    for inv in paid_list:
         accr = accr_by_inv.get(inv.id)
         frozen_until = None
         days_left = None

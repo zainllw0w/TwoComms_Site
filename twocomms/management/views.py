@@ -5011,10 +5011,12 @@ def invoices_list_api(request):
     from management.models import ManagerCommissionAccrual
     from management.services import invoice_center
 
-    invoices = WholesaleInvoice.objects.filter(created_by=request.user).order_by('-created_at')[:200]
+    invoices = list(
+        WholesaleInvoice.objects.filter(created_by=request.user).order_by('-created_at')[:200]
+    )
     accr_map = {
         a.invoice_id: a
-        for a in ManagerCommissionAccrual.objects.filter(invoice__in=invoices)
+        for a in ManagerCommissionAccrual.objects.filter(invoice_id__in=[i.id for i in invoices])
     }
     data = []
     for inv in invoices:
