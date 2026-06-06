@@ -956,28 +956,65 @@
     {% elif admin_tab == 'dtf' %}
     {% include "management/components/dtf_bridge_cards.html" %}
     {% else %}
-    {% include "management/components/admin_control_center.html" %}
+    <div class="top-mgr-wrap">
+        <div class="top-mgr-head">
+            <h3>Топ-менеджери</h3>
+            <div class="top-mgr-periods">
+                {% for code, label in top_managers.periods %}
+                <a href="?tab=managers&top_period={{ code }}" class="top-period{% if top_managers.period == code %} active{% endif %}">{{ label }}</a>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="top-mgr-grid">
+            <div class="top-mgr-col">
+                <div class="top-mgr-col-title">🧾 За оплаченими накладними</div>
+                {% for r in top_managers.by_invoices %}
+                <div class="top-mgr-row" data-user-id="{{ r.id }}"><span class="top-rank">{{ forloop.counter }}</span><span class="top-name">{{ r.name }}</span><b>{{ r.value }}</b><span class="top-extra">{{ r.extra }}</span></div>
+                {% empty %}<div class="top-mgr-empty">Немає даних</div>{% endfor %}
+            </div>
+            <div class="top-mgr-col">
+                <div class="top-mgr-col-title">👥 За обробленими</div>
+                {% for r in top_managers.by_processed %}
+                <div class="top-mgr-row" data-user-id="{{ r.id }}"><span class="top-rank">{{ forloop.counter }}</span><span class="top-name">{{ r.name }}</span><b>{{ r.value }}</b><span class="top-extra">{{ r.extra }}</span></div>
+                {% empty %}<div class="top-mgr-empty">Немає даних</div>{% endfor %}
+            </div>
+            <div class="top-mgr-col">
+                <div class="top-mgr-col-title">⭐ За рейтингом MOSAIC</div>
+                {% for r in top_managers.by_mosaic %}
+                <div class="top-mgr-row" data-user-id="{{ r.id }}"><span class="top-rank">{{ forloop.counter }}</span><span class="top-name">{{ r.name }}</span><b>{{ r.value }}</b><span class="top-extra">{{ r.extra }}</span></div>
+                {% empty %}<div class="top-mgr-empty">Немає даних</div>{% endfor %}
+            </div>
+        </div>
+    </div>
 
+    <h3 class="mgr-list-title">Усі менеджери <span class="mgr-count">{{ admin_user_data|length }}</span></h3>
     <div class="mgr-grid">
         {% for u in admin_user_data %}
         <div class="mgr-card" data-user-id="{{ u.id }}" data-user-name="{{ u.name }}"
              data-level="{{ u.level_code }}" data-salary="{{ u.weekly_salary }}"
              data-percent="{{ u.commission_percent }}" data-start="{{ u.salary_start_date }}">
             <div class="mgr-card-head">
-                <div class="mgr-avatar">{{ u.name|slice:":1"|upper }}</div>
+                <div class="mgr-mosaic-ring" data-score="{{ u.mosaic_score|default:'' }}">
+                    <span class="mgr-avatar">{{ u.name|slice:":1"|upper }}</span>
+                </div>
                 <div class="mgr-id">
                     <div class="mgr-name">{{ u.name }}</div>
-                    <div class="mgr-role">{{ u.role }}</div>
+                    <div class="mgr-role">{{ u.position|default:u.role }}</div>
                 </div>
-            </div>
-            <span class="mgr-level-badge lvl-{{ u.level_code|default:'none' }}">{{ u.level_label }}</span>
-            <div class="mgr-card-metrics">
-                <div class="mgr-metric"><span class="m-val">{{ u.today }}</span><span class="m-lbl">Сьогодні</span></div>
-                <div class="mgr-metric"><span class="m-val">{{ u.total }}</span><span class="m-lbl">Клієнтів</span></div>
-                <div class="mgr-metric"><span class="m-val">{{ u.points_today }}</span><span class="m-lbl">Бали</span></div>
-                {% if u.mosaic_score is not None %}
-                <div class="mgr-metric"><span class="m-val">{{ u.mosaic_score|floatformat:0 }}</span><span class="m-lbl">MOSAIC</span></div>
+                {% if u.online %}
+                <span class="mgr-online-dot" title="Онлайн"></span>
                 {% endif %}
+            </div>
+            <div class="mgr-badges-row">
+                <span class="mgr-level-badge lvl-{{ u.level_code|default:'none' }}">{{ u.level_label }}</span>
+                {% if u.on_rate %}<span class="mgr-rate-badge on">На ставці</span>{% else %}<span class="mgr-rate-badge off">Без ставки</span>{% endif %}
+                {% if u.mosaic_score is not None %}<span class="mgr-mosaic-pill" data-score="{{ u.mosaic_score|floatformat:0 }}">MOSAIC {{ u.mosaic_score|floatformat:0 }}</span>{% endif %}
+            </div>
+            <div class="mgr-card-metrics">
+                <div class="mgr-metric"><span class="m-val">{{ u.weekly_salary }}</span><span class="m-lbl">Ставка/тиж</span></div>
+                <div class="mgr-metric"><span class="m-val">{{ u.commission_percent }}%</span><span class="m-lbl">Відсоток</span></div>
+                <div class="mgr-metric"><span class="m-val">{{ u.total }}</span><span class="m-lbl">Клієнтів</span></div>
+                <div class="mgr-metric"><span class="m-val">{{ u.today }}</span><span class="m-lbl">Сьогодні</span></div>
             </div>
             <div class="mgr-card-foot">
                 {% if u.online %}
@@ -985,7 +1022,8 @@
                 {% else %}
                 <span class="online-pill is-offline"><span class="online-dot"></span>{{ u.last_seen_label }}</span>
                 {% endif %}
-                <div class="mgr-flags">
+                <div class="mgr-foot-meta">
+                    {% if u.last_payout_label %}<span title="Остання виплата">💸 {{ u.last_payout_label }}</span>{% endif %}
                     {% if u.level_requirements_met %}<span class="mgr-flag on" title="Готовий до підвищення">★</span>{% endif %}
                 </div>
             </div>
@@ -1680,8 +1718,22 @@ document.addEventListener('click', async (e) => {
     document.addEventListener('click', (e) => {
         const card = e.target.closest('.mgr-card');
         if (card) { openDossier(card.dataset.userId, card.dataset.userName); return; }
+        const topRow = e.target.closest('.top-mgr-row[data-user-id]');
+        if (topRow) { openDossier(topRow.dataset.userId, topRow.querySelector('.top-name')?.textContent || ''); return; }
         if (e.target.closest('[data-dossier-close]') || e.target === dossier) { closeDossier(); return; }
     });
+
+    // Фарбування MOSAIC-кілець на картках (semi-ring): червоний→жовтий→зелений
+    function paintMosaicRings() {
+        document.querySelectorAll('.mgr-mosaic-ring[data-score]').forEach(el => {
+            const raw = el.dataset.score;
+            if (raw === '' || raw == null) { el.style.background = 'rgba(255,255,255,0.06)'; return; }
+            const s = Math.max(0, Math.min(100, parseFloat(raw) || 0));
+            const color = s >= 70 ? '#34d399' : s >= 45 ? '#fbbf24' : '#f87171';
+            el.style.background = `conic-gradient(${color} ${s * 3.6}deg, rgba(255,255,255,0.08) 0deg)`;
+        });
+    }
+    paintMosaicRings();
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && dossier && !dossier.hidden) closeDossier(); });
 
     // Призначення рівня (self-contained, надійний submit)

@@ -160,6 +160,17 @@ class AdminRedesignTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertIn("mgr-grid", body)
         self.assertIn('id="dossier"', body)
+        self.assertIn("top-mgr-wrap", body)  # топ-менеджери
+        self.assertNotIn("admin-command-board", body)  # стара "статистика зверху" прибрана
+
+    def test_top_managers_period_switch(self):
+        from management.services.top_managers import build_top_managers
+        for period in ("today", "week", "month", "all"):
+            data = build_top_managers(period)
+            self.assertEqual(data["period"], period)
+            self.assertIn("by_invoices", data)
+            self.assertIn("by_processed", data)
+            self.assertIn("by_mosaic", data)
 
     def test_dossier_api_returns_sections(self):
         self.client.force_login(self.staff)

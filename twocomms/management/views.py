@@ -1545,7 +1545,7 @@ def admin_overview(request):
         last_seen_map = get_last_seen_map(users)
 
         # MOSAIC: останній нічний снапшот по кожному менеджеру (shadow-показник).
-        from management.models import NightlyScoreSnapshot
+        from management.models import NightlyScoreSnapshot, ManagerPayoutRequest
         mosaic_map = {}
         snap_rows = (
             NightlyScoreSnapshot.objects.filter(owner__in=users)
@@ -1555,6 +1555,15 @@ def admin_overview(request):
         for row in snap_rows:
             if row['owner_id'] not in mosaic_map:
                 mosaic_map[row['owner_id']] = row
+
+        # Остання виплата по кожному менеджеру (одним запитом).
+        last_payout_map = {}
+        for row in (ManagerPayoutRequest.objects.filter(
+                        owner__in=users, status=ManagerPayoutRequest.Status.PAID)
+                    .order_by('owner_id', '-paid_at')
+                    .values('owner_id', 'paid_at', 'amount')):
+            if row['owner_id'] not in last_payout_map:
+                last_payout_map[row['owner_id']] = row
 
         for u in users:
             last_login = u.last_login
@@ -1584,6 +1593,14 @@ def admin_overview(request):
             mosaic_score = float(mosaic['mosaic_score']) if mosaic else None
             mosaic_confidence = float(mosaic['score_confidence']) if mosaic else None
 
+            prof = getattr(u, 'userprofile', None)
+            last_payout = last_payout_map.get(u.id)
+            last_payout_label = ''
+            if last_payout and last_payout['paid_at']:
+                last_payout_label = timezone.localtime(last_payout['paid_at']).strftime('%d.%m.%Y')
+            weekly_salary_val = level_obj.weekly_salary_uah if level_obj else 0
+            on_rate = bool(level_obj and level_obj.level != 'candidate' and weekly_salary_val)
+
             admin_user_data.append({
                 'id': u.id,
                 'name': u.get_full_name() or u.username,
@@ -1606,6 +1623,9 @@ def admin_overview(request):
                 'level_next': progression.get('next_level') or '',
                 'mosaic_score': mosaic_score,
                 'mosaic_confidence': mosaic_confidence,
+                'position': (getattr(prof, 'manager_position', '') or '').strip(),
+                'on_rate': on_rate,
+                'last_payout_label': last_payout_label,
             })
 
     bot_username = get_manager_bot_username()
@@ -1630,6 +1650,9 @@ def admin_overview(request):
 
     if tab == 'managers':
         ctx['admin_analytics'] = build_admin_economics_summary()
+        from management.services.top_managers import build_top_managers
+        top_period = (request.GET.get('top_period') or 'week').strip().lower()
+        ctx['top_managers'] = build_top_managers(top_period)
 
     if tab == 'overview':
         from decimal import Decimal as _D
