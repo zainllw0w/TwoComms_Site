@@ -89,7 +89,7 @@ def award_manager_commission_for_paid_wholesale_invoice(sender, instance, create
     frozen_until = paid_at + timedelta(days=int(frozen_days or 14))
 
     try:
-        ManagerCommissionAccrual.objects.get_or_create(
+        accrual, created_accr = ManagerCommissionAccrual.objects.get_or_create(
             invoice=instance,
             defaults={
                 'owner': manager,
@@ -99,6 +99,13 @@ def award_manager_commission_for_paid_wholesale_invoice(sender, instance, create
                 'frozen_until': frozen_until,
             },
         )
+        # Паралельний запис у єдиний ledger (фаза 1: паралельно до accrual).
+        if created_accr:
+            try:
+                from management.services.ledger import record_commission_frozen
+                record_commission_frozen(accrual)
+            except Exception as ledger_exc:
+                logger.warning('Ledger write failed for invoice %s: %s', getattr(instance, 'pk', None), ledger_exc)
     except Exception as exc:
         logger.warning(
             'Failed to create commission accrual for WholesaleInvoice %s: %s',

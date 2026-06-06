@@ -19,6 +19,7 @@ urlpatterns = [
     path('admin-panel/user/<int:user_id>/clients/', views.admin_user_clients, name='management_admin_user_clients'),
     path('admin-panel/invoices/<int:invoice_id>/approve/', views.admin_invoice_approve_api, name='management_admin_invoice_approve_api'),
     path('admin-panel/invoices/<int:invoice_id>/reject/', views.admin_invoice_reject_api, name='management_admin_invoice_reject_api'),
+    path('admin-panel/weekly-reviews/<int:review_id>/decide/', views.admin_weekly_review_decide_api, name='management_admin_weekly_review_decide_api'),
     path('admin-panel/payouts/api/settings/save/', views.admin_payout_settings_save_api, name='management_admin_payout_settings_save_api'),
     path('admin-panel/payouts/api/request/<int:request_id>/approve/', views.admin_payout_approve_api, name='management_admin_payout_approve_api'),
     path('admin-panel/payouts/api/request/<int:request_id>/reject/', views.admin_payout_reject_api, name='management_admin_payout_reject_api'),

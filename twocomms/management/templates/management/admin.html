@@ -89,6 +89,30 @@
 .inv-drawer-actions { display: flex; gap: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
 @media (max-width: 560px) { .inv-facts { grid-template-columns: 1fr; } .inv-drawer-card { width: 100%; } }
 
+/* === Admin Center: тижневі рішення === */
+.weekly-reviews { margin-bottom: 22px; padding: 18px; border-radius: var(--radius-lg, 16px); background: rgba(255,255,255,0.02); border: 1px solid var(--border, rgba(255,255,255,0.08)); }
+.wr-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.wr-head h3 { margin: 0; font-size: 1.05rem; color: var(--text-primary, #fff); }
+.wr-pending-badge { padding: 3px 11px; border-radius: 999px; font-size: 12px; font-weight: 700; background: rgba(245,158,11,0.16); color: #fcd34d; border: 1px solid rgba(245,158,11,0.4); }
+.wr-empty { color: var(--muted, #6c7382); font-size: 13px; margin: 4px 0; }
+.wr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.wr-card { padding: 14px; border-radius: 14px; background: rgba(255,255,255,0.03); border: 1px solid var(--border, rgba(255,255,255,0.08)); display: flex; flex-direction: column; gap: 9px; }
+.wr-card-top { display: flex; justify-content: space-between; align-items: center; }
+.wr-card-top b { color: var(--text-primary, #fff); font-size: 14px; }
+.wr-week { font-size: 12px; color: var(--muted, #6c7382); }
+.wr-kpi { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12.5px; color: var(--text-secondary, #9aa4b8); }
+.wr-base { font-size: 13px; color: var(--text-secondary, #9aa4b8); }
+.wr-base b { color: var(--accent, #f3a43d); }
+.wr-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.wr-actions button { flex: 1; min-width: 56px; }
+.wr-decided { margin-top: 16px; }
+.wr-decided summary { cursor: pointer; color: var(--text-secondary, #9aa4b8); font-size: 13px; }
+.wr-decided-list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.wr-decided-row { display: flex; align-items: center; gap: 12px; font-size: 12.5px; color: var(--text-secondary, #9aa4b8); padding: 6px 10px; border-radius: 8px; background: rgba(255,255,255,0.02); }
+.wr-decided-row b { margin-left: auto; color: var(--text-primary, #fff); }
+.wr-decision-full { color: #6ee7b7; } .wr-decision-half { color: #fcd34d; } .wr-decision-custom { color: #c4b5fd; } .wr-decision-none { color: #fca5a5; }
+
+
 </style>
 {% endblock %}
 
@@ -215,6 +239,59 @@
     {{ invoices_data.rows|json_script:"inv-rows-data" }}
     {% elif admin_tab == 'payouts' %}
     <div class="admin-payouts">
+        <section class="weekly-reviews" aria-label="Тижневі рішення">
+            <div class="wr-head">
+                <h3>Тижневі рішення по базовій винагороді</h3>
+                {% if weekly_reviews_pending_count %}
+                <span class="wr-pending-badge">{{ weekly_reviews_pending_count }} очікує</span>
+                {% endif %}
+            </div>
+            {% if weekly_reviews_pending %}
+            <div class="wr-grid">
+                {% for r in weekly_reviews_pending %}
+                <div class="wr-card" data-review-id="{{ r.id }}">
+                    <div class="wr-card-top">
+                        <b>{{ r.manager }}</b>
+                        <span class="wr-week">{{ r.week_start }}–{{ r.week_end }}</span>
+                    </div>
+                    <div class="wr-kpi">
+                        <span title="Оплачені накладні">💳 {{ r.paid_invoices }}</span>
+                        <span title="Одиниць">📦 {{ r.units }}</span>
+                        <span title="Сума продажів">₴ {{ r.sales }}</span>
+                        <span title="Оброблено клієнтів">👥 {{ r.processed_clients }}</span>
+                    </div>
+                    <div class="wr-base">Розрахункова база: <b>{{ r.base }} грн</b></div>
+                    <div class="wr-actions">
+                        <button type="button" class="btn-primary small wr-decide" data-review-id="{{ r.id }}" data-decision="full" data-base="{{ r.base }}">100%</button>
+                        <button type="button" class="btn-ghost small wr-decide" data-review-id="{{ r.id }}" data-decision="half" data-base="{{ r.base }}">50%</button>
+                        <button type="button" class="btn-ghost small wr-decide" data-review-id="{{ r.id }}" data-decision="custom" data-base="{{ r.base }}">Своя</button>
+                        <button type="button" class="btn-ghost small wr-decide" data-review-id="{{ r.id }}" data-decision="none" data-base="{{ r.base }}">0%</button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="wr-empty">Немає тижнів, що очікують рішення.</p>
+            {% endif %}
+
+            {% if weekly_reviews_decided %}
+            <details class="wr-decided">
+                <summary>Останні рішення ({{ weekly_reviews_decided|length }})</summary>
+                <div class="wr-decided-list">
+                    {% for r in weekly_reviews_decided %}
+                    <div class="wr-decided-row">
+                        <span>{{ r.manager }}</span>
+                        <span>{{ r.week_start }}–{{ r.week_end }}</span>
+                        <span class="wr-decision-{{ r.decision }}">{{ r.decision }}</span>
+                        <b>{{ r.awarded }} грн</b>
+                        {% if r.reason %}<span class="wr-reason" title="{{ r.reason }}">💬</span>{% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </details>
+            {% endif %}
+        </section>
+
         <section class="payouts-stats" aria-label="Загальна статистика">
             <div class="payouts-stats__grid admin-payouts-summary">
                 <div class="stat-card">
@@ -1335,6 +1412,45 @@ document.addEventListener('click', async (e) => {
             alert(err.message || 'Помилка.');
         }
     } finally {
+        btn.disabled = false;
+    }
+});
+
+// Тижневі рішення по базовій винагороді
+document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.wr-decide');
+    if (!btn) return;
+    const reviewId = btn.dataset.reviewId;
+    const decision = btn.dataset.decision;
+    const base = parseFloat(btn.dataset.base || '0');
+    let amount = null;
+    let reason = '';
+    if (decision === 'custom') {
+        const raw = prompt('Сума винагороди (грн):', base ? base.toFixed(2) : '');
+        if (raw === null) return;
+        amount = parseFloat(String(raw).replace(',', '.'));
+        if (isNaN(amount) || amount < 0) { alert('Невірна сума'); return; }
+    }
+    if (decision !== 'full') {
+        reason = prompt('Причина рішення (обов\'язково):', '') || '';
+        if (!reason.trim()) { alert('Причина обов\'язкова'); return; }
+    }
+    const card = btn.closest('.wr-card');
+    btn.disabled = true;
+    try {
+        const res = await fetch(`/admin-panel/weekly-reviews/${reviewId}/decide/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ decision, amount, reason }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!data.ok) throw new Error(data.error || 'Помилка');
+        if (card) {
+            card.style.opacity = '0.5';
+            card.querySelector('.wr-actions').innerHTML = `<span style="color:#6ee7b7;font-size:13px;">✓ ${data.awarded_amount} грн (${data.decision})</span>`;
+        }
+    } catch (err) {
+        alert(err.message || 'Помилка');
         btn.disabled = false;
     }
 });

@@ -1835,6 +1835,40 @@ def admin_overview(request):
         ctx['payout_requests'] = payout_requests
         ctx['payouts_summary'] = summary
 
+        # Тижневі рішення (base reward): очікують рішення + останні вирішені.
+        from management.models import ManagerWeeklyReview
+        pending_reviews = list(
+            ManagerWeeklyReview.objects.filter(admin_decision='')
+            .select_related('owner', 'owner__userprofile')
+            .order_by('-week_start', 'owner_id')[:100]
+        )
+        decided_reviews = list(
+            ManagerWeeklyReview.objects.exclude(admin_decision='')
+            .select_related('owner', 'owner__userprofile', 'decided_by')
+            .order_by('-decided_at')[:30]
+        )
+
+        def _review_row(r):
+            return {
+                'id': r.id,
+                'manager': (r.owner.get_full_name() or r.owner.username),
+                'week_start': r.week_start.strftime('%d.%m'),
+                'week_end': r.week_end.strftime('%d.%m'),
+                'paid_invoices': r.kpi_paid_invoices,
+                'units': r.kpi_units,
+                'sales': str(r.kpi_sales_amount),
+                'processed_clients': r.kpi_processed_clients,
+                'base': str(r.calculated_weekly_base),
+                'decision': r.admin_decision,
+                'awarded': str(r.awarded_amount),
+                'reason': r.reason,
+                'decided_by': (r.decided_by.get_full_name() or r.decided_by.username) if r.decided_by_id else '',
+            }
+
+        ctx['weekly_reviews_pending'] = [_review_row(r) for r in pending_reviews]
+        ctx['weekly_reviews_decided'] = [_review_row(r) for r in decided_reviews]
+        ctx['weekly_reviews_pending_count'] = len(pending_reviews)
+
     if tab == 'shops':
         from decimal import Decimal
         from datetime import time as dt_time, timedelta as dt_timedelta
@@ -2069,6 +2103,73 @@ def admin_invoice_reject_api(request, invoice_id):
     )
 
     return JsonResponse({'ok': True})
+
+
+@login_required(login_url='management_login')
+@require_POST
+def admin_weekly_review_decide_api(request, review_id):
+    """Рішення адміна по тижневій базовій винагороді (full/half/custom/none)."""
+    if not request.user.is_staff:
+        return JsonResponse({'ok': False}, status=403)
+
+    import json
+    from management.models import ManagerWeeklyReview
+    from management.services.weekly_review import apply_decision
+
+    review = ManagerWeeklyReview.objects.filter(id=review_id).first()
+    if not review:
+        return JsonResponse({'ok': False, 'error': 'Тижневий звіт не знайдено'}, status=404)
+
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        payload = {}
+
+    ok, error = apply_decision(
+        review,
+        decision=payload.get('decision') or '',
+        custom_amount=payload.get('amount'),
+        reason=payload.get('reason') or '',
+        admin=request.user,
+    )
+    if not ok:
+        return JsonResponse({'ok': False, 'error': error}, status=400)
+
+    _notify_manager_weekly_review(review)
+    return JsonResponse({
+        'ok': True,
+        'awarded_amount': str(review.awarded_amount),
+        'decision': review.admin_decision,
+    })
+
+
+def _notify_manager_weekly_review(review):
+    """Мʼяке повідомлення менеджеру про рішення по тижневій винагороді."""
+    try:
+        manager = review.owner
+        profile = manager.userprofile
+        chat_id = getattr(profile, 'tg_manager_chat_id', None)
+        bot_token = _get_manager_bot_token()
+        if not bot_token or not chat_id:
+            return
+        decision_labels = {
+            'full': 'повна винагорода',
+            'half': 'половина винагороди',
+            'custom': 'індивідуальна сума',
+            'none': 'без винагороди за період',
+        }
+        label = decision_labels.get(review.admin_decision, review.admin_decision)
+        lines = [
+            "📅 <b>Рішення по тижневій винагороді</b>",
+            f"Тиждень: {review.week_start:%d.%m} – {review.week_end:%d.%m}",
+            f"Рішення: {label}",
+            f"Сума: {review.awarded_amount} грн",
+        ]
+        if review.reason:
+            lines.append(f"Коментар: {escape(review.reason)}")
+        _tg_send_message(bot_token, chat_id, "\n".join(lines), parse_mode='HTML')
+    except Exception:
+        pass
 
 
 @login_required(login_url='management_login')
