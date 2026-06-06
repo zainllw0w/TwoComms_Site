@@ -1284,6 +1284,16 @@ function getCookie(name) {
     });
 
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !drawer.hidden) closeDrawer(); });
+
+    // Deep-link з Telegram: ?invoice=X&action=approve|reject — лише відкриває
+    // drawer; сама дія — POST під сесією staff (клік по кнопці в drawer).
+    try {
+        const params = new URLSearchParams(location.search);
+        const deepInvoice = params.get('invoice');
+        if (deepInvoice && byId[parseInt(deepInvoice, 10)]) {
+            openDrawer(parseInt(deepInvoice, 10));
+        }
+    } catch (e) { /* no-op */ }
 })();
 </script>
 {% elif admin_tab == 'payouts' %}

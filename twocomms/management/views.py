@@ -3009,14 +3009,18 @@ def _send_invoice_review_request_to_admin(invoice, *, request=None):
     if not chat_ids:
         return
 
-    caption = _format_admin_invoice_message(invoice, status_line="Оберіть дію нижче ⬇️", include_links=True, include_excel_link=False)
+    caption = _format_admin_invoice_message(invoice, status_line="Підтвердьте або відхиліть на сайті ⬇️", include_links=True, include_excel_link=False)
+    # Link-based підтвердження (док 05): кнопки-посилання ведуть в адмін-центр,
+    # сама дія виконується POST під сесією staff (не через активний бот).
+    from django.conf import settings as _settings
+    admin_base = getattr(_settings, 'MANAGEMENT_BASE_URL', 'https://management.twocomms.shop').rstrip('/')
     keyboard = {
         'inline_keyboard': [[
-            {'text': '✅ Підтвердити', 'callback_data': f'inv:approve:{invoice.id}'},
-            {'text': '❌ Відхилити', 'callback_data': f'inv:reject:{invoice.id}'},
+            {'text': '✅ Відкрити та підтвердити', 'url': f'{admin_base}/admin-panel/?tab=invoices&invoice={invoice.id}&action=approve'},
+            {'text': '❌ Відхилити', 'url': f'{admin_base}/admin-panel/?tab=invoices&invoice={invoice.id}&action=reject'},
         ]]
     }
-    fallback_text = _format_admin_invoice_message(invoice, status_line="Оберіть дію нижче ⬇️", include_links=True, include_excel_link=True)
+    fallback_text = _format_admin_invoice_message(invoice, status_line="Підтвердьте або відхиліть на сайті ⬇️", include_links=True, include_excel_link=True)
     sent_refs = []
 
     for chat_id_int in chat_ids:
