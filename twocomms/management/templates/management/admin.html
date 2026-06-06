@@ -240,54 +240,45 @@
             </div>
         </form>
 
-        <div class="table-shell">
-            <table class="nexus-table inv-table">
-                <thead>
-                    <tr>
-                        <th>Накладна</th>
-                        <th>Менеджер</th>
-                        <th>Компанія</th>
-                        <th>Сума</th>
-                        <th>Статус</th>
-                        <th>Оплата</th>
-                        <th>Створено</th>
-                        <th>Дії</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for inv in invoices_data.rows %}
-                    <tr data-invoice-id="{{ inv.id }}">
-                        <td>#{{ inv.number }}</td>
-                        <td>{{ inv.manager }}</td>
-                        <td>{{ inv.company }}</td>
-                        <td>{{ inv.amount }} грн</td>
-                        <td><span class="inv-badge tone-{{ inv.lifecycle_tone }}">{{ inv.lifecycle_label }}</span></td>
-                        <td>
-                            {% if inv.frozen %}
-                                <span class="inv-freeze" title="Доступно після {{ inv.frozen.frozen_until }}">
-                                    <span class="inv-freeze-ring" data-pct="{{ inv.frozen.progress_pct }}"></span>
-                                    {% if inv.frozen.released %}Доступно{% else %}{{ inv.frozen.days_left }} дн{% endif %}
-                                </span>
-                            {% elif inv.paid_at %}
-                                ✓ {{ inv.paid_at }}
-                            {% else %}
-                                —
-                            {% endif %}
-                        </td>
-                        <td>{{ inv.created_at }}</td>
-                        <td style="white-space: nowrap;">
-                            <button type="button" class="btn-ghost small inv-detail-btn" data-invoice-id="{{ inv.id }}">Деталі</button>
-                            {% if inv.is_pending %}
-                            <button type="button" class="btn-ghost small inv-approve" data-invoice-id="{{ inv.id }}" style="border-color: rgba(16,185,129,0.4); color: #d1fae5; background: rgba(16,185,129,0.12);">Підтвердити</button>
-                            <button type="button" class="btn-ghost small inv-reject" data-invoice-id="{{ inv.id }}" style="border-color: rgba(239,68,68,0.35); color: #fee2e2; background: rgba(239,68,68,0.12);">Відхилити</button>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="8" class="table-empty">Немає накладних за обраним фільтром</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="invc-grid">
+            {% for inv in invoices_data.rows %}
+            <div class="invc-card tone-{{ inv.lifecycle_tone }}" data-invoice-id="{{ inv.id }}">
+                <div class="invc-top">
+                    <div class="invc-icon tone-{{ inv.lifecycle_tone }}">
+                        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M6 2h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/>
+                            <path d="M14 2v6h6"/><path d="M8.5 13h7"/><path d="M8.5 16.5h7"/><path d="M8.5 9.5h3"/>
+                        </svg>
+                    </div>
+                    <div class="invc-head">
+                        <div class="invc-number">#{{ inv.number }}</div>
+                        <div class="invc-company">{{ inv.company }}</div>
+                    </div>
+                    <div class="invc-amount">{{ inv.amount }}<small>грн</small></div>
+                </div>
+                <div class="invc-badges">
+                    <span class="inv-badge tone-{{ inv.lifecycle_tone }}">{{ inv.lifecycle_label }}</span>
+                    {% if inv.frozen %}
+                        <span class="invc-freeze-chip" title="Доступно після {{ inv.frozen.frozen_until }}">🔒 {% if inv.frozen.released %}доступно{% else %}{{ inv.frozen.days_left }} дн{% endif %}</span>
+                    {% elif inv.paid_at %}
+                        <span class="invc-paid-chip">✓ {{ inv.paid_at }}</span>
+                    {% endif %}
+                </div>
+                <div class="invc-meta">
+                    <span class="invc-meta-item"><span class="invc-meta-l">Менеджер</span><b>{{ inv.manager }}</b></span>
+                    <span class="invc-meta-item"><span class="invc-meta-l">Створено</span><b>{{ inv.created_at }}</b></span>
+                </div>
+                <div class="invc-actions">
+                    <button type="button" class="btn-ghost small inv-detail-btn" data-invoice-id="{{ inv.id }}">Деталі</button>
+                    {% if inv.is_pending %}
+                    <button type="button" class="invc-btn-ok inv-approve" data-invoice-id="{{ inv.id }}">Підтвердити</button>
+                    <button type="button" class="invc-btn-bad inv-reject" data-invoice-id="{{ inv.id }}">Відхилити</button>
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <p class="wr-empty">Немає накладних за обраним фільтром</p>
+            {% endfor %}
         </div>
     </div>
 
