@@ -62,9 +62,14 @@ class InvoiceLifecycleTests(TestCase):
 
     def test_paid_frozen_then_released(self):
         inv = _make_invoice(self.manager, number="A-6", payment_status="paid", paid_at=timezone.now())
-        accr = ManagerCommissionAccrual.objects.create(
-            owner=self.manager, invoice=inv, base_amount=Decimal("1000"), percent=Decimal("10"),
-            amount=Decimal("100"), frozen_until=timezone.now() + timedelta(days=14),
+        # Сигнал нарахування комісії спрацьовує при створенні paid-накладної,
+        # тож використовуємо update_or_create і фіксуємо frozen_until у майбутньому.
+        accr, _ = ManagerCommissionAccrual.objects.update_or_create(
+            invoice=inv,
+            defaults=dict(
+                owner=self.manager, base_amount=Decimal("1000"), percent=Decimal("10"),
+                amount=Decimal("100"), frozen_until=timezone.now() + timedelta(days=14),
+            ),
         )
         self.assertEqual(invoice_center.derive_lifecycle(inv, accr), "paid_frozen")
         accr.frozen_until = timezone.now() - timedelta(days=1)

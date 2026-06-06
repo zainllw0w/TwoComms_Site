@@ -151,15 +151,20 @@ def _cleanup_expired_monobank_orders():
         monobank_logger.error(f'Error cleaning expired orders: {e}', exc_info=True)
 
 
-def _get_monobank_public_key():
+def _get_monobank_public_key(token=None, cache_key=None):
     """
     Получает публичный ключ Monobank для проверки подписей.
+
+    Каждый мерчант (storefront-токен и acquiring `mono_hrefs`) имеет свой
+    публичный ключ, поэтому кэшируем отдельно по cache_key.
 
     Returns:
         str: Публичный ключ или None
     """
+    token = token or settings.MONOBANK_TOKEN
+    cache_key = cache_key or MONOBANK_PUBLIC_KEY_CACHE_KEY
     # Проверяем кеш
-    cached_key = cache.get(MONOBANK_PUBLIC_KEY_CACHE_KEY)
+    cached_key = cache.get(cache_key)
     if cached_key:
         return cached_key
 
@@ -167,7 +172,7 @@ def _get_monobank_public_key():
         # Запрашиваем у API
         response = requests.get(
             f'{MONOBANK_API_BASE}/api/merchant/pubkey',
-            headers={'X-Token': settings.MONOBANK_TOKEN},
+            headers={'X-Token': token},
             timeout=10
         )
         response.raise_for_status()
@@ -175,7 +180,7 @@ def _get_monobank_public_key():
 
         # Кешируем
         if public_key:
-            cache.set(MONOBANK_PUBLIC_KEY_CACHE_KEY, public_key, MONOBANK_PUBLIC_KEY_CACHE_TTL)
+            cache.set(cache_key, public_key, MONOBANK_PUBLIC_KEY_CACHE_TTL)
 
         return public_key
     except Exception as e:
@@ -188,12 +193,14 @@ def _invalidate_monobank_public_key():
     cache.delete(MONOBANK_PUBLIC_KEY_CACHE_KEY)
 
 
-def _verify_monobank_signature(request):
+def _verify_monobank_signature(request, token=None, cache_key=None):
     """
     Проверяет подпись Monobank webhook запроса.
 
     Args:
         request: HTTP request с заголовком X-Sign
+        token: X-Token мерчанта (для выбора правильного публичного ключа)
+        cache_key: ключ кэша публичного ключа
 
     Returns:
         bool: True если подпись валидна, False иначе
@@ -205,7 +212,7 @@ def _verify_monobank_signature(request):
             return False
 
         # Получаем публичный ключ
-        public_key_pem = _get_monobank_public_key()
+        public_key_pem = _get_monobank_public_key(token=token, cache_key=cache_key)
         if not public_key_pem:
             monobank_logger.error('Failed to get Monobank public key for verification')
             return False
@@ -288,7 +295,7 @@ class MonobankAPIError(Exception):
     """Ошибка API Monobank"""
 
 
-def _monobank_api_request(method, endpoint, json_payload=None, params=None):
+def _monobank_api_request(method, endpoint, json_payload=None, params=None, token=None):
     """
     Выполняет запрос к API Monobank.
 
@@ -296,6 +303,9 @@ def _monobank_api_request(method, endpoint, json_payload=None, params=None):
         method (str): HTTP метод ('GET' или 'POST')
         endpoint (str): API endpoint (напр. '/api/merchant/invoice/create')
         json_payload (dict): JSON данные для POST запроса
+        token (str): X-Token для запроса. По умолчанию settings.MONOBANK_TOKEN
+            (storefront-корзина). Для ссылок на оплату накладних менеджерів
+            передаётся settings.MONOBANK_ACQUIRING_TOKEN (отдельный `mono_hrefs`).
 
     Returns:
         dict: Ответ от API
@@ -303,7 +313,7 @@ def _monobank_api_request(method, endpoint, json_payload=None, params=None):
     Raises:
         MonobankAPIError: При ошибке API
     """
-    token = getattr(settings, 'MONOBANK_TOKEN', None)
+    token = token or getattr(settings, 'MONOBANK_TOKEN', None)
     if not token:
         raise MonobankAPIError('Monobank API token не налаштований')
 
@@ -1354,41 +1364,20 @@ def monobank_webhook(request):
                     inv = None
 
             if inv:
-                status_value = result.get('status') or payload.get('status')
-                status_lower = (status_value or '').strip().lower()
-
-                old_payment_status = inv.payment_status
-                updated_fields = []
-
-                if status_lower in MONOBANK_SUCCESS_STATUSES:
-                    if inv.payment_status != 'paid':
-                        inv.payment_status = 'paid'
-                        updated_fields.append('payment_status')
-                elif status_lower in MONOBANK_PENDING_STATUSES:
-                    if inv.payment_status != 'pending':
-                        inv.payment_status = 'pending'
-                        updated_fields.append('payment_status')
-                elif status_lower in MONOBANK_FAILURE_STATUSES:
-                    if inv.payment_status != 'failed':
-                        inv.payment_status = 'failed'
-                        updated_fields.append('payment_status')
-                    if inv.payment_url:
-                        inv.payment_url = None
-                        updated_fields.append('payment_url')
-                    if inv.monobank_invoice_id:
-                        inv.monobank_invoice_id = None
-                        updated_fields.append('monobank_invoice_id')
-                else:
-                    # Unknown status: ignore
-                    return JsonResponse({'ok': True})
-
-                if updated_fields:
-                    inv.save(update_fields=list(set(updated_fields)))
-
-                # Keep noise low for known management invoices
-                if old_payment_status != inv.payment_status:
-                    monobank_logger.info('WholesaleInvoice %s payment_status %s -> %s via webhook', inv.id, old_payment_status, inv.payment_status)
-
+                # Гроші підтверджуємо ТІЛЬКИ pull-істиною через acquiring-токен
+                # (захист від підробки webhook). Делегуємо в management-сервіс.
+                try:
+                    from management.services.invoice_payments import process_webhook as _mgmt_process_webhook
+                    old_payment_status = inv.payment_status
+                    _mgmt_process_webhook(inv, payload, request=request)
+                    inv.refresh_from_db()
+                    if old_payment_status != inv.payment_status:
+                        monobank_logger.info(
+                            'WholesaleInvoice %s payment_status %s -> %s via webhook (pull-verified)',
+                            inv.id, old_payment_status, inv.payment_status,
+                        )
+                except Exception as exc:
+                    monobank_logger.warning('Management invoice webhook processing failed for %s: %s', inv.id, exc)
                 return JsonResponse({'ok': True})
 
         monobank_logger.warning('Webhook received for unknown invoice/order: %s / %s', invoice_id, order_ref)

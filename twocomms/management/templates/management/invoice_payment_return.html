@@ -1,0 +1,53 @@
+{% extends "management/base.html" %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+.pay-return-wrap { max-width: 540px; margin: 40px auto; }
+.pay-return-card { background: var(--panel-strong, rgba(255,255,255,0.03)); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 20px; padding: 36px 30px; text-align: center; }
+.pay-return-icon { width: 76px; height: 76px; border-radius: 50%; display: grid; place-items: center; margin: 0 auto 18px; font-size: 38px; }
+.pay-return-icon.ok { background: rgba(16,185,129,0.14); color: #34d399; }
+.pay-return-icon.wait { background: rgba(245,158,11,0.14); color: #fbbf24; }
+.pay-return-icon.bad { background: rgba(239,68,68,0.14); color: #f87171; }
+.pay-return-card h2 { margin: 0 0 8px; font-size: 1.5rem; color: var(--text-primary, #fff); }
+.pay-return-card p { color: var(--text-secondary, #9aa4b8); margin: 0 0 6px; }
+.pay-return-meta { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border, rgba(255,255,255,0.08)); display: flex; justify-content: space-between; font-size: 13px; color: var(--muted, #6c7382); }
+.pay-return-actions { margin-top: 22px; display: flex; gap: 10px; justify-content: center; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pay-return-wrap">
+    <div class="pay-return-card">
+        {% if invoice %}
+            {% if invoice.payment_status == 'paid' %}
+                <div class="pay-return-icon ok">✓</div>
+                <h2>Оплату отримано</h2>
+                <p>Накладна #{{ invoice.invoice_number }} оплачена.</p>
+                <p>Винагорода буде нарахована та заморожена на період можливого повернення.</p>
+            {% elif invoice.payment_status == 'failed' %}
+                <div class="pay-return-icon bad">✕</div>
+                <h2>Оплата не пройшла</h2>
+                <p>Накладна #{{ invoice.invoice_number }} не була оплачена.</p>
+                <p>Сформуйте нове посилання та спробуйте ще раз.</p>
+            {% else %}
+                <div class="pay-return-icon wait">⏳</div>
+                <h2>Очікуємо підтвердження оплати</h2>
+                <p>Накладна #{{ invoice.invoice_number }}.</p>
+                <p>Статус оновиться автоматично після підтвердження банком.</p>
+            {% endif %}
+            <div class="pay-return-meta">
+                <span>Сума</span>
+                <b>{{ invoice.total_amount }} грн</b>
+            </div>
+        {% else %}
+            <div class="pay-return-icon wait">?</div>
+            <h2>Накладну не знайдено</h2>
+            <p>Перевірте посилання.</p>
+        {% endif %}
+        <div class="pay-return-actions">
+            <a href="{% url 'management_invoices' %}" class="btn-primary small">До накладних</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

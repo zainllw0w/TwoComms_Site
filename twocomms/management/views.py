@@ -5028,10 +5028,9 @@ def invoices_create_payment_api(request, invoice_id):
     if not user_is_management(request.user):
         return JsonResponse({'ok': False}, status=403)
 
-    from decimal import Decimal
-    import json
     from orders.models import WholesaleInvoice
-    from storefront.views.monobank import _monobank_api_request, MonobankAPIError
+    from storefront.views.monobank import MonobankAPIError
+    from management.services.invoice_payments import create_payment_link
 
     invoice = WholesaleInvoice.objects.filter(id=invoice_id, created_by=request.user).first()
     if not invoice:
@@ -5043,59 +5042,107 @@ def invoices_create_payment_api(request, invoice_id):
     if invoice.review_status != 'approved' or not invoice.is_approved:
         return JsonResponse({'ok': False, 'error': 'Накладна ще не підтверджена адміністратором'}, status=400)
 
-    if invoice.payment_url:
-        return JsonResponse({'ok': True, 'payment_url': invoice.payment_url, 'monobank_invoice_id': invoice.monobank_invoice_id})
+    # Якщо посилання вже створено і не у статусі помилки — повертаємо існуюче.
+    if invoice.payment_url and invoice.payment_status != 'failed':
+        return JsonResponse({
+            'ok': True,
+            'payment_url': invoice.payment_url,
+            'monobank_invoice_id': invoice.monobank_invoice_id,
+            'reused': True,
+        })
 
     try:
-        amount_decimal = Decimal(str(invoice.total_amount))
-        if amount_decimal <= 0:
-            return JsonResponse({'ok': False, 'error': 'Невірна сума накладної'}, status=400)
-        amount_kopecks = int(amount_decimal * 100)
-    except Exception:
-        return JsonResponse({'ok': False, 'error': 'Невірна сума накладної'}, status=400)
-
-    try:
-        body = json.loads(request.body.decode('utf-8') or '{}')
-    except Exception:
-        body = {}
-
-    destination = (body.get('description') or '').strip() or f'Оплата накладної {invoice.invoice_number}'
-    payload = {
-        'amount': amount_kopecks,
-        'ccy': 980,
-        'merchantPaymInfo': {
-            'reference': f'MGMT-INV-{invoice.id}',
-            'destination': destination,
-            'basketOrder': [
-                {
-                    'name': f'Накладна {invoice.invoice_number}',
-                    'qty': 1,
-                    'sum': amount_kopecks,
-                    'icon': '',
-                    'unit': 'шт',
-                }
-            ]
-        },
-    }
-
-    try:
-        creation_data = _monobank_api_request('POST', '/api/merchant/invoice/create', json_payload=payload)
+        payment_url, monobank_invoice_id = create_payment_link(invoice)
+    except ValueError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
     except MonobankAPIError as exc:
-        return JsonResponse({'ok': False, 'error': f'Помилка створення платежу: {str(exc)}'}, status=500)
+        return JsonResponse({'ok': False, 'error': f'Помилка створення платежу: {exc}'}, status=502)
     except Exception:
+        logger.exception('Failed to create management payment link for invoice %s', invoice.id)
         return JsonResponse({'ok': False, 'error': 'Помилка створення платежу'}, status=500)
-
-    payment_url = creation_data.get('invoiceUrl') or creation_data.get('pageUrl')
-    monobank_invoice_id = creation_data.get('invoiceId') or creation_data.get('invoice_id')
-    if not payment_url:
-        return JsonResponse({'ok': False, 'error': 'Не отримано URL для оплати'}, status=500)
 
     invoice.payment_status = 'pending'
     invoice.payment_url = payment_url
     invoice.monobank_invoice_id = monobank_invoice_id
-    invoice.save(update_fields=['payment_status', 'payment_url', 'monobank_invoice_id'])
+    invoice.monobank_reference = f'MGMT-INV-{invoice.id}'
+    invoice.payment_link_created_at = timezone.now()
+    invoice.save(update_fields=[
+        'payment_status', 'payment_url', 'monobank_invoice_id',
+        'monobank_reference', 'payment_link_created_at',
+    ])
+
+    _notify_manager_invoice(
+        invoice,
+        title="🔗 <b>Створено посилання на оплату</b>",
+        body_lines=[
+            f"№: <code>{escape(invoice.invoice_number)}</code>",
+            f"Сума: {invoice.total_amount} грн",
+            "Надішліть посилання клієнту для оплати.",
+        ],
+    )
 
     return JsonResponse({'ok': True, 'payment_url': payment_url, 'monobank_invoice_id': monobank_invoice_id})
+
+
+@login_required(login_url='management_login')
+@require_POST
+def invoices_link_copied_api(request, invoice_id):
+    """Менеджер скопіював посилання — фіксуємо мітку часу для таймлайну."""
+    if not user_is_management(request.user):
+        return JsonResponse({'ok': False}, status=403)
+
+    from orders.models import WholesaleInvoice
+
+    invoice = WholesaleInvoice.objects.filter(id=invoice_id, created_by=request.user).first()
+    if not invoice:
+        return JsonResponse({'ok': False, 'error': 'Накладна не знайдена'}, status=404)
+    if not invoice.payment_link_copied_at:
+        invoice.payment_link_copied_at = timezone.now()
+        invoice.save(update_fields=['payment_link_copied_at'])
+    return JsonResponse({'ok': True})
+
+
+@login_required(login_url='management_login')
+@require_POST
+def invoices_refresh_status_api(request, invoice_id):
+    """Ручний pull статусу оплати (менеджер або staff)."""
+    from orders.models import WholesaleInvoice
+    from management.services.invoice_payments import sync_invoice_payment
+
+    qs = WholesaleInvoice.objects.all()
+    if not request.user.is_staff:
+        if not user_is_management(request.user):
+            return JsonResponse({'ok': False}, status=403)
+        qs = qs.filter(created_by=request.user)
+
+    invoice = qs.filter(id=invoice_id).first()
+    if not invoice:
+        return JsonResponse({'ok': False, 'error': 'Накладна не знайдена'}, status=404)
+    if not invoice.monobank_invoice_id:
+        return JsonResponse({'ok': False, 'error': 'Посилання на оплату не створено'}, status=400)
+
+    status = sync_invoice_payment(invoice)
+    invoice.refresh_from_db()
+    return JsonResponse({'ok': True, 'status': status, 'payment_status': invoice.payment_status})
+
+
+@login_required(login_url='management_login')
+def invoices_payment_return(request):
+    """Сторінка повернення після оплати (redirectUrl). Підтягує статус і показує його."""
+    from orders.models import WholesaleInvoice
+    from management.services.invoice_payments import sync_invoice_payment
+
+    invoice_id = request.GET.get('invoice')
+    invoice = None
+    if invoice_id:
+        invoice = WholesaleInvoice.objects.filter(id=invoice_id).first()
+        if invoice and invoice.payment_status not in ('paid', 'failed'):
+            try:
+                sync_invoice_payment(invoice)
+                invoice.refresh_from_db()
+            except Exception:
+                pass
+    return render(request, 'management/invoice_payment_return.html', {'invoice': invoice})
 
 
 def _default_manager_name(user):

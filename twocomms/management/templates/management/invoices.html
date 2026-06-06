@@ -4918,6 +4918,7 @@
             if (data.payment_url) {
                 const copied = await copyText(data.payment_url);
                 showNotification(copied ? 'Посилання на оплату скопійовано' : 'Посилання створено', 'success');
+                if (copied) { markLinkCopied(invoiceId); }
             } else {
                 showNotification('Посилання створено', 'success');
             }
@@ -4941,10 +4942,36 @@
             if (inv.payment_url) {
                 const copied = await copyText(inv.payment_url);
                 showNotification(copied ? 'Посилання скопійовано' : 'Не вдалося скопіювати посилання', copied ? 'success' : 'error');
+                if (copied) { markLinkCopied(invoiceId); }
                 return;
             }
             return createPaymentLink(invoiceId);
         }
+    }
+
+    async function markLinkCopied(invoiceId) {
+        try {
+            await fetch(`/invoices/api/${invoiceId}/link-copied/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify({}),
+            });
+        } catch (e) { /* мітка часу не критична для флоу */ }
+    }
+
+    async function refreshInvoiceStatus(invoiceId) {
+        try {
+            const res = await fetch(`/invoices/api/${invoiceId}/refresh-status/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify({}),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (data.ok && data.payment_status === 'paid') {
+                showNotification('Оплату підтверджено', 'success');
+            }
+            await loadInvoicesFromServer(true);
+        } catch (e) { /* no-op */ }
     }
 
     // Notification system
