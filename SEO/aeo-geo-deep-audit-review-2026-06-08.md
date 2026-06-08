@@ -432,15 +432,18 @@ GSC-ошибки делятся на три группы:
 
 ---
 
-## 3.1. 🔴 P1 — `recommendation_tags` и `search_keywords` пусты у ВСЕХ 65 товаров
+## 3.1. � P3 (ПЕРЕСМОТРЕНО) — `recommendation_tags` / `search_keywords` пусты, но перелинковка НЕ мёртвая
 
-**Факт (БД):** `with recommendation_tags: 0`, `with search_keywords: 0`.
+> **Корректировка 2026-06-08 (re-verify):** первоначальный вывод «мёртвая внутренняя перелинковка» **ОШИБОЧЕН**. Перепроверка кода и живого PDP показала:
+> - `storefront/services/product_search_keywords.build_product_search_keywords` **автогенерирует** чипы «Часті пошуки» (theme / color-landing / sibling / category-peer / support) даже при пустом `search_keywords`; подключено через `product_seo_landing.py`.
+> - `storefront/recommendations.py` для «Схожі товари» **падает на категорию** (не зависит от `recommendation_tags`).
+> - Живой `/product/classic-tshirt/` отдаёт десятки внутренних ссылок на ДРУГИЕ URL (color-landing `/catalog/tshirts/black/`, фильтры, sibling-товары `/product/225-hoodie/`, support, custom-print).
+>
+> Итог: пустые `recommendation_tags`/`search_keywords` — это лишь отсутствие **ручной кураторской надстройки** (опционально), а не дефект. Приоритет понижен до **P3 (nice-to-have)**. Чинить кодом не нужно.
 
-**Последствия:**
-- Блок «Схожі товари» на PDP вынужден работать только на category-fallback (товары той же категории), без тематической связности (один принт/тема в разных категориях). Это напрямую ослабляет внутреннюю перелинковку (US-6: in-degree ≥3, design triplets).
-- Блок «Часті пошуки» (manual `search_keywords`-chips, US-6) **пуст везде** → теряется дешёвый источник long-tail-ссылок и anchor-разнообразия.
+**Факт (БД):** `with recommendation_tags: 0`, `with search_keywords: 0` — но это override-поверх-авто, а не источник данных.
 
-**Что сделать:** заполнить `recommendation_tags` (тема/принт/коллекция) и `search_keywords` (5–8 long-tail на товар: «купити чорну футболку оверсайз», «{принт} на худі» с внутренними URL). Можно полу-автоматически из title/category/colors. Это активирует уже готовый код блоков.
+**Что (опционально) сделать:** вручную курировать `search_keywords` для топ-товаров, если нужны конкретные long-tail-анкоры. Авто-фолбэк уже обеспечивает перелинковку и для остальных.
 
 ---
 
@@ -646,3 +649,29 @@ GSC-ошибки делятся на три группы:
 ## 4.8. Деплой (когда будете готовы)
 
 Изменены только `.py` и шаблоны; **миграций нет**, новые статик-ассеты не добавлялись, правок внутри `{% compress %}` нет. Достаточно: `git pull` → `touch tmp/restart.txt` (collectstatic/compress не требуются). После рестарта — sanity-curl: `/`, `/product/<slug-с-2-цветами>/` (проверить ProductGroup), `/product/twocomms-reality-bends-dark-neon-edition/` (убедиться, что ProductGroup больше НЕ эмитится), `/robots.txt` (есть `Disallow: /push/`), `/blog/category/guides/` (есть `noindex`), и любой странице (есть `#founder` Person).
+
+
+---
+---
+
+# ЧАСТЬ 5 — Итерация 2: деплой, перепроверка, freshness
+
+**Добавлено:** 2026-06-08 (пятая итерация)
+
+## 5.1. ✅ Задеплоен пакет Части 4
+`git pull` (ff-only) → `compress --force` → `touch tmp/restart.txt`. Sanity на проде:
+- home 200; `#founder` Person-нода присутствует; `robots.txt` содержит `Disallow: /push/` (во всех UA-блоках);
+- одноцветный `twocomms-reality-bends-dark-neon-edition` — **ProductGroup больше НЕ эмитится** (parent_node/size устранены в корне), страница 200;
+- многоцветный `kharkiv-district-ts` — ProductGroup корректен: 2 вариант-ноды с собственными `@id` (URL варианта), `size`, `color`, `offers` (InStock), `inProductGroupWithID`, без дубля `#product`.
+
+## 5.2. 🔁 Самокоррекция §3.1 (важно для точности)
+Перепроверка показала, что вывод «мёртвая перелинковка» был **ошибочным**: чипы «Часті пошуки» автогенерируются (`build_product_search_keywords`), related-товары падают на категорию (`recommendations.py`), живой PDP полон внутренних ссылок. §3.1 понижен до P3 (опциональная ручная курация). Чинить кодом не требовалось — и не делалось.
+
+## 5.3. ✅ Видимый freshness-маркер на PDP (spec CP-3.6)
+**Файл:** `templates/partials/product_seo_block.html`. В конце SEO-блока добавлен `<time datetime="…">Оновлено/Обновлено/Updated: dd.mm.YYYY</time>` (метка по `block.language`, дата — нейтральный числовой формат без падежных проблем; стиль через Bootstrap `text-muted small` — без нового CSS). Зеркалит `dateModified` из Product JSON-LD → AI-движки (Perplexity, AIO, ChatGPT Search) видят свежесть и в рендере, не только в schema. Проверено локальным рендером партиала (uk/ru/en).
+
+## 5.4. ⛔ §2.7 (X-Robots на /media/optimized/) — осознанно НЕ внедряю
+Разбор `twocomms/image_middleware.py`: ресайз-варианты `*_640w.avif` генерируются отдельно и **не входят** в `sitemap-images.xml` (там — `main_image`). Блансетный `X-Robots-Tag: noindex` на `/media/` навредил бы индексации нужных product-картинок в Google Images, а точечное разделение «канонические vs ресайзы» — хрупко. Выгода (1 устаревший avif в отчёте «crawled, not indexed») несопоставима с риском. Оставлено как «мониторинг», без правок. Корректное решение — стабилизировать/персистить ресайзы и не ссылаться на устаревшие, что относится к image-pipeline, а не к SEO-слою.
+
+## 5.5. Остаток (контент/данные — не кодом, без фабрикации)
+Отзывы (§3.2), тонкие описания 10 товаров (§3.3), 301-карта старых слагов (§2.6, нужна карта соответствий), наполнение блога, TL;DR главной, расширение support/FAQ, Wikidata/GBP, реальный `uploadDate` видео. Эти задачи требуют контента/решений владельца — внедрять «вслепую» небезопасно.

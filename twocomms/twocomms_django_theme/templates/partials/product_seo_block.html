@@ -60,5 +60,16 @@ exception or admin disabled the section) the include emits nothing.
     </article>
     {% endif %}
   </div>
+  {% comment %}
+  SEO 2026-06-08 (§3.5 / spec CP-3.6) — visible freshness marker. Mirrors
+  the ``dateModified`` already emitted in Product JSON-LD so AI answer
+  engines (Perplexity, Google AI Overviews, ChatGPT Search) can score the
+  page's freshness from the rendered text, not only structured data.
+  {% endcomment %}
+  {% if product.updated_at %}
+  <p class="pdp-seo-block__updated text-muted small">
+    <time datetime="{{ product.updated_at|date:'c' }}">{% if block.language == 'ru' %}Обновлено:{% elif block.language == 'en' %}Updated:{% else %}Оновлено:{% endif %} {{ product.updated_at|date:'d.m.Y' }}</time>
+  </p>
+  {% endif %}
 </section>
 {% endif %}
