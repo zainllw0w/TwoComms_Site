@@ -96,6 +96,11 @@ ROBOTS_INTERNAL_DISALLOW_PATHS = (
     "/api/",
     "/debug/",
     "/dev/",
+    # SEO 2026-06-08 — finding (§2.5). /push/subscribe/ и /push/unsubscribe/
+    # — это POST-only web-push эндпоинты; на GET они отдают 405, и Google
+    # репортит «Страница заблокирована из-за ошибки 4xx». SEO-ценности у
+    # них нет, поэтому закрываем от обхода — это убирает 4xx из индекс-отчёта.
+    "/push/",
 )
 
 # SEO 2026-05-16 — finding (Search Console "Crawled, currently not indexed").

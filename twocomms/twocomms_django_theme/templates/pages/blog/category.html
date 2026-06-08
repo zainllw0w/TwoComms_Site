@@ -3,6 +3,7 @@
 
 {% block title %}{{ meta_title }}{% endblock %}
 {% block description %}{{ meta_description }}{% endblock %}
+{% block robots %}{% if noindex_page %}noindex, follow{% else %}{{ block.super }}{% endif %}{% endblock %}
 {% block canonical %}{{ site_base_url }}{{ canonical_path }}{% endblock %}
 {% block og_title %}{{ meta_title }}{% endblock %}
 {% block og_description %}{{ meta_description }}{% endblock %}

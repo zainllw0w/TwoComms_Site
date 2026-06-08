@@ -188,6 +188,11 @@ def blog_category(request, slug, parent_slug=None):
     context.update(
         {
             "posts": posts,
+            # SEO 2026-06-08 (§3.4) — empty blog categories used to render
+            # 200 + index,follow + sit in the sitemap → thin/soft-404 risk.
+            # Emit noindex,follow while the category has no published posts;
+            # it flips back to indexable automatically once a post lands.
+            "noindex_page": not posts,
             "featured_post": posts[0] if posts else None,
             "timeline_months": _timeline_months(posts),
             "active_category": category,

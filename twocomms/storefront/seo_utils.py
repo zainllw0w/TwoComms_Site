@@ -1111,9 +1111,14 @@ class StructuredDataGenerator:
             except Exception:
                 pass
 
-        # Видео товара (YouTube) → Schema.org VideoObject. Google Product
-        # rich results поддерживают вложенный VideoObject в поле ``video``,
-        # что усиливает видимость товара в Search/Shopping.
+        # Видео товара (YouTube) → Schema.org VideoObject.
+        # SEO 2026-06-08 — finding (§2.8). ``video`` НЕ является валидным
+        # свойством ``Product`` у schema.org, поэтому Google игнорировал
+        # вложенный VideoObject (ни Video rich result, ни польза для
+        # Merchant). Корректный способ привязать видео к товару — через
+        # ``subjectOf`` (Product → CreativeWork/VideoObject). VideoObject
+        # остаётся обнаружимым в @graph и теперь eligible для Video rich
+        # results, не ломая остальной Product-граф.
         try:
             if getattr(product, "has_video", False):
                 video_id = product.youtube_id
@@ -1132,7 +1137,7 @@ class StructuredDataGenerator:
                     }
                     if upload_date:
                         video_obj["uploadDate"] = upload_date
-                    schema["video"] = video_obj
+                    schema["subjectOf"] = video_obj
         except Exception:
             pass
 
@@ -1220,9 +1225,31 @@ class StructuredDataGenerator:
         if not color_variants and not fit_options:
             return None
 
+        # SEO 2026-06-08 — finding (§2.1/§2.2/§3.5). Emit ProductGroup ONLY
+        # for genuinely multi-variant products (>=2 colour variants with a
+        # slug). Rationale:
+        #   * For single-colour / colour-less SKUs the standalone Product
+        #     node already covers rich-result eligibility; a one-member
+        #     ProductGroup added zero clustering value.
+        #   * The previous design reused the base Product ``#product`` @id
+        #     inside ``hasVariant[0]`` — a duplicate @id on the same page
+        #     that made Google raise the critical «Недопустимый тип объекта
+        #     в поле parent_node» and the «set one of hasVariant.offers /
+        #     review / aggregateRating» errors (GSC 2026-06-07, reality-bends
+        #     ×2 and /en/ idea-hd, all single-colour).
+        # Gating here removes the group from ~58 single-colour SKUs and from
+        # the flagged products, eliminating both errors at the source. The
+        # remaining multi-colour groups below carry NO base node (no @id
+        # collision) and each variant declares ``size`` for Merchant.
+        slugged_color_variants = [
+            cv for cv in color_variants
+            if (getattr(cv, "slug", "") or "").strip()
+        ]
+        if len(slugged_color_variants) < 2:
+            return None
+
         prefix = StructuredDataGenerator._locale_url_prefix(canonical_path)
         base_url = _build_absolute_url(f"{prefix}product/{product.slug}/")
-        base_product_id = f"{base_url}#product"
         group_id = f"{base_url}#product-group"
 
         varies_by: List[str] = []
@@ -1282,27 +1309,24 @@ class StructuredDataGenerator:
         default_image = _safe_product_display_image(product)
         base_image = _build_absolute_url(default_image.url) if default_image else get_default_social_image_url()
 
-        variants_nodes: List[Dict] = [
-            {
-                "@type": "Product",
-                "@id": base_product_id,
-                "name": product.title,
-                "url": base_url,
-                "image": base_image,
-                "sku": f"TC-{product.id}",
-                "offers": _variant_offer(base_url),
-            }
-        ]
+        # Size dimension (Merchant requires ``size`` on apparel variants).
+        product_sizes = resolve_product_sizes(product)
+        size_value = ", ".join(product_sizes) if product_sizes else ""
+
+        # ``hasVariant`` holds ONLY the real colour variants — each a full,
+        # self-contained Product node with its own distinct @id (the variant
+        # URL), resolvable ``offers`` and ``size``. No base node is emitted,
+        # so nothing reuses the standalone Product's ``#product`` @id → the
+        # parent_node collision is gone.
+        variants_nodes: List[Dict] = []
 
         try:
             from storefront.services.color_filter import _translate_color_label
         except Exception:
             _translate_color_label = None  # type: ignore
 
-        for variant in color_variants:
+        for variant in slugged_color_variants:
             slug = (getattr(variant, "slug", "") or "").strip()
-            if not slug:
-                continue
             variant_url = _build_absolute_url(f"{prefix}product/{product.slug}/{slug}/")
             node: Dict = {
                 "@type": "Product",
@@ -1310,8 +1334,11 @@ class StructuredDataGenerator:
                 "name": product.title,
                 "url": variant_url,
                 "sku": f"TC-{product.id}-{slug}",
+                "inProductGroupWithID": product.slug,
                 "offers": _variant_offer(variant_url),
             }
+            if size_value:
+                node["size"] = size_value
             # Colour label so Google can map the variant to ``variesBy``.
             color_obj = getattr(variant, "color", None)
             color_name = getattr(color_obj, "name", "") if color_obj else ""
@@ -1555,6 +1582,35 @@ class StructuredDataGenerator:
                 "url": f"{base_url}faq/",
                 "hostingOrganization": {"@id": f"{base_url}#organization"},
             },
+        }
+
+    @staticmethod
+    def generate_founder_schema() -> Dict:
+        """Canonical Person schema for the brand founder (Артем Синіло).
+
+        SEO 2026-06-08 — finding (§2.1, part 1). The Organization schema
+        references ``founder: {"@id": ".../#founder"}`` on every page, but
+        no ``Person`` node with that ``@id`` was ever emitted — a dangling
+        reference Google / AI knowledge graphs could not resolve, losing the
+        strongest E-E-A-T anchor (veteran founder from Kharkiv). This node
+        resolves that reference. Data is intentionally minimal and verified:
+        name, role, link back to the Organization, nationality. The
+        government press release about the founder already lives on the
+        Organization node (``subjectOf``), so we do not duplicate it here.
+        """
+        base_url = _build_absolute_url("")
+        return {
+            "@context": "https://schema.org",
+            "@type": "Person",
+            "@id": f"{base_url}#founder",
+            "name": "Артем Синіло",
+            "jobTitle": _("Засновник TwoComms"),
+            "description": _(
+                "Засновник українського streetwear-бренду TwoComms із Харкова, "
+                "бойовий ветеран."
+            ),
+            "worksFor": {"@id": f"{base_url}#organization"},
+            "nationality": {"@type": "Country", "name": "Ukraine", "identifier": "UA"},
         }
 
     @staticmethod

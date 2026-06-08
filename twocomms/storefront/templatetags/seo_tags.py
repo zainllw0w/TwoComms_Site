@@ -430,6 +430,20 @@ def website_schema():
 
 
 @register.simple_tag
+def founder_schema():
+    """JSON-LD <script> with the canonical founder Person schema.
+
+    SEO 2026-06-08 (§2.1) — resolves the dangling ``#founder`` reference
+    emitted by the Organization node on every page. Emit alongside
+    ``organization_schema`` / ``website_schema`` in base.html.
+    """
+    schema = _seo_utils().StructuredDataGenerator.generate_founder_schema()
+    return mark_safe(
+        f'<script type="application/ld+json">{json.dumps(schema, ensure_ascii=False, indent=2)}</script>'
+    )
+
+
+@register.simple_tag
 def homepage_storefront_schema():
     """JSON-LD ``OnlineStore`` + ``AggregateOffer`` for the homepage.
 

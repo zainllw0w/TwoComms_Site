@@ -315,9 +315,16 @@ class ProductGroupSchemaTests(TestCase):
             title="PG Hoodie", slug="pg-hoodie", category=self.category,
             price=1200, description="PG coverage.", status="published",
         )
-        color = Color.objects.create(name="Black", primary_hex="#000000")
+        # SEO 2026-06-08 — ProductGroup is now emitted only for products
+        # with >=2 colour variants (single-colour SKUs rely on the
+        # standalone Product node). Create two colours so the group exists.
+        black = Color.objects.create(name="Black", primary_hex="#000000")
+        olive = Color.objects.create(name="Olive", primary_hex="#59604A")
         ProductColorVariant.objects.create(
-            product=self.product, color=color, slug="black", stock=0,
+            product=self.product, color=black, slug="black", stock=0,
+        )
+        ProductColorVariant.objects.create(
+            product=self.product, color=olive, slug="olive", stock=0,
         )
 
     def _group(self, canonical_path=None):
@@ -331,7 +338,7 @@ class ProductGroupSchemaTests(TestCase):
         self.assertIsNotNone(group)
         self.assertEqual(group["@type"], "ProductGroup")
         variants = group["hasVariant"]
-        # Inline Product nodes, not bare @id refs.
+        # Inline Product nodes (one per colour variant), not bare @id refs.
         self.assertGreaterEqual(len(variants), 2)
         for node in variants:
             self.assertEqual(node["@type"], "Product")
@@ -342,30 +349,60 @@ class ProductGroupSchemaTests(TestCase):
             )
             self.assertEqual(node["offers"]["priceCurrency"], "UAH")
 
-    def test_group_id_and_variants_are_locale_consistent(self):
-        group = self._group(canonical_path="/en/product/pg-hoodie/")
-        self.assertTrue(
-            group["@id"].startswith("https://twocomms.shop/en/product/pg-hoodie/")
-        )
-        base_node = group["hasVariant"][0]
-        self.assertEqual(
-            base_node["@id"], "https://twocomms.shop/en/product/pg-hoodie/#product"
-        )
-        # Every variant URL carries the same /en/ prefix.
+    def test_group_variants_declare_size(self):
+        """SEO 2026-06-08 (§2.2) — every hasVariant Product node must carry
+        ``size`` so Google Merchant does not raise «Отсутствует поле size».
+        """
+        group = self._group()
         for node in group["hasVariant"]:
-            self.assertIn("/en/product/pg-hoodie/", node["@id"])
+            self.assertIn("size", node)
+            self.assertTrue(node["size"])
 
-    def test_group_base_id_matches_product_node_id(self):
-        """The ProductGroup's base variant @id must equal the standalone
-        Product node @id rendered on the same page, so the in-page graph
-        references resolve.
+    def test_group_has_no_at_id_collision_with_product_node(self):
+        """SEO 2026-06-08 (§2.1) — the standalone Product ``#product`` @id
+        must NOT be reused by any hasVariant node on the same page. The old
+        design reused it, which made Google raise «Недопустимый тип объекта
+        в поле parent_node». Variant nodes use their own variant-URL @ids.
         """
         canonical = "/product/pg-hoodie/"
         product_schema = json.loads(
             get_product_schema(self.product, canonical_path=canonical)
         )
         group = self._group(canonical_path=canonical)
-        self.assertEqual(product_schema["@id"], group["hasVariant"][0]["@id"])
+        variant_ids = {node.get("@id") for node in group["hasVariant"]}
+        self.assertNotIn(product_schema["@id"], variant_ids)
+        # Each variant declares its membership in the group.
+        for node in group["hasVariant"]:
+            self.assertEqual(node.get("inProductGroupWithID"), self.product.slug)
+
+    def test_group_variants_are_locale_consistent(self):
+        group = self._group(canonical_path="/en/product/pg-hoodie/")
+        self.assertTrue(
+            group["@id"].startswith("https://twocomms.shop/en/product/pg-hoodie/")
+        )
+        # Every variant URL carries the same /en/ prefix.
+        for node in group["hasVariant"]:
+            self.assertIn("/en/product/pg-hoodie/", node["@id"])
+
+    def test_single_colour_product_emits_no_group(self):
+        """SEO 2026-06-08 (§3.5) — a single-colour product must NOT emit a
+        ProductGroup (the standalone Product covers it). This removes the
+        GSC parent_node / size criticals at the source for ~58 SKUs.
+        """
+        cat = Category.objects.create(
+            name="Solo Cat", slug="solo-cat", is_active=True,
+        )
+        solo = Product.objects.create(
+            title="Solo Tee", slug="solo-tee", category=cat,
+            price=900, description="Solo.", status="published",
+        )
+        from storefront.seo_utils import StructuredDataGenerator
+        color = Color.objects.create(name="Coyote", primary_hex="#81613C")
+        ProductColorVariant.objects.create(
+            product=solo, color=color, slug="coyote", stock=0,
+        )
+        group = StructuredDataGenerator.generate_product_group_schema(solo)
+        self.assertIsNone(group)
 
     def test_group_never_emits_made_to_order(self):
         group_json = json.dumps(self._group(), ensure_ascii=False)

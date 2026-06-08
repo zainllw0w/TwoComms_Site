@@ -256,7 +256,14 @@ class BlogCategorySitemap(Sitemap):
     x_default = True
 
     def items(self):
-        return (
+        # SEO 2026-06-08 (§3.4) — only list blog categories that actually
+        # have published posts (directly, or via active children for parent
+        # categories). Empty categories are noindex (see blog_category view)
+        # and must not sit in the sitemap as thin/soft-404 URLs.
+        published = BlogPost.objects.filter(
+            is_published=True, published_at__lte=timezone.now()
+        )
+        cats = list(
             BlogCategory.objects
             .filter(is_active=True)
             .exclude(slug='')
@@ -264,6 +271,20 @@ class BlogCategorySitemap(Sitemap):
             .only('slug', 'parent', 'parent__slug', 'updated_at')
             .order_by('order', 'name')
         )
+        result = []
+        for category in cats:
+            has_posts = published.filter(category=category).exists()
+            if not has_posts and category.parent_id is None:
+                child_ids = list(
+                    BlogCategory.objects
+                    .filter(parent=category, is_active=True)
+                    .values_list('id', flat=True)
+                )
+                if child_ids:
+                    has_posts = published.filter(category_id__in=child_ids).exists()
+            if has_posts:
+                result.append(category)
+        return result
 
     def lastmod(self, obj):
         return getattr(obj, 'updated_at', None)
