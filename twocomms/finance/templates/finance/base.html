@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}TwoComms Finance{% endblock %}</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/finance.css' %}?v=20260602a">
+    <link rel="stylesheet" href="{% static 'css/finance.css' %}?v=20260608a">
     <link rel="stylesheet" href="{% static 'css/finance-fixes.css' %}?v=1">
     <link rel="stylesheet" href="{% static 'css/finance-animations.css' %}?v=1">
     <link rel="stylesheet" href="{% static 'css/finance-filters.css' %}?v=1">
@@ -184,6 +184,7 @@
        #fin-dropdowns, а якщо його немає — із запасного #fin-dropdowns-shell.
     {% endcomment %}
     {% include 'finance/partials/transaction_modal.html' %}
+    {% include 'finance/partials/report_modal.html' %}
     {{ fin_dropdowns|json_script:"fin-dropdowns-shell" }}
 
     <!-- Панель налаштувань -->
@@ -283,6 +284,17 @@
 
                             <div class="fin-setting-group">
                                 <label class="fin-setting-label">
+                                    <span>Зведення по боргах (08:00)</span>
+                                    <div class="fin-switch">
+                                        <input type="checkbox" id="push-debts-enabled">
+                                        <span class="fin-switch__ui"></span>
+                                    </div>
+                                </label>
+                                <small class="fin-field-help">Раз на день зранку: хто винен вам і кому винні ви. Показуються лише непогашені — сплачені зникають автоматично</small>
+                            </div>
+
+                            <div class="fin-setting-group">
+                                <label class="fin-setting-label">
                                     <span>Нагадування про планові платежі</span>
                                     <div class="fin-switch">
                                         <input type="checkbox" id="push-planned-reminders">
@@ -358,7 +370,8 @@
     </script>
     <script src="{% static 'js/finance.js' %}?v=20260603b"></script>
     <script src="{% static 'js/finance-transactions.js' %}?v=20260603c"></script>
-    <script src="{% static 'js/finance-pwa.js' %}?v=20260603c"></script>
+    <script src="{% static 'js/finance-pwa.js' %}?v=20260608a"></script>
+    <script src="{% static 'js/finance-reports-modal.js' %}?v=20260608a"></script>
     <script src="{% static 'js/finance-ui-enhancements.js' %}?v=3"></script>
     {% block extra_js %}{% endblock %}
 </body>

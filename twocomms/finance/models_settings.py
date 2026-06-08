@@ -47,6 +47,10 @@ class UserSettings(models.Model):
     push_large_txn_threshold = models.DecimalField(
         max_digits=18, decimal_places=2, default=10000,
         verbose_name='Поріг великої операції')
+    # Зведення по дебіторці/кредиторці — рівно раз на день зранку (08:00).
+    # Показує лише НЕОПЛАЧЕНІ борги; погашені автоматично зникають.
+    push_debts_enabled = models.BooleanField(
+        default=True, verbose_name='Щоденне зведення по боргах (08:00)')
     telegram_notifications = models.BooleanField(
         default=False,
         verbose_name='Дублювати в Telegram'
@@ -106,6 +110,8 @@ class NotificationLog(models.Model):
     NOTIFICATION_TYPES = [
         ('daily', 'Щоденний звіт'),
         ('weekly', 'Тижневий звіт'),
+        ('debts', 'Зведення по боргах'),
+        ('health', 'Фінансовий ризик'),
         ('planned', 'Нагадування про платежі'),
         ('large_txn', 'Велика операція'),
         ('custom', 'Кастомне повідомлення'),
@@ -133,6 +139,15 @@ class NotificationLog(models.Model):
 
     # Дані звіту (JSON)
     report_data = models.JSONField(null=True, blank=True, verbose_name='Дані звіту')
+
+    # Ключ дедуплікації: один субʼєкт за період (напр. 'daily:2026-06-08',
+    # 'debts:2026-06-08', 'weekly:2026-W23'). Гарантує рівно одну спробу
+    # відправки за період — навіть якщо доставка не вдалася (нема спаму).
+    dedup_key = models.CharField(
+        max_length=64, blank=True, default='', db_index=True, verbose_name='Ключ дедуплікації')
+    # Користувач натиснув «Ознайомився» (або відкрив звіт). Поки що — лише облік.
+    acknowledged = models.BooleanField(default=False, verbose_name='Ознайомлено')
+    acknowledged_at = models.DateTimeField(null=True, blank=True, verbose_name='Час ознайомлення')
 
     class Meta:
         db_table = 'finance_notification_logs'

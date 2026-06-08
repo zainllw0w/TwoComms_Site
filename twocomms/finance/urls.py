@@ -127,6 +127,8 @@ urlpatterns = [
     path('api/push/unsubscribe/', views.push_unsubscribe_api, name='finance_push_unsubscribe_api'),
     path('api/push/test/', views.push_test_api, name='finance_push_test_api'),
     path('api/notifications/history/', views.notification_history_api, name='finance_notification_history_api'),
+    path('api/notifications/<int:log_id>/', views.notification_detail_api, name='finance_notification_detail_api'),
+    path('api/notifications/<int:log_id>/ack/', views.notification_ack_api, name='finance_notification_ack_api'),
 
     # --- API: імпорт виписки ---
     path('api/import/preview/', views.import_preview_api, name='finance_import_preview_api'),

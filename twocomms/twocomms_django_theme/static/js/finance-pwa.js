@@ -389,6 +389,7 @@
             push_planned_reminders: document.getElementById('push-planned-reminders')?.checked || false,
             push_large_txn: document.getElementById('push-large-txn')?.checked || false,
             push_large_txn_threshold: parseFloat(document.getElementById('push-large-txn-threshold')?.value || '10000') || 10000,
+            push_debts_enabled: document.getElementById('push-debts-enabled')?.checked || false,
             telegram_notifications: document.getElementById('telegram-notifications')?.checked || false
         };
 
@@ -486,6 +487,8 @@
         if (largeTxnThreshold && settings.push_large_txn_threshold) {
             largeTxnThreshold.value = settings.push_large_txn_threshold;
         }
+        var debtsEnabled = document.getElementById('push-debts-enabled');
+        if (debtsEnabled) debtsEnabled.checked = settings.push_debts_enabled !== false;
 
         // Авто-переподписка: якщо push увімкнено й дозвіл уже надано, але на
         // ЦЬОМУ пристрої підписки немає (нова сесія/очищення) — тихо підписуємось.

@@ -1,7 +1,7 @@
 /* TwoComms Finance — Service Worker для PWA
    Кешування критичних ресурсів, offline підтримка, push-повідомлення */
 
-const CACHE_VERSION = 'twc-finance-v1.0.0';
+const CACHE_VERSION = 'twc-finance-v1.1.0';
 const CACHE_STATIC = `${CACHE_VERSION}-static`;
 const CACHE_DYNAMIC = `${CACHE_VERSION}-dynamic`;
 const CACHE_API = `${CACHE_VERSION}-api`;
@@ -213,6 +213,7 @@ self.addEventListener('push', (event) => {
     requireInteraction: data.requireInteraction || false,
     data: {
       url: data.url || '/',
+      reportId: data.report_id || null,
       timestamp: Date.now()
     },
     actions: data.actions || []
@@ -225,23 +226,39 @@ self.addEventListener('push', (event) => {
 
 // ===== Клік по повідомленню =====
 self.addEventListener('notificationclick', (event) => {
-  console.log('[Finance SW] Notification clicked');
+  console.log('[Finance SW] Notification clicked, action:', event.action);
 
+  const data = event.notification.data || {};
+  const reportId = data.reportId || data.report_id || null;
   event.notification.close();
 
-  const urlToOpen = event.notification.data?.url || '/';
+  // Дія «Ознайомився» — позначаємо лог і не відкриваємо вікно.
+  if (event.action === 'ack' && reportId) {
+    event.waitUntil(
+      fetch('/api/notifications/' + reportId + '/ack/', {
+        method: 'POST',
+        credentials: 'include'
+      }).catch(() => {})
+    );
+    return;
+  }
+
+  const urlToOpen = data.url || '/';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then((clientList) => {
-        // Шукаємо відкриту вкладку з finance
+        // Якщо є відкрита вкладка субдомену — фокусуємо й просимо відкрити звіт.
         for (const client of clientList) {
-          if (client.url.includes(urlToOpen) && 'focus' in client) {
-            return client.focus();
+          if (client.url.indexOf(self.location.origin) === 0 && 'focus' in client) {
+            client.focus();
+            if (reportId) {
+              client.postMessage({ type: 'OPEN_REPORT', reportId: reportId });
+            }
+            return;
           }
         }
-
-        // Відкриваємо нову вкладку
+        // Інакше відкриваємо нову вкладку (URL уже містить ?fin_report=<id>).
         if (clients.openWindow) {
           return clients.openWindow(urlToOpen);
         }

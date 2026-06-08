@@ -3,6 +3,7 @@ import json
 
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_POST
 
 from ..models_settings import UserSettings, PushSubscription, NotificationLog
@@ -25,6 +26,7 @@ def settings_get_api(request):
             'push_planned_reminders': settings.push_planned_reminders,
             'push_large_txn': settings.push_large_txn,
             'push_large_txn_threshold': float(settings.push_large_txn_threshold),
+            'push_debts_enabled': settings.push_debts_enabled,
             'telegram_notifications': settings.telegram_notifications,
         })
     except UserSettings.DoesNotExist:
@@ -40,6 +42,7 @@ def settings_get_api(request):
             'push_planned_reminders': False,
             'push_large_txn': False,
             'push_large_txn_threshold': 10000.0,
+            'push_debts_enabled': True,
             'telegram_notifications': False,
         })
 
@@ -67,6 +70,7 @@ def settings_save_api(request):
                 data.get('push_large_txn_threshold', 10000) or 10000))
         except (TypeError, ValueError):
             settings.push_large_txn_threshold = 10000
+        settings.push_debts_enabled = data.get('push_debts_enabled', True)
         settings.telegram_notifications = data.get('telegram_notifications', False)
 
         settings.save()
@@ -219,6 +223,48 @@ def push_test_api(request):
         err = result.get('error') or 'Немає активних підписок на цьому пристрої'
         return JsonResponse({'success': False, 'error': err}, status=400)
     return JsonResponse({'success': True, 'sent': result['sent']})
+
+
+@require_http_methods(['GET'])
+@login_required
+def notification_detail_api(request, log_id):
+    """Повертає збережений звіт повідомлення для рендера модалки на сайті."""
+    try:
+        log = NotificationLog.objects.get(id=log_id, user=request.user)
+    except NotificationLog.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'not_found'}, status=404)
+    return JsonResponse({
+        'success': True,
+        'id': log.id,
+        'type': log.notification_type,
+        'title': log.title,
+        'body': log.body,
+        'sent_at': log.sent_at.isoformat(),
+        'acknowledged': log.acknowledged,
+        'report': log.report_data or {},
+    })
+
+
+@csrf_exempt
+@require_POST
+@login_required
+def notification_ack_api(request, log_id):
+    """Позначає повідомлення як «Ознайомлено» (поки що — лише облік).
+
+    csrf_exempt — щоб дію «Ознайомився» можна було викликати і з Service Worker
+    (push action), де CSRF-токен недоступний. Захист — login_required + перевірка
+    власника логу.
+    """
+    from django.utils import timezone
+    try:
+        log = NotificationLog.objects.get(id=log_id, user=request.user)
+    except NotificationLog.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'not_found'}, status=404)
+    if not log.acknowledged:
+        log.acknowledged = True
+        log.acknowledged_at = timezone.now()
+        log.save(update_fields=['acknowledged', 'acknowledged_at'])
+    return JsonResponse({'success': True})
 
 
 def generate_daily_report(user, date=None):

@@ -43,7 +43,58 @@ class PushServiceTests(TestCase):
         r = push_service.build_daily_report(self.company)
         self.assertIn('title', r)
         self.assertIn('body', r)
-        self.assertIn('Баланс', r['body'])
+        self.assertIn('баланс', r['body'].lower())
+        data = r['data']
+        self.assertEqual(data['kind'], 'daily')
+        for key in ('income', 'expense', 'profit', 'balance', 'debts_unpaid', 'tips'):
+            self.assertIn(key, data)
+
+    def test_debts_report_none_without_debts(self):
+        # Без планових боргів/інвойсів — звіту немає (не турбуємо).
+        self.assertIsNone(push_service.build_debts_report(self.company))
+
+    def test_debts_report_with_unpaid(self):
+        Transaction.objects.create(
+            company=self.company, type=Transaction.TYPE_EXPENSE,
+            status=Transaction.STATUS_PLANNED, amount=Decimal('5000'),
+            amount_base=Decimal('5000'), currency='UAH', account=self.acc,
+            date_actual=timezone.now() + timezone.timedelta(days=2), is_business=True)
+        r = push_service.build_debts_report(self.company)
+        self.assertIsNotNone(r)
+        self.assertEqual(r['data']['kind'], 'debts')
+        self.assertGreaterEqual(r['data']['payable']['count'], 1)
+
+    def test_dedup_keys_stable(self):
+        import datetime as dt
+        day = dt.date(2026, 6, 8)
+        self.assertEqual(push_service.dedup_daily(day), 'daily:2026-06-08')
+        self.assertEqual(push_service.dedup_debts(day), 'debts:2026-06-08')
+        self.assertTrue(push_service.dedup_weekly(day).startswith('weekly:2026-W'))
+
+    @patch('finance.services.push.webpush')
+    def test_send_stores_dedup_key_and_log_id(self, mocked):
+        mocked.return_value = SimpleNamespace(status_code=201)
+        res = push_service.send_to_user(
+            self.user, 'T', 'B', notification_type='daily', dedup_key='daily:2026-06-08')
+        self.assertIn('log_id', res)
+        log = NotificationLog.objects.get(id=res['log_id'])
+        self.assertEqual(log.dedup_key, 'daily:2026-06-08')
+        self.assertTrue(log.success)
+
+    def test_notification_detail_and_ack_api(self):
+        from django.test import Client
+        log = NotificationLog.objects.create(
+            user=self.user, notification_type='daily', title='Звіт', body='тіло',
+            success=True, dedup_key='daily:x', report_data={'kind': 'daily', 'income': 1.0})
+        c = Client()
+        c.force_login(self.user)
+        r = c.get(f'/api/notifications/{log.id}/', HTTP_HOST='fin.twocomms.shop', secure=True)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()['report']['kind'], 'daily')
+        r2 = c.post(f'/api/notifications/{log.id}/ack/', HTTP_HOST='fin.twocomms.shop', secure=True)
+        self.assertEqual(r2.status_code, 200)
+        log.refresh_from_db()
+        self.assertTrue(log.acknowledged)
 
     def test_weekly_report_content(self):
         r = push_service.build_weekly_report(self.company)

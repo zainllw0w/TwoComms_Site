@@ -1,0 +1,25 @@
+{% comment %}
+  Модалка фінансового звіту (push deep-link).
+  Відкривається при ?fin_report=<id> або повідомленні від Service Worker.
+  Контент рендериться у JS (finance-reports-modal.js) із збережених report_data.
+{% endcomment %}
+<div class="fin-report-modal" id="fin-report-modal" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="fin-report-title">
+    <div class="fin-report-modal__backdrop" id="fin-report-backdrop"></div>
+    <div class="fin-report-modal__dialog">
+        <header class="fin-report-modal__head">
+            <div class="fin-report-modal__head-text">
+                <span class="fin-report-modal__eyebrow" id="fin-report-eyebrow">Звіт</span>
+                <h2 class="fin-report-modal__title" id="fin-report-title">Фінансовий звіт</h2>
+                <span class="fin-report-modal__date" id="fin-report-date"></span>
+            </div>
+            <button type="button" class="fin-report-modal__close" id="fin-report-close" aria-label="Закрити">&times;</button>
+        </header>
+        <div class="fin-report-modal__body" id="fin-report-body">
+            <div class="fin-report-modal__loading">Завантаження звіту…</div>
+        </div>
+        <footer class="fin-report-modal__foot">
+            <button type="button" class="fin-btn fin-btn--ghost" id="fin-report-dismiss">Закрити</button>
+            <button type="button" class="fin-btn fin-btn--primary" id="fin-report-ack">✓ Ознайомився</button>
+        </footer>
+    </div>
+</div>
