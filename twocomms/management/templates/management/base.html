@@ -579,6 +579,7 @@
                 <div class="profile-section">
                     <div class="profile-section__title">Виплати</div>
                     <div class="pay-card" data-has-card="{% if request.user.userprofile.payment_details %}1{% else %}0{% endif %}">
+                        <img class="pay-card__logo" src="{% static 'img/logo.svg' %}" alt="" aria-hidden="true">
                         <div class="pay-card__top">
                             <span class="pay-card__chip" aria-hidden="true"></span>
                             <span class="pay-card__brand">

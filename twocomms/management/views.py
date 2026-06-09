@@ -2482,6 +2482,32 @@ def _profile_avatar_url(user):
     return ''
 
 
+def _client_result_zone(code):
+    """Колірна зона результату дзвінка для модалки огляду.
+
+    success (зелений) — конверсія; progress (бурштин) — просування/обіцянка;
+    danger (червоний) — відмова/дорого/нецікаво; muted — недозвон/недоступний.
+    """
+    try:
+        from management.services.visible_points import (
+            CONVERSION_RESULTS,
+            PROGRESS_RESULTS,
+            PROMISE_RESULTS,
+        )
+    except Exception:
+        CONVERSION_RESULTS = PROGRESS_RESULTS = PROMISE_RESULTS = set()
+    code = str(code or "")
+    if code in CONVERSION_RESULTS:
+        return "success"
+    if code in PROGRESS_RESULTS or code in PROMISE_RESULTS:
+        return "progress"
+    if code in {"not_interested", "expensive", "rejected"}:
+        return "danger"
+    if code in {"no_answer", "invalid_number"}:
+        return "muted"
+    return "neutral"
+
+
 def _report_client_payload(c):
     """JSON-safe дані клієнта для модалки огляду звіту.
 
@@ -2504,6 +2530,7 @@ def _report_client_payload(c):
         'source': c.source,
         'result': c.get_call_result_display(),
         'result_code': c.call_result,
+        'result_zone': _client_result_zone(c.call_result),
         'details': c.call_result_details,
         'phase_number': getattr(c, 'phase_number', 1) or 1,
         'prev_manager': prev_manager,

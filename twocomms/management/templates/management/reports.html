@@ -112,6 +112,19 @@
 .rep-cl-badge.res { background: rgba(99,102,241,0.16); color: #c4b5fd; }
 .rep-cl-badge.phase { background: rgba(251,191,36,0.16); color: #fcd34d; }
 .rep-cl-badge.handover { background: rgba(99,102,241,0.2); color: #c4b5fd; border: 1px solid rgba(99,102,241,0.4); }
+/* Колірні зони результату */
+.rep-cl--success { border-left: 3px solid #34d399; }
+.rep-cl--progress { border-left: 3px solid #fbbf24; }
+.rep-cl--danger { border-left: 3px solid #f87171; background: linear-gradient(160deg, rgba(248,113,113,0.10), rgba(255,255,255,0.02)); }
+.rep-cl--muted { border-left: 3px solid rgba(148,163,184,0.45); }
+.rep-cl--success .rep-cl-ico { color: #34d399; border-color: rgba(52,211,153,0.4); background: rgba(52,211,153,0.12); }
+.rep-cl--progress .rep-cl-ico { color: #fbbf24; border-color: rgba(251,191,36,0.4); background: rgba(251,191,36,0.12); }
+.rep-cl--danger .rep-cl-ico { color: #f87171; border-color: rgba(248,113,113,0.4); background: rgba(248,113,113,0.12); }
+.rep-cl-badge.zone-success { background: rgba(52,211,153,0.18); color: #6ee7b7; }
+.rep-cl-badge.zone-progress { background: rgba(251,191,36,0.18); color: #fcd34d; }
+.rep-cl-badge.zone-danger { background: rgba(248,113,113,0.20); color: #fca5a5; }
+.rep-cl-badge.zone-muted { background: rgba(148,163,184,0.16); color: #cbd5e1; }
+.rep-cl-badge.zone-neutral { background: rgba(99,102,241,0.16); color: #c4b5fd; }
 .rep-cl-det { margin-top: 10px; padding-top: 9px; border-top: 1px dashed var(--border); font-size: 12px; color: var(--text-secondary); display: grid; gap: 4px; }
 .rep-cl-det .muted { color: var(--muted); }
 .rep-empty { color: var(--muted); font-size: 13px; padding: 24px; text-align: center; border: 1px dashed var(--border); border-radius: 14px; }
@@ -310,9 +323,10 @@ document.addEventListener('DOMContentLoaded', () => {
             body.innerHTML = clients.map(c => {
                 const phase = parseInt(c.phase_number || 1, 10);
                 const handover = !!c.prev_manager;
+                const zone = c.result_zone || 'neutral';
                 const badges = [];
                 if (c.role) badges.push(`<span class="rep-cl-badge">${ICON.tag}${esc(c.role)}</span>`);
-                if (c.result) badges.push(`<span class="rep-cl-badge res">${ICON.result}${esc(c.result)}</span>`);
+                if (c.result) badges.push(`<span class="rep-cl-badge zone zone-${zone}">${ICON.result}${esc(c.result)}</span>`);
                 if (phase > 1) badges.push(`<span class="rep-cl-badge phase">${ICON.repeat}Повторна обробка · фаза ${phase}</span>`);
                 if (handover) badges.push(`<span class="rep-cl-badge handover">${ICON.handover}Контакт від ${esc(c.prev_manager)}</span>`);
                 const sub2 = [];
@@ -323,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (c.details) det.push(`<div><span class="muted">Деталі:</span> ${esc(c.details)}</div>`);
                 det.push(`<div><span class="muted">Наступний дзвінок:</span> ${esc(c.next_call)}</div>`);
                 return `
-                <div class="rep-cl${handover ? ' is-handover' : ''}">
+                <div class="rep-cl rep-cl--${zone}${handover ? ' is-handover' : ''}">
                     <div class="rep-cl-top">
                         <span class="rep-cl-ico">${ICON.shop}</span>
                         <span class="rep-cl-shop">${esc(c.shop)}</span>

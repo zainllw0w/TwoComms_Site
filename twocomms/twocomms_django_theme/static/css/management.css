@@ -8203,3 +8203,24 @@ a.ph-mosaic:hover .ph-mosaic__go svg { transform: translateX(3px); }
 .pay-card__field input:focus { border-color: rgba(255,126,41,0.5); outline: none; }
 .pay-card__foot { display: flex; align-items: flex-start; gap: 8px; font-size: 0.8rem; color: var(--text-secondary); position: relative; z-index: 1; }
 .pay-card__foot svg { width: 15px; height: 15px; flex: 0 0 auto; margin-top: 1px; color: var(--accent); }
+
+
+/* === Management UI v3.1 — fix field alignment + pay-card logo === */
+/* Без глобального box-sizing інпути з padding виходили за межі комірки */
+#profile-form input,
+#profile-form select,
+#profile-form textarea { box-sizing: border-box; max-width: 100%; }
+#profile-form .field { min-width: 0; }
+#profile-form .field-grid { gap: 14px 16px; }
+.field-grid--icons .input-wrap { display: block; width: 100%; box-sizing: border-box; }
+.field-grid--icons .input-wrap > input { box-sizing: border-box; }
+.dob-grid--inline { box-sizing: border-box; max-width: 100%; overflow: hidden; }
+.dob-grid--inline select { width: 100%; box-sizing: border-box; }
+
+/* Лого по центру картки виплат */
+.pay-card__logo {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-8deg);
+    width: 128px; height: auto; opacity: 0.16;
+    pointer-events: none; z-index: 0;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4));
+}
