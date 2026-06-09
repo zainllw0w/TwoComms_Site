@@ -17,7 +17,8 @@
 .rep-date { font-size: 15px; font-weight: 700; color: var(--text-primary); }
 .rep-time { font-size: 12px; color: var(--muted); }
 .rep-manager { display: inline-flex; align-items: center; gap: 6px; margin-top: 5px; font-size: 12.5px; color: var(--text-secondary); }
-.rep-manager .rep-ava { width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; font-size: 10px; font-weight: 800; color: #0d1018; background: linear-gradient(135deg,#ffb347,#ff7e29); }
+.rep-manager .rep-ava { width: 20px; height: 20px; border-radius: 6px; overflow: hidden; display: grid; place-items: center; font-size: 10px; font-weight: 800; color: #0d1018; background: linear-gradient(135deg,#ffb347,#ff7e29); }
+.rep-manager .rep-ava img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 /* === Звіти: KPI-плашка (прямокутна, замість тісного кола) === */
 .rep-score {
@@ -85,21 +86,35 @@
 .rep-modal-overlay { position: fixed; inset: 0; z-index: 1300; background: rgba(6,8,12,0.72); backdrop-filter: blur(6px); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
 .rep-modal-card { width: min(720px, 100%); max-height: calc(100vh - 80px); overflow-y: auto; background: linear-gradient(180deg, rgba(26,31,44,0.99), rgba(16,19,28,0.99)); border: 1px solid var(--border); border-radius: 22px; box-shadow: 0 40px 100px rgba(0,0,0,0.55); animation: dossierIn .26s cubic-bezier(.2,.7,.3,1); }
 .rep-modal-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 14px; padding: 20px 24px; border-bottom: 1px solid var(--border); background: rgba(20,24,35,0.97); backdrop-filter: blur(8px); border-radius: 22px 22px 0 0; }
+.rep-modal-ava { flex: 0 0 auto; width: 44px; height: 44px; border-radius: 13px; overflow: hidden; display: grid; place-items: center; font-size: 17px; font-weight: 800; color: #0d1018; background: linear-gradient(135deg,#ffb347,#ff7e29); box-shadow: 0 6px 18px rgba(255,126,41,0.28); }
+.rep-modal-ava img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .rep-modal-head h3 { margin: 0; font-size: 1.2rem; color: var(--text-primary); }
 .rep-modal-head .sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
 .rep-modal-head .modal-close { margin-left: auto; }
 .rep-modal-body { padding: 18px 24px 32px; display: flex; flex-direction: column; gap: 10px; }
-.rep-cl { padding: 13px 15px; border-radius: 14px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); }
+
+/* Картка клієнта у модалці — стиль досьє */
+.rep-cl { position: relative; padding: 14px 16px; border-radius: 16px; background: linear-gradient(160deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)); border: 1px solid var(--border); transition: border-color .16s ease, transform .16s ease; }
+.rep-cl:hover { border-color: rgba(255,126,41,0.3); transform: translateY(-1px); }
+.rep-cl.is-handover { border-color: rgba(99,102,241,0.4); background: linear-gradient(160deg, rgba(99,102,241,0.12), rgba(255,255,255,0.02)); }
 .rep-cl-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.rep-cl-shop { font-size: 14px; font-weight: 700; color: var(--text-primary); }
-.rep-cl-when { font-size: 11.5px; color: var(--muted); margin-left: auto; }
-.rep-cl-sub { font-size: 12.5px; color: var(--text-secondary); margin-top: 3px; }
-.rep-cl-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
-.rep-cl-badge { padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(255,255,255,0.06); color: var(--text-secondary); }
+.rep-cl-ico { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text-secondary); }
+.rep-cl-ico svg { width: 16px; height: 16px; display: block; }
+.rep-cl-shop { font-size: 14.5px; font-weight: 700; color: var(--text-primary); }
+.rep-cl-when { font-size: 11.5px; color: var(--muted); margin-left: auto; display: inline-flex; align-items: center; gap: 5px; }
+.rep-cl-when svg { width: 13px; height: 13px; opacity: .8; }
+.rep-cl-sub { font-size: 12.5px; color: var(--text-secondary); margin-top: 7px; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.rep-cl-sub span { display: inline-flex; align-items: center; gap: 5px; }
+.rep-cl-sub svg { width: 13px; height: 13px; opacity: .75; }
+.rep-cl-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 9px; }
+.rep-cl-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; background: rgba(255,255,255,0.06); color: var(--text-secondary); }
+.rep-cl-badge svg { width: 12px; height: 12px; }
 .rep-cl-badge.res { background: rgba(99,102,241,0.16); color: #c4b5fd; }
-.rep-cl-det { margin-top: 9px; font-size: 12px; color: var(--text-secondary); display: grid; gap: 3px; }
+.rep-cl-badge.phase { background: rgba(251,191,36,0.16); color: #fcd34d; }
+.rep-cl-badge.handover { background: rgba(99,102,241,0.2); color: #c4b5fd; border: 1px solid rgba(99,102,241,0.4); }
+.rep-cl-det { margin-top: 10px; padding-top: 9px; border-top: 1px dashed var(--border); font-size: 12px; color: var(--text-secondary); display: grid; gap: 4px; }
 .rep-cl-det .muted { color: var(--muted); }
-.rep-empty { color: var(--muted); font-size: 13px; padding: 14px; text-align: center; }
+.rep-empty { color: var(--muted); font-size: 13px; padding: 24px; text-align: center; border: 1px dashed var(--border); border-radius: 14px; }
 @media (max-width: 520px) { .rep-grid { grid-template-columns: 1fr; } .rep-modal-card { width: 100%; } }
 </style>
 {% endblock %}
@@ -134,7 +149,7 @@
                         <div class="rep-date">{{ r.created_at|date:"d.m.Y" }}</div>
                         <div class="rep-time">{{ r.created_at|date:"H:i" }}</div>
                         {% if is_admin %}
-                        <span class="rep-manager"><span class="rep-ava">{{ r.owner_name|slice:":1"|upper }}</span>{{ r.owner_name }}</span>
+                        <span class="rep-manager"><span class="rep-ava">{% if r.owner_avatar %}<img src="{{ r.owner_avatar }}" alt="{{ r.owner_name }}" loading="lazy">{% else %}{{ r.owner_name|slice:":1"|upper }}{% endif %}</span>{{ r.owner_name }}</span>
                         {% endif %}
                     </div>
                     <div class="rep-score" data-pct="{{ r.kpi_clients_pct }}" title="Загальний KPI за обробкою">
@@ -198,6 +213,7 @@
     <div class="rep-modal-overlay" id="rep-modal" hidden>
         <div class="rep-modal-card" role="dialog" aria-modal="true">
             <div class="rep-modal-head">
+                <div class="rep-modal-ava" id="rep-modal-ava">—</div>
                 <div>
                     <h3 id="rep-modal-title">Огляд звіту</h3>
                     <div class="sub" id="rep-modal-sub"></div>
@@ -262,36 +278,62 @@ document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('rep-modal');
     const title = document.getElementById('rep-modal-title');
     const sub = document.getElementById('rep-modal-sub');
+    const avaEl = document.getElementById('rep-modal-ava');
     const body = document.getElementById('rep-modal-body');
     const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+    const ICON = {
+        shop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1-5h16l1 5"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/></svg>',
+        person: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+        phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+        clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+        tag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41L11 3.83A2 2 0 0 0 9.59 3H4v5.59A2 2 0 0 0 4.59 10l9.59 9.59a2 2 0 0 0 2.82 0l3.59-3.59a2 2 0 0 0 0-2.59z"/><circle cx="7.5" cy="7.5" r="1"/></svg>',
+        result: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+        handover: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>',
+        repeat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>',
+    };
 
     function openModal(id) {
         const r = byId[id];
         if (!r) return;
         title.textContent = 'Звіт за ' + esc(r.date);
         sub.textContent = `${r.manager} · ${r.points} балів · ${r.processed} оброблено`;
+        if (avaEl) {
+            avaEl.innerHTML = r.avatar
+                ? `<img src="${esc(r.avatar)}" alt="${esc(r.manager)}">`
+                : esc((r.manager || '—').slice(0, 1).toUpperCase());
+        }
         const clients = r.clients || [];
         if (!clients.length) {
             body.innerHTML = '<div class="rep-empty">Немає клієнтів у цьому звіті.</div>';
         } else {
-            body.innerHTML = clients.map(c => `
-                <div class="rep-cl">
+            body.innerHTML = clients.map(c => {
+                const phase = parseInt(c.phase_number || 1, 10);
+                const handover = !!c.prev_manager;
+                const badges = [];
+                if (c.role) badges.push(`<span class="rep-cl-badge">${ICON.tag}${esc(c.role)}</span>`);
+                if (c.result) badges.push(`<span class="rep-cl-badge res">${ICON.result}${esc(c.result)}</span>`);
+                if (phase > 1) badges.push(`<span class="rep-cl-badge phase">${ICON.repeat}Повторна обробка · фаза ${phase}</span>`);
+                if (handover) badges.push(`<span class="rep-cl-badge handover">${ICON.handover}Контакт від ${esc(c.prev_manager)}</span>`);
+                const sub2 = [];
+                if (c.full_name) sub2.push(`<span>${ICON.person}${esc(c.full_name)}</span>`);
+                if (c.phone) sub2.push(`<span>${ICON.phone}${esc(c.phone)}</span>`);
+                const det = [];
+                if (c.source) det.push(`<div><span class="muted">Джерело:</span> ${esc(c.source)}</div>`);
+                if (c.details) det.push(`<div><span class="muted">Деталі:</span> ${esc(c.details)}</div>`);
+                det.push(`<div><span class="muted">Наступний дзвінок:</span> ${esc(c.next_call)}</div>`);
+                return `
+                <div class="rep-cl${handover ? ' is-handover' : ''}">
                     <div class="rep-cl-top">
+                        <span class="rep-cl-ico">${ICON.shop}</span>
                         <span class="rep-cl-shop">${esc(c.shop)}</span>
-                        <span class="rep-cl-when">${esc(c.created)}</span>
+                        <span class="rep-cl-when">${ICON.clock}${esc(c.created)}</span>
                     </div>
-                    <div class="rep-cl-sub">${esc(c.full_name)}${c.phone ? ' · ' + esc(c.phone) : ''}</div>
-                    <div class="rep-cl-badges">
-                        <span class="rep-cl-badge">${esc(c.role)}</span>
-                        <span class="rep-cl-badge res">${esc(c.result)}</span>
-                    </div>
-                    <div class="rep-cl-det">
-                        ${c.source ? `<div><span class="muted">Джерело:</span> ${esc(c.source)}</div>` : ''}
-                        ${c.details ? `<div><span class="muted">Деталі:</span> ${esc(c.details)}</div>` : ''}
-                        <div><span class="muted">Наступний дзвінок:</span> ${esc(c.next_call)}</div>
-                    </div>
-                </div>
-            `).join('');
+                    ${sub2.length ? `<div class="rep-cl-sub">${sub2.join('')}</div>` : ''}
+                    ${badges.length ? `<div class="rep-cl-badges">${badges.join('')}</div>` : ''}
+                    <div class="rep-cl-det">${det.join('')}</div>
+                </div>`;
+            }).join('');
         }
         modal.hidden = false;
         document.body.style.overflow = 'hidden';

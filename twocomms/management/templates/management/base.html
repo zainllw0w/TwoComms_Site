@@ -40,13 +40,15 @@
     <!-- Глобальный верхний хедер -->
     <header class="global-header">
         <div class="header-left">
-            <div class="brand-mark">
-                <img src="{% static 'img/logo.svg' %}" alt="TwoComms" />
-            </div>
-            <div class="brand-title">
-                <div class="brand-kicker">TwoComms</div>
-                <div class="brand-name">MANAGEMENT</div>
-            </div>
+            <a href="{% url 'management_home' %}" class="brand-home-link" aria-label="На головну">
+                <div class="brand-mark">
+                    <img src="{% static 'img/logo.svg' %}" alt="TwoComms" />
+                </div>
+                <div class="brand-title">
+                    <div class="brand-kicker">TwoComms</div>
+                    <div class="brand-name">MANAGEMENT</div>
+                </div>
+            </a>
         </div>
         <nav class="header-tabs">
             <a href="{% url 'management_home' %}" class="tab{% if request.resolver_match.url_name == 'management_home' or request.resolver_match.url_name == 'management_invoices' or request.resolver_match.url_name == 'management_contracts' or request.resolver_match.url_name == 'management_commercial_offer_email' or request.resolver_match.url_name == 'management_shops' %} active{% endif %}">Менеджмент</a>
@@ -390,21 +392,55 @@
 
                 <div class="form-alert" id="profile-alert" role="status" aria-live="polite"></div>
 
-                <div class="profile-hero">
-                    <div class="profile-hero__main">
-                        <p class="eyebrow">Кабінет менеджменту</p>
-                        <h4>{{ request.user.get_full_name|default:request.user.username }}</h4>
-                        <div class="profile-hero__copy">Оновіть контакти, виплатні реквізити та Telegram-налаштування в одному місці, щоб нагадування, статистика й адміністрування працювали без втрат.</div>
-                    </div>
-                    <div class="profile-hero__meta">
-                        <span class="profile-hero__chip">{{ management_shell_role_label|default:"Менеджер" }}</span>
+                <div class="profile-headcard">
+                    <div class="ph-top">
+                        <div class="ph-avatar">
+                            {% if request.user.userprofile.avatar %}
+                            <img src="{{ request.user.userprofile.avatar.url }}" alt="{{ request.user.get_full_name|default:request.user.username }}">
+                            {% else %}
+                            <span>{{ request.user.get_full_name|default:request.user.username|slice:":1"|upper }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="ph-meta">
+                            <p class="eyebrow">Кабінет менеджменту</p>
+                            <h4 class="ph-name">{{ request.user.get_full_name|default:request.user.username }}</h4>
+                            <span class="ph-role">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 7.7l5.4-.8z"/></svg>
+                                {{ management_shell_role_label|default:"Менеджер" }}
+                            </span>
+                        </div>
                         {% if management_shell_stats_url %}
-                        <a href="{{ management_shell_stats_url }}" class="btn-ghost small status-shortcut">Статистика</a>
+                        <a href="{{ management_shell_stats_url }}" class="ph-mosaic {% if management_shell_mosaic_ready %}is-ready{% else %}is-muted{% endif %}" title="Перейти до статистики">
+                            <span class="ph-mosaic__badge">MOSAIC</span>
+                            <span class="ph-mosaic__score">{{ management_shell_mosaic_label|default:"—" }}</span>
+                            <span class="ph-mosaic__meta">{{ management_shell_mosaic_meta }}</span>
+                            <span class="ph-mosaic__go">Статистика
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                            </span>
+                        </a>
+                        {% else %}
+                        <div class="ph-mosaic {% if management_shell_mosaic_ready %}is-ready{% else %}is-muted{% endif %}">
+                            <span class="ph-mosaic__badge">MOSAIC</span>
+                            <span class="ph-mosaic__score">{{ management_shell_mosaic_label|default:"—" }}</span>
+                            <span class="ph-mosaic__meta">{{ management_shell_mosaic_meta }}</span>
+                        </div>
                         {% endif %}
-                        <div class="profile-hero__mosaic {% if management_shell_mosaic_ready %}is-ready{% else %}is-muted{% endif %}">
-                            <span class="profile-hero__mosaic-label">MOSAIC</span>
-                            <strong>{{ management_shell_mosaic_label|default:"Накопичуємо дані" }}</strong>
-                            <span>{{ management_shell_mosaic_meta|default:"Потрібно щонайменше 20 обробок для стабільного показу." }}</span>
+                    </div>
+                    <div class="ph-terms">
+                        <div class="ph-term">
+                            <span class="ph-term__label">Ставка / тиждень</span>
+                            <span class="ph-term__value">{{ request.user.userprofile.manager_base_salary_uah|default:0 }} <small>грн</small></span>
+                        </div>
+                        <div class="ph-term">
+                            <span class="ph-term__label">% від замовлення</span>
+                            <span class="ph-term__value">{{ request.user.userprofile.manager_commission_percent|default:0 }}<small>%</small></span>
+                        </div>
+                        <div class="ph-term ph-term--contract">
+                            <span class="ph-term__label">Договір умов</span>
+                            <span class="ph-contract-chip" data-state="pending">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 14l2 2 4-4"/></svg>
+                                Скоро
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -490,62 +526,76 @@
                 </div>
                 {% endif %}
 
-                <div class="profile-readonly" aria-label="Дані менеджера">
-                    <div class="profile-readonly__item">
-                        <div class="profile-readonly__label">Статус / посада</div>
-                        <div class="profile-readonly__value">{{ management_shell_role_label|default:request.user.userprofile.manager_position|default:"—" }}</div>
-                    </div>
-                    <div class="profile-readonly__item">
-                        <div class="profile-readonly__label">Умови</div>
-                        <div class="profile-readonly__value">{{ request.user.userprofile.manager_base_salary_uah|default:0 }} грн • {{ request.user.userprofile.manager_commission_percent|default:0 }}%</div>
-                    </div>
-                    <div class="profile-readonly__item">
-                        <div class="profile-readonly__label"></div>
-                        <div class="profile-readonly__value">
-                            <a href="{% url 'management_profile' %}" class="profile-link-btn">Переглянути профіль →</a>
-                        </div>
-                    </div>
-                </div>
-
                 <div class="profile-section">
                     <div class="profile-section__title">Контакти</div>
-                    <div class="field-grid">
+                    <div class="field-grid field-grid--icons">
                         <div class="field">
                             <label for="pf_full_name">ПІБ</label>
-                            <input type="text" id="pf_full_name" name="full_name" value="{{ request.user.userprofile.full_name|default:request.user.get_full_name }}" placeholder="Ваше імʼя та прізвище" autocomplete="name">
+                            <div class="input-wrap">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+                                <input type="text" id="pf_full_name" name="full_name" value="{{ request.user.userprofile.full_name|default:request.user.get_full_name }}" placeholder="Ваше імʼя та прізвище" autocomplete="name">
+                            </div>
                         </div>
                         <div class="field">
                             <label for="pf_email">Email</label>
-                            <input type="email" id="pf_email" name="email" value="{{ request.user.userprofile.email|default:request.user.email }}" placeholder="you@example.com" autocomplete="email">
+                            <div class="input-wrap">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+                                <input type="email" id="pf_email" name="email" value="{{ request.user.userprofile.email|default:request.user.email }}" placeholder="you@example.com" autocomplete="email">
+                            </div>
                         </div>
                         <div class="field">
                             <label for="pf_phone">Телефон</label>
-                            <input type="tel" id="pf_phone" name="phone" value="{{ request.user.userprofile.phone }}" placeholder="+380…" autocomplete="tel">
+                            <div class="input-wrap">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                                <input type="tel" id="pf_phone" name="phone" value="{{ request.user.userprofile.phone }}" placeholder="+380…" autocomplete="tel">
+                            </div>
                         </div>
                         <div class="field">
                             <label for="pf_city">Місто</label>
-                            <input type="text" id="pf_city" name="city" value="{{ request.user.userprofile.city }}" placeholder="Наприклад: Київ" autocomplete="address-level2">
+                            <div class="input-wrap">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-5.2-7-11a7 7 0 0 1 14 0c0 5.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+                                <input type="text" id="pf_city" name="city" value="{{ request.user.userprofile.city }}" placeholder="Наприклад: Київ" autocomplete="address-level2">
+                            </div>
                         </div>
                         <div class="field">
                             <label for="pf_instagram">Instagram</label>
-                            <input type="text" id="pf_instagram" name="instagram" value="{{ request.user.userprofile.instagram }}" placeholder="username або посилання" autocomplete="off">
+                            <div class="input-wrap">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg>
+                                <input type="text" id="pf_instagram" name="instagram" value="{{ request.user.userprofile.instagram }}" placeholder="username або посилання" autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label>Дата народження</label>
+                            <div class="dob-grid dob-grid--inline" data-initial="{{ request.user.userprofile.birth_date|date:'Y-m-d' }}">
+                                <svg class="dob-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                                <select id="pf_birth_day" name="birth_day" aria-label="День"></select>
+                                <select id="pf_birth_month" name="birth_month" aria-label="Місяць"></select>
+                                <select id="pf_birth_year" name="birth_year" aria-label="Рік"></select>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="profile-section">
                     <div class="profile-section__title">Виплати</div>
-                    <div class="field-grid">
-                        <div class="field field-span-2">
-                            <label for="pf_payment_card">Картка для виплат</label>
-                            <input type="text" id="pf_payment_card" name="payment_card" value="" placeholder="Введіть номер картки" inputmode="numeric" autocomplete="cc-number">
-                            <div class="field-help">
-                                {% if request.user.userprofile.payment_details %}
-                                    Картку збережено. Щоб змінити — введіть нову.
-                                {% else %}
-                                    Потрібна для запитів на виплату.
-                                {% endif %}
-                            </div>
+                    <div class="pay-card" data-has-card="{% if request.user.userprofile.payment_details %}1{% else %}0{% endif %}">
+                        <div class="pay-card__top">
+                            <span class="pay-card__chip" aria-hidden="true"></span>
+                            <span class="pay-card__brand">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+                                Картка для виплат
+                            </span>
+                        </div>
+                        <div class="pay-card__field">
+                            <input type="text" id="pf_payment_card" name="payment_card" value="" placeholder="0000 0000 0000 0000 / UA…" inputmode="numeric" autocomplete="cc-number">
+                        </div>
+                        <div class="pay-card__foot">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                            {% if request.user.userprofile.payment_details %}
+                            Картку збережено. Сюди надходять ваші виплати — щоб змінити, введіть нову.
+                            {% else %}
+                            Введіть номер картки або IBAN — сюди надходитимуть ваші виплати.
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -575,26 +625,6 @@
                         </div>
                     </div>
                 </div>
-
-                <div class="profile-section">
-                    <div class="profile-section__title">Дата народження</div>
-                    <div class="dob-grid" data-initial="{{ request.user.userprofile.birth_date|date:'Y-m-d' }}">
-                        <div class="field">
-                            <label for="pf_birth_day">День</label>
-                            <select id="pf_birth_day" name="birth_day"></select>
-                        </div>
-                        <div class="field">
-                            <label for="pf_birth_month">Місяць</label>
-                            <select id="pf_birth_month" name="birth_month"></select>
-                        </div>
-                        <div class="field">
-                            <label for="pf_birth_year">Рік</label>
-                            <select id="pf_birth_year" name="birth_year"></select>
-                        </div>
-                    </div>
-                </div>
-
-
 
                 <div class="bot-block">
                     <div class="bot-block-head">

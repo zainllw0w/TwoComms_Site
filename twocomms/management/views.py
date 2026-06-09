@@ -2471,6 +2471,47 @@ def admin_user_clients(request, user_id):
     })
 
 
+def _profile_avatar_url(user):
+    """URL аватара менеджера або '' (безпечно, без винятків у рендері)."""
+    try:
+        avatar = getattr(user.userprofile, 'avatar', None)
+        if avatar:
+            return avatar.url
+    except Exception:
+        pass
+    return ''
+
+
+def _report_client_payload(c):
+    """JSON-safe дані клієнта для модалки огляду звіту.
+
+    Додає phase_number та prev_manager — щоб у модалці показати, що контакт
+    уже оброблявся (зокрема іншим менеджером).
+    """
+    prev_manager = ''
+    try:
+        root = getattr(c, 'phase_root', None)
+        if root and root.owner_id and root.owner_id != c.owner_id:
+            prev_manager = root.owner.get_full_name() or root.owner.username
+    except Exception:
+        prev_manager = ''
+    return {
+        'shop': c.shop_name,
+        'full_name': c.full_name,
+        'phone': c.phone,
+        'role': c.get_role_display(),
+        'role_code': c.role,
+        'source': c.source,
+        'result': c.get_call_result_display(),
+        'result_code': c.call_result,
+        'details': c.call_result_details,
+        'phase_number': getattr(c, 'phase_number', 1) or 1,
+        'prev_manager': prev_manager,
+        'next_call': timezone.localtime(c.next_call_at).strftime('%d.%m.%Y %H:%M') if c.next_call_at else '–',
+        'created': timezone.localtime(c.created_at).strftime('%d.%m.%Y %H:%M'),
+    }
+
+
 @login_required(login_url='management_login')
 def reports(request):
     if not user_is_management(request.user):
@@ -2493,12 +2534,12 @@ def reports(request):
             owner=r.owner,
             created_at__gte=report_day_start,
             created_at__lt=report_day_end
-        ).order_by('-created_at')
+        ).select_related('phase_root__owner', 'phase_root__owner__userprofile').order_by('-created_at')
         clients = list(clients_qs[:100])
         # fallback: якщо записів за дату немає, але processed > 0, показуємо останніх клієнтів
         if not clients and r.processed > 0:
             fallback_limit = max(1, min(100, r.processed))
-            clients = list(Client.objects.filter(owner=r.owner).order_by('-created_at')[:fallback_limit])
+            clients = list(Client.objects.filter(owner=r.owner).select_related('phase_root__owner').order_by('-created_at')[:fallback_limit])
         kpi_clients_pct = min(100, int(r.processed / TARGET_CLIENTS_DAY * 100)) if TARGET_CLIENTS_DAY else 0
         kpi_points_pct = min(100, int(r.points / TARGET_POINTS_DAY * 100)) if TARGET_POINTS_DAY else 0
         reports_list.append({
@@ -2506,26 +2547,13 @@ def reports(request):
             'created_at': r.created_at,
             'owner': r.owner,
             'owner_name': r.owner.get_full_name() or r.owner.username,
+            'owner_avatar': _profile_avatar_url(r.owner),
             'points': r.points,
             'processed': r.processed,
             'kpi_clients_pct': kpi_clients_pct,
             'kpi_points_pct': kpi_points_pct,
             'file': r.file,
-            'clients': [
-                {
-                    'shop': c.shop_name,
-                    'full_name': c.full_name,
-                    'phone': c.phone,
-                    'role': c.get_role_display(),
-                    'role_code': c.role,
-                    'source': c.source,
-                    'result': c.get_call_result_display(),
-                    'result_code': c.call_result,
-                    'details': c.call_result_details,
-                    'next_call': timezone.localtime(c.next_call_at).strftime('%d.%m.%Y %H:%M') if c.next_call_at else '–',
-                    'created': timezone.localtime(c.created_at).strftime('%d.%m.%Y %H:%M'),
-                } for c in clients
-            ]
+            'clients': [_report_client_payload(c) for c in clients]
         })
 
     stats = get_user_stats(request.user)
@@ -2540,6 +2568,7 @@ def reports(request):
             'id': item['id'],
             'date': timezone.localtime(item['created_at']).strftime('%d.%m.%Y %H:%M'),
             'manager': item['owner_name'],
+            'avatar': item['owner_avatar'],
             'points': item['points'],
             'processed': item['processed'],
             'clients': item['clients'],

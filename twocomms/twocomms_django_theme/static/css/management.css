@@ -8122,3 +8122,84 @@ body[data-row-mode="card"] .callback-projection-row td {
     60% { box-shadow: 0 0 0 8px rgba(52, 211, 153, 0); }
     100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
 }
+
+
+/* ============================================================
+   Management UI v3 — brand link, profile headcard, field icons, pay card
+   ============================================================ */
+
+/* Логотип/назва ведуть на головну */
+.brand-home-link { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; border-radius: 12px; padding: 2px 4px; transition: opacity .15s ease, transform .15s ease; }
+.brand-home-link:hover { opacity: .92; transform: translateY(-1px); }
+.brand-home-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* Об'єднана шапка профілю */
+.profile-headcard {
+    margin-top: 4px; padding: 18px; border-radius: 20px; border: 1px solid var(--border);
+    background: linear-gradient(150deg, rgba(255,126,41,0.10), rgba(255,255,255,0.03) 42%), rgba(255,255,255,0.02);
+    display: flex; flex-direction: column; gap: 16px;
+}
+.ph-top { display: flex; align-items: center; gap: 16px; }
+.ph-avatar { flex: 0 0 auto; width: 64px; height: 64px; border-radius: 18px; overflow: hidden; display: grid; place-items: center; background: linear-gradient(135deg,#ffb347,#ff7e29); color: #0d1018; font-size: 26px; font-weight: 800; box-shadow: 0 10px 26px rgba(255,126,41,0.3); }
+.ph-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.ph-meta { min-width: 0; flex: 1; }
+.ph-meta .eyebrow { margin-bottom: 3px; }
+.ph-name { margin: 0; font-size: 1.25rem; color: var(--text-primary); line-height: 1.15; word-break: break-word; }
+.ph-role { display: inline-flex; align-items: center; gap: 6px; margin-top: 7px; padding: 4px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: var(--accent); background: rgba(255,126,41,0.14); border: 1px solid rgba(255,126,41,0.32); }
+.ph-role svg { width: 13px; height: 13px; }
+
+.ph-mosaic { flex: 0 0 auto; display: grid; gap: 2px; min-width: 156px; padding: 12px 14px; border-radius: 16px; text-decoration: none; border: 1px solid var(--border); background: rgba(255,255,255,0.03); transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease; }
+a.ph-mosaic:hover { transform: translateY(-2px); border-color: rgba(255,126,41,0.4); box-shadow: 0 14px 34px rgba(0,0,0,0.28); }
+a.ph-mosaic:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.ph-mosaic__badge { font-size: 0.7rem; letter-spacing: 0.16em; color: var(--muted); }
+.ph-mosaic__score { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); line-height: 1.05; font-variant-numeric: tabular-nums; }
+.ph-mosaic.is-muted .ph-mosaic__score { font-size: 1rem; color: var(--text-secondary); }
+.ph-mosaic__meta { font-size: 0.74rem; color: var(--text-secondary); max-width: 24ch; }
+.ph-mosaic__go { display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; font-size: 0.76rem; font-weight: 600; color: var(--accent); }
+.ph-mosaic__go svg { width: 13px; height: 13px; transition: transform .15s ease; }
+a.ph-mosaic:hover .ph-mosaic__go svg { transform: translateX(3px); }
+.ph-mosaic.is-ready { border-color: rgba(52,211,153,0.3); background: linear-gradient(150deg, rgba(52,211,153,0.12), rgba(255,255,255,0.02)); }
+.ph-mosaic.is-ready .ph-mosaic__score { color: #34d399; }
+
+.ph-terms { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.ph-term { padding: 11px 14px; border-radius: 14px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; }
+.ph-term__label { font-size: 0.72rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.ph-term__value { font-size: 1.15rem; font-weight: 800; color: var(--text-primary); }
+.ph-term__value small { font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); }
+.ph-term--contract { justify-content: space-between; }
+.ph-contract-chip { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; padding: 4px 11px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); background: rgba(255,255,255,0.05); border: 1px dashed var(--border); }
+.ph-contract-chip svg { width: 14px; height: 14px; color: var(--accent); }
+
+@media (max-width: 720px) {
+    .ph-top { flex-wrap: wrap; }
+    .ph-mosaic { width: 100%; }
+    .ph-terms { grid-template-columns: 1fr; }
+}
+
+/* Поля з SVG-іконками */
+.field-grid--icons .input-wrap { position: relative; }
+.field-grid--icons .input-wrap > svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--muted); pointer-events: none; transition: color .15s ease; }
+.field-grid--icons .input-wrap > input { padding-left: 38px; width: 100%; }
+.field-grid--icons .input-wrap:focus-within > svg { color: var(--accent); }
+
+/* Дата народження inline (6-е поле контактів) */
+.dob-grid--inline { display: grid; grid-template-columns: 26px repeat(3, 1fr); align-items: center; gap: 8px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--border); background: rgba(255,255,255,0.03); transition: border-color .15s ease; }
+.dob-grid--inline:focus-within { border-color: rgba(255,126,41,0.45); }
+.dob-grid--inline .dob-ico { width: 16px; height: 16px; color: var(--muted); }
+.dob-grid--inline select { border: none; background: transparent; padding: 11px 2px; min-width: 0; }
+.dob-grid--inline select:focus { outline: none; }
+
+/* Картка / IBAN для виплат */
+.pay-card { position: relative; overflow: hidden; padding: 16px 18px; border-radius: 18px; border: 1px solid rgba(255,126,41,0.28); background: linear-gradient(135deg, rgba(40,28,18,0.92), rgba(20,22,30,0.94)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 14px 34px rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 14px; }
+.pay-card::after { content: ''; position: absolute; right: -40px; top: -40px; width: 160px; height: 160px; border-radius: 50%; background: radial-gradient(circle, rgba(255,126,41,0.18), transparent 70%); pointer-events: none; }
+.pay-card__top { display: flex; align-items: center; justify-content: space-between; gap: 10px; position: relative; z-index: 1; }
+.pay-card__chip { width: 40px; height: 29px; border-radius: 7px; background: linear-gradient(135deg, #f4d58d, #cfa04e); box-shadow: inset 0 0 0 1px rgba(0,0,0,0.2); position: relative; }
+.pay-card__chip::before { content: ''; position: absolute; inset: 6px 9px; border: 1px solid rgba(0,0,0,0.28); border-radius: 3px; }
+.pay-card__brand { display: inline-flex; align-items: center; gap: 7px; font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); }
+.pay-card__brand svg { width: 18px; height: 18px; color: var(--accent); }
+.pay-card__field { position: relative; z-index: 1; }
+.pay-card__field input { width: 100%; background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 13px 15px; font-size: 1.05rem; letter-spacing: 0.08em; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+.pay-card__field input::placeholder { letter-spacing: 0.06em; color: rgba(255,255,255,0.35); }
+.pay-card__field input:focus { border-color: rgba(255,126,41,0.5); outline: none; }
+.pay-card__foot { display: flex; align-items: flex-start; gap: 8px; font-size: 0.8rem; color: var(--text-secondary); position: relative; z-index: 1; }
+.pay-card__foot svg { width: 15px; height: 15px; flex: 0 0 auto; margin-top: 1px; color: var(--accent); }
