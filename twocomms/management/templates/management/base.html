@@ -409,15 +409,88 @@
                     </div>
                 </div>
 
-                <div class="profile-readonly" aria-label="Дані менеджера">
-                    {% if management_shell_level_label %}
-                    <div class="profile-readonly__item">
-                        <div class="profile-readonly__label">Рівень</div>
-                        <div class="profile-readonly__value">
-                            <span class="level-badge-sm level-{{ management_shell_level_code }}">{{ management_shell_level_label }}</span>
+                {% if management_shell_career_ready %}
+                <div class="career-card" id="career-card" data-progress="{{ management_shell_progress_pct|default:0 }}">
+                    <div class="career-card__head">
+                        <div>
+                            <p class="eyebrow">Кар'єрний шлях</p>
+                            <h4 class="career-card__current">{{ management_shell_level_label }}</h4>
                         </div>
+                        {% if management_shell_is_max_level %}
+                        <span class="career-card__badge is-max">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                            Максимальний рівень
+                        </span>
+                        {% else %}
+                        <span class="career-card__badge">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                            Далі: {{ management_shell_next_level_label }}
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <div class="career-track" role="list" aria-label="Рівні менеджера">
+                        <div class="career-track__line"><span class="career-track__line-fill"></span></div>
+                        {% for lvl in management_shell_levels %}
+                        <div class="career-node is-{{ lvl.status }}" role="listitem" data-order="{{ lvl.order }}" title="{{ lvl.name }}">
+                            <span class="career-node__dot">
+                                {% if lvl.status == 'completed' %}
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+                                {% elif lvl.status == 'current' %}
+                                <span class="career-node__pulse"></span>
+                                {% else %}
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+                                {% endif %}
+                            </span>
+                            <span class="career-node__label">{{ lvl.short }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    {% if not management_shell_is_max_level %}
+                    <div class="career-progress">
+                        <div class="career-progress__head">
+                            <span class="career-progress__title">Прогрес до «{{ management_shell_next_level_label }}»</span>
+                            <span class="career-progress__pct">{{ management_shell_progress_pct|default:0 }}%</span>
+                        </div>
+                        <div class="career-progress__track"><div class="career-progress__fill"></div></div>
+
+                        {% if management_shell_progress_manual %}
+                        <div class="career-hint">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                            Наступний рівень призначає адміністратор за результатами роботи.
+                        </div>
+                        {% elif management_shell_progress_conditions %}
+                        <ul class="career-reqs">
+                            {% for c in management_shell_progress_conditions %}
+                            <li class="career-req {% if c.is_met %}is-met{% endif %}" data-pct="{{ c.pct }}">
+                                <span class="career-req__check">
+                                    {% if c.is_met %}
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+                                    {% else %}
+                                    <span class="career-req__num">{{ c.pct }}%</span>
+                                    {% endif %}
+                                </span>
+                                <span class="career-req__body">
+                                    <span class="career-req__label">{{ c.label }}</span>
+                                    <span class="career-req__mini"><span class="career-req__mini-fill"></span></span>
+                                </span>
+                                <span class="career-req__count">{{ c.current }}/{{ c.target }}</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="career-hint is-max">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+                        Ви досягли вершини кар'єрної драбини. Так тримати!
                     </div>
                     {% endif %}
+                </div>
+                {% endif %}
+
+                <div class="profile-readonly" aria-label="Дані менеджера">
                     <div class="profile-readonly__item">
                         <div class="profile-readonly__label">Статус / посада</div>
                         <div class="profile-readonly__value">{{ management_shell_role_label|default:request.user.userprofile.manager_position|default:"—" }}</div>
@@ -549,6 +622,7 @@
                             <span class="status-dot offline">●</span> Не привʼязано
                         {% endif %}
                     </div>
+                    <button type="button" class="bind-fallback-toggle" id="bind-fallback-toggle">Telegram не відкрився? Показати резервний код</button>
                     <div class="bind-code-box" id="bind-code-box" style="display:none;">
                         <div class="bind-code-title">Резервний код</div>
                         <div class="bind-code-value" id="bind-code-value"></div>
@@ -955,9 +1029,51 @@
 
         // Profile modal logic
         const profileModal = document.getElementById('profile-modal');
+        const animateCareer = () => {
+            const card = document.getElementById('career-card');
+            if (!card || card.dataset.played === '1') {
+                if (card) card.classList.add('is-animated');
+                return;
+            }
+            card.dataset.played = '1';
+            requestAnimationFrame(() => {
+                card.classList.add('is-animated');
+                // Лінія степпера: заповнюємо до поточного вузла.
+                const nodes = Array.from(card.querySelectorAll('.career-node'));
+                const lineFill = card.querySelector('.career-track__line-fill');
+                if (lineFill && nodes.length > 1) {
+                    let currentIdx = nodes.findIndex(n => n.classList.contains('is-current'));
+                    if (currentIdx < 0) currentIdx = nodes.filter(n => n.classList.contains('is-completed')).length;
+                    const pct = Math.max(0, Math.min(100, (currentIdx / (nodes.length - 1)) * 100));
+                    lineFill.style.width = pct + '%';
+                }
+                // Каскадна поява вузлів.
+                nodes.forEach((n, i) => {
+                    const dot = n.querySelector('.career-node__dot');
+                    const label = n.querySelector('.career-node__label');
+                    const delay = (i * 90) + 'ms';
+                    if (dot) dot.style.transitionDelay = delay;
+                    if (label) label.style.transitionDelay = delay;
+                });
+                // Загальний прогрес.
+                const progFill = card.querySelector('.career-progress__fill');
+                if (progFill) {
+                    const pct = Math.max(0, Math.min(100, parseFloat(card.dataset.progress) || 0));
+                    progFill.style.width = pct + '%';
+                }
+                // Міні-бари умов.
+                card.querySelectorAll('.career-req').forEach(req => {
+                    const fill = req.querySelector('.career-req__mini-fill');
+                    if (!fill) return;
+                    const pct = Math.max(0, Math.min(100, parseFloat(req.dataset.pct) || 0));
+                    fill.style.width = pct + '%';
+                });
+            });
+        };
         const openProfile = () => {
             profileModal.classList.add('show');
             document.body.classList.add('modal-open');
+            animateCareer();
         };
         const closeProfile = () => {
             profileModal.classList.remove('show');
@@ -991,7 +1107,53 @@
             bindStatus.innerHTML = `<span class="status-dot ${kind}">●</span> ${text}`;
         };
 
+        // One-tap привʼязка: після відкриття Telegram опитуємо статус,
+        // щоб миттєво показати успіх без перезавантаження сторінки.
+        let bindPollTimer = null;
+        const stopBindPolling = () => {
+            if (bindPollTimer) { clearInterval(bindPollTimer); bindPollTimer = null; }
+        };
+        const onBindSuccess = (username) => {
+            stopBindPolling();
+            const uname = (username || '').trim();
+            setBindStatus(uname ? `Привʼязано до @${uname}` : 'Привʼязано', 'online');
+            if (bindBox) bindBox.style.display = 'none';
+            if (bindBtn) bindBtn.textContent = 'Перепідключити';
+            // делікатний акцент успіху на кнопці
+            if (bindBtn) {
+                bindBtn.classList.add('is-bound-flash');
+                setTimeout(() => bindBtn.classList.remove('is-bound-flash'), 1600);
+            }
+        };
+        const startBindPolling = () => {
+            stopBindPolling();
+            const startedAt = Date.now();
+            bindPollTimer = setInterval(() => {
+                if (Date.now() - startedAt > 90000) { stopBindPolling(); return; }
+                fetch("{% url 'management_profile_bind_status' %}", {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.ok && data.bound) {
+                        onBindSuccess(data.username);
+                    }
+                })
+                .catch(() => {});
+            }, 2500);
+        };
+
         if (bindBtn) {
+            const fallbackToggle = document.getElementById('bind-fallback-toggle');
+            if (fallbackToggle && bindBox) {
+                fallbackToggle.addEventListener('click', () => {
+                    const open = bindBox.style.display === 'block';
+                    bindBox.style.display = open ? 'none' : 'block';
+                    fallbackToggle.textContent = open
+                        ? 'Telegram не відкрився? Показати резервний код'
+                        : 'Сховати резервний код';
+                });
+            }
             bindBtn.addEventListener('click', () => {
                 fetch("{% url 'management_profile_bind_code' %}", {
                     method: 'POST',
@@ -999,14 +1161,12 @@
                         'X-Requested-With': 'XMLHttpRequest',
                         'X-CSRFToken': csrf,
                     }
-                })
-                .then(res => res.json())
+                })                .then(res => res.json())
                     .then(data => {
                         if (data.ok) {
                             bindVal.textContent = data.fallback_code || data.code || '—';
                             bindExp.textContent = `Діє до: ${data.expires}`;
-                            bindBox.style.display = 'block';
-                            setBindStatus('Посилання сформовано. Підтвердьте запуск у Telegram.', 'offline');
+                            setBindStatus('Відкриваємо Telegram… натисніть «Запустити» / Start у боті.', 'offline');
                         const username = (data.bot_username || botUsernameFromPage || '').trim();
                         const appLink = (data.tg_app_url || '').trim();
                         const deepLink = (data.deep_link_url || '').trim();
@@ -1014,8 +1174,12 @@
                             alert('Не вдалося сформувати посилання для бота. Перевірте налаштування і спробуйте ще раз.');
                             return;
                         }
-                        const target = appLink || deepLink;
+                        const target = deepLink || appLink;
                         window.open(target, '_blank', 'noopener');
+                        // Запускаємо поллінг статусу — щойно бот привʼяжеться,
+                        // одразу покажемо успіх. Резервний код — на випадок,
+                        // якщо Telegram не відкрився.
+                        startBindPolling();
                         }
                     })
                     .catch(() => {});

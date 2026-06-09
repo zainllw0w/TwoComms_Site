@@ -97,6 +97,95 @@ def build_management_shell_metrics(user, profile=None):
     }
 
 
+def build_management_shell_career(user):
+    """Дані про кар'єрний прогрес менеджера для шапки модалки профілю.
+
+    Повертає горизонтальний степпер усіх рівнів зі статусами та прогрес до
+    наступного рівня (з умовами). Усе загорнуто в try/except, щоб помилка не
+    зламала рендер shell на будь-якій сторінці менеджменту.
+    """
+    empty = {
+        "management_shell_career_ready": False,
+        "management_shell_levels": [],
+        "management_shell_next_level_label": "",
+        "management_shell_progress_pct": 0,
+        "management_shell_progress_conditions": [],
+        "management_shell_progress_manual": False,
+        "management_shell_is_max_level": False,
+    }
+    try:
+        from management.services.manager_levels import (
+            get_current_level,
+            get_level_display_name,
+            LEVEL_HIERARCHY,
+        )
+        from management.services.level_progression import (
+            get_progression_status,
+            get_next_level_requirements,
+        )
+
+        level_obj = get_current_level(user)
+        if not level_obj:
+            return empty
+
+        current_code = level_obj.level
+        current_rank = LEVEL_HIERARCHY.get(current_code, 0)
+
+        # Короткі підписи для компактного степпера.
+        short_labels = {
+            "candidate": "Кандидат",
+            "level_1": "Менеджер I",
+            "level_2": "Менеджер II",
+            "top_manager": "Топ",
+            "project_manager": "Project",
+            "admin": "Адмін",
+        }
+        order = sorted(LEVEL_HIERARCHY.items(), key=lambda kv: kv[1])
+        levels = []
+        for code, rank in order:
+            if rank < current_rank:
+                status = "completed"
+            elif rank == current_rank:
+                status = "current"
+            else:
+                status = "locked"
+            levels.append({
+                "code": code,
+                "name": get_level_display_name(code),
+                "short": short_labels.get(code, get_level_display_name(code)),
+                "status": status,
+                "order": rank,
+            })
+
+        progression = get_progression_status(user)
+        requirements = get_next_level_requirements(current_code)
+        next_code = progression.get("next_level")
+        is_max = next_code is None
+        manual = bool(requirements) and not requirements.get("auto_check", False)
+
+        conditions = []
+        for cond in progression.get("conditions", []) or []:
+            conditions.append({
+                "label": cond.get("description", ""),
+                "current": cond.get("current", 0),
+                "target": cond.get("target", 0),
+                "pct": cond.get("progress_pct", 0),
+                "is_met": cond.get("is_met", False),
+            })
+
+        return {
+            "management_shell_career_ready": True,
+            "management_shell_levels": levels,
+            "management_shell_next_level_label": get_level_display_name(next_code) if next_code else "",
+            "management_shell_progress_pct": progression.get("progress_pct", 0),
+            "management_shell_progress_conditions": conditions,
+            "management_shell_progress_manual": manual,
+            "management_shell_is_max_level": is_max,
+        }
+    except Exception:
+        return empty
+
+
 def management_shell_context(request):
     user = getattr(request, "user", None)
     if not user or not user.is_authenticated:
@@ -134,5 +223,6 @@ def management_shell_context(request):
         "management_shell_stats_url": stats_url,
         "management_shell_level_label": level_label,
         "management_shell_level_code": level_code,
+        **build_management_shell_career(user),
         **build_management_shell_metrics(user, profile),
     }

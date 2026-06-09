@@ -142,3 +142,30 @@ def notify_invoice_paid(invoice, accrual=None):
     ]]}
     for chat_id in admin_chat_ids():
         send_message(chat_id, "\n".join(alines), reply_markup=kb)
+
+
+def notify_manager_bot_connected(profile):
+    """Адміну: менеджер успішно привʼязав менеджмент-бота."""
+    if profile is None:
+        return
+    user = getattr(profile, "user", None)
+    name = _manager_name(user)
+    username = (getattr(profile, "tg_manager_username", "") or "").strip()
+    login = ""
+    try:
+        login = (getattr(user, "username", "") or "").strip()
+    except Exception:
+        login = ""
+
+    lines = [
+        "🤖 <b>Менеджер підключив бота</b>",
+        "",
+        f"👤 Менеджер: <b>{name}</b>",
+    ]
+    if login and login != name:
+        lines.append(f"🔑 Логін: <code>{login}</code>")
+    if username:
+        lines.append(f"💬 Telegram: @{username}")
+
+    for chat_id in admin_chat_ids():
+        send_message(chat_id, "\n".join(lines))

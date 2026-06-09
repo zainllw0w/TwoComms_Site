@@ -28,6 +28,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 import requests
 from io import BytesIO
+import base64
 import os
 import secrets
 
@@ -226,27 +227,54 @@ def get_manager_bot_username():
 
 
 def _build_manager_start_payload(user_id: int, code: str) -> str:
-    value = f"{int(user_id)}-{code}"
-    return signing.Signer(salt="management.bot.bind").sign(value)
+    """Telegram-safe deep-link start payload.
+
+    Telegram дозволяє у start-параметрі лише [A-Za-z0-9_-] (≤64 символів).
+    Раніше тут підписувався токен через Django Signer, але роздільник ':'
+    робив payload недопустимим (one-tap мовчки не спрацьовував). Код привʼязки
+    тепер сам по собі Telegram-safe і криптостійкий (див. profile_bind_code),
+    тому передаємо його напряму — без жодних спецсимволів.
+    """
+    return (code or "").strip()
 
 
 def _resolve_profile_from_start_payload(payload: str):
     token = (payload or "").strip()
     if not token:
         return None
-    try:
-        value = signing.Signer(salt="management.bot.bind").unsign(token)
-        user_id_raw, code = value.split("-", 1)
-        user_id = int(user_id_raw)
-    except (signing.BadSignature, ValueError):
-        return None
 
     now = timezone.now()
-    return UserProfile.objects.filter(
-        user_id=user_id,
-        tg_manager_bind_code=code,
+
+    # Прямий шлях: payload == код привʼязки (Telegram-safe).
+    profile = UserProfile.objects.filter(
+        tg_manager_bind_code=token,
         tg_manager_bind_expires_at__gte=now,
     ).first()
+    if profile:
+        return profile
+
+    # Legacy: старі deep-link із підписаним токеном ('userid-code', можливо у
+    # base64url-обгортці). Лишаємо для зворотної сумісності зі вже виданими
+    # посиланнями.
+    candidates = [token]
+    try:
+        padding = "=" * (-len(token) % 4)
+        candidates.append(base64.urlsafe_b64decode((token + padding).encode()).decode())
+    except Exception:
+        pass
+    for candidate in candidates:
+        try:
+            value = signing.Signer(salt="management.bot.bind").unsign(candidate)
+            _user_id_raw, code = value.split("-", 1)
+        except (signing.BadSignature, ValueError):
+            continue
+        profile = UserProfile.objects.filter(
+            tg_manager_bind_code=code,
+            tg_manager_bind_expires_at__gte=now,
+        ).first()
+        if profile:
+            return profile
+    return None
 
 
 def get_today_range():
@@ -2803,7 +2831,9 @@ def profile_bind_code(request):
     if not user_is_management(request.user):
         return JsonResponse({'ok': False}, status=403)
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
-    code = secrets.token_hex(3)
+    # Telegram-safe (hex → [0-9a-f]) і криптостійкий код: 16 символів = 64 біти.
+    # Використовується і як deep-link start payload, і як резервний код.
+    code = secrets.token_hex(8)
     expires_at = timezone.now() + timedelta(minutes=10)
     profile.tg_manager_bind_code = code
     profile.tg_manager_bind_expires_at = expires_at
@@ -2836,6 +2866,27 @@ def profile_reset_manager_bot(request):
     profile.tg_manager_bind_expires_at = None
     profile.save(update_fields=['tg_manager_chat_id', 'tg_manager_username', 'tg_manager_bind_code', 'tg_manager_bind_expires_at'])
     return JsonResponse({'ok': True})
+
+
+@login_required(login_url='management_login')
+@require_GET
+def profile_bind_status(request):
+    """Поллінг статусу привʼязки менеджмент-бота для one-tap UX.
+
+    Після того як користувач тапнув deep-link і натиснув Start у боті,
+    webhook збереже tg_manager_chat_id. Фронтенд опитує цей endpoint,
+    щоб миттєво показати успіх без перезавантаження сторінки.
+    """
+    if not user_is_management(request.user):
+        return JsonResponse({'ok': False}, status=403)
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    bound = bool(profile.tg_manager_chat_id)
+    return JsonResponse({
+        'ok': True,
+        'bound': bound,
+        'username': profile.tg_manager_username or '',
+        'chat_id': profile.tg_manager_chat_id or None,
+    })
 
 
 def _send_telegram_message(bot_token, chat_id, text):
@@ -4093,6 +4144,11 @@ def management_bot_webhook(request, token):
                 profile.tg_manager_bind_expires_at = None
                 profile.save()
                 _send_telegram_message(bot_token, chat_id, "Готово! Бот привʼязаний. Нагадування будуть тут.")
+                try:
+                    from management.services.notify import notify_manager_bot_connected
+                    notify_manager_bot_connected(profile)
+                except Exception:
+                    logger.exception("Failed to notify admin about manager bot connection")
             else:
                 _send_telegram_message(bot_token, chat_id, "Код не дійсний або прострочений. Згенеруйте новий у кабінеті і натисніть 'Привʼязати бота'.")
         else:

@@ -820,6 +820,27 @@ class ProfileBotBindTests(TestCase):
         self.assertEqual(profile.tg_manager_chat_id, 555123)
         self.assertEqual(profile.tg_manager_username, "manager_bind_user")
 
+    def test_start_payload_is_telegram_safe(self):
+        """Deep-link payload має містити лише [A-Za-z0-9_-] (вимога Telegram).
+
+        Регрес на баг, коли підписаний токен містив ':' і ламав one-tap.
+        """
+        import re as _re
+        from management.views import (
+            _build_manager_start_payload,
+            _resolve_profile_from_start_payload,
+        )
+        from accounts.models import UserProfile
+
+        profile, _ = UserProfile.objects.get_or_create(user=self.user)
+        profile.tg_manager_bind_code = "abc123"
+        profile.tg_manager_bind_expires_at = timezone.now() + timedelta(minutes=10)
+        profile.save()
+
+        payload = _build_manager_start_payload(self.user.id, "abc123")
+        self.assertTrue(_re.fullmatch(r"[A-Za-z0-9_-]{1,64}", payload), payload)
+        self.assertEqual(_resolve_profile_from_start_payload(payload), profile)
+
 
 @override_settings(
     ROOT_URLCONF="twocomms.urls_management",

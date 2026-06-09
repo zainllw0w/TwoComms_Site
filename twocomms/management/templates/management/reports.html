@@ -12,18 +12,65 @@
     display: flex; flex-direction: column; gap: 14px; transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
 }
 .rep-card:hover { transform: translateY(-2px); border-color: rgba(255,126,41,0.32); box-shadow: 0 16px 40px rgba(0,0,0,0.26); }
-.rep-card-top { display: flex; align-items: center; gap: 14px; }
-.rep-gauge { position: relative; width: 64px; height: 64px; flex: 0 0 auto; }
-.rep-gauge svg { width: 64px; height: 64px; transform: rotate(-90deg); }
-.rep-gauge .g-track { fill: none; stroke: rgba(255,255,255,0.10); stroke-width: 6; }
-.rep-gauge .g-fill { fill: none; stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset .7s cubic-bezier(.2,.7,.3,1); }
-.rep-gauge .g-num { position: absolute; inset: 0; display: grid; place-items: center; flex-direction: column; font-size: 16px; font-weight: 800; color: var(--text-primary); }
-.rep-gauge .g-num small { font-size: 8px; color: var(--muted); display: block; line-height: 1; letter-spacing: .05em; margin-top: 1px; }
+.rep-card-top { display: flex; align-items: flex-start; gap: 12px; }
 .rep-head { min-width: 0; flex: 1; }
 .rep-date { font-size: 15px; font-weight: 700; color: var(--text-primary); }
 .rep-time { font-size: 12px; color: var(--muted); }
 .rep-manager { display: inline-flex; align-items: center; gap: 6px; margin-top: 5px; font-size: 12.5px; color: var(--text-secondary); }
 .rep-manager .rep-ava { width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; font-size: 10px; font-weight: 800; color: #0d1018; background: linear-gradient(135deg,#ffb347,#ff7e29); }
+
+/* === Звіти: KPI-плашка (прямокутна, замість тісного кола) === */
+.rep-score {
+    flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px;
+    padding: 6px 11px 6px 8px; border-radius: 12px; border: 1px solid var(--border);
+    background: rgba(255,255,255,0.04); font-variant-numeric: tabular-nums;
+}
+.rep-score__ico { width: 16px; height: 16px; display: block; opacity: .9; }
+.rep-score__val { font-size: 14px; font-weight: 800; line-height: 1; color: var(--text-primary); }
+.rep-score[data-zone="good"] { border-color: rgba(251,191,36,0.34); background: rgba(251,191,36,0.10); }
+.rep-score[data-zone="bad"] { border-color: rgba(248,113,113,0.32); background: rgba(248,113,113,0.10); }
+.rep-score[data-zone="perfect"] {
+    border-color: rgba(52,211,153,0.45); background: rgba(52,211,153,0.13);
+    box-shadow: 0 0 0 0 rgba(52,211,153,0.4); animation: repScorePulse 2.4s ease-in-out infinite;
+}
+@keyframes repScorePulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(52,211,153,0.32); }
+    50% { box-shadow: 0 0 0 5px rgba(52,211,153,0); }
+}
+
+.rep-kpi { display: flex; flex-direction: column; gap: 11px; }
+.rep-kpi-row { display: grid; grid-template-columns: 26px 1fr auto; align-items: center; gap: 10px; }
+.rep-kpi-ico {
+    width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
+    background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text-secondary);
+}
+.rep-kpi-ico svg { width: 15px; height: 15px; display: block; }
+.rep-kpi-main { min-width: 0; }
+.rep-kpi-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+.rep-kpi-label { font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.rep-kpi-pct { font-size: 14px; font-weight: 800; line-height: 1; color: var(--text-primary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rep-kpi-track {
+    position: relative; height: 8px; border-radius: 999px; overflow: hidden;
+    background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.05);
+}
+.rep-kpi-fill {
+    position: absolute; inset: 0 auto 0 0; width: 0; border-radius: 999px;
+    background: linear-gradient(90deg, #f87171, #fbbf24);
+    transition: width .9s cubic-bezier(.22,.7,.27,1);
+}
+.rep-kpi-fill::after {
+    content: ''; position: absolute; inset: 0; border-radius: inherit;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
+    transform: translateX(-100%); animation: repShimmer 2.2s ease-in-out infinite; animation-delay: .9s;
+}
+@keyframes repShimmer { 0% { transform: translateX(-100%);} 60%,100% { transform: translateX(100%);} }
+.rep-kpi-row[data-zone="good"] .rep-kpi-fill { background: linear-gradient(90deg, #fbbf24, #f3a43d); }
+.rep-kpi-row[data-zone="perfect"] .rep-kpi-fill { background: linear-gradient(90deg, #34d399, #10b981); }
+.rep-kpi-row[data-zone="perfect"] .rep-kpi-pct { color: #34d399; }
+.rep-kpi-row[data-zone="perfect"] .rep-kpi-ico { color: #34d399; border-color: rgba(52,211,153,0.4); background: rgba(52,211,153,0.12); }
+.rep-kpi-done { width: 14px; height: 14px; display: none; }
+.rep-kpi-row[data-zone="perfect"] .rep-kpi-done { display: inline-block; color: #34d399; animation: repDonePop .5s cubic-bezier(.2,1.4,.4,1) both; animation-delay: .8s; }
+@keyframes repDonePop { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
 .rep-metrics { display: flex; gap: 10px; }
 .rep-metric { flex: 1; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); }
 .rep-metric .v { font-size: 18px; font-weight: 800; color: var(--text-primary); }
@@ -83,16 +130,48 @@
             {% for r in reports %}
             <div class="rep-card" data-report-id="{{ r.id }}">
                 <div class="rep-card-top">
-                    <div class="rep-gauge" data-pct="{{ r.kpi_clients_pct }}">
-                        <svg viewBox="0 0 64 64"><circle class="g-track" cx="32" cy="32" r="27"></circle><circle class="g-fill" cx="32" cy="32" r="27"></circle></svg>
-                        <span class="g-num">{{ r.kpi_clients_pct }}%<small>KPI</small></span>
-                    </div>
                     <div class="rep-head">
                         <div class="rep-date">{{ r.created_at|date:"d.m.Y" }}</div>
                         <div class="rep-time">{{ r.created_at|date:"H:i" }}</div>
                         {% if is_admin %}
                         <span class="rep-manager"><span class="rep-ava">{{ r.owner_name|slice:":1"|upper }}</span>{{ r.owner_name }}</span>
                         {% endif %}
+                    </div>
+                    <div class="rep-score" data-pct="{{ r.kpi_clients_pct }}" title="Загальний KPI за обробкою">
+                        <svg class="rep-score__ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l5-5 4 4 8-8"/><path d="M21 8v4h-4"/></svg>
+                        <span class="rep-score__val">{{ r.kpi_clients_pct }}%</span>
+                    </div>
+                </div>
+                <div class="rep-kpi">
+                    <div class="rep-kpi-row" data-pct="{{ r.kpi_clients_pct }}">
+                        <span class="rep-kpi-ico" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        </span>
+                        <div class="rep-kpi-main">
+                            <div class="rep-kpi-head">
+                                <span class="rep-kpi-label">Клієнти</span>
+                                <span class="rep-kpi-pct">
+                                    <svg class="rep-kpi-done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+                                    <span class="rep-kpi-num">{{ r.kpi_clients_pct }}%</span>
+                                </span>
+                            </div>
+                            <div class="rep-kpi-track"><div class="rep-kpi-fill"></div></div>
+                        </div>
+                    </div>
+                    <div class="rep-kpi-row" data-pct="{{ r.kpi_points_pct }}">
+                        <span class="rep-kpi-ico" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                        </span>
+                        <div class="rep-kpi-main">
+                            <div class="rep-kpi-head">
+                                <span class="rep-kpi-label">Бали</span>
+                                <span class="rep-kpi-pct">
+                                    <svg class="rep-kpi-done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+                                    <span class="rep-kpi-num">{{ r.kpi_points_pct }}%</span>
+                                </span>
+                            </div>
+                            <div class="rep-kpi-track"><div class="rep-kpi-fill"></div></div>
+                        </div>
                     </div>
                 </div>
                 <div class="rep-metrics">
@@ -142,18 +221,40 @@ document.addEventListener('DOMContentLoaded', () => {
         arcFill.style.strokeDashoffset = arcLen * (1 - init / 100);
     }
 
-    // KPI-кільця карток звітів
-    const C = 2 * Math.PI * 27;
-    document.querySelectorAll('.rep-gauge[data-pct]').forEach(el => {
-        const fill = el.querySelector('.g-fill');
-        if (!fill) return;
+    // KPI-плашки карток звітів (прямокутні прогрес-бари + perfect-стейт)
+    const zoneOf = (p) => (p >= 100 ? 'perfect' : p >= 60 ? 'good' : 'bad');
+    document.querySelectorAll('.rep-score[data-pct]').forEach(el => {
         const p = Math.max(0, Math.min(100, parseFloat(el.dataset.pct) || 0));
-        const color = p >= 100 ? '#34d399' : p >= 60 ? '#fbbf24' : '#f87171';
-        fill.style.stroke = color;
-        fill.style.strokeDasharray = C.toFixed(2);
-        fill.style.strokeDashoffset = (C * (1 - p / 100)).toFixed(2);
-        const num = el.querySelector('.g-num'); if (num) num.style.color = color;
+        el.dataset.zone = zoneOf(p);
     });
+    const kpiRows = Array.from(document.querySelectorAll('.rep-kpi-row[data-pct]'));
+    kpiRows.forEach(row => {
+        const p = Math.max(0, Math.min(100, parseFloat(row.dataset.pct) || 0));
+        row.dataset.zone = zoneOf(p);
+    });
+    const animateKpi = () => {
+        kpiRows.forEach((row, i) => {
+            const p = Math.max(0, Math.min(100, parseFloat(row.dataset.pct) || 0));
+            const fill = row.querySelector('.rep-kpi-fill');
+            if (!fill) return;
+            setTimeout(() => { fill.style.width = p + '%'; }, 80 + i * 60);
+        });
+    };
+    if ('IntersectionObserver' in window) {
+        const io = new IntersectionObserver((entries, obs) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const fill = entry.target.querySelector('.rep-kpi-fill');
+                    const p = Math.max(0, Math.min(100, parseFloat(entry.target.dataset.pct) || 0));
+                    if (fill) requestAnimationFrame(() => { fill.style.width = p + '%'; });
+                    obs.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.25 });
+        kpiRows.forEach(row => io.observe(row));
+    } else {
+        animateKpi();
+    }
 
     // Модалка огляду
     const data = JSON.parse(document.getElementById('reports-data')?.textContent || '[]');
