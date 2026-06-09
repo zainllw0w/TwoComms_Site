@@ -697,7 +697,26 @@ class NovaPoshtaDocumentService:
         preferred_kind: str,
         point_role: str,
     ) -> dict[str, str]:
-        if warehouse_ref:
+        normalized_query = str(query or "").strip()
+        normalized_warehouse_ref = str(warehouse_ref or "").strip()
+
+        # When the order already carries a warehouse Ref (picked from the Nova
+        # Poshta directory at checkout), we can ship using it directly: the
+        # `InternetDocument.save` call only needs CityRecipient + RecipientAddress.
+        # The directory `getWarehouses` endpoint is eventually-consistent and
+        # intermittently returns empty/partial data, so we keep this trusted
+        # fallback and never hard-fail when we already know the Ref.
+        known_ref_candidate: dict[str, str] | None = None
+        if normalized_warehouse_ref:
+            known_ref_candidate = {
+                "ref": normalized_warehouse_ref,
+                "label": normalized_query,
+                "kind": _infer_warehouse_kind(normalized_query) if normalized_query else "branch",
+                "number": "".join(ch for ch in normalized_query if ch.isdigit()),
+                "short_address": "",
+                "description": "",
+                "city_ref": str(city_ref or "").strip(),
+            }
             items = self.directory.search_warehouses(
                 settlement_ref=settlement_ref,
                 city_ref=city_ref,
@@ -705,11 +724,12 @@ class NovaPoshtaDocumentService:
                 limit=50,
             )
             for item in items:
-                if str(item.get("ref") or "").strip() == warehouse_ref:
+                if str(item.get("ref") or "").strip() == normalized_warehouse_ref:
                     return item
 
-        normalized_query = str(query or "").strip()
         if not normalized_query:
+            if known_ref_candidate:
+                return known_ref_candidate
             raise NovaPoshtaDocumentError(f"Не вказано відділення/поштомат {point_role}.")
 
         items = self.directory.search_warehouses(
@@ -728,9 +748,18 @@ class NovaPoshtaDocumentService:
                 limit=25,
             )
         if not items:
+            if known_ref_candidate:
+                return known_ref_candidate
             raise NovaPoshtaDocumentError(
                 f"Не вдалося знайти відділення/поштомат {point_role} в довіднику Нової пошти."
             )
+
+        # Prefer the directory entry that matches the trusted Ref (keeps the real
+        # warehouse kind for postomat package validation).
+        if normalized_warehouse_ref:
+            for item in items:
+                if str(item.get("ref") or "").strip() == normalized_warehouse_ref:
+                    return item
 
         number = "".join(ch for ch in normalized_query if ch.isdigit())
         if number:
@@ -757,6 +786,8 @@ class NovaPoshtaDocumentService:
             )
             if normalized_target and normalized_target in haystack:
                 return item
+        if known_ref_candidate:
+            return known_ref_candidate
         return items[0]
 
     def _create_recipient_counterparty(

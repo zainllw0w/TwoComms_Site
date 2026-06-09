@@ -58,7 +58,7 @@ class NovaPoshtaDirectoryService:
                 "limit": normalized_limit,
             },
         )
-        return cache.get_or_set(
+        return self._cached_lookup(
             cache_key,
             lambda: self._search_settlements_uncached(normalized_query, normalized_limit),
             self.SETTLEMENT_CACHE_TTL,
@@ -92,7 +92,7 @@ class NovaPoshtaDirectoryService:
                 "limit": normalized_limit,
             },
         )
-        return cache.get_or_set(
+        return self._cached_lookup(
             cache_key,
             lambda: self._search_warehouses_uncached(
                 settlement_ref=normalized_settlement_ref,
@@ -270,7 +270,7 @@ class NovaPoshtaDirectoryService:
                 **ref_payload,
             },
         )
-        return cache.get_or_set(
+        return self._cached_lookup(
             cache_key,
             lambda: self._load_warehouse_directory(
                 model_name=model_name,
@@ -510,6 +510,25 @@ class NovaPoshtaDirectoryService:
     def _cache_key(self, prefix: str, payload: dict[str, Any]) -> str:
         digest = hashlib.sha1(repr(sorted(payload.items())).encode("utf-8")).hexdigest()
         return f"nova_poshta_lookup:{prefix}:{digest}"
+
+    @staticmethod
+    def _cached_lookup(cache_key: str, producer, ttl: int):
+        """
+        Cache-aside helper that NEVER caches empty results.
+
+        Nova Poshta directory endpoints are eventually-consistent and occasionally
+        answer a valid query with an empty list. Persisting that empty answer (as
+        ``cache.get_or_set`` would) amplifies a single transient blip into a
+        multi-minute outage where every lookup keeps returning nothing. We only
+        cache truthy (non-empty) payloads so the next request retries the API.
+        """
+        cached = cache.get(cache_key)
+        if cached:
+            return cached
+        result = producer()
+        if result:
+            cache.set(cache_key, result, ttl)
+        return result
 
     @staticmethod
     def _safe_int(value: Any) -> int | None:

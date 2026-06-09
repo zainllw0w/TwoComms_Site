@@ -198,6 +198,44 @@ class NovaPoshtaDirectoryServiceTests(SimpleTestCase):
             ),
         )
 
+    @override_settings(NOVA_POSHTA_API_KEY='test-key')
+    def test_search_warehouses_does_not_cache_empty_results(self):
+        # Nova Poshta `getWarehouses` is eventually-consistent and intermittently
+        # returns an empty list for a perfectly valid settlement. Caching that empty
+        # response turned a momentary blip into a multi-minute outage, so empty
+        # results must never be cached.
+        service = NovaPoshtaDirectoryService()
+        warehouse = {'ref': 'warehouse-ref', 'label': 'Відділення №1', 'kind': 'branch'}
+
+        with patch.object(
+            service,
+            '_search_warehouses_uncached',
+            side_effect=[[], [warehouse]],
+        ) as mock_uncached:
+            first = service.search_warehouses(city_ref='delivery-city-ref', kind='all', limit=10)
+            second = service.search_warehouses(city_ref='delivery-city-ref', kind='all', limit=10)
+
+        self.assertEqual(first, [])
+        self.assertEqual(second, [warehouse])
+        self.assertEqual(mock_uncached.call_count, 2)
+
+    @override_settings(NOVA_POSHTA_API_KEY='test-key')
+    def test_search_settlements_does_not_cache_empty_results(self):
+        service = NovaPoshtaDirectoryService()
+        settlement = {'label': 'м. Київ, Київ', 'settlement_ref': 's', 'city_ref': 'c'}
+
+        with patch.object(
+            service,
+            '_search_settlements_uncached',
+            side_effect=[[], [settlement]],
+        ) as mock_uncached:
+            first = service.search_settlements('Київ', limit=10)
+            second = service.search_settlements('Київ', limit=10)
+
+        self.assertEqual(first, [])
+        self.assertEqual(second, [settlement])
+        self.assertEqual(mock_uncached.call_count, 2)
+
     def test_resolve_delivery_selection_accepts_signed_city_and_warehouse(self):
         selection = resolve_delivery_selection(
             {
@@ -828,3 +866,84 @@ class TelegramOrderActionLinkTests(SimpleTestCase):
             route_name='telegram_order_np_waybill_action',
             token_scope='00000000-0000-0000-0000-000000000001',
         )
+
+
+class PickWarehouseCandidateTests(SimpleTestCase):
+    def setUp(self):
+        cache.clear()
+
+    @override_settings(NOVA_POSHTA_API_KEY='test-key')
+    def test_falls_back_to_known_ref_when_directory_empty(self):
+        # When the order already carries a validated warehouse Ref, a flaky/empty
+        # directory response must not block TTN creation.
+        service = NovaPoshtaDocumentService()
+
+        with patch.object(service.directory, 'search_warehouses', return_value=[]):
+            result = service._pick_warehouse_candidate(
+                'Санжійка, Приморська, 38',
+                settlement_ref='settlement-ref',
+                city_ref='city-ref',
+                warehouse_ref='known-warehouse-ref',
+                preferred_kind='all',
+                point_role='одержувача',
+            )
+
+        self.assertEqual(result['ref'], 'known-warehouse-ref')
+        self.assertEqual(result['city_ref'], 'city-ref')
+        self.assertEqual(result['kind'], 'branch')
+        self.assertEqual(result['label'], 'Санжійка, Приморська, 38')
+
+    @override_settings(NOVA_POSHTA_API_KEY='test-key')
+    def test_known_ref_fallback_infers_postomat_kind(self):
+        service = NovaPoshtaDocumentService()
+
+        with patch.object(service.directory, 'search_warehouses', return_value=[]):
+            result = service._pick_warehouse_candidate(
+                'Поштомат №12345: Київ',
+                settlement_ref='settlement-ref',
+                city_ref='city-ref',
+                warehouse_ref='known-postomat-ref',
+                preferred_kind='all',
+                point_role='одержувача',
+            )
+
+        self.assertEqual(result['ref'], 'known-postomat-ref')
+        self.assertEqual(result['kind'], 'postomat')
+
+    @override_settings(NOVA_POSHTA_API_KEY='test-key')
+    def test_prefers_directory_item_matching_known_ref(self):
+        service = NovaPoshtaDocumentService()
+        directory_item = {
+            'ref': 'known-warehouse-ref',
+            'label': 'Санжійка, Приморська, 38',
+            'kind': 'branch',
+            'number': '1',
+            'city_ref': 'city-ref',
+        }
+
+        with patch.object(service.directory, 'search_warehouses', return_value=[directory_item]):
+            result = service._pick_warehouse_candidate(
+                'Санжійка, Приморська, 38',
+                settlement_ref='settlement-ref',
+                city_ref='city-ref',
+                warehouse_ref='known-warehouse-ref',
+                preferred_kind='all',
+                point_role='одержувача',
+            )
+
+        self.assertIs(result, directory_item)
+
+    @override_settings(NOVA_POSHTA_API_KEY='test-key')
+    def test_still_raises_when_no_ref_and_directory_empty(self):
+        service = NovaPoshtaDocumentService()
+
+        with patch.object(service.directory, 'search_warehouses', return_value=[]):
+            with self.assertRaisesRegex(NovaPoshtaDocumentError, 'Не вдалося знайти'):
+                service._pick_warehouse_candidate(
+                    'Відділення №4',
+                    settlement_ref='settlement-ref',
+                    city_ref='city-ref',
+                    warehouse_ref='',
+                    preferred_kind='all',
+                    point_role='одержувача',
+                )
