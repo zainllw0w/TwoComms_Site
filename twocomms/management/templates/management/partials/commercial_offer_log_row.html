@@ -96,15 +96,31 @@
         {% else %}
             <span class="status-badge role-other">Помилка</span>
         {% endif %}
+        {% if log.opened_at %}<span class="status-badge role-realizer offer-badge-opened">Відкрито</span>{% endif %}
+        {% if log.client_links.all %}<span class="status-badge role-manager offer-badge-linked">Прив'язано</span>{% endif %}
+        {% if log.response_outcome %}<div class="offer-log-sub offer-badge-outcome">{{ log.get_response_outcome_display }}</div>{% endif %}
     </td>
     <td>{{ log.created_at|date:"d.m.Y H:i" }}</td>
-    <td class="offer-log-actions">
+    <td class="offer-log-actions" data-log-id="{{ log.id }}" data-recipient-name="{{ log.recipient_name|default:log.recipient_email }}" data-recipient-email="{{ log.recipient_email }}">
         <button type="button"
                 class="btn-ghost small offer-log-action"
                 data-offer-log-action="view"
                 data-url="{% url 'management_commercial_offer_email_log_detail_api' log.id %}">
             Переглянути
         </button>
+        {% if log.status == "sent" %}
+        <button type="button"
+                class="btn-ghost small offer-cp-link-btn{% if log.client_links.all %} is-linked{% endif %}"
+                data-log-id="{{ log.id }}">
+            {% if log.client_links.all %}Клієнт ✓{% else %}Прив'язати{% endif %}
+        </button>
+        <button type="button"
+                class="btn-ghost small offer-cp-process-btn"
+                data-log-id="{{ log.id }}"
+                data-outcome="{{ log.response_outcome }}">
+            Опрацювати
+        </button>
+        {% endif %}
         <button type="button"
                 class="btn-ghost small offer-log-action"
                 data-offer-log-action="duplicate"

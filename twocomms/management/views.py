@@ -3166,7 +3166,20 @@ def _format_admin_invoice_message(invoice, *, status_line=None, include_links=Tr
     return "\n".join(lines)
 
 
-def _notify_manager_invoice(invoice, *, title, body_lines):
+def _notify_manager_invoice(invoice, *, title, body_lines, level='info'):
+    try:
+        import re as _re
+        from management.services.notify import push_inapp
+        _strip = lambda s: _re.sub(r'<[^>]+>', '', s or '')
+        push_inapp(
+            getattr(invoice, 'created_by', None),
+            kind='invoice',
+            level=level,
+            title=_strip(title).strip() or 'Накладна',
+            body=' '.join(_strip(x).strip() for x in (body_lines or []) if x),
+        )
+    except Exception:
+        pass
     try:
         manager = invoice.created_by
         profile = manager.userprofile
