@@ -120,127 +120,116 @@
             </div>
         </section>
 
-        <!-- Right column -->
-        <div class="pf-hero__side">
-
-            <!-- Frost ring -->
-            <section class="pf-frost pf-reveal" data-reveal aria-label="Заморожені кошти">
-                <div class="pf-frost__head">
-                    <div class="pf-frost__title">
-                        <svg class="pf-frost__flake-ico" viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19M12 5l-2.5 2.5M12 5l2.5 2.5M12 19l-2.5-2.5M12 19l2.5-2.5M5 12l2.5-2.5M5 12l2.5 2.5M19 12l-2.5-2.5M19 12l-2.5 2.5"/>
-                        </svg>
-                        Заморожені кошти
-                    </div>
-                    <span class="pf-frost__sum">{{ frozen_amount|floatformat:2 }} ₴</span>
+        <!-- Frozen funds -->
+        <section class="pf-frost pf-reveal" data-reveal aria-label="Заморожені кошти">
+            <svg width="0" height="0" aria-hidden="true" style="position:absolute">
+                <defs>
+                    <linearGradient id="pfFrostGrad" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stop-color="#7ee0ff"/>
+                        <stop offset="100%" stop-color="#6f95ff"/>
+                    </linearGradient>
+                    <linearGradient id="pfKpiGrad" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stop-color="#ffb86b"/>
+                        <stop offset="100%" stop-color="#ff7e29"/>
+                    </linearGradient>
+                </defs>
+            </svg>
+            <div class="pf-frost__head">
+                <div class="pf-frost__title">
+                    <svg class="pf-frost__flake-ico" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19M12 5l-2.5 2.5M12 5l2.5 2.5M12 19l-2.5-2.5M12 19l2.5-2.5M5 12l2.5-2.5M5 12l2.5 2.5M19 12l-2.5-2.5M19 12l-2.5 2.5"/>
+                    </svg>
+                    Заморожені кошти
                 </div>
+                <span class="pf-frost__sum">{{ frozen_amount|floatformat:2 }} ₴</span>
+            </div>
 
-                {% if frozen_items %}
-                {% with primary=frozen_items.0 %}
-                <div class="pf-frost__main">
-                    <div class="pf-ring pf-ring--frost" data-ring="frost"
-                         data-from="{{ primary.created_at|date:'c' }}"
-                         data-until="{{ primary.frozen_until|date:'c' }}">
-                        <svg viewBox="0 0 140 140" class="pf-ring__svg">
-                            <defs>
-                                <linearGradient id="pfFrostGrad" x1="0" y1="0" x2="1" y2="1">
-                                    <stop offset="0%" stop-color="#7ee0ff"/>
-                                    <stop offset="100%" stop-color="#6f95ff"/>
-                                </linearGradient>
-                            </defs>
-                            <circle class="pf-ring__track" cx="70" cy="70" r="60"/>
-                            <circle class="pf-ring__bar" cx="70" cy="70" r="60"
-                                    stroke="url(#pfFrostGrad)" data-circ pathLength="100"/>
+            {% if frozen_items %}
+            <div class="pf-frost__nearest">
+                <span class="pf-frost__nearest-dot" aria-hidden="true"></span>
+                Найближча розморозка <strong>{{ frozen_items.0.frozen_until|date:"d.m.Y" }}</strong>
+            </div>
+            <div class="pf-frost__items">
+                {% for item in frozen_items %}
+                <div class="pf-frz" data-from="{{ item.created_at|date:'c' }}" data-until="{{ item.frozen_until|date:'c' }}">
+                    <div class="pf-ring pf-ring--mini" data-ring="frost">
+                        <svg viewBox="0 0 48 48" class="pf-ring__svg">
+                            <circle class="pf-ring__track" cx="24" cy="24" r="20"/>
+                            <circle class="pf-ring__bar" cx="24" cy="24" r="20" stroke="url(#pfFrostGrad)" data-circ pathLength="100"/>
                         </svg>
                         <div class="pf-ring__center">
-                            <svg class="pf-ring__flake" viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M12 2v20M2 12h20M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4"/>
-                            </svg>
-                            <div class="pf-ring__days" data-days>—</div>
-                            <div class="pf-ring__days-label">днів до розморозки</div>
+                            <span class="pf-frz__days" data-days>—</span>
                         </div>
                     </div>
-                    <div class="pf-frost__primary-meta">
-                        <div class="pf-frost__primary-amount">{{ primary.amount|floatformat:2 }} ₴</div>
-                        <div class="pf-frost__primary-date">
-                            розморозка {{ primary.frozen_until|date:"d.m.Y" }}
+                    <div class="pf-frz__body">
+                        <div class="pf-frz__top">
+                            <span class="pf-frz__amount">{{ item.amount|floatformat:2 }} ₴</span>
+                            <span class="pf-frz__date">до {{ item.frozen_until|date:"d.m.Y" }}</span>
                         </div>
-                        <div class="pf-frost__primary-reason">{{ primary.freeze_reason_text|default:primary.note|default:"Захист 14 днів на повернення товару" }}</div>
+                        <div class="pf-frz__reason">{{ item.freeze_reason_text|default:item.note|default:"Захист 14 днів на повернення товару" }}</div>
                     </div>
                 </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="pf-frost__empty">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+                <div>
+                    <strong>Заморожених коштів немає</strong>
+                    <span>Усі нарахування доступні до виводу.</span>
+                </div>
+            </div>
+            {% endif %}
+        </section>
 
-                {% if frozen_items|length > 1 %}
-                <div class="pf-frost__list">
-                    {% for item in frozen_items %}
-                    {% if not forloop.first %}
-                    <div class="pf-ice-chip" data-from="{{ item.created_at|date:'c' }}" data-until="{{ item.frozen_until|date:'c' }}">
-                        <span class="pf-ice-chip__bar"><span class="pf-ice-chip__fill" data-fill></span></span>
-                        <span class="pf-ice-chip__amount">{{ item.amount|floatformat:2 }} ₴</span>
-                        <span class="pf-ice-chip__date">{{ item.frozen_until|date:"d.m" }}</span>
-                    </div>
-                    {% endif %}
-                    {% endfor %}
-                </div>
-                {% endif %}
-                {% endwith %}
-                {% else %}
-                <div class="pf-frost__empty">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
-                    Заморожених коштів немає — усе доступно до виводу.
-                </div>
-                {% endif %}
-            </section>
-
-            <!-- Weekly KPI -->
-            <section class="pf-week pf-reveal" data-reveal aria-label="Поточний тиждень">
-                <div class="pf-week__head">
-                    <div class="pf-week__title">Поточний тиждень</div>
-                    {% if weekly_kpi %}
-                    <div class="pf-week__range">{{ weekly_kpi.week_start|date:"d.m" }} – {{ weekly_kpi.week_end|date:"d.m" }}</div>
-                    {% endif %}
-                </div>
+        <!-- Weekly KPI -->
+        <section class="pf-week pf-reveal" data-reveal aria-label="Поточний тиждень">
+            <div class="pf-week__head">
+                <div class="pf-week__title">Поточний тиждень</div>
                 {% if weekly_kpi %}
-                <div class="pf-week__body">
-                    <div class="pf-ring pf-ring--kpi" data-ring="kpi" data-pct="{{ weekly_kpi.conversions_progress_pct|default:0 }}">
-                        <svg viewBox="0 0 120 120" class="pf-ring__svg">
-                            <defs>
-                                <linearGradient id="pfKpiGrad" x1="0" y1="0" x2="1" y2="1">
-                                    <stop offset="0%" stop-color="#ffb86b"/>
-                                    <stop offset="100%" stop-color="#ff7e29"/>
-                                </linearGradient>
-                            </defs>
-                            <circle class="pf-ring__track" cx="60" cy="60" r="50"/>
-                            <circle class="pf-ring__bar" cx="60" cy="60" r="50"
-                                    stroke="url(#pfKpiGrad)" data-circ pathLength="100"/>
-                        </svg>
-                        <div class="pf-ring__center">
-                            <div class="pf-ring__kpi-num">{{ weekly_kpi.conversions }}<span>/{{ weekly_kpi.conversions_target }}</span></div>
-                            <div class="pf-ring__kpi-label">конверсії</div>
-                        </div>
-                    </div>
-                    <div class="pf-week__metrics">
-                        <div class="pf-week__metric">
-                            <span class="pf-week__metric-label">Прогноз ставки</span>
-                            <span class="pf-week__metric-val pf-tier--{% if weekly_kpi.kpi_multiplier >= 1 %}full{% elif weekly_kpi.kpi_multiplier > 0 %}half{% else %}zero{% endif %}">
-                                {{ weekly_kpi.projected_salary|floatformat:0 }} ₴
-                                <em>{% if weekly_kpi.kpi_multiplier >= 1 %}100%{% elif weekly_kpi.kpi_multiplier > 0 %}50%{% else %}0%{% endif %}</em>
-                            </span>
-                        </div>
-                        <div class="pf-week__metric">
-                            <span class="pf-week__metric-label">Оброблено клієнтів</span>
-                            <span class="pf-week__metric-val">{{ weekly_kpi.processed_clients }}</span>
-                        </div>
-                        <div class="pf-week__metric">
-                            <span class="pf-week__metric-label">До кінця тижня</span>
-                            <span class="pf-week__metric-val">{{ weekly_kpi.days_remaining }} дн.</span>
-                        </div>
+                <div class="pf-week__range">{{ weekly_kpi.week_start|date:"d.m" }} – {{ weekly_kpi.week_end|date:"d.m" }}</div>
+                {% endif %}
+            </div>
+            {% if weekly_kpi %}
+            <div class="pf-week__body">
+                <div class="pf-ring pf-ring--kpi" data-ring="kpi" data-pct="{{ weekly_kpi.conversions_progress_pct|default:0 }}">
+                    <svg viewBox="0 0 120 120" class="pf-ring__svg">
+                        <circle class="pf-ring__track" cx="60" cy="60" r="50"/>
+                        <circle class="pf-ring__bar" cx="60" cy="60" r="50"
+                                stroke="url(#pfKpiGrad)" data-circ pathLength="100"/>
+                    </svg>
+                    <div class="pf-ring__center">
+                        <div class="pf-ring__kpi-num">{{ weekly_kpi.conversions }}<span>/{{ weekly_kpi.conversions_target }}</span></div>
+                        <div class="pf-ring__kpi-label">конверсії</div>
                     </div>
                 </div>
-                {% else %}
-                <div class="pf-week__empty">Дані тижня з’являться після призначення ставки.</div>
-                {% endif %}
-            </section>
-        </div>
+                <div class="pf-week__metrics">
+                    <div class="pf-week__metric">
+                        <span class="pf-week__metric-label">Прогноз ставки</span>
+                        <span class="pf-week__metric-val pf-tier--{% if weekly_kpi.kpi_multiplier >= 1 %}full{% elif weekly_kpi.kpi_multiplier > 0 %}half{% else %}zero{% endif %}">
+                            {{ weekly_kpi.projected_salary|floatformat:0 }} ₴
+                            <em>{% if weekly_kpi.kpi_multiplier >= 1 %}100%{% elif weekly_kpi.kpi_multiplier > 0 %}50%{% else %}0%{% endif %}</em>
+                        </span>
+                    </div>
+                    <div class="pf-week__metric">
+                        <span class="pf-week__metric-label">Оброблено клієнтів</span>
+                        <span class="pf-week__metric-val">{{ weekly_kpi.processed_clients }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="pf-week__progress">
+                <div class="pf-week__progress-head">
+                    <span>До кінця тижня</span>
+                    <strong>{{ weekly_kpi.days_remaining }} дн.</strong>
+                </div>
+                <div class="pf-weekbar">
+                    <span class="pf-weekbar__fill" data-weekbar data-remaining="{{ weekly_kpi.days_remaining }}"></span>
+                </div>
+            </div>
+            {% else %}
+            <div class="pf-week__empty">Дані тижня з’являться після призначення ставки.</div>
+            {% endif %}
+        </section>
     </div>
 
     <!-- ===== Metric pills ===== -->
@@ -423,9 +412,10 @@
             setRing(bar, parseFloat(ring.dataset.pct || '0') || 0);
             return;
         }
-        // frost
-        const from = Date.parse(ring.dataset.from || '');
-        const until = Date.parse(ring.dataset.until || '');
+        // frost (supports data on the ring or a parent .pf-frz)
+        const src = ring.closest('[data-until]') || ring;
+        const from = Date.parse(src.dataset.from || '');
+        const until = Date.parse(src.dataset.until || '');
         const now = Date.now();
         let pct = 0, days = 0;
         if (!isNaN(from) && !isNaN(until) && until > from) {
@@ -439,17 +429,14 @@
         const daysEl = ring.querySelector('[data-days]');
         if (daysEl) daysEl.textContent = String(days);
     });
-    document.querySelectorAll('.pf-ice-chip').forEach((chip) => {
-        const fill = chip.querySelector('[data-fill]');
-        if (!fill) return;
-        const from = Date.parse(chip.dataset.from || '');
-        const until = Date.parse(chip.dataset.until || '');
-        const now = Date.now();
-        let pct = 50;
-        if (!isNaN(from) && !isNaN(until) && until > from) pct = ((now - from) / (until - from)) * 100;
-        fill.style.width = Math.max(4, Math.min(100, pct)) + '%';
+    // Week progress bar (how far into the week)
+    document.querySelectorAll('[data-weekbar]').forEach((el) => {
+        const rem = parseFloat(el.dataset.remaining || '0') || 0;
+        const pct = Math.max(4, Math.min(100, ((7 - rem) / 7) * 100));
+        if (reduceMotion) { el.style.width = pct + '%'; return; }
+        el.style.width = '0%';
+        requestAnimationFrame(() => { el.style.transition = 'width 1s cubic-bezier(.22,.61,.36,1)'; el.style.width = pct + '%'; });
     });
-
     /* ---- 3D tilt on the money card (pointer:fine only) ---- */
     const card = document.getElementById('pf-money-card');
     if (card && !reduceMotion && window.matchMedia('(pointer:fine)').matches) {
