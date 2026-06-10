@@ -164,11 +164,13 @@ def consumable_adjust(request, pk):
             )
             messages.success(request, f'Додано {quantity} {consumable.unit}')
         elif action == 'use':
+            reason = request.POST.get('reason') or None
             consumables_service.use_consumable(
                 consumable=consumable,
                 quantity=quantity,
                 user=request.user,
                 comment=comment,
+                reason=reason,
             )
             messages.success(request, f'Списано {quantity} {consumable.unit}')
         else:

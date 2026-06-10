@@ -22,6 +22,7 @@ from warehouse.permissions import warehouse_admin_required
 from warehouse.services.inventory import (
     adjust_print_variant,
     adjust_stock_item,
+    reverse_write_off,
 )
 from warehouse.services.matching import (
     all_active_stock_items,
@@ -220,8 +221,10 @@ def write_off_submit(request, token):
                             variant=variant,
                             delta=-qty,
                             user=request.user,
-                            reason=MovementReason.PRINT_REMOVE,
+                            reason=MovementReason.ORDER_WRITE_OFF,
                             comment=f"Замовлення #{order.order_number} · {item.title}",
+                            order=order,
+                            write_off_request=wo_request,
                         )
                         placement = variant.print.get_placement_display() if variant.print.placement else ""
                         label = f"{variant.print.name}"
@@ -266,3 +269,64 @@ def write_off_submit(request, token):
 
     messages.info(request, "Жодних позицій не списано (всі поля пусті).")
     return redirect("warehouse:write_off", token=wo_request.token)
+
+
+@warehouse_admin_required
+def cancel_sale_entry(request, token):
+    """Сторінка підтвердження відміни продажу/списання за замовленням."""
+    try:
+        token_uuid = uuid.UUID(str(token))
+    except (ValueError, AttributeError):
+        return render(request, "warehouse/write_off_invalid.html", status=400)
+
+    wo_request = get_object_or_404(
+        WriteOffRequest.objects.select_related("order"), token=token_uuid
+    )
+    order = wo_request.order
+    # Позиції, які будуть повернені (рухи-списання за заявкою).
+    movements = list(
+        wo_request.movements.select_related("content_type").filter(delta__lt=0)
+    )
+    rows = []
+    for mv in movements:
+        target = mv.target
+        rows.append({
+            "name": str(target) if target is not None else "—",
+            "qty": abs(mv.delta),
+        })
+    context = {
+        "wo_request": wo_request,
+        "order": order,
+        "rows": rows,
+        "already_cancelled": wo_request.status == WriteOffRequest.STATUS_CANCELLED,
+        "is_completed": wo_request.status == WriteOffRequest.STATUS_COMPLETED,
+        "active_section": "write_off",
+    }
+    return render(request, "warehouse/cancel_sale.html", context)
+
+
+@warehouse_admin_required
+@require_POST
+def cancel_sale_submit(request, token):
+    try:
+        token_uuid = uuid.UUID(str(token))
+    except (ValueError, AttributeError):
+        return HttpResponseBadRequest("invalid token")
+
+    wo_request = get_object_or_404(WriteOffRequest, token=token_uuid)
+
+    if wo_request.status == WriteOffRequest.STATUS_CANCELLED:
+        messages.info(request, "Цю продажу вже відмінено.")
+        return redirect("warehouse:cancel_sale", token=wo_request.token)
+    if wo_request.status != WriteOffRequest.STATUS_COMPLETED:
+        messages.warning(request, "Немає завершеної продажі для відміни.")
+        return redirect("warehouse:write_off", token=wo_request.token)
+
+    order = wo_request.order
+    count = reverse_write_off(write_off_request=wo_request, user=request.user)
+    _notify_order_writeoff(order)
+    if count:
+        messages.success(request, f"Продаж відмінено, повернено позицій: {count}.")
+    else:
+        messages.info(request, "Нічого повертати — рухів не знайдено.")
+    return redirect("warehouse:cancel_sale", token=wo_request.token)

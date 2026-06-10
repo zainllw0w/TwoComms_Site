@@ -572,11 +572,37 @@ class NovaPoshtaService:
 
 <i>Статус змінено автоматично через API Нової Пошти</i>"""
 
+        # Складська дія: якщо вже продано — показуємо інформацію (без кнопки),
+        # інакше — кнопку «продати зі складу», щоб не гортати до верхнього
+        # повідомлення замовлення.
+        reply_markup = None
         try:
-            self.telegram_notifier.send_admin_message(message)
+            notifier = self.telegram_notifier
+            sold_info = notifier._build_writeoff_status(order)
+            if sold_info:
+                # Вже продано/списано — додаємо перелік, кнопку не показуємо.
+                message += sold_info
+            else:
+                storage_button = notifier._build_storage_action_button(order)
+                if storage_button:
+                    reply_markup = {"inline_keyboard": [[storage_button]]}
+        except Exception:
+            reply_markup = None
+
+        try:
+            self.telegram_notifier.send_admin_message(message, reply_markup=reply_markup)
             logger.debug(f"Admin notification sent for order {order.order_number}")
         except Exception as e:
             logger.error(f"Failed to send admin notification for order {order.order_number}: {e}")
+
+        # Оновлюємо вихідне повідомлення замовлення: тепер статус done, тому
+        # меню перебудується (зʼявиться складська кнопка / інфо «продано»).
+        try:
+            self.telegram_notifier.update_order_notification_message(order)
+        except Exception as e:
+            logger.error(
+                f"Failed to refresh order message after delivery for {order.order_number}: {e}"
+            )
 
     def _send_delivery_notification(self, order, shipment_status):
         """

@@ -63,12 +63,13 @@ def warehouse_dynamics(days: int = 90) -> dict:
         else:
             continue
 
-        # Класифікуємо рух
-        if m.reason in [MovementReason.BULK_ADD, MovementReason.PRINT_COMPLETE]:
+        # Класифікуємо рух єдиним класифікатором (added / sold / written_off / adjustment).
+        category = MovementReason.category_of(m.reason, m.delta)
+        if category == "added":
             by_date[date_key]['added'] += value
-        elif m.reason == MovementReason.ORDER_WRITE_OFF:
+        elif category == "sold":
             by_date[date_key]['sold'] += value
-        elif m.reason in [MovementReason.MANUAL_REMOVE, MovementReason.DAMAGE]:
+        elif category == "written_off":
             by_date[date_key]['written_off'] += value
 
     # Формуємо серії для графіка

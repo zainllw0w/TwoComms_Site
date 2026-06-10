@@ -109,6 +109,8 @@ def adjust_print_variant(
     user=None,
     reason: str = MovementReason.PRINT_ADD,
     comment: str = "",
+    order=None,
+    write_off_request: Optional[WriteOffRequest] = None,
     cost_price_override: Optional[Decimal] = None,
 ) -> StockMovement:
     """Змінити кількість PrintColorVariant та зафіксувати StockMovement."""
@@ -138,8 +140,85 @@ def adjust_print_variant(
         quantity_after=new_qty,
         reason=reason,
         comment=comment,
+        order=order,
+        write_off_request=write_off_request,
         created_by=user,
     )
+
+
+@transaction.atomic
+def reverse_write_off(*, write_off_request, user=None) -> int:
+    """Відміняє продаж/списання за заявкою: повертає залишки і ставить CANCELLED.
+
+    Для кожного руху-списання (delta < 0), привʼязаного до заявки, створює
+    зворотний рух (delta > 0, reason=RETURN) і повертає кількість на склад.
+    Ідемпотентно: якщо заявка вже скасована — нічого не робить.
+
+    Returns:
+        Кількість відмінених позицій.
+    """
+    from warehouse.models import WriteOffRequest
+
+    if write_off_request.status == WriteOffRequest.STATUS_CANCELLED:
+        return 0
+
+    order = write_off_request.order
+    order_no = getattr(order, "order_number", "") if order else ""
+    # Матеріалізуємо список ДО створення зворотних рухів, щоб не зациклитись.
+    originals = list(
+        write_off_request.movements.select_related("content_type").filter(delta__lt=0)
+    )
+
+    reversed_count = 0
+    for mv in originals:
+        target = mv.target
+        if target is None:
+            continue
+        reverse_delta = -mv.delta  # додатнє — повертаємо на склад
+        comment = f"Відміна продажу · Замовлення #{order_no}"
+        if isinstance(target, StockItem):
+            adjust_stock_item(
+                stock_item=target,
+                delta=reverse_delta,
+                user=user,
+                reason=MovementReason.RETURN,
+                comment=comment,
+                order=order,
+                write_off_request=write_off_request,
+            )
+            reversed_count += 1
+        elif isinstance(target, PrintColorVariant):
+            adjust_print_variant(
+                variant=target,
+                delta=reverse_delta,
+                user=user,
+                reason=MovementReason.RETURN,
+                comment=comment,
+                order=order,
+                write_off_request=write_off_request,
+            )
+            reversed_count += 1
+        else:
+            # Розхідники (ConsumableItem) — через окремий сервіс.
+            try:
+                from warehouse.services.consumables import adjust_consumable
+
+                adjust_consumable(
+                    consumable=target,
+                    delta=reverse_delta,
+                    user=user,
+                    reason=MovementReason.RETURN,
+                    comment=comment,
+                    order=order,
+                    write_off_request=write_off_request,
+                )
+                reversed_count += 1
+            except Exception:
+                continue
+
+    write_off_request.status = WriteOffRequest.STATUS_CANCELLED
+    write_off_request.save(update_fields=["status", "updated_at"])
+    return reversed_count
 
 
 def set_stock_quantity(

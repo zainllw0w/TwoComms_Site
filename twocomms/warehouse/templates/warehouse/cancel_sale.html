@@ -1,0 +1,49 @@
+{% extends "warehouse/base.html" %}
+{% load static %}
+{% block title %}Відміна продажу — #{{ order.order_number }}{% endblock %}
+{% block header_title %}Відміна продажу #{{ order.order_number }}{% endblock %}
+
+{% block content %}
+<div class="wh-card wh-wo-client">
+    <div class="wh-wo-client__row">
+        <div>
+            <div class="text-tiny text-muted">Клієнт</div>
+            <div class="text-bold">{{ order.full_name }}</div>
+            <div class="text-muted text-small">{{ order.phone }} · {{ order.city }} · {{ order.np_office }}</div>
+        </div>
+    </div>
+</div>
+
+{% if already_cancelled %}
+<div class="wh-card text-center">
+    <div class="text-bold" style="font-size:18px;">↩️ Продажу вже відмінено</div>
+    <p class="text-muted text-small mb-0">Залишки повернено на склад.</p>
+</div>
+<a href="{% url 'warehouse:dashboard' %}" class="btn btn--ghost btn--block mt-12">← На головну</a>
+{% elif not is_completed %}
+<div class="wh-card text-center">
+    <div class="text-bold" style="font-size:18px;">Немає завершеної продажі</div>
+    <p class="text-muted text-small mb-0">Тут нема чого відміняти.</p>
+</div>
+<a href="{% url 'warehouse:write_off' token=wo_request.token %}" class="btn btn--ghost btn--block mt-12">До списання</a>
+{% else %}
+<div class="wh-card">
+    <div class="text-bold mb-8">Буде повернено на склад:</div>
+    <ul class="wh-wo-cancel-list">
+        {% for row in rows %}
+        <li>• {{ row.qty }}× {{ row.name }}</li>
+        {% empty %}
+        <li class="text-muted">Рухів не знайдено.</li>
+        {% endfor %}
+    </ul>
+</div>
+
+<form method="post" action="{% url 'warehouse:cancel_sale_submit' token=wo_request.token %}">
+    {% csrf_token %}
+    <div class="wh-wo-bar">
+        <a href="{% url 'warehouse:dashboard' %}" class="btn btn--ghost">Скасувати</a>
+        <button type="submit" class="btn btn--danger flex-1">↩️ Відмінити продаж і повернути на склад</button>
+    </div>
+</form>
+{% endif %}
+{% endblock %}

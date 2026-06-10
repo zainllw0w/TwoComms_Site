@@ -21,3 +21,22 @@ def build_storage_writeoff_url(order) -> str:
     if pending is None:
         pending = WriteOffRequest.objects.create(order=order)
     return f"{get_storage_base_url()}/order/{pending.token}/write-off/"
+
+
+def get_completed_write_off(order):
+    """Повертає останню завершену (не скасовану) заявку продажу або None."""
+    return (
+        order.warehouse_write_off_requests.filter(
+            status=WriteOffRequest.STATUS_COMPLETED
+        )
+        .order_by("-completed_at")
+        .first()
+    )
+
+
+def build_storage_cancel_sale_url(order) -> str | None:
+    """URL сторінки відміни продажу для завершеної заявки (або None)."""
+    wo = get_completed_write_off(order)
+    if wo is None:
+        return None
+    return f"{get_storage_base_url()}/order/{wo.token}/cancel-sale/"

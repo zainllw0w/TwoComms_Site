@@ -575,11 +575,53 @@ class MovementReason(models.TextChoices):
     MANUAL_ADD = "manual_add", "Ручне додавання"
     MANUAL_REMOVE = "manual_remove", "Ручне списання"
     BULK_ADD = "bulk_add", "Партія (масове додавання)"
-    ORDER_WRITE_OFF = "order_write_off", "Списання за замовленням"
+    ORDER_WRITE_OFF = "order_write_off", "Продаж за замовленням"
     RECOUNT = "recount", "Інвентаризація"
     PRINT_ADD = "print_add", "Додавання принта"
     PRINT_REMOVE = "print_remove", "Списання принта"
     ADJUSTMENT = "adjustment", "Коригування"
+    # --- семантичні типи операцій (введено для FIN-аналітики «продано/списано») ---
+    SALE = "sale", "Продаж (ручний)"
+    DAMAGE = "damage", "Брак / пошкодження"
+    RETURN = "return", "Повернення на склад"
+
+    @classmethod
+    def addition_reasons(cls) -> set:
+        """Причини, що означають надходження товару (прихід)."""
+        return {cls.MANUAL_ADD, cls.BULK_ADD, cls.PRINT_ADD, cls.RETURN}
+
+    @classmethod
+    def sale_reasons(cls) -> set:
+        """Причини, що означають продаж (потрапляє в «продано» у FIN)."""
+        return {cls.ORDER_WRITE_OFF, cls.SALE}
+
+    @classmethod
+    def writeoff_reasons(cls) -> set:
+        """Причини, що означають втрату/списання (брак, ручне списання)."""
+        return {cls.MANUAL_REMOVE, cls.PRINT_REMOVE, cls.DAMAGE}
+
+    @classmethod
+    def adjustment_reasons(cls) -> set:
+        """Коригування/інвентаризація — напрямок визначається знаком delta."""
+        return {cls.RECOUNT, cls.ADJUSTMENT}
+
+    @classmethod
+    def category_of(cls, reason, delta: int = 0) -> str:
+        """Класифікує рух у одну з категорій: 'added' | 'sold' | 'written_off' | 'adjustment'.
+
+        Для коригувань/інвентаризації напрямок визначається знаком delta:
+        додатня delta → 'added', відʼємна → 'written_off'.
+        """
+        if reason in cls.sale_reasons():
+            return "sold"
+        if reason in cls.addition_reasons():
+            return "added"
+        if reason in cls.writeoff_reasons():
+            return "written_off"
+        if reason in cls.adjustment_reasons():
+            return "added" if (delta or 0) > 0 else "written_off"
+        # Невідома причина — класифікуємо за знаком.
+        return "added" if (delta or 0) > 0 else "written_off"
 
 
 class StockMovement(models.Model):

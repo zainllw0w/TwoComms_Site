@@ -13,7 +13,7 @@ from .prints import (  # noqa: F401
     print_delete,
     print_adjust,
 )
-from .write_off import write_off_entry, write_off_submit  # noqa: F401
+from .write_off import write_off_entry, write_off_submit, cancel_sale_entry, cancel_sale_submit  # noqa: F401
 from .history import history_list, history_verify  # noqa: F401
 from .finance import finance_dashboard  # noqa: F401
 from .auth_views import login_view, logout_view  # noqa: F401

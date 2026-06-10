@@ -194,6 +194,16 @@
             <span class="form-help">Плюс — прихід, мінус — списання/продаж.</span>
         </div>
 
+        <div class="form-field" id="reason-field-delta" hidden>
+            <label for="adjust-reason">Тип операції (для списання)</label>
+            <select id="adjust-reason">
+                <option value="sale">Продаж</option>
+                <option value="manual_remove">Списання (загальне)</option>
+                <option value="damage">Брак / пошкодження</option>
+            </select>
+            <span class="form-help">«Продаж» іде в FIN як продано, «брак/списання» — у втрати.</span>
+        </div>
+
         <div class="form-field" id="cost-field-delta">
             <label for="cost-set">
                 <span id="cost-label-text">Ціна закупки цієї партії (₴)</span>

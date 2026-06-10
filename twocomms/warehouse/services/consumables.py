@@ -116,6 +116,7 @@ def use_consumable(
     comment: str = "",
     order=None,
     write_off_request=None,
+    reason: str | None = None,
 ) -> StockMovement:
     """Списання розхідного матеріалу при використанні.
 
@@ -126,15 +127,32 @@ def use_consumable(
         comment: Коментар
         order: Зв'язане замовлення
         write_off_request: Зв'язаний запит на списання
+        reason: Явний тип операції (sale/damage/manual_remove/recount). Якщо не
+            задано — автоматично: ORDER_WRITE_OFF при наявності order, інакше
+            MANUAL_REMOVE.
 
     Returns:
         Створений StockMovement
     """
+    valid = {
+        MovementReason.SALE,
+        MovementReason.DAMAGE,
+        MovementReason.MANUAL_REMOVE,
+        MovementReason.RECOUNT,
+        MovementReason.ADJUSTMENT,
+        MovementReason.ORDER_WRITE_OFF,
+    }
+    if reason in valid:
+        effective_reason = reason
+    elif order:
+        effective_reason = MovementReason.ORDER_WRITE_OFF
+    else:
+        effective_reason = MovementReason.MANUAL_REMOVE
     return adjust_consumable(
         consumable=consumable,
         delta=-quantity,
         user=user,
-        reason=MovementReason.ORDER_WRITE_OFF if order else MovementReason.MANUAL_REMOVE,
+        reason=effective_reason,
         comment=comment or f"Використано: {quantity} {consumable.unit}",
         order=order,
         write_off_request=write_off_request,

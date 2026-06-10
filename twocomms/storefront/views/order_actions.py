@@ -342,7 +342,10 @@ def telegram_order_status_action(request, order_id: int, status: str):
                 require_tracking_number=bool(action.get("requires_tracking_number")),
             )
             updated_order = result["order"]
-            _update_telegram_message_after_order_change(updated_order, clear_actions=True)
+            # Не стираємо всі кнопки: лишаємо керування (зокрема складську
+            # кнопку «продати/відмінити продаж»). Меню перебудується під
+            # новий статус замовлення.
+            _update_telegram_message_after_order_change(updated_order, clear_actions=False)
             return _render_status_action_page(
                 request,
                 order=updated_order,

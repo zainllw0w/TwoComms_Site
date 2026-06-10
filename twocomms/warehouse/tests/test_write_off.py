@@ -134,8 +134,8 @@ class WriteOffFlowTests(TestCase):
         )
         self.assertEqual(r.status_code, 404)
 
-    def test_writeoff_button_hidden_and_no_new_request_after_completion(self):
-        """Після завершення списання кнопка зникає і НЕ створює новий pending."""
+    def test_writeoff_button_becomes_cancel_after_completion(self):
+        """Після завершення продажу кнопка стає «Відмінити продаж» і НЕ створює новий pending."""
         from orders.telegram_notifications import TelegramNotifier
 
         wo = WriteOffRequest.objects.create(order=self.order)
@@ -143,8 +143,9 @@ class WriteOffFlowTests(TestCase):
         wo.save(update_fields=["status"])
 
         notifier = TelegramNotifier()
-        button = notifier._build_storage_writeoff_button(self.order)
-        self.assertIsNone(button)
+        button = notifier._build_storage_action_button(self.order)
+        self.assertIsNotNone(button)
+        self.assertIn("відмінити", button["text"].lower())
         # Жодного нового pending-запиту не створено.
         self.assertEqual(
             self.order.warehouse_write_off_requests.filter(

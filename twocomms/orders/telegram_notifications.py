@@ -615,40 +615,64 @@ class TelegramNotifier:
         except Exception:
             return ""
 
-    def _build_storage_writeoff_button(self, order):
-        """Кнопка «Списати зі складу» — веде на storage субдомен з UUID-токеном.
+    def _build_storage_action_button(self, order):
+        """Єдина складська кнопка: «продати зі складу» АБО «відмінити продаж».
 
-        Повертає dict (рядок inline-кнопок) або None якщо warehouse-app
-        недоступний/неактивний, або замовлення вже списано зі складу.
+        - Якщо є завершена (не скасована) продажа → «↩️ Відмінити продаж».
+        - Інакше → «📦 Списати/продати зі складу» (відкриває сторінку продажу).
+        Повертає dict однієї inline-кнопки або None.
         """
         try:
             from warehouse.models import WriteOffRequest
-            from warehouse.services.order_links import build_storage_writeoff_url
+            from warehouse.services.order_links import (
+                build_storage_cancel_sale_url,
+                build_storage_writeoff_url,
+            )
         except Exception:
             return None
-        # Якщо вже є завершене списання — не показуємо кнопку і НЕ створюємо
-        # новий pending-запит (інакше кожен edit плодив би нові токени).
         try:
-            if order.warehouse_write_off_requests.filter(
+            has_completed = order.warehouse_write_off_requests.filter(
                 status=WriteOffRequest.STATUS_COMPLETED
-            ).exists():
-                return None
+            ).exists()
         except Exception:
-            pass
+            has_completed = False
+
+        if has_completed:
+            try:
+                cancel_url = build_storage_cancel_sale_url(order)
+            except Exception:
+                cancel_url = None
+            if cancel_url:
+                return {"text": "↩️ Відмінити продаж", "url": cancel_url}
+            return None
+
         try:
             writeoff_url = build_storage_writeoff_url(order)
         except Exception:
             return None
-        return {"text": "📦 Списати принти та одяг", "url": writeoff_url}
+        return {"text": "📦 Списати/продати зі складу", "url": writeoff_url}
+
+    # Зворотна сумісність зі старою назвою (використовується в тестах/іншому коді).
+    def _build_storage_writeoff_button(self, order):
+        return self._build_storage_action_button(order)
 
     def _build_order_management_reply_markup(self, order):
-        if (
-            not getattr(order, "pk", None)
-            or getattr(order, "status", "") in {"done", "cancelled"}
-        ):
+        if not getattr(order, "pk", None):
             return None
 
-        writeoff_button = self._build_storage_writeoff_button(order)
+        status = getattr(order, "status", "")
+        storage_button = self._build_storage_action_button(order)
+
+        # Скасоване замовлення — жодних дій.
+        if status == "cancelled":
+            return None
+
+        # Доставлене/отримане замовлення: лишаємо лише складську дію
+        # (продати зі складу / відмінити продаж), щоб не гортати вгору.
+        if status == "done":
+            if storage_button:
+                return {"inline_keyboard": [[storage_button]]}
+            return None
 
         if getattr(order, "nova_poshta_document_ref", None):
             try:
@@ -659,22 +683,24 @@ class TelegramNotifier:
                     token_scope=getattr(order, "nova_poshta_document_ref", "") or "",
                 )
             except Exception:
-                return None
+                delete_waybill_url = None
 
-            keyboard_rows = [
-                [{"text": "🗑 Видалити ТТН НП", "url": delete_waybill_url}],
-            ]
-            if writeoff_button:
-                keyboard_rows.append([writeoff_button])
-            return {"inline_keyboard": keyboard_rows}
+            keyboard_rows = []
+            if delete_waybill_url:
+                keyboard_rows.append([{"text": "🗑 Видалити ТТН НП", "url": delete_waybill_url}])
+            if storage_button:
+                keyboard_rows.append([storage_button])
+            return {"inline_keyboard": keyboard_rows} if keyboard_rows else None
 
         if getattr(order, "tracking_number", None):
-            if writeoff_button:
-                return {"inline_keyboard": [[writeoff_button]]}
+            if storage_button:
+                return {"inline_keyboard": [[storage_button]]}
             return None
 
         action = get_telegram_status_action('ship')
-        if not action or not getattr(order, 'pk', None):
+        if not action:
+            if storage_button:
+                return {"inline_keyboard": [[storage_button]]}
             return None
 
         try:
@@ -685,14 +711,16 @@ class TelegramNotifier:
                 route_name="telegram_order_np_waybill_action",
             )
         except Exception:
+            if storage_button:
+                return {"inline_keyboard": [[storage_button]]}
             return None
 
         keyboard_rows = [
             [{"text": "📦 Створити ТТН НП", "url": create_waybill_url}],
             [{"text": action["button_text"], "url": ship_url}],
         ]
-        if writeoff_button:
-            keyboard_rows.append([writeoff_button])
+        if storage_button:
+            keyboard_rows.append([storage_button])
         return {"inline_keyboard": keyboard_rows}
 
     def send_new_order_notification(self, order):

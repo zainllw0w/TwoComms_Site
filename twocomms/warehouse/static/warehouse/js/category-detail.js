@@ -29,6 +29,8 @@
     const adjustPreviewCost = document.getElementById('adjust-preview-cost');
     const adjustDeltaBadge = document.getElementById('adjust-delta-badge');
     const costFieldDelta = document.getElementById('cost-field-delta');
+    const reasonFieldDelta = document.getElementById('reason-field-delta');
+    const adjustReason = document.getElementById('adjust-reason');
 
     // Tabs
     const tabs = sheet.querySelectorAll('.wh-adjust-tab');
@@ -78,6 +80,10 @@
             if (costFieldDelta) {
                 costFieldDelta.style.opacity = pendingDelta < 0 ? '0.4' : '';
                 costFieldDelta.style.pointerEvents = pendingDelta < 0 ? 'none' : '';
+            }
+            // Show operation-type selector only when removing (sale/write-off/damage)
+            if (reasonFieldDelta) {
+                reasonFieldDelta.hidden = pendingDelta >= 0;
             }
         } else {
             // set-mode
@@ -294,7 +300,7 @@
             } else {
                 fd.append('mode', 'delta');
                 fd.append('delta', String(pendingDelta));
-                fd.append('reason', pendingDelta > 0 ? 'manual_add' : 'manual_remove');
+                fd.append('reason', pendingDelta > 0 ? 'manual_add' : ((adjustReason && adjustReason.value) || 'manual_remove'));
                 // Ціну закупки враховуємо лише при прибутті (середньозважена).
                 if (pendingDelta > 0 && enteredCost) {
                     fd.append('cost_price', enteredCost);

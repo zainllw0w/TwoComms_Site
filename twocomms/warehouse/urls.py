@@ -47,6 +47,16 @@ urlpatterns = [
         views.write_off_submit,
         name="write_off_submit",
     ),
+    path(
+        "order/<uuid:token>/cancel-sale/",
+        views.cancel_sale_entry,
+        name="cancel_sale",
+    ),
+    path(
+        "order/<uuid:token>/cancel-sale/submit/",
+        views.cancel_sale_submit,
+        name="cancel_sale_submit",
+    ),
 
     # History
     path("history/", views.history_list, name="history"),
