@@ -7789,7 +7789,10 @@ def commercial_offer_email_send_test_api(request):
     payload["manager_photo_url"] = _manager_photo_url(request.user, request) if payload.get("show_manager") else ""
 
     email_build = build_twocomms_cp_email(payload)
-    subject = "[ТЕСТ] " + email_build["subject"]
+    # Unique time-stamped subject so Gmail does NOT thread/trim repeated self-tests
+    # (real offers go to unique recipients and are unaffected).
+    _ts = timezone.localtime(timezone.now()).strftime("%H:%M:%S")
+    subject = f"[ТЕСТ {_ts}] " + email_build["subject"]
     html_body = email_build["html"] if (payload.get("mode") or "VISUAL") == "VISUAL" else email_build["html_light"]
 
     from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None) or "TwoComms <cooperation@twocomms.shop>"
