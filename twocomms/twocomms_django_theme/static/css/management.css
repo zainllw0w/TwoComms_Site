@@ -8979,3 +8979,21 @@ body[data-url-name="management_admin_payouts_board"] .content-area { box-sizing:
     white-space: pre-wrap;
     overflow: auto;
 }
+
+/* КП accordion sections */
+.offer-card-head--toggle { cursor: pointer; position: relative; user-select: none; }
+.offer-card-chevron {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    width: 10px;
+    height: 10px;
+    margin-top: -7px;
+    border-right: 2px solid var(--text-secondary);
+    border-bottom: 2px solid var(--text-secondary);
+    transform: rotate(45deg);
+    transition: transform 0.2s ease;
+}
+.offer-card--collapsed .offer-card-chevron { transform: rotate(-45deg); }
+.offer-card--collapsed > *:not(.offer-card-head) { display: none !important; }
+.offer-card-head--toggle:hover .offer-card-chevron { border-color: var(--accent); }

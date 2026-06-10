@@ -3215,6 +3215,33 @@ if (document.readyState === 'loading') {
             }
         });
 
+        // --- Accordion: collapsible form sections (all expanded by default) ---
+        try {
+            var form0 = document.getElementById('offer-form');
+            if (form0) {
+                var cards = form0.querySelectorAll('.offer-card');
+                cards.forEach(function (card) {
+                    var head = card.querySelector('.offer-card-head');
+                    if (!head) return;
+                    head.classList.add('offer-card-head--toggle');
+                    head.setAttribute('role', 'button');
+                    head.setAttribute('tabindex', '0');
+                    var chev = document.createElement('span');
+                    chev.className = 'offer-card-chevron';
+                    chev.setAttribute('aria-hidden', 'true');
+                    head.appendChild(chev);
+                    function toggle() { card.classList.toggle('offer-card--collapsed'); }
+                    head.addEventListener('click', function (ev) {
+                        if (ev.target.closest('button, a, input, select, textarea, label')) return;
+                        toggle();
+                    });
+                    head.addEventListener('keydown', function (ev) {
+                        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggle(); }
+                    });
+                });
+            }
+        } catch (e) {}
+
         // --- Draft autosave (localStorage), excluding recipient_email ---
         try {
             var form = document.getElementById('offer-form');
