@@ -3490,6 +3490,8 @@ def _format_admin_payout_message(payout_req, *, status_line=None, include_links=
     except Exception:
         card_raw = ''
 
+    card_full = (card_raw or '').strip()
+
     created_label = ''
     try:
         created_label = timezone.localtime(payout_req.created_at).strftime('%d.%m.%Y %H:%M')
@@ -3504,6 +3506,10 @@ def _format_admin_payout_message(payout_req, *, status_line=None, include_links=
         f"<b>Сума</b>: {escape(str(getattr(payout_req, 'amount', '0')))} грн",
         f"<b>Картка</b>: {escape(mask_card(card_raw))}",
     ]
+    if card_full:
+        lines.append('')
+        lines.append('<b>Реквізити</b> (натисніть, щоб скопіювати):')
+        lines.append(f"<code>{escape(card_full)}</code>")
     if created_label:
         lines.append(f"<b>Створено</b>: {escape(created_label)}")
 
@@ -6929,7 +6935,7 @@ def payouts(request):
     frozen_items = list(
         accruals_qs.filter(frozen_until__gt=now)
         .order_by('frozen_until')
-        .values('amount', 'freeze_reason_text', 'note', 'frozen_until', 'freeze_reason_code')[:10]
+        .values('amount', 'freeze_reason_text', 'note', 'frozen_until', 'freeze_reason_code', 'created_at')[:10]
     )
 
     deals_count = WholesaleInvoice.objects.filter(created_by=request.user, payment_status='paid').count()
@@ -6994,6 +7000,57 @@ def payouts(request):
         },
     )
 
+    # --- Рівень менеджера, тижневий KPI та історія (для візуалізації) ---
+    from datetime import timedelta as _timedelta
+
+    manager_level = None
+    level_display = ''
+    level_assigned_at = None
+    salary_start_date = None
+    try:
+        from management.services.manager_levels import get_current_level as _get_current_level
+        manager_level = _get_current_level(request.user)
+        if manager_level:
+            level_display = manager_level.get_level_display()
+            level_assigned_at = manager_level.assigned_at
+            salary_start_date = manager_level.salary_start_date
+    except Exception:
+        manager_level = None
+
+    weekly_kpi = None
+    weekly_history = []
+    next_check_date = None
+    try:
+        from management.services.weekly_kpi import (
+            get_current_week_kpi_status as _get_week_kpi,
+            get_weekly_kpi_history as _get_week_hist,
+        )
+        weekly_kpi = _get_week_kpi(request.user)
+        if weekly_kpi and weekly_kpi.get('week_end'):
+            next_check_date = weekly_kpi['week_end'] + _timedelta(days=1)
+
+        raw_history = _get_week_hist(request.user, weeks=6)
+        for row in raw_history:
+            try:
+                mult = float(row.get('kpi_multiplier') or 0)
+            except Exception:
+                mult = 0.0
+            pct = int(round(mult * 100))
+            if pct >= 100:
+                tier = 'full'
+            elif pct > 0:
+                tier = 'half'
+            else:
+                tier = 'zero'
+            row['pct'] = pct
+            row['tier'] = tier
+            row['is_current'] = (row.get('status') == 'not_accrued')
+            weekly_history.append(row)
+    except Exception:
+        weekly_kpi = weekly_kpi or None
+
+    manager_display_name = request.user.get_full_name() or request.user.username
+
     return render(
         request,
         'management/payouts.html',
@@ -7025,6 +7082,14 @@ def payouts(request):
             'reminders': reminders,
             'manager_bot_username': bot_username,
             'salary_simulator': salary_simulator,
+            'manager_level': manager_level,
+            'level_display': level_display,
+            'level_assigned_at': level_assigned_at,
+            'salary_start_date': salary_start_date,
+            'weekly_kpi': weekly_kpi,
+            'weekly_history': weekly_history,
+            'next_check_date': next_check_date,
+            'manager_display_name': manager_display_name,
         }
     )
 

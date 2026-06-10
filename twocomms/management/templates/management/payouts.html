@@ -3,209 +3,374 @@
 {% block title %}Виплати{% endblock %}
 
 {% block content %}
-<div class="clients-panel payouts-panel">
-    <div class="panel-header">
-        <div>
+<div class="pf-page">
+
+    <!-- ===== Header ===== -->
+    <div class="pf-head">
+        <div class="pf-head__titles">
             <p class="eyebrow">Фінанси</p>
-            <h2>Виплати</h2>
+            <h2 class="pf-head__h">Виплати</h2>
         </div>
-        <div class="panel-actions">
-            <a class="btn-ghost" href="{% url 'management_home' %}">← До панелі</a>
+        <a class="btn-ghost pf-head__back" href="{% url 'management_home' %}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+            До панелі
+        </a>
+    </div>
+
+    <!-- ===== Level banner ===== -->
+    <div class="pf-banner pf-reveal" data-reveal>
+        <div class="pf-banner__left">
+            <span class="pf-banner__badge pf-badge--{{ manager_level.level|default:'level_1' }}">
+                <span class="pf-banner__badge-glow" aria-hidden="true"></span>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 19.3 7.2 16.7l.9-5.4L4.2 7.7l5.4-.8L12 2z"/>
+                </svg>
+            </span>
+            <div class="pf-banner__text">
+                <div class="pf-banner__role">Ви — <strong>{{ level_display|default:position }}</strong></div>
+                <div class="pf-banner__since">
+                    {% if level_assigned_at %}на цьому рівні з {{ level_assigned_at|date:"d.m.Y" }}{% endif %}
+                    {% if salary_start_date %}<span class="pf-dot-sep"></span>нарахування з {{ salary_start_date|date:"d.m.Y" }}{% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="pf-banner__check">
+            <span class="pf-pulse" aria-hidden="true"><span></span></span>
+            <div class="pf-banner__check-body">
+                <div class="pf-banner__check-label">Наступна перевірка виплати</div>
+                <div class="pf-banner__check-date">{% if next_check_date %}{{ next_check_date|date:"d.m.Y" }}{% else %}—{% endif %}</div>
+            </div>
         </div>
     </div>
 
-    <div class="payouts-grid">
-        <section class="balance-card" aria-label="Баланс">
-            <div class="balance-card__glow" aria-hidden="true"></div>
-            <div class="balance-card__head">
-                <div>
-                    <div class="balance-card__kicker">Баланс</div>
-                    <div class="balance-card__value">{{ balance|floatformat:2 }} <span class="uah">грн</span></div>
-                </div>
-                <div class="balance-card__status">
-                    {% if active_request %}
-                        <span class="status-chip status-{{ active_request.status }}">{{ active_request.get_status_display }}</span>
-                    {% else %}
-                        <span class="status-chip status-none">Немає активних запитів</span>
-                    {% endif %}
+    <!-- ===== Hero ===== -->
+    <div class="pf-hero">
+
+        <!-- Money card -->
+        <section class="pf-card-wrap pf-reveal" data-reveal aria-label="Баланс">
+            <div class="pf-card" id="pf-money-card">
+                <div class="pf-card__glow" aria-hidden="true"></div>
+                <div class="pf-card__sheen" aria-hidden="true"></div>
+                <div class="pf-card__grid" aria-hidden="true"></div>
+                <div class="pf-card__inner">
+                    <div class="pf-card__top">
+                        <div class="pf-card__brand">
+                            <span class="pf-card__brand-mark" aria-hidden="true">
+                                <svg viewBox="0 0 24 24"><path d="M12 2l9 5v10l-9 5-9-5V7l9-5z"/></svg>
+                            </span>
+                            <span>TwoComms</span>
+                        </div>
+                        <div class="pf-card__status">
+                            {% if active_request %}
+                                <span class="status-chip status-{{ active_request.status }}">{{ active_request.get_status_display }}</span>
+                            {% else %}
+                                <span class="status-chip status-none">Готово до виводу</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="pf-card__chip" aria-hidden="true">
+                        <svg viewBox="0 0 40 30">
+                            <rect x="1" y="1" width="38" height="28" rx="5"/>
+                            <path d="M1 10h12M1 20h12M39 10H27M39 20H27M13 1v28M27 1v28"/>
+                        </svg>
+                    </div>
+
+                    <div class="pf-card__avail">
+                        <div class="pf-card__avail-label">Доступно до виведення</div>
+                        <div class="pf-card__avail-value">
+                            <span class="pf-amount" data-count-to="{{ available|floatformat:2 }}">0</span>
+                            <span class="pf-amount__cur">₴</span>
+                        </div>
+                    </div>
+
+                    <div class="pf-card__bottom">
+                        <div class="pf-card__number">{{ card_mask }}</div>
+                        <div class="pf-card__holder">{{ manager_display_name }}</div>
+                    </div>
                 </div>
             </div>
 
-            <div class="balance-card__meta">
-                <div class="balance-metric">
-                    <div class="balance-metric__label">Доступно до виведення</div>
-                    <div class="balance-metric__value">{{ available|floatformat:2 }} грн</div>
-                </div>
-                <div class="balance-metric">
-                    <div class="balance-metric__label">Заморожено</div>
-                    <div class="balance-metric__value">{{ frozen_amount|floatformat:2 }} грн</div>
-                </div>
-                <div class="balance-metric">
-                    <div class="balance-metric__label">В обробці</div>
-                    <div class="balance-metric__value">{{ reserved_amount|floatformat:2 }} грн</div>
-                </div>
-            </div>
-
-            <div class="balance-card__actions">
-                <button type="button" class="btn-primary" id="payout-request-btn"
+            <div class="pf-card-actions">
+                <button type="button" class="pf-cta" id="payout-request-btn"
                         data-url="{% url 'management_payouts_request_api' %}"
                         {% if not available or available <= 0 or active_request %}disabled{% endif %}>
-                    Запросити виплату
+                    <span class="pf-cta__shine" aria-hidden="true"></span>
+                    <span class="pf-cta__label">Запросити виплату</span>
+                    <span class="pf-cta__icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                    </span>
                 </button>
-                <div class="balance-card__hint" id="payout-request-hint" role="status" aria-live="polite"></div>
+                <div class="pf-card-actions__hint" id="payout-request-hint" role="status" aria-live="polite"></div>
+            </div>
+
+            <div class="pf-breakdown">
+                <div class="pf-breakdown__item">
+                    <span class="pf-breakdown__label">Баланс</span>
+                    <strong class="pf-breakdown__val">{{ balance|floatformat:2 }} ₴</strong>
+                </div>
+                <div class="pf-breakdown__item">
+                    <span class="pf-breakdown__label">В обробці</span>
+                    <strong class="pf-breakdown__val">{{ reserved_amount|floatformat:2 }} ₴</strong>
+                </div>
+                <div class="pf-breakdown__item pf-breakdown__item--frozen">
+                    <span class="pf-breakdown__label">Заморожено</span>
+                    <strong class="pf-breakdown__val">{{ frozen_amount|floatformat:2 }} ₴</strong>
+                </div>
             </div>
         </section>
 
-        <aside class="payouts-side" aria-label="Інформація">
-            <div class="payout-note payout-note--attention">
-                <div class="payout-note__title">Важливо</div>
-                <div class="payout-note__text">Кошти заморожуються на 14 днів, тому що покупець має право повернути товар протягом 14 днів за умовами законодавства України (захист прав споживачів).</div>
-            </div>
-            <div class="payout-note">
-                <div class="payout-note__title">Графік</div>
-                <div class="payout-note__text">Ставка нараховується щотижня (за тиждень пн–нд) залежно від виконання KPI: 2+ конверсії — 100% ставки, 1 конверсія — 50%, 0 — ставка не нараховується. Відсоток від замовлень нараховується окремо за кожну конверсію.</div>
-            </div>
-            <div class="payout-note">
-                <div class="payout-note__title">Картка</div>
-                <div class="payout-note__text">У профілі вказана картка {{ card_mask }}, на неї будуть зараховуватися виплати. Якщо хочете змінити — змініть до запиту.</div>
-            </div>
-            <div class="payout-note">
-                <div class="payout-note__title">Тіньовий захист</div>
-                <div class="payout-note__text">{{ salary_simulator.freeze_line }}</div>
-            </div>
-        </aside>
+        <!-- Right column -->
+        <div class="pf-hero__side">
+
+            <!-- Frost ring -->
+            <section class="pf-frost pf-reveal" data-reveal aria-label="Заморожені кошти">
+                <div class="pf-frost__head">
+                    <div class="pf-frost__title">
+                        <svg class="pf-frost__flake-ico" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19M12 5l-2.5 2.5M12 5l2.5 2.5M12 19l-2.5-2.5M12 19l2.5-2.5M5 12l2.5-2.5M5 12l2.5 2.5M19 12l-2.5-2.5M19 12l-2.5 2.5"/>
+                        </svg>
+                        Заморожені кошти
+                    </div>
+                    <span class="pf-frost__sum">{{ frozen_amount|floatformat:2 }} ₴</span>
+                </div>
+
+                {% if frozen_items %}
+                {% with primary=frozen_items.0 %}
+                <div class="pf-frost__main">
+                    <div class="pf-ring pf-ring--frost" data-ring="frost"
+                         data-from="{{ primary.created_at|date:'c' }}"
+                         data-until="{{ primary.frozen_until|date:'c' }}">
+                        <svg viewBox="0 0 140 140" class="pf-ring__svg">
+                            <defs>
+                                <linearGradient id="pfFrostGrad" x1="0" y1="0" x2="1" y2="1">
+                                    <stop offset="0%" stop-color="#7ee0ff"/>
+                                    <stop offset="100%" stop-color="#6f95ff"/>
+                                </linearGradient>
+                            </defs>
+                            <circle class="pf-ring__track" cx="70" cy="70" r="60"/>
+                            <circle class="pf-ring__bar" cx="70" cy="70" r="60"
+                                    stroke="url(#pfFrostGrad)" data-circ pathLength="100"/>
+                        </svg>
+                        <div class="pf-ring__center">
+                            <svg class="pf-ring__flake" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 2v20M2 12h20M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4"/>
+                            </svg>
+                            <div class="pf-ring__days" data-days>—</div>
+                            <div class="pf-ring__days-label">днів до розморозки</div>
+                        </div>
+                    </div>
+                    <div class="pf-frost__primary-meta">
+                        <div class="pf-frost__primary-amount">{{ primary.amount|floatformat:2 }} ₴</div>
+                        <div class="pf-frost__primary-date">
+                            розморозка {{ primary.frozen_until|date:"d.m.Y" }}
+                        </div>
+                        <div class="pf-frost__primary-reason">{{ primary.freeze_reason_text|default:primary.note|default:"Захист 14 днів на повернення товару" }}</div>
+                    </div>
+                </div>
+
+                {% if frozen_items|length > 1 %}
+                <div class="pf-frost__list">
+                    {% for item in frozen_items %}
+                    {% if not forloop.first %}
+                    <div class="pf-ice-chip" data-from="{{ item.created_at|date:'c' }}" data-until="{{ item.frozen_until|date:'c' }}">
+                        <span class="pf-ice-chip__bar"><span class="pf-ice-chip__fill" data-fill></span></span>
+                        <span class="pf-ice-chip__amount">{{ item.amount|floatformat:2 }} ₴</span>
+                        <span class="pf-ice-chip__date">{{ item.frozen_until|date:"d.m" }}</span>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endwith %}
+                {% else %}
+                <div class="pf-frost__empty">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+                    Заморожених коштів немає — усе доступно до виводу.
+                </div>
+                {% endif %}
+            </section>
+
+            <!-- Weekly KPI -->
+            <section class="pf-week pf-reveal" data-reveal aria-label="Поточний тиждень">
+                <div class="pf-week__head">
+                    <div class="pf-week__title">Поточний тиждень</div>
+                    {% if weekly_kpi %}
+                    <div class="pf-week__range">{{ weekly_kpi.week_start|date:"d.m" }} – {{ weekly_kpi.week_end|date:"d.m" }}</div>
+                    {% endif %}
+                </div>
+                {% if weekly_kpi %}
+                <div class="pf-week__body">
+                    <div class="pf-ring pf-ring--kpi" data-ring="kpi" data-pct="{{ weekly_kpi.conversions_progress_pct|default:0 }}">
+                        <svg viewBox="0 0 120 120" class="pf-ring__svg">
+                            <defs>
+                                <linearGradient id="pfKpiGrad" x1="0" y1="0" x2="1" y2="1">
+                                    <stop offset="0%" stop-color="#ffb86b"/>
+                                    <stop offset="100%" stop-color="#ff7e29"/>
+                                </linearGradient>
+                            </defs>
+                            <circle class="pf-ring__track" cx="60" cy="60" r="50"/>
+                            <circle class="pf-ring__bar" cx="60" cy="60" r="50"
+                                    stroke="url(#pfKpiGrad)" data-circ pathLength="100"/>
+                        </svg>
+                        <div class="pf-ring__center">
+                            <div class="pf-ring__kpi-num">{{ weekly_kpi.conversions }}<span>/{{ weekly_kpi.conversions_target }}</span></div>
+                            <div class="pf-ring__kpi-label">конверсії</div>
+                        </div>
+                    </div>
+                    <div class="pf-week__metrics">
+                        <div class="pf-week__metric">
+                            <span class="pf-week__metric-label">Прогноз ставки</span>
+                            <span class="pf-week__metric-val pf-tier--{% if weekly_kpi.kpi_multiplier >= 1 %}full{% elif weekly_kpi.kpi_multiplier > 0 %}half{% else %}zero{% endif %}">
+                                {{ weekly_kpi.projected_salary|floatformat:0 }} ₴
+                                <em>{% if weekly_kpi.kpi_multiplier >= 1 %}100%{% elif weekly_kpi.kpi_multiplier > 0 %}50%{% else %}0%{% endif %}</em>
+                            </span>
+                        </div>
+                        <div class="pf-week__metric">
+                            <span class="pf-week__metric-label">Оброблено клієнтів</span>
+                            <span class="pf-week__metric-val">{{ weekly_kpi.processed_clients }}</span>
+                        </div>
+                        <div class="pf-week__metric">
+                            <span class="pf-week__metric-label">До кінця тижня</span>
+                            <span class="pf-week__metric-val">{{ weekly_kpi.days_remaining }} дн.</span>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="pf-week__empty">Дані тижня з’являться після призначення ставки.</div>
+                {% endif %}
+            </section>
+        </div>
     </div>
 
-    <section class="payouts-stats" aria-label="Статистика">
-        <div class="payouts-stats__grid">
-            <div class="stat-card">
-                <div class="stat-card__label">Статус / посада</div>
-                <div class="stat-card__value">{{ position }}</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-card__label">Днів працює</div>
-                <div class="stat-card__value">{% if days_worked is not None %}{{ days_worked }}{% else %}—{% endif %}</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-card__label">Угод (оплачених)</div>
-                <div class="stat-card__value">{{ deals_count|default:0 }}</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-card__label">Ставка</div>
-                <div class="stat-card__value">{{ base_salary|default:0 }} грн</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-card__label">% с продаж</div>
-                <div class="stat-card__value">{{ commission_percent|default:0 }}%</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-card__label">Дата першої угоди</div>
-                <div class="stat-card__value">{% if first_deal_at %}{{ first_deal_at|date:"d.m.Y" }}{% else %}—{% endif %}</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-card__label">Дата останньої виплати</div>
-                <div class="stat-card__value">{% if last_payout_at %}{{ last_payout_at|date:"d.m.Y" }}{% else %}—{% endif %}</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-card__label">Всього отримано виплат</div>
-                <div class="stat-card__value">{{ total_received|floatformat:2 }} грн</div>
-            </div>
+    <!-- ===== Metric pills ===== -->
+    <section class="pf-metrics pf-reveal" data-reveal aria-label="Показники">
+        <div class="pf-pill">
+            <span class="pf-pill__ico"><svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></span>
+            <span class="pf-pill__label">Тижнева ставка</span>
+            <span class="pf-pill__val">{{ base_salary|default:0 }} ₴</span>
+        </div>
+        <div class="pf-pill">
+            <span class="pf-pill__ico"><svg viewBox="0 0 24 24"><path d="M19 5L5 19M6.5 6.5h.01M17.5 17.5h.01"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg></span>
+            <span class="pf-pill__label">% з продажів</span>
+            <span class="pf-pill__val">{{ commission_percent|default:0 }}%</span>
+        </div>
+        <div class="pf-pill">
+            <span class="pf-pill__ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span>
+            <span class="pf-pill__label">Днів працює</span>
+            <span class="pf-pill__val">{% if days_worked is not None %}{{ days_worked }}{% else %}—{% endif %}</span>
+        </div>
+        <div class="pf-pill">
+            <span class="pf-pill__ico"><svg viewBox="0 0 24 24"><path d="M20 7L9 18l-5-5"/></svg></span>
+            <span class="pf-pill__label">Угод оплачено</span>
+            <span class="pf-pill__val">{{ deals_count|default:0 }}</span>
+        </div>
+        <div class="pf-pill pf-pill--accent">
+            <span class="pf-pill__ico"><svg viewBox="0 0 24 24"><path d="M21 12V7H5a2 2 0 010-4h14v4M3 5v14a2 2 0 002 2h16v-5M18 12a2 2 0 000 4h4v-4h-4z"/></svg></span>
+            <span class="pf-pill__label">Всього отримано</span>
+            <span class="pf-pill__val">{{ total_received|floatformat:0 }} ₴</span>
+        </div>
+        <div class="pf-pill">
+            <span class="pf-pill__ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+            <span class="pf-pill__label">Остання виплата</span>
+            <span class="pf-pill__val">{% if last_payout_at %}{{ last_payout_at|date:"d.m.Y" }}{% else %}—{% endif %}</span>
         </div>
     </section>
 
-    <section class="payouts-stats" aria-label="Тіньовий симулятор винагороди">
-        <div class="panel-subhead">
-            <div>
-                <p class="eyebrow">Тіньова аналітика</p>
-                <h3>Симулятор винагороди</h3>
-            </div>
-        </div>
-        <div class="payouts-stats__grid">
-            <div class="stat-card">
-                <div class="stat-card__label">Поточна база</div>
-                <div class="stat-card__value">{{ salary_simulator.current_truth|floatformat:2 }} грн</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-card__label">Тіньовий сценарій</div>
-                <div class="stat-card__value">{{ salary_simulator.shadow_candidate|floatformat:2 }} грн</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-card__label">Різниця під захистом</div>
-                <div class="stat-card__value">{{ salary_simulator.shadow_hold_harmless_delta|floatformat:2 }} грн</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-card__label">Довіра</div>
-                <div class="stat-card__value">{{ salary_simulator.confidence_band_label }}</div>
-            </div>
-        </div>
-    </section>
-
-    <section class="payouts-history" aria-label="Заморожені нарахування">
-        <div class="panel-subhead">
-            <div>
-                <p class="eyebrow">Огляд заморозок</p>
-                <h3>Причини заморозки</h3>
-            </div>
-        </div>
-        <div class="table-shell">
-            <table class="nexus-table">
-                <thead>
-                    <tr>
-                        <th>Сума</th>
-                        <th>До дати</th>
-                        <th>Причина</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in frozen_items %}
-                    <tr>
-                        <td>{{ item.amount|floatformat:2 }} грн</td>
-                        <td>{% if item.frozen_until %}{{ item.frozen_until|date:"d.m.Y H:i" }}{% else %}—{% endif %}</td>
-                        <td>{{ item.freeze_reason_text|default:item.note|default:"—" }}</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="3" class="table-empty">Активних заморозок немає.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </section>
-
-    <section class="payouts-history" aria-label="Історія виплат">
-        <div class="panel-subhead">
+    <!-- ===== History ===== -->
+    <section class="pf-history pf-reveal" data-reveal aria-label="Історія">
+        <div class="pf-history__head">
             <div>
                 <p class="eyebrow">Історія</p>
-                <h3>Запити та виплати</h3>
+                <h3 class="pf-history__h">Ваш заробіток</h3>
+            </div>
+            <div class="pf-seg" role="tablist">
+                <button type="button" class="pf-seg__btn is-active" data-tab="weeks" role="tab">Тижні</button>
+                <button type="button" class="pf-seg__btn" data-tab="payouts" role="tab">Виплати</button>
+                <span class="pf-seg__glider" aria-hidden="true"></span>
             </div>
         </div>
 
-        <div class="table-shell">
-            <table class="nexus-table">
-                <thead>
-                    <tr>
-                        <th>Дата</th>
-                        <th>Сума</th>
-                        <th>Статус</th>
-                        <th>Причина</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for req in history %}
-                    <tr>
-                        <td>{{ req.created_at|date:"d.m.Y H:i" }}</td>
-                        <td>{{ req.amount|floatformat:2 }} грн</td>
-                        <td><span class="status-chip status-{{ req.status }}">{{ req.get_status_display }}</span></td>
-                        <td>{% if req.status == 'rejected' %}{{ req.rejection_reason|default:"—" }}{% else %}—{% endif %}</td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="4" class="table-empty">Поки немає запитів</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <!-- Weeks timeline -->
+        <div class="pf-tabpane is-active" data-pane="weeks">
+            {% if weekly_history %}
+            <ol class="pf-timeline">
+                {% for w in weekly_history %}
+                <li class="pf-tl pf-tl--{{ w.tier }}{% if w.is_current %} pf-tl--current{% endif %}" data-reveal-item style="--i: {{ forloop.counter0 }}">
+                    <span class="pf-tl__node" aria-hidden="true"></span>
+                    <div class="pf-tl__card">
+                        <div class="pf-tl__row">
+                            <div class="pf-tl__week">
+                                {{ w.week_start|date:"d.m" }} – {{ w.week_end|date:"d.m" }}
+                                {% if w.is_current %}<span class="pf-tl__live">поточний</span>{% endif %}
+                            </div>
+                            <div class="pf-tl__amount">{{ w.accrued_amount|floatformat:0 }} ₴</div>
+                        </div>
+                        <div class="pf-tl__row pf-tl__row--meta">
+                            <span class="pf-kpibadge pf-kpibadge--{{ w.tier }}">
+                                {% if w.tier == 'full' %}KPI виконано · 100%{% elif w.tier == 'half' %}Частково · 50%{% else %}Не виконано · 0%{% endif %}
+                            </span>
+                            <span class="pf-tl__stats">
+                                <span title="Конверсії">⚡ {{ w.conversions }}</span>
+                                <span title="Оброблено клієнтів">◷ {{ w.processed_clients }}</span>
+                            </span>
+                        </div>
+                    </div>
+                </li>
+                {% endfor %}
+            </ol>
+            {% else %}
+            <div class="pf-empty">Тижневих нарахувань поки немає.</div>
+            {% endif %}
+        </div>
+
+        <!-- Payouts timeline -->
+        <div class="pf-tabpane" data-pane="payouts">
+            {% if history %}
+            <ol class="pf-timeline">
+                {% for req in history %}
+                <li class="pf-tl pf-tl--req-{{ req.status }}" data-reveal-item style="--i: {{ forloop.counter0 }}">
+                    <span class="pf-tl__node" aria-hidden="true"></span>
+                    <div class="pf-tl__card">
+                        <div class="pf-tl__row">
+                            <div class="pf-tl__week">{{ req.created_at|date:"d.m.Y H:i" }}</div>
+                            <div class="pf-tl__amount">{{ req.amount|floatformat:0 }} ₴</div>
+                        </div>
+                        <div class="pf-tl__row pf-tl__row--meta">
+                            <span class="status-chip status-{{ req.status }}">{{ req.get_status_display }}</span>
+                        </div>
+                        {% if req.status == 'rejected' and req.rejection_reason %}
+                        <div class="pf-tl__reason">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+                            <span>{{ req.rejection_reason }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </li>
+                {% endfor %}
+            </ol>
+            {% else %}
+            <div class="pf-empty">Запитів на виплату поки немає.</div>
+            {% endif %}
+        </div>
+    </section>
+
+    <!-- ===== Info notes ===== -->
+    <section class="pf-notes pf-reveal" data-reveal aria-label="Інформація">
+        <div class="pf-note pf-note--accent">
+            <div class="pf-note__ico"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zM12 8v5M12 16h.01"/></svg></div>
+            <div class="pf-note__title">Чому заморозка 14 днів</div>
+            <div class="pf-note__text">Покупець має право повернути товар протягом 14 днів за законом про захист прав споживачів. Тому винагорода спершу заморожується.</div>
+        </div>
+        <div class="pf-note">
+            <div class="pf-note__ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div>
+            <div class="pf-note__title">Графік нарахувань</div>
+            <div class="pf-note__text">Ставка нараховується щотижня (пн–нд) за KPI: 2+ конверсії — 100%, 1 — 50%, 0 — без ставки. Відсоток від замовлень нараховується окремо за кожну конверсію.</div>
+        </div>
+        <div class="pf-note">
+            <div class="pf-note__ico"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></div>
+            <div class="pf-note__title">Картка для виплат</div>
+            <div class="pf-note__text">Зараз вказана картка {{ card_mask }}. Змінити реквізити можна в профілі — зробіть це до запиту на виплату.</div>
         </div>
     </section>
 
@@ -213,58 +378,198 @@
 </div>
 
 <script>
-(function() {
+(function () {
+    "use strict";
+    const root = document.querySelector('.pf-page');
+    if (!root) return;
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    /* ---- Number count-up ---- */
+    const fmt = (n) => {
+        const parts = Number(n).toFixed(2).split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+        return parts[0] + ',' + parts[1];
+    };
+    document.querySelectorAll('.pf-amount[data-count-to]').forEach((el) => {
+        const target = parseFloat(el.dataset.countTo || '0') || 0;
+        if (reduceMotion || target === 0) { el.textContent = fmt(target); return; }
+        const dur = 1100;
+        const start = performance.now();
+        const step = (t) => {
+            const p = Math.min(1, (t - start) / dur);
+            const eased = 1 - Math.pow(1 - p, 3);
+            el.textContent = fmt(target * eased);
+            if (p < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+    });
+
+    /* ---- Rings (frost countdown + KPI) ---- */
+    function setRing(barEl, pct) {
+        pct = Math.max(0, Math.min(100, pct));
+        // pathLength=100 → dasharray works in percent
+        barEl.style.strokeDasharray = '100';
+        if (reduceMotion) { barEl.style.strokeDashoffset = String(100 - pct); return; }
+        barEl.style.strokeDashoffset = '100';
+        requestAnimationFrame(() => {
+            barEl.style.transition = 'stroke-dashoffset 1.2s cubic-bezier(.22,.61,.36,1)';
+            barEl.style.strokeDashoffset = String(100 - pct);
+        });
+    }
+    document.querySelectorAll('.pf-ring').forEach((ring) => {
+        const bar = ring.querySelector('[data-circ]');
+        if (!bar) return;
+        if (ring.dataset.ring === 'kpi') {
+            setRing(bar, parseFloat(ring.dataset.pct || '0') || 0);
+            return;
+        }
+        // frost
+        const from = Date.parse(ring.dataset.from || '');
+        const until = Date.parse(ring.dataset.until || '');
+        const now = Date.now();
+        let pct = 0, days = 0;
+        if (!isNaN(from) && !isNaN(until) && until > from) {
+            pct = ((now - from) / (until - from)) * 100;
+            days = Math.max(0, Math.ceil((until - now) / 86400000));
+        } else if (!isNaN(until)) {
+            days = Math.max(0, Math.ceil((until - now) / 86400000));
+            pct = Math.max(8, 100 - days * 7);
+        }
+        setRing(bar, pct);
+        const daysEl = ring.querySelector('[data-days]');
+        if (daysEl) daysEl.textContent = String(days);
+    });
+    document.querySelectorAll('.pf-ice-chip').forEach((chip) => {
+        const fill = chip.querySelector('[data-fill]');
+        if (!fill) return;
+        const from = Date.parse(chip.dataset.from || '');
+        const until = Date.parse(chip.dataset.until || '');
+        const now = Date.now();
+        let pct = 50;
+        if (!isNaN(from) && !isNaN(until) && until > from) pct = ((now - from) / (until - from)) * 100;
+        fill.style.width = Math.max(4, Math.min(100, pct)) + '%';
+    });
+
+    /* ---- 3D tilt on the money card (pointer:fine only) ---- */
+    const card = document.getElementById('pf-money-card');
+    if (card && !reduceMotion && window.matchMedia('(pointer:fine)').matches) {
+        const wrap = card.closest('.pf-card-wrap') || card;
+        const max = 9;
+        let raf = null;
+        const onMove = (e) => {
+            const r = card.getBoundingClientRect();
+            const px = (e.clientX - r.left) / r.width - 0.5;
+            const py = (e.clientY - r.top) / r.height - 0.5;
+            if (raf) cancelAnimationFrame(raf);
+            raf = requestAnimationFrame(() => {
+                card.style.transform = `rotateY(${px * max}deg) rotateX(${-py * max}deg) translateZ(0)`;
+                card.style.setProperty('--mx', (px * 100 + 50) + '%');
+                card.style.setProperty('--my', (py * 100 + 50) + '%');
+            });
+        };
+        const reset = () => {
+            if (raf) cancelAnimationFrame(raf);
+            card.style.transform = '';
+            card.style.removeProperty('--mx');
+            card.style.removeProperty('--my');
+        };
+        wrap.addEventListener('mousemove', onMove);
+        wrap.addEventListener('mouseleave', reset);
+    }
+
+    /* ---- Segmented tabs ---- */
+    const seg = root.querySelector('.pf-seg');
+    if (seg) {
+        const btns = Array.from(seg.querySelectorAll('.pf-seg__btn'));
+        const glider = seg.querySelector('.pf-seg__glider');
+        const panes = root.querySelectorAll('.pf-tabpane');
+        const moveGlider = (btn) => {
+            if (!glider) return;
+            glider.style.width = btn.offsetWidth + 'px';
+            glider.style.transform = `translateX(${btn.offsetLeft}px)`;
+        };
+        const active = seg.querySelector('.pf-seg__btn.is-active') || btns[0];
+        if (active) moveGlider(active);
+        btns.forEach((btn) => {
+            btn.addEventListener('click', () => {
+                btns.forEach((b) => b.classList.remove('is-active'));
+                btn.classList.add('is-active');
+                moveGlider(btn);
+                const tab = btn.dataset.tab;
+                panes.forEach((p) => p.classList.toggle('is-active', p.dataset.pane === tab));
+            });
+        });
+        window.addEventListener('resize', () => {
+            const a = seg.querySelector('.pf-seg__btn.is-active');
+            if (a) moveGlider(a);
+        });
+    }
+
+    /* ---- Reveal on scroll ---- */
+    if ('IntersectionObserver' in window && !reduceMotion) {
+        const io = new IntersectionObserver((entries) => {
+            entries.forEach((en) => {
+                if (en.isIntersecting) { en.target.classList.add('is-in'); io.unobserve(en.target); }
+            });
+        }, { threshold: 0.12 });
+        root.querySelectorAll('[data-reveal]').forEach((el) => io.observe(el));
+    } else {
+        root.querySelectorAll('[data-reveal]').forEach((el) => el.classList.add('is-in'));
+    }
+
+    /* ---- Payout request ---- */
     const btn = document.getElementById('payout-request-btn');
     const hint = document.getElementById('payout-request-hint');
-    if (!btn) return;
+    if (btn) {
+        const getCookie = (name) => {
+            const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+            return m ? m.pop() : '';
+        };
+        const setHint = (msg, kind) => { if (hint) { hint.textContent = msg || ''; hint.dataset.kind = kind || ''; } };
+        btn.addEventListener('click', async (ev) => {
+            if (btn.disabled) return;
+            const url = btn.dataset.url;
+            if (!url) return;
+            // ripple
+            const rip = document.createElement('span');
+            rip.className = 'pf-ripple';
+            const r = btn.getBoundingClientRect();
+            rip.style.left = (ev.clientX - r.left) + 'px';
+            rip.style.top = (ev.clientY - r.top) + 'px';
+            btn.appendChild(rip);
+            setTimeout(() => rip.remove(), 650);
+            if (navigator.vibrate) { try { navigator.vibrate(10); } catch (e) {} }
 
-    const getCookie = (name) => {
-        const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
-        return m ? m.pop() : '';
-    };
-
-    const setHint = (msg, kind) => {
-        if (!hint) return;
-        hint.textContent = msg || '';
-        hint.dataset.kind = kind || '';
-    };
-
-    btn.addEventListener('click', async () => {
-        if (btn.disabled) return;
-        const url = btn.dataset.url;
-        if (!url) return;
-
-        btn.disabled = true;
-        btn.dataset.loading = '1';
-        setHint('Надсилаємо запит…', 'info');
-
-        try {
-            const resp = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': getCookie('csrftoken'),
-                },
-                body: JSON.stringify({}),
-            });
-
-            const data = await resp.json().catch(() => ({}));
-            if (!resp.ok || !data.ok) {
-                setHint((data && data.error) ? data.error : 'Не вдалося надіслати запит.', 'err');
+            btn.disabled = true;
+            btn.dataset.loading = '1';
+            setHint('Надсилаємо запит…', 'info');
+            try {
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': getCookie('csrftoken'),
+                    },
+                    body: JSON.stringify({}),
+                });
+                const data = await resp.json().catch(() => ({}));
+                if (!resp.ok || !data.ok) {
+                    setHint((data && data.error) ? data.error : 'Не вдалося надіслати запит.', 'err');
+                    btn.disabled = false;
+                    btn.dataset.loading = '';
+                    return;
+                }
+                setHint('Запит створено. Оновлюємо…', 'ok');
+                if (navigator.vibrate) { try { navigator.vibrate([10, 40, 16]); } catch (e) {} }
+                setTimeout(() => window.location.reload(), 700);
+            } catch (e) {
+                setHint('Мережа недоступна. Спробуйте пізніше.', 'err');
                 btn.disabled = false;
                 btn.dataset.loading = '';
-                return;
             }
-
-            setHint('Запит створено. Оновлюємо…', 'ok');
-            setTimeout(() => window.location.reload(), 650);
-        } catch (e) {
-            setHint('Мережа недоступна. Спробуйте пізніше.', 'err');
-            btn.disabled = false;
-            btn.dataset.loading = '';
-        }
-    });
+        });
+    }
 })();
 </script>
 {% endblock %}
