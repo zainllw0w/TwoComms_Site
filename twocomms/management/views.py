@@ -6937,6 +6937,22 @@ def payouts(request):
         .order_by('frozen_until')
         .values('amount', 'freeze_reason_text', 'note', 'frozen_until', 'freeze_reason_code', 'created_at')[:10]
     )
+    # Прогрес 14-денної заморозки (відлік від 14 днів у зворотний бік)
+    import math as _math
+    FREEZE_WINDOW_DAYS = 14
+    _window_secs = FREEZE_WINDOW_DAYS * 86400
+    for _it in frozen_items:
+        _fu = _it.get('frozen_until')
+        _secs_left = (_fu - now).total_seconds() if _fu else 0
+        if _secs_left < 0:
+            _secs_left = 0
+        # Скільки днів лишилось (стеля), максимум 14
+        _days_left = min(FREEZE_WINDOW_DAYS, max(0, _math.ceil(_secs_left / 86400)))
+        # Прогрес = скільки з 14 днів вже минуло
+        _elapsed = max(0.0, _window_secs - _secs_left)
+        _pct = _elapsed / _window_secs * 100
+        _it['days_left'] = _days_left
+        _it['progress_pct'] = int(max(0, min(100, round(_pct))))
 
     deals_count = WholesaleInvoice.objects.filter(created_by=request.user, payment_status='paid').count()
 

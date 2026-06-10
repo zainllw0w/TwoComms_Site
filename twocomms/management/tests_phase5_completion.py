@@ -417,7 +417,7 @@ class AdminAndPayoutSurfaceTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Очікуємо завершення вікна повернення")
-        self.assertContains(response, "Тіньовий захист")
+        self.assertContains(response, "Заморожені кошти")
 
     def test_payouts_tab_keeps_excluded_manager_with_history_visible(self):
         excluded = get_user_model().objects.create_user(username="former_payout_mgr", password="x")
