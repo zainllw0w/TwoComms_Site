@@ -3171,10 +3171,16 @@ def _notify_manager_invoice(invoice, *, title, body_lines, level='info'):
         import re as _re
         from management.services.notify import push_inapp
         _strip = lambda s: _re.sub(r'<[^>]+>', '', s or '')
+        _lvl = level
+        if _lvl == 'info':
+            if '✅' in (title or ''):
+                _lvl = 'success'
+            elif '❌' in (title or ''):
+                _lvl = 'danger'
         push_inapp(
             getattr(invoice, 'created_by', None),
             kind='invoice',
-            level=level,
+            level=_lvl,
             title=_strip(title).strip() or 'Накладна',
             body=' '.join(_strip(x).strip() for x in (body_lines or []) if x),
         )
@@ -3429,7 +3435,26 @@ def _format_admin_contract_message(contract, *, status_line=None, include_links=
     return "\n".join(lines)
 
 
-def _notify_manager_contract(contract, *, title, body_lines):
+def _notify_manager_contract(contract, *, title, body_lines, level='info'):
+    try:
+        import re as _re
+        from management.services.notify import push_inapp
+        _strip = lambda s: _re.sub(r'<[^>]+>', '', s or '')
+        _clvl = level
+        if _clvl == 'info':
+            if '✅' in (title or ''):
+                _clvl = 'success'
+            elif '❌' in (title or ''):
+                _clvl = 'danger'
+        push_inapp(
+            getattr(contract, 'created_by', None),
+            kind='contract',
+            level=_clvl,
+            title=_strip(title).strip() or 'Договір',
+            body=' '.join(_strip(x).strip() for x in (body_lines or []) if x),
+        )
+    except Exception:
+        pass
     try:
         manager = contract.created_by
         profile = manager.userprofile

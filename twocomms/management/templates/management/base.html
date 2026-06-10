@@ -73,32 +73,10 @@
                 </button>
                 <div class="notif-panel" id="notif-panel">
                     <div class="notif-header">
-                        <div class="notif-title-main">Сповіщення та нагадування</div>
-                        <div class="notif-sub">Події по винагородах, накладних і дзвінках</div>
+                        <div class="notif-title-main">Сповіщення</div>
+                        <div class="notif-sub">Дзвінки, винагороди, накладні та інші події</div>
                     </div>
-                    {% if management_notifications %}
-                    <div class="notif-events" id="notif-events">
-                        <div class="notif-events__head">
-                            <span>Останні події</span>
-                            <button type="button" class="notif-events__readall" id="notif-events-readall">Прочитати всі</button>
-                        </div>
-                        {% for ev in management_notifications %}
-                        <div class="notif-ev notif-ev--{{ ev.level }}{% if not ev.is_read %} is-unread{% endif %}" data-notif-id="{{ ev.id }}">
-                            <span class="notif-ev__ico notif-ev__ico--{{ ev.kind }}" aria-hidden="true"></span>
-                            <div class="notif-ev__body">
-                                <div class="notif-ev__title">{{ ev.title }}</div>
-                                {% if ev.body %}<div class="notif-ev__text">{{ ev.body }}</div>{% endif %}
-                                <div class="notif-ev__time">{{ ev.created_at|date:"d.m.Y H:i" }}</div>
-                            </div>
-                            {% if not ev.is_read %}
-                            <button type="button" class="notif-ev__done" data-notif-done="{{ ev.id }}" aria-label="Прочитано">
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-                            </button>
-                            {% endif %}
-                        </div>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
+                    <div class="notif-sec-head">Дзвінки та нагадування</div>
                     <div class="notif-list">
                         {% if reminders %}
                         {% for n in reminders %}
@@ -137,6 +115,29 @@
                             <div class="notif-empty">Нагадувань немає</div>
                         {% endif %}
                     </div>
+                    {% if management_notifications %}
+                    <div class="notif-events" id="notif-events">
+                        <div class="notif-events__head">
+                            <span>Останні події</span>
+                            <button type="button" class="notif-events__readall" id="notif-events-readall">Прочитати всі</button>
+                        </div>
+                        {% for ev in management_notifications %}
+                        <div class="notif-ev notif-ev--{{ ev.level }}{% if not ev.is_read %} is-unread{% endif %}" data-notif-id="{{ ev.id }}">
+                            <span class="notif-ev__ico notif-ev__ico--{{ ev.kind }}" aria-hidden="true"></span>
+                            <div class="notif-ev__body">
+                                <div class="notif-ev__title">{{ ev.title }}</div>
+                                {% if ev.body %}<div class="notif-ev__text">{{ ev.body }}</div>{% endif %}
+                                <div class="notif-ev__time">{{ ev.created_at|date:"d.m.Y H:i" }}</div>
+                            </div>
+                            {% if not ev.is_read %}
+                            <button type="button" class="notif-ev__done" data-notif-done="{{ ev.id }}" aria-label="Прочитано">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                            </button>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                 </div>
             </div>
             <span class="header-chip live">Live</span>
