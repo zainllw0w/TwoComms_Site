@@ -32,10 +32,14 @@ class EmailBuilderTests(TestCase):
         self.assertTrue(build["html"].strip())
         self.assertTrue(build["text"].strip())
 
-    def test_builder_returns_full_document(self):
+    def test_builder_returns_dark_bgcolor_body(self):
         build = build_twocomms_cp_email({"shop_name": "ТестМаг"})
-        html = build["html"].lstrip().lower()
-        self.assertTrue(html.startswith("<!doctype"))
+        html = build["html"]
+        # Body-only (no full document) with bgcolor attributes so Gmail keeps it dark.
+        self.assertNotIn("<!doctype", html.lower())
+        self.assertNotIn("<html", html.lower())
+        self.assertIn('bgcolor="#121212"', html)
+        self.assertIn('bgcolor="#1E1E1E"', html)
 
     def test_email_readable_without_images(self):
         build = build_twocomms_cp_email({"shop_name": "ТестМаг"})
