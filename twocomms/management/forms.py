@@ -40,31 +40,28 @@ class CommercialOfferEmailForm(forms.Form):
         ("100_PLUS", "100+ (макс вигода)"),
     )
 
-    pricing_mode = forms.ChoiceField(label=_("База входу"), choices=PRICING_MODE_CHOICES, required=False, initial="OPT")
-    opt_tier = forms.ChoiceField(label=_("Опт: обсяг"), choices=OPT_TIER_CHOICES, required=False, initial="8_15")
+    pricing_mode = forms.ChoiceField(label=_("Тип цін"), choices=PRICING_MODE_CHOICES, required=False, initial="OPT")
+    opt_tier = forms.ChoiceField(label=_("Орієнтовний обсяг замовлення"), choices=OPT_TIER_CHOICES, required=False, initial="8_15")
     drop_tee_price = forms.IntegerField(label=_("Дроп: футболка (грн)"), required=False, min_value=0)
     drop_hoodie_price = forms.IntegerField(label=_("Дроп: худі (грн)"), required=False, min_value=0)
-    dropship_loyalty_bonus = forms.BooleanField(label=_("Бонус дроп -10"), required=False)
+    dropship_loyalty_bonus = forms.BooleanField(label=_("Бонус дропу −10 грн"), required=False)
 
     CTA_TYPE_CHOICES = (
         ("", "Авто (рекомендовано)"),
-        ("TELEGRAM_MANAGER", "TELEGRAM_MANAGER — Telegram менеджера"),
-        ("WHATSAPP_MANAGER", "WHATSAPP_MANAGER — WhatsApp менеджера"),
-        ("TELEGRAM_GENERAL", "TELEGRAM_GENERAL — Telegram загальний"),
-        ("MAILTO_COOPERATION", "MAILTO_COOPERATION — на email cooperation@"),
-        ("REPLY_HINT_ONLY", "REPLY_HINT_ONLY — відповісти на лист (без лінка)"),
-        ("CUSTOM_URL", "CUSTOM_URL — свій URL"),
+        ("TELEGRAM_MANAGER", "Telegram менеджера"),
+        ("WHATSAPP_MANAGER", "WhatsApp менеджера"),
+        ("MAILTO_COOPERATION", "На email cooperation@"),
     )
 
-    cta_type = forms.ChoiceField(label=_("CTA тип"), choices=CTA_TYPE_CHOICES, required=False)
-    cta_button_text = forms.CharField(label=_("Текст CTA"), max_length=120, required=False)
-    cta_custom_url = forms.CharField(label=_("CTA URL"), max_length=500, required=False)
-    cta_microtext = forms.CharField(label=_("Мікротекст під CTA"), max_length=255, required=False)
+    cta_type = forms.ChoiceField(label=_("Кнопка зв'язку"), choices=CTA_TYPE_CHOICES, required=False)
+    cta_button_text = forms.CharField(label=_("Текст кнопки"), max_length=120, required=False)
+    cta_custom_url = forms.CharField(label=_("Своє посилання кнопки"), max_length=500, required=False)
+    cta_microtext = forms.CharField(label=_("Підпис під кнопкою"), max_length=255, required=False)
 
-    tee_entry = forms.IntegerField(label=_("Вхід футболка (грн)"), required=False, min_value=0)
-    tee_retail_example = forms.IntegerField(label=_("Роздріб футболка (приклад, грн)"), required=False, min_value=0)
-    hoodie_entry = forms.IntegerField(label=_("Вхід худі (грн)"), required=False, min_value=0)
-    hoodie_retail_example = forms.IntegerField(label=_("Роздріб худі (приклад, грн)"), required=False, min_value=0)
+    tee_entry = forms.IntegerField(label=_("Вхідна ціна футболки (грн)"), required=False, min_value=0)
+    tee_retail_example = forms.IntegerField(label=_("Приклад роздробу футболки (грн)"), required=False, min_value=0)
+    hoodie_entry = forms.IntegerField(label=_("Вхідна ціна худі (грн)"), required=False, min_value=0)
+    hoodie_retail_example = forms.IntegerField(label=_("Приклад роздробу худі (грн)"), required=False, min_value=0)
 
     show_manager = forms.BooleanField(label=_("Показувати менеджера"), required=False, initial=True)
     manager_name = forms.CharField(label=_("Імʼя менеджера"), max_length=255, required=False)
