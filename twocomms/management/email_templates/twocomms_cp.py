@@ -385,6 +385,42 @@ def get_twocomms_cp_unit_defaults(
     }
 
 
+OPT_TIER_ORDER: tuple[CpOptTier, ...] = ("8_15", "16_31", "32_63", "64_99", "100_PLUS")
+OPT_TIER_RANGE_LABELS: dict[CpOptTier, str] = {
+    "8_15": "8–15 шт",
+    "16_31": "16–31 шт",
+    "32_63": "32–63 шт",
+    "64_99": "64–99 шт",
+    "100_PLUS": "100+ шт",
+}
+
+
+def get_twocomms_cp_opt_grid() -> list[dict[str, Any]]:
+    """Wholesale price grid by quantity tier (single source of truth with invoice).
+
+    Returns rows ordered from the smallest tier (highest unit price) to the
+    largest tier (lowest unit price), e.g.::
+
+        [{"tier": "8_15", "range": "8–15 шт", "tee": 540, "hoodie": 1300}, ...]
+
+    Prices come from ``OPT_TIER_WHOLESALE_TEE`` / ``OPT_TIER_WHOLESALE_HOODIE``
+    which must mirror ``management.invoice_service._WHOLESALE_PRICE_CONTEXT``.
+    """
+    grid: list[dict[str, Any]] = []
+    for tier in OPT_TIER_ORDER:
+        grid.append(
+            {
+                "tier": tier,
+                "range": OPT_TIER_RANGE_LABELS[tier],
+                "tee": int(OPT_TIER_WHOLESALE_TEE[tier]),
+                "tee_display": _fmt_uah(int(OPT_TIER_WHOLESALE_TEE[tier])),
+                "hoodie": int(OPT_TIER_WHOLESALE_HOODIE[tier]),
+                "hoodie_display": _fmt_uah(int(OPT_TIER_WHOLESALE_HOODIE[tier])),
+            }
+        )
+    return grid
+
+
 def _extract_product_slug(url_or_path: str) -> str:
     s = (url_or_path or "").strip()
     if not s:
