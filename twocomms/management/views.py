@@ -7230,6 +7230,29 @@ def payouts_request_api(request):
 
 
 @login_required(login_url='management_login')
+def admin_payouts_board(request):
+    """Окрема зручна сторінка виплат для адміністратора (board)."""
+    if not request.user.is_staff:
+        return redirect('management_login')
+
+    from management.services.payouts import build_payouts_overview
+    from management.models import ManagerPayoutRequest
+
+    search = (request.GET.get('q') or '').strip()
+    data = build_payouts_overview(search=search)
+    recent_requests = (
+        ManagerPayoutRequest.objects.select_related('owner')
+        .order_by('-created_at')[:40]
+    )
+    return render(request, 'management/admin_payouts.html', {
+        'rows': data['rows'],
+        'summary': data['summary'],
+        'recent_requests': recent_requests,
+        'search': search,
+    })
+
+
+@login_required(login_url='management_login')
 @require_POST
 def admin_payout_settings_save_api(request):
     if not request.user.is_staff:

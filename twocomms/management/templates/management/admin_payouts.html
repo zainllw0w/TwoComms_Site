@@ -1,0 +1,281 @@
+{% extends "management/base.html" %}
+{% load static %}
+
+{% block title %}Каса · Виплати команді{% endblock %}
+
+{% block content %}
+<div class="apb-page">
+
+    <div class="apb-head">
+        <div>
+            <p class="eyebrow">Адміністрування</p>
+            <h2 class="apb-head__h">Каса · виплати команді</h2>
+        </div>
+        <form class="apb-search" method="get" action="">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="search" name="q" value="{{ search }}" placeholder="Пошук менеджера…" autocomplete="off">
+        </form>
+    </div>
+
+    <!-- Summary -->
+    <section class="apb-summary" aria-label="Підсумок">
+        <div class="apb-sum apb-sum--accent">
+            <div class="apb-sum__label">Доступно до виплати</div>
+            <div class="apb-sum__val">{{ summary.available|floatformat:2 }} <span>₴</span></div>
+            <div class="apb-sum__hint">{{ summary.with_available }} менеджер(ів) з балансом</div>
+        </div>
+        <div class="apb-sum">
+            <div class="apb-sum__label">Активні запити</div>
+            <div class="apb-sum__val">{{ summary.active_requests|default:0 }}</div>
+            <div class="apb-sum__hint">очікують рішення</div>
+        </div>
+        <div class="apb-sum">
+            <div class="apb-sum__label">Заморожено</div>
+            <div class="apb-sum__val apb-sum__val--frost">{{ summary.frozen|floatformat:2 }} <span>₴</span></div>
+            <div class="apb-sum__hint">у 14-денному вікні</div>
+        </div>
+        <div class="apb-sum">
+            <div class="apb-sum__label">В обробці</div>
+            <div class="apb-sum__val">{{ summary.reserved|floatformat:2 }} <span>₴</span></div>
+            <div class="apb-sum__hint">зарезервовано запитами</div>
+        </div>
+        <div class="apb-sum">
+            <div class="apb-sum__label">Виплачено всього</div>
+            <div class="apb-sum__val">{{ summary.paid_total|floatformat:2 }} <span>₴</span></div>
+            <div class="apb-sum__hint">{{ summary.managers }} менеджерів</div>
+        </div>
+    </section>
+
+    <!-- Manager cards -->
+    <section class="apb-grid" aria-label="Менеджери">
+        {% for p in rows %}
+        <article class="apb-card{% if p.active_request %} apb-card--pending{% endif %}" data-user-id="{{ p.id }}" data-available="{{ p.available|floatformat:2 }}" data-card="{{ p.card_raw }}">
+            <div class="apb-card__alert" data-kind="" role="status" aria-live="polite"></div>
+
+            <div class="apb-card__head">
+                <div class="apb-card__who">
+                    <div class="apb-card__avatar">
+                        {% if p.avatar_url %}<img src="{{ p.avatar_url }}" alt="">{% else %}<span>{{ p.name|first|upper }}</span>{% endif %}
+                    </div>
+                    <div class="apb-card__id">
+                        <div class="apb-card__name" title="{{ p.name }}">{{ p.name }}</div>
+                        <div class="apb-card__pos">{{ p.position }}</div>
+                    </div>
+                </div>
+                {% if p.active_request %}
+                <span class="status-chip status-{{ p.active_request.status }}">{{ p.active_request.get_status_display }}</span>
+                {% endif %}
+            </div>
+
+            <div class="apb-card__avail">
+                <span class="apb-card__avail-label">Доступно до виплати</span>
+                <span class="apb-card__avail-val">{{ p.available|floatformat:2 }} <span class="cur">₴</span></span>
+            </div>
+
+            <div class="apb-card__metrics">
+                <div class="apb-metric"><span>Баланс</span><strong>{{ p.balance|floatformat:0 }} ₴</strong></div>
+                <div class="apb-metric apb-metric--frost"><span>Заморожено</span><strong>{{ p.frozen|floatformat:0 }} ₴</strong></div>
+                <div class="apb-metric"><span>В обробці</span><strong>{{ p.reserved|floatformat:0 }} ₴</strong></div>
+            </div>
+
+            <button type="button" class="apb-card__cardline" data-copy-card title="Натисніть, щоб скопіювати реквізити">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+                <span class="apb-card__cardmask">{{ p.card_mask }}</span>
+                <span class="apb-card__copyhint">копіювати</span>
+            </button>
+
+            {% if p.frozen_count %}
+            <div class="apb-card__frostline">
+                <span class="apb-frostdot"></span>
+                {{ p.frozen_count }} заморож. • найближча розморозка {{ p.next_unfreeze_label|default:"—" }}
+            </div>
+            {% endif %}
+
+            {% if p.active_request %}
+            <div class="apb-card__request">
+                <div class="apb-card__request-info">
+                    Запит #{{ p.active_request.id }} на <strong>{{ p.active_request.amount|floatformat:2 }} ₴</strong>
+                    <span>{{ p.active_request.created_at|date:"d.m H:i" }}</span>
+                </div>
+                <div class="apb-card__request-btns">
+                    {% if p.active_request.status == 'processing' %}
+                    <button type="button" class="apb-btn apb-btn--ok" data-act="approve" data-req="{{ p.active_request.id }}">Схвалити</button>
+                    {% endif %}
+                    <button type="button" class="apb-btn apb-btn--pay" data-act="paid" data-req="{{ p.active_request.id }}">Виплачено</button>
+                    <button type="button" class="apb-btn apb-btn--no" data-act="reject" data-req="{{ p.active_request.id }}">Відхилити</button>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="apb-card__pay">
+                <button type="button" class="apb-paybtn" data-pay-available {% if not p.available or p.available <= 0 %}disabled{% endif %}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12V7H5a2 2 0 010-4h14v4M3 5v14a2 2 0 002 2h16v-5M18 12a2 2 0 000 4h4v-4h-4z"/></svg>
+                    Виплатити доступне
+                </button>
+                <div class="apb-card__custom">
+                    <input type="number" min="1" step="1" placeholder="Інша сума" data-custom-amount inputmode="numeric">
+                    <button type="button" class="apb-btn apb-btn--ghost" data-pay-custom>Виплатити</button>
+                </div>
+            </div>
+
+            <details class="apb-card__more">
+                <summary>Деталі та коригування</summary>
+                <div class="apb-more__body">
+                    {% if p.frozen_items %}
+                    <div class="apb-more__frost">
+                        {% for item in p.frozen_items %}
+                        <div class="apb-frz-row">
+                            <span class="apb-frz-row__amount">{{ item.amount|floatformat:2 }} ₴</span>
+                            <span class="apb-frz-row__meta">{{ item.reason }} • до {{ item.frozen_until }}{% if item.days_left is not None %} ({{ item.days_left }} дн){% endif %}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <div class="apb-adjust">
+                        <select data-adj-dir>
+                            <option value="credit">+ Нарахувати</option>
+                            <option value="debit">− Списати</option>
+                        </select>
+                        <input type="number" min="1" step="1" placeholder="Сума" data-adj-amount inputmode="numeric">
+                        <input type="text" placeholder="Причина (необов'язково)" data-adj-note>
+                        <button type="button" class="apb-btn apb-btn--ghost" data-adj-apply>Застосувати</button>
+                    </div>
+                </div>
+            </details>
+        </article>
+        {% empty %}
+        <div class="apb-empty">Менеджерів не знайдено.</div>
+        {% endfor %}
+    </section>
+
+    <!-- Recent requests -->
+    <section class="apb-recent" aria-label="Останні запити">
+        <div class="panel-subhead"><div><p class="eyebrow">Журнал</p><h3>Останні запити та виплати</h3></div></div>
+        <div class="table-shell">
+            <table class="nexus-table">
+                <thead><tr><th>Дата</th><th>Менеджер</th><th>Сума</th><th>Тип</th><th>Статус</th></tr></thead>
+                <tbody>
+                    {% for r in recent_requests %}
+                    <tr>
+                        <td>{{ r.created_at|date:"d.m.Y H:i" }}</td>
+                        <td>{{ r.owner.get_full_name|default:r.owner.username }}</td>
+                        <td>{{ r.amount|floatformat:2 }} ₴</td>
+                        <td>{{ r.get_kind_display }}</td>
+                        <td><span class="status-chip status-{{ r.status }}">{{ r.get_status_display }}</span></td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="table-empty">Поки немає записів.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    {% csrf_token %}
+</div>
+
+<script>
+(function () {
+    "use strict";
+    const root = document.querySelector('.apb-page');
+    if (!root) return;
+    const getCookie = (n) => { const m = document.cookie.match('(^|;)\\s*' + n + '\\s*=\\s*([^;]+)'); return m ? m.pop() : ''; };
+    const csrf = getCookie('csrftoken');
+
+    const URLS = {
+        manual: "{% url 'management_admin_payout_manual_create_api' %}",
+        adjust: "{% url 'management_admin_payout_adjust_api' %}",
+        req: (id, act) => `/admin-panel/payouts/api/request/${id}/${act}/`,
+    };
+
+    const post = async (url, body) => {
+        const resp = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': csrf },
+            body: JSON.stringify(body || {}),
+        });
+        const data = await resp.json().catch(() => ({}));
+        return { ok: resp.ok && data && data.ok, data };
+    };
+
+    const alertCard = (card, msg, kind) => {
+        const el = card.querySelector('.apb-card__alert');
+        if (!el) return;
+        el.textContent = msg || '';
+        el.dataset.kind = kind || '';
+    };
+
+    const fmt = (n) => Number(n).toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const reload = () => setTimeout(() => window.location.reload(), 700);
+
+    root.addEventListener('click', async (e) => {
+        const card = e.target.closest('.apb-card');
+
+        // Copy card details
+        const copyBtn = e.target.closest('[data-copy-card]');
+        if (copyBtn && card) {
+            const raw = card.dataset.card || '';
+            if (!raw) { alertCard(card, 'Реквізити не вказані менеджером.', 'err'); return; }
+            try { await navigator.clipboard.writeText(raw); copyBtn.classList.add('is-copied'); setTimeout(() => copyBtn.classList.remove('is-copied'), 1400); }
+            catch (_) { alertCard(card, 'Не вдалося скопіювати.', 'err'); }
+            return;
+        }
+
+        // Pay available
+        const payAvail = e.target.closest('[data-pay-available]');
+        if (payAvail && card) {
+            const amount = parseFloat(card.dataset.available || '0') || 0;
+            if (amount <= 0) return;
+            if (!confirm(`Виплатити ${fmt(amount)} ₴ менеджеру? Буде створено запис «виплачено».`)) return;
+            payAvail.disabled = true;
+            const { ok, data } = await post(URLS.manual, { user_id: card.dataset.userId, amount: amount });
+            if (ok) { alertCard(card, 'Виплату проведено.', 'ok'); reload(); }
+            else { alertCard(card, (data && data.error) || 'Помилка виплати.', 'err'); payAvail.disabled = false; }
+            return;
+        }
+
+        // Pay custom
+        const payCustom = e.target.closest('[data-pay-custom]');
+        if (payCustom && card) {
+            const input = card.querySelector('[data-custom-amount]');
+            const amount = parseFloat(input && input.value || '0') || 0;
+            if (amount <= 0) { alertCard(card, 'Вкажіть суму.', 'err'); return; }
+            if (!confirm(`Виплатити ${fmt(amount)} ₴ менеджеру?`)) return;
+            payCustom.disabled = true;
+            const { ok, data } = await post(URLS.manual, { user_id: card.dataset.userId, amount: amount });
+            if (ok) { alertCard(card, 'Виплату проведено.', 'ok'); reload(); }
+            else { alertCard(card, (data && data.error) || 'Помилка виплати.', 'err'); payCustom.disabled = false; }
+            return;
+        }
+
+        // Adjust balance
+        const adjBtn = e.target.closest('[data-adj-apply]');
+        if (adjBtn && card) {
+            const dir = (card.querySelector('[data-adj-dir]') || {}).value || 'credit';
+            const amount = parseFloat((card.querySelector('[data-adj-amount]') || {}).value || '0') || 0;
+            const note = (card.querySelector('[data-adj-note]') || {}).value || '';
+            if (amount <= 0) { alertCard(card, 'Вкажіть суму коригування.', 'err'); return; }
+            adjBtn.disabled = true;
+            const { ok, data } = await post(URLS.adjust, { user_id: card.dataset.userId, direction: dir, amount: amount, note: note });
+            if (ok) { alertCard(card, 'Коригування застосовано.', 'ok'); reload(); }
+            else { alertCard(card, (data && data.error) || 'Помилка коригування.', 'err'); adjBtn.disabled = false; }
+            return;
+        }
+
+        // Request actions (approve/reject/paid)
+        const reqBtn = e.target.closest('[data-act][data-req]');
+        if (reqBtn && card) {
+            const act = reqBtn.dataset.act;
+            const id = reqBtn.dataset.req;
+            if (act === 'reject' && !confirm('Відхилити запит на виплату?')) return;
+            reqBtn.disabled = true;
+            const { ok, data } = await post(URLS.req(id, act), {});
+            if (ok) { alertCard(card, 'Готово.', 'ok'); reload(); }
+            else { alertCard(card, (data && data.error) || 'Помилка дії.', 'err'); reqBtn.disabled = false; }
+            return;
+        }
+    });
+})();
+</script>
+{% endblock %}

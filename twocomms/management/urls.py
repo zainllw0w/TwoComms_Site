@@ -28,6 +28,7 @@ urlpatterns = [
     path('admin-panel/payouts/api/request/<int:request_id>/paid/', views.admin_payout_paid_api, name='management_admin_payout_paid_api'),
     path('admin-panel/payouts/api/manual/', views.admin_payout_manual_create_api, name='management_admin_payout_manual_create_api'),
     path('admin-panel/payouts/api/adjust/', views.admin_payout_adjust_api, name='management_admin_payout_adjust_api'),
+    path('admin-panel/payouts-board/', views.admin_payouts_board, name='management_admin_payouts_board'),
     path('reports/', views.reports, name='management_reports'),
     path('reports/send/', views.send_report, name='management_send_report'),
     path('reminders/read/', views.reminder_read, name='management_reminder_read'),
