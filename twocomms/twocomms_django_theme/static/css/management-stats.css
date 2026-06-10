@@ -485,3 +485,66 @@ body.shadow-drawer-open { overflow: hidden; }
   .shadow-drawer__panel { width: 100%; }
   .stats-topbar { align-items: flex-start; }
 }
+
+/* ============================================================
+   Scroll fix (десктоп >1080px): реальна висота .global-header =
+   76 (height) + 36 (padding 18×2) + 1 (border) = 113px, а
+   --shell-header-offset=76px. Через це .workspace був на ~37px вищий
+   за вьюпорт і низ контенту обрізався (body{overflow:hidden}).
+   На ≤1080px body вже скролиться (overflow:auto) — там фікс не потрібен.
+   Той самий підхід уже застосовано для сторінок виплат.
+   ============================================================ */
+body[data-url-name="management_stats"] .content-area,
+body[data-url-name="management_stats_admin"] .content-area,
+body[data-url-name="management_stats_admin_user"] .content-area { box-sizing: border-box; }
+
+@media (min-width: 1081px) {
+  body[data-url-name="management_stats"] .workspace,
+  body[data-url-name="management_stats_admin"] .workspace,
+  body[data-url-name="management_stats_admin_user"] .workspace { height: calc(100vh - 113px); }
+}
+
+/* нижній відступ, щоб остання картка не липла до краю при скролі */
+.stats-page--v2 { padding-bottom: 8px; }
+
+/* ============================================================
+   Інтерактив: ховер-підйом карток + плавна поява при завантаженні
+   ============================================================ */
+.bento-card,
+.team-card {
+  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+.bento-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 126, 41, 0.22);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.40), 0 0 0 1px rgba(255, 126, 41, 0.10);
+}
+/* картки, що містять інтерактивні елементи (таби/деталі), не піднімаємо,
+   щоб не заважати кліку по вмісту */
+.details-card:hover { transform: none; }
+
+/* Появу анімуємо через незалежну властивість translate, а ховер — через
+   transform, щоб forwards-анімація не перебивала ховер-підйом. */
+@media (prefers-reduced-motion: no-preference) {
+  .bento--hero > .bento-card,
+  .bento--core > .bento-card,
+  .team-grid > .team-card {
+    opacity: 0;
+    animation: stats-card-in .5s cubic-bezier(.2, .8, .2, 1) both;
+  }
+  .bento--hero > .bento-card:nth-child(1) { animation-delay: .04s; }
+  .bento--hero > .bento-card:nth-child(2) { animation-delay: .10s; }
+  .bento--hero > .bento-card:nth-child(3) { animation-delay: .16s; }
+  .bento--hero > .bento-card:nth-child(4) { animation-delay: .22s; }
+  .bento--core > .bento-card:nth-child(1) { animation-delay: .06s; }
+  .bento--core > .bento-card:nth-child(2) { animation-delay: .12s; }
+  .bento--core > .bento-card:nth-child(3) { animation-delay: .18s; }
+  .bento--core > .bento-card:nth-child(4) { animation-delay: .24s; }
+  .bento--core > .bento-card:nth-child(5) { animation-delay: .30s; }
+  .team-grid > .team-card { animation-delay: .05s; }
+}
+
+@keyframes stats-card-in {
+  from { opacity: 0; translate: 0 12px; }
+  to { opacity: 1; translate: 0 0; }
+}
