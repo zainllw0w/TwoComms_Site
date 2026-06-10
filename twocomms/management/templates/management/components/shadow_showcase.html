@@ -1,249 +1,144 @@
-<div class="shadow-score-panel shadow-score-showcase">
-  <div class="shadow-score-head">
-    <div>
-      <div class="shadow-score-kicker">Тіньова аналітика</div>
-      <div class="shadow-score-title">MOSAIC-центр керування</div>
-      <div class="muted">MOSAIC є головним рейтинговим зрізом менеджера. КПД лишається legacy-операційним індикатором переходу, щоб не втратити динаміку дня.</div>
+{% if stats_payload.shadow_score.flags.has_snapshot %}
+<details class="adv-shadow" id="adv-shadow">
+  <summary class="adv-shadow__summary">
+    <div class="adv-shadow__head">
+      <span class="adv-shadow__kicker">Поглиблена аналітика</span>
+      <span class="adv-shadow__title">MOSAIC · тіньовий контур</span>
     </div>
-    <div class="shadow-score-chips">
-      <span class="shadow-chip state-{{ stats_payload.shadow_score.state }}">{{ stats_payload.shadow_score.state_label }}</span>
-      {% if stats_payload.shadow_score.flags.is_stale %}
-        <span class="shadow-chip state-stale">ЗАСТАРІЛО</span>
-      {% endif %}
-      {% if stats_payload.shadow_score.flags.is_low_confidence %}
-        <span class="shadow-chip state-low">НИЗЬКА ДОВІРА</span>
-      {% endif %}
-      {% if stats_payload.shadow_score.flags.is_partial %}
-        <span class="shadow-chip state-dormant">ЧАСТКОВО</span>
-      {% endif %}
+    <div class="adv-shadow__chips">
+      <span class="stat-chip stat-chip--ghost">{{ stats_payload.shadow_score.state_label }}</span>
+      {% if stats_payload.shadow_score.flags.is_stale %}<span class="stat-chip stat-chip--bad">ЗАСТАРІЛО</span>{% endif %}
+      {% if stats_payload.shadow_score.flags.is_low_confidence %}<span class="stat-chip stat-chip--bad">НИЗЬКА ДОВІРА</span>{% endif %}
+      {% if stats_payload.shadow_score.flags.is_partial %}<span class="stat-chip stat-chip--warn">ЧАСТКОВО</span>{% endif %}
+      <span class="adv-shadow__caret" aria-hidden="true">⌄</span>
+    </div>
+  </summary>
+
+  <div class="adv-shadow__note muted">
+    Тіньовий контур: MOSAIC, довіра й прогнози не впливають на виплати. Це аналітичний зріз для розуміння якості роботи.
+  </div>
+
+  {# Метрики MOSAIC #}
+  <div class="adv-metrics">
+    <div class="adv-metric">
+      <div class="adv-metric__label">Базовий MOSAIC</div>
+      <div class="adv-metric__value">{{ stats_payload.shadow_score.base_mosaic|floatformat:1 }}</div>
+    </div>
+    <div class="adv-metric">
+      <div class="adv-metric__label">Рівень доказів</div>
+      <div class="adv-metric__value adv-metric__value--sm">{{ stats_payload.shadow_score.gate_level_label }}</div>
+    </div>
+    <div class="adv-metric">
+      <div class="adv-metric__label">Стримування</div>
+      <div class="adv-metric__value">{{ stats_payload.shadow_score.dampener_value|floatformat:2 }}</div>
+    </div>
+    <div class="adv-metric">
+      <div class="adv-metric__label">Покриття</div>
+      <div class="adv-metric__value">{{ stats_payload.shadow_score.aggregation.available_days }}/{{ stats_payload.shadow_score.aggregation.expected_days }}</div>
     </div>
   </div>
 
-  {% if stats_payload.shadow_score.flags.has_snapshot %}
-    <div class="shadow-score-grid shadow-score-grid--showcase">
-      <div class="shadow-metric-card shadow-metric-card--hero">
-        <div class="shadow-metric-label">MOSAIC-рейтинг</div>
-        <div class="shadow-metric-value">{{ stats_payload.shadow_score.mosaic_score|floatformat:2 }}</div>
-        <div class="shadow-metric-sub muted">
-          {% if stats_payload.shadow_score.delta_vs_prev != None %}
-            {% if stats_payload.shadow_score.delta_vs_prev > 0 %}+{% endif %}{{ stats_payload.shadow_score.delta_vs_prev|floatformat:2 }} vs {{ stats_payload.shadow_score.previous_period.label|default:"попер. період" }}
-          {% else %}
-            Зріз: {{ stats_payload.shadow_score.snapshot_date }}
-          {% endif %}
-        </div>
-      </div>
-      <div class="shadow-metric-card">
-        <div class="shadow-metric-label">Довіра</div>
-        <div class="shadow-metric-value">{{ stats_payload.shadow_score.score_confidence|floatformat:2 }}</div>
-        <div class="shadow-metric-sub muted">{{ stats_payload.shadow_score.confidence_band_label }}</div>
-      </div>
-      <div class="shadow-metric-card">
-        <div class="shadow-metric-label">Стан темпу</div>
-        <div class="shadow-metric-value">{{ stats_payload.shadow_score.pace_label }}</div>
-        <div class="shadow-metric-sub muted">Змістовні дзвінки: {{ stats_payload.shadow_score.dmt_earned_day.meaningful_calls|default:0 }}</div>
-      </div>
-      <div class="shadow-metric-card">
-        <div class="shadow-metric-label">Актуальність / покриття</div>
-        <div class="shadow-metric-value">{{ stats_payload.shadow_score.aggregation.available_days }}/{{ stats_payload.shadow_score.aggregation.expected_days }}</div>
-        <div class="shadow-metric-sub muted">{{ stats_payload.shadow_score.freshness_seconds|default:0 }} сек актуальності</div>
-      </div>
-    </div>
+  <div class="adv-grid">
+    {% include "management/components/radar_chart.html" %}
 
-    <div class="shadow-pace-strip">
-      <div class="shadow-pace-step {% if stats_payload.shadow_score.dmt_earned_day.minimum_achieved %}is-on{% endif %}">
-        <span class="shadow-pace-step__label">Мінімум дня виконано</span>
-        <span class="shadow-pace-step__state">{% if stats_payload.shadow_score.dmt_earned_day.minimum_achieved %}ТАК{% else %}НІ{% endif %}</span>
+    <section class="adv-panel">
+      <div class="adv-panel__head">
+        <div class="adv-panel__title">Що змінилося сьогодні</div>
+        <button type="button" class="btn-ghost small" data-shadow-open="decomposition">Відкрити розклад</button>
       </div>
-      <div class="shadow-pace-step {% if stats_payload.shadow_score.dmt_earned_day.target_pace_achieved %}is-on{% endif %}">
-        <span class="shadow-pace-step__label">Цільовий темп виконано</span>
-        <span class="shadow-pace-step__state">{% if stats_payload.shadow_score.dmt_earned_day.target_pace_achieved %}ТАК{% else %}НІ{% endif %}</span>
-      </div>
-      <div class="shadow-pace-step {% if stats_payload.shadow_score.dmt_earned_day.recovery_needed %}is-alert{% endif %}">
-        <span class="shadow-pace-step__label">Потрібне відновлення</span>
-        <span class="shadow-pace-step__state">{% if stats_payload.shadow_score.dmt_earned_day.recovery_needed %}ТАК{% else %}НІ{% endif %}</span>
-      </div>
-    </div>
-
-    <div class="shadow-showcase-grid">
-      {% include "management/components/radar_chart.html" %}
-
-      <section class="shadow-explain-card shadow-waterfall-card">
-        <div class="shadow-card-head">
-          <div>
-            <div class="shadow-explain-title">Що змінилося сьогодні</div>
-            <div class="muted">Конкретні драйвери, тіньові позначки та зрозумілий шлях до розкладу.</div>
-          </div>
-          <button type="button" class="btn-ghost small" data-shadow-open="decomposition">Відкрити розклад</button>
-        </div>
-        <div class="shadow-kv-grid">
-          <div><span class="muted">Перехідний КПД</span><b>{{ stats_payload.summary.kpd.value|floatformat:2 }}</b></div>
-          <div><span class="muted">Базовий MOSAIC</span><b>{{ stats_payload.shadow_score.base_mosaic|floatformat:2 }}</b></div>
-          <div><span class="muted">Рівень доказів</span><b>{{ stats_payload.shadow_score.gate_level_label }}</b></div>
-          <div><span class="muted">Стримування</span><b>{{ stats_payload.shadow_score.dampener_value|floatformat:2 }}</b></div>
-        </div>
-        <div class="shadow-driver-list">
-          {% for item in stats_payload.shadow_score.why_changed_today %}
-            <div class="shadow-driver tone-{{ item.tone }}">
-              <div>
-                <div class="shadow-driver-head">
-                  <span>{{ item.label }}</span>
-                  <strong>{{ item.value }}</strong>
-                </div>
-                <div class="muted">{{ item.detail }}</div>
-              </div>
+      <div class="adv-driver-list">
+        {% for item in stats_payload.shadow_score.why_changed_today %}
+          <div class="adv-driver tone-{{ item.tone }}">
+            <div class="adv-driver__top">
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
             </div>
-          {% empty %}
-            <div class="muted">За вибраний період зміни незначні.</div>
-          {% endfor %}
-        </div>
-      </section>
-    </div>
-
-    <div class="shadow-micro-grid">
-      <section class="shadow-explain-card">
-        <div class="shadow-card-head">
-          <div>
-            <div class="shadow-explain-title">Симулятор винагороди</div>
-            <div class="muted">Поточна база проти тіньового сценарію із захисним контуром.</div>
-          </div>
-          <span class="shadow-chip state-shadow">БЕЗ ПЕРЕМИКАННЯ ВИПЛАТ</span>
-        </div>
-        <div class="shadow-kv-grid">
-          <div><span class="muted">Поточна база</span><b>{{ stats_payload.shadow_score.salary_simulator.current_truth|floatformat:2 }}</b></div>
-          <div><span class="muted">Тіньовий сценарій</span><b>{{ stats_payload.shadow_score.salary_simulator.shadow_candidate|floatformat:2 }}</b></div>
-          <div><span class="muted">Різниця</span><b>{{ stats_payload.shadow_score.salary_simulator.shadow_hold_harmless_delta|floatformat:2 }}</b></div>
-          <div><span class="muted">Довіра</span><b>{{ stats_payload.shadow_score.salary_simulator.confidence_band_label }}</b></div>
-        </div>
-        <div class="muted">{{ stats_payload.shadow_score.salary_simulator.freeze_line }}</div>
-      </section>
-
-      <section class="shadow-explain-card">
-        <div class="shadow-card-head">
-          <div>
-            <div class="shadow-explain-title">Телефонія / докази</div>
-            <div class="muted">Спочатку коучинг, захист від аварій і жодних штрафних трактувань до зрілості контуру.</div>
-          </div>
-          <span class="shadow-chip state-{{ stats_payload.shadow_score.telephony_health.status }}">{{ stats_payload.shadow_score.telephony_health.status_label }}</span>
-        </div>
-        <div class="shadow-kv-grid">
-          <div><span class="muted">Змістовні дзвінки</span><b>{{ stats_payload.shadow_score.telephony_health.meaningful_calls|default:0 }}</b></div>
-          <div><span class="muted">Черга</span><b>{{ stats_payload.shadow_score.telephony_health.backlog_count|default:0 }}</b></div>
-          <div><span class="muted">Неспівпадіння</span><b>{{ stats_payload.shadow_score.telephony_health.unmatched_ratio|default:0|floatformat:2 }}</b></div>
-          <div><span class="muted">Без запису</span><b>{{ stats_payload.shadow_score.telephony_health.missing_recording_ratio|default:0|floatformat:2 }}</b></div>
-        </div>
-      </section>
-
-      <section class="shadow-explain-card">
-        <div class="shadow-card-head">
-          <div>
-            <div class="shadow-explain-title">Заморозки / апеляції</div>
-            <div class="muted">Можливість виправлення явно показується всюди, де оцінка впливає на перевірку або заморозку.</div>
-          </div>
-          <button type="button" class="btn-primary small" data-shadow-open="appeal">Подати апеляцію</button>
-        </div>
-        <div class="shadow-kv-grid" id="shadow-appeal-summary" aria-live="polite">
-          <div><span class="muted">Відкриті апеляції</span><b id="shadow-appeals-open">{{ stats_payload.shadow_score.appeals.open }}</b></div>
-          <div><span class="muted">Усього апеляцій</span><b id="shadow-appeals-total">{{ stats_payload.shadow_score.appeals.total }}</b></div>
-          <div><span class="muted">Остання</span><b id="shadow-appeals-latest">{{ stats_payload.shadow_score.appeals.latest_status|default:"—" }}</b></div>
-          <div><span class="muted">Дедлайн</span><b id="shadow-appeals-due">{{ stats_payload.shadow_score.appeals.nearest_due_at|default:"—" }}</b></div>
-        </div>
-      </section>
-
-      <section class="shadow-explain-card">
-        <div class="shadow-card-head">
-          <div>
-            <div class="shadow-explain-title">Карта готовності</div>
-            <div class="muted">Актуальність і довіра беруться зі знімків, а не з фронтенд-припущень.</div>
-          </div>
-        </div>
-        <div class="shadow-readiness-row">
-          {% for item in stats_payload.shadow_score.readiness_items %}
-            <span class="shadow-readiness-pill state-{{ item.state }}">{{ item.key_label }} · {{ item.state_label }}</span>
-          {% empty %}
-            <span class="muted">Готовність ще не ініціалізована.</span>
-          {% endfor %}
-        </div>
-      </section>
-    </div>
-
-    <div class="shadow-actions-grid">
-      <section class="shadow-action-card">
-        <div class="shadow-explain-title">Критично на сьогодні</div>
-        {% for item in stats_payload.shadow_score.must_do_today %}
-          <div class="shadow-action-row">
-            <div>
-              <div class="shadow-action-title">{{ item.title }}</div>
-              <div class="muted">{{ item.detail }}</div>
-            </div>
-            <span class="shadow-action-badge">{{ item.badge }}</span>
+            <div class="muted small">{{ item.detail }}</div>
           </div>
         {% empty %}
-          <div class="muted">Критичних дій зараз немає.</div>
+          <div class="muted small">За вибраний період зміни незначні.</div>
         {% endfor %}
-      </section>
-      <section class="shadow-action-card">
-        <div class="shadow-explain-title">Найкращі можливості</div>
-        {% for item in stats_payload.shadow_score.best_opportunities %}
-          <div class="shadow-action-row">
-            <div>
-              <div class="shadow-action-title">{{ item.title }}</div>
-              <div class="muted">{{ item.detail }}</div>
-            </div>
-            <span class="shadow-action-badge">{{ item.badge }}</span>
-          </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="adv-grid adv-grid--micro">
+    <section class="adv-panel">
+      <div class="adv-panel__head">
+        <div class="adv-panel__title">Симулятор винагороди</div>
+        <span class="stat-chip stat-chip--ghost">БЕЗ ВПЛИВУ НА ВИПЛАТИ</span>
+      </div>
+      <div class="adv-kv">
+        <div><span class="muted">Поточна база</span><b>{{ stats_payload.shadow_score.salary_simulator.current_truth|floatformat:2 }}</b></div>
+        <div><span class="muted">Тіньовий сценарій</span><b>{{ stats_payload.shadow_score.salary_simulator.shadow_candidate|floatformat:2 }}</b></div>
+        <div><span class="muted">Різниця</span><b>{{ stats_payload.shadow_score.salary_simulator.shadow_hold_harmless_delta|floatformat:2 }}</b></div>
+        <div><span class="muted">Довіра</span><b>{{ stats_payload.shadow_score.salary_simulator.confidence_band_label }}</b></div>
+      </div>
+    </section>
+
+    <section class="adv-panel">
+      <div class="adv-panel__head">
+        <div class="adv-panel__title">Прогнозні діапазони</div>
+        <span class="stat-chip stat-chip--ghost">{{ stats_payload.shadow_score.forecast_band.confidence_note }}</span>
+      </div>
+      <div class="adv-kv">
+        <div><span class="muted">Оптимістичний</span><b>{{ stats_payload.shadow_score.forecast_band.optimistic|floatformat:1 }}</b></div>
+        <div><span class="muted">База</span><b>{{ stats_payload.shadow_score.forecast_band.base|floatformat:1 }}</b></div>
+        <div><span class="muted">Песимістичний</span><b>{{ stats_payload.shadow_score.forecast_band.pessimistic|floatformat:1 }}</b></div>
+        <div><span class="muted">Драйвери</span><b>{{ stats_payload.shadow_score.forecast_band.driver_labels|join:", " }}</b></div>
+      </div>
+    </section>
+
+    <section class="adv-panel">
+      <div class="adv-panel__head">
+        <div class="adv-panel__title">Заморозки / апеляції</div>
+        <button type="button" class="btn-primary small" data-shadow-open="appeal">Подати апеляцію</button>
+      </div>
+      <div class="adv-kv" id="shadow-appeal-summary" aria-live="polite">
+        <div><span class="muted">Відкриті</span><b id="shadow-appeals-open">{{ stats_payload.shadow_score.appeals.open }}</b></div>
+        <div><span class="muted">Усього</span><b id="shadow-appeals-total">{{ stats_payload.shadow_score.appeals.total }}</b></div>
+        <div><span class="muted">Остання</span><b id="shadow-appeals-latest">{{ stats_payload.shadow_score.appeals.latest_status|default:"—" }}</b></div>
+        <div><span class="muted">Дедлайн</span><b id="shadow-appeals-due">{{ stats_payload.shadow_score.appeals.nearest_due_at|default:"—" }}</b></div>
+      </div>
+    </section>
+
+    <section class="adv-panel">
+      <div class="adv-panel__head">
+        <div class="adv-panel__title">Карта готовності</div>
+      </div>
+      <div class="adv-readiness">
+        {% for item in stats_payload.shadow_score.readiness_items %}
+          <span class="shadow-readiness-pill state-{{ item.state }}">{{ item.key_label }} · {{ item.state_label }}</span>
         {% empty %}
-          <div class="muted">Стек можливостей зʼявиться, коли знімки стабілізуються.</div>
+          <span class="muted small">Готовність ще не ініціалізована.</span>
         {% endfor %}
-      </section>
-    </div>
+      </div>
+    </section>
+  </div>
 
-    <div class="shadow-lower-grid">
-      <section class="shadow-rescue-card">
-        <div class="shadow-card-head">
+  <section class="adv-panel adv-panel--rescue">
+    <div class="adv-panel__head">
+      <div class="adv-panel__title">Топ-5 на порятунок</div>
+      <div class="muted small">Ризик втрати, терміновість і база відтоку.</div>
+    </div>
+    <div class="adv-rescue-list">
+      {% for item in stats_payload.shadow_score.rescue_top5 %}
+        <div class="adv-rescue-item">
           <div>
-            <div class="shadow-explain-title">Топ-5 на порятунок</div>
-            <div class="muted">Ризик втрати, терміновість, довіра та база ризику відтоку.</div>
+            <div class="opp-item__title">{{ item.name }}</div>
+            <div class="muted small">{{ item.urgency }} • {{ item.churn_basis_label|default:item.churn_basis }}{% if item.planned_gap %} • {{ item.planned_gap }}{% endif %}</div>
+          </div>
+          <div class="adv-rescue-metrics">
+            <span>{{ item.value_at_risk }}</span>
+            <span class="opp-item__badge">{{ item.confidence_badge_label|default:item.confidence_badge }}</span>
           </div>
         </div>
-        <div class="shadow-rescue-list">
-          {% for item in stats_payload.shadow_score.rescue_top5 %}
-            <div class="shadow-rescue-item">
-              <div>
-                <div class="shadow-action-title">{{ item.name }}</div>
-                <div class="muted">{{ item.urgency }} • {{ item.churn_basis_label|default:item.churn_basis }}{% if item.planned_gap %} • {{ item.planned_gap }}{% endif %}</div>
-              </div>
-              <div class="shadow-rescue-metrics">
-                <span>{{ item.value_at_risk }}</span>
-                <span class="shadow-action-badge">{{ item.confidence_badge_label|default:item.confidence_badge }}</span>
-              </div>
-            </div>
-          {% empty %}
-            <div class="muted">Для вибраного вікна список порятунку порожній.</div>
-          {% endfor %}
-        </div>
-      </section>
-
-      <section class="shadow-forecast-band">
-        <div class="shadow-card-head">
-          <div>
-            <div class="shadow-explain-title">Прогнозні діапазони</div>
-            <div class="muted">Безпечний для адміна коридор виручки з урахуванням довіри до сигналів.</div>
-          </div>
-          <span class="shadow-chip state-shadow">{{ stats_payload.shadow_score.forecast_band.confidence_note }}</span>
-        </div>
-        <div class="shadow-kv-grid">
-          <div><span class="muted">Оптимістичний</span><b>{{ stats_payload.shadow_score.forecast_band.optimistic|floatformat:2 }}</b></div>
-          <div><span class="muted">База</span><b>{{ stats_payload.shadow_score.forecast_band.base|floatformat:2 }}</b></div>
-          <div><span class="muted">Песимістичний</span><b>{{ stats_payload.shadow_score.forecast_band.pessimistic|floatformat:2 }}</b></div>
-          <div><span class="muted">Драйвери</span><b>{{ stats_payload.shadow_score.forecast_band.driver_labels|join:", " }}</b></div>
-        </div>
-      </section>
+      {% empty %}
+        <div class="muted small">Для вибраного вікна список порятунку порожній.</div>
+      {% endfor %}
     </div>
+  </section>
 
-    {% include "management/components/client_timeline.html" %}
-  {% else %}
-    <div class="shadow-empty muted">
-      Для цього періоду тіньовий знімок ще не побудовано.
-    </div>
-  {% endif %}
-</div>
+  {% include "management/components/client_timeline.html" %}
+</details>
+{% endif %}

@@ -4,33 +4,52 @@
 {% block title %}Статистика (адмін) — TwoComms Management{% endblock %}
 
 {% block extra_css %}
-  <link rel="stylesheet" href="{% static 'css/management-stats.css' %}">
+  <link rel="stylesheet" href="{% static 'css/management-stats.css' %}?v=20260610bento1">
 {% endblock %}
 
 {% block content %}
-<section class="stats-admin-page">
-  <div class="panel-header">
-    <div>
-      <p class="eyebrow">Статистика</p>
-      <h2>Виберіть менеджера</h2>
-      <div class="muted" style="margin-top: 6px;">Адмін-перегляд відкриває ту ж структуру, що бачить менеджер.</div>
+<section class="stats-admin-page stats-page--v2">
+  <header class="stats-topbar">
+    <div class="stats-topbar__head">
+      <p class="eyebrow">Статистика · команда</p>
+      <h2 class="stats-title">Виберіть менеджера</h2>
+      <div class="muted">Адмін-перегляд відкриває ту ж структуру, що бачить менеджер.</div>
     </div>
-  </div>
+    <div class="team-summary">
+      <span class="team-summary__pill">
+        <b>{{ admin_users|length }}</b> у команді
+      </span>
+    </div>
+  </header>
 
-  <div class="admin-users-grid">
+  <div class="team-grid">
     {% for u in admin_users %}
-      <a class="admin-user-card" href="{% url 'management_stats_admin_user' u.id %}?period=today">
-        <div class="admin-user-top">
-          <div class="admin-user-name">{{ u.name }}</div>
-          <div class="admin-user-role">{{ u.role }}</div>
-        </div>
-        <div class="admin-user-meta">
-          <div class="meta-line">
-            <span class="dot{% if u.online %} online{% endif %}">●</span>
-            <span class="muted">{% if u.online %}онлайн{% else %}офлайн{% endif %}</span>
+      <a class="team-card" href="{% url 'management_stats_admin_user' u.id %}?period=today">
+        <div class="team-card__top">
+          <div class="team-card__avatar" aria-hidden="true">{{ u.name|slice:":1"|upper }}</div>
+          <div class="team-card__id">
+            <div class="team-card__name">{{ u.name }}</div>
+            <div class="team-card__role muted">{{ u.role }}</div>
           </div>
-          <div class="meta-line muted">Останній вхід: {{ u.last_login }}</div>
+          <span class="status-dot{% if u.online %} is-online{% endif %}" title="{% if u.online %}онлайн{% else %}офлайн{% endif %}"></span>
         </div>
+        <div class="team-card__meta">
+          <div class="team-card__meta-row">
+            <span class="muted">Статус</span>
+            <span class="{% if u.online %}txt-ok{% else %}muted{% endif %}">{% if u.online %}онлайн{% else %}офлайн{% endif %}</span>
+          </div>
+          <div class="team-card__meta-row">
+            <span class="muted">Останній вхід</span>
+            <span>{{ u.last_login }}</span>
+          </div>
+          {% if u.first_seen %}
+          <div class="team-card__meta-row">
+            <span class="muted">У команді з</span>
+            <span>{{ u.first_seen }}</span>
+          </div>
+          {% endif %}
+        </div>
+        <div class="team-card__cta">Відкрити статистику →</div>
       </a>
     {% empty %}
       <div class="table-empty">Немає користувачів для перегляду.</div>
@@ -38,4 +57,3 @@
   </div>
 </section>
 {% endblock %}
-

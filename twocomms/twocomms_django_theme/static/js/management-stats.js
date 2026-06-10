@@ -224,24 +224,36 @@
     const vals = series.map((d) => Number(d?.[valueKey] || 0));
     const max = Math.max(1, ...vals);
     const w = 320;
-    const h = 88;
-    const pad = 6;
+    const h = 84;
+    const pad = 8;
     const n = Math.max(1, vals.length);
-    const pts = vals.map((v, i) => {
+    const coords = vals.map((v, i) => {
       const x = pad + (i * (w - pad * 2)) / Math.max(1, n - 1);
       const y = h - pad - (clamp(v, 0, max) * (h - pad * 2)) / max;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
+      return { x, y };
     });
+    const pts = coords.map((c) => `${c.x.toFixed(1)},${c.y.toFixed(1)}`);
+    const last = coords[coords.length - 1];
+    const first = coords[0];
+    const areaPath = coords.length
+      ? `M ${first.x.toFixed(1)},${(h - pad).toFixed(1)} L ${pts.join(' L ')} L ${last.x.toFixed(1)},${(h - pad).toFixed(1)} Z`
+      : '';
 
     el.innerHTML = `
       <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">
         <defs>
-          <linearGradient id="${mountId}-g" x1="0" x2="1" y1="0" y2="0">
-            <stop offset="0" stop-color="${color}" stop-opacity="0.75"></stop>
-            <stop offset="1" stop-color="${color}" stop-opacity="0.25"></stop>
+          <linearGradient id="${mountId}-line" x1="0" x2="1" y1="0" y2="0">
+            <stop offset="0" stop-color="${color}" stop-opacity="0.85"></stop>
+            <stop offset="1" stop-color="${color}" stop-opacity="0.55"></stop>
+          </linearGradient>
+          <linearGradient id="${mountId}-area" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0" stop-color="${color}" stop-opacity="0.30"></stop>
+            <stop offset="1" stop-color="${color}" stop-opacity="0.02"></stop>
           </linearGradient>
         </defs>
-        <polyline points="${pts.join(' ')}" fill="none" stroke="url(#${mountId}-g)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
+        ${areaPath ? `<path d="${areaPath}" fill="url(#${mountId}-area)"></path>` : ''}
+        <polyline points="${pts.join(' ')}" fill="none" stroke="url(#${mountId}-line)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
+        ${last ? `<circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="3.4" fill="${color}"></circle>` : ''}
       </svg>
     `;
   };
@@ -575,15 +587,132 @@
     }
   });
 
+  const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const mosaicColor = (score) => {
+    if (score >= 70) return '#10b981';
+    if (score >= 40) return '#ffb347';
+    return '#ef4444';
+  };
+
+  const renderMosaicRing = () => {
+    const arc = document.getElementById('mosaic-arc');
+    if (!arc) return;
+    const card = document.querySelector('.mosaic-card');
+    const hasSnapshot = card?.dataset?.hasSnapshot === '1';
+    const score = clamp(Number(data?.shadow_score?.mosaic_score || 0), 0, 100);
+    const circumference = 2 * Math.PI * 92; // r=92
+    arc.style.strokeDasharray = String(circumference);
+    if (!hasSnapshot) {
+      arc.style.strokeDashoffset = String(circumference);
+      arc.style.stroke = 'rgba(255,255,255,0.12)';
+      return;
+    }
+    const offset = circumference * (1 - score / 100);
+    arc.style.stroke = mosaicColor(score);
+    if (prefersReducedMotion) {
+      arc.style.strokeDashoffset = String(offset);
+    } else {
+      arc.style.strokeDashoffset = String(circumference);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          arc.style.strokeDashoffset = String(offset);
+        });
+      });
+    }
+  };
+
+  const animateValue = (el, target) => {
+    const isFloat = /[.,]/.test(String(target));
+    const end = Number(String(target).replace(',', '.')) || 0;
+    if (prefersReducedMotion) {
+      el.textContent = isFloat ? end.toFixed(end % 1 === 0 ? 0 : 1) : String(Math.round(end));
+      return;
+    }
+    const duration = 850;
+    const start = performance.now();
+    const step = (now) => {
+      const t = clamp((now - start) / duration, 0, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const cur = end * eased;
+      el.textContent = isFloat ? cur.toFixed(end % 1 === 0 ? 0 : 1) : String(Math.round(cur));
+      if (t < 1) requestAnimationFrame(step);
+      else el.textContent = isFloat ? end.toFixed(end % 1 === 0 ? 0 : 1) : String(Math.round(end));
+    };
+    requestAnimationFrame(step);
+  };
+
+  const initCountUps = () => {
+    const nodes = Array.from(document.querySelectorAll('.count-up[data-target], #mosaic-value[data-target], #kpd-value[data-target]'));
+    if (!nodes.length) return;
+    if (!('IntersectionObserver' in window)) {
+      nodes.forEach((el) => animateValue(el, el.dataset.target || '0'));
+      return;
+    }
+    const io = new IntersectionObserver((entries, obs) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          animateValue(entry.target, entry.target.dataset.target || '0');
+          obs.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.4 });
+    nodes.forEach((el) => io.observe(el));
+  };
+
+  const animateBars = () => {
+    const fill = document.querySelector('.confidence-meter__fill');
+    if (fill) {
+      const value = clamp(Number(fill.dataset.value || 0), 0, 1);
+      const apply = () => { fill.style.width = `${(value * 100).toFixed(0)}%`; };
+      prefersReducedMotion ? apply() : requestAnimationFrame(() => requestAnimationFrame(apply));
+    }
+    // source bars animate from current width set in renderSources (already inline)
+    document.querySelectorAll('.source-fill').forEach((bar) => {
+      const target = bar.style.width;
+      if (!target || prefersReducedMotion) return;
+      bar.style.width = '0%';
+      requestAnimationFrame(() => requestAnimationFrame(() => { bar.style.width = target; }));
+    });
+  };
+
+  const initTabs = () => {
+    const tabs = Array.from(document.querySelectorAll('.details-tab'));
+    const panels = Array.from(document.querySelectorAll('.details-panel'));
+    if (!tabs.length) return;
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const key = tab.dataset.tab;
+        tabs.forEach((t) => t.classList.toggle('is-active', t === tab));
+        panels.forEach((p) => p.classList.toggle('is-active', p.dataset.panel === key));
+      });
+    });
+  };
+
+  const initAdviceToggle = () => {
+    const toggle = document.getElementById('advice-toggle');
+    const list = document.getElementById('advice-list');
+    if (!toggle || !list) return;
+    toggle.addEventListener('click', () => {
+      list.dataset.collapsed = '0';
+      toggle.remove();
+    });
+  };
+
   // Kickoff
   renderSpiral();
   renderGauge();
   renderShadowRadar();
+  renderMosaicRing();
   renderSparkline('chart-points', 'points', '#ff7e29');
   renderSparkline('chart-kpd', 'kpd', '#6f95ff');
   renderSparkline('chart-active', 'active_seconds', '#10b981');
   renderSources();
   renderReportTimeline();
+  animateBars();
+  initCountUps();
+  initTabs();
+  initAdviceToggle();
 
   const appealForm = document.getElementById('shadow-appeal-form');
   if (appealForm) {
