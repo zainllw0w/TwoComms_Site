@@ -804,7 +804,7 @@ def build_twocomms_cp_email(payload: dict[str, Any]) -> dict[str, Any]:
 
     cta_type = _normalize_cta_type(payload.get("cta_type"))
     cta_custom_url = (payload.get("cta_custom_url") or "").strip()
-    cta_button_text = (payload.get("cta_button_text") or "").strip() or "Запросити тест-ростовку"
+    cta_button_text = (payload.get("cta_button_text") or "").strip() or "Зв'язатися з менеджером"
     cta_microtext = (
         (payload.get("cta_microtext") or "").strip()
         or "Менеджер підтвердить умови під ваш обсяг."
@@ -899,7 +899,38 @@ def build_twocomms_cp_email(payload: dict[str, Any]) -> dict[str, Any]:
     gallery, gallery_urls_norm, gallery_snapshot = _resolve_gallery_urls(gallery_slots)
     logo_url = _abs_url("/static/img/favicon-192x192.png")
 
+    opt_grid = get_twocomms_cp_opt_grid()
+
+    # Secondary CTA always points to the assortment (wholesale → catalog → site).
+    if include_wholesale_link:
+        cta_secondary_url = links["wholesale"]
+    elif include_catalog_link:
+        cta_secondary_url = links["catalog"]
+    else:
+        cta_secondary_url = links["site"]
+    cta_secondary_text = "Переглянути асортимент"
+
+    trust_points = [
+        "Договір та КЕП",
+        "Нова Пошта по Україні",
+        "Повернення залишків тесту",
+        "Опт від 8 шт",
+    ]
+    why_us = [
+        "Тест-ростовка S–XL на 14 днів — перевіряєте попит майже без ризику.",
+        "Опт від 8 шт: чим більший обсяг — тим нижча ціна за одиницю.",
+        "Дропшип без складу: XML-вивантаження та кабінет партнера з ТТН/трекінгом.",
+    ]
+    if dropship_loyalty_bonus:
+        why_us.append("Бонус для дропу: −10 грн до наступного замовлення після кожного.")
+
     template_context: dict[str, Any] = {
+        "opt_grid": opt_grid,
+        "trust_points": trust_points,
+        "why_us": why_us,
+        "cta_secondary_url": cta_secondary_url,
+        "cta_secondary_text": cta_secondary_text,
+        "tracking_pixel_url": (payload.get("tracking_pixel_url") or "").strip(),
         "shop_name": shop_name,
         "show_manager": show_manager,
         "manager_name": manager_name,
@@ -952,7 +983,7 @@ def build_twocomms_cp_email(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
     text = _build_light_text({**template_context, "entry_hint": entry_hint})
-    html_visual = render_to_string("management/emails/twocomms_cp_visual.html", template_context)
+    html_visual = render_to_string("management/emails/twocomms_cp_dark.html", template_context)
     html_light = _light_text_to_min_html(text)
 
     return {

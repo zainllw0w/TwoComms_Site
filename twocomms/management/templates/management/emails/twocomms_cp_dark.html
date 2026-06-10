@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="uk" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="color-scheme" content="dark">
+<meta name="supported-color-schemes" content="dark">
+<title>{{ subject }}</title>
+<!--[if mso]>
+<style type="text/css">
+  table,td,div,p,a {font-family:Arial,Helvetica,sans-serif !important;}
+</style>
+<![endif]-->
+<style type="text/css">
+  body{margin:0;padding:0;width:100%!important;background:#0b0e14;}
+  table{border-collapse:collapse;}
+  img{border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;}
+  a{color:#f3a43d;}
+  .cp-card{background:#131824;}
+  @media only screen and (max-width:480px){
+    .cp-container{width:100%!important;}
+    .cp-stack{display:block!important;width:100%!important;box-sizing:border-box!important;}
+    .cp-stack-gap{height:10px!important;line-height:10px!important;}
+    .cp-pad{padding-left:18px!important;padding-right:18px!important;}
+    .cp-h1{font-size:21px!important;line-height:1.2!important;}
+    .cp-cta a{display:block!important;text-align:center!important;}
+    .cp-grid-cell{padding:6px 8px!important;font-size:12px!important;}
+  }
+</style>
+</head>
+<body style="margin:0;padding:0;background:#0b0e14;">
+{# Preheader (hidden) #}
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;line-height:1px;font-size:1px;mso-hide:all;">
+  {{ preheader }}
+</div>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0b0e14" style="background:#0b0e14;">
+  <tr>
+    <td align="center" style="padding:24px 12px;">
+      <table role="presentation" width="600" class="cp-container" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
+        <tr>
+          <td style="padding:0;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="cp-card" style="border:1px solid #232a38;border-radius:18px;overflow:hidden;background:#131824;">
+
+              {# ===== Header ===== #}
+              <tr>
+                <td class="cp-pad" style="padding:22px 24px 16px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <td align="left" valign="middle">
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                          <tr>
+                            <td valign="middle" style="padding-right:12px;">
+                              <img src="{{ logo_url }}" width="44" height="44" alt="TwoComms" style="display:block;border:0;border-radius:12px;background:#0b0e14;">
+                            </td>
+                            <td valign="middle" style="font-family:Arial,Helvetica,sans-serif;color:#e8edf7;">
+                              <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;font-weight:700;color:#9aa4b8;">TwoComms</div>
+                              <div style="font-size:18px;font-weight:800;letter-spacing:0.02em;color:#e8edf7;">Street &amp; Military</div>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                      <td align="right" valign="middle" style="font-family:Arial,Helvetica,sans-serif;color:#9aa4b8;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;">
+                        Оптовий напрямок
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+              {# ===== Hero ===== #}
+              <tr>
+                <td class="cp-pad" style="padding:6px 24px 18px;">
+                  <div class="cp-h1" style="font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:1.22;font-weight:900;color:#e8edf7;">
+                    {% if shop_name %}{{ shop_name }}, {% endif %}тест-ростовка S–XL на 14 днів — перевірте попит без ризику
+                  </div>
+                  <div style="margin-top:12px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.55;color:#9aa4b8;">
+                    Не зайшло — повертаєте залишки. Сплачуєте лише доставку. Опт від 8 шт або дропшип без складу.
+                  </div>
+
+                  <div style="height:18px;line-height:18px;">&nbsp;</div>
+
+                  {# Primary + secondary CTA #}
+                  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                    <tr>
+                      <td class="cp-stack" valign="top" style="padding-right:8px;" width="50%">
+                        {% if cta_url %}
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="cp-cta" width="100%">
+                          <tr>
+                            <td bgcolor="#ff7e29" style="border-radius:12px;" align="center">
+                              <a href="{{ cta_url }}" target="_blank" rel="noopener"
+                                 style="display:inline-block;padding:13px 18px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:800;color:#0b0e14;text-decoration:none;border-radius:12px;">
+                                {{ cta_button_text }}
+                              </a>
+                            </td>
+                          </tr>
+                        </table>
+                        {% else %}
+                        <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.5;color:#e8edf7;font-weight:800;">Відповідайте на цей лист</div>
+                        {% endif %}
+                      </td>
+                      <td class="cp-stack-gap" style="display:none;font-size:0;line-height:0;">&nbsp;</td>
+                      <td class="cp-stack" valign="top" style="padding-left:8px;" width="50%">
+                        {% if cta_secondary_url %}
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" class="cp-cta" width="100%">
+                          <tr>
+                            <td style="border-radius:12px;border:1px solid #2f3a4d;background:#171c28;" align="center">
+                              <a href="{{ cta_secondary_url }}" target="_blank" rel="noopener"
+                                 style="display:inline-block;padding:13px 18px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:800;color:#f3a43d;text-decoration:none;border-radius:12px;">
+                                {{ cta_secondary_text }}
+                              </a>
+                            </td>
+                          </tr>
+                        </table>
+                        {% endif %}
+                      </td>
+                    </tr>
+                  </table>
+                  <div style="margin-top:10px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.45;color:#6c7382;">
+                    {{ cta_microtext }}
+                  </div>
+                </td>
+              </tr>
+
+              {# ===== Trust strip ===== #}
+              <tr>
+                <td class="cp-pad" style="padding:0 24px 18px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #232a38;border-radius:14px;background:#0f131c;">
+                    <tr>
+                      <td style="padding:12px 14px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.7;color:#9aa4b8;">
+                        {% for point in trust_points %}<span style="color:#f3a43d;font-weight:800;">•</span> {{ point }}{% if not forloop.last %} &nbsp; {% endif %}{% endfor %}
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+              {# ===== Opt price grid ===== #}
+              <tr>
+                <td class="cp-pad" style="padding:0 24px 18px;">
+                  <div style="font-family:Arial,Helvetica,sans-serif;color:#9aa4b8;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;font-weight:800;">Оптові ціни за обсягом</div>
+                  <div style="height:10px;line-height:10px;">&nbsp;</div>
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #232a38;border-radius:14px;overflow:hidden;">
+                    <tr style="background:#0f131c;">
+                      <td class="cp-grid-cell" style="padding:9px 12px;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:800;color:#9aa4b8;">Обсяг</td>
+                      <td class="cp-grid-cell" align="right" style="padding:9px 12px;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:800;color:#9aa4b8;">Футболка</td>
+                      <td class="cp-grid-cell" align="right" style="padding:9px 12px;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:800;color:#9aa4b8;">Худі</td>
+                    </tr>
+                    {% for row in opt_grid %}
+                    <tr style="background:{% cycle '#131824' '#10141d' %};">
+                      <td class="cp-grid-cell" style="padding:9px 12px;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#e8edf7;font-weight:700;border-top:1px solid #232a38;">{{ row.range }}</td>
+                      <td class="cp-grid-cell" align="right" style="padding:9px 12px;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#e8edf7;border-top:1px solid #232a38;">{{ row.tee_display }} грн</td>
+                      <td class="cp-grid-cell" align="right" style="padding:9px 12px;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#e8edf7;border-top:1px solid #232a38;">{{ row.hoodie_display }} грн</td>
+                    </tr>
+                    {% endfor %}
+                  </table>
+                  <div style="margin-top:8px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.45;color:#6c7382;">Чим більший обсяг — тим нижча ціна за одиницю. Кратно 8 шт.</div>
+                </td>
+              </tr>
+
+              {# ===== Unit economics ===== #}
+              <tr>
+                <td class="cp-pad" style="padding:0 24px 18px;">
+                  <div style="font-family:Arial,Helvetica,sans-serif;color:#9aa4b8;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;font-weight:800;">Приклад юніт-економіки</div>
+                  <div style="height:10px;line-height:10px;">&nbsp;</div>
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <td class="cp-stack" width="50%" valign="top" style="padding-right:8px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #232a38;border-radius:14px;background:#0f131c;">
+                          <tr><td style="padding:14px;font-family:Arial,Helvetica,sans-serif;">
+                            <div style="font-size:14px;font-weight:900;color:#e8edf7;">Футболка</div>
+                            <div style="margin-top:10px;font-size:13px;color:#9aa4b8;">
+                              <div>Вхід: <span style="color:#e8edf7;font-weight:800;">{{ tee_entry_display }} грн</span></div>
+                              <div style="margin-top:6px;">Роздріб (приклад): <span style="color:#e8edf7;font-weight:800;">{{ tee_retail_example_display }} грн</span></div>
+                              <div style="margin-top:8px;">Прибуток*: <span style="color:#f3a43d;font-weight:900;">{{ tee_profit_display }} грн</span></div>
+                            </div>
+                          </td></tr>
+                        </table>
+                      </td>
+                      <td class="cp-stack-gap" style="display:none;font-size:0;line-height:0;">&nbsp;</td>
+                      <td class="cp-stack" width="50%" valign="top" style="padding-left:8px;">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #232a38;border-radius:14px;background:#0f131c;">
+                          <tr><td style="padding:14px;font-family:Arial,Helvetica,sans-serif;">
+                            <div style="font-size:14px;font-weight:900;color:#e8edf7;">Худі</div>
+                            <div style="margin-top:10px;font-size:13px;color:#9aa4b8;">
+                              <div>Вхід: <span style="color:#e8edf7;font-weight:800;">{{ hoodie_entry_display }} грн</span></div>
+                              <div style="margin-top:6px;">Роздріб (приклад): <span style="color:#e8edf7;font-weight:800;">{{ hoodie_retail_example_display }} грн</span></div>
+                              <div style="margin-top:8px;">Прибуток*: <span style="color:#f3a43d;font-weight:900;">{{ hoodie_profit_display }} грн</span></div>
+                            </div>
+                          </td></tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                  <div style="margin-top:8px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.45;color:#6c7382;">*Це приклад розрахунку. Роздрібну ціну встановлюєте ви.</div>
+                </td>
+              </tr>
+
+              {# ===== Why us ===== #}
+              <tr>
+                <td class="cp-pad" style="padding:0 24px 18px;">
+                  <div style="font-family:Arial,Helvetica,sans-serif;color:#9aa4b8;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;font-weight:800;">Чому з нами вигідно</div>
+                  <div style="height:8px;line-height:8px;">&nbsp;</div>
+                  {% for item in why_us %}
+                  <div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.55;color:#e8edf7;margin-top:6px;">
+                    <span style="color:#f3a43d;font-weight:900;">→</span> {{ item }}
+                  </div>
+                  {% endfor %}
+                </td>
+              </tr>
+
+              {# ===== Product cards ===== #}
+              {% if gallery %}
+              <tr>
+                <td class="cp-pad" style="padding:0 24px 18px;">
+                  <div style="font-family:Arial,Helvetica,sans-serif;color:#9aa4b8;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;font-weight:800;">Популярні моделі</div>
+                  <div style="height:10px;line-height:10px;">&nbsp;</div>
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      {% for item in gallery %}
+                      <td class="cp-stack" width="33%" valign="top" style="padding-right:{% if not forloop.last %}8px{% else %}0{% endif %};">
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #232a38;border-radius:14px;background:#0f131c;overflow:hidden;">
+                          <tr>
+                            <td bgcolor="#171c28" style="background:#171c28;">
+                              <a href="{{ item.link_url }}" target="_blank" rel="noopener" style="text-decoration:none;">
+                                <img src="{{ item.img_url }}" width="170" height="170" alt="{{ item.title }}" style="display:block;width:100%;height:auto;border:0;background:#171c28;">
+                              </a>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td style="padding:10px 12px 12px;font-family:Arial,Helvetica,sans-serif;">
+                              <div style="font-size:12px;line-height:1.35;color:#e8edf7;font-weight:700;">{{ item.title }}</div>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                      {% endfor %}
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              {% endif %}
+
+              {# ===== Manager contacts ===== #}
+              {% if show_manager %}
+              <tr>
+                <td class="cp-pad" style="padding:4px 24px 18px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #232a38;">
+                    <tr>
+                      <td style="padding-top:16px;font-family:Arial,Helvetica,sans-serif;">
+                        <div style="font-size:12px;letter-spacing:0.14em;text-transform:uppercase;font-weight:800;color:#9aa4b8;">Ваш менеджер</div>
+                        <div style="height:10px;line-height:10px;">&nbsp;</div>
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                          <tr>
+                            <td valign="top" style="font-family:Arial,Helvetica,sans-serif;color:#e8edf7;">
+                              <div style="font-weight:900;font-size:14px;">{{ manager_name|default:"TwoComms" }}</div>
+                              {% if manager_phone %}<div style="margin-top:6px;font-size:13px;color:#9aa4b8;">Телефон: {{ manager_phone }}</div>{% endif %}
+                              {% if manager_tg %}<div style="margin-top:6px;font-size:13px;color:#9aa4b8;">Telegram: {{ manager_tg }}</div>{% endif %}
+                              {% if manager_viber %}<div style="margin-top:6px;font-size:13px;color:#9aa4b8;">Viber: {{ manager_viber }}</div>{% endif %}
+                              {% if manager_whatsapp %}<div style="margin-top:6px;font-size:13px;color:#9aa4b8;">WhatsApp: {{ manager_whatsapp }}</div>{% endif %}
+                            </td>
+                            {% if manager_photo_url %}
+                            <td align="right" valign="top" style="padding-left:12px;">
+                              <img src="{{ manager_photo_url }}" width="56" height="56" alt="{{ manager_name }}" style="display:block;border:0;border-radius:999px;background:#171c28;">
+                            </td>
+                            {% endif %}
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              {% endif %}
+
+              {# ===== Footer ===== #}
+              <tr>
+                <td class="cp-pad" style="padding:14px 24px 20px;border-top:1px solid #232a38;font-family:Arial,Helvetica,sans-serif;color:#6c7382;font-size:12px;line-height:1.5;">
+                  <div style="color:#9aa4b8;font-weight:800;">TwoComms — одяг для свідомих.</div>
+                  <div style="margin-top:8px;">
+                    {% if include_instagram_link %}<a href="{{ links.instagram }}" target="_blank" rel="noopener" style="color:#f3a43d;text-decoration:underline;">Instagram</a>{% endif %}
+                    {% if include_instagram_link and include_site_link %}&nbsp;·&nbsp;{% endif %}
+                    {% if include_site_link %}<a href="{{ links.site }}" target="_blank" rel="noopener" style="color:#f3a43d;text-decoration:underline;">Сайт</a>{% endif %}
+                  </div>
+                </td>
+              </tr>
+
+            </table>
+            {% if tracking_pixel_url %}<img src="{{ tracking_pixel_url }}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;">{% endif %}
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>
