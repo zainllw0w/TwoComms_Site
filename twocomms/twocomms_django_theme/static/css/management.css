@@ -8775,3 +8775,207 @@ body[data-url-name="management_admin_payouts_board"] .content-area { box-sizing:
 .pf-pending__text strong { color: var(--accent); }
 .pf-tl__dt { font-size: .72rem; color: var(--muted); font-weight: 600; margin-left: 8px; }
 .pf-tl__hint { font-size: .72rem; color: var(--text-secondary); }
+
+/* === КП revamp 2026-06: KPI strip, link/process modals, badges === */
+.offer-kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin: 6px 0 16px;
+}
+.offer-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.02);
+}
+.offer-kpi-value {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1.1;
+}
+.offer-kpi-label {
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.offer-kpi--warn .offer-kpi-value { color: #ff8f6b; }
+
+.offer-badge-opened { background: rgba(111, 149, 255, 0.16); border-color: rgba(111, 149, 255, 0.35); }
+.offer-badge-linked { background: rgba(255, 126, 41, 0.16); border-color: rgba(255, 126, 41, 0.35); }
+.offer-badge-outcome { margin-top: 4px; color: var(--accent); font-weight: 600; }
+
+.offer-cp-link-card, .offer-cp-process-card { max-width: 520px; }
+.offer-cp-link-divider {
+    margin: 14px 0 10px;
+    color: var(--muted);
+    font-size: 0.8rem;
+    text-align: center;
+    letter-spacing: 0.04em;
+}
+.offer-cp-link-results {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 180px;
+    overflow-y: auto;
+}
+.offer-cp-link-result {
+    text-align: left;
+    padding: 9px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+.offer-cp-link-result:hover { border-color: rgba(255, 126, 41, 0.4); color: var(--accent); }
+.offer-cp-link-empty { color: var(--muted); font-size: 0.85rem; padding: 6px 2px; }
+.offer-cp-link-msg, .offer-cp-process-msg { margin-top: 10px; font-size: 0.85rem; color: var(--text-secondary); }
+
+/* Device-framed preview polish */
+.offer-preview-surface {
+    background: radial-gradient(circle at 50% 0%, rgba(255,126,41,0.05), transparent 60%), #0b0e14;
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    border: 1px solid var(--border);
+}
+
+@media (max-width: 720px) {
+    .offer-kpi-strip { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* === Commercial offer revamp (2026-06) === */
+.modal-overlay.is-open { display: flex; }
+
+/* KPI strip above the CP log */
+.offer-kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin: 14px 0 18px;
+}
+.offer-kpi {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.02);
+}
+.offer-kpi-value {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1.1;
+}
+.offer-kpi-label {
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.offer-kpi--warn .offer-kpi-value { color: #ff7e29; }
+.offer-kpi--warn { border-color: rgba(255, 126, 41, 0.35); background: rgba(255, 126, 41, 0.07); }
+@media (max-width: 720px) {
+    .offer-kpi-strip { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Link-to-client modal internals */
+.offer-cp-link-results { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
+.offer-cp-link-result {
+    text-align: left;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+.offer-cp-link-result:hover { border-color: rgba(255, 126, 41, 0.4); background: rgba(255, 126, 41, 0.08); }
+.offer-cp-link-empty { padding: 10px 12px; color: var(--muted); font-size: 0.85rem; }
+.offer-cp-link-divider {
+    margin: 16px 0 12px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    position: relative;
+}
+.offer-cp-link-divider::before,
+.offer-cp-link-divider::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 38%;
+    height: 1px;
+    background: var(--border);
+}
+.offer-cp-link-divider::before { left: 0; }
+.offer-cp-link-divider::after { right: 0; }
+.offer-cp-link-msg, .offer-cp-process-msg { margin-top: 10px; font-size: 0.85rem; color: var(--accent); min-height: 1em; }
+
+/* Log status badges (extra states) */
+.offer-badge-opened { background: rgba(111, 149, 255, 0.16) !important; }
+.offer-badge-outcome {
+    margin-top: 6px;
+    display: inline-block;
+    font-size: 0.74rem;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 2px 8px;
+}
+.offer-cp-link-btn.is-linked { color: #6fd08a; border-color: rgba(111, 208, 138, 0.4); }
+
+/* Device-style preview frame */
+.offer-preview-surface {
+    display: flex;
+    justify-content: center;
+    padding: 16px;
+    background:
+        radial-gradient(circle at 30% 0%, rgba(255, 126, 41, 0.05) 0, transparent 40%),
+        #0b0e14;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+}
+.offer-preview-viewport {
+    width: 100%;
+    max-width: 600px;
+    transition: max-width 0.25s ease;
+}
+.offer-preview-viewport.is-mobile { max-width: 360px; }
+.offer-preview-iframe {
+    width: 100%;
+    height: 640px;
+    border: 0;
+    border-radius: 12px;
+    background: #0b0e14;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+}
+.offer-preview-pane-light {
+    width: 100%;
+    min-height: 320px;
+    margin: 0;
+    padding: 16px;
+    border-radius: 12px;
+    background: #0f131c;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow: auto;
+}

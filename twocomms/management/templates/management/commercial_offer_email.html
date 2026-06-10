@@ -1581,6 +1581,10 @@
                     <span class="offer-btn-spinner" aria-hidden="true"></span>
                     <span class="offer-btn-text">Відправити комерційну пропозицію</span>
                 </button>
+                <button type="button" class="btn-ghost small" id="offer-send-test">Надіслати тест собі</button>
+                <button type="button" class="btn-ghost small" id="offer-my-contacts"
+                        data-manager-name="{{ request.user.userprofile.full_name|default:request.user.get_full_name|default:request.user.username }}"
+                        data-manager-phone="{{ request.user.userprofile.phone|default:'' }}">Мої контакти</button>
                 <div class="offer-actions-sub">
                     Відправлення піде з пошти <span class="offer-mono">cooperation@twocomms.shop</span>.
                 </div>
@@ -1636,6 +1640,13 @@
                 <p class="eyebrow">Історія</p>
                 <h3 class="offer-card-title">Останні відправлені КП</h3>
             </div>
+        </div>
+        <div class="offer-kpi-strip" id="offer-kpi-strip">
+            <div class="offer-kpi"><span class="offer-kpi-value">{{ cp_kpi.sent|default:0 }}</span><span class="offer-kpi-label">Відправлено</span></div>
+            <div class="offer-kpi"><span class="offer-kpi-value">{{ cp_kpi.opened|default:0 }}</span><span class="offer-kpi-label">Відкрито</span></div>
+            <div class="offer-kpi"><span class="offer-kpi-value">{{ cp_kpi.linked|default:0 }}</span><span class="offer-kpi-label">Прив'язано</span></div>
+            <div class="offer-kpi"><span class="offer-kpi-value">{{ cp_kpi.ordered|default:0 }}</span><span class="offer-kpi-label">Замовлення</span></div>
+            <div class="offer-kpi offer-kpi--warn"><span class="offer-kpi-value">{{ cp_kpi.missed|default:0 }}</span><span class="offer-kpi-label">Пропущено</span></div>
         </div>
         <div class="table-shell">
             <table class="nexus-table">
@@ -1714,6 +1725,97 @@
         </div>
     </div>
 </div>
+
+{# === CP link-to-client modal === #}
+<div class="modal-overlay" id="offer-cp-link-modal" aria-hidden="true">
+    <div class="modal-card offer-cp-link-card">
+        <div class="modal-header">
+            <div>
+                <p class="eyebrow">Привʼязка</p>
+                <h3>Привʼязати КП до клієнта</h3>
+            </div>
+            <button type="button" class="modal-close" id="offer-cp-link-close" aria-label="Закрити">×</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="offer-cp-link-log-id" value="">
+            <div class="field">
+                <label for="offer-cp-link-search">Знайти існуючого клієнта</label>
+                <input type="text" id="offer-cp-link-search" placeholder="Назва або телефон" autocomplete="off">
+                <div class="offer-cp-link-results" id="offer-cp-link-results"></div>
+            </div>
+            <div class="offer-cp-link-divider">або створити нового</div>
+            <div class="field-grid">
+                <div class="field field-span-2">
+                    <label for="offer-cp-link-new-shop">Назва магазину / компанія</label>
+                    <input type="text" id="offer-cp-link-new-shop" placeholder="Напр. Brand Store">
+                </div>
+                <div class="field">
+                    <label for="offer-cp-link-new-phone">Телефон</label>
+                    <input type="text" id="offer-cp-link-new-phone" placeholder="+380...">
+                </div>
+                <div class="field">
+                    <label for="offer-cp-link-new-name">ПІБ (опційно)</label>
+                    <input type="text" id="offer-cp-link-new-name" placeholder="Імʼя контакту">
+                </div>
+            </div>
+            <div class="offer-cp-link-msg" id="offer-cp-link-msg" role="status" aria-live="polite"></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-ghost" id="offer-cp-link-cancel">Скасувати</button>
+            <button type="button" class="btn-primary" id="offer-cp-link-create">Створити та привʼязати</button>
+        </div>
+    </div>
+</div>
+
+{# === CP process (response) modal === #}
+<div class="modal-overlay" id="offer-cp-process-modal" aria-hidden="true">
+    <div class="modal-card offer-cp-process-card">
+        <div class="modal-header">
+            <div>
+                <p class="eyebrow">Опрацювання</p>
+                <h3>Реакція на КП</h3>
+            </div>
+            <button type="button" class="modal-close" id="offer-cp-process-close" aria-label="Закрити">×</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="offer-cp-process-log-id" value="">
+            <div class="field">
+                <label for="offer-cp-process-outcome">Що відповів клієнт</label>
+                <select id="offer-cp-process-outcome">
+                    <option value="">— Оберіть —</option>
+                    <option value="not_opened">Не відкрив</option>
+                    <option value="opened_no_reply">Відкрив, не відповів</option>
+                    <option value="asked_messenger">Просив у месенджер</option>
+                    <option value="thinking">Думає</option>
+                    <option value="rejected">Відмова</option>
+                    <option value="ordered">Замовлення</option>
+                    <option value="other">Інше</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="offer-cp-process-note">Коментар (опційно)</label>
+                <input type="text" id="offer-cp-process-note" placeholder="Деталі реакції">
+            </div>
+            <div class="field">
+                <label for="offer-cp-process-next">Передзвонити (опційно)</label>
+                <input type="datetime-local" id="offer-cp-process-next">
+                <div class="offer-field-hint">Якщо КП привʼязано до клієнта — створиться передзвон. Пропущений = «пропущена КП».</div>
+            </div>
+            <div class="offer-cp-link-msg" id="offer-cp-process-msg" role="status" aria-live="polite"></div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-ghost" id="offer-cp-process-cancel">Скасувати</button>
+            <button type="button" class="btn-primary" id="offer-cp-process-save">Зберегти</button>
+        </div>
+    </div>
+</div>
+
+<script id="offer-cp-urls" type="application/json">{
+    "link": "{% url 'management_commercial_offer_link_client' %}",
+    "search": "{% url 'management_commercial_offer_client_search' %}",
+    "process": "{% url 'management_commercial_offer_process' %}",
+    "sendTest": "{% url 'management_commercial_offer_email_send_test_api' %}"
+}</script>
 </div>
 {% endblock %}
 
@@ -1993,12 +2095,22 @@ function initManagementCommercialOfferEmailPage() {
 
     function buildPreviewDoc(bodyHtml) {
         const showImages = !previewImagesToggle || !!previewImagesToggle.checked;
+        const hideCss = showImages ? '' : '<style>img{display:none !important;}</style>';
+        const raw = String(bodyHtml || '');
+        const trimmed = raw.trimStart();
+        const isFullDoc = /^<!doctype/i.test(trimmed) || /^<html[\s>]/i.test(trimmed);
+        if (isFullDoc) {
+            // Email builder already returns a full HTML document — render it 1:1.
+            if (!hideCss) return raw;
+            if (/<\/head>/i.test(raw)) return raw.replace(/<\/head>/i, hideCss + '</head>');
+            return hideCss + raw;
+        }
+        // Legacy body-only fallback.
         const imagesCss = showImages ? '' : 'img{display:none !important;}';
-        const safeBody = String(bodyHtml || '');
         return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
             `<base target="_blank">` +
-            `<style>html,body{margin:0;padding:0;background:#121212;}${imagesCss}</style>` +
-            `</head><body>${safeBody}</body></html>`;
+            `<style>html,body{margin:0;padding:0;background:#0b0e14;}${imagesCss}</style>` +
+            `</head><body>${raw}</body></html>`;
     }
 
     function renderVisualPreview(html) {
@@ -2929,5 +3041,214 @@ if (document.readyState === 'loading') {
 } else {
     initManagementCommercialOfferEmailPage();
 }
+</script>
+
+<script>
+// CP revamp 2026-06: link-to-client, process outcome, send-test, my-contacts.
+(function () {
+    function init() {
+        var urlsEl = document.getElementById('offer-cp-urls');
+        if (!urlsEl) return;
+        var URLS = {};
+        try { URLS = JSON.parse(urlsEl.textContent || '{}'); } catch (e) { return; }
+
+        function csrf() {
+            var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+            return m ? decodeURIComponent(m[1]) : '';
+        }
+        function post(url, data) {
+            var body = new URLSearchParams();
+            Object.keys(data || {}).forEach(function (k) {
+                if (data[k] !== undefined && data[k] !== null) body.append(k, data[k]);
+            });
+            return fetch(url, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
+                body: body,
+                credentials: 'same-origin',
+            }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, data: j }; }); });
+        }
+        function openModal(id) { var m = document.getElementById(id); if (m) m.classList.add('show'); }
+        function closeModal(id) { var m = document.getElementById(id); if (m) m.classList.remove('show'); }
+
+        // --- Link to client ---
+        var linkLogId = document.getElementById('offer-cp-link-log-id');
+        var linkSearch = document.getElementById('offer-cp-link-search');
+        var linkResults = document.getElementById('offer-cp-link-results');
+        var linkMsg = document.getElementById('offer-cp-link-msg');
+
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('.offer-cp-link-btn');
+            if (btn) {
+                if (linkLogId) linkLogId.value = btn.getAttribute('data-log-id') || '';
+                if (linkMsg) linkMsg.textContent = '';
+                if (linkResults) linkResults.innerHTML = '';
+                if (linkSearch) linkSearch.value = '';
+                var row = btn.closest('.offer-log-actions');
+                var newShop = document.getElementById('offer-cp-link-new-shop');
+                if (row && newShop) newShop.value = row.getAttribute('data-recipient-name') || '';
+                openModal('offer-cp-link-modal');
+                return;
+            }
+            var procBtn = e.target.closest('.offer-cp-process-btn');
+            if (procBtn) {
+                var pid = document.getElementById('offer-cp-process-log-id');
+                if (pid) pid.value = procBtn.getAttribute('data-log-id') || '';
+                var sel = document.getElementById('offer-cp-process-outcome');
+                if (sel) sel.value = procBtn.getAttribute('data-outcome') || '';
+                var pmsg = document.getElementById('offer-cp-process-msg');
+                if (pmsg) pmsg.textContent = '';
+                openModal('offer-cp-process-modal');
+                return;
+            }
+        });
+
+        var searchTimer = null;
+        if (linkSearch) {
+            linkSearch.addEventListener('input', function () {
+                clearTimeout(searchTimer);
+                var q = linkSearch.value.trim();
+                if (q.length < 2) { if (linkResults) linkResults.innerHTML = ''; return; }
+                searchTimer = setTimeout(function () {
+                    fetch(URLS.search + '?q=' + encodeURIComponent(q), { credentials: 'same-origin' })
+                        .then(function (r) { return r.json(); })
+                        .then(function (j) {
+                            if (!linkResults) return;
+                            linkResults.innerHTML = '';
+                            (j.results || []).forEach(function (c) {
+                                var b = document.createElement('button');
+                                b.type = 'button';
+                                b.className = 'offer-cp-link-result';
+                                b.textContent = c.shop_name + ' · ' + (c.phone || '') + (c.full_name ? ' · ' + c.full_name : '');
+                                b.addEventListener('click', function () { doLink({ log_id: linkLogId.value, client_id: c.id }); });
+                                linkResults.appendChild(b);
+                            });
+                            if (!(j.results || []).length) linkResults.innerHTML = '<div class="offer-cp-link-empty">Нічого не знайдено</div>';
+                        });
+                }, 250);
+            });
+        }
+
+        function doLink(payload) {
+            if (linkMsg) linkMsg.textContent = 'Зберігаю…';
+            post(URLS.link, payload).then(function (res) {
+                if (res.ok && res.data.ok) {
+                    if (linkMsg) linkMsg.textContent = 'Привʼязано ✓';
+                    setTimeout(function () { window.location.reload(); }, 600);
+                } else {
+                    if (linkMsg) linkMsg.textContent = (res.data && res.data.message) || 'Помилка привʼязки';
+                }
+            }).catch(function () { if (linkMsg) linkMsg.textContent = 'Помилка мережі'; });
+        }
+
+        var linkCreate = document.getElementById('offer-cp-link-create');
+        if (linkCreate) linkCreate.addEventListener('click', function () {
+            doLink({
+                log_id: linkLogId ? linkLogId.value : '',
+                new_shop_name: (document.getElementById('offer-cp-link-new-shop') || {}).value || '',
+                new_phone: (document.getElementById('offer-cp-link-new-phone') || {}).value || '',
+                new_full_name: (document.getElementById('offer-cp-link-new-name') || {}).value || '',
+            });
+        });
+        ['offer-cp-link-close', 'offer-cp-link-cancel'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.addEventListener('click', function () { closeModal('offer-cp-link-modal'); });
+        });
+
+        // --- Process outcome ---
+        var procSave = document.getElementById('offer-cp-process-save');
+        if (procSave) procSave.addEventListener('click', function () {
+            var msg = document.getElementById('offer-cp-process-msg');
+            if (msg) msg.textContent = 'Зберігаю…';
+            post(URLS.process, {
+                log_id: (document.getElementById('offer-cp-process-log-id') || {}).value || '',
+                response_outcome: (document.getElementById('offer-cp-process-outcome') || {}).value || '',
+                response_note: (document.getElementById('offer-cp-process-note') || {}).value || '',
+                next_call_at: (document.getElementById('offer-cp-process-next') || {}).value || '',
+            }).then(function (res) {
+                if (res.ok && res.data.ok) {
+                    if (msg) msg.textContent = 'Збережено ✓';
+                    setTimeout(function () { window.location.reload(); }, 600);
+                } else {
+                    if (msg) msg.textContent = 'Помилка збереження';
+                }
+            }).catch(function () { if (msg) msg.textContent = 'Помилка мережі'; });
+        });
+        ['offer-cp-process-close', 'offer-cp-process-cancel'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.addEventListener('click', function () { closeModal('offer-cp-process-modal'); });
+        });
+
+        // --- Send test to self ---
+        var sendTest = document.getElementById('offer-send-test');
+        if (sendTest) sendTest.addEventListener('click', function () {
+            var form = document.getElementById('offer-form');
+            if (!form) return;
+            var orig = sendTest.textContent;
+            sendTest.disabled = true; sendTest.textContent = 'Надсилаю…';
+            var fd = new FormData(form);
+            fetch(URLS.sendTest, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
+                body: fd, credentials: 'same-origin',
+            }).then(function (r) { return r.json(); }).then(function (j) {
+                sendTest.disabled = false;
+                sendTest.textContent = (j && j.ok) ? ('Надіслано на ' + (j.to || 'ваш email')) : ((j && j.message) || 'Помилка');
+                setTimeout(function () { sendTest.textContent = orig; }, 3000);
+            }).catch(function () { sendTest.disabled = false; sendTest.textContent = 'Помилка'; setTimeout(function () { sendTest.textContent = orig; }, 3000); });
+        });
+
+        // --- My contacts ---
+        var myContacts = document.getElementById('offer-my-contacts');
+        if (myContacts) myContacts.addEventListener('click', function () {
+            var name = myContacts.getAttribute('data-manager-name') || '';
+            var phone = myContacts.getAttribute('data-manager-phone') || '';
+            var showM = document.getElementById('show_manager');
+            if (showM && !showM.checked) { showM.checked = true; showM.dispatchEvent(new Event('change', { bubbles: true })); }
+            var nameEl = document.getElementById('manager_name');
+            if (nameEl && name) { nameEl.value = name; nameEl.dispatchEvent(new Event('input', { bubbles: true })); }
+            if (phone) {
+                var phEnabled = document.getElementById('phone_enabled');
+                if (phEnabled && !phEnabled.checked) { phEnabled.checked = true; phEnabled.dispatchEvent(new Event('change', { bubbles: true })); }
+                var phEl = document.getElementById('phone');
+                if (phEl) { phEl.value = phone; phEl.dispatchEvent(new Event('input', { bubbles: true })); }
+            }
+        });
+
+        // --- Draft autosave (localStorage), excluding recipient_email ---
+        try {
+            var form = document.getElementById('offer-form');
+            if (form) {
+                var KEY = 'twc_cp_draft_v1';
+                var saved = localStorage.getItem(KEY);
+                if (saved) {
+                    var data = JSON.parse(saved);
+                    Object.keys(data).forEach(function (k) {
+                        if (k === 'recipient_email') return;
+                        var el = form.elements[k];
+                        if (!el) return;
+                        if (el.type === 'checkbox') el.checked = !!data[k];
+                        else el.value = data[k];
+                    });
+                }
+                var saveTimer = null;
+                form.addEventListener('input', function () {
+                    clearTimeout(saveTimer);
+                    saveTimer = setTimeout(function () {
+                        var out = {};
+                        Array.prototype.forEach.call(form.elements, function (el) {
+                            if (!el.name || el.name === 'recipient_email' || el.name === 'csrfmiddlewaretoken') return;
+                            out[el.name] = el.type === 'checkbox' ? el.checked : el.value;
+                        });
+                        try { localStorage.setItem(KEY, JSON.stringify(out)); } catch (e) {}
+                    }, 600);
+                });
+                form.addEventListener('submit', function () { try { localStorage.removeItem(KEY); } catch (e) {} });
+            }
+        } catch (e) {}
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+    else init();
+})();
 </script>
 {% endblock %}
