@@ -11,36 +11,95 @@ from typing import Iterable
 from warehouse.models import Print, StockItem, StorageCategory
 
 
-def find_stock_items_for_order_item(order_item) -> list[StockItem]:
-    """Повертає список StockItem, які потенційно підходять для OrderItem.
+_STOCK_ORDER = (
+    "subcategory__category__order",
+    "subcategory__order",
+    "subcategory__name",
+    "color__name",
+    "size",
+)
 
-    Логіка матчингу:
-    - storefront.Category з товару → StorageCategory.linked_storefront_category
-    - size з OrderItem.size
-    - color з OrderItem.color_variant.color (якщо є)
+
+def all_active_stock_items() -> list[StockItem]:
+    """Усі активні складські позиції (для повного вибору під час списання).
+
+    Використовується, щоб оператор завжди міг обрати потрібний крій/колір/розмір
+    вручну, навіть якщо авто-матчинг не дав точного збігу.
     """
-    storefront_category = getattr(order_item.product, "category", None)
-    if storefront_category is None:
-        return []
+    return list(
+        StockItem.objects.select_related("subcategory__category", "color")
+        .filter(subcategory__is_active=True, subcategory__category__is_active=True)
+        .order_by(*_STOCK_ORDER)
+    )
 
-    queryset = StockItem.objects.select_related(
-        "subcategory__category",
-        "color",
-    ).filter(
-        subcategory__category__linked_storefront_category=storefront_category,
+
+def group_stock_items_by_category(items) -> list[dict]:
+    """Групує StockItem'и за складською категорією для <optgroup> у формі списання."""
+    groups: list[dict] = []
+    index: dict[int, dict] = {}
+    for it in items:
+        cat = it.subcategory.category
+        bucket = index.get(cat.id)
+        if bucket is None:
+            bucket = {"category_id": cat.id, "category_name": cat.name, "items": []}
+            index[cat.id] = bucket
+            groups.append(bucket)
+        bucket["items"].append(it)
+    return groups
+
+
+def find_stock_items_for_order_item(order_item) -> list[StockItem]:
+    """Повертає список StockItem, що найкраще підходять для OrderItem.
+
+    Каскадний (graceful) матчинг — повертає перший непорожній рівень:
+    1. категорія(прив'язка) + розмір + колір — точний збіг;
+    2. категорія + розмір;
+    3. категорія + колір;
+    4. лише категорія;
+    і якщо ``linked_storefront_category`` ніде не задано (категорії не
+    прив'язані) — той самий каскад, але вже по всьому складу, щоб оператор
+    усе одно отримав осмислений дефолт замість порожнечі.
+
+    Повний перелік для ручного вибору дає :func:`all_active_stock_items`.
+    """
+    base = StockItem.objects.select_related("subcategory__category", "color").filter(
         subcategory__is_active=True,
         subcategory__category__is_active=True,
     )
 
+    storefront_category = getattr(order_item.product, "category", None)
+    category_qs = base
+    if storefront_category is not None:
+        linked = base.filter(
+            subcategory__category__linked_storefront_category=storefront_category
+        )
+        # Звужуємо до прив'язаної категорії лише якщо там реально щось є.
+        if linked.exists():
+            category_qs = linked
+
     size = (order_item.size or "").strip()
-    if size:
-        queryset = queryset.filter(size__iexact=size)
-
     color_variant = getattr(order_item, "color_variant", None)
-    if color_variant and color_variant.color_id:
-        queryset = queryset.filter(color_id=color_variant.color_id)
+    color_id = (
+        color_variant.color_id if (color_variant and color_variant.color_id) else None
+    )
 
-    return list(queryset.order_by("subcategory__order", "subcategory__name"))
+    def _apply(qs, *, use_size: bool, use_color: bool):
+        if use_size and size:
+            qs = qs.filter(size__iexact=size)
+        if use_color and color_id:
+            qs = qs.filter(color_id=color_id)
+        return list(qs.order_by(*_STOCK_ORDER))
+
+    for use_size, use_color in (
+        (True, True),
+        (True, False),
+        (False, True),
+        (False, False),
+    ):
+        result = _apply(category_qs, use_size=use_size, use_color=use_color)
+        if result:
+            return result
+    return []
 
 
 def find_default_print_for_order_item(order_item) -> Print | None:

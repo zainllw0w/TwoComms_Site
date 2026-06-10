@@ -15,7 +15,9 @@ from warehouse.models import (
     StorageSubcategory,
 )
 from warehouse.services.matching import (
+    all_active_stock_items,
     find_stock_items_for_order_item,
+    group_stock_items_by_category,
     stock_matrix_for_category,
 )
 
@@ -91,12 +93,29 @@ class MatchingTests(TestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].size, "L")
 
-    def test_no_match_if_no_link(self):
-        # remove link
+    def test_no_match_if_no_link_falls_back_to_all(self):
+        # Прибираємо прив'язку категорії — раніше повертало [].
+        # Тепер graceful-каскад має повернути позиції з усього складу
+        # (розмір M + чорний), щоб оператор не лишався без вибору.
         self.wh_cat.linked_storefront_category = None
         self.wh_cat.save()
         results = find_stock_items_for_order_item(self.item)
-        self.assertEqual(results, [])
+        self.assertTrue(results, "graceful matching повинен повертати кандидатів навіть без прив'язки")
+        # Усі мають бути M + чорний.
+        for r in results:
+            self.assertEqual(r.size, "M")
+            self.assertEqual(r.color_id, self.color.id)
+
+    def test_all_active_stock_items_returns_everything(self):
+        items = all_active_stock_items()
+        # 3 створені позиції в setUp.
+        self.assertEqual(len(items), 3)
+
+    def test_group_stock_items_by_category(self):
+        groups = group_stock_items_by_category(all_active_stock_items())
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(groups[0]["category_name"], "Футболки")
+        self.assertEqual(len(groups[0]["items"]), 3)
 
     def test_stock_matrix(self):
         matrix = stock_matrix_for_category(self.wh_cat)

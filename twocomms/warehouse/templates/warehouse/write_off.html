@@ -54,16 +54,22 @@
             <div class="form-field">
                 <select name="item_{{ row.item.id }}_stock_id">
                     <option value="">— не списувати одяг —</option>
-                    {% for stock in row.candidates %}
-                    <option value="{{ stock.id }}"
-                            {% if stock.quantity == 0 %}disabled{% endif %}
-                            {% if row.default_stock_id == stock.id %}selected{% endif %}>
-                        {{ stock.subcategory.name }} · {{ stock.color_display }} · {{ stock.size }} (наявно: {{ stock.quantity }})
-                    </option>
+                    {% for group in all_stock_groups %}
+                    <optgroup label="{{ group.category_name }}">
+                        {% for stock in group.items %}
+                        <option value="{{ stock.id }}"
+                                {% if stock.quantity == 0 %}disabled{% endif %}
+                                {% if row.default_stock_id == stock.id %}selected{% endif %}>
+                            {{ stock.subcategory.name }} · {{ stock.color_display }} · {{ stock.size }} (наявно: {{ stock.quantity }})
+                        </option>
+                        {% endfor %}
+                    </optgroup>
                     {% endfor %}
                 </select>
-                {% if not row.candidates %}
-                <span class="form-help text-danger">Немає відповідної позиції на складі (розмір/колір/категорія).</span>
+                {% if not all_stock_groups %}
+                <span class="form-help text-danger">На складі ще немає жодної позиції одягу. Додайте позиції у відповідній категорії.</span>
+                {% elif not row.candidates %}
+                <span class="form-help text-muted">Авто-збіг не знайдено (розмір/колір/категорія) — оберіть потрібний крій вручну зі списку вище.</span>
                 {% endif %}
             </div>
             <div class="wh-wo-stepper" data-stepper>

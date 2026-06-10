@@ -5,6 +5,7 @@ import uuid
 from decimal import Decimal
 
 from django.contrib import messages
+from django.db import transaction
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -23,8 +24,10 @@ from warehouse.services.inventory import (
     adjust_stock_item,
 )
 from warehouse.services.matching import (
+    all_active_stock_items,
     find_prints_for_order_item,
     find_stock_items_for_order_item,
+    group_stock_items_by_category,
 )
 
 
@@ -82,6 +85,9 @@ def write_off_entry(request, token):
 
     rows = []
     total_prints_linked = 0
+    # Повний перелік складу — щоб у кожному рядку був вибір БУДЬ-ЯКОЇ одежі,
+    # навіть якщо авто-матчинг не дав збігу (вимога: «відкривати всі списки одягу»).
+    all_stock_groups = group_stock_items_by_category(all_active_stock_items())
     for item in order.items.select_related("product", "color_variant__color").all():
         candidates = find_stock_items_for_order_item(item)
         print_rows = _build_print_rows(item)
@@ -90,13 +96,17 @@ def write_off_entry(request, token):
         default_stock_id = None
         if len(candidates) == 1:
             default_stock_id = candidates[0].id
-        else:
+        elif candidates:
             default_sub = next(
                 (c for c in candidates if c.subcategory.is_default and c.quantity > 0),
                 None,
             )
             if default_sub:
                 default_stock_id = default_sub.id
+            else:
+                # перший кандидат із залишком, інакше просто перший
+                in_stock = next((c for c in candidates if c.quantity > 0), None)
+                default_stock_id = (in_stock or candidates[0]).id
         rows.append(
             {
                 "item": item,
@@ -110,11 +120,31 @@ def write_off_entry(request, token):
         "wo_request": wo_request,
         "order": order,
         "rows": rows,
+        "all_stock_groups": all_stock_groups,
         "total_prints_linked": total_prints_linked,
         "completed": wo_request.status == WriteOffRequest.STATUS_COMPLETED,
         "active_section": "write_off",
     }
     return render(request, "warehouse/write_off.html", context)
+
+
+def _notify_order_writeoff(order):
+    """Best-effort: оновлює вихідне Telegram-повідомлення замовлення після списання.
+
+    Редагування — це stateless-виклик ``editMessageText`` через основного бота
+    замовлень (не тримаємо окремий процес/polling). Жодних винятків назовні:
+    списання вже збережено в БД, повідомлення — вторинне.
+    """
+    try:
+        from orders.telegram_notifications import telegram_notifier
+
+        telegram_notifier.update_order_notification_message(order)
+    except Exception:  # pragma: no cover - мережеві/конфіг помилки не блокують списання
+        pass
+
+
+class _WriteOffAbort(Exception):
+    """Внутрішній сигнал відкату транзакції при помилках залишку."""
 
 
 @warehouse_admin_required
@@ -133,86 +163,106 @@ def write_off_submit(request, token):
     order = wo_request.order
     actions = []
     errors = []
+    completed = False
 
-    for item in order.items.all():
-        prefix = f"item_{item.pk}_"
+    try:
+        with transaction.atomic():
+            for item in order.items.all():
+                prefix = f"item_{item.pk}_"
 
-        # --- Одяг ---
-        stock_id_raw = request.POST.get(prefix + "stock_id") or ""
-        try:
-            garment_qty = int(request.POST.get(prefix + "qty") or "0")
-        except ValueError:
-            garment_qty = 0
-        if stock_id_raw and stock_id_raw.isdigit() and garment_qty > 0:
-            try:
-                stock_item = StockItem.objects.get(pk=int(stock_id_raw))
-            except StockItem.DoesNotExist:
-                stock_item = None
-            if stock_item is not None:
+                # --- Одяг ---
+                stock_id_raw = request.POST.get(prefix + "stock_id") or ""
                 try:
-                    adjust_stock_item(
-                        stock_item=stock_item,
-                        delta=-garment_qty,
-                        user=request.user,
-                        reason=MovementReason.ORDER_WRITE_OFF,
-                        comment=f"Замовлення #{order.order_number}",
-                        order=order,
-                        write_off_request=wo_request,
-                    )
-                    actions.append(
-                        f"одяг {stock_item.subcategory.name} {stock_item.size} ×{garment_qty}"
-                    )
-                except ValueError as exc:
-                    errors.append(f"одяг {stock_item.subcategory.name}: {exc}")
+                    garment_qty = int(request.POST.get(prefix + "qty") or "0")
+                except ValueError:
+                    garment_qty = 0
+                if stock_id_raw and stock_id_raw.isdigit() and garment_qty > 0:
+                    try:
+                        stock_item = StockItem.objects.get(pk=int(stock_id_raw))
+                    except StockItem.DoesNotExist:
+                        stock_item = None
+                    if stock_item is not None:
+                        try:
+                            adjust_stock_item(
+                                stock_item=stock_item,
+                                delta=-garment_qty,
+                                user=request.user,
+                                reason=MovementReason.ORDER_WRITE_OFF,
+                                comment=f"Замовлення #{order.order_number}",
+                                order=order,
+                                write_off_request=wo_request,
+                            )
+                            actions.append(
+                                f"одяг {stock_item.subcategory.name} {stock_item.size} ×{garment_qty}"
+                            )
+                        except ValueError as exc:
+                            errors.append(f"одяг {stock_item.subcategory.name}: {exc}")
 
-        # --- Принти (декілька на виріб) ---
-        # Формат: чекбокс name="item_{id}_print_on" value="{variant_id}",
-        # кількість name="item_{id}_print_qty_{variant_id}".
-        selected_variant_ids = request.POST.getlist(prefix + "print_on")
-        for vid_raw in selected_variant_ids:
-            if not str(vid_raw).isdigit():
-                continue
-            try:
-                qty = int(request.POST.get(f"{prefix}print_qty_{vid_raw}") or "0")
-            except ValueError:
-                qty = 0
-            if qty <= 0:
-                continue
-            try:
-                variant = PrintColorVariant.objects.select_related("print").get(pk=int(vid_raw))
-            except PrintColorVariant.DoesNotExist:
-                continue
-            try:
-                adjust_print_variant(
-                    variant=variant,
-                    delta=-qty,
-                    user=request.user,
-                    reason=MovementReason.PRINT_REMOVE,
-                    comment=f"Замовлення #{order.order_number} · {item.title}",
+                # --- Принти (декілька на виріб) ---
+                # Формат: чекбокс name="item_{id}_print_on" value="{variant_id}",
+                # кількість name="item_{id}_print_qty_{variant_id}".
+                selected_variant_ids = request.POST.getlist(prefix + "print_on")
+                for vid_raw in selected_variant_ids:
+                    if not str(vid_raw).isdigit():
+                        continue
+                    try:
+                        qty = int(request.POST.get(f"{prefix}print_qty_{vid_raw}") or "0")
+                    except ValueError:
+                        qty = 0
+                    if qty <= 0:
+                        continue
+                    try:
+                        variant = PrintColorVariant.objects.select_related("print").get(pk=int(vid_raw))
+                    except PrintColorVariant.DoesNotExist:
+                        continue
+                    try:
+                        adjust_print_variant(
+                            variant=variant,
+                            delta=-qty,
+                            user=request.user,
+                            reason=MovementReason.PRINT_REMOVE,
+                            comment=f"Замовлення #{order.order_number} · {item.title}",
+                        )
+                        placement = variant.print.get_placement_display() if variant.print.placement else ""
+                        label = f"{variant.print.name}"
+                        if placement:
+                            label += f" ({placement})"
+                        actions.append(f"принт {label}/{variant.color_name} ×{qty}")
+                    except ValueError as exc:
+                        errors.append(f"принт {variant.print.name}: {exc}")
+
+            # Якщо є помилки залишку — відкочуємо ВСЕ (без часткових списань,
+            # щоб повторний сабміт не задублював успішні позиції).
+            if errors:
+                raise _WriteOffAbort()
+
+            if actions:
+                wo_request.status = WriteOffRequest.STATUS_COMPLETED
+                wo_request.completed_at = timezone.now()
+                wo_request.completed_by = request.user
+                wo_request.save(
+                    update_fields=["status", "completed_at", "completed_by", "updated_at"]
                 )
-                placement = variant.print.get_placement_display() if variant.print.placement else ""
-                label = f"{variant.print.name}"
-                if placement:
-                    label += f" ({placement})"
-                actions.append(f"принт {label}/{variant.color_name} ×{qty}")
-            except ValueError as exc:
-                errors.append(f"принт {variant.print.name}: {exc}")
-
-    # Завершуємо тільки якщо щось списано і немає блокуючих помилок залишку.
-    if actions and not errors:
-        wo_request.status = WriteOffRequest.STATUS_COMPLETED
-        wo_request.completed_at = timezone.now()
-        wo_request.completed_by = request.user
-        wo_request.save(update_fields=["status", "completed_at", "completed_by", "updated_at"])
+                completed = True
+    except _WriteOffAbort:
+        # Транзакцію відкочено: actions фактично не застосовано.
+        actions = []
 
     for err in errors:
         messages.error(request, f"Помилка списання: {err}")
-    if actions:
-        messages.success(request, "Списано: " + ", ".join(actions))
-    elif not errors:
-        messages.info(request, "Жодних позицій не списано (всі поля пусті).")
 
-    if errors and not actions:
-        # Лишаємо на сторінці, щоб виправити.
+    if completed:
+        # Оновлюємо вихідне повідомлення в Telegram (поза транзакцією,
+        # після коміту — щоб мережеві затримки не тримали блокування БД).
+        _notify_order_writeoff(order)
+        messages.success(request, "Списано: " + ", ".join(actions))
+        # Повертаємось на сторінку списання — вона покаже банер «вже списано».
+        # Це легша відповідь, ніж важкий дашборд (захист від таймауту/503).
         return redirect("warehouse:write_off", token=wo_request.token)
-    return redirect("warehouse:dashboard")
+
+    if errors:
+        # Лишаємо на сторінці, щоб виправити кількість.
+        return redirect("warehouse:write_off", token=wo_request.token)
+
+    messages.info(request, "Жодних позицій не списано (всі поля пусті).")
+    return redirect("warehouse:write_off", token=wo_request.token)

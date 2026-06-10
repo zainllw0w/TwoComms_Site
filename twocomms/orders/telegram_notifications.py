@@ -539,7 +539,49 @@ class TelegramNotifier:
         if prints_block:
             message += prints_block
 
+        writeoff_block = self._build_writeoff_status(order)
+        if writeoff_block:
+            message += writeoff_block
+
         return message
+
+    def _build_writeoff_status(self, order):
+        """Блок «✅ Списано зі складу» — показує, що по замовленню вже зроблено списання.
+
+        Безпечно: якщо warehouse недоступний або списання не було — повертає ''.
+        Саме цей блок змінює вихідне повідомлення після успішного списання.
+        """
+        try:
+            from warehouse.models import WriteOffRequest
+        except Exception:
+            return ""
+        try:
+            wo = (
+                order.warehouse_write_off_requests.filter(
+                    status=WriteOffRequest.STATUS_COMPLETED
+                )
+                .order_by("-completed_at")
+                .first()
+            )
+            if not wo:
+                return ""
+            when = ""
+            if wo.completed_at:
+                when = timezone.localtime(wo.completed_at).strftime("%d.%m.%Y %H:%M")
+            lines = []
+            for mv in wo.movements.all():
+                target = mv.target
+                name = str(target) if target is not None else "—"
+                lines.append(f"• {abs(mv.delta)}× {name}")
+            header = f"\n\n✅ <b>Списано зі складу</b>"
+            if when:
+                header += f" · {when}"
+            header += "\n"
+            if lines:
+                return header + "\n".join(lines)
+            return header + "—"
+        except Exception:
+            return ""
 
     def _build_prints_summary(self, order):
         """Блок «🎨 Принти для списання» — перелік прив'язаних принтів за позиціями.
@@ -577,12 +619,22 @@ class TelegramNotifier:
         """Кнопка «Списати зі складу» — веде на storage субдомен з UUID-токеном.
 
         Повертає dict (рядок inline-кнопок) або None якщо warehouse-app
-        недоступний/неактивний.
+        недоступний/неактивний, або замовлення вже списано зі складу.
         """
         try:
+            from warehouse.models import WriteOffRequest
             from warehouse.services.order_links import build_storage_writeoff_url
         except Exception:
             return None
+        # Якщо вже є завершене списання — не показуємо кнопку і НЕ створюємо
+        # новий pending-запит (інакше кожен edit плодив би нові токени).
+        try:
+            if order.warehouse_write_off_requests.filter(
+                status=WriteOffRequest.STATUS_COMPLETED
+            ).exists():
+                return None
+        except Exception:
+            pass
         try:
             writeoff_url = build_storage_writeoff_url(order)
         except Exception:
