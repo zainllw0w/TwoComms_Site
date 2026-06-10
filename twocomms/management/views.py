@@ -31,12 +31,15 @@ from io import BytesIO
 import base64
 import os
 import secrets
+import uuid
+import uuid
 
 from docx import Document
 
-from .forms import CommercialOfferEmailForm
+from .forms import CommercialOfferEmailForm, CommercialOfferEmailPreviewForm
 from .models import (
     Client,
+    ClientCPLink,
     ClientFollowUp,
     ClientInteractionAttempt,
     CommercialOfferEmailLog,
@@ -6117,6 +6120,8 @@ def commercial_offer_email(request):
                     "gallery_urls": settings_obj.gallery_edgy if settings_obj.segment_mode == "EDGY" else settings_obj.gallery_neutral,
                     "manager_photo_url": _manager_photo_url(request.user, request) if settings_obj.show_manager else "",
                 }
+                offer_track_token = uuid.uuid4()
+                payload["track_token"] = str(offer_track_token)
                 email_build = build_twocomms_cp_email(payload)
                 subject = email_build["subject"]
                 preheader = email_build["preheader"]
@@ -6145,14 +6150,14 @@ def commercial_offer_email(request):
 
                 CommercialOfferEmailLog.objects.create(
                     owner=request.user,
+                    track_token=offer_track_token,
                     recipient_email=recipient_email,
                     recipient_name=(cd.get("recipient_name") or "").strip(),
                     subject=subject,
                     preheader=preheader,
                     body_html=html_body_to_send,
                     body_text=text_body,
-                    mode=settings_obj.mode,
-                    segment_mode=settings_obj.segment_mode,
+                    mode=settings_obj.mode,                    segment_mode=settings_obj.segment_mode,
                     subject_preset=settings_obj.subject_preset,
                     subject_custom=settings_obj.subject_custom,
                     cta_type=email_build.get("cta_type") or settings_obj.cta_type,
@@ -6773,6 +6778,8 @@ def commercial_offer_email_send_api(request):
         "gallery_urls": settings_obj.gallery_edgy if settings_obj.segment_mode == "EDGY" else settings_obj.gallery_neutral,
         "manager_photo_url": _manager_photo_url(request.user, request) if settings_obj.show_manager else "",
     }
+    offer_track_token = uuid.uuid4()
+    payload["track_token"] = str(offer_track_token)
     email_build = build_twocomms_cp_email(payload)
     subject = email_build["subject"]
     preheader = email_build["preheader"]
@@ -6800,6 +6807,7 @@ def commercial_offer_email_send_api(request):
 
     log = CommercialOfferEmailLog.objects.create(
         owner=request.user,
+        track_token=offer_track_token,
         recipient_email=recipient_email,
         recipient_name=(cd.get("recipient_name") or "").strip(),
         subject=subject,
@@ -7651,3 +7659,266 @@ def admin_payout_adjust_api(request):
     )
 
     return JsonResponse({'ok': True})
+
+
+# ===========================================================================
+# Commercial offer revamp 2026-06: send-test, products picker, tracking, linking
+# ===========================================================================
+
+# 1x1 transparent PNG used by the open-tracking pixel.
+_CP_TRACKING_PIXEL = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+)
+_CP_CLICK_SALT = "cp.click"
+
+
+def cp_sign_click_url(url: str) -> str:
+    """Sign an outbound URL so the public click-redirect cannot be abused."""
+    return signing.dumps(url, salt=_CP_CLICK_SALT)
+
+
+@require_GET
+@csrf_exempt
+def cp_track_open(request, track_token):
+    """Public open-tracking pixel. Never raises, never leaks data."""
+    try:
+        log = CommercialOfferEmailLog.objects.filter(track_token=track_token).first()
+        if log is not None and log.opened_at is None:
+            log.opened_at = timezone.now()
+            log.save(update_fields=["opened_at"])
+    except Exception:
+        pass
+    resp = HttpResponse(_CP_TRACKING_PIXEL, content_type="image/png")
+    resp["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    return resp
+
+
+@require_GET
+@csrf_exempt
+def cp_track_click(request, track_token):
+    """Public click-redirect. Only redirects to signed URLs."""
+    site_base = getattr(settings, "SITE_BASE_URL", "https://twocomms.shop").rstrip("/") + "/"
+    target = site_base
+    signed = request.GET.get("u") or ""
+    if signed:
+        try:
+            target = signing.loads(signed, salt=_CP_CLICK_SALT)
+        except Exception:
+            target = site_base
+    try:
+        log = CommercialOfferEmailLog.objects.filter(track_token=track_token).first()
+        if log is not None:
+            log.click_count = (log.click_count or 0) + 1
+            if log.first_click_at is None:
+                log.first_click_at = timezone.now()
+            log.save(update_fields=["click_count", "first_click_at"])
+    except Exception:
+        pass
+    return redirect(target)
+
+
+@require_POST
+def commercial_offer_email_send_test_api(request):
+    """Send the current draft to the manager's own email (no log entry)."""
+    if not user_is_management(request.user):
+        return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+
+    to_email = (getattr(request.user, "email", "") or "").strip()
+    if not to_email:
+        return JsonResponse({"ok": False, "error": "no_email", "message": "У вашому профілі не вказано email."}, status=400)
+
+    form = CommercialOfferEmailPreviewForm(request.POST, user=request.user)
+    form.is_valid()  # preview form: email optional, ignore field errors for test
+    default_name = _default_manager_name(request.user)
+    payload = _offer_payload_from_form(form, default_name, {}, request)
+    payload["manager_photo_url"] = _manager_photo_url(request.user, request) if payload.get("show_manager") else ""
+
+    email_build = build_twocomms_cp_email(payload)
+    subject = "[ТЕСТ] " + email_build["subject"]
+    html_body = email_build["html"] if (payload.get("mode") or "VISUAL") == "VISUAL" else email_build["html_light"]
+
+    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None) or "TwoComms <cooperation@twocomms.shop>"
+    reply_to = [settings.EMAIL_HOST_USER] if getattr(settings, "EMAIL_HOST_USER", "") else None
+    try:
+        msg = EmailMultiAlternatives(subject=subject, body=email_build["text"], from_email=from_email, to=[to_email], reply_to=reply_to)
+        msg.attach_alternative(html_body, "text/html")
+        msg.send(fail_silently=False)
+    except Exception as exc:
+        return JsonResponse({"ok": False, "error": "send_failed", "message": str(exc)}, status=500)
+    return JsonResponse({"ok": True, "to": to_email})
+
+
+@require_GET
+def commercial_offer_email_products_api(request):
+    """Published products for the visual picker."""
+    if not user_is_management(request.user):
+        return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+    items = []
+    try:
+        from storefront.models import Product, ProductStatus
+
+        qs = (
+            Product.objects.select_related("category")
+            .filter(status=ProductStatus.PUBLISHED)
+            .order_by("-priority", "-id")[:36]
+        )
+        for p in qs:
+            img = getattr(p, "display_image", None)
+            img_url = ""
+            try:
+                img_url = request.build_absolute_uri(img.url) if img and getattr(img, "url", None) else ""
+            except Exception:
+                img_url = ""
+            if not img_url:
+                continue
+            items.append(
+                {
+                    "slug": p.slug,
+                    "title": (p.title or "")[:90],
+                    "img_url": img_url,
+                    "url": f"/product/{p.slug}/",
+                    "category": getattr(getattr(p, "category", None), "slug", "") or "",
+                }
+            )
+    except Exception:
+        items = []
+    return JsonResponse({"ok": True, "items": items})
+
+
+@require_GET
+def commercial_offer_client_search_api(request):
+    """Search existing clients by phone tail / shop name for linking."""
+    if not user_is_management(request.user):
+        return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+    q = (request.GET.get("q") or "").strip()
+    results = []
+    if q:
+        digits = re.sub(r"\D+", "", q)
+        qs = Client.objects.all()
+        if digits and len(digits) >= 4:
+            qs = qs.filter(Q(phone_last7__contains=digits[-7:]) | Q(shop_name__icontains=q))
+        else:
+            qs = qs.filter(shop_name__icontains=q)
+        for c in qs.order_by("-created_at")[:15]:
+            results.append(
+                {
+                    "id": c.id,
+                    "shop_name": c.shop_name,
+                    "phone": c.phone,
+                    "full_name": c.full_name,
+                }
+            )
+    return JsonResponse({"ok": True, "results": results})
+
+
+@require_POST
+def commercial_offer_link_client_api(request):
+    """Link a sent commercial offer to a client (existing or new). Idempotent."""
+    if not user_is_management(request.user):
+        return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+
+    try:
+        log_id = int(request.POST.get("log_id") or 0)
+    except (TypeError, ValueError):
+        log_id = 0
+    log = CommercialOfferEmailLog.objects.filter(id=log_id).first()
+    if not log:
+        return JsonResponse({"ok": False, "error": "log_not_found"}, status=404)
+
+    client_id = request.POST.get("client_id")
+    client = None
+    if client_id:
+        client = Client.objects.filter(id=client_id).first()
+        if not client:
+            return JsonResponse({"ok": False, "error": "client_not_found"}, status=404)
+    else:
+        shop_name = (request.POST.get("new_shop_name") or log.recipient_name or "").strip()
+        phone = (request.POST.get("new_phone") or "").strip()
+        full_name = (request.POST.get("new_full_name") or "").strip()
+        if not shop_name:
+            return JsonResponse({"ok": False, "error": "shop_name_required"}, status=400)
+        client = Client.objects.create(
+            shop_name=shop_name,
+            phone=phone or "—",
+            full_name=full_name or shop_name,
+            owner=request.user,
+            source="commercial_offer_email",
+            call_result=Client.CallResult.SENT_EMAIL,
+        )
+
+    with transaction.atomic():
+        if client.call_result != Client.CallResult.SENT_EMAIL:
+            client.call_result = Client.CallResult.SENT_EMAIL
+            client.save(update_fields=["call_result"])
+        attempt = ClientInteractionAttempt.objects.create(
+            client=client,
+            manager=request.user,
+            result=Client.CallResult.SENT_EMAIL,
+            cp_log=log,
+            details=f"Привʼязка КП (email {log.recipient_email})",
+        )
+        ClientCPLink.objects.get_or_create(
+            client=client,
+            cp_log=log,
+            defaults={"linked_by": request.user, "interaction": attempt},
+        )
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "client": {"id": client.id, "shop_name": client.shop_name, "phone": client.phone},
+        }
+    )
+
+
+@require_POST
+def commercial_offer_process_api(request):
+    """Record the recipient's response to a CP and optionally schedule a callback."""
+    if not user_is_management(request.user):
+        return JsonResponse({"ok": False, "error": "forbidden"}, status=403)
+
+    try:
+        log_id = int(request.POST.get("log_id") or 0)
+    except (TypeError, ValueError):
+        log_id = 0
+    log = CommercialOfferEmailLog.objects.filter(id=log_id).first()
+    if not log:
+        return JsonResponse({"ok": False, "error": "log_not_found"}, status=404)
+
+    outcome = (request.POST.get("response_outcome") or "").strip()
+    valid_outcomes = {c[0] for c in CommercialOfferEmailLog.ResponseOutcome.choices}
+    if outcome and outcome not in valid_outcomes:
+        outcome = ""
+    log.response_outcome = outcome
+    log.response_note = (request.POST.get("response_note") or "").strip()
+    log.save(update_fields=["response_outcome", "response_note"])
+
+    followup_created = False
+    next_call_raw = (request.POST.get("next_call_at") or "").strip()
+    if next_call_raw:
+        link = ClientCPLink.objects.filter(cp_log=log).select_related("client").first()
+        client = link.client if link else None
+        if client is not None:
+            due_at = None
+            for fmt in ("%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+                try:
+                    naive = datetime.strptime(next_call_raw, fmt)
+                    due_at = timezone.make_aware(naive, timezone.get_current_timezone())
+                    break
+                except ValueError:
+                    continue
+            if due_at is not None:
+                ClientFollowUp.objects.create(
+                    client=client,
+                    owner=request.user,
+                    due_at=due_at,
+                    due_date=timezone.localtime(due_at).date(),
+                    followup_kind=ClientFollowUp.Kind.CALLBACK,
+                    meta={"source": "cp", "cp_log_id": log.id},
+                )
+                if client.next_call_at is None or due_at < client.next_call_at:
+                    client.next_call_at = due_at
+                    client.save(update_fields=["next_call_at"])
+                followup_created = True
+
+    return JsonResponse({"ok": True, "outcome": outcome, "followup_created": followup_created})

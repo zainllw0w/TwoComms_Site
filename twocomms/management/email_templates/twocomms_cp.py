@@ -7,6 +7,7 @@ from typing import Any, Literal
 from urllib.parse import quote, urljoin, urlparse
 
 from django.conf import settings
+from django.core import signing
 from django.db.models import Q
 from django.template.loader import render_to_string
 from django.utils.html import escape
@@ -83,6 +84,27 @@ def _abs_url(path_or_url: str) -> str:
     if path_or_url.startswith(("http://", "https://")):
         return path_or_url
     return urljoin(_site_base_url(), path_or_url.lstrip("/"))
+
+
+def _management_base_url() -> str:
+    base = (getattr(settings, "MANAGEMENT_BASE_URL", "") or "https://management.twocomms.shop").strip()
+    return base.rstrip("/")
+
+
+def _cp_pixel_url(track_token: str) -> str:
+    token = (track_token or "").strip()
+    if not token:
+        return ""
+    return f"{_management_base_url()}/cp/o/{token}.png"
+
+
+def _cp_wrap_click(url: str, track_token: str) -> str:
+    """Wrap an outbound http(s) CTA into the signed click-redirect for tracking."""
+    token = (track_token or "").strip()
+    if not token or not url or not url.startswith(("http://", "https://")):
+        return url
+    signed = signing.dumps(url, salt="cp.click")
+    return f"{_management_base_url()}/cp/c/{token}/?u={quote(signed)}"
 
 
 def _fmt_uah(value: int | None) -> str:
@@ -924,13 +946,18 @@ def build_twocomms_cp_email(payload: dict[str, Any]) -> dict[str, Any]:
     if dropship_loyalty_bonus:
         why_us.append("Бонус для дропу: −10 грн до наступного замовлення після кожного.")
 
+    track_token = (payload.get("track_token") or "").strip()
+    tracking_pixel_url = _cp_pixel_url(track_token)
+    cta_url_tracked = _cp_wrap_click(cta_url, track_token)
+    cta_secondary_url_tracked = _cp_wrap_click(cta_secondary_url, track_token)
+
     template_context: dict[str, Any] = {
         "opt_grid": opt_grid,
         "trust_points": trust_points,
         "why_us": why_us,
-        "cta_secondary_url": cta_secondary_url,
+        "cta_secondary_url": cta_secondary_url_tracked,
         "cta_secondary_text": cta_secondary_text,
-        "tracking_pixel_url": (payload.get("tracking_pixel_url") or "").strip(),
+        "tracking_pixel_url": tracking_pixel_url,
         "shop_name": shop_name,
         "show_manager": show_manager,
         "manager_name": manager_name,
@@ -953,7 +980,7 @@ def build_twocomms_cp_email(payload: dict[str, Any]) -> dict[str, Any]:
         "subject": subject,
         "preheader": preheader,
         "cta_type": resolved_cta_type,
-        "cta_url": cta_url,
+        "cta_url": cta_url_tracked,
         "cta_button_text": cta_button_text,
         "cta_microtext": cta_microtext,
         "include_catalog_link": include_catalog_link,
