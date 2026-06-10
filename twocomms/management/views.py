@@ -32,7 +32,6 @@ import base64
 import os
 import secrets
 import uuid
-import uuid
 
 from docx import Document
 
@@ -6213,6 +6212,23 @@ def commercial_offer_email(request):
 
     logs = CommercialOfferEmailLog.objects.filter(owner=request.user).order_by("-created_at")[:30]
 
+    _cp_base = CommercialOfferEmailLog.objects.filter(owner=request.user)
+    try:
+        _cp_missed = ClientFollowUp.objects.filter(
+            owner=request.user,
+            status=ClientFollowUp.Status.MISSED,
+            meta__source="cp",
+        ).count()
+    except Exception:
+        _cp_missed = 0
+    cp_kpi = {
+        "sent": _cp_base.filter(status=CommercialOfferEmailLog.Status.SENT).count(),
+        "opened": _cp_base.filter(opened_at__isnull=False).count(),
+        "linked": _cp_base.filter(client_links__isnull=False).distinct().count(),
+        "ordered": _cp_base.filter(response_outcome="ordered").count(),
+        "missed": _cp_missed,
+    }
+
     gallery_neutral_json = "[]"
     gallery_edgy_json = "[]"
     try:
@@ -6237,6 +6253,7 @@ def commercial_offer_email(request):
             "preview_preheader": preview_preheader,
             "preview_mode": preview_payload.get("mode", "VISUAL"),
             "logs": logs,
+            "cp_kpi": cp_kpi,
             "sent_success": sent_success,
             "send_error": send_error,
             "gallery_neutral_json": gallery_neutral_json,
