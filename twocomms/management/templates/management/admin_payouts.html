@@ -102,7 +102,11 @@
                     <button type="button" class="apb-btn apb-btn--ok" data-act="approve" data-req="{{ p.active_request.id }}">Схвалити</button>
                     {% endif %}
                     <button type="button" class="apb-btn apb-btn--pay" data-act="paid" data-req="{{ p.active_request.id }}">Виплачено</button>
-                    <button type="button" class="apb-btn apb-btn--no" data-act="reject" data-req="{{ p.active_request.id }}">Відхилити</button>
+                    <button type="button" class="apb-btn apb-btn--no" data-act="reject-open">Відхилити</button>
+                </div>
+                <div class="apb-reject" hidden>
+                    <input type="text" data-reject-reason placeholder="Причина відмови (надійде менеджеру)" maxlength="500">
+                    <button type="button" class="apb-btn apb-btn--no" data-reject-confirm data-req="{{ p.active_request.id }}">Підтвердити відмову</button>
                 </div>
             </div>
             {% endif %}
@@ -263,12 +267,33 @@
             return;
         }
 
-        // Request actions (approve/reject/paid)
+        // Reveal reject reason input
+        const rejectOpen = e.target.closest('[data-act="reject-open"]');
+        if (rejectOpen && card) {
+            const box = card.querySelector('.apb-reject');
+            if (box) { box.hidden = !box.hidden; const inp = box.querySelector('[data-reject-reason]'); if (!box.hidden && inp) inp.focus(); }
+            return;
+        }
+
+        // Confirm reject with reason
+        const rejectConfirm = e.target.closest('[data-reject-confirm]');
+        if (rejectConfirm && card) {
+            const inp = card.querySelector('[data-reject-reason]');
+            const reason = (inp && inp.value || '').trim();
+            if (!reason) { alertCard(card, 'Вкажіть причину відмови — вона надійде менеджеру.', 'err'); if (inp) inp.focus(); return; }
+            rejectConfirm.disabled = true;
+            const { ok, data } = await post(URLS.req(rejectConfirm.dataset.req, 'reject'), { reason: reason });
+            if (ok) { alertCard(card, 'Запит відхилено, менеджера сповіщено.', 'ok'); reload(); }
+            else { alertCard(card, (data && data.error) || 'Помилка дії.', 'err'); rejectConfirm.disabled = false; }
+            return;
+        }
+
+        // Request actions (approve/paid)
         const reqBtn = e.target.closest('[data-act][data-req]');
-        if (reqBtn && card) {
+        if (reqBtn && card && (reqBtn.dataset.act === 'approve' || reqBtn.dataset.act === 'paid')) {
             const act = reqBtn.dataset.act;
             const id = reqBtn.dataset.req;
-            if (act === 'reject' && !confirm('Відхилити запит на виплату?')) return;
+            if (act === 'paid' && !confirm('Підтвердити, що винагороду виплачено менеджеру?')) return;
             reqBtn.disabled = true;
             const { ok, data } = await post(URLS.req(id, act), {});
             if (ok) { alertCard(card, 'Готово.', 'ok'); reload(); }

@@ -8693,6 +8693,9 @@ body[data-url-name="management_admin_payouts_board"] .content-area { box-sizing:
 .apb-card__request-info strong { color: var(--text-primary); }
 .apb-card__request-info span { color: var(--muted); margin-left: 4px; }
 .apb-card__request-btns { display: flex; gap: 7px; flex-wrap: wrap; }
+.apb-reject { display: flex; gap: 7px; margin-top: 8px; }
+.apb-reject input { flex: 1; min-width: 0; padding: 8px 11px; border-radius: 10px; border: 1px solid rgba(255,107,107,0.35); background: rgba(255,107,107,0.06); color: var(--text-primary); font-size: .84rem; }
+.apb-reject input:focus { outline: none; border-color: rgba(255,107,107,0.6); }
 .apb-btn { border: 1px solid var(--border); background: rgba(255,255,255,0.05); color: var(--text-primary); padding: 8px 13px; border-radius: 10px; font-weight: 800; font-size: .82rem; cursor: pointer; transition: transform .12s ease, filter .18s ease; }
 .apb-btn:hover { filter: brightness(1.12); }
 .apb-btn:active { transform: scale(.97); }
@@ -8734,3 +8737,41 @@ body[data-url-name="management_admin_payouts_board"] .content-area { box-sizing:
     .apb-head { flex-direction: column; align-items: stretch; }
     .apb-search { min-width: 0; }
 }
+
+
+/* === Bell in-app notifications (events) === */
+.notif-events { border-bottom: 1px solid var(--border); max-height: 320px; overflow-y: auto; }
+.notif-events__head { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px 6px; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--text-secondary); font-weight: 800; }
+.notif-events__readall { border: none; background: transparent; color: var(--accent); font-weight: 800; font-size: .72rem; cursor: pointer; }
+.notif-events__readall:hover { text-decoration: underline; }
+.notif-ev { display: flex; gap: 10px; padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.04); position: relative; }
+.notif-ev.is-unread { background: rgba(255,126,41,0.05); }
+.notif-ev.is-unread::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); }
+.notif-ev__ico { width: 30px; height: 30px; flex: 0 0 auto; border-radius: 9px; display: grid; place-items: center; background: rgba(255,255,255,0.05); border: 1px solid var(--border); position: relative; }
+.notif-ev__ico::after { content: "•"; font-size: 1rem; }
+.notif-ev__ico--payout::after { content: "₴"; font-weight: 900; color: var(--accent); }
+.notif-ev__ico--invoice::after { content: "🧾"; }
+.notif-ev__ico--contract::after { content: "📄"; }
+.notif-ev__ico--system::after { content: "•"; color: var(--text-secondary); }
+.notif-ev--success .notif-ev__ico { border-color: rgba(52,211,154,0.4); background: rgba(52,211,154,0.12); }
+.notif-ev--danger .notif-ev__ico { border-color: rgba(255,107,107,0.4); background: rgba(255,107,107,0.12); }
+.notif-ev--warning .notif-ev__ico { border-color: rgba(245,176,66,0.4); background: rgba(245,176,66,0.12); }
+.notif-ev__body { min-width: 0; flex: 1; }
+.notif-ev__title { font-size: .85rem; font-weight: 800; color: var(--text-primary); line-height: 1.3; }
+.notif-ev__text { font-size: .78rem; color: var(--text-secondary); margin-top: 3px; line-height: 1.4; }
+.notif-ev__time { font-size: .68rem; color: var(--muted); margin-top: 4px; }
+.notif-ev__done { flex: 0 0 auto; width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--border); background: rgba(255,255,255,0.04); color: var(--text-secondary); cursor: pointer; display: grid; place-items: center; align-self: center; }
+.notif-ev__done:hover { color: var(--accent); border-color: rgba(255,126,41,0.35); }
+.notif-ev__done svg { width: 15px; height: 15px; fill: currentColor; }
+
+
+/* === Payouts: pending banner + timeline hints === */
+.pf-pending { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(255,126,41,0.3); background: linear-gradient(135deg, rgba(255,126,41,0.12), rgba(255,255,255,0.02)); }
+.pf-pending[data-status="approved"] { border-color: rgba(52,211,154,0.3); background: linear-gradient(135deg, rgba(52,211,154,0.12), rgba(255,255,255,0.02)); }
+.pf-pending__spin { width: 22px; height: 22px; flex: 0 0 auto; border-radius: 50%; border: 2px solid rgba(255,126,41,0.3); border-top-color: var(--accent); animation: pfSpin 1s linear infinite; }
+.pf-pending[data-status="approved"] .pf-pending__spin { border-color: rgba(52,211,154,0.3); border-top-color: var(--pf-full); animation-duration: 1.6s; }
+.pf-pending__title { font-weight: 800; font-size: .88rem; color: var(--text-primary); }
+.pf-pending__text { font-size: .76rem; color: var(--text-secondary); margin-top: 3px; line-height: 1.45; }
+.pf-pending__text strong { color: var(--accent); }
+.pf-tl__dt { font-size: .72rem; color: var(--muted); font-weight: 600; margin-left: 8px; }
+.pf-tl__hint { font-size: .72rem; color: var(--text-secondary); }

@@ -2702,6 +2702,28 @@ def reminder_feed(request):
 
 @login_required(login_url='management_login')
 @require_POST
+def notification_read(request):
+    if not user_is_management(request.user):
+        return JsonResponse({'ok': False}, status=403)
+    from management.models import ManagerNotification
+    try:
+        body = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        body = {}
+    qs = ManagerNotification.objects.filter(user=request.user, is_read=False)
+    if body.get('all'):
+        qs.update(is_read=True)
+    else:
+        try:
+            nid = int(body.get('id'))
+        except Exception:
+            return JsonResponse({'ok': False, 'error': 'bad id'}, status=400)
+        qs.filter(id=nid).update(is_read=True)
+    return JsonResponse({'ok': True})
+
+
+@login_required(login_url='management_login')
+@require_POST
 def profile_update(request):
     if not user_is_management(request.user):
         return JsonResponse({'ok': False}, status=403)
@@ -3551,7 +3573,23 @@ def _admin_payout_keyboard(payout_req):
     return {'inline_keyboard': []}
 
 
-def _notify_manager_payout(payout_req, *, title, body_lines):
+def _notify_manager_payout(payout_req, *, title, body_lines, level='info'):
+    # In-app сповіщення (дзвіночок) — завжди, незалежно від Telegram
+    try:
+        import re as _re
+        from management.services.notify import push_inapp
+        _strip = lambda s: _re.sub(r'<[^>]+>', '', s or '')
+        push_inapp(
+            payout_req.owner,
+            kind='payout',
+            level=level,
+            title=_strip(title).strip() or 'Винагорода',
+            body=' '.join(_strip(x).strip() for x in (body_lines or []) if x),
+            amount=getattr(payout_req, 'amount', None),
+        )
+    except Exception:
+        pass
+
     try:
         manager = payout_req.owner
         profile = manager.userprofile
@@ -3840,9 +3878,10 @@ def management_bot_webhook(request, token):
 
                 _notify_manager_payout(
                     req,
-                    title='✅ <b>Виплату схвалено</b>',
+                    level='success',
+                    title='✅ <b>Винагороду схвалено</b>',
                     body_lines=[
-                        f"Сума: <b>{escape(str(req.amount))} грн</b>.",
+                        f"Сума винагороди за надані послуги: <b>{escape(str(req.amount))} грн</b>.",
                         f"Протягом 3 годин сума буде зарахована на картку <code>{escape(card_mask)}</code>.",
                     ],
                 )
@@ -3882,10 +3921,11 @@ def management_bot_webhook(request, token):
 
                 _notify_manager_payout(
                     req,
-                    title='💳 <b>Виплату здійснено</b>',
+                    level='success',
+                    title='💳 <b>Винагороду виплачено</b>',
                     body_lines=[
-                        f"Сума: <b>{escape(str(req.amount))} грн</b>.",
-                        f"Зачислено на карту <code>{escape(card_mask)}</code>.",
+                        f"Винагороду за надані послуги <b>{escape(str(req.amount))} грн</b> перераховано.",
+                        f"Зачислено на картку <code>{escape(card_mask)}</code>.",
                     ],
                 )
 
@@ -4175,7 +4215,8 @@ def management_bot_webhook(request, token):
                     _try_update_admin_payout_message(req, bot_token=bot_token, final=True)
                     _notify_manager_payout(
                         req,
-                        title='❌ <b>Виплату відхилено</b>',
+                        level='danger',
+                        title='❌ <b>Запит на винагороду відхилено</b>',
                         body_lines=[
                             f"Сума: <b>{escape(str(req.amount))} грн</b>.",
                             f"Причина: {escape(reason)}",
@@ -7207,11 +7248,12 @@ def payouts_request_api(request):
 
         _notify_manager_payout(
             req,
-            title='💸 <b>Запит на виплату створено</b>',
+            level='info',
+            title='💸 <b>Запит на винагороду створено</b>',
             body_lines=[
-                f"Ви запросили виплату на суму <b>{escape(str(req.amount))} грн</b>.",
+                f"Ви запросили винагороду за надані послуги на суму <b>{escape(str(req.amount))} грн</b>.",
                 f"Картка: <code>{escape(card_mask)}</code>",
-                'Статус: ⏳ <b>в обробці</b>.',
+                'Статус: ⏳ <b>очікує підтвердження</b>.',
             ],
         )
         _send_payout_request_to_admin(req)
@@ -7357,9 +7399,10 @@ def admin_payout_approve_api(request, request_id):
 
             _notify_manager_payout(
                 req_full,
-                title='✅ <b>Виплату схвалено</b>',
+                level='success',
+                title='✅ <b>Винагороду схвалено</b>',
                 body_lines=[
-                    f"Сума: <b>{escape(str(req_full.amount))} грн</b>.",
+                    f"Сума винагороди за надані послуги: <b>{escape(str(req_full.amount))} грн</b>.",
                     f"Протягом 3 годин сума буде зарахована на картку <code>{escape(card_mask)}</code>.",
                 ],
             )
@@ -7412,7 +7455,8 @@ def admin_payout_reject_api(request, request_id):
             _try_update_admin_payout_message(req_full, final=True)
             _notify_manager_payout(
                 req_full,
-                title='❌ <b>Виплату відхилено</b>',
+                level='danger',
+                title='❌ <b>Запит на винагороду відхилено</b>',
                 body_lines=[
                     f"Сума: <b>{escape(str(req_full.amount))} грн</b>.",
                     f"Причина: {escape(reason)}",
@@ -7467,10 +7511,11 @@ def admin_payout_paid_api(request, request_id):
 
             _notify_manager_payout(
                 req_full,
-                title='💳 <b>Виплату здійснено</b>',
+                level='success',
+                title='💳 <b>Винагороду виплачено</b>',
                 body_lines=[
-                    f"Сума: <b>{escape(str(req_full.amount))} грн</b>.",
-                    f"Зачислено на карту <code>{escape(card_mask)}</code>.",
+                    f"Винагороду за надані послуги <b>{escape(str(req_full.amount))} грн</b> перераховано.",
+                    f"Зачислено на картку <code>{escape(card_mask)}</code>.",
                 ],
             )
     except Exception:

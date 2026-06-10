@@ -96,13 +96,28 @@
                         data-url="{% url 'management_payouts_request_api' %}"
                         {% if not available or available <= 0 or active_request %}disabled{% endif %}>
                     <span class="pf-cta__shine" aria-hidden="true"></span>
-                    <span class="pf-cta__label">Запросити виплату</span>
+                    <span class="pf-cta__label">Запросити винагороду</span>
                     <span class="pf-cta__icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
                     </span>
                 </button>
                 <div class="pf-card-actions__hint" id="payout-request-hint" role="status" aria-live="polite"></div>
             </div>
+
+            {% if active_request %}
+            <div class="pf-pending" data-status="{{ active_request.status }}">
+                <span class="pf-pending__spin" aria-hidden="true"></span>
+                <div class="pf-pending__body">
+                    <div class="pf-pending__title">
+                        {% if active_request.status == 'approved' %}Винагороду схвалено — скоро на картку{% else %}Винагорода очікує підтвердження{% endif %}
+                    </div>
+                    <div class="pf-pending__text">
+                        <strong>{{ active_request.amount|floatformat:2 }} ₴</strong> у дорозі • запит від {{ active_request.created_at|date:"d.m.Y H:i" }}.
+                        Ці кошти тимчасово в обробці й повернуться в баланс, якщо запит відхилять.
+                    </div>
+                </div>
+            </div>
+            {% endif %}
 
             <div class="pf-breakdown">
                 <div class="pf-breakdown__item">
@@ -252,7 +267,7 @@
     <section class="pf-metrics pf-reveal" data-reveal aria-label="Показники">
         <div class="pf-pill">
             <span class="pf-pill__ico"><svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></span>
-            <span class="pf-pill__label">Тижнева ставка</span>
+            <span class="pf-pill__label">Тижнева винагорода</span>
             <span class="pf-pill__val">{{ base_salary|default:0 }} ₴</span>
         </div>
         <div class="pf-pill">
@@ -290,14 +305,14 @@
                 <h3 class="pf-history__h">Ваш заробіток</h3>
             </div>
             <div class="pf-seg" role="tablist">
-                <button type="button" class="pf-seg__btn is-active" data-tab="weeks" role="tab">Тижні</button>
-                <button type="button" class="pf-seg__btn" data-tab="payouts" role="tab">Виплати</button>
+                <button type="button" class="pf-seg__btn is-active" data-tab="payouts" role="tab">Виплати</button>
+                <button type="button" class="pf-seg__btn" data-tab="weeks" role="tab">Тижні</button>
                 <span class="pf-seg__glider" aria-hidden="true"></span>
             </div>
         </div>
 
         <!-- Weeks timeline -->
-        <div class="pf-tabpane is-active" data-pane="weeks">
+        <div class="pf-tabpane" data-pane="weeks">
             {% if weekly_history %}
             <ol class="pf-timeline">
                 {% for w in weekly_history %}
@@ -330,7 +345,7 @@
         </div>
 
         <!-- Payouts timeline -->
-        <div class="pf-tabpane" data-pane="payouts">
+        <div class="pf-tabpane is-active" data-pane="payouts">
             {% if history %}
             <ol class="pf-timeline">
                 {% for req in history %}
@@ -338,16 +353,22 @@
                     <span class="pf-tl__node" aria-hidden="true"></span>
                     <div class="pf-tl__card">
                         <div class="pf-tl__row">
-                            <div class="pf-tl__week">{{ req.created_at|date:"d.m.Y H:i" }}</div>
-                            <div class="pf-tl__amount">{{ req.amount|floatformat:0 }} ₴</div>
+                            <div class="pf-tl__week">
+                                {% if req.kind == 'manual' %}Винагорода нарахована{% else %}Запит на винагороду{% endif %}
+                                <span class="pf-tl__dt">{{ req.created_at|date:"d.m.Y H:i" }}</span>
+                            </div>
+                            <div class="pf-tl__amount">{{ req.amount|floatformat:2 }} ₴</div>
                         </div>
                         <div class="pf-tl__row pf-tl__row--meta">
                             <span class="status-chip status-{{ req.status }}">{{ req.get_status_display }}</span>
+                            {% if req.status == 'processing' %}<span class="pf-tl__hint">очікує підтвердження</span>
+                            {% elif req.status == 'approved' %}<span class="pf-tl__hint">скоро на картку</span>
+                            {% elif req.status == 'paid' %}<span class="pf-tl__hint">{% if req.paid_at %}виплачено {{ req.paid_at|date:"d.m.Y" }}{% else %}виплачено{% endif %}</span>{% endif %}
                         </div>
                         {% if req.status == 'rejected' and req.rejection_reason %}
                         <div class="pf-tl__reason">
                             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-                            <span>{{ req.rejection_reason }}</span>
+                            <span><strong>Причина відмови:</strong> {{ req.rejection_reason }}</span>
                         </div>
                         {% endif %}
                     </div>

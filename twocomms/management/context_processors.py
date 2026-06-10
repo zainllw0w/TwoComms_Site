@@ -218,11 +218,25 @@ def management_shell_context(request):
         level_label = ""
         level_code = ""
 
+    # In-app сповіщення (дзвіночок)
+    notifications = []
+    notifications_unread = 0
+    try:
+        from management.models import ManagerNotification
+        qs = ManagerNotification.objects.filter(user=user).order_by("-created_at")
+        notifications_unread = qs.filter(is_read=False).count()
+        notifications = list(qs[:15])
+    except Exception:
+        notifications = []
+        notifications_unread = 0
+
     return {
         "management_shell_role_label": management_role_label(user),
         "management_shell_stats_url": stats_url,
         "management_shell_level_label": level_label,
         "management_shell_level_code": level_code,
+        "management_notifications": notifications,
+        "management_notifications_unread": notifications_unread,
         **build_management_shell_career(user),
         **build_management_shell_metrics(user, profile),
     }

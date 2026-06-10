@@ -1,4 +1,5 @@
 import re
+import uuid
 from decimal import Decimal
 from unicodedata import normalize as unicode_normalize
 from urllib.parse import urlsplit
@@ -567,6 +568,51 @@ class ReminderRead(models.Model):
         verbose_name_plural = _("Прочитані нагадування")
 
 
+class ManagerNotification(models.Model):
+    """In-app сповіщення для менеджера (дзвіночок у хедері).
+
+    Дублює ключові події, що приходять у Telegram: винагороди (виплати),
+    рішення по накладних/договорах тощо."""
+
+    class Kind(models.TextChoices):
+        PAYOUT = 'payout', _('Винагорода')
+        INVOICE = 'invoice', _('Накладна')
+        CONTRACT = 'contract', _('Договір')
+        SYSTEM = 'system', _('Система')
+
+    class Level(models.TextChoices):
+        INFO = 'info', _('Інфо')
+        SUCCESS = 'success', _('Успіх')
+        WARNING = 'warning', _('Увага')
+        DANGER = 'danger', _('Помилка')
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='management_notifications',
+        verbose_name=_('Менеджер'),
+    )
+    kind = models.CharField(max_length=20, choices=Kind.choices, default=Kind.SYSTEM, db_index=True)
+    level = models.CharField(max_length=12, choices=Level.choices, default=Level.INFO)
+    title = models.CharField(max_length=255, verbose_name=_('Заголовок'))
+    body = models.TextField(blank=True, verbose_name=_('Текст'))
+    amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name=_('Сума'))
+    is_read = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _('Сповіщення менеджера')
+        verbose_name_plural = _('Сповіщення менеджерів')
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', '-created_at'], name='mgmt_notif_user_dt'),
+            models.Index(fields=['user', 'is_read'], name='mgmt_notif_user_read'),
+        ]
+
+    def __str__(self):
+        return f"{self.user_id}: {self.title}"
+
+
 class InvoiceRejectionReasonRequest(models.Model):
     invoice = models.ForeignKey(
         'orders.WholesaleInvoice',
@@ -750,6 +796,16 @@ class CommercialOfferEmailLog(models.Model):
         TIER_64_99 = "64_99", _("64–99")
         TIER_100_PLUS = "100_PLUS", _("100+")
 
+    class ResponseOutcome(models.TextChoices):
+        NONE = "", _("Без реакції")
+        NOT_OPENED = "not_opened", _("Не відкрив")
+        OPENED_NO_REPLY = "opened_no_reply", _("Відкрив, не відповів")
+        ASKED_MESSENGER = "asked_messenger", _("Просив у месенджер")
+        THINKING = "thinking", _("Думає")
+        REJECTED = "rejected", _("Відмова")
+        ORDERED = "ordered", _("Замовлення")
+        OTHER = "other", _("Інше")
+
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         verbose_name=_("Менеджер"),
@@ -839,6 +895,21 @@ class CommercialOfferEmailLog(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.SENT, db_index=True)
     error = models.TextField(blank=True, verbose_name=_("Помилка"))
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    # --- Tracking & client response (revamp 2026-06) ---
+    track_token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True, verbose_name=_("Токен трекінгу"))
+    opened_at = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name=_("Перше відкриття"))
+    first_click_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Перший клік"))
+    click_count = models.PositiveIntegerField(default=0, verbose_name=_("Кліків"))
+    response_outcome = models.CharField(
+        max_length=24,
+        blank=True,
+        default="",
+        choices=ResponseOutcome.choices,
+        db_index=True,
+        verbose_name=_("Реакція на КП"),
+    )
+    response_note = models.TextField(blank=True, verbose_name=_("Коментар реакції"))
 
     class Meta:
         verbose_name = _("Відправлена КП (лог)")

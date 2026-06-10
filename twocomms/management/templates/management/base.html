@@ -73,9 +73,32 @@
                 </button>
                 <div class="notif-panel" id="notif-panel">
                     <div class="notif-header">
-                        <div class="notif-title-main">Нагадування</div>
-                        <div class="notif-sub">Усі активні</div>
+                        <div class="notif-title-main">Сповіщення та нагадування</div>
+                        <div class="notif-sub">Події по винагородах, накладних і дзвінках</div>
                     </div>
+                    {% if management_notifications %}
+                    <div class="notif-events" id="notif-events">
+                        <div class="notif-events__head">
+                            <span>Останні події</span>
+                            <button type="button" class="notif-events__readall" id="notif-events-readall">Прочитати всі</button>
+                        </div>
+                        {% for ev in management_notifications %}
+                        <div class="notif-ev notif-ev--{{ ev.level }}{% if not ev.is_read %} is-unread{% endif %}" data-notif-id="{{ ev.id }}">
+                            <span class="notif-ev__ico notif-ev__ico--{{ ev.kind }}" aria-hidden="true"></span>
+                            <div class="notif-ev__body">
+                                <div class="notif-ev__title">{{ ev.title }}</div>
+                                {% if ev.body %}<div class="notif-ev__text">{{ ev.body }}</div>{% endif %}
+                                <div class="notif-ev__time">{{ ev.created_at|date:"d.m.Y H:i" }}</div>
+                            </div>
+                            {% if not ev.is_read %}
+                            <button type="button" class="notif-ev__done" data-notif-done="{{ ev.id }}" aria-label="Прочитано">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                            </button>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                     <div class="notif-list">
                         {% if reminders %}
                         {% for n in reminders %}
@@ -747,6 +770,51 @@
         </div>
     </div>
 
+    <script>window.__mgmtNotifUnread = {{ management_notifications_unread|default:0 }};</script>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const events = document.getElementById('notif-events');
+        if (!events) return;
+        const badge = document.getElementById('notif-count');
+        const getCookie = (n) => { const m = document.cookie.match('(^|;)\\s*' + n + '\\s*=\\s*([^;]+)'); return m ? m.pop() : ''; };
+        const bumpBadge = (delta) => {
+            window.__mgmtNotifUnread = Math.max(0, (window.__mgmtNotifUnread || 0) + delta);
+            if (badge) { const cur = parseInt(badge.dataset.count || '0', 10) || 0; const nv = Math.max(0, cur + delta); badge.textContent = nv; badge.dataset.count = nv; }
+        };
+        const markRead = async (body) => {
+            try {
+                const r = await fetch("{% url 'management_notification_read' %}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                    body: JSON.stringify(body || {}),
+                });
+                const d = await r.json().catch(() => ({}));
+                return r.ok && d && d.ok;
+            } catch (e) { return false; }
+        };
+        events.addEventListener('click', async (e) => {
+            const doneBtn = e.target.closest('[data-notif-done]');
+            if (doneBtn) {
+                const id = doneBtn.dataset.notifDone;
+                const item = doneBtn.closest('.notif-ev');
+                if (await markRead({ id: id })) {
+                    if (item && item.classList.contains('is-unread')) { item.classList.remove('is-unread'); bumpBadge(-1); }
+                    doneBtn.remove();
+                }
+                return;
+            }
+            const readAll = e.target.closest('#notif-events-readall');
+            if (readAll) {
+                if (await markRead({ all: true })) {
+                    events.querySelectorAll('.notif-ev.is-unread').forEach((it) => it.classList.remove('is-unread'));
+                    events.querySelectorAll('[data-notif-done]').forEach((b) => b.remove());
+                    const cur = window.__mgmtNotifUnread || 0;
+                    bumpBadge(-cur);
+                }
+            }
+        });
+    });
+    </script>
     <script>
     document.addEventListener('DOMContentLoaded', () => {
         const notifPanel = document.getElementById('notif-panel');
@@ -797,8 +865,9 @@
                 return !isRead && !skipSoonFar;
             }).length;
             if (notifCountEl) {
-                notifCountEl.textContent = unread;
-                notifCountEl.dataset.count = unread;
+                const total = unread + (window.__mgmtNotifUnread || 0);
+                notifCountEl.textContent = total;
+                notifCountEl.dataset.count = total;
             }
             return unread;
         };

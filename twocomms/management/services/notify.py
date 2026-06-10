@@ -75,6 +75,24 @@ def _admin_base() -> str:
     return getattr(settings, "MANAGEMENT_BASE_URL", "https://management.twocomms.shop").rstrip("/")
 
 
+def push_inapp(user, *, kind="system", level="info", title="", body="", amount=None):
+    """Створює in-app сповіщення для дзвіночка в хедері (best-effort)."""
+    if not user or not title:
+        return
+    try:
+        from management.models import ManagerNotification
+        ManagerNotification.objects.create(
+            user=user,
+            kind=kind,
+            level=level,
+            title=str(title)[:255],
+            body=str(body or ""),
+            amount=amount,
+        )
+    except Exception as exc:  # pragma: no cover
+        logger.warning("push_inapp failed for user %s: %s", getattr(user, "id", "?"), exc)
+
+
 def notify_payment_link_created(invoice):
     """Адміну: менеджер сформував посилання на оплату."""
     base = _admin_base()
@@ -120,6 +138,24 @@ def notify_invoice_paid(invoice, accrual=None):
         if frozen_until:
             mlines.append(f"🔒 Заморожено до <b>{frozen_until}</b> (період можливого повернення)")
         send_message(mgr_chat, "\n".join(mlines))
+
+    # In-app сповіщення менеджеру (дзвіночок)
+    try:
+        body_parts = [f"Накладну {invoice.invoice_number} для {invoice.company_name} оплачено."]
+        if commission is not None:
+            body_parts.append(f"Винагорода за надані послуги: {commission} грн.")
+        if frozen_until:
+            body_parts.append(f"Заморожено до {frozen_until} (період можливого повернення товару).")
+        push_inapp(
+            invoice.created_by,
+            kind="invoice",
+            level="success",
+            title="Накладну оплачено — нараховано винагороду",
+            body=" ".join(body_parts),
+            amount=commission,
+        )
+    except Exception:
+        pass
 
     # --- Адміну ---
     base = _admin_base()
