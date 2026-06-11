@@ -6816,3 +6816,131 @@ main {
     font-size: 0.88rem;
   }
 }
+
+/* ── Realistic stage v2: 3D rotor, lacing, art previews, dims ───────── */
+.cp-stage-frame {
+  perspective: 1200px;
+  touch-action: pan-y;
+  cursor: grab;
+}
+
+.cp-stage-frame.is-rotating {
+  cursor: grabbing;
+}
+
+.cp-stage-frame.is-rotating * {
+  user-select: none;
+}
+
+.cp-stage-rotor {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.cp-stage-rotor .cp-garment {
+  animation: cpGarmentFloat 8s ease-in-out infinite;
+}
+
+@keyframes cpGarmentFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.cp-stage-svg__garment {
+  filter: drop-shadow(0 22px 30px rgba(0, 0, 0, 0.38));
+}
+
+/* Люверси зі шнурками: показуємо потрібний варіант шнурків */
+.cp-stage-svg__cords--lacing { display: none; }
+.cp-garment--lacing .cp-stage-svg__cords--lacing { display: block; }
+.cp-garment--lacing .cp-stage-svg__cords--standard { display: none; }
+
+/* Превʼю макета на виробі */
+.cp-stage-print-art {
+  position: absolute;
+  inset: 7%;
+  z-index: 0;
+  pointer-events: none;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  border-radius: calc(var(--plate-radius, 18px) * 0.5);
+  filter: drop-shadow(0 5px 12px rgba(0, 0, 0, 0.38));
+}
+
+.cp-stage-print.has-art::before {
+  background:
+    linear-gradient(180deg, rgba(255, 236, 194, 0.07), rgba(255, 236, 194, 0.02));
+}
+
+.cp-stage-print.has-art .cp-stage-print-badge {
+  opacity: 0.94;
+}
+
+/* Розміри принта в см */
+.cp-stage-print-dims {
+  position: absolute;
+  left: 50%;
+  bottom: -13px;
+  transform: translateX(-50%);
+  z-index: 2;
+  white-space: nowrap;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: rgba(246, 239, 227, 0.92);
+  background: rgba(10, 9, 12, 0.88);
+  border: 1px solid rgba(242, 211, 155, 0.38);
+  backdrop-filter: blur(10px);
+}
+
+/* Кутові мітки меж принта */
+.cp-stage-print.is-active::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  pointer-events: none;
+  opacity: 0.95;
+  background:
+    linear-gradient(rgba(242, 211, 155, 0.95), rgba(242, 211, 155, 0.95)) left 0 top 0 / 12px 2px,
+    linear-gradient(rgba(242, 211, 155, 0.95), rgba(242, 211, 155, 0.95)) left 0 top 0 / 2px 12px,
+    linear-gradient(rgba(242, 211, 155, 0.95), rgba(242, 211, 155, 0.95)) right 0 top 0 / 12px 2px,
+    linear-gradient(rgba(242, 211, 155, 0.95), rgba(242, 211, 155, 0.95)) right 0 top 0 / 2px 12px,
+    linear-gradient(rgba(242, 211, 155, 0.95), rgba(242, 211, 155, 0.95)) left 0 bottom 0 / 12px 2px,
+    linear-gradient(rgba(242, 211, 155, 0.95), rgba(242, 211, 155, 0.95)) left 0 bottom 0 / 2px 12px,
+    linear-gradient(rgba(242, 211, 155, 0.95), rgba(242, 211, 155, 0.95)) right 0 bottom 0 / 12px 2px,
+    linear-gradient(rgba(242, 211, 155, 0.95), rgba(242, 211, 155, 0.95)) right 0 bottom 0 / 2px 12px;
+  background-repeat: no-repeat;
+}
+
+/* Трохи більша сцена на мобільних: замовляють частіше з телефона */
+@media (max-width: 720px) {
+  .cp-stage-frame {
+    min-height: 230px;
+    max-height: 300px;
+  }
+
+  .cp-garment-shell {
+    width: min(86%, 250px);
+  }
+
+  .cp-stage-print-dims {
+    font-size: 0.55rem;
+    padding: 2px 6px;
+    bottom: -11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cp-stage-rotor .cp-garment {
+    animation: none;
+  }
+}

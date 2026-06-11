@@ -53,6 +53,9 @@
   };
 
   // ── DOM refs ────────────────────────────────────────────────
+  const STAGE_ROTOR = { angle: 0, raf: 0, dragging: false, lastSig: null };
+  const plateArtCache = new Map();
+
   const dom = {
     shell: root.querySelector("[data-shell]"),
     hero: root.querySelector("[data-hero]"),
@@ -73,6 +76,8 @@
     stageGuide: root.querySelector("[data-stage-guide]"),
     stageLegend: root.querySelector("[data-stage-legend]"),
     garment: root.querySelector("[data-garment]"),
+    stageRotor: root.querySelector("[data-stage-rotor]"),
+    stageFrame: root.querySelector(".cp-stage-frame"),
     stageOverlay: root.querySelector("[data-stage-overlay]"),
     zoneLayer: root.querySelector("[data-zone-layer]"),
     receiptTotal: root.querySelector("[data-receipt-total]"),
@@ -653,6 +658,25 @@
 
   function deletePlacementFiles(placementKey) {
     filesByPlacement.delete(placementKey);
+  }
+
+  // Превʼю макета прямо на виробі (перший растровий файл placement-а)
+  function getPlacementArtUrl(placementKey) {
+    const files = filesByPlacement.get(placementKey) || [];
+    const file = files.find((item) => /^image\/(png|jpe?g|webp|gif|svg\+xml)$/i.test(item.type || ""));
+    const cached = plateArtCache.get(placementKey);
+    if (!file) {
+      if (cached) {
+        URL.revokeObjectURL(cached.url);
+        plateArtCache.delete(placementKey);
+      }
+      return "";
+    }
+    if (cached && cached.file === file) return cached.url;
+    if (cached) URL.revokeObjectURL(cached.url);
+    const url = URL.createObjectURL(file);
+    plateArtCache.set(placementKey, { file, url });
+    return url;
   }
 
   function deleteZoneFiles(zone) {
@@ -1643,6 +1667,31 @@
     dom.garment.style.setProperty("--cp-stage-shade-fill", mixHex(base, "#000000", 0.32));
     dom.garment.style.setProperty("--cp-stage-stroke", mixHex(base, "#ffffff", 0.42));
     dom.garment.style.setProperty("--cp-stage-shadow", mixHex(base, "#000000", 0.58));
+    // Реалістична палітра тканини для нових SVG-виробів
+    const lum = hexLuminance(base);
+    dom.garment.style.setProperty("--cp-g-hi", mixHex(base, "#ffffff", 0.16));
+    dom.garment.style.setProperty("--cp-g-base", base);
+    dom.garment.style.setProperty("--cp-g-lo", mixHex(base, "#000000", 0.2));
+    dom.garment.style.setProperty("--cp-g-deep", mixHex(base, "#000000", 0.38));
+    dom.garment.style.setProperty("--cp-g-line", lum > 0.45 ? mixHex(base, "#000000", 0.42) : mixHex(base, "#ffffff", 0.36));
+    dom.garment.style.setProperty("--cp-g-inner-hi", mixHex(base, "#000000", 0.55));
+    dom.garment.style.setProperty("--cp-g-inner-lo", mixHex(base, "#000000", 0.75));
+    dom.garment.style.setProperty("--cp-g-cord", lum > 0.45 ? mixHex(base, "#000000", 0.32) : mixHex(base, "#ffffff", 0.14));
+    dom.garment.style.setProperty("--cp-g-cord-lace", lum > 0.45 ? "#16151a" : "#e8e2d4");
+  }
+
+  function hexLuminance(hex) {
+    const normalized = String(hex || "").replace("#", "").padEnd(6, "0").slice(0, 6);
+    const r = parseInt(normalized.slice(0, 2), 16);
+    const g = parseInt(normalized.slice(2, 4), 16);
+    const b = parseInt(normalized.slice(4, 6), 16);
+    return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  }
+
+  function applyGarmentAddons() {
+    if (!dom.garment) return;
+    const lacing = (STATE.print.add_ons || []).includes("lacing");
+    dom.garment.classList.toggle("cp-garment--lacing", lacing);
   }
 
   function applyGarmentType() {
@@ -1681,16 +1730,185 @@
     `;
   }
 
-  function applyStageView(view) {
-    STATE.ui.stage_view = view;
-    if (!dom.garment) return;
-    dom.garment.classList.toggle("cp-garment--front", view === "front");
-    dom.garment.classList.toggle("cp-garment--back", view === "back");
+  // ── 3D-ротор сцени: плавне обертання перед/зад + drag ─────────
+  function stageMotionReduced() {
+    return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  function rotorNorm(angle) {
+    return ((angle % 360) + 360) % 360;
+  }
+
+  function rotorSideFor(angle) {
+    const a = rotorNorm(angle);
+    return a > 90 && a < 270 ? "back" : "front";
+  }
+
+  function rotorPhi(angle) {
+    const a = rotorNorm(angle);
+    if (a > 90 && a < 270) return a - 180;
+    return a >= 270 ? a - 360 : a;
+  }
+
+  function rotorApplyTransform() {
+    if (!dom.stageRotor) return;
+    dom.stageRotor.style.transform = `rotateY(${rotorPhi(STAGE_ROTOR.angle).toFixed(2)}deg)`;
+  }
+
+  function rotorSyncSide() {
+    const side = rotorSideFor(STAGE_ROTOR.angle);
+    if (side !== (STATE.ui.stage_view || "front")) {
+      STATE.ui.stage_view = side;
+      renderStageSideEffects();
+    }
+  }
+
+  function rotorStop() {
+    if (STAGE_ROTOR.raf) {
+      cancelAnimationFrame(STAGE_ROTOR.raf);
+      STAGE_ROTOR.raf = 0;
+    }
+  }
+
+  function rotorAnimateTo(target, duration = 640, done) {
+    rotorStop();
+    if (!dom.stageRotor || stageMotionReduced()) {
+      STAGE_ROTOR.angle = rotorNorm(target);
+      rotorSyncSide();
+      rotorApplyTransform();
+      if (done) done();
+      return;
+    }
+    const from = STAGE_ROTOR.angle;
+    const startTs = performance.now();
+    const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    const frame = (now) => {
+      const t = Math.min((now - startTs) / duration, 1);
+      STAGE_ROTOR.angle = from + (target - from) * ease(t);
+      rotorSyncSide();
+      rotorApplyTransform();
+      if (t < 1) {
+        STAGE_ROTOR.raf = requestAnimationFrame(frame);
+      } else {
+        STAGE_ROTOR.raf = 0;
+        STAGE_ROTOR.angle = rotorNorm(target);
+        if (done) done();
+      }
+    };
+    STAGE_ROTOR.raf = requestAnimationFrame(frame);
+  }
+
+  function rotorSwing() {
+    if (!dom.stageRotor || stageMotionReduced() || STAGE_ROTOR.dragging) return;
+    const base = rotorNorm(STAGE_ROTOR.angle);
+    rotorAnimateTo(base + 14, 230, () => rotorAnimateTo(base, 430));
+  }
+
+  function rotorSpin() {
+    if (!dom.stageRotor || stageMotionReduced() || STAGE_ROTOR.dragging) return;
+    rotorAnimateTo(rotorNorm(STAGE_ROTOR.angle) + 360, 950);
+  }
+
+  function stageReactToState() {
+    const sig = `${STATE.product.type || ""}|${STATE.product.fit || ""}|${STATE.product.color || ""}`;
+    if (STAGE_ROTOR.lastSig === null) {
+      STAGE_ROTOR.lastSig = sig;
+      return;
+    }
+    if (sig === STAGE_ROTOR.lastSig) return;
+    const prevType = STAGE_ROTOR.lastSig.split("|")[0];
+    const nextType = sig.split("|")[0];
+    STAGE_ROTOR.lastSig = sig;
+    if (!STATE.product.type) return;
+    if (prevType !== nextType) rotorSpin();
+    else rotorSwing();
+  }
+
+  function renderStageSideEffects() {
+    const view = STATE.ui.stage_view || "front";
+    if (dom.garment) {
+      dom.garment.classList.toggle("cp-garment--front", view === "front");
+      dom.garment.classList.toggle("cp-garment--back", view === "back");
+    }
     dom.stageViewSwitch?.forEach((btn) => {
       btn.classList.toggle("is-active", btn.dataset.stageView === view);
     });
     renderStageSvg();
+    applyGarmentAddons();
     renderZoneOverlay();
+  }
+
+  function applyStageView(view, opts) {
+    const animate = !!(opts && opts.animate);
+    const targetBase = view === "back" ? 180 : 0;
+    if (animate && dom.stageRotor) {
+      const norm = rotorNorm(STAGE_ROTOR.angle);
+      let delta = targetBase - norm;
+      if (delta > 180) delta -= 360;
+      if (delta < -180) delta += 360;
+      if (Math.abs(delta) < 1) {
+        STATE.ui.stage_view = view;
+        renderStageSideEffects();
+        return;
+      }
+      rotorAnimateTo(STAGE_ROTOR.angle + delta);
+      return;
+    }
+    if (!STAGE_ROTOR.raf && !STAGE_ROTOR.dragging) {
+      STAGE_ROTOR.angle = targetBase;
+      rotorApplyTransform();
+    }
+    STATE.ui.stage_view = view;
+    renderStageSideEffects();
+  }
+
+  function bindStageRotorDrag() {
+    const frame = dom.stageFrame;
+    if (!frame || !dom.stageRotor) return;
+    let startX = 0;
+    let startAngle = 0;
+    let active = false;
+    let moved = false;
+    let pid = null;
+    frame.addEventListener("pointerdown", (event) => {
+      if (event.target.closest("button")) return;
+      if (!STATE.product.type) return;
+      active = true;
+      moved = false;
+      startX = event.clientX;
+      startAngle = STAGE_ROTOR.angle;
+      pid = event.pointerId;
+      rotorStop();
+    });
+    frame.addEventListener("pointermove", (event) => {
+      if (!active) return;
+      const dx = event.clientX - startX;
+      if (!moved && Math.abs(dx) > 6) {
+        moved = true;
+        STAGE_ROTOR.dragging = true;
+        try {
+          frame.setPointerCapture(pid);
+        } catch (err) {
+          /* noop */
+        }
+        frame.classList.add("is-rotating");
+      }
+      if (!moved) return;
+      STAGE_ROTOR.angle = startAngle + dx * 0.45;
+      rotorSyncSide();
+      rotorApplyTransform();
+    });
+    const finishDrag = () => {
+      if (!active) return;
+      active = false;
+      if (!moved) return;
+      STAGE_ROTOR.dragging = false;
+      frame.classList.remove("is-rotating");
+      const target = Math.round(STAGE_ROTOR.angle / 180) * 180;
+      rotorAnimateTo(target, 470);
+    };
+    frame.addEventListener("pointerup", finishDrag);
+    frame.addEventListener("pointercancel", finishDrag);
   }
 
   function getStageTargets() {
@@ -1827,9 +2045,14 @@
         plate.setAttribute("aria-pressed", String(!!target.isActive));
         plate.setAttribute("aria-label", `${target.label}${target.isActive ? ", увімкнено" : ", вимкнено"}`);
         const badgeText = escapeHtml(getStageBadgeText(placement));
+        const artUrl = target.isActive ? getPlacementArtUrl(target.key) : "";
+        const dimsText = target.isActive && anchor.plate.dims ? escapeHtml(anchor.plate.dims) : "";
         plate.innerHTML = `
+          ${artUrl ? `<span class="cp-stage-print-art" style="background-image:url('${artUrl}')"></span>` : ""}
           <span class="cp-stage-print-badge">${badgeText || "ON"}</span>
+          ${dimsText ? `<span class="cp-stage-print-dims">${dimsText}</span>` : ""}
         `;
+        if (artUrl) plate.classList.add("has-art");
         plate.title = target.label;
         plate.addEventListener("click", () => handleStageTargetInteraction(target.key));
         dom.stageOverlay.appendChild(plate);
@@ -1846,7 +2069,7 @@
   function focusStageTarget(targetKey) {
     const targetView = getStageTargetView(targetKey);
     if (targetView !== (STATE.ui.stage_view || "front")) {
-      applyStageView(targetView);
+      applyStageView(targetView, { animate: true });
     }
   }
 
@@ -1942,8 +2165,9 @@
 
   function bindStageView() {
     dom.stageViewSwitch?.forEach((btn) => {
-      btn.addEventListener("click", () => applyStageView(btn.dataset.stageView));
+      btn.addEventListener("click", () => applyStageView(btn.dataset.stageView, { animate: true }));
     });
+    bindStageRotorDrag();
   }
 
   // ── Quantity + Smart sizing ─────────────────────────────────
@@ -2296,6 +2520,7 @@
     updateStageMeta();
     applyGarmentType();
     applyGarmentColor();
+    stageReactToState();
     applyStageView(STATE.ui.stage_view || "front");
     renderModeChipsActive();
     renderProductCardsActive();
