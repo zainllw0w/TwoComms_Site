@@ -9829,3 +9829,19 @@ msgstr "Tap to open your gift"
 
 msgid "сек"
 msgstr "sec"
+
+msgid "Промокод збережено у твоєму профілі"
+msgstr "Promo code saved to your profile"
+
+msgid ""
+"Код уже твій і вже працює. Увійди — і він закріпиться у твоєму профілі, щоб "
+"точно не загубитись."
+msgstr ""
+"The code is already yours and already works. Sign in to pin it to your "
+"profile so it never gets lost."
+
+msgid "Зберегти у профілі"
+msgstr "Save to profile"
+
+msgid "Ми в Instagram"
+msgstr "We're on Instagram"
