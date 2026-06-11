@@ -16,9 +16,11 @@ The page is deliberately ``noindex`` (it must only be reachable from
 the printed QR) and ``never_cache`` (per-user promo content).
 """
 
+import threading
+
 from datetime import timedelta
 
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, close_old_connections, transaction
 from django.shortcuts import render
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
@@ -26,6 +28,38 @@ from django.views.decorators.cache import never_cache
 QR_PROMO_KEY = "qr_thanks_v1"
 QR_PROMO_PERCENT = 5
 QR_PROMO_DAYS = 7
+QR_SESSION_FLAG = "qr_scan_notified"
+
+
+def _notify_admins_about_scan(username, promo_code):
+    """Telegram admin alert + running scan counter (owner request)."""
+    try:
+        close_old_connections()
+        from ..models import PageView
+
+        qr_views = PageView.objects.filter(
+            path__in=["/qr/", "/qr", "/uk/qr/", "/ru/qr/", "/en/qr/"], is_bot=False
+        )
+        total = qr_views.count()
+        today = qr_views.filter(when__date=timezone.now().date()).count()
+        unique = qr_views.values("session").distinct().count()
+
+        from orders.telegram_notifications import telegram_notifier
+
+        who = f"<b>{username}</b>" if username else "анонім (без акаунта)"
+        promo_line = f"\nПромокод: <code>{promo_code}</code>" if promo_code else ""
+        message = (
+            "📲 <b>Відскановано QR-код!</b>\n"
+            f"Хто: {who}{promo_line}\n"
+            f"Сканів сьогодні: <b>{today}</b>\n"
+            f"Всього сканів: <b>{total}</b> (унікальних відвідувачів: {unique})"
+        )
+        telegram_notifier.send_admin_message(message)
+    except Exception:
+        # The thank-you page must never fail because of notifications.
+        pass
+    finally:
+        close_old_connections()
 
 
 def _get_or_create_qr_promo(user):
@@ -96,6 +130,18 @@ def qr_thanks(request):
         promo = _get_or_create_qr_promo(request.user)
         if promo is not None and not promo.is_valid_now():
             promo_expired = True
+
+    # Admin Telegram alert — once per visitor session, never blocking.
+    if not request.session.get(QR_SESSION_FLAG):
+        request.session[QR_SESSION_FLAG] = True
+        threading.Thread(
+            target=_notify_admins_about_scan,
+            args=(
+                request.user.username if request.user.is_authenticated else "",
+                promo.code if promo else "",
+            ),
+            daemon=True,
+        ).start()
 
     response = render(
         request,
