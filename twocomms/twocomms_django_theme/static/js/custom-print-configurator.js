@@ -1499,13 +1499,20 @@
       const input = wrap.querySelector("[data-dropzone-input]");
       input.addEventListener("change", (event) => {
         const files = Array.from(event.target.files || []);
-        if (files.length) {
-          // append (а не replace) щоб не втрачалися попередні
-          const existing = filesByPlacement.get(placement.placement_key) || [];
-          filesByPlacement.set(placement.placement_key, [...existing, ...files]);
+        if (!files.length) {
+          renderDropzones();
+          refreshAll();
+          return;
         }
-        renderDropzones();
-        refreshAll();
+        filterFilesByTransparency(files).then((acceptedFiles) => {
+          if (acceptedFiles.length) {
+            // append (а не replace) щоб не втрачалися попередні
+            const existing = filesByPlacement.get(placement.placement_key) || [];
+            filesByPlacement.set(placement.placement_key, [...existing, ...acceptedFiles]);
+          }
+          renderDropzones();
+          refreshAll();
+        });
       });
       dom.dropzoneGrid.appendChild(wrap);
     });
@@ -1530,6 +1537,99 @@
       return "A6 · PDF, AI, EPS, PSD, PNG, JPG, TIFF, SVG";
     }
     return "PDF, AI, EPS, PSD, PNG, JPG, TIFF, SVG";
+  }
+
+  // ── Transparency guard for "ready" artwork ─────────────────
+  const NO_ALPHA_EXTENSIONS = ["jpg", "jpeg", "jfif", "bmp", "heic", "heif"];
+  const ALPHA_CAPABLE_RASTER = ["png", "webp", "gif", "avif"];
+
+  function getFileExtension(name) {
+    const match = /\.([a-z0-9]+)$/i.exec(name || "");
+    return match ? match[1].toLowerCase() : "";
+  }
+
+  async function detectTransparencyIssue(file) {
+    const ext = getFileExtension(file.name);
+    if (NO_ALPHA_EXTENSIONS.includes(ext)) {
+      return `Формат ${ext.toUpperCase()} не підтримує прозорість — фон зображення буде надруковано на виробі разом із принтом.`;
+    }
+    if (!ALPHA_CAPABLE_RASTER.includes(ext)) return "";
+    // PNG/WebP/GIF: перевіряємо, чи є реальні прозорі пікселі
+    try {
+      const bitmap = await createImageBitmap(file);
+      const maxSide = 96;
+      const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      if (typeof bitmap.close === "function") bitmap.close();
+      const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      for (let i = 3; i < data.length; i += 4) {
+        if (data[i] < 250) return "";
+      }
+      return "У цьому зображенні немає прозорих ділянок — фон буде надруковано суцільним прямокутником.";
+    } catch (err) {
+      return "";
+    }
+  }
+
+  async function filterFilesByTransparency(files) {
+    // Попереджаємо лише коли клієнт каже «маю готовий файл» —
+    // для доопрацювання/дизайну референси можуть бути будь-якими.
+    if ((STATE.artwork.service_kind || "") !== "ready") return files;
+    const accepted = [];
+    for (const file of files) {
+      const issue = await detectTransparencyIssue(file);
+      if (!issue) {
+        accepted.push(file);
+        continue;
+      }
+      const keep = await showTransparencyConfirm(file.name, issue);
+      if (keep) accepted.push(file);
+    }
+    return accepted;
+  }
+
+  function showTransparencyConfirm(fileName, issueText) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement("div");
+      overlay.className = "cp-transparency-overlay";
+      overlay.style.cssText = "position:fixed;inset:0;z-index:10050;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(8,8,12,.72);backdrop-filter:blur(6px);";
+      const card = document.createElement("div");
+      card.style.cssText = "max-width:440px;width:100%;background:#17171f;border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:24px;color:#f4f4f7;font:inherit;box-shadow:0 24px 64px rgba(0,0,0,.5);";
+      card.setAttribute("role", "alertdialog");
+      card.setAttribute("aria-modal", "true");
+      card.innerHTML = `
+        <div style="font-size:34px;line-height:1;margin-bottom:12px;">⚠️</div>
+        <h3 style="margin:0 0 8px;font-size:18px;font-weight:700;">Файл без прозорого фону</h3>
+        <p style="margin:0 0 6px;font-size:14px;opacity:.92;word-break:break-word;"><strong>${escapeHtml(fileName)}</strong></p>
+        <p style="margin:0 0 10px;font-size:14px;opacity:.8;">${escapeHtml(issueText)}</p>
+        <p style="margin:0 0 18px;font-size:14px;opacity:.8;">Готовий макет для переносу зазвичай має прозорий фон (PNG). Ви впевнені, що це фінальний файл для друку?</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button type="button" data-tr-confirm style="flex:1 1 auto;min-height:44px;padding:10px 16px;border:none;border-radius:12px;background:#7c5cff;color:#fff;font-weight:600;cursor:pointer;">Так, файл готовий</button>
+          <button type="button" data-tr-cancel style="flex:1 1 auto;min-height:44px;padding:10px 16px;border:1px solid rgba(255,255,255,.2);border-radius:12px;background:transparent;color:#f4f4f7;font-weight:600;cursor:pointer;">Прибрати файл</button>
+        </div>
+      `;
+      overlay.appendChild(card);
+      const cleanup = (result) => {
+        overlay.remove();
+        document.removeEventListener("keydown", onKeydown);
+        resolve(result);
+      };
+      const onKeydown = (event) => {
+        if (event.key === "Escape") cleanup(false);
+      };
+      card.querySelector("[data-tr-confirm]").addEventListener("click", () => cleanup(true));
+      card.querySelector("[data-tr-cancel]").addEventListener("click", () => cleanup(false));
+      overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) cleanup(false);
+      });
+      document.addEventListener("keydown", onKeydown);
+      document.body.appendChild(overlay);
+      card.querySelector("[data-tr-cancel]").focus();
+    });
   }
 
   // ── Stage rendering ─────────────────────────────────────────
@@ -2795,6 +2895,25 @@
     return specs;
   }
 
+  function buildSizesNoteForSubmit() {
+    // Менеджер у Telegram має бачити розміри завжди, тому збираємо
+    // людинозрозумілий підсумок із size_breakdown + вільної примітки.
+    const note = (STATE.order.sizes_note || "").trim();
+    if (STATE.product.type === "customer_garment") return note;
+    if (STATE.order.size_mode === "manager") {
+      return note ? `Уточнити з менеджером. ${note}` : "Уточнити з менеджером";
+    }
+    const grid = CONFIG.size_grid || ["XS", "S", "M", "L", "XL", "2XL"];
+    const summary = Object.entries(STATE.order.size_breakdown || {})
+      .map(([size, count]) => [size, parseInt(count, 10) || 0])
+      .filter(([, count]) => count > 0)
+      .sort((a, b) => grid.indexOf(a[0]) - grid.indexOf(b[0]))
+      .map(([size, count]) => `${size} — ${count} шт`)
+      .join(", ");
+    if (summary && note) return `${summary}. ${note}`;
+    return summary || note;
+  }
+
   function buildFormData(submissionType) {
     const fd = new FormData();
     const snap = buildSnapshot(submissionType);
@@ -2809,7 +2928,7 @@
     fd.append("placement_note", STATE.print.placement_note || "");
     fd.append("quantity", String(STATE.order.quantity || 1));
     fd.append("size_mode", STATE.order.size_mode || "single");
-    fd.append("sizes_note", STATE.order.sizes_note || "");
+    fd.append("sizes_note", buildSizesNoteForSubmit());
     fd.append("client_kind", STATE.mode || "personal");
     fd.append("business_kind", STATE.mode === "brand" ? "branding" : "");
     fd.append("brand_name", STATE.notes.brand_name || "");
