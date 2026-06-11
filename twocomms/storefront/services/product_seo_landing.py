@@ -354,7 +354,8 @@ def _fit_paragraph(product, cat_slug: str, fit_code: Optional[str] = None) -> st
     if not hasattr(product, "fit_options"):
         return ""
     try:
-        options = list(product.fit_options.filter(is_active=True).order_by("order", "id"))
+        from .catalog_helpers import get_active_fit_options
+        options = list(get_active_fit_options(product))
     except Exception:
         options = []
     if not options:
@@ -508,7 +509,8 @@ def _top_queries_for_product(product, fit_code: Optional[str] = None) -> List[Di
 
     # 2. Fit options.
     try:
-        fit_options = list(product.fit_options.filter(is_active=True).order_by("order", "id"))
+        from .catalog_helpers import get_active_fit_options
+        fit_options = list(get_active_fit_options(product))
     except Exception:
         fit_options = []
     for opt in fit_options[:2]:

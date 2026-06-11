@@ -18,6 +18,7 @@ from django.utils.translation import gettext_lazy as _
 from ..models import Product
 from ..services.catalog_helpers import (
     build_product_image_alt,
+    get_active_fit_options,
     get_detailed_color_variants,
     get_public_product_order_version,
 )
@@ -78,10 +79,14 @@ def _resolve_fit_options(product):
     try:
         from ..forms import ensure_default_fit_options_for_tshirt
         ensure_default_fit_options_for_tshirt(product)
+        # Healing may have just created rows — drop the per-request memo
+        # so get_active_fit_options re-reads them.
+        if getattr(product, '_active_fit_options_cache', None) == []:
+            del product._active_fit_options_cache
     except Exception:
         pass
 
-    options = list(product.fit_options.filter(is_active=True).order_by('order', 'id'))
+    options = get_active_fit_options(product)
     if not options:
         return []
 
@@ -155,7 +160,7 @@ def _build_path_variant_redirect(
     if raw_fit:
         valid_fit_codes = {
             (opt.code or "").lower()
-            for opt in product.fit_options.filter(is_active=True)
+            for opt in get_active_fit_options(product)
         }
         if raw_fit in valid_fit_codes:
             fit_segment = raw_fit
@@ -273,7 +278,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
         }
         fit_codes_lower = {
             (opt.code or '').lower()
-            for opt in product.fit_options.filter(is_active=True)
+            for opt in get_active_fit_options(product)
         }
 
         parsed_size = None
@@ -460,7 +465,14 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
 
     # Обрабатываем цветовые превью для рекомендаций
     if recommended_products:
+        from django.db.models import prefetch_related_objects
         from ..services.catalog_helpers import build_color_preview_map
+        # Bulk-prefetch variant images so card rendering (display_image /
+        # homepage_image fallbacks) doesn't issue 2 queries per card.
+        try:
+            prefetch_related_objects(recommended_products, 'color_variants__images')
+        except Exception:
+            pass
         preview_map = build_color_preview_map(list(recommended_products))
         for rec_product in recommended_products:
             rec_product.colors_preview = preview_map.get(rec_product.id, [])

@@ -306,15 +306,54 @@ def build_color_preview_key(variants: Iterable[Dict[str, Any]]) -> str:
     return f"colors:{len(variants)}:{digest.hexdigest()}"
 
 
+def get_product_color_variant_rows(product) -> List[Any]:
+    """Raw ProductColorVariant rows (select_related color, prefetched images),
+    memoized on the product instance to avoid duplicate queries when the
+    detail view, SEO structured data and variant meta all need them within
+    one request."""
+    cached = getattr(product, '_color_variant_rows_cache', None)
+    if cached is not None:
+        return cached
+    if not getattr(product, 'id', None):
+        return []
+    queryset = _load_product_color_variant_queryset([product.id])
+    rows = list(queryset) if queryset is not None else []
+    try:
+        product._color_variant_rows_cache = rows
+    except Exception:
+        pass
+    return rows
+
+
+def get_active_fit_options(product) -> List[Any]:
+    """Active fit options ordered by (order, id), memoized per instance."""
+    cached = getattr(product, '_active_fit_options_cache', None)
+    if cached is not None:
+        return cached
+    try:
+        rows = list(product.fit_options.filter(is_active=True).order_by('order', 'id'))
+    except Exception:
+        rows = []
+    try:
+        product._active_fit_options_cache = rows
+    except Exception:
+        pass
+    return rows
+
+
 def get_detailed_color_variants(product) -> List[Dict[str, Any]]:
     """
     Returns list of colour variants with full image sets for product detail page.
+    Memoized per product instance (the detail view needs it several times).
     """
+    cached = getattr(product, '_detailed_color_variants_cache', None)
+    if cached is not None:
+        return cached
     if not getattr(product, 'id', None):
         return []
 
-    queryset = _load_product_color_variant_queryset([product.id])
-    if queryset is None:
+    queryset = get_product_color_variant_rows(product)
+    if not queryset:
         return []
 
     variants: List[Dict[str, Any]] = []
@@ -357,4 +396,8 @@ def get_detailed_color_variants(product) -> List[Dict[str, Any]]:
                 'images': image_urls,
             }
         )
+    try:
+        product._detailed_color_variants_cache = variants
+    except Exception:
+        pass
     return variants

@@ -1206,19 +1206,14 @@ class StructuredDataGenerator:
         emitting an empty group node.
         """
         try:
-            from productcolors.models import ProductColorVariant
-            color_variants = list(
-                ProductColorVariant.objects.filter(product=product)
-                .select_related("color")
-                .prefetch_related("images")
-            )
+            from storefront.services.catalog_helpers import get_product_color_variant_rows
+            color_variants = get_product_color_variant_rows(product)
         except Exception:
             color_variants = []
 
         try:
-            fit_options = list(
-                product.fit_options.filter(is_active=True).order_by("order", "id")
-            )
+            from storefront.services.catalog_helpers import get_active_fit_options
+            fit_options = get_active_fit_options(product)
         except Exception:
             fit_options = []
 
