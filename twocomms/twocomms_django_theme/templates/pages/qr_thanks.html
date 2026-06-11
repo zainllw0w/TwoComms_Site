@@ -195,6 +195,9 @@
       reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches,
       seen=false;
   try{seen=sessionStorage.getItem('qrIntroSeen')==='1';}catch(e){}
+  /* fixed-position elements must not be anchored to transformed ancestors */
+  document.body.appendChild(overlay);
+  document.body.appendChild(canvas);
 
   /* ---- confetti ---- */
   var ctx=canvas.getContext('2d'),parts=[],raf=null;
