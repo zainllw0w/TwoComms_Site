@@ -6,6 +6,7 @@ from django.contrib import admin
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.views.generic.base import RedirectView
 from storefront import views as storefront_views
+from storefront.feeds import BlogRssFeed
 
 
 def spectacular_schema_view(request, *args, **kwargs):
@@ -47,6 +48,8 @@ urlpatterns = [
     path('sitemap-product-variants.xml', storefront_views.sitemap_section_product_variants, name='sitemap_product_variants'),
     path('sitemap-categories.xml', storefront_views.sitemap_section_categories, name='sitemap_categories'),
     path('sitemap-blog.xml', storefront_views.sitemap_section_blog, name='sitemap_blog'),
+    # RSS блогу — для Google Discover, агрегаторів і AI-краулерів (2026-06-11).
+    path('blog/rss.xml', BlogRssFeed(), name='blog_rss'),
     path('sitemap-color-categories.xml', storefront_views.sitemap_section_color_categories, name='sitemap_color_categories'),
     path('sitemap-thematic.xml', storefront_views.sitemap_section_thematic, name='sitemap_thematic'),
     path('sitemap-images.xml', storefront_views.sitemap_images, name='sitemap_images'),

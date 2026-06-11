@@ -125,6 +125,7 @@
   language per user — without this, RU/EN renders would compete with
   UA in the same SERP and trigger duplicate-content warnings.
   {% endcomment %}
+  <link rel="alternate" type="application/rss+xml" title="TwoComms Blog RSS" href="{% url 'blog_rss' %}">
   <link rel="alternate" hreflang="uk-UA" href="{% block hreflang_uk %}{{ lang_alts.uk }}{% endblock %}">
   <link rel="alternate" hreflang="ru-UA" href="{% block hreflang_ru %}{{ lang_alts.ru }}{% endblock %}">
   <link rel="alternate" hreflang="en-UA" href="{% block hreflang_en %}{{ lang_alts.en }}{% endblock %}">
