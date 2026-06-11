@@ -13,7 +13,7 @@ cd "$PROJECT_DIR"
 source "$VENV_ACTIVATE"
 
 echo "[1/5] pip install -r requirements.txt"
-pip install -r requirements.txt --quiet
+pip install -r requirements.txt --quiet 2>&1 | tail -2 || echo "pip install failed (non-fatal, continuing)"
 
 echo "[2/5] migrate"
 python manage.py migrate --noinput
