@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans 'Дякуємо, що ти з TwoComms' %} — TwoComms{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
+
+{% block extra_css %}
+<style>
+.qr-thanks-wrap{min-height:70vh;display:flex;align-items:center;justify-content:center;padding:48px 16px}
+.qr-card{position:relative;max-width:640px;width:100%;border-radius:24px;padding:40px 32px;background:linear-gradient(160deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.12);box-shadow:0 30px 80px rgba(0,0,0,.45);overflow:hidden;text-align:center}
+.qr-card::before{content:"";position:absolute;top:-120px;left:50%;transform:translateX(-50%);width:340px;height:240px;background:radial-gradient(closest-side,var(--accent-color,#7c3aed),transparent 70%);opacity:.35;pointer-events:none}
+.qr-emoji{font-size:54px;line-height:1;margin-bottom:14px}
+.qr-title{font-size:clamp(24px,4.5vw,34px);font-weight:800;color:var(--text-primary,#fff);margin-bottom:12px}
+.qr-sub{color:var(--text-secondary,#b9bdc7);font-size:15.5px;line-height:1.65;max-width:520px;margin:0 auto 26px}
+.qr-promo-box{border:1px dashed rgba(255,255,255,.3);border-radius:16px;padding:22px 18px;margin:0 auto 22px;max-width:440px;background:rgba(0,0,0,.25)}
+.qr-promo-label{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-secondary,#b9bdc7);margin-bottom:10px}
+.qr-code-row{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
+.qr-code-value{font-family:ui-monospace,Menlo,monospace;font-size:clamp(22px,5vw,30px);font-weight:800;letter-spacing:.14em;color:var(--accent-color,#a78bfa)}
+.qr-copy-btn{border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:var(--text-primary,#fff);border-radius:10px;padding:8px 14px;font-size:13px;cursor:pointer;transition:.2s}
+.qr-copy-btn:hover{background:rgba(255,255,255,.16)}
+.qr-countdown{margin-top:12px;font-size:13.5px;color:#fbbf24}
+.qr-cta{display:inline-block;margin-top:6px;padding:14px 34px;border-radius:14px;font-weight:700;font-size:15.5px;text-decoration:none;background:linear-gradient(135deg,var(--accent-color,#7c3aed),#4f46e5);color:#fff;box-shadow:0 12px 30px rgba(99,70,237,.35);transition:.2s}
+.qr-cta:hover{transform:translateY(-2px);color:#fff}
+.qr-perks{margin:30px auto 0;max-width:520px;text-align:left;display:grid;gap:12px}
+.qr-perk{display:flex;gap:12px;align-items:flex-start;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px 16px}
+.qr-perk-icon{font-size:22px;line-height:1.2}
+.qr-perk-text{font-size:14px;color:var(--text-secondary,#c6cad3);line-height:1.55}
+.qr-perk-text b{color:var(--text-primary,#fff)}
+.qr-fineprint{margin-top:22px;font-size:12px;color:rgba(255,255,255,.45)}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="qr-thanks-wrap">
+  <div class="qr-card">
+    <div class="qr-emoji">🖤</div>
+    <h1 class="qr-title">{% trans 'Дякуємо, що ти з TwoComms!' %}</h1>
+    <p class="qr-sub">
+      {% trans 'Ти відсканував наш секретний QR — і це вже маленька перемога. Навіть якщо це одяг друга, подруги або взагалі «просто подивитись» — дякуємо. Цей секрет дарує подарунок 🎁' %}
+    </p>
+
+    {% if user.is_authenticated %}
+      {% if promo and not promo_expired %}
+        <div class="qr-promo-box">
+          <div class="qr-promo-label">{% trans 'Твій персональний промокод' %}</div>
+          <div class="qr-code-row">
+            <span class="qr-code-value" id="qrPromoCode">{{ promo.code }}</span>
+            <button type="button" class="qr-copy-btn" id="qrCopyBtn">{% trans 'Скопіювати' %}</button>
+          </div>
+          <div style="margin-top:10px;font-size:15px;color:var(--text-primary,#fff);font-weight:600">
+            −{{ promo_percent }}% {% trans 'на наступне замовлення' %}
+          </div>
+          <div class="qr-countdown" id="qrCountdown" data-until="{{ promo.valid_until|date:'c' }}">
+            ⏳ {% trans 'Діє до' %} {{ promo.valid_until|date:'d.m.Y H:i' }}
+          </div>
+        </div>
+        <a class="qr-cta" href="{% url 'catalog' %}">{% trans 'Обрати щось нове' %}</a>
+      {% elif promo_expired %}
+        <div class="qr-promo-box">
+          <div class="qr-promo-label">{% trans 'Твій QR-подарунок' %}</div>
+          <p class="qr-perk-text" style="margin:0">
+            {% trans 'Твій промокод уже згорів — він діяв обмежений час. Але не хвилюйся: нижче є ще способи отримати знижку 👇' %}
+          </p>
+        </div>
+        <a class="qr-cta" href="{% url 'catalog' %}">{% trans 'До каталогу' %}</a>
+      {% endif %}
+    {% else %}
+      <div class="qr-promo-box">
+        <div class="qr-promo-label">{% trans 'Тут на тебе чекає подарунок' %}</div>
+        <div style="font-size:17px;color:var(--text-primary,#fff);font-weight:700;margin-bottom:8px">
+          −{{ promo_percent }}% {% trans 'на наступне замовлення' %}
+        </div>
+        <p class="qr-perk-text" style="margin:0">
+          {% trans 'Увійди в акаунт, щоб закріпити промокод за собою — інакше він загубиться. Це 20 секунд, чесно.' %}
+        </p>
+      </div>
+      <a class="qr-cta" href="{% url 'login' %}?next={% url 'qr_thanks' %}">{% trans 'Увійти та забрати подарунок' %}</a>
+    {% endif %}
+
+    <div class="qr-perks">
+      <div class="qr-perk">
+        <div class="qr-perk-icon">📸</div>
+        <div class="qr-perk-text">
+          {% blocktrans trimmed %}Зніми сторіс або пост з нашою річчю, відміть <b>@twocomms</b> в Instagram — і отримай промокод на <b>+10%</b> у дірект.{% endblocktrans %}
+        </div>
+      </div>
+      <div class="qr-perk">
+        <div class="qr-perk-icon">🕵️</div>
+        <div class="qr-perk-text">
+          {% blocktrans trimmed %}На сайті заховано ще більше акцій та секретів: знижки стакаються <b>до 50%</b>, а за покупки нараховуються <b>бали</b>, якими можна платити.{% endblocktrans %}
+        </div>
+      </div>
+      <div class="qr-perk">
+        <div class="qr-perk-icon">🇺🇦</div>
+        <div class="qr-perk-text">
+          {% blocktrans trimmed %}Частина прибутку з кожного замовлення йде на підтримку <b>ЗСУ</b>. Носиш TwoComms — донатиш на перемогу.{% endblocktrans %}
+        </div>
+      </div>
+    </div>
+
+    <div class="qr-fineprint">
+      {% trans 'Промокод видається один раз на акаунт і діє обмежений час. Знижки за різними акціями можуть комбінуватись.' %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  var btn=document.getElementById('qrCopyBtn');
+  if(btn){btn.addEventListener('click',function(){
+    var code=document.getElementById('qrPromoCode').textContent.trim();
+    (navigator.clipboard?navigator.clipboard.writeText(code):Promise.reject()).then(function(){
+      btn.textContent='{% trans "Скопійовано!" %}';
+      setTimeout(function(){btn.textContent='{% trans "Скопіювати" %}';},2000);
+    }).catch(function(){
+      var ta=document.createElement('textarea');ta.value=code;document.body.appendChild(ta);ta.select();
+      try{document.execCommand('copy');btn.textContent='{% trans "Скопійовано!" %}';}catch(e){}
+      document.body.removeChild(ta);
+    });
+  });}
+  var cd=document.getElementById('qrCountdown');
+  if(cd&&cd.dataset.until){
+    var until=new Date(cd.dataset.until).getTime();
+    var base=cd.textContent;
+    function tick(){
+      var d=until-Date.now();
+      if(d<=0){return;}
+      var h=Math.floor(d/36e5),m=Math.floor(d%36e5/6e4);
+      cd.textContent='⏳ '+'{% trans "Залишилось" %}'+' '+Math.floor(h/24)+'{% trans "д" %} '+(h%24)+'{% trans "год" %} '+m+'{% trans "хв" %}';
+      setTimeout(tick,30000);
+    }
+    tick();
+  }
+})();
+</script>
+{% endblock %}
