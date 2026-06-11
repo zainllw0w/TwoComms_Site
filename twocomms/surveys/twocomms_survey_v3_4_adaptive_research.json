@@ -92,7 +92,7 @@
     "homepage_block": {
       "badge_uk": "Опитування",
       "title_uk": "Допоможи TWOCOMMS стати точнішим — отримай промокод на 200 грн",
-      "subtitle_uk": "Не довга анкета, а короткий адаптивний квіз. Відповіді допоможуть нам зрозуміти, які речі, прінти, кастом і сервіс справді потрібні.",
+      "subtitle_uk": "Не довга анкета, а короткий адаптивний квіз. Відповіді допоможуть нам зрозуміти, які речі, принти, кастом і сервіс справді потрібні.",
       "note_uk": "Можна пройти без реєстрації. Промокод покажемо одразу після завершення — збережи його в акаунті, щоб не загубити й застосувати в кошику.",
       "cta_start_uk": "Почати",
       "cta_continue_uk": "Продовжити",
@@ -881,7 +881,7 @@
   ],
   "modules": {
     "prints_style_lab": {
-      "title_uk": "Прінти та стиль",
+      "title_uk": "Принти та стиль",
       "why_ru": "Ключевой модуль для определения баланса military / military-adjacent / streetwear, тем, форматов и запретов.",
       "entry_questions": [
         "q200_print_reaction_cards",
@@ -1023,7 +1023,7 @@
         },
         {
           "value": "custom_personal",
-          "label_uk": "Кастомний прінт / свою ідею"
+          "label_uk": "Кастомний принт / свою ідею"
         },
         {
           "value": "custom_team_unit",
@@ -1346,7 +1346,7 @@
       "section": "core",
       "order": 45,
       "type": "single_choice",
-      "prompt_uk": "Де для тебе проходить межа: що вже було б «занадто» в прінтах?",
+      "prompt_uk": "Де для тебе проходить межа: що вже було б «занадто» в принтах?",
       "options": [
         {
           "value": "too_direct_patriotic",
@@ -1433,7 +1433,7 @@
       "options": [
         {
           "value": "prints",
-          "label_uk": "Прінти / стиль"
+          "label_uk": "Принти / стиль"
         },
         {
           "value": "meaning",
@@ -1487,7 +1487,7 @@
       "options": [
         {
           "value": "prints_not_mine",
-          "label_uk": "Не до кінця мій стиль прінтів"
+          "label_uk": "Не до кінця мій стиль принтів"
         },
         {
           "value": "style_balance",
@@ -1618,7 +1618,7 @@
       "options": [
         {
           "value": "print_design",
-          "label_uk": "Прінт / дизайн"
+          "label_uk": "Принт / дизайн"
         },
         {
           "value": "brand_meaning",
@@ -1681,7 +1681,7 @@
         },
         {
           "value": "no_my_print",
-          "label_uk": "Не бачу прінта, який точно мій"
+          "label_uk": "Не бачу принта, який точно мій"
         },
         {
           "value": "need_more_proof",
@@ -1723,7 +1723,7 @@
       "options": [
         {
           "value": "prints",
-          "label_uk": "Більше сильних нових прінтів"
+          "label_uk": "Більше сильних нових принтів"
         },
         {
           "value": "quality_fit",
@@ -1731,7 +1731,7 @@
         },
         {
           "value": "custom",
-          "label_uk": "Кастомний прінт і персоналізація"
+          "label_uk": "Кастомний принт і персоналізація"
         },
         {
           "value": "lower_prices",
@@ -1778,7 +1778,7 @@
       "section": "prints_style_lab",
       "order": 200,
       "type": "concept_reaction_cards",
-      "prompt_uk": "Оціни напрямки прінтів: що хочеться бачити більше?",
+      "prompt_uk": "Оціни напрямки принтів: що хочеться бачити більше?",
       "concepts": [
         {
           "value": "military_core",
@@ -1826,7 +1826,7 @@
       "section": "prints_style_lab",
       "order": 201,
       "type": "maxdiff_best_worst",
-      "prompt_uk": "Який формат прінта найкращий, а який найменш цікавий?",
+      "prompt_uk": "Який формат принта найкращий, а який найменш цікавий?",
       "options": [
         {
           "value": "small_chest",
@@ -1834,11 +1834,11 @@
         },
         {
           "value": "front_center",
-          "label_uk": "Прінт спереду по центру"
+          "label_uk": "Принт спереду по центру"
         },
         {
           "value": "back_big",
-          "label_uk": "Великий прінт на спині"
+          "label_uk": "Великий принт на спині"
         },
         {
           "value": "sleeve",
@@ -1871,7 +1871,7 @@
       "section": "prints_style_lab",
       "order": 202,
       "type": "multi_choice",
-      "prompt_uk": "Які теми/напрями прінтів ти хотів/ла б бачити частіше? Обери до 3.",
+      "prompt_uk": "Які теми/напрями принтів ти хотів/ла б бачити частіше? Обери до 3.",
       "options": [
         {
           "value": "drones",
@@ -1941,7 +1941,7 @@
       "section": "prints_style_lab",
       "order": 203,
       "type": "multi_choice",
-      "prompt_uk": "Що в прінтах краще НЕ посилювати? Обери до 3.",
+      "prompt_uk": "Що в принтах краще НЕ посилювати? Обери до 3.",
       "options": [
         {
           "value": "direct_patriotic_cliche",
@@ -1995,7 +1995,7 @@
       "section": "prints_style_lab",
       "order": 204,
       "type": "text_short",
-      "prompt_uk": "Є конкретна тема/фраза/ідея прінта, яку ти хотів/ла б побачити?",
+      "prompt_uk": "Є конкретна тема/фраза/ідея принта, яку ти хотів/ла б побачити?",
       "required": false,
       "max_chars": 220,
       "placeholder_uk": "Напр.: тема, фраза, підрозділ, вайб, референс…",
@@ -2022,7 +2022,7 @@
       "section": "custom_lab",
       "order": 300,
       "type": "single_choice",
-      "prompt_uk": "Наскільки тобі цікава річ з кастомним прінтом або персоналізацією?",
+      "prompt_uk": "Наскільки тобі цікава річ з кастомним принтом або персоналізацією?",
       "options": [
         {
           "value": "ready_now",
@@ -2134,7 +2134,7 @@
         },
         {
           "value": "zone_size_confusion",
-          "label_uk": "Не знаю, який розмір/зону прінта обрати"
+          "label_uk": "Не знаю, який розмір/зону принта обрати"
         },
         {
           "value": "need_manager",
@@ -2329,7 +2329,7 @@
         },
         {
           "value": "visual_preview",
-          "label_uk": "Прев’ю прінта на речі"
+          "label_uk": "Прев’ю принта на речі"
         },
         {
           "value": "real_examples",
@@ -2423,7 +2423,7 @@
         },
         {
           "value": "print_not_unique_enough",
-          "label_uk": "Прінт/ідея не виглядає настільки унікально"
+          "label_uk": "Принт/ідея не виглядає настільки унікально"
         },
         {
           "value": "delivery_total",
@@ -2480,7 +2480,7 @@
         },
         {
           "value": "durable_print",
-          "label_uk": "Довговічніший прінт"
+          "label_uk": "Довговічніший принт"
         },
         {
           "value": "limited_drop",
@@ -3127,19 +3127,19 @@
         },
         {
           "value": "print_cracks",
-          "label_uk": "Прінт тріскається"
+          "label_uk": "Принт тріскається"
         },
         {
           "value": "print_peels",
-          "label_uk": "Прінт відшаровується"
+          "label_uk": "Принт відшаровується"
         },
         {
           "value": "print_fades",
-          "label_uk": "Прінт тьмяніє"
+          "label_uk": "Принт тьмяніє"
         },
         {
           "value": "touch",
-          "label_uk": "Прінт неприємний на дотик"
+          "label_uk": "Принт неприємний на дотик"
         },
         {
           "value": "size_after_wash",
@@ -3181,7 +3181,7 @@
       "options": [
         {
           "value": "close_video",
-          "label_uk": "Відео тканини й прінта зблизька"
+          "label_uk": "Відео тканини й принта зблизька"
         },
         {
           "value": "fit_on_people",
@@ -3189,11 +3189,11 @@
         },
         {
           "value": "wash_test",
-          "label_uk": "Тест прінта після прання"
+          "label_uk": "Тест принта після прання"
         },
         {
           "value": "stretch_test",
-          "label_uk": "Тест прінта на розтягування"
+          "label_uk": "Тест принта на розтягування"
         },
         {
           "value": "real_reviews",
@@ -3346,7 +3346,7 @@
         },
         {
           "value": "new_prints_existing_models",
-          "label_uk": "Краще більше прінтів на існуючих моделях"
+          "label_uk": "Краще більше принтів на існуючих моделях"
         }
       ],
       "analytics_tags": [
@@ -3375,11 +3375,11 @@
         },
         {
           "value": "less_aggressive_prints",
-          "label_uk": "Менш агресивні прінти"
+          "label_uk": "Менш агресивні принти"
         },
         {
           "value": "same_military_prints",
-          "label_uk": "Ті самі military-прінти"
+          "label_uk": "Ті самі military-принти"
         },
         {
           "value": "more_minimal",
@@ -3430,7 +3430,7 @@
       "buckets": [
         {
           "value": "new_prints",
-          "label_uk": "Нові прінти"
+          "label_uk": "Нові принти"
         },
         {
           "value": "better_base",
@@ -3716,7 +3716,7 @@
       "options": [
         {
           "value": "new_prints",
-          "label_uk": "Нові сильні прінти"
+          "label_uk": "Нові сильні принти"
         },
         {
           "value": "stable_quality",
@@ -3797,7 +3797,7 @@
       "options": [
         {
           "value": "prints",
-          "label_uk": "Прінти / стиль"
+          "label_uk": "Принти / стиль"
         },
         {
           "value": "quality",
@@ -4101,7 +4101,7 @@
         },
         {
           "value": "print_meaning",
-          "label_uk": "Пояснення сенсу прінтів"
+          "label_uk": "Пояснення сенсу принтів"
         },
         {
           "value": "quality_tests",
@@ -4497,7 +4497,7 @@
         "style_segment": "streetwear_first"
       },
       "action": "show_streetwear_collection",
-      "cta_uk": "Показати streetwear-прінти"
+      "cta_uk": "Показати streetwear-принти"
     },
     {
       "if": {
