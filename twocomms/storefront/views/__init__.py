@@ -373,6 +373,9 @@ register_view_new = register_view  # для urls.py: views.register_view_new
 # Checkout aliases
 order_create = create_order
 
+# Перехват данных оформления для брошенных корзин
+from .checkout_capture import capture_checkout
+
 # Profile aliases
 my_orders = order_history
 

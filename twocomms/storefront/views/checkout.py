@@ -161,6 +161,16 @@ def create_order(request):
             apply_nova_poshta_refs(order, delivery_refs)
             order.save()
 
+            # Брошенная корзина «спасена» — больше не дёргаем покупателя.
+            try:
+                from orders.models import CheckoutCapture
+                if request.session.session_key:
+                    CheckoutCapture.objects.filter(
+                        session_key=request.session.session_key
+                    ).update(converted=True)
+            except Exception:
+                pass
+
             # Create Order Items
             total_sum = Decimal('0')
 

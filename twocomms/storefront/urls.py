@@ -340,6 +340,7 @@ urlpatterns = [
     ),
     # orders
     path('orders/create/', views.order_create, name='order_create'),
+    path('checkout/capture/', views.capture_checkout, name='checkout_capture'),
     path('orders/success/<int:order_id>/', views.order_success, name='order_success'),
     path('orders/success-preview/', views.order_success_preview, name='order_success_preview'),  # Тестовый preview
     path(

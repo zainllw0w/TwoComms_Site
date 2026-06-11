@@ -972,3 +972,35 @@ class DropshipperPayout(models.Model):
             if not DropshipperPayout.objects.filter(payout_number=number).exists():
                 return number
             counter += 1
+
+
+class CheckoutCapture(models.Model):
+    """Снимок данных оформления заказа для восстановления брошенных корзин.
+
+    Сохраняем всё, что покупатель ввёл в форму, даже если он не нажал
+    «Оформити замовлення». Используется для уведомлений админам в Telegram
+    и (при настроенном SMTP) recovery-писем.
+    """
+
+    session_key = models.CharField(max_length=64, unique=True, db_index=True)
+    user = models.ForeignKey(
+        'auth.User', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='checkout_captures',
+    )
+    full_name = models.CharField(max_length=255, blank=True, default='')
+    phone = models.CharField(max_length=32, blank=True, default='')
+    email = models.EmailField(blank=True, default='')
+    cart_snapshot = models.JSONField(default=dict, blank=True)
+    cart_total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True, db_index=True)
+    converted = models.BooleanField(default=False)
+    admin_notified_at = models.DateTimeField(null=True, blank=True)
+    recovery_sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Незавершене оформлення'
+        verbose_name_plural = 'Незавершені оформлення'
+
+    def __str__(self):
+        return f"capture {self.session_key[:8]}… {self.phone or self.email or 'anon'}"
