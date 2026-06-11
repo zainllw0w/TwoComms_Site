@@ -665,11 +665,8 @@ def _collect_color_names(product) -> List[str]:
     out: List[str] = []
     seen = set()
     try:
-        variants = (
-            ProductColorVariant.objects.filter(product=product)
-            .select_related("color")
-            .only("color__name")
-        )
+        from .catalog_helpers import get_product_color_variant_rows
+        variants = get_product_color_variant_rows(product)
         for v in variants:
             name = getattr(getattr(v, "color", None), "name", "") or ""
             if not name:
