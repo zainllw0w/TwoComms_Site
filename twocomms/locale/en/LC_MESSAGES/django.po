@@ -9823,3 +9823,9 @@ msgstr "h"
 
 msgid "хв"
 msgstr "m"
+
+msgid "Торкнись, щоб відкрити подарунок"
+msgstr "Tap to open your gift"
+
+msgid "сек"
+msgstr "sec"
