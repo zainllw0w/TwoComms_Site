@@ -2431,7 +2431,7 @@ msgid "Як прати футболку, щоб принт не зіпсував
 msgstr "Buy a printed t-shirt"
 
 msgid ""
-"Виверніть навиворіт, прийте при 30 °C у режимі для бавовни без відбілювачів. "
+"Виверніть навиворіт, періть при 30 °C у режимі для бавовни без відбілювачів. "
 "Сушіть на повітрі. Прасувати можна з вивороту або через марлю. DTF-принт "
 "витримує 50+ циклів такого прання."
 msgstr ""
@@ -3342,8 +3342,8 @@ msgstr "Go to catalog"
 msgid "Доставка та оплата — TwoComms"
 msgstr "Delivery and payment — TwoComms"
 
-msgid "Доставка і оплата TwoComms — Нова Пошта, 1-2 дні по Україні"
-msgstr "TwoComms Delivery & Payment — Nova Poshta, 1-2 days across Ukraine"
+msgid "Доставка і оплата TwoComms — Нова Пошта, 1–3 дні по Україні"
+msgstr "TwoComms Delivery & Payment — Nova Poshta, 1–3 days across Ukraine"
 
 msgid ""
 "Умови доставки та оплати TwoComms: строки по Україні, міжнародні "
@@ -8432,8 +8432,8 @@ msgstr "Purchase benefits"
 msgid "Швидка відправка"
 msgstr "Fast shipping"
 
-msgid "1-2 дні по Україні"
-msgstr "1-2 days in Ukraine"
+msgid "1–3 робочі дні по Україні"
+msgstr "1–3 business days across Ukraine"
 
 msgid "Індивідуальний підхід"
 msgstr "Personal approach"
@@ -9655,3 +9655,12 @@ msgstr "Unique views"
 
 msgid "Редагувати статтю"
 msgstr "Edit article"
+
+msgid "Частина прибутку — на ЗСУ"
+msgstr "Part of profits supports the Armed Forces of Ukraine"
+
+msgid "Доставка по Україні"
+msgstr "Delivery across Ukraine"
+
+msgid "Догляд за виробом"
+msgstr "Product care"

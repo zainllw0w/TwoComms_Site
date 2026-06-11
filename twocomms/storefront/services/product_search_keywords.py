@@ -366,7 +366,7 @@ def _generate_support_chips(product) -> List[Dict[str, Any]]:
     cat_phrase = _category_phrase_plural(getattr(cat, "slug", "") or "")
     return [
         {
-            "label": "Доставка Новою Поштою 1-2 дні",
+            "label": "Доставка Новою Поштою 1–3 дні",
             "url": "/delivery/",
             "kind": "support",
             "weight": 50,
