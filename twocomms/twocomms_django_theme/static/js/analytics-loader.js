@@ -154,7 +154,10 @@
   // (Purchase/Lead) для корректной дедупликации между браузером и сервером
   
   function setupGlobalEventBridge() {
-    if (typeof win.trackEvent === 'function') {
+    // FIX 2026-06-12: base.html ставит ранний стаб trackEvent с очередью
+    // (__queueStub) — его нужно заменить реальной функцией. Выходим только
+    // если установлен уже НЕ-стабовый trackEvent (повторная загрузка loader).
+    if (typeof win.trackEvent === 'function' && !win.trackEvent.__queueStub) {
       return;
     }
     win.YM_ID = YM_ID ? parseInt(YM_ID, 10) || 0 : 0;
@@ -437,6 +440,24 @@
         }
       }
     };
+
+    // FIX 2026-06-12: дренируем очередь вызовов, накопленных стабом из
+    // base.html до загрузки loader-а (ViewContent/AddToCart/Lead и т.д.).
+    try {
+      var pendingCalls = win._trackEventQueue;
+      if (pendingCalls && pendingCalls.length) {
+        for (var pq = 0; pq < pendingCalls.length; pq++) {
+          try {
+            win.trackEvent.apply(null, pendingCalls[pq]);
+          } catch (drainErr) {
+            if (console && console.debug) {
+              console.debug('trackEvent queue drain error:', drainErr);
+            }
+          }
+        }
+        win._trackEventQueue = [];
+      }
+    } catch (_) { }
   }
   
   // Функция для преобразования payload в формат TikTok

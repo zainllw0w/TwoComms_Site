@@ -1137,7 +1137,14 @@
     window.setTimeout(() => {
       if (state.viewContentTracked) return;
       const payload = document.getElementById('product-analytics-payload');
-      if (!payload || !window.trackEvent) return;
+      // FIX 2026-06-12: раньше тут был ранний выход `!window.trackEvent`,
+      // из-за которого view_item НЕ попадал даже в dataLayer, если
+      // analytics-loader.js ещё не загрузился (он грузится только после
+      // первого user interaction). GA4 недосчитывал view_item (76 view_item
+      // против 82 add_to_cart за 30 дней). dataLayer-push не требует
+      // trackEvent — GTM обрабатывает буфер при загрузке; Meta ViewContent
+      // уходит через trackEvent-стаб с очередью (см. base.html + loader).
+      if (!payload) return;
 
       const selection = currentSelection(state);
       const offerId = selection.offerId || payload.dataset.id;
@@ -1194,6 +1201,7 @@
         }
       } catch (_) { }
 
+      if (typeof window.trackEvent !== 'function') return;
       window.trackEvent('ViewContent', {
         content_ids: [offerId],
         content_name: title,
