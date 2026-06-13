@@ -27,6 +27,8 @@ from . import recurring as recurring_service
 # Назви місяців українською (називний відмінок) для сегментів таймлайну.
 _UK_MONTHS_NOM = ['', 'Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень',
                   'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень']
+# Скорочені місяці для дата-чипа на картці зобов'язання.
+_UK_MON_SHORT = ['', 'січ', 'лют', 'бер', 'кві', 'тра', 'чер', 'лип', 'сер', 'вер', 'жов', 'лис', 'гру']
 
 
 def _new_group(kind, ttype):
@@ -155,6 +157,13 @@ def planned_obligations(company) -> dict:
         g['overdue'] = bool(g['next_due'] and g['next_due'] < today)
         g['overdue_days'] = (today - g['next_due']).days if g['overdue'] else 0
         g['next_due_iso'] = g['next_due'].isoformat() if g['next_due'] else ''
+        # Поля для дата-чипа у картці (великий день + скорочений місяць).
+        if g['next_due']:
+            g['next_due_day'] = g['next_due'].day
+            g['next_due_mon'] = _UK_MON_SHORT[g['next_due'].month]
+        else:
+            g['next_due_day'] = ''
+            g['next_due_mon'] = ''
         g.pop('_txns', None)
 
         (income if g['type'] == Transaction.TYPE_INCOME else expense).append(g)

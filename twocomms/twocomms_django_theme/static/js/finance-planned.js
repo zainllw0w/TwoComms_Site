@@ -265,6 +265,7 @@
   }
 
   function openPlan(card) {
+    if (!planModal) return;
     var ruleId = card.getAttribute('data-rule-id');
     if (!ruleId) return;
     planEls.ruleId.value = ruleId;
@@ -315,6 +316,7 @@
   // ---------------------------------------------------------------- Counterparty history
   var cpModal = document.getElementById('fin-cp-modal');
   function openCpHistory(cpId, name) {
+    if (!cpModal) return;
     if (!cpId) return;
     document.getElementById('fin-cp-title').textContent = 'Історія: ' + (name || '');
     document.getElementById('fin-cp-totals').innerHTML = '<span class="fin-muted-cell">Завантаження…</span>';

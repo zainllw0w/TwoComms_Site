@@ -44,47 +44,82 @@
 .fin-plan-list { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
 .fin-plan-empty { padding: 24px; text-align: center; color: var(--fin-muted); font-size: 13px; }
 
-/* Картка зобов'язання */
+/* Картка зобов'язання — грид [дата | тіло | сума+дії] */
 .fin-oblig {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px 14px;
-  align-items: start;
+  grid-template-columns: auto 1fr auto;
+  gap: 4px 14px;
+  align-items: center;
   padding: 12px 14px;
   background: var(--fin-bg-850);
   border: 1px solid var(--fin-border);
-  border-radius: 12px;
+  border-radius: 14px;
+  transition: border-color .15s, transform .1s;
 }
-.fin-oblig.is-overdue { border-color: #f8717166; background: linear-gradient(180deg, #f8717110, transparent); }
-.fin-oblig__title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.fin-oblig__title { font-weight: 600; font-size: 14px; }
-.fin-oblig__badge {
-  font-size: 11px; padding: 2px 8px; border-radius: 999px;
-  border: 1px solid var(--fin-border); color: var(--fin-muted);
-  white-space: nowrap;
+.fin-oblig:hover { border-color: var(--fin-border-strong, #ffffff22); }
+.fin-oblig.is-overdue { border-color: #f8717166; background: linear-gradient(180deg, #f8717112, transparent); }
+
+/* Дата-чип */
+.fin-oblig__date {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 50px; min-height: 50px; border-radius: 12px;
+  background: rgba(255,255,255,.05); border: 1px solid var(--fin-border);
+  line-height: 1;
 }
-.fin-oblig__badge--repeat { color: #818cf8; border-color: #818cf855; background: #818cf814; }
-.fin-oblig__badge--install { color: #38bdf8; border-color: #38bdf855; background: #38bdf814; }
-.fin-oblig__meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.fin-oblig__day { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.fin-oblig__mon { font-size: 10px; text-transform: uppercase; color: var(--fin-muted); margin-top: 2px; letter-spacing: .04em; }
+.fin-oblig--income .fin-oblig__date { background: rgba(52,211,153,.12); border-color: rgba(52,211,153,.3); }
+.fin-oblig--expense .fin-oblig__date { background: rgba(111,149,255,.12); border-color: rgba(111,149,255,.3); }
+.fin-oblig.is-overdue .fin-oblig__date { background: rgba(248,113,113,.16); border-color: rgba(248,113,113,.45); }
+.fin-oblig.is-overdue .fin-oblig__day { color: #fca5a5; }
+
+/* Тіло */
+.fin-oblig__body { min-width: 0; }
+.fin-oblig__title { font-weight: 700; font-size: 14.5px; line-height: 1.25; }
+.fin-oblig__chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
 .fin-oblig__chip {
   font-size: 11px; color: var(--fin-muted);
-  background: rgba(255,255,255,.04); padding: 2px 8px; border-radius: 8px;
+  background: rgba(255,255,255,.05); padding: 2px 8px; border-radius: 999px;
+  white-space: nowrap;
 }
 .fin-oblig__chip[data-cp-history] { cursor: pointer; }
-.fin-oblig__chip[data-cp-history]:hover { color: #c7d2fe; background: rgba(129,140,248,.12); }
-.fin-oblig__chip--est { color: #fbbf24; background: rgba(251,191,36,.12); }
+.fin-oblig__chip[data-cp-history]:hover { color: #c7d2fe; background: rgba(129,140,248,.14); }
+.fin-oblig__chip--est { color: #fbbf24; background: rgba(251,191,36,.14); }
+.fin-oblig__chip--rep { color: #a5b4fc; background: rgba(129,140,248,.14); }
+.fin-oblig__chip--mut { opacity: .8; }
+.fin-oblig__status { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.fin-oblig__due { font-size: 11px; color: var(--fin-muted); }
+.fin-oblig__due.is-overdue { color: #f87171; font-weight: 700; }
+.fin-oblig__rem { font-size: 11px; color: #a5b4fc; }
 .fin-field-hint { display: block; margin-top: 4px; font-size: 11px; color: #fbbf24; }
 
-.fin-oblig__numbers { text-align: right; min-width: 120px; }
-.fin-oblig__amount { font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; }
-.fin-oblig__per { font-size: 11px; color: var(--fin-muted); font-weight: 400; margin-left: 3px; }
-.fin-oblig__remaining { font-size: 11px; color: #a5b4fc; margin-top: 3px; }
-.fin-oblig__due { font-size: 11px; color: var(--fin-muted); margin-top: 3px; }
-.fin-oblig__due.is-overdue { color: #f87171; font-weight: 600; }
-.fin-oblig__actions {
-  grid-column: 1 / -1;
-  display: flex; gap: 6px; flex-wrap: wrap;
-  border-top: 1px dashed var(--fin-border); padding-top: 8px;
+/* Сума + дії */
+.fin-oblig__side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.fin-oblig__amount { font-weight: 800; font-size: 16px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fin-oblig--income .fin-oblig__amount { color: #34d399; }
+.fin-oblig--expense .fin-oblig__amount { color: #fb7185; }
+.fin-oblig__actions { display: flex; gap: 6px; align-items: center; }
+.fin-icon-btn {
+  width: 30px; height: 30px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--fin-border); background: rgba(255,255,255,.04);
+  color: var(--fin-muted); font-size: 13px; line-height: 1;
+}
+.fin-icon-btn:hover { color: var(--fin-text); border-color: var(--fin-border-strong, #ffffff33); }
+
+@media (max-width: 560px) {
+  .fin-oblig {
+    grid-template-columns: auto 1fr;
+    gap: 8px 12px;
+  }
+  .fin-oblig__date { width: 44px; min-height: 44px; }
+  .fin-oblig__day { font-size: 17px; }
+  /* Сума+дії переносяться у другий ряд на всю ширину під тілом. */
+  .fin-oblig__side {
+    grid-column: 1 / -1; flex-direction: row; align-items: center;
+    justify-content: space-between; border-top: 1px dashed var(--fin-border); padding-top: 8px;
+  }
+  .fin-oblig__amount { font-size: 17px; }
+  .fin-oblig__actions .fin-btn { padding: 7px 14px; }
 }
 
 /* Історія контрагента */
@@ -132,6 +167,8 @@
   border-bottom: 1px solid var(--fin-border); backdrop-filter: blur(6px);
 }
 .fin-tl-seg__title { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.fin-tl-seg__ic { font-size: 15px; }
+.fin-tl-empty { padding: 16px; text-align: center; color: var(--fin-muted); font-size: 13px; }
 .fin-tl-seg__count {
   font-size: 11px; font-weight: 600; min-width: 20px; text-align: center;
   padding: 1px 7px; border-radius: 999px; background: rgba(255,255,255,.08); color: var(--fin-muted);

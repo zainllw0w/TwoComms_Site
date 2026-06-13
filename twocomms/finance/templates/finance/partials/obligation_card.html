@@ -1,6 +1,5 @@
-{% comment %}Картка планового зобов'язання. Очікує g = згорнуте зобов'язання (obligations.py).
-   Один рядок на повторюване/розстрочку/разове — з періодичністю, сумою за період,
-   «скільки лишилось» і датою найближчого платежу.{% endcomment %}
+{% comment %}Картка планового зобов'язання (єдина для /planned/, головної та контрагента).
+   g = згорнуте зобов'язання (obligations.py). Mobile-first грид без зсувів.{% endcomment %}
 <article class="fin-oblig fin-oblig--{{ g.type }}{% if g.overdue %} is-overdue{% endif %}"
          data-kind="{{ g.kind }}"
          data-type="{{ g.type }}"
@@ -18,49 +17,43 @@
          data-end-date="{{ g.end_date_iso|default:'' }}"
          data-count="{{ g.count|default:'' }}"
          data-title="{{ g.title }}">
-    <div class="fin-oblig__main">
-        <div class="fin-oblig__title-row">
-            <span class="fin-oblig__title">{{ g.title }}</span>
-            {% if g.kind == 'recurring' %}
-            <span class="fin-oblig__badge fin-oblig__badge--repeat" title="Повторюваний платіж">⟳ {{ g.frequency_label }} {{ g.repeat_badge }}</span>
-            {% elif g.kind == 'installment' %}
-            <span class="fin-oblig__badge fin-oblig__badge--install" title="Розстрочка боргу">▦ розстрочка</span>
-            {% else %}
-            <span class="fin-oblig__badge fin-oblig__badge--once" title="Разовий платіж">• разовий</span>
+
+    <div class="fin-oblig__date" aria-hidden="true">
+        {% if g.next_due_day %}
+        <span class="fin-oblig__day">{{ g.next_due_day }}</span>
+        <span class="fin-oblig__mon">{{ g.next_due_mon }}</span>
+        {% else %}<span class="fin-oblig__day">—</span>{% endif %}
+    </div>
+
+    <div class="fin-oblig__body">
+        <div class="fin-oblig__title">{{ g.title }}</div>
+        <div class="fin-oblig__chips">
+            {% if g.amount_is_estimated %}<span class="fin-oblig__chip fin-oblig__chip--est" title="Орієнтовна сума">≈ орієнтовна</span>{% endif %}
+            {% if g.kind == 'recurring' %}<span class="fin-oblig__chip fin-oblig__chip--rep">⟳ {{ g.frequency_label }} {{ g.repeat_badge }}</span>
+            {% elif g.kind == 'installment' %}<span class="fin-oblig__chip">▦ розстрочка</span>{% endif %}
+            {% if g.counterparty %}<span class="fin-oblig__chip" data-cp-history>👤 {{ g.counterparty }}</span>{% endif %}
+            {% if g.category %}<span class="fin-oblig__chip fin-oblig__chip--mut">🏷 {{ g.category }}</span>{% endif %}
+        </div>
+        <div class="fin-oblig__status">
+            {% if g.next_due_iso %}
+                {% if g.overdue %}<span class="fin-oblig__due is-overdue">⚠ прострочено на {{ g.overdue_days }} дн</span>
+                {% else %}<span class="fin-oblig__due">очікує {{ g.next_due_iso }}</span>{% endif %}
+            {% endif %}
+            {% if g.remaining_label %}<span class="fin-oblig__rem">{{ g.remaining_label }}{% if g.remaining_amount_display %} · {{ g.remaining_amount_display }}{% endif %}</span>{% endif %}
+        </div>
+    </div>
+
+    <div class="fin-oblig__side">
+        <div class="fin-oblig__amount">{% if g.amount_is_estimated %}≈&nbsp;{% endif %}{{ g.per_amount_display }}</div>
+        <div class="fin-oblig__actions">
+            {% if g.next_txn_id %}
+            <button type="button" class="fin-btn fin-btn--primary fin-btn--sm" data-act="settle"
+                    data-txn-id="{{ g.next_txn_id }}">{% if g.type == 'income' %}Отримано{% else %}Сплатити{% endif %}</button>
+            {% endif %}
+            {% if g.rule_id %}
+            <button type="button" class="fin-icon-btn" data-act="edit-plan" data-rule-id="{{ g.rule_id }}" title="Змінити план" aria-label="Змінити план">✎</button>
+            <button type="button" class="fin-icon-btn" data-act="stop-rule" data-rule-id="{{ g.rule_id }}" title="Зупинити повторення" aria-label="Зупинити">✕</button>
             {% endif %}
         </div>
-        <div class="fin-oblig__meta">
-            {% if g.amount_is_estimated %}<span class="fin-oblig__chip fin-oblig__chip--est" title="Орієнтовна сума — уточнюється при оплаті">≈ орієнтовна</span>{% endif %}
-            {% if g.counterparty %}<span class="fin-oblig__chip" data-cp-history>👤 {{ g.counterparty }}</span>{% endif %}
-            {% if g.category %}<span class="fin-oblig__chip">🏷 {{ g.category }}</span>{% endif %}
-            {% if g.account %}<span class="fin-oblig__chip">💳 {{ g.account }}</span>{% endif %}
-        </div>
-    </div>
-
-    <div class="fin-oblig__numbers">
-        <div class="fin-oblig__amount">{% if g.amount_is_estimated %}≈ {% endif %}{{ g.per_amount_display }}{% if g.kind != 'onetime' %}<span class="fin-oblig__per">/ період</span>{% endif %}</div>
-        {% if g.remaining_label %}
-        <div class="fin-oblig__remaining">
-            {{ g.remaining_label }}{% if g.remaining_amount_display %} · {{ g.remaining_amount_display }}{% endif %}
-        </div>
-        {% endif %}
-        <div class="fin-oblig__due {% if g.overdue %}is-overdue{% endif %}">
-            {% if g.next_due_iso %}
-                {% if g.overdue %}прострочено на {{ g.overdue_days }} дн · {{ g.next_due_iso }}{% else %}найближчий: {{ g.next_due_iso }}{% endif %}
-            {% else %}—{% endif %}
-        </div>
-    </div>
-
-    <div class="fin-oblig__actions">
-        {% if g.next_txn_id %}
-        <button type="button" class="fin-btn fin-btn--primary fin-btn--sm" data-act="settle"
-                data-txn-id="{{ g.next_txn_id }}">{% if g.type == 'income' %}Погашено{% else %}Сплатити{% endif %}</button>
-        {% endif %}
-        {% if g.rule_id %}
-        <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-act="edit-plan"
-                data-rule-id="{{ g.rule_id }}">Змінити план</button>
-        <button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" data-act="stop-rule"
-                data-rule-id="{{ g.rule_id }}" title="Зупинити повторення">✕</button>
-        {% endif %}
     </div>
 </article>

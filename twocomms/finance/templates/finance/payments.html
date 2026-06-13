@@ -129,7 +129,7 @@
         </tbody>
     </table>
 
-    {% if not rows and not planned_rows %}
+    {% if not rows and not planned_count %}
     <div class="fin-empty-state" id="fin-empty">
         <div class="fin-empty-state__icon">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13h2l3 7 4-16 3 9h6"/></svg>
@@ -144,21 +144,19 @@
     </div>
     {% endif %}
 
-    <!-- Група планових платежів -->
-    {% if planned_rows %}
+    <!-- Планові платежі: таймлайн (прострочено → цей місяць → майбутні по місяцях) -->
+    {% if planned_count %}
     <div class="fin-planned-group" id="fin-planned-group">
         <button type="button" class="fin-planned-group__head" id="fin-planned-toggle" aria-expanded="true">
             <svg class="fin-planned-group__chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"/></svg>
             <span>Планові платежі</span>
             <span class="fin-planned-group__count">{{ planned_count }}</span>
         </button>
-        <table class="fin-table fin-table--planned" id="fin-planned-table">
-            <tbody>
-                {% for r in planned_rows %}
-                {% include 'finance/partials/transaction_row.html' with r=r %}
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="fin-planned-group__body" id="fin-planned-body">
+            {% for seg in planned_timeline %}
+                {% include 'finance/partials/timeline_section.html' with seg=seg %}
+            {% endfor %}
+        </div>
     </div>
     {% endif %}
 </div>
@@ -198,6 +196,10 @@
 {% block modals %}
 {% include 'finance/partials/advanced_filter_modal.html' %}
 {% include 'finance/partials/bulk_value_modal.html' %}
+{% include 'finance/partials/settle_modal.html' %}
 {% endblock %}
 
-{% block extra_js %}{% endblock %}
+{% block extra_js %}
+<link rel="stylesheet" href="{% static 'css/finance-planned.css' %}?v=20260613b">
+<script src="{% static 'js/finance-planned.js' %}?v=20260613b"></script>
+{% endblock %}

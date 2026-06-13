@@ -122,26 +122,36 @@ def payments(request):
     # екземпляр із позначкою періодичності та лічильником решти серії.
     from ..services import obligations as obligations_service
     planned_total = planned_qs.count()
-    seen_groups = {}
-    planned_rows = []
-    for t in planned_qs.select_related('recurrence_rule', 'reseller')[:500]:
-        key = obligations_service._group_key(t)
-        if key[0] in ('rule', 'shipment'):
-            grp = seen_groups.get(key)
-            if grp is None:
-                row = ser.serialize_transaction(t)
-                row['series_count'] = 1
-                seen_groups[key] = row
-                planned_rows.append(row)
-            else:
-                grp['series_count'] += 1
-            continue
-        planned_rows.append(ser.serialize_transaction(t))
+
+    # Таймлайн планових для нижнього блоку: прострочено → цей місяць → майбутні
+    # по місяцях (зрозуміла структура замість хаотичного плоского списку).
+    timeline = obligations_service.planned_timeline(company)
+    cur0 = company.base_currency
+
+    def _fmt_obl(g):
+        g['per_amount_display'] = ser.money(g['per_amount'], g.get('currency') or cur0)
+        if g.get('remaining_amount') is not None:
+            g['remaining_amount_display'] = ser.money(g['remaining_amount'], g.get('currency') or cur0)
+        else:
+            g['remaining_amount_display'] = ''
+        return g
+
+    planned_timeline = []
+    for seg in timeline['segments']:
+        planned_timeline.append({
+            'key': seg['key'], 'label': seg['label'], 'tone': seg['tone'],
+            'items': [_fmt_obl(g) for g in seg['items']],
+            'count': len(seg['items']),
+            'income_sum': ser.money(seg['income_sum'], cur0),
+            'expense_sum': ser.money(seg['expense_sum'], cur0),
+            'has_income': seg['income_sum'] > 0,
+            'has_expense': seg['expense_sum'] > 0,
+        })
 
     context = {
         'active_tab': 'payments',
         'rows': actual_rows,
-        'planned_rows': planned_rows,
+        'planned_timeline': planned_timeline,
         'planned_count': planned_total,
         'total_count': total_count,
         'page_obj': page_obj,

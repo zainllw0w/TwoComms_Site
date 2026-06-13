@@ -1,18 +1,17 @@
 /* TwoComms Finance — Service Worker для PWA
    Кешування критичних ресурсів, offline підтримка, push-повідомлення */
 
-const CACHE_VERSION = 'twc-finance-v1.1.0';
+const CACHE_VERSION = 'twc-finance-v1.2.0';
 const CACHE_STATIC = `${CACHE_VERSION}-static`;
 const CACHE_DYNAMIC = `${CACHE_VERSION}-dynamic`;
 const CACHE_API = `${CACHE_VERSION}-api`;
 
-// Критичні ресурси для offline роботи
+// Критичні ресурси для offline роботи.
+// УВАГА: НЕ кешуємо тут CSS/JS за нехешованими шляхами (вони віддаються через
+// ManifestStaticFilesStorage із хешем у назві). Інакше cache-first віддавав би
+// застарілі стилі/скрипти після деплою. Тримаємо лише оболонку та шрифти.
 const STATIC_ASSETS = [
   '/',
-  '/static/css/finance.css',
-  '/static/js/finance.js',
-  '/static/js/finance-charts.js',
-  '/static/js/finance-transactions.js',
   '/static/img/logo.svg',
   '/static/finance-manifest.json',
   'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Orbitron:wght@500;700&display=swap'
