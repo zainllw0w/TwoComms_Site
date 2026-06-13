@@ -225,3 +225,80 @@ class PayablesSettlementTests(TestCase):
         labeled = [t for t in detail['actual_transactions'] if t.get('settled_label')]
         self.assertTrue(labeled)
         self.assertIn('Комуналка', labeled[0]['settled_label'])
+
+    # ---- 12: мультимісяць — оплата за 3 періоди наперед ----
+    def test_settle_multi_period_advances_three(self):
+        rule, planned = self._recurring_expense('2500', estimated=False)
+        # До: найближчий плановий екземпляр.
+        first = self._nearest_planned(rule)
+        res = payables_service.settle_obligation(
+            user=self.user, planned_txn=first, mode='new_payment',
+            amount=Decimal('7500'), account=self.mono, periods=3)
+        self.assertEqual(res['periods'], 3)
+        # Створено 3 settlement за 3 періоди.
+        self.assertEqual(ObligationSettlement.objects.filter(payment=res['payment']).count(), 3)
+        # Сума settlements == сплаченому.
+        ssum = sum(s.amount for s in ObligationSettlement.objects.filter(payment=res['payment']))
+        self.assertEqual(ssum, Decimal('7500'))
+        # Оцінка стабільна.
+        rule.refresh_from_db()
+        self.assertEqual(rule.template_amount, Decimal('2500'))
+        # Покриті екземпляри скасовані; наступний плановий — далі у майбутньому.
+        nxt = self._nearest_planned(rule)
+        self.assertIsNotNone(nxt)
+        self.assertGreater(nxt.date_actual.date(), first.date_actual.date())
+
+    def test_settle_multi_period_pick_txn(self):
+        rule, planned = self._recurring_expense('2500', estimated=True)
+        first = self._nearest_planned(rule)
+        pay = self._actual_expense('5000')
+        self.mono.refresh_from_db()
+        bal = self.mono.current_balance
+        res = payables_service.settle_obligation(
+            user=self.user, planned_txn=first, mode='pick_txn', payment_txn=pay,
+            amount=Decimal('5000'), periods=2)
+        self.assertEqual(res['periods'], 2)
+        self.mono.refresh_from_db()
+        self.assertEqual(self.mono.current_balance, bal)  # без подвійного розходу
+
+    # ---- 13: пропуск місяця (перенос у кінець, борг зберігається) ----
+    def test_skip_occurrence_advances(self):
+        rule, planned = self._recurring_expense('2500', estimated=True)
+        first = self._nearest_planned(rule)
+        res = payables_service.skip_occurrence(user=self.user, planned_txn=first)
+        first.refresh_from_db()
+        self.assertEqual(first.status, Transaction.STATUS_CANCELLED)
+        nxt = self._nearest_planned(rule)
+        self.assertGreater(nxt.date_actual.date(), first.date_actual.date())
+        rule.refresh_from_db()
+        self.assertEqual(rule.template_amount, Decimal('2500'))
+
+    def test_skip_count_rule_preserves_total(self):
+        """Для count-правила пропуск переносить платіж у хвіст (борг зберігається)."""
+        txn = txn_service.create_transaction(
+            user=self.user, type=Transaction.TYPE_EXPENSE, amount=Decimal('1000'),
+            account=self.mono, currency='UAH', status=Transaction.STATUS_PLANNED,
+            date_actual=timezone.now() + dt.timedelta(days=2), comment='Розстрочка')
+        rule = recurring_service.create_rule_from_transaction(
+            txn, user=self.user, frequency='monthly', end_mode=RecurrenceRule.END_COUNT, count=3)
+        before = rule.transactions.exclude(status=Transaction.STATUS_CANCELLED).count()
+        first = self._nearest_planned(rule)
+        payables_service.skip_occurrence(user=self.user, planned_txn=first, mode='move_end')
+        after = rule.transactions.exclude(status=Transaction.STATUS_CANCELLED).count()
+        # Кількість активних екземплярів не зменшилась (борг перенесено, не втрачено).
+        self.assertEqual(after, before)
+
+    # ---- 14: скасовані операції не показуються в журналі ----
+    def test_cancelled_excluded_from_journal(self):
+        from .services import filters as filter_service
+        rule, planned = self._recurring_expense('2500', estimated=True)
+        pay = self._actual_expense('1724')
+        payables_service.settle_obligation(
+            user=self.user, planned_txn=planned, mode='pick_txn', payment_txn=pay,
+            full_period=True)
+        # planned став cancelled → не має потрапити у фактичні журналу.
+        qs = filter_service.filter_transactions(self.company, {})
+        actual, planned_qs = filter_service.split_actual_planned(qs)
+        ids = set(actual.values_list('id', flat=True))
+        self.assertNotIn(planned.id, ids)
+        self.assertIn(pay.id, ids)

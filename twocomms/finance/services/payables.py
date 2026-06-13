@@ -17,15 +17,17 @@
 """
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from django.db import transaction as db_transaction
 from django.utils import timezone
 
-from ..models import ObligationSettlement, Transaction
+from ..models import ObligationSettlement, RecurrenceRule, Transaction
+from . import audit as audit_service
 from . import cards as cards_service
 from . import recurring as recurring_service
 from . import transactions as txn_service
+from .timeutil import day_start
 
 
 def _period_for(planned_txn) -> tuple[str, str]:
@@ -54,16 +56,27 @@ def _advance_rule(rule, *, user, from_date) -> None:
 @db_transaction.atomic
 def settle_obligation(*, user, planned_txn, mode, amount=None, payment_txn=None,
                       account=None, date=None, counterparty=None,
-                      full_period=None, remember_card=False, card_hint=None) -> dict:
+                      full_period=None, remember_card=False, card_hint=None,
+                      periods=1) -> dict:
     """Гасить зобов'язання, представлене найближчим плановим екземпляром.
 
-    Повертає {'payment', 'settlement', 'full_period'}.
+    ``periods`` > 1 — оплата за кілька періодів наперед (напр. оренда на 3 місяці):
+    покриваємо найближчі N планових екземплярів одним платежем, таймер
+    «перестрибує» на N періодів. Повертає {'payment','settlement','full_period','periods'}.
     """
     if planned_txn.status != Transaction.STATUS_PLANNED:
         raise ValueError("Гасити можна лише планове зобов'язання")
 
-    company = planned_txn.company
+    periods = max(1, int(periods or 1))
     rule = planned_txn.recurrence_rule
+    if periods > 1 and rule is not None:
+        return _settle_multi(
+            user=user, planned_txn=planned_txn, rule=rule, mode=mode, amount=amount,
+            payment_txn=payment_txn, account=account, date=date,
+            counterparty=counterparty, periods=periods,
+            remember_card=remember_card, card_hint=card_hint)
+
+    company = planned_txn.company
     ttype = planned_txn.type
     plan_amount = planned_txn.amount or Decimal('0')
     counterparty = counterparty or planned_txn.counterparty
@@ -227,3 +240,130 @@ def attach_payment_to_obligation(*, user, payment_txn, planned_txn,
         payment_txn=payment_txn, amount=payment_txn.amount,
         counterparty=planned_txn.counterparty, full_period=full_period,
         remember_card=remember_card, card_hint=card_hint)
+
+
+def _split(total: Decimal, n: int) -> list:
+    """Ділить суму на n частин по копійці (остача — в останню), сума зберігається."""
+    total = Decimal(str(total))
+    if n <= 1:
+        return [total]
+    base = (total / n).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    parts = [base] * (n - 1)
+    parts.append(total - base * (n - 1))
+    return parts
+
+
+def _next_occurrences(rule, planned_txn, periods):
+    """Найближчі `periods` планових екземплярів правила від дати planned_txn."""
+    from_date = (planned_txn.date_actual.date() if planned_txn.date_actual
+                 else timezone.localdate())
+    occ = list(rule.transactions
+               .filter(status=Transaction.STATUS_PLANNED,
+                       date_actual__gte=day_start(from_date))
+               .order_by('date_actual')[:periods])
+    if planned_txn not in occ:
+        occ = [planned_txn] + [o for o in occ if o.id != planned_txn.id]
+        occ = occ[:periods]
+    return occ
+
+
+@db_transaction.atomic
+def _settle_multi(*, user, planned_txn, rule, mode, amount, payment_txn, account,
+                  date, counterparty, periods, remember_card, card_hint) -> dict:
+    """Оплата зобов'язання за кілька періодів наперед (мультимісяць)."""
+    company = planned_txn.company
+    ttype = planned_txn.type
+    counterparty = counterparty or planned_txn.counterparty
+    when = date or timezone.now()
+
+    occ = _next_occurrences(rule, planned_txn, periods)
+    n = len(occ)
+    planned_total = sum((o.amount or Decimal('0')) for o in occ)
+
+    if mode == 'new_payment':
+        total = Decimal(str(amount)) if amount not in (None, '') else planned_total
+        if total <= 0:
+            raise ValueError('Сума має бути більшою за 0')
+        if account is None:
+            raise ValueError('Оберіть рахунок списання/зарахування')
+        payment = txn_service.create_transaction(
+            user=user, type=ttype, status=Transaction.STATUS_ACTUAL,
+            amount=total, account=account,
+            currency=account.currency if account else company.base_currency,
+            counterparty=counterparty, date_actual=when,
+            comment=(planned_txn.comment or rule.title or ''),
+            source='manual', is_business=planned_txn.is_business,
+            recurrence_rule=rule)
+    elif mode == 'pick_txn':
+        if payment_txn is None or payment_txn.status != Transaction.STATUS_ACTUAL:
+            raise ValueError('Оберіть фактичний платіж')
+        if payment_txn.type != ttype:
+            raise ValueError('Тип платежу не збігається із зобов\'язанням')
+        total = Decimal(str(amount)) if amount not in (None, '') else payment_txn.amount
+        payment = payment_txn
+        upd = {}
+        if counterparty and not payment.counterparty_id:
+            upd['counterparty'] = counterparty
+        if not payment.recurrence_rule_id:
+            upd['recurrence_rule'] = rule
+        if upd:
+            txn_service.update_transaction(payment, user=user, **upd)
+    else:
+        raise ValueError(f'Невідомий режим: {mode}')
+
+    amounts = _split(total, n)
+    last_date = occ[0].date_actual.date() if occ[0].date_actual else timezone.localdate()
+    settlements = []
+    for o, amt in zip(occ, amounts):
+        pk, pl = _period_for(o)
+        settlements.append(ObligationSettlement.objects.create(
+            company=company, payment=payment, rule=rule, planned_txn=None,
+            period_key=pk, period_label=pl, amount=amt, currency=payment.currency,
+            created_by=user if getattr(user, 'is_authenticated', False) else None))
+        if o.date_actual:
+            last_date = o.date_actual.date()
+        txn_service.update_transaction(o, user=user, status=Transaction.STATUS_CANCELLED)
+
+    _advance_rule(rule, user=user, from_date=last_date)
+
+    if remember_card and counterparty and card_hint:
+        cards_service.upsert_card(
+            counterparty, when=when,
+            pan_mask=card_hint.get('pan_mask', ''), last4=card_hint.get('last4', ''),
+            bank=card_hint.get('bank', ''), iban=card_hint.get('iban', ''))
+
+    return {'payment': payment, 'settlement': settlements[0], 'settlements': settlements,
+            'full_period': True, 'periods': n}
+
+
+@db_transaction.atomic
+def skip_occurrence(*, user, planned_txn, mode='move_end') -> dict:
+    """Пропустити поточний місяць зобов'язання (без втрати боргу).
+
+    Скасовує поточний плановий екземпляр і просуває правило — нагадування
+    переходить на наступний місяць. Для правил з фіксованою кількістю (count)
+    скасований екземпляр НЕ зараховується, тож materialize автоматично додає
+    один платіж у хвіст (борг зберігається, лише переноситься). Фіксуємо подію
+    в журналі дій. ``mode``='drop' (лише для count) — зменшує загальну кількість
+    (борг за цей період анулюється).
+    """
+    rule = planned_txn.recurrence_rule
+    when = (planned_txn.date_actual.date() if planned_txn.date_actual
+            else timezone.localdate())
+    period_label = _period_for(planned_txn)[1]
+
+    if (mode == 'drop' and rule is not None
+            and rule.end_mode == RecurrenceRule.END_COUNT and rule.count):
+        rule.count = max(0, rule.count - 1)
+        rule.save(update_fields=['count'])
+
+    txn_service.update_transaction(planned_txn, user=user,
+                                   status=Transaction.STATUS_CANCELLED)
+    if rule is not None:
+        _advance_rule(rule, user=user, from_date=when)
+        audit_service.log_action(
+            user, 'update', 'recurrence', rule.id,
+            summary=(f'Пропущено період {period_label} '
+                     f'({"анульовано" if mode == "drop" else "перенесено"})'),
+            company=planned_txn.company)
+    return {'skipped_period': period_label, 'mode': mode}

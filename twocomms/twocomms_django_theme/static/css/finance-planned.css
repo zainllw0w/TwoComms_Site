@@ -44,82 +44,95 @@
 .fin-plan-list { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
 .fin-plan-empty { padding: 24px; text-align: center; color: var(--fin-muted); font-size: 13px; }
 
-/* Картка зобов'язання — грид [дата | тіло | сума+дії] */
+/* Картка зобов'язання — плоский однорядковий вид [дата | назва | сума·дата | дії] */
 .fin-oblig {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 4px 14px;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 0 14px;
   align-items: center;
-  padding: 12px 14px;
+  padding: 8px 14px;
   background: var(--fin-bg-850);
   border: 1px solid var(--fin-border);
-  border-radius: 14px;
-  transition: border-color .15s, transform .1s;
+  border-radius: 12px;
+  transition: border-color .15s;
 }
 .fin-oblig:hover { border-color: var(--fin-border-strong, #ffffff22); }
-.fin-oblig.is-overdue { border-color: #f8717166; background: linear-gradient(180deg, #f8717112, transparent); }
+.fin-oblig.is-overdue { border-color: #f8717155; background: linear-gradient(90deg, #f8717112, transparent 40%); }
 
-/* Дата-чип */
+/* Дата-чип (компактний) */
 .fin-oblig__date {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  width: 50px; min-height: 50px; border-radius: 12px;
-  background: rgba(255,255,255,.05); border: 1px solid var(--fin-border);
-  line-height: 1;
+  display: flex; align-items: baseline; gap: 4px;
+  min-width: 54px; line-height: 1;
 }
 .fin-oblig__day { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
-.fin-oblig__mon { font-size: 10px; text-transform: uppercase; color: var(--fin-muted); margin-top: 2px; letter-spacing: .04em; }
-.fin-oblig--income .fin-oblig__date { background: rgba(52,211,153,.12); border-color: rgba(52,211,153,.3); }
-.fin-oblig--expense .fin-oblig__date { background: rgba(111,149,255,.12); border-color: rgba(111,149,255,.3); }
-.fin-oblig.is-overdue .fin-oblig__date { background: rgba(248,113,113,.16); border-color: rgba(248,113,113,.45); }
+.fin-oblig__mon { font-size: 11px; text-transform: uppercase; color: var(--fin-muted); letter-spacing: .03em; }
+.fin-oblig--income .fin-oblig__day { color: #34d399; }
 .fin-oblig.is-overdue .fin-oblig__day { color: #fca5a5; }
 
-/* Тіло */
-.fin-oblig__body { min-width: 0; }
-.fin-oblig__title { font-weight: 700; font-size: 14.5px; line-height: 1.25; }
-.fin-oblig__chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
-.fin-oblig__chip {
-  font-size: 11px; color: var(--fin-muted);
-  background: rgba(255,255,255,.05); padding: 2px 8px; border-radius: 999px;
-  white-space: nowrap;
-}
-.fin-oblig__chip[data-cp-history] { cursor: pointer; }
-.fin-oblig__chip[data-cp-history]:hover { color: #c7d2fe; background: rgba(129,140,248,.14); }
-.fin-oblig__chip--est { color: #fbbf24; background: rgba(251,191,36,.14); }
-.fin-oblig__chip--rep { color: #a5b4fc; background: rgba(129,140,248,.14); }
-.fin-oblig__chip--mut { opacity: .8; }
-.fin-oblig__status { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
-.fin-oblig__due { font-size: 11px; color: var(--fin-muted); }
-.fin-oblig__due.is-overdue { color: #f87171; font-weight: 700; }
-.fin-oblig__rem { font-size: 11px; color: #a5b4fc; }
-.fin-field-hint { display: block; margin-top: 4px; font-size: 11px; color: #fbbf24; }
+/* Назва + мітки + контрагент (один рядок, ellipsis) */
+.fin-oblig__name { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.fin-oblig__nametext { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fin-oblig__mk { font-size: 12px; color: var(--fin-muted); flex: none; }
+.fin-oblig__mk--est { color: #fbbf24; font-weight: 700; }
+.fin-oblig__cp { font-size: 12px; color: var(--fin-muted); cursor: pointer; white-space: nowrap;
+  padding: 1px 8px; border-radius: 999px; background: rgba(255,255,255,.05); flex: none; }
+.fin-oblig__cp:hover { color: #c7d2fe; }
 
-/* Сума + дії */
-.fin-oblig__side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
-.fin-oblig__amount { font-weight: 800; font-size: 16px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Сума + дата платежу (праворуч від назви) */
+.fin-oblig__meta { display: flex; align-items: baseline; gap: 10px; white-space: nowrap; }
+.fin-oblig__amount { font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums; }
 .fin-oblig--income .fin-oblig__amount { color: #34d399; }
 .fin-oblig--expense .fin-oblig__amount { color: #fb7185; }
-.fin-oblig__actions { display: flex; gap: 6px; align-items: center; }
-.fin-icon-btn {
-  width: 30px; height: 30px; border-radius: 8px; cursor: pointer;
-  border: 1px solid var(--fin-border); background: rgba(255,255,255,.04);
-  color: var(--fin-muted); font-size: 13px; line-height: 1;
-}
-.fin-icon-btn:hover { color: var(--fin-text); border-color: var(--fin-border-strong, #ffffff33); }
+.fin-oblig__due { font-size: 12px; color: var(--fin-muted); }
+.fin-oblig__due.is-overdue { color: #f87171; font-weight: 700; }
+.fin-field-hint { display: block; margin-top: 4px; font-size: 11px; color: #fbbf24; }
 
-@media (max-width: 560px) {
+/* Дії */
+.fin-oblig__act { display: flex; align-items: center; gap: 6px; position: relative; }
+.fin-oblig__pay {
+  display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+  padding: 6px 12px; border-radius: 9px; font-size: 13px; font-weight: 600;
+  border: 1px solid transparent; background: var(--fin-accent, #ff7e29); color: #1a1205;
+}
+.fin-oblig--income .fin-oblig__pay { background: #34d399; color: #06281c; }
+.fin-oblig__pay:hover { filter: brightness(1.05); }
+.fin-icon-btn {
+  width: 30px; height: 30px; border-radius: 8px; cursor: pointer; display: inline-flex;
+  align-items: center; justify-content: center; list-style: none;
+  border: 1px solid var(--fin-border); background: rgba(255,255,255,.04);
+  color: var(--fin-muted); font-size: 15px; line-height: 1;
+}
+.fin-icon-btn::-webkit-details-marker { display: none; }
+.fin-icon-btn:hover { color: var(--fin-text); }
+
+/* Kebab-меню через нативний <details> */
+.fin-oblig__menu { position: relative; }
+.fin-oblig__menu-pop {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 30;
+  min-width: 200px; padding: 6px; display: flex; flex-direction: column; gap: 2px;
+  background: var(--fin-panel-strong, #1b1f2a); border: 1px solid var(--fin-border-strong, #ffffff22);
+  border-radius: 10px; box-shadow: 0 12px 30px rgba(0,0,0,.4);
+}
+.fin-oblig__menu-pop button {
+  text-align: left; background: transparent; border: none; cursor: pointer;
+  padding: 9px 10px; border-radius: 7px; color: var(--fin-text); font-size: 13px;
+}
+.fin-oblig__menu-pop button:hover { background: rgba(255,255,255,.06); }
+.fin-oblig__menu-pop button.is-danger { color: #fb7185; }
+
+/* Мобільний: дата+назва у рядку 1, сума+дії у рядку 2 (плоско, без зайвої висоти) */
+@media (max-width: 620px) {
   .fin-oblig {
-    grid-template-columns: auto 1fr;
-    gap: 8px 12px;
+    grid-template-columns: auto minmax(0,1fr) auto;
+    gap: 4px 10px; padding: 9px 12px;
   }
-  .fin-oblig__date { width: 44px; min-height: 44px; }
-  .fin-oblig__day { font-size: 17px; }
-  /* Сума+дії переносяться у другий ряд на всю ширину під тілом. */
-  .fin-oblig__side {
-    grid-column: 1 / -1; flex-direction: row; align-items: center;
-    justify-content: space-between; border-top: 1px dashed var(--fin-border); padding-top: 8px;
-  }
-  .fin-oblig__amount { font-size: 17px; }
-  .fin-oblig__actions .fin-btn { padding: 7px 14px; }
+  .fin-oblig__name { grid-column: 2 / 3; }
+  .fin-oblig__act { grid-column: 3 / 4; grid-row: 1 / 3; align-self: center; }
+  .fin-oblig__meta { grid-column: 2 / 3; gap: 8px; }
+  .fin-oblig__cp { display: none; }   /* контрагент ховаємо на вузькому — є в деталях */
+  .fin-oblig__pay-tx { display: none; }
+  .fin-oblig__pay { padding: 8px 10px; }
+  .fin-oblig__menu-pop { position: fixed; left: 12px; right: 12px; top: auto; bottom: 12px; min-width: 0; }
 }
 
 /* Історія контрагента */
@@ -176,7 +189,7 @@
 .fin-tl-seg__sums { display: flex; gap: 12px; font-size: 12px; font-weight: 600; }
 .fin-tl-seg__sums .is-pos { color: #34d399; }
 .fin-tl-seg__sums .is-neg { color: #fb7185; }
-.fin-tl-seg__list { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.fin-tl-seg__list { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
 
 /* Прострочений сегмент — акцент. */
 .fin-tl-seg--overdue { border-color: rgba(251,113,133,.4); }

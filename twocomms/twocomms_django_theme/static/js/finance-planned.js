@@ -66,8 +66,14 @@
     fullHint: document.getElementById('fin-settle-full-hint'),
     remember: document.getElementById('fin-settle-remember'),
     rememberWrap: document.getElementById('fin-settle-remember-wrap'),
+    periodsWrap: document.getElementById('fin-settle-periods'),
+    perN: document.getElementById('fin-settle-per-n'),
+    perMinus: document.getElementById('fin-settle-per-minus'),
+    perPlus: document.getElementById('fin-settle-per-plus'),
+    perHint: document.getElementById('fin-settle-per-hint'),
   };
   var settleCtx = null;   // контекст із сервера
+  var settlePeriods = 1;
 
   function openModal(el) { if (el) { el.hidden = false; document.body.classList.add('fin-modal-open'); } }
   function closeModal(el) { if (el) { el.hidden = true; document.body.classList.remove('fin-modal-open'); } }
@@ -194,7 +200,39 @@
       // Запамʼятати картку — якщо є контрагент.
       settleEls.rememberWrap.hidden = !settleCtx.counterparty;
       settleEls.remember.checked = false;
+
+      // Мультимісяць: степпер «за N місяців» для повторюваних із кількома планами.
+      settlePeriods = 1;
+      var maxP = settleCtx.max_periods || 1;
+      settleEls.periodsWrap.hidden = !(settleCtx.is_recurring && maxP > 1);
+      if (settleEls.perN) settleEls.perN.textContent = '1';
+      updatePerHint();
     });
+  }
+
+  function clampPeriods(v) {
+    var maxP = (settleCtx && settleCtx.max_periods) || 1;
+    return Math.max(1, Math.min(maxP, v));
+  }
+
+  function updatePerHint() {
+    if (!settleCtx || !settleEls.perHint) return;
+    var per = parseFloat(settleCtx.per_amount) || 0;
+    if (settlePeriods > 1 && per > 0) {
+      settleEls.perHint.hidden = false;
+      settleEls.perHint.textContent = 'Орієнтовно ' + (per * settlePeriods).toFixed(2) +
+        ' за ' + settlePeriods + ' міс — таймер перестрибне на ' + settlePeriods + ' міс.';
+      // У режимі «новий платіж» підставляємо орієнтовну суму за N міс.
+      if (settleEls.mode.value === 'new_payment' && settleEls.amount) {
+        settleEls.amount.value = (per * settlePeriods).toFixed(2);
+      }
+    } else {
+      settleEls.perHint.hidden = true;
+      if (settlePeriods === 1 && settleEls.mode.value === 'new_payment' && settleEls.amount) {
+        settleEls.amount.value = settleCtx.per_amount || '';
+      }
+    }
+    syncPeriod();
   }
 
   if (settleModal) {
@@ -208,26 +246,45 @@
       });
     }
     if (settleEls.amount) settleEls.amount.addEventListener('input', syncPeriod);
+    if (settleEls.perMinus) settleEls.perMinus.addEventListener('click', function () {
+      settlePeriods = clampPeriods(settlePeriods - 1); settleEls.perN.textContent = settlePeriods; updatePerHint();
+    });
+    if (settleEls.perPlus) settleEls.perPlus.addEventListener('click', function () {
+      settlePeriods = clampPeriods(settlePeriods + 1); settleEls.perN.textContent = settlePeriods; updatePerHint();
+    });
     document.getElementById('fin-settle-form').addEventListener('submit', function (e) {
       e.preventDefault();
       var mode = settleEls.mode.value;
       var fullRadio = settleModal.querySelector('input[name="fin-settle-full"]:checked');
       var body = {
         mode: mode,
+        periods: settlePeriods,
         full_period: (settleEls.period.hidden || !fullRadio) ? '1' : fullRadio.value,
         remember_card: settleEls.remember.checked ? '1' : '',
       };
+      var paid = NaN;
       if (mode === 'pick_txn') {
         if (!settleEls.paymentId.value) {
           settleEls.alert.textContent = 'Оберіть платіж зі списку'; settleEls.alert.hidden = false; return;
         }
         body.payment_txn_id = settleEls.paymentId.value;
+        var selCand = settleEls.candidates.querySelector('.fin-cand.is-selected');
+        if (selCand) paid = parseFloat(selCand.getAttribute('data-amount'));
       } else {
         body.amount = settleEls.amount.value || '';
         body.account_id = settleEls.account.value || '';
         body.date = settleEls.date.value || '';
+        paid = parseFloat(settleEls.amount.value);
         if (!body.account_id) {
           settleEls.alert.textContent = 'Оберіть рахунок'; settleEls.alert.hidden = false; return;
+        }
+      }
+      // Підтвердження розбіжності для ТОЧНИХ сум: якщо сплачене помітно != план×N.
+      if (settleCtx && !settleCtx.estimated && !isNaN(paid)) {
+        var expected = (parseFloat(settleCtx.per_amount) || 0) * settlePeriods;
+        if (expected > 0 && Math.abs(paid - expected) > 0.01) {
+          if (!window.confirm('Сума ' + paid.toFixed(2) + ' відрізняється від планової ' +
+              expected.toFixed(2) + ' (' + settlePeriods + ' міс). Підтвердити?')) return;
         }
       }
       settleEls.submit.disabled = true;
@@ -355,8 +412,12 @@
     if (btn) {
       var card = btn.closest('.fin-oblig');
       var act = btn.getAttribute('data-act');
+      // Закрити kebab-меню після вибору дії.
+      var openMenu = btn.closest('.fin-oblig__menu');
+      if (openMenu) openMenu.removeAttribute('open');
       if (act === 'settle') openSettle(card);
       else if (act === 'edit-plan') openPlan(card);
+      else if (act === 'skip') skipMonth(card);
       else if (act === 'stop-rule') {
         if (confirm('Зупинити повторення та прибрати майбутні планові платежі?')) {
           api('/api/recurrence/' + btn.getAttribute('data-rule-id') + '/stop/', 'POST', { delete_future: '1' })
@@ -371,6 +432,16 @@
       openCpHistory(card2.getAttribute('data-counterparty-id'), cpChip.textContent.replace('👤', '').trim());
     }
   });
+
+  function skipMonth(card) {
+    var txnId = card.getAttribute('data-next-txn');
+    if (!txnId) return;
+    var ok = confirm('Пропустити цей місяць?\n\nOK — перенести платіж у кінець (борг зберігається).\nСкасувати — нічого не робити.');
+    if (!ok) return;
+    api('/api/obligations/' + txnId + '/skip/', 'POST', { mode: 'move_end' })
+      .then(function (res) { if (res.ok && res.data.ok) window.location.reload();
+                             else alert((res.data && res.data.error) || 'Помилка'); });
+  }
 
   // Закриття модалок по кліку на бекдроп / Esc.
   [settleModal, planModal, cpModal].forEach(function (m) {

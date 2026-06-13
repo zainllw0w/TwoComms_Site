@@ -139,8 +139,13 @@ def filter_transactions(company, params, *, include_planned=True):
     statuses = [s for s in (params.get('statuses') or '').split(',') if s]
     if statuses:
         qs = qs.filter(status__in=statuses)
-    elif not include_planned:
-        qs = qs.exclude(status=Transaction.STATUS_PLANNED)
+    else:
+        # За замовчуванням журнал НЕ показує скасовані операції (напр. планові
+        # екземпляри, погашені реальним платежем через привʼязку). Вони лишаються
+        # у БД для аудиту, але не засмічують журнал і не впливають на баланс.
+        qs = qs.exclude(status=Transaction.STATUS_CANCELLED)
+        if not include_planned:
+            qs = qs.exclude(status=Transaction.STATUS_PLANNED)
 
     # Бізнес / особисте.
     scope = (params.get('scope') or '').strip()
@@ -167,7 +172,10 @@ def filter_transactions(company, params, *, include_planned=True):
 
 
 def split_actual_planned(qs):
-    """Розділяє queryset на фактичні та планові для журналу."""
-    actual = qs.exclude(status=Transaction.STATUS_PLANNED)
+    """Розділяє queryset на фактичні та планові для журналу.
+
+    Фактичні — лише ACTUAL (скасовані/чернетки не показуємо в журналі).
+    """
+    actual = qs.filter(status=Transaction.STATUS_ACTUAL)
     planned = qs.filter(status=Transaction.STATUS_PLANNED)
     return actual, planned

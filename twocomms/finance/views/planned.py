@@ -139,6 +139,12 @@ def obligation_settle_context_api(request, txn_id):
     cp = planned.counterparty
     candidates = payables_service.payable_candidates(
         company, ttype=planned.type, counterparty=cp)
+    # Скільки періодів наперед можна оплатити (кількість планових екземплярів
+    # цього ж правила, але не більше 12 — для степпера «за N місяців»).
+    max_periods = 1
+    if planned.recurrence_rule_id:
+        max_periods = min(12, planned.recurrence_rule.transactions.filter(
+            status=Transaction.STATUS_PLANNED).count()) or 1
     return JsonResponse({
         'ok': True,
         'ttype': planned.type,
@@ -147,6 +153,7 @@ def obligation_settle_context_api(request, txn_id):
         'per_amount_display': ser.money(planned.amount, planned.currency),
         'estimated': bool(planned.amount_is_estimated),
         'is_recurring': bool(planned.recurrence_rule_id),
+        'max_periods': max_periods,
         'counterparty': ({'id': cp.id, 'name': cp.name} if cp else None),
         'cards': cards_service.cards_for(cp) if cp else [],
         'candidates': candidates,
@@ -189,6 +196,10 @@ def obligation_settle_api(request, txn_id):
     date = payload_service._parse_dt(str(data.get('date'))) if data.get('date') else None
     full_period = _bool(data.get('full_period', '1')) if 'full_period' in data else None
     remember_card = _bool(data.get('remember_card', ''))
+    try:
+        periods = max(1, int(data.get('periods') or 1))
+    except (TypeError, ValueError):
+        periods = 1
 
     card_hint = None
     if remember_card:
@@ -202,13 +213,34 @@ def obligation_settle_api(request, txn_id):
         res = payables_service.settle_obligation(
             user=request.user, planned_txn=planned, mode=mode, amount=amount,
             payment_txn=payment_txn, account=account, date=date,
-            full_period=full_period, remember_card=remember_card, card_hint=card_hint)
+            full_period=full_period, remember_card=remember_card, card_hint=card_hint,
+            periods=periods)
     except ValueError as e:
         return JsonResponse({'ok': False, 'error': str(e)}, status=400)
 
     return JsonResponse({
         'ok': True,
         'full_period': res['full_period'],
+        'periods': res.get('periods', 1),
         'payment_id': res['payment'].id,
         'settlement_id': res['settlement'].id,
     })
+
+
+@finance_access_required(api=True)
+@require_POST
+def obligation_skip_api(request, txn_id):
+    """Пропустити місяць зобов'язання (перенести в кінець / анулювати період)."""
+    from .payments import _body
+    company = get_default_company()
+    planned = get_object_or_404(Transaction, id=txn_id, company=company,
+                                status=Transaction.STATUS_PLANNED)
+    data = _body(request)
+    mode = data.get('mode') or 'move_end'
+    if mode not in ('move_end', 'drop'):
+        mode = 'move_end'
+    try:
+        res = payables_service.skip_occurrence(user=request.user, planned_txn=planned, mode=mode)
+    except ValueError as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=400)
+    return JsonResponse({'ok': True, **res})

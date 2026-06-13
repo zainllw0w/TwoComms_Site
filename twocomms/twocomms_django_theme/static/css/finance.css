@@ -3613,3 +3613,14 @@ body.fin-report-open { overflow: hidden; }
 }
 .fin-cp-card__del:hover { color: #fb7185; }
 .fin-cp-obligs { display: flex; flex-direction: column; gap: 10px; }
+
+
+/* Степпер «за N місяців» у модалці погашення */
+.fin-settle-periods { display: flex; flex-direction: column; gap: 6px; }
+.fin-stepper { display: inline-flex; align-items: center; gap: 0; align-self: flex-start;
+    border: 1px solid var(--fin-border-strong); border-radius: 10px; overflow: hidden; }
+.fin-stepper__btn { width: 40px; height: 38px; border: none; cursor: pointer;
+    background: rgba(255,255,255,.04); color: var(--fin-text); font-size: 20px; line-height: 1; }
+.fin-stepper__btn:hover { background: rgba(255,255,255,.1); }
+.fin-stepper__val { padding: 0 16px; font-size: 14px; min-width: 64px; text-align: center; }
+.fin-stepper__val b { font-size: 16px; }

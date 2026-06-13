@@ -46,6 +46,17 @@
         </label>
       </div>
 
+      <!-- Оплата за кілька періодів наперед (тільки для повторюваних) -->
+      <div class="fin-settle-periods" id="fin-settle-periods" hidden>
+        <span class="fin-field-label">Оплатити наперед</span>
+        <div class="fin-stepper">
+          <button type="button" class="fin-stepper__btn" id="fin-settle-per-minus" aria-label="Менше">−</button>
+          <span class="fin-stepper__val"><b id="fin-settle-per-n">1</b> міс</span>
+          <button type="button" class="fin-stepper__btn" id="fin-settle-per-plus" aria-label="Більше">+</button>
+        </div>
+        <small class="fin-field-hint" id="fin-settle-per-hint" hidden></small>
+      </div>
+
       <!-- Повністю / частково -->
       <div class="fin-settle-period" id="fin-settle-period" hidden>
         <span class="fin-field-label">Чи закрити період повністю?</span>
