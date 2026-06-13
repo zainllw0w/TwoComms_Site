@@ -176,3 +176,48 @@
     }).catch(function () { showAlert('Помилка мережі'); });
   });
 })();
+
+
+/* Картки контрагента: ручне додавання/видалення (авто-збереження — при погашенні). */
+(function () {
+  'use strict';
+  var wrap = document.getElementById('fin-cp-cards');
+  if (!wrap) return;
+
+  function csrf() { var m = document.cookie.match(/csrftoken=([^;]+)/); return m ? m[1] : ''; }
+  function api(url, method, body) {
+    return fetch(url, {
+      method: method || 'GET',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
+      body: body ? JSON.stringify(body) : undefined,
+    }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); });
+  }
+
+  var cpId = wrap.getAttribute('data-cp-id');
+
+  document.addEventListener('click', function (e) {
+    var addBtn = e.target.closest('[data-cp-card-add]');
+    if (addBtn) {
+      var bank = prompt('Банк (напр. monobank):', '');
+      if (bank === null) return;
+      var last4 = prompt('Останні 4 цифри картки:', '');
+      if (last4 === null) return;
+      var iban = prompt('IBAN (необов\'язково):', '') || '';
+      api('/api/counterparties/' + cpId + '/cards/save/', 'POST',
+          { bank: bank, last4: last4, iban: iban }).then(function (res) {
+        if (res.ok && res.data.ok) window.location.reload();
+        else alert((res.data && res.data.error) || 'Помилка');
+      });
+      return;
+    }
+    var delBtn = e.target.closest('[data-cp-card-del]');
+    if (delBtn) {
+      if (!confirm('Видалити цю картку?')) return;
+      var cardId = delBtn.getAttribute('data-cp-card-del');
+      api('/api/counterparties/' + cpId + '/cards/' + cardId + '/delete/', 'POST').then(function (res) {
+        if (res.ok && res.data.ok) window.location.reload();
+      });
+      return;
+    }
+  });
+})();

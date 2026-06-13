@@ -72,6 +72,9 @@ def counterparty_detail_page(request, counterparty_id):
         'audit': data['audit'],
         'categories': data['categories'],
         'transactions': data['transactions'],
+        'actual_transactions': data['actual_transactions'],
+        'obligations': data['obligations'],
+        'cards': data['cards'],
         'chart_data': json.dumps({
             'monthly': data['monthly'],
             'categories': [{'name': c['name'], 'turnover': c['turnover'],
@@ -202,3 +205,48 @@ def _parse_contacts(raw):
         return {}
     allowed = ('phone', 'email', 'telegram', 'responsible', 'website', 'note')
     return {k: str(raw.get(k, '')).strip() for k in allowed if raw.get(k)}
+
+
+# ----------------------------- Картки контрагента -----------------------------
+
+@finance_access_required(api=True)
+@require_GET
+def counterparty_cards_api(request, counterparty_id):
+    """Список карток контрагента (полоски у профілі)."""
+    from ..services import cards as cards_service
+    company = get_default_company()
+    cp = get_object_or_404(Counterparty, id=counterparty_id, company=company)
+    return JsonResponse({'ok': True, 'cards': cards_service.cards_for(cp)})
+
+
+@finance_access_required(api=True)
+@require_POST
+def counterparty_card_save_api(request, counterparty_id):
+    """Додати/оновити картку контрагента вручну (банк, маска/останні 4, IBAN, мітка)."""
+    from ..services import cards as cards_service
+    company = get_default_company()
+    cp = get_object_or_404(Counterparty, id=counterparty_id, company=company)
+    data = _body(request)
+    pan_mask = (data.get('pan_mask') or '').strip()
+    last4 = (data.get('last4') or '').strip()
+    iban = (data.get('iban') or '').strip()
+    if not (pan_mask or last4 or iban):
+        return JsonResponse({'ok': False, 'error': 'Вкажіть номер картки або IBAN'}, status=400)
+    card = cards_service.upsert_card(
+        cp, pan_mask=pan_mask, last4=last4, iban=iban,
+        bank=(data.get('bank') or '').strip(), label=(data.get('label') or '').strip(),
+        make_primary=str(data.get('is_primary', '')).lower() in ('1', 'true', 'on', 'yes'))
+    audit_service.log_action(request.user, 'update', 'counterparty', cp.id,
+                             summary=f'Картка контрагента «{cp.name}»', company=company)
+    return JsonResponse({'ok': True, 'id': card.id})
+
+
+@finance_access_required(api=True)
+@require_POST
+def counterparty_card_delete_api(request, counterparty_id, card_id):
+    """Видалити картку контрагента."""
+    from ..models import CounterpartyCard
+    company = get_default_company()
+    cp = get_object_or_404(Counterparty, id=counterparty_id, company=company)
+    CounterpartyCard.objects.filter(id=card_id, counterparty=cp, company=company).delete()
+    return JsonResponse({'ok': True})

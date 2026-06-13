@@ -3603,3 +3603,13 @@ body.fin-report-open { overflow: hidden; }
     .fin-cand-list { max-height: 50vh; }
     .fin-revprompt { left: 8px; right: 8px; transform: none; width: auto; }
 }
+
+
+/* Картки/обовʼязки у профілі контрагента */
+.fin-cp-card__label { font-size: 11px; color: var(--fin-text-2); }
+.fin-cp-card__del {
+    margin-left: 6px; background: transparent; border: none; color: var(--fin-text-2);
+    font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px;
+}
+.fin-cp-card__del:hover { color: #fb7185; }
+.fin-cp-obligs { display: flex; flex-direction: column; gap: 10px; }

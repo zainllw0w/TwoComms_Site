@@ -335,6 +335,45 @@ def counterparty_detail(company, counterparty: Counterparty) -> dict:
 
     transactions = [ser.serialize_transaction(t) for t in txn_list[:200]]
 
+    # --- Покращення картки контрагента ---
+    # 1) Згорнуті планові зобов'язання цього контрагента (а не «стіна» планових
+    #    рядків): «наступний платіж — дата, сума, ≈/точно».
+    from . import cards as cards_service
+    from . import obligations as obligations_service
+    _all = obligations_service.planned_obligations(company)
+    obligations = []
+    for g in (_all['income'] + _all['expense']):
+        if g.get('counterparty_id') != counterparty.id:
+            continue
+        g['per_amount_display'] = ser.money(g['per_amount'], g.get('currency') or cur)
+        if g.get('remaining_amount') is not None:
+            g['remaining_amount_display'] = ser.money(g['remaining_amount'], g.get('currency') or cur)
+        else:
+            g['remaining_amount_display'] = ''
+        obligations.append(g)
+    obligations.sort(key=lambda x: (not x['overdue'], x['next_due_iso'] or '9999'))
+
+    # 2) Картки контрагента (полоски).
+    cp_cards = cards_service.cards_for(counterparty)
+
+    # 3) Історія — лише фактичні операції (планові показані як зобов'язання вище),
+    #    з позначкою «у рахунок: <зобов'язання> <період>» за ObligationSettlement.
+    from ..models import ObligationSettlement
+    actual_txn_ids = [t.id for t in txn_list if t.status == Transaction.STATUS_ACTUAL]
+    settled_map = {}
+    for s in (ObligationSettlement.objects
+              .filter(company=company, payment_id__in=actual_txn_ids)
+              .select_related('rule')):
+        label = s.rule.title if (s.rule_id and s.rule.title) else 'зобов\'язання'
+        settled_map[s.payment_id] = f'{label} · {s.period_label}'
+    actual_transactions = []
+    for row in transactions:
+        if row['status'] != Transaction.STATUS_ACTUAL:
+            continue
+        if row['id'] in settled_map:
+            row['settled_label'] = settled_map[row['id']]
+        actual_transactions.append(row)
+
     net = received - paid
     turnover = received + paid
     months_active = len(months)
@@ -365,6 +404,9 @@ def counterparty_detail(company, counterparty: Counterparty) -> dict:
         'resellers': resellers,
         'audit': audit,
         'transactions': transactions,
+        'actual_transactions': actual_transactions,
+        'obligations': obligations,
+        'cards': cp_cards,
     }
 
 

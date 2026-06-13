@@ -69,6 +69,9 @@ urlpatterns = [
     path('api/counterparties/<int:counterparty_id>/get/', views.counterparty_get_api, name='finance_counterparty_get_api'),
     path('api/counterparties/<int:counterparty_id>/update/', views.counterparty_update_api, name='finance_counterparty_update_api'),
     path('api/counterparties/<int:counterparty_id>/delete/', views.counterparty_delete_api, name='finance_counterparty_delete_api'),
+    path('api/counterparties/<int:counterparty_id>/cards/', views.counterparty_cards_api, name='finance_counterparty_cards_api'),
+    path('api/counterparties/<int:counterparty_id>/cards/save/', views.counterparty_card_save_api, name='finance_counterparty_card_save_api'),
+    path('api/counterparties/<int:counterparty_id>/cards/<int:card_id>/delete/', views.counterparty_card_delete_api, name='finance_counterparty_card_delete_api'),
 
     # --- Планові платежі (зобов'язання) ---
     path('planned/', views.planned, name='finance_planned'),

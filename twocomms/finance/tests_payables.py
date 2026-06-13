@@ -208,3 +208,20 @@ class PayablesSettlementTests(TestCase):
         res = payables_service.reverse_link_candidates(self.company, pay)
         ids = [g['counterparty_id'] for g in res['obligations']]
         self.assertIn(self.vlada.id, ids)
+
+    # ---- 11: картка контрагента — згорнуті зобов'язання + позначка погашення ----
+    def test_counterparty_detail_collapses_and_labels(self):
+        from .services import counterparty as cp_service
+        rule, planned = self._recurring_expense('2500', estimated=True)
+        pay = self._actual_expense('1724')
+        pay.counterparty = self.vlada
+        pay.save(update_fields=['counterparty'])
+        payables_service.attach_payment_to_obligation(
+            user=self.user, payment_txn=pay, planned_txn=planned, full_period=True)
+        detail = cp_service.counterparty_detail(self.company, self.vlada)
+        # Є згорнуті зобов'язання (наступний період), а не стіна планових.
+        self.assertTrue(any(g['counterparty_id'] == self.vlada.id for g in detail['obligations']))
+        # Фактичний платіж має позначку «у рахунок».
+        labeled = [t for t in detail['actual_transactions'] if t.get('settled_label')]
+        self.assertTrue(labeled)
+        self.assertIn('Комуналка', labeled[0]['settled_label'])

@@ -68,25 +68,37 @@
             <div class="fin-chart-canvas"><canvas id="cpMonthlyChart" height="110"></canvas></div>
         </div>
 
-        <!-- Операції -->
+        <!-- Зобов'язання (згорнуті планові: наступний платіж, сума, ≈/точно) -->
+        {% if obligations %}
         <div class="fin-section">
-            <h3 class="fin-section-title">Операції <span class="fin-section-count">{{ transactions|length }}</span></h3>
+            <h3 class="fin-section-title">Зобов'язання <span class="fin-section-count">{{ obligations|length }}</span></h3>
+            <div class="fin-cp-obligs">
+                {% for g in obligations %}
+                {% include 'finance/partials/obligation_card.html' with g=g %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Операції (фактичні; планові показані як зобов'язання вище) -->
+        <div class="fin-section">
+            <h3 class="fin-section-title">Операції <span class="fin-section-count">{{ actual_transactions|length }}</span></h3>
             <div class="fin-table-wrap">
                 <table class="fin-table fin-table--cp">
                     <thead>
-                        <tr><th>Дата</th><th class="fin-col-amount">Сума</th><th>Рахунок</th><th>Категорія</th><th>Статус</th></tr>
+                        <tr><th>Дата</th><th class="fin-col-amount">Сума</th><th>Рахунок</th><th>У рахунок</th><th>Категорія</th></tr>
                     </thead>
                     <tbody>
-                        {% for t in transactions %}
+                        {% for t in actual_transactions %}
                         <tr class="fin-cp-tx">
                             <td data-label="Дата"><span class="fin-date">{{ t.date }}</span></td>
                             <td class="fin-col-amount" data-label="Сума"><span class="fin-amount fin-amount--{{ t.amount_class }}">{{ t.amount_display }}</span></td>
                             <td data-label="Рахунок">{{ t.account_name }}</td>
+                            <td data-label="У рахунок">{% if t.settled_label %}<span class="fin-badge fin-badge--ok" title="Погашення зобов'язання">↳ {{ t.settled_label }}</span>{% else %}—{% endif %}</td>
                             <td data-label="Категорія">{{ t.category|default:"—" }}</td>
-                            <td data-label="Статус">{% if t.is_planned %}<span class="fin-badge">план</span>{% else %}<span class="fin-badge fin-badge--ok">факт</span>{% endif %}</td>
                         </tr>
                         {% empty %}
-                        <tr><td colspan="5" class="fin-muted-cell">Операцій із цим контрагентом ще немає</td></tr>
+                        <tr><td colspan="5" class="fin-muted-cell">Фактичних операцій із цим контрагентом ще немає</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -113,6 +125,24 @@
             {% if not cp.iban and not cp.edrpou and not cp.address and not contacts %}
             <p class="fin-muted-cell">Реквізити не заповнені. <button type="button" class="fin-link-btn" data-cp-edit="{{ cp.id }}">Додати</button></p>
             {% endif %}
+        </div>
+
+        <!-- Картки контрагента (полоски) -->
+        <div class="fin-cp-panel">
+            <h4 class="fin-cp-panel__title">Картки <button type="button" class="fin-link-btn" data-cp-card-add="{{ cp.id }}">+ додати</button></h4>
+            <div class="fin-cp-cards" id="fin-cp-cards" data-cp-id="{{ cp.id }}">
+                {% for c in cards %}
+                <div class="fin-cp-card{% if c.incomplete %} is-incomplete{% endif %}" data-card-id="{{ c.id }}">
+                    <span class="fin-cp-card__bank">{{ c.bank|default:"картка" }}</span>
+                    <span class="fin-cp-card__tail">•••• {{ c.last4|default:"????" }}</span>
+                    {% if c.label %}<span class="fin-cp-card__label">{{ c.label }}</span>{% endif %}
+                    {% if c.is_primary %}<span class="fin-cp-card__badge">основна</span>{% endif %}
+                    <button type="button" class="fin-cp-card__del" data-cp-card-del="{{ c.id }}" title="Видалити">×</button>
+                </div>
+                {% empty %}
+                <p class="fin-muted-cell" id="fin-cp-cards-empty">Карток ще немає. Вони додаються автоматично при погашенні або вручну.</p>
+                {% endfor %}
+            </div>
         </div>
 
         <!-- Рахунки -->
@@ -183,11 +213,13 @@
 
 {% block modals %}
 {% include 'finance/counterparties/modal_counterparty.html' %}
+{% include 'finance/partials/settle_modal.html' %}
 {% endblock %}
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="{% static 'js/finance-counterparties.js' %}?v=20260603a"></script>
+<script src="{% static 'js/finance-counterparties.js' %}?v=20260613"></script>
+<script src="{% static 'js/finance-planned.js' %}?v=20260613"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     var chartData = {{ chart_data|safe }};
