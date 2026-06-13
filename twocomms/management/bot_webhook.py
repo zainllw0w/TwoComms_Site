@@ -23,6 +23,23 @@ from django.views.decorators.csrf import csrf_exempt
 
 logger = logging.getLogger("ig_bot")
 
+# Окремий debug-файл, щоб бачити вхідні POST незалежно від LOGGING-конфіга.
+_DEBUG_LOG = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tmp", "ig_bot.log"
+)
+
+
+def _debug(msg: str) -> None:
+    try:
+        os.makedirs(os.path.dirname(_DEBUG_LOG), exist_ok=True)
+        from datetime import datetime
+
+        with open(_DEBUG_LOG, "a", encoding="utf-8") as fh:
+            fh.write(f"{datetime.utcnow().isoformat()}Z {msg}\n")
+    except Exception:
+        pass
+
+
 GRAPH_VERSION = "v21.0"
 GRAPH = f"https://graph.facebook.com/{GRAPH_VERSION}"
 
@@ -91,14 +108,14 @@ def _send_text(recipient_id: str, text: str) -> None:
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
             logger.info("ig_bot: sent reply, status=%s", resp.getcode())
+            _debug(f"SEND ok status={resp.getcode()} to={recipient_id} text={text!r}")
     except urllib.error.HTTPError as exc:
-        logger.error(
-            "ig_bot: send HTTPError %s: %s",
-            exc.code,
-            exc.read()[:400].decode("utf-8", "replace"),
-        )
-    except Exception:
+        detail = exc.read()[:400].decode("utf-8", "replace")
+        logger.error("ig_bot: send HTTPError %s: %s", exc.code, detail)
+        _debug(f"SEND HTTPError {exc.code}: {detail}")
+    except Exception as exc:
         logger.exception("ig_bot: send failed")
+        _debug(f"SEND EXC {exc!r}")
 
 
 def _handle_messaging_event(event: dict) -> None:
@@ -143,8 +160,10 @@ def ig_webhook(request):
 
     if request.method == "POST":
         # Завжди відповідаємо 200, щоб Meta не вимикала підписку.
+        raw = request.body.decode("utf-8", "replace")
+        _debug(f"POST raw={raw[:1500]}")
         try:
-            payload = json.loads(request.body.decode("utf-8", "replace"))
+            payload = json.loads(raw)
         except Exception:
             logger.warning("ig_bot: bad payload")
             return HttpResponse("ok")
