@@ -367,12 +367,63 @@
           form.reset(); els.id.value = ''; populateAccounts(); collapseDisclosures();
           renderAttachments([]); els.date.value = nowLocal(); setStatus('actual'); setType(type);
         } else {
-          window.location.reload();
+          var txn = res.data.transaction;
+          // Обернений потік: новий фактичний дохід/витрата може бути погашенням
+          // запланованого зобовʼязання — пропонуємо привʼязати (один клік).
+          if (!id && txn && txn.status === 'actual' &&
+              (txn.type === 'expense' || txn.type === 'income')) {
+            maybeReversePrompt(txn);
+          } else {
+            window.location.reload();
+          }
         }
       } else {
         showAlert(res.data.error || 'Не вдалося зберегти операцію');
       }
     }).catch(function () { showAlert('Помилка мережі'); });
+  }
+
+  // --- Обернений потік: «Цей переказ у рахунок зобовʼязання?» ---
+  function maybeReversePrompt(txn) {
+    api('/api/payments/' + txn.id + '/reverse-candidates/').then(function (res) {
+      var obligations = (res.ok && res.data.ok) ? (res.data.obligations || []) : [];
+      if (!obligations.length) { window.location.reload(); return; }
+      showReversePrompt(txn, obligations);
+    }).catch(function () { window.location.reload(); });
+  }
+
+  function showReversePrompt(txn, obligations) {
+    var old = document.getElementById('fin-revprompt');
+    if (old) old.remove();
+    var box = document.createElement('div');
+    box.className = 'fin-revprompt';
+    box.id = 'fin-revprompt';
+    var rows = obligations.slice(0, 6).map(function (g) {
+      var est = g.amount_is_estimated ? '≈ ' : '';
+      var cp = g.counterparty ? (' · ' + g.counterparty) : '';
+      return '<button type="button" class="fin-btn fin-btn--ghost fin-btn--sm" ' +
+             'data-rev-attach="' + g.next_txn_id + '">' +
+             (g.title || 'Зобовʼязання') + cp + ' · ' + est + g.per_amount + '</button>';
+    }).join('');
+    box.innerHTML =
+      '<div class="fin-revprompt__title">Цей платіж — у рахунок зобовʼязання?</div>' +
+      '<div class="fin-revprompt__sub">Оберіть зобовʼязання, щоб закрити період, або пропустіть.</div>' +
+      '<div class="fin-revprompt__list">' + rows + '</div>' +
+      '<div class="fin-revprompt__actions">' +
+      '<button type="button" class="fin-btn fin-btn--ghost" data-rev-skip>Ні, окремий платіж</button>' +
+      '</div>';
+    document.body.appendChild(box);
+    box.addEventListener('click', function (e) {
+      var attach = e.target.closest('[data-rev-attach]');
+      if (attach) {
+        api('/api/payments/' + txn.id + '/attach-obligation/', 'POST',
+            { planned_txn_id: attach.getAttribute('data-rev-attach'), full_period: '1',
+              remember_card: '1' })
+          .then(function () { window.location.reload(); });
+        return;
+      }
+      if (e.target.closest('[data-rev-skip]')) { window.location.reload(); }
+    });
   }
 
   // --- Події ---
