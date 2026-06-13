@@ -303,10 +303,23 @@ def transaction_update_api(request, txn_id):
     # на наявному платежі не спрацьовував). Вмикання, оновлення або вимикання:
     if recurrence:
         if txn.recurrence_rule_id:
-            # Уже повторюваний → оновити графік/суму наявного правила.
+            # Уже повторюваний → оновити графік/назву наявного правила.
+            # ВАЖЛИВО (інваріант стабільності оцінки): сума шаблону (template_amount)
+            # НЕ змінюється автоматично з txn.amount. Інакше разове редагування
+            # суми одного екземпляра (або повернення нетипової суми) ламало б план
+            # на всі наступні місяці й аналітику (кейс «13000 → 17000»). Плановану
+            # суму міняємо ЛИШЕ якщо явно передано plan_amount (модалка «Редагувати
+            # план»).
+            plan_amount = None
+            raw_plan_amount = data.get('plan_amount')
+            if raw_plan_amount not in (None, ''):
+                try:
+                    plan_amount = payload_service._decimal(raw_plan_amount, 'plan_amount')
+                except payload_service.PayloadError as e:
+                    return JsonResponse({'ok': False, 'error': str(e), 'field': e.field}, status=400)
             recurring_service.update_plan(
                 txn.recurrence_rule, user=request.user,
-                amount=txn.amount, amount_is_estimated=recurrence['amount_is_estimated'],
+                amount=plan_amount, amount_is_estimated=recurrence['amount_is_estimated'],
                 title=(recurrence['title'] or None),
                 frequency=recurrence['frequency'], interval=recurrence['interval'],
                 end_mode=recurrence['end_mode'], end_date=recurrence['end_date'],

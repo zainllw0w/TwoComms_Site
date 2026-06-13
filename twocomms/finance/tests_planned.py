@@ -218,15 +218,25 @@ class RecurrenceApiWiringTests(TestCase):
         self.cat = Category.objects.create(company=self.company, name='Оренда', type='expense')
         self.client.force_login(self.user)
 
+    # У тестовому середовищі DEBUG=False → STORAGES['staticfiles'] вмикає
+    # manifest-сховище (потрібен collectstatic). Для рендеру сторінок у тестах
+    # підміняємо на просте сховище, а також знімаємо SSL-redirect (інакше 301).
+    _TEST_STORAGES = {
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+    }
+
     def _post(self, path, payload):
         from django.test import override_settings
-        with override_settings(ALLOWED_HOSTS=[self.FIN_HOST, 'testserver']):
+        with override_settings(ALLOWED_HOSTS=[self.FIN_HOST, 'testserver'],
+                               SECURE_SSL_REDIRECT=False, STORAGES=self._TEST_STORAGES):
             return self.client.post(path, data=json.dumps(payload),
                                     content_type='application/json', HTTP_HOST=self.FIN_HOST)
 
     def _get(self, path):
         from django.test import override_settings
-        with override_settings(ALLOWED_HOSTS=[self.FIN_HOST, 'testserver']):
+        with override_settings(ALLOWED_HOSTS=[self.FIN_HOST, 'testserver'],
+                               SECURE_SSL_REDIRECT=False, STORAGES=self._TEST_STORAGES):
             return self.client.get(path, HTTP_HOST=self.FIN_HOST)
 
     def test_create_api_creates_recurrence_rule(self):
@@ -295,7 +305,59 @@ class RecurrenceApiWiringTests(TestCase):
         self.assertEqual(rule.interval, 2)
         self.assertEqual(rule.end_mode, RecurrenceRule.END_COUNT)
         self.assertEqual(rule.count, 5)
-        self.assertEqual(rule.template_amount, Decimal('2700'))
+        # Інваріант стабільності оцінки: редагування графіка (і суми ОКРЕМОГО
+        # екземпляра) НЕ змінює плановану суму шаблону. template_amount лишається
+        # початковим, доки не передано явний plan_amount.
+        self.assertEqual(rule.template_amount, Decimal('2500'))
+
+    def test_editing_occurrence_amount_keeps_template_stable(self):
+        """Кейс Віктора: повернення нетипової суми НЕ змінює плановану щомісячну.
+
+        Дебіторка 13000/міс. Один раз повернули 17000 → план на наступні місяці
+        має лишитися 13000 (інакше ламається аналітика й «скільки лишилось»).
+        """
+        future = timezone.now() + dt.timedelta(days=4)
+        txn = txn_service.create_transaction(
+            user=self.user, type=Transaction.TYPE_INCOME, amount=Decimal('13000'),
+            account=self.acc, currency='UAH',
+            status=Transaction.STATUS_PLANNED, date_actual=future, comment='Віктор Вікторович')
+        recurring_service.create_rule_from_transaction(
+            txn, user=self.user, frequency='monthly', end_mode=RecurrenceRule.END_NEVER)
+        txn.refresh_from_db()
+        # Редагуємо суму саме цього екземпляра на 17000 (без plan_amount).
+        resp = self._post(f'/api/transactions/{txn.id}/update/', {
+            'type': 'income', 'amount': '17000', 'account': self.acc.id,
+            'date_actual': future.strftime('%Y-%m-%dT%H:%M'),
+            'recurrence': 'monthly', 'recurrence_end_mode': 'never',
+        })
+        self.assertEqual(resp.status_code, 200)
+        rule = RecurrenceRule.objects.get(id=txn.recurrence_rule_id)
+        self.assertEqual(rule.template_amount, Decimal('13000'))
+        # Наступні матеріалізовані планові — теж 13000, не 17000.
+        future_planned = rule.transactions.filter(
+            status=Transaction.STATUS_PLANNED).exclude(id=txn.id)
+        for f in future_planned:
+            self.assertEqual(f.amount, Decimal('13000'))
+
+    def test_explicit_plan_amount_changes_template(self):
+        """Явний plan_amount (модалка «Редагувати план») змінює плановану суму."""
+        future = timezone.now() + dt.timedelta(days=4)
+        txn = txn_service.create_transaction(
+            user=self.user, type=Transaction.TYPE_EXPENSE, amount=Decimal('2500'),
+            account=self.acc, currency='UAH', category=self.cat,
+            status=Transaction.STATUS_PLANNED, date_actual=future, comment='Оренда')
+        recurring_service.create_rule_from_transaction(
+            txn, user=self.user, frequency='monthly', end_mode=RecurrenceRule.END_NEVER)
+        txn.refresh_from_db()
+        self._post(f'/api/transactions/{txn.id}/update/', {
+            'type': 'expense', 'amount': '2500', 'account': self.acc.id,
+            'category': self.cat.id,
+            'date_actual': future.strftime('%Y-%m-%dT%H:%M'),
+            'recurrence': 'monthly', 'recurrence_end_mode': 'never',
+            'plan_amount': '3200',
+        })
+        rule = RecurrenceRule.objects.get(id=txn.recurrence_rule_id)
+        self.assertEqual(rule.template_amount, Decimal('3200'))
 
     def test_settle_api_marks_actual_with_account(self):
         txn = txn_service.create_transaction(
