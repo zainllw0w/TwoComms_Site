@@ -362,7 +362,10 @@ export function bindMonoCheckout(scope) {
           const buildMeta = deps().buildMetaWithUserData;
           const eventId = safeGen ? safeGen() : String(Date.now());
           try {
-            if (window.__twcAnalytics && typeof window.__twcAnalytics.pushBeginCheckoutEvent === 'function') {
+            // FIX 2026-06-12: не дублируем begin_checkout, если он уже ушёл
+            // при старте заполнения формы доставки (см. main.js).
+            if (!window.__twcBeginCheckoutSent && window.__twcAnalytics && typeof window.__twcAnalytics.pushBeginCheckoutEvent === 'function') {
+              window.__twcBeginCheckoutSent = true;
               window.__twcAnalytics.pushBeginCheckoutEvent(analytics, {
                 eventId,
                 eventLabel: triggerType === 'product' ? 'Mono checkout product' : 'Mono checkout cart'
@@ -547,7 +550,10 @@ export function bindMonobankPay(scope) {
           const buildMeta = deps().buildMetaWithUserData;
           const eventId = safeGen ? safeGen() : String(Date.now());
           try {
-            if (window.__twcAnalytics && typeof window.__twcAnalytics.pushBeginCheckoutEvent === 'function') {
+            // FIX 2026-06-12: не дублируем begin_checkout, если он уже ушёл
+            // при старте заполнения формы доставки (см. main.js).
+            if (!window.__twcBeginCheckoutSent && window.__twcAnalytics && typeof window.__twcAnalytics.pushBeginCheckoutEvent === 'function') {
+              window.__twcBeginCheckoutSent = true;
               window.__twcAnalytics.pushBeginCheckoutEvent(analytics, {
                 eventId,
                 eventLabel: 'Monobank Pay'

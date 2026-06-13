@@ -2907,3 +2907,29 @@ class GoogleIndexingSubmission(models.Model):
             now = timezone.now()
             self.submission_date = now.date()
         super().save(*args, **kwargs)
+
+
+class QrDeviceGrant(models.Model):
+    """Привязка QR-промокода к устройству анонимного посетителя.
+
+    Позволяет показывать один и тот же код тому же человеку (cookie +
+    отпечаток устройства: IP + User-Agent + язык) и переносить код в
+    профиль после входа.
+    """
+
+    device_hash = models.CharField(max_length=64, unique=True, db_index=True)
+    promo_code = models.ForeignKey(
+        'PromoCode', on_delete=models.CASCADE, related_name='qr_device_grants',
+    )
+    ip = models.CharField(max_length=45, blank=True, default='')
+    user_agent = models.CharField(max_length=300, blank=True, default='')
+    visits = models.PositiveIntegerField(default=1)
+    first_seen = models.DateTimeField(auto_now_add=True)
+    last_seen = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'QR-видача (пристрій)'
+        verbose_name_plural = 'QR-видачі (пристрої)'
+
+    def __str__(self):
+        return f"qr-device {self.device_hash[:10]}… → {self.promo_code.code}"

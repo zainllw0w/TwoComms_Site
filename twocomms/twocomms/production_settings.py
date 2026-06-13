@@ -618,39 +618,9 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_HTTPONLY = True
 
-# Настройки логирования
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'file': {
-            'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': BASE_DIR / 'django.log',
-        },
-        'rum_file': {
-            'level': 'INFO',
-            'class': 'logging.handlers.RotatingFileHandler',
-            'filename': str(BASE_DIR / 'rum.log'),
-            'maxBytes': 10 * 1024 * 1024,
-            'backupCount': 3,
-            'encoding': 'utf-8',
-            'delay': True,
-        },
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['file'],
-            'level': 'INFO',
-            'propagate': True,
-        },
-        'storefront.rum': {
-            'handlers': ['rum_file'],
-            'level': 'INFO',
-            'propagate': False,
-        },
-    },
-}
+# Логирование: используем конфигурацию из base settings.py (RotatingFileHandler,
+# 5 МБ × 5 бэкапов + отдельные rum.log/stderr.log). Раньше здесь был дубль с
+# обычным FileHandler без ротации — из-за него django.log вырастал до 136 МБ.
 
 # Sites framework
 SITE_ID = 1

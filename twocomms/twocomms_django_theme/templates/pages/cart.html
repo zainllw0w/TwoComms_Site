@@ -2535,4 +2535,43 @@ body.contact-modal-open .cart-container::after {
   }
 })();
 </script>
+<script>
+/* Abandoned-checkout capture: store contact fields as the visitor types,
+   so we can recover the order even if the page is closed. */
+(function(){
+  var url='{% url "checkout_capture" %}',timer=null,dirty=false,lastSent='';
+  function collect(){
+    var d={};
+    ['full_name','phone','email'].forEach(function(n){
+      var els=document.querySelectorAll('input[name="'+n+'"]');
+      for(var i=0;i<els.length;i++){
+        var v=(els[i].value||'').trim();
+        if(v){d[n]=v;break;}
+      }
+    });
+    return d;
+  }
+  function send(useBeacon){
+    var d=collect();
+    if(!d.full_name&&!d.phone&&!d.email)return;
+    var payload=JSON.stringify(d);
+    if(payload===lastSent&&!useBeacon)return;
+    lastSent=payload;
+    if(useBeacon&&navigator.sendBeacon){
+      navigator.sendBeacon(url,new Blob([payload],{type:'application/json'}));
+    }else{
+      fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:payload,keepalive:true,credentials:'same-origin'}).catch(function(){});
+    }
+  }
+  function onInput(){dirty=true;clearTimeout(timer);timer=setTimeout(function(){dirty=false;send(false);},1200);}
+  document.addEventListener('input',function(e){
+    var n=e.target&&e.target.name;
+    if(n==='full_name'||n==='phone'||n==='email')onInput();
+  },true);
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState==='hidden'){clearTimeout(timer);send(true);}
+  });
+  window.addEventListener('pagehide',function(){clearTimeout(timer);send(true);});
+})();
+</script>
 {% endblock %}

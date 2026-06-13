@@ -179,14 +179,71 @@ function attachAdvancedMatchingSync() {
   });
 }
 
+// FIX 2026-06-12: begin_checkout для обычных заказов (наложка / форма).
+// Раньше begin_checkout пушился ТОЛЬКО по кнопкам Monobank
+// (checkout-mono.js), поэтому заказы через форму доставки вообще не
+// давали begin_checkout (4 события против 82 add_to_cart за 30 дней).
+// Семантика: пользователь начал заполнять форму доставки в корзине =
+// начало оформления. Срабатывает один раз на страницу.
+function attachBeginCheckoutOnFormStart() {
+  const forms = [document.getElementById('deliveryForm'), document.getElementById('guest-form')].filter(Boolean);
+  if (!forms.length) return;
+  const readCheckoutPayload = () => {
+    const el = document.getElementById('checkout-payload');
+    if (!el) return null;
+    let contents = [];
+    let ids = [];
+    try { contents = JSON.parse(decodeURIComponent(el.dataset.contents || '') || '[]'); } catch (_) { contents = []; }
+    try { ids = JSON.parse(decodeURIComponent(el.dataset.ids || '') || '[]'); } catch (_) { ids = []; }
+    const value = parseFloat(el.dataset.value || '0') || 0;
+    const currency = el.dataset.currency || 'UAH';
+    let numItems = parseInt(el.dataset.numItems || '0', 10);
+    if (Number.isNaN(numItems) || numItems <= 0) {
+      numItems = contents.reduce((acc, item) => acc + (item.quantity || 0), 0) || ids.length;
+    }
+    return { contents, content_ids: ids, value, currency, num_items: numItems };
+  };
+  let fired = false;
+  const fire = () => {
+    if (fired) return;
+    fired = true;
+    try {
+      const analytics = readCheckoutPayload();
+      if (!analytics || !(analytics.value > 0 || analytics.content_ids.length)) return;
+      const eventId = safeGenerateAnalyticsEventId();
+      // Не дублируем, если begin_checkout уже ушёл по кнопке Monobank.
+      if (window.__twcBeginCheckoutSent) return;
+      window.__twcBeginCheckoutSent = true;
+      pushBeginCheckoutEvent(analytics, { eventId, eventLabel: 'Checkout form start' });
+      if (typeof window.trackEvent === 'function') {
+        window.trackEvent('InitiateCheckout', {
+          value: analytics.value,
+          currency: analytics.currency,
+          num_items: analytics.num_items,
+          payment_method: 'delivery_form',
+          content_ids: analytics.content_ids,
+          contents: analytics.contents,
+          event_id: eventId,
+          __meta: buildMetaWithUserData(eventId),
+        });
+      }
+    } catch (_) { }
+  };
+  forms.forEach((form) => {
+    form.addEventListener('focusin', fire, { once: true });
+  });
+}
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     try { attachGuestFormPersistence(); } catch (_) { }
     try { attachAdvancedMatchingSync(); } catch (_) { }
+    try { attachBeginCheckoutOnFormStart(); } catch (_) { }
   });
 } else {
   try { attachGuestFormPersistence(); } catch (_) { }
   try { attachAdvancedMatchingSync(); } catch (_) { }
+  try { attachBeginCheckoutOnFormStart(); } catch (_) { }
 }
 
 function buildMetaWithUserData(eventId, baseMeta) {

@@ -452,8 +452,25 @@ class CustomPrintLeadForm(forms.Form):
                 continue
             file_spec_map.setdefault(file_index, spec)
 
+        # Точная карта «файл → зона» из конфигуратора (artwork.files повторяет
+        # порядок поля files в FormData, включая несколько файлов на одну зону).
+        draft = self.cleaned_data.get("config_draft_json") or {}
+        artwork_files = (draft.get("artwork") or {}).get("files") if isinstance(draft, dict) else None
+        file_meta_map = {}
+        if isinstance(artwork_files, list):
+            for position, item in enumerate(artwork_files):
+                if not isinstance(item, dict):
+                    continue
+                idx = item.get("file_index")
+                try:
+                    idx = int(idx)
+                except (TypeError, ValueError):
+                    idx = position
+                if item.get("placement_key") or item.get("zone"):
+                    file_meta_map.setdefault(idx, item)
+
         for sort_order, uploaded_file in enumerate(getattr(self, "cleaned_files", [])):
-            matched_spec = file_spec_map.get(sort_order)
+            matched_spec = file_meta_map.get(sort_order) or file_spec_map.get(sort_order)
             if matched_spec is None and sort_order < len(placement_specs):
                 matched_spec = placement_specs[sort_order]
             CustomPrintLeadAttachment.objects.create(
@@ -461,6 +478,7 @@ class CustomPrintLeadForm(forms.Form):
                 file=uploaded_file,
                 placement_zone=(matched_spec or {}).get("placement_key") or (matched_spec or {}).get("zone", ""),
                 attachment_role=(matched_spec or {}).get("attachment_role")
+                or (matched_spec or {}).get("role")
                 or CustomPrintLeadAttachment.AttachmentRole.DESIGN,
                 sort_order=sort_order,
             )

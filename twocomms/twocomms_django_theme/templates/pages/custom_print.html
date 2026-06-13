@@ -42,7 +42,7 @@
 
 {% block extra_css %}
   {{ block.super }}
-  <link rel="stylesheet" href="{% static 'css/custom-print-configurator.css' %}?v=20260517-hero-revert">
+  <link rel="stylesheet" href="{% static 'css/custom-print-configurator.css' %}?v=20260611-stage3d">
   <style>
     .cp-breadcrumbs {
       display: flex;
@@ -383,9 +383,11 @@
             </div>
             <div class="cp-garment-shell">
               <div class="cp-stage-ground"></div>
-              <div class="cp-stage-overlay" data-stage-overlay aria-hidden="true"></div>
-              <div class="cp-garment cp-garment--hoodie cp-garment--front" data-garment aria-hidden="true"></div>
-              <div class="cp-zone-layer" data-zone-layer aria-label="{% trans 'Доступні зони друку' %}"></div>
+              <div class="cp-stage-rotor" data-stage-rotor>
+                <div class="cp-stage-overlay" data-stage-overlay aria-hidden="true"></div>
+                <div class="cp-garment cp-garment--hoodie cp-garment--front" data-garment aria-hidden="true"></div>
+                <div class="cp-zone-layer" data-zone-layer aria-label="{% trans 'Доступні зони друку' %}"></div>
+              </div>
             </div>
           </div>
 
@@ -1118,6 +1120,6 @@
 {% block extra_js %}
   {{ block.super }}
   <script src="{% static 'js/custom-print-submission-policy.js' %}" defer></script>
-  <script src="{% static 'js/custom-print-configurator.js' %}?v=20260517-tg-verify-portal" defer></script>
+  <script src="{% static 'js/custom-print-configurator.js' %}?v=20260611-stage3d" defer></script>
   <script src="{% static 'js/custom-print-telegram-verify.js' %}?v=20260517-tg-verify-portal" defer></script>
 {% endblock %}

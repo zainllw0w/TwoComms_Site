@@ -618,7 +618,7 @@ class ServicePageSeoMetaRegressionTests(SimpleTestCase):
                 # SEO Audit 2026-05-15 (Part 4) — extended delivery title
                 # from 28 to 58 chars: front-loads carrier (Нова Пошта),
                 # lead-time (1-2 дні) and geo (Україна).
-                '<meta property="og:title" content="Доставка і оплата TwoComms — Нова Пошта, 1-2 дні по Україні">',
+                '<meta property="og:title" content="Доставка і оплата TwoComms — Нова Пошта, 1–3 дні по Україні">',
             ),
             (
                 reverse("cooperation"),

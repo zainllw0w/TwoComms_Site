@@ -7,9 +7,6 @@ sqlparse==0.5.3
 Pillow==11.3.0
 
 # База данных - PostgreSQL
-psycopg==3.2.9
-psycopg-binary==3.2.3
-psycopg-pool==3.2.6
 
 # База данных - MySQL (альтернатива mysqlclient)
 PyMySQL==1.1.2
@@ -33,7 +30,6 @@ django-redis==5.4.0
 redis==5.2.1
 hiredis==3.0.0
 django-mathfilters==1.0.0
-celery==5.3.6
 
 
 # Загрузка конфигурации из файла .env/.env.production

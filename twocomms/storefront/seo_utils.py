@@ -310,9 +310,8 @@ class SEOKeywordGenerator:
 
         # Ключевые слова по цветам (если есть цветовые варианты)
         try:
-            from productcolors.models import ProductColorVariant
-            color_variants = ProductColorVariant.objects.filter(product=product).select_related('color')
-            for variant in color_variants:
+            from storefront.services.catalog_helpers import get_product_color_variant_rows
+            for variant in get_product_color_variant_rows(product):
                 if variant.color and variant.color.name:
                     color_name = variant.color.name.lower()
                     if color_name in cls.COLOR_KEYWORDS:
@@ -344,8 +343,8 @@ class SEOKeywordGenerator:
 
         color_names = []
         try:
-            from productcolors.models import ProductColorVariant
-            for variant in ProductColorVariant.objects.filter(product=product):
+            from storefront.services.catalog_helpers import get_product_color_variant_rows
+            for variant in get_product_color_variant_rows(product):
                 if variant.color and getattr(variant.color, 'name', None):
                     color_names.append(variant.color.name)
         except Exception:
@@ -763,8 +762,8 @@ class StructuredDataGenerator:
 
         # Добавляем изображения из цветовых вариантов (для остальных вариантов)
         try:
-            from productcolors.models import ProductColorVariant
-            color_variants = ProductColorVariant.objects.filter(product=product).prefetch_related('images')
+            from storefront.services.catalog_helpers import get_product_color_variant_rows
+            color_variants = get_product_color_variant_rows(product)
             for variant in color_variants[:2]:  # Максимум 2 цветовых варианта
                 if selected_variant is not None and getattr(variant, 'pk', None) == getattr(selected_variant, 'pk', None):
                     continue
@@ -1023,10 +1022,10 @@ class StructuredDataGenerator:
         # Добавляем все изображения
         # Добавляем реальные цвета из вариантов
         try:
-            from productcolors.models import ProductColorVariant
             from storefront.services.color_filter import _translate_color_label
+            from storefront.services.catalog_helpers import get_product_color_variant_rows
             color_names = []
-            color_variants = ProductColorVariant.objects.filter(product=product).select_related('color')
+            color_variants = get_product_color_variant_rows(product)
             for variant in color_variants:
                 if variant.color and variant.color.name:
                     color_names.append(str(_translate_color_label(variant.color.name)))
@@ -1098,9 +1097,9 @@ class StructuredDataGenerator:
             schema["isVariantOf"] = {"@id": base_product_id}
         else:
             try:
-                from productcolors.models import ProductColorVariant
+                from storefront.services.catalog_helpers import get_product_color_variant_rows
                 variant_ids: list[Dict[str, str]] = []
-                for variant in ProductColorVariant.objects.filter(product=product):
+                for variant in get_product_color_variant_rows(product):
                     slug = (getattr(variant, "slug", "") or "").strip()
                     if not slug:
                         continue
@@ -1206,19 +1205,14 @@ class StructuredDataGenerator:
         emitting an empty group node.
         """
         try:
-            from productcolors.models import ProductColorVariant
-            color_variants = list(
-                ProductColorVariant.objects.filter(product=product)
-                .select_related("color")
-                .prefetch_related("images")
-            )
+            from storefront.services.catalog_helpers import get_product_color_variant_rows
+            color_variants = get_product_color_variant_rows(product)
         except Exception:
             color_variants = []
 
         try:
-            fit_options = list(
-                product.fit_options.filter(is_active=True).order_by("order", "id")
-            )
+            from storefront.services.catalog_helpers import get_active_fit_options
+            fit_options = get_active_fit_options(product)
         except Exception:
             fit_options = []
 
@@ -1747,8 +1741,8 @@ class SEOContentOptimizer:
 
         # Проверяем наличие цветовых вариантов
         try:
-            from productcolors.models import ProductColorVariant
-            color_count = ProductColorVariant.objects.filter(product=product).count()
+            from storefront.services.catalog_helpers import get_product_color_variant_rows
+            color_count = len(get_product_color_variant_rows(product))
             if color_count == 0:
                 suggestions.append("Додайте кольорові варіанти товару")
         except ImportError:

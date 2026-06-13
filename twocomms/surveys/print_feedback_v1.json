@@ -107,7 +107,7 @@
   },
   "modules": {
     "prints": {
-      "title_uk": "Прінти та стиль",
+      "title_uk": "Принти та стиль",
       "activation": {
         "any": [
           {
@@ -397,7 +397,7 @@
       "section": "core",
       "order": 130,
       "type": "slider_1_10",
-      "prompt_uk": "Як тобі прінти та їхній стиль у TWOCOMMS?",
+      "prompt_uk": "Як тобі принти та їхній стиль у TWOCOMMS?",
       "scale": {
         "min": 1,
         "max": 10,
@@ -406,7 +406,7 @@
       },
       "required": true,
       "estimated_seconds": 7,
-      "help_uk": "Сюжети, меседжі, кольори, розміщення прінта."
+      "help_uk": "Сюжети, меседжі, кольори, розміщення принта."
     },
     {
       "id": "q040_price",
@@ -686,7 +686,7 @@
         {
           "value": "military",
           "label_uk": "Військовий/військова",
-          "help_uk": "Служу або маю прямий дотик до війська. Хочу прінти, які «свої» для підрозділів/спеціальностей."
+          "help_uk": "Служу або маю прямий дотик до війська. Хочу принти, які «свої» для підрозділів/спеціальностей."
         },
         {
           "value": "volunteer",
@@ -708,7 +708,7 @@
         },
         {
           "value": "impulse",
-          "label_uk": "Спонтанно: побачив/ла прінт — зайшов/ла"
+          "label_uk": "Спонтанно: побачив/ла принт — зайшов/ла"
         },
         {
           "value": "other",
@@ -1067,7 +1067,7 @@
       "options": [
         {
           "value": "prints",
-          "label_uk": "Прінти / стилістика"
+          "label_uk": "Принти / стилістика"
         },
         {
           "value": "quality",
@@ -1095,7 +1095,7 @@
         },
         {
           "value": "custom",
-          "label_uk": "Персоналізація (позивний/прінт на замовлення)"
+          "label_uk": "Персоналізація (позивний/принт на замовлення)"
         },
         {
           "value": "partner",
@@ -1141,7 +1141,7 @@
       "prompt_uk": "Назви 1–3 речі, які тобі найбільше подобаються в TWOCOMMS.",
       "required": false,
       "estimated_seconds": 20,
-      "placeholder_uk": "Напр.: якість, прінти, ідея, сайт, швидкість доставки…"
+      "placeholder_uk": "Напр.: якість, принти, ідея, сайт, швидкість доставки…"
     },
     {
       "id": "q910_open_improve",
@@ -1151,7 +1151,7 @@
       "prompt_uk": "Назви 1–3 речі, які варто покращити в першу чергу.",
       "required": false,
       "estimated_seconds": 20,
-      "placeholder_uk": "Напр.: ціни, прінти, фото товару, фільтри, оплата…"
+      "placeholder_uk": "Напр.: ціни, принти, фото товару, фільтри, оплата…"
     },
     {
       "id": "q920_contact_permission",
@@ -1245,7 +1245,7 @@
       "section": "prints",
       "order": 210,
       "type": "single_choice",
-      "prompt_uk": "Що в наших прінтах подобається найбільше?",
+      "prompt_uk": "Що в наших принтах подобається найбільше?",
       "options": [
         {
           "value": "message",
@@ -1318,7 +1318,7 @@
       "section": "prints",
       "order": 211,
       "type": "multi_choice",
-      "prompt_uk": "Що саме в прінтах тобі НЕ заходить? (обери до 3 пунктів)",
+      "prompt_uk": "Що саме в принтах тобі НЕ заходить? (обери до 3 пунктів)",
       "options": [
         {
           "value": "themes_not_mine",
@@ -1371,7 +1371,7 @@
         },
         {
           "value": "too_little_text",
-          "label_uk": "Мало текстових прінтів",
+          "label_uk": "Мало текстових принтів",
           "followup_ids": [
             "q216_prints_text_more_pref"
           ]
@@ -1392,21 +1392,21 @@
         },
         {
           "value": "placement",
-          "label_uk": "Розміщення прінта",
+          "label_uk": "Розміщення принта",
           "followup_ids": [
             "q219_prints_placement_pref"
           ]
         },
         {
           "value": "size",
-          "label_uk": "Розмір прінта (замалий/завеликий)",
+          "label_uk": "Розмір принта (замалий/завеликий)",
           "followup_ids": [
             "q220_prints_size_pref"
           ]
         },
         {
           "value": "print_quality",
-          "label_uk": "Якість нанесення/прінта",
+          "label_uk": "Якість нанесення/принта",
           "followup_ids": [
             "q221_prints_quality_issues"
           ]
@@ -1420,7 +1420,7 @@
         },
         {
           "value": "repetitive",
-          "label_uk": "Багато схожих прінтів між собою",
+          "label_uk": "Багато схожих принтів між собою",
           "followup_ids": [
             "q223_prints_repetition_pref"
           ]
@@ -1464,7 +1464,7 @@
       "section": "prints",
       "order": 212,
       "type": "multi_choice",
-      "prompt_uk": "Які теми/напрями прінтів ти хотів/ла б бачити частіше? (обери до 3)",
+      "prompt_uk": "Які теми/напрями принтів ти хотів/ла б бачити частіше? (обери до 3)",
       "options": [
         {
           "value": "drones",
@@ -1594,7 +1594,7 @@
       "section": "prints",
       "order": 213,
       "type": "single_choice",
-      "prompt_uk": "Як краще збалансувати мілітарі в прінтах?",
+      "prompt_uk": "Як краще збалансувати мілітарі в принтах?",
       "options": [
         {
           "value": "less_direct",
@@ -1678,7 +1678,7 @@
       "section": "prints",
       "order": 215,
       "type": "single_choice",
-      "prompt_uk": "Який тон прінтів тобі ближчий?",
+      "prompt_uk": "Який тон принтів тобі ближчий?",
       "options": [
         {
           "value": "serious",
@@ -1718,7 +1718,7 @@
       "section": "prints",
       "order": 216,
       "type": "single_choice",
-      "prompt_uk": "Що зробить прінти більш «дорослими»?",
+      "prompt_uk": "Що зробить принти більш «дорослими»?",
       "options": [
         {
           "value": "less_cartoon",
@@ -1802,7 +1802,7 @@
       "section": "prints",
       "order": 218,
       "type": "single_choice",
-      "prompt_uk": "Як ти хочеш, щоб виглядали текстові прінти?",
+      "prompt_uk": "Як ти хочеш, щоб виглядали текстові принти?",
       "options": [
         {
           "value": "bold_statement",
@@ -1943,7 +1943,7 @@
       "section": "prints",
       "order": 221,
       "type": "multi_choice",
-      "prompt_uk": "Де прінт виглядає найкраще? (можна кілька)",
+      "prompt_uk": "Де принт виглядає найкраще? (можна кілька)",
       "options": [
         {
           "value": "front_center",
@@ -1995,7 +1995,7 @@
       "section": "prints",
       "order": 222,
       "type": "single_choice",
-      "prompt_uk": "Розмір прінта тобі комфортніший…",
+      "prompt_uk": "Розмір принта тобі комфортніший…",
       "options": [
         {
           "value": "very_small",
@@ -2015,7 +2015,7 @@
         },
         {
           "value": "depends",
-          "label_uk": "Залежить від моделі/прінта"
+          "label_uk": "Залежить від моделі/принта"
         }
       ],
       "required": false,
@@ -2039,7 +2039,7 @@
       "section": "prints",
       "order": 223,
       "type": "multi_choice",
-      "prompt_uk": "Що саме не так з якістю нанесення/прінта?",
+      "prompt_uk": "Що саме не так з якістю нанесення/принта?",
       "options": [
         {
           "value": "cracks",
@@ -2095,7 +2095,7 @@
       "section": "prints",
       "order": 224,
       "type": "single_choice",
-      "prompt_uk": "Що для тебе означає «унікальний прінт»?",
+      "prompt_uk": "Що для тебе означає «унікальний принт»?",
       "options": [
         {
           "value": "limited_drop",
@@ -2143,7 +2143,7 @@
       "section": "prints",
       "order": 225,
       "type": "single_choice",
-      "prompt_uk": "Як краще урізноманітнити колекції прінтів?",
+      "prompt_uk": "Як краще урізноманітнити колекції принтів?",
       "options": [
         {
           "value": "more_themes",
@@ -2187,7 +2187,7 @@
       "section": "prints",
       "order": 226,
       "type": "single_choice",
-      "prompt_uk": "Як тобі зручніше, щоб сенс прінта був зрозумілий?",
+      "prompt_uk": "Як тобі зручніше, щоб сенс принта був зрозумілий?",
       "options": [
         {
           "value": "obvious",
@@ -2227,7 +2227,7 @@
       "section": "prints",
       "order": 227,
       "type": "text_short",
-      "prompt_uk": "Опиши, будь ласка, що саме не подобається в прінтах.",
+      "prompt_uk": "Опиши, будь ласка, що саме не подобається в принтах.",
       "required": false,
       "estimated_seconds": 20,
       "show_if": {
@@ -2249,7 +2249,7 @@
       "section": "prints",
       "order": 228,
       "type": "text_short",
-      "prompt_uk": "Коротко: що саме в прінтах тобі подобається?",
+      "prompt_uk": "Коротко: що саме в принтах тобі подобається?",
       "required": false,
       "estimated_seconds": 20,
       "show_if": {
@@ -2271,7 +2271,7 @@
       "section": "prints",
       "order": 240,
       "type": "single_choice",
-      "prompt_uk": "Який формат прінтів на тему «Дрони / FPV / БпЛА» тобі ближчий?",
+      "prompt_uk": "Який формат принтів на тему «Дрони / FPV / БпЛА» тобі ближчий?",
       "options": [
         {
           "value": "minimal",
@@ -2319,7 +2319,7 @@
       "section": "prints",
       "order": 241,
       "type": "single_choice",
-      "prompt_uk": "Який формат прінтів на тему «Сапери / інженерка» тобі ближчий?",
+      "prompt_uk": "Який формат принтів на тему «Сапери / інженерка» тобі ближчий?",
       "options": [
         {
           "value": "minimal",
@@ -2367,7 +2367,7 @@
       "section": "prints",
       "order": 242,
       "type": "single_choice",
-      "prompt_uk": "Який формат прінтів на тему «Медик / евак» тобі ближчий?",
+      "prompt_uk": "Який формат принтів на тему «Медик / евак» тобі ближчий?",
       "options": [
         {
           "value": "minimal",
@@ -2415,7 +2415,7 @@
       "section": "prints",
       "order": 243,
       "type": "single_choice",
-      "prompt_uk": "Який формат прінтів на тему «Артилерія» тобі ближчий?",
+      "prompt_uk": "Який формат принтів на тему «Артилерія» тобі ближчий?",
       "options": [
         {
           "value": "minimal",
@@ -2463,7 +2463,7 @@
       "section": "prints",
       "order": 244,
       "type": "single_choice",
-      "prompt_uk": "Який формат прінтів на тему «ППО» тобі ближчий?",
+      "prompt_uk": "Який формат принтів на тему «ППО» тобі ближчий?",
       "options": [
         {
           "value": "minimal",
@@ -2511,7 +2511,7 @@
       "section": "prints",
       "order": 245,
       "type": "single_choice",
-      "prompt_uk": "Який формат прінтів на тему «Піхота / штурм» тобі ближчий?",
+      "prompt_uk": "Який формат принтів на тему «Піхота / штурм» тобі ближчий?",
       "options": [
         {
           "value": "minimal",
@@ -2559,7 +2559,7 @@
       "section": "prints",
       "order": 246,
       "type": "single_choice",
-      "prompt_uk": "Який формат прінтів на тему «Флот / морпіхи» тобі ближчий?",
+      "prompt_uk": "Який формат принтів на тему «Флот / морпіхи» тобі ближчий?",
       "options": [
         {
           "value": "minimal",
@@ -2607,7 +2607,7 @@
       "section": "prints",
       "order": 247,
       "type": "single_choice",
-      "prompt_uk": "Який формат прінтів на тему «Волонтерство / донати» тобі ближчий?",
+      "prompt_uk": "Який формат принтів на тему «Волонтерство / донати» тобі ближчий?",
       "options": [
         {
           "value": "minimal",
@@ -2655,7 +2655,7 @@
       "section": "prints",
       "order": 248,
       "type": "single_choice",
-      "prompt_uk": "Який формат прінтів на тему «Іронія / меми» тобі ближчий?",
+      "prompt_uk": "Який формат принтів на тему «Іронія / меми» тобі ближчий?",
       "options": [
         {
           "value": "minimal",
@@ -2703,7 +2703,7 @@
       "section": "prints",
       "order": 249,
       "type": "single_choice",
-      "prompt_uk": "Який формат прінтів на тему «Фрази / слогани» тобі ближчий?",
+      "prompt_uk": "Який формат принтів на тему «Фрази / слогани» тобі ближчий?",
       "options": [
         {
           "value": "minimal",
@@ -2751,7 +2751,7 @@
       "section": "prints",
       "order": 250,
       "type": "single_choice",
-      "prompt_uk": "Який формат прінтів на тему «Мінімальні символи» тобі ближчий?",
+      "prompt_uk": "Який формат принтів на тему «Мінімальні символи» тобі ближчий?",
       "options": [
         {
           "value": "minimal",
@@ -2799,7 +2799,7 @@
       "section": "prints",
       "order": 251,
       "type": "single_choice",
-      "prompt_uk": "Який формат прінтів на тему «Абстракція / арт» тобі ближчий?",
+      "prompt_uk": "Який формат принтів на тему «Абстракція / арт» тобі ближчий?",
       "options": [
         {
           "value": "minimal",
@@ -2847,7 +2847,7 @@
       "section": "prints",
       "order": 252,
       "type": "single_choice",
-      "prompt_uk": "Який формат прінтів на тему «Патріотичні мотиви» тобі ближчий?",
+      "prompt_uk": "Який формат принтів на тему «Патріотичні мотиви» тобі ближчий?",
       "options": [
         {
           "value": "minimal",
@@ -2895,7 +2895,7 @@
       "section": "prints",
       "order": 253,
       "type": "single_choice",
-      "prompt_uk": "Який формат прінтів на тему «Персоналізація» тобі ближчий?",
+      "prompt_uk": "Який формат принтів на тему «Персоналізація» тобі ближчий?",
       "options": [
         {
           "value": "minimal",
@@ -2943,7 +2943,7 @@
       "section": "prints",
       "order": 260,
       "type": "single_choice",
-      "prompt_uk": "Якою мовою тобі комфортніше бачити текстові прінти?",
+      "prompt_uk": "Якою мовою тобі комфортніше бачити текстові принти?",
       "options": [
         {
           "value": "uk",
@@ -2959,7 +2959,7 @@
         },
         {
           "value": "no_text",
-          "label_uk": "Взагалі не люблю текстові прінти"
+          "label_uk": "Взагалі не люблю текстові принти"
         }
       ],
       "required": false,
@@ -3151,7 +3151,7 @@
       "section": "prints",
       "order": 235,
       "type": "multi_choice",
-      "prompt_uk": "Які кольори/палетка в прінтах тобі подобаються?",
+      "prompt_uk": "Які кольори/палетка в принтах тобі подобаються?",
       "options": [
         {
           "value": "black_white",
@@ -3322,7 +3322,7 @@
         },
         {
           "value": "print_durability",
-          "label_uk": "Зносостійкість прінта",
+          "label_uk": "Зносостійкість принта",
           "followup_ids": [
             "q323_quality_print_durability"
           ]
@@ -3402,7 +3402,7 @@
         },
         {
           "value": "print",
-          "label_uk": "Прінт зношується",
+          "label_uk": "Принт зношується",
           "followup_ids": [
             "q335_quality_print_issue"
           ]
@@ -3621,7 +3621,7 @@
       "section": "quality",
       "order": 323,
       "type": "single_choice",
-      "prompt_uk": "Прінт тримається добре після прання?",
+      "prompt_uk": "Принт тримається добре після прання?",
       "options": [
         {
           "value": "yes",
@@ -3937,7 +3937,7 @@
       "section": "quality",
       "order": 335,
       "type": "multi_choice",
-      "prompt_uk": "Що з прінтом не так? (можна кілька)",
+      "prompt_uk": "Що з принтом не так? (можна кілька)",
       "options": [
         {
           "value": "cracks",
@@ -4134,7 +4134,7 @@
         },
         {
           "value": "print",
-          "label_uk": "Якість прінта"
+          "label_uk": "Якість принта"
         },
         {
           "value": "price_value",
@@ -4196,7 +4196,7 @@
         },
         {
           "value": "print",
-          "label_uk": "Якість прінта"
+          "label_uk": "Якість принта"
         },
         {
           "value": "price_value",
@@ -4258,7 +4258,7 @@
         },
         {
           "value": "print",
-          "label_uk": "Якість прінта"
+          "label_uk": "Якість принта"
         },
         {
           "value": "price_value",
@@ -4320,7 +4320,7 @@
         },
         {
           "value": "print",
-          "label_uk": "Якість прінта"
+          "label_uk": "Якість принта"
         },
         {
           "value": "price_value",
@@ -4382,7 +4382,7 @@
         },
         {
           "value": "print",
-          "label_uk": "Якість прінта"
+          "label_uk": "Якість принта"
         },
         {
           "value": "price_value",
@@ -4444,7 +4444,7 @@
         },
         {
           "value": "print",
-          "label_uk": "Якість прінта"
+          "label_uk": "Якість принта"
         },
         {
           "value": "price_value",
@@ -4506,7 +4506,7 @@
         },
         {
           "value": "print",
-          "label_uk": "Якість прінта"
+          "label_uk": "Якість принта"
         },
         {
           "value": "price_value",
@@ -4568,7 +4568,7 @@
         },
         {
           "value": "print",
-          "label_uk": "Якість прінта"
+          "label_uk": "Якість принта"
         },
         {
           "value": "price_value",
@@ -4709,7 +4709,7 @@
         },
         {
           "value": "unique",
-          "label_uk": "Унікальні прінти/ідея",
+          "label_uk": "Унікальні принти/ідея",
           "followup_ids": [
             "q414_price_value_drivers"
           ]
@@ -4967,7 +4967,7 @@
         },
         {
           "value": "durable_print",
-          "label_uk": "Довговічний прінт"
+          "label_uk": "Довговічний принт"
         },
         {
           "value": "limited",
@@ -5027,7 +5027,7 @@
         },
         {
           "value": "custom_shops",
-          "label_uk": "Друк на замовлення/прінт-студії"
+          "label_uk": "Друк на замовлення/принт-студії"
         },
         {
           "value": "other",
@@ -5682,7 +5682,7 @@
         },
         {
           "value": "style",
-          "label_uk": "Стиль прінта"
+          "label_uk": "Стиль принта"
         },
         {
           "value": "new",
@@ -6902,7 +6902,7 @@
       "section": "custom",
       "order": 950,
       "type": "single_choice",
-      "prompt_uk": "Цікавить персоналізація? (позивний/підрозділ/свій прінт)",
+      "prompt_uk": "Цікавить персоналізація? (позивний/підрозділ/свій принт)",
       "options": [
         {
           "value": "yes",
@@ -6974,7 +6974,7 @@
         },
         {
           "value": "custom_print",
-          "label_uk": "Свій прінт/ідея"
+          "label_uk": "Свій принт/ідея"
         },
         {
           "value": "embroidery",
@@ -7312,7 +7312,7 @@
         },
         {
           "value": "stories",
-          "label_uk": "Історії/сенси прінтів"
+          "label_uk": "Історії/сенси принтів"
         },
         {
           "value": "charity",
@@ -7364,7 +7364,7 @@
         },
         {
           "value": "prints",
-          "label_uk": "Не знайшов/ла «свій» прінт",
+          "label_uk": "Не знайшов/ла «свій» принт",
           "followup_ids": [
             "q201_prints_issues"
           ]
@@ -7550,7 +7550,7 @@
       "options": [
         {
           "value": "prints",
-          "label_uk": "Прінти/ідея"
+          "label_uk": "Принти/ідея"
         },
         {
           "value": "quality",
@@ -7717,7 +7717,7 @@
       "section": "prints",
       "order": 270,
       "type": "multi_choice",
-      "prompt_uk": "Є теми/елементи, яких у прінтах краще уникати? (можна кілька)",
+      "prompt_uk": "Є теми/елементи, яких у принтах краще уникати? (можна кілька)",
       "options": [
         {
           "value": "too_political",
@@ -7769,7 +7769,7 @@
       "section": "prints",
       "order": 271,
       "type": "single_choice",
-      "prompt_uk": "Як ти ставишся до міцного слова у прінтах?",
+      "prompt_uk": "Як ти ставишся до міцного слова у принтах?",
       "options": [
         {
           "value": "never",
@@ -7835,7 +7835,7 @@
       "section": "prints",
       "order": 273,
       "type": "single_choice",
-      "prompt_uk": "На якому кольорі речі прінти тобі заходять найбільше?",
+      "prompt_uk": "На якому кольорі речі принти тобі заходять найбільше?",
       "options": [
         {
           "value": "black",
@@ -7870,7 +7870,7 @@
       "section": "prints",
       "order": 274,
       "type": "single_choice",
-      "prompt_uk": "Як часто тобі цікаво бачити нові прінти/дропи?",
+      "prompt_uk": "Як часто тобі цікаво бачити нові принти/дропи?",
       "options": [
         {
           "value": "weekly",
@@ -7901,7 +7901,7 @@
       "section": "prints",
       "order": 281,
       "type": "multi_choice",
-      "prompt_uk": "Якщо тобі близька тема «Піхота / штурм» — що саме хотів/ла б бачити у прінтах? (обери до 2)",
+      "prompt_uk": "Якщо тобі близька тема «Піхота / штурм» — що саме хотів/ла б бачити у принтах? (обери до 2)",
       "options": [
         {
           "value": "insider_jokes",
@@ -7954,7 +7954,7 @@
       "section": "prints",
       "order": 282,
       "type": "multi_choice",
-      "prompt_uk": "Якщо тобі близька тема «Артилерія» — що саме хотів/ла б бачити у прінтах? (обери до 2)",
+      "prompt_uk": "Якщо тобі близька тема «Артилерія» — що саме хотів/ла б бачити у принтах? (обери до 2)",
       "options": [
         {
           "value": "insider_jokes",
@@ -8007,7 +8007,7 @@
       "section": "prints",
       "order": 283,
       "type": "multi_choice",
-      "prompt_uk": "Якщо тобі близька тема «Дрони / FPV / БпЛА» — що саме хотів/ла б бачити у прінтах? (обери до 2)",
+      "prompt_uk": "Якщо тобі близька тема «Дрони / FPV / БпЛА» — що саме хотів/ла б бачити у принтах? (обери до 2)",
       "options": [
         {
           "value": "insider_jokes",
@@ -8060,7 +8060,7 @@
       "section": "prints",
       "order": 284,
       "type": "multi_choice",
-      "prompt_uk": "Якщо тобі близька тема «Сапери / інженерні війська» — що саме хотів/ла б бачити у прінтах? (обери до 2)",
+      "prompt_uk": "Якщо тобі близька тема «Сапери / інженерні війська» — що саме хотів/ла б бачити у принтах? (обери до 2)",
       "options": [
         {
           "value": "insider_jokes",
@@ -8113,7 +8113,7 @@
       "section": "prints",
       "order": 285,
       "type": "multi_choice",
-      "prompt_uk": "Якщо тобі близька тема «Медик / евак» — що саме хотів/ла б бачити у прінтах? (обери до 2)",
+      "prompt_uk": "Якщо тобі близька тема «Медик / евак» — що саме хотів/ла б бачити у принтах? (обери до 2)",
       "options": [
         {
           "value": "insider_jokes",
@@ -8166,7 +8166,7 @@
       "section": "prints",
       "order": 286,
       "type": "multi_choice",
-      "prompt_uk": "Якщо тобі близька тема «ППО» — що саме хотів/ла б бачити у прінтах? (обери до 2)",
+      "prompt_uk": "Якщо тобі близька тема «ППО» — що саме хотів/ла б бачити у принтах? (обери до 2)",
       "options": [
         {
           "value": "insider_jokes",
@@ -8219,7 +8219,7 @@
       "section": "prints",
       "order": 287,
       "type": "multi_choice",
-      "prompt_uk": "Якщо тобі близька тема «Броня / танки» — що саме хотів/ла б бачити у прінтах? (обери до 2)",
+      "prompt_uk": "Якщо тобі близька тема «Броня / танки» — що саме хотів/ла б бачити у принтах? (обери до 2)",
       "options": [
         {
           "value": "insider_jokes",
@@ -8272,7 +8272,7 @@
       "section": "prints",
       "order": 288,
       "type": "multi_choice",
-      "prompt_uk": "Якщо тобі близька тема «Флот / морпіхи» — що саме хотів/ла б бачити у прінтах? (обери до 2)",
+      "prompt_uk": "Якщо тобі близька тема «Флот / морпіхи» — що саме хотів/ла б бачити у принтах? (обери до 2)",
       "options": [
         {
           "value": "insider_jokes",
@@ -8325,7 +8325,7 @@
       "section": "prints",
       "order": 289,
       "type": "multi_choice",
-      "prompt_uk": "Якщо тобі близька тема «Зв’язок / РЕБ / кібер» — що саме хотів/ла б бачити у прінтах? (обери до 2)",
+      "prompt_uk": "Якщо тобі близька тема «Зв’язок / РЕБ / кібер» — що саме хотів/ла б бачити у принтах? (обери до 2)",
       "options": [
         {
           "value": "insider_jokes",

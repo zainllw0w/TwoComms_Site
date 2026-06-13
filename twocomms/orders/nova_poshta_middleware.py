@@ -126,7 +126,12 @@ class NovaPoshtaFallbackMiddleware:
         Выполняется в отдельном потоке
         """
         try:
+            from django.db import close_old_connections
             from orders.nova_poshta_service import NovaPoshtaService
+
+            # Поток живёт дольше HTTP-запроса: без этого MySQL-соединение
+            # протухает и даёт "MySQL server has gone away" (2006).
+            close_old_connections()
 
             logger.info("Starting fallback Nova Poshta status update")
 

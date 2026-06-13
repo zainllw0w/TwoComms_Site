@@ -1127,6 +1127,92 @@ STAGE_PROFILES = {
 }
 
 
+# ── Realistic stage art (custom_print_stage_art) ────────────────────
+# Підміняє плоскі silhouette-SVG на детальні реалістичні і перераховує
+# якорі принт-зон фізично точно (мм -> svg) від метрик артів.
+from .custom_print_stage_art import build_stage_art as _build_stage_art
+
+_BODY_TOP_OFFSETS_MM = {
+    # відступ верхнього краю принта від видимої лінії коміра/капюшона
+    "front": {"A6": 40, "A5": 65, "A4": 65},
+    "back": {"A4": 45, "A3": 45, "A2": 40},
+}
+
+
+def _fmt_dims_cm(w_mm: float, h_mm: float) -> str:
+    def _cm(v: float) -> str:
+        s = f"{v / 10:.1f}".rstrip("0").rstrip(".")
+        return s.replace(".", ",")
+
+    return f"{_cm(w_mm)} × {_cm(h_mm)} см"
+
+
+def _apply_stage_art() -> None:
+    art = _build_stage_art()
+    for product, fits in art.items():
+        profile = STAGE_PROFILES.get(product)
+        if not profile:
+            continue
+        for fit, views in fits.items():
+            fit_node = profile.get(fit)
+            if not isinstance(fit_node, dict):
+                continue
+            for view, data in views.items():
+                node = fit_node.get(view)
+                if not isinstance(node, dict):
+                    continue
+                metrics = data["metrics"]
+                node["svg_markup"] = data["svg"]
+                scale = metrics["body_width_svg"] / metrics["body_width_mm"]
+                anchors = node.get("anchors") or {}
+
+                body_key = "front" if view == "front" else "back"
+                anchor = anchors.get(body_key)
+                if anchor and anchor.get("presets"):
+                    offsets = _BODY_TOP_OFFSETS_MM[body_key]
+                    new_presets = {}
+                    for fmt, old_box in anchor["presets"].items():
+                        w_mm, h_mm = ISO_SIZES.get(fmt, (210, 297))
+                        x_center = 58 if (view == "front" and fmt == "A6") else 50
+                        box = calc_iso_box(
+                            fmt,
+                            body_width_mm=metrics["body_width_mm"],
+                            svg_body_width=metrics["body_width_svg"],
+                            svg_collar_y=metrics["collar_y_svg"],
+                            top_offset_mm=offsets.get(fmt, 60),
+                            x_center=x_center,
+                            radius=old_box.get("radius", 20),
+                        )
+                        box["dims"] = _fmt_dims_cm(w_mm, h_mm)
+                        new_presets[fmt] = box
+                    anchor["presets"] = new_presets
+                    mid_box = list(new_presets.values())[len(new_presets) // 2]
+                    anchor["button"] = {"x": mid_box["x"], "y": mid_box["y"]}
+
+                for side in ("sleeve_left", "sleeve_right"):
+                    s_anchor = anchors.get(side)
+                    s_metrics = metrics.get(side)
+                    if not s_anchor or not s_metrics:
+                        continue
+                    a6_w_pct = round(105 * scale / 420.0 * 100, 1)
+                    a6_h_pct = round(148 * scale / 520.0 * 100, 1)
+                    x_pct = round(s_metrics["cx"] / 420.0 * 100, 1)
+                    y_pct = round(s_metrics["cy"] / 520.0 * 100, 1)
+                    patch = _stage_box(x_pct, y_pct, a6_w_pct, a6_h_pct, s_metrics["angle"], 14, "sleeve_patch")
+                    patch["dims"] = _fmt_dims_cm(105, 148)
+                    s_len = metrics.get("sleeve_len") or {}
+                    y_top = s_len.get("y_top", s_metrics["cy"] - 70)
+                    y_bot = s_len.get("y_bot", s_metrics["cy"] + 70)
+                    text_cy_pct = round((y_top + y_bot) / 2 / 520.0 * 100, 1)
+                    text_h_pct = round((y_bot - y_top) * 0.82 / 520.0 * 100, 1)
+                    text = _stage_box(x_pct, text_cy_pct, 7.6, text_h_pct, round(s_metrics["angle"] * 0.8, 1), 16, "sleeve_text")
+                    s_anchor["modes"] = {"a6": patch, "full_text": text}
+                    s_anchor["button"] = {"x": x_pct, "y": y_pct}
+
+
+_apply_stage_art()
+
+
 def _coerce_int(value, default: int) -> int:
     try:
         parsed = int(value)

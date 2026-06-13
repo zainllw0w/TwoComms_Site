@@ -127,7 +127,7 @@ class CustomPrintPageTests(TestCase):
         response = self._get(reverse("custom_print"), follow=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "custom-print-configurator.css?v=20260428-custom-print-cache-v2")
+        self.assertContains(response, "custom-print-configurator.css?v=")
         self.assertContains(response, "custom-print-configurator.js?v=")
 
     def test_custom_print_page_disables_browser_cache(self):

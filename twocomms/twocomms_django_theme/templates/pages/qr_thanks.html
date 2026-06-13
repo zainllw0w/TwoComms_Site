@@ -1,0 +1,340 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{% trans 'Дякуємо, що ти з TwoComms' %} — TwoComms{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ===== premium black/gold scene ===== */
+.qr-thanks-wrap{position:relative;min-height:82vh;display:flex;align-items:center;justify-content:center;padding:48px 16px;overflow:hidden;background:radial-gradient(ellipse 90% 60% at 50% 0%,#16130d 0%,transparent 60%)}
+.qr-aurora{position:absolute;inset:-20%;pointer-events:none;z-index:0}
+.qr-aurora span{position:absolute;border-radius:50%;filter:blur(80px);opacity:.4;will-change:transform}
+.qr-aurora span:nth-child(1){width:44vw;height:44vw;left:-8%;top:-6%;background:radial-gradient(circle,#f3a43d33,transparent 65%);animation:qrFloat1 18s ease-in-out infinite}
+.qr-aurora span:nth-child(2){width:36vw;height:36vw;right:-6%;top:20%;background:radial-gradient(circle,#e8c87a2e,transparent 65%);animation:qrFloat2 22s ease-in-out infinite}
+.qr-aurora span:nth-child(3){width:30vw;height:30vw;left:32%;bottom:-12%;background:radial-gradient(circle,#8a6d3b26,transparent 65%);animation:qrFloat1 26s ease-in-out infinite reverse}
+@keyframes qrFloat1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(4vw,3vh) scale(1.1)}}
+@keyframes qrFloat2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-3vw,-4vh) scale(.93)}}
+.qr-grid{position:absolute;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(232,200,122,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(232,200,122,.05) 1px,transparent 1px);background-size:46px 46px;mask-image:radial-gradient(ellipse 75% 65% at 50% 42%,#000 25%,transparent 75%);-webkit-mask-image:radial-gradient(ellipse 75% 65% at 50% 42%,#000 25%,transparent 75%)}
+.qr-dust{position:absolute;inset:0;z-index:0;pointer-events:none}
+.qr-dust i{position:absolute;width:3px;height:3px;border-radius:50%;background:#e8c87a;opacity:0;animation:qrDust 7s linear infinite}
+.qr-dust i:nth-child(1){left:12%;animation-delay:0s}.qr-dust i:nth-child(2){left:28%;animation-delay:1.6s}.qr-dust i:nth-child(3){left:46%;animation-delay:3.1s}.qr-dust i:nth-child(4){left:64%;animation-delay:.9s}.qr-dust i:nth-child(5){left:78%;animation-delay:2.4s}.qr-dust i:nth-child(6){left:90%;animation-delay:4.2s}
+@keyframes qrDust{0%{transform:translateY(105vh) scale(.6);opacity:0}12%{opacity:.85}88%{opacity:.5}100%{transform:translateY(-8vh) scale(1.1);opacity:0}}
+#qrConfetti{position:fixed;inset:0;pointer-events:none;z-index:60}
+
+/* ===== gift intro overlay ===== */
+.qr-gift-overlay{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;background:radial-gradient(ellipse 90% 70% at 50% 38%,#171309 0%,#0a0908 70%);transition:opacity .55s ease,visibility .55s}
+.qr-gift-overlay.is-hidden{opacity:0;visibility:hidden}
+.qr-gift-logo{width:56px;height:auto;opacity:.92;filter:drop-shadow(0 0 18px rgba(232,200,122,.35))}
+.qr-gift{position:relative;width:148px;height:148px;cursor:pointer;-webkit-tap-highlight-color:transparent;animation:qrGiftIdle 2.6s ease-in-out infinite;transition:transform .25s}
+.qr-gift:active{transform:scale(.93)}
+@keyframes qrGiftIdle{0%,100%{transform:translateY(0) rotate(-1.5deg)}50%{transform:translateY(-10px) rotate(1.5deg)}}
+.qr-gift-box{position:absolute;left:14px;right:14px;bottom:8px;height:86px;border-radius:14px;background:linear-gradient(150deg,#23201a,#121009);border:1px solid rgba(232,200,122,.4);box-shadow:0 18px 50px rgba(0,0,0,.6),0 0 34px rgba(232,200,122,.12),inset 0 1px 0 rgba(232,200,122,.25)}
+.qr-gift-lid{position:absolute;left:4px;right:4px;bottom:86px;height:34px;border-radius:10px;background:linear-gradient(150deg,#2c2820,#16130d);border:1px solid rgba(232,200,122,.5);box-shadow:0 6px 18px rgba(0,0,0,.4),inset 0 1px 0 rgba(232,200,122,.3);transform-origin:12% 100%;transition:transform .6s cubic-bezier(.34,1.4,.5,1)}
+.qr-gift-ribbon-v{position:absolute;left:50%;bottom:8px;width:18px;height:112px;margin-left:-9px;background:linear-gradient(90deg,#e8c87a,#b8893b);border-radius:4px;box-shadow:0 0 20px rgba(232,200,122,.4)}
+.qr-gift-bow{position:absolute;left:50%;bottom:118px;width:54px;height:26px;margin-left:-27px}
+.qr-gift-bow::before,.qr-gift-bow::after{content:"";position:absolute;top:0;width:24px;height:24px;border-radius:50% 50% 0 50%;background:linear-gradient(135deg,#e8c87a,#a87b2e)}
+.qr-gift-bow::before{left:0;transform:rotate(-35deg)}
+.qr-gift-bow::after{right:0;border-radius:50% 50% 50% 0;transform:rotate(35deg)}
+.qr-gift.is-open{animation:none}
+.qr-gift.is-open .qr-gift-lid{transform:rotate(-105deg) translateY(-6px)}
+.qr-gift.is-open .qr-gift-bow{opacity:0;transition:opacity .3s}
+.qr-gift-glow{position:absolute;left:50%;top:50%;width:240px;height:240px;margin:-120px 0 0 -120px;border-radius:50%;background:radial-gradient(circle,rgba(232,200,122,.22),transparent 65%);animation:qrPulse 2.4s ease-in-out infinite;pointer-events:none}
+@keyframes qrPulse{0%,100%{transform:scale(.85);opacity:.5}50%{transform:scale(1.1);opacity:1}}
+.qr-gift-hint{font-size:14px;letter-spacing:.14em;color:#e8c87a;text-transform:uppercase;font-weight:600;animation:qrHint 1.8s ease-in-out infinite}
+@keyframes qrHint{0%,100%{opacity:.55}50%{opacity:1}}
+
+/* ===== card ===== */
+.qr-card{position:relative;z-index:1;max-width:660px;width:100%;border-radius:26px;padding:40px 34px 38px;background:linear-gradient(168deg,rgba(35,30,22,.75),rgba(16,14,10,.85) 55%,rgba(26,21,13,.8));border:1px solid rgba(232,200,122,.18);box-shadow:0 34px 90px rgba(0,0,0,.6),inset 0 1px 0 rgba(232,200,122,.12);overflow:hidden;text-align:center;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);transform-style:preserve-3d;will-change:transform}
+.qr-card::before{content:"";position:absolute;inset:-1px;border-radius:27px;padding:1px;background:linear-gradient(140deg,rgba(232,200,122,.6),transparent 28%,transparent 72%,rgba(184,137,59,.55));-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.qr-card::after{content:"";position:absolute;top:-130px;left:50%;transform:translateX(-50%);width:380px;height:260px;background:radial-gradient(closest-side,#e8c87a,transparent 70%);opacity:.14;pointer-events:none}
+.qr-logo{width:52px;height:auto;margin-bottom:14px;filter:drop-shadow(0 4px 18px rgba(232,200,122,.35))}
+.qr-title{font-size:clamp(25px,4.6vw,36px);font-weight:800;margin-bottom:12px;letter-spacing:-.01em;background:linear-gradient(100deg,#f5ead2 20%,#e8c87a 45%,#fff7e6 60%,#e8dcc8 80%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:qrSheen 5s ease-in-out infinite}
+@keyframes qrSheen{0%,100%{background-position:0% 0}50%{background-position:100% 0}}
+.qr-sub{color:#cfc7b8;font-size:15.5px;line-height:1.65;max-width:530px;margin:0 auto 26px}
+
+/* promo */
+.qr-promo-box{position:relative;border-radius:18px;padding:24px 18px;margin:0 auto 22px;max-width:470px;background:rgba(8,7,5,.6);border:1px solid rgba(232,200,122,.3);overflow:hidden}
+.qr-promo-box::before{content:"";position:absolute;top:0;left:-80%;width:60%;height:100%;background:linear-gradient(105deg,transparent,rgba(232,200,122,.09),transparent);animation:qrShine 3.6s ease-in-out infinite}
+@keyframes qrShine{0%,55%{left:-80%}100%{left:130%}}
+.qr-promo-label{font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;color:#e8c87a;margin-bottom:12px;font-weight:700}
+.qr-code-row{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
+.qr-code-value{font-family:ui-monospace,Menlo,monospace;font-size:clamp(23px,5.2vw,32px);font-weight:800;letter-spacing:.16em;color:#f5ead2;text-shadow:0 0 28px rgba(232,200,122,.45)}
+.qr-copy-btn{border:1px solid rgba(232,200,122,.45);background:rgba(232,200,122,.12);color:#f5ead2;border-radius:10px;padding:9px 15px;font-size:13px;font-weight:600;cursor:pointer;transition:.2s}
+.qr-copy-btn:hover{background:rgba(232,200,122,.26);transform:translateY(-1px)}
+.qr-discount{margin-top:12px;font-size:16px;color:#fff;font-weight:700}
+.qr-save-note{margin-top:12px;font-size:13.5px;line-height:1.55;color:#d8cdb8}
+.qr-saved-note{margin-top:12px;font-size:13px;color:#9ec98f}
+.qr-countdown{display:flex;justify-content:center;gap:8px;margin-top:14px;flex-wrap:wrap}
+.qr-cd-chip{min-width:58px;padding:8px 10px;border-radius:12px;background:rgba(232,200,122,.08);border:1px solid rgba(232,200,122,.3)}
+.qr-cd-num{font-size:20px;font-weight:800;color:#e8c87a;font-variant-numeric:tabular-nums;line-height:1.1}
+.qr-cd-lbl{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:rgba(232,200,122,.7)}
+.qr-cd-note{width:100%;font-size:12px;color:rgba(245,234,210,.5);margin-top:6px}
+
+/* buttons */
+.qr-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+.qr-cta{position:relative;display:inline-block;padding:15px 32px;border-radius:14px;font-weight:700;font-size:15px;text-decoration:none;background:linear-gradient(135deg,#e8c87a,#b8893b);color:#16130d;box-shadow:0 14px 36px rgba(232,200,122,.25);transition:.22s;overflow:hidden}
+.qr-cta::after{content:"";position:absolute;top:0;left:-70%;width:50%;height:100%;background:linear-gradient(105deg,transparent,rgba(255,255,255,.45),transparent);transition:left .5s}
+.qr-cta:hover{transform:translateY(-2px);color:#16130d;box-shadow:0 18px 44px rgba(232,200,122,.38)}
+.qr-cta:hover::after{left:130%}
+.qr-cta--ghost{background:transparent;border:1px solid rgba(232,200,122,.45);color:#e8c87a;box-shadow:none}
+.qr-cta--ghost:hover{color:#f5ead2;border-color:#e8c87a;background:rgba(232,200,122,.08);box-shadow:none}
+
+/* perks */
+.qr-perks{margin:32px auto 0;max-width:540px;text-align:left;display:grid;gap:12px}
+.qr-perk{display:flex;gap:14px;align-items:flex-start;background:rgba(232,200,122,.04);border:1px solid rgba(232,200,122,.12);border-radius:15px;padding:15px 17px;transition:.25s}
+.qr-perk:hover{transform:translateY(-2px);border-color:rgba(232,200,122,.4);background:rgba(232,200,122,.08)}
+.qr-perk-icon{flex:0 0 40px;height:40px;display:flex;align-items:center;justify-content:center;font-size:20px;border-radius:12px;background:linear-gradient(150deg,rgba(232,200,122,.2),rgba(138,109,59,.12));border:1px solid rgba(232,200,122,.25)}
+.qr-perk-text{font-size:14px;color:#cfc7b8;line-height:1.55}
+.qr-perk-text b{color:#f5ead2}
+.qr-fineprint{margin-top:24px;font-size:12px;color:rgba(245,234,210,.38)}
+
+/* entrance animations */
+.qr-reveal{opacity:0;transform:translateY(22px)}
+.qr-card.is-live .qr-reveal{animation:qrUp .65s cubic-bezier(.22,.9,.3,1) forwards}
+.qr-card.is-live .qr-reveal:nth-child(1){animation-delay:.05s}
+.qr-card.is-live .qr-reveal:nth-child(2){animation-delay:.14s}
+.qr-card.is-live .qr-reveal:nth-child(3){animation-delay:.24s}
+.qr-card.is-live .qr-reveal:nth-child(4){animation-delay:.34s}
+.qr-card.is-live .qr-reveal:nth-child(5){animation-delay:.46s}
+.qr-card.is-live .qr-reveal:nth-child(6){animation-delay:.58s}
+.qr-card.is-live .qr-reveal:nth-child(7){animation-delay:.7s}
+.qr-card.is-live .qr-reveal:nth-child(8){animation-delay:.82s}
+@keyframes qrUp{to{opacity:1;transform:translateY(0)}}
+.no-js .qr-reveal,[data-noanim] .qr-reveal{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){
+  .qr-reveal{opacity:1!important;transform:none!important;animation:none!important}
+  .qr-aurora span,.qr-gift,.qr-promo-box::before,.qr-dust i,.qr-title{animation:none!important}
+}
+@media (max-width:560px){.qr-card{padding:32px 20px 30px}.qr-aurora span{filter:blur(52px)}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="qr-thanks-wrap">
+  <div class="qr-aurora" aria-hidden="true"><span></span><span></span><span></span></div>
+  <div class="qr-grid" aria-hidden="true"></div>
+  <div class="qr-dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+  <div class="qr-card" id="qrCard">
+    <div class="qr-reveal"><img class="qr-logo" src="{% static 'img/logo.svg' %}" alt="TwoComms" width="52" height="56"></div>
+    <h1 class="qr-title qr-reveal">{% trans 'Дякуємо, що ти з TwoComms!' %}</h1>
+    <p class="qr-sub qr-reveal">
+      {% trans 'Ти відсканував наш секретний QR — і це вже маленька перемога. Навіть якщо це одяг друга, подруги або взагалі «просто подивитись» — дякуємо. Цей секрет дарує подарунок 🎁' %}
+    </p>
+
+    {% if promo and not promo_expired %}
+      <div class="qr-promo-box qr-reveal">
+        <div class="qr-promo-label">{% trans 'Твій персональний промокод' %}</div>
+        <div class="qr-code-row">
+          <span class="qr-code-value" id="qrPromoCode" data-code="{{ promo.code }}">{{ promo.code }}</span>
+          <button type="button" class="qr-copy-btn" id="qrCopyBtn">{% trans 'Скопіювати' %}</button>
+        </div>
+        <div class="qr-discount">−{{ promo_percent }}% {% trans 'на наступне замовлення' %}</div>
+        {% if user.is_authenticated %}
+          <div class="qr-saved-note">✓ {% trans 'Промокод збережено у твоєму профілі' %}</div>
+        {% else %}
+          <div class="qr-save-note">{% trans 'Код уже твій і вже працює. Увійди — і він закріпиться у твоєму профілі, щоб точно не загубитись.' %}</div>
+        {% endif %}
+        <div class="qr-countdown" id="qrCountdown" data-until="{{ promo.valid_until|date:'c' }}">
+          <div class="qr-cd-note">⏳ {% trans 'Діє до' %} {{ promo.valid_until|date:'d.m.Y H:i' }}</div>
+        </div>
+      </div>
+      <div class="qr-actions qr-reveal">
+        {% if not user.is_authenticated %}
+          <a class="qr-cta" href="{% url 'login' %}?next={% url 'qr_thanks' %}">{% trans 'Зберегти у профілі' %}</a>
+          <a class="qr-cta qr-cta--ghost" href="{% url 'catalog' %}">{% trans 'Обрати щось нове' %}</a>
+        {% else %}
+          <a class="qr-cta" href="{% url 'catalog' %}">{% trans 'Обрати щось нове' %}</a>
+          <a class="qr-cta qr-cta--ghost" href="https://www.instagram.com/twocomms/" target="_blank" rel="noopener">{% trans 'Ми в Instagram' %}</a>
+        {% endif %}
+      </div>
+      {% if not user.is_authenticated %}
+        <div class="qr-actions qr-reveal" style="margin-top:12px">
+          <a class="qr-cta qr-cta--ghost" href="https://www.instagram.com/twocomms/" target="_blank" rel="noopener">{% trans 'Ми в Instagram' %}</a>
+        </div>
+      {% endif %}
+    {% elif promo_expired %}
+      <div class="qr-promo-box qr-reveal">
+        <div class="qr-promo-label">{% trans 'Твій QR-подарунок' %}</div>
+        <p class="qr-perk-text" style="margin:0">
+          {% trans 'Твій промокод уже згорів — він діяв обмежений час. Але не хвилюйся: нижче є ще способи отримати знижку 👇' %}
+        </p>
+      </div>
+      <div class="qr-actions qr-reveal">
+        <a class="qr-cta" href="{% url 'catalog' %}">{% trans 'До каталогу' %}</a>
+        <a class="qr-cta qr-cta--ghost" href="https://www.instagram.com/twocomms/" target="_blank" rel="noopener">{% trans 'Ми в Instagram' %}</a>
+      </div>
+    {% endif %}
+
+    <div class="qr-perks qr-reveal">
+      <div class="qr-perk">
+        <div class="qr-perk-icon">📸</div>
+        <div class="qr-perk-text">
+          {% blocktrans trimmed %}Зніми сторіс або пост з нашою річчю, відміть <b>@twocomms</b> в Instagram — і отримай промокод на <b>+10%</b> у дірект.{% endblocktrans %}
+        </div>
+      </div>
+      <div class="qr-perk">
+        <div class="qr-perk-icon">🕵️</div>
+        <div class="qr-perk-text">
+          {% blocktrans trimmed %}На сайті заховано ще більше акцій та секретів: знижки стакаються <b>до 50%</b>, а за покупки нараховуються <b>бали</b>, якими можна платити.{% endblocktrans %}
+        </div>
+      </div>
+      <div class="qr-perk">
+        <div class="qr-perk-icon">🇺🇦</div>
+        <div class="qr-perk-text">
+          {% blocktrans trimmed %}Частина прибутку з кожного замовлення йде на підтримку <b>ЗСУ</b>. Носиш TwoComms — донатиш на перемогу.{% endblocktrans %}
+        </div>
+      </div>
+    </div>
+
+    <div class="qr-fineprint qr-reveal">
+      {% trans 'Промокод видається один раз на акаунт і діє обмежений час. Знижки за різними акціями можуть комбінуватись.' %}
+    </div>
+  </div>
+
+  <div class="qr-gift-overlay is-hidden" id="qrGiftOverlay" aria-hidden="true">
+    <img class="qr-gift-logo" src="{% static 'img/logo.svg' %}" alt="TwoComms" width="56" height="60">
+    <div class="qr-gift" id="qrGift" role="button" tabindex="0" aria-label="{% trans 'Торкнись, щоб відкрити подарунок' %}">
+      <div class="qr-gift-glow"></div>
+      <div class="qr-gift-box"></div>
+      <div class="qr-gift-ribbon-v"></div>
+      <div class="qr-gift-lid"></div>
+      <div class="qr-gift-bow"></div>
+    </div>
+    <div class="qr-gift-hint">{% trans 'Торкнись, щоб відкрити подарунок' %}</div>
+  </div>
+  <canvas id="qrConfetti"></canvas>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  var card=document.getElementById('qrCard'),
+      overlay=document.getElementById('qrGiftOverlay'),
+      gift=document.getElementById('qrGift'),
+      canvas=document.getElementById('qrConfetti'),
+      reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+      seen=false;
+  try{seen=sessionStorage.getItem('qrIntroSeen')==='1';}catch(e){}
+  /* fixed-position elements must not be anchored to transformed ancestors */
+  document.body.appendChild(overlay);
+  document.body.appendChild(canvas);
+
+  /* ---- confetti (gold palette) ---- */
+  var ctx=canvas.getContext('2d'),parts=[],raf=null;
+  function resize(){canvas.width=innerWidth;canvas.height=innerHeight;}
+  function burst(x,y,n){
+    resize();
+    var colors=['#e8c87a','#f3a43d','#b8893b','#f5ead2','#ffffff','#e8dcc8'];
+    for(var i=0;i<n;i++){
+      var a=Math.random()*Math.PI*2,s=5+Math.random()*9;
+      parts.push({x:x,y:y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-4,g:.32,w:5+Math.random()*6,h:8+Math.random()*7,
+        r:Math.random()*Math.PI,vr:(Math.random()-.5)*.3,c:colors[(Math.random()*colors.length)|0],l:90+Math.random()*50});
+    }
+    if(!raf)raf=requestAnimationFrame(step);
+  }
+  function step(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    parts=parts.filter(function(p){return p.l>0&&p.y<canvas.height+40;});
+    parts.forEach(function(p){
+      p.x+=p.vx;p.y+=p.vy;p.vy+=p.g;p.vx*=.985;p.r+=p.vr;p.l--;
+      ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.r);
+      ctx.globalAlpha=Math.min(1,p.l/40);ctx.fillStyle=p.c;
+      ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);ctx.restore();
+    });
+    raf=parts.length?requestAnimationFrame(step):(ctx.clearRect(0,0,canvas.width,canvas.height),null);
+  }
+
+  /* ---- promo code decode animation ---- */
+  function decode(){
+    var el=document.getElementById('qrPromoCode');
+    if(!el||reduced)return;
+    var real=el.dataset.code||el.textContent.trim(),chars='ABCDEFGHJKLMNPQRSTUVWXYZ0123456789',t=0;
+    var iv=setInterval(function(){
+      t++;
+      el.textContent=real.split('').map(function(ch,i){
+        return i<t-3?ch:chars[(Math.random()*chars.length)|0];
+      }).join('');
+      if(t-3>=real.length){el.textContent=real;clearInterval(iv);}
+    },55);
+  }
+
+  /* ---- reveal sequence ---- */
+  function reveal(withBurst){
+    overlay.classList.add('is-hidden');
+    card.classList.add('is-live');
+    if(withBurst&&!reduced){
+      burst(innerWidth/2,innerHeight*0.42,130);
+      setTimeout(function(){burst(innerWidth*0.28,innerHeight*0.3,45);},220);
+      setTimeout(function(){burst(innerWidth*0.72,innerHeight*0.3,45);},380);
+    }
+    setTimeout(decode,350);
+    try{sessionStorage.setItem('qrIntroSeen','1');}catch(e){}
+  }
+
+  if(reduced||seen){
+    card.classList.add('is-live');
+    if(!seen)decode();
+  }else{
+    overlay.classList.remove('is-hidden');
+    overlay.setAttribute('aria-hidden','false');
+    var open=function(){
+      if(gift.classList.contains('is-open'))return;
+      gift.classList.add('is-open');
+      if(navigator.vibrate)try{navigator.vibrate([35,40,60]);}catch(e){}
+      burst(innerWidth/2,innerHeight/2,90);
+      setTimeout(function(){reveal(true);},620);
+    };
+    gift.addEventListener('click',open);
+    gift.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}});
+    setTimeout(function(){if(!gift.classList.contains('is-open'))open();},9000);
+  }
+
+  /* ---- 3D tilt (fine pointers only) ---- */
+  if(window.matchMedia&&matchMedia('(pointer:fine)').matches&&!reduced){
+    card.addEventListener('pointermove',function(e){
+      var r=card.getBoundingClientRect(),
+          dx=(e.clientX-r.left)/r.width-.5,
+          dy=(e.clientY-r.top)/r.height-.5;
+      card.style.transform='perspective(1100px) rotateY('+(dx*5)+'deg) rotateX('+(-dy*4)+'deg)';
+    });
+    card.addEventListener('pointerleave',function(){card.style.transform='';});
+  }
+
+  /* ---- copy button ---- */
+  var btn=document.getElementById('qrCopyBtn');
+  if(btn){btn.addEventListener('click',function(){
+    var el=document.getElementById('qrPromoCode'),code=(el.dataset.code||el.textContent).trim();
+    (navigator.clipboard?navigator.clipboard.writeText(code):Promise.reject()).then(function(){
+      btn.textContent='{% trans "Скопійовано!" %}';
+      var r=btn.getBoundingClientRect();burst(r.left+r.width/2,r.top,40);
+      setTimeout(function(){btn.textContent='{% trans "Скопіювати" %}';},2000);
+    }).catch(function(){
+      var ta=document.createElement('textarea');ta.value=code;document.body.appendChild(ta);ta.select();
+      try{document.execCommand('copy');btn.textContent='{% trans "Скопійовано!" %}';}catch(e){}
+      document.body.removeChild(ta);
+    });
+  });}
+
+  /* ---- countdown chips ---- */
+  var cd=document.getElementById('qrCountdown');
+  if(cd&&cd.dataset.until){
+    var until=new Date(cd.dataset.until).getTime();
+    var labels=['{% trans "д" %}','{% trans "год" %}','{% trans "хв" %}','{% trans "сек" %}'];
+    function tick(){
+      var d=until-Date.now();
+      if(d<=0)return;
+      var dd=Math.floor(d/864e5),hh=Math.floor(d%864e5/36e5),mm=Math.floor(d%36e5/6e4),ss=Math.floor(d%6e4/1e3);
+      cd.innerHTML=[dd,hh,mm,ss].map(function(v,i){
+        return '<div class="qr-cd-chip"><div class="qr-cd-num">'+(v<10?'0':'')+v+'</div><div class="qr-cd-lbl">'+labels[i]+'</div></div>';
+      }).join('');
+      setTimeout(tick,1000);
+    }
+    tick();
+  }
+})();
+</script>
+{% endblock %}

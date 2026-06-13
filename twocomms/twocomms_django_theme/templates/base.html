@@ -125,6 +125,7 @@
   language per user — without this, RU/EN renders would compete with
   UA in the same SERP and trigger duplicate-content warnings.
   {% endcomment %}
+  <link rel="alternate" type="application/rss+xml" title="TwoComms Blog RSS" href="{% url 'blog_rss' %}">
   <link rel="alternate" hreflang="uk-UA" href="{% block hreflang_uk %}{{ lang_alts.uk }}{% endblock %}">
   <link rel="alternate" hreflang="ru-UA" href="{% block hreflang_ru %}{{ lang_alts.ru }}{% endblock %}">
   <link rel="alternate" hreflang="en-UA" href="{% block hreflang_en %}{{ lang_alts.en }}{% endblock %}">
@@ -903,6 +904,25 @@
   {% founder_schema %}
   {% block structured_data %}{% endblock %}
 
+  {% comment %}
+  FIX 2026-06-12 — ранний стаб window.trackEvent с очередью.
+  analytics-loader.js грузится только после первого user interaction,
+  поэтому все вызовы trackEvent до этого момента (ViewContent на
+  карточке товара, AddToCart по первому клику, InitiateCheckout и т.д.)
+  раньше МОЛЧА ТЕРЯЛИСЬ из-за guard'ов вида `if (window.trackEvent)`.
+  Стаб буферизует вызовы в window._trackEventQueue; analytics-loader
+  заменяет стаб на реальную функцию и дренирует очередь
+  (см. setupGlobalEventBridge).
+  {% endcomment %}
+  <script>
+    (function (w) {
+      if (typeof w.trackEvent === 'function') return;
+      var q = w._trackEventQueue = w._trackEventQueue || [];
+      var stub = function () { q.push(arguments); };
+      stub.__queueStub = true;
+      w.trackEvent = stub;
+    })(window);
+  </script>
   <!-- Google Tag Manager - AGGRESSIVE deferred loading for PageSpeed -->
   {% if not debug %}
   <script>

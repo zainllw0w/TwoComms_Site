@@ -162,12 +162,15 @@ class SimpleAnalyticsMiddleware(MiddlewareMixin):
             if is_request_excluded(request, user_agent=ua, path=path):
                 return None
 
-            # Для анонимов не создаём новую серверную сессию на простых GET (избежим write I/O)
-            if not request.user.is_authenticated:
-                # Учитываем только уже существующие пользовательские сессии
-                session_key = request.session.session_key
-                if not session_key:
-                    return
+            # Для анонимов создаём сессию на первом «человеческом» переходе
+            # (боты/служебные пути уже отфильтрованы выше). Без этого весь
+            # анонимный трафик без корзины оставался невидимым для аналитики.
+            # Защита от мусорных клиентов (feed-пуллеры, json-клиенты):
+            # новую сессию создаём только для HTML-навигации.
+            if not request.user.is_authenticated and not request.session.session_key:
+                accept = (request.META.get('HTTP_ACCEPT') or '').lower()
+                if 'text/html' not in accept:
+                    return None
 
             # На этом этапе сессия может существовать (или пользователь авторизован)
             if not request.session.session_key:

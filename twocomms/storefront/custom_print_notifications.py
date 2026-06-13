@@ -14,6 +14,7 @@ from storefront.custom_print_config import (
     FIT_LABELS,
     PRODUCT_LABELS,
     SERVICE_LABELS,
+    SIZE_GRID,
     TELEGRAM_MANAGER_URL,
     TRIAGE_LABELS,
     ZONE_LABELS,
@@ -33,8 +34,7 @@ MAIN_PUBLIC_BASE_URL = "https://twocomms.shop"
 # Защищает от шторма (race-conditions, двойные сабмиты, повторные рендеры корзины).
 NOTIFICATION_THROTTLE_SECONDS = 90
 
-# Telegram ограничивает media group на 10 элементов и подпись 1024 символа.
-TELEGRAM_MEDIA_GROUP_LIMIT = 10
+# Telegram ограничивает подпись к документу 1024 символами.
 TELEGRAM_CAPTION_LIMIT = 1024
 
 
@@ -99,11 +99,66 @@ def _placement_descriptor_by_key(lead) -> dict[str, str]:
     return mapping
 
 
-def _build_attachment_caption(lead, placement_key: str, index: int, total: int) -> str:
+ZONE_EMOJI = {
+    "front": "🔵",
+    "back": "🔴",
+    "sleeve": "🟡",
+    "sleeve_left": "🟡",
+    "sleeve_right": "🟡",
+    "custom": "🟣",
+}
+
+# Формати, в яких прозорість неможлива в принципі.
+_NO_ALPHA_SUFFIXES = {".jpg", ".jpeg", ".jfif", ".bmp", ".heic", ".heif"}
+# Векторні/шарові формати — прозорість перевіряє дизайнер, не алармимо.
+_DESIGN_SUFFIXES = {".svg", ".ai", ".eps", ".pdf", ".psd", ".tif", ".tiff"}
+
+
+def _image_transparency_warning(file_path: str) -> str:
+    """Повертає текст попередження, якщо у растровому файлі немає прозорості."""
+    suffix = Path(file_path).suffix.lower()
+    if suffix in _DESIGN_SUFFIXES:
+        return ""
+    if suffix in _NO_ALPHA_SUFFIXES:
+        return f"формат {suffix.lstrip('.').upper()} не підтримує прозорий фон"
+    if suffix in {".png", ".webp", ".gif", ".avif"}:
+        try:
+            from PIL import Image
+
+            with Image.open(file_path) as im:
+                has_alpha_channel = (
+                    im.mode in ("RGBA", "LA", "PA")
+                    or "transparency" in im.info
+                )
+                if not has_alpha_channel:
+                    return "немає альфа-каналу (прозорого фону)"
+                im.thumbnail((160, 160))
+                alpha = im.convert("RGBA").getchannel("A")
+                lo, _hi = alpha.getextrema()
+                if lo >= 255:
+                    return "усі пікселі непрозорі — фон буде надруковано"
+        except Exception:
+            return ""
+    return ""
+
+
+def _build_attachment_caption(
+    lead, placement_key: str, index: int, total: int, *, transparency_note: str = ""
+) -> str:
+    """HTML-підпис до файла: одразу видно, на яку зону цей макет."""
     descriptor = _placement_descriptor_by_key(lead).get(placement_key) or ZONE_LABELS.get(
         placement_key, placement_key or "Файл"
     )
-    return f"{index}/{total} · {descriptor}"
+    zone_root = (placement_key or "").split("_")[0]
+    emoji = ZONE_EMOJI.get(placement_key) or ZONE_EMOJI.get(zone_root) or "📎"
+    lead_number = getattr(lead, "lead_number", "") or f"CP-{getattr(lead, 'pk', '')}"
+    lines = [
+        f"{emoji} <b>{escape(descriptor.upper())}</b> — файл {index}/{total}",
+        f"<code>{escape(lead_number)}</code>",
+    ]
+    if transparency_note:
+        lines.append(f"⚠️ <i>{escape(transparency_note)}</i>")
+    return "\n".join(lines)
 
 
 def _is_image_attachment(attachment) -> bool:
@@ -138,12 +193,17 @@ def _collect_attachment_payloads(lead) -> list[dict]:
     total = len(existing)
     for index, attachment in enumerate(existing, start=1):
         file_path = getattr(getattr(attachment, "file", None), "path", "")
+        transparency_note = _image_transparency_warning(file_path)
         payloads.append(
             {
                 "path": file_path,
                 "is_image": _is_image_attachment(attachment),
                 "caption": _build_attachment_caption(
-                    lead, getattr(attachment, "placement_zone", ""), index, total
+                    lead,
+                    getattr(attachment, "placement_zone", ""),
+                    index,
+                    total,
+                    transparency_note=transparency_note,
                 ),
             }
         )
@@ -368,6 +428,51 @@ def _attachments_by_zone(lead) -> dict[str, list]:
     return grouped
 
 
+def _sizes_display(lead) -> str:
+    """Розміри замовлення: спочатку sizes_note, потім size_breakdown зі снапшота."""
+    note = (getattr(lead, "sizes_note", "") or "").strip()
+    if note:
+        return note
+
+    draft = getattr(lead, "config_draft_json", None) or {}
+    breakdown = {}
+    if isinstance(draft, dict):
+        breakdown = ((draft.get("order") or {}).get("size_breakdown")) or {}
+    if isinstance(breakdown, dict):
+        order_index = {size: idx for idx, size in enumerate(SIZE_GRID)}
+        items = []
+        for size, qty in sorted(
+            breakdown.items(), key=lambda kv: order_index.get(str(kv[0]).upper(), 99)
+        ):
+            try:
+                qty = int(qty)
+            except (TypeError, ValueError):
+                continue
+            if qty > 0:
+                items.append(f"{size} — {qty} шт")
+        if items:
+            return ", ".join(items)
+
+    if (getattr(lead, "size_mode", "") or "") == "manager":
+        return "Уточнити з менеджером"
+    return ""
+
+
+def _format_quantity_sizes_block(lead) -> list[str]:
+    rows = [_bold("Кількість", f"{lead.quantity} шт")]
+    sizes_text = _sizes_display(lead)
+    if sizes_text:
+        size_mode_suffix = (
+            f" ({lead.get_size_mode_display()})" if getattr(lead, "size_mode", "") else ""
+        )
+        rows.append(
+            f"• <b>Розміри:</b> <b>{escape(sizes_text)}</b>{escape(size_mode_suffix)}"
+        )
+    else:
+        rows.append("• ❗️ <b>Розміри не вказано — обовʼязково уточніть у клієнта!</b>")
+    return rows
+
+
 def _format_pricing_block(lead) -> list[str]:
     final_value = getattr(lead, "final_price_value", 0)
     try:
@@ -377,16 +482,7 @@ def _format_pricing_block(lead) -> list[str]:
     except Exception:
         final_value = 0
 
-    rows = [
-        _bold("Кількість", lead.quantity),
-        _bold(
-            "Розміри",
-            (lead.sizes_note or "—") + (
-                f" ({lead.get_size_mode_display()})" if getattr(lead, "size_mode", "") else ""
-            ),
-        ),
-    ]
-    rows.append(_bold("Прорахунок", _pricing_text(lead)))
+    rows = [_bold("Прорахунок", _pricing_text(lead))]
     if final_value and float(final_value) > 0:
         rows.append(_bold("Підсумок із розрахунку", f"{final_value} грн"))
     return rows
@@ -477,12 +573,22 @@ def _format_placement_block(lead) -> list[str]:
         else:
             file_marker = "ℹ️ файл не потрібен"
 
-        rows.append(f"  ◦ {escape(descriptor)} — <i>{file_marker}</i>")
+        zone_root = (placement_key or "").split("_")[0]
+        zone_emoji = ZONE_EMOJI.get(placement_key) or ZONE_EMOJI.get(zone_root) or "◦"
+        rows.append(f"  {zone_emoji} <b>{escape(descriptor)}</b> — <i>{file_marker}</i>")
 
     if getattr(lead, "placement_note", ""):
         rows.append(_bold("Примітка по зонам", lead.placement_note))
 
     rows.append(_bold("Файли всього", _format_lead_attachments_summary(lead)))
+    total_attachments = (
+        len(list(getattr(lead.attachments, "all", lambda: [])())) if getattr(lead, "pk", None) else 0
+    )
+    if total_attachments:
+        rows.append(
+            "  <i>↓ файли надіслано окремими документами (без стиснення), "
+            "у підписі кожного — зона з тим самим маркером</i>"
+        )
 
     # Аларм: «маю готовий файл», але нічого не завантажено
     service_kind = (getattr(lead, "service_kind", "") or "").strip()
@@ -537,36 +643,61 @@ def _format_contact_block(lead) -> list[str]:
     return rows
 
 
+SECTION_DIVIDER = "─────────────────"
+
+
+def _format_created_at(lead) -> str:
+    created_at = getattr(lead, "created_at", None)
+    if not created_at:
+        return ""
+    try:
+        return timezone.localtime(created_at).strftime("%d.%m.%Y %H:%M")
+    except Exception:
+        return ""
+
+
 def _build_lead_message(lead, *, header_emoji: str, header_title: str, intro_lines: list[str] | None = None) -> str:
     """Compact, ordered, manager-friendly Telegram message."""
     intro_lines = intro_lines or []
+    lead_number = lead.lead_number or f"CP-{lead.pk}"
+    created_text = _format_created_at(lead)
+    header_meta = f"<code>{escape(lead_number)}</code>"
+    if created_text:
+        header_meta += f" · 🕐 {escape(created_text)}"
+
     parts = [
-        f"{header_emoji} <b>{escape(header_title)}</b>",
-        f"<code>{escape(lead.lead_number or f'CP-{lead.pk}')}</code>",
-        "",
-        _section_header("👤", "Контакт"),
-        *_format_contact_block(lead),
-        "",
-        _section_header("👕", "Замовлення"),
-        *_format_product_block(lead),
-        "",
-        _section_header("🎨", "Друк"),
-        *_format_placement_block(lead),
-        "",
-        _section_header("💰", "Кількість і ціна"),
-        *_format_pricing_block(lead),
+        f"{header_emoji} <b>{escape(header_title.upper())}</b>",
+        header_meta,
     ]
 
     if intro_lines:
         parts.extend(["", *intro_lines])
 
+    parts.extend([
+        SECTION_DIVIDER,
+        _section_header("👤", "Клієнт"),
+        *_format_contact_block(lead),
+        SECTION_DIVIDER,
+        _section_header("👕", "Виріб"),
+        *_format_product_block(lead),
+        SECTION_DIVIDER,
+        _section_header("🎨", "Друк і макети"),
+        *_format_placement_block(lead),
+        SECTION_DIVIDER,
+        _section_header("📦", "Кількість і розміри"),
+        *_format_quantity_sizes_block(lead),
+        SECTION_DIVIDER,
+        _section_header("💰", "Ціна"),
+        *_format_pricing_block(lead),
+    ])
+
     if getattr(lead, "brief", ""):
         brief = lead.brief.strip()
         if brief:
             parts.extend([
-                "",
+                SECTION_DIVIDER,
                 _section_header("📝", "Бриф"),
-                escape(brief[:1500]),
+                f"<blockquote>{escape(brief[:1500])}</blockquote>",
             ])
 
     if getattr(lead, "client_kind", "") == "brand":
@@ -793,62 +924,28 @@ def models_F_increment():
 
 
 def _send_attachments(notifier: TelegramNotifier, lead) -> bool:
-    """Send attachments compactly: one media group for images, one albumed
-    document burst for the rest. Минимизируем число «карточек» в Telegram.
+    """Отправляет каждый файл отдельным документом (sendDocument).
+
+    Почему документы, а не фото/альбомы:
+    1. sendPhoto/media group пережимает изображение — для печати это
+       недопустимо, менеджер должен получить оригинал без потери качества.
+    2. В альбомах Telegram подписи к отдельным элементам не видны в ленте —
+       менеджер не понимал, какой макет для какой зоны. У отдельного
+       документа подпись всегда видна прямо под файлом.
     """
     payloads = _collect_attachment_payloads(lead)
     if not payloads:
         return False
 
-    image_payloads = [p for p in payloads if p["is_image"]]
-    document_payloads = [p for p in payloads if not p["is_image"]]
-
     success = False
-
-    # Photos: режем на пачки до 10, каждый media_group — одна «карточка-альбом» в чате.
-    for batch in _chunk(image_payloads, TELEGRAM_MEDIA_GROUP_LIMIT):
-        if len(batch) > 1:
-            success = notifier.send_admin_media_group(
-                [p["path"] for p in batch],
-                captions=[p["caption"] for p in batch],
-                parse_mode="HTML",
-            ) or success
-        elif batch:
-            success = notifier.send_admin_photo(
-                batch[0]["path"], caption=batch[0]["caption"], parse_mode="HTML"
-            ) or success
-
-    # Documents: media_group умеет тип "document". Пробуем сначала альбом,
-    # если бот не справится — fallback на по одному.
-    if document_payloads:
-        sent_as_group = False
-        for batch in _chunk(document_payloads, TELEGRAM_MEDIA_GROUP_LIMIT):
-            if len(batch) > 1 and hasattr(notifier, "send_admin_document_group"):
-                if notifier.send_admin_document_group(
-                    [p["path"] for p in batch],
-                    captions=[p["caption"] for p in batch],
-                    parse_mode="HTML",
-                ):
-                    sent_as_group = True
-                    success = True
-                    continue
-            for payload in batch:
-                success = notifier.send_admin_document(
-                    payload["path"],
-                    caption=payload["caption"],
-                    filename=Path(payload["path"]).name,
-                    parse_mode="HTML",
-                ) or success
-
-        if not sent_as_group and not document_payloads:
-            pass  # already logged
-
+    for payload in payloads:
+        success = notifier.send_admin_document(
+            payload["path"],
+            caption=payload["caption"],
+            filename=Path(payload["path"]).name,
+            parse_mode="HTML",
+        ) or success
     return success
-
-
-def _chunk(seq, size):
-    for i in range(0, len(seq), size):
-        yield seq[i : i + size]
 
 
 # ---------------------------------------------------------------------------

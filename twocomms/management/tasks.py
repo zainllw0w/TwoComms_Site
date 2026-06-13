@@ -3,7 +3,16 @@ Celery задачі для системи рівнів менеджерів
 """
 from datetime import timedelta
 
-from celery import shared_task
+try:
+    from celery import shared_task
+except ImportError:  # Celery удалён с хостинга — задачи запускаются из cron
+    def shared_task(*args, **kwargs):
+        def decorator(func):
+            func.delay = func
+            return func
+        if args and callable(args[0]):
+            return decorator(args[0])
+        return decorator
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 

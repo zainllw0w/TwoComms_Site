@@ -204,7 +204,7 @@ CSS rules на mobile FCP/LCP window.
       <div class="tc-trust-strip" aria-label="{% trans 'Переваги покупки' %}">
         <div class="tc-trust-item">
           <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h11v8h2.2l2-3H21v7h-2a3 3 0 0 1-6 0H9a3 3 0 0 1-6 0H1V8a2 2 0 0 1 2-2Zm0 2v8.18A3 3 0 0 1 8.82 16H12V8H3Zm13 5v3h1.18A3 3 0 0 1 19 16.18V13h-3ZM6 17.5A1.5 1.5 0 1 0 6 20a1.5 1.5 0 0 0 0-2.5Zm10 1A1.5 1.5 0 1 0 19 18.5a1.5 1.5 0 0 0-3 0Z" fill="currentColor"/></svg>
-          <span><strong>{% trans 'Швидка відправка' %}</strong><small>{% trans '1-2 дні по Україні' %}</small></span>
+          <span><strong>{% trans 'Швидка відправка' %}</strong><small>{% trans '1–3 робочі дні по Україні' %}</small></span>
         </div>
         <div class="tc-trust-item">
           <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Zm0 2.14L18 6.4V11c0 3.9-2.42 7.64-6 8.86C8.42 18.64 6 14.9 6 11V6.4l6-2.26Zm3.7 5.16 1.4 1.4-5.8 5.8-3.4-3.4 1.4-1.4 2 2 4.4-4.4Z" fill="currentColor"/></svg>
@@ -290,8 +290,8 @@ CSS rules на mobile FCP/LCP window.
           Made in UA
         </span>
         <span class="tc-info-badge">
-          <span class="tc-badge-emoji" aria-hidden="true">🔥</span>
-          {% trans 'Лімітований дроп' %}
+          <span class="tc-badge-emoji" aria-hidden="true">🛡️</span>
+          {% trans 'Частина прибутку — на ЗСУ' %}
         </span>
       </div>
 
@@ -573,7 +573,7 @@ CSS rules на mobile FCP/LCP window.
           {# like «{товар} доставка», «{товар} догляд». Title is product- #}
           {# scoped so each PDP carries a unique <h2> string, avoiding   #}
           {# duplicate-heading clustering. #}
-          <h2 class="tc-tab-panel-title">{% blocktrans with title=product.title %}Доставка {{ title }} по Україні{% endblocktrans %}</h2>
+          <h2 class="tc-tab-panel-title">{% trans 'Доставка по Україні' %}</h2>
           <div class="tc-delivery-grid">
             <div class="tc-care-item"><strong>{% trans 'Відправка' %}</strong><span>{% trans '1–2 дні по Україні після підтвердження замовлення.' %}</span></div>
             <div class="tc-care-item"><strong>{% trans 'Оплата' %}</strong><span>{% trans 'Онлайн або після узгодження деталей з менеджером.' %}</span></div>
@@ -585,7 +585,7 @@ CSS rules на mobile FCP/LCP window.
           {# SEO v1.0 Phase 12 (2026-05-13) — finding (L). See sibling #}
           {# comment on the delivery panel above. Unique product-scoped #}
           {# H2 anchors the «{товар} догляд» long-tail intent. #}
-          <h2 class="tc-tab-panel-title">{% blocktrans with title=product.title %}Догляд за {{ title }}{% endblocktrans %}</h2>
+          <h2 class="tc-tab-panel-title">{% trans 'Догляд за виробом' %}</h2>
           {% if product.care_instructions %}
             <div class="tc-care-copy">{{ product.care_instructions|linebreaksbr }}</div>
           {% else %}

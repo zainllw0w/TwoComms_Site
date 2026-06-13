@@ -526,7 +526,7 @@ SUPPORT_PAGE_DEFINITIONS = {
         # adds the carrier ("Нова Пошта"), the average lead-time ("1-2 дні")
         # and the geo qualifier ("Україна") — every signal Search Console
         # treats as a refinement keyword for shipping queries.
-        "meta_title": _("Доставка і оплата TwoComms — Нова Пошта, 1-2 дні по Україні"),
+        "meta_title": _("Доставка і оплата TwoComms — Нова Пошта, 1–3 дні по Україні"),
         "meta_description": _("Умови доставки та оплати TwoComms: строки по Україні, міжнародні відправлення, оплата, післяплата і відстеження замовлення."),
         "meta_keywords": _("TwoComms доставка, оплата, післяплата, mono checkout, міжнародна доставка"),
         "hero_kicker": _("Delivery & Payment"),
