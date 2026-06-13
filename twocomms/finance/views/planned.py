@@ -42,9 +42,25 @@ def planned(request):
     income = [_fmt_obligation(company, g) for g in data['income']]
     expense = [_fmt_obligation(company, g) for g in data['expense']]
 
+    # Таймлайн: прострочено → цей місяць → майбутні по місяцях (зрозуміле подання).
+    timeline = obligations_service.planned_timeline(company)
+    cur0 = company.base_currency
+    tl_segments = []
+    for seg in timeline['segments']:
+        tl_segments.append({
+            'key': seg['key'], 'label': seg['label'], 'tone': seg['tone'],
+            'items': [_fmt_obligation(company, g) for g in seg['items']],
+            'count': len(seg['items']),
+            'income_sum': ser.money(seg['income_sum'], cur0),
+            'expense_sum': ser.money(seg['expense_sum'], cur0),
+            'has_income': seg['income_sum'] > 0,
+            'has_expense': seg['expense_sum'] > 0,
+        })
+
     cur = company.base_currency
     context = {
         'active_tab': 'planned',
+        'timeline': tl_segments,
         'income': income,
         'expense': expense,
         'income_sum': ser.money(data['income_sum'], cur),

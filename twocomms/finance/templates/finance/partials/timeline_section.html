@@ -1,0 +1,22 @@
+{% comment %}Сегмент таймлайну планових: seg = {key,label,tone,items,count,income_sum,expense_sum,...}.
+   Прострочено / Цей місяць / Майбутній місяць. Усередині — карточки зобов'язань
+   у хронології (раніше першим), доходи й витрати разом.{% endcomment %}
+<section class="fin-tl-seg fin-tl-seg--{{ seg.tone }}">
+    <header class="fin-tl-seg__head">
+        <span class="fin-tl-seg__title">
+            {% if seg.tone == 'overdue' %}⚠ {% elif seg.tone == 'current' %}📅 {% else %}🗓 {% endif %}{{ seg.label }}
+            <span class="fin-tl-seg__count">{{ seg.count }}</span>
+        </span>
+        <span class="fin-tl-seg__sums">
+            {% if seg.has_income %}<span class="is-pos">↑ {{ seg.income_sum }}</span>{% endif %}
+            {% if seg.has_expense %}<span class="is-neg">↓ {{ seg.expense_sum }}</span>{% endif %}
+        </span>
+    </header>
+    <div class="fin-tl-seg__list">
+        {% for g in seg.items %}
+            {% include 'finance/partials/obligation_card.html' with g=g %}
+        {% empty %}
+            <div class="fin-plan-empty">Немає платежів у цьому періоді</div>
+        {% endfor %}
+    </div>
+</section>

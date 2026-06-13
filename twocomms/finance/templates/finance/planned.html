@@ -41,37 +41,46 @@
     </div>
 </div>
 
-<div class="fin-plan-columns">
-    <!-- Доходи -->
-    <section class="fin-plan-col">
-        <header class="fin-plan-col__head fin-plan-col__head--in">
-            <span>↑ Очікувані надходження</span>
-            <span class="fin-plan-col__sum">{{ income_sum }}</span>
-        </header>
-        <div class="fin-plan-list">
-            {% for g in income %}
-            {% include 'finance/partials/obligation_card.html' with g=g %}
-            {% empty %}
-            <div class="fin-plan-empty">Немає запланованих надходжень</div>
-            {% endfor %}
-        </div>
-    </section>
-
-    <!-- Витрати -->
-    <section class="fin-plan-col">
-        <header class="fin-plan-col__head fin-plan-col__head--out">
-            <span>↓ Майбутні витрати</span>
-            <span class="fin-plan-col__sum">{{ expense_sum }}</span>
-        </header>
-        <div class="fin-plan-list">
-            {% for g in expense %}
-            {% include 'finance/partials/obligation_card.html' with g=g %}
-            {% empty %}
-            <div class="fin-plan-empty">Немає запланованих витрат</div>
-            {% endfor %}
-        </div>
-    </section>
+<div class="fin-plan-tl">
+    {% for seg in timeline %}
+        {% include 'finance/partials/timeline_section.html' with seg=seg %}
+    {% endfor %}
 </div>
+
+<details class="fin-plan-bytype">
+    <summary>Показати за типом (доходи / витрати окремо)</summary>
+    <div class="fin-plan-columns">
+        <!-- Доходи -->
+        <section class="fin-plan-col">
+            <header class="fin-plan-col__head fin-plan-col__head--in">
+                <span>↑ Очікувані надходження</span>
+                <span class="fin-plan-col__sum">{{ income_sum }}</span>
+            </header>
+            <div class="fin-plan-list">
+                {% for g in income %}
+                {% include 'finance/partials/obligation_card.html' with g=g %}
+                {% empty %}
+                <div class="fin-plan-empty">Немає запланованих надходжень</div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- Витрати -->
+        <section class="fin-plan-col">
+            <header class="fin-plan-col__head fin-plan-col__head--out">
+                <span>↓ Майбутні витрати</span>
+                <span class="fin-plan-col__sum">{{ expense_sum }}</span>
+            </header>
+            <div class="fin-plan-list">
+                {% for g in expense %}
+                {% include 'finance/partials/obligation_card.html' with g=g %}
+                {% empty %}
+                <div class="fin-plan-empty">Немає запланованих витрат</div>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+</details>
 {% endblock %}
 
 {% block modals %}

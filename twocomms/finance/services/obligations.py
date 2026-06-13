@@ -24,6 +24,10 @@ from django.utils import timezone
 from ..models import Transaction
 from . import recurring as recurring_service
 
+# Назви місяців українською (називний відмінок) для сегментів таймлайну.
+_UK_MONTHS_NOM = ['', 'Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень',
+                  'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень']
+
 
 def _new_group(kind, ttype):
     return {
@@ -180,4 +184,78 @@ def planned_obligations(company) -> dict:
         'overdue_count': overdue_count,
         'income_count': len(income),
         'expense_count': len(expense),
+    }
+
+
+def planned_timeline(company) -> dict:
+    """Зобов'язання, згруповані за часом для зрозумілого подання.
+
+    Вирішує хаос «усе перемішано»: розкладаємо зобов'язання по сегментах за
+    датою найближчого платежу — спершу прострочені (з лічильником днів), потім
+    цей місяць, далі майбутні по місяцях. Усередині сегмента — за датою (раніше
+    → першим), доходи й витрати разом у хронології (із кольоровою позначкою
+    g['type']). Повертає {'segments': [...], 'overdue_count', 'totals'}.
+    """
+    data = planned_obligations(company)
+    items = list(data['income']) + list(data['expense'])
+
+    today = timezone.localdate()
+    this_y, this_m = today.year, today.month
+
+    overdue, this_month = [], []
+    future_by_month = OrderedDict()  # 'YYYY-MM' -> {'label', 'items'}
+
+    for g in items:
+        due = g.get('next_due')
+        if due is None:
+            # Без дати — у кінець «цього місяця» (рідкісний випадок).
+            this_month.append(g)
+            continue
+        if g.get('overdue'):
+            overdue.append(g)
+        elif due.year == this_y and due.month == this_m:
+            this_month.append(g)
+        else:
+            key = f'{due.year}-{due.month:02d}'
+            slot = future_by_month.get(key)
+            if slot is None:
+                slot = {'key': key, 'label': f'{_UK_MONTHS_NOM[due.month]} {due.year}',
+                        'items': []}
+                future_by_month[key] = slot
+            slot['items'].append(g)
+
+    def _by_date(lst):
+        lst.sort(key=lambda x: (x.get('next_due_iso') or '9999', x.get('title') or ''))
+        return lst
+
+    def _sum(lst):
+        inc = sum((g['planned_sum'] for g in lst if g['type'] == Transaction.TYPE_INCOME), Decimal('0'))
+        exp = sum((g['planned_sum'] for g in lst if g['type'] == Transaction.TYPE_EXPENSE), Decimal('0'))
+        return inc, exp
+
+    segments = []
+    if overdue:
+        _by_date(overdue)
+        inc, exp = _sum(overdue)
+        segments.append({'key': 'overdue', 'label': 'Прострочено', 'tone': 'overdue',
+                         'items': overdue, 'income_sum': inc, 'expense_sum': exp})
+    # «Цей місяць» показуємо завжди (навіть порожнім — як орієнтир).
+    _by_date(this_month)
+    inc, exp = _sum(this_month)
+    segments.append({'key': 'this_month', 'label': 'Цей місяць', 'tone': 'current',
+                     'items': this_month, 'income_sum': inc, 'expense_sum': exp})
+    # Майбутні місяці — у хронологічному порядку.
+    for key in sorted(future_by_month.keys()):
+        slot = future_by_month[key]
+        _by_date(slot['items'])
+        inc, exp = _sum(slot['items'])
+        segments.append({'key': key, 'label': slot['label'], 'tone': 'future',
+                         'items': slot['items'], 'income_sum': inc, 'expense_sum': exp})
+
+    return {
+        'segments': segments,
+        'overdue_count': len(overdue),
+        'income_sum': data['income_sum'],
+        'expense_sum': data['expense_sum'],
+        'net': data['net'],
     }

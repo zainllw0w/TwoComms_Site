@@ -115,3 +115,49 @@
   .fin-plan-kpis { grid-template-columns: repeat(2, 1fr); }
   .fin-plan-columns { grid-template-columns: 1fr; }
 }
+
+
+/* === Таймлайн планових: прострочено / цей місяць / майбутні === */
+.fin-plan-tl { display: flex; flex-direction: column; gap: 16px; margin-bottom: 18px; }
+.fin-tl-seg {
+  background: var(--fin-panel);
+  border: 1px solid var(--fin-border);
+  border-radius: var(--fin-radius-md, 14px);
+  overflow: hidden;
+}
+.fin-tl-seg__head {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 11px 14px; background: var(--fin-bg-850, rgba(20,22,30,.92));
+  border-bottom: 1px solid var(--fin-border); backdrop-filter: blur(6px);
+}
+.fin-tl-seg__title { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.fin-tl-seg__count {
+  font-size: 11px; font-weight: 600; min-width: 20px; text-align: center;
+  padding: 1px 7px; border-radius: 999px; background: rgba(255,255,255,.08); color: var(--fin-muted);
+}
+.fin-tl-seg__sums { display: flex; gap: 12px; font-size: 12px; font-weight: 600; }
+.fin-tl-seg__sums .is-pos { color: #34d399; }
+.fin-tl-seg__sums .is-neg { color: #fb7185; }
+.fin-tl-seg__list { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+
+/* Прострочений сегмент — акцент. */
+.fin-tl-seg--overdue { border-color: rgba(251,113,133,.4); }
+.fin-tl-seg--overdue .fin-tl-seg__head { background: rgba(251,113,133,.14); }
+.fin-tl-seg--current { border-color: rgba(111,149,255,.35); }
+
+/* Згорнутий блок «за типом». */
+.fin-plan-bytype { margin-top: 8px; }
+.fin-plan-bytype > summary {
+  cursor: pointer; font-size: 13px; color: var(--fin-muted); padding: 8px 0;
+  list-style: none; user-select: none;
+}
+.fin-plan-bytype > summary::-webkit-details-marker { display: none; }
+.fin-plan-bytype > summary::before { content: '▸ '; }
+.fin-plan-bytype[open] > summary::before { content: '▾ '; }
+
+@media (max-width: 640px) {
+  .fin-tl-seg__head { padding: 10px 12px; }
+  .fin-tl-seg__title { font-size: 13px; }
+  .fin-tl-seg__sums { flex-direction: column; gap: 2px; text-align: right; }
+}

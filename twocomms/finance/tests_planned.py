@@ -180,6 +180,52 @@ class RecurrenceLifecycleTests(TestCase):
         self.assertEqual(g['repeat_badge'], '×6')
 
 
+class PlannedTimelineTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_superuser('fin_tl', 't@x.com', 'x')
+        self.company = get_default_company()
+        self.acc = Account.objects.create(company=self.company, name='ФОП', currency='UAH',
+                                          is_business=True)
+
+    def _planned(self, *, ttype, amount, days):
+        return txn_service.create_transaction(
+            user=self.user, type=ttype, amount=Decimal(amount), account=self.acc,
+            currency='UAH', status=Transaction.STATUS_PLANNED,
+            date_actual=timezone.now() + dt.timedelta(days=days), comment=f'{ttype}{days}')
+
+    def test_timeline_segments_overdue_thismonth_future(self):
+        """Прострочене → цей місяць → майбутні по місяцях, у хронології."""
+        import calendar
+        today = timezone.localdate()
+        # Прострочене (вчора).
+        self._planned(ttype=Transaction.TYPE_EXPENSE, amount='1000', days=-5)
+        # Точно цей місяць: завтра, але якщо завтра вже наступний місяць — беремо
+        # перший день цього місяця у минулому не можна (overdue), тож сьогодні+0.
+        days_left = calendar.monthrange(today.year, today.month)[1] - today.day
+        # Платіж за кілька днів, але в межах цього місяця.
+        in_month_days = 1 if days_left >= 1 else 0
+        self._planned(ttype=Transaction.TYPE_INCOME, amount='500', days=in_month_days)
+        # Майбутній місяць (через 40 днів — гарантовано інший місяць).
+        self._planned(ttype=Transaction.TYPE_EXPENSE, amount='2000', days=40)
+
+        tl = obligations_service.planned_timeline(self.company)
+        keys = [s['key'] for s in tl['segments']]
+        self.assertEqual(keys[0], 'overdue')
+        self.assertIn('this_month', keys)
+        self.assertEqual(tl['overdue_count'], 1)
+        # Є хоча б один майбутній місячний сегмент (формат YYYY-MM).
+        self.assertTrue(any(k not in ('overdue', 'this_month') for k in keys))
+
+    def test_timeline_sorted_by_date_within_segment(self):
+        """Усередині сегмента — за датою (раніше першим)."""
+        self._planned(ttype=Transaction.TYPE_EXPENSE, amount='100', days=-2)
+        self._planned(ttype=Transaction.TYPE_EXPENSE, amount='200', days=-8)
+        tl = obligations_service.planned_timeline(self.company)
+        overdue = [s for s in tl['segments'] if s['key'] == 'overdue'][0]
+        dates = [g['next_due_iso'] for g in overdue['items']]
+        self.assertEqual(dates, sorted(dates))
+
+
 class CounterpartyHistoryTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_superuser('fin_cp', 'c@x.com', 'x')
