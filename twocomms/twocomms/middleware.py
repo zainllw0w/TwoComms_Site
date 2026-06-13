@@ -35,6 +35,9 @@ class ForceHTTPSMiddleware(MiddlewareMixin):
         if request.path.startswith('/tg-manager/webhook/'):
             return None
 
+        if request.path.startswith('/bot/webhook/'):
+            return None
+
         # Проверяем, что запрос идет по HTTP
         if not request.is_secure():
             try:
