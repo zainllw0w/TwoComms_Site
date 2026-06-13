@@ -557,7 +557,8 @@
 
   // --- Розгортання планових ---
   var plannedToggle = document.getElementById('fin-planned-toggle');
-  var plannedTable = document.getElementById('fin-planned-table');
+  var plannedTable = document.getElementById('fin-planned-table') ||
+                     document.getElementById('fin-planned-body');
   if (plannedToggle && plannedTable) {
     plannedToggle.addEventListener('click', function () {
       var open = plannedTable.hidden;
