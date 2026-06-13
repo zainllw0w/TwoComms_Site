@@ -126,6 +126,7 @@ def _handle_messaging_event(event: dict) -> None:
     mid = message.get("mid") or ""
     text = (message.get("text") or "").strip()
     sender_id = (event.get("sender") or {}).get("id") or ""
+    _debug(f"MSG sender={sender_id} mid={mid} text={text!r}")
     if not sender_id or not text:
         return
 
@@ -133,19 +134,29 @@ def _handle_messaging_event(event: dict) -> None:
     if mid:
         dedup_key = f"ig_bot_seen:{mid}"
         if cache.get(dedup_key):
+            _debug(f"SKIP dup mid={mid}")
             return
         cache.set(dedup_key, 1, 60 * 60)
 
     if text == TEST_TRIGGER:
+        _debug(f"TRIGGER matched -> reply to {sender_id}")
         _send_text(sender_id, TEST_REPLY)
+    else:
+        _debug(f"no trigger (text={text!r})")
 
 
 def _handle_payload(payload: dict) -> None:
-    # IG messaging: object == "instagram", entry[].messaging[]
+    # IG messaging (реальні повідомлення): entry[].messaging[]
+    # Test-кнопка та деякі версії шлють: entry[].changes[] з field == "messages"
     for entry in payload.get("entry", []) or []:
         for event in entry.get("messaging", []) or []:
             if "message" in event:
                 _handle_messaging_event(event)
+        for change in entry.get("changes", []) or []:
+            if change.get("field") == "messages":
+                value = change.get("value") or {}
+                if "message" in value:
+                    _handle_messaging_event(value)
 
 
 @csrf_exempt
