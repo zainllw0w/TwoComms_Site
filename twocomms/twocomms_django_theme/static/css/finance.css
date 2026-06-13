@@ -3636,3 +3636,12 @@ body.fin-report-open { overflow: hidden; }
 .fin-settle-pill--expense { color: #fca5a5; background: rgba(248,113,133,.13); border-color: rgba(248,113,133,.32); }
 .fin-settle-pill--income { color: #6ee7b7; background: rgba(52,211,153,.13); border-color: rgba(52,211,153,.32); }
 .fin-settle-pill--transfer { color: #93c5fd; background: rgba(111,149,255,.13); border-color: rgba(111,149,255,.32); }
+
+/* На телефоні бейдж погашення — окремим рядком під назвою (ячейка коментаря
+   прихована, тож показуємо його в ячейці контрагента/заголовка). */
+@media (max-width: 900px) {
+  .fin-row td[data-label="Контрагент"] { white-space: normal; }
+  .fin-row td[data-label="Контрагент"] .fin-settle-pill {
+    display: inline-flex; margin: 4px 0 0; font-size: 10.5px;
+  }
+}

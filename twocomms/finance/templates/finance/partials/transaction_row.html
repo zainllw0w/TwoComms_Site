@@ -13,14 +13,13 @@
         <span class="fin-acc-name">{{ r.account_name }}{% if r.card_transfer %} <span class="fin-card-xfer" title="Переказ на картку: {{ r.card_transfer_label }}">💳 → {{ r.card_transfer_label }}</span>{% endif %}</span>
         {% if r.running_balance %}<span class="fin-acc-balance">{{ r.running_balance }}</span>{% endif %}
     </td>
-    <td data-label="Контрагент">{% if r.counterparty %}{{ r.counterparty }}{% else %}<span class="fin-specify">Вказати</span>{% endif %}</td>
+    <td data-label="Контрагент">{% if r.counterparty %}{{ r.counterparty }}{% else %}<span class="fin-specify">Вказати</span>{% endif %}{% if r.settled %}<span class="fin-settle-pill fin-settle-pill--{{ r.type }}" title="{% if r.type == 'income' %}Повернення боргу (дебіторка){% else %}Погашення кредиторки{% endif %}: {{ r.settled_title }}{% if r.settled_period %} ({{ r.settled_period }}){% endif %}">{% if r.type == 'income' %}↩{% else %}🔗{% endif %} {{ r.settled_title }}{% if r.settled_periods > 1 %} ×{{ r.settled_periods }}{% elif r.settled_period %} · {{ r.settled_period }}{% endif %}</span>{% endif %}</td>
     <td data-label="Категорія">{% if r.category %}{{ r.category }}{% elif r.mcc_label %}<span class="fin-mcc-auto" title="Авто-категорія за MCC {{ r.mcc }}">{{ r.mcc_label }}</span>{% else %}<span class="fin-specify">Вказати</span>{% endif %}</td>
     {# Колонку «Проект» приховано; для планових тут — запланована дата операції. #}
     {% if r.is_planned %}<td class="fin-cell-plandate" data-label="Планова дата"><span class="fin-plandate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10h5v5H7zM5 22h14a2 2 0 002-2V6a2 2 0 00-2-2h-1V2h-2v2H8V2H6v2H5a2 2 0 00-2 2v14a2 2 0 002 2zm0-16h14v3H5z"/></svg><span class="fin-plandate__lbl">Виплата</span> {{ r.date }}{% if r.time %}<span class="fin-plandate__time">{{ r.time }}</span>{% endif %}</span></td>{% endif %}
     <td class="fin-cell-comment">
         {% if r.is_business %}<span class="fin-icon-badge" title="Бізнес">💼</span>{% else %}<span class="fin-icon-badge" title="Особисте">👤</span>{% endif %}
         {{ r.comment }}
-        {% if r.settled %}<span class="fin-settle-pill fin-settle-pill--{{ r.type }}" title="{% if r.type == 'income' %}Погашення дебіторки{% else %}Погашення кредиторки{% endif %}: {{ r.settled_title }}{% if r.settled_period %} ({{ r.settled_period }}){% endif %}">🔗 {{ r.settled_title }}{% if r.settled_periods > 1 %} ×{{ r.settled_periods }}{% else %}{% if r.settled_period %} · {{ r.settled_period }}{% endif %}{% endif %}</span>{% endif %}
         {% if r.cashback %}<span class="fin-badge fin-badge--cashback" title="Кешбек">+{{ r.cashback }}</span>{% endif %}
         {% for t in r.tags %}<span class="fin-tag-chip">{{ t.name }}</span>{% endfor %}
     </td>

@@ -107,7 +107,11 @@ def payments(request):
     actual_rows = [ser.serialize_transaction(t) for t in page_items]
 
     # Бейджі «погашення зобов'язання» (кредиторка/дебіторка) для рядків журналу.
+    # Пріоритет: явні ObligationSettlement (точна привʼязка, мультимісяць). Інакше
+    # повторюваний ФАКТИЧНИЙ платіж = виконання планового зобовʼязання (напр.
+    # «Повернення за оренду» від Віктора) — теж позначаємо, з його місяцем.
     _settle_map = ser.settlement_labels_for(company, [r['id'] for r in actual_rows])
+    _by_id = {t.id: t for t in page_items}
     for r in actual_rows:
         s = _settle_map.get(r['id'])
         if s:
@@ -115,6 +119,13 @@ def payments(request):
             r['settled_title'] = s['title']
             r['settled_period'] = s['period_label']
             r['settled_periods'] = s['periods']
+        elif r.get('recurrence_rule_id') and not r['is_planned']:
+            t = _by_id.get(r['id'])
+            r['settled'] = True
+            r['settled_title'] = r.get('recurrence_title') or 'план'
+            r['settled_period'] = (timezone.localtime(t.date_actual).strftime('%m.%Y')
+                                   if t and t.date_actual else '')
+            r['settled_periods'] = 1
 
     # Скільки фільтрів реально застосовано — для бейджа на згорнутій кнопці «Фільтри».
     gp = request.GET

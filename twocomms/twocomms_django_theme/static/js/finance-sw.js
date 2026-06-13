@@ -1,7 +1,7 @@
 /* TwoComms Finance — Service Worker для PWA
    Кешування критичних ресурсів, offline підтримка, push-повідомлення */
 
-const CACHE_VERSION = 'twc-finance-v1.3.0';
+const CACHE_VERSION = 'twc-finance-v1.4.0';
 const CACHE_STATIC = `${CACHE_VERSION}-static`;
 const CACHE_DYNAMIC = `${CACHE_VERSION}-dynamic`;
 const CACHE_API = `${CACHE_VERSION}-api`;

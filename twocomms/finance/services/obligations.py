@@ -239,8 +239,10 @@ def planned_timeline(company) -> dict:
         return lst
 
     def _sum(lst):
-        inc = sum((g['planned_sum'] for g in lst if g['type'] == Transaction.TYPE_INCOME), Decimal('0'))
-        exp = sum((g['planned_sum'] for g in lst if g['type'] == Transaction.TYPE_EXPENSE), Decimal('0'))
+        # Сума за сегмент = платіж ЗА ПЕРІОД (per_amount), а не вся серія
+        # (інакше «прострочено» показувало б суму всіх майбутніх місяців).
+        inc = sum((g['per_amount'] for g in lst if g['type'] == Transaction.TYPE_INCOME), Decimal('0'))
+        exp = sum((g['per_amount'] for g in lst if g['type'] == Transaction.TYPE_EXPENSE), Decimal('0'))
         return inc, exp
 
     segments = []

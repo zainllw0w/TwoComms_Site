@@ -87,17 +87,13 @@
 .fin-oblig__due.is-overdue { color: #f87171; font-weight: 700; }
 .fin-field-hint { display: block; margin-top: 4px; font-size: 11px; color: #fbbf24; }
 
-/* Кружок «днів до виплати» для майбутніх місяців (замість кнопки оплати) */
-.fin-oblig__countdown {
-  display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
-  min-width: 46px; height: 38px; padding: 0 8px; border-radius: 10px; line-height: 1;
-  background: rgba(255,255,255,.04); border: 1px solid var(--fin-border);
-  color: var(--fin-muted);
+/* Лічильник «днів до виплати» / прострочення у meta */
+.fin-oblig__dleft {
+  font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; white-space: nowrap;
+  background: rgba(255,255,255,.06); color: var(--fin-muted); border: 1px solid var(--fin-border);
 }
-.fin-oblig__countdown b { font-size: 16px; font-weight: 800; color: var(--fin-text); font-variant-numeric: tabular-nums; }
-.fin-oblig__countdown span { font-size: 9px; text-transform: uppercase; letter-spacing: .04em; margin-top: 1px; }
-.fin-oblig--income .fin-oblig__countdown { border-color: rgba(52,211,153,.3); }
-.fin-oblig--expense .fin-oblig__countdown { border-color: rgba(111,149,255,.3); }
+.fin-oblig__dleft.is-soon { color: #fbbf24; background: rgba(251,191,36,.13); border-color: rgba(251,191,36,.32); }
+.fin-oblig__dleft.is-overdue { color: #fca5a5; background: rgba(248,113,133,.13); border-color: rgba(248,113,133,.34); }
 
 /* Дії */
 .fin-oblig__act { display: flex; align-items: center; gap: 6px; position: relative; }
