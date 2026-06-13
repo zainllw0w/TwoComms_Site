@@ -106,6 +106,16 @@ def payments(request):
 
     actual_rows = [ser.serialize_transaction(t) for t in page_items]
 
+    # Бейджі «погашення зобов'язання» (кредиторка/дебіторка) для рядків журналу.
+    _settle_map = ser.settlement_labels_for(company, [r['id'] for r in actual_rows])
+    for r in actual_rows:
+        s = _settle_map.get(r['id'])
+        if s:
+            r['settled'] = True
+            r['settled_title'] = s['title']
+            r['settled_period'] = s['period_label']
+            r['settled_periods'] = s['periods']
+
     # Скільки фільтрів реально застосовано — для бейджа на згорнутій кнопці «Фільтри».
     gp = request.GET
     active_filter_count = 0

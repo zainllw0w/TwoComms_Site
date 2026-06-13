@@ -219,6 +219,35 @@ def _cashback_display(txn):
         return ''
 
 
+def settlement_labels_for(company, txn_ids) -> dict:
+    """Мапа payment_id → {title, period_label, periods} для фактичних платежів,
+    що погасили зобов'язання. Для бейджа «погашення кредиторки/дебіторки» у журналі.
+
+    Один запит на всі id сторінки (без N+1).
+    """
+    from ..models import ObligationSettlement
+    if not txn_ids:
+        return {}
+    grouped = {}
+    qs = (ObligationSettlement.objects
+          .filter(company=company, payment_id__in=list(txn_ids))
+          .select_related('rule'))
+    for s in qs:
+        grouped.setdefault(s.payment_id, []).append(s)
+    out = {}
+    for pid, items in grouped.items():
+        title = next((s.rule.title for s in items if s.rule_id and s.rule.title), '') or "зобов'язання"
+        labels = sorted({s.period_label for s in items if s.period_label})
+        if not labels:
+            period_label = ''
+        elif len(labels) == 1:
+            period_label = labels[0]
+        else:
+            period_label = f'{labels[0]}…{labels[-1]}'
+        out[pid] = {'title': title, 'period_label': period_label, 'periods': len(items)}
+    return out
+
+
 def serialize_dropdowns(company) -> dict:
     """Довідники для модалок (рахунки, категорії, проєкти, контрагенти, теги)."""
     accounts = [{'id': a.id, 'name': a.name, 'currency': a.currency,

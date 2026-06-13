@@ -3624,3 +3624,15 @@ body.fin-report-open { overflow: hidden; }
 .fin-stepper__btn:hover { background: rgba(255,255,255,.1); }
 .fin-stepper__val { padding: 0 16px; font-size: 14px; min-width: 64px; text-align: center; }
 .fin-stepper__val b { font-size: 16px; }
+
+
+/* Бейдж «погашення зобов'язання» у журналі (кредиторка/дебіторка) */
+.fin-settle-pill {
+    display: inline-flex; align-items: center; gap: 4px; vertical-align: middle;
+    margin-left: 6px; padding: 2px 9px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; white-space: nowrap;
+    border: 1px solid transparent;
+}
+.fin-settle-pill--expense { color: #fca5a5; background: rgba(248,113,133,.13); border-color: rgba(248,113,133,.32); }
+.fin-settle-pill--income { color: #6ee7b7; background: rgba(52,211,153,.13); border-color: rgba(52,211,153,.32); }
+.fin-settle-pill--transfer { color: #93c5fd; background: rgba(111,149,255,.13); border-color: rgba(111,149,255,.32); }

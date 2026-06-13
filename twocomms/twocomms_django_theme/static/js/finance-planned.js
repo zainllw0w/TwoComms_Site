@@ -418,6 +418,7 @@
       if (act === 'settle') openSettle(card);
       else if (act === 'edit-plan') openPlan(card);
       else if (act === 'skip') skipMonth(card);
+      else if (act === 'move-current') moveToCurrent(card);
       else if (act === 'stop-rule') {
         if (confirm('Зупинити повторення та прибрати майбутні планові платежі?')) {
           api('/api/recurrence/' + btn.getAttribute('data-rule-id') + '/stop/', 'POST', { delete_future: '1' })
@@ -439,6 +440,14 @@
     var ok = confirm('Пропустити цей місяць?\n\nOK — перенести платіж у кінець (борг зберігається).\nСкасувати — нічого не робити.');
     if (!ok) return;
     api('/api/obligations/' + txnId + '/skip/', 'POST', { mode: 'move_end' })
+      .then(function (res) { if (res.ok && res.data.ok) window.location.reload();
+                             else alert((res.data && res.data.error) || 'Помилка'); });
+  }
+
+  function moveToCurrent(card) {
+    var txnId = card.getAttribute('data-next-txn');
+    if (!txnId) return;
+    api('/api/obligations/' + txnId + '/move-current/', 'POST', {})
       .then(function (res) { if (res.ok && res.data.ok) window.location.reload();
                              else alert((res.data && res.data.error) || 'Помилка'); });
   }

@@ -156,6 +156,7 @@ def planned_obligations(company) -> dict:
 
         g['overdue'] = bool(g['next_due'] and g['next_due'] < today)
         g['overdue_days'] = (today - g['next_due']).days if g['overdue'] else 0
+        g['days_left'] = (g['next_due'] - today).days if (g['next_due'] and not g['overdue']) else 0
         g['next_due_iso'] = g['next_due'].isoformat() if g['next_due'] else ''
         # Поля для дата-чипа у картці (великий день + скорочений місяць).
         if g['next_due']:

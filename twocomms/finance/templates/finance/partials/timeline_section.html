@@ -14,7 +14,7 @@
     </header>
     <div class="fin-tl-seg__list">
         {% for g in seg.items %}
-            {% include 'finance/partials/obligation_card.html' with g=g %}
+            {% include 'finance/partials/obligation_card.html' with g=g seg_tone=seg.tone %}
         {% empty %}
             <div class="fin-tl-empty">{% if seg.tone == 'current' %}Цього місяця платежів більше немає 🎉{% else %}Платежів немає{% endif %}</div>
         {% endfor %}

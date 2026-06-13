@@ -35,7 +35,12 @@
     </div>
 
     <div class="fin-oblig__act">
-        {% if g.next_txn_id %}
+        {% if seg_tone == 'future' %}
+        {# Майбутні місяці: показуємо «скільки днів до виплати» замість кнопки оплати. #}
+        <span class="fin-oblig__countdown" title="Днів до виплати {{ g.next_due_iso }}">
+            <b>{{ g.days_left }}</b><span>дн</span>
+        </span>
+        {% elif g.next_txn_id %}
         <button type="button" class="fin-oblig__pay" data-act="settle" data-txn-id="{{ g.next_txn_id }}"
                 title="{% if g.type == 'income' %}Прийняти оплату{% else %}Сплатити{% endif %}">
             {% if g.type == 'income' %}↑{% else %}💳{% endif %}<span class="fin-oblig__pay-tx">{% if g.type == 'income' %}Отримано{% else %}Сплатити{% endif %}</span>
@@ -46,6 +51,7 @@
             <summary class="fin-icon-btn" title="Ще" aria-label="Більше дій">⋯</summary>
             <div class="fin-oblig__menu-pop">
                 {% if g.next_txn_id %}<button type="button" data-act="settle" data-txn-id="{{ g.next_txn_id }}">💳 Сплатити / наперед</button>{% endif %}
+                {% if seg_tone == 'future' and g.next_txn_id %}<button type="button" data-act="move-current" data-txn-id="{{ g.next_txn_id }}">↺ Перенести на поточний місяць</button>{% endif %}
                 {% if g.rule_id %}
                 <button type="button" data-act="skip" data-txn-id="{{ g.next_txn_id }}">⏭ Пропустити місяць</button>
                 <button type="button" data-act="edit-plan" data-rule-id="{{ g.rule_id }}">✎ Змінити план</button>

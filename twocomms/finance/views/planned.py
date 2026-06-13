@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
+from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from ..models import Counterparty, Transaction, get_default_company
@@ -225,6 +226,29 @@ def obligation_settle_api(request, txn_id):
         'payment_id': res['payment'].id,
         'settlement_id': res['settlement'].id,
     })
+
+
+@finance_access_required(api=True)
+@require_POST
+def obligation_move_current_api(request, txn_id):
+    """Перенести найближчий плановий екземпляр зобов'язання на поточний місяць.
+
+    Зручність: оплатити майбутній період уже зараз — переносимо дату планового
+    на сьогодні, тож воно зʼявляється в сегменті «Цей місяць» з кнопкою оплати.
+    Сам графік правила (next_occurrence) не чіпаємо.
+    """
+    import datetime as _dt
+    from .payments import _body  # noqa: F401  (узгодженість, не використовується)
+    company = get_default_company()
+    planned = get_object_or_404(Transaction, id=txn_id, company=company,
+                                status=Transaction.STATUS_PLANNED)
+    now = timezone.localtime(timezone.now())
+    old = planned.date_actual
+    keep_time = timezone.localtime(old).time() if old else now.time()
+    new_dt = timezone.make_aware(_dt.datetime.combine(now.date(), keep_time))
+    from ..services import transactions as txn_service
+    txn_service.update_transaction(planned, user=request.user, date_actual=new_dt)
+    return JsonResponse({'ok': True})
 
 
 @finance_access_required(api=True)

@@ -474,7 +474,26 @@ class RecurrenceApiWiringTests(TestCase):
         txn.refresh_from_db()
         self.assertEqual(txn.status, Transaction.STATUS_CANCELLED)
 
-    def test_payment_reverse_candidates_api(self):
+    def test_obligation_move_current_and_skip_api(self):
+        """Перенесення на поточний місяць і пропуск місяця працюють через API."""
+        future = timezone.now() + dt.timedelta(days=40)
+        txn = txn_service.create_transaction(
+            user=self.user, type=Transaction.TYPE_EXPENSE, amount=Decimal('3000'),
+            account=self.acc, currency='UAH', category=self.cat,
+            status=Transaction.STATUS_PLANNED, date_actual=future, comment='Оренда')
+        recurring_service.create_rule_from_transaction(
+            txn, user=self.user, frequency='monthly', end_mode=RecurrenceRule.END_NEVER)
+        txn.refresh_from_db()
+        # move-current: дата екземпляра стає сьогоднішньою.
+        resp = self._post(f'/api/obligations/{txn.id}/move-current/', {})
+        self.assertEqual(resp.status_code, 200)
+        txn.refresh_from_db()
+        self.assertEqual(txn.date_actual.date(), timezone.localdate())
+        # skip: екземпляр скасовується.
+        resp2 = self._post(f'/api/obligations/{txn.id}/skip/', {'mode': 'move_end'})
+        self.assertEqual(resp2.status_code, 200)
+        txn.refresh_from_db()
+        self.assertEqual(txn.status, Transaction.STATUS_CANCELLED)
         """Обернений потік: для платежу повертає зобов'язання того ж контрагента."""
         future = timezone.now() + dt.timedelta(days=2)
         cp = Counterparty.objects.create(company=self.company, name='Орендодавець', type='landlord_personal')

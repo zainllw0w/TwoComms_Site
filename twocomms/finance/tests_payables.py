@@ -288,8 +288,27 @@ class PayablesSettlementTests(TestCase):
         # Кількість активних екземплярів не зменшилась (борг перенесено, не втрачено).
         self.assertEqual(after, before)
 
-    # ---- 14: скасовані операції не показуються в журналі ----
-    def test_cancelled_excluded_from_journal(self):
+    # ---- 15: бейджі погашення для журналу (settlement_labels_for) ----
+    def test_settlement_labels_for(self):
+        from .services import serializers as ser
+        rule, planned = self._recurring_expense('2500', estimated=True)
+        pay = self._actual_expense('1724')
+        payables_service.attach_payment_to_obligation(
+            user=self.user, payment_txn=pay, planned_txn=planned, full_period=True)
+        labels = ser.settlement_labels_for(self.company, [pay.id])
+        self.assertIn(pay.id, labels)
+        self.assertEqual(labels[pay.id]['periods'], 1)
+        self.assertIn('Комуналка', labels[pay.id]['title'])
+
+    def test_settlement_labels_multi_period_count(self):
+        from .services import serializers as ser
+        rule, planned = self._recurring_expense('2500', estimated=False)
+        first = self._nearest_planned(rule)
+        res = payables_service.settle_obligation(
+            user=self.user, planned_txn=first, mode='new_payment',
+            amount=Decimal('7500'), account=self.mono, periods=3)
+        labels = ser.settlement_labels_for(self.company, [res['payment'].id])
+        self.assertEqual(labels[res['payment'].id]['periods'], 3)
         from .services import filters as filter_service
         rule, planned = self._recurring_expense('2500', estimated=True)
         pay = self._actual_expense('1724')

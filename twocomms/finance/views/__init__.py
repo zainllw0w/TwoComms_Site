@@ -87,6 +87,7 @@ from .planned import (  # noqa: F401
     obligation_settle_context_api,
     obligation_settle_api,
     obligation_skip_api,
+    obligation_move_current_api,
 )
 from .counterparties import (  # noqa: F401
     counterparties,

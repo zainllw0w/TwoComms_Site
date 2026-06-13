@@ -20,6 +20,7 @@
     <td class="fin-cell-comment">
         {% if r.is_business %}<span class="fin-icon-badge" title="Бізнес">💼</span>{% else %}<span class="fin-icon-badge" title="Особисте">👤</span>{% endif %}
         {{ r.comment }}
+        {% if r.settled %}<span class="fin-settle-pill fin-settle-pill--{{ r.type }}" title="{% if r.type == 'income' %}Погашення дебіторки{% else %}Погашення кредиторки{% endif %}: {{ r.settled_title }}{% if r.settled_period %} ({{ r.settled_period }}){% endif %}">🔗 {{ r.settled_title }}{% if r.settled_periods > 1 %} ×{{ r.settled_periods }}{% else %}{% if r.settled_period %} · {{ r.settled_period }}{% endif %}{% endif %}</span>{% endif %}
         {% if r.cashback %}<span class="fin-badge fin-badge--cashback" title="Кешбек">+{{ r.cashback }}</span>{% endif %}
         {% for t in r.tags %}<span class="fin-tag-chip">{{ t.name }}</span>{% endfor %}
     </td>
