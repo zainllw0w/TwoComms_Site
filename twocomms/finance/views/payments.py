@@ -417,8 +417,7 @@ def transaction_settle_api(request, txn_id):
 
     Дохід → рахунок, КУДИ надійшли кошти; витрата → рахунок, З ЯКОГО списано.
     Контрагент фіксує, з ким операція; за згодою рахунок прив'язується до
-    контрагента (історія по контрагенту). Якщо операція повторювана —
-    наступний екземпляр підтягується автоматично.
+    контрагента. Якщо операція повторювана — наступний екземпляр підтягується.
     """
     from ..services import recurring as recurring_service
     company = get_default_company()
@@ -662,3 +661,59 @@ def _next_planned_dates(company, horizon):
         return _tz.localtime(t.date_actual).strftime('%d.%m')
 
     return _nearest(Transaction.TYPE_INCOME), _nearest(Transaction.TYPE_EXPENSE)
+
+
+# ----------------------------- Обернений потік: переказ → у рахунок зобов'язання -----------------------------
+
+@finance_access_required(api=True)
+@require_GET
+def payment_reverse_candidates_api(request, txn_id):
+    """Для фактичного платежу — відкриті зобов'язання того ж контрагента/картки.
+
+    Використовується після P2P-переказу: «Цей переказ у рахунок кредиторки?».
+    """
+    from ..services import payables as payables_service
+    company = get_default_company()
+    txn = get_object_or_404(Transaction, id=txn_id, company=company,
+                            status=Transaction.STATUS_ACTUAL)
+    res = payables_service.reverse_link_candidates(company, txn)
+    match = res['counterparty_match']
+    return JsonResponse({
+        'ok': True,
+        'obligations': res['obligations'],
+        'counterparty_strong': (
+            {'id': match['strong'].id, 'name': match['strong'].name}
+            if match['strong'] else None),
+        'counterparty_candidates': [
+            {'id': c.id, 'name': c.name} for c in match['candidates']],
+        'match_reason': match['reason'],
+    })
+
+
+@finance_access_required(api=True)
+@require_POST
+def payment_attach_obligation_api(request, txn_id):
+    """Прив'язати наявний фактичний платіж до зобов'язання (повне/часткове)."""
+    from ..services import payables as payables_service
+    company = get_default_company()
+    txn = get_object_or_404(Transaction, id=txn_id, company=company,
+                            status=Transaction.STATUS_ACTUAL)
+    data = _body(request)
+    planned = company.transactions.filter(
+        id=data.get('planned_txn_id'), status=Transaction.STATUS_PLANNED).first()
+    if planned is None:
+        return JsonResponse({'ok': False, 'error': "Зобов'язання не знайдено"}, status=400)
+    full_period = str(data.get('full_period', '1')).lower() in ('1', 'true', 'on', 'yes')
+    remember_card = str(data.get('remember_card', '')).lower() in ('1', 'true', 'on', 'yes')
+    card_hint = None
+    if remember_card:
+        from ..services import cards as cards_service
+        card_hint = cards_service.extract_card_hint(txn)
+    try:
+        res = payables_service.attach_payment_to_obligation(
+            user=request.user, payment_txn=txn, planned_txn=planned,
+            full_period=full_period, remember_card=remember_card, card_hint=card_hint)
+    except ValueError as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=400)
+    return JsonResponse({'ok': True, 'full_period': res['full_period'],
+                         'settlement_id': res['settlement'].id})

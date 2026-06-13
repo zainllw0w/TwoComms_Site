@@ -374,3 +374,78 @@ class RecurrenceApiWiringTests(TestCase):
         resp = self._get('/planned/')
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'Планові платежі')
+
+    def test_obligation_settle_context_api(self):
+        """Контекст модалки погашення: кандидати, рахунки, оцінка."""
+        future = timezone.now() + dt.timedelta(days=2)
+        cp = Counterparty.objects.create(company=self.company, name='Влада Мама', type='landlord_personal')
+        txn = txn_service.create_transaction(
+            user=self.user, type=Transaction.TYPE_EXPENSE, amount=Decimal('2500'),
+            account=self.acc, currency='UAH', category=self.cat, counterparty=cp,
+            status=Transaction.STATUS_PLANNED, date_actual=future, comment='Комуналка',
+            amount_is_estimated=True)
+        recurring_service.create_rule_from_transaction(
+            txn, user=self.user, frequency='monthly', end_mode=RecurrenceRule.END_NEVER,
+            amount_is_estimated=True)
+        # Готовий фактичний платіж цьому контрагенту.
+        pay = txn_service.create_transaction(
+            user=self.user, type=Transaction.TYPE_EXPENSE, amount=Decimal('1724'),
+            account=self.acc, currency='UAH', counterparty=cp,
+            status=Transaction.STATUS_ACTUAL, date_actual=timezone.now(), comment='Переказ')
+        resp = self._get(f'/api/obligations/{txn.id}/settle-context/')
+        self.assertEqual(resp.status_code, 200)
+        d = resp.json()
+        self.assertTrue(d['ok'])
+        self.assertTrue(d['estimated'])
+        self.assertEqual(d['counterparty']['name'], 'Влада Мама')
+        cand_ids = [c['id'] for c in d['candidates']]
+        self.assertIn(pay.id, cand_ids)
+
+    def test_obligation_settle_pick_txn_api(self):
+        """POST settle pick_txn: привʼязує наявний платіж без подвійного розходу."""
+        future = timezone.now() + dt.timedelta(days=2)
+        cp = Counterparty.objects.create(company=self.company, name='Влада', type='supplier')
+        txn = txn_service.create_transaction(
+            user=self.user, type=Transaction.TYPE_EXPENSE, amount=Decimal('2500'),
+            account=self.acc, currency='UAH', counterparty=cp,
+            status=Transaction.STATUS_PLANNED, date_actual=future, comment='Комуналка',
+            amount_is_estimated=True)
+        recurring_service.create_rule_from_transaction(
+            txn, user=self.user, frequency='monthly', end_mode=RecurrenceRule.END_NEVER,
+            amount_is_estimated=True)
+        pay = txn_service.create_transaction(
+            user=self.user, type=Transaction.TYPE_EXPENSE, amount=Decimal('1724'),
+            account=self.acc, currency='UAH', counterparty=cp,
+            status=Transaction.STATUS_ACTUAL, date_actual=timezone.now())
+        self.acc.refresh_from_db()
+        balance = self.acc.current_balance
+        resp = self._post(f'/api/obligations/{txn.id}/settle/', {
+            'mode': 'pick_txn', 'payment_txn_id': pay.id, 'full_period': '1'})
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()['ok'])
+        self.acc.refresh_from_db()
+        self.assertEqual(self.acc.current_balance, balance)  # без подвійного розходу
+        txn.refresh_from_db()
+        self.assertEqual(txn.status, Transaction.STATUS_CANCELLED)
+
+    def test_payment_reverse_candidates_api(self):
+        """Обернений потік: для платежу повертає зобов'язання того ж контрагента."""
+        future = timezone.now() + dt.timedelta(days=2)
+        cp = Counterparty.objects.create(company=self.company, name='Орендодавець', type='landlord_personal')
+        txn = txn_service.create_transaction(
+            user=self.user, type=Transaction.TYPE_EXPENSE, amount=Decimal('2500'),
+            account=self.acc, currency='UAH', counterparty=cp,
+            status=Transaction.STATUS_PLANNED, date_actual=future, comment='Оренда',
+            amount_is_estimated=True)
+        recurring_service.create_rule_from_transaction(
+            txn, user=self.user, frequency='monthly', end_mode=RecurrenceRule.END_NEVER)
+        pay = txn_service.create_transaction(
+            user=self.user, type=Transaction.TYPE_EXPENSE, amount=Decimal('2500'),
+            account=self.acc, currency='UAH', counterparty=cp,
+            status=Transaction.STATUS_ACTUAL, date_actual=timezone.now())
+        resp = self._get(f'/api/payments/{pay.id}/reverse-candidates/')
+        self.assertEqual(resp.status_code, 200)
+        d = resp.json()
+        self.assertTrue(d['ok'])
+        cp_ids = [o['counterparty_id'] for o in d['obligations']]
+        self.assertIn(cp.id, cp_ids)

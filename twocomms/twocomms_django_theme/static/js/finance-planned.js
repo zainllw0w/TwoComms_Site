@@ -42,64 +42,196 @@
   var settleModal = document.getElementById('fin-settle-modal');
   var settleEls = {
     txnId: document.getElementById('fin-settle-txn-id'),
+    mode: document.getElementById('fin-settle-mode'),
+    paymentId: document.getElementById('fin-settle-payment-id'),
     amount: document.getElementById('fin-settle-amount'),
     amountLabel: document.getElementById('fin-settle-amount-label'),
     amountHint: document.getElementById('fin-settle-amount-hint'),
     account: document.getElementById('fin-settle-account'),
     accountLabel: document.getElementById('fin-settle-account-label'),
-    counterparty: document.getElementById('fin-settle-counterparty'),
-    linkCp: document.getElementById('fin-settle-link-cp'),
     date: document.getElementById('fin-settle-date'),
     summary: document.getElementById('fin-settle-summary'),
+    cp: document.getElementById('fin-settle-cp'),
     title: document.getElementById('fin-settle-title'),
     alert: document.getElementById('fin-settle-alert'),
     submit: document.getElementById('fin-settle-submit'),
+    modes: document.getElementById('fin-settle-modes'),
+    modePick: document.getElementById('fin-settle-mode-pick'),
+    paneNew: document.getElementById('fin-settle-pane-new'),
+    panePick: document.getElementById('fin-settle-pane-pick'),
+    candidates: document.getElementById('fin-settle-candidates'),
+    candidatesEmpty: document.getElementById('fin-settle-candidates-empty'),
+    period: document.getElementById('fin-settle-period'),
+    remainder: document.getElementById('fin-settle-remainder'),
+    fullHint: document.getElementById('fin-settle-full-hint'),
+    remember: document.getElementById('fin-settle-remember'),
+    rememberWrap: document.getElementById('fin-settle-remember-wrap'),
   };
+  var settleCtx = null;   // контекст із сервера
 
   function openModal(el) { if (el) { el.hidden = false; document.body.classList.add('fin-modal-open'); } }
   function closeModal(el) { if (el) { el.hidden = true; document.body.classList.remove('fin-modal-open'); } }
 
+  function fmtMoney(v) { return v; }
+
+  function setMode(mode) {
+    settleEls.mode.value = mode;
+    var isPick = mode === 'pick_txn';
+    settleEls.panePick.hidden = !isPick;
+    settleEls.paneNew.hidden = isPick;
+    if (settleEls.modes) {
+      settleEls.modes.querySelectorAll('.fin-seg__btn').forEach(function (b) {
+        b.classList.toggle('is-active', b.getAttribute('data-mode') === mode);
+      });
+    }
+    if (!isPick) { settleEls.paymentId.value = ''; clearCandidateSelection(); }
+    syncPeriod();
+  }
+
+  function clearCandidateSelection() {
+    if (!settleEls.candidates) return;
+    settleEls.candidates.querySelectorAll('.fin-cand.is-selected').forEach(function (c) {
+      c.classList.remove('is-selected');
+    });
+  }
+
+  function selectedAmount() {
+    if (settleEls.mode.value === 'pick_txn') {
+      var sel = settleEls.candidates.querySelector('.fin-cand.is-selected');
+      return sel ? parseFloat(sel.getAttribute('data-amount')) : NaN;
+    }
+    return parseFloat(settleEls.amount.value);
+  }
+
+  function syncPeriod() {
+    if (!settleCtx) return;
+    var per = parseFloat(settleCtx.per_amount) || 0;
+    var paid = selectedAmount();
+    // Показуємо вибір «повністю/частково», якщо платимо менше за оцінку.
+    var showPeriod = settleCtx.is_recurring || (!isNaN(paid) && paid < per);
+    settleEls.period.hidden = !showPeriod;
+    if (!isNaN(paid) && per > paid) {
+      settleEls.remainder.textContent = (per - paid).toFixed(2);
+    } else {
+      settleEls.remainder.textContent = '0';
+    }
+    if (settleEls.fullHint) {
+      settleEls.fullHint.textContent = settleCtx.is_recurring ? ' (наступний місяць)' : '';
+    }
+  }
+
+  function renderCandidates(list) {
+    settleEls.candidates.innerHTML = '';
+    if (!list || !list.length) {
+      settleEls.candidatesEmpty.hidden = false;
+      return;
+    }
+    settleEls.candidatesEmpty.hidden = true;
+    list.forEach(function (c) {
+      var el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'fin-cand';
+      el.setAttribute('data-payment-id', c.id);
+      el.setAttribute('data-amount', c.amount);
+      var meta = [c.date, c.account_name].filter(Boolean).join(' · ');
+      var tail = c.card_transfer_label ? ('<span class="fin-cand__card">' + c.card_transfer_label + '</span>') : '';
+      el.innerHTML = '<span class="fin-cand__amt">' + c.amount_display + '</span>' +
+        '<span class="fin-cand__meta">' + meta + '</span>' + tail;
+      el.addEventListener('click', function () {
+        clearCandidateSelection();
+        el.classList.add('is-selected');
+        settleEls.paymentId.value = c.id;
+        syncPeriod();
+      });
+      settleEls.candidates.appendChild(el);
+    });
+  }
+
   function openSettle(card) {
     var txnId = card.getAttribute('data-next-txn');
     if (!txnId) return;
-    var type = card.getAttribute('data-type');
-    var title = card.getAttribute('data-title') || '';
-    var amount = card.getAttribute('data-per-amount') || '';
-    var estimated = card.getAttribute('data-estimated') === '1';
     settleEls.txnId.value = txnId;
     settleEls.alert.hidden = true;
-    settleEls.title.textContent = type === 'income' ? 'Підтвердити надходження' : 'Сплатити платіж';
-    settleEls.accountLabel.textContent = type === 'income' ? 'Рахунок зарахування *' : 'Рахунок списання *';
-    settleEls.summary.textContent = title + (amount ? ' · ' + (estimated ? '≈ ' : '') + amount : '');
-    // Сума: для орієнтовних просимо ввести фактичну, для точних — лишаємо як план.
-    if (settleEls.amount) {
-      settleEls.amount.value = card.getAttribute('data-per-amount') || '';
-      settleEls.amountLabel.textContent = estimated ? 'Фактична сума *' : 'Сума';
-      if (settleEls.amountHint) settleEls.amountHint.hidden = !estimated;
-    }
-    fillSelect(settleEls.account, DROPDOWNS.accounts || [], 'Оберіть рахунок');
-    fillSelect(settleEls.counterparty, DROPDOWNS.counterparties || [], 'Без контрагента',
-               card.getAttribute('data-counterparty-id'));
-    settleEls.linkCp.checked = false;
-    settleEls.date.value = todayISO();
+    settleEls.paymentId.value = '';
+    settleCtx = null;
+    settleEls.summary.textContent = 'Завантаження…';
+    settleEls.candidates.innerHTML = '';
     openModal(settleModal);
+
+    api('/api/obligations/' + txnId + '/settle-context/').then(function (res) {
+      if (!res.ok || !res.data.ok) { settleEls.summary.textContent = 'Не вдалося завантажити'; return; }
+      settleCtx = res.data;
+      var isIncome = settleCtx.ttype === 'income';
+      settleEls.title.textContent = isIncome ? 'Підтвердити надходження' : 'Сплатити платіж';
+      settleEls.accountLabel.textContent = isIncome ? 'Рахунок зарахування *' : 'Рахунок списання *';
+      settleEls.summary.textContent = (settleCtx.title || '') + ' · ' +
+        (settleCtx.estimated ? '≈ ' : '') + settleCtx.per_amount_display;
+      if (settleCtx.counterparty) {
+        settleEls.cp.hidden = false;
+        settleEls.cp.textContent = '👤 ' + settleCtx.counterparty.name;
+      } else { settleEls.cp.hidden = true; }
+
+      // Сума.
+      settleEls.amount.value = settleCtx.per_amount || '';
+      settleEls.amountLabel.textContent = settleCtx.estimated ? 'Фактична сума *' : 'Сума';
+      settleEls.amountHint.hidden = !settleCtx.estimated;
+
+      // Рахунки (привʼязані до контрагента — першими).
+      settleEls.account.innerHTML = '';
+      (settleCtx.accounts || []).forEach(function (a) {
+        var o = document.createElement('option');
+        o.value = a.id; o.textContent = a.name + (a.linked ? ' 🔗' : '');
+        settleEls.account.appendChild(o);
+      });
+      settleEls.date.value = todayISO();
+
+      // Кандидати + режим за замовчуванням.
+      renderCandidates(settleCtx.candidates);
+      var hasCands = (settleCtx.candidates || []).length > 0;
+      settleEls.modePick.disabled = !hasCands;
+      setMode(hasCands ? 'pick_txn' : 'new_payment');
+
+      // Запамʼятати картку — якщо є контрагент.
+      settleEls.rememberWrap.hidden = !settleCtx.counterparty;
+      settleEls.remember.checked = false;
+    });
   }
 
   if (settleModal) {
     settleModal.querySelectorAll('[data-settle-close]').forEach(function (b) {
       b.addEventListener('click', function () { closeModal(settleModal); });
     });
+    if (settleEls.modes) {
+      settleEls.modes.addEventListener('click', function (e) {
+        var b = e.target.closest('.fin-seg__btn');
+        if (b && !b.disabled) setMode(b.getAttribute('data-mode'));
+      });
+    }
+    if (settleEls.amount) settleEls.amount.addEventListener('input', syncPeriod);
     document.getElementById('fin-settle-form').addEventListener('submit', function (e) {
       e.preventDefault();
+      var mode = settleEls.mode.value;
+      var fullRadio = settleModal.querySelector('input[name="fin-settle-full"]:checked');
       var body = {
-        account_id: settleEls.account.value || '',
-        counterparty_id: settleEls.counterparty.value || '',
-        date: settleEls.date.value || '',
-        amount: (settleEls.amount && settleEls.amount.value) || '',
-        link_account_cp: settleEls.linkCp.checked ? '1' : '',
+        mode: mode,
+        full_period: (settleEls.period.hidden || !fullRadio) ? '1' : fullRadio.value,
+        remember_card: settleEls.remember.checked ? '1' : '',
       };
+      if (mode === 'pick_txn') {
+        if (!settleEls.paymentId.value) {
+          settleEls.alert.textContent = 'Оберіть платіж зі списку'; settleEls.alert.hidden = false; return;
+        }
+        body.payment_txn_id = settleEls.paymentId.value;
+      } else {
+        body.amount = settleEls.amount.value || '';
+        body.account_id = settleEls.account.value || '';
+        body.date = settleEls.date.value || '';
+        if (!body.account_id) {
+          settleEls.alert.textContent = 'Оберіть рахунок'; settleEls.alert.hidden = false; return;
+        }
+      }
       settleEls.submit.disabled = true;
-      api('/api/transactions/' + settleEls.txnId.value + '/settle/', 'POST', body).then(function (res) {
+      api('/api/obligations/' + settleEls.txnId.value + '/settle/', 'POST', body).then(function (res) {
         settleEls.submit.disabled = false;
         if (res.ok && res.data.ok) { window.location.reload(); }
         else { settleEls.alert.textContent = (res.data && res.data.error) || 'Помилка'; settleEls.alert.hidden = false; }

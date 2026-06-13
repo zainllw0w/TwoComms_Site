@@ -1,6 +1,6 @@
-{# Модалка погашення/проведення планового платежу з вибором рахунку та контрагента. #}
+{# Єдина модалка погашення зобов'язання: привʼязати наявний платіж або новий. #}
 <div class="fin-modal-overlay" id="fin-settle-modal" hidden>
-  <div class="fin-modal-card">
+  <div class="fin-modal-card fin-settle">
     <div class="fin-modal-head">
       <h3 id="fin-settle-title">Погасити платіж</h3>
       <button type="button" class="fin-modal-close" data-settle-close aria-label="Закрити">×</button>
@@ -8,33 +8,56 @@
     <form class="fin-modal-body" id="fin-settle-form">
       <div class="fin-form-alert" id="fin-settle-alert" hidden></div>
       <input type="hidden" id="fin-settle-txn-id" value="">
+      <input type="hidden" id="fin-settle-mode" value="new_payment">
+      <input type="hidden" id="fin-settle-payment-id" value="">
 
-      <p class="fin-settle-summary" id="fin-settle-summary"></p>
+      <div class="fin-settle-head">
+        <p class="fin-settle-summary" id="fin-settle-summary"></p>
+        <span class="fin-settle-cp" id="fin-settle-cp" hidden></span>
+      </div>
 
-      <label class="fin-field" id="fin-settle-amount-wrap">
-        <span id="fin-settle-amount-label">Фактична сума</span>
-        <input type="number" step="0.01" min="0" id="fin-settle-amount" class="fin-input">
-        <small class="fin-field-hint" id="fin-settle-amount-hint" hidden>Сума була орієнтовною — уведіть фактично сплачену.</small>
-      </label>
+      <!-- Перемикач режиму -->
+      <div class="fin-seg" id="fin-settle-modes" role="tablist">
+        <button type="button" class="fin-seg__btn is-active" data-mode="new_payment">Новий платіж</button>
+        <button type="button" class="fin-seg__btn" data-mode="pick_txn" id="fin-settle-mode-pick">Наявний платіж</button>
+      </div>
 
-      <label class="fin-field">
-        <span id="fin-settle-account-label">Рахунок зарахування *</span>
-        <select id="fin-settle-account" class="fin-select"></select>
-      </label>
+      <!-- Режим: привʼязати наявний платіж -->
+      <div class="fin-settle-pane" id="fin-settle-pane-pick" hidden>
+        <p class="fin-field-hint">Оберіть фактичний платіж — підтягнеться його сума, рахунок і дата.</p>
+        <div class="fin-cand-list" id="fin-settle-candidates"></div>
+        <div class="fin-cand-empty" id="fin-settle-candidates-empty" hidden>Готових платежів не знайдено — зафіксуйте новий.</div>
+      </div>
 
-      <label class="fin-field">
-        <span>Контрагент</span>
-        <select id="fin-settle-counterparty" class="fin-select"></select>
-      </label>
+      <!-- Режим: новий платіж -->
+      <div class="fin-settle-pane" id="fin-settle-pane-new">
+        <label class="fin-field" id="fin-settle-amount-wrap">
+          <span id="fin-settle-amount-label">Сума</span>
+          <input type="number" step="0.01" min="0" id="fin-settle-amount" class="fin-input">
+          <small class="fin-field-hint" id="fin-settle-amount-hint" hidden>Сума орієнтовна — уведіть фактично сплачену.</small>
+        </label>
+        <label class="fin-field">
+          <span id="fin-settle-account-label">Рахунок списання *</span>
+          <select id="fin-settle-account" class="fin-select"></select>
+        </label>
+        <label class="fin-field">
+          <span>Дата</span>
+          <input type="date" id="fin-settle-date" class="fin-input">
+        </label>
+      </div>
 
-      <label class="fin-checkbox" id="fin-settle-link-wrap">
-        <input type="checkbox" id="fin-settle-link-cp" value="1">
-        Прив'язати рахунок до контрагента (для історії та авто-розпізнавання)
-      </label>
+      <!-- Повністю / частково -->
+      <div class="fin-settle-period" id="fin-settle-period" hidden>
+        <span class="fin-field-label">Чи закрити період повністю?</span>
+        <label class="fin-radio"><input type="radio" name="fin-settle-full" value="1" checked>
+          <span>Повністю — закрити період<small id="fin-settle-full-hint"></small></span></label>
+        <label class="fin-radio"><input type="radio" name="fin-settle-full" value="0">
+          <span>Частково — лишиться доплатити <b id="fin-settle-remainder">—</b></span></label>
+      </div>
 
-      <label class="fin-field">
-        <span>Дата проведення</span>
-        <input type="date" id="fin-settle-date" class="fin-input">
+      <label class="fin-checkbox" id="fin-settle-remember-wrap" hidden>
+        <input type="checkbox" id="fin-settle-remember" value="1">
+        Запам'ятати картку/реквізити за контрагентом
       </label>
 
       <div class="fin-modal-foot">

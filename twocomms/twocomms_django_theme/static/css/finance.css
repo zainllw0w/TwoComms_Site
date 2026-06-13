@@ -3512,3 +3512,94 @@ body.fin-settings-open { overflow: hidden; }
 .fin-report-text { font-size: 13.5px; color: var(--fin-text); line-height: 1.5; }
 
 body.fin-report-open { overflow: hidden; }
+
+
+/* === Погашення зобов'язань: єдина модалка === */
+.fin-settle .fin-settle-head {
+    display: flex; flex-direction: column; gap: 4px;
+}
+.fin-settle-summary {
+    margin: 0; font-size: 14px; font-weight: 600; color: var(--fin-text);
+}
+.fin-settle-cp {
+    font-size: 12px; color: var(--fin-text-2);
+}
+
+/* Сегментований перемикач режиму */
+.fin-seg {
+    display: flex; gap: 6px; background: var(--fin-bg-800);
+    border: 1px solid var(--fin-border-strong); border-radius: 999px; padding: 4px;
+}
+.fin-seg__btn {
+    flex: 1; padding: 9px 12px; border: none; border-radius: 999px; cursor: pointer;
+    background: transparent; color: var(--fin-text-2); font-weight: 600; font-size: 13px;
+    transition: background .15s, color .15s;
+}
+.fin-seg__btn.is-active { background: rgba(255,126,41,0.16); color: var(--fin-text); }
+.fin-seg__btn:disabled { opacity: .4; cursor: not-allowed; }
+
+.fin-settle-pane { display: flex; flex-direction: column; gap: 10px; }
+
+/* Список кандидатів-платежів (полоски) */
+.fin-cand-list { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
+.fin-cand {
+    display: grid; grid-template-columns: auto 1fr; grid-template-areas: "amt card" "meta meta";
+    gap: 2px 10px; text-align: left; width: 100%; cursor: pointer;
+    padding: 10px 12px; border-radius: var(--fin-radius-sm);
+    border: 1px solid var(--fin-border-strong); background: rgba(255,255,255,0.03);
+    color: var(--fin-text); transition: border-color .15s, background .15s;
+}
+.fin-cand:hover { border-color: var(--fin-accent); }
+.fin-cand.is-selected { border-color: var(--fin-accent); background: rgba(255,126,41,0.12); }
+.fin-cand__amt { grid-area: amt; font-weight: 700; font-size: 14px; }
+.fin-cand__meta { grid-area: meta; font-size: 12px; color: var(--fin-text-2); }
+.fin-cand__card {
+    grid-area: card; justify-self: end; font-size: 11px; color: var(--fin-text-2);
+    background: rgba(255,255,255,0.05); border-radius: 999px; padding: 2px 8px;
+}
+.fin-cand-empty { font-size: 13px; color: var(--fin-text-2); padding: 8px 4px; }
+
+/* Повністю / частково */
+.fin-settle-period {
+    display: flex; flex-direction: column; gap: 8px;
+    background: var(--fin-bg-800); border-radius: var(--fin-radius-sm); padding: 12px;
+}
+.fin-field-label { font-size: 13px; font-weight: 600; color: var(--fin-text); }
+.fin-radio { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--fin-text); cursor: pointer; }
+.fin-radio input { margin-top: 3px; }
+.fin-radio small { display: block; color: var(--fin-text-2); font-size: 11px; }
+
+/* Картки контрагента (полоски як платежі на головній) */
+.fin-cp-cards { display: flex; flex-direction: column; gap: 8px; }
+.fin-cp-card {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+    border-radius: var(--fin-radius-sm); border: 1px solid var(--fin-border-strong);
+    background: rgba(255,255,255,0.03);
+}
+.fin-cp-card__bank { font-weight: 700; font-size: 13px; color: var(--fin-text); }
+.fin-cp-card__tail { font-family: monospace; color: var(--fin-text-2); }
+.fin-cp-card__badge {
+    margin-left: auto; font-size: 11px; padding: 2px 8px; border-radius: 999px;
+    background: rgba(255,126,41,0.16); color: var(--fin-accent);
+}
+.fin-cp-card.is-incomplete { border-style: dashed; opacity: .85; }
+
+/* Обернений промпт «у рахунок кредиторки?» */
+.fin-revprompt {
+    position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+    z-index: 1200; width: min(440px, 94vw);
+    background: var(--fin-panel-strong); border: 1px solid var(--fin-border-strong);
+    border-radius: var(--fin-radius-md); box-shadow: var(--fin-shadow); padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 10px;
+}
+.fin-revprompt[hidden] { display: none; }
+.fin-revprompt__title { font-size: 14px; font-weight: 600; color: var(--fin-text); }
+.fin-revprompt__sub { font-size: 12px; color: var(--fin-text-2); }
+.fin-revprompt__actions { display: flex; gap: 8px; }
+.fin-revprompt__actions .fin-btn { flex: 1; }
+
+@media (max-width: 540px) {
+    .fin-seg__btn { padding: 11px 8px; }
+    .fin-cand-list { max-height: 50vh; }
+    .fin-revprompt { left: 8px; right: 8px; transform: none; width: auto; }
+}

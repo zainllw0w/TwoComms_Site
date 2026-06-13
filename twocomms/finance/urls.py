@@ -73,6 +73,10 @@ urlpatterns = [
     # --- Планові платежі (зобов'язання) ---
     path('planned/', views.planned, name='finance_planned'),
     path('api/planned/obligations/', views.planned_obligations_api, name='finance_planned_obligations_api'),
+    path('api/obligations/<int:txn_id>/settle-context/', views.obligation_settle_context_api, name='finance_obligation_settle_context_api'),
+    path('api/obligations/<int:txn_id>/settle/', views.obligation_settle_api, name='finance_obligation_settle_api'),
+    path('api/payments/<int:txn_id>/reverse-candidates/', views.payment_reverse_candidates_api, name='finance_payment_reverse_candidates_api'),
+    path('api/payments/<int:txn_id>/attach-obligation/', views.payment_attach_obligation_api, name='finance_payment_attach_obligation_api'),
     path('api/counterparties/<int:counterparty_id>/history/', views.counterparty_history_api, name='finance_counterparty_history_api'),
 
     # --- API: довідники + операції ---
