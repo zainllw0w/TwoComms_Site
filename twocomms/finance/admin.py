@@ -5,8 +5,9 @@ from django.contrib import admin
 
 from .models import (
     Account, AuditLog, AutomationRule, BudgetPlan, Category, Company,
-    Counterparty, CurrencyRate, FinancialMetric, IntegrationConnection,
-    Invoice, InvoiceItem, Project, Tag, Transaction,
+    Counterparty, CounterpartyCard, CurrencyRate, FinancialMetric,
+    IntegrationConnection, Invoice, InvoiceItem, ObligationSettlement,
+    Project, Tag, Transaction,
     Reseller, ConsignmentShipment, ConsignmentItem, ResellerPayment,
     ConsignmentSale,
 )
@@ -96,6 +97,21 @@ class ConsignmentSaleAdmin(admin.ModelAdmin):
     list_display = ('id', 'reseller', 'item', 'qty', 'date', 'unit_price', 'creates_debt')
     raw_id_fields = ('reseller', 'item', 'debt_txn')
     date_hierarchy = 'date'
+
+
+@admin.register(ObligationSettlement)
+class ObligationSettlementAdmin(admin.ModelAdmin):
+    list_display = ('id', 'period_label', 'amount', 'currency', 'rule', 'payment', 'created_at')
+    raw_id_fields = ('payment', 'rule', 'planned_txn')
+    date_hierarchy = 'created_at'
+
+
+@admin.register(CounterpartyCard)
+class CounterpartyCardAdmin(admin.ModelAdmin):
+    list_display = ('id', 'counterparty', 'bank', 'last4', 'pan_mask', 'is_primary', 'last_used_at')
+    list_filter = ('bank', 'is_primary')
+    search_fields = ('pan_mask', 'last4', 'iban', 'label')
+    raw_id_fields = ('counterparty',)
 
 
 for _model in (CurrencyRate, Category, Counterparty, Project, Tag,

@@ -339,3 +339,44 @@ class Transaction(models.Model):
     def planned_date(self):
         """Дата для прогнозу/календаря планових операцій."""
         return self.date_actual
+
+
+class ObligationSettlement(models.Model):
+    """Зв'язок «реальний платіж → погашене зобов'язання за конкретний період».
+
+    Молекулярна точність обліку: кожна гривня погашення прив'язана до конкретної
+    фактичної транзакції (з її рахунком і датою) та до конкретного зобов'язання
+    (повторюване правило або разова планова) і періоду. Дозволяє кілька доплат на
+    одне зобов'язання та чесну історію «що чим погашено». НЕ впливає на оцінку
+    (template_amount) — погашення фактом ніколи не змінює плановану суму.
+    """
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE,
+                                related_name='obligation_settlements')
+    # Фактичний платіж, що погашає: expense для кредиторки, income для дебіторки.
+    payment = models.ForeignKey('finance.Transaction', on_delete=models.CASCADE,
+                                related_name='settlements')
+    # Зобов'язання: повторюване правило АБО конкретна планова транзакція (onetime).
+    rule = models.ForeignKey(RecurrenceRule, on_delete=models.SET_NULL, blank=True,
+                             null=True, related_name='settlements')
+    planned_txn = models.ForeignKey('finance.Transaction', on_delete=models.SET_NULL,
+                                    blank=True, null=True, related_name='planned_settlements')
+    period_key = models.CharField(max_length=16, blank=True, default='')   # 'YYYY-MM'
+    period_label = models.CharField(max_length=64, blank=True, default='')
+    amount = models.DecimalField(max_digits=18, decimal_places=2)
+    currency = models.CharField(max_length=3, default='UAH')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+                                   blank=True, null=True, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Погашення зобов'язання"
+        verbose_name_plural = "Погашення зобов'язань"
+        ordering = ['-created_at', '-id']
+        indexes = [
+            models.Index(fields=['company', 'rule']),
+            models.Index(fields=['payment']),
+        ]
+
+    def __str__(self):
+        return f'{self.amount} {self.currency} → {self.period_label or self.rule_id}'

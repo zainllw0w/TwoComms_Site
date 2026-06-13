@@ -244,6 +244,53 @@ class Counterparty(models.Model):
         return self.name
 
 
+class CounterpartyCard(models.Model):
+    """Картка/рахунок контрагента (КУДИ ми переказуємо кошти).
+
+    Це реквізит контрагента, а НЕ наш рахунок (наші — модель Account). Зберігає
+    маску номера/останні цифри/IBAN/банк, дозволяє авто-розпізнавання контрагента
+    за P2P-переказом і красиве відображення карток у профілі контрагента.
+    Розпізнавання лише за останніми 4 цифрами — слабке (можливі колізії), тож
+    привʼязку за last4 завжди перепитуємо (див. services/cards.py).
+    """
+
+    company = models.ForeignKey(Company, on_delete=models.CASCADE,
+                                related_name='counterparty_cards')
+    counterparty = models.ForeignKey('finance.Counterparty', on_delete=models.CASCADE,
+                                     related_name='cards')
+    pan_mask = models.CharField(max_length=32, blank=True, default='')   # '537541******1234'
+    last4 = models.CharField(max_length=4, blank=True, default='', db_index=True)
+    bank = models.CharField(max_length=64, blank=True, default='')
+    iban = models.CharField(max_length=64, blank=True, default='', db_index=True)
+    label = models.CharField(max_length=128, blank=True, default='')
+    is_primary = models.BooleanField(default=False)
+    last_used_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Картка контрагента'
+        verbose_name_plural = 'Картки контрагентів'
+        ordering = ['-is_primary', '-last_used_at', 'id']
+
+    def __str__(self):
+        return self.label or self.pan_mask or self.iban or f'card#{self.pk}'
+
+    @property
+    def tail(self) -> str:
+        """Останні 4 цифри (з last4 або з маски)."""
+        if self.last4:
+            return self.last4
+        digits = ''.join(ch for ch in self.pan_mask if ch.isdigit())
+        return digits[-4:] if len(digits) >= 4 else digits
+
+    @property
+    def display(self) -> str:
+        """Людський підпис картки: «monobank · •••• 1234»."""
+        tail = self.tail
+        parts = [p for p in [self.bank, (f'•••• {tail}' if tail else '')] if p]
+        return ' · '.join(parts) or (self.iban or 'картка')
+
+
 class Project(models.Model):
     """Проєкт/напрям (PromUA, Instagram, Rozetka, власний магазин тощо)."""
 
