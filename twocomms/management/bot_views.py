@@ -155,6 +155,8 @@ def bot_settings_save_api(request):
         from django.core.cache import cache
         cache.delete("ig_bot_page_token")
         cache.delete("ig_bot_pt_cooldown")
+        cache.delete("ig_bot_ll_user_token")
+        cache.delete("ig_bot_pt_errsig")
     except Exception:
         pass
     bot.log(

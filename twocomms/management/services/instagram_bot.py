@@ -72,7 +72,11 @@ def log(level: str, event: str, detail: str = "") -> None:
 def resolve_direct_token(s: InstagramBotSettings) -> str:
     if s.direct_source == InstagramBotSettings.CredSource.CUSTOM:
         return (s.custom_direct_token or "").strip()
-    return os.environ.get("DIRECT_API", "").strip()
+    # ENV: пріоритет постійному System User токену (IG_MARKER), потім DIRECT_API.
+    return (
+        os.environ.get("IG_MARKER", "").strip()
+        or os.environ.get("DIRECT_API", "").strip()
+    )
 
 
 def resolve_gemini_key(s: InstagramBotSettings) -> str:
@@ -115,8 +119,94 @@ def _http(url: str, *, data: bytes | None = None, timeout: int = HTTP_TIMEOUT):
         return -1, repr(exc)
 
 
+APP_ID = os.environ.get("IG_APP_ID", "2120980214971807")
+
+
+def _exchange_long_lived(user_token: str) -> str:
+    """short-lived -> long-lived (60 дн). Потрібен app_secret. Page-токен,
+    похідний від long-lived user-токена, не має терміну дії."""
+    secret = app_secret()
+    if not secret or not user_token:
+        return ""
+    code, body = _http(
+        f"{GRAPH}/oauth/access_token?grant_type=fb_exchange_token"
+        f"&client_id={APP_ID}&client_secret={secret}&fb_exchange_token={user_token}",
+        timeout=HTTP_TIMEOUT,
+    )
+    if code == 200:
+        try:
+            return json.loads(body).get("access_token", "") or ""
+        except Exception:
+            return ""
+    return ""
+
+
+def _effective_user_token(s: InstagramBotSettings) -> str:
+    raw = resolve_direct_token(s)
+    if not raw or not app_secret():
+        return raw  # без секрету не можемо подовжити — використовуємо як є
+    cached = cache.get("ig_bot_ll_user_token")
+    if cached:
+        return cached
+    ll = _exchange_long_lived(raw)
+    if ll:
+        cache.set("ig_bot_ll_user_token", ll, 50 * 24 * 3600)  # ~50 днів
+        return ll
+    return raw
+
+
+def _log_token_error(s: InstagramBotSettings, code, body: str) -> None:
+    # Стабільна сигнатура: тіло містить мінливий «current time», тож беремо
+    # error.code/error_subcode, щоб не логувати ту саму помилку щохвилини.
+    sig = str(code)
+    try:
+        err = json.loads(body).get("error", {})
+        sig = f"{code}:{err.get('code')}:{err.get('error_subcode')}"
+    except Exception:
+        sig = f"{code}:{(body or '')[:40]}"
+    if cache.get("ig_bot_pt_errsig") != sig:
+        cache.set("ig_bot_pt_errsig", sig, 3600)
+        log("error", "page_token", f"HTTP {code}: {body[:160]}")
+    try:
+        s.last_error = (
+            f"Direct токен недійсний (HTTP {code}). Онови DIRECT_API в ENV "
+            f"(або свій токен у налаштуваннях)."
+        )
+        s.save(update_fields=["last_error"])
+    except Exception:
+        pass
+
+
+def notify_manager(text: str) -> None:
+    """Сповіщення менеджеру в Telegram (best-effort)."""
+    token = os.environ.get("MANAGEMENT_TG_BOT_TOKEN", "").strip()
+    chat = os.environ.get("MANAGEMENT_TG_ADMIN_CHAT_ID", "").strip()
+    if not token or not chat:
+        return
+    try:
+        body = json.dumps(
+            {"chat_id": chat, "text": text[:3500], "disable_web_page_preview": True}
+        ).encode("utf-8")
+        _http(f"https://api.telegram.org/bot{token}/sendMessage", data=body, timeout=HTTP_TIMEOUT)
+    except Exception:
+        pass
+
+
+def _rate_exceeded(s: InstagramBotSettings, sender_id: str, limit: int = 25, window: int = 3600) -> bool:
+    """Анти-спам: не більше `limit` відповідей одному відправнику за `window` c."""
+    key = f"ig_bot_rate:{sender_id}"
+    try:
+        n = cache.get(key) or 0
+        if n >= limit:
+            return True
+        cache.set(key, n + 1, window)
+    except Exception:
+        return False
+    return False
+
+
 def get_page_token(s: InstagramBotSettings, *, force: bool = False) -> str:
-    token = resolve_direct_token(s)
+    token = _effective_user_token(s)
     if not token:
         return ""
     ck = "ig_bot_page_token"
@@ -124,7 +214,6 @@ def get_page_token(s: InstagramBotSettings, *, force: bool = False) -> str:
         cached = cache.get(ck)
         if cached:
             return cached
-        # Бекоф після помилки: не дьоргаємо Graph і не спамимо лог 60 c.
         if cache.get("ig_bot_pt_cooldown"):
             return ""
     code, body = _http(
@@ -132,24 +221,20 @@ def get_page_token(s: InstagramBotSettings, *, force: bool = False) -> str:
         timeout=HTTP_TIMEOUT,
     )
     if code != 200:
-        cache.set("ig_bot_pt_cooldown", 1, 60)  # тиша на 60 c
-        log("error", "page_token", f"HTTP {code}: {body[:160]}")
-        try:
-            s.last_error = (
-                f"Direct токен недійсний (HTTP {code}). Онови DIRECT_API в ENV "
-                f"(або свій токен у налаштуваннях)."
-            )
-            s.save(update_fields=["last_error"])
-        except Exception:
-            pass
+        cache.set("ig_bot_pt_cooldown", 1, 60)
+        _log_token_error(s, code, body)
         return ""
     try:
         for page in json.loads(body).get("data", []):
             if str(page.get("id")) == s.page_id:
                 pt = page.get("access_token") or ""
                 if pt:
-                    cache.set(ck, pt, PAGE_TOKEN_TTL)
+                    # Якщо токен подовжений (є секрет) — page-токен постійний,
+                    # кешуємо надовго; інакше — коротко.
+                    ttl = 50 * 24 * 3600 if app_secret() else PAGE_TOKEN_TTL
+                    cache.set(ck, pt, ttl)
                     cache.delete("ig_bot_pt_cooldown")
+                    cache.delete("ig_bot_pt_errsig")
                 return pt
     except Exception as exc:
         log("error", "page_token_parse", repr(exc))
@@ -439,6 +524,17 @@ def _claim_next() -> InstagramBotMessage | None:
 
 
 def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
+    # Анти-спам: ліміт відповідей на одного відправника.
+    if _rate_exceeded(s, row.sender_id):
+        row.status = InstagramBotMessage.Status.DONE
+        row.processed_at = timezone.now()
+        row.save(update_fields=["status", "processed_at"])
+        log("warning", "rate_limited", f"{row.sender_id}: перевищено ліміт відповідей")
+        if not cache.get(f"ig_bot_rate_notified:{row.sender_id}"):
+            cache.set(f"ig_bot_rate_notified:{row.sender_id}", 1, 3600)
+            notify_manager(f"⚠️ IG бот: відправник {row.sender_id} перевищив ліміт повідомлень (можливий спам).")
+        return False
+
     if s.ai_enabled:
         history = _build_history(row.sender_id)
         if not history:
@@ -463,6 +559,12 @@ def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
             return False
         reply = s.reply_text
 
+    # Ескалація на людину: модель додає тег [MANAGER], коли потрібен менеджер.
+    needs_manager = False
+    if reply and "[MANAGER]" in reply:
+        needs_manager = True
+        reply = reply.replace("[MANAGER]", "").strip()
+
     if not reply:
         # невдача генерації — ретрай або failed
         if row.attempts >= MAX_ATTEMPTS:
@@ -480,6 +582,10 @@ def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
             row.status = InstagramBotMessage.Status.FAILED
             row.save(update_fields=["status"])
             log("error", "give_up", f"{row.sender_id}: не вдалося відправити після {row.attempts} спроб")
+            notify_manager(
+                f"⚠️ IG бот не зміг відповісти клієнту {row.sender_id} (3 спроби). "
+                f"Повідомлення: {row.text[:300]}"
+            )
         else:
             row.status = InstagramBotMessage.Status.PENDING
             row.save(update_fields=["status"])
@@ -501,6 +607,12 @@ def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
     s.last_reply_at = timezone.now()
     s.save(update_fields=["replies_count", "last_reply_at"])
     log("success", "reply_sent", f"→ {row.sender_id}: {reply[:240]}")
+    if needs_manager:
+        notify_manager(
+            f"🔔 IG Direct — клієнту потрібен менеджер.\n"
+            f"IGSID: {row.sender_id}\nПитання: {row.text[:400]}"
+        )
+        log("warning", "escalation", f"{row.sender_id}: викликано менеджера")
     _trim_messages()
     return True
 
