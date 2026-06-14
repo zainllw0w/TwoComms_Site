@@ -173,18 +173,21 @@
   function fmt(iso){ if(!iso) return '—'; try{ const d=new Date(iso); return d.toLocaleTimeString(); }catch(e){ return '—'; } }
 
   function render(st){
-    const running = st.running, enabled = st.is_enabled;
-    dot.className = 'bot-dot ' + (running ? 'on' : (enabled ? 'on' : 'off'));
-    document.getElementById('bot-state-text').textContent = enabled ? (running ? 'Запущено' : 'Запущено (очікую раннер)') : 'Зупинено';
-    document.getElementById('bot-state-sub').textContent = enabled
-      ? (running ? 'Агент активний і чекає повідомлення' : 'Увімкнено, але поллер ще не тікав (heartbeat відсутній)')
-      : 'Агент вимкнено';
+    const online = st.daemon_online || st.alive;
+    const responding = st.is_enabled && online;
+    dot.className = 'bot-dot ' + (responding ? 'on' : (online ? 'on' : 'off'));
+    let txt, sub;
+    if(!online){ txt='Агент офлайн'; sub='Демон не запущено (watchdog підніме за ~1 хв)'; }
+    else if(st.is_enabled){ txt='Працює'; sub='Агент онлайн і відповідає на повідомлення'; }
+    else { txt='Онлайн, зупинено'; sub='Агент онлайн, але не відповідає (натисніть «Запустити»)'; }
+    document.getElementById('bot-state-text').textContent = txt;
+    document.getElementById('bot-state-sub').textContent = sub;
     document.getElementById('bot-replies').textContent = st.replies_count;
     document.getElementById('bot-lastreply').textContent = fmt(st.last_reply_at);
     document.getElementById('bot-heartbeat').textContent = fmt(st.heartbeat_at);
     document.getElementById('bot-error').textContent = st.last_error || '';
-    document.getElementById('bot-start').disabled = enabled;
-    document.getElementById('bot-stop').disabled = !enabled;
+    document.getElementById('bot-start').disabled = st.is_enabled;
+    document.getElementById('bot-stop').disabled = !st.is_enabled;
   }
 
   let polling = false;

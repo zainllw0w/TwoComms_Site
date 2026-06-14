@@ -20,10 +20,12 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime
 
+from django.core.cache import cache
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
@@ -38,7 +40,14 @@ GRAPH = f"https://graph.facebook.com/{GRAPH_VERSION}"
 GENAI = "https://generativelanguage.googleapis.com/v1beta"
 
 LOG_KEEP_ROWS = 500
-HISTORY_LIMIT = 12  # скільки останніх повідомлень діалогу даємо моделі
+HISTORY_LIMIT = 8  # скільки останніх повідомлень діалогу даємо моделі
+
+# Кеш, щоб НЕ робити важкі виклики в кожному циклі.
+PAGE_TOKEN_TTL = 1200          # page-token живе довго
+CONV_IDS_TTL = 180             # список діалогів /conversations дуже повільний
+                               # (~20-27 c) — оновлюємо не частіше цього
+HTTP_TIMEOUT = 12              # короткий таймаут у гарячому циклі
+CONV_LIST_TIMEOUT = 30         # тільки для рідкісного оновлення списку діалогів
 
 
 # ---------------------------------------------------------------------------
@@ -75,7 +84,7 @@ def resolve_gemini_key(s: InstagramBotSettings) -> str:
 # ---------------------------------------------------------------------------
 # HTTP helpers
 # ---------------------------------------------------------------------------
-def _http(url: str, *, data: bytes | None = None, timeout: int = 20):
+def _http(url: str, *, data: bytes | None = None, timeout: int = HTTP_TIMEOUT):
     headers = {"Content-Type": "application/json"} if data is not None else {}
     req = urllib.request.Request(url, data=data, headers=headers)
     try:
@@ -87,33 +96,60 @@ def _http(url: str, *, data: bytes | None = None, timeout: int = 20):
         return -1, repr(exc)
 
 
-def _http_get_retry(url: str, *, timeout: int = 25, retries: int = 1):
-    """GET з повтором на транзиентних мережевих помилках (-1)."""
-    code, body = _http(url, timeout=timeout)
-    attempt = 0
-    while code == -1 and attempt < retries:
-        attempt += 1
-        code, body = _http(url, timeout=timeout)
-    return code, body
-
-
-def get_page_token(s: InstagramBotSettings) -> str:
+def get_page_token(s: InstagramBotSettings, *, force: bool = False) -> str:
     token = resolve_direct_token(s)
     if not token:
         return ""
-    code, body = _http_get_retry(
-        f"{GRAPH}/me/accounts?fields=name,access_token&access_token={token}"
+    ck = "ig_bot_page_token"
+    if not force:
+        cached = cache.get(ck)
+        if cached:
+            return cached
+    code, body = _http(
+        f"{GRAPH}/me/accounts?fields=name,access_token&access_token={token}",
+        timeout=HTTP_TIMEOUT,
     )
     if code != 200:
-        log("error", "page_token", f"HTTP {code}: {body[:300]}")
+        log("error", "page_token", f"HTTP {code}: {body[:200]}")
         return ""
     try:
         for page in json.loads(body).get("data", []):
             if str(page.get("id")) == s.page_id:
-                return page.get("access_token") or ""
+                pt = page.get("access_token") or ""
+                if pt:
+                    cache.set(ck, pt, PAGE_TOKEN_TTL)
+                return pt
     except Exception as exc:
         log("error", "page_token_parse", repr(exc))
     return ""
+
+
+def _conversation_ids(s: InstagramBotSettings, page_token: str) -> list[str]:
+    """Список тредів. Важкий виклик /conversations (~20-27 c) кешуємо й
+    оновлюємо не частіше CONV_IDS_TTL, щоб не блокувати гарячий цикл."""
+    ck, cak = "ig_bot_conv_ids", "ig_bot_conv_ids_at"
+    ids = cache.get(ck)
+    at = cache.get(cak) or 0
+    now = time.time()
+    if ids is not None and (now - at) < CONV_IDS_TTL:
+        return ids
+    code, body = _http(
+        f"{GRAPH}/{s.page_id}/conversations?platform=instagram"
+        f"&fields=id&limit=10&access_token={page_token}",
+        timeout=CONV_LIST_TIMEOUT,
+    )
+    if code != 200:
+        if ids is not None:
+            return ids  # лишаємо старий список при тимчасовій помилці
+        log("warning", "conversations", f"HTTP {code}: {body[:150]}")
+        return []
+    try:
+        new_ids = [c["id"] for c in json.loads(body).get("data", [])]
+        cache.set(ck, new_ids, CONV_IDS_TTL * 6)
+        cache.set(cak, now, CONV_IDS_TTL * 6)
+        return new_ids
+    except Exception:
+        return ids or []
 
 
 # ---------------------------------------------------------------------------
@@ -313,30 +349,10 @@ def poll_once(s: InstagramBotSettings | None = None) -> dict:
     if not page_token:
         return {"ok": False, "error": "no_page_token", "handled": 0}
 
-    code, body = _http_get_retry(
-        f"{GRAPH}/{s.page_id}/conversations?platform=instagram"
-        f"&fields=id&limit=10&access_token={page_token}",
-        timeout=25,
-        retries=2,
-    )
-    if code != 200:
-        msg = f"conversations HTTP {code}: {body[:160]}"
-        # Транзиентні таймаути логуємо як warning і не залишаємо «залиплу» помилку.
-        if code == -1:
-            log("warning", "poll_timeout", msg)
-        else:
-            s.last_error = msg
-            s.save(update_fields=["last_error"])
-            log("error", "poll_conversations", msg)
-        return {"ok": False, "error": "conversations", "handled": 0}
+    conv_ids = _conversation_ids(s, page_token)  # кешований, важкий виклик рідко
+    if not conv_ids:
+        return {"ok": True, "enabled": True, "handled": 0, "conversations": 0}
 
-    try:
-        conv_ids = [c["id"] for c in json.loads(body).get("data", [])]
-    except Exception as exc:
-        log("error", "poll_parse", repr(exc))
-        return {"ok": False, "error": "parse", "handled": 0}
-
-    # Успішний цикл — чистимо попередню транзиентну помилку.
     if s.last_error:
         s.last_error = ""
         s.save(update_fields=["last_error"])
@@ -345,11 +361,10 @@ def poll_once(s: InstagramBotSettings | None = None) -> dict:
     handled = 0
 
     for cid in conv_ids:
-        code, body = _http_get_retry(
+        code, body = _http(
             f"{GRAPH}/{cid}?fields=messages.limit({HISTORY_LIMIT})"
             f"{{message,from,created_time,id}}&access_token={page_token}",
-            timeout=25,
-            retries=1,
+            timeout=HTTP_TIMEOUT,
         )
         if code != 200:
             continue
@@ -360,16 +375,14 @@ def poll_once(s: InstagramBotSettings | None = None) -> dict:
         if not msgs:
             continue
 
-        # msgs — від найновіших до старіших. Найновіше:
-        latest = msgs[0]
+        latest = msgs[0]  # найновіше
         latest_sender = (latest.get("from") or {}).get("id", "")
         if not latest_sender or latest_sender == s.ig_user_id:
-            continue  # останнє слово за нами або службове — не відповідаємо
+            continue
         created = _parse_ig_time(latest.get("created_time", ""))
         if reply_after and created and created <= reply_after:
-            continue  # старий беклог до старту
+            continue
 
-        # Будуємо історію (хронологічно) для контексту.
         history = []
         for m in reversed(msgs):
             t = (m.get("message") or "").strip()
@@ -423,10 +436,14 @@ def status_snapshot() -> dict:
     now = timezone.now()
     hb = s.heartbeat_at
     alive = bool(hb and (now - hb).total_seconds() < 90)
+    # Окремий heartbeat демона (його пише сам процес-демон).
+    dhb = cache.get("ig_bot_daemon_hb")
+    daemon_online = bool(dhb and (time.time() - float(dhb)) < 45)
     return {
         "is_enabled": s.is_enabled,
         "alive": alive,
-        "running": s.is_enabled and alive,
+        "daemon_online": daemon_online,
+        "running": s.is_enabled and (daemon_online or alive),
         "heartbeat_at": hb.isoformat() if hb else "",
         "last_poll_at": s.last_poll_at.isoformat() if s.last_poll_at else "",
         "last_inbound_at": s.last_inbound_at.isoformat() if s.last_inbound_at else "",
