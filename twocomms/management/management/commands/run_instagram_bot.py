@@ -40,13 +40,13 @@ def _daemon_alive() -> bool:
 
 
 def _conv_refresher(stop_event: threading.Event):
-    """Фоновий потік: рідко й поза гарячим циклом оновлює список тредів
-    (важкий ~25 c виклик /conversations), щоб основний цикл лишався швидким."""
+    """Фоновий потік: рідко оновлює список тредів (важкий ~25 c виклик),
+    тільки коли увімкнено резервний поллінг."""
     while not stop_event.is_set():
         try:
             close_old_connections()
             s = InstagramBotSettings.load()
-            if s.is_enabled:
+            if s.is_enabled and s.receive_via_poll:
                 token = bot.get_page_token(s)
                 if token:
                     bot.refresh_conv_ids(s, token)
@@ -125,20 +125,34 @@ class Command(BaseCommand):
         refresher = threading.Thread(target=_conv_refresher, args=(stop_event,), daemon=True)
         refresher.start()
 
+        from django.utils import timezone as tz
+
+        last_poll = 0.0
         try:
             while True:
                 close_old_connections()  # лікує "MySQL server has gone away"
+                enabled = False
                 try:
                     s = InstagramBotSettings.load()
-                    res = bot.poll_once(s)
+                    enabled = s.is_enabled
                     interval = max(2, s.poll_interval_seconds or 3)
-                    if not res.get("enabled"):
-                        interval = 5  # вимкнено — опитуємо рідше, лишаємось онлайн
+                    if enabled:
+                        # 1) Воркер черги — дешево (локальна БД), щоразу.
+                        bot.process_pending(s)
+                        # 2) Резервний інгест із IG — лише якщо увімкнено й настав час.
+                        now = time.time()
+                        if s.receive_via_poll and (now - last_poll) >= interval:
+                            bot.poll_ingest(s)
+                            bot.process_pending(s)
+                            last_poll = now
+                    # heartbeat для UI навіть коли зупинено (агент онлайн)
+                    s.heartbeat_at = tz.now()
+                    s.save(update_fields=["heartbeat_at"])
                 except Exception as exc:
                     bot.log("error", "daemon_loop", repr(exc))
-                    interval = 5
                 finally:
                     cache.set(HB_KEY, time.time(), HB_ALIVE_WINDOW * 3)
-                time.sleep(interval)
+                # працює — кожні ~1.5 c (низька латентність черги); зупинено — рідше
+                time.sleep(1.5 if enabled else 5)
         finally:
             stop_event.set()

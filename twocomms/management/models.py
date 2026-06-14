@@ -3236,6 +3236,10 @@ class InstagramBotSettings(models.Model):
     # відповідаємо ЛИШЕ переліченим (захист, щоб на тесті не писати реальним
     # клієнтам). Якщо очистити повністю — відповідаємо всім (небезпечно).
     allowed_senders = models.TextField(blank=True, default="955313600823130")
+    # Резервний поллінг інбоксу IG. До Live webhook не доставляє `messages`,
+    # тож поллінг потрібен як міст. Після Live — вимкнути: бот стане суто
+    # event-driven (webhook), і read-запитів до IG не буде взагалі.
+    receive_via_poll = models.BooleanField(default=True)
 
     # Курсор: відповідаємо лише на повідомлення, новіші за цей момент
     # (виставляється у час старту, щоб не відповідати на старий беклог).
@@ -3295,3 +3299,44 @@ class InstagramBotProcessedMessage(models.Model):
 
     def __str__(self) -> str:
         return self.mid
+
+
+class InstagramBotMessage(models.Model):
+    """Черга + локальна історія діалогів.
+
+    Вхідні (role=user) кладуться зі статусом pending (webhook або поллінг),
+    воркер їх обробляє: будує контекст з останніх рядків цього sender_id,
+    генерує відповідь, відправляє і пише рядок role=model (done). Так контекст
+    для Gemini зберігається локально — БЕЗ read-запитів до IG.
+    """
+
+    class Role(models.TextChoices):
+        USER = "user", "user"
+        MODEL = "model", "model"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "pending"
+        PROCESSING = "processing", "processing"
+        DONE = "done", "done"
+        FAILED = "failed", "failed"
+
+    sender_id = models.CharField(max_length=64, db_index=True)
+    role = models.CharField(max_length=8, choices=Role.choices)
+    text = models.TextField(blank=True, default="")
+    # mid унікальний лише для вхідних; вихідні (model) мають null.
+    mid = models.CharField(max_length=255, null=True, blank=True, unique=True)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.DONE)
+    source = models.CharField(max_length=16, default="webhook")
+    attempts = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["id"]
+        indexes = [
+            models.Index(fields=["status", "role"]),
+            models.Index(fields=["sender_id", "created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.role}:{self.sender_id}:{self.status}"

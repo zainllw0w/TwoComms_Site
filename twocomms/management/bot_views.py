@@ -134,6 +134,7 @@ def bot_settings_save_api(request):
 
     # AI-режим / модель / правило / білий список.
     s.ai_enabled = (request.POST.get("ai_enabled") or "").strip() in {"1", "true", "on", "yes"}
+    s.receive_via_poll = (request.POST.get("receive_via_poll") or "").strip() in {"1", "true", "on", "yes"}
     model = (request.POST.get("gemini_model") or "").strip()
     if model:
         s.gemini_model = model[:80]

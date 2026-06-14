@@ -54,10 +54,11 @@
   {% csrf_token %}
 
   <div class="bot-note">
-    Тестовий режим вільного спілкування: бот відповідає через <b>Gemini</b>
-    (модель <b>{{ settings.gemini_model }}</b>) і веде діалог. Відповідає
-    <b>лише</b> відправникам зі списку дозволених (щоб не писати реальним
-    клієнтам). Поки застосунок не в Live — вхідні ловить поллер (~3 c).
+    Event-driven: вхідні ловить <b>webhook</b> (миттєво) і кладе в чергу, а воркер
+    відповідає через <b>Gemini</b> (модель <b>{{ settings.gemini_model }}</b>) з
+    урахуванням історії. Відповідає <b>лише</b> дозволеним відправникам. До Live
+    увімкнено резервний поллінг; після Live його варто вимкнути (працюватиме суто
+    webhook, без зайвих запитів до IG).
   </div>
 
   <div class="bot-grid">
@@ -73,6 +74,7 @@
       </div>
       <div class="bot-metrics">
         <div class="bot-metric"><div class="v" id="bot-replies">{{ status.replies_count }}</div><div class="k">Відповідей</div></div>
+        <div class="bot-metric"><div class="v" id="bot-pending">{{ status.pending }}</div><div class="k">У черзі</div></div>
         <div class="bot-metric"><div class="v" id="bot-lastreply">—</div><div class="k">Остання відповідь</div></div>
         <div class="bot-metric"><div class="v" id="bot-heartbeat">—</div><div class="k">Heartbeat</div></div>
       </div>
@@ -102,6 +104,11 @@
         <div class="bot-field">
           <label>Режим відповіді</label>
           <label class="bot-radio"><input type="checkbox" name="ai_enabled" id="ai_enabled" {% if settings.ai_enabled %}checked{% endif %}> AI-спілкування (Gemini)</label>
+        </div>
+        <div class="bot-field">
+          <label>Прийом повідомлень</label>
+          <label class="bot-radio"><input type="checkbox" name="receive_via_poll" id="receive_via_poll" {% if settings.receive_via_poll %}checked{% endif %}> Резервний поллінг IG</label>
+          <div class="bot-hint" style="margin-top:6px;">Увімкнено — до Live (бот сам перевіряє інбокс). Після Live вимкнути → працює лише webhook (миттєво, без зайвих запитів до IG).</div>
         </div>
         <div class="bot-field">
           <label>Модель Gemini</label>
@@ -183,6 +190,7 @@
     document.getElementById('bot-state-text').textContent = txt;
     document.getElementById('bot-state-sub').textContent = sub;
     document.getElementById('bot-replies').textContent = st.replies_count;
+    var pend = document.getElementById('bot-pending'); if(pend) pend.textContent = st.pending;
     document.getElementById('bot-lastreply').textContent = fmt(st.last_reply_at);
     document.getElementById('bot-heartbeat').textContent = fmt(st.heartbeat_at);
     document.getElementById('bot-error').textContent = st.last_error || '';
