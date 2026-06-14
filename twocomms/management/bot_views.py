@@ -132,6 +132,16 @@ def bot_settings_save_api(request):
     if reply:
         s.reply_text = reply[:1000]
 
+    # AI-режим / модель / правило / білий список.
+    s.ai_enabled = (request.POST.get("ai_enabled") or "").strip() in {"1", "true", "on", "yes"}
+    model = (request.POST.get("gemini_model") or "").strip()
+    if model:
+        s.gemini_model = model[:80]
+    if "system_prompt" in request.POST:
+        s.system_prompt = (request.POST.get("system_prompt") or "").strip()
+    if "allowed_senders" in request.POST:
+        s.allowed_senders = (request.POST.get("allowed_senders") or "").strip()
+
     try:
         interval = int(request.POST.get("poll_interval_seconds") or s.poll_interval_seconds)
         s.poll_interval_seconds = max(2, min(60, interval))
@@ -139,5 +149,9 @@ def bot_settings_save_api(request):
         pass
 
     s.save()
-    bot.log("info", "settings_saved", f"direct={s.direct_source}, gemini={s.gemini_source}, trigger={s.trigger_text!r}")
+    bot.log(
+        "info",
+        "settings_saved",
+        f"ai={s.ai_enabled}, model={s.gemini_model}, direct={s.direct_source}, gemini={s.gemini_source}",
+    )
     return JsonResponse({"success": True, "status": bot.status_snapshot()})

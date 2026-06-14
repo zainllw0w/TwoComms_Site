@@ -1,18 +1,20 @@
 """
 Сервіс Instagram Direct бота TwoComms.
 
-Єдина точка логіки, яку використовують і поллер (management-команда), і
-webhook-приймач. Облікові дані (DIRECT_API / GEMINI_API) беруться з ENV або з
-кастомних значень у налаштуваннях. Відповідь — тестова: на текст, що дорівнює
-trigger_text ("1"), бот відповідає reply_text ("Привет, ты написал единичку").
+Єдина точка логіки для поллера (management-команда) і webhook-приймача.
 
 Канали отримання:
 - Поллінг: читаємо інбокс @twocomms через page-token (graph.facebook.com),
   знаходимо нові вхідні після reply_after і відповідаємо.
-- Webhook: payload з entry[].messaging[].message або entry[].changes[].value.
+- Webhook: payload з entry[].messaging[].message (працює лише в Live-режимі).
 
-Обидва канали дедуплікуються за message id (mid), тож подвійних відповідей не
-буде, хто б першим не доставив подію.
+Відповідь:
+- AI-режим (ai_enabled): вільна розмова через Gemini (модель gemini_model)
+  з урахуванням історії переписки та system_prompt («правило»).
+- Простий режим: текст, що дорівнює trigger_text -> reply_text.
+
+Захист: відповідаємо лише відправникам зі списку allowed_senders (щоб на
+тесті не писати реальним клієнтам). Дедуп за message id (mid).
 """
 from __future__ import annotations
 
@@ -33,9 +35,10 @@ from management.models import (
 
 GRAPH_VERSION = "v21.0"
 GRAPH = f"https://graph.facebook.com/{GRAPH_VERSION}"
+GENAI = "https://generativelanguage.googleapis.com/v1beta"
 
-# Скільки рядків логу тримаємо (старіші підрізаються).
 LOG_KEEP_ROWS = 500
+HISTORY_LIMIT = 12  # скільки останніх повідомлень діалогу даємо моделі
 
 
 # ---------------------------------------------------------------------------
@@ -43,8 +46,7 @@ LOG_KEEP_ROWS = 500
 # ---------------------------------------------------------------------------
 def log(level: str, event: str, detail: str = "") -> None:
     try:
-        InstagramBotLog.objects.create(level=level, event=event, detail=detail[:4000])
-        # Періодична підрізка, щоб таблиця не росла нескінченно.
+        InstagramBotLog.objects.create(level=level, event=event, detail=(detail or "")[:4000])
         if InstagramBotLog.objects.count() > LOG_KEEP_ROWS + 100:
             ids = list(
                 InstagramBotLog.objects.order_by("-id").values_list("id", flat=True)[:LOG_KEEP_ROWS]
@@ -52,22 +54,21 @@ def log(level: str, event: str, detail: str = "") -> None:
             if ids:
                 InstagramBotLog.objects.exclude(id__in=ids).delete()
     except Exception:
-        # Лог не повинен ламати основну логіку.
         pass
 
 
 # ---------------------------------------------------------------------------
 # Облікові дані
 # ---------------------------------------------------------------------------
-def resolve_direct_token(settings_obj: InstagramBotSettings) -> str:
-    if settings_obj.direct_source == InstagramBotSettings.CredSource.CUSTOM:
-        return (settings_obj.custom_direct_token or "").strip()
+def resolve_direct_token(s: InstagramBotSettings) -> str:
+    if s.direct_source == InstagramBotSettings.CredSource.CUSTOM:
+        return (s.custom_direct_token or "").strip()
     return os.environ.get("DIRECT_API", "").strip()
 
 
-def resolve_gemini_key(settings_obj: InstagramBotSettings) -> str:
-    if settings_obj.gemini_source == InstagramBotSettings.CredSource.CUSTOM:
-        return (settings_obj.custom_gemini_key or "").strip()
+def resolve_gemini_key(s: InstagramBotSettings) -> str:
+    if s.gemini_source == InstagramBotSettings.CredSource.CUSTOM:
+        return (s.custom_gemini_key or "").strip()
     return os.environ.get("GEMINI_API", "").strip()
 
 
@@ -82,16 +83,25 @@ def _http(url: str, *, data: bytes | None = None, timeout: int = 20):
             return resp.getcode(), resp.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read().decode("utf-8", "replace")
-    except Exception as exc:  # network / timeout
+    except Exception as exc:
         return -1, repr(exc)
 
 
-def get_page_token(settings_obj: InstagramBotSettings) -> str:
-    """Page access token сторінки з user-токена DIRECT_API."""
-    token = resolve_direct_token(settings_obj)
+def _http_get_retry(url: str, *, timeout: int = 25, retries: int = 1):
+    """GET з повтором на транзиентних мережевих помилках (-1)."""
+    code, body = _http(url, timeout=timeout)
+    attempt = 0
+    while code == -1 and attempt < retries:
+        attempt += 1
+        code, body = _http(url, timeout=timeout)
+    return code, body
+
+
+def get_page_token(s: InstagramBotSettings) -> str:
+    token = resolve_direct_token(s)
     if not token:
         return ""
-    code, body = _http(
+    code, body = _http_get_retry(
         f"{GRAPH}/me/accounts?fields=name,access_token&access_token={token}"
     )
     if code != 200:
@@ -99,7 +109,7 @@ def get_page_token(settings_obj: InstagramBotSettings) -> str:
         return ""
     try:
         for page in json.loads(body).get("data", []):
-            if str(page.get("id")) == settings_obj.page_id:
+            if str(page.get("id")) == s.page_id:
                 return page.get("access_token") or ""
     except Exception as exc:
         log("error", "page_token_parse", repr(exc))
@@ -109,8 +119,8 @@ def get_page_token(settings_obj: InstagramBotSettings) -> str:
 # ---------------------------------------------------------------------------
 # Send
 # ---------------------------------------------------------------------------
-def send_text(settings_obj: InstagramBotSettings, recipient_id: str, text: str) -> bool:
-    page_token = get_page_token(settings_obj)
+def send_text(s: InstagramBotSettings, recipient_id: str, text: str) -> bool:
+    page_token = get_page_token(s)
     if not page_token:
         log("error", "send", "Немає page-token (перевірте DIRECT_API).")
         return False
@@ -121,102 +131,163 @@ def send_text(settings_obj: InstagramBotSettings, recipient_id: str, text: str) 
             "messaging_type": "RESPONSE",
         }
     ).encode("utf-8")
-    code, resp = _http(
-        f"{GRAPH}/{settings_obj.page_id}/messages?access_token={page_token}",
-        data=body,
-    )
+    code, resp = _http(f"{GRAPH}/{s.page_id}/messages?access_token={page_token}", data=body)
     if code == 200:
-        log("success", "reply_sent", f"→ {recipient_id}: {text}")
+        log("success", "reply_sent", f"→ {recipient_id}: {text[:300]}")
         return True
     log("error", "send", f"HTTP {code}: {resp[:300]}")
     return False
 
 
 # ---------------------------------------------------------------------------
-# Core: обробка одного вхідного повідомлення (спільне для poll і webhook)
+# Gemini
 # ---------------------------------------------------------------------------
-def handle_inbound(
-    settings_obj: InstagramBotSettings,
+def gemini_generate(s: InstagramBotSettings, history: list[dict]) -> str | None:
+    """history: [{'role': 'user'|'model', 'text': str}, ...] у хронологічному порядку."""
+    key = resolve_gemini_key(s)
+    if not key:
+        log("error", "gemini", "Немає GEMINI ключа.")
+        return None
+    contents = [{"role": h["role"], "parts": [{"text": h["text"]}]} for h in history if h.get("text")]
+    if not contents:
+        return None
+    payload = {
+        "contents": contents,
+        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 600},
+    }
+    if (s.system_prompt or "").strip():
+        payload["system_instruction"] = {"parts": [{"text": s.system_prompt.strip()}]}
+    model = (s.gemini_model or "gemini-2.5-flash").strip()
+    code, body = _http(
+        f"{GENAI}/models/{model}:generateContent?key={key}",
+        data=json.dumps(payload).encode("utf-8"),
+        timeout=40,
+    )
+    if code != 200:
+        log("error", "gemini", f"HTTP {code}: {body[:300]}")
+        return None
+    try:
+        data = json.loads(body)
+        cand = (data.get("candidates") or [{}])[0]
+        parts = (cand.get("content") or {}).get("parts") or []
+        text = "".join(p.get("text", "") for p in parts).strip()
+        if not text:
+            log("warning", "gemini_empty", f"finishReason={cand.get('finishReason')}")
+            return None
+        return text
+    except Exception as exc:
+        log("error", "gemini_parse", repr(exc))
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Allowlist / dedup
+# ---------------------------------------------------------------------------
+def allowed_sender_ids(s: InstagramBotSettings) -> set[str]:
+    raw = s.allowed_senders or ""
+    ids = {p.strip() for p in raw.replace(",", " ").replace("\n", " ").split() if p.strip()}
+    return ids
+
+
+def _is_allowed(s: InstagramBotSettings, sender_id: str) -> bool:
+    ids = allowed_sender_ids(s)
+    if not ids:
+        return True  # порожній список = всі (небезпечно, але дозволено явно)
+    return sender_id in ids
+
+
+def _mark_processed(mid: str) -> bool:
+    """True, якщо mid новий (ще не оброблений)."""
+    if not mid:
+        return True
+    try:
+        with transaction.atomic():
+            InstagramBotProcessedMessage.objects.create(mid=mid)
+        return True
+    except IntegrityError:
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Core: відповідь на одне вхідне повідомлення
+# ---------------------------------------------------------------------------
+def respond(
+    s: InstagramBotSettings,
     *,
     sender_id: str,
     text: str,
     mid: str,
-    created_at=None,
+    history: list[dict] | None = None,
     source: str = "poll",
 ) -> bool:
-    """Повертає True, якщо була відправлена відповідь."""
     text = (text or "").strip()
     sender_id = (sender_id or "").strip()
     if not sender_id or not text:
         return False
+    if sender_id == s.ig_user_id:
+        return False  # власні повідомлення
 
-    # Не відповідаємо самим собі (наш IG-акаунт).
-    if sender_id == settings_obj.ig_user_id:
+    if not _is_allowed(s, sender_id):
+        log("info", "skip_not_allowed", f"[{source}] {sender_id}: поза білим списком")
         return False
 
-    # Дедуп за mid.
-    if mid:
-        try:
-            with transaction.atomic():
-                InstagramBotProcessedMessage.objects.create(mid=mid)
-        except IntegrityError:
-            return False  # вже оброблено
+    if not _mark_processed(mid):
+        return False  # вже оброблено
 
-    settings_obj.last_inbound_at = timezone.now()
+    s.last_inbound_at = timezone.now()
+    s.save(update_fields=["last_inbound_at"])
 
-    if text == settings_obj.trigger_text:
-        log("info", "trigger", f"[{source}] від {sender_id}: {text!r} → відповідаю")
-        ok = send_text(settings_obj, sender_id, settings_obj.reply_text)
-        if ok:
-            settings_obj.replies_count = (settings_obj.replies_count or 0) + 1
-            settings_obj.last_reply_at = timezone.now()
-        settings_obj.save(
-            update_fields=["last_inbound_at", "replies_count", "last_reply_at"]
+    # Визначаємо текст відповіді.
+    if s.ai_enabled:
+        hist = history or [{"role": "user", "text": text}]
+        log("info", "incoming", f"[{source}] {sender_id}: {text[:200]}")
+        reply = gemini_generate(s, hist)
+        if not reply:
+            return False
+    else:
+        if text != s.trigger_text:
+            log("info", "ignored", f"[{source}] {sender_id}: {text[:80]!r} (не тригер)")
+            return False
+        log("info", "trigger", f"[{source}] {sender_id}: {text!r} → відповідаю")
+        reply = s.reply_text
+
+    ok = send_text(s, sender_id, reply)
+    if ok:
+        s.replies_count = (s.replies_count or 0) + 1
+        s.last_reply_at = timezone.now()
+        s.save(update_fields=["replies_count", "last_reply_at"])
+    return ok
+
+
+# ---------------------------------------------------------------------------
+# Webhook payload (single-turn; повноцінно запрацює в Live-режимі)
+# ---------------------------------------------------------------------------
+def handle_webhook_payload(s: InstagramBotSettings, payload: dict) -> None:
+    def _one(sender_id, msg):
+        if not msg or msg.get("is_echo"):
+            return
+        respond(
+            s,
+            sender_id=sender_id,
+            text=msg.get("text", ""),
+            mid=msg.get("mid", ""),
+            history=[{"role": "user", "text": msg.get("text", "")}],
+            source="webhook",
         )
-        return ok
 
-    log("info", "ignored", f"[{source}] від {sender_id}: {text!r} (не тригер)")
-    settings_obj.save(update_fields=["last_inbound_at"])
-    return False
-
-
-# ---------------------------------------------------------------------------
-# Webhook payload parsing
-# ---------------------------------------------------------------------------
-def handle_webhook_payload(settings_obj: InstagramBotSettings, payload: dict) -> None:
     for entry in payload.get("entry", []) or []:
         for event in entry.get("messaging", []) or []:
-            msg = event.get("message") or {}
-            if not msg or msg.get("is_echo"):
-                continue
-            handle_inbound(
-                settings_obj,
-                sender_id=(event.get("sender") or {}).get("id", ""),
-                text=msg.get("text", ""),
-                mid=msg.get("mid", ""),
-                source="webhook",
-            )
+            _one((event.get("sender") or {}).get("id", ""), event.get("message") or {})
         for change in entry.get("changes", []) or []:
-            if change.get("field") != "messages":
-                continue
-            value = change.get("value") or {}
-            msg = value.get("message") or {}
-            if not msg or msg.get("is_echo"):
-                continue
-            handle_inbound(
-                settings_obj,
-                sender_id=(value.get("sender") or {}).get("id", ""),
-                text=msg.get("text", ""),
-                mid=msg.get("mid", ""),
-                source="webhook",
-            )
+            if change.get("field") == "messages":
+                value = change.get("value") or {}
+                _one((value.get("sender") or {}).get("id", ""), value.get("message") or {})
 
 
 # ---------------------------------------------------------------------------
 # Polling
 # ---------------------------------------------------------------------------
 def _parse_ig_time(raw: str):
-    """'2026-06-14T00:23:26+0000' -> aware datetime."""
     if not raw:
         return None
     try:
@@ -228,29 +299,35 @@ def _parse_ig_time(raw: str):
             return None
 
 
-def poll_once(settings_obj: InstagramBotSettings | None = None) -> dict:
-    """Один цикл опитування інбоксу. Повертає короткий підсумок."""
-    settings_obj = settings_obj or InstagramBotSettings.load()
-    settings_obj.heartbeat_at = timezone.now()
-    settings_obj.last_poll_at = timezone.now()
-    settings_obj.save(update_fields=["heartbeat_at", "last_poll_at"])
+def poll_once(s: InstagramBotSettings | None = None) -> dict:
+    s = s or InstagramBotSettings.load()
+    now = timezone.now()
+    s.heartbeat_at = now
+    s.last_poll_at = now
+    s.save(update_fields=["heartbeat_at", "last_poll_at"])
 
-    if not settings_obj.is_enabled:
+    if not s.is_enabled:
         return {"ok": True, "enabled": False, "handled": 0}
 
-    page_token = get_page_token(settings_obj)
+    page_token = get_page_token(s)
     if not page_token:
         return {"ok": False, "error": "no_page_token", "handled": 0}
 
-    # Останні діалоги (платформа instagram).
-    code, body = _http(
-        f"{GRAPH}/{settings_obj.page_id}/conversations?platform=instagram"
-        f"&fields=id&limit=10&access_token={page_token}"
+    code, body = _http_get_retry(
+        f"{GRAPH}/{s.page_id}/conversations?platform=instagram"
+        f"&fields=id&limit=10&access_token={page_token}",
+        timeout=25,
+        retries=2,
     )
     if code != 200:
-        settings_obj.last_error = f"conversations HTTP {code}: {body[:200]}"
-        settings_obj.save(update_fields=["last_error"])
-        log("error", "poll_conversations", settings_obj.last_error)
+        msg = f"conversations HTTP {code}: {body[:160]}"
+        # Транзиентні таймаути логуємо як warning і не залишаємо «залиплу» помилку.
+        if code == -1:
+            log("warning", "poll_timeout", msg)
+        else:
+            s.last_error = msg
+            s.save(update_fields=["last_error"])
+            log("error", "poll_conversations", msg)
         return {"ok": False, "error": "conversations", "handled": 0}
 
     try:
@@ -259,64 +336,85 @@ def poll_once(settings_obj: InstagramBotSettings | None = None) -> dict:
         log("error", "poll_parse", repr(exc))
         return {"ok": False, "error": "parse", "handled": 0}
 
-    reply_after = settings_obj.reply_after or settings_obj.last_started_at
+    # Успішний цикл — чистимо попередню транзиентну помилку.
+    if s.last_error:
+        s.last_error = ""
+        s.save(update_fields=["last_error"])
+
+    reply_after = s.reply_after or s.last_started_at
     handled = 0
 
     for cid in conv_ids:
-        code, body = _http(
-            f"{GRAPH}/{cid}?fields=messages.limit(8)"
-            f"{{message,from,created_time,id}}&access_token={page_token}"
+        code, body = _http_get_retry(
+            f"{GRAPH}/{cid}?fields=messages.limit({HISTORY_LIMIT})"
+            f"{{message,from,created_time,id}}&access_token={page_token}",
+            timeout=25,
+            retries=1,
         )
         if code != 200:
             continue
         try:
-            messages = json.loads(body).get("messages", {}).get("data", [])
+            msgs = json.loads(body).get("messages", {}).get("data", [])
         except Exception:
             continue
-        # Від старіших до новіших.
-        for m in reversed(messages):
-            sender = (m.get("from") or {}).get("id", "")
-            if not sender or sender == settings_obj.ig_user_id:
+        if not msgs:
+            continue
+
+        # msgs — від найновіших до старіших. Найновіше:
+        latest = msgs[0]
+        latest_sender = (latest.get("from") or {}).get("id", "")
+        if not latest_sender or latest_sender == s.ig_user_id:
+            continue  # останнє слово за нами або службове — не відповідаємо
+        created = _parse_ig_time(latest.get("created_time", ""))
+        if reply_after and created and created <= reply_after:
+            continue  # старий беклог до старту
+
+        # Будуємо історію (хронологічно) для контексту.
+        history = []
+        for m in reversed(msgs):
+            t = (m.get("message") or "").strip()
+            if not t:
                 continue
-            created = _parse_ig_time(m.get("created_time", ""))
-            if reply_after and created and created <= reply_after:
-                continue
-            if handle_inbound(
-                settings_obj,
-                sender_id=sender,
-                text=m.get("message", ""),
-                mid=m.get("id", ""),
-                created_at=created,
-                source="poll",
-            ):
-                handled += 1
+            role = "model" if (m.get("from") or {}).get("id") == s.ig_user_id else "user"
+            history.append({"role": role, "text": t})
+
+        if respond(
+            s,
+            sender_id=latest_sender,
+            text=latest.get("message", ""),
+            mid=latest.get("id", ""),
+            history=history,
+            source="poll",
+        ):
+            handled += 1
 
     return {"ok": True, "enabled": True, "handled": handled, "conversations": len(conv_ids)}
 
 
 # ---------------------------------------------------------------------------
-# Start / Stop
+# Start / Stop (ідемпотентні — не логують повторно)
 # ---------------------------------------------------------------------------
 def start_bot() -> InstagramBotSettings:
     s = InstagramBotSettings.load()
+    was = s.is_enabled
     s.is_enabled = True
     s.last_started_at = timezone.now()
-    # Відповідаємо лише на повідомлення, що прийдуть ПІСЛЯ старту.
     s.reply_after = timezone.now()
     s.last_error = ""
-    s.save(
-        update_fields=["is_enabled", "last_started_at", "reply_after", "last_error"]
-    )
-    log("success", "start", "Бот запущено, очікую повідомлення.")
+    s.save(update_fields=["is_enabled", "last_started_at", "reply_after", "last_error"])
+    if not was:
+        log("success", "start", "Бот запущено, очікую повідомлення.")
     return s
 
 
 def stop_bot() -> InstagramBotSettings:
     s = InstagramBotSettings.load()
+    was = s.is_enabled
     s.is_enabled = False
     s.last_stopped_at = timezone.now()
     s.save(update_fields=["is_enabled", "last_stopped_at"])
-    log("warning", "stop", "Бот зупинено.")
+    if was:
+        log("warning", "stop", "Бот зупинено.")
     return s
 
 
@@ -324,7 +422,6 @@ def status_snapshot() -> dict:
     s = InstagramBotSettings.load()
     now = timezone.now()
     hb = s.heartbeat_at
-    # «Живий», якщо heartbeat був нещодавно (поллер тікає).
     alive = bool(hb and (now - hb).total_seconds() < 90)
     return {
         "is_enabled": s.is_enabled,
@@ -338,6 +435,8 @@ def status_snapshot() -> dict:
         "last_error": s.last_error,
         "direct_source": s.direct_source,
         "gemini_source": s.gemini_source,
+        "ai_enabled": s.ai_enabled,
+        "gemini_model": s.gemini_model,
         "trigger_text": s.trigger_text,
         "reply_text": s.reply_text,
         "poll_interval_seconds": s.poll_interval_seconds,

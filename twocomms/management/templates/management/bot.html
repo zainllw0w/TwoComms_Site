@@ -54,9 +54,10 @@
   {% csrf_token %}
 
   <div class="bot-note">
-    Тестовий режим: бот відповідає <b>«{{ settings.reply_text }}»</b> лише на повідомлення,
-    текст якого дорівнює <b>«{{ settings.trigger_text }}»</b>. На інші повідомлення не реагує.
-    Поки застосунок не в Live — вхідні ловить поллер (~3 c); після Live підхопить webhook.
+    Тестовий режим вільного спілкування: бот відповідає через <b>Gemini</b>
+    (модель <b>{{ settings.gemini_model }}</b>) і веде діалог. Відповідає
+    <b>лише</b> відправникам зі списку дозволених (щоб не писати реальним
+    клієнтам). Поки застосунок не в Live — вхідні ловить поллер (~3 c).
   </div>
 
   <div class="bot-grid">
@@ -99,7 +100,27 @@
           <input type="text" name="custom_gemini_key" placeholder="Свій Gemini ключ (необов'язково)" value="{{ settings.custom_gemini_key }}" style="margin-top:8px;">
         </div>
         <div class="bot-field">
-          <label>Тригер / Відповідь</label>
+          <label>Режим відповіді</label>
+          <label class="bot-radio"><input type="checkbox" name="ai_enabled" id="ai_enabled" {% if settings.ai_enabled %}checked{% endif %}> AI-спілкування (Gemini)</label>
+        </div>
+        <div class="bot-field">
+          <label>Модель Gemini</label>
+          <select name="gemini_model" id="gemini_model" style="width:100%;background:#0c0f17;border:1px solid #232a38;border-radius:9px;color:#e7ecf3;padding:9px 11px;font-size:13.5px;">
+            <option value="gemini-2.5-flash" {% if settings.gemini_model == 'gemini-2.5-flash' %}selected{% endif %}>gemini-2.5-flash (швидка, рекомендовано)</option>
+            <option value="gemini-2.5-pro" {% if settings.gemini_model == 'gemini-2.5-pro' %}selected{% endif %}>gemini-2.5-pro (найрозумніша, повільніша)</option>
+            <option value="gemini-2.5-flash-lite" {% if settings.gemini_model == 'gemini-2.5-flash-lite' %}selected{% endif %}>gemini-2.5-flash-lite</option>
+          </select>
+        </div>
+        <div class="bot-field">
+          <label>Правило / системний промпт (як боту відповідати)</label>
+          <textarea name="system_prompt" rows="5" style="width:100%;background:#0c0f17;border:1px solid #232a38;border-radius:9px;color:#e7ecf3;padding:9px 11px;font-size:13px;font-family:inherit;resize:vertical;">{{ settings.system_prompt }}</textarea>
+        </div>
+        <div class="bot-field">
+          <label>Дозволені відправники (IGSID, через кому/новий рядок) — порожньо = всім (небезпечно)</label>
+          <input type="text" name="allowed_senders" value="{{ settings.allowed_senders }}" placeholder="напр. 955313600823130">
+        </div>
+        <div class="bot-field">
+          <label>Простий режим (коли AI вимкнено): тригер / відповідь</label>
           <input type="text" name="trigger_text" value="{{ settings.trigger_text }}" placeholder="Тригер" style="margin-bottom:8px;">
           <input type="text" name="reply_text" value="{{ settings.reply_text }}" placeholder="Текст відповіді">
         </div>
@@ -138,7 +159,8 @@
     if(!items || !items.length) return;
     const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
     items.forEach(it=>{
-      lastId = Math.max(lastId, it.id);
+      if(it.id <= lastId) return;        // вже додано — захист від гонки запитів
+      lastId = it.id;
       const div = document.createElement('div');
       div.className = 'bot-line ' + (it.level||'info');
       div.innerHTML = '<span class="t">'+esc(it.time)+'</span><span class="e">'+esc(it.event)+'</span><span class="d">'+esc(it.detail)+'</span>';
@@ -165,9 +187,13 @@
     document.getElementById('bot-stop').disabled = !enabled;
   }
 
+  let polling = false;
   function poll(){
+    if(polling) return;            // не запускаємо паралельні запити (захист від дублів)
+    polling = true;
     fetch('{% url "management_bot_status_api" %}?after_id='+lastId, {headers:{'X-Requested-With':'XMLHttpRequest'}})
-      .then(r=>r.json()).then(d=>{ if(d.success){ render(d.status); appendLog(d.log); } }).catch(()=>{});
+      .then(r=>r.json()).then(d=>{ if(d.success){ render(d.status); appendLog(d.log); } })
+      .catch(()=>{}).finally(()=>{ polling = false; });
   }
 
   function action(url){

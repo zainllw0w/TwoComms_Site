@@ -3192,6 +3192,16 @@ class AdminAuditLog(models.Model):
 # ===========================================================================
 
 
+DEFAULT_BOT_SYSTEM_PROMPT = (
+    "Ты — дружелюбный ассистент бренда TwoComms (украинский магазин одежды: "
+    "футболки, худи, стильный мерч). Общайся живо и по-человечески, на языке "
+    "собеседника (украинский или русский). Отвечай кратко и по делу, помогай "
+    "с вопросами о товарах, заказе и доставке. Не выдумывай факты о наличии и "
+    "ценах — если не уверен, предложи уточнить у менеджера. Это тестовый режим "
+    "свободного общения."
+)
+
+
 class InstagramBotSettings(models.Model):
     """Singleton-налаштування Instagram-бота (одна строка, pk=1)."""
 
@@ -3216,6 +3226,16 @@ class InstagramBotSettings(models.Model):
     trigger_text = models.CharField(max_length=255, default="1")
     reply_text = models.CharField(max_length=1000, default="Привет, ты написал единичку")
     poll_interval_seconds = models.PositiveIntegerField(default=3)
+
+    # AI-режим (Gemini). Якщо увімкнено — бот веде вільну розмову; інакше
+    # працює простий тригер trigger_text -> reply_text.
+    ai_enabled = models.BooleanField(default=True)
+    gemini_model = models.CharField(max_length=80, default="gemini-2.5-flash")
+    system_prompt = models.TextField(blank=True, default=DEFAULT_BOT_SYSTEM_PROMPT)
+    # Білий список IGSID відправників (через кому/новий рядок). Поки порожній —
+    # відповідаємо ЛИШЕ переліченим (захист, щоб на тесті не писати реальним
+    # клієнтам). Якщо очистити повністю — відповідаємо всім (небезпечно).
+    allowed_senders = models.TextField(blank=True, default="955313600823130")
 
     # Курсор: відповідаємо лише на повідомлення, новіші за цей момент
     # (виставляється у час старту, щоб не відповідати на старий беклог).
