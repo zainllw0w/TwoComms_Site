@@ -17,6 +17,7 @@ shared-MySQL (wait_timeout=60) з'являється "MySQL server has gone away
 import os
 import subprocess
 import sys
+import threading
 import time
 
 from django.core.cache import cache
@@ -30,11 +31,31 @@ HB_KEY = "ig_bot_daemon_hb"            # heartbeat демона (epoch seconds)
 HB_ALIVE_WINDOW = 45                   # демон вважається живим, якщо hb свіжіший
 SPAWN_LOCK_KEY = "ig_bot_spawn_lock"
 PID_FILE = "tmp/ig_bot.pid"
+CONV_REFRESH_EVERY = 120               # фонове оновлення списку тредів, c
 
 
 def _daemon_alive() -> bool:
     hb = cache.get(HB_KEY)
     return bool(hb and (time.time() - float(hb)) < HB_ALIVE_WINDOW)
+
+
+def _conv_refresher(stop_event: threading.Event):
+    """Фоновий потік: рідко й поза гарячим циклом оновлює список тредів
+    (важкий ~25 c виклик /conversations), щоб основний цикл лишався швидким."""
+    while not stop_event.is_set():
+        try:
+            close_old_connections()
+            s = InstagramBotSettings.load()
+            if s.is_enabled:
+                token = bot.get_page_token(s)
+                if token:
+                    bot.refresh_conv_ids(s, token)
+        except Exception as exc:
+            try:
+                bot.log("warning", "conv_refresh", repr(exc))
+            except Exception:
+                pass
+        stop_event.wait(CONV_REFRESH_EVERY)
 
 
 class Command(BaseCommand):
@@ -99,18 +120,25 @@ class Command(BaseCommand):
             pass
         bot.log("success", "daemon_start", f"Демон онлайн (pid {os.getpid()}).")
 
-        idle_streak = 0
-        while True:
-            close_old_connections()  # лікує "MySQL server has gone away"
-            try:
-                s = InstagramBotSettings.load()
-                res = bot.poll_once(s)
-                interval = max(2, s.poll_interval_seconds or 3)
-                if not res.get("enabled"):
-                    interval = 5  # вимкнено — опитуємо рідше, але лишаємось онлайн
-            except Exception as exc:
-                bot.log("error", "daemon_loop", repr(exc))
-                interval = 5
-            finally:
-                cache.set(HB_KEY, time.time(), HB_ALIVE_WINDOW * 3)
-            time.sleep(interval)
+        # Фоновий потік для важкого /conversations (поза гарячим циклом).
+        stop_event = threading.Event()
+        refresher = threading.Thread(target=_conv_refresher, args=(stop_event,), daemon=True)
+        refresher.start()
+
+        try:
+            while True:
+                close_old_connections()  # лікує "MySQL server has gone away"
+                try:
+                    s = InstagramBotSettings.load()
+                    res = bot.poll_once(s)
+                    interval = max(2, s.poll_interval_seconds or 3)
+                    if not res.get("enabled"):
+                        interval = 5  # вимкнено — опитуємо рідше, лишаємось онлайн
+                except Exception as exc:
+                    bot.log("error", "daemon_loop", repr(exc))
+                    interval = 5
+                finally:
+                    cache.set(HB_KEY, time.time(), HB_ALIVE_WINDOW * 3)
+                time.sleep(interval)
+        finally:
+            stop_event.set()

@@ -124,32 +124,30 @@ def get_page_token(s: InstagramBotSettings, *, force: bool = False) -> str:
     return ""
 
 
-def _conversation_ids(s: InstagramBotSettings, page_token: str) -> list[str]:
-    """Список тредів. Важкий виклик /conversations (~20-27 c) кешуємо й
-    оновлюємо не частіше CONV_IDS_TTL, щоб не блокувати гарячий цикл."""
-    ck, cak = "ig_bot_conv_ids", "ig_bot_conv_ids_at"
-    ids = cache.get(ck)
-    at = cache.get(cak) or 0
-    now = time.time()
-    if ids is not None and (now - at) < CONV_IDS_TTL:
-        return ids
+def refresh_conv_ids(s: InstagramBotSettings, page_token: str) -> list[str]:
+    """Важкий виклик /conversations (~20-27 c). Викликається РІДКО і поза
+    гарячим циклом (фоновий потік демона), щоб не блокувати опитування."""
     code, body = _http(
         f"{GRAPH}/{s.page_id}/conversations?platform=instagram"
         f"&fields=id&limit=10&access_token={page_token}",
         timeout=CONV_LIST_TIMEOUT,
     )
     if code != 200:
-        if ids is not None:
-            return ids  # лишаємо старий список при тимчасовій помилці
+        stale = cache.get("ig_bot_conv_ids")
+        if stale is not None:
+            return stale
         log("warning", "conversations", f"HTTP {code}: {body[:150]}")
         return []
     try:
-        new_ids = [c["id"] for c in json.loads(body).get("data", [])]
-        cache.set(ck, new_ids, CONV_IDS_TTL * 6)
-        cache.set(cak, now, CONV_IDS_TTL * 6)
-        return new_ids
+        ids = [c["id"] for c in json.loads(body).get("data", [])]
+        cache.set("ig_bot_conv_ids", ids, 3600)
+        return ids
     except Exception:
-        return ids or []
+        return cache.get("ig_bot_conv_ids") or []
+
+
+def get_conv_ids_cached() -> list[str] | None:
+    return cache.get("ig_bot_conv_ids")
 
 
 # ---------------------------------------------------------------------------
@@ -349,7 +347,10 @@ def poll_once(s: InstagramBotSettings | None = None) -> dict:
     if not page_token:
         return {"ok": False, "error": "no_page_token", "handled": 0}
 
-    conv_ids = _conversation_ids(s, page_token)  # кешований, важкий виклик рідко
+    conv_ids = get_conv_ids_cached()
+    if conv_ids is None:
+        # Перший раз (або кеш порожній) — посіяти список (повільно, одноразово).
+        conv_ids = refresh_conv_ids(s, page_token)
     if not conv_ids:
         return {"ok": True, "enabled": True, "handled": 0, "conversations": 0}
 
