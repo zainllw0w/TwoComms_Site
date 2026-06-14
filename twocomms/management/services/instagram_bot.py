@@ -630,14 +630,16 @@ def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
             row.status = InstagramBotMessage.Status.FAILED
             row.save(update_fields=["status"])
             log("error", "send_blocked", f"{row.sender_id}: {hint}")
-            notify_manager(
-                f"❗️ IG бот НЕ зміг відповісти клієнту {row.sender_id}.\n"
-                f"Причина: {hint}.\n"
-                f"Питання клієнта: {row.text[:300]}\n\n"
-                f"Якщо це «немає Advanced Access» — щоб відповідати ВСІМ, "
-                f"подай instagram_manage_messages на App Review; для тесту — "
-                f"додай користувача в тестувальники застосунку."
-            )
+            # Системну причину (одна на всіх) не спамимо — алерт раз на годину.
+            if not cache.get("ig_bot_perm_alert"):
+                cache.set("ig_bot_perm_alert", 1, 3600)
+                notify_manager(
+                    f"❗️ IG бот не може відповідати неролевим користувачам.\n"
+                    f"Причина: {hint}.\n\n"
+                    f"Щоб відповідати ВСІМ — подай instagram_manage_messages на "
+                    f"App Review (Advanced Access). Для тесту — додай користувача "
+                    f"в тестувальники. (Це системне; алерт раз на годину.)"
+                )
         elif row.attempts >= MAX_ATTEMPTS:
             row.status = InstagramBotMessage.Status.FAILED
             row.save(update_fields=["status"])
