@@ -306,14 +306,38 @@ def _split_for_send(text: str, limit: int = 950, max_chunks: int = 4) -> list[st
     return [c for c in chunks if c]
 
 
-def send_text(s: InstagramBotSettings, recipient_id: str, text: str) -> bool:
+RATE_LIMIT_CODES = {4, 17, 32, 613, 80007}  # тимчасові ліміти — варто ретраїти
+PERMANENT_HINT = {
+    200: "немає Advanced Access на instagram_manage_messages (потрібен App Review) "
+         "АБО користувач не доданий у тестувальники застосунку",
+    190: "токен недійсний (онови DIRECT_API/IG_MARKER)",
+    10: "поза дозволеним вікном/політикою (24 год)",
+    100: "некоректний параметр запиту",
+}
+
+
+def _classify_send_error(code: int, body: str) -> tuple[str, str]:
+    """Повертає (kind, hint): kind = 'transient' | 'permanent'."""
+    if code == -1 or code >= 500:
+        return "transient", "тимчасова мережева/серверна помилка"
+    ec = 0
+    try:
+        ec = int(json.loads(body).get("error", {}).get("code", 0) or 0)
+    except Exception:
+        ec = 0
+    if ec in RATE_LIMIT_CODES:
+        return "transient", "ліміт частоти (retry пізніше)"
+    return "permanent", PERMANENT_HINT.get(ec, f"відмова Graph API (code {ec})")
+
+
+def send_text(s: InstagramBotSettings, recipient_id: str, text: str) -> tuple[bool, str, str]:
+    """Повертає (ok, kind, hint). kind: '' | 'transient' | 'permanent'."""
     page_token = get_page_token(s)
     if not page_token:
-        log("error", "send", "Немає page-token (перевірте DIRECT_API).")
-        return False
+        return False, "permanent", "немає page-token (перевірте DIRECT_API/IG_MARKER)"
     parts = _split_for_send(text)
     if not parts:
-        return False
+        return False, "permanent", "порожня відповідь"
     ok_any = False
     for part in parts:
         body = json.dumps(
@@ -326,10 +350,11 @@ def send_text(s: InstagramBotSettings, recipient_id: str, text: str) -> bool:
         code, resp = _http(f"{GRAPH}/{s.page_id}/messages?access_token={page_token}", data=body)
         if code == 200:
             ok_any = True
-        else:
-            log("error", "send", f"HTTP {code}: {resp[:300]}")
-            break
-    return ok_any
+            continue
+        kind, hint = _classify_send_error(code, resp)
+        log("error", "send", f"HTTP {code} [{kind}] {hint}: {resp[:200]}")
+        return ok_any, kind, hint
+    return True, "", ""
 
 
 # ---------------------------------------------------------------------------
@@ -597,15 +622,29 @@ def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
             row.save(update_fields=["status"])
         return False
 
-    ok = send_text(s, row.sender_id, reply)
+    ok, kind, hint = send_text(s, row.sender_id, reply)
     if not ok:
-        if row.attempts >= MAX_ATTEMPTS:
+        if kind == "permanent":
+            # Перманентна помилка (напр. #200 немає Advanced Access) — ретраї
+            # безглузді. Падаємо одразу з чіткою причиною.
             row.status = InstagramBotMessage.Status.FAILED
             row.save(update_fields=["status"])
-            log("error", "give_up", f"{row.sender_id}: не вдалося відправити після {row.attempts} спроб")
+            log("error", "send_blocked", f"{row.sender_id}: {hint}")
             notify_manager(
-                f"⚠️ IG бот не зміг відповісти клієнту {row.sender_id} (3 спроби). "
-                f"Повідомлення: {row.text[:300]}"
+                f"❗️ IG бот НЕ зміг відповісти клієнту {row.sender_id}.\n"
+                f"Причина: {hint}.\n"
+                f"Питання клієнта: {row.text[:300]}\n\n"
+                f"Якщо це «немає Advanced Access» — щоб відповідати ВСІМ, "
+                f"подай instagram_manage_messages на App Review; для тесту — "
+                f"додай користувача в тестувальники застосунку."
+            )
+        elif row.attempts >= MAX_ATTEMPTS:
+            row.status = InstagramBotMessage.Status.FAILED
+            row.save(update_fields=["status"])
+            log("error", "give_up", f"{row.sender_id}: не вдалося відправити після {row.attempts} спроб ({hint})")
+            notify_manager(
+                f"⚠️ IG бот не зміг відповісти клієнту {row.sender_id} після {row.attempts} спроб. "
+                f"Причина: {hint}. Питання: {row.text[:300]}"
             )
         else:
             row.status = InstagramBotMessage.Status.PENDING
