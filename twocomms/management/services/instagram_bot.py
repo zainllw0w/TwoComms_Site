@@ -665,6 +665,16 @@ def pending_count() -> int:
     ).count()
 
 
+def unique_senders_count() -> int:
+    """Скільки різних людей писали боту (для аналітики тесту)."""
+    return (
+        InstagramBotMessage.objects.filter(role=InstagramBotMessage.Role.USER)
+        .values("sender_id")
+        .distinct()
+        .count()
+    )
+
+
 def _trim_messages() -> None:
     try:
         if InstagramBotMessage.objects.count() > MSG_KEEP_ROWS + 200:
@@ -827,6 +837,8 @@ def status_snapshot() -> dict:
         "last_reply_at": s.last_reply_at.isoformat() if s.last_reply_at else "",
         "replies_count": s.replies_count,
         "pending": pending_count(),
+        "unique_senders": unique_senders_count(),
+        "allow_all": not bool(allowed_sender_ids(s)),
         "last_error": s.last_error,
         "direct_source": s.direct_source,
         "gemini_source": s.gemini_source,

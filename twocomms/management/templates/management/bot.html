@@ -75,6 +75,7 @@
       </div>
       <div class="bot-metrics">
         <div class="bot-metric"><div class="v" id="bot-replies">{{ status.replies_count }}</div><div class="k">Відповідей</div></div>
+        <div class="bot-metric"><div class="v" id="bot-senders">{{ status.unique_senders }}</div><div class="k">Співрозмовників</div></div>
         <div class="bot-metric"><div class="v" id="bot-pending">{{ status.pending }}</div><div class="k">У черзі</div></div>
         <div class="bot-metric"><div class="v" id="bot-lastreply">—</div><div class="k">Остання відповідь</div></div>
         <div class="bot-metric"><div class="v" id="bot-heartbeat">—</div><div class="k">Heartbeat</div></div>
@@ -197,6 +198,7 @@
     document.getElementById('bot-state-text').textContent = txt;
     document.getElementById('bot-state-sub').textContent = sub;
     document.getElementById('bot-replies').textContent = st.replies_count;
+    var snd = document.getElementById('bot-senders'); if(snd) snd.textContent = st.unique_senders;
     var pend = document.getElementById('bot-pending'); if(pend) pend.textContent = st.pending;
     document.getElementById('bot-lastreply').textContent = fmt(st.last_reply_at);
     document.getElementById('bot-heartbeat').textContent = fmt(st.heartbeat_at);
