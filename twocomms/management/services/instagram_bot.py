@@ -269,6 +269,18 @@ def get_conv_ids_cached() -> list[str] | None:
 # ---------------------------------------------------------------------------
 # Send
 # ---------------------------------------------------------------------------
+def send_sender_action(s: InstagramBotSettings, recipient_id: str, action: str) -> None:
+    """typing_on / typing_off / mark_seen — для відчуття миттєвості (best practice)."""
+    page_token = get_page_token(s)
+    if not page_token:
+        return
+    try:
+        body = json.dumps({"recipient": {"id": recipient_id}, "sender_action": action}).encode("utf-8")
+        _http(f"{GRAPH}/{s.page_id}/messages?access_token={page_token}", data=body, timeout=HTTP_TIMEOUT)
+    except Exception:
+        pass
+
+
 def _split_for_send(text: str, limit: int = 950, max_chunks: int = 4) -> list[str]:
     """Ріже текст на частини ≤limit байт (UTF-8). Send API дозволяє 1000 байт."""
     text = (text or "").strip()
@@ -353,8 +365,10 @@ def gemini_generate(
             except Exception:
                 pass
 
-    # system_instruction = правило (промпт) + актуальний каталог.
+    # system_instruction = правило (промпт) + база знань + актуальний каталог.
     sys_text = (s.system_prompt or "").strip()
+    if (s.knowledge_base or "").strip():
+        sys_text = (sys_text + "\n\nДодаткова інформація:\n" + s.knowledge_base.strip()).strip()
     try:
         from management.services.bot_catalog import get_catalog_context
 
@@ -536,6 +550,9 @@ def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
         return False
 
     if s.ai_enabled:
+        # Відразу показуємо клієнту, що бот побачив і «друкує» (best practice).
+        send_sender_action(s, row.sender_id, "mark_seen")
+        send_sender_action(s, row.sender_id, "typing_on")
         history = _build_history(row.sender_id)
         if not history:
             history = [{"role": "user", "text": row.text}]
@@ -571,6 +588,10 @@ def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
             row.status = InstagramBotMessage.Status.FAILED
             row.save(update_fields=["status"])
             log("error", "give_up", f"{row.sender_id}: не вдалося згенерувати після {row.attempts} спроб")
+            notify_manager(
+                f"⚠️ IG бот не зміг згенерувати відповідь клієнту {row.sender_id} "
+                f"(3 спроби). Питання: {row.text[:300]}"
+            )
         else:
             row.status = InstagramBotMessage.Status.PENDING
             row.save(update_fields=["status"])

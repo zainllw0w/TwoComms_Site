@@ -140,6 +140,8 @@ def bot_settings_save_api(request):
         s.gemini_model = model[:80]
     if "system_prompt" in request.POST:
         s.system_prompt = (request.POST.get("system_prompt") or "").strip()
+    if "knowledge_base" in request.POST:
+        s.knowledge_base = (request.POST.get("knowledge_base") or "").strip()
     if "allowed_senders" in request.POST:
         s.allowed_senders = (request.POST.get("allowed_senders") or "").strip()
 

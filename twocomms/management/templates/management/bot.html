@@ -126,6 +126,10 @@
           <textarea name="system_prompt" rows="5" style="width:100%;background:#0c0f17;border:1px solid #232a38;border-radius:9px;color:#e7ecf3;padding:9px 11px;font-size:13px;font-family:inherit;resize:vertical;">{{ settings.system_prompt }}</textarea>
         </div>
         <div class="bot-field">
+          <label>База знань (доставка, оплата, повернення, графік — бот це враховує)</label>
+          <textarea name="knowledge_base" rows="5" placeholder="Напр.: Доставка Новою Поштою 1-3 дні. Оплата: передоплата на карту або накладений платіж. Повернення 14 днів. Працюємо Пн-Пт 9:00-18:00." style="width:100%;background:#0c0f17;border:1px solid #232a38;border-radius:9px;color:#e7ecf3;padding:9px 11px;font-size:13px;font-family:inherit;resize:vertical;">{{ settings.knowledge_base }}</textarea>
+        </div>
+        <div class="bot-field">
           <label>Дозволені відправники (IGSID, через кому/новий рядок) — порожньо = всім (небезпечно)</label>
           <input type="text" name="allowed_senders" value="{{ settings.allowed_senders }}" placeholder="напр. 955313600823130">
         </div>

@@ -3253,6 +3253,9 @@ class InstagramBotSettings(models.Model):
     ai_enabled = models.BooleanField(default=True)
     gemini_model = models.CharField(max_length=80, default="gemini-3.5-flash")
     system_prompt = models.TextField(blank=True, default=DEFAULT_BOT_SYSTEM_PROMPT)
+    # Додаткова база знань (правила доставки, оплати, повернень, графік тощо).
+    # Підставляється в контекст Gemini поряд з каталогом. Редагується в UI.
+    knowledge_base = models.TextField(blank=True, default="")
     # Білий список IGSID відправників (через кому/новий рядок). Поки порожній —
     # відповідаємо ЛИШЕ переліченим (захист, щоб на тесті не писати реальним
     # клієнтам). Якщо очистити повністю — відповідаємо всім (небезпечно).
