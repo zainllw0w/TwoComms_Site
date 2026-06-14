@@ -48,8 +48,21 @@ def ig_webhook(request):
             return HttpResponse("ok")
         try:
             settings_obj = InstagramBotSettings.load()
-            # Лог сирого payload у консоль (обрізаний).
-            bot.log("info", "webhook_in", raw[:1000])
+            # Компактний лог: тип події + лічильники (без сирих payload,
+            # щоб не засмічувати консоль read-квитанціями і не світити чужі
+            # повідомлення в Live).
+            entries = payload.get("entry", []) or []
+            n_msg = sum(
+                1
+                for e in entries
+                for ev in (e.get("messaging", []) or [])
+                if (ev.get("message") and not ev["message"].get("is_echo"))
+            )
+            n_other = sum(len(e.get("messaging", []) or []) for e in entries) - n_msg
+            if n_msg:
+                bot.log("info", "webhook_msg", f"повідомлень: {n_msg}")
+            elif n_other:
+                bot.log("info", "webhook_event", f"службові події: {n_other} (read/seen тощо)")
             bot.handle_webhook_payload(settings_obj, payload)
         except Exception as exc:
             logger.exception("ig_bot: handler error")
