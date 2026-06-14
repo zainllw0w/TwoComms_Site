@@ -17,6 +17,7 @@ X-Hub-Signature-256 (IG_APP_SECRET), is_enabled-гейт.
 """
 from __future__ import annotations
 
+import base64
 import hashlib
 import hmac
 import json
@@ -170,48 +171,131 @@ def get_conv_ids_cached() -> list[str] | None:
 # ---------------------------------------------------------------------------
 # Send
 # ---------------------------------------------------------------------------
+def _split_for_send(text: str, limit: int = 950, max_chunks: int = 4) -> list[str]:
+    """Ріже текст на частини ≤limit байт (UTF-8). Send API дозволяє 1000 байт."""
+    text = (text or "").strip()
+    if not text:
+        return []
+    chunks: list[str] = []
+    rest = text
+    while rest and len(chunks) < max_chunks:
+        if len(rest.encode("utf-8")) <= limit:
+            chunks.append(rest)
+            rest = ""
+            break
+        # знайти межу різу по байтах, з відкатом до пробілу/переносу
+        cut = limit
+        while len(rest[:cut].encode("utf-8")) > limit and cut > 0:
+            cut -= 1
+        slice_ = rest[:cut]
+        brk = max(slice_.rfind("\n"), slice_.rfind(". "), slice_.rfind(" "))
+        if brk > int(cut * 0.5):
+            slice_ = rest[:brk + 1]
+        chunks.append(slice_.strip())
+        rest = rest[len(slice_):]
+    return [c for c in chunks if c]
+
+
 def send_text(s: InstagramBotSettings, recipient_id: str, text: str) -> bool:
     page_token = get_page_token(s)
     if not page_token:
         log("error", "send", "Немає page-token (перевірте DIRECT_API).")
         return False
-    body = json.dumps(
-        {
-            "recipient": {"id": recipient_id},
-            "message": {"text": text},
-            "messaging_type": "RESPONSE",
-        }
-    ).encode("utf-8")
-    code, resp = _http(f"{GRAPH}/{s.page_id}/messages?access_token={page_token}", data=body)
-    if code == 200:
-        return True
-    log("error", "send", f"HTTP {code}: {resp[:300]}")
-    return False
+    parts = _split_for_send(text)
+    if not parts:
+        return False
+    ok_any = False
+    for part in parts:
+        body = json.dumps(
+            {
+                "recipient": {"id": recipient_id},
+                "message": {"text": part},
+                "messaging_type": "RESPONSE",
+            }
+        ).encode("utf-8")
+        code, resp = _http(f"{GRAPH}/{s.page_id}/messages?access_token={page_token}", data=body)
+        if code == 200:
+            ok_any = True
+        else:
+            log("error", "send", f"HTTP {code}: {resp[:300]}")
+            break
+    return ok_any
 
 
 # ---------------------------------------------------------------------------
 # Gemini
 # ---------------------------------------------------------------------------
-def gemini_generate(s: InstagramBotSettings, history: list[dict]) -> str | None:
+def gemini_generate(
+    s: InstagramBotSettings, history: list[dict], images: list[tuple[str, bytes]] | None = None
+) -> str | None:
+    """history: [{'role':'user'|'model','text':str}] хронологічно.
+    images: список (mime_type, raw_bytes) для ОСТАННЬОГО (поточного) user-ходу."""
     key = resolve_gemini_key(s)
     if not key:
         log("error", "gemini", "Немає GEMINI ключа.")
         return None
-    contents = [{"role": h["role"], "parts": [{"text": h["text"]}]} for h in history if h.get("text")]
+    contents = []
+    for h in history:
+        if h.get("text"):
+            contents.append({"role": h["role"], "parts": [{"text": h["text"]}]})
     if not contents:
-        return None
+        contents = [{"role": "user", "parts": [{"text": "(порожнє повідомлення)"}]}]
+
+    # Зображення додаємо в останній user-хід як inline_data.
+    if images:
+        last = contents[-1]
+        if last.get("role") != "user":
+            last = {"role": "user", "parts": [{"text": ""}]}
+            contents.append(last)
+        for mime, raw in images[:3]:
+            try:
+                last["parts"].append(
+                    {"inline_data": {"mime_type": mime, "data": base64.b64encode(raw).decode()}}
+                )
+            except Exception:
+                pass
+
+    # system_instruction = правило (промпт) + актуальний каталог.
+    sys_text = (s.system_prompt or "").strip()
+    try:
+        from management.services.bot_catalog import get_catalog_context
+
+        catalog = get_catalog_context()
+        if catalog:
+            sys_text = (sys_text + "\n\n" + catalog).strip()
+    except Exception:
+        pass
+
     payload = {
         "contents": contents,
-        "generationConfig": {"temperature": 0.7, "maxOutputTokens": 600},
+        "generationConfig": {"temperature": 0.6, "maxOutputTokens": 700},
+        "safetySettings": [
+            {"category": c, "threshold": "BLOCK_ONLY_HIGH"}
+            for c in (
+                "HARM_CATEGORY_HARASSMENT",
+                "HARM_CATEGORY_HATE_SPEECH",
+                "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                "HARM_CATEGORY_DANGEROUS_CONTENT",
+            )
+        ],
     }
-    if (s.system_prompt or "").strip():
-        payload["system_instruction"] = {"parts": [{"text": s.system_prompt.strip()}]}
-    model = (s.gemini_model or "gemini-2.5-flash").strip()
-    code, body = _http(
-        f"{GENAI}/models/{model}:generateContent?key={key}",
+    if sys_text:
+        payload["system_instruction"] = {"parts": [{"text": sys_text}]}
+    model = (s.gemini_model or "gemini-3.5-flash").strip()
+    req = urllib.request.Request(
+        f"{GENAI}/models/{model}:generateContent",
         data=json.dumps(payload).encode("utf-8"),
-        timeout=40,
+        headers={"Content-Type": "application/json", "x-goog-api-key": key},
     )
+    try:
+        with urllib.request.urlopen(req, timeout=45) as resp:
+            code, body = resp.getcode(), resp.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as exc:
+        log("error", "gemini", f"HTTP {exc.code}: {exc.read().decode('utf-8','replace')[:300]}")
+        return None
+    except Exception as exc:
+        log("error", "gemini", repr(exc))
+        return None
     if code != 200:
         log("error", "gemini", f"HTTP {code}: {body[:300]}")
         return None
@@ -226,6 +310,23 @@ def gemini_generate(s: InstagramBotSettings, history: list[dict]) -> str | None:
         return text
     except Exception as exc:
         log("error", "gemini_parse", repr(exc))
+        return None
+
+
+def download_image(url: str) -> tuple[str, bytes] | None:
+    """Завантажує зображення-вкладення для мультимодалу. Ліміт ~6 МБ."""
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "TwoCommsBot/1.0"})
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            mime = (resp.headers.get("Content-Type") or "image/jpeg").split(";")[0].strip()
+            if not mime.startswith("image/"):
+                return None
+            raw = resp.read(6 * 1024 * 1024 + 1)
+            if len(raw) > 6 * 1024 * 1024:
+                return None
+            return mime, raw
+    except Exception as exc:
+        log("warning", "image_download", repr(exc))
         return None
 
 
@@ -246,13 +347,17 @@ def _is_allowed(s: InstagramBotSettings, sender_id: str) -> bool:
 # Черга: постановка вхідних
 # ---------------------------------------------------------------------------
 def enqueue_inbound(
-    s: InstagramBotSettings, *, sender_id: str, text: str, mid: str, source: str = "webhook"
+    s: InstagramBotSettings, *, sender_id: str, text: str, mid: str,
+    source: str = "webhook", attachments: list[str] | None = None
 ) -> bool:
     """Кладе вхідне в чергу (pending). Повертає True, якщо додано нове."""
     text = (text or "").strip()
     sender_id = (sender_id or "").strip()
-    if not sender_id or not text:
+    attachments = attachments or []
+    if not sender_id:
         return False
+    if not text and not attachments:
+        return False  # ні тексту, ні зображення
     if sender_id == s.ig_user_id:
         return False
     if not s.is_enabled:
@@ -265,16 +370,18 @@ def enqueue_inbound(
             InstagramBotMessage.objects.create(
                 sender_id=sender_id,
                 role=InstagramBotMessage.Role.USER,
-                text=text,
+                text=text or "(зображення)",
                 mid=mid or None,
                 status=InstagramBotMessage.Status.PENDING,
                 source=source,
+                attachments=json.dumps(attachments) if attachments else "",
             )
     except IntegrityError:
         return False  # вже у черзі/оброблено (mid unique)
     s.last_inbound_at = timezone.now()
     s.save(update_fields=["last_inbound_at"])
-    log("info", "queued", f"[{source}] {sender_id}: {text[:160]}")
+    extra = f" (+{len(attachments)} фото)" if attachments else ""
+    log("info", "queued", f"[{source}] {sender_id}: {text[:140]}{extra}")
     return True
 
 
@@ -323,7 +430,17 @@ def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
         history = _build_history(row.sender_id)
         if not history:
             history = [{"role": "user", "text": row.text}]
-        reply = gemini_generate(s, history)
+        # Зображення-вкладення -> мультимодальний вхід.
+        images = []
+        if row.attachments:
+            try:
+                for url in json.loads(row.attachments)[:3]:
+                    img = download_image(url)
+                    if img:
+                        images.append(img)
+            except Exception:
+                pass
+        reply = gemini_generate(s, history, images=images or None)
     else:
         if (row.text or "").strip() != s.trigger_text:
             row.status = InstagramBotMessage.Status.DONE
@@ -420,12 +537,22 @@ def _trim_messages() -> None:
 def handle_webhook_payload(s: InstagramBotSettings, payload: dict) -> int:
     enq = 0
 
+    def _imgs(msg):
+        urls = []
+        for att in (msg.get("attachments") or []):
+            if (att.get("type") == "image"):
+                u = (att.get("payload") or {}).get("url")
+                if u:
+                    urls.append(u)
+        return urls
+
     def _one(sender_id, msg):
         nonlocal enq
-        if not msg or msg.get("is_echo"):
+        if not msg or msg.get("is_echo") or msg.get("is_deleted") or msg.get("is_unsupported"):
             return
         if enqueue_inbound(
-            s, sender_id=sender_id, text=msg.get("text", ""), mid=msg.get("mid", ""), source="webhook"
+            s, sender_id=sender_id, text=msg.get("text", ""), mid=msg.get("mid", ""),
+            source="webhook", attachments=_imgs(msg),
         ):
             enq += 1
 
