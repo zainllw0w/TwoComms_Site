@@ -124,12 +124,24 @@ def get_page_token(s: InstagramBotSettings, *, force: bool = False) -> str:
         cached = cache.get(ck)
         if cached:
             return cached
+        # Бекоф після помилки: не дьоргаємо Graph і не спамимо лог 60 c.
+        if cache.get("ig_bot_pt_cooldown"):
+            return ""
     code, body = _http(
         f"{GRAPH}/me/accounts?fields=name,access_token&access_token={token}",
         timeout=HTTP_TIMEOUT,
     )
     if code != 200:
-        log("error", "page_token", f"HTTP {code}: {body[:200]}")
+        cache.set("ig_bot_pt_cooldown", 1, 60)  # тиша на 60 c
+        log("error", "page_token", f"HTTP {code}: {body[:160]}")
+        try:
+            s.last_error = (
+                f"Direct токен недійсний (HTTP {code}). Онови DIRECT_API в ENV "
+                f"(або свій токен у налаштуваннях)."
+            )
+            s.save(update_fields=["last_error"])
+        except Exception:
+            pass
         return ""
     try:
         for page in json.loads(body).get("data", []):
@@ -137,6 +149,7 @@ def get_page_token(s: InstagramBotSettings, *, force: bool = False) -> str:
                 pt = page.get("access_token") or ""
                 if pt:
                     cache.set(ck, pt, PAGE_TOKEN_TTL)
+                    cache.delete("ig_bot_pt_cooldown")
                 return pt
     except Exception as exc:
         log("error", "page_token_parse", repr(exc))

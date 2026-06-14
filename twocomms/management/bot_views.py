@@ -150,6 +150,13 @@ def bot_settings_save_api(request):
         pass
 
     s.save()
+    # Скинути кеш токена/кулдаун, щоб новий токен підхопився одразу.
+    try:
+        from django.core.cache import cache
+        cache.delete("ig_bot_page_token")
+        cache.delete("ig_bot_pt_cooldown")
+    except Exception:
+        pass
     bot.log(
         "info",
         "settings_saved",
