@@ -1,162 +1,30 @@
 """
-Мінімальний тестовий приймач Instagram webhook для бота TwoComms.
+Instagram webhook приймач TwoComms.
 
-Призначення (фаза тесту):
 - GET  /bot/webhook/  — верифікація підписки Meta (echo hub.challenge).
-- POST /bot/webhook/  — приймає вхідні IG-повідомлення і миттєво відповідає
-  ТІЛЬКИ якщо текст рівно "1" -> надсилає "Привет, ты написал единичку".
-  На будь-який інший текст бот мовчить.
+- POST /bot/webhook/  — вхідні події IG. Делегуються в services.instagram_bot.
 
-Це навмисно ізольований модуль без БД/моделей: спочатку перевіряємо, що
-ланцюжок Meta -> наш сервер -> Send API працює. Повна вкладка керування
-ботом (Start/Stop, ключі, Gemini) будується окремо після успішного тесту.
+Verify token береться з ENV (IG_BOT_VERIFY_TOKEN). У коді секрету немає.
+
+Вхідні `messages` доставляються лише в Live-режимі застосунку; поки застосунок
+на верифікації, реальні відповіді забезпечує поллер. Обидва канали йдуть через
+один сервіс і дедуплікуються за mid, тож подвійних відповідей не буде.
 """
 import json
 import logging
 import os
-import urllib.error
-import urllib.request
 
-from django.core.cache import cache
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 
+from management.models import InstagramBotSettings
+from management.services import instagram_bot as bot
+
 logger = logging.getLogger("ig_bot")
 
-# Окремий debug-файл, щоб бачити вхідні POST незалежно від LOGGING-конфіга.
-_DEBUG_LOG = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tmp", "ig_bot.log"
-)
 
-
-def _debug(msg: str) -> None:
-    try:
-        os.makedirs(os.path.dirname(_DEBUG_LOG), exist_ok=True)
-        from datetime import datetime
-
-        with open(_DEBUG_LOG, "a", encoding="utf-8") as fh:
-            fh.write(f"{datetime.utcnow().isoformat()}Z {msg}\n")
-    except Exception:
-        pass
-
-
-GRAPH_VERSION = "v21.0"
-GRAPH = f"https://graph.facebook.com/{GRAPH_VERSION}"
-
-# Сторінка Twocomms (Facebook Page id, до якої прив'язаний IG @twocomms).
-PAGE_ID = "401216546416228"
-
-# Verify token для верифікації webhook у Meta App Dashboard.
-# За замовчуванням захардкоджений (щоб не чіпати ENV на час тесту),
-# але можна перевизначити через змінну оточення IG_BOT_VERIFY_TOKEN.
-VERIFY_TOKEN = os.environ.get("IG_BOT_VERIFY_TOKEN", "twc_ig_bot_a7f3k9q2_verify")
-
-# Тестова логіка.
-TEST_TRIGGER = "1"
-TEST_REPLY = "Привет, ты написал единичку"
-
-
-def _direct_token() -> str:
-    return os.environ.get("DIRECT_API", "")
-
-
-def _http_get_json(url: str):
-    req = urllib.request.Request(url)
-    with urllib.request.urlopen(req, timeout=15) as resp:
-        return json.loads(resp.read().decode("utf-8", "replace"))
-
-
-def _get_page_token() -> str:
-    """Отримати page access token сторінки Twocomms з user-токена DIRECT_API."""
-    token = _direct_token()
-    if not token:
-        return ""
-    cached = cache.get("ig_bot_page_token")
-    if cached:
-        return cached
-    try:
-        data = _http_get_json(
-            f"{GRAPH}/me/accounts?fields=name,access_token&access_token={token}"
-        )
-        for page in data.get("data", []):
-            if str(page.get("id")) == PAGE_ID or str(page.get("name")) == "Twocomms":
-                page_token = page.get("access_token") or ""
-                if page_token:
-                    cache.set("ig_bot_page_token", page_token, 60 * 30)
-                    return page_token
-    except Exception:
-        logger.exception("ig_bot: failed to resolve page token")
-    return token
-
-
-def _send_text(recipient_id: str, text: str) -> None:
-    page_token = _get_page_token()
-    if not page_token:
-        logger.error("ig_bot: no page token available, cannot send")
-        return
-    url = f"{GRAPH}/{PAGE_ID}/messages?access_token={page_token}"
-    body = json.dumps(
-        {
-            "recipient": {"id": recipient_id},
-            "message": {"text": text},
-            "messaging_type": "RESPONSE",
-        }
-    ).encode("utf-8")
-    req = urllib.request.Request(
-        url, data=body, headers={"Content-Type": "application/json"}
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            logger.info("ig_bot: sent reply, status=%s", resp.getcode())
-            _debug(f"SEND ok status={resp.getcode()} to={recipient_id} text={text!r}")
-    except urllib.error.HTTPError as exc:
-        detail = exc.read()[:400].decode("utf-8", "replace")
-        logger.error("ig_bot: send HTTPError %s: %s", exc.code, detail)
-        _debug(f"SEND HTTPError {exc.code}: {detail}")
-    except Exception as exc:
-        logger.exception("ig_bot: send failed")
-        _debug(f"SEND EXC {exc!r}")
-
-
-def _handle_messaging_event(event: dict) -> None:
-    message = event.get("message") or {}
-    # Ігноруємо echo (наші ж відправлені повідомлення) і службові події.
-    if message.get("is_echo"):
-        return
-    mid = message.get("mid") or ""
-    text = (message.get("text") or "").strip()
-    sender_id = (event.get("sender") or {}).get("id") or ""
-    _debug(f"MSG sender={sender_id} mid={mid} text={text!r}")
-    if not sender_id or not text:
-        return
-
-    # Захист від повторної обробки (Meta може ретраїти доставку).
-    if mid:
-        dedup_key = f"ig_bot_seen:{mid}"
-        if cache.get(dedup_key):
-            _debug(f"SKIP dup mid={mid}")
-            return
-        cache.set(dedup_key, 1, 60 * 60)
-
-    if text == TEST_TRIGGER:
-        _debug(f"TRIGGER matched -> reply to {sender_id}")
-        _send_text(sender_id, TEST_REPLY)
-    else:
-        _debug(f"no trigger (text={text!r})")
-
-
-def _handle_payload(payload: dict) -> None:
-    # IG messaging (реальні повідомлення): entry[].messaging[]
-    # Test-кнопка та деякі версії шлють: entry[].changes[] з field == "messages"
-    for entry in payload.get("entry", []) or []:
-        for event in entry.get("messaging", []) or []:
-            if "message" in event:
-                _handle_messaging_event(event)
-        for change in entry.get("changes", []) or []:
-            if change.get("field") == "messages":
-                value = change.get("value") or {}
-                if "message" in value:
-                    _handle_messaging_event(value)
+def _verify_token() -> str:
+    return os.environ.get("IG_BOT_VERIFY_TOKEN", "").strip()
 
 
 @csrf_exempt
@@ -165,24 +33,30 @@ def ig_webhook(request):
         mode = request.GET.get("hub.mode")
         token = request.GET.get("hub.verify_token")
         challenge = request.GET.get("hub.challenge", "")
-        if mode == "subscribe" and token == VERIFY_TOKEN:
+        expected = _verify_token()
+        if mode == "subscribe" and expected and token == expected:
             return HttpResponse(challenge, content_type="text/plain")
         return HttpResponse("forbidden", status=403)
 
     if request.method == "POST":
-        # Завжди відповідаємо 200, щоб Meta не вимикала підписку.
+        # Завжди 200, щоб Meta не вимикала підписку.
         raw = request.body.decode("utf-8", "replace")
-        _debug(f"POST raw={raw[:1500]}")
         try:
             payload = json.loads(raw)
         except Exception:
             logger.warning("ig_bot: bad payload")
             return HttpResponse("ok")
         try:
-            logger.info("ig_bot: payload %s", json.dumps(payload)[:1000])
-            _handle_payload(payload)
-        except Exception:
+            settings_obj = InstagramBotSettings.load()
+            # Лог сирого payload у консоль (обрізаний).
+            bot.log("info", "webhook_in", raw[:1000])
+            bot.handle_webhook_payload(settings_obj, payload)
+        except Exception as exc:
             logger.exception("ig_bot: handler error")
+            try:
+                bot.log("error", "webhook_error", repr(exc))
+            except Exception:
+                pass
         return HttpResponse("ok")
 
     return HttpResponse(status=405)

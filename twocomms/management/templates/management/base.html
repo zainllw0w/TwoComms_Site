@@ -60,6 +60,7 @@
             {% if request.user.is_staff %}
             <a href="{% url 'management_admin_payouts_board' %}" class="tab{% if request.resolver_match.url_name == 'management_admin_payouts_board' %} active{% endif %}">Каса</a>
             <a href="{% url 'management_parsing' %}" class="tab{% if request.resolver_match.url_name == 'management_parsing' %} active{% endif %}">Парсинг</a>
+            <a href="{% url 'management_bot' %}" class="tab{% if request.resolver_match.url_name == 'management_bot' %} active{% endif %}">Бот</a>
             <a href="{% url 'management_admin' %}" class="tab{% if request.resolver_match.url_name == 'management_admin' %} active{% endif %}">Адміністрування</a>
             {% endif %}
         </nav>

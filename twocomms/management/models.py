@@ -3182,3 +3182,96 @@ class AdminAuditLog(models.Model):
 
     def __str__(self):
         return f"{self.action}:{self.entity_type}:{self.entity_id}"
+
+
+# ===========================================================================
+# Instagram Direct bot (тестова фаза) — налаштування, лог-консоль, дедуп.
+# Бот працює через поллінг інбоксу @twocomms (page-token), бо webhook на
+# вхідні `messages` доступний лише в Live-режимі застосунку. Webhook лишається
+# підключеним і використовує той самий сервіс відповіді.
+# ===========================================================================
+
+
+class InstagramBotSettings(models.Model):
+    """Singleton-налаштування Instagram-бота (одна строка, pk=1)."""
+
+    class CredSource(models.TextChoices):
+        ENV = "env", _("З ENV сервера")
+        CUSTOM = "custom", _("Свій ключ")
+
+    is_enabled = models.BooleanField(default=False)
+
+    direct_source = models.CharField(
+        max_length=10, choices=CredSource.choices, default=CredSource.ENV
+    )
+    custom_direct_token = models.TextField(blank=True, default="")
+    gemini_source = models.CharField(
+        max_length=10, choices=CredSource.choices, default=CredSource.ENV
+    )
+    custom_gemini_key = models.TextField(blank=True, default="")
+
+    page_id = models.CharField(max_length=64, default="401216546416228")
+    ig_user_id = models.CharField(max_length=64, default="17841467101471112")
+
+    trigger_text = models.CharField(max_length=255, default="1")
+    reply_text = models.CharField(max_length=1000, default="Привет, ты написал единичку")
+    poll_interval_seconds = models.PositiveIntegerField(default=3)
+
+    # Курсор: відповідаємо лише на повідомлення, новіші за цей момент
+    # (виставляється у час старту, щоб не відповідати на старий беклог).
+    reply_after = models.DateTimeField(null=True, blank=True)
+
+    # Телеметрія
+    last_started_at = models.DateTimeField(null=True, blank=True)
+    last_stopped_at = models.DateTimeField(null=True, blank=True)
+    heartbeat_at = models.DateTimeField(null=True, blank=True)
+    last_poll_at = models.DateTimeField(null=True, blank=True)
+    last_inbound_at = models.DateTimeField(null=True, blank=True)
+    last_reply_at = models.DateTimeField(null=True, blank=True)
+    replies_count = models.PositiveIntegerField(default=0)
+    last_error = models.TextField(blank=True, default="")
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Instagram bot settings"
+        verbose_name_plural = "Instagram bot settings"
+
+    def __str__(self) -> str:
+        return f"InstagramBotSettings(enabled={self.is_enabled})"
+
+    @classmethod
+    def load(cls) -> "InstagramBotSettings":
+        obj, _created = cls.objects.get_or_create(pk=1)
+        return obj
+
+
+class InstagramBotLog(models.Model):
+    """Подієвий лог для онлайн-консолі вкладки «Бот»."""
+
+    class Level(models.TextChoices):
+        INFO = "info", "info"
+        SUCCESS = "success", "success"
+        WARNING = "warning", "warning"
+        ERROR = "error", "error"
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    level = models.CharField(max_length=10, choices=Level.choices, default=Level.INFO)
+    event = models.CharField(max_length=120)
+    detail = models.TextField(blank=True, default="")
+
+    class Meta:
+        ordering = ["-id"]
+
+    def __str__(self) -> str:
+        return f"[{self.level}] {self.event}"
+
+
+class InstagramBotProcessedMessage(models.Model):
+    """Дедуп оброблених вхідних повідомлень за message id (mid)."""
+
+    mid = models.CharField(max_length=255, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self) -> str:
+        return self.mid

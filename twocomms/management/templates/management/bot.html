@@ -1,0 +1,198 @@
+{% extends "management/base.html" %}
+{% load static %}
+
+{% block title %}Бот — TwoComms Management{% endblock %}
+
+{% block extra_css %}
+<style>
+.bot-wrap{max-width:1080px;margin:0 auto;padding:24px 18px 60px;color:#e7ecf3;}
+.bot-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+@media(max-width:860px){.bot-grid{grid-template-columns:1fr;}}
+.bot-card{background:#11151f;border:1px solid #1e2430;border-radius:16px;padding:18px 20px;}
+.bot-card h2{font-size:15px;margin:0 0 14px;letter-spacing:.02em;color:#aeb8c7;font-weight:600;}
+.bot-status-head{display:flex;align-items:center;gap:14px;margin-bottom:16px;}
+.bot-dot{width:14px;height:14px;border-radius:50%;background:#5b6472;box-shadow:0 0 0 4px rgba(255,255,255,.04);}
+.bot-dot.on{background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.18);animation:botpulse 1.6s infinite;}
+.bot-dot.off{background:#ef4444;box-shadow:0 0 0 4px rgba(239,68,68,.15);}
+@keyframes botpulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.35);}70%{box-shadow:0 0 0 10px rgba(34,197,94,0);}100%{box-shadow:0 0 0 0 rgba(34,197,94,0);}}
+.bot-state-text{font-size:18px;font-weight:600;}
+.bot-state-sub{font-size:12.5px;color:#8b95a5;margin-top:2px;}
+.bot-metrics{display:flex;gap:22px;flex-wrap:wrap;margin:6px 0 18px;}
+.bot-metric .v{font-size:22px;font-weight:700;}
+.bot-metric .k{font-size:11.5px;color:#8b95a5;text-transform:uppercase;letter-spacing:.04em;}
+.bot-actions{display:flex;gap:10px;}
+.bot-btn{border:0;border-radius:10px;padding:11px 22px;font-size:14px;font-weight:600;cursor:pointer;color:#fff;transition:.15s;}
+.bot-btn.start{background:#16a34a;}.bot-btn.start:hover{background:#15803d;}
+.bot-btn.stop{background:#dc2626;}.bot-btn.stop:hover{background:#b91c1c;}
+.bot-btn:disabled{opacity:.45;cursor:not-allowed;}
+.bot-field{margin-bottom:14px;}
+.bot-field label{display:block;font-size:12.5px;color:#9aa4b4;margin-bottom:6px;}
+.bot-field input[type=text],.bot-field input[type=number]{width:100%;background:#0c0f17;border:1px solid #232a38;border-radius:9px;color:#e7ecf3;padding:9px 11px;font-size:13.5px;}
+.bot-radio{display:inline-flex;align-items:center;gap:6px;margin-right:16px;font-size:13px;color:#cdd5e1;}
+.bot-save{background:#2563eb;color:#fff;border:0;border-radius:9px;padding:9px 18px;font-weight:600;cursor:pointer;}
+.bot-save:hover{background:#1d4ed8;}
+.bot-hint{font-size:12px;color:#7e889a;}
+.bot-console{grid-column:1/-1;}
+.bot-console-box{background:#06080d;border:1px solid #1c222e;border-radius:12px;height:340px;overflow-y:auto;padding:12px 14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.55;}
+.bot-line{white-space:pre-wrap;word-break:break-word;padding:1px 0;}
+.bot-line .t{color:#5b6472;margin-right:8px;}
+.bot-line .e{font-weight:600;margin-right:6px;}
+.bot-line.info .e{color:#60a5fa;}
+.bot-line.success .e{color:#34d399;}
+.bot-line.warning .e{color:#fbbf24;}
+.bot-line.error .e{color:#f87171;}
+.bot-line .d{color:#c2cad6;}
+.bot-console-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.bot-live-chip{font-size:11px;color:#34d399;display:inline-flex;align-items:center;gap:6px;}
+.bot-live-chip i{width:7px;height:7px;border-radius:50%;background:#34d399;display:inline-block;animation:botpulse 1.6s infinite;}
+.bot-note{background:#15110a;border:1px solid #3a2e16;color:#d8c08a;border-radius:10px;padding:10px 13px;font-size:12.5px;margin-bottom:18px;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="bot-wrap">
+  {% csrf_token %}
+
+  <div class="bot-note">
+    Тестовий режим: бот відповідає <b>«{{ settings.reply_text }}»</b> лише на повідомлення,
+    текст якого дорівнює <b>«{{ settings.trigger_text }}»</b>. На інші повідомлення не реагує.
+    Поки застосунок не в Live — вхідні ловить поллер (~3 c); після Live підхопить webhook.
+  </div>
+
+  <div class="bot-grid">
+    <!-- Статус -->
+    <div class="bot-card">
+      <h2>Стан агента</h2>
+      <div class="bot-status-head">
+        <span class="bot-dot" id="bot-dot"></span>
+        <div>
+          <div class="bot-state-text" id="bot-state-text">—</div>
+          <div class="bot-state-sub" id="bot-state-sub">Завантаження…</div>
+        </div>
+      </div>
+      <div class="bot-metrics">
+        <div class="bot-metric"><div class="v" id="bot-replies">{{ status.replies_count }}</div><div class="k">Відповідей</div></div>
+        <div class="bot-metric"><div class="v" id="bot-lastreply">—</div><div class="k">Остання відповідь</div></div>
+        <div class="bot-metric"><div class="v" id="bot-heartbeat">—</div><div class="k">Heartbeat</div></div>
+      </div>
+      <div class="bot-actions">
+        <button class="bot-btn start" id="bot-start">Запустити</button>
+        <button class="bot-btn stop" id="bot-stop">Зупинити</button>
+      </div>
+      <div class="bot-hint" id="bot-error" style="margin-top:12px;color:#f87171;"></div>
+    </div>
+
+    <!-- Налаштування -->
+    <div class="bot-card">
+      <h2>Ключі та параметри</h2>
+      <form id="bot-settings-form">
+        <div class="bot-field">
+          <label>Direct API (Facebook токен)</label>
+          <label class="bot-radio"><input type="radio" name="direct_source" value="{{ cred_env }}" {% if settings.direct_source == cred_env %}checked{% endif %}> ENV сервера</label>
+          <label class="bot-radio"><input type="radio" name="direct_source" value="{{ cred_custom }}" {% if settings.direct_source == cred_custom %}checked{% endif %}> Свій</label>
+          <input type="text" name="custom_direct_token" placeholder="Свій Direct токен (необов'язково)" value="{{ settings.custom_direct_token }}" style="margin-top:8px;">
+        </div>
+        <div class="bot-field">
+          <label>Gemini API (Google ключ)</label>
+          <label class="bot-radio"><input type="radio" name="gemini_source" value="{{ cred_env }}" {% if settings.gemini_source == cred_env %}checked{% endif %}> ENV сервера</label>
+          <label class="bot-radio"><input type="radio" name="gemini_source" value="{{ cred_custom }}" {% if settings.gemini_source == cred_custom %}checked{% endif %}> Свій</label>
+          <input type="text" name="custom_gemini_key" placeholder="Свій Gemini ключ (необов'язково)" value="{{ settings.custom_gemini_key }}" style="margin-top:8px;">
+        </div>
+        <div class="bot-field">
+          <label>Тригер / Відповідь</label>
+          <input type="text" name="trigger_text" value="{{ settings.trigger_text }}" placeholder="Тригер" style="margin-bottom:8px;">
+          <input type="text" name="reply_text" value="{{ settings.reply_text }}" placeholder="Текст відповіді">
+        </div>
+        <div class="bot-field">
+          <label>Інтервал опитування, c (2–60)</label>
+          <input type="number" name="poll_interval_seconds" min="2" max="60" value="{{ settings.poll_interval_seconds }}">
+        </div>
+        <button type="submit" class="bot-save">Зберегти</button>
+        <span class="bot-hint" id="bot-save-hint" style="margin-left:10px;"></span>
+      </form>
+    </div>
+
+    <!-- Консоль -->
+    <div class="bot-card bot-console">
+      <div class="bot-console-head">
+        <h2 style="margin:0;">Онлайн-консоль</h2>
+        <span class="bot-live-chip"><i></i> live</span>
+      </div>
+      <div class="bot-console-box" id="bot-console"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+  const csrf = document.querySelector('#bot-console') ? (document.querySelector('input[name=csrfmiddlewaretoken]')||{}).value : '';
+  const box = document.getElementById('bot-console');
+  const dot = document.getElementById('bot-dot');
+  let lastId = 0;
+
+  function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+  function appendLog(items){
+    if(!items || !items.length) return;
+    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+    items.forEach(it=>{
+      lastId = Math.max(lastId, it.id);
+      const div = document.createElement('div');
+      div.className = 'bot-line ' + (it.level||'info');
+      div.innerHTML = '<span class="t">'+esc(it.time)+'</span><span class="e">'+esc(it.event)+'</span><span class="d">'+esc(it.detail)+'</span>';
+      box.appendChild(div);
+    });
+    while(box.children.length > 400) box.removeChild(box.firstChild);
+    if(atBottom) box.scrollTop = box.scrollHeight;
+  }
+
+  function fmt(iso){ if(!iso) return '—'; try{ const d=new Date(iso); return d.toLocaleTimeString(); }catch(e){ return '—'; } }
+
+  function render(st){
+    const running = st.running, enabled = st.is_enabled;
+    dot.className = 'bot-dot ' + (running ? 'on' : (enabled ? 'on' : 'off'));
+    document.getElementById('bot-state-text').textContent = enabled ? (running ? 'Запущено' : 'Запущено (очікую раннер)') : 'Зупинено';
+    document.getElementById('bot-state-sub').textContent = enabled
+      ? (running ? 'Агент активний і чекає повідомлення' : 'Увімкнено, але поллер ще не тікав (heartbeat відсутній)')
+      : 'Агент вимкнено';
+    document.getElementById('bot-replies').textContent = st.replies_count;
+    document.getElementById('bot-lastreply').textContent = fmt(st.last_reply_at);
+    document.getElementById('bot-heartbeat').textContent = fmt(st.heartbeat_at);
+    document.getElementById('bot-error').textContent = st.last_error || '';
+    document.getElementById('bot-start').disabled = enabled;
+    document.getElementById('bot-stop').disabled = !enabled;
+  }
+
+  function poll(){
+    fetch('{% url "management_bot_status_api" %}?after_id='+lastId, {headers:{'X-Requested-With':'XMLHttpRequest'}})
+      .then(r=>r.json()).then(d=>{ if(d.success){ render(d.status); appendLog(d.log); } }).catch(()=>{});
+  }
+
+  function action(url){
+    fetch(url, {method:'POST', headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'}})
+      .then(r=>r.json()).then(d=>{ if(d.success) render(d.status); poll(); }).catch(()=>{});
+  }
+
+  document.getElementById('bot-start').addEventListener('click', ()=>action('{% url "management_bot_start_api" %}'));
+  document.getElementById('bot-stop').addEventListener('click', ()=>action('{% url "management_bot_stop_api" %}'));
+
+  document.getElementById('bot-settings-form').addEventListener('submit', function(e){
+    e.preventDefault();
+    const fd = new FormData(this);
+    fetch('{% url "management_bot_settings_api" %}', {method:'POST', headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'}, body:fd})
+      .then(r=>r.json()).then(d=>{
+        const h=document.getElementById('bot-save-hint');
+        h.textContent = d.success ? 'Збережено ✓' : ('Помилка: '+(d.error||''));
+        h.style.color = d.success ? '#34d399' : '#f87171';
+        if(d.success) render(d.status);
+        setTimeout(()=>{h.textContent='';}, 2500);
+      }).catch(()=>{});
+  });
+
+  poll();
+  setInterval(poll, 2000);
+})();
+</script>
+{% endblock %}

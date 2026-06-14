@@ -7,6 +7,7 @@ from . import lead_views
 from . import parsing_views
 from . import views_levels
 from . import bot_webhook
+from . import bot_views
 
 urlpatterns = [
     path('login/', auth_views.LoginView.as_view(
@@ -42,6 +43,12 @@ urlpatterns = [
     path('tg-manager/webhook/<str:token>/', views.management_bot_webhook, name='management_bot_webhook'),
     # Instagram bot webhook (тестова фаза) — публічний, без логіну, CSRF-exempt.
     path('bot/webhook/', bot_webhook.ig_webhook, name='management_ig_bot_webhook'),
+    # Instagram bot — панель керування (тільки адміністратори).
+    path('bot/', bot_views.bot_dashboard, name='management_bot'),
+    path('bot/api/start/', bot_views.bot_start_api, name='management_bot_start_api'),
+    path('bot/api/stop/', bot_views.bot_stop_api, name='management_bot_stop_api'),
+    path('bot/api/status/', bot_views.bot_status_api, name='management_bot_status_api'),
+    path('bot/api/settings/', bot_views.bot_settings_save_api, name='management_bot_settings_api'),
     path('invoices/', views.invoices, name='management_invoices'),
     path('invoices/api/list/', views.invoices_list_api, name='management_invoices_list_api'),
     path('invoices/api/generate/', views.invoices_generate_api, name='management_invoices_generate_api'),
