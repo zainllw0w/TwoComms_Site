@@ -205,6 +205,23 @@ def _rate_exceeded(s: InstagramBotSettings, sender_id: str, limit: int = 25, win
     return False
 
 
+def _repeated_question(sender_id: str, text: str, window: int = 600) -> int:
+    """Скільки разів цей самий текст від відправника за вікно (анти-абуз токенів)."""
+    import hashlib
+
+    norm = " ".join((text or "").lower().split())
+    if not norm:
+        return 0
+    h = hashlib.md5(norm.encode("utf-8")).hexdigest()[:12]
+    key = f"ig_bot_q:{sender_id}:{h}"
+    try:
+        n = (cache.get(key) or 0) + 1
+        cache.set(key, n, window)
+        return n
+    except Exception:
+        return 0
+
+
 def get_page_token(s: InstagramBotSettings, *, force: bool = False) -> str:
     token = _effective_user_token(s)
     if not token:
@@ -390,18 +407,28 @@ def gemini_generate(
             except Exception:
                 pass
 
-    # system_instruction = правило (промпт) + база знань + актуальний каталог.
+    # system_instruction = правило + оперативні директиви + база знань + каталог.
     sys_text = (s.system_prompt or "").strip()
-    if (s.knowledge_base or "").strip():
-        sys_text = (sys_text + "\n\nДодаткова інформація:\n" + s.knowledge_base.strip()).strip()
+    live = (s.knowledge_base or "").strip()
+    if live:
+        sys_text += "\n\n[ОПЕРАТИВНІ ДИРЕКТИВИ — найвищий пріоритет, дотримуйся беззаперечно]\n" + live
+    try:
+        from management.services.bot_knowledge import get_brand_knowledge
+
+        kb = get_brand_knowledge()
+        if kb:
+            sys_text += "\n\n[БАЗА ЗНАНЬ ПРО БРЕНД]\n" + kb
+    except Exception:
+        pass
     try:
         from management.services.bot_catalog import get_catalog_context
 
         catalog = get_catalog_context()
         if catalog:
-            sys_text = (sys_text + "\n\n" + catalog).strip()
+            sys_text += "\n\n" + catalog
     except Exception:
         pass
+    sys_text = sys_text.strip()
 
     payload = {
         "contents": contents,
@@ -578,20 +605,26 @@ def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
         # Відразу показуємо клієнту, що бот побачив і «друкує» (best practice).
         send_sender_action(s, row.sender_id, "mark_seen")
         send_sender_action(s, row.sender_id, "typing_on")
-        history = _build_history(row.sender_id)
-        if not history:
-            history = [{"role": "user", "text": row.text}]
-        # Зображення-вкладення -> мультимодальний вхід.
-        images = []
-        if row.attachments:
-            try:
-                for url in json.loads(row.attachments)[:3]:
-                    img = download_image(url)
-                    if img:
-                        images.append(img)
-            except Exception:
-                pass
-        reply = gemini_generate(s, history, images=images or None)
+        # Анти-абуз: однакове питання багато разів — не жжемо токени Gemini.
+        rep = _repeated_question(row.sender_id, row.text)
+        if rep > 3 and not row.attachments:
+            reply = "Я вже відповів(-ла) на це трохи вище 🙂 Якщо потрібно щось інше — уточніть, будь ласка."
+            log("info", "repeat_guard", f"{row.sender_id}: повтор #{rep}, без Gemini")
+        else:
+            history = _build_history(row.sender_id)
+            if not history:
+                history = [{"role": "user", "text": row.text}]
+            # Зображення-вкладення -> мультимодальний вхід.
+            images = []
+            if row.attachments:
+                try:
+                    for url in json.loads(row.attachments)[:3]:
+                        img = download_image(url)
+                        if img:
+                            images.append(img)
+                except Exception:
+                    pass
+            reply = gemini_generate(s, history, images=images or None)
     else:
         if (row.text or "").strip() != s.trigger_text:
             row.status = InstagramBotMessage.Status.DONE
