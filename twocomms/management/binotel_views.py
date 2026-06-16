@@ -1,0 +1,428 @@
+"""
+Вкладка «Тест» (тільки для адміністраторів) — пісочниця для інтеграції Binotel.
+
+Дозволяє вручну перевіряти всі основні методи Binotel REST API 4.0:
+ініціювати дзвінки, опитувати статус, отримувати посилання на записи розмов,
+дивитися онлайн-дзвінки, статистику за період, список співробітників тощо.
+
+Усі ендпоінти доступні лише staff/superuser. Реальні дзвінки виконуються
+через ключі з ENV (BINOTEL_API_KEY / BINOTEL_API_SECRET).
+"""
+from __future__ import annotations
+
+import json
+import time
+
+from django.conf import settings
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.shortcuts import redirect, render
+from django.views.decorators.http import require_GET, require_POST
+
+from .services.binotel import (
+    BINOTEL_ERROR_MESSAGES,
+    BinotelClient,
+    BinotelError,
+    BinotelNotConfigured,
+)
+
+# Дозволені для generic-консолі ендпоінти (whitelist, щоб не дати викликати
+# деструктивні методи на кшталт customers/delete з тестової сторінки).
+ALLOWED_RAW_ENDPOINTS = {
+    "settings/list-of-employees",
+    "settings/list-of-voice-files",
+    "settings/list-of-routes",
+    "calls/internal-number-to-external-number",
+    "calls/external-number-to-external-number",
+    "calls/hangup-call",
+    "calls/attended-call-transfer",
+    "calls/call-with-announcement",
+    "stats/online-calls",
+    "stats/call-details",
+    "stats/call-record",
+    "stats/list-of-calls-for-period",
+    "stats/list-of-calls-per-day",
+    "stats/list-of-calls-by-internal-number-for-period",
+    "stats/recent-calls-by-internal-number",
+    "stats/list-of-lost-calls-for-today",
+    "stats/history-by-external-number",
+    "customers/search",
+    "customers/list",
+}
+
+
+def _is_admin(user) -> bool:
+    return bool(user.is_authenticated and (user.is_staff or user.is_superuser))
+
+
+def _require_admin_json(request):
+    if not _is_admin(request.user):
+        return JsonResponse(
+            {"success": False, "error": "Доступ лише для адміністраторів."}, status=403
+        )
+    return None
+
+
+def _client_or_error():
+    """Повертає (client, None) або (None, JsonResponse) якщо ключі не задані."""
+    try:
+        return BinotelClient.from_settings(), None
+    except BinotelNotConfigured as exc:
+        return None, JsonResponse(
+            {
+                "success": False,
+                "configured": False,
+                "error": str(exc),
+            },
+            status=400,
+        )
+
+
+def _error_response(exc: BinotelError):
+    return JsonResponse(
+        {
+            "success": False,
+            "error": str(exc),
+            "code": exc.code,
+            "raw": exc.raw,
+        },
+        status=200,  # 200 — щоб фронт показав текст помилки Binotel, а не generic 500
+    )
+
+
+def _post_json(request) -> dict:
+    """Підтримує і form-urlencoded, і application/json тіло."""
+    ctype = (request.content_type or "").lower()
+    if "application/json" in ctype:
+        try:
+            return json.loads(request.body.decode("utf-8") or "{}")
+        except (ValueError, UnicodeDecodeError):
+            return {}
+    return request.POST.dict()
+
+
+# --- сторінка ----------------------------------------------------------
+
+
+@login_required(login_url="management_login")
+def binotel_test(request):
+    if not _is_admin(request.user):
+        return redirect("management_home")
+    context = {
+        "binotel_configured": BinotelClient.is_configured(),
+        "binotel_company_id": getattr(settings, "BINOTEL_COMPANY_ID", "") or "",
+        "binotel_api_base": getattr(settings, "BINOTEL_API_BASE", ""),
+        "binotel_api_version": getattr(settings, "BINOTEL_API_VERSION", ""),
+        "binotel_error_codes": BINOTEL_ERROR_MESSAGES,
+        "allowed_raw_endpoints": sorted(ALLOWED_RAW_ENDPOINTS),
+    }
+    return render(request, "management/binotel_test.html", context)
+
+
+# --- AJAX --------------------------------------------------------------
+
+
+@login_required(login_url="management_login")
+@require_GET
+def binotel_status(request):
+    """Перевірка конфігурації + ping (list-of-employees)."""
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    if not BinotelClient.is_configured():
+        return JsonResponse(
+            {
+                "success": True,
+                "configured": False,
+                "reachable": False,
+                "message": "Ключі Binotel не задані в ENV "
+                "(BINOTEL_API_KEY / BINOTEL_API_SECRET).",
+            }
+        )
+    client, err = _client_or_error()
+    if err:
+        return err
+    try:
+        data = client.list_of_employees()
+    except BinotelError as exc:
+        return JsonResponse(
+            {
+                "success": True,
+                "configured": True,
+                "reachable": True,
+                "auth_ok": False,
+                "error": str(exc),
+                "code": exc.code,
+            }
+        )
+    employees = data.get("listOfEmployees") or {}
+    return JsonResponse(
+        {
+            "success": True,
+            "configured": True,
+            "reachable": True,
+            "auth_ok": True,
+            "employees_count": len(employees),
+        }
+    )
+
+
+@login_required(login_url="management_login")
+@require_GET
+def binotel_employees(request):
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    client, err = _client_or_error()
+    if err:
+        return err
+    try:
+        data = client.list_of_employees()
+    except BinotelError as exc:
+        return _error_response(exc)
+
+    employees = []
+    for email, emp in (data.get("listOfEmployees") or {}).items():
+        endpoint = emp.get("endpointData") or {}
+        employees.append(
+            {
+                "employeeID": emp.get("employeeID"),
+                "email": emp.get("email") or email,
+                "name": emp.get("name"),
+                "department": emp.get("department"),
+                "presenceState": emp.get("presenceState"),
+                "internalNumber": endpoint.get("internalNumber"),
+                "lineStatus": endpoint.get("status"),
+            }
+        )
+    employees.sort(key=lambda e: (e.get("internalNumber") or ""))
+    return JsonResponse({"success": True, "employees": employees, "raw": data})
+
+
+@login_required(login_url="management_login")
+@require_GET
+def binotel_voice_files(request):
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    client, err = _client_or_error()
+    if err:
+        return err
+    try:
+        data = client.list_of_voice_files()
+    except BinotelError as exc:
+        return _error_response(exc)
+    return JsonResponse({"success": True, "raw": data})
+
+
+@login_required(login_url="management_login")
+@require_POST
+def binotel_call(request):
+    """Ініціює дзвінок internal → external. Повертає generalCallID."""
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    payload = _post_json(request)
+    internal_number = (payload.get("internalNumber") or "").strip()
+    external_number = (payload.get("externalNumber") or "").strip()
+    if not internal_number or not external_number:
+        return JsonResponse(
+            {"success": False, "error": "Потрібні internalNumber та externalNumber."},
+            status=400,
+        )
+    extra = {}
+    for key in ("pbxNumber", "limitCallTime", "callTimeToExt", "callerIdForEmployee"):
+        val = (payload.get(key) or "").strip() if isinstance(payload.get(key), str) else payload.get(key)
+        if val:
+            extra[key] = val
+    client, err = _client_or_error()
+    if err:
+        return err
+    try:
+        data = client.internal_to_external(internal_number, external_number, **extra)
+    except BinotelError as exc:
+        return _error_response(exc)
+    return JsonResponse(
+        {
+            "success": True,
+            "generalCallID": data.get("generalCallID"),
+            "raw": data,
+        }
+    )
+
+
+@login_required(login_url="management_login")
+@require_POST
+def binotel_hangup(request):
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    payload = _post_json(request)
+    general_call_id = (str(payload.get("generalCallID") or "")).strip()
+    if not general_call_id:
+        return JsonResponse({"success": False, "error": "Потрібен generalCallID."}, status=400)
+    client, err = _client_or_error()
+    if err:
+        return err
+    try:
+        data = client.hangup_call(general_call_id)
+    except BinotelError as exc:
+        return _error_response(exc)
+    return JsonResponse({"success": True, "raw": data})
+
+
+@login_required(login_url="management_login")
+@require_POST
+def binotel_call_details(request):
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    payload = _post_json(request)
+    raw_ids = payload.get("generalCallID") or payload.get("generalCallIDs") or ""
+    if isinstance(raw_ids, str):
+        ids = [i.strip() for i in raw_ids.replace(";", ",").split(",") if i.strip()]
+    elif isinstance(raw_ids, (list, tuple)):
+        ids = [str(i).strip() for i in raw_ids if str(i).strip()]
+    else:
+        ids = [str(raw_ids)]
+    if not ids:
+        return JsonResponse({"success": False, "error": "Потрібен generalCallID."}, status=400)
+    client, err = _client_or_error()
+    if err:
+        return err
+    try:
+        data = client.call_details(ids)
+    except BinotelError as exc:
+        return _error_response(exc)
+    return JsonResponse({"success": True, "callDetails": data.get("callDetails"), "raw": data})
+
+
+@login_required(login_url="management_login")
+@require_POST
+def binotel_call_record(request):
+    """Посилання на запис розмови (час життя — 15 хв)."""
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    payload = _post_json(request)
+    general_call_id = (str(payload.get("generalCallID") or "")).strip()
+    if not general_call_id:
+        return JsonResponse({"success": False, "error": "Потрібен generalCallID."}, status=400)
+    client, err = _client_or_error()
+    if err:
+        return err
+    try:
+        data = client.call_record(general_call_id)
+    except BinotelError as exc:
+        return _error_response(exc)
+    # Binotel може повернути посилання у полі url або всередині callDetails.
+    url = data.get("url")
+    if not url:
+        details = data.get("callDetails")
+        if isinstance(details, dict):
+            url = details.get("url")
+        elif isinstance(details, str):
+            url = details
+    return JsonResponse({"success": True, "url": url, "raw": data})
+
+
+@login_required(login_url="management_login")
+@require_GET
+def binotel_online_calls(request):
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    client, err = _client_or_error()
+    if err:
+        return err
+    try:
+        data = client.online_calls()
+    except BinotelError as exc:
+        return _error_response(exc)
+    return JsonResponse({"success": True, "callDetails": data.get("callDetails"), "raw": data})
+
+
+@login_required(login_url="management_login")
+@require_POST
+def binotel_calls_period(request):
+    """Дзвінки за період. start/stop — unix timestamp (сек)."""
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    payload = _post_json(request)
+    internal_number = (str(payload.get("internalNumber") or "")).strip()
+    try:
+        start_time = int(payload.get("startTime"))
+        stop_time = int(payload.get("stopTime"))
+    except (TypeError, ValueError):
+        return JsonResponse(
+            {"success": False, "error": "Потрібні startTime та stopTime (unix timestamp)."},
+            status=400,
+        )
+    client, err = _client_or_error()
+    if err:
+        return err
+    try:
+        if internal_number:
+            data = client.list_of_calls_by_internal_number_for_period(
+                internal_number, start_time, stop_time
+            )
+        else:
+            data = client.list_of_calls_for_period(start_time, stop_time)
+    except BinotelError as exc:
+        return _error_response(exc)
+    return JsonResponse({"success": True, "callDetails": data.get("callDetails"), "raw": data})
+
+
+@login_required(login_url="management_login")
+@require_POST
+def binotel_customers_search(request):
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    payload = _post_json(request)
+    subject = (str(payload.get("subject") or "")).strip()
+    if not subject:
+        return JsonResponse({"success": False, "error": "Потрібен subject (ім'я або номер)."}, status=400)
+    client, err = _client_or_error()
+    if err:
+        return err
+    try:
+        data = client.customers_search(subject)
+    except BinotelError as exc:
+        return _error_response(exc)
+    return JsonResponse({"success": True, "customerData": data.get("customerData"), "raw": data})
+
+
+@login_required(login_url="management_login")
+@require_POST
+def binotel_raw(request):
+    """Generic-консоль: довільний (whitelisted) метод + JSON-параметри."""
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    payload = _post_json(request)
+    endpoint = (str(payload.get("endpoint") or "")).strip().strip("/")
+    if endpoint not in ALLOWED_RAW_ENDPOINTS:
+        return JsonResponse(
+            {"success": False, "error": f"Метод '{endpoint}' не дозволений у тестовій консолі."},
+            status=400,
+        )
+    params = payload.get("params") or {}
+    if isinstance(params, str):
+        try:
+            params = json.loads(params or "{}")
+        except ValueError:
+            return JsonResponse({"success": False, "error": "params не є валідним JSON."}, status=400)
+    if not isinstance(params, dict):
+        return JsonResponse({"success": False, "error": "params має бути об'єктом JSON."}, status=400)
+    client, err = _client_or_error()
+    if err:
+        return err
+    started = time.monotonic()
+    try:
+        data = client.send_request(endpoint, params)
+    except BinotelError as exc:
+        return _error_response(exc)
+    elapsed_ms = int((time.monotonic() - started) * 1000)
+    return JsonResponse({"success": True, "raw": data, "elapsed_ms": elapsed_ms})

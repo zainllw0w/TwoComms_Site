@@ -8,6 +8,7 @@ from . import parsing_views
 from . import views_levels
 from . import bot_webhook
 from . import bot_views
+from . import binotel_views
 
 urlpatterns = [
     path('login/', auth_views.LoginView.as_view(
@@ -119,10 +120,22 @@ urlpatterns = [
     path('parsing/api/moderation/', parsing_views.parser_moderation_api, name='management_parser_moderation_api'),
     path('parsing/api/leads/<int:lead_id>/action/', parsing_views.lead_moderation_action_api, name='management_lead_moderation_action_api'),
     # Manager levels system
-    path('profile/', views_levels.manager_profile, name='management_profile'),
-    path('api/levels/progression/', views_levels.manager_progression_api, name='management_levels_progression_api'),
+    path('profile/', views_levels.manager_profile, name='management_profile'),    path('api/levels/progression/', views_levels.manager_progression_api, name='management_levels_progression_api'),
     path('api/levels/weekly-kpi/', views_levels.manager_weekly_kpi_api, name='management_levels_weekly_kpi_api'),
     path('admin-panel/levels/assign/', views_levels.admin_assign_level_api, name='management_admin_assign_level_api'),
     path('admin-panel/levels/list/', views_levels.admin_managers_list_api, name='management_admin_managers_list_api'),
+    # Binotel telephony — тестова пісочниця (тільки адміністратори)
+    path('binotel/', binotel_views.binotel_test, name='management_binotel_test'),
+    path('binotel/api/status/', binotel_views.binotel_status, name='management_binotel_status'),
+    path('binotel/api/employees/', binotel_views.binotel_employees, name='management_binotel_employees'),
+    path('binotel/api/voice-files/', binotel_views.binotel_voice_files, name='management_binotel_voice_files'),
+    path('binotel/api/call/', binotel_views.binotel_call, name='management_binotel_call'),
+    path('binotel/api/hangup/', binotel_views.binotel_hangup, name='management_binotel_hangup'),
+    path('binotel/api/call-details/', binotel_views.binotel_call_details, name='management_binotel_call_details'),
+    path('binotel/api/call-record/', binotel_views.binotel_call_record, name='management_binotel_call_record'),
+    path('binotel/api/online-calls/', binotel_views.binotel_online_calls, name='management_binotel_online_calls'),
+    path('binotel/api/calls-period/', binotel_views.binotel_calls_period, name='management_binotel_calls_period'),
+    path('binotel/api/customers-search/', binotel_views.binotel_customers_search, name='management_binotel_customers_search'),
+    path('binotel/api/raw/', binotel_views.binotel_raw, name='management_binotel_raw'),
     path('', views.home, name='management_home'),
 ]

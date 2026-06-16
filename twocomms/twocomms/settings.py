@@ -362,6 +362,17 @@ FIELD_ENCRYPTION_KEY = os.environ.get('FIELD_ENCRYPTION_KEY', '')
 MANAGEMENT_ONBOARDING_ENABLED = _env_bool('MANAGEMENT_ONBOARDING_ENABLED', default=False)
 MANAGEMENT_RULES_VERSION = os.environ.get('MANAGEMENT_RULES_VERSION', '1')
 
+# Binotel telephony (REST API 4.0). Авторизація через key+secret, які
+# видаються технічною підтримкою Binotel. Зберігаються лише в ENV на сервері,
+# ніколи в репозиторії. companyID потрібен для webhook-ів (apiCallSettings/
+# apiCallCompleted) і для звірки вхідних запитів.
+BINOTEL_API_KEY = os.environ.get('BINOTEL_API_KEY', '').strip()
+BINOTEL_API_SECRET = os.environ.get('BINOTEL_API_SECRET', '').strip()
+BINOTEL_COMPANY_ID = os.environ.get('BINOTEL_COMPANY_ID', '').strip()
+BINOTEL_API_BASE = os.environ.get('BINOTEL_API_BASE', 'https://api.binotel.com/api/').strip()
+BINOTEL_API_VERSION = os.environ.get('BINOTEL_API_VERSION', '4.0').strip()
+BINOTEL_API_TIMEOUT = _env_int('BINOTEL_API_TIMEOUT', 25)
+
 # Mono Checkout (order-based flow) configuration
 MONOBANK_CHECKOUT_DELIVERY_METHODS = _env_list('MONOBANK_CHECKOUT_DELIVERY_METHODS', 'pickup,np_brnm,courier,np_box')
 if not MONOBANK_CHECKOUT_DELIVERY_METHODS:
