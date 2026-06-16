@@ -12,6 +12,8 @@ from management.services.binotel import (
     BinotelClient,
     BinotelError,
     BinotelNotConfigured,
+    normalize_phone,
+    mask_secret,
 )
 
 HOST = "management.twocomms.shop"
@@ -27,6 +29,27 @@ class _FakeResponse:
         if self._payload is None:
             raise ValueError("no json")
         return self._payload
+
+
+class BinotelEnvNamingTests(TestCase):
+    def test_normalize_env_name_matches_variants(self):
+        from twocomms.settings import _normalize_env_name
+        target = _normalize_env_name("BINOTEL_API_KEY")
+        self.assertEqual(_normalize_env_name("BINOTEL_API_Key"), target)
+        self.assertEqual(_normalize_env_name("Binotel API Key"), target)
+        self.assertEqual(_normalize_env_name("binotel-api-key"), target)
+        self.assertEqual(_normalize_env_name("BINOTEL_CompanyID"), _normalize_env_name("BINOTEL_COMPANY_ID"))
+
+    def test_env_normalized_finds_mixed_case(self):
+        import os
+        from twocomms import settings as st
+        os.environ["BINOTEL_API_Key"] = "secret-value-xyz"
+        st._NORMALIZED_ENVIRON = None  # скинути кеш
+        try:
+            self.assertEqual(st._env_normalized("BINOTEL_API_KEY"), "secret-value-xyz")
+        finally:
+            os.environ.pop("BINOTEL_API_Key", None)
+            st._NORMALIZED_ENVIRON = None
 
 
 class BinotelClientTests(TestCase):
@@ -106,6 +129,73 @@ class BinotelClientTests(TestCase):
         self.assertEqual(c.key, "abc")
         self.assertEqual(c.secret, "def")
         self.assertTrue(BinotelClient.is_configured())
+
+
+class BinotelHelpersTests(TestCase):
+    def test_normalize_phone(self):
+        self.assertEqual(normalize_phone("(067) 123-45-67"), "0671234567")
+        self.assertEqual(normalize_phone("+380 67 123 45 67"), "+380671234567")
+        self.assertEqual(normalize_phone(" 901 "), "901")
+        self.assertEqual(normalize_phone(None), "")
+
+    def test_mask_secret(self):
+        self.assertEqual(mask_secret("abcdefgh"), "abc***")
+        self.assertEqual(mask_secret("ab"), "***")
+        self.assertEqual(mask_secret(""), "")
+
+    def test_is_idempotent(self):
+        c = BinotelClient("k", "s")
+        self.assertTrue(c._is_idempotent("stats/online-calls"))
+        self.assertTrue(c._is_idempotent("settings/list-of-employees"))
+        self.assertTrue(c._is_idempotent("customers/search"))
+        self.assertFalse(c._is_idempotent("calls/internal-number-to-external-number"))
+        self.assertFalse(c._is_idempotent("calls/hangup-call"))
+
+
+class BinotelRetryTests(TestCase):
+    def test_idempotent_retries_on_rate_limit(self):
+        c = BinotelClient("k", "s", max_retries=2)
+        calls = {"n": 0}
+
+        def fake_once(endpoint, params=None):
+            calls["n"] += 1
+            if calls["n"] < 2:
+                raise BinotelError("Requests are too frequent", code=106)
+            return {"status": "success", "callDetails": {}}
+
+        with mock.patch.object(c, "_send_once", side_effect=fake_once), \
+                mock.patch("management.services.binotel.time.sleep", return_value=None):
+            data = c.online_calls()
+        self.assertEqual(calls["n"], 2)
+        self.assertEqual(data["status"], "success")
+
+    def test_calls_never_retried(self):
+        c = BinotelClient("k", "s", max_retries=3)
+        calls = {"n": 0}
+
+        def fake_once(endpoint, params=None):
+            calls["n"] += 1
+            raise BinotelError("Requests are too frequent", code=106)
+
+        with mock.patch.object(c, "_send_once", side_effect=fake_once), \
+                mock.patch("management.services.binotel.time.sleep", return_value=None):
+            with self.assertRaises(BinotelError):
+                c.internal_to_external("901", "0671112233")
+        self.assertEqual(calls["n"], 1)  # жодних повторів для calls/*
+
+    def test_auth_error_not_retried(self):
+        c = BinotelClient("k", "s", max_retries=3)
+        calls = {"n": 0}
+
+        def fake_once(endpoint, params=None):
+            calls["n"] += 1
+            raise BinotelError("wrong", code=121)
+
+        with mock.patch.object(c, "_send_once", side_effect=fake_once), \
+                mock.patch("management.services.binotel.time.sleep", return_value=None):
+            with self.assertRaises(BinotelError):
+                c.online_calls()
+        self.assertEqual(calls["n"], 1)  # 121 не ретраїться навіть для stats/*
 
 
 @override_settings(ROOT_URLCONF="twocomms.urls_management")

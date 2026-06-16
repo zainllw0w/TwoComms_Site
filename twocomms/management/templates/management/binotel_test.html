@@ -270,6 +270,7 @@
   function errText(d){
     var t = d.error || 'Помилка';
     if(d.code) t = '['+d.code+'] '+t;
+    if(d.hint) t += ' — '+d.hint;
     return t;
   }
 
@@ -322,7 +323,7 @@
       btn.disabled=false;
       show($('bn-call-out'), d.raw||d);
       if(d.success){
-        lastCallId=d.generalCallID;
+        lastCallId=String(d.generalCallID||'');
         $('bn-details-id').value=lastCallId||'';
         msg($('bn-call-msg'),'Дзвінок ініційовано. generalCallID: '+lastCallId,'ok');
         $('bn-poll-btn').disabled=false; $('bn-hangup-btn').disabled=false;
@@ -340,14 +341,17 @@
       api(URLS.details,'POST',{generalCallID:lastCallId}).then(function(d){
         show($('bn-call-out'), d.raw||d);
         if(d.success && d.callDetails){
-          var det=d.callDetails[lastCallId]||{};
+          var det=d.callDetails[lastCallId]||d.callDetails[String(lastCallId)]||{};
           var disp=det.disposition||'';
+          var label=det._dispositionLabel||disp;
           if(disp==='ONLINE'){ msg($('bn-call-msg'),'У розмові (ONLINE)…','ok'); }
-          else if(disp){ msg($('bn-call-msg'),'Дзвінок завершено: '+disp,'ok'); clearInterval(pollTimer); pollTimer=null; btn.textContent='Стежити за статусом'; }
+          else if(det._dispositionFinal){ msg($('bn-call-msg'),'Дзвінок завершено: '+label,'ok'); clearInterval(pollTimer); pollTimer=null; btn.textContent='Стежити за статусом'; }
+          else if(disp){ msg($('bn-call-msg'),'Статус: '+label,'ok'); }
         }
       });
     };
-    tick(); pollTimer=setInterval(tick, 5000);
+    // Інтервал ≥15с: call-details має ліміт 5 запитів/хв, потім пауза 10с.
+    tick(); pollTimer=setInterval(tick, 15000);
   });
 
   $('bn-hangup-btn').addEventListener('click', function(){
@@ -409,7 +413,7 @@
       var type=(String(c.callType)==='0')?'вхідний':'вихідний';
       var rec=(c.disposition==='ANSWER'||c.disposition==='VM-SUCCESS'||c.disposition==='SUCCESS')
         ? '<span class="bn-call-link" data-rec="'+id+'">▶ запис</span>' : '—';
-      html+='<tr><td>'+dt+'</td><td>'+type+'</td><td>'+(c.externalNumber||'—')+'</td><td>'+(c.internalNumber||'—')+'</td><td>'+(c.billsec||0)+'с</td><td><span class="bn-pill">'+(c.disposition||'—')+'</span></td><td>'+rec+'</td></tr>';
+      html+='<tr><td>'+dt+'</td><td>'+type+'</td><td>'+(c.externalNumber||'—')+'</td><td>'+(c.internalNumber||'—')+'</td><td>'+(c.billsec||0)+'с</td><td><span class="bn-pill" title="'+(c.disposition||'')+'">'+(c._dispositionLabel||c.disposition||'—')+'</span></td><td>'+rec+'</td></tr>';
       html+='<tr class="bn-rec-row" data-rec-row="'+id+'" style="display:none"><td colspan="7"><audio class="bn-audio" controls></audio></td></tr>';
     });
     html+='</tbody></table>';

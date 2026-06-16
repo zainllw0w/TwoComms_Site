@@ -57,6 +57,35 @@ def _env_json(name, default=None):
         return {} if default is None else default
 
 
+# Нормалізований пошук ENV: ігнорує регістр, пробіли, підкреслення та дефіси.
+# Потрібен тому, що частина ключів задається через cPanel "Setup Python App"
+# у різних варіантах написання (BINOTEL_API_Key / BINOTEL_API_KEY /
+# "Binotel API Key" тощо). Linux env-імена регістрозалежні, тож звичайний
+# os.environ.get не знаходить варіант з іншим регістром.
+def _normalize_env_name(name):
+    return ''.join(ch for ch in str(name).lower() if ch.isalnum())
+
+
+_NORMALIZED_ENVIRON = None
+
+
+def _env_normalized(*candidates, default=''):
+    """Повертає значення першої ENV-змінної, чия нормалізована назва збігається
+    з нормалізованою назвою будь-якого з кандидатів. Кешує мапу при першому
+    виклику (середовище процесу не змінюється під час роботи)."""
+    global _NORMALIZED_ENVIRON
+    if _NORMALIZED_ENVIRON is None:
+        _NORMALIZED_ENVIRON = {}
+        for key, value in os.environ.items():
+            # Перший збіг має пріоритет; не перетираємо існуючі ключі.
+            _NORMALIZED_ENVIRON.setdefault(_normalize_env_name(key), value)
+    for cand in candidates:
+        value = _NORMALIZED_ENVIRON.get(_normalize_env_name(cand))
+        if value not in (None, ''):
+            return value
+    return default
+
+
 # Build paths inside the project like this: BASE_DIR / "subdir".
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -366,11 +395,21 @@ MANAGEMENT_RULES_VERSION = os.environ.get('MANAGEMENT_RULES_VERSION', '1')
 # видаються технічною підтримкою Binotel. Зберігаються лише в ENV на сервері,
 # ніколи в репозиторії. companyID потрібен для webhook-ів (apiCallSettings/
 # apiCallCompleted) і для звірки вхідних запитів.
-BINOTEL_API_KEY = os.environ.get('BINOTEL_API_KEY', '').strip()
-BINOTEL_API_SECRET = os.environ.get('BINOTEL_API_SECRET', '').strip()
-BINOTEL_COMPANY_ID = os.environ.get('BINOTEL_COMPANY_ID', '').strip()
-BINOTEL_API_BASE = os.environ.get('BINOTEL_API_BASE', 'https://api.binotel.com/api/').strip()
-BINOTEL_API_VERSION = os.environ.get('BINOTEL_API_VERSION', '4.0').strip()
+#
+# Імена читаємо нормалізовано (регістронезалежно), бо в cPanel вони задані як
+# BINOTEL_API_Key / BINOTEL_API_Secret / BINOTEL_CompanyID — і це не збігається
+# з простим upper-case варіантом.
+BINOTEL_API_KEY = _env_normalized(
+    'BINOTEL_API_KEY', 'BINOTEL_API_Key', 'Binotel API Key', 'BINOTEL_KEY'
+).strip()
+BINOTEL_API_SECRET = _env_normalized(
+    'BINOTEL_API_SECRET', 'BINOTEL_API_Secret', 'Binotel API Secret', 'BINOTEL_SECRET'
+).strip()
+BINOTEL_COMPANY_ID = _env_normalized(
+    'BINOTEL_COMPANY_ID', 'BINOTEL_CompanyID', 'Binotel Company ID', 'BINOTEL_COMPANYID'
+).strip()
+BINOTEL_API_BASE = (_env_normalized('BINOTEL_API_BASE', default='https://api.binotel.com/api/')).strip()
+BINOTEL_API_VERSION = (_env_normalized('BINOTEL_API_VERSION', default='4.0')).strip()
 BINOTEL_API_TIMEOUT = _env_int('BINOTEL_API_TIMEOUT', 25)
 
 # Mono Checkout (order-based flow) configuration

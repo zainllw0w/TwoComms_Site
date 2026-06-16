@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import json
 import logging
+import re
+import time
 from typing import Any
 
 import requests
@@ -37,8 +39,66 @@ BINOTEL_ERROR_MESSAGES = {
     151: "Can't call to the external number",
 }
 
+# Людські пояснення кодів помилок (для UI).
+BINOTEL_ERROR_HINTS_UK = {
+    102: "Такого методу не існує (перевірте назву endpoint).",
+    103: "Недостатньо даних у запиті (відсутній обов'язковий параметр).",
+    104: "Невірні дані у запиті.",
+    105: "Щось пішло не так на боці Binotel.",
+    106: "Забагато запитів поспіль — спрацював rate limit (5 запитів/хв).",
+    120: "Вашу компанію вимкнено в Binotel.",
+    121: "Невірні key або secret (перевірте ключі в ENV).",
+    150: "Неможливо подзвонити на внутрішню лінію (перевірте internalNumber / стан лінії).",
+    151: "Неможливо подзвонити на зовнішній номер (перевірте формат номера).",
+}
+
 # Стани дзвінка (disposition), при яких доступний запис розмови.
 RECORDING_AVAILABLE_DISPOSITIONS = {"ANSWER", "VM-SUCCESS", "SUCCESS"}
+
+# Класифікація disposition для UI/логіки.
+DISPOSITION_META = {
+    "ANSWER": {"group": "success", "label_uk": "Успішний дзвінок", "final": True},
+    "TRANSFER": {"group": "success", "label_uk": "Успішний (переведений)", "final": True},
+    "ONLINE": {"group": "online", "label_uk": "У розмові", "final": False},
+    "BUSY": {"group": "failed", "label_uk": "Зайнято", "final": True},
+    "NOANSWER": {"group": "failed", "label_uk": "Немає відповіді", "final": True},
+    "CANCEL": {"group": "failed", "label_uk": "Скасовано", "final": True},
+    "CONGESTION": {"group": "failed", "label_uk": "Перевантаження мережі", "final": True},
+    "CHANUNAVAIL": {"group": "failed", "label_uk": "Лінія недоступна", "final": True},
+    "VM": {"group": "voicemail", "label_uk": "Голосова пошта (без повідомлення)", "final": True},
+    "VM-SUCCESS": {"group": "voicemail", "label_uk": "Голосова пошта (з повідомленням)", "final": True},
+    "SMS-SENDING": {"group": "sms", "label_uk": "SMS відправляється", "final": False},
+    "SMS-SUCCESS": {"group": "sms", "label_uk": "SMS відправлено", "final": True},
+    "SMS-FAILED": {"group": "sms", "label_uk": "SMS не відправлено", "final": True},
+    "SUCCESS": {"group": "success", "label_uk": "Факс прийнято", "final": True},
+    "FAILED": {"group": "failed", "label_uk": "Факс не прийнято", "final": True},
+}
+
+# Ендпоінти, безпечні для повторної відправки (читання/ідемпотентні).
+# ВАЖЛИВО: calls/* НІКОЛИ не ретраяться — повторний POST може ініціювати
+# дубль реального дзвінка клієнту навіть якщо перший запит "завис" по timeout.
+_IDEMPOTENT_PREFIXES = ("stats/", "settings/list", "customers/list", "customers/search",
+                        "customers/take", "customers/listOfLabels")
+
+
+def normalize_phone(value: str) -> str:
+    """Прибирає форматування з номера, лишаючи цифри та провідний +."""
+    if value is None:
+        return ""
+    value = str(value).strip()
+    plus = value.startswith("+")
+    digits = re.sub(r"\D", "", value)
+    return ("+" + digits) if plus else digits
+
+
+def mask_secret(value: str) -> str:
+    """Маскує секрет для логів: лишає перші 3 символи."""
+    if not value:
+        return ""
+    value = str(value)
+    if len(value) <= 4:
+        return "***"
+    return value[:3] + "***"
 
 
 class BinotelError(Exception):
@@ -55,9 +115,37 @@ class BinotelError(Exception):
             return f"[{self.code}] {self.message}"
         return self.message
 
+    @property
+    def hint(self) -> str:
+        return BINOTEL_ERROR_HINTS_UK.get(self.code, "") if self.code else ""
+
 
 class BinotelNotConfigured(BinotelError):
     """Не задані ключі Binotel в ENV."""
+
+
+_SESSION = None
+
+
+def _shared_session() -> requests.Session:
+    """Єдина requests.Session з пулом keep-alive з'єднань на процес.
+
+    Ретраї тут НЕ налаштовуємо на рівні адаптера: політику повторів
+    застосовуємо вручну в send_request, бо вона залежить від ідемпотентності
+    конкретного методу (calls/* ретраїти не можна)."""
+    global _SESSION
+    if _SESSION is None:
+        s = requests.Session()
+        adapter = requests.adapters.HTTPAdapter(
+            pool_connections=4, pool_maxsize=8, max_retries=0
+        )
+        s.mount("https://", adapter)
+        s.mount("http://", adapter)
+        _SESSION = s
+    return _SESSION
+
+
+
 
 
 class BinotelClient:
@@ -72,6 +160,7 @@ class BinotelClient:
         api_version: str | None = None,
         timeout: int | None = None,
         session: requests.Session | None = None,
+        max_retries: int = 2,
     ) -> None:
         self.key = (key or "").strip()
         self.secret = (secret or "").strip()
@@ -79,8 +168,12 @@ class BinotelClient:
         if not self.api_base.endswith("/"):
             self.api_base += "/"
         self.api_version = (api_version or "4.0").strip()
-        self.timeout = int(timeout or 25)
-        self._session = session or requests.Session()
+        # Роздільні таймаути (connect, read): з'єднання має встановлюватися
+        # швидко, а read може бути довшим (ініціювання дзвінка чекає лінію).
+        total = int(timeout or 25)
+        self.timeout = (min(10, total), total)
+        self.max_retries = max(0, int(max_retries))
+        self._session = session or _shared_session()
 
     # --- factory / config helpers -------------------------------------
 
@@ -112,15 +205,56 @@ class BinotelClient:
         endpoint = (endpoint or "").strip().strip("/")
         return f"{self.api_base}{self.api_version}/{endpoint}.json"
 
+    @staticmethod
+    def _is_idempotent(endpoint: str) -> bool:
+        ep = (endpoint or "").strip().strip("/")
+        return ep.startswith(_IDEMPOTENT_PREFIXES)
+
     # --- core ----------------------------------------------------------
 
     def send_request(self, endpoint: str, params: dict | None = None) -> dict:
         """
         Виконує POST-запит до Binotel і повертає декодований словник.
 
+        Повтори застосовуються ЛИШЕ для ідемпотентних методів (stats/settings/
+        читання customers) при транспортних помилках, HTTP 5xx та коді 106
+        (rate limit). calls/* ніколи не повторюються, щоб не створити дубль
+        реального дзвінка.
+
         Кидає :class:`BinotelError` при транспортній помилці, не-200 коді,
         невалідному JSON або ``status != success``.
         """
+        endpoint_clean = (endpoint or "").strip().strip("/")
+        idempotent = self._is_idempotent(endpoint_clean)
+        attempts = (self.max_retries + 1) if idempotent else 1
+        last_exc: BinotelError | None = None
+
+        for attempt in range(attempts):
+            try:
+                return self._send_once(endpoint_clean, params)
+            except BinotelError as exc:
+                last_exc = exc
+                retriable = idempotent and self._is_retriable(exc)
+                if not retriable or attempt == attempts - 1:
+                    raise
+                # Експоненційний backoff; для 106 (rate limit) — довша пауза.
+                base = 10.0 if exc.code == 106 else 0.6
+                time.sleep(base * (2 ** attempt))
+        # Недосяжно, але про всяк випадок:
+        raise last_exc or BinotelError("Невідома помилка Binotel")
+
+    @staticmethod
+    def _is_retriable(exc: BinotelError) -> bool:
+        # Rate limit — ретраїмо.
+        if exc.code == 106:
+            return True
+        # Помилки рівня API (auth/wrong data/...) не ретраяться.
+        if exc.code is not None:
+            return False
+        # Транспорт/HTTP-5xx/невалідний JSON (code is None) — ретраїмо.
+        return True
+
+    def _send_once(self, endpoint: str, params: dict | None = None) -> dict:
         payload = dict(params or {})
         payload["key"] = self.key
         payload["secret"] = self.secret
@@ -134,7 +268,10 @@ class BinotelClient:
                 timeout=self.timeout,
             )
         except requests.RequestException as exc:
-            logger.warning("Binotel transport error on %s: %s", endpoint, exc)
+            logger.warning(
+                "Binotel transport error on %s (key=%s): %s",
+                endpoint, mask_secret(self.key), exc,
+            )
             raise BinotelError(f"Помилка з'єднання з Binotel: {exc}") from exc
 
         if response.status_code != 200:
@@ -199,8 +336,8 @@ class BinotelClient:
         callTimeToExt, playbackWaiting, callerIdForEmployee, async.
         """
         params = {
-            "internalNumber": str(internal_number),
-            "externalNumber": str(external_number),
+            "internalNumber": str(internal_number).strip(),
+            "externalNumber": normalize_phone(external_number),
         }
         params.update({k: v for k, v in extra.items() if v not in (None, "")})
         return self.send_request("calls/internal-number-to-external-number", params)

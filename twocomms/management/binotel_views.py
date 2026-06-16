@@ -21,6 +21,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from .services.binotel import (
     BINOTEL_ERROR_MESSAGES,
+    DISPOSITION_META,
     BinotelClient,
     BinotelError,
     BinotelNotConfigured,
@@ -84,10 +85,26 @@ def _error_response(exc: BinotelError):
             "success": False,
             "error": str(exc),
             "code": exc.code,
+            "hint": exc.hint,
             "raw": exc.raw,
         },
         status=200,  # 200 — щоб фронт показав текст помилки Binotel, а не generic 500
     )
+
+
+def _annotate_dispositions(call_details):
+    """Додає людські лейбли disposition до кожного дзвінка (для UI)."""
+    if not isinstance(call_details, dict):
+        return call_details
+    for call in call_details.values():
+        if isinstance(call, dict):
+            disp = call.get("disposition") or ""
+            meta = DISPOSITION_META.get(disp)
+            if meta:
+                call["_dispositionLabel"] = meta["label_uk"]
+                call["_dispositionGroup"] = meta["group"]
+                call["_dispositionFinal"] = meta["final"]
+    return call_details
 
 
 def _post_json(request) -> dict:
@@ -135,6 +152,9 @@ def binotel_status(request):
                 "success": True,
                 "configured": False,
                 "reachable": False,
+                "key_present": bool(getattr(settings, "BINOTEL_API_KEY", "")),
+                "secret_present": bool(getattr(settings, "BINOTEL_API_SECRET", "")),
+                "company_present": bool(getattr(settings, "BINOTEL_COMPANY_ID", "")),
                 "message": "Ключі Binotel не задані в ENV "
                 "(BINOTEL_API_KEY / BINOTEL_API_SECRET).",
             }
@@ -294,7 +314,7 @@ def binotel_call_details(request):
         data = client.call_details(ids)
     except BinotelError as exc:
         return _error_response(exc)
-    return JsonResponse({"success": True, "callDetails": data.get("callDetails"), "raw": data})
+    return JsonResponse({"success": True, "callDetails": _annotate_dispositions(data.get("callDetails")), "raw": data})
 
 
 @login_required(login_url="management_login")
@@ -339,7 +359,7 @@ def binotel_online_calls(request):
         data = client.online_calls()
     except BinotelError as exc:
         return _error_response(exc)
-    return JsonResponse({"success": True, "callDetails": data.get("callDetails"), "raw": data})
+    return JsonResponse({"success": True, "callDetails": _annotate_dispositions(data.get("callDetails")), "raw": data})
 
 
 @login_required(login_url="management_login")
@@ -371,7 +391,7 @@ def binotel_calls_period(request):
             data = client.list_of_calls_for_period(start_time, stop_time)
     except BinotelError as exc:
         return _error_response(exc)
-    return JsonResponse({"success": True, "callDetails": data.get("callDetails"), "raw": data})
+    return JsonResponse({"success": True, "callDetails": _annotate_dispositions(data.get("callDetails")), "raw": data})
 
 
 @login_required(login_url="management_login")
