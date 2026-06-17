@@ -1,0 +1,140 @@
+{% load static i18n %}
+{% comment %}
+  Mini-profile v2 (mpx) — єдиний вміст панелі користувача для desktop і mobile.
+  Підключається з #user-panel (header.html, variant='desktop') та
+  #user-panel-mobile (base.html, variant='mobile'). Зовнішній контейнер,
+  id та клас user-panel/d-none/show лишаються в батьківських шаблонах —
+  їх використовує main.js (open/close, позиціювання, inert).
+
+  Дизайн: navy-glass + gold-orange акцент (як management/finance субдомени),
+  бали як лаконічний KPI, тактильні пункти меню, легкі transform/opacity
+  анімації з повагою до prefers-reduced-motion і .perf-lite.
+
+  variant: 'desktop' | 'mobile' — впливає лише на data-атрибут close-кнопки
+  та наявність пункту «Обране» (його лічильник має унікальний id і живе
+  тільки в desktop, на мобайлі обране доступне в bottom-nav).
+{% endcomment %}
+{% if request.user.is_authenticated %}
+  {% with is_admin=request.user.is_staff %}
+  <div class="mpx-head">
+    <div class="mpx-ava">
+      {% if request.user.userprofile and request.user.userprofile.avatar %}
+        <img src="{{ request.user.userprofile.avatar.url }}" alt="{% trans 'Аватар' %}" class="mpx-ava__img" width="44" height="44">
+      {% elif request.session.profile_avatar %}
+        <img src="{{ MEDIA_URL }}{{ request.session.profile_avatar }}" alt="{% trans 'Аватар' %}" class="mpx-ava__img" width="44" height="44">
+      {% else %}
+        <img src="{% static 'img/placeholder.jpg' %}" alt="{% trans 'Аватар' %}" class="mpx-ava__img" width="44" height="44">
+      {% endif %}
+      <span class="mpx-ava__ring" aria-hidden="true"></span>
+    </div>
+    <div class="mpx-head__info">
+      <div class="mpx-head__name">{{ request.user.username }}</div>
+      <div class="mpx-head__sub">
+        {% if request.user.userprofile and request.user.userprofile.phone %}{{ request.user.userprofile.phone }}{% elif request.session.profile_phone %}{{ request.session.profile_phone }}{% else %}{% trans 'Телефон не вказано' %}{% endif %}
+      </div>
+    </div>
+    <span class="mpx-role {% if is_admin %}mpx-role--admin{% endif %}">{% if is_admin %}{% trans 'Адмін' %}{% else %}{% trans 'Клієнт' %}{% endif %}</span>
+    <button type="button" class="mpx-close" {% if variant == 'mobile' %}data-user-close-mobile{% else %}data-user-close{% endif %} aria-label="{% trans 'Закрити' %}">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+  </div>
+
+  <a href="{% url 'buy_with_points' %}" class="mpx-points" aria-label="{% trans 'Ваші бали' %}">
+    <span class="mpx-points__sheen" aria-hidden="true"></span>
+    <span class="mpx-points__coin" aria-hidden="true">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+    </span>
+    <span class="mpx-points__body">
+      <span class="mpx-points__label">{% trans 'Ваші бали' %}</span>
+      <span class="mpx-points__value">{% if request.user.points %}{{ request.user.points.points|default:0 }}{% else %}0{% endif %}</span>
+      <span class="mpx-points__hint">{% trans 'Знижки • Промокоди • Підтримка ЗСУ' %}</span>
+    </span>
+    <span class="mpx-points__cta" aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+    </span>
+  </a>
+
+  <nav class="mpx-menu" aria-label="{% trans 'Меню профілю' %}">
+    <a href="{% url 'profile_setup' %}" class="mpx-item" style="--i:0">
+      <span class="mpx-item__ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></span>
+      <span class="mpx-item__txt">{% trans 'Налаштування профілю' %}</span>
+      <span class="mpx-item__arr"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></span>
+    </a>
+    <a href="{% url 'my_orders' %}" class="mpx-item" style="--i:1">
+      <span class="mpx-item__ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></span>
+      <span class="mpx-item__txt">{% trans 'Мої замовлення' %}</span>
+      <span class="mpx-item__arr"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></span>
+    </a>
+    <a href="{% url 'reviews:my_reviews' %}" class="mpx-item" style="--i:2">
+      <span class="mpx-item__ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg></span>
+      <span class="mpx-item__txt">{% trans 'Мої відгуки' %}</span>
+      <span class="mpx-item__arr"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></span>
+    </a>
+    {% if variant != 'mobile' %}
+    <a href="{% url 'favorites' %}" class="mpx-item" id="favorites-menu-item" style="--i:3; display:none;">
+      <span class="mpx-item__ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z"/></svg></span>
+      <span class="mpx-item__txt">{% trans 'Обрані товари' %}</span>
+      <span class="mpx-item__badge" id="favorites-count-mini" aria-label="{% trans 'Кількість обраних' %}">0</span>
+      <span class="mpx-item__arr"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></span>
+    </a>
+    {% endif %}
+    <a href="{% url 'my_promocodes' %}" class="mpx-item" style="--i:4">
+      <span class="mpx-item__ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M21.41 11.58l-9-9C12.05 2.22 11.55 2 11 2H4c-1.1 0-2 .9-2 2v7c0 .55.22 1.05.59 1.42l9 9c.36.36.86.58 1.41.58.55 0 1.05-.22 1.41-.59l7-7c.37-.36.59-.86.59-1.41 0-.55-.23-1.06-.59-1.42zM5.5 7C4.67 7 4 6.33 4 5.5S4.67 4 5.5 4 7 4.67 7 5.5 6.33 7 5.5 7z"/></svg></span>
+      <span class="mpx-item__txt">{% trans 'Мої промокоди' %}</span>
+      <span class="mpx-item__arr"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></span>
+    </a>
+
+    {% if is_admin %}
+    <div class="mpx-divider"><span>{% trans 'Адміністрування' %}</span></div>
+    <a href="{% url 'manual_order_create' %}" class="mpx-item mpx-item--admin" style="--i:5">
+      <span class="mpx-item__ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg></span>
+      <span class="mpx-item__txt">{% trans 'Створити замовлення' %}</span>
+      <span class="mpx-item__arr"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></span>
+    </a>
+    <a href="{% url 'admin_panel' %}" class="mpx-item mpx-item--admin" style="--i:6">
+      <span class="mpx-item__ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1 3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg></span>
+      <span class="mpx-item__txt">{% trans 'Панель адміністратора' %}</span>
+      <span class="mpx-item__arr"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></span>
+    </a>
+    {% endif %}
+  </nav>
+
+  <a href="{% url 'logout' %}" class="mpx-logout">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+    <span>{% trans 'Вийти' %}</span>
+  </a>
+  {% endwith %}
+{% else %}
+  <div class="mpx-head mpx-head--guest">
+    <span class="mpx-ava mpx-ava--guest" aria-hidden="true">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+    </span>
+    <div class="mpx-head__info">
+      <div class="mpx-head__name">{% trans 'Вхід в акаунт' %}</div>
+      <div class="mpx-head__sub">{% trans 'Бали • замовлення • обране' %}</div>
+    </div>
+    <button type="button" class="mpx-close" {% if variant == 'mobile' %}data-user-close-mobile{% else %}data-user-close{% endif %} aria-label="{% trans 'Закрити' %}">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+  </div>
+
+  <div class="mpx-auth">
+    <a href="{% url 'login' %}" class="mpx-auth__btn mpx-auth__btn--primary" style="--i:0">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M11 7 9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8z"/></svg>
+      <span>{% trans 'Увійти' %}</span>
+    </a>
+    <a href="{% url 'register' %}" class="mpx-auth__btn" style="--i:1">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+      <span>{% trans 'Зареєструватись' %}</span>
+    </a>
+    <a href="{% url 'social:begin' 'google-oauth2' %}" class="mpx-auth__btn" style="--i:2">
+      <img src="{% static 'img/google.svg' %}" width="16" height="16" alt="Google" loading="lazy">
+      <span>{% trans 'Увійти через Google' %}</span>
+    </a>
+    <a href="#" class="mpx-auth__btn" data-tg-mini-login style="--i:3">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>
+      <span>{% trans 'Увійти через Telegram' %}</span>
+    </a>
+  </div>
+  <div class="mpx-note">{% trans 'Авторизуйтесь, щоб накопичувати бали та не вводити дані щоразу' %}</div>
+{% endif %}
