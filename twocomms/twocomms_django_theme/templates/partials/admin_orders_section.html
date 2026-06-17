@@ -302,6 +302,21 @@
 .oadm-cancel-btn { display:inline-flex; align-items:center; gap:6px; padding:9px 16px; border-radius:11px; cursor:pointer;
   border:1px solid rgba(251,113,133,.3); background:rgba(251,113,133,.08); color:var(--o-red); font-size:.85rem; font-weight:700; transition:all .15s ease; }
 .oadm-cancel-btn:hover { background:rgba(251,113,133,.2); }
+.oadm-edit-btn { display:inline-flex; align-items:center; gap:7px; padding:9px 16px; border-radius:11px; cursor:pointer;
+  border:1px solid rgba(249,115,22,.35); background:linear-gradient(135deg, rgba(249,115,22,.16), rgba(251,146,60,.1));
+  color:#fdba74; font-size:.85rem; font-weight:700; transition:transform .15s ease, box-shadow .15s ease, background .15s ease; }
+.oadm-edit-btn svg { transition:transform .25s ease; }
+.oadm-edit-btn:hover { background:linear-gradient(135deg, rgba(249,115,22,.28), rgba(251,146,60,.18)); color:#fff;
+  transform:translateY(-1px); box-shadow:0 8px 22px rgba(249,115,22,.22); }
+.oadm-edit-btn:hover svg { transform:rotate(-12deg) scale(1.08); }
+.oadm-edit-btn:active { transform:translateY(0) scale(.97); }
+/* підсвітка картки після збереження змін */
+.oadm .admin-order-card.is-just-edited { animation:oadm-edited-flash 1.8s ease-out; }
+@keyframes oadm-edited-flash {
+  0% { box-shadow:0 0 0 2px rgba(249,115,22,.9), 0 0 34px rgba(249,115,22,.5); }
+  100% { box-shadow:0 18px 50px rgba(2,8,23,.28); }
+}
+@media (prefers-reduced-motion:reduce) { .oadm .admin-order-card.is-just-edited { animation:none; } }
 .cancel-reason-box { padding:10px 14px; border-radius:11px; background:rgba(251,113,133,.1) !important; color:#fecaca !important;
   border:1px solid rgba(251,113,133,.28); font-size:.84rem; }
 
@@ -681,6 +696,16 @@
                 {% if o.cancellation_comment %} {{ o.cancellation_comment }}{% endif %}
               </span>
             </div>
+            <div class="oadm-actions-row">
+              <button class="oadm-edit-btn" type="button"
+                      data-edit-order="{{ o.id }}"
+                      data-data-url="{% url 'manual_order_edit_data' o.id %}"
+                      data-submit-url="{% url 'manual_order_edit' o.id %}"
+                      data-order-number="{{ o.order_number }}">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                Редагувати замовлення
+              </button>
+            </div>
           {% else %}
             <div class="oadm-track" data-status="{{ o.status }}">
               <div class="oadm-stage">
@@ -716,6 +741,14 @@
             </div>
 
             <div class="oadm-actions-row order-cancel-actions">
+              <button class="oadm-edit-btn" type="button"
+                      data-edit-order="{{ o.id }}"
+                      data-data-url="{% url 'manual_order_edit_data' o.id %}"
+                      data-submit-url="{% url 'manual_order_edit' o.id %}"
+                      data-order-number="{{ o.order_number }}">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                Редагувати замовлення
+              </button>
               <button class="oadm-cancel-btn" type="button" onclick="updateOrderStatus('{{ o.id }}', 'cancelled')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
                 Скасувати замовлення
@@ -820,3 +853,668 @@
     {% endfor %}
   </div>
 </div>
+
+<style>
+/* ============ Order Edit Drawer (scoped .oedit-) ============ */
+.oedit-backdrop { position:fixed; inset:0; z-index:1200; background:rgba(2,8,23,.62);
+  backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); opacity:0; transition:opacity .28s ease; }
+.oedit-backdrop.is-open { opacity:1; }
+
+.oedit-drawer { position:fixed; top:0; right:0; bottom:0; z-index:1201; width:min(560px, 100vw);
+  display:flex; flex-direction:column; color:#f1f5f9;
+  background:linear-gradient(180deg, #0d1726 0%, #0a121d 100%);
+  border-left:1px solid rgba(148,163,184,.16); box-shadow:-30px 0 80px rgba(2,8,23,.55);
+  transform:translateX(100%); transition:transform .34s cubic-bezier(.22,.61,.36,1); will-change:transform; }
+.oedit-drawer.is-open { transform:translateX(0); }
+
+.oedit-head { flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:18px 20px; border-bottom:1px solid rgba(148,163,184,.14);
+  background:linear-gradient(180deg, rgba(249,115,22,.1), transparent); }
+.oedit-head__eyebrow { font-size:.72rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:#fdba74; }
+.oedit-head__num { font-size:1.25rem; font-weight:900; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; margin-top:3px; }
+.oedit-head__client { font-size:.84rem; color:#94a3b8; margin-top:2px; }
+.oedit-close { flex:0 0 auto; width:38px; height:38px; border-radius:11px; cursor:pointer; display:grid; place-items:center;
+  border:1px solid rgba(148,163,184,.22); background:rgba(8,14,23,.6); color:#94a3b8; transition:all .15s ease; }
+.oedit-close:hover { color:#fff; border-color:rgba(251,113,133,.5); background:rgba(251,113,133,.12); }
+.oedit-close:active { transform:scale(.92); }
+
+.oedit-body { flex:1 1 auto; overflow-y:auto; padding:18px 20px 8px; scrollbar-width:thin; }
+.oedit-body::-webkit-scrollbar { width:6px; }
+.oedit-body::-webkit-scrollbar-thumb { background:rgba(148,163,184,.26); border-radius:999px; }
+
+.oedit-sec { margin-bottom:18px; }
+.oedit-sec__title { display:flex; align-items:center; gap:8px; font-size:.74rem; font-weight:700; letter-spacing:.05em;
+  text-transform:uppercase; color:#94a3b8; margin-bottom:11px; }
+.oedit-sec__title svg { color:#f97316; }
+
+/* item line */
+.oedit-line { border:1px solid rgba(148,163,184,.14); border-radius:15px; background:rgba(8,14,23,.55);
+  padding:12px; margin-bottom:10px; animation:oedit-line-in .3s ease both; }
+@keyframes oedit-line-in { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+.oedit-line__top { display:flex; align-items:flex-start; gap:11px; }
+.oedit-line__img { width:50px; height:50px; flex:0 0 auto; border-radius:10px; object-fit:cover; background:rgba(148,163,184,.12); }
+.oedit-line__img--ph { display:grid; place-items:center; color:#94a3b8; }
+.oedit-line__info { flex:1 1 auto; min-width:0; }
+.oedit-line__name { font-size:.92rem; font-weight:700; line-height:1.25; word-break:break-word; }
+.oedit-line__tag { display:inline-block; margin-top:4px; font-size:.66rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:.04em; padding:2px 8px; border-radius:999px; }
+.oedit-line__tag--catalog { color:#93c5fd; background:rgba(59,130,246,.16); }
+.oedit-line__tag--custom { color:#fcd34d; background:rgba(251,191,36,.16); }
+.oedit-line__del { flex:0 0 auto; width:32px; height:32px; border:0; border-radius:9px; cursor:pointer; display:grid; place-items:center;
+  background:rgba(251,113,133,.14); color:#fb7185; transition:all .14s ease; }
+.oedit-line__del:hover { background:rgba(251,113,133,.28); }
+.oedit-line__del:active { transform:scale(.9); }
+.oedit-line__grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(92px, 1fr)); gap:9px; margin-top:11px; }
+.oedit-fld { display:flex; flex-direction:column; gap:4px; }
+.oedit-fld label { font-size:.7rem; color:#94a3b8; }
+.oedit-input, .oedit-select { width:100%; border:1px solid rgba(148,163,184,.3); border-radius:10px;
+  background:rgba(8,14,23,.7); color:#f1f5f9; padding:9px 11px; font-size:.9rem; outline:none;
+  transition:border-color .15s ease, box-shadow .15s ease; }
+.oedit-input:focus, .oedit-select:focus { border-color:#f97316; box-shadow:0 0 0 3px rgba(249,115,22,.16); }
+.oedit-select option { color:#0b1220; }
+.oedit-line__swap { display:inline-flex; align-items:center; gap:6px; margin-top:10px; padding:7px 13px; border-radius:9px;
+  cursor:pointer; border:1px solid rgba(148,163,184,.26); background:rgba(8,14,23,.5); color:#cbd5e1;
+  font-size:.8rem; font-weight:600; transition:all .15s ease; }
+.oedit-line__swap:hover { color:#fff; border-color:#f97316; }
+.oedit-line__sub { text-align:right; margin-top:9px; font-size:.82rem; color:#94a3b8; }
+.oedit-line__sub b { color:#f1f5f9; }
+
+/* add buttons */
+.oedit-add-row { display:flex; gap:9px; flex-wrap:wrap; margin-top:6px; }
+.oedit-add-btn { flex:1 1 150px; display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:11px 14px;
+  border-radius:12px; cursor:pointer; border:1px dashed rgba(148,163,184,.34); background:rgba(8,14,23,.4);
+  color:#cbd5e1; font-size:.86rem; font-weight:700; transition:all .15s ease; }
+.oedit-add-btn:hover { color:#fff; border-color:#f97316; background:rgba(249,115,22,.1); }
+.oedit-add-btn:active { transform:scale(.98); }
+
+/* picker (collapsible) */
+.oedit-picker { margin-top:11px; border:1px solid rgba(148,163,184,.16); border-radius:14px; background:rgba(8,14,23,.45);
+  padding:12px; display:none; }
+.oedit-picker.is-open { display:block; animation:oedit-line-in .25s ease both; }
+.oedit-picker__search { width:100%; border:1px solid rgba(148,163,184,.3); border-radius:10px; background:rgba(8,14,23,.7);
+  color:#f1f5f9; padding:10px 12px; font-size:.9rem; outline:none; margin-bottom:10px; }
+.oedit-picker__search:focus { border-color:#f97316; }
+.oedit-chips { display:flex; gap:7px; overflow-x:auto; padding-bottom:5px; margin-bottom:10px; scrollbar-width:thin; }
+.oedit-chip { flex:0 0 auto; border:1px solid rgba(148,163,184,.26); background:rgba(8,14,23,.6); color:#94a3b8;
+  border-radius:999px; padding:6px 13px; font-size:.78rem; font-weight:600; cursor:pointer; white-space:nowrap; transition:all .14s ease; }
+.oedit-chip.is-active { color:#f1f5f9; border-color:#f97316; background:rgba(249,115,22,.16); }
+.oedit-prod-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:10px; max-height:300px;
+  overflow-y:auto; padding:2px; scrollbar-width:thin; }
+.oedit-prod { border:1px solid rgba(148,163,184,.14); border-radius:13px; background:rgba(8,14,23,.55); cursor:pointer;
+  overflow:hidden; display:flex; flex-direction:column; transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease; }
+.oedit-prod:hover { transform:translateY(-3px); border-color:#f97316; box-shadow:0 10px 24px rgba(2,8,23,.4); }
+.oedit-prod:active { transform:translateY(0) scale(.98); }
+.oedit-prod__img { width:100%; aspect-ratio:1/1; object-fit:cover; background:rgba(148,163,184,.12); }
+.oedit-prod__img--ph { display:grid; place-items:center; color:#94a3b8; }
+.oedit-prod__body { padding:8px 10px 10px; }
+.oedit-prod__title { font-size:.8rem; font-weight:600; line-height:1.25; display:-webkit-box; -webkit-line-clamp:2;
+  -webkit-box-orient:vertical; overflow:hidden; }
+.oedit-prod__price { font-size:.82rem; font-weight:800; color:#fdba74; margin-top:5px; }
+.oedit-custom-grid { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:10px; }
+.oedit-custom-grid .oedit-fld--full { grid-column:1 / -1; }
+.oedit-empty { color:#94a3b8; font-size:.84rem; text-align:center; padding:18px; grid-column:1/-1; }
+
+/* collapsibles for customer / payment */
+.oedit-collapse { border:1px solid rgba(148,163,184,.14); border-radius:13px; background:rgba(8,14,23,.4); margin-bottom:10px; overflow:hidden; }
+.oedit-collapse__head { display:flex; align-items:center; gap:9px; padding:13px 15px; cursor:pointer; font-size:.86rem; font-weight:600; color:#e2e8f0; }
+.oedit-collapse__head svg.chev { margin-left:auto; transition:transform .2s ease; color:#94a3b8; }
+.oedit-collapse.is-open .oedit-collapse__head svg.chev { transform:rotate(180deg); }
+.oedit-collapse__body { display:none; padding:0 15px 15px; }
+.oedit-collapse.is-open .oedit-collapse__body { display:block; animation:oedit-line-in .22s ease both; }
+.oedit-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.oedit-grid2 .oedit-fld--full { grid-column:1/-1; }
+.oedit-presets { display:flex; flex-direction:column; gap:7px; }
+.oedit-preset { display:flex; align-items:center; gap:9px; border:1px solid rgba(148,163,184,.26); border-radius:11px;
+  padding:10px 12px; cursor:pointer; font-size:.86rem; font-weight:600; transition:all .15s ease; }
+.oedit-preset.is-active { border-color:#f97316; background:rgba(249,115,22,.14); }
+.oedit-preset input { accent-color:#f97316; }
+
+/* footer */
+.oedit-foot { flex:0 0 auto; display:flex; align-items:center; gap:14px; padding:15px 20px;
+  border-top:1px solid rgba(148,163,184,.14); background:rgba(8,14,23,.6); }
+.oedit-total { flex:1 1 auto; min-width:0; }
+.oedit-total__label { font-size:.76rem; color:#94a3b8; }
+.oedit-total__val { font-size:1.5rem; font-weight:900; }
+.oedit-delta { display:inline-block; margin-left:8px; font-size:.82rem; font-weight:800; padding:2px 9px; border-radius:999px; }
+.oedit-delta.is-up { color:#86efac; background:rgba(34,197,94,.16); }
+.oedit-delta.is-down { color:#fda4af; background:rgba(251,113,133,.16); }
+.oedit-save { flex:0 0 auto; border:0; border-radius:13px; cursor:pointer; padding:14px 26px; font-size:.95rem; font-weight:800;
+  color:#0b1220; background:linear-gradient(135deg,#f97316,#fb923c); box-shadow:0 12px 28px rgba(249,115,22,.3);
+  transition:transform .15s ease, box-shadow .15s ease, opacity .15s ease; }
+.oedit-save:hover { transform:translateY(-1px); box-shadow:0 16px 34px rgba(249,115,22,.42); }
+.oedit-save:active { transform:translateY(0) scale(.98); }
+.oedit-save:disabled { opacity:.55; cursor:not-allowed; transform:none; }
+
+/* toast */
+.oedit-toast { position:fixed; left:50%; bottom:26px; z-index:1300; transform:translate(-50%, 28px);
+  max-width:min(440px, 92vw); padding:14px 18px; border-radius:14px; opacity:0; pointer-events:none;
+  background:linear-gradient(135deg, rgba(20,30,46,.98), rgba(13,21,33,.98)); border:1px solid rgba(249,115,22,.4);
+  box-shadow:0 20px 50px rgba(2,8,23,.55); color:#f1f5f9; font-size:.9rem; line-height:1.45;
+  transition:opacity .3s ease, transform .3s cubic-bezier(.22,.61,.36,1); }
+.oedit-toast.is-open { opacity:1; transform:translate(-50%, 0); }
+.oedit-toast__title { font-weight:800; color:#fdba74; margin-bottom:3px; display:flex; align-items:center; gap:7px; }
+
+.oedit-loading { display:flex; align-items:center; justify-content:center; gap:10px; padding:50px 0; color:#94a3b8; font-size:.9rem; }
+.oedit-spin { width:20px; height:20px; border:2px solid rgba(148,163,184,.3); border-top-color:#f97316; border-radius:50%;
+  animation:oedit-spin 0.7s linear infinite; }
+@keyframes oedit-spin { to { transform:rotate(360deg); } }
+
+@media (max-width:600px) {
+  .oedit-drawer { width:100vw; top:auto; bottom:0; height:92vh; border-left:0; border-top:1px solid rgba(148,163,184,.16);
+    border-radius:20px 20px 0 0; transform:translateY(100%); }
+  .oedit-drawer.is-open { transform:translateY(0); }
+  .oedit-head { border-radius:20px 20px 0 0; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .oedit-drawer, .oedit-backdrop, .oedit-toast { transition:none; }
+  .oedit-line, .oedit-picker.is-open, .oedit-collapse__body { animation:none; }
+  .oedit-spin { animation-duration:1.4s; }
+}
+.perf-lite .oedit-backdrop { backdrop-filter:none; -webkit-backdrop-filter:none; }
+</style>
+
+<div class="oedit-backdrop" id="oeditBackdrop" hidden></div>
+<aside class="oedit-drawer" id="oeditDrawer" role="dialog" aria-modal="true" aria-label="Редагування замовлення" aria-hidden="true" hidden>
+  <header class="oedit-head">
+    <div style="min-width:0;">
+      <div class="oedit-head__eyebrow">Редагування замовлення</div>
+      <div class="oedit-head__num" id="oeditNum">#—</div>
+      <div class="oedit-head__client" id="oeditClient"></div>
+    </div>
+    <button type="button" class="oedit-close" id="oeditClose" aria-label="Закрити">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+    </button>
+  </header>
+  <div class="oedit-body" id="oeditBody"></div>
+  <footer class="oedit-foot">
+    <div class="oedit-total">
+      <span class="oedit-total__label">Разом до сплати</span>
+      <div><span class="oedit-total__val"><span id="oeditTotal">0</span> грн</span><span class="oedit-delta" id="oeditDelta" hidden></span></div>
+    </div>
+    <button type="button" class="oedit-save" id="oeditSave">Зберегти зміни</button>
+  </footer>
+</aside>
+<div class="oedit-toast" id="oeditToast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+  var drawer = document.getElementById('oeditDrawer');
+  if (!drawer) return;
+
+  var backdrop = document.getElementById('oeditBackdrop');
+  var body = document.getElementById('oeditBody');
+  var elNum = document.getElementById('oeditNum');
+  var elClient = document.getElementById('oeditClient');
+  var elTotal = document.getElementById('oeditTotal');
+  var elDelta = document.getElementById('oeditDelta');
+  var btnSave = document.getElementById('oeditSave');
+  var btnClose = document.getElementById('oeditClose');
+  var toast = document.getElementById('oeditToast');
+
+  // ── state ──────────────────────────────────────────────
+  var submitUrl = null;
+  var products = [];
+  var productMap = {};
+  var categories = [];
+  var presets = {};
+  var saleSourcePresets = [];
+  var items = [];
+  var uidSeq = 1;
+  var initialTotal = 0;
+  var pickerTarget = null;      // uid позиції для заміни, або null = додати нову
+  var pickerCategory = 'all';
+
+  function csrf() {
+    var m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function fmt(n) {
+    return (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('uk-UA');
+  }
+  function lineTotal(it) { return (Number(it.unit_price) || 0) * (parseInt(it.qty, 10) || 0); }
+
+  // ── open / close ───────────────────────────────────────
+  function openDrawer() {
+    drawer.hidden = false; backdrop.hidden = false;
+    drawer.setAttribute('aria-hidden', 'false');
+    requestAnimationFrame(function () { drawer.classList.add('is-open'); backdrop.classList.add('is-open'); });
+    document.body.style.overflow = 'hidden';
+  }
+  function closeDrawer() {
+    drawer.classList.remove('is-open'); backdrop.classList.remove('is-open');
+    drawer.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    window.setTimeout(function () { drawer.hidden = true; backdrop.hidden = true; }, 320);
+  }
+
+  function showToast(html, ms) {
+    toast.innerHTML = html;
+    toast.classList.add('is-open');
+    window.clearTimeout(showToast._t);
+    showToast._t = window.setTimeout(function () { toast.classList.remove('is-open'); }, ms || 4200);
+  }
+
+  function loadOrder(orderId, dataUrl, subUrl) {
+    submitUrl = subUrl;
+    body.innerHTML = '<div class="oedit-loading"><span class="oedit-spin"></span>Завантаження…</div>';
+    elNum.textContent = '#…'; elClient.textContent = '';
+    elDelta.hidden = true; elTotal.textContent = '0';
+    openDrawer();
+
+    fetch(dataUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d || !d.success) { body.innerHTML = '<div class="oedit-empty">Не вдалося завантажити замовлення.</div>'; return; }
+        products = d.products || [];
+        productMap = {};
+        products.forEach(function (p) { productMap[p.id] = p; });
+        categories = d.categories || [];
+        presets = d.payment_presets || {};
+        saleSourcePresets = d.sale_source_presets || [];
+        hydrate(d.order);
+      })
+      .catch(function () { body.innerHTML = '<div class="oedit-empty">Помилка мережі. Спробуйте ще раз.</div>'; });
+  }
+
+  function hydrate(order) {
+    elNum.textContent = '#' + order.order_number;
+    elClient.textContent = order.full_name || '';
+    items = (order.items || []).map(function (raw) {
+      var prod = raw.product_id ? productMap[raw.product_id] : null;
+      return {
+        uid: uidSeq++,
+        kind: raw.kind === 'custom' ? 'custom' : 'catalog',
+        product_id: raw.product_id || null,
+        title: raw.title || (prod && prod.title) || '',
+        image: raw.image || (prod && prod.image) || '',
+        unit_price: Number(raw.unit_price) || 0,
+        qty: parseInt(raw.qty, 10) || 1,
+        size: raw.size || '',
+        color_variant_id: raw.color_variant_id || '',
+        color_name: raw.color_name || '',
+        sizes: prod ? (prod.sizes || []) : [],
+        variants: prod ? (prod.variants || []) : []
+      };
+    });
+    initialTotal = items.reduce(function (a, it) { return a + lineTotal(it); }, 0);
+    buildBody(order);
+    renderItems();
+  }
+
+  // ── build static body shell ────────────────────────────
+  function buildBody(order) {
+    var presetHtml = Object.keys(presets).map(function (key) {
+      var checked = key === order.payment_preset ? ' checked' : '';
+      var active = key === order.payment_preset ? ' is-active' : '';
+      return '<label class="oedit-preset' + active + '" data-preset="' + key + '">' +
+        '<input type="radio" name="oeditPreset" value="' + key + '"' + checked + '>' +
+        '<span>' + esc(presets[key]) + '</span></label>';
+    }).join('');
+
+    body.innerHTML =
+      '<div class="oedit-sec">' +
+        '<div class="oedit-sec__title">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>' +
+          'Товари' +
+        '</div>' +
+        '<div id="oeditItems"></div>' +
+        '<div class="oedit-add-row">' +
+          '<button type="button" class="oedit-add-btn" data-add="catalog"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg> З каталогу</button>' +
+          '<button type="button" class="oedit-add-btn" data-add="custom"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/></svg> Кастомна позиція</button>' +
+        '</div>' +
+        '<div class="oedit-picker" id="oeditPicker"></div>' +
+      '</div>' +
+      '<div class="oedit-collapse" id="oeditCustomerWrap">' +
+        '<div class="oedit-collapse__head" data-collapse>' +
+          '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>' +
+          'Клієнт і коментар' +
+          '<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>' +
+        '</div>' +
+        '<div class="oedit-collapse__body">' +
+          '<div class="oedit-grid2">' +
+            '<div class="oedit-fld oedit-fld--full"><label>ПІБ</label><input type="text" class="oedit-input" id="oeditName" value="' + esc(order.full_name) + '"></div>' +
+            '<div class="oedit-fld oedit-fld--full"><label>Телефон</label><input type="tel" class="oedit-input" id="oeditPhone" value="' + esc(order.phone) + '"></div>' +
+            '<div class="oedit-fld oedit-fld--full"><label>Джерело продажу</label><input type="text" class="oedit-input" id="oeditSource" value="' + esc(order.sale_source) + '"></div>' +
+            '<div class="oedit-fld oedit-fld--full"><label>Коментар менеджера</label><textarea class="oedit-input" id="oeditComment" rows="2">' + esc(order.manager_comment) + '</textarea></div>' +
+          '</div>' +
+          '<div style="margin-top:10px;font-size:.78rem;color:#94a3b8;">Доставка лишається без змін: ' + esc(order.delivery_text || '—') + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="oedit-collapse" id="oeditPaymentWrap">' +
+        '<div class="oedit-collapse__head" data-collapse>' +
+          '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>' +
+          'Оплата' +
+          '<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>' +
+        '</div>' +
+        '<div class="oedit-collapse__body"><div class="oedit-presets" id="oeditPresets">' + presetHtml + '</div></div>' +
+      '</div>';
+
+    // collapse toggles
+    body.querySelectorAll('[data-collapse]').forEach(function (head) {
+      head.addEventListener('click', function () { head.parentElement.classList.toggle('is-open'); });
+    });
+    // payment preset selection
+    body.querySelectorAll('#oeditPresets .oedit-preset').forEach(function (label) {
+      label.addEventListener('click', function () {
+        body.querySelectorAll('#oeditPresets .oedit-preset').forEach(function (l) { l.classList.remove('is-active'); });
+        label.classList.add('is-active');
+        var radio = label.querySelector('input'); if (radio) radio.checked = true;
+      });
+    });
+    // add buttons
+    body.querySelectorAll('[data-add]').forEach(function (btn) {
+      btn.addEventListener('click', function () { openPicker(btn.dataset.add, null); });
+    });
+  }
+
+  // ── render items ───────────────────────────────────────
+  function renderItems() {
+    var wrap = document.getElementById('oeditItems');
+    if (!wrap) return;
+    if (!items.length) {
+      wrap.innerHTML = '<div class="oedit-empty">Немає позицій. Додайте товар нижче.</div>';
+      updateTotal(); return;
+    }
+    wrap.innerHTML = '';
+    items.forEach(function (it) {
+      var line = document.createElement('div');
+      line.className = 'oedit-line';
+
+      var img = it.image
+        ? '<img src="' + esc(it.image) + '" class="oedit-line__img" alt="">'
+        : '<div class="oedit-line__img oedit-line__img--ph"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3L14.5 12l4.5 6H5l3.5-4.5z"/></svg></div>';
+      var tag = it.kind === 'custom'
+        ? '<span class="oedit-line__tag oedit-line__tag--custom">Поза каталогом</span>'
+        : '<span class="oedit-line__tag oedit-line__tag--catalog">Каталог</span>';
+
+      var fields = '';
+      fields += fld('Ціна, грн', '<input type="number" class="oedit-input" min="0" step="1" value="' + it.unit_price + '" data-edit="unit_price">');
+      fields += fld('К-сть', '<input type="number" class="oedit-input" min="1" step="1" value="' + it.qty + '" data-edit="qty">');
+      if (it.kind === 'catalog' && it.sizes && it.sizes.length) {
+        fields += fld('Розмір', '<select class="oedit-select" data-edit="size">' + it.sizes.map(function (s) {
+          return '<option value="' + esc(s) + '"' + (s === it.size ? ' selected' : '') + '>' + esc(s) + '</option>';
+        }).join('') + '</select>');
+      } else {
+        fields += fld('Розмір', '<input type="text" class="oedit-input" value="' + esc(it.size) + '" data-edit="size">');
+      }
+      if (it.kind === 'catalog' && it.variants && it.variants.length) {
+        fields += fld('Колір', '<select class="oedit-select" data-edit="color_variant_id">' + it.variants.map(function (v) {
+          return '<option value="' + v.id + '"' + (String(v.id) === String(it.color_variant_id) ? ' selected' : '') + '>' + esc(v.name) + '</option>';
+        }).join('') + '</select>');
+      } else if (it.kind === 'custom') {
+        fields += fld('Колір', '<input type="text" class="oedit-input" value="' + esc(it.color_name) + '" data-edit="color_name">');
+      }
+
+      var swap = it.kind === 'catalog'
+        ? '<button type="button" class="oedit-line__swap" data-swap><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg> Замінити товар</button>'
+        : '';
+
+      line.innerHTML =
+        '<div class="oedit-line__top">' + img +
+          '<div class="oedit-line__info"><div class="oedit-line__name">' + esc(it.title) + '</div>' + tag + '</div>' +
+          '<button type="button" class="oedit-line__del" data-del aria-label="Видалити"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>' +
+        '</div>' +
+        '<div class="oedit-line__grid">' + fields + '</div>' + swap +
+        '<div class="oedit-line__sub">Сума: <b>' + fmt(lineTotal(it)) + ' грн</b></div>';
+
+      line.querySelectorAll('[data-edit]').forEach(function (input) {
+        var handler = function () { onEdit(it, input, line); };
+        input.addEventListener('input', handler);
+        input.addEventListener('change', handler);
+      });
+      line.querySelector('[data-del]').addEventListener('click', function () {
+        items = items.filter(function (x) { return x.uid !== it.uid; });
+        renderItems();
+      });
+      var swapBtn = line.querySelector('[data-swap]');
+      if (swapBtn) swapBtn.addEventListener('click', function () { openPicker('catalog', it.uid); });
+
+      wrap.appendChild(line);
+    });
+    updateTotal();
+  }
+
+  function fld(label, control) {
+    return '<div class="oedit-fld"><label>' + label + '</label>' + control + '</div>';
+  }
+
+  function onEdit(it, input, line) {
+    var key = input.dataset.edit, val = input.value;
+    if (key === 'unit_price') it.unit_price = Math.max(0, Number(val) || 0);
+    else if (key === 'qty') it.qty = Math.max(1, parseInt(val, 10) || 1);
+    else it[key] = val;
+    var sub = line.querySelector('.oedit-line__sub b');
+    if (sub) sub.textContent = fmt(lineTotal(it)) + ' грн';
+    updateTotal();
+  }
+
+  function updateTotal() {
+    var total = items.reduce(function (a, it) { return a + lineTotal(it); }, 0);
+    elTotal.textContent = fmt(total);
+    var delta = total - initialTotal;
+    if (Math.abs(delta) < 0.005) { elDelta.hidden = true; return; }
+    elDelta.hidden = false;
+    elDelta.className = 'oedit-delta ' + (delta > 0 ? 'is-up' : 'is-down');
+    elDelta.textContent = (delta > 0 ? '+' : '−') + fmt(Math.abs(delta)) + ' грн';
+  }
+
+  // ── picker (catalog / custom) ──────────────────────────
+  function openPicker(mode, targetUid) {
+    pickerTarget = targetUid;
+    var picker = document.getElementById('oeditPicker');
+    if (!picker) return;
+    if (mode === 'custom') { renderCustomForm(picker); }
+    else { renderCatalogPicker(picker); }
+    picker.classList.add('is-open');
+    picker.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function renderCatalogPicker(picker) {
+    var presentCats = {};
+    products.forEach(function (p) { presentCats[p.category_id] = true; });
+    var cats = [{ id: 'all', name: 'Усі' }].concat(categories.filter(function (c) { return presentCats[c.id]; }));
+    picker.innerHTML =
+      '<input type="text" class="oedit-picker__search" id="oeditPickerSearch" placeholder="Пошук товару…">' +
+      '<div class="oedit-chips" id="oeditChips">' + cats.map(function (c) {
+        return '<button type="button" class="oedit-chip' + (String(c.id) === String(pickerCategory) ? ' is-active' : '') + '" data-cat="' + c.id + '">' + esc(c.name) + '</button>';
+      }).join('') + '</div>' +
+      '<div class="oedit-prod-grid" id="oeditProdGrid"></div>';
+    var search = picker.querySelector('#oeditPickerSearch');
+    search.addEventListener('input', function () { renderProdGrid(search.value); });
+    picker.querySelectorAll('#oeditChips .oedit-chip').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        pickerCategory = chip.dataset.cat;
+        picker.querySelectorAll('#oeditChips .oedit-chip').forEach(function (c) { c.classList.remove('is-active'); });
+        chip.classList.add('is-active');
+        renderProdGrid(search.value);
+      });
+    });
+    renderProdGrid('');
+    search.focus();
+  }
+
+  function renderProdGrid(query) {
+    var grid = document.getElementById('oeditProdGrid');
+    if (!grid) return;
+    var q = (query || '').trim().toLowerCase();
+    var list = products.filter(function (p) {
+      var okQ = !q || p.title.toLowerCase().indexOf(q) !== -1;
+      var okC = pickerCategory === 'all' || String(p.category_id) === String(pickerCategory);
+      return okQ && okC;
+    });
+    if (!list.length) { grid.innerHTML = '<div class="oedit-empty">Нічого не знайдено.</div>'; return; }
+    grid.innerHTML = '';
+    list.forEach(function (p) {
+      var card = document.createElement('div');
+      card.className = 'oedit-prod';
+      var img = p.image
+        ? '<img src="' + esc(p.image) + '" class="oedit-prod__img" alt="" loading="lazy">'
+        : '<div class="oedit-prod__img oedit-prod__img--ph"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3L14.5 12l4.5 6H5l3.5-4.5z"/></svg></div>';
+      card.innerHTML = img + '<div class="oedit-prod__body"><div class="oedit-prod__title">' + esc(p.title) + '</div><div class="oedit-prod__price">' + fmt(p.price) + ' грн</div></div>';
+      card.addEventListener('click', function () { chooseProduct(p); });
+      grid.appendChild(card);
+    });
+  }
+
+  function chooseProduct(p) {
+    if (pickerTarget) {
+      var it = items.find(function (x) { return x.uid === pickerTarget; });
+      if (it) {
+        it.kind = 'catalog'; it.product_id = p.id; it.title = p.title; it.image = p.image;
+        it.unit_price = p.price; it.sizes = p.sizes || []; it.variants = p.variants || [];
+        it.size = (p.sizes && p.sizes.indexOf(it.size) !== -1) ? it.size : (p.sizes && p.sizes[0]) || '';
+        it.color_variant_id = (p.variants && p.variants[0] && p.variants[0].id) || '';
+        it.color_name = '';
+      }
+    } else {
+      items.push({
+        uid: uidSeq++, kind: 'catalog', product_id: p.id, title: p.title, image: p.image,
+        unit_price: p.price, qty: 1, size: (p.sizes && p.sizes[0]) || '', sizes: p.sizes || [],
+        variants: p.variants || [], color_variant_id: (p.variants && p.variants[0] && p.variants[0].id) || '', color_name: ''
+      });
+    }
+    closePicker();
+    renderItems();
+  }
+
+  function renderCustomForm(picker) {
+    picker.innerHTML =
+      '<div class="oedit-custom-grid">' +
+        '<div class="oedit-fld oedit-fld--full"><label>Назва<span style="color:#f97316">*</span></label><input type="text" class="oedit-input" id="oeditCustomTitle" placeholder="Напр. Термо-футболка XL"></div>' +
+        '<div class="oedit-fld"><label>Ціна, грн<span style="color:#f97316">*</span></label><input type="number" class="oedit-input" id="oeditCustomPrice" min="0" step="1" placeholder="0"></div>' +
+        '<div class="oedit-fld"><label>К-сть</label><input type="number" class="oedit-input" id="oeditCustomQty" min="1" step="1" value="1"></div>' +
+        '<div class="oedit-fld"><label>Розмір</label><input type="text" class="oedit-input" id="oeditCustomSize" placeholder="M / L / XL"></div>' +
+        '<div class="oedit-fld"><label>Колір</label><input type="text" class="oedit-input" id="oeditCustomColor" placeholder="Чорний"></div>' +
+      '</div>' +
+      '<div class="oedit-add-row"><button type="button" class="oedit-add-btn" id="oeditCustomAdd" style="border-style:solid;border-color:#f97316;color:#fff;background:rgba(249,115,22,.14);">Додати позицію</button></div>';
+    picker.querySelector('#oeditCustomAdd').addEventListener('click', function () {
+      var title = picker.querySelector('#oeditCustomTitle').value.trim();
+      var price = picker.querySelector('#oeditCustomPrice').value;
+      if (!title) { showToast('Вкажіть назву позиції.'); return; }
+      if (price === '' || Number(price) < 0) { showToast('Вкажіть коректну ціну.'); return; }
+      items.push({
+        uid: uidSeq++, kind: 'custom', product_id: null, title: title, image: '',
+        unit_price: Number(price), qty: parseInt(picker.querySelector('#oeditCustomQty').value, 10) || 1,
+        size: picker.querySelector('#oeditCustomSize').value.trim(),
+        color_name: picker.querySelector('#oeditCustomColor').value.trim(), sizes: [], variants: []
+      });
+      closePicker();
+      renderItems();
+    });
+    picker.querySelector('#oeditCustomTitle').focus();
+  }
+
+  function closePicker() {
+    var picker = document.getElementById('oeditPicker');
+    if (picker) { picker.classList.remove('is-open'); picker.innerHTML = ''; }
+    pickerTarget = null;
+  }
+
+  // ── save ───────────────────────────────────────────────
+  function save() {
+    if (!submitUrl) return;
+    var name = (document.getElementById('oeditName') || {}).value;
+    var phone = (document.getElementById('oeditPhone') || {}).value;
+    name = (name || '').trim(); phone = (phone || '').trim();
+    if (!name) { showToast('Вкажіть ПІБ клієнта.'); openCollapse('oeditCustomerWrap'); return; }
+    if (!phone) { showToast('Вкажіть телефон клієнта.'); openCollapse('oeditCustomerWrap'); return; }
+    if (!items.length) { showToast('Додайте хоча б одну позицію.'); return; }
+
+    var preset = (body.querySelector('#oeditPresets input[name="oeditPreset"]:checked') || {}).value || 'cod';
+    var payload = {
+      full_name: name, phone: phone, delivery_method: 'keep', payment_preset: preset,
+      sale_source: ((document.getElementById('oeditSource') || {}).value || '').trim(),
+      manager_comment: ((document.getElementById('oeditComment') || {}).value || '').trim(),
+      items: items.map(function (it) {
+        if (it.kind === 'custom') {
+          return { kind: 'custom', title: it.title, unit_price: it.unit_price, qty: it.qty, size: it.size, color_name: it.color_name };
+        }
+        return { kind: 'catalog', product_id: it.product_id, color_variant_id: it.color_variant_id || '', size: it.size, qty: it.qty, unit_price: it.unit_price };
+      })
+    };
+
+    btnSave.disabled = true; btnSave.textContent = 'Зберігаємо…';
+    fetch(submitUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf(), 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify(payload)
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+      .then(function (res) {
+        btnSave.disabled = false; btnSave.textContent = 'Зберегти зміни';
+        if (!res.ok || !res.data.success) { showToast((res.data && res.data.message) || 'Не вдалося зберегти.'); return; }
+        var orderNum = elNum.textContent;
+        var delta = items.reduce(function (a, it) { return a + lineTotal(it); }, 0) - initialTotal;
+        var deltaTxt = Math.abs(delta) < 0.005 ? 'сума без змін' : (delta > 0 ? '+' : '−') + fmt(Math.abs(delta)) + ' грн';
+        try {
+          sessionStorage.setItem('oeditFlash', JSON.stringify({ num: orderNum, delta: deltaTxt }));
+        } catch (e) {}
+        closeDrawer();
+        showToast('<div class="oedit-toast__title"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>Замовлення ' + esc(orderNum) + ' оновлено</div>Зміни збережено · ' + esc(deltaTxt) + '. Оновлюємо…', 2000);
+        window.setTimeout(function () {
+          var u = new URL(window.location);
+          u.searchParams.set('section', 'orders');
+          u.searchParams.delete('edit_order');
+          window.location.href = u.toString();
+        }, 1100);
+      })
+      .catch(function () {
+        btnSave.disabled = false; btnSave.textContent = 'Зберегти зміни';
+        showToast('Помилка мережі. Спробуйте ще раз.');
+      });
+  }
+
+  function openCollapse(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.add('is-open');
+  }
+
+  // ── bindings ───────────────────────────────────────────
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-edit-order]');
+    if (btn) {
+      e.preventDefault();
+      loadOrder(btn.dataset.editOrder, btn.dataset.dataUrl, btn.dataset.submitUrl);
+    }
+  });
+  btnClose.addEventListener('click', closeDrawer);
+  backdrop.addEventListener('click', closeDrawer);
+  btnSave.addEventListener('click', save);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && drawer.classList.contains('is-open')) closeDrawer(); });
+
+  // deep link ?edit_order=<id>
+  (function () {
+    var params = new URLSearchParams(window.location.search);
+    var eid = params.get('edit_order');
+    if (!eid) return;
+    var btn = document.querySelector('[data-edit-order="' + eid + '"]');
+    if (btn) window.setTimeout(function () { btn.click(); }, 300);
+  })();
+
+  // flash + toast after reload (post-save)
+  (function () {
+    var raw = null;
+    try { raw = sessionStorage.getItem('oeditFlash'); sessionStorage.removeItem('oeditFlash'); } catch (e) {}
+    if (!raw) return;
+    var info; try { info = JSON.parse(raw); } catch (e) { return; }
+    var cardEl = null;
+    document.querySelectorAll('.admin-order-card').forEach(function (c) {
+      var num = c.querySelector('.oadm-id__num');
+      if (num && num.textContent.trim() === info.num) cardEl = c;
+    });
+    if (cardEl) {
+      cardEl.classList.add('is-just-edited');
+      cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    window.setTimeout(function () {
+      showToast('<div class="oedit-toast__title"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>Замовлення ' + esc(info.num) + ' оновлено</div>' + esc(info.delta || ''), 4200);
+    }, 400);
+  })();
+})();
+</script>

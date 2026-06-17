@@ -4,6 +4,7 @@ Telegram уведомления для заказов
 import json
 import os
 import re
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 import requests
@@ -764,6 +765,78 @@ class TelegramNotifier:
             result = self._post_json("editMessageText", data=payload, timeout=10)
             success = bool(result and result.get("ok")) or success
         return success
+
+    @staticmethod
+    def _fmt_amount(value):
+        """Гривні без зайвих нулів: 880.00 → '880', 760.50 → '760.5'."""
+        try:
+            dec = Decimal(value or 0)
+        except (TypeError, InvalidOperation):
+            return str(value)
+        normalized = dec.normalize()
+        text = format(normalized, 'f')
+        return text
+
+    def format_order_edit_message(self, order, diff, changed_by=None):
+        """Формує HTML-текст сповіщення про редагування замовлення з diff."""
+        lines = [f"✏️ <b>Замовлення #{order.order_number} відредаговано</b>"]
+        if changed_by:
+            lines.append(f"👤 Змінив: {changed_by}")
+        lines.append("")
+
+        items = diff.get('items') or {}
+        removed = items.get('removed') or []
+        added = items.get('added') or []
+        changed = items.get('changed') or []
+
+        for it in removed:
+            lines.append(f"➖ <b>Видалено:</b> {it['label']} ×{it['qty']}")
+        for it in added:
+            lines.append(f"➕ <b>Додано:</b> {it['label']} ×{it['qty']}")
+        for it in changed:
+            details = []
+            if it['old_qty'] != it['new_qty']:
+                details.append(f"к-сть {it['old_qty']} → {it['new_qty']}")
+            if it['old_price'] != it['new_price']:
+                details.append(
+                    f"ціна {self._fmt_amount(it['old_price'])} → {self._fmt_amount(it['new_price'])} грн"
+                )
+            lines.append(f"🔁 <b>{it['label']}:</b> " + ", ".join(details))
+
+        total = diff.get('total')
+        if total:
+            delta = Decimal(total['delta'])
+            sign = "+" if delta > 0 else ""
+            lines.append("")
+            lines.append(
+                f"💰 Сума: {self._fmt_amount(total['old'])} → "
+                f"<b>{self._fmt_amount(total['new'])} грн</b> "
+                f"({sign}{self._fmt_amount(delta)} грн)"
+            )
+
+        delivery = diff.get('delivery')
+        if delivery:
+            lines.append(f"📍 Доставка: {delivery['old'] or '—'} → <b>{delivery['new'] or '—'}</b>")
+
+        customer = diff.get('customer')
+        if customer:
+            old_name, old_phone = customer['old']
+            new_name, new_phone = customer['new']
+            lines.append(f"🧑 Клієнт: {old_name} {old_phone} → <b>{new_name} {new_phone}</b>")
+
+        return "\n".join(lines)
+
+    def send_order_edit_notification(self, order, diff, changed_by=None):
+        """Шле адмінам нове повідомлення з переліком змін замовлення.
+
+        Якщо змін немає (``diff['has_changes']`` хибне) — нічого не робить.
+        """
+        if not diff or not diff.get('has_changes'):
+            return False
+        if not self.is_configured():
+            return False
+        message = self.format_order_edit_message(order, diff, changed_by=changed_by)
+        return bool(self.send_message(message))
 
     def send_admin_status_update(self, order, old_status, new_status):
         """Отправляет админу уведомление об изменении статусу замовлення"""

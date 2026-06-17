@@ -269,6 +269,11 @@ urlpatterns = [
         _module_view('storefront.views.manual_orders', 'manual_order_edit'),
         name='manual_order_edit',
     ),
+    path(
+        'admin-panel/orders/<int:order_id>/edit-data/',
+        _module_view('storefront.views.manual_orders', 'manual_order_edit_data'),
+        name='manual_order_edit_data',
+    ),
     # Analytics: managed exclusion list + session drilldown.
     path(
         'admin-panel/analytics/exclusions/',

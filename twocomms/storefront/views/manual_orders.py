@@ -25,7 +25,7 @@ from decimal import Decimal, InvalidOperation
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db import transaction
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
@@ -37,6 +37,7 @@ from orders.nova_poshta_checkout import (
 )
 from orders.nova_poshta_data import apply_nova_poshta_refs
 from orders.nova_poshta_documents import normalize_checkout_phone
+from orders.order_edit_diff import build_order_edit_diff, snapshot_order
 from orders.telegram_notifications import telegram_notifier
 from productcolors.models import ProductColorVariant
 from storefront.models import Product, ProductStatus
@@ -78,6 +79,66 @@ PAYMENT_PRESETS = {
     },
 }
 DEFAULT_PAYMENT_PRESET = 'cod'
+
+
+def _preset_key_for_order(order):
+    """Зворотний маппінг (pay_type, payment_status) → ключ пресету для UI."""
+    payment_status = (order.payment_status or '').strip()
+    pay_type = (order.pay_type or '').strip()
+    if payment_status == 'paid':
+        return 'paid_full'
+    if payment_status in ('prepaid', 'partial'):
+        return 'prepaid_200'
+    if pay_type == 'cod':
+        return 'cod'
+    if pay_type in ('online_full', 'full'):
+        return 'unpaid_full'
+    return DEFAULT_PAYMENT_PRESET
+
+
+def _build_order_initial(order):
+    """Серіалізує існуюче замовлення для пре-заповнення форми редагування."""
+    items = []
+    for item in order.items.all():
+        image = ''
+        try:
+            img = item.product_image
+            image = getattr(img, 'url', '') if img else ''
+        except Exception:
+            image = ''
+        if item.is_custom or not item.product_id:
+            items.append({
+                'kind': 'custom',
+                'title': item.title,
+                'unit_price': float(item.unit_price or 0),
+                'qty': item.qty,
+                'size': item.size or '',
+                'color_name': item.color_name_custom or '',
+                'image': image,
+            })
+        else:
+            items.append({
+                'kind': 'catalog',
+                'product_id': item.product_id,
+                'color_variant_id': item.color_variant_id or '',
+                'title': item.title,
+                'unit_price': float(item.unit_price or 0),
+                'qty': item.qty,
+                'size': item.size or '',
+                'image': image,
+            })
+    return {
+        'id': order.id,
+        'order_number': order.order_number,
+        'full_name': order.full_name or '',
+        'phone': order.phone or '',
+        'sale_source': order.sale_source or '',
+        'manager_comment': order.manager_comment or '',
+        'payment_preset': _preset_key_for_order(order),
+        'delivery_text': ', '.join(p for p in (order.city, order.np_office) if p),
+        'has_tracking': bool(order.tracking_number),
+        'items': items,
+    }
 
 
 def _build_products_payload():
@@ -256,89 +317,67 @@ def _parse_request_payload(request):
     return request.POST
 
 
-@staff_member_required
-@require_http_methods(["GET", "POST"])
-def manual_order_create(request):
-    if request.method == 'GET':
-        context = {
-            'products_json': json.dumps(_build_products_payload(), ensure_ascii=False),
-            'categories_json': json.dumps(_build_categories_payload(), ensure_ascii=False),
-            'payment_presets': PAYMENT_PRESETS,
-            'default_payment_preset': DEFAULT_PAYMENT_PRESET,
-            'sale_source_presets': Order.SALE_SOURCE_PRESETS,
-        }
-        return render(request, 'pages/admin_manual_order.html', context)
+def _resolve_delivery(data, *, allow_keep=False):
+    """Резолвить доставку з payload.
 
-    # POST — створення замовлення
-    data = _parse_request_payload(request)
-    if data is None:
-        return JsonResponse({'success': False, 'message': 'Некоректний формат запиту.'}, status=400)
-
-    full_name = str(data.get('full_name') or '').strip()
-    raw_phone = str(data.get('phone') or '').strip()
-    if not full_name:
-        return JsonResponse({'success': False, 'message': 'Вкажіть ПІБ клієнта.'}, status=422)
-
-    phone = normalize_checkout_phone(raw_phone)
-    if not phone:
-        return JsonResponse(
-            {'success': False, 'message': 'Вкажіть коректний український номер телефону. Можна без +380.'},
-            status=422,
-        )
-
-    # Доставка: або Нова Пошта (з підписаними токенами для авто-ТТН),
-    # або ручне введення адреси (без refs — ТТН доведеться робити вручну).
+    Повертає dict {city, np_office, refs, display} АБО кидає ``_DeliveryError``
+    з готовою JsonResponse-помилкою. Якщо ``allow_keep`` і method=='keep' —
+    повертає None (означає «не змінювати доставку»).
+    """
     delivery_method = str(data.get('delivery_method') or 'np').strip()
-    delivery_refs = {
-        'np_settlement_ref': '',
-        'np_city_ref': '',
-        'np_warehouse_ref': '',
-    }
-    delivery_address_display = ''
+
+    if allow_keep and delivery_method == 'keep':
+        return None
 
     if delivery_method == 'manual':
         city = str(data.get('city') or '').strip()[:100]
         np_office = str(data.get('np_office') or '').strip()[:200]
         if not city or not np_office:
-            return JsonResponse(
-                {'success': False, 'message': 'Вкажіть місто та адресу/відділення доставки.', 'field': 'np_office'},
-                status=422,
-            )
-        delivery_address_display = ', '.join(p for p in (city, np_office) if p)
-    else:
-        delivery_method = 'np'
-        try:
-            delivery_selection = resolve_delivery_selection(data)
-        except NovaPoshtaSelectionError as exc:
-            return JsonResponse({'success': False, 'message': exc.message, 'field': exc.field}, status=422)
-        city = delivery_selection.city
-        np_office = delivery_selection.np_office
-        delivery_refs = {
-            'np_settlement_ref': delivery_selection.settlement_ref,
-            'np_city_ref': delivery_selection.city_ref,
-            'np_warehouse_ref': delivery_selection.warehouse_ref,
+            raise _DeliveryError('Вкажіть місто та адресу/відділення доставки.', field='np_office')
+        return {
+            'city': city,
+            'np_office': np_office,
+            'refs': {'np_settlement_ref': '', 'np_city_ref': '', 'np_warehouse_ref': ''},
+            'display': ', '.join(p for p in (city, np_office) if p),
         }
-        delivery_address_display = format_delivery_selection_address(delivery_selection)
 
-    # Позиції замовлення
-    raw_items = data.get('items')
+    # Нова Пошта
+    try:
+        selection = resolve_delivery_selection(data)
+    except NovaPoshtaSelectionError as exc:
+        raise _DeliveryError(exc.message, field=exc.field)
+    return {
+        'city': selection.city,
+        'np_office': selection.np_office,
+        'refs': {
+            'np_settlement_ref': selection.settlement_ref,
+            'np_city_ref': selection.city_ref,
+            'np_warehouse_ref': selection.warehouse_ref,
+        },
+        'display': format_delivery_selection_address(selection),
+    }
+
+
+class _DeliveryError(Exception):
+    def __init__(self, message, *, field=''):
+        super().__init__(message)
+        self.message = message
+        self.field = field
+
+
+def _collect_items(raw_items):
+    """Нормалізує список позицій з payload, повертає (raw_items, products_map, variants_map)
+    або кидає ValueError."""
     if isinstance(raw_items, str):
         try:
             raw_items = json.loads(raw_items)
         except (ValueError, TypeError):
             raw_items = None
     if not isinstance(raw_items, list) or not raw_items:
-        return JsonResponse({'success': False, 'message': 'Додайте хоча б один товар до замовлення.'}, status=422)
+        raise ValueError('Додайте хоча б один товар до замовлення.')
     if len(raw_items) > MAX_ITEMS_PER_ORDER:
-        return JsonResponse({'success': False, 'message': 'Забагато позицій у замовленні.'}, status=422)
+        raise ValueError('Забагато позицій у замовленні.')
 
-    preset_key = str(data.get('payment_preset') or DEFAULT_PAYMENT_PRESET).strip()
-    preset = PAYMENT_PRESETS.get(preset_key, PAYMENT_PRESETS[DEFAULT_PAYMENT_PRESET])
-
-    sale_source = str(data.get('sale_source') or '').strip()[:120]
-    manager_comment = str(data.get('manager_comment') or '').strip()
-
-    # Прев'ялідація позицій — щоб зібрати потрібні id для bulk-запитів
     product_ids = []
     variant_ids = []
     for raw_item in raw_items:
@@ -358,6 +397,61 @@ def manual_order_create(request):
     variants_map = (
         ProductColorVariant.objects.select_related('color').in_bulk(variant_ids) if variant_ids else {}
     )
+    return raw_items, products_map, variants_map
+
+
+def _form_context(*, order=None):
+    order_initial = _build_order_initial(order) if order is not None else None
+    context = {
+        'products_json': json.dumps(_build_products_payload(), ensure_ascii=False),
+        'categories_json': json.dumps(_build_categories_payload(), ensure_ascii=False),
+        'payment_presets': PAYMENT_PRESETS,
+        'default_payment_preset': DEFAULT_PAYMENT_PRESET,
+        'sale_source_presets': Order.SALE_SOURCE_PRESETS,
+        'is_edit': order is not None,
+        'edit_order_id': order.id if order is not None else None,
+        'order_initial_json': json.dumps(order_initial, ensure_ascii=False) if order_initial else '',
+    }
+    return context
+
+
+@staff_member_required
+@require_http_methods(["GET", "POST"])
+def manual_order_create(request):
+    if request.method == 'GET':
+        return render(request, 'pages/admin_manual_order.html', _form_context())
+
+    # POST — створення замовлення
+    data = _parse_request_payload(request)
+    if data is None:
+        return JsonResponse({'success': False, 'message': 'Некоректний формат запиту.'}, status=400)
+
+    full_name = str(data.get('full_name') or '').strip()
+    raw_phone = str(data.get('phone') or '').strip()
+    if not full_name:
+        return JsonResponse({'success': False, 'message': 'Вкажіть ПІБ клієнта.'}, status=422)
+
+    phone = normalize_checkout_phone(raw_phone)
+    if not phone:
+        return JsonResponse(
+            {'success': False, 'message': 'Вкажіть коректний український номер телефону. Можна без +380.'},
+            status=422,
+        )
+
+    try:
+        delivery = _resolve_delivery(data, allow_keep=False)
+    except _DeliveryError as exc:
+        return JsonResponse({'success': False, 'message': exc.message, 'field': exc.field}, status=422)
+
+    try:
+        raw_items, products_map, variants_map = _collect_items(data.get('items'))
+    except ValueError as exc:
+        return JsonResponse({'success': False, 'message': str(exc)}, status=422)
+
+    preset_key = str(data.get('payment_preset') or DEFAULT_PAYMENT_PRESET).strip()
+    preset = PAYMENT_PRESETS.get(preset_key, PAYMENT_PRESETS[DEFAULT_PAYMENT_PRESET])
+    sale_source = str(data.get('sale_source') or '').strip()[:120]
+    manager_comment = str(data.get('manager_comment') or '').strip()
 
     try:
         with transaction.atomic():
@@ -365,8 +459,8 @@ def manual_order_create(request):
                 user=None,
                 full_name=full_name[:200],
                 phone=phone,
-                city=city,
-                np_office=np_office,
+                city=delivery['city'],
+                np_office=delivery['np_office'],
                 pay_type=preset['pay_type'],
                 payment_status=preset['payment_status'],
                 status='new',
@@ -375,18 +469,13 @@ def manual_order_create(request):
                 sale_source=sale_source,
                 manager_comment=manager_comment,
             )
-            apply_nova_poshta_refs(order, delivery_refs)
+            apply_nova_poshta_refs(order, delivery['refs'])
             order.save()
 
             order_items = []
             total_sum = Decimal('0')
             for raw_item in raw_items:
-                item = _build_order_item(
-                    raw_item,
-                    order=order,
-                    products_map=products_map,
-                    variants_map=variants_map,
-                )
+                item = _build_order_item(raw_item, order=order, products_map=products_map, variants_map=variants_map)
                 order_items.append(item)
                 total_sum += item.line_total
 
@@ -402,8 +491,6 @@ def manual_order_create(request):
             status=500,
         )
 
-    # Telegram-сповіщення адмінам (з кнопками ТТН/Відправлено/Списати зі складу).
-    # Не валимо створення замовлення, якщо бот недоступний.
     try:
         telegram_notifier.send_new_order_notification(order)
     except Exception:
@@ -414,6 +501,142 @@ def manual_order_create(request):
         'message': f'Замовлення #{order.order_number} створено.',
         'order_id': order.id,
         'order_number': order.order_number,
-        'delivery_address': delivery_address_display,
+        'delivery_address': delivery['display'],
         'redirect_url': f"{reverse('admin_panel')}?section=orders",
+    })
+
+
+@staff_member_required
+@require_http_methods(["GET", "POST"])
+def manual_order_edit(request, order_id):
+    order = get_object_or_404(
+        Order.objects.prefetch_related('items__product', 'items__color_variant__color'),
+        pk=order_id,
+    )
+
+    if request.method == 'GET':
+        # Редагування виконується через drawer у списку замовлень
+        # (кнопка «Редагувати» на картці). Глибокий лінк відкриває drawer.
+        return redirect(f"{reverse('admin_panel')}?section=orders&edit_order={order.id}")
+
+    # POST — оновлення замовлення
+    data = _parse_request_payload(request)
+    if data is None:
+        return JsonResponse({'success': False, 'message': 'Некоректний формат запиту.'}, status=400)
+
+    full_name = str(data.get('full_name') or '').strip()
+    raw_phone = str(data.get('phone') or '').strip()
+    if not full_name:
+        return JsonResponse({'success': False, 'message': 'Вкажіть ПІБ клієнта.'}, status=422)
+
+    phone = normalize_checkout_phone(raw_phone)
+    if not phone:
+        return JsonResponse(
+            {'success': False, 'message': 'Вкажіть коректний український номер телефону. Можна без +380.'},
+            status=422,
+        )
+
+    try:
+        delivery = _resolve_delivery(data, allow_keep=True)  # None означає «не змінювати»
+    except _DeliveryError as exc:
+        return JsonResponse({'success': False, 'message': exc.message, 'field': exc.field}, status=422)
+
+    try:
+        raw_items, products_map, variants_map = _collect_items(data.get('items'))
+    except ValueError as exc:
+        return JsonResponse({'success': False, 'message': str(exc)}, status=422)
+
+    preset_key = str(data.get('payment_preset') or _preset_key_for_order(order)).strip()
+    preset = PAYMENT_PRESETS.get(preset_key, PAYMENT_PRESETS[DEFAULT_PAYMENT_PRESET])
+    sale_source = str(data.get('sale_source') or '').strip()[:120]
+    manager_comment = str(data.get('manager_comment') or '').strip()
+
+    try:
+        with transaction.atomic():
+            locked = Order.objects.select_for_update().get(pk=order.pk)
+            before_snapshot = snapshot_order(locked)
+            locked.full_name = full_name[:200]
+            locked.phone = phone
+            locked.pay_type = preset['pay_type']
+            locked.payment_status = preset['payment_status']
+            locked.sale_source = sale_source
+            locked.manager_comment = manager_comment
+
+            if delivery is not None:
+                locked.city = delivery['city']
+                locked.np_office = delivery['np_office']
+                apply_nova_poshta_refs(locked, delivery['refs'])
+                delivery_display = delivery['display']
+            else:
+                delivery_display = ', '.join(p for p in (locked.city, locked.np_office) if p)
+
+            # Пересоздаём позиции
+            locked.items.all().delete()
+            order_items = []
+            total_sum = Decimal('0')
+            for raw_item in raw_items:
+                item = _build_order_item(raw_item, order=locked, products_map=products_map, variants_map=variants_map)
+                order_items.append(item)
+                total_sum += item.line_total
+            OrderItem.objects.bulk_create(order_items)
+            locked.total_sum = total_sum
+            locked.save()
+            order = locked
+            after_snapshot = snapshot_order(order)
+    except ValueError as exc:
+        return JsonResponse({'success': False, 'message': str(exc)}, status=422)
+    except Exception:
+        logger.exception('Failed to edit order %s', order_id)
+        return JsonResponse(
+            {'success': False, 'message': 'Не вдалося зберегти зміни через внутрішню помилку.'},
+            status=500,
+        )
+
+    edit_diff = build_order_edit_diff(before_snapshot, after_snapshot)
+
+    # Оновлюємо існуюче Telegram-повідомлення (а не шлемо нове).
+    try:
+        telegram_notifier.update_order_notification_message(order)
+    except Exception:
+        logger.exception('Failed to update Telegram notification for order %s', order.pk)
+
+    # Окреме сповіщення адмінам зі списком змін (лише якщо реально щось змінилось).
+    changed_by = request.user.get_full_name() or request.user.get_username()
+    try:
+        telegram_notifier.send_order_edit_notification(order, edit_diff, changed_by=changed_by)
+    except Exception:
+        logger.exception('Failed to send order edit diff notification for order %s', order.pk)
+
+    return JsonResponse({
+        'success': True,
+        'message': f'Замовлення #{order.order_number} оновлено.',
+        'order_id': order.id,
+        'order_number': order.order_number,
+        'delivery_address': delivery_display,
+        'redirect_url': f"{reverse('admin_panel')}?section=orders",
+    })
+
+
+@staff_member_required
+@require_http_methods(["GET"])
+def manual_order_edit_data(request, order_id):
+    """JSON-дані для drawer редагування замовлення в кастомній адмінці.
+
+    Повертає поточний стан замовлення (позиції, клієнт, доставка, оплата)
+    разом із каталогом товарів — щоб drawer міг ліниво підвантажити все
+    одним запитом при відкритті, не роздуваючи список замовлень.
+    """
+    order = get_object_or_404(
+        Order.objects.prefetch_related('items__product', 'items__color_variant__color'),
+        pk=order_id,
+    )
+    return JsonResponse({
+        'success': True,
+        'order': _build_order_initial(order),
+        'products': _build_products_payload(),
+        'categories': _build_categories_payload(),
+        'payment_presets': {key: preset['label'] for key, preset in PAYMENT_PRESETS.items()},
+        'default_payment_preset': DEFAULT_PAYMENT_PRESET,
+        'current_payment_preset': _preset_key_for_order(order),
+        'sale_source_presets': list(Order.SALE_SOURCE_PRESETS),
     })
