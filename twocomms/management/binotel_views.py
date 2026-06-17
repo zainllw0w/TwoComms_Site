@@ -519,6 +519,51 @@ def binotel_recording(request, call_id):
 
 
 @login_required(login_url="management_login")
+@require_POST
+def binotel_call_ai_analysis(request):
+    """ШІ-аналіз запису розмови (Gemini). Тільки адміністратори.
+
+    Body: {generalCallID, b2b_context?, force?}. Синхронно: апсертить
+    CallRecord, тягне аудіо, шле в Gemini, зберігає CallAIAnalysis і повертає
+    структурований розбор + метрики прогону (швидкість, токени, розмір аудіо).
+    """
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+
+    from .services.call_ai_analysis import (
+        CallAIAnalysisError,
+        analyze_call,
+        serialize_analysis,
+    )
+
+    payload = _post_json(request)
+    general_call_id = (str(payload.get("generalCallID") or "")).strip()
+    if not general_call_id:
+        return JsonResponse({"success": False, "error": "Потрібен generalCallID."}, status=400)
+    manager_context = str(payload.get("b2b_context") or payload.get("manager_context") or "")
+    force = str(payload.get("force") or "").strip().lower() in ("1", "true", "yes")
+
+    try:
+        analysis = analyze_call(
+            general_call_id,
+            manager_context=manager_context,
+            force=force,
+            created_by=request.user,
+        )
+    except CallAIAnalysisError as exc:
+        return JsonResponse({"success": False, "error": str(exc)}, status=200)
+
+    data = serialize_analysis(analysis)
+    if analysis.status != "done":
+        return JsonResponse(
+            {"success": False, "error": analysis.error or "Аналіз не виконано.", "analysis": data},
+            status=200,
+        )
+    return JsonResponse({"success": True, "analysis": data})
+
+
+@login_required(login_url="management_login")
 @require_GET
 def binotel_webhook_events(request):
     """Останні вхідні вебхуки Binotel (для спостереження на тестовій фазі)."""

@@ -2347,6 +2347,82 @@ class CallQAReview(models.Model):
         return f"{self.call_record_id}:{self.verdict}"
 
 
+class CallAIAnalysis(models.Model):
+    """Результат ШІ-аналізу запису розмови (Gemini).
+
+    Окрема модель (а не поля у CallRecord), щоб зберігати історію
+    перепрогонів і не змішувати з людським QA (CallQAReview). Аудіо НЕ
+    зберігаємо — воно тягнеться з Binotel за generalCallID; тут лише
+    структурований розбор, оцінка у стилі Mosaic та метрики прогону
+    (швидкість, розмір аудіо, токени) для тестової фази.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", _("Очікує")
+        RUNNING = "running", _("Аналізується")
+        DONE = "done", _("Готово")
+        ERROR = "error", _("Помилка")
+
+    class Verdict(models.TextChoices):
+        PASS = "pass", _("Сильна розмова")
+        COACHING = "coaching", _("Потрібен коучинг")
+        FAIL = "fail", _("Слабка розмова")
+        UNKNOWN = "unknown", _("Невизначено")
+
+    call_record = models.ForeignKey(
+        CallRecord,
+        on_delete=models.CASCADE,
+        related_name="ai_analyses",
+        verbose_name=_("Дзвінок"),
+    )
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.PENDING, db_index=True
+    )
+    model = models.CharField(max_length=64, blank=True, verbose_name=_("Модель"))
+    overall_score = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal("0.00"), verbose_name=_("Загальний бал")
+    )
+    verdict = models.CharField(
+        max_length=20, choices=Verdict.choices, default=Verdict.UNKNOWN, db_index=True
+    )
+    transcript = models.TextField(blank=True, verbose_name=_("Транскрипт"))
+    summary = models.TextField(blank=True, verbose_name=_("Резюме розмови"))
+    client_identification = models.TextField(blank=True, verbose_name=_("Ідентифікація клієнта"))
+    axes = models.JSONField(default=list, blank=True, verbose_name=_("Осі оцінки (Mosaic-style)"))
+    discussed_well = models.JSONField(default=list, blank=True, verbose_name=_("Що обговорили добре"))
+    missed_topics = models.JSONField(default=list, blank=True, verbose_name=_("Що не обговорили"))
+    recommendations = models.JSONField(default=list, blank=True, verbose_name=_("Рекомендації менеджеру"))
+    manager_context = models.TextField(blank=True, verbose_name=_("B2B-контекст менеджера"))
+    result = models.JSONField(default=dict, blank=True, verbose_name=_("Повна сира відповідь"))
+    audio_bytes = models.PositiveIntegerField(default=0, verbose_name=_("Розмір аудіо, байт"))
+    elapsed_ms = models.PositiveIntegerField(default=0, verbose_name=_("Час аналізу, мс"))
+    prompt_tokens = models.PositiveIntegerField(default=0, verbose_name=_("Prompt tokens"))
+    output_tokens = models.PositiveIntegerField(default=0, verbose_name=_("Output tokens"))
+    error = models.TextField(blank=True, verbose_name=_("Помилка"))
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="call_ai_analyses",
+        verbose_name=_("Запустив"),
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("ШІ-аналіз дзвінка")
+        verbose_name_plural = _("ШІ-аналізи дзвінків")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["call_record", "-created_at"], name="mgmt_callai_rec_dt"),
+            models.Index(fields=["status", "-created_at"], name="mgmt_callai_status_dt"),
+        ]
+
+    def __str__(self):
+        return f"AI[{self.status}] {self.call_record_id}:{self.overall_score}"
+
+
 class SupervisorActionLog(models.Model):
     class ActionType(models.TextChoices):
         COACHING = "coaching", _("Коучинг")

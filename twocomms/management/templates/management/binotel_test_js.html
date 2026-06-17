@@ -7,7 +7,8 @@
     voice: root.dataset.voiceUrl, call: root.dataset.callUrl, hangup: root.dataset.hangupUrl,
     details: root.dataset.detailsUrl, record: root.dataset.recordUrl, online: root.dataset.onlineUrl,
     period: root.dataset.periodUrl, search: root.dataset.searchUrl, raw: root.dataset.rawUrl,
-    webhookEvents: root.dataset.webhookEventsUrl
+    webhookEvents: root.dataset.webhookEventsUrl,
+    aiAnalysis: root.dataset.aiAnalysisUrl
   };
   var RECORDING_BASE = root.dataset.recordingBase || '/binotel/recording/';
   var CONFIGURED = {{ binotel_configured|yesno:"true,false" }};
@@ -149,6 +150,7 @@
     var actions = playable
       ? '<button type="button" class="bn-icon-btn bn-rec-play" data-id="'+esc(id)+'"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Прослухати</button>'
         +'<a class="bn-icon-btn" href="'+RECORDING_BASE+encodeURIComponent(id)+'.mp3?download=1"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 20h14v-2H5v2zM12 4v9l3-3 1.4 1.4L12 16 6.6 11.4 8 10l3 3V4z"/></svg>Завантажити</a>'
+        +'<button type="button" class="bn-icon-btn ai bn-rec-ai-toggle" data-id="'+esc(id)+'"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a1 1 0 0 1 1 1v1.06A8 8 0 0 1 19.94 11H21a1 1 0 1 1 0 2h-1.06A8 8 0 0 1 13 19.94V21a1 1 0 1 1-2 0v-1.06A8 8 0 0 1 4.06 13H3a1 1 0 1 1 0-2h1.06A8 8 0 0 1 11 4.06V3a1 1 0 0 1 1-1zm0 5a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"/></svg>ШІ-аналіз</button>'
       : '<span class="hint" style="margin:0;">запис недоступний</span>';
     div.innerHTML=
       '<div class="bn-rec__top">'+dirIcon(c.callType)
@@ -156,7 +158,16 @@
       +'<div class="bn-rec__meta">'+esc(fmtTs(c.startTime))+' · менеджер: '+esc(mgr||'—')+' · <span class="bn-pill '+esc(grp)+'">'+esc(label)+'</span></div></div>'
       +'<div class="bn-rec__side"><span class="bn-rec__dur">'+fmtDur(c.billsec)+'</span></div></div>'
       +'<div class="bn-rec__side" style="margin-top:10px;">'+actions+'</div>'
-      +'<div class="bn-rec__player" data-player="'+esc(id)+'"></div>';
+      +'<div class="bn-rec__player" data-player="'+esc(id)+'"></div>'
+      +(playable
+        ? '<div class="bn-ai-ctx" data-ai-ctx="'+esc(id)+'">'
+          +'<label style="display:block;font-size:11.5px;color:#9aa6b6;margin-bottom:4px;">B2B-контекст (підхід до клієнта, його потреби, домовленості) — необовʼязково</label>'
+          +'<textarea placeholder="Напр.: постійний оптовий клієнт, цікавить зимова колекція, торгувались по ціні від 50 шт…"></textarea>'
+          +'<div class="bn-btn-row" style="margin-top:8px;"><button type="button" class="bn-btn sm bn-rec-ai-run" data-id="'+esc(id)+'">🧠 Аналізувати запис</button>'
+          +'<label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#9aa6b6;cursor:pointer;"><input type="checkbox" class="bn-rec-ai-force"> Перепрогнати (ігнорувати кеш)</label></div>'
+          +'<div class="bn-msg" data-ai-msg="'+esc(id)+'"></div></div>'
+          +'<div class="bn-ai-result" data-ai-result="'+esc(id)+'"></div>'
+        : '');
     return div;
   }
   function renderRecords(details){
@@ -178,6 +189,59 @@
         box.classList.add('open'); btn.lastChild.textContent='Згорнути';
       });
     });
+    wrap.querySelectorAll('.bn-rec-ai-toggle').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var id=btn.dataset.id, ctx=wrap.querySelector('[data-ai-ctx="'+CSS.escape(id)+'"]');
+        if(ctx) ctx.classList.toggle('open');
+      });
+    });
+    wrap.querySelectorAll('.bn-rec-ai-run').forEach(function(btn){
+      btn.addEventListener('click', function(){ runAiAnalysis(wrap, btn); });
+    });
+  }
+
+  function scoreClass(v){ v=parseFloat(v||0); return v>=75?'s-good':(v>=50?'s-mid':'s-bad'); }
+  function fmtBytes(n){ n=parseInt(n||0,10); if(n<1024) return n+' Б'; if(n<1024*1024) return (n/1024).toFixed(0)+' КБ'; return (n/1024/1024).toFixed(2)+' МБ'; }
+  function renderAiResult(box, a){
+    if(!a){ box.innerHTML=''; box.classList.remove('open'); return; }
+    var axes=(a.axes||[]).map(function(ax){
+      var sc=parseFloat(ax.score||0);
+      return '<div class="bn-ai-axis"><div class="bn-ai-axis__top"><span>'+esc(ax.title||ax.key||'—')+'</span><b>'+sc.toFixed(0)+'</b></div>'
+        +'<div class="bn-ai-bar"><span style="width:'+Math.max(0,Math.min(100,sc))+'%;"></span></div>'
+        +(ax.comment?'<div class="bn-ai-axis__cmt">'+esc(ax.comment)+'</div>':'')+'</div>';
+    }).join('');
+    var listOf=function(arr,cls){ if(!arr||!arr.length) return '<div class="bn-ai-text" style="color:#7e8a9c;">—</div>'; return '<ul class="bn-ai-list '+cls+'">'+arr.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul>'; };
+    var meta='модель: '+esc(a.model||'—')+'<br>час аналізу: '+((a.elapsed_ms||0)/1000).toFixed(1)+' с · аудіо: '+fmtBytes(a.audio_bytes)
+      +'<br>токени: '+(a.prompt_tokens||0)+' / '+(a.output_tokens||0)+' · '+esc(a.created_at||'');
+    box.innerHTML=
+      '<div class="bn-ai-head">'
+      +'<div class="bn-ai-score '+scoreClass(a.overall_score)+'">'+parseFloat(a.overall_score||0).toFixed(0)+'<small>/100</small></div>'
+      +'<span class="bn-ai-verdict '+esc(a.verdict||'unknown')+'">'+esc(a.verdict_label||a.verdict||'—')+'</span>'
+      +'<div class="bn-ai-meta">'+meta+'</div></div>'
+      +(a.client_identification?'<div class="bn-ai-sec"><h4>Клієнт</h4><div class="bn-ai-text">'+esc(a.client_identification)+'</div></div>':'')
+      +(a.summary?'<div class="bn-ai-sec"><h4>Резюме розмови</h4><div class="bn-ai-text">'+esc(a.summary)+'</div></div>':'')
+      +(axes?'<div class="bn-ai-sec"><h4>Оцінка за осями (Mosaic-style)</h4>'+axes+'</div>':'')
+      +'<div class="bn-ai-sec"><h4>Що зроблено добре</h4>'+listOf(a.discussed_well,'good')+'</div>'
+      +'<div class="bn-ai-sec"><h4>Що НЕ обговорили</h4>'+listOf(a.missed_topics,'miss')+'</div>'
+      +'<div class="bn-ai-sec"><h4>Рекомендації менеджеру</h4>'+listOf(a.recommendations,'')+'</div>'
+      +(a.transcript?'<details class="bn-ai-transcript"><summary>Транскрипт розмови</summary><pre>'+esc(a.transcript)+'</pre></details>':'');
+    box.classList.add('open');
+  }
+  function runAiAnalysis(wrap, btn){
+    var id=btn.dataset.id;
+    var ctx=wrap.querySelector('[data-ai-ctx="'+CSS.escape(id)+'"]');
+    var msgEl=wrap.querySelector('[data-ai-msg="'+CSS.escape(id)+'"]');
+    var box=wrap.querySelector('[data-ai-result="'+CSS.escape(id)+'"]');
+    var ta=ctx?ctx.querySelector('textarea'):null;
+    var forceEl=ctx?ctx.querySelector('.bn-rec-ai-force'):null;
+    var body={ generalCallID:id, b2b_context:(ta?ta.value:''), force:(forceEl&&forceEl.checked)?1:0 };
+    btn.disabled=true; var orig=btn.textContent; btn.textContent='Аналізую… (10–60 с)';
+    msg(msgEl,'Тягнемо запис і відправляємо в Gemini. Зачекайте, аналіз аудіо триває десятки секунд…','info');
+    api(URLS.aiAnalysis,'POST',body).then(function(d){
+      btn.disabled=false; btn.textContent=orig;
+      if(d.success && d.analysis){ clearMsg(msgEl); renderAiResult(box, d.analysis); }
+      else { msg(msgEl, d.error||'Помилка аналізу.','err'); if(d.analysis){ renderAiResult(box, d.analysis); } }
+    }).catch(function(){ btn.disabled=false; btn.textContent=orig; msg(msgEl,'Помилка запиту (можливо, таймаут). Спробуйте ще раз.','err'); });
   }
   function toTs(val){ if(!val) return null; var d=new Date(val); return Math.floor(d.getTime()/1000); }
   function fmtLocal(d){ var p=function(n){return String(n).padStart(2,'0');}; return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes()); }
