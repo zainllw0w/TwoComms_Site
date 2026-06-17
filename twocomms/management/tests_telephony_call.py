@@ -232,3 +232,81 @@ class ClientCallsAccessTest(TestCase):
         self.assertTrue(call_views._can_access_call_record(self.owner, self.rec))
         self.assertTrue(call_views._can_access_call_record(self.admin, self.rec))
         self.assertFalse(call_views._can_access_call_record(self.other, self.rec))
+
+
+from management.models import CallAIAnalysis, ManagerNotification
+from management.services import call_ai_analysis as caa
+from management import views as mgmt_views2
+
+
+class DiscrepancyNotificationTest(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.manager = User.objects.create_user(username="mgr4", password="x")
+        self.manager.userprofile.is_manager = True
+        self.manager.userprofile.save()
+        self.client_obj = Client.objects.create(
+            shop_name="Shop4", phone="0671112244", full_name="X", owner=self.manager
+        )
+        self.rec = CallRecord.objects.create(
+            provider="binotel", external_call_id="700700", manager=self.manager,
+            matched_client=self.client_obj, duration_seconds=80,
+        )
+
+    def _analysis(self, discrepancies):
+        return CallAIAnalysis.objects.create(
+            call_record=self.rec, status=CallAIAnalysis.Status.DONE,
+            discrepancies=discrepancies,
+        )
+
+    def test_warn_creates_ack_notification(self):
+        a = self._analysis([{"field": "next_call", "manager_value": "11:00", "ai_value": "12:00", "severity": "warn", "note": "n"}])
+        caa.notify_discrepancies(self.rec, a)
+        notif = ManagerNotification.objects.filter(user=self.manager, requires_ack=True, related_analysis=a).first()
+        self.assertIsNotNone(notif)
+        self.assertEqual(notif.related_client_id, self.client_obj.id)
+
+    def test_info_only_no_notification(self):
+        a = self._analysis([{"field": "other", "severity": "info", "note": "n"}])
+        caa.notify_discrepancies(self.rec, a)
+        self.assertFalse(ManagerNotification.objects.filter(related_analysis=a).exists())
+
+    def test_idempotent(self):
+        a = self._analysis([{"field": "xml", "severity": "high", "note": "n"}])
+        caa.notify_discrepancies(self.rec, a)
+        caa.notify_discrepancies(self.rec, a)
+        self.assertEqual(ManagerNotification.objects.filter(related_analysis=a).count(), 1)
+
+    def test_no_manager_skips(self):
+        self.rec.manager = None
+        self.rec.save()
+        a = self._analysis([{"field": "xml", "severity": "high", "note": "n"}])
+        caa.notify_discrepancies(self.rec, a)
+        self.assertFalse(ManagerNotification.objects.filter(related_analysis=a).exists())
+
+    def test_ack_endpoint_sets_acknowledged(self):
+        a = self._analysis([{"field": "xml", "severity": "high", "note": "n"}])
+        caa.notify_discrepancies(self.rec, a)
+        notif = ManagerNotification.objects.get(related_analysis=a)
+        req = self.factory.post(
+            "/notifications/ack/", data=_json.dumps({"id": notif.id}),
+            content_type="application/json",
+        )
+        req.user = self.manager
+        resp = mgmt_views2.notification_ack(req)
+        self.assertEqual(resp.status_code, 200)
+        notif.refresh_from_db()
+        self.assertIsNotNone(notif.acknowledged_at)
+        self.assertTrue(notif.is_read)
+
+
+class DiscrepancyNormalizeTest(TestCase):
+    def test_normalize_filters_and_clamps(self):
+        out = caa._normalize_discrepancies([
+            {"field": "next_call", "severity": "warn", "note": "ok"},
+            {"field": "x", "severity": "bogus"},
+            "notadict",
+        ])
+        self.assertEqual(len(out), 2)
+        self.assertEqual(out[0]["severity"], "warn")
+        self.assertEqual(out[1]["severity"], "info")  # bogus → info

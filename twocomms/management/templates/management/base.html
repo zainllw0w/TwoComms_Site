@@ -124,14 +124,24 @@
                             <button type="button" class="notif-events__readall" id="notif-events-readall">Прочитати всі</button>
                         </div>
                         {% for ev in management_notifications %}
-                        <div class="notif-ev notif-ev--{{ ev.level }}{% if not ev.is_read %} is-unread{% endif %}" data-notif-id="{{ ev.id }}">
+                        <div class="notif-ev notif-ev--{{ ev.level }}{% if not ev.is_read %} is-unread{% endif %}{% if ev.requires_ack and not ev.acknowledged_at %} notif-ev--ack{% endif %}" data-notif-id="{{ ev.id }}">
                             <span class="notif-ev__ico notif-ev__ico--{{ ev.kind }}" aria-hidden="true"></span>
                             <div class="notif-ev__body">
                                 <div class="notif-ev__title">{{ ev.title }}</div>
-                                {% if ev.body %}<div class="notif-ev__text">{{ ev.body }}</div>{% endif %}
+                                {% if ev.body %}<div class="notif-ev__text" style="white-space:pre-line;">{{ ev.body }}</div>{% endif %}
+                                {% if ev.requires_ack %}
+                                    {% if ev.acknowledged_at %}
+                                        <div class="notif-ev__ackchip" style="margin-top:6px;font-size:11px;color:#86efac;font-weight:600;">✓ Підтверджено {{ ev.acknowledged_at|date:"d.m H:i" }}</div>
+                                    {% else %}
+                                        <div class="notif-ev__ackrow" style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                                            {% if ev.action_url %}<a class="notif-ev__link" href="{{ ev.action_url }}" style="font-size:11.5px;color:#93c5fd;text-decoration:underline;">Відкрити клієнта</a>{% endif %}
+                                            <button type="button" class="notif-ev__ackbtn" data-notif-ack="{{ ev.id }}" style="background:#f59e0b;color:#1a1205;border:none;border-radius:8px;padding:6px 11px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;">Зрозуміло, перевірю</button>
+                                        </div>
+                                    {% endif %}
+                                {% endif %}
                                 <div class="notif-ev__time">{{ ev.created_at|date:"d.m.Y H:i" }}</div>
                             </div>
-                            {% if not ev.is_read %}
+                            {% if not ev.is_read and not ev.requires_ack %}
                             <button type="button" class="notif-ev__done" data-notif-done="{{ ev.id }}" aria-label="Прочитано">
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
                             </button>
@@ -814,6 +824,30 @@
                     const cur = window.__mgmtNotifUnread || 0;
                     bumpBadge(-cur);
                 }
+                return;
+            }
+            const ackBtn = e.target.closest('[data-notif-ack]');
+            if (ackBtn) {
+                const id = ackBtn.dataset.notifAck;
+                ackBtn.disabled = true;
+                try {
+                    const r = await fetch("{% url 'management_notification_ack' %}", {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                        body: JSON.stringify({ id: id }),
+                    });
+                    const d = await r.json().catch(() => ({}));
+                    if (d.ok) {
+                        const item = ackBtn.closest('.notif-ev');
+                        if (item) {
+                            item.classList.remove('notif-ev--ack');
+                            if (item.classList.contains('is-unread')) { item.classList.remove('is-unread'); bumpBadge(-1); }
+                            const row = item.querySelector('.notif-ev__ackrow');
+                            if (row) row.outerHTML = '<div class="notif-ev__ackchip">✓ Підтверджено</div>';
+                        }
+                    } else { ackBtn.disabled = false; }
+                } catch (err) { ackBtn.disabled = false; }
+                return;
             }
         });
     });

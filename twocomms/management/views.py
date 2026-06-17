@@ -2767,6 +2767,28 @@ def notification_read(request):
 
 @login_required(login_url='management_login')
 @require_POST
+def notification_ack(request):
+    """Підтвердження («ОК») попередження, що потребує acknowledgment.
+    Ставить acknowledged_at + is_read. Адмін бачитиме, що менеджер підтвердив."""
+    if not user_is_management(request.user):
+        return JsonResponse({'ok': False}, status=403)
+    from management.models import ManagerNotification
+    try:
+        body = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        body = {}
+    try:
+        nid = int(body.get('id'))
+    except Exception:
+        return JsonResponse({'ok': False, 'error': 'bad id'}, status=400)
+    updated = ManagerNotification.objects.filter(
+        id=nid, user=request.user, requires_ack=True, acknowledged_at__isnull=True
+    ).update(acknowledged_at=timezone.now(), is_read=True)
+    return JsonResponse({'ok': True, 'acknowledged': bool(updated)})
+
+
+@login_required(login_url='management_login')
+@require_POST
 def profile_update(request):
     if not user_is_management(request.user):
         return JsonResponse({'ok': False}, status=403)

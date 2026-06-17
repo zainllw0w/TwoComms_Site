@@ -111,6 +111,18 @@ def _build_system_instruction() -> str:
         "Загальний бал overall_score (0..100) — зважена сума осей за вказаними вагами.\n"
         "verdict: 'pass' (>=75 і немає грубих провалів), 'coaching' (50..74 або є що "
         "підтягнути), 'fail' (<50 або критичні помилки).\n\n"
+        "ВАЖЛИВО — це ВИХІДНИЙ холодний дзвінок. Клієнт вважається 'мертвим' "
+        "(conversion_intent='dead') ЛИШЕ якщо він прямо відмовив назавжди, це не та "
+        "людина/не той профіль, або товар йому категорично не потрібен. Якщо є будь-який "
+        "шанс (думає, дорого, зайнятий, попросив передзвонити, не підняв) — це "
+        "'needs_followup', клієнта треба дотискати. 'convert' — готовий до замовлення/оплати.\n\n"
+        "Тобі також дають СНІМОК того, що менеджер зафіксував у CRM після дзвінка "
+        "(результат, час наступного дзвінка, XML, нотатка). Порівняй його з РЕАЛЬНОЮ "
+        "розмовою і знайди розбіжності (discrepancies): напр. домовились на завтра 12:00, "
+        "а менеджер поставив інший час/дату; клієнт просив передзвонити, а менеджер "
+        "закрив як неконверсійного; менеджер позначив XML підключеним, хоча в розмові "
+        "цього не було. Час домовленостей став відносним ('завтра','післязавтра') — "
+        "розв'яжи відносно дати дзвінка, яку тобі дано, і поверни ISO (YYYY-MM-DDTHH:MM).\n\n"
         "Будь конкретним і спирайся на фрази з розмови. Якщо аудіо нерозбірливе або "
         "розмови фактично немає (автовідповідач, тиша, гудки) — постав низькі бали, "
         "познач це у summary і поверни verdict 'fail'.\n\n"
@@ -125,8 +137,20 @@ def _build_system_instruction() -> str:
         '"comment": "обґрунтування з прикладами"} ],\n'
         '  "discussed_well": ["що менеджер зробив добре", "..."],\n'
         '  "missed_topics": ["важливі речі/потреби, які НЕ обговорили", "..."],\n'
-        '  "recommendations": ["конкретна порада менеджеру", "..."]\n'
-        "}"
+        '  "recommendations": ["конкретна порада менеджеру", "..."],\n'
+        '  "extracted_facts": {\n'
+        '     "agreed_next_contact_iso": "YYYY-MM-DDTHH:MM або null",\n'
+        '     "agreed_next_contact_text": "як про це домовились словами, або null",\n'
+        '     "conversion_intent": "convert|needs_followup|dead",\n'
+        '     "conversion_intent_reason": "чому саме так",\n'
+        '     "xml_connected": true|false|null,\n'
+        '     "payment_agreed": true|false|null\n'
+        "  },\n"
+        '  "discrepancies": [ {"field": "next_call|conversion|xml|other", '
+        '"manager_value": "що зберіг менеджер", "ai_value": "що було насправді", '
+        '"severity": "info|warn|high", "note": "пояснення", "quote": "цитата з розмови"} ]\n'
+        "}\n"
+        "Якщо снімку CRM немає або розбіжностей немає — поверни discrepancies як []."
     )
 
 
@@ -255,7 +279,7 @@ def upsert_call_record(client: BinotelClient, general_call_id: str) -> CallRecor
 # ---------------------------------------------------------------------------
 # Gemini
 # ---------------------------------------------------------------------------
-def _gemini_analyze(audio_bytes: bytes, mime: str, manager_context: str) -> dict:
+def _gemini_analyze(audio_bytes: bytes, mime: str, manager_context: str, manager_snapshot: str = "") -> dict:
     """Шле аудіо в Gemini з ретраями та фолбеком моделей.
 
     Повертає {parsed, raw, usage, model, meta}. Кидає CallAIAnalysisError, якщо
@@ -265,7 +289,7 @@ def _gemini_analyze(audio_bytes: bytes, mime: str, manager_context: str) -> dict
     if not key:
         raise CallAIAnalysisError("Не задано ключ Gemini (ENV GEMINI_API).")
 
-    payload = _build_payload(audio_bytes, mime, manager_context)
+    payload = _build_payload(audio_bytes, mime, manager_context, manager_snapshot)
     models = _resolve_models()
     attempts_log: list[str] = []
 
@@ -299,20 +323,24 @@ def _gemini_analyze(audio_bytes: bytes, mime: str, manager_context: str) -> dict
     )
 
 
-def _build_payload(audio_bytes: bytes, mime: str, manager_context: str) -> dict:
+def _build_payload(audio_bytes: bytes, mime: str, manager_context: str, manager_snapshot: str = "") -> dict:
+    text = "Проаналізуй цей запис телефонної розмови за наданою рубрикою. "
+    if manager_context.strip():
+        text += (
+            "Додатковий B2B-контекст від менеджера (підхід до клієнта, його потреби, "
+            "домовленості) — врахуй його при оцінці:\n" + manager_context.strip() + "\n\n"
+        )
+    else:
+        text += "Додаткового контексту від менеджера немає.\n\n"
+    if manager_snapshot.strip():
+        text += (
+            "СНІМОК CRM (що менеджер зафіксував після дзвінка) — порівняй із реальною "
+            "розмовою і заповни discrepancies:\n" + manager_snapshot.strip()
+        )
+    else:
+        text += "Снімку CRM немає — discrepancies поверни як []."
     user_parts = [
-        {
-            "text": (
-                "Проаналізуй цей запис телефонної розмови за наданою рубрикою. "
-                + (
-                    "Додатковий B2B-контекст від менеджера (підхід до клієнта, його "
-                    "потреби, домовленості) — врахуй його при оцінці:\n"
-                    + manager_context.strip()
-                    if manager_context.strip()
-                    else "Додаткового контексту від менеджера немає."
-                )
-            )
-        },
+        {"text": text},
         {"inline_data": {"mime_type": mime, "data": base64.b64encode(audio_bytes).decode()}},
     ]
     return {
@@ -436,6 +464,55 @@ def _as_list(value) -> list:
     return []
 
 
+def _build_manager_snapshot(record: CallRecord) -> str:
+    """Текстовий снімок того, що менеджер зафіксував у CRM (для сверки ШІ)."""
+    call_dt = record.started_at or record.created_at
+    lines = []
+    if call_dt:
+        lines.append(
+            "Дата та час дзвінка: " + timezone.localtime(call_dt).strftime("%Y-%m-%d %H:%M")
+            + " (домовленості 'завтра/післязавтра' рахуй від цієї дати)."
+        )
+    client = record.matched_client
+    if not client:
+        return "\n".join(lines)
+    try:
+        lines.append(f"Результат у CRM: {client.get_call_result_display()} ({client.call_result})")
+    except Exception:
+        lines.append(f"Результат у CRM: {client.call_result}")
+    if client.next_call_at:
+        lines.append("Наступний дзвінок призначено на: " + timezone.localtime(client.next_call_at).strftime("%Y-%m-%dT%H:%M"))
+    else:
+        lines.append("Наступний дзвінок НЕ призначено.")
+    ctx = client.call_result_context or {}
+    if ctx.get("xml_platform") or ctx.get("xml_resource_url"):
+        lines.append(f"Позначено XML: {ctx.get('xml_platform', '')} {ctx.get('xml_resource_url', '')}".strip())
+    if (client.manager_note or "").strip():
+        lines.append("Нотатка менеджера: " + client.manager_note.strip()[:500])
+    return "\n".join(lines)
+
+
+def _normalize_discrepancies(value) -> list:
+    if not isinstance(value, list):
+        return []
+    out = []
+    for d in value:
+        if not isinstance(d, dict):
+            continue
+        sev = (str(d.get("severity") or "info")).strip().lower()
+        if sev not in {"info", "warn", "high"}:
+            sev = "info"
+        out.append({
+            "field": str(d.get("field") or "other")[:32],
+            "manager_value": str(d.get("manager_value") or "")[:300],
+            "ai_value": str(d.get("ai_value") or "")[:300],
+            "severity": sev,
+            "note": str(d.get("note") or "")[:500],
+            "quote": str(d.get("quote") or "")[:300],
+        })
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Публічний вхід
 # ---------------------------------------------------------------------------
@@ -492,7 +569,7 @@ def analyze_call(
                 "Потрібен Files API (буде додано пізніше)."
             )
 
-        out = _gemini_analyze(audio, "audio/mpeg", analysis.manager_context)
+        out = _gemini_analyze(audio, "audio/mpeg", analysis.manager_context, _build_manager_snapshot(record))
         parsed = out["parsed"]
         usage = out["usage"]
 
@@ -507,6 +584,8 @@ def analyze_call(
         analysis.discussed_well = _as_list(parsed.get("discussed_well"))
         analysis.missed_topics = _as_list(parsed.get("missed_topics"))
         analysis.recommendations = _as_list(parsed.get("recommendations"))
+        analysis.extracted_facts = parsed.get("extracted_facts") if isinstance(parsed.get("extracted_facts"), dict) else {}
+        analysis.discrepancies = _normalize_discrepancies(parsed.get("discrepancies"))
         analysis.result = parsed if isinstance(parsed, dict) else {"_raw": parsed}
         if isinstance(analysis.result, dict):
             analysis.result["_meta"] = out.get("meta") or {}
@@ -519,6 +598,10 @@ def analyze_call(
         analysis.save()
         record.qa_status = CallRecord.QaStatus.REVIEWED
         record.save(update_fields=["qa_status", "updated_at"])
+        try:
+            notify_discrepancies(record, analysis)
+        except Exception:
+            logger.exception("call-ai: notify_discrepancies failed for %s", gcid)
     except (CallAIAnalysisError, BinotelError) as exc:
         analysis.status = CallAIAnalysis.Status.ERROR
         analysis.error = str(exc)[:2000]
@@ -567,3 +650,65 @@ def serialize_analysis(analysis: CallAIAnalysis) -> dict:
             else ""
         ),
     }
+
+
+# ---------------------------------------------------------------------------
+# Попередження менеджеру про розбіжності (Фаза 3)
+# ---------------------------------------------------------------------------
+_FIELD_LABELS = {
+    "next_call": "Час наступного дзвінка",
+    "conversion": "Статус клієнта (конверсія)",
+    "xml": "Підключення XML",
+    "other": "Інше",
+}
+
+
+def notify_discrepancies(record: CallRecord, analysis: CallAIAnalysis) -> None:
+    """Створює in-app попередження менеджеру (потребує «ОК»), якщо ШІ знайшов
+    значущі розбіжності між розмовою і тим, що зафіксував менеджер.
+
+    Менеджеру НЕ показуємо бали — лише суть розбіжності й що перевірити.
+    Ідемпотентно: одне попередження на аналіз.
+    """
+    from django.conf import settings as dj_settings
+    from management.models import ManagerNotification
+
+    manager = record.manager
+    if not manager:
+        return
+    serious = [d for d in (analysis.discrepancies or []) if d.get("severity") in {"warn", "high"}]
+    if not serious:
+        return
+    if ManagerNotification.objects.filter(related_analysis=analysis, requires_ack=True).exists():
+        return
+
+    lines = []
+    for d in serious[:4]:
+        label = _FIELD_LABELS.get(d.get("field"), d.get("field") or "Деталь")
+        note = d.get("note") or ""
+        mv = d.get("manager_value") or "—"
+        av = d.get("ai_value") or "—"
+        lines.append(f"• {label}: ви зафіксували «{mv}», а в розмові — «{av}». {note}".strip())
+    client = record.matched_client
+    title = "Перевірте обробку дзвінка"
+    if client:
+        title = f"Перевірте дзвінок: {client.shop_name}"[:255]
+    body = (
+        "ШІ-аналіз розмови знайшов можливі неточності в тому, що ви зберегли:\n"
+        + "\n".join(lines)
+        + "\n\nПеревірте картку клієнта й виправте за потреби."
+    )
+    base = (getattr(dj_settings, "MANAGEMENT_BASE_URL", "") or "").rstrip("/")
+    action_url = f"{base}/?client={client.id}" if client else ""
+
+    ManagerNotification.objects.create(
+        user=manager,
+        kind=ManagerNotification.Kind.SYSTEM,
+        level=ManagerNotification.Level.WARNING,
+        title=title,
+        body=body,
+        requires_ack=True,
+        related_client=client,
+        related_analysis=analysis,
+        action_url=action_url,
+    )

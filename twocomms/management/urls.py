@@ -40,6 +40,7 @@ urlpatterns = [
     path('reminders/read/', views.reminder_read, name='management_reminder_read'),
     path('reminders/feed/', views.reminder_feed, name='management_reminder_feed'),
     path('notifications/read/', views.notification_read, name='management_notification_read'),
+    path('notifications/ack/', views.notification_ack, name='management_notification_ack'),
     path('profile/update/', views.profile_update, name='management_profile_update'),
     path('profile/bind-code/', views.profile_bind_code, name='management_profile_bind_code'),
     path('profile/bind-status/', views.profile_bind_status, name='management_profile_bind_status'),

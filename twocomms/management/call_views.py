@@ -175,6 +175,8 @@ def client_calls(request):
                 "overall_score": float(analysis.overall_score),
                 "verdict": analysis.verdict,
                 "summary": analysis.summary,
+                "discrepancies": analysis.discrepancies or [],
+                "extracted_facts": analysis.extracted_facts or {},
             }
         items.append(item)
     return JsonResponse({"success": True, "calls": items, "is_admin": is_admin})
