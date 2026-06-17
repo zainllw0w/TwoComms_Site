@@ -455,6 +455,38 @@ class BinotelClient:
             "stats/call-record", {"generalCallID": str(general_call_id)}
         )
 
+    @staticmethod
+    def extract_record_url(data: dict) -> str:
+        """Дістає URL запису з відповіді call-record (буває в url або callDetails)."""
+        if not isinstance(data, dict):
+            return ""
+        url = data.get("url")
+        if not url:
+            details = data.get("callDetails")
+            if isinstance(details, dict):
+                url = details.get("url")
+            elif isinstance(details, str):
+                url = details
+        return url or ""
+
+    def fetch_record_stream(self, general_call_id: str):
+        """Повертає (requests.Response stream, url) для запису розмови.
+
+        Тягне mp3 з сервера Binotel server-side — так браузер отримує файл з
+        нашого https-домену (без mixed-content і без короткоживучого посилання).
+        Викликач зобовʼязаний закрити response.
+        """
+        data = self.call_record(general_call_id)
+        url = self.extract_record_url(data)
+        if not url:
+            raise BinotelError("Для цього дзвінка немає запису розмови.", raw=data)
+        # Якщо Binotel віддав http — все одно тягнемо server-side, клієнту піде https.
+        resp = self._session.get(url, stream=True, timeout=(min(10, self.timeout[1]), 60))
+        if resp.status_code != 200:
+            resp.close()
+            raise BinotelError(f"Не вдалося завантажити запис (HTTP {resp.status_code}).")
+        return resp, url
+
     def list_of_calls_for_period(self, start_time: int, stop_time: int) -> dict:
         """Вхідні + вихідні за період (не більше 24 годин)."""
         return self.send_request(

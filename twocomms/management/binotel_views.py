@@ -15,7 +15,7 @@ import time
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import JsonResponse, StreamingHttpResponse, HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
@@ -137,6 +137,7 @@ def binotel_test(request):
         "allowed_raw_endpoints": sorted(ALLOWED_RAW_ENDPOINTS),
         "binotel_webhook_url": f"{base}{webhook_path}",
         "binotel_webhook_enforce_ip": bool(getattr(settings, "BINOTEL_WEBHOOK_ENFORCE_IP", False)),
+        "binotel_recording_base": "/binotel/recording/",
     }
     return render(request, "management/binotel_test.html", context)
 
@@ -461,6 +462,60 @@ def binotel_raw(request):
         return _error_response(exc)
     elapsed_ms = int((time.monotonic() - started) * 1000)
     return JsonResponse({"success": True, "raw": data, "elapsed_ms": elapsed_ms})
+
+
+@login_required(login_url="management_login")
+@require_GET
+def binotel_recording(request, call_id):
+    """
+    Стрімить запис розмови через наш сервер (проксі).
+
+    Чому проксі, а не пряме посилання Binotel:
+    - посилання Binotel живе лише 15 хв і може бути http:// → mixed-content на
+      нашій https-сторінці блокує відтворення;
+    - проксі дає стабільне відтворення і коректне завантаження (download).
+
+    Доступ лише staff. Програвання (inline) або завантаження (?download=1).
+    """
+    if not _is_admin(request.user):
+        return HttpResponse(status=403)
+    call_id = (str(call_id) or "").strip()
+    if not call_id:
+        return HttpResponse("generalCallID required", status=400)
+
+    try:
+        client = BinotelClient.from_settings()
+    except BinotelNotConfigured:
+        return HttpResponse("Binotel не налаштовано", status=503)
+
+    try:
+        upstream, _url = client.fetch_record_stream(call_id)
+    except BinotelError as exc:
+        return HttpResponse(str(exc), status=404, content_type="text/plain; charset=utf-8")
+
+    def _stream():
+        try:
+            for chunk in upstream.iter_content(chunk_size=64 * 1024):
+                if chunk:
+                    yield chunk
+        finally:
+            upstream.close()
+
+    content_type = upstream.headers.get("Content-Type") or "audio/mpeg"
+    if "audio" not in content_type and "mpeg" not in content_type:
+        content_type = "audio/mpeg"
+    response = StreamingHttpResponse(_stream(), content_type=content_type)
+    length = upstream.headers.get("Content-Length")
+    if length:
+        response["Content-Length"] = length
+    response["Cache-Control"] = "no-store"
+    response["Accept-Ranges"] = "none"
+    if request.GET.get("download") in ("1", "true", "yes"):
+        fname = f"binotel_call_{call_id}.mp3"
+        response["Content-Disposition"] = f'attachment; filename="{fname}"'
+    else:
+        response["Content-Disposition"] = "inline"
+    return response
 
 
 @login_required(login_url="management_login")

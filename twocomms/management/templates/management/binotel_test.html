@@ -6,14 +6,25 @@
 {% block extra_css %}
 <style>
 .bn-wrap{max-width:1180px;margin:0 auto;padding:24px 18px 80px;color:#e7ecf3;}
-.bn-head{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:20px;}
+.bn-head{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:18px;}
 .bn-head h1{font-size:22px;margin:0;font-weight:700;letter-spacing:.01em;}
-.bn-sub{color:#8b97a8;font-size:13px;margin:4px 0 0;flex-basis:100%;}
+.bn-sub{color:#8b97a8;font-size:12.5px;margin:4px 0 0;flex-basis:100%;}
 .bn-badge{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid #1e2430;background:#11151f;}
 .bn-badge .dot{width:9px;height:9px;border-radius:50%;background:#5b6472;}
 .bn-badge.ok .dot{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.18);}
 .bn-badge.warn .dot{background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.18);}
 .bn-badge.err .dot{background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.18);}
+
+/* Tabs */
+.bn-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px;border-bottom:1px solid #1e2430;padding-bottom:2px;}
+.bn-tab{background:transparent;border:none;border-bottom:2px solid transparent;color:#8b97a8;font-size:14px;font-weight:600;padding:10px 16px;cursor:pointer;font-family:inherit;border-radius:8px 8px 0 0;transition:color .15s,border-color .15s;}
+.bn-tab:hover{color:#cdd6e3;}
+.bn-tab.active{color:#ff9d5c;border-bottom-color:#ff7e29;background:rgba(255,126,41,.06);}
+.bn-tab .bn-tab-count{display:inline-block;min-width:18px;padding:0 5px;margin-left:6px;border-radius:999px;background:#1b2230;font-size:11px;color:#9fb0c4;}
+.bn-panel{display:none;}
+.bn-panel.active{display:block;animation:bnfade .2s ease;}
+@keyframes bnfade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
 .bn-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
 @media(max-width:920px){.bn-grid{grid-template-columns:1fr;}}
 .bn-card{background:#11151f;border:1px solid #1e2430;border-radius:16px;padding:18px 20px;}
@@ -32,26 +43,54 @@
 .bn-btn:disabled{opacity:.5;cursor:not-allowed;}
 .bn-btn.ghost{background:transparent;color:#cdd6e3;border:1px solid #2a3342;}
 .bn-btn.danger{background:#ef4444;color:#fff;}
+.bn-btn.sm{padding:7px 12px;font-size:12px;}
 .bn-btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;}
-.bn-out{margin-top:14px;background:#0b0e14;border:1px solid #1a212c;border-radius:10px;padding:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#b6c2d1;white-space:pre-wrap;word-break:break-word;max-height:360px;overflow:auto;}
+.bn-out{margin-top:14px;background:#0b0e14;border:1px solid #1a212c;border-radius:10px;padding:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#b6c2d1;white-space:pre-wrap;word-break:break-word;max-height:340px;overflow:auto;}
 .bn-out:empty{display:none;}
+details.bn-raw{margin-top:12px;}
+details.bn-raw summary{cursor:pointer;color:#7e8a9c;font-size:12px;user-select:none;}
 .bn-msg{margin-top:10px;font-size:12.5px;padding:8px 12px;border-radius:9px;display:none;}
 .bn-msg.show{display:block;}
 .bn-msg.ok{background:rgba(34,197,94,.1);color:#86efac;border:1px solid rgba(34,197,94,.25);}
 .bn-msg.err{background:rgba(239,68,68,.1);color:#fca5a5;border:1px solid rgba(239,68,68,.25);}
+.bn-msg.info{background:rgba(59,130,246,.1);color:#93c5fd;border:1px solid rgba(59,130,246,.22);}
 .bn-table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px;}
 .bn-table th,.bn-table td{text-align:left;padding:8px 10px;border-bottom:1px solid #1a212c;}
 .bn-table th{color:#8b97a8;font-weight:600;}
-.bn-table tr:hover td{background:#0e131c;}
 .bn-pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;background:#1b2230;color:#9fb0c4;}
 .bn-pill.online{background:rgba(34,197,94,.15);color:#86efac;}
 .bn-pill.inuse{background:rgba(245,158,11,.15);color:#fcd34d;}
 .bn-pill.offline{background:rgba(120,130,150,.12);color:#8b97a8;}
-.bn-call-link{color:#ff9d5c;cursor:pointer;text-decoration:underline;}
+.bn-pill.success{background:rgba(34,197,94,.15);color:#86efac;}
+.bn-pill.failed{background:rgba(239,68,68,.13);color:#fca5a5;}
+.bn-pill.voicemail{background:rgba(168,85,247,.15);color:#d8b4fe;}
+.bn-inline-load{font-size:12px;color:#7e8a9c;}
 .bn-audio{width:100%;margin-top:8px;}
+
+/* Записи розмов — карточки */
+.bn-rec-list{display:flex;flex-direction:column;gap:10px;margin-top:14px;}
+.bn-rec{background:#0e131c;border:1px solid #1a212c;border-radius:14px;padding:14px 16px;transition:border-color .15s;}
+.bn-rec:hover{border-color:#2a3342;}
+.bn-rec.no-rec{opacity:.6;}
+.bn-rec__top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.bn-rec__dir{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.bn-rec__dir svg{width:18px;height:18px;}
+.bn-rec__dir.in{background:rgba(34,197,94,.12);color:#86efac;}
+.bn-rec__dir.out{background:rgba(59,130,246,.12);color:#93c5fd;}
+.bn-rec__main{flex:1;min-width:160px;}
+.bn-rec__num{font-size:14px;font-weight:600;color:#e7ecf3;}
+.bn-rec__meta{font-size:12px;color:#8b97a8;margin-top:2px;}
+.bn-rec__side{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.bn-rec__dur{font-variant-numeric:tabular-nums;font-size:13px;color:#cdd6e3;font-weight:600;}
+.bn-rec__player{margin-top:12px;display:none;}
+.bn-rec__player.open{display:block;}
+.bn-rec__empty{padding:30px 10px;text-align:center;color:#7e8a9c;font-size:13px;}
+.bn-icon-btn{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid #2a3342;color:#cdd6e3;border-radius:9px;padding:7px 11px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;}
+.bn-icon-btn:hover{border-color:#ff7e29;color:#ff9d5c;}
+.bn-icon-btn svg{width:14px;height:14px;}
 .bn-codes{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
 .bn-codes code{background:#0b0e14;border:1px solid #232b39;border-radius:6px;padding:3px 7px;font-size:11px;color:#9fb0c4;}
-.bn-inline-load{font-size:12px;color:#7e8a9c;}
+.bn-call-link{color:#ff9d5c;cursor:pointer;text-decoration:underline;}
 </style>
 {% endblock %}
 
@@ -68,183 +107,178 @@
      data-period-url="{% url 'management_binotel_calls_period' %}"
      data-search-url="{% url 'management_binotel_customers_search' %}"
      data-raw-url="{% url 'management_binotel_raw' %}"
-     data-webhook-events-url="{% url 'management_binotel_webhook_events' %}">
+     data-webhook-events-url="{% url 'management_binotel_webhook_events' %}"
+     data-recording-base="{{ binotel_recording_base }}">
 
   <div class="bn-head">
-    <h1>Тест інтеграцій · Binotel</h1>
+    <h1>Binotel · телефонія</h1>
     <span class="bn-badge {% if binotel_configured %}warn{% else %}err{% endif %}" id="bn-status-badge">
       <span class="dot"></span><span id="bn-status-text">{% if binotel_configured %}Перевірка…{% else %}Ключі не задані{% endif %}</span>
     </span>
-    <button type="button" class="bn-btn ghost" id="bn-recheck">Перевірити з'єднання</button>
-    <p class="bn-sub">
-      Пісочниця для перевірки Binotel REST API 4.0: дзвінки, статуси, записи розмов, статистика.
-      companyID: <code>{{ binotel_company_id|default:"—" }}</code> ·
-      API: <code>{{ binotel_api_base }}{{ binotel_api_version }}</code>
-    </p>
+    <button type="button" class="bn-btn ghost sm" id="bn-recheck">Перевірити</button>
   </div>
 
-  <div class="bn-card full" style="margin-bottom:18px;">
-    <h2>Єдиний вебхук Binotel</h2>
-    <p class="hint">Один URL для обох типів подій (apiCallSettings + apiCallCompleted) — Binotel розрізняє їх за полем requestType. Цей URL передайте у підтримку Binotel.</p>
-    <div class="bn-field">
-      <label>Webhook URL (для підтримки Binotel)</label>
+  <div class="bn-tabs" role="tablist">
+    <button type="button" class="bn-tab active" data-tab="call">📞 Дзвінок</button>
+    <button type="button" class="bn-tab" data-tab="records">🎧 Записи розмов</button>
+    <button type="button" class="bn-tab" data-tab="diag">🛠 Діагностика</button>
+    <button type="button" class="bn-tab" data-tab="webhook">🔗 Вебхук</button>
+  </div>
+
+  <!-- ===================== ДЗВІНОК ===================== -->
+  <div class="bn-panel active" data-panel="call">
+    <div class="bn-grid">
+      <div class="bn-card">
+        <h2>Зателефонувати клієнту</h2>
+        <p class="hint">Binotel дзвонить на лінію менеджера, після підняття зʼєднує з клієнтом. Запис розмови зʼявиться у вкладці «Записи розмов».</p>
+        <div class="bn-row">
+          <div class="bn-field">
+            <label>Лінія менеджера (internalNumber)</label>
+            <input class="bn-input" id="bn-internal" placeholder="напр. 901" list="bn-internal-list">
+            <datalist id="bn-internal-list"></datalist>
+          </div>
+          <div class="bn-field">
+            <label>Номер клієнта</label>
+            <input class="bn-input" id="bn-external" placeholder="напр. 0671234567">
+          </div>
+        </div>
+        <div class="bn-field">
+          <label>pbxNumber (необовʼязково — з якого номера дзвонити)</label>
+          <input class="bn-input" id="bn-pbx" placeholder="напр. 0443334023">
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#9aa6b6;margin-bottom:12px;cursor:pointer;">
+          <input type="checkbox" id="bn-no-playback"> Без оголошення «зʼєднання з оператором»
+        </label>
+        <div class="bn-btn-row">
+          <button type="button" class="bn-btn" id="bn-call-btn">📞 Подзвонити</button>
+          <button type="button" class="bn-btn ghost" id="bn-poll-btn" disabled>Стежити за статусом</button>
+          <button type="button" class="bn-btn danger" id="bn-hangup-btn" disabled>Завершити</button>
+        </div>
+        <div class="bn-msg" id="bn-call-msg"></div>
+        <details class="bn-raw"><summary>Технічні дані відповіді</summary><div class="bn-out" id="bn-call-out"></div></details>
+      </div>
+
+      <div class="bn-card">
+        <h2>Підказки</h2>
+        <p class="hint">Як це працює і часті питання.</p>
+        <ul style="font-size:12.5px;color:#9aa6b6;line-height:1.7;padding-left:18px;margin:0;">
+          <li>Лінія <b>901</b> має бути онлайн (софтфон/застосунок Binotel), інакше дзвінок не пройде (код 150).</li>
+          <li>Статус <b>ONLINE</b> — менеджер у розмові; <b>ANSWER</b> — успішно завершено.</li>
+          <li>Запис доступний лише для відповідних дзвінків і зʼявляється у «Записи розмов».</li>
+          <li>Прямий дзвінок «з браузера без телефону» потребує веб-телефону Binotel (уточнюється в підтримці).</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== ЗАПИСИ РОЗМОВ ===================== -->
+  <div class="bn-panel" data-panel="records">
+    <div class="bn-card full">
+      <h2>Записи розмов</h2>
+      <p class="hint">Оберіть період — покажемо дзвінки. Для відповідей доступні прослуховування та завантаження. Запис тягнеться через наш сервер (стабільне відтворення, можна завантажити mp3).</p>
+      <div class="bn-row" style="align-items:flex-end;">
+        <div class="bn-field" style="flex:1.2;">
+          <label>Від</label>
+          <input class="bn-input" id="bn-rec-start" type="datetime-local">
+        </div>
+        <div class="bn-field" style="flex:1.2;">
+          <label>До</label>
+          <input class="bn-input" id="bn-rec-stop" type="datetime-local">
+        </div>
+        <div class="bn-field" style="flex:.8;">
+          <label>Лінія (необовʼязково)</label>
+          <input class="bn-input" id="bn-rec-internal" placeholder="напр. 901">
+        </div>
+      </div>
+      <div class="bn-btn-row">
+        <button type="button" class="bn-btn ghost sm" id="bn-rec-today">Сьогодні</button>
+        <button type="button" class="bn-btn ghost sm" id="bn-rec-7d">Останні 7 днів (лінія)</button>
+        <button type="button" class="bn-btn" id="bn-rec-load">Показати дзвінки</button>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#9aa6b6;cursor:pointer;margin-left:auto;">
+          <input type="checkbox" id="bn-rec-only-answered" checked> Лише з записом
+        </label>
+      </div>
+      <div class="bn-msg" id="bn-rec-msg"></div>
+      <div class="bn-rec-list" id="bn-rec-list"></div>
+    </div>
+  </div>
+
+  <!-- ===================== ДІАГНОСТИКА ===================== -->
+  <div class="bn-panel" data-panel="diag">
+    <div class="bn-grid">
+      <div class="bn-card">
+        <h2>Зʼєднання</h2>
+        <p class="hint">companyID: <code>{{ binotel_company_id|default:"—" }}</code> · API <code>{{ binotel_api_base }}{{ binotel_api_version }}</code></p>
+        <button type="button" class="bn-btn ghost sm" id="bn-diag-ping">Перевірити зʼєднання</button>
+        <div class="bn-msg" id="bn-diag-msg"></div>
+      </div>
+
+      <div class="bn-card">
+        <h2>Співробітники та лінії</h2>
+        <p class="hint">Внутрішні номери і стан SIP-ліній.</p>
+        <button type="button" class="bn-btn ghost sm" id="bn-emp-btn">Оновити список</button>
+        <div id="bn-emp-wrap"></div>
+      </div>
+
+      <div class="bn-card">
+        <h2>Голосові файли</h2>
+        <p class="hint">voiceFileID для дзвінків з оповіщенням.</p>
+        <button type="button" class="bn-btn ghost sm" id="bn-voice-btn">Завантажити</button>
+        <div class="bn-msg" id="bn-voice-msg"></div>
+        <details class="bn-raw"><summary>JSON</summary><div class="bn-out" id="bn-voice-out"></div></details>
+      </div>
+
+      <div class="bn-card">
+        <h2>Онлайн-дзвінки</h2>
+        <p class="hint">Активні розмови зараз.</p>
+        <button type="button" class="bn-btn ghost sm" id="bn-online-btn">Оновити</button>
+        <div class="bn-msg" id="bn-online-msg"></div>
+        <details class="bn-raw"><summary>JSON</summary><div class="bn-out" id="bn-online-out"></div></details>
+      </div>
+
+      <div class="bn-card full">
+        <h2>Універсальна консоль</h2>
+        <p class="hint">Виклик будь-якого дозволеного методу з довільними параметрами (raw JSON).</p>
+        <div class="bn-field">
+          <label>Метод</label>
+          <select class="bn-select" id="bn-raw-endpoint">
+            {% for ep in allowed_raw_endpoints %}<option value="{{ ep }}">{{ ep }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="bn-field">
+          <label>Параметри (JSON)</label>
+          <textarea class="bn-textarea" id="bn-raw-params" spellcheck="false">{}</textarea>
+        </div>
+        <button type="button" class="bn-btn sm" id="bn-raw-btn">Виконати</button>
+        <div class="bn-msg" id="bn-raw-msg"></div>
+        <div class="bn-out" id="bn-raw-out"></div>
+        <div class="bn-codes">
+          <span class="hint" style="width:100%;margin:6px 0 0;">Коди помилок:</span>
+          {% for code, msg in binotel_error_codes.items %}<code>{{ code }} — {{ msg }}</code>{% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== ВЕБХУК ===================== -->
+  <div class="bn-panel" data-panel="webhook">
+    <div class="bn-card full" style="margin-bottom:18px;">
+      <h2>Єдиний вебхук Binotel</h2>
+      <p class="hint">Один URL для обох типів подій (apiCallSettings + apiCallCompleted) — передайте його в підтримку Binotel.</p>
       <div class="bn-row" style="align-items:center;">
         <input class="bn-input" id="bn-webhook-url" readonly value="{{ binotel_webhook_url }}" style="flex:3;">
         <button type="button" class="bn-btn ghost" id="bn-webhook-copy">Копіювати</button>
       </div>
       <p class="hint" style="margin-top:8px;">
         Enforcement IP: <code id="bn-webhook-enforce">{% if binotel_webhook_enforce_ip %}увімкнено{% else %}вимкнено (тестова фаза){% endif %}</code>.
-        Health-check: <a href="{{ binotel_webhook_url }}" target="_blank" style="color:#ff9d5c;">GET цього URL</a> має повернути {"status":"ok"}.
+        Health-check: <a href="{{ binotel_webhook_url }}" target="_blank" style="color:#ff9d5c;">GET цього URL</a> → {"status":"ok"}.
       </p>
     </div>
-  </div>
-
-  <div class="bn-grid">
-
-    <!-- Звонок -->
-    <div class="bn-card">
-      <h2>Зателефонувати (internal → external)</h2>
-      <p class="hint">Binotel дзвонить на внутрішню лінію менеджера, після підняття — з'єднує із зовнішнім номером.</p>
-      <div class="bn-row">
-        <div class="bn-field">
-          <label>Внутрішній номер (internalNumber)</label>
-          <input class="bn-input" id="bn-internal" placeholder="напр. 901" list="bn-internal-list">
-          <datalist id="bn-internal-list"></datalist>
-        </div>
-        <div class="bn-field">
-          <label>Номер клієнта (externalNumber)</label>
-          <input class="bn-input" id="bn-external" placeholder="напр. 0671234567">
-        </div>
-      </div>
-      <div class="bn-field">
-        <label>pbxNumber (необов'язково — з якого номера дзвонити)</label>
-        <input class="bn-input" id="bn-pbx" placeholder="напр. 0443334023">
-      </div>
-      <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#9aa6b6;margin-bottom:10px;cursor:pointer;">
-        <input type="checkbox" id="bn-no-playback"> Без оголошення «очікуйте, з'єднання з оператором» (playbackWaiting=FALSE)
-      </label>
-      <div class="bn-btn-row">
-        <button type="button" class="bn-btn" id="bn-call-btn">Подзвонити</button>
-        <button type="button" class="bn-btn ghost" id="bn-poll-btn" disabled>Стежити за статусом</button>
-        <button type="button" class="bn-btn danger" id="bn-hangup-btn" disabled>Завершити</button>
-      </div>
-      <div class="bn-msg" id="bn-call-msg"></div>
-      <div class="bn-out" id="bn-call-out"></div>
-    </div>
-
-    <!-- Сотрудники -->
-    <div class="bn-card">
-      <h2>Співробітники та лінії</h2>
-      <p class="hint">Список внутрішніх номерів і стан SIP-ліній (online / inuse / ringing / offline).</p>
-      <button type="button" class="bn-btn ghost" id="bn-emp-btn">Оновити список</button>
-      <div id="bn-emp-wrap"></div>
-    </div>
-
-    <!-- Статус звонка по ID -->
-    <div class="bn-card">
-      <h2>Деталі / статус дзвінка</h2>
-      <p class="hint">За generalCallID. disposition: ONLINE — у розмові, ANSWER — завершено успішно.</p>
-      <div class="bn-field">
-        <label>generalCallID (через кому для кількох)</label>
-        <input class="bn-input" id="bn-details-id" placeholder="напр. 22661563">
-      </div>
-      <div class="bn-btn-row">
-        <button type="button" class="bn-btn ghost" id="bn-details-btn">Деталі дзвінка</button>
-        <button type="button" class="bn-btn ghost" id="bn-record-btn">Отримати запис</button>
-      </div>
-      <div class="bn-msg" id="bn-details-msg"></div>
-      <audio class="bn-audio" id="bn-record-audio" controls style="display:none"></audio>
-      <div class="bn-out" id="bn-details-out"></div>
-    </div>
-
-    <!-- Онлайн звонки -->
-    <div class="bn-card">
-      <h2>Онлайн-дзвінки зараз</h2>
-      <p class="hint">Дзвінки у стані ONLINE прямо зараз.</p>
-      <button type="button" class="bn-btn ghost" id="bn-online-btn">Оновити</button>
-      <div class="bn-msg" id="bn-online-msg"></div>
-      <div class="bn-out" id="bn-online-out"></div>
-    </div>
-
-    <!-- Статистика за период -->
     <div class="bn-card full">
-      <h2>Дзвінки за період</h2>
-      <p class="hint">Вхідні + вихідні за період (≤ 24 год; з internalNumber — ≤ 7 днів). Для кожного запису з ANSWER можна одразу взяти запис.</p>
-      <div class="bn-row">
-        <div class="bn-field">
-          <label>Від</label>
-          <input class="bn-input" id="bn-period-start" type="datetime-local">
-        </div>
-        <div class="bn-field">
-          <label>До</label>
-          <input class="bn-input" id="bn-period-stop" type="datetime-local">
-        </div>
-        <div class="bn-field">
-          <label>internalNumber (необов'язково)</label>
-          <input class="bn-input" id="bn-period-internal" placeholder="напр. 901">
-        </div>
-      </div>
+      <h2>Вхідні вебхуки (лог)</h2>
+      <p class="hint">Події від Binotel у реальному часі. Видно реальний IP джерела.</p>
       <div class="bn-btn-row">
-        <button type="button" class="bn-btn ghost" id="bn-period-today">Сьогодні</button>
-        <button type="button" class="bn-btn" id="bn-period-btn">Отримати дзвінки</button>
-      </div>
-      <div class="bn-msg" id="bn-period-msg"></div>
-      <div id="bn-period-wrap"></div>
-    </div>
-
-    <!-- Поиск клиентов -->
-    <div class="bn-card">
-      <h2>Пошук клієнтів (CRM)</h2>
-      <p class="hint">За частиною імені або номера телефону.</p>
-      <div class="bn-field">
-        <label>subject</label>
-        <input class="bn-input" id="bn-search-subject" placeholder="ім'я або номер">
-      </div>
-      <button type="button" class="bn-btn ghost" id="bn-search-btn">Шукати</button>
-      <div class="bn-msg" id="bn-search-msg"></div>
-      <div class="bn-out" id="bn-search-out"></div>
-    </div>
-
-    <!-- Голосовые файлы -->
-    <div class="bn-card">
-      <h2>Голосові файли</h2>
-      <p class="hint">Список voiceFileID для дзвінків з оповіщенням.</p>
-      <button type="button" class="bn-btn ghost" id="bn-voice-btn">Завантажити</button>
-      <div class="bn-msg" id="bn-voice-msg"></div>
-      <div class="bn-out" id="bn-voice-out"></div>
-    </div>
-
-    <!-- Generic консоль -->
-    <div class="bn-card full">
-      <h2>Універсальна консоль</h2>
-      <p class="hint">Виклик будь-якого дозволеного методу з довільними параметрами (raw JSON). key+secret додаються автоматично.</p>
-      <div class="bn-row">
-        <div class="bn-field" style="flex:2;">
-          <label>Метод (endpoint)</label>
-          <select class="bn-select" id="bn-raw-endpoint">
-            {% for ep in allowed_raw_endpoints %}<option value="{{ ep }}">{{ ep }}</option>{% endfor %}
-          </select>
-        </div>
-      </div>
-      <div class="bn-field">
-        <label>Параметри (JSON)</label>
-        <textarea class="bn-textarea" id="bn-raw-params" spellcheck="false">{}</textarea>
-      </div>
-      <button type="button" class="bn-btn" id="bn-raw-btn">Виконати запит</button>
-      <div class="bn-msg" id="bn-raw-msg"></div>
-      <div class="bn-out" id="bn-raw-out"></div>
-      <div class="bn-codes">
-        <span class="hint" style="width:100%;margin:6px 0 0;">Коди помилок:</span>
-        {% for code, msg in binotel_error_codes.items %}<code>{{ code }} — {{ msg }}</code>{% endfor %}
-      </div>
-    </div>
-
-    <!-- Лог входящих вебхуков -->
-    <div class="bn-card full">
-      <h2>Вхідні вебхуки Binotel (лог)</h2>
-      <p class="hint">Події, які Binotel надсилає на наш єдиний вебхук. Оновлюється автоматично. Тут видно реальний IP джерела — за ним згодом увімкнемо whitelist.</p>
-      <div class="bn-btn-row">
-        <button type="button" class="bn-btn ghost" id="bn-wh-refresh">Оновити</button>
+        <button type="button" class="bn-btn ghost sm" id="bn-wh-refresh">Оновити</button>
         <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#9aa6b6;cursor:pointer;">
           <input type="checkbox" id="bn-wh-auto" checked> Автооновлення (5с)
         </label>
@@ -252,332 +286,13 @@
       </div>
       <div id="bn-wh-wrap"><p class="hint">Подій ще немає.</p></div>
     </div>
-
   </div>
+
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-(function(){
-  "use strict";
-  var root = document.getElementById('bn-root');
-  if(!root) return;
-  var URLS = {
-    status: root.dataset.statusUrl, employees: root.dataset.employeesUrl,
-    voice: root.dataset.voiceUrl, call: root.dataset.callUrl, hangup: root.dataset.hangupUrl,
-    details: root.dataset.detailsUrl, record: root.dataset.recordUrl, online: root.dataset.onlineUrl,
-    period: root.dataset.periodUrl, search: root.dataset.searchUrl, raw: root.dataset.rawUrl,
-    webhookEvents: root.dataset.webhookEventsUrl
-  };
-
-  function getCookie(name){
-    var v=null;
-    if(document.cookie){
-      document.cookie.split(';').forEach(function(c){
-        c=c.trim();
-        if(c.substring(0,name.length+1)===name+'='){ v=decodeURIComponent(c.substring(name.length+1)); }
-      });
-    }
-    return v;
-  }
-  var CSRF = getCookie('csrftoken');
-
-  function $(id){ return document.getElementById(id); }
-  function show(el, txt){ if(el){ el.textContent = (typeof txt==='string')?txt:JSON.stringify(txt,null,2); } }
-  function msg(el, text, kind){
-    if(!el) return;
-    el.textContent = text;
-    el.className = 'bn-msg show '+(kind||'ok');
-  }
-  function clearMsg(el){ if(el){ el.className='bn-msg'; el.textContent=''; } }
-
-  function api(url, method, body){
-    var opts = { method: method||'GET', headers: {'X-Requested-With':'XMLHttpRequest'} };
-    if(body){
-      opts.headers['Content-Type']='application/json';
-      opts.headers['X-CSRFToken']=CSRF;
-      opts.body = JSON.stringify(body);
-    }
-    return fetch(url, opts).then(function(r){ return r.json().catch(function(){ return {success:false, error:'Невалідна відповідь сервера ('+r.status+').'}; }); });
-  }
-
-  function errText(d){
-    var t = d.error || 'Помилка';
-    if(d.code) t = '['+d.code+'] '+t;
-    if(d.hint) t += ' — '+d.hint;
-    return t;
-  }
-
-  // --- Статус ---
-  function refreshStatus(){
-    var badge=$('bn-status-badge'), txt=$('bn-status-text');
-    txt.textContent='Перевірка…';
-    api(URLS.status).then(function(d){
-      badge.className='bn-badge';
-      if(!d.configured){ badge.classList.add('err'); txt.textContent='Ключі не задані в ENV'; return; }
-      if(!d.reachable){ badge.classList.add('err'); txt.textContent='Binotel недоступний'; return; }
-      if(d.auth_ok){ badge.classList.add('ok'); txt.textContent='OK · співробітників: '+d.employees_count; }
-      else { badge.classList.add('err'); txt.textContent='Помилка авторизації'+(d.code?(' ['+d.code+']'):''); }
-    }).catch(function(){ badge.className='bn-badge err'; txt.textContent='Помилка запиту'; });
-  }
-  $('bn-recheck').addEventListener('click', refreshStatus);
-
-  // --- Сотрудники ---
-  function renderEmployees(list){
-    var wrap=$('bn-emp-wrap');
-    if(!list || !list.length){ wrap.innerHTML='<p class="hint">Порожньо.</p>'; return; }
-    var dl=$('bn-internal-list'); dl.innerHTML='';
-    var html='<table class="bn-table"><thead><tr><th>Вн.№</th><th>Ім\'я</th><th>Відділ</th><th>Лінія</th></tr></thead><tbody>';
-    list.forEach(function(e){
-      if(e.internalNumber){ var o=document.createElement('option'); o.value=e.internalNumber; o.label=(e.name||'')+' ('+e.internalNumber+')'; dl.appendChild(o); }
-      var st=(e.lineStatus||'offline');
-      html+='<tr><td><b>'+(e.internalNumber||'—')+'</b></td><td>'+(e.name||'—')+'</td><td>'+(e.department||'—')+'</td><td><span class="bn-pill '+st+'">'+st+'</span></td></tr>';
-    });
-    html+='</tbody></table>';
-    wrap.innerHTML=html;
-  }
-  function loadEmployees(){
-    var wrap=$('bn-emp-wrap'); wrap.innerHTML='<p class="bn-inline-load">Завантаження…</p>';
-    api(URLS.employees).then(function(d){
-      if(!d.success){ wrap.innerHTML='<p class="hint">'+errText(d)+'</p>'; return; }
-      renderEmployees(d.employees);
-    });
-  }
-  $('bn-emp-btn').addEventListener('click', loadEmployees);
-
-  // --- Звонок ---
-  var lastCallId=null;
-  $('bn-call-btn').addEventListener('click', function(){
-    var btn=this; clearMsg($('bn-call-msg')); show($('bn-call-out'),'');
-    var body={ internalNumber: $('bn-internal').value.trim(), externalNumber: $('bn-external').value.trim() };
-    var pbx=$('bn-pbx').value.trim(); if(pbx) body.pbxNumber=pbx;
-    if($('bn-no-playback') && $('bn-no-playback').checked) body.playbackWaiting='FALSE';
-    if(!body.internalNumber || !body.externalNumber){ msg($('bn-call-msg'),'Заповніть internalNumber та externalNumber.','err'); return; }
-    btn.disabled=true;
-    api(URLS.call,'POST',body).then(function(d){
-      btn.disabled=false;
-      show($('bn-call-out'), d.raw||d);
-      if(d.success){
-        lastCallId=String(d.generalCallID||'');
-        $('bn-details-id').value=lastCallId||'';
-        msg($('bn-call-msg'),'Дзвінок ініційовано. generalCallID: '+lastCallId,'ok');
-        $('bn-poll-btn').disabled=false; $('bn-hangup-btn').disabled=false;
-      } else { msg($('bn-call-msg'), errText(d),'err'); }
-    }).catch(function(){ btn.disabled=false; msg($('bn-call-msg'),'Помилка запиту.','err'); });
-  });
-
-  var pollTimer=null;
-  $('bn-poll-btn').addEventListener('click', function(){
-    if(!lastCallId) return;
-    var btn=this;
-    if(pollTimer){ clearInterval(pollTimer); pollTimer=null; btn.textContent='Стежити за статусом'; return; }
-    btn.textContent='Зупинити стеження';
-    var tick=function(){
-      api(URLS.details,'POST',{generalCallID:lastCallId}).then(function(d){
-        show($('bn-call-out'), d.raw||d);
-        if(d.success && d.callDetails){
-          var det=d.callDetails[lastCallId]||d.callDetails[String(lastCallId)]||{};
-          var disp=det.disposition||'';
-          var label=det._dispositionLabel||disp;
-          if(disp==='ONLINE'){ msg($('bn-call-msg'),'У розмові (ONLINE)…','ok'); }
-          else if(det._dispositionFinal){ msg($('bn-call-msg'),'Дзвінок завершено: '+label,'ok'); clearInterval(pollTimer); pollTimer=null; btn.textContent='Стежити за статусом'; }
-          else if(disp){ msg($('bn-call-msg'),'Статус: '+label,'ok'); }
-        }
-      });
-    };
-    // Інтервал ≥15с: call-details має ліміт 5 запитів/хв, потім пауза 10с.
-    tick(); pollTimer=setInterval(tick, 15000);
-  });
-
-  $('bn-hangup-btn').addEventListener('click', function(){
-    if(!lastCallId) return;
-    api(URLS.hangup,'POST',{generalCallID:lastCallId}).then(function(d){
-      show($('bn-call-out'), d.raw||d);
-      msg($('bn-call-msg'), d.success?'Запит на завершення надіслано.':errText(d), d.success?'ok':'err');
-    });
-  });
-
-  // --- Детали / запись ---
-  $('bn-details-btn').addEventListener('click', function(){
-    clearMsg($('bn-details-msg')); $('bn-record-audio').style.display='none';
-    var id=$('bn-details-id').value.trim();
-    if(!id){ msg($('bn-details-msg'),'Вкажіть generalCallID.','err'); return; }
-    api(URLS.details,'POST',{generalCallID:id}).then(function(d){
-      show($('bn-details-out'), d.raw||d);
-      if(!d.success) msg($('bn-details-msg'), errText(d),'err');
-    });
-  });
-  $('bn-record-btn').addEventListener('click', function(){
-    clearMsg($('bn-details-msg'));
-    var id=($('bn-details-id').value.trim().split(',')[0]||'').trim();
-    if(!id){ msg($('bn-details-msg'),'Вкажіть generalCallID.','err'); return; }
-    api(URLS.record,'POST',{generalCallID:id}).then(function(d){
-      show($('bn-details-out'), d.raw||d);
-      var au=$('bn-record-audio');
-      if(d.success && d.url){ au.src=d.url; au.style.display='block'; msg($('bn-details-msg'),'Запис отримано (посилання живе 15 хв).','ok'); }
-      else if(d.success){ msg($('bn-details-msg'),'Запис недоступний для цього дзвінка.','err'); }
-      else { au.style.display='none'; msg($('bn-details-msg'), errText(d),'err'); }
-    });
-  });
-
-  // --- Онлайн ---
-  $('bn-online-btn').addEventListener('click', function(){
-    clearMsg($('bn-online-msg'));
-    api(URLS.online).then(function(d){
-      show($('bn-online-out'), d.raw||d);
-      if(d.success){ var n=d.callDetails?Object.keys(d.callDetails).length:0; msg($('bn-online-msg'),'Онлайн-дзвінків: '+n,'ok'); }
-      else msg($('bn-online-msg'), errText(d),'err');
-    });
-  });
-
-  // --- Период ---
-  function toTs(val){ if(!val) return null; var d=new Date(val); return Math.floor(d.getTime()/1000); }
-  $('bn-period-today').addEventListener('click', function(){
-    var now=new Date(); var start=new Date(now.getFullYear(),now.getMonth(),now.getDate(),0,0,0);
-    function fmt(d){ var p=function(n){return String(n).padStart(2,'0');}; return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes()); }
-    $('bn-period-start').value=fmt(start); $('bn-period-stop').value=fmt(now);
-  });
-  function renderPeriod(details){
-    var wrap=$('bn-period-wrap');
-    var ids=details?Object.keys(details):[];
-    if(!ids.length){ wrap.innerHTML='<p class="hint">Дзвінків не знайдено.</p>'; return; }
-    var html='<table class="bn-table"><thead><tr><th>Час</th><th>Тип</th><th>Зовн. номер</th><th>Вн.№</th><th>Розмова</th><th>Стан</th><th>Запис</th></tr></thead><tbody>';
-    ids.forEach(function(id){
-      var c=details[id]||{};
-      var dt=c.startTime?new Date(c.startTime*1000).toLocaleString('uk-UA'):'—';
-      var type=(String(c.callType)==='0')?'вхідний':'вихідний';
-      var rec=(c.disposition==='ANSWER'||c.disposition==='VM-SUCCESS'||c.disposition==='SUCCESS')
-        ? '<span class="bn-call-link" data-rec="'+id+'">▶ запис</span>' : '—';
-      html+='<tr><td>'+dt+'</td><td>'+type+'</td><td>'+(c.externalNumber||'—')+'</td><td>'+(c.internalNumber||'—')+'</td><td>'+(c.billsec||0)+'с</td><td><span class="bn-pill" title="'+(c.disposition||'')+'">'+(c._dispositionLabel||c.disposition||'—')+'</span></td><td>'+rec+'</td></tr>';
-      html+='<tr class="bn-rec-row" data-rec-row="'+id+'" style="display:none"><td colspan="7"><audio class="bn-audio" controls></audio></td></tr>';
-    });
-    html+='</tbody></table>';
-    wrap.innerHTML=html;
-    wrap.querySelectorAll('[data-rec]').forEach(function(link){
-      link.addEventListener('click', function(){
-        var id=link.dataset.rec;
-        var row=wrap.querySelector('[data-rec-row="'+id+'"]');
-        var au=row.querySelector('audio');
-        link.textContent='завантаження…';
-        api(URLS.record,'POST',{generalCallID:id}).then(function(d){
-          if(d.success && d.url){ au.src=d.url; row.style.display=''; link.textContent='▶ запис'; }
-          else { link.textContent=d.error?('✕ '+(d.code||'')):'✕ немає'; }
-        });
-      });
-    });
-  }
-  $('bn-period-btn').addEventListener('click', function(){
-    clearMsg($('bn-period-msg')); $('bn-period-wrap').innerHTML='<p class="bn-inline-load">Завантаження…</p>';
-    var body={ startTime: toTs($('bn-period-start').value), stopTime: toTs($('bn-period-stop').value) };
-    var inn=$('bn-period-internal').value.trim(); if(inn) body.internalNumber=inn;
-    if(!body.startTime || !body.stopTime){ msg($('bn-period-msg'),'Вкажіть період.','err'); $('bn-period-wrap').innerHTML=''; return; }
-    api(URLS.period,'POST',body).then(function(d){
-      if(!d.success){ $('bn-period-wrap').innerHTML=''; msg($('bn-period-msg'), errText(d),'err'); return; }
-      renderPeriod(d.callDetails);
-    });
-  });
-
-  // --- Поиск ---
-  $('bn-search-btn').addEventListener('click', function(){
-    clearMsg($('bn-search-msg'));
-    var subject=$('bn-search-subject').value.trim();
-    if(!subject){ msg($('bn-search-msg'),'Введіть запит.','err'); return; }
-    api(URLS.search,'POST',{subject:subject}).then(function(d){
-      show($('bn-search-out'), d.raw||d);
-      if(!d.success) msg($('bn-search-msg'), errText(d),'err');
-    });
-  });
-
-  // --- Голосовые файлы ---
-  $('bn-voice-btn').addEventListener('click', function(){
-    clearMsg($('bn-voice-msg'));
-    api(URLS.voice).then(function(d){
-      show($('bn-voice-out'), d.raw||d);
-      if(!d.success) msg($('bn-voice-msg'), errText(d),'err');
-    });
-  });
-
-  // --- Generic консоль ---
-  $('bn-raw-btn').addEventListener('click', function(){
-    clearMsg($('bn-raw-msg'));
-    var endpoint=$('bn-raw-endpoint').value;
-    var paramsTxt=$('bn-raw-params').value.trim()||'{}';
-    var params;
-    try{ params=JSON.parse(paramsTxt); }catch(e){ msg($('bn-raw-msg'),'params не є валідним JSON.','err'); return; }
-    api(URLS.raw,'POST',{endpoint:endpoint, params:params}).then(function(d){
-      show($('bn-raw-out'), d.raw||d);
-      if(d.success) msg($('bn-raw-msg'),'OK'+(d.elapsed_ms!=null?(' · '+d.elapsed_ms+' мс'):''),'ok');
-      else msg($('bn-raw-msg'), errText(d),'err');
-    });
-  });
-
-  // --- Webhook URL copy + events log ---
-  var copyBtn=$('bn-webhook-copy');
-  if(copyBtn){
-    copyBtn.addEventListener('click', function(){
-      var inp=$('bn-webhook-url');
-      inp.select();
-      try{ document.execCommand('copy'); }catch(e){}
-      if(navigator.clipboard){ navigator.clipboard.writeText(inp.value).catch(function(){}); }
-      copyBtn.textContent='Скопійовано ✓';
-      setTimeout(function(){ copyBtn.textContent='Копіювати'; }, 1500);
-    });
-  }
-
-  var lastWhId=0, whAutoTimer=null;
-  function fmtRT(rt){
-    if(rt==='apiCallSettings') return '<span class="bn-pill inuse">apiCallSettings</span>';
-    if(rt==='apiCallCompleted') return '<span class="bn-pill online">apiCallCompleted</span>';
-    return '<span class="bn-pill">'+rt+'</span>';
-  }
-  function renderWebhookEvents(events, total, enforce, replace){
-    var wrap=$('bn-wh-wrap');
-    if($('bn-wh-total')) $('bn-wh-total').textContent='Усього подій: '+(total||0)+(enforce?' · IP-whitelist увімкнено':'');
-    if(replace && (!events || !events.length)){ wrap.innerHTML='<p class="hint">Подій ще немає. Зробіть звінок або попросіть Binotel надіслати тестовий вебхук.</p>'; return; }
-    if(!events || !events.length) return;
-    var head=wrap.querySelector('table tbody');
-    if(!head){
-      wrap.innerHTML='<table class="bn-table"><thead><tr><th>Час</th><th>Тип</th><th>callID</th><th>Номер</th><th>IP</th><th>OK</th><th>JSON</th></tr></thead><tbody></tbody></table>';
-      head=wrap.querySelector('table tbody');
-    }
-    events.forEach(function(e){
-      if(e.id>lastWhId) lastWhId=e.id;
-      var ipPill = e.ip_allowed?'<span class="bn-pill online">'+(e.remote_ip||'')+'</span>':'<span class="bn-pill">'+(e.remote_ip||'—')+'</span>';
-      var ok = e.handled_ok?'✓':(e.error?'✕':'—');
-      var tr=document.createElement('tr');
-      tr.innerHTML='<td>'+e.created_at+'</td><td>'+fmtRT(e.request_type)+'</td><td>'+(e.general_call_id||'—')+'</td><td>'+(e.external_number||'—')+'</td><td>'+ipPill+'</td><td>'+ok+'</td><td><span class="bn-call-link bn-wh-json">показати</span></td>';
-      var jsonData=JSON.stringify(e.payload,null,2);
-      tr.querySelector('.bn-wh-json').addEventListener('click', function(){
-        var ex=tr.nextElementSibling;
-        if(ex && ex.classList.contains('bn-wh-json-row')){ ex.remove(); return; }
-        var jr=document.createElement('tr'); jr.className='bn-wh-json-row';
-        jr.innerHTML='<td colspan="7"><div class="bn-out" style="margin-top:0;">'+jsonData.replace(/</g,'&lt;')+'</div></td>';
-        tr.parentNode.insertBefore(jr, tr.nextSibling);
-      });
-      head.insertBefore(tr, head.firstChild);
-    });
-  }
-  function loadWebhookEvents(replace){
-    var url=URLS.webhookEvents+(replace?'':('?after_id='+lastWhId));
-    if(replace) lastWhId=0;
-    api(url).then(function(d){
-      if(d.success){ renderWebhookEvents(d.events, d.total, d.enforce_ip, replace); }
-    });
-  }
-  if($('bn-wh-refresh')){
-    $('bn-wh-refresh').addEventListener('click', function(){ loadWebhookEvents(true); });
-    function setupAuto(){
-      if($('bn-wh-auto') && $('bn-wh-auto').checked){ if(!whAutoTimer) whAutoTimer=setInterval(function(){ loadWebhookEvents(false); }, 5000); }
-      else { if(whAutoTimer){ clearInterval(whAutoTimer); whAutoTimer=null; } }
-    }
-    if($('bn-wh-auto')) $('bn-wh-auto').addEventListener('change', setupAuto);
-    setupAuto();
-  }
-
-  // init
-  {% if binotel_configured %}refreshStatus(); loadEmployees();{% endif %}
-  loadWebhookEvents(true);
-})();
+{% include "management/binotel_test_js.html" %}
 </script>
 {% endblock %}

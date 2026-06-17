@@ -295,3 +295,70 @@ class BinotelViewAccessTests(TestCase):
             )
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json()["url"], "https://rec.example/x.mp3")
+
+
+class _FakeUpstream:
+    def __init__(self, chunks, headers=None, status_code=200):
+        self._chunks = chunks
+        self.headers = headers or {"Content-Type": "audio/mpeg", "Content-Length": "9"}
+        self.status_code = status_code
+        self.closed = False
+
+    def iter_content(self, chunk_size=65536):
+        for c in self._chunks:
+            yield c
+
+    def close(self):
+        self.closed = True
+
+
+@override_settings(ROOT_URLCONF="twocomms.urls_management", BINOTEL_API_KEY="k", BINOTEL_API_SECRET="s")
+class BinotelRecordingProxyTests(TestCase):
+    def setUp(self):
+        self.staff = get_user_model().objects.create_user(username="rec_staff", password="x", is_staff=True)
+        self.regular = get_user_model().objects.create_user(username="rec_user", password="x")
+
+    def _url(self, cid="555"):
+        return reverse("management_binotel_recording", kwargs={"call_id": cid})
+
+    def test_forbidden_for_non_staff(self):
+        http = TestClient(); http.force_login(self.regular)
+        resp = http.get(self._url(), HTTP_HOST=HOST, secure=True)
+        self.assertEqual(resp.status_code, 403)
+
+    def test_stream_inline(self):
+        http = TestClient(); http.force_login(self.staff)
+        fake = _FakeUpstream([b"ID3", b"audio"])
+        with mock.patch(
+            "management.services.binotel.BinotelClient.fetch_record_stream",
+            return_value=(fake, "https://rec/x.mp3"),
+        ):
+            resp = http.get(self._url("777"), HTTP_HOST=HOST, secure=True)
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp["Content-Type"], "audio/mpeg")
+        body = b"".join(resp.streaming_content)
+        self.assertEqual(body, b"ID3audio")
+        self.assertTrue(fake.closed)
+        self.assertIn("inline", resp["Content-Disposition"])
+
+    def test_stream_download(self):
+        http = TestClient(); http.force_login(self.staff)
+        fake = _FakeUpstream([b"x"])
+        with mock.patch(
+            "management.services.binotel.BinotelClient.fetch_record_stream",
+            return_value=(fake, "https://rec/x.mp3"),
+        ):
+            resp = http.get(self._url("888") + "?download=1", HTTP_HOST=HOST, secure=True)
+        self.assertEqual(resp.status_code, 200)
+        b"".join(resp.streaming_content)
+        self.assertIn("attachment", resp["Content-Disposition"])
+        self.assertIn("888", resp["Content-Disposition"])
+
+    def test_no_record_returns_404(self):
+        http = TestClient(); http.force_login(self.staff)
+        with mock.patch(
+            "management.services.binotel.BinotelClient.fetch_record_stream",
+            side_effect=BinotelError("Для цього дзвінка немає запису розмови."),
+        ):
+            resp = http.get(self._url("999"), HTTP_HOST=HOST, secure=True)
+        self.assertEqual(resp.status_code, 404)

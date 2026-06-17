@@ -1,0 +1,278 @@
+(function(){
+  "use strict";
+  var root = document.getElementById('bn-root');
+  if(!root) return;
+  var URLS = {
+    status: root.dataset.statusUrl, employees: root.dataset.employeesUrl,
+    voice: root.dataset.voiceUrl, call: root.dataset.callUrl, hangup: root.dataset.hangupUrl,
+    details: root.dataset.detailsUrl, record: root.dataset.recordUrl, online: root.dataset.onlineUrl,
+    period: root.dataset.periodUrl, search: root.dataset.searchUrl, raw: root.dataset.rawUrl,
+    webhookEvents: root.dataset.webhookEventsUrl
+  };
+  var RECORDING_BASE = root.dataset.recordingBase || '/binotel/recording/';
+  var CONFIGURED = {{ binotel_configured|yesno:"true,false" }};
+  var PLAYABLE = {ANSWER:1, "VM-SUCCESS":1, SUCCESS:1, TRANSFER:1};
+
+  function getCookie(name){
+    var v=null;
+    if(document.cookie){
+      document.cookie.split(';').forEach(function(c){
+        c=c.trim();
+        if(c.substring(0,name.length+1)===name+'='){ v=decodeURIComponent(c.substring(name.length+1)); }
+      });
+    }
+    return v;
+  }
+  var CSRF = getCookie('csrftoken');
+  function $(id){ return document.getElementById(id); }
+  function show(el, txt){ if(el){ el.textContent=(typeof txt==='string')?txt:JSON.stringify(txt,null,2); } }
+  function msg(el, text, kind){ if(!el) return; el.textContent=text; el.className='bn-msg show '+(kind||'ok'); }
+  function clearMsg(el){ if(el){ el.className='bn-msg'; el.textContent=''; } }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function fmtDur(sec){ sec=parseInt(sec||0,10); var m=Math.floor(sec/60), s=sec%60; return m+':'+(s<10?'0':'')+s; }
+  function fmtTs(ts){ if(!ts) return '—'; try{ return new Date(ts*1000).toLocaleString('uk-UA'); }catch(e){ return '—'; } }
+
+  function api(url, method, body){
+    var opts={ method:method||'GET', headers:{'X-Requested-With':'XMLHttpRequest'} };
+    if(body){ opts.headers['Content-Type']='application/json'; opts.headers['X-CSRFToken']=CSRF; opts.body=JSON.stringify(body); }
+    return fetch(url, opts).then(function(r){ return r.json().catch(function(){ return {success:false, error:'Невалідна відповідь ('+r.status+').'}; }); });
+  }
+  function errText(d){ var t=d.error||'Помилка'; if(d.code) t='['+d.code+'] '+t; if(d.hint) t+=' — '+d.hint; return t; }
+
+  // ---------- Tabs ----------
+  var tabs=root.querySelectorAll('.bn-tab'), panels=root.querySelectorAll('.bn-panel');
+  function activateTab(name){
+    tabs.forEach(function(t){ t.classList.toggle('active', t.dataset.tab===name); });
+    panels.forEach(function(p){ p.classList.toggle('active', p.dataset.panel===name); });
+    if(name==='webhook'){ startWhAuto(); loadWebhookEvents(true); } else { stopWhAuto(); }
+  }
+  tabs.forEach(function(t){ t.addEventListener('click', function(){ activateTab(t.dataset.tab); }); });
+
+  // ---------- Status ----------
+  function refreshStatus(){
+    var badge=$('bn-status-badge'), txt=$('bn-status-text');
+    txt.textContent='Перевірка…';
+    api(URLS.status).then(function(d){
+      badge.className='bn-badge';
+      if(!d.configured){ badge.classList.add('err'); txt.textContent='Ключі не задані в ENV'; return; }
+      if(!d.reachable){ badge.classList.add('err'); txt.textContent='Binotel недоступний'; return; }
+      if(d.auth_ok){ badge.classList.add('ok'); txt.textContent='OK · співробітників: '+d.employees_count; }
+      else { badge.classList.add('err'); txt.textContent='Помилка авторизації'+(d.code?(' ['+d.code+']'):''); }
+    }).catch(function(){ badge.className='bn-badge err'; txt.textContent='Помилка запиту'; });
+  }
+  $('bn-recheck').addEventListener('click', refreshStatus);
+  if($('bn-diag-ping')) $('bn-diag-ping').addEventListener('click', function(){
+    clearMsg($('bn-diag-msg'));
+    api(URLS.status).then(function(d){
+      if(d.configured && d.auth_ok) msg($('bn-diag-msg'),'Зʼєднання OK. Співробітників: '+d.employees_count,'ok');
+      else if(!d.configured) msg($('bn-diag-msg'),'Ключі не задані в ENV.','err');
+      else msg($('bn-diag-msg'),'Помилка: '+(d.error||'авторизація')+(d.code?(' ['+d.code+']'):''),'err');
+    });
+  });
+
+  // ---------- Employees ----------
+  function renderEmployees(list){
+    var wrap=$('bn-emp-wrap');
+    if(!list||!list.length){ wrap.innerHTML='<p class="hint">Порожньо.</p>'; return; }
+    var dl=$('bn-internal-list'); if(dl) dl.innerHTML='';
+    var html='<table class="bn-table"><thead><tr><th>Вн.№</th><th>Імʼя</th><th>Відділ</th><th>Лінія</th></tr></thead><tbody>';
+    list.forEach(function(e){
+      if(e.internalNumber && dl){ var o=document.createElement('option'); o.value=e.internalNumber; o.label=(e.name||'')+' ('+e.internalNumber+')'; dl.appendChild(o); }
+      var st=(e.lineStatus||'offline'); if(typeof st!=='string') st='offline';
+      html+='<tr><td><b>'+esc(e.internalNumber||'—')+'</b></td><td>'+esc(e.name||'—')+'</td><td>'+esc(e.department||'—')+'</td><td><span class="bn-pill '+esc(st)+'">'+esc(st)+'</span></td></tr>';
+    });
+    html+='</tbody></table>';
+    wrap.innerHTML=html;
+  }
+  function loadEmployees(){
+    var wrap=$('bn-emp-wrap'); if(wrap) wrap.innerHTML='<p class="bn-inline-load">Завантаження…</p>';
+    api(URLS.employees).then(function(d){
+      if(!d.success){ if(wrap) wrap.innerHTML='<p class="hint">'+esc(errText(d))+'</p>'; return; }
+      renderEmployees(d.employees);
+    });
+  }
+  if($('bn-emp-btn')) $('bn-emp-btn').addEventListener('click', loadEmployees);
+
+  // ---------- Call ----------
+  var lastCallId=null, pollTimer=null;
+  $('bn-call-btn').addEventListener('click', function(){
+    var btn=this; clearMsg($('bn-call-msg')); show($('bn-call-out'),'');
+    var body={ internalNumber:$('bn-internal').value.trim(), externalNumber:$('bn-external').value.trim() };
+    var pbx=$('bn-pbx').value.trim(); if(pbx) body.pbxNumber=pbx;
+    if($('bn-no-playback') && $('bn-no-playback').checked) body.playbackWaiting='FALSE';
+    if(!body.internalNumber||!body.externalNumber){ msg($('bn-call-msg'),'Заповніть лінію та номер клієнта.','err'); return; }
+    btn.disabled=true;
+    api(URLS.call,'POST',body).then(function(d){
+      btn.disabled=false; show($('bn-call-out'), d.raw||d);
+      if(d.success){ lastCallId=String(d.generalCallID||''); msg($('bn-call-msg'),'Дзвінок ініційовано. ID: '+lastCallId,'ok'); $('bn-poll-btn').disabled=false; $('bn-hangup-btn').disabled=false; }
+      else msg($('bn-call-msg'), errText(d),'err');
+    }).catch(function(){ btn.disabled=false; msg($('bn-call-msg'),'Помилка запиту.','err'); });
+  });
+  $('bn-poll-btn').addEventListener('click', function(){
+    if(!lastCallId) return; var btn=this;
+    if(pollTimer){ clearInterval(pollTimer); pollTimer=null; btn.textContent='Стежити за статусом'; return; }
+    btn.textContent='Зупинити стеження';
+    var tick=function(){
+      api(URLS.details,'POST',{generalCallID:lastCallId}).then(function(d){
+        show($('bn-call-out'), d.raw||d);
+        if(d.success && d.callDetails){
+          var det=d.callDetails[lastCallId]||d.callDetails[String(lastCallId)]||{};
+          var disp=det.disposition||'', label=det._dispositionLabel||disp;
+          if(disp==='ONLINE'){ msg($('bn-call-msg'),'У розмові (ONLINE)…','ok'); }
+          else if(det._dispositionFinal){ msg($('bn-call-msg'),'Завершено: '+label,'ok'); clearInterval(pollTimer); pollTimer=null; btn.textContent='Стежити за статусом'; }
+          else if(disp){ msg($('bn-call-msg'),'Статус: '+label,'ok'); }
+        }
+      });
+    };
+    tick(); pollTimer=setInterval(tick, 15000);
+  });
+  $('bn-hangup-btn').addEventListener('click', function(){
+    if(!lastCallId) return;
+    api(URLS.hangup,'POST',{generalCallID:lastCallId}).then(function(d){
+      show($('bn-call-out'), d.raw||d);
+      msg($('bn-call-msg'), d.success?'Запит на завершення надіслано.':errText(d), d.success?'ok':'err');
+    });
+  });
+
+  // ---------- Записи розмов ----------
+  function dirIcon(callType){
+    if(String(callType)==='0') return '<span class="bn-rec__dir in" title="Вхідний">↙</span>';
+    return '<span class="bn-rec__dir out" title="Вихідний">↗</span>';
+  }
+  function recCard(id, c){
+    var disp=c.disposition||'', playable=!!PLAYABLE[disp];
+    var grp=c._dispositionGroup||'', label=c._dispositionLabel||disp||'—';
+    var name=(c.customerData&&c.customerData.name)?c.customerData.name:'';
+    var mgr=(c.employeeData&&c.employeeData.name)?c.employeeData.name:(c.internalNumber||'');
+    var div=document.createElement('div');
+    div.className='bn-rec'+(playable?'':' no-rec');
+    var actions = playable
+      ? '<button type="button" class="bn-icon-btn bn-rec-play" data-id="'+esc(id)+'"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Прослухати</button>'
+        +'<a class="bn-icon-btn" href="'+RECORDING_BASE+encodeURIComponent(id)+'.mp3?download=1"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 20h14v-2H5v2zM12 4v9l3-3 1.4 1.4L12 16 6.6 11.4 8 10l3 3V4z"/></svg>Завантажити</a>'
+      : '<span class="hint" style="margin:0;">запис недоступний</span>';
+    div.innerHTML=
+      '<div class="bn-rec__top">'+dirIcon(c.callType)
+      +'<div class="bn-rec__main"><div class="bn-rec__num">'+esc(c.externalNumber||'—')+(name?(' · '+esc(name)):'')+'</div>'
+      +'<div class="bn-rec__meta">'+esc(fmtTs(c.startTime))+' · менеджер: '+esc(mgr||'—')+' · <span class="bn-pill '+esc(grp)+'">'+esc(label)+'</span></div></div>'
+      +'<div class="bn-rec__side"><span class="bn-rec__dur">'+fmtDur(c.billsec)+'</span></div></div>'
+      +'<div class="bn-rec__side" style="margin-top:10px;">'+actions+'</div>'
+      +'<div class="bn-rec__player" data-player="'+esc(id)+'"></div>';
+    return div;
+  }
+  function renderRecords(details){
+    var wrap=$('bn-rec-list');
+    var onlyAns=$('bn-rec-only-answered') && $('bn-rec-only-answered').checked;
+    var ids=details?Object.keys(details):[];
+    // сортуємо за часом, новіші зверху
+    ids.sort(function(a,b){ return (details[b].startTime||0)-(details[a].startTime||0); });
+    var rows=[];
+    ids.forEach(function(id){ var c=details[id]||{}; if(onlyAns && !PLAYABLE[c.disposition||'']) return; rows.push([id,c]); });
+    if(!rows.length){ wrap.innerHTML='<div class="bn-rec__empty">Дзвінків не знайдено за цей період.</div>'; return; }
+    wrap.innerHTML='';
+    rows.forEach(function(r){ wrap.appendChild(recCard(r[0], r[1])); });
+    wrap.querySelectorAll('.bn-rec-play').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var id=btn.dataset.id, box=wrap.querySelector('[data-player="'+CSS.escape(id)+'"]');
+        if(box.classList.contains('open')){ box.classList.remove('open'); box.innerHTML=''; btn.lastChild.textContent='Прослухати'; return; }
+        box.innerHTML='<audio class="bn-audio" controls autoplay preload="none" src="'+RECORDING_BASE+encodeURIComponent(id)+'.mp3"></audio><div class="hint" style="margin-top:6px;">Якщо запис не грає — він міг бути відсутнім або термін дії минув.</div>';
+        box.classList.add('open'); btn.lastChild.textContent='Згорнути';
+      });
+    });
+  }
+  function toTs(val){ if(!val) return null; var d=new Date(val); return Math.floor(d.getTime()/1000); }
+  function fmtLocal(d){ var p=function(n){return String(n).padStart(2,'0');}; return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes()); }
+  if($('bn-rec-today')) $('bn-rec-today').addEventListener('click', function(){
+    var now=new Date(), start=new Date(now.getFullYear(),now.getMonth(),now.getDate(),0,0,0);
+    $('bn-rec-start').value=fmtLocal(start); $('bn-rec-stop').value=fmtLocal(now);
+    loadRecords();
+  });
+  if($('bn-rec-7d')) $('bn-rec-7d').addEventListener('click', function(){
+    if(!$('bn-rec-internal').value.trim()){ msg($('bn-rec-msg'),'Для 7 днів вкажіть лінію (internalNumber).','err'); return; }
+    var now=new Date(), start=new Date(now.getTime()-7*24*3600*1000);
+    $('bn-rec-start').value=fmtLocal(start); $('bn-rec-stop').value=fmtLocal(now);
+    loadRecords();
+  });
+  function loadRecords(){
+    clearMsg($('bn-rec-msg')); $('bn-rec-list').innerHTML='<p class="bn-inline-load">Завантаження…</p>';
+    var body={ startTime:toTs($('bn-rec-start').value), stopTime:toTs($('bn-rec-stop').value) };
+    var inn=$('bn-rec-internal').value.trim(); if(inn) body.internalNumber=inn;
+    if(!body.startTime||!body.stopTime){ msg($('bn-rec-msg'),'Вкажіть період.','err'); $('bn-rec-list').innerHTML=''; return; }
+    api(URLS.period,'POST',body).then(function(d){
+      if(!d.success){ $('bn-rec-list').innerHTML=''; msg($('bn-rec-msg'), errText(d),'err'); return; }
+      renderRecords(d.callDetails);
+    });
+  }
+  if($('bn-rec-load')) $('bn-rec-load').addEventListener('click', loadRecords);
+  if($('bn-rec-only-answered')) $('bn-rec-only-answered').addEventListener('change', function(){ if($('bn-rec-list').children.length) loadRecords(); });
+
+  // ---------- Voice / Online / Generic (Діагностика) ----------
+  if($('bn-voice-btn')) $('bn-voice-btn').addEventListener('click', function(){
+    clearMsg($('bn-voice-msg'));
+    api(URLS.voice).then(function(d){ show($('bn-voice-out'), d.raw||d); if(!d.success) msg($('bn-voice-msg'), errText(d),'err'); else msg($('bn-voice-msg'),'OK','ok'); });
+  });
+  if($('bn-online-btn')) $('bn-online-btn').addEventListener('click', function(){
+    clearMsg($('bn-online-msg'));
+    api(URLS.online).then(function(d){ show($('bn-online-out'), d.raw||d); if(d.success){ var n=d.callDetails?Object.keys(d.callDetails).length:0; msg($('bn-online-msg'),'Онлайн-дзвінків: '+n,'ok'); } else msg($('bn-online-msg'), errText(d),'err'); });
+  });
+  if($('bn-raw-btn')) $('bn-raw-btn').addEventListener('click', function(){
+    clearMsg($('bn-raw-msg'));
+    var endpoint=$('bn-raw-endpoint').value, paramsTxt=$('bn-raw-params').value.trim()||'{}', params;
+    try{ params=JSON.parse(paramsTxt); }catch(e){ msg($('bn-raw-msg'),'params не є валідним JSON.','err'); return; }
+    api(URLS.raw,'POST',{endpoint:endpoint, params:params}).then(function(d){
+      show($('bn-raw-out'), d.raw||d);
+      if(d.success) msg($('bn-raw-msg'),'OK'+(d.elapsed_ms!=null?(' · '+d.elapsed_ms+' мс'):''),'ok');
+      else msg($('bn-raw-msg'), errText(d),'err');
+    });
+  });
+
+  // ---------- Webhook ----------
+  var copyBtn=$('bn-webhook-copy');
+  if(copyBtn){ copyBtn.addEventListener('click', function(){
+    var inp=$('bn-webhook-url'); inp.select();
+    try{ document.execCommand('copy'); }catch(e){}
+    if(navigator.clipboard) navigator.clipboard.writeText(inp.value).catch(function(){});
+    copyBtn.textContent='Скопійовано ✓'; setTimeout(function(){ copyBtn.textContent='Копіювати'; },1500);
+  }); }
+  var lastWhId=0, whAutoTimer=null;
+  function fmtRT(rt){
+    if(rt==='apiCallSettings') return '<span class="bn-pill inuse">apiCallSettings</span>';
+    if(rt==='apiCallCompleted') return '<span class="bn-pill online">apiCallCompleted</span>';
+    return '<span class="bn-pill">'+esc(rt)+'</span>';
+  }
+  function renderWebhookEvents(events, total, enforce, replace){
+    var wrap=$('bn-wh-wrap');
+    if($('bn-wh-total')) $('bn-wh-total').textContent='Усього подій: '+(total||0)+(enforce?' · IP-whitelist увімкнено':'');
+    if(replace && (!events||!events.length)){ wrap.innerHTML='<p class="hint">Подій ще немає. Зробіть дзвінок або попросіть Binotel надіслати тестовий вебхук.</p>'; return; }
+    if(!events||!events.length) return;
+    var tbody=wrap.querySelector('table tbody');
+    if(!tbody){ wrap.innerHTML='<table class="bn-table"><thead><tr><th>Час</th><th>Тип</th><th>callID</th><th>Номер</th><th>IP</th><th>OK</th><th>JSON</th></tr></thead><tbody></tbody></table>'; tbody=wrap.querySelector('table tbody'); }
+    events.forEach(function(e){
+      if(e.id>lastWhId) lastWhId=e.id;
+      var ipPill=e.ip_allowed?'<span class="bn-pill online">'+esc(e.remote_ip||'')+'</span>':'<span class="bn-pill">'+esc(e.remote_ip||'—')+'</span>';
+      var ok=e.handled_ok?'✓':(e.error?'✕':'—');
+      var tr=document.createElement('tr');
+      tr.innerHTML='<td>'+esc(e.created_at)+'</td><td>'+fmtRT(e.request_type)+'</td><td>'+esc(e.general_call_id||'—')+'</td><td>'+esc(e.external_number||'—')+'</td><td>'+ipPill+'</td><td>'+ok+'</td><td><span class="bn-call-link bn-wh-json">показати</span></td>';
+      var jsonData=JSON.stringify(e.payload,null,2);
+      tr.querySelector('.bn-wh-json').addEventListener('click', function(){
+        var ex=tr.nextElementSibling;
+        if(ex && ex.classList.contains('bn-wh-json-row')){ ex.remove(); return; }
+        var jr=document.createElement('tr'); jr.className='bn-wh-json-row';
+        jr.innerHTML='<td colspan="7"><div class="bn-out" style="margin-top:0;">'+esc(jsonData)+'</div></td>';
+        tr.parentNode.insertBefore(jr, tr.nextSibling);
+      });
+      tbody.insertBefore(tr, tbody.firstChild);
+    });
+  }
+  function loadWebhookEvents(replace){
+    var url=URLS.webhookEvents+(replace?'':('?after_id='+lastWhId));
+    if(replace) lastWhId=0;
+    api(url).then(function(d){ if(d.success) renderWebhookEvents(d.events, d.total, d.enforce_ip, replace); });
+  }
+  function startWhAuto(){ if($('bn-wh-auto') && $('bn-wh-auto').checked && !whAutoTimer) whAutoTimer=setInterval(function(){ loadWebhookEvents(false); },5000); }
+  function stopWhAuto(){ if(whAutoTimer){ clearInterval(whAutoTimer); whAutoTimer=null; } }
+  if($('bn-wh-refresh')) $('bn-wh-refresh').addEventListener('click', function(){ loadWebhookEvents(true); });
+  if($('bn-wh-auto')) $('bn-wh-auto').addEventListener('change', function(){ if(this.checked) startWhAuto(); else stopWhAuto(); });
+
+  // ---------- init ----------
+  if(CONFIGURED){ refreshStatus(); loadEmployees(); }
+})();
