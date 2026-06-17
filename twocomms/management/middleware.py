@@ -23,6 +23,7 @@ _WHITELIST_PREFIXES = (
     "/tg-manager/webhook/",
     "/payments/monobank/webhook/",
     "/activity/pulse/",
+    "/binotel/webhook/",
 )
 
 

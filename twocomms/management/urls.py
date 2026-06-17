@@ -9,6 +9,7 @@ from . import views_levels
 from . import bot_webhook
 from . import bot_views
 from . import binotel_views
+from . import binotel_webhook
 
 urlpatterns = [
     path('login/', auth_views.LoginView.as_view(
@@ -137,5 +138,10 @@ urlpatterns = [
     path('binotel/api/calls-period/', binotel_views.binotel_calls_period, name='management_binotel_calls_period'),
     path('binotel/api/customers-search/', binotel_views.binotel_customers_search, name='management_binotel_customers_search'),
     path('binotel/api/raw/', binotel_views.binotel_raw, name='management_binotel_raw'),
+    path('binotel/api/webhook-events/', binotel_views.binotel_webhook_events, name='management_binotel_webhook_events'),
+    # Єдиний вхідний вебхук Binotel (apiCallSettings + apiCallCompleted).
+    # Публічний, CSRF-exempt, без логіну. Опційний токен у шляху.
+    path('binotel/webhook/', binotel_webhook.binotel_webhook, name='management_binotel_webhook'),
+    path('binotel/webhook/<str:token>/', binotel_webhook.binotel_webhook, name='management_binotel_webhook_token'),
     path('', views.home, name='management_home'),
 ]

@@ -125,6 +125,9 @@ def _post_json(request) -> dict:
 def binotel_test(request):
     if not _is_admin(request.user):
         return redirect("management_home")
+    base = (getattr(settings, "MANAGEMENT_BASE_URL", "") or "https://management.twocomms.shop").rstrip("/")
+    token = getattr(settings, "BINOTEL_WEBHOOK_TOKEN", "") or ""
+    webhook_path = f"/binotel/webhook/{token}/" if token else "/binotel/webhook/"
     context = {
         "binotel_configured": BinotelClient.is_configured(),
         "binotel_company_id": getattr(settings, "BINOTEL_COMPANY_ID", "") or "",
@@ -132,6 +135,8 @@ def binotel_test(request):
         "binotel_api_version": getattr(settings, "BINOTEL_API_VERSION", ""),
         "binotel_error_codes": BINOTEL_ERROR_MESSAGES,
         "allowed_raw_endpoints": sorted(ALLOWED_RAW_ENDPOINTS),
+        "binotel_webhook_url": f"{base}{webhook_path}",
+        "binotel_webhook_enforce_ip": bool(getattr(settings, "BINOTEL_WEBHOOK_ENFORCE_IP", False)),
     }
     return render(request, "management/binotel_test.html", context)
 
@@ -255,6 +260,16 @@ def binotel_call(request):
         val = (payload.get(key) or "").strip() if isinstance(payload.get(key), str) else payload.get(key)
         if val:
             extra[key] = val
+    # playbackWaiting=FALSE прибирає голосове "очікуйте, з'єднання з оператором".
+    pw = payload.get("playbackWaiting")
+    if isinstance(pw, str):
+        pw = pw.strip().lower()
+        if pw in ("false", "0", "no"):
+            extra["playbackWaiting"] = "FALSE"
+        elif pw in ("true", "1", "yes"):
+            extra["playbackWaiting"] = "TRUE"
+    elif pw is False:
+        extra["playbackWaiting"] = "FALSE"
     client, err = _client_or_error()
     if err:
         return err
@@ -446,3 +461,48 @@ def binotel_raw(request):
         return _error_response(exc)
     elapsed_ms = int((time.monotonic() - started) * 1000)
     return JsonResponse({"success": True, "raw": data, "elapsed_ms": elapsed_ms})
+
+
+@login_required(login_url="management_login")
+@require_GET
+def binotel_webhook_events(request):
+    """Останні вхідні вебхуки Binotel (для спостереження на тестовій фазі)."""
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    from .models import BinotelWebhookEvent
+
+    try:
+        after_id = int(request.GET.get("after_id") or 0)
+    except (TypeError, ValueError):
+        after_id = 0
+
+    qs = BinotelWebhookEvent.objects.all()
+    if after_id:
+        qs = qs.filter(id__gt=after_id)
+    rows = list(qs[:60])
+    events = [
+        {
+            "id": r.id,
+            "request_type": r.request_type,
+            "company_id": r.company_id,
+            "general_call_id": r.general_call_id,
+            "call_type": r.call_type,
+            "external_number": r.external_number,
+            "internal_number": r.internal_number,
+            "remote_ip": r.remote_ip,
+            "ip_allowed": r.ip_allowed,
+            "handled_ok": r.handled_ok,
+            "error": r.error,
+            "response_payload": r.response_payload,
+            "payload": r.payload,
+            "created_at": r.created_at.strftime("%d.%m.%Y %H:%M:%S"),
+        }
+        for r in rows
+    ]
+    return JsonResponse({
+        "success": True,
+        "events": events,
+        "total": BinotelWebhookEvent.objects.count(),
+        "enforce_ip": bool(getattr(settings, "BINOTEL_WEBHOOK_ENFORCE_IP", False)),
+    })

@@ -80,6 +80,19 @@ DISPOSITION_META = {
 _IDEMPOTENT_PREFIXES = ("stats/", "settings/list", "customers/list", "customers/search",
                         "customers/take", "customers/listOfLabels")
 
+# Офіційний список IP-адрес серверів Binotel, з яких приходять вебхуки
+# (apiCallSettings / apiCallCompleted). Приймати запити лише з цих адрес.
+BINOTEL_SERVER_IPS = frozenset({
+    "194.88.218.116",  # my.binotel.ua
+    "194.88.218.114", "194.88.218.117", "194.88.218.118",
+    "194.88.219.67", "194.88.219.78", "194.88.219.70", "194.88.219.71",
+    "194.88.219.72", "194.88.219.79", "194.88.219.80", "194.88.219.81",
+    "194.88.219.82", "194.88.219.83", "194.88.219.84", "194.88.219.85",
+    "194.88.219.86", "194.88.219.87", "194.88.219.88", "194.88.219.89",
+    "194.88.219.92", "194.88.218.119", "194.88.218.120",
+    "185.100.66.145", "185.100.66.146", "185.100.66.147",
+})
+
 
 def normalize_phone(value: str) -> str:
     """Прибирає форматування з номера, лишаючи цифри та провідний +."""
@@ -89,6 +102,54 @@ def normalize_phone(value: str) -> str:
     plus = value.startswith("+")
     digits = re.sub(r"\D", "", value)
     return ("+" + digits) if plus else digits
+
+
+def client_ip_from_request(request) -> str:
+    """Визначає IP джерела запиту з урахуванням проксі/Passenger.
+
+    Бере крайній лівий IP з X-Forwarded-For (це початковий клієнт), інакше
+    REMOTE_ADDR. Для звірки з whitelist Binotel цього достатньо; підмінити
+    XFF може лише той, хто вже за нашим проксі."""
+    xff = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    if xff:
+        first = xff.split(",")[0].strip()
+        if first:
+            return first
+    return (request.META.get("REMOTE_ADDR") or "").strip()
+
+
+def is_binotel_ip(ip: str) -> bool:
+    return bool(ip) and ip in BINOTEL_SERVER_IPS
+
+
+def parse_webhook_call_details(call_details: dict) -> dict:
+    """Витягує ключові поля з callDetails вебхука apiCallCompleted у плаский dict.
+
+    Структура callDetails задокументована в розділі STATS (єдина для всього API).
+    Повертає поля, зручні для збереження у CallRecord.
+    """
+    if not isinstance(call_details, dict):
+        return {}
+    call_type = str(call_details.get("callType", ""))
+    direction = "inbound" if call_type == "0" else ("outbound" if call_type == "1" else "unknown")
+    employee = call_details.get("employeeData") or {}
+    customer = call_details.get("customerData") or {}
+    return {
+        "general_call_id": str(call_details.get("generalCallID") or ""),
+        "company_id": str(call_details.get("companyID") or ""),
+        "call_type": call_type,
+        "direction": direction,
+        "external_number": normalize_phone(call_details.get("externalNumber") or ""),
+        "internal_number": str(call_details.get("internalNumber") or ""),
+        "start_time": call_details.get("startTime"),
+        "wait_seconds": call_details.get("waitsec") or 0,
+        "bill_seconds": call_details.get("billsec") or 0,
+        "disposition": call_details.get("disposition") or "",
+        "employee_name": employee.get("name") or "",
+        "employee_email": employee.get("email") or "",
+        "customer_id": (customer.get("id") if isinstance(customer, dict) else None),
+        "customer_name": (customer.get("name") if isinstance(customer, dict) else "") or "",
+    }
 
 
 def mask_secret(value: str) -> str:

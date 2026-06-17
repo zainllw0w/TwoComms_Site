@@ -411,6 +411,12 @@ BINOTEL_COMPANY_ID = _env_normalized(
 BINOTEL_API_BASE = (_env_normalized('BINOTEL_API_BASE', default='https://api.binotel.com/api/')).strip()
 BINOTEL_API_VERSION = (_env_normalized('BINOTEL_API_VERSION', default='4.0')).strip()
 BINOTEL_API_TIMEOUT = _env_int('BINOTEL_API_TIMEOUT', 25)
+# Вебхук Binotel (apiCallSettings / apiCallCompleted) — єдиний вхідний endpoint.
+# На тестовій фазі НЕ блокуємо жорстко за IP (щоб побачити реальні IP у логах),
+# вмикається через BINOTEL_WEBHOOK_ENFORCE_IP=True коли whitelist підтверджено.
+BINOTEL_WEBHOOK_ENFORCE_IP = _env_bool('BINOTEL_WEBHOOK_ENFORCE_IP', default=False)
+# Необов'язковий секретний токен у шляху вебхука для defense-in-depth.
+BINOTEL_WEBHOOK_TOKEN = _env_normalized('BINOTEL_WEBHOOK_TOKEN', default='').strip()
 
 # Mono Checkout (order-based flow) configuration
 MONOBANK_CHECKOUT_DELIVERY_METHODS = _env_list('MONOBANK_CHECKOUT_DELIVERY_METHODS', 'pickup,np_brnm,courier,np_box')

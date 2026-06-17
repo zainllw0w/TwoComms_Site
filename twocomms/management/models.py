@@ -2276,6 +2276,48 @@ class TelephonyHealthSnapshot(models.Model):
         return f"{self.provider}:{self.status}"
 
 
+class BinotelWebhookEvent(models.Model):
+    """Журнал вхідних вебхуків Binotel (apiCallSettings / apiCallCompleted).
+
+    Єдина точка інтеграції: Binotel шле обидва типи на один URL, ми розрізняємо
+    їх за полем requestType. Зберігаємо сирий payload для спостережуваності на
+    тестовій фазі та подальшого мапінгу у CallRecord/CRM.
+    """
+
+    class RequestType(models.TextChoices):
+        CALL_SETTINGS = "apiCallSettings", _("Налаштування дзвінка (до з'єднання)")
+        CALL_COMPLETED = "apiCallCompleted", _("Дзвінок завершено")
+        UNKNOWN = "unknown", _("Невідомо")
+
+    request_type = models.CharField(
+        max_length=40, choices=RequestType.choices, default=RequestType.UNKNOWN, db_index=True
+    )
+    company_id = models.CharField(max_length=64, blank=True, db_index=True, verbose_name=_("companyID"))
+    general_call_id = models.CharField(max_length=64, blank=True, db_index=True, verbose_name=_("generalCallID"))
+    call_type = models.CharField(max_length=8, blank=True, verbose_name=_("callType (0 вх/1 вих)"))
+    external_number = models.CharField(max_length=64, blank=True, db_index=True, verbose_name=_("Зовнішній номер"))
+    internal_number = models.CharField(max_length=32, blank=True, verbose_name=_("Внутрішній номер"))
+    remote_ip = models.CharField(max_length=64, blank=True, db_index=True, verbose_name=_("IP джерела"))
+    ip_allowed = models.BooleanField(default=False, verbose_name=_("IP у whitelist Binotel"))
+    payload = models.JSONField(default=dict, blank=True, verbose_name=_("Вхідний payload"))
+    response_payload = models.JSONField(default=dict, blank=True, verbose_name=_("Відповідь"))
+    handled_ok = models.BooleanField(default=False, verbose_name=_("Оброблено успішно"))
+    error = models.TextField(blank=True, verbose_name=_("Помилка обробки"))
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("Вебхук Binotel")
+        verbose_name_plural = _("Вебхуки Binotel")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["request_type", "-created_at"], name="mgmt_bnwh_type_dt"),
+            models.Index(fields=["general_call_id"], name="mgmt_bnwh_gcid"),
+        ]
+
+    def __str__(self):
+        return f"{self.request_type}:{self.general_call_id or self.external_number}"
+
+
 class CallQAReview(models.Model):
     class Verdict(models.TextChoices):
         PASS = "pass", _("ОК")
