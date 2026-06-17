@@ -2355,7 +2355,44 @@ def admin_manager_toggle_active_api(request, user_id):
     return JsonResponse({'ok': True, 'is_manager': prof.is_manager})
 
 
-def _notify_manager_weekly_review(review):
+@login_required(login_url='management_login')
+@require_POST
+def admin_manager_telephony_save_api(request, user_id):
+    """Зберегти лінію Binotel (internalNumber) менеджера з кастомної адмінки.
+
+    Доступно лише staff. Пише AdminAuditLog. Номер — короткий рядок цифр
+    (внутрішня лінія Binotel, напр. 901); порожнє значення прибирає лінію.
+    """
+    if not request.user.is_staff:
+        return JsonResponse({'ok': False}, status=403)
+    import json
+    import re
+    from management.models import AdminAuditLog
+    target = get_user_model().objects.filter(id=user_id).select_related('userprofile').first()
+    if not target:
+        return JsonResponse({'ok': False, 'error': 'Користувача не знайдено'}, status=404)
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        payload = {}
+    raw = str(payload.get('binotel_internal_number') or '').strip()
+    if raw and not re.fullmatch(r'[0-9*#+]{1,32}', raw):
+        return JsonResponse({'ok': False, 'error': 'Номер лінії має містити лише цифри (напр. 901).'}, status=400)
+    prof, _ = UserProfile.objects.get_or_create(user=target)
+    before = (prof.binotel_internal_number or '').strip()
+    prof.binotel_internal_number = raw
+    prof.save(update_fields=['binotel_internal_number'])
+    try:
+        AdminAuditLog.objects.create(
+            actor=request.user, actor_role='staff',
+            action='manager_binotel_line_set',
+            entity_type='UserProfile', entity_id=str(target.id),
+            before={'binotel_internal_number': before},
+            after={'binotel_internal_number': raw},
+        )
+    except Exception:
+        pass
+    return JsonResponse({'ok': True, 'binotel_internal_number': raw})
     """Мʼяке повідомлення менеджеру про рішення по тижневій винагороді."""
     try:
         manager = review.owner

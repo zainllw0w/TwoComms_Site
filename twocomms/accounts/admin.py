@@ -111,10 +111,6 @@ class UserProfileAdmin(admin.ModelAdmin):
             'fields': ('is_ubd', 'ubd_doc'),
             'classes': ('collapse',)
         }),
-        ('Менеджмент / IP-телефонія', {
-            'fields': ('is_manager', 'binotel_internal_number'),
-            'classes': ('collapse',)
-        }),
         ('Інше', {
             'fields': ('avatar',),
             'classes': ('collapse',)

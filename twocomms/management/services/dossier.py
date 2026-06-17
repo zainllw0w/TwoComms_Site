@@ -200,6 +200,7 @@ def build_manager_dossier(user) -> dict:
             "days_worked": days_worked,
             "online": online_state["online"],
             "last_seen_label": online_state["last_seen_label"],
+            "binotel_internal_number": (getattr(profile, "binotel_internal_number", "") or "").strip(),
         },
         "payouts": {
             "balance": str(pay["balance"]),

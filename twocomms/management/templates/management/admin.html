@@ -1674,6 +1674,16 @@ document.addEventListener('click', async (e) => {
         </div>
 
         <div class="d-section">
+            <h4>IP-телефонія (Binotel)</h4>
+            <form class="d-form" id="d-telephony-form">
+                <label>Лінія менеджера (internalNumber)<input type="text" name="binotel_internal_number" inputmode="numeric" autocomplete="off" placeholder="напр. 901" value="${esc(m.binotel_internal_number || '')}"></label>
+                <div class="d-form-hint" style="font-size:11.5px;color:var(--muted);margin-top:-4px;">Внутрішній номер Binotel менеджера + онлайн софтфон/застосунок. Потрібно, щоб менеджер міг телефонувати клієнтам прямо з картки обробки.</div>
+                <div class="d-feedback" id="d-telephony-feedback"></div>
+                <div class="d-actions"><button type="submit" class="btn-primary small">Зберегти лінію</button></div>
+            </form>
+        </div>
+
+        <div class="d-section">
             <h4>Винагорода</h4>
             <div class="d-stat-row">
                 <div class="d-stat"><div class="v ok">${esc(p.available)}</div><div class="l">Доступно, грн</div></div>
@@ -1768,6 +1778,31 @@ document.addEventListener('click', async (e) => {
             if (!res.ok || !data.success) throw new Error(data.error || 'Помилка');
             fb.textContent = data.message || 'Збережено'; fb.className = 'd-feedback ok';
             setTimeout(() => window.location.reload(), 800);
+        } catch (err) {
+            fb.textContent = err.message || 'Помилка'; fb.className = 'd-feedback err';
+            btn.disabled = false;
+        }
+    });
+
+    // Збереження лінії Binotel менеджера
+    document.addEventListener('submit', async (e) => {
+        const form = e.target.closest('#d-telephony-form');
+        if (!form) return;
+        e.preventDefault();
+        const fb = document.getElementById('d-telephony-feedback');
+        const btn = form.querySelector('button[type="submit"]');
+        btn.disabled = true; fb.textContent = 'Збереження…'; fb.className = 'd-feedback';
+        try {
+            const value = (form.querySelector('[name="binotel_internal_number"]').value || '').trim();
+            const res = await fetch(`/admin-panel/user/${currentUserId}/telephony/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken'), 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ binotel_internal_number: value }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.ok) throw new Error(data.error || 'Помилка');
+            fb.textContent = value ? `Лінію збережено: ${value}` : 'Лінію прибрано'; fb.className = 'd-feedback ok';
+            btn.disabled = false;
         } catch (err) {
             fb.textContent = err.message || 'Помилка'; fb.className = 'd-feedback err';
             btn.disabled = false;

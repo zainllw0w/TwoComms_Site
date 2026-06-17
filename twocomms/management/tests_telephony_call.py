@@ -84,3 +84,57 @@ class TelephonyCallServiceTest(TestCase):
         self.assertEqual(data["session_id"], session.id)
         self.assertTrue(data["is_active"])
         self.assertIn("status_display", data)
+
+
+import json as _json
+
+from django.test import RequestFactory
+
+from management import views as mgmt_views
+
+
+class AdminTelephonySaveEndpointTest(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.admin = User.objects.create_user(username="adm", password="x", is_staff=True)
+        self.manager = User.objects.create_user(username="mgr2", password="x")
+        self.manager.userprofile.is_manager = True
+        self.manager.userprofile.save()
+
+    def _call(self, actor, payload):
+        req = self.factory.post(
+            f"/admin-panel/user/{self.manager.id}/telephony/",
+            data=_json.dumps(payload), content_type="application/json",
+        )
+        req.user = actor
+        return mgmt_views.admin_manager_telephony_save_api(req, self.manager.id)
+
+    def test_requires_staff(self):
+        resp = self._call(self.manager, {"binotel_internal_number": "901"})
+        self.assertEqual(resp.status_code, 403)
+
+    def test_staff_can_set_line(self):
+        resp = self._call(self.admin, {"binotel_internal_number": "901"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(_json.loads(resp.content).get("ok"))
+        self.manager.userprofile.refresh_from_db()
+        self.assertEqual(self.manager.userprofile.binotel_internal_number, "901")
+
+    def test_invalid_line_rejected(self):
+        resp = self._call(self.admin, {"binotel_internal_number": "abc!!"})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_empty_clears_line(self):
+        self.manager.userprofile.binotel_internal_number = "901"
+        self.manager.userprofile.save()
+        resp = self._call(self.admin, {"binotel_internal_number": ""})
+        self.assertEqual(resp.status_code, 200)
+        self.manager.userprofile.refresh_from_db()
+        self.assertEqual(self.manager.userprofile.binotel_internal_number, "")
+
+    def test_dossier_includes_binotel_line(self):
+        self.manager.userprofile.binotel_internal_number = "777"
+        self.manager.userprofile.save()
+        from management.services.dossier import build_manager_dossier
+        dossier = build_manager_dossier(self.manager)
+        self.assertEqual(dossier["manager"]["binotel_internal_number"], "777")

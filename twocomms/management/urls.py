@@ -24,6 +24,7 @@ urlpatterns = [
     path('admin-panel/user/<int:user_id>/clients/', views.admin_user_clients, name='management_admin_user_clients'),
     path('admin-panel/user/<int:user_id>/dossier/', views.admin_manager_dossier_api, name='management_admin_manager_dossier_api'),
     path('admin-panel/user/<int:user_id>/toggle-active/', views.admin_manager_toggle_active_api, name='management_admin_manager_toggle_active_api'),
+    path('admin-panel/user/<int:user_id>/telephony/', views.admin_manager_telephony_save_api, name='management_admin_manager_telephony_save_api'),
     path('admin-panel/invoices/<int:invoice_id>/approve/', views.admin_invoice_approve_api, name='management_admin_invoice_approve_api'),
     path('admin-panel/invoices/<int:invoice_id>/reject/', views.admin_invoice_reject_api, name='management_admin_invoice_reject_api'),
     path('admin-panel/weekly-reviews/<int:review_id>/decide/', views.admin_weekly_review_decide_api, name='management_admin_weekly_review_decide_api'),
