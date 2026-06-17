@@ -366,3 +366,65 @@ class CallCoachingTest(TestCase):
         # у відповіді не повинно бути сирих балів
         self.assertNotIn("scores", out)
         self.assertNotIn("overall_score", out)
+
+
+from management.services import call_review as cr_svc
+from django.utils import timezone as _tz
+
+
+class AdminCallReviewTest(TestCase):
+    def setUp(self):
+        self.manager = User.objects.create_user(username="mgr6", password="x")
+        self.manager.userprofile.is_manager = True
+        self.manager.userprofile.save()
+        self.client_obj = Client.objects.create(
+            shop_name="Shop6", phone="0671112255", full_name="X", owner=self.manager
+        )
+
+    def _call_with_analysis(self, score=70, verdict="coaching", disc=None, payload=None):
+        rec = CallRecord.objects.create(
+            provider="binotel", external_call_id=f"r{CallRecord.objects.count()+1}",
+            manager=self.manager, matched_client=self.client_obj, duration_seconds=70,
+            ai_status=CallRecord.AiStatus.DONE, payload=payload or {"disposition": "ANSWER"},
+        )
+        a = CallAIAnalysis.objects.create(
+            call_record=rec, status=CallAIAnalysis.Status.DONE,
+            overall_score=score, verdict=verdict, discrepancies=disc or [],
+            summary="резюме",
+        )
+        return rec, a
+
+    def test_review_summary_and_scores(self):
+        self._call_with_analysis(80, "pass")
+        self._call_with_analysis(40, "fail", disc=[{"field": "xml", "severity": "high", "note": "n", "manager_value": "так", "ai_value": "ні"}])
+        out = cr_svc.build_admin_call_review(self.manager)
+        self.assertEqual(out["summary"]["analyzed"], 2)
+        self.assertEqual(out["summary"]["with_discrepancies"], 1)
+        self.assertEqual(out["summary"]["fails"], 1)
+        self.assertEqual(out["summary"]["avg_score"], 60.0)
+        # запис із розбіжностями має has_recording і analysis
+        flagged = [c for c in out["calls"] if c["analysis"] and c["analysis"]["discrepancies"]]
+        self.assertEqual(len(flagged), 1)
+        self.assertTrue(flagged[0]["has_recording"])
+
+    def test_ack_state_reflected(self):
+        rec, a = self._call_with_analysis(50, "coaching", disc=[{"field": "next_call", "severity": "warn", "note": "n", "manager_value": "11", "ai_value": "12"}])
+        caa.notify_discrepancies(rec, a)  # створює requires_ack notif
+        out = cr_svc.build_admin_call_review(self.manager)
+        call = next(c for c in out["calls"] if c["id"] == rec.id)
+        self.assertIs(call["analysis"]["discrepancy_acknowledged"], False)
+        # підтверджуємо
+        notif = ManagerNotification.objects.get(related_analysis=a)
+        notif.acknowledged_at = _tz.now(); notif.is_read = True; notif.save()
+        out2 = cr_svc.build_admin_call_review(self.manager)
+        call2 = next(c for c in out2["calls"] if c["id"] == rec.id)
+        self.assertIs(call2["analysis"]["discrepancy_acknowledged"], True)
+
+    def test_pending_counted(self):
+        CallRecord.objects.create(
+            provider="binotel", external_call_id="rp1", manager=self.manager,
+            matched_client=self.client_obj, duration_seconds=60,
+            ai_status=CallRecord.AiStatus.PENDING, payload={"disposition": "ANSWER"},
+        )
+        out = cr_svc.build_admin_call_review(self.manager)
+        self.assertEqual(out["summary"]["pending"], 1)

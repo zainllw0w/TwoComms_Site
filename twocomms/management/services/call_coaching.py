@@ -41,7 +41,10 @@ def _dedupe_rank(items: list[str], top: int = 5) -> list[dict]:
             original[key] = raw.strip()
     ranked = []
     for key, count in counter.most_common(top):
-        ranked.append({"text": original[key], "count": count})
+        text = original[key]
+        if len(text) > 140:
+            text = text[:139].rstrip() + "…"
+        ranked.append({"text": text, "count": count})
     return ranked
 
 

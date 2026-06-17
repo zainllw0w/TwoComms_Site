@@ -17,6 +17,34 @@
     .call-coaching-card .cc-dot{width:7px;height:7px;border-radius:50%;background:#f59e0b;margin-top:6px;flex-shrink:0;}
     .call-coaching-card .cc-list--tips .cc-tick{color:#86efac;font-weight:700;flex-shrink:0;}
     .call-coaching-card .cc-count{margin-left:auto;font-size:11px;color:#7e8a9c;background:rgba(148,163,184,.12);border-radius:999px;padding:1px 7px;align-self:center;}
+    /* Адмін QA звонков (Фаза 5) */
+    .call-review-card .cr-list{display:flex;flex-direction:column;gap:12px;}
+    .call-review-card .cr-row{border:1px solid rgba(148,163,184,.16);border-radius:12px;padding:12px 14px;background:rgba(15,18,27,.5);}
+    .call-review-card .cr-row--flag{border-color:rgba(245,158,11,.4);}
+    .call-review-card .cr-row__head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .call-review-card .cr-dir{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;flex-shrink:0;}
+    .call-review-card .cr-dir--outbound{background:rgba(59,130,246,.14);color:#93c5fd;}
+    .call-review-card .cr-dir--inbound{background:rgba(34,197,94,.14);color:#86efac;}
+    .call-review-card .cr-row__id{flex:1;min-width:140px;}
+    .call-review-card .cr-client{font-weight:600;color:#e7ecf3;font-size:13.5px;}
+    .call-review-card .cr-client a{color:#93c5fd;text-decoration:none;}
+    .call-review-card .cr-meta{font-size:11.5px;color:#8b97a8;}
+    .call-review-card .cr-score{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;}
+    .call-review-card .cr-score small{font-size:11px;color:#7e8a9c;font-weight:600;}
+    .call-review-card .cr-score--pass{color:#86efac;} .call-review-card .cr-score--coaching{color:#fcd34d;} .call-review-card .cr-score--fail{color:#fca5a5;}
+    .call-review-card .cr-verdict{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:rgba(148,163,184,.14);color:#cbd5e1;}
+    .call-review-card .cr-verdict--pass{background:rgba(34,197,94,.15);color:#86efac;} .call-review-card .cr-verdict--coaching{background:rgba(245,158,11,.15);color:#fcd34d;} .call-review-card .cr-verdict--fail{background:rgba(239,68,68,.15);color:#fca5a5;} .call-review-card .cr-verdict--pending{background:rgba(59,130,246,.14);color:#93c5fd;}
+    .call-review-card .cr-audio{width:100%;height:34px;margin-top:10px;}
+    .call-review-card .cr-summary{font-size:12.5px;color:#c4cedb;line-height:1.5;margin-top:10px;}
+    .call-review-card .cr-disc{margin-top:10px;border-top:1px solid rgba(245,158,11,.2);padding-top:9px;}
+    .call-review-card .cr-disc__title{font-size:12px;font-weight:700;color:#fcd34d;margin-bottom:7px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .call-review-card .cr-ack{font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:999px;}
+    .call-review-card .cr-ack--ok{background:rgba(34,197,94,.15);color:#86efac;}
+    .call-review-card .cr-ack--wait{background:rgba(148,163,184,.14);color:#cbd5e1;}
+    .call-review-card .cr-disc__item{font-size:12px;color:#dbe2ea;padding:6px 0;line-height:1.45;}
+    .call-review-card .cr-disc__item--high{color:#fca5a5;}
+    .call-review-card .cr-disc__cmp{font-size:11.5px;color:#9aa6b6;margin-top:2px;}
+    .call-review-card .cr-disc__quote{font-size:11.5px;color:#8b97a8;font-style:italic;margin-top:2px;}
   </style>
 {% endblock %}
 
@@ -316,7 +344,8 @@
       </div>
     </article>
 
-    {# Поради з дзвінків (Фаза 4) #}
+    {# Поради з дзвінків (Фаза 4) — лише для самого менеджера #}
+    {% if not is_admin_view %}
     <article class="bento-card call-coaching-card">
       <div class="bento-card__head">
         <div class="bento-card__eyebrow">Поради з ваших дзвінків</div>
@@ -351,6 +380,67 @@
         <div class="advice-empty muted">{{ call_coaching.message|default:"Зробіть кілька дзвінків — і тут зʼявляться персональні поради." }}</div>
       {% endif %}
     </article>
+    {% endif %}
+
+    {# Адмін-огляд дзвінків менеджера (Фаза 5) #}
+    {% if is_admin_view %}
+    <article class="bento-card bento-card--wide call-review-card">
+      <div class="bento-card__head">
+        <div class="bento-card__eyebrow">Дзвінки менеджера · контроль якості</div>
+        {% if call_review.summary.analyzed %}
+        <span class="muted small">
+          Проаналізовано {{ call_review.summary.analyzed }}{% if call_review.summary.avg_score is not None %} · середній бал {{ call_review.summary.avg_score }}{% endif %}{% if call_review.summary.with_discrepancies %} · з розбіжностями {{ call_review.summary.with_discrepancies }}{% endif %}{% if call_review.summary.pending %} · у черзі {{ call_review.summary.pending }}{% endif %}
+        </span>
+        {% endif %}
+      </div>
+      {% if call_review.calls %}
+        <div class="cr-list">
+          {% for c in call_review.calls %}
+          <div class="cr-row{% if c.analysis and c.analysis.discrepancies %} cr-row--flag{% endif %}">
+            <div class="cr-row__head">
+              <span class="cr-dir cr-dir--{{ c.direction }}">{% if c.direction == 'inbound' %}↙{% else %}↗{% endif %}</span>
+              <div class="cr-row__id">
+                <div class="cr-client">{% if c.client_id %}<a href="{% url 'management_home' %}?client={{ c.client_id }}">{{ c.client_name }}</a>{% else %}{{ c.client_name }}{% endif %}</div>
+                <div class="cr-meta">{{ c.started_at }} · {{ c.duration }}с</div>
+              </div>
+              {% if c.analysis %}
+                <span class="cr-score cr-score--{{ c.analysis.verdict }}">{{ c.analysis.overall_score|floatformat:0 }}<small>/100</small></span>
+                <span class="cr-verdict cr-verdict--{{ c.analysis.verdict }}">{{ c.analysis.verdict_label }}</span>
+              {% elif c.ai_status == 'pending' or c.ai_status == 'running' %}
+                <span class="cr-verdict cr-verdict--pending">ШІ аналізує…</span>
+              {% else %}
+                <span class="cr-verdict">—</span>
+              {% endif %}
+            </div>
+            {% if c.has_recording %}
+              <audio class="cr-audio" controls preload="none" src="{{ c.recording_url }}"></audio>
+            {% endif %}
+            {% if c.analysis %}
+              {% if c.analysis.summary %}<div class="cr-summary">{{ c.analysis.summary }}</div>{% endif %}
+              {% if c.analysis.discrepancies %}
+                <div class="cr-disc">
+                  <div class="cr-disc__title">⚠ Розбіжності з тим, що зберіг менеджер
+                    {% if c.analysis.discrepancy_acknowledged is True %}<span class="cr-ack cr-ack--ok">менеджер підтвердив</span>
+                    {% elif c.analysis.discrepancy_acknowledged is False %}<span class="cr-ack cr-ack--wait">очікує підтвердження</span>{% endif %}
+                  </div>
+                  {% for d in c.analysis.discrepancies %}
+                    <div class="cr-disc__item cr-disc__item--{{ d.severity }}">
+                      <b>{{ d.note }}</b>
+                      <div class="cr-disc__cmp">CRM: «{{ d.manager_value }}» · Розмова: «{{ d.ai_value }}»</div>
+                      {% if d.quote %}<div class="cr-disc__quote">«{{ d.quote }}»</div>{% endif %}
+                    </div>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="advice-empty muted">У цього менеджера ще немає дзвінків із записами.</div>
+      {% endif %}
+    </article>
+    {% endif %}
 
     {# Тренди #}
     <article class="bento-card trends-card">

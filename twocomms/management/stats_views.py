@@ -178,6 +178,13 @@ def stats_admin_user(request, user_id: int):
     r = parse_stats_range(request.GET)
     payload = get_stats_payload(user=target, range_current=r)
 
+    # Адмін-огляд дзвінків менеджера (Фаза 5) — з балами/розбіжностями.
+    try:
+        from management.services.call_review import build_admin_call_review
+        call_review = build_admin_call_review(target)
+    except Exception:
+        call_review = {"calls": [], "summary": {}}
+
     # Sidebar context for admin viewer
     user_stats = get_user_stats(request.user)
     report_sent_today = has_report_today(request.user)
@@ -192,6 +199,7 @@ def stats_admin_user(request, user_id: int):
             "stats_payload": payload,
             "stats_owner": target,
             "is_admin_view": True,
+            "call_review": call_review,
             "range": payload.get("range", {}),
             "admin_back_url": "management_stats_admin",
             "user_points_today": user_stats["points_today"],
