@@ -1052,6 +1052,15 @@
   var btnClose = document.getElementById('oeditClose');
   var toast = document.getElementById('oeditToast');
 
+  // КРИТИЧНО: глобальний <main class="container-xxl"> має contain:layout,
+  // що робить його containing block для position:fixed. Через це drawer
+  // позиціонувався відносно <main> (висота ~3000px), а не вьюпорта, і на
+  // мобайлі їхав за екран. Портуємо оверлеї в <body>, як інші фікс-оверлеї
+  // сайту (міні-корзина, user-panel), щоб fixed рахувався від вьюпорта.
+  [backdrop, drawer, toast].forEach(function (el) {
+    if (el && el.parentElement !== document.body) { document.body.appendChild(el); }
+  });
+
   // ── state ──────────────────────────────────────────────
   var submitUrl = null;
   var products = [];
