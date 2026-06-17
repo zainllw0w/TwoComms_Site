@@ -44,17 +44,42 @@ from management.services.binotel import (
 logger = logging.getLogger("binotel")
 
 GENAI_BASE = "https://generativelanguage.googleapis.com/v1beta"
-DEFAULT_MODEL = "gemini-3.5-flash"
+
+# Ланцюг моделей (primary → fallback). Усі підтримують аудіо-вхід.
+# Порядок підібрано емпірично: спершу якісніша flash, далі — надійні легкі,
+# наприкінці — 3.5-flash (часто перевантажена 503, але іноді доступна).
+# 503 (overloaded) і 429 (quota) б'ють по будь-якій моделі в будь-який момент,
+# тож рятує саме комбінація: ретраї з backoff + перемикання моделі (так радять
+# офіційні доки Gemini: "temporarily switch to another model").
+DEFAULT_MODEL_CHAIN = [
+    "gemini-2.5-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-3.5-flash",
+]
 
 # Inline-ліміт Gemini — 20 МБ на весь запит. Лишаємо запас на JSON/base64-оверхед
 # (base64 додає ~33%), тож кап на сирий mp3 ставимо консервативно.
 MAX_AUDIO_BYTES = 14 * 1024 * 1024
 
-GEMINI_TIMEOUT = (10, 120)  # (connect, read) — аудіо-аналіз може йти десятки секунд
+GEMINI_TIMEOUT = (10, 90)  # (connect, read) — аудіо-аналіз може йти десятки секунд
+PER_MODEL_ATTEMPTS = 2      # спроб на одну модель при transient-помилці
+BACKOFF_BASE = 2.0          # секунди, експоненційно: 2, 4, ...
 
 
 class CallAIAnalysisError(Exception):
     """Помилка рівня ШІ-аналізу (конфіг/аудіо/Gemini)."""
+
+
+class _GeminiTransient(Exception):
+    """Тимчасова помилка (503/500/таймаут/порожня відповідь) — ретрай тієї ж моделі."""
+
+
+class _GeminiSkipModel(Exception):
+    """Модель недоступна на цьому ключі (429 quota / 404 / 403) — перейти до наступної."""
+
+
+class _GeminiFatal(Exception):
+    """Невиправна помилка запиту (400 — проблема у нашому payload). Зупиняємось."""
 
 
 # ---------------------------------------------------------------------------
@@ -113,8 +138,20 @@ def _resolve_gemini_key() -> str:
     return key
 
 
-def _resolve_model() -> str:
-    return (getattr(settings, "GEMINI_CALL_ANALYSIS_MODEL", "") or DEFAULT_MODEL).strip()
+def _resolve_models() -> list[str]:
+    """Ланцюг моделей: settings.GEMINI_CALL_ANALYSIS_MODELS (csv) / env / дефолт."""
+    raw = (getattr(settings, "GEMINI_CALL_ANALYSIS_MODELS", "") or "").strip()
+    if not raw:
+        raw = (os.environ.get("GEMINI_CALL_ANALYSIS_MODELS", "") or "").strip()
+    if raw:
+        models = [m.strip() for m in raw.split(",") if m.strip()]
+        if models:
+            return models
+    # Зворотна сумісність: одиночна модель через старий ключ.
+    single = (getattr(settings, "GEMINI_CALL_ANALYSIS_MODEL", "") or "").strip()
+    if single:
+        return [single]
+    return list(DEFAULT_MODEL_CHAIN)
 
 
 # ---------------------------------------------------------------------------
@@ -210,12 +247,50 @@ def upsert_call_record(client: BinotelClient, general_call_id: str) -> CallRecor
 # Gemini
 # ---------------------------------------------------------------------------
 def _gemini_analyze(audio_bytes: bytes, mime: str, manager_context: str) -> dict:
-    """Шле аудіо в Gemini, повертає (parsed_json, raw_response, usage)."""
+    """Шле аудіо в Gemini з ретраями та фолбеком моделей.
+
+    Повертає {parsed, raw, usage, model, meta}. Кидає CallAIAnalysisError, якщо
+    жодна модель не відповіла.
+    """
     key = _resolve_gemini_key()
     if not key:
         raise CallAIAnalysisError("Не задано ключ Gemini (ENV GEMINI_API).")
-    model = _resolve_model()
 
+    payload = _build_payload(audio_bytes, mime, manager_context)
+    models = _resolve_models()
+    attempts_log: list[str] = []
+
+    for model in models:
+        for attempt in range(PER_MODEL_ATTEMPTS):
+            try:
+                parsed, usage = _gemini_call_once(model, payload, key)
+                attempts_log.append(f"{model}: ok (спроба {attempt + 1})")
+                return {
+                    "parsed": parsed,
+                    "raw": parsed,
+                    "usage": usage,
+                    "model": model,
+                    "meta": {"attempts": attempts_log, "used_model": model},
+                }
+            except _GeminiTransient as exc:
+                attempts_log.append(f"{model}: transient {exc} (спроба {attempt + 1})")
+                if attempt < PER_MODEL_ATTEMPTS - 1:
+                    time.sleep(BACKOFF_BASE * (2 ** attempt))
+                # інакше — вихід із внутрішнього циклу, наступна модель
+            except _GeminiSkipModel as exc:
+                attempts_log.append(f"{model}: skip {exc}")
+                break  # ретраї не допоможуть — одразу наступна модель
+            except _GeminiFatal as exc:
+                attempts_log.append(f"{model}: fatal {exc}")
+                raise CallAIAnalysisError(f"Помилка запиту до Gemini: {exc}")
+
+    raise CallAIAnalysisError(
+        "Усі моделі Gemini недоступні (перевантаження/квота). Спроби: "
+        + "; ".join(attempts_log)
+    )
+
+
+def _build_payload(audio_bytes: bytes, mime: str, manager_context: str) -> dict:
     user_parts = [
         {
             "text": (
@@ -231,7 +306,7 @@ def _gemini_analyze(audio_bytes: bytes, mime: str, manager_context: str) -> dict
         },
         {"inline_data": {"mime_type": mime, "data": base64.b64encode(audio_bytes).decode()}},
     ]
-    payload = {
+    return {
         "contents": [{"role": "user", "parts": user_parts}],
         "system_instruction": {"parts": [{"text": _build_system_instruction()}]},
         "generationConfig": {
@@ -250,6 +325,10 @@ def _gemini_analyze(audio_bytes: bytes, mime: str, manager_context: str) -> dict
         ],
     }
 
+
+def _gemini_call_once(model: str, payload: dict, key: str) -> tuple[dict, dict]:
+    """Один виклик generateContent. Повертає (parsed_json, usage) або кидає
+    типізовану помилку (_GeminiTransient / _GeminiSkipModel / _GeminiFatal)."""
     url = f"{GENAI_BASE}/models/{model}:generateContent"
     try:
         resp = requests.post(
@@ -258,27 +337,42 @@ def _gemini_analyze(audio_bytes: bytes, mime: str, manager_context: str) -> dict
             headers={"Content-Type": "application/json", "x-goog-api-key": key},
             timeout=GEMINI_TIMEOUT,
         )
+    except requests.Timeout as exc:
+        raise _GeminiTransient(f"timeout: {exc}") from exc
     except requests.RequestException as exc:
-        raise CallAIAnalysisError(f"Помилка зʼєднання з Gemini: {exc}") from exc
+        raise _GeminiTransient(f"transport: {exc}") from exc
 
-    if resp.status_code != 200:
-        raise CallAIAnalysisError(f"Gemini HTTP {resp.status_code}: {resp.text[:400]}")
+    code = resp.status_code
+    if code != 200:
+        snippet = resp.text[:200]
+        if code in (503, 500, 502, 504):
+            raise _GeminiTransient(f"HTTP {code}")
+        if code == 429:
+            # 429 = квота/rate. На цьому ключі сильні моделі дають per-model
+            # quota — ретрай не допоможе, перемикаємось на наступну модель.
+            raise _GeminiSkipModel(f"HTTP 429 (quota): {snippet}")
+        if code in (404, 403):
+            raise _GeminiSkipModel(f"HTTP {code}: {snippet}")
+        # 400 та інші — проблема нашого запиту.
+        raise _GeminiFatal(f"HTTP {code}: {snippet}")
 
     try:
         data = resp.json()
     except ValueError as exc:
-        raise CallAIAnalysisError("Gemini повернув невалідний JSON-конверт.") from exc
+        raise _GeminiTransient("невалідний JSON-конверт") from exc
 
     cand = (data.get("candidates") or [{}])[0]
     parts = (cand.get("content") or {}).get("parts") or []
     text = "".join(p.get("text", "") for p in parts).strip()
     if not text:
+        # Порожньо (часто finishReason=MAX_TOKENS у thinking-моделей або
+        # SAFETY) — вважаємо тимчасовим і пробуємо далі.
         reason = cand.get("finishReason") or "невідомо"
-        raise CallAIAnalysisError(f"Gemini не повернув контент (finishReason={reason}).")
+        raise _GeminiTransient(f"порожня відповідь (finishReason={reason})")
 
     parsed = _parse_model_json(text)
     usage = data.get("usageMetadata") or {}
-    return {"parsed": parsed, "raw": parsed, "usage": usage, "model": model}
+    return parsed, usage
 
 
 def _parse_model_json(text: str) -> dict:
@@ -369,7 +463,7 @@ def analyze_call(
         status=CallAIAnalysis.Status.RUNNING,
         manager_context=(manager_context or "").strip(),
         created_by=created_by if getattr(created_by, "is_authenticated", False) else None,
-        model=_resolve_model(),
+        model=(_resolve_models() or [""])[0],
     )
 
     started = time.monotonic()
@@ -405,6 +499,8 @@ def analyze_call(
         analysis.missed_topics = _as_list(parsed.get("missed_topics"))
         analysis.recommendations = _as_list(parsed.get("recommendations"))
         analysis.result = parsed if isinstance(parsed, dict) else {"_raw": parsed}
+        if isinstance(analysis.result, dict):
+            analysis.result["_meta"] = out.get("meta") or {}
         analysis.audio_bytes = size
         analysis.prompt_tokens = int(usage.get("promptTokenCount") or 0)
         analysis.output_tokens = int(
