@@ -221,6 +221,15 @@ def upsert_call_record(client: BinotelClient, general_call_id: str) -> CallRecor
     matched_client = _match_client(parsed.get("external_number") or "")
     manager = _resolve_manager(client, parsed.get("internal_number") or "")
 
+    # Зберігаємо вже точно привʼязані значення (з CallSession через webhook):
+    # матч по номеру може вказати на іншого клієнта зі спільним номером/фазою,
+    # тож НЕ перезаписуємо те, що вже встановлено.
+    existing = CallRecord.objects.filter(provider="binotel", external_call_id=gcid).first()
+    if existing and existing.matched_client_id:
+        matched_client = None  # не чіпати наявну привʼязку
+    if existing and existing.manager_id:
+        manager = None
+
     defaults = {
         "phone": parsed.get("external_number") or "",
         "direction": parsed.get("direction") or CallRecord.Direction.UNKNOWN,

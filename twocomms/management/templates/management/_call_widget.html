@@ -196,7 +196,7 @@
         live.classList.remove('is-talking'); live.classList.add('is-ended');
         var rec = window.__mgmtActiveCalls[formKey(dock)];
         ended = true; if(rec){ rec.ended = true; }
-        clearInterval(tick); clearInterval(poll);
+        clearInterval(tick); clearInterval(poll); clearTimeout(safety);
         if(s.duration_seconds){ timerEl.textContent = fmt(s.duration_seconds); }
         if(s.status==='failed'){
           statusText.textContent = 'Не вдалося з\'єднати';
@@ -215,6 +215,20 @@
     var poll = setInterval(function(){
       api(URLS.status, {session_id:sessionId}).then(function(d){ if(d.success) applyState(d.session); });
     }, 3500);
+
+    // Запобіжник: якщо за 12 хв статус не фіналізувався (вкладка висить) —
+    // зупиняємо опитування й мʼяко позначаємо завершення.
+    var safety = setTimeout(function(){
+      if(!ended){
+        clearInterval(poll); clearInterval(tick);
+        var rec = window.__mgmtActiveCalls[formKey(dock)];
+        if(rec){ rec.ended = true; }
+        live.classList.remove('is-talking'); live.classList.add('is-ended');
+        statusText.textContent = 'Дзвінок завершено';
+        subText.textContent = 'Запис зʼявиться згодом, якщо розмова відбулася.';
+        renderRedial(dock);
+      }
+    }, 12 * 60 * 1000);
 
     var hangupBtn = dock.querySelector('[data-call-hangup]');
     hangupBtn.onclick = function(){
