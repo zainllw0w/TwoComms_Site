@@ -45,6 +45,12 @@ class UserProfile(models.Model):
     tg_manager_daily_advice_enabled = models.BooleanField(default=True, verbose_name='Щоденні поради в Telegram')
     tg_manager_critical_advice_enabled = models.BooleanField(default=True, verbose_name='Критичні поради в Telegram')
     is_manager = models.BooleanField(default=False, verbose_name='Менеджер (доступ до Management)')
+    # IP-телефонія (Binotel): внутрішня лінія менеджера (internalNumber, напр. 901).
+    # Потрібна для вихідних дзвінків click-to-call: Binotel дзвонить на цю лінію
+    # (софтфон/застосунок менеджера), потім з'єднує з клієнтом. Задає адмін.
+    binotel_internal_number = models.CharField(
+        max_length=32, blank=True, verbose_name='Лінія Binotel (internalNumber)'
+    )
     push_marketing_enabled = models.BooleanField(
         default=True,
         verbose_name='Маркетингові push-сповіщення',

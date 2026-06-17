@@ -8,6 +8,10 @@
      data-client-delete-url-template="{% url 'management_delete_client' 0 %}"
      data-duplicate-preview-url="{% url 'management_client_dedupe_preview' %}"
      data-duplicate_preview_url="{% url 'management_client_dedupe_preview' %}"
+     data-call-start-url="{% url 'management_call_start' %}"
+     data-call-status-url="{% url 'management_call_status' %}"
+     data-call-hangup-url="{% url 'management_call_hangup' %}"
+     data-call-can-url="{% url 'management_call_can' %}"
      data-manager-bot-username="{{ manager_bot_username }}"
      data-has-manager-telegram-binding="{{ has_manager_telegram_binding|yesno:'true,false' }}"
      data-client-entry-form="{{ client_entry_form_payload_json|escape }}"
@@ -348,7 +352,7 @@
             <input type="hidden" name="client_id" id="client_id" value="">
             <input type="hidden" name="phase_action" id="phase_action" value="edit">
             <input type="hidden" name="duplicate_override_reason" id="duplicate_override_reason" value="">
-            <div class="modal-section-progress" aria-hidden="true">
+            <input type="hidden" name="call_session_id" id="call_session_id" value="">            <div class="modal-section-progress" aria-hidden="true">
                 <span class="modal-section-progress__item is-active">Контакт</span>
                 <span class="modal-section-progress__item">Підсумок і доказ</span>
                 <span class="modal-section-progress__item">Наступний крок</span>
@@ -376,6 +380,7 @@
                     <div class="field">
                         <label for="phone">Номер телефону</label>
                         <input type="tel" id="phone" name="phone" placeholder="+380..." required>
+                        <div class="mgmt-call-dock" data-call-dock data-phone-field="phone" data-client-field="client_id" data-session-field="call_session_id"></div>
                     </div>
                     <div class="field">
                         <label for="website_url">Сайт (необов'язково)</label>
@@ -693,6 +698,7 @@
             {% csrf_token %}
             <input type="hidden" id="process_lead_id" name="lead_id">
             <input type="hidden" name="duplicate_override_reason" id="process_duplicate_override_reason" value="">
+            <input type="hidden" name="call_session_id" id="process_call_session_id" value="">
             <div class="entry-info-banner compact">
                 Лід обробляється тим самим контрактом дедуплікації й доказів, що і ручне додавання клієнта.
             </div>
@@ -704,6 +710,7 @@
                 <div class="field">
                     <label for="process_phone">Номер телефону</label>
                     <input type="tel" id="process_phone" name="phone" required>
+                    <div class="mgmt-call-dock" data-call-dock data-phone-field="process_phone" data-lead-field="process_lead_id" data-session-field="process_call_session_id"></div>
                 </div>
                 <div class="field">
                     <label for="process_website_url">Сайт (необов'язково)</label>
@@ -2563,4 +2570,5 @@ if (document.readyState === 'loading') {
     initManagementHomePage();
 }
 </script>
+{% include "management/_call_widget.html" %}
 {% endblock %}

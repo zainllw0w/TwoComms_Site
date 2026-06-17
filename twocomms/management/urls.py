@@ -10,6 +10,7 @@ from . import bot_webhook
 from . import bot_views
 from . import binotel_views
 from . import binotel_webhook
+from . import call_views
 
 urlpatterns = [
     path('login/', auth_views.LoginView.as_view(
@@ -140,6 +141,11 @@ urlpatterns = [
     path('binotel/api/raw/', binotel_views.binotel_raw, name='management_binotel_raw'),
     path('binotel/api/webhook-events/', binotel_views.binotel_webhook_events, name='management_binotel_webhook_events'),
     path('binotel/api/call-ai-analysis/', binotel_views.binotel_call_ai_analysis, name='management_binotel_call_ai_analysis'),
+    # Click-to-call для менеджерів (не лише адмінів)
+    path('api/call/start/', call_views.call_start, name='management_call_start'),
+    path('api/call/status/', call_views.call_status, name='management_call_status'),
+    path('api/call/hangup/', call_views.call_hangup, name='management_call_hangup'),
+    path('api/call/can/', call_views.call_can, name='management_call_can'),
     path('binotel/recording/<str:call_id>.mp3', binotel_views.binotel_recording, name='management_binotel_recording'),
     # Єдиний вхідний вебхук Binotel (apiCallSettings + apiCallCompleted).
     # Публічний, CSRF-exempt, без логіну. Опційний токен у шляху.

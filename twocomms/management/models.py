@@ -202,6 +202,56 @@ class Client(models.Model):
         return f"{self.shop_name} ({self.full_name})"
 
 
+class ClientPhone(models.Model):
+    """Додаткові номери телефону клієнта з категоріями.
+
+    Аддитивно до `Client.phone` (який лишається канонічним «основним» номером
+    для дедуплікації й матчингу). Тут — робочий/особистий/месенджер-номери,
+    які менеджер може додати й з кожного зателефонувати.
+    """
+
+    class Category(models.TextChoices):
+        WORK = "work", _("Робочий")
+        PERSONAL = "personal", _("Особистий")
+        VIBER = "viber", _("Viber")
+        TELEGRAM = "telegram", _("Telegram")
+        OTHER = "other", _("Інший")
+
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name="phones",
+        verbose_name=_("Клієнт"),
+    )
+    number = models.CharField(_("Номер"), max_length=50)
+    number_normalized = models.CharField(_("Нормалізований"), max_length=50, blank=True, db_index=True)
+    number_last7 = models.CharField(_("Останні 7 цифр"), max_length=7, blank=True, db_index=True)
+    category = models.CharField(
+        _("Категорія"), max_length=20, choices=Category.choices, default=Category.WORK, db_index=True
+    )
+    label = models.CharField(_("Підпис"), max_length=120, blank=True)
+    is_primary = models.BooleanField(_("Основний"), default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Телефон клієнта")
+        verbose_name_plural = _("Телефони клієнта")
+        ordering = ["-is_primary", "id"]
+        indexes = [
+            models.Index(fields=["client", "-is_primary"], name="mgmt_cliphone_cli_pri"),
+            models.Index(fields=["number_last7"], name="mgmt_cliphone_last7"),
+        ]
+
+    def save(self, *args, **kwargs):
+        self.number_normalized = normalize_phone(self.number)
+        self.number_last7 = build_phone_last7(self.number_normalized or self.number)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.client_id}:{self.number} ({self.category})"
+
+
 class ManagementLead(models.Model):
     class Status(models.TextChoices):
         MODERATION = "moderation", _("На модерації")
@@ -598,6 +648,19 @@ class ManagerNotification(models.Model):
     body = models.TextField(blank=True, verbose_name=_('Текст'))
     amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, verbose_name=_('Сума'))
     is_read = models.BooleanField(default=False, db_index=True)
+    # Попередження, що потребують явного підтвердження «ОК» (напр. розбіжності
+    # ШІ-аналізу дзвінка з тим, що зберіг менеджер).
+    requires_ack = models.BooleanField(default=False, db_index=True, verbose_name=_('Потребує підтвердження'))
+    acknowledged_at = models.DateTimeField(null=True, blank=True, verbose_name=_('Підтверджено о'))
+    related_client = models.ForeignKey(
+        'management.Client', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='notifications', verbose_name=_('Клієнт'),
+    )
+    related_analysis = models.ForeignKey(
+        'management.CallAIAnalysis', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='notifications', verbose_name=_('ШІ-аналіз'),
+    )
+    action_url = models.CharField(max_length=500, blank=True, verbose_name=_('Посилання дії'))
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
@@ -2193,6 +2256,81 @@ class WeeklySalaryAccrual(models.Model):
         return f"{self.user.username} - {self.week_start} ({self.accrued_amount} грн)"
 
 
+class CallSession(models.Model):
+    """Сесія вихідного дзвінка, ініційованого менеджером з UI (click-to-call).
+
+    Створюється в момент натискання «Подзвонити»: Binotel повертає
+    generalCallID одразу, тож ми зв'язуємо майбутній запис (webhook
+    apiCallCompleted з тим самим generalCallID) з конкретним клієнтом/лідом
+    та менеджером — надійніше, ніж матч лише за номером.
+    """
+
+    class Status(models.TextChoices):
+        DIALING = "dialing", _("Набір")
+        RINGING = "ringing", _("Дзвінок")
+        TALKING = "talking", _("Розмова")
+        ENDED = "ended", _("Завершено")
+        FAILED = "failed", _("Помилка")
+
+    manager = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="management_call_sessions",
+        verbose_name=_("Менеджер"),
+    )
+    client = models.ForeignKey(
+        Client,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="call_sessions",
+        verbose_name=_("Клієнт"),
+    )
+    lead = models.ForeignKey(
+        "management.ManagementLead",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="call_sessions",
+        verbose_name=_("Лід"),
+    )
+    provider = models.CharField(max_length=64, default="binotel")
+    internal_number = models.CharField(_("Лінія менеджера"), max_length=32, blank=True)
+    phone = models.CharField(_("Номер клієнта"), max_length=64, blank=True)
+    phone_normalized = models.CharField(max_length=64, blank=True, db_index=True)
+    general_call_id = models.CharField(max_length=64, blank=True, db_index=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DIALING, db_index=True)
+    disposition = models.CharField(max_length=32, blank=True)
+    started_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    answered_at = models.DateTimeField(null=True, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    duration_seconds = models.PositiveIntegerField(default=0)
+    call_record = models.ForeignKey(
+        "management.CallRecord",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="sessions",
+        verbose_name=_("Запис дзвінка"),
+    )
+    meta = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Сесія дзвінка")
+        verbose_name_plural = _("Сесії дзвінків")
+        ordering = ["-started_at"]
+        indexes = [
+            models.Index(fields=["manager", "-started_at"], name="mgmt_callsess_mgr_dt"),
+            models.Index(fields=["general_call_id"], name="mgmt_callsess_gcid"),
+            models.Index(fields=["status", "-started_at"], name="mgmt_callsess_st_dt"),
+        ]
+
+    def __str__(self):
+        return f"CallSession({self.manager_id}→{self.phone}) {self.status}"
+
+
 class CallRecord(models.Model):
     class Direction(models.TextChoices):
         INBOUND = "inbound", _("Вхідний")
@@ -2203,6 +2341,14 @@ class CallRecord(models.Model):
         PENDING = "pending", _("Очікує QA")
         REVIEWED = "reviewed", _("Перевірено")
         EXEMPT = "exempt", _("Без QA")
+
+    class AiStatus(models.TextChoices):
+        NONE = "none", _("Не потрібен")
+        PENDING = "pending", _("У черзі на аналіз")
+        RUNNING = "running", _("Аналізується")
+        DONE = "done", _("Проаналізовано")
+        ERROR = "error", _("Помилка аналізу")
+        SKIPPED = "skipped", _("Пропущено")
 
     provider = models.CharField(max_length=64, db_index=True, verbose_name=_("Провайдер"))
     external_call_id = models.CharField(max_length=255, verbose_name=_("Зовнішній call ID"))
@@ -2230,6 +2376,9 @@ class CallRecord(models.Model):
     recording_url = models.URLField(blank=True, verbose_name=_("Recording URL"))
     transcript_excerpt = models.TextField(blank=True, verbose_name=_("Уривок транскрипту"))
     qa_status = models.CharField(max_length=20, choices=QaStatus.choices, default=QaStatus.PENDING, db_index=True)
+    ai_status = models.CharField(max_length=20, choices=AiStatus.choices, default=AiStatus.NONE, db_index=True)
+    ai_attempts = models.PositiveSmallIntegerField(default=0)
+    ai_locked_at = models.DateTimeField(null=True, blank=True)
     payload = models.JSONField(default=dict, blank=True, verbose_name=_("Payload"))
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -2392,6 +2541,8 @@ class CallAIAnalysis(models.Model):
     discussed_well = models.JSONField(default=list, blank=True, verbose_name=_("Що обговорили добре"))
     missed_topics = models.JSONField(default=list, blank=True, verbose_name=_("Що не обговорили"))
     recommendations = models.JSONField(default=list, blank=True, verbose_name=_("Рекомендації менеджеру"))
+    extracted_facts = models.JSONField(default=dict, blank=True, verbose_name=_("Факти з розмови (для сверки)"))
+    discrepancies = models.JSONField(default=list, blank=True, verbose_name=_("Розбіжності з даними менеджера"))
     manager_context = models.TextField(blank=True, verbose_name=_("B2B-контекст менеджера"))
     result = models.JSONField(default=dict, blank=True, verbose_name=_("Повна сира відповідь"))
     audio_bytes = models.PositiveIntegerField(default=0, verbose_name=_("Розмір аудіо, байт"))

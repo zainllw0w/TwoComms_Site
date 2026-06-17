@@ -1,0 +1,190 @@
+<style>
+.mgmt-call-dock{margin-top:8px;}
+.mgmt-call-btn{display:inline-flex;align-items:center;gap:7px;background:#1f6f3f;color:#eafff1;border:1px solid #2c8a52;border-radius:10px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:filter .15s,opacity .15s;}
+.mgmt-call-btn:hover{filter:brightness(1.1);}
+.mgmt-call-btn[disabled]{opacity:.5;cursor:not-allowed;}
+.mgmt-call-btn svg{width:15px;height:15px;}
+.mgmt-call-hint{margin-top:6px;font-size:11.5px;color:#9aa6b6;}
+.mgmt-call-live{margin-top:10px;border:1px solid #2a3342;border-radius:12px;padding:10px 12px;background:#0e131c;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.mgmt-call-live__dot{width:10px;height:10px;border-radius:50%;background:#f59e0b;box-shadow:0 0 0 4px rgba(245,158,11,.16);flex-shrink:0;animation:mgmtPulse 1.2s infinite;}
+.mgmt-call-live.is-talking .mgmt-call-live__dot{background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.18);}
+.mgmt-call-live.is-ended .mgmt-call-live__dot{background:#5b6472;box-shadow:none;animation:none;}
+@keyframes mgmtPulse{0%{opacity:1;}50%{opacity:.45;}100%{opacity:1;}}
+.mgmt-call-live__main{display:flex;flex-direction:column;gap:2px;flex:1;min-width:120px;}
+.mgmt-call-live__status{font-size:12.5px;color:#cdd6e3;font-weight:600;}
+.mgmt-call-live__timer{font-variant-numeric:tabular-nums;font-size:16px;font-weight:700;color:#e7ecf3;}
+.mgmt-call-live__hangup{background:#ef4444;color:#fff;border:none;border-radius:9px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;}
+.mgmt-call-live__hangup:hover{filter:brightness(1.08);}
+.mgmt-call-msg{margin-top:6px;font-size:12px;padding:6px 10px;border-radius:8px;display:none;}
+.mgmt-call-msg.show{display:block;}
+.mgmt-call-msg.err{background:rgba(239,68,68,.1);color:#fca5a5;border:1px solid rgba(239,68,68,.25);}
+.mgmt-call-msg.ok{background:rgba(34,197,94,.1);color:#86efac;border:1px solid rgba(34,197,94,.22);}
+</style>
+<script>
+(function(){
+  "use strict";
+  var ep = document.getElementById('home-endpoints');
+  if(!ep) return;
+  var URLS = {
+    start: ep.dataset.callStartUrl, status: ep.dataset.callStatusUrl,
+    hangup: ep.dataset.callHangupUrl, can: ep.dataset.callCanUrl
+  };
+  if(!URLS.start) return;
+
+  function cookie(name){
+    var v=null;
+    if(document.cookie){ document.cookie.split(';').forEach(function(c){ c=c.trim(); if(c.substring(0,name.length+1)===name+'='){ v=decodeURIComponent(c.substring(name.length+1)); } }); }
+    return v;
+  }
+  var CSRF = cookie('csrftoken');
+  function api(url, body){
+    return fetch(url, {method:'POST', headers:{'Content-Type':'application/json','X-CSRFToken':CSRF,'X-Requested-With':'XMLHttpRequest'}, body:JSON.stringify(body||{})})
+      .then(function(r){ return r.json().catch(function(){ return {success:false, error:'Помилка відповіді.'}; }); });
+  }
+  function fmt(sec){ sec=parseInt(sec||0,10); var m=Math.floor(sec/60), s=sec%60; return m+':'+(s<10?'0':'')+s; }
+
+  var ACTIVE_STATES = {dialing:1, ringing:1, talking:1};
+  // глобальний реєстр активних сесій по формах (для guard на збереженні)
+  window.__mgmtActiveCalls = window.__mgmtActiveCalls || {};
+
+  var canCall = false;
+  function val(id){ var el=id?document.getElementById(id):null; return el?el.value.trim():''; }
+  function setVal(id, v){ var el=id?document.getElementById(id):null; if(el) el.value=v; }
+
+  function renderDock(dock){
+    dock.innerHTML =
+      '<button type="button" class="mgmt-call-btn" data-call-go>'
+      +'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8a15.6 15.6 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.58 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1 11.4 11.4 0 0 0 .58 3.6 1 1 0 0 1-.25 1l-2.23 2.2z"/></svg>'
+      +'Подзвонити</button>'
+      +'<div class="mgmt-call-hint" data-call-hint hidden></div>'
+      +'<div class="mgmt-call-live" data-call-live hidden>'
+        +'<span class="mgmt-call-live__dot"></span>'
+        +'<div class="mgmt-call-live__main"><span class="mgmt-call-live__status" data-call-status-text>З\'єднання…</span><span class="mgmt-call-live__timer" data-call-timer>0:00</span></div>'
+        +'<button type="button" class="mgmt-call-live__hangup" data-call-hangup>Завершити</button>'
+      +'</div>'
+      +'<div class="mgmt-call-msg" data-call-msg></div>';
+    var btn = dock.querySelector('[data-call-go]');
+    var hint = dock.querySelector('[data-call-hint]');
+    if(!canCall){
+      btn.disabled = true;
+      btn.title = 'Лінію Binotel не призначено';
+      hint.hidden = false;
+      hint.textContent = 'Щоб дзвонити, адміністратор має призначити вам лінію Binotel.';
+    }
+  }
+
+  function msg(dock, text, kind){
+    var m = dock.querySelector('[data-call-msg]'); if(!m) return;
+    m.textContent = text || ''; m.className = 'mgmt-call-msg' + (text?(' show '+(kind||'ok')):'');
+  }
+
+  function formKey(dock){
+    var f = dock.closest('form'); return f ? (f.id || 'form') : 'noform';
+  }
+
+  function resetDock(dock){
+    var rec = window.__mgmtActiveCalls[formKey(dock)];
+    // не чіпаємо активний дзвінок (раптом модалку перевідкрили під час розмови)
+    if(rec && rec.sessionId && !rec.ended) return;
+    delete window.__mgmtActiveCalls[formKey(dock)];
+    setVal(dock.dataset.sessionField, '');
+    renderDock(dock);
+  }
+
+  function startCall(dock){
+    var phone = val(dock.dataset.phoneField);
+    if(!phone){ msg(dock, 'Спершу введіть номер телефону.', 'err'); return; }
+    var body = {phone:phone};
+    var cid = val(dock.dataset.clientField); if(cid) body.client_id = cid;
+    var lid = val(dock.dataset.leadField); if(lid) body.lead_id = lid;
+    var btn = dock.querySelector('[data-call-go]');
+    btn.disabled = true; msg(dock, '');
+    api(URLS.start, body).then(function(d){
+      if(!d.success){ btn.disabled=false; msg(dock, d.error||'Не вдалося подзвонити.', 'err'); return; }
+      var s = d.session;
+      setVal(dock.dataset.sessionField, s.session_id);
+      window.__mgmtActiveCalls[formKey(dock)] = {sessionId:s.session_id, ended:false};
+      runLive(dock, s);
+    }).catch(function(){ btn.disabled=false; msg(dock, 'Помилка запиту.', 'err'); });
+  }
+
+  function runLive(dock, session){
+    var live = dock.querySelector('[data-call-live]');
+    var statusText = dock.querySelector('[data-call-status-text]');
+    var timerEl = dock.querySelector('[data-call-timer]');
+    var btn = dock.querySelector('[data-call-go]');
+    live.hidden = false; btn.style.display='none';
+    var startedTs = Date.now();
+    var sessionId = session.session_id;
+    var ended = false;
+
+    var tick = setInterval(function(){
+      timerEl.textContent = fmt(Math.floor((Date.now()-startedTs)/1000));
+    }, 1000);
+
+    function labelFor(s){
+      if(s.status==='talking') return 'Розмова';
+      if(s.status==='ended') return 'Завершено' + (s.disposition?(' · '+s.disposition):'');
+      if(s.status==='failed') return 'Помилка дзвінка';
+      return 'З\'єднання…';
+    }
+    function applyState(s){
+      live.classList.toggle('is-talking', s.status==='talking');
+      live.classList.toggle('is-ended', s.status==='ended'||s.status==='failed');
+      statusText.textContent = labelFor(s);
+      if(s.duration_seconds){ /* за наявності — показуємо реальну тривалість */ timerEl.textContent = fmt(s.duration_seconds); }
+      var rec = window.__mgmtActiveCalls[formKey(dock)];
+      if(!ACTIVE_STATES[s.status]){
+        ended = true;
+        if(rec){ rec.ended = true; }
+        clearInterval(tick); clearInterval(poll);
+        msg(dock, 'Дзвінок завершено. Запис і ШІ-аналіз з\'являться згодом.', 'ok');
+      }
+    }
+
+    var poll = setInterval(function(){
+      api(URLS.status, {session_id:sessionId}).then(function(d){ if(d.success) applyState(d.session); });
+    }, 4000);
+
+    var hangupBtn = dock.querySelector('[data-call-hangup]');
+    hangupBtn.onclick = function(){
+      api(URLS.hangup, {session_id:sessionId}).then(function(d){ if(d.success) applyState(d.session); });
+    };
+  }
+
+  function guardForm(form){
+    if(!form || form.__mgmtCallGuard) return;
+    form.__mgmtCallGuard = true;
+    form.addEventListener('submit', function(e){
+      var rec = window.__mgmtActiveCalls[form.id || 'form'];
+      if(rec && rec.sessionId && !rec.ended){
+        var ok = window.confirm('Дзвінок ще не завершено. Зберегти примусово? Натисніть «Скасувати», щоб продовжити розмову.');
+        if(!ok){ e.preventDefault(); e.stopImmediatePropagation(); return false; }
+      }
+    }, true); // capture: спрацьовує до основного обробника форми
+  }
+
+  function init(){
+    var docks = document.querySelectorAll('[data-call-dock]');
+    if(!docks.length) return;
+    docks.forEach(function(dock){ renderDock(dock); guardForm(dock.closest('form')); });
+    document.addEventListener('click', function(e){
+      var go = e.target.closest('[data-call-go]');
+      if(go){ var dock = go.closest('[data-call-dock]'); if(dock) startCall(dock); }
+      // скидаємо стан дока при відкритті модалки нового клієнта/обробки
+      if(e.target.closest('.open-add-client, .process-lead, .edit-client, .phase-jump-client')){
+        setTimeout(function(){ docks.forEach(resetDock); }, 60);
+      }
+    });
+    if(URLS.can){
+      fetch(URLS.can, {headers:{'X-Requested-With':'XMLHttpRequest'}}).then(function(r){return r.json();}).then(function(d){
+        canCall = !!(d && d.can_call);
+        docks.forEach(renderDock);
+      }).catch(function(){});
+    }
+  }
+
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', init); }
+  else { init(); }
+})();
+</script>

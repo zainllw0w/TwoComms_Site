@@ -318,6 +318,11 @@ def lead_process_api(request, lead_id: int):
         lead.save()
         sync_client_visible_points(client, interaction=interaction, source_lead=lead)
 
+    call_session_id = data.get('call_session_id')
+    if call_session_id:
+        from .services.telephony_call import attach_session_to_client
+        attach_session_to_client(manager=request.user, session_id=call_session_id, client=client)
+
     payload = {
         "success": True,
         "client": _serialize_client_for_home(client, timezone.localdate()),
