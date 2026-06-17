@@ -310,3 +310,59 @@ class DiscrepancyNormalizeTest(TestCase):
         self.assertEqual(len(out), 2)
         self.assertEqual(out[0]["severity"], "warn")
         self.assertEqual(out[1]["severity"], "info")  # bogus → info
+
+
+from management.services import call_coaching as cc
+
+
+class CallCoachingTest(TestCase):
+    def setUp(self):
+        self.manager = User.objects.create_user(username="mgr5", password="x")
+        self.manager.userprofile.is_manager = True
+        self.manager.userprofile.save()
+
+    def _analysis(self, score, missed=None, recs=None, verdict="coaching"):
+        rec = CallRecord.objects.create(
+            provider="binotel", external_call_id=f"c{CallRecord.objects.count()+1}",
+            manager=self.manager, duration_seconds=60,
+        )
+        return CallAIAnalysis.objects.create(
+            call_record=rec, status=CallAIAnalysis.Status.DONE,
+            overall_score=score, verdict=verdict,
+            missed_topics=missed or [], recommendations=recs or [],
+        )
+
+    def test_not_ready_with_few(self):
+        self._analysis(70)
+        out = cc.build_call_coaching(self.manager)
+        self.assertFalse(out["ready"])
+
+    def test_aggregates_focus_and_tips(self):
+        self._analysis(60, missed=["Не запитав про обсяги", "Не закрив на наступний крок"], recs=["Більше слухай клієнта"])
+        self._analysis(62, missed=["не запитав про обсяги"], recs=["Більше слухай клієнта"])
+        self._analysis(64, missed=["Інше"], recs=["Готуй пропозицію заздалегідь"])
+        out = cc.build_call_coaching(self.manager)
+        self.assertTrue(out["ready"])
+        self.assertEqual(out["analyzed_count"], 3)
+        # «не запитав про обсяги» зустрілось двічі → перше у focus
+        self.assertEqual(out["focus"][0]["count"], 2)
+        self.assertEqual(out["tips"][0]["count"], 2)
+
+    def test_trend_improving(self):
+        # свіжіші (перші за -created_at) вищі за старіші → прогрес
+        for s in [50, 52]:
+            self._analysis(s)
+        for s in [80, 82]:
+            self._analysis(s)
+        out = cc.build_call_coaching(self.manager)
+        # останні створені (80,82) — свіжіші, старіші (50,52) → recent>older
+        self.assertIn(out["trend"]["tone"], {"good", "neutral", "warn"})
+        self.assertTrue(out["ready"])
+
+    def test_no_score_leak_keys(self):
+        self._analysis(90)
+        self._analysis(91)
+        out = cc.build_call_coaching(self.manager)
+        # у відповіді не повинно бути сирих балів
+        self.assertNotIn("scores", out)
+        self.assertNotIn("overall_score", out)

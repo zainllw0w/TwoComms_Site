@@ -43,6 +43,13 @@ def stats(request):
     r = parse_stats_range(request.GET)
     payload = get_stats_payload(user=request.user, range_current=r)
 
+    # Коучинг-поради за останніми дзвінками (Фаза 4) — без балів для менеджера.
+    try:
+        from management.services.call_coaching import build_call_coaching
+        call_coaching = build_call_coaching(request.user)
+    except Exception:
+        call_coaching = {"ready": False, "analyzed_count": 0, "message": ""}
+
     # Sidebar / header context (existing management shell expectations)
     user_stats = get_user_stats(request.user)
     report_sent_today = has_report_today(request.user)
@@ -68,6 +75,7 @@ def stats(request):
             "has_report_today": report_sent_today,
             "reminders": reminders,
             "manager_bot_username": get_manager_bot_username(),
+            "call_coaching": call_coaching,
         },
     )
 

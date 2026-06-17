@@ -5,6 +5,19 @@
 
 {% block extra_css %}
   <link rel="stylesheet" href="{% static 'css/management-stats.css' %}?v=20260610bento2">
+  <style>
+    .call-coaching-card .cc-trend{font-size:13px;font-weight:600;padding:8px 12px;border-radius:10px;margin-bottom:12px;}
+    .call-coaching-card .cc-trend--good{background:rgba(34,197,94,.12);color:#86efac;}
+    .call-coaching-card .cc-trend--warn{background:rgba(245,158,11,.12);color:#fcd34d;}
+    .call-coaching-card .cc-trend--neutral{background:rgba(148,163,184,.12);color:#cbd5e1;}
+    .call-coaching-card .cc-block{margin-top:12px;}
+    .call-coaching-card .cc-block__title{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#8b97a8;margin-bottom:7px;font-weight:600;}
+    .call-coaching-card .cc-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px;}
+    .call-coaching-card .cc-list li{display:flex;align-items:flex-start;gap:8px;font-size:13px;line-height:1.4;color:#dbe2ea;}
+    .call-coaching-card .cc-dot{width:7px;height:7px;border-radius:50%;background:#f59e0b;margin-top:6px;flex-shrink:0;}
+    .call-coaching-card .cc-list--tips .cc-tick{color:#86efac;font-weight:700;flex-shrink:0;}
+    .call-coaching-card .cc-count{margin-left:auto;font-size:11px;color:#7e8a9c;background:rgba(148,163,184,.12);border-radius:999px;padding:1px 7px;align-self:center;}
+  </style>
 {% endblock %}
 
 {% block content %}
@@ -301,6 +314,42 @@
           <div class="advice-empty muted">Поки немає порад для цього періоду.</div>
         {% endif %}
       </div>
+    </article>
+
+    {# Поради з дзвінків (Фаза 4) #}
+    <article class="bento-card call-coaching-card">
+      <div class="bento-card__head">
+        <div class="bento-card__eyebrow">Поради з ваших дзвінків</div>
+        {% if call_coaching.ready %}<span class="muted small">За останніми {{ call_coaching.analyzed_count }} розмовами</span>{% endif %}
+      </div>
+      {% if call_coaching.ready %}
+        <div class="cc-trend cc-trend--{{ call_coaching.trend.tone }}">{{ call_coaching.trend.label }}</div>
+        {% if call_coaching.focus %}
+        <div class="cc-block">
+          <div class="cc-block__title">На чому втрачаєте найчастіше</div>
+          <ul class="cc-list cc-list--focus">
+            {% for f in call_coaching.focus %}
+              <li><span class="cc-dot"></span>{{ f.text }}{% if f.count > 1 %}<span class="cc-count">×{{ f.count }}</span>{% endif %}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+        {% if call_coaching.tips %}
+        <div class="cc-block">
+          <div class="cc-block__title">Що підтягнути</div>
+          <ul class="cc-list cc-list--tips">
+            {% for t in call_coaching.tips %}
+              <li><span class="cc-tick">✓</span>{{ t.text }}{% if t.count > 1 %}<span class="cc-count">×{{ t.count }}</span>{% endif %}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+        {% if not call_coaching.focus and not call_coaching.tips %}
+          <div class="advice-empty muted">Чудово! За останніми дзвінками критичних зон не видно — тримайте рівень.</div>
+        {% endif %}
+      {% else %}
+        <div class="advice-empty muted">{{ call_coaching.message|default:"Зробіть кілька дзвінків — і тут зʼявляться персональні поради." }}</div>
+      {% endif %}
     </article>
 
     {# Тренди #}

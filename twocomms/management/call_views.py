@@ -143,23 +143,35 @@ def client_calls(request):
 
     # дзвінки за матчем клієнта АБО через сесії click-to-call цього клієнта
     records = list(
-        CallRecord.objects.filter(matched_client=client).order_by("-started_at", "-created_at")[:50]
+        CallRecord.objects.filter(matched_client=client)
+        .prefetch_related("ai_analyses")
+        .order_by("-started_at", "-created_at")[:50]
     )
     session_record_ids = list(
         CallSession.objects.filter(client=client, call_record__isnull=False)
         .values_list("call_record_id", flat=True)
     )
     if session_record_ids:
-        extra = CallRecord.objects.filter(id__in=session_record_ids).exclude(
-            id__in=[r.id for r in records]
+        extra = (
+            CallRecord.objects.filter(id__in=session_record_ids)
+            .exclude(id__in=[r.id for r in records])
+            .prefetch_related("ai_analyses")
         )
         records.extend(list(extra))
     records.sort(key=lambda r: (r.started_at or r.created_at), reverse=True)
 
+    def _latest_done(rec):
+        # ai_analyses вже prefetch'нуті — фільтруємо в памʼяті (без N+1)
+        best = None
+        for an in rec.ai_analyses.all():
+            if an.status == "done" and (best is None or an.created_at > best.created_at):
+                best = an
+        return best
+
     items = []
     for r in records:
         recordable = (r.payload or {}).get("disposition", "").upper() in {"ANSWER", "VM-SUCCESS", "SUCCESS", "TRANSFER"}
-        analysis = r.ai_analyses.filter(status="done").order_by("-created_at").first() if is_admin else None
+        analysis = _latest_done(r) if is_admin else None
         item = {
             "id": r.id,
             "started_at": timezone.localtime(r.started_at).strftime("%d.%m.%Y %H:%M") if r.started_at else "",
