@@ -12,6 +12,7 @@
      data-call-status-url="{% url 'management_call_status' %}"
      data-call-hangup-url="{% url 'management_call_hangup' %}"
      data-call-can-url="{% url 'management_call_can' %}"
+     data-call-client-calls-url="{% url 'management_client_calls' %}"
      data-manager-bot-username="{{ manager_bot_username }}"
      data-has-manager-telegram-binding="{{ has_manager_telegram_binding|yesno:'true,false' }}"
      data-client-entry-form="{{ client_entry_form_payload_json|escape }}"
@@ -587,6 +588,15 @@
                         </div>
                     </div>
                 </div>
+            </section>
+            <section class="entry-section mgmt-client-calls-section" id="client-calls-section" hidden>
+                <div class="entry-section-heading">
+                    <div>
+                        <p class="entry-section-kicker">Дзвінки</p>
+                        <h4>Записи розмов із клієнтом</h4>
+                    </div>
+                </div>
+                <div class="mgmt-client-calls" id="client-calls-box"><div class="mgmt-calls-empty">Завантаження…</div></div>
             </section>
             <div class="modal-footer">
                 <div class="modal-footer-summary" id="client_modal_footer_summary" hidden></div>

@@ -147,6 +147,8 @@ urlpatterns = [
     path('api/call/status/', call_views.call_status, name='management_call_status'),
     path('api/call/hangup/', call_views.call_hangup, name='management_call_hangup'),
     path('api/call/can/', call_views.call_can, name='management_call_can'),
+    path('api/call/client-calls/', call_views.client_calls, name='management_client_calls'),
+    path('api/call/recording/<int:record_id>.mp3', call_views.call_recording, name='management_call_recording'),
     path('binotel/recording/<str:call_id>.mp3', binotel_views.binotel_recording, name='management_binotel_recording'),
     # Єдиний вхідний вебхук Binotel (apiCallSettings + apiCallCompleted).
     # Публічний, CSRF-exempt, без логіну. Опційний токен у шляху.

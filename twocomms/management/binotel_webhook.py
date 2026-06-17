@@ -124,13 +124,60 @@ def _handle_call_completed(payload: dict, event: BinotelWebhookEvent) -> dict:
     if started_at:
         defaults["started_at"] = started_at
 
-    CallRecord.objects.update_or_create(
+    record, _created = CallRecord.objects.update_or_create(
         provider="binotel",
         external_call_id=gcid,
         defaults=defaults,
     )
+
+    # Прив'язка до сесії click-to-call (якщо дзвінок ішов з картки клієнта):
+    # переносимо менеджера/клієнта з сесії й позначаємо запис у чергу на ШІ-аналіз.
+    _link_call_session_and_enqueue(record, parsed)
+
     event.handled_ok = True
     return {"status": "success"}
+
+
+def _link_call_session_and_enqueue(record, parsed: dict) -> None:
+    """Зв'язує CallRecord із CallSession за generalCallID і ставить у чергу
+    авто-аналізу значущі відповіді (duration >= поріг, запис доступний)."""
+    from .models import CallSession
+
+    disposition = (parsed.get("disposition") or "").upper()
+    duration = int(parsed.get("bill_seconds") or 0)
+    recordable = disposition in {"ANSWER", "VM-SUCCESS", "SUCCESS", "TRANSFER"}
+    meaningful = duration >= 30
+
+    update_fields = []
+    session = (
+        CallSession.objects.filter(general_call_id=record.external_call_id)
+        .order_by("-started_at")
+        .first()
+    )
+    if session:
+        if not session.call_record_id:
+            session.call_record = record
+        session.status = CallSession.Status.ENDED
+        if not session.ended_at:
+            session.ended_at = timezone.now()
+        session.disposition = disposition
+        session.duration_seconds = duration or session.duration_seconds
+        session.save(update_fields=["call_record", "status", "ended_at", "disposition", "duration_seconds", "updated_at"])
+        # перенести менеджера/клієнта з сесії на запис (надійніше за матч по номеру)
+        if session.manager_id and not record.manager_id:
+            record.manager_id = session.manager_id
+            update_fields.append("manager")
+        if session.client_id and not record.matched_client_id:
+            record.matched_client_id = session.client_id
+            update_fields.append("matched_client")
+
+    if recordable and meaningful and record.ai_status == CallRecord.AiStatus.NONE:
+        record.ai_status = CallRecord.AiStatus.PENDING
+        update_fields.append("ai_status")
+
+    if update_fields:
+        update_fields.append("updated_at")
+        record.save(update_fields=update_fields)
 
 
 @csrf_exempt

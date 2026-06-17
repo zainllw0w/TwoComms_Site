@@ -138,3 +138,97 @@ class AdminTelephonySaveEndpointTest(TestCase):
         from management.services.dossier import build_manager_dossier
         dossier = build_manager_dossier(self.manager)
         self.assertEqual(dossier["manager"]["binotel_internal_number"], "777")
+
+
+from management.models import CallRecord
+from management import binotel_webhook
+
+
+class WebhookLinkEnqueueTest(TestCase):
+    def setUp(self):
+        self.manager = User.objects.create_user(username="mgr3", password="x")
+        self.client_obj = Client.objects.create(
+            shop_name="S", phone="0671112233", full_name="X", owner=self.manager
+        )
+
+    def _record(self, gcid="555000111"):
+        return CallRecord.objects.create(provider="binotel", external_call_id=gcid)
+
+    def test_meaningful_answered_call_enqueued_and_linked(self):
+        rec = self._record()
+        session = CallSession.objects.create(
+            manager=self.manager, client=self.client_obj, phone="0671112233",
+            general_call_id=rec.external_call_id, status=CallSession.Status.TALKING,
+        )
+        binotel_webhook._link_call_session_and_enqueue(
+            rec, {"disposition": "ANSWER", "bill_seconds": 65}
+        )
+        rec.refresh_from_db()
+        session.refresh_from_db()
+        self.assertEqual(rec.ai_status, CallRecord.AiStatus.PENDING)
+        self.assertEqual(rec.manager_id, self.manager.id)
+        self.assertEqual(rec.matched_client_id, self.client_obj.id)
+        self.assertEqual(session.call_record_id, rec.id)
+        self.assertEqual(session.status, CallSession.Status.ENDED)
+
+    def test_short_call_not_enqueued(self):
+        rec = self._record("555000222")
+        binotel_webhook._link_call_session_and_enqueue(
+            rec, {"disposition": "ANSWER", "bill_seconds": 8}
+        )
+        rec.refresh_from_db()
+        self.assertEqual(rec.ai_status, CallRecord.AiStatus.NONE)
+
+    def test_noanswer_not_enqueued(self):
+        rec = self._record("555000333")
+        binotel_webhook._link_call_session_and_enqueue(
+            rec, {"disposition": "NOANSWER", "bill_seconds": 0}
+        )
+        rec.refresh_from_db()
+        self.assertEqual(rec.ai_status, CallRecord.AiStatus.NONE)
+
+
+from management import call_views
+
+
+class ClientCallsAccessTest(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.owner = User.objects.create_user(username="owner", password="x")
+        self.owner.userprofile.is_manager = True
+        self.owner.userprofile.save()
+        self.other = User.objects.create_user(username="other2", password="x")
+        self.other.userprofile.is_manager = True
+        self.other.userprofile.save()
+        self.admin = User.objects.create_user(username="adm3", password="x", is_staff=True)
+        self.client_obj = Client.objects.create(
+            shop_name="S", phone="0671112233", full_name="X", owner=self.owner
+        )
+        self.rec = CallRecord.objects.create(
+            provider="binotel", external_call_id="900900", matched_client=self.client_obj,
+            manager=self.owner, duration_seconds=60, payload={"disposition": "ANSWER"},
+        )
+
+    def _calls(self, actor):
+        req = self.factory.get(f"/api/call/client-calls/?client_id={self.client_obj.id}")
+        req.user = actor
+        return call_views.client_calls(req)
+
+    def test_owner_sees_calls_without_score(self):
+        resp = self._calls(self.owner)
+        self.assertEqual(resp.status_code, 200)
+        data = _json.loads(resp.content)
+        self.assertTrue(data["success"])
+        self.assertFalse(data["is_admin"])
+        self.assertEqual(len(data["calls"]), 1)
+        self.assertNotIn("ai", data["calls"][0])  # менеджеру бали не віддаємо
+        self.assertTrue(data["calls"][0]["has_recording"])
+
+    def test_other_manager_forbidden(self):
+        resp = self._calls(self.other)
+        self.assertEqual(resp.status_code, 403)
+
+    def test_access_helper(self):
+        self.assertTrue(call_views._can_access_call_record(self.owner, self.rec))
+        self.assertTrue(call_views._can_access_call_record(self.admin, self.rec))
+        self.assertFalse(call_views._can_access_call_record(self.other, self.rec))
