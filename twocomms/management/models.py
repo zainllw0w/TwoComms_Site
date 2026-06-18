@@ -293,6 +293,9 @@ class ManagementLead(models.Model):
     status = models.CharField(_("Статус"), max_length=20, choices=Status.choices, default=Status.BASE, db_index=True)
     lead_source = models.CharField(_("Джерело ліда"), max_length=20, choices=LeadSource.choices, default=LeadSource.MANUAL, db_index=True)
     niche_status = models.CharField(_("Нішевість"), max_length=20, choices=NicheStatus.choices, default=NicheStatus.MAYBE, db_index=True)
+    ai_score = models.PositiveSmallIntegerField(_("AI-оцінка"), null=True, blank=True, db_index=True)
+    ai_verdict = models.CharField(_("AI-вердикт"), max_length=10, blank=True, db_index=True)
+    ai_checked_at = models.DateTimeField(_("AI-перевірено"), null=True, blank=True, db_index=True)
     requires_phone_completion = models.BooleanField(_("Потрібно дозаповнити телефон"), default=False, db_index=True)
     rejection_reason = models.TextField(_("Причина відхилення"), blank=True)
     added_by = models.ForeignKey(
