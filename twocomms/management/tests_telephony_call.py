@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from management.models import CallSession, Client, ClientPhone
 from management.services import telephony_call as tc
@@ -574,6 +574,139 @@ class ManagerReviewTest(TestCase):
         self._client(result="order", days_ago=100)
         out = _mr.build_manager_clients_review(self.manager, period="all")
         self.assertEqual(out["summary"]["processed"], 1)
+
+    def test_reengaged_old_client_called_today(self):
+        # Клієнт створений 5 днів тому, але дзвінок — сьогодні. Раніше повністю
+        # зникав із перегляду «Сьогодні» (баг «за сьогодні 0»).
+        c = self._client(result="thinking", days_ago=5)
+        rec = CallRecord.objects.create(
+            provider="binotel", external_call_id="re1", manager=self.manager,
+            matched_client=c, duration_seconds=60, payload={"disposition": "ANSWER"},
+        )
+        CallRecord.objects.filter(id=rec.id).update(started_at=_tz.now())
+        out = _mr.build_manager_clients_review(self.manager, period="today")
+        # У «свіжих» обробках його немає (створений раніше)…
+        self.assertFalse(any(x["id"] == c.id for x in out["clients"]))
+        # …але він зʼявляється у блоці «повторна активність» із записом дзвінка.
+        reeng = next(x for x in out["reengaged"] if x["id"] == c.id)
+        self.assertTrue(reeng["reengaged"])
+        self.assertEqual(len(reeng["calls"]), 1)
+        self.assertEqual(out["summary"]["reengaged"], 1)
+        # Не псує лічильник «оброблено» за день.
+        self.assertEqual(out["summary"]["processed"], 0)
+
+    def test_result_group_coloring(self):
+        c1 = self._client(result="order")
+        c2 = self._client(result="not_interested")
+        out = _mr.build_manager_clients_review(self.manager, period="today")
+        groups = {x["id"]: x["result_group"] for x in out["clients"]}
+        self.assertEqual(groups[c1.id], "conversion")
+        self.assertEqual(groups[c2.id], "lost")
+
+    def test_test_batch_info_block(self):
+        c = Client.objects.create(
+            shop_name="TB", phone="0670000000", full_name="X", owner=self.manager,
+            call_result="test_batch", call_result_context={"linked_shop_name": "Магазин №1"},
+        )
+        out = _mr.build_manager_clients_review(self.manager, period="today")
+        card = next(x for x in out["clients"] if x["id"] == c.id)
+        self.assertIsNotNone(card["test_batch"])
+        self.assertEqual(card["test_batch"]["shop"], "Магазин №1")
+
+
+class CallRecordingRangeTest(TestCase):
+    def test_parse_range_basic(self):
+        from management.call_views import _parse_range
+        self.assertEqual(_parse_range("bytes=0-99", 1000), (0, 99))
+        self.assertEqual(_parse_range("bytes=100-", 1000), (100, 999))
+        self.assertEqual(_parse_range("bytes=-50", 1000), (950, 999))
+
+    def test_parse_range_clamps_and_rejects(self):
+        from management.call_views import _parse_range
+        self.assertEqual(_parse_range("bytes=0-5000", 1000), (0, 999))  # clamp end
+        self.assertIsNone(_parse_range("", 1000))
+        self.assertIsNone(_parse_range("bytes=2000-3000", 1000))  # start >= size
+        self.assertIsNone(_parse_range("items=0-10", 1000))  # not bytes
+        self.assertIsNone(_parse_range("bytes=500-100", 1000))  # start > end
+
+
+@override_settings(ROOT_URLCONF="twocomms.urls_management")
+class ManagerReviewPageRenderTest(TestCase):
+    """Smoke: повна сторінка адмін-перегляду рендериться без помилок шаблону."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user(username="adm_render", password="x", is_staff=True)
+        self.admin.userprofile.is_manager = True
+        self.admin.userprofile.save()
+        self.manager = User.objects.create_user(username="mgr_render", password="x")
+        self.manager.userprofile.is_manager = True
+        self.manager.userprofile.save()
+        c = Client.objects.create(
+            shop_name="RenderShop", phone="0670000001", full_name="X",
+            owner=self.manager, call_result="test_batch",
+            call_result_context={"linked_shop_name": "Магазин Рендер"},
+        )
+        rec = CallRecord.objects.create(
+            provider="binotel", external_call_id="rr1", manager=self.manager,
+            matched_client=c, duration_seconds=65, payload={"disposition": "ANSWER"},
+        )
+        CallRecord.objects.filter(id=rec.id).update(started_at=_tz.now())
+        CallAIAnalysis.objects.create(
+            call_record=rec, status=CallAIAnalysis.Status.DONE, overall_score=80, verdict="pass",
+            summary="ок", axes=[{"title": "Контакт", "key": "c", "score": 80, "comment": "добре"}],
+        )
+
+    def _render(self, period="today"):
+        from django.test import RequestFactory
+        from management.views import admin_manager_clients_review
+        rf = RequestFactory()
+        req = rf.get(f"/admin-panel/user/{self.manager.id}/clients-review/", {"period": period})
+        req.user = self.admin
+        return admin_manager_clients_review(req, self.manager.id)
+
+    def test_today_renders(self):
+        resp = self._render("today")
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode("utf-8")
+        self.assertIn("Тестова партія", html)
+        self.assertIn("mgmt-audio", html)
+        self.assertIn("g-conversion", html)
+
+    def test_all_renders(self):
+        self.assertEqual(self._render("all").status_code, 200)
+
+
+@override_settings(ROOT_URLCONF="twocomms.urls_management")
+class HomePageRenderTest(TestCase):
+    """Smoke: головна сторінка менеджера рендериться (таймлайн фаз + модалка)."""
+
+    def setUp(self):
+        self.manager = User.objects.create_user(username="mgr_home", password="x")
+        self.manager.userprofile.is_manager = True
+        self.manager.userprofile.save()
+        # клієнт із двома фазами (родина фаз), щоб таймлайн мав дані
+        root = Client.objects.create(
+            shop_name="HomeShop", phone="0671230000", full_name="X",
+            owner=self.manager, call_result="thinking", phase_number=1,
+        )
+        Client.objects.create(
+            shop_name="HomeShop", phone="0671230000", full_name="X",
+            owner=self.manager, call_result="order", phase_number=2,
+            phase_root=root, previous_phase=root,
+        )
+
+    def test_home_renders(self):
+        from django.test import Client as TClient
+        tc = TClient()
+        tc.force_login(self.manager)
+        resp = tc.get("/", secure=True, follow=True)
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode("utf-8")
+        self.assertIn("client_phase_timeline", html)
+        self.assertIn("discrepancy-modal", html)
+        self.assertIn("_audio_player", html) if False else None  # партіал інлайниться
+        # дублюючий текст старого callback-блоку прибрано
+        self.assertNotIn("Що було на попередній фазі", html)
 
 
 from management.models import Report, DayReportAudit

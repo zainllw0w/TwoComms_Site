@@ -18,11 +18,45 @@ from management.models import (
     CallAIAnalysis,
     CallRecord,
     Client,
+    ClientInteractionAttempt,
     NightlyScoreSnapshot,
 )
 
 CONVERSION_RESULTS = {Client.CallResult.ORDER, Client.CallResult.TEST_BATCH}
 RECORDABLE = {"ANSWER", "VM-SUCCESS", "SUCCESS", "TRANSFER"}
+
+
+def _created_client_ids(manager, start: date, end: date) -> set[int]:
+    """Клієнти, СТВОРЕНІ менеджером у вікні (нові обробки/фази)."""
+    return set(
+        Client.objects.filter(
+            owner=manager, created_at__date__gte=start, created_at__date__lte=end
+        ).values_list("id", flat=True)
+    )
+
+
+def _reengaged_client_ids(manager, start: date, end: date, exclude: set[int]) -> set[int]:
+    """Клієнти, з якими була активність у вікні (дзвінок або спроба контакту),
+    але створені РАНІШЕ за вікно. Саме через них раніше зникали дзвінки «за
+    сьогодні»: картку додали давно, а дзвінок/контакт стався сьогодні.
+    """
+    call_ids = set(
+        CallRecord.objects.filter(
+            manager=manager,
+            matched_client__owner=manager,
+            started_at__date__gte=start,
+            started_at__date__lte=end,
+        ).values_list("matched_client_id", flat=True)
+    )
+    call_ids.discard(None)
+    attempt_ids = set(
+        ClientInteractionAttempt.objects.filter(
+            client__owner=manager,
+            created_at__date__gte=start,
+            created_at__date__lte=end,
+        ).values_list("client_id", flat=True)
+    )
+    return (call_ids | attempt_ids) - exclude
 
 
 def resolve_review_window(period: str, date_str: str, today: date) -> dict:
@@ -103,7 +137,7 @@ def _evidence_summary(ctx: dict) -> list[str]:
     return out
 
 
-def _calls_for_clients(client_ids: list[int]) -> dict[int, list]:
+def _calls_for_clients(client_ids: list[int], window: dict | None = None) -> dict[int, list]:
     if not client_ids:
         return {}
     records = (
@@ -111,6 +145,16 @@ def _calls_for_clients(client_ids: list[int]) -> dict[int, list]:
         .prefetch_related("ai_analyses")
         .order_by("-started_at", "-created_at")
     )
+    # Для денних/діапазонних вікон показуємо дзвінки саме цього періоду —
+    # так «Сьогодні» показує сьогоднішні розмови, а не всю історію.
+    # Записи без started_at (ще не збагачені вебхуком) лишаємо — вони привʼязані
+    # до клієнта цього вікна.
+    if window and window.get("start") and window.get("end"):
+        from django.db.models import Q
+        records = records.filter(
+            Q(started_at__isnull=True)
+            | Q(started_at__date__gte=window["start"], started_at__date__lte=window["end"])
+        )
     grouped: dict[int, list] = {}
     for r in records:
         analysis = None
@@ -142,62 +186,116 @@ def _calls_for_clients(client_ids: list[int]) -> dict[int, list]:
     return grouped
 
 
+def _serialize_review_client(c: Client, calls: list, *, reengaged: bool = False) -> dict:
+    attempts = []
+    for a in c.interaction_attempts.all():
+        attempts.append({
+            "result": a.get_result_display() if hasattr(a, "get_result_display") else a.result,
+            "reason_note": a.reason_note or "",
+            "details": a.details or "",
+            "next_call": timezone.localtime(a.next_call_at).strftime("%d.%m.%Y %H:%M") if a.next_call_at else "",
+            "created": timezone.localtime(a.created_at).strftime("%d.%m.%Y %H:%M") if a.created_at else "",
+            "verification": a.get_verification_level_display() if hasattr(a, "get_verification_level_display") else "",
+        })
+    ctx = c.call_result_context or {}
+    test_batch = None
+    if c.call_result == Client.CallResult.TEST_BATCH:
+        test_batch = {
+            "shop": ctx.get("linked_shop_name") or "",
+            "ordered_at": timezone.localtime(c.created_at).strftime("%d.%m.%Y") if c.created_at else "",
+        }
+    return {
+        "id": c.id,
+        "shop": c.shop_name,
+        "phone": c.phone,
+        "full_name": c.full_name,
+        "role": c.get_role_display(),
+        "source": c.source or "",
+        "result": c.get_call_result_display(),
+        "result_code": c.call_result,
+        "result_group": _result_group(c.call_result),
+        "points": client_points_value(c),
+        "manager_note": c.manager_note or "",
+        "reason_note": c.call_result_reason_note or "",
+        "details": c.call_result_details or "",
+        "evidence": _evidence_summary(ctx),
+        "phase_number": c.phase_number or 1,
+        "test_batch": test_batch,
+        "reengaged": reengaged,
+        "next_call": timezone.localtime(c.next_call_at).strftime("%d.%m.%Y %H:%M") if c.next_call_at else "",
+        "created": timezone.localtime(c.created_at).strftime("%d.%m.%Y %H:%M") if c.created_at else "",
+        "attempts": attempts,
+        "calls": calls,
+    }
+
+
+def _result_group(code: str) -> str:
+    """Категорія підсумку для кольорового кодування карток."""
+    if code in CONVERSION_RESULTS:
+        return "conversion"
+    if code in {
+        Client.CallResult.NOT_INTERESTED,
+        Client.CallResult.INVALID_NUMBER,
+        Client.CallResult.EXPENSIVE,
+    }:
+        return "lost"
+    if code in {
+        Client.CallResult.NO_ANSWER,
+        Client.CallResult.THINKING,
+        Client.CallResult.WAITING_PAYMENT,
+        Client.CallResult.WAITING_PREPAYMENT,
+    }:
+        return "pending"
+    return "neutral"
+
+
 def build_manager_clients_review(manager, *, period: str = "today", date_str: str = "") -> dict:
     today = timezone.localdate()
     window = resolve_review_window(period, date_str, today)
+    bounded = bool(window["start"] and window["end"])
 
     qs = Client.objects.filter(owner=manager).prefetch_related("interaction_attempts").order_by("-created_at")
-    if window["start"] and window["end"]:
+    if bounded:
         qs = qs.filter(created_at__date__gte=window["start"], created_at__date__lte=window["end"])
     rows = list(qs[:500])
 
-    calls_map = _calls_for_clients([c.id for c in rows])
+    # Клієнти з активністю за період, але створені раніше (передзвони/повторні
+    # дзвінки) — раніше вони повністю випадали з перегляду «за сьогодні».
+    reengaged_rows: list[Client] = []
+    if bounded:
+        created_ids = {c.id for c in rows}
+        reeng_ids = _reengaged_client_ids(manager, window["start"], window["end"], created_ids)
+        if reeng_ids:
+            reengaged_rows = list(
+                Client.objects.filter(id__in=reeng_ids)
+                .prefetch_related("interaction_attempts")
+                .order_by("-updated_at")[:200]
+            )
+
+    all_ids = [c.id for c in rows] + [c.id for c in reengaged_rows]
+    calls_map = _calls_for_clients(all_ids, window)
 
     clients = []
     result_breakdown: Counter = Counter()
     points_total = 0
     conversions = 0
     for c in rows:
-        pts = client_points_value(c)
-        points_total += pts
+        points_total += client_points_value(c)
         result_breakdown[c.get_call_result_display()] += 1
         if c.call_result in CONVERSION_RESULTS:
             conversions += 1
-        attempts = []
-        for a in c.interaction_attempts.all():
-            attempts.append({
-                "result": a.get_result_display() if hasattr(a, "get_result_display") else a.result,
-                "reason_note": a.reason_note or "",
-                "details": a.details or "",
-                "next_call": timezone.localtime(a.next_call_at).strftime("%d.%m.%Y %H:%M") if a.next_call_at else "",
-                "created": timezone.localtime(a.created_at).strftime("%d.%m.%Y %H:%M") if a.created_at else "",
-                "verification": a.get_verification_level_display() if hasattr(a, "get_verification_level_display") else "",
-            })
-        clients.append({
-            "id": c.id,
-            "shop": c.shop_name,
-            "phone": c.phone,
-            "full_name": c.full_name,
-            "role": c.get_role_display(),
-            "source": c.source or "",
-            "result": c.get_call_result_display(),
-            "result_code": c.call_result,
-            "points": pts,
-            "manager_note": c.manager_note or "",
-            "reason_note": c.call_result_reason_note or "",
-            "details": c.call_result_details or "",
-            "evidence": _evidence_summary(c.call_result_context or {}),
-            "phase_number": c.phase_number or 1,
-            "next_call": timezone.localtime(c.next_call_at).strftime("%d.%m.%Y %H:%M") if c.next_call_at else "",
-            "created": timezone.localtime(c.created_at).strftime("%d.%m.%Y %H:%M") if c.created_at else "",
-            "attempts": attempts,
-            "calls": calls_map.get(c.id, []),
-        })
+        clients.append(_serialize_review_client(c, calls_map.get(c.id, [])))
+
+    reengaged = [
+        _serialize_review_client(c, calls_map.get(c.id, []), reengaged=True)
+        for c in reengaged_rows
+    ]
 
     summary = {
         "processed": len(rows),
         "points": points_total,
         "conversions": conversions,
+        "reengaged": len(reengaged),
         "result_breakdown": [{"label": k, "count": v} for k, v in result_breakdown.most_common()],
     }
 
@@ -241,5 +339,6 @@ def build_manager_clients_review(manager, *, period: str = "today", date_str: st
         "deltas": deltas,
         "day_audit": day_audit,
         "clients": clients,
+        "reengaged": reengaged,
         "mosaic": build_mosaic_trend(manager),
     }

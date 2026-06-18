@@ -487,6 +487,26 @@ class BinotelClient:
             raise BinotelError(f"Не вдалося завантажити запис (HTTP {resp.status_code}).")
         return resp, url
 
+    def fetch_record_bytes(self, general_call_id: str) -> tuple[bytes, str]:
+        """Повертає (повні байти mp3, content_type) запису розмови.
+
+        Тягне файл цілком server-side. Потрібно для коректної перемотки в
+        браузері: HTML5-плеєр уміє seek лише коли наш бекенд підтримує HTTP
+        Range, а для цього зручно мати повний буфер (дзвінки короткі, кілька МБ).
+        """
+        upstream, _url = self.fetch_record_stream(general_call_id)
+        try:
+            content_type = upstream.headers.get("Content-Type") or "audio/mpeg"
+            if "audio" not in content_type and "mpeg" not in content_type:
+                content_type = "audio/mpeg"
+            chunks = []
+            for chunk in upstream.iter_content(chunk_size=64 * 1024):
+                if chunk:
+                    chunks.append(chunk)
+            return b"".join(chunks), content_type
+        finally:
+            upstream.close()
+
     def list_of_calls_for_period(self, start_time: int, stop_time: int) -> dict:
         """Вхідні + вихідні за період (не більше 24 годин)."""
         return self.send_request(

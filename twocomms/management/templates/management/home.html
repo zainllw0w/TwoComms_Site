@@ -13,6 +13,8 @@
      data-call-hangup-url="{% url 'management_call_hangup' %}"
      data-call-can-url="{% url 'management_call_can' %}"
      data-call-client-calls-url="{% url 'management_client_calls' %}"
+     data-report-precheck-url="{% url 'management_report_precheck' %}"
+     data-notification-ack-url="{% url 'management_notification_ack' %}"
      data-manager-bot-username="{{ manager_bot_username }}"
      data-has-manager-telegram-binding="{{ has_manager_telegram_binding|yesno:'true,false' }}"
      data-client-entry-form="{{ client_entry_form_payload_json|escape }}"
@@ -545,21 +547,43 @@
                         <span class="helper-chip" title="Своєчасний передзвон підтримує дисципліну портфеля, а Telegram-бот нагадає завчасно і в потрібну хвилину.">Follow-up без втрат</span>
                     </div>
                 </div>
+                <style>
+                .phase-timeline{display:flex;flex-direction:column;gap:0;margin:10px 0 4px;}
+                .ptl-node{position:relative;padding:0 0 14px 30px;}
+                .ptl-node:last-child{padding-bottom:0;}
+                .ptl-node::before{content:"";position:absolute;left:8px;top:20px;bottom:-2px;width:2px;background:#2a3550;}
+                .ptl-node:last-child::before{display:none;}
+                .ptl-node__dot{position:absolute;left:0;top:2px;width:18px;height:18px;border-radius:50%;background:#1b2335;border:2px solid #2a3550;display:grid;place-items:center;font-size:9px;color:#9fb0c4;font-weight:800;z-index:2;}
+                .ptl-node.is-current .ptl-node__dot{background:linear-gradient(135deg,#ff9d5c,#ff7e29);border-color:#ff7e29;color:#1a1206;box-shadow:0 0 0 4px rgba(255,126,41,.18);}
+                .ptl-node.is-conversion .ptl-node__dot{background:linear-gradient(135deg,#34d399,#22c55e);border-color:#22c55e;color:#06301a;}
+                .ptl-node.is-lost .ptl-node__dot{background:#3a2230;border-color:#7a3550;color:#fca5a5;}
+                .ptl-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer;user-select:none;}
+                .ptl-head__phase{font-size:12.5px;font-weight:700;color:#e7ecf3;}
+                .ptl-head__res{font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:#1b2230;color:#9fb0c4;}
+                .ptl-node.is-current .ptl-head__res{background:rgba(255,126,41,.16);color:#ffb380;}
+                .ptl-node.is-conversion .ptl-head__res{background:rgba(34,197,94,.16);color:#86efac;}
+                .ptl-node.is-lost .ptl-head__res{background:rgba(239,68,68,.14);color:#fca5a5;}
+                .ptl-head__date{font-size:10.5px;color:#7e8a9c;margin-left:auto;}
+                .ptl-head__chev{font-size:10px;color:#7e8a9c;transition:transform .15s;}
+                .ptl-node.is-open .ptl-head__chev{transform:rotate(90deg);}
+                .ptl-node.is-current .ptl-head{cursor:default;}
+                .ptl-body{margin-top:7px;display:none;}
+                .ptl-node.is-open .ptl-body{display:block;animation:ptlIn .2s ease;}
+                @keyframes ptlIn{from{opacity:0;transform:translateY(-3px);}to{opacity:1;transform:none;}}
+                .ptl-body__text{font-size:12px;color:#c4cedb;line-height:1.5;}
+                .ptl-body__note{font-size:11.5px;color:#9fb0c4;margin-top:4px;font-style:italic;}
+                .ptl-body__next{font-size:11px;color:#7dd3fc;margin-top:4px;}
+                .ptl-body__rec{margin-top:8px;display:flex;flex-direction:column;gap:7px;}
+                .ptl-body__rec-empty{font-size:11px;color:#7e8a9c;}
+                .ptl-current-hint{font-size:11.5px;color:#86efac;margin-top:3px;}
+                </style>
                 <div class="callback-context-card" id="client_callback_context" hidden>
-                    <div class="callback-context-card__eyebrow">Режим передзвону</div>
-                    <div class="callback-context-card__title">Цей контакт уже був доданий. Зараз ви фіксуєте наступну фазу передзвону, а не редагуєте стартовий запис.</div>
-                    <div class="callback-context-card__phase" id="client_callback_current_phase" hidden>
-                        <div class="callback-context-card__phase-label">Поточна фаза</div>
-                        <div class="callback-context-card__phase-title" id="client_callback_phase_title"></div>
-                        <div class="callback-context-card__phase-text" id="client_callback_phase_text"></div>
-                    </div>
-                    <div class="callback-context-card__previous" id="client_callback_previous_summary" hidden></div>
+                    <div class="callback-context-card__eyebrow">Цикл передзвону</div>
+                    <div class="callback-context-card__title" id="client_callback_title">Ви фіксуєте наступну фазу циклу. Нижче — пройдені кроки: кожен можна розгорнути й переслухати запис.</div>
+                    <div class="phase-timeline" id="client_phase_timeline"></div>
                     <div class="callback-context-card__meta" id="client_callback_context_meta"></div>
                     <div class="callback-context-card__note" id="client_callback_note" hidden></div>
-                    <details class="callback-phase-history" id="client_callback_history" hidden>
-                        <summary id="client_callback_history_summary">Показати попередні фази</summary>
-                        <div class="callback-phase-history__list" id="client_callback_history_list"></div>
-                    </details>
+                    <span id="client_callback_phase_title" hidden></span>
                 </div>
                 <div class="field-grid">
                     <div class="field field-span-2">
@@ -1570,6 +1594,81 @@ function initManagementHomePage() {
         });
     };
 
+    const clientPhaseTimeline = document.getElementById('client_phase_timeline');
+    const homeEndpointsForTimeline = document.getElementById('home-endpoints');
+    const clientCallsUrlForTimeline = homeEndpointsForTimeline ? (homeEndpointsForTimeline.dataset.callClientCallsUrl || '') : '';
+
+    const phaseResultClass = (code) => {
+        if (code === 'order' || code === 'test_batch') return 'is-conversion';
+        if (code === 'not_interested' || code === 'invalid_number' || code === 'expensive') return 'is-lost';
+        return '';
+    };
+
+    const loadPhaseRecordings = (box, clientId) => {
+        if (!box || box.dataset.loaded || !clientId || !clientCallsUrlForTimeline) return;
+        box.dataset.loaded = '1';
+        box.innerHTML = '<div class="ptl-body__rec-empty">Завантаження записів…</div>';
+        fetch(clientCallsUrlForTimeline + '?client_id=' + encodeURIComponent(clientId), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then((r) => r.json())
+            .then((d) => {
+                const calls = (d && d.success && d.calls) ? d.calls.filter((c) => c.has_recording) : [];
+                if (!calls.length) { box.innerHTML = '<div class="ptl-body__rec-empty">Записів розмов на цій фазі немає.</div>'; return; }
+                box.innerHTML = calls.map((c) => '<div class="mgmt-audio" data-src="' + escapeHtml(c.recording_url) + '"></div>').join('');
+                if (window.MgmtAudio) window.MgmtAudio.scan(box);
+            })
+            .catch(() => { box.innerHTML = '<div class="ptl-body__rec-empty">Не вдалося завантажити записи.</div>'; });
+    };
+
+    const renderPhaseTimeline = (history, nextPhaseNumber) => {
+        if (!clientPhaseTimeline) return;
+        const nodes = [];
+        history.forEach((item) => {
+            const cls = phaseResultClass(item.result_code);
+            const next = (item.next_call && item.next_call !== '—') ? `<div class="ptl-body__next">Домовленість: ${escapeHtml(item.next_call)}</div>` : '';
+            const note = item.phase_comment ? `<div class="ptl-body__note">Коментар фази: ${escapeHtml(item.phase_comment)}</div>` : '';
+            nodes.push(
+                `<div class="ptl-node ${cls}" data-client-id="${item.client_id || ''}">`
+                + `<span class="ptl-node__dot">${item.phase || ''}</span>`
+                + '<div class="ptl-head">'
+                + `<span class="ptl-head__phase">Фаза ${item.phase || ''}</span>`
+                + `<span class="ptl-head__res">${escapeHtml(item.result || '—')}</span>`
+                + `<span class="ptl-head__date">${escapeHtml(item.created_at || '')}</span>`
+                + '<span class="ptl-head__chev">▶</span>'
+                + '</div>'
+                + '<div class="ptl-body">'
+                + `<div class="ptl-body__text">${escapeHtml(item.summary || 'Без додаткових деталей по цій фазі.')}</div>`
+                + note + next
+                + '<div class="ptl-body__rec"></div>'
+                + '</div>'
+                + '</div>'
+            );
+        });
+        nodes.push(
+            '<div class="ptl-node is-current">'
+            + `<span class="ptl-node__dot">${nextPhaseNumber}</span>`
+            + '<div class="ptl-head">'
+            + `<span class="ptl-head__phase">Фаза ${nextPhaseNumber}</span>`
+            + '<span class="ptl-head__res">зараз</span>'
+            + '</div>'
+            + '<div class="ptl-current-hint">Ви на цій фазі — заповніть підсумок розмови нижче.</div>'
+            + '</div>'
+        );
+        clientPhaseTimeline.innerHTML = nodes.join('');
+    };
+
+    if (clientPhaseTimeline) {
+        clientPhaseTimeline.addEventListener('click', (e) => {
+            const head = e.target.closest('.ptl-head');
+            if (!head) return;
+            const node = head.closest('.ptl-node');
+            if (!node || node.classList.contains('is-current')) return;
+            const open = node.classList.toggle('is-open');
+            if (open) {
+                loadPhaseRecordings(node.querySelector('.ptl-body__rec'), node.dataset.clientId);
+            }
+        });
+    }
+
     const setClientModeContext = ({
         mode = 'client',
         callbackState = 'none',
@@ -1597,15 +1696,8 @@ function initManagementHomePage() {
         if (!isCallback) {
             if (clientCallbackContextMeta) clientCallbackContextMeta.textContent = '';
             if (clientCallbackPhaseTitle) clientCallbackPhaseTitle.textContent = '';
-            if (clientCallbackPhaseText) clientCallbackPhaseText.textContent = '';
-            if (clientCallbackPreviousSummary) {
-                clientCallbackPreviousSummary.textContent = '';
-                setNodeVisible(clientCallbackPreviousSummary, false, 'block');
-            }
-            setNodeVisible(clientCallbackCurrentPhase, false, 'grid');
+            if (clientPhaseTimeline) clientPhaseTimeline.innerHTML = '';
             setNodeVisible(clientCallbackNote, false, 'block');
-            setNodeVisible(clientCallbackHistory, false, 'block');
-            if (clientCallbackHistoryList) clientCallbackHistoryList.innerHTML = '';
             syncClientFooterSummary();
             return;
         }
@@ -1616,62 +1708,18 @@ function initManagementHomePage() {
         if (phaseCommentLabel) {
             phaseCommentLabel.textContent = `Коментар фази ${nextPhaseNumber}`;
         }
-        if (clientCallbackPhaseText) {
-            const phaseLead = currentPhaseLabel
-                ? `Попередня фаза завершилась як ${currentPhaseLabel.toLowerCase()}.`
-                : 'Це наступний крок у вже відкритому циклі передзвону.';
-            const phaseContext = currentPhaseSummary || lastSummary || 'Окремий коментар цієї фази збережеться в історії передзвонів.';
-            clientCallbackPhaseText.textContent = `${phaseLead} ${phaseContext}`.trim();
-        }
-        setNodeVisible(clientCallbackCurrentPhase, true, 'grid');
+        renderPhaseTimeline(Array.isArray(phaseHistory) ? phaseHistory : [], nextPhaseNumber);
         const parts = [];
-        if (currentPhaseLabel) parts.push(`Попередня фаза: ${currentPhaseLabel}`);
         if (callbackAttempts) parts.push(`Спроб передзвону за 7 днів: ${callbackAttempts}`);
         if (lastAt) parts.push(`Остання дія: ${lastAt}`);
         if (callbackState === 'missed') parts.push('Попередній передзвін пропущено');
-        if (callbackReviewCandidate) parts.push('Потрібно уважно перевірити, чи не затягнувся цикл follow-up.');
+        if (callbackReviewCandidate) parts.push('Варто перевірити, чи не затягнувся цикл follow-up.');
         if (clientCallbackContextMeta) {
             clientCallbackContextMeta.textContent = parts.filter(Boolean).join(' · ');
-        }
-        if (clientCallbackPreviousSummary) {
-            const previousSummaryText = currentPhaseSummary || lastSummary;
-            if (currentPhaseLabel || previousSummaryText || lastAt) {
-                clientCallbackPreviousSummary.innerHTML = `
-                    <small>Що було на попередній фазі</small>
-                    <strong>${escapeHtml(currentPhaseLabel || 'Попередній дзвінок')}</strong>
-                    <span>${escapeHtml(previousSummaryText || 'Без додаткових деталей по попередній фазі.')}</span>
-                    ${lastAt ? `<small>Останній контакт: ${escapeHtml(lastAt)}</small>` : ''}
-                `;
-                setNodeVisible(clientCallbackPreviousSummary, true, 'grid');
-            } else {
-                clientCallbackPreviousSummary.textContent = '';
-                setNodeVisible(clientCallbackPreviousSummary, false, 'grid');
-            }
         }
         if (clientCallbackNote) {
             clientCallbackNote.textContent = managerNoteValue ? `Нотатка менеджера: ${managerNoteValue}` : '';
             setNodeVisible(clientCallbackNote, !!managerNoteValue, 'block');
-        }
-        if (clientCallbackHistorySummary && clientCallbackHistoryList) {
-            if (Array.isArray(phaseHistory) && phaseHistory.length) {
-                clientCallbackHistorySummary.textContent = `Показати попередні фази (${phaseHistory.length})`;
-                clientCallbackHistoryList.innerHTML = phaseHistory.map((item) => `
-                    <div class="callback-phase-item">
-                        <div class="callback-phase-item__head">
-                            <strong>Фаза ${item.phase}</strong>
-                            <span>${item.created_at || '—'}</span>
-                        </div>
-                        <div class="callback-phase-item__result">${item.result || '—'}</div>
-                        <div class="callback-phase-item__text">${item.summary || 'Без додаткових деталей'}</div>
-                        ${item.phase_comment ? `<div class="callback-phase-item__note">Коментар фази: ${item.phase_comment}</div>` : ''}
-                        ${item.next_call && item.next_call !== '—' ? `<div class="callback-phase-item__next">Наступний крок: ${item.next_call}</div>` : ''}
-                    </div>
-                `).join('');
-                setNodeVisible(clientCallbackHistory, true, 'block');
-            } else {
-                clientCallbackHistoryList.innerHTML = '';
-                setNodeVisible(clientCallbackHistory, false, 'block');
-            }
         }
         syncClientFooterSummary();
     };
@@ -2579,6 +2627,113 @@ if (document.readyState === 'loading') {
 } else {
     initManagementHomePage();
 }
+</script>
+<style>
+.disc-flag{display:inline-grid;place-items:center;width:18px;height:18px;margin-left:7px;border-radius:5px;background:rgba(239,68,68,.16);color:#fca5a5;font-size:12px;cursor:help;vertical-align:middle;animation:discPulse 1.7s ease-in-out infinite;}
+@keyframes discPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.45);}50%{box-shadow:0 0 0 5px rgba(239,68,68,0);}}
+.disc-overlay{position:fixed;inset:0;background:rgba(6,9,14,.72);backdrop-filter:blur(3px);z-index:1200;display:none;align-items:center;justify-content:center;padding:20px;}
+.disc-overlay.show{display:flex;animation:discFade .2s ease;}
+@keyframes discFade{from{opacity:0;}to{opacity:1;}}
+.disc-card{width:100%;max-width:560px;max-height:86vh;overflow:auto;background:linear-gradient(180deg,#141019,#100d16);border:1px solid #3a2350;border-radius:18px;padding:22px 22px 18px;box-shadow:0 24px 60px rgba(0,0,0,.5);color:#e7ecf3;}
+.disc-card__head{display:flex;align-items:center;gap:12px;margin-bottom:6px;}
+.disc-card__ic{width:40px;height:40px;border-radius:12px;background:rgba(239,68,68,.16);color:#fca5a5;display:grid;place-items:center;font-size:20px;flex-shrink:0;}
+.disc-card__title{font-size:17px;font-weight:800;}
+.disc-card__sub{font-size:12.5px;color:#9aa6b6;margin:2px 0 14px;line-height:1.5;}
+.disc-item{border:1px solid #2a2238;border-left:3px solid #ef4444;border-radius:11px;padding:11px 13px;margin-bottom:10px;background:#0f0c16;}
+.disc-item__title{font-size:13px;font-weight:700;color:#fcd0d0;}
+.disc-item__body{font-size:12.5px;color:#cbd5e1;line-height:1.55;margin-top:5px;white-space:pre-line;}
+.disc-item__go{margin-top:9px;background:#1b2230;border:1px solid #2a3550;color:#9fc4ff;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s;}
+.disc-item__go:hover{background:#222c40;color:#cfe2ff;}
+.disc-card__foot{display:flex;gap:10px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap;}
+.disc-btn{border:none;border-radius:11px;padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:filter .15s,transform .12s;}
+.disc-btn--ack{background:linear-gradient(135deg,#ff9d5c,#ff7e29);color:#1a1206;}
+.disc-btn--ack:hover{filter:brightness(1.07);transform:translateY(-1px);}
+.disc-btn--ack[disabled]{opacity:.6;cursor:wait;}
+.disc-btn--ghost{background:transparent;border:1px solid #2a3550;color:#9aa6b6;}
+.disc-btn--ghost:hover{color:#cdd6e3;border-color:#3a4560;}
+</style>
+<div class="disc-overlay" id="discrepancy-modal" role="dialog" aria-modal="true" aria-labelledby="disc-modal-title">
+    <div class="disc-card">
+        <div class="disc-card__head">
+            <div class="disc-card__ic">⚠</div>
+            <div class="disc-card__title" id="disc-modal-title">Знайдено розбіжності з розмовою</div>
+        </div>
+        <div class="disc-card__sub">ШІ-аналіз ваших дзвінків помітив, що збережені картки не повністю збігаються з тим, про що ви домовлялися. Перевірте й виправте картку — або підтвердьте, що все вірно.</div>
+        <div data-disc-list></div>
+        <div class="disc-card__foot">
+            <button type="button" class="disc-btn disc-btn--ghost" data-disc-close>Пізніше</button>
+            <button type="button" class="disc-btn disc-btn--ack" data-disc-ack>Підтверджую ці зміни</button>
+        </div>
+    </div>
+</div>
+<script>
+(function(){
+  "use strict";
+  var ep=document.getElementById('home-endpoints'); if(!ep) return;
+  var precheckUrl=ep.dataset.reportPrecheckUrl||'', ackUrl=ep.dataset.notificationAckUrl||'';
+  var modal=document.getElementById('discrepancy-modal'); if(!modal||!precheckUrl) return;
+  var listEl=modal.querySelector('[data-disc-list]');
+  var ackBtn=modal.querySelector('[data-disc-ack]');
+  var currentIds=[], shownOnce=false;
+  function cookie(name){var v=null;if(document.cookie){document.cookie.split(';').forEach(function(c){c=c.trim();if(c.substring(0,name.length+1)===name+'='){v=decodeURIComponent(c.substring(name.length+1));}});}return v;}
+  var CSRF=cookie('csrftoken');
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];});}
+  function show(){modal.classList.add('show');document.body.style.overflow='hidden';}
+  function hide(){modal.classList.remove('show');document.body.style.overflow='';}
+  function highlightCard(item){
+    if(!item.client_id) return;
+    var row=document.getElementById('client-row-'+item.client_id); if(!row) return;
+    if(row.querySelector('.disc-flag')) return;
+    var anchor=row.querySelector('.cell-primary')||row.querySelector('td')||row;
+    var flag=document.createElement('span');
+    flag.className='disc-flag';
+    flag.title='Розбіжність із розмовою: '+String(item.body||'').replace(/\s+/g,' ').slice(0,400);
+    flag.textContent='⚠';
+    anchor.appendChild(flag);
+  }
+  function render(items){
+    currentIds=items.map(function(i){return i.id;});
+    listEl.innerHTML=items.map(function(i){
+      return '<div class="disc-item">'
+        +'<div class="disc-item__title">'+esc(i.title||'Перевірте обробку')+'</div>'
+        +'<div class="disc-item__body">'+esc(i.body||'')+'</div>'
+        +(i.client_id?'<button type="button" class="disc-item__go" data-go="'+i.client_id+'">Відкрити картку клієнта</button>':'')
+        +'</div>';
+    }).join('');
+    items.forEach(highlightCard);
+  }
+  function ackAll(){
+    if(!ackUrl||!currentIds.length){hide();return;}
+    ackBtn.disabled=true;
+    Promise.all(currentIds.map(function(id){
+      return fetch(ackUrl,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF,'X-Requested-With':'XMLHttpRequest'},body:JSON.stringify({id:id})}).catch(function(){});
+    })).then(function(){
+      ackBtn.disabled=false; hide();
+      document.querySelectorAll('.disc-flag').forEach(function(f){f.remove();});
+      currentIds=[];
+    });
+  }
+  if(ackBtn) ackBtn.addEventListener('click', ackAll);
+  modal.querySelectorAll('[data-disc-close]').forEach(function(el){el.addEventListener('click', hide);});
+  modal.addEventListener('click', function(e){ if(e.target===modal) hide(); });
+  if(listEl) listEl.addEventListener('click', function(e){
+    var go=e.target.closest('[data-go]'); if(!go) return;
+    var cid=go.getAttribute('data-go'); hide();
+    var editBtn=document.querySelector('#client-row-'+cid+' .edit-client');
+    if(editBtn){ editBtn.click(); }
+    else { var row=document.getElementById('client-row-'+cid); if(row) row.scrollIntoView({behavior:'smooth',block:'center'}); }
+  });
+  function checkSoft(){
+    fetch(precheckUrl,{headers:{'X-Requested-With':'XMLHttpRequest'}}).then(function(r){return r.json();}).then(function(d){
+      if(d&&d.ok&&d.has&&d.items&&d.items.length){
+        render(d.items);
+        if(!shownOnce){ show(); shownOnce=true; }
+      }
+    }).catch(function(){});
+  }
+  setTimeout(checkSoft, 1500);
+  setInterval(checkSoft, 90000);
+})();
 </script>
 {% include "management/_call_widget.html" %}
 {% endblock %}

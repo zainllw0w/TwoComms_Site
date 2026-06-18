@@ -413,7 +413,7 @@
               {% endif %}
             </div>
             {% if c.has_recording %}
-              <audio class="cr-audio" controls preload="none" src="{{ c.recording_url }}"></audio>
+              <div class="mgmt-audio" data-src="{{ c.recording_url }}"></div>
             {% endif %}
             {% if c.analysis %}
               {% if c.analysis.summary %}<div class="cr-summary">{{ c.analysis.summary }}</div>{% endif %}

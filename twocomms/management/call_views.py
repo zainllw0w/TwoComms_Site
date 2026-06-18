@@ -23,6 +23,81 @@ from .services.telephony_call import (
 )
 from .views import user_is_management
 
+# --- Кеш записів у памʼяті процесу --------------------------------------
+# Перемотка (seek) у HTML5-плеєрі вимагає HTTP Range; браузер робить кілька
+# range-запитів на той самий файл. Щоб не тягнути mp3 з Binotel щоразу,
+# тримаємо короткий кеш повних байтів (посилання Binotel живе ~15 хв).
+import threading
+import time as _time
+
+_RECORD_CACHE: dict[int, tuple[bytes, str, float]] = {}
+_RECORD_CACHE_LOCK = threading.Lock()
+_RECORD_CACHE_TTL = 12 * 60  # 12 хв (менше за час життя посилання Binotel)
+_RECORD_CACHE_MAX_ITEMS = 8
+_RECORD_CACHE_MAX_BYTES = 80 * 1024 * 1024  # ~80 МБ сумарно
+
+
+def _record_cache_get(record_id: int):
+    now = _time.time()
+    with _RECORD_CACHE_LOCK:
+        item = _RECORD_CACHE.get(record_id)
+        if not item:
+            return None
+        data, ctype, ts = item
+        if now - ts > _RECORD_CACHE_TTL:
+            _RECORD_CACHE.pop(record_id, None)
+            return None
+        return data, ctype
+
+
+def _record_cache_put(record_id: int, data: bytes, ctype: str):
+    now = _time.time()
+    with _RECORD_CACHE_LOCK:
+        # прибираємо протерміноване
+        for rid in [k for k, (_d, _c, ts) in _RECORD_CACHE.items() if now - ts > _RECORD_CACHE_TTL]:
+            _RECORD_CACHE.pop(rid, None)
+        _RECORD_CACHE[record_id] = (data, ctype, now)
+        # обмеження за кількістю
+        while len(_RECORD_CACHE) > _RECORD_CACHE_MAX_ITEMS:
+            oldest = min(_RECORD_CACHE.items(), key=lambda kv: kv[1][2])[0]
+            _RECORD_CACHE.pop(oldest, None)
+        # обмеження за обсягом
+        total = sum(len(d) for d, _c, _ts in _RECORD_CACHE.values())
+        while total > _RECORD_CACHE_MAX_BYTES and len(_RECORD_CACHE) > 1:
+            oldest = min(_RECORD_CACHE.items(), key=lambda kv: kv[1][2])[0]
+            total -= len(_RECORD_CACHE[oldest][0])
+            _RECORD_CACHE.pop(oldest, None)
+
+
+def _parse_range(range_header: str, size: int):
+    """Парсить заголовок 'Range: bytes=start-end'. Повертає (start, end) або None."""
+    if not range_header:
+        return None
+    rng = range_header.strip()
+    if not rng.lower().startswith("bytes="):
+        return None
+    spec = rng.split("=", 1)[1].split(",")[0].strip()
+    if "-" not in spec:
+        return None
+    start_s, end_s = spec.split("-", 1)
+    try:
+        if start_s == "":
+            # suffix range: останні N байтів
+            n = int(end_s)
+            if n <= 0:
+                return None
+            start = max(0, size - n)
+            end = size - 1
+        else:
+            start = int(start_s)
+            end = int(end_s) if end_s else size - 1
+    except ValueError:
+        return None
+    if start > end or start >= size:
+        return None
+    end = min(end, size - 1)
+    return start, end
+
 
 def _json_body(request) -> dict:
     ctype = (request.content_type or "").lower()
@@ -197,7 +272,12 @@ def client_calls(request):
 @login_required(login_url="management_login")
 @require_GET
 def call_recording(request, record_id):
-    """Стрім запису розмови з перевіркою доступу (менеджер — лише свої)."""
+    """Стрім запису розмови з перевіркою доступу (менеджер — лише свої).
+
+    Підтримує HTTP Range (206 Partial Content), тож HTML5-плеєр уміє
+    перемотувати запис. Повні байти кешуються у памʼяті процесу на кілька
+    хвилин, щоб серія range-запитів не смикала Binotel щоразу.
+    """
     if not user_is_management(request.user):
         return HttpResponse(status=403)
     record = CallRecord.objects.filter(id=record_id).select_related("matched_client").first()
@@ -205,32 +285,39 @@ def call_recording(request, record_id):
         return HttpResponse("not found", status=404)
     if not _can_access_call_record(request.user, record):
         return HttpResponse(status=403)
-    try:
-        binotel = BinotelClient.from_settings()
-        upstream, _url = binotel.fetch_record_stream(record.external_call_id)
-    except BinotelNotConfigured:
-        return HttpResponse("telephony off", status=503)
-    except BinotelError as exc:
-        return HttpResponse(str(exc), status=404, content_type="text/plain; charset=utf-8")
 
-    def _stream():
-        try:
-            for chunk in upstream.iter_content(chunk_size=64 * 1024):
-                if chunk:
-                    yield chunk
-        finally:
-            upstream.close()
-
-    content_type = upstream.headers.get("Content-Type") or "audio/mpeg"
-    if "audio" not in content_type and "mpeg" not in content_type:
-        content_type = "audio/mpeg"
-    resp = StreamingHttpResponse(_stream(), content_type=content_type)
-    length = upstream.headers.get("Content-Length")
-    if length:
-        resp["Content-Length"] = length
-    resp["Cache-Control"] = "no-store"
-    if request.GET.get("download") in ("1", "true", "yes"):
-        resp["Content-Disposition"] = f'attachment; filename="call_{record_id}.mp3"'
+    cached = _record_cache_get(record.id)
+    if cached is not None:
+        data, content_type = cached
     else:
-        resp["Content-Disposition"] = "inline"
+        try:
+            binotel = BinotelClient.from_settings()
+            data, content_type = binotel.fetch_record_bytes(record.external_call_id)
+        except BinotelNotConfigured:
+            return HttpResponse("telephony off", status=503)
+        except BinotelError as exc:
+            return HttpResponse(str(exc), status=404, content_type="text/plain; charset=utf-8")
+        if data:
+            _record_cache_put(record.id, data, content_type)
+
+    size = len(data)
+    is_download = request.GET.get("download") in ("1", "true", "yes")
+    disposition = (
+        f'attachment; filename="call_{record_id}.mp3"' if is_download else "inline"
+    )
+
+    rng = _parse_range(request.META.get("HTTP_RANGE", ""), size) if size else None
+    if rng is not None:
+        start, end = rng
+        chunk = data[start:end + 1]
+        resp = HttpResponse(chunk, status=206, content_type=content_type)
+        resp["Content-Range"] = f"bytes {start}-{end}/{size}"
+        resp["Content-Length"] = str(len(chunk))
+    else:
+        resp = HttpResponse(data, content_type=content_type)
+        resp["Content-Length"] = str(size)
+
+    resp["Accept-Ranges"] = "bytes"
+    resp["Cache-Control"] = "private, max-age=600"
+    resp["Content-Disposition"] = disposition
     return resp

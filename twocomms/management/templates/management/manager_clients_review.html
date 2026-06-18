@@ -93,6 +93,41 @@ details.mcr-axes summary{cursor:pointer;color:#b9a8ff;font-size:11.5px;font-weig
 .mcr-axis__c{font-size:11px;color:#8b97a8;margin-top:3px;line-height:1.4;}
 details.mcr-phases summary{cursor:pointer;color:#b9a8ff;font-size:12px;font-weight:600;margin-top:10px;}
 .mcr-attempt{font-size:12px;color:#c4cedb;border-left:2px solid #2a3342;padding:4px 0 4px 10px;margin-top:7px;line-height:1.45;}
+
+/* === Кольорове кодування карток за підсумком === */
+.mcr-card{position:relative;overflow:hidden;transition:border-color .15s,transform .12s;}
+.mcr-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:#2a3342;}
+.mcr-card:hover{transform:translateY(-1px);}
+.mcr-card.g-conversion::before{background:linear-gradient(180deg,#34d399,#22c55e);}
+.mcr-card.g-conversion{border-color:rgba(34,197,94,.28);}
+.mcr-card.g-lost::before{background:linear-gradient(180deg,#f87171,#ef4444);}
+.mcr-card.g-pending::before{background:linear-gradient(180deg,#fcd34d,#f59e0b);}
+.mcr-card.g-neutral::before{background:linear-gradient(180deg,#94a3b8,#64748b);}
+.mcr-card.is-reengaged::before{background:linear-gradient(180deg,#7c5cff,#5b8cff);}
+.mcr-card__result.g-conversion{background:rgba(34,197,94,.16);color:#86efac;}
+.mcr-card__result.g-lost{background:rgba(239,68,68,.14);color:#fca5a5;}
+.mcr-card__result.g-pending{background:rgba(245,158,11,.14);color:#fcd34d;}
+.mcr-reengaged-badge{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;background:rgba(124,92,255,.16);color:#c4b5ff;border-radius:999px;padding:2px 9px;}
+.mcr-section-title{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:700;color:#cdd6e3;margin:26px 0 10px;}
+.mcr-section-title::after{content:"";flex:1;height:1px;background:#1e2430;}
+.mcr-section-title small{font-weight:500;color:#7e8a9c;font-size:11.5px;}
+
+/* Блок тестової партії */
+.mcr-testbatch{margin-top:11px;display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,rgba(34,197,94,.08),rgba(34,197,94,.02));border:1px solid rgba(34,197,94,.25);border-radius:11px;padding:10px 13px;}
+.mcr-testbatch__ic{width:30px;height:30px;border-radius:8px;background:rgba(34,197,94,.16);color:#86efac;display:grid;place-items:center;flex-shrink:0;font-size:15px;}
+.mcr-testbatch__t{font-size:12.5px;color:#cdeede;font-weight:700;}
+.mcr-testbatch__s{font-size:11.5px;color:#8b97a8;margin-top:1px;}
+
+/* Міні-таймлайн фаз/спроб у картці */
+.mcr-timeline{display:flex;align-items:flex-start;gap:0;margin-top:11px;flex-wrap:wrap;}
+.mcr-tl-node{display:flex;flex-direction:column;align-items:center;position:relative;min-width:62px;flex:0 0 auto;}
+.mcr-tl-node__dot{width:13px;height:13px;border-radius:50%;background:#2a3342;border:2px solid #11151f;box-shadow:0 0 0 2px #2a3342;z-index:2;}
+.mcr-tl-node.is-current .mcr-tl-node__dot{background:#ff7e29;box-shadow:0 0 0 2px #ff7e29,0 0 10px rgba(255,126,41,.5);}
+.mcr-tl-node.is-conversion .mcr-tl-node__dot{background:#22c55e;box-shadow:0 0 0 2px #22c55e;}
+.mcr-tl-node__line{position:absolute;top:6px;left:50%;width:100%;height:2px;background:#2a3342;z-index:1;}
+.mcr-tl-node:last-child .mcr-tl-node__line{display:none;}
+.mcr-tl-node__lbl{font-size:10px;color:#8b97a8;margin-top:6px;text-align:center;line-height:1.25;}
+.mcr-tl-node__lbl b{display:block;color:#cdd6e3;font-size:10.5px;}
 </style>
 {% endblock %}
 
@@ -174,71 +209,21 @@ details.mcr-phases summary{cursor:pointer;color:#b9a8ff;font-size:12px;font-weig
   {# client cards #}
   <div class="mcr-list">
     {% for c in review.clients %}
-    <div class="mcr-card">
-      <div class="mcr-card__top">
-        <div>
-          <div class="mcr-card__name">{{ c.shop }}{% if c.phase_number > 1 %}<span class="mcr-phase-chip">фаза {{ c.phase_number }}</span>{% endif %}</div>
-          <div class="mcr-card__phone">{{ c.phone }}{% if c.full_name %} · {{ c.full_name }}{% endif %}{% if c.role %} · {{ c.role }}{% endif %}</div>
-        </div>
-        <span class="mcr-card__result">{{ c.result }}</span>
-        <span class="mcr-card__pts">+{{ c.points }}</span>
-      </div>
-      <div class="mcr-card__meta">Оброблено: {{ c.created }}{% if c.source %} · Джерело: {{ c.source }}{% endif %}{% if c.next_call %} · Наступний дзвінок: {{ c.next_call }}{% endif %}</div>
-
-      {% if c.manager_note %}
-      <div class="mcr-block"><div class="mcr-block__t">Нотатка менеджера</div><div class="mcr-note">{{ c.manager_note }}</div></div>
-      {% endif %}
-      {% if c.reason_note or c.details %}
-      <div class="mcr-block"><div class="mcr-block__t">Деталі результату</div><div class="mcr-note">{{ c.reason_note }}{% if c.reason_note and c.details %}
-{% endif %}{{ c.details }}</div></div>
-      {% endif %}
-      {% if c.evidence %}
-      <div class="mcr-block"><div class="mcr-block__t">Докази</div><div class="mcr-evidence">{% for e in c.evidence %}<span>{{ e }}</span>{% endfor %}</div></div>
-      {% endif %}
-
-      {% if c.calls %}
-      <div class="mcr-block">
-        <div class="mcr-block__t">Записи розмов</div>
-        <div class="mcr-calls">
-          {% for call in c.calls %}
-          <div class="mcr-call">
-            <div class="mcr-call__top">
-              <span>{{ call.started_at|default:"—" }}</span>
-              {% if call.ai %}<span class="mcr-call__score {{ call.ai.verdict }}">{{ call.ai.overall_score|floatformat:0 }}/100</span><span>{{ call.ai.verdict_label }}</span>
-              {% elif call.ai_status == 'pending' or call.ai_status == 'running' %}<span class="mcr-call__ai-pending">ШІ аналізує…</span>{% endif %}
-              <span class="mcr-call__dur">{{ call.duration }}с</span>
-            </div>
-            {% if call.has_recording %}<audio controls preload="none" src="{{ call.recording_url }}"></audio>{% endif %}
-            {% if call.ai and call.ai.summary %}<div class="mcr-call__sum">{{ call.ai.summary }}</div>{% endif %}
-            {% if call.ai and call.ai.axes %}
-            <details class="mcr-axes"><summary>Оцінка ШІ по критеріях</summary>
-              {% for ax in call.ai.axes %}
-              <div class="mcr-axis"><div class="mcr-axis__top"><span>{{ ax.title|default:ax.key }}</span><b>{{ ax.score|floatformat:0 }}</b></div>
-                <div class="mcr-axis__bar"><span style="width:{{ ax.score|floatformat:0 }}%;"></span></div>
-                {% if ax.comment %}<div class="mcr-axis__c">{{ ax.comment }}</div>{% endif %}
-              </div>
-              {% endfor %}
-            </details>
-            {% endif %}
-            {% if call.ai and call.ai.discrepancies %}<div class="mcr-call__disc">⚠ Розбіжностей з даними менеджера: {{ call.ai.discrepancies|length }}</div>{% endif %}
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-      {% endif %}
-
-      {% if c.attempts and c.attempts|length > 1 %}
-      <details class="mcr-phases">
-        <summary>Історія обробок ({{ c.attempts|length }})</summary>
-        {% for a in c.attempts %}
-        <div class="mcr-attempt"><b>{{ a.result }}</b> · {{ a.created }}{% if a.next_call %} · далі {{ a.next_call }}{% endif %}{% if a.reason_note %}<br>{{ a.reason_note }}{% endif %}{% if a.details %}<br>{{ a.details }}{% endif %}</div>
-        {% endfor %}
-      </details>
-      {% endif %}
-    </div>
+      {% include "management/_mcr_card.html" %}
     {% empty %}
-    <div class="mcr-empty">За цей період менеджер не обробляв клієнтів.</div>
+      {% if not review.reengaged %}
+      <div class="mcr-empty">За цей період менеджер не обробляв клієнтів.</div>
+      {% endif %}
     {% endfor %}
   </div>
+
+  {% if review.reengaged %}
+  <div class="mcr-section-title">↻ Повторна активність за період <small>дзвінки та контакти з клієнтами, доданими раніше</small></div>
+  <div class="mcr-list">
+    {% for c in review.reengaged %}
+      {% include "management/_mcr_card.html" %}
+    {% endfor %}
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

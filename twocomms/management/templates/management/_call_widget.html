@@ -264,6 +264,7 @@
         var calls = d.calls || [];
         if(!calls.length){ box.innerHTML = '<div class="mgmt-calls-empty">Записів розмов поки немає. Зателефонуйте клієнту — запис з\'явиться тут.</div>'; return; }
         box.innerHTML = calls.map(function(c){ return renderCallRow(c, d.is_admin); }).join('');
+        if(window.MgmtAudio) window.MgmtAudio.scan(box);
       })
       .catch(function(){ section.hidden = true; });
   }
@@ -280,7 +281,7 @@
     var aiInfo = '';
     if(isAdmin && c.ai){ aiInfo = '<div class="mgmt-call-live__sub" style="margin-top:2px;">Оцінка ШІ: <b>'+Math.round(c.ai.overall_score)+'</b>/100 · '+esc2(c.ai.verdict)+(c.ai.summary?(' — '+esc2(c.ai.summary).slice(0,160)):'')+'</div>'; }
     var player = c.has_recording
-      ? '<audio controls preload="none" src="'+esc2(c.recording_url)+'"></audio>'
+      ? '<div class="mgmt-audio" data-src="'+esc2(c.recording_url)+'"></div>'
       : '<div class="mgmt-calls-empty" style="padding:0;">Запис недоступний для цього дзвінка.</div>';
     return '<div class="mgmt-call-row">'
       +'<div class="mgmt-call-row__top">'+dir+'<span>'+esc2(c.started_at||'—')+'</span>'

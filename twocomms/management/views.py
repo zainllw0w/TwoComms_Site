@@ -445,8 +445,10 @@ def _build_phase_family_state_map(clients, today, *, now_dt=None) -> dict[int, d
             phase_context = latest_attempt.context if latest_attempt else {}
             phase_items.append({
                 "phase": member.phase_number or 1,
+                "client_id": member.id,
                 "created_at": _home_dt_label(member.created_at),
                 "result": member.get_call_result_display(),
+                "result_code": member.call_result,
                 "summary": (summary or member.get_call_result_display() or "").strip(),
                 "phase_comment": str(phase_context.get("phase_comment") or "").strip(),
                 "next_call": _home_dt_label(member.next_call_at) if member.next_call_at else "—",
@@ -2725,7 +2727,16 @@ def report_precheck(request):
         user=request.user, requires_ack=True, acknowledged_at__isnull=True,
         created_at__gte=start, created_at__lt=end,
     ).order_by('-created_at')[:20]
-    items = [{'id': n.id, 'title': n.title, 'body': n.body} for n in qs]
+    items = [
+        {
+            'id': n.id,
+            'title': n.title,
+            'body': n.body,
+            'client_id': n.related_client_id or '',
+            'action_url': n.action_url or '',
+        }
+        for n in qs
+    ]
     return JsonResponse({'ok': True, 'has': bool(items), 'items': items})
 
 

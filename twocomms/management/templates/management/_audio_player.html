@@ -1,0 +1,117 @@
+{# Кастомний аудіоплеєр записів розмов: перемотка + швидкість.
+   Прогресивно покращує будь-який <div class="mgmt-audio" data-src="URL"></div>.
+   Працює і для серверного рендеру, і для JS-вставлених елементів —
+   після динамічної вставки викликати window.MgmtAudio.scan(). #}
+<style>
+.mgmt-audio{--mga-accent:#ff7e29;display:flex;align-items:center;gap:10px;background:#0e131c;border:1px solid #23304a;border-radius:12px;padding:8px 11px;width:100%;box-sizing:border-box;font-family:inherit;}
+.mgmt-audio.is-error{border-color:rgba(239,68,68,.4);}
+.mgmt-audio__play{flex-shrink:0;width:34px;height:34px;border-radius:50%;border:none;cursor:pointer;display:grid;place-items:center;background:linear-gradient(135deg,#ff9d5c,var(--mga-accent));color:#1a1206;transition:transform .12s ease,filter .15s;}
+.mgmt-audio__play:hover{filter:brightness(1.08);transform:scale(1.05);}
+.mgmt-audio__play:active{transform:scale(.96);}
+.mgmt-audio__play svg{width:15px;height:15px;}
+.mgmt-audio__play[disabled]{opacity:.5;cursor:wait;}
+.mgmt-audio__body{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;}
+.mgmt-audio__bar{position:relative;height:6px;border-radius:999px;background:#1e2940;cursor:pointer;overflow:hidden;}
+.mgmt-audio__buffer{position:absolute;inset:0 auto 0 0;height:100%;width:0;background:rgba(255,255,255,.08);}
+.mgmt-audio__fill{position:absolute;inset:0 auto 0 0;height:100%;width:0;background:linear-gradient(90deg,#ff9d5c,var(--mga-accent));border-radius:999px;}
+.mgmt-audio__bar:hover .mgmt-audio__fill{filter:brightness(1.1);}
+.mgmt-audio__knob{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.5);transform:translate(-50%,-50%);left:0;opacity:0;transition:opacity .15s;pointer-events:none;}
+.mgmt-audio__bar:hover .mgmt-audio__knob,.mgmt-audio.is-playing .mgmt-audio__knob{opacity:1;}
+.mgmt-audio__meta{display:flex;align-items:center;gap:8px;font-size:11px;color:#8b97a8;font-variant-numeric:tabular-nums;}
+.mgmt-audio__time{white-space:nowrap;}
+.mgmt-audio__sep{opacity:.5;}
+.mgmt-audio__spacer{flex:1;}
+.mgmt-audio__rate{flex-shrink:0;background:#1b2230;border:1px solid #2a3550;color:#cdd6e3;border-radius:7px;font-size:11px;font-weight:700;padding:2px 8px;cursor:pointer;font-family:inherit;transition:background .15s,color .15s;}
+.mgmt-audio__rate:hover{background:#222c40;color:#fff;}
+.mgmt-audio__dl{flex-shrink:0;color:#8b97a8;display:grid;place-items:center;width:24px;height:24px;border-radius:6px;text-decoration:none;transition:color .15s,background .15s;}
+.mgmt-audio__dl:hover{color:#fff;background:#1b2230;}
+.mgmt-audio__dl svg{width:14px;height:14px;}
+.mgmt-audio__err{font-size:11px;color:#fca5a5;}
+</style>
+<script>
+(function(){
+  "use strict";
+  if(window.MgmtAudio) return;
+  var PLAY='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+  var PAUSE='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>';
+  var DL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>';
+  var RATES=[1,1.25,1.5,2];
+  function fmt(t){ t=Math.max(0,Math.floor(t||0)); var m=Math.floor(t/60), s=t%60; return m+':'+(s<10?'0':'')+s; }
+
+  function build(el){
+    if(el.dataset.ready) return;
+    el.dataset.ready='1';
+    var src=el.dataset.src||'';
+    if(!src){ el.classList.add('is-error'); el.innerHTML='<span class="mgmt-audio__err">Запис недоступний.</span>'; return; }
+    el.innerHTML=
+      '<button type="button" class="mgmt-audio__play" aria-label="Відтворити">'+PLAY+'</button>'
+      +'<div class="mgmt-audio__body">'
+        +'<div class="mgmt-audio__bar"><div class="mgmt-audio__buffer"></div><div class="mgmt-audio__fill"></div><div class="mgmt-audio__knob"></div></div>'
+        +'<div class="mgmt-audio__meta">'
+          +'<span class="mgmt-audio__time"><span class="mgmt-audio__cur">0:00</span><span class="mgmt-audio__sep"> / </span><span class="mgmt-audio__dur">--:--</span></span>'
+          +'<span class="mgmt-audio__spacer"></span>'
+          +'<button type="button" class="mgmt-audio__rate" aria-label="Швидкість">1×</button>'
+          +'<a class="mgmt-audio__dl" title="Завантажити" href="'+src+(src.indexOf('?')>=0?'&':'?')+'download=1">'+DL+'</a>'
+        +'</div>'
+      +'</div>';
+    var audio=new Audio(); audio.preload='none'; audio.src=src;
+    var playBtn=el.querySelector('.mgmt-audio__play');
+    var bar=el.querySelector('.mgmt-audio__bar');
+    var fill=el.querySelector('.mgmt-audio__fill');
+    var buf=el.querySelector('.mgmt-audio__buffer');
+    var knob=el.querySelector('.mgmt-audio__knob');
+    var curEl=el.querySelector('.mgmt-audio__cur');
+    var durEl=el.querySelector('.mgmt-audio__dur');
+    var rateBtn=el.querySelector('.mgmt-audio__rate');
+    var rateIdx=0, seeking=false, loaded=false;
+
+    function render(){
+      var d=audio.duration; if(!isFinite(d)||d<=0){ return; }
+      var pct=Math.min(100,Math.max(0,(audio.currentTime/d)*100));
+      fill.style.width=pct+'%'; knob.style.left=pct+'%';
+      curEl.textContent=fmt(audio.currentTime);
+    }
+    audio.addEventListener('loadedmetadata',function(){ loaded=true; if(isFinite(audio.duration)) durEl.textContent=fmt(audio.duration); render(); });
+    audio.addEventListener('timeupdate',function(){ if(!seeking) render(); });
+    audio.addEventListener('progress',function(){ try{ if(audio.buffered.length&&audio.duration){ buf.style.width=Math.min(100,(audio.buffered.end(audio.buffered.length-1)/audio.duration)*100)+'%'; } }catch(e){} });
+    audio.addEventListener('play',function(){ el.classList.add('is-playing'); playBtn.innerHTML=PAUSE; pauseOthers(audio); });
+    audio.addEventListener('pause',function(){ el.classList.remove('is-playing'); playBtn.innerHTML=PLAY; });
+    audio.addEventListener('ended',function(){ el.classList.remove('is-playing'); playBtn.innerHTML=PLAY; fill.style.width='0%'; knob.style.left='0%'; curEl.textContent='0:00'; });
+    audio.addEventListener('error',function(){ playBtn.disabled=false; el.classList.add('is-error'); durEl.textContent='--:--'; });
+
+    playBtn.addEventListener('click',function(){
+      if(audio.paused){ playBtn.disabled=true; var p=audio.play(); if(p&&p.then){ p.then(function(){playBtn.disabled=false;}).catch(function(){playBtn.disabled=false;}); } else { playBtn.disabled=false; } }
+      else { audio.pause(); }
+    });
+
+    function seekToClientX(clientX){
+      var d=audio.duration; if(!isFinite(d)||d<=0) return;
+      var rect=bar.getBoundingClientRect();
+      var ratio=Math.min(1,Math.max(0,(clientX-rect.left)/rect.width));
+      audio.currentTime=ratio*d;
+      fill.style.width=(ratio*100)+'%'; knob.style.left=(ratio*100)+'%'; curEl.textContent=fmt(audio.currentTime);
+    }
+    bar.addEventListener('pointerdown',function(e){ if(!loaded){ /* підвантажимо метадані */ } seeking=true; bar.setPointerCapture&&bar.setPointerCapture(e.pointerId); seekToClientX(e.clientX); });
+    bar.addEventListener('pointermove',function(e){ if(seeking) seekToClientX(e.clientX); });
+    bar.addEventListener('pointerup',function(e){ if(seeking){ seekToClientX(e.clientX); seeking=false; } });
+    bar.addEventListener('pointercancel',function(){ seeking=false; });
+
+    rateBtn.addEventListener('click',function(){ rateIdx=(rateIdx+1)%RATES.length; audio.playbackRate=RATES[rateIdx]; rateBtn.textContent=RATES[rateIdx]+'×'; });
+
+    el.__mgaAudio=audio;
+  }
+
+  function pauseOthers(current){
+    document.querySelectorAll('.mgmt-audio[data-ready]').forEach(function(el){
+      if(el.__mgaAudio && el.__mgaAudio!==current && !el.__mgaAudio.paused){ el.__mgaAudio.pause(); }
+    });
+  }
+
+  function scan(root){
+    (root||document).querySelectorAll('.mgmt-audio:not([data-ready])').forEach(build);
+  }
+  window.MgmtAudio={scan:scan};
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded',function(){scan();}); }
+  else { scan(); }
+})();
+</script>
