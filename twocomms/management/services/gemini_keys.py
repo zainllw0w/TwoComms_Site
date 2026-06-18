@@ -115,26 +115,28 @@ def next_midnight_pt(now: datetime.datetime | None = None) -> datetime.datetime:
 def parse_429(body: str) -> tuple[str, int]:
     """Класифікує 429 → (scope, seconds).
 
-    scope: 'topup' (платний без коштів), 'minute' (RPM), 'day' (RPD/grounding).
-    Для 'day' seconds ігнорується (кулдаун до next_midnight_pt).
+    Пріоритет — RetryInfo.retryDelay: Google прямо вказує, коли повторити (навіть
+    для PerDay-квоти free-tier це часто короткі ~48с rolling-window, а НЕ до
+    півночі). Тільки за відсутності retryDelay і явного PerDay — кулдаун до
+    next_midnight_pt. 'prepayment' → topup (не відновлюється сам).
+
+    scope: 'topup' | 'minute' (now+seconds) | 'day' (seconds>0 → now+seconds,
+    seconds==0 → до півночі PT).
     """
     text = body or ""
     low = text.lower()
     compact = low.replace("_", "").replace(" ", "")
     if "prepayment" in low or "creditsaredepleted" in compact or "billingaccount" in compact:
         return ("topup", TOPUP_COOLDOWN_SECONDS)
-    if "perminute" in compact:
-        m = _RETRY_RE.search(text)
-        return ("minute", int(float(m.group(1))) + 1 if m else DEFAULT_MINUTE_COOLDOWN)
-    if "perday" in compact:
-        return ("day", 0)
-    # Типове free-tier повідомлення без явного quotaId — денна квота.
-    if "planandbilling" in compact or "freetier" in compact or "currentquota" in compact:
-        return ("day", 0)
     m = _RETRY_RE.search(text)
     if m:
-        return ("minute", int(float(m.group(1))) + 1)
-    return ("day", 0)
+        secs = int(float(m.group(1))) + 2  # +2с запас
+        return ("day" if secs > 3600 else "minute", secs)
+    if "perday" in compact:
+        return ("day", 0)  # без retryDelay → до півночі PT
+    if "perminute" in compact:
+        return ("minute", DEFAULT_MINUTE_COOLDOWN)
+    return ("minute", DEFAULT_MINUTE_COOLDOWN)  # безпечний дефолт (не на весь день)
 
 
 # ---------------------------------------------------------------------------
@@ -177,7 +179,7 @@ def mark_429(key_name: str, scope: str, seconds: int,
     now = now or timezone.now()
     st = GeminiKeyState.get(key_name)
     _roll_day(st, now)
-    if scope == "day":
+    if scope == "day" and not seconds:
         st.cooldown_until = next_midnight_pt(now)
     else:
         st.cooldown_until = now + datetime.timedelta(seconds=max(1, int(seconds)))

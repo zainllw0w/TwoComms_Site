@@ -50,18 +50,36 @@ class Parse429Tests(SimpleTestCase):
         self.assertEqual(scope, "topup")
         self.assertGreater(secs, 0)
 
-    def test_per_minute_uses_retry_delay(self):
+    def test_retry_delay_wins_over_perday(self):
+        """Реальне free-tier тіло: quotaId PerDay + retryDelay 48s → беремо retryDelay
+        (короткий кулдаун), а НЕ до півночі."""
         from management.services import gemini_keys as gk
-        body = '{"error":{"message":"quota","details":[{"@type":"...QuotaFailure","violations":[{"quotaId":"GenerateRequestsPerMinutePerProjectPerModel"}]},{"@type":"...RetryInfo","retryDelay":"37s"}]}}'
+        body = ('{"error":{"code":429,"message":"You exceeded your current quota... limit: 20",'
+                '"details":[{"@type":"...QuotaFailure","violations":[{"quotaId":'
+                '"GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]},'
+                '{"@type":"...RetryInfo","retryDelay":"48s"}]}}')
         scope, secs = gk.parse_429(body)
         self.assertEqual(scope, "minute")
-        self.assertGreaterEqual(secs, 37)
+        self.assertGreaterEqual(secs, 48)
+        self.assertLessEqual(secs, 60)
 
-    def test_per_day_default(self):
+    def test_long_retry_delay_is_day(self):
         from management.services import gemini_keys as gk
-        body = '{"error":{"message":"You exceeded your current quota, please check your plan and billing details."}}'
+        scope, secs = gk.parse_429('{"error":{"details":[{"@type":"RetryInfo","retryDelay":"40000s"}]}}')
+        self.assertEqual(scope, "day")
+        self.assertGreater(secs, 3600)
+
+    def test_perday_without_retry_delay_is_midnight(self):
+        from management.services import gemini_keys as gk
+        body = '{"error":{"message":"quota","details":[{"quotaId":"GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]}}'
         scope, secs = gk.parse_429(body)
         self.assertEqual(scope, "day")
+        self.assertEqual(secs, 0)
+
+    def test_ambiguous_defaults_to_minute_not_day(self):
+        from management.services import gemini_keys as gk
+        scope, secs = gk.parse_429('{"error":{"message":"check your plan and billing details"}}')
+        self.assertEqual(scope, "minute")
 
 
 class MarkAndAvailabilityTests(TestCase):
