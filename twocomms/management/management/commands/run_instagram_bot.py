@@ -39,6 +39,15 @@ def _daemon_alive() -> bool:
     return bool(hb and (time.time() - float(hb)) < HB_ALIVE_WINDOW)
 
 
+def _restart_sentinel_mtime() -> float:
+    """mtime файлу tmp/restart.txt — маркер деплою (його torkає кожен git pull).
+    Демон стежить за ним і перезавантажується, коли код оновлено."""
+    try:
+        return os.path.getmtime(os.path.join("tmp", "restart.txt"))
+    except OSError:
+        return 0.0
+
+
 def _conv_refresher(stop_event: threading.Event):
     """Фоновий потік: рідко оновлює список тредів (важкий ~25 c виклик),
     тільки коли увімкнено резервний поллінг."""
@@ -120,6 +129,11 @@ class Command(BaseCommand):
             pass
         bot.log("success", "daemon_start", f"Демон онлайн (pid {os.getpid()}).")
 
+        # Sentinel: запам'ятовуємо mtime tmp/restart.txt (його torkає кожен деплой).
+        # Якщо файл змінився — демон штатно виходить, watchdog (--ensure) підніме
+        # процес із НОВИМ кодом. Без цього --forever крутив би старий код у пам'яті.
+        start_sentinel = _restart_sentinel_mtime()
+
         # Фоновий потік для важкого /conversations (поза гарячим циклом).
         stop_event = threading.Event()
         refresher = threading.Thread(target=_conv_refresher, args=(stop_event,), daemon=True)
@@ -131,6 +145,10 @@ class Command(BaseCommand):
         try:
             while True:
                 close_old_connections()  # лікує "MySQL server has gone away"
+                if _restart_sentinel_mtime() != start_sentinel:
+                    bot.log("info", "daemon_reload",
+                            "restart.txt змінено — демон перезавантажується для нового коду")
+                    break
                 enabled = False
                 try:
                     s = InstagramBotSettings.load()
@@ -156,3 +174,9 @@ class Command(BaseCommand):
                 time.sleep(1.5 if enabled else 5)
         finally:
             stop_event.set()
+            # Звільняємо heartbeat одразу, щоб watchdog підняв новий демон без
+            # очікування TTL (інакше до 45 c простою після деплою).
+            try:
+                cache.delete(HB_KEY)
+            except Exception:
+                pass
