@@ -400,7 +400,7 @@
             <div class="cr-row__head">
               <span class="cr-dir cr-dir--{{ c.direction }}">{% if c.direction == 'inbound' %}↙{% else %}↗{% endif %}</span>
               <div class="cr-row__id">
-                <div class="cr-client">{% if c.client_id %}<a href="{% url 'management_home' %}?client={{ c.client_id }}">{{ c.client_name }}</a>{% else %}{{ c.client_name }}{% endif %}</div>
+                <div class="cr-client">{{ c.client_name }}</div>
                 <div class="cr-meta">{{ c.started_at }} · {{ c.duration }}с</div>
               </div>
               {% if c.analysis %}

@@ -428,3 +428,78 @@ class AdminCallReviewTest(TestCase):
         )
         out = cr_svc.build_admin_call_review(self.manager)
         self.assertEqual(out["summary"]["pending"], 1)
+
+
+from datetime import timedelta as _td
+from management.services import telephony as _tel
+from management.services import snapshots as _snap
+
+
+class VerifiedCommunicationSignalTest(TestCase):
+    def setUp(self):
+        self.manager = User.objects.create_user(username="mgr7", password="x")
+        self.manager.userprofile.is_manager = True
+        self.manager.userprofile.save()
+        self.today = _tz.localdate()
+
+    def _call(self, dur=60, score=None, days_ago=0):
+        rec = CallRecord.objects.create(
+            provider="binotel", external_call_id=f"vc{CallRecord.objects.count()+1}",
+            manager=self.manager, duration_seconds=dur,
+        )
+        if days_ago:
+            CallRecord.objects.filter(id=rec.id).update(
+                created_at=_tz.now() - _td(days=days_ago)
+            )
+        if score is not None:
+            CallAIAnalysis.objects.create(
+                call_record=rec, status=CallAIAnalysis.Status.DONE, overall_score=score,
+            )
+        return rec
+
+    def test_no_calls_returns_none(self):
+        sig = _tel.build_call_quality_signal(self.manager, self.today)
+        self.assertFalse(sig["has_calls"])
+        self.assertIsNone(sig["vc_real"])
+
+    def test_short_calls_not_meaningful(self):
+        self._call(dur=10)
+        sig = _tel.build_call_quality_signal(self.manager, self.today)
+        self.assertFalse(sig["has_calls"])
+
+    def test_calls_with_qa(self):
+        self._call(dur=60, score=80)
+        self._call(dur=90, score=60)
+        sig = _tel.build_call_quality_signal(self.manager, self.today, target_meaningful=10)
+        self.assertTrue(sig["has_calls"])
+        self.assertEqual(sig["meaningful_calls"], 2)
+        self.assertEqual(sig["analyzed_count"], 2)
+        # qa=0.70, presence=0.2 → vc=0.6*0.7+0.4*0.2=0.5
+        self.assertAlmostEqual(sig["qa_quality"], 0.70, places=2)
+        self.assertAlmostEqual(sig["vc_real"], 0.5, places=3)
+
+    def test_calls_without_qa_uses_presence(self):
+        self._call(dur=60)  # no analysis
+        sig = _tel.build_call_quality_signal(self.manager, self.today, target_meaningful=4)
+        self.assertTrue(sig["has_calls"])
+        self.assertIsNone(sig["qa_quality"])
+        self.assertAlmostEqual(sig["vc_real"], 0.25, places=3)  # presence 1/4
+
+    def test_window_excludes_old_calls(self):
+        self._call(dur=60, score=80, days_ago=60)  # за межами 30-дн вікна
+        sig = _tel.build_call_quality_signal(self.manager, self.today, window_days=30)
+        self.assertFalse(sig["has_calls"])
+
+    def test_vc_axis_uses_real_signal_when_present(self):
+        readiness = {"verified_communication": "shadow"}
+        summary = {"success_rate_pct": 0}  # легасі дав би 0*0.7+0.25=0.25
+        cq = {"vc_real": 0.9}
+        axis = _snap._compute_verified_communication_axis(summary, readiness, cq)
+        # 0.9*0.7+0.25 = 0.88
+        self.assertAlmostEqual(float(axis), 0.88, places=2)
+
+    def test_vc_axis_falls_back_to_legacy(self):
+        readiness = {"verified_communication": "shadow"}
+        summary = {"success_rate_pct": 50}  # 0.5*0.7+0.25=0.6
+        axis = _snap._compute_verified_communication_axis(summary, readiness, None)
+        self.assertAlmostEqual(float(axis), 0.60, places=2)

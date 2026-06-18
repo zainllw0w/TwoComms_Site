@@ -1,10 +1,72 @@
 from __future__ import annotations
 
+from datetime import timedelta
+
+from django.db.models import Avg, Count, Q
 from django.utils import timezone
 
-from management.models import CallRecord, TelephonyHealthSnapshot
+from management.models import CallAIAnalysis, CallRecord, TelephonyHealthSnapshot
 from management.services.config_versions import get_management_config
 from management.services.ui_labels import translate_telephony_status
+
+
+MEANINGFUL_CALL_SECONDS = 30
+
+
+def build_call_quality_signal(
+    owner,
+    as_of_date,
+    *,
+    window_days: int = 30,
+    target_meaningful: int = 10,
+) -> dict:
+    """Date-scoped сигнал якості дзвінків менеджера для осі verified_communication.
+
+    Вікно [as_of_date-(window-1); as_of_date] по created_at (надійніше за
+    started_at, що буває null). Повертає vc_real у [0..1] АБО None, якщо у вікні
+    немає значущих дзвінків — тоді вісь падає на легасі success_rate-проксі
+    (нуль регресу для тих, хто ще не дзвонить).
+
+    vc_real = 0.6*qa_quality + 0.4*call_presence, де
+      qa_quality   = середній overall_score завершених ШІ-аналізів / 100,
+      call_presence = min(1, meaningful_calls / target).
+    Якщо аналізів ще немає — vc_real = call_presence (мʼяко, поки черга догоняє).
+    """
+    if not owner or not as_of_date:
+        return {"has_calls": False, "meaningful_calls": 0, "analyzed_count": 0,
+                "qa_quality": None, "call_presence": 0.0, "vc_real": None}
+    start = as_of_date - timedelta(days=max(0, window_days - 1))
+    base_qs = CallRecord.objects.filter(
+        manager=owner, created_at__date__gte=start, created_at__date__lte=as_of_date
+    )
+    meaningful = base_qs.filter(duration_seconds__gte=MEANINGFUL_CALL_SECONDS).count()
+    if meaningful <= 0:
+        return {"has_calls": False, "meaningful_calls": 0, "analyzed_count": 0,
+                "qa_quality": None, "call_presence": 0.0, "vc_real": None}
+
+    agg = CallAIAnalysis.objects.filter(
+        status=CallAIAnalysis.Status.DONE,
+        call_record__manager=owner,
+        call_record__created_at__date__gte=start,
+        call_record__created_at__date__lte=as_of_date,
+    ).aggregate(avg=Avg("overall_score"), n=Count("id"))
+    analyzed_count = int(agg["n"] or 0)
+    qa_quality = (float(agg["avg"]) / 100.0) if agg["avg"] is not None else None
+
+    target = max(1, int(target_meaningful or 10))
+    call_presence = min(1.0, meaningful / float(target))
+    if qa_quality is not None:
+        vc_real = round(0.6 * qa_quality + 0.4 * call_presence, 4)
+    else:
+        vc_real = round(call_presence, 4)
+    return {
+        "has_calls": True,
+        "meaningful_calls": meaningful,
+        "analyzed_count": analyzed_count,
+        "qa_quality": round(qa_quality, 4) if qa_quality is not None else None,
+        "call_presence": round(call_presence, 4),
+        "vc_real": vc_real,
+    }
 
 
 def _resolve_freshness_seconds(latest: TelephonyHealthSnapshot | None) -> int:

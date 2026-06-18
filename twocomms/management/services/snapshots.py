@@ -26,7 +26,7 @@ from management.services.score import (
     compute_mosaic,
     compute_score_confidence,
 )
-from management.services.telephony import build_telephony_health_summary
+from management.services.telephony import build_call_quality_signal, build_telephony_health_summary
 from management.services.trust import (
     classify_confidence_band,
     compute_dampener,
@@ -143,11 +143,16 @@ def _compute_data_quality_axis(summary: dict[str, Any]) -> Decimal:
     )
 
 
-def _compute_verified_communication_axis(summary: dict[str, Any], readiness: dict[str, str]) -> Decimal:
-    success_rate = Decimal(str((summary.get("success_rate_pct") or 0) / 100))
+def _compute_verified_communication_axis(summary: dict[str, Any], readiness: dict[str, str], call_quality: dict | None = None) -> Decimal:
     readiness_factor = _readiness_weight(readiness.get("verified_communication", ComponentReadiness.Status.SHADOW))
     floor = Decimal("0.25") if readiness_factor < Decimal("1.0") else Decimal("0.0")
-    return _clamp01((success_rate * readiness_factor) + floor)
+    # Якщо є реальний сигнал зі звінків+ШІ-QA — використовуємо його; інакше
+    # легасі success_rate-проксі (нуль регресу для менеджерів без дзвінків).
+    if call_quality and call_quality.get("vc_real") is not None:
+        base_signal = _to_decimal(call_quality["vc_real"])
+    else:
+        base_signal = Decimal(str((summary.get("success_rate_pct") or 0) / 100))
+    return _clamp01((base_signal * readiness_factor) + floor)
 
 
 def _compute_confidence_inputs(
@@ -297,13 +302,20 @@ def build_shadow_score_payload(*, owner, snapshot_date: date) -> dict[str, Any]:
     revenue = _to_decimal((summary.get("invoices") or {}).get("amount") or "0")
     day_status = _manager_day_status(owner, snapshot_date)
 
+    telephony_cfg = (versioned.get("telephony_config") or {}) if isinstance(versioned, dict) else {}
+    vc_window = int(telephony_cfg.get("vc_window_days", 30) or 30)
+    vc_target = int(telephony_cfg.get("vc_target_meaningful_calls", 10) or 10)
+    call_quality = build_call_quality_signal(
+        owner, snapshot_date, window_days=vc_window, target_meaningful=vc_target
+    )
+
     axes = {
         "result": compute_ewr(orders=orders, contacts_processed=processed, revenue=revenue),
         "source_fairness": _compute_source_fairness(summary, sources),
         "process": _compute_process_axis(summary),
         "follow_up": _compute_follow_up_axis(summary),
         "data_quality": _compute_data_quality_axis(summary),
-        "verified_communication": _compute_verified_communication_axis(summary, readiness),
+        "verified_communication": _compute_verified_communication_axis(summary, readiness, call_quality),
     }
     base_mosaic = compute_mosaic(axes=axes, readiness=readiness)
 
@@ -508,6 +520,8 @@ def build_shadow_score_payload(*, owner, snapshot_date: date) -> dict[str, Any]:
                 "tenure_days": _manager_tenure_days(owner, snapshot_date),
                 "onboarding_floor": str(onboarding_floor),
                 "telephony_suppressed": not bool(telephony_health.get("punitively_available")),
+                "vc_source": "calls" if (call_quality and call_quality.get("vc_real") is not None) else "legacy_proxy",
+                "call_quality": call_quality,
             },
         },
     }
