@@ -16,10 +16,13 @@ from management.models import (
     ManagementLead,
 )
 from management.services import lead_checker
+from management.services import gemini_keys
 
 logger = logging.getLogger("management.checker")
 
 ACTIVE_STATUSES = {LeadCheckJob.Status.RUNNING, LeadCheckJob.Status.PAUSED}
+
+CHECKER_ROLE = "checker"
 
 
 class CheckerServiceError(Exception):
@@ -28,6 +31,14 @@ class CheckerServiceError(Exception):
 
 def resolve_checker_api_key() -> str:
     return (LeadCheckerSettings.load().gemini_api_key or "").strip()
+
+
+def checker_can_run() -> bool:
+    """Чи можна зараз робити grounded-перевірку: є ручний ключ або вільний
+    ключ checker-пулу (не в кулдауні)."""
+    if resolve_checker_api_key():
+        return True
+    return gemini_keys.has_available_key(CHECKER_ROLE)
 
 
 def candidate_queryset(*, scope: str, city: str, band: str):
@@ -163,6 +174,18 @@ def run_step(job: LeadCheckJob) -> LeadCheckJob:
         _complete(job, reason="exhausted")
         return job
 
+    # Немає вільного ключа checker-пулу → ставимо на паузу з обратним відліком
+    # до скидання квоти (опівночі PT). НЕ спалюємо лід у error.
+    if not checker_can_run():
+        job.status = LeadCheckJob.Status.PAUSED
+        job.stop_reason_code = "keys_cooldown"
+        job.next_step_not_before = gemini_keys.soonest_cooldown(CHECKER_ROLE)
+        job.is_step_in_progress = False
+        job.current_lead_id = None
+        job.save(update_fields=["status", "stop_reason_code", "next_step_not_before",
+                                "is_step_in_progress", "current_lead_id", "updated_at"])
+        return job
+
     job.current_lead_id = lead.id
     job.is_step_in_progress = True
     job.last_step_started_at = now
@@ -221,9 +244,17 @@ def job_status_payload(job: LeadCheckJob | None) -> dict | None:
         end = job.finished_at or now
         elapsed = int((end - job.started_at).total_seconds())
     remaining = max(0, job.total_selected - job.processed)
+    keys_cd_iso = None
+    keys_cd_secs = 0
+    if job.stop_reason_code == "keys_cooldown":
+        cd = gemini_keys.soonest_cooldown(CHECKER_ROLE)
+        if cd:
+            keys_cd_iso = cd.isoformat()
+            keys_cd_secs = max(0, int((cd - now).total_seconds()))
     return {
         "id": job.id,
         "status": job.status,
+        "is_auto": job.is_auto,
         "scope": job.scope,
         "city": job.city,
         "band": job.band,
@@ -243,4 +274,84 @@ def job_status_payload(job: LeadCheckJob | None) -> dict | None:
         "elapsed_seconds": elapsed,
         "last_error": job.last_error,
         "stop_reason_code": job.stop_reason_code,
+        "keys_cooldown_until": keys_cd_iso,
+        "keys_cooldown_seconds": keys_cd_secs,
     }
+
+
+# ---------------------------------------------------------------------------
+# Авто-чекінг (cron): продовжує перевірку, щойно квота відновлюється
+# ---------------------------------------------------------------------------
+def _get_or_create_auto_job(settings_obj: LeadCheckerSettings) -> LeadCheckJob | None:
+    """Повертає авто-джобу для продовження (resume) або створює нову.
+    Якщо активна РУЧНА сесія — не втручаємось (None)."""
+    with transaction.atomic():
+        lock = _lock_for_update()
+        active = _normalize_active(lock)
+        if active:
+            if not active.is_auto:
+                return None  # ручна сесія активна — не заважаємо
+            if active.status == LeadCheckJob.Status.PAUSED:
+                active.status = LeadCheckJob.Status.RUNNING
+                active.stop_reason_code = ""
+                active.next_step_not_before = None
+                active.save(update_fields=["status", "stop_reason_code",
+                                           "next_step_not_before", "updated_at"])
+            return active
+        total = candidate_queryset(scope="unchecked", city="", band="").count()
+        if total == 0:
+            return None
+        job = LeadCheckJob.objects.create(
+            created_by=None, is_auto=True, status=LeadCheckJob.Status.RUNNING,
+            scope="unchecked", target_limit=0,
+            requests_per_minute=max(1, min(20, int(settings_obj.requests_per_minute or 8))),
+            total_selected=total,
+        )
+        lock.active_job = job
+        lock.save(update_fields=["active_job", "updated_at"])
+        return job
+
+
+def auto_recheck_tick(*, max_seconds: int = 240, sleeper=None) -> dict:
+    """Один прохід cron-команди авто-чекінгу.
+
+    Якщо увімкнено auto_recheck, є вільний ключ checker-пулу та непроверені ліди —
+    продовжує/створює авто-джобу та обробляє до auto_recheck_batch лідів, поважаючи
+    RPM. Ідемпотентно, безпечно для частого виклику.
+    """
+    import time as _time
+    sleeper = sleeper or _time.sleep
+    s = LeadCheckerSettings.load()
+    if not s.auto_recheck:
+        return {"ran": False, "reason": "disabled"}
+    if not checker_can_run():
+        return {"ran": False, "reason": "keys_cooldown"}
+    if not candidate_queryset(scope="unchecked", city="", band="").exists():
+        return {"ran": False, "reason": "no_unchecked"}
+
+    job = _get_or_create_auto_job(s)
+    if job is None:
+        return {"ran": False, "reason": "manual_active_or_empty"}
+
+    batch = max(1, int(s.auto_recheck_batch or 25))
+    deadline = _time.monotonic() + max_seconds
+    processed = 0
+    while processed < batch and _time.monotonic() < deadline:
+        before = job.processed
+        job = run_step(job)
+        if job.status != LeadCheckJob.Status.RUNNING:
+            break
+        if job.processed > before:
+            processed += 1
+        else:
+            # throttle RPM — чекаємо інтервал, потім знімаємо throttle, щоб
+            # наступний крок пройшов (cron сам обмежує частоту проходів).
+            wait = 1.0
+            if job.next_step_not_before:
+                wait = (job.next_step_not_before - timezone.now()).total_seconds()
+            sleeper(min(max(wait, 0.0), 15))
+            LeadCheckJob.objects.filter(id=job.id).update(next_step_not_before=None)
+            job.refresh_from_db()
+        if not checker_can_run():
+            break
+    return {"ran": True, "processed": processed, "job_id": job.id, "status": job.status}

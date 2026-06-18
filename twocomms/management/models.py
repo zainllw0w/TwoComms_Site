@@ -3775,6 +3775,7 @@ class LeadCheckJob(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="lead_check_jobs", verbose_name=_("Створив"),
     )
+    is_auto = models.BooleanField(_("Авто-сесія (cron)"), default=False, db_index=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.RUNNING, db_index=True)
     scope = models.CharField(max_length=20, choices=Scope.choices, default=Scope.UNCHECKED)
     city = models.CharField(max_length=120, blank=True)

@@ -159,6 +159,10 @@ class RunStepTests(TestCase):
                                           lead_source=ManagementLead.LeadSource.PARSER)
             for i in range(3)
         ]
+        # У тестовому середовищі ключів пулу немає — імітуємо доступний ключ.
+        p = patch.object(ljob, "checker_can_run", return_value=True)
+        p.start()
+        self.addCleanup(p.stop)
 
     def _fake_check(self, lead, **kw):
         check = LeadAICheck.objects.create(lead=lead, status=LeadAICheck.Status.DONE, overall_score=75)
@@ -233,3 +237,94 @@ class StatusPayloadTests(TestCase):
 
     def test_payload_none_job(self):
         self.assertIsNone(ljob.job_status_payload(None))
+
+
+from unittest.mock import patch
+
+from management.services import lead_check_job as ljob
+from management.services import gemini_keys as gk
+
+
+class CheckerKeysCooldownTests(TestCase):
+    def _make_lead(self):
+        return ManagementLead.objects.create(
+            shop_name="S", phone="0501110000",
+            lead_source=ManagementLead.LeadSource.PARSER,
+        )
+
+    def test_run_step_pauses_when_no_key(self):
+        self._make_lead()
+        job = ljob.create_check_job(user=None, scope="unchecked", city="", band="",
+                                    target_limit=0, requests_per_minute=60)
+        with patch.object(ljob, "resolve_checker_api_key", return_value=""), \
+             patch.object(gk, "has_available_key", return_value=False), \
+             patch.object(gk, "soonest_cooldown", return_value=None):
+            job = ljob.run_step(job)
+        self.assertEqual(job.status, LeadCheckJob.Status.PAUSED)
+        self.assertEqual(job.stop_reason_code, "keys_cooldown")
+        self.assertEqual(job.processed, 0)  # лід НЕ спалено в error
+
+    def test_run_step_runs_when_key_available(self):
+        self._make_lead()
+        job = ljob.create_check_job(user=None, scope="unchecked", city="", band="",
+                                    target_limit=0, requests_per_minute=60)
+        fake = {"parsed": {"overall_score": 75, "criteria": []}, "usage": {}, "model": "gemini-2.5-flash"}
+        with patch.object(ljob, "resolve_checker_api_key", return_value=""), \
+             patch.object(gk, "has_available_key", return_value=True), \
+             patch("management.services.lead_checker.gemini_generate_grounded", return_value=fake), \
+             patch("management.services.lead_checker.fetch_website_text", return_value=("", False)):
+            job = ljob.run_step(job)
+        self.assertEqual(job.processed, 1)
+
+
+class AutoRecheckTickTests(TestCase):
+    def setUp(self):
+        for i in range(3):
+            ManagementLead.objects.create(
+                shop_name=f"S{i}", phone=f"050111000{i}",
+                lead_source=ManagementLead.LeadSource.PARSER,
+            )
+
+    def test_disabled_noop(self):
+        s = LeadCheckerSettings.load()
+        s.auto_recheck = False
+        s.save()
+        out = ljob.auto_recheck_tick(sleeper=lambda *_: None)
+        self.assertFalse(out["ran"])
+        self.assertEqual(out["reason"], "disabled")
+
+    def test_keys_cooldown_noop(self):
+        s = LeadCheckerSettings.load()
+        s.auto_recheck = True
+        s.save()
+        with patch.object(ljob, "checker_can_run", return_value=False):
+            out = ljob.auto_recheck_tick(sleeper=lambda *_: None)
+        self.assertFalse(out["ran"])
+        self.assertEqual(out["reason"], "keys_cooldown")
+
+    def test_processes_batch_when_enabled(self):
+        s = LeadCheckerSettings.load()
+        s.auto_recheck = True
+        s.auto_recheck_batch = 2
+        s.save()
+        fake = {"parsed": {"overall_score": 80, "criteria": []}, "usage": {}, "model": "gemini-2.5-flash"}
+        with patch.object(ljob, "checker_can_run", return_value=True), \
+             patch("management.services.lead_checker.gemini_generate_grounded", return_value=fake), \
+             patch("management.services.lead_checker.fetch_website_text", return_value=("", False)):
+            out = ljob.auto_recheck_tick(max_seconds=30, sleeper=lambda *_: None)
+        self.assertTrue(out["ran"])
+        self.assertEqual(out["processed"], 2)
+        job = LeadCheckJob.objects.get(id=out["job_id"])
+        self.assertTrue(job.is_auto)
+
+    def test_skips_when_manual_active(self):
+        s = LeadCheckerSettings.load()
+        s.auto_recheck = True
+        s.save()
+        # ручна активна сесія
+        ljob.create_check_job(user=None, scope="unchecked", city="", band="",
+                              target_limit=0, requests_per_minute=8)
+        with patch.object(ljob, "checker_can_run", return_value=True):
+            out = ljob.auto_recheck_tick(sleeper=lambda *_: None)
+        self.assertFalse(out["ran"])
+        self.assertEqual(out["reason"], "manual_active_or_empty")

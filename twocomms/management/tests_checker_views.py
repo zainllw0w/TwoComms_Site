@@ -90,7 +90,8 @@ class CheckerApiTests(TestCase):
         job_id = start["job"]["id"]
         fake = {"parsed": {"overall_score": 78, "criteria": []}, "usage": {}, "model": "m"}
         with patch.object(lead_checker, "gemini_generate_grounded", return_value=fake), \
-             patch.object(lead_checker, "fetch_website_text", return_value=("", False)):
+             patch.object(lead_checker, "fetch_website_text", return_value=("", False)), \
+             patch("management.services.lead_check_job.checker_can_run", return_value=True):
             r = self._post("management_checker_step_api", {"job_id": job_id})
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.json()["job"]["processed"], 1)

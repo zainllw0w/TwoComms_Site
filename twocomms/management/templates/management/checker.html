@@ -156,6 +156,10 @@
           <div class="field field-span-2"><label>Ключ Gemini (опц.)</label><input type="password" name="gemini_api_key" id="checker-key" placeholder="{% if checker_settings.has_key %}•••••• збережено{% else %}не задано{% endif %}"></div>
           <div class="field"><label>Моделі (csv, опц.)</label><input type="text" name="model_chain" id="checker-models" value="{{ checker_settings.model_chain }}" placeholder="gemini-2.5-flash,gemini-3.5-flash"></div>
           <div class="field"><label>RPM за замовч.</label><input type="number" name="requests_per_minute" id="checker-settings-rpm" min="1" max="20" value="{{ checker_settings.requests_per_minute }}"></div>
+          <div class="field"><label>Авто-чекінг (cron)</label>
+            <label class="checker-switch"><input type="checkbox" name="auto_recheck" id="checker-auto" {% if checker_settings.auto_recheck %}checked{% endif %}> <span>Продовжувати автоматично, щойно квота відновиться</span></label>
+          </div>
+          <div class="field"><label>Батч авто-чекінгу</label><input type="number" name="auto_recheck_batch" id="checker-auto-batch" min="1" max="500" value="{{ checker_settings.auto_recheck_batch }}"></div>
         </div>
         <button type="submit" class="btn-ghost">Зберегти налаштування</button>
         <span id="checker-settings-status" class="checker-inline-status" hidden></span>
@@ -302,6 +306,8 @@ function initCheckerPage(){
   $('checker-settings-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
+    const autoEl = document.getElementById('checker-auto');
+    if(autoEl){ fd.set('auto_recheck', autoEl.checked ? '1' : '0'); }
     try{ await apiRequest(url('settingsUrl'), fd); const s=$('checker-settings-status'); s.hidden=false; s.textContent='Збережено'; setTimeout(()=>{s.hidden=true;},2500); }
     catch(err){ alert(err.message || 'Не вдалося зберегти'); }
   });

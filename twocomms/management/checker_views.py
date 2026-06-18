@@ -206,11 +206,20 @@ def checker_settings_api(request):
         s.requests_per_minute = max(1, min(20, int(request.POST.get("requests_per_minute", s.requests_per_minute))))
     except (TypeError, ValueError):
         pass
+    if "auto_recheck" in request.POST:
+        s.auto_recheck = request.POST.get("auto_recheck") in ("1", "true", "on", "True")
+    try:
+        if request.POST.get("auto_recheck_batch") is not None:
+            s.auto_recheck_batch = max(1, min(500, int(request.POST.get("auto_recheck_batch", s.auto_recheck_batch))))
+    except (TypeError, ValueError):
+        pass
     s.save()
     return JsonResponse({"success": True, "settings": {
         "has_key": bool(s.gemini_api_key),
         "requests_per_minute": s.requests_per_minute,
         "model_chain": s.model_chain,
+        "auto_recheck": s.auto_recheck,
+        "auto_recheck_batch": s.auto_recheck_batch,
     }})
 
 
@@ -242,6 +251,8 @@ def checker_dashboard(request):
             "has_key": bool(settings_obj.gemini_api_key),
             "requests_per_minute": settings_obj.requests_per_minute,
             "model_chain": settings_obj.model_chain,
+            "auto_recheck": settings_obj.auto_recheck,
+            "auto_recheck_batch": settings_obj.auto_recheck_batch,
         },
     }
     return render(request, "management/checker.html", context)
