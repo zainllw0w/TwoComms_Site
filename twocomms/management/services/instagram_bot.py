@@ -428,7 +428,16 @@ def gemini_generate(
 
     payload = {
         "contents": contents,
-        "generationConfig": {"temperature": 0.6, "maxOutputTokens": 700},
+        # 3.5-flash — thinking-модель: без обмеження вона зʼїдає весь бюджет на
+        # внутрішнє мислення й повертає finishReason=MAX_TOKENS з порожнім текстом
+        # (тоді чат завжди падав на молодші моделі). thinkingBudget=0 вимикає
+        # мислення (чату потрібна пряма швидка відповідь), а 1536 токенів — запас
+        # на сам текст.
+        "generationConfig": {
+            "temperature": 0.6,
+            "maxOutputTokens": 1536,
+            "thinkingConfig": {"thinkingBudget": 0},
+        },
         "safetySettings": [
             {"category": c, "threshold": "BLOCK_ONLY_HIGH"}
             for c in (
