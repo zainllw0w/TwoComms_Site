@@ -2661,13 +2661,12 @@ if (document.readyState === 'loading') {
 .disc-mark--ack{color:#f5b734;}
 .disc-mark--ack:hover{background:rgba(245,183,52,.14);color:#fcd34d;}
 .disc-mark svg{width:16px;height:16px;}
-.disc-mark__tip{position:absolute;bottom:calc(100% + 9px);right:-4px;width:250px;max-width:62vw;background:#181019;border:1px solid rgba(239,68,68,.45);border-radius:11px;padding:10px 12px;font-size:11.5px;line-height:1.5;color:#e7d2d2;box-shadow:0 14px 34px rgba(0,0,0,.55);white-space:pre-line;text-align:left;opacity:0;visibility:hidden;transform:translateY(5px);transition:opacity .16s,transform .16s,visibility .16s;z-index:60;pointer-events:none;}
-.disc-mark__tip strong{display:block;color:#fca5a5;font-size:11px;font-weight:800;margin-bottom:5px;}
-.disc-mark__tip::after{content:"";position:absolute;top:100%;right:13px;border:6px solid transparent;border-top-color:rgba(239,68,68,.45);}
-.disc-mark--ack .disc-mark__tip{border-color:rgba(245,183,52,.45);}
-.disc-mark--ack .disc-mark__tip strong{color:#fcd34d;}
-.disc-mark--ack .disc-mark__tip::after{border-top-color:rgba(245,183,52,.45);}
-.disc-mark:hover .disc-mark__tip,.disc-mark:focus-visible .disc-mark__tip{opacity:1;visibility:visible;transform:translateY(0);}
+.disc-mark__tip{display:none;}
+.disc-pop{position:fixed;z-index:2000;width:264px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow:auto;background:#181019;border:1px solid rgba(239,68,68,.45);border-radius:11px;padding:10px 12px;font-size:11.5px;line-height:1.5;color:#e7d2d2;box-shadow:0 16px 40px rgba(0,0,0,.6);white-space:pre-line;text-align:left;opacity:0;transform:translateY(4px);transition:opacity .14s ease,transform .14s ease;pointer-events:none;}
+.disc-pop.show{opacity:1;transform:none;}
+.disc-pop strong{display:block;color:#fca5a5;font-size:11px;font-weight:800;margin-bottom:5px;}
+.disc-pop--ack{border-color:rgba(245,183,52,.45);}
+.disc-pop--ack strong{color:#fcd34d;}
 .disc-overlay{position:fixed;inset:0;background:rgba(6,9,14,.72);backdrop-filter:blur(3px);z-index:1200;display:none;align-items:center;justify-content:center;padding:20px;}
 .disc-overlay.show{display:flex;animation:discFade .2s ease;}
 @keyframes discFade{from{opacity:0;}to{opacity:1;}}
@@ -2790,6 +2789,44 @@ if (document.readyState === 'loading') {
     if(editBtn){ editBtn.click(); }
     else { var row=document.getElementById('client-row-'+cid); if(row) row.scrollIntoView({behavior:'smooth',block:'center'}); }
   });
+  // ---- Розумне позиціювання тултипа маркера (flip top/bottom + shift у вʼюпорт) ----
+  var pop=null;
+  function ensurePop(){
+    if(pop) return pop;
+    pop=document.createElement('div'); pop.className='disc-pop'; pop.setAttribute('role','tooltip');
+    document.body.appendChild(pop); return pop;
+  }
+  function positionPop(mark){
+    var tip=mark.querySelector('.disc-mark__tip'); if(!tip) return;
+    var p=ensurePop();
+    p.innerHTML=tip.innerHTML;
+    p.classList.toggle('disc-pop--ack', mark.classList.contains('disc-mark--ack'));
+    var pad=10;
+    var mr=mark.getBoundingClientRect();
+    var pw=p.offsetWidth, ph=p.offsetHeight;
+    var vw=document.documentElement.clientWidth, vh=document.documentElement.clientHeight;
+    // горизонталь: правий край тултипа під маркером, далі shift у межі вʼюпорта
+    var left=mr.right - pw;
+    if(left + pw > vw - pad) left = vw - pad - pw;
+    if(left < pad) left = pad;
+    // вертикаль: flip — спершу зверху; якщо не влазить і знизу місця більше — знизу
+    var spaceAbove=mr.top - pad, spaceBelow=vh - mr.bottom - pad;
+    var top;
+    if(ph <= spaceAbove || spaceAbove >= spaceBelow){ top = mr.top - ph - pad; }
+    else { top = mr.bottom + pad; }
+    if(top + ph > vh - pad) top = vh - pad - ph;
+    if(top < pad) top = pad;
+    p.style.left=Math.round(left)+'px'; p.style.top=Math.round(top)+'px';
+    p.classList.add('show');
+  }
+  function hidePop(){ if(pop) pop.classList.remove('show'); }
+  document.addEventListener('mouseover', function(e){ var m=e.target.closest&&e.target.closest('.disc-mark'); if(m) positionPop(m); });
+  document.addEventListener('mouseout', function(e){ var m=e.target.closest&&e.target.closest('.disc-mark'); if(!m) return; var to=e.relatedTarget; if(to&&to.closest&&to.closest('.disc-mark')===m) return; hidePop(); });
+  document.addEventListener('focusin', function(e){ var m=e.target.closest&&e.target.closest('.disc-mark'); if(m) positionPop(m); });
+  document.addEventListener('focusout', function(e){ var m=e.target.closest&&e.target.closest('.disc-mark'); if(m) hidePop(); });
+  window.addEventListener('scroll', hidePop, true);
+  window.addEventListener('resize', hidePop);
+
   // Авто-попап: якщо є непідтверджені розбіжності — показати один раз при завантаженні.
   setTimeout(function(){
     var pend=pendingMarks();
