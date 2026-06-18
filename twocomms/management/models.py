@@ -591,6 +591,73 @@ class Report(models.Model):
         return f"Звіт {self.owner} {self.created_at:%Y-%m-%d}"
 
 
+class DayReportAudit(models.Model):
+    """Комплексний ШІ-аудит робочого дня менеджера (при відправці звіту).
+
+    ШІ знає все: кожного обробленого клієнта (що ввів менеджер) + кожен дзвінок
+    (через CallAIAnalysis) + дисципліну передзвонів + стаж/історію звітів. Дає
+    адміну точний аудит дня: сходиться чи ні, що пропущено, прогрес, перспективи,
+    недоробки. Бали/аудит — лише для адміна.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", _("Очікує")
+        RUNNING = "running", _("Аналізується")
+        DONE = "done", _("Готово")
+        ERROR = "error", _("Помилка")
+        SKIPPED = "skipped", _("Пропущено")
+
+    class Verdict(models.TextChoices):
+        STRONG = "strong", _("Сильний день")
+        OK = "ok", _("Робочий день")
+        WEAK = "weak", _("Слабкий день")
+        UNKNOWN = "unknown", _("Невизначено")
+
+    report = models.ForeignKey(
+        Report, on_delete=models.CASCADE, related_name="ai_audits", verbose_name=_("Звіт")
+    )
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="management_day_audits", verbose_name=_("Менеджер"),
+    )
+    day = models.DateField(db_index=True, verbose_name=_("День звіту"))
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, db_index=True)
+    model = models.CharField(max_length=64, blank=True)
+    day_score = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("0.00"))
+    verdict = models.CharField(max_length=20, choices=Verdict.choices, default=Verdict.UNKNOWN)
+    summary = models.TextField(blank=True)
+    matches = models.JSONField(default=list, blank=True)
+    mismatches = models.JSONField(default=list, blank=True)
+    missed_callbacks = models.JSONField(default=list, blank=True)
+    growth = models.JSONField(default=dict, blank=True)
+    weaknesses = models.JSONField(default=list, blank=True)
+    recommendations = models.JSONField(default=list, blank=True)
+    prospects = models.TextField(blank=True)
+    result = models.JSONField(default=dict, blank=True)
+    tenure_days = models.PositiveIntegerField(default=0)
+    reports_count = models.PositiveIntegerField(default=0)
+    calls_total = models.PositiveIntegerField(default=0)
+    calls_analyzed = models.PositiveIntegerField(default=0)
+    prompt_tokens = models.PositiveIntegerField(default=0)
+    output_tokens = models.PositiveIntegerField(default=0)
+    elapsed_ms = models.PositiveIntegerField(default=0)
+    error = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("ШІ-аудит дня")
+        verbose_name_plural = _("ШІ-аудити дня")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["owner", "-day"], name="mgmt_dayaudit_owner_day"),
+            models.Index(fields=["status", "-created_at"], name="mgmt_dayaudit_status_dt"),
+        ]
+
+    def __str__(self):
+        return f"DayAudit[{self.status}] {self.owner_id}:{self.day}"
+
+
 class ReminderSent(models.Model):
     id = models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")
     key = models.CharField(max_length=255, db_index=True)

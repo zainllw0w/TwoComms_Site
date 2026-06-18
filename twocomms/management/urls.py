@@ -38,6 +38,7 @@ urlpatterns = [
     path('admin-panel/payouts-board/', views.admin_payouts_board, name='management_admin_payouts_board'),
     path('reports/', views.reports, name='management_reports'),
     path('reports/send/', views.send_report, name='management_send_report'),
+    path('reports/precheck/', views.report_precheck, name='management_report_precheck'),
     path('reminders/read/', views.reminder_read, name='management_reminder_read'),
     path('reminders/feed/', views.reminder_feed, name='management_reminder_feed'),
     path('notifications/read/', views.notification_read, name='management_notification_read'),

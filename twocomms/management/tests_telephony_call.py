@@ -574,3 +574,75 @@ class ManagerReviewTest(TestCase):
         self._client(result="order", days_ago=100)
         out = _mr.build_manager_clients_review(self.manager, period="all")
         self.assertEqual(out["summary"]["processed"], 1)
+
+
+from management.models import Report, DayReportAudit
+from management.services import day_report_audit as _dra
+from management.services import call_ai_analysis as _caa
+
+
+class DayReportAuditTest(TestCase):
+    def setUp(self):
+        self.manager = User.objects.create_user(username="mgr9", password="x")
+        self.manager.userprofile.is_manager = True
+        self.manager.userprofile.save()
+        self.client_obj = Client.objects.create(
+            shop_name="ShopDA", phone="0671119999", full_name="X",
+            owner=self.manager, call_result="order", manager_note="домовились про повтор",
+        )
+        rec = CallRecord.objects.create(
+            provider="binotel", external_call_id="da1", manager=self.manager,
+            matched_client=self.client_obj, duration_seconds=80, payload={"disposition": "ANSWER"},
+        )
+        CallAIAnalysis.objects.create(
+            call_record=rec, status=CallAIAnalysis.Status.DONE, overall_score=72, verdict="coaching",
+            summary="норм розмова", discrepancies=[{"field": "next_call", "severity": "warn"}],
+            extracted_facts={"conversion_intent": "needs_followup"},
+        )
+        self.report = Report.objects.create(owner=self.manager, points=45, processed=1)
+
+    def _patch_gemini(self, parsed, key="k"):
+        _caa.gemini_generate_json = lambda si, ut, **kw: {
+            "parsed": parsed, "usage": {"promptTokenCount": 10, "candidatesTokenCount": 5},
+            "model": "gemini-test", "meta": {},
+        }
+        _caa._resolve_gemini_key = lambda: key
+
+    def test_audit_done_with_mock(self):
+        self._patch_gemini({
+            "summary": "Продуктивний день", "day_score": 78, "verdict": "ok",
+            "matches": ["CRM сходиться з розмовою"], "mismatches": ["час передзвону відрізняється"],
+            "missed_callbacks": [], "growth": {"tone": "good", "label": "Зростання", "text": "краще ніж вчора"},
+            "weaknesses": ["слабке закриття"], "recommendations": ["дотискати на наступний крок"],
+            "prospects": "перспективний",
+        })
+        audit = _dra.build_day_report_audit(self.report)
+        self.assertEqual(audit.status, DayReportAudit.Status.DONE)
+        self.assertEqual(float(audit.day_score), 78.0)
+        self.assertEqual(audit.verdict, "ok")
+        self.assertEqual(audit.calls_analyzed, 1)
+        self.assertTrue(audit.mismatches)
+        self.assertEqual(audit.growth.get("tone"), "good")
+
+    def test_skip_without_key(self):
+        self._patch_gemini({}, key="")
+        audit = _dra.build_day_report_audit(self.report)
+        self.assertEqual(audit.status, DayReportAudit.Status.SKIPPED)
+
+    def test_telegram_block(self):
+        self._patch_gemini({
+            "summary": "День", "day_score": 60, "verdict": "ok",
+            "mismatches": ["X"], "missed_callbacks": ["Y"], "prospects": "ок",
+            "growth": {"label": "стабільно", "text": "без змін"},
+        })
+        audit = _dra.build_day_report_audit(self.report)
+        lines = _dra.telegram_audit_block(audit)
+        self.assertTrue(any("ШІ-аудит дня" in l for l in lines))
+        self.assertTrue(any("Розбіжності" in l for l in lines))
+
+    def test_context_has_meta(self):
+        ctx = _dra._gather_context(self.manager, _tz.localdate())
+        self.assertEqual(ctx["calls_analyzed"], 1)
+        self.assertEqual(ctx["calls_total"], 1)
+        self.assertIn("clients", ctx["context"])
+        self.assertIn("callbacks", ctx["context"])

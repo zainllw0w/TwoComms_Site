@@ -145,9 +145,10 @@
                 <h2>{% if is_admin %}Звіти менеджерів{% else %}Мої звіти{% endif %}</h2>
                 <div class="muted" style="margin-top:6px;">{% if is_admin %}Усі надіслані звіти команди.{% else %}Тут лише ваші звіти.{% endif %}</div>
             </div>
-            <form method="post" action="{% url 'management_send_report' %}">
+            <form method="post" action="{% url 'management_send_report' %}" id="report-send-form">
                 {% csrf_token %}
-                <button class="btn-primary" id="report-submit" data-progress-points="{{ progress_points_pct|default:0 }}" data-progress-clients="{{ progress_clients_pct|default:0 }}">
+                <input type="hidden" name="ack_discrepancies" id="ack_discrepancies" value="">
+                <button class="btn-primary" id="report-submit" data-progress-points="{{ progress_points_pct|default:0 }}" data-progress-clients="{{ progress_clients_pct|default:0 }}" data-precheck-url="{% url 'management_report_precheck' %}">
                     {% if has_report_today %}Відправити ще раз{% else %}Відправити звіт{% endif %}
                 </button>
             </form>
@@ -361,16 +362,55 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal && !modal.hidden) closeModal(); });
 
-    // Підтвердження якщо норма не виконана
+    // Підтвердження якщо норма не виконана + перевірка розбіжностей ШІ
     const reportBtn = document.getElementById('report-submit');
-    if (reportBtn && reportBtn.closest('form')) {
-        reportBtn.closest('form').addEventListener('submit', (e) => {
+    const reportForm = document.getElementById('report-send-form');
+    let discChecked = false;
+    if (reportBtn && reportForm) {
+        reportForm.addEventListener('submit', (e) => {
             const pts = parseInt(reportBtn.dataset.progressPoints || '0', 10);
             const cls = parseInt(reportBtn.dataset.progressClients || '0', 10);
             if (pts < 100 || cls < 100) {
-                if (!confirm('Денна норма не заповнена (бали або клієнти). Відправити звіт зараз?')) e.preventDefault();
+                if (!confirm('Денна норма не заповнена (бали або клієнти). Відправити звіт зараз?')) { e.preventDefault(); return; }
             }
+            if (discChecked) return; // вже перевірено — пускаємо
+            e.preventDefault();
+            const url = reportBtn.dataset.precheckUrl;
+            fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(r => r.json())
+                .then(d => {
+                    if (!d || !d.ok || !d.has) { discChecked = true; reportForm.requestSubmit(); return; }
+                    showDiscModal(d.items || []);
+                })
+                .catch(() => { discChecked = true; reportForm.requestSubmit(); });
         });
+    }
+
+    function showDiscModal(items) {
+        let modal = document.getElementById('report-disc-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'report-disc-modal';
+            modal.style.cssText = 'position:fixed;inset:0;z-index:1300;background:rgba(6,8,12,.66);display:flex;align-items:center;justify-content:center;padding:18px;';
+            document.body.appendChild(modal);
+        }
+        const list = items.map(it => `<div style="border:1px solid rgba(245,158,11,.3);border-radius:10px;padding:10px 12px;margin-top:8px;background:rgba(245,158,11,.06);"><div style="font-weight:700;color:#fcd34d;font-size:13px;">${(it.title||'').replace(/</g,'&lt;')}</div><div style="font-size:12px;color:#cdd6e3;margin-top:4px;white-space:pre-line;">${(it.body||'').replace(/</g,'&lt;')}</div></div>`).join('');
+        modal.innerHTML = `<div style="background:#11151f;border:1px solid #2a3342;border-radius:16px;max-width:560px;width:100%;max-height:84vh;overflow:auto;padding:20px 22px;color:#e7ecf3;">
+            <h3 style="margin:0 0 6px;font-size:17px;">ШІ помітив розбіжності</h3>
+            <div style="font-size:12.5px;color:#9aa6b6;">Перед відправкою звіту перегляньте, де те, що ви зберегли, відрізняється від розмови. Виправте за потреби або підтвердьте й надішліть.</div>
+            ${list}
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap;">
+                <button type="button" class="btn-ghost" id="disc-cancel">Скасувати — виправлю</button>
+                <button type="button" class="btn-primary" id="disc-confirm">Підтвердити і надіслати</button>
+            </div>
+        </div>`;
+        modal.querySelector('#disc-cancel').onclick = () => { modal.remove(); };
+        modal.querySelector('#disc-confirm').onclick = () => {
+            document.getElementById('ack_discrepancies').value = '1';
+            discChecked = true;
+            modal.remove();
+            reportForm.requestSubmit();
+        };
     }
 });
 </script>

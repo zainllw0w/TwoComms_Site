@@ -69,6 +69,28 @@
 .mcr-call__sum{font-size:12px;color:#c4cedb;margin-top:6px;line-height:1.45;}
 .mcr-call__disc{margin-top:6px;font-size:11.5px;color:#fca5a5;}
 .mcr-call__ai-pending{font-size:11px;color:#93c5fd;}
+/* ШІ-аудит дня */
+.mcr-audit{border-radius:14px;padding:16px 18px;margin-bottom:20px;border:1px solid #2a2350;background:linear-gradient(180deg,#12101f,#0e0c18);}
+.mcr-audit--weak{border-color:rgba(239,68,68,.35);}
+.mcr-audit--strong{border-color:rgba(34,197,94,.35);}
+.mcr-audit__head{display:flex;align-items:center;gap:12px;font-size:15px;font-weight:800;color:#e7ecf3;flex-wrap:wrap;}
+.mcr-audit__score{font-size:13px;color:#b9a8ff;font-weight:800;}
+.mcr-audit__growth{font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:999px;}
+.mcr-audit__growth.good{background:rgba(34,197,94,.15);color:#86efac;} .mcr-audit__growth.bad{background:rgba(239,68,68,.15);color:#fca5a5;} .mcr-audit__growth.neutral{background:rgba(148,163,184,.14);color:#cbd5e1;}
+.mcr-audit__sum{font-size:13px;color:#dbe2ea;line-height:1.55;margin-top:9px;}
+.mcr-audit__sub{font-size:12.5px;color:#a9b4c4;margin-top:6px;}
+.mcr-audit__grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:12px;}
+.mcr-audit__col b{font-size:12px;color:#cdd6e3;}
+.mcr-audit__col ul{margin:5px 0 0;padding-left:16px;font-size:12px;color:#c4cedb;line-height:1.5;}
+.mcr-audit__prospects{margin-top:12px;font-size:12.5px;color:#fcd34d;}
+.mcr-audit__meta{margin-top:8px;font-size:11px;color:#7e8a9c;}
+/* осі оцінки звінка */
+details.mcr-axes summary{cursor:pointer;color:#b9a8ff;font-size:11.5px;font-weight:600;margin-top:7px;}
+.mcr-axis{margin-top:7px;}
+.mcr-axis__top{display:flex;justify-content:space-between;font-size:11.5px;color:#cdd6e3;}
+.mcr-axis__bar{height:5px;border-radius:999px;background:#1a212c;overflow:hidden;margin-top:3px;}
+.mcr-axis__bar span{display:block;height:100%;background:linear-gradient(90deg,#7c5cff,#ff7e29);}
+.mcr-axis__c{font-size:11px;color:#8b97a8;margin-top:3px;line-height:1.4;}
 details.mcr-phases summary{cursor:pointer;color:#b9a8ff;font-size:12px;font-weight:600;margin-top:10px;}
 .mcr-attempt{font-size:12px;color:#c4cedb;border-left:2px solid #2a3342;padding:4px 0 4px 10px;margin-top:7px;line-height:1.45;}
 </style>
@@ -131,6 +153,24 @@ details.mcr-phases summary{cursor:pointer;color:#b9a8ff;font-size:12px;font-weig
   </div>
   {% endif %}
 
+  {% if review.day_audit %}
+  <div class="mcr-audit mcr-audit--{{ review.day_audit.verdict }}">
+    <div class="mcr-audit__head">🤖 ШІ-аудит дня <span class="mcr-audit__score">{{ review.day_audit.day_score|floatformat:0 }}/100</span>
+      {% if review.day_audit.growth.label %}<span class="mcr-audit__growth {{ review.day_audit.growth.tone }}">{{ review.day_audit.growth.label }}</span>{% endif %}
+    </div>
+    {% if review.day_audit.summary %}<div class="mcr-audit__sum">{{ review.day_audit.summary }}</div>{% endif %}
+    {% if review.day_audit.growth.text %}<div class="mcr-audit__sub">📈 {{ review.day_audit.growth.text }}</div>{% endif %}
+    <div class="mcr-audit__grid">
+      {% if review.day_audit.mismatches %}<div class="mcr-audit__col"><b>⚠️ Розбіжності</b><ul>{% for m in review.day_audit.mismatches %}<li>{{ m }}</li>{% endfor %}</ul></div>{% endif %}
+      {% if review.day_audit.missed_callbacks %}<div class="mcr-audit__col"><b>📞 Пропущені домовленості</b><ul>{% for m in review.day_audit.missed_callbacks %}<li>{{ m }}</li>{% endfor %}</ul></div>{% endif %}
+      {% if review.day_audit.weaknesses %}<div class="mcr-audit__col"><b>🔧 Недоробки</b><ul>{% for m in review.day_audit.weaknesses %}<li>{{ m }}</li>{% endfor %}</ul></div>{% endif %}
+      {% if review.day_audit.recommendations %}<div class="mcr-audit__col"><b>💡 Рекомендації</b><ul>{% for m in review.day_audit.recommendations %}<li>{{ m }}</li>{% endfor %}</ul></div>{% endif %}
+    </div>
+    {% if review.day_audit.prospects %}<div class="mcr-audit__prospects">🎯 Перспектива: {{ review.day_audit.prospects }}</div>{% endif %}
+    <div class="mcr-audit__meta">Стаж {{ review.day_audit.tenure_days }} дн · звітів {{ review.day_audit.reports_count }}</div>
+  </div>
+  {% endif %}
+
   {# client cards #}
   <div class="mcr-list">
     {% for c in review.clients %}
@@ -170,6 +210,16 @@ details.mcr-phases summary{cursor:pointer;color:#b9a8ff;font-size:12px;font-weig
             </div>
             {% if call.has_recording %}<audio controls preload="none" src="{{ call.recording_url }}"></audio>{% endif %}
             {% if call.ai and call.ai.summary %}<div class="mcr-call__sum">{{ call.ai.summary }}</div>{% endif %}
+            {% if call.ai and call.ai.axes %}
+            <details class="mcr-axes"><summary>Оцінка ШІ по критеріях</summary>
+              {% for ax in call.ai.axes %}
+              <div class="mcr-axis"><div class="mcr-axis__top"><span>{{ ax.title|default:ax.key }}</span><b>{{ ax.score|floatformat:0 }}</b></div>
+                <div class="mcr-axis__bar"><span style="width:{{ ax.score|floatformat:0 }}%;"></span></div>
+                {% if ax.comment %}<div class="mcr-axis__c">{{ ax.comment }}</div>{% endif %}
+              </div>
+              {% endfor %}
+            </details>
+            {% endif %}
             {% if call.ai and call.ai.discrepancies %}<div class="mcr-call__disc">⚠ Розбіжностей з даними менеджера: {{ call.ai.discrepancies|length }}</div>{% endif %}
           </div>
           {% endfor %}

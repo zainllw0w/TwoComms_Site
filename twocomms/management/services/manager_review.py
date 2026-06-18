@@ -136,6 +136,7 @@ def _calls_for_clients(client_ids: list[int]) -> dict[int, list]:
                 "verdict_label": analysis.get_verdict_display(),
                 "summary": analysis.summary,
                 "discrepancies": analysis.discrepancies or [],
+                "axes": analysis.axes or [],
             }
         grouped.setdefault(r.matched_client_id, []).append(item)
     return grouped
@@ -202,6 +203,7 @@ def build_manager_clients_review(manager, *, period: str = "today", date_str: st
 
     # Прогрес/регрес — лише для одноденного вікна (vs попередній день).
     deltas = None
+    day_audit = None
     if window["single_day"]:
         prev_day = window["single_day"] - timedelta(days=1)
         prev = _day_summary(manager, prev_day)
@@ -211,11 +213,33 @@ def build_manager_clients_review(manager, *, period: str = "today", date_str: st
             "points": _delta(summary["points"], prev["points"]),
             "conversions": _delta(summary["conversions"], prev["conversions"]),
         }
+        from management.models import DayReportAudit
+        da = (
+            DayReportAudit.objects.filter(
+                owner=manager, day=window["single_day"], status=DayReportAudit.Status.DONE
+            ).order_by("-created_at").first()
+        )
+        if da:
+            day_audit = {
+                "summary": da.summary,
+                "verdict": da.verdict,
+                "day_score": float(da.day_score),
+                "matches": da.matches or [],
+                "mismatches": da.mismatches or [],
+                "missed_callbacks": da.missed_callbacks or [],
+                "growth": da.growth or {},
+                "weaknesses": da.weaknesses or [],
+                "recommendations": da.recommendations or [],
+                "prospects": da.prospects,
+                "tenure_days": da.tenure_days,
+                "reports_count": da.reports_count,
+            }
 
     return {
         "window": window,
         "summary": summary,
         "deltas": deltas,
+        "day_audit": day_audit,
         "clients": clients,
         "mosaic": build_mosaic_trend(manager),
     }

@@ -1035,7 +1035,7 @@ def build_report_excel(user, stats, clients):
     return bio.getvalue()
 
 
-def send_telegram_report(user, stats, clients, file_bytes, filename):
+def send_telegram_report(user, stats, clients, file_bytes, filename, audit=None):
     token = os.environ.get("MANAGEMENT_TG_BOT_TOKEN")
     chat_ids = _get_management_admin_chat_ids()
     if not token or not chat_ids:
@@ -1061,7 +1061,16 @@ def send_telegram_report(user, stats, clients, file_bytes, filename):
         text_lines.append("🧭 <b>Ключові сигнали</b>")
         for item in advice[:3]:
             text_lines.append(f"• <b>{escape(item.get('title') or 'Порада')}</b>: {escape(item.get('text') or '')}")
+    # Комплексний ШІ-аудит дня (якщо готовий).
+    try:
+        from management.services.day_report_audit import telegram_audit_block
+        text_lines.extend(telegram_audit_block(audit))
+    except Exception:
+        pass
     text = "\n".join(text_lines)
+    # Telegram caption ліміт ~1024 символи — підрізаємо безпечно.
+    if len(text) > 1000:
+        text = text[:997] + "…"
     url = f"https://api.telegram.org/bot{token}/sendDocument"
     files = {
         'document': (filename, file_bytes, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -2703,6 +2712,21 @@ def reports(request):
 
 
 @login_required(login_url='management_login')
+def report_precheck(request):
+    """Перед відправкою звіту: непідтверджені розбіжності ШІ за сьогодні."""
+    if not user_is_management(request.user):
+        return JsonResponse({'ok': False}, status=403)
+    from management.models import ManagerNotification
+    start, end = get_today_range()
+    qs = ManagerNotification.objects.filter(
+        user=request.user, requires_ack=True, acknowledged_at__isnull=True,
+        created_at__gte=start, created_at__lt=end,
+    ).order_by('-created_at')[:20]
+    items = [{'id': n.id, 'title': n.title, 'body': n.body} for n in qs]
+    return JsonResponse({'ok': True, 'has': bool(items), 'items': items})
+
+
+@login_required(login_url='management_login')
 def send_report(request):
     if request.method != 'POST':
         return redirect('management_reports')
@@ -2731,7 +2755,26 @@ def send_report(request):
 
     _close_followups_for_report(report)
 
-    send_telegram_report(request.user, stats, clients_today, file_bytes, filename)
+    # Менеджер підтвердив розбіжності ШІ просто фактом відправки звіту.
+    if request.POST.get('ack_discrepancies'):
+        try:
+            from management.models import ManagerNotification
+            ManagerNotification.objects.filter(
+                user=request.user, requires_ack=True, acknowledged_at__isnull=True,
+                created_at__gte=today_start, created_at__lt=today_end,
+            ).update(acknowledged_at=timezone.now(), is_read=True)
+        except Exception:
+            pass
+
+    # Комплексний ШІ-аудит дня (безпечно: помилка не зриває відправку звіту).
+    audit = None
+    try:
+        from management.services.day_report_audit import build_day_report_audit
+        audit = build_day_report_audit(report)
+    except Exception:
+        audit = None
+
+    send_telegram_report(request.user, stats, clients_today, file_bytes, filename, audit=audit)
 
     return redirect('management_reports')
 

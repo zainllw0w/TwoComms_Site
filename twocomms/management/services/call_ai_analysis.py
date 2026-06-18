@@ -279,20 +279,14 @@ def upsert_call_record(client: BinotelClient, general_call_id: str) -> CallRecor
 # ---------------------------------------------------------------------------
 # Gemini
 # ---------------------------------------------------------------------------
-def _gemini_analyze(audio_bytes: bytes, mime: str, manager_context: str, manager_snapshot: str = "") -> dict:
-    """Шле аудіо в Gemini з ретраями та фолбеком моделей.
-
-    Повертає {parsed, raw, usage, model, meta}. Кидає CallAIAnalysisError, якщо
-    жодна модель не відповіла.
-    """
+def _run_payload_with_models(payload: dict) -> dict:
+    """Прогоняє готовий payload через ланцюг моделей з ретраями/фолбеком.
+    Повертає {parsed, usage, model, meta}. Спільне для аудіо та текстових запитів."""
     key = _resolve_gemini_key()
     if not key:
         raise CallAIAnalysisError("Не задано ключ Gemini (ENV GEMINI_API).")
-
-    payload = _build_payload(audio_bytes, mime, manager_context, manager_snapshot)
     models = _resolve_models()
     attempts_log: list[str] = []
-
     for model in models:
         for attempt in range(PER_MODEL_ATTEMPTS):
             try:
@@ -309,18 +303,36 @@ def _gemini_analyze(audio_bytes: bytes, mime: str, manager_context: str, manager
                 attempts_log.append(f"{model}: transient {exc} (спроба {attempt + 1})")
                 if attempt < PER_MODEL_ATTEMPTS - 1:
                     time.sleep(BACKOFF_BASE * (2 ** attempt))
-                # інакше — вихід із внутрішнього циклу, наступна модель
             except _GeminiSkipModel as exc:
                 attempts_log.append(f"{model}: skip {exc}")
-                break  # ретраї не допоможуть — одразу наступна модель
+                break
             except _GeminiFatal as exc:
                 attempts_log.append(f"{model}: fatal {exc}")
                 raise CallAIAnalysisError(f"Помилка запиту до Gemini: {exc}")
-
     raise CallAIAnalysisError(
         "Усі моделі Gemini недоступні (перевантаження/квота). Спроби: "
         + "; ".join(attempts_log)
     )
+
+
+def gemini_generate_json(system_instruction: str, user_text: str, *, max_output_tokens: int = 4096) -> dict:
+    """Текстовий JSON-запит до Gemini (для денного аудиту). Цепочка моделей + ретраї."""
+    payload = {
+        "contents": [{"role": "user", "parts": [{"text": user_text}]}],
+        "system_instruction": {"parts": [{"text": system_instruction}]},
+        "generationConfig": {
+            "temperature": 0.25,
+            "maxOutputTokens": max_output_tokens,
+            "responseMimeType": "application/json",
+        },
+    }
+    return _run_payload_with_models(payload)
+
+
+def _gemini_analyze(audio_bytes: bytes, mime: str, manager_context: str, manager_snapshot: str = "") -> dict:
+    """Шле аудіо в Gemini з ретраями та фолбеком моделей."""
+    payload = _build_payload(audio_bytes, mime, manager_context, manager_snapshot)
+    return _run_payload_with_models(payload)
 
 
 def _build_payload(audio_bytes: bytes, mime: str, manager_context: str, manager_snapshot: str = "") -> dict:
