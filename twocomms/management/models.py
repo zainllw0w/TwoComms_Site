@@ -3712,6 +3712,8 @@ class LeadCheckerSettings(models.Model):
     gemini_api_key = models.CharField(_("Ключ Gemini (опц.)"), max_length=255, blank=True)
     model_chain = models.CharField(_("Цепочка моделей (csv)"), max_length=255, blank=True)
     requests_per_minute = models.PositiveIntegerField(_("Запитів за хвилину"), default=8)
+    auto_recheck = models.BooleanField(_("Авто-чекінг при відновленні квоти"), default=False)
+    auto_recheck_batch = models.PositiveIntegerField(_("Розмір батчу авто-чекінгу"), default=25)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -3725,6 +3727,34 @@ class LeadCheckerSettings(models.Model):
 
     def __str__(self):
         return "LeadCheckerSettings"
+
+
+class GeminiKeyState(models.Model):
+    """Стан одного Gemini-ключа (проекту) для менеджера пулів: кулдаун за квотою,
+    лічильники, причина. Квота в Gemini рахується на проект, тож трекаємо per-key."""
+    key_name = models.CharField(max_length=40, unique=True)
+    role_hint = models.CharField(max_length=20, blank=True)
+    cooldown_until = models.DateTimeField(null=True, blank=True, db_index=True)
+    cooldown_scope = models.CharField(max_length=10, blank=True)  # minute|day|topup
+    last_status = models.CharField(max_length=20, blank=True)
+    last_429_at = models.DateTimeField(null=True, blank=True)
+    last_ok_at = models.DateTimeField(null=True, blank=True)
+    requests_today = models.PositiveIntegerField(default=0)
+    day_date = models.DateField(null=True, blank=True)
+    last_error = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Стан Gemini-ключа")
+        verbose_name_plural = _("Стани Gemini-ключів")
+
+    @classmethod
+    def get(cls, key_name: str) -> "GeminiKeyState":
+        obj, _created = cls.objects.get_or_create(key_name=key_name)
+        return obj
+
+    def __str__(self):
+        return f"GeminiKeyState({self.key_name})"
 
 
 class LeadCheckJob(models.Model):
