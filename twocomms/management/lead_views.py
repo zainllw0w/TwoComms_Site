@@ -321,7 +321,10 @@ def lead_process_api(request, lead_id: int):
     call_session_id = data.get('call_session_id')
     if call_session_id:
         from .services.telephony_call import attach_session_to_client
-        attach_session_to_client(manager=request.user, session_id=call_session_id, client=client)
+        _sess = attach_session_to_client(manager=request.user, session_id=call_session_id, client=client)
+        if _sess and _sess.general_call_id:
+            from .services.call_ai_analysis import schedule_call_analysis
+            schedule_call_analysis(_sess.general_call_id)
 
     payload = {
         "success": True,

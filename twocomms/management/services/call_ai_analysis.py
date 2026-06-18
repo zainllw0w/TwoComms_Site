@@ -24,6 +24,7 @@ import base64
 import json
 import logging
 import os
+import threading
 import time
 from decimal import Decimal, InvalidOperation
 
@@ -724,3 +725,77 @@ def notify_discrepancies(record: CallRecord, analysis: CallAIAnalysis) -> None:
         related_analysis=analysis,
         action_url=action_url,
     )
+
+
+# ---------------------------------------------------------------------------
+# Миттєвий фоновий аналіз при збереженні клієнта (без cron, непомітно для менеджера)
+# ---------------------------------------------------------------------------
+_BG_DEADLINE_SECONDS = 300   # максимум чекаємо готовності запису
+_BG_FIRST_DELAY = 20         # перша пауза (даємо дзвінку завершитись)
+_BG_MAX_DELAY = 60
+
+
+def schedule_call_analysis(general_call_id: str) -> None:
+    """Запускає аналіз дзвінка у фоновому потоці одразу після збереження клієнта.
+
+    Менеджер не чекає й не бачить процес — відповідь повертається миттєво, а
+    розбір зʼявиться згодом (коли провайдер віддасть запис). Безпечно: будь-яка
+    помилка глушиться, воркер не падає.
+    """
+    gcid = (str(general_call_id or "")).strip()
+    if not gcid:
+        return
+    try:
+        if not BinotelClient.is_configured():
+            return
+    except Exception:
+        return
+    try:
+        t = threading.Thread(target=_bg_analyze, args=(gcid,), daemon=True)
+        t.start()
+    except Exception:
+        logger.exception("schedule_call_analysis: failed to start thread")
+
+
+def _recording_ready(gcid: str) -> bool:
+    """Дешева перевірка готовності запису (без створення ERROR-аналізу)."""
+    try:
+        client = BinotelClient.from_settings()
+        data = client.call_record(gcid)
+        return bool(client.extract_record_url(data))
+    except (BinotelError, BinotelNotConfigured):
+        return False
+    except Exception:
+        return False
+
+
+def _bg_analyze(gcid: str) -> None:
+    from django.db import close_old_connections
+
+    close_old_connections()
+    try:
+        deadline = time.monotonic() + _BG_DEADLINE_SECONDS
+        delay = _BG_FIRST_DELAY
+        while time.monotonic() < deadline:
+            time.sleep(delay)
+            close_old_connections()
+            # Уже проаналізовано іншим шляхом? — виходимо.
+            rec = CallRecord.objects.filter(provider="binotel", external_call_id=gcid).first()
+            if rec and rec.ai_analyses.filter(status=CallAIAnalysis.Status.DONE).exists():
+                return
+            if _recording_ready(gcid):
+                try:
+                    analysis = analyze_call(gcid, force=False)
+                    if analysis.status == CallAIAnalysis.Status.DONE:
+                        CallRecord.objects.filter(
+                            provider="binotel", external_call_id=gcid
+                        ).update(ai_status=CallRecord.AiStatus.DONE)
+                    return
+                except Exception:
+                    logger.info("bg call analysis failed for %s", gcid)
+                    return
+            delay = min(_BG_MAX_DELAY, int(delay * 1.5))
+    except Exception:
+        logger.exception("bg call analysis loop error for %s", gcid)
+    finally:
+        close_old_connections()

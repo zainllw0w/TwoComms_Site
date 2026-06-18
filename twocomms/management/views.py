@@ -1410,7 +1410,10 @@ def home(request):
             call_session_id = data.get('call_session_id')
             if call_session_id:
                 from .services.telephony_call import attach_session_to_client
-                attach_session_to_client(manager=request.user, session_id=call_session_id, client=saved_client)
+                _sess = attach_session_to_client(manager=request.user, session_id=call_session_id, client=saved_client)
+                if _sess and _sess.general_call_id:
+                    from .services.call_ai_analysis import schedule_call_analysis
+                    schedule_call_analysis(_sess.general_call_id)
         if is_ajax:
             # Сформируем актуальные данные после операции
             stats = get_user_stats(request.user)

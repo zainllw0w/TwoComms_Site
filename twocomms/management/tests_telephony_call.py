@@ -646,3 +646,11 @@ class DayReportAuditTest(TestCase):
         self.assertEqual(ctx["calls_total"], 1)
         self.assertIn("clients", ctx["context"])
         self.assertIn("callbacks", ctx["context"])
+
+
+class ScheduleCallAnalysisTest(TestCase):
+    def test_schedule_safe_without_config(self):
+        # Без налаштованого Binotel (тестове середовище) — тихо виходить, без винятків.
+        _caa.schedule_call_analysis("")
+        _caa.schedule_call_analysis("999999")
+        self.assertTrue(True)
