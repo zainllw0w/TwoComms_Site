@@ -330,6 +330,71 @@ def gemini_generate_json(system_instruction: str, user_text: str, *, max_output_
     return _run_payload_with_models(payload)
 
 
+GROUNDED_MODEL_CHAIN = ["gemini-2.5-flash", "gemini-3.5-flash"]
+
+
+def _resolve_grounded_models() -> list[str]:
+    raw = (getattr(settings, "GEMINI_CHECKER_MODELS", "") or "").strip()
+    if not raw:
+        raw = (os.environ.get("GEMINI_CHECKER_MODELS", "") or "").strip()
+    if raw:
+        models = [m.strip() for m in raw.split(",") if m.strip()]
+        if models:
+            return models
+    return list(GROUNDED_MODEL_CHAIN)
+
+
+def gemini_generate_grounded(
+    system_instruction: str,
+    user_text: str,
+    *,
+    api_key: str | None = None,
+    models: list[str] | None = None,
+    max_output_tokens: int = 4096,
+) -> dict:
+    """Grounded (Google Search) JSON-запит до Gemini для AI-чекера.
+
+    Grounding несумісний з responseMimeType=json, тому просимо строгий JSON у
+    промпті, а _gemini_call_once парсить його з тексту. 400 (модель не підтримує
+    tools) трактуємо як перехід до наступної моделі.
+    """
+    key = (api_key or "").strip() or _resolve_gemini_key()
+    if not key:
+        raise CallAIAnalysisError("Не задано ключ Gemini (ENV GEMINI_API або налаштування чекера).")
+    model_list = models or _resolve_grounded_models()
+    payload = {
+        "contents": [{"role": "user", "parts": [{"text": user_text}]}],
+        "system_instruction": {"parts": [{"text": system_instruction}]},
+        "tools": [{"google_search": {}}],
+        "generationConfig": {
+            "temperature": 0.2,
+            "maxOutputTokens": max_output_tokens,
+        },
+    }
+    attempts_log: list[str] = []
+    for model in model_list:
+        for attempt in range(PER_MODEL_ATTEMPTS):
+            try:
+                parsed, usage = _gemini_call_once(model, payload, key)
+                attempts_log.append(f"{model}: ok (спроба {attempt + 1})")
+                return {"parsed": parsed, "raw": parsed, "usage": usage, "model": model,
+                        "meta": {"attempts": attempts_log, "used_model": model}}
+            except _GeminiTransient as exc:
+                attempts_log.append(f"{model}: transient {exc} (спроба {attempt + 1})")
+                if attempt < PER_MODEL_ATTEMPTS - 1:
+                    time.sleep(BACKOFF_BASE * (2 ** attempt))
+            except _GeminiSkipModel as exc:
+                attempts_log.append(f"{model}: skip {exc}")
+                break
+            except _GeminiFatal as exc:
+                # З grounding 400 зазвичай = модель не підтримує google_search tool.
+                attempts_log.append(f"{model}: fatal→skip {exc}")
+                break
+    raise CallAIAnalysisError(
+        "Усі моделі Gemini недоступні для grounded-запиту. Спроби: " + "; ".join(attempts_log)
+    )
+
+
 def _gemini_analyze(audio_bytes: bytes, mime: str, manager_context: str, manager_snapshot: str = "") -> dict:
     """Шле аудіо в Gemini з ретраями та фолбеком моделей."""
     payload = _build_payload(audio_bytes, mime, manager_context, manager_snapshot)
