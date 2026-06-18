@@ -234,3 +234,61 @@ class ParseModelJsonTests(TestCase):
     def test_unparseable_raises(self):
         with self.assertRaises(caa.CallAIAnalysisError):
             caa._parse_model_json("зовсім не json")
+
+
+class ChatRoundsRetryTests(TestCase):
+    def setUp(self):
+        gk.clear_model_overload()
+
+    def test_chat_cycles_three_rounds_before_error(self):
+        """503 на всіх моделях → чат робить 3 круги (з backoff між ними), тільки потім помилка."""
+        calls = {"n": 0}
+
+        def fake(model, payload, key, *, parse=True):
+            calls["n"] += 1
+            raise caa._GeminiTransient("HTTP 503")
+
+        sleeps = []
+        with patch.dict("os.environ", ENV6, clear=False), \
+             patch.object(caa, "_gemini_call_once", side_effect=fake), \
+             patch("management.services.call_ai_analysis.time.sleep", side_effect=lambda s: sleeps.append(s)):
+            with self.assertRaises(caa.CallAIAnalysisError):
+                caa.gemini_generate_text({"contents": []}, role="chat")
+        # 3 моделі × 3 круги = 9 викликів; між кругами 2 backoff-паузи 2с, 4с
+        self.assertEqual(calls["n"], 9)
+        self.assertEqual(len(sleeps), 2)
+        self.assertEqual(sleeps, [2.0, 4.0])
+        gk.clear_model_overload()
+
+    def test_chat_succeeds_on_second_round(self):
+        state = {"round1_done": False, "n": 0}
+
+        def fake(model, payload, key, *, parse=True):
+            state["n"] += 1
+            if state["n"] <= 3:  # перший круг — усі 503
+                raise caa._GeminiTransient("HTTP 503")
+            return ("відповідь користувачу", {})
+
+        with patch.dict("os.environ", ENV6, clear=False), \
+             patch.object(caa, "_gemini_call_once", side_effect=fake), \
+             patch("management.services.call_ai_analysis.time.sleep", return_value=None):
+            out = caa.gemini_generate_text({"contents": []}, role="chat")
+        self.assertEqual(out["parsed"], "відповідь користувачу")
+        gk.clear_model_overload()
+
+    def test_chat_one_attempt_per_combo(self):
+        """attempts_per_model['chat']==1 — на 503 НЕ ретраїть ту саму комбінацію всередині круга."""
+        self.assertEqual(gk.attempts_per_model("chat"), 1)
+        self.assertEqual(gk.max_rounds("chat"), 3)
+
+
+class StickyKeyOrderTests(TestCase):
+    def test_recent_ok_key_goes_first_within_tier(self):
+        from django.utils import timezone
+        # API2 успішно відповів нещодавно → у тирі own він має йти першим
+        gk.mark_success("GEMINI_API2", now=timezone.now())
+        with patch.dict("os.environ", ENV6, clear=False):
+            order = [k for k, _, _ in gk.iter_attempts("chat")]
+        # перший own-ключ — GEMINI_API2 (sticky), borrow-ключі — після own
+        own_keys = [k for k in order if k in ("GEMINI_API", "GEMINI_API2")]
+        self.assertEqual(own_keys[0], "GEMINI_API2")

@@ -325,32 +325,41 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
                    grounded: bool = False, parse: bool = True) -> dict:
     """Прогоняє payload через пул ключів ролі та цепочку моделей.
 
-    Ручний ключ (якщо заданий) пробується першим, поза пулом. Далі — пул:
-    own → borrow, основний ключ першим, на 429 ключ уводиться в кулдаун (квота
-    проекту), на 503 модель — у overload-кеш, авто-повернення по таймауту.
-    parse=False → у result['parsed'] сирий текст (для бота), а не JSON.
+    Кругова стратегія: у кожному КРУЗІ — ручний ключ (якщо є) першим, далі весь
+    пул (own→borrow, sticky-впорядкований) по одному виклику на (key,model).
+    Якщо круг не дав 200 — експоненційна затримка (2с,4с,...) + скидання
+    overload-кешу моделей, і новий круг. Усього до max_rounds(role) кругів
+    (чат=3), тільки потім помилка. Це не дає боту падати від тимчасових 503/квоти,
+    перебираючи всі ключі/моделі замість трьох спроб на одному.
     """
     log: list[str] = []
     n_attempts = gemini_keys.attempts_per_model(role)
+    rounds = gemini_keys.max_rounds(role)
     models = gemini_keys.role_model_chains().get(role, ["gemini-2.5-flash"])
 
-    if manual_key:
-        for model in models:
-            if gemini_keys.is_model_overloaded(model):
-                continue
-            status, res = _call_combo("(manual)", manual_key, model, payload,
+    for round_idx in range(rounds):
+        if manual_key:
+            for model in models:
+                if gemini_keys.is_model_overloaded(model):
+                    continue
+                status, res = _call_combo("(manual)", manual_key, model, payload,
+                                          n_attempts, grounded, log, parse)
+                if status == "ok":
+                    return res
+                if status == "key_429":
+                    break  # ручний ключ вичерпано → до пулу
+
+        for key_name, key_value, model in gemini_keys.iter_attempts(role):
+            status, res = _call_combo(key_name, key_value, model, payload,
                                       n_attempts, grounded, log, parse)
             if status == "ok":
                 return res
-            if status == "key_429":
-                break  # ручний ключ вичерпано → переходимо до пулу
+            # key_429 / model_skip — iter_attempts сам пропустить вичерпаний ключ/модель
 
-    for key_name, key_value, model in gemini_keys.iter_attempts(role):
-        status, res = _call_combo(key_name, key_value, model, payload,
-                                  n_attempts, grounded, log, parse)
-        if status == "ok":
-            return res
-        # key_429 / model_skip — iter_attempts сам пропустить вичерпаний ключ/модель
+        # Круг не вдався: дати перевантаженим моделям новий шанс + backoff.
+        if round_idx < rounds - 1:
+            gemini_keys.clear_model_overload()
+            time.sleep(gemini_keys.ROUND_BACKOFF_BASE * (2 ** round_idx))
 
     raise CallAIAnalysisError(
         "Усі ключі/моделі Gemini недоступні (квота/перевантаження). Спроби: "

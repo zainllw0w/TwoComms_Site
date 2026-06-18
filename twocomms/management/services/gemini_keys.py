@@ -46,7 +46,21 @@ DEFAULT_ROLE_MODEL_CHAINS = {
     "checker": ["gemini-3.5-flash", "gemini-2.5-flash"],
 }
 
-ATTEMPTS_PER_MODEL = {"chat": 3, "management": 3, "checker": 2}
+ATTEMPTS_PER_MODEL = {"chat": 1, "management": 2, "checker": 2}
+
+# Скільки повних кругів перебору ВСІХ ключів×моделей робити перед помилкою.
+# Чат — найвищий пріоритет: 3 круги з експоненційним backoff між ними, щоб
+# дочекатися відновлення квоти/перевантаження, а не падати після першого круга.
+MAX_ROUNDS = {"chat": 3, "management": 2, "checker": 1}
+ROUND_BACKOFF_BASE = 2.0  # секунди між кругами: 2, 4, 8...
+
+
+def attempts_per_model(role: str) -> int:
+    return int(ATTEMPTS_PER_MODEL.get(role, 2))
+
+
+def max_rounds(role: str) -> int:
+    return int(MAX_ROUNDS.get(role, 1))
 
 # Моделі з безкоштовною квотою генерації. 429 на НИХ = вичерпана денна квота
 # проекту → кулдаун усього КЛЮЧА. 429 на інших (pro-preview тощо) = модель платна
@@ -75,7 +89,7 @@ def is_key_level_429(model: str, grounded: bool) -> bool:
 
 ALL_KEYS = ["GEMINI_API", "GEMINI_API2", "GEMINI_API3", "GEMINI_API4", "GEMINI_API5", "GEMINI_API6"]
 
-MODEL_OVERLOAD_SECONDS = 300   # 503 → модель «перевантажена» ~5 хв
+MODEL_OVERLOAD_SECONDS = 60    # 503 → модель «перевантажена» ~1 хв (швидке відновлення для чату)
 DEFAULT_MINUTE_COOLDOWN = 60   # per-minute 429 без retryDelay
 TOPUP_COOLDOWN_SECONDS = 6 * 3600  # платний проект без коштів
 
@@ -94,10 +108,6 @@ def role_key_pools() -> dict:
 
 def role_model_chains() -> dict:
     return getattr(settings, "GEMINI_ROLE_MODEL_CHAINS", None) or DEFAULT_ROLE_MODEL_CHAINS
-
-
-def attempts_per_model(role: str) -> int:
-    return int(ATTEMPTS_PER_MODEL.get(role, 2))
 
 
 # ---------------------------------------------------------------------------
@@ -211,17 +221,26 @@ def clear_model_overload() -> None:
 # ---------------------------------------------------------------------------
 # Підбір (key, model) комбінацій
 # ---------------------------------------------------------------------------
+def _sticky_order(key_names: list[str]) -> list[str]:
+    """Сортує ключі за «липкістю»: останній успішний (last_ok_at) — першим.
+    Зберігає вхідний порядок як вторинний критерій (стабільне сортування)."""
+    def _last_ok(name):
+        st = GeminiKeyState.get(name)
+        return st.last_ok_at or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+    return sorted(key_names, key=_last_ok, reverse=True)
+
+
 def iter_attempts(role: str):
     """Генерує (key_name, key_value, model) у порядку пріоритету.
 
-    Порядок: own-ключі (основний першим) → borrow-ключі; для кожного доступного
-    ключа — моделі цепочки ролі (крім перевантажених). Стан перечитується ліниво,
-    тож якщо викликач під час ітерації поставить ключ у кулдаун (mark_429), решта
-    моделей цього ключа пропускаються (квота на проект — спільна).
+    Порядок: own-ключі → borrow-ключі (пріоритет own зберігається); ВСЕРЕДИНІ
+    кожного тиру — sticky-сортування (останній успішний ключ першим), щоб чат
+    тримався робочого ключа й не довбав вичерпаний. Для кожного доступного ключа —
+    моделі цепочки ролі (крім перевантажених). Стан перечитується ліниво.
     """
     pool = role_key_pools().get(role, {"own": [], "borrow": []})
     models = role_model_chains().get(role, ["gemini-2.5-flash"])
-    ordered_keys = list(pool.get("own", [])) + list(pool.get("borrow", []))
+    ordered_keys = _sticky_order(list(pool.get("own", []))) + _sticky_order(list(pool.get("borrow", [])))
     for key_name in ordered_keys:
         kv = _key_value(key_name)
         if not kv:
