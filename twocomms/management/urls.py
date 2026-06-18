@@ -5,6 +5,7 @@ from . import shop_views
 from . import stats_views
 from . import lead_views
 from . import parsing_views
+from . import checker_views
 from . import views_levels
 from . import bot_webhook
 from . import bot_views
@@ -125,6 +126,17 @@ urlpatterns = [
     path('parsing/api/status/', parsing_views.parser_status_api, name='management_parser_status_api'),
     path('parsing/api/moderation/', parsing_views.parser_moderation_api, name='management_parser_moderation_api'),
     path('parsing/api/leads/<int:lead_id>/action/', parsing_views.lead_moderation_action_api, name='management_lead_moderation_action_api'),
+    # AI-чекер спарсенных аккаунтов
+    path('checker/', checker_views.checker_dashboard, name='management_checker'),
+    path('checker/api/start/', checker_views.checker_start_api, name='management_checker_start_api'),
+    path('checker/api/step/', checker_views.checker_step_api, name='management_checker_step_api'),
+    path('checker/api/pause/', checker_views.checker_pause_api, name='management_checker_pause_api'),
+    path('checker/api/resume/', checker_views.checker_resume_api, name='management_checker_resume_api'),
+    path('checker/api/stop/', checker_views.checker_stop_api, name='management_checker_stop_api'),
+    path('checker/api/status/', checker_views.checker_status_api, name='management_checker_status_api'),
+    path('checker/api/results/', checker_views.checker_results_api, name='management_checker_results_api'),
+    path('checker/api/leads/<int:lead_id>/recheck/', checker_views.checker_recheck_api, name='management_checker_recheck_api'),
+    path('checker/api/settings/', checker_views.checker_settings_api, name='management_checker_settings_api'),
     # Manager levels system
     path('profile/', views_levels.manager_profile, name='management_profile'),    path('api/levels/progression/', views_levels.manager_progression_api, name='management_levels_progression_api'),
     path('api/levels/weekly-kpi/', views_levels.manager_weekly_kpi_api, name='management_levels_weekly_kpi_api'),

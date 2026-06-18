@@ -1,0 +1,407 @@
+{% extends "management/base.html" %}
+{% load static %}
+{% block title %}Чекер — TwoComms Management{% endblock %}
+
+{% block extra_css %}
+<style>
+.checker-shell{display:flex;flex-direction:column;gap:18px;}
+.checker-hero{display:flex;gap:20px;justify-content:space-between;flex-wrap:wrap;background:var(--panel-strong);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px 24px;box-shadow:var(--shadow-lg);}
+.checker-hero__title{margin:6px 0 8px;font-size:1.5rem;color:var(--text-primary);}
+.checker-hero__lead{color:var(--text-secondary);max-width:560px;margin:0 0 14px;font-size:.92rem;}
+.checker-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.checker-hero__metrics{display:grid;grid-template-columns:repeat(2,minmax(120px,1fr));gap:10px;align-content:start;}
+.checker-metric{background:var(--bg-850);border:1px solid var(--border);border-radius:var(--radius-md,12px);padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-width:120px;}
+.checker-metric__label{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+.checker-metric__value{font-size:1.3rem;font-weight:600;color:var(--text-primary);}
+.checker-metric--fit .checker-metric__value{color:#4ade80;}
+.checker-metric--maybe .checker-metric__value{color:var(--accent);}
+.checker-metric--unfit .checker-metric__value{color:#f87171;}
+.checker-metric--error .checker-metric__value{color:#fb7185;}
+.checker-progress{display:flex;align-items:center;gap:12px;}
+.checker-progress .progress-track{flex:1;height:8px;background:var(--bg-850);border-radius:99px;overflow:hidden;}
+.checker-progress .progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-strong));width:0;transition:width .4s ease;}
+.checker-progress__label{font-size:.8rem;color:var(--text-secondary);min-width:90px;text-align:right;}
+.checker-form .field-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;}
+.checker-form .field{display:flex;flex-direction:column;gap:6px;}
+.checker-form label{font-size:.78rem;color:var(--text-secondary);}
+.checker-form input,.checker-form select{background:var(--bg-850);border:1px solid var(--border);border-radius:10px;padding:9px 11px;color:var(--text-primary);font-size:.9rem;}
+.field-span-2{grid-column:span 2;}
+.checker-inline-status{font-size:.8rem;color:#4ade80;margin-left:10px;}
+.checker-results__head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;}
+.checker-results__tools{display:flex;gap:8px;}
+.checker-mini-select{background:var(--bg-850);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);padding:6px 9px;font-size:.82rem;}
+.checker-tabs{display:flex;gap:6px;margin:14px 0;flex-wrap:wrap;}
+.checker-tab{background:var(--bg-850);border:1px solid var(--border);border-radius:99px;color:var(--text-secondary);padding:7px 16px;font-size:.84rem;cursor:pointer;transition:all .2s;}
+.checker-tab:hover{color:var(--text-primary);}
+.checker-tab.is-active{background:var(--accent);border-color:var(--accent);color:#1a1205;font-weight:600;}
+.checker-table th,.checker-table td{padding:10px 12px;text-align:left;vertical-align:middle;}
+.checker-score{display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:30px;border-radius:8px;font-weight:700;font-size:.95rem;}
+.checker-score--fit{background:rgba(74,222,128,.16);color:#4ade80;}
+.checker-score--maybe{background:rgba(243,164,61,.16);color:var(--accent);}
+.checker-score--unfit{background:rgba(248,113,113,.16);color:#f87171;}
+.checker-score--error{background:rgba(148,163,184,.16);color:var(--muted);}
+.checker-chip{display:inline-block;background:var(--bg-850);border:1px solid var(--border);border-radius:99px;padding:2px 9px;font-size:.72rem;color:var(--text-secondary);margin:2px 3px 0 0;}
+.checker-brand-cell{max-width:280px;color:var(--text-secondary);font-size:.84rem;}
+.checker-link-btn{color:var(--accent);text-decoration:none;font-size:.8rem;}
+.checker-detail-btn{background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text-primary);padding:6px 12px;cursor:pointer;font-size:.8rem;}
+.checker-detail-btn:hover{border-color:var(--accent);}
+.checker-pagination{display:flex;gap:6px;align-items:center;justify-content:center;margin-top:14px;flex-wrap:wrap;}
+.checker-pagination button{background:var(--bg-850);border:1px solid var(--border);border-radius:8px;color:var(--text-secondary);padding:6px 12px;cursor:pointer;}
+.checker-pagination button.is-active{background:var(--accent);color:#1a1205;border-color:var(--accent);}
+.modal-card--wide{max-width:760px;width:94vw;}
+.checker-criteria{display:flex;flex-direction:column;gap:8px;margin:12px 0;}
+.checker-criterion{display:grid;grid-template-columns:1fr auto;gap:6px 12px;background:var(--bg-850);border:1px solid var(--border);border-radius:10px;padding:9px 12px;}
+.checker-criterion__title{color:var(--text-primary);font-size:.86rem;font-weight:600;}
+.checker-criterion__bar{grid-column:1/-1;height:6px;background:var(--bg-900);border-radius:99px;overflow:hidden;}
+.checker-criterion__bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-strong));}
+.checker-criterion__comment{grid-column:1/-1;color:var(--text-secondary);font-size:.8rem;}
+.checker-detail-section{margin:12px 0;}
+.checker-detail-section h4{margin:0 0 6px;color:var(--text-primary);font-size:.9rem;}
+.checker-detail-section p{color:var(--text-secondary);font-size:.86rem;margin:0;}
+.checker-sources a{display:block;color:var(--accent);font-size:.8rem;margin:2px 0;text-decoration:none;}
+.checker-confidence{font-size:.74rem;padding:2px 8px;border-radius:99px;border:1px solid var(--border);color:var(--text-secondary);}
+@media(max-width:720px){.checker-hero__metrics{grid-template-columns:repeat(2,1fr);}.field-span-2{grid-column:span 1;}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="checker-endpoints"
+     data-start-url="{% url 'management_checker_start_api' %}"
+     data-step-url="{% url 'management_checker_step_api' %}"
+     data-pause-url="{% url 'management_checker_pause_api' %}"
+     data-resume-url="{% url 'management_checker_resume_api' %}"
+     data-stop-url="{% url 'management_checker_stop_api' %}"
+     data-status-url="{% url 'management_checker_status_api' %}"
+     data-results-url="{% url 'management_checker_results_api' %}"
+     data-settings-url="{% url 'management_checker_settings_api' %}"
+     data-recheck-url-template="{% url 'management_checker_recheck_api' 0 %}"></div>
+{{ active_job_json|json_script:"checker-initial-job" }}
+{{ checker_counters|json_script:"checker-initial-counters" }}
+{{ checker_settings|json_script:"checker-initial-settings" }}
+
+<div class="checker-shell">
+  <section class="checker-hero">
+    <div class="checker-hero__main">
+      <p class="eyebrow">AI Lead Checker</p>
+      <h1 class="checker-hero__title">Чекер спарсених акаунтів</h1>
+      <p class="checker-hero__lead">Gemini з веб-пошуком оцінює кожен магазин за 10 критеріями (0–100), визначає бренд, канал співпраці та дає рекомендацію менеджеру.</p>
+      <div class="checker-controls">
+        <span class="status-chip" id="checker-status-chip">Очікування</span>
+        <button type="button" class="btn-primary" id="checker-start-btn">Старт</button>
+        <button type="button" class="btn-ghost" id="checker-pause-btn" hidden>Пауза</button>
+        <button type="button" class="btn-ghost" id="checker-resume-btn" hidden>Відновити</button>
+        <button type="button" class="btn-ghost" id="checker-stop-btn" hidden>Стоп</button>
+      </div>
+    </div>
+    <aside class="checker-hero__metrics">
+      <div class="checker-metric"><span class="checker-metric__label">Перевірено</span><span class="checker-metric__value" id="m-processed">0</span></div>
+      <div class="checker-metric"><span class="checker-metric__label">Залишилось</span><span class="checker-metric__value" id="m-remaining">0</span></div>
+      <div class="checker-metric"><span class="checker-metric__label">Минуло, с</span><span class="checker-metric__value" id="m-elapsed">0</span></div>
+      <div class="checker-metric"><span class="checker-metric__label">Сер. час, с</span><span class="checker-metric__value" id="m-avg">0</span></div>
+      <div class="checker-metric checker-metric--fit"><span class="checker-metric__label">Підходить</span><span class="checker-metric__value" id="m-fit">0</span></div>
+      <div class="checker-metric checker-metric--maybe"><span class="checker-metric__label">Під питанням</span><span class="checker-metric__value" id="m-maybe">0</span></div>
+      <div class="checker-metric checker-metric--unfit"><span class="checker-metric__label">Не підходить</span><span class="checker-metric__value" id="m-unfit">0</span></div>
+      <div class="checker-metric checker-metric--error"><span class="checker-metric__label">Помилки</span><span class="checker-metric__value" id="m-errors">0</span></div>
+    </aside>
+  </section>
+
+  <div class="checker-progress"><div class="progress-track"><div class="progress-fill" id="checker-progress-fill" style="width:0%"></div></div><span class="checker-progress__label" id="checker-progress-label">0 / 0</span></div>
+
+  <div class="offer-grid offer-grid-single">
+    <div class="offer-card">
+      <div class="parsing-card-header">
+        <div><p class="eyebrow">Запуск</p><h3 class="offer-title">Налаштування перевірки</h3></div>
+        <p>Оберіть, які ліди перевіряти, і запустіть. Усе перевірене одразу зберігається — можна зупинити будь-коли.</p>
+      </div>
+      <form id="checker-form" class="checker-form">
+        {% csrf_token %}
+        <div class="field-grid">
+          <div class="field">
+            <label>Обсяг</label>
+            <select name="scope" id="checker-scope">
+              <option value="unchecked">Тільки неперевірені</option>
+              <option value="all">Усі (перепровірка)</option>
+              <option value="by_city">За містом</option>
+              <option value="by_band">За смугою вердикту</option>
+            </select>
+          </div>
+          <div class="field" id="checker-city-field" hidden>
+            <label>Місто</label>
+            <select name="city" id="checker-city">
+              <option value="">— оберіть —</option>
+              {% for c in checker_cities %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="field" id="checker-band-field" hidden>
+            <label>Смуга вердикту</label>
+            <select name="band" id="checker-band">
+              <option value="fit">Підходить</option>
+              <option value="maybe">Під питанням</option>
+              <option value="unfit">Не підходить</option>
+              <option value="error">Помилки</option>
+            </select>
+          </div>
+          <div class="field"><label>Ліміт (0 = усі)</label><input type="number" name="target_limit" id="checker-limit" min="0" value="0"></div>
+          <div class="field"><label>Запитів за хвилину</label><input type="number" name="requests_per_minute" id="checker-rpm" min="1" max="20" value="8"></div>
+        </div>
+      </form>
+    </div>
+
+    <details class="offer-card checker-settings-card">
+      <summary class="offer-title">Ключ Gemini та налаштування</summary>
+      <form id="checker-settings-form" class="checker-form">
+        {% csrf_token %}
+        <p class="offer-help">Якщо поле порожнє — використовується спільний ключ (ENV <code>GEMINI_API</code>), той самий, що в боті та аналізі дзвінків.</p>
+        <div class="field-grid">
+          <div class="field field-span-2"><label>Ключ Gemini (опц.)</label><input type="password" name="gemini_api_key" id="checker-key" placeholder="{% if checker_settings.has_key %}•••••• збережено{% else %}не задано{% endif %}"></div>
+          <div class="field"><label>Моделі (csv, опц.)</label><input type="text" name="model_chain" id="checker-models" value="{{ checker_settings.model_chain }}" placeholder="gemini-2.5-flash,gemini-3.5-flash"></div>
+          <div class="field"><label>RPM за замовч.</label><input type="number" name="requests_per_minute" id="checker-settings-rpm" min="1" max="20" value="{{ checker_settings.requests_per_minute }}"></div>
+        </div>
+        <button type="submit" class="btn-ghost">Зберегти налаштування</button>
+        <span id="checker-settings-status" class="checker-inline-status" hidden></span>
+      </form>
+    </details>
+  </div>
+
+  <div class="checker-results offer-card">
+    <div class="checker-results__head">
+      <div><p class="eyebrow">Результати</p><h3 class="offer-title">Перевірені акаунти</h3></div>
+      <div class="checker-results__tools">
+        <select id="checker-results-city" class="checker-mini-select"><option value="">Усі міста</option>{% for c in checker_cities %}<option value="{{ c }}">{{ c }}</option>{% endfor %}</select>
+        <select id="checker-results-page-size" class="checker-mini-select"><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option></select>
+      </div>
+    </div>
+    <div class="checker-tabs" id="checker-tabs">
+      <button type="button" class="checker-tab is-active" data-band="all">Усі</button>
+      <button type="button" class="checker-tab" data-band="fit">Підходить</button>
+      <button type="button" class="checker-tab" data-band="maybe">Під питанням</button>
+      <button type="button" class="checker-tab" data-band="unfit">Не підходить</button>
+      <button type="button" class="checker-tab" data-band="error">Помилки</button>
+    </div>
+    <div class="table-shell">
+      <table class="nexus-table checker-table" id="checker-results-table">
+        <thead><tr>
+          <th>Магазин</th><th>Оцінка</th><th>Категорія</th><th>Бренд</th><th>Канали</th><th>Сайт / IG</th><th>Дія</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="checker-pagination" id="checker-pagination"></div>
+  </div>
+</div>
+
+<div id="checker-detail-modal" class="modal-overlay">
+  <div class="modal-card modal-card--wide">
+    <div class="modal-header">
+      <div><p class="eyebrow">Розбір ШІ</p><h3 id="checker-detail-title">—</h3></div>
+      <button type="button" class="modal-close" aria-label="Закрити">×</button>
+    </div>
+    <div class="modal-body" id="checker-detail-body"></div>
+    <div class="modal-footer">
+      <button type="button" class="btn-ghost" id="checker-recheck-btn">Перевірити знову</button>
+      <a href="#" target="_blank" rel="noopener" class="btn-ghost" id="checker-detail-site" hidden>Відкрити сайт</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function initCheckerPage(){
+  const root = document.getElementById('checker-endpoints');
+  if(!root || root.dataset.bound === '1') return;
+  root.dataset.bound = '1';
+  const url = (k) => root.dataset[k];
+  const recheckTpl = root.dataset.recheckUrlTemplate;
+
+  const readJson = (id) => { const el = document.getElementById(id); if(!el) return null; try{return JSON.parse(el.textContent);}catch(e){return null;} };
+  let activeJob = readJson('checker-initial-job');
+  let curBand = 'all', curPage = 1;
+  let stepTimer = null, pollTimer = null, stepInFlight = false, statusInFlight = false;
+
+  const getCookie = (name) => { const m = document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)'); return m ? m.pop() : ''; };
+  async function apiRequest(u, data, method){
+    method = method || (data ? 'POST' : 'GET');
+    const opts = { method, headers: {} };
+    if(method !== 'GET'){
+      opts.headers['X-CSRFToken'] = getCookie('csrftoken');
+      const fd = new FormData();
+      if(data instanceof FormData){ data.forEach((v,k)=>fd.append(k,v)); }
+      else if(data){ Object.entries(data).forEach(([k,v])=>fd.append(k,v)); }
+      fd.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+      opts.body = fd;
+    }
+    const res = await fetch(u, opts);
+    let payload = {};
+    try{ payload = await res.json(); }catch(e){}
+    if(!res.ok || payload.success === false){ const err = new Error(payload.error || ('HTTP '+res.status)); err.payload = payload; throw err; }
+    return payload;
+  }
+
+  const $ = (id) => document.getElementById(id);
+  const setText = (id,v) => { const el=$(id); if(el) el.textContent = v; };
+
+  function applyJob(job){
+    activeJob = job;
+    const chip = $('checker-status-chip');
+    const labels = {running:'Працює',paused:'Пауза',stopped:'Зупинено',completed:'Завершено',failed:'Помилка'};
+    if(job){
+      setText('m-processed', job.processed);
+      setText('m-remaining', job.remaining);
+      setText('m-elapsed', job.elapsed_seconds);
+      setText('m-avg', job.avg_seconds);
+      setText('m-fit', job.fit_count);
+      setText('m-maybe', job.maybe_count);
+      setText('m-unfit', job.unfit_count);
+      setText('m-errors', job.errors);
+      const pct = job.total_selected ? Math.min(100, Math.round(job.processed*100/job.total_selected)) : 0;
+      const fill = $('checker-progress-fill'); if(fill) fill.style.width = pct+'%';
+      setText('checker-progress-label', job.processed+' / '+job.total_selected);
+      if(chip){ chip.textContent = labels[job.status] || job.status; }
+    } else if(chip){ chip.textContent = 'Очікування'; }
+    const running = job && job.status === 'running';
+    const paused = job && job.status === 'paused';
+    $('checker-start-btn').hidden = running || paused;
+    $('checker-pause-btn').hidden = !running;
+    $('checker-resume-btn').hidden = !paused;
+    $('checker-stop-btn').hidden = !(running || paused);
+  }
+
+  const canStep = () => activeJob && activeJob.status === 'running';
+  function scheduleStep(delay){ if(stepTimer){clearTimeout(stepTimer);stepTimer=null;} if(!canStep()) return; stepTimer = setTimeout(runStep, Math.max(250, Number(delay||0))); }
+  async function runStep(){
+    if(stepInFlight || !canStep()) return; stepInFlight = true;
+    try{ const p = await apiRequest(url('stepUrl'), {job_id: activeJob.id}); applyJob(p.job); }
+    catch(e){ console.error(e); }
+    finally{ stepInFlight = false; if(canStep()){ scheduleStep(activeJob.next_step_eta_ms||0); } else { loadResults(); } }
+  }
+  function schedulePoll(delay){ if(pollTimer){clearTimeout(pollTimer);pollTimer=null;} const d = delay!=null?delay:(activeJob && activeJob.status==='running'?3500:6000); pollTimer = setTimeout(pollStatus, Math.max(1500,d)); }
+  async function pollStatus(){
+    if(statusInFlight){return;} statusInFlight = true;
+    try{ const q = activeJob ? ('?job_id='+activeJob.id) : ''; const p = await apiRequest(url('statusUrl')+q, null, 'GET'); applyJob(p.job); }
+    catch(e){ console.warn(e); }
+    finally{ statusInFlight = false; schedulePoll(); }
+  }
+
+  const scopeSel = $('checker-scope');
+  function syncScope(){
+    $('checker-city-field').hidden = scopeSel.value !== 'by_city';
+    $('checker-band-field').hidden = scopeSel.value !== 'by_band';
+  }
+  scopeSel.addEventListener('change', syncScope); syncScope();
+
+  $('checker-start-btn').addEventListener('click', async () => {
+    const fd = new FormData($('checker-form'));
+    try{ const p = await apiRequest(url('startUrl'), fd); applyJob(p.job); if(p.job && p.job.status==='running'){ scheduleStep(0); } }
+    catch(e){ alert(e.message || 'Не вдалося запустити чекер'); }
+  });
+  $('checker-pause-btn').addEventListener('click', async () => { try{ const p = await apiRequest(url('pauseUrl'), {job_id:activeJob.id}); applyJob(p.job); }catch(e){ alert(e.message);} });
+  $('checker-resume-btn').addEventListener('click', async () => { try{ const p = await apiRequest(url('resumeUrl'), {job_id:activeJob.id}); applyJob(p.job); if(canStep()) scheduleStep(0);}catch(e){ alert(e.message);} });
+  $('checker-stop-btn').addEventListener('click', async () => { try{ const p = await apiRequest(url('stopUrl'), {job_id:activeJob.id}); applyJob(p.job); loadResults(); }catch(e){ alert(e.message);} });
+
+  $('checker-settings-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    try{ await apiRequest(url('settingsUrl'), fd); const s=$('checker-settings-status'); s.hidden=false; s.textContent='Збережено'; setTimeout(()=>{s.hidden=true;},2500); }
+    catch(err){ alert(err.message || 'Не вдалося зберегти'); }
+  });
+
+  const VERDICT_LABELS = {physical_store:'Фізмагазин',retail_chain:'Мережа',dropshipper:'Дропшипер',brand:'Бренд',voentorg:'Військторг',marketplace_seller:'Маркетплейс',irrelevant:'Нерелевантно'};
+  const CHANNEL_LABELS = {wholesale:'Опт',custom_print:'Кастом-друк',collab:'Колаб',dropship:'Дропшип',test_batch:'Тест-партія',shelf:'Полиця'};
+  const bandClass = (v) => ({fit:'fit',maybe:'maybe',unfit:'unfit',error:'error'}[v] || 'error');
+  const esc = (s) => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  function rowHtml(r){
+    const cls = bandClass(r.ai_verdict);
+    const scoreTxt = r.ai_verdict==='error' ? '—' : (r.ai_score==null?'—':r.ai_score);
+    const channels = (r.partnership_fit||[]).map(c=>`<span class="checker-chip">${esc(CHANNEL_LABELS[c]||c)}</span>`).join('');
+    const site = r.website_url ? `<a class="checker-link-btn" href="${esc(r.website_url)}" target="_blank" rel="noopener">сайт</a>` : '';
+    const ig = r.instagram_url ? `<a class="checker-link-btn" href="${esc(r.instagram_url)}" target="_blank" rel="noopener">IG</a>` : '';
+    return `<tr>
+      <td>${esc(r.shop_name)}<div class="muted-detail">${esc(r.city||'')}</div></td>
+      <td><span class="checker-score checker-score--${cls}">${scoreTxt}</span></td>
+      <td>${esc(VERDICT_LABELS[r.verdict_category]||'')}</td>
+      <td class="checker-brand-cell">${esc((r.brand_summary||'').slice(0,140))}</td>
+      <td>${channels}</td>
+      <td>${site} ${ig}</td>
+      <td><button type="button" class="checker-detail-btn" data-lead="${r.lead_id}">Деталі</button></td>
+    </tr>`;
+  }
+
+  let lastRows = [];
+  async function loadResults(){
+    const city = $('checker-results-city').value;
+    const ps = $('checker-results-page-size').value;
+    const params = new URLSearchParams({band:curBand, city, page:curPage, page_size:ps});
+    try{
+      const p = await apiRequest(url('resultsUrl')+'?'+params.toString(), null, 'GET');
+      lastRows = p.results.rows;
+      const tb = document.querySelector('#checker-results-table tbody');
+      tb.innerHTML = lastRows.length ? lastRows.map(rowHtml).join('') : '<tr><td colspan="7" class="table-empty">Немає даних</td></tr>';
+      renderPagination(p.results);
+    }catch(e){ console.warn(e); }
+  }
+  function renderPagination(res){
+    const box = $('checker-pagination'); box.innerHTML='';
+    if(res.num_pages<=1) return;
+    for(let i=1;i<=res.num_pages;i++){
+      if(i>1 && i<res.num_pages && Math.abs(i-res.page)>2) { if(box.lastChild && box.lastChild.textContent!=='…'){const e=document.createElement('span');e.textContent='…';e.className='checker-chip';box.appendChild(e);} continue; }
+      const b=document.createElement('button'); b.textContent=i; if(i===res.page) b.classList.add('is-active');
+      b.addEventListener('click',()=>{curPage=i;loadResults();}); box.appendChild(b);
+    }
+  }
+
+  document.getElementById('checker-tabs').addEventListener('click',(e)=>{
+    const btn=e.target.closest('.checker-tab'); if(!btn) return;
+    document.querySelectorAll('.checker-tab').forEach(t=>t.classList.remove('is-active'));
+    btn.classList.add('is-active'); curBand=btn.dataset.band; curPage=1; loadResults();
+  });
+  $('checker-results-city').addEventListener('change',()=>{curPage=1;loadResults();});
+  $('checker-results-page-size').addEventListener('change',()=>{curPage=1;loadResults();});
+
+  const modal=$('checker-detail-modal');
+  let modalLead=null;
+  function openModal(r){
+    modalLead=r;
+    $('checker-detail-title').textContent = r.shop_name;
+    const conf = r.confidence?`<span class="checker-confidence">впевненість: ${esc(r.confidence)}</span>`:'';
+    const crit = (r.criteria||[]).map(c=>`<div class="checker-criterion"><span class="checker-criterion__title">${esc(c.title||c.key)}</span><b>${c.score}/10</b><div class="checker-criterion__bar"><i style="width:${(c.score||0)*10}%"></i></div>${c.comment?`<div class="checker-criterion__comment">${esc(c.comment)}</div>`:''}</div>`).join('');
+    const channels = (r.partnership_fit||[]).map(c=>`<span class="checker-chip">${esc(CHANNEL_LABELS[c]||c)}</span>`).join('') || '—';
+    const sources = (r.sources||[]).map(s=>`<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title||s.url)}</a>`).join('') || '<p>немає</p>';
+    const errBlock = r.error?`<div class="checker-detail-section"><h4>Помилка</h4><p>${esc(r.error)}</p></div>`:'';
+    $('checker-detail-body').innerHTML = `
+      <div class="checker-detail-section"><h4>Оцінка: ${r.ai_score==null?'—':r.ai_score}/100 ${conf}</h4><p>${esc(VERDICT_LABELS[r.verdict_category]||'')}</p></div>
+      <div class="checker-detail-section"><h4>Бренд</h4><p>${esc(r.brand_summary||'—')}</p></div>
+      <div class="checker-detail-section"><h4>Аудиторія</h4><p>${esc(r.audience_guess||'—')}</p></div>
+      <div class="checker-detail-section"><h4>Канали</h4><p>${channels}</p></div>
+      <div class="checker-detail-section"><h4>Критерії</h4><div class="checker-criteria">${crit||'<p>—</p>'}</div></div>
+      <div class="checker-detail-section"><h4>Висновок</h4><p>${esc(r.comment||'—')}</p></div>
+      <div class="checker-detail-section"><h4>Рекомендація менеджеру</h4><p>${esc(r.recommendation||'—')}</p></div>
+      <div class="checker-detail-section checker-sources"><h4>Джерела</h4>${sources}</div>
+      ${errBlock}`;
+    const siteBtn=$('checker-detail-site');
+    if(r.website_url){ siteBtn.hidden=false; siteBtn.href=r.website_url; } else { siteBtn.hidden=true; }
+    modal.classList.add('is-open'); modal.style.display='flex';
+  }
+  function closeModal(){ modal.classList.remove('is-open'); modal.style.display='none'; modalLead=null; }
+  document.querySelector('#checker-results-table').addEventListener('click',(e)=>{
+    const btn=e.target.closest('.checker-detail-btn'); if(!btn) return;
+    const r = lastRows.find(x=>String(x.lead_id)===btn.dataset.lead); if(r) openModal(r);
+  });
+  modal.querySelector('.modal-close').addEventListener('click', closeModal);
+  modal.addEventListener('click',(e)=>{ if(e.target===modal) closeModal(); });
+  $('checker-recheck-btn').addEventListener('click', async () => {
+    if(!modalLead) return;
+    const u = recheckTpl.replace('/0/', '/'+modalLead.lead_id+'/');
+    try{ const p = await apiRequest(u, {}); openModal(p.row); loadResults(); }
+    catch(e){ alert(e.message || 'Не вдалося перевірити'); }
+  });
+
+  applyJob(activeJob);
+  loadResults();
+  if(canStep()) scheduleStep(0);
+  schedulePoll();
+}
+if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', initCheckerPage); } else { initCheckerPage(); }
+</script>
+{% endblock %}
