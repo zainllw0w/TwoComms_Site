@@ -716,6 +716,14 @@ class HomePageRenderTest(TestCase):
             owner=self.manager, call_result="order", phase_number=2,
             phase_root=root, previous_phase=root,
         )
+        # клієнт із запланованим передзвоном — щоб цикл callback'ів у
+        # context-процесорі реально виконувався (інакше NameError 'today'
+        # у shell-метриках не відтворюється — саме він валив прод 500).
+        Client.objects.create(
+            shop_name="CallbackShop", phone="0671234567", full_name="Y",
+            owner=self.manager, call_result="thinking",
+            next_call_at=_tz.now() + _td(hours=2),
+        )
 
     def test_home_renders(self):
         from django.test import Client as TClient
