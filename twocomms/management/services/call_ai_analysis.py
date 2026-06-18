@@ -24,6 +24,7 @@ import base64
 import json
 import logging
 import os
+import re
 import threading
 import time
 from decimal import Decimal, InvalidOperation
@@ -378,7 +379,7 @@ def gemini_generate_grounded(
     *,
     role: str = "checker",
     api_key: str | None = None,
-    max_output_tokens: int = 8192,
+    max_output_tokens: int = 12288,
 ) -> dict:
     """Grounded (Google Search) JSON-запит до Gemini для AI-чекера.
 
@@ -502,13 +503,22 @@ def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True
         reason = cand.get("finishReason") or "невідомо"
         raise _GeminiEmpty(f"порожня відповідь (finishReason={reason})")
 
-    parsed = _parse_model_json(text) if parse else text
+    if parse:
+        try:
+            parsed = _parse_model_json(text)
+        except CallAIAnalysisError as exc:
+            # Невалідний/обрізаний JSON (часто у grounded без json-mime) — трактуємо
+            # як порожній: ретрай тієї ж комбінації, далі наступний ключ. Не fatal.
+            raise _GeminiEmpty(f"unparseable JSON: {exc}") from exc
+    else:
+        parsed = text
     usage = data.get("usageMetadata") or {}
     return parsed, usage
 
 
 def _parse_model_json(text: str) -> dict:
-    """Парсить JSON від моделі, страхуючись від ```json-фенсів та зайвого тексту."""
+    """Парсить JSON від моделі, страхуючись від ```json-фенсів, зайвого тексту,
+    grounding-цитат та trailing-ком (часті помилки моделі у grounded-режимі)."""
     t = text.strip()
     if t.startswith("```"):
         # прибрати ```json ... ```
@@ -516,16 +526,20 @@ def _parse_model_json(text: str) -> dict:
         if t[:4].lower() == "json":
             t = t[4:]
         t = t.strip()
-    try:
-        return json.loads(t)
-    except ValueError:
-        # спробувати вирізати від першої { до останньої }
-        start, end = t.find("{"), t.rfind("}")
-        if start != -1 and end != -1 and end > start:
+    candidates = [t]
+    start, end = t.find("{"), t.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        candidates.append(t[start : end + 1])
+    for cand in candidates:
+        try:
+            return json.loads(cand)
+        except ValueError:
+            # прибрати trailing-коми перед } або ] (часта помилка LLM)
+            cleaned = re.sub(r",(\s*[}\]])", r"\1", cand)
             try:
-                return json.loads(t[start : end + 1])
+                return json.loads(cleaned)
             except ValueError:
-                pass
+                continue
     raise CallAIAnalysisError("Не вдалося розпарсити JSON-відповідь моделі.")
 
 

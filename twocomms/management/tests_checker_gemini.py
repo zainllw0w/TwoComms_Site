@@ -216,3 +216,21 @@ class GeminiEmptyResponseTests(TestCase):
             out = caa.gemini_generate_grounded("S", "U")
         self.assertEqual(out["parsed"], {"overall_score": 70})
         self.assertEqual(out["model"], "gemini-2.5-flash")
+
+
+class ParseModelJsonTests(TestCase):
+    def test_handles_fences_and_trailing_commas(self):
+        txt = '```json\n{"a": 1, "b": [1, 2,], "c": {"x": 3,},}\n```'
+        out = caa._parse_model_json(txt)
+        self.assertEqual(out["a"], 1)
+        self.assertEqual(out["b"], [1, 2])
+        self.assertEqual(out["c"], {"x": 3})
+
+    def test_extracts_json_with_surrounding_text(self):
+        txt = 'Ось результат:\n{"overall_score": 70}\nДжерела: [1] example.com'
+        out = caa._parse_model_json(txt)
+        self.assertEqual(out["overall_score"], 70)
+
+    def test_unparseable_raises(self):
+        with self.assertRaises(caa.CallAIAnalysisError):
+            caa._parse_model_json("зовсім не json")
