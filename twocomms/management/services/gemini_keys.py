@@ -46,7 +46,7 @@ DEFAULT_ROLE_MODEL_CHAINS = {
     "checker": ["gemini-3.5-flash", "gemini-2.5-flash"],
 }
 
-ATTEMPTS_PER_MODEL = {"chat": 3, "management": 3, "checker": 1}
+ATTEMPTS_PER_MODEL = {"chat": 3, "management": 3, "checker": 2}
 
 # Моделі з безкоштовною квотою генерації. 429 на НИХ = вичерпана денна квота
 # проекту → кулдаун усього КЛЮЧА. 429 на інших (pro-preview тощо) = модель платна

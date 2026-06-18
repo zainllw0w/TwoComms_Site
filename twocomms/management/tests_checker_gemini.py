@@ -155,3 +155,64 @@ class GeminiTextPoolTests(TestCase):
              patch.object(caa, "_gemini_call_once", side_effect=fake):
             caa.gemini_generate_text(payload, role="chat", manual_key="bot-custom")
         self.assertEqual(seen[0], "bot-custom")
+
+    def test_chat_borrows_reserve_on_35_when_own_exhausted(self):
+        """Коли own-ключі чату (API, API2) у денному кулдауні — чат бере резерв
+        чекера (API5/API6) на тій самій моделі 3.5-flash. Це пріоритет спілкування."""
+        from django.utils import timezone
+        now = timezone.now()
+        gk.mark_429("GEMINI_API", "day", 0, now=now)
+        gk.mark_429("GEMINI_API2", "day", 0, now=now)
+        seen = []
+
+        def fake(model, payload, key, *, parse=True):
+            seen.append((key, model))
+            return ("ok-text", {})
+
+        payload = {"contents": [{"role": "user", "parts": [{"text": "хай"}]}]}
+        with patch.dict("os.environ", ENV6, clear=False), \
+             patch.object(caa, "_gemini_call_once", side_effect=fake):
+            out = caa.gemini_generate_text(payload, role="chat")
+        self.assertEqual(out["parsed"], "ok-text")
+        # перший доступний — резервний ключ чекера, модель найновіша gen-3
+        self.assertEqual(seen[0], ("key-val-5", "gemini-3.5-flash"))
+
+
+class GeminiEmptyResponseTests(TestCase):
+    def setUp(self):
+        gk.clear_model_overload()
+
+    def test_empty_retries_and_does_not_mark_overloaded(self):
+        """Порожня відповідь ретраїться, але НЕ метить модель глобально overloaded."""
+        calls = {"n": 0}
+
+        def fake(model, payload, key, *, parse=True):
+            calls["n"] += 1
+            raise caa._GeminiEmpty("порожня відповідь (finishReason=STOP)")
+
+        with patch.dict("os.environ", ENV6, clear=False), \
+             patch.object(caa, "_gemini_call_once", side_effect=fake), \
+             patch("management.services.call_ai_analysis.time.sleep", return_value=None):
+            with self.assertRaises(caa.CallAIAnalysisError):
+                caa.gemini_generate_grounded("S", "U")
+        # checker attempts=2 → кожна 2.5-flash комбінація пробується двічі.
+        self.assertFalse(gk.is_model_overloaded("gemini-2.5-flash"))
+        self.assertGreater(calls["n"], 2)  # було кілька ретраїв
+
+    def test_empty_then_success_on_retry(self):
+        seq = iter([caa._GeminiEmpty("empty"), ({"overall_score": 70}, {})])
+
+        def fake(model, payload, key, *, parse=True):
+            if model != "gemini-2.5-flash":
+                raise caa._Gemini429("billing")  # gen-3 grounded не free
+            item = next(seq)
+            if isinstance(item, Exception):
+                raise item
+            return item
+
+        with patch.dict("os.environ", ENV6, clear=False), \
+             patch.object(caa, "_gemini_call_once", side_effect=fake), \
+             patch("management.services.call_ai_analysis.time.sleep", return_value=None):
+            out = caa.gemini_generate_grounded("S", "U")
+        self.assertEqual(out["parsed"], {"overall_score": 70})
+        self.assertEqual(out["model"], "gemini-2.5-flash")

@@ -64,7 +64,13 @@ class CallAIAnalysisError(Exception):
 
 
 class _GeminiTransient(Exception):
-    """Тимчасова помилка (503/500/таймаут/порожня відповідь) — ретрай тієї ж моделі."""
+    """Тимчасова помилка (503/500/таймаут) — модель перевантажена, ретрай + глобальний overload-кеш."""
+
+
+class _GeminiEmpty(Exception):
+    """Порожня відповідь (finishReason=STOP/MAX_TOKENS без тексту) — проблема цього
+    конкретного запиту (мало вихідних токенів через thinking), НЕ перевантаження
+    моделі. Ретраїмо ту саму комбінацію, але НЕ метимо модель глобально overloaded."""
 
 
 class _Gemini429(Exception):
@@ -279,6 +285,13 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
             if attempt < n_attempts - 1:
                 time.sleep(BACKOFF_BASE * (2 ** attempt))
             continue
+        except _GeminiEmpty as exc:
+            # Порожня відповідь — ретрай тієї ж комбінації, але НЕ метимо модель
+            # глобально overloaded (інакше отруїмо її для інших ключів/лідів).
+            log.append(f"{key_name}/{model}: empty {exc} (#{attempt + 1})")
+            if attempt < n_attempts - 1:
+                time.sleep(BACKOFF_BASE)
+            continue
         except _Gemini429 as exc:
             if gemini_keys.is_key_level_429(model, grounded):
                 if track:
@@ -365,7 +378,7 @@ def gemini_generate_grounded(
     *,
     role: str = "checker",
     api_key: str | None = None,
-    max_output_tokens: int = 4096,
+    max_output_tokens: int = 8192,
 ) -> dict:
     """Grounded (Google Search) JSON-запит до Gemini для AI-чекера.
 
@@ -373,6 +386,10 @@ def gemini_generate_grounded(
     промпті, а _gemini_call_once парсить його з тексту. Безкоштовний grounding є
     лише на gemini-2.5-flash — на gen-3 моделях 429 трактується як model-skip
     (модель платна), без кулдауну ключа. Ручний api_key пробується першим.
+
+    maxOutputTokens=8192 + обмежений thinkingBudget: 2.5-flash витрачає ~1200
+    токенів на thinking + tool-use, тож лишаємо запас на сам JSON-вивід (інакше
+    finishReason=STOP з порожнім текстом).
     """
     payload = {
         "contents": [{"role": "user", "parts": [{"text": user_text}]}],
@@ -381,6 +398,7 @@ def gemini_generate_grounded(
         "generationConfig": {
             "temperature": 0.2,
             "maxOutputTokens": max_output_tokens,
+            "thinkingConfig": {"thinkingBudget": 1024},
         },
     }
     return _run_with_pool(role, payload, manual_key=(api_key or "").strip() or None,
@@ -479,10 +497,10 @@ def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True
     parts = (cand.get("content") or {}).get("parts") or []
     text = "".join(p.get("text", "") for p in parts).strip()
     if not text:
-        # Порожньо (часто finishReason=MAX_TOKENS у thinking-моделей або
-        # SAFETY) — вважаємо тимчасовим і пробуємо далі.
+        # Порожньо: часто finishReason=MAX_TOKENS/STOP, коли thinking зʼїв бюджет
+        # виводу. Це проблема запиту, а не перевантаження моделі → _GeminiEmpty.
         reason = cand.get("finishReason") or "невідомо"
-        raise _GeminiTransient(f"порожня відповідь (finishReason={reason})")
+        raise _GeminiEmpty(f"порожня відповідь (finishReason={reason})")
 
     parsed = _parse_model_json(text) if parse else text
     usage = data.get("usageMetadata") or {}

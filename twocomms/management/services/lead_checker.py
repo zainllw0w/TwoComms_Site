@@ -31,7 +31,7 @@ CRITERIA: list[tuple[str, str]] = [
 PARTNERSHIP_CHANNELS = ["wholesale", "custom_print", "collab", "dropship", "test_batch", "shelf"]
 VERDICT_CATEGORIES = [
     "physical_store", "retail_chain", "dropshipper", "brand",
-    "voentorg", "marketplace_seller", "irrelevant",
+    "voentorg", "marketplace_seller", "wholesale_supplier", "irrelevant", "other",
 ]
 
 FIT_THRESHOLD = 70
@@ -193,9 +193,9 @@ def normalize_result(raw: dict) -> dict:
     else:
         overall = _coerce_int(raw.get("overall_score"), 0, 100, 0)
 
-    category = _as_str(raw.get("verdict_category")) or "irrelevant"
+    category = _as_str(raw.get("verdict_category")) or "other"
     if category not in VERDICT_CATEGORIES:
-        category = "irrelevant"
+        category = "other"
 
     fit = [c for c in _as_list(raw.get("partnership_fit")) if c in PARTNERSHIP_CHANNELS]
 

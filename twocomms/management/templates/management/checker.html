@@ -338,7 +338,7 @@ function initCheckerPage(){
     catch(err){ alert(err.message || 'Не вдалося зберегти'); }
   });
 
-  const VERDICT_LABELS = {physical_store:'Фізмагазин',retail_chain:'Мережа',dropshipper:'Дропшипер',brand:'Бренд',voentorg:'Військторг',marketplace_seller:'Маркетплейс',irrelevant:'Нерелевантно'};
+  const VERDICT_LABELS = {physical_store:'Фізмагазин',retail_chain:'Мережа',dropshipper:'Дропшипер',brand:'Бренд',voentorg:'Військторг',marketplace_seller:'Маркетплейс',wholesale_supplier:'Опт-постачальник',irrelevant:'Нерелевантно',other:'Інше'};
   const CHANNEL_LABELS = {wholesale:'Опт',custom_print:'Кастом-друк',collab:'Колаб',dropship:'Дропшип',test_batch:'Тест-партія',shelf:'Полиця'};
   const bandClass = (v) => ({fit:'fit',maybe:'maybe',unfit:'unfit',error:'error'}[v] || 'error');
   const esc = (s) => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));

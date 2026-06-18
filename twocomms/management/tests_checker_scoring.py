@@ -132,7 +132,7 @@ class NormalizeResultTests(TestCase):
         norm = lc.normalize_result({"overall_score": 250, "criteria": []})
         self.assertEqual(norm["overall_score"], 100)
         self.assertEqual(norm["confidence"], "low")
-        self.assertEqual(norm["verdict_category"], "irrelevant")
+        self.assertEqual(norm["verdict_category"], "other")
         self.assertEqual(norm["partnership_fit"], [])
         self.assertEqual(len(norm["criteria"]), 10)
         self.assertEqual(norm["criteria"][0]["score"], 0)
@@ -207,3 +207,15 @@ class ScoreLeadTests(TestCase):
             lc.score_lead(lead, api_key="custom-key")
         _, kwargs = gm.call_args
         self.assertEqual(kwargs.get("api_key"), "custom-key")
+
+
+class NormalizeVerdictCategoryTests(TestCase):
+    def test_unknown_category_maps_to_other(self):
+        out = lc.normalize_result({"overall_score": 20, "verdict_category": "wholesale_supplier", "criteria": []})
+        self.assertEqual(out["verdict_category"], "wholesale_supplier")  # тепер у списку
+        out2 = lc.normalize_result({"overall_score": 10, "verdict_category": "zzz_invalid", "criteria": []})
+        self.assertEqual(out2["verdict_category"], "other")
+
+    def test_empty_category_defaults_other(self):
+        out = lc.normalize_result({"overall_score": 50, "criteria": []})
+        self.assertEqual(out["verdict_category"], "other")
