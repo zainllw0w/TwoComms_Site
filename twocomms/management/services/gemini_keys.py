@@ -233,24 +233,33 @@ def _sticky_order(key_names: list[str]) -> list[str]:
 def iter_attempts(role: str):
     """Генерує (key_name, key_value, model) у порядку пріоритету.
 
-    Порядок: own-ключі → borrow-ключі (пріоритет own зберігається); ВСЕРЕДИНІ
-    кожного тиру — sticky-сортування (останній успішний ключ першим), щоб чат
-    тримався робочого ключа й не довбав вичерпаний. Для кожного доступного ключа —
-    моделі цепочки ролі (крім перевантажених). Стан перечитується ліниво.
+    MODEL-MAJOR: зовнішній цикл — МОДЕЛІ цепочки, внутрішній — КЛЮЧІ. Тобто
+    пріоритетну модель (gemini-3.5-flash) пробуємо на ВСІХ ключах (own→borrow,
+    sticky-впорядкованих) перш ніж спуститися на нижчу модель. Вимога продукту:
+    «усе, що нижче 3.5 — лише крайній випадок», тож 3.5 має вичерпатись на всьому
+    пулі ключів до того, як ми торкнемось 3.1-pro/3.1-flash-lite.
+
+    Усередині кожного тиру (own / borrow) — sticky-сортування (останній успішний
+    ключ першим), щоб триматись робочого ключа.
+
+    Overload-снапшот фіксується НА ПОЧАТОК проходу: моделі, перевантажені раніше
+    (іншими запитами, ще в межах вікна 503), пропускаємо одразу. Але 503, що
+    стається ПІД ЧАС цього проходу, НЕ виключає модель на решті ключів — інакше
+    перша ж 503 збила б нас із 3.5 на нижчу модель, чого ми й уникаємо.
+    Per-key cooldown (429) перевіряється ліниво — вичерпаний ключ пропускаємо.
     """
     pool = role_key_pools().get(role, {"own": [], "borrow": []})
     models = role_model_chains().get(role, ["gemini-2.5-flash"])
     ordered_keys = _sticky_order(list(pool.get("own", []))) + _sticky_order(list(pool.get("borrow", [])))
-    for key_name in ordered_keys:
-        kv = _key_value(key_name)
-        if not kv:
+    present = [(kn, _key_value(kn)) for kn in ordered_keys]
+    present = [(kn, kv) for kn, kv in present if kv]
+    overloaded_at_start = {m for m in models if is_model_overloaded(m, timezone.now())}
+    for model in models:
+        if model in overloaded_at_start:
             continue
-        for model in models:
-            now = timezone.now()
-            if not is_available(key_name, now):
-                break  # ключ у кулдауні → пропускаємо решту його моделей
-            if is_model_overloaded(model, now):
-                continue  # модель перевантажена → наступна модель цього ключа
+        for key_name, kv in present:
+            if not is_available(key_name, timezone.now()):
+                continue  # ключ у кулдауні (429) → пропускаємо для цієї моделі
             yield (key_name, kv, model)
 
 

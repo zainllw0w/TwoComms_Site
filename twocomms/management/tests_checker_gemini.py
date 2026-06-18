@@ -241,7 +241,11 @@ class ChatRoundsRetryTests(TestCase):
         gk.clear_model_overload()
 
     def test_chat_cycles_three_rounds_before_error(self):
-        """503 на всіх моделях → чат робить 3 круги (з backoff між ними), тільки потім помилка."""
+        """503 на всіх моделях → чат робить 3 круги (з backoff між ними), тільки потім помилка.
+
+        Model-major: кожен круг — повний свип пулу (3 моделі × 4 ключі = 12
+        викликів), бо пріоритетну модель пробуємо на ВСІХ ключах. 3 круги = 36.
+        Між кругами clear_model_overload() + backoff 2с, 4с."""
         calls = {"n": 0}
 
         def fake(model, payload, key, *, parse=True):
@@ -254,8 +258,8 @@ class ChatRoundsRetryTests(TestCase):
              patch("management.services.call_ai_analysis.time.sleep", side_effect=lambda s: sleeps.append(s)):
             with self.assertRaises(caa.CallAIAnalysisError):
                 caa.gemini_generate_text({"contents": []}, role="chat")
-        # 3 моделі × 3 круги = 9 викликів; між кругами 2 backoff-паузи 2с, 4с
-        self.assertEqual(calls["n"], 9)
+        # 3 моделі × 4 ключі × 3 круги = 36 викликів; між кругами 2 backoff-паузи 2с, 4с
+        self.assertEqual(calls["n"], 36)
         self.assertEqual(len(sleeps), 2)
         self.assertEqual(sleeps, [2.0, 4.0])
         gk.clear_model_overload()

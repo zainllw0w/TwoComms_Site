@@ -159,6 +159,40 @@ class IterAttemptsTests(TestCase):
         self.assertTrue(all(k in ("GEMINI_API5", "GEMINI_API6") for k, _, _ in combos))
         self.assertIn("gemini-2.5-flash", [m for _, _, m in combos])
 
+    def test_primary_model_tried_on_all_keys_before_lower(self):
+        """Model-major: gemini-3.5-flash перебирається на ВСІХ ключах раніше за
+        будь-яку нижчу модель. «Нижче 3.5 — лише крайній випадок»."""
+        from management.services import gemini_keys as gk
+        with patch.dict("os.environ", ENV6, clear=False):
+            combos = list(gk.iter_attempts("chat"))
+        models_seq = [m for _, _, m in combos]
+        last_primary = max(i for i, m in enumerate(models_seq) if m == "gemini-3.5-flash")
+        first_lower = min(i for i, m in enumerate(models_seq) if m != "gemini-3.5-flash")
+        self.assertLess(last_primary, first_lower)
+        keys_with_primary = {k for k, _, m in combos if m == "gemini-3.5-flash"}
+        self.assertEqual(
+            keys_with_primary,
+            {"GEMINI_API", "GEMINI_API2", "GEMINI_API5", "GEMINI_API6"},
+        )
+
+    def test_primary_kept_for_other_keys_after_midpass_overload(self):
+        """Frozen snapshot: 503 на 3.5 під час проходу не виключає 3.5 з решти
+        ключів — спершу вичерпуємо пріоритетну модель на всіх ключах."""
+        from management.services import gemini_keys as gk
+        gk.clear_model_overload()
+        with patch.dict("os.environ", ENV6, clear=False):
+            gen = gk.iter_attempts("chat")
+            first = next(gen)
+            gk.mark_model_overloaded("gemini-3.5-flash", seconds=300)
+            rest = list(gen)
+        combos = [first] + rest
+        keys_with_primary = {k for k, _, m in combos if m == "gemini-3.5-flash"}
+        self.assertEqual(
+            keys_with_primary,
+            {"GEMINI_API", "GEMINI_API2", "GEMINI_API5", "GEMINI_API6"},
+        )
+        gk.clear_model_overload()
+
 
 class PoolStatusTests(TestCase):
     def test_pool_status_shape(self):
