@@ -137,6 +137,7 @@ urlpatterns = [
     path('checker/api/results/', checker_views.checker_results_api, name='management_checker_results_api'),
     path('checker/api/leads/<int:lead_id>/recheck/', checker_views.checker_recheck_api, name='management_checker_recheck_api'),
     path('checker/api/settings/', checker_views.checker_settings_api, name='management_checker_settings_api'),
+    path('checker/api/keys/', checker_views.checker_keys_status_api, name='management_checker_keys_status_api'),
     # Manager levels system
     path('profile/', views_levels.manager_profile, name='management_profile'),    path('api/levels/progression/', views_levels.manager_progression_api, name='management_levels_progression_api'),
     path('api/levels/weekly-kpi/', views_levels.manager_weekly_kpi_api, name='management_levels_weekly_kpi_api'),

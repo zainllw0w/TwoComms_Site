@@ -224,6 +224,16 @@ def checker_settings_api(request):
 
 
 @login_required(login_url="management_login")
+@require_GET
+def checker_keys_status_api(request):
+    denied = _require_admin_json(request)
+    if denied:
+        return denied
+    from .services import gemini_keys
+    return JsonResponse({"success": True, "keys": gemini_keys.pool_status()})
+
+
+@login_required(login_url="management_login")
 def checker_dashboard(request):
     if not (request.user.is_staff or request.user.is_superuser):
         denied = _require_admin_json(request)

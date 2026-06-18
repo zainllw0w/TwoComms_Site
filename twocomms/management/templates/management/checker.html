@@ -60,6 +60,23 @@
 .checker-detail-section p{color:var(--text-secondary);font-size:.86rem;margin:0;}
 .checker-sources a{display:block;color:var(--accent);font-size:.8rem;margin:2px 0;text-decoration:none;}
 .checker-confidence{font-size:.74rem;padding:2px 8px;border-radius:99px;border:1px solid var(--border);color:var(--text-secondary);}
+.checker-switch{display:flex;align-items:center;gap:8px;font-size:.8rem;color:var(--text-secondary);cursor:pointer;}
+.checker-switch input{width:16px;height:16px;}
+.checker-keys__hint{font-size:.74rem;color:var(--muted);max-width:280px;text-align:right;}
+.checker-keys__grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-top:12px;}
+.key-card{background:var(--bg-850);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;}
+.key-card__top{display:flex;justify-content:space-between;align-items:center;}
+.key-card__name{font-weight:600;color:var(--text-primary);font-size:.9rem;}
+.key-card__role{font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);}
+.key-dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
+.key-dot--ok{background:#4ade80;}
+.key-dot--cooldown{background:var(--accent);}
+.key-dot--topup{background:#f87171;}
+.key-dot--missing{background:#64748b;}
+.key-card__status{font-size:.8rem;color:var(--text-secondary);}
+.key-card__cd{font-size:.82rem;color:var(--accent);font-variant-numeric:tabular-nums;}
+.key-card__meta{font-size:.72rem;color:var(--muted);}
+.key-card--unavailable{opacity:.85;border-color:rgba(243,164,61,.35);}
 @media(max-width:720px){.checker-hero__metrics{grid-template-columns:repeat(2,1fr);}.field-span-2{grid-column:span 1;}}
 </style>
 {% endblock %}
@@ -74,6 +91,7 @@
      data-status-url="{% url 'management_checker_status_api' %}"
      data-results-url="{% url 'management_checker_results_api' %}"
      data-settings-url="{% url 'management_checker_settings_api' %}"
+     data-keys-url="{% url 'management_checker_keys_status_api' %}"
      data-recheck-url-template="{% url 'management_checker_recheck_api' 0 %}"></div>
 {{ active_job_json|json_script:"checker-initial-job" }}
 {{ checker_counters|json_script:"checker-initial-counters" }}
@@ -165,6 +183,14 @@
         <span id="checker-settings-status" class="checker-inline-status" hidden></span>
       </form>
     </details>
+  </div>
+
+  <div class="checker-keys offer-card">
+    <div class="checker-results__head">
+      <div><p class="eyebrow">Ключі Gemini</p><h3 class="offer-title">Стан ключів та квот</h3></div>
+      <span class="checker-keys__hint">Скидання денної квоти — опівночі за тихоокеанським часом (PT)</span>
+    </div>
+    <div class="checker-keys__grid" id="checker-keys-grid"></div>
   </div>
 
   <div class="checker-results offer-card">
@@ -402,6 +428,48 @@ function initCheckerPage(){
     try{ const p = await apiRequest(u, {}); openModal(p.row); loadResults(); }
     catch(e){ alert(e.message || 'Не вдалося перевірити'); }
   });
+
+  // --- Панель ключів Gemini з обратним відліком ---
+  const ROLE_LABELS = {chat:'Чат / бот', management:'Менеджмент', checker:'Чекер'};
+  let keysData = [];
+  function fmtCountdown(secs){
+    secs = Math.max(0, secs|0);
+    const h = Math.floor(secs/3600), m = Math.floor((secs%3600)/60), s = secs%60;
+    if(h>0) return `${h} год ${m} хв`;
+    if(m>0) return `${m} хв ${s} с`;
+    return `${s} с`;
+  }
+  function renderKeys(){
+    const grid = document.getElementById('checker-keys-grid');
+    if(!grid) return;
+    grid.innerHTML = keysData.map(k=>{
+      let dot='ok', status='Доступний';
+      if(!k.present){ dot='missing'; status='Не задано'; }
+      else if(!k.available && k.needs_topup){ dot='topup'; status='Потрібне поповнення'; }
+      else if(!k.available){ dot='cooldown'; status='Кулдаун до відновлення'; }
+      const cd = (!k.available && k.present && k.seconds_remaining>0)
+        ? `<div class="key-card__cd">↻ ${fmtCountdown(k.seconds_remaining)}</div>` : '';
+      const meta = k.present ? `сьогодні: ${k.requests_today||0} запитів${k.cooldown_scope?(' · '+esc(k.cooldown_scope)):''}` : '';
+      return `<div class="key-card ${k.available?'':'key-card--unavailable'}">
+        <div class="key-card__top"><span class="key-card__name">${esc(k.key_name)}</span><span class="key-dot key-dot--${dot}"></span></div>
+        <div class="key-card__role">${esc(ROLE_LABELS[k.role]||k.role||'')}</div>
+        <div class="key-card__status">${esc(status)}</div>
+        ${cd}
+        <div class="key-card__meta">${meta}</div>
+      </div>`;
+    }).join('');
+  }
+  async function loadKeys(){
+    try{ const p = await apiRequest(url('keysUrl'), null, 'GET'); keysData = p.keys || []; renderKeys(); }
+    catch(e){ /* тихо */ }
+  }
+  setInterval(()=>{
+    let changed=false;
+    keysData.forEach(k=>{ if(!k.available && k.seconds_remaining>0){ k.seconds_remaining--; if(k.seconds_remaining<=0){ k.available=true; } changed=true; } });
+    if(changed) renderKeys();
+  }, 1000);
+  setInterval(loadKeys, 30000);
+  loadKeys();
 
   applyJob(activeJob);
   loadResults();

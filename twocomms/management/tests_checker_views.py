@@ -115,6 +115,23 @@ class CheckerApiTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(LeadCheckerSettings.load().gemini_api_key, "new-key")
 
+    def test_keys_status_api_returns_six(self):
+        r = self._get("management_checker_keys_status_api")
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertTrue(body["success"])
+        self.assertEqual(len(body["keys"]), 6)
+        self.assertIn("key_name", body["keys"][0])
+        self.assertIn("available", body["keys"][0])
+
+    def test_settings_api_saves_auto_recheck(self):
+        r = self._post("management_checker_settings_api",
+                       {"auto_recheck": "1", "auto_recheck_batch": "40"})
+        self.assertEqual(r.status_code, 200)
+        s = LeadCheckerSettings.load()
+        self.assertTrue(s.auto_recheck)
+        self.assertEqual(s.auto_recheck_batch, 40)
+
     def test_non_staff_denied(self):
         plain = User.objects.create_user("plain", password="x")
         c = DjangoClient()
