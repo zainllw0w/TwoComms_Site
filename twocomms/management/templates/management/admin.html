@@ -1654,6 +1654,7 @@ document.addEventListener('click', async (e) => {
         <div class="d-section">
             <h4>Рівень та умови</h4>
             <a class="btn-ghost small" href="/stats/admin/${m.id}/" target="_blank" rel="noopener" style="margin-bottom:10px;display:inline-block;">📊 Повна статистика та рекомендації</a>
+            <a class="btn-ghost small" href="/admin-panel/user/${m.id}/clients-review/" target="_blank" rel="noopener" style="margin-bottom:10px;display:inline-block;margin-left:6px;">👁 Обробки клієнтів за днями</a>
             ${m.excluded ? '<div class="d-chip bad" style="margin:0 0 10px;">Виключений з менеджерів — немає доступу до сайту</div>' : ''}
             <form class="d-form" id="d-assign-form">
                 <label>Рівень<select name="level">${opts}</select></label>

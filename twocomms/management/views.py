@@ -2514,6 +2514,45 @@ def admin_user_clients(request, user_id):
     })
 
 
+@login_required(login_url='management_login')
+def admin_manager_clients_review(request, user_id):
+    """Детальний перегляд обробок менеджера за день/період (для адміна).
+
+    Показує всі оброблені клієнти з повними деталями, записами дзвінків,
+    ШІ-вердиктом, MOSAIC-трендом і прогресом/регресом по днях.
+    """
+    if not request.user.is_staff:
+        return redirect('management_home')
+    User = get_user_model()
+    target = User.objects.filter(id=user_id).select_related('userprofile').first()
+    if not target:
+        return redirect('management_admin')
+
+    from management.services.manager_review import build_manager_clients_review
+    review = build_manager_clients_review(
+        target,
+        period=(request.GET.get('period') or 'today'),
+        date_str=(request.GET.get('date') or ''),
+    )
+    # Контекст сайдбару (як в інших management-сторінках адміна).
+    user_stats = get_user_stats(request.user)
+    report_sent_today = has_report_today(request.user)
+    reminders = get_reminders(request.user, stats=user_stats, report_sent=report_sent_today)
+    return render(request, 'management/manager_clients_review.html', {
+        'review': review,
+        'target_manager': target,
+        'target_name': (target.get_full_name() or target.username),
+        'user_points_today': user_stats['points_today'],
+        'user_points_total': user_stats['points_total'],
+        'processed_today': user_stats['processed_today'],
+        'target_clients': TARGET_CLIENTS_DAY,
+        'target_points': TARGET_POINTS_DAY,
+        'has_report_today': report_sent_today,
+        'reminders': reminders,
+        'manager_bot_username': get_manager_bot_username(),
+    })
+
+
 def _profile_avatar_url(user):
     """URL аватара менеджера або '' (безпечно, без винятків у рендері)."""
     try:

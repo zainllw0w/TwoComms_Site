@@ -1,0 +1,221 @@
+"""
+Адмін-перегляд обробок менеджера (детально, за днями).
+
+Дає адміну подивитися все, що менеджер реально обробляв (а не лише звіти):
+кожен клієнт за обраний день/період з повними деталями (нотатка, причина,
+докази, фази передзвонів), записами дзвінків (+ШІ-вердикт) і денним підсумком
+із прогресом/регресом відносно попереднього дня. Плюс тренд MOSAIC.
+"""
+from __future__ import annotations
+
+from collections import Counter
+from datetime import date, datetime, timedelta
+
+from django.utils import timezone
+
+from management.lead_services import client_points_value
+from management.models import (
+    CallAIAnalysis,
+    CallRecord,
+    Client,
+    NightlyScoreSnapshot,
+)
+
+CONVERSION_RESULTS = {Client.CallResult.ORDER, Client.CallResult.TEST_BATCH}
+RECORDABLE = {"ANSWER", "VM-SUCCESS", "SUCCESS", "TRANSFER"}
+
+
+def resolve_review_window(period: str, date_str: str, today: date) -> dict:
+    """Повертає опис вікна перегляду: межі дат, лейбл, режим, попередній день."""
+    period = (period or "").strip().lower()
+    explicit = None
+    if date_str:
+        try:
+            explicit = datetime.strptime(date_str.strip(), "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            explicit = None
+
+    if explicit:
+        return {"start": explicit, "end": explicit, "label": explicit.strftime("%d.%m.%Y"),
+                "mode": "day", "single_day": explicit, "key": "date", "date_value": explicit.isoformat()}
+    if period == "yesterday":
+        d = today - timedelta(days=1)
+        return {"start": d, "end": d, "label": "Вчора", "mode": "day", "single_day": d, "key": "yesterday"}
+    if period == "week":
+        return {"start": today - timedelta(days=6), "end": today, "label": "Останні 7 днів",
+                "mode": "range", "single_day": None, "key": "week"}
+    if period == "all":
+        return {"start": None, "end": None, "label": "Весь час", "mode": "all", "single_day": None, "key": "all"}
+    # default: today
+    return {"start": today, "end": today, "label": "Сьогодні", "mode": "day", "single_day": today, "key": "today"}
+
+
+def _day_summary(manager, day: date) -> dict:
+    qs = Client.objects.filter(owner=manager, created_at__date=day)
+    rows = list(qs)
+    processed = len(rows)
+    points = sum(client_points_value(c) for c in rows)
+    conversions = sum(1 for c in rows if c.call_result in CONVERSION_RESULTS)
+    return {"processed": processed, "points": points, "conversions": conversions}
+
+
+def _delta(curr: int, prev: int) -> dict:
+    diff = curr - prev
+    tone = "neutral" if diff == 0 else ("good" if diff > 0 else "bad")
+    arrow = "→" if diff == 0 else ("▲" if diff > 0 else "▼")
+    return {"diff": diff, "tone": tone, "arrow": arrow, "prev": prev}
+
+
+def build_mosaic_trend(manager, days: int = 7) -> dict:
+    snaps = list(
+        NightlyScoreSnapshot.objects.filter(owner=manager)
+        .order_by("-snapshot_date")[:days]
+    )
+    snaps.reverse()  # хронологічно
+    series = [{"date": s.snapshot_date.strftime("%d.%m"), "score": float(s.mosaic_score)} for s in snaps]
+    latest = series[-1]["score"] if series else None
+    direction = {"tone": "neutral", "label": "Накопичуємо дані", "arrow": "→"}
+    if len(series) >= 2:
+        diff = series[-1]["score"] - series[0]["score"]
+        if diff >= 1:
+            direction = {"tone": "good", "label": f"Зростання +{round(diff,1)}", "arrow": "▲"}
+        elif diff <= -1:
+            direction = {"tone": "bad", "label": f"Спад {round(diff,1)}", "arrow": "▼"}
+        else:
+            direction = {"tone": "neutral", "label": "Стабільно", "arrow": "→"}
+    return {"series": series, "latest": latest, "direction": direction}
+
+
+def _evidence_summary(ctx: dict) -> list[str]:
+    out = []
+    if not isinstance(ctx, dict):
+        return out
+    if ctx.get("cp_recipient_email"):
+        out.append(f"КП: {ctx['cp_recipient_email']}")
+    if ctx.get("messenger_type"):
+        out.append(f"Месенджер: {ctx.get('messenger_type')} · {ctx.get('messenger_target_value', '')}".strip())
+    if ctx.get("xml_platform") or ctx.get("xml_resource_url"):
+        out.append(f"XML: {ctx.get('xml_platform', '')} {ctx.get('xml_resource_url', '')}".strip())
+    if ctx.get("linked_shop_name"):
+        out.append(f"Магазин: {ctx['linked_shop_name']}")
+    if ctx.get("duplicate_override_reason"):
+        out.append(f"Override дубля: {ctx['duplicate_override_reason']}")
+    return out
+
+
+def _calls_for_clients(client_ids: list[int]) -> dict[int, list]:
+    if not client_ids:
+        return {}
+    records = (
+        CallRecord.objects.filter(matched_client_id__in=client_ids)
+        .prefetch_related("ai_analyses")
+        .order_by("-started_at", "-created_at")
+    )
+    grouped: dict[int, list] = {}
+    for r in records:
+        analysis = None
+        for an in r.ai_analyses.all():
+            if an.status == CallAIAnalysis.Status.DONE:
+                analysis = an
+                break
+        recordable = (r.payload or {}).get("disposition", "").upper() in RECORDABLE
+        item = {
+            "id": r.id,
+            "started_at": timezone.localtime(r.started_at).strftime("%d.%m.%Y %H:%M") if r.started_at else "",
+            "duration": r.duration_seconds,
+            "direction": r.direction,
+            "has_recording": bool(r.external_call_id) and recordable,
+            "recording_url": f"/api/call/recording/{r.id}.mp3" if r.external_call_id else "",
+            "ai_status": r.ai_status,
+            "ai": None,
+        }
+        if analysis:
+            item["ai"] = {
+                "overall_score": float(analysis.overall_score),
+                "verdict": analysis.verdict,
+                "verdict_label": analysis.get_verdict_display(),
+                "summary": analysis.summary,
+                "discrepancies": analysis.discrepancies or [],
+            }
+        grouped.setdefault(r.matched_client_id, []).append(item)
+    return grouped
+
+
+def build_manager_clients_review(manager, *, period: str = "today", date_str: str = "") -> dict:
+    today = timezone.localdate()
+    window = resolve_review_window(period, date_str, today)
+
+    qs = Client.objects.filter(owner=manager).prefetch_related("interaction_attempts").order_by("-created_at")
+    if window["start"] and window["end"]:
+        qs = qs.filter(created_at__date__gte=window["start"], created_at__date__lte=window["end"])
+    rows = list(qs[:500])
+
+    calls_map = _calls_for_clients([c.id for c in rows])
+
+    clients = []
+    result_breakdown: Counter = Counter()
+    points_total = 0
+    conversions = 0
+    for c in rows:
+        pts = client_points_value(c)
+        points_total += pts
+        result_breakdown[c.get_call_result_display()] += 1
+        if c.call_result in CONVERSION_RESULTS:
+            conversions += 1
+        attempts = []
+        for a in c.interaction_attempts.all():
+            attempts.append({
+                "result": a.get_result_display() if hasattr(a, "get_result_display") else a.result,
+                "reason_note": a.reason_note or "",
+                "details": a.details or "",
+                "next_call": timezone.localtime(a.next_call_at).strftime("%d.%m.%Y %H:%M") if a.next_call_at else "",
+                "created": timezone.localtime(a.created_at).strftime("%d.%m.%Y %H:%M") if a.created_at else "",
+                "verification": a.get_verification_level_display() if hasattr(a, "get_verification_level_display") else "",
+            })
+        clients.append({
+            "id": c.id,
+            "shop": c.shop_name,
+            "phone": c.phone,
+            "full_name": c.full_name,
+            "role": c.get_role_display(),
+            "source": c.source or "",
+            "result": c.get_call_result_display(),
+            "result_code": c.call_result,
+            "points": pts,
+            "manager_note": c.manager_note or "",
+            "reason_note": c.call_result_reason_note or "",
+            "details": c.call_result_details or "",
+            "evidence": _evidence_summary(c.call_result_context or {}),
+            "phase_number": c.phase_number or 1,
+            "next_call": timezone.localtime(c.next_call_at).strftime("%d.%m.%Y %H:%M") if c.next_call_at else "",
+            "created": timezone.localtime(c.created_at).strftime("%d.%m.%Y %H:%M") if c.created_at else "",
+            "attempts": attempts,
+            "calls": calls_map.get(c.id, []),
+        })
+
+    summary = {
+        "processed": len(rows),
+        "points": points_total,
+        "conversions": conversions,
+        "result_breakdown": [{"label": k, "count": v} for k, v in result_breakdown.most_common()],
+    }
+
+    # Прогрес/регрес — лише для одноденного вікна (vs попередній день).
+    deltas = None
+    if window["single_day"]:
+        prev_day = window["single_day"] - timedelta(days=1)
+        prev = _day_summary(manager, prev_day)
+        deltas = {
+            "prev_label": prev_day.strftime("%d.%m.%Y"),
+            "processed": _delta(summary["processed"], prev["processed"]),
+            "points": _delta(summary["points"], prev["points"]),
+            "conversions": _delta(summary["conversions"], prev["conversions"]),
+        }
+
+    return {
+        "window": window,
+        "summary": summary,
+        "deltas": deltas,
+        "clients": clients,
+        "mosaic": build_mosaic_trend(manager),
+    }

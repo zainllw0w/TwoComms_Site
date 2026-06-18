@@ -22,6 +22,7 @@ urlpatterns = [
     path('clients/<int:client_id>/delete/', views.delete_client, name='management_delete_client'),
     path('admin-panel/', views.admin_overview, name='management_admin'),
     path('admin-panel/user/<int:user_id>/clients/', views.admin_user_clients, name='management_admin_user_clients'),
+    path('admin-panel/user/<int:user_id>/clients-review/', views.admin_manager_clients_review, name='management_admin_manager_clients_review'),
     path('admin-panel/user/<int:user_id>/dossier/', views.admin_manager_dossier_api, name='management_admin_manager_dossier_api'),
     path('admin-panel/user/<int:user_id>/toggle-active/', views.admin_manager_toggle_active_api, name='management_admin_manager_toggle_active_api'),
     path('admin-panel/user/<int:user_id>/telephony/', views.admin_manager_telephony_save_api, name='management_admin_manager_telephony_save_api'),

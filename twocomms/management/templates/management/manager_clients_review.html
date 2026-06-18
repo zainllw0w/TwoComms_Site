@@ -1,0 +1,194 @@
+{% extends "management/base.html" %}
+{% load static %}
+
+{% block title %}Обробки менеджера — {{ target_name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.mcr-wrap{max-width:1100px;margin:0 auto;padding:22px 18px 80px;color:#e7ecf3;}
+.mcr-head{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-bottom:6px;}
+.mcr-head h1{font-size:22px;margin:0;font-weight:700;}
+.mcr-back{color:#9aa6b6;font-size:13px;text-decoration:none;}
+.mcr-back:hover{color:#cdd6e3;}
+.mcr-sub{color:#8b97a8;font-size:13px;margin:2px 0 18px;}
+
+/* MOSAIC trend */
+.mcr-mosaic{display:flex;align-items:center;gap:14px;background:#11151f;border:1px solid #1e2430;border-radius:14px;padding:14px 18px;margin-bottom:18px;flex-wrap:wrap;}
+.mcr-mosaic__score{font-size:30px;font-weight:800;line-height:1;color:#e7ecf3;}
+.mcr-mosaic__score small{font-size:13px;color:#7e8a9c;font-weight:600;}
+.mcr-mosaic__dir{font-size:13px;font-weight:700;padding:5px 12px;border-radius:999px;}
+.mcr-mosaic__dir.good{background:rgba(34,197,94,.15);color:#86efac;}
+.mcr-mosaic__dir.bad{background:rgba(239,68,68,.15);color:#fca5a5;}
+.mcr-mosaic__dir.neutral{background:rgba(148,163,184,.14);color:#cbd5e1;}
+.mcr-spark{display:flex;align-items:flex-end;gap:4px;height:46px;margin-left:auto;}
+.mcr-spark__bar{width:14px;border-radius:4px 4px 0 0;background:linear-gradient(180deg,#ff9d5c,#ff7e29);position:relative;}
+.mcr-spark__bar span{position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:9px;color:#7e8a9c;white-space:nowrap;}
+.mcr-spark__bar small{position:absolute;bottom:-15px;left:50%;transform:translateX(-50%);font-size:9px;color:#5b6472;}
+
+/* period tabs */
+.mcr-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;align-items:center;}
+.mcr-tab{padding:8px 14px;border-radius:10px;border:1px solid #232b39;background:#11151f;color:#9aa6b6;font-size:13px;font-weight:600;text-decoration:none;transition:all .15s;}
+.mcr-tab:hover{color:#cdd6e3;border-color:#2a3342;}
+.mcr-tab.active{background:rgba(255,126,41,.12);border-color:#ff7e29;color:#ff9d5c;}
+.mcr-date-form{display:flex;gap:6px;align-items:center;margin-left:auto;}
+.mcr-date-form input{background:#0b0e14;border:1px solid #232b39;border-radius:9px;color:#e7ecf3;padding:7px 10px;font-size:13px;font-family:inherit;}
+
+/* summary */
+.mcr-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px;}
+.mcr-stat{background:#11151f;border:1px solid #1e2430;border-radius:13px;padding:14px 16px;}
+.mcr-stat__v{font-size:24px;font-weight:800;color:#e7ecf3;}
+.mcr-stat__l{font-size:12px;color:#8b97a8;margin-top:3px;}
+.mcr-stat__d{font-size:12px;font-weight:700;margin-top:6px;}
+.mcr-stat__d.good{color:#86efac;} .mcr-stat__d.bad{color:#fca5a5;} .mcr-stat__d.neutral{color:#9aa6b6;}
+.mcr-breakdown{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px;}
+.mcr-breakdown span{font-size:11.5px;background:#1b2230;color:#9fb0c4;border-radius:999px;padding:3px 10px;}
+
+/* client cards */
+.mcr-list{display:flex;flex-direction:column;gap:12px;}
+.mcr-empty{color:#8b97a8;font-size:14px;text-align:center;padding:40px 0;}
+.mcr-card{background:#11151f;border:1px solid #1e2430;border-radius:14px;padding:15px 17px;}
+.mcr-card__top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.mcr-card__name{font-size:15px;font-weight:700;color:#e7ecf3;}
+.mcr-card__phone{font-size:12.5px;color:#9aa6b6;}
+.mcr-card__result{margin-left:auto;font-size:11.5px;font-weight:700;padding:4px 11px;border-radius:999px;background:#1b2230;color:#9fb0c4;}
+.mcr-card__pts{font-size:12px;color:#fcd34d;font-weight:700;}
+.mcr-card__meta{font-size:11.5px;color:#7e8a9c;margin-top:5px;}
+.mcr-phase-chip{display:inline-block;font-size:10.5px;background:rgba(124,92,255,.16);color:#b9a8ff;border-radius:999px;padding:1px 8px;margin-left:6px;}
+.mcr-block{margin-top:11px;}
+.mcr-block__t{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#7e8a9c;font-weight:600;margin-bottom:4px;}
+.mcr-note{font-size:13px;color:#dbe2ea;line-height:1.5;background:#0e131c;border:1px solid #1a212c;border-radius:9px;padding:9px 11px;white-space:pre-line;}
+.mcr-evidence{display:flex;flex-wrap:wrap;gap:6px;}
+.mcr-evidence span{font-size:11px;background:rgba(34,197,94,.1);color:#86efac;border-radius:7px;padding:2px 8px;}
+.mcr-calls{display:flex;flex-direction:column;gap:9px;margin-top:6px;}
+.mcr-call{border:1px solid #1a212c;border-radius:10px;padding:9px 11px;background:#0e131c;}
+.mcr-call__top{display:flex;align-items:center;gap:9px;font-size:12px;color:#cdd6e3;flex-wrap:wrap;}
+.mcr-call__score{font-weight:800;}
+.mcr-call__score.pass{color:#86efac;} .mcr-call__score.coaching{color:#fcd34d;} .mcr-call__score.fail{color:#fca5a5;}
+.mcr-call__dur{margin-left:auto;color:#8b97a8;font-variant-numeric:tabular-nums;}
+.mcr-call audio{width:100%;height:32px;margin-top:7px;}
+.mcr-call__sum{font-size:12px;color:#c4cedb;margin-top:6px;line-height:1.45;}
+.mcr-call__disc{margin-top:6px;font-size:11.5px;color:#fca5a5;}
+.mcr-call__ai-pending{font-size:11px;color:#93c5fd;}
+details.mcr-phases summary{cursor:pointer;color:#b9a8ff;font-size:12px;font-weight:600;margin-top:10px;}
+.mcr-attempt{font-size:12px;color:#c4cedb;border-left:2px solid #2a3342;padding:4px 0 4px 10px;margin-top:7px;line-height:1.45;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mcr-wrap">
+  <a class="mcr-back" href="{% url 'management_admin' %}?tab=managers">← До менеджерів</a>
+  <div class="mcr-head">
+    <h1>Обробки менеджера: {{ target_name }}</h1>
+  </div>
+  <div class="mcr-sub">Усі оброблені клієнти з деталями, записами розмов та оцінкою якості. Період: <b>{{ review.window.label }}</b></div>
+
+  {# MOSAIC trend #}
+  <div class="mcr-mosaic">
+    <div class="mcr-mosaic__score">{% if review.mosaic.latest is not None %}{{ review.mosaic.latest|floatformat:0 }}{% else %}—{% endif %}<small>/100 MOSAIC</small></div>
+    <span class="mcr-mosaic__dir {{ review.mosaic.direction.tone }}">{{ review.mosaic.direction.arrow }} {{ review.mosaic.direction.label }}</span>
+    {% if review.mosaic.series %}
+    <div class="mcr-spark" title="Динаміка MOSAIC за останні дні">
+      {% for p in review.mosaic.series %}
+        <div class="mcr-spark__bar" style="height:{% widthratio p.score 100 42 %}px;"><span>{{ p.score|floatformat:0 }}</span><small>{{ p.date }}</small></div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  {# period tabs #}
+  <div class="mcr-tabs">
+    <a class="mcr-tab{% if review.window.key == 'today' %} active{% endif %}" href="?period=today">Сьогодні</a>
+    <a class="mcr-tab{% if review.window.key == 'yesterday' %} active{% endif %}" href="?period=yesterday">Вчора</a>
+    <a class="mcr-tab{% if review.window.key == 'week' %} active{% endif %}" href="?period=week">7 днів</a>
+    <a class="mcr-tab{% if review.window.key == 'all' %} active{% endif %}" href="?period=all">Весь час</a>
+    <form class="mcr-date-form" method="get">
+      <input type="date" name="date" value="{{ review.window.date_value|default:'' }}">
+      <button type="submit" class="mcr-tab">Дата</button>
+    </form>
+  </div>
+
+  {# daily summary #}
+  <div class="mcr-summary">
+    <div class="mcr-stat">
+      <div class="mcr-stat__v">{{ review.summary.processed }}</div>
+      <div class="mcr-stat__l">Оброблено</div>
+      {% if review.deltas %}<div class="mcr-stat__d {{ review.deltas.processed.tone }}">{{ review.deltas.processed.arrow }} {{ review.deltas.processed.diff }} vs {{ review.deltas.prev_label }}</div>{% endif %}
+    </div>
+    <div class="mcr-stat">
+      <div class="mcr-stat__v">{{ review.summary.points }}</div>
+      <div class="mcr-stat__l">Бали</div>
+      {% if review.deltas %}<div class="mcr-stat__d {{ review.deltas.points.tone }}">{{ review.deltas.points.arrow }} {{ review.deltas.points.diff }}</div>{% endif %}
+    </div>
+    <div class="mcr-stat">
+      <div class="mcr-stat__v">{{ review.summary.conversions }}</div>
+      <div class="mcr-stat__l">Конверсії</div>
+      {% if review.deltas %}<div class="mcr-stat__d {{ review.deltas.conversions.tone }}">{{ review.deltas.conversions.arrow }} {{ review.deltas.conversions.diff }}</div>{% endif %}
+    </div>
+  </div>
+  {% if review.summary.result_breakdown %}
+  <div class="mcr-breakdown">
+    {% for r in review.summary.result_breakdown %}<span>{{ r.label }}: {{ r.count }}</span>{% endfor %}
+  </div>
+  {% endif %}
+
+  {# client cards #}
+  <div class="mcr-list">
+    {% for c in review.clients %}
+    <div class="mcr-card">
+      <div class="mcr-card__top">
+        <div>
+          <div class="mcr-card__name">{{ c.shop }}{% if c.phase_number > 1 %}<span class="mcr-phase-chip">фаза {{ c.phase_number }}</span>{% endif %}</div>
+          <div class="mcr-card__phone">{{ c.phone }}{% if c.full_name %} · {{ c.full_name }}{% endif %}{% if c.role %} · {{ c.role }}{% endif %}</div>
+        </div>
+        <span class="mcr-card__result">{{ c.result }}</span>
+        <span class="mcr-card__pts">+{{ c.points }}</span>
+      </div>
+      <div class="mcr-card__meta">Оброблено: {{ c.created }}{% if c.source %} · Джерело: {{ c.source }}{% endif %}{% if c.next_call %} · Наступний дзвінок: {{ c.next_call }}{% endif %}</div>
+
+      {% if c.manager_note %}
+      <div class="mcr-block"><div class="mcr-block__t">Нотатка менеджера</div><div class="mcr-note">{{ c.manager_note }}</div></div>
+      {% endif %}
+      {% if c.reason_note or c.details %}
+      <div class="mcr-block"><div class="mcr-block__t">Деталі результату</div><div class="mcr-note">{{ c.reason_note }}{% if c.reason_note and c.details %}
+{% endif %}{{ c.details }}</div></div>
+      {% endif %}
+      {% if c.evidence %}
+      <div class="mcr-block"><div class="mcr-block__t">Докази</div><div class="mcr-evidence">{% for e in c.evidence %}<span>{{ e }}</span>{% endfor %}</div></div>
+      {% endif %}
+
+      {% if c.calls %}
+      <div class="mcr-block">
+        <div class="mcr-block__t">Записи розмов</div>
+        <div class="mcr-calls">
+          {% for call in c.calls %}
+          <div class="mcr-call">
+            <div class="mcr-call__top">
+              <span>{{ call.started_at|default:"—" }}</span>
+              {% if call.ai %}<span class="mcr-call__score {{ call.ai.verdict }}">{{ call.ai.overall_score|floatformat:0 }}/100</span><span>{{ call.ai.verdict_label }}</span>
+              {% elif call.ai_status == 'pending' or call.ai_status == 'running' %}<span class="mcr-call__ai-pending">ШІ аналізує…</span>{% endif %}
+              <span class="mcr-call__dur">{{ call.duration }}с</span>
+            </div>
+            {% if call.has_recording %}<audio controls preload="none" src="{{ call.recording_url }}"></audio>{% endif %}
+            {% if call.ai and call.ai.summary %}<div class="mcr-call__sum">{{ call.ai.summary }}</div>{% endif %}
+            {% if call.ai and call.ai.discrepancies %}<div class="mcr-call__disc">⚠ Розбіжностей з даними менеджера: {{ call.ai.discrepancies|length }}</div>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if c.attempts and c.attempts|length > 1 %}
+      <details class="mcr-phases">
+        <summary>Історія обробок ({{ c.attempts|length }})</summary>
+        {% for a in c.attempts %}
+        <div class="mcr-attempt"><b>{{ a.result }}</b> · {{ a.created }}{% if a.next_call %} · далі {{ a.next_call }}{% endif %}{% if a.reason_note %}<br>{{ a.reason_note }}{% endif %}{% if a.details %}<br>{{ a.details }}{% endif %}</div>
+        {% endfor %}
+      </details>
+      {% endif %}
+    </div>
+    {% empty %}
+    <div class="mcr-empty">За цей період менеджер не обробляв клієнтів.</div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

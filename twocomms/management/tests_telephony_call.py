@@ -503,3 +503,74 @@ class VerifiedCommunicationSignalTest(TestCase):
         summary = {"success_rate_pct": 50}  # 0.5*0.7+0.25=0.6
         axis = _snap._compute_verified_communication_axis(summary, readiness, None)
         self.assertAlmostEqual(float(axis), 0.60, places=2)
+
+
+from datetime import date as _date
+from management.services import manager_review as _mr
+
+
+class ManagerReviewTest(TestCase):
+    def setUp(self):
+        self.manager = User.objects.create_user(username="mgr8", password="x")
+        self.manager.userprofile.is_manager = True
+        self.manager.userprofile.save()
+        self.today = _tz.localdate()
+
+    def _client(self, result="thinking", days_ago=0, note=""):
+        c = Client.objects.create(
+            shop_name=f"S{Client.objects.count()+1}", phone="0671110000",
+            full_name="X", owner=self.manager, call_result=result, manager_note=note,
+        )
+        if days_ago:
+            Client.objects.filter(id=c.id).update(created_at=_tz.now() - _td(days=days_ago))
+        return c
+
+    def test_resolve_window_variants(self):
+        w = _mr.resolve_review_window("today", "", self.today)
+        self.assertEqual(w["key"], "today"); self.assertEqual(w["single_day"], self.today)
+        w = _mr.resolve_review_window("yesterday", "", self.today)
+        self.assertEqual(w["single_day"], self.today - _td(days=1))
+        w = _mr.resolve_review_window("week", "", self.today)
+        self.assertEqual(w["mode"], "range"); self.assertIsNone(w["single_day"])
+        w = _mr.resolve_review_window("all", "", self.today)
+        self.assertEqual(w["mode"], "all"); self.assertIsNone(w["start"])
+        w = _mr.resolve_review_window("", "2026-01-15", self.today)
+        self.assertEqual(w["single_day"], _date(2026, 1, 15))
+
+    def test_summary_and_breakdown(self):
+        self._client(result="order")
+        self._client(result="test_batch")
+        self._client(result="thinking", note="передзвонити ввечері")
+        out = _mr.build_manager_clients_review(self.manager, period="today")
+        self.assertEqual(out["summary"]["processed"], 3)
+        self.assertEqual(out["summary"]["conversions"], 2)
+        self.assertTrue(out["summary"]["points"] > 0)
+        self.assertTrue(any(c["manager_note"] for c in out["clients"]))
+
+    def test_deltas_vs_prev_day(self):
+        self._client(result="order")            # сьогодні 1
+        self._client(result="order", days_ago=1)
+        self._client(result="thinking", days_ago=1)  # вчора 2
+        out = _mr.build_manager_clients_review(self.manager, period="today")
+        self.assertIsNotNone(out["deltas"])
+        self.assertEqual(out["deltas"]["processed"]["prev"], 2)
+        self.assertEqual(out["deltas"]["processed"]["diff"], 1 - 2)
+        self.assertEqual(out["deltas"]["processed"]["tone"], "bad")
+
+    def test_calls_attached(self):
+        c = self._client(result="order")
+        rec = CallRecord.objects.create(
+            provider="binotel", external_call_id="mr1", manager=self.manager,
+            matched_client=c, duration_seconds=70, payload={"disposition": "ANSWER"},
+        )
+        CallAIAnalysis.objects.create(call_record=rec, status=CallAIAnalysis.Status.DONE, overall_score=82, verdict="pass")
+        out = _mr.build_manager_clients_review(self.manager, period="today")
+        card = next(x for x in out["clients"] if x["id"] == c.id)
+        self.assertEqual(len(card["calls"]), 1)
+        self.assertTrue(card["calls"][0]["has_recording"])
+        self.assertEqual(card["calls"][0]["ai"]["verdict"], "pass")
+
+    def test_all_period_no_date_filter(self):
+        self._client(result="order", days_ago=100)
+        out = _mr.build_manager_clients_review(self.manager, period="all")
+        self.assertEqual(out["summary"]["processed"], 1)
