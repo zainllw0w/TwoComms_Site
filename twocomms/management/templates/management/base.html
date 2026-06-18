@@ -59,8 +59,7 @@
             <a href="{% url 'management_info' %}" class="tab{% if request.resolver_match.url_name == 'management_info' %} active{% endif %}">Інформація</a>
             {% if request.user.is_staff %}
             <a href="{% url 'management_admin_payouts_board' %}" class="tab{% if request.resolver_match.url_name == 'management_admin_payouts_board' %} active{% endif %}">Каса</a>
-            <a href="{% url 'management_parsing' %}" class="tab{% if request.resolver_match.url_name == 'management_parsing' %} active{% endif %}">Парсинг</a>
-            <a href="{% url 'management_checker' %}" class="tab{% if request.resolver_match.url_name == 'management_checker' %} active{% endif %}">Чекер</a>
+            <a href="{% url 'management_parsing' %}" class="tab{% if request.resolver_match.url_name == 'management_parsing' or request.resolver_match.url_name == 'management_checker' %} active{% endif %}">Лідоген</a>
             <a href="{% url 'management_bot' %}" class="tab{% if request.resolver_match.url_name == 'management_bot' %} active{% endif %}">Бот</a>
             <a href="{% url 'management_binotel_test' %}" class="tab{% if request.resolver_match.url_name == 'management_binotel_test' %} active{% endif %}">Тест</a>
             <a href="{% url 'management_admin' %}" class="tab{% if request.resolver_match.url_name == 'management_admin' %} active{% endif %}">Адміністрування</a>

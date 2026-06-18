@@ -233,12 +233,8 @@ def checker_keys_status_api(request):
     return JsonResponse({"success": True, "keys": gemini_keys.pool_status()})
 
 
-@login_required(login_url="management_login")
-def checker_dashboard(request):
-    if not (request.user.is_staff or request.user.is_superuser):
-        denied = _require_admin_json(request)
-        if denied:
-            return redirect("management_home")
+def checker_context(request) -> dict:
+    """Контекст AI-чекера для вбудовування у сторінку «Лідоген»."""
     job = ljob.dashboard_job()
     settings_obj = LeadCheckerSettings.load()
     cities = list(
@@ -253,8 +249,8 @@ def checker_dashboard(request):
         "unfit": ManagementLead.objects.filter(ai_verdict="unfit").count(),
         "errors": ManagementLead.objects.filter(ai_verdict="error").count(),
     }
-    context = {
-        "active_job_json": ljob.job_status_payload(job),
+    return {
+        "checker_active_job_json": ljob.job_status_payload(job),
         "checker_counters": counters,
         "checker_cities": cities,
         "checker_settings": {
@@ -265,4 +261,10 @@ def checker_dashboard(request):
             "auto_recheck_batch": settings_obj.auto_recheck_batch,
         },
     }
-    return render(request, "management/checker.html", context)
+
+
+@login_required(login_url="management_login")
+def checker_dashboard(request):
+    # Чекер злитий зі сторінкою «Лідоген» (Парсинг). Єдина вкладка.
+    return redirect("management_parsing")
+

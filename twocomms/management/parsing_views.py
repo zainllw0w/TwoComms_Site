@@ -360,29 +360,34 @@ def parsing_dashboard(request):
     active_job = parser_dashboard_job()
     moderation, rejected = _lead_queue_payload()
     moderation_state = _moderation_payload()
-    return render(
-        request,
-        "management/parsing.html",
-        {
-            "user_points_today": user_points_today,
-            "user_points_total": stats["points_total"],
-            "processed_today": processed_today,
-            "target_clients": TARGET_CLIENTS_DAY,
-            "target_points": TARGET_POINTS_DAY,
-            "progress_clients_pct": progress_clients_pct,
-            "progress_points_pct": progress_points_pct,
-            "reminders": reminders,
-            "manager_bot_username": get_manager_bot_username(),
-            "active_job": active_job,
-            "active_job_json": _job_payload(active_job),
-            "moderation_leads": moderation,
-            "moderation_state_json": moderation_state,
-            "rejected_leads": rejected,
-            "parser_counters": _counters_payload(),
-            "parser_usage": _usage_payload(),
-            "places_included_type_choices": [item for item in PLACES_INCLUDED_TYPE_CHOICES if item[0]],
-        },
-    )
+    try:
+        moderation_total = (moderation_state or {}).get("stats", {}).get("total_items", 0)
+    except Exception:
+        moderation_total = 0
+    from . import checker_views
+    context = {
+        "user_points_today": user_points_today,
+        "user_points_total": stats["points_total"],
+        "processed_today": processed_today,
+        "target_clients": TARGET_CLIENTS_DAY,
+        "target_points": TARGET_POINTS_DAY,
+        "progress_clients_pct": progress_clients_pct,
+        "progress_points_pct": progress_points_pct,
+        "reminders": reminders,
+        "manager_bot_username": get_manager_bot_username(),
+        "active_job": active_job,
+        "active_job_json": _job_payload(active_job),
+        "moderation_leads": moderation,
+        "moderation_state_json": moderation_state,
+        "moderation_total": moderation_total,
+        "rejected_leads": rejected,
+        "parser_counters": _counters_payload(),
+        "parser_usage": _usage_payload(),
+        "places_included_type_choices": [item for item in PLACES_INCLUDED_TYPE_CHOICES if item[0]],
+    }
+    # Злиття з контекстом AI-чекера (єдина вкладка «Лідоген»).
+    context.update(checker_views.checker_context(request))
+    return render(request, "management/lead_ops.html", context)
 
 
 @login_required(login_url="management_login")

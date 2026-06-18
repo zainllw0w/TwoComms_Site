@@ -1,0 +1,112 @@
+<div id="checker-endpoints"
+     data-start-url="{% url 'management_checker_start_api' %}"
+     data-step-url="{% url 'management_checker_step_api' %}"
+     data-pause-url="{% url 'management_checker_pause_api' %}"
+     data-resume-url="{% url 'management_checker_resume_api' %}"
+     data-stop-url="{% url 'management_checker_stop_api' %}"
+     data-status-url="{% url 'management_checker_status_api' %}"
+     data-results-url="{% url 'management_checker_results_api' %}"
+     data-settings-url="{% url 'management_checker_settings_api' %}"
+     data-keys-url="{% url 'management_checker_keys_status_api' %}"
+     data-recheck-url-template="{% url 'management_checker_recheck_api' 0 %}"></div>
+{{ checker_active_job_json|json_script:"checker-initial-job" }}
+{{ checker_counters|json_script:"checker-initial-counters" }}
+{{ checker_settings|json_script:"checker-initial-settings" }}
+
+<div class="checker-shell">
+  <section class="checker-hero">
+    <div class="checker-hero__main">
+      <p class="eyebrow">AI Lead Checker</p>
+      <h1 class="checker-hero__title">Чекер спарсених акаунтів</h1>
+      <p class="checker-hero__lead">Gemini з веб-пошуком оцінює кожен магазин за 10 критеріями (0–100), визначає бренд, канал співпраці та дає рекомендацію менеджеру.</p>
+      <div class="checker-controls">
+        <span class="status-chip" id="checker-status-chip">Очікування</span>
+        <button type="button" class="btn-primary" id="checker-start-btn">Старт</button>
+        <button type="button" class="btn-ghost" id="checker-pause-btn" hidden>Пауза</button>
+        <button type="button" class="btn-ghost" id="checker-resume-btn" hidden>Відновити</button>
+        <button type="button" class="btn-ghost" id="checker-stop-btn" hidden>Стоп</button>
+        <span class="checker-keys-cd-badge" id="checker-keys-cd" hidden>квоту вичерпано — авто-продовження за відліком</span>
+      </div>
+    </div>
+    <aside class="checker-hero__metrics">
+      <div class="checker-metric"><span class="checker-metric__label">Перевірено</span><span class="checker-metric__value" id="m-processed">0</span></div>
+      <div class="checker-metric"><span class="checker-metric__label">Залишилось</span><span class="checker-metric__value" id="m-remaining">0</span></div>
+      <div class="checker-metric"><span class="checker-metric__label">Минуло, с</span><span class="checker-metric__value" id="m-elapsed">0</span></div>
+      <div class="checker-metric"><span class="checker-metric__label">Сер. час, с</span><span class="checker-metric__value" id="m-avg">0</span></div>
+      <div class="checker-metric checker-metric--fit"><span class="checker-metric__label">Підходить</span><span class="checker-metric__value" id="m-fit">0</span></div>
+      <div class="checker-metric checker-metric--maybe"><span class="checker-metric__label">Під питанням</span><span class="checker-metric__value" id="m-maybe">0</span></div>
+      <div class="checker-metric checker-metric--unfit"><span class="checker-metric__label">Не підходить</span><span class="checker-metric__value" id="m-unfit">0</span></div>
+      <div class="checker-metric checker-metric--error"><span class="checker-metric__label">Помилки</span><span class="checker-metric__value" id="m-errors">0</span></div>
+    </aside>
+  </section>
+
+  <div class="checker-progress"><div class="progress-track"><div class="progress-fill" id="checker-progress-fill" style="width:0%"></div></div><span class="checker-progress__label" id="checker-progress-label">0 / 0</span></div>
+
+  <div class="offer-grid offer-grid-single">
+    <div class="offer-card">
+      <div class="parsing-card-header">
+        <div><p class="eyebrow">Запуск</p><h3 class="offer-title">Налаштування перевірки</h3></div>
+        <p>Оберіть, які ліди перевіряти, і запустіть. Усе перевірене одразу зберігається — можна зупинити будь-коли.</p>
+      </div>
+      <form id="checker-form" class="checker-form">
+        {% csrf_token %}
+        <div class="field-grid">
+          <div class="field">
+            <label>Обсяг</label>
+            <select name="scope" id="checker-scope">
+              <option value="unchecked">Тільки неперевірені</option>
+              <option value="all">Усі (перепровірка)</option>
+              <option value="by_city">За містом</option>
+              <option value="by_band">За смугою вердикту</option>
+            </select>
+          </div>
+          <div class="field" id="checker-city-field" hidden>
+            <label>Місто</label>
+            <select name="city" id="checker-city">
+              <option value="">— оберіть —</option>
+              {% for c in checker_cities %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="field" id="checker-band-field" hidden>
+            <label>Смуга вердикту</label>
+            <select name="band" id="checker-band">
+              <option value="fit">Підходить</option>
+              <option value="maybe">Під питанням</option>
+              <option value="unfit">Не підходить</option>
+              <option value="error">Помилки</option>
+            </select>
+          </div>
+          <div class="field"><label>Ліміт (0 = усі)</label><input type="number" name="target_limit" id="checker-limit" min="0" value="0"></div>
+          <div class="field"><label>Запитів за хвилину</label><input type="number" name="requests_per_minute" id="checker-rpm" min="1" max="20" value="8"></div>
+        </div>
+      </form>
+    </div>
+
+    <details class="offer-card checker-settings-card">
+      <summary class="offer-title">Ключ Gemini та налаштування</summary>
+      <form id="checker-settings-form" class="checker-form">
+        {% csrf_token %}
+        <p class="offer-help">Якщо поле порожнє — використовується спільний ключ (ENV <code>GEMINI_API</code>), той самий, що в боті та аналізі дзвінків.</p>
+        <div class="field-grid">
+          <div class="field field-span-2"><label>Ключ Gemini (опц.)</label><input type="password" name="gemini_api_key" id="checker-key" placeholder="{% if checker_settings.has_key %}•••••• збережено{% else %}не задано{% endif %}"></div>
+          <div class="field"><label>Моделі (csv, опц.)</label><input type="text" name="model_chain" id="checker-models" value="{{ checker_settings.model_chain }}" placeholder="gemini-2.5-flash,gemini-3.5-flash"></div>
+          <div class="field"><label>RPM за замовч.</label><input type="number" name="requests_per_minute" id="checker-settings-rpm" min="1" max="20" value="{{ checker_settings.requests_per_minute }}"></div>
+          <div class="field"><label>Авто-чекінг (cron)</label>
+            <label class="checker-switch"><input type="checkbox" name="auto_recheck" id="checker-auto" {% if checker_settings.auto_recheck %}checked{% endif %}> <span>Продовжувати автоматично, щойно квота відновиться</span></label>
+          </div>
+          <div class="field"><label>Батч авто-чекінгу</label><input type="number" name="auto_recheck_batch" id="checker-auto-batch" min="1" max="500" value="{{ checker_settings.auto_recheck_batch }}"></div>
+        </div>
+        <button type="submit" class="btn-ghost">Зберегти налаштування</button>
+        <span id="checker-settings-status" class="checker-inline-status" hidden></span>
+      </form>
+    </details>
+  </div>
+
+  <div class="checker-keys offer-card">
+    <div class="checker-results__head">
+      <div><p class="eyebrow">Ключі Gemini</p><h3 class="offer-title">Стан ключів та квот</h3></div>
+      <span class="checker-keys__hint">Скидання денної квоти — опівночі за тихоокеанським часом (PT)</span>
+    </div>
+    <div class="checker-keys__grid" id="checker-keys-grid"></div>
+  </div>
+</div>

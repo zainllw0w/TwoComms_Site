@@ -1,0 +1,1050 @@
+<script>
+function initParsingPage() {
+    const endpoints = document.getElementById('parsing-endpoints');
+    if (!endpoints) return;
+    if (endpoints.dataset.init === '1') return;
+    endpoints.dataset.init = '1';
+
+    const startUrl = endpoints.dataset.startUrl;
+    const stepUrl = endpoints.dataset.stepUrl;
+    const pauseUrl = endpoints.dataset.pauseUrl;
+    const resumeUrl = endpoints.dataset.resumeUrl;
+    const stopUrl = endpoints.dataset.stopUrl;
+    const statusUrl = endpoints.dataset.statusUrl;
+    const moderationUrl = endpoints.dataset.moderationUrl;
+    const leadActionTpl = endpoints.dataset.leadActionUrlTemplate;
+
+    const parserForm = document.getElementById('parser-form');
+    const statusChips = [
+        document.getElementById('parser-status-chip-hero'),
+        document.getElementById('parser-status-chip'),
+    ].filter(Boolean);
+    const queryInfo = document.getElementById('parser-query-info');
+    const telemetryInfo = document.getElementById('parser-telemetry-info');
+    const lastErrorInfo = document.getElementById('parser-last-error');
+    const moderationTableBody = document.querySelector('#moderation-table tbody');
+    const moderationCityFilter = document.getElementById('moderation-city-filter');
+    const moderationPageSize = document.getElementById('moderation-page-size');
+    const moderationClearCityBtn = document.getElementById('moderation-clear-city');
+    const moderationPagination = document.getElementById('moderation-pagination');
+    const moderationRangeInfo = document.getElementById('moderation-range-info');
+    const moderationTotalInfo = document.getElementById('moderation-total-info');
+    const moderationSummaryTotal = document.getElementById('moderation-summary-total');
+    const moderationSummaryFiltered = document.getElementById('moderation-summary-filtered');
+    const moderationSummaryPhone = document.getElementById('moderation-summary-phone');
+    const moderationSummaryCity = document.getElementById('moderation-summary-city');
+    const rejectedTableBody = document.querySelector('#rejected-table tbody');
+    const resultsTableBody = document.querySelector('#parser-results-table tbody');
+    const modal = document.getElementById('lead-moderation-modal');
+    const modalForm = document.getElementById('lead-moderation-form');
+    const body = document.body;
+
+    const parseJsonScript = (id, fallback) => {
+        const el = document.getElementById(id);
+        if (!el) return fallback;
+        try {
+            return JSON.parse(el.textContent);
+        } catch (err) {
+            console.error(`Invalid JSON in script#${id}`, err);
+            return fallback;
+        }
+    };
+
+    let activeJob = parseJsonScript('parser-initial-job', null);
+    let moderation = parseJsonScript('parser-initial-moderation', []);
+    let moderationState = parseJsonScript('parser-initial-moderation-state', null);
+    let rejected = parseJsonScript('parser-initial-rejected', []);
+    let counters = parseJsonScript('parser-initial-counters', {});
+    let usage = parseJsonScript('parser-initial-usage', {});
+    const USAGE_REFRESH_INTERVAL_MS = 60000;
+    let stepTimer = null;
+    let pollTimer = null;
+    let isStepRequestInFlight = false;
+    let isStatusRequestInFlight = false;
+    let isModerationRequestInFlight = false;
+    let hasAppliedInitialJobToForm = false;
+    let nextUsageRefreshAt = 0;
+
+    if (!moderationState) {
+        const moderationCount = moderation.length;
+        moderationState = {
+            items: moderation,
+            pagination: {
+                page: 1,
+                page_size: 25,
+                total_items: moderationCount,
+                total_pages: moderationCount ? 1 : 0,
+                start_index: moderationCount ? 1 : 0,
+                end_index: moderationCount,
+            },
+            filters: {
+                city: '',
+                page_size: 25,
+            },
+            city_counts: [],
+            stats: {
+                total_items: moderationCount,
+                filtered_items: moderationCount,
+                selected_city: '',
+                selected_city_total: moderationCount,
+                requires_phone_completion: moderation.filter((lead) => lead.requires_phone_completion).length,
+            },
+        };
+    }
+    moderation = moderationState.items || moderation;
+
+    const sessionWarning = document.getElementById('parser-session-warning');
+    const startBtn = document.getElementById('parser-start-btn');
+    const pauseBtn = document.getElementById('parser-pause-btn');
+    const resumeBtn = document.getElementById('parser-resume-btn');
+    const stopBtn = document.getElementById('parser-stop-btn');
+    const targetLeadsLimitField = document.getElementById('parser_target_leads_limit');
+    const typeCheckboxes = Array.from(document.querySelectorAll('input[name="included_types"]'));
+    const strictTypeFilteringField = document.getElementById('parser_strict_type_filtering');
+    const saveNoPhoneField = document.getElementById('parser_save_no_phone_leads');
+    const moderationPhoneRequirement = document.getElementById('moderation-phone-requirement');
+    const typeQueueContainers = [
+        document.getElementById('parser-types-queue'),
+        document.getElementById('parser-selected-types-summary'),
+    ].filter(Boolean);
+    const typeLabels = Object.fromEntries(
+        typeCheckboxes.map((checkbox) => [
+            checkbox.value,
+            checkbox.closest('.parsing-type-option')?.querySelector('.parsing-type-option__label')?.textContent?.trim() || checkbox.value,
+        ]),
+    );
+
+    const getCsrfToken = () => (modalForm.querySelector('input[name="csrfmiddlewaretoken"]')?.value
+        || parserForm.querySelector('input[name="csrfmiddlewaretoken"]')?.value
+        || '');
+
+    const escapeHtml = (value) => {
+        const div = document.createElement('div');
+        div.textContent = value == null ? '' : String(value);
+        return div.innerHTML;
+    };
+
+    const displayValue = (value, fallback = '—') => {
+        const normalized = value == null ? '' : String(value).trim();
+        return normalized || fallback;
+    };
+
+    const truncateMiddle = (value, maxLength = 42) => {
+        const normalized = String(value || '').trim();
+        if (!normalized || normalized.length <= maxLength) return normalized;
+        const edgeLength = Math.max(6, Math.floor((maxLength - 1) / 2));
+        return `${normalized.slice(0, edgeLength)}…${normalized.slice(-edgeLength)}`;
+    };
+
+    const sanitizeExternalUrl = (value) => {
+        const normalized = String(value || '').trim();
+        if (!normalized || !/^https?:\/\//i.test(normalized)) return '';
+        try {
+            const url = new URL(normalized);
+            if (!['http:', 'https:'].includes(url.protocol)) return '';
+            return url.href;
+        } catch (err) {
+            return '';
+        }
+    };
+
+    const renderWebsiteCell = (value) => {
+        const normalized = String(value || '').trim();
+        if (!normalized) {
+            return `
+                <div class="moderation-site moderation-cell-stack">
+                    <span class="moderation-cell__primary moderation-site__plain">—</span>
+                </div>
+            `;
+        }
+        const safeHref = sanitizeExternalUrl(normalized);
+        if (!safeHref) {
+            return `
+                <div class="moderation-site moderation-cell-stack">
+                    <span class="moderation-cell__primary moderation-site__plain" title="${escapeHtml(normalized)}">${escapeHtml(truncateMiddle(normalized, 38))}</span>
+                </div>
+            `;
+        }
+        let hostname = 'Сайт';
+        let compactUrl = normalized.replace(/^https?:\/\//i, '');
+        try {
+            const parsedUrl = new URL(safeHref);
+            hostname = parsedUrl.hostname.replace(/^www\./i, '') || hostname;
+            compactUrl = `${parsedUrl.hostname.replace(/^www\./i, '')}${parsedUrl.pathname || ''}${parsedUrl.search || ''}`;
+        } catch (err) {
+            hostname = truncateMiddle(compactUrl, 24) || hostname;
+        }
+        return `
+            <div class="moderation-site moderation-cell-stack">
+                <div class="moderation-cell__primary moderation-site__primary">
+                    <a href="${escapeHtml(safeHref)}" target="_blank" rel="noopener noreferrer" class="site-link-chip moderation-site__chip" title="${escapeHtml(normalized)}">
+                        <span class="site-link-chip__icon" aria-hidden="true">↗</span>
+                        <span class="site-link-chip__text">${escapeHtml(hostname)}</span>
+                    </a>
+                </div>
+                <span class="moderation-cell__secondary moderation-site__meta" title="${escapeHtml(normalized)}">${escapeHtml(truncateMiddle(compactUrl, 34))}</span>
+            </div>
+        `;
+    };
+
+    const buildQueryUrl = (url, params) => {
+        const search = new URLSearchParams();
+        Object.entries(params || {}).forEach(([key, value]) => {
+            if (value == null) return;
+            const normalized = String(value).trim();
+            if (!normalized) return;
+            search.set(key, normalized);
+        });
+        const query = search.toString();
+        return query ? `${url}?${query}` : url;
+    };
+
+    const selectedTypeValues = () => typeCheckboxes.filter((checkbox) => checkbox.checked).map((checkbox) => checkbox.value);
+
+    const activeTypeValue = () => {
+        const requestSpec = activeJob?.current_request_spec || {};
+        return String(requestSpec.included_type || activeJob?.included_type || '').trim();
+    };
+
+    const renderTypeQueue = (selectedValues, currentActiveType = '') => {
+        typeQueueContainers.forEach((container) => {
+            if (!container) return;
+            if (!selectedValues.length) {
+                const emptyMessage = container.id === 'parser-selected-types-summary'
+                    ? 'Types не вибрані: пошук іде без category-фільтра.'
+                    : 'Types не вибрані. У такому режимі Google Places працює без category-фільтра.';
+                container.innerHTML = `<span class="parsing-type-queue__empty">${escapeHtml(emptyMessage)}</span>`;
+                return;
+            }
+            container.innerHTML = selectedValues.map((value, index) => {
+                const isActive = currentActiveType && currentActiveType === value;
+                const label = typeLabels[value] || value;
+                return `
+                    <span class="parsing-type-queue__chip${isActive ? ' is-active' : ''}">
+                        <span class="parsing-type-queue__chip-index">${index + 1}</span>
+                        <span>${escapeHtml(label)}</span>
+                    </span>
+                `;
+            }).join('');
+        });
+    };
+
+    const updateTypeOrderBadges = (selectedValues) => {
+        const selectedMap = new Map(selectedValues.map((value, index) => [value, index + 1]));
+        typeCheckboxes.forEach((checkbox) => {
+            const option = checkbox.closest('.parsing-type-option');
+            const badge = option?.querySelector('[data-type-order-value]');
+            const order = selectedMap.get(checkbox.value);
+            if (option) option.classList.toggle('is-selected', Boolean(order));
+            if (badge) badge.textContent = order || '•';
+        });
+    };
+
+    const syncTypeControls = () => {
+        if (!strictTypeFilteringField) return;
+        const selectedValues = selectedTypeValues();
+        const hasType = selectedValues.length > 0;
+        strictTypeFilteringField.disabled = !hasType;
+        if (!hasType) strictTypeFilteringField.checked = false;
+        updateTypeOrderBadges(selectedValues);
+        renderTypeQueue(selectedValues, activeTypeValue());
+    };
+
+    const openModal = () => {
+        modal.classList.add('show');
+        body.classList.add('modal-open');
+    };
+    const closeModal = () => {
+        modal.classList.remove('show');
+        if (!document.querySelector('.modal-overlay.show')) body.classList.remove('modal-open');
+    };
+
+    modal.querySelectorAll('.modal-close').forEach((btn) => btn.addEventListener('click', closeModal));
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+
+    const setCounter = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value ?? 0;
+    };
+
+    const setStatusChips = (text, status = '') => {
+        statusChips.forEach((chip) => {
+            chip.textContent = text;
+            chip.className = status ? `status-chip status-${status}` : 'status-chip';
+        });
+    };
+
+    const renderCounters = (payload) => {
+        counters = payload || counters || {};
+        if (activeJob) {
+            setCounter('cnt-total-found', activeJob.total_found || 0);
+            setCounter('cnt-request-count', `${activeJob.request_count || 0}/${activeJob.request_limit || 0}`);
+            setCounter('cnt-target-leads-progress', `${activeJob.effective_added_count || 0}/${activeJob.target_leads_limit || 0}`);
+            setCounter('cnt-added-moderation', activeJob.added_to_moderation || 0);
+            setCounter('cnt-duplicates', activeJob.duplicate_skipped || 0);
+            setCounter('cnt-dup-job-phone', activeJob.duplicate_same_job_phone_skipped || 0);
+            setCounter('cnt-dup-job-place', activeJob.duplicate_same_job_place_skipped || 0);
+            setCounter('cnt-dup-existing-client', activeJob.duplicate_existing_client_skipped || 0);
+            setCounter('cnt-dup-existing-lead', activeJob.duplicate_existing_lead_skipped || 0);
+            setCounter('cnt-recent-history-phone', activeJob.recent_history_phone_skipped || 0);
+            setCounter('cnt-recent-history-place', activeJob.recent_history_place_skipped || 0);
+            setCounter('cnt-no-phone', activeJob.no_phone_skipped || 0);
+            setCounter('cnt-saved-no-phone', activeJob.saved_no_phone_to_moderation || 0);
+            setCounter('cnt-rejected-skip', activeJob.already_rejected_skipped || 0);
+            setCounter('cnt-request-success', activeJob.request_success_count || 0);
+            setCounter('cnt-request-errors', activeJob.request_error_count || 0);
+            setCounter('cnt-current-rpm', activeJob.current_rpm || 0);
+            setCounter('cnt-target-rpm', activeJob.requests_per_minute || 0);
+            setCounter('cnt-exhausted-normal', activeJob.queries_exhausted_normal || 0);
+            setCounter('cnt-exhausted-anomaly', activeJob.queries_exhausted_anomaly || 0);
+            setCounter('hero-total-found', activeJob.total_found || 0);
+            setCounter(
+                'hero-added-moderation',
+                (activeJob.added_to_moderation || 0) + (activeJob.saved_no_phone_to_moderation || 0),
+            );
+            setCounter(
+                'hero-no-phone',
+                (activeJob.no_phone_skipped || 0) + (activeJob.saved_no_phone_to_moderation || 0),
+            );
+            setCounter('hero-current-rpm', activeJob.current_rpm || 0);
+            setCounter('hero-target-progress', `${activeJob.effective_added_count || 0}/${activeJob.target_leads_limit || 0}`);
+            setCounter('hero-exhausted-queries', (activeJob.queries_exhausted_normal || 0) + (activeJob.queries_exhausted_anomaly || 0));
+        } else {
+            setCounter('cnt-total-found', 0);
+            setCounter('cnt-request-count', 0);
+            setCounter('cnt-target-leads-progress', '0/0');
+            setCounter('cnt-added-moderation', 0);
+            setCounter('cnt-duplicates', 0);
+            setCounter('cnt-dup-job-phone', 0);
+            setCounter('cnt-dup-job-place', 0);
+            setCounter('cnt-dup-existing-client', 0);
+            setCounter('cnt-dup-existing-lead', 0);
+            setCounter('cnt-recent-history-phone', 0);
+            setCounter('cnt-recent-history-place', 0);
+            setCounter('cnt-no-phone', 0);
+            setCounter('cnt-saved-no-phone', 0);
+            setCounter('cnt-rejected-skip', 0);
+            setCounter('cnt-request-success', 0);
+            setCounter('cnt-request-errors', 0);
+            setCounter('cnt-current-rpm', 0);
+            setCounter('cnt-target-rpm', 0);
+            setCounter('cnt-exhausted-normal', 0);
+            setCounter('cnt-exhausted-anomaly', 0);
+            setCounter('hero-total-found', 0);
+            setCounter('hero-added-moderation', 0);
+            setCounter('hero-no-phone', 0);
+            setCounter('hero-current-rpm', 0);
+            setCounter('hero-target-progress', '0/0');
+            setCounter('hero-exhausted-queries', 0);
+        }
+        setCounter('cnt-base-unprocessed', counters.unprocessed || 0);
+        setCounter('cnt-bad', counters.rejected || 0);
+    };
+
+    const renderUsage = (payload) => {
+        usage = payload || usage || {};
+        nextUsageRefreshAt = Date.now() + USAGE_REFRESH_INTERVAL_MS;
+        setCounter('billing-sku', usage.sku || '—');
+        setCounter('billing-free-cap', usage.free_monthly_calls || 0);
+        setCounter('billing-local-30d', usage.local_30d_usage || 0);
+        setCounter('billing-current-month', usage.current_billing_month_usage || 0);
+        setCounter('billing-provider-status', usage.provider_status || '—');
+        setCounter('billing-google-project', usage.google_project_usage ?? '—');
+        setCounter('hero-billing-sku', usage.sku || '—');
+        setCounter('hero-billing-current-month', usage.current_billing_month_usage || 0);
+        setCounter('hero-billing-provider-status', usage.provider_status || '—');
+        setCounter('hero-billing-google-project', usage.google_project_usage ?? '—');
+    };
+
+    const warningMessageForReason = (reasonCode) => {
+        const map = {
+            session_stale_stopped: 'Попередню running-сесію зупинено як stale: heartbeat не оновлювався понад 5 хвилин.',
+            session_superseded: 'Попередню активну сесію було закрито під час server-side нормалізації стану.',
+            query_exhausted_repeated_page: 'Google Places повторив ту саму сторінку. Job зупинено, щоб не піти в цикл.',
+            query_exhausted_repeated_token: 'Google Places повторив той самий page token. Job зупинено, щоб не піти в цикл.',
+            query_exhausted_empty_page_loop: 'Google Places кілька разів віддав порожню сторінку з продовженням пагінації. Job зупинено.',
+            query_page_cap_exceeded: 'Google Places повернув підозріло довгу пагінацію для одного query. Job зупинено.',
+            target_leads_reached: 'Досягнуто цілі по лідах. Job завершено штатно.',
+        };
+        return map[reasonCode] || '';
+    };
+
+    const renderSessionWarning = () => {
+        if (!sessionWarning) return;
+        const message = warningMessageForReason(activeJob?.stop_reason_code || '') || activeJob?.last_notice || '';
+        if (message) {
+            sessionWarning.hidden = false;
+            sessionWarning.textContent = message;
+        } else {
+            sessionWarning.hidden = true;
+            sessionWarning.textContent = '';
+        }
+    };
+
+    const syncFormFromJob = () => {
+        if (!activeJob) return;
+        const keywordsField = document.getElementById('parser_keywords');
+        const citiesField = document.getElementById('parser_cities');
+        const requestLimitField = document.getElementById('parser_request_limit');
+        const rpmField = document.getElementById('parser_requests_per_minute');
+        const lookbackField = document.getElementById('parser_history_lookback_days');
+        if (targetLeadsLimitField && activeJob.target_leads_limit !== undefined) targetLeadsLimitField.value = activeJob.target_leads_limit;
+        if (keywordsField) keywordsField.value = (activeJob.keywords || []).join(', ');
+        if (citiesField) citiesField.value = (activeJob.cities || []).join(', ');
+        if (requestLimitField && activeJob.request_limit) requestLimitField.value = activeJob.request_limit;
+        if (rpmField && activeJob.requests_per_minute) rpmField.value = activeJob.requests_per_minute;
+        if (lookbackField && activeJob.history_lookback_days !== undefined) lookbackField.value = activeJob.history_lookback_days;
+        if (saveNoPhoneField) saveNoPhoneField.checked = Boolean(activeJob.save_no_phone_leads);
+        const selectedValues = activeJob.included_types?.length
+            ? activeJob.included_types
+            : (activeJob.included_type ? [activeJob.included_type] : []);
+        typeCheckboxes.forEach((checkbox) => {
+            checkbox.checked = selectedValues.includes(checkbox.value);
+        });
+        if (strictTypeFilteringField) strictTypeFilteringField.checked = Boolean(selectedValues.length && activeJob.strict_type_filtering);
+        syncTypeControls();
+    };
+
+    const renderControls = () => {
+        const status = activeJob?.status || '';
+        const hasPaused = status === 'paused';
+        const hasRunning = status === 'running';
+        startBtn.disabled = hasRunning || hasPaused;
+        pauseBtn.disabled = !hasRunning;
+        resumeBtn.disabled = status !== 'paused' && status !== 'failed';
+        stopBtn.disabled = !activeJob || !['running', 'paused'].includes(status);
+    };
+
+    const shouldWarnOnUnload = () => Boolean(activeJob && activeJob.status === 'running');
+
+    const beforeUnloadHandler = (event) => {
+        if (!shouldWarnOnUnload()) return;
+        event.preventDefault();
+        event.returnValue = true;
+    };
+
+    const renderStatus = () => {
+        if (!activeJob) {
+            setStatusChips('Не запущено');
+            queryInfo.textContent = 'Запит: —';
+            if (telemetryInfo) telemetryInfo.textContent = 'Темп: —';
+            if (lastErrorInfo) {
+                lastErrorInfo.hidden = true;
+                lastErrorInfo.textContent = '';
+            }
+            renderTypeQueue(selectedTypeValues(), '');
+            renderSessionWarning();
+            renderControls();
+            return;
+        }
+        setStatusChips(activeJob.status_display || activeJob.status, activeJob.status);
+        queryInfo.textContent = `Запит: ${activeJob.current_query || '—'}`;
+        if (telemetryInfo) {
+            const nextEta = Number(activeJob.next_step_eta_seconds || 0);
+            const inFlight = activeJob.is_step_in_progress ? 'так' : 'ні';
+            const geoMode = activeJob.current_request_spec?.geo_mode || '—';
+            const includedTypeLabel = activeJob.current_request_spec?.included_type_label || activeJob.current_type_label || 'усі категорії';
+            const typeOrdinal = Number(activeJob.current_request_spec?.type_ordinal || 1);
+            const typesTotal = Number(activeJob.current_request_spec?.types_total || activeJob.included_types?.length || 1);
+            const targetProgress = `${activeJob.effective_added_count || 0}/${activeJob.target_leads_limit || 0}`;
+            const queryState = activeJob.current_query_state?.status_display || '—';
+            telemetryInfo.textContent = `Темп: ${activeJob.current_rpm || 0}/${activeJob.requests_per_minute || 0} RPM · next: ${nextEta}s · in-flight: ${inFlight} · step: ${activeJob.last_step_duration_ms || 0}ms · leads: ${targetProgress} · lookback: ${activeJob.history_lookback_days || 0}d · geo: ${geoMode} · type: ${includedTypeLabel} (${typeOrdinal}/${typesTotal}) · query-state: ${queryState}`;
+        }
+        if (lastErrorInfo) {
+            if (activeJob.last_error) {
+                lastErrorInfo.hidden = false;
+                lastErrorInfo.textContent = `Помилка: ${activeJob.last_error}`;
+            } else {
+                lastErrorInfo.hidden = true;
+                lastErrorInfo.textContent = '';
+            }
+        }
+        renderTypeQueue(selectedTypeValues(), activeTypeValue());
+        renderSessionWarning();
+        renderControls();
+    };
+
+    const renderModerationSummary = (state) => {
+        const stats = state?.stats || {};
+        const selectedCity = stats.selected_city ? stats.selected_city : 'Усі міста';
+        setCounter('moderation-summary-total', stats.total_items || 0);
+        setCounter('moderation-summary-filtered', stats.filtered_items || 0);
+        setCounter('moderation-summary-phone', stats.requires_phone_completion || 0);
+        setCounter('moderation-summary-city', selectedCity);
+        if (moderationRangeInfo) {
+            const pagination = state?.pagination || {};
+            if (!pagination.total_items) {
+                moderationRangeInfo.textContent = 'Черга модерації порожня.';
+            } else {
+                moderationRangeInfo.textContent = `Показано ${pagination.start_index}-${pagination.end_index} з ${pagination.total_items}`;
+            }
+        }
+        if (moderationTotalInfo) {
+            moderationTotalInfo.textContent = `Всього в модерації: ${stats.total_items || 0}`;
+        }
+    };
+
+    const renderModerationFilters = (state) => {
+        if (!moderationCityFilter || !moderationPageSize) return;
+        const currentCity = state?.filters?.city || '';
+        const currentPageSize = String(state?.filters?.page_size || 25);
+        const cityCounts = Array.isArray(state?.city_counts) ? state.city_counts.filter((item) => item.city) : [];
+        const options = [
+            `<option value="">Усі міста (${state?.stats?.total_items || 0})</option>`,
+            ...cityCounts.map((item) => `<option value="${escapeHtml(item.city)}">${escapeHtml(item.label || item.city || 'Без міста')} (${item.count || 0})</option>`),
+        ];
+        moderationCityFilter.innerHTML = options.join('');
+        moderationCityFilter.value = currentCity;
+        moderationPageSize.value = currentPageSize;
+    };
+
+    const renderModerationPagination = (state) => {
+        if (!moderationPagination) return;
+        const pagination = state?.pagination || {};
+        const totalPages = Number(pagination.total_pages || 0);
+        const currentPage = Number(pagination.page || 1);
+        if (!totalPages) {
+            moderationPagination.innerHTML = '<div class="moderation-pagination__info">Сторінок поки немає.</div>';
+            return;
+        }
+
+        const pageButtons = [];
+        const startPage = Math.max(1, currentPage - 2);
+        const endPage = Math.min(totalPages, currentPage + 2);
+        for (let page = startPage; page <= endPage; page += 1) {
+            pageButtons.push(
+                `<button type="button" class="${page === currentPage ? 'btn-primary' : 'btn-ghost'} small" data-page="${page}">${page}</button>`,
+            );
+        }
+
+        moderationPagination.innerHTML = `
+            <div class="moderation-pagination__info">Сторінка ${currentPage} з ${totalPages}</div>
+            <div class="moderation-pagination__pages">
+                <button type="button" class="btn-ghost small" data-page="${Math.max(1, currentPage - 1)}" ${currentPage <= 1 ? 'disabled' : ''}>← Назад</button>
+                ${pageButtons.join('')}
+                <button type="button" class="btn-ghost small" data-page="${Math.min(totalPages, currentPage + 1)}" ${currentPage >= totalPages ? 'disabled' : ''}>Далі →</button>
+            </div>
+        `;
+    };
+
+    const renderModeration = (items) => {
+        moderation = items || [];
+        if (!moderation.length) {
+            moderationTableBody.innerHTML = '<tr><td colspan="7" class="table-empty">Черга модерації порожня.</td></tr>';
+            return;
+        }
+
+        const renderNicheBadge = (lead) => {
+            const rawStatus = String(lead?.niche_status || '').trim();
+            const safeStatus = ['niche', 'maybe', 'non_niche'].includes(rawStatus) ? rawStatus : 'maybe';
+            const label = escapeHtml(displayValue(lead?.niche_status_display, 'Під питанням'));
+            return `<span class="moderation-niche-badge moderation-niche-badge--${safeStatus}">${label}</span>`;
+        };
+
+        moderationTableBody.innerHTML = moderation.map((lead) => {
+            const leadId = Number(lead.id) || 0;
+            const quickApproveDisabled = Boolean(lead.requires_phone_completion && !lead.phone);
+            const quickApproveTitle = quickApproveDisabled
+                ? 'Спочатку відкрийте картку і додайте телефон.'
+                : 'Підтвердити без відкриття картки';
+            const shopMeta = [];
+            if (lead.requires_phone_completion) {
+                shopMeta.push('<span class="moderation-inline-chip moderation-inline-chip--warning">Потрібен номер</span>');
+            }
+            if (lead.source) {
+                shopMeta.push(`<span class="moderation-inline-chip moderation-inline-chip--ghost moderation-inline-chip--source">${escapeHtml(displayValue(lead.source))}</span>`);
+            }
+            const shopCell = `
+                <div class="moderation-shop moderation-cell-stack">
+                    <div class="moderation-cell__primary moderation-shop__summary">
+                        <div class="moderation-shop__name">${escapeHtml(displayValue(lead.shop_name))}</div>
+                    </div>
+                    ${(lead.full_name || shopMeta.length) ? `
+                        <div class="moderation-shop__details">
+                            ${lead.full_name ? `<div class="moderation-cell__secondary moderation-shop__secondary">${escapeHtml(lead.full_name)}</div>` : ''}
+                            ${shopMeta.length ? `<div class="moderation-cell__secondary moderation-shop__meta">${shopMeta.join('')}</div>` : ''}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            const phoneCell = lead.requires_phone_completion && !lead.phone
+                ? `
+                    <div class="moderation-phone moderation-cell-stack">
+                        <div class="moderation-cell__primary"><span class="status-chip status-paused">дозаповнити</span></div>
+                        <span class="moderation-cell__secondary moderation-phone__hint">Перед підтвердженням у базу потрібно вказати номер.</span>
+                    </div>
+                `
+                : `
+                    <div class="moderation-phone moderation-cell-stack">
+                        <span class="moderation-cell__primary moderation-phone__value">${escapeHtml(displayValue(lead.phone))}</span>
+                    </div>
+                `;
+            return `
+                <tr>
+                    <td data-label="Магазин" class="cell-shop">${shopCell}</td>
+                    <td data-label="Телефон" class="cell-phone">${phoneCell}</td>
+                    <td data-label="Сайт" class="cell-site">${renderWebsiteCell(lead.website_url)}</td>
+                    <td data-label="Місто" class="cell-city"><span class="moderation-city">${escapeHtml(displayValue(lead.city))}</span></td>
+                    <td data-label="Ключ" class="cell-keyword">
+                        <div class="moderation-cell-stack">
+                            <span class="moderation-cell__primary moderation-keyword" title="${escapeHtml(displayValue(lead.keyword))}">${escapeHtml(displayValue(lead.keyword))}</span>
+                        </div>
+                    </td>
+                    <td data-label="Нішевість" class="cell-niche">${renderNicheBadge(lead)}</td>
+                    <td data-label="Дія" class="cell-actions">
+                        <div class="moderation-actions">
+                            <div class="moderation-actions__primary">
+                                <button type="button" class="btn-primary moderation-action-btn moderation-action-btn--review open-moderation" data-lead-id="${leadId}">Оглянути</button>
+                            </div>
+                            <div class="moderation-actions__quick">
+                                <button
+                                    type="button"
+                                    class="btn-ghost small moderation-action-btn moderation-action-btn--icon moderation-action-btn--approve quick-approve-moderation"
+                                    data-lead-id="${leadId}"
+                                    data-moderation-quick-action="approve"
+                                    data-icon="approve"
+                                    aria-label="Підтвердити"
+                                    title="${escapeHtml(quickApproveTitle)}"
+                                    ${quickApproveDisabled ? 'disabled aria-disabled="true"' : ''}
+                                >
+                                    <svg class="moderation-action-btn__icon" data-icon="approve" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                                        <path d="M4.75 10.5 8.25 14 15.25 6.75" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                    </svg>
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn-ghost small moderation-action-btn moderation-action-btn--icon moderation-action-btn--reject quick-reject-moderation"
+                                    data-lead-id="${leadId}"
+                                    data-moderation-quick-action="reject"
+                                    data-icon="reject"
+                                    aria-label="Не підходить"
+                                    title="Відхилити без відкриття картки"
+                                >
+                                    <svg class="moderation-action-btn__icon" data-icon="reject" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                                        <path d="M6 6 14 14M14 6l-8 8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </td>
+                </tr>`;
+        }).join('');
+    };
+
+    const applyModerationState = (state) => {
+        if (!state) return;
+        moderationState = state;
+        moderation = state.items || [];
+        renderModerationSummary(state);
+        renderModerationFilters(state);
+        renderModeration(moderation);
+        renderModerationPagination(state);
+    };
+
+    const renderRejected = (items) => {
+        rejected = items || [];
+        if (!rejected.length) {
+            rejectedTableBody.innerHTML = '<tr><td colspan="5" class="table-empty">Архів порожній.</td></tr>';
+            return;
+        }
+        rejectedTableBody.innerHTML = rejected.map((lead) => `
+            <tr>
+                <td>${escapeHtml(displayValue(lead.shop_name))}</td>
+                <td>${escapeHtml(displayValue(lead.phone))}</td>
+                <td>${escapeHtml(displayValue(lead.city))}</td>
+                <td>${escapeHtml(displayValue(lead.reason))}</td>
+                <td>${escapeHtml(displayValue(lead.updated_at || lead.created_at))}</td>
+            </tr>`).join('');
+    };
+
+    const renderResults = (items) => {
+        const results = items || [];
+        if (!results.length) {
+            resultsTableBody.innerHTML = '<tr><td colspan="7" class="table-empty">Поки немає результатів.</td></tr>';
+            return;
+        }
+        resultsTableBody.innerHTML = results.map((row) => `
+            <tr>
+                <td>${escapeHtml(displayValue(row.created_at))}</td>
+                <td>${escapeHtml(displayValue(row.status_display || row.status))}</td>
+                <td>${escapeHtml(displayValue(row.place_name))}</td>
+                <td>${escapeHtml(displayValue(row.phone))}</td>
+                <td>${escapeHtml(displayValue(row.keyword))}</td>
+                <td>${escapeHtml(displayValue(row.city))}</td>
+                <td>${escapeHtml(displayValue(row.reason))}</td>
+            </tr>`).join('');
+    };
+
+    const canScheduleStep = () => Boolean(activeJob && activeJob.status === 'running' && !activeJob.is_step_in_progress);
+    const shouldRefreshUsage = () => !nextUsageRefreshAt || Date.now() >= nextUsageRefreshAt;
+
+    const fetchModeration = async (overrides = {}) => {
+        if (isModerationRequestInFlight) return moderationState;
+        isModerationRequestInFlight = true;
+        try {
+            const nextFilters = {
+                city: overrides.city !== undefined ? overrides.city : (moderationState?.filters?.city || ''),
+                page_size: overrides.pageSize !== undefined ? overrides.pageSize : (moderationState?.filters?.page_size || 25),
+            };
+            const nextPage = overrides.page !== undefined ? overrides.page : (moderationState?.pagination?.page || 1);
+            const payload = await apiRequest(
+                buildQueryUrl(moderationUrl, {
+                    city: nextFilters.city,
+                    page_size: nextFilters.page_size,
+                    page: nextPage,
+                }),
+                null,
+                'GET',
+            );
+            applyModerationState(payload);
+            return payload;
+        } finally {
+            isModerationRequestInFlight = false;
+        }
+    };
+
+    const applyPayload = (payload, options = {}) => {
+        if (!payload) return;
+        const syncForm = Boolean(options.syncForm);
+        const previousModerationTotal = moderationState?.stats?.total_items ?? null;
+        if (payload.job !== undefined) activeJob = payload.job;
+        if (payload.counters) renderCounters(payload.counters);
+        if (payload.usage) renderUsage(payload.usage);
+        if (payload.rejected) renderRejected(payload.rejected);
+        renderStatus();
+        renderResults(activeJob?.results || []);
+        if (syncForm || !hasAppliedInitialJobToForm) {
+            syncFormFromJob();
+            hasAppliedInitialJobToForm = true;
+        }
+        if (
+            payload.counters
+            && previousModerationTotal !== null
+            && Number(payload.counters.moderation || 0) !== Number(previousModerationTotal)
+        ) {
+            fetchModeration().catch((err) => console.warn(err));
+        }
+        updateLoopState();
+    };
+
+    const apiRequest = async (url, data = null, method = 'POST') => {
+        const headers = {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+        };
+        const options = {
+            method,
+            headers,
+            credentials: 'same-origin',
+        };
+
+        const csrfToken = getCsrfToken();
+        if (method !== 'GET' && csrfToken) {
+            headers['X-CSRFToken'] = csrfToken;
+        }
+
+        if (method !== 'GET') {
+            if (data instanceof FormData) {
+                if (csrfToken && !data.has('csrfmiddlewaretoken')) {
+                    data.append('csrfmiddlewaretoken', csrfToken);
+                }
+                options.body = data;
+            } else if (data) {
+                const formData = new FormData();
+                Object.entries(data).forEach(([key, value]) => formData.append(key, value));
+                if (csrfToken) {
+                    formData.append('csrfmiddlewaretoken', csrfToken);
+                }
+                options.body = formData;
+            } else if (csrfToken) {
+                const formData = new FormData();
+                formData.append('csrfmiddlewaretoken', csrfToken);
+                options.body = formData;
+            }
+        }
+
+        const res = await fetch(url, options);
+        const contentType = (res.headers.get('content-type') || '').toLowerCase();
+        if (!contentType.includes('application/json')) {
+            const raw = await res.text();
+            const shortRaw = (raw || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+            throw new Error(`Помилка відповіді сервера (${res.status}). ${shortRaw || 'Очікувався JSON.'}`);
+        }
+
+        const payload = await res.json();
+        if (!res.ok || !payload.success) {
+            const error = new Error(payload.error || `Помилка запиту (${res.status})`);
+            error.payload = payload;
+            error.status = res.status;
+            throw error;
+        }
+        return payload;
+    };
+
+    const submitModerationAction = async (leadId, action, options = {}) => {
+        if (!leadId || !action) return null;
+        const actionUrl = leadActionTpl.replace('/0/', `/${leadId}/`);
+        const formData = options.formData instanceof FormData ? options.formData : new FormData();
+        if (!formData.has('action')) {
+            formData.append('action', action);
+        }
+        try {
+            const payload = await apiRequest(actionUrl, formData);
+            applyPayload(payload);
+            if (options.closeModalOnSuccess) {
+                closeModal();
+            }
+            if (options.refreshModeration !== false) {
+                try {
+                    await fetchModeration({ page: options.page || moderationState?.pagination?.page || 1 });
+                } catch (refreshErr) {
+                    console.warn(refreshErr);
+                    alert(options.refreshFailureMessage || 'Дію збережено, але не вдалося оновити чергу модерації.');
+                }
+            }
+            return payload;
+        } catch (err) {
+            alert(err.message || options.errorMessage || 'Не вдалося зберегти модерацію');
+            throw err;
+        }
+    };
+
+    const runStep = async () => {
+        if (!activeJob || activeJob.status !== 'running' || isStepRequestInFlight) return;
+        isStepRequestInFlight = true;
+        try {
+            const payload = await apiRequest(stepUrl, {job_id: activeJob.id});
+            applyPayload(payload);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            isStepRequestInFlight = false;
+            if (canScheduleStep()) {
+                scheduleStep(activeJob.next_step_eta_ms || 0);
+            }
+        }
+    };
+
+    const scheduleStep = (delayMs = 0) => {
+        if (stepTimer) {
+            clearTimeout(stepTimer);
+            stepTimer = null;
+        }
+        if (!canScheduleStep()) return;
+        const normalizedDelay = Math.max(250, Number(delayMs || activeJob.next_step_eta_ms || 0));
+        stepTimer = setTimeout(runStep, normalizedDelay);
+    };
+
+    const pollStatus = async () => {
+        if (isStatusRequestInFlight) return;
+        isStatusRequestInFlight = true;
+        try {
+            const params = new URLSearchParams();
+            if (activeJob) params.set('job_id', activeJob.id);
+            if (shouldRefreshUsage()) params.set('include_usage', '1');
+            const query = params.toString() ? `?${params.toString()}` : '';
+            const payload = await apiRequest(`${statusUrl}${query}`, null, 'GET');
+            applyPayload(payload);
+        } catch (err) {
+            console.warn(err);
+        } finally {
+            isStatusRequestInFlight = false;
+            schedulePoll();
+        }
+    };
+
+    const schedulePoll = (delayMs = null) => {
+        if (pollTimer) {
+            clearTimeout(pollTimer);
+            pollTimer = null;
+        }
+        const runningDelay = activeJob?.is_step_in_progress ? 4000 : 3000;
+        const normalizedDelay = Math.max(1500, Number(delayMs || (activeJob?.status === 'running' ? runningDelay : 6000)));
+        pollTimer = setTimeout(pollStatus, normalizedDelay);
+    };
+
+    const updateLoopState = () => {
+        if (canScheduleStep()) {
+            scheduleStep(activeJob.next_step_eta_ms || 0);
+        } else if (stepTimer) {
+            clearTimeout(stepTimer);
+            stepTimer = null;
+        }
+        schedulePoll();
+    };
+
+    parserForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(parserForm);
+        try {
+            const payload = await apiRequest(startUrl, formData);
+            applyPayload(payload, { syncForm: false });
+            if (payload.job && payload.job.status === 'running') {
+                scheduleStep(0);
+            }
+        } catch (err) {
+            if (err.payload) {
+                applyPayload(err.payload, { syncForm: true });
+            }
+            alert(err.message || 'Не вдалося запустити парсер');
+        }
+    });
+
+    document.getElementById('parser-pause-btn').addEventListener('click', async () => {
+        if (!activeJob) return;
+        try {
+            const payload = await apiRequest(pauseUrl, {job_id: activeJob.id});
+            applyPayload(payload);
+        } catch (err) {
+            alert(err.message || 'Не вдалося поставити на паузу');
+        }
+    });
+
+    document.getElementById('parser-resume-btn').addEventListener('click', async () => {
+        if (!activeJob) return;
+        try {
+            const payload = await apiRequest(resumeUrl, {job_id: activeJob.id});
+            applyPayload(payload);
+        } catch (err) {
+            alert(err.message || 'Не вдалося відновити');
+        }
+    });
+
+    document.getElementById('parser-stop-btn').addEventListener('click', async () => {
+        if (!activeJob) return;
+        try {
+            const payload = await apiRequest(stopUrl, {job_id: activeJob.id});
+            applyPayload(payload);
+        } catch (err) {
+            alert(err.message || 'Не вдалося зупинити');
+        }
+    });
+
+    if (moderationCityFilter) {
+        moderationCityFilter.addEventListener('change', async (event) => {
+            try {
+                await fetchModeration({ city: event.target.value, page: 1 });
+            } catch (err) {
+                alert(err.message || 'Не вдалося відфільтрувати модерацію');
+            }
+        });
+    }
+
+    if (moderationPageSize) {
+        moderationPageSize.addEventListener('change', async (event) => {
+            try {
+                await fetchModeration({ pageSize: event.target.value, page: 1 });
+            } catch (err) {
+                alert(err.message || 'Не вдалося змінити кількість записів');
+            }
+        });
+    }
+
+    if (moderationClearCityBtn) {
+        moderationClearCityBtn.addEventListener('click', async () => {
+            try {
+                await fetchModeration({ city: '', page: 1 });
+            } catch (err) {
+                alert(err.message || 'Не вдалося скинути фільтр міста');
+            }
+        });
+    }
+
+    if (moderationPagination) {
+        moderationPagination.addEventListener('click', async (event) => {
+            const btn = event.target.closest('[data-page]');
+            if (!btn || btn.disabled) return;
+            try {
+                await fetchModeration({ page: btn.dataset.page });
+            } catch (err) {
+                alert(err.message || 'Не вдалося переключити сторінку');
+            }
+        });
+    }
+
+    moderationTableBody.addEventListener('click', async (e) => {
+        const quickActionBtn = e.target.closest('[data-moderation-quick-action]');
+        if (quickActionBtn) {
+            if (quickActionBtn.disabled) return;
+            const leadId = Number(quickActionBtn.dataset.leadId);
+            const action = quickActionBtn.dataset.moderationQuickAction;
+            const wasDisabled = quickActionBtn.disabled;
+            quickActionBtn.disabled = true;
+            try {
+                await submitModerationAction(leadId, action, {
+                    errorMessage: 'Не вдалося виконати швидку дію',
+                });
+            } finally {
+                quickActionBtn.disabled = wasDisabled;
+            }
+            return;
+        }
+
+        const btn = e.target.closest('.open-moderation');
+        if (!btn) return;
+        const leadId = Number(btn.dataset.leadId);
+        const lead = moderation.find((item) => item.id === leadId);
+        if (!lead) return;
+        modalForm.reset();
+        document.getElementById('moderation_lead_id').value = lead.id;
+        document.getElementById('moderation_shop_name').value = lead.shop_name || '';
+        document.getElementById('moderation_phone').value = lead.phone || '';
+        document.getElementById('moderation_website_url').value = lead.website_url || '';
+        document.getElementById('moderation_full_name').value = lead.full_name || '';
+        document.getElementById('moderation_role').value = lead.role || 'other';
+        document.getElementById('moderation_source').value = lead.source || '';
+        document.getElementById('moderation_city').value = lead.city || '';
+        document.getElementById('moderation_niche_status').value = lead.niche_status || 'maybe';
+        document.getElementById('moderation_comments').value = lead.comments || '';
+        document.getElementById('moderation_details').value = lead.details || '';
+        document.getElementById('moderation_rejection_reason').value = '';
+        if (moderationPhoneRequirement) {
+            if (lead.requires_phone_completion) {
+                moderationPhoneRequirement.hidden = false;
+                moderationPhoneRequirement.textContent = 'Лід збережено без телефону. Зберегти або відхилити можна без номера, але для підтвердження в базу потрібно вказати валідний телефон.';
+            } else {
+                moderationPhoneRequirement.hidden = true;
+                moderationPhoneRequirement.textContent = '';
+            }
+        }
+        openModal();
+    });
+
+    modalForm.querySelectorAll('[data-moderation-action]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            const leadId = document.getElementById('moderation_lead_id').value;
+            if (!leadId) return;
+            const action = btn.dataset.moderationAction;
+            const formData = new FormData(modalForm);
+            try {
+                await submitModerationAction(leadId, action, {
+                    formData,
+                    closeModalOnSuccess: true,
+                });
+            } catch (err) {
+                console.warn(err);
+            }
+        });
+    });
+
+    applyPayload({
+        job: activeJob,
+        rejected,
+        counters,
+        usage,
+    }, { syncForm: true });
+    applyModerationState(moderationState);
+
+    typeCheckboxes.forEach((checkbox) => checkbox.addEventListener('change', syncTypeControls));
+    syncTypeControls();
+    window.addEventListener('beforeunload', beforeUnloadHandler);
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initParsingPage);
+} else {
+    initParsingPage();
+}
+</script>

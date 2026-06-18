@@ -1,0 +1,245 @@
+<script>
+function initCheckerPage(){
+  const root = document.getElementById('checker-endpoints');
+  if(!root || root.dataset.bound === '1') return;
+  root.dataset.bound = '1';
+  const url = (k) => root.dataset[k];
+  const recheckTpl = root.dataset.recheckUrlTemplate;
+
+  const readJson = (id) => { const el = document.getElementById(id); if(!el) return null; try{return JSON.parse(el.textContent);}catch(e){return null;} };
+  let activeJob = readJson('checker-initial-job');
+  let curBand = 'all', curPage = 1;
+  let stepTimer = null, pollTimer = null, stepInFlight = false, statusInFlight = false;
+
+  const getCookie = (name) => { const m = document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)'); return m ? m.pop() : ''; };
+  async function apiRequest(u, data, method){
+    method = method || (data ? 'POST' : 'GET');
+    const opts = { method, headers: {} };
+    if(method !== 'GET'){
+      opts.headers['X-CSRFToken'] = getCookie('csrftoken');
+      const fd = new FormData();
+      if(data instanceof FormData){ data.forEach((v,k)=>fd.append(k,v)); }
+      else if(data){ Object.entries(data).forEach(([k,v])=>fd.append(k,v)); }
+      fd.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+      opts.body = fd;
+    }
+    const res = await fetch(u, opts);
+    let payload = {};
+    try{ payload = await res.json(); }catch(e){}
+    if(!res.ok || payload.success === false){ const err = new Error(payload.error || ('HTTP '+res.status)); err.payload = payload; throw err; }
+    return payload;
+  }
+
+  const $ = (id) => document.getElementById(id);
+  const setText = (id,v) => { const el=$(id); if(el) el.textContent = v; };
+
+  function applyJob(job){
+    activeJob = job;
+    const chip = $('checker-status-chip');
+    const labels = {running:'Працює',paused:'Пауза',stopped:'Зупинено',completed:'Завершено',failed:'Помилка'};
+    if(job){
+      setText('m-processed', job.processed);
+      setText('m-remaining', job.remaining);
+      setText('m-elapsed', job.elapsed_seconds);
+      setText('m-avg', job.avg_seconds);
+      setText('m-fit', job.fit_count);
+      setText('m-maybe', job.maybe_count);
+      setText('m-unfit', job.unfit_count);
+      setText('m-errors', job.errors);
+      const pct = job.total_selected ? Math.min(100, Math.round(job.processed*100/job.total_selected)) : 0;
+      const fill = $('checker-progress-fill'); if(fill) fill.style.width = pct+'%';
+      setText('checker-progress-label', job.processed+' / '+job.total_selected);
+      if(chip){ chip.textContent = labels[job.status] || job.status;
+        const kc = $('checker-keys-cd');
+        if(kc){ if(job.stop_reason_code==='keys_cooldown' && job.keys_cooldown_seconds>0){ kc.hidden=false; kc.dataset.secs=job.keys_cooldown_seconds; } else { kc.hidden=true; } }
+      }
+    } else if(chip){ chip.textContent = 'Очікування'; }
+    const running = job && job.status === 'running';
+    const paused = job && job.status === 'paused';
+    $('checker-start-btn').hidden = running || paused;
+    $('checker-pause-btn').hidden = !running;
+    $('checker-resume-btn').hidden = !paused;
+    $('checker-stop-btn').hidden = !(running || paused);
+  }
+
+  const canStep = () => activeJob && activeJob.status === 'running';
+  function scheduleStep(delay){ if(stepTimer){clearTimeout(stepTimer);stepTimer=null;} if(!canStep()) return; stepTimer = setTimeout(runStep, Math.max(250, Number(delay||0))); }
+  async function runStep(){
+    if(stepInFlight || !canStep()) return; stepInFlight = true;
+    try{ const p = await apiRequest(url('stepUrl'), {job_id: activeJob.id}); applyJob(p.job); }
+    catch(e){ console.error(e); }
+    finally{ stepInFlight = false; if(canStep()){ scheduleStep(activeJob.next_step_eta_ms||0); } else { loadResults(); } }
+  }
+  function schedulePoll(delay){ if(pollTimer){clearTimeout(pollTimer);pollTimer=null;} const d = delay!=null?delay:(activeJob && activeJob.status==='running'?3500:6000); pollTimer = setTimeout(pollStatus, Math.max(1500,d)); }
+  async function pollStatus(){
+    if(statusInFlight){return;} statusInFlight = true;
+    try{ const q = activeJob ? ('?job_id='+activeJob.id) : ''; const p = await apiRequest(url('statusUrl')+q, null, 'GET'); applyJob(p.job); }
+    catch(e){ console.warn(e); }
+    finally{ statusInFlight = false; schedulePoll(); }
+  }
+
+  const scopeSel = $('checker-scope');
+  function syncScope(){
+    $('checker-city-field').hidden = scopeSel.value !== 'by_city';
+    $('checker-band-field').hidden = scopeSel.value !== 'by_band';
+  }
+  scopeSel.addEventListener('change', syncScope); syncScope();
+
+  $('checker-start-btn').addEventListener('click', async () => {
+    const fd = new FormData($('checker-form'));
+    try{ const p = await apiRequest(url('startUrl'), fd); applyJob(p.job); if(p.job && p.job.status==='running'){ scheduleStep(0); } }
+    catch(e){ alert(e.message || 'Не вдалося запустити чекер'); }
+  });
+  $('checker-pause-btn').addEventListener('click', async () => { try{ const p = await apiRequest(url('pauseUrl'), {job_id:activeJob.id}); applyJob(p.job); }catch(e){ alert(e.message);} });
+  $('checker-resume-btn').addEventListener('click', async () => { try{ const p = await apiRequest(url('resumeUrl'), {job_id:activeJob.id}); applyJob(p.job); if(canStep()) scheduleStep(0);}catch(e){ alert(e.message);} });
+  $('checker-stop-btn').addEventListener('click', async () => { try{ const p = await apiRequest(url('stopUrl'), {job_id:activeJob.id}); applyJob(p.job); loadResults(); }catch(e){ alert(e.message);} });
+
+  $('checker-settings-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const autoEl = document.getElementById('checker-auto');
+    if(autoEl){ fd.set('auto_recheck', autoEl.checked ? '1' : '0'); }
+    try{ await apiRequest(url('settingsUrl'), fd); const s=$('checker-settings-status'); s.hidden=false; s.textContent='Збережено'; setTimeout(()=>{s.hidden=true;},2500); }
+    catch(err){ alert(err.message || 'Не вдалося зберегти'); }
+  });
+
+  const VERDICT_LABELS = {physical_store:'Фізмагазин',retail_chain:'Мережа',dropshipper:'Дропшипер',brand:'Бренд',voentorg:'Військторг',marketplace_seller:'Маркетплейс',wholesale_supplier:'Опт-постачальник',irrelevant:'Нерелевантно',other:'Інше'};
+  const CHANNEL_LABELS = {wholesale:'Опт',custom_print:'Кастом-друк',collab:'Колаб',dropship:'Дропшип',test_batch:'Тест-партія',shelf:'Полиця'};
+  const bandClass = (v) => ({fit:'fit',maybe:'maybe',unfit:'unfit',error:'error'}[v] || 'error');
+  const esc = (s) => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  function rowHtml(r){
+    const cls = bandClass(r.ai_verdict);
+    const scoreTxt = r.ai_verdict==='error' ? '—' : (r.ai_score==null?'—':r.ai_score);
+    const channels = (r.partnership_fit||[]).map(c=>`<span class="checker-chip">${esc(CHANNEL_LABELS[c]||c)}</span>`).join('');
+    const site = r.website_url ? `<a class="checker-link-btn" href="${esc(r.website_url)}" target="_blank" rel="noopener">сайт</a>` : '';
+    const ig = r.instagram_url ? `<a class="checker-link-btn" href="${esc(r.instagram_url)}" target="_blank" rel="noopener">IG</a>` : '';
+    return `<tr>
+      <td>${esc(r.shop_name)}<div class="muted-detail">${esc(r.city||'')}</div></td>
+      <td><span class="checker-score checker-score--${cls}">${scoreTxt}</span></td>
+      <td>${esc(VERDICT_LABELS[r.verdict_category]||'')}</td>
+      <td class="checker-brand-cell">${esc((r.brand_summary||'').slice(0,140))}</td>
+      <td>${channels}</td>
+      <td>${site} ${ig}</td>
+      <td><button type="button" class="checker-detail-btn" data-lead="${r.lead_id}">Деталі</button></td>
+    </tr>`;
+  }
+
+  let lastRows = [];
+  async function loadResults(){
+    const city = $('checker-results-city').value;
+    const ps = $('checker-results-page-size').value;
+    const params = new URLSearchParams({band:curBand, city, page:curPage, page_size:ps});
+    try{
+      const p = await apiRequest(url('resultsUrl')+'?'+params.toString(), null, 'GET');
+      lastRows = p.results.rows;
+      const tb = document.querySelector('#checker-results-table tbody');
+      tb.innerHTML = lastRows.length ? lastRows.map(rowHtml).join('') : '<tr><td colspan="7" class="table-empty">Немає даних</td></tr>';
+      renderPagination(p.results);
+    }catch(e){ console.warn(e); }
+  }
+  function renderPagination(res){
+    const box = $('checker-pagination'); box.innerHTML='';
+    if(res.num_pages<=1) return;
+    for(let i=1;i<=res.num_pages;i++){
+      if(i>1 && i<res.num_pages && Math.abs(i-res.page)>2) { if(box.lastChild && box.lastChild.textContent!=='…'){const e=document.createElement('span');e.textContent='…';e.className='checker-chip';box.appendChild(e);} continue; }
+      const b=document.createElement('button'); b.textContent=i; if(i===res.page) b.classList.add('is-active');
+      b.addEventListener('click',()=>{curPage=i;loadResults();}); box.appendChild(b);
+    }
+  }
+
+  document.getElementById('checker-tabs').addEventListener('click',(e)=>{
+    const btn=e.target.closest('.checker-tab'); if(!btn) return;
+    document.querySelectorAll('.checker-tab').forEach(t=>t.classList.remove('is-active'));
+    btn.classList.add('is-active'); curBand=btn.dataset.band; curPage=1; loadResults();
+  });
+  $('checker-results-city').addEventListener('change',()=>{curPage=1;loadResults();});
+  $('checker-results-page-size').addEventListener('change',()=>{curPage=1;loadResults();});
+
+  const modal=$('checker-detail-modal');
+  let modalLead=null;
+  function openModal(r){
+    modalLead=r;
+    $('checker-detail-title').textContent = r.shop_name;
+    const conf = r.confidence?`<span class="checker-confidence">впевненість: ${esc(r.confidence)}</span>`:'';
+    const crit = (r.criteria||[]).map(c=>`<div class="checker-criterion"><span class="checker-criterion__title">${esc(c.title||c.key)}</span><b>${c.score}/10</b><div class="checker-criterion__bar"><i style="width:${(c.score||0)*10}%"></i></div>${c.comment?`<div class="checker-criterion__comment">${esc(c.comment)}</div>`:''}</div>`).join('');
+    const channels = (r.partnership_fit||[]).map(c=>`<span class="checker-chip">${esc(CHANNEL_LABELS[c]||c)}</span>`).join('') || '—';
+    const sources = (r.sources||[]).map(s=>`<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title||s.url)}</a>`).join('') || '<p>немає</p>';
+    const errBlock = r.error?`<div class="checker-detail-section"><h4>Помилка</h4><p>${esc(r.error)}</p></div>`:'';
+    $('checker-detail-body').innerHTML = `
+      <div class="checker-detail-section"><h4>Оцінка: ${r.ai_score==null?'—':r.ai_score}/100 ${conf}</h4><p>${esc(VERDICT_LABELS[r.verdict_category]||'')}</p></div>
+      <div class="checker-detail-section"><h4>Бренд</h4><p>${esc(r.brand_summary||'—')}</p></div>
+      <div class="checker-detail-section"><h4>Аудиторія</h4><p>${esc(r.audience_guess||'—')}</p></div>
+      <div class="checker-detail-section"><h4>Канали</h4><p>${channels}</p></div>
+      <div class="checker-detail-section"><h4>Критерії</h4><div class="checker-criteria">${crit||'<p>—</p>'}</div></div>
+      <div class="checker-detail-section"><h4>Висновок</h4><p>${esc(r.comment||'—')}</p></div>
+      <div class="checker-detail-section"><h4>Рекомендація менеджеру</h4><p>${esc(r.recommendation||'—')}</p></div>
+      <div class="checker-detail-section checker-sources"><h4>Джерела</h4>${sources}</div>
+      ${errBlock}`;
+    const siteBtn=$('checker-detail-site');
+    if(r.website_url){ siteBtn.hidden=false; siteBtn.href=r.website_url; } else { siteBtn.hidden=true; }
+    modal.classList.add('is-open'); modal.style.display='flex';
+  }
+  function closeModal(){ modal.classList.remove('is-open'); modal.style.display='none'; modalLead=null; }
+  document.querySelector('#checker-results-table').addEventListener('click',(e)=>{
+    const btn=e.target.closest('.checker-detail-btn'); if(!btn) return;
+    const r = lastRows.find(x=>String(x.lead_id)===btn.dataset.lead); if(r) openModal(r);
+  });
+  modal.querySelector('.modal-close').addEventListener('click', closeModal);
+  modal.addEventListener('click',(e)=>{ if(e.target===modal) closeModal(); });
+  $('checker-recheck-btn').addEventListener('click', async () => {
+    if(!modalLead) return;
+    const u = recheckTpl.replace('/0/', '/'+modalLead.lead_id+'/');
+    try{ const p = await apiRequest(u, {}); openModal(p.row); loadResults(); }
+    catch(e){ alert(e.message || 'Не вдалося перевірити'); }
+  });
+
+  // --- Панель ключів Gemini з обратним відліком ---
+  const ROLE_LABELS = {chat:'Чат / бот', management:'Менеджмент', checker:'Чекер'};
+  let keysData = [];
+  function fmtCountdown(secs){
+    secs = Math.max(0, secs|0);
+    const h = Math.floor(secs/3600), m = Math.floor((secs%3600)/60), s = secs%60;
+    if(h>0) return `${h} год ${m} хв`;
+    if(m>0) return `${m} хв ${s} с`;
+    return `${s} с`;
+  }
+  function renderKeys(){
+    const grid = document.getElementById('checker-keys-grid');
+    if(!grid) return;
+    grid.innerHTML = keysData.map(k=>{
+      let dot='ok', status='Доступний';
+      if(!k.present){ dot='missing'; status='Не задано'; }
+      else if(!k.available && k.needs_topup){ dot='topup'; status='Потрібне поповнення'; }
+      else if(!k.available){ dot='cooldown'; status='Кулдаун до відновлення'; }
+      const cd = (!k.available && k.present && k.seconds_remaining>0)
+        ? `<div class="key-card__cd">↻ ${fmtCountdown(k.seconds_remaining)}</div>` : '';
+      const meta = k.present ? `сьогодні: ${k.requests_today||0} запитів${k.cooldown_scope?(' · '+esc(k.cooldown_scope)):''}` : '';
+      return `<div class="key-card ${k.available?'':'key-card--unavailable'}">
+        <div class="key-card__top"><span class="key-card__name">${esc(k.key_name)}</span><span class="key-dot key-dot--${dot}"></span></div>
+        <div class="key-card__role">${esc(ROLE_LABELS[k.role]||k.role||'')}</div>
+        <div class="key-card__status">${esc(status)}</div>
+        ${cd}
+        <div class="key-card__meta">${meta}</div>
+      </div>`;
+    }).join('');
+  }
+  async function loadKeys(){
+    try{ const p = await apiRequest(url('keysUrl'), null, 'GET'); keysData = p.keys || []; renderKeys(); }
+    catch(e){ /* тихо */ }
+  }
+  setInterval(()=>{
+    let changed=false;
+    keysData.forEach(k=>{ if(!k.available && k.seconds_remaining>0){ k.seconds_remaining--; if(k.seconds_remaining<=0){ k.available=true; } changed=true; } });
+    if(changed) renderKeys();
+  }, 1000);
+  setInterval(loadKeys, 30000);
+  loadKeys();
+
+  applyJob(activeJob);
+  loadResults();
+  if(canStep()) scheduleStep(0);
+  schedulePoll();
+}
+window.initCheckerPage = initCheckerPage;
+</script>

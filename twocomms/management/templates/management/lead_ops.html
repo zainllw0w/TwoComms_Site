@@ -1,0 +1,107 @@
+{% extends "management/base.html" %}
+{% load static %}
+{% block title %}Лідоген — TwoComms Management{% endblock %}
+
+{% block extra_css %}
+{% include "management/leadops/_parsing_style.html" %}
+{% include "management/leadops/_checker_style.html" %}
+<style>
+.leadops{display:flex;flex-direction:column;gap:18px;}
+.leadops-head{display:flex;flex-direction:column;gap:4px;}
+.leadops-head h1{margin:0;font-size:1.4rem;color:var(--text-primary);}
+.leadops-head p{margin:0;color:var(--text-secondary);font-size:.9rem;}
+.leadops-nav{display:flex;gap:8px;flex-wrap:wrap;background:var(--panel-strong);border:1px solid var(--border);border-radius:99px;padding:6px;box-shadow:var(--shadow-lg);position:sticky;top:calc(var(--shell-header-offset,76px) + 6px);z-index:20;}
+.leadops-pill{flex:1 1 auto;min-width:120px;display:flex;align-items:center;justify-content:center;gap:8px;background:transparent;border:none;border-radius:99px;color:var(--text-secondary);padding:11px 16px;font-size:.92rem;font-weight:600;cursor:pointer;transition:background .2s,color .2s;font-family:var(--font-main);}
+.leadops-pill:hover{color:var(--text-primary);}
+.leadops-pill.is-active{background:linear-gradient(135deg,var(--accent),var(--accent-strong));color:#1a1205;box-shadow:0 6px 18px rgba(243,164,61,.28);}
+.leadops-pill__count{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 6px;border-radius:99px;background:rgba(255,255,255,.14);font-size:.74rem;font-weight:700;}
+.leadops-pill.is-active .leadops-pill__count{background:rgba(26,18,5,.22);}
+.leadops-panel{animation:leadopsFade .25s ease;}
+.leadops-panel[hidden]{display:none;}
+@keyframes leadopsFade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+@media(max-width:720px){
+  .leadops-nav{border-radius:16px;position:static;}
+  .leadops-pill{min-width:calc(50% - 4px);padding:10px 12px;font-size:.86rem;}
+}
+.checker-keys-cd-badge{font-size:.74rem;color:var(--accent);border:1px solid rgba(243,164,61,.4);border-radius:99px;padding:3px 10px;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="leadops" id="leadops">
+  <div class="leadops-head">
+    <p class="eyebrow">Lead Operations</p>
+    <h1>Лідоген — парсинг та AI-чекер</h1>
+    <p>Єдиний центр: збір лідів, AI-перевірка за 10 критеріями, перегляд результатів і модерація — усе в одній вкладці.</p>
+  </div>
+
+  <nav class="leadops-nav" id="leadops-nav">
+    <button type="button" class="leadops-pill is-active" data-section="parsing">Парсинг</button>
+    <button type="button" class="leadops-pill" data-section="checker">Чекер</button>
+    <button type="button" class="leadops-pill" data-section="checked">Перевірені <span class="leadops-pill__count" id="leadops-count-checked">{{ checker_counters.checked|default:0 }}</span></button>
+    <button type="button" class="leadops-pill" data-section="moderation">Модерація <span class="leadops-pill__count" id="leadops-count-moderation">{{ moderation_total|default:0 }}</span></button>
+  </nav>
+
+  <div class="leadops-panel" data-panel="parser">
+    {% include "management/leadops/_parsing_content.html" %}
+  </div>
+
+  <div class="leadops-panel" data-panel="checker-run" hidden>
+    {% include "management/leadops/_checker_run.html" %}
+  </div>
+
+  <div class="leadops-panel" data-panel="checker-results" hidden>
+    {% include "management/leadops/_checker_results.html" %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% include "management/leadops/_parsing_script.html" %}
+{% include "management/leadops/_checker_script.html" %}
+<script>
+(function(){
+  const root = document.getElementById('leadops');
+  if(!root || root.dataset.bound === '1') return;
+  root.dataset.bound = '1';
+  const nav = document.getElementById('leadops-nav');
+  const panels = {
+    parser: root.querySelector('.leadops-panel[data-panel="parser"]'),
+    'checker-run': root.querySelector('.leadops-panel[data-panel="checker-run"]'),
+    'checker-results': root.querySelector('.leadops-panel[data-panel="checker-results"]'),
+  };
+  // section -> {panel, parserPart}
+  const MAP = {
+    parsing:    {panel:'parser', part:'parsing'},
+    moderation: {panel:'parser', part:'moderation'},
+    checker:    {panel:'checker-run'},
+    checked:    {panel:'checker-results'},
+  };
+  let checkerInited = false;
+  function ensureChecker(){
+    if(checkerInited) return;
+    if(typeof window.initCheckerPage === 'function'){ try{ window.initCheckerPage(); }catch(e){ console.error(e); } checkerInited = true; }
+  }
+  function applyParserPart(part){
+    root.querySelectorAll('[data-leadops-part]').forEach(el=>{
+      el.style.display = (el.getAttribute('data-leadops-part') === part) ? '' : 'none';
+    });
+  }
+  function activate(section){
+    const cfg = MAP[section] || MAP.parsing;
+    Object.entries(panels).forEach(([k,el])=>{ if(el) el.hidden = (k !== cfg.panel); });
+    if(cfg.panel === 'parser'){ applyParserPart(cfg.part); }
+    if(cfg.panel === 'checker-run' || cfg.panel === 'checker-results'){ ensureChecker(); }
+    nav.querySelectorAll('.leadops-pill').forEach(p=>p.classList.toggle('is-active', p.dataset.section === section));
+    try{ history.replaceState(null, '', '#'+section); }catch(e){}
+  }
+  nav.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.leadops-pill'); if(!btn) return;
+    activate(btn.dataset.section);
+  });
+  // початкова секція з hash або 'parsing'
+  const initial = (location.hash || '').replace('#','');
+  activate(MAP[initial] ? initial : 'parsing');
+})();
+</script>
+{% endblock %}

@@ -148,14 +148,20 @@ class CheckerPageTests(TestCase):
         self.client = DjangoClient()
         self.client.force_login(self.staff)
 
-    def test_page_renders(self):
-        r = self.client.get(reverse("management_checker"), HTTP_HOST=HOST, secure=True)
+    def test_leadops_page_renders_with_checker(self):
+        # Чекер тепер вбудований у сторінку «Лідоген» (management_parsing).
+        r = self.client.get(reverse("management_parsing"), HTTP_HOST=HOST, secure=True)
         self.assertEqual(r.status_code, 200)
         self.assertIn(b"checker-endpoints", r.content)
+        self.assertIn(b"leadops-nav", r.content)
+
+    def test_checker_redirects_to_leadops(self):
+        r = self.client.get(reverse("management_checker"), HTTP_HOST=HOST, secure=True)
+        self.assertIn(r.status_code, (301, 302))
 
     def test_page_redirects_anon(self):
         c = DjangoClient()
-        r = c.get(reverse("management_checker"), HTTP_HOST=HOST, secure=True)
+        r = c.get(reverse("management_parsing"), HTTP_HOST=HOST, secure=True)
         self.assertIn(r.status_code, (302, 301))
 
 
@@ -166,8 +172,7 @@ class CheckerTabTests(TestCase):
         self.client = DjangoClient()
         self.client.force_login(self.staff)
 
-    def test_tab_present_for_staff(self):
+    def test_leadops_tab_present_for_staff(self):
         r = self.client.get(reverse("management_parsing"), HTTP_HOST=HOST, secure=True)
         self.assertEqual(r.status_code, 200)
-        self.assertIn(reverse("management_checker").encode(), r.content)
-        self.assertIn("Чекер".encode(), r.content)
+        self.assertIn("Лідоген".encode(), r.content)
