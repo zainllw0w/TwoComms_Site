@@ -739,6 +739,36 @@ class HomePageRenderTest(TestCase):
         self.assertNotIn("Що було на попередній фазі", html)
 
 
+class PhaseTimelineDataTest(TestCase):
+    """Історія фаз для таймлайну має містити ВСІ пройдені фази (з client_id
+    для прослуховування), а не лише ті, що перед поточною."""
+
+    def setUp(self):
+        self.manager = User.objects.create_user(username="mgr_ph", password="x")
+        self.manager.userprofile.is_manager = True
+        self.manager.userprofile.save()
+
+    def test_phase_history_includes_all_existing_phases(self):
+        import json as _json2
+        from management import views as V
+        root = Client.objects.create(
+            shop_name="PhS", phone="0670001122", full_name="X", owner=self.manager,
+            call_result="thinking", phase_number=1,
+        )
+        ph2 = Client.objects.create(
+            shop_name="PhS", phone="0670001122", full_name="X", owner=self.manager,
+            call_result="order", phase_number=2, phase_root=root, previous_phase=root,
+        )
+        today = _tz.localdate()
+        state = V._build_phase_family_state_map([root, ph2], today)
+        data = V._serialize_client_for_home(ph2, today, family_state=state[ph2.id])
+        hist = _json2.loads(data["phase_history_json"])
+        phases = [h.get("phase") for h in hist]
+        # Раніше фаза 1 зникала (history виключав поточну). Тепер має бути.
+        self.assertIn(1, phases)
+        self.assertTrue(all("client_id" in h and h["client_id"] for h in hist))
+
+
 from management.models import Report, DayReportAudit
 from management.services import day_report_audit as _dra
 from management.services import call_ai_analysis as _caa

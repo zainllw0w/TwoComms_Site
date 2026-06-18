@@ -564,6 +564,9 @@
                 .ptl-node.is-conversion .ptl-head__res{background:rgba(34,197,94,.16);color:#86efac;}
                 .ptl-node.is-lost .ptl-head__res{background:rgba(239,68,68,.14);color:#fca5a5;}
                 .ptl-head__date{font-size:10.5px;color:#7e8a9c;margin-left:auto;}
+                .ptl-head__rec-hint{font-size:10px;font-weight:700;color:#7dd3fc;background:rgba(125,211,252,.12);border-radius:999px;padding:2px 8px;white-space:nowrap;}
+                .ptl-node.is-open .ptl-head__rec-hint{opacity:0;}
+                .ptl-node.is-done .ptl-head{cursor:pointer;}
                 .ptl-head__chev{font-size:10px;color:#7e8a9c;transition:transform .15s;}
                 .ptl-node.is-open .ptl-head__chev{transform:rotate(90deg);}
                 .ptl-node.is-current .ptl-head{cursor:default;}
@@ -1629,12 +1632,13 @@ function initManagementHomePage() {
             const next = (item.next_call && item.next_call !== '—') ? `<div class="ptl-body__next">Домовленість: ${escapeHtml(item.next_call)}</div>` : '';
             const note = item.phase_comment ? `<div class="ptl-body__note">Коментар фази: ${escapeHtml(item.phase_comment)}</div>` : '';
             nodes.push(
-                `<div class="ptl-node ${cls}" data-client-id="${item.client_id || ''}">`
+                `<div class="ptl-node is-done ${cls}" data-client-id="${item.client_id || ''}">`
                 + `<span class="ptl-node__dot">${item.phase || ''}</span>`
                 + '<div class="ptl-head">'
                 + `<span class="ptl-head__phase">Фаза ${item.phase || ''}</span>`
                 + `<span class="ptl-head__res">${escapeHtml(item.result || '—')}</span>`
                 + `<span class="ptl-head__date">${escapeHtml(item.created_at || '')}</span>`
+                + '<span class="ptl-head__rec-hint">▶ запис</span>'
                 + '<span class="ptl-head__chev">▶</span>'
                 + '</div>'
                 + '<div class="ptl-body">'
