@@ -48,6 +48,31 @@ DEFAULT_ROLE_MODEL_CHAINS = {
 
 ATTEMPTS_PER_MODEL = {"chat": 3, "management": 3, "checker": 1}
 
+# Моделі з безкоштовною квотою генерації. 429 на НИХ = вичерпана денна квота
+# проекту → кулдаун усього КЛЮЧА. 429 на інших (pro-preview тощо) = модель платна
+# → це model-level skip, ключ НЕ чіпаємо.
+FREE_QUOTA_MODELS = {
+    "gemini-3.5-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-3.1-flash-lite-preview",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+}
+
+# Безкоштовний Google Search grounding доступний лише на цих моделях.
+FREE_GROUNDING_MODELS = {"gemini-2.5-flash", "gemini-2.5-flash-lite"}
+
+
+def is_key_level_429(model: str, grounded: bool) -> bool:
+    """Чи означає 429 на (model, grounded) вичерпання квоти КЛЮЧА (проекту).
+
+    True → кулдаун ключа. False → модель просто платна/недоступна free для цієї
+    фічі → пропускаємо лише модель, ключ лишаємо доступним.
+    """
+    if grounded:
+        return model in FREE_GROUNDING_MODELS
+    return model in FREE_QUOTA_MODELS
+
 ALL_KEYS = ["GEMINI_API", "GEMINI_API2", "GEMINI_API3", "GEMINI_API4", "GEMINI_API5", "GEMINI_API6"]
 
 MODEL_OVERLOAD_SECONDS = 300   # 503 → модель «перевантажена» ~5 хв

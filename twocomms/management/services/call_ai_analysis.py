@@ -35,6 +35,7 @@ from django.utils import timezone
 
 from management.models import CallAIAnalysis, CallRecord, Client
 from management.models import normalize_phone as model_normalize_phone
+from management.services import gemini_keys
 from management.services.binotel import (
     BinotelClient,
     BinotelError,
@@ -46,25 +47,16 @@ logger = logging.getLogger("binotel")
 
 GENAI_BASE = "https://generativelanguage.googleapis.com/v1beta"
 
-# Ланцюг моделей (primary → fallback). Усі підтримують аудіо-вхід.
-# Порядок підібрано емпірично: спершу якісніша flash, далі — надійні легкі,
-# наприкінці — 3.5-flash (часто перевантажена 503, але іноді доступна).
-# 503 (overloaded) і 429 (quota) б'ють по будь-якій моделі в будь-який момент,
-# тож рятує саме комбінація: ретраї з backoff + перемикання моделі (так радять
-# офіційні доки Gemini: "temporarily switch to another model").
-DEFAULT_MODEL_CHAIN = [
-    "gemini-2.5-flash",
-    "gemini-3.1-flash-lite",
-    "gemini-3.5-flash",
-]
+# Ланцюги моделей та пули ключів централізовані у services/gemini_keys.py
+# (роль 'management' для аудіо/денного аудиту, 'chat' для бота, 'checker' для grounding).
 
 # Inline-ліміт Gemini — 20 МБ на весь запит. Лишаємо запас на JSON/base64-оверхед
 # (base64 додає ~33%), тож кап на сирий mp3 ставимо консервативно.
 MAX_AUDIO_BYTES = 14 * 1024 * 1024
 
 GEMINI_TIMEOUT = (10, 90)  # (connect, read) — аудіо-аналіз може йти десятки секунд
-PER_MODEL_ATTEMPTS = 2      # спроб на одну модель при transient-помилці
-BACKOFF_BASE = 2.0          # секунди, експоненційно: 2, 4, ...
+BACKOFF_BASE = 2.0          # секунди, експоненційно між ретраями transient
+
 
 
 class CallAIAnalysisError(Exception):
@@ -75,8 +67,12 @@ class _GeminiTransient(Exception):
     """Тимчасова помилка (503/500/таймаут/порожня відповідь) — ретрай тієї ж моделі."""
 
 
-class _GeminiSkipModel(Exception):
-    """Модель недоступна на цьому ключі (429 quota / 404 / 403) — перейти до наступної."""
+class _Gemini429(Exception):
+    """429 quota/rate. Викликач вирішує: кулдаун ключа чи пропуск моделі."""
+
+
+class _GeminiModelUnavailable(Exception):
+    """Модель недоступна на цьому проекті (404/403) — перейти до наступної моделі."""
 
 
 class _GeminiFatal(Exception):
@@ -156,27 +152,13 @@ def _build_system_instruction() -> str:
 
 
 def _resolve_gemini_key() -> str:
-    """Ключ Gemini: ENV GEMINI_API (як в Instagram-боті) або settings."""
+    """Ключ Gemini: ENV GEMINI_API (як в Instagram-боті) або settings.
+    Використовується лише для перевірки наявності хоч якогось ключа (day_report_audit).
+    Реальний підбір ключа/моделі — у services/gemini_keys.py."""
     key = (os.environ.get("GEMINI_API", "") or "").strip()
     if not key:
         key = (getattr(settings, "GEMINI_API_KEY", "") or "").strip()
     return key
-
-
-def _resolve_models() -> list[str]:
-    """Ланцюг моделей: settings.GEMINI_CALL_ANALYSIS_MODELS (csv) / env / дефолт."""
-    raw = (getattr(settings, "GEMINI_CALL_ANALYSIS_MODELS", "") or "").strip()
-    if not raw:
-        raw = (os.environ.get("GEMINI_CALL_ANALYSIS_MODELS", "") or "").strip()
-    if raw:
-        models = [m.strip() for m in raw.split(",") if m.strip()]
-        if models:
-            return models
-    # Зворотна сумісність: одиночна модель через старий ключ.
-    single = (getattr(settings, "GEMINI_CALL_ANALYSIS_MODEL", "") or "").strip()
-    if single:
-        return [single]
-    return list(DEFAULT_MODEL_CHAIN)
 
 
 # ---------------------------------------------------------------------------
@@ -280,44 +262,90 @@ def upsert_call_record(client: BinotelClient, general_call_id: str) -> CallRecor
 # ---------------------------------------------------------------------------
 # Gemini
 # ---------------------------------------------------------------------------
-def _run_payload_with_models(payload: dict) -> dict:
-    """Прогоняє готовий payload через ланцюг моделей з ретраями/фолбеком.
-    Повертає {parsed, usage, model, meta}. Спільне для аудіо та текстових запитів."""
-    key = _resolve_gemini_key()
-    if not key:
-        raise CallAIAnalysisError("Не задано ключ Gemini (ENV GEMINI_API).")
-    models = _resolve_models()
-    attempts_log: list[str] = []
-    for model in models:
-        for attempt in range(PER_MODEL_ATTEMPTS):
-            try:
-                parsed, usage = _gemini_call_once(model, payload, key)
-                attempts_log.append(f"{model}: ok (спроба {attempt + 1})")
-                return {
-                    "parsed": parsed,
-                    "raw": parsed,
-                    "usage": usage,
-                    "model": model,
-                    "meta": {"attempts": attempts_log, "used_model": model},
-                }
-            except _GeminiTransient as exc:
-                attempts_log.append(f"{model}: transient {exc} (спроба {attempt + 1})")
-                if attempt < PER_MODEL_ATTEMPTS - 1:
-                    time.sleep(BACKOFF_BASE * (2 ** attempt))
-            except _GeminiSkipModel as exc:
-                attempts_log.append(f"{model}: skip {exc}")
-                break
-            except _GeminiFatal as exc:
-                attempts_log.append(f"{model}: fatal {exc}")
-                raise CallAIAnalysisError(f"Помилка запиту до Gemini: {exc}")
+def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
+                n_attempts: int, grounded: bool, log: list) -> tuple[str, dict | None]:
+    """Один (key, model) кандидат із ретраями на transient.
+
+    Повертає ('ok', result) | ('key_429', None) | ('model_skip', None).
+    Кидає CallAIAnalysisError на 400 (fatal). Веде облік стану ключа/моделі.
+    """
+    track = key_name in gemini_keys.ALL_KEYS
+    for attempt in range(n_attempts):
+        try:
+            parsed, usage = _gemini_call_once(model, payload, key_value)
+        except _GeminiTransient as exc:
+            log.append(f"{key_name}/{model}: transient {exc} (#{attempt + 1})")
+            gemini_keys.mark_model_overloaded(model)
+            if attempt < n_attempts - 1:
+                time.sleep(BACKOFF_BASE * (2 ** attempt))
+            continue
+        except _Gemini429 as exc:
+            if gemini_keys.is_key_level_429(model, grounded):
+                if track:
+                    scope, secs = gemini_keys.parse_429(str(exc))
+                    gemini_keys.mark_429(key_name, scope, secs, error=str(exc))
+                    log.append(f"{key_name}/{model}: 429 → кулдаун ключа ({scope})")
+                else:
+                    log.append(f"{key_name}/{model}: 429 (ручний ключ)")
+                return ("key_429", None)
+            # Модель платна/недоступна free для цієї фічі — пропускаємо лише модель.
+            log.append(f"{key_name}/{model}: 429 → модель не free, skip")
+            return ("model_skip", None)
+        except _GeminiModelUnavailable as exc:
+            log.append(f"{key_name}/{model}: unavailable {exc}")
+            return ("model_skip", None)
+        except _GeminiFatal as exc:
+            raise CallAIAnalysisError(f"Помилка запиту до Gemini: {exc}")
+        else:
+            if track:
+                gemini_keys.mark_success(key_name)
+            log.append(f"{key_name}/{model}: ok")
+            return ("ok", {
+                "parsed": parsed, "raw": parsed, "usage": usage, "model": model,
+                "meta": {"key": key_name, "used_model": model, "attempts": list(log)},
+            })
+    return ("model_skip", None)  # transient вичерпано
+
+
+def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
+                   grounded: bool = False) -> dict:
+    """Прогоняє payload через пул ключів ролі та цепочку моделей.
+
+    Ручний ключ (якщо заданий) пробується першим, поза пулом. Далі — пул:
+    own → borrow, основний ключ першим, на 429 ключ уводиться в кулдаун (квота
+    проекту), на 503 модель — у overload-кеш, авто-повернення по таймауту.
+    """
+    log: list[str] = []
+    n_attempts = gemini_keys.attempts_per_model(role)
+    models = gemini_keys.role_model_chains().get(role, ["gemini-2.5-flash"])
+
+    if manual_key:
+        for model in models:
+            if gemini_keys.is_model_overloaded(model):
+                continue
+            status, res = _call_combo("(manual)", manual_key, model, payload,
+                                      n_attempts, grounded, log)
+            if status == "ok":
+                return res
+            if status == "key_429":
+                break  # ручний ключ вичерпано → переходимо до пулу
+
+    for key_name, key_value, model in gemini_keys.iter_attempts(role):
+        status, res = _call_combo(key_name, key_value, model, payload,
+                                  n_attempts, grounded, log)
+        if status == "ok":
+            return res
+        # key_429 / model_skip — iter_attempts сам пропустить вичерпаний ключ/модель
+
     raise CallAIAnalysisError(
-        "Усі моделі Gemini недоступні (перевантаження/квота). Спроби: "
-        + "; ".join(attempts_log)
+        "Усі ключі/моделі Gemini недоступні (квота/перевантаження). Спроби: "
+        + "; ".join(log)
     )
 
 
-def gemini_generate_json(system_instruction: str, user_text: str, *, max_output_tokens: int = 4096) -> dict:
-    """Текстовий JSON-запит до Gemini (для денного аудиту). Цепочка моделей + ретраї."""
+def gemini_generate_json(system_instruction: str, user_text: str, *,
+                         role: str = "management", max_output_tokens: int = 4096) -> dict:
+    """Текстовий JSON-запит до Gemini. Пул ключів ролі + цепочка моделей."""
     payload = {
         "contents": [{"role": "user", "parts": [{"text": user_text}]}],
         "system_instruction": {"parts": [{"text": system_instruction}]},
@@ -327,41 +355,24 @@ def gemini_generate_json(system_instruction: str, user_text: str, *, max_output_
             "responseMimeType": "application/json",
         },
     }
-    return _run_payload_with_models(payload)
-
-
-GROUNDED_MODEL_CHAIN = ["gemini-2.5-flash", "gemini-3.5-flash"]
-
-
-def _resolve_grounded_models() -> list[str]:
-    raw = (getattr(settings, "GEMINI_CHECKER_MODELS", "") or "").strip()
-    if not raw:
-        raw = (os.environ.get("GEMINI_CHECKER_MODELS", "") or "").strip()
-    if raw:
-        models = [m.strip() for m in raw.split(",") if m.strip()]
-        if models:
-            return models
-    return list(GROUNDED_MODEL_CHAIN)
+    return _run_with_pool(role, payload)
 
 
 def gemini_generate_grounded(
     system_instruction: str,
     user_text: str,
     *,
+    role: str = "checker",
     api_key: str | None = None,
-    models: list[str] | None = None,
     max_output_tokens: int = 4096,
 ) -> dict:
     """Grounded (Google Search) JSON-запит до Gemini для AI-чекера.
 
     Grounding несумісний з responseMimeType=json, тому просимо строгий JSON у
-    промпті, а _gemini_call_once парсить його з тексту. 400 (модель не підтримує
-    tools) трактуємо як перехід до наступної моделі.
+    промпті, а _gemini_call_once парсить його з тексту. Безкоштовний grounding є
+    лише на gemini-2.5-flash — на gen-3 моделях 429 трактується як model-skip
+    (модель платна), без кулдауну ключа. Ручний api_key пробується першим.
     """
-    key = (api_key or "").strip() or _resolve_gemini_key()
-    if not key:
-        raise CallAIAnalysisError("Не задано ключ Gemini (ENV GEMINI_API або налаштування чекера).")
-    model_list = models or _resolve_grounded_models()
     payload = {
         "contents": [{"role": "user", "parts": [{"text": user_text}]}],
         "system_instruction": {"parts": [{"text": system_instruction}]},
@@ -371,34 +382,14 @@ def gemini_generate_grounded(
             "maxOutputTokens": max_output_tokens,
         },
     }
-    attempts_log: list[str] = []
-    for model in model_list:
-        for attempt in range(PER_MODEL_ATTEMPTS):
-            try:
-                parsed, usage = _gemini_call_once(model, payload, key)
-                attempts_log.append(f"{model}: ok (спроба {attempt + 1})")
-                return {"parsed": parsed, "raw": parsed, "usage": usage, "model": model,
-                        "meta": {"attempts": attempts_log, "used_model": model}}
-            except _GeminiTransient as exc:
-                attempts_log.append(f"{model}: transient {exc} (спроба {attempt + 1})")
-                if attempt < PER_MODEL_ATTEMPTS - 1:
-                    time.sleep(BACKOFF_BASE * (2 ** attempt))
-            except _GeminiSkipModel as exc:
-                attempts_log.append(f"{model}: skip {exc}")
-                break
-            except _GeminiFatal as exc:
-                # З grounding 400 зазвичай = модель не підтримує google_search tool.
-                attempts_log.append(f"{model}: fatal→skip {exc}")
-                break
-    raise CallAIAnalysisError(
-        "Усі моделі Gemini недоступні для grounded-запиту. Спроби: " + "; ".join(attempts_log)
-    )
+    return _run_with_pool(role, payload, manual_key=(api_key or "").strip() or None,
+                          grounded=True)
 
 
 def _gemini_analyze(audio_bytes: bytes, mime: str, manager_context: str, manager_snapshot: str = "") -> dict:
-    """Шле аудіо в Gemini з ретраями та фолбеком моделей."""
+    """Шле аудіо в Gemini (роль management) з ретраями та фолбеком моделей/ключів."""
     payload = _build_payload(audio_bytes, mime, manager_context, manager_snapshot)
-    return _run_payload_with_models(payload)
+    return _run_with_pool("management", payload)
 
 
 def _build_payload(audio_bytes: bytes, mime: str, manager_context: str, manager_snapshot: str = "") -> dict:
@@ -443,7 +434,7 @@ def _build_payload(audio_bytes: bytes, mime: str, manager_context: str, manager_
 
 def _gemini_call_once(model: str, payload: dict, key: str) -> tuple[dict, dict]:
     """Один виклик generateContent. Повертає (parsed_json, usage) або кидає
-    типізовану помилку (_GeminiTransient / _GeminiSkipModel / _GeminiFatal)."""
+    типізовану помилку (_GeminiTransient / _Gemini429 / _GeminiModelUnavailable / _GeminiFatal)."""
     url = f"{GENAI_BASE}/models/{model}:generateContent"
     try:
         resp = requests.post(
@@ -459,15 +450,13 @@ def _gemini_call_once(model: str, payload: dict, key: str) -> tuple[dict, dict]:
 
     code = resp.status_code
     if code != 200:
-        snippet = resp.text[:200]
+        snippet = resp.text[:400]
         if code in (503, 500, 502, 504):
             raise _GeminiTransient(f"HTTP {code}")
         if code == 429:
-            # 429 = квота/rate. На цьому ключі сильні моделі дають per-model
-            # quota — ретрай не допоможе, перемикаємось на наступну модель.
-            raise _GeminiSkipModel(f"HTTP 429 (quota): {snippet}")
+            raise _Gemini429(snippet)
         if code in (404, 403):
-            raise _GeminiSkipModel(f"HTTP {code}: {snippet}")
+            raise _GeminiModelUnavailable(f"HTTP {code}: {snippet}")
         # 400 та інші — проблема нашого запиту.
         raise _GeminiFatal(f"HTTP {code}: {snippet}")
 
@@ -627,7 +616,7 @@ def analyze_call(
         status=CallAIAnalysis.Status.RUNNING,
         manager_context=(manager_context or "").strip(),
         created_by=created_by if getattr(created_by, "is_authenticated", False) else None,
-        model=(_resolve_models() or [""])[0],
+        model=(gemini_keys.role_model_chains().get("management") or ["gemini-2.5-flash"])[0],
     )
 
     started = time.monotonic()

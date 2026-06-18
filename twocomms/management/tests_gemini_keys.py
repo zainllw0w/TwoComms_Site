@@ -155,3 +155,19 @@ class PoolStatusTests(TestCase):
         self.assertGreater(by_name["GEMINI_API"]["seconds_remaining"], 0)
         self.assertTrue(by_name["GEMINI_API2"]["available"])
         self.assertEqual(by_name["GEMINI_API"]["role"], "chat")
+
+
+class KeyLevel429Tests(SimpleTestCase):
+    def test_free_model_429_is_key_level(self):
+        from management.services import gemini_keys as gk
+        self.assertTrue(gk.is_key_level_429("gemini-3.5-flash", grounded=False))
+        self.assertTrue(gk.is_key_level_429("gemini-3.1-flash-lite", grounded=False))
+
+    def test_paid_model_429_is_model_level(self):
+        from management.services import gemini_keys as gk
+        self.assertFalse(gk.is_key_level_429("gemini-3.1-pro-preview", grounded=False))
+
+    def test_grounding_429_key_level_only_on_25(self):
+        from management.services import gemini_keys as gk
+        self.assertTrue(gk.is_key_level_429("gemini-2.5-flash", grounded=True))
+        self.assertFalse(gk.is_key_level_429("gemini-3.5-flash", grounded=True))
