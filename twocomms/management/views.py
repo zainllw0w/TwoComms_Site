@@ -579,7 +579,46 @@ def get_user_stats(user):
     }
 
 
-def _serialize_client_for_home(client: Client, today, *, family_state: dict | None = None, now_dt=None) -> dict:
+def _build_home_discrepancy_map(client_ids) -> dict:
+    """Карта стану розбіжностей по клієнтах для індикатора в колонці «Дія».
+
+    Джерело — ManagerNotification(requires_ack=True, related_client=...), що їх
+    створює notify_discrepancies, коли ШІ знаходить серйозну невідповідність між
+    розмовою і збереженою карткою. НЕ привʼязано до дати: індикатор має бути
+    видно завжди, поки менеджер не підтвердив.
+
+      state 'pending' (червоний) — є непідтверджене попередження (менеджер ще
+                                   не натиснув «ОК», просто закрив/проігнорував);
+      state 'ack'     (жовтий)   — усі попередження підтверджені (бачив і ОК);
+      seen                       — попередження прочитане (модалку показали).
+    """
+    if not client_ids:
+        return {}
+    from management.models import ManagerNotification
+    notifs = (
+        ManagerNotification.objects.filter(
+            requires_ack=True, related_client_id__in=list(client_ids)
+        )
+        .order_by("related_client_id", "-created_at")
+    )
+    out: dict[int, dict] = {}
+    for n in notifs:
+        cid = n.related_client_id
+        slot = out.setdefault(cid, {"state": "ack", "text": "", "notif_ids": [], "seen": False, "_pending": False})
+        if not slot["text"]:
+            slot["text"] = (n.body or "").strip()
+        if n.acknowledged_at is None:
+            slot["_pending"] = True
+            slot["notif_ids"].append(n.id)
+        if n.is_read:
+            slot["seen"] = True
+    for slot in out.values():
+        slot["state"] = "pending" if slot["_pending"] else "ack"
+        slot.pop("_pending", None)
+    return out
+
+
+def _serialize_client_for_home(client: Client, today, *, family_state: dict | None = None, now_dt=None, discrepancy_map: dict | None = None) -> dict:
     context = client.call_result_context or {}
     created_local = timezone.localtime(client.created_at)
     now_local = timezone.localtime(now_dt or timezone.now())
@@ -750,6 +789,10 @@ def _serialize_client_for_home(client: Client, today, *, family_state: dict | No
         'phase_is_latest': phase_state["phase_is_latest"],
         'phase_number': phase_number,
         'has_today_projection': bool(phase_state.get("has_today_projection")),
+        'discrepancy_state': ((discrepancy_map or {}).get(client.id) or {}).get('state', 'none'),
+        'discrepancy_text': ((discrepancy_map or {}).get(client.id) or {}).get('text', ''),
+        'discrepancy_notif_ids': ((discrepancy_map or {}).get(client.id) or {}).get('notif_ids', []),
+        'discrepancy_seen': ((discrepancy_map or {}).get(client.id) or {}).get('seen', False),
     }
 
 
@@ -1440,9 +1483,10 @@ def home(request):
                     )
                 )
                 family_state_map = _build_phase_family_state_map(family_clients, today, now_dt=now_dt)
+                family_disc_map = _build_home_discrepancy_map([m.id for m in family_clients])
                 family_updates = []
                 for member in family_clients:
-                    serialized = _serialize_client_for_home(member, today, family_state=family_state_map.get(member.id), now_dt=now_dt)
+                    serialized = _serialize_client_for_home(member, today, family_state=family_state_map.get(member.id), now_dt=now_dt, discrepancy_map=family_disc_map)
                     serialized['home_group_label'] = _build_home_group_label(serialized, member, today)
                     family_updates.append(serialized)
                 projection_updates = _build_followup_projection_rows(
@@ -1498,13 +1542,14 @@ def home(request):
     yesterday = today - timedelta(days=1)
     grouped = OrderedDict()
     family_state_map = _build_phase_family_state_map(clients, today)
+    discrepancy_map = _build_home_discrepancy_map([c.id for c in clients])
     projection_rows = _build_followup_projection_rows(clients, today, family_state_map=family_state_map)
 
     if projection_rows:
         grouped['Сьогодні'] = list(projection_rows)
 
     for client in clients:
-        serialized = _serialize_client_for_home(client, today, family_state=family_state_map.get(client.id))
+        serialized = _serialize_client_for_home(client, today, family_state=family_state_map.get(client.id), discrepancy_map=discrepancy_map)
         label = _build_home_group_label(serialized, client, today)
         serialized['home_group_label'] = label
         grouped.setdefault(label, []).append(serialized)

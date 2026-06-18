@@ -719,10 +719,18 @@ class HomePageRenderTest(TestCase):
         # клієнт із запланованим передзвоном — щоб цикл callback'ів у
         # context-процесорі реально виконувався (інакше NameError 'today'
         # у shell-метриках не відтворюється — саме він валив прод 500).
-        Client.objects.create(
+        cb = Client.objects.create(
             shop_name="CallbackShop", phone="0671234567", full_name="Y",
             owner=self.manager, call_result="thinking",
             next_call_at=_tz.now() + _td(hours=2),
+        )
+        # непідтверджена розбіжність → серверний червоний маркер у колонці «Дія»
+        from management.models import ManagerNotification
+        ManagerNotification.objects.create(
+            user=self.manager, kind=ManagerNotification.Kind.SYSTEM,
+            level=ManagerNotification.Level.WARNING, title="Перевірте дзвінок",
+            body="• Підсумок: XML vs перевірка звʼязку.",
+            requires_ack=True, related_client=cb,
         )
 
     def test_home_renders(self):
@@ -734,7 +742,9 @@ class HomePageRenderTest(TestCase):
         html = resp.content.decode("utf-8")
         self.assertIn("client_phase_timeline", html)
         self.assertIn("discrepancy-modal", html)
-        self.assertIn("_audio_player", html) if False else None  # партіал інлайниться
+        # серверний маркер розбіжностей (червоний, не підтверджено) у колонці «Дія»
+        self.assertIn("disc-mark", html)
+        self.assertIn("disc-mark--pending", html)
         # дублюючий текст старого callback-блоку прибрано
         self.assertNotIn("Що було на попередній фазі", html)
 
@@ -803,6 +813,67 @@ class PhaseTimelineDataTest(TestCase):
         # Раніше фаза 1 зникала (history виключав поточну). Тепер має бути.
         self.assertIn(1, phases)
         self.assertTrue(all("client_id" in h and h["client_id"] for h in hist))
+
+
+class HomeDiscrepancyIndicatorTest(TestCase):
+    """Серверний індикатор розбіжностей у колонці «Дія»: pending(червоний)
+    поки не підтверджено, ack(жовтий) після підтвердження. Не привʼязаний
+    до дати — саме тому раніше менеджер нічого не бачив."""
+
+    def setUp(self):
+        self.manager = User.objects.create_user(username="mgr_di", password="x")
+        self.manager.userprofile.is_manager = True
+        self.manager.userprofile.save()
+
+    def _client_with_notif(self):
+        from management.models import ManagerNotification
+        c = Client.objects.create(
+            shop_name="DiShop", phone="0670003344", full_name="X",
+            owner=self.manager, call_result="xml_connected",
+        )
+        # створено «давно», щоб довести незалежність від дати
+        Client.objects.filter(id=c.id).update(created_at=_tz.now() - _td(days=4))
+        n = ManagerNotification.objects.create(
+            user=self.manager, kind=ManagerNotification.Kind.SYSTEM,
+            level=ManagerNotification.Level.WARNING, title="Перевірте дзвінок",
+            body="• Підсумок: ви зафіксували XML, а в розмові — лише перевірка звʼязку.",
+            requires_ack=True, related_client=c,
+        )
+        return c, n
+
+    def test_pending_then_ack(self):
+        from management import views as V
+        c, n = self._client_with_notif()
+        dmap = V._build_home_discrepancy_map([c.id])
+        self.assertEqual(dmap[c.id]["state"], "pending")
+        self.assertIn(n.id, dmap[c.id]["notif_ids"])
+        today = _tz.localdate()
+        fam = V._build_phase_family_state_map([c], today)
+        data = V._serialize_client_for_home(c, today, family_state=fam.get(c.id), discrepancy_map=dmap)
+        self.assertEqual(data["discrepancy_state"], "pending")
+        self.assertTrue(data["discrepancy_text"])
+        # підтвердження → жовтий
+        n.acknowledged_at = _tz.now(); n.save(update_fields=["acknowledged_at"])
+        dmap2 = V._build_home_discrepancy_map([c.id])
+        self.assertEqual(dmap2[c.id]["state"], "ack")
+
+    def test_admin_review_ack_state(self):
+        c, n = self._client_with_notif()
+        rec = CallRecord.objects.create(
+            provider="binotel", external_call_id="di1", manager=self.manager,
+            matched_client=c, duration_seconds=52, payload={"disposition": "ANSWER"},
+        )
+        CallAIAnalysis.objects.create(
+            call_record=rec, status=CallAIAnalysis.Status.DONE, overall_score=20, verdict="fail",
+            discrepancies=[{"field": "call_result", "severity": "high"}],
+        )
+        out = _mr.build_manager_clients_review(self.manager, period="all")
+        card = next(x for x in out["clients"] if x["id"] == c.id)
+        self.assertEqual(card["discrepancy_admin"]["state"], "pending")
+        n.acknowledged_at = _tz.now(); n.save(update_fields=["acknowledged_at"])
+        out2 = _mr.build_manager_clients_review(self.manager, period="all")
+        card2 = next(x for x in out2["clients"] if x["id"] == c.id)
+        self.assertEqual(card2["discrepancy_admin"]["state"], "ack")
 
 
 from management.models import Report, DayReportAudit

@@ -205,7 +205,31 @@ def _calls_for_clients(client_ids: list[int], window: dict | None = None) -> dic
     return grouped
 
 
-def _serialize_review_client(c: Client, calls: list, *, reengaged: bool = False) -> dict:
+def _discrepancy_ack_map(client_ids: list[int]) -> dict[int, dict]:
+    """Стан підтвердження розбіжностей по клієнтах (для адмін-перегляду):
+    бачив менеджер модалку чи ні, підтвердив чи ні."""
+    if not client_ids:
+        return {}
+    from management.models import ManagerNotification
+    notifs = (
+        ManagerNotification.objects.filter(requires_ack=True, related_client_id__in=client_ids)
+        .order_by("related_client_id", "-created_at")
+    )
+    out: dict[int, dict] = {}
+    for n in notifs:
+        cid = n.related_client_id
+        slot = out.setdefault(cid, {"state": "ack", "seen": False, "_pending": False})
+        if n.acknowledged_at is None:
+            slot["_pending"] = True
+        if n.is_read:
+            slot["seen"] = True
+    for slot in out.values():
+        slot["state"] = "pending" if slot["_pending"] else "ack"
+        slot.pop("_pending", None)
+    return out
+
+
+def _serialize_review_client(c: Client, calls: list, *, reengaged: bool = False, ack_info: dict | None = None) -> dict:
     attempts = []
     for a in c.interaction_attempts.all():
         attempts.append({
@@ -255,6 +279,7 @@ def _serialize_review_client(c: Client, calls: list, *, reengaged: bool = False)
         "reengaged": reengaged,
         "discrepancy_count": discrepancy_count,
         "has_discrepancy": discrepancy_count > 0,
+        "discrepancy_admin": ({"state": ack_info.get("state"), "seen": bool(ack_info.get("seen"))} if ack_info else None),
         "best_score": best_score,
         "analyzed_calls": analyzed_calls,
         "next_call": timezone.localtime(c.next_call_at).strftime("%d.%m.%Y %H:%M") if c.next_call_at else "",
@@ -310,6 +335,7 @@ def build_manager_clients_review(manager, *, period: str = "today", date_str: st
 
     all_ids = [c.id for c in rows] + [c.id for c in reengaged_rows]
     calls_map = _calls_for_clients(all_ids, window)
+    ack_map = _discrepancy_ack_map(all_ids)
 
     clients = []
     result_breakdown: Counter = Counter()
@@ -320,10 +346,10 @@ def build_manager_clients_review(manager, *, period: str = "today", date_str: st
         result_breakdown[c.get_call_result_display()] += 1
         if c.call_result in CONVERSION_RESULTS:
             conversions += 1
-        clients.append(_serialize_review_client(c, calls_map.get(c.id, [])))
+        clients.append(_serialize_review_client(c, calls_map.get(c.id, []), ack_info=ack_map.get(c.id)))
 
     reengaged = [
-        _serialize_review_client(c, calls_map.get(c.id, []), reengaged=True)
+        _serialize_review_client(c, calls_map.get(c.id, []), reengaged=True, ack_info=ack_map.get(c.id))
         for c in reengaged_rows
     ]
 

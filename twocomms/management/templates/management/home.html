@@ -15,6 +15,7 @@
      data-call-client-calls-url="{% url 'management_client_calls' %}"
      data-report-precheck-url="{% url 'management_report_precheck' %}"
      data-notification-ack-url="{% url 'management_notification_ack' %}"
+     data-notification-read-url="{% url 'management_notification_read' %}"
      data-manager-bot-username="{{ manager_bot_username }}"
      data-has-manager-telegram-binding="{{ has_manager_telegram_binding|yesno:'true,false' }}"
      data-client-entry-form="{{ client_entry_form_payload_json|escape }}"
@@ -252,6 +253,12 @@
                                             {% endif %}
                                             {% if client.row_kind != 'followup_projection' %}
                                             <div class="action-rail__utilities">
+                                                {% if client.discrepancy_state and client.discrepancy_state != 'none' %}
+                                                <button type="button" class="disc-mark disc-mark--{{ client.discrepancy_state }}" data-disc-mark data-client-id="{{ client.id }}" data-disc-notif-ids="{{ client.discrepancy_notif_ids|join:',' }}" data-disc-state="{{ client.discrepancy_state }}" aria-label="{% if client.discrepancy_state == 'pending' %}Є непідтверджені розбіжності з розмовою{% else %}Розбіжності підтверджені{% endif %}">
+                                                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 1 21h22L12 2zm0 6c.6 0 1 .45 1 1v4a1 1 0 1 1-2 0V9c0-.55.45-1 1-1zm0 9a1.15 1.15 0 1 1 0 2.3 1.15 1.15 0 0 1 0-2.3z"/></svg>
+                                                    <span class="disc-mark__tip"><strong>{% if client.discrepancy_state == 'pending' %}Розбіжності — не підтверджено{% else %}Розбіжності — підтверджено{% endif %}</strong>{{ client.discrepancy_text }}</span>
+                                                </button>
+                                                {% endif %}
                                                 <button type="button" class="icon-btn action-rail__utility edit-client" aria-label="Редагувати">
                                                     <svg viewBox="0 0 24 24" aria-hidden="true">
                                                         <path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"/>
@@ -1219,12 +1226,22 @@ function initManagementHomePage() {
         return '';
     };
 
+    const buildDiscMarkHtml = (client) => {
+        const st = client.discrepancy_state;
+        if (!st || st === 'none') return '';
+        const ids = Array.isArray(client.discrepancy_notif_ids) ? client.discrepancy_notif_ids.join(',') : '';
+        const title = st === 'pending' ? 'Розбіжності — не підтверджено' : 'Розбіжності — підтверджено';
+        const aria = st === 'pending' ? 'Є непідтверджені розбіжності з розмовою' : 'Розбіжності підтверджені';
+        return `<button type="button" class="disc-mark disc-mark--${st}" data-disc-mark data-client-id="${client.id}" data-disc-notif-ids="${escapeHtml(ids)}" data-disc-state="${st}" aria-label="${aria}"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2 1 21h22L12 2zm0 6c.6 0 1 .45 1 1v4a1 1 0 1 1-2 0V9c0-.55.45-1 1-1zm0 9a1.15 1.15 0 1 1 0 2.3 1.15 1.15 0 0 1 0-2.3z"/></svg><span class="disc-mark__tip"><strong>${title}</strong>${escapeHtml(client.discrepancy_text || '')}</span></button>`;
+    };
+
     const buildCallbackActionHtml = (client, deleteUrl, csrfToken) => `
         <div class="action-rail action-rail--overlay">
             <div class="action-rail__stack action-rail__stack--vertical${client.phase_action_state !== 'none' ? ' action-rail__stack--has-callback' : ''}">
                 ${buildPhaseActionButtonHtml(client)}
                 ${client.row_kind === 'followup_projection' ? '' : `
                 <div class="action-rail__utilities">
+                    ${buildDiscMarkHtml(client)}
                     <button type="button" class="icon-btn action-rail__utility edit-client" aria-label="Редагувати">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17.25V20h2.75L17.81 8.94l-2.75-2.75L4 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 2.75 2.75 1.83-1.83z"></path></svg>
                     </button>
@@ -2636,14 +2653,20 @@ if (document.readyState === 'loading') {
 </script>
 <style>
 /* Маркер розбіжностей у колонці «Дія» (зліва від олівця) */
-.disc-mark{position:relative;display:inline-grid;place-items:center;width:30px;height:30px;border:none;background:transparent;color:#f06868;cursor:pointer;border-radius:9px;flex-shrink:0;padding:0;font-family:inherit;transition:background .15s,color .15s;}
-.disc-mark::after{content:"";position:absolute;inset:0;border-radius:9px;animation:discPulse 2.4s ease-in-out infinite;pointer-events:none;}
-@keyframes discPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.30);}50%{box-shadow:0 0 0 4px rgba(239,68,68,0);}}
-.disc-mark:hover{background:rgba(239,68,68,.14);color:#fca5a5;}
+.disc-mark{position:relative;display:inline-grid;place-items:center;width:30px;height:30px;border:none;background:transparent;cursor:pointer;border-radius:9px;flex-shrink:0;padding:0;font-family:inherit;color:#f06868;transition:background .15s,color .15s;}
+.disc-mark--pending::after{content:"";position:absolute;inset:0;border-radius:9px;animation:discPulse 2.4s ease-in-out infinite;pointer-events:none;}
+@keyframes discPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.32);}50%{box-shadow:0 0 0 4px rgba(239,68,68,0);}}
+.disc-mark--pending{color:#f06868;}
+.disc-mark--pending:hover{background:rgba(239,68,68,.14);color:#fca5a5;}
+.disc-mark--ack{color:#f5b734;}
+.disc-mark--ack:hover{background:rgba(245,183,52,.14);color:#fcd34d;}
 .disc-mark svg{width:16px;height:16px;}
 .disc-mark__tip{position:absolute;bottom:calc(100% + 9px);right:-4px;width:250px;max-width:62vw;background:#181019;border:1px solid rgba(239,68,68,.45);border-radius:11px;padding:10px 12px;font-size:11.5px;line-height:1.5;color:#e7d2d2;box-shadow:0 14px 34px rgba(0,0,0,.55);white-space:pre-line;text-align:left;opacity:0;visibility:hidden;transform:translateY(5px);transition:opacity .16s,transform .16s,visibility .16s;z-index:60;pointer-events:none;}
 .disc-mark__tip strong{display:block;color:#fca5a5;font-size:11px;font-weight:800;margin-bottom:5px;}
 .disc-mark__tip::after{content:"";position:absolute;top:100%;right:13px;border:6px solid transparent;border-top-color:rgba(239,68,68,.45);}
+.disc-mark--ack .disc-mark__tip{border-color:rgba(245,183,52,.45);}
+.disc-mark--ack .disc-mark__tip strong{color:#fcd34d;}
+.disc-mark--ack .disc-mark__tip::after{border-top-color:rgba(245,183,52,.45);}
 .disc-mark:hover .disc-mark__tip,.disc-mark:focus-visible .disc-mark__tip{opacity:1;visibility:visible;transform:translateY(0);}
 .disc-overlay{position:fixed;inset:0;background:rgba(6,9,14,.72);backdrop-filter:blur(3px);z-index:1200;display:none;align-items:center;justify-content:center;padding:20px;}
 .disc-overlay.show{display:flex;animation:discFade .2s ease;}
@@ -2684,59 +2707,79 @@ if (document.readyState === 'loading') {
 (function(){
   "use strict";
   var ep=document.getElementById('home-endpoints'); if(!ep) return;
-  var precheckUrl=ep.dataset.reportPrecheckUrl||'', ackUrl=ep.dataset.notificationAckUrl||'';
-  var modal=document.getElementById('discrepancy-modal'); if(!modal||!precheckUrl) return;
+  var ackUrl=ep.dataset.notificationAckUrl||'', readUrl=ep.dataset.notificationReadUrl||'';
+  var modal=document.getElementById('discrepancy-modal'); if(!modal) return;
   var listEl=modal.querySelector('[data-disc-list]');
   var ackBtn=modal.querySelector('[data-disc-ack]');
-  var currentIds=[], shownOnce=false;
+  var modalMarks=[];
   function cookie(name){var v=null;if(document.cookie){document.cookie.split(';').forEach(function(c){c=c.trim();if(c.substring(0,name.length+1)===name+'='){v=decodeURIComponent(c.substring(name.length+1));}});}return v;}
   var CSRF=cookie('csrftoken');
   function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch];});}
   function show(){modal.classList.add('show');document.body.style.overflow='hidden';}
   function hide(){modal.classList.remove('show');document.body.style.overflow='';}
-  function highlightCard(item){
-    if(!item.client_id) return;
-    var row=document.getElementById('client-row-'+item.client_id); if(!row) return;
-    var util=row.querySelector('.action-rail__utilities'); if(!util) return;
-    if(util.querySelector('.disc-mark')) return;
-    var body=String(item.body||'').replace(/\n{2,}/g,'\n').trim();
-    var mark=document.createElement('button');
-    mark.type='button';
-    mark.className='disc-mark';
-    mark.setAttribute('data-disc-mark','');
-    mark.setAttribute('aria-label','Є розбіжності з розмовою — натисніть для деталей');
-    mark.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2zm0 6c.6 0 1 .45 1 1v4a1 1 0 1 1-2 0V9c0-.55.45-1 1-1zm0 9a1.15 1.15 0 1 1 0 2.3 1.15 1.15 0 0 1 0-2.3z"/></svg>'
-      +'<span class="disc-mark__tip"><strong>Розбіжності з розмовою</strong>'+esc(body)+'</span>';
-    util.insertBefore(mark, util.firstChild);
+  function markBody(mark){
+    var tip=mark.querySelector('.disc-mark__tip'); if(!tip) return '';
+    var clone=tip.cloneNode(true); var s=clone.querySelector('strong'); if(s) s.remove();
+    return clone.textContent.trim();
   }
-  function render(items){
-    currentIds=items.map(function(i){return i.id;});
-    listEl.innerHTML=items.map(function(i){
-      return '<div class="disc-item">'
-        +'<div class="disc-item__title">'+esc(i.title||'Перевірте обробку')+'</div>'
-        +'<div class="disc-item__body">'+esc(i.body||'')+'</div>'
-        +(i.client_id?'<button type="button" class="disc-item__go" data-go="'+i.client_id+'">Відкрити картку клієнта</button>':'')
-        +'</div>';
-    }).join('');
-    items.forEach(highlightCard);
+  function notifIds(mark){
+    return (mark.getAttribute('data-disc-notif-ids')||'').split(',').map(function(x){return x.trim();}).filter(Boolean);
   }
-  function ackAll(){
-    if(!ackUrl||!currentIds.length){hide();return;}
-    ackBtn.disabled=true;
-    Promise.all(currentIds.map(function(id){
-      return fetch(ackUrl,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF,'X-Requested-With':'XMLHttpRequest'},body:JSON.stringify({id:id})}).catch(function(){});
-    })).then(function(){
-      ackBtn.disabled=false; hide();
-      document.querySelectorAll('.disc-mark').forEach(function(f){f.remove();});
-      currentIds=[];
+  function pendingMarks(){ return Array.prototype.slice.call(document.querySelectorAll('.disc-mark--pending')); }
+  function markSeen(ids){
+    if(!readUrl||!ids.length) return;
+    ids.forEach(function(id){
+      fetch(readUrl,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF,'X-Requested-With':'XMLHttpRequest'},body:JSON.stringify({id:parseInt(id,10)})}).catch(function(){});
     });
   }
-  if(ackBtn) ackBtn.addEventListener('click', ackAll);
-  // Клік по маркеру «!» у колонці «Дія» — відкрити модалку з деталями розбіжностей.
+  function clientName(cid){
+    var row=document.getElementById('client-row-'+cid);
+    if(row){ var p=row.querySelector('.cell-primary'); if(p) return p.textContent.trim(); }
+    return 'Клієнт #'+cid;
+  }
+  function renderModal(marks){
+    modalMarks=marks;
+    var allIds=[];
+    listEl.innerHTML=marks.map(function(m){
+      var cid=m.getAttribute('data-client-id');
+      notifIds(m).forEach(function(i){allIds.push(i);});
+      return '<div class="disc-item">'
+        +'<div class="disc-item__title">'+esc(clientName(cid))+'</div>'
+        +'<div class="disc-item__body">'+esc(markBody(m))+'</div>'
+        +'<button type="button" class="disc-item__go" data-go="'+esc(cid)+'">Відкрити картку клієнта</button>'
+        +'</div>';
+    }).join('');
+    markSeen(allIds);
+    var anyPending=marks.some(function(m){return m.classList.contains('disc-mark--pending');});
+    ackBtn.style.display = anyPending ? '' : 'none';
+  }
+  function flipToAck(mark){
+    mark.classList.remove('disc-mark--pending');
+    mark.classList.add('disc-mark--ack');
+    mark.setAttribute('data-disc-state','ack');
+    mark.setAttribute('data-disc-notif-ids','');
+    mark.setAttribute('aria-label','Розбіжності підтверджені');
+    var s=mark.querySelector('.disc-mark__tip strong'); if(s) s.textContent='Розбіжності — підтверджено';
+  }
+  function ackMarks(marks){
+    var jobs=[];
+    marks.forEach(function(m){
+      notifIds(m).forEach(function(id){
+        jobs.push(fetch(ackUrl,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF,'X-Requested-With':'XMLHttpRequest'},body:JSON.stringify({id:parseInt(id,10)})}).catch(function(){}));
+      });
+    });
+    ackBtn.disabled=true;
+    return Promise.all(jobs).then(function(){ ackBtn.disabled=false; marks.forEach(flipToAck); });
+  }
+  if(ackBtn) ackBtn.addEventListener('click', function(){
+    var pend=modalMarks.filter(function(m){return m.getAttribute('data-disc-state')==='pending';});
+    ackMarks(pend).then(hide);
+  });
+  // Клік по маркеру «!» — відкрити модалку для цього клієнта (деталі + підтвердження).
   document.addEventListener('click', function(e){
     var m=e.target.closest('[data-disc-mark]'); if(!m) return;
     e.preventDefault(); e.stopPropagation();
-    show();
+    renderModal([m]); show();
   });
   modal.querySelectorAll('[data-disc-close]').forEach(function(el){el.addEventListener('click', hide);});
   modal.addEventListener('click', function(e){ if(e.target===modal) hide(); });
@@ -2747,16 +2790,11 @@ if (document.readyState === 'loading') {
     if(editBtn){ editBtn.click(); }
     else { var row=document.getElementById('client-row-'+cid); if(row) row.scrollIntoView({behavior:'smooth',block:'center'}); }
   });
-  function checkSoft(){
-    fetch(precheckUrl,{headers:{'X-Requested-With':'XMLHttpRequest'}}).then(function(r){return r.json();}).then(function(d){
-      if(d&&d.ok&&d.has&&d.items&&d.items.length){
-        render(d.items);
-        if(!shownOnce){ show(); shownOnce=true; }
-      }
-    }).catch(function(){});
-  }
-  setTimeout(checkSoft, 1500);
-  setInterval(checkSoft, 90000);
+  // Авто-попап: якщо є непідтверджені розбіжності — показати один раз при завантаженні.
+  setTimeout(function(){
+    var pend=pendingMarks();
+    if(pend.length){ renderModal(pend); show(); }
+  }, 1200);
 })();
 </script>
 {% include "management/_call_widget.html" %}

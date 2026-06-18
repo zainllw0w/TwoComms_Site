@@ -25,6 +25,15 @@
       <div>
         <div class="mcr-disc-alert__t">Розбіжності з розмовою: {{ c.discrepancy_count }}</div>
         <div class="mcr-disc-alert__s">ШІ помітив невідповідність між заповненою карткою та фактичною розмовою — деталі в записах нижче.</div>
+        {% if c.discrepancy_admin %}
+          {% if c.discrepancy_admin.state == 'ack' %}
+          <div class="mcr-disc-ack mcr-disc-ack--ok">✓ Менеджер підтвердив розбіжності</div>
+          {% elif c.discrepancy_admin.seen %}
+          <div class="mcr-disc-ack mcr-disc-ack--seen">👁 Менеджер бачив попередження, але не підтвердив</div>
+          {% else %}
+          <div class="mcr-disc-ack mcr-disc-ack--unseen">● Менеджер ще не бачив попередження</div>
+          {% endif %}
+        {% endif %}
       </div>
     </div>
     {% endif %}
