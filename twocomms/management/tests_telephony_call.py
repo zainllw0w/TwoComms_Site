@@ -739,6 +739,42 @@ class HomePageRenderTest(TestCase):
         self.assertNotIn("Що було на попередній фазі", html)
 
 
+class ReportPrecheckContractTest(TestCase):
+    """report_precheck має повертати client_id і body — на них тримається
+    маркер розбіжностей у колонці «Дія» (тултип + перехід у картку)."""
+
+    def setUp(self):
+        self.manager = User.objects.create_user(username="mgr_pc", password="x")
+        self.manager.userprofile.is_manager = True
+        self.manager.userprofile.save()
+
+    def test_precheck_returns_client_and_body(self):
+        from management.models import ManagerNotification
+        client = Client.objects.create(
+            shop_name="PreShop", phone="0670002233", full_name="X",
+            owner=self.manager, call_result="xml_connected",
+        )
+        ManagerNotification.objects.create(
+            user=self.manager, kind=ManagerNotification.Kind.SYSTEM,
+            level=ManagerNotification.Level.WARNING,
+            title="Перевірте дзвінок", body="• Підсумок: ви зафіксували XML, а в розмові — лише перевірка звʼязку.",
+            requires_ack=True, related_client=client,
+        )
+        from django.test import Client as TClient
+        with override_settings(ROOT_URLCONF="twocomms.urls_management"):
+            tc = TClient()
+            tc.force_login(self.manager)
+            resp = tc.get("/reports/precheck/", secure=True,
+                          HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+            self.assertEqual(resp.status_code, 200)
+            data = resp.json()
+            self.assertTrue(data["ok"])
+            self.assertTrue(data["has"])
+            item = data["items"][0]
+            self.assertEqual(item["client_id"], client.id)
+            self.assertIn("перевірка", item["body"])
+
+
 class PhaseTimelineDataTest(TestCase):
     """Історія фаз для таймлайну має містити ВСІ пройдені фази (з client_id
     для прослуховування), а не лише ті, що перед поточною."""

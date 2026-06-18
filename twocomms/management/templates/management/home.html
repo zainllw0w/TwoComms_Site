@@ -2635,8 +2635,16 @@ if (document.readyState === 'loading') {
 }
 </script>
 <style>
-.disc-flag{display:inline-grid;place-items:center;width:18px;height:18px;margin-left:7px;border-radius:5px;background:rgba(239,68,68,.16);color:#fca5a5;font-size:12px;cursor:help;vertical-align:middle;animation:discPulse 1.7s ease-in-out infinite;}
-@keyframes discPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.45);}50%{box-shadow:0 0 0 5px rgba(239,68,68,0);}}
+/* Маркер розбіжностей у колонці «Дія» (зліва від олівця) */
+.disc-mark{position:relative;display:inline-grid;place-items:center;width:30px;height:30px;border:none;background:transparent;color:#f06868;cursor:pointer;border-radius:9px;flex-shrink:0;padding:0;font-family:inherit;transition:background .15s,color .15s;}
+.disc-mark::after{content:"";position:absolute;inset:0;border-radius:9px;animation:discPulse 2.4s ease-in-out infinite;pointer-events:none;}
+@keyframes discPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.30);}50%{box-shadow:0 0 0 4px rgba(239,68,68,0);}}
+.disc-mark:hover{background:rgba(239,68,68,.14);color:#fca5a5;}
+.disc-mark svg{width:16px;height:16px;}
+.disc-mark__tip{position:absolute;bottom:calc(100% + 9px);right:-4px;width:250px;max-width:62vw;background:#181019;border:1px solid rgba(239,68,68,.45);border-radius:11px;padding:10px 12px;font-size:11.5px;line-height:1.5;color:#e7d2d2;box-shadow:0 14px 34px rgba(0,0,0,.55);white-space:pre-line;text-align:left;opacity:0;visibility:hidden;transform:translateY(5px);transition:opacity .16s,transform .16s,visibility .16s;z-index:60;pointer-events:none;}
+.disc-mark__tip strong{display:block;color:#fca5a5;font-size:11px;font-weight:800;margin-bottom:5px;}
+.disc-mark__tip::after{content:"";position:absolute;top:100%;right:13px;border:6px solid transparent;border-top-color:rgba(239,68,68,.45);}
+.disc-mark:hover .disc-mark__tip,.disc-mark:focus-visible .disc-mark__tip{opacity:1;visibility:visible;transform:translateY(0);}
 .disc-overlay{position:fixed;inset:0;background:rgba(6,9,14,.72);backdrop-filter:blur(3px);z-index:1200;display:none;align-items:center;justify-content:center;padding:20px;}
 .disc-overlay.show{display:flex;animation:discFade .2s ease;}
 @keyframes discFade{from{opacity:0;}to{opacity:1;}}
@@ -2689,13 +2697,17 @@ if (document.readyState === 'loading') {
   function highlightCard(item){
     if(!item.client_id) return;
     var row=document.getElementById('client-row-'+item.client_id); if(!row) return;
-    if(row.querySelector('.disc-flag')) return;
-    var anchor=row.querySelector('.cell-primary')||row.querySelector('td')||row;
-    var flag=document.createElement('span');
-    flag.className='disc-flag';
-    flag.title='Розбіжність із розмовою: '+String(item.body||'').replace(/\s+/g,' ').slice(0,400);
-    flag.textContent='⚠';
-    anchor.appendChild(flag);
+    var util=row.querySelector('.action-rail__utilities'); if(!util) return;
+    if(util.querySelector('.disc-mark')) return;
+    var body=String(item.body||'').replace(/\n{2,}/g,'\n').trim();
+    var mark=document.createElement('button');
+    mark.type='button';
+    mark.className='disc-mark';
+    mark.setAttribute('data-disc-mark','');
+    mark.setAttribute('aria-label','Є розбіжності з розмовою — натисніть для деталей');
+    mark.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2zm0 6c.6 0 1 .45 1 1v4a1 1 0 1 1-2 0V9c0-.55.45-1 1-1zm0 9a1.15 1.15 0 1 1 0 2.3 1.15 1.15 0 0 1 0-2.3z"/></svg>'
+      +'<span class="disc-mark__tip"><strong>Розбіжності з розмовою</strong>'+esc(body)+'</span>';
+    util.insertBefore(mark, util.firstChild);
   }
   function render(items){
     currentIds=items.map(function(i){return i.id;});
@@ -2715,11 +2727,17 @@ if (document.readyState === 'loading') {
       return fetch(ackUrl,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF,'X-Requested-With':'XMLHttpRequest'},body:JSON.stringify({id:id})}).catch(function(){});
     })).then(function(){
       ackBtn.disabled=false; hide();
-      document.querySelectorAll('.disc-flag').forEach(function(f){f.remove();});
+      document.querySelectorAll('.disc-mark').forEach(function(f){f.remove();});
       currentIds=[];
     });
   }
   if(ackBtn) ackBtn.addEventListener('click', ackAll);
+  // Клік по маркеру «!» у колонці «Дія» — відкрити модалку з деталями розбіжностей.
+  document.addEventListener('click', function(e){
+    var m=e.target.closest('[data-disc-mark]'); if(!m) return;
+    e.preventDefault(); e.stopPropagation();
+    show();
+  });
   modal.querySelectorAll('[data-disc-close]').forEach(function(el){el.addEventListener('click', hide);});
   modal.addEventListener('click', function(e){ if(e.target===modal) hide(); });
   if(listEl) listEl.addEventListener('click', function(e){
