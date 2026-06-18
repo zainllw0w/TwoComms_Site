@@ -72,5 +72,38 @@
 .key-card__cd{font-size:.82rem;color:var(--accent);font-variant-numeric:tabular-nums;}
 .key-card__meta{font-size:.72rem;color:var(--muted);}
 .key-card--unavailable{opacity:.85;border-color:rgba(243,164,61,.35);}
-@media(max-width:720px){.checker-hero__metrics{grid-template-columns:repeat(2,1fr);}.field-span-2{grid-column:span 1;}}
+/* --- Полиш та адаптив --- */
+.checker-hero{position:relative;overflow:hidden;}
+.checker-hero::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 80% at 100% 0%,rgba(243,164,61,.10),transparent 60%);pointer-events:none;}
+.checker-metric{transition:transform .15s ease,border-color .15s ease;}
+.checker-metric:hover{transform:translateY(-2px);border-color:rgba(243,164,61,.35);}
+.key-card{transition:transform .15s ease,border-color .15s ease;}
+.key-card:hover{transform:translateY(-2px);}
+.checker-detail-btn{transition:border-color .15s ease,background .15s ease;}
+.checker-detail-btn:hover{background:rgba(243,164,61,.10);}
+.checker-table tbody tr{transition:background .12s ease;}
+.checker-table tbody tr:hover{background:rgba(255,255,255,.03);}
+.muted-detail{font-size:.74rem;color:var(--muted);margin-top:2px;}
+.modal-card--wide .modal-body{max-height:72vh;overflow-y:auto;}
+@media(max-width:980px){
+  .checker-hero{flex-direction:column;}
+  .checker-hero__metrics{grid-template-columns:repeat(4,minmax(80px,1fr));width:100%;}
+}
+@media(max-width:720px){
+  .checker-hero__metrics{grid-template-columns:repeat(2,1fr);}
+  .field-span-2{grid-column:span 1;}
+  .checker-results__head{flex-direction:column;align-items:stretch;}
+  .checker-results__tools{flex-wrap:wrap;}
+  .checker-table th,.checker-table td{padding:8px 8px;font-size:.84rem;}
+  .checker-table th:nth-child(4),.checker-table td:nth-child(4){display:none;} /* Бренд ховаємо на вузьких */
+  .checker-table th:nth-child(5),.checker-table td:nth-child(5){display:none;} /* Канали ховаємо */
+  .modal-card--wide{width:96vw;}
+  .modal-card--wide .modal-body{max-height:78vh;}
+  .checker-criterion{grid-template-columns:1fr;}
+}
+@media(max-width:480px){
+  .checker-hero__metrics{grid-template-columns:repeat(2,1fr);}
+  .checker-controls{width:100%;}
+  .checker-controls .btn-primary,.checker-controls .btn-ghost{flex:1 1 auto;}
+}
 </style>
