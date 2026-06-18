@@ -3705,3 +3705,135 @@ class InstagramBotMessage(models.Model):
 
     def __str__(self) -> str:
         return f"{self.role}:{self.sender_id}:{self.status}"
+
+
+class LeadCheckerSettings(models.Model):
+    singleton_key = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    gemini_api_key = models.CharField(_("Ключ Gemini (опц.)"), max_length=255, blank=True)
+    model_chain = models.CharField(_("Цепочка моделей (csv)"), max_length=255, blank=True)
+    requests_per_minute = models.PositiveIntegerField(_("Запитів за хвилину"), default=8)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Налаштування чекера")
+        verbose_name_plural = _("Налаштування чекера")
+
+    @classmethod
+    def load(cls) -> "LeadCheckerSettings":
+        obj, _created = cls.objects.get_or_create(singleton_key=1)
+        return obj
+
+    def __str__(self):
+        return "LeadCheckerSettings"
+
+
+class LeadCheckJob(models.Model):
+    class Status(models.TextChoices):
+        RUNNING = "running", _("Працює")
+        PAUSED = "paused", _("Пауза")
+        STOPPED = "stopped", _("Зупинено")
+        COMPLETED = "completed", _("Завершено")
+        FAILED = "failed", _("Помилка")
+
+    class Scope(models.TextChoices):
+        UNCHECKED = "unchecked", _("Тільки неперевірені")
+        ALL = "all", _("Усі (перепровірка)")
+        BY_CITY = "by_city", _("За містом")
+        BY_BAND = "by_band", _("За смугою вердикту")
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="lead_check_jobs", verbose_name=_("Створив"),
+    )
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.RUNNING, db_index=True)
+    scope = models.CharField(max_length=20, choices=Scope.choices, default=Scope.UNCHECKED)
+    city = models.CharField(max_length=120, blank=True)
+    band = models.CharField(max_length=10, blank=True)
+    target_limit = models.PositiveIntegerField(default=0)
+    requests_per_minute = models.PositiveIntegerField(default=8)
+    total_selected = models.PositiveIntegerField(default=0)
+    processed = models.PositiveIntegerField(default=0)
+    scored = models.PositiveIntegerField(default=0)
+    errors = models.PositiveIntegerField(default=0)
+    fit_count = models.PositiveIntegerField(default=0)
+    maybe_count = models.PositiveIntegerField(default=0)
+    unfit_count = models.PositiveIntegerField(default=0)
+    cursor_id = models.PositiveIntegerField(default=0)
+    current_lead_id = models.PositiveIntegerField(null=True, blank=True)
+    next_step_not_before = models.DateTimeField(null=True, blank=True, db_index=True)
+    is_step_in_progress = models.BooleanField(default=False, db_index=True)
+    last_step_started_at = models.DateTimeField(null=True, blank=True)
+    avg_seconds = models.FloatField(default=0.0)
+    last_error = models.TextField(blank=True)
+    stop_reason_code = models.CharField(max_length=64, blank=True)
+    started_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Сесія чекера")
+        verbose_name_plural = _("Сесії чекера")
+        ordering = ["-started_at"]
+        indexes = [models.Index(fields=["status", "-started_at"], name="mgmt_check_status_dt")]
+
+    def __str__(self):
+        return f"CheckJob#{self.id} ({self.status})"
+
+
+class LeadCheckRuntimeLock(models.Model):
+    singleton_key = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    active_job = models.ForeignKey(
+        LeadCheckJob, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Lock чекера")
+        verbose_name_plural = _("Lock-и чекера")
+
+    def __str__(self):
+        return f"CheckLock(active_job={self.active_job_id or 'none'})"
+
+
+class LeadAICheck(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", _("В черзі")
+        PROCESSING = "processing", _("Обробка")
+        DONE = "done", _("Готово")
+        ERROR = "error", _("Помилка")
+
+    lead = models.ForeignKey(ManagementLead, on_delete=models.CASCADE, related_name="ai_checks")
+    job = models.ForeignKey(LeadCheckJob, on_delete=models.SET_NULL, null=True, blank=True, related_name="checks")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING, db_index=True)
+    overall_score = models.PositiveSmallIntegerField(null=True, blank=True)
+    criteria = models.JSONField(default=list, blank=True)
+    verdict_category = models.CharField(max_length=40, blank=True)
+    partnership_fit = models.JSONField(default=list, blank=True)
+    confidence = models.CharField(max_length=10, blank=True)
+    brand_summary = models.TextField(blank=True)
+    audience_guess = models.TextField(blank=True)
+    instagram_url = models.CharField(max_length=300, blank=True)
+    comment = models.TextField(blank=True)
+    recommendation = models.TextField(blank=True)
+    sources = models.JSONField(default=list, blank=True)
+    website_fetched = models.BooleanField(default=False)
+    model_used = models.CharField(max_length=60, blank=True)
+    tokens = models.JSONField(default=dict, blank=True)
+    error = models.TextField(blank=True)
+    checked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="lead_ai_checks",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("AI-перевірка ліда")
+        verbose_name_plural = _("AI-перевірки лідів")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["lead", "-created_at"], name="mgmt_aicheck_lead_dt"),
+            models.Index(fields=["status", "-created_at"], name="mgmt_aicheck_status_dt"),
+        ]
+
+    def __str__(self):
+        return f"AICheck#{self.id} lead={self.lead_id} score={self.overall_score}"
