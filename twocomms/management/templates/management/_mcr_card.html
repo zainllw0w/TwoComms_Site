@@ -1,85 +1,105 @@
 {# Картка обробленого клієнта для адмін-перегляду. Очікує змінну `c`. #}
-<div class="mcr-card g-{{ c.result_group }}{% if c.reengaged %} is-reengaged{% endif %}">
-  <div class="mcr-card__top">
-    <div>
-      <div class="mcr-card__name">{{ c.shop }}{% if c.phase_number > 1 %}<span class="mcr-phase-chip">фаза {{ c.phase_number }}</span>{% endif %}{% if c.reengaged %}<span class="mcr-reengaged-badge">↻ повторний контакт</span>{% endif %}</div>
-      <div class="mcr-card__phone">{{ c.phone }}{% if c.full_name %} · {{ c.full_name }}{% endif %}{% if c.role %} · {{ c.role }}{% endif %}</div>
-    </div>
-    <span class="mcr-card__result g-{{ c.result_group }}">{{ c.result }}</span>
-    <span class="mcr-card__pts">+{{ c.points }}</span>
-  </div>
-  <div class="mcr-card__meta">{% if c.reengaged %}Активність за період{% else %}Оброблено{% endif %}: {{ c.created }}{% if c.source %} · Джерело: {{ c.source }}{% endif %}{% if c.next_call %} · Наступний дзвінок: {{ c.next_call }}{% endif %}</div>
-
-  {% if c.test_batch %}
-  <div class="mcr-testbatch">
-    <div class="mcr-testbatch__ic">📦</div>
-    <div>
-      <div class="mcr-testbatch__t">Тестова партія{% if c.test_batch.shop %} · магазин «{{ c.test_batch.shop }}»{% endif %}</div>
-      <div class="mcr-testbatch__s">Замовлено: {{ c.test_batch.ordered_at|default:"—" }}</div>
-    </div>
-  </div>
-  {% endif %}
-
-  {% if c.attempts %}
-  <div class="mcr-timeline">
-    {% for a in c.attempts %}
-    <div class="mcr-tl-node{% if forloop.first %} is-current{% endif %}">
-      <span class="mcr-tl-node__line"></span>
-      <span class="mcr-tl-node__dot"></span>
-      <span class="mcr-tl-node__lbl"><b>{{ a.result|truncatechars:12 }}</b>{{ a.created }}</span>
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
-
-  {% if c.manager_note %}
-  <div class="mcr-block"><div class="mcr-block__t">Нотатка менеджера</div><div class="mcr-note">{{ c.manager_note }}</div></div>
-  {% endif %}
-  {% if c.reason_note or c.details %}
-  <div class="mcr-block"><div class="mcr-block__t">Деталі результату</div><div class="mcr-note">{{ c.reason_note }}{% if c.reason_note and c.details %}
-{% endif %}{{ c.details }}</div></div>
-  {% endif %}
-  {% if c.evidence %}
-  <div class="mcr-block"><div class="mcr-block__t">Докази</div><div class="mcr-evidence">{% for e in c.evidence %}<span>{{ e }}</span>{% endfor %}</div></div>
-  {% endif %}
-
-  {% if c.calls %}
-  <div class="mcr-block">
-    <div class="mcr-block__t">Записи розмов</div>
-    <div class="mcr-calls">
-      {% for call in c.calls %}
-      <div class="mcr-call">
-        <div class="mcr-call__top">
-          <span>{{ call.started_at|default:"—" }}</span>
-          {% if call.ai %}<span class="mcr-call__score {{ call.ai.verdict }}">{{ call.ai.overall_score|floatformat:0 }}/100</span><span>{{ call.ai.verdict_label }}</span>
-          {% elif call.ai_status == 'pending' or call.ai_status == 'running' %}<span class="mcr-call__ai-pending">ШІ аналізує…</span>{% endif %}
-          <span class="mcr-call__dur">{{ call.duration }}с</span>
+<div class="mcr-card g-{{ c.result_group }}{% if c.reengaged %} is-reengaged{% endif %}{% if c.has_discrepancy %} has-discrepancy{% endif %}">
+  <div class="mcr-card__strip"></div>
+  <div class="mcr-card__inner">
+    <div class="mcr-card__top">
+      <div class="mcr-card__id">
+        <div class="mcr-card__name">
+          {{ c.shop }}
+          {% if c.phase_number > 1 %}<span class="mcr-phase-chip">фаза {{ c.phase_number }}</span>{% endif %}
+          {% if c.reengaged %}<span class="mcr-reengaged-badge">↻ повторний контакт</span>{% endif %}
         </div>
-        {% if call.has_recording %}<div class="mgmt-audio" data-src="{{ call.recording_url }}"></div>{% endif %}
-        {% if call.ai and call.ai.summary %}<div class="mcr-call__sum">{{ call.ai.summary }}</div>{% endif %}
-        {% if call.ai and call.ai.axes %}
-        <details class="mcr-axes"><summary>Оцінка ШІ по критеріях</summary>
-          {% for ax in call.ai.axes %}
-          <div class="mcr-axis"><div class="mcr-axis__top"><span>{{ ax.title|default:ax.key }}</span><b>{{ ax.score|floatformat:0 }}</b></div>
-            <div class="mcr-axis__bar"><span style="width:{{ ax.score|floatformat:0 }}%;"></span></div>
-            {% if ax.comment %}<div class="mcr-axis__c">{{ ax.comment }}</div>{% endif %}
-          </div>
-          {% endfor %}
-        </details>
-        {% endif %}
-        {% if call.ai and call.ai.discrepancies %}<div class="mcr-call__disc">⚠ Розбіжностей з даними менеджера: {{ call.ai.discrepancies|length }}</div>{% endif %}
+        <div class="mcr-card__phone">{{ c.phone }}{% if c.full_name %} · {{ c.full_name }}{% endif %}{% if c.role %} · {{ c.role }}{% endif %}</div>
+      </div>
+      <div class="mcr-card__badges">
+        {% if c.best_score is not None %}<span class="mcr-card__score {% if c.best_score >= 75 %}pass{% elif c.best_score >= 50 %}coaching{% else %}fail{% endif %}">ШІ {{ c.best_score|floatformat:0 }}</span>{% endif %}
+        <span class="mcr-card__result g-{{ c.result_group }}">{{ c.result }}</span>
+        <span class="mcr-card__pts">+{{ c.points }}</span>
+      </div>
+    </div>
+    <div class="mcr-card__meta">{% if c.reengaged %}Активність за період{% else %}Оброблено{% endif %}: {{ c.created }}{% if c.source %} · Джерело: {{ c.source }}{% endif %}{% if c.next_call %} · Наступний дзвінок: {{ c.next_call }}{% endif %}</div>
+
+    {% if c.has_discrepancy %}
+    <div class="mcr-disc-alert">
+      <div class="mcr-disc-alert__ic">⚠</div>
+      <div>
+        <div class="mcr-disc-alert__t">Розбіжності з розмовою: {{ c.discrepancy_count }}</div>
+        <div class="mcr-disc-alert__s">ШІ помітив невідповідність між заповненою карткою та фактичною розмовою — деталі в записах нижче.</div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if c.test_batch %}
+    <div class="mcr-testbatch">
+      <div class="mcr-testbatch__ic">📦</div>
+      <div>
+        <div class="mcr-testbatch__t">Тестова партія{% if c.test_batch.shop %} · магазин «{{ c.test_batch.shop }}»{% endif %}</div>
+        <div class="mcr-testbatch__s">Замовлено: {{ c.test_batch.ordered_at|default:"—" }}</div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if c.attempts %}
+    <div class="mcr-timeline">
+      {% for a in c.attempts %}
+      <div class="mcr-tl-node{% if forloop.first %} is-current{% endif %}">
+        <span class="mcr-tl-node__line"></span>
+        <span class="mcr-tl-node__dot"></span>
+        <span class="mcr-tl-node__lbl"><b>{{ a.result|truncatechars:12 }}</b>{{ a.created }}</span>
       </div>
       {% endfor %}
     </div>
-  </div>
-  {% endif %}
+    {% endif %}
 
-  {% if c.attempts and c.attempts|length > 1 %}
-  <details class="mcr-phases">
-    <summary>Історія обробок ({{ c.attempts|length }})</summary>
-    {% for a in c.attempts %}
-    <div class="mcr-attempt"><b>{{ a.result }}</b> · {{ a.created }}{% if a.next_call %} · далі {{ a.next_call }}{% endif %}{% if a.reason_note %}<br>{{ a.reason_note }}{% endif %}{% if a.details %}<br>{{ a.details }}{% endif %}</div>
-    {% endfor %}
-  </details>
-  {% endif %}
+    {% if c.manager_note %}
+    <div class="mcr-block"><div class="mcr-block__t">Нотатка менеджера</div><div class="mcr-note">{{ c.manager_note }}</div></div>
+    {% endif %}
+    {% if c.reason_note or c.details %}
+    <div class="mcr-block"><div class="mcr-block__t">Деталі результату</div><div class="mcr-note">{{ c.reason_note }}{% if c.reason_note and c.details %}
+{% endif %}{{ c.details }}</div></div>
+    {% endif %}
+    {% if c.evidence %}
+    <div class="mcr-block"><div class="mcr-block__t">Докази</div><div class="mcr-evidence">{% for e in c.evidence %}<span>{{ e }}</span>{% endfor %}</div></div>
+    {% endif %}
+
+    {% if c.calls %}
+    <div class="mcr-block">
+      <div class="mcr-block__t">Записи розмов</div>
+      <div class="mcr-calls">
+        {% for call in c.calls %}
+        <div class="mcr-call">
+          <div class="mcr-call__top">
+            <span>{{ call.started_at|default:"—" }}</span>
+            {% if call.ai %}<span class="mcr-call__score {{ call.ai.verdict }}">{{ call.ai.overall_score|floatformat:0 }}/100</span><span>{{ call.ai.verdict_label }}</span>
+            {% elif call.ai_status == 'pending' or call.ai_status == 'running' %}<span class="mcr-call__ai-pending">ШІ аналізує…</span>{% endif %}
+            <span class="mcr-call__dur">{{ call.duration }}с</span>
+          </div>
+          {% if call.has_recording %}<div class="mgmt-audio" data-src="{{ call.recording_url }}"></div>{% endif %}
+          {% if call.ai and call.ai.summary %}<div class="mcr-call__sum">{{ call.ai.summary }}</div>{% endif %}
+          {% if call.ai and call.ai.axes %}
+          <details class="mcr-axes"><summary>Оцінка ШІ по критеріях</summary>
+            {% for ax in call.ai.axes %}
+            <div class="mcr-axis"><div class="mcr-axis__top"><span>{{ ax.title|default:ax.key }}</span><b>{{ ax.score|floatformat:0 }}</b></div>
+              <div class="mcr-axis__bar"><span style="width:{{ ax.score|floatformat:0 }}%;"></span></div>
+              {% if ax.comment %}<div class="mcr-axis__c">{{ ax.comment }}</div>{% endif %}
+            </div>
+            {% endfor %}
+          </details>
+          {% endif %}
+          {% if call.ai and call.ai.discrepancies %}<div class="mcr-call__disc">⚠ Розбіжностей з даними менеджера: {{ call.ai.discrepancies|length }}</div>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if c.attempts and c.attempts|length > 1 %}
+    <details class="mcr-phases">
+      <summary>Історія обробок ({{ c.attempts|length }})</summary>
+      {% for a in c.attempts %}
+      <div class="mcr-attempt"><b>{{ a.result }}</b> · {{ a.created }}{% if a.next_call %} · далі {{ a.next_call }}{% endif %}{% if a.reason_note %}<br>{{ a.reason_note }}{% endif %}{% if a.details %}<br>{{ a.details }}{% endif %}</div>
+      {% endfor %}
+    </details>
+    {% endif %}
+  </div>
 </div>

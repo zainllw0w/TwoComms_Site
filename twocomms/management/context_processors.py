@@ -21,8 +21,15 @@ def _is_management_host(request):
 
 
 def build_management_shell_metrics(user, profile=None):
-    today = timezone.localdate()
-    processed_today = Client.objects.filter(owner=user, created_at__date=today).count()
+    from datetime import timedelta as _td
+    # Не використовуємо created_at__date: на проді (MySQL без tz-таблиць)
+    # CONVERT_TZ → NULL і лічильник завжди показує 0. Фільтруємо діапазоном.
+    now_local = timezone.localtime(timezone.now())
+    day_start = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    day_end = day_start + _td(days=1)
+    processed_today = Client.objects.filter(
+        owner=user, created_at__gte=day_start, created_at__lt=day_end
+    ).count()
     processed_total = Client.objects.filter(owner=user).count()
     if processed_today < 20:
         daily_zone = "danger"

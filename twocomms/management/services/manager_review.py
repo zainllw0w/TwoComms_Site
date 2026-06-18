@@ -26,11 +26,27 @@ CONVERSION_RESULTS = {Client.CallResult.ORDER, Client.CallResult.TEST_BATCH}
 RECORDABLE = {"ANSWER", "VM-SUCCESS", "SUCCESS", "TRANSFER"}
 
 
+def _date_bounds(start_d: date, end_d: date) -> tuple:
+    """Межі [start_d 00:00, end_d+1 00:00) у локальній TZ як aware datetimes.
+
+    ВАЖЛИВО: не використовуємо lookup `__date`. На проді (MySQL без завантажених
+    timezone-таблиць) `__date` з USE_TZ генерує CONVERT_TZ(..., 'UTC', tz), який
+    повертає NULL → фільтр випадає в нуль рядків (звідси баг «за сьогодні 0»,
+    хоча «весь час» показує клієнтів). Порівняння діапазону datetime працює
+    скрізь однаково.
+    """
+    tz = timezone.get_current_timezone()
+    start_dt = timezone.make_aware(datetime.combine(start_d, datetime.min.time()), tz)
+    end_dt = timezone.make_aware(datetime.combine(end_d + timedelta(days=1), datetime.min.time()), tz)
+    return start_dt, end_dt
+
+
 def _created_client_ids(manager, start: date, end: date) -> set[int]:
     """Клієнти, СТВОРЕНІ менеджером у вікні (нові обробки/фази)."""
+    start_dt, end_dt = _date_bounds(start, end)
     return set(
         Client.objects.filter(
-            owner=manager, created_at__date__gte=start, created_at__date__lte=end
+            owner=manager, created_at__gte=start_dt, created_at__lt=end_dt
         ).values_list("id", flat=True)
     )
 
@@ -40,20 +56,21 @@ def _reengaged_client_ids(manager, start: date, end: date, exclude: set[int]) ->
     але створені РАНІШЕ за вікно. Саме через них раніше зникали дзвінки «за
     сьогодні»: картку додали давно, а дзвінок/контакт стався сьогодні.
     """
+    start_dt, end_dt = _date_bounds(start, end)
     call_ids = set(
         CallRecord.objects.filter(
             manager=manager,
             matched_client__owner=manager,
-            started_at__date__gte=start,
-            started_at__date__lte=end,
+            started_at__gte=start_dt,
+            started_at__lt=end_dt,
         ).values_list("matched_client_id", flat=True)
     )
     call_ids.discard(None)
     attempt_ids = set(
         ClientInteractionAttempt.objects.filter(
             client__owner=manager,
-            created_at__date__gte=start,
-            created_at__date__lte=end,
+            created_at__gte=start_dt,
+            created_at__lt=end_dt,
         ).values_list("client_id", flat=True)
     )
     return (call_ids | attempt_ids) - exclude
@@ -85,7 +102,8 @@ def resolve_review_window(period: str, date_str: str, today: date) -> dict:
 
 
 def _day_summary(manager, day: date) -> dict:
-    qs = Client.objects.filter(owner=manager, created_at__date=day)
+    start_dt, end_dt = _date_bounds(day, day)
+    qs = Client.objects.filter(owner=manager, created_at__gte=start_dt, created_at__lt=end_dt)
     rows = list(qs)
     processed = len(rows)
     points = sum(client_points_value(c) for c in rows)
@@ -151,9 +169,10 @@ def _calls_for_clients(client_ids: list[int], window: dict | None = None) -> dic
     # до клієнта цього вікна.
     if window and window.get("start") and window.get("end"):
         from django.db.models import Q
+        start_dt, end_dt = _date_bounds(window["start"], window["end"])
         records = records.filter(
             Q(started_at__isnull=True)
-            | Q(started_at__date__gte=window["start"], started_at__date__lte=window["end"])
+            | Q(started_at__gte=start_dt, started_at__lt=end_dt)
         )
     grouped: dict[int, list] = {}
     for r in records:
@@ -204,6 +223,18 @@ def _serialize_review_client(c: Client, calls: list, *, reengaged: bool = False)
             "shop": ctx.get("linked_shop_name") or "",
             "ordered_at": timezone.localtime(c.created_at).strftime("%d.%m.%Y") if c.created_at else "",
         }
+    # Зведення по дзвінках: розбіжності + найкращий ШІ-бал (для шапки картки).
+    discrepancy_count = 0
+    best_score = None
+    analyzed_calls = 0
+    for call in calls:
+        ai = call.get("ai") if isinstance(call, dict) else None
+        if ai:
+            analyzed_calls += 1
+            discrepancy_count += len(ai.get("discrepancies") or [])
+            sc = ai.get("overall_score")
+            if sc is not None and (best_score is None or sc > best_score):
+                best_score = sc
     return {
         "id": c.id,
         "shop": c.shop_name,
@@ -222,6 +253,10 @@ def _serialize_review_client(c: Client, calls: list, *, reengaged: bool = False)
         "phase_number": c.phase_number or 1,
         "test_batch": test_batch,
         "reengaged": reengaged,
+        "discrepancy_count": discrepancy_count,
+        "has_discrepancy": discrepancy_count > 0,
+        "best_score": best_score,
+        "analyzed_calls": analyzed_calls,
         "next_call": timezone.localtime(c.next_call_at).strftime("%d.%m.%Y %H:%M") if c.next_call_at else "",
         "created": timezone.localtime(c.created_at).strftime("%d.%m.%Y %H:%M") if c.created_at else "",
         "attempts": attempts,
@@ -256,7 +291,8 @@ def build_manager_clients_review(manager, *, period: str = "today", date_str: st
 
     qs = Client.objects.filter(owner=manager).prefetch_related("interaction_attempts").order_by("-created_at")
     if bounded:
-        qs = qs.filter(created_at__date__gte=window["start"], created_at__date__lte=window["end"])
+        start_dt, end_dt = _date_bounds(window["start"], window["end"])
+        qs = qs.filter(created_at__gte=start_dt, created_at__lt=end_dt)
     rows = list(qs[:500])
 
     # Клієнти з активністю за період, але створені раніше (передзвони/повторні

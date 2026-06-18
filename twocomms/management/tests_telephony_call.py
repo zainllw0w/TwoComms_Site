@@ -613,6 +613,25 @@ class ManagerReviewTest(TestCase):
         self.assertIsNotNone(card["test_batch"])
         self.assertEqual(card["test_batch"]["shop"], "Магазин №1")
 
+    def test_discrepancy_flag_on_card(self):
+        c = self._client(result="xml_connected")
+        rec = CallRecord.objects.create(
+            provider="binotel", external_call_id="disc1", manager=self.manager,
+            matched_client=c, duration_seconds=52, payload={"disposition": "ANSWER"},
+        )
+        CallAIAnalysis.objects.create(
+            call_record=rec, status=CallAIAnalysis.Status.DONE, overall_score=20, verdict="fail",
+            discrepancies=[
+                {"field": "call_result", "severity": "high"},
+                {"field": "xml_platform", "severity": "warn"},
+            ],
+        )
+        out = _mr.build_manager_clients_review(self.manager, period="today")
+        card = next(x for x in out["clients"] if x["id"] == c.id)
+        self.assertTrue(card["has_discrepancy"])
+        self.assertEqual(card["discrepancy_count"], 2)
+        self.assertEqual(card["best_score"], 20.0)
+
 
 class CallRecordingRangeTest(TestCase):
     def test_parse_range_basic(self):
@@ -654,6 +673,7 @@ class ManagerReviewPageRenderTest(TestCase):
         CallAIAnalysis.objects.create(
             call_record=rec, status=CallAIAnalysis.Status.DONE, overall_score=80, verdict="pass",
             summary="ок", axes=[{"title": "Контакт", "key": "c", "score": 80, "comment": "добре"}],
+            discrepancies=[{"field": "call_result", "severity": "high"}],
         )
 
     def _render(self, period="today"):
@@ -671,6 +691,8 @@ class ManagerReviewPageRenderTest(TestCase):
         self.assertIn("Тестова партія", html)
         self.assertIn("mgmt-audio", html)
         self.assertIn("g-conversion", html)
+        self.assertIn("Розбіжності з розмовою", html)
+        self.assertIn("has-discrepancy", html)
 
     def test_all_renders(self):
         self.assertEqual(self._render("all").status_code, 200)

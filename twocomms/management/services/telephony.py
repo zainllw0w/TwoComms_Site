@@ -36,8 +36,13 @@ def build_call_quality_signal(
         return {"has_calls": False, "meaningful_calls": 0, "analyzed_count": 0,
                 "qa_quality": None, "call_presence": 0.0, "vc_real": None}
     start = as_of_date - timedelta(days=max(0, window_days - 1))
+    # Діапазон aware datetime замість __date (на проді MySQL CONVERT_TZ→NULL).
+    from datetime import datetime as _dt
+    tz = timezone.get_current_timezone()
+    start_dt = timezone.make_aware(_dt.combine(start, _dt.min.time()), tz)
+    end_dt = timezone.make_aware(_dt.combine(as_of_date + timedelta(days=1), _dt.min.time()), tz)
     base_qs = CallRecord.objects.filter(
-        manager=owner, created_at__date__gte=start, created_at__date__lte=as_of_date
+        manager=owner, created_at__gte=start_dt, created_at__lt=end_dt
     )
     meaningful = base_qs.filter(duration_seconds__gte=MEANINGFUL_CALL_SECONDS).count()
     if meaningful <= 0:
@@ -47,8 +52,8 @@ def build_call_quality_signal(
     agg = CallAIAnalysis.objects.filter(
         status=CallAIAnalysis.Status.DONE,
         call_record__manager=owner,
-        call_record__created_at__date__gte=start,
-        call_record__created_at__date__lte=as_of_date,
+        call_record__created_at__gte=start_dt,
+        call_record__created_at__lt=end_dt,
     ).aggregate(avg=Avg("overall_score"), n=Count("id"))
     analyzed_count = int(agg["n"] or 0)
     qa_quality = (float(agg["avg"]) / 100.0) if agg["avg"] is not None else None

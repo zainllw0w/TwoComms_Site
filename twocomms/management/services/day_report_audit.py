@@ -70,9 +70,23 @@ def _system_instruction() -> str:
     )
 
 
+def _day_bounds(day: date) -> tuple:
+    """[day 00:00, day+1 00:00) як aware datetimes у локальній TZ.
+    Не використовуємо __date (на проді MySQL без tz-таблиць CONVERT_TZ→NULL)."""
+    tz = timezone.get_current_timezone()
+    from datetime import datetime as _dt
+    start_dt = timezone.make_aware(_dt.combine(day, _dt.min.time()), tz)
+    end_dt = timezone.make_aware(_dt.combine(day + timedelta(days=1), _dt.min.time()), tz)
+    return start_dt, end_dt
+
+
 def _gather_context(manager, day: date) -> dict:
+    start_dt, end_dt = _day_bounds(day)
     # Клієнти дня
-    clients = list(Client.objects.filter(owner=manager, created_at__date=day).order_by("-created_at")[:200])
+    clients = list(
+        Client.objects.filter(owner=manager, created_at__gte=start_dt, created_at__lt=end_dt)
+        .order_by("-created_at")[:200]
+    )
     client_rows = []
     conversions = 0
     points = 0
@@ -93,7 +107,7 @@ def _gather_context(manager, day: date) -> dict:
 
     # Дзвінки дня + ШІ-розбір
     records = list(
-        CallRecord.objects.filter(manager=manager, created_at__date=day)
+        CallRecord.objects.filter(manager=manager, created_at__gte=start_dt, created_at__lt=end_dt)
         .select_related("matched_client")
         .prefetch_related("ai_analyses")
         .order_by("-started_at", "-created_at")[:200]
