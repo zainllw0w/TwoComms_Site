@@ -56,6 +56,7 @@ GENAI_BASE = "https://generativelanguage.googleapis.com/v1beta"
 MAX_AUDIO_BYTES = 14 * 1024 * 1024
 
 GEMINI_TIMEOUT = (10, 90)  # (connect, read) — аудіо-аналіз може йти десятки секунд
+CHAT_TIMEOUT = (8, 25)      # діалоговий бот: коротка відповідь — не висимо на завислій моделі
 BACKOFF_BASE = 2.0          # секунди, експоненційно між ретраями transient
 
 
@@ -270,7 +271,8 @@ def upsert_call_record(client: BinotelClient, general_call_id: str) -> CallRecor
 # Gemini
 # ---------------------------------------------------------------------------
 def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
-                n_attempts: int, grounded: bool, log: list, parse: bool = True) -> tuple[str, dict | None]:
+                n_attempts: int, grounded: bool, log: list, parse: bool = True,
+                timeout: tuple | None = None) -> tuple[str, dict | None]:
     """Один (key, model) кандидат із ретраями на transient.
 
     Повертає ('ok', result) | ('key_429', None) | ('model_skip', None).
@@ -279,7 +281,7 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
     track = key_name in gemini_keys.ALL_KEYS
     for attempt in range(n_attempts):
         try:
-            parsed, usage = _gemini_call_once(model, payload, key_value, parse=parse)
+            parsed, usage = _gemini_call_once(model, payload, key_value, parse=parse, timeout=timeout)
         except _GeminiTransient as exc:
             log.append(f"{key_name}/{model}: transient {exc} (#{attempt + 1})")
             gemini_keys.mark_model_overloaded(model)
@@ -322,7 +324,8 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
 
 
 def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
-                   grounded: bool = False, parse: bool = True) -> dict:
+                   grounded: bool = False, parse: bool = True,
+                   timeout: tuple | None = None) -> dict:
     """Прогоняє payload через пул ключів ролі та цепочку моделей.
 
     Кругова стратегія: у кожному КРУЗІ — ручний ключ (якщо є) першим, далі весь
@@ -331,11 +334,16 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
     overload-кешу моделей, і новий круг. Усього до max_rounds(role) кругів
     (чат=3), тільки потім помилка. Це не дає боту падати від тимчасових 503/квоти,
     перебираючи всі ключі/моделі замість трьох спроб на одному.
+
+    timeout: (connect, read) для HTTP. None → CHAT_TIMEOUT для ролі chat (бот не
+    висить на завислій моделі), інакше GEMINI_TIMEOUT (аудіо/grounding можуть бути
+    довгими).
     """
     log: list[str] = []
     n_attempts = gemini_keys.attempts_per_model(role)
     rounds = gemini_keys.max_rounds(role)
     models = gemini_keys.role_model_chains().get(role, ["gemini-2.5-flash"])
+    call_timeout = timeout or (CHAT_TIMEOUT if role == "chat" else GEMINI_TIMEOUT)
 
     for round_idx in range(rounds):
         if manual_key:
@@ -343,7 +351,7 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
                 if gemini_keys.is_model_overloaded(model):
                     continue
                 status, res = _call_combo("(manual)", manual_key, model, payload,
-                                          n_attempts, grounded, log, parse)
+                                          n_attempts, grounded, log, parse, call_timeout)
                 if status == "ok":
                     return res
                 if status == "key_429":
@@ -351,7 +359,7 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
 
         for key_name, key_value, model in gemini_keys.iter_attempts(role):
             status, res = _call_combo(key_name, key_value, model, payload,
-                                      n_attempts, grounded, log, parse)
+                                      n_attempts, grounded, log, parse, call_timeout)
             if status == "ok":
                 return res
             # key_429 / model_skip — iter_attempts сам пропустить вичерпаний ключ/модель
@@ -469,7 +477,8 @@ def _build_payload(audio_bytes: bytes, mime: str, manager_context: str, manager_
     }
 
 
-def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True) -> tuple:
+def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True,
+                      timeout: tuple | None = None) -> tuple:
     """Один виклик generateContent. Повертає (parsed_json|text, usage) або кидає
     типізовану помилку (_GeminiTransient / _Gemini429 / _GeminiModelUnavailable / _GeminiFatal).
     parse=False → повертає сирий текст замість JSON (для діалогового бота)."""
@@ -479,7 +488,7 @@ def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True
             url,
             data=json.dumps(payload),
             headers={"Content-Type": "application/json", "x-goog-api-key": key},
-            timeout=GEMINI_TIMEOUT,
+            timeout=timeout or GEMINI_TIMEOUT,
         )
     except requests.Timeout as exc:
         raise _GeminiTransient(f"timeout: {exc}") from exc

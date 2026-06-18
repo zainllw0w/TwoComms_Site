@@ -14,7 +14,7 @@ class GeminiGroundedPoolTests(TestCase):
 
     def test_grounded_skips_gen3_and_uses_25_flash(self):
         """grounded на gen-3 → 429 (не free) → model_skip, успіх на 2.5-flash, ключ НЕ в кулдауні."""
-        def fake(model, payload, key, *, parse=True):
+        def fake(model, payload, key, *, parse=True, timeout=None):
             if model == "gemini-2.5-flash":
                 return ({"overall_score": 80}, {"totalTokenCount": 50})
             raise caa._Gemini429("quota plan and billing")
@@ -31,7 +31,7 @@ class GeminiGroundedPoolTests(TestCase):
     def test_grounded_payload_has_google_search_no_json_mime(self):
         captured = {}
 
-        def fake(model, payload, key, *, parse=True):
+        def fake(model, payload, key, *, parse=True, timeout=None):
             captured["payload"] = payload
             return ({"ok": True}, {})
 
@@ -45,7 +45,7 @@ class GeminiGroundedPoolTests(TestCase):
     def test_manual_key_tried_first(self):
         seen_keys = []
 
-        def fake(model, payload, key, *, parse=True):
+        def fake(model, payload, key, *, parse=True, timeout=None):
             seen_keys.append(key)
             if model == "gemini-2.5-flash":
                 return ({"x": 1}, {})
@@ -73,7 +73,7 @@ class GeminiJsonPoolTests(TestCase):
     def test_free_model_429_cools_key_and_moves_to_next(self):
         """429 на free-моделі (3.5-flash, non-grounded) = вичерпана квота ПРОЕКТУ →
         кулдаун ключа, перехід на наступний ключ пулу."""
-        def fake(model, payload, key, *, parse=True):
+        def fake(model, payload, key, *, parse=True, timeout=None):
             if key == "key-val-3":
                 raise caa._Gemini429("PerDay quota exceeded, check your plan and billing")
             return ({"ok": True}, {})
@@ -88,7 +88,7 @@ class GeminiJsonPoolTests(TestCase):
         self.assertTrue(gk.is_available("GEMINI_API4"))
 
     def test_503_falls_back_to_next_model_same_key(self):
-        def fake(model, payload, key, *, parse=True):
+        def fake(model, payload, key, *, parse=True, timeout=None):
             if model == "gemini-3.5-flash":
                 raise caa._GeminiTransient("HTTP 503")
             return ({"ok": True}, {})
@@ -104,7 +104,7 @@ class GeminiJsonPoolTests(TestCase):
         gk.clear_model_overload()
 
     def test_all_exhausted_raises(self):
-        def fake(model, payload, key, *, parse=True):
+        def fake(model, payload, key, *, parse=True, timeout=None):
             raise caa._Gemini429("PerDay quota plan and billing")
 
         with patch.dict("os.environ", ENV6, clear=False), \
@@ -118,7 +118,7 @@ class GeminiTextPoolTests(TestCase):
         gk.clear_model_overload()
 
     def test_text_mode_returns_raw_text(self):
-        def fake(model, payload, key, *, parse=True):
+        def fake(model, payload, key, *, parse=True, timeout=None):
             assert parse is False
             return ("Привіт! Чим допомогти?", {"totalTokenCount": 12})
 
@@ -132,7 +132,7 @@ class GeminiTextPoolTests(TestCase):
     def test_chat_role_starts_with_chat_keys(self):
         seen = []
 
-        def fake(model, payload, key, *, parse=True):
+        def fake(model, payload, key, *, parse=True, timeout=None):
             seen.append((key, model))
             return ("ok-text", {})
 
@@ -146,7 +146,7 @@ class GeminiTextPoolTests(TestCase):
     def test_chat_manual_key_first(self):
         seen = []
 
-        def fake(model, payload, key, *, parse=True):
+        def fake(model, payload, key, *, parse=True, timeout=None):
             seen.append(key)
             return ("ok", {})
 
@@ -165,7 +165,7 @@ class GeminiTextPoolTests(TestCase):
         gk.mark_429("GEMINI_API2", "day", 0, now=now)
         seen = []
 
-        def fake(model, payload, key, *, parse=True):
+        def fake(model, payload, key, *, parse=True, timeout=None):
             seen.append((key, model))
             return ("ok-text", {})
 
@@ -186,7 +186,7 @@ class GeminiEmptyResponseTests(TestCase):
         """Порожня відповідь ретраїться, але НЕ метить модель глобально overloaded."""
         calls = {"n": 0}
 
-        def fake(model, payload, key, *, parse=True):
+        def fake(model, payload, key, *, parse=True, timeout=None):
             calls["n"] += 1
             raise caa._GeminiEmpty("порожня відповідь (finishReason=STOP)")
 
@@ -202,7 +202,7 @@ class GeminiEmptyResponseTests(TestCase):
     def test_empty_then_success_on_retry(self):
         seq = iter([caa._GeminiEmpty("empty"), ({"overall_score": 70}, {})])
 
-        def fake(model, payload, key, *, parse=True):
+        def fake(model, payload, key, *, parse=True, timeout=None):
             if model != "gemini-2.5-flash":
                 raise caa._Gemini429("billing")  # gen-3 grounded не free
             item = next(seq)
@@ -236,6 +236,54 @@ class ParseModelJsonTests(TestCase):
             caa._parse_model_json("зовсім не json")
 
 
+class ChatTimeoutTests(TestCase):
+    def setUp(self):
+        gk.clear_model_overload()
+
+    def test_chat_uses_short_timeout(self):
+        """Чат не повинен висіти на завислій моделі — короткий read-таймаут."""
+        captured = {}
+
+        class FakeResp:
+            status_code = 200
+            text = "ok"
+
+            def json(self):
+                return {"candidates": [{"content": {"parts": [{"text": "привіт"}]}}]}
+
+        def fake_post(url, **kw):
+            captured["timeout"] = kw.get("timeout")
+            return FakeResp()
+
+        with patch.dict("os.environ", ENV6, clear=False), \
+             patch("management.services.call_ai_analysis.requests.post", side_effect=fake_post):
+            out = caa.gemini_generate_text({"contents": []}, role="chat")
+        self.assertEqual(out["parsed"], "привіт")
+        self.assertEqual(captured["timeout"], caa.CHAT_TIMEOUT)
+        gk.clear_model_overload()
+
+    def test_management_keeps_long_timeout(self):
+        """Аудіо-аналіз (management) лишає довгий таймаут — генерація може бути довгою."""
+        captured = {}
+
+        class FakeResp:
+            status_code = 200
+            text = "ok"
+
+            def json(self):
+                return {"candidates": [{"content": {"parts": [{"text": '{"a":1}'}]}}]}
+
+        def fake_post(url, **kw):
+            captured["timeout"] = kw.get("timeout")
+            return FakeResp()
+
+        with patch.dict("os.environ", ENV6, clear=False), \
+             patch("management.services.call_ai_analysis.requests.post", side_effect=fake_post):
+            caa.gemini_generate_json("S", "U", role="management")
+        self.assertEqual(captured["timeout"], caa.GEMINI_TIMEOUT)
+        gk.clear_model_overload()
+
+
 class ChatRoundsRetryTests(TestCase):
     def setUp(self):
         gk.clear_model_overload()
@@ -248,7 +296,7 @@ class ChatRoundsRetryTests(TestCase):
         Між кругами clear_model_overload() + backoff 2с, 4с."""
         calls = {"n": 0}
 
-        def fake(model, payload, key, *, parse=True):
+        def fake(model, payload, key, *, parse=True, timeout=None):
             calls["n"] += 1
             raise caa._GeminiTransient("HTTP 503")
 
@@ -267,7 +315,7 @@ class ChatRoundsRetryTests(TestCase):
     def test_chat_succeeds_on_second_round(self):
         state = {"round1_done": False, "n": 0}
 
-        def fake(model, payload, key, *, parse=True):
+        def fake(model, payload, key, *, parse=True, timeout=None):
             state["n"] += 1
             if state["n"] <= 3:  # перший круг — усі 503
                 raise caa._GeminiTransient("HTTP 503")
