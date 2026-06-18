@@ -219,3 +219,33 @@ class NormalizeVerdictCategoryTests(TestCase):
     def test_empty_category_defaults_other(self):
         out = lc.normalize_result({"overall_score": 50, "criteria": []})
         self.assertEqual(out["verdict_category"], "other")
+
+
+class CheckerKeysExhaustedTests(TestCase):
+    def test_quota_exhaustion_raises_and_does_not_mark_lead(self):
+        from management.models import ManagementLead, LeadAICheck
+        from management.services.call_ai_analysis import CallAIAnalysisError
+        lead = ManagementLead.objects.create(shop_name="Q", phone="0509990000",
+                                             lead_source=ManagementLead.LeadSource.PARSER)
+        err = CallAIAnalysisError("Усі ключі/моделі Gemini недоступні (квота/перевантаження). Спроби: ...")
+        with patch.object(lc, "gemini_generate_grounded", side_effect=err), \
+             patch.object(lc, "fetch_website_text", return_value=("", False)):
+            with self.assertRaises(lc.CheckerKeysExhausted):
+                lc.score_lead(lead)
+        lead.refresh_from_db()
+        self.assertIsNone(lead.ai_checked_at)   # лід НЕ позначено перевіреним
+        self.assertEqual(lead.ai_verdict, "")
+        self.assertEqual(LeadAICheck.objects.filter(lead=lead).count(), 0)  # processing-чек видалено
+
+    def test_real_eval_error_marks_lead_error(self):
+        from management.models import ManagementLead, LeadAICheck
+        from management.services.call_ai_analysis import CallAIAnalysisError
+        lead = ManagementLead.objects.create(shop_name="E", phone="0509990001",
+                                             lead_source=ManagementLead.LeadSource.PARSER)
+        with patch.object(lc, "gemini_generate_grounded", side_effect=CallAIAnalysisError("Помилка запиту")), \
+             patch.object(lc, "fetch_website_text", return_value=("", False)):
+            check = lc.score_lead(lead)
+        lead.refresh_from_db()
+        self.assertEqual(check.status, LeadAICheck.Status.ERROR)
+        self.assertEqual(lead.ai_verdict, "error")
+        self.assertIsNotNone(lead.ai_checked_at)

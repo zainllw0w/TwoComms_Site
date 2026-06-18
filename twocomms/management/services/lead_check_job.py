@@ -194,6 +194,17 @@ def run_step(job: LeadCheckJob) -> LeadCheckJob:
     api_key = resolve_checker_api_key()
     try:
         check = lead_checker.score_lead(lead, api_key=api_key or None, checked_by=job.created_by, job=job)
+    except lead_checker.CheckerKeysExhausted:
+        # Ключі вичерпались під час обробки — пауза, лід НЕ споживаємо (cursor не
+        # рухаємо, processed не інкрементуємо), повторимо коли квота відновиться.
+        job.status = LeadCheckJob.Status.PAUSED
+        job.stop_reason_code = "keys_cooldown"
+        job.next_step_not_before = gemini_keys.soonest_cooldown(CHECKER_ROLE)
+        job.is_step_in_progress = False
+        job.current_lead_id = None
+        job.save(update_fields=["status", "stop_reason_code", "next_step_not_before",
+                                "is_step_in_progress", "current_lead_id", "updated_at"])
+        return job
     except Exception as exc:  # noqa: BLE001
         logger.exception("run_step score_lead crashed lead=%s", lead.id)
         job.errors += 1

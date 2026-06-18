@@ -14,6 +14,11 @@ from management.services.call_ai_analysis import CallAIAnalysisError, gemini_gen
 
 logger = logging.getLogger("management.checker")
 
+
+class CheckerKeysExhausted(Exception):
+    """Усі ключі checker-пулу тимчасово недоступні (квота/перевантаження).
+    Лід НЕ позначається перевіреним — його треба повторити, коли квота відновиться."""
+
 # 10 критериев (ключ, человекочитаемый заголовок). Каждый оценивается 0..10.
 CRITERIA: list[tuple[str, str]] = [
     ("product_relevance", "Релевантність товару"),
@@ -237,7 +242,7 @@ def score_lead(lead: ManagementLead, *, api_key: str | None = None, checked_by=N
             user_text += "\n\nТЕКСТ ГОЛОВНОЇ СТОРІНКИ САЙТУ (фрагмент):\n" + website_text
 
         result = gemini_generate_grounded(
-            build_system_prompt(), user_text, api_key=api_key, max_output_tokens=4096,
+            build_system_prompt(), user_text, api_key=api_key,
         )
         norm = normalize_result(result.get("parsed") or {})
         band = band_for_score(norm["overall_score"])
@@ -265,8 +270,14 @@ def score_lead(lead: ManagementLead, *, api_key: str | None = None, checked_by=N
         lead.niche_status = niche_for_band(band)
         lead.save(update_fields=["ai_score", "ai_verdict", "ai_checked_at", "niche_status", "updated_at"])
     except CallAIAnalysisError as exc:
+        msg = str(exc)
+        # Вичерпання/недоступність ключів — НЕ позначаємо лід перевіреним,
+        # видаляємо processing-чек і сигналізуємо рушію поставити паузу.
+        if "недоступні (квота/перевантаження)" in msg:
+            check.delete()
+            raise CheckerKeysExhausted(msg) from exc
         check.status = LeadAICheck.Status.ERROR
-        check.error = str(exc)
+        check.error = msg
         check.model_used = ""
         check.save(update_fields=["status", "error", "model_used"])
         lead.ai_verdict = "error"

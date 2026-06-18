@@ -328,3 +328,22 @@ class AutoRecheckTickTests(TestCase):
             out = ljob.auto_recheck_tick(sleeper=lambda *_: None)
         self.assertFalse(out["ran"])
         self.assertEqual(out["reason"], "manual_active_or_empty")
+
+
+class RunStepKeysExhaustedMidCallTests(TestCase):
+    def test_pauses_without_consuming_lead(self):
+        from management.services import lead_checker
+        ManagementLead.objects.create(shop_name="X", phone="0507770000",
+                                      lead_source=ManagementLead.LeadSource.PARSER)
+        job = ljob.create_check_job(user=None, scope="unchecked", city="", band="",
+                                    target_limit=0, requests_per_minute=60)
+        with patch.object(ljob, "checker_can_run", return_value=True), \
+             patch.object(lead_checker, "score_lead",
+                          side_effect=lead_checker.CheckerKeysExhausted("quota")), \
+             patch.object(gk, "soonest_cooldown", return_value=None):
+            job = ljob.run_step(job)
+        self.assertEqual(job.status, LeadCheckJob.Status.PAUSED)
+        self.assertEqual(job.stop_reason_code, "keys_cooldown")
+        self.assertEqual(job.processed, 0)   # лід НЕ спожито
+        self.assertEqual(job.errors, 0)
+        self.assertEqual(job.cursor_id, 0)   # курсор НЕ зрушено
