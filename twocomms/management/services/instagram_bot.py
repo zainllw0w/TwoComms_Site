@@ -382,10 +382,6 @@ def gemini_generate(
 ) -> str | None:
     """history: [{'role':'user'|'model','text':str}] хронологічно.
     images: список (mime_type, raw_bytes) для ОСТАННЬОГО (поточного) user-ходу."""
-    key = resolve_gemini_key(s)
-    if not key:
-        log("error", "gemini", "Немає GEMINI ключа.")
-        return None
     contents = []
     for h in history:
         if h.get("text"):
@@ -445,36 +441,30 @@ def gemini_generate(
     }
     if sys_text:
         payload["system_instruction"] = {"parts": [{"text": sys_text}]}
-    model = (s.gemini_model or "gemini-3.5-flash").strip()
-    req = urllib.request.Request(
-        f"{GENAI}/models/{model}:generateContent",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json", "x-goog-api-key": key},
+
+    # Діалог із клієнтом — найвищий пріоритет (роль 'chat'): пул ключів
+    # GEMINI_API/2 → позичання GEMINI_API5/6, цепочка gen-3 (3.5-flash → 3.1).
+    # Якщо адмін обрав CUSTOM-ключ — він пробується першим (manual_key).
+    manual_key = None
+    if s.gemini_source == InstagramBotSettings.CredSource.CUSTOM:
+        manual_key = (s.custom_gemini_key or "").strip() or None
+    from management.services.call_ai_analysis import (
+        gemini_generate_text, CallAIAnalysisError,
     )
     try:
-        with urllib.request.urlopen(req, timeout=45) as resp:
-            code, body = resp.getcode(), resp.read().decode("utf-8", "replace")
-    except urllib.error.HTTPError as exc:
-        log("error", "gemini", f"HTTP {exc.code}: {exc.read().decode('utf-8','replace')[:300]}")
+        out = gemini_generate_text(payload, role="chat", manual_key=manual_key)
+    except CallAIAnalysisError as exc:
+        log("error", "gemini", str(exc)[:300])
         return None
     except Exception as exc:
         log("error", "gemini", repr(exc))
         return None
-    if code != 200:
-        log("error", "gemini", f"HTTP {code}: {body[:300]}")
+    text = (out.get("parsed") or "").strip()
+    if not text:
+        log("warning", "gemini_empty", "порожня відповідь")
         return None
-    try:
-        data = json.loads(body)
-        cand = (data.get("candidates") or [{}])[0]
-        parts = (cand.get("content") or {}).get("parts") or []
-        text = "".join(p.get("text", "") for p in parts).strip()
-        if not text:
-            log("warning", "gemini_empty", f"finishReason={cand.get('finishReason')}")
-            return None
-        return text
-    except Exception as exc:
-        log("error", "gemini_parse", repr(exc))
-        return None
+    log("info", "gemini_ok", f"model={out.get('model')} key={(out.get('meta') or {}).get('key')}")
+    return text
 
 
 def download_image(url: str) -> tuple[str, bytes] | None:

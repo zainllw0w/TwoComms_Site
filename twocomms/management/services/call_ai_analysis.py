@@ -263,7 +263,7 @@ def upsert_call_record(client: BinotelClient, general_call_id: str) -> CallRecor
 # Gemini
 # ---------------------------------------------------------------------------
 def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
-                n_attempts: int, grounded: bool, log: list) -> tuple[str, dict | None]:
+                n_attempts: int, grounded: bool, log: list, parse: bool = True) -> tuple[str, dict | None]:
     """Один (key, model) кандидат із ретраями на transient.
 
     Повертає ('ok', result) | ('key_429', None) | ('model_skip', None).
@@ -272,7 +272,7 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
     track = key_name in gemini_keys.ALL_KEYS
     for attempt in range(n_attempts):
         try:
-            parsed, usage = _gemini_call_once(model, payload, key_value)
+            parsed, usage = _gemini_call_once(model, payload, key_value, parse=parse)
         except _GeminiTransient as exc:
             log.append(f"{key_name}/{model}: transient {exc} (#{attempt + 1})")
             gemini_keys.mark_model_overloaded(model)
@@ -308,12 +308,13 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
 
 
 def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
-                   grounded: bool = False) -> dict:
+                   grounded: bool = False, parse: bool = True) -> dict:
     """Прогоняє payload через пул ключів ролі та цепочку моделей.
 
     Ручний ключ (якщо заданий) пробується першим, поза пулом. Далі — пул:
     own → borrow, основний ключ першим, на 429 ключ уводиться в кулдаун (квота
     проекту), на 503 модель — у overload-кеш, авто-повернення по таймауту.
+    parse=False → у result['parsed'] сирий текст (для бота), а не JSON.
     """
     log: list[str] = []
     n_attempts = gemini_keys.attempts_per_model(role)
@@ -324,7 +325,7 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
             if gemini_keys.is_model_overloaded(model):
                 continue
             status, res = _call_combo("(manual)", manual_key, model, payload,
-                                      n_attempts, grounded, log)
+                                      n_attempts, grounded, log, parse)
             if status == "ok":
                 return res
             if status == "key_429":
@@ -332,7 +333,7 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
 
     for key_name, key_value, model in gemini_keys.iter_attempts(role):
         status, res = _call_combo(key_name, key_value, model, payload,
-                                  n_attempts, grounded, log)
+                                  n_attempts, grounded, log, parse)
         if status == "ok":
             return res
         # key_429 / model_skip — iter_attempts сам пропустить вичерпаний ключ/модель
@@ -386,6 +387,14 @@ def gemini_generate_grounded(
                           grounded=True)
 
 
+def gemini_generate_text(payload: dict, *, role: str = "chat",
+                         manual_key: str | None = None) -> dict:
+    """Текстовий (не-JSON) запит для діалогового бота. Пул ключів ролі + цепочка
+    моделей. У result['parsed'] — сирий текст відповіді моделі."""
+    return _run_with_pool(role, payload, manual_key=(manual_key or "").strip() or None,
+                          parse=False)
+
+
 def _gemini_analyze(audio_bytes: bytes, mime: str, manager_context: str, manager_snapshot: str = "") -> dict:
     """Шле аудіо в Gemini (роль management) з ретраями та фолбеком моделей/ключів."""
     payload = _build_payload(audio_bytes, mime, manager_context, manager_snapshot)
@@ -432,9 +441,10 @@ def _build_payload(audio_bytes: bytes, mime: str, manager_context: str, manager_
     }
 
 
-def _gemini_call_once(model: str, payload: dict, key: str) -> tuple[dict, dict]:
-    """Один виклик generateContent. Повертає (parsed_json, usage) або кидає
-    типізовану помилку (_GeminiTransient / _Gemini429 / _GeminiModelUnavailable / _GeminiFatal)."""
+def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True) -> tuple:
+    """Один виклик generateContent. Повертає (parsed_json|text, usage) або кидає
+    типізовану помилку (_GeminiTransient / _Gemini429 / _GeminiModelUnavailable / _GeminiFatal).
+    parse=False → повертає сирий текст замість JSON (для діалогового бота)."""
     url = f"{GENAI_BASE}/models/{model}:generateContent"
     try:
         resp = requests.post(
@@ -474,7 +484,7 @@ def _gemini_call_once(model: str, payload: dict, key: str) -> tuple[dict, dict]:
         reason = cand.get("finishReason") or "невідомо"
         raise _GeminiTransient(f"порожня відповідь (finishReason={reason})")
 
-    parsed = _parse_model_json(text)
+    parsed = _parse_model_json(text) if parse else text
     usage = data.get("usageMetadata") or {}
     return parsed, usage
 
