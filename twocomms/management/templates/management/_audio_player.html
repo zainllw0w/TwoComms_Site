@@ -1,7 +1,9 @@
-{# Кастомний аудіоплеєр записів розмов: перемотка + швидкість.
-   Прогресивно покращує будь-який <div class="mgmt-audio" data-src="URL"></div>.
-   Працює і для серверного рендеру, і для JS-вставлених елементів —
-   після динамічної вставки викликати window.MgmtAudio.scan(). #}
+{% comment %}
+Кастомний аудіоплеєр записів розмов: перемотка + швидкість.
+Прогресивно покращує будь-який <div class="mgmt-audio" data-src="URL"></div>.
+Працює і для серверного рендеру, і для JS-вставлених елементів —
+після динамічної вставки викликати window.MgmtAudio.scan().
+{% endcomment %}
 <style>
 .mgmt-audio{--mga-accent:#ff7e29;display:flex;align-items:center;gap:10px;background:#0e131c;border:1px solid #23304a;border-radius:12px;padding:8px 11px;width:100%;box-sizing:border-box;font-family:inherit;}
 .mgmt-audio.is-error{border-color:rgba(239,68,68,.4);}
