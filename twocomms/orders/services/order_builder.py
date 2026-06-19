@@ -91,7 +91,11 @@ def create_order_from_deal(deal, *, created_by=None):
         flags = dict(c.conversion_flags or {})
         flags["is_buyer"] = True
         c.conversion_flags = flags
-        c.save(update_fields=["purchases_count", "total_spent", "conversion_flags", "updated_at"])
+        # Скидаємо закріплений товар: наступна покупка почнеться «з чистого аркуша».
+        c.current_product = None
+        c.save(update_fields=[
+            "purchases_count", "total_spent", "conversion_flags", "current_product", "updated_at",
+        ])
         c.set_stage(IgClient.Stage.ORDER_CREATED, reason="order")
     except Exception:
         pass

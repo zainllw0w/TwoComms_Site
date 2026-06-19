@@ -21,8 +21,10 @@ class Command(BaseCommand):
         from management.services import bot_orders
 
         fulfilled = bot_orders.fulfill_ready_paid_deals(limit=opts.get("limit") or 50)
+        shipped = bot_orders.notify_shipped_deals(limit=opts.get("limit") or 50)
         self.stdout.write(
             self.style.SUCCESS(
-                f"Оплачено угод за цей прогін: {paid}; дотворено замовлень: {fulfilled}"
+                f"Оплачено угод за цей прогін: {paid}; дотворено замовлень: {fulfilled}; "
+                f"сповіщень про відправку: {shipped}"
             )
         )

@@ -178,7 +178,7 @@ def _client_card(c) -> dict:
         "igsid": c.igsid,
         "username": c.username,
         "name": c.display_name or c.username or c.igsid,
-        "avatar": c.profile_pic_url,
+        "avatar": c.avatar_local or c.profile_pic_url,
         "stage": c.stage,
         "stage_label": c.get_stage_display(),
         "last_message_at": c.last_message_at.isoformat() if c.last_message_at else "",

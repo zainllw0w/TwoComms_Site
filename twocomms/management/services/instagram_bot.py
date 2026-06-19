@@ -195,6 +195,136 @@ def _wants_paylink(reply: str, control: dict) -> tuple[bool, str]:
     return False, "full"
 
 
+# Монобанк-подібні URL — щоб прибрати вигадане моделлю платіжне посилання й
+# лишити лише реальний invoice. Товарні/каталожні URL (twocomms.shop) не чіпаємо.
+_PAY_URL_RE = re.compile(r"https?://[^\s]*(?:mbnk|monobank)[^\s]*", re.I)
+
+# Безпечний холдер, коли лінк не вдалось сформувати: НЕ лишаємо клієнта з
+# висячою обіцянкою «ось посилання», а м'яко тримаємо діалог поки підключиться
+# менеджер (його одночасно сповіщаємо).
+PAYLINK_FALLBACK_TEXT = "Дякую! Уточню деталі щодо оплати і за мить повернуся до вас 🙌"
+
+# Протокол оплати — інжектимо в system_instruction завжди (migration-free), щоб
+# модель давала ЯВНИЙ сигнал товару й типу оплати, а не лише обіцяла лінк текстом.
+# Не чіпаємо DEFAULT_BOT_SYSTEM_PROMPT (щоб не робити міграцію й не затирати
+# правки адміна в UI) — інжект застосовується до будь-яких налаштувань.
+PAYMENT_PROTOCOL_NOTE = (
+    "[ПРОТОКОЛ ОПЛАТИ — службове, клієнт цього не бачить]\n"
+    "Коли клієнт підтвердив КОНКРЕТНИЙ товар і готовий платити — додай у самому "
+    "кінці відповіді службові теги: [PAYLINK:prepay] (передоплата 200 грн) або "
+    "[PAYLINK:full] (повна оплата), і поряд [PRODUCT:<id>], де <id> — число з "
+    "рядка каталогу (формат «id=NN»). НЕ вигадуй і НЕ пиши URL оплати власноруч — "
+    "система сама сформує справжнє посилання й додасть його до повідомлення. "
+    "Якщо товар ще не визначено однозначно — спершу уточни його, тег [PAYLINK] "
+    "поки не став."
+)
+
+# Правило точності — інжектимо разом із протоколом оплати. Прямо забороняє
+# «вигадану відмову» (типу «такого немає / це кастом»), як це сталось із реальним
+# товаром «Харків Edition».
+ANTI_HALLUCINATION_NOTE = (
+    "[ПРАВИЛО ТОЧНОСТІ — службове]\n"
+    "Ніколи не стверджуй, що товару немає або що це «кастом/під замовлення», не "
+    "звіривши з каталогом нижче. Якщо точного збігу не видно — НЕ відмовляй і НЕ "
+    "вигадуй: запропонуй переглянути каталог або чемно уточни деталі (тип, колір, "
+    "принт, місто/напис на принті). Ціни, наявність і назви бери ЛИШЕ з каталогу."
+)
+
+
+def _strip_invented_pay_urls(text: str, keep_url: str = "") -> str:
+    """Прибирає будь-які платіжні URL (monobank/mbnk), КРІМ keep_url (реального).
+
+    Захищає від ситуації, коли модель сама «вигадала» посилання на оплату —
+    клієнт має отримати лише наш справжній invoice, а не фантазійний лінк.
+    """
+    if not text:
+        return text
+
+    def _repl(m):
+        u = m.group(0)
+        return u if (keep_url and u == keep_url) else ""
+
+    out = _PAY_URL_RE.sub(_repl, text)
+    out = re.sub(r"[ \t]{2,}", " ", out)
+    out = re.sub(r"\n{3,}", "\n\n", out).strip()
+    return out
+
+
+def _rewrite_failed_paylink(reply: str) -> str:
+    """Прибирає висяче обіцяння лінку (фрази-обіцянки) + вигадані платіжні URL.
+
+    Якщо після чистки корисного тексту майже не лишилось — повертає безпечний
+    холдер (PAYLINK_FALLBACK_TEXT), щоб не надсилати клієнту порожню обіцянку.
+    """
+    text = _strip_invented_pay_urls(reply or "", keep_url="")
+    chunks = re.split(r"(?<=[.!?])\s+|\n+", text)
+    kept = []
+    for ch in chunks:
+        low = ch.lower()
+        if any(ph in low for ph in PAYLINK_PHRASES):
+            continue
+        if ch.strip():
+            kept.append(ch.strip())
+    cleaned = re.sub(r"[ \t]{2,}", " ", " ".join(kept)).strip()
+    if len(cleaned) < 12:
+        return PAYLINK_FALLBACK_TEXT
+    return cleaned
+
+
+def finalize_paylink(reply: str, control: dict, client, sender_id: str = "") -> str:
+    """Узгоджує відповідь бота з результатом формування лінку на оплату.
+
+    Гарантія: клієнт НІКОЛИ не отримає обіцянку «ось посилання» без самого лінку
+    (це і був баг «скинув, але не скинув і чекає оплату»).
+
+    - лінк не потрібен → reply без змін;
+    - потрібен і сформований → реальний URL присутній у тексті, будь-який
+      вигаданий моделлю платіжний URL прибраний;
+    - потрібен, але НЕ сформований → прибирає висяче обіцяння, ставить безпечний
+      холдер, кличе менеджера й піднімає стадію lead_manager.
+    """
+    if not reply or not client:
+        return reply
+    want, pt = _wants_paylink(reply, control)
+    if not want:
+        return reply
+    from management.services import bot_orders
+
+    try:
+        res = bot_orders.create_deal_and_link(
+            client, pay_type=pt, product_id=control.get("product")
+        )
+    except Exception as exc:
+        log("error", "paylink", repr(exc))
+        res = {"ok": False, "error": repr(exc)}
+
+    if res.get("ok") and res.get("invoice_url"):
+        url = res["invoice_url"]
+        reply = _strip_invented_pay_urls(reply, keep_url=url)
+        if url not in reply:
+            reply = (reply.rstrip() + "\n\n💳 Посилання на оплату: " + url).strip()
+        log("success", "paylink", f"{sender_id}: {url}")
+        return reply
+
+    # Невдача формування: прибираємо висяче обіцяння й ескалюємо на менеджера.
+    log("error", "paylink", f"{sender_id}: НЕ сформовано ({res.get('error')})")
+    safe = _rewrite_failed_paylink(reply)
+    try:
+        client.set_stage(IgClient.Stage.LEAD_TO_MANAGER, reason="paylink_failed")
+    except Exception:
+        pass
+    try:
+        notify_manager(
+            f"⚠️ IG: бот обіцяв клієнту "
+            f"{(client.username or client.display_name or sender_id)} посилання на "
+            f"оплату, але НЕ зміг сформувати (причина: {res.get('error')}). "
+            f"Підключись вручну."
+        )
+    except Exception:
+        pass
+    return safe
+
+
 def _handle_echo(recipient_igsid: str, text: str) -> None:
     """Echo-подія (повідомлення, надіслане сторінкою). Якщо це НЕ власне відлуння
     бота — значить відповів живий менеджер → ставимо бота на паузу для клієнта."""
@@ -560,6 +690,36 @@ def send_text(s: InstagramBotSettings, recipient_id: str, text: str) -> tuple[bo
     return True, "", ""
 
 
+def send_text_tagged(s: InstagramBotSettings, recipient_id: str, text: str, tag: str = "HUMAN_AGENT") -> tuple[bool, str, str]:
+    """Як send_text, але з messaging_type=MESSAGE_TAG (вікно 7 днів для HUMAN_AGENT).
+    Потрібно для сповіщень поза 24-год вікном (напр. «замовлення відправлено»)."""
+    page_token = get_page_token(s)
+    if not page_token:
+        return False, "permanent", "немає page-token"
+    parts = _split_for_send(text)
+    if not parts:
+        return False, "permanent", "порожня відповідь"
+    ok_any = False
+    for part in parts:
+        _mark_bot_sent(recipient_id, part)
+        body = json.dumps(
+            {
+                "recipient": {"id": recipient_id},
+                "message": {"text": part},
+                "messaging_type": "MESSAGE_TAG",
+                "tag": tag,
+            }
+        ).encode("utf-8")
+        code, resp = _http(f"{GRAPH}/{s.page_id}/messages?access_token={page_token}", data=body)
+        if code == 200:
+            ok_any = True
+            continue
+        kind, hint = _classify_send_error(code, resp)
+        log("error", "send_tag", f"HTTP {code} [{kind}] {hint}: {resp[:200]}")
+        return ok_any, kind, hint
+    return True, "", ""
+
+
 # ---------------------------------------------------------------------------
 # Gemini
 # ---------------------------------------------------------------------------
@@ -624,6 +784,11 @@ def gemini_generate(
     except Exception:
         pass
     sys_text = sys_text.strip()
+    # Протокол оплати ([PAYLINK]+[PRODUCT], без вигаданих URL) + правило точності.
+    sys_text = (
+        (sys_text + "\n\n" + PAYMENT_PROTOCOL_NOTE).strip() if sys_text else PAYMENT_PROTOCOL_NOTE
+    )
+    sys_text = (sys_text + "\n\n" + ANTI_HALLUCINATION_NOTE).strip()
     if context_note:
         sys_text = (sys_text + "\n\n" + context_note).strip()
     if memory_note:
@@ -639,7 +804,7 @@ def gemini_generate(
         # мислення (чату потрібна пряма швидка відповідь), а 1536 токенів — запас
         # на сам текст.
         "generationConfig": {
-            "temperature": 0.6,
+            "temperature": 0.5,
             "maxOutputTokens": 1536,
             "thinkingConfig": {"thinkingBudget": 0},
         },
@@ -760,6 +925,30 @@ def _match_hint_text(match: dict | None) -> str | None:
     )
 
 
+def _maybe_pin_from_match(client, match: dict | None) -> bool:
+    """Закріплює товар за клієнтом, якщо матчинг фото впевнений (≥ поріг).
+    Так пересланий пост одразу «прив'язує» товар для майбутньої оплати."""
+    if not client or not match:
+        return False
+    try:
+        from management.services.bot_vision import MATCH_THRESHOLD
+    except Exception:
+        MATCH_THRESHOLD = 0.6
+    pid = match.get("product_id")
+    try:
+        conf = float(match.get("confidence") or 0)
+    except Exception:
+        conf = 0.0
+    if not pid or conf < MATCH_THRESHOLD:
+        return False
+    try:
+        from management.services import bot_orders
+
+        return bot_orders.pin_product(client, pid)
+    except Exception:
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Профіль клієнта (IG Graph) — ім'я / username / аватар
 # ---------------------------------------------------------------------------
@@ -786,12 +975,45 @@ def fetch_ig_profile(s: InstagramBotSettings, igsid: str) -> dict:
     }
 
 
+def _localize_avatar(igsid: str, url: str) -> str:
+    """Качає аватар і зберігає у себе (media/ig_avatars/<igsid>.jpg), повертає
+    локальний URL. Так аватар не «протухає» й рендериться з нашого домену.
+    Порожній рядок — якщо не вдалось завантажити."""
+    if not igsid or not url:
+        return ""
+    img = download_image(url)
+    if not img:
+        return ""
+    _mime, raw = img
+    try:
+        from django.core.files.base import ContentFile
+        from django.core.files.storage import default_storage
+
+        path = f"ig_avatars/{igsid}.jpg"
+        if default_storage.exists(path):
+            default_storage.delete(path)
+        saved = default_storage.save(path, ContentFile(raw))
+        return default_storage.url(saved)
+    except Exception as exc:
+        log("warning", "avatar_store", repr(exc))
+        return ""
+
+
 def ensure_profile(s: InstagramBotSettings, client, force: bool = False) -> bool:
-    """Підвантажує профіль у картку (один раз). False, якщо вже є/немає даних.
-    На невдачі ставить короткий кулдаун, щоб не смикати Graph щоповідомлення."""
+    """Підвантажує профіль у картку (ім'я/username/аватар) і локалізує аватарку.
+
+    Оновлюється: якщо профіль ще не тягнули, або застарів (>7 днів), або немає
+    локальної копії аватара (легасі-картки). На невдачі — короткий кулдаун."""
+    from datetime import timedelta
+
     if not client:
         return False
-    if client.profile_fetched_at and not force:
+    fresh = bool(
+        client.profile_fetched_at
+        and (timezone.now() - client.profile_fetched_at) < timedelta(days=7)
+        and client.avatar_local
+    )
+    if fresh and not force:
         return False
     cd_key = f"ig_profile_cd:{client.igsid}"
     if not force and cache.get(cd_key):
@@ -805,10 +1027,16 @@ def ensure_profile(s: InstagramBotSettings, client, force: bool = False) -> bool
         return False
     client.display_name = (prof.get("name") or client.display_name or "")[:255]
     client.username = (prof.get("username") or client.username or "")[:120]
-    client.profile_pic_url = (prof.get("profile_pic") or client.profile_pic_url or "")[:600]
+    pic = (prof.get("profile_pic") or "")
+    if pic:
+        client.profile_pic_url = pic[:600]
+        local = _localize_avatar(client.igsid, pic)
+        if local:
+            client.avatar_local = local[:300]
     client.profile_fetched_at = timezone.now()
     client.save(update_fields=[
-        "display_name", "username", "profile_pic_url", "profile_fetched_at", "updated_at",
+        "display_name", "username", "profile_pic_url", "avatar_local",
+        "profile_fetched_at", "updated_at",
     ])
     return True
 
@@ -964,7 +1192,11 @@ def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
                 try:
                     from management.services import bot_vision
 
-                    match_hint = _match_hint_text(bot_vision.match(images))
+                    match = bot_vision.match(images)
+                    match_hint = _match_hint_text(match)
+                    # Впевнений матчинг → закріплюємо товар за клієнтом.
+                    if row.client_id:
+                        _maybe_pin_from_match(row.client, match)
                 except Exception as exc:
                     log("warning", "match", repr(exc))
             # Пам'ять про клієнта (rolling summary) + контекст (реклама/постійний) —
@@ -998,6 +1230,16 @@ def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
         reply, control = _extract_control(reply)
     needs_manager = bool(control.get("manager"))
 
+    # Закріплюємо товар, якщо модель явно вказала [PRODUCT:id] — щоб подальша
+    # оплата формувалась детерміновано саме на нього.
+    if reply and row.client_id and control.get("product"):
+        try:
+            from management.services import bot_orders
+
+            bot_orders.pin_product(row.client, control.get("product"))
+        except Exception:
+            pass
+
     # [SPAM] — модель розпізнала спам/провокацію: рахуємо страйк (на 3-й — пауза).
     if reply and row.client_id and control.get("spam"):
         try:
@@ -1005,31 +1247,12 @@ def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
         except Exception:
             pass
 
-    # Формування посилання на оплату: за тегом [PAYLINK] АБО коли бот пообіцяв
-    # посилання у тексті (надійний фолбек, якщо модель забула тег).
-    want_link, link_pt = _wants_paylink(reply, control)
-    if reply and row.client_id and want_link:
-        try:
-            from management.services import bot_orders
-
-            res = bot_orders.create_deal_and_link(
-                row.client, pay_type=link_pt, product_id=control.get("product")
-            )
-            if res.get("ok") and res.get("invoice_url"):
-                url = res["invoice_url"]
-                if url not in reply:
-                    reply = (reply + "\n\n💳 Посилання на оплату: " + url).strip()
-                log("success", "paylink", f"{row.sender_id}: {url}")
-            else:
-                log("error", "paylink", f"{row.sender_id}: НЕ сформовано ({res.get('error')})")
-                notify_manager(
-                    f"⚠️ IG: бот обіцяв клієнту "
-                    f"{(row.client.username or row.client.display_name or row.sender_id)} "
-                    f"посилання на оплату, але НЕ зміг сформувати (причина: {res.get('error')}). "
-                    f"Підключись вручну."
-                )
-        except Exception as exc:
-            log("error", "paylink", repr(exc))
+    # Формування посилання на оплату (guard «обіцяв → надішли або не обіцяй»):
+    # finalize_paylink гарантує, що клієнт НЕ лишиться з обіцянкою без лінку —
+    # на успіх додає реальний URL (вирізаючи вигаданий моделлю), на невдачу
+    # прибирає висяче обіцяння й кличе менеджера.
+    if reply and row.client_id:
+        reply = finalize_paylink(reply, control, row.client, row.sender_id)
 
     if not reply:
         # невдача генерації — ретрай або failed

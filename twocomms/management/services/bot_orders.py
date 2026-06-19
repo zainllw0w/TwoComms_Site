@@ -14,7 +14,7 @@ from decimal import Decimal
 
 from management.services.bot_payments import create_payment_link
 from management.services.call_ai_analysis import gemini_generate_text
-from management.services.instagram_bot import notify_manager
+from management.services.instagram_bot import notify_manager, send_text_tagged
 from orders.services.order_builder import create_order_from_deal
 
 NP_EXTRACT_INSTRUCTION = (
@@ -122,54 +122,111 @@ def on_deal_paid(deal) -> None:
             pass
 
 
-def resolve_product_for_payment(client, product_id=None):
-    """Визначає товар для оплати, не покладаючись на те, що модель «вгадала» id.
+def pin_product(client, product_id) -> bool:
+    """Закріплює товар за клієнтом (current_product), якщо він опублікований.
 
-    Пріоритет: явний product_id → інакше скан останніх повідомлень БОТА, де він
-    назвав конкретний товар (матч назви в « » з опублікованим каталогом). Саме
-    бот щойно назвав товар і ціну, тож це надійне джерело.
+    Викликається, коли модель дала [PRODUCT:id] або матчинг фото впевнено
+    визначив товар. Робить наступне формування лінку детермінованим.
     """
-    import re
+    if not client or not product_id:
+        return False
+    from storefront.models import Product, ProductStatus
 
+    try:
+        p = Product.objects.filter(id=int(product_id), status=ProductStatus.PUBLISHED).first()
+    except (TypeError, ValueError):
+        p = None
+    if not p:
+        return False
+    if client.current_product_id == p.id:
+        return True
+    client.current_product = p
+    client.save(update_fields=["current_product", "updated_at"])
+    return True
+
+
+def resolve_product_for_payment(client, product_id=None):
+    """Визначає товар для оплати НАДІЙНО (не підставляє випадковий товар).
+
+    Пріоритет:
+      1) явний product_id (з тегу [PRODUCT:id]) → товар;
+      2) інакше — management-модель за діалогом + каталогом обирає id товару з
+         урахуванням типу (футболка/худі/лонгслів) і впевненості. Це переживає
+         різницю «з/с», скорочення й розмовні назви, чого не вміє підрядковий матч.
+    Якщо впевненості немає — повертає None (краще покликати менеджера, ніж
+    виставити рахунок не за той товар)."""
     from storefront.models import Product, ProductStatus
 
     if product_id:
         try:
-            p = Product.objects.filter(id=int(product_id)).first()
+            p = Product.objects.filter(id=int(product_id), status=ProductStatus.PUBLISHED).first()
         except (TypeError, ValueError):
             p = None
         if p:
             return p
 
-    def _norm(s):
-        return re.sub(r"[^\w]+", " ", (s or "").lower()).strip()
+    # 2) закріплений товар діалогу (швидко й детерміновано, без виклику моделі).
+    cur = getattr(client, "current_product", None)
+    if cur is not None and getattr(cur, "status", None) == ProductStatus.PUBLISHED:
+        return cur
 
     from management.models import InstagramBotMessage
 
-    bot_msgs = list(
-        InstagramBotMessage.objects.filter(client=client, role="model").order_by("-id")[:8]
+    rows = list(InstagramBotMessage.objects.filter(client=client).order_by("-id")[:16])
+    rows.reverse()
+    transcript = "\n".join(
+        f"{'Клієнт' if r.role == 'user' else 'Бот'}: {r.text}"
+        for r in rows
+        if (r.text or "").strip()
     )
-    if not bot_msgs:
+    if not transcript.strip():
         return None
-    pubs = list(
-        Product.objects.filter(status=ProductStatus.PUBLISHED).only("id", "title", "price")
+
+    cat_lines = []
+    for p in Product.objects.filter(status=ProductStatus.PUBLISHED).only("id", "title", "price")[:300]:
+        try:
+            price = int(getattr(p, "final_price", None) or p.price)
+        except Exception:
+            price = p.price
+        cat_lines.append(f"{p.id}|{p.title}|{price}")
+    if not cat_lines:
+        return None
+
+    instruction = (
+        "За діалогом визнач, ЯКИЙ САМЕ товар з каталогу клієнт хоче оплатити. "
+        "Враховуй ТИП (футболка / худі / лонгслів) і назву принта. Поверни лише JSON "
+        'без markdown: {"product_id": <id з каталогу або null>, "confidence": <0..1>}. '
+        "Якщо не зрозуміло однозначно — product_id:null, confidence:0. "
+        "Каталог (формат id|назва|ціна_грн):\n" + "\n".join(cat_lines)
     )
-    cores = []
-    for p in pubs:
-        m = re.search(r"[«\"]([^»\"]+)[»\"]", p.title)
-        core = _norm(m.group(1)) if m else _norm(p.title)
-        if core and len(core) >= 4:
-            cores.append((core, p))
-    # довші назви — раніше (точніший матч)
-    cores.sort(key=lambda cp: len(cp[0]), reverse=True)
-    for msg in bot_msgs:  # від найновішого до старішого
-        nt = _norm(msg.text)
-        if not nt:
-            continue
-        for core, p in cores:
-            if core in nt:
-                return p
-    return None
+    payload = {
+        "contents": [{"role": "user", "parts": [{"text": instruction + "\n\nДІАЛОГ:\n" + transcript}]}],
+        "generationConfig": {
+            "temperature": 0.1,
+            "maxOutputTokens": 120,
+            "responseMimeType": "application/json",
+            "thinkingConfig": {"thinkingBudget": 0},
+        },
+    }
+    try:
+        out = gemini_generate_text(payload, role="management")
+    except Exception:
+        return None
+    from management.services.bot_vision import _parse_fingerprint
+
+    data = _parse_fingerprint(out.get("parsed") or "")
+    pid = data.get("product_id")
+    try:
+        pid = int(pid) if pid not in (None, "", "null") else None
+    except (TypeError, ValueError):
+        pid = None
+    try:
+        conf = float(data.get("confidence") or 0)
+    except (TypeError, ValueError):
+        conf = 0.0
+    if not pid or conf < 0.6:
+        return None
+    return Product.objects.filter(id=pid, status=ProductStatus.PUBLISHED).first()
 
 
 def create_deal_and_link(client, pay_type: str = "full", product_id=None, qty: int = 1, size: str = "") -> dict:
@@ -251,3 +308,52 @@ def fulfill_ready_paid_deals(limit: int = 50) -> int:
         if deal_has_np_data(deal) and fulfill_if_ready(deal):
             created += 1
     return created
+
+
+NP_TRACK_URL = "https://novaposhta.ua/tracking/?cargo_number="
+
+
+def notify_shipped_deals(limit: int = 50) -> int:
+    """Сповіщає IG-клієнта в Direct, що замовлення відправлено (з ТТН).
+
+    Лише для IG-угод, чиє замовлення в статусі 'ship' і має tracking_number.
+    Ідемпотентно (shipped_notified_at). Шлемо з тегом HUMAN_AGENT — бо відправка
+    зазвичай поза 24-год вікном звичайних повідомлень. Запускається кроном.
+    """
+    from django.utils import timezone
+
+    from management.models import IgDeal, InstagramBotSettings
+
+    s = InstagramBotSettings.load()
+    qs = (
+        IgDeal.objects.filter(
+            order__isnull=False, order__status="ship", shipped_notified_at__isnull=True
+        )
+        .exclude(order__tracking_number__isnull=True)
+        .exclude(order__tracking_number="")
+        .select_related("order", "client")[:limit]
+    )
+    sent = 0
+    for deal in qs:
+        ttn = (deal.order.tracking_number or "").strip()
+        if not ttn or not deal.client_id:
+            continue
+        text = (
+            "📦 Гарна новина — ваше замовлення вже відправлено Новою Поштою! 🚚\n"
+            f"ТТН: {ttn}\n"
+            f"Відстежити: {NP_TRACK_URL}{ttn}\n"
+            "Дякуємо за покупку 💛 Будуть питання — пишіть, я на зв'язку!"
+        )
+        try:
+            ok, kind, _hint = send_text_tagged(s, deal.client.igsid, text)
+        except Exception:
+            ok, kind = False, "transient"
+        if ok:
+            deal.shipped_notified_at = timezone.now()
+            deal.save(update_fields=["shipped_notified_at", "updated_at"])
+            sent += 1
+        elif kind == "permanent":
+            # Перманентна помилка (напр. поза 7-денним вікном) — не повторюємо вічно.
+            deal.shipped_notified_at = timezone.now()
+            deal.save(update_fields=["shipped_notified_at", "updated_at"])
+    return sent

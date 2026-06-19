@@ -104,10 +104,42 @@ def purge_stale_clients(days: int = RETENTION_DAYS) -> int:
     return count
 
 
+def order_status_note(client) -> str | None:
+    """Статус останнього замовлення клієнта (для відповіді «де моє замовлення?»
+    по фактах, без вигадок). None — якщо замовлень ще немає."""
+    try:
+        from management.models import IgDeal
+
+        deal = (
+            IgDeal.objects.filter(client=client, order__isnull=False)
+            .select_related("order")
+            .order_by("-id")
+            .first()
+        )
+    except Exception:
+        deal = None
+    if not deal or not getattr(deal, "order", None):
+        return None
+    o = deal.order
+    status_map = {
+        "new": "прийнято, в обробці",
+        "prep": "готується до відправлення",
+        "ship": "відправлено",
+        "done": "отримано",
+        "cancelled": "скасовано",
+    }
+    st = status_map.get(o.status, o.status or "в обробці")
+    msg = f"у клієнта вже є замовлення №{o.order_number} — статус: {st}"
+    if o.tracking_number:
+        msg += f", ТТН {o.tracking_number}"
+    msg += " (про статус/доставку відповідай по цих даних, не вигадуй)"
+    return msg
+
+
 def client_context_note(client) -> str | None:
     """Компактний контекст клієнта для швидкої орієнтації бота: атрибуція реклами
-    (з мапінгом на товар/тему) і статус постійного клієнта. Дає змогу одразу
-    вести по суті (особливо для трафіку з реклами), а не питати «дайте фото»."""
+    (з мапінгом на товар/тему), статус постійного клієнта і статус останнього
+    замовлення. Дає змогу одразу вести по суті, а не питати «дайте фото»."""
     parts = []
     try:
         from management.models import BotAdCampaign
@@ -135,8 +167,15 @@ def client_context_note(client) -> str | None:
         pass
     if (client.purchases_count or 0) > 0:
         parts.append(
-            f"постійний клієнт (покупок: {client.purchases_count}) — спілкуйся тепло, як зі знайомим"
+            f"постійний клієнт (покупок: {client.purchases_count}) — спілкуйся тепло, як зі "
+            f"знайомим; якщо хоче ще товар, це нова покупка/нове замовлення — допоможи обрати заново"
         )
+    try:
+        on = order_status_note(client)
+        if on:
+            parts.append(on)
+    except Exception:
+        pass
     if not parts:
         return None
     return "[КОНТЕКСТ КЛІЄНТА] " + "; ".join(parts) + "."

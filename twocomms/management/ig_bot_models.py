@@ -91,6 +91,9 @@ class IgClient(models.Model):
     username = models.CharField(_("Username"), max_length=120, blank=True, default="")
     display_name = models.CharField(_("Ім'я"), max_length=255, blank=True, default="")
     profile_pic_url = models.CharField(_("Аватар URL"), max_length=600, blank=True, default="")
+    # Локальна копія аватарки (media). IG CDN-URL протухають і мають hotlink-захист,
+    # тож для CRM зберігаємо власну копію й віддаємо локальний URL.
+    avatar_local = models.CharField(_("Аватар (локально)"), max_length=300, blank=True, default="")
     profile_fetched_at = models.DateTimeField(null=True, blank=True)
 
     # Контакти (для ліда / замовлення)
@@ -108,6 +111,18 @@ class IgClient(models.Model):
     paused_reason = models.CharField(max_length=255, blank=True, default="")
     paused_at = models.DateTimeField(null=True, blank=True)
     manager_takeover = models.BooleanField(_("Веде менеджер"), default=False)
+
+    # Закріплений товар діалогу (визначений за [PRODUCT:id] від моделі або
+    # впевненим матчингом фото). Посилання на оплату формується саме на нього,
+    # без повторного вгадування. Скидається після створення замовлення.
+    current_product = models.ForeignKey(
+        "storefront.Product",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        verbose_name=_("Закріплений товар"),
+    )
 
     # Атрибуція реклами (Click-to-IG-Direct)
     ad_ref = models.CharField(max_length=255, blank=True, default="")
@@ -262,6 +277,9 @@ class IgDeal(models.Model):
         on_delete=models.SET_NULL,
         related_name="ig_deals",
     )
+
+    # Коли клієнта вже сповістили в Direct про відправку (ТТН) — щоб не дублювати.
+    shipped_notified_at = models.DateTimeField(null=True, blank=True)
 
     # Дані доставки (Нова Пошта) — текстом (рішення Q3=a)
     np_full_name = models.CharField(max_length=255, blank=True, default="")

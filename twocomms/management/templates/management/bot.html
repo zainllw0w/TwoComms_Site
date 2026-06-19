@@ -105,6 +105,7 @@
 .bot-client-row:hover{border-color:#2a3550;transform:translateX(2px);}
 .bot-client-row.active{border-color:#2563eb;background:#0f1626;}
 .bot-client-ava{width:38px;height:38px;border-radius:50%;background:#1e2430;object-fit:cover;flex:0 0 auto;}
+div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3;font-size:14px;text-transform:uppercase;}
 .bot-client-meta{min-width:0;flex:1;}
 .bot-client-name{font-size:13.5px;color:#e7ecf3;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .bot-client-sub{font-size:11.5px;color:#8b95a5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -438,7 +439,7 @@
           (d.clients||[]).forEach(c=>{
             const row=document.createElement('div');
             row.className='bot-client-row'+(c.id===activeId?' active':'');
-            const ava=c.avatar?('<img class="bot-client-ava" src="'+esc(c.avatar)+'">'):'<div class="bot-client-ava"></div>';
+            const ava=c.avatar?('<img class="bot-client-ava" src="'+esc(c.avatar)+'" alt="" onerror="this.outerHTML=\'<div class=&quot;bot-client-ava&quot;>'+esc((((c.name||c.username||'?').trim()[0])||'?').toUpperCase())+'</div>\'">'):('<div class="bot-client-ava">'+esc((((c.name||c.username||'?').trim()[0])||'?').toUpperCase())+'</div>');
             row.innerHTML=ava+'<div class="bot-client-meta"><div class="bot-client-name">'+esc(c.name)+'</div><div class="bot-client-sub">'+esc(c.username||c.igsid)+'</div></div><span class="bot-stage-chip '+stageCls(c.stage)+'">'+esc(c.stage_label)+'</span>';
             row.addEventListener('click',()=>{activeId=c.id;document.querySelectorAll('.bot-client-row').forEach(e=>e.classList.remove('active'));row.classList.add('active');detail(c.id);});
             listEl.appendChild(row);
@@ -451,7 +452,7 @@
         .then(r=>r.json()).then(d=>{
           if(!d.success){detailEl.innerHTML='<div class="bot-empty">Не знайдено.</div>';return;}
           const c=d.client;
-          let h='<div class="bot-detail-head">'+(c.avatar?('<img class="bot-client-ava" style="width:46px;height:46px;" src="'+esc(c.avatar)+'">'):'<div class="bot-client-ava" style="width:46px;height:46px;"></div>')+'<div><div class="bot-detail-name">'+esc(c.name)+'</div><div class="bot-client-sub">'+esc(c.username||c.igsid)+(c.phone?(' · '+esc(c.phone)):'')+'</div></div><span class="bot-stage-chip '+stageCls(c.stage)+'" style="margin-left:auto;">'+esc(c.stage_label)+'</span></div>';
+          let h='<div class="bot-detail-head">'+(c.avatar?('<img class="bot-client-ava" style="width:46px;height:46px;" src="'+esc(c.avatar)+'" alt="">'):('<div class="bot-client-ava" style="width:46px;height:46px;">'+esc((((c.name||c.username||'?').trim()[0])||'?').toUpperCase())+'</div>'))+'<div><div class="bot-detail-name">'+esc(c.name)+'</div><div class="bot-client-sub">'+esc(c.username||c.igsid)+(c.phone?(' · '+esc(c.phone)):'')+'</div></div><span class="bot-stage-chip '+stageCls(c.stage)+'" style="margin-left:auto;">'+esc(c.stage_label)+'</span></div>';
           if(c.ad_title) h+='<div class="bot-client-sub" style="margin-top:8px;">📣 Реклама: '+esc(c.ad_title)+'</div>';
           const pauseBtn=c.bot_paused?'<button class="bot-save" data-act="resume" style="background:#16a34a;">▶ Включити бота</button>':'<button class="bot-save" data-act="pause" style="background:#dc2626;">⏸ Стоп бота</button>';
           h+='<div style="margin-top:12px;">'+pauseBtn+(c.manager_takeover?' <span class="bot-stage-chip st-lead_manager">менеджер веде</span>':'')+'</div>';
