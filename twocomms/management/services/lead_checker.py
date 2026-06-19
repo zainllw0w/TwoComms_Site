@@ -21,10 +21,11 @@ class CheckerKeysExhausted(Exception):
 
 # 10 критериев (ключ, человекочитаемый заголовок). Каждый оценивается 0..10.
 CRITERIA: list[tuple[str, str]] = [
+    ("apparel_focus", "Чи продає/може продавати ОДЯГ (ключове)"),
     ("product_relevance", "Релевантність товару"),
     ("style_aesthetic", "Стиль та естетика"),
     ("audience_match", "Збіг цільової аудиторії"),
-    ("military_tactical", "Мілітарі / тактика"),
+    ("military_tactical", "Мілітарі / тактика (лише контекст, не вирішує)"),
     ("custom_print_potential", "Потенціал кастом-друку (white-label)"),
     ("wholesale_potential", "Потенціал опту готового"),
     ("collab_potential", "Потенціал колаборації"),
@@ -41,6 +42,29 @@ VERDICT_CATEGORIES = [
 
 FIT_THRESHOLD = 70
 MAYBE_THRESHOLD = 40
+
+# Ваги критеріїв для серверного розрахунку overall (сума = 100). Бренд продає ОДЯГ,
+# тож apparel_focus — найважливіший. military_tactical має вагу 0: це лише контекст
+# (мілітарі-аудиторія сама по собі НЕ робить магазин придатним; її корисність уже
+# відображена в audience_match). Так фіксуємо «завжди ~85»: score рахуємо самі зі
+# строго оцінених критеріїв, а не беремо холістичне число моделі.
+CRITERION_WEIGHTS = {
+    "apparel_focus": 22,
+    "product_relevance": 16,
+    "audience_match": 14,
+    "style_aesthetic": 12,
+    "wholesale_potential": 9,
+    "custom_print_potential": 8,
+    "business_profile": 7,
+    "online_presence": 5,
+    "collab_potential": 4,
+    "approachability": 3,
+    "military_tactical": 0,
+}
+
+# Жорсткий apparel-гейт: магазин без одягу — не наш клієнт, хай би яка аудиторія.
+APPAREL_GATE_UNFIT_MAX = 25   # apparel_focus <= 2 → стеля 25 (unfit)
+APPAREL_GATE_MAYBE_MAX = 55   # apparel_focus <= 4 → стеля 55 (не вище maybe)
 
 WEBSITE_TIMEOUT = (5, 6)        # (connect, read) сек
 WEBSITE_TEXT_LIMIT = 6000       # символов текста сайта
@@ -63,6 +87,26 @@ def niche_for_band(band: str) -> str:
     if band == "maybe":
         return ManagementLead.NicheStatus.MAYBE
     return ManagementLead.NicheStatus.NON_NICHE
+
+
+def compute_overall_from_criteria(by_key: dict) -> int:
+    """Детермінований серверний overall (0..100) зі строго оцінених критеріїв +
+    жорсткий apparel-гейт. Замінює холістичне число моделі (фікс «завжди ~85»)."""
+    def _c(key: str) -> int:
+        try:
+            return max(0, min(10, int(round(float(by_key.get(key, 0) or 0)))))
+        except (TypeError, ValueError):
+            return 0
+
+    total_w = sum(CRITERION_WEIGHTS.values()) or 1
+    raw = sum(CRITERION_WEIGHTS[k] * (_c(k) / 10.0) for k in CRITERION_WEIGHTS)
+    score = int(round(100 * raw / total_w))
+    apparel = _c("apparel_focus")
+    if apparel <= 2:
+        score = min(score, APPAREL_GATE_UNFIT_MAX)
+    elif apparel <= 4:
+        score = min(score, APPAREL_GATE_MAYBE_MAX)
+    return max(0, min(100, score))
 
 
 def build_lead_context(lead: ManagementLead) -> str:
@@ -118,6 +162,13 @@ def build_system_prompt() -> str:
         "спільнота; ~40% цивільні, яким близька urban / streetwear / military-adjacent естетика. "
         "Купують і чоловіки, і жінки. ЕСТЕТИКА ВАЖЛИВІША ЗА СТАТЬ — жіночий streetwear-магазин теж "
         "підходить, якщо збігається стиль.\n\n"
+        "ГОЛОВНЕ ПРАВИЛО (ВИРІШАЛЬНЕ): TwoComms продає та друкує ОДЯГ (футболки, "
+        "худі, лонгсліви, мерч). Партнер придатний, ЛИШЕ якщо він продає одяг або "
+        "реально може його продавати / замовляти друк / ставити на полицю. Якщо "
+        "магазин торгує лише спорядженням, оптикою, зброєю, амуніцією, "
+        "комплектуючими БЕЗ текстилю — це НЕ наш клієнт: став apparel_focus=0..2, "
+        "навіть якщо аудиторія мілітарі. Сама лише мілітарі-аудиторія НЕ робить "
+        "магазин придатним — потрібен саме одяг або його реальний потенціал.\n\n"
         "КАНАЛИ СПІВПРАЦІ (partnership_fit, обери всі релевантні):\n"
         "  - wholesale: опт готового асортименту TwoComms\n"
         "  - custom_print: кастом-друк під їхній бренд (white-label; друкуємо будь-який принт)\n"
@@ -125,7 +176,10 @@ def build_system_prompt() -> str:
         "  - dropship: дропшипінг\n"
         "  - test_batch: тестова партія\n"
         "  - shelf: фізмагазин/військторг ставить наш товар на полицю\n\n"
-        "КРИТЕРІЇ (кожен 0..10):\n"
+        "КРИТЕРІЇ (кожен 0..10) — оцінюй СТРОГО за шкалою:\n"
+        "  0-2 = ознака відсутня або протилежна; 3-4 = слабка; 5-6 = помірна; "
+        "7-8 = сильна з доказами; 9-10 = виняткова, лідер ринку.\n"
+        "  Більшість магазинів реально на 3-6. НЕ завищуй — кожен бал 7+ підкріпи фактом.\n"
         f"{criteria_lines}\n\n"
         "Тобі дають дані магазину (назва, місто, сайт, Google-категорії, адреса) і, якщо вдалося, "
         "текст головної сторінки сайту. Використай Google Search, щоб дослідити бренд: знайти "
@@ -133,8 +187,9 @@ def build_system_prompt() -> str:
         "чи це військторг, маркетплейс-продавець, мережа тощо.\n\n"
         "ВАЖЛИВО: не вигадуй. Якщо даних недостатньо — постав confidence='low' і чесно пиши "
         "'недостатньо даних'. Усі твердження про бренд підкріплюй джерелами (sources).\n\n"
-        "overall_score (0..100) — холістична оцінка придатності (НЕ проста сума критеріїв, "
-        "а зважений висновок з урахуванням усіх сигналів).\n\n"
+        "overall_score (0..100) — твоя орієнтовна оцінка; ФІНАЛЬНИЙ бал рахує сервер "
+        "із твоїх КРИТЕРІЇВ (зважено) + apparel-гейт. Тож головне — чесні, строгі бали "
+        "критеріїв, а не загальне число.\n\n"
         "Відповідай СУВОРО валідним JSON (без markdown, без ```), українською, за схемою:\n"
         "{\n"
         '  "overall_score": <0..100>,\n'
@@ -192,11 +247,9 @@ def normalize_result(raw: dict) -> dict:
             "comment": _as_str(item.get("comment")),
         })
 
-    if raw.get("overall_score") in (None, ""):
-        avg = sum(c["score"] for c in criteria) / len(criteria) if criteria else 0
-        overall = _coerce_int(avg * 10, 0, 100, 0)
-    else:
-        overall = _coerce_int(raw.get("overall_score"), 0, 100, 0)
+    # overall рахуємо НА СЕРВЕРІ з критеріїв (зважено + apparel-гейт), а не беремо
+    # холістичне число моделі — інакше воно завжди ~85.
+    overall = compute_overall_from_criteria({c["key"]: c["score"] for c in criteria})
 
     category = _as_str(raw.get("verdict_category")) or "other"
     if category not in VERDICT_CATEGORIES:

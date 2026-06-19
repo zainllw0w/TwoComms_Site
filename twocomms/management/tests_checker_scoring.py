@@ -43,12 +43,13 @@ class BandMappingTests(TestCase):
         self.assertEqual(lc.niche_for_band("maybe"), ManagementLead.NicheStatus.MAYBE)
         self.assertEqual(lc.niche_for_band("unfit"), ManagementLead.NicheStatus.NON_NICHE)
 
-    def test_criteria_has_ten_keys(self):
-        self.assertEqual(len(lc.CRITERIA), 10)
+    def test_criteria_includes_apparel_focus_and_eleven_keys(self):
+        self.assertEqual(len(lc.CRITERIA), 11)
         keys = [c[0] for c in lc.CRITERIA]
+        self.assertIn("apparel_focus", keys)
         self.assertIn("custom_print_potential", keys)
         self.assertIn("collab_potential", keys)
-        self.assertEqual(len(set(keys)), 10)
+        self.assertEqual(len(set(keys)), 11)
 
 
 class ContextBuildTests(TestCase):
@@ -123,18 +124,20 @@ class NormalizeResultTests(TestCase):
             "sources": [{"title": "IG", "url": "https://instagram.com/coyote"}],
         }
         norm = lc.normalize_result(raw)
-        self.assertEqual(norm["overall_score"], 82)
+        # overall тепер рахується НА СЕРВЕРІ з критеріїв (усі=8 → 80), модельні 82 ігноруються
+        self.assertEqual(norm["overall_score"], 80)
         self.assertEqual(norm["verdict_category"], "brand")
         self.assertEqual(norm["partnership_fit"], ["wholesale", "collab"])
-        self.assertEqual(len(norm["criteria"]), 10)
+        self.assertEqual(len(norm["criteria"]), 11)
 
     def test_normalize_clamps_and_defaults(self):
         norm = lc.normalize_result({"overall_score": 250, "criteria": []})
-        self.assertEqual(norm["overall_score"], 100)
+        # порожні критерії → 0 (server-computed), модельні 250 ігноруються
+        self.assertEqual(norm["overall_score"], 0)
         self.assertEqual(norm["confidence"], "low")
         self.assertEqual(norm["verdict_category"], "other")
         self.assertEqual(norm["partnership_fit"], [])
-        self.assertEqual(len(norm["criteria"]), 10)
+        self.assertEqual(len(norm["criteria"]), 11)
         self.assertEqual(norm["criteria"][0]["score"], 0)
 
     def test_normalize_derives_score_when_missing(self):
@@ -168,18 +171,21 @@ class ScoreLeadTests(TestCase):
              patch.object(lc, "fetch_website_text", return_value=("", False)):
             check = lc.score_lead(lead)
         self.assertEqual(check.status, LeadAICheck.Status.DONE)
-        self.assertEqual(check.overall_score, 82)
+        self.assertEqual(check.overall_score, 80)  # server-computed з критеріїв (усі=8)
         self.assertEqual(check.model_used, "gemini-2.5-flash")
         gm.assert_called_once()
         lead.refresh_from_db()
-        self.assertEqual(lead.ai_score, 82)
+        self.assertEqual(lead.ai_score, 80)
         self.assertEqual(lead.ai_verdict, "fit")
         self.assertIsNotNone(lead.ai_checked_at)
         self.assertEqual(lead.niche_status, ManagementLead.NicheStatus.NICHE)
 
     def test_score_lead_maybe_band_maps_niche(self):
         lead = ManagementLead.objects.create(shop_name="Shop2", phone="0501112244")
-        fake = {"parsed": self._raw(55), "usage": {}, "model": "m"}
+        raw = self._raw(55)
+        # критерії ~5 → server-computed ~50 = maybe (apparel_focus=5 → без гейту)
+        raw["criteria"] = [{"key": k, "score": 5, "comment": "c"} for k, _ in lc.CRITERIA]
+        fake = {"parsed": raw, "usage": {}, "model": "m"}
         with patch.object(lc, "gemini_generate_grounded", return_value=fake), \
              patch.object(lc, "fetch_website_text", return_value=("", False)):
             lc.score_lead(lead)
@@ -249,3 +255,60 @@ class CheckerKeysExhaustedTests(TestCase):
         self.assertEqual(check.status, LeadAICheck.Status.ERROR)
         self.assertEqual(lead.ai_verdict, "error")
         self.assertIsNotNone(lead.ai_checked_at)
+
+
+class CheckerScoreCalibrationTests(TestCase):
+    """Фаза 2: overall рахується на сервері з критеріїв (фікс «завжди ~85»);
+    жорсткий apparel-гейт — бренд продає ОДЯГ, тож магазин без одягу = unfit,
+    навіть якщо мілітарі-аудиторія висока."""
+
+    def _by(self, default=5, **over):
+        bk = {k: default for k, _ in lc.CRITERIA}
+        bk.update(over)
+        return bk
+
+    def test_all_high_real_apparel_fit_is_fit(self):
+        score = lc.compute_overall_from_criteria(self._by(default=9))
+        self.assertGreaterEqual(score, 70)
+        self.assertEqual(lc.band_for_score(score), "fit")
+
+    def test_all_mid_is_maybe(self):
+        score = lc.compute_overall_from_criteria(self._by(default=5))
+        self.assertEqual(score, 50)
+        self.assertEqual(lc.band_for_score(score), "maybe")
+
+    def test_apparel_gate_caps_non_apparel_to_unfit(self):
+        # все високо, але магазин НЕ продає одяг + мілітарі-аудиторія максимум
+        score = lc.compute_overall_from_criteria(
+            self._by(default=8, apparel_focus=1, military_tactical=10)
+        )
+        self.assertLessEqual(score, 25)
+        self.assertEqual(lc.band_for_score(score), "unfit")
+
+    def test_weak_apparel_capped_below_fit(self):
+        score = lc.compute_overall_from_criteria(self._by(default=9, apparel_focus=4))
+        self.assertLessEqual(score, 55)
+        self.assertNotEqual(lc.band_for_score(score), "fit")
+
+    def test_military_alone_does_not_make_fit_or_maybe(self):
+        # тільки military_tactical=10, решта (вкл. apparel) низькі → не проходить
+        score = lc.compute_overall_from_criteria(
+            self._by(default=2, military_tactical=10)
+        )
+        self.assertLess(score, 40)
+        self.assertEqual(lc.band_for_score(score), "unfit")
+
+    def test_military_tactical_has_no_direct_weight(self):
+        # підняття лише military_tactical НЕ змінює score (вага 0 — лише контекст)
+        base = lc.compute_overall_from_criteria(self._by(default=6, military_tactical=0))
+        hi = lc.compute_overall_from_criteria(self._by(default=6, military_tactical=10))
+        self.assertEqual(base, hi)
+
+    def test_normalize_result_ignores_inflated_model_score(self):
+        raw = {
+            "overall_score": 85,  # модель завищила
+            "criteria": [{"key": k, "score": 1, "comment": ""} for k, _ in lc.CRITERIA],
+            "verdict_category": "voentorg", "confidence": "high",
+        }
+        norm = lc.normalize_result(raw)
+        self.assertLess(norm["overall_score"], 25)  # усі критерії=1 → низько, не 85
