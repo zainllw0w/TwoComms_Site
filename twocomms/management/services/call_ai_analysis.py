@@ -324,6 +324,7 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
                 return ("key_429", None)
             log.append(f"{key_name}/{model}: 429 → модель не free, skip")
             _emit(f"{key_name}/{model}: 🚫 429 (модель платна) → скіп моделі ({dt:.1f}с)")
+            gemini_keys.mark_model_unavailable(model)
             return ("model_skip", None)
         except _GeminiModelUnavailable as exc:
             dt = time.monotonic() - t0

@@ -223,3 +223,80 @@ class KeyLevel429Tests(SimpleTestCase):
         from management.services import gemini_keys as gk
         self.assertTrue(gk.is_key_level_429("gemini-2.5-flash", grounded=True))
         self.assertFalse(gk.is_key_level_429("gemini-3.5-flash", grounded=True))
+
+
+class ModelChainDegradationTests(SimpleTestCase):
+    """Фаза 1: цепочки моделей — лише безкоштовні, з деградацією до меншої моделі.
+    Платні моделі (pro) НЕ в цепочці (free-tier ключі не можуть їх юзати → марна трата)."""
+
+    def test_management_degrades_to_smaller_free_models_without_paid(self):
+        from management.services import gemini_keys as gk
+        chain = gk.role_model_chains()["management"]
+        self.assertEqual(chain[0], "gemini-3.5-flash")
+        self.assertIn("gemini-2.5-flash", chain)
+        self.assertIn("gemini-2.5-flash-lite", chain)
+        self.assertNotIn("gemini-3.1-pro-preview", chain)
+        self.assertNotIn("gemini-3-pro-preview", chain)
+        self.assertNotIn("gemini-2.5-pro", chain)
+        for m in chain:
+            self.assertIn(m, gk.FREE_QUOTA_MODELS)
+
+    def test_chat_chain_is_free_and_degrading(self):
+        from management.services import gemini_keys as gk
+        chain = gk.role_model_chains()["chat"]
+        self.assertEqual(chain[0], "gemini-3.5-flash")
+        self.assertIn("gemini-2.5-flash-lite", chain)
+        for m in chain:
+            self.assertIn(m, gk.FREE_QUOTA_MODELS)
+
+    def test_checker_chain_uses_only_free_grounding_models(self):
+        from management.services import gemini_keys as gk
+        chain = gk.role_model_chains()["checker"]
+        self.assertTrue(chain)
+        for m in chain:
+            self.assertIn(m, gk.FREE_GROUNDING_MODELS)
+        self.assertNotIn("gemini-3.5-flash", chain)
+
+
+class ModelUnavailableSkipTests(TestCase):
+    """Фаза 1: модель, що повернула 429-платно / 404 — позначається недоступною й
+    одразу пропускається (не б'ємо її на решті ключів / у наступних викликах)."""
+
+    def setUp(self):
+        from management.services import gemini_keys as gk
+        gk.clear_model_unavailable()
+
+    def tearDown(self):
+        from management.services import gemini_keys as gk
+        gk.clear_model_unavailable()
+
+    def test_mark_and_is_unavailable_with_ttl(self):
+        from management.services import gemini_keys as gk
+        now = timezone.now()
+        self.assertFalse(gk.is_model_unavailable("gemini-3.1-pro-preview", now))
+        gk.mark_model_unavailable("gemini-3.1-pro-preview", seconds=600, now=now)
+        self.assertTrue(gk.is_model_unavailable("gemini-3.1-pro-preview", now))
+        self.assertFalse(
+            gk.is_model_unavailable("gemini-3.1-pro-preview", now + datetime.timedelta(seconds=601))
+        )
+
+    def test_iter_attempts_skips_unavailable_model_entirely(self):
+        from management.services import gemini_keys as gk
+        gk.mark_model_unavailable("gemini-3.5-flash", seconds=600)
+        with patch.dict("os.environ", ENV6, clear=False):
+            combos = list(gk.iter_attempts("chat"))
+        self.assertNotIn("gemini-3.5-flash", [m for _, _, m in combos])
+        # нижча модель усе ще доступна
+        self.assertIn("gemini-2.5-flash", [m for _, _, m in combos])
+
+    def test_iter_attempts_stops_model_when_marked_unavailable_midpass(self):
+        from management.services import gemini_keys as gk
+        with patch.dict("os.environ", ENV6, clear=False):
+            gen = gk.iter_attempts("chat")
+            first = next(gen)
+            self.assertEqual(first[2], "gemini-3.5-flash")
+            # імітуємо: на 1-му ключі модель виявилась платною → позначили
+            gk.mark_model_unavailable("gemini-3.5-flash", seconds=600)
+            rest = list(gen)
+        # після позначення 3.5-flash більше не пробується на інших ключах
+        self.assertEqual([(k, m) for k, _, m in rest if m == "gemini-3.5-flash"], [])

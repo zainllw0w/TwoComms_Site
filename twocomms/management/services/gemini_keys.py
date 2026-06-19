@@ -38,12 +38,18 @@ DEFAULT_ROLE_KEY_POOLS = {
     "checker": {"own": ["GEMINI_API5", "GEMINI_API6"], "borrow": []},
 }
 
-# Цепочки моделей за ролями. Чат/менеджмент НІКОЛИ не нижче gen-3.
-# Чекер може опускатись до 2.5 (єдина роль) — там працює безкоштовний grounding.
+# Цепочки моделей за ролями — ЛИШЕ безкоштовні моделі, з деградацією до меншої.
+# Платні моделі (pro-preview тощо) свідомо НЕ включаємо: на free-tier ключах вони
+# завжди дають 429-платно → марна трата запиту й часу (вимога продукту: біллінгові
+# моделі одразу пропускати). Якщо пріоритетна модель недоступна — плавно
+# спускаємось до меншої безкоштовної (3.5-flash → 3.1-flash-lite → 2.5-flash →
+# 2.5-flash-lite). Ротація КЛЮЧІВ (API3→API4→…) — через model-major перебір в
+# iter_attempts: пріоритетна модель пробується на ВСІХ ключах перш ніж спуститись.
 DEFAULT_ROLE_MODEL_CHAINS = {
-    "chat": ["gemini-3.5-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"],
-    "management": ["gemini-3.5-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite"],
-    "checker": ["gemini-3.5-flash", "gemini-2.5-flash"],
+    "chat": ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-2.5-flash-lite"],
+    "management": ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-2.5-flash-lite"],
+    # Grounding (Google Search) безкоштовний ЛИШЕ на 2.5-flash / 2.5-flash-lite.
+    "checker": ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
 }
 
 ATTEMPTS_PER_MODEL = {"chat": 1, "management": 2, "checker": 2}
@@ -95,6 +101,12 @@ TOPUP_COOLDOWN_SECONDS = 6 * 3600  # платний проект без кошт
 
 # In-process кеш перевантажених моделей: {model: datetime_until_utc}.
 _model_overload: dict[str, datetime.datetime] = {}
+
+# Модель повернула 429-платно (потрібен біллінг) → позначаємо недоступною на цей
+# період і ОДРАЗУ пропускаємо (не б'ємо її на решті ключів і в наступних викликах).
+# Cross-process через Django cache + локальний кеш процесу.
+PAID_MODEL_SKIP_SECONDS = 30 * 60
+_model_unavailable: dict[str, datetime.datetime] = {}
 
 _RETRY_RE = re.compile(r'"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"')
 
@@ -219,6 +231,53 @@ def clear_model_overload() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Недоступні (платні / 404) моделі: позначити й одразу пропускати
+# ---------------------------------------------------------------------------
+def _skip_cache_key(model: str) -> str:
+    return f"gemini_model_skip:{model}"
+
+
+def mark_model_unavailable(model: str, seconds: int = PAID_MODEL_SKIP_SECONDS,
+                           now: datetime.datetime | None = None) -> None:
+    """Позначити модель недоступною (повернула 429-платно) на `seconds`.
+    Зберігаємо і в локальному кеші процесу, і в Django cache (cross-process:
+    демон бота, Passenger-воркери, cron бачать однаково)."""
+    now = now or timezone.now()
+    until = now + datetime.timedelta(seconds=max(1, int(seconds)))
+    _model_unavailable[model] = until
+    try:
+        from django.core.cache import cache
+        cache.set(_skip_cache_key(model), until.timestamp(), timeout=max(1, int(seconds)) + 5)
+    except Exception:
+        pass
+
+
+def is_model_unavailable(model: str, now: datetime.datetime | None = None) -> bool:
+    now = now or timezone.now()
+    until = _model_unavailable.get(model)
+    if until is not None:
+        return until > now
+    try:
+        from django.core.cache import cache
+        ts = cache.get(_skip_cache_key(model))
+        if ts:
+            return datetime.datetime.fromtimestamp(float(ts), tz=datetime.timezone.utc) > now
+    except Exception:
+        pass
+    return False
+
+
+def clear_model_unavailable() -> None:
+    try:
+        from django.core.cache import cache
+        for m in list(_model_unavailable.keys()):
+            cache.delete(_skip_cache_key(m))
+    except Exception:
+        pass
+    _model_unavailable.clear()
+
+
+# ---------------------------------------------------------------------------
 # Підбір (key, model) комбінацій
 # ---------------------------------------------------------------------------
 def _sticky_order(key_names: list[str]) -> list[str]:
@@ -257,7 +316,13 @@ def iter_attempts(role: str):
     for model in models:
         if model in overloaded_at_start:
             continue
+        if is_model_unavailable(model, timezone.now()):
+            continue  # платна/недоступна модель — пропускаємо повністю
         for key_name, kv in present:
+            # Платну модель, виявлену ПІД ЧАС цього проходу (на попередньому ключі),
+            # одразу припиняємо пробувати на решті ключів — економимо час/квоту.
+            if is_model_unavailable(model, timezone.now()):
+                break
             if not is_available(key_name, timezone.now()):
                 continue  # ключ у кулдауні (429) → пропускаємо для цієї моделі
             yield (key_name, kv, model)
