@@ -68,7 +68,7 @@ class EchoTakeoverTests(TestCase):
     def test_bot_own_echo_ignored(self, mock_notify):
         cache.clear()
         c = IgClient.get_or_create_for_sender("eo2")
-        bot._mark_bot_sent("Ваше замовлення прийнято, дякуємо!")
+        bot._mark_bot_sent("eo2", "Ваше замовлення прийнято, дякуємо!")
         bot._handle_echo("eo2", "Ваше замовлення прийнято, дякуємо!")
         c.refresh_from_db()
         self.assertFalse(c.bot_paused)

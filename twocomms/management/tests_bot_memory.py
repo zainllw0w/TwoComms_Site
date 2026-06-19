@@ -99,3 +99,63 @@ class PurgeCommandTests(TestCase):
         out = StringIO()
         call_command("purge_ig_clients", stdout=out)
         self.assertIn("Видалено карток", out.getvalue())
+
+
+class ClientContextNoteTests(TestCase):
+    def test_none_when_nothing(self):
+        c = IgClient.get_or_create_for_sender("cc0")
+        self.assertIsNone(bot_memory.client_context_note(c))
+
+    def test_ad_attribution_with_mapped_product(self):
+        from management.models import BotAdCampaign
+        from storefront.models import Category, Product, ProductStatus
+
+        cat = Category.objects.create(name="Худі", slug="h-cc")
+        p = Product.objects.create(
+            title="Худі Kharkiv", slug="hk-cc", category=cat, price=950, status=ProductStatus.PUBLISHED
+        )
+        BotAdCampaign.objects.create(ad_id="555", title="Промо худі", theme="hoodie", product=p)
+        c = IgClient.get_or_create_for_sender("cc1")
+        c.ad_id = "555"
+        c.ad_title = "Промо худі"
+        c.save()
+        note = bot_memory.client_context_note(c)
+        self.assertIn("Худі Kharkiv", note)
+        self.assertIn("950", note)
+
+    def test_ad_title_only(self):
+        c = IgClient.get_or_create_for_sender("cc2")
+        c.ad_title = "Розпродаж футболок"
+        c.save()
+        note = bot_memory.client_context_note(c)
+        self.assertIn("реклам", note.lower())
+        self.assertIn("Розпродаж футболок", note)
+
+    def test_returning_customer(self):
+        c = IgClient.get_or_create_for_sender("cc3")
+        c.purchases_count = 2
+        c.total_spent = 1900
+        c.save()
+        note = bot_memory.client_context_note(c)
+        self.assertIn("постій", note.lower())
+
+
+class ContextNoteInjectionTests(TestCase):
+    @patch("management.services.call_ai_analysis.gemini_generate_text")
+    def test_context_note_injected(self, mock_gen):
+        from management.models import InstagramBotSettings
+        from management.services import instagram_bot as bot
+
+        captured = {}
+
+        def _fake(payload, role="chat", manual_key=None):
+            captured["p"] = payload
+            return {"parsed": "ок", "model": "x", "meta": {}}
+
+        mock_gen.side_effect = _fake
+        bot.gemini_generate(
+            InstagramBotSettings.load(), [{"role": "user", "text": "привіт"}],
+            context_note="КОНТЕКСТ-XYZ",
+        )
+        sysi = captured["p"].get("system_instruction", {}).get("parts", [{}])[0].get("text", "")
+        self.assertIn("КОНТЕКСТ-XYZ", sysi)

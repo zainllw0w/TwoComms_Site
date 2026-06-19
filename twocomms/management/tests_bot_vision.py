@@ -103,7 +103,33 @@ class GenerateFingerprintsCommandTests(TestCase):
 
         out = StringIO()
         call_command("generate_bot_fingerprints", stdout=out)
-        self.assertIn("Готово", out.getvalue())
+        self.assertIn("Оброблено товарів", out.getvalue())
+
+    @patch("management.services.bot_vision.fingerprint_product")
+    def test_skips_done_and_counts_only_needy(self, mock_fp):
+        from io import StringIO
+
+        from django.core.management import call_command
+        from productcolors.models import Color, ProductColorVariant
+        from storefront.models import Category, Product, ProductStatus
+
+        cat = Category.objects.create(name="X", slug="x-cmd")
+        color = Color.objects.create(name="ч", primary_hex="#000000")
+        p_done = Product.objects.create(
+            title="Done", slug="done-cmd", category=cat, price=100, status=ProductStatus.PUBLISHED
+        )
+        ProductColorVariant.objects.create(
+            product=p_done, color=color, metadata={"bot_vision": {"summary": "x"}}
+        )
+        p_need = Product.objects.create(
+            title="Need", slug="need-cmd", category=cat, price=100, status=ProductStatus.PUBLISHED
+        )
+        ProductColorVariant.objects.create(product=p_need, color=color)
+        mock_fp.return_value = 1
+        out = StringIO()
+        call_command("generate_bot_fingerprints", stdout=out)
+        self.assertEqual(mock_fp.call_count, 1)  # лише для товару, що потребує
+        self.assertIn("пропущено готових: 1", out.getvalue())
 
 
 class FormatCandidatesTests(SimpleTestCase):

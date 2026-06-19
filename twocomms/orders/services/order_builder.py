@@ -33,6 +33,13 @@ def create_order_from_deal(deal, *, created_by=None):
     phone = deal.np_phone or deal.client.phone or ""
 
     with transaction.atomic():
+        # Блокування рядка угоди + повторна перевірка: захист від дубля замовлення
+        # при гонці (вебхук Monobank + cron-поллінг одночасно).
+        locked = deal.__class__.objects.select_for_update().get(pk=deal.pk)
+        if locked.order_id:
+            deal.order_id = locked.order_id
+            deal.status = locked.status
+            return locked.order
         order = Order(
             full_name=full_name[:200],
             phone=phone[:32],
@@ -68,9 +75,11 @@ def create_order_from_deal(deal, *, created_by=None):
         if items:
             OrderItem.objects.bulk_create(items)
 
-        deal.order = order
-        deal.status = deal.Status.ORDER_CREATED
-        deal.save(update_fields=["order", "status", "updated_at"])
+        locked.order = order
+        locked.status = locked.Status.ORDER_CREATED
+        locked.save(update_fields=["order", "status", "updated_at"])
+        deal.order_id = order.id
+        deal.status = locked.Status.ORDER_CREATED
 
     # Лічильники й стадія клієнта (best-effort, поза транзакцією замовлення).
     try:

@@ -16,4 +16,13 @@ class Command(BaseCommand):
 
     def handle(self, *args, **opts):
         paid = bot_payments.poll_pending_deals(limit=opts.get("limit") or 50)
-        self.stdout.write(self.style.SUCCESS(f"Оплачено угод за цей прогін: {paid}"))
+        # Safety-net: дотворюємо замовлення для оплачених угод з повними даними НП,
+        # якщо модель не виставила тег [ORDER].
+        from management.services import bot_orders
+
+        fulfilled = bot_orders.fulfill_ready_paid_deals(limit=opts.get("limit") or 50)
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Оплачено угод за цей прогін: {paid}; дотворено замовлень: {fulfilled}"
+            )
+        )

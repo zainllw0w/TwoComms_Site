@@ -102,3 +102,41 @@ def purge_stale_clients(days: int = RETENTION_DAYS) -> int:
     if count:
         qs.delete()
     return count
+
+
+def client_context_note(client) -> str | None:
+    """Компактний контекст клієнта для швидкої орієнтації бота: атрибуція реклами
+    (з мапінгом на товар/тему) і статус постійного клієнта. Дає змогу одразу
+    вести по суті (особливо для трафіку з реклами), а не питати «дайте фото»."""
+    parts = []
+    try:
+        from management.models import BotAdCampaign
+
+        camp = None
+        if client.ad_id or client.ad_ref:
+            camp = BotAdCampaign.match(ad_id=client.ad_id or None, ref=client.ad_ref or None)
+        if camp and camp.product_id:
+            p = camp.product
+            try:
+                price = int(getattr(p, "final_price", None) or p.price)
+            except Exception:
+                price = getattr(p, "price", "")
+            title = camp.title or client.ad_title or "реклама"
+            parts.append(
+                f"клієнт прийшов з реклами «{title}» — його найімовірніше цікавить "
+                f"«{p.title}» ({price} грн, https://twocomms.shop/product/{p.slug}/); "
+                f"веди одразу по суті, не починай з «надішліть фото»"
+            )
+        elif camp and camp.theme:
+            parts.append(f"клієнт з реклами «{camp.title or client.ad_title}», тема: {camp.theme}")
+        elif client.ad_title:
+            parts.append(f"клієнт прийшов з реклами: «{client.ad_title}»")
+    except Exception:
+        pass
+    if (client.purchases_count or 0) > 0:
+        parts.append(
+            f"постійний клієнт (покупок: {client.purchases_count}) — спілкуйся тепло, як зі знайомим"
+        )
+    if not parts:
+        return None
+    return "[КОНТЕКСТ КЛІЄНТА] " + "; ".join(parts) + "."

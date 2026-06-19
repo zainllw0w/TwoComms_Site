@@ -62,12 +62,23 @@ class ClientsApiTests(TestCase):
 
 @MGMT
 class ClientsPageRenderTests(TestCase):
-    def test_bot_page_has_clients_section(self):
+    def test_bot_page_has_tabbed_structure(self):
         admin = User.objects.create_user("adm2", password="x", is_staff=True)
         self.client.force_login(admin)
         r = self.client.get(reverse("management_bot"))
         self.assertEqual(r.status_code, 200)
-        self.assertIn("Клієнти", r.content.decode("utf-8"))
+        html = r.content.decode("utf-8")
+        # 4 вкладки
+        self.assertIn("Клієнти", html)
+        self.assertIn("Налаштування", html)
+        self.assertIn("Інструкції", html)
+        self.assertIn("Огляд", html)
+        # таб-структура (панелі)
+        self.assertIn('data-tab="clients"', html)
+        self.assertIn('data-panel="clients"', html)
+        self.assertIn('data-panel="settings"', html)
+        self.assertIn('data-panel="kb"', html)
+        self.assertIn("bot-tab-ind", html)  # анімований індикатор
 
 
 @MGMT

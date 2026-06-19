@@ -5,36 +5,63 @@
 
 {% block extra_css %}
 <style>
-.bot-wrap{max-width:1080px;margin:0 auto;padding:24px 18px 60px;color:#e7ecf3;}
-.bot-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
-@media(max-width:860px){.bot-grid{grid-template-columns:1fr;}}
-.bot-card{background:#11151f;border:1px solid #1e2430;border-radius:16px;padding:18px 20px;}
-.bot-card h2{font-size:15px;margin:0 0 14px;letter-spacing:.02em;color:#aeb8c7;font-weight:600;}
-.bot-status-head{display:flex;align-items:center;gap:14px;margin-bottom:16px;}
-.bot-dot{width:14px;height:14px;border-radius:50%;background:#5b6472;box-shadow:0 0 0 4px rgba(255,255,255,.04);}
-.bot-dot.on{background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.18);animation:botpulse 1.6s infinite;}
-.bot-dot.off{background:#ef4444;box-shadow:0 0 0 4px rgba(239,68,68,.15);}
-@keyframes botpulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.35);}70%{box-shadow:0 0 0 10px rgba(34,197,94,0);}100%{box-shadow:0 0 0 0 rgba(34,197,94,0);}}
-.bot-state-text{font-size:18px;font-weight:600;}
-.bot-state-sub{font-size:12.5px;color:#8b95a5;margin-top:2px;}
-.bot-metrics{display:flex;gap:22px;flex-wrap:wrap;margin:6px 0 18px;}
-.bot-metric .v{font-size:22px;font-weight:700;}
-.bot-metric .k{font-size:11.5px;color:#8b95a5;text-transform:uppercase;letter-spacing:.04em;}
-.bot-actions{display:flex;gap:10px;}
-.bot-btn{border:0;border-radius:10px;padding:11px 22px;font-size:14px;font-weight:600;cursor:pointer;color:#fff;transition:.15s;}
+.bot-app{max-width:1120px;margin:0 auto;padding:20px 18px 64px;color:#e7ecf3;}
+.bot-app *{box-sizing:border-box;}
+
+/* ---- Top bar ---- */
+.bot-top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px;}
+.bot-top-l{display:flex;align-items:center;gap:14px;}
+.bot-top h1{font-size:22px;font-weight:700;margin:0;letter-spacing:-.01em;}
+.bot-pill{display:inline-flex;align-items:center;gap:8px;background:#11151f;border:1px solid #1e2430;border-radius:999px;padding:6px 13px;font-size:12.5px;color:#aeb8c7;}
+.bot-pill .dot{width:9px;height:9px;border-radius:50%;background:#5b6472;}
+.bot-pill.on .dot{background:#22c55e;animation:botpulse 1.7s infinite;}
+.bot-pill.off .dot{background:#ef4444;}
+.bot-pill.idle .dot{background:#f59e0b;}
+@keyframes botpulse{0%{box-shadow:0 0 0 0 rgba(34,197,94,.5);}70%{box-shadow:0 0 0 8px rgba(34,197,94,0);}100%{box-shadow:0 0 0 0 rgba(34,197,94,0);}}
+.bot-top-actions{display:flex;gap:9px;}
+.bot-btn{border:0;border-radius:10px;padding:10px 20px;font-size:13.5px;font-weight:600;cursor:pointer;color:#fff;transition:transform .12s,background .15s,opacity .15s;}
+.bot-btn:active{transform:scale(.97);}
 .bot-btn.start{background:#16a34a;}.bot-btn.start:hover{background:#15803d;}
 .bot-btn.stop{background:#dc2626;}.bot-btn.stop:hover{background:#b91c1c;}
-.bot-btn:disabled{opacity:.45;cursor:not-allowed;}
-.bot-field{margin-bottom:14px;}
-.bot-field label{display:block;font-size:12.5px;color:#9aa4b4;margin-bottom:6px;}
-.bot-field input[type=text],.bot-field input[type=number]{width:100%;background:#0c0f17;border:1px solid #232a38;border-radius:9px;color:#e7ecf3;padding:9px 11px;font-size:13.5px;}
-.bot-radio{display:inline-flex;align-items:center;gap:6px;margin-right:16px;font-size:13px;color:#cdd5e1;}
-.bot-save{background:#2563eb;color:#fff;border:0;border-radius:9px;padding:9px 18px;font-weight:600;cursor:pointer;}
-.bot-save:hover{background:#1d4ed8;}
-.bot-hint{font-size:12px;color:#7e889a;}
-.bot-console{grid-column:1/-1;}
-.bot-console-box{background:#06080d;border:1px solid #1c222e;border-radius:12px;height:340px;overflow-y:auto;padding:12px 14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.55;}
-.bot-line{white-space:pre-wrap;word-break:break-word;padding:1px 0;}
+.bot-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+/* ---- Tabs ---- */
+.bot-tabs{position:relative;display:flex;gap:4px;border-bottom:1px solid #1e2430;margin-bottom:20px;overflow-x:auto;}
+.bot-tab{position:relative;background:none;border:0;color:#8b95a5;font-size:14px;font-weight:600;padding:12px 16px;cursor:pointer;white-space:nowrap;transition:color .18s;display:inline-flex;align-items:center;gap:7px;}
+.bot-tab:hover{color:#cdd5e1;}
+.bot-tab.active{color:#fff;}
+.bot-tab .badge{min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#1e2430;color:#aeb8c7;font-size:10.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;transition:.18s;}
+.bot-tab.active .badge{background:#2563eb;color:#fff;}
+.bot-tab-ind{position:absolute;bottom:-1px;left:0;height:2px;width:0;background:linear-gradient(90deg,#2563eb,#7fb0ff);border-radius:2px;transition:left .28s cubic-bezier(.4,0,.2,1),width .28s cubic-bezier(.4,0,.2,1);}
+
+/* ---- Panels ---- */
+.bot-panel{display:none;}
+.bot-panel.active{display:block;animation:panelIn .26s cubic-bezier(.2,.6,.2,1);}
+@keyframes panelIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+.bot-grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:880px){.bot-grid2{grid-template-columns:1fr;}}
+
+.bot-card{background:#11151f;border:1px solid #1e2430;border-radius:16px;padding:18px 20px;}
+.bot-card h2{font-size:14px;margin:0 0 14px;letter-spacing:.02em;color:#aeb8c7;font-weight:600;text-transform:uppercase;}
+.bot-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.bot-card-head h2{margin:0;}
+
+/* ---- Metrics ---- */
+.bot-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:14px;}
+.bot-metric{background:#0c0f17;border:1px solid #1a2030;border-radius:12px;padding:12px;text-align:center;}
+.bot-metric .v{font-size:23px;font-weight:700;line-height:1;}
+.bot-metric .k{font-size:10.5px;color:#8b95a5;text-transform:uppercase;letter-spacing:.04em;margin-top:6px;}
+.bot-state-text{font-size:17px;font-weight:600;}
+.bot-state-sub{font-size:12.5px;color:#8b95a5;margin-top:2px;}
+.bot-status-head{display:flex;align-items:center;gap:13px;margin-bottom:16px;}
+.bot-dot{width:13px;height:13px;border-radius:50%;background:#5b6472;}
+.bot-dot.on{background:#22c55e;animation:botpulse 1.7s infinite;}
+.bot-dot.off{background:#ef4444;}
+
+/* ---- Console ---- */
+.bot-console-box{background:#06080d;border:1px solid #1c222e;border-radius:12px;height:420px;overflow-y:auto;padding:12px 14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.55;}
+.bot-line{white-space:pre-wrap;word-break:break-word;padding:1px 0;animation:lineIn .2s ease;}
+@keyframes lineIn{from{opacity:0;}to{opacity:1;}}
 .bot-line .t{color:#5b6472;margin-right:8px;}
 .bot-line .e{font-weight:600;margin-right:6px;}
 .bot-line.info .e{color:#60a5fa;}
@@ -42,170 +69,211 @@
 .bot-line.warning .e{color:#fbbf24;}
 .bot-line.error .e{color:#f87171;}
 .bot-line .d{color:#c2cad6;}
-.bot-console-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
 .bot-live-chip{font-size:11px;color:#34d399;display:inline-flex;align-items:center;gap:6px;}
 .bot-live-chip i{width:7px;height:7px;border-radius:50%;background:#34d399;display:inline-block;animation:botpulse 1.6s infinite;}
-.bot-note{background:#15110a;border:1px solid #3a2e16;color:#d8c08a;border-radius:10px;padding:10px 13px;font-size:12.5px;margin-bottom:18px;}
-.bot-clients-wrap{display:grid;grid-template-columns:320px 1fr;gap:14px;}
-@media(max-width:860px){.bot-clients-wrap{grid-template-columns:1fr;}}
-.bot-clients-list{max-height:440px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;}
-.bot-client-row{display:flex;gap:10px;align-items:center;background:#0c0f17;border:1px solid #1e2430;border-radius:10px;padding:8px 10px;cursor:pointer;transition:.12s;}
-.bot-client-row:hover{border-color:#2563eb;}
+
+/* ---- Forms ---- */
+.bot-field{margin-bottom:15px;}
+.bot-field label{display:block;font-size:12.5px;color:#9aa4b4;margin-bottom:6px;}
+.bot-input,.bot-field input[type=text],.bot-field input[type=number],.bot-field textarea,.bot-field select{
+  width:100%;background:#0c0f17;border:1px solid #232a38;border-radius:10px;color:#e7ecf3;padding:10px 12px;font-size:13.5px;font-family:inherit;transition:border .15s,box-shadow .15s;}
+.bot-field input:focus,.bot-field textarea:focus,.bot-field select:focus{outline:0;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.16);}
+.bot-field textarea{resize:vertical;line-height:1.5;}
+.bot-radio{display:inline-flex;align-items:center;gap:6px;margin-right:16px;font-size:13px;color:#cdd5e1;cursor:pointer;}
+.bot-save{background:#2563eb;color:#fff;border:0;border-radius:10px;padding:10px 20px;font-weight:600;cursor:pointer;transition:transform .12s,background .15s;}
+.bot-save:hover{background:#1d4ed8;}.bot-save:active{transform:scale(.97);}
+.bot-hint{font-size:12px;color:#7e889a;}
+.bot-note{background:#15110a;border:1px solid #3a2e16;color:#d8c08a;border-radius:12px;padding:11px 14px;font-size:12.5px;margin-bottom:18px;line-height:1.5;}
+
+/* ---- KB ---- */
+.bot-kb-wrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;}
+.bot-kb-h{font-size:13px;color:#cdd5e1;margin:0 0 10px;font-weight:600;}
+.bot-kb-list{display:flex;flex-direction:column;gap:7px;max-height:300px;overflow-y:auto;margin-bottom:10px;}
+.bot-kb-item{display:flex;gap:8px;align-items:flex-start;background:#0c0f17;border:1px solid #1e2430;border-radius:9px;padding:8px 10px;font-size:12px;color:#cdd5e1;word-break:break-word;transition:border .15s;}
+.bot-kb-item:hover{border-color:#2a3550;}
+.bot-kb-item .x{margin-left:auto;color:#6b7689;cursor:pointer;font-weight:700;flex:0 0 auto;transition:color .15s;}
+.bot-kb-item .x:hover{color:#f87171;}
+.bot-kb-form{display:flex;flex-direction:column;gap:7px;}
+.bot-kb-form input,.bot-kb-form select{background:#0c0f17;border:1px solid #232a38;border-radius:9px;color:#e7ecf3;padding:8px 10px;font-size:12.5px;}
+
+/* ---- Clients ---- */
+.bot-clients-wrap{display:grid;grid-template-columns:340px 1fr;gap:16px;}
+@media(max-width:880px){.bot-clients-wrap{grid-template-columns:1fr;}}
+.bot-clients-search{width:100%;background:#0c0f17;border:1px solid #232a38;border-radius:10px;color:#e7ecf3;padding:10px 12px;font-size:13px;margin-bottom:12px;}
+.bot-clients-list{max-height:560px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;}
+.bot-client-row{display:flex;gap:11px;align-items:center;background:#0c0f17;border:1px solid #1e2430;border-radius:12px;padding:9px 11px;cursor:pointer;transition:transform .12s,border .15s,background .15s;}
+.bot-client-row:hover{border-color:#2a3550;transform:translateX(2px);}
 .bot-client-row.active{border-color:#2563eb;background:#0f1626;}
-.bot-client-ava{width:34px;height:34px;border-radius:50%;background:#1e2430;object-fit:cover;flex:0 0 auto;}
-.bot-client-meta{min-width:0;}
+.bot-client-ava{width:38px;height:38px;border-radius:50%;background:#1e2430;object-fit:cover;flex:0 0 auto;}
+.bot-client-meta{min-width:0;flex:1;}
 .bot-client-name{font-size:13.5px;color:#e7ecf3;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.bot-client-sub{font-size:11.5px;color:#8b95a5;}
-.bot-stage-chip{font-size:10.5px;padding:2px 7px;border-radius:20px;background:#13203a;color:#7fb0ff;white-space:nowrap;}
-.bot-client-detail{max-height:440px;overflow-y:auto;border-left:1px solid #1c222e;padding-left:14px;}
-.bot-funnel{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;}
-.bot-circle{display:flex;align-items:center;gap:6px;font-size:11px;color:#8b95a5;}
-.bot-circle i{width:11px;height:11px;border-radius:50%;background:#2a3140;display:inline-block;}
+.bot-client-sub{font-size:11.5px;color:#8b95a5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bot-stage-chip{font-size:10px;padding:3px 8px;border-radius:20px;background:#1a2233;color:#9fb4d6;white-space:nowrap;font-weight:600;}
+.st-new,.st-qualifying{background:#13233f;color:#7fb0ff;}
+.st-product_matched,.st-checkout{background:#3a2c10;color:#fbbf24;}
+.st-payment_pending{background:#3a2410;color:#fb923c;}
+.st-paid,.st-order_created,.st-done{background:#0f2e1c;color:#34d399;}
+.st-lead_manager{background:#2a1a3a;color:#c084fc;}
+.st-spam,.st-cold{background:#2a1416;color:#f87171;}
+.bot-client-detail{max-height:560px;overflow-y:auto;background:#0c0f17;border:1px solid #1a2030;border-radius:14px;padding:16px;}
+.bot-detail-head{display:flex;gap:12px;align-items:center;}
+.bot-detail-name{font-size:16px;font-weight:700;}
+.bot-funnel{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0;}
+.bot-circle{display:flex;align-items:center;gap:6px;font-size:11px;color:#8b95a5;background:#11151f;border:1px solid #1a2030;border-radius:20px;padding:4px 10px;transition:.2s;}
+.bot-circle i{width:10px;height:10px;border-radius:50%;background:#2a3140;display:inline-block;transition:.25s;}
+.bot-circle.done{color:#cdd5e1;}
 .bot-circle.done i{background:#22c55e;}
-.bot-circle.current i{background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.18);}
-.bot-msg{padding:6px 10px;border-radius:9px;margin:4px 0;font-size:12.5px;max-width:85%;word-break:break-word;}
+.bot-circle.current{color:#fff;border-color:#f59e0b;}
+.bot-circle.current i{background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.2);animation:botpulse 1.7s infinite;}
+.bot-msg{padding:7px 11px;border-radius:11px;margin:5px 0;font-size:12.5px;max-width:86%;word-break:break-word;line-height:1.45;}
 .bot-msg.user{background:#11151f;border:1px solid #1e2430;}
-.bot-msg.model{background:#0f1626;border:1px solid #1d2b48;margin-left:auto;}
-.bot-mem{background:#0c0f17;border:1px solid #232a38;border-radius:9px;padding:8px 10px;font-size:12px;color:#cdd5e1;margin:8px 0;}
-.bot-kb-wrap{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
-@media(max-width:860px){.bot-kb-wrap{grid-template-columns:1fr;}}
-.bot-kb-h{font-size:13px;color:#aeb8c7;margin:0 0 8px;}
-.bot-kb-list{display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto;margin-bottom:8px;}
-.bot-kb-item{display:flex;gap:8px;align-items:flex-start;background:#0c0f17;border:1px solid #1e2430;border-radius:8px;padding:6px 8px;font-size:12px;color:#cdd5e1;word-break:break-word;}
-.bot-kb-item .x{margin-left:auto;color:#f87171;cursor:pointer;font-weight:700;flex:0 0 auto;}
-.bot-kb-form{display:flex;flex-direction:column;gap:6px;}
-.bot-kb-form input,.bot-kb-form select{background:#0c0f17;border:1px solid #232a38;border-radius:8px;color:#e7ecf3;padding:7px 9px;font-size:12.5px;}
+.bot-msg.model{background:#13203a;border:1px solid #1d2b48;margin-left:auto;color:#dfe7f5;}
+.bot-mem{background:#15110a;border:1px solid #3a2e16;border-radius:10px;padding:9px 11px;font-size:12px;color:#d8c08a;margin:10px 0;}
+.bot-deal{font-size:12px;color:#aeb8c7;background:#11151f;border:1px solid #1a2030;border-radius:9px;padding:7px 10px;margin:5px 0;}
+.bot-empty{color:#7e889a;font-size:13px;text-align:center;padding:40px 10px;}
+/* scrollbars */
+.bot-console-box::-webkit-scrollbar,.bot-clients-list::-webkit-scrollbar,.bot-client-detail::-webkit-scrollbar,.bot-kb-list::-webkit-scrollbar{width:8px;}
+.bot-console-box::-webkit-scrollbar-thumb,.bot-clients-list::-webkit-scrollbar-thumb,.bot-client-detail::-webkit-scrollbar-thumb,.bot-kb-list::-webkit-scrollbar-thumb{background:#222a39;border-radius:8px;}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="bot-wrap">
+<div class="bot-app">
   {% csrf_token %}
 
-  <div class="bot-note">
-    Event-driven: вхідні ловить <b>webhook</b> (миттєво) і кладе в чергу, а воркер
-    відповідає через <b>Gemini</b> (модель <b>{{ settings.gemini_model }}</b>) з
-    урахуванням історії та каталогу. Відповідає <b>лише</b> дозволеним відправникам.
-    Резервний поллінг за замовчуванням вимкнено — у простої жодних запитів до IG
-    (тому в консолі немає фонових помилок). Для постійного токена додай
-    <b>IG_APP_SECRET</b> в ENV — бот сам подовжить токен (page-токен стане постійним).
-  </div>
+  <header class="bot-top">
+    <div class="bot-top-l">
+      <h1>Інстаграм-бот</h1>
+      <span class="bot-pill" id="bot-pill"><i class="dot"></i><span id="bot-pill-text">Завантаження…</span></span>
+    </div>
+    <div class="bot-top-actions">
+      <button class="bot-btn start" id="bot-start">Запустити</button>
+      <button class="bot-btn stop" id="bot-stop">Зупинити</button>
+    </div>
+  </header>
 
-  <div class="bot-grid">
-    <!-- Статус -->
-    <div class="bot-card">
-      <h2>Стан агента</h2>
-      <div class="bot-status-head">
-        <span class="bot-dot" id="bot-dot"></span>
-        <div>
-          <div class="bot-state-text" id="bot-state-text">—</div>
-          <div class="bot-state-sub" id="bot-state-sub">Завантаження…</div>
+  <nav class="bot-tabs" id="bot-tabs">
+    <button class="bot-tab active" data-tab="overview">Огляд<span class="badge" id="badge-pending" style="display:none;"></span></button>
+    <button class="bot-tab" data-tab="settings">Налаштування</button>
+    <button class="bot-tab" data-tab="kb">Інструкції</button>
+    <button class="bot-tab" data-tab="clients">Клієнти<span class="badge" id="badge-clients" style="display:none;"></span></button>
+    <span class="bot-tab-ind" id="bot-tab-ind"></span>
+  </nav>
+
+  <!-- ===== Огляд ===== -->
+  <section class="bot-panel active" data-panel="overview">
+    <div class="bot-grid2" style="margin-bottom:16px;">
+      <div class="bot-card">
+        <div class="bot-status-head">
+          <span class="bot-dot" id="bot-dot"></span>
+          <div>
+            <div class="bot-state-text" id="bot-state-text">—</div>
+            <div class="bot-state-sub" id="bot-state-sub">Завантаження…</div>
+          </div>
+        </div>
+        <div class="bot-metrics">
+          <div class="bot-metric"><div class="v" id="bot-replies">{{ status.replies_count }}</div><div class="k">Відповідей</div></div>
+          <div class="bot-metric"><div class="v" id="bot-senders">{{ status.unique_senders }}</div><div class="k">Клієнтів</div></div>
+          <div class="bot-metric"><div class="v" id="bot-pending">{{ status.pending }}</div><div class="k">У черзі</div></div>
+          <div class="bot-metric"><div class="v" id="bot-lastreply">—</div><div class="k">Остання</div></div>
+          <div class="bot-metric"><div class="v" id="bot-heartbeat">—</div><div class="k">Heartbeat</div></div>
+        </div>
+        <div class="bot-hint" id="bot-error" style="margin-top:12px;color:#f87171;"></div>
+      </div>
+      <div class="bot-card">
+        <h2>Як працює</h2>
+        <div class="bot-note" style="margin:0;">
+          Event-driven: вхідні ловить <b>webhook</b> і кладе в чергу, воркер відповідає
+          через <b>Gemini</b> (<b>{{ settings.gemini_model }}</b>) з урахуванням історії,
+          каталогу та памʼяті клієнта. Розуміє переслані пости, матчить фото з товаром,
+          формує оплату й створює замовлення. Відповідає лише дозволеним відправникам.
         </div>
       </div>
-      <div class="bot-metrics">
-        <div class="bot-metric"><div class="v" id="bot-replies">{{ status.replies_count }}</div><div class="k">Відповідей</div></div>
-        <div class="bot-metric"><div class="v" id="bot-senders">{{ status.unique_senders }}</div><div class="k">Співрозмовників</div></div>
-        <div class="bot-metric"><div class="v" id="bot-pending">{{ status.pending }}</div><div class="k">У черзі</div></div>
-        <div class="bot-metric"><div class="v" id="bot-lastreply">—</div><div class="k">Остання відповідь</div></div>
-        <div class="bot-metric"><div class="v" id="bot-heartbeat">—</div><div class="k">Heartbeat</div></div>
-      </div>
-      <div class="bot-actions">
-        <button class="bot-btn start" id="bot-start">Запустити</button>
-        <button class="bot-btn stop" id="bot-stop">Зупинити</button>
-      </div>
-      <div class="bot-hint" id="bot-error" style="margin-top:12px;color:#f87171;"></div>
     </div>
+    <div class="bot-card">
+      <div class="bot-card-head">
+        <h2>Онлайн-консоль</h2>
+        <span class="bot-live-chip"><i></i> live</span>
+      </div>
+      <div class="bot-console-box" id="bot-console"></div>
+    </div>
+  </section>
 
-    <!-- Налаштування -->
+  <!-- ===== Налаштування ===== -->
+  <section class="bot-panel" data-panel="settings">
     <div class="bot-card">
       <h2>Ключі та параметри</h2>
       <form id="bot-settings-form">
-        <div class="bot-field">
-          <label>Direct API (Facebook токен)</label>
-          <label class="bot-radio"><input type="radio" name="direct_source" value="{{ cred_env }}" {% if settings.direct_source == cred_env %}checked{% endif %}> ENV сервера</label>
-          <label class="bot-radio"><input type="radio" name="direct_source" value="{{ cred_custom }}" {% if settings.direct_source == cred_custom %}checked{% endif %}> Свій</label>
-          <input type="text" name="custom_direct_token" placeholder="Свій Direct токен (необов'язково)" value="{{ settings.custom_direct_token }}" style="margin-top:8px;">
+        <div class="bot-grid2">
+          <div class="bot-field">
+            <label>Direct API (Facebook токен)</label>
+            <label class="bot-radio"><input type="radio" name="direct_source" value="{{ cred_env }}" {% if settings.direct_source == cred_env %}checked{% endif %}> ENV сервера</label>
+            <label class="bot-radio"><input type="radio" name="direct_source" value="{{ cred_custom }}" {% if settings.direct_source == cred_custom %}checked{% endif %}> Свій</label>
+            <input type="text" name="custom_direct_token" placeholder="Свій Direct токен (необов'язково)" value="{{ settings.custom_direct_token }}" style="margin-top:8px;">
+          </div>
+          <div class="bot-field">
+            <label>Gemini API (Google ключ)</label>
+            <label class="bot-radio"><input type="radio" name="gemini_source" value="{{ cred_env }}" {% if settings.gemini_source == cred_env %}checked{% endif %}> ENV сервера</label>
+            <label class="bot-radio"><input type="radio" name="gemini_source" value="{{ cred_custom }}" {% if settings.gemini_source == cred_custom %}checked{% endif %}> Свій</label>
+            <input type="text" name="custom_gemini_key" placeholder="Свій Gemini ключ (необов'язково)" value="{{ settings.custom_gemini_key }}" style="margin-top:8px;">
+          </div>
+        </div>
+        <div class="bot-grid2">
+          <div class="bot-field">
+            <label>Режим відповіді</label>
+            <label class="bot-radio"><input type="checkbox" name="ai_enabled" id="ai_enabled" {% if settings.ai_enabled %}checked{% endif %}> AI-спілкування (Gemini)</label>
+            <label class="bot-radio"><input type="checkbox" name="receive_via_poll" id="receive_via_poll" {% if settings.receive_via_poll %}checked{% endif %}> Резервний поллінг IG</label>
+          </div>
+          <div class="bot-field">
+            <label>Модель Gemini</label>
+            <select name="gemini_model" id="gemini_model">
+              <option value="gemini-3.5-flash" {% if settings.gemini_model == 'gemini-3.5-flash' %}selected{% endif %}>gemini-3.5-flash (рекомендовано)</option>
+              <option value="gemini-3-flash-preview" {% if settings.gemini_model == 'gemini-3-flash-preview' %}selected{% endif %}>gemini-3-flash-preview</option>
+              <option value="gemini-3-pro-preview" {% if settings.gemini_model == 'gemini-3-pro-preview' %}selected{% endif %}>gemini-3-pro-preview (найрозумніша)</option>
+              <option value="gemini-2.5-flash" {% if settings.gemini_model == 'gemini-2.5-flash' %}selected{% endif %}>gemini-2.5-flash</option>
+              <option value="gemini-2.5-pro" {% if settings.gemini_model == 'gemini-2.5-pro' %}selected{% endif %}>gemini-2.5-pro</option>
+            </select>
+          </div>
         </div>
         <div class="bot-field">
-          <label>Gemini API (Google ключ)</label>
-          <label class="bot-radio"><input type="radio" name="gemini_source" value="{{ cred_env }}" {% if settings.gemini_source == cred_env %}checked{% endif %}> ENV сервера</label>
-          <label class="bot-radio"><input type="radio" name="gemini_source" value="{{ cred_custom }}" {% if settings.gemini_source == cred_custom %}checked{% endif %}> Свій</label>
-          <input type="text" name="custom_gemini_key" placeholder="Свій Gemini ключ (необов'язково)" value="{{ settings.custom_gemini_key }}" style="margin-top:8px;">
+          <label>Системний промпт (як боту відповідати)</label>
+          <textarea name="system_prompt" rows="6">{{ settings.system_prompt }}</textarea>
         </div>
         <div class="bot-field">
-          <label>Режим відповіді</label>
-          <label class="bot-radio"><input type="checkbox" name="ai_enabled" id="ai_enabled" {% if settings.ai_enabled %}checked{% endif %}> AI-спілкування (Gemini)</label>
+          <label>Оперативні директиви (мають вищий пріоритет — напр. «сьогодні немає X»)</label>
+          <textarea name="knowledge_base" rows="4" placeholder="Напр.: Сьогодні немає білих футболок розміру L — пропонувати чорні.">{{ settings.knowledge_base }}</textarea>
+          <div class="bot-hint" style="margin-top:6px;">Постійні інструкції та посилання — на вкладці «Інструкції».</div>
         </div>
-        <div class="bot-field">
-          <label>Прийом повідомлень</label>
-          <label class="bot-radio"><input type="checkbox" name="receive_via_poll" id="receive_via_poll" {% if settings.receive_via_poll %}checked{% endif %}> Резервний поллінг IG</label>
-          <div class="bot-hint" style="margin-top:6px;">Увімкнено — до Live (бот сам перевіряє інбокс). Після Live вимкнути → працює лише webhook (миттєво, без зайвих запитів до IG).</div>
-        </div>
-        <div class="bot-field">
-          <label>Модель Gemini</label>
-          <select name="gemini_model" id="gemini_model" style="width:100%;background:#0c0f17;border:1px solid #232a38;border-radius:9px;color:#e7ecf3;padding:9px 11px;font-size:13.5px;">
-            <option value="gemini-3.5-flash" {% if settings.gemini_model == 'gemini-3.5-flash' %}selected{% endif %}>gemini-3.5-flash (рекомендовано)</option>
-            <option value="gemini-3-flash-preview" {% if settings.gemini_model == 'gemini-3-flash-preview' %}selected{% endif %}>gemini-3-flash-preview</option>
-            <option value="gemini-3-pro-preview" {% if settings.gemini_model == 'gemini-3-pro-preview' %}selected{% endif %}>gemini-3-pro-preview (найрозумніша)</option>
-            <option value="gemini-2.5-flash" {% if settings.gemini_model == 'gemini-2.5-flash' %}selected{% endif %}>gemini-2.5-flash</option>
-            <option value="gemini-2.5-pro" {% if settings.gemini_model == 'gemini-2.5-pro' %}selected{% endif %}>gemini-2.5-pro</option>
-          </select>
-        </div>
-        <div class="bot-field">
-          <label>Правило / системний промпт (як боту відповідати)</label>
-          <textarea name="system_prompt" rows="5" style="width:100%;background:#0c0f17;border:1px solid #232a38;border-radius:9px;color:#e7ecf3;padding:9px 11px;font-size:13px;font-family:inherit;resize:vertical;">{{ settings.system_prompt }}</textarea>
-        </div>
-        <div class="bot-field">
-          <label>База знань (доставка, оплата, повернення, графік — бот це враховує)</label>
-          <textarea name="knowledge_base" rows="5" placeholder="Напр.: Доставка Новою Поштою 1-3 дні. Оплата: передоплата на карту або накладений платіж. Повернення 14 днів. Працюємо Пн-Пт 9:00-18:00." style="width:100%;background:#0c0f17;border:1px solid #232a38;border-radius:9px;color:#e7ecf3;padding:9px 11px;font-size:13px;font-family:inherit;resize:vertical;">{{ settings.knowledge_base }}</textarea>
-        </div>
-        <div class="bot-field">
-          <label>Дозволені відправники (IGSID, через кому/новий рядок) — порожньо = всім (небезпечно)</label>
-          <input type="text" name="allowed_senders" value="{{ settings.allowed_senders }}" placeholder="напр. 955313600823130">
+        <div class="bot-grid2">
+          <div class="bot-field">
+            <label>Дозволені відправники (IGSID, через кому) — порожньо = всім</label>
+            <input type="text" name="allowed_senders" value="{{ settings.allowed_senders }}" placeholder="напр. 955313600823130">
+          </div>
+          <div class="bot-field">
+            <label>Інтервал опитування, c (2–60)</label>
+            <input type="number" name="poll_interval_seconds" min="2" max="60" value="{{ settings.poll_interval_seconds }}">
+          </div>
         </div>
         <div class="bot-field">
           <label>Простий режим (коли AI вимкнено): тригер / відповідь</label>
-          <input type="text" name="trigger_text" value="{{ settings.trigger_text }}" placeholder="Тригер" style="margin-bottom:8px;">
-          <input type="text" name="reply_text" value="{{ settings.reply_text }}" placeholder="Текст відповіді">
-        </div>
-        <div class="bot-field">
-          <label>Інтервал опитування, c (2–60)</label>
-          <input type="number" name="poll_interval_seconds" min="2" max="60" value="{{ settings.poll_interval_seconds }}">
+          <div class="bot-grid2">
+            <input type="text" name="trigger_text" value="{{ settings.trigger_text }}" placeholder="Тригер">
+            <input type="text" name="reply_text" value="{{ settings.reply_text }}" placeholder="Текст відповіді">
+          </div>
         </div>
         <button type="submit" class="bot-save">Зберегти</button>
         <span class="bot-hint" id="bot-save-hint" style="margin-left:10px;"></span>
       </form>
     </div>
+  </section>
 
-    <!-- Консоль -->
-    <div class="bot-card bot-console">
-      <div class="bot-console-head">
-        <h2 style="margin:0;">Онлайн-консоль</h2>
-        <span class="bot-live-chip"><i></i> live</span>
-      </div>
-      <div class="bot-console-box" id="bot-console"></div>
-    </div>
-
-    <!-- Клієнти (CRM IG-діалогів) -->
-    <div class="bot-card bot-console">
-      <div class="bot-console-head">
-        <h2 style="margin:0;">Клієнти</h2>
-        <input id="bot-clients-search" placeholder="Пошук: ім'я / username / телефон"
-               style="background:#0c0f17;border:1px solid #232a38;border-radius:8px;color:#e7ecf3;padding:6px 10px;font-size:12.5px;width:260px;">
-      </div>
-      <div class="bot-clients-wrap">
-        <div id="bot-clients-list" class="bot-clients-list"></div>
-        <div id="bot-client-detail" class="bot-client-detail">
-          <div class="bot-hint">Оберіть клієнта зі списку, щоб побачити переписку, етап і угоди…</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Інструкції / посилання / реклама -->
-    <div class="bot-card bot-console">
-      <div class="bot-console-head"><h2 style="margin:0;">Інструкції та посилання</h2></div>
+  <!-- ===== Інструкції ===== -->
+  <section class="bot-panel" data-panel="kb">
+    <div class="bot-card">
+      <h2>Інструкції, посилання та реклама</h2>
+      <div class="bot-hint" style="margin-bottom:16px;">Бот враховує це у відповідях: інструкції додаються в контекст, швидкі посилання надсилаються за запитом (розмірні сітки-хайлайти, каталог), реклама мапиться на товар/тему для миттєвої орієнтації.</div>
       <div class="bot-kb-wrap">
-        <div class="bot-kb-col">
+        <div>
           <h3 class="bot-kb-h">Інструкції</h3>
           <div id="kb-instructions" class="bot-kb-list"></div>
           <div class="bot-kb-form">
@@ -214,19 +282,19 @@
             <button class="bot-save" data-kb-add="instruction">Додати</button>
           </div>
         </div>
-        <div class="bot-kb-col">
+        <div>
           <h3 class="bot-kb-h">Швидкі посилання</h3>
           <div id="kb-links" class="bot-kb-list"></div>
           <div class="bot-kb-form">
             <select id="kbl-kind"><option value="size_chart">Розмірна сітка</option><option value="catalog">Каталог</option><option value="highlight">Хайлайт</option><option value="other">Інше</option></select>
             <input id="kbl-label" placeholder="Підпис">
             <input id="kbl-url" placeholder="https://...">
-            <input id="kbl-garment" placeholder="Тип (hoodie/tshirt)">
+            <input id="kbl-garment" placeholder="Тип (hoodie/tshirt/longsleeve)">
             <button class="bot-save" data-kb-add="quicklink">Додати</button>
           </div>
         </div>
-        <div class="bot-kb-col">
-          <h3 class="bot-kb-h">Реклама → товар/тема</h3>
+        <div>
+          <h3 class="bot-kb-h">Реклама → товар / тема</h3>
           <div id="kb-ads" class="bot-kb-list"></div>
           <div class="bot-kb-form">
             <input id="kba-adid" placeholder="Ad ID">
@@ -237,185 +305,217 @@
         </div>
       </div>
     </div>
-  </div>
+  </section>
+
+  <!-- ===== Клієнти ===== -->
+  <section class="bot-panel" data-panel="clients">
+    <div class="bot-card">
+      <div class="bot-card-head">
+        <h2>Клієнти</h2>
+        <span class="bot-hint" id="clients-total"></span>
+      </div>
+      <input id="bot-clients-search" class="bot-clients-search" placeholder="Пошук: ім'я / username / телефон">
+      <div class="bot-clients-wrap">
+        <div id="bot-clients-list" class="bot-clients-list"></div>
+        <div id="bot-client-detail" class="bot-client-detail">
+          <div class="bot-empty">Оберіть клієнта зі списку, щоб побачити переписку, етап воронки й угоди.</div>
+        </div>
+      </div>
+    </div>
+  </section>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 (function(){
-  const csrf = document.querySelector('#bot-console') ? (document.querySelector('input[name=csrfmiddlewaretoken]')||{}).value : '';
-  const box = document.getElementById('bot-console');
-  const dot = document.getElementById('bot-dot');
-  let lastId = 0;
-
+  const csrf = (document.querySelector('input[name=csrfmiddlewaretoken]')||{}).value || '';
   function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+  function fmt(iso){ if(!iso) return '—'; try{ return new Date(iso).toLocaleTimeString(); }catch(e){ return '—'; } }
 
+  /* ============ Tabs ============ */
+  const tabs = Array.from(document.querySelectorAll('.bot-tab'));
+  const panels = Array.from(document.querySelectorAll('.bot-panel'));
+  const ind = document.getElementById('bot-tab-ind');
+  const loaded = {};
+  function moveInd(btn){ if(btn&&ind){ ind.style.left = btn.offsetLeft+'px'; ind.style.width = btn.offsetWidth+'px'; } }
+  function activate(name, save){
+    const btn = tabs.find(t=>t.dataset.tab===name) || tabs[0];
+    tabs.forEach(t=>t.classList.toggle('active', t===btn));
+    panels.forEach(p=>p.classList.toggle('active', p.dataset.panel===btn.dataset.tab));
+    moveInd(btn);
+    if(save){ try{ localStorage.setItem('bot_tab', btn.dataset.tab); }catch(e){} }
+    if(btn.dataset.tab==='clients' && !loaded.clients){ loaded.clients=true; Clients.load(''); }
+    if(btn.dataset.tab==='kb' && !loaded.kb){ loaded.kb=true; KB.load(); }
+  }
+  tabs.forEach(t=>t.addEventListener('click',()=>activate(t.dataset.tab,true)));
+  let startTab='overview';
+  try{ startTab = localStorage.getItem('bot_tab')||'overview'; }catch(e){}
+  activate(startTab,false);
+  window.addEventListener('resize',()=>moveInd(tabs.find(t=>t.classList.contains('active'))));
+
+  /* ============ Status + Console ============ */
+  const box = document.getElementById('bot-console');
+  let lastId = 0;
   function appendLog(items){
-    if(!items || !items.length) return;
+    if(!items||!items.length) return;
     const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
     items.forEach(it=>{
-      if(it.id <= lastId) return;        // вже додано — захист від гонки запитів
-      lastId = it.id;
-      const div = document.createElement('div');
-      div.className = 'bot-line ' + (it.level||'info');
-      div.innerHTML = '<span class="t">'+esc(it.time)+'</span><span class="e">'+esc(it.event)+'</span><span class="d">'+esc(it.detail)+'</span>';
+      if(it.id<=lastId) return; lastId=it.id;
+      const div=document.createElement('div');
+      div.className='bot-line '+(it.level||'info');
+      div.innerHTML='<span class="t">'+esc(it.time)+'</span><span class="e">'+esc(it.event)+'</span><span class="d">'+esc(it.detail)+'</span>';
       box.appendChild(div);
     });
-    while(box.children.length > 400) box.removeChild(box.firstChild);
-    if(atBottom) box.scrollTop = box.scrollHeight;
+    while(box.children.length>400) box.removeChild(box.firstChild);
+    if(atBottom) box.scrollTop=box.scrollHeight;
   }
-
-  function fmt(iso){ if(!iso) return '—'; try{ const d=new Date(iso); return d.toLocaleTimeString(); }catch(e){ return '—'; } }
-
+  function setBadge(el, n){ if(!el) return; if(n>0){ el.textContent=n; el.style.display=''; } else { el.style.display='none'; } }
   function render(st){
     const online = st.daemon_online || st.alive;
-    const responding = st.is_enabled && online;
-    dot.className = 'bot-dot ' + (responding ? 'on' : (online ? 'on' : 'off'));
-    let txt, sub;
-    if(!online){ txt='Агент офлайн'; sub='Демон не запущено (watchdog підніме за ~1 хв)'; }
-    else if(st.is_enabled){ txt='Працює'; sub='Агент онлайн і відповідає на повідомлення'; }
-    else { txt='Онлайн, зупинено'; sub='Агент онлайн, але не відповідає (натисніть «Запустити»)'; }
-    document.getElementById('bot-state-text').textContent = txt;
-    document.getElementById('bot-state-sub').textContent = sub;
-    document.getElementById('bot-replies').textContent = st.replies_count;
-    var snd = document.getElementById('bot-senders'); if(snd) snd.textContent = st.unique_senders;
-    var pend = document.getElementById('bot-pending'); if(pend) pend.textContent = st.pending;
-    document.getElementById('bot-lastreply').textContent = fmt(st.last_reply_at);
-    document.getElementById('bot-heartbeat').textContent = fmt(st.heartbeat_at);
-    document.getElementById('bot-error').textContent = st.last_error || '';
-    document.getElementById('bot-start').disabled = st.is_enabled;
-    document.getElementById('bot-stop').disabled = !st.is_enabled;
+    const pill=document.getElementById('bot-pill'), pillT=document.getElementById('bot-pill-text');
+    const dot=document.getElementById('bot-dot');
+    let txt, sub, cls;
+    if(!online){ txt='Офлайн'; sub='Демон не запущено (watchdog підніме за ~1 хв)'; cls='off'; }
+    else if(st.is_enabled){ txt='Працює'; sub='Агент онлайн і відповідає'; cls='on'; }
+    else { txt='Зупинено'; sub='Агент онлайн, але не відповідає'; cls='idle'; }
+    pill.className='bot-pill '+cls; pillT.textContent=txt;
+    if(dot) dot.className='bot-dot '+(cls==='off'?'off':'on');
+    document.getElementById('bot-state-text').textContent=txt;
+    document.getElementById('bot-state-sub').textContent=sub;
+    document.getElementById('bot-replies').textContent=st.replies_count;
+    var s2=document.getElementById('bot-senders'); if(s2) s2.textContent=st.unique_senders;
+    var p2=document.getElementById('bot-pending'); if(p2) p2.textContent=st.pending;
+    document.getElementById('bot-lastreply').textContent=fmt(st.last_reply_at);
+    document.getElementById('bot-heartbeat').textContent=fmt(st.heartbeat_at);
+    document.getElementById('bot-error').textContent=st.last_error||'';
+    document.getElementById('bot-start').disabled=st.is_enabled;
+    document.getElementById('bot-stop').disabled=!st.is_enabled;
+    setBadge(document.getElementById('badge-pending'), st.pending||0);
   }
-
-  let polling = false;
+  let polling=false;
   function poll(){
-    if(polling) return;            // не запускаємо паралельні запити (захист від дублів)
-    polling = true;
+    if(polling) return; polling=true;
     fetch('{% url "management_bot_status_api" %}?after_id='+lastId, {headers:{'X-Requested-With':'XMLHttpRequest'}})
       .then(r=>r.json()).then(d=>{ if(d.success){ render(d.status); appendLog(d.log); } })
-      .catch(()=>{}).finally(()=>{ polling = false; });
+      .catch(()=>{}).finally(()=>{ polling=false; });
   }
-
   function action(url){
-    fetch(url, {method:'POST', headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'}})
+    fetch(url,{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'}})
       .then(r=>r.json()).then(d=>{ if(d.success) render(d.status); poll(); }).catch(()=>{});
   }
-
-  document.getElementById('bot-start').addEventListener('click', ()=>action('{% url "management_bot_start_api" %}'));
-  document.getElementById('bot-stop').addEventListener('click', ()=>action('{% url "management_bot_stop_api" %}'));
-
-  document.getElementById('bot-settings-form').addEventListener('submit', function(e){
+  document.getElementById('bot-start').addEventListener('click',()=>action('{% url "management_bot_start_api" %}'));
+  document.getElementById('bot-stop').addEventListener('click',()=>action('{% url "management_bot_stop_api" %}'));
+  document.getElementById('bot-settings-form').addEventListener('submit',function(e){
     e.preventDefault();
-    const fd = new FormData(this);
-    fetch('{% url "management_bot_settings_api" %}', {method:'POST', headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'}, body:fd})
+    fetch('{% url "management_bot_settings_api" %}',{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'},body:new FormData(this)})
       .then(r=>r.json()).then(d=>{
         const h=document.getElementById('bot-save-hint');
-        h.textContent = d.success ? 'Збережено ✓' : ('Помилка: '+(d.error||''));
-        h.style.color = d.success ? '#34d399' : '#f87171';
+        h.textContent=d.success?'Збережено ✓':('Помилка: '+(d.error||''));
+        h.style.color=d.success?'#34d399':'#f87171';
         if(d.success) render(d.status);
-        setTimeout(()=>{h.textContent='';}, 2500);
+        setTimeout(()=>{h.textContent='';},2500);
       }).catch(()=>{});
   });
+  poll(); setInterval(poll,2000);
 
-  poll();
-  setInterval(poll, 2000);
-})();
+  /* ============ Clients ============ */
+  const Clients=(function(){
+    const listEl=document.getElementById('bot-clients-list');
+    const detailEl=document.getElementById('bot-client-detail');
+    const searchEl=document.getElementById('bot-clients-search');
+    const totalEl=document.getElementById('clients-total');
+    const base='{% url "management_bot_clients_api" %}';
+    let activeId=null;
+    function stageCls(s){ return 'st-'+(s||'new'); }
+    function load(q){
+      fetch(base+(q?('?q='+encodeURIComponent(q)):''),{headers:{'X-Requested-With':'XMLHttpRequest'}})
+        .then(r=>r.json()).then(d=>{
+          if(!d.success) return;
+          setBadge(document.getElementById('badge-clients'), d.total||0);
+          if(totalEl) totalEl.textContent=(d.total||0)+' усього';
+          listEl.innerHTML='';
+          (d.clients||[]).forEach(c=>{
+            const row=document.createElement('div');
+            row.className='bot-client-row'+(c.id===activeId?' active':'');
+            const ava=c.avatar?('<img class="bot-client-ava" src="'+esc(c.avatar)+'">'):'<div class="bot-client-ava"></div>';
+            row.innerHTML=ava+'<div class="bot-client-meta"><div class="bot-client-name">'+esc(c.name)+'</div><div class="bot-client-sub">'+esc(c.username||c.igsid)+'</div></div><span class="bot-stage-chip '+stageCls(c.stage)+'">'+esc(c.stage_label)+'</span>';
+            row.addEventListener('click',()=>{activeId=c.id;document.querySelectorAll('.bot-client-row').forEach(e=>e.classList.remove('active'));row.classList.add('active');detail(c.id);});
+            listEl.appendChild(row);
+          });
+          if(!(d.clients||[]).length) listEl.innerHTML='<div class="bot-empty">Ще немає клієнтів.</div>';
+        }).catch(()=>{});
+    }
+    function detail(id){
+      fetch(base+id+'/',{headers:{'X-Requested-With':'XMLHttpRequest'}})
+        .then(r=>r.json()).then(d=>{
+          if(!d.success){detailEl.innerHTML='<div class="bot-empty">Не знайдено.</div>';return;}
+          const c=d.client;
+          let h='<div class="bot-detail-head">'+(c.avatar?('<img class="bot-client-ava" style="width:46px;height:46px;" src="'+esc(c.avatar)+'">'):'<div class="bot-client-ava" style="width:46px;height:46px;"></div>')+'<div><div class="bot-detail-name">'+esc(c.name)+'</div><div class="bot-client-sub">'+esc(c.username||c.igsid)+(c.phone?(' · '+esc(c.phone)):'')+'</div></div><span class="bot-stage-chip '+stageCls(c.stage)+'" style="margin-left:auto;">'+esc(c.stage_label)+'</span></div>';
+          if(c.ad_title) h+='<div class="bot-client-sub" style="margin-top:8px;">📣 Реклама: '+esc(c.ad_title)+'</div>';
+          const pauseBtn=c.bot_paused?'<button class="bot-save" data-act="resume" style="background:#16a34a;">▶ Включити бота</button>':'<button class="bot-save" data-act="pause" style="background:#dc2626;">⏸ Стоп бота</button>';
+          h+='<div style="margin-top:12px;">'+pauseBtn+(c.manager_takeover?' <span class="bot-stage-chip st-lead_manager">менеджер веде</span>':'')+'</div>';
+          h+='<div class="bot-funnel">';
+          (d.funnel||[]).forEach(f=>{h+='<span class="bot-circle'+(f.done?' done':'')+(f.current?' current':'')+'"><i></i>'+esc(f.label)+'</span>';});
+          h+='</div>';
+          if(c.memory) h+='<div class="bot-mem">🧠 '+esc(c.memory)+'</div>';
+          if((d.deals||[]).length){h+='<div class="bot-kb-h" style="margin-top:6px;">Угоди</div>';d.deals.forEach(dl=>{h+='<div class="bot-deal">#'+dl.id+' · '+esc(dl.status)+' · '+esc(dl.amount)+' грн'+(dl.order_id?(' · замовлення #'+dl.order_id):'')+(dl.invoice_url?(' · <a href="'+esc(dl.invoice_url)+'" target="_blank" style="color:#7fb0ff;">оплата</a>'):'')+'</div>';});}
+          h+='<div class="bot-kb-h" style="margin-top:12px;">Переписка</div><div style="display:flex;flex-direction:column;">';
+          (d.messages||[]).forEach(m=>{h+='<div class="bot-msg '+(m.role==='user'?'user':'model')+'">'+esc(m.text)+'</div>';});
+          h+='</div>';
+          detailEl.innerHTML=h;
+          const ab=detailEl.querySelector('[data-act]');
+          if(ab) ab.addEventListener('click',()=>{
+            ab.disabled=true;
+            fetch(base+id+'/'+ab.getAttribute('data-act')+'/',{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'}})
+              .then(r=>r.json()).then(()=>detail(id)).catch(()=>{});
+          });
+        }).catch(()=>{});
+    }
+    let t=null;
+    if(searchEl) searchEl.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(()=>load(searchEl.value.trim()),300);});
+    // фонове оновлення лічильника клієнтів навіть на інших вкладках
+    setInterval(()=>{ if(loaded.clients && !activeId){ load(searchEl?searchEl.value.trim():''); } }, 20000);
+    return {load:load};
+  })();
 
-// --- Клієнти (CRM) ---
-(function(){
-  const listEl = document.getElementById('bot-clients-list');
-  const detailEl = document.getElementById('bot-client-detail');
-  const searchEl = document.getElementById('bot-clients-search');
-  if(!listEl) return;
-  const base = '{% url "management_bot_clients_api" %}';
-  const csrf = (document.querySelector('input[name=csrfmiddlewaretoken]')||{}).value || '';
-  let activeId = null;
-  function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
-
-  function loadList(q){
-    fetch(base+(q?('?q='+encodeURIComponent(q)):''), {headers:{'X-Requested-With':'XMLHttpRequest'}})
-      .then(r=>r.json()).then(d=>{
+  /* ============ KB ============ */
+  const KB=(function(){
+    const kbBase='{% url "management_bot_kb_api" %}';
+    const kbSave='{% url "management_bot_kb_save_api" %}';
+    function save(fd){return fetch(kbSave,{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'},body:fd}).then(r=>r.json());}
+    function del(type,id){const fd=new FormData();fd.append('type',type);fd.append('op','delete');fd.append('id',id);return save(fd);}
+    function row(type,id,label){const d=document.createElement('div');d.className='bot-kb-item';d.innerHTML='<span>'+esc(label)+'</span><span class="x">×</span>';d.querySelector('.x').addEventListener('click',()=>del(type,id).then(load));return d;}
+    function load(){
+      fetch(kbBase,{headers:{'X-Requested-With':'XMLHttpRequest'}}).then(r=>r.json()).then(d=>{
         if(!d.success) return;
-        listEl.innerHTML='';
-        (d.clients||[]).forEach(c=>{
-          const row=document.createElement('div');
-          row.className='bot-client-row'+(c.id===activeId?' active':'');
-          const ava=c.avatar?('<img class="bot-client-ava" src="'+esc(c.avatar)+'">'):'<div class="bot-client-ava"></div>';
-          row.innerHTML=ava+'<div class="bot-client-meta"><div class="bot-client-name">'+esc(c.name)+'</div><div class="bot-client-sub">'+esc(c.username||c.igsid)+'</div></div><span class="bot-stage-chip" style="margin-left:auto;">'+esc(c.stage_label)+'</span>';
-          row.addEventListener('click',()=>{activeId=c.id;document.querySelectorAll('.bot-client-row').forEach(e=>e.classList.remove('active'));row.classList.add('active');loadDetail(c.id);});
-          listEl.appendChild(row);
-        });
-        if(!(d.clients||[]).length) listEl.innerHTML='<div class="bot-hint">Ще немає клієнтів.</div>';
+        const ie=document.getElementById('kb-instructions');ie.innerHTML='';
+        (d.instructions||[]).forEach(i=>ie.appendChild(row('instruction',i.id,(i.title?i.title+': ':'')+i.body)));
+        if(!(d.instructions||[]).length) ie.innerHTML='<div class="bot-hint">Поки порожньо.</div>';
+        const le=document.getElementById('kb-links');le.innerHTML='';
+        (d.quick_links||[]).forEach(q=>le.appendChild(row('quicklink',q.id,q.label+' — '+q.url)));
+        if(!(d.quick_links||[]).length) le.innerHTML='<div class="bot-hint">Поки порожньо.</div>';
+        const ae=document.getElementById('kb-ads');ae.innerHTML='';
+        (d.ad_campaigns||[]).forEach(a=>ae.appendChild(row('adcampaign',a.id,(a.ad_id||a.ref||'?')+' → '+(a.theme||a.title||''))));
+        if(!(d.ad_campaigns||[]).length) ae.innerHTML='<div class="bot-hint">Поки порожньо.</div>';
       }).catch(()=>{});
-  }
-
-  function loadDetail(id){
-    fetch(base+id+'/', {headers:{'X-Requested-With':'XMLHttpRequest'}})
-      .then(r=>r.json()).then(d=>{
-        if(!d.success){detailEl.innerHTML='<div class="bot-hint">Не знайдено.</div>';return;}
-        const c=d.client;
-        let h='<div style="display:flex;gap:10px;align-items:center;">'+(c.avatar?('<img class="bot-client-ava" src="'+esc(c.avatar)+'">'):'<div class="bot-client-ava"></div>')+'<div><div class="bot-client-name">'+esc(c.name)+'</div><div class="bot-client-sub">'+esc(c.username||c.igsid)+(c.phone?(' · '+esc(c.phone)):'')+'</div></div></div>';
-        if(c.ad_title) h+='<div class="bot-client-sub" style="margin-top:6px;">Реклама: '+esc(c.ad_title)+'</div>';
-        const pauseBtn = c.bot_paused
-          ? '<button class="bot-save" data-act="resume" style="background:#16a34a;">▶ Включити бота</button>'
-          : '<button class="bot-save" data-act="pause" style="background:#dc2626;">⏸ Стоп бота</button>';
-        h+='<div style="margin-top:8px;">'+pauseBtn+(c.manager_takeover?' <span class="bot-stage-chip">менеджер веде</span>':'')+'</div>';
-        h+='<div class="bot-funnel">';
-        (d.funnel||[]).forEach(f=>{h+='<span class="bot-circle'+(f.done?' done':'')+(f.current?' current':'')+'"><i></i>'+esc(f.label)+'</span>';});
-        h+='</div>';
-        if(c.memory) h+='<div class="bot-mem"><b>Пам\'ять:</b> '+esc(c.memory)+'</div>';
-        if((d.deals||[]).length){h+='<div class="bot-client-sub" style="margin-top:6px;">Угоди:</div>';d.deals.forEach(dl=>{h+='<div class="bot-client-sub">#'+dl.id+' · '+esc(dl.status)+' · '+esc(dl.amount)+' грн'+(dl.order_id?(' · замовлення #'+dl.order_id):'')+(dl.invoice_url?(' · <a href="'+esc(dl.invoice_url)+'" target="_blank" style="color:#7fb0ff;">оплата</a>'):'')+'</div>';});}
-        h+='<div style="margin-top:10px;border-top:1px solid #1c222e;padding-top:8px;">';
-        (d.messages||[]).forEach(m=>{h+='<div class="bot-msg '+(m.role==='user'?'user':'model')+'">'+esc(m.text)+'</div>';});
-        h+='</div>';
-        detailEl.innerHTML=h;
-        const actBtn = detailEl.querySelector('[data-act]');
-        if(actBtn) actBtn.addEventListener('click', ()=>{
-          fetch(base+id+'/'+actBtn.getAttribute('data-act')+'/', {method:'POST', headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'}})
-            .then(r=>r.json()).then(()=>loadDetail(id)).catch(()=>{});
-        });
-      }).catch(()=>{});
-  }
-
-  let t=null;
-  if(searchEl) searchEl.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(()=>loadList(searchEl.value.trim()),300);});
-  loadList('');
-  setInterval(()=>{ if(!activeId) loadList(searchEl?searchEl.value.trim():''); }, 15000);
-})();
-
-// --- Інструкції / посилання / реклама (KB) ---
-(function(){
-  const csrf=(document.querySelector('input[name=csrfmiddlewaretoken]')||{}).value||'';
-  if(!document.getElementById('kb-instructions')) return;
-  const kbBase='{% url "management_bot_kb_api" %}';
-  const kbSave='{% url "management_bot_kb_save_api" %}';
-  function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
-  function save(fd){return fetch(kbSave,{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'},body:fd}).then(r=>r.json());}
-  function del(type,id){const fd=new FormData();fd.append('type',type);fd.append('op','delete');fd.append('id',id);return save(fd);}
-  function row(type,id,label){const d=document.createElement('div');d.className='bot-kb-item';d.innerHTML='<span>'+esc(label)+'</span><span class="x">×</span>';d.querySelector('.x').addEventListener('click',()=>del(type,id).then(load));return d;}
-  function load(){
-    fetch(kbBase,{headers:{'X-Requested-With':'XMLHttpRequest'}}).then(r=>r.json()).then(d=>{
-      if(!d.success) return;
-      const ie=document.getElementById('kb-instructions');ie.innerHTML='';
-      (d.instructions||[]).forEach(i=>ie.appendChild(row('instruction',i.id,(i.title?i.title+': ':'')+i.body)));
-      const le=document.getElementById('kb-links');le.innerHTML='';
-      (d.quick_links||[]).forEach(q=>le.appendChild(row('quicklink',q.id,q.label+' — '+q.url)));
-      const ae=document.getElementById('kb-ads');ae.innerHTML='';
-      (d.ad_campaigns||[]).forEach(a=>ae.appendChild(row('adcampaign',a.id,(a.ad_id||a.ref||'?')+' → '+(a.theme||a.title||''))));
-    }).catch(()=>{});
-  }
-  function val(id){const el=document.getElementById(id);return el?el.value:'';}
-  document.querySelectorAll('[data-kb-add]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const t=btn.getAttribute('data-kb-add');const fd=new FormData();fd.append('type',t);
-      if(t==='instruction'){fd.append('title',val('kbi-title'));fd.append('body',val('kbi-body'));}
-      else if(t==='quicklink'){fd.append('kind',val('kbl-kind'));fd.append('label',val('kbl-label'));fd.append('url',val('kbl-url'));fd.append('garment_type',val('kbl-garment'));}
-      else {fd.append('ad_id',val('kba-adid'));fd.append('title',val('kba-title'));fd.append('theme',val('kba-theme'));}
-      save(fd).then(()=>{['kbi-title','kbi-body','kbl-label','kbl-url','kbl-garment','kba-adid','kba-title','kba-theme'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});load();});
+    }
+    function val(id){const el=document.getElementById(id);return el?el.value:'';}
+    document.querySelectorAll('[data-kb-add]').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const tp=btn.getAttribute('data-kb-add');const fd=new FormData();fd.append('type',tp);
+        if(tp==='instruction'){fd.append('title',val('kbi-title'));fd.append('body',val('kbi-body'));}
+        else if(tp==='quicklink'){fd.append('kind',val('kbl-kind'));fd.append('label',val('kbl-label'));fd.append('url',val('kbl-url'));fd.append('garment_type',val('kbl-garment'));}
+        else {fd.append('ad_id',val('kba-adid'));fd.append('title',val('kba-title'));fd.append('theme',val('kba-theme'));}
+        save(fd).then(()=>{['kbi-title','kbi-body','kbl-label','kbl-url','kbl-garment','kba-adid','kba-title','kba-theme'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});load();});
+      });
     });
-  });
-  load();
+    return {load:load};
+  })();
+
+  // початкове завантаження лічильника клієнтів (для бейджа), без відкриття вкладки
+  fetch('{% url "management_bot_clients_api" %}',{headers:{'X-Requested-With':'XMLHttpRequest'}})
+    .then(r=>r.json()).then(d=>{ if(d.success) setBadge(document.getElementById('badge-clients'), d.total||0); }).catch(()=>{});
 })();
 </script>
 {% endblock %}

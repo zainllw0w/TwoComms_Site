@@ -146,18 +146,30 @@ def _maybe_capture_phone(client, text: str) -> bool:
     return True
 
 
-def _bot_sent_key(text: str) -> str:
+def _bot_sent_key(recipient_id: str, text: str) -> str:
     norm = " ".join((text or "").lower().split())
-    return "ig_bot_sent:" + hashlib.md5(norm.encode("utf-8")).hexdigest()[:16]
+    h = hashlib.md5((str(recipient_id) + "|" + norm).encode("utf-8")).hexdigest()[:16]
+    return "ig_bot_sent:" + h
 
 
-def _mark_bot_sent(text: str) -> None:
-    """Позначає текст, який щойно надіслав бот — щоб відрізнити від відлуння
-    повідомлення менеджера (echo)."""
+def _mark_bot_sent(recipient_id: str, text: str) -> None:
+    """Позначає текст, який бот шле конкретному отримувачу — щоб відрізнити від
+    відлуння повідомлення менеджера (echo). Привʼязка до отримувача прибирає
+    хибні збіги між клієнтами з однаковим текстом."""
     try:
-        cache.set(_bot_sent_key(text), 1, 1800)
+        cache.set(_bot_sent_key(recipient_id, text), 1, 1800)
     except Exception:
         pass
+
+
+def _looks_like_contact_info(text: str) -> bool:
+    """Евристика: схоже на контактні дані (телефон / адреса Нової Пошти)."""
+    raw = (text or "")
+    if PHONE_RE.search(raw.replace(" ", "").replace("-", "")):
+        return True
+    low = raw.lower()
+    keys = ("відділенн", "поштомат", "нова пошта", "новапошта", "нп ", "індекс", "вул.", "вулиц", "м. ")
+    return any(k in low for k in keys)
 
 
 def _handle_echo(recipient_igsid: str, text: str) -> None:
@@ -165,7 +177,7 @@ def _handle_echo(recipient_igsid: str, text: str) -> None:
     бота — значить відповів живий менеджер → ставимо бота на паузу для клієнта."""
     if not recipient_igsid:
         return
-    if text and cache.get(_bot_sent_key(text)):
+    if text and cache.get(_bot_sent_key(recipient_igsid, text)):
         return  # власне відлуння бота — ігноруємо
     client = IgClient.get_or_create_for_sender(recipient_igsid)
     if client.manager_takeover and client.bot_paused:
@@ -505,6 +517,9 @@ def send_text(s: InstagramBotSettings, recipient_id: str, text: str) -> tuple[bo
         return False, "permanent", "порожня відповідь"
     ok_any = False
     for part in parts:
+        # Позначаємо ДО відправки: echo цього чанка прийде асинхронно і не має
+        # сприйнятись за повідомлення менеджера (виправляє хибний авто-стоп).
+        _mark_bot_sent(recipient_id, part)
         body = json.dumps(
             {
                 "recipient": {"id": recipient_id},
@@ -528,6 +543,7 @@ def send_text(s: InstagramBotSettings, recipient_id: str, text: str) -> tuple[bo
 def gemini_generate(
     s: InstagramBotSettings, history: list[dict], images: list[tuple[str, bytes]] | None = None,
     match_hint: str | None = None, memory_note: str | None = None,
+    context_note: str | None = None,
 ) -> str | None:
     """history: [{'role':'user'|'model','text':str}] хронологічно.
     images: список (mime_type, raw_bytes) для ОСТАННЬОГО (поточного) user-ходу."""
@@ -585,6 +601,8 @@ def gemini_generate(
     except Exception:
         pass
     sys_text = sys_text.strip()
+    if context_note:
+        sys_text = (sys_text + "\n\n" + context_note).strip()
     if memory_note:
         sys_text = (sys_text + "\n\n" + memory_note).strip()
     if match_hint:
@@ -926,17 +944,21 @@ def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
                     match_hint = _match_hint_text(bot_vision.match(images))
                 except Exception as exc:
                     log("warning", "match", repr(exc))
-            # Пам'ять про клієнта (rolling summary) — для контексту.
+            # Пам'ять про клієнта (rolling summary) + контекст (реклама/постійний) —
+            # щоб бот одразу орієнтувався.
             mem_note = None
+            ctx_note = None
             if row.client_id:
                 try:
-                    from management.services.bot_memory import memory_note as _memory_note
+                    from management.services import bot_memory
 
-                    mem_note = _memory_note(row.client)
+                    mem_note = bot_memory.memory_note(row.client)
+                    ctx_note = bot_memory.client_context_note(row.client)
                 except Exception:
                     pass
             reply = gemini_generate(
-                s, history, images=images or None, match_hint=match_hint, memory_note=mem_note
+                s, history, images=images or None, match_hint=match_hint,
+                memory_note=mem_note, context_note=ctx_note,
             )
     else:
         if (row.text or "").strip() != s.trigger_text:
@@ -1025,7 +1047,6 @@ def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
     row.status = InstagramBotMessage.Status.DONE
     row.processed_at = timezone.now()
     row.save(update_fields=["status", "processed_at"])
-    _mark_bot_sent(reply)  # щоб відрізнити власне відлуння від менеджера
     InstagramBotMessage.objects.create(
         sender_id=row.sender_id,
         client=row.client,
@@ -1049,8 +1070,11 @@ def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
             pass
         # Просування воронки за тегом [STAGE:x].
         _apply_stage(row.client, control.get("stage"))
-        # [ORDER] — зібрано дані, створюємо замовлення (після оплати).
-        if control.get("order"):
+        # [ORDER] або safety-net: оплачений клієнт надіслав контактні дані, а
+        # модель не виставила тег — все одно намагаємось зібрати дані й створити заказ.
+        if control.get("order") or (
+            row.client.stage == IgClient.Stage.PAID and _looks_like_contact_info(row.text)
+        ):
             try:
                 from management.services import bot_orders
 
