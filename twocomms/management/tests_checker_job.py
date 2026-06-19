@@ -347,3 +347,22 @@ class RunStepKeysExhaustedMidCallTests(TestCase):
         self.assertEqual(job.processed, 0)   # лід НЕ спожито
         self.assertEqual(job.errors, 0)
         self.assertEqual(job.cursor_id, 0)   # курсор НЕ зрушено
+
+
+class CheckerTokenTrackingTests(TestCase):
+    """Фаза 2: облік витрачених токенів сесії + ETA до завершення у статусі."""
+
+    def test_job_status_payload_includes_tokens_and_eta(self):
+        from management.services import lead_check_job as ljob
+        job = LeadCheckJob.objects.create(
+            scope=LeadCheckJob.Scope.UNCHECKED, total_selected=10, processed=2,
+            avg_seconds=4.0, tokens_total=1234,
+        )
+        payload = ljob.job_status_payload(job)
+        self.assertEqual(payload["tokens_total"], 1234)
+        # remaining = 10 - 2 = 8; eta = round(4.0 * 8) = 32
+        self.assertEqual(payload["eta_finish_seconds"], 32)
+
+    def test_tokens_total_defaults_zero(self):
+        job = LeadCheckJob.objects.create(scope=LeadCheckJob.Scope.UNCHECKED)
+        self.assertEqual(job.tokens_total, 0)

@@ -32,6 +32,7 @@ function initCheckerPage(){
 
   const $ = (id) => document.getElementById(id);
   const setText = (id,v) => { const el=$(id); if(el) el.textContent = v; };
+  const fmtEta = (s) => { s = Math.max(0, s|0); if(!s) return '—'; const m = Math.floor(s/60); const sec = s%60; return m>0 ? (m+' хв '+(sec?sec+' с':'')).trim() : (sec+' с'); };
 
   function applyJob(job){
     activeJob = job;
@@ -42,6 +43,8 @@ function initCheckerPage(){
       setText('m-remaining', job.remaining);
       setText('m-elapsed', job.elapsed_seconds);
       setText('m-avg', job.avg_seconds);
+      setText('m-tokens', Number(job.tokens_total||0).toLocaleString('uk-UA'));
+      setText('m-eta', fmtEta(job.eta_finish_seconds||0));
       setText('m-fit', job.fit_count);
       setText('m-maybe', job.maybe_count);
       setText('m-unfit', job.unfit_count);

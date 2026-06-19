@@ -228,6 +228,11 @@ def run_step(job: LeadCheckJob) -> LeadCheckJob:
         dur = getattr(check, "_duration_seconds", 0.0) or 0.0
         if job.processed:
             job.avg_seconds = ((job.avg_seconds * (job.processed - 1)) + dur) / job.processed
+        try:
+            tok = int((getattr(check, "tokens", None) or {}).get("totalTokenCount") or 0)
+        except (TypeError, ValueError, AttributeError):
+            tok = 0
+        job.tokens_total = (job.tokens_total or 0) + max(0, tok)
 
     interval = 60.0 / max(1, job.requests_per_minute)
     job.next_step_not_before = timezone.now() + datetime.timedelta(seconds=interval)
@@ -278,6 +283,8 @@ def job_status_payload(job: LeadCheckJob | None) -> dict | None:
         "maybe_count": job.maybe_count,
         "unfit_count": job.unfit_count,
         "avg_seconds": round(job.avg_seconds, 1),
+        "tokens_total": int(job.tokens_total or 0),
+        "eta_finish_seconds": int(round(job.avg_seconds * remaining)),
         "requests_per_minute": job.requests_per_minute,
         "current_lead_id": job.current_lead_id,
         "is_step_in_progress": job.is_step_in_progress,

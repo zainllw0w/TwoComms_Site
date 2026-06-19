@@ -3823,6 +3823,7 @@ class LeadCheckJob(models.Model):
     is_step_in_progress = models.BooleanField(default=False, db_index=True)
     last_step_started_at = models.DateTimeField(null=True, blank=True)
     avg_seconds = models.FloatField(default=0.0)
+    tokens_total = models.PositiveBigIntegerField(default=0)
     last_error = models.TextField(blank=True)
     stop_reason_code = models.CharField(max_length=64, blank=True)
     started_at = models.DateTimeField(auto_now_add=True, db_index=True)
