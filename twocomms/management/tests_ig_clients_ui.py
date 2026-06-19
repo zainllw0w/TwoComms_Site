@@ -103,3 +103,38 @@ class ClientPauseResumeApiTests(TestCase):
         self.c.refresh_from_db()
         self.assertFalse(self.c.bot_paused)
         self.assertFalse(self.c.manager_takeover)
+
+
+@MGMT
+class ClientDetailCursorTests(TestCase):
+    """Фаза 3: live chat — інкрементальна дозагрузка переписки через after_id."""
+
+    def setUp(self):
+        self.admin = User.objects.create_user("adm_cur", password="x", is_staff=True)
+        self.client.force_login(self.admin)
+        self.c = IgClient.get_or_create_for_sender("igCur")
+        self.m1 = InstagramBotMessage.objects.create(
+            sender_id="igCur", client=self.c, role="user", text="перше", mid="cur1"
+        )
+        self.m2 = InstagramBotMessage.objects.create(
+            sender_id="igCur", client=self.c, role="model", text="відповідь", mid="cur2"
+        )
+
+    def test_detail_messages_have_ids_and_last_id(self):
+        r = self.client.get(reverse("management_bot_client_detail_api", args=[self.c.id]))
+        data = r.json()
+        self.assertTrue(all("id" in m for m in data["messages"]))
+        self.assertEqual(data["last_message_id"], self.m2.id)
+
+    def test_detail_after_id_returns_only_new_messages(self):
+        url = reverse("management_bot_client_detail_api", args=[self.c.id]) + f"?after_id={self.m1.id}"
+        data = self.client.get(url).json()
+        self.assertEqual([m["text"] for m in data["messages"]], ["відповідь"])
+        self.assertEqual(data["last_message_id"], self.m2.id)
+        self.assertNotIn("funnel", data)  # легкий інкрементальний payload
+
+    def test_detail_after_latest_returns_empty(self):
+        url = reverse("management_bot_client_detail_api", args=[self.c.id]) + f"?after_id={self.m2.id}"
+        data = self.client.get(url).json()
+        self.assertEqual(data["messages"], [])
+        self.assertEqual(data["last_message_id"], self.m2.id)

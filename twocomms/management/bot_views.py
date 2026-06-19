@@ -227,15 +227,42 @@ def bot_client_detail_api(request, client_id):
     if not c:
         return JsonResponse({"success": False, "error": "Клієнта не знайдено."}, status=404)
 
+    try:
+        after_id = int(request.GET.get("after_id") or 0)
+    except (TypeError, ValueError):
+        after_id = 0
+
+    if after_id:
+        msg_rows = list(c.messages.filter(id__gt=after_id).order_by("id")[:100])
+    else:
+        # Останні 300 (а не найстаріші) у хронологічному порядку — для live chat.
+        msg_rows = list(c.messages.order_by("-id")[:300])
+        msg_rows.reverse()
     messages = [
         {
+            "id": m.id,
             "role": m.role,
             "text": m.text,
             "attachments": m.attachments or "",
             "time": m.created_at.isoformat() if m.created_at else "",
         }
-        for m in c.messages.order_by("id")[:300]
+        for m in msg_rows
     ]
+    last_message_id = msg_rows[-1].id if msg_rows else after_id
+
+    # Інкрементальний режим (live chat): лише нові повідомлення + прапори стану,
+    # без важких events/deals/funnel — щоб не вантажити сервер на кожному поллі.
+    if after_id:
+        return JsonResponse({
+            "success": True,
+            "messages": messages,
+            "last_message_id": last_message_id,
+            "bot_paused": c.bot_paused,
+            "manager_takeover": c.manager_takeover,
+            "stage": c.stage,
+            "stage_label": c.get_stage_display(),
+        })
+
     events = [
         {
             "from": e.from_stage,
@@ -269,6 +296,7 @@ def bot_client_detail_api(request, client_id):
         "success": True,
         "client": card,
         "messages": messages,
+        "last_message_id": last_message_id,
         "events": events,
         "deals": deals,
         "funnel": c.funnel_progress(),

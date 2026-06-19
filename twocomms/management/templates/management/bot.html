@@ -350,10 +350,10 @@ div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3
     if(btn.dataset.tab==='kb' && !loaded.kb){ loaded.kb=true; KB.load(); }
   }
   tabs.forEach(t=>t.addEventListener('click',()=>activate(t.dataset.tab,true)));
-  let startTab='overview';
-  try{ startTab = localStorage.getItem('bot_tab')||'overview'; }catch(e){}
-  activate(startTab,false);
   window.addEventListener('resize',()=>moveInd(tabs.find(t=>t.classList.contains('active'))));
+  // Початкову активацію вкладки виконуємо В КІНЦІ IIFE (після оголошення Clients/KB),
+  // інакше activate('clients'/'kb') впаде в ReferenceError (TDZ) і обірве скрипт
+  // (poll/setInterval не стартують → усе по нулях, поки не зайти спершу на «Огляд»).
 
   /* ============ Status + Console ============ */
   const box = document.getElementById('bot-console');
@@ -394,11 +394,11 @@ div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3
     document.getElementById('bot-stop').disabled=!st.is_enabled;
     setBadge(document.getElementById('badge-pending'), st.pending||0);
   }
-  let polling=false;
+  let polling=false; let lastStatusOnline=null;
   function poll(){
-    if(polling) return; polling=true;
-    fetch('{% url "management_bot_status_api" %}?after_id='+lastId, {headers:{'X-Requested-With':'XMLHttpRequest'}})
-      .then(r=>r.json()).then(d=>{ if(d.success){ render(d.status); appendLog(d.log); } })
+    if(polling) return Promise.resolve(); polling=true;
+    return fetch('{% url "management_bot_status_api" %}?after_id='+lastId, {headers:{'X-Requested-With':'XMLHttpRequest'}})
+      .then(r=>r.json()).then(d=>{ if(d.success){ lastStatusOnline=!!(d.status.daemon_online||d.status.alive); render(d.status); appendLog(d.log); } })
       .catch(()=>{}).finally(()=>{ polling=false; });
   }
   function action(url){
@@ -418,7 +418,17 @@ div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3
         setTimeout(()=>{h.textContent='';},2500);
       }).catch(()=>{});
   });
-  poll(); setInterval(poll,2000);
+  let statusTimer=null;
+  function scheduleStatusPoll(){
+    if(statusTimer) clearTimeout(statusTimer);
+    // Не вантажимо сервер: рідше коли вкладка прихована або бот офлайн/зупинено.
+    let delay=2500;
+    if(document.hidden) delay=15000;
+    else if(lastStatusOnline===false) delay=8000;
+    statusTimer=setTimeout(()=>{ poll().finally(scheduleStatusPoll); }, delay);
+  }
+  poll().finally(scheduleStatusPoll);
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) poll(); });
 
   /* ============ Clients ============ */
   const Clients=(function(){
@@ -461,10 +471,12 @@ div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3
           h+='</div>';
           if(c.memory) h+='<div class="bot-mem">🧠 '+esc(c.memory)+'</div>';
           if((d.deals||[]).length){h+='<div class="bot-kb-h" style="margin-top:6px;">Угоди</div>';d.deals.forEach(dl=>{h+='<div class="bot-deal">#'+dl.id+' · '+esc(dl.status)+' · '+esc(dl.amount)+' грн'+(dl.order_id?(' · замовлення #'+dl.order_id):'')+(dl.invoice_url?(' · <a href="'+esc(dl.invoice_url)+'" target="_blank" style="color:#7fb0ff;">оплата</a>'):'')+'</div>';});}
-          h+='<div class="bot-kb-h" style="margin-top:12px;">Переписка</div><div style="display:flex;flex-direction:column;">';
-          (d.messages||[]).forEach(m=>{h+='<div class="bot-msg '+(m.role==='user'?'user':'model')+'">'+esc(m.text)+'</div>';});
+          h+='<div class="bot-kb-h" style="margin-top:12px;">Переписка</div><div id="bot-msgs" style="display:flex;flex-direction:column;max-height:440px;overflow-y:auto;">';
+          (d.messages||[]).forEach(m=>{h+='<div class="bot-msg '+(m.role==='user'?'user':'model')+'" data-mid="'+(m.id||0)+'">'+esc(m.text)+'</div>';});
           h+='</div>';
           detailEl.innerHTML=h;
+          convId=id; convLastId=d.last_message_id||0;
+          const mc0=document.getElementById('bot-msgs'); if(mc0) mc0.scrollTop=mc0.scrollHeight;
           const ab=detailEl.querySelector('[data-act]');
           if(ab) ab.addEventListener('click',()=>{
             ab.disabled=true;
@@ -473,6 +485,30 @@ div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3
           });
         }).catch(()=>{});
     }
+    let convId=null, convLastId=0, convInFlight=false;
+    function appendConvMessages(items){
+      const mc=document.getElementById('bot-msgs'); if(!mc||!items||!items.length) return;
+      const atBottom = mc.scrollHeight - mc.scrollTop - mc.clientHeight < 60;
+      items.forEach(m=>{ const dv=document.createElement('div'); dv.className='bot-msg '+(m.role==='user'?'user':'model'); dv.setAttribute('data-mid', m.id||0); dv.textContent=m.text||''; mc.appendChild(dv); convLastId=Math.max(convLastId, m.id||0); });
+      if(atBottom) mc.scrollTop=mc.scrollHeight;
+    }
+    function pollConv(){
+      // Live chat: тягнемо лише НОВІ повідомлення відкритої картки. Не вантажимо
+      // сервер — поллимо тільки коли картка реально видима (offsetParent) і не прихована.
+      if(convInFlight || convId===null) return Promise.resolve();
+      const mc=document.getElementById('bot-msgs');
+      if(!mc || mc.offsetParent===null || document.hidden) return Promise.resolve();
+      convInFlight=true;
+      return fetch(base+convId+'/?after_id='+convLastId,{headers:{'X-Requested-With':'XMLHttpRequest'}})
+        .then(r=>r.json()).then(d=>{ if(d.success){ appendConvMessages(d.messages); if(d.last_message_id) convLastId=Math.max(convLastId,d.last_message_id); } })
+        .catch(()=>{}).finally(()=>{ convInFlight=false; });
+    }
+    let convTimer=null;
+    function scheduleConv(){
+      if(convTimer) clearTimeout(convTimer);
+      convTimer=setTimeout(()=>{ pollConv().finally(scheduleConv); }, document.hidden?12000:4000);
+    }
+    scheduleConv();
     let t=null;
     if(searchEl) searchEl.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(()=>load(searchEl.value.trim()),300);});
     // фонове оновлення лічильника клієнтів навіть на інших вкладках
