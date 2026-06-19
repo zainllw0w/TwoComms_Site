@@ -225,6 +225,21 @@
                         </select>
                     </div>
                     <div class="field">
+                        <label for="moderation-keyword-filter">Ключове слово</label>
+                        <input type="text" id="moderation-keyword-filter" placeholder="фільтр за ключем парсингу" autocomplete="off">
+                    </div>
+                    <div class="field">
+                        <label for="moderation-verdict-filter">AI-вердикт</label>
+                        <select id="moderation-verdict-filter">
+                            <option value="">Будь-який</option>
+                            <option value="fit">Підходить</option>
+                            <option value="maybe">Під питанням</option>
+                            <option value="unfit">Не підходить</option>
+                            <option value="unchecked">Не перевірені</option>
+                            <option value="error">Помилки</option>
+                        </select>
+                    </div>
+                    <div class="field">
                         <label for="moderation-page-size">На сторінці</label>
                         <select id="moderation-page-size">
                             <option value="10">10</option>

@@ -732,6 +732,26 @@
         color: #ffb1b1;
     }
 
+    .moderation-ai-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 6px;
+        padding: 4px 9px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-secondary);
+        font-size: 0.72rem;
+        font-weight: 700;
+        line-height: 1;
+        white-space: nowrap;
+    }
+    .moderation-ai-badge--fit { border-color: rgba(16, 185, 129, 0.35); background: rgba(16, 185, 129, 0.14); color: #9af0cb; }
+    .moderation-ai-badge--maybe { border-color: rgba(245, 158, 11, 0.34); background: rgba(245, 158, 11, 0.14); color: #ffd487; }
+    .moderation-ai-badge--unfit { border-color: rgba(239, 68, 68, 0.32); background: rgba(239, 68, 68, 0.12); color: #ffb1b1; }
+    .moderation-ai-badge--error { border-color: rgba(148, 163, 184, 0.35); background: rgba(148, 163, 184, 0.12); color: #cbd5e1; }
+
     .moderation-actions {
         display: grid;
         grid-template-columns: minmax(0, 1fr) 36px;

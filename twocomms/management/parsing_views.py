@@ -76,6 +76,14 @@ def _sanitize_moderation_page_size(raw_value) -> int:
     return parsed if parsed in MODERATION_PAGE_SIZE_OPTIONS else DEFAULT_MODERATION_PAGE_SIZE
 
 
+_AI_VERDICT_LABELS = {
+    "fit": "Підходить",
+    "maybe": "Під питанням",
+    "unfit": "Не підходить",
+    "error": "Помилка",
+}
+
+
 def _serialize_moderation_lead(lead: ManagementLead) -> dict:
     return {
         "id": lead.id,
@@ -93,6 +101,9 @@ def _serialize_moderation_lead(lead: ManagementLead) -> dict:
         "comments": lead.comments,
         "niche_status": lead.niche_status,
         "niche_status_display": lead.get_niche_status_display(),
+        "ai_score": lead.ai_score,
+        "ai_verdict": lead.ai_verdict or "",
+        "ai_verdict_display": _AI_VERDICT_LABELS.get(lead.ai_verdict or "", ""),
         "lead_source": lead.lead_source,
         "lead_source_display": lead.get_lead_source_display(),
         "requires_phone_completion": lead.requires_phone_completion,
@@ -148,8 +159,10 @@ def _paginate_queryset(queryset, *, page: int, page_size: int) -> dict:
     }
 
 
-def _moderation_payload(*, page=1, page_size=DEFAULT_MODERATION_PAGE_SIZE, city="") -> dict:
+def _moderation_payload(*, page=1, page_size=DEFAULT_MODERATION_PAGE_SIZE, city="", keyword="", verdict="") -> dict:
     city_filter = _normalize_city_filter(city)
+    keyword_filter = (keyword or "").strip()
+    verdict_filter = (verdict or "").strip().lower()
     normalized_page = _parse_positive_int(page, 1)
     normalized_page_size = _sanitize_moderation_page_size(page_size)
 
@@ -158,6 +171,14 @@ def _moderation_payload(*, page=1, page_size=DEFAULT_MODERATION_PAGE_SIZE, city=
     filtered_qs = base_qs
     if city_filter:
         filtered_qs = filtered_qs.filter(city__iexact=city_filter)
+    if keyword_filter:
+        filtered_qs = filtered_qs.filter(parser_keyword__icontains=keyword_filter)
+    if verdict_filter in {"fit", "maybe", "unfit", "error"}:
+        filtered_qs = filtered_qs.filter(ai_verdict=verdict_filter)
+    elif verdict_filter == "unchecked":
+        filtered_qs = filtered_qs.filter(ai_checked_at__isnull=True)
+    elif verdict_filter == "checked":
+        filtered_qs = filtered_qs.filter(ai_checked_at__isnull=False)
 
     total_items = base_qs.count()
     filtered_items = filtered_qs.count()
@@ -176,6 +197,8 @@ def _moderation_payload(*, page=1, page_size=DEFAULT_MODERATION_PAGE_SIZE, city=
         },
         "filters": {
             "city": city_filter,
+            "keyword": keyword_filter,
+            "verdict": verdict_filter,
             "page_size": normalized_page_size,
         },
         "city_counts": city_counts,
@@ -593,6 +616,8 @@ def parser_moderation_api(request):
         page=request.GET.get("page"),
         page_size=request.GET.get("page_size"),
         city=request.GET.get("city"),
+        keyword=request.GET.get("keyword"),
+        verdict=request.GET.get("verdict"),
     )
     return JsonResponse({"success": True, **payload})
 

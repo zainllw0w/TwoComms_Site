@@ -26,6 +26,8 @@ function initParsingPage() {
     const moderationCityFilter = document.getElementById('moderation-city-filter');
     const moderationPageSize = document.getElementById('moderation-page-size');
     const moderationClearCityBtn = document.getElementById('moderation-clear-city');
+    const moderationKeywordFilter = document.getElementById('moderation-keyword-filter');
+    const moderationVerdictFilter = document.getElementById('moderation-verdict-filter');
     const moderationPagination = document.getElementById('moderation-pagination');
     const moderationRangeInfo = document.getElementById('moderation-range-info');
     const moderationTotalInfo = document.getElementById('moderation-total-info');
@@ -498,6 +500,12 @@ function initParsingPage() {
         moderationCityFilter.innerHTML = options.join('');
         moderationCityFilter.value = currentCity;
         moderationPageSize.value = currentPageSize;
+        if (moderationKeywordFilter && document.activeElement !== moderationKeywordFilter) {
+            moderationKeywordFilter.value = state?.filters?.keyword || '';
+        }
+        if (moderationVerdictFilter) {
+            moderationVerdictFilter.value = state?.filters?.verdict || '';
+        }
     };
 
     const renderModerationPagination = (state) => {
@@ -541,6 +549,15 @@ function initParsingPage() {
             const safeStatus = ['niche', 'maybe', 'non_niche'].includes(rawStatus) ? rawStatus : 'maybe';
             const label = escapeHtml(displayValue(lead?.niche_status_display, 'Під питанням'));
             return `<span class="moderation-niche-badge moderation-niche-badge--${safeStatus}">${label}</span>`;
+        };
+
+        const renderAiBadge = (lead) => {
+            const verdict = String(lead?.ai_verdict || '').trim();
+            if (!verdict) return '';
+            const cls = ['fit', 'maybe', 'unfit', 'error'].includes(verdict) ? verdict : 'maybe';
+            const score = (lead.ai_score == null) ? '' : ` · ${lead.ai_score}`;
+            const label = escapeHtml(displayValue(lead.ai_verdict_display, verdict));
+            return `<span class="moderation-ai-badge moderation-ai-badge--${cls}" title="AI-вердикт чекера">AI: ${label}${score}</span>`;
         };
 
         moderationTableBody.innerHTML = moderation.map((lead) => {
@@ -592,7 +609,7 @@ function initParsingPage() {
                             <span class="moderation-cell__primary moderation-keyword" title="${escapeHtml(displayValue(lead.keyword))}">${escapeHtml(displayValue(lead.keyword))}</span>
                         </div>
                     </td>
-                    <td data-label="Нішевість" class="cell-niche">${renderNicheBadge(lead)}</td>
+                    <td data-label="Нішевість" class="cell-niche">${renderNicheBadge(lead)}${renderAiBadge(lead)}</td>
                     <td data-label="Дія" class="cell-actions">
                         <div class="moderation-actions">
                             <div class="moderation-actions__primary">
@@ -686,12 +703,16 @@ function initParsingPage() {
         try {
             const nextFilters = {
                 city: overrides.city !== undefined ? overrides.city : (moderationState?.filters?.city || ''),
+                keyword: overrides.keyword !== undefined ? overrides.keyword : (moderationState?.filters?.keyword || ''),
+                verdict: overrides.verdict !== undefined ? overrides.verdict : (moderationState?.filters?.verdict || ''),
                 page_size: overrides.pageSize !== undefined ? overrides.pageSize : (moderationState?.filters?.page_size || 25),
             };
             const nextPage = overrides.page !== undefined ? overrides.page : (moderationState?.pagination?.page || 1);
             const payload = await apiRequest(
                 buildQueryUrl(moderationUrl, {
                     city: nextFilters.city,
+                    keyword: nextFilters.keyword,
+                    verdict: nextFilters.verdict,
                     page_size: nextFilters.page_size,
                     page: nextPage,
                 }),
@@ -949,6 +970,25 @@ function initParsingPage() {
             } catch (err) {
                 alert(err.message || 'Не вдалося скинути фільтр міста');
             }
+        });
+    }
+
+    if (moderationKeywordFilter) {
+        let kwTimer = null;
+        moderationKeywordFilter.addEventListener('input', (event) => {
+            const val = event.target.value;
+            if (kwTimer) clearTimeout(kwTimer);
+            kwTimer = setTimeout(async () => {
+                try { await fetchModeration({ keyword: val, page: 1 }); }
+                catch (err) { console.warn(err); }
+            }, 400);
+        });
+    }
+
+    if (moderationVerdictFilter) {
+        moderationVerdictFilter.addEventListener('change', async (event) => {
+            try { await fetchModeration({ verdict: event.target.value, page: 1 }); }
+            catch (err) { alert(err.message || 'Не вдалося відфільтрувати за вердиктом'); }
         });
     }
 
