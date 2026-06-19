@@ -1,0 +1,90 @@
+"""
+Створення замовлення (orders.Order) з угоди IG-бота (management.IgDeal).
+
+Викликається ПІСЛЯ підтвердженої оплати (рішення Q2). Ідемпотентно: одна угода →
+одне замовлення. Дані Нової Пошти зберігаються текстом (Q3=a), ТТН оформлює
+менеджер. Спільного сервісу створення замовлень у проєкті не було (логіка
+дублювалась у checkout/monobank-в'ю) — це перша переюзабельна точка для бота.
+"""
+from __future__ import annotations
+
+from decimal import Decimal
+
+from django.db import transaction
+
+
+def create_order_from_deal(deal, *, created_by=None):
+    """Створює Order + OrderItem з оплаченої угоди. Повертає Order.
+    Якщо замовлення для угоди вже є — повертає його (ідемпотентність)."""
+    if deal.order_id:
+        return deal.order
+
+    from orders.models import Order, OrderItem
+
+    is_prepay = deal.pay_type == deal.PayType.PREPAY_200
+    payment_status = "prepaid" if is_prepay else "paid"
+
+    full_name = (
+        deal.np_full_name
+        or deal.client.display_name
+        or deal.client.username
+        or "IG клієнт"
+    )
+    phone = deal.np_phone or deal.client.phone or ""
+
+    with transaction.atomic():
+        order = Order(
+            full_name=full_name[:200],
+            phone=phone[:32],
+            city=(deal.np_city or "")[:100],
+            np_office=(deal.np_office or "")[:200],
+            pay_type=deal.pay_type,
+            payment_status=payment_status,
+            status="new",
+            source="manual",
+            sale_source="Instagram",
+            created_by=created_by,
+            payment_provider="monobank",
+            payment_invoice_id=deal.invoice_id or "",
+            total_sum=deal.amount or Decimal("0"),
+        )
+        order.save()
+
+        items = []
+        for it in deal.items.all():
+            items.append(
+                OrderItem(
+                    order=order,
+                    product=it.product,
+                    color_variant=it.color_variant,
+                    title=it.title,
+                    size=it.size or "",
+                    qty=it.qty,
+                    unit_price=it.unit_price,
+                    line_total=it.line_total,
+                    is_custom=(it.product_id is None),
+                )
+            )
+        if items:
+            OrderItem.objects.bulk_create(items)
+
+        deal.order = order
+        deal.status = deal.Status.ORDER_CREATED
+        deal.save(update_fields=["order", "status", "updated_at"])
+
+    # Лічильники й стадія клієнта (best-effort, поза транзакцією замовлення).
+    try:
+        from management.models import IgClient
+
+        c = deal.client
+        c.purchases_count = (c.purchases_count or 0) + 1
+        c.total_spent = (c.total_spent or Decimal("0")) + (deal.amount or Decimal("0"))
+        flags = dict(c.conversion_flags or {})
+        flags["is_buyer"] = True
+        c.conversion_flags = flags
+        c.save(update_fields=["purchases_count", "total_spent", "conversion_flags", "updated_at"])
+        c.set_stage(IgClient.Stage.ORDER_CREATED, reason="order")
+    except Exception:
+        pass
+
+    return order

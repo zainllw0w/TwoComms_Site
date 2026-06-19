@@ -1,0 +1,94 @@
+"""Тести Phase 3 / Task 13 — вкладка «Клиенти» (CRM IG-клієнтів).
+
+JSON-API списку карток і детальної (переписка, кружечки воронки, summary,
+угоди, замовлення). Доступ лише адмінам.
+"""
+from django.contrib.auth import get_user_model
+from django.test import TestCase, override_settings
+from django.urls import reverse
+
+from management.models import IgClient, InstagramBotMessage
+
+User = get_user_model()
+
+MGMT = override_settings(ROOT_URLCONF="twocomms.urls_management")
+
+
+class FunnelProgressTests(TestCase):
+    def test_progress_marks_done_up_to_current(self):
+        c = IgClient.get_or_create_for_sender("p1")
+        c.set_stage(IgClient.Stage.CHECKOUT)
+        by = {p["stage"]: p for p in c.funnel_progress()}
+        self.assertTrue(by["new"]["done"])
+        self.assertTrue(by["checkout"]["done"])
+        self.assertTrue(by["checkout"]["current"])
+        self.assertFalse(by["paid"]["done"])
+
+
+@MGMT
+class ClientsApiTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user("adm", password="x", is_staff=True)
+        self.client.force_login(self.admin)
+        self.c = IgClient.get_or_create_for_sender("igX")
+        self.c.display_name = "Іван"
+        self.c.save()
+        InstagramBotMessage.objects.create(
+            sender_id="igX", client=self.c, role="user", text="привіт"
+        )
+
+    def test_clients_list(self):
+        r = self.client.get(reverse("management_bot_clients_api"))
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertTrue(data["success"])
+        self.assertTrue(any(cl["name"] == "Іван" for cl in data["clients"]))
+
+    def test_client_detail(self):
+        r = self.client.get(reverse("management_bot_client_detail_api", args=[self.c.id]))
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data["client"]["id"], self.c.id)
+        self.assertTrue(any(m["text"] == "привіт" for m in data["messages"]))
+        self.assertGreaterEqual(len(data["funnel"]), 5)
+
+    def test_requires_admin(self):
+        self.client.logout()
+        nonadmin = User.objects.create_user("u", password="x")
+        self.client.force_login(nonadmin)
+        r = self.client.get(reverse("management_bot_clients_api"))
+        self.assertEqual(r.status_code, 403)
+
+
+@MGMT
+class ClientsPageRenderTests(TestCase):
+    def test_bot_page_has_clients_section(self):
+        admin = User.objects.create_user("adm2", password="x", is_staff=True)
+        self.client.force_login(admin)
+        r = self.client.get(reverse("management_bot"))
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("Клієнти", r.content.decode("utf-8"))
+
+
+@MGMT
+class ClientPauseResumeApiTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user("adm3", password="x", is_staff=True)
+        self.client.force_login(self.admin)
+        self.c = IgClient.get_or_create_for_sender("igPause")
+
+    def test_pause(self):
+        r = self.client.post(reverse("management_bot_client_pause_api", args=[self.c.id]))
+        self.assertEqual(r.status_code, 200)
+        self.c.refresh_from_db()
+        self.assertTrue(self.c.bot_paused)
+
+    def test_resume_clears_takeover(self):
+        self.c.bot_paused = True
+        self.c.manager_takeover = True
+        self.c.save()
+        r = self.client.post(reverse("management_bot_client_resume_api", args=[self.c.id]))
+        self.assertEqual(r.status_code, 200)
+        self.c.refresh_from_db()
+        self.assertFalse(self.c.bot_paused)
+        self.assertFalse(self.c.manager_takeover)

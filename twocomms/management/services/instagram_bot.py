@@ -22,6 +22,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import time
 import urllib.error
 import urllib.request
@@ -32,6 +33,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from management.models import (
+    IgClient,
     InstagramBotLog,
     InstagramBotMessage,
     InstagramBotSettings,
@@ -48,6 +50,152 @@ PAGE_TOKEN_TTL = 1200
 HTTP_TIMEOUT = 12
 CONV_LIST_TIMEOUT = 30
 MSG_KEEP_ROWS = 2000        # підрізання історії
+
+# Керуючі теги, які модель може додавати у відповідь (вирізаються перед
+# відправкою клієнту). [STAGE:x] просуває воронку, [MANAGER] кличе людину.
+STAGE_VALUES = {s.value for s in IgClient.Stage}
+_CONTROL_TAG_RE = re.compile(r"\[([A-Z]+)(?::([^\]]+))?\]")
+
+
+def _extract_control(reply: str) -> tuple[str, dict]:
+    """Витягує керуючі теги ([MANAGER], [STAGE:x], [SPAM], [PAYLINK:x], [ORDER])
+    з відповіді моделі. Повертає (очищений_текст, {tag_lower: value|True}).
+    Кирилічні дужки [текст] не чіпаються (матчимо лише латиницю у верхньому регістрі)."""
+    tags: dict = {}
+    if not reply:
+        return reply, tags
+    for m in _CONTROL_TAG_RE.finditer(reply):
+        name = m.group(1).lower()
+        val = (m.group(2) or "").strip().lower()
+        tags[name] = val or True
+    clean = _CONTROL_TAG_RE.sub("", reply)
+    clean = re.sub(r"[ \t]{2,}", " ", clean)
+    clean = re.sub(r"\n{3,}", "\n\n", clean).strip()
+    return clean, tags
+
+
+def _apply_stage(client, stage_value) -> bool:
+    """Просуває клієнта на стадію, якщо вона валідна й відрізняється від поточної."""
+    if not client or not stage_value or not isinstance(stage_value, str):
+        return False
+    if stage_value not in STAGE_VALUES:
+        return False
+    if client.stage == stage_value:
+        return False
+    try:
+        client.set_stage(stage_value, reason="bot")
+    except Exception:
+        return False
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Модерація діалогу: стоп/старт, антиспам, перехоплення менеджером (Phase 7)
+# ---------------------------------------------------------------------------
+SPAM_STRIKES_LIMIT = 3
+PHONE_RE = re.compile(r"(?:\+?38)?0\d{9}")
+
+
+def _client_blocked(client) -> bool:
+    """Бот не відповідає, якщо клієнта поставлено на паузу або заблоковано."""
+    return bool(client and (client.bot_paused or client.is_blocked))
+
+
+def _register_spam(client) -> bool:
+    """+1 спам-страйк. На SPAM_STRIKES_LIMIT — пауза + стадія SPAM + сповіщення.
+    Повертає True, якщо клієнта заблоковано цим страйком."""
+    client.spam_strikes = (client.spam_strikes or 0) + 1
+    fields = ["spam_strikes", "updated_at"]
+    blocked = client.spam_strikes >= SPAM_STRIKES_LIMIT
+    if blocked:
+        client.bot_paused = True
+        client.paused_reason = "spam"
+        client.paused_at = timezone.now()
+        fields += ["bot_paused", "paused_reason", "paused_at"]
+    client.save(update_fields=fields)
+    if blocked:
+        try:
+            client.set_stage(IgClient.Stage.SPAM, reason="spam")
+        except Exception:
+            pass
+        notify_manager(
+            f"🚫 IG: клієнт {client.username or client.igsid} заблокований "
+            f"(3 спам-страйки). Бот зупинено для нього."
+        )
+        log("warning", "spam_block", f"{client.igsid}: 3 страйки → пауза")
+    return blocked
+
+
+def _maybe_capture_phone(client, text: str) -> bool:
+    """Якщо у клієнта ще немає телефону, а в тексті є український номер — зберігає."""
+    if not client or client.phone:
+        return False
+    cleaned = (text or "").replace(" ", "").replace("-", "")
+    m = PHONE_RE.search(cleaned)
+    if not m:
+        return False
+    try:
+        from management.models import normalize_phone
+
+        if not normalize_phone(m.group(0)):
+            return False
+    except Exception:
+        pass
+    client.phone = m.group(0)
+    client.save(update_fields=["phone", "phone_normalized", "updated_at"])
+    return True
+
+
+def _bot_sent_key(text: str) -> str:
+    norm = " ".join((text or "").lower().split())
+    return "ig_bot_sent:" + hashlib.md5(norm.encode("utf-8")).hexdigest()[:16]
+
+
+def _mark_bot_sent(text: str) -> None:
+    """Позначає текст, який щойно надіслав бот — щоб відрізнити від відлуння
+    повідомлення менеджера (echo)."""
+    try:
+        cache.set(_bot_sent_key(text), 1, 1800)
+    except Exception:
+        pass
+
+
+def _handle_echo(recipient_igsid: str, text: str) -> None:
+    """Echo-подія (повідомлення, надіслане сторінкою). Якщо це НЕ власне відлуння
+    бота — значить відповів живий менеджер → ставимо бота на паузу для клієнта."""
+    if not recipient_igsid:
+        return
+    if text and cache.get(_bot_sent_key(text)):
+        return  # власне відлуння бота — ігноруємо
+    client = IgClient.get_or_create_for_sender(recipient_igsid)
+    if client.manager_takeover and client.bot_paused:
+        return
+    client.manager_takeover = True
+    client.bot_paused = True
+    client.paused_reason = "manager_takeover"
+    client.paused_at = timezone.now()
+    client.save(update_fields=[
+        "manager_takeover", "bot_paused", "paused_reason", "paused_at", "updated_at",
+    ])
+    notify_manager(
+        f"👤 IG: менеджер підключився до {client.username or client.igsid} — "
+        f"бот на паузі для цього клієнта."
+    )
+    log("warning", "takeover", f"{recipient_igsid}: менеджер підключився")
+
+
+def _match_allowed(sender_id: str, limit: int = 15, window: int = 3600) -> bool:
+    """Cost-гард: не більше `limit` vision-матчингів на клієнта за `window` секунд
+    (матчинг іде через дорожчу management-модель — захист квоти від спаму фото)."""
+    key = f"ig_match_cnt:{sender_id}"
+    try:
+        n = cache.get(key) or 0
+        if n >= limit:
+            return False
+        cache.set(key, n + 1, window)
+    except Exception:
+        return True
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -378,7 +526,8 @@ def send_text(s: InstagramBotSettings, recipient_id: str, text: str) -> tuple[bo
 # Gemini
 # ---------------------------------------------------------------------------
 def gemini_generate(
-    s: InstagramBotSettings, history: list[dict], images: list[tuple[str, bytes]] | None = None
+    s: InstagramBotSettings, history: list[dict], images: list[tuple[str, bytes]] | None = None,
+    match_hint: str | None = None, memory_note: str | None = None,
 ) -> str | None:
     """history: [{'role':'user'|'model','text':str}] хронологічно.
     images: список (mime_type, raw_bytes) для ОСТАННЬОГО (поточного) user-ходу."""
@@ -424,7 +573,22 @@ def gemini_generate(
             sys_text += "\n\n" + catalog
     except Exception:
         pass
+    try:
+        from management.models import BotInstruction, BotQuickLink
+
+        instr = BotInstruction.active_block()
+        if instr:
+            sys_text += "\n\n[ДОДАТКОВІ ІНСТРУКЦІЇ]\n" + instr
+        links = BotQuickLink.active_block()
+        if links:
+            sys_text += "\n\n[ДОСТУПНІ ПОСИЛАННЯ — надсилай доречне за запитом]\n" + links
+    except Exception:
+        pass
     sys_text = sys_text.strip()
+    if memory_note:
+        sys_text = (sys_text + "\n\n" + memory_note).strip()
+    if match_hint:
+        sys_text = (sys_text + "\n\n" + match_hint).strip()
 
     payload = {
         "contents": contents,
@@ -493,6 +657,121 @@ def download_image(url: str) -> tuple[str, bytes] | None:
         return None
 
 
+def _collect_images(attachments_json: str | None, limit: int = 3) -> list[tuple[str, bytes]]:
+    """Завантажує вкладення повідомлення у список (mime, bytes) для vision.
+
+    attachments_json — JSON-рядок зі списком URL (як зберігає InstagramBotMessage).
+    Невдалі/не-image завантаження тихо пропускаються. Cap на `limit`.
+    """
+    images: list[tuple[str, bytes]] = []
+    if not attachments_json:
+        return images
+    try:
+        urls = json.loads(attachments_json)
+    except Exception:
+        return images
+    for url in (urls or [])[:limit]:
+        img = download_image(url)
+        if img:
+            images.append(img)
+    return images
+
+
+def _match_hint_text(match: dict | None) -> str | None:
+    """Формує підказку для моделі за результатом матчингу фото з каталогом.
+
+    Висока впевненість → називаємо конкретний товар і ціну. Низька → просимо
+    уточнити/запропонувати каталог і НЕ вигадувати товар.
+    """
+    if not match:
+        return None
+    try:
+        from management.services.bot_vision import MATCH_THRESHOLD
+    except Exception:
+        MATCH_THRESHOLD = 0.6
+    pid = match.get("product_id")
+    try:
+        conf = float(match.get("confidence") or 0)
+    except Exception:
+        conf = 0.0
+    if pid and conf >= MATCH_THRESHOLD:
+        try:
+            from storefront.models import Product
+
+            p = Product.objects.filter(id=pid).first()
+        except Exception:
+            p = None
+        if p:
+            try:
+                price = int(getattr(p, "final_price", None) or p.price)
+            except Exception:
+                price = p.price
+            url = f"https://twocomms.shop/product/{p.slug}/"
+            return (
+                f"[ЗБІГ ТОВАРУ ЗА ФОТО — впевненість {int(conf * 100)}%] Клієнт прислав "
+                f"фото/пост, і це товар з каталогу: «{p.title}» — {price} грн, {url}. "
+                f"Назви саме цей товар, дай ціну і за потреби посилання. Веди до покупки."
+            )
+    return (
+        "[ФОТО БЕЗ ВПЕВНЕНОГО ЗБІГУ] Клієнт прислав фото/пост, але точно зіставити з "
+        "каталогом не вдалось. Чемно уточни деталі (тип, колір, принт) або запропонуй "
+        "переглянути каталог. НЕ вигадуй товар, ціну чи наявність."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Профіль клієнта (IG Graph) — ім'я / username / аватар
+# ---------------------------------------------------------------------------
+def fetch_ig_profile(s: InstagramBotSettings, igsid: str) -> dict:
+    """Тягне профіль співрозмовника через Graph (name/username/profile_pic).
+    Порожній dict, якщо немає токена або помилка."""
+    page_token = get_page_token(s)
+    if not page_token or not igsid:
+        return {}
+    code, body = _http(
+        f"{GRAPH}/{igsid}?fields=name,username,profile_pic&access_token={page_token}",
+        timeout=HTTP_TIMEOUT,
+    )
+    if code != 200:
+        return {}
+    try:
+        data = json.loads(body)
+    except Exception:
+        return {}
+    return {
+        "name": data.get("name") or "",
+        "username": data.get("username") or "",
+        "profile_pic": data.get("profile_pic") or "",
+    }
+
+
+def ensure_profile(s: InstagramBotSettings, client, force: bool = False) -> bool:
+    """Підвантажує профіль у картку (один раз). False, якщо вже є/немає даних.
+    На невдачі ставить короткий кулдаун, щоб не смикати Graph щоповідомлення."""
+    if not client:
+        return False
+    if client.profile_fetched_at and not force:
+        return False
+    cd_key = f"ig_profile_cd:{client.igsid}"
+    if not force and cache.get(cd_key):
+        return False
+    prof = fetch_ig_profile(s, client.igsid)
+    if not prof or not any(prof.values()):
+        try:
+            cache.set(cd_key, 1, 3600)
+        except Exception:
+            pass
+        return False
+    client.display_name = (prof.get("name") or client.display_name or "")[:255]
+    client.username = (prof.get("username") or client.username or "")[:120]
+    client.profile_pic_url = (prof.get("profile_pic") or client.profile_pic_url or "")[:600]
+    client.profile_fetched_at = timezone.now()
+    client.save(update_fields=[
+        "display_name", "username", "profile_pic_url", "profile_fetched_at", "updated_at",
+    ])
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Allowlist
 # ---------------------------------------------------------------------------
@@ -528,10 +807,12 @@ def enqueue_inbound(
     if not _is_allowed(s, sender_id):
         log("info", "skip_not_allowed", f"[{source}] {sender_id} поза білим списком")
         return False
+    client = IgClient.get_or_create_for_sender(sender_id)
     try:
         with transaction.atomic():
             InstagramBotMessage.objects.create(
                 sender_id=sender_id,
+                client=client,
                 role=InstagramBotMessage.Role.USER,
                 text=text or "(зображення)",
                 mid=mid or None,
@@ -541,6 +822,7 @@ def enqueue_inbound(
             )
     except IntegrityError:
         return False  # вже у черзі/оброблено (mid unique)
+    client.touch_inbound()
     s.last_inbound_at = timezone.now()
     s.save(update_fields=["last_inbound_at"])
     extra = f" (+{len(attachments)} фото)" if attachments else ""
@@ -589,6 +871,19 @@ def _claim_next() -> InstagramBotMessage | None:
 
 
 def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
+    # Пауза/блок клієнта (стоп вручну або перехоплення менеджером) — не відповідаємо.
+    if row.client_id and _client_blocked(row.client):
+        row.status = InstagramBotMessage.Status.DONE
+        row.processed_at = timezone.now()
+        row.save(update_fields=["status", "processed_at"])
+        log("info", "paused_skip", f"{row.sender_id}: на паузі ({row.client.paused_reason or 'manual'})")
+        return False
+    # Захоплення телефону клієнта (лід), якщо ще немає.
+    if row.client_id:
+        try:
+            _maybe_capture_phone(row.client, row.text)
+        except Exception:
+            pass
     # Анти-спам: ліміт відповідей на одного відправника.
     if _rate_exceeded(s, row.sender_id):
         row.status = InstagramBotMessage.Status.DONE
@@ -604,6 +899,12 @@ def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
         # Відразу показуємо клієнту, що бот побачив і «друкує» (best practice).
         send_sender_action(s, row.sender_id, "mark_seen")
         send_sender_action(s, row.sender_id, "typing_on")
+        # Підвантажуємо профіль клієнта (раз на картку) для CRM.
+        if row.client_id and not row.client.profile_fetched_at:
+            try:
+                ensure_profile(s, row.client)
+            except Exception:
+                pass
         # Анти-абуз: однакове питання багато разів — не жжемо токени Gemini.
         rep = _repeated_question(row.sender_id, row.text)
         if rep > 3 and not row.attachments:
@@ -613,17 +914,30 @@ def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
             history = _build_history(row.sender_id)
             if not history:
                 history = [{"role": "user", "text": row.text}]
-            # Зображення-вкладення -> мультимодальний вхід.
-            images = []
-            if row.attachments:
+            # Зображення-вкладення (фото, пересланий пост, reels, сторіс) ->
+            # мультимодальний вхід Gemini.
+            images = _collect_images(row.attachments)
+            # Якщо є фото/пост — матчимо з каталогом і даємо моделі підказку.
+            match_hint = None
+            if images and _match_allowed(row.sender_id):
                 try:
-                    for url in json.loads(row.attachments)[:3]:
-                        img = download_image(url)
-                        if img:
-                            images.append(img)
+                    from management.services import bot_vision
+
+                    match_hint = _match_hint_text(bot_vision.match(images))
+                except Exception as exc:
+                    log("warning", "match", repr(exc))
+            # Пам'ять про клієнта (rolling summary) — для контексту.
+            mem_note = None
+            if row.client_id:
+                try:
+                    from management.services.bot_memory import memory_note as _memory_note
+
+                    mem_note = _memory_note(row.client)
                 except Exception:
                     pass
-            reply = gemini_generate(s, history, images=images or None)
+            reply = gemini_generate(
+                s, history, images=images or None, match_hint=match_hint, memory_note=mem_note
+            )
     else:
         if (row.text or "").strip() != s.trigger_text:
             row.status = InstagramBotMessage.Status.DONE
@@ -633,11 +947,33 @@ def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
             return False
         reply = s.reply_text
 
-    # Ескалація на людину: модель додає тег [MANAGER], коли потрібен менеджер.
-    needs_manager = False
-    if reply and "[MANAGER]" in reply:
-        needs_manager = True
-        reply = reply.replace("[MANAGER]", "").strip()
+    # Керуючі теги моделі: [MANAGER] (ескалація), [STAGE:x] (воронка) тощо.
+    control = {}
+    if reply:
+        reply, control = _extract_control(reply)
+    needs_manager = bool(control.get("manager"))
+
+    # [SPAM] — модель розпізнала спам/провокацію: рахуємо страйк (на 3-й — пауза).
+    if reply and row.client_id and control.get("spam"):
+        try:
+            _register_spam(row.client)
+        except Exception:
+            pass
+
+    # [PAYLINK:full|prepay] (+опц. [PRODUCT:id]) — формуємо посилання на оплату.
+    if reply and row.client_id and control.get("paylink"):
+        try:
+            from management.services import bot_orders
+
+            res = bot_orders.create_deal_and_link(
+                row.client,
+                pay_type=str(control.get("paylink")),
+                product_id=control.get("product"),
+            )
+            if res.get("ok") and res.get("invoice_url"):
+                reply = (reply + "\n\n💳 Посилання на оплату: " + res["invoice_url"]).strip()
+        except Exception as exc:
+            log("warning", "paylink", repr(exc))
 
     if not reply:
         # невдача генерації — ретрай або failed
@@ -689,8 +1025,10 @@ def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
     row.status = InstagramBotMessage.Status.DONE
     row.processed_at = timezone.now()
     row.save(update_fields=["status", "processed_at"])
+    _mark_bot_sent(reply)  # щоб відрізнити власне відлуння від менеджера
     InstagramBotMessage.objects.create(
         sender_id=row.sender_id,
+        client=row.client,
         role=InstagramBotMessage.Role.MODEL,
         text=reply,
         status=InstagramBotMessage.Status.DONE,
@@ -701,7 +1039,30 @@ def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
     s.last_reply_at = timezone.now()
     s.save(update_fields=["replies_count", "last_reply_at"])
     log("success", "reply_sent", f"→ {row.sender_id}: {reply[:240]}")
+    # Періодично оновлюємо стислу пам'ять про клієнта.
+    if row.client_id:
+        try:
+            from management.services.bot_memory import maybe_update_memory
+
+            maybe_update_memory(row.client)
+        except Exception:
+            pass
+        # Просування воронки за тегом [STAGE:x].
+        _apply_stage(row.client, control.get("stage"))
+        # [ORDER] — зібрано дані, створюємо замовлення (після оплати).
+        if control.get("order"):
+            try:
+                from management.services import bot_orders
+
+                bot_orders.collect_np_and_fulfill(row.client)
+            except Exception:
+                pass
     if needs_manager:
+        if row.client_id:
+            try:
+                _apply_stage(row.client, IgClient.Stage.LEAD_TO_MANAGER)
+            except Exception:
+                pass
         notify_manager(
             f"🔔 IG Direct — клієнту потрібен менеджер.\n"
             f"IGSID: {row.sender_id}\nПитання: {row.text[:400]}"
@@ -739,13 +1100,47 @@ def pending_count() -> int:
 
 
 def unique_senders_count() -> int:
-    """Скільки різних людей писали боту (для аналітики тесту)."""
-    return (
-        InstagramBotMessage.objects.filter(role=InstagramBotMessage.Role.USER)
-        .values("sender_id")
+    """Скільки різних людей писали боту = к-сть карток IgClient (кожен sender має
+    картку). Раніше рахувалось distinct sender_id, але Meta.ordering=['id'] ламав
+    distinct (over-count) — тепер рахуємо картки."""
+    return IgClient.objects.count()
+
+
+def link_orphan_messages_to_clients() -> int:
+    """Прив'язує повідомлення без картки до IgClient (бекофіл легасі історії).
+
+    Для кожного унікального sender_id без картки створює/знаходить IgClient,
+    проставляє first_contact_at/last_message_at з історії і лінкує повідомлення.
+    Повертає кількість задіяних карток. Ідемпотентна (другий запуск → 0).
+    """
+    from django.db.models import Max, Min
+
+    sender_ids = list(
+        InstagramBotMessage.objects.filter(client__isnull=True)
+        .exclude(sender_id="")
+        .order_by("sender_id")  # скидаємо Meta.ordering=['id'], інакше distinct ламається
+        .values_list("sender_id", flat=True)
         .distinct()
-        .count()
     )
+    count = 0
+    for sid in sender_ids:
+        client = IgClient.get_or_create_for_sender(sid)
+        agg = InstagramBotMessage.objects.filter(sender_id=sid).aggregate(
+            first=Min("created_at"), last=Max("created_at")
+        )
+        fields = []
+        if not client.first_contact_at and agg["first"]:
+            client.first_contact_at = agg["first"]
+            fields.append("first_contact_at")
+        if agg["last"]:
+            client.last_message_at = agg["last"]
+            fields.append("last_message_at")
+        if fields:
+            fields.append("updated_at")
+            client.save(update_fields=fields)
+        InstagramBotMessage.objects.filter(sender_id=sid, client__isnull=True).update(client=client)
+        count += 1
+    return count
 
 
 def _trim_messages() -> None:
@@ -761,37 +1156,186 @@ def _trim_messages() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Webhook payload -> черга (швидко, без важкої логіки)
+# Сире логування подій (Phase 0 / Task 1) — діагностика форматів вебхуків
 # ---------------------------------------------------------------------------
-def handle_webhook_payload(s: InstagramBotSettings, payload: dict) -> int:
-    enq = 0
+RAW_EVENT_KEEP_ROWS = 400
 
-    def _imgs(msg):
-        urls = []
-        for att in (msg.get("attachments") or []):
-            if (att.get("type") == "image"):
-                u = (att.get("payload") or {}).get("url")
-                if u:
-                    urls.append(u)
-        return urls
 
-    def _one(sender_id, msg):
-        nonlocal enq
-        if not msg or msg.get("is_echo") or msg.get("is_deleted") or msg.get("is_unsupported"):
-            return
-        if enqueue_inbound(
-            s, sender_id=sender_id, text=msg.get("text", ""), mid=msg.get("mid", ""),
-            source="webhook", attachments=_imgs(msg),
-        ):
-            enq += 1
+def _iter_events(payload: dict):
+    """Yield (sender_id, recipient_id, message_dict, referral_dict) з payload.
 
+    Покриває обидва канали доставки Meta: entry[].messaging[] (Send/Receive)
+    та entry[].changes[] з field=messages (деякі IG-події). Referral береться
+    і з події, і з postback.referral (перший контакт із Click-to-IG реклами).
+    recipient_id потрібен для echo (повідомлення сторінки/менеджера клієнту).
+    """
     for entry in payload.get("entry", []) or []:
         for event in entry.get("messaging", []) or []:
-            _one((event.get("sender") or {}).get("id", ""), event.get("message") or {})
+            ref = (
+                event.get("referral")
+                or (event.get("postback") or {}).get("referral")
+                or {}
+            )
+            yield (
+                (event.get("sender") or {}).get("id", ""),
+                (event.get("recipient") or {}).get("id", ""),
+                event.get("message") or {},
+                ref,
+            )
         for change in entry.get("changes", []) or []:
             if change.get("field") == "messages":
                 value = change.get("value") or {}
-                _one((value.get("sender") or {}).get("id", ""), value.get("message") or {})
+                yield (
+                    (value.get("sender") or {}).get("id", ""),
+                    (value.get("recipient") or {}).get("id", ""),
+                    value.get("message") or {},
+                    value.get("referral") or {},
+                )
+
+
+def record_raw_event(payload: dict):
+    """Зберігає сирий вебхук + витягнуті ознаки (типи вкладень, referral, echo).
+
+    Best-effort: ніколи не кидає, щоб не зламати прийом вебхука. Підрізає
+    найстаріші рядки, щоб не накопичувати нескінченно.
+    """
+    from management.models import InstagramBotRawEvent
+
+    sender_id = ""
+    att_types: list[str] = []
+    has_referral = False
+    has_echo = False
+    try:
+        for sid, _rid, msg, ref in _iter_events(payload):
+            if sid and not sender_id:
+                sender_id = sid
+            if msg.get("is_echo"):
+                has_echo = True
+            for att in (msg.get("attachments") or []):
+                t = att.get("type") or "unknown"
+                if t not in att_types:
+                    att_types.append(t)
+            if ref or msg.get("referral"):
+                has_referral = True
+    except Exception:
+        pass
+    try:
+        raw = json.dumps(payload, ensure_ascii=False)[:20000]
+    except Exception:
+        raw = str(payload)[:20000]
+    ev = InstagramBotRawEvent.objects.create(
+        sender_id=(sender_id or "")[:64],
+        attachment_types=",".join(att_types)[:255],
+        has_referral=has_referral,
+        has_echo=has_echo,
+        payload=raw,
+    )
+    try:
+        if InstagramBotRawEvent.objects.count() > RAW_EVENT_KEEP_ROWS + 100:
+            ids = list(
+                InstagramBotRawEvent.objects.order_by("-id").values_list("id", flat=True)[:RAW_EVENT_KEEP_ROWS]
+            )
+            if ids:
+                InstagramBotRawEvent.objects.exclude(id__in=ids).delete()
+    except Exception:
+        pass
+    return ev
+
+
+# ---------------------------------------------------------------------------
+# Webhook payload -> черга (швидко, без важкої логіки)
+# ---------------------------------------------------------------------------
+MEDIA_ATTACH_TYPES = {
+    "image", "share", "ig_reel", "reel", "story_mention", "story", "video", "file", "link",
+}
+MEDIA_MAX = 3
+
+
+def _extract_media_urls(msg: dict) -> list[str]:
+    """Збирає завантажувані URL з повідомлення: вкладення будь-якого медіа-типу
+    (а не лише image) + відповідь на сторіс (reply_to.story.url). Дедуп, cap.
+
+    download_image() сам відсіє не-image (відео/файл), тож їх URL безпечні.
+    """
+    urls: list[str] = []
+    for att in (msg.get("attachments") or []):
+        t = (att.get("type") or "").lower()
+        if t not in MEDIA_ATTACH_TYPES:
+            continue
+        u = (att.get("payload") or {}).get("url")
+        if u:
+            urls.append(u)
+    story = (msg.get("reply_to") or {}).get("story") or {}
+    if story.get("url"):
+        urls.append(story["url"])
+    out: list[str] = []
+    for u in urls:
+        if u and u not in out:
+            out.append(u)
+    return out[:MEDIA_MAX]
+
+
+def _apply_referral(sender_id: str, ref: dict) -> None:
+    """Зберігає атрибуцію реклами (Click-to-IG-Direct) у картку клієнта.
+
+    ref містить ref/ad_id/source та ads_context_data (ad_title, photo_url/
+    video_url). Це дає боту зрозуміти, ЩО продавала реклама, ще до питань.
+    """
+    if not ref:
+        return
+    client = IgClient.get_or_create_for_sender(sender_id)
+    acd = ref.get("ads_context_data") or {}
+    client.ad_ref = (str(ref.get("ref") or ""))[:255]
+    client.ad_id = (str(ref.get("ad_id") or ""))[:64]
+    client.ad_source = (str(ref.get("source") or ""))[:64]
+    client.ad_title = (str(acd.get("ad_title") or ""))[:255]
+    client.ad_creative_url = (str(acd.get("photo_url") or acd.get("video_url") or ""))[:600]
+    try:
+        client.referral_payload = ref
+    except Exception:
+        client.referral_payload = {}
+    client.save(update_fields=[
+        "ad_ref", "ad_id", "ad_source", "ad_title", "ad_creative_url",
+        "referral_payload", "updated_at",
+    ])
+
+
+def handle_webhook_payload(s: InstagramBotSettings, payload: dict) -> int:
+    """Розбирає payload вебхука і кладе вхідні в чергу. Повертає к-сть доданих.
+
+    Echo (повідомлення сторінки/менеджера) поки пропускаємо для черги — їх
+    використає авто-перехоплення менеджером (Task 21).
+    """
+    enq = 0
+    for sender_id, recipient_id, msg, ref in _iter_events(payload):
+        if not msg:
+            continue
+        if msg.get("is_deleted") or msg.get("is_unsupported"):
+            continue
+        # Echo (повідомлення сторінки/менеджера) → перехоплення менеджером.
+        if msg.get("is_echo"):
+            try:
+                _handle_echo(recipient_id, msg.get("text", ""))
+            except Exception as exc:
+                log("warning", "echo", repr(exc))
+            continue
+        if not sender_id:
+            continue
+        if ref:
+            try:
+                _apply_referral(sender_id, ref)
+            except Exception as exc:
+                log("warning", "referral", repr(exc))
+        media = _extract_media_urls(msg)
+        if enqueue_inbound(
+            s,
+            sender_id=sender_id,
+            text=msg.get("text", ""),
+            mid=msg.get("mid", ""),
+            source="webhook",
+            attachments=media,
+        ):
+            enq += 1
     return enq
 
 

@@ -72,6 +72,11 @@ def ig_webhook(request):
 
         try:
             settings_obj = InstagramBotSettings.load()
+            # Phase 0 / Task 1 — сире логування подій (діагностика форматів).
+            try:
+                bot.record_raw_event(payload)
+            except Exception:
+                logger.exception("ig_bot: record_raw_event error")
             if not bot.app_secret():
                 bot.log("warning", "no_app_secret", "IG_APP_SECRET не заданий — підпис не перевіряється")
             enq = bot.handle_webhook_payload(settings_obj, payload)

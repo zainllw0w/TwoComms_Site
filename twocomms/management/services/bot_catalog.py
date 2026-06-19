@@ -36,13 +36,14 @@ def _build() -> str:
         return ""
     ids = [p.id for p in products]
 
-    # Кольори + залишки по варіантах одним запитом.
+    # Кольори + залишки + візуальні відбитки по варіантах одним запитом.
     colors_by_product: dict[int, list[str]] = {}
     stock_by_product: dict[int, int] = {}
+    fp_by_product: dict[int, list[str]] = {}
     variants = (
         ProductColorVariant.objects.filter(product_id__in=ids)
         .select_related("color")
-        .only("product_id", "stock", "color__name")
+        .only("product_id", "stock", "color__name", "metadata")
     )
     for v in variants:
         cname = getattr(v.color, "name", "") or ""
@@ -51,6 +52,12 @@ def _build() -> str:
             if cname not in colors_by_product[v.product_id]:
                 colors_by_product[v.product_id].append(cname)
         stock_by_product[v.product_id] = stock_by_product.get(v.product_id, 0) + int(v.stock or 0)
+        bv = (v.metadata or {}).get("bot_vision") or {}
+        seg = (bv.get("summary") or bv.get("print_subject") or "").strip()
+        if seg:
+            fp_by_product.setdefault(v.product_id, [])
+            if seg not in fp_by_product[v.product_id]:
+                fp_by_product[v.product_id].append(seg)
 
     lines = ["Каталог TwoComms (актуальні товари, ціни в грн):"]
     for p in products:
@@ -69,8 +76,10 @@ def _build() -> str:
         colors_s = (", кольори: " + ", ".join(colors[:8])) if colors else ""
         stock = stock_by_product.get(p.id, 0)
         avail = f", на складі: {stock} шт" if stock > 0 else ", під замовлення"
+        fps = fp_by_product.get(p.id, [])
+        fp_s = (" | принт: " + "; ".join(fps[:3])) if fps else ""
         url = f"{SITE}/product/{p.slug}/"
-        lines.append(f"• {p.title} — {price} грн{disc} [{cat}]{colors_s}{avail} | {url}")
+        lines.append(f"• {p.title} — {price} грн{disc} [{cat}]{colors_s}{avail}{fp_s} | {url}")
 
     text = "\n".join(lines)
     if len(text) > MAX_CHARS:

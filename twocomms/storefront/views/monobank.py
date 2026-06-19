@@ -1380,6 +1380,14 @@ def monobank_webhook(request):
                     monobank_logger.warning('Management invoice webhook processing failed for %s: %s', inv.id, exc)
                 return JsonResponse({'ok': True})
 
+            # IG-бот: invoice угоди (замовлення ще не створене — Q2). Pull-verify.
+            try:
+                from management.services import bot_payments
+                if bot_payments.handle_webhook_invoice(invoice_id, payload, request=request):
+                    return JsonResponse({'ok': True})
+            except Exception as exc:
+                monobank_logger.warning('IG deal webhook processing failed for %s: %s', invoice_id, exc)
+
         monobank_logger.warning('Webhook received for unknown invoice/order: %s / %s', invoice_id, order_ref)
         return JsonResponse({'ok': True})
 

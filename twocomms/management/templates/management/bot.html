@@ -46,6 +46,35 @@
 .bot-live-chip{font-size:11px;color:#34d399;display:inline-flex;align-items:center;gap:6px;}
 .bot-live-chip i{width:7px;height:7px;border-radius:50%;background:#34d399;display:inline-block;animation:botpulse 1.6s infinite;}
 .bot-note{background:#15110a;border:1px solid #3a2e16;color:#d8c08a;border-radius:10px;padding:10px 13px;font-size:12.5px;margin-bottom:18px;}
+.bot-clients-wrap{display:grid;grid-template-columns:320px 1fr;gap:14px;}
+@media(max-width:860px){.bot-clients-wrap{grid-template-columns:1fr;}}
+.bot-clients-list{max-height:440px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;}
+.bot-client-row{display:flex;gap:10px;align-items:center;background:#0c0f17;border:1px solid #1e2430;border-radius:10px;padding:8px 10px;cursor:pointer;transition:.12s;}
+.bot-client-row:hover{border-color:#2563eb;}
+.bot-client-row.active{border-color:#2563eb;background:#0f1626;}
+.bot-client-ava{width:34px;height:34px;border-radius:50%;background:#1e2430;object-fit:cover;flex:0 0 auto;}
+.bot-client-meta{min-width:0;}
+.bot-client-name{font-size:13.5px;color:#e7ecf3;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.bot-client-sub{font-size:11.5px;color:#8b95a5;}
+.bot-stage-chip{font-size:10.5px;padding:2px 7px;border-radius:20px;background:#13203a;color:#7fb0ff;white-space:nowrap;}
+.bot-client-detail{max-height:440px;overflow-y:auto;border-left:1px solid #1c222e;padding-left:14px;}
+.bot-funnel{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;}
+.bot-circle{display:flex;align-items:center;gap:6px;font-size:11px;color:#8b95a5;}
+.bot-circle i{width:11px;height:11px;border-radius:50%;background:#2a3140;display:inline-block;}
+.bot-circle.done i{background:#22c55e;}
+.bot-circle.current i{background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.18);}
+.bot-msg{padding:6px 10px;border-radius:9px;margin:4px 0;font-size:12.5px;max-width:85%;word-break:break-word;}
+.bot-msg.user{background:#11151f;border:1px solid #1e2430;}
+.bot-msg.model{background:#0f1626;border:1px solid #1d2b48;margin-left:auto;}
+.bot-mem{background:#0c0f17;border:1px solid #232a38;border-radius:9px;padding:8px 10px;font-size:12px;color:#cdd5e1;margin:8px 0;}
+.bot-kb-wrap{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+@media(max-width:860px){.bot-kb-wrap{grid-template-columns:1fr;}}
+.bot-kb-h{font-size:13px;color:#aeb8c7;margin:0 0 8px;}
+.bot-kb-list{display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto;margin-bottom:8px;}
+.bot-kb-item{display:flex;gap:8px;align-items:flex-start;background:#0c0f17;border:1px solid #1e2430;border-radius:8px;padding:6px 8px;font-size:12px;color:#cdd5e1;word-break:break-word;}
+.bot-kb-item .x{margin-left:auto;color:#f87171;cursor:pointer;font-weight:700;flex:0 0 auto;}
+.bot-kb-form{display:flex;flex-direction:column;gap:6px;}
+.bot-kb-form input,.bot-kb-form select{background:#0c0f17;border:1px solid #232a38;border-radius:8px;color:#e7ecf3;padding:7px 9px;font-size:12.5px;}
 </style>
 {% endblock %}
 
@@ -156,6 +185,58 @@
       </div>
       <div class="bot-console-box" id="bot-console"></div>
     </div>
+
+    <!-- Клієнти (CRM IG-діалогів) -->
+    <div class="bot-card bot-console">
+      <div class="bot-console-head">
+        <h2 style="margin:0;">Клієнти</h2>
+        <input id="bot-clients-search" placeholder="Пошук: ім'я / username / телефон"
+               style="background:#0c0f17;border:1px solid #232a38;border-radius:8px;color:#e7ecf3;padding:6px 10px;font-size:12.5px;width:260px;">
+      </div>
+      <div class="bot-clients-wrap">
+        <div id="bot-clients-list" class="bot-clients-list"></div>
+        <div id="bot-client-detail" class="bot-client-detail">
+          <div class="bot-hint">Оберіть клієнта зі списку, щоб побачити переписку, етап і угоди…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Інструкції / посилання / реклама -->
+    <div class="bot-card bot-console">
+      <div class="bot-console-head"><h2 style="margin:0;">Інструкції та посилання</h2></div>
+      <div class="bot-kb-wrap">
+        <div class="bot-kb-col">
+          <h3 class="bot-kb-h">Інструкції</h3>
+          <div id="kb-instructions" class="bot-kb-list"></div>
+          <div class="bot-kb-form">
+            <input id="kbi-title" placeholder="Заголовок">
+            <input id="kbi-body" placeholder="Текст інструкції">
+            <button class="bot-save" data-kb-add="instruction">Додати</button>
+          </div>
+        </div>
+        <div class="bot-kb-col">
+          <h3 class="bot-kb-h">Швидкі посилання</h3>
+          <div id="kb-links" class="bot-kb-list"></div>
+          <div class="bot-kb-form">
+            <select id="kbl-kind"><option value="size_chart">Розмірна сітка</option><option value="catalog">Каталог</option><option value="highlight">Хайлайт</option><option value="other">Інше</option></select>
+            <input id="kbl-label" placeholder="Підпис">
+            <input id="kbl-url" placeholder="https://...">
+            <input id="kbl-garment" placeholder="Тип (hoodie/tshirt)">
+            <button class="bot-save" data-kb-add="quicklink">Додати</button>
+          </div>
+        </div>
+        <div class="bot-kb-col">
+          <h3 class="bot-kb-h">Реклама → товар/тема</h3>
+          <div id="kb-ads" class="bot-kb-list"></div>
+          <div class="bot-kb-form">
+            <input id="kba-adid" placeholder="Ad ID">
+            <input id="kba-title" placeholder="Назва кампанії">
+            <input id="kba-theme" placeholder="Тема (hoodie/...)">
+            <button class="bot-save" data-kb-add="adcampaign">Додати</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
@@ -239,6 +320,102 @@
 
   poll();
   setInterval(poll, 2000);
+})();
+
+// --- Клієнти (CRM) ---
+(function(){
+  const listEl = document.getElementById('bot-clients-list');
+  const detailEl = document.getElementById('bot-client-detail');
+  const searchEl = document.getElementById('bot-clients-search');
+  if(!listEl) return;
+  const base = '{% url "management_bot_clients_api" %}';
+  const csrf = (document.querySelector('input[name=csrfmiddlewaretoken]')||{}).value || '';
+  let activeId = null;
+  function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+  function loadList(q){
+    fetch(base+(q?('?q='+encodeURIComponent(q)):''), {headers:{'X-Requested-With':'XMLHttpRequest'}})
+      .then(r=>r.json()).then(d=>{
+        if(!d.success) return;
+        listEl.innerHTML='';
+        (d.clients||[]).forEach(c=>{
+          const row=document.createElement('div');
+          row.className='bot-client-row'+(c.id===activeId?' active':'');
+          const ava=c.avatar?('<img class="bot-client-ava" src="'+esc(c.avatar)+'">'):'<div class="bot-client-ava"></div>';
+          row.innerHTML=ava+'<div class="bot-client-meta"><div class="bot-client-name">'+esc(c.name)+'</div><div class="bot-client-sub">'+esc(c.username||c.igsid)+'</div></div><span class="bot-stage-chip" style="margin-left:auto;">'+esc(c.stage_label)+'</span>';
+          row.addEventListener('click',()=>{activeId=c.id;document.querySelectorAll('.bot-client-row').forEach(e=>e.classList.remove('active'));row.classList.add('active');loadDetail(c.id);});
+          listEl.appendChild(row);
+        });
+        if(!(d.clients||[]).length) listEl.innerHTML='<div class="bot-hint">Ще немає клієнтів.</div>';
+      }).catch(()=>{});
+  }
+
+  function loadDetail(id){
+    fetch(base+id+'/', {headers:{'X-Requested-With':'XMLHttpRequest'}})
+      .then(r=>r.json()).then(d=>{
+        if(!d.success){detailEl.innerHTML='<div class="bot-hint">Не знайдено.</div>';return;}
+        const c=d.client;
+        let h='<div style="display:flex;gap:10px;align-items:center;">'+(c.avatar?('<img class="bot-client-ava" src="'+esc(c.avatar)+'">'):'<div class="bot-client-ava"></div>')+'<div><div class="bot-client-name">'+esc(c.name)+'</div><div class="bot-client-sub">'+esc(c.username||c.igsid)+(c.phone?(' · '+esc(c.phone)):'')+'</div></div></div>';
+        if(c.ad_title) h+='<div class="bot-client-sub" style="margin-top:6px;">Реклама: '+esc(c.ad_title)+'</div>';
+        const pauseBtn = c.bot_paused
+          ? '<button class="bot-save" data-act="resume" style="background:#16a34a;">▶ Включити бота</button>'
+          : '<button class="bot-save" data-act="pause" style="background:#dc2626;">⏸ Стоп бота</button>';
+        h+='<div style="margin-top:8px;">'+pauseBtn+(c.manager_takeover?' <span class="bot-stage-chip">менеджер веде</span>':'')+'</div>';
+        h+='<div class="bot-funnel">';
+        (d.funnel||[]).forEach(f=>{h+='<span class="bot-circle'+(f.done?' done':'')+(f.current?' current':'')+'"><i></i>'+esc(f.label)+'</span>';});
+        h+='</div>';
+        if(c.memory) h+='<div class="bot-mem"><b>Пам\'ять:</b> '+esc(c.memory)+'</div>';
+        if((d.deals||[]).length){h+='<div class="bot-client-sub" style="margin-top:6px;">Угоди:</div>';d.deals.forEach(dl=>{h+='<div class="bot-client-sub">#'+dl.id+' · '+esc(dl.status)+' · '+esc(dl.amount)+' грн'+(dl.order_id?(' · замовлення #'+dl.order_id):'')+(dl.invoice_url?(' · <a href="'+esc(dl.invoice_url)+'" target="_blank" style="color:#7fb0ff;">оплата</a>'):'')+'</div>';});}
+        h+='<div style="margin-top:10px;border-top:1px solid #1c222e;padding-top:8px;">';
+        (d.messages||[]).forEach(m=>{h+='<div class="bot-msg '+(m.role==='user'?'user':'model')+'">'+esc(m.text)+'</div>';});
+        h+='</div>';
+        detailEl.innerHTML=h;
+        const actBtn = detailEl.querySelector('[data-act]');
+        if(actBtn) actBtn.addEventListener('click', ()=>{
+          fetch(base+id+'/'+actBtn.getAttribute('data-act')+'/', {method:'POST', headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'}})
+            .then(r=>r.json()).then(()=>loadDetail(id)).catch(()=>{});
+        });
+      }).catch(()=>{});
+  }
+
+  let t=null;
+  if(searchEl) searchEl.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(()=>loadList(searchEl.value.trim()),300);});
+  loadList('');
+  setInterval(()=>{ if(!activeId) loadList(searchEl?searchEl.value.trim():''); }, 15000);
+})();
+
+// --- Інструкції / посилання / реклама (KB) ---
+(function(){
+  const csrf=(document.querySelector('input[name=csrfmiddlewaretoken]')||{}).value||'';
+  if(!document.getElementById('kb-instructions')) return;
+  const kbBase='{% url "management_bot_kb_api" %}';
+  const kbSave='{% url "management_bot_kb_save_api" %}';
+  function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+  function save(fd){return fetch(kbSave,{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'},body:fd}).then(r=>r.json());}
+  function del(type,id){const fd=new FormData();fd.append('type',type);fd.append('op','delete');fd.append('id',id);return save(fd);}
+  function row(type,id,label){const d=document.createElement('div');d.className='bot-kb-item';d.innerHTML='<span>'+esc(label)+'</span><span class="x">×</span>';d.querySelector('.x').addEventListener('click',()=>del(type,id).then(load));return d;}
+  function load(){
+    fetch(kbBase,{headers:{'X-Requested-With':'XMLHttpRequest'}}).then(r=>r.json()).then(d=>{
+      if(!d.success) return;
+      const ie=document.getElementById('kb-instructions');ie.innerHTML='';
+      (d.instructions||[]).forEach(i=>ie.appendChild(row('instruction',i.id,(i.title?i.title+': ':'')+i.body)));
+      const le=document.getElementById('kb-links');le.innerHTML='';
+      (d.quick_links||[]).forEach(q=>le.appendChild(row('quicklink',q.id,q.label+' — '+q.url)));
+      const ae=document.getElementById('kb-ads');ae.innerHTML='';
+      (d.ad_campaigns||[]).forEach(a=>ae.appendChild(row('adcampaign',a.id,(a.ad_id||a.ref||'?')+' → '+(a.theme||a.title||''))));
+    }).catch(()=>{});
+  }
+  function val(id){const el=document.getElementById(id);return el?el.value:'';}
+  document.querySelectorAll('[data-kb-add]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const t=btn.getAttribute('data-kb-add');const fd=new FormData();fd.append('type',t);
+      if(t==='instruction'){fd.append('title',val('kbi-title'));fd.append('body',val('kbi-body'));}
+      else if(t==='quicklink'){fd.append('kind',val('kbl-kind'));fd.append('label',val('kbl-label'));fd.append('url',val('kbl-url'));fd.append('garment_type',val('kbl-garment'));}
+      else {fd.append('ad_id',val('kba-adid'));fd.append('title',val('kba-title'));fd.append('theme',val('kba-theme'));}
+      save(fd).then(()=>{['kbi-title','kbi-body','kbl-label','kbl-url','kbl-garment','kba-adid','kba-title','kba-theme'].forEach(i=>{const el=document.getElementById(i);if(el)el.value='';});load();});
+    });
+  });
+  load();
 })();
 </script>
 {% endblock %}

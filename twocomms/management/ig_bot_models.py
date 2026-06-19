@@ -1,0 +1,488 @@
+"""Моделі апгрейду Instagram-бота TwoComms (Phase 0+).
+
+Винесені в окремий модуль, щоб не роздувати і без того велику models.py.
+Імпортуються в кінці management/models.py (`from .ig_bot_models import *`),
+тож app_label='management' визначається автоматично, а міграції лягають у
+management/migrations. Перехресні FK задаються рядком ('management.IgClient',
+'orders.Order') — без жорстких import, щоб уникнути циклічних залежностей.
+"""
+from __future__ import annotations
+
+from decimal import Decimal
+
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+
+__all__ = [
+    "InstagramBotRawEvent",
+    "IgClient",
+    "IgDeal",
+    "IgDealItem",
+    "BotInstruction",
+    "BotQuickLink",
+    "BotAdCampaign",
+    "IgClientStageEvent",
+]
+
+
+class InstagramBotRawEvent(models.Model):
+    """Сире збереження вхідних вебхук-подій IG для діагностики форматів.
+
+    Дозволяє побачити реальний payload пересланого поста / story_mention /
+    відповіді на сторис / рекламного referral / echo менеджера на цьому
+    акаунті, а не покладатись на здогадки про формат Meta.
+    """
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    sender_id = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    attachment_types = models.CharField(max_length=255, blank=True, default="")
+    has_referral = models.BooleanField(default=False)
+    has_echo = models.BooleanField(default=False)
+    note = models.CharField(max_length=255, blank=True, default="")
+    payload = models.TextField(blank=True, default="")
+
+    class Meta:
+        verbose_name = "IG raw webhook event"
+        verbose_name_plural = "IG raw webhook events"
+        ordering = ["-id"]
+        indexes = [
+            models.Index(fields=["-created_at"], name="ig_rawevent_created"),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - тривіально
+        return f"RawEvent#{self.pk} {self.sender_id} [{self.attachment_types}]"
+
+
+class IgClient(models.Model):
+    """Картка співрозмовника в Instagram Direct (B2C).
+
+    Окрема сутність від B2B `Client` (холодний обзвон магазинів). Тут — кінцевий
+    покупець, що пише в Direct: профіль, стадія воронки, атрибуція реклами,
+    стисла пам'ять діалогу, лічильники, антиспам, стоп/перехоплення менеджером.
+    """
+
+    class Stage(models.TextChoices):
+        NEW = "new", _("Написав")
+        QUALIFYING = "qualifying", _("З'ясовуємо потребу")
+        PRODUCT_MATCHED = "product_matched", _("Товар і ціна визначені")
+        CHECKOUT = "checkout", _("Обирає оплату")
+        PAYMENT_PENDING = "payment_pending", _("Очікуємо оплату")
+        PAID = "paid", _("Оплачено")
+        ORDER_CREATED = "order_created", _("Замовлення створено")
+        DONE = "done", _("Завершено")
+        LEAD_TO_MANAGER = "lead_manager", _("Передано менеджеру")
+        SPAM = "spam", _("Спам / заблоковано")
+        COLD = "cold", _("Не відповідає / охолов")
+
+    # Головна воронка (для прогрес-бару/кружечків у картці).
+    FUNNEL_ORDER = [
+        Stage.NEW,
+        Stage.QUALIFYING,
+        Stage.PRODUCT_MATCHED,
+        Stage.CHECKOUT,
+        Stage.PAYMENT_PENDING,
+        Stage.PAID,
+        Stage.ORDER_CREATED,
+        Stage.DONE,
+    ]
+
+    # Identity
+    igsid = models.CharField(_("IG sender id"), max_length=64, unique=True, db_index=True)
+    username = models.CharField(_("Username"), max_length=120, blank=True, default="")
+    display_name = models.CharField(_("Ім'я"), max_length=255, blank=True, default="")
+    profile_pic_url = models.CharField(_("Аватар URL"), max_length=600, blank=True, default="")
+    profile_fetched_at = models.DateTimeField(null=True, blank=True)
+
+    # Контакти (для ліда / замовлення)
+    phone = models.CharField(_("Телефон"), max_length=50, blank=True, default="")
+    phone_normalized = models.CharField(max_length=50, blank=True, default="", db_index=True)
+
+    # Воронка
+    stage = models.CharField(
+        _("Стадія"), max_length=24, choices=Stage.choices, default=Stage.NEW, db_index=True
+    )
+    stage_updated_at = models.DateTimeField(null=True, blank=True)
+
+    # Керування ботом / перехоплення менеджером
+    bot_paused = models.BooleanField(_("Бот на паузі"), default=False, db_index=True)
+    paused_reason = models.CharField(max_length=255, blank=True, default="")
+    paused_at = models.DateTimeField(null=True, blank=True)
+    manager_takeover = models.BooleanField(_("Веде менеджер"), default=False)
+
+    # Атрибуція реклами (Click-to-IG-Direct)
+    ad_ref = models.CharField(max_length=255, blank=True, default="")
+    ad_id = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    ad_source = models.CharField(max_length=64, blank=True, default="")
+    ad_title = models.CharField(max_length=255, blank=True, default="")
+    ad_creative_url = models.CharField(max_length=600, blank=True, default="")
+    referral_payload = models.JSONField(default=dict, blank=True)
+
+    # Пам'ять діалогу (rolling summary — Task 10)
+    memory_summary = models.TextField(blank=True, default="")
+    memory_updated_at = models.DateTimeField(null=True, blank=True)
+
+    # Лічильники / конверсія
+    purchases_count = models.PositiveIntegerField(default=0)
+    total_spent = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    conversion_flags = models.JSONField(default=dict, blank=True)
+
+    # Антиспам
+    spam_strikes = models.PositiveSmallIntegerField(default=0)
+    is_blocked = models.BooleanField(default=False)
+
+    # Тайминги
+    first_contact_at = models.DateTimeField(null=True, blank=True)
+    last_message_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    last_bot_reply_at = models.DateTimeField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("IG клієнт")
+        verbose_name_plural = _("IG клієнти")
+        ordering = ["-last_message_at", "-id"]
+        indexes = [
+            models.Index(fields=["stage", "-last_message_at"], name="ig_client_stage_dt"),
+            models.Index(fields=["-last_message_at"], name="ig_client_lastmsg"),
+        ]
+
+    def save(self, *args, **kwargs):
+        # Нормалізація телефону (lazy import, щоб уникнути циклічного імпорту).
+        if self.phone:
+            try:
+                from management.models import normalize_phone
+
+                self.phone_normalized = normalize_phone(self.phone)
+            except Exception:
+                pass
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:  # pragma: no cover - тривіально
+        label = self.username or self.display_name or self.igsid
+        return f"IgClient({label}, {self.stage})"
+
+    @classmethod
+    def get_or_create_for_sender(cls, igsid: str, defaults: dict | None = None) -> "IgClient":
+        obj, _created = cls.objects.get_or_create(igsid=igsid, defaults=defaults or {})
+        return obj
+
+    def set_stage(self, new_stage: str, reason: str = "") -> None:
+        """Оновлює стадію + час і фіксує перехід у таймлайні (IgClientStageEvent)."""
+        from django.utils import timezone
+
+        old = self.stage
+        self.stage = new_stage
+        self.stage_updated_at = timezone.now()
+        self.save(update_fields=["stage", "stage_updated_at", "updated_at"])
+        try:
+            from management.models import IgClientStageEvent
+
+            IgClientStageEvent.objects.create(
+                client=self, from_stage=old or "", to_stage=new_stage, reason=(reason or "")[:255]
+            )
+        except Exception:
+            pass
+
+    def touch_inbound(self) -> None:
+        """Фіксує вхідне повідомлення: first_contact_at (раз) і last_message_at."""
+        from django.utils import timezone
+
+        now = timezone.now()
+        fields = ["last_message_at", "updated_at"]
+        if not self.first_contact_at:
+            self.first_contact_at = now
+            fields.append("first_contact_at")
+        self.last_message_at = now
+        self.save(update_fields=fields)
+
+    def funnel_progress(self) -> list[dict]:
+        """Прогрес по основних стадіях воронки (для кружечків у картці)."""
+        order = list(self.FUNNEL_ORDER)
+        try:
+            cur = order.index(self.stage)
+        except ValueError:
+            cur = -1
+        result = []
+        for i, st in enumerate(order):
+            result.append({
+                "stage": st.value,
+                "label": str(st.label),
+                "done": cur >= 0 and i <= cur,
+                "current": st.value == self.stage,
+            })
+        return result
+
+
+class IgDeal(models.Model):
+    """«Кошик» діалогу: вибрані позиції, сума, оплата, invoice, дані НП.
+
+    Замовлення (orders.Order) створюється ТІЛЬКИ після підтвердженої оплати
+    (рішення Q2), тож тут зберігаємо invoice_id/url і чекаємо вебхук/поллінг.
+    """
+
+    PREPAYMENT_AMOUNT = Decimal("200.00")
+
+    class Status(models.TextChoices):
+        DRAFT = "draft", _("Чернетка")
+        QUOTED = "quoted", _("Названо ціну")
+        AWAITING_PAYMENT = "awaiting_payment", _("Очікує оплату")
+        PAID = "paid", _("Оплачено")
+        ORDER_CREATED = "order_created", _("Замовлення створено")
+        CANCELLED = "cancelled", _("Скасовано")
+
+    class PayType(models.TextChoices):
+        ONLINE_FULL = "online_full", _("Повна онлайн-оплата")
+        PREPAY_200 = "prepay_200", _("Передплата 200 грн")
+
+    client = models.ForeignKey(
+        "management.IgClient", on_delete=models.CASCADE, related_name="deals"
+    )
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.DRAFT, db_index=True
+    )
+    pay_type = models.CharField(
+        max_length=20, choices=PayType.choices, default=PayType.ONLINE_FULL
+    )
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    currency = models.CharField(max_length=8, default="UAH")
+
+    # Monobank acquiring
+    invoice_id = models.CharField(max_length=128, blank=True, default="", db_index=True)
+    invoice_url = models.CharField(max_length=600, blank=True, default="")
+    payment_status = models.CharField(max_length=20, default="unpaid")
+    payment_payload = models.JSONField(default=dict, blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+
+    # Створене замовлення (після оплати)
+    order = models.ForeignKey(
+        "orders.Order",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="ig_deals",
+    )
+
+    # Дані доставки (Нова Пошта) — текстом (рішення Q3=a)
+    np_full_name = models.CharField(max_length=255, blank=True, default="")
+    np_phone = models.CharField(max_length=50, blank=True, default="")
+    np_city = models.CharField(max_length=160, blank=True, default="")
+    np_office = models.CharField(max_length=255, blank=True, default="")
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("IG угода")
+        verbose_name_plural = _("IG угоди")
+        ordering = ["-id"]
+        indexes = [
+            models.Index(fields=["client", "-id"], name="ig_deal_client_dt"),
+            models.Index(fields=["status", "-id"], name="ig_deal_status_dt"),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - тривіально
+        return f"IgDeal#{self.pk} {self.client_id} {self.status} {self.amount}{self.currency}"
+
+    def recalc_total(self) -> Decimal:
+        """Перераховує суму як суму позицій і зберігає."""
+        from django.db.models import Sum
+
+        total = self.items.aggregate(s=Sum("line_total"))["s"] or Decimal("0")
+        self.amount = total
+        self.save(update_fields=["amount", "updated_at"])
+        return total
+
+    def payable_amount(self) -> Decimal:
+        """Скільки списати через Monobank зараз: передоплата 200 або повна сума."""
+        if self.pay_type == self.PayType.PREPAY_200:
+            return self.PREPAYMENT_AMOUNT
+        return self.amount
+
+
+class IgDealItem(models.Model):
+    """Позиція угоди. product/color_variant необов'язкові (позиція може бути
+    поза каталогом, як кастом). line_total рахується автоматично."""
+
+    deal = models.ForeignKey(IgDeal, on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey(
+        "storefront.Product", null=True, blank=True, on_delete=models.SET_NULL
+    )
+    color_variant = models.ForeignKey(
+        "productcolors.ProductColorVariant", null=True, blank=True, on_delete=models.SET_NULL
+    )
+    title = models.CharField(max_length=255)
+    size = models.CharField(max_length=16, blank=True, default="")
+    qty = models.PositiveIntegerField(default=1)
+    unit_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    line_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+    class Meta:
+        verbose_name = _("Позиція IG угоди")
+        verbose_name_plural = _("Позиції IG угод")
+        ordering = ["id"]
+
+    def save(self, *args, **kwargs):
+        try:
+            self.line_total = (self.unit_price or Decimal("0")) * int(self.qty or 0)
+        except Exception:
+            self.line_total = Decimal("0")
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:  # pragma: no cover - тривіально
+        return f"{self.title} ×{self.qty}"
+
+
+class BotInstruction(models.Model):
+    """Окрема інструкція для бота (нескінченна кількість, редагується в UI).
+
+    Усі активні інструкції збираються в один блок і інжектяться в контекст
+    Gemini поряд з базою знань. intent_tags — необов'язкові ключові слова, за
+    якими в майбутньому можна підбирати релевантні інструкції під запит.
+    """
+
+    title = models.CharField(_("Заголовок"), max_length=200, blank=True, default="")
+    body = models.TextField(_("Текст інструкції"))
+    intent_tags = models.CharField(
+        _("Ключові слова (через кому)"), max_length=400, blank=True, default=""
+    )
+    is_active = models.BooleanField(_("Активна"), default=True, db_index=True)
+    priority = models.IntegerField(_("Пріоритет"), default=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Інструкція бота")
+        verbose_name_plural = _("Інструкції бота")
+        ordering = ["priority", "id"]
+
+    def __str__(self) -> str:  # pragma: no cover - тривіально
+        return self.title or (self.body[:50] if self.body else f"Instruction#{self.pk}")
+
+    @classmethod
+    def active_block(cls) -> str:
+        """Текст усіх активних інструкцій (для інжекту в system_instruction)."""
+        parts = []
+        for inst in cls.objects.filter(is_active=True).order_by("priority", "id"):
+            body = (inst.body or "").strip()
+            if not body:
+                continue
+            title = (inst.title or "").strip()
+            parts.append(f"• {title}: {body}" if title else f"• {body}")
+        return "\n".join(parts)
+
+
+class BotQuickLink(models.Model):
+    """Швидке посилання, яке бот може надіслати (розмірна сітка-хайлайт,
+    каталог, тощо). garment_type дозволяє підібрати правильну розмірну сітку."""
+
+    class Kind(models.TextChoices):
+        SIZE_CHART = "size_chart", _("Розмірна сітка")
+        CATALOG = "catalog", _("Каталог")
+        HIGHLIGHT = "highlight", _("Хайлайт")
+        OTHER = "other", _("Інше")
+
+    kind = models.CharField(max_length=20, choices=Kind.choices, default=Kind.OTHER, db_index=True)
+    label = models.CharField(_("Підпис"), max_length=200)
+    url = models.CharField(_("Посилання"), max_length=600)
+    garment_type = models.CharField(
+        _("Тип одягу (tshirt/hoodie/longsleeve…)"), max_length=40, blank=True, default="", db_index=True
+    )
+    trigger_keywords = models.CharField(
+        _("Тригер-слова (через кому)"), max_length=400, blank=True, default=""
+    )
+    is_active = models.BooleanField(default=True, db_index=True)
+    order = models.IntegerField(default=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Швидке посилання бота")
+        verbose_name_plural = _("Швидкі посилання бота")
+        ordering = ["order", "id"]
+
+    def __str__(self) -> str:  # pragma: no cover - тривіально
+        return f"{self.label} ({self.kind})"
+
+    @classmethod
+    def for_garment(cls, garment_type: str, kind: str | None = None):
+        qs = cls.objects.filter(is_active=True)
+        if kind:
+            qs = qs.filter(kind=kind)
+        if garment_type:
+            qs = qs.filter(garment_type=garment_type)
+        return qs.order_by("order", "id").first()
+
+    @classmethod
+    def active_block(cls) -> str:
+        """Текст активних швидких посилань (інжектиться в контекст бота)."""
+        lines = []
+        for ln in cls.objects.filter(is_active=True).order_by("order", "id"):
+            gt = f" [{ln.garment_type}]" if ln.garment_type else ""
+            lines.append(f"• {ln.get_kind_display()}{gt}: {ln.label} — {ln.url}")
+        return "\n".join(lines)
+
+
+class BotAdCampaign(models.Model):
+    """Мапінг рекламної кампанії (Click-to-IG-Direct) на товар/тему.
+
+    Коли клієнт пише з реклами, referral дає ad_id/ref. Якщо ad_title загальний,
+    цей мапінг каже боту, ЩО саме продавала реклама (товар або тема), щоб одразу
+    вести по суті, а не питати «дайте фото».
+    """
+
+    ad_id = models.CharField(_("Ad ID"), max_length=64, blank=True, default="", db_index=True)
+    ref = models.CharField(_("Ref"), max_length=255, blank=True, default="", db_index=True)
+    title = models.CharField(_("Назва кампанії"), max_length=255, blank=True, default="")
+    product = models.ForeignKey(
+        "storefront.Product", null=True, blank=True, on_delete=models.SET_NULL
+    )
+    theme = models.CharField(_("Тема"), max_length=120, blank=True, default="")
+    landing_note = models.TextField(_("Що в рекламі / CTA"), blank=True, default="")
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Рекламна кампанія бота")
+        verbose_name_plural = _("Рекламні кампанії бота")
+        ordering = ["-id"]
+
+    def __str__(self) -> str:  # pragma: no cover - тривіально
+        return self.title or self.ad_id or self.ref or f"AdCampaign#{self.pk}"
+
+    @classmethod
+    def match(cls, ad_id: str | None = None, ref: str | None = None):
+        qs = cls.objects.filter(is_active=True)
+        if ad_id:
+            obj = qs.filter(ad_id=ad_id).first()
+            if obj:
+                return obj
+        if ref:
+            obj = qs.filter(ref=ref).first()
+            if obj:
+                return obj
+        return None
+
+
+class IgClientStageEvent(models.Model):
+    """Подія зміни стадії воронки клієнта (для таймлайну/кружечків у картці)."""
+
+    client = models.ForeignKey(
+        "management.IgClient", on_delete=models.CASCADE, related_name="stage_events"
+    )
+    from_stage = models.CharField(max_length=24, blank=True, default="")
+    to_stage = models.CharField(max_length=24)
+    reason = models.CharField(max_length=255, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("Подія стадії IG-клієнта")
+        verbose_name_plural = _("Події стадій IG-клієнтів")
+        ordering = ["-id"]
+        indexes = [
+            models.Index(fields=["client", "-id"], name="ig_stageevent_client"),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - тривіально
+        return f"{self.client_id}: {self.from_stage}→{self.to_stage}"
