@@ -13,7 +13,7 @@ class ChatPayloadThinkingTests(TestCase):
         s = InstagramBotSettings.load()
         captured = {}
 
-        def fake_text(payload, *, role="chat", manual_key=None):
+        def fake_text(payload, *, role="chat", manual_key=None, **kwargs):
             captured["payload"] = payload
             captured["role"] = role
             return {"parsed": "Привіт!", "model": "gemini-3.5-flash", "meta": {"key": "GEMINI_API"}}

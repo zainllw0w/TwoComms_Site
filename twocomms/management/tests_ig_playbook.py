@@ -46,7 +46,7 @@ class ContextInjectionTests(TestCase):
     def test_instructions_and_links_injected(self, mock_gen):
         captured = {}
 
-        def _fake(payload, role="chat", manual_key=None):
+        def _fake(payload, role="chat", manual_key=None, **kwargs):
             captured["payload"] = payload
             return {"parsed": "ок", "model": "x", "meta": {}}
 

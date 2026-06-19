@@ -58,6 +58,9 @@ MAX_AUDIO_BYTES = 14 * 1024 * 1024
 GEMINI_TIMEOUT = (10, 90)  # (connect, read) — аудіо-аналіз може йти десятки секунд
 CHAT_TIMEOUT = (8, 25)      # діалоговий бот: коротка відповідь — не висимо на завислій моделі
 BACKOFF_BASE = 2.0          # секунди, експоненційно між ретраями transient
+# Жорсткий стеля часу на ВЕСЬ перебір пулу для чату: краще швидко впасти у фолбек/
+# ретрай повідомлення, ніж тримати клієнта (і чергу) у «processing» хвилинами.
+CHAT_DEADLINE_SECONDS = 75.0
 
 
 
@@ -272,50 +275,70 @@ def upsert_call_record(client: BinotelClient, general_call_id: str) -> CallRecor
 # ---------------------------------------------------------------------------
 def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
                 n_attempts: int, grounded: bool, log: list, parse: bool = True,
-                timeout: tuple | None = None) -> tuple[str, dict | None]:
+                timeout: tuple | None = None, log_cb=None) -> tuple[str, dict | None]:
     """Один (key, model) кандидат із ретраями на transient.
 
     Повертає ('ok', result) | ('key_429', None) | ('model_skip', None).
     Кидає CallAIAnalysisError на 400 (fatal). Веде облік стану ключа/моделі.
+    log_cb (опц.) отримує короткий рядок про КОЖНУ спробу (для консолі бота).
     """
     track = key_name in gemini_keys.ALL_KEYS
+
+    def _emit(msg: str):
+        if log_cb:
+            try:
+                log_cb(msg)
+            except Exception:
+                pass
+
     for attempt in range(n_attempts):
+        t0 = time.monotonic()
         try:
             parsed, usage = _gemini_call_once(model, payload, key_value, parse=parse, timeout=timeout)
         except _GeminiTransient as exc:
+            dt = time.monotonic() - t0
             log.append(f"{key_name}/{model}: transient {exc} (#{attempt + 1})")
+            _emit(f"{key_name}/{model}: ⚠ перевантаження/503 ({dt:.1f}с) → інша модель")
             gemini_keys.mark_model_overloaded(model)
             if attempt < n_attempts - 1:
                 time.sleep(BACKOFF_BASE * (2 ** attempt))
             continue
         except _GeminiEmpty as exc:
-            # Порожня відповідь — ретрай тієї ж комбінації, але НЕ метимо модель
-            # глобально overloaded (інакше отруїмо її для інших ключів/лідів).
+            dt = time.monotonic() - t0
             log.append(f"{key_name}/{model}: empty {exc} (#{attempt + 1})")
+            _emit(f"{key_name}/{model}: ⚠ порожня відповідь ({dt:.1f}с)")
             if attempt < n_attempts - 1:
                 time.sleep(BACKOFF_BASE)
             continue
         except _Gemini429 as exc:
+            dt = time.monotonic() - t0
             if gemini_keys.is_key_level_429(model, grounded):
                 if track:
                     scope, secs = gemini_keys.parse_429(str(exc))
                     gemini_keys.mark_429(key_name, scope, secs, error=str(exc))
                     log.append(f"{key_name}/{model}: 429 → кулдаун ключа ({scope})")
+                    _emit(f"{key_name}/{model}: 🚫 429 квота → кулдаун ключа ({scope}, {dt:.1f}с)")
                 else:
                     log.append(f"{key_name}/{model}: 429 (ручний ключ)")
+                    _emit(f"{key_name}/{model}: 🚫 429 (ручний ключ, {dt:.1f}с)")
                 return ("key_429", None)
-            # Модель платна/недоступна free для цієї фічі — пропускаємо лише модель.
             log.append(f"{key_name}/{model}: 429 → модель не free, skip")
+            _emit(f"{key_name}/{model}: 🚫 429 (модель платна) → скіп моделі ({dt:.1f}с)")
             return ("model_skip", None)
         except _GeminiModelUnavailable as exc:
+            dt = time.monotonic() - t0
             log.append(f"{key_name}/{model}: unavailable {exc}")
+            _emit(f"{key_name}/{model}: ⚠ недоступна ({dt:.1f}с) → інша модель")
             return ("model_skip", None)
         except _GeminiFatal as exc:
+            _emit(f"{key_name}/{model}: ❌ фатальна помилка запиту")
             raise CallAIAnalysisError(f"Помилка запиту до Gemini: {exc}")
         else:
+            dt = time.monotonic() - t0
             if track:
                 gemini_keys.mark_success(key_name)
             log.append(f"{key_name}/{model}: ok")
+            _emit(f"{key_name}/{model}: ✅ відповідь за {dt:.1f}с")
             return ("ok", {
                 "parsed": parsed, "raw": parsed, "usage": usage, "model": model,
                 "meta": {"key": key_name, "used_model": model, "attempts": list(log)},
@@ -325,50 +348,84 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
 
 def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
                    grounded: bool = False, parse: bool = True,
-                   timeout: tuple | None = None) -> dict:
+                   timeout: tuple | None = None, deadline_seconds: float | None = None,
+                   log_cb=None) -> dict:
     """Прогоняє payload через пул ключів ролі та цепочку моделей.
 
     Кругова стратегія: у кожному КРУЗІ — ручний ключ (якщо є) першим, далі весь
     пул (own→borrow, sticky-впорядкований) по одному виклику на (key,model).
     Якщо круг не дав 200 — експоненційна затримка (2с,4с,...) + скидання
     overload-кешу моделей, і новий круг. Усього до max_rounds(role) кругів
-    (чат=3), тільки потім помилка. Це не дає боту падати від тимчасових 503/квоти,
-    перебираючи всі ключі/моделі замість трьох спроб на одному.
+    (чат=3), тільки потім помилка.
 
-    timeout: (connect, read) для HTTP. None → CHAT_TIMEOUT для ролі chat (бот не
-    висить на завислій моделі), інакше GEMINI_TIMEOUT (аудіо/grounding можуть бути
-    довгими).
+    deadline_seconds: жорстка стеля часу на весь перебір (None → CHAT_DEADLINE для
+    ролі chat, інакше без стелі). Захищає від багатохвилинних зависань.
+    log_cb: колбек, що отримує короткі рядки про кожну спробу (для консолі бота).
     """
     log: list[str] = []
     n_attempts = gemini_keys.attempts_per_model(role)
     rounds = gemini_keys.max_rounds(role)
     models = gemini_keys.role_model_chains().get(role, ["gemini-2.5-flash"])
     call_timeout = timeout or (CHAT_TIMEOUT if role == "chat" else GEMINI_TIMEOUT)
+    if deadline_seconds is None:
+        deadline_seconds = CHAT_DEADLINE_SECONDS if role == "chat" else None
+    t_start = time.monotonic()
 
+    def _over_deadline() -> bool:
+        return deadline_seconds is not None and (time.monotonic() - t_start) >= deadline_seconds
+
+    def _emit(msg: str):
+        if log_cb:
+            try:
+                log_cb(msg)
+            except Exception:
+                pass
+
+    aborted = False
     for round_idx in range(rounds):
+        if _over_deadline():
+            aborted = True
+            break
+        if rounds > 1:
+            _emit(f"коло {round_idx + 1}/{rounds} (моделі: {', '.join(models)})")
+
         if manual_key:
             for model in models:
+                if _over_deadline():
+                    aborted = True
+                    break
                 if gemini_keys.is_model_overloaded(model):
                     continue
                 status, res = _call_combo("(manual)", manual_key, model, payload,
-                                          n_attempts, grounded, log, parse, call_timeout)
+                                          n_attempts, grounded, log, parse, call_timeout, log_cb)
                 if status == "ok":
                     return res
                 if status == "key_429":
-                    break  # ручний ключ вичерпано → до пулу
+                    break
+            if aborted:
+                break
 
         for key_name, key_value, model in gemini_keys.iter_attempts(role):
+            if _over_deadline():
+                aborted = True
+                break
             status, res = _call_combo(key_name, key_value, model, payload,
-                                      n_attempts, grounded, log, parse, call_timeout)
+                                      n_attempts, grounded, log, parse, call_timeout, log_cb)
             if status == "ok":
                 return res
-            # key_429 / model_skip — iter_attempts сам пропустить вичерпаний ключ/модель
+        if aborted:
+            break
 
-        # Круг не вдався: дати перевантаженим моделям новий шанс + backoff.
         if round_idx < rounds - 1:
             gemini_keys.clear_model_overload()
             time.sleep(gemini_keys.ROUND_BACKOFF_BASE * (2 ** round_idx))
 
+    if aborted:
+        _emit(f"⏱ дедлайн {deadline_seconds:.0f}с вичерпано — припиняю перебір")
+        raise CallAIAnalysisError(
+            f"Перебір Gemini перервано по дедлайну ({deadline_seconds:.0f}с). Спроби: "
+            + "; ".join(log)
+        )
     raise CallAIAnalysisError(
         "Усі ключі/моделі Gemini недоступні (квота/перевантаження). Спроби: "
         + "; ".join(log)
@@ -424,11 +481,12 @@ def gemini_generate_grounded(
 
 
 def gemini_generate_text(payload: dict, *, role: str = "chat",
-                         manual_key: str | None = None) -> dict:
+                         manual_key: str | None = None, log_cb=None) -> dict:
     """Текстовий (не-JSON) запит для діалогового бота. Пул ключів ролі + цепочка
-    моделей. У result['parsed'] — сирий текст відповіді моделі."""
+    моделей. У result['parsed'] — сирий текст відповіді моделі.
+    log_cb (опц.) отримує короткі рядки про кожну спробу (для консолі бота)."""
     return _run_with_pool(role, payload, manual_key=(manual_key or "").strip() or None,
-                          parse=False)
+                          parse=False, log_cb=log_cb)
 
 
 def _gemini_analyze(audio_bytes: bytes, mime: str, manager_context: str, manager_snapshot: str = "") -> dict:

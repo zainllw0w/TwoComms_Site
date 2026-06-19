@@ -830,19 +830,29 @@ def gemini_generate(
     from management.services.call_ai_analysis import (
         gemini_generate_text, CallAIAnalysisError,
     )
+    import time as _time
+
+    def _cb(msg):
+        # Реальний час перебору ключів/моделей у консолі бота.
+        log("info", "gemini_try", msg)
+
+    log("info", "gemini_start",
+        f"генерую відповідь (пул chat; кастом-ключ: {'так' if manual_key else 'ні'})")
+    _t0 = _time.monotonic()
     try:
-        out = gemini_generate_text(payload, role="chat", manual_key=manual_key)
+        out = gemini_generate_text(payload, role="chat", manual_key=manual_key, log_cb=_cb)
     except CallAIAnalysisError as exc:
-        log("error", "gemini", str(exc)[:300])
+        log("error", "gemini", f"({_time.monotonic() - _t0:.1f}с) {str(exc)[:300]}")
         return None
     except Exception as exc:
-        log("error", "gemini", repr(exc))
+        log("error", "gemini", f"({_time.monotonic() - _t0:.1f}с) {repr(exc)}")
         return None
     text = (out.get("parsed") or "").strip()
     if not text:
-        log("warning", "gemini_empty", "порожня відповідь")
+        log("warning", "gemini_empty", f"порожня відповідь ({_time.monotonic() - _t0:.1f}с)")
         return None
-    log("info", "gemini_ok", f"model={out.get('model')} key={(out.get('meta') or {}).get('key')}")
+    log("info", "gemini_ok",
+        f"{out.get('model')} / {(out.get('meta') or {}).get('key')} за {_time.monotonic() - _t0:.1f}с")
     return text
 
 
@@ -1139,6 +1149,42 @@ def _claim_next() -> InstagramBotMessage | None:
     return None  # гонка — забрав хтось інший
 
 
+STALE_PROCESSING_SECONDS = 300  # повідомлення «зависло» у processing довше — реанімуємо
+
+
+def reclaim_stale_processing(max_age_seconds: int = STALE_PROCESSING_SECONDS) -> int:
+    """Повертає в чергу повідомлення, що «зависли» у processing довше за поріг.
+
+    Причини зависання: демона вбили під час обробки (status лишився processing і
+    рядок ніколи не переклеймиться), або виклик Gemini тривав надто довго. Без
+    цього бот може заморозитись назовсім. attempts<MAX → знову pending, інакше
+    failed. Повертає к-сть повернутих у чергу."""
+    from datetime import timedelta
+
+    cutoff = timezone.now() - timedelta(seconds=max_age_seconds)
+    stale = list(
+        InstagramBotMessage.objects.filter(
+            role=InstagramBotMessage.Role.USER,
+            status=InstagramBotMessage.Status.PROCESSING,
+            created_at__lt=cutoff,
+        ).order_by("id")[:50]
+    )
+    requeued = 0
+    for row in stale:
+        if row.attempts >= MAX_ATTEMPTS:
+            InstagramBotMessage.objects.filter(id=row.id).update(
+                status=InstagramBotMessage.Status.FAILED
+            )
+            log("error", "stale_failed", f"{row.sender_id}: завис у processing, спроби вичерпано")
+        else:
+            InstagramBotMessage.objects.filter(id=row.id).update(
+                status=InstagramBotMessage.Status.PENDING
+            )
+            log("warning", "stale_requeue", f"{row.sender_id}: завис у processing → повертаю в чергу")
+            requeued += 1
+    return requeued
+
+
 def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
     # Пауза/блок клієнта (стоп вручну або перехоплення менеджером) — не відповідаємо.
     if row.client_id and _client_blocked(row.client):
@@ -1357,6 +1403,11 @@ def process_pending(s: InstagramBotSettings | None = None, max_items: int = 15) 
     s = s or InstagramBotSettings.load()
     if not s.is_enabled:
         return 0
+    # Реанімація «зависань» у processing (вбитий демон / надто довгий виклик).
+    try:
+        reclaim_stale_processing()
+    except Exception as exc:
+        log("warning", "reclaim", repr(exc))
     handled = 0
     for _ in range(max_items):
         row = _claim_next()

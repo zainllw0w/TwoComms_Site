@@ -39,7 +39,7 @@ class GeminiMatchHintInjectionTests(TestCase):
     def test_match_hint_injected_into_system_instruction(self, mock_gen):
         captured = {}
 
-        def _fake(payload, role="chat", manual_key=None):
+        def _fake(payload, role="chat", manual_key=None, **kwargs):
             captured["payload"] = payload
             return {"parsed": "ок", "model": "x", "meta": {}}
 

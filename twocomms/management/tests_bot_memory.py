@@ -77,7 +77,7 @@ class MemoryNoteInjectionTests(TestCase):
 
         captured = {}
 
-        def _fake(payload, role="chat", manual_key=None):
+        def _fake(payload, role="chat", manual_key=None, **kwargs):
             captured["payload"] = payload
             return {"parsed": "ок", "model": "x", "meta": {}}
 
@@ -148,7 +148,7 @@ class ContextNoteInjectionTests(TestCase):
 
         captured = {}
 
-        def _fake(payload, role="chat", manual_key=None):
+        def _fake(payload, role="chat", manual_key=None, **kwargs):
             captured["p"] = payload
             return {"parsed": "ок", "model": "x", "meta": {}}
 
