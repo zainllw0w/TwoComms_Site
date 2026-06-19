@@ -166,7 +166,9 @@ def _calculate_quality_score(user, all_clients) -> dict:
 
     # Корекція на впевненість: при дуже низькій впевненості тягнемо до нейтральних 5.0,
     # щоб не завищити оцінку кандидату з 1-2 днями даних.
-    conf_ratio = max(Decimal('0'), min(Decimal('1'), confidence / Decimal('100')))
+    # score_confidence зберігається у шкалі 0..1 (compute_score_confidence), тому
+    # БЕЗ ділення на 100 (раніше conf_ratio≈0.005 завжди → корекція зламана).
+    conf_ratio = max(Decimal('0'), min(Decimal('1'), confidence))
     # При conf=1 -> повний raw_score; при conf=0 -> 60% raw + 40% нейтраль (5.0)
     neutral = Decimal('5.0')
     adj_factor = Decimal('0.6') + Decimal('0.4') * conf_ratio

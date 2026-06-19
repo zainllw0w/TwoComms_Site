@@ -46,20 +46,20 @@ def compute_production_trust(
     )
     reason_quality_value = max(Decimal("0.00"), min(Decimal("1.00"), _to_decimal(reason_quality)))
     duplicate_abuse = min(Decimal("1.00"), _to_decimal(duplicate_backlog) / Decimal("5"))
-    anomaly = max(
-        duplicate_abuse,
-        min(Decimal("1.00"), _to_decimal(overdue_followups) / Decimal("10")),
-    )
 
+    # Прострочені follow-up враховуємо ЛИШЕ через report_integrity, а дублі — лише
+    # через duplicate_abuse (раніше overdue штрафувався двічі: і в report_integrity,
+    # і в anomaly=max(dup,overdue), а дублі — в двох членах). Тепер кожен сигнал —
+    # один раз: overdue → +0.04*report_integrity, дублі → -0.10*duplicate_abuse.
     trust = (
         Decimal("0.97")
         + Decimal("0.04") * report_integrity
         + Decimal("0.02") * reason_quality_value
-        - Decimal("0.05") * duplicate_abuse
-        - Decimal("0.05") * anomaly
+        - Decimal("0.10") * duplicate_abuse
     )
-    if not telephony_healthy:
-        trust = max(Decimal("0.85"), trust)
+    # telephony_healthy лишається у сигнатурі для сумісності викликів, але окремого
+    # ефекту не має: попередній рядок max(0.85, trust) повністю перекривався фінальним
+    # клампом нижче (мертвий no-op) — прибрано.
     trust = max(Decimal("0.85"), min(Decimal("1.05"), trust))
     return trust.quantize(FOUR_PLACES, rounding=ROUND_HALF_UP)
 
