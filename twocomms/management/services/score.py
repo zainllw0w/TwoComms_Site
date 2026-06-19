@@ -108,10 +108,20 @@ def apply_shadow_score_pipeline(
     readiness: dict[str, str],
     gate_level: str,
     onboarding_floor=Decimal("0"),
+    result_axis=Decimal("0"),
 ) -> dict[str, Decimal]:
     base_value = _to_decimal(base_mosaic)
     verified_share = compute_verified_result_share(readiness=readiness, gate_level=gate_level)
-    verified_slice = (base_value * verified_share).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+    # «Верифицированной» оплатой является только вклад оси result, а не доля
+    # result-веса, применённая ко ВСЕМУ баллу (включая process/data_quality).
+    # verified_share для Paid = доля веса result → 100*result_axis*verified_share
+    # ровно повторяет вклад оси result в base_mosaic.
+    result_axis_value = max(Decimal("0"), min(Decimal("1"), _to_decimal(result_axis)))
+    verified_slice = (Decimal("100") * result_axis_value * verified_share).quantize(
+        TWO_PLACES, rounding=ROUND_HALF_UP
+    )
+    if verified_slice > base_value:
+        verified_slice = base_value
     evidence_slice = max(Decimal("0"), base_value - verified_slice)
     trust_adjusted_evidence = (evidence_slice * _to_decimal(trust_multiplier)).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
     gated_evidence = (trust_adjusted_evidence * (_to_decimal(gate_score) / Decimal("100"))).quantize(

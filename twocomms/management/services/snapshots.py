@@ -38,6 +38,10 @@ from management.stats_service import StatsRange, get_stats_payload
 
 TWO_PLACES = Decimal("0.01")
 FOUR_PLACES = Decimal("0.0001")
+# База осей для дня без активности (processed==0). Бездействие НЕ должно
+# равняться «идеалу» (1.0) — иначе простой завышает рейтинг и не даёт ему
+# осесть «ниже 14». Активного менеджера (processed>0) это не затрагивает.
+IDLE_AXIS_BASELINE = Decimal("0.35")
 DEFAULT_COMPONENTS = (
     "result",
     "source_fairness",
@@ -117,6 +121,9 @@ def _compute_process_axis(summary: dict[str, Any]) -> Decimal:
 
 
 def _compute_follow_up_axis(summary: dict[str, Any]) -> Decimal:
+    processed = max(0, int(summary.get("processed") or 0))
+    if processed == 0:
+        return IDLE_AXIS_BASELINE
     followups = summary.get("followups") or {}
     pipeline = summary.get("pipeline") or {}
     missed_rate = Decimal(str((followups.get("missed_rate") or 0) / 100))
@@ -128,6 +135,8 @@ def _compute_follow_up_axis(summary: dict[str, Any]) -> Decimal:
 
 def _compute_data_quality_axis(summary: dict[str, Any]) -> Decimal:
     processed = max(0, int(summary.get("processed") or 0))
+    if processed == 0:
+        return IDLE_AXIS_BASELINE
     pipeline = summary.get("pipeline") or {}
     reports = summary.get("reports") or {}
     missing_plan_ratio = Decimal(str((pipeline.get("followup_plan_missing") or 0) / max(1, processed or 1)))
@@ -357,6 +366,7 @@ def build_shadow_score_payload(*, owner, snapshot_date: date) -> dict[str, Any]:
         readiness=readiness,
         gate_level=gate_level,
         onboarding_floor=onboarding_floor,
+        result_axis=axes["result"],
     )
     portfolio_health_state, rescue_top5 = _portfolio_health(summary)
     incidents = _incident_keys(
