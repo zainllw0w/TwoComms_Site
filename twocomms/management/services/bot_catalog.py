@@ -79,7 +79,7 @@ def _build() -> str:
         fps = fp_by_product.get(p.id, [])
         fp_s = (" | принт: " + "; ".join(fps[:3])) if fps else ""
         url = f"{SITE}/product/{p.slug}/"
-        lines.append(f"• {p.title} — {price} грн{disc} [{cat}]{colors_s}{avail}{fp_s} | {url}")
+        lines.append(f"• id={p.id} | {p.title} — {price} грн{disc} [{cat}]{colors_s}{avail}{fp_s} | {url}")
 
     text = "\n".join(lines)
     if len(text) > MAX_CHARS:

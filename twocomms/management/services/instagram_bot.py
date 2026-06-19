@@ -172,6 +172,29 @@ def _looks_like_contact_info(text: str) -> bool:
     return any(k in low for k in keys)
 
 
+PAYLINK_PHRASES = (
+    "посилання на оплат", "посилання на передоплат", "сформую посилання",
+    "сформувати посилання", "формую посилання", "ось посилання", "ось пряме посилання",
+    "тримай посилання", "надішлю посилання", "надсилаю посилання", "лінк на оплат",
+    "ссылка на оплат", "ссылку на оплат", "ссылка на предоплат", "ссылку на предоплат",
+    "сформирую ссылку", "вот ссылка", "вот ссылку", "держи ссылку",
+)
+
+
+def _wants_paylink(reply: str, control: dict) -> tuple[bool, str]:
+    """Чи треба сформувати посилання на оплату і який тип (full/prepay).
+    Тригер: тег [PAYLINK:x] АБО обіцянка посилання у тексті бота (фолбек, якщо
+    модель забула тег). Тип беремо з тегу, інакше визначаємо за словом «передопл»."""
+    val = control.get("paylink")
+    low = (reply or "").lower()
+    if val or any(ph in low for ph in PAYLINK_PHRASES):
+        if isinstance(val, str) and val in ("full", "prepay"):
+            return True, val
+        pt = "prepay" if ("передопл" in low or "предопл" in low) else "full"
+        return True, pt
+    return False, "full"
+
+
 def _handle_echo(recipient_igsid: str, text: str) -> None:
     """Echo-подія (повідомлення, надіслане сторінкою). Якщо це НЕ власне відлуння
     бота — значить відповів живий менеджер → ставимо бота на паузу для клієнта."""
@@ -982,20 +1005,31 @@ def _process_one(s: InstagramBotSettings, row: InstagramBotMessage) -> bool:
         except Exception:
             pass
 
-    # [PAYLINK:full|prepay] (+опц. [PRODUCT:id]) — формуємо посилання на оплату.
-    if reply and row.client_id and control.get("paylink"):
+    # Формування посилання на оплату: за тегом [PAYLINK] АБО коли бот пообіцяв
+    # посилання у тексті (надійний фолбек, якщо модель забула тег).
+    want_link, link_pt = _wants_paylink(reply, control)
+    if reply and row.client_id and want_link:
         try:
             from management.services import bot_orders
 
             res = bot_orders.create_deal_and_link(
-                row.client,
-                pay_type=str(control.get("paylink")),
-                product_id=control.get("product"),
+                row.client, pay_type=link_pt, product_id=control.get("product")
             )
             if res.get("ok") and res.get("invoice_url"):
-                reply = (reply + "\n\n💳 Посилання на оплату: " + res["invoice_url"]).strip()
+                url = res["invoice_url"]
+                if url not in reply:
+                    reply = (reply + "\n\n💳 Посилання на оплату: " + url).strip()
+                log("success", "paylink", f"{row.sender_id}: {url}")
+            else:
+                log("error", "paylink", f"{row.sender_id}: НЕ сформовано ({res.get('error')})")
+                notify_manager(
+                    f"⚠️ IG: бот обіцяв клієнту "
+                    f"{(row.client.username or row.client.display_name or row.sender_id)} "
+                    f"посилання на оплату, але НЕ зміг сформувати (причина: {res.get('error')}). "
+                    f"Підключись вручну."
+                )
         except Exception as exc:
-            log("warning", "paylink", repr(exc))
+            log("error", "paylink", repr(exc))
 
     if not reply:
         # невдача генерації — ретрай або failed
