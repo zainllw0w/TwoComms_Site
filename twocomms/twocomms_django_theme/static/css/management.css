@@ -21,7 +21,13 @@
 
 .management-body {
     margin: 0;
-    min-height: 100vh;
+    /* Оболонка = grid на всю висоту вьюпорта: рядок хедера (auto) + робоча
+       область (1fr). Прибирає арифметику calc(100vh - offset) і залежність від
+       реальної висоти .global-header — баг скролу більше не залежить від того,
+       чи сторінка у whitelist data-mgmt-shell. */
+    height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr;
     color: var(--text-primary);
     font-family: var(--font-main);
     background: radial-gradient(circle at 10% 10%, rgba(255, 126, 41, 0.08) 0, transparent 25%),
@@ -490,7 +496,8 @@
     position: relative;
     z-index: 1;
     display: flex;
-    height: calc(100vh - var(--shell-header-offset));
+    /* Висоту задає grid-рядок 1fr оболонки (.management-body), тому тут НЕ
+       рахуємо 100vh - offset. Внутрішній скрол лишається в .content-area. */
     overflow: hidden;
     min-height: 0;
 }
@@ -918,6 +925,9 @@
     height: 100%;
     overflow-y: auto;
     min-height: 0;
+    /* padding входить у висоту 100% (інакше низ контенту виходив за робочу
+       область і обрізався під body{overflow:hidden}). */
+    box-sizing: border-box;
 }
 
 /* Table / Grid */
@@ -7704,6 +7714,8 @@ body[data-row-mode="card"] .callback-projection-row td {
 
 @media (max-width: 1080px) {
     .management-body {
+        display: block;
+        height: auto;
         overflow: auto;
     }
 
@@ -8619,13 +8631,8 @@ a.ph-mosaic:hover .ph-mosaic__go svg { transform: translateX(3px); }
 .pf-note__title { font-weight: 800; font-size: .92rem; color: var(--text-primary); }
 .pf-note__text { margin-top: 6px; font-size: .82rem; color: var(--text-secondary); line-height: 1.5; }
 
-/* ---- Scroll fix: header box = 76 height + 36 padding + 1 border = 113 (fixed >1080) ---- */
-body[data-url-name="management_payouts"] .content-area,
-body[data-url-name="management_admin_payouts_board"] .content-area { box-sizing: border-box; }
-@media (min-width: 1081px) {
-    body[data-url-name="management_payouts"] .workspace,
-    body[data-url-name="management_admin_payouts_board"] .workspace { height: calc(100vh - 113px); }
-}
+/* (Скрол-фікс тепер глобальний: .management-body = grid auto/1fr у management.css,
+   per-page calc(100vh - 113px) більше не потрібен.) */
 
 /* ---- Responsive ---- */
 @media (max-width: 1080px) {

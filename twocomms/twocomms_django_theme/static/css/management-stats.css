@@ -486,23 +486,8 @@ body.shadow-drawer-open { overflow: hidden; }
   .stats-topbar { align-items: flex-start; }
 }
 
-/* ============================================================
-   Scroll fix (десктоп >1080px): реальна висота .global-header =
-   76 (height) + 36 (padding 18×2) + 1 (border) = 113px, а
-   --shell-header-offset=76px. Через це .workspace був на ~37px вищий
-   за вьюпорт і низ контенту обрізався (body{overflow:hidden}).
-   На ≤1080px body вже скролиться (overflow:auto) — там фікс не потрібен.
-   Той самий підхід уже застосовано для сторінок виплат.
-   ============================================================ */
-body[data-url-name="management_stats"] .content-area,
-body[data-url-name="management_stats_admin"] .content-area,
-body[data-url-name="management_stats_admin_user"] .content-area { box-sizing: border-box; }
-
-@media (min-width: 1081px) {
-  body[data-url-name="management_stats"] .workspace,
-  body[data-url-name="management_stats_admin"] .workspace,
-  body[data-url-name="management_stats_admin_user"] .workspace { height: calc(100vh - 113px); }
-}
+/* Скрол-фікс тепер глобальний (.management-body = grid auto/1fr у management.css):
+   per-page calc(100vh - 113px) для статистики прибрано. */
 
 /* нижній відступ, щоб остання картка не липла до краю при скролі */
 .stats-page--v2 { padding-bottom: 8px; }
