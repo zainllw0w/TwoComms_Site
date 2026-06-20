@@ -293,7 +293,7 @@ class ManagementLead(models.Model):
     status = models.CharField(_("Статус"), max_length=20, choices=Status.choices, default=Status.BASE, db_index=True)
     lead_source = models.CharField(_("Джерело ліда"), max_length=20, choices=LeadSource.choices, default=LeadSource.MANUAL, db_index=True)
     niche_status = models.CharField(_("Нішевість"), max_length=20, choices=NicheStatus.choices, default=NicheStatus.MAYBE, db_index=True)
-    network = models.ForeignKey("LeadNetwork", verbose_name=_("Мережа"), on_delete=models.SET_NULL, null=True, blank=True, related_name="leads", db_index=True)
+    network = models.ForeignKey("LeadNetwork", verbose_name=_("Мережа"), on_delete=models.SET_NULL, null=True, blank=True, related_name="leads", db_index=True, db_constraint=False)
     network_membership_source = models.CharField(_("Джерело привʼязки до мережі"), max_length=8, blank=True)
     needs_disambiguation = models.BooleanField(_("Родова назва (розрізнити)"), default=False, db_index=True)
     ai_score = models.PositiveSmallIntegerField(_("AI-оцінка"), null=True, blank=True, db_index=True)
@@ -3764,7 +3764,7 @@ class LeadNetwork(models.Model):
     collaboration_evidence = models.CharField(max_length=10, blank=True)
     confirmed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name="confirmed_networks",
+        related_name="confirmed_networks", db_constraint=False,
     )
     confirmed_at = models.DateTimeField(null=True, blank=True)
     suggested_by_ai = models.BooleanField(default=False)
@@ -3795,7 +3795,7 @@ class NetworkAlias(models.Model):
         WEBSITE = "website", _("Сайт")
         INSTAGRAM = "instagram", _("Instagram")
 
-    network = models.ForeignKey(LeadNetwork, on_delete=models.CASCADE, related_name="aliases")
+    network = models.ForeignKey(LeadNetwork, on_delete=models.CASCADE, related_name="aliases", db_constraint=False)
     key_type = models.CharField(max_length=12, choices=KeyType.choices)
     key_value = models.CharField(max_length=500, db_index=True)
     source = models.CharField(max_length=8, default="auto")

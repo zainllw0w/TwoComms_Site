@@ -43,7 +43,7 @@ class Migration(migrations.Migration):
                 ('tokens_saved', models.PositiveBigIntegerField(default=0)),
                 ('created_at', models.DateTimeField(auto_now_add=True, db_index=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('confirmed_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='confirmed_networks', to=settings.AUTH_USER_MODEL)),
+                ('confirmed_by', models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='confirmed_networks', to=settings.AUTH_USER_MODEL)),
             ],
             options={
                 'verbose_name': 'Мережа лідів',
@@ -54,7 +54,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='managementlead',
             name='network',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='leads', to='management.leadnetwork', verbose_name='Мережа'),
+            field=models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='leads', to='management.leadnetwork', verbose_name='Мережа'),
         ),
         migrations.CreateModel(
             name='NetworkAlias',
@@ -64,7 +64,7 @@ class Migration(migrations.Migration):
                 ('key_value', models.CharField(db_index=True, max_length=500)),
                 ('source', models.CharField(default='auto', max_length=8)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('network', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='aliases', to='management.leadnetwork')),
+                ('network', models.ForeignKey(db_constraint=False, on_delete=django.db.models.deletion.CASCADE, related_name='aliases', to='management.leadnetwork')),
             ],
             options={
                 'verbose_name': 'Алиас мережі',
