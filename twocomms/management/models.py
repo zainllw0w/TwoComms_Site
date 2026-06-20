@@ -293,6 +293,9 @@ class ManagementLead(models.Model):
     status = models.CharField(_("Статус"), max_length=20, choices=Status.choices, default=Status.BASE, db_index=True)
     lead_source = models.CharField(_("Джерело ліда"), max_length=20, choices=LeadSource.choices, default=LeadSource.MANUAL, db_index=True)
     niche_status = models.CharField(_("Нішевість"), max_length=20, choices=NicheStatus.choices, default=NicheStatus.MAYBE, db_index=True)
+    network = models.ForeignKey("LeadNetwork", verbose_name=_("Мережа"), on_delete=models.SET_NULL, null=True, blank=True, related_name="leads", db_index=True)
+    network_membership_source = models.CharField(_("Джерело привʼязки до мережі"), max_length=8, blank=True)
+    needs_disambiguation = models.BooleanField(_("Родова назва (розрізнити)"), default=False, db_index=True)
     ai_score = models.PositiveSmallIntegerField(_("AI-оцінка"), null=True, blank=True, db_index=True)
     ai_verdict = models.CharField(_("AI-вердикт"), max_length=10, blank=True, db_index=True)
     ai_checked_at = models.DateTimeField(_("AI-перевірено"), null=True, blank=True, db_index=True)
@@ -3733,6 +3736,78 @@ class InstagramBotMessage(models.Model):
 
     def __str__(self) -> str:
         return f"{self.role}:{self.sender_id}:{self.status}"
+
+
+class LeadNetwork(models.Model):
+    class Kind(models.TextChoices):
+        CHAIN_BRAND = "chain_brand", _("Мережа-бренд")
+        FRANCHISE = "franchise", _("Франшиза")
+        MARKETPLACE = "marketplace", _("Маркетплейс")
+        VOENTORG_GROUP = "voentorg_group", _("Група військторгів")
+        UNKNOWN = "unknown", _("Невідомо")
+
+    class Policy(models.TextChoices):
+        BLOCK_NO_COLLAB = "block_no_collab", _("Не співпрацює — пропускати")
+        BLOCK_IRRELEVANT = "block_irrelevant", _("Не наш профіль — пропускати")
+        APPLY_KNOWN_VERDICT = "apply_known_verdict", _("Застосувати вердикт мережі")
+        RECHECK_EACH = "recheck_each", _("Перевіряти кожну точку")
+        CUSTOM_PRINT_ONLY = "custom_print_only", _("Лише кастом-друк")
+        NEEDS_REVIEW = "needs_review", _("Потребує рішення")
+        PRIORITY_TARGET = "priority_target", _("Пріоритетна ціль")
+
+    canonical_name = models.CharField(_("Канонічна назва"), max_length=255)
+    slug = models.SlugField(_("Slug"), max_length=255, unique=True)
+    kind = models.CharField(max_length=20, choices=Kind.choices, default=Kind.UNKNOWN)
+    policy = models.CharField(max_length=24, choices=Policy.choices, default=Policy.NEEDS_REVIEW, db_index=True)
+    policy_params = models.JSONField(default=dict, blank=True)
+    extra_instructions = models.TextField(blank=True)
+    collaboration_evidence = models.CharField(max_length=10, blank=True)
+    confirmed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="confirmed_networks",
+    )
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    suggested_by_ai = models.BooleanField(default=False)
+    ai_rationale = models.TextField(blank=True)
+    members_count = models.PositiveIntegerField(default=0)
+    checked_count = models.PositiveIntegerField(default=0)
+    skipped_count = models.PositiveIntegerField(default=0)
+    tokens_saved = models.PositiveBigIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Мережа лідів")
+        verbose_name_plural = _("Мережі лідів")
+        ordering = ["-updated_at"]
+
+    @property
+    def is_confirmed(self) -> bool:
+        return self.confirmed_by_id is not None
+
+    def __str__(self):
+        return f"LeadNetwork({self.canonical_name})"
+
+
+class NetworkAlias(models.Model):
+    class KeyType(models.TextChoices):
+        NAME = "name", _("Назва")
+        WEBSITE = "website", _("Сайт")
+        INSTAGRAM = "instagram", _("Instagram")
+
+    network = models.ForeignKey(LeadNetwork, on_delete=models.CASCADE, related_name="aliases")
+    key_type = models.CharField(max_length=12, choices=KeyType.choices)
+    key_value = models.CharField(max_length=500, db_index=True)
+    source = models.CharField(max_length=8, default="auto")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Алиас мережі")
+        verbose_name_plural = _("Алиаси мереж")
+        constraints = [models.UniqueConstraint(fields=["key_type", "key_value"], name="uniq_network_alias_key")]
+
+    def __str__(self):
+        return f"NetworkAlias({self.key_type}={self.key_value})"
 
 
 class LeadCheckerSettings(models.Model):
