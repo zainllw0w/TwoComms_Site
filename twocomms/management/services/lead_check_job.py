@@ -17,6 +17,7 @@ from management.models import (
 )
 from management.services import lead_checker
 from management.services import gemini_keys
+from management.services import network_policy
 
 logger = logging.getLogger("management.checker")
 
@@ -174,6 +175,41 @@ def run_step(job: LeadCheckJob) -> LeadCheckJob:
         _complete(job, reason="exhausted")
         return job
 
+    # Блок B: політика ПІДТВЕРДЖЕНОЇ мережі. skip/apply — без токенів і без ключів
+    # (тому до перевірки checker_can_run). Економить кво­ту на відомих кластерах.
+    decision = network_policy.resolve_decision(lead)
+    if decision.is_skip:
+        try:
+            check = network_policy.apply_decision(
+                lead, decision, checked_by=job.created_by, job=job,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("run_step apply_decision crashed lead=%s", lead.id)
+            job.errors += 1
+            job.last_error = f"{type(exc).__name__}: {exc}"
+            check = None
+        job.processed += 1
+        job.cursor_id = lead.id
+        if check is not None:
+            job.scored += 1
+            band = lead.ai_verdict
+            if band == "fit":
+                job.fit_count += 1
+            elif band == "maybe":
+                job.maybe_count += 1
+            elif band == "unfit":
+                job.unfit_count += 1
+        # Пропуски дешеві — без RPM-throttle, одразу до наступного ліда.
+        job.next_step_not_before = None
+        job.is_step_in_progress = False
+        job.current_lead_id = None
+        job.save()
+        if job.target_limit and job.processed >= job.target_limit:
+            _complete(job, reason="target_reached")
+        elif _next_lead(job) is None:
+            _complete(job, reason="exhausted")
+        return job
+
     # Немає вільного ключа checker-пулу → ставимо на паузу з обратним відліком
     # до скидання квоти (опівночі PT). НЕ спалюємо лід у error.
     if not checker_can_run():
@@ -193,7 +229,10 @@ def run_step(job: LeadCheckJob) -> LeadCheckJob:
 
     api_key = resolve_checker_api_key()
     try:
-        check = lead_checker.score_lead(lead, api_key=api_key or None, checked_by=job.created_by, job=job)
+        check = lead_checker.score_lead(
+            lead, api_key=api_key or None, checked_by=job.created_by, job=job,
+            extra_instructions=decision.extra_instructions,
+        )
     except lead_checker.CheckerKeysExhausted:
         # Ключі вичерпались під час обробки — пауза, лід НЕ споживаємо (cursor не
         # рухаємо, processed не інкрементуємо), повторимо коли квота відновиться.
@@ -223,6 +262,12 @@ def run_step(job: LeadCheckJob) -> LeadCheckJob:
                 job.maybe_count += 1
             elif band == "unfit":
                 job.unfit_count += 1
+            # Блок B: навчання мереж — підхоплюємо сигнал моделі (canonical name +
+            # suggested_policy) і апсертимо LeadNetwork (suggested_by_ai) для UI.
+            try:
+                network_policy.learn_network_from_check(lead, check)
+            except Exception:  # noqa: BLE001 — навчання не повинно ронити рушій
+                logger.exception("learn_network_from_check failed lead=%s", lead.id)
         else:
             job.errors += 1
         dur = getattr(check, "_duration_seconds", 0.0) or 0.0

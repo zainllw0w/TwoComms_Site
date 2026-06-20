@@ -185,9 +185,16 @@ def fetch_website_text(url: str) -> tuple[str, bool]:
     return text[:WEBSITE_TEXT_LIMIT], bool(text)
 
 
-def build_system_prompt() -> str:
+def build_system_prompt(extra_instructions: str = "") -> str:
     criteria_lines = "\n".join(f"  - {key} ({title}, 0..10)" for key, title in CRITERIA)
+    network_block = ""
+    if (extra_instructions or "").strip():
+        network_block = (
+            "ДОДАТКОВІ ВКАЗІВКИ ПО ЦІЙ МЕРЕЖІ/БРЕНДУ (мають пріоритет, "
+            "врахуй обовʼязково):\n" + extra_instructions.strip() + "\n\n"
+        )
     return (
+        network_block +
         "Ти — B2B-аналітик розвитку партнерств бренду TwoComms. Твоє завдання — "
         "оцінити, наскільки знайдений магазин/бренд підходить TwoComms для співпраці.\n\n"
         "ПРО TwoComms:\n"
@@ -357,9 +364,12 @@ def normalize_result(raw: dict) -> dict:
     }
 
 
-def score_lead(lead: ManagementLead, *, api_key: str | None = None, checked_by=None, job=None) -> LeadAICheck:
+def score_lead(lead: ManagementLead, *, api_key: str | None = None, checked_by=None, job=None, extra_instructions: str = "") -> LeadAICheck:
     """Оценивает один лид через Gemini grounding. Всегда возвращает LeadAICheck
-    (status=done или error). Идемпотентно обновляет кэш-поля лида."""
+    (status=done или error). Идемпотентно обновляет кэш-поля лида.
+
+    extra_instructions — додаткові вказівки по мережі (політика recheck_each),
+    вшиваються в системний промпт з пріоритетом."""
     check = LeadAICheck.objects.create(
         lead=lead, job=job, status=LeadAICheck.Status.PROCESSING, checked_by=checked_by,
     )
@@ -371,7 +381,7 @@ def score_lead(lead: ManagementLead, *, api_key: str | None = None, checked_by=N
             user_text += "\n\nТЕКСТ ГОЛОВНОЇ СТОРІНКИ САЙТУ (фрагмент):\n" + website_text
 
         result = gemini_generate_grounded(
-            build_system_prompt(), user_text, api_key=api_key,
+            build_system_prompt(extra_instructions), user_text, api_key=api_key,
         )
         norm = normalize_result(result.get("parsed") or {})
         band = norm["verdict_band"]
