@@ -1,0 +1,44 @@
+<div class="netops" id="netops"
+     data-list-url="{% url 'management_networks_list_api' %}"
+     data-update-url-tpl="{% url 'management_network_update_api' 0 %}">
+    <div class="clients-panel">
+        <div class="panel-header">
+            <div>
+                <p class="eyebrow">Network Intelligence</p>
+                <h2>Мережі магазинів</h2>
+            </div>
+            <div class="offer-help">Детектовані кластери лідів з однаковою назвою/сайтом. Підтвердь мережу і задай політику — чекер економитиме токени на її точках (skip/відомий вердикт/перевірка з інструкцією).</div>
+        </div>
+
+        <div class="admin-summary-grid net-stats">
+            <div class="admin-metric"><div class="admin-metric__label">Усього мереж</div><div class="admin-metric__value" id="net-stat-total">0</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">Підтверджено</div><div class="admin-metric__value" id="net-stat-confirmed">0</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">AI-підказки</div><div class="admin-metric__value" id="net-stat-suggested">0</div></div>
+            <div class="admin-metric"><div class="admin-metric__label">Зекономлено токенів</div><div class="admin-metric__value" id="net-stat-tokens">0</div></div>
+        </div>
+
+        <div class="net-toolbar">
+            <div class="field">
+                <label for="net-q">Пошук</label>
+                <input type="text" id="net-q" placeholder="назва мережі" autocomplete="off">
+            </div>
+            <div class="field">
+                <label for="net-state">Стан</label>
+                <select id="net-state">
+                    <option value="all">Усі</option>
+                    <option value="suggested">AI-підказки</option>
+                    <option value="needs_review">Потребують рішення</option>
+                    <option value="confirmed">Підтверджені</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="net-policy">Політика</label>
+                <select id="net-policy"><option value="">Будь-яка</option></select>
+            </div>
+        </div>
+
+        <div class="net-meta offer-help"><span id="net-range-info">Завантаження…</span></div>
+        <div class="net-list" id="net-list"></div>
+        <div class="net-pagination" id="net-pagination"></div>
+    </div>
+</div>

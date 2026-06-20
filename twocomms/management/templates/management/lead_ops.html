@@ -5,6 +5,7 @@
 {% block extra_css %}
 {% include "management/leadops/_parsing_style.html" %}
 {% include "management/leadops/_checker_style.html" %}
+{% include "management/leadops/_networks_style.html" %}
 <style>
 .leadops{display:flex;flex-direction:column;gap:18px;}
 .leadops-head{display:flex;flex-direction:column;gap:4px;}
@@ -38,6 +39,7 @@
   <nav class="leadops-nav" id="leadops-nav">
     <button type="button" class="leadops-pill is-active" data-section="parsing">Парсинг</button>
     <button type="button" class="leadops-pill" data-section="checker">Чекер</button>
+    <button type="button" class="leadops-pill" data-section="networks">Мережі <span class="leadops-pill__count" id="leadops-count-networks">{{ checker_networks_count|default:0 }}</span></button>
     <button type="button" class="leadops-pill" data-section="checked">Перевірені <span class="leadops-pill__count" id="leadops-count-checked">{{ checker_counters.checked|default:0 }}</span></button>
     <button type="button" class="leadops-pill" data-section="moderation">Модерація <span class="leadops-pill__count" id="leadops-count-moderation">{{ moderation_total|default:0 }}</span></button>
   </nav>
@@ -53,12 +55,17 @@
   <div class="leadops-panel" data-panel="checker-results" hidden>
     {% include "management/leadops/_checker_results.html" %}
   </div>
+
+  <div class="leadops-panel" data-panel="networks" hidden>
+    {% include "management/leadops/_networks_content.html" %}
+  </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 {% include "management/leadops/_parsing_script.html" %}
 {% include "management/leadops/_checker_script.html" %}
+{% include "management/leadops/_networks_script.html" %}
 <script>
 (function(){
   const root = document.getElementById('leadops');
@@ -69,6 +76,7 @@
     parser: root.querySelector('.leadops-panel[data-panel="parser"]'),
     'checker-run': root.querySelector('.leadops-panel[data-panel="checker-run"]'),
     'checker-results': root.querySelector('.leadops-panel[data-panel="checker-results"]'),
+    networks: root.querySelector('.leadops-panel[data-panel="networks"]'),
   };
   // section -> {panel, parserPart}
   const MAP = {
@@ -76,11 +84,17 @@
     moderation: {panel:'parser', part:'moderation'},
     checker:    {panel:'checker-run'},
     checked:    {panel:'checker-results'},
+    networks:   {panel:'networks'},
   };
   let checkerInited = false;
+  let networksInited = false;
   function ensureChecker(){
     if(checkerInited) return;
     if(typeof window.initCheckerPage === 'function'){ try{ window.initCheckerPage(); }catch(e){ console.error(e); } checkerInited = true; }
+  }
+  function ensureNetworks(){
+    if(networksInited) return;
+    if(typeof window.initNetworksPage === 'function'){ try{ window.initNetworksPage(); }catch(e){ console.error(e); } networksInited = true; }
   }
   function applyParserPart(part){
     root.querySelectorAll('[data-leadops-part]').forEach(el=>{
@@ -92,6 +106,7 @@
     Object.entries(panels).forEach(([k,el])=>{ if(el) el.hidden = (k !== cfg.panel); });
     if(cfg.panel === 'parser'){ applyParserPart(cfg.part); }
     if(cfg.panel === 'checker-run' || cfg.panel === 'checker-results'){ ensureChecker(); }
+    if(cfg.panel === 'networks'){ ensureNetworks(); }
     nav.querySelectorAll('.leadops-pill').forEach(p=>p.classList.toggle('is-active', p.dataset.section === section));
     try{ history.replaceState(null, '', '#'+section); }catch(e){}
   }

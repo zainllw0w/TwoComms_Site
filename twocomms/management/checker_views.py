@@ -4,7 +4,7 @@ from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
-from .models import LeadAICheck, LeadCheckerSettings, ManagementLead
+from .models import LeadAICheck, LeadCheckerSettings, LeadNetwork, ManagementLead
 from .parsing_views import _require_admin_json
 from .services import lead_check_job as ljob
 from .services import lead_checker
@@ -257,6 +257,7 @@ def checker_context(request) -> dict:
         "checker_active_job_json": ljob.job_status_payload(job),
         "checker_counters": counters,
         "checker_cities": cities,
+        "checker_networks_count": LeadNetwork.objects.count(),
         "checker_settings": {
             "has_key": bool(settings_obj.gemini_api_key),
             "requests_per_minute": settings_obj.requests_per_minute,

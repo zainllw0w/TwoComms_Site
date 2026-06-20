@@ -6,6 +6,7 @@ from . import stats_views
 from . import lead_views
 from . import parsing_views
 from . import checker_views
+from . import network_views
 from . import views_levels
 from . import bot_webhook
 from . import bot_views
@@ -144,6 +145,9 @@ urlpatterns = [
     path('checker/api/leads/<int:lead_id>/recheck/', checker_views.checker_recheck_api, name='management_checker_recheck_api'),
     path('checker/api/settings/', checker_views.checker_settings_api, name='management_checker_settings_api'),
     path('checker/api/keys/', checker_views.checker_keys_status_api, name='management_checker_keys_status_api'),
+    # Мережі лідів (Блок D): перегляд / підтвердження / політика
+    path('checker/networks/api/list/', network_views.networks_list_api, name='management_networks_list_api'),
+    path('checker/networks/api/<int:network_id>/update/', network_views.network_update_api, name='management_network_update_api'),
     # Manager levels system
     path('profile/', views_levels.manager_profile, name='management_profile'),    path('api/levels/progression/', views_levels.manager_progression_api, name='management_levels_progression_api'),
     path('api/levels/weekly-kpi/', views_levels.manager_weekly_kpi_api, name='management_levels_weekly_kpi_api'),

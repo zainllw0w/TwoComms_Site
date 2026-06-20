@@ -1,0 +1,169 @@
+<script>
+window.initNetworksPage = (function () {
+  let inited = false;
+  const getCookie = (name) => { const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)'); return m ? m.pop() : ''; };
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  let root, listUrl, updateTpl, listEl, pagEl, rangeEl, qEl, stateEl, policyEl;
+  let policyChoices = [];
+  let page = 1, qTimer = null;
+
+  async function api(url, method, data) {
+    const opts = { method, headers: {}, credentials: 'same-origin' };
+    if (method === 'POST') {
+      const fd = new FormData();
+      fd.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+      Object.entries(data || {}).forEach(([k, v]) => fd.append(k, v));
+      opts.headers['X-CSRFToken'] = getCookie('csrftoken');
+      opts.body = fd;
+    }
+    const res = await fetch(url, opts);
+    return res.json();
+  }
+
+  const ICON = {
+    chev: '<svg class="net-card__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+    net: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="2.4"/><circle cx="18" cy="6" r="2.4"/><circle cx="12" cy="18" r="2.4"/><path d="M7.6 7.6 11 15M16.4 7.6 13 15"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+    ai: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l1.6 4.4L18 8l-4.4 1.6L12 14l-1.6-4.4L6 8l4.4-1.6z"/></svg>',
+    saved: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M5 6h9a3 3 0 0 1 0 6H8a3 3 0 0 0 0 6h10"/></svg>',
+  };
+
+  function policyOptions(selected) {
+    return policyChoices.map(p => `<option value="${esc(p.value)}"${p.value === selected ? ' selected' : ''}>${esc(p.label)}</option>`).join('');
+  }
+
+  function renderMember(m) {
+    const band = m.ai_verdict || '';
+    const sc = (m.ai_score == null || band === '') ? '·' : m.ai_score;
+    const meta = [m.city, m.phone].filter(Boolean).join(' • ');
+    return `<div class="net-member">
+      <span class="net-score" data-band="${esc(band)}">${esc(sc)}</span>
+      <div style="min-width:0"><div class="net-member__name">${esc(m.shop_name)}</div><div class="net-member__meta">${esc(meta)}</div></div>
+      ${m.website_url ? `<a class="net-member__meta" href="${esc(m.website_url)}" target="_blank" rel="noopener">сайт →</a>` : '<span></span>'}
+    </div>`;
+  }
+
+  function renderCard(n) {
+    const conf = n.is_confirmed;
+    const knownBand = (n.policy_params && n.policy_params.known_verdict_band) || '';
+    const badges = [
+      `<span class="net-badge net-badge--members">${ICON.net}${n.members_count} точок</span>`,
+      conf ? `<span class="net-badge net-badge--confirmed">${ICON.check}Підтверджено</span>` : '',
+      (n.suggested_by_ai && !conf) ? `<span class="net-badge net-badge--ai">${ICON.ai}AI-підказка</span>` : '',
+      n.tokens_saved ? `<span class="net-badge net-badge--saved">${ICON.saved}${n.tokens_saved} ток.</span>` : '',
+    ].filter(Boolean).join('');
+
+    return `<div class="net-card${conf ? ' is-confirmed' : ''}" data-id="${n.id}">
+      <div class="net-card__head" data-toggle>
+        ${ICON.chev}
+        <div class="net-card__title">
+          <div class="net-card__name">${esc(n.canonical_name)}</div>
+          <div class="net-card__sub">${badges}</div>
+        </div>
+        <span class="net-policy-chip" data-policy="${esc(n.policy)}">${esc(n.policy_label)}</span>
+      </div>
+      <div class="net-card__body">
+        ${n.ai_rationale ? `<div class="net-rationale">${esc(n.ai_rationale)}</div>` : ''}
+        <div class="net-members">${(n.members || []).map(renderMember).join('') || '<div class="net-empty">Немає точок</div>'}</div>
+        <div class="net-controls">
+          <div class="net-controls__row">
+            <div class="field"><label>Політика</label><select data-policy-select>${policyOptions(n.policy)}</select></div>
+            <div class="field" data-band-wrap${n.policy === 'apply_known_verdict' ? '' : ' hidden'}>
+              <label>Відомий вердикт</label>
+              <select data-band-select>
+                ${['fit', 'question', 'maybe', 'unfit'].map(b => `<option value="${b}"${b === knownBand ? ' selected' : ''}>${b}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="net-actions">
+            <button type="button" class="btn-ghost small" data-save>Зберегти політику</button>
+            <button type="button" class="btn-primary small" data-confirm>${conf ? 'Зняти підтвердження' : 'Підтвердити'}</button>
+          </div>
+        </div>
+        <div class="net-extra" data-extra-wrap${n.policy === 'recheck_each' ? '' : ' hidden'}>
+          <label class="offer-help">Інструкції для перевірки кожної точки</label>
+          <textarea data-extra placeholder="напр.: перевір лише наявність текстилю та готовність брати чужі бренди">${esc(n.extra_instructions)}</textarea>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function bindCard(card) {
+    const id = card.dataset.id;
+    card.querySelector('[data-toggle]').addEventListener('click', () => card.classList.toggle('is-open'));
+    const policySel = card.querySelector('[data-policy-select]');
+    const bandWrap = card.querySelector('[data-band-wrap]');
+    const extraWrap = card.querySelector('[data-extra-wrap]');
+    policySel.addEventListener('change', () => {
+      bandWrap.hidden = policySel.value !== 'apply_known_verdict';
+      extraWrap.hidden = policySel.value !== 'recheck_each';
+    });
+    const collect = () => ({
+      policy: policySel.value,
+      known_verdict_band: card.querySelector('[data-band-select]') ? card.querySelector('[data-band-select]').value : '',
+      extra_instructions: card.querySelector('[data-extra]') ? card.querySelector('[data-extra]').value : '',
+    });
+    const replace = (n) => { const fresh = document.createElement('div'); fresh.innerHTML = renderCard(n); const node = fresh.firstElementChild; node.classList.add('is-open'); card.replaceWith(node); bindCard(node); };
+    card.querySelector('[data-save]').addEventListener('click', async () => {
+      const r = await api(updateTpl.replace('/0/', '/' + id + '/'), 'POST', collect());
+      if (r.success) replace(r.network);
+    });
+    card.querySelector('[data-confirm]').addEventListener('click', async () => {
+      const action = card.classList.contains('is-confirmed') ? 'unconfirm' : 'confirm';
+      const r = await api(updateTpl.replace('/0/', '/' + id + '/'), 'POST', Object.assign({ action }, collect()));
+      if (r.success) { replace(r.network); load(); }
+    });
+  }
+
+  function renderPagination(p) {
+    if (p.num_pages <= 1) { pagEl.innerHTML = ''; return; }
+    let html = '';
+    for (let i = 1; i <= p.num_pages; i++) {
+      html += `<button type="button" class="${i === p.page ? 'btn-primary' : 'btn-ghost'} small" data-page="${i}">${i}</button>`;
+    }
+    pagEl.innerHTML = html;
+    pagEl.querySelectorAll('[data-page]').forEach(b => b.addEventListener('click', () => { page = parseInt(b.dataset.page, 10); load(); }));
+  }
+
+  async function load() {
+    const params = new URLSearchParams({ q: qEl.value, state: stateEl.value, policy: policyEl.value, page: String(page) });
+    rangeEl.textContent = 'Завантаження…';
+    const r = await api(listUrl + '?' + params.toString(), 'GET');
+    if (!r.success) { rangeEl.textContent = 'Помилка завантаження'; return; }
+    const d = r.networks;
+    if (!policyChoices.length && d.policy_choices) {
+      policyChoices = d.policy_choices;
+      policyEl.innerHTML = '<option value="">Будь-яка</option>' + policyChoices.map(p => `<option value="${esc(p.value)}">${esc(p.label)}</option>`).join('');
+    }
+    document.getElementById('net-stat-total').textContent = d.stats.total;
+    document.getElementById('net-stat-confirmed').textContent = d.stats.confirmed;
+    document.getElementById('net-stat-suggested').textContent = d.stats.suggested;
+    document.getElementById('net-stat-tokens').textContent = d.stats.tokens_saved;
+    if (!d.rows.length) { listEl.innerHTML = '<div class="net-empty">Мереж не знайдено за фільтром.</div>'; rangeEl.textContent = 'Нічого не знайдено'; pagEl.innerHTML = ''; return; }
+    listEl.innerHTML = d.rows.map(renderCard).join('');
+    listEl.querySelectorAll('.net-card').forEach(bindCard);
+    rangeEl.textContent = `Показано ${d.rows.length} із ${d.total} (стор. ${d.page}/${d.num_pages})`;
+    renderPagination(d);
+  }
+
+  return function initNetworksPage() {
+    if (inited) return;
+    root = document.getElementById('netops');
+    if (!root) return;
+    inited = true;
+    listUrl = root.dataset.listUrl;
+    updateTpl = root.dataset.updateUrlTpl;
+    listEl = document.getElementById('net-list');
+    pagEl = document.getElementById('net-pagination');
+    rangeEl = document.getElementById('net-range-info');
+    qEl = document.getElementById('net-q');
+    stateEl = document.getElementById('net-state');
+    policyEl = document.getElementById('net-policy');
+    qEl.addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(() => { page = 1; load(); }, 350); });
+    stateEl.addEventListener('change', () => { page = 1; load(); });
+    policyEl.addEventListener('change', () => { page = 1; load(); });
+    load();
+  };
+})();
+</script>
