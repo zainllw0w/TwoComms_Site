@@ -1,5 +1,6 @@
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
@@ -26,6 +27,16 @@ def serialize_lead_check(lead: ManagementLead) -> dict:
         "ai_verdict": lead.ai_verdict or "",
         "niche_status": lead.niche_status,
         "status": lead.status,
+        "status_display": lead.get_status_display(),
+        "rejection_reason": lead.rejection_reason or "",
+        "requires_phone_completion": lead.requires_phone_completion,
+        "network": ({
+            "id": lead.network.id,
+            "name": lead.network.canonical_name,
+            "policy": lead.network.policy,
+            "policy_label": lead.network.get_policy_display(),
+            "is_confirmed": lead.network.is_confirmed,
+        } if lead.network_id else None),
     }
     if check is None:
         base.update({
@@ -136,13 +147,18 @@ def checker_status_api(request):
     return JsonResponse({"success": True, "job": ljob.job_status_payload(job)})
 
 
-def _results_queryset(band, city):
+def _results_queryset(band, city, status="", q=""):
     qs = ManagementLead.objects.filter(lead_source=ManagementLead.LeadSource.PARSER,
-                                       ai_checked_at__isnull=False)
+                                       ai_checked_at__isnull=False).select_related("network")
     if band and band != "all":
         qs = qs.filter(ai_verdict=band)
     if city:
         qs = qs.filter(city__iexact=city.strip())
+    if status and status != "all":
+        qs = qs.filter(status=status)
+    q = (q or "").strip()
+    if q:
+        qs = qs.filter(Q(shop_name__icontains=q) | Q(city__icontains=q))
     return qs.order_by("-ai_score", "-ai_checked_at")
 
 
@@ -154,6 +170,8 @@ def checker_results_api(request):
         return denied
     band = request.GET.get("band", "all")
     city = request.GET.get("city", "")
+    status = request.GET.get("status", "")
+    q = request.GET.get("q", "")
     try:
         page = max(1, int(request.GET.get("page", 1)))
     except (TypeError, ValueError):
@@ -165,10 +183,17 @@ def checker_results_api(request):
     if page_size not in RESULTS_PAGE_SIZE_OPTIONS:
         page_size = DEFAULT_RESULTS_PAGE_SIZE
 
-    qs = _results_queryset(band, city).prefetch_related("ai_checks")
+    qs = _results_queryset(band, city, status, q).prefetch_related("ai_checks")
     paginator = Paginator(qs, page_size)
     page_obj = paginator.get_page(page)
     rows = [serialize_lead_check(lead) for lead in page_obj.object_list]
+    scope = _results_queryset(band, city, "", q)  # без фільтра статусу — для лічильників пілів
+    status_counts = {
+        "moderation": scope.filter(status=ManagementLead.Status.MODERATION).count(),
+        "base": scope.filter(status=ManagementLead.Status.BASE).count(),
+        "rejected": scope.filter(status=ManagementLead.Status.REJECTED).count(),
+        "all": scope.count(),
+    }
     return JsonResponse({"success": True, "results": {
         "rows": rows,
         "page": page_obj.number,
@@ -177,6 +202,9 @@ def checker_results_api(request):
         "page_size": page_size,
         "band": band,
         "city": city,
+        "status": status,
+        "q": q,
+        "status_counts": status_counts,
     }})
 
 

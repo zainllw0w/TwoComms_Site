@@ -5,11 +5,11 @@ function initCheckerPage(){
   root.dataset.bound = '1';
   const url = (k) => root.dataset[k];
   const recheckTpl = root.dataset.recheckUrlTemplate;
+  const moderateTpl = root.dataset.moderateUrlTemplate;
+  const networkTpl = root.dataset.networkUpdateTemplate;
 
   const readJson = (id) => { const el = document.getElementById(id); if(!el) return null; try{return JSON.parse(el.textContent);}catch(e){return null;} };
   let activeJob = readJson('checker-initial-job');
-  let curBand = 'all', curPage = 1;
-  let stepTimer = null, pollTimer = null, stepInFlight = false, statusInFlight = false;
 
   const getCookie = (name) => { const m = document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)'); return m ? m.pop() : ''; };
   async function apiRequest(u, data, method){
@@ -26,14 +26,17 @@ function initCheckerPage(){
     const res = await fetch(u, opts);
     let payload = {};
     try{ payload = await res.json(); }catch(e){}
-    if(!res.ok || payload.success === false){ const err = new Error(payload.error || ('HTTP '+res.status)); err.payload = payload; throw err; }
+    if(!res.ok || payload.success === false){ const err = new Error(payload.error || ('HTTP '+res.status)); err.payload = payload; err.status = res.status; throw err; }
     return payload;
   }
 
   const $ = (id) => document.getElementById(id);
   const setText = (id,v) => { const el=$(id); if(el) el.textContent = v; };
   const fmtEta = (s) => { s = Math.max(0, s|0); if(!s) return '—'; const m = Math.floor(s/60); const sec = s%60; return m>0 ? (m+' хв '+(sec?sec+' с':'')).trim() : (sec+' с'); };
+  const esc = (s) => (s==null?'':String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+  // ===== Сесія перевірки (job) =====
+  let stepTimer = null, pollTimer = null, stepInFlight = false, statusInFlight = false;
   function applyJob(job){
     activeJob = job;
     const chip = $('checker-status-chip');
@@ -106,98 +109,203 @@ function initCheckerPage(){
     catch(err){ alert(err.message || 'Не вдалося зберегти'); }
   });
 
+  // ===== Перевірені: модерація картками =====
   const VERDICT_LABELS = {physical_store:'Фізмагазин',retail_chain:'Мережа',dropshipper:'Дропшипер',brand:'Бренд',voentorg:'Військторг',marketplace_seller:'Маркетплейс',wholesale_supplier:'Опт-постачальник',irrelevant:'Нерелевантно',other:'Інше'};
   const CHANNEL_LABELS = {wholesale:'Опт',custom_print:'Кастом-друк',collab:'Колаб',dropship:'Дропшип',test_batch:'Тест-партія',shelf:'Полиця'};
+  const STATUS_META = {moderation:{label:'На розгляді',cls:'mod'},base:{label:'У базі',cls:'base'},rejected:{label:'Не підходить',cls:'rej'},converted:{label:'Оброблено',cls:'conv'}};
   const bandClass = (v) => ({fit:'fit',maybe:'maybe',unfit:'unfit',error:'error'}[v] || 'error');
-  const esc = (s) => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const ICON = {
+    chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+    ok:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+    no:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  };
 
-  function rowHtml(r){
-    const cls = bandClass(r.ai_verdict);
-    const scoreTxt = r.ai_verdict==='error' ? '—' : (r.ai_score==null?'—':r.ai_score);
-    const channels = (r.partnership_fit||[]).map(c=>`<span class="checker-chip">${esc(CHANNEL_LABELS[c]||c)}</span>`).join('');
-    const site = r.website_url ? `<a class="checker-link-btn" href="${esc(r.website_url)}" target="_blank" rel="noopener">сайт</a>` : '';
-    const ig = r.instagram_url ? `<a class="checker-link-btn" href="${esc(r.instagram_url)}" target="_blank" rel="noopener">IG</a>` : '';
-    return `<tr>
-      <td>${esc(r.shop_name)}<div class="muted-detail">${esc(r.city||'')}</div></td>
-      <td><span class="checker-score checker-score--${cls}">${scoreTxt}</span></td>
-      <td>${esc(VERDICT_LABELS[r.verdict_category]||'')}</td>
-      <td class="checker-brand-cell">${esc((r.brand_summary||'').slice(0,140))}</td>
-      <td>${channels}</td>
-      <td>${site} ${ig}</td>
-      <td><button type="button" class="checker-detail-btn" data-lead="${r.lead_id}">Деталі</button></td>
-    </tr>`;
+  let curBand='all', curStatus='moderation', curPage=1, curQ='', qTimer=null;
+  let rowsById = {};
+
+  function detailHtml(r){
+    const sec = (title, body) => body ? `<div class="checker-detail-section"><h4>${esc(title)}</h4><p>${esc(body)}</p></div>` : '';
+    const crit = (r.criteria||[]).map(c=>`<div class="checker-criterion"><span class="checker-criterion__title">${esc(c.title||c.key)}</span><b>${c.score}/10</b><div class="checker-criterion__bar"><i style="width:${Math.max(0,Math.min(10,c.score||0))*10}%"></i></div>${c.comment?`<div class="checker-criterion__comment">${esc(c.comment)}</div>`:''}</div>`).join('');
+    const channels = (r.partnership_fit||[]).map(c=>`<span class="checker-chip">${esc(CHANNEL_LABELS[c]||c)}</span>`).join('') || '<span class="muted">—</span>';
+    const sources = (r.sources||[]).map(s=>`<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title||s.url)}</a>`).join('') || '<p class="muted">немає</p>';
+    const links = [
+      r.website_url?`<a class="checker-link-btn" href="${esc(r.website_url)}" target="_blank" rel="noopener">сайт ↗</a>`:'',
+      r.instagram_url?`<a class="checker-link-btn" href="${esc(r.instagram_url)}" target="_blank" rel="noopener">IG ↗</a>`:'',
+      r.google_maps_url?`<a class="checker-link-btn" href="${esc(r.google_maps_url)}" target="_blank" rel="noopener">Maps ↗</a>`:'',
+    ].filter(Boolean).join('');
+    const netBtn = r.network ? `<button type="button" class="btn-ghost small chk-danger" data-reject-network>Відхилити всю мережу «${esc(r.network.name)}»</button>` : '';
+    return `
+      <div class="chk-detail">
+        <div class="checker-detail-section"><h4>Оцінка бота: ${r.ai_score==null?'—':r.ai_score}/100</h4><p>${esc(VERDICT_LABELS[r.verdict_category]||'')}${r.confidence?(' · впевненість: '+esc(r.confidence)):''}</p></div>
+        ${sec('Бренд', r.brand_summary)}
+        ${sec('Аудиторія', r.audience_guess)}
+        <div class="checker-detail-section"><h4>Канали співпраці</h4><p>${channels}</p></div>
+        <div class="checker-detail-section"><h4>За що такий бал — критерії</h4><div class="checker-criteria">${crit||'<p class="muted">—</p>'}</div></div>
+        ${sec('Висновок бота', r.comment)}
+        ${sec('Рекомендація менеджеру', r.recommendation)}
+        ${r.error?`<div class="checker-detail-section"><h4>Помилка</h4><p>${esc(r.error)}</p></div>`:''}
+        <div class="checker-detail-section checker-sources"><h4>Джерела</h4>${sources}</div>
+        ${links?`<div class="chk-links">${links}</div>`:''}
+        <div class="chk-forms">
+          <div class="chk-formrow" data-approve-form hidden>
+            <input type="tel" data-phone placeholder="${r.phone?esc(r.phone):'телефон для бази'}" value="${r.phone?esc(r.phone):''}">
+            <button type="button" class="btn-primary small" data-approve-confirm>Підтвердити в базу</button>
+            <span class="chk-msg" data-approve-msg></span>
+          </div>
+          <div class="chk-formrow" data-reject-form hidden>
+            <input type="text" data-reason placeholder="причина відхилення" value="Не відповідає вимогам">
+            <button type="button" class="btn-ghost small chk-danger" data-reject-confirm>Відхилити</button>
+            <span class="chk-msg" data-reject-msg></span>
+          </div>
+        </div>
+        <div class="chk-detail__foot">
+          <button type="button" class="btn-ghost small" data-recheck>Перевірити знову</button>
+          ${netBtn}
+        </div>
+      </div>`;
   }
 
-  let lastRows = [];
-  async function loadResults(){
-    const city = $('checker-results-city').value;
-    const ps = $('checker-results-page-size').value;
-    const params = new URLSearchParams({band:curBand, city, page:curPage, page_size:ps});
-    try{
-      const p = await apiRequest(url('resultsUrl')+'?'+params.toString(), null, 'GET');
-      lastRows = p.results.rows;
-      const tb = document.querySelector('#checker-results-table tbody');
-      tb.innerHTML = lastRows.length ? lastRows.map(rowHtml).join('') : '<tr><td colspan="7" class="table-empty">Немає даних</td></tr>';
-      renderPagination(p.results);
-    }catch(e){ console.warn(e); }
+  function cardHtml(r){
+    const band = bandClass(r.ai_verdict);
+    const score = r.ai_verdict==='error' ? '!' : (r.ai_score==null?'—':r.ai_score);
+    const st = STATUS_META[r.status] || {label:r.status_display||r.status, cls:'mod'};
+    const cat = VERDICT_LABELS[r.verdict_category] ? `<span class="chk-cat">${esc(VERDICT_LABELS[r.verdict_category])}</span>` : '';
+    const netTag = r.network ? `<span class="chk-tag chk-tag--net" title="політика: ${esc(r.network.policy_label)}">мережа: ${esc(r.network.name)}</span>` : '';
+    const brand = r.brand_summary ? `<div class="chk-card__brand">${esc(String(r.brand_summary).slice(0,170))}</div>` : '';
+    const rej = (r.status==='rejected' && r.rejection_reason) ? `<div class="chk-rejnote">${ICON.no} ${esc(r.rejection_reason)}</div>` : '';
+    return `<article class="chk-card status-${st.cls}" data-lead="${r.lead_id}">
+      <div class="chk-card__main" data-toggle>
+        <span class="chk-score" data-band="${band}">${esc(score)}</span>
+        <div class="chk-card__info">
+          <div class="chk-card__name">${esc(r.shop_name)} <span class="chk-tag chk-tag--${st.cls}">${esc(st.label)}</span> ${netTag}</div>
+          <div class="chk-card__sub">${cat}${r.city?`<span class="muted">${esc(r.city)}</span>`:''}</div>
+          ${brand}${rej}
+        </div>
+        <div class="chk-actions" data-stop>
+          <button type="button" class="chk-act chk-act--ok" data-approve title="Підтвердити → у базу">${ICON.ok}</button>
+          <button type="button" class="chk-act chk-act--no" data-reject title="Відхилити">${ICON.no}</button>
+          <button type="button" class="chk-act chk-act--info" data-toggle-btn title="Деталі">${ICON.chev}</button>
+        </div>
+      </div>
+      <div class="chk-card__body">${detailHtml(r)}</div>
+    </article>`;
   }
+
+  function moderate(leadId, data){ return apiRequest(moderateTpl.replace('/0/', '/'+leadId+'/'), data); }
+
+  function bindCard(card){
+    const id = card.dataset.lead;
+    const body = card.querySelector('.chk-card__body');
+    const open = () => card.classList.add('is-open');
+    const toggle = () => card.classList.toggle('is-open');
+    card.querySelector('[data-toggle]').addEventListener('click', (e)=>{ if(e.target.closest('[data-stop]')) return; toggle(); });
+    card.querySelector('[data-toggle-btn]').addEventListener('click', toggle);
+
+    const approveForm = body.querySelector('[data-approve-form]');
+    const rejectForm = body.querySelector('[data-reject-form]');
+    const r = rowsById[id] || {};
+
+    async function doApprove(){
+      const phoneEl = body.querySelector('[data-phone]');
+      const msg = body.querySelector('[data-approve-msg]');
+      const data = {action:'approve'};
+      if(phoneEl && phoneEl.value.trim()){ data.phone = phoneEl.value.trim(); }
+      if(msg){ msg.textContent=''; }
+      try{ await moderate(id, data); load(); }
+      catch(e){
+        open(); approveForm.hidden=false;
+        if(msg){ msg.textContent = e.message || 'Помилка'; }
+        if(e.status===400 && phoneEl){ phoneEl.focus(); }
+      }
+    }
+    card.querySelector('[data-approve]').addEventListener('click', ()=>{
+      // Є телефон → одразу в базу; немає → показати поле телефону.
+      if(r.phone && !r.requires_phone_completion){ doApprove(); }
+      else { open(); approveForm.hidden=false; rejectForm.hidden=true; const p=body.querySelector('[data-phone]'); if(p) p.focus(); }
+    });
+    body.querySelector('[data-approve-confirm]').addEventListener('click', doApprove);
+    const phoneInput = body.querySelector('[data-phone]');
+    if(phoneInput){ phoneInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); doApprove(); } }); }
+
+    async function doReject(){
+      const reasonEl = body.querySelector('[data-reason]');
+      const msg = body.querySelector('[data-reject-msg]');
+      try{ await moderate(id, {action:'reject', rejection_reason: reasonEl?reasonEl.value.trim():''}); load(); }
+      catch(e){ open(); if(msg){ msg.textContent = e.message || 'Помилка'; } }
+    }
+    card.querySelector('[data-reject]').addEventListener('click', ()=>{
+      open(); rejectForm.hidden=false; approveForm.hidden=true;
+      const rr=body.querySelector('[data-reason]'); if(rr){ rr.focus(); rr.select(); }
+    });
+    body.querySelector('[data-reject-confirm]').addEventListener('click', doReject);
+    const reasonInput = body.querySelector('[data-reason]');
+    if(reasonInput){ reasonInput.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); doReject(); } }); }
+
+    body.querySelector('[data-recheck]').addEventListener('click', async (ev)=>{
+      const btn=ev.currentTarget; btn.disabled=true; btn.textContent='Перевіряю…';
+      try{ const p = await apiRequest(recheckTpl.replace('/0/', '/'+id+'/'), {}); rowsById[id]=p.row; const fresh=document.createElement('div'); fresh.innerHTML=cardHtml(p.row); const node=fresh.firstElementChild; node.classList.add('is-open'); card.replaceWith(node); bindCard(node); }
+      catch(e){ btn.disabled=false; btn.textContent='Перевірити знову'; alert(e.message||'Не вдалося перевірити'); }
+    });
+
+    const netBtn = body.querySelector('[data-reject-network]');
+    if(netBtn && r.network){
+      netBtn.addEventListener('click', async ()=>{
+        if(!confirm('Відхилити всю мережу «'+r.network.name+'»? Усі її точки стануть «Не підходить», а мережа — block.')) return;
+        netBtn.disabled=true;
+        try{ await apiRequest(networkTpl.replace('/0/', '/'+r.network.id+'/'), {action:'reject_leads'}); load(); }
+        catch(e){ netBtn.disabled=false; alert(e.message||'Помилка'); }
+      });
+    }
+  }
+
   function renderPagination(res){
     const box = $('checker-pagination'); box.innerHTML='';
     if(res.num_pages<=1) return;
     for(let i=1;i<=res.num_pages;i++){
-      if(i>1 && i<res.num_pages && Math.abs(i-res.page)>2) { if(box.lastChild && box.lastChild.textContent!=='…'){const e=document.createElement('span');e.textContent='…';e.className='checker-chip';box.appendChild(e);} continue; }
+      if(i>1 && i<res.num_pages && Math.abs(i-res.page)>2){ if(box.lastChild && box.lastChild.textContent!=='…'){const e=document.createElement('span');e.textContent='…';e.className='checker-chip';box.appendChild(e);} continue; }
       const b=document.createElement('button'); b.textContent=i; if(i===res.page) b.classList.add('is-active');
-      b.addEventListener('click',()=>{curPage=i;loadResults();}); box.appendChild(b);
+      b.addEventListener('click',()=>{curPage=i;load();}); box.appendChild(b);
     }
   }
 
-  document.getElementById('checker-tabs').addEventListener('click',(e)=>{
+  async function load(){
+    const city = $('checker-results-city').value;
+    const ps = $('checker-results-page-size').value;
+    const params = new URLSearchParams({band:curBand, status:curStatus, q:curQ, city, page:curPage, page_size:ps});
+    const range = $('chk-range-info'); range.textContent='Завантаження…';
+    try{
+      const p = await apiRequest(url('resultsUrl')+'?'+params.toString(), null, 'GET');
+      const d = p.results;
+      rowsById = {};
+      (d.rows||[]).forEach(r=>{ rowsById[r.lead_id]=r; });
+      // лічильники пілів
+      if(d.status_counts){ document.querySelectorAll('#chk-statusbar [data-c]').forEach(el=>{ el.textContent = d.status_counts[el.dataset.c] ?? 0; }); }
+      const list = $('chk-list');
+      if(!d.rows.length){ list.innerHTML='<div class="net-empty">Тут порожньо за цим фільтром.</div>'; range.textContent='Нічого не знайдено'; $('checker-pagination').innerHTML=''; return; }
+      list.innerHTML = d.rows.map(cardHtml).join('');
+      list.querySelectorAll('.chk-card').forEach(bindCard);
+      range.textContent = `Показано ${d.rows.length} із ${d.total} (стор. ${d.page}/${d.num_pages})`;
+      renderPagination(d);
+    }catch(e){ console.warn(e); range.textContent='Помилка завантаження'; }
+  }
+  // сумісність зі старими викликами (runStep/stop)
+  function loadResults(){ load(); }
+
+  $('chk-statusbar').addEventListener('click',(e)=>{
+    const btn=e.target.closest('.chk-statuspill'); if(!btn) return;
+    document.querySelectorAll('.chk-statuspill').forEach(t=>t.classList.remove('is-active'));
+    btn.classList.add('is-active'); curStatus=btn.dataset.status; curPage=1; load();
+  });
+  $('checker-tabs').addEventListener('click',(e)=>{
     const btn=e.target.closest('.checker-tab'); if(!btn) return;
     document.querySelectorAll('.checker-tab').forEach(t=>t.classList.remove('is-active'));
-    btn.classList.add('is-active'); curBand=btn.dataset.band; curPage=1; loadResults();
+    btn.classList.add('is-active'); curBand=btn.dataset.band; curPage=1; load();
   });
-  $('checker-results-city').addEventListener('change',()=>{curPage=1;loadResults();});
-  $('checker-results-page-size').addEventListener('change',()=>{curPage=1;loadResults();});
+  $('checker-results-city').addEventListener('change',()=>{curPage=1;load();});
+  $('checker-results-page-size').addEventListener('change',()=>{curPage=1;load();});
+  $('chk-q').addEventListener('input',(e)=>{ clearTimeout(qTimer); qTimer=setTimeout(()=>{ curQ=e.target.value.trim(); curPage=1; load(); }, 350); });
 
-  const modal=$('checker-detail-modal');
-  let modalLead=null;
-  function openModal(r){
-    modalLead=r;
-    $('checker-detail-title').textContent = r.shop_name;
-    const conf = r.confidence?`<span class="checker-confidence">впевненість: ${esc(r.confidence)}</span>`:'';
-    const crit = (r.criteria||[]).map(c=>`<div class="checker-criterion"><span class="checker-criterion__title">${esc(c.title||c.key)}</span><b>${c.score}/10</b><div class="checker-criterion__bar"><i style="width:${(c.score||0)*10}%"></i></div>${c.comment?`<div class="checker-criterion__comment">${esc(c.comment)}</div>`:''}</div>`).join('');
-    const channels = (r.partnership_fit||[]).map(c=>`<span class="checker-chip">${esc(CHANNEL_LABELS[c]||c)}</span>`).join('') || '—';
-    const sources = (r.sources||[]).map(s=>`<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title||s.url)}</a>`).join('') || '<p>немає</p>';
-    const errBlock = r.error?`<div class="checker-detail-section"><h4>Помилка</h4><p>${esc(r.error)}</p></div>`:'';
-    $('checker-detail-body').innerHTML = `
-      <div class="checker-detail-section"><h4>Оцінка: ${r.ai_score==null?'—':r.ai_score}/100 ${conf}</h4><p>${esc(VERDICT_LABELS[r.verdict_category]||'')}</p></div>
-      <div class="checker-detail-section"><h4>Бренд</h4><p>${esc(r.brand_summary||'—')}</p></div>
-      <div class="checker-detail-section"><h4>Аудиторія</h4><p>${esc(r.audience_guess||'—')}</p></div>
-      <div class="checker-detail-section"><h4>Канали</h4><p>${channels}</p></div>
-      <div class="checker-detail-section"><h4>Критерії</h4><div class="checker-criteria">${crit||'<p>—</p>'}</div></div>
-      <div class="checker-detail-section"><h4>Висновок</h4><p>${esc(r.comment||'—')}</p></div>
-      <div class="checker-detail-section"><h4>Рекомендація менеджеру</h4><p>${esc(r.recommendation||'—')}</p></div>
-      <div class="checker-detail-section checker-sources"><h4>Джерела</h4>${sources}</div>
-      ${errBlock}`;
-    const siteBtn=$('checker-detail-site');
-    if(r.website_url){ siteBtn.hidden=false; siteBtn.href=r.website_url; } else { siteBtn.hidden=true; }
-    modal.classList.add('is-open'); modal.style.display='flex';
-  }
-  function closeModal(){ modal.classList.remove('is-open'); modal.style.display='none'; modalLead=null; }
-  document.querySelector('#checker-results-table').addEventListener('click',(e)=>{
-    const btn=e.target.closest('.checker-detail-btn'); if(!btn) return;
-    const r = lastRows.find(x=>String(x.lead_id)===btn.dataset.lead); if(r) openModal(r);
-  });
-  modal.querySelector('.modal-close').addEventListener('click', closeModal);
-  modal.addEventListener('click',(e)=>{ if(e.target===modal) closeModal(); });
-  $('checker-recheck-btn').addEventListener('click', async () => {
-    if(!modalLead) return;
-    const u = recheckTpl.replace('/0/', '/'+modalLead.lead_id+'/');
-    try{ const p = await apiRequest(u, {}); openModal(p.row); loadResults(); }
-    catch(e){ alert(e.message || 'Не вдалося перевірити'); }
-  });
-
-  // --- Панель ключів Gemini з обратним відліком ---
+  // ===== Панель ключів Gemini з обратним відліком =====
   const ROLE_LABELS = {chat:'Чат / бот', management:'Менеджмент', checker:'Чекер'};
   let keysData = [];
   function fmtCountdown(secs){
@@ -240,7 +348,7 @@ function initCheckerPage(){
   loadKeys();
 
   applyJob(activeJob);
-  loadResults();
+  load();
   if(canStep()) scheduleStep(0);
   schedulePoll();
 }

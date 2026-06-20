@@ -1,39 +1,31 @@
-<div class="checker-results offer-card">
+<div class="checker-results offer-card" id="chk-results">
   <div class="checker-results__head">
-    <div><p class="eyebrow">Результати</p><h3 class="offer-title">Перевірені акаунти</h3></div>
+    <div><p class="eyebrow">Модерація перевірених</p><h3 class="offer-title">Перевірені акаунти</h3></div>
     <div class="checker-results__tools">
+      <input type="text" id="chk-q" class="checker-mini-select" placeholder="пошук: назва або місто" autocomplete="off">
       <select id="checker-results-city" class="checker-mini-select"><option value="">Усі міста</option>{% for c in checker_cities %}<option value="{{ c }}">{{ c }}</option>{% endfor %}</select>
       <select id="checker-results-page-size" class="checker-mini-select"><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option></select>
     </div>
   </div>
+
+  <p class="offer-help chk-hint">Бот перевірив і поставив бал — далі рішення за вами: <b>✓ — у базу</b> (на обзвон менеджеру), <b>✗ — відхилити</b> (нецільовий, напр. військторг без текстилю). Натисніть на картку, щоб подивитись, за що бот дав цей бал.</p>
+
+  <div class="chk-statusbar" id="chk-statusbar">
+    <button type="button" class="chk-statuspill is-active" data-status="moderation">На розгляді <span class="chk-statuspill__c" data-c="moderation">0</span></button>
+    <button type="button" class="chk-statuspill" data-status="base">Погоджені <span class="chk-statuspill__c" data-c="base">0</span></button>
+    <button type="button" class="chk-statuspill" data-status="rejected">Відхилені <span class="chk-statuspill__c" data-c="rejected">0</span></button>
+    <button type="button" class="chk-statuspill" data-status="all">Усі <span class="chk-statuspill__c" data-c="all">0</span></button>
+  </div>
+
   <div class="checker-tabs" id="checker-tabs">
-    <button type="button" class="checker-tab is-active" data-band="all">Усі</button>
+    <button type="button" class="checker-tab is-active" data-band="all">Усі вердикти</button>
     <button type="button" class="checker-tab" data-band="fit">Підходить</button>
     <button type="button" class="checker-tab" data-band="maybe">Під питанням</button>
     <button type="button" class="checker-tab" data-band="unfit">Не підходить</button>
     <button type="button" class="checker-tab" data-band="error">Помилки</button>
   </div>
-  <div class="table-shell">
-    <table class="nexus-table checker-table" id="checker-results-table">
-      <thead><tr>
-        <th>Магазин</th><th>Оцінка</th><th>Категорія</th><th>Бренд</th><th>Канали</th><th>Сайт / IG</th><th>Дія</th>
-      </tr></thead>
-      <tbody></tbody>
-    </table>
-  </div>
-  <div class="checker-pagination" id="checker-pagination"></div>
-</div>
 
-<div id="checker-detail-modal" class="modal-overlay">
-  <div class="modal-card modal-card--wide">
-    <div class="modal-header">
-      <div><p class="eyebrow">Розбір ШІ</p><h3 id="checker-detail-title">—</h3></div>
-      <button type="button" class="modal-close" aria-label="Закрити">×</button>
-    </div>
-    <div class="modal-body" id="checker-detail-body"></div>
-    <div class="modal-footer">
-      <button type="button" class="btn-ghost" id="checker-recheck-btn">Перевірити знову</button>
-      <a href="#" target="_blank" rel="noopener" class="btn-ghost" id="checker-detail-site" hidden>Відкрити сайт</a>
-    </div>
-  </div>
+  <div class="chk-meta offer-help"><span id="chk-range-info">Завантаження…</span></div>
+  <div class="chk-list" id="chk-list"></div>
+  <div class="checker-pagination" id="checker-pagination"></div>
 </div>

@@ -23,34 +23,94 @@
 .field-span-2{grid-column:span 2;}
 .checker-inline-status{font-size:.8rem;color:#4ade80;margin-left:10px;}
 .checker-results__head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;}
-.checker-results__tools{display:flex;gap:8px;}
+.checker-results__tools{display:flex;gap:8px;flex-wrap:wrap;}
 .checker-mini-select{background:var(--bg-850);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);padding:6px 9px;font-size:.82rem;}
-.checker-tabs{display:flex;gap:6px;margin:14px 0;flex-wrap:wrap;}
+.chk-hint{margin:10px 0 6px;}
+.chk-hint b{color:var(--text-primary);}
+
+/* Фільтр статусу модерації */
+.chk-statusbar{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 4px;}
+.chk-statuspill{display:inline-flex;align-items:center;gap:7px;background:var(--bg-850);border:1px solid var(--border);border-radius:99px;color:var(--text-secondary);padding:7px 14px;font-size:.84rem;cursor:pointer;transition:all .18s;}
+.chk-statuspill:hover{color:var(--text-primary);border-color:rgba(243,164,61,.35);}
+.chk-statuspill.is-active{background:var(--accent);border-color:var(--accent);color:#1a1205;font-weight:600;}
+.chk-statuspill__c{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:18px;padding:0 5px;border-radius:99px;background:rgba(255,255,255,.1);font-size:.72rem;font-weight:700;}
+.chk-statuspill.is-active .chk-statuspill__c{background:rgba(0,0,0,.18);}
+
+/* Смуга вердикту AI */
+.checker-tabs{display:flex;gap:6px;margin:10px 0;flex-wrap:wrap;}
 .checker-tab{background:var(--bg-850);border:1px solid var(--border);border-radius:99px;color:var(--text-secondary);padding:7px 16px;font-size:.84rem;cursor:pointer;transition:all .2s;}
 .checker-tab:hover{color:var(--text-primary);}
-.checker-tab.is-active{background:var(--accent);border-color:var(--accent);color:#1a1205;font-weight:600;}
-.checker-table th,.checker-table td{padding:10px 12px;text-align:left;vertical-align:middle;}
-.checker-score{display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:30px;border-radius:8px;font-weight:700;font-size:.95rem;}
-.checker-score--fit{background:rgba(74,222,128,.16);color:#4ade80;}
-.checker-score--maybe{background:rgba(243,164,61,.16);color:var(--accent);}
-.checker-score--unfit{background:rgba(248,113,113,.16);color:#f87171;}
-.checker-score--error{background:rgba(148,163,184,.16);color:var(--muted);}
+.checker-tab.is-active{background:var(--bg-900,#0b0e14);border-color:var(--accent);color:var(--accent);font-weight:600;}
+.chk-meta{margin:0 0 10px;}
+
+/* Список карток */
+.chk-list{display:grid;gap:12px;}
+.chk-card{border:1px solid var(--border);border-radius:16px;background:linear-gradient(150deg,rgba(255,255,255,.03),rgba(255,255,255,.012));overflow:hidden;transition:border-color .2s,box-shadow .2s;}
+.chk-card:hover{border-color:rgba(243,164,61,.32);box-shadow:0 10px 26px rgba(0,0,0,.2);}
+.chk-card.status-base{border-color:rgba(52,211,153,.4);}
+.chk-card.status-rej{border-color:rgba(248,113,113,.34);opacity:.92;}
+.chk-card__main{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;padding:13px 16px;cursor:pointer;}
+.chk-card__info{min-width:0;}
+.chk-card__name{font-weight:700;color:var(--text-primary);font-size:1rem;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.chk-card__sub{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:3px;}
+.chk-card .muted{font-size:.78rem;color:var(--muted);}
+.chk-cat{font-size:.78rem;color:var(--text-secondary);background:var(--bg-850);border:1px solid var(--border);border-radius:99px;padding:2px 9px;}
+.chk-card__brand{margin-top:6px;font-size:.82rem;color:var(--text-secondary);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.chk-rejnote{margin-top:6px;font-size:.8rem;color:#fca5a5;display:flex;align-items:center;gap:6px;}
+.chk-rejnote svg{width:13px;height:13px;flex:none;}
+
+/* Круглий читабельний бал */
+.chk-score{display:inline-flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:50%;flex:none;background:var(--bg-900,#0b0e14);font-weight:800;font-size:1rem;border:2.5px solid var(--border);font-variant-numeric:tabular-nums;}
+.chk-score[data-band="fit"]{border-color:#34d399;color:#6ee7b7;}
+.chk-score[data-band="maybe"]{border-color:#f3a43d;color:var(--accent);}
+.chk-score[data-band="unfit"]{border-color:#f87171;color:#fca5a5;}
+.chk-score[data-band="error"]{border-color:#94a3b8;color:#cbd5e1;}
+
+/* Теги статусу / мережі */
+.chk-tag{font-size:.7rem;font-weight:700;padding:3px 9px;border-radius:99px;border:1px solid var(--border);white-space:nowrap;}
+.chk-tag--mod{background:rgba(243,164,61,.14);color:var(--accent);border-color:rgba(243,164,61,.32);}
+.chk-tag--base{background:rgba(52,211,153,.16);color:#6ee7b7;border-color:rgba(52,211,153,.34);}
+.chk-tag--rej{background:rgba(248,113,113,.14);color:#fca5a5;border-color:rgba(248,113,113,.3);}
+.chk-tag--conv{background:rgba(111,149,255,.14);color:#aac4ff;border-color:rgba(111,149,255,.3);}
+.chk-tag--net{background:rgba(111,149,255,.12);color:#aac4ff;border-color:rgba(111,149,255,.28);font-weight:600;}
+
+/* Кластер дій ✓ / ✗ / деталі */
+.chk-actions{display:flex;gap:8px;align-items:center;}
+.chk-act{width:38px;height:38px;border-radius:11px;border:1px solid var(--border);background:var(--bg-850);color:var(--text-secondary);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:all .16s;}
+.chk-act svg{width:18px;height:18px;}
+.chk-act:hover{transform:translateY(-1px);}
+.chk-act--ok:hover{background:rgba(52,211,153,.18);border-color:#34d399;color:#6ee7b7;}
+.chk-act--no:hover{background:rgba(248,113,113,.16);border-color:#f87171;color:#fca5a5;}
+.chk-act--info svg{transition:transform .2s;}
+.chk-card.is-open .chk-act--info svg{transform:rotate(90deg);}
+
+/* Тіло-розгортка */
+.chk-card__body{display:none;padding:0 16px 16px;border-top:1px solid var(--border);}
+.chk-card.is-open .chk-card__body{display:block;}
+.chk-detail{padding-top:12px;}
+.chk-links{display:flex;gap:14px;flex-wrap:wrap;margin:8px 0;}
+.chk-forms{margin-top:10px;}
+.chk-formrow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;padding:10px;border:1px dashed var(--border);border-radius:10px;}
+.chk-formrow input{flex:1 1 200px;min-width:160px;background:var(--bg-850);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text-primary);font-size:.86rem;}
+.chk-msg{font-size:.78rem;color:#fca5a5;}
+.chk-detail__foot{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px dashed var(--border);}
+.btn-ghost.small,.btn-primary.small{padding:6px 12px;font-size:.82rem;}
+.chk-danger{color:#fca5a5;border-color:rgba(248,113,113,.4)!important;}
+.chk-danger:hover{background:rgba(248,113,113,.12);}
+
+/* Переисп. деталі (критерії, секції, джерела) */
 .checker-chip{display:inline-block;background:var(--bg-850);border:1px solid var(--border);border-radius:99px;padding:2px 9px;font-size:.72rem;color:var(--text-secondary);margin:2px 3px 0 0;}
-.checker-brand-cell{max-width:280px;color:var(--text-secondary);font-size:.84rem;}
-.checker-link-btn{color:var(--accent);text-decoration:none;font-size:.8rem;}
-.checker-detail-btn{background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text-primary);padding:6px 12px;cursor:pointer;font-size:.8rem;}
-.checker-detail-btn:hover{border-color:var(--accent);}
+.checker-link-btn{color:var(--accent);text-decoration:none;font-size:.82rem;}
 .checker-pagination{display:flex;gap:6px;align-items:center;justify-content:center;margin-top:14px;flex-wrap:wrap;}
 .checker-pagination button{background:var(--bg-850);border:1px solid var(--border);border-radius:8px;color:var(--text-secondary);padding:6px 12px;cursor:pointer;}
 .checker-pagination button.is-active{background:var(--accent);color:#1a1205;border-color:var(--accent);}
-.modal-card--wide{max-width:760px;width:94vw;}
-.checker-criteria{display:flex;flex-direction:column;gap:8px;margin:12px 0;}
+.checker-criteria{display:flex;flex-direction:column;gap:8px;margin:8px 0;}
 .checker-criterion{display:grid;grid-template-columns:1fr auto;gap:6px 12px;background:var(--bg-850);border:1px solid var(--border);border-radius:10px;padding:9px 12px;}
 .checker-criterion__title{color:var(--text-primary);font-size:.86rem;font-weight:600;}
 .checker-criterion__bar{grid-column:1/-1;height:6px;background:var(--bg-900);border-radius:99px;overflow:hidden;}
 .checker-criterion__bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-strong));}
 .checker-criterion__comment{grid-column:1/-1;color:var(--text-secondary);font-size:.8rem;}
-.checker-detail-section{margin:12px 0;}
+.checker-detail-section{margin:10px 0;}
 .checker-detail-section h4{margin:0 0 6px;color:var(--text-primary);font-size:.9rem;}
 .checker-detail-section p{color:var(--text-secondary);font-size:.86rem;margin:0;}
 .checker-sources a{display:block;color:var(--accent);font-size:.8rem;margin:2px 0;text-decoration:none;}
@@ -79,12 +139,7 @@
 .checker-metric:hover{transform:translateY(-2px);border-color:rgba(243,164,61,.35);}
 .key-card{transition:transform .15s ease,border-color .15s ease;}
 .key-card:hover{transform:translateY(-2px);}
-.checker-detail-btn{transition:border-color .15s ease,background .15s ease;}
-.checker-detail-btn:hover{background:rgba(243,164,61,.10);}
-.checker-table tbody tr{transition:background .12s ease;}
-.checker-table tbody tr:hover{background:rgba(255,255,255,.03);}
 .muted-detail{font-size:.74rem;color:var(--muted);margin-top:2px;}
-.modal-card--wide .modal-body{max-height:72vh;overflow-y:auto;}
 @media(max-width:980px){
   .checker-hero{flex-direction:column;}
   .checker-hero__metrics{grid-template-columns:repeat(4,minmax(80px,1fr));width:100%;}
@@ -94,11 +149,10 @@
   .field-span-2{grid-column:span 1;}
   .checker-results__head{flex-direction:column;align-items:stretch;}
   .checker-results__tools{flex-wrap:wrap;}
-  .checker-table th,.checker-table td{padding:8px 8px;font-size:.84rem;}
-  .checker-table th:nth-child(4),.checker-table td:nth-child(4){display:none;} /* Бренд ховаємо на вузьких */
-  .checker-table th:nth-child(5),.checker-table td:nth-child(5){display:none;} /* Канали ховаємо */
-  .modal-card--wide{width:96vw;}
-  .modal-card--wide .modal-body{max-height:78vh;}
+  .chk-card__main{grid-template-columns:auto 1fr;grid-template-areas:"score info" "actions actions";gap:10px;}
+  .chk-score{grid-area:score;}
+  .chk-card__info{grid-area:info;}
+  .chk-actions{grid-area:actions;justify-content:flex-end;}
   .checker-criterion{grid-template-columns:1fr;}
 }
 @media(max-width:480px){

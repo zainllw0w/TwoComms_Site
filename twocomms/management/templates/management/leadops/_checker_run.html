@@ -8,7 +8,9 @@
      data-results-url="{% url 'management_checker_results_api' %}"
      data-settings-url="{% url 'management_checker_settings_api' %}"
      data-keys-url="{% url 'management_checker_keys_status_api' %}"
-     data-recheck-url-template="{% url 'management_checker_recheck_api' 0 %}"></div>
+     data-recheck-url-template="{% url 'management_checker_recheck_api' 0 %}"
+     data-moderate-url-template="{% url 'management_lead_moderation_action_api' 0 %}"
+     data-network-update-template="{% url 'management_network_update_api' 0 %}"></div>
 {{ checker_active_job_json|json_script:"checker-initial-job" }}
 {{ checker_counters|json_script:"checker-initial-counters" }}
 {{ checker_settings|json_script:"checker-initial-settings" }}

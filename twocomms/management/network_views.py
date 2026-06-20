@@ -114,6 +114,27 @@ def network_update_api(request, network_id):
         return JsonResponse({"success": False, "error": "Мережу не знайдено."}, status=404)
 
     action = request.POST.get("action", "")
+
+    if action == "reject_leads":
+        # «Відхилити всю мережу» (кейс «Мілітарист»): блок-політика + масовий REJECTED усіх точок.
+        net.policy = LeadNetwork.Policy.BLOCK_NO_COLLAB
+        net.confirmed_by = request.user
+        net.confirmed_at = timezone.now()
+        net.save(update_fields=["policy", "confirmed_by", "confirmed_at", "updated_at"])
+        reason = (request.POST.get("rejection_reason") or "").strip() or "Мережа не співпрацює (масове відхилення)"
+        rejected_count = (
+            ManagementLead.objects.filter(network=net)
+            .exclude(status=ManagementLead.Status.REJECTED)
+            .update(
+                status=ManagementLead.Status.REJECTED,
+                moderated_by=request.user,
+                rejection_reason=reason,
+                updated_at=timezone.now(),
+            )
+        )
+        net.refresh_from_db()
+        return JsonResponse({"success": True, "network": serialize_network(net), "rejected_count": rejected_count})
+
     fields = []
 
     policy = request.POST.get("policy", "")
