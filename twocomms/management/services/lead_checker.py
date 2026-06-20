@@ -122,7 +122,7 @@ def compute_verdict_band(*, score: int, apparel: int, collab_evidence: str, conf
 def niche_for_band(band: str) -> str:
     if band == "fit":
         return ManagementLead.NicheStatus.NICHE
-    if band == "maybe":
+    if band in ("maybe", "question"):
         return ManagementLead.NicheStatus.MAYBE
     return ManagementLead.NicheStatus.NON_NICHE
 
@@ -228,12 +228,24 @@ def build_system_prompt() -> str:
         "overall_score (0..100) — твоя орієнтовна оцінка; ФІНАЛЬНИЙ бал рахує сервер "
         "із твоїх КРИТЕРІЇВ (зважено) + apparel-гейт. Тож головне — чесні, строгі бали "
         "критеріїв, а не загальне число.\n\n"
+        "КЛЮЧОВЕ ПРАВИЛО СПІВПРАЦІ: ми постачаємо НАШ одяг або друкуємо під бренд "
+        "клієнта. Магазин придатний для опту/полиці ЛИШЕ якщо бере на продаж ЧУЖІ "
+        "бренди одягу. Якщо магазин продає ВИКЛЮЧНО свій бренд і має власне "
+        "виробництво (як великі мілітарі-бренди) — опт/полиця закриті; кастом-друк "
+        "можливий лише якщо в них НЕМАЄ власного виробництва. Якщо доказів співпраці "
+        "з чужими брендами НЕ знайдено — постав sells_third_party_brands='unknown' і "
+        "чесно напиши в comment, що це треба уточнити дзвінком (НЕ вигадуй співпрацю).\n\n"
         "Відповідай СУВОРО валідним JSON (без markdown, без ```), українською, за схемою:\n"
         "{\n"
         '  "overall_score": <0..100>,\n'
         '  "verdict_category": "physical_store|retail_chain|dropshipper|brand|voentorg|marketplace_seller|irrelevant",\n'
         '  "partnership_fit": ["wholesale", "custom_print", ...],\n'
         '  "confidence": "low|medium|high",\n'
+        '  "sells_third_party_brands": "yes|no|unknown — чи бере магазин на продаж ЧУЖІ бренди одягу (НЕ лише свій)",\n'
+        '  "own_production": "yes|no|unknown — чи має власне виробництво/пошив одягу",\n'
+        '  "canonical_network_name": "канонічна назва мережі/бренду, якщо це мережа; інакше порожньо",\n'
+        '  "network_kind": "chain_brand|franchise|marketplace|voentorg_group|unknown",\n'
+        '  "suggested_policy": "block_no_collab|block_irrelevant|recheck_each|priority_target| (порожньо якщо не мережа)",\n'
         '  "brand_summary": "що це за магазин/бренд (2-4 речення)",\n'
         '  "audience_guess": "хто їхня аудиторія",\n'
         '  "instagram_url": "https://instagram.com/... або порожньо",\n'
@@ -299,6 +311,23 @@ def normalize_result(raw: dict) -> dict:
     if confidence not in ("low", "medium", "high"):
         confidence = "low"
 
+    # scoring v2: collaboration-гейт + вердикт-банд + сигнали для мереж.
+    sells_third_party = _as_str(raw.get("sells_third_party_brands")).lower() or "unknown"
+    if sells_third_party not in ("yes", "no", "unknown"):
+        sells_third_party = "unknown"
+    own_production = _as_str(raw.get("own_production")).lower() or "unknown"
+    if own_production not in ("yes", "no", "unknown"):
+        own_production = "unknown"
+    collab_cap, collab_evidence = compute_collaboration_gate(
+        sells_third_party=sells_third_party, own_production=own_production,
+    )
+    overall = min(overall, collab_cap)
+    apparel_score = next((c["score"] for c in criteria if c["key"] == "apparel_focus"), 0)
+    verdict_band = compute_verdict_band(
+        score=overall, apparel=apparel_score,
+        collab_evidence=collab_evidence, confidence=confidence,
+    )
+
     sources = []
     for s in _as_list(raw.get("sources")):
         if isinstance(s, dict) and s.get("url"):
@@ -309,6 +338,15 @@ def normalize_result(raw: dict) -> dict:
         "verdict_category": category,
         "partnership_fit": fit,
         "confidence": confidence,
+        "collaboration_evidence": collab_evidence,
+        "verdict_band": verdict_band,
+        "signals": {
+            "sells_third_party_brands": sells_third_party,
+            "own_production": own_production,
+            "canonical_network_name": _as_str(raw.get("canonical_network_name")),
+            "network_kind": _as_str(raw.get("network_kind")),
+            "suggested_policy": _as_str(raw.get("suggested_policy")),
+        },
         "brand_summary": _as_str(raw.get("brand_summary")),
         "audience_guess": _as_str(raw.get("audience_guess")),
         "instagram_url": _as_str(raw.get("instagram_url"))[:300],
@@ -336,7 +374,7 @@ def score_lead(lead: ManagementLead, *, api_key: str | None = None, checked_by=N
             build_system_prompt(), user_text, api_key=api_key,
         )
         norm = normalize_result(result.get("parsed") or {})
-        band = band_for_score(norm["overall_score"])
+        band = norm["verdict_band"]
 
         check.status = LeadAICheck.Status.DONE
         check.overall_score = norm["overall_score"]
@@ -344,6 +382,9 @@ def score_lead(lead: ManagementLead, *, api_key: str | None = None, checked_by=N
         check.verdict_category = norm["verdict_category"]
         check.partnership_fit = norm["partnership_fit"]
         check.confidence = norm["confidence"]
+        check.verdict_band = norm["verdict_band"]
+        check.collaboration_evidence = norm["collaboration_evidence"]
+        check.signals = norm["signals"]
         check.brand_summary = norm["brand_summary"]
         check.audience_guess = norm["audience_guess"]
         check.instagram_url = norm["instagram_url"]

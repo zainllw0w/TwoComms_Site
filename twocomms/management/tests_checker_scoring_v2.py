@@ -68,3 +68,51 @@ class VerdictBandTests(TestCase):
 
     def test_mid_is_maybe(self):
         self.assertEqual(lc.compute_verdict_band(score=55, apparel=6, collab_evidence="positive", confidence="medium"), "maybe")
+
+
+class NormalizeResultV2Tests(TestCase):
+    def _raw(self, **over):
+        crit = [{"key": k, "score": 8} for k, _ in lc.CRITERIA]
+        base = {"criteria": crit, "confidence": "high",
+                "sells_third_party_brands": "yes", "own_production": "no",
+                "verdict_category": "brand", "partnership_fit": ["wholesale"]}
+        base.update(over)
+        return base
+
+    def test_outputs_band_and_evidence(self):
+        out = lc.normalize_result(self._raw())
+        self.assertEqual(out["collaboration_evidence"], "positive")
+        self.assertIn(out["verdict_band"], ("fit", "maybe", "question", "unfit"))
+        self.assertEqual(out["signals"]["sells_third_party_brands"], "yes")
+        self.assertEqual(out["signals"]["own_production"], "no")
+
+    def test_unknown_collab_not_fit_even_if_high_score(self):
+        out = lc.normalize_result(self._raw(sells_third_party_brands="unknown", own_production="unknown"))
+        self.assertEqual(out["collaboration_evidence"], "unknown")
+        self.assertNotEqual(out["verdict_band"], "fit")
+
+    def test_score_capped_by_collab_gate(self):
+        out = lc.normalize_result(self._raw(sells_third_party_brands="no", own_production="yes"))
+        self.assertLessEqual(out["overall_score"], lc.COLLAB_GATE_NEGATIVE_MAX)
+
+
+from unittest.mock import patch
+
+
+class ScoreLeadV2Tests(TestCase):
+    def test_score_lead_persists_band_and_signals(self):
+        lead = ManagementLead.objects.create(shop_name="Brand X", phone="0501112233")
+        crit = [{"key": k, "score": 8} for k, _ in lc.CRITERIA]
+        parsed = {"criteria": crit, "confidence": "high",
+                  "sells_third_party_brands": "unknown", "own_production": "unknown"}
+        with patch.object(lc, "gemini_generate_grounded",
+                          return_value={"parsed": parsed, "model": "m", "usage": {}}), \
+             patch.object(lc, "fetch_website_text", return_value=("", False)):
+            check = lc.score_lead(lead, api_key="k")
+        check.refresh_from_db()
+        lead.refresh_from_db()
+        self.assertEqual(check.verdict_band, "question")
+        self.assertEqual(check.collaboration_evidence, "unknown")
+        self.assertEqual(check.signals["own_production"], "unknown")
+        self.assertEqual(lead.ai_verdict, "question")
+        self.assertEqual(lead.niche_status, ManagementLead.NicheStatus.MAYBE)

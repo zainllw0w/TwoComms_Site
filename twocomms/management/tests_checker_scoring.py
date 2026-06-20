@@ -115,6 +115,8 @@ class NormalizeResultTests(TestCase):
             "verdict_category": "brand",
             "partnership_fit": ["wholesale", "collab", "bogus_channel"],
             "confidence": "high",
+            "sells_third_party_brands": "yes",
+            "own_production": "no",
             "brand_summary": "UA streetwear бренд",
             "audience_guess": "молодь, патріоти",
             "instagram_url": "https://instagram.com/coyote",
@@ -157,6 +159,9 @@ class ScoreLeadTests(TestCase):
             "verdict_category": "brand",
             "partnership_fit": ["wholesale"],
             "confidence": "high",
+            # scoring v2: для fit потрібні докази співпраці з чужими брендами
+            "sells_third_party_brands": "yes",
+            "own_production": "no",
             "brand_summary": "ok",
             "criteria": [{"key": k, "score": 8, "comment": "c"} for k, _ in lc.CRITERIA],
             "comment": "good",
