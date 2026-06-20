@@ -1,0 +1,244 @@
+# AI-чекер лідів v2 — мережі магазинів + collaboration-aware скоринг
+
+> Design-spec. Канон: бренд TwoComms продає/друкує ОДЯГ (футболки, худі,
+> лонгсліви, мерч, кастомний DTF-друк). Чекер існує, щоб СПРОГНОЗУВАТИ для
+> менеджера, чи зможемо ми зайти до магазину (опт/друк/колаб/полиця), а не
+> просто «гарний/поганий». Все, що прочекано, — на проді (MySQL).
+
+## 1. Проблема (підтверджено даними з прода)
+
+Read-only проба прода (4612 parser-лідів, прочекано 78):
+
+- Дублі по імені з РІЗНИМИ номерами не зливаються парсером: `rozetka`×77 (39
+  міст), `sinsay`×33, `colin s`×26, `megasport`×24, `tactic 4 profi`×13, `lc
+  waikiki`×19, `vovk`×19. Кожен такий лід чекається окремо → марна трата токенів.
+- Один бренд розʼїжджається по транслітерації: `arber`×19 + `арбер`×8 — це ОДНА
+  мережа, але два різні `normalized_name_match_key`.
+- Родові назви (військторг) — один ключ імені = РІЗНІ власники в різних містах:
+  зливати в одну мережу не можна.
+- Перекос у «fit»: 61 fit / 14 maybe / 3 unfit (78% fit), 63% лідів ≥80 балів,
+  `confidence=high` у 85% (модель самовпевнена), 48/78 — voentorg, 20 —
+  retail_chain. `collab_potential` у fit роздутий (6-8 у більшості, лише 3 лідів
+  ≤4) при вазі 4 — він нічого не гейтить, модель ВИГАДУЄ потенціал співпраці.
+
+Висновок: (1) потрібна сутність «мережа», що обʼєднує кілька name-кластерів і
+дозволяє skip; (2) потрібен collaboration-гейт зі станом «під питанням»;
+(3) потрібна дизамбігуація родових назв; (4) величезна економія токенів від мереж.
+
+## 2. Вимоги
+
+- **Не ламати** наявний чекер (browser-driven stepping, RPM, key-cooldown,
+  auto-recheck cron). Нові поля nullable. Нова логіка — шар ПЕРЕД `score_lead`.
+- **Гроші не зачіпаємо** (це окремий контур; чекер на них не впливає).
+- **Економія токенів** — головний KPI: відомі неконверсійні мережі не чекаються.
+- **Авто-skip лише з підтвердженням людини** (антиризик хибного пропуску).
+- **Калібрування скорингу — офлайн** на 78 прочеканих ДО зміни розподілу.
+
+## 3. Архітектура (4 блоки)
+
+Реалізація поблочно, кожен блок — свій TDD-цикл + деплой:
+
+- **A. Network core** — модель `LeadNetwork` + `NetworkAlias` + детермінований
+  резолвер + бекофіл-команда. Фундамент.
+- **C. Scoring v2** — collaboration-гейт + 2 прапори + стан «під питанням» +
+  нова вердикт-функція + строгий промпт. Незалежний, дає цінність одразу.
+- **B. Pipeline integration** — багатоетапний `run_step` (резолв→правило→skip/
+  check), AI повертає network_signal, пост-обробка створює/привʼязує мережу.
+- **D. UI/UX** — слоєні карточки мереж, статистика, фільтри, керування правилами.
+
+Порядок: **C → A → B → D** (скоринг найшвидше дає користь і не залежить від мереж;
+далі мережі; далі економія токенів; наприкінці — представлення).
+
+## 4. Модель даних
+
+### 4.1 `LeadNetwork` (нова)
+
+| Поле | Тип | Призначення |
+|---|---|---|
+| `canonical_name` | Char | Канонічна назва бренду/мережі |
+| `slug` | Slug unique | Стабільний ключ |
+| `kind` | choices | `chain_brand`/`franchise`/`marketplace`/`voentorg_group`/`unknown` |
+| `policy` | choices | пресет (див. 6); default `needs_review` |
+| `policy_params` | JSON | збережений вердикт/бал/пітч для `apply_known_verdict` |
+| `extra_instructions` | Text | вільний хінт у промпт при `recheck_each` |
+| `collaboration_evidence` | choices | `positive`/`negative`/`unknown` (рівень мережі) |
+| `confirmed_by` / `confirmed_at` | FK user / dt | людина підтвердила правило (gate для авто-skip) |
+| `suggested_by_ai` | bool | мережу запропонував AI |
+| `ai_rationale` | Text | обґрунтування AI |
+| `members_count`/`checked_count`/`skipped_count`/`tokens_saved` | int | лічильники (денормалізація для UI) |
+| `created_at`/`updated_at` | dt | |
+
+### 4.2 `NetworkAlias` (нова) — індексований матчинг
+
+`network` FK, `key_type` (`name`/`website`/`instagram`), `key_value` (db_index),
+`source` (`auto`/`ai`/`manual`). Унікальність `(key_type, key_value)`. Ключ мережі
+= brand/website/IG, **НЕ телефон** (у франшизи телефони різні — це норма).
+
+### 4.3 `ManagementLead` (додати)
+
+- `network` FK→LeadNetwork, null, `on_delete=SET_NULL`, db_index
+- `network_membership_source` choices `auto`/`ai`/`manual`, blank
+- `needs_disambiguation` bool default False, db_index (родова назва)
+
+### 4.4 `LeadAICheck` (додати)
+
+Критичні для фільтра/гейта — окремими колонками; описові — у JSON `signals`:
+
+- колонки: `verdict_band` (`fit`/`maybe`/`question`/`unfit`), `collaboration_evidence`
+  (`positive`/`negative`/`unknown`)
+- `signals` JSON: `canonical_network_name`, `network_kind`, `network_is_chain`,
+  `sells_third_party_brands` (`yes`/`no`/`unknown`), `own_production`
+  (`yes`/`no`/`unknown`), `suggested_policy`
+
+### 4.5 Міграції (MySQL, 4612 рядків)
+
+Лише додавання nullable-колонок + нові таблиці — швидко, без rewrite.
+Бекофіл мереж — окрема idempotent management-команда (НЕ в міграції), батчами.
+
+## 5. Детект мереж — гібрид H3 (баланс токенів)
+
+1. **Детерміновані кандидати (0 токенів):** групування за
+   `normalized_name_match_key` + `website_match_key` + транслітераційна
+   нормалізація (укр↔лат) як додатковий ключ. Сильний сигнал ОДНІЄЇ мережі —
+   спільний `website_match_key` АБО canonical brand.
+2. **AI знайомиться з мережею 1 раз:** при повному чеку ліда AI повертає
+   `network_signal` (canonical_name, is_chain, kind, suggested_policy + докази).
+3. **Людина підтверджує правило** (`confirmed_by`). Далі всі однойменні/односетеві
+   ліди матчаться детерміновано і скіпаються за правилом — без AI.
+
+**Generic-дизамбігуація:** родова назва (короткий/родовий ключ ІЛИ один
+name_key з багатьма РІЗНИМИ телефонами + різні адреси + немає спільного сайту) →
+НЕ авто-мережа; прапор `needs_disambiguation`; у картці показуємо
+city+formattedAddress+google_maps_url+website для розрізнення; AI отримує
+попередження «назва родова, не вважай мережею; оцінюй конкретну точку».
+
+## 6. Пресети правил мережі (`LeadNetwork.policy`)
+
+- `block_no_collab` — «не співпрацює ні з ким» (Militarist/Aviation) → авто-skip,
+  вердикт `unfit`, причина «мережа не працює з чужими брендами». 0 токенів.
+- `block_irrelevant` — не наш профіль (маркетплейс Rozetka / зброя без текстилю)
+  → авто-skip `unfit`.
+- `apply_known_verdict` — застосувати збережений вердикт/бал мережі без AI.
+- `recheck_each` — кожна точка своя (військторги) → повний чек + інʼєкція
+  `extra_instructions` у промпт.
+- `custom_print_only` — відкриті лише під кастом-друк (особливий пітч).
+- `needs_review` (default) — свіжа AI-мережа, людина ще не вирішила → ліди йдуть
+  у повний чек, поки не обрано правило.
+- `priority_target` — цільова конверсійна мережа (Punisher) → не скіпати, підняти
+  пріоритет.
+
+Авто-skip спрацьовує ТІЛЬКИ при `confirmed_by != null`. AI пропонує
+`suggested_policy`, людина підтверджує/змінює в UI.
+
+## 7. Scoring v2 (Блок C) — collaboration-гейт + «під питанням»
+
+ВЕРДИКТ перестає бути чистою функцією балу: `verdict = f(score, gates, confidence)`.
+
+Етапи:
+1. `base` = зважені критерії (як зараз, `compute_overall_from_criteria`).
+2. **apparel-гейт** (як зараз): apparel≤2 → ≤25; ≤4 → ≤55.
+3. **collaboration-гейт (новий)** на базі двох прапорів від AI:
+   - `sells_third_party_brands` (бере чужі бренди на реалізацію) — гейтить
+     канали wholesale/shelf/dropship/collab.
+   - `own_production` (є власне виробництво) — впливає на ймовірність custom_print.
+   - `collaboration_evidence`: `positive` → канали відкриті, може бути fit;
+     `negative` (продають лише своє, як Militarist) → wholesale/shelf закриті,
+     потолок балу, custom_print лише якщо немає власного виробництва;
+     `unknown` → НЕ вище «question».
+4. **confidence-гейт:** `confidence=low` по ключовому критерію → не вище maybe/question.
+
+Вердикт-банди:
+- `fit`: score≥70 І apparel ok І `collaboration_evidence=positive` І confidence≥medium.
+- `question` (НОВИЙ, «під питанням»): хороша аудиторія/стиль, але
+  `collaboration_evidence=unknown` ІЛИ confidence=low по ключовому. niche_status=maybe.
+  AI зобовʼязаний написати «не знайдено підтверджень співпраці» + «уточнити дзвінком».
+- `maybe`: середнє по всьому (40-69).
+- `unfit`: apparel-гейт закритий ІЛИ `collaboration_evidence=negative` по всіх
+  каналах ІЛИ score<40.
+
+Маркери в UI: `?` = unknown (треба уточнити), `!` = negative (явний блокер).
+custom_print-нюанс: «продають лише своє» НЕ блокує друк (бренд без виробництва —
+гарний кандидат на white-label).
+
+Промпт: строгі якорі шкали + few-shot + явні питання про
+`sells_third_party_brands`/`own_production`/`collaboration_evidence` +
+`network_signal`. Мінімум нових полів (не per-channel числа) — баланс токенів.
+
+## 8. Pipeline (Блок B) — багатоетапний `run_step`
+
+- **Етап 0 (БД, 0 токенів):** резолв лід→name-cluster→`network`. Якщо
+  привʼязаний до confirmed-мережі з `block_*` → skip з вердиктом мережі
+  (`skipped_network`), причина, інкремент `skipped_count`/`tokens_saved`.
+  `apply_known_verdict` → застосувати збережений вердикт. `recheck_each` →
+  повний чек з інʼєкцією `extra_instructions`. Авто-skip лише для confirmed.
+- **Етап 1 (повний AI-чек):** якщо лід не в відомій мережі АБО мережа вимагає
+  індивідуального чеку. AI повертає розбір + `network_signal`.
+- **Етап 2 (пост-обробка, 0 токенів):** за `network_signal` створити/привʼязати
+  `LeadNetwork` (+`NetworkAlias`), якщо AI впевнено опізнав. Нова мережа →
+  `needs_review` + `suggested_policy`. Наступні ліди мережі скіпаються на Етапі 0.
+
+Ідемпотентність + RuntimeLock (cron + ручна сесія не конфліктують).
+
+## 9. UI/UX (Блок D)
+
+Server-rendered Django + ванільний JS + `management.css` (НЕ styles.css) +
+polling + CSS-анімації. БЕЗ нового фреймворку. Іконки — інлайн-SVG (як аудіоплеєр),
+НЕ емодзі.
+
+- **Слоєні карточки мереж** (аккордеон): спокійний верх (chevron, kind-іконка,
+  назва, counts, полоса-розподіл вердиктів, policy-бейдж). Клік → плавне
+  розкриття (max-height + поворот chevron). Усередині — рядки точок на CSS-grid
+  з ФІКС-колонками (статус-точка | назва+адреса | сигнали-джерела SVG | чипи
+  каналів О/Д/К/П | впевненість ●●● | score-круг). Клік по точці → drawer
+  (повний розбор: gate-чипи, «чому ?», мінібари критеріїв, sources, дії).
+- **Score-круг:** тёмний фон + кольорова рамка по вердикту + світла цифра
+  (читаемо); `?`/`!` — великий кольоровий гліф.
+- **Статистика (sticky):** сетей / згорнуто / під питанням / fit-maybe-unfit /
+  токенів збережено. count-up при завантаженні.
+- **«Потребує рішення»:** пульс-бейдж на свіжій AI-мережі + фільтр.
+- **Фільтри:** місто / ключове слово / вердикт (є) + сеть / під-питанням /
+  політика / needs_disambiguation.
+- **Керування мережею:** селект пресета + textarea `extra_instructions` +
+  кнопка «підтвердити»; ручне «обʼєднати в мережу» / «розділити».
+- Симетрія: фікс-колонки, рівні плитки stat-bar, єдиний ритм відступів (кратні 4),
+  спокійний верх, колір — лише вердикт+канали.
+
+Макет затверджено візуальним компаньоном (checker-a-v3).
+
+## 10. Ризики та мітигації
+
+- **R1 хибний авто-skip конверсійного ліда** → skip лише при `confirmed_by`;
+  сильний матч-сигнал (website/canonical) для авто-привʼязки; сумнів → повний чек.
+- **R2 хибне злиття generic** → generic-детектор + `needs_disambiguation`, індив. чек.
+- **R3 транслітерація** → `NetworkAlias` зберігає обидва ключі + укр↔лат нормалізація.
+- **R4 регрес чекера** → TDD, nullable-поля, network-резолв ПЕРЕД `score_lead`
+  (lead_checker лишається fallback). Повний набір тестів management + нові.
+- **R5 роздування промпта** → мінімум нових полів (2 прапори + evidence +
+  canonical), тест токенів до/після на 2 ключах.
+- **R6 міграція MySQL** → nullable+нові таблиці (швидко); бекофіл — окрема
+  idempotent команда, не в міграції.
+- **R7 перекос «під питанням»** → КАЛІБРУВАННЯ порогів офлайн на 78 прочеканих
+  ДО деплою (переоцінити, подивитися розподіл).
+- **R8 cron+ручна** → RuntimeLock + ідемпотентність резолву.
+
+## 11. Тест-стратегія
+
+- C: `tests_checker_scoring` — collaboration-гейт (3 стани), вердикт-функція,
+  `question`-банд, custom_print-виняток, межі балу.
+- A: `tests_checker_networks` — резолвер (name/website/translit), alias-матчинг,
+  generic-детектор, бекофіл-команда (idempotent).
+- B: `tests_checker_job` — Етап0 skip/apply/recheck, пост-обробка створення
+  мережі, лічильники tokens_saved, RuntimeLock.
+- D: `tests_checker_views` — payload карток мереж, фільтри, дії з правилами,
+  доступ `_require_admin_json`.
+- Регрес: повний набір `management` (відомі date/flaky-падіння — не регрес).
+- Калібрування: офлайн-скрипт переоцінки 78 прочеканих (розподіл вердиктів до/після).
+
+## 12. Деплой (поблочно)
+
+Після кожного блоку: git add СВОЇХ файлів → commit → push → SSH-деплой
+(`git pull`; `migrate --no-input` якщо моделі/міграції; `collectstatic --no-input`
+якщо статика; `compress --force` лише якщо чіпали `{% compress %}` у base.html —
+для management НЕ треба; `touch tmp/restart.txt` останнім). Sanity-curl `/`,
+`/parsing/`, `/stats/` → 200/302. Бекофіл мереж — окремою командою на проді під
+наглядом, idempotent, після деплою A.
