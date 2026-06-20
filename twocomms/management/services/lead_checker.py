@@ -66,6 +66,27 @@ CRITERION_WEIGHTS = {
 APPAREL_GATE_UNFIT_MAX = 25   # apparel_focus <= 2 → стеля 25 (unfit)
 APPAREL_GATE_MAYBE_MAX = 55   # apparel_focus <= 4 → стеля 55 (не вище maybe)
 
+# Collaboration-гейт: стелі балу залежно від доказів співпраці з ЧУЖИМИ брендами.
+COLLAB_GATE_NEGATIVE_MAX = 40   # продає лише своє + має виробництво → unfit-зона
+COLLAB_GATE_MAYBE_MAX = 60      # лише своє, але без виробництва → кандидат на кастом-друк
+COLLAB_GATE_UNKNOWN_MAX = 69    # немає даних про співпрацю → не вище maybe/question
+
+
+def compute_collaboration_gate(*, sells_third_party: str, own_production: str) -> tuple[int, str]:
+    """Повертає (cap, evidence). cap — стеля overall_score; evidence ∈
+    {positive, negative, unknown}. Ключове правило: магазин придатний для
+    опту/полиці лише якщо бере ЧУЖІ бренди одягу; «лише своє» + власне
+    виробництво → опт закритий; кастом-друк можливий лише без виробництва."""
+    stp = (sells_third_party or "unknown").strip().lower()
+    own = (own_production or "unknown").strip().lower()
+    if stp == "yes":
+        return 100, "positive"
+    if stp == "no":
+        if own == "yes":
+            return COLLAB_GATE_NEGATIVE_MAX, "negative"
+        return COLLAB_GATE_MAYBE_MAX, "negative"
+    return COLLAB_GATE_UNKNOWN_MAX, "unknown"
+
 WEBSITE_TIMEOUT = (5, 6)        # (connect, read) сек
 WEBSITE_TEXT_LIMIT = 6000       # символов текста сайта
 _TAG_RE = re.compile(r"<(script|style)[^>]*>.*?</\1>", re.DOTALL | re.IGNORECASE)
@@ -79,6 +100,23 @@ def band_for_score(score: int) -> str:
     if score >= MAYBE_THRESHOLD:
         return "maybe"
     return "unfit"
+
+
+def compute_verdict_band(*, score: int, apparel: int, collab_evidence: str, confidence: str) -> str:
+    """Вердикт = функція балу + гейтів + впевненості (НЕ чистий бал).
+    Новий стан 'question' (під питанням): гарна аудиторія, але немає даних про
+    співпрацю АБО низька впевненість → уточнити дзвінком, НЕ fit."""
+    ev = (collab_evidence or "unknown").strip().lower()
+    conf = (confidence or "low").strip().lower()
+    if apparel <= 2 or score < MAYBE_THRESHOLD:
+        return "unfit"
+    if ev == "negative":
+        return "maybe" if score < FIT_THRESHOLD else "unfit"
+    if ev == "unknown" or conf == "low":
+        return "question" if score >= MAYBE_THRESHOLD else "maybe"
+    if score >= FIT_THRESHOLD and conf in ("medium", "high"):
+        return "fit"
+    return "maybe"
 
 
 def niche_for_band(band: str) -> str:
