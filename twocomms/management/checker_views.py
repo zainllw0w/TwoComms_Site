@@ -33,6 +33,7 @@ def serialize_lead_check(lead: ManagementLead) -> dict:
             "confidence": "", "brand_summary": "", "audience_guess": "",
             "instagram_url": "", "comment": "", "recommendation": "",
             "criteria": [], "sources": [], "error": "", "model_used": "",
+            "verdict_band": "", "collaboration_evidence": "", "signals": {},
             "checked_at": None,
         })
         return base
@@ -41,6 +42,9 @@ def serialize_lead_check(lead: ManagementLead) -> dict:
         "verdict_category": check.verdict_category,
         "partnership_fit": check.partnership_fit or [],
         "confidence": check.confidence,
+        "verdict_band": check.verdict_band,
+        "collaboration_evidence": check.collaboration_evidence,
+        "signals": check.signals or {},
         "brand_summary": check.brand_summary,
         "audience_guess": check.audience_guess,
         "instagram_url": check.instagram_url,

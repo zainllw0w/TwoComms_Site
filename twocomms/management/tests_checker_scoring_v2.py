@@ -116,3 +116,18 @@ class ScoreLeadV2Tests(TestCase):
         self.assertEqual(check.signals["own_production"], "unknown")
         self.assertEqual(lead.ai_verdict, "question")
         self.assertEqual(lead.niche_status, ManagementLead.NicheStatus.MAYBE)
+
+
+class SerializeV2Tests(TestCase):
+    def test_serialize_includes_band_and_evidence(self):
+        from management import checker_views
+        lead = ManagementLead.objects.create(shop_name="S", phone="0501112233", ai_verdict="question")
+        LeadAICheck.objects.create(
+            lead=lead, status=LeadAICheck.Status.DONE,
+            verdict_band="question", collaboration_evidence="unknown",
+            signals={"own_production": "yes"},
+        )
+        row = checker_views.serialize_lead_check(lead)
+        self.assertEqual(row["verdict_band"], "question")
+        self.assertEqual(row["collaboration_evidence"], "unknown")
+        self.assertEqual(row["signals"]["own_production"], "yes")
