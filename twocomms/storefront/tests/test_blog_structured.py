@@ -7,6 +7,7 @@ from pathlib import Path
 from decimal import Decimal
 
 from django.contrib.auth.models import User
+from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
@@ -26,6 +27,20 @@ from storefront.models import (
 from storefront.services.blog_blocks import render_post_blocks
 from storefront.services.index_targets import build_blog_urls
 from storefront.sitemaps import BlogCategorySitemap
+
+
+EXPECTED_CUSTOM_PRINT_BLOG_SLUGS = (
+    "futbolka-zi-svoim-dyzainom",
+    "hudi-zi-svoim-pryntom",
+    "prynt-z-foto-memu-abo-kartynky",
+    "yak-pidhotuvaty-maket-dlya-druku",
+    "rozmir-pryntu-na-oversize-futbolku",
+    "dtf-druk-bez-efektu-nakleyky",
+    "dtf-dtg-chy-shovkografiya",
+    "futbolky-z-logotypom-dlya-brendu",
+    "kastomnyy-druk-dlya-instagram-magazyniv",
+    "futbolka-abo-hudi-z-pryntom-u-podarunok",
+)
 
 
 @override_settings(
@@ -164,6 +179,11 @@ class BlogStructuredPublicTests(TestCase):
             ".article-spec-table",
             ".article-product-cta",
             ".article-promo-claim",
+            ".article-mini-landing",
+            ".article-scenario-grid",
+            ".article-checklist-grid",
+            ".article-keyword-cloud",
+            ".article-final-cta",
             ".blog-block-visual-preview",
             ".blog-block-modal",
             ".blog-editor-workbench",
@@ -227,6 +247,15 @@ class BlogStructuredPublicTests(TestCase):
         self.assertNotContains(response, veteran_post.title)
 
     def test_sitemap_and_index_targets_include_nested_category_urls(self):
+        BlogPost.objects.create(
+            category=self.veteran,
+            title="Звіт УВФ для sitemap",
+            slug="fund-report-sitemap",
+            excerpt="Новина фонду.",
+            content_html="<p>Звіт.</p>",
+            published_at=timezone.now(),
+            is_published=True,
+        )
         sitemap = BlogCategorySitemap()
 
         self.assertIn(self.veteran, list(sitemap.items()))
@@ -293,6 +322,54 @@ class BlogStructuredPublicTests(TestCase):
         self.assertIn("Як прати футболку?", html)
         self.assertEqual(schema["@type"], "FAQPage")
         self.assertEqual(schema["mainEntity"][0]["name"], "Як прати футболку?")
+
+    def test_publish_custom_print_blog_command_creates_indexable_localized_post_landings(self):
+        out = io.StringIO()
+
+        with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
+            call_command("publish_custom_print_blog", stdout=out)
+
+            category = BlogCategory.objects.get(slug="custom-print-guides")
+            self.assertEqual(category.parent.slug, "guides")
+            posts = BlogPost.objects.filter(slug__in=EXPECTED_CUSTOM_PRINT_BLOG_SLUGS).select_related("category")
+            self.assertEqual(posts.count(), 10)
+            for post in posts:
+                with self.subTest(slug=post.slug):
+                    self.assertEqual(post.category, category)
+                    self.assertTrue(post.is_published)
+                    self.assertLessEqual(post.published_at, timezone.now())
+                    self.assertTrue(post.cover_image)
+                    self.assertTrue(post.cover_image.name.endswith(".webp"))
+                    self.assertTrue((Path(media_root) / post.cover_image.name).exists())
+                    self.assertTrue(post.title_uk)
+                    self.assertTrue(post.title_ru)
+                    self.assertTrue(post.seo_title_uk)
+                    self.assertTrue(post.seo_title_ru)
+                    self.assertTrue(post.seo_description_uk)
+                    self.assertTrue(post.seo_description_ru)
+                    block_types = set(post.blocks.values_list("block_type", flat=True))
+                    self.assertIn(BlogPostBlock.BlockType.CTA_GROUP, block_types)
+                    self.assertIn(BlogPostBlock.BlockType.METRIC_CARDS, block_types)
+                    self.assertIn(BlogPostBlock.BlockType.FAQ, block_types)
+                    self.assertIn(BlogPostBlock.BlockType.SOURCE_LIST, block_types)
+
+            first_post = BlogPost.objects.get(slug=EXPECTED_CUSTOM_PRINT_BLOG_SLUGS[0])
+            html, schema = render_post_blocks(first_post, request=self.client.request().wsgi_request)
+            self.assertIn("/custom-print/", html)
+            self.assertEqual(schema["@type"], "FAQPage")
+            self.assertGreaterEqual(len(schema["mainEntity"]), 6)
+
+            response = self.client.get(reverse("blog_post", kwargs={"slug": first_post.slug}), secure=True)
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, 'content="index, follow', html=False)
+            self.assertNotContains(response, "noindex")
+            self.assertContains(response, "/custom-print/")
+            self.assertContains(response, "Внутрішня навігація")
+            self.assertContains(response, "article-final-cta")
+
+            ru_alias = self.client.get("/ru/blog/futbolka-so-svoim-dizaynom/", secure=True, follow=False)
+            self.assertEqual(ru_alias.status_code, 301)
+            self.assertEqual(ru_alias["Location"], "/ru/blog/futbolka-zi-svoim-dyzainom/")
 
 
 @override_settings(COMPRESS_ENABLED=False, COMPRESS_OFFLINE=False)

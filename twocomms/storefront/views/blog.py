@@ -13,7 +13,7 @@ from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseGone, 
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.formats import date_format
-from django.utils import timezone
+from django.utils import timezone, translation
 from django.utils.translation import gettext as _
 
 from storefront.forms import BlogCategoryForm, BlogMediaAssetForm, BlogPostForm
@@ -30,6 +30,22 @@ BLOG_SOURCE_URL = "https://veteranfund.com.ua/stories-of-winner/artem-sinilo-ist
 # тож Google швидше виключає URL з індексу. Тримаємо список тут, щоб 410
 # працював навіть після фізичного видалення запису з БД.
 GONE_BLOG_SLUGS = {"111"}
+
+# The current BlogPost model has one canonical slug per post while locale
+# prefixes provide language variants. Keep RU brief slugs as redirects so
+# external Collaborator anchors from the content brief never land on 404s.
+CUSTOM_PRINT_RU_SLUG_ALIASES = {
+    "futbolka-so-svoim-dizaynom": "futbolka-zi-svoim-dyzainom",
+    "hudi-so-svoim-printom": "hudi-zi-svoim-pryntom",
+    "print-iz-foto-mema-ili-kartinki": "prynt-z-foto-memu-abo-kartynky",
+    "kak-podgotovit-maket-dlya-pechati": "yak-pidhotuvaty-maket-dlya-druku",
+    "razmer-printa-na-oversize-futbolku": "rozmir-pryntu-na-oversize-futbolku",
+    "dtf-pechat-bez-effekta-nakleyki": "dtf-druk-bez-efektu-nakleyky",
+    "dtf-dtg-ili-shelkografiya": "dtf-dtg-chy-shovkografiya",
+    "futbolki-s-logotipom-dlya-brenda": "futbolky-z-logotypom-dlya-brendu",
+    "kastomnaya-pechat-dlya-instagram-magazinov": "kastomnyy-druk-dlya-instagram-magazyniv",
+    "futbolka-ili-hudi-s-printom-v-podarok": "futbolka-abo-hudi-z-pryntom-u-podarunok",
+}
 
 
 def _absolute_url(request, path: str) -> str:
@@ -226,6 +242,10 @@ def blog_category(request, slug, parent_slug=None):
 def blog_post(request, slug):
     if slug in GONE_BLOG_SLUGS:
         return render(request, "410.html", status=410)
+    alias_target = CUSTOM_PRINT_RU_SLUG_ALIASES.get(slug)
+    if alias_target:
+        with translation.override("ru"):
+            return HttpResponsePermanentRedirect(reverse("blog_post", kwargs={"slug": alias_target}))
     post = get_object_or_404(_published_posts(), slug=slug)
     record_blog_post_view(request, post)
     post.refresh_from_db(fields=["view_count", "unique_view_count"])

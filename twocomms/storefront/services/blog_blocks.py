@@ -242,6 +242,8 @@ class BlogBlockRenderer:
         layout = css_token(payload.get("layout") or "cards", "cards")
         if layout not in {"full", "split", "cards", "compact"}:
             layout = "cards"
+        extra_class = css_token(payload.get("extra_class") or payload.get("class_name") or "", "")
+        extra_class_html = f" {extra_class}" if extra_class else ""
         eyebrow = escape(localized(payload.get("eyebrow") or payload.get("kicker"), self.language))
         title = escape(localized(payload.get("title"), self.language))
         body = sanitize_rich_html(localized(payload.get("body") or payload.get("description"), self.language))
@@ -277,7 +279,7 @@ class BlogBlockRenderer:
             body_html = f"<div>{body}</div>" if body else ""
             intro = f'<div class="article-cta-copy">{eyebrow_html}{title_html}{body_html}</div>'
         return (
-            f'<section class="article-structured-block article-cta-panel article-cta-row cta-layout-{layout}" '
+            f'<section class="article-structured-block article-cta-panel article-cta-row cta-layout-{layout}{extra_class_html}" '
             f'style="--cta-count:{min(len(buttons), 5)}">'
             + intro
             + "".join(buttons)
@@ -336,11 +338,12 @@ class BlogBlockRenderer:
             )
         if not items:
             return ""
+        eyebrow = escape(localized(payload.get("eyebrow"), self.language, "Першоджерела"))
         title = escape(localized(payload.get("title"), self.language, "Джерела"))
         description = escape(localized(payload.get("description"), self.language, "Посилання відкриваються у новій вкладці, якщо ведуть на зовнішній ресурс."))
         return (
             '<section class="article-structured-block article-source-card article-source-list">'
-            f'<div class="article-source-copy"><span>Першоджерела</span><h2>{title}</h2><p>{description}</p></div>'
+            f'<div class="article-source-copy"><span>{eyebrow}</span><h2>{title}</h2><p>{description}</p></div>'
             '<ul class="article-source-links">'
             + "".join(items)
             + "</ul></section>"

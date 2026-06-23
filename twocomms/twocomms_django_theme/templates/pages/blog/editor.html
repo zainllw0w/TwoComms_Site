@@ -166,7 +166,7 @@
       quote: { text: { uk: 'Текст цитати.' }, cite: { uk: 'TwoComms editorial' } },
       youtube_video: { url: 'https://www.youtube.com/watch?v=', title: { uk: 'Відео' } },
       faq: { items: [{ question: { uk: 'Питання?' }, answer: { uk: 'Відповідь.' } }] },
-      source_list: { sources: [{ label: { uk: 'Джерело' }, url: 'https://twocomms.shop/' }] },
+      source_list: { eyebrow: { uk: 'Першоджерела' }, sources: [{ label: { uk: 'Джерело' }, url: 'https://twocomms.shop/' }] },
       product_cta: { product_id: '', title: { uk: 'Купити товар' }, button_label: { uk: 'До товару' } },
       promo_claim: { campaign_id: '', title: { uk: 'Отримати промокод' }, button_label: { uk: 'Забрати знижку' } },
       locked_content: { teaser: { uk: 'Увійдіть, щоб побачити цей текст.' }, html: { uk: '<p>Прихований текст.</p>' } }
@@ -241,6 +241,7 @@
       if (block.type === 'cta_group') {
         const buttons = Array.isArray(payload.buttons) ? payload.buttons.slice(0, 5) : [];
         const layout = ['full', 'split', 'cards', 'compact'].includes(payload.layout) ? payload.layout : 'cards';
+        const extraClass = cssToken(payload.extra_class || payload.class_name || '', '');
         const intro = localText(payload.title) || localText(payload.body) || localText(payload.description)
           ? `<div class="article-cta-copy">${localText(payload.eyebrow || payload.kicker) ? `<span>${escapeHtml(localText(payload.eyebrow || payload.kicker))}</span>` : ''}${localText(payload.title) ? `<h2>${escapeHtml(localText(payload.title))}</h2>` : ''}${localText(payload.body || payload.description) ? `<div>${escapeHtml(plainText(localText(payload.body || payload.description)))}</div>` : ''}</div>`
           : '';
@@ -251,7 +252,7 @@
           const caption = escapeHtml(localText(button.caption || button.description));
           return `<a href="#" class="article-link-card article-link-card--${provider} article-link-card--${style}" tabindex="-1"><i class="${iconFor(provider)}" aria-hidden="true"></i><span>${label}</span><em>${caption}</em></a>`;
         }).join('');
-        return `<section class="article-structured-block article-cta-panel article-cta-row cta-layout-${layout}" style="--cta-count:${Math.max(1, Math.min(buttons.length || 1, 5))}">${intro}${cards || '<div class="blog-block-preview-muted">CTA</div>'}</section>`;
+        return `<section class="article-structured-block article-cta-panel article-cta-row cta-layout-${layout}${extraClass ? ` ${extraClass}` : ''}" style="--cta-count:${Math.max(1, Math.min(buttons.length || 1, 5))}">${intro}${cards || '<div class="blog-block-preview-muted">CTA</div>'}</section>`;
       }
       if (block.type === 'metric_cards') {
         const cards = Array.isArray(payload.cards) ? payload.cards : [];
@@ -269,7 +270,7 @@
       }
       if (block.type === 'source_list') {
         const sources = Array.isArray(payload.sources) ? payload.sources : [];
-        return `<section class="article-structured-block article-source-card article-source-list"><div class="article-source-copy"><span>Першоджерела</span><h2>${escapeHtml(localText(payload.title, 'Джерела'))}</h2><p>${escapeHtml(localText(payload.description, 'Посилання для перевірки інформації.'))}</p></div><ul class="article-source-links">${sources.map((source) => `<li><a class="article-source-link" href="#" tabindex="-1"><i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i>${escapeHtml(localText(source.label, 'Джерело'))}</a></li>`).join('')}</ul></section>`;
+        return `<section class="article-structured-block article-source-card article-source-list"><div class="article-source-copy"><span>${escapeHtml(localText(payload.eyebrow, 'Першоджерела'))}</span><h2>${escapeHtml(localText(payload.title, 'Джерела'))}</h2><p>${escapeHtml(localText(payload.description, 'Посилання для перевірки інформації.'))}</p></div><ul class="article-source-links">${sources.map((source) => `<li><a class="article-source-link" href="#" tabindex="-1"><i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i>${escapeHtml(localText(source.label, 'Джерело'))}</a></li>`).join('')}</ul></section>`;
       }
       if (block.type === 'youtube_video') {
         return `<section class="article-structured-block article-video-lite"><button type="button"><span class="blog-block-video-fallback"><i class="fab fa-youtube" aria-hidden="true"></i>${escapeHtml(localText(payload.title, 'YouTube video'))}</span><span class="article-video-play"><i class="fas fa-play" aria-hidden="true"></i></span></button></section>`;
@@ -361,6 +362,7 @@
         if (!Array.isArray(payload.buttons)) payload.buttons = [];
         return [
           selectField('Layout', 'layout', payload, [['cards', 'Cards'], ['full', 'Full'], ['split', 'Split'], ['compact', 'Compact']]),
+          directField('CSS class', 'extra_class', payload),
           localizedField('Заголовок над CTA', 'title', payload),
           localizedField('Опис', 'body', payload, true),
           listControls('buttons', payload.buttons, [
@@ -390,7 +392,7 @@
       }
       if (block.type === 'source_list') {
         if (!Array.isArray(payload.sources)) payload.sources = [];
-        return localizedField('Заголовок', 'title', payload) + localizedField('Опис', 'description', payload, true) + listControls('sources', payload.sources, [
+        return localizedField('Eyebrow', 'eyebrow', payload) + localizedField('Заголовок', 'title', payload) + localizedField('Опис', 'description', payload, true) + listControls('sources', payload.sources, [
           { key: 'label', label: 'Назва', localized: true },
           { key: 'url', label: 'URL' },
         ], '+ Джерело');
