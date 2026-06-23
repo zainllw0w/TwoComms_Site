@@ -7,6 +7,7 @@ from html import escape
 from urllib.parse import parse_qs, urlparse
 
 import bleach
+from django.conf import settings
 from django.middleware.csrf import get_token
 from django.urls import reverse
 from django.utils import timezone, translation
@@ -106,6 +107,24 @@ def normalize_url(url: str, provider: str = "") -> str:
         handle = url.lstrip("@").strip("/")
         return f"https://www.tiktok.com/@{handle}" if handle else "#"
     return "#"
+
+
+def localize_internal_url(url: str, language: str | None = None) -> str:
+    if not url.startswith("/") or url.startswith("//"):
+        return url
+    code = (language or translation.get_language() or "").split("-")[0].lower()
+    default_code = str(getattr(settings, "LANGUAGE_CODE", "uk")).split("-")[0].lower()
+    if not code or code == default_code:
+        return url
+    first_segment = url.lstrip("/").split("/", 1)[0]
+    supported = {
+        str(item[0]).split("-")[0].lower()
+        for item in getattr(settings, "LANGUAGES", [])
+        if isinstance(item, (list, tuple)) and item
+    }
+    if first_segment in supported or first_segment in {"admin", "admin-panel", "api", "media", "static"}:
+        return url
+    return f"/{code}{url}"
 
 
 def external_attrs(url: str) -> str:
@@ -254,7 +273,7 @@ class BlogBlockRenderer:
             style = css_token(button.get("style") or payload.get("style") or "solid", "solid")
             label = escape(localized(button.get("label"), self.language, "Відкрити"))
             caption = escape(localized(button.get("caption") or button.get("description"), self.language))
-            url = normalize_url(str(button.get("url") or ""), raw_provider)
+            url = localize_internal_url(normalize_url(str(button.get("url") or ""), raw_provider), self.language)
             attrs = external_attrs(url)
             icon = {
                 "telegram": "fab fa-telegram",
@@ -331,7 +350,7 @@ class BlogBlockRenderer:
         items = []
         for source in payload.get("sources") or []:
             label = escape(localized(source.get("label"), self.language, "Джерело"))
-            url = normalize_url(str(source.get("url") or ""))
+            url = localize_internal_url(normalize_url(str(source.get("url") or "")), self.language)
             items.append(
                 f'<li><a class="article-source-link" href="{escape(url)}"{external_attrs(url)}>'
                 f'<i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i>{label}</a></li>'

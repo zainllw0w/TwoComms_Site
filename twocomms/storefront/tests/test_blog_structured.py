@@ -367,6 +367,11 @@ class BlogStructuredPublicTests(TestCase):
             self.assertContains(response, "Внутрішня навігація")
             self.assertContains(response, "article-final-cta")
 
+            ru_response = self.client.get(f"/ru/blog/{first_post.slug}/", secure=True)
+            self.assertEqual(ru_response.status_code, 200)
+            self.assertContains(ru_response, "/ru/custom-print/")
+            self.assertContains(ru_response, "Внутренняя навигация")
+
             ru_alias = self.client.get("/ru/blog/futbolka-so-svoim-dizaynom/", secure=True, follow=False)
             self.assertEqual(ru_alias.status_code, 301)
             self.assertEqual(ru_alias["Location"], "/ru/blog/futbolka-zi-svoim-dyzainom/")
