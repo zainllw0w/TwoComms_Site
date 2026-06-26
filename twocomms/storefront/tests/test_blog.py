@@ -13,17 +13,24 @@ from storefront.services.index_targets import build_blog_urls
 from storefront.sitemaps import BlogCategorySitemap, BlogPostSitemap
 
 
+TEST_CACHES = {
+    "default": {"BACKEND": "django.core.cache.backends.dummy.DummyCache"},
+    "fragments": {"BACKEND": "django.core.cache.backends.dummy.DummyCache"},
+}
+
+
 @override_settings(
     COMPRESS_ENABLED=False,
     COMPRESS_OFFLINE=False,
     SITE_BASE_URL="https://twocomms.shop",
+    CACHES=TEST_CACHES,
 )
 class BlogPublicTests(TestCase):
     def setUp(self):
         self.client = Client()
         self.category = BlogCategory.objects.create(
-            name="Новини бренда TwoComms",
-            slug="brand-news",
+            name="Новини бренда TwoComms Test",
+            slug="brand-news-test",
             description="Офіційні оновлення TwoComms.",
             seo_title="Новини бренда TwoComms",
             seo_h1="Новини бренда TwoComms",
@@ -32,14 +39,14 @@ class BlogPublicTests(TestCase):
             bottom_text="Добірка матеріалів про бренд, речі та догляд.",
         )
         self.other_category = BlogCategory.objects.create(
-            name="Корисні знання",
-            slug="guides",
+            name="Корисні знання Test",
+            slug="guides-test",
             description="Поради та пояснення.",
         )
         self.post = BlogPost.objects.create(
             category=self.category,
             title="TwoComms і Український ветеранський фонд",
-            slug="twocomms-veteran-fund-progress",
+            slug="twocomms-veteran-fund-progress-test",
             excerpt="TwoComms фіксує два закриті етапи з чотирьох у внутрішньому плані розвитку.",
             content_html=(
                 "<p>TwoComms продовжує розвиток після грантової підтримки "
@@ -55,7 +62,7 @@ class BlogPublicTests(TestCase):
         self.other_post = BlogPost.objects.create(
             category=self.other_category,
             title="Як доглядати за принтом",
-            slug="print-care-guide",
+            slug="print-care-guide-test",
             excerpt="Короткий гайд з догляду.",
             content_html="<p>Прати навиворіт.</p>",
             published_at=timezone.now(),
@@ -127,7 +134,8 @@ class BlogPublicTests(TestCase):
         self.post.refresh_from_db()
         self.assertEqual(self.post.view_count, 2)
         self.assertEqual(self.post.unique_view_count, 1)
-        self.assertContains(first, '"@type": "Article"', html=False)
+        self.assertContains(first, '"@type": "BlogPosting"', html=False)
+        self.assertContains(first, '"mainEntityOfPage": {"@type": "WebPage"', html=False)
         self.assertContains(first, self.post.source_url)
 
     def test_article_page_renders_editorial_source_and_custom_print_cta_blocks_when_attached(self):
@@ -220,16 +228,16 @@ class BlogPublicTests(TestCase):
         self.assertIn("https://twocomms.shop/ru/blog/", urls)
 
 
-@override_settings(COMPRESS_ENABLED=False, COMPRESS_OFFLINE=False)
+@override_settings(COMPRESS_ENABLED=False, COMPRESS_OFFLINE=False, CACHES=TEST_CACHES)
 class BlogAdminTests(TestCase):
     def setUp(self):
         self.client = Client()
         self.staff = User.objects.create_user(username="staff-blog", password="pass12345", is_staff=True)
-        self.category = BlogCategory.objects.create(name="Огляди продукції", slug="product-reviews")
+        self.category = BlogCategory.objects.create(name="Огляди продукції Test Admin", slug="product-reviews-admin-test")
         self.post = BlogPost.objects.create(
             category=self.category,
             title="Огляд худі TwoComms",
-            slug="hoodie-review",
+            slug="hoodie-review-admin-test",
             excerpt="Огляд посадки та матеріалів.",
             content_html="<p>Огляд.</p>",
             published_at=timezone.now(),

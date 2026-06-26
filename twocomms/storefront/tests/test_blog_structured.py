@@ -11,7 +11,7 @@ from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
-from django.utils import timezone
+from django.utils import timezone, translation
 from PIL import Image
 
 from storefront.models import (
@@ -27,6 +27,12 @@ from storefront.models import (
 from storefront.services.blog_blocks import render_post_blocks
 from storefront.services.index_targets import build_blog_urls
 from storefront.sitemaps import BlogCategorySitemap
+
+
+TEST_CACHES = {
+    "default": {"BACKEND": "django.core.cache.backends.dummy.DummyCache"},
+    "fragments": {"BACKEND": "django.core.cache.backends.dummy.DummyCache"},
+}
 
 
 EXPECTED_CUSTOM_PRINT_BLOG_SLUGS = (
@@ -47,20 +53,21 @@ EXPECTED_CUSTOM_PRINT_BLOG_SLUGS = (
     COMPRESS_ENABLED=False,
     COMPRESS_OFFLINE=False,
     SITE_BASE_URL="https://twocomms.shop",
+    CACHES=TEST_CACHES,
 )
 class BlogStructuredPublicTests(TestCase):
     def setUp(self):
         self.client = Client()
-        self.reviews = BlogCategory.objects.create(name="Огляди", slug="reviews")
+        self.reviews = BlogCategory.objects.create(name="Огляди Test", slug="reviews-test")
         self.product_reviews = BlogCategory.objects.create(
-            name="Огляди продукції",
-            slug="product-reviews",
+            name="Огляди продукції Test",
+            slug="product-reviews-test",
             parent=self.reviews,
         )
-        self.news = BlogCategory.objects.create(name="Новини", slug="news")
+        self.news = BlogCategory.objects.create(name="Новини Test", slug="news-test")
         self.veteran = BlogCategory.objects.create(
-            name="Український ветеранський фонд",
-            slug="veteran-fund",
+            name="Український ветеранський фонд Test",
+            slug="veteran-fund-test",
             parent=self.news,
         )
 
@@ -89,7 +96,7 @@ class BlogStructuredPublicTests(TestCase):
         fund_post = BlogPost.objects.create(
             category=self.veteran,
             title="Звіт фонду",
-            slug="twocomms-veteran-fund-progress",
+            slug="twocomms-veteran-fund-progress-test",
             excerpt="Звіт по етапах.",
             content_html="<p>Legacy fallback.</p>",
             published_at=timezone.now(),
@@ -180,6 +187,10 @@ class BlogStructuredPublicTests(TestCase):
             ".article-product-cta",
             ".article-promo-claim",
             ".article-mini-landing",
+            ".article-fast-answer",
+            ".article-decision-strip",
+            ".article-proof-gallery",
+            ".article-process-ladder",
             ".article-scenario-grid",
             ".article-checklist-grid",
             ".article-keyword-cloud",
@@ -211,14 +222,14 @@ class BlogStructuredPublicTests(TestCase):
             is_published=True,
         )
 
-        nested = self.client.get("/blog/category/news/veteran-fund/", secure=True)
-        legacy = self.client.get("/blog/category/veteran-fund/", secure=True, follow=False)
+        nested = self.client.get("/blog/category/news-test/veteran-fund-test/", secure=True)
+        legacy = self.client.get("/blog/category/veteran-fund-test/", secure=True, follow=False)
 
         self.assertEqual(nested.status_code, 200)
         self.assertContains(nested, child_post.title)
         self.assertNotContains(nested, other_post.title)
         self.assertEqual(legacy.status_code, 301)
-        self.assertEqual(legacy["Location"], "/blog/category/news/veteran-fund/")
+        self.assertEqual(legacy["Location"], "/blog/category/news-test/veteran-fund-test/")
 
     def test_child_category_related_posts_do_not_mix_other_parent_fallback(self):
         review_post = BlogPost.objects.create(
@@ -259,9 +270,10 @@ class BlogStructuredPublicTests(TestCase):
         sitemap = BlogCategorySitemap()
 
         self.assertIn(self.veteran, list(sitemap.items()))
-        self.assertEqual(sitemap.location(self.veteran), "/blog/category/news/veteran-fund/")
+        with translation.override("uk"):
+            self.assertEqual(sitemap.location(self.veteran), "/blog/category/news-test/veteran-fund-test/")
         urls = build_blog_urls(["uk"])
-        self.assertIn("https://twocomms.shop/blog/category/news/veteran-fund/", urls)
+        self.assertIn("https://twocomms.shop/blog/category/news-test/veteran-fund-test/", urls)
 
     def test_rich_text_is_sanitized_and_h1_is_removed(self):
         post = BlogPost.objects.create(
@@ -356,37 +368,58 @@ class BlogStructuredPublicTests(TestCase):
             first_post = BlogPost.objects.get(slug=EXPECTED_CUSTOM_PRINT_BLOG_SLUGS[0])
             html, schema = render_post_blocks(first_post, request=self.client.request().wsgi_request)
             self.assertIn("/custom-print/", html)
+            self.assertIn("article-fast-answer", html)
+            self.assertIn("article-decision-strip", html)
+            self.assertIn("article-proof-gallery", html)
+            self.assertIn("article-process-ladder", html)
+            self.assertIn("Коротко: як це працює", html)
+            self.assertIn("Можна почати за 5 хвилин", html)
+            self.assertNotIn("Коротко для AI", html)
+            self.assertNotIn("Внутрішня навігація", html)
+            self.assertEqual(schema["@context"], "https://schema.org")
             self.assertEqual(schema["@type"], "FAQPage")
             self.assertGreaterEqual(len(schema["mainEntity"]), 6)
+            for faq_item in schema["mainEntity"]:
+                self.assertEqual(faq_item["@type"], "Question")
+                self.assertTrue(faq_item["name"])
+                self.assertEqual(faq_item["acceptedAnswer"]["@type"], "Answer")
+                self.assertTrue(faq_item["acceptedAnswer"]["text"])
+                self.assertNotIn("AI", faq_item["name"])
+                self.assertNotIn("SEO", faq_item["acceptedAnswer"]["text"])
 
             response = self.client.get(reverse("blog_post", kwargs={"slug": first_post.slug}), secure=True)
             self.assertEqual(response.status_code, 200)
             self.assertContains(response, 'content="index, follow', html=False)
             self.assertNotContains(response, "noindex")
             self.assertContains(response, "/custom-print/")
-            self.assertContains(response, "Внутрішня навігація")
+            self.assertContains(response, "Швидкі переходи")
             self.assertContains(response, "article-final-cta")
+            self.assertNotContains(response, "Коротко для AI")
+            self.assertNotContains(response, "Внутрішня навігація")
 
             ru_response = self.client.get(f"/ru/blog/{first_post.slug}/", secure=True)
             self.assertEqual(ru_response.status_code, 200)
             self.assertContains(ru_response, "/ru/custom-print/")
-            self.assertContains(ru_response, "Внутренняя навигация")
+            self.assertContains(ru_response, "Коротко: как это работает")
+            self.assertContains(ru_response, "Быстрые переходы")
+            self.assertNotContains(ru_response, "Коротко для AI")
+            self.assertNotContains(ru_response, "Внутренняя навигация")
 
             ru_alias = self.client.get("/ru/blog/futbolka-so-svoim-dizaynom/", secure=True, follow=False)
             self.assertEqual(ru_alias.status_code, 301)
             self.assertEqual(ru_alias["Location"], "/ru/blog/futbolka-zi-svoim-dyzainom/")
 
 
-@override_settings(COMPRESS_ENABLED=False, COMPRESS_OFFLINE=False)
+@override_settings(COMPRESS_ENABLED=False, COMPRESS_OFFLINE=False, CACHES=TEST_CACHES)
 class BlogStructuredAdminTests(TestCase):
     def setUp(self):
         self.client = Client()
         self.staff = User.objects.create_user(username="blog-admin", password="pass12345", is_staff=True)
-        self.category = BlogCategory.objects.create(name="Огляди", slug="reviews")
+        self.category = BlogCategory.objects.create(name="Огляди Test Admin", slug="reviews-admin-test")
         self.post = BlogPost.objects.create(
             category=self.category,
             title="Огляд худі",
-            slug="hoodie-review",
+            slug="hoodie-review-admin-test",
             excerpt="Огляд.",
             content_html="<p>Legacy.</p>",
             published_at=timezone.now(),
@@ -547,7 +580,7 @@ class BlogStructuredAdminTests(TestCase):
             self.assertGreater(asset.file.size, 0)
 
 
-@override_settings(COMPRESS_ENABLED=False, COMPRESS_OFFLINE=False)
+@override_settings(COMPRESS_ENABLED=False, COMPRESS_OFFLINE=False, CACHES=TEST_CACHES)
 class BlogPromoAndLockedContentTests(TestCase):
     def setUp(self):
         self.client = Client()

@@ -47,14 +47,14 @@ COMMON_TRUST_CARDS = {
         ("Допомога з макетом", "check", "підкажемо, якщо файл потрібно підготувати краще"),
         ("Футболки, худі, лонгсліви", "3", "підбираємо основу під задачу, а не навпаки"),
         ("DTF-друк", "DTF", "підходить для фото, мемів, логотипів і повнокольорових артів"),
-        ("Розмір і placement", "fit", "дивимось, як принт працює на реальній речі"),
+        ("Розмір і розміщення", "fit", "дивимось, як принт працює на реальній речі"),
     ],
     "ru": [
         ("От 1 штуки", "1+", "можно сделать одну вещь, подарок или тестовый образец"),
         ("Помощь с макетом", "check", "подскажем, если файл нужно подготовить лучше"),
         ("Футболки, худи, лонгсливы", "3", "подбираем основу под задачу, а не наоборот"),
         ("DTF-печать", "DTF", "подходит для фото, мемов, логотипов и полноцветных артов"),
-        ("Размер и placement", "fit", "смотрим, как принт работает на реальной вещи"),
+        ("Размер и размещение", "fit", "смотрим, как принт работает на реальной вещи"),
     ],
 }
 
@@ -72,6 +72,47 @@ ORDER_STEPS = {
         ("3", "Загружаешь файл", "или описываешь идею, если макета ещё нет"),
         ("4", "Менеджер проверяет детали", "размер, качество, фон, читаемость и технические риски"),
         ("5", "Подтверждаешь заказ", "после согласования печатаем и передаём в работу"),
+    ],
+}
+
+FAST_ANSWER_CARDS = {
+    "uk": [
+        ("fas fa-stopwatch", "Можна почати за 5 хвилин", "обери річ, зону друку й завантаж файл або коротко опиши ідею"),
+        ("fas fa-file-arrow-up", "Макет не має бути ідеальним", "якщо файл сирий, менеджер підкаже, що поправити до друку"),
+        ("fas fa-shirt", "Підходить для 1 речі й партії", "можна зробити подарунок, тестовий зразок або мерч для команди"),
+    ],
+    "ru": [
+        ("fas fa-stopwatch", "Можно начать за 5 минут", "выбери вещь, зону печати и загрузи файл или коротко опиши идею"),
+        ("fas fa-file-arrow-up", "Макет не обязан быть идеальным", "если файл сырой, менеджер подскажет, что поправить до печати"),
+        ("fas fa-shirt", "Подходит для 1 вещи и партии", "можно сделать подарок, тестовый образец или мерч для команды"),
+    ],
+}
+
+DECISION_CARDS = {
+    "uk": [
+        ("fas fa-image", "Є готова картинка", "завантаж її в конфігуратор і одразу вибери річ для друку"),
+        ("fas fa-lightbulb", "Є тільки задум", "напиши менеджеру, що хочеш отримати, і ми підкажемо формат"),
+        ("fas fa-layer-group", "Потрібна партія", "почни з одного зразка, щоб перевірити розмір, колір і відчуття принту"),
+    ],
+    "ru": [
+        ("fas fa-image", "Есть готовая картинка", "загрузи её в конфигуратор и сразу выбери вещь для печати"),
+        ("fas fa-lightbulb", "Есть только задумка", "напиши менеджеру, что хочешь получить, и мы подскажем формат"),
+        ("fas fa-layer-group", "Нужна партия", "начни с одного образца, чтобы проверить размер, цвет и ощущение принта"),
+    ],
+}
+
+PROOF_CARDS = {
+    "uk": [
+        ("fas fa-ruler-combined", "Перевіряємо розмір", "щоб принт не виглядав випадковою наклейкою на oversize або худі"),
+        ("fas fa-droplet", "Дивимось фон і контраст", "особливо для фото, мемів, логотипів і скриншотів з месенджерів"),
+        ("fas fa-wand-magic-sparkles", "Підбираємо розміщення", "груди, спина, рукав або комбінація мають працювати як одна річ"),
+        ("fas fa-hand-sparkles", "Пояснюємо догляд", "щоб DTF-принт довше зберігав колір, форму й читабельність"),
+    ],
+    "ru": [
+        ("fas fa-ruler-combined", "Проверяем размер", "чтобы принт не выглядел случайной наклейкой на oversize или худи"),
+        ("fas fa-droplet", "Смотрим фон и контраст", "особенно для фото, мемов, логотипов и скриншотов из мессенджеров"),
+        ("fas fa-wand-magic-sparkles", "Подбираем размещение", "грудь, спина, рукав или комбинация должны работать как одна вещь"),
+        ("fas fa-hand-sparkles", "Объясняем уход", "чтобы DTF-принт дольше сохранял цвет, форму и читаемость"),
     ],
 }
 
@@ -407,8 +448,8 @@ ARTICLES = [
         "title": L("Який розмір принту обрати для oversize-футболки: груди, спина, рукави", "Какой размер принта выбрать для oversize-футболки: грудь, спина, рукава"),
         "seo_title": L("Розмір принту на oversize-футболку: A6, A5, A4", "Размер принта на oversize-футболку: A6, A5, A4"),
         "description": L(
-            "Як вибрати розмір принту на oversize-футболку: A6, A5, A4, груди, спина, рукав, XL, великий back print і помилки placement.",
-            "Как выбрать размер принта на oversize-футболку: A6, A5, A4, грудь, спина, рукав, XL, большой back print и ошибки placement.",
+            "Як вибрати розмір принту на oversize-футболку: A6, A5, A4, груди, спина, рукав, XL, великий back print і помилки розміщення.",
+            "Как выбрать размер принта на oversize-футболку: A6, A5, A4, грудь, спина, рукав, XL, большой back print и ошибки размещения.",
         ),
         "keywords": L("розмір принту на футболку, принт A4 на футболці, принт на oversize футболку, великий принт на спині, розміщення принту на футболці", "размер принта на футболку, принт А4 на футболке, принт на oversize футболку, большой принт на спине, размещение принта на футболке"),
         "excerpt": L(
@@ -439,10 +480,10 @@ ARTICLES = [
                 L("Як уникнути ефекту маленької наклейки", "Как избежать эффекта маленькой наклейки"),
                 L([
                     "Ефект наклейки часто виникає не через DTF, а через неправильний масштаб і розміщення. Якщо принт маленький, йому потрібна логіка: він може бути знаком на грудях, деталлю біля серця або елементом композиції. Якщо він просто зависає в центрі великої футболки, річ виглядає випадково.",
-                    "У TwoComms ми допомагаємо підібрати placement під конкретний макет: іноді краще збільшити принт, іноді перенести його вище, іноді зробити великий back print і залишити спереду маленький знак.",
+                    "У TwoComms ми допомагаємо підібрати розміщення під конкретний макет: іноді краще збільшити принт, іноді перенести його вище, іноді зробити великий back print і залишити спереду маленький знак.",
                 ], [
                     "Эффект наклейки часто возникает не из-за DTF, а из-за неправильного масштаба и размещения. Если принт маленький, ему нужна логика: он может быть знаком на груди, деталью у сердца или элементом композиции. Если он просто висит в центре большой футболки, вещь выглядит случайно.",
-                    "В TwoComms мы помогаем подобрать placement под конкретный макет: иногда лучше увеличить принт, иногда перенести его выше, иногда сделать большой back print и оставить спереди маленький знак.",
+                    "В TwoComms мы помогаем подобрать размещение под конкретный макет: иногда лучше увеличить принт, иногда перенести его выше, иногда сделать большой back print и оставить спереди маленький знак.",
                 ]),
             ),
         ],
@@ -518,10 +559,10 @@ ARTICLES = [
                 L("Чому принт може бути жорстким або тріскатися", "Почему принт может быть жёстким или трескаться"),
                 L([
                     "Жорсткість часто з’являється, коли принт має велику суцільну площу, багато білого шару або неправильне поєднання з тканиною. Тріщини можуть бути наслідком помилок переносу, слабкого догляду, перегріву праскою або агресивного прання.",
-                    "TwoComms не обіцяє, що принт ніколи не зміниться: будь-який одяг зношується. Але ми можемо зменшити ризики через перевірку макета, нормальний placement, коректний перенос і зрозумілі правила догляду.",
+                    "TwoComms не обіцяє, що принт ніколи не зміниться: будь-який одяг зношується. Але ми можемо зменшити ризики через перевірку макета, нормальне розміщення, коректний перенос і зрозумілі правила догляду.",
                 ], [
                     "Жёсткость часто появляется, когда принт имеет большую сплошную площадь, много белого слоя или неправильное сочетание с тканью. Трещины могут быть следствием ошибок переноса, слабого ухода, перегрева утюгом или агрессивной стирки.",
-                    "TwoComms не обещает, что принт никогда не изменится: любая одежда изнашивается. Но мы можем снизить риски через проверку макета, нормальный placement, корректный перенос и понятные правила ухода.",
+                    "TwoComms не обещает, что принт никогда не изменится: любая одежда изнашивается. Но мы можем снизить риски через проверку макета, нормальное размещение, корректный перенос и понятные правила ухода.",
                 ]),
             ),
         ],
@@ -647,8 +688,8 @@ ARTICLES = [
         "title": L("Футболки з логотипом для бренду: мерч, який не виглядає як промо-роздатка", "Футболки с логотипом для бренда: мерч, который не выглядит как промо-раздатка"),
         "seo_title": L("Футболки з логотипом для бренду і команди", "Футболки с логотипом для бренда и команды"),
         "description": L(
-            "Як зробити футболки з логотипом для бренду, команди або івенту: носибельний мерч, placement, тестовий тираж, упаковка й співпраця.",
-            "Как сделать футболки с логотипом для бренда, команды или ивента: носибельный мерч, placement, тестовый тираж, упаковка и сотрудничество.",
+            "Як зробити футболки з логотипом для бренду, команди або івенту: носибельний мерч, розміщення, тестовий тираж, упаковка й співпраця.",
+            "Как сделать футболки с логотипом для бренда, команды или ивента: носибельный мерч, размещение, тестовый тираж, упаковка и сотрудничество.",
         ),
         "keywords": L("футболки з логотипом, мерч для бренду, корпоративні футболки, брендований одяг, футболки для команди", "футболки с логотипом, мерч для бренда, корпоративные футболки, брендированная одежда, футболки для команды"),
         "excerpt": L(
@@ -912,18 +953,113 @@ def _html_list(items: dict[str, list[str]], language: str) -> str:
     return "<ul>" + "".join(f"<li>{item}</li>" for item in _text(items, language)) + "</ul>"
 
 
+def _localized_internal_url(url: str, language: str) -> str:
+    if language != "ru" or not url.startswith("/") or url.startswith("/ru/"):
+        return url
+    first_segment = url.lstrip("/").split("/", 1)[0]
+    if first_segment in {"admin", "admin-panel", "api", "media", "static"}:
+        return url
+    return f"/ru{url}"
+
+
+def _card_grid(items: list[tuple[str, str, str]], grid_class: str) -> str:
+    cards = [f'<div><span><i class="{icon}" aria-hidden="true"></i></span><h3>{title}</h3><p>{body}</p></div>' for icon, title, body in items]
+    return f'<div class="{grid_class}">' + "".join(cards) + "</div>"
+
+
+def _fast_answer_html(article: dict, language: str) -> str:
+    title = "Коротко: як це працює" if language == "uk" else "Коротко: как это работает"
+    eyebrow = "Швидка відповідь" if language == "uk" else "Быстрый ответ"
+    intro = (
+        f"Якщо коротко: {_text(article['seo_title'], language).lower()} у TwoComms починається з простої дії — вибрати основу, показати принт і підтвердити деталі перед друком."
+        if language == "uk"
+        else f"Если коротко: {_text(article['seo_title'], language).lower()} в TwoComms начинается с простого действия — выбрать основу, показать принт и подтвердить детали перед печатью."
+    )
+    return "\n".join(
+        [
+            '<div class="article-fast-answer">',
+            f'<span class="article-block-kicker">{eyebrow}</span>',
+            f"<h2>{title}</h2>",
+            f"<p>{intro}</p>",
+            _card_grid(FAST_ANSWER_CARDS[language], "article-fast-answer-grid"),
+            "</div>",
+        ]
+    )
+
+
+def _decision_strip_html(language: str) -> str:
+    title = "Обери свій шлях до кастомного принту" if language == "uk" else "Выбери свой путь к кастомному принту"
+    intro = (
+        "Не потрібно читати все одразу: знайди свій сценарій і переходь до заявки, коли стане зрозуміло, що саме хочеш надрукувати."
+        if language == "uk"
+        else "Не нужно читать всё сразу: найди свой сценарий и переходи к заявке, когда станет понятно, что именно хочешь напечатать."
+    )
+    return "\n".join(
+        [
+            '<div class="article-decision-strip">',
+            f"<h2>{title}</h2>",
+            f"<p>{intro}</p>",
+            _card_grid(DECISION_CARDS[language], "article-decision-grid"),
+            "</div>",
+        ]
+    )
+
+
+def _proof_gallery_html(language: str) -> str:
+    title = "Що ми перевіряємо перед друком" if language == "uk" else "Что мы проверяем перед печатью"
+    intro = (
+        "Кастом виглядає дорожче, коли файл, річ і зона друку підібрані як одна система."
+        if language == "uk"
+        else "Кастом выглядит дороже, когда файл, вещь и зона печати подобраны как одна система."
+    )
+    return "\n".join(
+        [
+            '<div class="article-proof-gallery">',
+            f"<h2>{title}</h2>",
+            f"<p>{intro}</p>",
+            _card_grid(PROOF_CARDS[language], "article-proof-grid"),
+            "</div>",
+        ]
+    )
+
+
+def _process_ladder_html(language: str) -> str:
+    title = "Від ідеї до готової речі" if language == "uk" else "От идеи до готовой вещи"
+    intro = (
+        "Процес спеціально короткий: ти не маєш розбиратися в технологіях друку, щоб зробити нормальну заявку."
+        if language == "uk"
+        else "Процесс специально короткий: тебе не нужно разбираться в технологиях печати, чтобы оформить нормальную заявку."
+    )
+    rows = []
+    for number, title_item, caption in ORDER_STEPS[language]:
+        rows.append(f'<div><span>{number}</span><h3>{title_item}</h3><p>{caption}</p></div>')
+    return "\n".join(
+        [
+            '<div class="article-process-ladder">',
+            f"<h2>{title}</h2>",
+            f"<p>{intro}</p>",
+            '<div class="article-process-steps">',
+            *rows,
+            "</div>",
+            "</div>",
+        ]
+    )
+
+
 def _localized_html(article: dict, language: str) -> str:
     pieces = [
         '<div class="article-mini-landing">',
         f"<h2>{_text(article['title'], language)}</h2>",
         f"<p>{_text(article['excerpt'], language)}</p>",
         "</div>",
+        _fast_answer_html(article, language),
         f"<h2>{_text(article['scenario_title'], language)}</h2>",
         '<div class="article-scenario-grid">',
     ]
     for title, body in article["scenarios"]:
         pieces.append(f"<div><h3>{_text(title, language)}</h3><p>{_text(body, language)}</p></div>")
     pieces.append("</div>")
+    pieces.append(_decision_strip_html(language))
 
     for heading, paragraphs in article["sections"]:
         pieces.append(f"<h2>{_text(heading, language)}</h2>")
@@ -941,11 +1077,13 @@ def _localized_html(article: dict, language: str) -> str:
                 if language == "uk"
                 else "<p>В TwoComms кастомная печать начинается не с кнопки печати, а с проверки задачи: какая вещь, какая зона, какой файл, какой размер и как всё это будет выглядеть на реальной футболке или худи. Поэтому в статьях мы ведём в конфигуратор, но оставляем рядом вариант написать менеджеру, если макет ещё не готов.</p>"
             ),
+            _proof_gallery_html(language),
+            _process_ladder_html(language),
             '<div class="article-keyword-cloud">',
         ]
     )
     for label, url in article["links"]:
-        pieces.append(f'<a href="{url}">{_text(label, language)}</a>')
+        pieces.append(f'<a href="{_localized_internal_url(url, language)}">{_text(label, language)}</a>')
     pieces.append("</div>")
     return "\n".join(pieces)
 
@@ -1006,16 +1144,25 @@ def _draw_gradient(base: Image.Image) -> None:
     draw = ImageDraw.Draw(base)
     for y in range(base.height):
         ratio = y / max(base.height - 1, 1)
-        red = int(8 + ratio * 10)
-        green = int(11 + ratio * 8)
-        blue = int(18 + ratio * 14)
+        red = int(6 + ratio * 13)
+        green = int(8 + ratio * 11)
+        blue = int(14 + ratio * 16)
         draw.line([(0, y), (base.width, y)], fill=(red, green, blue))
     glow = Image.new("RGBA", base.size, (0, 0, 0, 0))
     glow_draw = ImageDraw.Draw(glow)
-    glow_draw.ellipse((940, -180, 1840, 700), fill=(251, 146, 60, 42))
-    glow_draw.ellipse((-220, 520, 720, 1240), fill=(56, 189, 248, 34))
-    glow_draw.ellipse((520, 180, 1380, 1040), fill=(34, 197, 94, 20))
+    glow_draw.ellipse((980, -260, 1900, 680), fill=(251, 146, 60, 48))
+    glow_draw.ellipse((-260, 520, 720, 1260), fill=(56, 189, 248, 38))
+    glow_draw.ellipse((520, 160, 1380, 1040), fill=(34, 197, 94, 14))
     base.alpha_composite(glow.filter(ImageFilter.GaussianBlur(72)))
+    texture = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    texture_draw = ImageDraw.Draw(texture)
+    for x in range(96, base.width, 70):
+        for y in range(90, base.height, 70):
+            alpha = 26 if (x + y) % 210 == 0 else 10
+            texture_draw.rectangle((x, y, x + 3, y + 3), fill=(255, 255, 255, alpha))
+    for y in range(700, 940, 38):
+        texture_draw.line((0, y, 640, y - 220), fill=(56, 189, 248, 12), width=1)
+    base.alpha_composite(texture)
 
 
 def _article_visual_kind(slug: str) -> str:
@@ -1043,15 +1190,19 @@ def _article_visual_kind(slug: str) -> str:
 def _draw_apparel(draw: ImageDraw.ImageDraw, kind: str, box: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
     x1, y1, x2, y2 = box
     body = (x1 + 132, y1 + 150, x2 - 132, y2 - 58)
-    fabric = (232, 238, 246, 255)
-    shade = (183, 194, 207, 255)
+    fabric = (16, 20, 28, 255)
+    shade = (64, 76, 94, 255)
+    seam = (98, 116, 138, 255)
+    draw.ellipse((x1 + 18, y2 - 100, x2 - 18, y2 + 28), fill=(1, 3, 8))
     if kind == "hoodie":
         draw.rounded_rectangle((body[0], body[1] + 28, body[2], body[3]), radius=70, fill=fabric, outline=shade, width=5)
         draw.pieslice((body[0] + 88, y1 + 32, body[2] - 88, y1 + 280), 180, 360, fill=fabric, outline=shade, width=5)
         draw.rounded_rectangle((body[0] - 74, body[1] + 58, body[0] + 42, body[3] - 60), radius=48, fill=fabric, outline=shade, width=5)
         draw.rounded_rectangle((body[2] - 42, body[1] + 58, body[2] + 74, body[3] - 60), radius=48, fill=fabric, outline=shade, width=5)
-        draw.line((body[0] + 210, y1 + 166, body[0] + 218, y1 + 292), fill=(120, 132, 150), width=4)
-        draw.line((body[2] - 210, y1 + 166, body[2] - 218, y1 + 292), fill=(120, 132, 150), width=4)
+        draw.arc((body[0] + 128, y1 + 66, body[2] - 128, y1 + 324), 190, 350, fill=(109, 123, 143), width=4)
+        draw.line((body[0] + 210, y1 + 166, body[0] + 218, y1 + 292), fill=seam, width=4)
+        draw.line((body[2] - 210, y1 + 166, body[2] - 218, y1 + 292), fill=seam, width=4)
+        draw.rounded_rectangle((body[0] + 126, body[3] - 204, body[2] - 126, body[3] - 70), radius=34, fill=(22, 26, 35), outline=(54, 65, 82), width=3)
         print_box = (body[0] + 122, body[1] + 190, body[2] - 122, body[1] + 430)
     else:
         draw.polygon(
@@ -1070,14 +1221,18 @@ def _draw_apparel(draw: ImageDraw.ImageDraw, kind: str, box: tuple[int, int, int
             fill=fabric,
             outline=shade,
         )
-        draw.arc((body[0] + 165, body[1] - 16, body[2] - 165, body[1] + 156), 0, 180, fill=(120, 132, 150), width=5)
+        draw.arc((body[0] + 165, body[1] - 16, body[2] - 165, body[1] + 156), 0, 180, fill=seam, width=5)
+        draw.line((body[0] + 60, body[1] + 96, body[0] + 168, body[3] - 40), fill=(42, 50, 64), width=3)
+        draw.line((body[2] - 60, body[1] + 96, body[2] - 168, body[3] - 40), fill=(38, 46, 60), width=3)
         print_box = (body[0] + 105, body[1] + 230, body[2] - 105, body[1] + 500)
     return print_box
 
 
 def _draw_print_motif(draw: ImageDraw.ImageDraw, kind: str, box: tuple[int, int, int, int]) -> None:
     x1, y1, x2, y2 = box
-    draw.rounded_rectangle(box, radius=28, fill=(12, 18, 28), outline=(251, 146, 60), width=5)
+    draw.rounded_rectangle(box, radius=28, fill=(10, 14, 22), outline=(251, 146, 60), width=5)
+    draw.line((x1 + 18, y2 - 24, x2 - 18, y1 + 30), fill=(56, 189, 248), width=5)
+    draw.line((x1 + 36, y2 - 18, x2 - 34, y1 + 78), fill=(251, 146, 60), width=4)
     if kind == "photo":
         draw.rectangle((x1 + 35, y1 + 38, x2 - 35, y2 - 38), fill=(25, 35, 50), outline=(147, 197, 253), width=3)
         draw.ellipse((x1 + 70, y1 + 68, x1 + 132, y1 + 130), fill=(251, 191, 36))
@@ -1120,9 +1275,11 @@ def _draw_print_motif(draw: ImageDraw.ImageDraw, kind: str, box: tuple[int, int,
         draw.rectangle((x1 + 212, y1 + 78, x1 + 260, y2 - 46), fill=(255, 255, 255))
         draw.rectangle((x1 + 72, y1 + 152, x2 - 72, y1 + 194), fill=(255, 255, 255))
     else:
-        draw.text((x1 + 64, y1 + 66), "YOUR", font=_cover_font(48, True), fill=(255, 255, 255))
-        draw.text((x1 + 64, y1 + 126), "PRINT", font=_cover_font(58, True), fill=(251, 146, 60))
-        draw.line((x1 + 62, y2 - 58, x2 - 62, y2 - 58), fill=(56, 189, 248), width=6)
+        draw.rounded_rectangle((x1 + 58, y1 + 58, x2 - 58, y2 - 72), radius=22, outline=(255, 255, 255), width=4)
+        draw.polygon([(x1 + 82, y2 - 86), (x1 + 190, y1 + 92), (x1 + 272, y2 - 86)], fill=(56, 189, 248))
+        draw.polygon([(x1 + 190, y2 - 86), (x2 - 86, y1 + 74), (x2 - 44, y2 - 86)], fill=(251, 146, 60))
+        draw.ellipse((x1 + 86, y1 + 76, x1 + 146, y1 + 136), fill=(34, 197, 94))
+        draw.line((x1 + 62, y2 - 54, x2 - 62, y2 - 54), fill=(56, 189, 248), width=6)
 
 
 def _render_cover_bytes(article: dict, index: int) -> bytes:
@@ -1130,22 +1287,38 @@ def _render_cover_bytes(article: dict, index: int) -> bytes:
     _draw_gradient(image)
     draw = ImageDraw.Draw(image)
     kind = _article_visual_kind(article["slug"])
-    title_font = _cover_font(72, True)
-    meta_font = _cover_font(26, True)
-    tag_font = _cover_font(34, True)
+    title_font = _cover_font(68, True)
+    meta_font = _cover_font(25, True)
+    tag_font = _cover_font(31, True)
+    small_font = _cover_font(25, False)
 
-    draw.rounded_rectangle((92, 76, 750, 140), radius=24, fill=(255, 255, 255, 18), outline=(255, 255, 255, 36), width=2)
-    draw.text((122, 92), "TWO COMMS / CUSTOM PRINT GUIDE", font=meta_font, fill=(254, 215, 170))
-    for offset, line in enumerate(_cover_text_lines(draw, _text(article["seo_title"], "uk"), title_font, 700)):
-        draw.text((96, 190 + offset * 88), line, font=title_font, fill=(255, 255, 255))
-    draw.rounded_rectangle((96, 706, 360, 770), radius=22, fill=(251, 146, 60), outline=None)
-    draw.text((128, 719), "DTF PRINT", font=tag_font, fill=(10, 12, 18))
-    draw.rounded_rectangle((386, 706, 582, 770), radius=22, fill=(56, 189, 248), outline=None)
-    draw.text((426, 719), "1+ PCS", font=tag_font, fill=(10, 12, 18))
-    draw.text((96, 835), f"Article {index:02d} / TwoComms", font=_cover_font(30, False), fill=(148, 163, 184))
+    draw.rounded_rectangle((66, 58, 1538, 942), radius=54, fill=(10, 14, 22), outline=(42, 53, 70), width=2)
+    draw.rounded_rectangle((820, 86, 1518, 918), radius=48, fill=(12, 18, 28), outline=(45, 58, 78), width=2)
+    draw.rounded_rectangle((100, 88, 612, 148), radius=20, fill=(27, 34, 48), outline=(70, 82, 102), width=2)
+    draw.text((126, 104), "TWOCOMMS / КАСТОМНИЙ ДРУК", font=meta_font, fill=(254, 215, 170))
+    for offset, line in enumerate(_cover_text_lines(draw, _text(article["seo_title"], "uk"), title_font, 675)):
+        draw.text((102, 198 + offset * 84), line, font=title_font, fill=(255, 255, 255))
 
-    print_box = _draw_apparel(draw, "hoodie" if kind == "hoodie" else "shirt", (828, 108, 1514, 924))
+    draw.rounded_rectangle((104, 644, 350, 706), radius=20, fill=(251, 146, 60), outline=None)
+    draw.text((132, 657), "DTF-ПРИНТ", font=tag_font, fill=(10, 12, 18))
+    draw.rounded_rectangle((374, 644, 552, 706), radius=20, fill=(56, 189, 248), outline=None)
+    draw.text((410, 657), "ВІД 1 ШТ", font=tag_font, fill=(10, 12, 18))
+    draw.text((104, 770), f"Гайд {index:02d}: файл, річ, розмір і розміщення", font=small_font, fill=(203, 213, 225))
+
+    for card_index, (label, accent) in enumerate((("файл", (56, 189, 248)), ("розмір", (251, 146, 60)), ("друк", (34, 197, 94)))):
+        left = 104 + card_index * 172
+        draw.rounded_rectangle((left, 824, left + 142, 884), radius=18, fill=(22, 29, 42), outline=(55, 68, 88), width=2)
+        draw.ellipse((left + 18, 842, left + 40, 864), fill=accent)
+        draw.text((left + 52, 840), label, font=_cover_font(24, True), fill=(255, 255, 255))
+
+    print_box = _draw_apparel(draw, "hoodie" if kind == "hoodie" else "shirt", (832, 116, 1492, 850))
     _draw_print_motif(draw, kind, print_box)
+    draw.rounded_rectangle((922, 788, 1502, 904), radius=26, fill=(5, 8, 13), outline=(45, 58, 78), width=2)
+    draw.rectangle((950, 820, 1218, 870), fill=(16, 20, 28), outline=(251, 146, 60), width=3)
+    draw.line((966, 856, 1196, 826), fill=(56, 189, 248), width=5)
+    draw.line((978, 838, 1194, 862), fill=(251, 146, 60), width=4)
+    draw.text((1248, 818), "макро принту", font=_cover_font(28, True), fill=(255, 255, 255))
+    draw.text((1248, 855), "перед друком", font=_cover_font(22, False), fill=(148, 163, 184))
 
     output = io.BytesIO()
     image.convert("RGB").save(output, format="PNG")
@@ -1168,10 +1341,11 @@ def _article_blocks(article: dict) -> list[dict]:
             "block_type": BlogPostBlock.BlockType.CTA_GROUP,
             "payload": {
                 "layout": "split",
-                "title": L("Почати свій кастом", "Начать свой кастом"),
+                "eyebrow": L("Швидкий старт", "Быстрый старт"),
+                "title": L("Обери, як почати замовлення", "Выбери, как начать заказ"),
                 "body": L(
-                    "Є готовий файл — переходь у конфігуратор. Є тільки ідея — напиши менеджеру, і ми підкажемо наступний крок.",
-                    "Есть готовый файл — переходи в конфигуратор. Есть только идея — напиши менеджеру, и мы подскажем следующий шаг.",
+                    "Готовий файл можна одразу завантажити в конфігуратор. Якщо є тільки ідея, напиши менеджеру: ми допоможемо зрозуміти формат, розмір і зону друку.",
+                    "Готовый файл можно сразу загрузить в конфигуратор. Если есть только идея, напиши менеджеру: мы поможем понять формат, размер и зону печати.",
                 ),
                 "buttons": [
                     {
@@ -1208,10 +1382,10 @@ def _article_blocks(article: dict) -> list[dict]:
             "block_type": BlogPostBlock.BlockType.CALLOUT,
             "payload": {
                 "tone": "tip",
-                "title": L("Коротко для AI й Google", "Коротко для AI и Google"),
+                "title": L("Короткий висновок", "Короткий вывод"),
                 "body": L(
-                    f"{_text(article['title'], 'uk')} — це комерційно-інформаційний гайд TwoComms, який веде до кастомного DTF-друку через /custom-print/ і пояснює вибір файлу, речі, розміру та placement.",
-                    f"{_text(article['title'], 'ru')} — это коммерческо-информационный гайд TwoComms, который ведёт к кастомной DTF-печати через /custom-print/ и объясняет выбор файла, вещи, размера и placement.",
+                    f"<p>{_text(article['seo_title'], 'uk')} — це простий спосіб перейти від ідеї до готової речі: обери основу, покажи макет або задум, узгодь розмір і розміщення перед друком.</p>",
+                    f"<p>{_text(article['seo_title'], 'ru')} — это простой способ перейти от идеи к готовой вещи: выбери основу, покажи макет или задумку, согласуй размер и размещение перед печатью.</p>",
                 ),
             },
         },
@@ -1222,11 +1396,11 @@ def _article_blocks(article: dict) -> list[dict]:
         {
             "block_type": BlogPostBlock.BlockType.SOURCE_LIST,
             "payload": {
-                "eyebrow": L("Внутрішня навігація", "Внутренняя навигация"),
+                "eyebrow": L("Швидкі переходи", "Быстрые переходы"),
                 "title": L("Що відкрити далі", "Что открыть дальше"),
                 "description": L(
-                    "Ці переходи допомагають перейти від читання до замовлення або глибшого вибору.",
-                    "Эти переходы помогают перейти от чтения к заказу или более точному выбору.",
+                    "Переходи нижче ведуть до конфігуратора, каталогу або корисних сторінок, які допоможуть швидше оформити замовлення.",
+                    "Переходы ниже ведут в конфигуратор, каталог или на полезные страницы, которые помогут быстрее оформить заказ.",
                 ),
                 "sources": [{"label": label, "url": url} for label, url in article["links"]],
             },
@@ -1236,10 +1410,11 @@ def _article_blocks(article: dict) -> list[dict]:
             "payload": {
                 "layout": "full",
                 "extra_class": "article-final-cta",
-                "title": L("Готовий перейти від ідеї до речі?", "Готов перейти от идеи к вещи?"),
+                "eyebrow": L("Наступний крок", "Следующий шаг"),
+                "title": L("Збери свою річ у конфігураторі", "Собери свою вещь в конфигураторе"),
                 "body": L(
-                    "Завантаж макет у конфігуратор або опиши задум менеджеру. У більшості випадків достатньо кількох хвилин, щоб оформити зрозумілу заявку.",
-                    "Загрузи макет в конфигуратор или опиши задумку менеджеру. В большинстве случаев достаточно нескольких минут, чтобы оформить понятную заявку.",
+                    "Обери футболку, худі або лонгслів, додай принт і відправ заявку. Якщо макет потребує правок, ми підкажемо це до друку, а не після отримання речі.",
+                    "Выбери футболку, худи или лонгслив, добавь принт и отправь заявку. Если макет нужно поправить, мы подскажем это до печати, а не после получения вещи.",
                 ),
                 "buttons": [
                     {
@@ -1315,13 +1490,13 @@ class Command(BaseCommand):
                     "cover_alt": f"{article['title']['uk']} TwoComms",
                     "cover_alt_uk": f"{article['title']['uk']} TwoComms",
                     "cover_alt_ru": f"{article['title']['ru']} TwoComms",
-                    "cover_caption_uk": "Підготуйте фото готової речі, макро принту або скрин конфігуратора для цієї статті.",
-                    "cover_caption_ru": "Подготовьте фото готовой вещи, макро принта или скрин конфигуратора для этой статьи.",
+                    "cover_caption_uk": "Кастомний принт TwoComms: від ідеї й макета до готової футболки, худі або лонгсліва.",
+                    "cover_caption_ru": "Кастомный принт TwoComms: от идеи и макета до готовой футболки, худи или лонгслива.",
                     "cta_label_uk": article["primary_cta"]["uk"],
                     "cta_label_ru": article["primary_cta"]["ru"],
                     "cta_url": "/custom-print/",
-                    "cta_text_uk": "Перейди в конфігуратор або опиши ідею менеджеру.",
-                    "cta_text_ru": "Перейди в конфигуратор или опиши идею менеджеру.",
+                    "cta_text_uk": "Перейди в конфігуратор, завантаж макет або опиши ідею менеджеру.",
+                    "cta_text_ru": "Перейди в конфигуратор, загрузи макет или опиши идею менеджеру.",
                     "seo_title": article["seo_title"]["uk"],
                     "seo_title_uk": article["seo_title"]["uk"],
                     "seo_title_ru": article["seo_title"]["ru"],

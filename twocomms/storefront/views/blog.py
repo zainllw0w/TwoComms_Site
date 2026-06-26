@@ -260,18 +260,25 @@ def blog_post(request, slug):
             )
         )
 
+    language_code = (translation.get_language() or settings.LANGUAGE_CODE or "uk").split("-")[0]
+    article_url = _absolute_url(request, post.get_absolute_url())
     article_schema = {
         "@context": "https://schema.org",
-        "@type": "Article",
+        "@type": "BlogPosting",
         "headline": post.seo_title or post.title,
         "description": post.seo_description or post.excerpt,
         "datePublished": post.published_at.isoformat(),
         "dateModified": post.updated_at.isoformat(),
+        "inLanguage": language_code,
         "author": {"@type": "Organization", "name": "TwoComms"},
         "publisher": {"@type": "Organization", "name": "TwoComms"},
-        "mainEntityOfPage": _absolute_url(request, post.get_absolute_url()),
+        "mainEntityOfPage": {"@type": "WebPage", "@id": article_url},
+        "url": article_url,
         "articleSection": post.category.name,
+        "isPartOf": {"@type": "Blog", "name": "Новини та блог TwoComms", "url": _absolute_url(request, reverse("blog"))},
     }
+    if post.seo_keywords:
+        article_schema["keywords"] = post.seo_keywords
     if post.cover_image:
         article_schema["image"] = [_absolute_url(request, post.cover_image.url)]
     blocks_html, block_schema = render_post_blocks(post, request=request)
