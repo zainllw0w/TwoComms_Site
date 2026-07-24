@@ -428,6 +428,10 @@ def build_size_grid_comparison(product, variants=None, lang: str = "uk") -> list
 
     language = lang if lang in {"uk", "ru", "en"} else "uk"
     variants = list(variants or [])
+    def prefetched(obj, relation):
+        cache = getattr(obj, "_prefetched_objects_cache", {})
+        return list(cache[relation]) if relation in cache else None
+
     fit_options = list(product.fit_options.all())
     fit_notes = {note.fit_code: note for note in product.fable5_fit_notes.all()}
     active_fit_codes = {
@@ -442,49 +446,92 @@ def build_size_grid_comparison(product, variants=None, lang: str = "uk") -> list
         item.code: (item.order, item.id)
         for item in fit_options
     }
-    assignments = list(
-        ProductOptionSizeGrid.objects
-        .filter(product=product)
-        .select_related("size_grid", "size_grid__fable5_profile")
-        .order_by("id")
-    )
+    assignments = prefetched(product, "fable5_size_grid_assignments")
+    if assignments is None:
+        assignments = list(
+            ProductOptionSizeGrid.objects
+            .filter(product=product)
+            .select_related("size_grid", "size_grid__fable5_profile")
+            .order_by("id")
+        )
+    else:
+        assignments.sort(key=lambda item: item.id)
     assignment_by_key = {item.option_key: item for item in assignments}
-    variant_assignments = list(
+    cached_variant_assignments = [
+        item
+        for variant in variants
+        for item in (prefetched(variant, "fable5_size_grid_assignments") or [])
+    ]
+    has_all_variant_caches = all(
+        prefetched(variant, "fable5_size_grid_assignments") is not None
+        for variant in variants
+    )
+    variant_assignments = cached_variant_assignments if has_all_variant_caches else list(
         VariantOptionSizeGrid.objects
         .filter(variant__in=variants)
         .select_related("size_grid", "size_grid__fable5_profile")
         .order_by("id")
     ) if variants else []
+    variant_assignments.sort(key=lambda item: item.id)
     variant_assignment_map = {
         (item.variant_id, item.option_key): item
         for item in variant_assignments
     }
+    product_size_rules = prefetched(product, "fable5_size_rules")
+    if product_size_rules is None:
+        product_size_rules = ProductSizeRule.objects.filter(product=product).order_by("id")
     product_rule_map = {
         (rule.option_key, normalize_size_value(rule.size)): rule
-        for rule in ProductSizeRule.objects.filter(product=product).order_by("id")
+        for rule in product_size_rules
     }
+    cached_variant_rules = all(
+        prefetched(variant, "fable5_size_rules") is not None
+        for variant in variants
+    )
+    variant_size_rules = [
+        rule
+        for variant in variants
+        for rule in (prefetched(variant, "fable5_size_rules") or [])
+    ] if cached_variant_rules else VariantSizeRule.objects.filter(
+        variant__in=variants
+    ).order_by("id") if variants else []
     variant_rule_map = {
         (rule.variant_id, rule.fit_code, normalize_size_value(rule.size)): rule
-        for rule in VariantSizeRule.objects.filter(variant__in=variants).order_by("id")
+        for rule in variant_size_rules
     } if variants else {}
     guide_cache = {}
 
     catalog_size_values = []
     catalog = getattr(product, "catalog", None)
     if catalog is not None:
-        size_options = catalog.options.filter(option_type="size").order_by("order", "id")
-        size_option = size_options.first()
+        cached_options = prefetched(catalog, "options")
+        size_options = [
+            option for option in (cached_options or [])
+            if option.option_type == "size"
+        ] if cached_options is not None else catalog.options.filter(option_type="size").order_by("order", "id")
+        if cached_options is not None:
+            size_options.sort(key=lambda option: (option.order, option.id))
+        size_option = size_options[0] if size_options else None
         if size_option is not None:
+            cached_values = prefetched(size_option, "values")
+            values = cached_values if cached_values is not None else size_option.values.order_by("order", "id")
             catalog_size_values = [
-                normalize_size_value(value)
-                for value in size_option.values.order_by("order", "id").values_list("value", flat=True)
-                if normalize_size_value(value)
+                normalize_size_value(value.value)
+                for value in values
+                if normalize_size_value(value.value)
             ]
 
-    def sellable_sizes(rows):
+    def sellable_sizes(rows, *, explicit_variant_grid=False):
         row_sizes = [normalize_size_value(row.get("size")) for row in rows if row.get("size")]
-        allowed_sizes = catalog_size_values or LEGACY_SELLABLE_SIZES
-        return [size for size in allowed_sizes if size in row_sizes]
+        if catalog_size_values:
+            return [size for size in catalog_size_values if size in row_sizes]
+        if explicit_variant_grid:
+            return [
+                str(row.get("display_size") or row.get("size") or "").strip().upper()
+                for row in rows
+                if row.get("size")
+            ]
+        return [size for size in LEGACY_SELLABLE_SIZES if size in row_sizes]
 
     def usable_grid(grid):
         if grid is None or not grid.is_active:
@@ -545,7 +592,9 @@ def build_size_grid_comparison(product, variants=None, lang: str = "uk") -> list
     for fit in fit_options:
         if fit.is_active:
             option_key = f"fit={fit.code}"
-            if resolve_option_size_grid(product, option_key) is not None:
+            if option_key in assignment_by_key or any(
+                item.option_key == option_key for item in variant_assignments
+            ) or resolve_option_size_grid(product, option_key) is not None:
                 option_keys.add(option_key)
     ordered_keys = sorted(
         option_keys,
@@ -617,7 +666,10 @@ def build_size_grid_comparison(product, variants=None, lang: str = "uk") -> list
                     variant,
                 ) if variant_grid is not None else [],
             })
-            variant_payloads[-1]["available_sizes"] = sellable_sizes(variant_payloads[-1]["sizes"])
+            variant_payloads[-1]["available_sizes"] = sellable_sizes(
+                variant_payloads[-1]["sizes"],
+                explicit_variant_grid=(variant.id, option_key) in variant_assignment_map,
+            )
         comparison.append(
             {
                 "option_key": option_key,

@@ -112,6 +112,65 @@ class MatchingTests(TestCase):
         self.assertEqual(results[0].size, "M")
         self.assertEqual(results[0].color_id, self.color.id)
 
+    def test_linked_classic_and_thermo_routes_use_exact_blank_families(self):
+        from fable5.models import VariantBlankLink
+
+        sub_thermo = StorageSubcategory.objects.create(
+            category=self.wh_cat,
+            name="Термо",
+            slug="termo-matching-test",
+        )
+        thermo_color = Color.objects.create(
+            name="Термо-зелений",
+            primary_hex="#3B8D68",
+        )
+        thermo_variant = ProductColorVariant.objects.create(
+            product=self.product,
+            color=thermo_color,
+        )
+        thermo_stock = StockItem.objects.create(
+            subcategory=sub_thermo,
+            color=thermo_color,
+            size="M",
+            quantity=2,
+        )
+        VariantBlankLink.objects.create(
+            variant=self.variant,
+            option_key="fit=classic",
+            storage_subcategory=self.sub_classic,
+        )
+        VariantBlankLink.objects.create(
+            variant=thermo_variant,
+            option_key="fit=oversize",
+            storage_subcategory=sub_thermo,
+        )
+
+        self.item.fit_option_code = "classic"
+        self.item.fit_option_label = "Класична"
+        self.item.save(update_fields=["fit_option_code", "fit_option_label"])
+        classic_results = find_stock_items_for_order_item(self.item)
+
+        self.assertTrue(classic_results)
+        self.assertTrue(
+            all(row.subcategory_id == self.sub_classic.id for row in classic_results)
+        )
+
+        thermo_item = OrderItem.objects.create(
+            order=self.order,
+            product=self.product,
+            color_variant=thermo_variant,
+            title=self.product.title,
+            size="M",
+            fit_option_code="oversize",
+            fit_option_label="Оверсайз",
+            qty=1,
+            unit_price=Decimal("800"),
+            line_total=Decimal("800"),
+        )
+        thermo_results = find_stock_items_for_order_item(thermo_item)
+
+        self.assertEqual([row.id for row in thermo_results], [thermo_stock.id])
+
     def test_no_match_if_no_link_falls_back_to_all(self):
         # Прибираємо прив'язку категорії — раніше повертало [].
         # Тепер graceful-каскад має повернути позиції з усього складу

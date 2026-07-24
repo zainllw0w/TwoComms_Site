@@ -24,6 +24,7 @@ from decimal import Decimal, InvalidOperation
 
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db import transaction
+from django.db.models import Prefetch
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -86,6 +87,36 @@ PAYMENT_PRESETS = {
 DEFAULT_PAYMENT_PRESET = 'cod'
 
 
+def _sizes_after_variant_rules(sizes, size_rules, fit_code):
+    """Apply colour-level size rules when a variant has no assigned size grid."""
+    from fable5.size_grid_services import normalize_size_value
+
+    wanted_fit = str(fit_code or '').strip().lower()
+    general_rules = {}
+    fit_rules = {}
+    for rule in size_rules or []:
+        rule_fit = str(rule.get('fit_code') or '').strip().lower()
+        if rule_fit not in ('', wanted_fit):
+            continue
+        normalized_size = normalize_size_value(rule.get('size'))
+        if not normalized_size:
+            continue
+        target = fit_rules if rule_fit == wanted_fit and wanted_fit else general_rules
+        target[normalized_size] = rule
+
+    available = []
+    for size in sizes:
+        rule = fit_rules.get(normalize_size_value(size)) or general_rules.get(
+            normalize_size_value(size)
+        )
+        if rule is None or (
+            rule.get('is_enabled', True)
+            and (rule.get('stock') is None or rule.get('stock') > 0)
+        ):
+            available.append(size)
+    return available
+
+
 def _preset_key_for_order(order):
     """Зворотний маппінг (pay_type, payment_status) → ключ пресету для UI."""
     payment_payload = order.payment_payload if isinstance(order.payment_payload, dict) else {}
@@ -119,6 +150,7 @@ def _build_order_initial(order):
         if item.is_custom or not item.product_id:
             items.append({
                 'kind': 'custom',
+                'item_id': item.id,
                 'title': item.title,
                 'unit_price': float(item.unit_price or 0),
                 'qty': item.qty,
@@ -129,12 +161,15 @@ def _build_order_initial(order):
         else:
             items.append({
                 'kind': 'catalog',
+                'item_id': item.id,
                 'product_id': item.product_id,
                 'color_variant_id': item.color_variant_id or '',
                 'title': item.title,
                 'unit_price': float(item.unit_price or 0),
                 'qty': item.qty,
                 'size': item.size or '',
+                'fit_option_code': item.fit_option_code or '',
+                'fit_option_label': item.fit_option_label or '',
                 'image': image,
             })
     return {
@@ -158,31 +193,115 @@ def _build_products_payload():
     і фільтруємо на клієнті — без додаткових запитів до сервера. Кожен
     товар містить ``category`` (id + назва) для групування в пікері.
     """
+    variant_queryset = (
+        ProductColorVariant.objects
+        .select_related('color', 'color__fable5_profile', 'fable5_details')
+        .prefetch_related(
+            'images',
+            'fable5_details__i18n',
+            'fable5_fit_rules',
+            'fable5_size_rules',
+            'fable5_size_grid_assignments__size_grid__fable5_profile',
+            'fable5_combinations',
+            'fable5_combinations__i18n',
+            'fable5_faqs',
+        )
+    )
     products = (
         Product.objects.exclude(status=ProductStatus.ARCHIVED)
-        .select_related('category')
-        .prefetch_related('color_variants__color', 'color_variants__images')
+        .select_related('category', 'catalog', 'size_grid')
+        .prefetch_related(
+            'catalog__options__values',
+            'catalog__size_grids__fable5_profile',
+            'fit_options',
+            'fable5_fit_notes',
+            'fable5_size_grid_assignments__size_grid__fable5_profile',
+            'fable5_size_rules',
+            'fable5_option_profiles',
+            'fable5_option_profiles__i18n',
+            Prefetch('color_variants', queryset=variant_queryset),
+        )
         .order_by('category__order', 'category__name', 'title')
     )
     payload = []
     for product in products:
         image = product.display_image
         image_url = getattr(image, 'url', '') if image else ''
+        product_variants = list(product.color_variants.all())
+
+        fit_options = [option for option in product.fit_options.all() if option.is_active]
+        try:
+            default_sizes = list(resolve_product_sizes(product))
+        except Exception:  # pragma: no cover - захист від нестандартних сіток
+            default_sizes = []
+        sizes_by_fit = {option.code: list(default_sizes) for option in fit_options}
+        variant_sizes_by_fit = {variant.id: {} for variant in product_variants}
+        if fit_options:
+            from fable5.size_grid_services import build_size_grid_comparison
+
+            for comparison in build_size_grid_comparison(product, variants=product_variants):
+                option_key = str(comparison.get('option_key') or '')
+                if option_key.startswith('fit='):
+                    fit_code = option_key.removeprefix('fit=')
+                    sizes_by_fit[fit_code] = list(
+                        comparison.get('available_sizes') or []
+                    )
+                    for variant_payload in comparison.get('variants') or []:
+                        variant_id = variant_payload.get('variant_id')
+                        if variant_id in variant_sizes_by_fit:
+                            variant_sizes_by_fit[variant_id][fit_code] = list(
+                                variant_payload.get('available_sizes') or []
+                            )
+
+        default_fit = next(
+            (option for option in fit_options if option.is_default),
+            fit_options[0] if fit_options else None,
+        )
+        fits = [
+            {
+                'code': option.code,
+                'label': option.label,
+                'is_default': option == default_fit,
+            }
+            for option in fit_options
+        ]
 
         variants = []
-        for variant in product.color_variants.all():
+        for variant in product_variants:
             color = getattr(variant, 'color', None)
+            from fable5.services import effective_cart_unit_price, variant_public_context
+
+            public_context = variant_public_context(variant)
+            available_fit_codes = list(public_context.get('available_fit_codes') or [])
+            is_thermo = bool(public_context.get('is_thermo'))
+            prices_by_fit = {
+                code: int(effective_cart_unit_price(product, variant, fit_code=code))
+                for code in available_fit_codes
+            }
+            size_rules = public_context.get('size_rules') or []
+            resolved_variant_sizes = {
+                code: list(
+                    variant_sizes_by_fit[variant.id].get(
+                        code,
+                        _sizes_after_variant_rules(
+                            sizes_by_fit.get(code, default_sizes),
+                            size_rules,
+                            code,
+                        ),
+                    )
+                )
+                for code in available_fit_codes
+            }
             variants.append({
                 'id': variant.id,
                 'name': (getattr(color, 'name', '') or '').strip() or 'Колір',
                 'primary_hex': getattr(color, 'primary_hex', '') or '',
                 'secondary_hex': getattr(color, 'secondary_hex', '') or '',
+                'available_fit_codes': available_fit_codes,
+                'is_thermo': is_thermo,
+                'prices_by_fit': prices_by_fit,
+                'sizes_by_fit': resolved_variant_sizes,
             })
-
-        try:
-            sizes = list(resolve_product_sizes(product))
-        except Exception:  # pragma: no cover - захист від нестандартних сіток
-            sizes = []
 
         category = getattr(product, 'category', None)
         payload.append({
@@ -190,7 +309,10 @@ def _build_products_payload():
             'title': product.title,
             'price': int(product.final_price or 0),
             'image': image_url,
-            'sizes': sizes,
+            'sizes': default_sizes,
+            'fits': fits,
+            'default_fit_code': default_fit.code if default_fit else '',
+            'sizes_by_fit': sizes_by_fit,
             'variants': variants,
             'category_id': getattr(category, 'id', 0) or 0,
             'category_name': (getattr(category, 'name', '') or 'Інше').strip() or 'Інше',
@@ -228,27 +350,60 @@ def _coerce_int(raw, *, default=1, minimum=1, maximum=MAX_QTY_PER_ITEM):
     return max(minimum, min(value, maximum))
 
 
-def _resolve_fit_payload(product, requested_code):
+def _resolve_fit_payload(product, requested_code, *, variant=None, allow_unavailable=False):
     """Повертає (code, label) обраного крою товару, як у дропшип-формі."""
-    try:
-        options = list(
-            product.fit_options
-            .filter(is_active=True)
-            .order_by('order', 'id')
-            .only('code', 'label', 'is_default')
-        )
-    except Exception:
-        options = []
-    if not options:
-        return '', ''
     requested = str(requested_code or '').strip().lower()
+    options = list(
+        product.fit_options
+        .filter(is_active=True)
+        .order_by('order', 'id')
+        .only('code', 'label', 'is_default')
+    )
     selected = next((o for o in options if o.code == requested), None)
+    if requested and selected is None and allow_unavailable:
+        selected = (
+            product.fit_options
+            .filter(code=requested)
+            .only('code', 'label', 'is_default')
+            .first()
+        )
+    if not options and selected is None:
+        return '', ''
+    if requested and selected is None:
+        raise ValueError(f'Невірна посадка для товару «{product.title}».')
+
+    if variant is not None:
+        from fable5.services import variant_allows_fit
+
+        allowed_options = [
+            option for option in options
+            if variant_allows_fit(variant, option.code)
+        ]
+        if selected is not None and selected not in allowed_options and not allow_unavailable:
+            raise ValueError(
+                f'Посадка «{selected.label}» недоступна для вибраного кольору товару «{product.title}».'
+            )
+    else:
+        allowed_options = options
+
     if selected is None:
-        selected = next((o for o in options if o.is_default), options[0])
+        selected = next(
+            (option for option in allowed_options if option.is_default),
+            allowed_options[0] if allowed_options else None,
+        )
+    if selected is None:
+        raise ValueError(f'Для вибраного кольору товару «{product.title}» немає доступної посадки.')
     return selected.code, selected.label
 
 
-def _build_order_item(raw_item, *, order, products_map, variants_map):
+def _build_order_item(
+    raw_item,
+    *,
+    order,
+    products_map,
+    variants_map,
+    historical_items_by_id=None,
+):
     """Будує (без збереження) OrderItem з одного запису форми.
 
     Кидає ``ValueError`` з людським повідомленням при некоректних даних.
@@ -301,7 +456,42 @@ def _build_order_item(raw_item, *, order, products_map, variants_map):
     if unit_price is None:
         unit_price = Decimal(str(product.final_price or 0)).quantize(Decimal('0.01'))
 
-    fit_code, fit_label = _resolve_fit_payload(product, raw_item.get('fit_option_code') or raw_item.get('fit_option'))
+    requested_fit_code = str(
+        raw_item.get('fit_option_code') or raw_item.get('fit_option') or ''
+    ).strip().lower()
+    historical_key = (
+        product.id,
+        variant.id if variant is not None else None,
+        requested_fit_code,
+        size,
+    )
+    try:
+        submitted_item_id = int(raw_item.get('item_id'))
+    except (TypeError, ValueError):
+        submitted_item_id = None
+    allow_historical = (
+        submitted_item_id is not None
+        and (historical_items_by_id or {}).get(submitted_item_id) == historical_key
+    )
+    fit_code, fit_label = _resolve_fit_payload(
+        product,
+        requested_fit_code,
+        variant=variant,
+        allow_unavailable=allow_historical,
+    )
+    if variant is not None:
+        from fable5.services import variant_allows_purchase
+
+        if not allow_historical and not variant_allows_purchase(
+            product,
+            variant,
+            fit_code=fit_code,
+            size=size,
+        ):
+            raise ValueError(
+                f'Розмір «{size}» недоступний для вибраного кольору та посадки '
+                f'товару «{product.title}».'
+            )
 
     return OrderItem(
         order=order,
@@ -821,11 +1011,27 @@ def manual_order_edit(request, order_id):
                 delivery_display = ', '.join(p for p in (locked.city, locked.np_office) if p)
 
             # Пересоздаём позиции
+            historical_items_by_id = {
+                existing.id: (
+                    existing.product_id,
+                    existing.color_variant_id,
+                    existing.fit_option_code,
+                    existing.size,
+                )
+                for existing in locked.items.all()
+                if existing.product_id and existing.color_variant_id and existing.fit_option_code
+            }
             locked.items.all().delete()
             order_items = []
             total_sum = Decimal('0')
             for raw_item in raw_items:
-                item = _build_order_item(raw_item, order=locked, products_map=products_map, variants_map=variants_map)
+                item = _build_order_item(
+                    raw_item,
+                    order=locked,
+                    products_map=products_map,
+                    variants_map=variants_map,
+                    historical_items_by_id=historical_items_by_id,
+                )
                 order_items.append(item)
                 total_sum += item.line_total
             OrderItem.objects.bulk_create(order_items)

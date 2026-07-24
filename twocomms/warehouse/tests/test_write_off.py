@@ -22,7 +22,11 @@ from warehouse.services.order_links import build_storage_writeoff_url
 User = get_user_model()
 
 
-@override_settings(ROOT_URLCONF="twocomms.urls_storage", SECURE_SSL_REDIRECT=False)
+@override_settings(
+    ROOT_URLCONF="twocomms.urls_storage",
+    SECURE_SSL_REDIRECT=False,
+    ALLOWED_HOSTS=["testserver", "storage.twocomms.shop"],
+)
 class WriteOffFlowTests(TestCase):
     def setUp(self):
         self.sf_cat = Category.objects.create(name="C", slug="c-wo")
@@ -85,6 +89,44 @@ class WriteOffFlowTests(TestCase):
         self.assertIn(b"Classic", r.content)
         # candidate option should appear
         self.assertIn(b"option", r.content)
+
+    def test_write_off_page_preselects_fit_linked_blank(self):
+        from fable5.models import VariantBlankLink
+
+        oversize_sub = StorageSubcategory.objects.create(
+            category=self.wh_cat,
+            name="Oversize ERC",
+            slug="oversize-erc-writeoff-test",
+        )
+        oversize_stock = StockItem.objects.create(
+            subcategory=oversize_sub,
+            color=self.color,
+            size="M",
+            quantity=4,
+        )
+        VariantBlankLink.objects.create(
+            variant=self.variant,
+            option_key="fit=oversize",
+            storage_subcategory=oversize_sub,
+        )
+        self.item.fit_option_code = "oversize"
+        self.item.fit_option_label = "Оверсайз"
+        self.item.save(update_fields=["fit_option_code", "fit_option_label"])
+
+        self.client.login(username="admin_wo", password="pw")
+        wo = WriteOffRequest.objects.create(order=self.order)
+        response = self.client.get(
+            f"/order/{wo.token}/write-off/",
+            HTTP_HOST="storage.twocomms.shop",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        row = response.context["rows"][0]
+        self.assertEqual(row["default_stock_id"], oversize_stock.id)
+        self.assertEqual(
+            {candidate.subcategory_id for candidate in row["candidates"]},
+            {oversize_sub.id},
+        )
 
     def test_write_off_page_lists_all_stock_even_unmatched(self):
         """Навіть позиція з іншої категорії/розміру має бути у списку вибору."""
