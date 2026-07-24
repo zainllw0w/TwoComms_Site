@@ -201,7 +201,11 @@ def _media_intent(
     # "Принт ось цей" after the actual purchase lines. Bind only an explicit
     # reference within the bounded purchase window; a later generic image
     # remains unresolved.
-    if purchase_context and _MEDIA_REFERENCE_RE.search(low):
+    if purchase_context and (
+        _MEDIA_REFERENCE_RE.search(low)
+        or _FIT_RE.search(low)
+        or _MEDIA_PURCHASE_RE.search(low)
+    ):
         return "purchase_candidate"
     if _MEDIA_CUSTOM_RE.search(low) and (
         re.search(
@@ -817,9 +821,15 @@ def extract_payment_review_evidence(messages) -> dict:
         )
         purchase_context = bool(
             role in _CUSTOMER_ROLES
-            and last_customer_purchase_index is not None
-            and message_index - last_customer_purchase_index <= 4
-            and _MEDIA_REFERENCE_RE.search(text)
+            and (
+                (
+                    last_customer_purchase_index is not None
+                    and message_index - last_customer_purchase_index <= 4
+                    and _MEDIA_REFERENCE_RE.search(text)
+                )
+                or _FIT_RE.search(text)
+                or _MEDIA_PURCHASE_RE.search(text)
+            )
         )
         media = classify_media_items(
             text,

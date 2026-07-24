@@ -61,6 +61,23 @@ class MediaSemanticsTests(SimpleTestCase):
         self.assertTrue(product_media[0]["actionable"])
         self.assertTrue(product_media[0]["catalog_match_allowed"])
 
+    def test_product_media_attached_to_order_lines_is_actionable(self):
+        from management.services.ig_payment_review import extract_payment_review_evidence
+
+        result = extract_payment_review_evidence([
+            {
+                "id": 233,
+                "role": "user",
+                "text": "Мені потрібно 2 футболки: 1. Базова S 2. Оверсайз XS",
+                "media": [{"url": "https://cdn.example/order-product.jpg", "type": "ig_post"}],
+            },
+        ])
+
+        product_media = result["media"]
+        self.assertEqual(len(product_media), 1)
+        self.assertEqual(product_media[0]["intent"], "purchase_candidate")
+        self.assertTrue(product_media[0]["actionable"])
+
     def test_custom_reference_is_not_catalog_product(self):
         from management.services.ig_payment_review import classify_media_items
 
