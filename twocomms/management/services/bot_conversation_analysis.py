@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import secrets
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
@@ -35,7 +36,7 @@ LEASE_SECONDS = 180
 MAX_ATTEMPTS = 5
 MAX_MESSAGES = 160
 MAX_TRANSCRIPT_CHARS = 30_000
-ANALYSIS_PROMPT_VERSION = "2026-07-23.crm.v1"
+ANALYSIS_PROMPT_VERSION = "2026-07-24.crm.media.v1"
 RETRY_DELAYS = (60, 180, 600, 1800, 3600)
 
 SYSTEM_PROMPT = """Ти аналізуєш Instagram-діалог для внутрішньої CRM TwoComms.
@@ -44,6 +45,10 @@ SYSTEM_PROMPT = """Ти аналізуєш Instagram-діалог для вну�
 скриншот, посилання або слова менеджера не є оплатою. Не роби висновків про
 платоспроможність з мови, національності, граматики, стилю чи манери письма.
 Повідомлення менеджера є контекстом, але не доказом наміру клієнта.
+У кожному `media` розділяй `product` (питання/інтерес/кандидат покупки),
+`receipt` (доказ для ручної перевірки, але не provider-paid), `custom_reference`
+та `other`. Не перетворюй невідоме зображення на товар каталогу. `product_id`
+можна використовувати лише якщо його прямо підтверджено catalog match context.
 `truth_state` є авторитетним системним контекстом оплати, угоди та доставки;
 не перетворюй службовий статус замовлення на висловлений намір клієнта.
 
@@ -476,7 +481,7 @@ def _skip_reason(
     )
 
 
-def _conversation(client_id: int, watermark: int) -> tuple[list[dict], dict[int, dict]]:
+def _conversation(client_id: int, watermark: int) -> tuple[list[dict], dict[int, dict], list[dict]]:
     rows = list(
         InstagramBotMessage.objects.filter(client_id=client_id, id__lte=watermark)
         .exclude(status=InstagramBotMessage.Status.FAILED)
@@ -484,11 +489,40 @@ def _conversation(client_id: int, watermark: int) -> tuple[list[dict], dict[int,
     )
     rows.reverse()
     total = 0
+    classify_media_items = None
+    try:
+        from management.services.ig_payment_review import (
+            _augment_messages_with_raw_media,
+            classify_media_items,
+        )
+
+        client = IgClient.objects.get(pk=client_id)
+        raw_rows = [
+            {
+                "id": row.pk,
+                "mid": row.mid or "",
+                "text": row.text or "",
+                "attachments": row.attachments or "",
+                "role": row.role,
+                "created_at": row.created_at,
+            }
+            for row in rows
+        ]
+        augmented_by_id = {
+            int(item.get("id")): item
+            for item in _augment_messages_with_raw_media(client, raw_rows)
+            if str(item.get("id") or "").isdigit()
+        }
+    except Exception:
+        augmented_by_id = {}
     rendered: list[dict] = []
     by_id: dict[int, dict] = {}
+    media_sources: list[dict] = []
     for row in reversed(rows):
         text = " ".join((row.text or "").split())
-        if not text:
+        augmented = augmented_by_id.get(row.pk) or {}
+        raw_media = augmented.get("media") if isinstance(augmented.get("media"), list) else []
+        if not text and not row.attachments and not raw_media:
             continue
         remaining = MAX_TRANSCRIPT_CHARS - total
         if remaining <= 0:
@@ -500,11 +534,44 @@ def _conversation(client_id: int, watermark: int) -> tuple[list[dict], dict[int,
             InstagramBotMessage.Role.MANAGER: "manager",
         }.get(row.role, "system")
         item = {"message_id": row.pk, "role": role, "text": text}
+        if raw_media:
+            try:
+                if classify_media_items is None:
+                    raise RuntimeError("media_classifier_unavailable")
+                semantic_media = classify_media_items(
+                    text,
+                    raw_media,
+                    payment_context=bool(re.search(
+                        r"\b(оплат\w*|платіж\w*|платеж\w*|чек\w*|квитанц\w*|receipt|paid)\b",
+                        text,
+                        re.IGNORECASE,
+                    )),
+                )
+            except Exception:
+                semantic_media = []
+            if semantic_media:
+                manager_media = role == "manager"
+                item["media"] = []
+                for media_index, media in enumerate(semantic_media[:8]):
+                    if media.get("url"):
+                        media_sources.append({
+                            "url": str(media.get("url") or "")[:1200],
+                            "message_id": row.pk,
+                            "media_index": media_index,
+                        })
+                    item["media"].append({
+                        "role": "manager_reference" if manager_media else str(media.get("role") or "other")[:32],
+                        "intent": "manager_reference" if manager_media else str(media.get("intent") or "unknown")[:40],
+                        "actionable": False if manager_media else bool(media.get("actionable")),
+                        "payment_evidence": False if manager_media else bool(media.get("payment_evidence")),
+                        "catalog_match_allowed": False if manager_media else bool(media.get("catalog_match_allowed")),
+                        "source_media_id": str(media.get("ig_post_media_id") or "")[:80],
+                    })
         rendered.append(item)
         by_id[row.pk] = item
         total += len(text)
     rendered.reverse()
-    return rendered, by_id
+    return rendered, by_id, media_sources[:8]
 
 
 def _decimal_01(value, default: str) -> Decimal:
@@ -692,12 +759,36 @@ def _process_claim(
     )
     if reason:
         return _finish_skip(job.pk, token, watermark, claimed_revision, reason, now)
-    transcript, by_id = _conversation(client.pk, watermark)
+    transcript, by_id, media_sources = _conversation(client.pk, watermark)
     if not transcript:
         return _finish_skip(
             job.pk, token, watermark, claimed_revision, "empty_conversation", now
         )
     initial_truth_state = _required_truth_state(client)
+    media_images = []
+    image_labels = []
+    try:
+        from management.services.instagram_bot import download_image
+
+        seen_urls = set()
+        for source in media_sources:
+            url = str(source.get("url") or "")
+            if not url or url in seen_urls:
+                continue
+            seen_urls.add(url)
+            image = download_image(url)
+            if image:
+                image_labels.append({
+                    "inline_image_index": len(media_images),
+                    "message_id": source.get("message_id"),
+                    "media_index": source.get("media_index"),
+                })
+                media_images.append(image)
+            if len(media_images) >= 8:
+                break
+    except Exception:
+        media_images = []
+        image_labels = []
     result = gemini_generate_json(
         SYSTEM_PROMPT,
         json.dumps({
@@ -709,6 +800,8 @@ def _process_claim(
         role="management",
         max_output_tokens=4096,
         reasoning_task="conversation_reanalysis",
+        images=media_images,
+        image_labels=image_labels,
     )
     meta = result.get("meta") if isinstance(result.get("meta"), dict) else {}
     model = str(result.get("model") or meta.get("used_model") or "unknown")[:80]

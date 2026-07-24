@@ -87,6 +87,63 @@ class InstagramBotNotificationTests(TestCase):
 
     @patch.dict(
         "os.environ",
+        {
+            "MANAGEMENT_TG_BOT_TOKEN": "test-token",
+            "MANAGEMENT_TG_ADMIN_CHAT_ID": "123",
+        },
+        clear=False,
+    )
+    @patch("management.services.instagram_bot._http", return_value=(200, json.dumps({"ok": True, "result": {"message_id": 89}})))
+    def test_notification_persists_media_evidence_for_separate_delivery(self, http):
+        media = [
+            {"role": "product", "url": "https://cdn.example/product.jpg"},
+            {"role": "receipt", "local_url": "https://management.example/media/receipt.jpg"},
+        ]
+        self.assertTrue(bot.notify_manager("Перевірка", dedupe_key="payment-review-media", media=media))
+        payload = IgBotNotification.objects.get(dedupe_key="payment-review-media").payload
+        self.assertEqual(
+            [(item["role"], item.get("url"), item.get("local_url")) for item in payload["media"]],
+            [
+                ("product", "https://cdn.example/product.jpg", None),
+                ("receipt", None, "https://management.example/media/receipt.jpg"),
+            ],
+        )
+        self.assertTrue(all(item["delivery_status"] == "sent" for item in payload["media"]))
+        self.assertTrue(all(item["delivery_message_id"] == "89" for item in payload["media"]))
+        self.assertGreaterEqual(http.call_count, 3)
+
+    @patch.dict(
+        "os.environ",
+        {"MANAGEMENT_TG_BOT_TOKEN": "test-token", "MANAGEMENT_TG_ADMIN_CHAT_ID": "123"},
+        clear=False,
+    )
+    @patch(
+        "management.services.instagram_bot._http",
+        side_effect=[
+            (200, json.dumps({"ok": True, "result": {"message_id": 90}})),
+            (503, json.dumps({"ok": False, "description": "temporary photo failure"})),
+            (200, json.dumps({"ok": True, "result": {"message_id": 91}})),
+        ],
+    )
+    def test_failed_photo_is_retried_without_duplicate_main_alert(self, http):
+        media = [{"role": "receipt", "url": "https://cdn.example/receipt.jpg", "message_id": "12"}]
+        self.assertFalse(bot.notify_manager("Перевірка", dedupe_key="payment-photo-retry", media=media))
+        row = IgBotNotification.objects.get(dedupe_key="payment-photo-retry")
+        self.assertEqual(row.status, IgBotNotification.Status.FAILED)
+        self.assertEqual(row.payload["main_delivery_message_id"], "90")
+
+        row.next_attempt_at = timezone.now() - timedelta(seconds=1)
+        row.save(update_fields=["next_attempt_at"])
+        self.assertEqual(bot.drain_manager_notifications(), 1)
+        row.refresh_from_db()
+        self.assertEqual(row.status, IgBotNotification.Status.SENT)
+        urls = [call.args[0] for call in http.call_args_list]
+        self.assertEqual(sum(url.endswith("/sendMessage") for url in urls), 1)
+        self.assertEqual(sum(url.endswith("/sendPhoto") for url in urls), 2)
+        self.assertEqual(row.payload["media"][0]["delivery_status"], "sent")
+
+    @patch.dict(
+        "os.environ",
         {"MANAGEMENT_TG_BOT_TOKEN": "test-token", "MANAGEMENT_TG_ADMIN_CHAT_ID": "123"},
         clear=False,
     )

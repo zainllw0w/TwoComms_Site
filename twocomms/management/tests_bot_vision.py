@@ -39,6 +39,48 @@ class BuildPayloadTests(SimpleTestCase):
         self.assertTrue(any("text" in p for p in parts))
 
 
+class MatchManyContractTests(SimpleTestCase):
+    @patch("management.services.bot_vision.gemini_generate_text")
+    def test_match_many_keeps_distinct_valid_products_and_rejects_unknown_ids(self, generate):
+        generate.return_value = {
+            "parsed": '{"matches":['
+            '{"product_id":1,"confidence":0.92,"source_image_indexes":[0],"reason":"first"},'
+            '{"product_id":2,"confidence":0.88,"source_image_indexes":[0],"reason":"second"},'
+            '{"product_id":999,"confidence":0.99,"source_image_indexes":[0],"reason":"invented"}'
+            ']}'
+        }
+        candidates = [
+            {"id": 1, "title": "Харків", "category": "Футболки", "price": 700, "fingerprint": "харків"},
+            {"id": 2, "title": "Київ", "category": "Футболки", "price": 700, "fingerprint": "київ"},
+        ]
+        matches = bot_vision.match_many([("image/jpeg", b"x")], candidates=candidates)
+        self.assertEqual([row["product_id"] for row in matches], [1, 2])
+        self.assertEqual(matches[0]["source_image_indexes"], [0])
+
+
+class MediaRoleContractTests(SimpleTestCase):
+    @patch("management.services.bot_vision.gemini_generate_text")
+    def test_classify_media_roles_keeps_valid_indexes_and_roles_only(self, generate):
+        generate.return_value = {
+            "parsed": (
+                '{"items":['
+                '{"source_image_index":0,"role":"receipt","confidence":0.98,"reason":"банк"},'
+                '{"source_image_index":1,"role":"product","confidence":0.91,"reason":"картка"},'
+                '{"source_image_index":9,"role":"receipt","confidence":1,"reason":"невідомий індекс"},'
+                '{"source_image_index":1,"role":"paid","confidence":1,"reason":"невалідна роль"}'
+                ']}'
+            ),
+        }
+
+        result = bot_vision.classify_media_roles([
+            ("image/jpeg", b"receipt"),
+            ("image/png", b"product"),
+        ])
+
+        self.assertEqual([item["role"] for item in result], ["receipt", "product"])
+        self.assertEqual([item["source_image_index"] for item in result], [0, 1])
+
+
 class DescribeImagesTests(TestCase):
     @patch("management.services.bot_vision.gemini_generate_text")
     def test_describe_parses_model_output(self, mock_gen):

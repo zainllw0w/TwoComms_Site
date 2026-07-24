@@ -12,7 +12,9 @@ from django.utils import timezone
 
 
 _PAYMENT_EVIDENCE_RE = re.compile(
-    r"(?:\bоплат\w*\b|\bпередоплат\w*\b|\bплатіж\w*\b|\bплатеж\w*\b|\bоплач\w*\b|\bоплатила\b|\bоплатив\b|\bчек(?:а|у|ом)?\b|\bквитанц\w*\b|\breceipt\b|\bpaid\b)",
+    r"(?:\bоплат\w*\b|\bпередоплат\w*\b|\bплатіж\w*\b|\bплатеж\w*\b|"
+    r"\bоплач\w*\b|\bсплач\w*\b|\bпереказ\w*\b|\bперевод\w*\b|\bоплатила\b|"
+    r"\bоплатив\b|\bчек(?:а|у|ом)?\b|\bквитанц\w*\b|\breceipt\b|\bpaid\b)",
     re.IGNORECASE,
 )
 _NON_EVIDENCE_RE = re.compile(
@@ -20,7 +22,9 @@ _NON_EVIDENCE_RE = re.compile(
     re.IGNORECASE,
 )
 _AFFIRMATION_RE = re.compile(
-    r"(?:я\s+(?:вже\s+)?оплат\w*|оплат\w*\s+(?:вже\s+)?зроб\w*|переказ\w*\s+зроб\w*|\bчек(?:а|у|ом)?\b|\bквитанц\w*\b|receipt|paid)",
+    r"(?:я\s+(?:вже\s+)?оплат\w*|(?:оплат\w*|сплач\w*|переказ\w*|перевод\w*)\s+"
+    r"(?:вже\s+)?(?:зроб\w*|викон\w*|готов\w*)|\bчек(?:а|у|ом)?\b|"
+    r"\bквитанц\w*\b|receipt|paid)",
     re.IGNORECASE,
 )
 _AMOUNT_RE = re.compile(r"(?<!\d)(\d{2,6}(?:[.,]\d{1,2})?)\s*(?:грн|uah|₴)", re.IGNORECASE)
@@ -39,6 +43,52 @@ _NAME_STOPWORDS = {
     "по повній оплаті",
     "потрібна оплата",
 }
+
+_MEDIA_PRODUCT_RE = re.compile(
+    r"\b(товар\w*|футболк\w*|худі|худи|одяг\w*|одежд\w*|модель\w*|"
+    r"розмір\w*|размер\w*|колір\w*|цвет\w*|ціна\w*|цена\w*|"
+    r"наявн\w*|налич\w*|хочу|беру|давайте|замовл\w*|заказ\w*|куп\w*)\b",
+    re.IGNORECASE,
+)
+_MEDIA_PURCHASE_RE = re.compile(
+    r"\b(хочу|беру|забираю|оформл\w*|замовл\w*|заказ\w*|купл\w*|куп\w*|"
+    r"давайте|підтверджую|подтверждаю)\b",
+    re.IGNORECASE,
+)
+_MEDIA_CUSTOM_RE = re.compile(
+    r"\b(кастом\w*|custom|dtf|дтф|принт\w*|друк\w*|печать\w*)\b",
+    re.IGNORECASE,
+)
+_CUSTOMER_PAYMENT_COMMITMENT_RE = re.compile(
+    r"\b(?:по\s+)?повн\w*\s+(?:перед)?оплат\w*\b|"
+    r"\b(?:обираю|вибираю|выбираю)\s+(?:повн\w*\s+)?(?:перед)?оплат\w*\b",
+    re.IGNORECASE,
+)
+_PRICE_ACCEPTANCE_RE = re.compile(
+    r"\b(так|да|ок|добре|хорошо|домов\w*|погодж\w*|соглас\w*|оформл\w*|"
+    r"замовл\w*|заказ\w*|беру|забираю)\b",
+    re.IGNORECASE,
+)
+
+
+def _amount_evidence_kind(text: str) -> str:
+    low = " ".join(str(text or "").split()).casefold()
+    if re.search(
+        r"\b(передоплат\w*|аванс\w*|оплатив\w*|оплатила\w*|оплачено\w*|"
+        r"сплатив\w*|сплатила\w*|сплачено\w*|чек\w*|квитанц\w*|receipt|paid)\b",
+        low,
+    ) or re.search(
+        r"\b(переказ\w*|перевод\w*)\b.{0,24}\b(зроб\w*|викон\w*|готов\w*)\b",
+        low,
+    ):
+        return "payment_evidence"
+    if re.search(r"\b(сума|сумма|разом|итого|всього|всего|total)\b", low):
+        return "order_total"
+    if re.search(r"\b(ціна|цена|вартість|стоимость)\b", low) or re.search(
+        r"\bза\s+\d{2,6}(?:[.,]\d{1,2})?\s*(?:грн|uah|₴)", low
+    ):
+        return "unit_price"
+    return "unknown"
 
 _PRODUCT_MEDIA_TYPES = {"ig_post", "share", "ig_reel", "reel", "story_mention", "story"}
 
@@ -131,13 +181,102 @@ def _existing_media(raw_attachments: str) -> list[dict]:
     ]
 
 
-def _role_for_media(item: dict, *, payment_context: bool, explicit_claim: bool) -> str:
-    media_type = str(item.get("type") or "image").casefold()
-    if media_type in _PRODUCT_MEDIA_TYPES:
-        return "product"
-    if payment_context or explicit_claim:
-        return "receipt"
-    return "other"
+def _media_intent(text: str, *, payment_context: bool, explicit_claim: bool) -> str:
+    low = " ".join(str(text or "").split()).casefold()
+    if explicit_claim:
+        return "payment_evidence"
+    if _MEDIA_CUSTOM_RE.search(low) and (
+        re.search(
+            r"(можн\w*|можете|можна|зроб\w*|сдел\w*|виготов\w*|нанес\w*|надрук\w*)",
+            low,
+        )
+        or _MEDIA_PURCHASE_RE.search(low)
+    ):
+        return "custom_print_request"
+    if _MEDIA_PURCHASE_RE.search(low):
+        return "purchase_candidate"
+    if _MEDIA_PRODUCT_RE.search(low):
+        return "question" if re.search(
+            r"(який|яка|яке|какой|какая|скільки|сколько|чи є|есть ли|можна|можно|розмір|размер|ціна|цена)",
+            low,
+        ) else "interest"
+    if payment_context:
+        return "payment_evidence"
+    return "unknown"
+
+
+def classify_media_items(
+    text: str,
+    media: list[dict] | None,
+    *,
+    payment_context: bool = False,
+    explicit_claim: bool | None = None,
+) -> list[dict]:
+    """Attach conservative role/intent semantics to current-turn media.
+
+    This is deliberately deterministic. Gemini may enrich a product match, but
+    receipts are never sent to catalog matching and unknown images remain
+    reviewable instead of becoming invented products.
+    """
+    normalized_text = " ".join(str(text or "").split())
+    if explicit_claim is None:
+        explicit_claim = bool(_AFFIRMATION_RE.search(normalized_text)) and not _NON_EVIDENCE_RE.search(normalized_text)
+    intent = _media_intent(
+        normalized_text,
+        payment_context=payment_context,
+        explicit_claim=bool(explicit_claim),
+    )
+    result = []
+    for raw in media or []:
+        if not isinstance(raw, dict) or not raw.get("url"):
+            continue
+        item = dict(raw)
+        media_type = str(item.get("type") or "image").casefold()
+        if media_type in _PRODUCT_MEDIA_TYPES:
+            # Meta's explicit post/share type is stronger than surrounding
+            # payment text: a product post accompanying a receipt is still a
+            # product reference, while the generic image is the receipt.
+            role = "product"
+            item_intent = "purchase_candidate" if intent == "purchase_candidate" else "interest"
+        elif intent == "payment_evidence":
+            role = "receipt" if explicit_claim else "payment_candidate"
+            item_intent = intent
+        elif intent == "custom_print_request":
+            role = "custom_reference"
+            item_intent = intent
+        elif intent in {"question", "interest", "purchase_candidate"}:
+            role = "product"
+            item_intent = intent
+        else:
+            role = "other"
+            item_intent = intent
+        item.update({
+            "role": role,
+            "intent": item_intent,
+            "actionable": item_intent == "purchase_candidate" and role == "product",
+            "payment_evidence": role in {"receipt", "payment_candidate"},
+            "catalog_match_allowed": role == "product",
+            "uncertain": role in {"other", "custom_reference", "payment_candidate"} or item_intent in {"unknown", "question", "interest"},
+        })
+        result.append(item)
+    return result
+
+
+def _role_for_media(
+    item: dict,
+    *,
+    payment_context: bool,
+    explicit_claim: bool,
+    text: str = "",
+) -> str:
+    """Return the durable media role used by the payment-review audit."""
+    classified = classify_media_items(
+        text,
+        [item],
+        payment_context=payment_context,
+        explicit_claim=explicit_claim,
+    )
+    return classified[0]["role"] if classified else "other"
 
 
 def _augment_messages_with_raw_media(client, messages) -> list[dict]:
@@ -238,36 +377,214 @@ def _persist_review_media(media: list[dict]) -> list[dict]:
     return enriched
 
 
-def _catalog_match_for_media(media: list[dict]) -> dict:
-    product_media = [row for row in media if row.get("role") == "product" and row.get("url")]
-    if not product_media:
-        return {}
+def _resolve_payment_media_candidates(media: list[dict]) -> list[dict]:
+    """Use bounded vision only for images whose receipt role is contextual."""
+    result = [dict(item) for item in (media or []) if isinstance(item, dict)]
+    candidate_indexes = [
+        index for index, item in enumerate(result)
+        if item.get("role") == "payment_candidate" and item.get("url")
+    ]
+    if not candidate_indexes:
+        return result
     try:
         from management.services.instagram_bot import download_image
         from management.services import bot_vision
+
         images = []
-        for row in product_media[:3]:
-            image = download_image(str(row["url"]))
+        source_indexes = []
+        for source_index in candidate_indexes[:8]:
+            image = download_image(str(result[source_index].get("url") or ""))
             if image:
                 images.append(image)
-        match = bot_vision.match(images) if images else {"product_id": None, "confidence": 0, "reason": "image_download_failed"}
-    except Exception as exc:
-        return {"status": "error", "reason": str(exc)[:180]}
-    pid = match.get("product_id")
+                source_indexes.append(source_index)
+        matches = bot_vision.classify_media_roles(images) if images else []
+    except Exception:
+        return result
+    for match in matches:
+        try:
+            image_index = int(match.get("source_image_index"))
+            confidence = float(match.get("confidence") or 0)
+            source_index = source_indexes[image_index]
+        except (IndexError, TypeError, ValueError):
+            continue
+        if confidence < 0.75:
+            result[source_index]["uncertain"] = True
+            continue
+        role = str(match.get("role") or "other")
+        semantics = {
+            "receipt": ("payment_evidence", True, False, False),
+            "product": ("interest", False, False, True),
+            "custom_reference": ("custom_print_request", False, False, True),
+            "other": ("unknown", False, False, True),
+        }.get(role)
+        if semantics is None:
+            continue
+        intent, payment_evidence, catalog_match_allowed, uncertain = semantics
+        result[source_index].update({
+            "role": role,
+            "intent": intent,
+            "actionable": False,
+            "payment_evidence": payment_evidence,
+            "catalog_match_allowed": catalog_match_allowed,
+            "uncertain": uncertain,
+            "vision_role": role,
+            "vision_confidence": confidence,
+            "vision_reason": str(match.get("reason") or "")[:300],
+        })
+    return result
+
+
+def _reconcile_payment_evidence_after_media_resolution(extracted: dict, media: list[dict]) -> dict:
+    """Rebuild payment evidence after vision has resolved provisional images.
+
+    A contextual ``payment_candidate`` is not proof by itself. Once vision says
+    that the image is a product/custom/reference/other image, it must leave the
+    financial workflow unless the same customer message contains an explicit
+    payment statement.
+    """
+    if not isinstance(extracted, dict):
+        return extracted
+    resolved = [item for item in (media or []) if isinstance(item, dict)]
+    roles_by_message: dict[int, set[str]] = {}
+    for item in resolved:
+        try:
+            message_id = int(item.get("message_id") or 0)
+        except (TypeError, ValueError):
+            message_id = 0
+        if message_id:
+            roles_by_message.setdefault(message_id, set()).add(str(item.get("role") or "other"))
+    kept = []
+    for entry in extracted.get("evidence") or []:
+        if not isinstance(entry, dict):
+            continue
+        try:
+            message_id = int(entry.get("message_id") or 0)
+        except (TypeError, ValueError):
+            message_id = 0
+        quote = str(entry.get("quote") or "")
+        explicit_statement = bool(_AFFIRMATION_RE.search(quote) and not _NON_EVIDENCE_RE.search(quote))
+        payment_role = bool(roles_by_message.get(message_id, set()).intersection({"receipt", "payment_candidate"}))
+        if explicit_statement or payment_role:
+            kept.append(entry)
+    extracted["evidence"] = kept[-20:]
+    extracted["message_ids"] = [entry.get("message_id") for entry in kept if entry.get("message_id")]
+    extracted["needs_review"] = bool(kept)
+    return extracted
+
+
+def _is_review_deal_compatible(deal, product_ids: set[int] | None = None) -> bool:
+    """Allow only the current unpaid/open deal for the matched product set."""
+    if not deal:
+        return False
+    if getattr(deal, "order_id", None):
+        return False
+    if str(getattr(deal, "status", "") or "") not in {"draft", "quoted", "awaiting_payment"}:
+        return False
+    if str(getattr(deal, "payment_truth", "") or "") not in {"", "unverified", "pending"}:
+        return False
+    if str(getattr(deal, "payment_status", "") or "") in {"paid", "prepaid", "confirmed"}:
+        return False
+    wanted = {int(value) for value in (product_ids or set()) if str(value).isdigit()}
+    if not wanted:
+        return False
+    known = getattr(deal, "product_ids", None)
+    if known is None:
+        try:
+            known = set(deal.items.values_list("product_id", flat=True))
+        except Exception:
+            known = set()
+    return bool(known) and set(known) == wanted
+
+
+def _select_review_deal(client, catalog_matches: list[dict]):
+    """Select a same-product open deal; never fall back to latest historical deal."""
+    product_ids = {
+        int(match.get("product_id"))
+        for match in (catalog_matches or [])
+        if isinstance(match, dict) and str(match.get("product_id") or "").isdigit()
+    }
+    if not client or not product_ids:
+        return None
+    try:
+        candidates = client.deals.order_by("-id")[:20]
+        for deal in candidates:
+            if _is_review_deal_compatible(deal, product_ids):
+                return deal
+    except Exception:
+        return None
+    return None
+
+
+def _apply_validated_conversation_price_to_draft(draft: dict, messages, catalog_matches: list[dict]) -> dict:
+    """Apply only a human-authorized, product-bound price to a review draft."""
+    if not isinstance(draft, dict):
+        return draft
+    items = draft.get("items") if isinstance(draft.get("items"), list) else []
+    matches = [match for match in (catalog_matches or []) if isinstance(match, dict) and match.get("status") == "matched"]
+    product = None
+    if len(matches) == 1:
+        product = type("ReviewProduct", (), {
+            "pk": matches[0].get("product_id"),
+            "title": matches[0].get("title") or "",
+            "slug": matches[0].get("slug") or "",
+        })()
+    from management.services.bot_orders import _conversation_price_evidence, _message_role
+
+    decision = _conversation_price_evidence(list(messages or ()), qty=int(items[0].get("qty") or 1) if len(items) == 1 else 1, product=product)
+    if decision.get("status") == "accepted" and decision.get("price") is not None and len(items) == 1 and product:
+        price = Decimal(str(decision["price"])).quantize(Decimal("0.01"))
+        items[0]["unit_price"] = str(price)
+        draft["quoted_total"] = str(price * Decimal(str(items[0].get("qty") or 1))).rstrip("0").rstrip(".")
+        draft["amount_source_message_id"] = decision.get("source_message_id")
+        return draft
+    commercial_amount_seen = False
+    manager_amount_accepted = False
+    rows = list(messages or ())
+    for index, message in enumerate(rows):
+        text = message.get("text") if isinstance(message, dict) else getattr(message, "text", "")
+        role = _message_role(message)
+        if _AMOUNT_RE.search(str(text or "")) and _amount_evidence_kind(str(text or "")) in {"order_total", "unit_price"}:
+            commercial_amount_seen = True
+            next_message = rows[index + 1] if index + 1 < len(rows) else None
+            next_role = _message_role(next_message) if next_message is not None else ""
+            next_text = next_message.get("text") if isinstance(next_message, dict) else getattr(next_message, "text", "") if next_message is not None else ""
+            if role == "manager" and next_role in {"user", "customer", "client"} and _PRICE_ACCEPTANCE_RE.search(str(next_text or "")):
+                manager_amount_accepted = True
+    if commercial_amount_seen and not (manager_amount_accepted and len(items) > 1):
+        draft["quoted_total"] = ""
+        for item in items:
+            item["unit_price"] = None
+        reasons = list(draft.get("uncertainty_reasons") or [])
+        if "conversation_price_not_authorized" not in reasons:
+            reasons.append("conversation_price_not_authorized")
+        draft["uncertainty_reasons"] = reasons
+    return draft
+
+
+def _hydrate_catalog_match(match: dict, source_rows: list[dict], source_indexes: list[int]) -> dict:
+    product_id = match.get("product_id")
+    selected_rows = [source_rows[index] for index in source_indexes if 0 <= index < len(source_rows)]
     result = {
-        "status": "matched" if pid else "unresolved",
-        "product_id": pid,
+        "status": "matched" if product_id else "unresolved",
+        "product_id": product_id,
         "confidence": match.get("confidence", 0),
         "reason": match.get("reason", ""),
-        "source_message_ids": sorted({int(row.get("message_id")) for row in product_media if str(row.get("message_id") or "").isdigit()}),
+        "source_media_indexes": source_indexes,
+        "source_message_ids": sorted({
+            int(row.get("message_id"))
+            for row in selected_rows
+            if str(row.get("message_id") or "").isdigit()
+        }),
     }
-    if not pid:
+    if not product_id:
         return result
     try:
         from storefront.models import Product
         from productcolors.models import ProductColorVariant
-        product = Product.objects.filter(pk=pid).first()
+
+        product = Product.objects.filter(pk=product_id).first()
         if not product:
+            result.update({"status": "unresolved", "product_id": None, "reason": "catalog_product_missing"})
             return result
         result.update({
             "title": product.title,
@@ -277,13 +594,145 @@ def _catalog_match_for_media(media: list[dict]) -> dict:
         })
         variants = []
         for variant in ProductColorVariant.objects.filter(product=product).select_related("color")[:20]:
-            variants.append({"id": variant.pk, "color": getattr(variant.color, "name", "") or "", "sku": variant.sku or ""})
+            variants.append({
+                "id": variant.pk,
+                "color": getattr(variant.color, "name", "") or "",
+                "sku": variant.sku or "",
+            })
         result["variant_candidates"] = variants
         if len(variants) == 1:
             result["color_variant_id"] = variants[0]["id"]
     except Exception:
-        pass
+        result.update({"status": "error", "reason": "catalog_hydration_failed"})
     return result
+
+
+def _catalog_order_media(media: list[dict]) -> list[dict]:
+    """Return only images carrying an explicit purchase commitment."""
+    return [
+        row for row in (media or [])
+        if isinstance(row, dict)
+        and row.get("url")
+        and row.get("role") == "product"
+        and row.get("intent") == "purchase_candidate"
+        and row.get("actionable") is True
+        and row.get("catalog_match_allowed") is True
+    ]
+
+
+def _catalog_matches_for_media(media: list[dict]) -> list[dict]:
+    product_media = _catalog_order_media(media)
+    if not product_media:
+        return []
+    try:
+        from management.services.instagram_bot import download_image
+        from management.services import bot_vision
+
+        images = []
+        downloaded_indexes = []
+        for index, row in enumerate(product_media[:8]):
+            image = download_image(str(row["url"]))
+            if image:
+                images.append(image)
+                downloaded_indexes.append(index)
+        raw_matches = bot_vision.match_many(images) if images else []
+    except Exception as exc:
+        return [{"status": "error", "reason": str(exc)[:180], "source_media_indexes": []}]
+    if not raw_matches:
+        reason = "image_download_failed" if not images else "catalog_match_unresolved"
+        return [_hydrate_catalog_match(
+            {"product_id": None, "confidence": 0, "reason": reason},
+            product_media,
+            list(range(len(product_media[:8]))),
+        )]
+    results = []
+    for match in raw_matches:
+        image_indexes = match.get("source_image_indexes") or list(range(len(images)))
+        source_indexes = sorted({
+            downloaded_indexes[index]
+            for index in image_indexes
+            if 0 <= index < len(downloaded_indexes)
+        })
+        result = _hydrate_catalog_match(match, product_media, source_indexes)
+        results.append(result)
+        if result.get("status") == "matched":
+            for source_index in source_indexes:
+                product_media[source_index].setdefault("catalog_matches", []).append({
+                    key: result.get(key)
+                    for key in ("product_id", "title", "url", "confidence")
+                    if result.get(key) not in (None, "")
+                })
+    return results
+
+
+def _catalog_match_for_media(media: list[dict]) -> dict:
+    """Compatibility accessor for callers that only understand one match."""
+    matches = _catalog_matches_for_media(media)
+    return matches[0] if matches else {}
+
+
+def _apply_catalog_matches_to_draft(draft: dict, matches: list[dict]) -> None:
+    """Bind validated catalog matches to draft lines without collapsing SKUs."""
+    if not isinstance(draft, dict):
+        return
+    items = [item for item in (draft.get("items") or []) if isinstance(item, dict)]
+    confirmed = [
+        match for match in (matches or [])
+        if isinstance(match, dict) and match.get("status") == "matched" and match.get("product_id")
+    ]
+    if not confirmed:
+        return
+
+    def bind(item, match):
+        item["product_id"] = match.get("product_id")
+        item["color_variant_id"] = match.get("color_variant_id")
+        item["catalog"] = {
+            key: match.get(key)
+            for key in (
+                "product_id", "title", "slug", "url", "catalog_price",
+                "color_variant_id", "variant_candidates", "confidence",
+            )
+            if match.get(key) not in (None, "")
+        }
+        item.setdefault("title", match.get("title") or "Товар з каталогу")
+        item.setdefault("qty", 1)
+        item.setdefault("size", "")
+        item.setdefault("fit", "")
+        item.setdefault("unit_price", None)
+
+    if not items:
+        for match in confirmed:
+            item = {}
+            bind(item, match)
+            items.append(item)
+    else:
+        used_product_ids = set()
+        for item in items:
+            source_message_id = item.get("source_message_id")
+            candidates = [
+                match for match in confirmed
+                if source_message_id
+                and source_message_id in (match.get("source_message_ids") or [])
+                and match.get("product_id") not in used_product_ids
+            ]
+            if len(candidates) == 1:
+                bind(item, candidates[0])
+                used_product_ids.add(candidates[0].get("product_id"))
+        unresolved_matches = [
+            match for match in confirmed if match.get("product_id") not in used_product_ids
+        ]
+        if unresolved_matches:
+            draft["catalog_candidates"] = unresolved_matches
+            reasons = list(draft.get("uncertainty_reasons") or [])
+            if "catalog_line_mapping_required" not in reasons:
+                reasons.append("catalog_line_mapping_required")
+            draft["uncertainty_reasons"] = reasons
+    draft["items"] = items
+    if items and all(item.get("product_id") for item in items):
+        draft["uncertainty_reasons"] = [
+            reason for reason in (draft.get("uncertainty_reasons") or [])
+            if reason != "catalog_product_not_identified"
+        ]
 
 
 def next_review_status(status: str, action: str) -> str:
@@ -308,20 +757,13 @@ def extract_payment_review_evidence(messages) -> dict:
     evidence = []
     amount_evidence = []
     order_items = []
-    conversation_payment_context = False
     customer_messages = []
     context_messages = []
     raw_messages = list(messages or ())
-    # Context can arrive after the customer attachment (for example, a
-    # manager posts the payment amount after the receipt). Pre-scan the whole
-    # bounded transcript so evidence classification is order-independent.
-    for raw in raw_messages:
-        if not isinstance(raw, dict):
-            continue
-        text = " ".join(str(raw.get("text") or "").split())
-        if text and _PAYMENT_EVIDENCE_RE.search(text) and not _NON_EVIDENCE_RE.search(text):
-            conversation_payment_context = True
-    for raw in raw_messages:
+    customer_order_seen = False
+    last_manager_payment_index = None
+    last_customer_payment_commitment_index = None
+    for message_index, raw in enumerate(raw_messages):
         if not isinstance(raw, dict):
             continue
         role = str(raw.get("role") or "unknown").strip().lower()
@@ -337,13 +779,28 @@ def extract_payment_review_evidence(messages) -> dict:
             message_id = 0
         media = [dict(item) for item in raw_media if isinstance(item, dict) and item.get("url")]
         explicit_claim = bool(_AFFIRMATION_RE.search(text)) and not _NON_EVIDENCE_RE.search(text)
+        payment_text = bool(text and _PAYMENT_EVIDENCE_RE.search(text) and not _NON_EVIDENCE_RE.search(text))
+        payment_context = bool(
+            customer_order_seen
+            and (
+                (
+                    last_manager_payment_index is not None
+                    and message_index - last_manager_payment_index == 1
+                )
+                or (
+                    last_customer_payment_commitment_index is not None
+                    and message_index - last_customer_payment_commitment_index == 1
+                )
+            )
+        )
+        media = classify_media_items(
+            text,
+            media,
+            payment_context=payment_context,
+            explicit_claim=explicit_claim,
+        )
         for media_item in media:
             media_item["message_id"] = message_id
-            media_item["role"] = _role_for_media(
-                media_item,
-                payment_context=conversation_payment_context,
-                explicit_claim=explicit_claim,
-            )
         context_messages.append({
             "message_id": message_id,
             "role": role,
@@ -352,6 +809,7 @@ def extract_payment_review_evidence(messages) -> dict:
             "media": media[:8],
         })
         amounts = _AMOUNT_RE.findall(text)
+        amount_kind = _amount_evidence_kind(text)
         for amount in amounts:
             try:
                 normalized = Decimal(amount.replace(",", ".")).quantize(Decimal("0.01"))
@@ -361,6 +819,7 @@ def extract_payment_review_evidence(messages) -> dict:
                 "message_id": message_id,
                 "role": role,
                 "amount": str(normalized).rstrip("0").rstrip("."),
+                "kind": amount_kind,
                 "quote": text[:300],
             })
         if role in _CUSTOMER_ROLES:
@@ -379,9 +838,13 @@ def extract_payment_review_evidence(messages) -> dict:
                     "source_message_id": message_id,
                 })
             is_receipt_attachment = bool(attachments) and (
-                conversation_payment_context or explicit_claim
+                payment_context
+                or explicit_claim
+                or (payment_text and not _NON_EVIDENCE_RE.search(text))
             ) and not any(item.get("role") == "product" for item in media)
-            is_receipt_attachment = is_receipt_attachment or any(item.get("role") == "receipt" for item in media)
+            is_receipt_attachment = is_receipt_attachment or any(
+                item.get("role") in {"receipt", "payment_candidate"} for item in media
+            )
             if explicit_claim or is_receipt_attachment:
                 evidence.append({
                     "message_id": message_id,
@@ -390,6 +853,17 @@ def extract_payment_review_evidence(messages) -> dict:
                     "attachments": attachments[:500],
                     "media": media[:8],
                 })
+            if (
+                payment_text
+                or _MEDIA_PURCHASE_RE.search(text)
+                or _FIT_RE.search(text)
+                or any(item.get("role") == "product" for item in media)
+            ):
+                customer_order_seen = True
+            if _CUSTOMER_PAYMENT_COMMITMENT_RE.search(text):
+                last_customer_payment_commitment_index = message_index
+        elif payment_text:
+            last_manager_payment_index = message_index
 
     # A single explicit quantity describes the only extracted line; numbered
     # lines remain independent so classic and oversize are never collapsed.
@@ -400,9 +874,24 @@ def extract_payment_review_evidence(messages) -> dict:
     uncertainty_reasons = []
     if order_items:
         uncertainty_reasons.append("catalog_product_not_identified")
-    if order_items and not amount_evidence:
+    commercial_amounts = [
+        item for item in amount_evidence if item.get("kind") in {"order_total", "unit_price"}
+    ]
+    if order_items and not commercial_amounts:
         uncertainty_reasons.append("conversation_price_not_found")
-    quoted_total = amount_evidence[-1]["amount"] if amount_evidence else ""
+    selected_amount = commercial_amounts[-1] if commercial_amounts else None
+    quoted_total = selected_amount["amount"] if selected_amount else ""
+    if len(order_items) == 1 and quoted_total:
+        try:
+            order_items[0]["unit_price"] = str(
+                (Decimal(quoted_total) / Decimal(str(order_items[0].get("qty") or 1))).quantize(Decimal("0.01"))
+            )
+        except (InvalidOperation, ValueError, ZeroDivisionError):
+            order_items[0]["unit_price"] = None
+    elif len(order_items) > 1 and quoted_total:
+        # A total for multiple lines is evidence, but it cannot safely be
+        # allocated to each SKU without an explicit per-line price.
+        uncertainty_reasons.append("conversation_price_allocation_required")
     manager_package_context = any(
         context["role"] not in _CUSTOMER_ROLES
         and re.search(r"пакет|zip|зіп", context["quote"], re.IGNORECASE)
@@ -459,7 +948,7 @@ def extract_payment_review_evidence(messages) -> dict:
         "items": order_items,
         "quoted_total": quoted_total,
         "currency": "UAH",
-        "amount_source_message_id": amount_evidence[-1]["message_id"] if amount_evidence else None,
+        "amount_source_message_id": selected_amount["message_id"] if selected_amount else None,
         "uncertainty_reasons": uncertainty_reasons,
         "packaging_preference": packaging_preference,
         "delivery": delivery,
@@ -547,20 +1036,33 @@ def _alert_text(review, client) -> str:
         labels = {
             "catalog_product_not_identified": "товар не зіставлено з каталогом; виберіть його вручну",
             "conversation_price_not_found": "ціну з переписки не знайдено",
+            "conversation_price_allocation_required": "загальну суму з переписки потрібно розподілити між позиціями вручну",
+            "conversation_price_not_authorized": "ціну не підтверджено менеджером; перевірте вручну",
         }
         lines.append("Потрібно уточнити: " + "; ".join(labels.get(reason, reason) for reason in reasons))
-    catalog_match = evidence.get("catalog_match") if isinstance(evidence.get("catalog_match"), dict) else {}
-    if catalog_match.get("status") == "matched":
-        lines.append(
-            f"Зображення товару: {catalog_match.get('title') or 'збіг з каталогом'} "
-            f"({round(float(catalog_match.get('confidence') or 0) * 100)}% впевненості)."
-        )
-    elif catalog_match:
+    catalog_matches = evidence.get("catalog_matches") if isinstance(evidence.get("catalog_matches"), list) else []
+    if not catalog_matches:
+        legacy_match = evidence.get("catalog_match") if isinstance(evidence.get("catalog_match"), dict) else {}
+        catalog_matches = [legacy_match] if legacy_match else []
+    matched_catalog = [match for match in catalog_matches if match.get("status") == "matched"]
+    if matched_catalog:
+        lines.append("Зіставлення з каталогом:")
+        for match in matched_catalog:
+            lines.append(
+                f"• {match.get('title') or 'товар'} "
+                f"({round(float(match.get('confidence') or 0) * 100)}% впевненості)"
+                + (f" — {match['url']}" if match.get("url") else "")
+            )
+    elif catalog_matches:
         lines.append("Зображення товару: точного збігу з каталогом не знайдено — перевірте вручну.")
     media = evidence.get("media") if isinstance(evidence.get("media"), list) else []
     receipts = [item for item in media if item.get("role") == "receipt"]
+    payment_candidates = [item for item in media if item.get("role") == "payment_candidate"]
     products = [item for item in media if item.get("role") == "product"]
-    lines.append(f"Вкладення: чеків {len(receipts)}, зображень товару {len(products)}.")
+    lines.append(
+        f"Вкладення: чеків {len(receipts)}, ймовірних чеків для звірки "
+        f"{len(payment_candidates)}, зображень товару {len(products)}."
+    )
     base = getattr(settings, "MANAGEMENT_BASE_URL", "https://management.twocomms.shop").rstrip("/")
     lines.append(f"Відкрити review: {base}/bot/?payment_review={review.pk}")
     return "\n".join(lines)
@@ -568,9 +1070,25 @@ def _alert_text(review, client) -> str:
 
 def _review_keyboard(review) -> dict:
     base = getattr(settings, "MANAGEMENT_BASE_URL", "https://management.twocomms.shop").rstrip("/")
-    return {"inline_keyboard": [[
-        {"text": "Перейти до підтвердження", "url": f"{base}/bot/?payment_review={review.pk}"},
-    ]]}
+    rows = [[
+        {"text": "Підтвердити оплату", "callback_data": f"igpay:confirm:{review.pk}"},
+        {"text": "Відхилити", "callback_data": f"igpay:cancel:{review.pk}"},
+    ], [
+        {"text": "Відкрити перевірку", "url": f"{base}/bot/?payment_review={review.pk}"},
+    ]]
+    evidence = review.evidence if isinstance(getattr(review, "evidence", None), dict) else {}
+    matches = evidence.get("catalog_matches") if isinstance(evidence.get("catalog_matches"), list) else []
+    if not matches:
+        legacy_match = evidence.get("catalog_match") if isinstance(evidence.get("catalog_match"), dict) else {}
+        matches = [legacy_match] if legacy_match else []
+    for match in matches[:4]:
+        if not isinstance(match, dict) or match.get("status") != "matched" or not match.get("url"):
+            continue
+        rows.append([{
+            "text": f"Товар: {str(match.get('title') or 'відкрити картку')[:48]}",
+            "url": str(match["url"]),
+        }])
+    return {"inline_keyboard": rows}
 
 
 def create_payment_review(client, *, watermark: int = 0, messages=None):
@@ -605,38 +1123,39 @@ def create_payment_review(client, *, watermark: int = 0, messages=None):
     extracted = extract_payment_review_evidence(messages)
     if not extracted["needs_review"]:
         return None
-    enriched_media = _persist_review_media(extracted.get("media") or [])
+    resolved_media = _resolve_payment_media_candidates(extracted.get("media") or [])
+    enriched_media = _persist_review_media(resolved_media)
     for item in enriched_media:
         item["message_id"] = item.get("message_id") or None
-    for context in extracted.get("order_draft", {}).get("context_messages", []):
-        context_media = context.get("media") or []
+    for container in [
+        *(extracted.get("order_draft", {}).get("context_messages", []) or []),
+        *(extracted.get("evidence", []) or []),
+    ]:
+        context_media = container.get("media") or [] if isinstance(container, dict) else []
         for context_item in context_media:
             for item in enriched_media:
                 if item.get("url") == context_item.get("url"):
-                    context_item.update({key: value for key, value in item.items() if key in {"local_url", "mime", "bytes"}})
+                    context_item.update(item)
+    _reconcile_payment_evidence_after_media_resolution(extracted, enriched_media)
+    if not extracted["needs_review"]:
+        return None
     extracted["media"] = enriched_media
     extracted["order_draft"]["media"] = enriched_media
-    catalog_match = _catalog_match_for_media(enriched_media)
-    extracted["catalog_match"] = catalog_match
-    if catalog_match.get("status") == "matched":
-        for item in extracted["order_draft"].get("items", []):
-            item["product_id"] = catalog_match.get("product_id")
-            item["color_variant_id"] = catalog_match.get("color_variant_id")
-            item["catalog"] = {
-                "product_id": catalog_match.get("product_id"),
-                "title": catalog_match.get("title", ""),
-                "slug": catalog_match.get("slug", ""),
-                "catalog_price": catalog_match.get("catalog_price", ""),
-                "color_variant_id": catalog_match.get("color_variant_id"),
-                "variant_candidates": catalog_match.get("variant_candidates", []),
-            }
-        extracted["order_draft"]["uncertainty_reasons"] = [
-            reason for reason in extracted["order_draft"].get("uncertainty_reasons", [])
-            if reason != "catalog_product_not_identified"
-        ]
+    catalog_matches = _catalog_matches_for_media(enriched_media)
+    for media_item in enriched_media:
+        bound_matches = media_item.get("catalog_matches") if isinstance(media_item.get("catalog_matches"), list) else []
+        if bound_matches:
+            media_item["product_id"] = ",".join(str(match.get("product_id")) for match in bound_matches if match.get("product_id"))
+            media_item["product_title"] = " / ".join(str(match.get("title")) for match in bound_matches if match.get("title"))
+            media_item["product_url"] = "\n".join(str(match.get("url")) for match in bound_matches if match.get("url"))
+            media_item["confidence"] = ",".join(str(match.get("confidence")) for match in bound_matches if match.get("confidence") is not None)
+    extracted["catalog_matches"] = catalog_matches
+    extracted["catalog_match"] = catalog_matches[0] if catalog_matches else {}
+    _apply_catalog_matches_to_draft(extracted["order_draft"], catalog_matches)
+    _apply_validated_conversation_price_to_draft(extracted["order_draft"], messages, catalog_matches)
     extracted["media_audit_v3"] = True
     watermark = int(watermark or max(extracted["message_ids"] or [0]))
-    deal = client.deals.order_by("-id").first()
+    deal = _select_review_deal(client, catalog_matches)
     dedupe_key = f"ig-payment-review:{client.pk}:{watermark}"
     with transaction.atomic():
         review, created = IgPaymentConfirmationReview.objects.get_or_create(
@@ -650,6 +1169,7 @@ def create_payment_review(client, *, watermark: int = 0, messages=None):
                     "order_draft": extracted["order_draft"],
                     "media": extracted.get("media", []),
                     "catalog_match": extracted.get("catalog_match", {}),
+                    "catalog_matches": extracted.get("catalog_matches", []),
                     "media_audit_v3": True,
                     "deal": _deal_payload(deal),
                 },
@@ -660,7 +1180,7 @@ def create_payment_review(client, *, watermark: int = 0, messages=None):
 
     if not created and isinstance(review.evidence, dict) and (
         not review.evidence.get("media_audit_v3")
-        or (extracted.get("catalog_match") and not review.evidence.get("catalog_match"))
+        or (extracted.get("catalog_matches") and not review.evidence.get("catalog_matches"))
         or len(extracted.get("media") or []) > len(review.evidence.get("media") or [])
     ):
         review.evidence = {
@@ -670,6 +1190,7 @@ def create_payment_review(client, *, watermark: int = 0, messages=None):
             "order_draft": extracted["order_draft"],
             "media": extracted.get("media", []),
             "catalog_match": extracted.get("catalog_match", {}),
+            "catalog_matches": extracted.get("catalog_matches", []),
             "media_audit_v3": True,
         }
         review.save(update_fields=["evidence", "updated_at"])
@@ -680,32 +1201,47 @@ def create_payment_review(client, *, watermark: int = 0, messages=None):
         event_type="payment_review",
         client=client,
         reply_markup=_review_keyboard(review),
+        media=enriched_media,
     )
     return review
 
 
-def confirm_review(review, *, actor):
+def confirm_review(review, *, actor, telegram_decision=None):
     from management.ig_bot_models import IgPaymentConfirmationReview
 
     with transaction.atomic():
         locked = IgPaymentConfirmationReview.objects.select_for_update().get(pk=review.pk)
+        locked._transitioned = False
         if locked.status == IgPaymentConfirmationReview.Status.PENDING:
             locked.status = IgPaymentConfirmationReview.Status.CONFIRMED
             locked.confirmed_by = actor
             locked.confirmed_at = timezone.now()
-            locked.save(update_fields=["status", "confirmed_by", "confirmed_at", "updated_at"])
+            update_fields = ["status", "confirmed_by", "confirmed_at", "updated_at"]
+            if isinstance(telegram_decision, dict):
+                evidence = locked.evidence if isinstance(locked.evidence, dict) else {}
+                locked.evidence = {**evidence, "telegram_decision": telegram_decision}
+                update_fields.append("evidence")
+            locked.save(update_fields=update_fields)
+            locked._transitioned = True
         return locked
 
 
-def cancel_review(review, *, actor, reason=""):
+def cancel_review(review, *, actor, reason="", telegram_decision=None):
     from management.ig_bot_models import IgPaymentConfirmationReview
 
     with transaction.atomic():
         locked = IgPaymentConfirmationReview.objects.select_for_update().get(pk=review.pk)
+        locked._transitioned = False
         if locked.status == IgPaymentConfirmationReview.Status.PENDING:
             locked.status = IgPaymentConfirmationReview.Status.CANCELLED
             locked.cancelled_by = actor
             locked.cancelled_at = timezone.now()
             locked.cancellation_reason = (reason or "")[:500]
-            locked.save(update_fields=["status", "cancelled_by", "cancelled_at", "cancellation_reason", "updated_at"])
+            update_fields = ["status", "cancelled_by", "cancelled_at", "cancellation_reason", "updated_at"]
+            if isinstance(telegram_decision, dict):
+                evidence = locked.evidence if isinstance(locked.evidence, dict) else {}
+                locked.evidence = {**evidence, "telegram_decision": telegram_decision}
+                update_fields.append("evidence")
+            locked.save(update_fields=update_fields)
+            locked._transitioned = True
         return locked

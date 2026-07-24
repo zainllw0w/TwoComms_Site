@@ -1,7 +1,8 @@
+import json
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from django.test import SimpleTestCase
+from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 
 
 class IgPaymentReviewRulesTests(SimpleTestCase):
@@ -64,7 +65,7 @@ class IgPaymentReviewRulesTests(SimpleTestCase):
 
         result = extract_payment_review_evidence(
             [
-                {"id": 238, "role": "user", "text": "(зображення)", "attachments": "receipt.jpg"},
+                {"id": 238, "role": "user", "text": "Я оплатила, ось чек", "attachments": "receipt.jpg"},
                 {"id": 237, "role": "manager", "text": "Оплата на рахунок ФОП. Сума: 2100 грн"},
             ]
         )
@@ -91,9 +92,9 @@ class IgPaymentReviewRulesTests(SimpleTestCase):
         ])
         self.assertEqual(
             [(item["url"], item["role"]) for item in result["media"]],
-            [("https://cdn/product.jpg", "product"), ("https://cdn/receipt.jpg", "receipt")],
+            [("https://cdn/product.jpg", "product"), ("https://cdn/receipt.jpg", "payment_candidate")],
         )
-        self.assertEqual(result["evidence"][0]["media"][0]["role"], "receipt")
+        self.assertEqual(result["evidence"][0]["media"][0]["role"], "payment_candidate")
 
     @patch("management.services.ig_payment_review._raw_media_by_mid", return_value={
         "mid-product": [{"url": "https://cdn/product.jpg", "type": "ig_post", "raw_event_id": 437}],
@@ -139,6 +140,23 @@ class IgPaymentReviewRulesTests(SimpleTestCase):
             "office": "Поштомат 21586",
         })
 
+    def test_customer_prepayment_context_is_bounded_to_the_next_unlabelled_image(self):
+        from management.services.ig_payment_review import extract_payment_review_evidence
+
+        result = extract_payment_review_evidence([
+            {"id": 1, "role": "user", "text": "По повній передоплаті"},
+            {"id": 2, "role": "user", "text": "Добре"},
+            {
+                "id": 3,
+                "role": "user",
+                "text": "(зображення)",
+                "attachments": '["https://cdn.example/later-product.jpg"]',
+            },
+        ])
+
+        self.assertFalse(result["needs_review"])
+        self.assertEqual(result["media"][0]["role"], "other")
+
     def test_delivery_parser_ignores_short_followup_and_reads_slash_separated_name(self):
         from management.services.ig_payment_review import extract_payment_review_evidence
 
@@ -179,6 +197,55 @@ class IgPaymentReviewRulesTests(SimpleTestCase):
         self.assertIn("management.twocomms.shop/bot/", text)
         self.assertNotIn("ціна сайту", text)
 
+    def test_single_line_conversation_total_prefills_negotiated_unit_price(self):
+        from management.services.ig_payment_review import extract_payment_review_evidence
+
+        result = extract_payment_review_evidence([
+            {"id": 1, "role": "user", "text": "Беру базову S за 790 грн"},
+            {"id": 2, "role": "user", "text": "Я вже оплатила, ось чек", "attachments": "receipt.jpg"},
+        ])
+        self.assertEqual(result["order_draft"]["items"][0]["unit_price"], "790.00")
+
+    def test_multi_line_total_requires_manual_price_allocation(self):
+        from management.services.ig_payment_review import extract_payment_review_evidence
+
+        result = extract_payment_review_evidence([
+            {"id": 1, "role": "user", "text": "Базова S та oversize XS, разом 2100 грн"},
+            {"id": 2, "role": "user", "text": "Я вже оплатила, ось чек", "attachments": "receipt.jpg"},
+        ])
+        self.assertIn("conversation_price_allocation_required", result["order_draft"]["uncertainty_reasons"])
+
+    def test_prepaid_receipt_amount_does_not_replace_agreed_order_total(self):
+        from management.services.ig_payment_review import extract_payment_review_evidence
+
+        result = extract_payment_review_evidence([
+            {"id": 1, "role": "user", "text": "Базова S та oversize XS"},
+            {"id": 2, "role": "manager", "text": "Сума замовлення разом 2100 грн"},
+            {"id": 3, "role": "user", "text": "Так, погоджуюсь"},
+            {"id": 4, "role": "user", "text": "Оплатила передоплату 200 грн, ось чек", "attachments": "receipt.jpg"},
+        ])
+        self.assertEqual(result["order_draft"]["quoted_total"], "2100")
+        self.assertEqual(
+            [(item["amount"], item["kind"]) for item in result["amount_evidence"]],
+            [("2100", "order_total"), ("200", "payment_evidence")],
+        )
+
+    def test_completed_transfer_amount_does_not_replace_agreed_order_total(self):
+        from management.services.ig_payment_review import extract_payment_review_evidence
+
+        result = extract_payment_review_evidence([
+            {"id": 1, "role": "manager", "text": "Ціна футболки 790 грн"},
+            {"id": 2, "role": "user", "text": "Так, оформлюйте"},
+            {"id": 3, "role": "user", "text": "Переказ зроблено, сума 200 грн"},
+        ])
+
+        self.assertTrue(result["needs_review"])
+        self.assertEqual(result["order_draft"]["quoted_total"], "790")
+        self.assertEqual(
+            [(item["amount"], item["kind"]) for item in result["amount_evidence"]],
+            [("790", "unit_price"), ("200", "payment_evidence")],
+        )
+
     def test_manager_alert_has_review_button_and_media_summary(self):
         from management.services.ig_payment_review import _alert_text, _review_keyboard
 
@@ -187,14 +254,19 @@ class IgPaymentReviewRulesTests(SimpleTestCase):
             evidence={
                 "order_draft": {"quoted_total": "2100", "items": [{"title": "Базова футболка", "size": "S", "qty": 1}]},
                 "media": [{"role": "product"}, {"role": "receipt"}],
-                "catalog_match": {"status": "matched", "title": "Футболка «Харків Вокзальна»", "confidence": 0.94},
+                "catalog_match": {"status": "matched", "title": "Футболка «Харків Вокзальна»", "confidence": 0.94, "url": "https://twocomms.shop/product/kharkiv/"},
             },
         )
         client = SimpleNamespace(display_name="Яна", username="yana", igsid="1735898131060065")
         text = _alert_text(review, client)
         self.assertIn("чеків 1", text)
         self.assertIn("Футболка «Харків Вокзальна»", text)
-        self.assertEqual(_review_keyboard(review)["inline_keyboard"][0][0]["text"], "Перейти до підтвердження")
+        keyboard = _review_keyboard(review)
+        self.assertEqual(keyboard["inline_keyboard"][0][0]["text"], "Підтвердити оплату")
+        self.assertEqual(keyboard["inline_keyboard"][0][0]["callback_data"], "igpay:confirm:42")
+        self.assertEqual(keyboard["inline_keyboard"][0][1]["callback_data"], "igpay:cancel:42")
+        self.assertEqual(keyboard["inline_keyboard"][1][0]["text"], "Відкрити перевірку")
+        self.assertEqual(keyboard["inline_keyboard"][2][0]["text"], "Товар: Футболка «Харків Вокзальна»")
 
     def test_customer_payment_statement_is_review_evidence_not_provider_paid(self):
         from management.services.ig_payment_review import extract_payment_review_evidence
@@ -238,3 +310,111 @@ class IgPaymentReviewRulesTests(SimpleTestCase):
         self.assertEqual(next_review_status("confirmed", "confirm"), "confirmed")
         self.assertEqual(next_review_status("confirmed", "cancel"), "cancelled")
         self.assertEqual(next_review_status("cancelled", "confirm"), "cancelled")
+
+
+class IgPaymentTelegramCallbackTests(TestCase):
+    @override_settings(MANAGEMENT_BASE_URL="https://management.example")
+    @patch.dict("os.environ", {"MANAGEMENT_TG_ADMIN_CHAT_ID": "777", "MANAGEMENT_TG_BOT_TOKEN": "token"}, clear=False)
+    @patch("management.views._tg_edit_message")
+    @patch("management.views._tg_answer_callback")
+    def test_confirm_button_confirms_review_without_management_second_click(self, answer, edit):
+        from management.ig_bot_models import IgPaymentConfirmationReview
+        from management.models import IgBotNotification, IgClient
+        from management.views import management_bot_webhook
+
+        client = IgClient.get_or_create_for_sender("telegram-review-client")
+        review = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            dedupe_key="telegram-review-callback",
+            evidence={"order_draft": {"quoted_total": "2100"}},
+        )
+        IgBotNotification.objects.create(
+            dedupe_key=review.dedupe_key,
+            event_type="payment_review",
+            payload={"text": "Review", "chat_id": "777", "media": []},
+            status=IgBotNotification.Status.SENT,
+            telegram_message_id="88",
+        )
+        request = RequestFactory().post(
+            "/management/telegram/webhook/token",
+            data=json.dumps({
+                "callback_query": {
+                    "id": "cb-1",
+                    "data": f"igpay:confirm:{review.pk}",
+                    "from": {"id": 777, "username": "owner"},
+                    "message": {"chat": {"id": 777, "type": "private"}, "message_id": 88, "text": "Review"},
+                }
+            }),
+            content_type="application/json",
+        )
+        response = management_bot_webhook(request, "token")
+        self.assertEqual(response.status_code, 200)
+        review.refresh_from_db()
+        self.assertEqual(review.status, IgPaymentConfirmationReview.Status.CONFIRMED)
+        answer.assert_called_once()
+        edit.assert_called_once()
+        self.assertIsNone(edit.call_args.kwargs["parse_mode"])
+        self.assertIn("ig_payment_review=", edit.call_args.kwargs["reply_markup"]["inline_keyboard"][0][0]["url"])
+
+    @patch.dict("os.environ", {"MANAGEMENT_TG_BOT_TOKEN": "token"}, clear=True)
+    @patch("management.views._tg_edit_message")
+    @patch("management.views._tg_answer_callback")
+    def test_callback_denies_when_admin_chat_allowlist_is_missing(self, answer, edit):
+        from management.views import management_bot_webhook
+
+        request = RequestFactory().post(
+            "/management/telegram/webhook/token",
+            data=json.dumps({
+                "callback_query": {
+                    "id": "cb-deny",
+                    "data": "igpay:confirm:1",
+                    "message": {"chat": {"id": 777}, "message_id": 88, "text": "Review"},
+                }
+            }),
+            content_type="application/json",
+        )
+        response = management_bot_webhook(request, "token")
+        self.assertEqual(response.status_code, 200)
+        answer.assert_called_once_with("token", "cb-deny", "Доступ не налаштовано")
+        edit.assert_not_called()
+
+    @override_settings(MANAGEMENT_BASE_URL="https://management.example")
+    @patch.dict("os.environ", {"MANAGEMENT_TG_ADMIN_CHAT_ID": "777", "MANAGEMENT_TG_BOT_TOKEN": "token"}, clear=False)
+    @patch("management.views._tg_edit_message")
+    @patch("management.views._tg_answer_callback")
+    def test_cancel_button_cancels_review_directly(self, answer, edit):
+        from management.ig_bot_models import IgPaymentConfirmationReview
+        from management.models import IgBotNotification, IgClient
+        from management.views import management_bot_webhook
+
+        client = IgClient.get_or_create_for_sender("telegram-cancel-client")
+        review = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            dedupe_key="telegram-review-cancel",
+            evidence={},
+        )
+        IgBotNotification.objects.create(
+            dedupe_key=review.dedupe_key,
+            event_type="payment_review",
+            payload={"text": "Review", "chat_id": "777", "media": []},
+            status=IgBotNotification.Status.SENT,
+            telegram_message_id="89",
+        )
+        request = RequestFactory().post(
+            "/management/telegram/webhook/token",
+            data=json.dumps({
+                "callback_query": {
+                    "id": "cb-cancel",
+                    "data": f"igpay:cancel:{review.pk}",
+                    "from": {"id": 777, "username": "owner"},
+                    "message": {"chat": {"id": 777, "type": "private"}, "message_id": 89, "text": "Review"},
+                }
+            }),
+            content_type="application/json",
+        )
+        response = management_bot_webhook(request, "token")
+        self.assertEqual(response.status_code, 200)
+        review.refresh_from_db()
+        self.assertEqual(review.status, IgPaymentConfirmationReview.Status.CANCELLED)
+        answer.assert_called_once()
+        edit.assert_called_once()

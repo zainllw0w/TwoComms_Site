@@ -568,7 +568,14 @@ def _record_analysis_snapshot(
     return snapshot
 
 
-def classify_message(client: IgClient, *, message: InstagramBotMessage | None = None, text: str | None = None, role: str = "") -> dict:
+def classify_message(
+    client: IgClient,
+    *,
+    message: InstagramBotMessage | None = None,
+    text: str | None = None,
+    role: str = "",
+    media_context: list[dict] | None = None,
+) -> dict:
     """Classify a single message and persist CRM state/signals.
 
     Returns a small dict for callers that need immediate routing decisions.
@@ -608,6 +615,36 @@ def classify_message(client: IgClient, *, message: InstagramBotMessage | None = 
         client.current_size = ctx["size"][:16]
     if ctx.get("color"):
         client.current_color = ctx["color"][:64]
+
+    # Media is an evidence axis, not a replacement for the text classifier.
+    # Keep bounded provenance in sales_context so a later high-reasoning pass
+    # can distinguish a product question, purchase candidate, receipt, and
+    # custom reference even while replies are paused.
+    media_context = [item for item in (media_context or []) if isinstance(item, dict)]
+    if media_context:
+        observations = sales_context.setdefault("_media_evidence", [])
+        if not isinstance(observations, list):
+            observations = []
+            sales_context["_media_evidence"] = observations
+        for item in media_context[:8]:
+            observation = {
+                "url": str(item.get("url") or "")[:1200],
+                "role": str(item.get("role") or "other")[:32],
+                "intent": str(item.get("intent") or "unknown")[:40],
+                "actionable": bool(item.get("actionable")),
+                "payment_evidence": bool(item.get("payment_evidence")),
+                "catalog_match_allowed": bool(item.get("catalog_match_allowed")),
+                "source_message_id": getattr(message, "pk", None),
+                "observed_at": timezone.now().isoformat(),
+            }
+            if observation["url"] and not any(
+                row.get("url") == observation["url"]
+                and row.get("source_message_id") == observation["source_message_id"]
+                for row in observations
+                if isinstance(row, dict)
+            ):
+                observations.append(observation)
+        del observations[:-40]
 
     def add(sig: str, *, conf: float = 0.9, value: str = ""):
         signals.append(sig)
@@ -650,11 +687,27 @@ def classify_message(client: IgClient, *, message: InstagramBotMessage | None = 
         client.paused_at = client.paused_at or opted_out_at
 
     commercially_actionable = not is_manager and not reaction_only and not no_buy and not opt_out
-    if commercially_actionable and CUSTOM_RE.search(low):
+    media_intents = {str(item.get("intent") or "") for item in media_context}
+    media_roles = {str(item.get("role") or "") for item in media_context}
+    if commercially_actionable and "custom_print_request" in media_intents:
+        intent = IgClient.Intent.CUSTOM_PRINT
+        readiness += 25
+        add(IgConversationSignal.Type.CUSTOM_PRINT, conf=0.85, value="media")
+    elif commercially_actionable and "payment_evidence" in media_intents:
+        # A receipt is a manager-review signal only; provider truth remains
+        # pending until the payment ledger confirms it.
+        intent = IgClient.Intent.PAYMENT
+        readiness += 30
+        add(IgConversationSignal.Type.CHECKOUT_STARTED, conf=0.8, value="media_receipt")
+    elif commercially_actionable and "product" in media_roles:
+        intent = IgClient.Intent.PRODUCT
+        readiness += 25 if "purchase_candidate" in media_intents else 10
+        add(IgConversationSignal.Type.PRODUCT_INTEREST, conf=0.85, value="media")
+    if commercially_actionable and CUSTOM_RE.search(low) and "custom_print_request" not in media_intents:
         intent = IgClient.Intent.CUSTOM_PRINT
         readiness += 30
         add(IgConversationSignal.Type.CUSTOM_PRINT, conf=0.9)
-    elif commercially_actionable and (PAYMENT_RE.search(low) or PHONE_RE.search(low)):
+    elif commercially_actionable and (PAYMENT_RE.search(low) or PHONE_RE.search(low)) and "payment_evidence" not in media_intents:
         intent = IgClient.Intent.PAYMENT
         readiness += 40
         add(IgConversationSignal.Type.CHECKOUT_STARTED, conf=0.8)
@@ -664,7 +717,7 @@ def classify_message(client: IgClient, *, message: InstagramBotMessage | None = 
     elif commercially_actionable and PRICE_RE.search(low):
         intent = IgClient.Intent.PRICE
         readiness += 20
-    elif commercially_actionable and PRODUCT_RE.search(low):
+    elif commercially_actionable and PRODUCT_RE.search(low) and "product" not in media_roles:
         intent = IgClient.Intent.PRODUCT
         readiness += 10
         add(IgConversationSignal.Type.PRODUCT_INTEREST, conf=0.75)
@@ -744,6 +797,7 @@ def classify_message(client: IgClient, *, message: InstagramBotMessage | None = 
         "no_buy": no_buy,
         "opt_out": opt_out,
         "sales_context": sales_context,
+        "media_context": media_context,
     }
     project_observed_stage(
         client,
@@ -760,7 +814,35 @@ def classify_message(client: IgClient, *, message: InstagramBotMessage | None = 
         try:
             from management.services.ig_payment_review import create_payment_review
 
-            create_payment_review(client, watermark=message.pk)
+            review = create_payment_review(client, watermark=message.pk)
+            evidence = review.evidence if review and isinstance(review.evidence, dict) else {}
+            catalog_match = evidence.get("catalog_match") if isinstance(evidence.get("catalog_match"), dict) else {}
+            if catalog_match.get("status") == "matched":
+                match = {
+                    "product_id": catalog_match.get("product_id"),
+                    "confidence": catalog_match.get("confidence", 0),
+                }
+                sales_context["_media_catalog_match"] = {
+                    "product_id": catalog_match.get("product_id"),
+                    "title": str(catalog_match.get("title") or "")[:255],
+                    "confidence": catalog_match.get("confidence", 0),
+                    "source_message_ids": catalog_match.get("source_message_ids") or [message.pk],
+                    "observed_at": timezone.now().isoformat(),
+                }
+                client.sales_context = sales_context
+                client.save(update_fields=["sales_context", "updated_at"])
+                try:
+                    from management.services import bot_orders
+
+                    if any(
+                        item.get("role") == "product"
+                        and item.get("intent") == "purchase_candidate"
+                        and item.get("catalog_match_allowed") is True
+                        for item in media_context
+                    ):
+                        bot_orders.pin_product(client, match["product_id"])
+                except Exception:
+                    pass
         except Exception:
             # Payment review is an operational alert; it must never block
             # message persistence or the reply boundary.

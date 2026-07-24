@@ -342,6 +342,27 @@ class ConversationAnalysisProviderPolicyTests(SimpleTestCase):
             call_ai_analysis.MANAGEMENT_TEXT_DEADLINE_SECONDS,
         )
 
+    @patch("management.services.call_ai_analysis._run_with_pool")
+    def test_inline_images_are_adjacent_to_explicit_message_bindings(self, run):
+        from management.services import call_ai_analysis
+
+        run.return_value = {"parsed": {}}
+        call_ai_analysis.gemini_generate_json(
+            "system",
+            "user",
+            images=[("image/jpeg", b"first"), ("image/png", b"second")],
+            image_labels=[
+                {"inline_image_index": 0, "message_id": 101, "media_index": 0},
+                {"inline_image_index": 1, "message_id": 202, "media_index": 1},
+            ],
+        )
+
+        parts = run.call_args.args[1]["contents"][0]["parts"]
+        self.assertEqual(parts[1]["text"], "INLINE_IMAGE index=0 message_id=101 media_index=0")
+        self.assertEqual(parts[2]["inline_data"]["mime_type"], "image/jpeg")
+        self.assertEqual(parts[3]["text"], "INLINE_IMAGE index=1 message_id=202 media_index=1")
+        self.assertEqual(parts[4]["inline_data"]["mime_type"], "image/png")
+
 
 class ConversationAnalysisJobTests(TestCase):
     def setUp(self):

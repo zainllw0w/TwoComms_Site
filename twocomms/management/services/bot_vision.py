@@ -31,6 +31,17 @@ FINGERPRINT_INSTRUCTION = (
 )
 
 MAX_FP_IMAGES = 2
+MAX_MEDIA_ROLE_IMAGES = 8
+MEDIA_ROLE_INSTRUCTION = (
+    "Класифікуй кожне зображення лише за його видимим вмістом для внутрішньої CRM. "
+    "Допустимі ролі: receipt (банківський чек, квитанція або екран успішного переказу), "
+    "product (товар, картка товару, пост або одяг), custom_reference (референс бажаного "
+    "кастомного принта), other (усе інше або недостатньо даних). Не роби висновок paid. "
+    "Поверни тільки JSON: "
+    '{"items":[{"source_image_index":0,"role":"receipt|product|custom_reference|other",'
+    '"confidence":0.0,"reason":"коротка видима ознака"}]}. '
+    "Один елемент на кожне вхідне зображення, індекси від 0."
+)
 
 
 def build_fingerprint_payload(images: list[tuple[str, bytes]]) -> dict:
@@ -88,6 +99,66 @@ def describe_images(images: list[tuple[str, bytes]] | None) -> dict | None:
     except Exception:
         return None
     return _parse_fingerprint(out.get("parsed") or "")
+
+
+def classify_media_roles(images: list[tuple[str, bytes]] | None) -> list[dict]:
+    """Classify visual evidence without inferring provider payment truth."""
+    if not images:
+        return []
+    parts: list[dict] = [{"text": MEDIA_ROLE_INSTRUCTION}]
+    usable_count = 0
+    for mime, raw in images[:MAX_MEDIA_ROLE_IMAGES]:
+        try:
+            encoded = base64.b64encode(raw).decode()
+        except Exception:
+            continue
+        parts.append({"inline_data": {"mime_type": str(mime or "image/jpeg"), "data": encoded}})
+        usable_count += 1
+    if not usable_count:
+        return []
+    payload = {
+        "contents": [{"role": "user", "parts": parts}],
+        "generationConfig": {
+            "temperature": 0.1,
+            "maxOutputTokens": 4096,
+            "responseMimeType": "application/json",
+        },
+    }
+    try:
+        out = gemini_generate_text(payload, role="management", reasoning_task="media_analysis")
+    except Exception:
+        return []
+    data = _parse_fingerprint(out.get("parsed") or "")
+    raw_items = data.get("items") if isinstance(data.get("items"), list) else []
+    allowed_roles = {"receipt", "product", "custom_reference", "other"}
+    result = []
+    seen_indexes = set()
+    for raw_item in raw_items:
+        if not isinstance(raw_item, dict):
+            continue
+        try:
+            image_index = int(raw_item.get("source_image_index"))
+            confidence = float(raw_item.get("confidence") or 0)
+        except (TypeError, ValueError):
+            continue
+        role = str(raw_item.get("role") or "").strip().casefold()
+        if (
+            image_index < 0
+            or image_index >= usable_count
+            or image_index in seen_indexes
+            or role not in allowed_roles
+            or confidence < 0
+            or confidence > 1
+        ):
+            continue
+        seen_indexes.add(image_index)
+        result.append({
+            "source_image_index": image_index,
+            "role": role,
+            "confidence": confidence,
+            "reason": str(raw_item.get("reason") or "")[:300],
+        })
+    return sorted(result, key=lambda item: item["source_image_index"])
 
 
 def store_fingerprint(variant, fp: dict) -> None:
@@ -171,6 +242,7 @@ def fingerprint_product(product, force: bool = False) -> int:
 # ---------------------------------------------------------------------------
 MATCH_THRESHOLD = 0.6  # поріг впевненості для автоматичної відповіді з ціною
 MATCH_CANDIDATES_LIMIT = 60
+MAX_MATCH_IMAGES = 8
 
 MATCH_INSTRUCTION = (
     "Клієнт прислав фото або переслав пост товару. Обери з КАНДИДАТІВ той товар, "
@@ -179,6 +251,16 @@ MATCH_INSTRUCTION = (
     '{"product_id": <id з кандидатів або null>, "confidence": <число 0..1>, '
     '"reason": "коротко чому"}. Якщо впевненого збігу немає — product_id:null, '
     "confidence:0. НЕ вигадуй товар, якого немає у списку кандидатів."
+)
+
+MATCH_MANY_INSTRUCTION = (
+    "На фото може бути один або кілька різних товарів TwoComms. Знайди ВСІ "
+    "впевнені збіги з КАНДИДАТАМИ, не об'єднуй різні принти в один SKU. "
+    "Поверни лише JSON без markdown: "
+    '{"matches":[{"product_id":<id>,"confidence":<0..1>,'
+    '"source_image_indexes":[<індекси фото від 0>],"reason":"коротко"}]}. '
+    "Один скриншот може містити два товари, тоді поверни два елементи з тим самим "
+    "індексом фото. Якщо збігу немає, поверни {\"matches\":[]}. Не вигадуй ID."
 )
 
 
@@ -230,7 +312,7 @@ def _format_candidates(candidates: list[dict]) -> str:
 def build_match_payload(images: list[tuple[str, bytes]], candidates: list[dict]) -> dict:
     text = MATCH_INSTRUCTION + "\n\nКАНДИДАТИ:\n" + _format_candidates(candidates)
     parts: list[dict] = [{"text": text}]
-    for mime, raw in images[:3]:
+    for mime, raw in images[:MAX_MATCH_IMAGES]:
         try:
             parts.append(
                 {"inline_data": {"mime_type": mime, "data": base64.b64encode(raw).decode()}}
@@ -245,6 +327,68 @@ def build_match_payload(images: list[tuple[str, bytes]], candidates: list[dict])
             "responseMimeType": "application/json",
         },
     }
+
+
+def build_match_many_payload(images: list[tuple[str, bytes]], candidates: list[dict]) -> dict:
+    payload = build_match_payload(images, candidates)
+    payload["contents"][0]["parts"][0]["text"] = (
+        MATCH_MANY_INSTRUCTION + "\n\nКАНДИДАТИ:\n" + _format_candidates(candidates)
+    )
+    return payload
+
+
+def match_many(
+    images: list[tuple[str, bytes]] | None,
+    candidates: list[dict] | None = None,
+) -> list[dict]:
+    """Return every validated catalog match, including two products in one image."""
+    if not images:
+        return []
+    if candidates is None:
+        candidates = build_match_candidates()
+    if not candidates:
+        return []
+    try:
+        out = gemini_generate_text(
+            build_match_many_payload(images, candidates),
+            role="management",
+            reasoning_task="catalog_match",
+        )
+    except Exception:
+        return []
+    data = _parse_fingerprint(out.get("parsed") or "")
+    raw_matches = data.get("matches") if isinstance(data.get("matches"), list) else []
+    valid_ids = {int(candidate["id"]) for candidate in candidates if candidate.get("id") is not None}
+    result = []
+    seen = set()
+    for raw in raw_matches[:12]:
+        if not isinstance(raw, dict):
+            continue
+        try:
+            product_id = int(raw.get("product_id"))
+            confidence = max(0.0, min(1.0, float(raw.get("confidence") or 0)))
+        except (TypeError, ValueError):
+            continue
+        if product_id not in valid_ids or product_id in seen or confidence < MATCH_THRESHOLD:
+            continue
+        indexes = []
+        for index in raw.get("source_image_indexes") or []:
+            try:
+                index = int(index)
+            except (TypeError, ValueError):
+                continue
+            if 0 <= index < len(images) and index not in indexes:
+                indexes.append(index)
+        if not indexes:
+            continue
+        result.append({
+            "product_id": product_id,
+            "confidence": confidence,
+            "source_image_indexes": indexes,
+            "reason": str(raw.get("reason") or "")[:300],
+        })
+        seen.add(product_id)
+    return result
 
 
 def match(images: list[tuple[str, bytes]] | None, candidates: list[dict] | None = None) -> dict:

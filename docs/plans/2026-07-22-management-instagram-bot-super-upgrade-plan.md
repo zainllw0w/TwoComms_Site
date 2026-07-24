@@ -945,7 +945,95 @@ The approved architecture is documented in `docs/plans/2026-07-23-management-ins
     - **Tests:** DB-free media-role and mismatched-mid recovery rules, notification `reply_markup` persistence, raw product/receipt regression for client `1735898131060065`, public media HTTP smoke, and production MariaDB rollback-only verifier with zero external customer/Meta transports.
     - **Implementation/evidence:** production SHA `700fc3ed` stores media audit `v3`, recovers raw events `415/437` to message `233`, persists two product images and one receipt, and matches product `111` (`Футболка «Харків Вокзальна»`), white variant `82`, confidence `0.98`; the review keeps `classic S ×1` and `oversize XS ×1`, negotiated total `2100 грн`, and catalog price `1090 грн` as separate facts. Telegram manager alert `#323` is `sent` with inline button `Перейти до підтвердження`; review remains `pending`, payment projections remain untouched, media returns HTTP 200, daemon/DB heartbeats are fresh, and notification/analysis queues are zero.
 
-- [x] **P1.B5c Replace the global long-held reply lock with a bounded two-level permission barrier.**
+  - [ ] **P0.B5aq Make image semantics and payment-link gating consistent across active and paused conversations.**
+    - **Symptom:** the customer-reply worker consumed only normalized attachments, so a raw `ig_post`/story image visible to payment-review could be absent from Gemini chat; ordinary screenshots were not separated into product questions, purchase candidates, custom-print references, receipts, or unrelated images; manager echo messages discarded media; a model phrase promising a payment link could reach deal creation without explicit purchase evidence.
+    - **Root cause:** raw-media recovery and role classification existed only inside payment-review, while `classify_message()` and `finalize_paylink()` had text-only/phrase-only contracts.
+    - **Risk:** the agent can miss the requested product, send a wrong catalog price, treat a receipt as a product or provider-paid fact, lose manager evidence, or create an invoice for a question instead of a purchase candidate.
+    - **Affected branches:** active customer Gemini input, paused/manager-led high-reasoning analysis, raw webhook joins, manager echo persistence, catalog vision, CRM sales context/signals, payment-link/deal creation, receipt alerts, and management evidence UI.
+    - **Acceptance:** exact-mid/timestamp raw-media recovery feeds active and paused analysis; deterministic roles are `product`, `receipt`, `custom_reference`, and `other` with intent/provenance; receipt media never reaches catalog matching; product questions preserve interest without purchase/order creation; explicit purchase candidates may proceed only with a validated product; custom/unknown images remain unresolved; manager media is durable; provider-paid stays false until payment-ledger truth.
+    - **Tests:** DB-free semantic-role, raw-recovery, manager-media, and payment-gate tests; focused customer/Gemini and payment-link suites; production MariaDB rollback-only paused/manager-led fixture with mocked Gemini/Meta/Monobank/Telegram transports and zero fixture residue.
+  - **Priority:** P0 — wrong product/payment classification can cause irreversible customer and financial actions.
+  - [ ] **P0.B5ar — Telegram payment-review action was navigation-only and evidence media was omitted.**
+    - **Symptom:** the alert button opened management, required a second click, and did not deliver the product/receipt images as separate Telegram evidence.
+    - **Root cause:** `_review_keyboard` emitted only a management URL and the notification outbox had no bounded media delivery contract or callback action.
+    - **Risk:** delayed or failed payment-review decisions; manager cannot verify the exact image evidence from Telegram; duplicate manual actions.
+    - **Affected branches:** `ig_payment_review` alert creation, management Telegram webhook callback, notification outbox delivery, payment-review UI.
+    - **Acceptance:** Telegram `Підтвердити оплату` callback confirms the review idempotently in one click, removes the action button, preserves provider-paid as separate truth, and sends bounded product/receipt media with role captions plus catalog URL; management review remains an editable audit fallback.
+    - **Tests:** callback webhook regression, notification media payload/delivery regression, keyboard contract, provider truth remains unverified after manual confirmation.
+    - **Priority:** P0.
+  - [ ] **P0.B5as — Telegram payment-review callback trusts the destination chat instead of the acting staff user and delivered review message.**
+    - **Symptom:** any member of an allowed group can press an `igpay:*` button; `callback_query.from.id` may resolve to no staff actor; a callback from the wrong bot/message can still decide a review; replay/opposite actions overwrite `telegram_decision`; conversely, a valid one-click decision fails while product/receipt photos are still being delivered because the main Telegram message ID is stored in the payload before the final notification field is populated.
+    - **Root cause:** the webhook historically validated only `message.chat.id`, accepted both management bot tokens, did not bind the callback to the main payment-review message, coupled the financial decision to slower per-photo delivery state, and wrote audit metadata after the monotonic state helper without knowing whether this callback actually won the transition.
+    - **Risk:** unauthorized or unaudited payment confirmation, contradictory audit history, failed legitimate manager decisions, and permanent loss of retry for undelivered receipt evidence.
+    - **Affected branches:** management Telegram webhook, `IgPaymentConfirmationReview`, notification outbox, media retry, manual-order handoff.
+    - **Acceptance:** `igpay:*` accepts only the dedicated admin bot token, the configured destination chat, and either its exact private-chat owner or an explicitly configured/staff-bound group actor; callback is bound to the exact main payment-review message using its persisted main-delivery ID even while media delivery is still running; product/receipt media failures never block the decision and keep their independent retry/audit state; one atomic pending-to-terminal transition writes immutable actor/audit metadata; replay/opposite callbacks are no-ops.
+    - **Tests:** unauthorized group member, wrong bot token, wrong message ID, main alert actionable during media `sending`, failed/unknown media remains independently retryable, same-action replay, opposite-action replay, and successful private-owner/staff-bound callbacks.
+    - **Priority:** P0 — this action changes financial workflow state.
+  - [ ] **P0.B5at — payment-review and paylink price extraction mix order price with receipt/prepayment amounts.**
+    - **Symptom:** a later `Оплатила передоплату 200 грн` can replace the agreed order total or validate `[PRICE:200]`; when Gemini omits `[PRICE]`, an accepted manager price can be ignored and an invoice can reuse catalog/stale pricing.
+    - **Root cause:** amount extraction uses the last currency amount across the whole transcript and the validator treats payment verbs as commercial-offer anchors without product/quantity semantics.
+    - **Risk:** wrong invoice amount, wrong manual-order line price, false revenue, and reuse of an invoice created for an obsolete agreement.
+    - **Affected branches:** control-tag validation, paylink finalization, deal reuse, payment-review draft, manager prefill.
+    - **Acceptance:** commercial offer/order total, per-line price, prepayment amount, receipt amount, and provider-paid amount are separate typed evidence; only the latest customer-accepted commercial offer may override catalog price; omitted `[PRICE]` still uses that validated offer; ambiguous multi-line totals remain manual allocation; stale invoice reuse is rejected.
+    - **Tests:** agreed `790` followed by `200` prepayment, omitted `[PRICE]`, superseded offer, multi-line allocation, and stale invoice.
+    - **Priority:** P0 — incorrect money is irreversible customer harm.
+  - [ ] **P0.B5au — high-reasoning media analysis has no explicit inline-image-to-message binding.**
+    - **Symptom:** the transcript contains message-level media metadata, but downloaded images are appended to Gemini as an unlabeled flat list; the model cannot prove which inline image belongs to which `message_id` or media item.
+    - **Root cause:** `gemini_generate_json(images=...)` appends bare `inline_data` parts and `_process_claim()` drops the source mapping after download/deduplication.
+    - **Risk:** a receipt can be attributed to a product message, two products can swap lines, or CRM evidence can cite the wrong moment even when the image analysis itself is accurate.
+    - **Affected branches:** paused/manager-led reanalysis, media role inference, catalog/product memory, payment review, evidence UI.
+    - **Acceptance:** every successfully downloaded inline image has a stable bounded index and explicit `message_id`/media index label adjacent to the image part; the same binding is present in the structured analysis input; failed downloads never leave phantom indexes; prompt version changes.
+    - **Tests:** payload part ordering/binding, failed-download index compaction, duplicate URL handling, and two-message/two-image mapping.
+    - **Priority:** P0 — evidence provenance is a prerequisite for product/payment decisions.
+  - [ ] **P0.B5av — vision-reclassified product/custom media still opens a payment review.**
+    - **Symptom:** an unlabelled image after a request for a receipt is provisionally marked `payment_candidate`; when vision later proves that it is a product, custom reference, or other image, the already-computed payment evidence still creates a Telegram confirmation request.
+    - **Root cause:** `needs_review` and evidence message IDs are computed before vision role resolution and are not recomputed from the resolved media roles.
+    - **Risk:** managers can confirm a payment that has no receipt or customer payment statement, and product screenshots can enter the financial workflow.
+    - **Affected branches:** media-role resolution, payment-review creation/dedupe, Telegram outbox, management review UI, and manual-order handoff.
+    - **Acceptance:** only resolved `receipt` or still-unresolved `payment_candidate` media can support an image-only payment review; resolved `product`, `custom_reference`, and `other` media are removed from payment evidence; a separate explicit customer payment statement remains independently actionable.
+    - **Tests:** image-only product/custom/other reclassification, low-confidence unresolved candidate, explicit payment statement plus product image, and no notification/order/provider calls for a rejected false review.
+    - **Priority:** P0 — false payment evidence can cause an irreversible order decision.
+  - [ ] **P0.B5aw — AI/model messages can authorize negotiated prices.**
+    - **Symptom:** a customer can propose an arbitrary amount and a Gemini/model reply such as `Так, оформлюємо` can make that amount invoice-authoritative; the model can also originate an amount that a customer accepts.
+    - **Root cause:** conversation-price extraction treats `model`, `bot`, and `assistant` roles as seller authority instead of distinguishing human manager authority from generated text.
+    - **Risk:** prompt injection or a model mistake can create an underpriced invoice/order and corrupt revenue truth.
+    - **Affected branches:** negotiated-price evidence, control-tag validation, paylink creation, payment-review draft, deal reuse, and manager prefill.
+    - **Acceptance:** only a human manager message, or a separately versioned deterministic discount policy with durable authorization evidence, may originate or accept a price override; AI text remains conversational evidence only and cannot authorize money.
+    - **Tests:** customer counteroffer plus model acceptance, model offer plus customer acceptance, manager offer plus immediate customer acceptance, and customer counteroffer plus immediate manager acceptance.
+    - **Priority:** P0 — AI must never be the authority for money.
+  - [ ] **P0.B5ax — accepted prices are not bound to a stable product epoch.**
+    - **Symptom:** an accepted amount for one product can be reused after the customer switches to another product without saying the narrow words currently recognised as a switch.
+    - **Root cause:** `_conversation_price_evidence()` does not bind its evidence to a stable product ID/message epoch; `_conversation_price_decision()` appends the currently selected product ID only after resolving a global transcript price.
+    - **Risk:** the correct product can receive the wrong negotiated price or an obsolete invoice can be reused.
+    - **Affected branches:** product resolution, media/catalog binding, negotiated-price validation, paylink/deal reuse, and payment-review draft.
+    - **Acceptance:** accepted price evidence stores/proves the same stable product as the invoice/order candidate; any later explicit or unresolved product selection starts a new product epoch and fails closed until price authorization for that epoch is proven.
+    - **Tests:** named product A offer/acceptance then named product B selection, product-image switch, same-product continuation, ambiguous switch, and stable-ID match.
+    - **Priority:** P0 — product and price are one financial contract.
+  - [ ] **P0.B5ay — payment-review draft trusts unaccepted textual amounts.**
+    - **Symptom:** a customer counteroffer or an unaccepted manager offer can become the single-line manual-order unit price when a receipt/payment review is created.
+    - **Root cause:** payment-review draft picks the latest textual `order_total`/`unit_price` without applying the same human-authority, acceptance, product-epoch, and allocation contract as paylink creation.
+    - **Risk:** confirming evidence can prefill an unauthorized order price even when automated paylink creation correctly fails closed.
+    - **Affected branches:** payment evidence extraction, order draft, Telegram alert, management review UI, and manual-order prefill.
+    - **Acceptance:** manual-review negotiated price uses the shared validated price decision; unaccepted/counteroffer/ambiguous amounts remain visible as evidence but never prefill a line price; multi-line totals require manual allocation.
+    - **Tests:** customer `за 20 грн` plus receipt, unaccepted manager offer, accepted manager offer, accepted customer counteroffer by manager, payment amount after accepted order total, and multi-line ambiguity.
+    - **Priority:** P0 — the manual path must enforce the same money boundary as the automated path.
+  - [ ] **P0.B5az — payment reviews can bind unrelated historical deals.**
+    - **Symptom:** a new IBAN/receipt episode is attached to the client's latest deal even when that deal is paid, ordered, closed, for another product, or predates the evidence.
+    - **Root cause:** review creation uses `client.deals.order_by('-id').first()` without current/open/product/time/evidence checks; manual order creation then reuses or mutates that stale deal.
+    - **Risk:** the manager is redirected to an old order, a new order is linked to the wrong deal, or fulfillment/payment attribution crosses purchases.
+    - **Affected branches:** payment-review creation, deal/order identity, manual-order idempotency, fulfillment state, and Purchase attribution.
+    - **Acceptance:** a review binds only to a proven current compatible open deal created for the same product/payment episode; otherwise `deal` stays null and review-level order idempotency is used; terminal, ordered, provider-paid, stale, or product-conflicting deals are rejected.
+    - **Tests:** prior completed deal plus new purchase, paid open deal, same current unpaid deal, conflicting products, stale timestamp, and repeated review/order submission.
+    - **Priority:** P0 — cross-order identity errors corrupt both payment and fulfillment truth.
+  - [ ] **P0.B5ba — losing concurrent Telegram callback can write a false decision audit.**
+    - **Symptom:** confirm and cancel can both read `pending`; after one wins the row lock, the loser can still attach its opposite `telegram_decision` or resolve/edit the notification inconsistently.
+    - **Root cause:** pending precheck and callback audit metadata are split across transactions, and the webhook historically inferred success from terminal status rather than an atomic applied/not-applied result.
+    - **Risk:** the audit can claim `cancel` for a confirmed review or vice versa, hiding who performed the actual financial workflow decision.
+    - **Affected branches:** Telegram webhook, review transition, notification resolution/edit, actor audit, replay handling, and manual-order handoff.
+    - **Acceptance:** one row-locked compare-and-transition atomically writes the winning action and immutable audit; the loser receives a no-op result and cannot change review evidence, notification state, or Telegram message; same-action replay is also a no-op.
+    - **Tests:** confirm wins/cancel loses, cancel wins/confirm loses, same-action replay, immutable decision metadata, and notification edit/resolve only for the winner.
+    - **Priority:** P0 — financial operator audit must match the committed transition.
+  - [x] **P1.B5c Replace the global long-held reply lock with a bounded two-level permission barrier.**
   - **Priority:** P1 — correctness is currently fail-closed, but latency and operator availability degrade under slow AI/provider calls.
   - **Symptom:** unrelated clients are serialized, while global stop, client pause, or manager takeover can wait for the full Gemini/Meta timeout before returning.
   - **Root cause:** one process-wide exclusive `flock` is held across conversation generation and external provider I/O in order to guarantee that no reply crosses a stop/pause boundary.

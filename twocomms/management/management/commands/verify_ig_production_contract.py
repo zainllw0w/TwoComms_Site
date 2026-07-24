@@ -11,6 +11,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, transaction
 from django.utils import timezone
 
+from management.ig_bot_models import IgClient, IgPaymentConfirmationReview
 from management.models import IgBotNotification
 from management.services import instagram_bot as bot
 from management.services.ig_maintenance import maintenance_status
@@ -71,6 +72,7 @@ def _run_rollback_fixtures() -> dict:
     outer = transaction.atomic()
     outer.__enter__()
     try:
+        payment_review_contract = _run_payment_review_contract(prefix)
         sent = IgBotNotification.objects.create(
             id=fixture_ids[0],
             dedupe_key=prefix + "sent",
@@ -129,6 +131,7 @@ def _run_rollback_fixtures() -> dict:
             "dead": {"status": dead.status, "attempts": dead.attempts},
             "transport": "mocked_no_network",
             "mid_fixture_failure_rollback": failure_rollback,
+            "payment_review": payment_review_contract,
         }
         if result != {
             "sent": {"status": IgBotNotification.Status.SENT, "attempts": 1},
@@ -136,6 +139,11 @@ def _run_rollback_fixtures() -> dict:
             "dead": {"status": IgBotNotification.Status.DEAD_LETTER, "attempts": 5},
             "transport": "mocked_no_network",
             "mid_fixture_failure_rollback": "proven",
+            "payment_review": {
+                "false_media_review": "suppressed",
+                "callback_race": "proven",
+                "provider_truth": "untouched",
+            },
         }:
             raise CommandError(f"rollback fixture contract failed: {result!r}")
         return result
@@ -164,6 +172,125 @@ def _notification_auto_increment():
     if not row:
         raise CommandError(f"notification table not found: {table_name}")
     return row[0]
+
+
+def _run_payment_review_contract(prefix: str) -> dict:
+    """Exercise payment-review boundaries inside the surrounding rollback."""
+    from django.test import RequestFactory
+    from management.services.ig_payment_review import create_payment_review
+    from management.views import management_bot_webhook
+
+    client_id = -int(uuid.uuid4().int % 1_000_000_000) - 100
+    review_id = -int(uuid.uuid4().int % 1_000_000_000) - 101
+    notification_id = -int(uuid.uuid4().int % 1_000_000_000) - 102
+    client = IgClient.objects.create(
+        id=client_id,
+        igsid=prefix + "payment-client",
+        username="rollback-contract",
+        display_name="Rollback contract",
+    )
+    messages = [
+        {"id": 1, "role": "user", "text": "Беру базову S"},
+        {"id": 2, "role": "manager", "text": "Оплата на IBAN, надішліть чек"},
+        {
+            "id": 3,
+            "role": "user",
+            "text": "",
+            "attachments": '["https://cdn.invalid/product.jpg"]',
+        },
+    ]
+    resolved_media = [{
+        "url": "https://cdn.invalid/product.jpg",
+        "message_id": 3,
+        "role": "product",
+        "intent": "interest",
+        "payment_evidence": False,
+        "catalog_match_allowed": True,
+    }]
+    with (
+        patch("management.services.ig_payment_review._resolve_payment_media_candidates", return_value=resolved_media),
+        patch("management.services.ig_payment_review._persist_review_media", return_value=resolved_media),
+        patch("management.services.ig_payment_review._catalog_matches_for_media", return_value=[]),
+        patch("management.services.instagram_bot.notify_manager") as notify,
+    ):
+        false_review = create_payment_review(client, messages=messages)
+    if false_review is not None or notify.called:
+        raise CommandError("vision-reclassified product image created a payment review")
+
+    review = IgPaymentConfirmationReview.objects.create(
+        id=review_id,
+        client=client,
+        dedupe_key=prefix + "callback-review",
+        evidence={"provider_truth": "unverified"},
+    )
+    notification = IgBotNotification.objects.create(
+        id=notification_id,
+        dedupe_key=review.dedupe_key,
+        event_type="payment_review",
+        status=IgBotNotification.Status.SENDING,
+        telegram_message_id="88001",
+        payload={
+            "chat_id": "123",
+            "main_delivery_message_id": "88001",
+            "media": [{"delivery_status": "sending"}],
+        },
+    )
+    request_factory = RequestFactory()
+
+    def callback_request(action: str, callback_id: str):
+        return request_factory.post(
+            "/management/telegram/webhook/no-network-contract-token",
+            data=json.dumps({
+                "callback_query": {
+                    "id": callback_id,
+                    "data": f"igpay:{action}:{review.pk}",
+                    "from": {"id": 123, "username": "rollback-contract"},
+                    "message": {
+                        "chat": {"id": 123, "type": "private"},
+                        "message_id": 88001,
+                        "text": "Rollback payment review",
+                    },
+                }
+            }),
+            content_type="application/json",
+        )
+
+    environment = {
+        "MANAGEMENT_TG_BOT_TOKEN": "no-network-contract-token",
+        "MANAGEMENT_TG_ADMIN_CHAT_ID": "123",
+    }
+    with (
+        patch.dict("os.environ", environment, clear=False),
+        patch("management.views._tg_answer_callback") as answer,
+        patch("management.views._tg_edit_message") as edit,
+    ):
+        winner_response = management_bot_webhook(
+            callback_request("confirm", "rollback-confirm"),
+            "no-network-contract-token",
+        )
+        loser_response = management_bot_webhook(
+            callback_request("cancel", "rollback-cancel"),
+            "no-network-contract-token",
+        )
+    if winner_response.status_code != 200 or loser_response.status_code != 200:
+        raise CommandError("payment-review webhook callback failed")
+    if edit.call_count != 1 or answer.call_count != 2:
+        raise CommandError("payment-review callback did not preserve one winning edit")
+    review.refresh_from_db()
+    if review.status != IgPaymentConfirmationReview.Status.CONFIRMED:
+        raise CommandError("payment-review callback winner was not persisted")
+    if review.evidence.get("telegram_decision", {}).get("action") != "confirm":
+        raise CommandError("losing payment-review callback overwrote audit")
+    notification.refresh_from_db()
+    if notification.telegram_message_id != "88001":
+        raise CommandError("payment-review notification binding changed")
+    if IgPaymentConfirmationReview.objects.filter(pk=review_id).count() != 1:
+        raise CommandError("payment-review fixture identity check failed")
+    return {
+        "false_media_review": "suppressed",
+        "callback_race": "proven",
+        "provider_truth": "untouched",
+    }
 
 
 def _prove_mid_fixture_failure_rollback(

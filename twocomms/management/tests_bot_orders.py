@@ -127,3 +127,139 @@ class CreateDealAndLinkTests(TestCase):
         self.assertIsNotNone(deal)
         self.assertEqual(deal.items.count(), 1)
         self.assertEqual(deal.amount, Decimal("950"))
+
+    @patch("management.services.bot_orders.create_payment_link")
+    def test_uses_validated_conversation_price_instead_of_catalog_price(self, mock_link):
+        mock_link.return_value = {"ok": True, "invoice_url": "https://pay/negotiated", "invoice_id": "negotiated"}
+        from storefront.models import Category, Product, ProductStatus
+
+        cat = Category.objects.create(name="Футболки", slug="tees-negotiated")
+        p = Product.objects.create(title="Футболка Kharkiv", slug="kharkiv-negotiated", category=cat, price=950, status=ProductStatus.PUBLISHED)
+        c = IgClient.get_or_create_for_sender("negotiated-price")
+        InstagramBotMessage.objects.create(
+            sender_id="negotiated-price", client=c, role="manager",
+            text="Можу оформити цю футболку за 2100 грн",
+        )
+        InstagramBotMessage.objects.create(
+            sender_id="negotiated-price", client=c, role="user",
+            text="Так, оформлюйте",
+        )
+        res = bot_orders.create_deal_and_link(
+            c, pay_type="full", product_id=p.id, size="M", negotiated_price=Decimal("2100")
+        )
+        self.assertTrue(res["ok"])
+        deal = IgDeal.objects.filter(client=c).first()
+        self.assertEqual(deal.items.first().unit_price, Decimal("2100.00"))
+        self.assertEqual(deal.amount, Decimal("2100.00"))
+
+    @patch("management.services.bot_orders.create_payment_link")
+    def test_rejects_stale_price_when_later_offer_has_different_total(self, mock_link):
+        from storefront.models import Category, Product, ProductStatus
+
+        cat = Category.objects.create(name="Футболки", slug="tees-stale-negotiated")
+        product = Product.objects.create(
+            title="Футболка Kharkiv", slug="kharkiv-stale-negotiated",
+            category=cat, price=950, status=ProductStatus.PUBLISHED,
+        )
+        client = IgClient.get_or_create_for_sender("stale-negotiated-price")
+        InstagramBotMessage.objects.create(
+            sender_id=client.igsid, client=client, role="user",
+            text="Стара розмова: беру за 700 грн",
+        )
+        InstagramBotMessage.objects.create(
+            sender_id=client.igsid, client=client, role="manager",
+            text="Актуальна сума разом 900 грн",
+        )
+        InstagramBotMessage.objects.create(
+            sender_id=client.igsid, client=client, role="user",
+            text="Так, оформлюйте",
+        )
+        result = bot_orders.create_deal_and_link(
+            client, pay_type="full", product_id=product.pk,
+            negotiated_price=Decimal("700"),
+        )
+        self.assertEqual(result, {"ok": False, "error": "invalid_negotiated_price"})
+        mock_link.assert_not_called()
+
+    @patch("management.services.bot_orders.create_payment_link")
+    def test_prepayment_amount_never_becomes_merchandise_unit_price(self, mock_link):
+        mock_link.return_value = {"ok": True, "invoice_url": "https://pay/catalog", "invoice_id": "catalog"}
+        from storefront.models import Category, Product, ProductStatus
+
+        category = Category.objects.create(name="Футболки", slug="tees-prepayment-price")
+        product = Product.objects.create(
+            title="Футболка", slug="prepayment-is-not-price", category=category,
+            price=950, status=ProductStatus.PUBLISHED,
+        )
+        client = IgClient.get_or_create_for_sender("prepayment-is-not-price")
+        InstagramBotMessage.objects.create(
+            sender_id=client.igsid, client=client, role="user",
+            text="Оплатила передоплату 200 грн, ось чек",
+        )
+
+        result = bot_orders.create_deal_and_link(client, product_id=product.pk)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(IgDeal.objects.get(client=client).items.get().unit_price, Decimal("950.00"))
+
+    @patch("management.services.bot_orders.create_payment_link")
+    def test_accepted_manager_price_applies_without_model_price_tag(self, mock_link):
+        mock_link.return_value = {"ok": True, "invoice_url": "https://pay/offer", "invoice_id": "offer"}
+        from storefront.models import Category, Product, ProductStatus
+
+        category = Category.objects.create(name="Футболки", slug="tees-manager-offer")
+        product = Product.objects.create(
+            title="Футболка", slug="manager-offer", category=category,
+            price=950, status=ProductStatus.PUBLISHED,
+        )
+        client = IgClient.get_or_create_for_sender("manager-offer")
+        InstagramBotMessage.objects.create(
+            sender_id=client.igsid, client=client, role="manager",
+            text="Можу віддати за 790 грн",
+        )
+        InstagramBotMessage.objects.create(
+            sender_id=client.igsid, client=client, role="user",
+            text="Так, оформлюйте",
+        )
+
+        result = bot_orders.create_deal_and_link(client, product_id=product.pk)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(IgDeal.objects.get(client=client).items.get().unit_price, Decimal("790.00"))
+
+    @patch("management.services.bot_orders.create_payment_link")
+    def test_new_catalog_price_epoch_does_not_reuse_discounted_invoice(self, mock_link):
+        mock_link.return_value = {"ok": True, "invoice_url": "https://pay/new", "invoice_id": "new"}
+        from storefront.models import Category, Product, ProductStatus
+
+        category = Category.objects.create(name="Футболки", slug="tees-price-epoch")
+        product = Product.objects.create(
+            title="Футболка", slug="price-epoch", category=category,
+            price=950, status=ProductStatus.PUBLISHED,
+        )
+        client = IgClient.get_or_create_for_sender("price-epoch")
+        old_deal = IgDeal.objects.create(
+            client=client,
+            pay_type=IgDeal.PayType.ONLINE_FULL,
+            invoice_id="old-discount",
+            invoice_url="https://pay/old-discount",
+        )
+        IgDealItem.objects.create(
+            deal=old_deal, product=product, title=product.title,
+            qty=1, unit_price=Decimal("790.00"),
+        )
+        old_deal.recalc_total()
+        InstagramBotMessage.objects.create(
+            sender_id=client.igsid, client=client, role="manager",
+            text="Попередня знижка вже не діє, актуальна ціна 950 грн",
+        )
+        InstagramBotMessage.objects.create(
+            sender_id=client.igsid, client=client, role="user",
+            text="Добре, оформлюйте",
+        )
+
+        result = bot_orders.create_deal_and_link(client, product_id=product.pk)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(IgDeal.objects.filter(client=client).count(), 2)
+        self.assertEqual(IgDeal.objects.filter(client=client).order_by("-id").first().items.get().unit_price, Decimal("950.00"))

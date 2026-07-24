@@ -498,14 +498,15 @@ def bot_payment_reviews_api(request):
         return blocked
     from .ig_bot_models import IgPaymentConfirmationReview
 
-    rows = (
-        IgPaymentConfirmationReview.objects.filter(
-            status=IgPaymentConfirmationReview.Status.PENDING,
-            client__hidden_at__isnull=True,
-        )
-        .select_related("client", "deal")
-        .order_by("created_at", "id")[:100]
-    )
+    selected_id = (request.GET.get("id") or request.GET.get("payment_review") or "").strip()
+    rows_qs = IgPaymentConfirmationReview.objects.filter(
+        client__hidden_at__isnull=True,
+    ).select_related("client", "deal", "order")
+    if selected_id.isdigit():
+        rows_qs = rows_qs.filter(pk=int(selected_id))
+    else:
+        rows_qs = rows_qs.filter(status=IgPaymentConfirmationReview.Status.PENDING)
+    rows = rows_qs.order_by("created_at", "id")[:100]
     items = []
     for row in rows:
         evidence = row.evidence if isinstance(row.evidence, dict) else {}
@@ -516,10 +517,13 @@ def bot_payment_reviews_api(request):
             "client_id": row.client_id,
             "client": client.display_name or client.username or client.igsid,
             "status": row.status,
+            "status_label": row.get_status_display(),
+            "selected": selected_id.isdigit() and row.pk == int(selected_id),
             "created_at": row.created_at.isoformat(),
             "evidence": evidence.get("messages", [])[-8:],
             "media": evidence.get("media", []),
             "catalog_match": evidence.get("catalog_match", {}),
+            "catalog_matches": evidence.get("catalog_matches", []),
             "deal": evidence.get("deal", {}),
             "order_draft": draft,
             "uncertainty_reasons": draft.get("uncertainty_reasons", []),
@@ -530,6 +534,7 @@ def bot_payment_reviews_api(request):
                 if row.status == IgPaymentConfirmationReview.Status.CONFIRMED
                 else ""
             ),
+            "order_id": row.order_id,
         })
     return JsonResponse({"success": True, "items": items, "count": len(items)})
 
@@ -557,11 +562,12 @@ def bot_payment_review_action_api(request, review_id):
         return JsonResponse({"success": False, "error": "Невідома дія."}, status=400)
     notification = IgBotNotification.objects.filter(dedupe_key=review.dedupe_key).first()
     if notification:
-        notification.status = IgBotNotification.Status.RESOLVED
-        notification.failure_kind = "payment_review_" + review.status
+        if notification.status == IgBotNotification.Status.SENT:
+            notification.status = IgBotNotification.Status.RESOLVED
+            notification.failure_kind = "payment_review_" + review.status
         notification.payload = {
             **(notification.payload if isinstance(notification.payload, dict) else {}),
-            "status": review.status,
+            "review_status": review.status,
             "actor_id": request.user.pk,
         }
         notification.save(update_fields=["status", "failure_kind", "payload", "updated_at"])
@@ -976,12 +982,27 @@ def bot_client_detail_api(request, client_id):
         # Останні 300 (а не найстаріші) у хронологічному порядку — для live chat.
         msg_rows = list(c.messages.order_by("-id")[:300])
         msg_rows.reverse()
+    media_evidence = (c.sales_context or {}).get("_media_evidence", []) if isinstance(c.sales_context, dict) else []
+    media_by_message = {}
+    for evidence in media_evidence if isinstance(media_evidence, list) else []:
+        if not isinstance(evidence, dict):
+            continue
+        try:
+            source_id = int(evidence.get("source_message_id"))
+        except (TypeError, ValueError):
+            continue
+        media_by_message.setdefault(source_id, []).append({
+            "url": str(evidence.get("url") or "")[:1200],
+            "role": str(evidence.get("role") or "other")[:32],
+            "intent": str(evidence.get("intent") or "unknown")[:40],
+        })
     messages = [
         {
             "id": m.id,
             "role": m.role,
             "text": m.text,
             "attachments": m.attachments or "",
+            "media": media_by_message.get(m.id, []),
             "time": m.created_at.isoformat() if m.created_at else "",
         }
         for m in msg_rows

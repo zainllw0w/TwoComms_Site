@@ -267,7 +267,7 @@ div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3
         <h2>Заяви про оплату · потрібне підтвердження</h2>
         <button type="button" class="bot-mini-btn" id="bot-payment-review-refresh">Оновити</button>
       </div>
-      <div class="bot-note" style="margin:0 0 12px;">Спочатку перевірте evidence, позиції та узгоджену ціну з переписки. Чек не є provider payment truth; після підтвердження перевірте форму й лише потім створіть замовлення.</div>
+      <div class="bot-note" style="margin:0 0 12px;">Спочатку перевірте докази, позиції та узгоджену ціну з переписки. Чек не підтверджує платіж провайдера; після підтвердження перевірте форму й лише потім створіть замовлення.</div>
       <div id="bot-payment-review-list"></div>
     </div>
     {% endif %}
@@ -510,6 +510,7 @@ div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3
   const followupReasonLabels={manual_pause:'Зупинено менеджером',hidden:'Клієнта приховано',lost:'Клієнта втрачено',global_reply_stopped:'Автовідповіді зупинено',opt_out:'Клієнт відмовився від повідомлень',manager_takeover:'Діалог веде менеджер',paid:'Оплату підтверджено',meta_window:'Вікно Meta завершено',quiet_hours:'Час тиші',expired:'Термін минув',superseded:'Замінено новішою дією'};
   const dealStatusLabels={draft:'Чернетка',quoted:'Ціну названо',awaiting_payment:'Очікує оплату',new:'Нова',pending:'Очікує',paid:'Оплачено',completed:'Завершена',order_created:'Замовлення створено',cancelled:'Скасована',failed:'Помилка'};
   const paymentTruthLabels={confirmed:'Оплату підтверджено',paid:'Оплачено',pending:'Перевіряється',unpaid:'Оплату не підтверджено',unverified:'Оплату не підтверджено',partially_refunded:'Частково повернено',refunded:'Повністю повернено',reversed:'Платіж скасовано банком',failed:'Оплата не пройшла',cancelled:'Оплату скасовано',unknown:'Стан оплати невідомий'};
+  const mediaLabels={receipt:'Чек з переписки',payment_candidate:'Ймовірний чек — потрібна звірка',product:'Зображення товару',custom_reference:'Референс для custom print',other:'Невизначене зображення',manager_reference:'Зображення менеджера'};
   function humanLabel(map,value,fallback='Невідомо'){ return map[value]||fallback; }
 
   /* ============ Tabs ============ */
@@ -735,17 +736,20 @@ div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3
   const paymentReviewList=document.getElementById('bot-payment-review-list');
   const paymentReviewUrl='{% url "management_bot_payment_reviews_api" %}';
   const paymentReviewActionTemplate='{% url "management_bot_payment_review_action_api" 999999999 %}';
+  const selectedPaymentReviewId=new URLSearchParams(window.location.search).get('payment_review')||'';
   function paymentReviewActionUrl(id){return paymentReviewActionTemplate.replace('999999999',String(id));}
   function loadPaymentReviews(){
     if(!paymentReviewList) return Promise.resolve();
-    return fetch(paymentReviewUrl,{headers:{'X-Requested-With':'XMLHttpRequest'}})
+    const requestUrl=selectedPaymentReviewId ? paymentReviewUrl+'?id='+encodeURIComponent(selectedPaymentReviewId) : paymentReviewUrl;
+    return fetch(requestUrl,{headers:{'X-Requested-With':'XMLHttpRequest'}})
       .then(r=>r.json().then(data=>({ok:r.ok,data})))
       .then(result=>{
         if(!result.ok||!result.data.success) throw new Error(result.data.error||'Не вдалося завантажити перевірки оплати.');
         const items=result.data.items||[]; paymentReview.style.display=items.length?'':'none'; paymentReviewList.replaceChildren();
         items.forEach(item=>{
           const row=document.createElement('div'); row.className='bot-deal';
-          const title=document.createElement('div'); title.style.fontWeight='800'; title.textContent='Клієнт: '+(item.client||item.client_id); row.appendChild(title);
+          if(item.selected) row.style.cssText='border-color:#47c98b;box-shadow:0 0 0 1px rgba(71,201,139,.3);';
+          const title=document.createElement('div'); title.style.fontWeight='800'; title.textContent='Клієнт: '+(item.client||item.client_id)+' · '+(item.status_label||item.status); row.appendChild(title);
           const evidence=document.createElement('div'); evidence.className='bot-hint'; evidence.style.marginTop='7px';
           evidence.textContent=(item.evidence||[]).map(e=>(e.role==='manager'?'Менеджер':'Клієнт')+': '+(e.quote||'')+(e.attachments?' · вкладення':'')).join(' | ')||'Доказ у переписці'; row.appendChild(evidence);
           const deal=document.createElement('div'); deal.className='bot-hint'; deal.style.marginTop='5px'; const d=item.deal||{}; const draft=item.order_draft||{};
@@ -761,23 +765,37 @@ div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3
             media.forEach(m=>{
               const wrap=document.createElement('div'); wrap.style.cssText='width:132px;background:#0c0f17;border:1px solid #1e2430;border-radius:9px;padding:6px;';
               const link=document.createElement('a'); link.href=m.local_url||m.url; link.target='_blank'; link.rel='noopener';
-              const image=document.createElement('img'); image.src=m.local_url||m.url; image.alt=m.role==='receipt'?'Чек з переписки':'Зображення товару'; image.loading='lazy'; image.style.cssText='display:block;width:118px;height:96px;object-fit:cover;border-radius:6px;';
+              const mediaLabels={receipt:'Чек з переписки',payment_candidate:'Ймовірний чек — потрібна звірка',product:'Зображення товару',custom_reference:'Референс для custom print',other:'Невизначене зображення',manager_reference:'Зображення менеджера'};
+              const mediaLabel=mediaLabels[m.role]||'Невизначене зображення';
+              const image=document.createElement('img'); image.src=m.local_url||m.url; image.alt=mediaLabel; image.loading='lazy'; image.style.cssText='display:block;width:118px;height:96px;object-fit:cover;border-radius:6px;';
               link.appendChild(image); wrap.appendChild(link);
-              const label=document.createElement('div'); label.className='bot-hint'; label.style.cssText='font-size:11px;margin-top:5px;'; label.textContent=m.role==='receipt'?'Чек':'Товар'; wrap.appendChild(label);
+              const label=document.createElement('div'); label.className='bot-hint'; label.style.cssText='font-size:11px;margin-top:5px;'; label.textContent=mediaLabel; wrap.appendChild(label);
+              (m.catalog_matches||[]).forEach(match=>{if(!match.url)return;const product=document.createElement('a');product.href=match.url;product.target='_blank';product.rel='noopener';product.style.cssText='display:block;font-size:11px;margin-top:4px;';product.textContent=match.title||'Відкрити товар';wrap.appendChild(product);});
               mediaBlock.appendChild(wrap);
             });
             row.appendChild(mediaBlock);
           }
-          const match=item.catalog_match||{};
-          if(match.status){
+          const matches=(item.catalog_matches&&item.catalog_matches.length)?item.catalog_matches:(item.catalog_match&&item.catalog_match.status?[item.catalog_match]:[]);
+          matches.forEach(match=>{
             const matchBox=document.createElement('div'); matchBox.className=match.status==='matched'?'bot-hint':'bot-note'; matchBox.style.marginTop='9px';
-            matchBox.textContent=match.status==='matched' ? ('Збіг з каталогом: '+(match.title||'Товар')+' · '+Math.round(Number(match.confidence||0)*100)+'% · ціна сайту '+(match.catalog_price||'—')+' грн. Ціна з переписки залишається окремо.') : 'Збіг з каталогом не підтверджено: '+(match.reason||'потрібна ручна перевірка');
+            if(match.status==='matched'){
+              matchBox.append(document.createTextNode('Збіг з каталогом: '+(match.title||'Товар')+' · '+Math.round(Number(match.confidence||0)*100)+'% · ціна сайту '+(match.catalog_price||'—')+' грн. '));
+              if(match.url){const productLink=document.createElement('a');productLink.href=match.url;productLink.target='_blank';productLink.rel='noopener';productLink.textContent='Відкрити товар';matchBox.appendChild(productLink);}
+              matchBox.append(document.createTextNode(' Ціна з переписки залишається окремо.'));
+            }else{matchBox.textContent='Збіг з каталогом не підтверджено: '+(match.reason||'потрібна ручна перевірка');}
             row.appendChild(matchBox);
-          }
+          });
           const reasons=item.uncertainty_reasons||[];
-          if(reasons.length){ const warning=document.createElement('div'); warning.className='bot-note'; warning.style.marginTop='8px'; warning.textContent='Потрібно уточнити: '+reasons.map(reason=>({catalog_product_not_identified:'товар не зіставлено з каталогом — виберіть вручну',conversation_price_not_found:'ціну з переписки не знайдено'}[reason]||reason)).join('; '); row.appendChild(warning); }
+          if(reasons.length){ const warning=document.createElement('div'); warning.className='bot-note'; warning.style.marginTop='8px'; warning.textContent='Потрібно уточнити: '+reasons.map(reason=>({catalog_product_not_identified:'товар не зіставлено з каталогом — виберіть вручну',conversation_price_not_found:'ціну з переписки не знайдено',conversation_price_allocation_required:'загальну суму потрібно розподілити між позиціями вручну'}[reason]||reason)).join('; '); row.appendChild(warning); }
           const actions=document.createElement('div'); actions.style.cssText='display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;';
-          [['confirm','Підтвердити','bot-mini-btn active'],['cancel','Скасувати','bot-mini-btn danger']].forEach(([action,label,cls])=>{const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=label;b.addEventListener('click',()=>paymentReviewAction(item.id,action,b));actions.appendChild(b);}); row.appendChild(actions); paymentReviewList.appendChild(row);
+          if(item.status==='pending'){
+            [['confirm','Підтвердити','bot-mini-btn active'],['cancel','Відхилити','bot-mini-btn danger']].forEach(([action,label,cls])=>{const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=label;b.addEventListener('click',()=>paymentReviewAction(item.id,action,b));actions.appendChild(b);});
+          }else if(item.status==='confirmed'&&item.order_url){
+            const orderLink=document.createElement('a');orderLink.className='bot-mini-btn active';orderLink.href=item.order_url;orderLink.textContent=item.order_id?'Замовлення вже створено':'Сформувати замовлення';actions.appendChild(orderLink);
+          }else{
+            const state=document.createElement('span');state.className='bot-note';state.textContent='Заяву відхилено. Замовлення не створюється.';actions.appendChild(state);
+          }
+          row.appendChild(actions); paymentReviewList.appendChild(row);
         });
       }).catch(error=>{paymentReviewList.textContent=error.message||'Не вдалося завантажити перевірки оплати.';});
   }
@@ -785,7 +803,7 @@ div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3
     if(!window.confirm(action==='confirm'?'Підтвердити заяву про оплату менеджером?':'Скасувати цю заяву про оплату?')) return;
     button.disabled=true; const body=new FormData(); body.append('action',action);
     fetch(paymentReviewActionUrl(id),{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'},body})
-      .then(r=>r.json().then(data=>({ok:r.ok,data}))).then(result=>{if(!result.ok||!result.data.success) throw new Error(result.data.error||'Дію не виконано.'); if(action==='confirm'&&result.data.order_url){const row=button.closest('.bot-deal'); if(row){row.replaceChildren(); const note=document.createElement('div'); note.className='bot-hint'; note.textContent='Оплату підтверджено. Перевірте форму перед створенням замовлення.'; const link=document.createElement('a'); link.className='bot-mini-btn active'; link.style.display='inline-flex'; link.style.marginTop='10px'; link.href=result.data.order_url; link.textContent='Сформувати замовлення'; row.append(note,link);} return;} return loadPaymentReviews();}).catch(error=>{button.disabled=false;window.alert(error.message||'Дію не виконано.');});
+      .then(r=>r.json().then(data=>({ok:r.ok,data}))).then(result=>{if(!result.ok||!result.data.success) throw new Error(result.data.error||'Дію не виконано.'); if(action==='confirm'&&result.data.order_url){const row=button.closest('.bot-deal'); if(row){row.replaceChildren(); const note=document.createElement('div'); note.className='bot-hint'; note.textContent='Заяву/чек підтверджено менеджером. Provider payment ще не підтверджено.'; const link=document.createElement('a'); link.className='bot-mini-btn active'; link.style.display='inline-flex'; link.style.marginTop='10px'; link.href=result.data.order_url; link.textContent='Сформувати замовлення'; row.append(note,link);} return;} return loadPaymentReviews();}).catch(error=>{button.disabled=false;window.alert(error.message||'Дію не виконано.');});
   }
   const paymentReviewRefresh=document.getElementById('bot-payment-review-refresh');
   if(paymentReviewRefresh) paymentReviewRefresh.addEventListener('click',loadPaymentReviews);
@@ -919,7 +937,15 @@ div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3
           if((d.followups||[]).length){h+='<div class="bot-kb-h" style="margin-top:8px;">Заплановані контакти</div>';(d.followups||[]).forEach(f=>{h+='<div class="bot-deal">#'+f.id+' · '+esc(humanLabel(followupKindLabels,f.kind))+' · '+esc(humanLabel(followupStatusLabels,f.status))+' · '+fmt(f.due_at)+(f.discount_percent?(' · знижка '+f.discount_percent+'%'):'')+(f.skip_reason?(' · причина: '+esc(humanLabel(followupReasonLabels,f.skip_reason,'Інша причина'))):'')+'</div>';});}
           if((d.deals||[]).length){h+='<div class="bot-kb-h" style="margin-top:6px;">Угоди</div>';d.deals.forEach(dl=>{const invoiceUrl=safeHttpUrl(dl.invoice_url);h+='<div class="bot-deal">#'+dl.id+' · '+esc(humanLabel(dealStatusLabels,dl.status))+' · '+esc(dl.amount)+' грн'+(dl.order_id?(' · замовлення №'+dl.order_id):'')+(dl.payment_status?(' · '+esc(humanLabel(paymentTruthLabels,dl.payment_status))):'')+(invoiceUrl?(' · <a href="'+esc(invoiceUrl)+'" target="_blank" rel="noopener noreferrer" style="color:#7fb0ff;">відкрити оплату</a>'):'')+'</div>';});}
           h+='<div class="bot-kb-h" style="margin-top:12px;">Переписка</div><div id="bot-msgs" style="display:flex;flex-direction:column;max-height:440px;overflow-y:auto;">';
-          (d.messages||[]).forEach(m=>{h+='<div class="bot-msg '+(m.role==='user'?'user':(m.role==='manager'?'manager':'model'))+'" data-mid="'+(m.id||0)+'">'+esc(m.text)+'</div>';});
+          (d.messages||[]).forEach(m=>{
+            const media=(m.media||[]).filter(item=>item&&safeHttpUrl(item.url));
+            const mediaHtml=media.map(item=>{
+              const label=mediaLabels[item.role]||'Невизначене зображення';
+              const url=safeHttpUrl(item.url);
+              return '<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer" title="'+esc(label)+'" style="display:inline-flex;flex-direction:column;gap:3px;margin:5px 5px 0 0;color:inherit;text-decoration:none;"><img src="'+esc(url)+'" alt="'+esc(label)+'" loading="lazy" style="width:74px;height:58px;object-fit:cover;border-radius:5px;border:1px solid rgba(148,163,184,.35);"><span style="font-size:10px;opacity:.78;">'+esc(label)+'</span></a>';
+            }).join('');
+            h+='<div class="bot-msg '+(m.role==='user'?'user':(m.role==='manager'?'manager':'model'))+'" data-mid="'+(m.id||0)+'">'+esc(m.text)+(mediaHtml?'<div style="display:flex;flex-wrap:wrap;margin-top:3px;">'+mediaHtml+'</div>':'')+'</div>';
+          });
           h+='</div>';
           detailEl.innerHTML=h;
           bindAvatarFallback(detailEl,c.name||c.username||c.igsid);

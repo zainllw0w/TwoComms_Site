@@ -144,6 +144,11 @@ class RewriteFailedPaylinkTests(SimpleTestCase):
 class FinalizePaylinkTests(TestCase):
     def setUp(self):
         self.c = IgClient.get_or_create_for_sender("fz1")
+        # Simulate the classifier's persisted purchase candidate. A generated
+        # paylink phrase alone must not pass the production gate.
+        self.c.intent = IgClient.Intent.PAYMENT
+        self.c.stage = IgClient.Stage.CHECKOUT
+        self.c.save(update_fields=["intent", "stage", "updated_at"])
 
     @patch("management.services.instagram_bot.notify_manager")
     @patch("management.services.bot_orders.create_deal_and_link")
@@ -151,7 +156,7 @@ class FinalizePaylinkTests(TestCase):
         real = "https://pay.mbnk.biz/REALOK"
         mock_link.return_value = {"ok": True, "invoice_url": real, "invoice_id": "z"}
         reply = "Супер! Ось посилання на оплату: https://pay.mbnk.biz/FAKE000"
-        out = bot.finalize_paylink(reply, {"paylink": "full"}, self.c, "fz1")
+        out = bot.finalize_paylink(reply, {"paylink": "full", "product": 1}, self.c, "fz1")
         self.assertIn(real, out)
         self.assertNotIn("FAKE000", out)
 
@@ -160,7 +165,7 @@ class FinalizePaylinkTests(TestCase):
     def test_failure_removes_dangling_promise_and_escalates(self, mock_link, mock_notify):
         mock_link.return_value = {"ok": False, "error": "no_product"}
         reply = "Дякую! Зараз сформую посилання на оплату і скину сюди 🙌"
-        out = bot.finalize_paylink(reply, {"paylink": "prepay"}, self.c, "fz1")
+        out = bot.finalize_paylink(reply, {"paylink": "prepay", "product": 1}, self.c, "fz1")
         self.assertNotIn("посилання на оплат", out.lower())
         mock_notify.assert_called_once()
         self.c.refresh_from_db()
@@ -172,6 +177,31 @@ class FinalizePaylinkTests(TestCase):
         out = bot.finalize_paylink(reply, {}, self.c, "fz1")
         self.assertEqual(out, reply)
         mock_link.assert_not_called()
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.bot_orders.create_deal_and_link")
+    def test_explicit_product_validates_price_before_current_product_is_pinned(self, mock_link, _notify):
+        product = _pub_product("Футболка зі знижкою", "explicit-price-product", price=950)
+        InstagramBotMessage.objects.create(
+            sender_id=self.c.igsid, client=self.c, role="manager",
+            text="Можу оформити цю футболку за 790 грн",
+        )
+        InstagramBotMessage.objects.create(
+            sender_id=self.c.igsid, client=self.c, role="user",
+            text="Так, оформлюйте",
+        )
+        mock_link.return_value = {"ok": True, "invoice_url": "https://pay/790", "invoice_id": "790"}
+
+        out = bot.finalize_paylink(
+            "Формую посилання на оплату",
+            {"paylink": "full", "product": product.pk, "price": "790"},
+            self.c,
+            self.c.igsid,
+        )
+
+        self.assertIn("https://pay/790", out)
+        self.assertEqual(mock_link.call_args.kwargs["product_id"], product.pk)
+        self.assertEqual(mock_link.call_args.kwargs["negotiated_price"], Decimal("790.00"))
 
 
 # ===========================================================================

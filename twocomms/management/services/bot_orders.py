@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import timedelta
 from decimal import Decimal
 
@@ -247,7 +248,252 @@ def resolve_product_for_payment(client, product_id=None):
     return Product.objects.filter(id=pid, status=ProductStatus.PUBLISHED).first()
 
 
-def create_deal_and_link(client, pay_type: str = "full", product_id=None, qty: int = 1, size: str = "") -> dict:
+def _message_text(message) -> str:
+    if isinstance(message, dict):
+        return " ".join(str(message.get("text") or "").split())
+    return " ".join(str(getattr(message, "text", "") or "").split())
+
+
+def _message_role(message) -> str:
+    if isinstance(message, dict):
+        return str(message.get("role") or "").casefold()
+    return str(getattr(message, "role", "") or "").casefold()
+
+
+def _price_message_matches_product(text: str, product) -> bool:
+    """Reject an offer whose explicit garment type conflicts with the target."""
+    if not product:
+        return True
+    low = _message_text({"text": text}).casefold()
+    product_tags = re.findall(r"\[product:(\d+)\]", low)
+    if product_tags and str(getattr(product, "pk", "")) not in product_tags:
+        return False
+    target = " ".join(
+        str(value or "").casefold()
+        for value in (getattr(product, "title", ""), getattr(product, "slug", ""))
+    )
+    type_tokens = {
+        "худі": "худі", "худи": "худі", "hoodie": "худі",
+        "лонгслів": "лонгслів", "лонгслив": "лонгслів", "longsleeve": "лонгслів",
+        "футболк": "футболка", "t-shirt": "футболка", "tee": "футболка",
+    }
+    mentioned = {mapped for token, mapped in type_tokens.items() if token in low}
+    target_types = {mapped for token, mapped in type_tokens.items() if token in target}
+    if mentioned and target_types and not mentioned.intersection(target_types):
+        return False
+    return True
+
+
+def _is_product_media_switch(message) -> bool:
+    """Return true for a later customer product image, not a payment receipt."""
+    text = _message_text(message).casefold()
+    if re.search(r"\b(оплат\w*|сплат\w*|переказ\w*|чек\w*|квитанц\w*)\b", text):
+        return False
+    media = message.get("media") if isinstance(message, dict) else None
+    if isinstance(media, list) and any(
+        isinstance(item, dict) and (
+            item.get("role") == "product"
+            or str(item.get("type") or "").casefold() in {"ig_post", "share", "story", "reel"}
+        )
+        for item in media
+    ):
+        return True
+    attachments = str(message.get("attachments") or "") if isinstance(message, dict) else str(getattr(message, "attachments", "") or "")
+    return bool(
+        attachments
+        and re.search(r"ig_post|share|story|product", attachments, re.IGNORECASE)
+        and re.search(r"\b(хочу|беру|давайте|обираю|вибираю|цей|цю|таку)\b", text)
+    )
+
+
+def _conversation_price_evidence(messages, *, qty: int = 1, product=None) -> dict:
+    """Resolve the latest commercial price epoch from persisted message rows."""
+    amount_re = re.compile(r"(?<!\d)(\d{2,6}(?:[.,]\d{1,2})?)\s*(?:грн|uah|₴)", re.IGNORECASE)
+    payment_re = re.compile(
+        r"\b(передоплат\w*|аванс\w*|оплат\w*|сплач\w*|переказ\w*|перевод\w*|"
+        r"чек\w*|квитанц\w*|receipt|paid)\b",
+        re.IGNORECASE,
+    )
+    price_re = re.compile(
+        r"\b(ціна|цена|вартість|стоимость|сума|сумма|разом|итого|всього|всего|знижк\w*|скидк\w*)\b|"
+        r"\bза\s+\d{2,6}",
+        re.IGNORECASE,
+    )
+    acceptance_re = re.compile(
+        r"\b(так|да|ок|добре|хорошо|домов\w*|можемо|погодж\w*|соглас\w*|"
+        r"оформл\w*|замовл\w*|заказ\w*|беру|забираю)\b",
+        re.IGNORECASE,
+    )
+    product_switch_re = re.compile(
+        r"\b(?:тоді|тепер|а\s+зараз|хочу|беру|давайте|обираю|вибираю|выбираю)\b"
+        r"[^.!?]{0,100}\b(?:оверсайз\w*|oversize|класич\w*|classic|"
+        r"футболк\w*|худі|худи|лонгслів\w*|модел\w*|\[product:\d+\])\b",
+        re.IGNORECASE,
+    )
+    recent_text = " ".join(_message_text(message) for message in messages[-30:]).casefold()
+    multi_item = bool(
+        (re.search(r"\b(базов\w*|класич\w*|classic)\b", recent_text)
+         and re.search(r"\b(оверсайз\w*|oversize)\b", recent_text))
+        or re.search(r"\b(?:2|3|4|5)\s+(?:футбол\w*|товар\w*|шт\.?|штук\w*)", recent_text)
+        or int(qty or 1) > 1
+    )
+    commercial_rows = []
+    for index, message in enumerate(messages):
+        text = _message_text(message)
+        amounts = amount_re.findall(text)
+        if not amounts or payment_re.search(text):
+            continue
+        if not price_re.search(text):
+            continue
+        kind = "order_total" if re.search(
+            r"\b(сума|сумма|разом|итого|всього|всего)\b", text, re.IGNORECASE
+        ) else "unit_price"
+        if kind == "order_total" and multi_item:
+            commercial_rows.append({
+                "status": "ambiguous",
+                "price": None,
+                "source_message_id": getattr(message, "pk", None),
+                "kind": kind,
+            })
+            continue
+        try:
+            price = Decimal(amounts[-1].replace(",", ".")).quantize(Decimal("0.01"))
+        except (InvalidOperation, ValueError):
+            continue
+        if price <= 0 or price > Decimal("1000000"):
+            continue
+        role = _message_role(message)
+        customer_roles = {"user", "customer", "client"}
+        seller_roles = {"manager", "human_manager", "operator", "admin"}
+        next_message = next(
+            (
+                later for later in messages[index + 1:]
+                if _message_text(later)
+            ),
+            None,
+        )
+        next_role = _message_role(next_message)
+        next_text = _message_text(next_message)
+        accepted = False
+        if role in seller_roles:
+            accepted = next_role in customer_roles and bool(acceptance_re.search(next_text))
+        elif role in customer_roles:
+            # A customer amount is a counter-offer, never a self-authorized
+            # discount. It needs the seller's immediate explicit acceptance.
+            accepted = next_role in seller_roles and bool(acceptance_re.search(next_text))
+            previous = commercial_rows[-1] if commercial_rows else None
+            if previous and previous.get("seller_offer") and previous.get("message_index") == index - 1 and previous.get("offered_price") == price and acceptance_re.search(text):
+                previous.update({"status": "accepted", "price": price})
+                continue
+        if role in seller_roles and commercial_rows:
+            previous = commercial_rows[-1]
+            if previous.get("message_index") == index - 1 and previous.get("customer_counteroffer") and acceptance_re.search(text):
+                previous.update({"status": "accepted", "price": previous.get("offered_price")})
+                continue
+        commercial_rows.append({
+            "status": "accepted" if accepted else "ambiguous",
+            "price": price if accepted else None,
+            "source_message_id": getattr(message, "pk", None),
+            "kind": kind,
+            "message_index": index,
+            "offered_price": price,
+            "seller_offer": role in seller_roles,
+            "customer_counteroffer": role in customer_roles,
+        })
+    if commercial_rows:
+        decision = commercial_rows[-1]
+        later_messages = messages[decision.get("message_index", 0) + 1:]
+        if any(
+            product_switch_re.search(_message_text(later)) or _is_product_media_switch(later)
+            for later in later_messages
+        ):
+            decision = {
+                "status": "ambiguous",
+                "price": None,
+                "source_message_id": decision.get("source_message_id"),
+                "kind": decision.get("kind"),
+            }
+        if decision.get("status") == "accepted" and product:
+            offer_message = messages[decision.get("message_index", 0)]
+            offer_text = _message_text(offer_message)
+            if not _price_message_matches_product(offer_text, product):
+                decision = {
+                    "status": "ambiguous",
+                    "price": None,
+                    "source_message_id": decision.get("source_message_id"),
+                    "kind": decision.get("kind"),
+                }
+        return {
+            key: decision.get(key)
+            for key in ("status", "price", "source_message_id", "kind")
+        }
+    return {"status": "none", "price": None, "source_message_id": None}
+
+
+def _accepted_conversation_price(messages, requested=None, *, qty: int = 1, product=None) -> Decimal | None:
+    """Return only the accepted amount from the latest commercial epoch."""
+    decision = _conversation_price_evidence(list(messages or ()), qty=qty, product=product)
+    accepted = decision.get("price") if decision.get("status") == "accepted" else None
+    if accepted is None:
+        return None
+    if requested is None:
+        return accepted
+    try:
+        requested_price = Decimal(str(requested).replace(",", ".")).quantize(Decimal("0.01"))
+    except Exception:
+        return None
+    return accepted if accepted == requested_price else None
+
+
+def _conversation_price_decision(client, product=None, qty: int = 1) -> dict:
+    """Resolve one accepted merchandise price, excluding receipts/prepayments."""
+    if not client or not getattr(client, "pk", None) or product is None:
+        return {"status": "none", "price": None, "source_message_id": None}
+    try:
+        from management.models import InstagramBotMessage
+
+        messages = list(InstagramBotMessage.objects.filter(client=client).order_by("-id")[:80])
+        messages.reverse()
+    except Exception:
+        return {"status": "unavailable", "price": None, "source_message_id": None}
+    decision = _conversation_price_evidence(messages, qty=qty, product=product)
+    if decision.get("status") == "accepted":
+        decision["product_id"] = product.pk
+    return decision
+
+
+def _validated_negotiated_price(client, value, *, product=None, qty: int = 1) -> Decimal | None:
+    """Return a conversation price only when the exact amount is evidenced.
+
+    The model may propose ``[PRICE:...]`` but cannot manufacture a discount. The
+    amount must occur in a persisted conversation message before it can affect
+    an invoice or deal item.
+    """
+    if not client:
+        return None
+    if product is None:
+        product = getattr(client, "current_product", None)
+    decision = _conversation_price_decision(client, product=product, qty=qty)
+    accepted = decision.get("price") if decision.get("status") == "accepted" else None
+    if value is None:
+        return accepted
+    try:
+        price = Decimal(str(value).replace(",", ".")).quantize(Decimal("0.01"))
+    except Exception:
+        return None
+    if price <= 0 or price > Decimal("1000000"):
+        return None
+    return price if accepted == price else None
+
+
+def create_deal_and_link(
+    client,
+    pay_type: str = "full",
+    product_id=None,
+    qty: int = 1,
+    size: str = "",
+    negotiated_price=None,
+) -> dict:
     """Формує/переюзає угоду клієнта і повертає посилання на оплату Monobank.
 
     Товар визначається серверно (resolve_product_for_payment) — навіть якщо модель
@@ -264,6 +510,28 @@ def create_deal_and_link(client, pay_type: str = "full", product_id=None, qty: i
         .order_by("-id")
     )
 
+    price_decision = _conversation_price_decision(client, product=product, qty=qty) if product else {
+        "status": "none", "price": None,
+    }
+    unit_price_override = None
+    if negotiated_price is not None:
+        unit_price_override = _validated_negotiated_price(
+            client, negotiated_price, product=product, qty=qty,
+        )
+        if unit_price_override is None:
+            return {"ok": False, "error": "invalid_negotiated_price"}
+    elif price_decision.get("status") == "accepted":
+        unit_price_override = price_decision.get("price")
+    elif price_decision.get("status") in {"ambiguous", "unavailable"}:
+        return {"ok": False, "error": "ambiguous_conversation_price"}
+
+    intended_price = unit_price_override
+    if product is not None and intended_price is None:
+        try:
+            intended_price = Decimal(str(int(getattr(product, "final_price", None) or product.price)))
+        except Exception:
+            intended_price = Decimal(str(product.price or 0))
+
     deal = None
     if product is not None:
         # 1) точний реюз: та сама угода (товар + тип оплати) вже має лінк
@@ -274,14 +542,14 @@ def create_deal_and_link(client, pay_type: str = "full", product_id=None, qty: i
                 and d.items.filter(product_id=product.id).exists()
                 and d.invoice_id
                 and d.invoice_url
+                and (
+                    d.items.first().unit_price == intended_price
+                )
             ):
                 return create_payment_link(d)
         # 2) свіжа угода саме під цей товар
         deal = IgDeal.objects.create(client=client, pay_type=pt)
-        try:
-            price = Decimal(str(int(getattr(product, "final_price", None) or product.price)))
-        except Exception:
-            price = Decimal(str(product.price or 0))
+        price = intended_price
         IgDealItem.objects.create(
             deal=deal, product=product, title=product.title, size=size or "",
             qty=max(1, int(qty or 1)), unit_price=price,

@@ -413,32 +413,75 @@ def _collect_items(raw_items):
 def _build_ig_review_initial(review):
     """Build an editable manual-order draft from a confirmed IG review."""
     deal = review.deal
+    if deal:
+        evidence = review.evidence if isinstance(review.evidence, dict) else {}
+        matches = evidence.get("catalog_matches") if isinstance(evidence.get("catalog_matches"), list) else []
+        product_ids = {
+            int(match.get("product_id"))
+            for match in matches
+            if isinstance(match, dict) and str(match.get("product_id") or "").isdigit()
+        }
+        try:
+            from management.services.ig_payment_review import _is_review_deal_compatible
+
+            if not _is_review_deal_compatible(deal, product_ids):
+                deal = None
+        except Exception:
+            deal = None
     if not deal:
         evidence = review.evidence if isinstance(review.evidence, dict) else {}
         draft = evidence.get("order_draft") if isinstance(evidence.get("order_draft"), dict) else {}
         delivery = draft.get("delivery") if isinstance(draft.get("delivery"), dict) else {}
+        raw_draft_items = [item for item in (draft.get("items") or []) if isinstance(item, dict)]
+        product_ids = []
+        for draft_item in raw_draft_items:
+            catalog = draft_item.get("catalog") if isinstance(draft_item.get("catalog"), dict) else {}
+            raw_product_id = draft_item.get("product_id") or catalog.get("product_id")
+            try:
+                product_ids.append(int(raw_product_id))
+            except (TypeError, ValueError):
+                continue
+        products = Product.objects.in_bulk(product_ids) if product_ids else {}
         items = []
-        for draft_item in draft.get("items") or []:
+        for draft_item in raw_draft_items:
             fit = draft_item.get("fit") or ""
-            title = draft_item.get("title") or "Товар з переписки"
-            if fit and "не ідентифіковано" not in title.lower():
+            catalog = draft_item.get("catalog") if isinstance(draft_item.get("catalog"), dict) else {}
+            try:
+                product_id = int(draft_item.get("product_id") or catalog.get("product_id"))
+            except (TypeError, ValueError):
+                product_id = 0
+            product = products.get(product_id)
+            title = (getattr(product, "title", "") or catalog.get("title") or draft_item.get("title") or "Товар з переписки")
+            if not product and fit and "не ідентифіковано" not in title.lower():
                 title = f"{title} · товар потребує вибору"
+            image = ""
+            if product:
+                try:
+                    image = getattr(getattr(product, "display_image", None), "url", "") or ""
+                except Exception:
+                    image = ""
+            raw_price = draft_item.get("unit_price")
+            if raw_price in (None, "") and product:
+                raw_price = getattr(product, "final_price", None) or product.price
             items.append({
-                "kind": "custom",
-                "product_id": "",
-                "color_variant_id": "",
+                "kind": "catalog" if product else "custom",
+                "product_id": product.pk if product else "",
+                "color_variant_id": (draft_item.get("color_variant_id") or catalog.get("color_variant_id") or "") if product else "",
                 "title": title,
-                "unit_price": float(draft_item.get("unit_price") or 0),
+                "unit_price": float(raw_price or 0),
                 "qty": int(draft_item.get("qty") or 1),
                 "size": draft_item.get("size") or "",
                 "color_name": "",
-                "image": "",
+                "image": image,
+                "product_url": catalog.get("url") or (f"https://twocomms.shop/product/{product.slug}/" if product else ""),
             })
         quoted_total = draft.get("quoted_total") or ""
         reasons = draft.get("uncertainty_reasons") or []
         reason_text = "; ".join({
             "catalog_product_not_identified": "товар не зіставлено з каталогом — виберіть його вручну",
             "conversation_price_not_found": "ціну з переписки не знайдено",
+            "conversation_price_allocation_required": "загальну суму з переписки потрібно розподілити між позиціями вручну",
+            "conversation_price_not_authorized": "ціну не підтверджено менеджером — перевірте її вручну",
         }.get(reason, reason) for reason in reasons)
         comment = "Платіж підтверджується менеджером через CRM. Дані перевірити перед створенням."
         if quoted_total:
@@ -456,7 +499,7 @@ def _build_ig_review_initial(review):
             "delivery_method": "manual",
             "city": delivery.get("city") or "",
             "np_office": delivery.get("office") or "",
-            "payment_preset": "paid_full",
+            "payment_preset": "unpaid_full",
             "sale_source": "Instagram",
             "manager_comment": comment,
             "items": items,
@@ -499,7 +542,7 @@ def _build_ig_review_initial(review):
         "delivery_method": "manual",
         "city": deal.np_city or "",
         "np_office": deal.np_office or "",
-        "payment_preset": "paid_full",
+        "payment_preset": "unpaid_full",
         "sale_source": "Instagram",
         "manager_comment": "Платіж підтверджено менеджером через CRM; дані перевірити перед створенням.",
         "items": items,
@@ -556,12 +599,13 @@ def manual_order_create(request):
         )
         if not payment_review:
             return JsonResponse({'success': False, 'message': 'Підтвердження оплати недійсне або вже скасоване.'}, status=409)
-        if payment_review.deal_id and payment_review.deal.order_id:
+        if payment_review.order_id:
+            existing = payment_review.order
             return JsonResponse({
                 'success': True,
-                'message': f'Для цієї угоди вже створено замовлення #{payment_review.deal.order.order_number}.',
-                'order_id': payment_review.deal.order_id,
-                'order_number': payment_review.deal.order.order_number,
+                'message': f'Для цієї перевірки вже створено замовлення #{existing.order_number}.',
+                'order_id': existing.id,
+                'order_number': existing.order_number,
                 'redirect_url': f"{reverse('admin_panel')}?section=orders",
             })
 
@@ -588,6 +632,10 @@ def manual_order_create(request):
         return JsonResponse({'success': False, 'message': str(exc)}, status=422)
 
     preset_key = str(data.get('payment_preset') or DEFAULT_PAYMENT_PRESET).strip()
+    if payment_review:
+        # A manager-confirmed screenshot authorizes order preparation, not paid
+        # revenue. Provider/manual-ledger truth must transition payment later.
+        preset_key = 'unpaid_full'
     preset = PAYMENT_PRESETS.get(preset_key, PAYMENT_PRESETS[DEFAULT_PAYMENT_PRESET])
     sale_source = str(data.get('sale_source') or '').strip()[:120]
     manager_comment = str(data.get('manager_comment') or '').strip()
@@ -631,7 +679,14 @@ def manual_order_create(request):
                 created_by=request.user,
                 sale_source=sale_source,
                 manager_comment=manager_comment,
-                payment_payload={'manual_payment_preset': preset_key},
+                payment_payload={
+                    'manual_payment_preset': preset_key,
+                    **({
+                        'instagram_payment_review_id': payment_review.pk,
+                        'manual_payment_evidence_confirmed': True,
+                        'provider_payment_confirmed': False,
+                    } if payment_review else {}),
+                },
             )
             apply_nova_poshta_refs(order, delivery['refs'])
             order.save()
@@ -656,14 +711,21 @@ def manual_order_create(request):
             )
             if payment_review and payment_review.deal_id:
                 from management.ig_bot_models import IgDeal
+                from management.services.ig_payment_review import _is_review_deal_compatible
 
                 deal = IgDeal.objects.select_for_update().get(pk=payment_review.deal_id)
-                if deal.order_id and deal.order_id != order.id:
-                    raise ValueError('Для цієї перевірки вже створено замовлення.')
-                deal.order = order
-                deal.status = IgDeal.Status.ORDER_CREATED
-                deal.order_truth_updated_at = timezone.now()
-                deal.save(update_fields=['order', 'status', 'order_truth_updated_at', 'updated_at'])
+                product_ids = {item.product_id for item in order_items if item.product_id}
+                if _is_review_deal_compatible(deal, product_ids):
+                    deal.order = order
+                    deal.status = IgDeal.Status.ORDER_CREATED
+                    deal.order_truth_updated_at = timezone.now()
+                    deal.save(update_fields=['order', 'status', 'order_truth_updated_at', 'updated_at'])
+                else:
+                    # A historical/paid/conflicting deal must never absorb a
+                    # new manual order; keep the review-level order link as
+                    # the sole idempotency key for this payment evidence.
+                    payment_review.deal = None
+                    payment_review.save(update_fields=['deal', 'updated_at'])
             if payment_review:
                 payment_review.order = order
                 payment_review.save(update_fields=['order', 'updated_at'])

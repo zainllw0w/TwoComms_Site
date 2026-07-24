@@ -29,7 +29,8 @@ import urllib.error
 import urllib.request
 from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone as dt_timezone
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from decimal import Decimal, InvalidOperation
+from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
 from django.core.cache import cache
 from django.db import DatabaseError, IntegrityError, transaction
@@ -230,6 +231,72 @@ PAYLINK_PHRASES = (
     "сформирую ссылку", "вот ссылка", "вот ссылку", "держи ссылку",
 )
 
+_PURCHASE_COMMITMENT_RE = re.compile(
+    r"\b(хочу|беру|забираю|оформл\w*|замовл\w*|заказ\w*|купл\w*|куп\w*|"
+    r"давайте|підтверджую|подтверждаю)\b",
+    re.IGNORECASE,
+)
+
+
+def _control_product_id(control: dict) -> int | None:
+    """Parse a model product tag without treating JSON booleans as IDs."""
+    if not isinstance(control, dict) or "product" not in control:
+        return None
+    raw = control.get("product")
+    if isinstance(raw, bool):
+        return None
+    try:
+        product_id = int(str(raw).strip())
+    except (TypeError, ValueError):
+        return None
+    return product_id if product_id > 0 else None
+
+
+def _should_pin_product_media(media: list[dict] | None) -> bool:
+    """Only a purchase candidate may change durable current-product memory."""
+    return any(
+        isinstance(item, dict)
+        and item.get("role") == "product"
+        and item.get("intent") == "purchase_candidate"
+        and item.get("catalog_match_allowed") is True
+        for item in (media or [])
+    )
+
+
+def _conversation_negotiated_price(client, control: dict) -> Decimal | None:
+    """Validate [PRICE:x] against persisted chat evidence before invoicing."""
+    if not isinstance(control, dict):
+        return None
+    raw = control.get("price") if "price" in control else None
+    if isinstance(raw, bool) or not client:
+        return None
+    value = None
+    if raw is not None:
+        try:
+            value = Decimal(str(raw).replace(",", ".")).quantize(Decimal("0.01"))
+        except (InvalidOperation, TypeError, ValueError):
+            return None
+        if value <= 0 or value > Decimal("1000000"):
+            return None
+    try:
+        from management.services.bot_orders import _validated_negotiated_price
+        from storefront.models import Product, ProductStatus
+
+        product = None
+        product_id = _control_product_id(control)
+        if product_id:
+            product = Product.objects.filter(
+                pk=product_id,
+                status=ProductStatus.PUBLISHED,
+            ).first()
+        if product is None:
+            product = getattr(client, "current_product", None)
+        if product is None:
+            return _validated_negotiated_price(client, value)
+        return _validated_negotiated_price(client, value, product=product)
+    except Exception:
+        return None
+
 
 def _wants_paylink(reply: str, control: dict) -> tuple[bool, str]:
     """Чи треба сформувати посилання на оплату і який тип (full/prepay).
@@ -243,6 +310,53 @@ def _wants_paylink(reply: str, control: dict) -> tuple[bool, str]:
         pt = "prepay" if ("передопл" in low or "предопл" in low) else "full"
         return True, pt
     return False, "full"
+
+
+def payment_link_allowed(client, control: dict, reply: str) -> bool:
+    """Require a product and purchase evidence before creating an invoice.
+
+    A model phrase such as ``"сформую посилання"`` is not itself a purchase
+    decision. The provider deal/link path is authoritative and must remain
+    unreachable for a size/price question or an unresolved image.
+    """
+    if not client or not isinstance(control, dict):
+        return False
+    if getattr(client, "pk", None):
+        try:
+            from management.services.bot_payment_truth import client_has_verified_payment
+
+            if client_has_verified_payment(client):
+                return False
+        except Exception:
+            # A provider-truth lookup failure must not open a new invoice path.
+            return False
+    if "product" in control:
+        # The deal resolver performs the authoritative published-catalog check;
+        # this gate only rejects malformed/boolean model tags before any DB side
+        # effect. A stale/unpublished product then fails closed in the resolver.
+        product_id = _control_product_id(control)
+        if not product_id:
+            return False
+    else:
+        product_id = getattr(client, "current_product_id", None)
+        try:
+            product_id = int(product_id)
+        except (TypeError, ValueError):
+            return False
+    if not product_id:
+        return False
+    intent = str(getattr(client, "intent", "") or "").casefold()
+    if "custom" in intent:
+        return False
+    low = " ".join(str(reply or "").split()).casefold()
+    if str(getattr(client, "stage", "") or "").casefold() == "paid":
+        return False
+    if _PURCHASE_COMMITMENT_RE.search(low):
+        return True
+    stage = str(getattr(client, "stage", "") or "").casefold()
+    if intent in {"payment", "checkout"} and stage in {"checkout", "payment_pending"}:
+        return True
+    return False
 
 
 # Монобанк-подібні URL — щоб прибрати вигадане моделлю платіжне посилання й
@@ -266,7 +380,8 @@ PAYMENT_PROTOCOL_NOTE = (
     "рядка каталогу (формат «id=NN»). НЕ вигадуй і НЕ пиши URL оплати власноруч — "
     "система сама сформує справжнє посилання й додасть його до повідомлення. "
     "Якщо товар ще не визначено однозначно — спершу уточни його, тег [PAYLINK] "
-    "поки не став."
+    "поки не став. Якщо менеджер явно погодив іншу ціну, додай [PRICE:число] "
+    "лише коли це число дослівно є у збереженій переписці; не вигадуй знижку."
 )
 
 # Правило точності — інжектимо разом із протоколом оплати. Прямо забороняє
@@ -351,11 +466,40 @@ def finalize_paylink(reply: str, control: dict, client, sender_id: str = "") -> 
     want, pt = _wants_paylink(reply, control)
     if not want:
         return reply
+    if not payment_link_allowed(client, control, reply):
+        log("warning", "paylink_gate", f"{sender_id}: blocked without purchase candidate")
+        try:
+            notify_manager(
+                f"⚠️ IG: платіжне посилання для {(client.username or client.display_name or sender_id)} "
+                "заблоковано: немає підтвердженого purchase candidate або товару."
+            )
+        except Exception:
+            pass
+        return _rewrite_failed_paylink(reply)
+    negotiated_price = _conversation_negotiated_price(client, control)
+    if "price" in control and negotiated_price is None:
+        log("warning", "paylink_price_gate", f"{sender_id}: blocked unverified negotiated price")
+        try:
+            notify_manager(
+                f"⚠️ IG: платіжне посилання для {(client.username or client.display_name or sender_id)} "
+                "заблоковано: модель вказала ціну, але її не підтверджено актуальною перепискою. "
+                "Перевірте погоджену суму вручну."
+            )
+        except Exception:
+            pass
+        try:
+            client.set_stage(IgClient.Stage.LEAD_TO_MANAGER, reason="paylink_unverified_price")
+        except Exception:
+            pass
+        return _rewrite_failed_paylink(reply)
     from management.services import bot_orders
 
     try:
         res = bot_orders.create_deal_and_link(
-            client, pay_type=pt, product_id=control.get("product")
+            client,
+            pay_type=pt,
+            product_id=_control_product_id(control),
+            negotiated_price=negotiated_price,
         )
     except Exception as exc:
         log("error", "paylink", repr(exc))
@@ -388,7 +532,33 @@ def finalize_paylink(reply: str, control: dict, client, sender_id: str = "") -> 
     return safe
 
 
-def _handle_echo(recipient_igsid: str, text: str) -> None:
+def _echo_media_items(msg: dict) -> list[dict]:
+    """Keep bounded manager media metadata for the durable echo message."""
+    result = []
+    for attachment in (msg.get("attachments") or []) if isinstance(msg, dict) else []:
+        if not isinstance(attachment, dict):
+            continue
+        payload = attachment.get("payload") if isinstance(attachment.get("payload"), dict) else {}
+        url = str(payload.get("url") or "").strip()
+        if not url.startswith(("https://", "http://")):
+            continue
+        result.append({
+            "url": url[:1200],
+            "type": str(attachment.get("type") or "image")[:32],
+            "title": str(payload.get("title") or "")[:700],
+            "role": "manager_reference",
+        })
+    return result[:8]
+
+
+def _handle_echo(
+    recipient_igsid: str,
+    text: str,
+    *,
+    attachments: list[dict] | None = None,
+    mid: str = "",
+    received_at=None,
+) -> None:
     """Echo-подія (повідомлення, надіслане сторінкою). Якщо це НЕ власне відлуння
     бота — значить відповів живий менеджер → ставимо бота на паузу для клієнта."""
     if not recipient_igsid:
@@ -436,15 +606,20 @@ def _handle_echo(recipient_igsid: str, text: str) -> None:
                 processing_started_at=None,
             )
         msg = None
-        if text:
+        if text or attachments:
             try:
                 msg = InstagramBotMessage.objects.create(
                     sender_id=recipient_igsid,
                     client=client,
                     role=InstagramBotMessage.Role.MANAGER,
-                    text=text,
+                    text=text or "(зображення менеджера)",
+                    mid=mid or None,
                     status=InstagramBotMessage.Status.DONE,
                     source="echo",
+                    attachments=json.dumps(
+                        [item.get("url") for item in (attachments or []) if item.get("url")],
+                        ensure_ascii=False,
+                    ) if attachments else "",
                     processed_at=timezone.now(),
                 )
             except Exception:
@@ -455,7 +630,10 @@ def _handle_echo(recipient_igsid: str, text: str) -> None:
             bot_followups.cancel_pending(client, reason="manager_takeover")
             if msg:
                 bot_sales_classifier.classify_message(
-                    client, message=msg, role=InstagramBotMessage.Role.MANAGER
+                    client,
+                    message=msg,
+                    role=InstagramBotMessage.Role.MANAGER,
+                    media_context=_recover_current_message_media(msg),
                 )
         except Exception:
             pass
@@ -818,6 +996,23 @@ NOTIFICATION_STALE_SENDING_SECONDS = 300
 NOTIFICATION_MAX_ATTEMPTS = 5
 
 
+def _telegram_media_url_candidates(media: dict) -> list[str]:
+    """Build absolute, deduplicated media URLs with original-source fallback."""
+    from django.conf import settings
+
+    base = (getattr(settings, "SITE_BASE_URL", "") or "https://twocomms.shop").rstrip("/") + "/"
+    result = []
+    for raw in (media.get("local_url"), media.get("url")):
+        value = str(raw or "").strip()
+        if not value:
+            continue
+        if value.startswith("/"):
+            value = urljoin(base, value.lstrip("/"))
+        if value.startswith(("https://", "http://")) and value not in result:
+            result.append(value)
+    return result
+
+
 def _notification_retry_at(row, now, *, minimum_delay_seconds=0):
     base = min(3600, 30 * (2 ** max(0, int(row.attempts or 1) - 1)))
     jitter = int(hashlib.sha256(row.dedupe_key.encode("utf-8")).hexdigest()[:2], 16) % 16
@@ -842,11 +1037,17 @@ def _finish_notification(
         row = IgBotNotification.objects.select_for_update().get(dedupe_key=dedupe_key)
         if row.status != IgBotNotification.Status.SENDING:
             return False
-        row.status = status
+        delivery_succeeded = status == IgBotNotification.Status.SENT
+        review_status = (row.payload or {}).get("review_status") if isinstance(row.payload, dict) else ""
+        row.status = (
+            IgBotNotification.Status.RESOLVED
+            if delivery_succeeded and review_status in {"confirmed", "cancelled"}
+            else status
+        )
         row.telegram_message_id = message_id
         row.last_error = (error or "")[:500]
         row.failure_kind = (failure_kind or "")[:32]
-        row.sent_at = now if status == IgBotNotification.Status.SENT else None
+        row.sent_at = now if delivery_succeeded else None
         row.next_attempt_at = (
             _notification_retry_at(row, now, minimum_delay_seconds=retry_after_seconds)
             if status == IgBotNotification.Status.FAILED
@@ -860,7 +1061,7 @@ def _finish_notification(
             "status", "telegram_message_id", "last_error", "failure_kind",
             "sent_at", "next_attempt_at", "updated_at",
         ])
-        return row.status == IgBotNotification.Status.SENT
+        return delivery_succeeded
 
 
 def _deliver_manager_notification(dedupe_key: str) -> bool:
@@ -934,77 +1135,195 @@ def _deliver_manager_notification_unlocked(dedupe_key: str) -> bool:
     reply_markup = payload.get("reply_markup")
     if not isinstance(reply_markup, dict):
         reply_markup = None
-    try:
-        body = json.dumps(
-            {
+
+    def persist_payload():
+        IgBotNotification.objects.filter(
+            dedupe_key=dedupe_key,
+            status=IgBotNotification.Status.SENDING,
+        ).update(payload=payload, updated_at=timezone.now())
+
+    def parse_response(code, response_body):
+        try:
+            parsed = json.loads(response_body or "{}")
+        except (TypeError, ValueError):
+            return None
+        return parsed if isinstance(parsed, dict) else None
+
+    main_message_id = str(payload.get("main_delivery_message_id") or "")
+    if not main_message_id:
+        try:
+            body = json.dumps({
                 "chat_id": chat,
                 "text": text,
                 "disable_web_page_preview": True,
                 **({"reply_markup": reply_markup} if reply_markup is not None else {}),
-            }
-        ).encode("utf-8")
-        code, response_body = _http(
-            f"https://api.telegram.org/bot{token}/sendMessage", data=body, timeout=HTTP_TIMEOUT
-        )
-    except Exception as exc:
-        _finish_notification(
-            dedupe_key,
-            status=IgBotNotification.Status.UNKNOWN,
-            error=repr(exc),
-            failure_kind="ambiguous_transport",
-        )
-        return False
-    if code < 0:
-        _finish_notification(
-            dedupe_key,
-            status=IgBotNotification.Status.UNKNOWN,
-            error=response_body,
-            failure_kind="ambiguous_transport",
-        )
-        return False
-    try:
-        response = json.loads(response_body or "{}")
-    except (TypeError, ValueError):
-        response = {}
-        if code == 200:
+            }).encode("utf-8")
+            code, response_body = _http(
+                f"https://api.telegram.org/bot{token}/sendMessage", data=body, timeout=HTTP_TIMEOUT
+            )
+        except Exception as exc:
             _finish_notification(
                 dedupe_key,
                 status=IgBotNotification.Status.UNKNOWN,
-                error="Telegram returned an unreadable success response",
-                failure_kind="ambiguous_provider_response",
+                error=repr(exc),
+                failure_kind="ambiguous_transport",
             )
             return False
-    if not isinstance(response, dict):
-        if code == 200:
+        response = parse_response(code, response_body)
+        if code < 0 or (code == 200 and response is None):
             _finish_notification(
                 dedupe_key,
                 status=IgBotNotification.Status.UNKNOWN,
-                error="Telegram returned an invalid success payload",
+                error=response_body or "Telegram returned an unreadable success response",
+                failure_kind="ambiguous_provider_response" if code == 200 else "ambiguous_transport",
+            )
+            return False
+        response = response or {}
+        if code != 200 or not response.get("ok"):
+            retryable = code == 429 or code >= 500
+            parameters = response.get("parameters")
+            retry_after = parameters.get("retry_after") if code == 429 and isinstance(parameters, dict) else 0
+            _finish_notification(
+                dedupe_key,
+                status=(IgBotNotification.Status.FAILED if retryable else IgBotNotification.Status.DEAD_LETTER),
+                error=str(response.get("description") or f"HTTP {code}"),
+                failure_kind=("rate_limited" if code == 429 else ("provider_retryable" if retryable else "provider_permanent")),
+                retry_after_seconds=retry_after,
+            )
+            return False
+        main_message_id = str((response.get("result") or {}).get("message_id") or "")
+        if not main_message_id:
+            _finish_notification(
+                dedupe_key,
+                status=IgBotNotification.Status.UNKNOWN,
+                error="Telegram success response has no message_id",
                 failure_kind="ambiguous_provider_response",
             )
             return False
-        response = {}
-    if code == 200 and bool(response.get("ok")):
-        return _finish_notification(
-            dedupe_key,
-            status=IgBotNotification.Status.SENT,
-            message_id=str((response.get("result") or {}).get("message_id") or ""),
-        )
-    retryable = code == 429 or code >= 500
-    parameters = response.get("parameters")
-    retry_after = parameters.get("retry_after") if code == 429 and isinstance(parameters, dict) else 0
-    _finish_notification(
+        payload["main_delivery_message_id"] = main_message_id
+        persist_payload()
+
+    media_rows = payload.get("media") if isinstance(payload.get("media"), list) else []
+    for media in media_rows[:8]:
+        if not isinstance(media, dict) or media.get("delivery_status") == "sent":
+            continue
+        media_urls = _telegram_media_url_candidates(media)
+        if not media_urls:
+            media["delivery_status"] = "skipped_invalid_url"
+            media["delivery_error"] = "invalid_media_url"
+            persist_payload()
+            _finish_notification(
+                dedupe_key,
+                status=IgBotNotification.Status.DEAD_LETTER,
+                error="invalid_media_url",
+                failure_kind="media_permanent",
+                message_id=main_message_id,
+            )
+            return False
+        role = str(media.get("role") or "other")
+        caption_parts = [{
+            "product": "Зображення товару",
+            "receipt": "Чек з переписки",
+            "payment_candidate": "Ймовірний чек — потрібна звірка",
+            "custom_reference": "Референс custom print",
+            "manager_reference": "Зображення менеджера",
+            "other": "Невизначене зображення",
+        }.get(role, "Зображення")]
+        if media.get("message_id"):
+            caption_parts.append(f"Повідомлення #{media['message_id']}")
+        if media.get("product_title"):
+            caption_parts.append(str(media["product_title"]))
+        if media.get("product_url"):
+            caption_parts.append(str(media["product_url"]))
+        media_code, media_response_body, media_response = 0, "", {}
+        delivered = False
+        for media_url in media_urls:
+            try:
+                media_body = json.dumps({
+                    "chat_id": chat,
+                    "photo": media_url,
+                    "caption": "\n".join(caption_parts)[:1000],
+                    "reply_to_message_id": int(main_message_id),
+                }).encode("utf-8")
+                media_code, media_response_body = _http(
+                    f"https://api.telegram.org/bot{token}/sendPhoto",
+                    data=media_body,
+                    timeout=HTTP_TIMEOUT,
+                )
+            except Exception as exc:
+                media["delivery_status"] = "unknown"
+                media["delivery_error"] = repr(exc)[:300]
+                persist_payload()
+                _finish_notification(
+                    dedupe_key,
+                    status=IgBotNotification.Status.UNKNOWN,
+                    error=repr(exc),
+                    failure_kind="media_ambiguous_transport",
+                    message_id=main_message_id,
+                )
+                return False
+            media_response = parse_response(media_code, media_response_body)
+            if media_code == 200 and isinstance(media_response, dict) and media_response.get("ok"):
+                delivered = True
+                break
+            # A permanent URL-specific rejection may be recovered by the
+            # original signed source URL. Retryable/ambiguous outcomes stop.
+            if media_code == 429 or media_code >= 500 or media_code < 0:
+                break
+        if media_code < 0 or (media_code == 200 and media_response is None):
+            media["delivery_status"] = "unknown"
+            media["delivery_error"] = str(media_response_body or "unreadable response")[:300]
+            persist_payload()
+            _finish_notification(
+                dedupe_key,
+                status=IgBotNotification.Status.UNKNOWN,
+                error=media["delivery_error"],
+                failure_kind="media_ambiguous_provider",
+                message_id=main_message_id,
+            )
+            return False
+        media_response = media_response or {}
+        if not delivered:
+            retryable = media_code == 429 or media_code >= 500
+            parameters = media_response.get("parameters")
+            retry_after = parameters.get("retry_after") if media_code == 429 and isinstance(parameters, dict) else 0
+            media["delivery_status"] = "failed" if retryable else "dead_letter"
+            media["delivery_error"] = str(media_response.get("description") or f"HTTP {media_code}")[:300]
+            persist_payload()
+            _finish_notification(
+                dedupe_key,
+                status=(IgBotNotification.Status.FAILED if retryable else IgBotNotification.Status.DEAD_LETTER),
+                error=media["delivery_error"],
+                failure_kind="media_retryable" if retryable else "media_permanent",
+                message_id=main_message_id,
+                retry_after_seconds=retry_after,
+            )
+            return False
+        media_message_id = str((media_response.get("result") or {}).get("message_id") or "")
+        if not media_message_id:
+            media["delivery_status"] = "unknown"
+            media["delivery_error"] = "Telegram photo success response has no message_id"
+            persist_payload()
+            _finish_notification(
+                dedupe_key,
+                status=IgBotNotification.Status.UNKNOWN,
+                error=media["delivery_error"],
+                failure_kind="media_ambiguous_provider",
+                message_id=main_message_id,
+            )
+            return False
+        media["delivery_status"] = "sent"
+        media["delivery_message_id"] = media_message_id
+        media.pop("delivery_error", None)
+        persist_payload()
+
+    payload.pop("media_delivery_errors", None)
+    persist_payload()
+    return _finish_notification(
         dedupe_key,
-        status=(IgBotNotification.Status.FAILED if retryable else IgBotNotification.Status.DEAD_LETTER),
-        error=str(response.get("description") or f"HTTP {code}"),
-        failure_kind=(
-            "rate_limited"
-            if code == 429
-            else ("provider_retryable" if retryable else "provider_permanent")
-        ),
-        retry_after_seconds=retry_after,
+        status=IgBotNotification.Status.SENT,
+        message_id=main_message_id,
     )
-    return False
 
 
 def drain_manager_notifications(*, limit: int = 20) -> int:
@@ -1038,6 +1357,7 @@ def notify_manager(
     event_type: str = "generic",
     client: IgClient | None = None,
     reply_markup: dict | None = None,
+    media: list[dict] | None = None,
 ) -> bool:
     """Persist one idempotent notification and attempt immediate delivery."""
     text = (text or "").strip()[:3500]
@@ -1049,6 +1369,19 @@ def notify_manager(
     payload = {"text": text, "chat_id": chat}
     if isinstance(reply_markup, dict):
         payload["reply_markup"] = reply_markup
+    if isinstance(media, list):
+        payload["media"] = [
+            {
+                key: str(item.get(key) or "")[:1200]
+                for key in (
+                    "role", "url", "local_url", "message_id", "product_id",
+                    "product_title", "product_url", "confidence",
+                )
+                if item.get(key)
+            }
+            for item in media[:8]
+            if isinstance(item, dict) and (item.get("url") or item.get("local_url"))
+        ]
     try:
         with transaction.atomic():
             row, created = IgBotNotification.objects.select_for_update().get_or_create(
@@ -1063,10 +1396,68 @@ def notify_manager(
                 IgBotNotification.Status.PENDING,
                 IgBotNotification.Status.FAILED,
             }:
+                previous_payload = row.payload if isinstance(row.payload, dict) else {}
+                if previous_payload.get("main_delivery_message_id"):
+                    payload["main_delivery_message_id"] = previous_payload["main_delivery_message_id"]
+                    previous_media = previous_payload.get("media") if isinstance(previous_payload.get("media"), list) else []
+                    delivery_by_key = {
+                        (
+                            str(item.get("role") or ""),
+                            str(item.get("local_url") or item.get("url") or ""),
+                            str(item.get("message_id") or ""),
+                        ): item
+                        for item in previous_media if isinstance(item, dict)
+                    }
+                    for item in payload.get("media") or []:
+                        old = delivery_by_key.get((
+                            str(item.get("role") or ""),
+                            str(item.get("local_url") or item.get("url") or ""),
+                            str(item.get("message_id") or ""),
+                        ))
+                        if old:
+                            for key in ("delivery_status", "delivery_message_id", "delivery_error"):
+                                if old.get(key):
+                                    item[key] = old[key]
                 row.client = client or row.client
                 row.event_type = (event_type or row.event_type or "generic")[:64]
                 row.payload = payload
                 row.save(update_fields=["client", "event_type", "payload", "updated_at"])
+            elif not created and row.status in {
+                IgBotNotification.Status.SENT,
+                IgBotNotification.Status.RESOLVED,
+            }:
+                previous_payload = row.payload if isinstance(row.payload, dict) else {}
+                previous_media = previous_payload.get("media") if isinstance(previous_payload.get("media"), list) else []
+                media_by_key = {
+                    (
+                        str(item.get("role") or ""),
+                        str(item.get("local_url") or item.get("url") or ""),
+                        str(item.get("message_id") or ""),
+                    ): dict(item)
+                    for item in previous_media if isinstance(item, dict)
+                }
+                added = False
+                for item in payload.get("media") or []:
+                    key = (
+                        str(item.get("role") or ""),
+                        str(item.get("local_url") or item.get("url") or ""),
+                        str(item.get("message_id") or ""),
+                    )
+                    if key not in media_by_key:
+                        media_by_key[key] = item
+                        added = True
+                if added:
+                    row.payload = {
+                        **previous_payload,
+                        "media": list(media_by_key.values())[:8],
+                        "main_delivery_message_id": (
+                            previous_payload.get("main_delivery_message_id")
+                            or row.telegram_message_id
+                        ),
+                    }
+                    row.status = IgBotNotification.Status.PENDING
+                    row.next_attempt_at = timezone.now()
+                    row.save(update_fields=["payload", "status", "next_attempt_at", "updated_at"])
     except Exception:
         return False
     return _deliver_manager_notification(dedupe_key)
@@ -1632,7 +2023,7 @@ def select_chat_reasoning_task(
 def gemini_generate(
     s: InstagramBotSettings, history: list[dict], images: list[tuple[str, bytes]] | None = None,
     match_hint: str | None = None, memory_note: str | None = None,
-    context_note: str | None = None, client=None,
+    context_note: str | None = None, client=None, media_hint: str | None = None,
 ) -> str | None:
     """history: [{'role':'user'|'model','text':str}] хронологічно.
     images: список (mime_type, raw_bytes) для ОСТАННЬОГО (поточного) user-ходу."""
@@ -1703,6 +2094,8 @@ def gemini_generate(
         sys_text = (sys_text + "\n\n" + memory_note).strip()
     if match_hint:
         sys_text = (sys_text + "\n\n" + match_hint).strip()
+    if media_hint:
+        sys_text = (sys_text + "\n\n" + media_hint).strip()
 
     payload = {
         "contents": contents,
@@ -1830,6 +2223,124 @@ def _collect_images(attachments_json: str | None, limit: int = 3) -> list[tuple[
         if img:
             images.append(img)
     return images
+
+
+def _recover_current_message_media(row, limit: int = 8) -> list[dict] | None:
+    """Recover current-turn media from normalized and raw Instagram evidence.
+
+    Meta may emit a follow-up ``ig_post``/story event with a provider ``mid``
+    different from the normalized message row. The payment-review service owns
+    the bounded exact-mid/timestamp join; the reply worker reuses that same
+    contract so a paused/active conversation sees identical media evidence.
+    """
+    try:
+        from management.services.ig_payment_review import (
+            _augment_messages_with_raw_media,
+            _existing_media,
+            classify_media_items,
+        )
+
+        raw = {
+            "id": getattr(row, "pk", 0),
+            "mid": getattr(row, "mid", "") or "",
+            "text": getattr(row, "text", "") or "",
+            "attachments": getattr(row, "attachments", "") or "",
+            "role": getattr(row, "role", "") or "user",
+            "created_at": getattr(row, "created_at", None),
+        }
+        # Normalized attachment URLs are the common path. Avoid scanning up to
+        # 240 raw webhook events for every message; fall back to the bounded raw
+        # join only when the normalized row has no usable media.
+        normalized_media = _existing_media(str(raw.get("attachments") or ""))
+        if normalized_media:
+            augmented = [raw]
+            augmented[0]["media"] = normalized_media
+        else:
+            augmented = _augment_messages_with_raw_media(getattr(row, "client", None), [raw])
+        if not augmented:
+            return []
+        item = augmented[0]
+        media = item.get("media") if isinstance(item.get("media"), list) else []
+        payment_context = bool(re.search(
+            r"\b(оплат\w*|платіж\w*|платеж\w*|чек\w*|квитанц\w*|receipt|paid)\b",
+            str(item.get("text") or ""),
+            re.IGNORECASE,
+        ))
+        classified = classify_media_items(
+            str(item.get("text") or ""),
+            media,
+            payment_context=payment_context,
+        )[:limit]
+        for media_item in classified:
+            media_item["message_id"] = getattr(row, "pk", 0)
+            if str(getattr(row, "role", "") or "").casefold() == InstagramBotMessage.Role.MANAGER:
+                media_item.update({
+                    "role": "manager_reference",
+                    "intent": "manager_reference",
+                    "actionable": False,
+                    "payment_evidence": False,
+                    "catalog_match_allowed": False,
+                })
+        return classified
+    except Exception as exc:
+        log("warning", "media_recovery", repr(exc))
+        return None
+
+
+def _collect_media_images(media: list[dict] | None, limit: int = 3) -> list[tuple[str, bytes]]:
+    """Download bounded media URLs for Gemini; roles remain in ``media``."""
+    images: list[tuple[str, bytes]] = []
+    seen = set()
+    for item in media or []:
+        url = str(item.get("url") or "") if isinstance(item, dict) else ""
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        image = download_image(url)
+        if image:
+            images.append(image)
+        if len(images) >= limit:
+            break
+    return images
+
+
+def _catalog_match_media(media: list[dict] | None) -> list[dict]:
+    """Return only media explicitly authorized for catalog vision."""
+    return [
+        item for item in (media or [])
+        if isinstance(item, dict)
+        and item.get("role") == "product"
+        and item.get("catalog_match_allowed") is True
+    ]
+
+
+def _media_context_hint(media: list[dict] | None) -> str | None:
+    """Render evidence-bound media semantics for the customer-facing prompt."""
+    rows = []
+    labels = {
+        "product": "зображення товару/поста каталогу",
+        "receipt": "можливий чек/доказ платежу (не підтвердження provider payment)",
+        "custom_reference": "референс для custom print",
+        "other": "невизначене зображення",
+        "manager_reference": "зображення від менеджера",
+    }
+    for item in media or []:
+        if not isinstance(item, dict):
+            continue
+        role = str(item.get("role") or "other")
+        rows.append(
+            f"- {labels.get(role, role)}; intent={item.get('intent') or 'unknown'}; "
+            f"source_message_id={item.get('message_id') or 'unknown'}; "
+            f"catalog_match_allowed={'yes' if item.get('catalog_match_allowed') else 'no'}"
+        )
+    if not rows:
+        return None
+    return (
+        "[MEDIA EVIDENCE — службове, клієнт цього не бачить]\n"
+        "Розділяй питання про товар, purchase candidate, custom print і payment evidence. "
+        "Чек/скриншот не є provider-paid без підтвердження платіжного ledger.\n"
+        + "\n".join(rows)
+    )
 
 
 def _match_hint_text(match: dict | None) -> str | None:
@@ -2108,7 +2619,11 @@ def enqueue_inbound(
                 except Exception:
                     pass
             try:
-                classified = bot_sales_classifier.classify_message(client, message=msg)
+                classified = bot_sales_classifier.classify_message(
+                    client,
+                    message=msg,
+                    media_context=_recover_current_message_media(msg),
+                )
                 interaction_type = classified.get("interaction_type")
                 terminal_followup_reasons = {
                     "explicit_no_buy": "explicit_no_buy",
@@ -2511,23 +3026,34 @@ def _process_one_inside_reply_boundary(
             history = _build_history(row.sender_id)
             if not history:
                 history = [{"role": "user", "text": row.text}]
-            # Зображення-вкладення (фото, пересланий пост, reels, сторіс) ->
-            # мультимодальний вхід Gemini.
-            images = _collect_images(row.attachments)
+            # Recover raw ig_post/story media as well as normalized attachments.
+            # This keeps active and paused/manager-led conversations on the
+            # same evidence path; receipts are passed to Gemini for context but
+            # are never sent to catalog matching.
+            recovered_media = _recover_current_message_media(row)
+            media_recovery_failed = recovered_media is None
+            media = recovered_media or []
+            images = _collect_media_images(media)
+            if not images and not media_recovery_failed:
+                images = _collect_images(row.attachments)
             if not _renew_client_automation_lease(row, lease_token):
                 return False
             # Якщо є фото/пост — матчимо з каталогом і даємо моделі підказку.
             match_hint = None
-            if images and _match_allowed(row.sender_id):
+            product_media = _catalog_match_media(media)
+            product_images = _collect_media_images(product_media) if media else (
+                [] if media_recovery_failed else images
+            )
+            if product_images and _match_allowed(row.sender_id):
                 try:
                     from management.services import bot_vision
 
-                    match = bot_vision.match(images)
+                    match = bot_vision.match(product_images)
                     if not _renew_client_automation_lease(row, lease_token):
                         return False
                     match_hint = _match_hint_text(match)
                     # Впевнений матчинг → закріплюємо товар за клієнтом.
-                    if row.client_id:
+                    if row.client_id and _should_pin_product_media(media):
                         _maybe_pin_from_match(row.client, match)
                 except Exception as exc:
                     log("warning", "match", repr(exc))
@@ -2546,6 +3072,7 @@ def _process_one_inside_reply_boundary(
             reply = gemini_generate(
                 s, history, images=images or None, match_hint=match_hint,
                 memory_note=mem_note, context_note=ctx_note, client=row.client if row.client_id else None,
+                media_hint=_media_context_hint(media),
             )
     else:
         if (row.text or "").strip() != s.trigger_text:
@@ -2570,11 +3097,20 @@ def _process_one_inside_reply_boundary(
 
     # Закріплюємо товар, якщо модель явно вказала [PRODUCT:id] — щоб подальша
     # оплата формувалась детерміновано саме на нього.
-    if reply and row.client_id and control.get("product"):
+    if (
+        reply
+        and row.client_id
+        and _control_product_id(control)
+        and (
+            _PURCHASE_COMMITMENT_RE.search(reply)
+            or str(getattr(row.client, "intent", "") or "").casefold() in {"payment", "checkout"}
+            or str(getattr(row.client, "stage", "") or "").casefold() in {"checkout", "payment_pending"}
+        )
+    ):
         try:
             from management.services import bot_orders
 
-            bot_orders.pin_product(row.client, control.get("product"))
+            bot_orders.pin_product(row.client, _control_product_id(control))
         except Exception:
             pass
 
@@ -3153,7 +3689,13 @@ def handle_webhook_payload(s: InstagramBotSettings, payload: dict) -> int:
         # Echo (повідомлення сторінки/менеджера) → перехоплення менеджером.
         if msg.get("is_echo"):
             try:
-                _handle_echo(recipient_id, msg.get("text", ""))
+                _handle_echo(
+                    recipient_id,
+                    msg.get("text", ""),
+                    attachments=_echo_media_items(msg),
+                    mid=msg.get("mid", ""),
+                    received_at=msg.get("_event_created_at"),
+                )
             except Exception as exc:
                 log("warning", "echo", repr(exc))
             continue

@@ -81,6 +81,80 @@ class ManualOrderCreateTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Створення замовлення вручну')
 
+    def test_confirmed_review_prefills_matched_catalog_product(self):
+        from management.ig_bot_models import IgPaymentConfirmationReview
+        from management.models import IgClient
+
+        ig_client = IgClient.get_or_create_for_sender('manual-review-prefill')
+        review = IgPaymentConfirmationReview.objects.create(
+            client=ig_client,
+            dedupe_key='manual-review-prefill',
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            evidence={
+                'order_draft': {
+                    'delivery': {'full_name': 'Яна Ніколаєнко', 'phone': '0502034719'},
+                    'items': [{
+                        'product_id': self.product.pk,
+                        'color_variant_id': self.variant.pk,
+                        'title': 'Базова футболка',
+                        'unit_price': '790.00',
+                        'qty': 1,
+                        'size': 'S',
+                        'catalog': {
+                            'product_id': self.product.pk,
+                            'title': self.product.title,
+                            'url': f'https://twocomms.shop/product/{self.product.slug}/',
+                        },
+                    }],
+                },
+            },
+        )
+        response = self.client.get(self.url, {'ig_payment_review': review.pk})
+        self.assertEqual(response.status_code, 200)
+        initial = json.loads(response.context['order_initial_json'])
+        self.assertEqual(initial['items'][0]['kind'], 'catalog')
+        self.assertEqual(initial['items'][0]['product_id'], self.product.pk)
+        self.assertEqual(initial['items'][0]['color_variant_id'], self.variant.pk)
+        self.assertEqual(initial['items'][0]['unit_price'], 790.0)
+        self.assertEqual(initial['payment_preset'], 'unpaid_full')
+
+    def test_confirmed_receipt_review_creates_unverified_order_without_purchase(self):
+        from management.ig_bot_models import IgPaymentConfirmationReview
+        from management.models import IgClient
+
+        ig_client = IgClient.get_or_create_for_sender('manual-review-unverified')
+        review = IgPaymentConfirmationReview.objects.create(
+            client=ig_client,
+            dedupe_key='manual-review-unverified',
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            evidence={},
+        )
+        payload = {
+            'payment_review_id': review.pk,
+            'full_name': 'Яна Ніколаєнко',
+            'phone': '0502034719',
+            'delivery_method': 'manual',
+            'city': 'Харків',
+            'np_office': 'Поштомат 21586',
+            'payment_preset': 'paid_full',
+            'items': [{
+                'kind': 'catalog',
+                'product_id': self.product.pk,
+                'color_variant_id': self.variant.pk,
+                'size': 'S',
+                'qty': 1,
+                'unit_price': 790,
+            }],
+        }
+        response, _notify = self._post(payload)
+        self.assertEqual(response.status_code, 200, response.content)
+        order = Order.objects.get(pk=response.json()['order_id'])
+        self.assertEqual(order.payment_status, 'unpaid')
+        self.assertEqual(order.pay_type, 'online_full')
+        self.assertTrue(order.payment_payload['manual_payment_evidence_confirmed'])
+        self.assertFalse(order.payment_payload['provider_payment_confirmed'])
+        self.assertFalse(UserAction.objects.filter(action_type='purchase', order=order).exists())
+
     def test_create_catalog_order(self):
         payload = {
             'full_name': 'Іваненко Іван Іванович',

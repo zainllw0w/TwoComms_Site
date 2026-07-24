@@ -539,10 +539,34 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
 
 def gemini_generate_json(system_instruction: str, user_text: str, *,
                          role: str = "management", max_output_tokens: int = 4096,
-                         reasoning_task: str | None = None) -> dict:
+                         reasoning_task: str | None = None,
+                         images: list[tuple[str, bytes]] | None = None,
+                         image_labels: list[dict] | None = None) -> dict:
     """Текстовий JSON-запит до Gemini. Пул ключів ролі + цепочка моделей."""
+    parts = [{"text": user_text}]
+    labels = image_labels if isinstance(image_labels, list) else []
+    for image_index, (mime, raw) in enumerate((images or [])[:8]):
+        try:
+            encoded = base64.b64encode(raw).decode()
+            label = labels[image_index] if image_index < len(labels) and isinstance(labels[image_index], dict) else None
+            if label is not None:
+                parts.append({
+                    "text": (
+                        f"INLINE_IMAGE index={image_index} "
+                        f"message_id={label.get('message_id', 'unknown')} "
+                        f"media_index={label.get('media_index', 'unknown')}"
+                    )
+                })
+            parts.append({
+                "inline_data": {
+                    "mime_type": str(mime or "image/jpeg"),
+                    "data": encoded,
+                }
+            })
+        except Exception:
+            continue
     payload = {
-        "contents": [{"role": "user", "parts": [{"text": user_text}]}],
+        "contents": [{"role": "user", "parts": parts}],
         "system_instruction": {"parts": [{"text": system_instruction}]},
         "generationConfig": {
             "temperature": 0.25,

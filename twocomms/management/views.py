@@ -3287,9 +3287,10 @@ def _tg_edit_message(bot_token, chat_id, message_id, text, *, reply_markup=None,
         'chat_id': chat_id,
         'message_id': message_id,
         'text': text,
-        'parse_mode': parse_mode,
         'disable_web_page_preview': True,
     }
+    if parse_mode:
+        payload['parse_mode'] = parse_mode
     if reply_markup is not None:
         payload['reply_markup'] = reply_markup
     data = _tg_api_post(bot_token, 'editMessageText', payload, as_json=True)
@@ -3323,6 +3324,30 @@ def _tg_answer_callback(bot_token, callback_query_id, text=''):
         payload['text'] = text
         payload['show_alert'] = False
     return _tg_api_post(bot_token, 'answerCallbackQuery', payload, as_json=True)
+
+
+def _payment_review_notification_gate(notification, chat_id, message_id) -> str:
+    """Return the fail-closed reason for an unsafe IG payment callback."""
+    if not notification or str(getattr(notification, 'event_type', '') or '') != 'payment_review':
+        return 'Ця кнопка не належить цьому review'
+    payload = notification.payload if isinstance(getattr(notification, 'payload', None), dict) else {}
+    bound_chat_id = str(payload.get('chat_id') or '')
+    main_delivery_id = str(
+        payload.get('main_delivery_message_id')
+        or getattr(notification, 'telegram_message_id', '')
+        or ''
+    )
+    if (
+        main_delivery_id != str(message_id or '')
+        or (bound_chat_id and bound_chat_id != str(chat_id))
+    ):
+        return 'Ця кнопка не належить цьому review'
+    # Telegram sends the inline-button callback as soon as the main alert is
+    # accepted. Photos (product references and receipts) are delivered as
+    # separate outbox requests, so the notification is still ``sending`` at
+    # that point. The callback is already safely bound to the exact main
+    # message; do not make the decision depend on slower media delivery.
+    return ''
 
 
 def _get_management_admin_bot_config():
@@ -4031,6 +4056,141 @@ def management_bot_webhook(request, token):
         if admin_chat_cfg and str(chat_id) not in {str(v) for v in admin_chat_cfg}:
             _tg_answer_callback(bot_token, cb_id, "Недостатньо прав")
             return JsonResponse({'ok': True})
+
+        # Instagram payment reviews are confirmed directly from Telegram. The
+        # callback is the decision itself; the management URL remains only for
+        # the editable order form and audit trail.
+        if data.startswith('igpay:'):
+            if not admin_token or token != admin_token:
+                _tg_answer_callback(bot_token, cb_id, "Недостатньо прав")
+                return JsonResponse({'ok': True})
+            if not admin_chat_cfg:
+                _tg_answer_callback(bot_token, cb_id, "Доступ не налаштовано")
+                return JsonResponse({'ok': True})
+            callback_from = callback.get('from') if isinstance(callback.get('from'), dict) else {}
+            telegram_user_id = str(callback_from.get('id') or '')
+            chat_type = str(msg_chat.get('type') or '')
+            actor = None
+            try:
+                profile = UserProfile.objects.select_related('user').filter(
+                    tg_manager_chat_id=telegram_user_id,
+                    user__is_active=True,
+                ).first()
+                candidate_actor = profile.user if profile else None
+                actor = candidate_actor if candidate_actor and user_is_management(candidate_actor) else None
+            except Exception:
+                actor = None
+            if chat_type == 'private':
+                sender_authorized = bool(telegram_user_id and telegram_user_id == str(chat_id))
+            else:
+                configured_user_ids = set(_split_chat_ids(os.environ.get('MANAGEMENT_TG_ADMIN_USER_IDS')))
+                sender_authorized = bool(
+                    telegram_user_id
+                    and (telegram_user_id in configured_user_ids or actor is not None)
+                )
+            if not sender_authorized:
+                _tg_answer_callback(bot_token, cb_id, "Недостатньо прав")
+                return JsonResponse({'ok': True})
+            parts = data.split(':', 2)
+            action = parts[1] if len(parts) == 3 else ''
+            if action not in {'confirm', 'cancel'}:
+                _tg_answer_callback(bot_token, cb_id, 'Невідома дія')
+                return JsonResponse({'ok': True})
+            try:
+                review_id = int(parts[2])
+            except (TypeError, ValueError):
+                _tg_answer_callback(bot_token, cb_id, 'Невірний ID')
+                return JsonResponse({'ok': True})
+            from management.ig_bot_models import IgPaymentConfirmationReview
+            from management.services.ig_payment_review import cancel_review, confirm_review
+
+            review = (
+                IgPaymentConfirmationReview.objects.select_related('client')
+                .filter(pk=review_id, client__hidden_at__isnull=True)
+                .first()
+            )
+            if not review:
+                _tg_answer_callback(bot_token, cb_id, 'Перевірку не знайдено')
+                return JsonResponse({'ok': True})
+            from management.models import IgBotNotification
+
+            notification = IgBotNotification.objects.filter(dedupe_key=review.dedupe_key).first()
+            gate_reason = _payment_review_notification_gate(notification, chat_id, message_id)
+            if gate_reason:
+                _tg_answer_callback(bot_token, cb_id, gate_reason)
+                return JsonResponse({'ok': True})
+            desired_status = (
+                IgPaymentConfirmationReview.Status.CONFIRMED
+                if action == 'confirm'
+                else IgPaymentConfirmationReview.Status.CANCELLED
+            )
+            if review.status != IgPaymentConfirmationReview.Status.PENDING:
+                callback_text = (
+                    'Дію вже виконано'
+                    if review.status == desired_status
+                    else f'Поточний статус: {review.get_status_display()}'
+                )
+                _tg_answer_callback(bot_token, cb_id, callback_text)
+                return JsonResponse({'ok': True, 'status': review.status})
+            from django.utils import timezone as django_timezone
+            telegram_decision = {
+                'action': action,
+                'chat_id': str(chat_id),
+                'telegram_user_id': telegram_user_id,
+                'telegram_username': str(callback_from.get('username') or '')[:150],
+                'actor_id': getattr(actor, 'pk', None),
+                'decided_at': django_timezone.now().isoformat(),
+            }
+            review = (
+                confirm_review(review, actor=actor, telegram_decision=telegram_decision)
+                if action == 'confirm'
+                else cancel_review(
+                    review,
+                    actor=actor,
+                    reason='Скасовано з Telegram',
+                    telegram_decision=telegram_decision,
+                )
+            )
+            if getattr(review, '_transitioned', False):
+                if notification:
+                    if notification.status == IgBotNotification.Status.SENT:
+                        notification.status = IgBotNotification.Status.RESOLVED
+                        notification.failure_kind = f'payment_review_{review.status}_telegram'
+                    notification.payload = {
+                        **(notification.payload if isinstance(notification.payload, dict) else {}),
+                        'review_status': review.status,
+                        'actor_id': getattr(actor, 'pk', None),
+                    }
+                    notification.save(update_fields=['status', 'failure_kind', 'payload', 'updated_at'])
+                base = getattr(settings, 'MANAGEMENT_BASE_URL', 'https://management.twocomms.shop').rstrip('/')
+                old_text = str(msg.get('text') or 'Перевірка оплати')
+                if review.status == IgPaymentConfirmationReview.Status.CONFIRMED:
+                    final_text = old_text + '\n\n✅ Заяву/чек підтверджено менеджером. Платіж провайдера ще не підтверджено.'
+                    order_path = reverse('manual_order_create') + f'?ig_payment_review={review.pk}'
+                    keyboard = {'inline_keyboard': [[
+                        {'text': 'Сформувати замовлення', 'url': f'{base}{order_path}'},
+                    ], [
+                        {'text': 'Відкрити перевірку', 'url': f'{base}/bot/?payment_review={review.pk}'},
+                    ]]}
+                    callback_text = 'Підтверджено'
+                else:
+                    final_text = old_text + '\n\n❌ Заяву/чек відхилено менеджером.'
+                    keyboard = {'inline_keyboard': [[
+                        {'text': 'Відкрити перевірку', 'url': f'{base}/bot/?payment_review={review.pk}'},
+                    ]]}
+                    callback_text = 'Відхилено'
+                _tg_edit_message(
+                    bot_token,
+                    chat_id,
+                    message_id,
+                    final_text[:3900],
+                    reply_markup=keyboard,
+                    parse_mode=None,
+                )
+                _tg_answer_callback(bot_token, cb_id, callback_text)
+                return JsonResponse({'ok': True, 'status': review.status})
+            _tg_answer_callback(bot_token, cb_id, 'Дію вже виконано')
+            return JsonResponse({'ok': True, 'status': review.status})
 
         # ==================== CALLBACK QUERIES (ADMIN PAYOUTS) ====================
         if data.startswith('pay:'):
