@@ -340,11 +340,7 @@ def product_detail(request, slug, v1=None, v2=None, v3=None):
         for grid_item in size_grid_comparison:
             fit_code = grid_item.get('fit_code', '')
             for variant_item in grid_item.get('variants', []):
-                sizes = [
-                    row.get('size')
-                    for row in variant_item.get('sizes', [])
-                    if row.get('size') in variant_item.get('available_sizes', [])
-                ]
+                sizes = list(variant_item.get('available_sizes') or [])
                 variant_size_matrix.setdefault(
                     variant_item.get('variant_id'), {}
                 )[fit_code] = sizes

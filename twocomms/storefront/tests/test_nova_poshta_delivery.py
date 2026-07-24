@@ -427,6 +427,28 @@ class NovaPoshtaWaybillServiceTests(SimpleTestCase):
         order = self._build_order(items=items)
         self.assertEqual(build_waybill_description(order), 'Одяг бренду TwoComms, у кількості 3 шт.')
 
+    def test_build_waybill_description_counts_fit_separated_order_lines(self):
+        items = _FakeItems([
+            SimpleNamespace(
+                title='Футболка',
+                qty=1,
+                fit_option_code='classic',
+                fit_option_label='Класична',
+            ),
+            SimpleNamespace(
+                title='Футболка',
+                qty=1,
+                fit_option_code='oversize',
+                fit_option_label='Оверсайз',
+            ),
+        ])
+        order = self._build_order(items=items)
+
+        self.assertEqual(
+            build_waybill_description(order),
+            'Одяг бренду TwoComms, у кількості 2 шт.',
+        )
+
     @patch.object(NovaPoshtaDocumentService, '_resolve_default_sender_point')
     def test_build_initial_payload_prefills_sender_and_prepay_cod(self, mock_sender_point):
         mock_sender_point.return_value = NovaPoshtaResolvedPoint(

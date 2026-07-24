@@ -61,6 +61,7 @@ ALLOWED_HOSTS = [
     'www.twocomms.shop',
     'dtf.twocomms.shop',
     'management.twocomms.shop',
+    'storage.twocomms.shop',
 ]
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False

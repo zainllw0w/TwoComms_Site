@@ -974,6 +974,7 @@
   letter-spacing:.04em; padding:2px 8px; border-radius:999px; }
 .oedit-line__tag--catalog { color:#93c5fd; background:rgba(59,130,246,.16); }
 .oedit-line__tag--custom { color:#fcd34d; background:rgba(251,191,36,.16); }
+.oedit-line__tag--thermo { color:#fdba74; background:rgba(249,115,22,.16); margin-left:5px; }
 .oedit-line__del { flex:0 0 auto; width:32px; height:32px; border:0; border-radius:9px; cursor:pointer; display:grid; place-items:center;
   background:rgba(251,113,133,.14); color:#fb7185; transition:all .14s ease; }
 .oedit-line__del:hover { background:rgba(251,113,133,.28); }
@@ -1162,6 +1163,82 @@
   }
   function lineTotal(it) { return (Number(it.unit_price) || 0) * (parseInt(it.qty, 10) || 0); }
 
+  function selectedVariant(it) {
+    return (it.variants || []).find(function (v) {
+      return String(v.id) === String(it.color_variant_id);
+    }) || null;
+  }
+
+  function normalizeCatalogItem(it, product, refreshPrice, preserveSelection) {
+    if (!preserveSelection) {
+      it.historical_fit_unavailable = false;
+      it.historical_size_unavailable = false;
+    }
+    it.sizes = product.sizes || [];
+    it.variants = product.variants || [];
+    it.fits = product.fits || [];
+    it.default_fit_code = product.default_fit_code || '';
+    it.sizes_by_fit = product.sizes_by_fit || {};
+
+    var variant = selectedVariant(it);
+    if (!variant && it.variants.length) {
+      variant = it.variants[0];
+      it.color_variant_id = variant.id;
+    } else if (!variant) {
+      it.color_variant_id = '';
+    }
+
+    var productFitCodes = it.fits.map(function (fit) { return String(fit.code); });
+    var variantFitCodes = variant && Array.isArray(variant.available_fit_codes)
+      ? variant.available_fit_codes.map(String)
+      : productFitCodes;
+    it.available_fits = it.fits.filter(function (fit) {
+      return variantFitCodes.indexOf(String(fit.code)) !== -1;
+    });
+    var availableCodes = it.available_fits.map(function (fit) { return String(fit.code); });
+    var currentFit = String(it.fit_option_code || '');
+    if (availableCodes.indexOf(currentFit) === -1 && preserveSelection && currentFit) {
+      var historicalFit = it.fits.find(function (fit) { return String(fit.code) === currentFit; });
+      if (historicalFit || it.fit_option_label) {
+        historicalFit = historicalFit || { code: currentFit, label: it.fit_option_label || currentFit };
+        it.available_fits = [{ code: historicalFit.code, label: historicalFit.label, historical: true }].concat(it.available_fits);
+      }
+      it.historical_fit_unavailable = true;
+    } else if (availableCodes.indexOf(currentFit) === -1) {
+      var defaultFit = String(it.default_fit_code || '');
+      it.fit_option_code = availableCodes.indexOf(defaultFit) !== -1
+        ? defaultFit
+        : (availableCodes[0] || '');
+    }
+
+    var variantSizes = variant && variant.sizes_by_fit ? variant.sizes_by_fit : {};
+    var fitSizes = it.fit_option_code && Array.isArray(variantSizes[it.fit_option_code])
+      ? variantSizes[it.fit_option_code]
+      : (it.fit_option_code && Array.isArray(it.sizes_by_fit[it.fit_option_code])
+        ? it.sizes_by_fit[it.fit_option_code]
+        : it.sizes);
+    it.active_sizes = fitSizes || [];
+    if (it.active_sizes.indexOf(it.size) === -1 && preserveSelection && it.size) {
+      it.active_sizes = [it.size].concat(it.active_sizes);
+      it.historical_size_unavailable = true;
+    } else if (it.active_sizes.indexOf(it.size) === -1) {
+      it.size = it.active_sizes[0] || '';
+      it.historical_size_unavailable = false;
+    } else {
+      it.historical_size_unavailable = false;
+    }
+
+    it.is_thermo = Boolean(variant && variant.is_thermo);
+    if (refreshPrice) {
+      var fitPrices = variant && variant.prices_by_fit ? variant.prices_by_fit : {};
+      var suggestedPrice = Object.prototype.hasOwnProperty.call(fitPrices, it.fit_option_code)
+        ? fitPrices[it.fit_option_code]
+        : product.price;
+      it.unit_price = Math.max(0, Number(suggestedPrice) || 0);
+    }
+    return it;
+  }
+
   // ── open / close ───────────────────────────────────────
   function openDrawer() {
     drawer.hidden = false; backdrop.hidden = false;
@@ -1210,20 +1287,27 @@
     elClient.textContent = order.full_name || '';
     items = (order.items || []).map(function (raw) {
       var prod = raw.product_id ? productMap[raw.product_id] : null;
-      return {
+      var item = {
         uid: uidSeq++,
         kind: raw.kind === 'custom' ? 'custom' : 'catalog',
+        item_id: raw.item_id || null,
         product_id: raw.product_id || null,
         title: raw.title || (prod && prod.title) || '',
         image: raw.image || (prod && prod.image) || '',
         unit_price: Number(raw.unit_price) || 0,
         qty: parseInt(raw.qty, 10) || 1,
         size: raw.size || '',
+        fit_option_code: raw.fit_option_code || '',
+        fit_option_label: raw.fit_option_label || '',
         color_variant_id: raw.color_variant_id || '',
         color_name: raw.color_name || '',
         sizes: prod ? (prod.sizes || []) : [],
-        variants: prod ? (prod.variants || []) : []
+        variants: prod ? (prod.variants || []) : [],
+        fits: prod ? (prod.fits || []) : [],
+        default_fit_code: prod ? (prod.default_fit_code || '') : '',
+        sizes_by_fit: prod ? (prod.sizes_by_fit || {}) : {}
       };
+      return prod ? normalizeCatalogItem(item, prod, false, true) : item;
     });
     initialTotal = items.reduce(function (a, it) { return a + lineTotal(it); }, 0);
     buildBody(order);
@@ -1315,20 +1399,28 @@
       var tag = it.kind === 'custom'
         ? '<span class="oedit-line__tag oedit-line__tag--custom">Поза каталогом</span>'
         : '<span class="oedit-line__tag oedit-line__tag--catalog">Каталог</span>';
+      if (it.kind === 'catalog' && it.is_thermo) {
+        tag += '<span class="oedit-line__tag oedit-line__tag--thermo">Термотканина</span>';
+      }
 
       var fields = '';
       fields += fld('Ціна, грн', '<input type="number" class="oedit-input" min="0" step="1" value="' + it.unit_price + '" data-edit="unit_price">');
       fields += fld('К-сть', '<input type="number" class="oedit-input" min="1" step="1" value="' + it.qty + '" data-edit="qty">');
-      if (it.kind === 'catalog' && it.sizes && it.sizes.length) {
-        fields += fld('Розмір', '<select class="oedit-select" data-edit="size">' + it.sizes.map(function (s) {
-          return '<option value="' + esc(s) + '"' + (s === it.size ? ' selected' : '') + '>' + esc(s) + '</option>';
+      if (it.kind === 'catalog' && it.fits && it.fits.length) {
+        fields += fld('Посадка', '<select class="oedit-select" data-edit="fit_option_code">' + (it.available_fits || []).map(function (fit) {
+          return '<option value="' + esc(fit.code) + '"' + (String(fit.code) === String(it.fit_option_code) ? ' selected' : '') + '>' + esc(fit.label) + (fit.historical ? ' (недоступна)' : '') + '</option>';
+        }).join('') + '</select>');
+      }
+      if (it.kind === 'catalog' && it.active_sizes && it.active_sizes.length) {
+        fields += fld('Розмір', '<select class="oedit-select" data-edit="size">' + it.active_sizes.map(function (s) {
+          return '<option value="' + esc(s) + '"' + (s === it.size ? ' selected' : '') + '>' + esc(s) + (it.historical_size_unavailable && s === it.size ? ' (недоступний)' : '') + '</option>';
         }).join('') + '</select>');
       } else {
         fields += fld('Розмір', '<input type="text" class="oedit-input" value="' + esc(it.size) + '" data-edit="size">');
       }
       if (it.kind === 'catalog' && it.variants && it.variants.length) {
         fields += fld('Колір', '<select class="oedit-select" data-edit="color_variant_id">' + it.variants.map(function (v) {
-          return '<option value="' + v.id + '"' + (String(v.id) === String(it.color_variant_id) ? ' selected' : '') + '>' + esc(v.name) + '</option>';
+          return '<option value="' + esc(v.id) + '"' + (String(v.id) === String(it.color_variant_id) ? ' selected' : '') + '>' + esc(v.name) + '</option>';
         }).join('') + '</select>');
       } else if (it.kind === 'custom') {
         fields += fld('Колір', '<input type="text" class="oedit-input" value="' + esc(it.color_name) + '" data-edit="color_name">');
@@ -1371,7 +1463,16 @@
     var key = input.dataset.edit, val = input.value;
     if (key === 'unit_price') it.unit_price = Math.max(0, Number(val) || 0);
     else if (key === 'qty') it.qty = Math.max(1, parseInt(val, 10) || 1);
-    else it[key] = val;
+    else {
+      it[key] = val;
+      if (key === 'size') it.historical_size_unavailable = false;
+    }
+    if (it.kind === 'catalog' && (key === 'color_variant_id' || key === 'fit_option_code')) {
+      var product = productMap[it.product_id];
+      if (product) normalizeCatalogItem(it, product, true);
+      renderItems();
+      return;
+    }
     var sub = line.querySelector('.oedit-line__sub b');
     if (sub) sub.textContent = fmt(lineTotal(it)) + ' грн';
     updateTotal();
@@ -1451,16 +1552,21 @@
       if (it) {
         it.kind = 'catalog'; it.product_id = p.id; it.title = p.title; it.image = p.image;
         it.unit_price = p.price; it.sizes = p.sizes || []; it.variants = p.variants || [];
-        it.size = (p.sizes && p.sizes.indexOf(it.size) !== -1) ? it.size : (p.sizes && p.sizes[0]) || '';
+        it.fits = p.fits || []; it.default_fit_code = p.default_fit_code || '';
+        it.sizes_by_fit = p.sizes_by_fit || {}; it.fit_option_code = p.default_fit_code || '';
         it.color_variant_id = (p.variants && p.variants[0] && p.variants[0].id) || '';
         it.color_name = '';
+        normalizeCatalogItem(it, p, true);
       }
     } else {
-      items.push({
+      var item = {
         uid: uidSeq++, kind: 'catalog', product_id: p.id, title: p.title, image: p.image,
-        unit_price: p.price, qty: 1, size: (p.sizes && p.sizes[0]) || '', sizes: p.sizes || [],
-        variants: p.variants || [], color_variant_id: (p.variants && p.variants[0] && p.variants[0].id) || '', color_name: ''
-      });
+        unit_price: p.price, qty: 1, size: '', sizes: p.sizes || [], fits: p.fits || [],
+        default_fit_code: p.default_fit_code || '', sizes_by_fit: p.sizes_by_fit || {},
+        fit_option_code: p.default_fit_code || '', variants: p.variants || [],
+        color_variant_id: (p.variants && p.variants[0] && p.variants[0].id) || '', color_name: ''
+      };
+      items.push(normalizeCatalogItem(item, p, true));
     }
     closePicker();
     renderItems();
@@ -1518,7 +1624,7 @@
         if (it.kind === 'custom') {
           return { kind: 'custom', title: it.title, unit_price: it.unit_price, qty: it.qty, size: it.size, color_name: it.color_name };
         }
-        return { kind: 'catalog', product_id: it.product_id, color_variant_id: it.color_variant_id || '', size: it.size, qty: it.qty, unit_price: it.unit_price };
+        return { kind: 'catalog', item_id: it.item_id || null, product_id: it.product_id, color_variant_id: it.color_variant_id || '', fit_option_code: it.fit_option_code, size: it.size, qty: it.qty, unit_price: it.unit_price };
       })
     };
 

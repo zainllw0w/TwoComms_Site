@@ -13,11 +13,13 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
+from fable5.models import VariantFitRule, VariantSizeRule
 from orders.models import Order, OrderItem
 from productcolors.models import Color, ProductColorVariant
 from storefront.models import (
     Category,
     Product,
+    ProductFitOption,
     ProductStatus,
     SiteSession,
     UTMSession,
@@ -42,6 +44,19 @@ class OrderEditViewTests(TestCase):
             product=cls.product, color=cls.mint, is_default=True)
         cls.variant_black = ProductColorVariant.objects.create(
             product=cls.product, color=cls.black)
+        cls.classic_fit = ProductFitOption.objects.create(
+            product=cls.product,
+            code='classic',
+            label='Класична',
+            is_default=True,
+            order=10,
+        )
+        cls.oversize_fit = ProductFitOption.objects.create(
+            product=cls.product,
+            code='oversize',
+            label='Оверсайз',
+            order=20,
+        )
 
     def setUp(self):
         self.client.force_login(self.admin)
@@ -54,6 +69,7 @@ class OrderEditViewTests(TestCase):
         OrderItem.objects.create(
             order=self.order, product=self.product, color_variant=self.variant_mint,
             title=self.product.title, size='XXL', qty=1,
+            fit_option_code='classic', fit_option_label='Класична',
             unit_price=Decimal('880.00'), line_total=Decimal('880.00'),
         )
 
@@ -65,6 +81,8 @@ class OrderEditViewTests(TestCase):
         self.assertTrue(data['success'])
         self.assertEqual(data['order']['id'], self.order.id)
         self.assertEqual(len(data['order']['items']), 1)
+        self.assertEqual(data['order']['items'][0]['fit_option_code'], 'classic')
+        self.assertEqual(data['order']['items'][0]['fit_option_label'], 'Класична')
         self.assertTrue(any(p['id'] == self.product.id for p in data['products']))
 
     def test_free_payment_preset_round_trips_without_becoming_paid_full(self):
@@ -127,6 +145,125 @@ class OrderEditViewTests(TestCase):
         _, kwargs = edit_notify.call_args
         diff = edit_notify.call_args.args[1]
         self.assertTrue(diff['has_changes'])
+
+    def test_edit_updates_existing_item_fit(self):
+        payload = {
+            'full_name': 'Лагош Олег',
+            'phone': '+380500234363',
+            'delivery_method': 'keep',
+            'payment_preset': 'paid_full',
+            'items': [
+                {
+                    'kind': 'catalog',
+                    'product_id': self.product.id,
+                    'color_variant_id': self.variant_mint.id,
+                    'fit_option_code': 'oversize',
+                    'size': 'XXL',
+                    'qty': 1,
+                    'unit_price': 880,
+                },
+            ],
+        }
+
+        response, _ = self._edit(payload)
+
+        self.assertEqual(response.status_code, 200, response.content)
+        item = self.order.items.get()
+        self.assertEqual(item.fit_option_code, 'oversize')
+        self.assertEqual(item.fit_option_label, 'Оверсайз')
+
+    def test_edit_preserves_historical_size_that_became_unavailable(self):
+        VariantSizeRule.objects.create(
+            variant=self.variant_mint,
+            fit_code='classic',
+            size='XXL',
+            is_enabled=True,
+            stock=0,
+        )
+        data_response = self.client.get(
+            reverse('manual_order_edit_data', args=[self.order.id])
+        )
+        payload = {
+            'full_name': 'Лагош Олег',
+            'phone': '+380500234363',
+            'delivery_method': 'keep',
+            'payment_preset': 'paid_full',
+            'manager_comment': 'Лише новий коментар',
+            'items': data_response.json()['order']['items'],
+        }
+
+        response, _ = self._edit(payload)
+
+        self.assertEqual(response.status_code, 200, response.content)
+        item = self.order.items.get()
+        self.assertEqual(item.fit_option_code, 'classic')
+        self.assertEqual(item.size, 'XXL')
+
+        payload['items'].append({
+            key: value
+            for key, value in payload['items'][0].items()
+            if key != 'item_id'
+        })
+        duplicate_response, _ = self._edit(payload)
+        self.assertEqual(duplicate_response.status_code, 422, duplicate_response.content)
+
+    def test_edit_rejects_new_unavailable_fit(self):
+        VariantFitRule.objects.create(
+            variant=self.variant_mint,
+            fit_code='oversize',
+            is_enabled=False,
+        )
+        payload = {
+            'full_name': 'Лагош Олег',
+            'phone': '+380500234363',
+            'delivery_method': 'keep',
+            'payment_preset': 'paid_full',
+            'items': [
+                {
+                    'kind': 'catalog',
+                    'product_id': self.product.id,
+                    'color_variant_id': self.variant_mint.id,
+                    'fit_option_code': 'oversize',
+                    'size': 'XXL',
+                    'qty': 1,
+                    'unit_price': 880,
+                },
+            ],
+        }
+
+        response, _ = self._edit(payload)
+
+        self.assertEqual(response.status_code, 422, response.content)
+
+    def test_edit_preserves_exact_historical_fit_after_product_fit_is_deactivated(self):
+        self.classic_fit.is_active = False
+        self.classic_fit.save(update_fields=['is_active'])
+        data_response = self.client.get(
+            reverse('manual_order_edit_data', args=[self.order.id])
+        )
+        payload = {
+            'full_name': 'Лагош Олег',
+            'phone': '+380500234363',
+            'delivery_method': 'keep',
+            'payment_preset': 'paid_full',
+            'manager_comment': 'Лише новий коментар',
+            'items': data_response.json()['order']['items'],
+        }
+
+        response, _ = self._edit(payload)
+
+        self.assertEqual(response.status_code, 200, response.content)
+        existing_item = self.order.items.get()
+        self.assertEqual(existing_item.fit_option_code, 'classic')
+        self.assertEqual(existing_item.fit_option_label, 'Класична')
+
+        payload['items'].append({
+            key: value
+            for key, value in payload['items'][0].items()
+            if key != 'item_id'
+        })
+        duplicate_response, _ = self._edit(payload)
+        self.assertEqual(duplicate_response.status_code, 422, duplicate_response.content)
 
     def test_edit_without_changes_skips_diff_notification_payload(self):
         # Зберігаємо без жодних змін — diff не повинен містити змін.
@@ -238,3 +375,13 @@ class OrderEditButtonRenderTests(TestCase):
         self.assertContains(response, 'Редагувати замовлення')
         self.assertContains(response, 'oeditDrawer')
         self.assertContains(response, 'data-edit-order="%d"' % self.order.id)
+
+    def test_edit_drawer_contains_fit_and_thermo_controls(self):
+        response = self.client.get(reverse('admin_panel') + '?section=orders')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'data-edit="fit_option_code"')
+        self.assertContains(response, 'Термотканина')
+        self.assertContains(response, 'fit_option_code: it.fit_option_code')
+        self.assertContains(response, 'normalizeCatalogItem(item, prod, false, true)')
+        self.assertContains(response, 'variant.sizes_by_fit')
