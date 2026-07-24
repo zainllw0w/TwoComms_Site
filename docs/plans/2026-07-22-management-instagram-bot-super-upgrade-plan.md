@@ -1041,6 +1041,14 @@ The approved architecture is documented in `docs/plans/2026-07-23-management-ins
     - **Acceptance:** an explicit reference (`цей/этот/ось цей/вот этот` or equivalent) within a bounded window after a customer purchase candidate is marked `purchase_candidate`, linked to its source message, and sent to catalog matching; unrelated late images remain `other`/unresolved; custom-print questions without a purchase context remain `custom_reference`.
     - **Tests:** order lines followed by `Принт ось цей` image, delayed generic image after payment context, custom-print reference, and two product screenshots mapped to separate draft lines.
     - **Priority:** P0 — product identity is required before an operator can safely form an order.
+  - [ ] **P0.B5bc — catalog vision retries expired Meta URLs instead of durable review media.**
+    - **Symptom:** a product screenshot is correctly classified and stored locally, but `catalog_matches` is empty after the signed Meta URL expires; the matcher never attempts the persisted `local_url`.
+    - **Root cause:** `_catalog_matches_for_media()` downloaded only `media.url`, while `_persist_review_media()` intentionally retained a durable local copy for exactly this expiry boundary.
+    - **Risk:** known products remain unresolved in Telegram/management, forcing manual SKU selection and preventing safe product-card links.
+    - **Affected branches:** payment-review refresh/retry, catalog vision, product links, Telegram evidence, and manual-order prefill.
+    - **Acceptance:** matching prefers a bounded absolute local URL and falls back to the original source; expired signed URLs do not discard a persisted image; unresolved/unknown images remain fail-closed; catalog confidence and source media IDs stay auditable.
+    - **Tests:** local URL preferred over expired source, original URL fallback, failed both sources, and multi-image source-index preservation.
+    - **Priority:** P0 — durable evidence must survive provider URL expiry before order formation.
   - [x] **P1.B5c Replace the global long-held reply lock with a bounded two-level permission barrier.**
   - **Priority:** P1 — correctness is currently fail-closed, but latency and operator availability degrade under slow AI/provider calls.
   - **Symptom:** unrelated clients are serialized, while global stop, client pause, or manager takeover can wait for the full Gemini/Meta timeout before returning.

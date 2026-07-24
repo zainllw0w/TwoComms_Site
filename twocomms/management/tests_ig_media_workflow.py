@@ -682,6 +682,35 @@ class TelegramPaymentReviewGateTests(SimpleTestCase):
 
 
 class CatalogAssignmentTests(SimpleTestCase):
+    @patch("management.services.bot_vision.match_many", return_value=[{
+        "product_id": 11,
+        "confidence": 0.93,
+        "source_image_indexes": [0],
+        "reason": "локальне зображення збігається",
+    }])
+    @patch(
+        "management.services.instagram_bot.download_image",
+        side_effect=lambda url: ("image/jpeg", b"local") if "/media/" in url else None,
+    )
+    def test_catalog_matching_prefers_persisted_local_media(self, _download, _match_many):
+        from management.services.ig_payment_review import _catalog_matches_for_media
+
+        with patch(
+            "management.services.ig_payment_review._hydrate_catalog_match",
+            return_value={"status": "matched", "product_id": 11, "confidence": 0.93},
+        ):
+            matches = _catalog_matches_for_media([{
+                "url": "https://lookaside.example/expired-signed-url.jpg",
+                "local_url": "/media/ig_payment_reviews/product.jpg",
+                "role": "product",
+                "intent": "purchase_candidate",
+                "actionable": True,
+                "catalog_match_allowed": True,
+            }])
+
+        self.assertEqual(matches[0]["product_id"], 11)
+        self.assertIn("/media/", _download.call_args.args[0])
+
     def test_order_binding_ignores_old_product_question_media(self):
         from management.services.ig_payment_review import _catalog_order_media
 

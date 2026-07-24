@@ -5,6 +5,7 @@ import re
 from decimal import Decimal, InvalidOperation
 import hashlib
 import json
+from urllib.parse import urljoin
 
 from django.conf import settings
 from django.db import transaction
@@ -645,6 +646,21 @@ def _catalog_order_media(media: list[dict]) -> list[dict]:
     ]
 
 
+def _catalog_media_url_candidates(item: dict) -> list[str]:
+    """Prefer durable local evidence, then fall back to the original URL."""
+    base = (getattr(settings, "SITE_BASE_URL", "") or "https://twocomms.shop").rstrip("/") + "/"
+    candidates = []
+    for raw in (item.get("local_url"), item.get("url")):
+        value = str(raw or "").strip()
+        if not value:
+            continue
+        if value.startswith("/"):
+            value = urljoin(base, value.lstrip("/"))
+        if value.startswith(("https://", "http://")) and value not in candidates:
+            candidates.append(value)
+    return candidates
+
+
 def _catalog_matches_for_media(media: list[dict]) -> list[dict]:
     product_media = _catalog_order_media(media)
     if not product_media:
@@ -656,10 +672,12 @@ def _catalog_matches_for_media(media: list[dict]) -> list[dict]:
         images = []
         downloaded_indexes = []
         for index, row in enumerate(product_media[:8]):
-            image = download_image(str(row["url"]))
-            if image:
-                images.append(image)
-                downloaded_indexes.append(index)
+            for media_url in _catalog_media_url_candidates(row):
+                image = download_image(media_url)
+                if image:
+                    images.append(image)
+                    downloaded_indexes.append(index)
+                    break
         raw_matches = bot_vision.match_many(images) if images else []
     except Exception as exc:
         return [{"status": "error", "reason": str(exc)[:180], "source_media_indexes": []}]
