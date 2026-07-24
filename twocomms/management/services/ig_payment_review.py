@@ -59,6 +59,12 @@ _MEDIA_CUSTOM_RE = re.compile(
     r"\b(кастом\w*|custom|dtf|дтф|принт\w*|друк\w*|печать\w*)\b",
     re.IGNORECASE,
 )
+_MEDIA_REFERENCE_RE = re.compile(
+    r"(?:\b(?:ось|вот)\s+(?:цей|ця|це|цей|этот|эта|это|таку|такой|такий)\b|"
+    r"\b(?:цей|ця|це|этот|эта|это|таку|такой|такий)\s+(?:принт|фото|варіант|вариант)\b|"
+    r"\bяк\s+на\s+(?:фото|зображенн\w*)\b)",
+    re.IGNORECASE,
+)
 _CUSTOMER_PAYMENT_COMMITMENT_RE = re.compile(
     r"\b(?:по\s+)?повн\w*\s+(?:перед)?оплат\w*\b|"
     r"\b(?:обираю|вибираю|выбираю)\s+(?:повн\w*\s+)?(?:перед)?оплат\w*\b",
@@ -181,10 +187,22 @@ def _existing_media(raw_attachments: str) -> list[dict]:
     ]
 
 
-def _media_intent(text: str, *, payment_context: bool, explicit_claim: bool) -> str:
+def _media_intent(
+    text: str,
+    *,
+    payment_context: bool,
+    explicit_claim: bool,
+    purchase_context: bool = False,
+) -> str:
     low = " ".join(str(text or "").split()).casefold()
     if explicit_claim:
         return "payment_evidence"
+    # A customer often sends the product screenshot in a follow-up message:
+    # "Принт ось цей" after the actual purchase lines. Bind only an explicit
+    # reference within the bounded purchase window; a later generic image
+    # remains unresolved.
+    if purchase_context and _MEDIA_REFERENCE_RE.search(low):
+        return "purchase_candidate"
     if _MEDIA_CUSTOM_RE.search(low) and (
         re.search(
             r"(можн\w*|можете|можна|зроб\w*|сдел\w*|виготов\w*|нанес\w*|надрук\w*)",
@@ -211,6 +229,7 @@ def classify_media_items(
     *,
     payment_context: bool = False,
     explicit_claim: bool | None = None,
+    purchase_context: bool = False,
 ) -> list[dict]:
     """Attach conservative role/intent semantics to current-turn media.
 
@@ -225,6 +244,7 @@ def classify_media_items(
         normalized_text,
         payment_context=payment_context,
         explicit_claim=bool(explicit_claim),
+        purchase_context=purchase_context,
     )
     result = []
     for raw in media or []:
@@ -256,6 +276,7 @@ def classify_media_items(
             "actionable": item_intent == "purchase_candidate" and role == "product",
             "payment_evidence": role in {"receipt", "payment_candidate"},
             "catalog_match_allowed": role == "product",
+            "purchase_context": bool(purchase_context),
             "uncertain": role in {"other", "custom_reference", "payment_candidate"} or item_intent in {"unknown", "question", "interest"},
         })
         result.append(item)
@@ -761,6 +782,7 @@ def extract_payment_review_evidence(messages) -> dict:
     context_messages = []
     raw_messages = list(messages or ())
     customer_order_seen = False
+    last_customer_purchase_index = None
     last_manager_payment_index = None
     last_customer_payment_commitment_index = None
     for message_index, raw in enumerate(raw_messages):
@@ -793,11 +815,18 @@ def extract_payment_review_evidence(messages) -> dict:
                 )
             )
         )
+        purchase_context = bool(
+            role in _CUSTOMER_ROLES
+            and last_customer_purchase_index is not None
+            and message_index - last_customer_purchase_index <= 4
+            and _MEDIA_REFERENCE_RE.search(text)
+        )
         media = classify_media_items(
             text,
             media,
             payment_context=payment_context,
             explicit_claim=explicit_claim,
+            purchase_context=purchase_context,
         )
         for media_item in media:
             media_item["message_id"] = message_id
@@ -860,6 +889,8 @@ def extract_payment_review_evidence(messages) -> dict:
                 or any(item.get("role") == "product" for item in media)
             ):
                 customer_order_seen = True
+            if _MEDIA_PURCHASE_RE.search(text) or _FIT_RE.search(text):
+                last_customer_purchase_index = message_index
             if _CUSTOMER_PAYMENT_COMMITMENT_RE.search(text):
                 last_customer_payment_commitment_index = message_index
         elif payment_text:

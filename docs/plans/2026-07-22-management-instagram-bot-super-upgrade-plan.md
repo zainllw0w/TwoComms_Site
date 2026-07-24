@@ -1033,6 +1033,14 @@ The approved architecture is documented in `docs/plans/2026-07-23-management-ins
     - **Acceptance:** one row-locked compare-and-transition atomically writes the winning action and immutable audit; the loser receives a no-op result and cannot change review evidence, notification state, or Telegram message; same-action replay is also a no-op.
     - **Tests:** confirm wins/cancel loses, cancel wins/confirm loses, same-action replay, immutable decision metadata, and notification edit/resolve only for the winner.
     - **Priority:** P0 — financial operator audit must match the committed transition.
+  - [ ] **P0.B5bb — product reference images sent after order lines are left as interest and never reach catalog matching.**
+    - **Symptom:** a customer first writes the actual order (`Базова S`, `Оверсайз XS`) and then sends a separate follow-up such as `Принт ось цей` with the product screenshot; the screenshot is stored as `interest`, so the catalog matcher receives no actionable product media and the review cannot identify the SKU.
+    - **Root cause:** media classification only inspected the current message text and had no bounded link to the immediately preceding customer purchase candidate.
+    - **Risk:** the manager sees correct sizes/quantity but cannot verify the selected product, causing manual SKU selection or a wrong product/order draft.
+    - **Affected branches:** paused/manager-led analysis, payment-review extraction, catalog vision, product memory, Telegram evidence, and manual-order prefill.
+    - **Acceptance:** an explicit reference (`цей/этот/ось цей/вот этот` or equivalent) within a bounded window after a customer purchase candidate is marked `purchase_candidate`, linked to its source message, and sent to catalog matching; unrelated late images remain `other`/unresolved; custom-print questions without a purchase context remain `custom_reference`.
+    - **Tests:** order lines followed by `Принт ось цей` image, delayed generic image after payment context, custom-print reference, and two product screenshots mapped to separate draft lines.
+    - **Priority:** P0 — product identity is required before an operator can safely form an order.
   - [x] **P1.B5c Replace the global long-held reply lock with a bounded two-level permission barrier.**
   - **Priority:** P1 — correctness is currently fail-closed, but latency and operator availability degrade under slow AI/provider calls.
   - **Symptom:** unrelated clients are serialized, while global stop, client pause, or manager takeover can wait for the full Gemini/Meta timeout before returning.

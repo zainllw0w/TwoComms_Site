@@ -30,6 +30,37 @@ class MediaSemanticsTests(SimpleTestCase):
         self.assertEqual(items[0]["intent"], "purchase_candidate")
         self.assertTrue(items[0]["actionable"])
 
+    def test_product_reference_after_order_is_actionable(self):
+        from management.services.ig_payment_review import extract_payment_review_evidence
+
+        result = extract_payment_review_evidence([
+            {
+                "id": 233,
+                "role": "user",
+                "text": "Мені потрібно 2 футболки: 1. Базова S 2. Оверсайз XS. Принт однаковий",
+            },
+            {"id": 234, "role": "user", "text": "Почекаємо)"},
+            {
+                "id": 235,
+                "role": "user",
+                "text": "Принт ось цей",
+                "attachments": '["https://cdn.example/product.jpg"]',
+            },
+            {"id": 236, "role": "manager", "text": "Оплата на IBAN, надішліть чек"},
+            {
+                "id": 237,
+                "role": "user",
+                "text": "Оплатила, ось чек",
+                "attachments": '["https://cdn.example/receipt.jpg"]',
+            },
+        ])
+
+        product_media = [item for item in result["media"] if item.get("url") == "https://cdn.example/product.jpg"]
+        self.assertEqual(len(product_media), 1)
+        self.assertEqual(product_media[0]["intent"], "purchase_candidate")
+        self.assertTrue(product_media[0]["actionable"])
+        self.assertTrue(product_media[0]["catalog_match_allowed"])
+
     def test_custom_reference_is_not_catalog_product(self):
         from management.services.ig_payment_review import classify_media_items
 
