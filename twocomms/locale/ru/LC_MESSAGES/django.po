@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-07-25 16:10+0300\n"
+"POT-Creation-Date: 2026-05-16 18:05+0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,6 +17,154 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=4; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<12 || n%100>14) ? 1 : n%10==0 || (n%10>=5 && n%10<=9) || (n%100>=11 && n%100<=14)? 2 : 3);\n"
+
+#: fable5/templates/fable5/_size_grid_comparison.html:5
+msgid "Посадка та розміри"
+msgstr "Посадка и размеры"
+
+#: fable5/templates/fable5/_size_grid_comparison.html:6
+msgid "Знайдіть свою посадку"
+msgstr "Найдите свою посадку"
+
+#: fable5/templates/fable5/_size_grid_comparison.html:9
+msgid "Класичний крій починається з S. Порівняйте точні виміри або отримайте підказку за зростом і вагою."
+msgstr "Классический крой начинается с S. Сравните точные замеры или получите подсказку по росту и весу."
+
+#: fable5/templates/fable5/_size_grid_comparison.html:13
+msgid "Розмірні сітки"
+msgstr "Размерные сетки"
+
+#: fable5/templates/fable5/_size_grid_comparison.html:25
+msgid "Точні виміри"
+msgstr "Точные замеры"
+
+#: fable5/templates/fable5/_size_grid_comparison.html:38
+#: twocomms_django_theme/templates/pages/product_detail.html:373
+msgid "Підібрати розмір"
+msgstr "Подобрать размер"
+
+#: fable5/templates/fable5/_size_grid_comparison.html:39
+msgid "За зростом і вагою"
+msgstr "По росту и весу"
+
+#: fable5/templates/fable5/_size_grid_comparison.html:56
+#: management/ig_bot_models.py:823
+#: storefront/services/general_catalog_seo.py:126
+#: storefront/services/size_guides.py:112
+#: storefront/services/size_guides.py:331
+#: storefront/services/size_guides.py:355 storefront/support_content.py:428
+#: storefront/support_content.py:515 storefront/support_content.py:628
+#: storefront/support_content.py:723 storefront/support_content.py:736
+#: storefront/support_content.py:1009
+#: twocomms_django_theme/templates/pages/product_detail.html:368
+#: twocomms_django_theme/templates/pages/product_detail.html:493
+#: twocomms_django_theme/templates/pages/product_detail.html:649
+#: twocomms_django_theme/templates/pages/product_detail.html:739
+#: twocomms_django_theme/templates/pages/product_detail_new.html:282
+#: twocomms_django_theme/templates/partials/footer.html:147
+msgid "Розмірна сітка"
+msgstr "Размерная сетка"
+
+#: fable5/templates/fable5/_size_grid_comparison.html:85
+msgid "Таблиця вимірів"
+msgstr "Таблица измерений"
+
+#: fable5/templates/fable5/_size_grid_comparison.html:107
+msgid "Для цієї посадки ще немає окремої таблиці вимірів. Уточніть розмір у менеджера."
+msgstr "Для этой посадки пока нет отдельной таблицы измерений. Уточните размер у менеджера."
+
+#: fable5/templates/fable5/_size_grid_comparison.html:122
+msgid "Персональна підказка"
+msgstr "Персональная подсказка"
+
+#: fable5/templates/fable5/_size_grid_comparison.html:123
+msgid "Який розмір обрати?"
+msgstr "Какой размер выбрать?"
+
+#: fable5/templates/fable5/_size_grid_comparison.html:125
+msgid "Рекомендація орієнтовна: крій і бажана свобода посадки також впливають на вибір."
+msgstr "Рекомендация ориентировочная: крой и желаемая свобода посадки также влияют на выбор."
+
+#: fable5/templates/fable5/_size_grid_comparison.html:131
+msgid "Класична посадка: ближче до тіла, без зайвого об’єму."
+msgstr "Классическая посадка: ближе к телу, без лишнего объема."
+
+#: fable5/templates/fable5/_size_grid_comparison.html:132
+msgid "Оверсайз: вільніший силует із додатковим об’ємом."
+msgstr "Оверсайз: более свободный силуэт с дополнительным объемом."
+
+#: fable5/templates/fable5/_size_grid_comparison.html:133
+msgid "Щільніша альтернатива:"
+msgstr "Более плотная альтернатива:"
+
+#: fable5/templates/fable5/_size_grid_comparison.html:134
+msgid "Вільніша альтернатива:"
+msgstr "Более свободная альтернатива:"
+
+#: fable5/templates/fable5/_size_grid_comparison.html:135
+msgid "Це крайній доступний розмір для обраної посадки."
+msgstr "Это крайний доступный размер для выбранной посадки."
+
+#: fable5/templates/fable5/_size_grid_comparison.html:136
+msgid "Вкажіть зріст від 145 до 210 см."
+msgstr "Укажите рост от 145 до 210 см."
+
+#: fable5/templates/fable5/_size_grid_comparison.html:137
+msgid "Вкажіть вагу від 40 до 160 кг."
+msgstr "Укажите вес от 40 до 160 кг."
+
+#: fable5/templates/fable5/_size_grid_comparison.html:138
+msgid "Оберіть бажану посадку."
+msgstr "Выберите желаемую посадку."
+
+#: fable5/templates/fable5/_size_grid_comparison.html:139
+msgid "Для цієї посадки зараз немає доступного розміру. Напишіть нам, і ми допоможемо."
+msgstr "Для этой посадки сейчас нет доступного размера. Напишите нам, и мы поможем."
+
+#: fable5/templates/fable5/_size_grid_comparison.html:140
+#: fable5/templates/fable5/_size_grid_comparison.html:158
+msgid "см"
+msgstr "см"
+
+#: fable5/templates/fable5/_size_grid_comparison.html:141
+#: fable5/templates/fable5/_size_grid_comparison.html:175
+msgid "кг"
+msgstr "кг"
+
+#: fable5/templates/fable5/_size_grid_comparison.html:145
+msgid "Зріст"
+msgstr "Рост"
+
+#: fable5/templates/fable5/_size_grid_comparison.html:162
+msgid "Вага"
+msgstr "Вес"
+
+#: fable5/templates/fable5/_size_grid_comparison.html:181
+msgid "Бажана посадка"
+msgstr "Желаемая посадка"
+
+#: fable5/templates/fable5/_size_grid_comparison.html:184
+#: storefront/custom_print_config.py:409
+msgid "Класика"
+msgstr "Классика"
+
+#: fable5/templates/fable5/_size_grid_comparison.html:186
+#: storefront/custom_print_config.py:132 storefront/custom_print_config.py:405
+#: storefront/custom_print_config.py:519
+msgid "Оверсайз"
+msgstr "Оверсайз"
+
+#: fable5/templates/fable5/_size_grid_comparison.html:192
+msgid "Отримати рекомендацію"
+msgstr "Получить рекомендацию"
+
+#: fable5/templates/fable5/_size_grid_comparison.html:199
+msgid "Рекомендований розмір"
+msgstr "Рекомендуемый размер"
+
+#: fable5/templates/fable5/_size_grid_comparison.html:203
+msgid "Вкажіть параметри, щоб побачити рекомендацію."
+msgstr "Укажите параметры, чтобы увидеть рекомендацию."
 
 #: management/forms.py:8 management/forms.py:244 management/models.py:951
 msgid "Email отримувача"
@@ -103,7 +251,7 @@ msgid "Імʼя менеджера"
 msgstr ""
 
 #: management/forms.py:68 management/forms.py:69
-#: management/ig_bot_models.py:230 management/models.py:505
+#: management/ig_bot_models.py:271 management/models.py:505
 #: management/models.py:813 management/models.py:1026 management/models.py:1142
 #: management/models.py:2444 storefront/custom_print_config.py:278
 #: storefront/models.py:621 twocomms_django_theme/templates/pages/cart.html:586
@@ -135,12 +283,12 @@ msgstr "Telegram"
 msgid "Резервний Telegram"
 msgstr ""
 
-#: management/forms.py:82 management/ig_bot_models.py:571
+#: management/forms.py:82 management/ig_bot_models.py:824
 #: storefront/support_content.py:401 storefront/support_content.py:457
 #: storefront/support_content.py:989 storefront/support_content.py:999
 #: storefront/support_content.py:1017 storefront/support_content.py:1042
-#: storefront/support_content.py:1071 storefront/templatetags/seo_tags.py:294
-#: storefront/views/catalog.py:946 storefront/views/product.py:584
+#: storefront/support_content.py:1071 storefront/templatetags/seo_tags.py:380
+#: storefront/views/catalog.py:946 storefront/views/product.py:581
 #: twocomms_django_theme/templates/pages/catalog.html:86
 #: twocomms_django_theme/templates/pages/catalog.html:127
 #: twocomms_django_theme/templates/pages/catalog.html:174
@@ -160,12 +308,12 @@ msgstr ""
 msgid "Дроп"
 msgstr ""
 
-#: management/forms.py:85 management/models.py:3819
+#: management/forms.py:85 management/models.py:3828
 msgid "Instagram"
 msgstr ""
 
 #: management/forms.py:86 management/models.py:147 management/models.py:283
-#: management/models.py:506 management/models.py:1094 management/models.py:3818
+#: management/models.py:506 management/models.py:1094 management/models.py:3827
 #: orders/models.py:45
 msgid "Сайт"
 msgstr ""
@@ -199,67 +347,67 @@ msgstr ""
 msgid "Вкажіть контакт для %(label)s."
 msgstr ""
 
-#: management/ig_bot_models.py:165
+#: management/ig_bot_models.py:206
 msgid "Написав"
 msgstr ""
 
-#: management/ig_bot_models.py:166
+#: management/ig_bot_models.py:207
 msgid "З'ясовуємо потребу"
 msgstr ""
 
-#: management/ig_bot_models.py:167
+#: management/ig_bot_models.py:208
 msgid "Товар і ціна визначені"
 msgstr ""
 
-#: management/ig_bot_models.py:168
+#: management/ig_bot_models.py:209
 msgid "Обирає оплату"
 msgstr ""
 
-#: management/ig_bot_models.py:169
+#: management/ig_bot_models.py:210
 msgid "Очікуємо оплату"
 msgstr ""
 
-#: management/ig_bot_models.py:170 management/ig_bot_models.py:417
-#: management/ig_bot_models.py:771 management/ig_bot_models.py:816
+#: management/ig_bot_models.py:211 management/ig_bot_models.py:472
+#: management/ig_bot_models.py:1024 management/ig_bot_models.py:1069
 #: orders/models.py:361
 #: twocomms_django_theme/templates/pages/my_orders.html:282
 msgid "Оплачено"
 msgstr ""
 
-#: management/ig_bot_models.py:171 management/ig_bot_models.py:418
+#: management/ig_bot_models.py:212 management/ig_bot_models.py:473
 msgid "Замовлення створено"
 msgstr ""
 
-#: management/ig_bot_models.py:172 management/models.py:383
-#: management/models.py:2345 management/models.py:3898
+#: management/ig_bot_models.py:213 management/models.py:383
+#: management/models.py:2345 management/models.py:3907
 #: storefront/models.py:1882
 msgid "Завершено"
 msgstr "Завершено"
 
-#: management/ig_bot_models.py:173
+#: management/ig_bot_models.py:214
 msgid "Передано менеджеру"
 msgstr ""
 
-#: management/ig_bot_models.py:174
+#: management/ig_bot_models.py:215
 msgid "Спам / заблоковано"
 msgstr ""
 
-#: management/ig_bot_models.py:175
+#: management/ig_bot_models.py:216
 msgid "Не відповідає / охолов"
 msgstr ""
 
-#: management/ig_bot_models.py:178 management/ig_bot_models.py:821
+#: management/ig_bot_models.py:219 management/ig_bot_models.py:1074
 #: management/models.py:2411 management/models.py:2512
-#: management/models.py:3770
+#: management/models.py:3779
 msgid "Невідомо"
 msgstr ""
 
-#: management/ig_bot_models.py:179
+#: management/ig_bot_models.py:220
 msgid "Готовий товар"
 msgstr ""
 
-#: management/ig_bot_models.py:180 management/ig_bot_models.py:766
-#: management/ig_bot_models.py:826 storefront/support_content.py:403
+#: management/ig_bot_models.py:221 management/ig_bot_models.py:1019
+#: management/ig_bot_models.py:1079 storefront/support_content.py:403
 #: storefront/support_content.py:683 storefront/support_content.py:1000
 #: storefront/views/static_pages.py:1562 storefront/views/static_pages.py:1581
 #: twocomms_django_theme/templates/pages/pro_brand.html:1798
@@ -267,19 +415,19 @@ msgstr ""
 msgid "Кастомний принт"
 msgstr "Кастомный принт"
 
-#: management/ig_bot_models.py:181 storefront/views/cart.py:387
+#: management/ig_bot_models.py:222 storefront/views/cart.py:387
 #: twocomms_django_theme/templates/partials/category_seo_blocks.html:35
 msgid "Ціна"
 msgstr "Цена"
 
-#: management/ig_bot_models.py:182 management/ig_bot_models.py:193
-#: management/ig_bot_models.py:763 management/models.py:1250
+#: management/ig_bot_models.py:223 management/ig_bot_models.py:234
+#: management/ig_bot_models.py:1016 management/models.py:1250
 #: storefront/models.py:462 storefront/services/size_guides.py:35
 #: storefront/services/size_guides.py:77
 #: twocomms_django_theme/templates/pages/custom_print.html:663
 #: twocomms_django_theme/templates/pages/my_orders.html:443
-#: twocomms_django_theme/templates/pages/product_detail.html:363
-#: twocomms_django_theme/templates/pages/product_detail.html:370
+#: twocomms_django_theme/templates/pages/product_detail.html:364
+#: twocomms_django_theme/templates/pages/product_detail.html:382
 #: twocomms_django_theme/templates/pages/product_detail_new.html:151
 #: twocomms_django_theme/templates/pages/product_detail_new.html:305
 #: twocomms_django_theme/templates/partials/mini_cart.html:63
@@ -287,13 +435,13 @@ msgstr "Цена"
 msgid "Розмір"
 msgstr "Размер"
 
-#: management/ig_bot_models.py:183 storefront/support_content.py:562
-#: twocomms_django_theme/templates/pages/product_detail.html:662
+#: management/ig_bot_models.py:224 storefront/support_content.py:562
+#: twocomms_django_theme/templates/pages/product_detail.html:668
 #: twocomms_django_theme/templates/partials/product_delivery_modal.html:55
 msgid "Оплата"
 msgstr "Оплата"
 
-#: management/ig_bot_models.py:184 management/ig_bot_models.py:198
+#: management/ig_bot_models.py:225 management/ig_bot_models.py:239
 #: storefront/support_content.py:459 storefront/support_content.py:627
 #: storefront/support_content.py:721
 #: twocomms_django_theme/templates/pages/auth_profile_setup.html:299
@@ -302,166 +450,166 @@ msgstr "Оплата"
 #: twocomms_django_theme/templates/pages/catalog.html:240
 #: twocomms_django_theme/templates/pages/contacts.html:270
 #: twocomms_django_theme/templates/pages/my_orders.html:412
-#: twocomms_django_theme/templates/pages/product_detail.html:488
+#: twocomms_django_theme/templates/pages/product_detail.html:494
 msgid "Доставка"
 msgstr "Доставка"
 
-#: management/ig_bot_models.py:185
+#: management/ig_bot_models.py:226
 msgid "Статус замовлення"
 msgstr ""
 
-#: management/ig_bot_models.py:186 storefront/support_content.py:408
+#: management/ig_bot_models.py:227 storefront/support_content.py:408
 #: storefront/support_content.py:954
 #: twocomms_django_theme/templates/pages/cooperation.html:290
 #: twocomms_django_theme/templates/partials/footer.html:127
 msgid "Підтримка"
 msgstr "Поддержка"
 
-#: management/ig_bot_models.py:187 management/ig_bot_models.py:773
+#: management/ig_bot_models.py:228 management/ig_bot_models.py:1026
 msgid "Спам"
 msgstr ""
 
-#: management/ig_bot_models.py:190
+#: management/ig_bot_models.py:231
 msgid "Немає"
 msgstr ""
 
-#: management/ig_bot_models.py:191 management/ig_bot_models.py:761
+#: management/ig_bot_models.py:232 management/ig_bot_models.py:1014
 #: management/models.py:132
 msgid "Дорого"
 msgstr ""
 
-#: management/ig_bot_models.py:192 management/ig_bot_models.py:762
+#: management/ig_bot_models.py:233 management/ig_bot_models.py:1015
 msgid "Передоплата"
 msgstr ""
 
-#: management/ig_bot_models.py:194
+#: management/ig_bot_models.py:235
 msgid "Подумаю"
 msgstr ""
 
-#: management/ig_bot_models.py:195 management/ig_bot_models.py:768
-#: management/ig_bot_models.py:831 management/models.py:127
+#: management/ig_bot_models.py:236 management/ig_bot_models.py:1021
+#: management/ig_bot_models.py:1084 management/models.py:127
 msgid "Не відповідає"
 msgstr ""
 
-#: management/ig_bot_models.py:196
+#: management/ig_bot_models.py:237
 msgid "Не купує"
 msgstr ""
 
-#: management/ig_bot_models.py:197 storefront/support_content.py:484
+#: management/ig_bot_models.py:238 storefront/support_content.py:484
 msgid "Довіра"
 msgstr "Доверие"
 
-#: management/ig_bot_models.py:199 management/ig_bot_models.py:573
+#: management/ig_bot_models.py:240 management/ig_bot_models.py:826
 #: management/models.py:120 management/models.py:136 management/models.py:943
 #: management/models.py:1317 management/models.py:3353
 #: management/models.py:3367 management/models.py:3426 orders/models.py:112
 msgid "Інше"
 msgstr "Другое"
 
-#: management/ig_bot_models.py:202
+#: management/ig_bot_models.py:243
 msgid "Meta не дозволяє відповідь: потрібен Advanced Access"
 msgstr ""
 
-#: management/ig_bot_models.py:203
+#: management/ig_bot_models.py:244
 msgid "24-годинне вікно Meta закрито"
 msgstr ""
 
-#: management/ig_bot_models.py:204
+#: management/ig_bot_models.py:245
 msgid "Перевірте «Запити» в Instagram"
 msgstr ""
 
-#: management/ig_bot_models.py:205
+#: management/ig_bot_models.py:246
 msgid "Meta тимчасово або постійно блокує відповідь"
 msgstr ""
 
-#: management/ig_bot_models.py:220
+#: management/ig_bot_models.py:261
 msgid "IG sender id"
 msgstr ""
 
-#: management/ig_bot_models.py:221
+#: management/ig_bot_models.py:262
 msgid "Username"
 msgstr ""
 
-#: management/ig_bot_models.py:222
+#: management/ig_bot_models.py:263
 #: twocomms_django_theme/templates/pages/contacts.html:299
 #: twocomms_django_theme/templates/partials/product_restock_modal.html:26
 msgid "Ім'я"
 msgstr "Имя"
 
-#: management/ig_bot_models.py:223
+#: management/ig_bot_models.py:264
 msgid "Аватар URL"
 msgstr ""
 
-#: management/ig_bot_models.py:226
+#: management/ig_bot_models.py:267
 msgid "Аватар (локально)"
 msgstr ""
 
-#: management/ig_bot_models.py:235
+#: management/ig_bot_models.py:276
 msgid "Стадія"
 msgstr ""
 
-#: management/ig_bot_models.py:240
+#: management/ig_bot_models.py:281
 msgid "Бот на паузі"
 msgstr ""
 
-#: management/ig_bot_models.py:243
+#: management/ig_bot_models.py:284
 msgid "Веде менеджер"
 msgstr ""
 
-#: management/ig_bot_models.py:254
+#: management/ig_bot_models.py:309
 msgid "Закріплений товар"
 msgstr ""
 
-#: management/ig_bot_models.py:256
+#: management/ig_bot_models.py:311
 msgid "Поточний розмір"
 msgstr ""
 
-#: management/ig_bot_models.py:257
+#: management/ig_bot_models.py:312
 msgid "Поточний колір"
 msgstr ""
 
-#: management/ig_bot_models.py:258
+#: management/ig_bot_models.py:313
 msgid "Поточна кількість"
 msgstr ""
 
-#: management/ig_bot_models.py:260
+#: management/ig_bot_models.py:315
 msgid "Впевненість у товарі"
 msgstr ""
 
-#: management/ig_bot_models.py:326
+#: management/ig_bot_models.py:381
 msgid "IG клієнт"
 msgstr ""
 
-#: management/ig_bot_models.py:327
+#: management/ig_bot_models.py:382
 msgid "IG клієнти"
 msgstr ""
 
-#: management/ig_bot_models.py:414 management/models.py:3356
+#: management/ig_bot_models.py:469 management/models.py:3356
 #: storefront/models.py:625 storefront/models.py:869 storefront/models.py:2565
 #: twocomms_django_theme/templates/partials/admin_blog.html:104
 msgid "Чернетка"
 msgstr "Черновик"
 
-#: management/ig_bot_models.py:415
+#: management/ig_bot_models.py:470
 msgid "Названо ціну"
 msgstr ""
 
-#: management/ig_bot_models.py:416 management/ig_bot_models.py:770
-#: management/ig_bot_models.py:829
+#: management/ig_bot_models.py:471 management/ig_bot_models.py:1023
+#: management/ig_bot_models.py:1082
 msgid "Очікує оплату"
 msgstr ""
 
-#: management/ig_bot_models.py:419 management/ig_bot_models.py:687
+#: management/ig_bot_models.py:474 management/ig_bot_models.py:940
 #: management/models.py:1323 management/models.py:2255
 #: management/models.py:3270 orders/models.py:23 orders/models.py:365
 msgid "Скасовано"
 msgstr "Отменено"
 
-#: management/ig_bot_models.py:422
+#: management/ig_bot_models.py:477
 msgid "Повна онлайн-оплата"
 msgstr ""
 
-#: management/ig_bot_models.py:423 orders/models.py:28 orders/models.py:370
+#: management/ig_bot_models.py:478 orders/models.py:28 orders/models.py:370
 #: twocomms_django_theme/templates/pages/cart.html:500
 #: twocomms_django_theme/templates/pages/cart.html:683
 #: twocomms_django_theme/templates/pages/my_orders.html:496
@@ -469,311 +617,392 @@ msgstr ""
 msgid "Передплата 200 грн"
 msgstr "Предоплата 200 грн"
 
-#: management/ig_bot_models.py:466
+#: management/ig_bot_models.py:481
+msgid "Не підтверджено"
+msgstr ""
+
+#: management/ig_bot_models.py:482
+msgid "Перевіряється"
+msgstr ""
+
+#: management/ig_bot_models.py:483
+msgid "Оплату підтверджено"
+msgstr ""
+
+#: management/ig_bot_models.py:484
+msgid "Частково повернено"
+msgstr ""
+
+#: management/ig_bot_models.py:485
+msgid "Повністю повернено"
+msgstr ""
+
+#: management/ig_bot_models.py:486
+msgid "Платіж скасовано банком"
+msgstr ""
+
+#: management/ig_bot_models.py:487
+msgid "Оплата не пройшла"
+msgstr ""
+
+#: management/ig_bot_models.py:488
+msgid "Оплату скасовано"
+msgstr ""
+
+#: management/ig_bot_models.py:541
 msgid "IG угода"
 msgstr ""
 
-#: management/ig_bot_models.py:467
+#: management/ig_bot_models.py:542
 msgid "IG угоди"
 msgstr ""
 
-#: management/ig_bot_models.py:511
+#: management/ig_bot_models.py:684 storefront/models.py:1512
+msgid "Очікує підтвердження"
+msgstr ""
+
+#: management/ig_bot_models.py:685
+msgid "Підтверджено менеджером"
+msgstr ""
+
+#: management/ig_bot_models.py:686
+msgid "Скасовано менеджером"
+msgstr ""
+
+#: management/ig_bot_models.py:737
+msgid "Перевірка оплати Instagram"
+msgstr ""
+
+#: management/ig_bot_models.py:738
+msgid "Перевірки оплати Instagram"
+msgstr ""
+
+#: management/ig_bot_models.py:764
 msgid "Позиція IG угоди"
 msgstr ""
 
-#: management/ig_bot_models.py:512
+#: management/ig_bot_models.py:765
 msgid "Позиції IG угод"
 msgstr ""
 
-#: management/ig_bot_models.py:534 management/models.py:720
+#: management/ig_bot_models.py:787 management/models.py:720
 #: management/models.py:3385
 #: twocomms_django_theme/templates/partials/product_reviews.html:128
 msgid "Заголовок"
 msgstr "Заголовок"
 
-#: management/ig_bot_models.py:535
+#: management/ig_bot_models.py:788
 msgid "Текст інструкції"
 msgstr ""
 
-#: management/ig_bot_models.py:537
+#: management/ig_bot_models.py:790
 msgid "Ключові слова (через кому)"
 msgstr ""
 
-#: management/ig_bot_models.py:539 storefront/models.py:1596
+#: management/ig_bot_models.py:792 storefront/models.py:1596
 #: twocomms_django_theme/templates/partials/admin_blog.html:174
 msgid "Активна"
 msgstr "Активна"
 
-#: management/ig_bot_models.py:540 management/models.py:2760
+#: management/ig_bot_models.py:793 management/models.py:2760
 msgid "Пріоритет"
 msgstr ""
 
-#: management/ig_bot_models.py:545
+#: management/ig_bot_models.py:798
 msgid "Інструкція бота"
 msgstr ""
 
-#: management/ig_bot_models.py:546
+#: management/ig_bot_models.py:799
 msgid "Інструкції бота"
 msgstr ""
 
-#: management/ig_bot_models.py:570
-#: storefront/services/general_catalog_seo.py:126
-#: storefront/services/size_guides.py:112
-#: storefront/services/size_guides.py:331
-#: storefront/services/size_guides.py:355 storefront/support_content.py:428
-#: storefront/support_content.py:515 storefront/support_content.py:628
-#: storefront/support_content.py:723 storefront/support_content.py:736
-#: storefront/support_content.py:1009
-#: twocomms_django_theme/templates/pages/product_detail.html:487
-#: twocomms_django_theme/templates/pages/product_detail.html:643
-#: twocomms_django_theme/templates/pages/product_detail.html:733
-#: twocomms_django_theme/templates/pages/product_detail_new.html:282
-#: twocomms_django_theme/templates/partials/footer.html:147
-msgid "Розмірна сітка"
-msgstr "Размерная сетка"
-
-#: management/ig_bot_models.py:572
+#: management/ig_bot_models.py:825
 msgid "Хайлайт"
 msgstr ""
 
-#: management/ig_bot_models.py:576 management/models.py:232
+#: management/ig_bot_models.py:829 management/models.py:232
 msgid "Підпис"
 msgstr ""
 
-#: management/ig_bot_models.py:577
+#: management/ig_bot_models.py:830
 msgid "Посилання"
 msgstr ""
 
-#: management/ig_bot_models.py:579
+#: management/ig_bot_models.py:832
 msgid "Тип одягу (tshirt/hoodie/longsleeve…)"
 msgstr ""
 
-#: management/ig_bot_models.py:582
+#: management/ig_bot_models.py:835
 msgid "Тригер-слова (через кому)"
 msgstr ""
 
-#: management/ig_bot_models.py:590
+#: management/ig_bot_models.py:843
 msgid "Швидке посилання бота"
 msgstr ""
 
-#: management/ig_bot_models.py:591
+#: management/ig_bot_models.py:844
 msgid "Швидкі посилання бота"
 msgstr ""
 
-#: management/ig_bot_models.py:624
+#: management/ig_bot_models.py:877
 msgid "Ad ID"
 msgstr ""
 
-#: management/ig_bot_models.py:625
+#: management/ig_bot_models.py:878
 msgid "Ref"
 msgstr ""
 
-#: management/ig_bot_models.py:626
+#: management/ig_bot_models.py:879
 msgid "Назва кампанії"
 msgstr ""
 
-#: management/ig_bot_models.py:630
+#: management/ig_bot_models.py:883
 #: twocomms_django_theme/templates/pages/contacts.html:309
 msgid "Тема"
 msgstr "Тема"
 
-#: management/ig_bot_models.py:631
+#: management/ig_bot_models.py:884
 msgid "Що в рекламі / CTA"
 msgstr ""
 
-#: management/ig_bot_models.py:637
+#: management/ig_bot_models.py:890
 msgid "Рекламна кампанія бота"
 msgstr ""
 
-#: management/ig_bot_models.py:638
+#: management/ig_bot_models.py:891
 msgid "Рекламні кампанії бота"
 msgstr ""
 
-#: management/ig_bot_models.py:670
+#: management/ig_bot_models.py:923
 msgid "Подія стадії IG-клієнта"
 msgstr ""
 
-#: management/ig_bot_models.py:671
+#: management/ig_bot_models.py:924
 msgid "Події стадій IG-клієнтів"
 msgstr ""
 
-#: management/ig_bot_models.py:685 management/models.py:610
+#: management/ig_bot_models.py:938 management/models.py:610
 #: management/models.py:2081 management/models.py:2253
 #: management/models.py:2583 management/models.py:3053
 #: management/models.py:3266 storefront/models.py:2677
 msgid "Очікує"
 msgstr "Ожидает"
 
-#: management/ig_bot_models.py:686 management/ig_bot_models.py:896
+#: management/ig_bot_models.py:939 management/ig_bot_models.py:1219
 #: management/models.py:899 storefront/models.py:2567 storefront/models.py:2678
 #: twocomms_django_theme/templates/pages/order_success.html:1825
 msgid "Надіслано"
 msgstr "Отправлено"
 
-#: management/ig_bot_models.py:688 management/ig_bot_models.py:895
+#: management/ig_bot_models.py:941 management/ig_bot_models.py:1218
 #: management/models.py:614 management/models.py:1324 management/models.py:2084
 #: management/models.py:2424
 msgid "Пропущено"
 msgstr ""
 
-#: management/ig_bot_models.py:691
+#: management/ig_bot_models.py:944
 msgid "Уточнення"
 msgstr ""
 
-#: management/ig_bot_models.py:692
+#: management/ig_bot_models.py:945
 msgid "Нагадування про оплату"
 msgstr ""
 
-#: management/ig_bot_models.py:693
+#: management/ig_bot_models.py:946
 msgid "Клієнт думає"
 msgstr ""
 
-#: management/ig_bot_models.py:694
+#: management/ig_bot_models.py:947
 msgid "Rescue offer"
 msgstr ""
 
-#: management/ig_bot_models.py:695
+#: management/ig_bot_models.py:948
 msgid "Фінальний офер"
 msgstr ""
 
-#: management/ig_bot_models.py:696
+#: management/ig_bot_models.py:949
 msgid "Завдання менеджеру"
 msgstr ""
 
-#: management/ig_bot_models.py:728
+#: management/ig_bot_models.py:981
 msgid "IG follow-up"
 msgstr ""
 
-#: management/ig_bot_models.py:729
+#: management/ig_bot_models.py:982
 msgid "IG follow-ups"
 msgstr ""
 
-#: management/ig_bot_models.py:764
+#: management/ig_bot_models.py:1017
 msgid "На подарунок"
 msgstr ""
 
-#: management/ig_bot_models.py:765 storefront/custom_print_config.py:187
+#: management/ig_bot_models.py:1018 storefront/custom_print_config.py:187
 #: storefront/models.py:603
 msgid "Для себе"
 msgstr "Для себя"
 
-#: management/ig_bot_models.py:767
+#: management/ig_bot_models.py:1020
 msgid "Відповідь з реклами"
 msgstr ""
 
-#: management/ig_bot_models.py:769
+#: management/ig_bot_models.py:1022
 msgid "Checkout started"
 msgstr ""
 
-#: management/ig_bot_models.py:772 management/ig_bot_models.py:817
+#: management/ig_bot_models.py:1025 management/ig_bot_models.py:1070
 msgid "Втрачено"
 msgstr ""
 
-#: management/ig_bot_models.py:774
+#: management/ig_bot_models.py:1027
 msgid "Взяв менеджер"
 msgstr ""
 
-#: management/ig_bot_models.py:775
+#: management/ig_bot_models.py:1028
 msgid "Знижка"
 msgstr ""
 
-#: management/ig_bot_models.py:776 management/ig_bot_models.py:824
+#: management/ig_bot_models.py:1029 management/ig_bot_models.py:1077
 msgid "Інтерес до товару"
 msgstr ""
 
-#: management/ig_bot_models.py:795
+#: management/ig_bot_models.py:1048
 msgid "IG conversation signal"
 msgstr ""
 
-#: management/ig_bot_models.py:796
+#: management/ig_bot_models.py:1049
 msgid "IG conversation signals"
 msgstr ""
 
-#: management/ig_bot_models.py:811
+#: management/ig_bot_models.py:1064
 msgid "Холодний"
 msgstr ""
 
-#: management/ig_bot_models.py:812
+#: management/ig_bot_models.py:1065
 msgid "Вивчає"
 msgstr ""
 
-#: management/ig_bot_models.py:813
+#: management/ig_bot_models.py:1066
 msgid "Кваліфікований"
 msgstr ""
 
-#: management/ig_bot_models.py:814 management/ig_bot_models.py:828
+#: management/ig_bot_models.py:1067 management/ig_bot_models.py:1081
 msgid "Високий намір"
 msgstr ""
 
-#: management/ig_bot_models.py:815
+#: management/ig_bot_models.py:1068
 msgid "Оформлення"
 msgstr ""
 
-#: management/ig_bot_models.py:818 management/ig_bot_models.py:833
+#: management/ig_bot_models.py:1071 management/ig_bot_models.py:1086
 msgid "Відмовився від повідомлень"
 msgstr ""
 
-#: management/ig_bot_models.py:822
+#: management/ig_bot_models.py:1075
 msgid "Лише реакція"
 msgstr ""
 
-#: management/ig_bot_models.py:823
+#: management/ig_bot_models.py:1076
 msgid "Лише інформація"
 msgstr ""
 
-#: management/ig_bot_models.py:825
+#: management/ig_bot_models.py:1078
 msgid "Питання про розмір"
 msgstr ""
 
-#: management/ig_bot_models.py:827
+#: management/ig_bot_models.py:1080
 msgid "Заперечення щодо ціни"
 msgstr ""
 
-#: management/ig_bot_models.py:830
+#: management/ig_bot_models.py:1083
 msgid "Оплачено / очікує товар"
 msgstr ""
 
-#: management/ig_bot_models.py:832
+#: management/ig_bot_models.py:1085
 msgid "Явно не купує"
 msgstr ""
 
-#: management/ig_bot_models.py:834
+#: management/ig_bot_models.py:1087
 msgid "Спам / образи"
 msgstr ""
 
-#: management/ig_bot_models.py:835
+#: management/ig_bot_models.py:1088
 msgid "Спостереження менеджера"
 msgstr ""
 
-#: management/ig_bot_models.py:878
+#: management/ig_bot_models.py:1089
+msgid "Співпраця / creator"
+msgstr ""
+
+#: management/ig_bot_models.py:1090
+msgid "Опт / B2B"
+msgstr ""
+
+#: management/ig_bot_models.py:1091
+msgid "Підтримка / скарга"
+msgstr ""
+
+#: management/ig_bot_models.py:1092
+msgid "Спільнота / casual"
+msgstr ""
+
+#: management/ig_bot_models.py:1142
 msgid "Знімок аналізу IG-діалогу"
 msgstr ""
 
-#: management/ig_bot_models.py:879
+#: management/ig_bot_models.py:1143
 msgid "Знімки аналізу IG-діалогів"
 msgstr ""
 
-#: management/ig_bot_models.py:894
+#: management/ig_bot_models.py:1158
+msgid "Очікує аналізу"
+msgstr ""
+
+#: management/ig_bot_models.py:1159 management/models.py:611
+#: management/models.py:2421 management/models.py:2584
+msgid "Аналізується"
+msgstr ""
+
+#: management/ig_bot_models.py:1160 management/models.py:2422
+msgid "Проаналізовано"
+msgstr ""
+
+#: management/ig_bot_models.py:1161 management/models.py:2423
+msgid "Помилка аналізу"
+msgstr ""
+
+#: management/ig_bot_models.py:1162
+msgid "Аналіз пропущено"
+msgstr ""
+
+#: management/ig_bot_models.py:1202
+msgid "Завдання аналізу IG-діалогу"
+msgstr ""
+
+#: management/ig_bot_models.py:1203
+msgid "Завдання аналізу IG-діалогів"
+msgstr ""
+
+#: management/ig_bot_models.py:1217
 #: twocomms_django_theme/templates/pages/custom_print.html:716
 msgid "Вимкнено"
 msgstr ""
 
-#: management/ig_bot_models.py:897 management/models.py:384
+#: management/ig_bot_models.py:1220 management/models.py:384
 #: management/models.py:484 management/models.py:613 management/models.py:710
 #: management/models.py:900 management/models.py:1032 management/models.py:1625
 #: management/models.py:2083 management/models.py:2091
 #: management/models.py:2346 management/models.py:2586
-#: management/models.py:2625 management/models.py:3899
-#: management/models.py:3968 storefront/models.py:2569
+#: management/models.py:2625 management/models.py:3908
+#: management/models.py:3977 storefront/models.py:2569
 #: storefront/models.py:2682 storefront/models.py:3209
 msgid "Помилка"
 msgstr "Ошибка"
 
-#: management/ig_bot_models.py:916
+#: management/ig_bot_models.py:1239
 msgid "IG Meta event log"
 msgstr ""
 
-#: management/ig_bot_models.py:917
+#: management/ig_bot_models.py:1240
 msgid "IG Meta event logs"
 msgstr ""
 
@@ -1082,7 +1311,7 @@ msgid "Google Maps URL"
 msgstr ""
 
 #: management/models.py:290 management/models.py:1524
-#: twocomms_django_theme/templates/pages/product_detail.html:509
+#: twocomms_django_theme/templates/pages/product_detail.html:515
 msgid "Деталі"
 msgstr "Детали"
 
@@ -1167,21 +1396,21 @@ msgstr ""
 msgid "Ліди"
 msgstr ""
 
-#: management/models.py:380 management/models.py:3895
+#: management/models.py:380 management/models.py:3904
 msgid "Працює"
 msgstr ""
 
-#: management/models.py:381 management/models.py:3896
+#: management/models.py:381 management/models.py:3905
 msgid "Пауза"
 msgstr ""
 
-#: management/models.py:382 management/models.py:3897
+#: management/models.py:382 management/models.py:3906
 msgid "Зупинено"
 msgstr ""
 
 #: management/models.py:392 management/models.py:1182 management/models.py:1211
 #: management/models.py:1258 management/models.py:3302
-#: management/models.py:3401 management/models.py:3909
+#: management/models.py:3401 management/models.py:3918
 msgid "Створив"
 msgstr ""
 
@@ -1213,7 +1442,7 @@ msgstr ""
 msgid "Виконано запитів"
 msgstr ""
 
-#: management/models.py:402 management/models.py:3840
+#: management/models.py:402 management/models.py:3849
 msgid "Запитів за хвилину"
 msgstr ""
 
@@ -1301,7 +1530,7 @@ msgstr ""
 msgid "Place ID"
 msgstr ""
 
-#: management/models.py:504 management/models.py:3323 management/models.py:3817
+#: management/models.py:504 management/models.py:3323 management/models.py:3826
 #: twocomms_django_theme/templates/pages/pro_brand.html:1337
 msgid "Назва"
 msgstr "Название"
@@ -1367,11 +1596,7 @@ msgstr ""
 msgid "Звіти"
 msgstr ""
 
-#: management/models.py:611 management/models.py:2421 management/models.py:2584
-msgid "Аналізується"
-msgstr ""
-
-#: management/models.py:612 management/models.py:2585 management/models.py:3967
+#: management/models.py:612 management/models.py:2585 management/models.py:3976
 #: twocomms_django_theme/templates/pages/blog/editor.html:105
 #: twocomms_django_theme/templates/pages/my_orders.html:351
 #: twocomms_django_theme/templates/partials/telegram_verify_modal.html:70
@@ -2010,10 +2235,10 @@ msgstr ""
 #: management/models.py:1251 storefront/models.py:464
 #: storefront/seo_utils.py:1116 storefront/seo_utils.py:1122
 #: storefront/seo_utils.py:1128
-#: twocomms_django_theme/templates/pages/product_detail.html:413
-#: twocomms_django_theme/templates/pages/product_detail.html:415
-#: twocomms_django_theme/templates/pages/product_detail.html:429
-#: twocomms_django_theme/templates/pages/product_detail.html:433
+#: twocomms_django_theme/templates/pages/product_detail.html:425
+#: twocomms_django_theme/templates/pages/product_detail.html:427
+#: twocomms_django_theme/templates/pages/product_detail.html:441
+#: twocomms_django_theme/templates/pages/product_detail.html:445
 #: twocomms_django_theme/templates/pages/product_detail_new.html:169
 #: twocomms_django_theme/templates/partials/mini_cart.html:76
 #: twocomms_django_theme/templates/partials/product_card.html:89
@@ -3023,14 +3248,6 @@ msgstr ""
 msgid "У черзі на аналіз"
 msgstr ""
 
-#: management/models.py:2422
-msgid "Проаналізовано"
-msgstr ""
-
-#: management/models.py:2423
-msgid "Помилка аналізу"
-msgstr ""
-
 #: management/models.py:2427
 msgid "Зовнішній call ID"
 msgstr ""
@@ -3933,159 +4150,159 @@ msgstr ""
 msgid "Audit log"
 msgstr ""
 
-#: management/models.py:3593
+#: management/models.py:3594
 msgid "З ENV сервера"
 msgstr ""
 
-#: management/models.py:3594
+#: management/models.py:3595
 msgid "Свій ключ"
 msgstr ""
 
-#: management/models.py:3766
+#: management/models.py:3775
 msgid "Мережа-бренд"
 msgstr ""
 
-#: management/models.py:3767
+#: management/models.py:3776
 msgid "Франшиза"
 msgstr ""
 
-#: management/models.py:3768
+#: management/models.py:3777
 msgid "Маркетплейс"
 msgstr ""
 
-#: management/models.py:3769
+#: management/models.py:3778
 msgid "Група військторгів"
 msgstr ""
 
-#: management/models.py:3773
+#: management/models.py:3782
 msgid "Не співпрацює — пропускати"
 msgstr ""
 
-#: management/models.py:3774
+#: management/models.py:3783
 msgid "Не наш профіль — пропускати"
 msgstr ""
 
-#: management/models.py:3775
+#: management/models.py:3784
 msgid "Застосувати вердикт мережі"
 msgstr ""
 
-#: management/models.py:3776
+#: management/models.py:3785
 msgid "Перевіряти кожну точку"
 msgstr ""
 
-#: management/models.py:3777
+#: management/models.py:3786
 msgid "Лише кастом-друк"
 msgstr ""
 
-#: management/models.py:3778
+#: management/models.py:3787
 msgid "Потребує рішення"
 msgstr ""
 
-#: management/models.py:3779
+#: management/models.py:3788
 msgid "Пріоритетна ціль"
 msgstr ""
 
-#: management/models.py:3781
+#: management/models.py:3790
 msgid "Канонічна назва"
 msgstr ""
 
-#: management/models.py:3782
+#: management/models.py:3791
 msgid "Slug"
 msgstr ""
 
-#: management/models.py:3803
+#: management/models.py:3812
 msgid "Мережа лідів"
 msgstr ""
 
-#: management/models.py:3804
+#: management/models.py:3813
 msgid "Мережі лідів"
 msgstr ""
 
-#: management/models.py:3828
+#: management/models.py:3837
 msgid "Алиас мережі"
 msgstr ""
 
-#: management/models.py:3829
+#: management/models.py:3838
 msgid "Алиаси мереж"
 msgstr ""
 
-#: management/models.py:3838
+#: management/models.py:3847
 msgid "Ключ Gemini (опц.)"
 msgstr ""
 
-#: management/models.py:3839
+#: management/models.py:3848
 msgid "Цепочка моделей (csv)"
 msgstr ""
 
-#: management/models.py:3841
+#: management/models.py:3850
 msgid "Авто-чекінг при відновленні квоти"
 msgstr ""
 
-#: management/models.py:3842
+#: management/models.py:3851
 msgid "Розмір батчу авто-чекінгу"
 msgstr ""
 
-#: management/models.py:3846 management/models.py:3847
+#: management/models.py:3855 management/models.py:3856
 msgid "Налаштування чекера"
 msgstr ""
 
-#: management/models.py:3881
+#: management/models.py:3890
 msgid "Стан Gemini-ключа"
 msgstr ""
 
-#: management/models.py:3882
+#: management/models.py:3891
 msgid "Стани Gemini-ключів"
 msgstr ""
 
-#: management/models.py:3902
+#: management/models.py:3911
 msgid "Тільки неперевірені"
 msgstr ""
 
-#: management/models.py:3903
+#: management/models.py:3912
 msgid "Усі (перепровірка)"
 msgstr ""
 
-#: management/models.py:3904
+#: management/models.py:3913
 msgid "За містом"
 msgstr ""
 
-#: management/models.py:3905
+#: management/models.py:3914
 msgid "За смугою вердикту"
 msgstr ""
 
-#: management/models.py:3911
+#: management/models.py:3920
 msgid "Авто-сесія (cron)"
 msgstr ""
 
-#: management/models.py:3939
+#: management/models.py:3948
 msgid "Сесія чекера"
 msgstr ""
 
-#: management/models.py:3940
+#: management/models.py:3949
 msgid "Сесії чекера"
 msgstr ""
 
-#: management/models.py:3956
+#: management/models.py:3965
 msgid "Lock чекера"
 msgstr ""
 
-#: management/models.py:3957
+#: management/models.py:3966
 msgid "Lock-и чекера"
 msgstr ""
 
-#: management/models.py:3965
+#: management/models.py:3974
 msgid "В черзі"
 msgstr ""
 
-#: management/models.py:3966
+#: management/models.py:3975
 msgid "Обробка"
 msgstr ""
 
-#: management/models.py:3998
+#: management/models.py:4007
 msgid "AI-перевірка ліда"
 msgstr ""
 
-#: management/models.py:3999
+#: management/models.py:4008
 msgid "AI-перевірки лідів"
 msgstr ""
 
@@ -4309,8 +4526,8 @@ msgstr "Макет"
 
 #: storefront/custom_print_config.py:47
 #: twocomms_django_theme/templates/pages/custom_print.html:637
-#: twocomms_django_theme/templates/pages/product_detail.html:698
-#: twocomms_django_theme/templates/pages/product_detail.html:701
+#: twocomms_django_theme/templates/pages/product_detail.html:704
+#: twocomms_django_theme/templates/pages/product_detail.html:707
 msgid "Кількість"
 msgstr "Количество"
 
@@ -4528,11 +4745,6 @@ msgstr "Своя одежда"
 msgid "Класичний"
 msgstr "Классический"
 
-#: storefront/custom_print_config.py:132 storefront/custom_print_config.py:405
-#: storefront/custom_print_config.py:519
-msgid "Оверсайз"
-msgstr "Оверсайз"
-
 #: storefront/custom_print_config.py:136 storefront/custom_print_config.py:523
 #: storefront/custom_print_config.py:527
 msgid "Звичайна тканина"
@@ -4671,10 +4883,6 @@ msgstr "Базовая посадка для повседневного мерч
 #: storefront/custom_print_config.py:405
 msgid "Більш масивний силует з відчуттям преміум-речі."
 msgstr "Более массивный силуэт с ощущением премиальной вещи."
-
-#: storefront/custom_print_config.py:409
-msgid "Класика"
-msgstr "Классика"
 
 #: storefront/custom_print_config.py:409
 msgid "Базова тканина без пеньє-обробки."
@@ -4921,7 +5129,7 @@ msgid "Фіксована сума"
 msgstr "Фиксированная сумма"
 
 #: storefront/models.py:463 storefront/seo_utils.py:908
-#: twocomms_django_theme/templates/pages/product_detail.html:342
+#: twocomms_django_theme/templates/pages/product_detail.html:343
 msgid "Матеріал"
 msgstr "Материал"
 
@@ -5027,7 +5235,7 @@ msgid "Оновлено"
 msgstr "Обновлено"
 
 #: storefront/models.py:1492
-#: twocomms_django_theme/templates/pages/product_detail.html:491
+#: twocomms_django_theme/templates/pages/product_detail.html:497
 msgid "FAQ товару"
 msgstr "FAQ товара"
 
@@ -5044,10 +5252,6 @@ msgstr ""
 #: twocomms_django_theme/templates/pages/cart.html:599
 msgid "Email"
 msgstr "Email"
-
-#: storefront/models.py:1512
-msgid "Очікує підтвердження"
-msgstr ""
 
 #: storefront/models.py:1513
 msgid "Очікує наявності"
@@ -5118,7 +5322,7 @@ msgid "Значення знижки"
 msgstr "Размер скидки"
 
 #: storefront/models.py:1629
-#: twocomms_django_theme/templates/pages/product_detail.html:486
+#: twocomms_django_theme/templates/pages/product_detail.html:492
 #: twocomms_django_theme/templates/pages/product_detail_new.html:281
 msgid "Опис"
 msgstr "Описание"
@@ -5305,7 +5509,7 @@ msgstr "Разные цвета"
 msgid "Розміри"
 msgstr "Размеры"
 
-#: storefront/seo_utils.py:1210 storefront/views/product.py:573
+#: storefront/seo_utils.py:1210 storefront/views/product.py:570
 #, python-format
 msgid "Відео огляд: %(title)s"
 msgstr ""
@@ -5335,13 +5539,13 @@ msgstr "Харьков"
 #: twocomms_django_theme/templates/pages/pro_brand.html:44
 #: twocomms_django_theme/templates/pages/pro_brand.html:146
 msgid "Це не крапка, це продовження: історія Артема Синіла та харківського бренду TwoComms"
-msgstr ""
+msgstr "Не точка, а продолжение: история Артёма Синило и харьковского бренда TwoComms"
 
 #: storefront/seo_utils.py:1622
 #: twocomms_django_theme/templates/pages/pro_brand.html:48
 #: twocomms_django_theme/templates/pages/pro_brand.html:150
 msgid "Міністерство у справах ветеранів України"
-msgstr ""
+msgstr "Министерство по делам ветеранов Украины"
 
 #: storefront/seo_utils.py:1666
 msgid "Бали за покупки та промокоди для постійних клієнтів TwoComms; можна обміняти на знижки або донати на ЗСУ."
@@ -5358,7 +5562,7 @@ msgstr ""
 #: storefront/seo_utils.py:1706
 #: twocomms_django_theme/templates/pages/pro_brand.html:128
 msgid "Засновник TwoComms"
-msgstr ""
+msgstr "Основатель TwoComms"
 
 #: storefront/seo_utils.py:1708
 msgid "Засновник українського streetwear-бренду TwoComms із Харкова, бойовий ветеран."
@@ -6991,7 +7195,7 @@ msgstr "Популярные запросы"
 #: storefront/services/product_copy_v2.py:33
 msgctxt "nominative"
 msgid "футболка"
-msgstr ""
+msgstr "Футболка"
 
 #: storefront/services/product_copy_v2.py:34
 msgctxt "nominative"
@@ -7001,12 +7205,12 @@ msgstr ""
 #: storefront/services/product_copy_v2.py:35
 msgctxt "nominative"
 msgid "лонгслів"
-msgstr ""
+msgstr "Лонгслив"
 
 #: storefront/services/product_copy_v2.py:38
 msgctxt "accusative"
 msgid "футболку"
-msgstr ""
+msgstr "Футболка"
 
 #: storefront/services/product_copy_v2.py:39
 msgctxt "accusative"
@@ -7016,12 +7220,12 @@ msgstr ""
 #: storefront/services/product_copy_v2.py:40
 msgctxt "accusative"
 msgid "лонгслів"
-msgstr ""
+msgstr "Лонгслив"
 
 #: storefront/services/product_copy_v2.py:43
 msgctxt "genitive"
 msgid "футболки"
-msgstr ""
+msgstr "Футболки"
 
 #: storefront/services/product_copy_v2.py:44
 msgctxt "genitive"
@@ -7031,22 +7235,22 @@ msgstr ""
 #: storefront/services/product_copy_v2.py:45
 msgctxt "genitive"
 msgid "лонгсліва"
-msgstr ""
+msgstr "Лонгсливы"
 
 #: storefront/services/product_copy_v2.py:49
 msgctxt "nominative"
 msgid "товар"
-msgstr ""
+msgstr "FAQ товара"
 
 #: storefront/services/product_copy_v2.py:50
 msgctxt "accusative"
 msgid "товар"
-msgstr ""
+msgstr "FAQ товара"
 
 #: storefront/services/product_copy_v2.py:51
 msgctxt "genitive"
 msgid "товару"
-msgstr ""
+msgstr "FAQ товара"
 
 #: storefront/services/product_copy_v2.py:58
 msgid "Виготовлена зі щільного бавовняного трикотажу 180–220 г/м²: не просвічується, добре тримає форму після прання, м'яка до шкіри. Принт нанесено методом DTF-друку — насичені кольори, тонкі деталі та стійкість до 50+ циклів прання при дотриманні правил догляду."
@@ -7458,7 +7662,7 @@ msgid "Перейдіть у повний size guide або зверніться
 msgstr "Перейдите в полный size guide или обратитесь в поддержку, если нужна подсказка по посадке."
 
 #: storefront/services/size_guides.py:378
-#: twocomms_django_theme/templates/pages/product_detail.html:640
+#: twocomms_django_theme/templates/pages/product_detail.html:646
 msgid "Підбір розміру"
 msgstr "Подбор размера"
 
@@ -7474,7 +7678,7 @@ msgstr "Сравнивайте ширину, длину и посадку со �
 msgid "Для нестандартного фіту краще уточнити розмір у підтримки."
 msgstr "Для нестандартной посадки лучше уточнить размер у поддержки."
 
-#: storefront/services/size_guides.py:544
+#: storefront/services/size_guides.py:545
 msgid "Візуальна схема для окремої категорії."
 msgstr "Визуальная схема для отдельной категории."
 
@@ -8008,11 +8212,11 @@ msgstr "Воспользуйтесь FAQ для коротких ответов 
 
 #: storefront/support_content.py:354
 msgid "Хто заснував TwoComms?"
-msgstr ""
+msgstr "Кто основал TwoComms?"
 
 #: storefront/support_content.py:355
 msgid "TwoComms заснував Артем Синіло — ветеран із Харкова. Його особиста історія продовження після критичної точки стала основою коду бренду. Шлях засновника і появу TwoComms висвітлювало Міністерство у справах ветеранів України у матеріалі «Це не крапка, це продовження»."
-msgstr ""
+msgstr "TwoComms основал Артём Синило — ветеран из Харькова. Его личная история продолжения после критической точки стала основой кода бренда. Путь основателя и появление TwoComms освещало Министерство по делам ветеранов Украины в материале «Не точка, а продолжение»."
 
 #: storefront/support_content.py:358
 msgid "Що означає назва TwoComms?"
@@ -9012,9 +9216,9 @@ msgid "Основні розділи магазину"
 msgstr "Основные разделы магазина"
 
 #: storefront/support_content.py:998 storefront/support_content.py:1044
-#: storefront/support_content.py:1072 storefront/templatetags/seo_tags.py:277
+#: storefront/support_content.py:1072 storefront/templatetags/seo_tags.py:363
 #: storefront/views/catalog.py:945 storefront/views/legacy_stubs.py:159
-#: storefront/views/legacy_stubs.py:178 storefront/views/product.py:583
+#: storefront/views/legacy_stubs.py:178 storefront/views/product.py:580
 #: storefront/views/static_pages.py:1256 storefront/views/static_pages.py:1435
 #: storefront/views/static_pages.py:1462 storefront/views/static_pages.py:1561
 #: twocomms_django_theme/templates/pages/catalog.html:85
@@ -9442,43 +9646,43 @@ msgstr "Изображение TwoComms"
 msgid "%(text)s - TwoComms"
 msgstr "%(text)s — TwoComms"
 
-#: storefront/templatetags/seo_tags.py:56
-#: storefront/templatetags/seo_tags.py:59
-#: storefront/templatetags/seo_tags.py:60
-#: storefront/templatetags/seo_tags.py:140
-#: storefront/templatetags/seo_tags.py:143
+#: storefront/templatetags/seo_tags.py:142
+#: storefront/templatetags/seo_tags.py:145
 #: storefront/templatetags/seo_tags.py:146
+#: storefront/templatetags/seo_tags.py:226
+#: storefront/templatetags/seo_tags.py:229
+#: storefront/templatetags/seo_tags.py:232
 #: twocomms_django_theme/templates/base.html:137
 #: twocomms_django_theme/templates/base.html:198
 #: twocomms_django_theme/templates/base.html:281
 msgid "TwoComms — Стріт & Мілітарі Одяг"
 msgstr "TwoComms — стрит & милитари одежда"
 
-#: storefront/templatetags/seo_tags.py:68
-#: storefront/templatetags/seo_tags.py:71
-#: storefront/templatetags/seo_tags.py:72
+#: storefront/templatetags/seo_tags.py:154
+#: storefront/templatetags/seo_tags.py:157
+#: storefront/templatetags/seo_tags.py:158
 msgid "TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном."
 msgstr "TwoComms — магазин стрит & милитари одежды с эксклюзивным дизайном."
 
-#: storefront/templatetags/seo_tags.py:80
-#: storefront/templatetags/seo_tags.py:83
-#: storefront/templatetags/seo_tags.py:84
+#: storefront/templatetags/seo_tags.py:166
+#: storefront/templatetags/seo_tags.py:169
+#: storefront/templatetags/seo_tags.py:170
 msgid "стріт одяг, мілітарі одяг, TwoComms"
 msgstr "стрит одежда, милитари одежда, TwoComms"
 
-#: storefront/templatetags/seo_tags.py:141
+#: storefront/templatetags/seo_tags.py:227
 #: twocomms_django_theme/templates/base.html:163
 #: twocomms_django_theme/templates/base.html:200
 #: twocomms_django_theme/templates/base.html:283
 msgid "TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером. Якісний одяг для сучасного стилю."
 msgstr "TwoComms — магазин стрит & милитари одежды с эксклюзивным дизайном. Футболки, худи, лонгсливы с характером. Качественная одежда для современного стиля."
 
-#: storefront/templatetags/seo_tags.py:142
+#: storefront/templatetags/seo_tags.py:228
 msgid "стріт одяг, мілітарі одяг, футболки, худі, лонгсліви, TwoComms, ексклюзивний дизайн, якісний одяг"
 msgstr "стрит одежда, милитари одежда, футболки, худи, лонгсливы, TwoComms, эксклюзивный дизайн, качественная одежда"
 
-#: storefront/templatetags/seo_tags.py:144
-#: storefront/templatetags/seo_tags.py:147
+#: storefront/templatetags/seo_tags.py:230
+#: storefront/templatetags/seo_tags.py:233
 msgid "TwoComms - магазин стріт & мілітарі одягу з ексклюзивним дизайном. Футболки, худі, лонгсліви з характером."
 msgstr "TwoComms — магазин стрит & милитари одежды с эксклюзивным дизайном. Футболки, худи, лонгсливы с характером."
 
@@ -11221,7 +11425,7 @@ msgstr "уход за DTF-принтом"
 #: twocomms_django_theme/templates/pages/blog/index.html:171
 #: twocomms_django_theme/templates/pages/pro_brand.html:138
 msgid "український streetwear"
-msgstr ""
+msgstr "украинский streetwear"
 
 #: twocomms_django_theme/templates/pages/blog/index.html:172
 msgid "одяг з характером"
@@ -11480,9 +11684,9 @@ msgstr "Итого:"
 #: twocomms_django_theme/templates/pages/order_success.html:1522
 #: twocomms_django_theme/templates/pages/order_success.html:1539
 #: twocomms_django_theme/templates/pages/order_success.html:1580
-#: twocomms_django_theme/templates/pages/product_detail.html:308
-#: twocomms_django_theme/templates/pages/product_detail.html:310
-#: twocomms_django_theme/templates/pages/product_detail.html:343
+#: twocomms_django_theme/templates/pages/product_detail.html:309
+#: twocomms_django_theme/templates/pages/product_detail.html:311
+#: twocomms_django_theme/templates/pages/product_detail.html:344
 #: twocomms_django_theme/templates/pages/product_detail_new.html:125
 #: twocomms_django_theme/templates/pages/product_detail_new.html:127
 #: twocomms_django_theme/templates/pages/product_detail_new.html:404
@@ -11552,12 +11756,12 @@ msgid "Розмір:"
 msgstr "Размер:"
 
 #: twocomms_django_theme/templates/pages/cart.html:295
-#: twocomms_django_theme/templates/pages/product_detail.html:700
+#: twocomms_django_theme/templates/pages/product_detail.html:706
 msgid "Зменшити кількість"
 msgstr "Уменьшить количество"
 
 #: twocomms_django_theme/templates/pages/cart.html:299
-#: twocomms_django_theme/templates/pages/product_detail.html:702
+#: twocomms_django_theme/templates/pages/product_detail.html:708
 msgid "Збільшити кількість"
 msgstr "Увеличить количество"
 
@@ -11756,7 +11960,7 @@ msgid "Разом ви економите"
 msgstr "Всего вы экономите"
 
 #: twocomms_django_theme/templates/pages/cart.html:862
-#: twocomms_django_theme/templates/pages/product_detail.html:317
+#: twocomms_django_theme/templates/pages/product_detail.html:318
 #: twocomms_django_theme/templates/partials/product_card.html:138
 #: twocomms_django_theme/templates/partials/product_card.html:223
 #, python-format
@@ -13712,7 +13916,7 @@ msgid "Згорнути/розгорнути категорії"
 msgstr "Свернуть/развернуть категории"
 
 #: twocomms_django_theme/templates/pages/index.html:464
-#: twocomms_django_theme/templates/pages/product_detail.html:535
+#: twocomms_django_theme/templates/pages/product_detail.html:541
 msgid "Згорнути"
 msgstr "Свернуть"
 
@@ -14500,23 +14704,23 @@ msgstr "Лонгсливы с авторскими принтами, базов�
 
 #: twocomms_django_theme/templates/pages/pro_brand.html:126
 msgid "Артем Синіло"
-msgstr ""
+msgstr "Артём Синило"
 
 #: twocomms_django_theme/templates/pages/pro_brand.html:133
 msgid "Артем Синіло — засновник TwoComms, ветеран із Харкова. Бренд виріс із його історії продовження після критичної точки: дві коми як знак, що життя триває, а не ставить крапку."
-msgstr ""
+msgstr "Артём Синило — основатель TwoComms, ветеран из Харькова. Бренд вырос из его истории продолжения после критической точки: две запятые как знак того, что жизнь продолжается, а не ставит точку."
 
 #: twocomms_django_theme/templates/pages/pro_brand.html:135
 msgid "streetwear"
-msgstr ""
+msgstr "streetwear"
 
 #: twocomms_django_theme/templates/pages/pro_brand.html:136
 msgid "мілітарна естетика"
-msgstr ""
+msgstr "милитари-эстетика"
 
 #: twocomms_django_theme/templates/pages/pro_brand.html:137
 msgid "DTF-друк"
-msgstr ""
+msgstr "DTF-печать"
 
 #: twocomms_django_theme/templates/pages/pro_brand.html:1285
 msgid "Харківський бренд одягу"
@@ -14952,111 +15156,111 @@ msgstr "Выбери свою форму продолжения"
 msgid "Кожна річ TwoComms починається з ідеї, але має закінчуватися на людині. Знайди код, який відгукується, і носи стан, який хочеш тримати."
 msgstr "Каждая вещь TwoComms начинается с идеи, но должна заканчиваться на человеке. Найди код, который откликается, и носи состояние, которое хочешь держать."
 
-#: twocomms_django_theme/templates/pages/product_detail.html:158
+#: twocomms_django_theme/templates/pages/product_detail.html:159
 msgid "Галерея товару"
 msgstr "Галерея товара"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:183
+#: twocomms_django_theme/templates/pages/product_detail.html:184
 msgid "Дії з фото"
 msgstr "Действия с фото"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:184
+#: twocomms_django_theme/templates/pages/product_detail.html:185
 msgid "Збільшити фото"
 msgstr "Увеличить фото"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:190
+#: twocomms_django_theme/templates/pages/product_detail.html:191
 msgid "Позиція у галереї"
 msgstr ""
 
-#: twocomms_django_theme/templates/pages/product_detail.html:191
+#: twocomms_django_theme/templates/pages/product_detail.html:192
 msgid "Фото 1 з 1"
 msgstr ""
 
-#: twocomms_django_theme/templates/pages/product_detail.html:193
+#: twocomms_django_theme/templates/pages/product_detail.html:194
 msgid "Переглянути відео товару"
 msgstr ""
 
-#: twocomms_django_theme/templates/pages/product_detail.html:197
+#: twocomms_django_theme/templates/pages/product_detail.html:198
 msgid "Відео"
 msgstr ""
 
-#: twocomms_django_theme/templates/pages/product_detail.html:204
+#: twocomms_django_theme/templates/pages/product_detail.html:205
 msgid "Попереднє фото"
 msgstr "Предыдущее фото"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:205
+#: twocomms_django_theme/templates/pages/product_detail.html:206
 msgid "Мініатюри товару"
 msgstr "Миниатюры товара"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:206
+#: twocomms_django_theme/templates/pages/product_detail.html:207
 msgid "Наступне фото"
 msgstr "Следующее фото"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:210
+#: twocomms_django_theme/templates/pages/product_detail.html:211
 msgid "Переваги покупки"
 msgstr "Преимущества покупки"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:213
+#: twocomms_django_theme/templates/pages/product_detail.html:214
 msgid "Швидка відправка"
 msgstr "Быстрая отправка"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:213
+#: twocomms_django_theme/templates/pages/product_detail.html:214
 msgid "1–3 робочі дні по Україні"
 msgstr "1–3 рабочих дня по Украине"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:217
+#: twocomms_django_theme/templates/pages/product_detail.html:218
 msgid "Індивідуальний підхід"
 msgstr "Индивидуальный подход"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:217
+#: twocomms_django_theme/templates/pages/product_detail.html:218
 msgid "Допоможемо з вибором"
 msgstr "Поможем с выбором"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:221
-#: twocomms_django_theme/templates/pages/product_detail.html:729
+#: twocomms_django_theme/templates/pages/product_detail.html:222
+#: twocomms_django_theme/templates/pages/product_detail.html:735
 msgid "Обмін розміру"
 msgstr "Обмен размера"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:221
+#: twocomms_django_theme/templates/pages/product_detail.html:222
 msgid "14 днів на обмін"
 msgstr "14 дней на обмен"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:230
+#: twocomms_django_theme/templates/pages/product_detail.html:231
 msgid "Хочеш цей принт інакше?"
 msgstr ""
 
-#: twocomms_django_theme/templates/pages/product_detail.html:231
+#: twocomms_django_theme/templates/pages/product_detail.html:232
 msgid "Зроби схожий варіант на іншому кольорі, основі або додай свій знак у кастомному DTF-друці."
 msgstr ""
 
-#: twocomms_django_theme/templates/pages/product_detail.html:235
+#: twocomms_django_theme/templates/pages/product_detail.html:236
 msgid "Створити свій варіант"
 msgstr ""
 
-#: twocomms_django_theme/templates/pages/product_detail.html:255
+#: twocomms_django_theme/templates/pages/product_detail.html:256
 msgid "Дії з товаром"
 msgstr "Действия с товаром"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:257
+#: twocomms_django_theme/templates/pages/product_detail.html:258
 msgid "Редагувати товар у Fable5"
 msgstr ""
 
-#: twocomms_django_theme/templates/pages/product_detail.html:257
+#: twocomms_django_theme/templates/pages/product_detail.html:258
 msgid "Редагувати товар"
 msgstr ""
 
-#: twocomms_django_theme/templates/pages/product_detail.html:261
+#: twocomms_django_theme/templates/pages/product_detail.html:262
 #: twocomms_django_theme/templates/pages/product_detail_new.html:93
 #: twocomms_django_theme/templates/partials/product_card.html:49
 #: twocomms_django_theme/templates/partials/product_card.html:182
 msgid "Додати до обраних"
 msgstr "Добавить в избранное"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:264
+#: twocomms_django_theme/templates/pages/product_detail.html:265
 msgid "Поділитися товаром"
 msgstr "Поделиться товаром"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:287
+#: twocomms_django_theme/templates/pages/product_detail.html:288
 #, python-format
 msgid "Рейтинг товару, %(counter)s відгук"
 msgid_plural "Рейтинг товару, %(counter)s відгуків"
@@ -15065,7 +15269,7 @@ msgstr[1] "Рейтинг товара, %(counter)s отзыва"
 msgstr[2] "Рейтинг товара, %(counter)s отзывов"
 msgstr[3] "Рейтинг товара, %(counter)s отзыва"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:290
+#: twocomms_django_theme/templates/pages/product_detail.html:291
 #, python-format
 msgid "%(counter)s відгук"
 msgid_plural "%(counter)s відгуків"
@@ -15074,246 +15278,242 @@ msgstr[1] "%(counter)s отзыва"
 msgstr[2] "%(counter)s отзывов"
 msgstr[3] "%(counter)s отзыва"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:295
+#: twocomms_django_theme/templates/pages/product_detail.html:296
 msgid "Особливості товару"
 msgstr "Особенности товара"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:302
+#: twocomms_django_theme/templates/pages/product_detail.html:303
 msgid "Частина прибутку — на ЗСУ"
 msgstr "Часть прибыли — на ВСУ"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:315
+#: twocomms_django_theme/templates/pages/product_detail.html:316
 #, python-format
 msgid "Бонусні бали за покупку: %(n)s"
 msgstr "Бонусные баллы за покупку: %(n)s"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:342
+#: twocomms_django_theme/templates/pages/product_detail.html:343
 msgid "Термотканина"
 msgstr ""
 
-#: twocomms_django_theme/templates/pages/product_detail.html:348
+#: twocomms_django_theme/templates/pages/product_detail.html:349
 msgid "Для цієї моделі утеплення вже включено"
 msgstr ""
 
-#: twocomms_django_theme/templates/pages/product_detail.html:352
+#: twocomms_django_theme/templates/pages/product_detail.html:353
 msgid "Ця модель доступна тільки з флісом"
 msgstr ""
 
 #: twocomms_django_theme/templates/pages/product_detail.html:366
+msgid "Допомога з вибором розміру"
+msgstr "Помощь с выбором размера"
+
+#: twocomms_django_theme/templates/pages/product_detail.html:378
 msgid "Як обрати розмір?"
 msgstr "Как выбрать размер?"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:385
+#: twocomms_django_theme/templates/pages/product_detail.html:397
 #, python-format
 msgid "Повідомити, коли розмір %(size)s з'явиться"
 msgstr ""
 
-#: twocomms_django_theme/templates/pages/product_detail.html:393
+#: twocomms_django_theme/templates/pages/product_detail.html:405
 msgid "Наразі всі розміри розібрано"
 msgstr ""
 
-#: twocomms_django_theme/templates/pages/product_detail.html:393
+#: twocomms_django_theme/templates/pages/product_detail.html:405
 msgid "Оберіть потрібний розмір у заявці, і ми повідомимо про його появу."
 msgstr ""
 
-#: twocomms_django_theme/templates/pages/product_detail.html:394
+#: twocomms_django_theme/templates/pages/product_detail.html:406
 #: twocomms_django_theme/templates/partials/product_restock_modal.html:10
 msgid "Повідомити про наявність"
 msgstr ""
 
-#: twocomms_django_theme/templates/pages/product_detail.html:397
+#: twocomms_django_theme/templates/pages/product_detail.html:409
 msgid "Розміри уточнюються менеджером після замовлення."
 msgstr "Размеры уточняются менеджером после заказа."
 
-#: twocomms_django_theme/templates/pages/product_detail.html:406
+#: twocomms_django_theme/templates/pages/product_detail.html:418
 msgid "Варіанти тимчасово недоступні"
 msgstr ""
 
-#: twocomms_django_theme/templates/pages/product_detail.html:407
+#: twocomms_django_theme/templates/pages/product_detail.html:419
 msgid "Оновіть сторінку трохи пізніше або напишіть нам для підбору."
 msgstr ""
 
-#: twocomms_django_theme/templates/pages/product_detail.html:438
+#: twocomms_django_theme/templates/pages/product_detail.html:450
 msgid "Для цього товару доступний один колір."
 msgstr "Для этого товара доступен один цвет."
 
-#: twocomms_django_theme/templates/pages/product_detail.html:469
+#: twocomms_django_theme/templates/pages/product_detail.html:481
 msgid "Незабаром"
 msgstr ""
 
-#: twocomms_django_theme/templates/pages/product_detail.html:476
-msgid "Порівняти розмірні сітки"
-msgstr ""
-
-#: twocomms_django_theme/templates/pages/product_detail.html:476
-msgid "Класика та оверсайз поруч"
-msgstr ""
-
-#: twocomms_django_theme/templates/pages/product_detail.html:485
+#: twocomms_django_theme/templates/pages/product_detail.html:491
 msgid "Інформація про товар"
 msgstr "Информация о товаре"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:489
+#: twocomms_django_theme/templates/pages/product_detail.html:495
 #: twocomms_django_theme/templates/pages/product_detail_new.html:283
 msgid "Догляд"
 msgstr "Уход"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:500
+#: twocomms_django_theme/templates/pages/product_detail.html:506
 #, python-format
 msgid "%(title)s — це не просто одяг. Це стан."
 msgstr "%(title)s — это не просто одежда. Это состояние."
 
-#: twocomms_django_theme/templates/pages/product_detail.html:501
+#: twocomms_django_theme/templates/pages/product_detail.html:507
 msgid "Створений для тих, хто йде своїм шляхом, навіть коли все навколо летить під три чорти."
 msgstr "Создано для тех, кто идёт своим путём, даже когда всё вокруг рушится."
 
-#: twocomms_django_theme/templates/pages/product_detail.html:514
+#: twocomms_django_theme/templates/pages/product_detail.html:520
 #, python-format
 msgid "Матеріал: 95%% бавовна, 5%% еластан — преміум якість, щільність 190 г/м²"
 msgstr "Материал: 95%% хлопок, 5%% эластан — премиум-качество, плотность 190 г/м²"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:515
+#: twocomms_django_theme/templates/pages/product_detail.html:521
 msgid "М'який та приємний до тіла, дихає і не сковує рухів"
 msgstr "Мягкий и приятный к телу, дышит и не сковывает движений"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:516
+#: twocomms_django_theme/templates/pages/product_detail.html:522
 msgid "Підсилені шви та еластичні манжети для довговічності"
 msgstr "Усиленные швы и эластичные манжеты для долговечности"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:517
+#: twocomms_django_theme/templates/pages/product_detail.html:523
 msgid "Принт витримує багато прань — не тріскається та не вигорає"
 msgstr "Принт выдерживает много стирок — не трескается и не выгорает"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:518
+#: twocomms_django_theme/templates/pages/product_detail.html:524
 msgid "Зроблено в Україні з любов'ю та увагою до деталей"
 msgstr "Сделано в Украине с любовью и вниманием к деталям"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:523
+#: twocomms_django_theme/templates/pages/product_detail.html:529
 msgid "Кому підійде"
 msgstr "Кому подойдёт"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:534
-#: twocomms_django_theme/templates/pages/product_detail.html:541
+#: twocomms_django_theme/templates/pages/product_detail.html:540
+#: twocomms_django_theme/templates/pages/product_detail.html:547
 msgid "Показати більше"
 msgstr "Показать больше"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:623
+#: twocomms_django_theme/templates/pages/product_detail.html:629
 msgid "Рекомендації по посадці"
 msgstr "Рекомендации по посадке"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:641
+#: twocomms_django_theme/templates/pages/product_detail.html:647
 msgid "Відкрийте загальну розмірну сітку TwoComms або напишіть нам для уточнення посадки."
 msgstr "Откройте общую размерную сетку TwoComms или напишите нам, чтобы уточнить посадку."
 
-#: twocomms_django_theme/templates/pages/product_detail.html:644
+#: twocomms_django_theme/templates/pages/product_detail.html:650
 msgid "Допомога з вибором"
 msgstr "Помощь с выбором"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:659
+#: twocomms_django_theme/templates/pages/product_detail.html:665
 msgid "Доставка по Україні"
 msgstr "Доставка по Украине"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:661
+#: twocomms_django_theme/templates/pages/product_detail.html:667
 msgid "Відправка"
 msgstr "Отправка"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:661
+#: twocomms_django_theme/templates/pages/product_detail.html:667
 msgid "1–2 дні по Україні після підтвердження замовлення."
 msgstr "1–2 дня по Украине после подтверждения заказа."
 
-#: twocomms_django_theme/templates/pages/product_detail.html:662
+#: twocomms_django_theme/templates/pages/product_detail.html:668
 msgid "Онлайн або після узгодження деталей з менеджером."
 msgstr "Онлайн или после согласования деталей с менеджером."
 
-#: twocomms_django_theme/templates/pages/product_detail.html:663
+#: twocomms_django_theme/templates/pages/product_detail.html:669
 msgid "Обмін"
 msgstr "Обмен"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:663
+#: twocomms_django_theme/templates/pages/product_detail.html:669
 msgid "14 днів на обмін розміру, якщо річ не була у використанні."
 msgstr "14 дней на обмен размера, если вещь не была в использовании."
 
-#: twocomms_django_theme/templates/pages/product_detail.html:671
+#: twocomms_django_theme/templates/pages/product_detail.html:677
 msgid "Догляд за виробом"
 msgstr "Уход за изделием"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:676
+#: twocomms_django_theme/templates/pages/product_detail.html:682
 msgid "Прання"
 msgstr "Стирка"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:676
+#: twocomms_django_theme/templates/pages/product_detail.html:682
 msgid "30°C, делікатний режим, навиворіт."
 msgstr "30°C, деликатный режим, наизнанку."
 
-#: twocomms_django_theme/templates/pages/product_detail.html:677
+#: twocomms_django_theme/templates/pages/product_detail.html:683
 msgid "Принт"
 msgstr "Принт"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:677
+#: twocomms_django_theme/templates/pages/product_detail.html:683
 msgid "Не прасувати напряму по нанесенню."
 msgstr "Не гладить напрямую по принту."
 
-#: twocomms_django_theme/templates/pages/product_detail.html:678
+#: twocomms_django_theme/templates/pages/product_detail.html:684
 msgid "Сушка"
 msgstr "Сушка"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:678
+#: twocomms_django_theme/templates/pages/product_detail.html:684
 msgid "Без агресивної машинної сушки."
 msgstr "Без агрессивной машинной сушки."
 
-#: twocomms_django_theme/templates/pages/product_detail.html:712
-#: twocomms_django_theme/templates/pages/product_detail.html:812
+#: twocomms_django_theme/templates/pages/product_detail.html:718
+#: twocomms_django_theme/templates/pages/product_detail.html:818
 msgid "ДОДАТИ В КОШИК"
 msgstr "ДОБАВИТЬ В КОРЗИНУ"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:725
+#: twocomms_django_theme/templates/pages/product_detail.html:731
 msgid "Швидка доставка"
 msgstr "Быстрая доставка"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:725
+#: twocomms_django_theme/templates/pages/product_detail.html:731
 msgid "1-3 дні Новою Поштою"
 msgstr "1-3 дня Новой Почтой"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:729
+#: twocomms_django_theme/templates/pages/product_detail.html:735
 msgid "14 днів на повернення"
 msgstr "14 дней на возврат"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:733
+#: twocomms_django_theme/templates/pages/product_detail.html:739
 msgid "Гайд по посадці"
 msgstr "Гайд по посадке"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:742
+#: twocomms_django_theme/templates/pages/product_detail.html:748
 #, python-format
 msgid "Отримайте %(points)s балів за покупку цього товару"
 msgstr "Получите %(points)s баллов за покупку этого товара"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:754
+#: twocomms_django_theme/templates/pages/product_detail.html:760
 msgid "Схожі товари"
 msgstr "Похожие товары"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:755
+#: twocomms_django_theme/templates/pages/product_detail.html:761
 msgid "Переглянути всі"
 msgstr "Смотреть все"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:757
+#: twocomms_django_theme/templates/pages/product_detail.html:763
 msgid "Рекомендовані товари"
 msgstr "Рекомендуемые товары"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:768
-#: twocomms_django_theme/templates/pages/product_detail.html:771
+#: twocomms_django_theme/templates/pages/product_detail.html:774
+#: twocomms_django_theme/templates/pages/product_detail.html:777
 msgid "— схожий товар TwoComms"
 msgstr "— похожий товар TwoComms"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:787
+#: twocomms_django_theme/templates/pages/product_detail.html:793
 #, python-format
 msgid "Додати %(title)s до обраних"
 msgstr "Добавить %(title)s в избранное"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:800
+#: twocomms_django_theme/templates/pages/product_detail.html:806
 msgid "Нещодавно переглядали"
 msgstr "Недавно просмотренные"
 
-#: twocomms_django_theme/templates/pages/product_detail.html:801
+#: twocomms_django_theme/templates/pages/product_detail.html:807
 #: twocomms_django_theme/templates/pages/qr_thanks.html:166
 msgid "До каталогу"
 msgstr "В каталог"
