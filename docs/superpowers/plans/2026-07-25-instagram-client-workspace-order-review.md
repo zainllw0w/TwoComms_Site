@@ -88,11 +88,12 @@ validated (`validated_deals=0`).
 - Modify: `twocomms/management/bot_views.py`
 - Test: `twocomms/management/tests_ig_clients_ui.py`
 
-- [ ] **Step 1: Write failing API tests** for active review, decision history, media grouped by role, catalog links, draft uncertainty, attributed orders, source-qualified payment, automation owner, and pattern episodes.
-- [ ] **Step 2: Run tests and verify RED.**
-- [ ] **Step 3: Build a bounded client-detail payload** with independent `automation`, `interaction`, `payment`, `fulfillment`, `review`, `orders`, and `patterns` objects.
-- [ ] **Step 4: Add review action endpoints** for confirm/reject/create/link with permission and hidden-client guards.
-- [ ] **Step 5: Run focused API tests and existing client UI tests; commit** `feat: expose instagram client commercial context`.
+- [x] **Step 1: Write failing API tests** for active review, decision history, media grouped by role, catalog links, draft uncertainty, attributed orders, source-qualified payment, automation owner, and pattern episodes.
+- [x] **Step 2: Run tests and verify RED.** The final regressions reproduced an actionable review hidden behind 20 terminal reviews and oversized/nested evidence escaping the bounded contract.
+- [x] **Step 3: Build a bounded client-detail payload** with independent `automation`, `interaction`, `payment`, `fulfillment`, `review`, `orders`, and `patterns` objects.
+- [x] **Step 4: Add review action endpoints** for confirm/reject/create/link with permission and hidden-client guards.
+- [x] **Step 5: Run focused API tests and existing client UI tests.** Evidence: 35 focused client-workspace tests and 104 related client/payment/order-link/review tests passed; `manage.py check`, migration drift, compilation, and `git diff --check` passed; independent code-quality re-review returned `APPROVED`.
+- [ ] **Step 6: Commit, push, deploy, and verify production** with commit `feat: expose instagram client commercial context`, MariaDB/runtime checks, management auth/API boundary, daemon, queue/outbox, and deployed-SHA proof.
 
 **Product approval placement requirement:** product approval is not rendered as
 an always-on card in the main bot overview. The API must expose a separate,
@@ -109,6 +110,16 @@ card shows the client, lines, negotiated amount, manager/provider payment truth,
 delivery state, linked custom-admin order status/number, and a direct admin
 link. The card is reachable from this section, the client workspace, and the
 Telegram review alert without creating three divergent representations.
+
+**Existing-order-first resolution requirement:** confirming payment never
+creates, selects, or implies a second order. A confirmed review without an
+order remains in `Потрібна дія` with the explicit state
+`needs_order_resolution` until the manager chooses exactly one audited action:
+link an existing custom-admin order by exact order number, or open the editable
+create-new-order flow. The API returns both choices independently and never
+auto-navigates to create-new. If an order was already created manually, the
+intended path is link-existing; the review, deal, client, attribution and order
+must then point to the same commercial episode.
 
 ### Task 5: Responsive workspace and payment drawer
 
@@ -132,10 +143,47 @@ The `Замовлення` section follows the same pattern after statistics; it
 filters and client/order cards are reused by the client drawer and Telegram
 deep-link, with no approval/order card mounted in the general overview.
 
-### Task 6: Pattern episodes and honest analytics
+The client drawer renders a chronological multi-order history rather than one
+"latest order" field. Every order row shows order number, date, amount,
+payment/order/shipment status and creation mode (`provider_auto`,
+`manager_review`, `linked_existing`), and opens the storefront custom-admin
+order in a new tab. A confirmed review awaiting order resolution offers
+`Прив'язати існуюче` first and `Створити нове` second; neither choice is hidden
+behind the payment-confirm button.
+
+### Task 6: Repeat-order commercial episodes and fulfillment-aware history
 
 **Files:**
-- Create: `twocomms/management/migrations/0106_ig_conversation_patterns.py`
+- Create: `twocomms/management/migrations/0106_ig_commercial_episodes.py`
+- Create: `twocomms/management/services/ig_commercial_episodes.py`
+- Modify: `twocomms/management/ig_bot_models.py`
+- Modify: `twocomms/management/services/bot_conversation_analysis.py`
+- Modify: `twocomms/management/services/bot_orders.py`
+- Modify: `twocomms/management/services/bot_shipments.py`
+- Modify: `twocomms/management/bot_views.py`
+- Test: `twocomms/management/tests_ig_commercial_episodes.py`
+- Test: `twocomms/management/tests_ig_shipment.py`
+
+- [ ] **Step 1: Write failing tests** for one client/many commercial episodes, one episode/one intended order, repeat-order detection, retained previous funnels, exact existing-order linking, and no duplicate order after payment confirmation.
+- [ ] **Step 2: Run tests and verify RED.**
+- [ ] **Step 3: Add a durable commercial-episode model** that owns its deal, payment review/decision, order attribution, stage timeline, product/price evidence and outcome. A client may have many episodes; opening a repeat purchase starts a new episode without rewriting the completed one.
+- [ ] **Step 4: Add repeat-order analysis semantics** for explicit repeat intent ("хочу ще", gift/another recipient, reorder) and expose order count, previous success amount/date, current episode and repeat-customer state without guessing from language or profile style.
+- [ ] **Step 5: Make order-status answers episode-aware.** Resolve the relevant linked order, read its TTN/Nova Poshta state, and answer only from stored provider/order truth; ambiguous references to several active orders create a manager clarification task.
+- [ ] **Step 6: Extend the client/order API** with chronological episodes and multiple order numbers, keeping every historical funnel and evidence snapshot immutable/auditable.
+- [ ] **Step 7: Run focused repeat-order/payment/order/shipment suites and commit** `feat: model repeat instagram commercial episodes`.
+
+**Identity/linking acceptance:** every linked/created order stores Instagram
+origin and a durable client association through attribution. The custom admin
+shows the Instagram display name when available and always retains the IG UID
+reference/digest needed to navigate back to the management client. The
+management client shows all linked order numbers and opens each custom-admin
+order in a new tab. One client can own many orders; one commercial episode must
+not silently claim an order already owned by another episode.
+
+### Task 7: Pattern episodes and honest analytics
+
+**Files:**
+- Create: `twocomms/management/migrations/0107_ig_conversation_patterns.py`
 - Create: `twocomms/management/services/bot_conversation_patterns.py`
 - Modify: `twocomms/management/ig_bot_models.py`
 - Modify: `twocomms/management/services/bot_sales_classifier.py`
@@ -148,7 +196,7 @@ deep-link, with no approval/order card mounted in the general overview.
 - [ ] **Step 4: Replace raw signal chips and aggregate counters** with episode summaries and explicit statistics metadata.
 - [ ] **Step 5: Run focused pattern/statistics suites and commit** `feat: model instagram conversation pattern episodes`.
 
-### Task 7: Telegram review action, media audit, and release verification
+### Task 8: Telegram review action, media audit, and release verification
 
 **Files:**
 - Modify: `twocomms/management/services/ig_payment_review.py`
@@ -174,5 +222,8 @@ deep-link, with no approval/order card mounted in the general overview.
 - Multiple fits/products remain separate through order creation.
 - Manual and provider payment truth remain distinct but auditable.
 - New and existing orders, Instagram identity, source, origin, amount, delivery, and TTN are linked.
+- Payment confirmation and order resolution are separate; confirmation never creates a duplicate order.
+- One client can have many immutable commercial episodes/orders; repeat purchases restart a new funnel while preserving prior outcomes.
+- Order-status replies resolve the correct linked order and use Nova Poshta/provider truth only.
 - Signals become explainable episodes with outcomes and honest denominators.
 - UI is Ukrainian except exact technical/product names, responsive, keyboard-accessible, and free of duplicate facts.

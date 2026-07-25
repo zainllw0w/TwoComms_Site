@@ -7,7 +7,7 @@ Start/Stop, вибором джерела ключів і онлайн-конс�
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Count, F, OuterRef, Q, Subquery, Sum, Value
+from django.db.models import Count, F, OuterRef, Prefetch, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
@@ -23,6 +23,7 @@ import json
 import os
 import re
 import secrets
+from urllib.parse import urlsplit
 
 from .bot_access import is_meta_bot_reviewer
 from .models import (
@@ -540,7 +541,15 @@ def bot_payment_reviews_api(request):
             "latest_decision": latest_decision,
             "decisions": decisions,
             "confirm_url": reverse("management_bot_payment_review_action_api", args=[row.id]),
-            "order_url": _payment_review_order_link(row, payment_review_order_url),
+            "order_url": _existing_order_admin_url(row.order_id) if row.order_id else "",
+            "create_order_url": (
+                _payment_review_order_link(row, payment_review_order_url)
+                if not row.order_id
+                else ""
+            ),
+            "needs_order_resolution": bool(
+                row.status == row.Status.CONFIRMED and not row.order_id
+            ),
             "order_id": row.order_id,
             "order_number": row.order.order_number if row.order_id else "",
         })
@@ -597,10 +606,66 @@ def _payment_review_decision_payload(decision) -> dict:
 
 
 def _latest_payment_review_decision(review):
+    workspace_decisions = getattr(review, "_workspace_decisions", None)
+    if workspace_decisions is not None:
+        return workspace_decisions[0] if workspace_decisions else None
     prefetched = getattr(review, "_prefetched_objects_cache", {}).get("decisions")
     if prefetched is not None:
         return prefetched[0] if prefetched else None
     return review.decisions.select_related("actor").order_by("-id").first()
+
+
+def _payment_review_decisions(review) -> list:
+    workspace_decisions = getattr(review, "_workspace_decisions", None)
+    if workspace_decisions is not None:
+        return workspace_decisions
+    prefetched = getattr(review, "_prefetched_objects_cache", {}).get("decisions")
+    if prefetched is not None:
+        return list(prefetched)
+    return list(review.decisions.select_related("actor").order_by("-id")[:20])
+
+
+def _payment_review_workspace_queryset():
+    from .ig_bot_models import (
+        IgOrderAttribution,
+        IgPaymentConfirmationReview,
+        IgPaymentReviewDecision,
+    )
+
+    return IgPaymentConfirmationReview.objects.select_related(
+        "client", "deal", "deal__payment_projection", "order",
+    ).prefetch_related(
+        Prefetch(
+            "decisions",
+            queryset=IgPaymentReviewDecision.objects.select_related("actor").order_by("-id")[:20],
+            to_attr="_workspace_decisions",
+        ),
+        Prefetch(
+            "order_attributions",
+            queryset=IgOrderAttribution.objects.select_related(
+                "order", "deal", "deal__payment_projection", "client",
+            ).order_by("-id")[:1],
+            to_attr="_workspace_attributions",
+        ),
+    )
+
+
+def _order_attribution_workspace_queryset():
+    from .ig_bot_models import IgOrderAttribution
+
+    return IgOrderAttribution.objects.select_related(
+        "client", "order", "deal", "deal__payment_projection", "payment_review",
+    )
+
+
+def _orders_workspace_url(*, view="all", review_id=None, client_id=None) -> str:
+    base = (getattr(settings, "MANAGEMENT_BASE_URL", "") or "https://management.twocomms.shop").rstrip("/")
+    params = ["section=orders", f"view={view}"]
+    if review_id:
+        params.append(f"review={int(review_id)}")
+    if client_id:
+        params.append(f"client_id={int(client_id)}")
+    return f"{base}/bot/?{'&'.join(params)}"
 
 
 def _payment_review_truth_payload(review, decision=None) -> dict:
@@ -624,6 +689,620 @@ def _payment_review_truth_payload(review, decision=None) -> dict:
             or provider_truth in {IgDeal.PaymentTruth.CONFIRMED, IgDeal.PaymentTruth.PARTIALLY_REFUNDED}
         ),
     }
+
+
+def _bounded_text(value, limit: int) -> str:
+    if value is None or isinstance(value, (dict, list, tuple, set)) or isinstance(value, bool):
+        return ""
+    return str(value).strip()[:limit]
+
+
+def _bounded_int(value, *, minimum=0, maximum=None):
+    if value is None or isinstance(value, (dict, list, tuple, set, bool)):
+        return None
+    try:
+        result = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    if result < minimum or (maximum is not None and result > maximum):
+        return None
+    return result
+
+
+def _bounded_int_list(value, *, limit=20) -> list[int]:
+    if not isinstance(value, list):
+        return []
+    result = []
+    for raw in value:
+        item = _bounded_int(raw)
+        if item is None:
+            continue
+        result.append(item)
+        if len(result) >= limit:
+            break
+    return result
+
+
+def _bounded_scalar_map(value, *, limit=20) -> dict:
+    if not isinstance(value, dict):
+        return {}
+    result = {}
+    for raw_key, raw_value in value.items():
+        key = _bounded_text(raw_key, 64)
+        scalar = _bounded_text(raw_value, 240)
+        if not key or not scalar:
+            continue
+        result[key] = scalar
+        if len(result) >= limit:
+            break
+    return result
+
+
+def _review_media_groups(evidence: dict) -> dict:
+    groups = {"receipts": [], "products": [], "custom_print": [], "unknown": []}
+    rows = evidence.get("media", []) if isinstance(evidence, dict) else []
+    for raw in (rows[:80] if isinstance(rows, list) else []):
+        if not isinstance(raw, dict):
+            continue
+        item = {}
+        role = _bounded_text(raw.get("role"), 32).lower()
+        if role:
+            item["role"] = role
+        for key in ("message_id", "source_message_id", "product_id"):
+            value = _bounded_int(raw.get(key))
+            if value is not None:
+                item[key] = value
+        product_title = _bounded_text(raw.get("product_title"), 240)
+        if product_title:
+            item["product_title"] = product_title
+        confidence = _bounded_text(raw.get("confidence"), 40)
+        if confidence:
+            item["confidence"] = confidence
+        for key in ("url", "local_url"):
+            safe_url = _safe_media_url(raw.get(key))
+            if safe_url:
+                item[key] = safe_url
+        safe_product_url = _safe_storefront_url(raw.get("product_url"))
+        if safe_product_url:
+            item["product_url"] = safe_product_url
+        group_role = role or "other"
+        if group_role in {"receipt", "payment_candidate"}:
+            groups["receipts"].append(item)
+        elif group_role in {"product", "purchase_candidate", "interest"}:
+            groups["products"].append(item)
+        elif group_role in {"custom_reference", "custom_print", "custom_candidate"}:
+            groups["custom_print"].append(item)
+        else:
+            groups["unknown"].append(item)
+    return {key: values[:20] for key, values in groups.items()}
+
+
+def _safe_relative_url(value: str) -> str:
+    value = _bounded_text(value, 1200)
+    if value.startswith("/") and not value.startswith("//") and "\\" not in value:
+        return value
+    return ""
+
+
+def _safe_media_url(value) -> str:
+    value = _bounded_text(value, 1200)
+    relative = _safe_relative_url(value)
+    if relative:
+        return relative
+    try:
+        parsed = urlsplit(value)
+    except ValueError:
+        return ""
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+        return ""
+    return value
+
+
+def _safe_storefront_url(value) -> str:
+    value = _bounded_text(value, 1200)
+    relative = _safe_relative_url(value)
+    if relative:
+        base = (getattr(settings, "SITE_BASE_URL", "") or "https://twocomms.shop").rstrip("/")
+        return f"{base}{relative}"[:1200]
+    try:
+        parsed = urlsplit(value)
+        configured_host = urlsplit(
+            getattr(settings, "SITE_BASE_URL", "") or "https://twocomms.shop"
+        ).hostname
+    except ValueError:
+        return ""
+    trusted_hosts = {"twocomms.shop", "www.twocomms.shop"}
+    if configured_host:
+        trusted_hosts.add(configured_host.lower())
+    if (
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or parsed.hostname.lower() not in trusted_hosts
+        or parsed.username
+        or parsed.password
+    ):
+        return ""
+    return value
+
+
+def _catalog_workspace_candidate(raw: dict) -> dict:
+    if not isinstance(raw, dict):
+        return {}
+    item = {}
+    for key in ("product_id", "color_variant_id"):
+        value = _bounded_int(raw.get(key))
+        if value is not None:
+            item[key] = value
+    for key, limit in (
+        ("status", 40),
+        ("title", 240),
+        ("slug", 180),
+        ("catalog_price", 40),
+        ("confidence", 40),
+        ("reason", 240),
+    ):
+        value = _bounded_text(raw.get(key), limit)
+        if value:
+            item[key] = value
+    for key in ("url", "product_url"):
+        safe_url = _safe_storefront_url(raw.get(key))
+        if safe_url:
+            item[key] = safe_url
+    for key in ("source_media_indexes", "source_message_ids"):
+        values = _bounded_int_list(raw.get(key))
+        if values:
+            item[key] = values
+    variants = []
+    raw_variants = raw.get("variant_candidates")
+    for raw_variant in (raw_variants[:20] if isinstance(raw_variants, list) else []):
+        if not isinstance(raw_variant, dict):
+            continue
+        variant = {}
+        variant_id = _bounded_int(raw_variant.get("id"))
+        if variant_id is not None:
+            variant["id"] = variant_id
+        for key in ("color", "sku"):
+            value = _bounded_text(raw_variant.get(key), 80)
+            if value:
+                variant[key] = value
+        if variant:
+            variants.append(variant)
+    if variants:
+        item["variant_candidates"] = variants
+    return item
+
+
+def _catalog_workspace_candidates(evidence: dict) -> list:
+    rows = evidence.get("catalog_matches", []) if isinstance(evidence, dict) else []
+    result = []
+    for raw in (rows[:20] if isinstance(rows, list) else []):
+        if not isinstance(raw, dict):
+            continue
+        item = _catalog_workspace_candidate(raw)
+        if item:
+            result.append(item)
+    return result
+
+
+def _draft_workspace_items(raw_items) -> list:
+    result = []
+    for raw in (raw_items[:20] if isinstance(raw_items, list) else []):
+        if not isinstance(raw, dict):
+            continue
+        item = {}
+        for key in ("product_id", "color_variant_id", "source_message_id"):
+            value = _bounded_int(raw.get(key))
+            if value is not None:
+                item[key] = value
+        qty = _bounded_int(raw.get("qty"), minimum=1, maximum=999)
+        if qty is not None:
+            item["qty"] = qty
+        for key, limit in (
+            ("title", 240),
+            ("size", 40),
+            ("fit", 40),
+            ("fit_option_code", 80),
+            ("fit_option_label", 160),
+            ("unit_price", 40),
+            ("line_total", 40),
+            ("price_source", 80),
+        ):
+            value = _bounded_text(raw.get(key), limit)
+            if value:
+                item[key] = value
+        evidence_ids = _bounded_int_list(raw.get("price_evidence_message_ids"))
+        if evidence_ids:
+            item["price_evidence_message_ids"] = evidence_ids
+        for key in ("option_values", "option_labels"):
+            values = _bounded_scalar_map(raw.get(key))
+            if values:
+                item[key] = values
+        catalog = _catalog_workspace_candidate(raw.get("catalog"))
+        if catalog:
+            item["catalog"] = catalog
+        if item:
+            result.append(item)
+    return result
+
+
+def _draft_workspace_delivery(raw_delivery) -> dict:
+    if not isinstance(raw_delivery, dict):
+        return {}
+    result = {}
+    for key, limit in (
+        ("full_name", 180),
+        ("phone", 40),
+        ("email", 254),
+        ("city", 120),
+        ("office", 180),
+        ("address", 240),
+        ("np_settlement_ref", 64),
+        ("np_city_ref", 64),
+        ("np_warehouse_ref", 64),
+    ):
+        value = _bounded_text(raw_delivery.get(key), limit)
+        if value:
+            result[key] = value
+    return result
+
+
+def _draft_workspace_reasons(raw_reasons) -> list[str]:
+    if not isinstance(raw_reasons, list):
+        return []
+    result = []
+    for raw in raw_reasons:
+        reason = _bounded_text(raw, 240)
+        if reason:
+            result.append(reason)
+        if len(result) >= 20:
+            break
+    return result
+
+
+def _order_workspace_order_payload(order) -> dict:
+    if not order:
+        return {}
+    return {
+        "id": order.pk,
+        "number": order.order_number,
+        "status": order.status,
+        "status_label": order.get_status_display(),
+        "payment_status": order.payment_status,
+        "payment_status_label": order.get_payment_status_display(),
+        "amount": str(order.total_sum),
+        "sale_source": order.sale_source,
+        "tracking_number": order.tracking_number or "",
+        "url": _existing_order_admin_url(order.pk),
+    }
+
+
+def _order_attribution_workspace_payload(attribution) -> dict:
+    order = getattr(attribution, "order", None)
+    deal = getattr(attribution, "deal", None)
+    projection = None
+    if deal:
+        try:
+            projection = deal.payment_projection
+        except IgPaymentProjection.DoesNotExist:
+            projection = None
+    provider_source = attribution.payment_source if attribution.payment_source.startswith("provider_") else "none"
+    provider_truth = projection.truth if projection else IgDeal.PaymentTruth.UNVERIFIED
+    if (
+        attribution.payment_source == "provider_projection"
+        and provider_truth == IgDeal.PaymentTruth.UNVERIFIED
+    ):
+        provider_truth = IgDeal.PaymentTruth.CONFIRMED
+    manager_truth = (
+        "manager_verified"
+        if attribution.payment_source == "manager_verified"
+        else ""
+    )
+    if attribution.creation_mode == "linked_existing":
+        approval_state = "linked_existing"
+    elif attribution.creation_mode == "manager_review":
+        approval_state = "created_new"
+    else:
+        approval_state = "confirmed"
+    client = attribution.client
+    items = _draft_workspace_items(attribution.item_provenance)
+    return {
+        "id": f"order-{order.pk}",
+        "card_key": f"order:{order.pk}",
+        "attribution_id": attribution.pk,
+        "review_id": attribution.payment_review_id,
+        "client": {
+            "id": client.pk,
+            "name": client.display_name or client.username or client.igsid,
+            "username": client.username or "",
+            "igsid": client.igsid,
+            "avatar": client.avatar_local or client.profile_pic_url or "",
+        },
+        "approval": {
+            "state": approval_state,
+            "status": "confirmed",
+            "status_label": "Підтверджено",
+            "needs_action": False,
+            "can_confirm": False,
+            "can_reject": False,
+            "can_link_existing": False,
+            "can_create": False,
+            "action_url": "",
+            "create_order_url": "",
+            "link_existing": {},
+        },
+        "draft": {
+            "items": items,
+            "quoted_total": (
+                str(attribution.negotiated_total)
+                if attribution.negotiated_total is not None
+                else str(order.total_sum)
+            ),
+            "packaging_preference": "",
+            "delivery": {},
+            "uncertainty_reasons": [],
+            "catalog_candidates": [],
+        },
+        "media": {"receipts": [], "products": [], "custom_print": [], "unknown": []},
+        "payment": {
+            "provider_truth": provider_truth,
+            "provider_source": provider_source,
+            "manager_truth": manager_truth,
+            "verification_source": "manager" if manager_truth else "",
+            "verification_scope": "",
+            "authoritative_for_fulfillment": bool(
+                manager_truth == "manager_verified"
+                or provider_truth in {
+                    IgDeal.PaymentTruth.CONFIRMED,
+                    IgDeal.PaymentTruth.PARTIALLY_REFUNDED,
+                }
+            ),
+        },
+        "order": _order_workspace_order_payload(order),
+        "fulfillment": {
+            "deal_id": attribution.deal_id,
+            "delivery_status": getattr(deal, "delivery_status", "") if deal else "",
+            "delivery_status_label": (
+                deal.get_delivery_status_display()
+                if deal and deal.delivery_status
+                else ""
+            ),
+            "delivery_error": getattr(deal, "delivery_error", "") if deal else "",
+            "has_validated_refs": bool(
+                (deal and deal.np_settlement_ref and deal.np_city_ref and deal.np_warehouse_ref)
+                or (order and order.np_settlement_ref and order.np_city_ref and order.np_warehouse_ref)
+            ),
+        },
+        "decision": {},
+        "decision_history": [],
+        "order_url": _existing_order_admin_url(order.pk),
+        "workspace_url": _orders_workspace_url(
+            view="confirmed",
+            client_id=client.pk,
+        ),
+        "origin": {
+            "creation_mode": attribution.creation_mode,
+            "creation_mode_label": attribution.get_creation_mode_display(),
+            "payment_source": attribution.payment_source,
+            "payment_source_label": attribution.get_payment_source_display(),
+            "price_source": attribution.price_source,
+        },
+        "created_at": attribution.created_at.isoformat(),
+        "updated_at": attribution.created_at.isoformat(),
+    }
+
+
+def _payment_review_workspace_payload(review) -> dict:
+    from management.services.ig_payment_review import payment_review_order_url
+
+    evidence = review.evidence if isinstance(review.evidence, dict) else {}
+    draft = evidence.get("order_draft") if isinstance(evidence.get("order_draft"), dict) else {}
+    decisions = _payment_review_decisions(review)
+    decision = decisions[0] if decisions else None
+    payment = _payment_review_truth_payload(review, decision)
+    order = getattr(review, "order", None) if review.order_id else None
+    deal = getattr(review, "deal", None) if review.deal_id else None
+    attributions = getattr(review, "_workspace_attributions", None)
+    if attributions is None:
+        attributions = list(review.order_attributions.select_related("order").order_by("-id")[:1])
+    attribution = attributions[0] if attributions else None
+    status = review.status
+    if review.order_id:
+        if attribution and attribution.creation_mode == "linked_existing":
+            approval_state = "linked_existing"
+        elif attribution and attribution.creation_mode in {"manager_review", "provider_auto"}:
+            approval_state = "created_new"
+        else:
+            approval_state = "order_created"
+    elif status == review.Status.CONFIRMED:
+        approval_state = "needs_order_resolution"
+    elif status == review.Status.CANCELLED:
+        approval_state = "rejected"
+    else:
+        approval_state = "pending"
+    action_url = reverse("management_bot_payment_review_action_api", args=[review.pk])
+    create_order_url = _payment_review_order_link(review, payment_review_order_url)
+    order_url = _existing_order_admin_url(review.order_id) if review.order_id else ""
+    needs_order_resolution = bool(
+        status == review.Status.CONFIRMED and not review.order_id
+    )
+    return {
+        "id": review.pk,
+        "card_key": f"review:{review.pk}",
+        "review_id": review.pk,
+        "client": {
+            "id": review.client_id,
+            "name": review.client.display_name or review.client.username or review.client.igsid,
+            "username": review.client.username or "",
+            "igsid": review.client.igsid,
+            "avatar": review.client.avatar_local or review.client.profile_pic_url or "",
+        },
+        "approval": {
+            "state": approval_state,
+            "status": status,
+            "status_label": review.get_status_display(),
+            "needs_action": status == review.Status.PENDING or needs_order_resolution,
+            "can_confirm": status == review.Status.PENDING,
+            "can_reject": status == review.Status.PENDING,
+            "can_link_existing": status == review.Status.CONFIRMED and not review.order_id,
+            "can_create": status == review.Status.CONFIRMED and not review.order_id,
+            "action_url": action_url,
+            "create_order_url": create_order_url if not review.order_id else "",
+            "link_existing": {
+                "action": "link_order",
+                "action_url": action_url,
+                "requires_exact_order_identifier": True,
+            },
+        },
+        "draft": {
+            "items": _draft_workspace_items(draft.get("items")),
+            "quoted_total": _bounded_text(draft.get("quoted_total"), 40),
+            "packaging_preference": _bounded_text(
+                draft.get("packaging_preference"), 160,
+            ),
+            "delivery": _draft_workspace_delivery(draft.get("delivery")),
+            "uncertainty_reasons": _draft_workspace_reasons(
+                draft.get("uncertainty_reasons"),
+            ),
+            "catalog_candidates": _catalog_workspace_candidates(evidence),
+        },
+        "media": _review_media_groups(evidence),
+        "payment": payment,
+        "fulfillment": {
+            "deal_id": review.deal_id,
+            "delivery_status": getattr(deal, "delivery_status", "") if deal else "",
+            "delivery_status_label": deal.get_delivery_status_display() if deal and deal.delivery_status else "",
+            "delivery_error": getattr(deal, "delivery_error", "") if deal else "",
+            "has_validated_refs": bool(
+                deal
+                and deal.np_settlement_ref
+                and deal.np_city_ref
+                and deal.np_warehouse_ref
+            ),
+        },
+        "decision": _payment_review_decision_payload(decision),
+        "decision_history": [_payment_review_decision_payload(item) for item in decisions[:20]],
+        "order": _order_workspace_order_payload(order),
+        "order_url": order_url,
+        "workspace_url": _orders_workspace_url(
+            view=(
+                "action"
+                if status == review.Status.PENDING or needs_order_resolution
+                else "confirmed"
+            ),
+            review_id=review.pk,
+        ),
+        "origin": {
+            "creation_mode": attribution.creation_mode if attribution else "",
+            "creation_mode_label": attribution.get_creation_mode_display() if attribution else "",
+            "payment_source": attribution.payment_source if attribution else "",
+            "payment_source_label": attribution.get_payment_source_display() if attribution else "",
+            "price_source": attribution.price_source if attribution else "",
+        },
+        "created_at": review.created_at.isoformat(),
+        "updated_at": review.updated_at.isoformat(),
+    }
+
+
+def _canonical_order_workspace_cards(review_rows, attribution_rows, *, limit=100) -> list:
+    review_cards = [_payment_review_workspace_payload(row) for row in review_rows]
+    represented_order_ids = {
+        item["order"].get("id")
+        for item in review_cards
+        if item.get("order") and item["order"].get("id")
+    }
+    attribution_cards = [
+        _order_attribution_workspace_payload(row)
+        for row in attribution_rows
+        if row.order_id not in represented_order_ids
+    ]
+    cards = review_cards + attribution_cards
+    cards.sort(key=lambda item: (item.get("created_at", ""), str(item.get("id", ""))), reverse=True)
+    return cards[:limit]
+
+
+@login_required(login_url="management_login")
+@require_GET
+def bot_orders_workspace_api(request):
+    """Bounded source of truth for the dedicated ``Замовлення`` workspace."""
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    from .ig_bot_models import IgPaymentConfirmationReview
+
+    view = (request.GET.get("view") or "action").strip().lower()
+    if view not in {"action", "confirmed", "all"}:
+        view = "action"
+    try:
+        client_id = int(request.GET.get("client_id") or 0)
+    except (TypeError, ValueError):
+        client_id = 0
+    try:
+        limit = max(1, min(int(request.GET.get("limit") or 50), 100))
+    except (TypeError, ValueError):
+        limit = 50
+    try:
+        selected_review_id = int(
+            request.GET.get("review")
+            or request.GET.get("payment_review")
+            or 0
+        )
+    except (TypeError, ValueError):
+        selected_review_id = 0
+
+    base = _payment_review_workspace_queryset().filter(
+        client__hidden_at__isnull=True,
+    )
+    attribution_base = _order_attribution_workspace_queryset().filter(
+        client__hidden_at__isnull=True,
+    )
+    if client_id:
+        base = base.filter(client_id=client_id)
+        attribution_base = attribution_base.filter(client_id=client_id)
+    represented_order_ids = base.exclude(order_id__isnull=True).values("order_id")
+    attribution_base = attribution_base.exclude(
+        order_id__in=Subquery(represented_order_ids)
+    )
+    attributed_count = attribution_base.count()
+    action_filter = (
+        Q(status=IgPaymentConfirmationReview.Status.PENDING)
+        | Q(
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            order_id__isnull=True,
+        )
+    )
+    counts = {
+        "action": base.filter(action_filter).count(),
+        "confirmed": (
+            base.filter(status=IgPaymentConfirmationReview.Status.CONFIRMED).count()
+            + attributed_count
+        ),
+        "all": base.count() + attributed_count,
+    }
+    attribution_rows = []
+    if selected_review_id:
+        rows = base.filter(pk=selected_review_id)
+    elif view == "action":
+        rows = base.filter(action_filter)
+    elif view == "confirmed":
+        rows = base.filter(status=IgPaymentConfirmationReview.Status.CONFIRMED)
+        attribution_rows = list(attribution_base.order_by("-created_at", "-id")[:limit])
+    else:
+        rows = base
+        attribution_rows = list(attribution_base.order_by("-created_at", "-id")[:limit])
+    review_rows = list(rows.order_by("-created_at", "-id")[:limit])
+    items = _canonical_order_workspace_cards(
+        review_rows,
+        attribution_rows,
+        limit=limit,
+    )
+    return JsonResponse({
+        "success": True,
+        "section": "orders",
+        "view": view,
+        "selected_review_id": selected_review_id or None,
+        "counts": counts,
+        "items": items,
+    })
 
 
 @login_required(login_url="management_login")
@@ -727,6 +1406,15 @@ def bot_payment_review_action_api(request, review_id):
         "payment_review_operator_action",
         f"review={review.id}; status={review.status}; actor={request.user.pk}",
     )
+    needs_order_resolution = bool(
+        review.status == IgPaymentConfirmationReview.Status.CONFIRMED
+        and not review.order_id
+    )
+    create_order_url = (
+        _payment_review_order_link(review, payment_review_order_url)
+        if needs_order_resolution
+        else ""
+    )
     return JsonResponse({
         "success": True,
         "id": review.id,
@@ -735,8 +1423,27 @@ def bot_payment_review_action_api(request, review_id):
         "payment": payment_payload,
         "decision": decision_payload,
         "idempotent_replay": not bool(getattr(review, "_transitioned", False)),
-        "next_action": "create_order" if review.status == IgPaymentConfirmationReview.Status.CONFIRMED else "review_conversation",
-        "order_url": _payment_review_order_link(review, payment_review_order_url),
+        "next_action": (
+            "resolve_order"
+            if needs_order_resolution
+            else "review_conversation"
+        ),
+        "order_url": _existing_order_admin_url(review.order_id) if review.order_id else "",
+        "order_resolution": {
+            "required": needs_order_resolution,
+            "link_existing": {
+                "action": "link_order",
+                "action_url": reverse(
+                    "management_bot_payment_review_action_api",
+                    args=[review.pk],
+                ),
+                "requires_exact_order_identifier": True,
+            },
+            "create_new": {
+                "url": create_order_url,
+                "editable": True,
+            },
+        },
     })
 
 
@@ -1114,12 +1821,13 @@ def bot_clients_api(request):
 @login_required(login_url="management_login")
 @require_GET
 def bot_client_detail_api(request, client_id):
-    blocked = _require_bot_json(request)
+    blocked = _require_admin_json(request)
     if blocked:
         return blocked
     from .models import IgClient
+    from .ig_bot_models import IgPaymentConfirmationReview, IgPaymentReviewDecision
 
-    c = IgClient.objects.filter(id=client_id).first()
+    c = IgClient.objects.select_related("current_product").filter(id=client_id).first()
     if not c:
         return JsonResponse({"success": False, "error": "Клієнта не знайдено."}, status=404)
 
@@ -1144,7 +1852,7 @@ def bot_client_detail_api(request, client_id):
         except (TypeError, ValueError):
             continue
         media_by_message.setdefault(source_id, []).append({
-            "url": str(evidence.get("url") or "")[:1200],
+            "url": _safe_media_url(evidence.get("url")),
             "role": str(evidence.get("role") or "other")[:32],
             "intent": str(evidence.get("intent") or "unknown")[:40],
         })
@@ -1206,6 +1914,7 @@ def bot_client_detail_api(request, client_id):
         }
         for f in c.followup_tasks.all()[:50]
     ]
+    deal_rows = list(c.deals.select_related("payment_projection", "order").all()[:20])
     deals = [
         {
             "id": d.id,
@@ -1216,8 +1925,65 @@ def bot_client_detail_api(request, client_id):
             "invoice_url": d.invoice_url,
             "order_id": d.order_id,
         }
-        for d in c.deals.all()[:20]
+        for d in deal_rows
     ]
+    review_base = _payment_review_workspace_queryset().filter(client=c)
+    review_counts = review_base.aggregate(
+        total=Count("id"),
+        pending=Count(
+            "id",
+            filter=Q(status=IgPaymentConfirmationReview.Status.PENDING),
+        ),
+        confirmed=Count(
+            "id",
+            filter=Q(status=IgPaymentConfirmationReview.Status.CONFIRMED),
+        ),
+        rejected=Count(
+            "id",
+            filter=Q(status=IgPaymentConfirmationReview.Status.CANCELLED),
+        ),
+        order_resolution=Count(
+            "id",
+            filter=Q(
+                status=IgPaymentConfirmationReview.Status.CONFIRMED,
+                order_id__isnull=True,
+            ),
+        ),
+    )
+    actionable_review_row = review_base.filter(
+        Q(status=IgPaymentConfirmationReview.Status.PENDING)
+        | Q(
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            order_id__isnull=True,
+        )
+    ).order_by("-created_at", "-id").first()
+    review_rows = list(review_base.order_by("-created_at", "-id")[:20])
+    review_payloads = [_payment_review_workspace_payload(row) for row in review_rows]
+    active_review = None
+    if actionable_review_row is not None:
+        active_review = next(
+            (
+                item for item in review_payloads
+                if item["review_id"] == actionable_review_row.pk
+            ),
+            None,
+        )
+        if active_review is None:
+            active_review = _payment_review_workspace_payload(actionable_review_row)
+    attribution_base = _order_attribution_workspace_queryset().filter(
+        client=c,
+    ).exclude(
+        order_id__in=Subquery(
+            review_base.exclude(order_id__isnull=True).values("order_id")
+        )
+    )
+    attribution_total = attribution_base.count()
+    attribution_rows = list(attribution_base.order_by("-created_at", "-id")[:20])
+    order_cards = _canonical_order_workspace_cards(
+        review_rows,
+        attribution_rows,
+        limit=20,
+    )
     card = _client_card(c)
     card.update({
         "memory": c.memory_summary,
@@ -1229,6 +1995,64 @@ def bot_client_detail_api(request, client_id):
         "hidden": bool(c.hidden_at),
         "hidden_reason": c.hidden_reason,
     })
+    automation_owner = "manager" if c.manager_takeover or c.bot_paused else "bot"
+    latest_projection = c.payment_projections.select_related("deal").order_by(
+        "-updated_at", "-id",
+    ).first()
+    latest_manager_decision = IgPaymentReviewDecision.objects.filter(
+        client=c,
+    ).select_related("actor").order_by("-id").first()
+    provider_truth = (
+        latest_projection.truth
+        if latest_projection
+        else card.get("payment_truth", IgDeal.PaymentTruth.UNVERIFIED)
+    )
+    manager_truth = latest_manager_decision.decision if latest_manager_decision else ""
+    payment_workspace = {
+        "provider_truth": provider_truth,
+        "provider_source": "provider_projection" if latest_projection else "client_payment_summary",
+        "provider_deal_id": latest_projection.deal_id if latest_projection else None,
+        "manager_truth": manager_truth,
+        "verification_source": (
+            latest_manager_decision.verification_source
+            if latest_manager_decision
+            else ""
+        ),
+        "verification_scope": (
+            latest_manager_decision.verification_scope
+            if latest_manager_decision
+            else ""
+        ),
+        "manager_decision": _payment_review_decision_payload(latest_manager_decision),
+        "authoritative_for_fulfillment": bool(
+            manager_truth == "manager_verified"
+            or provider_truth in {
+                IgDeal.PaymentTruth.CONFIRMED,
+                IgDeal.PaymentTruth.PARTIALLY_REFUNDED,
+            }
+        ),
+    }
+    current_deal = next(
+        (deal for deal in deal_rows if deal.status != IgDeal.Status.CANCELLED),
+        deal_rows[0] if deal_rows else None,
+    )
+    fulfillment_workspace = {
+        "deal_id": current_deal.pk if current_deal else None,
+        "delivery_status": current_deal.delivery_status if current_deal else "",
+        "delivery_status_label": (
+            current_deal.get_delivery_status_display()
+            if current_deal and current_deal.delivery_status
+            else ""
+        ),
+        "delivery_error": current_deal.delivery_error if current_deal else "",
+        "has_validated_refs": bool(
+            current_deal
+            and current_deal.np_settlement_ref
+            and current_deal.np_city_ref
+            and current_deal.np_warehouse_ref
+        ),
+        "current_episode_source": "latest_non_cancelled_deal" if current_deal else "none",
+    }
     return JsonResponse({
         "success": True,
         "client": card,
@@ -1240,6 +2064,67 @@ def bot_client_detail_api(request, client_id):
         "followups": followups,
         "deals": deals,
         "funnel": c.funnel_progress(),
+        "automation": {
+            "owner": automation_owner,
+            "bot_paused": c.bot_paused,
+            "paused_reason": c.paused_reason,
+            "paused_at": c.paused_at.isoformat() if c.paused_at else "",
+            "manager_takeover": c.manager_takeover,
+            "opted_out": card.get("opted_out", False),
+            "opted_out_at": card.get("opted_out_at", ""),
+            "reply_permission_epoch": c.reply_permission_epoch,
+        },
+        "interaction": {
+            "stage": card["stage"],
+            "stage_raw": card["stage_raw"],
+            "stage_label": card["stage_label"],
+            "intent": card["intent"],
+            "intent_label": card["intent_label"],
+            "buying_readiness": card["buying_readiness"],
+            "interaction_type": card["interaction_type"],
+            "interaction_type_label": card["interaction_type_label"],
+            "analysis_band": card["analysis_band"],
+            "analysis_band_label": card["analysis_band_label"],
+            "analysis_confidence": card["analysis_confidence"],
+            "analysis_evidence": (
+                card["analysis_evidence"][:20]
+                if isinstance(card["analysis_evidence"], list)
+                else []
+            ),
+            "analysis_uncertainties": (
+                card["analysis_uncertainties"][:20]
+                if isinstance(card["analysis_uncertainties"], list)
+                else []
+            ),
+            "last_manager_message_at": (
+                c.last_manager_message_at.isoformat()
+                if c.last_manager_message_at
+                else ""
+            ),
+        },
+        "payment": payment_workspace,
+        "fulfillment": fulfillment_workspace,
+        "review": {
+            "pending_count": review_counts["pending"],
+            "confirmed_count": review_counts["confirmed"],
+            "rejected_count": review_counts["rejected"],
+            "order_resolution_count": review_counts["order_resolution"],
+            "total_count": review_counts["total"],
+            "active": active_review,
+            "history": review_payloads,
+            "queue_url": reverse("management_bot_orders_workspace_api"),
+        },
+        "orders": {
+            "count": review_counts["total"] + attribution_total,
+            "items": order_cards,
+            "queue_url": _orders_workspace_url(view="all", client_id=c.pk),
+        },
+        "patterns": {
+            "source": "legacy_signal_groups",
+            "event_count": len(signal_rows),
+            "groups": signals,
+            "bounded": True,
+        },
     })
 
 

@@ -75,6 +75,7 @@ urlpatterns = [
     path('bot/api/notifications/<int:notification_id>/review/', bot_views.bot_notification_review_action_api, name='management_bot_notification_review_action_api'),
     path('bot/api/payment-reviews/', bot_views.bot_payment_reviews_api, name='management_bot_payment_reviews_api'),
     path('bot/api/payment-reviews/<int:review_id>/action/', bot_views.bot_payment_review_action_api, name='management_bot_payment_review_action_api'),
+    path('bot/api/orders/', bot_views.bot_orders_workspace_api, name='management_bot_orders_workspace_api'),
     path('bot/api/settings/', bot_views.bot_settings_save_api, name='management_bot_settings_api'),
     path('bot/api/stats/', bot_views.bot_stats_api, name='management_bot_stats_api'),
     path('bot/api/clients/', bot_views.bot_clients_api, name='management_bot_clients_api'),

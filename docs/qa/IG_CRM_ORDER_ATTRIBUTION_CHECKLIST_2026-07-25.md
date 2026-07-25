@@ -14,14 +14,31 @@ behavior.
 - [x] **Task 3 — Nova Poshta validation and fulfillment gates.** Shipped in
   `e805ec7f`; text-only delivery fails closed, signed-directory Refs survive to
   `Order`, and production migration `0105` is verified on MariaDB.
-- [ ] **Task 4 — Client workspace API contract.** Next: one bounded contract
-  for client context plus the separate `Замовлення` queue/count and actions.
+- [ ] **Task 4 — Client workspace API contract.** Implementation and local
+  verification are complete; commit/push/deploy and production MariaDB/runtime
+  proof remain before this task is marked shipped.
 - [ ] **Task 5 — Responsive workspace, client drawer, and `Замовлення` UX.**
   Product approvals must not live in the general overview; they are available
   in the dedicated section, client workspace, and Telegram deep-link.
-- [ ] **Task 6 — Pattern episodes and honest analytics.** Raw duplicate signal
+- [ ] **Task 6 — Repeat-order commercial episodes and fulfillment-aware history.**
+  One Instagram client may have many immutable order/funnel episodes; payment
+  confirmation must never create a duplicate order.
+- [ ] **Task 7 — Pattern episodes and honest analytics.** Raw duplicate signal
   counters must become evidence-bound episodes/outcomes.
-- [ ] **Task 7 — Telegram action/media audit and final release verification.**
+- [ ] **Task 8 — Telegram action/media audit and final release verification.**
+
+## Existing-order and repeat-order acceptance
+
+- [x] Confirming payment changes only payment-review truth; it does not create or preselect an order.
+- [x] A confirmed review without an order remains in `Потрібна дія` as `needs_order_resolution`.
+- [x] The manager explicitly chooses `Прив'язати існуюче` by exact order number or `Створити нове` through the editable form.
+- [x] An order already created manually can be linked to the review/deal/client without creating a duplicate.
+- [ ] The custom admin shows Instagram origin plus client display name when available and retains a durable IG UID reference/digest.
+- [ ] The client workspace shows every linked order number, date, amount, payment, shipment/TTN and creation mode, with a new-tab custom-admin link.
+- [ ] One Instagram client can own many orders; every order belongs to a distinct auditable commercial episode.
+- [ ] A repeat purchase starts a new funnel episode while completed funnel/history/evidence remains unchanged.
+- [ ] Explicit repeat intent is classified separately from a first purchase and is available to analytics/statistics.
+- [ ] Order-status replies resolve the correct linked order and use Order/Nova Poshta truth; ambiguous multi-order references escalate for clarification.
 
 ## Completed in this slice
 
@@ -38,6 +55,11 @@ behavior.
 - [x] MariaDB/MySQL paylink creation is serialized per Instagram client with `GET_LOCK`/`RELEASE_LOCK`; non-MariaDB fallback locks are weakly held.
 - [x] Migration `0104` trigger creation is resumable for the trigger phase and does not remove `0103` payment-decision guards on rollback.
 - [x] Focused order/payment/manual-order tests, migration-enabled payment-review tests, Django checks, migration drift checks, compilation, and diff checks pass.
+- [x] Client workspace and `Замовлення` APIs share one bounded card contract for reviews, attributed orders, grouped media, negotiated draft lines, payment sources, fulfillment, decisions, direct storefront-admin links, and Telegram/workspace deep-links.
+- [x] Hidden clients and Meta-reviewer-only accounts cannot read commercial workspace data; staff/admin access is enforced.
+- [x] Active action-required reviews are selected independently from the bounded 20-row history, so older pending/order-resolution work is never hidden by newer terminal reviews.
+- [x] Untrusted JSON evidence is whitelisted and bounded by type, field, string length, ID-list length, item count, media count, and trusted URL policy.
+- [x] Task 4 verification passed: 35 focused UI/API tests, 104 related client/payment/order-link/review tests, Django check, migration drift, compilation, diff check, and independent code-quality re-review (`APPROVED`).
 
 ## Required follow-up before broad analytics rollout
 

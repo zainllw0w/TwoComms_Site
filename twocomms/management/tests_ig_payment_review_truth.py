@@ -364,10 +364,16 @@ class InstagramPaymentDecisionApiTests(TestCase):
         self.assertEqual(payload["payment"]["provider_truth"], "unverified")
         self.assertEqual(payload["payment"]["verification_source"], "manager")
         self.assertEqual(payload["decision"]["verification_scope"], "full_payment")
-        self.assertEqual(payload["next_action"], "create_order")
+        self.assertEqual(payload["next_action"], "resolve_order")
+        self.assertEqual(payload["order_url"], "")
+        self.assertTrue(payload["order_resolution"]["required"])
         self.assertEqual(
-            payload["order_url"],
+            payload["order_resolution"]["create_new"]["url"],
             f"https://shop.example/admin-panel/orders/manual/create/?ig_payment_review={self.review.pk}",
+        )
+        self.assertEqual(
+            payload["order_resolution"]["link_existing"]["action"],
+            "link_order",
         )
         self.projection.refresh_from_db()
         self.assertEqual(self.projection.truth, "unverified")

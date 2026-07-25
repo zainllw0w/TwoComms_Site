@@ -3,7 +3,10 @@
 JSON-API списку карток і детальної (переписка, кружечки воронки, summary,
 угоди, замовлення). Доступ лише адмінам.
 """
+from decimal import Decimal
+
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -14,7 +17,14 @@ from management.models import (
     InstagramBotLog,
     InstagramBotMessage,
 )
-from management.bot_views import _group_signal_rows
+from management.ig_bot_models import (
+    IgDeal,
+    IgPaymentConfirmationReview,
+    IgPaymentProjection,
+    IgPaymentReviewDecision,
+)
+from management.bot_access import META_REVIEWER_GROUP_NAME
+from management.bot_views import _group_signal_rows, _review_media_groups
 
 User = get_user_model()
 
@@ -60,6 +70,15 @@ class SignalGroupingTests(SimpleTestCase):
         self.assertEqual(grouped[0]["latest_value"], "M")
         self.assertEqual(grouped[0]["latest_time"], "2026-07-24T10:05:00+03:00")
         self.assertEqual(grouped[0]["type_label"], "Розмір")
+
+    def test_media_grouping_has_a_bounded_source_scan(self):
+        media = [{"role": "unknown", "url": f"https://cdn.example/{idx}.jpg"} for idx in range(1000)]
+        media.append({"role": "receipt", "url": "https://cdn.example/late-receipt.jpg"})
+
+        grouped = _review_media_groups({"media": media})
+
+        self.assertEqual(len(grouped["unknown"]), 20)
+        self.assertEqual(grouped["receipts"], [])
 
 
 @MGMT
@@ -182,6 +201,174 @@ class ClientsApiTests(TestCase):
         self.assertTrue(any(m["text"] == "привіт" for m in data["messages"]))
         self.assertGreaterEqual(len(data["funnel"]), 5)
 
+    def test_client_detail_exposes_bounded_commercial_workspace_contract(self):
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.c,
+            dedupe_key="client-workspace-review",
+            evidence={
+                "media": [
+                    {"role": "receipt", "local_url": "/media/receipt.jpg"},
+                    {"role": "product", "local_url": "/media/product.jpg"},
+                ],
+                "order_draft": {
+                    "items": [{"title": "Футболка Харків", "qty": 2}],
+                    "uncertainty_reasons": ["Потрібно підтвердити колір"],
+                },
+            },
+        )
+
+        data = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.c.id])
+        ).json()
+
+        for key in (
+            "automation", "interaction", "payment", "fulfillment",
+            "review", "orders", "patterns",
+        ):
+            self.assertIn(key, data)
+        self.assertEqual(data["review"]["pending_count"], 1)
+        self.assertEqual(data["review"]["active"]["id"], review.id)
+        self.assertEqual(len(data["review"]["active"]["media"]["receipts"]), 1)
+        self.assertEqual(len(data["review"]["active"]["media"]["products"]), 1)
+        self.assertEqual(data["orders"]["items"][0]["review_id"], review.id)
+        self.assertEqual(data["patterns"]["source"], "legacy_signal_groups")
+
+    def test_client_detail_finds_actionable_review_older_than_bounded_history(self):
+        actionable = IgPaymentConfirmationReview.objects.create(
+            client=self.c,
+            dedupe_key="older-actionable-review",
+        )
+        for index in range(21):
+            IgPaymentConfirmationReview.objects.create(
+                client=self.c,
+                dedupe_key=f"newer-terminal-review-{index}",
+                status=IgPaymentConfirmationReview.Status.CANCELLED,
+            )
+
+        data = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.c.id])
+        ).json()
+
+        self.assertEqual(data["review"]["pending_count"], 1)
+        self.assertEqual(len(data["review"]["history"]), 20)
+        self.assertNotIn(
+            actionable.id,
+            [row["review_id"] for row in data["review"]["history"]],
+        )
+        self.assertEqual(data["review"]["active"]["review_id"], actionable.id)
+
+    def test_client_detail_keeps_automation_and_payment_truth_separate(self):
+        self.c.bot_paused = True
+        self.c.manager_takeover = True
+        self.c.paused_reason = "Менеджер уточнює замовлення"
+        self.c.save(update_fields=[
+            "bot_paused", "manager_takeover", "paused_reason", "updated_at",
+        ])
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.c,
+            dedupe_key="client-workspace-confirmed-review",
+            evidence={"order_draft": {"items": [{"title": "Футболка", "qty": 1}]}},
+        )
+        IgPaymentReviewDecision.objects.create(
+            review=review,
+            client=self.c,
+            decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+            verification_source="manager",
+            verification_scope=IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT,
+            actor=self.admin,
+            actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+            actor_external_id=str(self.admin.pk),
+            review_status_before=IgPaymentConfirmationReview.Status.PENDING,
+            review_status_after=IgPaymentConfirmationReview.Status.CONFIRMED,
+        )
+        review.status = IgPaymentConfirmationReview.Status.CONFIRMED
+        review.confirmed_by = self.admin
+        review.confirmed_at = timezone.now()
+        review.save(update_fields=["status", "confirmed_by", "confirmed_at", "updated_at"])
+
+        data = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.c.id])
+        ).json()
+
+        self.assertEqual(data["automation"]["owner"], "manager")
+        self.assertEqual(data["automation"]["paused_reason"], "Менеджер уточнює замовлення")
+        self.assertEqual(data["payment"]["manager_truth"], "manager_verified")
+        self.assertEqual(data["payment"]["provider_truth"], "unverified")
+        self.assertEqual(data["review"]["confirmed_count"], 1)
+        self.assertEqual(data["review"]["history"][0]["decision_history"][0]["decision"], "manager_verified")
+        self.assertIn(
+            "ig_payment_review=",
+            data["review"]["history"][0]["approval"]["create_order_url"],
+        )
+
+    def test_new_pending_review_does_not_mask_provider_confirmed_truth(self):
+        paid_deal = IgDeal.objects.create(
+            client=self.c,
+            amount=Decimal("950.00"),
+            payment_truth=IgDeal.PaymentTruth.CONFIRMED,
+        )
+        IgPaymentProjection.objects.create(
+            client=self.c,
+            deal=paid_deal,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount=Decimal("950.00"),
+        )
+        IgPaymentConfirmationReview.objects.create(
+            client=self.c,
+            dedupe_key="newer-pending-review",
+        )
+
+        data = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.c.id])
+        ).json()
+
+        self.assertEqual(data["payment"]["provider_truth"], "confirmed")
+        self.assertEqual(data["payment"]["provider_source"], "provider_projection")
+
+    def test_latest_manager_truth_is_not_lost_behind_twenty_newer_reviews(self):
+        verified = IgPaymentConfirmationReview.objects.create(
+            client=self.c,
+            dedupe_key="older-verified-review",
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+        )
+        decision = IgPaymentReviewDecision.objects.create(
+            review=verified,
+            client=self.c,
+            decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+            verification_source="manager",
+            verification_scope=IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT,
+            actor=self.admin,
+            actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+            actor_external_id=str(self.admin.pk),
+            review_status_before=IgPaymentConfirmationReview.Status.PENDING,
+            review_status_after=IgPaymentConfirmationReview.Status.CONFIRMED,
+        )
+        for index in range(21):
+            IgPaymentConfirmationReview.objects.create(
+                client=self.c,
+                dedupe_key=f"newer-review-{index}",
+            )
+
+        data = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.c.id])
+        ).json()
+
+        self.assertEqual(data["payment"]["manager_truth"], "manager_verified")
+        self.assertEqual(data["payment"]["manager_decision"]["id"], decision.id)
+
+    def test_meta_reviewer_cannot_read_commercial_client_detail(self):
+        self.client.logout()
+        reviewer = User.objects.create_user("meta_detail_reviewer", password="x")
+        group = Group.objects.create(name=META_REVIEWER_GROUP_NAME)
+        reviewer.groups.add(group)
+        self.client.force_login(reviewer)
+
+        response = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.c.id])
+        )
+
+        self.assertEqual(response.status_code, 403)
+
     def test_requires_admin(self):
         self.client.logout()
         nonadmin = User.objects.create_user("u", password="x")
@@ -218,6 +405,404 @@ class ClientsPageRenderTests(TestCase):
         self.assertIn('data-client-view="reactions"', html)
         self.assertIn("Категорія діалогу", html)
         self.assertIn("Категорії діалогів", html)
+
+
+@MGMT
+class OrdersWorkspaceApiTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user("orders_api_admin", password="x", is_staff=True)
+        self.client.force_login(self.admin)
+        self.customer = IgClient.get_or_create_for_sender("orders-api-client")
+        self.pending = IgPaymentConfirmationReview.objects.create(
+            client=self.customer,
+            dedupe_key="orders-api-pending",
+            evidence={
+                "order_draft": {
+                    "items": [{"title": "Футболка", "qty": 1, "size": "S"}],
+                    "quoted_total": "950.00",
+                    "uncertainty_reasons": [],
+                },
+                "media": [
+                    {"role": "receipt", "local_url": "/media/check.jpg"},
+                    {"role": "custom_reference", "local_url": "/media/custom.jpg"},
+                    {"role": "unknown", "local_url": "/media/unknown.jpg"},
+                ],
+            },
+        )
+        self.confirmed = IgPaymentConfirmationReview.objects.create(
+            client=self.customer,
+            dedupe_key="orders-api-confirmed",
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+        )
+
+    def test_orders_workspace_has_action_confirmed_all_counts(self):
+        response = self.client.get(reverse("management_bot_orders_workspace_api"))
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["section"], "orders")
+        self.assertEqual(data["view"], "action")
+        self.assertEqual(data["counts"], {"action": 2, "confirmed": 1, "all": 2})
+        self.assertEqual(
+            {item["review_id"] for item in data["items"]},
+            {self.pending.id, self.confirmed.id},
+        )
+        item = next(row for row in data["items"] if row["review_id"] == self.pending.id)
+        self.assertTrue(item["approval"]["needs_action"])
+        self.assertEqual(item["client"]["id"], self.customer.id)
+        self.assertEqual(item["draft"]["items"][0]["qty"], 1)
+        self.assertEqual(len(item["media"]["receipts"]), 1)
+        self.assertEqual(len(item["media"]["custom_print"]), 1)
+        self.assertEqual(len(item["media"]["unknown"]), 1)
+        self.assertIn(f"review={self.pending.id}", item["workspace_url"])
+
+    def test_orders_workspace_supports_confirmed_and_client_scope(self):
+        other = IgClient.get_or_create_for_sender("orders-api-other")
+        IgPaymentConfirmationReview.objects.create(
+            client=other,
+            dedupe_key="orders-api-other-pending",
+        )
+        url = reverse("management_bot_orders_workspace_api")
+
+        data = self.client.get(
+            f"{url}?view=confirmed&client_id={self.customer.id}"
+        ).json()
+
+        self.assertEqual([item["review_id"] for item in data["items"]], [self.confirmed.id])
+
+    def test_orders_workspace_supports_exact_review_deep_link_selector(self):
+        data = self.client.get(
+            reverse("management_bot_orders_workspace_api")
+            + f"?view=all&review={self.pending.id}"
+        ).json()
+
+        self.assertEqual(data["selected_review_id"], self.pending.id)
+        self.assertEqual([item["review_id"] for item in data["items"]], [self.pending.id])
+
+    def test_hidden_client_is_excluded_from_counts_and_items(self):
+        hidden = IgClient.get_or_create_for_sender("orders-api-hidden")
+        hidden.hidden_at = timezone.now()
+        hidden.save(update_fields=["hidden_at", "updated_at"])
+        IgPaymentConfirmationReview.objects.create(
+            client=hidden,
+            dedupe_key="orders-api-hidden-review",
+        )
+
+        data = self.client.get(reverse("management_bot_orders_workspace_api")).json()
+
+        self.assertEqual(data["counts"], {"action": 2, "confirmed": 1, "all": 2})
+        self.assertNotIn(hidden.id, [item["client"]["id"] for item in data["items"]])
+
+    def test_orders_workspace_requires_staff_permission(self):
+        self.client.logout()
+        user = User.objects.create_user("orders_api_user", password="x")
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("management_bot_orders_workspace_api"))
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_confirmed_workspace_exposes_decision_history_catalog_links_and_create_url(self):
+        self.confirmed.evidence = {
+            "catalog_matches": [{
+                "status": "matched",
+                "product_id": 17,
+                "title": "Kharkiv Pink",
+                "url": "https://twocomms.shop/product/kharkiv-pink/",
+                "confidence": "0.96",
+            }],
+            "order_draft": {
+                "items": [{"title": "Kharkiv Pink", "qty": 2, "fit": "oversize"}],
+                "quoted_total": "1800.00",
+            },
+        }
+        self.confirmed.save(update_fields=["evidence", "updated_at"])
+        IgPaymentReviewDecision.objects.create(
+            review=self.confirmed,
+            client=self.customer,
+            decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+            verification_source="manager",
+            verification_scope=IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT,
+            actor=self.admin,
+            actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+            actor_external_id=str(self.admin.pk),
+            review_status_before=IgPaymentConfirmationReview.Status.PENDING,
+            review_status_after=IgPaymentConfirmationReview.Status.CONFIRMED,
+        )
+
+        data = self.client.get(
+            reverse("management_bot_orders_workspace_api") + "?view=confirmed"
+        ).json()
+
+        item = data["items"][0]
+        self.assertEqual(item["id"], self.confirmed.id)
+        self.assertEqual(item["draft"]["catalog_candidates"][0]["product_id"], 17)
+        self.assertEqual(item["decision_history"][0]["decision"], "manager_verified")
+        self.assertTrue(item["approval"]["can_create"])
+        self.assertEqual(item["approval"]["state"], "needs_order_resolution")
+        self.assertEqual(item["order_url"], "")
+        self.assertIn("ig_payment_review=", item["approval"]["create_order_url"])
+        self.assertIn("view=action", item["workspace_url"])
+
+    def test_workspace_drops_dangerous_media_and_untrusted_product_urls(self):
+        self.pending.evidence = {
+            "media": [
+                {"role": "receipt", "url": "javascript:alert(1)"},
+                {"role": "product", "local_url": "data:text/html,unsafe"},
+            ],
+            "catalog_matches": [{
+                "status": "matched",
+                "title": "Unsafe",
+                "url": "https://evil.example/phishing",
+            }],
+        }
+        self.pending.save(update_fields=["evidence", "updated_at"])
+
+        data = self.client.get(reverse("management_bot_orders_workspace_api")).json()
+        item = next(row for row in data["items"] if row["review_id"] == self.pending.id)
+
+        self.assertNotIn("url", item["media"]["receipts"][0])
+        self.assertNotIn("local_url", item["media"]["products"][0])
+        self.assertNotIn("url", item["draft"]["catalog_candidates"][0])
+
+    def test_workspace_bounds_and_whitelists_untrusted_evidence_shapes(self):
+        oversized = "x" * 5000
+        self.pending.evidence = {
+            "media": [{
+                "role": "receipt",
+                "message_id": {"nested": oversized},
+                "source_message_id": "42",
+                "product_id": "17",
+                "product_title": oversized,
+                "confidence": {"nested": "0.99"},
+                "url": "https://cdn.example/check.jpg",
+                "unexpected": {"secret": oversized},
+            }],
+            "catalog_matches": [{
+                "status": "matched",
+                "product_id": "17",
+                "title": oversized,
+                "url": "https://twocomms.shop/product/kharkiv/",
+                "source_message_ids": [str(value) for value in range(50)] + [{"nested": 1}],
+                "variant_candidates": [
+                    {"id": "4", "color": oversized, "sku": oversized, "nested": {"x": 1}},
+                ],
+                "unexpected": {"secret": oversized},
+            }],
+            "order_draft": {
+                "items": [{
+                    "product_id": "17",
+                    "title": oversized,
+                    "qty": "2",
+                    "size": "XS",
+                    "fit": "oversize",
+                    "price_evidence_message_ids": [str(value) for value in range(50)],
+                    "catalog": {
+                        "product_id": "17",
+                        "title": oversized,
+                        "url": "https://twocomms.shop/product/kharkiv/",
+                        "unexpected": {"secret": oversized},
+                    },
+                    "unexpected": {"secret": oversized},
+                }],
+                "quoted_total": {"nested": oversized},
+                "packaging_preference": oversized,
+                "delivery": {
+                    "full_name": oversized,
+                    "phone": ["nested"],
+                    "city": "Харків",
+                    "office": "Поштомат 21586",
+                    "unexpected": {"secret": oversized},
+                },
+                "uncertainty_reasons": [oversized, {"nested": oversized}],
+            },
+        }
+        self.pending.save(update_fields=["evidence", "updated_at"])
+
+        data = self.client.get(reverse("management_bot_orders_workspace_api")).json()
+        item = next(row for row in data["items"] if row["review_id"] == self.pending.id)
+        media = item["media"]["receipts"][0]
+        match = item["draft"]["catalog_candidates"][0]
+        draft_item = item["draft"]["items"][0]
+        delivery = item["draft"]["delivery"]
+
+        self.assertEqual(set(media), {
+            "role", "source_message_id", "product_id", "product_title", "url",
+        })
+        self.assertEqual(media["source_message_id"], 42)
+        self.assertEqual(media["product_id"], 17)
+        self.assertLessEqual(len(media["product_title"]), 240)
+        self.assertEqual(set(match), {
+            "status", "product_id", "title", "url", "source_message_ids",
+            "variant_candidates",
+        })
+        self.assertEqual(match["product_id"], 17)
+        self.assertEqual(match["source_message_ids"], list(range(20)))
+        self.assertEqual(
+            set(match["variant_candidates"][0]),
+            {"id", "color", "sku"},
+        )
+        self.assertLessEqual(len(match["variant_candidates"][0]["color"]), 80)
+        self.assertEqual(set(draft_item), {
+            "product_id", "title", "qty", "size", "fit",
+            "price_evidence_message_ids", "catalog",
+        })
+        self.assertEqual(draft_item["qty"], 2)
+        self.assertEqual(draft_item["price_evidence_message_ids"], list(range(20)))
+        self.assertNotIn("unexpected", draft_item["catalog"])
+        self.assertEqual(set(delivery), {"full_name", "city", "office"})
+        self.assertLessEqual(len(delivery["full_name"]), 180)
+        self.assertEqual(item["draft"]["quoted_total"], "")
+        self.assertLessEqual(len(item["draft"]["packaging_preference"]), 160)
+        self.assertEqual(len(item["draft"]["uncertainty_reasons"]), 1)
+        self.assertLessEqual(len(item["draft"]["uncertainty_reasons"][0]), 240)
+
+    def test_all_workspace_includes_provider_attributed_order_without_review(self):
+        from management.ig_bot_models import IgOrderAttribution
+        from orders.models import Order
+
+        order = Order.objects.create(
+            full_name="Іван Петренко",
+            phone="380501112233",
+            city="Харків",
+            np_office="Відділення №1",
+            total_sum=Decimal("1200.00"),
+            payment_status="paid",
+            source="manual",
+            sale_source="Instagram",
+        )
+        IgOrderAttribution.objects.create(
+            order=order,
+            client=self.customer,
+            creation_mode="provider_auto",
+            payment_source="provider_projection",
+            negotiated_total=Decimal("1200.00"),
+            price_source="conversation_accepted",
+            item_provenance=[{"title": "Kharkiv Pink", "qty": 1, "fit": "classic"}],
+        )
+
+        data = self.client.get(
+            reverse("management_bot_orders_workspace_api") + "?view=all"
+        ).json()
+
+        provider_card = next(item for item in data["items"] if item["order"].get("id") == order.id)
+        self.assertIsNone(provider_card["review_id"])
+        self.assertEqual(provider_card["approval"]["state"], "confirmed")
+        self.assertEqual(provider_card["payment"]["provider_truth"], "confirmed")
+        self.assertEqual(provider_card["draft"]["items"][0]["fit"], "classic")
+        self.assertEqual(data["counts"], {"action": 2, "confirmed": 2, "all": 3})
+
+    def test_order_creation_mode_distinguishes_created_new_and_linked_existing(self):
+        from management.ig_bot_models import IgOrderAttribution
+        from orders.models import Order
+
+        def make_order(total):
+            return Order.objects.create(
+                full_name="Іван Петренко",
+                phone="380501112233",
+                city="Харків",
+                np_office="Відділення №1",
+                total_sum=Decimal(total),
+                source="manual",
+                sale_source="Instagram",
+            )
+
+        created_order = make_order("900.00")
+        self.confirmed.order = created_order
+        self.confirmed.save(update_fields=["order", "updated_at"])
+        IgOrderAttribution.objects.create(
+            order=created_order,
+            client=self.customer,
+            payment_review=self.confirmed,
+            creation_mode="manager_review",
+            payment_source="manager_verified",
+        )
+        linked_review = IgPaymentConfirmationReview.objects.create(
+            client=self.customer,
+            dedupe_key="orders-api-linked-existing",
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+        )
+        linked_order = make_order("1100.00")
+        linked_review.order = linked_order
+        linked_review.save(update_fields=["order", "updated_at"])
+        IgOrderAttribution.objects.create(
+            order=linked_order,
+            client=self.customer,
+            payment_review=linked_review,
+            creation_mode="linked_existing",
+            payment_source="manager_verified",
+        )
+
+        data = self.client.get(
+            reverse("management_bot_orders_workspace_api") + "?view=confirmed"
+        ).json()
+        states = {item["review_id"]: item["approval"]["state"] for item in data["items"]}
+
+        self.assertEqual(states[self.confirmed.id], "created_new")
+        self.assertEqual(states[linked_review.id], "linked_existing")
+
+    def test_legacy_provider_attempt_is_not_promoted_to_confirmed_truth(self):
+        from management.ig_bot_models import IgOrderAttribution
+        from orders.models import Order
+
+        order = Order.objects.create(
+            full_name="Іван Петренко",
+            phone="380501112233",
+            city="Харків",
+            np_office="Відділення №1",
+            total_sum=Decimal("700.00"),
+            source="manual",
+            sale_source="Instagram",
+        )
+        IgOrderAttribution.objects.create(
+            order=order,
+            client=self.customer,
+            creation_mode="provider_auto",
+            payment_source="provider_attempt",
+        )
+
+        data = self.client.get(
+            reverse("management_bot_orders_workspace_api") + "?view=all"
+        ).json()
+        card = next(item for item in data["items"] if item["order"].get("id") == order.id)
+
+        self.assertEqual(card["payment"]["provider_truth"], "unverified")
+        self.assertFalse(card["payment"]["authoritative_for_fulfillment"])
+
+    def test_orphaned_review_attribution_remains_visible_as_order_card(self):
+        from management.ig_bot_models import IgOrderAttribution
+        from orders.models import Order
+
+        order = Order.objects.create(
+            full_name="Іван Петренко",
+            phone="380501112233",
+            city="Харків",
+            np_office="Відділення №1",
+            total_sum=Decimal("800.00"),
+            source="manual",
+            sale_source="Instagram",
+        )
+        orphan_review = IgPaymentConfirmationReview.objects.create(
+            client=self.customer,
+            dedupe_key="orphan-review-attribution",
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            order=order,
+        )
+        attribution = IgOrderAttribution.objects.create(
+            order=order,
+            client=self.customer,
+            payment_review=orphan_review,
+            creation_mode="linked_existing",
+            payment_source="manager_verified",
+        )
+        orphan_review.delete()
+        self.assertTrue(IgOrderAttribution.objects.filter(pk=attribution.pk).exists())
+
+        data = self.client.get(
+            reverse("management_bot_orders_workspace_api") + "?view=all"
+        ).json()
+
+        self.assertTrue(any(item["order"].get("id") == order.id for item in data["items"]))
 
 
 @MGMT
