@@ -150,6 +150,18 @@ client/payment/order/manual-order tests (2 expected skips), Django check,
 migration drift, scoped compilation and diff checks. Independent spec and code
 quality re-reviews returned `APPROVED`.
 
+**Task 5 production evidence:** commit `bed00422` was pushed to both
+`origin/codex/ig-crm-master-audit` and `origin/main`, then fast-forwarded on
+production. Server HEAD matches; MariaDB is `11.4.12-MariaDB` with migrations
+through `0105`; migrate/check/static/compress/playbooks/Passenger restart and
+daemon ensure succeeded. Runtime reported one daemon online, approximately
+1.1-second DB/cache heartbeats, zero pending queue/outbox/analysis work,
+`/healthz/` `200`, and anonymous bot/orders boundaries `302`. The read-only
+staff Orders API returned `200` with action/confirmed/all counts `2/2/2`.
+Client `1735898131060065` still has two confirmed reviews and zero
+`IgOrderAttribution` rows, proving that the UX release did not create or link a
+duplicate order after payment confirmation.
+
 **UX acceptance:** the main overview shows only a compact pending-approval
 badge/entry, not the approval cards themselves. The separate approval tab is
 scannable by client and count, while the per-client drawer remains contextual,

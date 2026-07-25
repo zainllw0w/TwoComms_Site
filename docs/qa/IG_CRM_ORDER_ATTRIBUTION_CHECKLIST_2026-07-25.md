@@ -17,9 +17,9 @@ behavior.
 - [x] **Task 4 — Client workspace API contract.** Shipped in `fcea1668`; the
   bounded client/orders contract, explicit order resolution, permissions and
   production MariaDB/runtime behavior are verified.
-- [ ] **Task 5 — Responsive workspace, client drawer, and `Замовлення` UX.**
-  Product approvals must not live in the general overview; they are available
-  in the dedicated section, client workspace, and Telegram deep-link.
+- [x] **Task 5 — Responsive workspace, client drawer, and `Замовлення` UX.**
+  Shipped in `bed00422`; product approvals no longer live in the general
+  overview and the dedicated section/client drawer use one verified contract.
 - [ ] **Task 6 — Repeat-order commercial episodes and fulfillment-aware history.**
   One Instagram client may have many immutable order/funnel episodes; payment
   confirmation must never create a duplicate order.
@@ -94,7 +94,9 @@ reduced-motion suppression and zero console errors/warnings.
 - [x] Untrusted JSON evidence is whitelisted and bounded by type, field, string length, ID-list length, item count, media count, and trusted URL policy.
 - [x] Task 4 verification passed: 35 focused UI/API tests, 104 related client/payment/order-link/review tests, Django check, migration drift, compilation, diff check, and independent code-quality re-review (`APPROVED`).
 - [x] Task 4 production proof: server SHA `fcea1668`, MariaDB `11.4.12`, no pending migrations, one live daemon with approximately six-second heartbeat, empty notification outbox and analysis queue, `/healthz/` `200`, management/API anonymous boundaries `302`, and read-only staff orders API `200` with counts `action=2`, `confirmed=1`, `all=2`.
-- [x] Production client `1735898131060065` remains duplicate-safe: two reviews exist, one confirmed review is `needs_order_resolution`, and zero `IgOrderAttribution` links exist until the manager explicitly selects the already-created order or chooses create-new.
+- [x] Task 5 local proof: 86 focused UI/payment tests and 260 related client/payment/order/manual-order tests passed (2 expected skips), plus Django check, migration drift, scoped compilation, inline JavaScript syntax and diff checks; independent spec/code-quality reviews returned `APPROVED` and the visual reviewer returned `PASS` after a fresh-server 320 px recheck.
+- [x] Task 5 production proof: `bed00422` is on `origin/main` and production `main`; MariaDB reports `11.4.12-MariaDB`, migrations through `0105` are applied, collectstatic/compress/Passenger restart and playbook seeding succeeded, the single daemon is online with approximately 1.1-second DB/cache heartbeat, pending queue/notification outbox/analysis jobs are all zero, `/healthz/` is `200`, and public bot/orders boundaries are `302`.
+- [x] Production client `1735898131060065` remains explicit-resolution-only after the UX deploy: two confirmed reviews, zero order attributions, and staff Orders API `200` with counts `action=2`, `confirmed=2`, `all=2`; no order was auto-created or auto-linked by payment confirmation.
 
 ## Required follow-up before broad analytics rollout
 
