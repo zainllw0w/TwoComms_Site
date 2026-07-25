@@ -682,6 +682,36 @@ class TelegramPaymentReviewGateTests(SimpleTestCase):
 
 
 class CatalogAssignmentTests(SimpleTestCase):
+    @patch("django.core.files.storage.default_storage")
+    @patch(
+        "management.services.instagram_bot.download_image",
+        return_value=("image/jpeg", b"same-product"),
+    )
+    def test_persist_review_media_reuses_duplicate_provider_media(self, download, storage):
+        from management.services.ig_payment_review import _persist_review_media
+
+        storage.exists.return_value = False
+        storage.url.return_value = "/media/ig_payment_reviews/reused.jpg"
+        media = [
+            {
+                "url": "https://lookaside.example/signed-a.jpg",
+                "ig_post_media_id": "post-123",
+                "role": "product",
+            },
+            {
+                "url": "https://lookaside.example/signed-b.jpg",
+                "ig_post_media_id": "post-123",
+                "role": "product",
+            },
+        ]
+
+        persisted = _persist_review_media(media)
+
+        self.assertEqual(download.call_count, 1)
+        self.assertEqual(storage.save.call_count, 1)
+        self.assertEqual(persisted[0]["local_url"], persisted[1]["local_url"])
+        self.assertEqual(persisted[0]["content_hash"], persisted[1]["content_hash"])
+
     @patch("management.services.bot_vision.match_many", return_value=[{
         "product_id": 11,
         "confidence": 0.93,

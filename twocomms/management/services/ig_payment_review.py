@@ -379,10 +379,19 @@ def _persist_review_media(media: list[dict]) -> list[dict]:
     except Exception:
         return media
     enriched = []
+    persisted_by_source = {}
     for item in media[:8]:
         row = dict(item)
         url = str(row.get("url") or "")
         if not url:
+            enriched.append(row)
+            continue
+        source_key = ""
+        if row.get("ig_post_media_id"):
+            source_key = f"{row.get('type') or 'media'}:{row.get('ig_post_media_id')}"
+        cached = persisted_by_source.get(source_key) if source_key else None
+        if cached:
+            row.update(cached)
             enriched.append(row)
             continue
         try:
@@ -391,12 +400,19 @@ def _persist_review_media(media: list[dict]) -> list[dict]:
                 mime, raw = downloaded
                 suffix = ".jpg" if mime == "image/jpeg" else ".bin"
                 digest = hashlib.sha256(url.encode("utf-8")).hexdigest()[:24]
+                content_hash = hashlib.sha256(raw).hexdigest()
                 path = f"ig_payment_reviews/{digest}{suffix}"
                 if not default_storage.exists(path):
                     default_storage.save(path, ContentFile(raw))
-                row["local_url"] = default_storage.url(path)
-                row["mime"] = mime[:64]
-                row["bytes"] = len(raw)
+                durable_fields = {
+                    "local_url": default_storage.url(path),
+                    "mime": mime[:64],
+                    "bytes": len(raw),
+                    "content_hash": content_hash,
+                }
+                row.update(durable_fields)
+                if source_key:
+                    persisted_by_source[source_key] = durable_fields
         except Exception:
             pass
         enriched.append(row)
