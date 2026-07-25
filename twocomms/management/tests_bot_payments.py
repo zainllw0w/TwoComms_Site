@@ -101,6 +101,13 @@ class ApplyPaymentStatusTests(TestCase):
             client=self.c, pay_type=IgDeal.PayType.ONLINE_FULL, amount=Decimal("950"),
             invoice_id="inv_apy", status=IgDeal.Status.AWAITING_PAYMENT,
         )
+        IgDealItem.objects.create(
+            deal=self.deal,
+            title="Футболка Харків",
+            qty=1,
+            unit_price=Decimal("950.00"),
+            line_total=Decimal("950.00"),
+        )
 
     def test_success_marks_paid_and_stage(self):
         bot_payments.apply_payment_status(
@@ -371,6 +378,12 @@ class ApplyPaymentStatusTests(TestCase):
         self.deal.np_phone = "0931112233"
         self.deal.np_city = "Київ"
         self.deal.np_office = "Відділення 1"
+        self.deal.np_settlement_ref = "settlement-ref-payment-reversal"
+        self.deal.np_city_ref = "city-ref-payment-reversal"
+        self.deal.np_warehouse_ref = "warehouse-ref-payment-reversal"
+        self.deal.np_warehouse_kind = "branch"
+        self.deal.delivery_status = IgDeal.DeliveryStatus.VALIDATED
+        self.deal.delivery_source = "nova_poshta_directory"
         self.deal.save()
         bot_payments.apply_payment_status(
             self.deal,
@@ -409,6 +422,12 @@ class ApplyPaymentStatusTests(TestCase):
         self.deal.np_phone = "0931112233"
         self.deal.np_city = "Київ"
         self.deal.np_office = "Відділення 1"
+        self.deal.np_settlement_ref = "settlement-ref-payment-retry"
+        self.deal.np_city_ref = "city-ref-payment-retry"
+        self.deal.np_warehouse_ref = "warehouse-ref-payment-retry"
+        self.deal.np_warehouse_kind = "branch"
+        self.deal.delivery_status = IgDeal.DeliveryStatus.VALIDATED
+        self.deal.delivery_source = "nova_poshta_directory"
         self.deal.save()
         bot_payments.apply_payment_status(
             self.deal,

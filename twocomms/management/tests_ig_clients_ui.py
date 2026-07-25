@@ -4,6 +4,12 @@ JSON-API списку карток і детальної (переписка, к
 угоди, замовлення). Доступ лише адмінам.
 """
 from decimal import Decimal
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import tempfile
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -29,6 +35,263 @@ from management.bot_views import _group_signal_rows, _review_media_groups
 User = get_user_model()
 
 MGMT = override_settings(ROOT_URLCONF="twocomms.urls_management")
+
+
+class ClientWorkspaceTemplateContractTests(SimpleTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.template = (
+            Path(__file__).with_name("templates") / "management" / "bot.html"
+        ).read_text(encoding="utf-8")
+
+    def test_orders_is_a_dedicated_tab_after_statistics_not_an_overview_card(self):
+        self.assertIn('data-tab="orders"', self.template)
+        self.assertIn('id="badge-orders-action"', self.template)
+        self.assertIn('data-panel="orders"', self.template)
+        self.assertLess(
+            self.template.index('data-tab="stats"'),
+            self.template.index('data-tab="orders"'),
+        )
+        self.assertNotIn('id="bot-payment-review"', self.template)
+        self.assertNotIn('id="bot-payment-review-list"', self.template)
+
+    def test_orders_workspace_has_semantic_filters_list_and_contextual_drawer(self):
+        for contract in (
+            'id="bot-orders-filters"',
+            'data-orders-view="action"',
+            'data-orders-view="confirmed"',
+            'data-orders-view="all"',
+            'id="bot-orders-list"',
+            'id="bot-orders-detail"',
+            'role="tablist"',
+            'aria-label="Фільтр замовлень"',
+            'aria-live="polite"',
+            'management_bot_orders_workspace_api',
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_order_resolution_actions_are_explicit_and_rejection_has_reason(self):
+        for visible_copy in (
+            "Прив'язати існуюче",
+            "Створити нове",
+            "Причина відхилення",
+            "Підтвердити оплату",
+            "Відхилити",
+        ):
+            self.assertIn(visible_copy, self.template)
+        self.assertIn("body.append('action','manager_reject')", self.template)
+        self.assertIn("body.append('reason_code'", self.template)
+        self.assertIn("body.append('reason_text'", self.template)
+        self.assertNotIn("if(action==='confirm'&&result.data.order_url)", self.template)
+
+    def test_order_detail_explains_the_post_confirmation_next_step(self):
+        for contract in (
+            "bot-order-progress",
+            "Перевірка оплати",
+            "Прив’язка замовлення",
+            "Виконання",
+            "Оплату підтверджено — тепер оберіть існуюче замовлення або створіть нове.",
+        ):
+            self.assertIn(contract, self.template)
+        self.assertIn("renderOrderProgress(inner,item)", self.template)
+        self.assertIn(
+            "if(state==='needs_order_resolution')renderActions(inner,item,options||{})",
+            self.template,
+        )
+        self.assertIn(
+            "if(state!=='needs_order_resolution')renderActions(inner,item,options||{})",
+            self.template,
+        )
+
+    def test_payment_drawer_escapes_the_management_workspace_stacking_context(self):
+        self.assertIn(".bot-drawer,.bot-drawer *{box-sizing:border-box;}", self.template)
+        self.assertIn("document.body.appendChild(drawer)", self.template)
+
+    def test_client_workspace_has_action_cta_order_history_and_collapsible_signals(self):
+        for contract in (
+            "bot-client-order-action",
+            "bot-client-orders",
+            "bot-analysis-disclosure",
+            "Потрібно підтвердити оплату",
+            "Потрібно прив'язати замовлення",
+            "Історія замовлень",
+            "Відкрити замовлення",
+        ):
+            self.assertIn(contract, self.template)
+        self.assertIn("PaymentReviewDrawer.open", self.template)
+        self.assertNotIn("Категорія діалогу</div><div class=\"bot-category-value\"", self.template)
+
+    def test_client_workspace_is_three_pane_with_mobile_segmented_navigation(self):
+        for contract in (
+            'class="bot-clients-workspace"',
+            'class="bot-clients-sidebar"',
+            'id="bot-client-conversation"',
+            'id="bot-client-context"',
+            'id="bot-client-mobile-nav"',
+            'data-client-pane="list"',
+            'data-client-pane="conversation"',
+            'data-client-pane="context"',
+            'aria-controls="bot-clients-list"',
+            'aria-controls="bot-client-conversation"',
+            'aria-controls="bot-client-context"',
+        ):
+            self.assertIn(contract, self.template)
+        self.assertNotIn(".bot-client-detail{max-height:560px;overflow-y:auto", self.template)
+
+    def test_payment_review_uses_contextual_accessible_drawer(self):
+        for contract in (
+            'id="bot-payment-drawer"',
+            'role="dialog"',
+            'aria-modal="true"',
+            'id="bot-payment-drawer-close"',
+            "function restoreDrawerFocus",
+            "event.key==='Escape'",
+            "trapDrawerFocus",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_drawer_focus_trap_wraps_from_the_dialog_panel_itself(self):
+        self.assertIn(
+            "document.activeElement===panel||!panel.contains(document.activeElement)",
+            self.template,
+        )
+        self.assertIn("(event.shiftKey?last:first).focus()", self.template)
+        self.assertIn("body.querySelector('[data-review-autofocus]')", self.template)
+        self.assertIn("target.scrollIntoView({block:'center'})", self.template)
+
+    def test_drawer_opens_on_the_current_action_instead_of_hiding_it_below_mobile_fold(self):
+        self.assertIn("function focusDrawerAction()", self.template)
+        self.assertEqual(self.template.count("requestAnimationFrame(focusDrawerAction)"), 2)
+
+    def test_drawer_and_workspace_controls_have_unique_ids(self):
+        self.assertIn(
+            "const scopeId='bot-verification-scope-'+item.review_id+(options&&options.drawer?'-drawer':'-workspace')",
+            self.template,
+        )
+        self.assertIn("scopeLabel.htmlFor=scopeId", self.template)
+        self.assertIn("scope.id=scopeId", self.template)
+
+    def test_successful_payment_action_refreshes_the_open_client_context(self):
+        self.assertIn("async function refreshClient(id)", self.template)
+        self.assertIn("await Clients.refreshClient((item.client||{}).id)", self.template)
+        self.assertIn(
+            "return {load:load,detail:detail,refreshClient:refreshClient}",
+            self.template,
+        )
+
+    def test_post_mutation_refresh_failure_uses_server_response_not_stale_card(self):
+        for contract in (
+            "function applyMutationResult(item,data)",
+            "const optimistic=applyMutationResult(item,data)",
+            "await load({throwOnError:true})",
+            "Дію збережено, але свіжі дані не завантажилися.",
+        ):
+            self.assertIn(contract, self.template)
+        self.assertIn("if(options&&options.throwOnError)throw error", self.template)
+
+    def test_workspace_payment_confirmation_focuses_the_new_order_resolution_action(self):
+        self.assertIn("function focusWorkspaceAction(item)", self.template)
+        self.assertIn(
+            "PaymentReviewDrawer.currentReviewId()===Number(item.review_id)",
+            self.template,
+        )
+        self.assertIn(
+            "detailEl.querySelector('[data-review-autofocus]')",
+            self.template,
+        )
+        self.assertIn("target.scrollIntoView({block:'center'})", self.template)
+        self.assertGreaterEqual(
+            self.template.count("requestAnimationFrame(()=>focusWorkspaceAction("),
+            3,
+        )
+
+    def test_drawer_restore_focus_has_a_stable_client_fallback_after_refresh(self):
+        self.assertIn("document.querySelector('.bot-client-row.active')", self.template)
+        self.assertIn("document.querySelector('[data-client-pane=\"context\"]')", self.template)
+        self.assertIn(".find(candidate=>candidate&&candidate.offsetParent!==null)", self.template)
+        self.assertIn("function restoreDrawerFocus()", self.template)
+
+    def test_orders_load_ignores_stale_responses_after_a_newer_filter_request(self):
+        self.assertIn("let loadGeneration=0", self.template)
+        self.assertIn("const requestGeneration=++loadGeneration", self.template)
+        self.assertIn("if(requestGeneration!==loadGeneration)return false", self.template)
+
+    def test_orders_workspace_deduplicates_rows_for_one_canonical_order(self):
+        self.assertIn("const seenOrderIds=new Set()", self.template)
+        self.assertIn("if(orderId&&seenOrderIds.has(orderId))return", self.template)
+        self.assertIn("if(orderId)seenOrderIds.add(orderId)", self.template)
+
+    def test_payment_truth_and_verification_scope_are_not_visually_collapsed(self):
+        for visible_copy in (
+            "Provider payment",
+            "Перевірка менеджера",
+            "Обсяг підтвердження",
+            "Повна оплата",
+            "Передоплата",
+            "Заявлений платіж",
+        ):
+            self.assertIn(visible_copy, self.template)
+        self.assertIn("verification_scope", self.template)
+        self.assertIn("managerTruthLabel", self.template)
+        self.assertIn("providerTruthLabel", self.template)
+        self.assertIn(
+            "[['','Оберіть обсяг підтвердження'],['full_payment','Повна оплата'],['prepayment','Передоплата']]",
+            self.template,
+        )
+        self.assertNotIn(
+            "['prepayment','Передоплата'],['payment_claim','Заявлений платіж']",
+            self.template,
+        )
+
+    def test_client_first_viewport_includes_fulfillment_and_next_action(self):
+        self.assertIn("Стан виконання", self.template)
+        self.assertIn("Наступна дія", self.template)
+        self.assertIn("fulfillmentLabel", self.template)
+
+    def test_order_lines_include_selected_variant_and_origin(self):
+        self.assertIn("optionValues", self.template)
+        self.assertIn("Походження замовлення", self.template)
+        self.assertIn("Джерело оплати", self.template)
+
+    def test_client_order_history_counts_only_real_linked_orders(self):
+        self.assertIn(
+            "const linked=((d.orders&&d.orders.items)||[]).filter(item=>item&&item.order&&item.order.id);",
+            self.template,
+        )
+        self.assertIn("const seenOrderIds=new Set()", self.template)
+        self.assertIn("if(seenOrderIds.has(orderId))return false", self.template)
+        self.assertIn("section(root,'Історія замовлень',orders.length)", self.template)
+        self.assertNotIn("esc(rows.length)", self.template)
+
+    def test_escape_does_not_discard_an_order_form_while_editing(self):
+        self.assertIn(
+            "event.target.closest('input,select,textarea')",
+            self.template,
+        )
+
+    def test_order_resolution_copy_is_consistently_ukrainian(self):
+        self.assertIn("Нове замовлення не створюється автоматично", self.template)
+        self.assertNotIn("Новий заказ", self.template)
+
+    def test_workspace_has_reduced_motion_and_target_responsive_breakpoints(self):
+        self.assertIn("@media(prefers-reduced-motion:reduce)", self.template)
+        for width in (880, 560, 390, 320):
+            self.assertIn(f"@media(max-width:{width}px)", self.template)
+        self.assertIn("overflow-x:hidden", self.template)
+        self.assertIn(".bot-orders-detail{", self.template)
+        self.assertIn("overflow:visible", self.template)
+        self.assertNotIn(".bot-orders-detail{position:relative;min-width:0;background:#0a0e15;border:1px solid #1e2736;border-radius:16px;padding:18px;min-height:620px;overflow:hidden;}", self.template)
+
+    def test_mobile_orders_workspace_uses_one_page_scroll_without_nested_list_scroll(self):
+        self.assertIn(
+            ".bot-orders-list{max-height:none;overflow:visible}",
+            self.template,
+        )
+        self.assertNotIn(
+            ".bot-orders-list{max-height:340px}",
+            self.template,
+        )
 
 
 class FunnelProgressTests(TestCase):
@@ -385,11 +648,12 @@ class ClientsPageRenderTests(TestCase):
         r = self.client.get(reverse("management_bot"))
         self.assertEqual(r.status_code, 200)
         html = r.content.decode("utf-8")
-        # 4 вкладки
+        # Основні робочі вкладки
         self.assertIn("Клієнти", html)
         self.assertIn("Налаштування", html)
         self.assertIn("Інструкції", html)
         self.assertIn("Огляд", html)
+        self.assertIn("Замовлення", html)
         # таб-структура (панелі)
         self.assertIn('data-tab="clients"', html)
         self.assertIn('data-panel="clients"', html)
@@ -403,8 +667,43 @@ class ClientsPageRenderTests(TestCase):
         self.assertIn('data-client-view="wholesale"', html)
         self.assertIn('data-client-view="collaboration"', html)
         self.assertIn('data-client-view="reactions"', html)
-        self.assertIn("Категорія діалогу", html)
+        self.assertIn("bot-client-commercial", html)
+        self.assertNotIn("Категорія діалогу</div>", html)
         self.assertIn("Категорії діалогів", html)
+
+    def test_bot_page_inline_scripts_have_valid_javascript_syntax(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node is required for inline script syntax validation")
+
+        admin = User.objects.create_user("adm_js", password="x", is_staff=True)
+        self.client.force_login(admin)
+        response = self.client.get(reverse("management_bot"))
+
+        self.assertEqual(response.status_code, 200)
+        scripts = [
+            script.strip()
+            for script in re.findall(
+                r"<script(?:\s[^>]*)?>(.*?)</script>",
+                response.content.decode("utf-8"),
+                flags=re.S | re.I,
+            )
+            if script.strip()
+        ]
+        self.assertGreater(len(scripts), 0)
+        for script in scripts:
+            with tempfile.NamedTemporaryFile(
+                "w", suffix=".js", delete=False, encoding="utf-8"
+            ) as handle:
+                handle.write(script)
+                path = handle.name
+            try:
+                result = subprocess.run(
+                    [node, "--check", path], capture_output=True, text=True
+                )
+            finally:
+                os.unlink(path)
+            self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
 
 
 @MGMT

@@ -128,11 +128,27 @@ must then point to the same commercial episode.
 - Test: `twocomms/management/tests_ig_clients_ui.py`
 - Test: browser smoke under the existing management browser harness
 
-- [ ] **Step 1: Write failing template/DOM contract tests** for no duplicate category/stage text, role/time labels, pending review CTA, rejection reason field, product/receipt sections, and mobile layout hooks.
-- [ ] **Step 2: Run tests and verify RED.**
-- [ ] **Step 3: Replace the single vertical detail renderer** with semantic sections, safe DOM construction, right rail/drawer, keyboard/focus behavior, and Ukrainian explanatory copy with exact English technical terms retained.
-- [ ] **Step 4: Add reduced-motion pulse and responsive 1440/1280/768/390/320 behavior** with no nested scroll trap.
-- [ ] **Step 5: Run focused template tests and browser screenshots; commit** `feat: rebuild instagram client workspace UX`.
+- [x] **Step 1: Write failing template/DOM contract tests** for no duplicate category/stage text, role/time labels, pending review CTA, rejection reason field, product/receipt sections, and mobile layout hooks.
+- [x] **Step 2: Run tests and verify RED.** The final RED cycles reproduced the 320 px nested orders-list scroll and the post-confirm order-resolution control rendering above the current mobile viewport.
+- [x] **Step 3: Replace the single vertical detail renderer** with semantic sections, safe DOM construction, right rail/drawer, keyboard/focus behavior, and Ukrainian explanatory copy with exact English technical terms retained. Show a persistent three-step route (`Перевірка оплати` -> `Прив’язка замовлення` -> `Виконання`) so a confirmed review clearly exposes link-existing and create-new without losing the selected card.
+- [x] **Step 4: Add reduced-motion pulse and responsive 1440/1280/768/390/320 behavior** with no nested scroll trap.
+- [x] **Step 5: Run focused template tests and browser screenshots; commit** `feat: rebuild instagram client workspace UX`.
+
+**Task 5 local browser evidence (2026-07-25):** the authenticated fixture flow
+at `127.0.0.1:8765` exercised direct review deep-linking, manager full-payment
+confirmation, selected-card retention, immediate focus/scroll to the exact
+existing-order field, client-context drawer parity, Escape/focus restoration,
+grouped product/receipt media and chronological linked-order history. At
+1440/1280/768/390/320 px the document width equalled the viewport. At 320 px
+the orders list computed `max-height:none`, `overflow-y:visible` and
+`clientHeight=scrollHeight`; page scrolling remained available and the fresh
+session recorded zero console errors or warnings. The 390 px post-confirm
+action was centred inside the viewport (`top=402.79`, `bottom=441.29`,
+viewport height `844`) instead of remaining above the visible area. Final
+verification passed `86` focused UI/payment tests and `260` related
+client/payment/order/manual-order tests (2 expected skips), Django check,
+migration drift, scoped compilation and diff checks. Independent spec and code
+quality re-reviews returned `APPROVED`.
 
 **UX acceptance:** the main overview shows only a compact pending-approval
 badge/entry, not the approval cards themselves. The separate approval tab is
@@ -168,9 +184,11 @@ behind the payment-confirm button.
 - [ ] **Step 2: Run tests and verify RED.**
 - [ ] **Step 3: Add a durable commercial-episode model** that owns its deal, payment review/decision, order attribution, stage timeline, product/price evidence and outcome. A client may have many episodes; opening a repeat purchase starts a new episode without rewriting the completed one.
 - [ ] **Step 4: Add repeat-order analysis semantics** for explicit repeat intent ("хочу ще", gift/another recipient, reorder) and expose order count, previous success amount/date, current episode and repeat-customer state without guessing from language or profile style.
-- [ ] **Step 5: Make order-status answers episode-aware.** Resolve the relevant linked order, read its TTN/Nova Poshta state, and answer only from stored provider/order truth; ambiguous references to several active orders create a manager clarification task.
-- [ ] **Step 6: Extend the client/order API** with chronological episodes and multiple order numbers, keeping every historical funnel and evidence snapshot immutable/auditable.
-- [ ] **Step 7: Run focused repeat-order/payment/order/shipment suites and commit** `feat: model repeat instagram commercial episodes`.
+- [ ] **Step 5: Harden existing-order resolution.** Continue exact unique order-number lookup, block cancelled orders, require a structured override for already shipped/completed or payment-incompatible orders, and never mutate the selected Order/OrderItem rows while linking.
+- [ ] **Step 6: Make automatic materialization episode-aware and idempotent.** Provider-verified payment creates exactly one attributed order only when product/price/delivery truth is complete; incomplete truth creates one manager task. Persist `provider_auto`, `manager_review`, or `linked_existing` creation mode plus display name and durable UID-backed attribution.
+- [ ] **Step 7: Make order-status answers episode-aware.** Resolve exact order number or TTN across deal-linked and attribution-only orders, read its Order/Nova Poshta state, and answer only from stored provider/order truth; ambiguous references to several active orders create one manager clarification task.
+- [ ] **Step 8: Extend the client/order API and custom admin** with chronological episodes, distinct physical order counts, multiple order numbers, Instagram display name/UID navigation, source/creation mode, shipment update time and immutable historical funnel/evidence snapshots.
+- [ ] **Step 9: Run focused repeat-order/payment/order/shipment suites and commit** `feat: model repeat instagram commercial episodes`.
 
 **Identity/linking acceptance:** every linked/created order stores Instagram
 origin and a durable client association through attribution. The custom admin

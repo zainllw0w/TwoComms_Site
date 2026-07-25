@@ -33,12 +33,45 @@ behavior.
 - [x] A confirmed review without an order remains in `Потрібна дія` as `needs_order_resolution`.
 - [x] The manager explicitly chooses `Прив'язати існуюче` by exact order number or `Створити нове` through the editable form.
 - [x] An order already created manually can be linked to the review/deal/client without creating a duplicate.
+- [x] The persistence model permits one Instagram client to own many distinct attributed orders; one canonical order has at most one active Instagram attribution.
 - [ ] The custom admin shows Instagram origin plus client display name when available and retains a durable IG UID reference/digest.
-- [ ] The client workspace shows every linked order number, date, amount, payment, shipment/TTN and creation mode, with a new-tab custom-admin link.
-- [ ] One Instagram client can own many orders; every order belongs to a distinct auditable commercial episode.
-- [ ] A repeat purchase starts a new funnel episode while completed funnel/history/evidence remains unchanged.
+- [x] The client workspace shows every linked order number, date, amount, payment, shipment/TTN and creation mode, with a new-tab custom-admin link.
+- [ ] Every linked order belongs to one distinct auditable commercial episode; review count and order count remain separate and physical orders are counted by distinct `order_id`.
+- [ ] A repeat purchase starts a new episode-scoped funnel while every completed stage timeline, product/price fact, payment decision, order and evidence snapshot remains unchanged.
 - [ ] Explicit repeat intent is classified separately from a first purchase and is available to analytics/statistics.
-- [ ] Order-status replies resolve the correct linked order and use Order/Nova Poshta truth; ambiguous multi-order references escalate for clarification.
+- [ ] Order-status replies resolve an exact order number or TTN across deal-linked and attribution-only orders and use Order/Nova Poshta truth; ambiguous multi-order references create one clarification task instead of guessing.
+- [ ] Exact existing-order linking blocks cancelled orders and requires a structured manager override for fulfilled/shipped or payment-incompatible orders.
+- [ ] Automatic provider-verified payment creates one idempotent attributed order only after validated products, negotiated totals and canonical delivery data are complete; otherwise it creates manager work without a duplicate.
+- [ ] Automatic, manager-created and linked-existing orders expose distinct creation modes while sharing the same client/order history contract.
+
+## Task 5 UX acceptance
+
+- [x] The dedicated `Замовлення` tab is placed after statistics, shows the action count and supports `Потрібна дія`, `Підтверджені`, and `Усі` selections without mounting approval cards in the general overview.
+- [x] A review card keeps product screenshots, receipt screenshots, custom-print references and unknown images in separate labelled groups; negotiated conversation prices are visually primary over catalog prices.
+- [x] The manager sees one explicit route: `Перевірка оплати` -> `Прив’язка замовлення` -> `Виконання`; after payment confirmation, the same selected card stays open and clearly activates the order-resolution step.
+- [x] `Прив’язати існуюче` is visually primary for an order already created in custom admin; `Створити нове` remains a separate deliberate action and payment confirmation alone never opens or creates another order.
+- [x] The client drawer shows the same pending action and chronological order history, but counts only rows with a real canonical `order.id`.
+- [x] Every linked order row shows number, date, negotiated/order amount, payment truth, order status, shipment/TTN status, creation mode and a new-tab custom-admin link.
+- [x] Username/display name is shown first when available; stable Instagram UID remains visible as fallback and navigation identity.
+- [x] Desktop and mobile browser acceptance covers 1440, 1280, 768, 390 and 320 px, keyboard/focus, Escape, reduced motion, long Ukrainian text, no horizontal overflow, no nested scroll trap and no console errors.
+
+Task 5 browser evidence: fresh authenticated local browser runs confirmed the
+direct `review` deep-link, the full-payment mutation into
+`needs_order_resolution`, retained `review:3` selection, focused exact-order
+input within the first mobile viewport, separate create-new link, client drawer
+focus trap/Escape restoration, grouped media, linked-order history, zero
+horizontal overflow at all five target widths, 320 px single-page scrolling,
+reduced-motion suppression and zero console errors/warnings.
+
+## Task 6 durable episode acceptance
+
+- [ ] Add an immutable commercial episode owned by one Instagram client and connected to its deal, payment review/decision, intended order, attribution, stage events, product/price evidence and outcome.
+- [ ] A client may have zero, one or many episodes and orders; one order cannot silently belong to two different episodes, while replay inside the same episode remains idempotent.
+- [ ] Starting a repeat purchase creates a new current episode and restarts only that funnel. Completed episodes remain visible as dated cards with order number, amount, outcome and source.
+- [ ] Repeat intent such as `хочу ще`, reorder, gift or another recipient is evidence-bound, versioned and available to analytics without inference from language, profile style or perceived wealth.
+- [ ] The AI status resolver can use attribution-only orders without `IgDeal`, selects by exact order number/TTN, and asks a clarifying question when several orders fit.
+- [ ] Shipment notifications, `shipped_notified_at`, payment decisions and next actions are scoped to the exact episode/order and cannot update another order of the same client.
+- [ ] The custom admin order card displays Instagram source, automatic/manual/linked creation mode, client display name when known and durable UID-backed navigation to the management client.
 
 ## Completed in this slice
 
