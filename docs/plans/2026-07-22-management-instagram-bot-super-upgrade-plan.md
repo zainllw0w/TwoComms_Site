@@ -1495,3 +1495,46 @@ This file remains the source of truth for future agents. A checkbox is never clo
 from code inspection or a passing SQLite suite alone: it needs its focused tests,
 complete related suite, checks/compile/diff gates, pushed SHA, production deploy,
 runtime evidence, and browser proof where applicable.
+
+---
+
+## 2026-07-25 Client Workspace and Payment/Order Review Continuation
+
+These items are added from the approved design in
+`docs/superpowers/specs/2026-07-25-instagram-client-workspace-order-review-design.md`.
+
+- [ ] **P0.B5ba Source-qualified manager payment verification.** Add an append-only
+  decision record for `manager_verified`, `manager_rejected`, and
+  `evidence_accepted_provider_unverified`. Keep `IgPaymentProjection` provider-only;
+  record actor, reason, evidence watermark, timestamp, reanalysis trigger, and stage
+  transition. Confirm/cancel must be idempotent and hidden clients must fail closed.
+- [ ] **P0.B5bb Existing-order linking and Instagram attribution.** Support atomic
+  create-new or link-existing actions. Preserve one client to many orders, exact
+  identifier evidence, cross-client conflict rejection, IGSID/username snapshot,
+  source, automatic/manual/linked origin, payment verification source, and audit
+  unlink history.
+- [ ] **P0.B5bc Fulfillment truth and Nova Poshta refs.** Textual city/branch values
+  remain suggestions until canonical API refs are validated. Automatic fulfillment
+  must stop with a manager task when refs, fit/options, product identity, or
+  negotiated price allocation are unresolved.
+- [ ] **P0.B5bd Product/price/media provenance.** Preserve classic/oversize and all
+  product lines, negotiated total versus prepayment versus provider-paid amount,
+  source message IDs, catalog links/confidence, and separate product/receipt/custom
+  reference/unknown media roles through review, deal, and order.
+- [ ] **P1.B4a Pattern episodes instead of raw signal counters.** Keep raw
+  `IgConversationSignal` evidence but add occurrence/episode/transition projections
+  with actor/origin, evidence, version, open/resolved/unresolved state, resolution
+  reason, and payment/order outcomes. Manager activity is not a commercial signal.
+- [ ] **P1.D5a Honest episode statistics.** Distinguish unique users, raw
+  occurrences, episodes, resolved episodes, verified payments, orders, order value,
+  paid value, refunds, and shipments. Expose numerator, denominator, hidden scope,
+  timezone `Europe/Kiev`, date semantics, unknowns, and sample size.
+- [ ] **P1.D7a Client workspace redesign.** Replace the one-column detail stream with
+  a responsive client workspace: role/time-labelled chat, four independent truth
+  axes, contextual payment drawer, product/order cards, linked orders, next action,
+  and no duplicate category/stage/evidence text. Preserve exact English technical
+  names while explanatory copy remains Ukrainian.
+- [ ] **P1.D7b Telegram/site parity.** One-click Telegram review action must bind to
+  the exact delivered message and authorized staff actor, remain idempotent, and
+  deliver product and receipt media independently with captions and catalog links.
+  Media retry failure must never roll back the financial decision.

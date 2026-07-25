@@ -9,6 +9,7 @@ from urllib.parse import urljoin
 
 from django.conf import settings
 from django.db import transaction
+from django.urls import reverse
 from django.utils import timezone
 
 
@@ -1203,6 +1204,13 @@ def _review_keyboard(review) -> dict:
     return {"inline_keyboard": rows}
 
 
+def payment_review_order_url(review_id: int) -> str:
+    """Return the storefront manual-order URL from any subdomain URLConf."""
+    base = (getattr(settings, "SITE_BASE_URL", "") or "https://twocomms.shop").rstrip("/")
+    path = reverse("manual_order_create", urlconf="twocomms.urls")
+    return f"{base}{path}?ig_payment_review={int(review_id)}"
+
+
 def _review_evidence_needs_refresh(status: str, current: dict, extracted: dict) -> bool:
     """Refresh material evidence only while the manager decision is pending."""
     if str(status or "") != "pending":
@@ -1336,8 +1344,153 @@ def create_payment_review(client, *, watermark: int = 0, messages=None):
     return review
 
 
-def confirm_review(review, *, actor, telegram_decision=None):
+def _decision_stage_after(client, decision: str) -> str:
+    from management.ig_bot_models import IgClient, IgPaymentReviewDecision
+
+    if decision == IgPaymentReviewDecision.Decision.MANAGER_VERIFIED:
+        return IgClient.Stage.PAID
+    if decision == IgPaymentReviewDecision.Decision.MANAGER_REJECTED:
+        return IgClient.Stage.CHECKOUT
+    return getattr(client, "stage", "") or IgClient.Stage.CHECKOUT
+
+
+def record_review_decision(
+    review,
+    *,
+    actor,
+    decision: str,
+    verification_scope: str = "",
+    reason_code: str = "",
+    reason_text: str = "",
+    telegram_decision: dict | None = None,
+):
+    """Atomically record one manager decision without mutating provider truth."""
+    from management.ig_bot_models import (
+        IgClientStageEvent,
+        IgPaymentConfirmationReview,
+        IgPaymentReviewDecision,
+    )
+
+    decision = str(decision or "").strip()
+    verification_scope = str(verification_scope or "").strip()
+    reason_code = str(reason_code or "").strip()
+    reason_text = str(reason_text or "").strip()
+    telegram_decision = telegram_decision if isinstance(telegram_decision, dict) else {}
+    allowed = {choice for choice, _label in IgPaymentReviewDecision.Decision.choices}
+    if decision not in allowed:
+        raise ValueError("Невідоме рішення щодо перевірки оплати.")
+    if decision == IgPaymentReviewDecision.Decision.MANAGER_REJECTED and not reason_code:
+        raise ValueError("Код причини відхилення обов'язковий")
+    allowed_scopes = {
+        choice for choice, _label in IgPaymentReviewDecision.VerificationScope.choices
+    }
+    if verification_scope and verification_scope not in allowed_scopes:
+        raise ValueError("Обсяг перевірки оплати не підтримується")
+
+    telegram_actor_id = str(telegram_decision.get("telegram_user_id") or "").strip()
+    if telegram_actor_id:
+        actor_source = IgPaymentReviewDecision.ActorSource.TELEGRAM_USER
+        actor_external_id = telegram_actor_id
+        actor_label = str(
+            telegram_decision.get("telegram_username") or actor_external_id
+        ).strip()
+    elif actor is not None and getattr(actor, "pk", None):
+        actor_source = IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER
+        actor_external_id = str(actor.pk)
+        actor_label = str(getattr(actor, "get_username", lambda: "")() or actor.pk)
+    else:
+        raise ValueError("Автор рішення не визначений")
+
+    with transaction.atomic():
+        locked = (
+            IgPaymentConfirmationReview.objects.select_for_update()
+            .select_related("client", "deal")
+            .get(pk=review.pk)
+        )
+        locked._transitioned = False
+        if locked.client.hidden_at:
+            raise ValueError("Прихований клієнт виключений з операцій.")
+        if locked.status != IgPaymentConfirmationReview.Status.PENDING:
+            if not IgPaymentReviewDecision.objects.filter(review=locked).exists():
+                raise ValueError("Завершена перевірка не має журналу рішення")
+            return locked
+
+        if not verification_scope:
+            if locked.deal_id and locked.deal.pay_type == locked.deal.PayType.PREPAY_200:
+                verification_scope = IgPaymentReviewDecision.VerificationScope.PREPAYMENT
+            elif locked.deal_id and locked.deal.pay_type == locked.deal.PayType.ONLINE_FULL:
+                verification_scope = IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT
+            else:
+                verification_scope = IgPaymentReviewDecision.VerificationScope.PAYMENT_CLAIM
+
+        stage_before = locked.client.stage
+        stage_after = _decision_stage_after(locked.client, decision)
+        review_status_before = locked.status
+        now = timezone.now()
+        update_fields = ["status", "updated_at"]
+        if decision == IgPaymentReviewDecision.Decision.MANAGER_VERIFIED:
+            locked.status = IgPaymentConfirmationReview.Status.CONFIRMED
+            locked.confirmed_by = actor
+            locked.confirmed_at = now
+            update_fields.extend(["confirmed_by", "confirmed_at"])
+        elif decision == IgPaymentReviewDecision.Decision.MANAGER_REJECTED:
+            locked.status = IgPaymentConfirmationReview.Status.CANCELLED
+            locked.cancelled_by = actor
+            locked.cancelled_at = now
+            locked.cancellation_reason = (reason_text or reason_code or "")[:500]
+            update_fields.extend(["cancelled_by", "cancelled_at", "cancellation_reason"])
+        if telegram_decision:
+            evidence = locked.evidence if isinstance(locked.evidence, dict) else {}
+            locked.evidence = {**evidence, "telegram_decision": telegram_decision}
+            update_fields.append("evidence")
+        locked.save(update_fields=update_fields)
+        IgPaymentReviewDecision.objects.create(
+            review=locked,
+            client=locked.client,
+            decision=decision,
+            verification_source="manager",
+            verification_scope=verification_scope,
+            reason_code=reason_code[:64],
+            reason_text=(reason_text or reason_code)[:500],
+            evidence_watermark_message_id=locked.watermark_message_id or 0,
+            review_status_before=review_status_before,
+            review_status_after=locked.status,
+            stage_before=stage_before or "",
+            stage_after=stage_after or "",
+            actor=actor,
+            actor_source=actor_source,
+            actor_external_id=actor_external_id[:128],
+            actor_label=actor_label[:150],
+            telegram_decision=telegram_decision,
+        )
+        if stage_after and stage_after != stage_before:
+            locked.client.stage = stage_after
+            locked.client.stage_updated_at = now
+            locked.client.save(update_fields=["stage", "stage_updated_at", "updated_at"])
+            IgClientStageEvent.objects.create(
+                client=locked.client,
+                from_stage=stage_before or "",
+                to_stage=stage_after,
+                reason=f"payment_review_{decision}",
+            )
+        from management.services.bot_conversation_analysis import schedule_client_truth_analysis
+
+        schedule_client_truth_analysis(locked.client, trigger="manager_payment_decision")
+        locked._transitioned = True
+    return locked
+
+
+def confirm_review(review, *, actor, verification_scope="", telegram_decision=None):
     from management.ig_bot_models import IgPaymentConfirmationReview
+
+    if isinstance(review, IgPaymentConfirmationReview):
+        return record_review_decision(
+            review,
+            actor=actor,
+            decision="manager_verified",
+            verification_scope=verification_scope,
+            telegram_decision=telegram_decision,
+        )
 
     with transaction.atomic():
         locked = IgPaymentConfirmationReview.objects.select_for_update().get(pk=review.pk)
@@ -1356,8 +1509,27 @@ def confirm_review(review, *, actor, telegram_decision=None):
         return locked
 
 
-def cancel_review(review, *, actor, reason="", telegram_decision=None):
+def cancel_review(
+    review,
+    *,
+    actor,
+    reason="",
+    reason_code="manager_rejected",
+    verification_scope="",
+    telegram_decision=None,
+):
     from management.ig_bot_models import IgPaymentConfirmationReview
+
+    if isinstance(review, IgPaymentConfirmationReview):
+        return record_review_decision(
+            review,
+            actor=actor,
+            decision="manager_rejected",
+            verification_scope=verification_scope,
+            reason_code=reason_code,
+            reason_text=reason,
+            telegram_decision=telegram_decision,
+        )
 
     with transaction.atomic():
         locked = IgPaymentConfirmationReview.objects.select_for_update().get(pk=review.pk)

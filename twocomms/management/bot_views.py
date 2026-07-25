@@ -497,11 +497,14 @@ def bot_payment_reviews_api(request):
     if blocked:
         return blocked
     from .ig_bot_models import IgPaymentConfirmationReview
+    from management.services.ig_payment_review import payment_review_order_url
 
     selected_id = (request.GET.get("id") or request.GET.get("payment_review") or "").strip()
     rows_qs = IgPaymentConfirmationReview.objects.filter(
         client__hidden_at__isnull=True,
-    ).select_related("client", "deal", "order")
+    ).select_related("client", "deal", "deal__payment_projection", "order").prefetch_related(
+        "decisions__actor"
+    )
     if selected_id.isdigit():
         rows_qs = rows_qs.filter(pk=int(selected_id))
     else:
@@ -512,6 +515,8 @@ def bot_payment_reviews_api(request):
         evidence = row.evidence if isinstance(row.evidence, dict) else {}
         client = row.client
         draft = evidence.get("order_draft") if isinstance(evidence.get("order_draft"), dict) else {}
+        decisions = [_payment_review_decision_payload(item) for item in row.decisions.all()]
+        latest_decision = decisions[0] if decisions else {}
         items.append({
             "id": row.id,
             "client_id": row.client_id,
@@ -528,15 +533,78 @@ def bot_payment_reviews_api(request):
             "order_draft": draft,
             "uncertainty_reasons": draft.get("uncertainty_reasons", []),
             "quoted_total": draft.get("quoted_total", ""),
+            "manual_payment_truth": latest_decision.get("decision", ""),
+            "provider_payment_truth": _payment_review_truth_payload(row)["provider_truth"],
+            "latest_decision": latest_decision,
+            "decisions": decisions,
             "confirm_url": reverse("management_bot_payment_review_action_api", args=[row.id]),
             "order_url": (
-                reverse("manual_order_create") + f"?ig_payment_review={row.id}"
-                if row.status == IgPaymentConfirmationReview.Status.CONFIRMED
+                payment_review_order_url(row.id)
+                if (
+                    row.status == IgPaymentConfirmationReview.Status.CONFIRMED
+                    and latest_decision.get("decision") == "manager_verified"
+                )
                 else ""
             ),
             "order_id": row.order_id,
         })
     return JsonResponse({"success": True, "items": items, "count": len(items)})
+
+
+def _payment_review_decision_payload(decision) -> dict:
+    if not decision:
+        return {}
+    actor = getattr(decision, "actor", None)
+    return {
+        "id": decision.pk,
+        "decision": decision.decision,
+        "decision_label": decision.get_decision_display(),
+        "verification_source": decision.verification_source,
+        "verification_scope": decision.verification_scope,
+        "reason_code": decision.reason_code,
+        "reason_text": decision.reason_text,
+        "actor_id": decision.actor_id,
+        "actor": getattr(actor, "get_username", lambda: "")(),
+        "actor_source": decision.actor_source,
+        "actor_external_id": decision.actor_external_id,
+        "actor_label": decision.actor_label,
+        "evidence_watermark_message_id": decision.evidence_watermark_message_id,
+        "review_status_before": decision.review_status_before,
+        "review_status_after": decision.review_status_after,
+        "stage_before": decision.stage_before,
+        "stage_after": decision.stage_after,
+        "created_at": decision.created_at.isoformat(),
+    }
+
+
+def _latest_payment_review_decision(review):
+    prefetched = getattr(review, "_prefetched_objects_cache", {}).get("decisions")
+    if prefetched is not None:
+        return prefetched[0] if prefetched else None
+    return review.decisions.select_related("actor").order_by("-id").first()
+
+
+def _payment_review_truth_payload(review, decision=None) -> dict:
+    decision = decision or _latest_payment_review_decision(review)
+    projection = None
+    if review.deal_id:
+        try:
+            projection = review.deal.payment_projection
+        except IgPaymentProjection.DoesNotExist:
+            projection = None
+    provider_truth = projection.truth if projection else IgDeal.PaymentTruth.UNVERIFIED
+    manager_truth = decision.decision if decision else ""
+    return {
+        "provider_truth": provider_truth,
+        "provider_source": "provider_projection" if projection else "none",
+        "manager_truth": manager_truth,
+        "verification_source": decision.verification_source if decision else "",
+        "verification_scope": decision.verification_scope if decision else "",
+        "authoritative_for_fulfillment": bool(
+            manager_truth == "manager_verified"
+            or provider_truth in {IgDeal.PaymentTruth.CONFIRMED, IgDeal.PaymentTruth.PARTIALLY_REFUNDED}
+        ),
+    }
 
 
 @login_required(login_url="management_login")
@@ -546,20 +614,59 @@ def bot_payment_review_action_api(request, review_id):
     if blocked:
         return blocked
     from .ig_bot_models import IgPaymentConfirmationReview
-    from management.services.ig_payment_review import cancel_review, confirm_review
+    from management.services.ig_payment_review import payment_review_order_url, record_review_decision
 
     action = (request.POST.get("action") or "").strip().lower()
-    review = IgPaymentConfirmationReview.objects.select_related("client").filter(pk=review_id).first()
+    verification_scope = (request.POST.get("verification_scope") or "").strip()
+    review = IgPaymentConfirmationReview.objects.select_related(
+        "client", "deal", "deal__payment_projection"
+    ).filter(pk=review_id).first()
     if not review:
         return JsonResponse({"success": False, "error": "Перевірку оплати не знайдено."}, status=404)
     if review.client.hidden_at:
         return JsonResponse({"success": False, "error": "Прихований клієнт виключений з операцій."}, status=409)
-    if action == "confirm":
-        review = confirm_review(review, actor=request.user)
-    elif action == "cancel":
-        review = cancel_review(review, actor=request.user, reason=request.POST.get("reason") or "")
+    if action in {"confirm", "manager_verify"}:
+        decision_name = "manager_verified"
+        reason_code = ""
+        reason_text = ""
+    elif action in {"cancel", "manager_reject"}:
+        decision_name = "manager_rejected"
+        reason_code = (request.POST.get("reason_code") or "").strip()
+        reason_text = (
+            request.POST.get("reason_text") or request.POST.get("reason") or ""
+        ).strip()
+        if not reason_code:
+            return JsonResponse({
+                "success": False,
+                "error": "Причина відхилення обов'язкова.",
+            }, status=400)
     else:
         return JsonResponse({"success": False, "error": "Невідома дія."}, status=400)
+    try:
+        review = record_review_decision(
+            review,
+            actor=request.user,
+            decision=decision_name,
+            verification_scope=verification_scope,
+            reason_code=reason_code,
+            reason_text=reason_text,
+        )
+    except ValueError as exc:
+        error = str(exc)
+        conflict = bool(review.client.hidden_at or "журналу рішення" in error)
+        return JsonResponse({"success": False, "error": error}, status=409 if conflict else 400)
+    decision = _latest_payment_review_decision(review)
+    decision_payload = _payment_review_decision_payload(decision)
+    payment_payload = _payment_review_truth_payload(review, decision)
+    if decision and decision.decision != decision_name:
+        return JsonResponse({
+            "success": False,
+            "error": "Перевірку вже завершено іншим рішенням.",
+            "status": review.status,
+            "current_decision": decision.decision,
+            "decision": decision_payload,
+            "payment": payment_payload,
+        }, status=409)
     notification = IgBotNotification.objects.filter(dedupe_key=review.dedupe_key).first()
     if notification:
         if notification.status == IgBotNotification.Status.SENT:
@@ -569,6 +676,10 @@ def bot_payment_review_action_api(request, review_id):
             **(notification.payload if isinstance(notification.payload, dict) else {}),
             "review_status": review.status,
             "actor_id": request.user.pk,
+            "manager_payment_truth": payment_payload["manager_truth"],
+            "verification_source": payment_payload["verification_source"],
+            "decision_reason_code": decision_payload.get("reason_code", ""),
+            "decision_reason_text": decision_payload.get("reason_text", ""),
         }
         notification.save(update_fields=["status", "failure_kind", "payload", "updated_at"])
     bot.log(
@@ -580,8 +691,13 @@ def bot_payment_review_action_api(request, review_id):
         "success": True,
         "id": review.id,
         "status": review.status,
+        "status_label": review.get_status_display(),
+        "payment": payment_payload,
+        "decision": decision_payload,
+        "idempotent_replay": not bool(getattr(review, "_transitioned", False)),
+        "next_action": "create_order" if review.status == IgPaymentConfirmationReview.Status.CONFIRMED else "review_conversation",
         "order_url": (
-            reverse("manual_order_create") + f"?ig_payment_review={review.id}"
+            payment_review_order_url(review.id)
             if review.status == IgPaymentConfirmationReview.Status.CONFIRMED
             else ""
         ),

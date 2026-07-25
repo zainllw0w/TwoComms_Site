@@ -383,7 +383,7 @@ class IgPaymentTelegramCallbackTests(TestCase):
     @patch("management.views._tg_edit_message")
     @patch("management.views._tg_answer_callback")
     def test_cancel_button_cancels_review_directly(self, answer, edit):
-        from management.ig_bot_models import IgPaymentConfirmationReview
+        from management.ig_bot_models import IgPaymentConfirmationReview, IgPaymentReviewDecision
         from management.models import IgBotNotification, IgClient
         from management.views import management_bot_webhook
 
@@ -416,5 +416,67 @@ class IgPaymentTelegramCallbackTests(TestCase):
         self.assertEqual(response.status_code, 200)
         review.refresh_from_db()
         self.assertEqual(review.status, IgPaymentConfirmationReview.Status.CANCELLED)
+        decision = IgPaymentReviewDecision.objects.get(review=review)
+        self.assertEqual(decision.reason_code, "telegram_rejected")
+        self.assertEqual(decision.verification_scope, "payment_claim")
+        self.assertEqual(decision.actor_source, "telegram_user")
+        self.assertEqual(decision.actor_external_id, "777")
         answer.assert_called_once()
         edit.assert_called_once()
+
+    @override_settings(MANAGEMENT_BASE_URL="https://management.example")
+    @patch.dict("os.environ", {"MANAGEMENT_TG_ADMIN_CHAT_ID": "777", "MANAGEMENT_TG_BOT_TOKEN": "token"}, clear=False)
+    @patch("management.views._tg_edit_message", side_effect=[RuntimeError("telegram edit failed"), None])
+    @patch("management.views._tg_answer_callback")
+    def test_callback_retry_repairs_message_after_decision_committed(self, answer, edit):
+        from management.ig_bot_models import IgPaymentConfirmationReview, IgPaymentReviewDecision
+        from management.models import IgBotNotification, IgClient
+        from management.views import management_bot_webhook
+
+        client = IgClient.get_or_create_for_sender("telegram-retry-client")
+        review = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            dedupe_key="telegram-review-retry",
+            evidence={},
+        )
+        notification = IgBotNotification.objects.create(
+            dedupe_key=review.dedupe_key,
+            event_type="payment_review",
+            payload={"text": "Review", "chat_id": "777", "media": []},
+            status=IgBotNotification.Status.SENT,
+            telegram_message_id="90",
+        )
+
+        def callback_request(callback_id):
+            return RequestFactory().post(
+                "/management/telegram/webhook/token",
+                data=json.dumps({
+                    "callback_query": {
+                        "id": callback_id,
+                        "data": f"igpay:confirm:{review.pk}",
+                        "from": {"id": 777, "username": "owner"},
+                        "message": {
+                            "chat": {"id": 777, "type": "private"},
+                            "message_id": 90,
+                            "text": "Review",
+                        },
+                    }
+                }),
+                content_type="application/json",
+            )
+
+        with self.assertRaisesMessage(RuntimeError, "telegram edit failed"):
+            management_bot_webhook(callback_request("cb-retry-1"), "token")
+
+        review.refresh_from_db()
+        self.assertEqual(review.status, IgPaymentConfirmationReview.Status.CONFIRMED)
+        self.assertEqual(IgPaymentReviewDecision.objects.filter(review=review).count(), 1)
+
+        response = management_bot_webhook(callback_request("cb-retry-2"), "token")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(edit.call_count, 2)
+        self.assertEqual(IgPaymentReviewDecision.objects.filter(review=review).count(), 1)
+        notification.refresh_from_db()
+        self.assertEqual(notification.status, IgBotNotification.Status.RESOLVED)
+        answer.assert_called_once_with("token", "cb-retry-2", "Дію вже виконано")

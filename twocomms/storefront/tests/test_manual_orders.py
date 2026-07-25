@@ -7,7 +7,8 @@ from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.db import connection
-from django.test import TestCase
+from django.http import HttpResponse
+from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
@@ -57,6 +58,28 @@ def _delivery_payload():
     }
 
 
+@override_settings(
+    SECURE_SSL_REDIRECT=False,
+    NOVA_POSHTA_FALLBACK_ENABLED=False,
+    COMPRESS_ENABLED=False,
+    COMPRESS_OFFLINE=False,
+    CACHES={
+        'default': {
+            'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+        },
+        'fragments': {
+            'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+        },
+    },
+    STORAGES={
+        'default': {
+            'BACKEND': 'django.core.files.storage.FileSystemStorage',
+        },
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    },
+)
 class ManualOrderCreateTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -131,12 +154,12 @@ class ManualOrderCreateTests(TestCase):
     def test_confirmed_review_prefills_matched_catalog_product(self):
         from management.ig_bot_models import IgPaymentConfirmationReview
         from management.models import IgClient
+        from management.services.ig_payment_review import record_review_decision
 
         ig_client = IgClient.get_or_create_for_sender('manual-review-prefill')
         review = IgPaymentConfirmationReview.objects.create(
             client=ig_client,
             dedupe_key='manual-review-prefill',
-            status=IgPaymentConfirmationReview.Status.CONFIRMED,
             evidence={
                 'order_draft': {
                     'delivery': {'full_name': 'Яна Ніколаєнко', 'phone': '0502034719'},
@@ -156,9 +179,15 @@ class ManualOrderCreateTests(TestCase):
                 },
             },
         )
-        response = self.client.get(self.url, {'ig_payment_review': review.pk})
+        record_review_decision(review, actor=self.admin, decision='manager_verified')
+        with mock.patch(
+            'storefront.views.manual_orders.render',
+            return_value=HttpResponse(),
+        ) as render_mock:
+            response = self.client.get(self.url, {'ig_payment_review': review.pk})
         self.assertEqual(response.status_code, 200)
-        initial = json.loads(response.context['order_initial_json'])
+        context = render_mock.call_args.args[2]
+        initial = json.loads(context['order_initial_json'])
         self.assertEqual(initial['items'][0]['kind'], 'catalog')
         self.assertEqual(initial['items'][0]['product_id'], self.product.pk)
         self.assertEqual(initial['items'][0]['color_variant_id'], self.variant.pk)
@@ -168,14 +197,15 @@ class ManualOrderCreateTests(TestCase):
     def test_confirmed_receipt_review_creates_unverified_order_without_purchase(self):
         from management.ig_bot_models import IgPaymentConfirmationReview
         from management.models import IgClient
+        from management.services.ig_payment_review import record_review_decision
 
         ig_client = IgClient.get_or_create_for_sender('manual-review-unverified')
         review = IgPaymentConfirmationReview.objects.create(
             client=ig_client,
             dedupe_key='manual-review-unverified',
-            status=IgPaymentConfirmationReview.Status.CONFIRMED,
             evidence={},
         )
+        record_review_decision(review, actor=self.admin, decision='manager_verified')
         payload = {
             'payment_review_id': review.pk,
             'full_name': 'Яна Ніколаєнко',
@@ -200,7 +230,64 @@ class ManualOrderCreateTests(TestCase):
         self.assertEqual(order.pay_type, 'online_full')
         self.assertTrue(order.payment_payload['manual_payment_evidence_confirmed'])
         self.assertFalse(order.payment_payload['provider_payment_confirmed'])
-        self.assertFalse(UserAction.objects.filter(action_type='purchase', order=order).exists())
+        self.assertFalse(
+            UserAction.objects.filter(action_type='purchase', order_id=order.pk).exists()
+        )
+
+    def test_legacy_confirmed_review_without_decision_does_not_prefill_order(self):
+        from management.ig_bot_models import IgPaymentConfirmationReview
+        from management.models import IgClient
+
+        ig_client = IgClient.get_or_create_for_sender('manual-review-legacy-prefill')
+        review = IgPaymentConfirmationReview.objects.create(
+            client=ig_client,
+            dedupe_key='manual-review-legacy-prefill',
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            evidence={'order_draft': {'items': [{'product_id': self.product.pk}]}},
+        )
+
+        with mock.patch(
+            'storefront.views.manual_orders.render',
+            return_value=HttpResponse(),
+        ) as render_mock:
+            response = self.client.get(self.url, {'ig_payment_review': review.pk})
+
+        self.assertEqual(response.status_code, 200)
+        context = render_mock.call_args.args[2]
+        self.assertEqual(context['order_initial_json'], '')
+
+    def test_legacy_confirmed_review_without_decision_cannot_create_order(self):
+        from management.ig_bot_models import IgPaymentConfirmationReview
+        from management.models import IgClient
+
+        ig_client = IgClient.get_or_create_for_sender('manual-review-legacy-create')
+        review = IgPaymentConfirmationReview.objects.create(
+            client=ig_client,
+            dedupe_key='manual-review-legacy-create',
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            evidence={},
+        )
+        payload = {
+            'payment_review_id': review.pk,
+            'full_name': 'Яна Ніколаєнко',
+            'phone': '0502034719',
+            'delivery_method': 'manual',
+            'city': 'Харків',
+            'np_office': 'Поштомат 21586',
+            'items': [{
+                'kind': 'catalog',
+                'product_id': self.product.pk,
+                'color_variant_id': self.variant.pk,
+                'size': 'S',
+                'qty': 1,
+                'unit_price': 790,
+            }],
+        }
+
+        response, _notify = self._post(payload)
+
+        self.assertEqual(response.status_code, 409)
+        self.assertFalse(Order.objects.exists())
 
     def test_create_form_contains_fit_and_thermo_controls(self):
         response = self.client.get(self.url)

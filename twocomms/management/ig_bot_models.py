@@ -36,6 +36,7 @@ __all__ = [
     "IgBotNotification",
     "IgBotNotificationAudit",
     "IgPaymentConfirmationReview",
+    "IgPaymentReviewDecision",
 ]
 
 
@@ -741,6 +742,117 @@ class IgPaymentConfirmationReview(models.Model):
             models.Index(fields=["status", "-created_at"], name="ig_payreview_status_dt"),
             models.Index(fields=["client", "-id"], name="ig_payreview_client_id"),
         ]
+
+    @property
+    def manual_payment_truth(self) -> str:
+        decision = self.decisions.order_by("-id").first()
+        return decision.decision if decision else ""
+
+
+class _AppendOnlyDecisionQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValueError("IgPaymentReviewDecision is append-only")
+
+    def delete(self):
+        raise ValueError("IgPaymentReviewDecision is append-only")
+
+
+class _AppendOnlyDecisionManager(models.Manager.from_queryset(_AppendOnlyDecisionQuerySet)):
+    pass
+
+
+class IgPaymentReviewDecision(models.Model):
+    """Append-only, source-qualified operator decision for payment evidence.
+
+    This record is intentionally separate from ``IgPaymentProjection``. A
+    manager can verify an IBAN receipt without pretending that a provider ledger
+    webhook was received, and a later provider event can still disagree.
+    """
+
+    class Decision(models.TextChoices):
+        MANAGER_VERIFIED = "manager_verified", _("Підтверджено менеджером")
+        MANAGER_REJECTED = "manager_rejected", _("Відхилено менеджером")
+        EVIDENCE_ACCEPTED_PROVIDER_UNVERIFIED = (
+            "evidence_accepted_provider_unverified",
+            _("Доказ прийнято, provider не підтверджено"),
+        )
+
+    class ActorSource(models.TextChoices):
+        MANAGEMENT_USER = "management_user", _("Користувач management")
+        TELEGRAM_USER = "telegram_user", _("Користувач Telegram")
+        LEGACY_IMPORT = "legacy_import", _("Імпортовано з legacy review")
+
+    class VerificationScope(models.TextChoices):
+        FULL_PAYMENT = "full_payment", _("Повна оплата")
+        PREPAYMENT = "prepayment", _("Передоплата")
+        PAYMENT_CLAIM = "payment_claim", _("Заявлений платіж")
+
+    review = models.ForeignKey(
+        "management.IgPaymentConfirmationReview",
+        on_delete=models.PROTECT,
+        related_name="decisions",
+        db_constraint=False,
+    )
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.PROTECT,
+        related_name="payment_review_decisions",
+        db_constraint=False,
+    )
+    decision = models.CharField(max_length=48, choices=Decision.choices, db_index=True)
+    verification_source = models.CharField(max_length=32, default="manager", db_index=True)
+    verification_scope = models.CharField(max_length=32, choices=VerificationScope.choices)
+    reason_code = models.CharField(max_length=64, blank=True, default="")
+    reason_text = models.CharField(max_length=500, blank=True, default="")
+    evidence_watermark_message_id = models.PositiveBigIntegerField(default=0)
+    review_status_before = models.CharField(max_length=16, blank=True, default="")
+    review_status_after = models.CharField(max_length=16, blank=True, default="")
+    stage_before = models.CharField(max_length=32, blank=True, default="")
+    stage_after = models.CharField(max_length=32, blank=True, default="")
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="ig_payment_review_decisions",
+        db_constraint=False,
+    )
+    actor_source = models.CharField(max_length=32, choices=ActorSource.choices)
+    actor_external_id = models.CharField(max_length=128)
+    actor_label = models.CharField(max_length=150, blank=True, default="")
+    telegram_decision = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    objects = _AppendOnlyDecisionManager()
+
+    class Meta:
+        verbose_name = _("Рішення щодо перевірки оплати Instagram")
+        verbose_name_plural = _("Рішення щодо перевірок оплати Instagram")
+        ordering = ["-id"]
+        indexes = [
+            models.Index(fields=["review", "-id"], name="ig_paydec_review_id"),
+            models.Index(fields=["client", "-created_at"], name="ig_paydec_client_dt"),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=~models.Q(actor_external_id=""),
+                name="ig_paydec_actor_required",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    ~models.Q(decision="manager_rejected")
+                    | ~models.Q(reason_code="")
+                ),
+                name="ig_paydec_reject_reason",
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk and not kwargs.get("force_insert"):
+            raise ValueError("IgPaymentReviewDecision is append-only")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgPaymentReviewDecision is append-only")
 
 
 class IgDealItem(models.Model):

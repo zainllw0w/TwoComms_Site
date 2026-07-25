@@ -600,6 +600,26 @@ def _collect_items(raw_items):
     return raw_items, products_map, variants_map
 
 
+def _authoritative_manager_payment_decision(review):
+    from management.ig_bot_models import IgPaymentReviewDecision
+
+    decision = review.decisions.order_by("-id").first()
+    if not decision:
+        return None
+    if decision.decision != IgPaymentReviewDecision.Decision.MANAGER_VERIFIED:
+        return None
+    if decision.verification_source != "manager":
+        return None
+    if decision.actor_source not in {
+        IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+        IgPaymentReviewDecision.ActorSource.TELEGRAM_USER,
+    }:
+        return None
+    if not str(decision.actor_external_id or "").strip():
+        return None
+    return decision
+
+
 def _build_ig_review_initial(review):
     """Build an editable manual-order draft from a confirmed IG review."""
     deal = review.deal
@@ -768,7 +788,7 @@ def manual_order_create(request):
                 .filter(pk=review_id, status=IgPaymentConfirmationReview.Status.CONFIRMED, client__hidden_at__isnull=True)
                 .first()
             )
-            if review:
+            if review and _authoritative_manager_payment_decision(review):
                 prefill = _build_ig_review_initial(review)
         return render(request, 'pages/admin_manual_order.html', _form_context(prefill=prefill))
 
@@ -787,8 +807,11 @@ def manual_order_create(request):
             .filter(pk=review_id, status=IgPaymentConfirmationReview.Status.CONFIRMED, client__hidden_at__isnull=True)
             .first()
         )
-        if not payment_review:
-            return JsonResponse({'success': False, 'message': 'Підтвердження оплати недійсне або вже скасоване.'}, status=409)
+        if not payment_review or not _authoritative_manager_payment_decision(payment_review):
+            return JsonResponse({
+                'success': False,
+                'message': 'Підтвердження оплати не має авторизованого рішення менеджера.',
+            }, status=409)
         if payment_review.order_id:
             existing = payment_review.order
             return JsonResponse({
@@ -845,8 +868,13 @@ def manual_order_create(request):
                     )
                     .first()
                 )
-                if not payment_review:
-                    raise ValueError('Підтвердження оплати недійсне або вже скасоване.')
+                if (
+                    not payment_review
+                    or not _authoritative_manager_payment_decision(payment_review)
+                ):
+                    raise ValueError(
+                        'Підтвердження оплати не має авторизованого рішення менеджера.'
+                    )
                 if payment_review.order_id:
                     existing = payment_review.order
                     return JsonResponse({

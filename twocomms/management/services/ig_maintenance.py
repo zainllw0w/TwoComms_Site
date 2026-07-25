@@ -7,6 +7,7 @@ import json
 import math
 import os
 import tempfile
+import threading
 import time
 import uuid
 from contextlib import contextmanager
@@ -20,6 +21,7 @@ NOTIFICATION_SEND_LOCK_FILE = str(PROJECT_ROOT / "tmp" / "ig_bot_notification_se
 DEFAULT_MAINTENANCE_SECONDS = 15 * 60
 MAX_MAINTENANCE_SECONDS = 60 * 60
 MAX_CLOCK_SKEW_SECONDS = 300
+_THREAD_LOCK_STATE = threading.local()
 
 
 class MaintenanceLeaseConflict(RuntimeError):
@@ -28,12 +30,22 @@ class MaintenanceLeaseConflict(RuntimeError):
 
 @contextmanager
 def _exclusive_file_lock(path: str):
+    canonical_path = os.path.realpath(path)
+    held_paths = getattr(_THREAD_LOCK_STATE, "held_paths", None)
+    if held_paths is None:
+        held_paths = set()
+        _THREAD_LOCK_STATE.held_paths = held_paths
+    if canonical_path in held_paths:
+        yield
+        return
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "a+") as lock_file:
         fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        held_paths.add(canonical_path)
         try:
             yield
         finally:
+            held_paths.discard(canonical_path)
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 

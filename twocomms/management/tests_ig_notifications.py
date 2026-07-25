@@ -16,7 +16,10 @@ from management.services import instagram_bot as bot
 
 
 User = get_user_model()
-MGMT = override_settings(ROOT_URLCONF="twocomms.urls_management")
+MGMT = override_settings(
+    ROOT_URLCONF="twocomms.urls_management",
+    SECURE_SSL_REDIRECT=False,
+)
 
 
 class InstagramBotNotificationTests(TestCase):

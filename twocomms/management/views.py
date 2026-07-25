@@ -4102,7 +4102,11 @@ def management_bot_webhook(request, token):
                 _tg_answer_callback(bot_token, cb_id, 'Невірний ID')
                 return JsonResponse({'ok': True})
             from management.ig_bot_models import IgPaymentConfirmationReview
-            from management.services.ig_payment_review import cancel_review, confirm_review
+            from management.services.ig_payment_review import (
+                cancel_review,
+                confirm_review,
+                payment_review_order_url,
+            )
 
             review = (
                 IgPaymentConfirmationReview.objects.select_related('client')
@@ -4124,13 +4128,13 @@ def management_bot_webhook(request, token):
                 if action == 'confirm'
                 else IgPaymentConfirmationReview.Status.CANCELLED
             )
-            if review.status != IgPaymentConfirmationReview.Status.PENDING:
-                callback_text = (
-                    'Дію вже виконано'
-                    if review.status == desired_status
-                    else f'Поточний статус: {review.get_status_display()}'
+            already_decided = review.status != IgPaymentConfirmationReview.Status.PENDING
+            if already_decided and review.status != desired_status:
+                _tg_answer_callback(
+                    bot_token,
+                    cb_id,
+                    f'Поточний статус: {review.get_status_display()}',
                 )
-                _tg_answer_callback(bot_token, cb_id, callback_text)
                 return JsonResponse({'ok': True, 'status': review.status})
             from django.utils import timezone as django_timezone
             telegram_decision = {
@@ -4141,55 +4145,61 @@ def management_bot_webhook(request, token):
                 'actor_id': getattr(actor, 'pk', None),
                 'decided_at': django_timezone.now().isoformat(),
             }
-            review = (
-                confirm_review(review, actor=actor, telegram_decision=telegram_decision)
-                if action == 'confirm'
-                else cancel_review(
-                    review,
-                    actor=actor,
-                    reason='Скасовано з Telegram',
-                    telegram_decision=telegram_decision,
+            if not already_decided:
+                review = (
+                    confirm_review(review, actor=actor, telegram_decision=telegram_decision)
+                    if action == 'confirm'
+                    else cancel_review(
+                        review,
+                        actor=actor,
+                        reason_code='telegram_rejected',
+                        reason='Скасовано з Telegram',
+                        telegram_decision=telegram_decision,
+                    )
                 )
-            )
-            if getattr(review, '_transitioned', False):
-                if notification:
-                    if notification.status == IgBotNotification.Status.SENT:
-                        notification.status = IgBotNotification.Status.RESOLVED
-                        notification.failure_kind = f'payment_review_{review.status}_telegram'
-                    notification.payload = {
-                        **(notification.payload if isinstance(notification.payload, dict) else {}),
-                        'review_status': review.status,
-                        'actor_id': getattr(actor, 'pk', None),
-                    }
-                    notification.save(update_fields=['status', 'failure_kind', 'payload', 'updated_at'])
-                base = getattr(settings, 'MANAGEMENT_BASE_URL', 'https://management.twocomms.shop').rstrip('/')
-                old_text = str(msg.get('text') or 'Перевірка оплати')
-                if review.status == IgPaymentConfirmationReview.Status.CONFIRMED:
-                    final_text = old_text + '\n\n✅ Заяву/чек підтверджено менеджером. Платіж провайдера ще не підтверджено.'
-                    order_path = reverse('manual_order_create') + f'?ig_payment_review={review.pk}'
-                    keyboard = {'inline_keyboard': [[
-                        {'text': 'Сформувати замовлення', 'url': f'{base}{order_path}'},
-                    ], [
-                        {'text': 'Відкрити перевірку', 'url': f'{base}/bot/?payment_review={review.pk}'},
-                    ]]}
-                    callback_text = 'Підтверджено'
-                else:
-                    final_text = old_text + '\n\n❌ Заяву/чек відхилено менеджером.'
-                    keyboard = {'inline_keyboard': [[
-                        {'text': 'Відкрити перевірку', 'url': f'{base}/bot/?payment_review={review.pk}'},
-                    ]]}
-                    callback_text = 'Відхилено'
-                _tg_edit_message(
+            if review.status != desired_status:
+                _tg_answer_callback(
                     bot_token,
-                    chat_id,
-                    message_id,
-                    final_text[:3900],
-                    reply_markup=keyboard,
-                    parse_mode=None,
+                    cb_id,
+                    f'Поточний статус: {review.get_status_display()}',
                 )
-                _tg_answer_callback(bot_token, cb_id, callback_text)
                 return JsonResponse({'ok': True, 'status': review.status})
-            _tg_answer_callback(bot_token, cb_id, 'Дію вже виконано')
+            already_decided = already_decided or not getattr(review, '_transitioned', False)
+            if notification:
+                if notification.status == IgBotNotification.Status.SENT:
+                    notification.status = IgBotNotification.Status.RESOLVED
+                    notification.failure_kind = f'payment_review_{review.status}_telegram'
+                notification.payload = {
+                    **(notification.payload if isinstance(notification.payload, dict) else {}),
+                    'review_status': review.status,
+                    'actor_id': getattr(actor, 'pk', None),
+                }
+                notification.save(update_fields=['status', 'failure_kind', 'payload', 'updated_at'])
+            base = getattr(settings, 'MANAGEMENT_BASE_URL', 'https://management.twocomms.shop').rstrip('/')
+            old_text = str(msg.get('text') or 'Перевірка оплати')
+            if review.status == IgPaymentConfirmationReview.Status.CONFIRMED:
+                final_text = old_text + '\n\n✅ Заяву/чек підтверджено менеджером. Платіж провайдера ще не підтверджено.'
+                keyboard = {'inline_keyboard': [[
+                    {'text': 'Сформувати замовлення', 'url': payment_review_order_url(review.pk)},
+                ], [
+                    {'text': 'Відкрити перевірку', 'url': f'{base}/bot/?payment_review={review.pk}'},
+                ]]}
+                callback_text = 'Дію вже виконано' if already_decided else 'Підтверджено'
+            else:
+                final_text = old_text + '\n\n❌ Заяву/чек відхилено менеджером.'
+                keyboard = {'inline_keyboard': [[
+                    {'text': 'Відкрити перевірку', 'url': f'{base}/bot/?payment_review={review.pk}'},
+                ]]}
+                callback_text = 'Дію вже виконано' if already_decided else 'Відхилено'
+            _tg_edit_message(
+                bot_token,
+                chat_id,
+                message_id,
+                final_text[:3900],
+                reply_markup=keyboard,
+                parse_mode=None,
+            )
+            _tg_answer_callback(bot_token, cb_id, callback_text)
             return JsonResponse({'ok': True, 'status': review.status})
 
         # ==================== CALLBACK QUERIES (ADMIN PAYOUTS) ====================
