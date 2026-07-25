@@ -1,4 +1,5 @@
 import io
+import json
 import tempfile
 
 from django.contrib.auth.models import User
@@ -137,6 +138,9 @@ class BlogPublicTests(TestCase):
         self.assertContains(first, '"@type": "BlogPosting"', html=False)
         self.assertContains(first, '"mainEntityOfPage": {"@type": "WebPage"', html=False)
         self.assertContains(first, self.post.source_url)
+        article_schema = json.loads(first.context["article_schema"])
+        self.assertEqual(article_schema["publisher"]["@id"], "https://twocomms.shop/#organization")
+        self.assertEqual(article_schema["image"], ["https://testserver/static/img/social-preview.jpg"])
 
     def test_article_page_renders_editorial_source_and_custom_print_cta_blocks_when_attached(self):
         BlogPostBlock.objects.create(

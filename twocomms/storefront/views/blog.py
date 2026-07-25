@@ -11,6 +11,7 @@ from django.db.models import Count, F, IntegerField, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseGone, HttpResponsePermanentRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.templatetags.static import static
 from django.urls import reverse
 from django.utils.formats import date_format
 from django.utils import timezone, translation
@@ -19,7 +20,7 @@ from django.utils.translation import gettext as _
 from storefront.forms import BlogCategoryForm, BlogMediaAssetForm, BlogPostForm
 from storefront.models import BlogCategory, BlogPost, BlogPostBlock, BlogPostView
 from storefront.services.blog_blocks import create_blog_promo_claim, localize_internal_url, render_post_blocks, sync_post_blocks
-from storefront.tracking import is_bot
+from storefront.tracking import VISITOR_COOKIE_NAME, is_bot
 from storefront.utm_utils import get_client_ip
 
 
@@ -45,6 +46,33 @@ CUSTOM_PRINT_RU_SLUG_ALIASES = {
     "futbolki-s-logotipom-dlya-brenda": "futbolky-z-logotypom-dlya-brendu",
     "kastomnaya-pechat-dlya-instagram-magazinov": "kastomnyy-druk-dlya-instagram-magazyniv",
     "futbolka-ili-hudi-s-printom-v-podarok": "futbolka-abo-hudi-z-pryntom-u-podarunok",
+}
+
+CUSTOM_PRINT_SCHEMA_COPY = {
+    "uk": {
+        "service": "Кастомний друк на одязі",
+        "technology": "DTF-друк",
+        "tshirts": "Футболки для принту",
+        "hoodies": "Худі для принту",
+        "longsleeves": "Лонгсліви для принту",
+        "action": "Створити кастомний принт",
+    },
+    "ru": {
+        "service": "Кастомная печать на одежде",
+        "technology": "DTF-печать",
+        "tshirts": "Футболки для принта",
+        "hoodies": "Худи для принта",
+        "longsleeves": "Лонгсливы для принта",
+        "action": "Создать кастомный принт",
+    },
+    "en": {
+        "service": "Custom printing on clothing",
+        "technology": "DTF printing",
+        "tshirts": "T-shirts for custom printing",
+        "hoodies": "Hoodies for custom printing",
+        "longsleeves": "Long sleeves for custom printing",
+        "action": "Create a custom print",
+    },
 }
 
 
@@ -100,8 +128,14 @@ def _blog_context(request, *, title: str | None = None) -> dict:
 
 
 def _make_viewer_key(request, user_agent: str, ip: str | None) -> str:
-    if getattr(request, "analytics_visitor_id", ""):
-        raw = f"analytics:{request.analytics_visitor_id}"
+    # Anonymous cacheable GETs intentionally do not set ``twc_vid`` until the
+    # lazy bootstrap runs. The middleware still assigns a transient in-memory
+    # ID for that request, so trusting it here would count every refresh as a
+    # new reader. Only use the analytics ID when the browser actually sent the
+    # stable cookie; otherwise fall back to session/user/IP+UA identity.
+    analytics_cookie = (request.COOKIES.get(VISITOR_COOKIE_NAME) or "").strip()
+    if analytics_cookie:
+        raw = f"analytics:{analytics_cookie}"
     elif getattr(request, "session", None) and request.session.session_key:
         raw = f"session:{request.session.session_key}"
     elif getattr(request, "user", None) and request.user.is_authenticated:
@@ -262,6 +296,8 @@ def blog_post(request, slug):
 
     language_code = (translation.get_language() or settings.LANGUAGE_CODE or "uk").split("-")[0]
     article_url = _absolute_url(request, post.get_absolute_url())
+    site_url = f"{(getattr(settings, 'SITE_BASE_URL', '') or _absolute_url(request, reverse('home'))).rstrip('/')}/"
+    organization_id = f"{site_url}#organization"
     article_schema = {
         "@context": "https://schema.org",
         "@type": "BlogPosting",
@@ -270,8 +306,8 @@ def blog_post(request, slug):
         "datePublished": post.published_at.isoformat(),
         "dateModified": post.updated_at.isoformat(),
         "inLanguage": language_code,
-        "author": {"@type": "Organization", "name": "TwoComms"},
-        "publisher": {"@type": "Organization", "name": "TwoComms"},
+        "author": {"@type": "Organization", "@id": organization_id, "name": "TwoComms", "url": site_url},
+        "publisher": {"@type": "Organization", "@id": organization_id, "name": "TwoComms", "url": site_url},
         "mainEntityOfPage": {"@type": "WebPage", "@id": article_url},
         "url": article_url,
         "articleSection": post.category.name,
@@ -280,11 +316,11 @@ def blog_post(request, slug):
     if post.seo_keywords:
         article_schema["keywords"] = post.seo_keywords
     post_social_image_url = _absolute_url(request, post.cover_image.url) if post.cover_image else ""
-    if post_social_image_url:
-        article_schema["image"] = [post_social_image_url]
+    article_schema["image"] = [post_social_image_url or _absolute_url(request, static("img/social-preview.jpg"))]
     blocks_html, block_schema = render_post_blocks(post, request=request)
     post_cta_url = localize_internal_url(post.cta_url, language_code) if post.cta_url else ""
     if (post.cta_url or "").rstrip("/") == "/custom-print":
+        schema_copy = CUSTOM_PRINT_SCHEMA_COPY.get(language_code, CUSTOM_PRINT_SCHEMA_COPY["uk"])
         custom_print_url = _absolute_url(request, post_cta_url)
         tshirts_url = _absolute_url(request, localize_internal_url("/catalog/tshirts/", language_code))
         hoodie_url = _absolute_url(request, localize_internal_url("/catalog/hoodie/", language_code))
@@ -294,20 +330,20 @@ def blog_post(request, slug):
                 "about": [
                     {
                         "@type": "Service",
-                        "name": "Кастомний друк на одязі" if language_code == "uk" else "Кастомная печать на одежде",
-                        "provider": {"@type": "Organization", "name": "TwoComms"},
+                        "name": schema_copy["service"],
+                        "provider": {"@type": "Organization", "@id": organization_id, "name": "TwoComms"},
                         "url": custom_print_url,
                     },
-                    {"@type": "Thing", "name": "DTF-друк" if language_code == "uk" else "DTF-печать"},
+                    {"@type": "Thing", "name": schema_copy["technology"]},
                 ],
                 "mentions": [
-                    {"@type": "Product", "name": "Футболки для принту" if language_code == "uk" else "Футболки для принта", "url": tshirts_url},
-                    {"@type": "Product", "name": "Худі для принту" if language_code == "uk" else "Худи для принта", "url": hoodie_url},
-                    {"@type": "Product", "name": "Лонгсліви для принту" if language_code == "uk" else "Лонгсливы для принта", "url": longsleeve_url},
+                    {"@type": "CollectionPage", "name": schema_copy["tshirts"], "url": tshirts_url},
+                    {"@type": "CollectionPage", "name": schema_copy["hoodies"], "url": hoodie_url},
+                    {"@type": "CollectionPage", "name": schema_copy["longsleeves"], "url": longsleeve_url},
                 ],
                 "potentialAction": {
                     "@type": "OrderAction",
-                    "name": "Створити кастомний принт" if language_code == "uk" else "Создать кастомный принт",
+                    "name": schema_copy["action"],
                     "target": {"@type": "EntryPoint", "urlTemplate": custom_print_url},
                 },
             }
