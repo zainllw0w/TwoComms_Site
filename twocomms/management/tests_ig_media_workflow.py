@@ -573,6 +573,27 @@ class NegotiatedPriceEvidenceTests(SimpleTestCase):
         self.assertEqual(extracted["order_draft"]["quoted_total"], "790")
         self.assertEqual(extracted["order_draft"]["items"][0]["unit_price"], "790.00")
 
+    def test_multi_line_manager_total_remains_visible_without_unsafe_allocation(self):
+        from management.services.ig_payment_review import (
+            _apply_catalog_matches_to_draft,
+            _apply_validated_conversation_price_to_draft,
+            extract_payment_review_evidence,
+        )
+
+        messages = [
+            {"id": 1, "role": "user", "text": "Мені потрібно 2 футболки: 1. Базова S 2. Оверсайз XS"},
+            {"id": 2, "role": "manager", "text": "Сума: 2100 грн"},
+            {"id": 3, "role": "user", "text": "По повній передоплаті"},
+        ]
+        extracted = extract_payment_review_evidence(messages)
+        matches = [{"status": "matched", "product_id": 111, "title": "Футболка Харків"}]
+        _apply_catalog_matches_to_draft(extracted["order_draft"], matches)
+        _apply_validated_conversation_price_to_draft(extracted["order_draft"], messages, matches)
+
+        self.assertEqual(extracted["order_draft"]["quoted_total"], "2100")
+        self.assertTrue(all(item["unit_price"] is None for item in extracted["order_draft"]["items"]))
+        self.assertIn("conversation_price_allocation_required", extracted["order_draft"]["uncertainty_reasons"])
+
 
 class PaymentReviewDealBindingTests(SimpleTestCase):
     def _deal(self, **overrides):
@@ -904,6 +925,29 @@ class CatalogAssignmentTests(SimpleTestCase):
         _apply_catalog_matches_to_draft(draft, matches)
         self.assertEqual([item["product_id"] for item in draft["items"]], [11, 22])
         self.assertEqual(draft["items"][0]["catalog"]["url"], "https://twocomms.shop/p/kharkiv/")
+        self.assertNotIn("catalog_product_not_identified", draft["uncertainty_reasons"])
+
+    def test_one_catalog_product_can_bind_classic_and_oversize_lines_from_same_message(self):
+        from management.services.ig_payment_review import _apply_catalog_matches_to_draft
+
+        draft = {
+            "items": [
+                {"title": "Базова футболка", "fit": "classic", "size": "S", "source_message_id": 233},
+                {"title": "Оверсайз", "fit": "oversize", "size": "XS", "source_message_id": 233},
+            ],
+            "uncertainty_reasons": ["catalog_product_not_identified"],
+        }
+        matches = [{
+            "status": "matched",
+            "product_id": 111,
+            "title": "Футболка «Харків Вокзальна»",
+            "url": "https://twocomms.shop/product/futbolka-kharkiv-vokzalna/",
+            "source_message_ids": [233],
+        }]
+
+        _apply_catalog_matches_to_draft(draft, matches)
+
+        self.assertEqual([item["product_id"] for item in draft["items"]], [111, 111])
         self.assertNotIn("catalog_product_not_identified", draft["uncertainty_reasons"])
 
     def test_two_matches_from_one_purchase_screenshot_create_two_draft_lines(self):

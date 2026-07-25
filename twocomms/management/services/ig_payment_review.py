@@ -592,7 +592,17 @@ def _apply_validated_conversation_price_to_draft(draft: dict, messages, catalog_
             next_text = next_message.get("text") if isinstance(next_message, dict) else getattr(next_message, "text", "") if next_message is not None else ""
             if role == "manager" and next_role in {"user", "customer", "client"} and _PRICE_ACCEPTANCE_RE.search(str(next_text or "")):
                 manager_amount_accepted = True
-    if commercial_amount_seen and not (manager_amount_accepted and len(items) > 1):
+    if commercial_amount_seen and len(items) > 1:
+        # Keep the negotiated conversation total visible for the operator, but
+        # never invent a per-line split for a multi-product order.
+        for item in items:
+            item["unit_price"] = None
+        if not manager_amount_accepted:
+            reasons = list(draft.get("uncertainty_reasons") or [])
+            if "conversation_price_allocation_required" not in reasons:
+                reasons.append("conversation_price_allocation_required")
+            draft["uncertainty_reasons"] = reasons
+    elif commercial_amount_seen:
         draft["quoted_total"] = ""
         for item in items:
             item["unit_price"] = None
@@ -783,6 +793,11 @@ def _apply_catalog_matches_to_draft(draft: dict, matches: list[dict]) -> None:
             bind(item, match)
             items.append(item)
     else:
+        # A single catalog product may cover several fit lines from one
+        # customer message (for example classic S plus oversize XS with one
+        # shared print). Only reserve a match when multiple distinct products
+        # must be mapped; otherwise reusing the sole match is intentional.
+        reserve_match = len(confirmed) > 1
         used_product_ids = set()
         for item in items:
             source_message_id = item.get("source_message_id")
@@ -790,13 +805,17 @@ def _apply_catalog_matches_to_draft(draft: dict, matches: list[dict]) -> None:
                 match for match in confirmed
                 if source_message_id
                 and source_message_id in (match.get("source_message_ids") or [])
-                and match.get("product_id") not in used_product_ids
+                and (not reserve_match or match.get("product_id") not in used_product_ids)
             ]
             if len(candidates) == 1:
                 bind(item, candidates[0])
-                used_product_ids.add(candidates[0].get("product_id"))
+                if reserve_match:
+                    used_product_ids.add(candidates[0].get("product_id"))
         unresolved_matches = [
-            match for match in confirmed if match.get("product_id") not in used_product_ids
+            match for match in confirmed
+            if match.get("product_id") not in {
+                item.get("product_id") for item in items if item.get("product_id")
+            }
         ]
         if unresolved_matches:
             draft["catalog_candidates"] = unresolved_matches

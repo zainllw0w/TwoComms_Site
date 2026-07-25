@@ -1057,6 +1057,22 @@ The approved architecture is documented in `docs/plans/2026-07-23-management-ins
     - **Acceptance:** repeated provider media is downloaded/persisted once by stable source identity; identical downloaded bytes are sent to vision once; every duplicate source media index remains attached to the hydrated match for audit and order-line binding; different images remain independent; failed/unknown media stays fail-closed.
     - **Tests:** duplicate provider identity with different URLs, duplicate bytes/source-index preservation, distinct product images, expired-source fallback, and no-match behavior.
     - **Priority:** P0 — duplicate provider delivery must not change an otherwise verified product identity.
+  - [ ] **P0.B5be — one confirmed print cannot populate classic and oversize lines from the same order message.**
+    - **Symptom:** a customer orders classic S and oversize XS with the same print in one message, but the single confirmed catalog product is reserved for the first line and the second stays unresolved.
+    - **Root cause:** draft binding treated every catalog `product_id` as consumable once, even when several fit lines share the same source message and explicitly use one print.
+    - **Risk:** Telegram/admin show a false unresolved warning and manual-order prefill can omit or misidentify one of the paid garments.
+    - **Affected branches:** catalog-to-draft binding, same-print multi-fit orders, Telegram review summary, management review UI, and manual-order prefill.
+    - **Acceptance:** one sole confirmed product may populate every compatible fit line from the same source message; multiple distinct catalog matches remain one-to-one/fail-closed when line mapping is ambiguous.
+    - **Tests:** classic plus oversize with one print/source message, two products with distinct source messages, and two products in one screenshot requiring manual mapping.
+    - **Priority:** P0 — every physical order line must retain the verified product identity.
+  - [ ] **P0.B5bf — negotiated multi-line total is hidden when per-line allocation is unknown.**
+    - **Symptom:** the manager states a total of `2100 грн` for two garments, but the review alert displays `Сума з переписки: не вказано` because individual unit prices cannot be derived safely.
+    - **Root cause:** price validation cleared the whole quoted total whenever it could not authorize a per-line allocation, conflating evidence visibility with permission to split the amount.
+    - **Risk:** the operator can replace a negotiated discount with catalog prices or overlook the actual amount shown in the payment conversation.
+    - **Affected branches:** payment-review evidence, Telegram/admin totals, negotiated discounts, manual-order prefill, and price allocation.
+    - **Acceptance:** preserve the manager-provided order total as auditable conversation evidence; leave unit prices empty and require manual allocation; receipt/prepayment amounts and AI suggestions never replace the negotiated total.
+    - **Tests:** two-line manager total without allocation, accepted single-line price, customer-only counteroffer, later superseding offer, and receipt amount isolation.
+    - **Priority:** P0 — order creation must preserve human-negotiated commercial truth without inventing prices.
   - [x] **P1.B5c Replace the global long-held reply lock with a bounded two-level permission barrier.**
   - **Priority:** P1 — correctness is currently fail-closed, but latency and operator availability degrade under slow AI/provider calls.
   - **Symptom:** unrelated clients are serialized, while global stop, client pause, or manager takeover can wait for the full Gemini/Meta timeout before returning.
