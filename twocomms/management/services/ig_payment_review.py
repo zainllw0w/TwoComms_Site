@@ -1203,6 +1203,28 @@ def _review_keyboard(review) -> dict:
     return {"inline_keyboard": rows}
 
 
+def _review_evidence_needs_refresh(status: str, current: dict, extracted: dict) -> bool:
+    """Refresh material evidence only while the manager decision is pending."""
+    if str(status or "") != "pending":
+        return False
+    current = current if isinstance(current, dict) else {}
+    extracted = extracted if isinstance(extracted, dict) else {}
+    if not current.get("media_audit_v3"):
+        return True
+    incoming = {
+        "messages": extracted.get("messages", extracted.get("evidence")),
+        "amount_evidence": extracted.get("amount_evidence"),
+        "order_draft": extracted.get("order_draft"),
+        "media": extracted.get("media"),
+        "catalog_match": extracted.get("catalog_match"),
+        "catalog_matches": extracted.get("catalog_matches"),
+    }
+    return any(
+        current.get(key) != incoming.get(key)
+        for key in incoming
+    )
+
+
 def create_payment_review(client, *, watermark: int = 0, messages=None):
     """Persist an idempotent review and enqueue its management alert.
 
@@ -1290,11 +1312,7 @@ def create_payment_review(client, *, watermark: int = 0, messages=None):
         )
     from management.services.instagram_bot import notify_manager
 
-    if not created and isinstance(review.evidence, dict) and (
-        not review.evidence.get("media_audit_v3")
-        or (extracted.get("catalog_matches") and not review.evidence.get("catalog_matches"))
-        or len(extracted.get("media") or []) > len(review.evidence.get("media") or [])
-    ):
+    if not created and _review_evidence_needs_refresh(review.status, review.evidence, extracted):
         review.evidence = {
             **review.evidence,
             "messages": extracted["evidence"],

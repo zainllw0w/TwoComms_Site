@@ -703,6 +703,26 @@ class TelegramPaymentReviewGateTests(SimpleTestCase):
 
 
 class CatalogAssignmentTests(SimpleTestCase):
+    def test_pending_review_refreshes_when_material_draft_changes(self):
+        from management.services.ig_payment_review import _review_evidence_needs_refresh
+
+        current = {
+            "media_audit_v3": True,
+            "order_draft": {"items": [{"product_id": 111}, {"product_id": None}], "quoted_total": ""},
+            "media": [{"role": "product"}],
+            "catalog_matches": [{"product_id": 111}],
+        }
+        extracted = {
+            "media_audit_v3": True,
+            "order_draft": {"items": [{"product_id": 111}, {"product_id": 111}], "quoted_total": "2100"},
+            "media": [{"role": "product"}],
+            "catalog_matches": [{"product_id": 111}],
+        }
+
+        self.assertTrue(_review_evidence_needs_refresh("pending", current, extracted))
+        self.assertFalse(_review_evidence_needs_refresh("confirmed", current, extracted))
+        self.assertFalse(_review_evidence_needs_refresh("pending", extracted, extracted))
+
     @patch("django.core.files.storage.default_storage")
     @patch(
         "management.services.instagram_bot.download_image",

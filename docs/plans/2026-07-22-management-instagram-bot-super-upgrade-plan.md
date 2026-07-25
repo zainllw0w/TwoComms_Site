@@ -1073,6 +1073,14 @@ The approved architecture is documented in `docs/plans/2026-07-23-management-ins
     - **Acceptance:** preserve the manager-provided order total as auditable conversation evidence; leave unit prices empty and require manual allocation; receipt/prepayment amounts and AI suggestions never replace the negotiated total.
     - **Tests:** two-line manager total without allocation, accepted single-line price, customer-only counteroffer, later superseding offer, and receipt amount isolation.
     - **Priority:** P0 — order creation must preserve human-negotiated commercial truth without inventing prices.
+  - [ ] **P0.B5bg — pending payment review keeps a stale draft after evidence logic improves.**
+    - **Symptom:** reprocessing a pending review can discover the product, second order line, or negotiated total, but the stored review remains unchanged when media count and catalog-match presence are already stable.
+    - **Root cause:** refresh eligibility checked only media audit version/count and first-match presence instead of comparing material evidence fields.
+    - **Risk:** Telegram/admin continue showing an obsolete draft and the operator confirms or forms an order from facts the current analyzer has already corrected.
+    - **Affected branches:** idempotent review creation, analyzer retries, catalog enrichment, negotiated-price updates, Telegram refresh alerts, and manual-order prefill.
+    - **Acceptance:** a pending review refreshes when messages, amounts, draft, media, or catalog matches materially change; identical reruns are no-ops; confirmed/cancelled evidence is immutable.
+    - **Tests:** pending changed draft, identical pending rerun, confirmed changed draft, added media, and changed catalog match.
+    - **Priority:** P0 — an operator decision must use the latest evidence while terminal financial audit stays immutable.
   - [x] **P1.B5c Replace the global long-held reply lock with a bounded two-level permission barrier.**
   - **Priority:** P1 — correctness is currently fail-closed, but latency and operator availability degrade under slow AI/provider calls.
   - **Symptom:** unrelated clients are serialized, while global stop, client pause, or manager takeover can wait for the full Gemini/Meta timeout before returning.
