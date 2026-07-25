@@ -1049,7 +1049,7 @@ The approved architecture is documented in `docs/plans/2026-07-23-management-ins
     - **Acceptance:** matching prefers a bounded absolute local URL and falls back to the original source; expired signed URLs do not discard a persisted image; unresolved/unknown images remain fail-closed; catalog confidence and source media IDs stay auditable.
     - **Tests:** local URL preferred over expired source, original URL fallback, failed both sources, and multi-image source-index preservation.
     - **Priority:** P0 — durable evidence must survive provider URL expiry before order formation.
-  - [ ] **P0.B5bd — duplicate product media can suppress an otherwise valid catalog match.**
+  - [x] **P0.B5bd — duplicate product media can suppress an otherwise valid catalog match.**
     - **Symptom:** the same forwarded product post arrives under multiple signed URLs; the matcher sends duplicate image bytes in one vision request and can return no match, even though the single durable image matches a catalog product.
     - **Root cause:** durable review persistence and `_catalog_matches_for_media()` deduplicated URLs only, not stable provider media identities or downloaded image content, so repeated provider references triggered a second download, inflated one request, and discarded source-level identity when vision failed.
     - **Risk:** a known product remains unresolved, product-card links disappear from Telegram/management, and the operator may form a wrong SKU manually.
@@ -1057,7 +1057,8 @@ The approved architecture is documented in `docs/plans/2026-07-23-management-ins
     - **Acceptance:** repeated provider media is downloaded/persisted once by stable source identity; identical downloaded bytes are sent to vision once; every duplicate source media index remains attached to the hydrated match for audit and order-line binding; different images remain independent; failed/unknown media stays fail-closed.
     - **Tests:** duplicate provider identity with different URLs, duplicate bytes/source-index preservation, distinct product images, expired-source fallback, and no-match behavior.
     - **Priority:** P0 — duplicate provider delivery must not change an otherwise verified product identity.
-  - [ ] **P0.B5be — one confirmed print cannot populate classic and oversize lines from the same order message.**
+    - **Production evidence:** SHA `f27bba6b`; client `1735898131060065` review `#2` matched product `111` at `0.98` with source indexes `[0,1]`; duplicate product media and one receipt were delivered separately in refresh-alert main message `#332` with photos `#333/#334` and receipt `#335`.
+  - [x] **P0.B5be — one confirmed print cannot populate classic and oversize lines from the same order message.**
     - **Symptom:** a customer orders classic S and oversize XS with the same print in one message, but the single confirmed catalog product is reserved for the first line and the second stays unresolved.
     - **Root cause:** draft binding treated every catalog `product_id` as consumable once, even when several fit lines share the same source message and explicitly use one print.
     - **Risk:** Telegram/admin show a false unresolved warning and manual-order prefill can omit or misidentify one of the paid garments.
@@ -1065,7 +1066,8 @@ The approved architecture is documented in `docs/plans/2026-07-23-management-ins
     - **Acceptance:** one sole confirmed product may populate every compatible fit line from the same source message; multiple distinct catalog matches remain one-to-one/fail-closed when line mapping is ambiguous.
     - **Tests:** classic plus oversize with one print/source message, two products with distinct source messages, and two products in one screenshot requiring manual mapping.
     - **Priority:** P0 — every physical order line must retain the verified product identity.
-  - [ ] **P0.B5bf — negotiated multi-line total is hidden when per-line allocation is unknown.**
+    - **Production evidence:** review `#2` now contains both lines with `product_id=111`, `fit=classic,size=S` and `fit=oversize,size=XS`; the Telegram summary shows both named lines and the catalog URL without catalog-price substitution.
+  - [x] **P0.B5bf — negotiated multi-line total is hidden when per-line allocation is unknown.**
     - **Symptom:** the manager states a total of `2100 грн` for two garments, but the review alert displays `Сума з переписки: не вказано` because individual unit prices cannot be derived safely.
     - **Root cause:** price validation cleared the whole quoted total whenever it could not authorize a per-line allocation, conflating evidence visibility with permission to split the amount.
     - **Risk:** the operator can replace a negotiated discount with catalog prices or overlook the actual amount shown in the payment conversation.
@@ -1073,7 +1075,8 @@ The approved architecture is documented in `docs/plans/2026-07-23-management-ins
     - **Acceptance:** preserve the manager-provided order total as auditable conversation evidence; leave unit prices empty and require manual allocation; receipt/prepayment amounts and AI suggestions never replace the negotiated total.
     - **Tests:** two-line manager total without allocation, accepted single-line price, customer-only counteroffer, later superseding offer, and receipt amount isolation.
     - **Priority:** P0 — order creation must preserve human-negotiated commercial truth without inventing prices.
-  - [ ] **P0.B5bg — pending payment review keeps a stale draft after evidence logic improves.**
+    - **Production evidence:** refresh-alert `#332` displays `Сума з переписки: 2100 грн` and explicitly keeps only `conversation_price_allocation_required`; both unit prices remain unset for manual allocation and provider payment remains unconfirmed.
+  - [x] **P0.B5bg — pending payment review keeps a stale draft after evidence logic improves.**
     - **Symptom:** reprocessing a pending review can discover the product, second order line, or negotiated total, but the stored review remains unchanged when media count and catalog-match presence are already stable.
     - **Root cause:** refresh eligibility checked only media audit version/count and first-match presence instead of comparing material evidence fields.
     - **Risk:** Telegram/admin continue showing an obsolete draft and the operator confirms or forms an order from facts the current analyzer has already corrected.
@@ -1081,6 +1084,7 @@ The approved architecture is documented in `docs/plans/2026-07-23-management-ins
     - **Acceptance:** a pending review refreshes when messages, amounts, draft, media, or catalog matches materially change; identical reruns are no-ops; confirmed/cancelled evidence is immutable.
     - **Tests:** pending changed draft, identical pending rerun, confirmed changed draft, added media, and changed catalog match.
     - **Priority:** P0 — an operator decision must use the latest evidence while terminal financial audit stays immutable.
+    - **Production evidence:** pending review `#2` was reprocessed after deploy and updated its draft/catalog/total; a new alert was emitted only for the pending refresh, while no confirm/cancel transition or payment-ledger mutation occurred.
   - [x] **P1.B5c Replace the global long-held reply lock with a bounded two-level permission barrier.**
   - **Priority:** P1 — correctness is currently fail-closed, but latency and operator availability degrade under slow AI/provider calls.
   - **Symptom:** unrelated clients are serialized, while global stop, client pause, or manager takeover can wait for the full Gemini/Meta timeout before returning.
