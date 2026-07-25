@@ -102,7 +102,15 @@ def _extract_control(reply: str) -> tuple[str, dict]:
     for m in _CONTROL_TAG_RE.finditer(reply):
         name = m.group(1).lower()
         val = (m.group(2) or "").strip().lower()
-        tags[name] = val or True
+        if name == "item":
+            tags.setdefault("items", []).append(val)
+        else:
+            parsed = val or True
+            if name in tags and tags[name] != parsed:
+                tags["_invalid"] = True
+                tags.setdefault("_conflicts", []).append(name)
+            else:
+                tags[name] = parsed
     clean = _CONTROL_TAG_RE.sub("", reply)
     clean = re.sub(r"[ \t]{2,}", " ", clean)
     clean = re.sub(r"\n{3,}", "\n\n", clean).strip()
@@ -252,6 +260,55 @@ def _control_product_id(control: dict) -> int | None:
     return product_id if product_id > 0 else None
 
 
+def _control_positive_int(control: dict, key: str, *, default: int = 1, maximum: int = 50) -> int | None:
+    """Parse bounded numeric control and fail closed when it was explicit."""
+    if not isinstance(control, dict) or key not in control:
+        return default
+    raw = control.get(key)
+    if isinstance(raw, bool):
+        return None
+    try:
+        value = int(str(raw).strip())
+    except (TypeError, ValueError):
+        return None
+    return value if 1 <= value <= maximum else None
+
+
+def _control_item_specs(control: dict) -> list[dict]:
+    """Parse repeated [ITEM:id|qty|size|fit|color_variant_id] tags."""
+    raw_items = control.get("items") if isinstance(control, dict) else None
+    if not isinstance(raw_items, (list, tuple)):
+        return []
+    specs = []
+    for raw in raw_items:
+        parts = [part.strip() for part in str(raw or "").split("|")]
+        if len(parts) not in {4, 5}:
+            return []
+        try:
+            product_id = int(parts[0])
+            qty = int(parts[1])
+        except (TypeError, ValueError):
+            return []
+        if product_id <= 0 or qty < 1 or qty > 50:
+            return []
+        color_variant_id = None
+        if len(parts) > 4 and parts[4]:
+            try:
+                color_variant_id = int(parts[4])
+            except (TypeError, ValueError):
+                return []
+            if color_variant_id <= 0:
+                return []
+        specs.append({
+            "product_id": product_id,
+            "qty": qty,
+            "size": parts[2].upper()[:16],
+            "fit_option_code": parts[3].lower()[:50],
+            "color_variant_id": color_variant_id,
+        })
+    return specs
+
+
 def _should_pin_product_media(media: list[dict] | None) -> bool:
     """Only a purchase candidate may change durable current-product memory."""
     return any(
@@ -321,6 +378,8 @@ def payment_link_allowed(client, control: dict, reply: str) -> bool:
     """
     if not client or not isinstance(control, dict):
         return False
+    if control.get("_invalid"):
+        return False
     if getattr(client, "pk", None):
         try:
             from management.services.bot_payment_truth import client_has_verified_payment
@@ -330,6 +389,11 @@ def payment_link_allowed(client, control: dict, reply: str) -> bool:
         except Exception:
             # A provider-truth lookup failure must not open a new invoice path.
             return False
+    explicit_item_specs = None
+    if "items" in control:
+        explicit_item_specs = _control_item_specs(control)
+        if not explicit_item_specs:
+            return False
     if "product" in control:
         # The deal resolver performs the authoritative published-catalog check;
         # this gate only rejects malformed/boolean model tags before any DB side
@@ -337,8 +401,18 @@ def payment_link_allowed(client, control: dict, reply: str) -> bool:
         product_id = _control_product_id(control)
         if not product_id:
             return False
+        if explicit_item_specs and any(
+            int(item.get("product_id") or 0) != product_id
+            for item in explicit_item_specs
+        ):
+            return False
     else:
-        product_id = getattr(client, "current_product_id", None)
+        item_specs = explicit_item_specs or _control_item_specs(control)
+        product_id = (
+            item_specs[0]["product_id"]
+            if item_specs
+            else getattr(client, "current_product_id", None)
+        )
         try:
             product_id = int(product_id)
         except (TypeError, ValueError):
@@ -380,7 +454,10 @@ PAYMENT_PROTOCOL_NOTE = (
     "рядка каталогу (формат «id=NN»). НЕ вигадуй і НЕ пиши URL оплати власноруч — "
     "система сама сформує справжнє посилання й додасть його до повідомлення. "
     "Якщо товар ще не визначено однозначно — спершу уточни його, тег [PAYLINK] "
-    "поки не став. Якщо менеджер явно погодив іншу ціну, додай [PRICE:число] "
+    "поки не став. Для кожної позиції додай [ITEM:<product_id>|<qty>|<size>|<fit>|<color_variant_id>] "
+    "(останнє поле можна залишити порожнім), щоб зберегти кількість, розмір, крій і колір. "
+    "Для однієї позиції також дозволено [QTY:n] [SIZE:XS] [FIT:oversize]. "
+    "Якщо менеджер явно погодив іншу ціну, додай [PRICE:число] "
     "лише коли це число дослівно є у збереженій переписці; не вигадуй знижку."
 )
 
@@ -466,6 +543,20 @@ def finalize_paylink(reply: str, control: dict, client, sender_id: str = "") -> 
     want, pt = _wants_paylink(reply, control)
     if not want:
         return reply
+    if control.get("_invalid"):
+        log("warning", "paylink_control_gate", f"{sender_id}: conflicting control tags")
+        return _rewrite_failed_paylink(reply)
+    if "items" in control and not _control_item_specs(control):
+        log("warning", "paylink_item_gate", f"{sender_id}: malformed explicit item tags")
+        try:
+            notify_manager(
+                f"⚠️ IG: платіжне посилання для "
+                f"{(client.username or client.display_name or sender_id)} заблоковано: "
+                "не вдалося безпечно розібрати товар, кількість, розмір або крій."
+            )
+        except Exception:
+            pass
+        return PAYLINK_FALLBACK_TEXT
     if not payment_link_allowed(client, control, reply):
         log("warning", "paylink_gate", f"{sender_id}: blocked without purchase candidate")
         try:
@@ -494,13 +585,30 @@ def finalize_paylink(reply: str, control: dict, client, sender_id: str = "") -> 
         return _rewrite_failed_paylink(reply)
     from management.services import bot_orders
 
+    item_specs = _control_item_specs(control)
+    if item_specs and negotiated_price is not None and len(item_specs) > 1:
+        log("warning", "paylink_multi_price_gate", f"{sender_id}: multi-item price allocation required")
+        return _rewrite_failed_paylink(reply)
+
     try:
-        res = bot_orders.create_deal_and_link(
-            client,
-            pay_type=pt,
-            product_id=_control_product_id(control),
-            negotiated_price=negotiated_price,
-        )
+        kwargs = {
+            "pay_type": pt,
+            "product_id": _control_product_id(control),
+            "negotiated_price": negotiated_price,
+        }
+        if item_specs:
+            kwargs["items"] = item_specs
+        else:
+            parsed_qty = _control_positive_int(control, "qty")
+            if parsed_qty is None:
+                log("warning", "paylink_qty_gate", f"{sender_id}: invalid explicit quantity")
+                return _rewrite_failed_paylink(reply)
+            kwargs.update({
+                "qty": parsed_qty,
+                "size": str(control.get("size") or "").strip().upper()[:16],
+                "fit_option_code": str(control.get("fit") or "").strip().lower()[:50],
+            })
+        res = bot_orders.create_deal_and_link(client, **kwargs)
     except Exception as exc:
         log("error", "paylink", repr(exc))
         res = {"ok": False, "error": repr(exc)}

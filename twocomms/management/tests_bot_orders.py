@@ -6,6 +6,7 @@
 from decimal import Decimal
 from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
 
@@ -70,6 +71,39 @@ class FulfillTests(TestCase):
         with self.assertRaisesMessage(ValueError, "provider-confirmed payment"):
             bot_orders.create_order_from_deal(d)
 
+    def test_manager_only_receipt_order_does_not_record_purchase(self):
+        from management.ig_bot_models import IgPaymentConfirmationReview
+        from management.services.ig_payment_review import record_review_decision
+        from storefront.models import UserAction
+
+        client = IgClient.get_or_create_for_sender("manager-only-order-builder")
+        deal = IgDeal.objects.create(
+            client=client,
+            pay_type=IgDeal.PayType.ONLINE_FULL,
+            np_full_name="Іван",
+            np_phone="0931112233",
+            np_city="Київ",
+            np_office="Відділення 1",
+        )
+        IgDealItem.objects.create(deal=deal, title="Футболка", qty=1, unit_price=Decimal("950"))
+        deal.recalc_total()
+        review = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            deal=deal,
+            dedupe_key="manager-only-order-builder-review",
+        )
+        actor = get_user_model().objects.create_user(
+            username="manager-only-order-builder-actor", is_staff=True,
+        )
+        record_review_decision(review, actor=actor, decision="manager_verified")
+
+        order = bot_orders.create_order_from_deal(deal)
+
+        self.assertEqual(order.payment_status, "unpaid")
+        self.assertFalse(
+            UserAction.objects.filter(action_type="purchase", order_id=order.pk).exists()
+        )
+
 
 class ExtractNpTests(TestCase):
     @patch("management.services.bot_orders.gemini_generate_text")
@@ -113,6 +147,179 @@ class OnDealPaidTests(TestCase):
 
 class CreateDealAndLinkTests(TestCase):
     @patch("management.services.bot_orders.create_payment_link")
+    def test_persists_fit_quantity_and_price_provenance_for_real_paylink_writer(self, mock_link):
+        mock_link.return_value = {"ok": True, "invoice_url": "https://pay/fit", "invoice_id": "fit"}
+        from storefront.models import Category, Product, ProductFitOption, ProductStatus
+
+        cat = Category.objects.create(name="Футболки", slug="tees-fit-writer")
+        product = Product.objects.create(
+            title="Футболка Харків", slug="kharkiv-fit-writer",
+            category=cat, price=790, status=ProductStatus.PUBLISHED,
+        )
+        ProductFitOption.objects.create(
+            product=product, code="oversize", label="Оверсайз", is_active=True,
+        )
+        client = IgClient.get_or_create_for_sender("fit-writer")
+
+        result = bot_orders.create_deal_and_link(
+            client,
+            pay_type="full",
+            product_id=product.pk,
+            qty=2,
+            size="XS",
+            fit_option_code="oversize",
+        )
+
+        self.assertTrue(result["ok"])
+        item = IgDeal.objects.get(client=client).items.get()
+        self.assertEqual(item.qty, 2)
+        self.assertEqual(item.size, "XS")
+        self.assertEqual(item.fit_option_code, "oversize")
+        self.assertEqual(item.fit_option_label, "Оверсайз")
+        self.assertEqual(item.option_values, {"fit": "oversize"})
+        self.assertEqual(item.price_source, "catalog")
+
+    @patch("management.services.bot_orders.create_payment_link")
+    def test_persists_classic_and_oversize_as_separate_paylink_items(self, mock_link):
+        mock_link.return_value = {"ok": True, "invoice_url": "https://pay/multi", "invoice_id": "multi"}
+        from storefront.models import Category, Product, ProductFitOption, ProductStatus
+
+        category = Category.objects.create(name="Футболки", slug="tees-multi-fit-writer")
+        product = Product.objects.create(
+            title="Футболка Харків", slug="kharkiv-multi-fit-writer",
+            category=category, price=Decimal("790.00"), status=ProductStatus.PUBLISHED,
+        )
+        ProductFitOption.objects.create(product=product, code="classic", label="Класичний", is_active=True)
+        ProductFitOption.objects.create(product=product, code="oversize", label="Оверсайз", is_active=True)
+        client = IgClient.get_or_create_for_sender("multi-fit-writer")
+
+        result = bot_orders.create_deal_and_link(
+            client,
+            items=[
+                {"product_id": product.pk, "qty": 1, "size": "S", "fit_option_code": "classic"},
+                {"product_id": product.pk, "qty": 1, "size": "XS", "fit_option_code": "oversize"},
+            ],
+        )
+
+        self.assertTrue(result["ok"])
+        deal = IgDeal.objects.get(client=client)
+        self.assertEqual(deal.items.count(), 2)
+        self.assertEqual(
+            list(deal.items.order_by("id").values_list("fit_option_code", "size", "qty")),
+            [("classic", "S", 1), ("oversize", "XS", 1)],
+        )
+        self.assertEqual(deal.amount, Decimal("1580.00"))
+
+    @patch("management.services.bot_orders.create_payment_link")
+    def test_variant_stock_and_effective_price_are_authoritative(self, mock_link):
+        from productcolors.models import Color, ProductColorVariant
+        from storefront.models import Category, Product, ProductStatus
+
+        mock_link.return_value = {"ok": True, "invoice_url": "https://pay/variant", "invoice_id": "variant"}
+        category = Category.objects.create(name="Футболки", slug="tees-variant-authority")
+        product = Product.objects.create(
+            title="Футболка", slug="variant-authority", category=category,
+            price=Decimal("790.00"), status=ProductStatus.PUBLISHED,
+        )
+        color = Color.objects.create(name="Рожевий", primary_hex="#FF88AA")
+        variant = ProductColorVariant.objects.create(
+            product=product, color=color, stock=1, price_override=990,
+        )
+        client = IgClient.get_or_create_for_sender("variant-authority")
+
+        result = bot_orders.create_deal_and_link(client, items=[{
+            "product_id": product.pk,
+            "color_variant_id": variant.pk,
+            "qty": 1,
+            "size": "S",
+            "fit_option_code": "",
+        }])
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(IgDeal.objects.get(client=client).items.get().unit_price, Decimal("990.00"))
+
+        second_client = IgClient.get_or_create_for_sender("variant-authority-oos")
+        unavailable = bot_orders.create_deal_and_link(second_client, items=[{
+            "product_id": product.pk,
+            "color_variant_id": variant.pk,
+            "qty": 2,
+            "size": "S",
+            "fit_option_code": "",
+        }])
+        self.assertEqual(unavailable, {"ok": False, "error": "insufficient_stock"})
+
+    @patch("management.services.bot_orders.create_payment_link")
+    def test_duplicate_item_identity_and_global_multi_price_fail_closed(self, mock_link):
+        from storefront.models import Category, Product, ProductStatus
+
+        category = Category.objects.create(name="Футболки", slug="tees-duplicate-paylink")
+        product = Product.objects.create(
+            title="Футболка", slug="duplicate-paylink", category=category,
+            price=Decimal("790.00"), status=ProductStatus.PUBLISHED,
+        )
+        client = IgClient.get_or_create_for_sender("duplicate-paylink")
+        items = [
+            {"product_id": product.pk, "qty": 1, "size": "S", "fit_option_code": "classic"},
+            {"product_id": product.pk, "qty": 1, "size": "S", "fit_option_code": "classic"},
+        ]
+
+        duplicate = bot_orders.create_deal_and_link(client, items=items)
+        self.assertEqual(duplicate, {"ok": False, "error": "duplicate_items"})
+        allocated = bot_orders.create_deal_and_link(
+            client,
+            items=[
+                {"product_id": product.pk, "qty": 1, "size": "S", "fit_option_code": "classic"},
+                {"product_id": product.pk, "qty": 1, "size": "M", "fit_option_code": "classic"},
+            ],
+            negotiated_price=Decimal("1200.00"),
+        )
+        self.assertEqual(allocated, {"ok": False, "error": "price_allocation_required"})
+        mock_link.assert_not_called()
+
+    @patch("management.services.bot_orders.create_payment_link")
+    def test_item_count_quantity_and_size_limits_fail_closed(self, mock_link):
+        from storefront.models import Category, Product, ProductStatus
+
+        category = Category.objects.create(name="Футболки", slug="tees-paylink-limits")
+        product = Product.objects.create(
+            title="Футболка", slug="paylink-limits", category=category,
+            price=Decimal("790.00"), status=ProductStatus.PUBLISHED,
+        )
+        client = IgClient.get_or_create_for_sender("paylink-limits")
+
+        too_many = bot_orders.create_deal_and_link(client, items=[
+            {"product_id": product.pk, "qty": 1, "size": size, "fit_option_code": ""}
+            for size in ("S", "M", "L", "XL", "XXL", "XS", "2XL", "3XL", "4XL", "5XL", "6XL", "7XL", "8XL")
+        ])
+        self.assertEqual(too_many, {"ok": False, "error": "too_many_items"})
+        too_large = bot_orders.create_deal_and_link(client, items=[
+            {"product_id": product.pk, "qty": 30, "size": "S", "fit_option_code": ""},
+            {"product_id": product.pk, "qty": 30, "size": "M", "fit_option_code": ""},
+        ])
+        self.assertEqual(too_large, {"ok": False, "error": "aggregate_qty_limit"})
+        invalid_size = bot_orders.create_deal_and_link(client, items=[
+            {"product_id": product.pk, "qty": 1, "size": "ZZ", "fit_option_code": ""},
+        ])
+        self.assertEqual(invalid_size, {"ok": False, "error": "invalid_size"})
+        mock_link.assert_not_called()
+
+    @patch("management.services.bot_orders.create_payment_link")
+    def test_invalid_quantity_fails_closed_without_exception(self, mock_link):
+        from storefront.models import Category, Product, ProductStatus
+
+        category = Category.objects.create(name="Футболки", slug="tees-invalid-qty")
+        product = Product.objects.create(
+            title="Футболка", slug="invalid-qty",
+            category=category, price=Decimal("950.00"), status=ProductStatus.PUBLISHED,
+        )
+        client = IgClient.get_or_create_for_sender("invalid-qty")
+
+        result = bot_orders.create_deal_and_link(client, product_id=product.pk, qty="many")
+
+        self.assertEqual(result, {"ok": False, "error": "invalid_qty"})
+        mock_link.assert_not_called()
+
+    @patch("management.services.bot_orders.create_payment_link")
     def test_builds_deal_with_product_and_link(self, mock_link):
         mock_link.return_value = {"ok": True, "invoice_url": "https://pay/x", "invoice_id": "x"}
         from storefront.models import Category, Product, ProductStatus
@@ -150,6 +357,17 @@ class CreateDealAndLinkTests(TestCase):
         self.assertTrue(res["ok"])
         deal = IgDeal.objects.filter(client=c).first()
         self.assertEqual(deal.items.first().unit_price, Decimal("2100.00"))
+        self.assertEqual(deal.items.first().price_source, "conversation_evidence")
+        self.assertTrue(deal.items.first().price_evidence_message_ids)
+        evidence_ids = deal.items.first().price_evidence_message_ids
+        self.assertIn(
+            InstagramBotMessage.objects.get(role="manager", client=c).pk,
+            evidence_ids,
+        )
+        self.assertIn(
+            InstagramBotMessage.objects.get(role="user", client=c).pk,
+            evidence_ids,
+        )
         self.assertEqual(deal.amount, Decimal("2100.00"))
 
     @patch("management.services.bot_orders.create_payment_link")

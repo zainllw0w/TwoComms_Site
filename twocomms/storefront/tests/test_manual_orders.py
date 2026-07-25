@@ -194,8 +194,43 @@ class ManualOrderCreateTests(TestCase):
         self.assertEqual(initial['items'][0]['unit_price'], 790.0)
         self.assertEqual(initial['payment_preset'], 'unpaid_full')
 
-    def test_confirmed_receipt_review_creates_unverified_order_without_purchase(self):
+    def test_confirmed_review_normalizes_ukrainian_fit_label_to_catalog_code(self):
         from management.ig_bot_models import IgPaymentConfirmationReview
+        from management.models import IgClient
+        from management.services.ig_payment_review import record_review_decision
+
+        ig_client = IgClient.get_or_create_for_sender('manual-review-fit-label')
+        review = IgPaymentConfirmationReview.objects.create(
+            client=ig_client,
+            dedupe_key='manual-review-fit-label',
+            evidence={
+                'order_draft': {
+                    'items': [{
+                        'product_id': self.product.pk,
+                        'title': self.product.title,
+                        'unit_price': '900.00',
+                        'qty': 1,
+                        'size': 'XS',
+                        'fit': 'Оверсайз',
+                    }],
+                },
+            },
+        )
+        record_review_decision(review, actor=self.admin, decision='manager_verified')
+
+        with mock.patch(
+            'storefront.views.manual_orders.render',
+            return_value=HttpResponse(),
+        ) as render_mock:
+            response = self.client.get(self.url, {'ig_payment_review': review.pk})
+
+        self.assertEqual(response.status_code, 200)
+        initial = json.loads(render_mock.call_args.args[2]['order_initial_json'])
+        self.assertEqual(initial['items'][0]['fit_option_code'], 'oversize')
+        self.assertEqual(initial['items'][0]['fit_option_label'], 'Оверсайз')
+
+    def test_confirmed_receipt_review_creates_unverified_order_without_purchase(self):
+        from management.ig_bot_models import IgOrderAttribution, IgPaymentConfirmationReview
         from management.models import IgClient
         from management.services.ig_payment_review import record_review_decision
 
@@ -233,6 +268,10 @@ class ManualOrderCreateTests(TestCase):
         self.assertFalse(
             UserAction.objects.filter(action_type='purchase', order_id=order.pk).exists()
         )
+        attribution = IgOrderAttribution.objects.get(order=order)
+        self.assertEqual(attribution.client, ig_client)
+        self.assertEqual(attribution.creation_mode, 'manager_review')
+        self.assertEqual(attribution.payment_source, 'manager_verified')
 
     def test_legacy_confirmed_review_without_decision_does_not_prefill_order(self):
         from management.ig_bot_models import IgPaymentConfirmationReview

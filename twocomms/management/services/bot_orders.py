@@ -12,10 +12,14 @@ from __future__ import annotations
 
 import logging
 import re
+from contextlib import contextmanager
 from datetime import timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
+from threading import RLock
+from weakref import WeakValueDictionary
 
 from django.db.models import Q
+from django.db import connection
 
 from management.services.bot_payments import create_payment_link
 from management.services.bot_payment_truth import (
@@ -27,6 +31,39 @@ from management.services.instagram_bot import notify_manager, send_text
 from orders.services.order_builder import create_order_from_deal
 
 logger = logging.getLogger(__name__)
+
+MAX_PAYLINK_ITEMS = 12
+MAX_PAYLINK_QUANTITY = 50
+MAX_PAYLINK_VALUE = Decimal("1000000.00")
+
+_PAYLINK_LOCKS = WeakValueDictionary()
+_PAYLINK_LOCKS_GUARD = RLock()
+
+
+@contextmanager
+def _paylink_client_lock(client_id):
+    """Serialize deal reuse/creation for one client across MariaDB workers."""
+    lock_name = f"twocomms:ig-paylink:{int(client_id)}"
+    if connection.vendor in {"mysql", "mariadb"}:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT GET_LOCK(%s, 15)", [lock_name])
+            acquired = cursor.fetchone()[0]
+        if acquired != 1:
+            raise RuntimeError("Could not acquire Instagram paylink lock")
+        try:
+            yield
+        finally:
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT RELEASE_LOCK(%s)", [lock_name])
+            except Exception:
+                logger.warning("Failed to release paylink advisory lock", exc_info=True)
+        return
+
+    with _PAYLINK_LOCKS_GUARD:
+        lock = _PAYLINK_LOCKS.setdefault(int(client_id), RLock())
+    with lock:
+        yield
 
 NP_EXTRACT_INSTRUCTION = (
     "З наведеного діалогу витягни дані доставки Новою Поштою у форматі JSON без "
@@ -175,13 +212,13 @@ def resolve_product_for_payment(client, product_id=None):
     виставити рахунок не за той товар)."""
     from storefront.models import Product, ProductStatus
 
-    if product_id:
+    explicit_product = product_id not in (None, "", False)
+    if explicit_product:
         try:
             p = Product.objects.filter(id=int(product_id), status=ProductStatus.PUBLISHED).first()
         except (TypeError, ValueError):
             p = None
-        if p:
-            return p
+        return p
 
     # 2) закріплений товар діалогу (швидко й детерміновано, без виклику моделі).
     cur = getattr(client, "current_product", None)
@@ -383,12 +420,20 @@ def _conversation_price_evidence(messages, *, qty: int = 1, product=None) -> dic
             accepted = next_role in seller_roles and bool(acceptance_re.search(next_text))
             previous = commercial_rows[-1] if commercial_rows else None
             if previous and previous.get("seller_offer") and previous.get("message_index") == index - 1 and previous.get("offered_price") == price and acceptance_re.search(text):
-                previous.update({"status": "accepted", "price": price})
+                previous.update({
+                    "status": "accepted",
+                    "price": price,
+                    "acceptance_message_id": getattr(message, "pk", None),
+                })
                 continue
         if role in seller_roles and commercial_rows:
             previous = commercial_rows[-1]
             if previous.get("message_index") == index - 1 and previous.get("customer_counteroffer") and acceptance_re.search(text):
-                previous.update({"status": "accepted", "price": previous.get("offered_price")})
+                previous.update({
+                    "status": "accepted",
+                    "price": previous.get("offered_price"),
+                    "acceptance_message_id": getattr(message, "pk", None),
+                })
                 continue
         commercial_rows.append({
             "status": "accepted" if accepted else "ambiguous",
@@ -399,6 +444,9 @@ def _conversation_price_evidence(messages, *, qty: int = 1, product=None) -> dic
             "offered_price": price,
             "seller_offer": role in seller_roles,
             "customer_counteroffer": role in customer_roles,
+            "acceptance_message_id": (
+                getattr(next_message, "pk", None) if accepted else None
+            ),
         })
     if commercial_rows:
         decision = commercial_rows[-1]
@@ -425,7 +473,9 @@ def _conversation_price_evidence(messages, *, qty: int = 1, product=None) -> dic
                 }
         return {
             key: decision.get(key)
-            for key in ("status", "price", "source_message_id", "kind")
+            for key in (
+                "status", "price", "source_message_id", "acceptance_message_id", "kind"
+            )
         }
     return {"status": "none", "price": None, "source_message_id": None}
 
@@ -486,13 +536,15 @@ def _validated_negotiated_price(client, value, *, product=None, qty: int = 1) ->
     return price if accepted == price else None
 
 
-def create_deal_and_link(
+def _create_deal_and_link_unlocked(
     client,
     pay_type: str = "full",
     product_id=None,
     qty: int = 1,
     size: str = "",
+    fit_option_code: str = "",
     negotiated_price=None,
+    items=None,
 ) -> dict:
     """Формує/переюзає угоду клієнта і повертає посилання на оплату Monobank.
 
@@ -503,7 +555,242 @@ def create_deal_and_link(
     from management.models import IgDeal, IgDealItem
 
     pt = IgDeal.PayType.PREPAY_200 if pay_type == "prepay" else IgDeal.PayType.ONLINE_FULL
+
+    if items is not None:
+        if not isinstance(items, (list, tuple)) or not items:
+            return {"ok": False, "error": "invalid_items"}
+        if len(items) > MAX_PAYLINK_ITEMS:
+            return {"ok": False, "error": "too_many_items"}
+        if len(items) > 1 and negotiated_price is not None:
+            return {"ok": False, "error": "price_allocation_required"}
+        from storefront.models import ProductFitOption
+        from productcolors.models import ProductColorVariant
+        from fable5.services import effective_cart_unit_price, variant_allows_purchase
+        from storefront.services.size_guides import resolve_product_sizes
+
+        prepared_items = []
+        identities = set()
+        aggregate_qty = 0
+        for raw in items:
+            if not isinstance(raw, dict):
+                return {"ok": False, "error": "invalid_items"}
+            try:
+                item_product_id = int(raw.get("product_id"))
+                item_qty = int(raw.get("qty", 1))
+            except (TypeError, ValueError):
+                return {"ok": False, "error": "invalid_items"}
+            if item_product_id <= 0 or item_qty < 1 or item_qty > MAX_PAYLINK_QUANTITY:
+                return {"ok": False, "error": "invalid_qty"}
+            aggregate_qty += item_qty
+            if aggregate_qty > MAX_PAYLINK_QUANTITY:
+                return {"ok": False, "error": "aggregate_qty_limit"}
+            item_size = str(raw.get("size") or "").strip().upper()[:16]
+            item_fit_code = str(raw.get("fit_option_code") or "").strip().lower()[:50]
+            color_variant_id = raw.get("color_variant_id")
+            if color_variant_id in (None, "", False):
+                normalized_color_id = 0
+            else:
+                try:
+                    normalized_color_id = int(color_variant_id)
+                except (TypeError, ValueError):
+                    return {"ok": False, "error": "invalid_color_variant"}
+                if normalized_color_id <= 0:
+                    return {"ok": False, "error": "invalid_color_variant"}
+            identity = (item_product_id, normalized_color_id, item_size, item_fit_code)
+            if identity in identities:
+                return {"ok": False, "error": "duplicate_items"}
+            identities.add(identity)
+            prepared_items.append({
+                "product_id": item_product_id,
+                "qty": item_qty,
+                "size": item_size,
+                "fit_option_code": item_fit_code,
+                "color_variant_id": normalized_color_id,
+            })
+
+        normalized_items = []
+        aggregate_value = Decimal("0")
+        for raw in prepared_items:
+            item_product_id = raw["product_id"]
+            item_qty = raw["qty"]
+            item_product = resolve_product_for_payment(client, item_product_id)
+            if item_product is None:
+                return {"ok": False, "error": "no_product"}
+            item_size = raw["size"]
+            item_fit_code = raw["fit_option_code"]
+            if not item_size:
+                return {"ok": False, "error": "missing_size"}
+            allowed_sizes = {
+                str(value or "").strip().upper()
+                for value in resolve_product_sizes(item_product)
+            }
+            if item_fit_code == "oversize":
+                allowed_sizes.add("XS")
+            if allowed_sizes and item_size not in allowed_sizes:
+                return {"ok": False, "error": "invalid_size"}
+            fit_label = ""
+            if item_fit_code:
+                fit = ProductFitOption.objects.filter(
+                    product=item_product, code=item_fit_code, is_active=True,
+                ).first()
+                if not fit:
+                    return {"ok": False, "error": "invalid_fit_option"}
+                fit_label = fit.label
+            elif ProductFitOption.objects.filter(product=item_product, is_active=True).exists():
+                return {"ok": False, "error": "missing_fit_option"}
+            color_variant_id = raw["color_variant_id"]
+            color_variant = None
+            if color_variant_id:
+                color_variant = ProductColorVariant.objects.filter(
+                    pk=color_variant_id, product=item_product,
+                ).first()
+                if not color_variant:
+                    return {"ok": False, "error": "invalid_color_variant"}
+                if int(color_variant.stock or 0) < item_qty:
+                    return {"ok": False, "error": "insufficient_stock"}
+            option_values = {"fit": item_fit_code} if item_fit_code else {}
+            if not variant_allows_purchase(
+                item_product,
+                color_variant,
+                fit_code=item_fit_code,
+                size=item_size,
+                option_values=option_values,
+            ):
+                return {"ok": False, "error": "unavailable_selection"}
+            price_decision = _conversation_price_decision(
+                client, product=item_product, qty=item_qty,
+            )
+            item_override = None
+            if len(items) == 1 and negotiated_price is not None:
+                item_override = _validated_negotiated_price(
+                    client, negotiated_price, product=item_product, qty=item_qty,
+                )
+                if item_override is None:
+                    return {"ok": False, "error": "invalid_negotiated_price"}
+            elif price_decision.get("status") == "accepted":
+                if len(items) > 1:
+                    return {"ok": False, "error": "price_allocation_required"}
+                item_override = price_decision.get("price")
+            elif price_decision.get("status") in {"ambiguous", "unavailable"}:
+                return {"ok": False, "error": "ambiguous_conversation_price"}
+            try:
+                catalog_price = Decimal(str(effective_cart_unit_price(
+                    item_product,
+                    color_variant,
+                    fit_code=item_fit_code,
+                    option_values=option_values,
+                ))).quantize(Decimal("0.01"))
+            except (InvalidOperation, TypeError, ValueError):
+                return {"ok": False, "error": "invalid_catalog_price"}
+            unit_price = item_override or catalog_price
+            aggregate_value += unit_price * item_qty
+            if aggregate_value > MAX_PAYLINK_VALUE:
+                return {"ok": False, "error": "aggregate_value_limit"}
+            normalized_items.append({
+                "product": item_product,
+                "color_variant": color_variant,
+                "qty": item_qty,
+                "size": item_size,
+                "fit_option_code": item_fit_code,
+                "fit_option_label": fit_label,
+                "unit_price": unit_price,
+                "price_source": "conversation_evidence" if item_override is not None else "catalog",
+                "price_evidence_message_ids": (
+                    [message_id for message_id in (
+                        price_decision.get("source_message_id"),
+                        price_decision.get("acceptance_message_id"),
+                    ) if message_id]
+                ),
+            })
+        open_deals = list(
+            IgDeal.objects.filter(client=client, order__isnull=True)
+            .exclude(status=IgDeal.Status.PAID)
+            .order_by("-id")
+        )
+        desired_signature = sorted(
+            (
+                item["product"].pk,
+                item["color_variant"].pk if item["color_variant"] else 0,
+                item["size"],
+                item["fit_option_code"],
+                item["qty"],
+                item["unit_price"],
+            )
+            for item in normalized_items
+        )
+        for existing in open_deals:
+            if existing.pay_type != pt or not existing.invoice_id or not existing.invoice_url:
+                continue
+            current_signature = sorted(
+                (
+                    item.product_id,
+                    item.color_variant_id or 0,
+                    item.size or "",
+                    item.fit_option_code or "",
+                    item.qty,
+                    item.unit_price,
+                )
+                for item in existing.items.all()
+            )
+            if current_signature == desired_signature:
+                return create_payment_link(existing)
+        deal = IgDeal.objects.create(client=client, pay_type=pt)
+        for item in normalized_items:
+            IgDealItem.objects.create(
+                deal=deal,
+                product=item["product"],
+                color_variant=item["color_variant"],
+                title=item["product"].title,
+                size=item["size"],
+                fit_option_code=item["fit_option_code"],
+                fit_option_label=item["fit_option_label"],
+                option_values={"fit": item["fit_option_code"]} if item["fit_option_code"] else {},
+                option_labels={"fit": item["fit_option_label"]} if item["fit_option_label"] else {},
+                qty=item["qty"],
+                unit_price=item["unit_price"],
+                price_source=item["price_source"],
+                price_evidence_message_ids=item["price_evidence_message_ids"],
+            )
+        deal.recalc_total()
+        res = create_payment_link(deal)
+        if res.get("ok"):
+            try:
+                from management.models import IgClient
+                deal.client.set_stage(IgClient.Stage.PAYMENT_PENDING, reason="paylink")
+            except Exception:
+                pass
+        return res
+
     product = resolve_product_for_payment(client, product_id)
+    try:
+        qty = int(qty)
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "invalid_qty"}
+    if qty < 1 or qty > MAX_PAYLINK_QUANTITY:
+        return {"ok": False, "error": "invalid_qty"}
+    size = str(size or "").strip().upper()[:16]
+    fit_option_code = str(fit_option_code or "").strip().lower()[:50]
+    fit_option_label = ""
+    if product is not None and fit_option_code:
+        from storefront.models import ProductFitOption
+
+        fit_option = ProductFitOption.objects.filter(
+            product=product, code=fit_option_code, is_active=True,
+        ).first()
+        if not fit_option:
+            return {"ok": False, "error": "invalid_fit_option"}
+        fit_option_label = fit_option.label
+    if product is not None and size:
+        from storefront.services.size_guides import resolve_product_sizes
+
+        allowed_sizes = {
+            str(value or "").strip().upper()
+            for value in resolve_product_sizes(product)
+        }
+        if fit_option_code == "oversize":
+            allowed_sizes.add("XS")
+        if allowed_sizes and size not in allowed_sizes:
+            return {"ok": False, "error": "invalid_size"}
     open_deals = list(
         IgDeal.objects.filter(client=client, order__isnull=True)
         .exclude(status=IgDeal.Status.PAID)
@@ -528,9 +815,18 @@ def create_deal_and_link(
     intended_price = unit_price_override
     if product is not None and intended_price is None:
         try:
-            intended_price = Decimal(str(int(getattr(product, "final_price", None) or product.price)))
+            from fable5.services import effective_cart_unit_price
+
+            intended_price = Decimal(str(effective_cart_unit_price(
+                product,
+                None,
+                fit_code=fit_option_code,
+                option_values={"fit": fit_option_code} if fit_option_code else {},
+            ))).quantize(Decimal("0.01"))
         except Exception:
-            intended_price = Decimal(str(product.price or 0))
+            intended_price = Decimal(str(product.price or 0)).quantize(Decimal("0.01"))
+    if intended_price is not None and intended_price * qty > MAX_PAYLINK_VALUE:
+        return {"ok": False, "error": "aggregate_value_limit"}
 
     deal = None
     if product is not None:
@@ -542,9 +838,10 @@ def create_deal_and_link(
                 and d.items.filter(product_id=product.id).exists()
                 and d.invoice_id
                 and d.invoice_url
-                and (
-                    d.items.first().unit_price == intended_price
-                )
+                and d.items.first().unit_price == intended_price
+                and d.items.first().qty == qty
+                and (d.items.first().size or "") == size
+                and (d.items.first().fit_option_code or "") == fit_option_code
             ):
                 return create_payment_link(d)
         # 2) свіжа угода саме під цей товар
@@ -552,7 +849,19 @@ def create_deal_and_link(
         price = intended_price
         IgDealItem.objects.create(
             deal=deal, product=product, title=product.title, size=size or "",
-            qty=max(1, int(qty or 1)), unit_price=price,
+            fit_option_code=fit_option_code,
+            fit_option_label=fit_option_label,
+            option_values={"fit": fit_option_code} if fit_option_code else {},
+            option_labels={"fit": fit_option_label} if fit_option_label else {},
+            qty=qty,
+            unit_price=price,
+            price_source="conversation_evidence" if unit_price_override is not None else "catalog",
+            price_evidence_message_ids=(
+                [message_id for message_id in (
+                    price_decision.get("source_message_id"),
+                    price_decision.get("acceptance_message_id"),
+                ) if message_id]
+            ),
         )
     else:
         # Товар не визначено → остання відкрита угода з позиціями.
@@ -579,6 +888,33 @@ def create_deal_and_link(
         except Exception:
             pass
     return res
+
+
+def create_deal_and_link(
+    client,
+    pay_type: str = "full",
+    product_id=None,
+    qty: int = 1,
+    size: str = "",
+    fit_option_code: str = "",
+    negotiated_price=None,
+    items=None,
+) -> dict:
+    """Create or reuse one payment deal while serializing the client flow."""
+    client_id = getattr(client, "pk", None)
+    if not client_id:
+        return {"ok": False, "error": "invalid_client"}
+    with _paylink_client_lock(client_id):
+        return _create_deal_and_link_unlocked(
+            client,
+            pay_type=pay_type,
+            product_id=product_id,
+            qty=qty,
+            size=size,
+            fit_option_code=fit_option_code,
+            negotiated_price=negotiated_price,
+            items=items,
+        )
 
 
 def fulfill_ready_paid_deals(limit: int = 50) -> int:

@@ -156,6 +156,8 @@ def _delete_direct_bot_records(identifier: str) -> dict:
         logs_count, _ = InstagramBotLog.objects.filter(detail__icontains=normalized).delete()
         if mids:
             InstagramBotProcessedMessage.objects.filter(mid__in=mids).delete()
+        # Attribution rows are append-only and already contain only a
+        # non-reversible identity digest; no mutable profile snapshot is kept.
         clients_count = len(clients)
         IgClient.objects.filter(id__in=[c.id for c in clients]).delete()
 
@@ -538,17 +540,34 @@ def bot_payment_reviews_api(request):
             "latest_decision": latest_decision,
             "decisions": decisions,
             "confirm_url": reverse("management_bot_payment_review_action_api", args=[row.id]),
-            "order_url": (
-                payment_review_order_url(row.id)
-                if (
-                    row.status == IgPaymentConfirmationReview.Status.CONFIRMED
-                    and latest_decision.get("decision") == "manager_verified"
-                )
-                else ""
-            ),
+            "order_url": _payment_review_order_link(row, payment_review_order_url),
             "order_id": row.order_id,
+            "order_number": row.order.order_number if row.order_id else "",
         })
     return JsonResponse({"success": True, "items": items, "count": len(items)})
+
+
+def _payment_review_order_link(review, create_url_factory):
+    """Link to the existing order when present, otherwise to the create form."""
+    if review.order_id:
+        return _existing_order_admin_url(review.order_id)
+    if (
+        review.status == review.Status.CONFIRMED
+        and _latest_payment_review_decision(review)
+        and _latest_payment_review_decision(review).decision == "manager_verified"
+    ):
+        return create_url_factory(review.id)
+    return ""
+
+
+def _existing_order_admin_url(order_id):
+    """Return the staff order editor URL used by the custom admin panel."""
+    try:
+        path = reverse("admin_panel", urlconf="twocomms.urls")
+    except Exception:
+        return ""
+    base = (getattr(settings, "SITE_BASE_URL", "") or "https://twocomms.shop").rstrip("/")
+    return f"{base}{path}?section=orders&edit_order={int(order_id)}"
 
 
 def _payment_review_decision_payload(decision) -> dict:
@@ -625,6 +644,27 @@ def bot_payment_review_action_api(request, review_id):
         return JsonResponse({"success": False, "error": "Перевірку оплати не знайдено."}, status=404)
     if review.client.hidden_at:
         return JsonResponse({"success": False, "error": "Прихований клієнт виключений з операцій."}, status=409)
+    if action == "link_order":
+        from management.services.ig_order_links import link_existing_order_to_review
+
+        try:
+            order = link_existing_order_to_review(
+                review,
+                order_identifier=request.POST.get("order_identifier"),
+                actor=request.user,
+                override_reason=request.POST.get("override_reason", ""),
+            )
+        except ValueError as exc:
+            return JsonResponse({"success": False, "error": str(exc)}, status=409)
+        return JsonResponse({
+            "success": True,
+            "id": review.id,
+            "status": review.status,
+            "next_action": "order_linked",
+            "order_id": order.pk,
+            "order_number": order.order_number,
+            "order_url": _existing_order_admin_url(order.pk),
+        })
     if action in {"confirm", "manager_verify"}:
         decision_name = "manager_verified"
         reason_code = ""
@@ -696,11 +736,7 @@ def bot_payment_review_action_api(request, review_id):
         "decision": decision_payload,
         "idempotent_replay": not bool(getattr(review, "_transitioned", False)),
         "next_action": "create_order" if review.status == IgPaymentConfirmationReview.Status.CONFIRMED else "review_conversation",
-        "order_url": (
-            payment_review_order_url(review.id)
-            if review.status == IgPaymentConfirmationReview.Status.CONFIRMED
-            else ""
-        ),
+        "order_url": _payment_review_order_link(review, payment_review_order_url),
     })
 
 

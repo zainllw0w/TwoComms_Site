@@ -208,7 +208,7 @@ div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3
   </header>
   {% if meta_bot_reviewer_mode %}
   <div class="bot-reviewer-note">
-    Режим перевірки Meta: цей обліковий запис може керувати лише вкладкою Instagram-бота для перевірки App Review. Інші розділи панелі керування заблоковані; API-токени, джерело облікових даних, список дозволених відправників, системні правила та база інструкцій приховані.
+    Meta reviewer mode · Meta Bot Reviewer: цей обліковий запис може керувати лише вкладкою Instagram-бота для перевірки App Review. Інші розділи панелі керування заблоковані; API-токени, джерело облікових даних, список дозволених відправників, системні правила та база інструкцій приховані.
   </div>
   {% endif %}
 
@@ -791,7 +791,13 @@ div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3
           if(item.status==='pending'){
             [['confirm','Підтвердити','bot-mini-btn active'],['cancel','Відхилити','bot-mini-btn danger']].forEach(([action,label,cls])=>{const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=label;b.addEventListener('click',()=>paymentReviewAction(item.id,action,b));actions.appendChild(b);});
           }else if(item.status==='confirmed'&&item.order_url){
-            const orderLink=document.createElement('a');orderLink.className='bot-mini-btn active';orderLink.href=item.order_url;orderLink.textContent=item.order_id?'Замовлення вже створено':'Сформувати замовлення';actions.appendChild(orderLink);
+            const orderLink=document.createElement('a');orderLink.className='bot-mini-btn active';orderLink.href=item.order_url;orderLink.textContent=item.order_id?'Замовлення '+(item.order_number||('#'+item.order_id)):'Сформувати замовлення';actions.appendChild(orderLink);
+            if(!item.order_id){
+              const existingInput=document.createElement('input');existingInput.type='text';existingInput.className='bot-input';existingInput.placeholder='Точний номер існуючого замовлення';existingInput.setAttribute('aria-label','Точний номер існуючого замовлення');existingInput.style.cssText='width:min(290px,100%);padding:7px 10px;';
+              const reasonInput=document.createElement('select');reasonInput.className='bot-input';reasonInput.setAttribute('aria-label','Причина розбіжності');reasonInput.dataset.field='override_reason';reasonInput.style.cssText='width:min(360px,100%);padding:7px 10px;';[['','Оберіть причину розбіжності'],['total_mismatch','Сума не збігається'],['phone_mismatch','Телефон не збігається'],['items_mismatch','Позиції не збігаються'],['manual_review','Перевірено менеджером вручну']].forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;reasonInput.appendChild(option);});
+              const existingButton=document.createElement('button');existingButton.type='button';existingButton.className='bot-mini-btn';existingButton.textContent="Прив'язати існуюче";existingButton.addEventListener('click',()=>linkPaymentReviewOrder(item.id,existingInput,reasonInput,existingButton));
+              actions.append(existingInput,reasonInput,existingButton);
+            }
           }else{
             const state=document.createElement('span');state.className='bot-note';state.textContent='Заяву відхилено. Замовлення не створюється.';actions.appendChild(state);
           }
@@ -803,7 +809,16 @@ div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3
     if(!window.confirm(action==='confirm'?'Підтвердити заяву про оплату менеджером?':'Скасувати цю заяву про оплату?')) return;
     button.disabled=true; const body=new FormData(); body.append('action',action);
     fetch(paymentReviewActionUrl(id),{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'},body})
-      .then(r=>r.json().then(data=>({ok:r.ok,data}))).then(result=>{if(!result.ok||!result.data.success) throw new Error(result.data.error||'Дію не виконано.'); if(action==='confirm'&&result.data.order_url){const row=button.closest('.bot-deal'); if(row){row.replaceChildren(); const note=document.createElement('div'); note.className='bot-hint'; note.textContent='Заяву/чек підтверджено менеджером. Provider payment ще не підтверджено.'; const link=document.createElement('a'); link.className='bot-mini-btn active'; link.style.display='inline-flex'; link.style.marginTop='10px'; link.href=result.data.order_url; link.textContent='Сформувати замовлення'; row.append(note,link);} return;} return loadPaymentReviews();}).catch(error=>{button.disabled=false;window.alert(error.message||'Дію не виконано.');});
+      .then(r=>r.json().then(data=>({ok:r.ok,data}))).then(result=>{if(!result.ok||!result.data.success) throw new Error(result.data.error||'Дію не виконано.'); if(action==='confirm'&&result.data.order_url){const row=button.closest('.bot-deal'); if(row){row.replaceChildren(); const note=document.createElement('div'); note.className='bot-hint'; const providerTruth=(result.data.payment&&result.data.payment.provider_truth)||'unverified'; note.textContent=providerTruth==='confirmed'||providerTruth==='partially_refunded'?'Заяву підтверджено менеджером. Provider payment також підтверджено.':'Заяву/чек підтверджено менеджером. Provider payment ще не підтверджено.'; const link=document.createElement('a'); link.className='bot-mini-btn active'; link.style.display='inline-flex'; link.style.marginTop='10px'; link.href=result.data.order_url; link.textContent='Сформувати замовлення'; row.append(note,link);} return loadPaymentReviews().catch(()=>undefined);} return loadPaymentReviews().catch(()=>undefined);}).catch(error=>{button.disabled=false;window.alert(error.message||'Дію не виконано.');});
+  }
+  function linkPaymentReviewOrder(id,input,reasonInput,button){
+    const identifier=(input.value||'').trim();
+    if(!identifier){window.alert('Вкажіть точний номер замовлення.');input.focus();return;}
+    if(!window.confirm('Прив’язати цю переписку до замовлення '+identifier+'? Дані самого замовлення не зміняться.')) return;
+    button.disabled=true;const body=new FormData();body.append('action','link_order');body.append('order_identifier',identifier);body.append('override_reason',(reasonInput&&reasonInput.value||'').trim());
+    fetch(paymentReviewActionUrl(id),{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'},body})
+      .then(r=>r.json().then(data=>({ok:r.ok,data}))).then(result=>{if(!result.ok||!result.data.success)throw new Error(result.data.error||'Не вдалося прив’язати замовлення.');button.disabled=false;button.textContent='Прив’язано';const row=button.closest('.bot-deal');if(row){const note=document.createElement('div');note.className='bot-hint';note.textContent='Замовлення '+(result.data.order_number||result.data.order_id)+' прив’язано. Дані замовлення не змінювалися.';row.appendChild(note);}return loadPaymentReviews().catch(()=>undefined);})
+      .catch(error=>{button.disabled=false;window.alert(error.message||'Не вдалося прив’язати замовлення.');});
   }
   const paymentReviewRefresh=document.getElementById('bot-payment-review-refresh');
   if(paymentReviewRefresh) paymentReviewRefresh.addEventListener('click',loadPaymentReviews);

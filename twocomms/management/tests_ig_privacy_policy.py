@@ -198,6 +198,48 @@ class InstagramBotPrivacyPolicyTests(TestCase):
         self.assertFalse(InstagramBotMessage.objects.filter(sender_id="123456789").exists())
         self.assertFalse(InstagramBotRawEvent.objects.filter(sender_id="123456789").exists())
 
+    def test_data_deletion_preserves_anonymous_payment_decision_audit(self):
+        from management.ig_bot_models import (
+            IgDeal,
+            IgPaymentConfirmationReview,
+            IgPaymentReviewDecision,
+        )
+        from management.services.ig_payment_review import record_review_decision
+
+        actor = get_user_model().objects.create_user(
+            username="privacy_payment_manager",
+            password="test-password",
+            is_staff=True,
+        )
+        client = IgClient.objects.create(
+            igsid="987654321",
+            username="erase_payment_buyer",
+            display_name="Erase Payment Buyer",
+        )
+        deal = IgDeal.objects.create(client=client)
+        review = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            deal=deal,
+            dedupe_key="privacy-payment-review",
+        )
+        record_review_decision(review, actor=actor, decision="manager_verified")
+        decision = IgPaymentReviewDecision.objects.get(review=review)
+
+        response = self.client.post(
+            "/data-deletion/submit/",
+            {"identifier": "erase_payment_buyer"},
+            HTTP_HOST="management.twocomms.shop",
+            secure=True,
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(IgClient.objects.filter(pk=client.pk).exists())
+        self.assertFalse(IgPaymentConfirmationReview.objects.filter(pk=review.pk).exists())
+        decision.refresh_from_db()
+        self.assertEqual(decision.client_id, client.pk)
+        self.assertEqual(decision.review_id, review.pk)
+
     def _signed_meta_request(self, payload, secret="test-meta-app-secret"):
         encoded_payload = base64.urlsafe_b64encode(
             json.dumps(payload, separators=(",", ":")).encode()

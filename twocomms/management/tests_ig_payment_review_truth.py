@@ -14,6 +14,22 @@ from django.utils import timezone
 
 
 class InstagramPaymentDecisionTests(TestCase):
+    def _require_db_append_only_trigger(self):
+        """Skip raw-SQL trigger assertions when the runner disables migrations."""
+        trigger_name = "ig_paydec_no_update"
+        with connection.cursor() as cursor:
+            if connection.vendor == "sqlite":
+                cursor.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='trigger' AND name=%s",
+                    [trigger_name],
+                )
+            elif connection.vendor in {"mysql", "mariadb"}:
+                cursor.execute("SHOW TRIGGERS LIKE %s", ["ig_paydec_no_update"])
+            else:
+                return
+            if cursor.fetchone() is None:
+                self.skipTest("append-only triggers are unavailable in migration-disabled test settings")
+
     def setUp(self):
         from management.ig_bot_models import IgClient, IgDeal, IgPaymentConfirmationReview, IgPaymentProjection
 
@@ -140,6 +156,8 @@ class InstagramPaymentDecisionTests(TestCase):
         from management.ig_bot_models import IgPaymentReviewDecision
         from management.services.ig_payment_review import record_review_decision
 
+        self._require_db_append_only_trigger()
+
         record_review_decision(
             self.review,
             actor=self.actor,
@@ -159,6 +177,8 @@ class InstagramPaymentDecisionTests(TestCase):
     def test_database_trigger_rejects_raw_decision_delete(self):
         from management.ig_bot_models import IgPaymentReviewDecision
         from management.services.ig_payment_review import record_review_decision
+
+        self._require_db_append_only_trigger()
 
         record_review_decision(
             self.review,
@@ -445,7 +465,10 @@ class InstagramPaymentDecisionMigrationTests(SimpleTestCase):
             import os
             import sys
 
-            os.environ.setdefault("DJANGO_SETTINGS_MODULE", "twocomms.settings")
+            # The parent test runner may export ``DJANGO_SETTINGS_MODULE`` as
+            # ``test_settings`` (which disables migrations).  This subprocess
+            # intentionally exercises the real migration graph.
+            os.environ["DJANGO_SETTINGS_MODULE"] = "twocomms.settings"
             from django.conf import settings
 
             settings.DATABASES["default"] = {

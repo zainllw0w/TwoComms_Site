@@ -37,6 +37,8 @@ __all__ = [
     "IgBotNotificationAudit",
     "IgPaymentConfirmationReview",
     "IgPaymentReviewDecision",
+    "IgOrderAttribution",
+    "IgOrderLinkEvent",
 ]
 
 
@@ -700,12 +702,12 @@ class IgPaymentConfirmationReview(models.Model):
         related_name="payment_confirmation_reviews",
         db_constraint=False,
     )
-    order = models.OneToOneField(
+    order = models.ForeignKey(
         "orders.Order",
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name="instagram_payment_review",
+        related_name="instagram_payment_reviews",
         db_constraint=False,
     )
     dedupe_key = models.CharField(max_length=160, unique=True)
@@ -789,13 +791,15 @@ class IgPaymentReviewDecision(models.Model):
 
     review = models.ForeignKey(
         "management.IgPaymentConfirmationReview",
-        on_delete=models.PROTECT,
+        # The customer row may be erased for GDPR. The append-only decision
+        # remains as an anonymized audit tombstone with orphan-safe IDs.
+        on_delete=models.DO_NOTHING,
         related_name="decisions",
         db_constraint=False,
     )
     client = models.ForeignKey(
         "management.IgClient",
-        on_delete=models.PROTECT,
+        on_delete=models.DO_NOTHING,
         related_name="payment_review_decisions",
         db_constraint=False,
     )
@@ -868,9 +872,15 @@ class IgDealItem(models.Model):
     )
     title = models.CharField(max_length=255)
     size = models.CharField(max_length=16, blank=True, default="")
+    fit_option_code = models.CharField(max_length=50, blank=True, default="")
+    fit_option_label = models.CharField(max_length=100, blank=True, default="")
+    option_values = models.JSONField(default=dict, blank=True)
+    option_labels = models.JSONField(default=dict, blank=True)
     qty = models.PositiveIntegerField(default=1)
     unit_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     line_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    price_source = models.CharField(max_length=64, blank=True, default="")
+    price_evidence_message_ids = models.JSONField(default=list, blank=True)
 
     class Meta:
         verbose_name = _("Позиція IG угоди")
@@ -886,6 +896,159 @@ class IgDealItem(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - тривіально
         return f"{self.title} ×{self.qty}"
+
+
+class _AppendOnlyOrderAttributionQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValueError("IgOrderAttribution is append-only")
+
+    def delete(self):
+        raise ValueError("IgOrderAttribution is append-only")
+
+
+class IgOrderAttribution(models.Model):
+    """Immutable commercial attribution snapshot for one real order.
+
+    Direct Instagram profile values are intentionally excluded.  The digest is
+    only for deterministic audit correlation and cannot be used to recover the
+    profile without the application secret.
+    """
+
+    CREATION_MODES = (
+        ("provider_auto", _("Автоматично за provider payment")),
+        ("manager_review", _("Створено після перевірки менеджером")),
+        ("linked_existing", _("Прив'язано до існуючого замовлення")),
+    )
+    PAYMENT_SOURCES = (
+        ("provider_projection", _("Provider projection")),
+        ("provider_attempt", _("Provider payment attempt")),
+        ("manager_verified", _("Перевірено менеджером")),
+        ("unknown", _("Невідоме джерело")),
+    )
+
+    order = models.OneToOneField(
+        "orders.Order",
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="instagram_attribution",
+    )
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="order_attributions",
+    )
+    deal = models.ForeignKey(
+        "management.IgDeal",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="order_attributions",
+        db_constraint=False,
+    )
+    payment_review = models.ForeignKey(
+        "management.IgPaymentConfirmationReview",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="order_attributions",
+        db_constraint=False,
+    )
+    manager_decision = models.ForeignKey(
+        "management.IgPaymentReviewDecision",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="order_attributions",
+        db_constraint=False,
+    )
+    creation_mode = models.CharField(max_length=32, choices=CREATION_MODES)
+    payment_source = models.CharField(max_length=32, choices=PAYMENT_SOURCES, default="unknown")
+    identity_digest = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    evidence_watermark_message_id = models.PositiveBigIntegerField(default=0)
+    item_provenance = models.JSONField(default=list, blank=True)
+    negotiated_total = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    price_source = models.CharField(max_length=64, blank=True, default="")
+    price_evidence_message_ids = models.JSONField(default=list, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="ig_order_attributions_created",
+        db_constraint=False,
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("Атрибуція Instagram-замовлення")
+        verbose_name_plural = _("Атрибуції Instagram-замовлень")
+        indexes = [
+            models.Index(fields=["client", "-created_at"], name="ig_order_attr_client_dt"),
+            models.Index(fields=["creation_mode", "-created_at"], name="ig_order_attr_mode_dt"),
+        ]
+
+    objects = models.Manager.from_queryset(_AppendOnlyOrderAttributionQuerySet)()
+
+    def save(self, *args, **kwargs):
+        if self.pk and not kwargs.get("force_insert"):
+            raise ValueError("IgOrderAttribution is append-only")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgOrderAttribution is append-only")
+
+
+class _AppendOnlyOrderLinkEventQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValueError("IgOrderLinkEvent is append-only")
+
+    def delete(self):
+        raise ValueError("IgOrderLinkEvent is append-only")
+
+
+class IgOrderLinkEvent(models.Model):
+    """Auditable edge between a payment review episode and an order."""
+
+    order = models.ForeignKey(
+        "orders.Order", on_delete=models.DO_NOTHING, db_constraint=False,
+        related_name="instagram_link_events"
+    )
+    client = models.ForeignKey(
+        "management.IgClient", on_delete=models.DO_NOTHING, db_constraint=False,
+        related_name="order_link_events",
+    )
+    review = models.ForeignKey(
+        "management.IgPaymentConfirmationReview", null=True, blank=True,
+        on_delete=models.DO_NOTHING, related_name="order_link_events", db_constraint=False,
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.DO_NOTHING,
+        related_name="ig_order_link_events", db_constraint=False,
+    )
+    event_kind = models.CharField(max_length=32, default="linked")
+    reason_code = models.CharField(max_length=64, blank=True, default="")
+    mismatch_snapshot = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["order", "review", "event_kind"],
+                name="ig_order_link_event_once",
+            )
+        ]
+        indexes = [models.Index(fields=["client", "-created_at"], name="ig_order_link_client_dt")]
+
+    objects = models.Manager.from_queryset(_AppendOnlyOrderLinkEventQuerySet)()
+
+    def save(self, *args, **kwargs):
+        if self.pk and not kwargs.get("force_insert"):
+            raise ValueError("IgOrderLinkEvent is append-only")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgOrderLinkEvent is append-only")
 
 
 class BotInstruction(models.Model):

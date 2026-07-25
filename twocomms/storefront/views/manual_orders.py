@@ -42,7 +42,7 @@ from orders.nova_poshta_documents import normalize_checkout_phone
 from orders.order_edit_diff import build_order_edit_diff, snapshot_order
 from orders.telegram_notifications import telegram_notifier
 from productcolors.models import ProductColorVariant
-from storefront.models import Product, ProductStatus
+from storefront.models import Product, ProductFitOption, ProductStatus
 from storefront.services.size_guides import resolve_product_sizes
 from storefront.utm_tracking import (
     ensure_order_purchase_action,
@@ -412,6 +412,8 @@ def _build_order_item(
     qty = _coerce_int(raw_item.get('qty'), default=1)
     size = str(raw_item.get('size') or '').strip()[:16]
     unit_price = _decimal_or_none(raw_item.get('unit_price'))
+    option_values = raw_item.get('option_values') if isinstance(raw_item.get('option_values'), dict) else {}
+    option_labels = raw_item.get('option_labels') if isinstance(raw_item.get('option_labels'), dict) else {}
 
     if kind == 'custom':
         title = str(raw_item.get('title') or '').strip()
@@ -426,6 +428,10 @@ def _build_order_item(
             color_variant=None,
             title=title[:200],
             size=size,
+            fit_option_code=str(raw_item.get('fit_option_code') or '')[:50],
+            fit_option_label=str(raw_item.get('fit_option_label') or '')[:100],
+            option_values=option_values,
+            option_labels=option_labels,
             qty=qty,
             unit_price=unit_price,
             line_total=unit_price * qty,
@@ -501,6 +507,8 @@ def _build_order_item(
         size=size,
         fit_option_code=fit_code,
         fit_option_label=fit_label,
+        option_values=option_values,
+        option_labels=option_labels,
         qty=qty,
         unit_price=unit_price,
         line_total=unit_price * qty,
@@ -620,6 +628,37 @@ def _authoritative_manager_payment_decision(review):
     return decision
 
 
+def _normalize_review_fit(product, raw_fit):
+    value = str(raw_fit or "").strip()
+    if not value:
+        return "", ""
+    folded = value.casefold()
+    aliases = {
+        "оверсайз": "oversize",
+        "оверсайзний": "oversize",
+        "oversized": "oversize",
+        "класика": "classic",
+        "класичний": "classic",
+        "класична": "classic",
+        "классика": "classic",
+        "классический": "classic",
+        "regular": "classic",
+    }
+    candidates = {folded, aliases.get(folded, "")}
+    if product:
+        fit = next(
+            (
+                option
+                for option in ProductFitOption.objects.filter(product=product, is_active=True)
+                if option.code.casefold() in candidates or option.label.casefold() in candidates
+            ),
+            None,
+        )
+        if fit:
+            return fit.code, fit.label
+    return aliases.get(folded, folded)[:50], value[:100]
+
+
 def _build_ig_review_initial(review):
     """Build an editable manual-order draft from a confirmed IG review."""
     deal = review.deal
@@ -661,6 +700,7 @@ def _build_ig_review_initial(review):
             except (TypeError, ValueError):
                 product_id = 0
             product = products.get(product_id)
+            fit_code, fit_label = _normalize_review_fit(product, fit)
             title = (getattr(product, "title", "") or catalog.get("title") or draft_item.get("title") or "Товар з переписки")
             if not product and fit and "не ідентифіковано" not in title.lower():
                 title = f"{title} · товар потребує вибору"
@@ -681,6 +721,10 @@ def _build_ig_review_initial(review):
                 "unit_price": float(raw_price or 0),
                 "qty": int(draft_item.get("qty") or 1),
                 "size": draft_item.get("size") or "",
+                "fit_option_code": fit_code,
+                "fit_option_label": fit_label,
+                "option_values": draft_item.get("option_values") if isinstance(draft_item.get("option_values"), dict) else {},
+                "option_labels": draft_item.get("option_labels") if isinstance(draft_item.get("option_labels"), dict) else {},
                 "color_name": "",
                 "image": image,
                 "product_url": catalog.get("url") or (f"https://twocomms.shop/product/{product.slug}/" if product else ""),
@@ -738,6 +782,10 @@ def _build_ig_review_initial(review):
             "unit_price": float(item.unit_price or 0),
             "qty": item.qty,
             "size": item.size or "",
+            "fit_option_code": item.fit_option_code or "",
+            "fit_option_label": item.fit_option_label or "",
+            "option_values": item.option_values or {},
+            "option_labels": item.option_labels or {},
             "color_name": "",
             "image": getattr(getattr(product, "display_image", None), "url", "") if product else "",
             "sizes": sizes,
@@ -945,8 +993,21 @@ def manual_order_create(request):
                     payment_review.deal = None
                     payment_review.save(update_fields=['deal', 'updated_at'])
             if payment_review:
+                from management.services.ig_order_links import create_order_attribution
+
+                manager_decision = _authoritative_manager_payment_decision(payment_review)
                 payment_review.order = order
                 payment_review.save(update_fields=['order', 'updated_at'])
+                create_order_attribution(
+                    order,
+                    client=payment_review.client,
+                    deal=payment_review.deal,
+                    review=payment_review,
+                    manager_decision=manager_decision,
+                    creation_mode="manager_review",
+                    payment_source="manager_verified",
+                    created_by=request.user,
+                )
     except ValueError as exc:
         return JsonResponse({'success': False, 'message': str(exc)}, status=422)
     except Exception:

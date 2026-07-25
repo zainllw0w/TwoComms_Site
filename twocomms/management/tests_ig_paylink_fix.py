@@ -203,6 +203,111 @@ class FinalizePaylinkTests(TestCase):
         self.assertEqual(mock_link.call_args.kwargs["product_id"], product.pk)
         self.assertEqual(mock_link.call_args.kwargs["negotiated_price"], Decimal("790.00"))
 
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.bot_orders.create_deal_and_link")
+    def test_forwards_separate_item_quantity_size_and_fit_records(self, mock_link, _notify):
+        product = _pub_product("Футболка Харків", "paylink-multi-fit", price=950)
+        mock_link.return_value = {
+            "ok": True,
+            "invoice_url": "https://pay/items",
+            "invoice_id": "items",
+        }
+
+        bot.finalize_paylink(
+            "Оформлюю замовлення",
+            {
+                "paylink": "full",
+                "items": [
+                    f"{product.pk}|1|XS|oversize",
+                    f"{product.pk}|2|S|classic",
+                ],
+            },
+            self.c,
+            self.c.igsid,
+        )
+
+        self.assertEqual(
+            mock_link.call_args.kwargs["items"],
+            [
+                {
+                    "product_id": product.pk,
+                    "qty": 1,
+                    "size": "XS",
+                    "fit_option_code": "oversize",
+                    "color_variant_id": None,
+                },
+                {
+                    "product_id": product.pk,
+                    "qty": 2,
+                    "size": "S",
+                    "fit_option_code": "classic",
+                    "color_variant_id": None,
+                },
+            ],
+        )
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.bot_orders.create_deal_and_link")
+    def test_malformed_explicit_item_tag_fails_closed(self, mock_link, _notify):
+        product = _pub_product("Футболка", "paylink-malformed-item", price=950)
+
+        out = bot.finalize_paylink(
+            "Оформлюю замовлення",
+            {"paylink": "full", "product": product.pk, "items": ["broken-item"]},
+            self.c,
+            self.c.igsid,
+        )
+
+        self.assertEqual(out, bot.PAYLINK_FALLBACK_TEXT)
+        mock_link.assert_not_called()
+
+    def test_mixed_valid_and_malformed_item_tags_fail_closed(self):
+        self.assertEqual(
+            bot._control_item_specs({"items": ["12|1|XS|classic", "not-a-valid-item"]}),
+            [],
+        )
+
+    def test_conflicting_singleton_control_tags_are_rejected(self):
+        _text, control = bot._extract_control("Готово [PAYLINK:full] [PAYLINK:prepay]")
+        self.assertTrue(control.get("_invalid"))
+
+    def test_explicit_invalid_product_does_not_fallback_to_current_product(self):
+        current = _pub_product("Поточний товар", "current-explicit-stale")
+        self.c.current_product = current
+        self.c.save(update_fields=["current_product", "updated_at"])
+
+        self.assertIsNone(bot_orders.resolve_product_for_payment(self.c, product_id=999999))
+
+
+class PaymentItemControlTests(SimpleTestCase):
+    def test_extract_control_preserves_repeated_item_tags(self):
+        clean, control = bot._extract_control(
+            "Оформлюю [PAYLINK:full] [PRODUCT:12] "
+            "[ITEM:12|1|XS|oversize] [ITEM:12|2|S|classic]"
+        )
+
+        self.assertEqual(clean, "Оформлюю")
+        self.assertEqual(
+            control["items"],
+            ["12|1|xs|oversize", "12|2|s|classic"],
+        )
+
+    def test_explicit_invalid_quantity_fails_closed(self):
+        self.assertIsNone(bot._control_positive_int({"qty": "many"}, "qty"))
+
+    def test_product_tag_must_agree_with_every_item(self):
+        client = type("Client", (), {
+            "pk": None,
+            "intent": "payment",
+            "stage": "checkout",
+            "current_product_id": None,
+        })()
+        self.assertFalse(bot.payment_link_allowed(
+            client,
+            {"product": "12", "items": ["13|1|S|classic"]},
+            "Беру, оформлюйте",
+        ))
+
 
 # ===========================================================================
 # Task 3 — Інжект протоколу [PRODUCT:id] у gemini_generate (migration-free).
@@ -223,6 +328,10 @@ class PaymentProtocolInjectionTests(TestCase):
         # [PRODUCT: немає у DEFAULT_BOT_SYSTEM_PROMPT — отже додав саме інжект.
         self.assertIn("[PRODUCT:", sys_text)
         self.assertIn("[PAYLINK:", sys_text)
+        self.assertIn("[ITEM:", sys_text)
+        self.assertIn("кільк", sys_text.lower())
+        self.assertIn("розмір", sys_text.lower())
+        self.assertIn("крій", sys_text.lower())
         self.assertIn("НЕ вигадуй", sys_text)
 
 

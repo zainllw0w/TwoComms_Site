@@ -43,10 +43,14 @@ def verified_payment_q(prefix: str = "") -> Q:
 
 
 def manual_confirmation_q(prefix: str = "") -> Q:
-    """Match an explicit manager review without changing provider truth."""
+    """Match only a source-qualified manager decision, never status alone."""
+    relation = f"{prefix}payment_confirmation_reviews__"
     return Q(**{
-        f"{prefix}payment_confirmation_reviews__status": "confirmed",
-    })
+        relation + "status": "confirmed",
+        relation + "decisions__decision": "manager_verified",
+        relation + "decisions__verification_source": "manager",
+        relation + "decisions__actor_source__in": ("management_user", "telegram_user"),
+    }) & ~Q(**{relation + "decisions__actor_external_id": ""})
 
 
 def verified_payment_deals(queryset: QuerySet | None = None) -> QuerySet:
