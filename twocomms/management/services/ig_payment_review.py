@@ -670,13 +670,26 @@ def _catalog_matches_for_media(media: list[dict]) -> list[dict]:
         from management.services import bot_vision
 
         images = []
-        downloaded_indexes = []
+        # A forwarded post can arrive more than once with different signed
+        # URLs. Keep every source media index for audit/order-line binding,
+        # but send identical bytes to vision only once.
+        downloaded_source_indexes = []
+        image_digests = {}
         for index, row in enumerate(product_media[:8]):
             for media_url in _catalog_media_url_candidates(row):
                 image = download_image(media_url)
                 if image:
-                    images.append(image)
-                    downloaded_indexes.append(index)
+                    try:
+                        digest = hashlib.sha256(image[1]).hexdigest()
+                    except (TypeError, ValueError, IndexError):
+                        digest = None
+                    if digest and digest in image_digests:
+                        downloaded_source_indexes[image_digests[digest]].append(index)
+                    else:
+                        if digest:
+                            image_digests[digest] = len(images)
+                        images.append(image)
+                        downloaded_source_indexes.append([index])
                     break
         raw_matches = bot_vision.match_many(images) if images else []
     except Exception as exc:
@@ -692,9 +705,10 @@ def _catalog_matches_for_media(media: list[dict]) -> list[dict]:
     for match in raw_matches:
         image_indexes = match.get("source_image_indexes") or list(range(len(images)))
         source_indexes = sorted({
-            downloaded_indexes[index]
+            source_index
             for index in image_indexes
-            if 0 <= index < len(downloaded_indexes)
+            if 0 <= index < len(downloaded_source_indexes)
+            for source_index in downloaded_source_indexes[index]
         })
         result = _hydrate_catalog_match(match, product_media, source_indexes)
         results.append(result)

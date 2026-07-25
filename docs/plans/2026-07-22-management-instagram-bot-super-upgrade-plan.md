@@ -1049,6 +1049,14 @@ The approved architecture is documented in `docs/plans/2026-07-23-management-ins
     - **Acceptance:** matching prefers a bounded absolute local URL and falls back to the original source; expired signed URLs do not discard a persisted image; unresolved/unknown images remain fail-closed; catalog confidence and source media IDs stay auditable.
     - **Tests:** local URL preferred over expired source, original URL fallback, failed both sources, and multi-image source-index preservation.
     - **Priority:** P0 — durable evidence must survive provider URL expiry before order formation.
+  - [ ] **P0.B5bd — duplicate product media can suppress an otherwise valid catalog match.**
+    - **Symptom:** the same forwarded product post arrives under multiple signed URLs; the matcher sends duplicate image bytes in one vision request and can return no match, even though the single durable image matches a catalog product.
+    - **Root cause:** `_catalog_matches_for_media()` deduplicated URLs only, not downloaded image content, so repeated provider references inflated one request and discarded source-level identity when vision failed.
+    - **Risk:** a known product remains unresolved, product-card links disappear from Telegram/management, and the operator may form a wrong SKU manually.
+    - **Affected branches:** durable media persistence, catalog vision payload size, product-card links, Telegram evidence, and manual-order prefill.
+    - **Acceptance:** identical downloaded bytes are sent to vision once; every duplicate source media index remains attached to the hydrated match for audit and order-line binding; different images remain independent; failed/unknown media stays fail-closed.
+    - **Tests:** duplicate bytes with different URLs, source-index preservation, distinct product images, expired-source fallback, and no-match behavior.
+    - **Priority:** P0 — duplicate provider delivery must not change an otherwise verified product identity.
   - [x] **P1.B5c Replace the global long-held reply lock with a bounded two-level permission barrier.**
   - **Priority:** P1 — correctness is currently fail-closed, but latency and operator availability degrade under slow AI/provider calls.
   - **Symptom:** unrelated clients are serialized, while global stop, client pause, or manager takeover can wait for the full Gemini/Meta timeout before returning.

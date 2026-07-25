@@ -730,6 +730,89 @@ class CatalogAssignmentTests(SimpleTestCase):
         }
         self.assertEqual(_catalog_order_media([question, purchase]), [purchase])
 
+    @patch("management.services.ig_payment_review._hydrate_catalog_match")
+    @patch("management.services.bot_vision.match_many", return_value=[{
+        "product_id": 11,
+        "confidence": 0.93,
+        "source_image_indexes": [0],
+        "reason": "дубль одного зображення",
+    }])
+    @patch(
+        "management.services.instagram_bot.download_image",
+        side_effect=lambda url: ("image/jpeg", b"same-product") if "/media/" in url else None,
+    )
+    def test_catalog_matching_deduplicates_identical_media_but_keeps_source_indexes(
+        self, _download, _match_many, hydrate
+    ):
+        from management.services.ig_payment_review import _catalog_matches_for_media
+
+        hydrate.return_value = {"status": "matched", "product_id": 11, "confidence": 0.93}
+        media = [
+            {
+                "url": "https://lookaside.example/expired-a.jpg",
+                "local_url": "/media/ig_payment_reviews/a.jpg",
+                "role": "product",
+                "intent": "purchase_candidate",
+                "actionable": True,
+                "catalog_match_allowed": True,
+            },
+            {
+                "url": "https://lookaside.example/expired-b.jpg",
+                "local_url": "/media/ig_payment_reviews/b.jpg",
+                "role": "product",
+                "intent": "purchase_candidate",
+                "actionable": True,
+                "catalog_match_allowed": True,
+            },
+        ]
+
+        matches = _catalog_matches_for_media(media)
+
+        self.assertEqual(matches[0]["product_id"], 11)
+        self.assertEqual(len(_match_many.call_args.args[0]), 1)
+        self.assertEqual(hydrate.call_args.args[2], [0, 1])
+
+    @patch("management.services.ig_payment_review._hydrate_catalog_match")
+    @patch("management.services.bot_vision.match_many", return_value=[{
+        "product_id": 11,
+        "confidence": 0.93,
+        "source_image_indexes": [0, 1],
+        "reason": "два різні джерела одного замовлення",
+    }])
+    @patch(
+        "management.services.instagram_bot.download_image",
+        side_effect=lambda url: (
+            "image/jpeg", b"product-a" if url.endswith("/a.jpg") else b"product-b"
+        ),
+    )
+    def test_catalog_matching_keeps_distinct_media_independent(self, _download, _match_many, hydrate):
+        from management.services.ig_payment_review import _catalog_matches_for_media
+
+        hydrate.return_value = {"status": "matched", "product_id": 11, "confidence": 0.93}
+        media = [
+            {
+                "url": "https://lookaside.example/a.jpg",
+                "local_url": "/media/ig_payment_reviews/a.jpg",
+                "role": "product",
+                "intent": "purchase_candidate",
+                "actionable": True,
+                "catalog_match_allowed": True,
+            },
+            {
+                "url": "https://lookaside.example/b.jpg",
+                "local_url": "/media/ig_payment_reviews/b.jpg",
+                "role": "product",
+                "intent": "purchase_candidate",
+                "actionable": True,
+                "catalog_match_allowed": True,
+            },
+        ]
+
+        _catalog_matches_for_media(media)
+
+        self.assertEqual(len(_match_many.call_args.args[0]), 2)
+        self.assertEqual(hydrate.call_args.args[2], [0, 1])
+
     def test_two_catalog_matches_are_bound_to_two_draft_lines(self):
         from management.services.ig_payment_review import _apply_catalog_matches_to_draft
 
