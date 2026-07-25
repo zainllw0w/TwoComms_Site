@@ -14,9 +14,9 @@ behavior.
 - [x] **Task 3 — Nova Poshta validation and fulfillment gates.** Shipped in
   `e805ec7f`; text-only delivery fails closed, signed-directory Refs survive to
   `Order`, and production migration `0105` is verified on MariaDB.
-- [ ] **Task 4 — Client workspace API contract.** Implementation and local
-  verification are complete; commit/push/deploy and production MariaDB/runtime
-  proof remain before this task is marked shipped.
+- [x] **Task 4 — Client workspace API contract.** Shipped in `fcea1668`; the
+  bounded client/orders contract, explicit order resolution, permissions and
+  production MariaDB/runtime behavior are verified.
 - [ ] **Task 5 — Responsive workspace, client drawer, and `Замовлення` UX.**
   Product approvals must not live in the general overview; they are available
   in the dedicated section, client workspace, and Telegram deep-link.
@@ -60,6 +60,8 @@ behavior.
 - [x] Active action-required reviews are selected independently from the bounded 20-row history, so older pending/order-resolution work is never hidden by newer terminal reviews.
 - [x] Untrusted JSON evidence is whitelisted and bounded by type, field, string length, ID-list length, item count, media count, and trusted URL policy.
 - [x] Task 4 verification passed: 35 focused UI/API tests, 104 related client/payment/order-link/review tests, Django check, migration drift, compilation, diff check, and independent code-quality re-review (`APPROVED`).
+- [x] Task 4 production proof: server SHA `fcea1668`, MariaDB `11.4.12`, no pending migrations, one live daemon with approximately six-second heartbeat, empty notification outbox and analysis queue, `/healthz/` `200`, management/API anonymous boundaries `302`, and read-only staff orders API `200` with counts `action=2`, `confirmed=1`, `all=2`.
+- [x] Production client `1735898131060065` remains duplicate-safe: two reviews exist, one confirmed review is `needs_order_resolution`, and zero `IgOrderAttribution` links exist until the manager explicitly selects the already-created order or chooses create-new.
 
 ## Required follow-up before broad analytics rollout
 

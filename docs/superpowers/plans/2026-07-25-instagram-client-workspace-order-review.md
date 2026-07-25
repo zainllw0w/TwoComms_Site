@@ -93,7 +93,7 @@ validated (`validated_deals=0`).
 - [x] **Step 3: Build a bounded client-detail payload** with independent `automation`, `interaction`, `payment`, `fulfillment`, `review`, `orders`, and `patterns` objects.
 - [x] **Step 4: Add review action endpoints** for confirm/reject/create/link with permission and hidden-client guards.
 - [x] **Step 5: Run focused API tests and existing client UI tests.** Evidence: 35 focused client-workspace tests and 104 related client/payment/order-link/review tests passed; `manage.py check`, migration drift, compilation, and `git diff --check` passed; independent code-quality re-review returned `APPROVED`.
-- [ ] **Step 6: Commit, push, deploy, and verify production** with commit `feat: expose instagram client commercial context`, MariaDB/runtime checks, management auth/API boundary, daemon, queue/outbox, and deployed-SHA proof.
+- [x] **Step 6: Commit, push, deploy, and verify production** with commit `fcea1668` (`feat: expose instagram client commercial context`). Production reached the same SHA on MariaDB `11.4.12`; migrations/check/static/compress/playbooks/restart/daemon/payment poll passed, daemon heartbeat was about six seconds old, notification outbox and analysis queues were empty, `/healthz/` returned `200`, management/API anonymous boundaries returned `302`, and a read-only staff invocation of `/bot/api/orders/` returned `200` with the bounded action queue.
 
 **Product approval placement requirement:** product approval is not rendered as
 an always-on card in the main bot overview. The API must expose a separate,
