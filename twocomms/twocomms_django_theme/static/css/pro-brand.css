@@ -1590,7 +1590,7 @@ html[data-route-name="about"] .site-footer-premium {
   overflow: visible;
   background: linear-gradient(180deg, rgba(8, 10, 14, 0) 0%, #080a0f 24%, #090b11 100%);
   padding-top: 2rem;
-  padding-bottom: 0;
+  padding-bottom: clamp(3.5rem, 7vw, 6.5rem);
 }
 
 .pro-brand-page .pb-cta-section::before {
@@ -1604,8 +1604,8 @@ html[data-route-name="about"] .site-footer-premium {
 }
 
 .pro-brand-page .pb-cta-box {
-  max-width: 760px;
-  padding: clamp(3rem, 6vw, 4.75rem);
+  max-width: 1000px;
+  padding: clamp(3rem, 6vw, 5.25rem) clamp(2rem, 5vw, 5rem);
   border-radius: 36px;
   background: linear-gradient(180deg, rgba(18, 20, 27, 0.92), rgba(11, 13, 18, 0.98));
   border: 1px solid rgba(224, 208, 182, 0.08);
@@ -1622,7 +1622,7 @@ html[data-route-name="about"] .site-footer-premium {
 }
 
 .pro-brand-page .pb-cta-text {
-  max-width: 40rem;
+  max-width: 52rem;
 }
 
 @media (max-width: 1024px) {
