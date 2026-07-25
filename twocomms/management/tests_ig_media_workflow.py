@@ -843,6 +843,50 @@ class CatalogAssignmentTests(SimpleTestCase):
         self.assertEqual(len(_match_many.call_args.args[0]), 2)
         self.assertEqual(hydrate.call_args.args[2], [0, 1])
 
+    @patch("management.services.ig_payment_review._hydrate_catalog_match")
+    @patch("management.services.bot_vision.match_many", return_value=[{
+        "product_id": 11,
+        "confidence": 0.93,
+        "source_image_indexes": [0],
+        "reason": "durable hash reused",
+    }])
+    @patch(
+        "management.services.instagram_bot.download_image",
+        return_value=("image/jpeg", b"same-product"),
+    )
+    def test_catalog_matching_skips_second_local_download_for_known_hash(
+        self, download, _match_many, hydrate
+    ):
+        from management.services.ig_payment_review import _catalog_matches_for_media
+
+        hydrate.return_value = {"status": "matched", "product_id": 11, "confidence": 0.93}
+        media = [
+            {
+                "url": "https://lookaside.example/a.jpg",
+                "local_url": "/media/ig_payment_reviews/a.jpg",
+                "content_hash": "6966aafb2ab4821d23624e6f910a007c27ccd55ee9b18bcea14d078c1fdeace4",
+                "role": "product",
+                "intent": "purchase_candidate",
+                "actionable": True,
+                "catalog_match_allowed": True,
+            },
+            {
+                "url": "https://lookaside.example/b.jpg",
+                "local_url": "/media/ig_payment_reviews/b.jpg",
+                "content_hash": "6966aafb2ab4821d23624e6f910a007c27ccd55ee9b18bcea14d078c1fdeace4",
+                "role": "product",
+                "intent": "purchase_candidate",
+                "actionable": True,
+                "catalog_match_allowed": True,
+            },
+        ]
+
+        matches = _catalog_matches_for_media(media)
+
+        self.assertEqual(matches[0]["product_id"], 11)
+        self.assertEqual(download.call_count, 1)
+        self.assertEqual(hydrate.call_args.args[2], [0, 1])
+
     def test_two_catalog_matches_are_bound_to_two_draft_lines(self):
         from management.services.ig_payment_review import _apply_catalog_matches_to_draft
 

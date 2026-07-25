@@ -692,6 +692,10 @@ def _catalog_matches_for_media(media: list[dict]) -> list[dict]:
         downloaded_source_indexes = []
         image_digests = {}
         for index, row in enumerate(product_media[:8]):
+            known_digest = str(row.get("content_hash") or "").strip()
+            if known_digest and known_digest in image_digests:
+                downloaded_source_indexes[image_digests[known_digest]].append(index)
+                continue
             for media_url in _catalog_media_url_candidates(row):
                 image = download_image(media_url)
                 if image:
