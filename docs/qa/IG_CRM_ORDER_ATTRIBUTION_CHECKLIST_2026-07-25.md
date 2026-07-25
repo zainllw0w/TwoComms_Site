@@ -4,6 +4,25 @@ Scope: payment-review alerts, conversation-derived order drafts, product/fit/siz
 evidence, manager confirmation, existing-order linking, and production MariaDB
 behavior.
 
+## Master plan status
+
+- [x] **Task 1 — Payment decision truth and rejection lifecycle.** Shipped in
+  `18bc49bf`; manager/provider truth remains separate and auditable.
+- [x] **Task 2 — Order attribution, existing-order linking, and item
+  provenance.** Shipped in `7a319f4f`; production migration `0104`, InnoDB
+  tables and append-only triggers verified.
+- [x] **Task 3 — Nova Poshta validation and fulfillment gates.** Shipped in
+  `e805ec7f`; text-only delivery fails closed, signed-directory Refs survive to
+  `Order`, and production migration `0105` is verified on MariaDB.
+- [ ] **Task 4 — Client workspace API contract.** Next: one bounded contract
+  for client context plus the separate `Замовлення` queue/count and actions.
+- [ ] **Task 5 — Responsive workspace, client drawer, and `Замовлення` UX.**
+  Product approvals must not live in the general overview; they are available
+  in the dedicated section, client workspace, and Telegram deep-link.
+- [ ] **Task 6 — Pattern episodes and honest analytics.** Raw duplicate signal
+  counters must become evidence-bound episodes/outcomes.
+- [ ] **Task 7 — Telegram action/media audit and final release verification.**
+
 ## Completed in this slice
 
 - [x] Explicit `PRODUCT`/`ITEM` IDs are authoritative; missing or unpublished IDs fail closed.

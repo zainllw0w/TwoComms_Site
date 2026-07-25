@@ -68,14 +68,19 @@ unresolved new orders retain the editable manual-order flow. Production
 - [x] **Step 2: Run tests and verify RED.**
 - [x] **Step 3: Add validated delivery fields/state and require signed directory refs** before automatic fulfillment.
 - [x] **Step 4: Preserve classic/oversize and negotiated totals** through deal → order materialization without catalog-price substitution.
-- [ ] **Step 5: Run focused payment/order/Nova Poshta suites; commit** `fix: gate instagram fulfillment on validated delivery data`.
+- [x] **Step 5: Run focused payment/order/Nova Poshta suites; commit** `fix: gate instagram fulfillment on validated delivery data`.
 
 Task 3 implementation is currently green locally (`24` focused tests):
 `IgDeal` now stores directory Refs and a source-qualified delivery status;
 text-only delivery creates one skipped manager task and never materializes an
 order; validated selections copy settlement/city/warehouse Refs to `Order`.
-Step 5 stays open until migration `0105` is applied and verified on production
-MariaDB.
+Production evidence: commit `e805ec7f` is present on both pushed branches and
+production. A pre-DDL MariaDB backup completed successfully; migration `0105`
+applied on `qlknpodo_MySQL_DB` (`11.4.12-MariaDB`), all eight delivery-truth
+columns are present, Django check/static/compress/restart succeeded, daemon
+heartbeat was under two seconds, `/healthz/` returned `200`, and the management
+auth boundary returned `302`. No historical deal was guessed/backfilled as
+validated (`validated_deals=0`).
 
 ### Task 4: Client workspace API contract
 
