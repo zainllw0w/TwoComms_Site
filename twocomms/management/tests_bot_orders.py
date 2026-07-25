@@ -23,6 +23,11 @@ def _paid_deal(igsid, with_np=True):
         paid_at=timezone.now(),
         np_full_name=("Іван" if with_np else ""), np_phone=("0931112233" if with_np else ""),
         np_city=("Київ" if with_np else ""), np_office=("Відд 1" if with_np else ""),
+        np_settlement_ref=("settlement-ref-1" if with_np else ""),
+        np_city_ref=("city-ref-1" if with_np else ""),
+        np_warehouse_ref=("warehouse-ref-1" if with_np else ""),
+        delivery_status=(IgDeal.DeliveryStatus.VALIDATED if with_np else IgDeal.DeliveryStatus.UNVERIFIED),
+        delivery_source=("nova_poshta_directory" if with_np else ""),
     )
     IgDealItem.objects.create(deal=d, title="Худі", qty=1, unit_price=Decimal("950"))
     d.recalc_total()
@@ -84,6 +89,11 @@ class FulfillTests(TestCase):
             np_phone="0931112233",
             np_city="Київ",
             np_office="Відділення 1",
+            np_settlement_ref="settlement-ref-1",
+            np_city_ref="city-ref-1",
+            np_warehouse_ref="warehouse-ref-1",
+            delivery_status=IgDeal.DeliveryStatus.VALIDATED,
+            delivery_source="nova_poshta_directory",
         )
         IgDealItem.objects.create(deal=deal, title="Футболка", qty=1, unit_price=Decimal("950"))
         deal.recalc_total()
@@ -122,10 +132,10 @@ class CollectAndFulfillTests(TestCase):
     def test_collect_stores_and_creates_order(self, mock_extract, mock_notify):
         mock_extract.return_value = {"full_name": "Іван", "phone": "0931112233", "city": "Київ", "office": "в5"}
         c, d = _paid_deal("c1", with_np=False)
-        self.assertTrue(bot_orders.collect_np_and_fulfill(c))
+        self.assertFalse(bot_orders.collect_np_and_fulfill(c))
         d.refresh_from_db()
         self.assertEqual(d.np_phone, "0931112233")
-        self.assertIsNotNone(d.order_id)
+        self.assertIsNone(d.order_id)
 
 
 class OnDealPaidTests(TestCase):

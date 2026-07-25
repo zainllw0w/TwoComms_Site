@@ -490,6 +490,12 @@ class IgDeal(models.Model):
         FAILED = "failed", _("Оплата не пройшла")
         CANCELLED = "cancelled", _("Оплату скасовано")
 
+    class DeliveryStatus(models.TextChoices):
+        UNVERIFIED = "unverified", _("Доставку не підтверджено")
+        VALIDATED = "validated", _("Доставку підтверджено довідником НП")
+        NEEDS_REVIEW = "needs_review", _("Потрібна перевірка доставки")
+        INVALID = "invalid", _("Дані доставки невалідні")
+
     client = models.ForeignKey(
         "management.IgClient", on_delete=models.CASCADE, related_name="deals"
     )
@@ -531,11 +537,25 @@ class IgDeal(models.Model):
     shipped_notified_at = models.DateTimeField(null=True, blank=True)
     order_truth_updated_at = models.DateTimeField(null=True, blank=True)
 
-    # Дані доставки (Нова Пошта) — текстом (рішення Q3=a)
+    # Display values are kept for conversation/context.  Fulfillment may only
+    # use a validated signed-directory selection stored in the Ref fields.
     np_full_name = models.CharField(max_length=255, blank=True, default="")
     np_phone = models.CharField(max_length=50, blank=True, default="")
     np_city = models.CharField(max_length=160, blank=True, default="")
     np_office = models.CharField(max_length=255, blank=True, default="")
+    np_settlement_ref = models.CharField(max_length=36, blank=True, default="")
+    np_city_ref = models.CharField(max_length=36, blank=True, default="")
+    np_warehouse_ref = models.CharField(max_length=36, blank=True, default="")
+    np_warehouse_kind = models.CharField(max_length=16, blank=True, default="branch")
+    delivery_status = models.CharField(
+        max_length=16,
+        choices=DeliveryStatus.choices,
+        default=DeliveryStatus.UNVERIFIED,
+        db_index=True,
+    )
+    delivery_source = models.CharField(max_length=32, blank=True, default="")
+    delivery_error = models.CharField(max_length=500, blank=True, default="")
+    delivery_verified_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)

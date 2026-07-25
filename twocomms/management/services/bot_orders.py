@@ -121,7 +121,14 @@ def fulfill_if_ready(deal, created_by=None) -> bool:
         return False
     if not verified_payment_deals(deal.__class__.objects.filter(pk=deal.pk)).exists():
         return False
-    if not deal_has_np_data(deal):
+    from management.services.ig_delivery import (
+        delivery_validation_error,
+        has_validated_delivery,
+    )
+
+    if not deal_has_np_data(deal) or not has_validated_delivery(deal):
+        reason = delivery_validation_error(deal) or "Потрібні повні дані доставки."
+        _queue_delivery_validation_review(deal, reason)
         return False
     order = create_order_from_deal(deal, created_by=created_by)
     try:
@@ -132,6 +139,44 @@ def fulfill_if_ready(deal, created_by=None) -> bool:
     except Exception:
         pass
     return True
+
+
+def _queue_delivery_validation_review(deal, reason: str):
+    """Create one non-automatic manager task for unresolved NP delivery."""
+    from django.utils import timezone
+    from management.ig_bot_models import IgFollowUpTask
+
+    message = (
+        f"Угода #{deal.pk}: оплата підтверджена, але замовлення не створено. "
+        "Потрібно вибрати місто та відділення Нової Пошти з довідника."
+    )
+    task, created = IgFollowUpTask.objects.get_or_create(
+        client=deal.client,
+        deal=deal,
+        kind=IgFollowUpTask.Kind.MANAGER_TASK,
+        reason="delivery_validation_review",
+        defaults={
+            "due_at": timezone.now(),
+            "status": IgFollowUpTask.Status.SKIPPED,
+            "skip_reason": "validated_nova_poshta_selection_required",
+            "message_text": message,
+            "last_error": reason[:500],
+        },
+    )
+    if not created and task.last_error != reason[:500]:
+        task.last_error = reason[:500]
+        task.message_text = message
+        task.save(update_fields=["last_error", "message_text", "updated_at"])
+    try:
+        notify_manager(
+            f"📦 IG: угода #{deal.pk} очікує підтвердження доставки НП. {reason}",
+            dedupe_key=f"delivery_validation_review:{deal.pk}",
+            event_type="delivery_validation_review",
+            client=deal.client,
+        )
+    except Exception:
+        pass
+    return task
 
 
 def collect_np_and_fulfill(client, created_by=None) -> bool:

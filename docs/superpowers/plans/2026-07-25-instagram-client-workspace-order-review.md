@@ -37,12 +37,23 @@
 - Test: `twocomms/management/tests_ig_order_links.py`
 - Test: `twocomms/storefront/tests/test_manual_orders.py`
 
-- [ ] **Step 1: Write failing tests** for one client/many orders, exact identifier linking, cross-client rejection, idempotent repeated link, automatic/manual/linked origin, fit/negotiated-price snapshots, and manager/provider payment source.
-- [ ] **Step 2: Run tests and verify RED.**
-- [ ] **Step 3: Add attribution/link models and atomic service** with active-link conflict checks, evidence, actor, matcher version, and unlink reason.
-- [ ] **Step 4: Add review-form action** to search/select an existing order and link it, while preserving the existing editable create flow.
-- [ ] **Step 5: Persist item fit/option/price provenance and attribution** from both automatic and manual paths.
-- [ ] **Step 6: Run focused and related order/payment suites; commit** `feat: link instagram clients to attributed orders`.
+- [x] **Step 1: Write failing tests** for one client/many orders, exact identifier linking, cross-client rejection, idempotent repeated link, automatic/manual/linked origin, fit/negotiated-price snapshots, and manager/provider payment source.
+- [x] **Step 2: Run tests and verify RED.**
+- [x] **Step 3: Add attribution/link models and atomic service** with active-link conflict checks, evidence, actor, matcher version, and unlink reason.
+- [x] **Step 4: Add review-form action** to search/select an existing order and link it, while preserving the existing editable create flow.
+- [x] **Step 5: Persist item fit/option/price provenance and attribution** from both automatic and manual paths.
+- [x] **Step 6: Run focused and related order/payment suites; commit** `feat: link instagram clients to attributed orders`.
+
+**Task 2 evidence (2026-07-25):** commit `7a319f4f` is present on
+`origin/main`, `origin/codex/ig-crm-master-audit`, and production. The changed
+order/payment/manual-order suite passed `142` tests (`OK`, 2 expected skips),
+`manage.py check`, `makemigrations --check --dry-run`, compile and diff checks
+passed. Production MariaDB `11.4.12` has migration `0104` applied, both new
+tables are `InnoDB`, all four append-only triggers exist, and a rollback-only
+synthetic-row smoke blocked `UPDATE`/`DELETE` without touching real orders or
+payments. Existing-order links return an absolute storefront admin URL;
+unresolved new orders retain the editable manual-order flow. Production
+`poll_ig_deal_payments --limit 5` created zero orders and zero notifications.
 
 ### Task 3: Nova Poshta validation and fulfillment gates
 
@@ -53,11 +64,18 @@
 - Modify: `twocomms/orders/services/order_builder.py`
 - Test: `twocomms/management/tests_ig_fulfillment_truth.py`
 
-- [ ] **Step 1: Write failing tests** proving text-only city/office cannot auto-create an order, canonical refs survive into `Order`, and unresolved lines create manager work instead.
-- [ ] **Step 2: Run tests and verify RED.**
-- [ ] **Step 3: Add validated delivery fields/state and require signed directory refs** before automatic fulfillment.
-- [ ] **Step 4: Preserve classic/oversize and negotiated totals** through deal → order materialization without catalog-price substitution.
+- [x] **Step 1: Write failing tests** proving text-only city/office cannot auto-create an order, canonical refs survive into `Order`, and unresolved lines create manager work instead.
+- [x] **Step 2: Run tests and verify RED.**
+- [x] **Step 3: Add validated delivery fields/state and require signed directory refs** before automatic fulfillment.
+- [x] **Step 4: Preserve classic/oversize and negotiated totals** through deal → order materialization without catalog-price substitution.
 - [ ] **Step 5: Run focused payment/order/Nova Poshta suites; commit** `fix: gate instagram fulfillment on validated delivery data`.
+
+Task 3 implementation is currently green locally (`24` focused tests):
+`IgDeal` now stores directory Refs and a source-qualified delivery status;
+text-only delivery creates one skipped manager task and never materializes an
+order; validated selections copy settlement/city/warehouse Refs to `Order`.
+Step 5 stays open until migration `0105` is applied and verified on production
+MariaDB.
 
 ### Task 4: Client workspace API contract
 
@@ -71,6 +89,22 @@
 - [ ] **Step 4: Add review action endpoints** for confirm/reject/create/link with permission and hidden-client guards.
 - [ ] **Step 5: Run focused API tests and existing client UI tests; commit** `feat: expose instagram client commercial context`.
 
+**Product approval placement requirement:** product approval is not rendered as
+an always-on card in the main bot overview. The API must expose a separate,
+bounded approval queue/count and a client-scoped approval collection. A client
+detail action opens that client's contextual approval drawer/tab with evidence
+media, matched catalog candidates, quantity/fit/price, uncertainty, and the
+actions `Погодити`/`Відхилити`. Approval must offer an explicit choice between
+linking an existing custom-admin order and opening the editable create-order
+flow; it must never silently create or link an order.
+
+The same contract also powers a dedicated `Замовлення` section after
+statistics, with the views `Потрібна дія`, `Підтверджені`, and `Усі`. Its order
+card shows the client, lines, negotiated amount, manager/provider payment truth,
+delivery state, linked custom-admin order status/number, and a direct admin
+link. The card is reachable from this section, the client workspace, and the
+Telegram review alert without creating three divergent representations.
+
 ### Task 5: Responsive workspace and payment drawer
 
 **Files:**
@@ -83,6 +117,15 @@
 - [ ] **Step 3: Replace the single vertical detail renderer** with semantic sections, safe DOM construction, right rail/drawer, keyboard/focus behavior, and Ukrainian explanatory copy with exact English technical terms retained.
 - [ ] **Step 4: Add reduced-motion pulse and responsive 1440/1280/768/390/320 behavior** with no nested scroll trap.
 - [ ] **Step 5: Run focused template tests and browser screenshots; commit** `feat: rebuild instagram client workspace UX`.
+
+**UX acceptance:** the main overview shows only a compact pending-approval
+badge/entry, not the approval cards themselves. The separate approval tab is
+scannable by client and count, while the per-client drawer remains contextual,
+keyboard-accessible, responsive, and free of duplicate facts. Confirmed,
+rejected, linked-existing, and create-new states remain visually distinct.
+The `Замовлення` section follows the same pattern after statistics; its three
+filters and client/order cards are reused by the client drawer and Telegram
+deep-link, with no approval/order card mounted in the general overview.
 
 ### Task 6: Pattern episodes and honest analytics
 
