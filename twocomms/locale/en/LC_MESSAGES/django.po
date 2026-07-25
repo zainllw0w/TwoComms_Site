@@ -13774,7 +13774,7 @@ msgstr "TwoComms — street and military apparel from Kharkiv: t-shirts, hoodies
 #: twocomms_django_theme/templates/pages/index.html:13
 #, python-format
 msgid "TwoComms — каталог стрітвір та мілітарі одягу, сторінка %(n)s з %(total)s. Нові футболки, худі, лонгсліви з авторськими принтами та швидка доставка по Україні."
-msgstr ""
+msgstr "TwoComms — a catalog of streetwear and military apparel, page %(n)s of %(total)s. New t-shirts, hoodies and longsleeves with original prints and fast delivery across Ukraine."
 
 #: twocomms_django_theme/templates/pages/index.html:13
 msgid "TwoComms — харківський бренд стрітвір та мілітарі одягу: футболки, худі, лонгсліви, кастомний DTF-друк, доставка Новою Поштою по всій Україні."
@@ -13803,7 +13803,7 @@ msgstr "TwoComms — Home"
 #: twocomms_django_theme/templates/pages/index.html:100
 #, python-format
 msgid "Сторінка %(n)s з %(total)s каталогу TwoComms — підбірка стрітвір та мілітарі товарів цієї сторінки."
-msgstr ""
+msgstr "Page %(n)s of %(total)s of the TwoComms catalog — the selection of streetwear and military items on this page."
 
 #: twocomms_django_theme/templates/pages/index.html:100
 msgid "Головна сторінка бренду TwoComms з каталогом категорій, кастомним друком і актуальним асортиментом."
@@ -13811,11 +13811,11 @@ msgstr "TwoComms brand home page featuring category catalogue, custom print and 
 
 #: twocomms_django_theme/templates/pages/index.html:113
 msgid "Новинки каталогу TwoComms"
-msgstr ""
+msgstr "New arrivals in the TwoComms catalog"
 
 #: twocomms_django_theme/templates/pages/index.html:157
 msgid "TwoComms логотип — український streetwear бренд"
-msgstr ""
+msgstr "TwoComms logo — Ukrainian streetwear brand"
 
 #: twocomms_django_theme/templates/pages/index.html:165
 msgid "TwoComms — український streetwear"
@@ -13827,7 +13827,7 @@ msgstr "built to carry the story forward"
 
 #: twocomms_django_theme/templates/pages/index.html:168
 msgid "Футболки, худі та кастомний одяг з власним DTF-друком. Стріт-естетика, мілітарі-характер і сенс, який не стирається після першого погляду."
-msgstr ""
+msgstr "T-shirts, hoodies and custom apparel with our own DTF printing. Street aesthetics, military character and meaning that doesn't fade after the first glance."
 
 #: twocomms_django_theme/templates/pages/index.html:172
 #: twocomms_django_theme/templates/pages/pro_brand.html:1301
@@ -13836,32 +13836,32 @@ msgstr "Browse catalog"
 
 #: twocomms_django_theme/templates/pages/index.html:184
 msgid "Що означають дві коми?"
-msgstr ""
+msgstr "What do the two commas mean?"
 
 #: twocomms_django_theme/templates/pages/index.html:185
 msgid "Чому TwoComms"
-msgstr ""
+msgstr "Why TwoComms"
 
 #: twocomms_django_theme/templates/pages/index.html:186
 #: twocomms_django_theme/templates/pages/index.html:637
 msgid "Засновано ветераном"
-msgstr ""
+msgstr "Founded by a veteran"
 
 #: twocomms_django_theme/templates/pages/index.html:187
 msgid "Власний DTF-друк"
-msgstr ""
+msgstr "In-house DTF printing"
 
 #: twocomms_django_theme/templates/pages/index.html:188
 msgid "Народжений у Харкові, створений для України"
-msgstr ""
+msgstr "Born in Kharkiv, made for Ukraine"
 
 #: twocomms_django_theme/templates/pages/index.html:217
 msgid "Більше не показувати це опитування"
-msgstr ""
+msgstr "Don't show this survey again"
 
 #: twocomms_django_theme/templates/pages/index.html:218
 msgid "Більше не показувати"
-msgstr ""
+msgstr "Don't show again"
 
 #: twocomms_django_theme/templates/pages/index.html:261
 msgid "Бонус за фідбек"
@@ -13870,15 +13870,15 @@ msgstr "Feedback bonus"
 #: twocomms_django_theme/templates/pages/index.html:271
 #, python-format
 msgid "Промокод на %(amount)s грн"
-msgstr ""
+msgstr "A %(amount)s UAH promo code"
 
 #: twocomms_django_theme/templates/pages/index.html:277
 msgid "Контакт лише за згодою"
-msgstr ""
+msgstr "Contact only with your consent"
 
 #: twocomms_django_theme/templates/pages/index.html:278
 msgid "Промокод одразу"
-msgstr ""
+msgstr "Promo code right away"
 
 #: twocomms_django_theme/templates/pages/index.html:287
 msgid "Допоможи покращити"
@@ -13887,7 +13887,7 @@ msgstr "Help us improve"
 #: twocomms_django_theme/templates/pages/index.html:307
 #, python-format
 msgid "ВИГРАЙ ПРОМОКОД<br>на %(amount)s грн"
-msgstr ""
+msgstr "WIN A PROMO CODE<br>for %(amount)s UAH"
 
 #: twocomms_django_theme/templates/pages/index.html:310
 msgid "Дай відповідь на кілька запитань та забери свій промокод!"
@@ -13899,7 +13899,7 @@ msgstr "No single-page form"
 
 #: twocomms_django_theme/templates/pages/index.html:384
 msgid "Промокод одразу після опитування"
-msgstr ""
+msgstr "A promo code right after the survey"
 
 #: twocomms_django_theme/templates/pages/index.html:427
 msgid "TwoComms логотип — декоративний"
@@ -13983,67 +13983,67 @@ msgstr "Next page"
 
 #: twocomms_django_theme/templates/pages/index.html:632
 msgid "Не крапка. Є факти."
-msgstr ""
+msgstr "Not a period. Just facts."
 
 #: twocomms_django_theme/templates/pages/index.html:633
 msgid "TwoComms виріс не з вигаданого образу, а з реальної історії продовження. Частину фактів можна перевірити у відкритих джерелах."
-msgstr ""
+msgstr "TwoComms grew out of a real story of continuation, not an invented image. Some of the facts can be verified in open sources."
 
 #: twocomms_django_theme/templates/pages/index.html:638
 msgid "TwoComms заснував Артем Синіло — ветеран, чия особиста історія стала основою коду бренду."
-msgstr ""
+msgstr "TwoComms was founded by Artem Synilo, a veteran whose personal story became the foundation of the brand's code."
 
 #: twocomms_django_theme/templates/pages/index.html:640
 msgid "Про засновника"
-msgstr ""
+msgstr "About the founder"
 
 #: twocomms_django_theme/templates/pages/index.html:647
 msgid "Зовнішнє джерело"
-msgstr ""
+msgstr "External source"
 
 #: twocomms_django_theme/templates/pages/index.html:649
 msgid "Історія у відкритих джерелах"
-msgstr ""
+msgstr "The story in open sources"
 
 #: twocomms_django_theme/templates/pages/index.html:650
 msgid "Про шлях засновника і появу TwoComms писало Міністерство у справах ветеранів України."
-msgstr ""
+msgstr "The founder's path and the emergence of TwoComms were covered by the Ministry of Veterans Affairs of Ukraine."
 
 #: twocomms_django_theme/templates/pages/index.html:652
 msgid "Читати джерело"
-msgstr ""
+msgstr "Read the source"
 
 #: twocomms_django_theme/templates/pages/index.html:657
 msgid "Власний DTF-напрям"
-msgstr ""
+msgstr "Our own DTF direction"
 
 #: twocomms_django_theme/templates/pages/index.html:658
 msgid "Кастомний друк — частина розвитку TwoComms: від ідеї принта до готової речі без втрати характеру."
-msgstr ""
+msgstr "Custom printing is part of how TwoComms grows: from a print idea to a finished item without losing character."
 
 #: twocomms_django_theme/templates/pages/index.html:665
 msgid "Дві коми — код продовження"
-msgstr ""
+msgstr "Two commas — the code of continuation"
 
 #: twocomms_django_theme/templates/pages/index.html:666
 msgid "Назва TwoComms — це не декоративний знак. Це символ того, що історія не закінчилась крапкою."
-msgstr ""
+msgstr "The name TwoComms is not a decorative mark. It is a symbol that the story did not end in a period."
 
 #: twocomms_django_theme/templates/pages/index.html:832
 msgid "Збережи код в акаунті"
-msgstr ""
+msgstr "Save the code to your account"
 
 #: twocomms_django_theme/templates/pages/index.html:833
 msgid "Застосування персонального коду доступне після входу. Так ми захищаємо одноразові промокоди від випадкового використання іншими. Увійди — і код зʼявиться у розділі «Мої промокоди»."
-msgstr ""
+msgstr "Applying a personal code requires signing in. This is how we keep one-time promo codes from being used by someone else by accident. Sign in and the code will appear in the “My promo codes” section."
 
 #: twocomms_django_theme/templates/pages/index.html:834
 msgid "Зберегти через Google"
-msgstr ""
+msgstr "Save with Google"
 
 #: twocomms_django_theme/templates/pages/index.html:835
 msgid "Зберегти через Telegram"
-msgstr ""
+msgstr "Save with Telegram"
 
 #: twocomms_django_theme/templates/pages/index.html:847
 msgid "Опитування"
