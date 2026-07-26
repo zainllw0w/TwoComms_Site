@@ -369,6 +369,38 @@ class IgPaymentReviewRulesTests(SimpleTestCase):
 
 
 class PaymentReviewEpisodeScopeTests(TestCase):
+    def test_payment_fingerprint_ignores_legacy_amount_kind_drift(self):
+        from management.services.ig_payment_review import payment_review_fingerprint
+
+        evidence = {
+            "amount_evidence": [
+                {"amount": "2100", "message_id": 237, "kind": None},
+            ],
+            "media": [
+                {"role": "receipt", "message_id": 238, "url": "https://cdn.test/receipt.jpg"},
+            ],
+            "order_draft": {
+                "quoted_total": "2100",
+                "currency": "UAH",
+                "items": [
+                    {"product_id": 111, "fit": "classic", "size": "S", "qty": 1},
+                    {"product_id": 111, "fit": "oversize", "size": "XS", "qty": 1},
+                ],
+                "delivery": {"city": "Харків", "office": "Вокзальна"},
+            },
+        }
+        reclassified = {
+            **evidence,
+            "amount_evidence": [
+                {"amount": "2100", "message_id": 237, "kind": "order_total"},
+            ],
+        }
+
+        self.assertEqual(
+            payment_review_fingerprint(evidence),
+            payment_review_fingerprint(reclassified),
+        )
+
     def test_later_watermark_reuses_strictly_identical_payment_review(self):
         from management.ig_bot_models import IgClient, IgPaymentConfirmationReview
         from management.services.ig_payment_review import create_payment_review

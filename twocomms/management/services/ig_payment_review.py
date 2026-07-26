@@ -1363,7 +1363,10 @@ def payment_review_fingerprint(review_or_evidence) -> str:
         message_id = raw.get("message_id")
         if amount is None or not str(message_id).isdigit():
             continue
-        amount_rows.append((str(amount), int(message_id), _fingerprint_text(raw.get("kind"))))
+        # ``kind`` is analyzer metadata, not payment identity. Legacy reviews
+        # stored the same amount/message as null before classifying it as
+        # ``order_total`` on a later pass.
+        amount_rows.append((str(amount), int(message_id)))
 
     receipt_rows = []
     for raw in evidence.get("media") or []:
