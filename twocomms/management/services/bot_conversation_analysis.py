@@ -1172,12 +1172,6 @@ def reconcile_analysis_jobs(*, limit: int = 500, now=None) -> dict:
             pk=watermark,
             client_id=client_id,
         ).first()
-        if message:
-            # Deterministic CRM state and a no-network snapshot are always
-            # reconciled, even when historical Gemini backfill is disabled.
-            from management.services.bot_sales_classifier import reconcile_rules_projection
-
-            reconcile_rules_projection(client, watermark=watermark)
         truth_changed_at = _latest_truth_change(client) if client else None
         if not _reconcile_candidate_is_eligible(
             cutoff=cutoff,
@@ -1243,6 +1237,29 @@ def reconcile_analysis_jobs(*, limit: int = 500, now=None) -> dict:
                 now=now,
                 delay_seconds=0,
             )
+            # Deterministic CRM state and a no-network snapshot are reconciled
+            # only after cutoff/eligibility and the durable job boundary pass.
+            from management.services.bot_sales_classifier import (
+                ensure_rule_classification,
+                reconcile_rules_projection,
+            )
+            from management.services.instagram_bot import _recover_current_message_media
+
+            rule_messages = list(
+                InstagramBotMessage.objects.filter(
+                    client_id=client_id,
+                    pk__lte=watermark,
+                    role__in=[InstagramBotMessage.Role.USER, InstagramBotMessage.Role.MANAGER],
+                ).order_by("-pk")[:MAX_MESSAGES]
+            )
+            rule_messages.reverse()
+            for rule_message in rule_messages:
+                ensure_rule_classification(
+                    client,
+                    rule_message,
+                    media_context=_recover_current_message_media(rule_message),
+                )
+            reconcile_rules_projection(client, watermark=watermark)
             queued += 1
     next_cursor = (
         int(latest_rows[-1]["client_id"])

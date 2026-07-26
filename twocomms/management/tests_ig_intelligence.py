@@ -69,7 +69,7 @@ class ConversationIntelligenceSnapshotTests(TestCase):
         self.assertEqual(snapshot.purchase_probability, Decimal("0.28"))
         self.assertGreaterEqual(snapshot.confidence, Decimal("0.55"))
         self.assertEqual(snapshot.analysis_model, "rules")
-        self.assertEqual(snapshot.rules_version, "2026-07-24.v4")
+        self.assertEqual(snapshot.rules_version, "2026-07-26.v5")
         self.assertEqual(snapshot.evidence[0]["source_role"], "user")
         self.assertIn("product", snapshot.uncertainties)
 
@@ -79,7 +79,7 @@ class ConversationIntelligenceSnapshotTests(TestCase):
         classify_message(self.client, message=message)
 
         snapshot = self.client.analysis_snapshots.get()
-        self.assertEqual(snapshot.score_band, "high_intent")
+        self.assertEqual(snapshot.score_band, "checkout")
         self.assertEqual(snapshot.interaction_type, "high_intent")
         self.assertLess(snapshot.purchase_probability, Decimal("1.00"))
         self.assertIn("payment_unverified", snapshot.uncertainties)
@@ -358,6 +358,10 @@ class ConversationIntelligenceSnapshotTests(TestCase):
                 "opt_out",
                 "spam_abuse",
                 "manager_observation",
+                "collaboration",
+                "wholesale_b2b",
+                "support_complaint",
+                "community_casual",
             },
         )
 

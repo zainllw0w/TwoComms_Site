@@ -3,10 +3,8 @@ Instagram webhook приймач TwoComms (event-driven).
 
 - GET  /bot/webhook/  — верифікація підписки Meta (echo hub.challenge).
 - POST /bot/webhook/  — перевіряє підпис X-Hub-Signature-256, кладе вхідні в
-  чергу і ВІДРАЗУ повертає 200 (best practice). Обробку (Gemini+Send) робить
-  воркер-демон; додатково тут стартує фоновий потік, щоб відповісти миттєво,
-  не чекаючи циклу демона. Дедуп за mid гарантує відсутність подвійних
-  відповідей між потоком і демоном.
+  чергу і ВІДРАЗУ повертає 200 (best practice). Обробку (класифікація,
+  Gemini, media, notifications і Send API) виконує singleton worker daemon.
 
 Verify token і APP_SECRET — лише з ENV (IG_BOT_VERIFY_TOKEN, IG_APP_SECRET).
 """
@@ -29,24 +27,6 @@ _CONFIG_WARNING_EMITTED = False
 
 def _verify_token() -> str:
     return os.environ.get("IG_BOT_VERIFY_TOKEN", "").strip()
-
-
-def _process_async():
-    """Обробити чергу у фоновому потоці (швидка відповідь, не блокує 200)."""
-    try:
-        from django.db import close_old_connections
-
-        close_old_connections()
-        bot.process_pending(InstagramBotSettings.load())
-    except Exception:
-        logger.exception("ig_bot: async process error")
-    finally:
-        try:
-            from django.db import close_old_connections
-
-            close_old_connections()
-        except Exception:
-            pass
 
 
 def _warn_signature_configuration_once():
@@ -99,12 +79,10 @@ def ig_webhook(request):
                 bot.record_raw_event(payload)
             except Exception:
                 logger.exception("ig_bot: record_raw_event error")
-            enq = bot.handle_webhook_payload(settings_obj, payload)
-            if enq:
-                # миттєва обробка у фоні, не блокуючи відповідь 200
-                threading.Thread(target=_process_async, daemon=True).start()
+            bot.handle_webhook_payload(settings_obj, payload, persistence_only=True)
         except Exception:
             logger.exception("ig_bot: webhook handler error")
+            return HttpResponse("retry", status=503)
 
         # ВІДРАЗУ 200 — головна вимога Meta (інакше повторні доставки).
         return HttpResponse("ok")

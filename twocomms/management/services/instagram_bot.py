@@ -703,6 +703,7 @@ def _handle_echo(
     attachments: list[dict] | None = None,
     mid: str = "",
     received_at=None,
+    persistence_only: bool = False,
 ) -> None:
     """Echo-подія (повідомлення, надіслане сторінкою). Якщо це НЕ власне відлуння
     бота — значить відповів живий менеджер → ставимо бота на паузу для клієнта."""
@@ -722,6 +723,8 @@ def _handle_echo(
                 igsid=recipient_igsid,
                 defaults={"first_contact_at": now, "last_message_at": now},
             )
+            if mid and InstagramBotMessage.objects.filter(mid=mid).exists():
+                return
             takeover_started = not client.manager_takeover
             client.manager_takeover = True
             client.bot_paused = True
@@ -750,46 +753,62 @@ def _handle_echo(
                 processed_at=now,
                 processing_started_at=None,
             )
-        msg = None
-        if text or attachments:
+            msg = None
+            if text or attachments:
+                try:
+                    with transaction.atomic():
+                        msg = InstagramBotMessage.objects.create(
+                            sender_id=recipient_igsid,
+                            client=client,
+                            role=InstagramBotMessage.Role.MANAGER,
+                            text=text or "(зображення менеджера)",
+                            mid=mid or None,
+                            status=InstagramBotMessage.Status.DONE,
+                            source="echo",
+                            attachments=json.dumps(
+                                [item.get("url") for item in (attachments or []) if item.get("url")],
+                                ensure_ascii=False,
+                            ) if attachments else "",
+                            processed_at=timezone.now(),
+                        )
+                except IntegrityError:
+                    msg = InstagramBotMessage.objects.filter(mid=mid).first() if mid else None
+                except Exception:
+                    if persistence_only:
+                        raise
+                    msg = None
             try:
-                msg = InstagramBotMessage.objects.create(
-                    sender_id=recipient_igsid,
-                    client=client,
-                    role=InstagramBotMessage.Role.MANAGER,
-                    text=text or "(зображення менеджера)",
-                    mid=mid or None,
-                    status=InstagramBotMessage.Status.DONE,
-                    source="echo",
-                    attachments=json.dumps(
-                        [item.get("url") for item in (attachments or []) if item.get("url")],
-                        ensure_ascii=False,
-                    ) if attachments else "",
-                    processed_at=timezone.now(),
-                )
-            except Exception:
-                msg = None
-        try:
-            from management.services import bot_followups, bot_sales_classifier
+                from management.services import bot_followups, bot_sales_classifier
+                from management.services.bot_conversation_analysis import schedule_analysis
 
-            bot_followups.cancel_pending(client, reason="manager_takeover")
-            if msg:
-                bot_sales_classifier.classify_message(
-                    client,
-                    message=msg,
-                    role=InstagramBotMessage.Role.MANAGER,
-                    media_context=_recover_current_message_media(msg),
+                bot_followups.cancel_pending(client, reason="manager_takeover")
+                if msg:
+                    schedule_analysis(client, msg, trigger="manager_message")
+                    if not persistence_only:
+                        bot_sales_classifier.classify_message(
+                            client,
+                            message=msg,
+                            role=InstagramBotMessage.Role.MANAGER,
+                            media_context=_recover_current_message_media(msg),
+                        )
+            except Exception:
+                if persistence_only:
+                    raise
+            if takeover_started:
+                notification_persisted = notify_manager(
+                    f"👤 IG: менеджер підключився до {client.username or client.igsid} — "
+                    f"бот на паузі для цього клієнта.",
+                    dedupe_key=(
+                        f"takeover:{client.pk}:"
+                        f"{client.paused_at.isoformat() if client.paused_at else 'unknown'}"
+                    ),
+                    event_type="takeover",
+                    client=client,
+                    deliver_immediately=not persistence_only,
                 )
-        except Exception:
-            pass
+                if persistence_only and not notification_persisted:
+                    raise RuntimeError("manager takeover notification was not persisted")
     if takeover_started:
-        notify_manager(
-            f"👤 IG: менеджер підключився до {client.username or client.igsid} — "
-            f"бот на паузі для цього клієнта.",
-            dedupe_key=f"takeover:{client.pk}:{client.paused_at.isoformat() if client.paused_at else 'unknown'}",
-            event_type="takeover",
-            client=client,
-        )
         log("warning", "takeover", f"{recipient_igsid}: менеджер підключився")
     else:
         log("info", "manager_message", f"{recipient_igsid}: повідомлення менеджера збережено")
@@ -1504,8 +1523,9 @@ def notify_manager(
     reply_markup: dict | None = None,
     media: list[dict] | None = None,
     metadata: dict | None = None,
+    deliver_immediately: bool = True,
 ) -> bool:
-    """Persist one idempotent notification and attempt immediate delivery."""
+    """Persist one idempotent notification and optionally deliver it now."""
     text = (text or "").strip()[:3500]
     if not text:
         return False
@@ -1612,7 +1632,7 @@ def notify_manager(
                     row.save(update_fields=["payload", "status", "next_attempt_at", "updated_at"])
     except Exception:
         return False
-    return _deliver_manager_notification(dedupe_key)
+    return _deliver_manager_notification(dedupe_key) if deliver_immediately else True
 
 
 def _rate_exceeded(s: InstagramBotSettings, sender_id: str, limit: int = 25, window: int = 3600) -> bool:
@@ -2747,6 +2767,7 @@ def enqueue_inbound(
     s: InstagramBotSettings, *, sender_id: str, text: str, mid: str,
     source: str = "webhook", attachments: list[str] | None = None,
     received_at: datetime | None = None,
+    persistence_only: bool = False,
 ) -> bool:
     """Кладе вхідне в чергу (pending). Повертає True, якщо додано нове."""
     text = (text or "").strip()
@@ -2836,41 +2857,49 @@ def enqueue_inbound(
                     raise
                 except Exception:
                     pass
-            try:
-                classified = bot_sales_classifier.classify_message(
-                    client,
-                    message=msg,
-                    media_context=_recover_current_message_media(msg),
-                )
-                interaction_type = classified.get("interaction_type")
-                terminal_followup_reasons = {
-                    "explicit_no_buy": "explicit_no_buy",
-                    "opt_out": "opt_out",
-                    "spam_abuse": "spam_abuse",
-                    "paid_order_waiting": "already_converted",
-                }
-                if interaction_type in terminal_followup_reasons:
-                    bot_followups.cancel_pending(
+            if persistence_only:
+                from management.services.bot_conversation_analysis import schedule_analysis
+
+                schedule_analysis(client, msg, trigger="webhook_inbound")
+            else:
+                try:
+                    classified = bot_sales_classifier.classify_message(
                         client,
-                        reason=terminal_followup_reasons[interaction_type],
+                        message=msg,
+                        media_context=_recover_current_message_media(msg),
                     )
-                no_reply_interactions = {
-                    "reaction_only",
-                    "explicit_no_buy",
-                    "opt_out",
-                    "spam_abuse",
-                }
-                if interaction_type in no_reply_interactions and msg.status == InstagramBotMessage.Status.PENDING:
-                    msg.status = InstagramBotMessage.Status.DONE
-                    msg.processed_at = timezone.now()
-                    msg.save(update_fields=["status", "processed_at"])
-                    reply_eligible = False
-                elif reply_eligible:
-                    bot_followups.schedule_after_inbound(client)
-            except DatabaseError:
-                raise
-            except Exception:
-                pass
+                    interaction_type = classified.get("interaction_type")
+                    terminal_followup_reasons = {
+                        "explicit_no_buy": "explicit_no_buy",
+                        "opt_out": "opt_out",
+                        "spam_abuse": "spam_abuse",
+                        "paid_order_waiting": "already_converted",
+                    }
+                    if interaction_type in terminal_followup_reasons:
+                        bot_followups.cancel_pending(
+                            client,
+                            reason=terminal_followup_reasons[interaction_type],
+                        )
+                    no_reply_interactions = {
+                        "reaction_only",
+                        "explicit_no_buy",
+                        "opt_out",
+                        "spam_abuse",
+                    }
+                    if (
+                        interaction_type in no_reply_interactions
+                        and msg.status == InstagramBotMessage.Status.PENDING
+                    ):
+                        msg.status = InstagramBotMessage.Status.DONE
+                        msg.processed_at = timezone.now()
+                        msg.save(update_fields=["status", "processed_at"])
+                        reply_eligible = False
+                    elif reply_eligible:
+                        bot_followups.schedule_after_inbound(client)
+                except DatabaseError:
+                    raise
+                except Exception:
+                    pass
     except IntegrityError:
         return False  # вже у черзі/оброблено (mid unique)
     inbound_at = timezone.now()
@@ -3186,6 +3215,53 @@ def _process_one_inside_reply_boundary(
 ) -> bool:
     if not InstagramBotSettings.objects.filter(pk=s.pk, is_enabled=True).exists():
         return _skip_observed_row(row, reason="global_reply_paused")
+    if row.client_id:
+        try:
+            from management.services import bot_followups, bot_sales_classifier
+
+            classified = bot_sales_classifier.ensure_rule_classification(
+                row.client,
+                row,
+                media_context=_recover_current_message_media(row),
+            )
+            if classified is not None:
+                interaction_type = classified.get("interaction_type")
+                terminal_followup_reasons = {
+                    "explicit_no_buy": "explicit_no_buy",
+                    "opt_out": "opt_out",
+                    "spam_abuse": "spam_abuse",
+                    "paid_order_waiting": "already_converted",
+                }
+                if interaction_type in terminal_followup_reasons:
+                    bot_followups.cancel_pending(
+                        row.client,
+                        reason=terminal_followup_reasons[interaction_type],
+                    )
+                if interaction_type in {
+                    "reaction_only",
+                    "explicit_no_buy",
+                    "opt_out",
+                    "spam_abuse",
+                }:
+                    processed_at = timezone.now()
+                    consumed = _own_processing_claim(row).update(
+                        status=InstagramBotMessage.Status.DONE,
+                        processed_at=processed_at,
+                    )
+                    if consumed:
+                        row.status = InstagramBotMessage.Status.DONE
+                        row.processed_at = processed_at
+                        log(
+                            "info",
+                            "classified_skip",
+                            f"{row.sender_id}: {interaction_type}",
+                        )
+                    return bool(consumed)
+                bot_followups.schedule_after_inbound(row.client)
+        except DatabaseError:
+            raise
+        except Exception as exc:
+            log("warning", "deferred_classification", repr(exc))
     if not row.attachments:
         try:
             from management.services.bot_sales_classifier import is_reaction_only
@@ -3892,7 +3968,9 @@ def _apply_referral(sender_id: str, ref: dict) -> None:
     ])
 
 
-def handle_webhook_payload(s: InstagramBotSettings, payload: dict) -> int:
+def handle_webhook_payload(
+    s: InstagramBotSettings, payload: dict, *, persistence_only: bool = False
+) -> int:
     """Розбирає payload вебхука і кладе вхідні в чергу. Повертає к-сть доданих.
 
     Echo (повідомлення сторінки/менеджера) поки пропускаємо для черги — їх
@@ -3913,9 +3991,12 @@ def handle_webhook_payload(s: InstagramBotSettings, payload: dict) -> int:
                     attachments=_echo_media_items(msg),
                     mid=msg.get("mid", ""),
                     received_at=msg.get("_event_created_at"),
+                    persistence_only=persistence_only,
                 )
             except Exception as exc:
                 log("warning", "echo", repr(exc))
+                if persistence_only:
+                    raise
             continue
         if not sender_id:
             continue
@@ -3933,6 +4014,7 @@ def handle_webhook_payload(s: InstagramBotSettings, payload: dict) -> int:
             source="webhook",
             attachments=media,
             received_at=msg.get("_event_created_at"),
+            persistence_only=persistence_only,
         ):
             enq += 1
     return enq

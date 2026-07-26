@@ -864,3 +864,25 @@ def classify_message(
         except Exception:
             result["analysis_job_id"] = None
     return result
+
+
+def ensure_rule_classification(
+    client: IgClient,
+    message: InstagramBotMessage,
+    *,
+    media_context: list[dict] | None = None,
+) -> dict | None:
+    """Run the deterministic projection once for a durable message watermark."""
+    if not client or not message or not getattr(message, "pk", None):
+        return None
+    if client.analysis_snapshots.filter(
+        analysis_model="rules",
+        last_analyzed_message_id=message.pk,
+    ).exists():
+        return None
+    return classify_message(
+        client,
+        message=message,
+        role=message.role,
+        media_context=media_context,
+    )

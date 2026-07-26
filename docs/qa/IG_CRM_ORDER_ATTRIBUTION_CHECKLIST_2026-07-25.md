@@ -324,15 +324,22 @@ Task 6 active-conversation regression follow-up (2026-07-26):
   shipment tests, and 123 payment/order/post-sale tests with 2 expected skips.
   `manage.py check`, migration drift, scoped compile and `git diff --check`
   passed. Production deploy evidence is recorded after backup/release below.
-- [ ] Webhook POST persists/deduplicates and schedules work before returning
+- [x] Webhook POST persists/deduplicates and schedules work before returning
   `200`, with no classifier, Gemini, Graph, media download or notification
-  transport on the HTTP path. Missing `IG_APP_SECRET` remains fail-closed.
-- [ ] Remove the per-request background thread. Durable daemon workers, not an
+  transport on the HTTP path. The signed endpoint regression covers duplicate
+  delivery, durable message/job creation and all forbidden I/O boundaries.
+  If durable scheduling fails, customer and manager persistence rolls back and
+  the endpoint returns `503` so Meta can retry; a repeated manager `mid` is a
+  complete no-op for the message, job, notification and takeover epoch.
+- [x] Removed the per-request background thread. Durable daemon workers, not an
   unbounded Passenger thread per webhook, own reply and analysis processing.
+- [x] Rule classification is deferred to the daemon: active customer messages
+  classify before Gemini, while bounded reconciliation classifies manager,
+  paused and reply-disabled bursts before high-reasoning analysis.
 - [ ] Customer, manager and bot messages all advance one durable per-client
   analysis watermark. A 30-second debounce coalesces a burst; manager/model
   roles never generate a customer reply.
-- [ ] Manager takeover and explicit opt-out stay immediate local routing
+- [x] Manager takeover and explicit opt-out stay immediate local routing
   barriers. Manager evidence is higher-priority operational evidence but is not
   rewritten as customer intent.
 - [ ] Recovery discovery uses the page-scoped endpoint, small pages, cursors,
@@ -367,3 +374,12 @@ Task 6 active-conversation regression follow-up (2026-07-26):
 - [ ] A fresh signed inbound event has not yet been used as acceptance proof;
   do not mark webhook-first delivery fully complete until one real event is
   stored, analyzed and reflected in the local chat/funnel.
+
+Task 7A persistence-only webhook local verification (2026-07-26): a single
+focused gate covering signed endpoint/security/extraction, conversation
+analysis and intelligence, daemon, notification outbox, client API, takeover
+and manager-echo regressions passed **252/252**.
+`manage.py check`, migration drift, scoped compilation and `git diff --check`
+passed. Three stale rules-v4 assertions in `tests_ig_intelligence` were updated
+to the already-shipped rules-v5 taxonomy (`checkout`, collaboration, B2B,
+support and community); no production classifier behavior was weakened.
