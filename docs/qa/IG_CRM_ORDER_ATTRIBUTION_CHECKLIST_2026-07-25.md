@@ -169,7 +169,7 @@ regression suite was rerun after that fix: **209 tests passed**, with no failure
 `manage.py check`, migration drift, scoped compilation and `git diff --check`
 also passed.
 
-Task 6 Yana visibility follow-up (2026-07-26, local implementation pending release):
+Task 6 Yana visibility follow-up (2026-07-26, production release `cd24e6fd`):
 
 - [x] Root cause was reproduced from production truth without mutating business
   data: client `59` has raw stage `paid`, one real physical order `296`
@@ -188,6 +188,15 @@ Task 6 Yana visibility follow-up (2026-07-26, local implementation pending relea
   `поміняти` / `поменять` wording through a red-green regression test.
 - [x] Connected client/payment/order/commercial-episode/post-sale suite passed
   **191 tests** with no failures.
+- [x] Authenticated production browser QA confirms the Yana card exposes the
+  manager-confirmed label, separate provider/manager truth, one persistent
+  linked-order strip for `TWC24072026N01`, and the exact custom-admin link to
+  order `296`; desktop and 390/320 px mobile widths had no horizontal overflow
+  and browser console/page errors were empty.
+- [x] Production MariaDB was backed up before release; server SHA is `cd24e6fd`,
+  migrations are current, `/healthz/` returns HTTP 200, daemon is running, and
+  notification/analysis queues are empty. The temporary browser-QA staff user
+  was deleted and the Yana business rows remained unchanged.
 - [ ] Production exchange case remains intentionally absent until the actual
   customer message is stored. Current production evidence has no new message or
   raw event after message `242`; manually inventing a case would violate the
