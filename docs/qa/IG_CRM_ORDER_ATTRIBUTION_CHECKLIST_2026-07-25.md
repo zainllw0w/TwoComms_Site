@@ -143,6 +143,32 @@ scoped compilation and `git diff --check` passed. Production proof is recorded
 only after the MariaDB backup, migrations `0109`/`0110`, deploy and live API/DB
 reconciliation complete.
 
+Task 6 final production proof (2026-07-26, commits `edef71bd` and `762b7816`):
+
+- [x] MariaDB backup completed before each deploy; the final archive
+  `/home/qlknpodo/db_backups/daily/qlknpodo_MySQL_DB-20260726.sql.gz` is gzip-valid,
+  mode `0600`, and was published at `2026-07-26T16:05:36+03:00`.
+- [x] Production is on `762b7816`; migrations `0109` and `0110` are applied,
+  `manage.py check`, collectstatic/compress, Passenger restart, playbook seed,
+  commercial-episode reconciliation and daemon ensure all completed.
+- [x] Client `59` has exactly one physical order (`296`,
+  `TWC24072026N01`) and one append-only attribution (`id=2`,
+  `creation_mode=linked_existing`). Review `2` is canonical and review `1` is
+  `superseded_by=2`; no second order or attribution was created.
+- [x] The client-detail API now reports `orders.count=1` and
+  `orders.attribution_count=1`, and two repeated staff requests both return one
+  order card `(order_id=296, review_id=2)`.
+- [x] `/healthz/` returned `200`; daemon heartbeat age was about 4 seconds and
+  pending notification/analysis queues were `0/0`.
+- [x] Exchange/return remains evidence-bound: production history had no stored
+  customer exchange message, so no guessed post-sale case or size was created.
+
+The backend card deduplication fix was added after live verification found that
+the frontend hid duplicate review cards while the API still returned both. The
+regression suite was rerun after that fix: **209 tests passed**, with no failures;
+`manage.py check`, migration drift, scoped compilation and `git diff --check`
+also passed.
+
 ## Completed in this slice
 
 - [x] Explicit `PRODUCT`/`ITEM` IDs are authoritative; missing or unpublished IDs fail closed.
