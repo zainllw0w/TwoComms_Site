@@ -128,8 +128,11 @@ class CustomPrintConfigContractTests(unittest.TestCase):
         )
         self.assertEqual(
             [item["value"] for item in config["back_size_presets"]],
-            ["A4", "A3", "A2"],
+            ["A4", "A3", "A3+"],
         )
+        self.assertEqual(config["special_placements"]["shoulder"]["formats"], ["A6"])
+        self.assertEqual(config["special_placements"]["hem"]["modes"], ["text", "A6", "A6+"])
+        self.assertEqual(config["special_placements"]["hem"]["sides"], ["front", "back"])
         self.assertEqual(
             [item["value"] for item in config["sleeve_mode_options"]],
             ["a6", "full_text"],
@@ -162,7 +165,8 @@ class CustomPrintConfigContractTests(unittest.TestCase):
         self.assertEqual(config["products"]["customer_garment"]["pricing"]["base"], 150)
         self.assertEqual(len(config["products"]["customer_garment"]["shipping_methods"]), 2)
         self.assertEqual(config["products"]["hoodie"]["zones"], ["front", "back", "kangaroo", "sleeve", "custom"])
-        self.assertEqual([item["value"] for item in config["custom_zone_size_presets"]], ["A6", "A5", "A4", "A3", "A2"])
+        self.assertEqual(config["products"]["tshirt"]["zones"], ["front", "back", "shoulder", "hem", "custom"])
+        self.assertEqual(config["custom_zone_size_presets"], [])
         self.assertEqual(config["size_grid"], ["S", "M", "L", "XL", "2XL"])
         self.assertGreater(config["stage_profiles"]["hoodie"]["oversize"]["back"]["anchors"]["back"]["presets"]["A4"]["y"], 50)
         self.assertIn("stage_profiles", config)
@@ -181,10 +185,11 @@ class CustomPrintConfigContractTests(unittest.TestCase):
             config["format_dimensions"],
             {
                 "A6": {"width_mm": 105, "height_mm": 148},
+                "A6+": {"width_mm": 210, "height_mm": 105},
                 "A5": {"width_mm": 148, "height_mm": 210},
                 "A4": {"width_mm": 210, "height_mm": 297},
                 "A3": {"width_mm": 297, "height_mm": 420},
-                "A2": {"width_mm": 420, "height_mm": 594},
+                "A3+": {"width_mm": 350, "height_mm": 500},
             },
         )
         self.assertEqual(ISO_SIZES["A4"], (210, 297))
@@ -272,7 +277,7 @@ class CustomPrintConfigContractTests(unittest.TestCase):
         self.assertIn("референс", design["hint"].lower())
         self.assertIn("з нуля", design["hint"].lower())
 
-    def test_stage_profiles_expose_distinct_back_presets_for_a4_a3_a2(self):
+    def test_stage_profiles_expose_distinct_back_presets_for_a4_a3_a3_plus(self):
         config = build_custom_print_config(
             submit_url="https://twocomms.shop/custom-print/lead/",
             safe_exit_url="https://twocomms.shop/custom-print/safe-exit/",
@@ -284,13 +289,13 @@ class CustomPrintConfigContractTests(unittest.TestCase):
         )
         a4 = back_presets["A4"]
         a3 = back_presets["A3"]
-        a2 = back_presets["A2"]
+        a3_plus = back_presets["A3+"]
 
         self.assertLess(a4["width"], a3["width"])
-        self.assertLess(a3["width"], a2["width"])
+        self.assertLess(a3["width"], a3_plus["width"])
         self.assertLess(a4["height"], a3["height"])
-        self.assertLess(a3["height"], a2["height"])
-        self.assertGreater(a2["y"], a3["y"])
+        self.assertLess(a3["height"], a3_plus["height"])
+        self.assertGreater(a3_plus["y"], a3["y"])
 
     def test_normalize_snapshot_preserves_zone_sizes_sleeves_and_legacy_lacing(self):
         normalized = normalize_custom_print_snapshot(
@@ -327,7 +332,7 @@ class CustomPrintConfigContractTests(unittest.TestCase):
         self.assertEqual(normalized["product"]["fabric"], "premium")
         self.assertEqual(normalized["print"]["add_ons"], ["lacing"])
         self.assertEqual(normalized["print"]["zone_options"]["front"]["size_preset"], "A4")
-        self.assertEqual(normalized["print"]["zone_options"]["back"]["size_preset"], "A2")
+        self.assertEqual(normalized["print"]["zone_options"]["back"]["size_preset"], "A3+")
         self.assertTrue(normalized["print"]["zone_options"]["sleeve"]["left_enabled"])
         self.assertTrue(normalized["print"]["zone_options"]["sleeve"]["right_enabled"])
         self.assertEqual(normalized["print"]["zone_options"]["sleeve"]["left_mode"], "full_text")
@@ -416,7 +421,7 @@ class CustomPrintConfigContractTests(unittest.TestCase):
         self.assertTrue(specs[0]["requires_artwork_file"])
         self.assertEqual(specs[0]["file_index"], 0)
         self.assertEqual(specs[1]["zone"], "back")
-        self.assertEqual(specs[1]["size_preset"], "A2")
+        self.assertEqual(specs[1]["size_preset"], "A3+")
         self.assertTrue(specs[1]["requires_artwork_file"])
         self.assertEqual(specs[1]["file_index"], 1)
         self.assertEqual(specs[2]["placement_key"], "sleeve_left")
@@ -450,6 +455,64 @@ class CustomPrintConfigContractTests(unittest.TestCase):
         self.assertEqual(specs[0]["placement_key"], "sleeve_left")
         self.assertFalse(specs[0]["requires_artwork_file"])
         self.assertNotIn("file_index", specs[0])
+
+    def test_build_placement_specs_expands_shoulders_and_back_hem(self):
+        specs = build_placement_specs(
+            {
+                "product": {"type": "tshirt", "fit": "regular"},
+                "print": {
+                    "zones": ["front", "shoulder", "hem"],
+                    "zone_options": {
+                        "front": {"size_preset": "A4"},
+                        "shoulder": {"left_enabled": True, "right_enabled": True},
+                        "hem": {"side": "back", "mode": "A6+"},
+                    },
+                },
+            }
+        )
+
+        self.assertEqual(
+            [item["placement_key"] for item in specs],
+            ["front", "shoulder_left", "shoulder_right", "hem_back"],
+        )
+        self.assertEqual(specs[1]["size"], "A6")
+        self.assertEqual(specs[2]["size"], "A6")
+        self.assertEqual(specs[3]["mode"], "A6+")
+        self.assertTrue(specs[3]["requires_artwork_file"])
+
+    def test_build_placement_specs_text_hem_does_not_require_file(self):
+        normalized = normalize_custom_print_snapshot(
+            {
+                "product": {"type": "tshirt", "fit": "regular"},
+                "print": {
+                    "zones": ["hem"],
+                    "zone_options": {
+                        "hem": {"side": "front", "mode": "text", "text": "TWOCOMMS"}
+                    },
+                },
+            }
+        )
+        specs = build_placement_specs(normalized)
+
+        self.assertEqual(specs[0]["placement_key"], "hem_front")
+        self.assertEqual(specs[0]["text"], "TWOCOMMS")
+        self.assertFalse(specs[0]["requires_artwork_file"])
+        self.assertNotIn("file_index", specs[0])
+
+    def test_normalize_snapshot_rejects_hem_without_side(self):
+        normalized = normalize_custom_print_snapshot(
+            {
+                "product": {"type": "tshirt", "fit": "regular"},
+                "print": {
+                    "zones": ["hem"],
+                    "zone_options": {"hem": {"side": "middle", "mode": "A4"}},
+                },
+            }
+        )
+
+        self.assertEqual(normalized["print"]["zone_options"]["hem"]["side"], "")
+        self.assertEqual(normalized["print"]["zone_options"]["hem"]["mode"], "A6")
+        self.assertEqual(build_placement_specs(normalized), [])
 
 
 if __name__ == "__main__":

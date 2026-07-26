@@ -177,8 +177,10 @@ class CustomPrintPageTests(TestCase):
         )
         self.assertEqual(
             [item["value"] for item in config["back_size_presets"]],
-            ["A4", "A3", "A2"],
+            ["A4", "A3", "A3+"],
         )
+        self.assertEqual(config["special_placements"]["shoulder"]["formats"], ["A6"])
+        self.assertEqual(config["special_placements"]["hem"]["modes"], ["text", "A6", "A6+"])
         self.assertEqual(
             [item["value"] for item in config["sleeve_mode_options"]],
             ["a6", "full_text"],
@@ -248,7 +250,7 @@ class CustomPrintPageTests(TestCase):
             normalized["print"]["zone_options"]["front"]["size_preset"],
             "A4",
         )
-        self.assertEqual(normalized["print"]["zone_options"]["back"]["size_preset"], "A2")
+        self.assertEqual(normalized["print"]["zone_options"]["back"]["size_preset"], "A3+")
         self.assertTrue(normalized["print"]["zone_options"]["sleeve"]["left_enabled"])
         self.assertTrue(normalized["print"]["zone_options"]["sleeve"]["right_enabled"])
         self.assertEqual(normalized["print"]["zone_options"]["sleeve"]["left_mode"], "full_text")
@@ -283,7 +285,7 @@ class CustomPrintPageTests(TestCase):
         self.assertEqual(specs[0]["zone"], "front")
         self.assertEqual(specs[0]["size_preset"], "A5")
         self.assertEqual(specs[1]["zone"], "back")
-        self.assertEqual(specs[1]["size_preset"], "A2")
+        self.assertEqual(specs[1]["size_preset"], "A3+")
         self.assertEqual(specs[2]["placement_key"], "sleeve_left")
         self.assertEqual(specs[2]["mode"], "full_text")
         self.assertEqual(specs[2]["text"], "LEFT TEXT")
