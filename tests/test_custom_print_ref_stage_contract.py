@@ -73,6 +73,17 @@ class CustomPrintReferenceStageContractTests(unittest.TestCase):
         self.assertIn('preload.type = "image/avif"', source)
         self.assertIn('warmCurrentProfile(state)', source)
 
+    def test_preview_preloads_only_selected_color_on_both_sides(self):
+        source = PREVIEW_JS.read_text(encoding="utf-8")
+        self.assertIn('const variant = profile[requestedColor] || profile.black || profiles["tshirt:regular"]?.black;', source)
+        self.assertIn('["front", "back"].forEach((side)', source)
+        self.assertNotIn('Object.values(profile).forEach((variant)', source)
+
+    def test_desktop_stage_hides_duplicate_preview_action(self):
+        source = STUDIO_CSS.read_text(encoding="utf-8")
+        self.assertIn("@media (min-width: 1101px)", source)
+        self.assertIn(".cp-stage-card .cp-preview-open { display: none; }", source)
+
 
 if __name__ == "__main__":
     unittest.main()

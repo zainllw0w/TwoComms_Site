@@ -2378,6 +2378,7 @@ body.cp-dialog-open:not(.cp-studio-active) { position: fixed; right: 0; left: 0;
   body > .cp-studio-appbar { display: none !important; }
   body.cp-studio-active { overflow: visible !important; }
   .cp-page.is-studio-active { overflow: visible; }
+  .cp-stage-card .cp-preview-open { display: none; }
   .cp-stage-card { top: 84px; max-height: calc(100svh - 104px); }
 }
 

@@ -50,18 +50,20 @@
     const warmedAssets = new Set();
 
     function warmCurrentProfile(state) {
-      const profile = config.custom_ref_preview_assets?.[profileKey(state)] || {};
-      Object.values(profile).forEach((variant) => {
-        Object.values(variant || {}).forEach((sources) => {
-          if (!sources?.avif || warmedAssets.has(sources.avif)) return;
-          warmedAssets.add(sources.avif);
-          const preload = document.createElement("link");
-          preload.rel = "preload";
-          preload.as = "image";
-          preload.type = "image/avif";
-          preload.href = sources.avif;
-          document.head.appendChild(preload);
-        });
+      const profiles = config.custom_ref_preview_assets || {};
+      const profile = profiles[profileKey(state)] || profiles["tshirt:regular"] || {};
+      const requestedColor = COLOR_ALIASES[state.product.color] || state.product.color || "black";
+      const variant = profile[requestedColor] || profile.black || profiles["tshirt:regular"]?.black;
+      ["front", "back"].forEach((side) => {
+        const sources = variant?.[side];
+        if (!sources?.avif || warmedAssets.has(sources.avif)) return;
+        warmedAssets.add(sources.avif);
+        const preload = document.createElement("link");
+        preload.rel = "preload";
+        preload.as = "image";
+        preload.type = "image/avif";
+        preload.href = sources.avif;
+        document.head.appendChild(preload);
       });
     }
 
