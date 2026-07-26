@@ -1340,12 +1340,18 @@ def _payment_review_workspace_payload(review) -> dict:
 
 
 def _canonical_order_workspace_cards(review_rows, attribution_rows, *, limit=100) -> list:
-    review_cards = [_payment_review_workspace_payload(row) for row in review_rows]
-    represented_order_ids = {
-        item["order"].get("id")
-        for item in review_cards
-        if item.get("order") and item["order"].get("id")
-    }
+    review_cards = []
+    represented_order_ids = set()
+    for row in review_rows:
+        card = _payment_review_workspace_payload(row)
+        order_id = (card.get("order") or {}).get("id")
+        # A superseded review may retain the canonical order pointer for audit
+        # history. It must not render as a second physical-order card.
+        if order_id and order_id in represented_order_ids:
+            continue
+        review_cards.append(card)
+        if order_id:
+            represented_order_ids.add(order_id)
     attribution_cards = [
         _order_attribution_workspace_payload(row)
         for row in attribution_rows

@@ -1471,6 +1471,16 @@ class OrdersWorkspaceApiTests(TestCase):
         self.assertEqual(duplicate.order_id, order.id)
         self.assertEqual(duplicate.superseded_by_id, canonical.id)
 
+        detail = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.customer.pk])
+        ).json()
+        order_ids = [
+            item["order"]["id"]
+            for item in detail["orders"]["items"]
+            if item.get("order") and item["order"].get("id")
+        ]
+        self.assertEqual(order_ids, [order.id])
+
         candidates = self.client.get(
             reverse("management_bot_order_candidates_api"),
             {"client_id": self.customer.pk, "review_id": duplicate.pk},
