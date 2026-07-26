@@ -243,7 +243,7 @@ class CustomPrintConfigContractTests(unittest.TestCase):
         self.assertNotIn("graphite", {color["value"] for color in tshirt_colors})
         hoodie_fit_colors = config["products"]["hoodie"]["fit_colors"]
         self.assertEqual([color["value"] for color in hoodie_fit_colors["oversize"]], ["black", "pink"])
-        self.assertEqual([color["value"] for color in hoodie_fit_colors["regular"]], ["black", "graphite", "sand", "bone"])
+        self.assertEqual([color["value"] for color in hoodie_fit_colors["regular"]], ["black", "pink"])
         thermo = config["products"]["tshirt"]["fabrics"]["oversize"][-1]
         self.assertEqual([color["value"] for color in thermo["colors"]], ["thermo_green", "thermo_pink"])
 
