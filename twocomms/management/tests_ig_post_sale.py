@@ -14,6 +14,18 @@ User = get_user_model()
 
 
 class PostSaleClassifierTests(SimpleTestCase):
+    def test_colloquial_exchange_verbs_are_detected(self):
+        from management.services.ig_post_sale import detect_post_sale_type
+
+        self.assertEqual(
+            detect_post_sale_type("Хочу поміняти розмір XS на S"),
+            "exchange",
+        )
+        self.assertEqual(
+            detect_post_sale_type("Можно поменять оверсайз на regular?"),
+            "exchange",
+        )
+
     def test_paid_customer_exchange_takes_priority_over_paid_waiting(self):
         from management.services.bot_sales_classifier import _interaction_type
 

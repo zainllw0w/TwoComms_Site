@@ -25,6 +25,7 @@ from management.models import (
 )
 from management.ig_bot_models import (
     IgDeal,
+    IgOrderAttribution,
     IgPaymentConfirmationReview,
     IgPaymentProjection,
     IgPaymentReviewDecision,
@@ -269,7 +270,8 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
             "ймовірність",
             "впевненість",
             "На чому базується",
-            "Оплата: ",
+            "Provider: ",
+            "Менеджер: ",
             "Фізичних замовлень: ",
         ):
             self.assertIn(contract, self.template)
@@ -334,6 +336,20 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
         )
         self.assertNotIn(
             "['prepayment','Передоплата'],['payment_claim','Заявлений платіж']",
+            self.template,
+        )
+
+    def test_linked_order_is_persistent_in_chat_without_reopening_payment_action(self):
+        for contract in (
+            "function renderLinkedOrderStrip(d)",
+            "const linkedOrders=((d.orders&&d.orders.items)||[])",
+            "Оплату підтверджено менеджером",
+            "Відкрити замовлення",
+            "renderLinkedOrderStrip(d)",
+        ):
+            self.assertIn(contract, self.template)
+        self.assertIn(
+            "if(active&&active.approval&&active.approval.needs_action)",
             self.template,
         )
 
@@ -718,6 +734,77 @@ class ClientsApiTests(TestCase):
 
         self.assertEqual(data["payment"]["manager_truth"], "manager_verified")
         self.assertEqual(data["payment"]["manager_decision"]["id"], decision.id)
+
+    def test_manager_verified_linked_order_keeps_paid_stage_without_provider_deal(self):
+        from orders.models import Order
+
+        self.c.stage = IgClient.Stage.PAID
+        self.c.save(update_fields=["stage", "updated_at"])
+        order = Order.objects.create(
+            order_number="TWC-YANA-REGRESSION",
+            full_name="Ніколаєнко Яна",
+            phone="380502034719",
+            total_sum=Decimal("2100.00"),
+            payment_status="paid",
+            status="ship",
+            tracking_number="20451495591085",
+            source="manual",
+            sale_source="Instagram",
+        )
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.c,
+            dedupe_key="yana-manager-linked-no-deal",
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            order=order,
+        )
+        decision = IgPaymentReviewDecision.objects.create(
+            review=review,
+            client=self.c,
+            decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+            verification_source="manager",
+            verification_scope=IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT,
+            confirmed_amount=Decimal("2100.00"),
+            amount_source="manager_input",
+            actor=self.admin,
+            actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+            actor_external_id=str(self.admin.pk),
+            review_status_before=IgPaymentConfirmationReview.Status.PENDING,
+            review_status_after=IgPaymentConfirmationReview.Status.CONFIRMED,
+        )
+        IgOrderAttribution.objects.create(
+            order=order,
+            client=self.c,
+            payment_review=review,
+            manager_decision=decision,
+            creation_mode="linked_existing",
+            payment_source="manager_verified",
+        )
+
+        detail = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.c.id])
+        ).json()
+        clients = self.client.get(
+            reverse("management_bot_clients_api") + f"?client_id={self.c.id}"
+        ).json()
+        list_card = next(item for item in clients["clients"] if item["id"] == self.c.id)
+
+        for card in (detail["client"], list_card):
+            self.assertEqual(card["stage_raw"], IgClient.Stage.PAID)
+            self.assertEqual(card["stage"], IgClient.Stage.PAID)
+            self.assertEqual(card["stage_label"], "Оплачено менеджером")
+            self.assertTrue(card["commercially_confirmed"])
+            self.assertEqual(card["commercial_confirmation_source"], "manager_verified_order")
+        self.assertEqual(detail["payment"]["provider_truth"], "unverified")
+        self.assertEqual(detail["payment"]["manager_truth"], "manager_verified")
+        self.assertTrue(detail["payment"]["authoritative_for_fulfillment"])
+        self.assertIsNone(detail["review"]["active"])
+        self.assertEqual(detail["orders"]["physical_count"], 1)
+        self.assertEqual(len(detail["orders"]["items"]), 1)
+        self.assertEqual(detail["orders"]["items"][0]["order"]["id"], order.id)
+        self.assertEqual(
+            detail["orders"]["items"][0]["approval"]["state"],
+            "linked_existing",
+        )
 
     def test_meta_reviewer_cannot_read_commercial_client_detail(self):
         self.client.logout()
@@ -1498,6 +1585,18 @@ class OrdersWorkspaceApiTests(TestCase):
         self.assertTrue(replay.json()["idempotent_replay"])
         self.assertEqual(replay.json()["order_id"], order.id)
         self.assertEqual(IgOrderAttribution.objects.filter(order=order).count(), 1)
+
+        all_rows = self.client.get(
+            reverse("management_bot_orders_workspace_api")
+            + f"?view=all&client_id={self.customer.pk}"
+        ).json()
+        rendered_order_ids = [
+            row["order"]["id"]
+            for row in all_rows["items"]
+            if row.get("order") and row["order"].get("id")
+        ]
+        self.assertEqual(rendered_order_ids, [order.id])
+        self.assertEqual(all_rows["counts"], {"action": 2, "confirmed": 2, "all": 3})
 
     def test_legacy_provider_attempt_is_not_promoted_to_confirmed_truth(self):
         from management.ig_bot_models import IgOrderAttribution

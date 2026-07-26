@@ -169,6 +169,34 @@ regression suite was rerun after that fix: **209 tests passed**, with no failure
 `manage.py check`, migration drift, scoped compilation and `git diff --check`
 also passed.
 
+Task 6 Yana visibility follow-up (2026-07-26, local implementation pending release):
+
+- [x] Root cause was reproduced from production truth without mutating business
+  data: client `59` has raw stage `paid`, one real physical order `296`
+  (`TWC24072026N01`), one canonical confirmed review `2`, and one durable
+  `linked_existing` attribution. Reopening confirmation or detaching the order
+  would be incorrect and could create another duplicate.
+- [x] Manager-confirmed order truth now keeps the client visibly paid even when
+  provider truth is independently `unverified`; the UI labels those two sources
+  separately instead of showing the contradictory `Потребує звірки оплати`.
+- [x] The main chat keeps a persistent compact linked-order strip after the
+  action review closes, including manager confirmation, order number, amount,
+  fulfillment status, TTN, creation mode and the custom-admin order link.
+- [x] Orders workspace badges exclude superseded audit reviews and count distinct
+  canonical physical orders consistently with rendered cards.
+- [x] Conversation-level exchange detection now covers colloquial
+  `поміняти` / `поменять` wording through a red-green regression test.
+- [x] Connected client/payment/order/commercial-episode/post-sale suite passed
+  **191 tests** with no failures.
+- [ ] Production exchange case remains intentionally absent until the actual
+  customer message is stored. Current production evidence has no new message or
+  raw event after message `242`; manually inventing a case would violate the
+  evidence-bound post-sale contract.
+- [ ] Restore `IG_APP_SECRET` in the runtime environment and resolve Graph
+  polling failures (`conversations HTTP 500`, `poll_messages http_-1`), then
+  verify a fresh signed inbound message creates the exchange case on the sole
+  attributed order `296` without duplicating the order.
+
 ## Completed in this slice
 
 - [x] Explicit `PRODUCT`/`ITEM` IDs are authoritative; missing or unpublished IDs fail closed.

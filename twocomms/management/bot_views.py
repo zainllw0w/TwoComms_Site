@@ -1429,13 +1429,28 @@ def bot_orders_workspace_api(request):
         )
         | Q(pk__in=reconciliation_review_ids)
     )
+    canonical_base = base.exclude(
+        status=IgPaymentConfirmationReview.Status.SUPERSEDED,
+    )
+    canonical_order_count = canonical_base.exclude(
+        order_id__isnull=True,
+    ).values("order_id").distinct().count()
+    canonical_orderless_count = canonical_base.filter(order_id__isnull=True).count()
+    canonical_confirmed_order_count = canonical_base.filter(
+        status=IgPaymentConfirmationReview.Status.CONFIRMED,
+    ).exclude(order_id__isnull=True).values("order_id").distinct().count()
+    canonical_confirmed_orderless_count = canonical_base.filter(
+        status=IgPaymentConfirmationReview.Status.CONFIRMED,
+        order_id__isnull=True,
+    ).count()
     counts = {
         "action": base.filter(action_filter).count(),
         "confirmed": (
-            base.filter(status=IgPaymentConfirmationReview.Status.CONFIRMED).count()
+            canonical_confirmed_order_count
+            + canonical_confirmed_orderless_count
             + attributed_count
         ),
-        "all": base.count() + attributed_count,
+        "all": canonical_order_count + canonical_orderless_count + attributed_count,
     }
     attribution_rows = []
     if selected_review_id:
@@ -2228,6 +2243,33 @@ def _client_card(c) -> dict:
         truth_projection = None
         truth_deal = None
     has_verified_payment = bool(verified_deal)
+    commercially_confirmed = getattr(c, "has_commercial_confirmation", None)
+    if commercially_confirmed is None:
+        from .ig_bot_models import IgOrderAttribution, IgPaymentReviewDecision
+
+        commercially_confirmed = IgOrderAttribution.objects.filter(
+            client=c,
+            order_id__isnull=False,
+            payment_source="manager_verified",
+        ).filter(
+            Q(
+                manager_decision__decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+                manager_decision__verification_source="manager",
+                manager_decision__actor_source__in=(
+                    IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+                    IgPaymentReviewDecision.ActorSource.TELEGRAM_USER,
+                ),
+            )
+            | Q(
+                payment_review__status="confirmed",
+                payment_review__decisions__decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+                payment_review__decisions__verification_source="manager",
+                payment_review__decisions__actor_source__in=(
+                    IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+                    IgPaymentReviewDecision.ActorSource.TELEGRAM_USER,
+                ),
+            )
+        ).exists()
     payment_truth = (
         truth_projection.truth
         if truth_projection
@@ -2244,6 +2286,9 @@ def _client_card(c) -> dict:
         if payment_truth in {IgDeal.PaymentTruth.REFUNDED, IgDeal.PaymentTruth.REVERSED}:
             displayed_stage = "payment_reversed"
             displayed_stage_label = "Оплату повернено / скасовано"
+        elif commercially_confirmed:
+            if c.stage == IgClient.Stage.PAID:
+                displayed_stage_label = "Оплачено менеджером"
         else:
             displayed_stage = "unverified"
             displayed_stage_label = "Потребує звірки оплати"
@@ -2305,6 +2350,10 @@ def _client_card(c) -> dict:
         "discount_offered_percent": c.discount_offered_percent,
         "payment_status": payment_status,
         "payment_truth": payment_truth,
+        "commercially_confirmed": bool(commercially_confirmed),
+        "commercial_confirmation_source": (
+            "manager_verified_order" if commercially_confirmed else ""
+        ),
         "delivery_status": c.delivery_status,
         "delivery_status_label": c.get_delivery_status_display() if c.delivery_status else "",
         "delivery_error": c.delivery_error,
@@ -2324,7 +2373,36 @@ def bot_clients_api(request):
 
     view = (request.GET.get("view") or "active").strip().lower()
     from django.db.models import Prefetch
-    from .ig_bot_models import IgConversationAnalysisSnapshot
+    from .ig_bot_models import (
+        IgConversationAnalysisSnapshot,
+        IgOrderAttribution,
+        IgPaymentConfirmationReview,
+        IgPaymentReviewDecision,
+    )
+
+    manager_verified_orders = IgOrderAttribution.objects.filter(
+        client_id=OuterRef("pk"),
+        order_id__isnull=False,
+        payment_source="manager_verified",
+    ).filter(
+        Q(
+            manager_decision__decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+            manager_decision__verification_source="manager",
+            manager_decision__actor_source__in=(
+                IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+                IgPaymentReviewDecision.ActorSource.TELEGRAM_USER,
+            ),
+        )
+        | Q(
+            payment_review__status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            payment_review__decisions__decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+            payment_review__decisions__verification_source="manager",
+            payment_review__decisions__actor_source__in=(
+                IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+                IgPaymentReviewDecision.ActorSource.TELEGRAM_USER,
+            ),
+        )
+    )
 
     qs = _with_latest_interaction(annotate_verified_payment(
         IgClient.objects.select_related("current_product", "current_commercial_episode").prefetch_related(
@@ -2350,7 +2428,9 @@ def bot_clients_api(request):
             queryset=IgPaymentProjection.objects.select_related("deal").order_by("-updated_at", "-id"),
             to_attr="_payment_projections",
         ),
-        ).all()
+        ).annotate(
+            has_commercial_confirmation=Exists(manager_verified_orders),
+        )
     ))
     unfiltered_qs = qs
     if view in {"hidden"}:
@@ -2360,7 +2440,9 @@ def bot_clients_api(request):
     if view in {"spam", "cold", "spam-cold", "spam_cold"}:
         qs = qs.filter(Q(stage__in=[IgClient.Stage.SPAM, IgClient.Stage.COLD]) | Q(spam_strikes__gt=0))
     elif view == "paid":
-        qs = qs.filter(has_verified_payment=True)
+        qs = qs.filter(
+            Q(has_verified_payment=True) | Q(has_commercial_confirmation=True)
+        )
     elif view == "due":
         qs = qs.filter(followup_tasks__status="pending", followup_tasks__due_at__lte=timezone.now()).distinct()
     elif view == "ads":
@@ -2386,7 +2468,10 @@ def bot_clients_api(request):
         ])
     elif view == "active":
         qs = qs.exclude(stage__in=[IgClient.Stage.SPAM, IgClient.Stage.COLD])
-        qs = qs.filter(has_verified_payment=False)
+        qs = qs.filter(
+            has_verified_payment=False,
+            has_commercial_confirmation=False,
+        )
     qs = qs.order_by("-last_message_at", "-id")
     q = (request.GET.get("q") or "").strip()
     if q:

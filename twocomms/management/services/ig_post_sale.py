@@ -9,7 +9,10 @@ from management.ig_bot_models import IgPostSaleCase
 from management.models import InstagramBotMessage
 
 
-EXCHANGE_RE = re.compile(r"\b(?:обмін\w*|обмен\w*|обміняти|обменять|замінити|заменить)\b", re.I)
+EXCHANGE_RE = re.compile(
+    r"\b(?:обмін\w*|обмен\w*|обміняти|обменять|поміняти|поменять|замінити|заменить)\b",
+    re.I,
+)
 RETURN_RE = re.compile(r"\b(?:повернен\w*|возврат\w*|повернути|вернуть)\b", re.I)
 FIT_RE = re.compile(r"\b(oversize|оверсайз|regular|регуляр|classic|класик\w*)\b", re.I)
 SIZE_RE = re.compile(r"\b(3xl|2xl|xxxl|xxl|xl|xs|s|m|l)\b", re.I)
