@@ -212,6 +212,32 @@ class NotifyShippedDealsTests(TestCase):
 
     @patch("management.services.bot_orders.notify_manager")
     @patch("management.services.bot_orders.send_text", create=True)
+    def test_attribution_only_episode_outside_window_creates_manager_task(
+        self, mock_send, mock_notify
+    ):
+        from management.services.ig_order_links import create_order_attribution
+
+        c = IgClient.get_or_create_for_sender("sh-attribution-review")
+        order = _order(ttn="59000777778")
+        attribution = create_order_attribution(
+            order,
+            client=c,
+            creation_mode="linked_existing",
+            payment_source="manager_verified",
+        )
+
+        self.assertEqual(bot_orders.notify_shipped_deals(), 0)
+        mock_send.assert_not_called()
+        task = IgFollowUpTask.objects.get(
+            client=c,
+            reason=f"shipment_human_review:episode:{attribution.commercial_episode.pk}",
+        )
+        self.assertEqual(task.status, IgFollowUpTask.Status.SKIPPED)
+        self.assertEqual(task.skip_reason, "human_agent_required")
+        mock_notify.assert_called_once()
+
+    @patch("management.services.bot_orders.notify_manager")
+    @patch("management.services.bot_orders.send_text", create=True)
     def test_blocked_deal_does_not_starve_eligible_attribution_episode_at_limit(
         self, mock_send, mock_notify
     ):

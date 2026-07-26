@@ -266,6 +266,10 @@ Task 6 active-conversation regression follow-up (2026-07-26):
 - [x] The daemon now persists `last_poll_at` for a successful poll cycle and
   records provider/refresh failures as `polling:*`; status separates daemon
   heartbeat from inbound availability and exposes `ingress_degraded`.
+- [x] The production shipment-payment smoke exposed a missing `timezone` import
+  in the attribution-only manager-review path; the import is restored and a
+  regression test now proves an outside-window episode creates one skipped
+  manager task without attempting an automated send.
 - [x] Focused verification passed **205 tests** for clients/UI, daemon,
   webhook security, polling, commercial episodes and shipment, plus **171
   related payment/order/post-sale tests** (2 expected skips). `manage.py check`,

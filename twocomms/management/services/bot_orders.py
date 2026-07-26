@@ -20,6 +20,7 @@ from weakref import WeakValueDictionary
 
 from django.db.models import Q
 from django.db import connection
+from django.utils import timezone
 
 from management.services.bot_payments import create_payment_link
 from management.services.bot_payment_truth import (
