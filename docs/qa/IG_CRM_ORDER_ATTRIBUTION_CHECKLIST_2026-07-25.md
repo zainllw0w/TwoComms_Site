@@ -303,3 +303,48 @@ Task 6 active-conversation regression follow-up (2026-07-26):
   webhook fail-closed; after credentials/provider recovery, verify a fresh
   signed Yana message reaches `InstagramBotMessage`, updates analysis and
   creates an evidence-bound exchange case without a duplicate order.
+
+## Task 7A webhook-first ingress and analysis contract (2026-07-26)
+
+- [x] Architectural decision recorded in
+  `docs/plans/2026-07-26-instagram-webhook-first-ingress-design.md`; the detailed
+  TDD/release sequence is in
+  `docs/plans/2026-07-26-instagram-webhook-first-ingress.md`.
+- [x] Chosen architecture is signed-webhook primary plus bounded adaptive
+  recovery polling. Webhook-only and permanent short Graph polling are rejected
+  for recoverability and quota/permission reasons respectively.
+- [x] Context7 MCP availability was checked and is absent in this runtime. The
+  official Meta rate-limit and Messaging documentation URLs, confirmed facts
+  and the boundary between provider fact and our operational policy are recorded
+  in the design instead of inventing Context7 results.
+- [x] Recovery fallback parameter slice verified locally: conversation
+  discovery uses `limit=10`, message reads allow the production-evidenced
+  12-second timeout, and no customer-specific values are embedded. Fresh clean
+  runs passed 22 polling tests, 264 expanded ingress/UI/daemon/webhook/analysis/
+  shipment tests, and 123 payment/order/post-sale tests with 2 expected skips.
+  `manage.py check`, migration drift, scoped compile and `git diff --check`
+  passed. Production deploy evidence is recorded after backup/release below.
+- [ ] Webhook POST persists/deduplicates and schedules work before returning
+  `200`, with no classifier, Gemini, Graph, media download or notification
+  transport on the HTTP path. Missing `IG_APP_SECRET` remains fail-closed.
+- [ ] Remove the per-request background thread. Durable daemon workers, not an
+  unbounded Passenger thread per webhook, own reply and analysis processing.
+- [ ] Customer, manager and bot messages all advance one durable per-client
+  analysis watermark. A 30-second debounce coalesces a burst; manager/model
+  roles never generate a customer reply.
+- [ ] Manager takeover and explicit opt-out stay immediate local routing
+  barriers. Manager evidence is higher-priority operational evidence but is not
+  rewritten as customer intent.
+- [ ] Recovery discovery uses the page-scoped endpoint, small pages, cursors,
+  request/time budgets, adaptive backoff, jitter, Meta error classes and usage
+  headers. Permission/configuration failures must not be retried every few
+  seconds.
+- [ ] Chat UI reads MariaDB-backed incremental APIs only, pauses/backs off in a
+  hidden tab, and never causes a Meta Graph request.
+- [ ] List card, chat header, one-row funnel, review drawer and incremental chat
+  use the same operational projection. Receipt claim, pending/approved/rejected
+  manager review, provider truth, linked order and fulfillment remain visibly
+  distinct; diagnostic `stage_raw` cannot falsely label pending evidence paid.
+- [ ] Production acceptance requires a fresh signed inbound event. Until the
+  real app secret and Advanced Access exist, show `ingress_degraded`; never use
+  faster polling to conceal the external blocker.

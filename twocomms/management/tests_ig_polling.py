@@ -104,7 +104,7 @@ class ConversationDiscoveryTests(TestCase):
         self.assertEqual(http.call_count, 2)
         self.assertEqual(
             http.call_args_list[0].args[0],
-            f"{bot.GRAPH}/page/conversations?platform=instagram&fields=id&limit=100",
+            f"{bot.GRAPH}/page/conversations?platform=instagram&fields=id&limit=10",
         )
         self.assertEqual(
             http.call_args_list[0].kwargs["headers"]["Authorization"],
@@ -389,6 +389,7 @@ class ConversationMessagePaginationSafetyTests(TestCase):
             result = bot.poll_ingest(self.settings)
 
         self.assertFalse(result["degraded"])
+        self.assertEqual(bot.POLL_MESSAGE_TIMEOUT, 12)
         self.assertIsNone(cache.get(poll_key))
         self.assertEqual(cache.get(refresh_key)["state"], "conversation_refresh_failed")
 
