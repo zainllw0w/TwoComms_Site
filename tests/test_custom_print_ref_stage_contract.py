@@ -7,6 +7,7 @@ from storefront.custom_print_config import build_custom_print_config
 REPO_ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = REPO_ROOT / "twocomms/twocomms_django_theme/templates/pages/custom_print.html"
 PREVIEW_JS = REPO_ROOT / "twocomms/twocomms_django_theme/static/js/custom-print-preview.js"
+STUDIO_CSS = REPO_ROOT / "twocomms/twocomms_django_theme/static/css/custom-print-guided-studio.css"
 ASSET_ROOT = REPO_ROOT / "twocomms/twocomms_django_theme/static/img/configurator/custom-ref"
 
 
@@ -55,6 +56,12 @@ class CustomPrintReferenceStageContractTests(unittest.TestCase):
         self.assertEqual(template.count("data-preview-avif"), 2)
         self.assertEqual(template.count("data-preview-webp"), 2)
         self.assertNotIn("custom-print-3d-viewer.js", template)
+
+    def test_stage_has_no_legacy_yellow_floor_glow(self):
+        source = STUDIO_CSS.read_text(encoding="utf-8")
+        self.assertNotIn(".cp-stage-frame::after", source)
+        self.assertNotIn(".cp-preview-dialog-canvas::after", source)
+        self.assertNotIn("rgba(211, 157, 82, .24)", source)
 
     def test_preview_resolver_has_color_aliases_and_black_fallback(self):
         source = PREVIEW_JS.read_text(encoding="utf-8")
