@@ -383,3 +383,17 @@ and manager-echo regressions passed **252/252**.
 passed. Three stale rules-v4 assertions in `tests_ig_intelligence` were updated
 to the already-shipped rules-v5 taxonomy (`checkout`, collaboration, B2B,
 support and community); no production classifier behavior was weakened.
+
+Task 7A persistence-only webhook production evidence (2026-07-26): commit
+`1aad45461092159201d527f4e5a7eca56cabd245` was deployed after a fresh verified
+MariaDB archive (`qlknpodo_MySQL_DB-20260726.sql.gz`, 19,934,306 bytes, gzip
+valid, mode `0600`). Migrations pending were `0`; `manage.py check`,
+collectstatic, compressor and Passenger restart completed; exactly one daemon
+was online with a 4.4-second heartbeat. `/healthz/` returned `200`; inbound,
+analysis and notification queues were all empty; the effective model was
+`gemini-3.6-flash`. An unsigned webhook POST returned `403` and changed no
+message rows. Client `59` remained visible and linked only to order `296`
+(`TWC24072026N01`, 2100.00, paid, shipped). Production still has no
+`IG_APP_SECRET`, so signed webhook acceptance remains open and ingress is
+currently available through bounded recovery polling; this external/config
+blocker is not represented as a completed signed-event proof.
