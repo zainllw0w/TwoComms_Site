@@ -12,6 +12,32 @@
     return `${type}:${fit}`;
   }
 
+  const COLOR_ALIASES = {
+    black: "black",
+    beige: "beige",
+    coyote: "beige",
+    pink: "pink",
+    thermo_pink: "pink",
+    white: "white",
+  };
+
+  function resolveAsset(config, state) {
+    const profiles = config.custom_ref_preview_assets || {};
+    const requestedProfile = profileKey(state);
+    const profile = profiles[requestedProfile] || profiles["tshirt:regular"] || {};
+    const requestedColor = COLOR_ALIASES[state.product.color] || state.product.color || "black";
+    const resolvedColor = profile[requestedColor] ? requestedColor : "black";
+    const variant = profile[resolvedColor] || profiles["tshirt:regular"]?.black;
+    if (!variant) return null;
+    const view = state.ui.stage_view === "back" ? "back" : "front";
+    return {
+      ...(variant[view] || variant.front),
+      color: resolvedColor,
+      profile: requestedProfile,
+      view,
+    };
+  }
+
   function computeZoneBox(dimensions, calibration, canvas = { width: 1200, height: 1400 }) {
     const bodyWidth = calibration.zones.body.width;
     const width = (dimensions.width_mm / calibration.garment_width_mm) * bodyWidth;
@@ -21,6 +47,23 @@
 
   function create({ root, config, getState }) {
     const previewNodes = Array.from(root.querySelectorAll("[data-png-preview]"));
+    const warmedAssets = new Set();
+
+    function warmCurrentProfile(state) {
+      const profile = config.custom_ref_preview_assets?.[profileKey(state)] || {};
+      Object.values(profile).forEach((variant) => {
+        Object.values(variant || {}).forEach((sources) => {
+          if (!sources?.avif || warmedAssets.has(sources.avif)) return;
+          warmedAssets.add(sources.avif);
+          const preload = document.createElement("link");
+          preload.rel = "preload";
+          preload.as = "image";
+          preload.type = "image/avif";
+          preload.href = sources.avif;
+          document.head.appendChild(preload);
+        });
+      });
+    }
 
     function zoneBox(format, calibration) {
       const dimensions = config.format_dimensions?.[format];
@@ -71,33 +114,36 @@
       const key = profileKey(state);
       const assets = config.preview_assets?.[key] || config.preview_assets?.["hoodie:regular"];
       const calibration = config.preview_calibration?.[key] || config.preview_calibration?.["hoodie:regular"];
-      if (!assets || !calibration) return;
+      const asset = resolveAsset(config, state);
+      if (!assets || !calibration || !asset) return;
+      warmCurrentProfile(state);
       const view = state.ui.stage_view === "back" ? "back" : "front";
       const productConfig = config.products?.[state.product.type] || {};
       const selectedFabric = (productConfig.fabrics?.[state.product.fit] || []).find((item) => item.value === state.product.fabric);
       const palette = selectedFabric?.colors || productConfig.fit_colors?.[state.product.fit] || productConfig.colors || [];
-      const color = palette.find((item) => item.value === state.product.color)?.hex || "#303036";
+      const colorLabel = palette.find((item) => item.value === state.product.color)?.label || asset.color;
       const placements = expandedPlacements(state);
 
       previewNodes.forEach((preview) => {
         preview.classList.remove("is-refreshing");
         requestAnimationFrame(() => preview.classList.add("is-refreshing"));
         const garment = preview.querySelector("[data-preview-garment]");
-        const tint = preview.querySelector("[data-preview-color]");
+        const avif = preview.querySelector("[data-preview-avif]");
+        const webp = preview.querySelector("[data-preview-webp]");
         const lacing = preview.querySelector("[data-preview-lacing]");
         const zones = preview.querySelector("[data-preview-zones]");
-        const asset = assets[view] || assets.front;
         if (garment) {
-          garment.src = asset;
-          garment.alt = state.product.type ? `${state.product.type} · ${view}` : "";
+          garment.src = asset.webp;
+          garment.alt = state.product.type ? `${productConfig.label || state.product.type} · ${colorLabel} · ${view}` : "";
         }
-        if (tint) {
-          tint.style.backgroundColor = color;
-          tint.style.setProperty("--cp-preview-mask", `url("${asset}")`);
+        if (avif) {
+          avif.srcset = asset.avif;
+        }
+        if (webp) {
+          webp.srcset = asset.webp;
         }
         if (lacing) {
-          lacing.src = assets.lacing || "";
-          lacing.hidden = !(assets.lacing && view === "front" && state.print.add_ons?.includes("lacing"));
+          lacing.hidden = true;
         }
         if (zones) {
           zones.replaceChildren();
