@@ -7,7 +7,7 @@ Start/Stop, вибором джерела ключів і онлайн-конс�
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Count, F, OuterRef, Prefetch, Q, Subquery, Sum, Value
+from django.db.models import Count, Exists, F, OuterRef, Prefetch, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
@@ -23,6 +23,7 @@ import json
 import os
 import re
 import secrets
+from decimal import Decimal, InvalidOperation
 from urllib.parse import urlsplit
 
 from .bot_access import is_meta_bot_reviewer
@@ -589,6 +590,14 @@ def _payment_review_decision_payload(decision) -> dict:
         "decision_label": decision.get_decision_display(),
         "verification_source": decision.verification_source,
         "verification_scope": decision.verification_scope,
+        "confirmed_amount": (
+            f"{decision.confirmed_amount:.2f}"
+            if decision.confirmed_amount is not None
+            else ""
+        ),
+        "currency": decision.currency or "UAH",
+        "amount_source": decision.amount_source or "",
+        "amount_evidence_message_ids": decision.amount_evidence_message_ids or [],
         "reason_code": decision.reason_code,
         "reason_text": decision.reason_text,
         "actor_id": decision.actor_id,
@@ -669,26 +678,25 @@ def _orders_workspace_url(*, view="all", review_id=None, client_id=None) -> str:
 
 
 def _payment_review_truth_payload(review, decision=None) -> dict:
+    from management.services.ig_payment_review import payment_confirmation_candidate
+    from management.services.ig_commercial_episodes import payment_truth_snapshot
+
     decision = decision or _latest_payment_review_decision(review)
-    projection = None
-    if review.deal_id:
-        try:
-            projection = review.deal.payment_projection
-        except IgPaymentProjection.DoesNotExist:
-            projection = None
-    provider_truth = projection.truth if projection else IgDeal.PaymentTruth.UNVERIFIED
-    manager_truth = decision.decision if decision else ""
-    return {
-        "provider_truth": provider_truth,
-        "provider_source": "provider_projection" if projection else "none",
-        "manager_truth": manager_truth,
-        "verification_source": decision.verification_source if decision else "",
-        "verification_scope": decision.verification_scope if decision else "",
-        "authoritative_for_fulfillment": bool(
-            manager_truth == "manager_verified"
-            or provider_truth in {IgDeal.PaymentTruth.CONFIRMED, IgDeal.PaymentTruth.PARTIALLY_REFUNDED}
+    payload = payment_truth_snapshot(
+        deal=review.deal if review.deal_id else None,
+        review=review,
+        order=review.order if review.order_id else None,
+        decision=decision,
+    )
+    payload.update({
+        "provider_source": (
+            "provider_projection" if payload.get("projection_id") else "none"
         ),
-    }
+        "verification_source": payload.get("manager_source", ""),
+        "verification_scope": payload.get("manager_scope", ""),
+        "confirmation_candidate": payment_confirmation_candidate(review),
+    })
+    return payload
 
 
 def _bounded_text(value, limit: int) -> str:
@@ -962,6 +970,9 @@ def _draft_workspace_reasons(raw_reasons) -> list[str]:
 def _order_workspace_order_payload(order) -> dict:
     if not order:
         return {}
+    from management.services.ig_order_amounts import order_amounts
+
+    amounts = order_amounts(order)
     return {
         "id": order.pk,
         "number": order.order_number,
@@ -969,7 +980,9 @@ def _order_workspace_order_payload(order) -> dict:
         "status_label": order.get_status_display(),
         "payment_status": order.payment_status,
         "payment_status_label": order.get_payment_status_display(),
-        "amount": str(order.total_sum),
+        "amount": f"{amounts['payable']:.2f}",
+        "subtotal": f"{amounts['subtotal']:.2f}",
+        "discount_amount": f"{amounts['discount']:.2f}",
         "sale_source": order.sale_source,
         "tracking_number": order.tracking_number or "",
         "url": _existing_order_admin_url(order.pk),
@@ -1005,6 +1018,9 @@ def _order_attribution_workspace_payload(attribution) -> dict:
         approval_state = "confirmed"
     client = attribution.client
     items = _draft_workspace_items(attribution.item_provenance)
+    from management.services.ig_order_amounts import order_amounts
+
+    order_payment_total = order_amounts(order)["payable"]
     return {
         "id": f"order-{order.pk}",
         "card_key": f"order:{order.pk}",
@@ -1035,7 +1051,7 @@ def _order_attribution_workspace_payload(attribution) -> dict:
             "quoted_total": (
                 str(attribution.negotiated_total)
                 if attribution.negotiated_total is not None
-                else str(order.total_sum)
+                else f"{order_payment_total:.2f}"
             ),
             "packaging_preference": "",
             "delivery": {},
@@ -1044,6 +1060,9 @@ def _order_attribution_workspace_payload(attribution) -> dict:
         },
         "media": {"receipts": [], "products": [], "custom_print": [], "unknown": []},
         "payment": {
+            "order_subtotal": f"{order_amounts(order)['subtotal']:.2f}",
+            "order_discount_amount": f"{order_amounts(order)['discount']:.2f}",
+            "order_total": f"{order_payment_total:.2f}",
             "provider_truth": provider_truth,
             "provider_source": provider_source,
             "manager_truth": manager_truth,
@@ -1106,7 +1125,9 @@ def _payment_review_workspace_payload(review) -> dict:
         attributions = list(review.order_attributions.select_related("order").order_by("-id")[:1])
     attribution = attributions[0] if attributions else None
     status = review.status
-    if review.order_id:
+    if status == review.Status.CONFIRMED and payment["needs_reconciliation"]:
+        approval_state = "payment_reconciliation"
+    elif review.order_id:
         if attribution and attribution.creation_mode == "linked_existing":
             approval_state = "linked_existing"
         elif attribution and attribution.creation_mode in {"manager_review", "provider_auto"}:
@@ -1123,7 +1144,9 @@ def _payment_review_workspace_payload(review) -> dict:
     create_order_url = _payment_review_order_link(review, payment_review_order_url)
     order_url = _existing_order_admin_url(review.order_id) if review.order_id else ""
     needs_order_resolution = bool(
-        status == review.Status.CONFIRMED and not review.order_id
+        status == review.Status.CONFIRMED
+        and not review.order_id
+        and payment["authoritative_for_fulfillment"]
     )
     return {
         "id": review.pk,
@@ -1140,16 +1163,20 @@ def _payment_review_workspace_payload(review) -> dict:
             "state": approval_state,
             "status": status,
             "status_label": review.get_status_display(),
-            "needs_action": status == review.Status.PENDING or needs_order_resolution,
+            "needs_action": (
+                status == review.Status.PENDING
+                or needs_order_resolution
+                or payment["needs_reconciliation"]
+            ),
             "can_confirm": status == review.Status.PENDING,
             "can_reject": status == review.Status.PENDING,
-            "can_link_existing": status == review.Status.CONFIRMED and not review.order_id,
-            "can_create": status == review.Status.CONFIRMED and not review.order_id,
+            "can_link_existing": needs_order_resolution,
+            "can_create": needs_order_resolution,
             "action_url": action_url,
-            "create_order_url": create_order_url if not review.order_id else "",
+            "create_order_url": create_order_url if needs_order_resolution else "",
             "link_existing": {
                 "action": "link_order",
-                "action_url": action_url,
+                "action_url": action_url if needs_order_resolution else "",
                 "requires_exact_order_identifier": True,
             },
         },
@@ -1186,7 +1213,9 @@ def _payment_review_workspace_payload(review) -> dict:
         "workspace_url": _orders_workspace_url(
             view=(
                 "action"
-                if status == review.Status.PENDING or needs_order_resolution
+                if status == review.Status.PENDING
+                or needs_order_resolution
+                or payment["needs_reconciliation"]
                 else "confirmed"
             ),
             review_id=review.pk,
@@ -1258,6 +1287,12 @@ def bot_orders_workspace_api(request):
     if client_id:
         base = base.filter(client_id=client_id)
         attribution_base = attribution_base.filter(client_id=client_id)
+    reconciliation_review_ids = [
+        row.pk
+        for row in list(base)
+        if row.status == IgPaymentConfirmationReview.Status.CONFIRMED
+        and _payment_review_truth_payload(row)["needs_reconciliation"]
+    ]
     represented_order_ids = base.exclude(order_id__isnull=True).values("order_id")
     attribution_base = attribution_base.exclude(
         order_id__in=Subquery(represented_order_ids)
@@ -1269,6 +1304,7 @@ def bot_orders_workspace_api(request):
             status=IgPaymentConfirmationReview.Status.CONFIRMED,
             order_id__isnull=True,
         )
+        | Q(pk__in=reconciliation_review_ids)
     )
     counts = {
         "action": base.filter(action_filter).count(),
@@ -1306,6 +1342,173 @@ def bot_orders_workspace_api(request):
 
 
 @login_required(login_url="management_login")
+@require_GET
+def bot_order_candidates_api(request):
+    """Compact, searchable staff selector for linking an existing order."""
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    from orders.models import Order
+
+    try:
+        client_id = int(request.GET.get("client_id") or 0)
+    except (TypeError, ValueError):
+        client_id = 0
+    if not client_id:
+        return JsonResponse(
+            {"success": False, "error": "Потрібен Instagram-клієнт."},
+            status=400,
+        )
+    client = IgClient.objects.filter(pk=client_id).first()
+    if not client or client.hidden_at:
+        return JsonResponse(
+            {"success": False, "error": "Instagram-клієнта не знайдено."},
+            status=404,
+        )
+    try:
+        review_id = int(request.GET.get("review_id") or 0)
+    except (TypeError, ValueError):
+        review_id = 0
+    review = None
+    if review_id:
+        from .ig_bot_models import IgPaymentConfirmationReview
+        from management.services.ig_order_links import authoritative_manager_decision
+
+        review = IgPaymentConfirmationReview.objects.select_related("client").filter(
+            pk=review_id,
+            client=client,
+        ).first()
+        if not review:
+            return JsonResponse(
+                {"success": False, "error": "Перевірку оплати для цього клієнта не знайдено."},
+                status=404,
+            )
+        if not authoritative_manager_decision(review):
+            return JsonResponse(
+                {"success": False, "error": "Спочатку потрібне підтверджене рішення менеджера."},
+                status=409,
+            )
+    q = str(request.GET.get("q") or "").strip()[:120]
+    try:
+        limit = max(1, min(int(request.GET.get("limit") or 20), 40))
+    except (TypeError, ValueError):
+        limit = 20
+
+    queryset = Order.objects.select_related(
+        "instagram_attribution",
+        "instagram_attribution__client",
+    ).prefetch_related("items").order_by("-created", "-id")
+    if q:
+        queryset = queryset.filter(
+            Q(order_number__icontains=q)
+            | Q(tracking_number__icontains=q)
+            | Q(full_name__icontains=q)
+            | Q(phone__icontains=q)
+            | Q(items__title__icontains=q)
+            | Q(items__product__title__icontains=q)
+        ).distinct()
+    rows = list(queryset[:limit])
+    items = []
+    from management.services.ig_order_links import order_link_override_requirements
+    from management.services.ig_order_amounts import order_amounts
+
+    for order in rows:
+        amounts = order_amounts(order)
+        try:
+            attribution = order.instagram_attribution
+        except Exception:
+            attribution = None
+        blocked_reason = ""
+        if order.status == "cancelled":
+            blocked_reason = "cancelled"
+        elif attribution and attribution.client_id != client.pk:
+            blocked_reason = "owned_by_other_client"
+        if not blocked_reason:
+            from .ig_bot_models import (
+                IgCommercialEpisode,
+                IgDeal,
+                IgPaymentConfirmationReview,
+            )
+
+            deal_owners = set(
+                IgDeal.objects.filter(order=order).values_list("client_id", flat=True)
+            )
+            review_owners = set(
+                IgPaymentConfirmationReview.objects.filter(order=order).values_list(
+                    "client_id", flat=True
+                )
+            )
+            episode_owners = set(
+                IgCommercialEpisode.objects.filter(intended_order=order).values_list(
+                    "client_id", flat=True
+                )
+            )
+            all_owners = deal_owners | review_owners | episode_owners
+            if any(owner_id != client.pk for owner_id in all_owners):
+                blocked_reason = "owned_by_other_client"
+            elif review and IgCommercialEpisode.objects.filter(
+                intended_order=order
+            ).exclude(primary_payment_review=review).exists():
+                blocked_reason = "owned_by_other_episode"
+        override_conflicts = []
+        allowed_override_codes = []
+        if review and not blocked_reason:
+            try:
+                requirements = order_link_override_requirements(review, order)
+            except ValueError:
+                blocked_reason = "review_not_confirmed"
+            else:
+                override_conflicts = requirements["conflicts"]
+                allowed_override_codes = requirements["allowed_codes"]
+        elif order.status in {"ship", "done"}:
+            override_conflicts = ["terminal_order"]
+            allowed_override_codes = ["historical_fulfilled_order", "historical_import"]
+        items.append({
+            "id": order.pk,
+            "number": order.order_number,
+            "created_at": order.created.isoformat() if order.created else "",
+            "client_name": order.full_name,
+            "phone_masked": (
+                ("***" + str(order.phone)[-4:]) if order.phone else ""
+            ),
+            "items": [
+                {
+                    "title": item.title,
+                    "size": item.size or "",
+                    "qty": item.qty,
+                }
+                for item in list(order.items.all())[:8]
+            ],
+            "amount": f"{amounts['payable']:.2f}",
+            "subtotal": f"{amounts['subtotal']:.2f}",
+            "discount_amount": f"{amounts['discount']:.2f}",
+            "payment_status": order.payment_status,
+            "payment_status_label": order.get_payment_status_display(),
+            "status": order.status,
+            "status_label": order.get_status_display(),
+            "tracking_number": order.tracking_number or "",
+            "shipment_status": order.shipment_status or "",
+            "source": order.source,
+            "sale_source": order.sale_source,
+            "selectable": not blocked_reason,
+            "blocked_reason": blocked_reason,
+            "requires_override": bool(override_conflicts),
+            "override_conflicts": override_conflicts,
+            "allowed_override_codes": allowed_override_codes,
+            "linked_client_id": attribution.client_id if attribution else None,
+            "admin_url": _existing_order_admin_url(order.pk),
+        })
+    return JsonResponse({
+        "success": True,
+        "client_id": client.pk,
+        "review_id": review.pk if review else None,
+        "query": q,
+        "items": items,
+        "limit": limit,
+    })
+
+
+@login_required(login_url="management_login")
 @require_POST
 def bot_payment_review_action_api(request, review_id):
     blocked = _require_admin_json(request)
@@ -1331,6 +1534,7 @@ def bot_payment_review_action_api(request, review_id):
                 review,
                 order_identifier=request.POST.get("order_identifier"),
                 actor=request.user,
+                override_code=request.POST.get("override_code", ""),
                 override_reason=request.POST.get("override_reason", ""),
             )
         except ValueError as exc:
@@ -1367,6 +1571,7 @@ def bot_payment_review_action_api(request, review_id):
             actor=request.user,
             decision=decision_name,
             verification_scope=verification_scope,
+            confirmed_amount=request.POST.get("confirmed_amount"),
             reason_code=reason_code,
             reason_text=reason_text,
         )
@@ -1409,6 +1614,7 @@ def bot_payment_review_action_api(request, review_id):
     needs_order_resolution = bool(
         review.status == IgPaymentConfirmationReview.Status.CONFIRMED
         and not review.order_id
+        and payment_payload["authoritative_for_fulfillment"]
     )
     create_order_url = (
         _payment_review_order_link(review, payment_review_order_url)
@@ -1426,6 +1632,8 @@ def bot_payment_review_action_api(request, review_id):
         "next_action": (
             "resolve_order"
             if needs_order_resolution
+            else "reconcile_payment"
+            if payment_payload["needs_reconciliation"]
             else "review_conversation"
         ),
         "order_url": _existing_order_admin_url(review.order_id) if review.order_id else "",
@@ -1433,9 +1641,13 @@ def bot_payment_review_action_api(request, review_id):
             "required": needs_order_resolution,
             "link_existing": {
                 "action": "link_order",
-                "action_url": reverse(
-                    "management_bot_payment_review_action_api",
-                    args=[review.pk],
+                "action_url": (
+                    reverse(
+                        "management_bot_payment_review_action_api",
+                        args=[review.pk],
+                    )
+                    if needs_order_resolution
+                    else ""
                 ),
                 "requires_exact_order_identifier": True,
             },
@@ -1585,7 +1797,11 @@ def _group_signal_rows(rows) -> list[dict]:
 
 
 def _with_latest_interaction(queryset):
-    from .ig_bot_models import IgConversationAnalysisSnapshot
+    from .ig_bot_models import (
+        IgConversationAnalysisSnapshot,
+        IgPaymentConfirmationReview,
+    )
+    from .models import InstagramBotMessage
 
     latest = IgConversationAnalysisSnapshot.objects.filter(
         client_id=OuterRef("pk")
@@ -1593,13 +1809,198 @@ def _with_latest_interaction(queryset):
     latest_customer = latest.exclude(
         interaction_type=IgConversationAnalysisSnapshot.InteractionType.MANAGER_OBSERVATION
     )
+    latest_message = InstagramBotMessage.objects.filter(
+        client_id=OuterRef("pk")
+    ).order_by("-id")
+    action_review = IgPaymentConfirmationReview.objects.filter(
+        client_id=OuterRef("pk")
+    ).filter(
+        Q(status=IgPaymentConfirmationReview.Status.PENDING)
+        | Q(
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            order_id__isnull=True,
+        )
+    )
     return queryset.annotate(
         latest_interaction_type=Coalesce(
             Subquery(latest_customer.values("interaction_type")[:1]),
             Subquery(latest.values("interaction_type")[:1]),
             Value(""),
-        )
+        ),
+        latest_conversation_message_id=Coalesce(
+            Subquery(latest_message.values("id")[:1]),
+            Value(0),
+        ),
+        has_manager_action=Exists(action_review),
     )
+
+
+def _client_potential_payload(c, latest_analysis, *, latest_message_id=None) -> dict:
+    """Evidence-bound purchase potential, independent from payment/order truth."""
+    from .ig_bot_models import IgClient, IgConversationAnalysisSnapshot
+
+    current_episode = getattr(c, "current_commercial_episode", None)
+    current_episode_id = getattr(c, "current_commercial_episode_id", None)
+    latest_message_id = int(
+        latest_message_id
+        if latest_message_id is not None
+        else getattr(c, "latest_conversation_message_id", 0)
+        or 0
+    )
+    label_by_band = {
+        "cold": "Холодний",
+        "exploring": "Вивчає варіанти",
+        "qualified": "Кваліфікований інтерес",
+        "high_intent": "Високий намір",
+        "checkout": "Готовий оформлювати",
+        "lost": "Втрачений",
+        "opted_out": "Відмовився від повідомлень",
+        "spam": "Спам",
+        "unknown": "Ще не оцінено",
+    }
+    active_opt_out = bool(
+        c.opted_out_at
+        and (not c.opted_in_at or c.opted_in_at < c.opted_out_at)
+    )
+    policy_band = ""
+    policy_source = ""
+    if c.stage == IgClient.Stage.SPAM or (
+        latest_analysis
+        and latest_analysis.interaction_type
+        == IgConversationAnalysisSnapshot.InteractionType.SPAM_ABUSE
+    ):
+        policy_band, policy_source = "spam", "communication_policy"
+    elif active_opt_out:
+        policy_band, policy_source = "opted_out", "opt_out_policy"
+    elif c.lost_reason:
+        policy_band, policy_source = "lost", "client_stage"
+    elif c.stage == IgClient.Stage.COLD:
+        policy_band, policy_source = "cold", "client_stage"
+
+    evidence = latest_analysis.evidence if latest_analysis else []
+    if not isinstance(evidence, list):
+        evidence = []
+    evidence = evidence[:20]
+    evidence_message_ids = []
+    for item in evidence:
+        if not isinstance(item, dict):
+            continue
+        try:
+            message_id = int(item.get("message_id") or 0)
+        except (TypeError, ValueError):
+            continue
+        if message_id and message_id not in evidence_message_ids:
+            evidence_message_ids.append(message_id)
+
+    if policy_band:
+        return {
+            "state": "policy",
+            "band": policy_band,
+            "label": label_by_band[policy_band],
+            "probability": None,
+            "confidence": None,
+            "source": policy_source,
+            "scope": "client_policy",
+            "episode_id": current_episode_id,
+            "current_episode_id": current_episode_id,
+            "watermark_message_id": 0,
+            "latest_message_id": latest_message_id,
+            "analyzed_at": "",
+            "fresh": True,
+            "model": "",
+            "prompt_version": "",
+            "rules_version": "",
+            "interaction_type": (
+                latest_analysis.interaction_type if latest_analysis else ""
+            ),
+            "interaction_label": (
+                latest_analysis.get_interaction_type_display()
+                if latest_analysis
+                else "Не визначено"
+            ),
+            "evidence": evidence,
+            "evidence_message_ids": evidence_message_ids,
+            "uncertainties": [],
+        }
+
+    if not latest_analysis:
+        return {
+            "state": "unknown",
+            "band": "unknown",
+            "label": label_by_band["unknown"],
+            "probability": None,
+            "confidence": None,
+            "source": "none",
+            "scope": "unknown",
+            "episode_id": None,
+            "current_episode_id": current_episode_id,
+            "watermark_message_id": 0,
+            "latest_message_id": latest_message_id,
+            "analyzed_at": "",
+            "fresh": False,
+            "model": "",
+            "prompt_version": "",
+            "rules_version": "",
+            "interaction_type": "unknown",
+            "interaction_label": "Не визначено",
+            "evidence": [],
+            "evidence_message_ids": [],
+            "uncertainties": ["analysis_missing"],
+        }
+
+    watermark = int(latest_analysis.last_analyzed_message_id or 0)
+    episode_id = latest_analysis.commercial_episode_id
+    boundary = int(getattr(current_episode, "opened_watermark_message_id", 0) or 0)
+    matches_episode = bool(
+        not current_episode_id
+        or (episode_id and episode_id == current_episode_id)
+        or (not episode_id and boundary == 0)
+    )
+    fresh = bool(
+        watermark >= latest_message_id
+        and matches_episode
+        and (not boundary or watermark >= boundary)
+    )
+    state = "current" if fresh else "stale"
+    scope = (
+        "current_episode"
+        if current_episode_id and episode_id == current_episode_id
+        else "conversation"
+        if not current_episode_id
+        else "historical_episode"
+    )
+    band = latest_analysis.score_band
+    if band == IgConversationAnalysisSnapshot.Band.PAID:
+        band = IgConversationAnalysisSnapshot.Band.CHECKOUT
+    if band not in label_by_band:
+        band = "unknown"
+    return {
+        "state": state,
+        "band": band,
+        "label": label_by_band[band],
+        "probability": str(latest_analysis.purchase_probability),
+        "confidence": str(latest_analysis.confidence),
+        "source": "conversation_analysis",
+        "scope": scope,
+        "episode_id": episode_id,
+        "current_episode_id": current_episode_id,
+        "watermark_message_id": watermark,
+        "latest_message_id": latest_message_id,
+        "analyzed_at": latest_analysis.analyzed_at.isoformat(),
+        "fresh": fresh,
+        "model": latest_analysis.analysis_model,
+        "prompt_version": latest_analysis.analysis_prompt_version,
+        "rules_version": latest_analysis.rules_version,
+        "interaction_type": latest_analysis.interaction_type,
+        "interaction_label": latest_analysis.get_interaction_type_display(),
+        "evidence": evidence,
+        "evidence_message_ids": evidence_message_ids,
+        "uncertainties": (
+            latest_analysis.uncertainties
+            if isinstance(latest_analysis.uncertainties, list)
+            else []
+        )[:20],
+    }
 
 
 def _client_card(c) -> dict:
@@ -1673,6 +2074,7 @@ def _client_card(c) -> dict:
         and (not c.opted_in_at or c.opted_in_at < c.opted_out_at)
     )
     interaction_type = latest_analysis.interaction_type if latest_analysis else ""
+    potential = _client_potential_payload(c, latest_analysis)
     return {
         "id": c.id,
         "igsid": c.igsid,
@@ -1706,6 +2108,8 @@ def _client_card(c) -> dict:
         "analysis_evidence": latest_analysis.evidence if latest_analysis else [],
         "analysis_uncertainties": latest_analysis.uncertainties if latest_analysis else [],
         "analysis_at": latest_analysis.analyzed_at.isoformat() if latest_analysis else "",
+        "potential": potential,
+        "manager_action_required": bool(getattr(c, "has_manager_action", False)),
         "intent_label": c.get_intent_display(),
         "primary_objection": c.primary_objection,
         "primary_objection_label": c.get_primary_objection_display(),
@@ -1745,17 +2149,17 @@ def bot_clients_api(request):
     from .ig_bot_models import IgConversationAnalysisSnapshot
 
     qs = _with_latest_interaction(annotate_verified_payment(
-        IgClient.objects.select_related("current_product").prefetch_related(
+        IgClient.objects.select_related("current_product", "current_commercial_episode").prefetch_related(
         Prefetch(
             "analysis_snapshots",
-            queryset=IgConversationAnalysisSnapshot.objects.exclude(
+            queryset=IgConversationAnalysisSnapshot.objects.select_related("commercial_episode").exclude(
                 interaction_type=IgConversationAnalysisSnapshot.InteractionType.MANAGER_OBSERVATION
             ).order_by("-id")[:1],
             to_attr="_latest_customer_analysis",
         ),
         Prefetch(
             "analysis_snapshots",
-            queryset=IgConversationAnalysisSnapshot.objects.order_by("-id")[:1],
+            queryset=IgConversationAnalysisSnapshot.objects.select_related("commercial_episode").order_by("-id")[:1],
             to_attr="_latest_analysis",
         ),
         Prefetch(
@@ -1770,6 +2174,7 @@ def bot_clients_api(request):
         ),
         ).all()
     ))
+    unfiltered_qs = qs
     if view in {"hidden"}:
         qs = qs.filter(hidden_at__isnull=False)
     else:
@@ -1814,7 +2219,16 @@ def bot_clients_api(request):
             | Q(phone__icontains=q)
         )
     total = qs.count()
-    rows = [_client_card(c) for c in qs[:200]]
+    clients = list(qs[:200])
+    try:
+        requested_client_id = int(request.GET.get("client_id") or 0)
+    except (TypeError, ValueError):
+        requested_client_id = 0
+    if requested_client_id and all(c.pk != requested_client_id for c in clients):
+        requested_client = unfiltered_qs.filter(pk=requested_client_id).first()
+        if requested_client:
+            clients.insert(0, requested_client)
+    rows = [_client_card(c) for c in clients]
     return JsonResponse({"success": True, "clients": rows, "total": total})
 
 
@@ -1825,9 +2239,16 @@ def bot_client_detail_api(request, client_id):
     if blocked:
         return blocked
     from .models import IgClient
-    from .ig_bot_models import IgPaymentConfirmationReview, IgPaymentReviewDecision
+    from .ig_bot_models import (
+        IgConversationAnalysisSnapshot,
+        IgPaymentConfirmationReview,
+        IgPaymentReviewDecision,
+    )
+    from management.services.ig_commercial_episodes import client_episode_payload
 
-    c = IgClient.objects.select_related("current_product").filter(id=client_id).first()
+    c = IgClient.objects.select_related(
+        "current_product", "current_commercial_episode"
+    ).filter(id=client_id).first()
     if not c:
         return JsonResponse({"success": False, "error": "Клієнта не знайдено."}, status=404)
 
@@ -2053,6 +2474,18 @@ def bot_client_detail_api(request, client_id):
         ),
         "current_episode_source": "latest_non_cancelled_deal" if current_deal else "none",
     }
+    episodes = client_episode_payload(c)
+    physical_order_count = episodes["physical_order_count"]
+    potential = _client_potential_payload(
+        c,
+        c.analysis_snapshots.select_related("commercial_episode")
+        .exclude(
+            interaction_type=IgConversationAnalysisSnapshot.InteractionType.MANAGER_OBSERVATION
+        )
+        .order_by("-id")
+        .first(),
+        latest_message_id=last_message_id,
+    )
     return JsonResponse({
         "success": True,
         "client": card,
@@ -2102,6 +2535,8 @@ def bot_client_detail_api(request, client_id):
                 else ""
             ),
         },
+        "potential": potential,
+        "commercial_episodes": episodes,
         "payment": payment_workspace,
         "fulfillment": fulfillment_workspace,
         "review": {
@@ -2115,7 +2550,10 @@ def bot_client_detail_api(request, client_id):
             "queue_url": reverse("management_bot_orders_workspace_api"),
         },
         "orders": {
-            "count": review_counts["total"] + attribution_total,
+            "count": physical_order_count,
+            "physical_count": physical_order_count,
+            "review_count": review_counts["total"],
+            "attribution_count": attribution_total,
             "items": order_cards,
             "queue_url": _orders_workspace_url(view="all", client_id=c.pk),
         },

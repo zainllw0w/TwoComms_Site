@@ -113,6 +113,100 @@ class FulfillTests(TestCase):
         self.assertFalse(
             UserAction.objects.filter(action_type="purchase", order_id=order.pk).exists()
         )
+        client.refresh_from_db()
+        self.assertEqual(client.purchases_count, 0)
+        self.assertEqual(client.total_spent, Decimal("0.00"))
+        self.assertFalse((client.conversion_flags or {}).get("is_buyer", False))
+
+    @patch("management.services.bot_orders.notify_manager")
+    def test_provider_prepayment_notification_uses_paid_amount_not_order_total(self, notify):
+        from management.ig_bot_models import IgPaymentProjection
+
+        client = IgClient.get_or_create_for_sender("provider-prepay-notification")
+        deal = IgDeal.objects.create(
+            client=client,
+            pay_type=IgDeal.PayType.PREPAYMENT,
+            amount=Decimal("2100.00"),
+            requested_payment_amount=Decimal("500.00"),
+            np_full_name="Іван",
+            np_phone="0931112233",
+            np_city="Київ",
+            np_office="Відділення 1",
+            np_settlement_ref="settlement-ref-1",
+            np_city_ref="city-ref-1",
+            np_warehouse_ref="warehouse-ref-1",
+            delivery_status=IgDeal.DeliveryStatus.VALIDATED,
+            delivery_source="nova_poshta_directory",
+        )
+        IgDealItem.objects.create(
+            deal=deal,
+            title="Дві футболки",
+            qty=1,
+            unit_price=Decimal("2100.00"),
+        )
+        IgPaymentProjection.objects.create(
+            client=client,
+            deal=deal,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount=Decimal("500.00"),
+        )
+
+        self.assertTrue(bot_orders.fulfill_if_ready(deal))
+
+        message = notify.call_args.args[0]
+        self.assertIn("500.00 грн", message)
+        self.assertNotIn("(2100.00 грн)", message)
+
+    def test_episode_idempotency_key_never_reuses_same_total_different_items(self):
+        from management.ig_bot_models import IgPaymentProjection
+        from management.services.ig_commercial_episodes import ensure_episode_for_deal
+        from orders.models import OrderItem
+
+        client = IgClient.get_or_create_for_sender("provider-idempotency-item-guard")
+        deal = IgDeal.objects.create(
+            client=client,
+            amount=Decimal("950.00"),
+            np_full_name="Іван",
+            np_phone="0931112233",
+            np_city="Київ",
+            np_office="Відділення 1",
+        )
+        IgDealItem.objects.create(
+            deal=deal,
+            title="Правильна футболка",
+            size="M",
+            qty=1,
+            unit_price=Decimal("950.00"),
+        )
+        IgPaymentProjection.objects.create(
+            client=client,
+            deal=deal,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount=Decimal("950.00"),
+        )
+        episode = ensure_episode_for_deal(deal)
+        incompatible = Order.objects.create(
+            full_name="Іван",
+            phone="0931112233",
+            city="Київ",
+            np_office="Відділення 1",
+            total_sum=Decimal("950.00"),
+            checkout_idempotency_key=f"ig-episode:{episode.pk}",
+        )
+        OrderItem.objects.create(
+            order=incompatible,
+            title="Інша футболка",
+            size="XL",
+            qty=1,
+            unit_price=Decimal("950.00"),
+            line_total=Decimal("950.00"),
+        )
+
+        with self.assertRaisesMessage(ValueError, "incompatible order"):
+            bot_orders.create_order_from_deal(deal)
+
+        deal.refresh_from_db()
+        self.assertIsNone(deal.order_id)
 
 
 class ExtractNpTests(TestCase):
@@ -156,6 +250,166 @@ class OnDealPaidTests(TestCase):
 
 
 class CreateDealAndLinkTests(TestCase):
+    def test_default_prompt_and_seeded_playbook_never_quote_fixed_client_prepayment(self):
+        from management.management.commands.seed_ig_bot_sales_playbooks import PLAYBOOKS
+        from management.models import DEFAULT_BOT_SYSTEM_PROMPT
+
+        combined = DEFAULT_BOT_SYSTEM_PROMPT + "\n" + "\n".join(
+            item["body"] for item in PLAYBOOKS
+        )
+        self.assertNotIn("Передоплата 200 грн", combined)
+        self.assertIn("точну суму", combined)
+
+    @patch("management.services.bot_orders.create_payment_link")
+    def test_reply_worker_before_repeat_analysis_does_not_reuse_historical_invoice(self, mock_link):
+        from management.services.ig_commercial_episodes import (
+            bind_episode_order,
+            ensure_episode_for_deal,
+        )
+        from orders.models import Order
+        from storefront.models import Category, Product, ProductStatus
+
+        category = Category.objects.create(name="Футболки", slug="repeat-before-analysis")
+        product = Product.objects.create(
+            title="Футболка Repeat Sync",
+            slug="repeat-before-analysis",
+            category=category,
+            price=Decimal("950.00"),
+            status=ProductStatus.PUBLISHED,
+        )
+        client = IgClient.get_or_create_for_sender("repeat-before-analysis")
+        old_deal = IgDeal.objects.create(
+            client=client,
+            pay_type=IgDeal.PayType.ONLINE_FULL,
+            invoice_id="old-invoice",
+            invoice_url="https://pay/old-invoice",
+        )
+        IgDealItem.objects.create(
+            deal=old_deal,
+            product=product,
+            title=product.title,
+            size="M",
+            qty=1,
+            unit_price=Decimal("790.00"),
+        )
+        old_deal.recalc_total()
+        old_episode = ensure_episode_for_deal(old_deal)
+        old_order = Order.objects.create(
+            full_name="Олена",
+            phone="380501112233",
+            total_sum=Decimal("790.00"),
+        )
+        bind_episode_order(old_episode, old_order, creation_mode="linked_existing")
+        InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role="user",
+            text="Хочу ще одну таку саму",
+        )
+
+        def persist_link(deal):
+            deal.invoice_id = f"invoice-{deal.pk}"
+            deal.invoice_url = f"https://pay/{deal.pk}"
+            deal.save(update_fields=["invoice_id", "invoice_url", "updated_at"])
+            return {"ok": True, "invoice_id": deal.invoice_id, "invoice_url": deal.invoice_url}
+
+        mock_link.side_effect = persist_link
+        result = bot_orders.create_deal_and_link(
+            client, pay_type="full", product_id=product.pk, size="M"
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(IgDeal.objects.filter(client=client).count(), 2)
+        fresh = IgDeal.objects.filter(client=client).exclude(pk=old_deal.pk).get()
+        self.assertEqual(fresh.items.get().unit_price, Decimal("950.00"))
+        self.assertNotEqual(result["invoice_id"], "old-invoice")
+
+    @patch("management.services.bot_orders.create_payment_link")
+    def test_repeat_episode_does_not_reuse_previous_episode_invoice_or_price(self, mock_link):
+        from management.services.ig_commercial_episodes import (
+            ensure_episode_for_deal,
+            start_repeat_episode,
+        )
+        from storefront.models import Category, Product, ProductStatus
+
+        category = Category.objects.create(name="Футболки", slug="repeat-episode-price")
+        product = Product.objects.create(
+            title="Футболка Repeat",
+            slug="repeat-episode-price",
+            category=category,
+            price=Decimal("950.00"),
+            status=ProductStatus.PUBLISHED,
+        )
+        client = IgClient.get_or_create_for_sender("repeat-episode-price")
+        old_offer = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role="manager",
+            text="Для першого замовлення можу за 790 грн",
+        )
+        InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role="user",
+            text="Так, оформлюйте",
+        )
+        old_deal = IgDeal.objects.create(
+            client=client,
+            pay_type=IgDeal.PayType.ONLINE_FULL,
+            invoice_id="old-invoice",
+            invoice_url="https://pay/old-invoice",
+        )
+        IgDealItem.objects.create(
+            deal=old_deal,
+            product=product,
+            title=product.title,
+            size="M",
+            qty=1,
+            unit_price=Decimal("790.00"),
+            price_source="conversation_evidence",
+            price_evidence_message_ids=[old_offer.pk],
+        )
+        old_deal.recalc_total()
+        ensure_episode_for_deal(old_deal)
+        repeat_message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role="user",
+            text="Хочу ще одну таку саму",
+        )
+        repeat = start_repeat_episode(
+            client,
+            repeat_kind="explicit_more",
+            evidence_message_ids=[repeat_message.pk],
+            confidence=Decimal("0.96"),
+            analysis_model="gemini-test",
+            analysis_prompt_version="repeat-v1",
+        )
+
+        def persist_link(deal):
+            deal.invoice_id = f"invoice-{deal.pk}"
+            deal.invoice_url = f"https://pay/{deal.pk}"
+            deal.save(update_fields=["invoice_id", "invoice_url", "updated_at"])
+            ensure_episode_for_deal(deal)
+            return {"ok": True, "invoice_id": deal.invoice_id, "invoice_url": deal.invoice_url}
+
+        mock_link.side_effect = persist_link
+        first = bot_orders.create_deal_and_link(
+            client, pay_type="full", product_id=product.pk, size="M"
+        )
+        second = bot_orders.create_deal_and_link(
+            client, pay_type="full", product_id=product.pk, size="M"
+        )
+
+        self.assertTrue(first["ok"])
+        self.assertTrue(second["ok"])
+        self.assertEqual(IgDeal.objects.filter(client=client).count(), 2)
+        new_deal = IgDeal.objects.filter(client=client).exclude(pk=old_deal.pk).get()
+        self.assertEqual(new_deal.items.get().unit_price, Decimal("950.00"))
+        self.assertEqual(new_deal.commercial_episode.pk, repeat.pk)
+        self.assertEqual(mock_link.call_args_list[0].args[0].pk, new_deal.pk)
+        self.assertEqual(mock_link.call_args_list[1].args[0].pk, new_deal.pk)
+
     @patch("management.services.bot_orders.create_payment_link")
     def test_persists_fit_quantity_and_price_provenance_for_real_paylink_writer(self, mock_link):
         mock_link.return_value = {"ok": True, "invoice_url": "https://pay/fit", "invoice_id": "fit"}

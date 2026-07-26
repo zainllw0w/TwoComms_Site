@@ -697,6 +697,22 @@
         {% endfor %}
       </div>
       <div id="moReviewNote" class="mo-field-hint" style="display:none;margin-top:10px;color:#fcd34d;"></div>
+      <div id="moPriceOverride" style="display:none;margin-top:12px;padding:12px;border:1px solid rgba(251,191,36,.35);border-radius:12px;background:rgba(251,191,36,.08);">
+        <div class="mo-field-hint" style="color:#fcd34d;margin-bottom:9px;">Підсумок позицій відрізняється від суми, погодженої в переписці. Без структурованої причини сервер не створить замовлення.</div>
+        <div class="mo-field" style="margin-bottom:9px;">
+          <label class="mo-label" for="moPriceOverrideCode">Причина зміни суми</label>
+          <select id="moPriceOverrideCode" class="mo-select" name="price_override_code">
+            <option value="">Оберіть причину</option>
+            <option value="manager_repriced_after_review">Менеджер погодив нову суму після review</option>
+            <option value="customer_changed_configuration">Клієнт змінив конфігурацію</option>
+            <option value="catalog_price_exception">Виняток каталожної ціни</option>
+          </select>
+        </div>
+        <div class="mo-field">
+          <label class="mo-label" for="moPriceOverrideReason">Пояснення</label>
+          <input id="moPriceOverrideReason" class="mo-input" name="price_override_reason" type="text" maxlength="500" placeholder="Що саме змінилося і хто це погодив">
+        </div>
+      </div>
     </div>
 
     <div class="mo-field mo-field--full">
@@ -1166,6 +1182,11 @@
   function updateTotal() {
     var total = items.reduce(function (acc, it) { return acc + it.unit_price * it.qty; }, 0);
     document.getElementById('moTotal').textContent = fmt(total);
+    var overrideBox = document.getElementById('moPriceOverride');
+    var quoted = initial && initial.quoted_total ? Number(initial.quoted_total) : 0;
+    if (overrideBox) {
+      overrideBox.style.display = quoted > 0 && Math.abs(total - quoted) >= 0.005 ? 'block' : 'none';
+    }
   }
 
   // ── payment presets ────────────────────────────────────
@@ -1274,6 +1295,11 @@
         unit_price: it.unit_price
       };
     });
+    var overrideBox = document.getElementById('moPriceOverride');
+    if (overrideBox && overrideBox.style.display !== 'none') {
+      payload.price_override_code = document.getElementById('moPriceOverrideCode').value;
+      payload.price_override_reason = document.getElementById('moPriceOverrideReason').value.trim();
+    }
 
     submitBtn.disabled = true;
     submitBtn.textContent = 'Створюємо…';

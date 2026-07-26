@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 import hashlib
 import hmac
 import json
@@ -16,6 +16,9 @@ OVERRIDE_REASON_CODES = frozenset({
     "phone_mismatch",
     "items_mismatch",
     "manual_review",
+    "historical_fulfilled_order",
+    "payment_state_mismatch",
+    "historical_import",
 })
 
 
@@ -60,7 +63,67 @@ def authoritative_manager_decision(review):
         return None
     if not str(decision.actor_external_id or "").strip():
         return None
+    if not decision.confirmed_amount or decision.confirmed_amount <= 0:
+        return None
+    if not str(decision.currency or "").strip():
+        return None
+    if decision.verification_scope not in {
+        IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT,
+        IgPaymentReviewDecision.VerificationScope.PREPAYMENT,
+    }:
+        return None
     return decision
+
+
+def order_link_override_requirements(review, order):
+    """Return the structured override contract shared by selector and mutation."""
+    decision = authoritative_manager_decision(review)
+    if not decision:
+        raise ValueError("Потрібне source-qualified рішення менеджера")
+    from management.services.ig_order_amounts import order_amounts
+
+    terminal_order = order.status in {"ship", "done"}
+    decision_scope = str(getattr(decision, "verification_scope", "") or "")
+    payment_state_incompatible = bool(
+        (decision_scope == "full_payment" and order.payment_status != "paid")
+        or (
+            decision_scope == "prepayment"
+            and order.payment_status not in {"prepaid", "partial", "paid"}
+        )
+    )
+    decision_amount = Decimal(decision.confirmed_amount or 0).quantize(Decimal("0.01"))
+    order_total = order_amounts(order)["payable"]
+    payment_amount_incompatible = bool(
+        (decision_scope == "full_payment" and decision_amount != order_total)
+        or (decision_scope == "prepayment" and decision_amount >= order_total)
+    )
+    payment_incompatible = payment_state_incompatible or payment_amount_incompatible
+    conflicts = []
+    if terminal_order:
+        conflicts.append("terminal_order")
+    if payment_state_incompatible:
+        conflicts.append("payment_state_mismatch")
+    if payment_amount_incompatible:
+        conflicts.append("payment_amount_mismatch")
+    if terminal_order and payment_incompatible:
+        allowed_codes = ["historical_import"]
+    elif terminal_order:
+        allowed_codes = ["historical_fulfilled_order", "historical_import"]
+    elif payment_incompatible:
+        allowed_codes = ["payment_state_mismatch", "historical_import"]
+    else:
+        allowed_codes = []
+    return {
+        "decision": decision,
+        "terminal_order": terminal_order,
+        "payment_incompatible": payment_incompatible,
+        "payment_state_incompatible": payment_state_incompatible,
+        "payment_amount_incompatible": payment_amount_incompatible,
+        "decision_amount": decision_amount,
+        "order_total": order_total,
+        "conflicts": conflicts,
+        "allowed_codes": allowed_codes,
+    }
 
 
 def _item_snapshot(items):
@@ -104,6 +167,17 @@ def create_order_attribution(
     for item in source_items:
         price_sources.append(getattr(item, "price_source", "") or "")
         evidence_ids.extend(getattr(item, "price_evidence_message_ids", []) or [])
+    review_negotiated_total = None
+    if review is not None:
+        evidence = review.evidence if isinstance(review.evidence, dict) else {}
+        draft = evidence.get("order_draft") if isinstance(evidence.get("order_draft"), dict) else {}
+        try:
+            review_negotiated_total = Decimal(str(draft.get("quoted_total"))).quantize(Decimal("0.01"))
+        except (InvalidOperation, TypeError, ValueError):
+            review_negotiated_total = None
+    from management.services.ig_order_amounts import order_amounts
+
+    actual_order_total = order_amounts(order)["payable"]
     attribution, _created = IgOrderAttribution.objects.get_or_create(
         order=order,
         defaults={
@@ -116,7 +190,11 @@ def create_order_attribution(
             "identity_digest": identity_digest(client.igsid),
             "evidence_watermark_message_id": getattr(review, "watermark_message_id", 0) or 0,
             "item_provenance": _item_snapshot(source_items),
-            "negotiated_total": getattr(deal, "amount", None) or getattr(order, "total_sum", None),
+            "negotiated_total": (
+                getattr(deal, "amount", None)
+                or review_negotiated_total
+                or actual_order_total
+            ),
             "price_source": (
                 "mixed"
                 if len({value for value in price_sources if value}) > 1
@@ -128,6 +206,34 @@ def create_order_attribution(
     )
     if attribution.client_id != client.pk:
         raise ValueError("Замовлення вже прив'язано до іншого Instagram-клієнта")
+    if attribution.deal_id and deal and attribution.deal_id != deal.pk:
+        raise ValueError("Замовлення вже належить іншій угоді цього Instagram-клієнта")
+    from management.services.ig_commercial_episodes import (
+        bind_episode_order,
+        ensure_episode_for_attribution,
+        ensure_episode_for_deal,
+        ensure_episode_for_review,
+    )
+
+    try:
+        episode = attribution.commercial_episode
+    except Exception:
+        episode = None
+    if episode is None:
+        if review is not None:
+            episode = ensure_episode_for_review(review)
+        elif deal is not None:
+            episode = ensure_episode_for_deal(deal)
+        else:
+            episode = ensure_episode_for_attribution(attribution)
+    if episode is not None:
+        bind_episode_order(
+            episode,
+            order,
+            attribution=attribution,
+            creation_mode=creation_mode,
+            payment_source=payment_source,
+        )
     return attribution
 
 
@@ -159,12 +265,20 @@ def _commercial_fingerprint(item):
 
 
 @transaction.atomic
-def link_existing_order_to_review(review, *, order_identifier, actor, override_reason=""):
+def link_existing_order_to_review(
+    review,
+    *,
+    order_identifier,
+    actor,
+    override_code="",
+    override_reason="",
+):
     from management.ig_bot_models import (
         IgDeal,
         IgOrderAttribution,
         IgOrderLinkEvent,
         IgPaymentConfirmationReview,
+        IgPaymentProjection,
     )
 
     locked_review = (
@@ -180,22 +294,41 @@ def link_existing_order_to_review(review, *, order_identifier, actor, override_r
     decision = authoritative_manager_decision(locked_review)
     if not decision:
         raise ValueError("Потрібне source-qualified рішення менеджера")
+    from management.services.ig_commercial_episodes import payment_truth_snapshot
+
+    projection = None
+    if locked_review.deal_id:
+        projection = IgPaymentProjection.objects.select_for_update().filter(
+            deal_id=locked_review.deal_id
+        ).first()
+    payment_truth = payment_truth_snapshot(
+        deal=locked_review.deal,
+        review=locked_review,
+        order=locked_review.order,
+        projection=projection,
+        decision=decision,
+    )
+    if payment_truth["needs_reconciliation"]:
+        raise ValueError("Потрібна звірка сум оплати перед прив'язкою замовлення")
 
     order = _find_order_exact(order_identifier)
     if not order:
         raise ValueError("Замовлення з таким точним номером не знайдено")
+    if order.status == "cancelled":
+        raise ValueError("скасоване замовлення не можна прив'язати")
     if locked_review.order_id and locked_review.order_id != order.pk:
         raise ValueError("Перевірку вже прив'язано до іншого замовлення")
 
     attribution = IgOrderAttribution.objects.select_for_update().filter(order=order).first()
     if attribution and attribution.client_id != client.pk:
         raise ValueError("Замовлення вже прив'язано до іншого Instagram-клієнта")
+    existing_deals = IgDeal.objects.filter(order=order)
     if locked_review.deal_id:
-        existing_deals = IgDeal.objects.filter(order=order).exclude(pk=locked_review.deal_id)
-        if existing_deals.filter(client_id=client.pk).exists():
-            raise ValueError("Замовлення вже пов'язано з іншою угодою цього клієнта")
-        if existing_deals.exists():
-            raise ValueError("Замовлення вже прив'язано до іншого Instagram-клієнта")
+        existing_deals = existing_deals.exclude(pk=locked_review.deal_id)
+    if existing_deals.exclude(client_id=client.pk).exists():
+        raise ValueError("Замовлення вже прив'язано до іншого Instagram-клієнта")
+    if existing_deals.filter(client_id=client.pk).exists():
+        raise ValueError("Замовлення вже пов'язано з іншою угодою цього клієнта")
     if IgPaymentConfirmationReview.objects.filter(order=order).exclude(client_id=client.pk).exists():
         raise ValueError("Замовлення вже прив'язано до іншого Instagram-клієнта")
     if (
@@ -205,15 +338,49 @@ def link_existing_order_to_review(review, *, order_identifier, actor, override_r
     ):
         raise ValueError("Угоду вже прив'язано до іншого замовлення")
 
-    # A repeated exact link is idempotent even when the first attempt used an
-    # override reason that is not repeated by the UI/browser retry.
+    # A fully materialized repeated exact link is idempotent even when the
+    # first attempt used an override reason that is not repeated by the UI.
+    # Historical rows may already point review/deal at the order while still
+    # missing attribution/episode origin; those must continue through repair.
     if locked_review.order_id == order.pk:
-        return order
+        from management.ig_bot_models import IgCommercialEpisode
+
+        complete_episode = None
+        if attribution:
+            complete_episode = IgCommercialEpisode.objects.select_for_update().filter(
+                intended_order=order,
+                order_attribution=attribution,
+                primary_payment_review=locked_review,
+            ).first()
+        if complete_episode:
+            return order
 
     mismatches = {}
+    decision_amount = Decimal(decision.confirmed_amount or 0).quantize(Decimal("0.01"))
+    from management.services.ig_order_amounts import order_amounts
+
+    order_total = order_amounts(order)["payable"]
+    if (
+        decision.verification_scope == decision.VerificationScope.FULL_PAYMENT
+        and decision_amount != order_total
+    ):
+        mismatches["payment_amount"] = {
+            "confirmed": str(decision_amount),
+            "order": str(order_total),
+            "scope": decision.verification_scope,
+        }
+    elif (
+        decision.verification_scope == decision.VerificationScope.PREPAYMENT
+        and decision_amount >= order_total
+    ):
+        mismatches["payment_amount"] = {
+            "confirmed": str(decision_amount),
+            "order": str(order_total),
+            "scope": decision.verification_scope,
+        }
     if locked_review.deal_id:
         expected = Decimal(locked_review.deal.amount or 0)
-        actual = Decimal(order.total_sum or 0)
+        actual = order_total
         if expected != actual:
             mismatches["total"] = {"review": str(expected), "order": str(actual)}
         deal_phone = re.sub(r"\D", "", locked_review.deal.np_phone or "")
@@ -227,9 +394,43 @@ def link_existing_order_to_review(review, *, order_identifier, actor, override_r
                 "review": [list(value) for value in deal_items],
                 "order": [list(value) for value in order_items],
             }
+    override_requirements = order_link_override_requirements(locked_review, order)
+    terminal_requires_override = override_requirements["terminal_order"]
+    payment_incompatible = override_requirements["payment_incompatible"]
+    code = str(override_code or "").strip().lower()
+    note = str(override_reason or "").strip()
+    if code and code not in OVERRIDE_REASON_CODES:
+        raise ValueError("Невідома структурована причина override")
+    if override_requirements["allowed_codes"] and code not in override_requirements["allowed_codes"]:
+        if terminal_requires_override and payment_incompatible:
+            raise ValueError("Для історичного замовлення з іншим станом оплати потрібен override historical_import")
+        if terminal_requires_override:
+            raise ValueError("Для відправленого/виконаного замовлення потрібна структурована причина override")
+        raise ValueError(
+            "Стан оплати або сума замовлення не збігаються; "
+            "потрібна структурована причина override"
+        )
+    if (terminal_requires_override or payment_incompatible) and not note:
+        raise ValueError("Додайте пояснення до структурованої причини override")
     if mismatches and not str(override_reason or "").strip():
         raise ValueError("Дані замовлення не збігаються; потрібна причина override")
-    reason_code = _reason_code(override_reason, mismatches)
+    reason_code = code or _reason_code(override_reason, mismatches)
+
+    from management.ig_bot_models import IgCommercialEpisode
+
+    review_episode = IgCommercialEpisode.objects.select_for_update().filter(
+        primary_payment_review=locked_review
+    ).first()
+    order_episode = IgCommercialEpisode.objects.select_for_update().filter(
+        intended_order=order
+    ).first()
+    if order_episode and review_episode and order_episode.pk != review_episode.pk:
+        raise ValueError("Замовлення вже належить іншому комерційному епізоду")
+    if (
+        order_episode
+        and order_episode.primary_payment_review_id not in {None, locked_review.pk}
+    ):
+        raise ValueError("Замовлення вже належить іншому комерційному епізоду")
 
     if not attribution:
         attribution = create_order_attribution(
@@ -242,6 +443,107 @@ def link_existing_order_to_review(review, *, order_identifier, actor, override_r
             payment_source="manager_verified",
             created_by=actor,
         )
+    from management.services.ig_commercial_episodes import (
+        append_episode_event,
+        bind_episode_order,
+        ensure_episode_for_review,
+    )
+
+    try:
+        episode = attribution.commercial_episode
+    except Exception:
+        episode = order_episode or ensure_episode_for_review(locked_review)
+    if review_episode and review_episode.pk != episode.pk:
+        raise ValueError("Замовлення вже належить іншому комерційному епізоду")
+    if episode.primary_payment_review_id not in {None, locked_review.pk}:
+        raise ValueError("Замовлення вже належить іншому комерційному епізоду")
+    if not episode.primary_payment_review_id:
+        episode.primary_payment_review = locked_review
+        episode.save(update_fields=["primary_payment_review", "updated_at"])
+    bind_episode_order(
+        episode,
+        order,
+        attribution=attribution,
+        creation_mode="linked_existing",
+        payment_source="manager_verified",
+        override_snapshot={
+            "code": reason_code,
+            "note": note,
+            "mismatches": mismatches,
+            "terminal_order": terminal_requires_override,
+            "payment_incompatible": payment_incompatible,
+        },
+    )
+    provider_verified = bool(
+        projection is not None
+        and projection.truth
+        in {
+            IgDeal.PaymentTruth.CONFIRMED,
+            IgDeal.PaymentTruth.PARTIALLY_REFUNDED,
+        }
+    )
+    confirmed_amount = Decimal(decision.confirmed_amount or 0).quantize(
+        Decimal("0.01")
+    )
+    provider_confirmed_amount = Decimal(
+        payment_truth["provider_confirmed_amount"] or "0"
+    ).quantize(Decimal("0.01"))
+    effective_confirmed_amount = (
+        provider_confirmed_amount
+        if provider_verified
+        else confirmed_amount
+    )
+    is_partial_payment = bool(
+        effective_confirmed_amount > 0
+        and effective_confirmed_amount < order_total
+    )
+    preserve_existing_paid_status = bool(
+        not provider_verified and order.payment_status == "paid"
+    )
+    payload = dict(order.payment_payload or {})
+    payload.update({
+        "manual_payment_preset": (
+            "provider_prepayment"
+            if provider_verified and is_partial_payment
+            else
+            "manager_prepayment"
+            if decision.verification_scope == decision.VerificationScope.PREPAYMENT
+            and not provider_verified
+            else "paid_full"
+            if preserve_existing_paid_status
+            else "unpaid_full"
+        ),
+        "manual_payment_evidence_confirmed": True,
+        "provider_payment_confirmed": provider_verified,
+        "manager_payment_decision_id": decision.pk,
+        "manager_confirmed_amount": f"{confirmed_amount:.2f}",
+        "manager_verification_scope": decision.verification_scope,
+        "manager_verification_source": decision.verification_source,
+        "manager_amount_source": decision.amount_source or "",
+        "manager_amount_evidence_message_ids": (
+            decision.amount_evidence_message_ids or []
+        ),
+        "manager_payment_currency": decision.currency or "UAH",
+        "effective_confirmed_amount": f"{effective_confirmed_amount:.2f}",
+        "paid_value": f"{provider_confirmed_amount:.2f}",
+        "negotiated_order_total": payment_truth["order_total"],
+    })
+    order.pay_type = "prepayment" if is_partial_payment else "online_full"
+    if provider_verified:
+        order.payment_status = "prepaid" if is_partial_payment else "paid"
+        order.payment_provider = order.payment_provider or "monobank"
+    elif preserve_existing_paid_status:
+        order.payment_status = "paid"
+    else:
+        order.payment_status = "unpaid"
+    order.payment_payload = payload
+    order.save(update_fields=[
+        "pay_type",
+        "payment_status",
+        "payment_provider",
+        "payment_payload",
+        "updated",
+    ])
     locked_review.order = order
     locked_review.save(update_fields=["order", "updated_at"])
     if locked_review.deal_id:
@@ -260,6 +562,19 @@ def link_existing_order_to_review(review, *, order_identifier, actor, override_r
             "actor": actor,
             "reason_code": reason_code,
             "mismatch_snapshot": mismatches,
+        },
+    )
+    append_episode_event(
+        episode,
+        dedupe_key=f"episode:{episode.pk}:review:{locked_review.pk}:linked:{order.pk}",
+        event_type="existing_order_linked",
+        source="manager",
+        evidence={
+            "review_id": locked_review.pk,
+            "order_id": order.pk,
+            "reason_code": reason_code,
+            "reason_note": note,
+            "mismatches": mismatches,
         },
     )
     return order

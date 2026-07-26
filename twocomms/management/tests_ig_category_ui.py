@@ -66,7 +66,11 @@ class InteractionCategoryUiContractTests(SimpleTestCase):
         self.assertIn("row.setAttribute('tabindex','0');", template)
         self.assertIn("Заперечення: "+"'+(c.primary_objection_label||c.primary_objection)", template)
         self.assertIn("Наступний контакт: "+"'+fmt(c.next_followup_at)", template)
-        self.assertIn("Попередня оцінка · "+"'+(c.buying_readiness||0)+'%", template)
+        self.assertIn("function potentialScore(c)", template)
+        self.assertIn("const potential=potentialScore(c);", template)
+        self.assertIn("p.probability", template)
+        self.assertIn("p.confidence", template)
+        self.assertNotIn("Попередня оцінка · ", template)
         for raw_label in ("'obj: '", "'FU '", "'discount '", "'ad: '", "'legacy '"):
             self.assertNotIn(raw_label, template)
 

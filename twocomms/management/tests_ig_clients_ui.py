@@ -53,6 +53,10 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
             self.template.index('data-tab="stats"'),
             self.template.index('data-tab="orders"'),
         )
+
+    def test_payment_reconciliation_exposes_all_bounded_amount_evidence_links(self):
+        self.assertIn("evidenceIds.slice(0,6).forEach", self.template)
+        self.assertIn("managerEvidenceIds.slice(0,6).forEach", self.template)
         self.assertNotIn('id="bot-payment-review"', self.template)
         self.assertNotIn('id="bot-payment-review-list"', self.template)
 
@@ -85,6 +89,24 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
         self.assertIn("body.append('reason_text'", self.template)
         self.assertNotIn("if(action==='confirm'&&result.data.order_url)", self.template)
 
+    def test_manager_confirmation_posts_exact_amount_and_shows_money_breakdown(self):
+        self.assertIn("Сума, яку фактично перевірив менеджер", self.template)
+        self.assertIn("confirmed_amount", self.template)
+        self.assertIn("До сплати", self.template)
+        self.assertIn("Сума до знижки", self.template)
+        self.assertIn("Знижка", self.template)
+        self.assertIn("Запитано зараз", self.template)
+        self.assertIn("Підтверджено отримано", self.template)
+        self.assertIn("Залишок", self.template)
+        self.assertIn("Суми Monobank і менеджера не збігаються", self.template)
+        self.assertIn("Виконання та прив’язка заблоковані до звірки", self.template)
+        self.assertIn("reconciliation.setAttribute('role','alert')", self.template)
+        self.assertIn("reconciliation.setAttribute('aria-live','assertive')", self.template)
+        self.assertIn("const canResolveOrder=!payment.needs_reconciliation", self.template)
+        self.assertIn("displayedOrderTotal!=='—'?displayedOrderTotal+' грн':'—'", self.template)
+        self.assertIn("function reconciliationMessage(payment)", self.template)
+        self.assertIn("Monobank зафіксував часткове повернення", self.template)
+
     def test_order_detail_explains_the_post_confirmation_next_step(self):
         for contract in (
             "bot-order-progress",
@@ -96,11 +118,11 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
             self.assertIn(contract, self.template)
         self.assertIn("renderOrderProgress(inner,item)", self.template)
         self.assertIn(
-            "if(state==='needs_order_resolution')renderActions(inner,item,options||{})",
+            "if(state==='needs_order_resolution'&&canResolveOrder)renderActions(inner,item,options||{})",
             self.template,
         )
         self.assertIn(
-            "if(state!=='needs_order_resolution')renderActions(inner,item,options||{})",
+            "if(state!=='needs_order_resolution'&&state!=='payment_reconciliation')renderActions(inner,item,options||{})",
             self.template,
         )
 
@@ -122,21 +144,22 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
         self.assertIn("PaymentReviewDrawer.open", self.template)
         self.assertNotIn("Категорія діалогу</div><div class=\"bot-category-value\"", self.template)
 
-    def test_client_workspace_is_three_pane_with_mobile_segmented_navigation(self):
+    def test_client_workspace_has_two_primary_panes_and_context_drawer(self):
         for contract in (
             'class="bot-clients-workspace"',
             'class="bot-clients-sidebar"',
             'id="bot-client-conversation"',
             'id="bot-client-context"',
+            'id="bot-client-drawer"',
             'id="bot-client-mobile-nav"',
             'data-client-pane="list"',
             'data-client-pane="conversation"',
-            'data-client-pane="context"',
             'aria-controls="bot-clients-list"',
             'aria-controls="bot-client-conversation"',
-            'aria-controls="bot-client-context"',
         ):
             self.assertIn(contract, self.template)
+        self.assertNotIn('data-client-pane="context"', self.template)
+        self.assertNotIn('aria-controls="bot-client-context"', self.template)
         self.assertNotIn(".bot-client-detail{max-height:560px;overflow-y:auto", self.template)
 
     def test_payment_review_uses_contextual_accessible_drawer(self):
@@ -208,9 +231,51 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
 
     def test_drawer_restore_focus_has_a_stable_client_fallback_after_refresh(self):
         self.assertIn("document.querySelector('.bot-client-row.active')", self.template)
-        self.assertIn("document.querySelector('[data-client-pane=\"context\"]')", self.template)
+        self.assertNotIn("document.querySelector('[data-client-pane=\"context\"]')", self.template)
         self.assertIn(".find(candidate=>candidate&&candidate.offsetParent!==null)", self.template)
         self.assertIn("function restoreDrawerFocus()", self.template)
+
+    def test_chat_header_shows_potential_and_factual_truth_separately(self):
+        for contract in (
+            "bot-potential-strip",
+            "ймовірність",
+            "впевненість",
+            "На чому базується",
+            "Оплата: ",
+            "Фізичних замовлень: ",
+        ):
+            self.assertIn(contract, self.template)
+        self.assertIn("const p=d.potential||{}", self.template)
+        self.assertNotIn("p.factual_payment", self.template)
+        self.assertNotIn("p.factual_order_count", self.template)
+
+    def test_existing_order_resolution_uses_searchable_cards_and_structured_override(self):
+        for contract in (
+            "management_bot_order_candidates_api",
+            "review_id",
+            "override_code",
+            "override_reason",
+            "historical_fulfilled_order",
+            "payment_state_mismatch",
+            "historical_import",
+        ):
+            self.assertIn(contract, self.template)
+        self.assertNotIn(
+            "postReview(item,'link_order',{order_identifier:value,override_reason:override.value}",
+            self.template,
+        )
+
+    def test_drawer_keeps_receipts_and_bottom_actions_reachable(self):
+        for contract in (
+            "height:100dvh",
+            "max-height:100dvh",
+            "overflow-y:auto",
+            "overscroll-behavior:contain",
+            ".bot-drawer .bot-order-candidates{max-height:none;overflow:visible;}",
+            ".bot-drawer .bot-order-actions.is-sticky{position:sticky;bottom:0",
+        ):
+            self.assertIn(contract, self.template)
+        self.assertNotIn(".bot-drawer .bot-order-actions.is-sticky{bottom:-", self.template)
 
     def test_orders_load_ignores_stale_responses_after_a_newer_filter_request(self):
         self.assertIn("let loadGeneration=0", self.template)
@@ -530,7 +595,10 @@ class ClientsApiTests(TestCase):
         review = IgPaymentConfirmationReview.objects.create(
             client=self.c,
             dedupe_key="client-workspace-confirmed-review",
-            evidence={"order_draft": {"items": [{"title": "Футболка", "qty": 1}]}},
+            evidence={"order_draft": {
+                "items": [{"title": "Футболка", "qty": 1}],
+                "quoted_total": "950.00",
+            }},
         )
         IgPaymentReviewDecision.objects.create(
             review=review,
@@ -538,6 +606,8 @@ class ClientsApiTests(TestCase):
             decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
             verification_source="manager",
             verification_scope=IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT,
+            confirmed_amount=Decimal("950.00"),
+            amount_source="manager_input",
             actor=self.admin,
             actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
             actor_external_id=str(self.admin.pk),
@@ -600,6 +670,8 @@ class ClientsApiTests(TestCase):
             decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
             verification_source="manager",
             verification_scope=IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT,
+            confirmed_amount=Decimal("1800.00"),
+            amount_source="manager_input",
             actor=self.admin,
             actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
             actor_external_id=str(self.admin.pk),
@@ -755,6 +827,163 @@ class OrdersWorkspaceApiTests(TestCase):
         self.assertEqual(len(item["media"]["unknown"]), 1)
         self.assertIn(f"review={self.pending.id}", item["workspace_url"])
 
+    def test_order_candidate_exposes_full_payment_amount_conflict_before_link(self):
+        from management.services.ig_payment_review import record_review_decision
+        from orders.models import Order
+
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.customer,
+            dedupe_key="orders-api-candidate-amount-mismatch",
+            evidence={"order_draft": {"quoted_total": "500.00"}},
+        )
+        record_review_decision(
+            review,
+            actor=self.admin,
+            decision="manager_verified",
+            verification_scope="full_payment",
+            confirmed_amount="500.00",
+        )
+        order = Order.objects.create(
+            full_name="Яна",
+            phone="380502034719",
+            total_sum=Decimal("2000.00"),
+            payment_status="paid",
+        )
+
+        response = self.client.get(
+            reverse("management_bot_order_candidates_api"),
+            {"client_id": self.customer.pk, "review_id": review.pk},
+        )
+        item = next(row for row in response.json()["items"] if row["id"] == order.pk)
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(item["requires_override"])
+        self.assertIn("payment_amount_mismatch", item["override_conflicts"])
+        self.assertEqual(
+            item["allowed_override_codes"],
+            ["payment_state_mismatch", "historical_import"],
+        )
+
+    def test_reconciliation_conflict_disables_order_resolution_in_api(self):
+        from management.ig_bot_models import IgDeal, IgPaymentProjection
+        from management.services.ig_payment_review import record_review_decision
+
+        deal = IgDeal.objects.create(
+            client=self.customer,
+            amount=Decimal("790.00"),
+            requested_payment_amount=Decimal("790.00"),
+        )
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.customer,
+            deal=deal,
+            dedupe_key="orders-api-reconciliation",
+        )
+        record_review_decision(
+            review,
+            actor=self.admin,
+            decision="manager_verified",
+            verification_scope="prepayment",
+            confirmed_amount="315.00",
+        )
+        IgPaymentProjection.objects.create(
+            deal=deal,
+            client=self.customer,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount=Decimal("790.00"),
+        )
+
+        data = self.client.get(
+            reverse("management_bot_orders_workspace_api")
+            + f"?view=all&review={review.pk}"
+        ).json()
+        item = data["items"][0]
+
+        self.assertTrue(item["payment"]["needs_reconciliation"])
+        self.assertFalse(item["approval"]["can_link_existing"])
+        self.assertFalse(item["approval"]["can_create"])
+        self.assertEqual(item["approval"]["state"], "payment_reconciliation")
+        self.assertIn("view=action", item["workspace_url"])
+
+    def test_linked_order_with_later_reconciliation_stays_in_action_queue(self):
+        from management.ig_bot_models import IgDeal, IgPaymentProjection
+        from management.services.ig_payment_review import record_review_decision
+        from orders.models import Order
+
+        deal = IgDeal.objects.create(
+            client=self.customer,
+            amount=Decimal("1280.00"),
+            requested_payment_amount=Decimal("1280.00"),
+        )
+        order = Order.objects.create(
+            full_name="Яна",
+            phone="380502034719",
+            total_sum=Decimal("1280.00"),
+        )
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.customer,
+            deal=deal,
+            order=order,
+            dedupe_key="orders-api-linked-reconciliation",
+        )
+        record_review_decision(
+            review,
+            actor=self.admin,
+            decision="manager_verified",
+            verification_scope="prepayment",
+            confirmed_amount="315.00",
+        )
+        IgPaymentProjection.objects.create(
+            deal=deal,
+            client=self.customer,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount=Decimal("1280.00"),
+        )
+
+        data = self.client.get(
+            reverse("management_bot_orders_workspace_api") + "?view=action"
+        ).json()
+        item = next(row for row in data["items"] if row["review_id"] == review.pk)
+
+        self.assertEqual(item["approval"]["state"], "payment_reconciliation")
+        self.assertTrue(item["approval"]["needs_action"])
+        self.assertIn("view=action", item["workspace_url"])
+
+    def test_manager_confirmation_conflict_returns_reconciliation_next_action(self):
+        from management.ig_bot_models import IgDeal, IgPaymentProjection
+
+        deal = IgDeal.objects.create(
+            client=self.customer,
+            amount=Decimal("790.00"),
+            requested_payment_amount=Decimal("790.00"),
+        )
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.customer,
+            deal=deal,
+            dedupe_key="orders-api-action-reconciliation",
+        )
+        IgPaymentProjection.objects.create(
+            deal=deal,
+            client=self.customer,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount=Decimal("790.00"),
+        )
+
+        response = self.client.post(
+            reverse("management_bot_payment_review_action_api", args=[review.pk]),
+            {
+                "action": "manager_verify",
+                "verification_scope": "prepayment",
+                "confirmed_amount": "315.00",
+            },
+        )
+        payload = response.json()
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(payload["next_action"], "reconcile_payment")
+        self.assertTrue(payload["payment"]["needs_reconciliation"])
+        self.assertFalse(payload["order_resolution"]["required"])
+        self.assertEqual(payload["order_resolution"]["create_new"]["url"], "")
+
     def test_orders_workspace_supports_confirmed_and_client_scope(self):
         other = IgClient.get_or_create_for_sender("orders-api-other")
         IgPaymentConfirmationReview.objects.create(
@@ -768,6 +997,33 @@ class OrdersWorkspaceApiTests(TestCase):
         ).json()
 
         self.assertEqual([item["review_id"] for item in data["items"]], [self.confirmed.id])
+
+    def test_discounted_attributed_order_exposes_subtotal_discount_and_payable_total(self):
+        from management.ig_bot_models import IgOrderAttribution
+        from orders.models import Order
+
+        order = Order.objects.create(
+            full_name="Яна",
+            phone="380502034719",
+            total_sum=Decimal("2180.00"),
+            discount_amount=Decimal("80.00"),
+        )
+        IgOrderAttribution.objects.create(
+            order=order,
+            client=self.customer,
+            creation_mode="linked_existing",
+            payment_source="manager_verified",
+        )
+
+        data = self.client.get(
+            reverse("management_bot_orders_workspace_api") + "?view=confirmed"
+        ).json()
+        item = next(row for row in data["items"] if row["order"]["id"] == order.pk)
+
+        self.assertEqual(item["order"]["subtotal"], "2180.00")
+        self.assertEqual(item["order"]["discount_amount"], "80.00")
+        self.assertEqual(item["order"]["amount"], "2100.00")
+        self.assertEqual(item["draft"]["quoted_total"], "2100.00")
 
     def test_orders_workspace_supports_exact_review_deep_link_selector(self):
         data = self.client.get(
@@ -822,6 +1078,8 @@ class OrdersWorkspaceApiTests(TestCase):
             decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
             verification_source="manager",
             verification_scope=IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT,
+            confirmed_amount=Decimal("1800.00"),
+            amount_source="manager_input",
             actor=self.admin,
             actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
             actor_external_id=str(self.admin.pk),

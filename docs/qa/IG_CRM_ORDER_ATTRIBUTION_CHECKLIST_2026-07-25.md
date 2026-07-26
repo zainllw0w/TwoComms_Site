@@ -20,9 +20,10 @@ behavior.
 - [x] **Task 5 — Responsive workspace, client drawer, and `Замовлення` UX.**
   Shipped in `bed00422`; product approvals no longer live in the general
   overview and the dedicated section/client drawer use one verified contract.
-- [ ] **Task 6 — Repeat-order commercial episodes and fulfillment-aware history.**
-  One Instagram client may have many immutable order/funnel episodes; payment
-  confirmation must never create a duplicate order.
+- [x] **Task 6 — Repeat-order commercial episodes and fulfillment-aware history.**
+  Implemented locally in the current release slice. One Instagram client may
+  have many immutable order/funnel episodes; payment confirmation never creates
+  a duplicate order. Release commit/deploy evidence is tracked below.
 - [ ] **Task 7 — Pattern episodes and honest analytics.** Raw duplicate signal
   counters must become evidence-bound episodes/outcomes.
 - [ ] **Task 8 — Telegram action/media audit and final release verification.**
@@ -42,6 +43,7 @@ behavior.
 - [ ] Order-status replies resolve an exact order number or TTN across deal-linked and attribution-only orders and use Order/Nova Poshta truth; ambiguous multi-order references create one clarification task instead of guessing.
 - [ ] Exact existing-order linking blocks cancelled orders and requires a structured manager override for fulfilled/shipped or payment-incompatible orders.
 - [ ] Automatic provider-verified payment creates one idempotent attributed order only after validated products, negotiated totals and canonical delivery data are complete; otherwise it creates manager work without a duplicate.
+- [ ] Negotiated line prices, agreed order total, requested payment amount and actually paid provider/manager amount remain separate and scoped to the exact client episode; no runtime fixture amount or previous-client value is reused, and arbitrary valid prepayments are not coerced to `200 грн`.
 - [ ] Automatic, manager-created and linked-existing orders expose distinct creation modes while sharing the same client/order history contract.
 
 ## Task 5 UX acceptance
@@ -65,13 +67,34 @@ reduced-motion suppression and zero console errors/warnings.
 
 ## Task 6 durable episode acceptance
 
-- [ ] Add an immutable commercial episode owned by one Instagram client and connected to its deal, payment review/decision, intended order, attribution, stage events, product/price evidence and outcome.
-- [ ] A client may have zero, one or many episodes and orders; one order cannot silently belong to two different episodes, while replay inside the same episode remains idempotent.
-- [ ] Starting a repeat purchase creates a new current episode and restarts only that funnel. Completed episodes remain visible as dated cards with order number, amount, outcome and source.
-- [ ] Repeat intent such as `хочу ще`, reorder, gift or another recipient is evidence-bound, versioned and available to analytics without inference from language, profile style or perceived wealth.
-- [ ] The AI status resolver can use attribution-only orders without `IgDeal`, selects by exact order number/TTN, and asks a clarifying question when several orders fit.
-- [ ] Shipment notifications, `shipped_notified_at`, payment decisions and next actions are scoped to the exact episode/order and cannot update another order of the same client.
-- [ ] The custom admin order card displays Instagram source, automatic/manual/linked creation mode, client display name when known and durable UID-backed navigation to the management client.
+- [x] Add an immutable commercial episode owned by one Instagram client and connected to its deal, payment review/decision, intended order, attribution, stage events, product/price evidence and outcome.
+- [x] A client may have zero, one or many episodes and orders; one order cannot silently belong to two different episodes, while replay inside the same episode remains idempotent.
+- [x] Starting a repeat purchase creates a new current episode and restarts only that funnel. Completed episodes remain visible as dated cards with order number, amount, outcome and source.
+- [x] Repeat intent such as `хочу ще`, reorder, gift or another recipient is evidence-bound, versioned and available to analytics without inference from language, profile style or perceived wealth.
+- [x] The AI status resolver can use attribution-only orders without `IgDeal`, selects by exact order number/TTN, and asks a clarifying question when several orders fit.
+- [x] Shipment notifications, `shipped_notified_at`, payment decisions and next actions are scoped to the exact episode/order and cannot update another order of the same client.
+- [x] The custom admin order card displays Instagram source, automatic/manual/linked creation mode, client display name when known and durable UID-backed navigation to the management client.
+- [x] The client workspace keeps only two primary panes (clients + conversation); commercial context/settings open in an explicit right drawer.
+- [x] The conversation has one compact, single-row funnel above the transcript; manager/bot/customer colors remain distinct and action-required cards pulse without duplicating facts.
+- [x] The chat header restores the evidence-bound client-potential indicator (band, probability, confidence and clear label), including cold/lost/opted-out/spam states; verified payment and physical order state are shown separately and never derived from potential.
+- [x] Existing-order linking offers compact searchable order cards with date, client, items, amount, payment/shipment state and source; selecting a card binds the exact order to this client/episode and keeps exact-number input as an audited fallback.
+- [x] The payment/client drawer has one viewport-bounded scroll surface: all product images, receipt screenshots, evidence/history and bottom actions are reachable at 1440/1280/768/390/320 px, with no nested scroll trap or sticky-action overlap.
+
+Task 6 local verification (2026-07-26): the final repeat/payment/order/shipment/UI
+acceptance suite passed **555 tests** with 2 expected skips. `manage.py check`,
+`makemigrations --check --dry-run`, scoped `compileall`, inline JavaScript syntax
+validation and `git diff --check` passed. The MariaDB lock-order regression test
+`test_all_order_resolution_paths_lock_review_before_projection` passed, proving
+automatic materialization and manual create/link acquire review before projection.
+Migration-window regressions prove that several reviews in one connected component
+converge to one episode, a review written by an old worker after initial backfill is
+promoted safely after restart, and the mandatory daemon reconciliation reports zero
+unmaterialized deals, reviews and attributions. Independent code-quality re-review
+returned `APPROVED`.
+The broad `management` suite ran 1471 tests with 14 failures and 3 errors; a
+clean detached base SHA ran 1379 tests with 15 failures and 3 errors, and every
+remaining failure is a pre-existing unrelated baseline contract. No new Task 6
+failure remains.
 
 ## Completed in this slice
 

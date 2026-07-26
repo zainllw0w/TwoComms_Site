@@ -102,6 +102,7 @@ def _order_item_image_url(item) -> str:
 
 def _pay_type_label(order) -> str:
     mapping = {
+        "prepayment": "Передоплата за погодженою сумою (решта при отриманні)",
         "prepay_200": "Передплата 200 грн (решта при отриманні)",
         "online_full": "Онлайн оплата (повна сума)",
         "full": "Онлайн оплата (повна сума)",
@@ -185,7 +186,7 @@ def build_order_receipt_context(order) -> dict:
     discount = _safe_decimal(order.discount_amount)
     total = _safe_decimal(order.total_sum)
 
-    is_prepaid = order.pay_type == "prepay_200" or order.payment_status in ("prepaid", "partial")
+    is_prepaid = order.pay_type in {"prepayment", "prepay_200"} or order.payment_status in ("prepaid", "partial")
     prepayment = _safe_decimal(order.get_prepayment_amount()) if hasattr(order, "get_prepayment_amount") else Decimal("0")
     remaining = _safe_decimal(order.get_remaining_amount()) if hasattr(order, "get_remaining_amount") else total
 

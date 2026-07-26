@@ -5,6 +5,7 @@
 свіже вікно. purge_stale_clients чистить картки, неактивні понад 180 днів.
 """
 import datetime
+from decimal import Decimal
 from unittest.mock import patch
 
 from django.test import TestCase
@@ -139,6 +140,32 @@ class ClientContextNoteTests(TestCase):
         note = bot_memory.client_context_note(c)
         self.assertIn("постій", note.lower())
 
+    def test_payment_context_uses_current_source_qualified_amounts(self):
+        from management.models import IgDeal, IgPaymentProjection
+
+        c = IgClient.get_or_create_for_sender("cc-payment-truth")
+        deal = IgDeal.objects.create(
+            client=c,
+            amount=Decimal("2680.00"),
+            pay_type=IgDeal.PayType.PREPAYMENT,
+            requested_payment_amount=Decimal("880.00"),
+        )
+        IgPaymentProjection.objects.create(
+            deal=deal,
+            client=c,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount=Decimal("880.00"),
+            paid_at=timezone.now(),
+        )
+
+        note = bot_memory.client_context_note(c)
+
+        self.assertIn("2680.00", note)
+        self.assertIn("880.00", note)
+        self.assertIn("1800.00", note)
+        self.assertIn("Monobank", note)
+        self.assertIn("не замінюй", note.lower())
+
 
 class ContextNoteInjectionTests(TestCase):
     @patch("management.services.call_ai_analysis.gemini_generate_text")
@@ -159,3 +186,28 @@ class ContextNoteInjectionTests(TestCase):
         )
         sysi = captured["p"].get("system_instruction", {}).get("parts", [{}])[0].get("text", "")
         self.assertIn("КОНТЕКСТ-XYZ", sysi)
+
+    @patch("management.services.call_ai_analysis.gemini_generate_text")
+    def test_authoritative_context_is_after_historical_memory(self, mock_gen):
+        from management.models import InstagramBotSettings
+        from management.services import instagram_bot as bot
+
+        captured = {}
+
+        def _fake(payload, role="chat", manual_key=None, **kwargs):
+            captured["p"] = payload
+            return {"parsed": "ок", "model": "x", "meta": {}}
+
+        mock_gen.side_effect = _fake
+        bot.gemini_generate(
+            InstagramBotSettings.load(),
+            [{"role": "user", "text": "яка сума?"}],
+            memory_note="ІСТОРИЧНА-ПАМЯТЬ-950",
+            context_note="ПОТОЧНА-ІСТИНА-2680",
+        )
+
+        sysi = captured["p"]["system_instruction"]["parts"][0]["text"]
+        self.assertLess(
+            sysi.index("ІСТОРИЧНА-ПАМЯТЬ-950"),
+            sysi.index("ПОТОЧНА-ІСТИНА-2680"),
+        )

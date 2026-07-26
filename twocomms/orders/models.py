@@ -25,6 +25,7 @@ class Order(models.Model):
 
     PAY_TYPE_CHOICES = [
         ('online_full', _('Онлайн оплата (повна сума)')),
+        ('prepayment', _('Передоплата за погодженою сумою')),
         ('prepay_200', _('Передплата 200 грн')),
         ('cod', _('Оплата при отриманні')),
         # Legacy values (для обратной совместимости)
@@ -292,15 +293,30 @@ class Order(models.Model):
         return self.get_facebook_event_id(event_type='purchase')
 
     def get_prepayment_amount(self):
-        """Возвращает сумму предоплаты для pay_type=prepay_200"""
+        """Return the provider-confirmed/requested prepayment for this order."""
         from decimal import Decimal
+        if self.pay_type == 'prepayment':
+            payload = self.payment_payload if isinstance(self.payment_payload, dict) else {}
+            for key in (
+                'paid_value',
+                'manager_confirmed_amount',
+                'effective_confirmed_amount',
+                'requested_payment_amount',
+            ):
+                try:
+                    value = Decimal(str(payload.get(key) or 0))
+                except Exception:
+                    value = Decimal('0')
+                if value > 0:
+                    return min(value, self.final_total)
+            return Decimal('0.00')
         if self.pay_type == 'prepay_200':
             return min(Decimal('200.00'), self.final_total)
         return Decimal('0.00')
 
     def get_remaining_amount(self):
         """Возвращает остаток к оплате после предоплаты"""
-        if self.pay_type == 'prepay_200':
+        if self.pay_type in {'prepayment', 'prepay_200'}:
             return max(self.final_total - self.get_prepayment_amount(), Decimal('0.00'))
         return self.final_total
 

@@ -471,9 +471,15 @@ def _build_orders_context(request):
                 page_number = (newer_orders // orders_per_page) + 1
 
     orders_page = Paginator(orders_qs, orders_per_page).get_page(page_number)
-    selected_page_qs = orders_page.object_list.prefetch_related(
+    selected_page_qs = orders_page.object_list.select_related(
+        'instagram_attribution',
+        'instagram_attribution__client',
+        'instagram_commercial_episode',
+        'instagram_commercial_episode__client',
+    ).prefetch_related(
         Prefetch('items', queryset=OrderItem.objects.select_related('product')),
         'custom_print_leads',
+        'ig_deals__client',
         Prefetch(
             'warehouse_write_off_requests',
             queryset=WriteOffRequest.objects.only(
@@ -502,6 +508,41 @@ def _build_orders_context(request):
             order.admin_writeoff_state = 'pending'
         else:
             order.admin_writeoff_state = 'available'
+        try:
+            attribution = order.instagram_attribution
+        except Exception:
+            attribution = None
+        try:
+            episode = order.instagram_commercial_episode
+        except Exception:
+            episode = None
+        deal_clients = {deal.client_id: deal.client for deal in order.ig_deals.all()}
+        ownership = []
+        if attribution:
+            ownership.append((attribution.client, attribution.get_creation_mode_display()))
+        if episode:
+            ownership.append((episode.client, 'Комерційний епізод'))
+        if len(deal_clients) == 1:
+            ownership.append((next(iter(deal_clients.values())), 'Instagram deal'))
+        owner_ids = {client.pk for client, _source in ownership}
+        if len(owner_ids) == 1:
+            ig_client, creation_mode = ownership[0]
+            management_base = (
+                getattr(settings, 'MANAGEMENT_BASE_URL', '')
+                or 'https://management.twocomms.shop'
+            ).rstrip('/')
+            order.instagram_identity = {
+                'name': ig_client.display_name or ig_client.username or ig_client.igsid,
+                'username': ig_client.username or '',
+                'uid': ig_client.igsid,
+                'creation_mode': creation_mode,
+                'url': (
+                    f'{management_base}/bot/?section=clients'
+                    f'&client_id={ig_client.pk}'
+                ),
+            }
+        else:
+            order.instagram_identity = None
 
     return {
         'orders': orders,

@@ -179,6 +179,17 @@ def _analysis_worker(stop_event: threading.Event):
         stop_event.wait(5)
 
 
+def _reconcile_commercial_episodes_after_reload():
+    """Repair source rows written by old workers during the deploy window."""
+    from django.core.management import call_command
+
+    close_old_connections()
+    try:
+        call_command("reconcile_ig_commercial_episodes", passes=3)
+    finally:
+        close_old_connections()
+
+
 def _run_work_cycle(settings_obj, last_poll: float) -> tuple[bool, float]:
     """Run durable operational work, then reply work only when enabled."""
     enabled = bool(settings_obj.is_enabled)
@@ -359,6 +370,10 @@ class Command(BaseCommand):
             return self._forever_locked()
 
     def _forever_locked(self):
+        # This process starts only after the previous daemon released the
+        # singleton lock. Reconcile once with the newly deployed code before
+        # any notification, analysis, payment, or reply work can run.
+        _reconcile_commercial_episodes_after_reload()
         owner = f"{os.getpid()}:{time.time_ns()}"
         cache.set(HB_KEY, {"at": time.time(), "sentinel": _restart_sentinel_mtime()}, HB_ALIVE_WINDOW * 3)
         try:

@@ -3342,11 +3342,12 @@ def _payment_review_notification_gate(notification, chat_id, message_id) -> str:
         or (bound_chat_id and bound_chat_id != str(chat_id))
     ):
         return 'Ця кнопка не належить цьому review'
-    # Telegram sends the inline-button callback as soon as the main alert is
-    # accepted. Photos (product references and receipts) are delivered as
-    # separate outbox requests, so the notification is still ``sending`` at
-    # that point. The callback is already safely bound to the exact main
-    # message; do not make the decision depend on slower media delivery.
+    media_rows = payload.get('media') if isinstance(payload.get('media'), list) else []
+    if any(
+        not isinstance(item, dict) or item.get('delivery_status') != 'sent'
+        for item in media_rows
+    ):
+        return 'Докази ще не доставлені — відкрийте перевірку'
     return ''
 
 
@@ -4106,6 +4107,7 @@ def management_bot_webhook(request, token):
                 cancel_review,
                 confirm_review,
                 payment_review_order_url,
+                resolve_review_payment_amount,
             )
 
             review = (
@@ -4146,8 +4148,47 @@ def management_bot_webhook(request, token):
                 'decided_at': django_timezone.now().isoformat(),
             }
             if not already_decided:
+                amount_contract = None
+                if action == 'confirm':
+                    try:
+                        amount_contract = resolve_review_payment_amount(review)
+                    except ValueError:
+                        _tg_answer_callback(
+                            bot_token,
+                            cb_id,
+                            'Сума неоднозначна — відкрийте перевірку',
+                        )
+                        return JsonResponse({'ok': True, 'status': review.status})
+                    stored_candidate = (
+                        notification.payload.get('payment_candidate')
+                        if notification
+                        and isinstance(notification.payload, dict)
+                        and isinstance(notification.payload.get('payment_candidate'), dict)
+                        else {}
+                    )
+                    if (
+                        not stored_candidate
+                        or stored_candidate.get('digest') != amount_contract.get('digest')
+                    ):
+                        _tg_answer_callback(
+                            bot_token,
+                            cb_id,
+                            'Сума змінилася — відкрийте перевірку',
+                        )
+                        return JsonResponse({'ok': True, 'status': review.status})
+                    telegram_decision.update({
+                        'confirmed_amount': str(amount_contract['amount']),
+                        'currency': amount_contract['currency'],
+                        'verification_scope': amount_contract['scope'],
+                        'amount_source': amount_contract['source'],
+                    })
                 review = (
-                    confirm_review(review, actor=actor, telegram_decision=telegram_decision)
+                    confirm_review(
+                        review,
+                        actor=actor,
+                        verification_scope=(amount_contract or {}).get('scope', ''),
+                        telegram_decision=telegram_decision,
+                    )
                     if action == 'confirm'
                     else cancel_review(
                         review,

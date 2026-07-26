@@ -180,3 +180,64 @@ class NotifyShippedDealsTests(TestCase):
             ).exists()
         )
         self.assertEqual(mock_notify.call_count, 2)
+
+    @patch("management.services.bot_orders.notify_manager")
+    @patch("management.services.bot_orders.send_text", create=True)
+    def test_attribution_only_episode_sends_once_and_marks_exact_episode(
+        self, mock_send, mock_notify
+    ):
+        from management.services.ig_order_links import create_order_attribution
+
+        mock_send.return_value = (True, "", "")
+        c = IgClient.get_or_create_for_sender("sh-attribution-only")
+        c.last_message_at = timezone.now()
+        c.save(update_fields=["last_message_at", "updated_at"])
+        order = _order(ttn="59000777777")
+        attribution = create_order_attribution(
+            order,
+            client=c,
+            creation_mode="linked_existing",
+            payment_source="manager_verified",
+        )
+        episode = attribution.commercial_episode
+
+        self.assertEqual(bot_orders.notify_shipped_deals(), 1)
+        self.assertEqual(bot_orders.notify_shipped_deals(), 0)
+
+        episode.refresh_from_db()
+        self.assertIsNotNone(episode.shipment_notified_at)
+        self.assertEqual(mock_send.call_count, 1)
+        self.assertIn("59000777777", mock_send.call_args.args[2])
+        mock_notify.assert_not_called()
+
+    @patch("management.services.bot_orders.notify_manager")
+    @patch("management.services.bot_orders.send_text", create=True)
+    def test_blocked_deal_does_not_starve_eligible_attribution_episode_at_limit(
+        self, mock_send, mock_notify
+    ):
+        from management.services.ig_order_links import create_order_attribution
+
+        blocked_client = IgClient.get_or_create_for_sender("sh-blocked-deal")
+        blocked_order = _order(ttn="59000888881")
+        _verified_deal(blocked_client, blocked_order)
+
+        eligible_client = IgClient.get_or_create_for_sender("sh-eligible-attribution")
+        eligible_client.last_message_at = timezone.now()
+        eligible_client.save(update_fields=["last_message_at", "updated_at"])
+        eligible_order = _order(ttn="59000888882")
+        attribution = create_order_attribution(
+            eligible_order,
+            client=eligible_client,
+            creation_mode="linked_existing",
+            payment_source="manager_verified",
+        )
+        episode = attribution.commercial_episode
+        mock_send.return_value = (True, "", "")
+
+        self.assertEqual(bot_orders.notify_shipped_deals(limit=1), 1)
+
+        episode.refresh_from_db()
+        self.assertIsNotNone(episode.shipment_notified_at)
+        self.assertEqual(mock_send.call_count, 1)
+        self.assertIn("59000888882", mock_send.call_args.args[2])
+        self.assertTrue(mock_notify.called)

@@ -9,6 +9,7 @@ summary + свіже вікно останніх повідомлень. Так 
 from __future__ import annotations
 
 import datetime
+import hashlib
 
 from django.utils import timezone
 
@@ -107,23 +108,99 @@ def purge_stale_clients(days: int = RETENTION_DAYS) -> int:
     return count
 
 
-def order_status_note(client) -> str | None:
-    """Статус останнього замовлення клієнта (для відповіді «де моє замовлення?»
-    по фактах, без вигадок). None — якщо замовлень ще немає."""
+def order_status_note(client, reference: str = "") -> str | None:
+    """Stored status for one exact order, or an explicit ambiguity guard."""
     try:
-        from management.models import IgDeal
-
-        deal = (
-            IgDeal.objects.filter(client=client, order__isnull=False)
-            .select_related("order")
-            .order_by("-id")
-            .first()
+        from management.services.ig_commercial_episodes import (
+            OrderResolutionError,
+            _client_order_queryset,
+            resolve_client_order,
         )
+
+        if reference:
+            order = resolve_client_order(client, reference).order
+            from management.ig_bot_models import IgFollowUpTask
+
+            IgFollowUpTask.objects.filter(
+                client=client,
+                kind=IgFollowUpTask.Kind.MANAGER_TASK,
+                status__in=(
+                    IgFollowUpTask.Status.PENDING,
+                    IgFollowUpTask.Status.SKIPPED,
+                ),
+                reason__startswith="ambiguous_order_status",
+            ).update(
+                status=IgFollowUpTask.Status.CANCELLED,
+                skip_reason="exact_order_reference_received",
+                updated_at=timezone.now(),
+            )
+        else:
+            orders = list(_client_order_queryset(client).order_by("-created", "-id")[:6])
+            if not orders:
+                return None
+            if len(orders) > 1:
+                from management.ig_bot_models import IgFollowUpTask
+
+                episode_id = int(client.current_commercial_episode_id or 0)
+                fingerprint = hashlib.sha256(
+                    ":".join(str(item.pk) for item in sorted(orders, key=lambda row: row.pk)).encode()
+                ).hexdigest()[:16]
+                reason = f"ambiguous_order_status:e{episode_id}:{fingerprint}"
+                message_text = (
+                    "У клієнта кілька замовлень. Уточніть точний номер "
+                    "замовлення або ТТН перед відповіддю про доставку."
+                )
+                task, _created = IgFollowUpTask.objects.get_or_create(
+                    client=client,
+                    kind=IgFollowUpTask.Kind.MANAGER_TASK,
+                    reason=reason,
+                    defaults={
+                        "due_at": timezone.now(),
+                        # This is operator work, never an automatic customer send.
+                        "status": IgFollowUpTask.Status.SKIPPED,
+                        "skip_reason": "human_agent_required",
+                        "message_text": message_text,
+                    },
+                )
+                changed = []
+                if task.status != IgFollowUpTask.Status.SKIPPED:
+                    task.status = IgFollowUpTask.Status.SKIPPED
+                    changed.append("status")
+                if task.skip_reason != "human_agent_required":
+                    task.skip_reason = "human_agent_required"
+                    changed.append("skip_reason")
+                if task.message_text != message_text:
+                    task.message_text = message_text
+                    changed.append("message_text")
+                if changed:
+                    changed.append("updated_at")
+                    task.save(update_fields=changed)
+                try:
+                    from management.services.instagram_bot import notify_manager
+
+                    client_label = client.username or client.display_name or client.igsid
+                    notify_manager(
+                        f"🧭 IG: у {client_label} кілька замовлень. "
+                        "Перед відповіддю про статус потрібен точний номер замовлення або ТТН.",
+                        dedupe_key=reason,
+                        event_type="ambiguous_order_status",
+                        client=client,
+                    )
+                except Exception:
+                    pass
+                choices = ", ".join(
+                    f"№{item.order_number} ({item.get_status_display()})"
+                    for item in orders[:5]
+                )
+                return (
+                    f"у клієнта кілька замовлень: {choices}. Не вгадуй потрібне; "
+                    "попроси точний номер замовлення або ТТН"
+                )
+            order = orders[0]
+    except OrderResolutionError as exc:
+        return f"замовлення не визначено: {exc}. Попроси точний номер або ТТН"
     except Exception:
-        deal = None
-    if not deal or not getattr(deal, "order", None):
         return None
-    o = deal.order
     status_map = {
         "new": "прийнято, в обробці",
         "prep": "готується до відправлення",
@@ -131,10 +208,10 @@ def order_status_note(client) -> str | None:
         "done": "отримано",
         "cancelled": "скасовано",
     }
-    st = status_map.get(o.status, o.status or "в обробці")
-    msg = f"у клієнта вже є замовлення №{o.order_number} — статус: {st}"
-    if o.tracking_number:
-        msg += f", ТТН {o.tracking_number}"
+    st = status_map.get(order.status, order.status or "в обробці")
+    msg = f"у клієнта вже є замовлення №{order.order_number} — статус: {st}"
+    if order.tracking_number:
+        msg += f", ТТН {order.tracking_number}"
     msg += " (про статус/доставку відповідай по цих даних, не вигадуй)"
     return msg
 
@@ -159,7 +236,9 @@ def client_context_note(client) -> str | None:
             title = camp.title or client.ad_title or "реклама"
             parts.append(
                 f"клієнт прийшов з реклами «{title}» — його найімовірніше цікавить "
-                f"«{p.title}» ({price} грн, https://twocomms.shop/product/{p.slug}/); "
+                f"«{p.title}» (довідкова каталожна ціна {price} грн, "
+                f"https://twocomms.shop/product/{p.slug}/); це не погоджена сума "
+                "поточного замовлення; "
                 f"веди одразу по суті, не починай з «надішліть фото»"
             )
         elif camp and camp.theme:
@@ -173,6 +252,32 @@ def client_context_note(client) -> str | None:
             f"постійний клієнт (покупок: {client.purchases_count}) — спілкуйся тепло, як зі "
             f"знайомим; якщо хоче ще товар, це нова покупка/нове замовлення — допоможи обрати заново"
         )
+    try:
+        from management.services.ig_commercial_episodes import client_payment_truth_state
+
+        payment = client_payment_truth_state(client).get("current_payment_truth") or {}
+        if payment and (payment.get("deal_id") or payment.get("review_id") or payment.get("order_id")):
+            total = payment.get("order_total") or "невідома"
+            requested = payment.get("requested_payment_amount") or "0.00"
+            provider = payment.get("provider_confirmed_amount") or "0.00"
+            manager = payment.get("manager_confirmed_amount") or "0.00"
+            confirmed = payment.get("confirmed_paid_amount") or "не визначено"
+            remaining = payment.get("remaining_amount") or "не визначено"
+            parts.append(
+                "ПОТОЧНА КОМЕРЦІЙНА ІСТИНА (вища за історичну пам'ять): "
+                f"погоджена вартість {total} {payment.get('currency') or 'UAH'} "
+                f"[джерело: {payment.get('order_total_source') or 'unknown'}]; "
+                f"зараз запитано {requested} [джерело: "
+                f"{payment.get('requested_payment_source') or 'unknown'}]; "
+                f"Monobank фактично підтвердив {provider}; менеджер підтвердив {manager} "
+                f"[джерело суми: {payment.get('manager_amount_source') or 'none'}]; "
+                f"ефективно підтверджено {confirmed}, залишок {remaining}, "
+                f"звірка: {payment.get('reconciliation_state') or 'unverified'}. "
+                "Не замінюй ці суми ціною з реклами, каталогу, старого замовлення "
+                "чи історичної пам'яті"
+            )
+    except Exception:
+        pass
     try:
         on = order_status_note(client)
         if on:

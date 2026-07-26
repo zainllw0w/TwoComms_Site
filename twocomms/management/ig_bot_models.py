@@ -39,6 +39,8 @@ __all__ = [
     "IgPaymentReviewDecision",
     "IgOrderAttribution",
     "IgOrderLinkEvent",
+    "IgCommercialEpisode",
+    "IgCommercialEpisodeEvent",
 ]
 
 
@@ -317,6 +319,14 @@ class IgClient(models.Model):
     current_product_confidence = models.DecimalField(
         _("Впевненість у товарі"), max_digits=4, decimal_places=2, default=0
     )
+    current_commercial_episode = models.ForeignKey(
+        "management.IgCommercialEpisode",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="current_for_clients",
+        db_constraint=False,
+    )
 
     # Sales brain / CRM state
     language = models.CharField(max_length=8, blank=True, default="", db_index=True)
@@ -466,8 +476,6 @@ class IgDeal(models.Model):
     (рішення Q2), тож тут зберігаємо invoice_id/url і чекаємо вебхук/поллінг.
     """
 
-    PREPAYMENT_AMOUNT = Decimal("200.00")
-
     class Status(models.TextChoices):
         DRAFT = "draft", _("Чернетка")
         QUOTED = "quoted", _("Названо ціну")
@@ -478,7 +486,8 @@ class IgDeal(models.Model):
 
     class PayType(models.TextChoices):
         ONLINE_FULL = "online_full", _("Повна онлайн-оплата")
-        PREPAY_200 = "prepay_200", _("Передплата 200 грн")
+        PREPAYMENT = "prepayment", _("Передоплата за погодженою сумою")
+        PREPAY_200 = "prepay_200", _("Передоплата 200 грн (legacy)")
 
     class PaymentTruth(models.TextChoices):
         UNVERIFIED = "unverified", _("Не підтверджено")
@@ -505,6 +514,14 @@ class IgDeal(models.Model):
     pay_type = models.CharField(
         max_length=20, choices=PayType.choices, default=PayType.ONLINE_FULL
     )
+    requested_payment_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Сума конкретного платіжного запиту; не замінює повну вартість замовлення.",
+    )
+    requested_payment_evidence_ids = models.JSONField(default=list, blank=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     currency = models.CharField(max_length=8, default="UAH")
 
@@ -582,10 +599,14 @@ class IgDeal(models.Model):
         return total
 
     def payable_amount(self) -> Decimal:
-        """Скільки списати через Monobank зараз: передоплата 200 або повна сума."""
+        """Exact amount requested by this invoice, separate from order total."""
+        requested = Decimal(self.requested_payment_amount or 0)
+        if self.pay_type == self.PayType.PREPAYMENT:
+            return requested
         if self.pay_type == self.PayType.PREPAY_200:
-            return self.PREPAYMENT_AMOUNT
-        return self.amount
+            # Preserve already-created legacy deals without using 200 for new flows.
+            return requested or Decimal("200.00")
+        return requested or self.amount
 
 
 class AppendOnlyPaymentEventQuerySet(models.QuerySet):
@@ -826,6 +847,16 @@ class IgPaymentReviewDecision(models.Model):
     decision = models.CharField(max_length=48, choices=Decision.choices, db_index=True)
     verification_source = models.CharField(max_length=32, default="manager", db_index=True)
     verification_scope = models.CharField(max_length=32, choices=VerificationScope.choices)
+    confirmed_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Точна сума, фактично перевірена менеджером; не повна вартість замовлення за замовчуванням.",
+    )
+    currency = models.CharField(max_length=8, default="UAH")
+    amount_source = models.CharField(max_length=48, blank=True, default="")
+    amount_evidence_message_ids = models.JSONField(default=list, blank=True)
     reason_code = models.CharField(max_length=64, blank=True, default="")
     reason_text = models.CharField(max_length=500, blank=True, default="")
     evidence_watermark_message_id = models.PositiveBigIntegerField(default=0)
@@ -1069,6 +1100,170 @@ class IgOrderLinkEvent(models.Model):
 
     def delete(self, *args, **kwargs):
         raise ValueError("IgOrderLinkEvent is append-only")
+
+
+class IgCommercialEpisode(models.Model):
+    """Durable Instagram purchase journey with one intended physical order."""
+
+    class State(models.TextChoices):
+        ACTIVE = "active", _("Активний цикл")
+        ORDER_CREATED = "order_created", _("Замовлення створено")
+        FULFILLED = "fulfilled", _("Замовлення виконано")
+        CANCELLED = "cancelled", _("Скасовано")
+        LOST = "lost", _("Втрачено")
+
+    class RepeatKind(models.TextChoices):
+        FIRST_PURCHASE = "first_purchase", _("Перша покупка")
+        EXPLICIT_MORE = "explicit_more", _("Хоче ще")
+        REORDER = "reorder", _("Повторне замовлення")
+        GIFT = "gift", _("Подарунок")
+        ANOTHER_RECIPIENT = "another_recipient", _("Для іншого отримувача")
+
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.DO_NOTHING,
+        related_name="commercial_episodes",
+        db_constraint=False,
+    )
+    sequence = models.PositiveIntegerField()
+    # MariaDB permits multiple NULL values but only one value=1 per client.
+    # This gives a database-backed single-current-episode guard.
+    open_slot = models.PositiveSmallIntegerField(null=True, blank=True, default=1)
+    materialization_key = models.CharField(max_length=96, unique=True)
+    state = models.CharField(
+        max_length=24,
+        choices=State.choices,
+        default=State.ACTIVE,
+        db_index=True,
+    )
+    repeat_kind = models.CharField(
+        max_length=32,
+        choices=RepeatKind.choices,
+        default=RepeatKind.FIRST_PURCHASE,
+        db_index=True,
+    )
+    deal = models.OneToOneField(
+        "management.IgDeal",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="commercial_episode",
+        db_constraint=False,
+    )
+    primary_payment_review = models.OneToOneField(
+        "management.IgPaymentConfirmationReview",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="commercial_episode",
+        db_constraint=False,
+    )
+    order_attribution = models.OneToOneField(
+        "management.IgOrderAttribution",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="commercial_episode",
+        db_constraint=False,
+    )
+    intended_order = models.OneToOneField(
+        "orders.Order",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="instagram_commercial_episode",
+        db_constraint=False,
+    )
+    stage_snapshot = models.JSONField(default=dict, blank=True)
+    product_snapshot = models.JSONField(default=list, blank=True)
+    price_snapshot = models.JSONField(default=dict, blank=True)
+    payment_snapshot = models.JSONField(default=dict, blank=True)
+    fulfillment_snapshot = models.JSONField(default=dict, blank=True)
+    outcome = models.CharField(max_length=64, blank=True, default="")
+    repeat_evidence_message_ids = models.JSONField(default=list, blank=True)
+    repeat_confidence = models.DecimalField(max_digits=5, decimal_places=4, default=0)
+    analysis_model = models.CharField(max_length=80, blank=True, default="")
+    analysis_prompt_version = models.CharField(max_length=80, blank=True, default="")
+    opened_watermark_message_id = models.BigIntegerField(default=0, db_index=True)
+    shipment_notified_at = models.DateTimeField(null=True, blank=True)
+    opened_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    closed_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Комерційний епізод Instagram")
+        verbose_name_plural = _("Комерційні епізоди Instagram")
+        ordering = ["-sequence", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["client", "sequence"],
+                name="ig_episode_client_sequence_once",
+            ),
+            models.UniqueConstraint(
+                fields=["client", "open_slot"],
+                name="ig_episode_one_open_slot",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(open_slot__isnull=True) | models.Q(open_slot=1),
+                name="ig_episode_open_slot_null_or_one",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["client", "-opened_at"], name="ig_episode_client_opened"),
+            models.Index(fields=["state", "-updated_at"], name="ig_episode_state_updated"),
+        ]
+
+    def __str__(self):  # pragma: no cover - trivial representation
+        return f"IgCommercialEpisode#{self.pk} client={self.client_id} seq={self.sequence}"
+
+    @property
+    def evidence_message_ids(self):
+        """Stable public alias for the bounded episode API/test contract."""
+        return list(self.repeat_evidence_message_ids or [])
+
+
+class _AppendOnlyCommercialEpisodeEventQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValueError("IgCommercialEpisodeEvent is append-only")
+
+    def delete(self):
+        raise ValueError("IgCommercialEpisodeEvent is append-only")
+
+
+class IgCommercialEpisodeEvent(models.Model):
+    """Append-only episode timeline for funnel, payment, order and shipment."""
+
+    episode = models.ForeignKey(
+        "management.IgCommercialEpisode",
+        on_delete=models.DO_NOTHING,
+        related_name="events",
+        db_constraint=False,
+    )
+    dedupe_key = models.CharField(max_length=160, unique=True)
+    event_type = models.CharField(max_length=40)
+    from_state = models.CharField(max_length=32, blank=True, default="")
+    to_state = models.CharField(max_length=32, blank=True, default="")
+    stage = models.CharField(max_length=32, blank=True, default="")
+    source = models.CharField(max_length=40, blank=True, default="")
+    evidence = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    objects = models.Manager.from_queryset(_AppendOnlyCommercialEpisodeEventQuerySet)()
+
+    class Meta:
+        verbose_name = _("Подія комерційного епізоду Instagram")
+        verbose_name_plural = _("Події комерційних епізодів Instagram")
+        ordering = ["-id"]
+        indexes = [
+            models.Index(fields=["episode", "-created_at"], name="ig_episode_event_dt"),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk and not kwargs.get("force_insert"):
+            raise ValueError("IgCommercialEpisodeEvent is append-only")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgCommercialEpisodeEvent is append-only")
 
 
 class BotInstruction(models.Model):
@@ -1418,6 +1613,15 @@ class IgConversationAnalysisSnapshot(models.Model):
     )
     evidence = models.JSONField(default=list, blank=True)
     uncertainties = models.JSONField(default=list, blank=True)
+    repeat_intent = models.JSONField(default=dict, blank=True)
+    commercial_episode = models.ForeignKey(
+        "management.IgCommercialEpisode",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="analysis_snapshots",
+        db_constraint=False,
+    )
     analysis_model = models.CharField(max_length=80, blank=True, default="rules")
     analysis_prompt_version = models.CharField(max_length=40, blank=True, default="")
     required_state_fingerprint = models.CharField(max_length=64, blank=True, default="")

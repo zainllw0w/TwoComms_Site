@@ -681,8 +681,8 @@ class TelegramNotifier:
                 payment_info += "│     ⏳ Очікується оплата\n"
                 payment_info += f"│     💰 До сплати: {payable} грн\n"
 
-        elif pay_type == 'prepay_200' or pay_type == 'partial':
-            payment_info += "│     Тип: Передплата 200 грн\n"
+        elif pay_type in {'prepayment', 'prepay_200', 'partial'}:
+            payment_info += "│     Тип: Передоплата\n"
 
             if payment_status == 'prepaid' or payment_status == 'partial':
                 payment_info += f"│     ✅ ПЕРЕДПЛАТА ВНЕСЕНА: {prepayment} грн\n"
@@ -1201,6 +1201,7 @@ class TelegramNotifier:
         pay_type_map = {
             'online_full': 'Онлайн оплата (повна сума)',
             'full': 'Онлайн оплата (повна сума)',
+            'prepayment': 'Передоплата за погодженою сумою',
             'prepay_200': 'Передплата 200 грн',
             'partial': 'Передплата 200 грн',
             'cod': 'Оплата при отриманні',

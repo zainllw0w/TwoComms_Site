@@ -150,6 +150,9 @@ class ManualOrderCreateTests(TestCase):
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Створення замовлення вручну')
+        self.assertContains(response, 'id="moPriceOverride"')
+        self.assertContains(response, 'price_override_code')
+        self.assertContains(response, 'price_override_reason')
 
     def test_confirmed_review_prefills_matched_catalog_product(self):
         from management.ig_bot_models import IgPaymentConfirmationReview
@@ -162,6 +165,7 @@ class ManualOrderCreateTests(TestCase):
             dedupe_key='manual-review-prefill',
             evidence={
                 'order_draft': {
+                    'quoted_total': '790.00',
                     'delivery': {'full_name': 'Яна Ніколаєнко', 'phone': '0502034719'},
                     'items': [{
                         'product_id': self.product.pk,
@@ -179,7 +183,13 @@ class ManualOrderCreateTests(TestCase):
                 },
             },
         )
-        record_review_decision(review, actor=self.admin, decision='manager_verified')
+        record_review_decision(
+            review,
+            actor=self.admin,
+            decision='manager_verified',
+            verification_scope='full_payment',
+            confirmed_amount='790.00',
+        )
         with mock.patch(
             'storefront.views.manual_orders.render',
             return_value=HttpResponse(),
@@ -205,6 +215,7 @@ class ManualOrderCreateTests(TestCase):
             dedupe_key='manual-review-fit-label',
             evidence={
                 'order_draft': {
+                    'quoted_total': '900.00',
                     'items': [{
                         'product_id': self.product.pk,
                         'title': self.product.title,
@@ -216,7 +227,13 @@ class ManualOrderCreateTests(TestCase):
                 },
             },
         )
-        record_review_decision(review, actor=self.admin, decision='manager_verified')
+        record_review_decision(
+            review,
+            actor=self.admin,
+            decision='manager_verified',
+            verification_scope='full_payment',
+            confirmed_amount='900.00',
+        )
 
         with mock.patch(
             'storefront.views.manual_orders.render',
@@ -238,9 +255,15 @@ class ManualOrderCreateTests(TestCase):
         review = IgPaymentConfirmationReview.objects.create(
             client=ig_client,
             dedupe_key='manual-review-unverified',
-            evidence={},
+            evidence={'order_draft': {'quoted_total': '790.00'}},
         )
-        record_review_decision(review, actor=self.admin, decision='manager_verified')
+        record_review_decision(
+            review,
+            actor=self.admin,
+            decision='manager_verified',
+            verification_scope='full_payment',
+            confirmed_amount='790.00',
+        )
         payload = {
             'payment_review_id': review.pk,
             'full_name': 'Яна Ніколаєнко',
@@ -265,6 +288,11 @@ class ManualOrderCreateTests(TestCase):
         self.assertEqual(order.pay_type, 'online_full')
         self.assertTrue(order.payment_payload['manual_payment_evidence_confirmed'])
         self.assertFalse(order.payment_payload['provider_payment_confirmed'])
+        self.assertEqual(order.payment_payload['manager_confirmed_amount'], '790.00')
+        self.assertEqual(order.payment_payload['manager_verification_scope'], 'full_payment')
+        self.assertEqual(order.payment_payload['manager_amount_source'], 'manager_input')
+        self.assertEqual(order.payment_payload['negotiated_order_total'], '790.00')
+        self.assertEqual(order.payment_payload['effective_confirmed_amount'], '790.00')
         self.assertFalse(
             UserAction.objects.filter(action_type='purchase', order_id=order.pk).exists()
         )
@@ -272,6 +300,248 @@ class ManualOrderCreateTests(TestCase):
         self.assertEqual(attribution.client, ig_client)
         self.assertEqual(attribution.creation_mode, 'manager_review')
         self.assertEqual(attribution.payment_source, 'manager_verified')
+
+        from orders.nova_poshta_documents import build_order_payment_snapshot
+
+        fulfillment = build_order_payment_snapshot(order)
+        self.assertEqual(fulfillment['payment_status'], 'paid')
+        self.assertEqual(fulfillment['paid_amount'], '790.00')
+        self.assertEqual(fulfillment['cod_amount'], '0.00')
+
+    def test_manager_verified_dynamic_prepayment_drives_real_nova_poshta_balance(self):
+        from management.ig_bot_models import IgPaymentConfirmationReview
+        from management.models import IgClient
+        from management.services.ig_payment_review import record_review_decision
+        from orders.nova_poshta_documents import build_order_payment_snapshot
+
+        ig_client = IgClient.get_or_create_for_sender('manual-review-dynamic-prepay')
+        review = IgPaymentConfirmationReview.objects.create(
+            client=ig_client,
+            dedupe_key='manual-review-dynamic-prepay',
+            evidence={'order_draft': {'quoted_total': '790.00'}},
+        )
+        record_review_decision(
+            review,
+            actor=self.admin,
+            decision='manager_verified',
+            verification_scope='prepayment',
+            confirmed_amount='315.00',
+        )
+        payload = {
+            'payment_review_id': review.pk,
+            'full_name': 'Яна Ніколаєнко',
+            'phone': '0502034719',
+            'delivery_method': 'manual',
+            'city': 'Харків',
+            'np_office': 'Поштомат 21586',
+            'items': [{
+                'kind': 'catalog',
+                'product_id': self.product.pk,
+                'color_variant_id': self.variant.pk,
+                'size': 'S',
+                'qty': 1,
+                'unit_price': 790,
+            }],
+        }
+
+        response, _notify = self._post(payload)
+
+        self.assertEqual(response.status_code, 200, response.content)
+        order = Order.objects.get(pk=response.json()['order_id'])
+        self.assertEqual(order.pay_type, 'prepayment')
+        self.assertEqual(order.payment_status, 'unpaid')
+        self.assertEqual(order.payment_payload['manager_confirmed_amount'], '315.00')
+        self.assertEqual(order.payment_payload['manager_verification_scope'], 'prepayment')
+        self.assertEqual(order.get_prepayment_amount(), Decimal('315.00'))
+        fulfillment = build_order_payment_snapshot(order)
+        self.assertEqual(fulfillment['payment_status'], 'prepaid')
+        self.assertEqual(fulfillment['prepayment_amount'], '315.00')
+        self.assertEqual(fulfillment['paid_amount'], '315.00')
+        self.assertEqual(fulfillment['cod_amount'], '475.00')
+
+    def test_review_episode_idempotency_never_reuses_different_existing_items(self):
+        from management.ig_bot_models import IgPaymentConfirmationReview
+        from management.models import IgClient
+        from management.services.ig_commercial_episodes import ensure_episode_for_review
+        from management.services.ig_payment_review import record_review_decision
+
+        ig_client = IgClient.get_or_create_for_sender('manual-review-idempotency-guard')
+        review = IgPaymentConfirmationReview.objects.create(
+            client=ig_client,
+            dedupe_key='manual-review-idempotency-guard',
+            evidence={'order_draft': {'quoted_total': '790.00'}},
+        )
+        record_review_decision(
+            review,
+            actor=self.admin,
+            decision='manager_verified',
+            verification_scope='full_payment',
+            confirmed_amount='790.00',
+        )
+        episode = ensure_episode_for_review(review)
+        incompatible = Order.objects.create(
+            full_name='Яна Ніколаєнко',
+            phone='+380502034719',
+            city='Харків',
+            np_office='Поштомат 21586',
+            total_sum=Decimal('790.00'),
+            checkout_idempotency_key=f'ig-episode:{episode.pk}',
+        )
+        OrderItem.objects.create(
+            order=incompatible,
+            title='Інший товар',
+            size='XL',
+            qty=1,
+            unit_price=Decimal('790.00'),
+            line_total=Decimal('790.00'),
+        )
+        payload = {
+            'payment_review_id': review.pk,
+            'full_name': 'Яна Ніколаєнко',
+            'phone': '0502034719',
+            'delivery_method': 'manual',
+            'city': 'Харків',
+            'np_office': 'Поштомат 21586',
+            'items': [{
+                'kind': 'catalog',
+                'product_id': self.product.pk,
+                'color_variant_id': self.variant.pk,
+                'size': 'S',
+                'qty': 1,
+                'unit_price': 790,
+            }],
+        }
+
+        response, _notify = self._post(payload)
+
+        self.assertEqual(response.status_code, 422, response.content)
+        self.assertIn('incompatible order', response.json()['message'])
+        review.refresh_from_db()
+        self.assertIsNone(review.order_id)
+
+    def test_multi_item_review_cannot_replace_negotiated_total_with_catalog_total(self):
+        from management.ig_bot_models import IgPaymentConfirmationReview
+        from management.models import IgClient
+        from management.services.ig_payment_review import record_review_decision
+
+        ig_client = IgClient.get_or_create_for_sender('manual-review-multi-total-guard')
+        review = IgPaymentConfirmationReview.objects.create(
+            client=ig_client,
+            dedupe_key='manual-review-multi-total-guard',
+            evidence={
+                'order_draft': {
+                    'quoted_total': '2100.00',
+                    'items': [
+                        {'product_id': self.product.pk, 'title': self.product.title, 'qty': 1},
+                        {'product_id': self.product.pk, 'title': self.product.title, 'qty': 1},
+                    ],
+                },
+            },
+        )
+        record_review_decision(
+            review,
+            actor=self.admin,
+            decision='manager_verified',
+            confirmed_amount='2100.00',
+        )
+        payload = {
+            'payment_review_id': review.pk,
+            'full_name': 'Яна Ніколаєнко',
+            'phone': '0502034719',
+            'delivery_method': 'manual',
+            'city': 'Харків',
+            'np_office': 'Поштомат 21586',
+            'items': [
+                {
+                    'kind': 'catalog',
+                    'product_id': self.product.pk,
+                    'color_variant_id': self.variant.pk,
+                    'size': 'S',
+                    'qty': 1,
+                    'unit_price': 1090,
+                },
+                {
+                    'kind': 'catalog',
+                    'product_id': self.product.pk,
+                    'color_variant_id': self.variant.pk,
+                    'size': 'XS',
+                    'qty': 1,
+                    'unit_price': 1090,
+                },
+            ],
+        }
+
+        response, notify = self._post(payload)
+
+        self.assertEqual(response.status_code, 422, response.content)
+        self.assertIn('2100.00', response.json()['message'])
+        self.assertIn('2180.00', response.json()['message'])
+        self.assertFalse(Order.objects.exists())
+        notify.assert_not_called()
+
+    def test_multi_item_price_override_keeps_quoted_and_actual_totals(self):
+        from management.ig_bot_models import IgOrderAttribution, IgPaymentConfirmationReview
+        from management.models import IgClient
+        from management.services.ig_payment_review import record_review_decision
+
+        ig_client = IgClient.get_or_create_for_sender('manual-review-multi-total-override')
+        review = IgPaymentConfirmationReview.objects.create(
+            client=ig_client,
+            dedupe_key='manual-review-multi-total-override',
+            evidence={'order_draft': {'quoted_total': '2100.00', 'items': [{}, {}]}},
+        )
+        record_review_decision(
+            review,
+            actor=self.admin,
+            decision='manager_verified',
+            confirmed_amount='2100.00',
+        )
+        payload = {
+            'payment_review_id': review.pk,
+            'full_name': 'Яна Ніколаєнко',
+            'phone': '0502034719',
+            'delivery_method': 'manual',
+            'city': 'Харків',
+            'np_office': 'Поштомат 21586',
+            'price_override_code': 'manager_repriced_after_review',
+            'price_override_reason': 'Менеджер погодив іншу конфігурацію після первинного review.',
+            'items': [
+                {
+                    'kind': 'catalog',
+                    'product_id': self.product.pk,
+                    'color_variant_id': self.variant.pk,
+                    'size': 'S',
+                    'qty': 1,
+                    'unit_price': 1090,
+                },
+                {
+                    'kind': 'catalog',
+                    'product_id': self.product.pk,
+                    'color_variant_id': self.variant.pk,
+                    'size': 'XS',
+                    'qty': 1,
+                    'unit_price': 1090,
+                },
+            ],
+        }
+
+        response, _notify = self._post(payload)
+
+        self.assertEqual(response.status_code, 200, response.content)
+        order = Order.objects.get(pk=response.json()['order_id'])
+        attribution = IgOrderAttribution.objects.get(order=order)
+        self.assertEqual(order.total_sum, Decimal('2180.00'))
+        self.assertEqual(attribution.negotiated_total, Decimal('2100.00'))
+        self.assertEqual(
+            order.payment_payload['instagram_price_override'],
+            {
+                'quoted_total': '2100.00',
+                'actual_order_total': '2180.00',
+                'code': 'manager_repriced_after_review',
+                'reason': 'Менеджер погодив іншу конфігурацію після первинного review.',
+                'actor_id': self.admin.pk,
+            },
+        )
 
     def test_legacy_confirmed_review_without_decision_does_not_prefill_order(self):
         from management.ig_bot_models import IgPaymentConfirmationReview
@@ -326,6 +596,63 @@ class ManualOrderCreateTests(TestCase):
         response, _notify = self._post(payload)
 
         self.assertEqual(response.status_code, 409)
+        self.assertFalse(Order.objects.exists())
+
+    def test_reconciliation_conflict_cannot_create_manual_order(self):
+        from management.ig_bot_models import (
+            IgDeal,
+            IgPaymentConfirmationReview,
+            IgPaymentProjection,
+        )
+        from management.models import IgClient
+        from management.services.ig_payment_review import record_review_decision
+
+        ig_client = IgClient.get_or_create_for_sender('manual-review-reconciliation')
+        deal = IgDeal.objects.create(
+            client=ig_client,
+            amount=Decimal('790.00'),
+            requested_payment_amount=Decimal('790.00'),
+        )
+        review = IgPaymentConfirmationReview.objects.create(
+            client=ig_client,
+            deal=deal,
+            dedupe_key='manual-review-reconciliation',
+            evidence={'order_draft': {'quoted_total': '790.00'}},
+        )
+        record_review_decision(
+            review,
+            actor=self.admin,
+            decision='manager_verified',
+            verification_scope='prepayment',
+            confirmed_amount='315.00',
+        )
+        IgPaymentProjection.objects.create(
+            deal=deal,
+            client=ig_client,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount=Decimal('790.00'),
+        )
+        payload = {
+            'payment_review_id': review.pk,
+            'full_name': 'Яна Ніколаєнко',
+            'phone': '0502034719',
+            'delivery_method': 'manual',
+            'city': 'Харків',
+            'np_office': 'Поштомат 21586',
+            'items': [{
+                'kind': 'catalog',
+                'product_id': self.product.pk,
+                'color_variant_id': self.variant.pk,
+                'size': 'S',
+                'qty': 1,
+                'unit_price': 790,
+            }],
+        }
+
+        response, _notify = self._post(payload)
+
+        self.assertEqual(response.status_code, 409)
+        self.assertIn('звірка', response.json()['message'].lower())
         self.assertFalse(Order.objects.exists())
 
     def test_create_form_contains_fit_and_thermo_controls(self):

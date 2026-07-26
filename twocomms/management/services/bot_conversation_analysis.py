@@ -36,12 +36,13 @@ LEASE_SECONDS = 180
 MAX_ATTEMPTS = 5
 MAX_MESSAGES = 160
 MAX_TRANSCRIPT_CHARS = 30_000
-ANALYSIS_PROMPT_VERSION = "2026-07-24.crm.media.v1"
+ANALYSIS_PROMPT_VERSION = "2026-07-25.crm.episode-potential.v2"
 RETRY_DELAYS = (60, 180, 600, 1800, 3600)
 
 SYSTEM_PROMPT = """Ти аналізуєш Instagram-діалог для внутрішньої CRM TwoComms.
-Поверни лише JSON. Відокремлюй намір купити від факту оплати: paid можливий лише
-коли в системному контексті прямо вказано verified_payment=true. Обіцянка,
+Поверни лише JSON. Відокремлюй намір купити від факту оплати. Навіть підтверджена
+оплата не підвищує purchase_probability і confidence: вони описують лише намір,
+видимий у повідомленнях клієнта. Обіцянка,
 скриншот, посилання або слова менеджера не є оплатою. Не роби висновків про
 платоспроможність з мови, національності, граматики, стилю чи манери письма.
 Повідомлення менеджера є контекстом, але не доказом наміру клієнта.
@@ -57,11 +58,14 @@ SYSTEM_PROMPT = """Ти аналізуєш Instagram-діалог для вну�
   size_fit_question|custom_print|price_objection|high_intent|payment_pending|
   paid_order_waiting|no_reply|explicit_no_buy|opt_out|spam_abuse|manager_observation|
   collaboration|wholesale_b2b|support_complaint|community_casual;
-- score_band: cold|exploring|qualified|high_intent|checkout|paid|lost|opted_out;
+- score_band: cold|exploring|qualified|high_intent|checkout|lost|opted_out;
 - purchase_probability і confidence: числа 0..1;
 - evidence: масив {message_id, quote, claim}; quote має бути дослівним коротким
   фрагментом саме цього повідомлення;
 - uncertainties: масив коротких рядків.
+- repeat_intent: порожній об'єкт або {kind, confidence, evidence_message_ids}, де
+  kind є explicit_more|reorder|gift|another_recipient, confidence >= 0.70, а
+  evidence_message_ids містить лише повідомлення клієнта з явним повторним наміром.
 Не давай порад клієнту і не генеруй відповідь для відправлення."""
 
 
@@ -289,21 +293,31 @@ def _claim_due(now) -> tuple[IgConversationAnalysisJob, int, int, str] | None:
 
 def _required_truth_state(client: IgClient) -> dict:
     """Return the canonical, non-secret payment/order context for analysis."""
-    order_truth = list(
-        client.deals.order_by("pk").values(
-            "pk",
-            "status",
-            "order_id",
-            "order__status",
-            "order__payment_status",
-            "order__tracking_number",
-            "order__shipment_status",
-            "shipped_notified_at",
-        )
+    from management.services.ig_commercial_episodes import (
+        _client_order_queryset,
+        client_payment_truth_state,
     )
+
+    order_truth = []
+    for order in _client_order_queryset(client).prefetch_related("ig_deals").order_by("pk"):
+        deals = list(order.ig_deals.all())
+        order_truth.append({
+            "order_id": order.pk,
+            "order_number": order.order_number,
+            "status": order.status,
+            "payment_status": order.payment_status,
+            "tracking_number": order.tracking_number or "",
+            "shipment_status": order.shipment_status or "",
+            "deal_ids": sorted(deal.pk for deal in deals),
+            "shipped_notified_at": max(
+                (deal.shipped_notified_at for deal in deals if deal.shipped_notified_at),
+                default=None,
+            ),
+        })
     return {
         "verified_payment": client_has_verified_payment(client),
         "order_truth": order_truth,
+        **client_payment_truth_state(client),
     }
 
 
@@ -408,10 +422,18 @@ def _latest_truth_change(client: IgClient):
     projection_updated_at = client.payment_projections.aggregate(
         updated_at=Max("updated_at")
     )["updated_at"]
+    manager_decision_created_at = client.payment_review_decisions.aggregate(
+        created_at=Max("created_at")
+    )["created_at"]
+    episode_updated_at = client.commercial_episodes.aggregate(
+        updated_at=Max("updated_at")
+    )["updated_at"]
     values = [
         deal_times["payment_truth_updated_at"],
         deal_times["order_truth_updated_at"],
         projection_updated_at,
+        manager_decision_created_at,
+        episode_updated_at,
     ]
     return max((value for value in values if value is not None), default=None)
 
@@ -594,18 +616,43 @@ def _normalize(parsed: dict, by_id: dict[int, dict], *, verified_payment: bool) 
         band = IgConversationAnalysisSnapshot.Band.COLD
     probability = _decimal_01(parsed.get("purchase_probability"), "0")
     confidence = _decimal_01(parsed.get("confidence"), "0")
+    raw_repeat = parsed.get("repeat_intent")
+    repeat_intent = {}
+    if isinstance(raw_repeat, dict):
+        repeat_kind = str(raw_repeat.get("kind") or "").strip()[:32]
+        repeat_confidence = _decimal_01(raw_repeat.get("confidence"), "0")
+        valid_repeat_kinds = {"explicit_more", "reorder", "gift", "another_recipient"}
+        repeat_evidence_ids = []
+        for value in raw_repeat.get("evidence_message_ids") or []:
+            try:
+                message_id = int(value)
+            except (TypeError, ValueError):
+                continue
+            source = by_id.get(message_id)
+            if (
+                source
+                and source.get("role") == "user"
+                and message_id not in repeat_evidence_ids
+            ):
+                repeat_evidence_ids.append(message_id)
+        if (
+            repeat_kind in valid_repeat_kinds
+            and repeat_confidence >= Decimal("0.7000")
+            and repeat_evidence_ids
+        ):
+            repeat_intent = {
+                "kind": repeat_kind,
+                "confidence": repeat_confidence,
+                "evidence_message_ids": repeat_evidence_ids[:20],
+            }
     uncertainties = [str(value)[:160] for value in (parsed.get("uncertainties") or []) if str(value).strip()][:20]
 
-    if verified_payment:
-        band = IgConversationAnalysisSnapshot.Band.PAID
-        interaction_type = IgConversationAnalysisSnapshot.InteractionType.PAID_ORDER_WAITING
-        probability = Decimal("1.0000")
-        confidence = Decimal("1.0000")
-    elif band == IgConversationAnalysisSnapshot.Band.PAID or interaction_type == IgConversationAnalysisSnapshot.InteractionType.PAID_ORDER_WAITING:
+    if band == IgConversationAnalysisSnapshot.Band.PAID or interaction_type == IgConversationAnalysisSnapshot.InteractionType.PAID_ORDER_WAITING:
         band = IgConversationAnalysisSnapshot.Band.CHECKOUT
         interaction_type = IgConversationAnalysisSnapshot.InteractionType.PAYMENT_PENDING
         probability = min(probability, Decimal("0.9500"))
-        uncertainties.append("payment_unverified")
+        if not verified_payment:
+            uncertainties.append("payment_unverified")
 
     evidence = []
     for raw in parsed.get("evidence") or []:
@@ -627,7 +674,7 @@ def _normalize(parsed: dict, by_id: dict[int, dict], *, verified_payment: bool) 
         })
         if len(evidence) >= 20:
             break
-    if not evidence and not verified_payment:
+    if not evidence:
         uncertainties.append("evidence_unverified")
     return {
         "interaction_type": interaction_type,
@@ -636,6 +683,7 @@ def _normalize(parsed: dict, by_id: dict[int, dict], *, verified_payment: bool) 
         "confidence": confidence,
         "evidence": evidence,
         "uncertainties": list(dict.fromkeys(uncertainties))[:20],
+        "repeat_intent": repeat_intent,
     }
 
 
@@ -893,10 +941,13 @@ def _process_claim(
             watermark,
             final_truth_state,
         )
-        if final_truth_state["order_truth"] != initial_truth_state["order_truth"]:
+        if final_truth_state != initial_truth_state:
+            order_truth_changed = (
+                final_truth_state["order_truth"] != initial_truth_state["order_truth"]
+            )
             current_job.revision = int(current_job.revision or 0) + 1
             current_job.required_state_fingerprint = final_fingerprint
-            current_job.trigger = "order_truth"
+            current_job.trigger = "order_truth" if order_truth_changed else "payment_truth"
             current_job.status = IgConversationAnalysisJob.Status.PENDING
             current_job.lease_token = ""
             current_job.lease_until = None
@@ -914,7 +965,38 @@ def _process_claim(
         normalized = _normalize(
             result.get("parsed"), by_id, verified_payment=verified_payment
         )
-        IgConversationAnalysisSnapshot.objects.get_or_create(
+        repeat_intent = normalized["repeat_intent"]
+        repeat_intent_snapshot = (
+            {
+                **repeat_intent,
+                "confidence": str(repeat_intent["confidence"]),
+            }
+            if repeat_intent
+            else {}
+        )
+        if repeat_intent:
+            from management.services.ig_commercial_episodes import start_repeat_episode
+
+            commercial_episode = start_repeat_episode(
+                client,
+                repeat_kind=repeat_intent["kind"],
+                evidence_message_ids=repeat_intent["evidence_message_ids"],
+                confidence=repeat_intent["confidence"],
+                analysis_model=model,
+                analysis_prompt_version=ANALYSIS_PROMPT_VERSION,
+            )
+        else:
+            commercial_episode = client.commercial_episodes.filter(open_slot=1).first()
+        # Episode creation is a deterministic consequence of this analysis,
+        # not new external evidence. Persist the post-materialization fingerprint
+        # so the same message does not schedule a redundant second analysis.
+        final_truth_state = _required_truth_state(client)
+        final_fingerprint = _fingerprint_for_truth(
+            client.pk,
+            watermark,
+            final_truth_state,
+        )
+        snapshot, snapshot_created = IgConversationAnalysisSnapshot.objects.get_or_create(
             dedupe_key=(
                 f"ai:{ANALYSIS_PROMPT_VERSION}:{client.pk}:{watermark}:r{claimed_revision}"
             ),
@@ -927,6 +1009,8 @@ def _process_claim(
                 "confidence": normalized["confidence"],
                 "evidence": normalized["evidence"],
                 "uncertainties": normalized["uncertainties"],
+                "repeat_intent": repeat_intent_snapshot,
+                "commercial_episode": commercial_episode,
                 "analysis_model": model,
                 "analysis_prompt_version": ANALYSIS_PROMPT_VERSION,
                 "required_state_fingerprint": final_fingerprint,
@@ -941,6 +1025,13 @@ def _process_claim(
                 "analyzed_at": finalized_at,
             },
         )
+        if (
+            not snapshot_created
+            and commercial_episode
+            and not snapshot.commercial_episode_id
+        ):
+            snapshot.commercial_episode = commercial_episode
+            snapshot.save(update_fields=["commercial_episode"])
         current_job.analysis_model = model
         current_job.analysis_prompt_version = ANALYSIS_PROMPT_VERSION
         current_job.required_state_fingerprint = final_fingerprint
@@ -1114,9 +1205,8 @@ def reconcile_analysis_jobs(*, limit: int = 500, now=None) -> dict:
         )
         payment_truth_matches = bool(
             latest_ai
-            and (
-                latest_ai.get("score_band") == IgConversationAnalysisSnapshot.Band.PAID
-            ) == bool(client and client_has_verified_payment(client))
+            and latest_ai.get("required_state_fingerprint")
+            == required_state_fingerprint
         )
         skipped_current = bool(
             job

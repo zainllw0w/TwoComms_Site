@@ -30,6 +30,7 @@ from management.management.commands.run_instagram_bot import (
     _daemon_alive,
     _analysis_worker,
     _process_lock_held,
+    _reconcile_commercial_episodes_after_reload,
     _run_work_cycle,
 )
 from management.models import IgClient, InstagramBotSettings
@@ -54,6 +55,15 @@ class DaemonPathTests(SimpleTestCase):
         self.assertTrue(os.path.isabs(MANAGE_PY_PATH))
         self.assertTrue(MANAGE_PY_PATH.endswith(os.path.join("twocomms", "manage.py")))
         self.assertEqual(PROJECT_ROOT, os.path.dirname(MANAGE_PY_PATH))
+
+    @patch("django.core.management.call_command")
+    def test_new_daemon_reconciles_release_window_episodes_before_work(self, call_command):
+        _reconcile_commercial_episodes_after_reload()
+
+        call_command.assert_called_once_with(
+            "reconcile_ig_commercial_episodes",
+            passes=3,
+        )
 
     @patch("management.management.commands.run_instagram_bot.subprocess.Popen")
     @patch("management.management.commands.run_instagram_bot._wait_for_lock", return_value=True)
@@ -703,11 +713,14 @@ class DaemonHeartbeatTests(SimpleTestCase):
     @patch("management.management.commands.run_instagram_bot._conv_refresher")
     @patch("management.management.commands.run_instagram_bot.bot.log")
     @patch(
+        "management.management.commands.run_instagram_bot._reconcile_commercial_episodes_after_reload"
+    )
+    @patch(
         "management.management.commands.run_instagram_bot.maintenance_status",
         return_value={"active": True},
     )
     def test_running_daemon_exits_before_work_when_maintenance_appears(
-        self, _maintenance, _log, _refresher, work_cycle
+        self, _maintenance, _reconcile, _log, _refresher, work_cycle
     ):
         with tempfile.TemporaryDirectory() as temp_dir:
             with patch(
@@ -715,6 +728,7 @@ class DaemonHeartbeatTests(SimpleTestCase):
                 os.path.join(temp_dir, "daemon.pid"),
             ):
                 Command()._forever_locked()
+        _reconcile.assert_called_once_with()
         work_cycle.assert_not_called()
 
 

@@ -526,6 +526,15 @@
                   {{ o.sale_source }}
                 </span>
               {% endif %}
+              {% if o.instagram_identity %}
+                <a class="oadm-source-chip"
+                   href="{{ o.instagram_identity.url }}"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   title="UID {{ o.instagram_identity.uid }} · {{ o.instagram_identity.creation_mode }}">
+                  Instagram · {{ o.instagram_identity.name }} · UID {{ o.instagram_identity.uid }}
+                </a>
+              {% endif %}
               <span class="oadm-count-chip" title="Кількість позицій">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
                 {{ o.items.count }}

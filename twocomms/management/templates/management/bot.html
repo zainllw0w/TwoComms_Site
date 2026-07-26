@@ -110,17 +110,22 @@
 .bot-kb-form input,.bot-kb-form select{background:#0c0f17;border:1px solid #232a38;border-radius:9px;color:#e7ecf3;padding:8px 10px;font-size:12.5px;}
 
 /* ---- Clients workspace ---- */
-.bot-clients-workspace{display:grid;grid-template-columns:minmax(270px,320px) minmax(420px,1.15fr) minmax(290px,.85fr);gap:12px;align-items:start;}
-.bot-clients-sidebar,.bot-client-conversation,.bot-client-context{min-width:0;background:#0c0f17;border:1px solid #1a2030;border-radius:14px;}
+.bot-clients-workspace{display:grid;grid-template-columns:minmax(280px,340px) minmax(0,1fr);gap:12px;align-items:start;}
+.bot-clients-sidebar,.bot-client-conversation{min-width:0;background:#0c0f17;border:1px solid #1a2030;border-radius:14px;}
 .bot-clients-sidebar{padding:12px;position:sticky;top:12px;}
 .bot-client-conversation{padding:16px;min-height:620px;}
-.bot-client-context{padding:14px;position:sticky;top:12px;max-height:calc(100vh - 34px);overflow-y:auto;}
+.bot-client-context{min-width:0;}
 .bot-client-mobile-nav{display:none;}
 .bot-client-pane-empty{display:grid;place-items:center;min-height:300px;color:#7e889a;font-size:13px;text-align:center;padding:24px;}
 .bot-conversation-head{display:flex;align-items:center;gap:12px;padding-bottom:13px;border-bottom:1px solid #1c2533;}
 .bot-conversation-meta{min-width:0;flex:1;}
 .bot-conversation-title{color:#eef2f8;font-size:16px;font-weight:800;overflow-wrap:anywhere;}
 .bot-conversation-sub{margin-top:4px;color:#7f8ba0;font-size:11.5px;overflow-wrap:anywhere;}
+.bot-conversation-actions{display:flex;align-items:center;gap:7px;flex:0 0 auto;}
+.bot-head-action{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:36px;border:1px solid #2b3749;border-radius:8px;background:#111925;color:#dbe4ef;padding:8px 10px;font:800 11px/1.1 inherit;cursor:pointer;}
+.bot-head-action:hover{border-color:#47607e;background:#162131;}
+.bot-head-action.icon{width:36px;padding:0;font-size:17px;}
+.bot-head-action.needs-action{border-color:#a16a0a;background:#2a1e07;color:#fde68a;animation:orderActionPulse 1.8s ease-in-out infinite;}
 .bot-conversation-role-note{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px;}
 .bot-role-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid #273246;border-radius:999px;background:#111722;color:#9aa7b9;padding:4px 8px;font-size:10px;font-weight:750;}
 .bot-role-chip::before{content:'';width:7px;height:7px;border-radius:50%;background:#64748b;}
@@ -141,12 +146,15 @@
 .bot-client-row{display:flex;gap:11px;align-items:center;background:#0c0f17;border:1px solid #1e2430;border-radius:12px;padding:9px 11px;cursor:pointer;transition:transform .12s,border .15s,background .15s;}
 .bot-client-row:hover{border-color:#2a3550;transform:translateX(2px);}
 .bot-client-row.active{border-color:#2563eb;background:#0f1626;}
+.bot-client-row.needs-action{border-color:#7c5a18;background:#171306;box-shadow:inset 3px 0 0 #f59e0b;}
+.bot-client-row.needs-action::after{content:'!';width:20px;height:20px;display:grid;place-items:center;flex:0 0 auto;border-radius:50%;background:#d97706;color:#fff;font:900 11px/1 inherit;animation:orderActionPulse 1.8s ease-in-out infinite;}
 .bot-client-ava{width:38px;height:38px;border-radius:50%;background:#1e2430;object-fit:cover;flex:0 0 auto;}
 div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3;font-size:14px;text-transform:uppercase;}
 .bot-client-meta{min-width:0;flex:1;}
 .bot-client-name{font-size:13.5px;color:#e7ecf3;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .bot-client-sub{font-size:11.5px;color:#8b95a5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.bot-client-score{font-size:10.5px;color:#34d399;font-weight:800;}
+.bot-client-score{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;color:#aeb8c7;font-weight:800;}
+.bot-client-score.is-current{color:#34d399;}.bot-client-score.is-stale{color:#fbbf24;}.bot-client-score.is-policy{color:#fca5a5;}
 .bot-client-tags{display:flex;flex:0 0 auto;flex-direction:column;align-items:flex-end;gap:5px;max-width:132px;}
 .bot-category-badge{display:inline-flex;align-items:center;max-width:100%;border:1px solid #2b3547;border-radius:6px;background:#141a24;color:#c5cedb;padding:3px 7px;font-size:10px;font-weight:800;line-height:1.2;text-align:right;white-space:normal;}
 .bot-category-badge.cat-support{border-color:#8a3440;background:#32171c;color:#fecdd3;}
@@ -193,17 +201,25 @@ div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3
 @keyframes actionFeedbackIn{from{opacity:0;transform:translateY(-3px);}to{opacity:1;transform:none;}}
 @media(max-width:560px){.bot-action-state{align-items:flex-start;flex-direction:column;}.bot-action-state-buttons{justify-content:flex-start;}.bot-client-action.primary{width:100%;}.bot-client-action{min-height:36px;}}
 @media(max-width:560px){.bot-client-row{align-items:flex-start;}.bot-client-tags{max-width:112px;}.bot-category-strip{flex-direction:column;}.bot-category-badge{align-self:flex-start;text-align:left;}}
-.bot-funnel{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0;}
-.bot-circle{display:flex;align-items:center;gap:6px;font-size:11px;color:#8b95a5;background:#11151f;border:1px solid #1a2030;border-radius:20px;padding:4px 10px;transition:.2s;}
+.bot-chat-summary{margin-top:12px;padding:10px;border:1px solid #202a39;border-radius:11px;background:#0a0f17;}
+.bot-funnel{display:flex;flex-wrap:nowrap;gap:6px;margin:0;overflow-x:auto;padding:1px 18px 5px 1px;scrollbar-width:thin;scroll-snap-type:x proximity;background:linear-gradient(90deg,transparent calc(100% - 22px),rgba(96,165,250,.12));}
+.bot-circle{display:flex;align-items:center;gap:6px;flex:0 0 auto;font-size:10px;color:#8b95a5;background:#11151f;border:1px solid #1a2030;border-radius:20px;padding:4px 8px;transition:.2s;scroll-snap-align:start;}
 .bot-circle i{width:10px;height:10px;border-radius:50%;background:#2a3140;display:inline-block;transition:.25s;}
 .bot-circle.done{color:#cdd5e1;}
 .bot-circle.done i{background:#22c55e;}
 .bot-circle.current{color:#fff;border-color:#f59e0b;}
 .bot-circle.current i{background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.2);animation:botpulse 1.7s infinite;}
+.bot-potential-strip{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:center;gap:10px;margin-top:8px;padding-top:9px;border-top:1px solid #1d2634;}
+.bot-potential-main{min-width:0;}.bot-potential-label{font-size:12px;font-weight:850;color:#e7ecf3;}.bot-potential-meta{margin-top:3px;font-size:10px;color:#7f8ba0;line-height:1.35;}
+.bot-potential-value{min-width:58px;text-align:right;}.bot-potential-value b{display:block;color:#f8fafc;font-size:14px;}.bot-potential-value span{display:block;margin-top:2px;color:#718097;font-size:8.5px;text-transform:uppercase;}
+.bot-potential-state{display:inline-flex;align-items:center;border:1px solid #2b3547;border-radius:999px;padding:4px 7px;color:#9aa7b9;font-size:9px;font-weight:850;white-space:nowrap;}
+.bot-potential-strip.is-stale .bot-potential-state{border-color:#7c5a18;color:#fcd34d;}.bot-potential-strip.is-policy .bot-potential-state{border-color:#71313b;color:#fda4af;}.bot-potential-strip.is-unknown .bot-potential-state{color:#7f8ba0;}
+.bot-potential-evidence{grid-column:1/-1;border-top:1px solid #1d2634;padding-top:7px;}.bot-potential-evidence summary{cursor:pointer;color:#8ea0b7;font-size:10px;font-weight:750;}.bot-potential-evidence-body{padding-top:7px;color:#aeb8c7;font-size:10.5px;line-height:1.45;}
 .bot-msg{padding:7px 11px;border-radius:11px;margin:5px 0;font-size:12.5px;max-width:86%;word-break:break-word;line-height:1.45;}
 .bot-msg.user{background:#11151f;border:1px solid #1e2430;}
 .bot-msg.model{background:#13203a;border:1px solid #1d2b48;margin-left:auto;color:#dfe7f5;}
 .bot-msg.manager{background:#1f1930;border:1px solid #352754;margin-left:auto;color:#e9ddff;}
+.bot-msg.evidence-highlight{outline:2px solid #f59e0b;outline-offset:2px;box-shadow:0 0 0 5px rgba(245,158,11,.13);}
 .bot-msg-meta{display:block;margin-top:5px;color:#7d899a;font-size:9.5px;line-height:1.25;}
 .bot-signal{display:inline-flex;align-items:center;gap:5px;background:#11151f;border:1px solid #1e2430;border-radius:999px;padding:4px 8px;margin:3px;font-size:11px;color:#aeb8c7;}
 .bot-mem{background:#15110a;border:1px solid #3a2e16;border-radius:10px;padding:9px 11px;font-size:12px;color:#d8c08a;margin:10px 0;}
@@ -215,12 +231,13 @@ div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3
 .bot-drawer[hidden]{display:none;}
 .bot-drawer{position:fixed;inset:0;z-index:1200;display:grid;grid-template-columns:minmax(0,1fr) minmax(420px,720px);background:rgba(3,7,18,.72);backdrop-filter:blur(5px);}
 .bot-drawer-backdrop{min-width:0;border:0;background:transparent;cursor:pointer;}
-.bot-drawer-panel{display:flex;flex-direction:column;min-width:0;height:100%;background:#080c13;border-left:1px solid #263248;box-shadow:-24px 0 70px rgba(0,0,0,.45);}
-.bot-drawer-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 18px;border-bottom:1px solid #202a39;background:#0c111a;}
+.bot-drawer-panel{display:flex;flex-direction:column;min-width:0;height:100vh;height:100dvh;max-height:100dvh;overflow:hidden;background:#080c13;border-left:1px solid #263248;box-shadow:-24px 0 70px rgba(0,0,0,.45);}
+.bot-drawer-head{display:flex;flex:0 0 auto;align-items:center;justify-content:space-between;gap:12px;padding:15px 18px;border-bottom:1px solid #202a39;background:#0c111a;}
 .bot-drawer-title{margin:0;color:#f1f5f9;font-size:16px;font-weight:850;}
 .bot-drawer-close{width:38px;height:38px;border:1px solid #2a3548;border-radius:9px;background:#111925;color:#dbe4ef;font-size:22px;line-height:1;cursor:pointer;}
-.bot-drawer-body{flex:1;min-height:0;overflow-y:auto;padding:18px;}
-.bot-drawer .bot-order-actions.is-sticky{position:sticky;bottom:-18px;margin:14px -18px -18px;padding:12px 18px;background:linear-gradient(180deg,rgba(8,12,19,.7),#080c13 30%);border-top:1px solid #202a39;z-index:2;}
+.bot-drawer-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:18px 18px 28px;}
+.bot-drawer .bot-order-actions.is-sticky{position:sticky;bottom:0;margin:14px 0 0;padding:12px 0 2px;background:linear-gradient(180deg,rgba(8,12,19,0),#080c13 28%);border-top:1px solid #202a39;z-index:2;}
+.bot-drawer .bot-order-candidates{max-height:none;overflow:visible;}
 body.bot-drawer-open{overflow:hidden;}
 
 /* ---- Orders workspace ---- */
@@ -243,6 +260,7 @@ body.bot-drawer-open{overflow:hidden;}
 .bot-order-row-lines{margin-top:9px;color:#b9c3d1;font-size:11.5px;line-height:1.45;}
 .bot-order-state{display:inline-flex;align-items:center;border:1px solid #2b3547;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:800;white-space:nowrap;}
 .bot-order-state.pending,.bot-order-state.needs_order_resolution{border-color:#8a621a;background:#35270e;color:#fde68a;}
+.bot-order-state.payment_reconciliation{border-color:#991b1b;background:#351316;color:#fecaca;}
 .bot-order-state.confirmed,.bot-order-state.created_new,.bot-order-state.linked_existing,.bot-order-state.order_created{border-color:#276749;background:#102b20;color:#bbf7d0;}
 .bot-order-state.rejected{border-color:#783743;background:#2d171c;color:#fecaca;}
 .bot-orders-detail{position:relative;min-width:0;background:#0a0e15;border:1px solid #1e2736;border-radius:16px;padding:18px;min-height:620px;overflow:visible;}
@@ -286,9 +304,15 @@ body.bot-drawer-open{overflow:hidden;}
 .bot-order-action[disabled]{opacity:.55;cursor:wait;}
 .bot-order-resolution{margin-top:12px;padding:12px;border:1px solid #5e4618;border-radius:12px;background:#191408;}
 .bot-order-resolution-grid{display:grid;grid-template-columns:minmax(190px,1fr) minmax(210px,1fr) auto;gap:8px;margin-top:10px;}
+.bot-order-candidate-search{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-top:10px;}
+.bot-order-candidates{display:flex;flex-direction:column;gap:7px;margin-top:8px;max-height:280px;overflow-y:auto;}
+.bot-order-candidate{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;text-align:left;border:1px solid #273246;border-radius:10px;background:#101722;color:#dce5ef;padding:9px 10px;cursor:pointer;}
+.bot-order-candidate:hover,.bot-order-candidate.selected{border-color:#3b82f6;background:#12213a;}.bot-order-candidate[disabled]{opacity:.5;cursor:not-allowed;}.bot-order-candidate b{display:block;font-size:11.5px;}.bot-order-candidate span{display:block;margin-top:3px;color:#8190a4;font-size:9.8px;line-height:1.4;}.bot-order-candidate strong{font-size:11px;color:#f8fafc;white-space:nowrap;}
+.bot-order-override{display:grid;grid-template-columns:minmax(180px,.8fr) minmax(220px,1.4fr);gap:8px;margin-top:8px;}
 .bot-order-reject{margin-top:10px;padding:11px;border:1px solid #4e242b;border-radius:11px;background:#1d0f13;}
 .bot-order-reject-grid{display:grid;grid-template-columns:minmax(180px,.8fr) minmax(220px,1.5fr) auto;gap:8px;margin-top:8px;}
 .bot-order-feedback{margin-top:10px;color:#bfdbfe;font-size:11.5px;}
+.bot-order-reconciliation{margin:0 0 14px;border-color:#7f1d1d;background:#2a1013;color:#fecaca;}
 .bot-client-commercial{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin:12px 0;}
 .bot-client-commercial-item{background:#101621;border:1px solid #202a39;border-radius:9px;padding:9px;min-width:0;}
 .bot-client-commercial-item b{display:block;color:#e7ecf3;font-size:11.5px;overflow-wrap:anywhere;}
@@ -305,23 +329,23 @@ body.bot-drawer-open{overflow:hidden;}
 .bot-analysis-disclosure{margin:11px 0;border:1px solid #202938;border-radius:10px;background:#0d131c;}
 .bot-analysis-disclosure summary{cursor:pointer;padding:10px 12px;color:#b9c4d2;font-size:11.5px;font-weight:750;}
 .bot-analysis-body{padding:0 10px 10px;}
-@media(max-width:1100px){.bot-clients-workspace{grid-template-columns:minmax(250px,300px) minmax(0,1fr)}.bot-client-conversation{grid-column:2;grid-row:1}.bot-client-context{grid-column:2;grid-row:2;position:static;max-height:none;overflow:visible}.bot-clients-sidebar{grid-column:1;grid-row:1 / span 2}.bot-context-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
+@media(max-width:1100px){.bot-clients-workspace{grid-template-columns:minmax(250px,300px) minmax(0,1fr)}}
 @media(max-width:880px){
   .bot-orders-shell{grid-template-columns:1fr;min-height:0}.bot-orders-list{max-height:none;overflow:visible}.bot-orders-detail{min-height:0}.bot-order-facts{grid-template-columns:repeat(2,minmax(0,1fr));}
-  .bot-client-mobile-nav{position:sticky;top:0;z-index:8;display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:-2px 0 12px;padding:6px;border:1px solid #263044;border-radius:12px;background:rgba(12,15,23,.94);backdrop-filter:blur(10px);}
+  .bot-client-mobile-nav{position:sticky;top:0;z-index:8;display:grid;grid-template-columns:repeat(2,1fr);gap:5px;margin:-2px 0 12px;padding:6px;border:1px solid #263044;border-radius:12px;background:rgba(12,15,23,.94);backdrop-filter:blur(10px);}
   .bot-client-mobile-tab{border:0;border-radius:8px;background:transparent;color:#8190a5;padding:9px 7px;font:800 11px/1.2 inherit;cursor:pointer;}
   .bot-client-mobile-tab[aria-selected="true"]{background:#1d4ed8;color:#fff;}
   .bot-clients-workspace{display:block;}
-  .bot-clients-sidebar,.bot-client-conversation,.bot-client-context{display:none;position:static;max-height:none;overflow:visible;min-height:0;}
-  .bot-clients-workspace[data-active-pane="list"] .bot-clients-sidebar,.bot-clients-workspace[data-active-pane="conversation"] .bot-client-conversation,.bot-clients-workspace[data-active-pane="context"] .bot-client-context{display:block;}
+  .bot-clients-sidebar,.bot-client-conversation{display:none;position:static;max-height:none;overflow:visible;min-height:0;}
+  .bot-clients-workspace[data-active-pane="list"] .bot-clients-sidebar,.bot-clients-workspace[data-active-pane="conversation"] .bot-client-conversation{display:block;}
   .bot-clients-list{max-height:none;overflow:visible;}
   .bot-conversation-messages{max-height:none;overflow:visible;}
   .bot-context-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
 }
-@media(max-width:560px){.bot-orders-toolbar{align-items:stretch;flex-direction:column}.bot-orders-shell{gap:10px}.bot-orders-detail{padding:14px}.bot-order-detail-head{flex-direction:column}.bot-order-progress{grid-template-columns:1fr}.bot-order-resolution-grid,.bot-order-reject-grid{grid-template-columns:1fr}.bot-order-action{width:100%}.bot-client-commercial{grid-template-columns:repeat(2,minmax(0,1fr));}.bot-client-order-row{align-items:flex-start;flex-direction:column}.bot-client-order-row .bot-order-action{width:auto}.bot-order-media-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.bot-drawer{display:block}.bot-drawer-backdrop{display:none}.bot-drawer-panel{width:100%;border-left:0}.bot-drawer-body{padding:14px}.bot-drawer .bot-order-actions.is-sticky{bottom:-14px;margin:12px -14px -14px;padding:12px 14px}.bot-context-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.bot-orders-toolbar{align-items:stretch;flex-direction:column}.bot-orders-shell{gap:10px}.bot-orders-detail{padding:14px}.bot-order-detail-head{flex-direction:column}.bot-order-progress{grid-template-columns:1fr}.bot-order-resolution-grid,.bot-order-reject-grid,.bot-order-candidate-search,.bot-order-override{grid-template-columns:1fr}.bot-order-action{width:100%}.bot-client-commercial{grid-template-columns:repeat(2,minmax(0,1fr));}.bot-client-order-row{align-items:flex-start;flex-direction:column}.bot-client-order-row .bot-order-action{width:auto}.bot-order-media-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.bot-drawer{display:block}.bot-drawer-backdrop{display:none}.bot-drawer-panel{width:100%;border-left:0}.bot-drawer-body{padding:14px 14px 24px}.bot-drawer .bot-order-actions.is-sticky{bottom:0;margin:12px 0 0;padding:12px 0 2px}.bot-context-grid{grid-template-columns:1fr 1fr}.bot-conversation-head{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start}.bot-conversation-meta{min-width:0}.bot-conversation-head>.bot-stage-chip{grid-column:2;justify-self:start}.bot-conversation-actions{grid-column:1/-1;width:100%;justify-content:flex-end}.bot-potential-strip{grid-template-columns:minmax(0,1fr) auto}.bot-potential-state{grid-column:1/-1;justify-self:start}}
 @media(max-width:390px){.bot-app{padding-left:10px;padding-right:10px}.bot-card{padding:14px}.bot-tabs{margin-left:-4px;margin-right:-4px}.bot-tab{padding-left:11px;padding-right:11px}.bot-orders-filter{flex:1;justify-content:center}.bot-order-facts{grid-template-columns:1fr 1fr}.bot-order-media-grid{grid-template-columns:1fr 1fr}.bot-client-tags{display:none}}
 @media(max-width:320px){.bot-top{align-items:stretch}.bot-top-actions{width:100%}.bot-top-actions .bot-btn{flex:1;padding-left:10px;padding-right:10px}.bot-order-facts,.bot-client-commercial{grid-template-columns:1fr}.bot-order-media-grid{grid-template-columns:1fr}.bot-order-row-top{flex-direction:column}.bot-order-state{white-space:normal}}
-@media(prefers-reduced-motion:reduce){.bot-panel.active,.bot-pill.on .dot,.bot-live-chip i,.bot-circle.current i,.bot-client-order-action.is-pending{animation:none!important}.bot-tab-ind,.bot-client-row,.bot-order-row,.bot-btn,.bot-client-action,.bot-drawer{transition:none!important}}
+@media(prefers-reduced-motion:reduce){.bot-panel.active,.bot-pill.on .dot,.bot-live-chip i,.bot-circle.current i,.bot-client-order-action.is-pending,.bot-client-row.needs-action::after,.bot-head-action.needs-action{animation:none!important}.bot-tab-ind,.bot-client-row,.bot-order-row,.bot-btn,.bot-client-action,.bot-drawer{transition:none!important}}
 /* scrollbars */
 .bot-console-box::-webkit-scrollbar,.bot-clients-list::-webkit-scrollbar,.bot-client-detail::-webkit-scrollbar,.bot-kb-list::-webkit-scrollbar,.bot-orders-list::-webkit-scrollbar{width:8px;}
 .bot-console-box::-webkit-scrollbar-thumb,.bot-clients-list::-webkit-scrollbar-thumb,.bot-client-detail::-webkit-scrollbar-thumb,.bot-kb-list::-webkit-scrollbar-thumb,.bot-orders-list::-webkit-scrollbar-thumb{background:#222a39;border-radius:8px;}
@@ -563,7 +587,6 @@ body.bot-drawer-open{overflow:hidden;}
       <div id="bot-client-mobile-nav" class="bot-client-mobile-nav" role="tablist" aria-label="Розділи картки клієнта">
         <button type="button" class="bot-client-mobile-tab" role="tab" aria-selected="true" aria-controls="bot-clients-list" data-client-pane="list">Клієнти</button>
         <button type="button" class="bot-client-mobile-tab" role="tab" aria-selected="false" aria-controls="bot-client-conversation" data-client-pane="conversation">Переписка</button>
-        <button type="button" class="bot-client-mobile-tab" role="tab" aria-selected="false" aria-controls="bot-client-context" data-client-pane="context">Контекст</button>
       </div>
       <div class="bot-clients-workspace" data-active-pane="list">
         <aside class="bot-clients-sidebar" aria-label="Список клієнтів">
@@ -586,9 +609,6 @@ body.bot-drawer-open{overflow:hidden;}
         <main id="bot-client-conversation" class="bot-client-conversation" aria-live="polite">
           <div class="bot-client-pane-empty">Оберіть клієнта, щоб відкрити переписку.</div>
         </main>
-        <aside id="bot-client-context" class="bot-client-context" aria-live="polite" aria-label="Комерційний контекст клієнта">
-          <div class="bot-client-pane-empty">Тут з’являться оплата, товари, замовлення та наступна дія.</div>
-        </aside>
       </div>
     </div>
   </section>
@@ -633,6 +653,19 @@ body.bot-drawer-open{overflow:hidden;}
     </div>
   </section>
   {% endif %}
+
+  <div id="bot-client-drawer" class="bot-drawer" hidden>
+    <button type="button" class="bot-drawer-backdrop" data-client-drawer-close aria-label="Закрити розширену картку клієнта"></button>
+    <section class="bot-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="bot-client-drawer-title" tabindex="-1">
+      <header class="bot-drawer-head">
+        <h2 id="bot-client-drawer-title" class="bot-drawer-title">Розширена картка клієнта</h2>
+        <button type="button" class="bot-drawer-close" data-client-drawer-close aria-label="Закрити">×</button>
+      </header>
+      <div id="bot-client-context" class="bot-drawer-body bot-client-context" aria-live="polite">
+        <div class="bot-client-pane-empty">Оберіть клієнта, щоб відкрити контекст.</div>
+      </div>
+    </section>
+  </div>
 
   <div id="bot-payment-drawer" class="bot-drawer" hidden>
     <button type="button" class="bot-drawer-backdrop" data-payment-drawer-close aria-label="Закрити перевірку оплати"></button>
@@ -699,6 +732,7 @@ body.bot-drawer-open{overflow:hidden;}
     tabs.forEach(t=>t.classList.toggle('active', t===btn));
     panels.forEach(p=>p.classList.toggle('active', p.dataset.panel===btn.dataset.tab));
     moveInd(btn);
+    btn.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'});
     if(save){ try{ localStorage.setItem('bot_tab', btn.dataset.tab); }catch(e){} }
     if(btn.dataset.tab==='clients' && !loaded.clients){ loaded.clients=true; Clients.load(''); }
     if(btn.dataset.tab==='kb' && !loaded.kb){ loaded.kb=true; KB.load(); }
@@ -909,6 +943,7 @@ body.bot-drawer-open{overflow:hidden;}
   if(notificationRefresh) notificationRefresh.addEventListener('click',loadNotificationReview);
 
   const paymentReviewActionTemplate='{% url "management_bot_payment_review_action_api" 999999999 %}';
+  const orderCandidatesBase='{% url "management_bot_order_candidates_api" %}';
   function paymentReviewActionUrl(id){return paymentReviewActionTemplate.replace('999999999',String(id));}
   function providerTruthLabel(payment){
     return humanLabel(paymentTruthLabels,(payment&&payment.provider_truth)||'unverified','Не підтверджено provider');
@@ -934,8 +969,8 @@ body.bot-drawer-open{overflow:hidden;}
     function focusable(){return panel?Array.from(panel.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')).filter(el=>el.offsetParent!==null):[];}
     function focusDrawerAction(){const target=body.querySelector('[data-review-autofocus]')||focusable()[0]||panel;target.focus();target.scrollIntoView({block:'center'});}
     function restoreDrawerFocus(){
-      if(returnFocus&&document.contains(returnFocus))returnFocus.focus();
-      else {const fallback=[document.querySelector('.bot-client-row.active'),document.querySelector('[data-client-pane="context"]'),document.querySelector('[data-tab="clients"]')].find(candidate=>candidate&&candidate.offsetParent!==null);if(fallback)fallback.focus();}
+      if(returnFocus&&document.contains(returnFocus)&&returnFocus.offsetParent!==null)returnFocus.focus();
+      else {const fallback=[document.querySelector('.bot-client-row.active'),document.querySelector('[data-tab="clients"]')].find(candidate=>candidate&&candidate.offsetParent!==null);if(fallback)fallback.focus();}
       returnFocus=null;
     }
     function close(){if(!drawer||drawer.hidden)return;drawer.hidden=true;document.body.classList.remove('bot-drawer-open');currentItem=null;restoreDrawerFocus();}
@@ -949,7 +984,8 @@ body.bot-drawer-open{overflow:hidden;}
     }
     function open(item,trigger){
       if(!drawer||!body||!panel||!item||!renderer)return;
-      currentItem=item;returnFocus=trigger||document.activeElement;body.replaceChildren();renderer(body,item,{drawer:true});drawer.hidden=false;document.body.classList.add('bot-drawer-open');requestAnimationFrame(focusDrawerAction);
+      const clientDrawer=document.getElementById('bot-client-drawer');const proposedFocus=trigger||document.activeElement;if(clientDrawer&&!clientDrawer.hidden)clientDrawer.hidden=true;
+      currentItem=item;returnFocus=(proposedFocus&&proposedFocus.offsetParent!==null)?proposedFocus:[document.querySelector('.bot-client-row.active'),document.querySelector('[data-tab="clients"]')].find(candidate=>candidate&&candidate.offsetParent!==null);body.replaceChildren();renderer(body,item,{drawer:true});drawer.hidden=false;document.body.classList.add('bot-drawer-open');requestAnimationFrame(focusDrawerAction);
     }
     function setRenderer(fn){renderer=fn;}
     function refresh(item){if(!drawer||drawer.hidden||!item)return;currentItem=item;body.replaceChildren();renderer(body,item,{drawer:true});requestAnimationFrame(focusDrawerAction);}
@@ -957,6 +993,18 @@ body.bot-drawer-open{overflow:hidden;}
     if(drawer){drawer.querySelectorAll('[data-payment-drawer-close]').forEach(button=>button.addEventListener('click',close));drawer.addEventListener('keydown',trapDrawerFocus);}
     document.addEventListener('keydown',event=>{if(event.key==='Escape'&&drawer&&!drawer.hidden){event.preventDefault();close();}});
     return {open:open,close:close,setRenderer:setRenderer,refresh:refresh,currentReviewId:currentReviewId};
+  })();
+  const ClientContextDrawer=(function(){
+    const drawer=document.getElementById('bot-client-drawer');
+    const panel=drawer&&drawer.querySelector('.bot-drawer-panel');
+    let returnFocus=null;
+    function focusable(){return panel?Array.from(panel.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')).filter(el=>el.offsetParent!==null):[];}
+    function close(){if(!drawer||drawer.hidden)return;drawer.hidden=true;document.body.classList.remove('bot-drawer-open');if(returnFocus&&document.contains(returnFocus))returnFocus.focus();returnFocus=null;}
+    function open(trigger){if(!drawer||!panel)return;PaymentReviewDrawer.close();returnFocus=trigger||document.activeElement;drawer.hidden=false;document.body.classList.add('bot-drawer-open');requestAnimationFrame(()=>{const target=focusable()[0]||panel;target.focus();});}
+    function trap(event){if(!drawer||drawer.hidden||event.key!=='Tab')return;const items=focusable();if(!items.length){event.preventDefault();panel.focus();return;}const first=items[0],last=items[items.length-1];if(document.activeElement===panel||!panel.contains(document.activeElement)){event.preventDefault();(event.shiftKey?last:first).focus();}else if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}}
+    if(drawer){if(drawer.parentElement!==document.body)document.body.appendChild(drawer);drawer.querySelectorAll('[data-client-drawer-close]').forEach(button=>button.addEventListener('click',close));drawer.addEventListener('keydown',trap);}
+    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&drawer&&!drawer.hidden){event.preventDefault();close();}});
+    return {open:open,close:close,isOpen:()=>Boolean(drawer&&!drawer.hidden)};
   })();
   /* ============ Clients ============ */
   const Clients=(function(){
@@ -969,11 +1017,16 @@ body.bot-drawer-open{overflow:hidden;}
     const filtersEl=document.getElementById('bot-client-filters');
     const totalEl=document.getElementById('clients-total');
     const base='{% url "management_bot_clients_api" %}';
+    const initialQuery=new URLSearchParams(window.location.search);
+    let requestedClientId=initialQuery.get('section')==='clients'?Number(initialQuery.get('client_id')||0):0;
+    let requestedMessageId=initialQuery.get('section')==='clients'?Number(initialQuery.get('message_id')||0):0;
     let activeId=null;
     let currentView='active';
     let convId=null,convLastId=0,convInFlight=false;
     function node(tag,className,text){const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=text;return el;}
     function stageCls(s){ return 'st-'+(s||'new'); }
+    function percent(value){const parsed=Number(value);return Number.isFinite(parsed)?Math.round(parsed*100)+'%':'—';}
+    function potentialScore(c){const p=c.potential||{};const probability=p.probability===null||p.probability===undefined?'':(' · '+percent(p.probability));return {text:(p.label||'Ще не оцінено')+probability,state:p.state||'unknown'};}
     function setMobilePane(pane){
       if(!workspaceEl)return;workspaceEl.dataset.activePane=pane;
       if(mobileNav)mobileNav.querySelectorAll('[data-client-pane]').forEach(button=>{const active=button.dataset.clientPane===pane;button.setAttribute('aria-selected',active?'true':'false');button.tabIndex=active?0:-1;});
@@ -985,17 +1038,19 @@ body.bot-drawer-open{overflow:hidden;}
     }
     function listSubtitle(c){return [c.username||c.igsid,c.current_product_title?('Товар: '+c.current_product_title):'',c.primary_objection?('Заперечення: '+(c.primary_objection_label||c.primary_objection)):'',c.next_followup_at?('Наступний контакт: '+fmt(c.next_followup_at)):'',c.delivery_status_label?('Потрібна увага: '+c.delivery_status_label):''].filter(Boolean).join(' · ');}
     async function load(q){
-      const params=new URLSearchParams(); params.set('view', currentView); if(q) params.set('q', q);
+      const params=new URLSearchParams(); params.set('view', currentView); if(q) params.set('q', q);if(requestedClientId)params.set('client_id',String(requestedClientId));
       try{
         const response=await fetch(base+'?'+params.toString(),{headers:{'X-Requested-With':'XMLHttpRequest'}});const d=await response.json();if(!response.ok||!d.success)throw new Error();
         setBadge(document.getElementById('badge-clients'),d.total||0);if(totalEl)totalEl.textContent=(d.total||0)+' усього';listEl.replaceChildren();
+        let requestedOpen=null;
         (d.clients||[]).forEach(c=>{
-          const row=node('div','bot-client-row'+(c.id===activeId?' active':''));row.setAttribute('role','button');row.setAttribute('tabindex','0');row.setAttribute('aria-label','Відкрити картку клієнта: '+(c.name||c.username||c.igsid||'без імені'));
-          const meta=node('div','bot-client-meta');const name=node('div','bot-client-name',c.name||c.username||c.igsid||'Без імені');const score=node('span','bot-client-score',c.analysis_band_label||('Попередня оцінка · '+(c.buying_readiness||0)+'%'));name.append(' ',score);meta.append(name,node('div','bot-client-sub',listSubtitle(c)));
+          const row=node('div','bot-client-row'+(c.id===activeId?' active':'')+(c.manager_action_required?' needs-action':''));row.setAttribute('role','button');row.setAttribute('tabindex','0');row.setAttribute('aria-label','Відкрити картку клієнта: '+(c.name||c.username||c.igsid||'без імені')+(c.manager_action_required?' — потрібна дія менеджера':''));
+          const meta=node('div','bot-client-meta');const name=node('div','bot-client-name',c.name||c.username||c.igsid||'Без імені');const potential=potentialScore(c);const score=node('span','bot-client-score is-'+potential.state,potential.text);meta.append(name,score,node('div','bot-client-sub',listSubtitle(c)));
           const tags=node('div','bot-client-tags');tags.append(node('span','bot-category-badge cat-'+(c.interaction_tone||'neutral'),c.interaction_type_label||'Не визначено'),node('span','bot-stage-chip '+stageCls(c.stage),c.stage_label||'Новий'));
-          row.append(avatar(c),meta,tags);const openRow=()=>{activeId=c.id;listEl.querySelectorAll('.bot-client-row').forEach(el=>el.classList.remove('active'));row.classList.add('active');setMobilePane('conversation');detail(c.id);};row.addEventListener('click',openRow);row.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openRow();}});bindAvatarFallback(row,c.name||c.username||c.igsid);listEl.appendChild(row);
+          row.append(avatar(c),meta,tags);const openRow=()=>{activeId=c.id;requestedClientId=0;listEl.querySelectorAll('.bot-client-row').forEach(el=>el.classList.remove('active'));row.classList.add('active');setMobilePane('conversation');detail(c.id);};row.addEventListener('click',openRow);row.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openRow();}});bindAvatarFallback(row,c.name||c.username||c.igsid);listEl.appendChild(row);if(requestedClientId&&Number(c.id)===requestedClientId)requestedOpen=openRow;
         });
         if(!(d.clients||[]).length)listEl.appendChild(node('div','bot-empty','Ще немає клієнтів.'));
+        if(requestedOpen)requestAnimationFrame(requestedOpen);
       }catch(_){listEl.replaceChildren(node('div','bot-empty','Не вдалося завантажити список клієнтів.'));}
     }
     function currentQuery(){ return searchEl ? searchEl.value.trim() : ''; }
@@ -1078,15 +1133,16 @@ body.bot-drawer-open{overflow:hidden;}
       const mediaRoot=node('div');mediaRoot.style.cssText='display:flex;flex-wrap:wrap;margin-top:4px;';(m.media||[]).forEach(item=>{const url=safeHttpUrl(item.url);if(!url)return;const label=mediaLabels[item.role]||'Невизначене зображення';const link=node('a');link.href=url;link.target='_blank';link.rel="noopener noreferrer";link.title=label;link.style.cssText='display:inline-flex;flex-direction:column;gap:3px;margin:5px 5px 0 0;color:inherit;text-decoration:none;';const image=node('img');image.src=url;image.alt=label;image.loading='lazy';image.style.cssText='width:86px;height:66px;object-fit:cover;border-radius:6px;border:1px solid rgba(148,163,184,.35);';link.append(image,node('span','bot-msg-meta',label));mediaRoot.appendChild(link);});if(mediaRoot.children.length)message.appendChild(mediaRoot);message.appendChild(node('span','bot-msg-meta',roleLabel+(m.time?(' · '+fmtDateTime(m.time)):'')));root.appendChild(message);
     }
     function renderConversation(d){
-      const c=d.client;conversationEl.replaceChildren();const head=node('header','bot-conversation-head');const meta=node('div','bot-conversation-meta');meta.append(node('div','bot-conversation-title',c.name||c.username||c.igsid||'Клієнт'),node('div','bot-conversation-sub',[c.username?('@'+c.username):c.igsid,c.phone,c.ad_title?('Реклама: '+c.ad_title):''].filter(Boolean).join(' · ')));head.append(avatar(c,46),meta,node('span','bot-stage-chip '+stageCls(c.stage),c.stage_label||'Новий'));conversationEl.appendChild(head);
+      const c=d.client;const active=d.review&&d.review.active;conversationEl.replaceChildren();const head=node('header','bot-conversation-head');const meta=node('div','bot-conversation-meta');meta.append(node('div','bot-conversation-title',c.name||c.username||c.igsid||'Клієнт'),node('div','bot-conversation-sub',[c.username?('@'+c.username):c.igsid,c.phone,c.ad_title?('Реклама: '+c.ad_title):''].filter(Boolean).join(' · ')));const actions=node('div','bot-conversation-actions');if(active&&active.approval&&active.approval.needs_action){const review=node('button','bot-head-action needs-action',active.approval.state==='needs_order_resolution'?'Прив’язати замовлення':'Перевірити оплату');review.type='button';review.addEventListener('click',()=>PaymentReviewDrawer.open(active,review));actions.appendChild(review);}const advanced=node('button','bot-head-action icon','⚙');advanced.type='button';advanced.title='Розширена картка клієнта';advanced.setAttribute('aria-label','Відкрити розширену картку клієнта');advanced.addEventListener('click',()=>ClientContextDrawer.open(advanced));actions.appendChild(advanced);head.append(avatar(c,46),meta,node('span','bot-stage-chip '+stageCls(c.stage),c.stage_label||'Новий'),actions);conversationEl.appendChild(head);
+      const summary=node('div','bot-chat-summary');const funnel=node('div','bot-funnel');(d.funnel||[]).forEach(step=>{const actionable=Boolean(active&&step.current);const chip=node(actionable?'button':'span','bot-circle'+(step.done?' done':'')+(step.current?' current':''));if(actionable){chip.type='button';chip.setAttribute('aria-label','Відкрити дію для етапу '+step.label);chip.addEventListener('click',()=>PaymentReviewDrawer.open(active,chip));}chip.append(node('i'),document.createTextNode(step.label));funnel.appendChild(chip);});summary.appendChild(funnel);
+      const p=d.potential||{};const pstrip=node('div','bot-potential-strip is-'+(p.state||'unknown'));const pmain=node('div','bot-potential-main');pmain.append(node('div','bot-potential-label',p.label||'Ще не оцінено'),node('div','bot-potential-meta',[p.interaction_label,p.fresh===false?'аналіз потребує оновлення':'',p.analyzed_at?('аналіз '+fmtDateTime(p.analyzed_at)):''].filter(Boolean).join(' · ')));const probability=node('div','bot-potential-value');probability.append(node('b','',p.probability===null||p.probability===undefined?'—':percent(p.probability)),node('span','','ймовірність'));const confidence=node('div','bot-potential-value');confidence.append(node('b','',p.confidence===null||p.confidence===undefined?'—':percent(p.confidence)),node('span','','впевненість'));const state=node('span','bot-potential-state',p.state==='current'?'Актуально':p.state==='stale'?'Потрібен аналіз':p.state==='policy'?'Політика':'Немає оцінки');pstrip.append(pmain,probability,confidence,state);if((p.evidence||[]).length){const evidence=node('details','bot-potential-evidence');evidence.appendChild(node('summary','', 'На чому базується · '+(p.evidence_message_ids||[]).length));const body=node('div','bot-potential-evidence-body');(p.evidence||[]).slice(0,6).forEach(item=>body.appendChild(node('div','', '“'+(item.quote||'')+'”'+(item.claim?(' · '+item.claim):''))));evidence.appendChild(body);pstrip.appendChild(evidence);}summary.appendChild(pstrip);const facts=node('div','bot-conversation-role-note');facts.append(node('span','bot-role-chip','Оплата: '+providerTruthLabel(d.payment||{})),node('span','bot-role-chip','Фізичних замовлень: '+((d.orders&&d.orders.physical_count)||0)));summary.appendChild(facts);conversationEl.appendChild(summary);
       const roles=node('div','bot-conversation-role-note');roles.append(node('span','bot-role-chip client','Клієнт'),node('span','bot-role-chip manager','Менеджер — пріоритетне джерело'),node('span','bot-role-chip agent','AI agent'));conversationEl.appendChild(roles);
-      const messages=node('div','bot-conversation-messages');messages.id='bot-msgs';(d.messages||[]).forEach(message=>appendMessage(messages,message));if(!(d.messages||[]).length)messages.appendChild(node('div','bot-empty','У переписці ще немає повідомлень.'));conversationEl.appendChild(messages);bindAvatarFallback(conversationEl,c.name||c.username||c.igsid);convId=c.id;convLastId=d.last_message_id||0;messages.scrollTop=messages.scrollHeight;
+      const messages=node('div','bot-conversation-messages');messages.id='bot-msgs';(d.messages||[]).forEach(message=>appendMessage(messages,message));if(!(d.messages||[]).length)messages.appendChild(node('div','bot-empty','У переписці ще немає повідомлень.'));conversationEl.appendChild(messages);bindAvatarFallback(conversationEl,c.name||c.username||c.igsid);convId=c.id;convLastId=d.last_message_id||0;if(requestedMessageId){const evidence=messages.querySelector('[data-mid="'+requestedMessageId+'"]');if(evidence){evidence.classList.add('evidence-highlight');evidence.scrollIntoView({block:'center'});}requestedMessageId=0;}else messages.scrollTop=messages.scrollHeight;
     }
     function renderContext(d,id){
       const c=d.client;contextEl.replaceChildren();const status=section(contextEl,'Стан клієнта');const grid=node('div','bot-context-grid');contextFact(grid,'Категорія',c.interaction_type_label||'Не визначено');contextFact(grid,'Намір',c.intent_label||c.intent||'—');contextFact(grid,'Діалог веде',d.automation&&d.automation.owner==='manager'?'Менеджер':'Бот');contextFact(grid,'Стан виконання',fulfillmentLabel(d));contextFact(grid,'Provider payment',providerTruthLabel(d.payment||{}));contextFact(grid,'Перевірка менеджера',managerTruthLabel(d.payment||{}));status.appendChild(grid);
       const next=nextAction(d);const nextBlock=node('div','bot-context-next');nextBlock.style.marginTop='9px';nextBlock.append(node('span','','Наступна дія'),node('b','',next[0]),node('span','',next[1]));status.appendChild(nextBlock);const active=d.review&&d.review.active;if(active&&active.approval&&active.approval.needs_action){const review=node('button','bot-client-order-action is-pending');review.type='button';review.append(node('span','',active.approval.state==='needs_order_resolution'?"Потрібно прив'язати замовлення":'Потрібно підтвердити оплату'),node('span','',active.approval.state==='needs_order_resolution'?'Оберіть існуюче або створіть нове':'Звірте чек, товари та суму'));review.addEventListener('click',()=>PaymentReviewDrawer.open(active,review));status.appendChild(review);}
       const controls=section(contextEl,'Керування діалогом');const primary=node('div','bot-action-primary');if(c.hidden){primary.appendChild(node('span','bot-stage-chip st-cold','Бот не обробляє прихованого клієнта'));}else{const pause=node('button','bot-client-action primary '+(c.bot_paused?'resume':'pause'),c.opted_out?'Підтвердити нову згоду':(c.bot_paused?'▶ Відновити бота':'⏸ Зупинити бота'));pause.type='button';pause.dataset.act='resume';if(!c.bot_paused&&!c.opted_out)pause.dataset.act='pause';if(c.opted_out)pause.dataset.optout='1';primary.appendChild(pause);}controls.appendChild(primary);const actions=node('div','bot-action-state-buttons');const visibility=node('button','bot-client-action '+(c.hidden?'restore':'hide'),c.hidden?'↩ Повернути до активних':'Приховати');visibility.type='button';visibility.dataset.act=c.hidden?'unhide':'hide';const lost=node('button','bot-client-action lost','Позначити як втрачено');lost.type='button';lost.dataset.act='lost';actions.append(visibility,lost);controls.appendChild(actions);const feedbackEl=node('div','bot-action-feedback');feedbackEl.id='bot-action-feedback';feedbackEl.setAttribute('role','status');feedbackEl.setAttribute('aria-live','polite');feedbackEl.hidden=true;controls.appendChild(feedbackEl);controls.querySelectorAll('[data-act]').forEach(button=>button.addEventListener('click',()=>runClientAction(id,button.dataset.act,button)));
-      const funnel=section(contextEl,'Воронка');const funnelRoot=node('div','bot-funnel');(d.funnel||[]).forEach(step=>{const actionable=Boolean(active&&step.current);const chip=node(actionable?'button':'span','bot-circle'+(step.done?' done':'')+(step.current?' current':''));if(actionable){chip.type='button';chip.setAttribute('aria-label','Відкрити перевірку для етапу '+step.label);chip.addEventListener('click',()=>PaymentReviewDrawer.open(active,chip));}chip.append(node('i'),document.createTextNode(step.label));funnelRoot.appendChild(chip);});funnel.appendChild(funnelRoot);
       renderOrders(contextEl,d);if(c.memory){const memory=section(contextEl,'Пам’ять');memory.appendChild(node('div','bot-mem',c.memory));}
       if((d.signals||[]).length){const analysis=section(contextEl,'Аналіз');const details=node('details','bot-analysis-disclosure');const summary=node('summary','', 'Сигнали та патерни · '+d.signals.length);details.appendChild(summary);const body=node('div','bot-analysis-body');body.appendChild(node('div','bot-hint','Сигнали показують події діалогу, але самі по собі не підтверджують оплату.'));(d.signals||[]).slice(0,18).forEach(signal=>body.appendChild(node('span','bot-signal',(signal.type_label||humanLabel(signalLabels,signal.type,'Інший сигнал'))+' ×'+signal.count+(signal.latest_value?(': '+signal.latest_value):''))));details.appendChild(body);analysis.appendChild(details);}
       if((d.followups||[]).length){const followups=section(contextEl,'Заплановані контакти',d.followups.length);d.followups.slice(0,8).forEach(item=>followups.appendChild(node('div','bot-deal','#'+item.id+' · '+humanLabel(followupKindLabels,item.kind)+' · '+humanLabel(followupStatusLabels,item.status)+' · '+fmt(item.due_at))));}
@@ -1125,7 +1181,7 @@ body.bot-drawer-open{overflow:hidden;}
       btn.addEventListener('click',()=>{
         currentView=btn.getAttribute('data-client-view')||'active';
         filtersEl.querySelectorAll('[data-client-view]').forEach(b=>b.classList.toggle('active', b===btn));
-        activeId=null;convId=null;conversationEl.replaceChildren(node('div','bot-client-pane-empty','Оберіть клієнта зі списку.'));contextEl.replaceChildren(node('div','bot-client-pane-empty','Комерційний контекст з’явиться після вибору клієнта.'));setMobilePane('list');
+        activeId=null;convId=null;ClientContextDrawer.close();conversationEl.replaceChildren(node('div','bot-client-pane-empty','Оберіть клієнта зі списку.'));contextEl.replaceChildren(node('div','bot-client-pane-empty','Комерційний контекст з’явиться після вибору клієнта.'));setMobilePane('list');
         load(searchEl?searchEl.value.trim():'');
       });
     });
@@ -1154,12 +1210,19 @@ body.bot-drawer-open{overflow:hidden;}
     let loadGeneration=0;
     let detailReturnFocus=null;
     function node(tag,className,text){const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=text;return el;}
-    function stateLabel(state){return {pending:'Очікує підтвердження',needs_order_resolution:"Потрібно прив'язати замовлення",confirmed:'Підтверджено',created_new:'Створено нове',linked_existing:"Прив'язано існуюче",order_created:'Замовлення створено',rejected:'Відхилено'}[state]||'Без статусу';}
+    function stateLabel(state){return {pending:'Очікує підтвердження',payment_reconciliation:'Потрібна звірка оплати',needs_order_resolution:"Потрібно прив'язати замовлення",confirmed:'Підтверджено',created_new:'Створено нове',linked_existing:"Прив'язано існуюче",order_created:'Замовлення створено',rejected:'Відхилено'}[state]||'Без статусу';}
     function itemTitle(item){const catalog=item.catalog||{};return catalog.title||item.title||'Товар не визначено';}
     function optionValues(item){return Object.values(item.option_labels||item.option_values||{}).filter(Boolean).map(String);}
     function itemMeta(item){return [item.fit_option_label||item.fit||'',...optionValues(item),item.size?('розмір '+item.size):'',(item.qty||1)+' шт.'].filter(Boolean).join(' · ');}
     function paymentLabel(payment){
       return 'Provider: '+providerTruthLabel(payment)+' · Менеджер: '+managerTruthLabel(payment);
+    }
+    function reconciliationMessage(payment){
+      const state=payment.reconciliation_state||'';
+      if(state==='provider_partially_refunded')return 'Monobank зафіксував часткове повернення: чиста підтверджена сума '+(payment.provider_confirmed_amount||'0.00')+' грн, повернуто '+(payment.provider_refunded_amount||'0.00')+' грн. Створення, прив’язка та виконання замовлення заблоковані до звірки.';
+      if(state==='provider_reversed'||state==='provider_refunded'||state==='provider_terminal_conflict')return 'Provider скасував або повернув оплату. Автоматичне виконання та прив’язка заблоковані до звірки.';
+      if(state==='provider_projection_reconciliation')return 'Платіжний журнал Monobank потребує технічної звірки. Не створюйте і не прив’язуйте замовлення до завершення перевірки.';
+      return 'Суми Monobank і менеджера не збігаються: Monobank '+(payment.provider_confirmed_amount||'0.00')+' грн, менеджер '+(payment.manager_confirmed_amount||'0.00')+' грн. Виконання та прив’язка заблоковані до звірки.';
     }
     function updateCounts(counts){
       ['action','confirmed','all'].forEach(key=>{
@@ -1206,15 +1269,17 @@ body.bot-drawer-open{overflow:hidden;}
     function renderOrderProgress(root,item){
       const state=(item.approval||{}).state||'confirmed';
       const orderLinked=Boolean(item.order&&item.order.id);
-      const paymentDone=state!=='pending'&&state!=='rejected';
+      const reconciliation=state==='payment_reconciliation';
+      const paymentDone=state!=='pending'&&state!=='rejected'&&!reconciliation;
       const steps=[
-        {title:'Перевірка оплати',copy:state==='rejected'?'Відхилено менеджером':(paymentDone?'Рішення збережено':'Звірте чек, товари й суму'),status:state==='pending'?'current':(paymentDone?'done':'')},
-        {title:'Прив’язка замовлення',copy:orderLinked?'Замовлення пов’язано':(paymentDone?'Оберіть існуюче або створіть нове':'Після рішення про оплату'),status:orderLinked?'done':(paymentDone?'current':'')},
+        {title:'Перевірка оплати',copy:state==='rejected'?'Відхилено менеджером':(reconciliation?'Звірте суми та статус provider':(paymentDone?'Рішення збережено':'Звірте чек, товари й суму')),status:state==='pending'||reconciliation?'current':(paymentDone?'done':'')},
+        {title:'Прив’язка замовлення',copy:orderLinked?'Замовлення пов’язано':(reconciliation?'Заблоковано до звірки оплати':(paymentDone?'Оберіть існуюче або створіть нове':'Після рішення про оплату')),status:orderLinked?'done':(paymentDone?'current':'')},
         {title:'Виконання',copy:orderLinked?((item.fulfillment&&item.fulfillment.delivery_status_label)||'Статус із замовлення'):'Після прив’язки замовлення',status:orderLinked?'current':''},
       ];
       const progress=node('div','bot-order-progress');progress.setAttribute('aria-label','Етапи обробки замовлення');
       steps.forEach((step,index)=>{const card=node('div','bot-order-progress-step '+step.status);card.dataset.step=String(index+1);card.append(node('b','',step.title),node('span','',step.copy));progress.appendChild(card);});
       if(state==='needs_order_resolution')progress.appendChild(node('div','bot-order-progress-note','Оплату підтверджено — тепер оберіть існуюче замовлення або створіть нове.'));
+      if(reconciliation)progress.appendChild(node('div','bot-order-progress-note','Спочатку завершіть звірку оплати. Дії із замовленням залишаються заблокованими.'));
       root.appendChild(progress);
     }
     function addSection(root,title){const section=node('section','bot-order-section');section.appendChild(node('div','bot-order-section-title',title));root.appendChild(section);return section;}
@@ -1235,10 +1300,12 @@ body.bot-drawer-open{overflow:hidden;}
       rows.forEach(media=>{const url=safeHttpUrl(media.local_url||media.url);if(!url)return;const link=node('a','bot-order-media');link.href=url;link.target='_blank';link.rel='noopener noreferrer';const image=node('img');image.src=url;image.alt=title;image.loading='lazy';link.append(image,node('span','',media.product_title||title));grid.appendChild(link);});
       if(grid.children.length)section.appendChild(grid);
     }
+    function clientEvidenceUrl(item,messageId){const url=new URL(window.location.href);url.search='';url.searchParams.set('section','clients');url.searchParams.set('client_id',String((item.client||{}).id||''));if(messageId)url.searchParams.set('message_id',String(messageId));return url.pathname+url.search;}
     function renderDecisionHistory(root,item){
       const rows=item.decision_history||[];if(!rows.length)return;const section=addSection(root,'Історія рішень');
-      rows.forEach(decision=>{const line=node('div','bot-deal');line.textContent=(decision.decision_label||decision.decision)+' · '+verificationScopeLabel(decision.verification_scope)+' · '+(decision.actor_label||decision.actor||'Менеджер')+' · '+fmtDateTime(decision.created_at)+(decision.reason_text?' · '+decision.reason_text:'');section.appendChild(line);});
+      rows.forEach(decision=>{const line=node('div','bot-deal');const amount=decision.confirmed_amount?(decision.confirmed_amount+' '+(decision.currency||'UAH')):'';line.appendChild(document.createTextNode((decision.decision_label||decision.decision)+' · '+verificationScopeLabel(decision.verification_scope)+(amount?' · '+amount:'')+(decision.amount_source?' · '+decision.amount_source:'')+' · '+(decision.actor_label||decision.actor||'Менеджер')+' · '+fmtDateTime(decision.created_at)+(decision.reason_text?' · '+decision.reason_text:'')));const evidenceIds=(decision.amount_evidence_message_ids||[]).length?(decision.amount_evidence_message_ids||[]):[decision.evidence_watermark_message_id].filter(Boolean);evidenceIds.slice(0,6).forEach(evidenceId=>{const evidence=node('a','bot-order-product-link','Відкрити доказ суми · повідомлення #'+evidenceId);evidence.href=clientEvidenceUrl(item,evidenceId);line.appendChild(evidence);});section.appendChild(line);});
     }
+    function renderReconciliationActions(root,item){const section=addSection(root,'Наступний крок');section.appendChild(node('div','bot-hint','Створення або прив’язка замовлення заблоковані. Звірте всі докази з фактичним статусом Monobank або виправте джерело оплати. Після оновлення provider-даних перевірте статус повторно.'));const actions=node('div','bot-order-actions');const managerEvidenceIds=(item.payment||{}).manager_amount_evidence_ids||[];managerEvidenceIds.slice(0,6).forEach((evidenceId,index)=>{const conversation=node('a','bot-order-action',index?'Доказ #'+evidenceId:'Відкрити переписку та докази');conversation.href=clientEvidenceUrl(item,evidenceId);actions.appendChild(conversation);});if(!managerEvidenceIds.length){const conversation=node('a','bot-order-action','Відкрити переписку');conversation.href=clientEvidenceUrl(item,0);actions.appendChild(conversation);}const refresh=node('button','bot-order-action primary','Оновити статус оплати');refresh.type='button';refresh.addEventListener('click',()=>load({throwOnError:false}));actions.appendChild(refresh);section.appendChild(actions);}
     function feedback(root,text,isError){const el=root.querySelector('.bot-order-feedback')||node('div','bot-order-feedback');el.textContent=text;el.style.color=isError?'#fecaca':'#bfdbfe';if(!el.parentNode)root.appendChild(el);}
     function applyMutationResult(item,data){
       const approval={...(item.approval||{})};const next={...item,approval:approval,payment:data.payment||item.payment};
@@ -1246,6 +1313,8 @@ body.bot-drawer-open{overflow:hidden;}
       if(data.next_action==='resolve_order'){
         const resolution=data.order_resolution||{};const linkExisting=resolution.link_existing||{};const createNew=resolution.create_new||{};
         Object.assign(approval,{state:'needs_order_resolution',needs_action:true,can_confirm:false,can_reject:false,can_link_existing:true,can_create:Boolean(createNew.url),action_url:linkExisting.action_url||approval.action_url,create_order_url:createNew.url||''});
+      }else if(data.next_action==='reconcile_payment'){
+        Object.assign(approval,{state:'payment_reconciliation',needs_action:true,can_confirm:false,can_reject:false,can_link_existing:false,can_create:false,action_url:'',create_order_url:''});
       }else if(data.next_action==='order_linked'){
         Object.assign(approval,{state:'linked_existing',needs_action:false,can_confirm:false,can_reject:false,can_link_existing:false,can_create:false});
         next.order={...(item.order||{}),id:data.order_id,number:data.order_number,url:data.order_url};
@@ -1284,7 +1353,8 @@ body.bot-drawer-open{overflow:hidden;}
       const approval=item.approval||{};if(!item.review_id)return;
       if(approval.can_confirm){
         const section=addSection(root,'Рішення менеджера');const scopeId='bot-verification-scope-'+item.review_id+(options&&options.drawer?'-drawer':'-workspace');const scopeLabel=node('label','bot-hint','Обсяг підтвердження');scopeLabel.htmlFor=scopeId;section.appendChild(scopeLabel);const scope=document.createElement('select');scope.id=scopeId;scope.className='bot-input';scope.setAttribute('aria-label','Обсяг підтвердження');scope.setAttribute('data-review-autofocus','');[['','Оберіть обсяг підтвердження'],['full_payment','Повна оплата'],['prepayment','Передоплата']].forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;scope.appendChild(option);});section.appendChild(scope);
-        const actions=node('div','bot-order-actions'+(options&&options.drawer?' is-sticky':''));const confirm=node('button','bot-order-action success','Підтвердити оплату');confirm.type='button';const syncConfirmLabel=()=>{confirm.textContent={full_payment:'Підтвердити повну оплату',prepayment:'Підтвердити передоплату'}[scope.value]||'Підтвердити оплату';};scope.addEventListener('change',syncConfirmLabel);confirm.addEventListener('click',()=>{if(!scope.value){scope.focus();feedback(root,'Оберіть обсяг підтвердження.',true);return;}postReview(item,'manager_verify',{verification_scope:scope.value},confirm,root);});actions.appendChild(confirm);section.appendChild(actions);
+        const payment=item.payment||{};const candidate=payment.confirmation_candidate||{};const suggestedAmount=candidate.amount||(payment.requested_payment_amount&&Number(payment.requested_payment_amount)>0?payment.requested_payment_amount:(payment.order_total&&Number(payment.order_total)>0?payment.order_total:((item.draft||{}).quoted_total||'')));const amountLabel=node('label','bot-hint','Сума, яку фактично перевірив менеджер');const amount=document.createElement('input');amount.className='bot-input';amount.type='number';amount.min='0.01';amount.step='0.01';amount.inputMode='decimal';amount.value=suggestedAmount||'';amount.setAttribute('aria-label','Сума, яку фактично перевірив менеджер');amountLabel.appendChild(amount);section.appendChild(amountLabel);if(candidate.scope){scope.value=candidate.scope;}else if(payment.order_total&&payment.requested_payment_amount&&Number(payment.requested_payment_amount)>0){scope.value=Number(payment.requested_payment_amount)<Number(payment.order_total)?'prepayment':'full_payment';}
+        const actions=node('div','bot-order-actions'+(options&&options.drawer?' is-sticky':''));const confirm=node('button','bot-order-action success','Підтвердити оплату');confirm.type='button';const syncConfirmLabel=()=>{const suffix=amount.value&&Number(amount.value)>0?' '+Number(amount.value).toFixed(2)+' грн':'';confirm.textContent=({full_payment:'Підтвердити повну оплату',prepayment:'Підтвердити передоплату'}[scope.value]||'Підтвердити оплату')+suffix;};scope.addEventListener('change',syncConfirmLabel);amount.addEventListener('input',syncConfirmLabel);syncConfirmLabel();confirm.addEventListener('click',()=>{if(!scope.value){scope.focus();feedback(root,'Оберіть обсяг підтвердження.',true);return;}if(!amount.value||Number(amount.value)<=0){amount.focus();feedback(root,'Вкажіть точну суму, яку фактично перевірив менеджер.',true);return;}postReview(item,'manager_verify',{verification_scope:scope.value,confirmed_amount:amount.value},confirm,root);});actions.appendChild(confirm);section.appendChild(actions);
         const reject=node('div','bot-order-reject');reject.appendChild(node('div','bot-hint','Причина відхилення обов’язкова — вона збережеться для повторного аналізу.'));
         const grid=node('div','bot-order-reject-grid');const reason=document.createElement('select');reason.className='bot-input';reason.setAttribute('aria-label','Причина відхилення');[['','Причина відхилення'],['receipt_unreadable','Чек не читається'],['payment_not_found','Оплату не знайдено'],['amount_mismatch','Сума не збігається'],['items_mismatch','Товари не збігаються'],['other','Інша причина']].forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;reason.appendChild(option);});
         const reasonText=document.createElement('input');reasonText.className='bot-input';reasonText.type='text';reasonText.placeholder='Пояснення для повторного аналізу';reasonText.setAttribute('aria-label','Пояснення відхилення');
@@ -1293,9 +1363,13 @@ body.bot-drawer-open{overflow:hidden;}
       }
       if(approval.can_link_existing||approval.can_create){
         const section=addSection(root,'Прив’язка замовлення');const box=node('div','bot-order-resolution');box.appendChild(node('div','bot-hint',"Оплату підтверджено. Нове замовлення не створюється автоматично: спочатку прив'яжіть уже створене замовлення або окремо відкрийте форму нового."));
-        const grid=node('div','bot-order-resolution-grid');const identifier=document.createElement('input');identifier.className='bot-input';identifier.type='text';identifier.placeholder='Точний номер існуючого замовлення';identifier.setAttribute('aria-label','Точний номер існуючого замовлення');identifier.setAttribute('data-review-autofocus','');
-        const override=document.createElement('select');override.className='bot-input';override.setAttribute('aria-label','Причина розбіжності');[['','Без розбіжностей'],['total_mismatch','Сума не збігається'],['phone_mismatch','Телефон не збігається'],['items_mismatch','Позиції не збігаються'],['manual_review','Перевірено вручну']].forEach(([value,label])=>{const option=document.createElement('option');option.value=value;option.textContent=label;override.appendChild(option);});
-        const link=node('button','bot-order-action primary',"Прив'язати існуюче");link.type='button';link.addEventListener('click',()=>{const value=identifier.value.trim();if(!value){identifier.focus();feedback(root,'Вкажіть точний номер замовлення.',true);return;}postReview(item,'link_order',{order_identifier:value,override_reason:override.value},link,root);});grid.append(identifier,override,link);box.appendChild(grid);
+        let selectedCandidate=null;const searchRow=node('div','bot-order-candidate-search');const identifier=document.createElement('input');identifier.className='bot-input';identifier.type='search';identifier.placeholder='Номер, клієнт, товар або ТТН';identifier.setAttribute('aria-label','Пошук існуючого замовлення');identifier.setAttribute('data-review-autofocus','');const search=node('button','bot-order-action','Знайти');search.type='button';searchRow.append(identifier,search);box.appendChild(searchRow);const candidates=node('div','bot-order-candidates');candidates.setAttribute('aria-live','polite');box.appendChild(candidates);
+        const overrideBox=node('div','bot-order-override');const overrideCode=document.createElement('select');overrideCode.className='bot-input';overrideCode.setAttribute('aria-label','Структурована причина override');const overrideLabels={total_mismatch:'Сума не збігається',phone_mismatch:'Телефон не збігається',items_mismatch:'Позиції не збігаються',manual_review:'Перевірено вручну',historical_fulfilled_order:'Історичне виконане замовлення',payment_state_mismatch:'Стан оплати відрізняється',historical_import:'Історичний імпорт з кількома розбіжностями'};const overrideReason=document.createElement('input');overrideReason.className='bot-input';overrideReason.type='text';overrideReason.placeholder='Обов’язкове пояснення для override';overrideReason.setAttribute('aria-label','Пояснення override');overrideBox.append(overrideCode,overrideReason);box.appendChild(overrideBox);
+        function setOverrideOptions(candidate){const allowed=candidate&&Array.isArray(candidate.allowed_override_codes)?candidate.allowed_override_codes:[];overrideCode.replaceChildren();const empty=document.createElement('option');empty.value='';empty.textContent=allowed.length?'Оберіть причину розбіжності':'Override не потрібен або оберіть вручну';overrideCode.appendChild(empty);const codes=allowed.length?allowed:Object.keys(overrideLabels);codes.forEach(code=>{const option=document.createElement('option');option.value=code;option.textContent=overrideLabels[code]||code;overrideCode.appendChild(option);});const conflicts=candidate&&Array.isArray(candidate.override_conflicts)?candidate.override_conflicts:[];if(conflicts.length){feedback(root,'Перед прив’язкою потрібне пояснення: '+conflicts.map(code=>code==='terminal_order'?'замовлення вже відправлене/виконане':code==='payment_amount_mismatch'?'сума підтвердженої оплати не відповідає сумі замовлення':'стан оплати відрізняється').join(', ')+'.',false);}}
+        function renderCandidates(rows){candidates.replaceChildren();if(!rows.length){candidates.appendChild(node('div','bot-hint','Замовлень за цим пошуком не знайдено. Точний номер можна залишити у полі як audited fallback.'));return;}rows.forEach(candidate=>{const button=node('button','bot-order-candidate');button.type='button';button.disabled=!candidate.selectable;const copy=node('span','');const itemText=(candidate.items||[]).map(line=>[line.title,line.size,line.qty?('×'+line.qty):''].filter(Boolean).join(' ')).join(', ');copy.append(node('b','', '№'+candidate.number+' · '+(candidate.client_name||'Без імені')),node('span','',[fmtDateTime(candidate.created_at),itemText,candidate.payment_status_label,candidate.status_label,candidate.tracking_number?('ТТН '+candidate.tracking_number):'',candidate.blocked_reason?('Недоступно: '+candidate.blocked_reason):''].filter(Boolean).join(' · ')));button.append(copy,node('strong','',candidate.amount+' грн'));button.addEventListener('click',()=>{selectedCandidate=candidate;identifier.value=candidate.number;candidates.querySelectorAll('.bot-order-candidate').forEach(row=>row.classList.remove('selected'));button.classList.add('selected');setOverrideOptions(candidate);});candidates.appendChild(button);});}
+        async function loadCandidates(){const params=new URLSearchParams({client_id:String((item.client||{}).id||''),review_id:String(item.review_id),q:identifier.value.trim()});search.disabled=true;candidates.replaceChildren(node('div','bot-hint','Пошук замовлень…'));try{const response=await fetch(orderCandidatesBase+'?'+params.toString(),{headers:{'X-Requested-With':'XMLHttpRequest'}});const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Не вдалося завантажити замовлення.');renderCandidates(data.items||[]);}catch(error){candidates.replaceChildren(node('div','bot-order-feedback error',error.message||'Не вдалося завантажити замовлення.'));}finally{search.disabled=false;}}
+        search.addEventListener('click',loadCandidates);identifier.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();loadCandidates();}});identifier.addEventListener('input',()=>{if(selectedCandidate&&identifier.value.trim()!==selectedCandidate.number){selectedCandidate=null;setOverrideOptions(null);}});setOverrideOptions(null);loadCandidates();
+        const actions=node('div','bot-order-actions'+(options&&options.drawer?' is-sticky':''));const link=node('button','bot-order-action primary',"Прив'язати існуюче");link.type='button';link.addEventListener('click',()=>{const value=identifier.value.trim();if(!value){identifier.focus();feedback(root,'Оберіть картку або вкажіть точний номер замовлення.',true);return;}const allowed=selectedCandidate&&Array.isArray(selectedCandidate.allowed_override_codes)?selectedCandidate.allowed_override_codes:[];if(allowed.length&&!overrideCode.value){overrideCode.focus();feedback(root,'Оберіть структуровану причину розбіжності.',true);return;}if(overrideCode.value&&!overrideReason.value.trim()){overrideReason.focus();feedback(root,'Додайте пояснення до override.',true);return;}postReview(item,'link_order',{order_identifier:value,override_code:overrideCode.value,override_reason:overrideReason.value.trim()},link,root);});actions.appendChild(link);box.appendChild(actions);
         const createUrl=safeHttpUrl(approval.create_order_url);if(createUrl){const create=node('a','bot-order-action','Створити нове');create.href=createUrl;create.target='_blank';create.rel='noopener noreferrer';const actions=node('div','bot-order-actions');actions.appendChild(create);box.appendChild(actions);}
         section.appendChild(box);return;
       }
@@ -1304,12 +1378,13 @@ body.bot-drawer-open{overflow:hidden;}
     function renderOrderCard(root,item,options){
       if(!root||!item)return;root.replaceChildren();const inner=node('div','bot-orders-detail-inner');const head=node('div','bot-order-detail-head');const copy=node('div');
       copy.append(node('div','bot-order-detail-title',(item.client||{}).name||(item.client||{}).username||(item.client||{}).igsid||'Клієнт'),node('div','bot-order-detail-meta',(item.client||{}).username?('@'+item.client.username+' · '+item.client.igsid):(item.client||{}).igsid||''));
-      const state=(item.approval||{}).state||'confirmed';head.append(copy,node('span','bot-order-state '+state,stateLabel(state)));inner.appendChild(head);renderOrderProgress(inner,item);
-      const facts=node('div','bot-order-facts');addFact(facts,'Сума з переписки',(item.draft&&item.draft.quoted_total?item.draft.quoted_total+' грн':'—'));addFact(facts,'Provider payment',providerTruthLabel(item.payment||{}));addFact(facts,'Перевірка менеджера',managerTruthLabel(item.payment||{}));addFact(facts,'Обсяг підтвердження',verificationScopeLabel((item.payment||{}).verification_scope));addFact(facts,'Замовлення',item.order&&item.order.number?'№'+item.order.number:'Не прив’язано');addFact(facts,'Доставка',(item.fulfillment&&item.fulfillment.delivery_status_label)||'Не готова');addFact(facts,'Походження замовлення',(item.origin&&item.origin.creation_mode_label)||'Ще не визначено');addFact(facts,'Джерело оплати',(item.origin&&item.origin.payment_source_label)||'Ще не визначено');inner.appendChild(facts);
-      if(state==='needs_order_resolution')renderActions(inner,item,options||{});
+      const state=(item.approval||{}).state||'confirmed';head.append(copy,node('span','bot-order-state '+state,stateLabel(state)));inner.appendChild(head);renderOrderProgress(inner,item);const payment=item.payment||{};const canResolveOrder=!payment.needs_reconciliation;if(payment.needs_reconciliation){const reconciliation=node('div','bot-note bot-order-reconciliation',reconciliationMessage(payment));reconciliation.setAttribute('role','alert');reconciliation.setAttribute('aria-live','assertive');inner.appendChild(reconciliation);}
+      if(payment.needs_reconciliation)renderReconciliationActions(inner,item);
+      const facts=node('div','bot-order-facts');const displayedOrderTotal=payment.order_total&&Number(payment.order_total)>0?payment.order_total:((item.draft||{}).quoted_total||'—');addFact(facts,'До сплати',displayedOrderTotal!=='—'?displayedOrderTotal+' грн':'—');if(payment.order_subtotal&&Number(payment.order_discount_amount)>0){addFact(facts,'Сума до знижки',payment.order_subtotal+' грн');addFact(facts,'Знижка',payment.order_discount_amount+' грн');}addFact(facts,'Запитано зараз',payment.requested_payment_amount&&Number(payment.requested_payment_amount)>0?payment.requested_payment_amount+' грн':'—');addFact(facts,'Підтверджено отримано',payment.confirmed_paid_amount&&Number(payment.confirmed_paid_amount)>0?payment.confirmed_paid_amount+' грн':'—');addFact(facts,'Залишок',payment.remaining_amount&&Number(payment.order_total)>0?payment.remaining_amount+' грн':'—');addFact(facts,'Provider payment',providerTruthLabel(payment));addFact(facts,'Перевірка менеджера',managerTruthLabel(payment));addFact(facts,'Обсяг підтвердження',verificationScopeLabel(payment.verification_scope));addFact(facts,'Замовлення',item.order&&item.order.number?'№'+item.order.number:'Не прив’язано');addFact(facts,'Доставка',(item.fulfillment&&item.fulfillment.delivery_status_label)||'Не готова');addFact(facts,'Походження замовлення',(item.origin&&item.origin.creation_mode_label)||'Ще не визначено');addFact(facts,'Джерело оплати',(item.origin&&item.origin.payment_source_label)||'Ще не визначено');inner.appendChild(facts);
+      if(state==='needs_order_resolution'&&canResolveOrder)renderActions(inner,item,options||{});
       renderItems(inner,item);renderMediaGroup(inner,'Фото товарів',(item.media||{}).products);renderMediaGroup(inner,'Чеки з переписки',(item.media||{}).receipts);renderMediaGroup(inner,'Custom print референси',(item.media||{}).custom_print);renderMediaGroup(inner,'Невизначені зображення',(item.media||{}).unknown);
       const delivery=item.draft&&item.draft.delivery||{};if(Object.keys(delivery).length){const section=addSection(inner,'Дані доставки');section.appendChild(node('div','bot-hint',[delivery.full_name,delivery.phone,delivery.city,delivery.office,delivery.address].filter(Boolean).join(' · ')));}
-      renderDecisionHistory(inner,item);if(state!=='needs_order_resolution')renderActions(inner,item,options||{});inner.appendChild(node('div','bot-order-feedback',''));
+      renderDecisionHistory(inner,item);if(state!=='needs_order_resolution'&&state!=='payment_reconciliation')renderActions(inner,item,options||{});inner.appendChild(node('div','bot-order-feedback',''));
       root.appendChild(inner);
     }
     function renderDetail(item){renderOrderCard(detailEl,item,{drawer:false});}
@@ -1433,6 +1508,7 @@ body.bot-drawer-open{overflow:hidden;}
   try{ initialTab=localStorage.getItem('bot_tab')||'overview'; }catch(e){}
   const initialQuery=new URLSearchParams(window.location.search);
   if(initialQuery.get('section')==='orders'||initialQuery.get('review')||initialQuery.get('payment_review')) initialTab='orders';
+  else if(initialQuery.get('section')==='clients'&&initialQuery.get('client_id')) initialTab='clients';
   activate(initialTab, false);
 
   // початкове завантаження лічильника клієнтів (для бейджа), без відкриття вкладки

@@ -216,13 +216,23 @@ class InstagramBotPrivacyPolicyTests(TestCase):
             username="erase_payment_buyer",
             display_name="Erase Payment Buyer",
         )
-        deal = IgDeal.objects.create(client=client)
+        deal = IgDeal.objects.create(
+            client=client,
+            amount="500.00",
+            pay_type=IgDeal.PayType.ONLINE_FULL,
+        )
         review = IgPaymentConfirmationReview.objects.create(
             client=client,
             deal=deal,
             dedupe_key="privacy-payment-review",
         )
-        record_review_decision(review, actor=actor, decision="manager_verified")
+        record_review_decision(
+            review,
+            actor=actor,
+            decision="manager_verified",
+            verification_scope="full_payment",
+            confirmed_amount="500.00",
+        )
         decision = IgPaymentReviewDecision.objects.get(review=review)
 
         response = self.client.post(

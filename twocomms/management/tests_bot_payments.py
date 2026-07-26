@@ -44,12 +44,13 @@ class CreatePaymentLinkTests(TestCase):
         self.assertEqual(self._payload(mock_api)["amount"], 95000)
 
     @patch("storefront.views.monobank._monobank_api_request")
-    def test_prepay_amount_is_200(self, mock_api):
+    def test_dynamic_prepay_amount_is_used(self, mock_api):
         mock_api.return_value = {"result": {"invoiceId": "inv_2", "pageUrl": "https://pay/2"}}
-        self.deal.pay_type = IgDeal.PayType.PREPAY_200
-        self.deal.save()
+        self.deal.pay_type = IgDeal.PayType.PREPAYMENT
+        self.deal.requested_payment_amount = Decimal("350.00")
+        self.deal.save(update_fields=["pay_type", "requested_payment_amount", "updated_at"])
         bot_payments.create_payment_link(self.deal)
-        self.assertEqual(self._payload(mock_api)["amount"], 20000)
+        self.assertEqual(self._payload(mock_api)["amount"], 35000)
 
     @patch("storefront.views.monobank._monobank_api_request")
     def test_idempotent_reuse(self, mock_api):
@@ -122,11 +123,12 @@ class ApplyPaymentStatusTests(TestCase):
         self.assertEqual(self.c.stage, IgClient.Stage.PAID)
 
     def test_prepay_marks_prepaid(self):
-        self.deal.pay_type = IgDeal.PayType.PREPAY_200
-        self.deal.save()
+        self.deal.pay_type = IgDeal.PayType.PREPAYMENT
+        self.deal.requested_payment_amount = Decimal("350.00")
+        self.deal.save(update_fields=["pay_type", "requested_payment_amount", "updated_at"])
         bot_payments.apply_payment_status(
             self.deal, "success",
-            payload={"status": "success", "amount": 20000, "finalAmount": 20000},
+            payload={"status": "success", "amount": 35000, "finalAmount": 35000},
         )
         self.deal.refresh_from_db()
         self.assertEqual(self.deal.payment_status, "prepaid")
@@ -169,6 +171,8 @@ class ApplyPaymentStatusTests(TestCase):
         self.assertTrue(client_has_verified_payment(self.c))
         self.assertEqual(self.c.stage, IgClient.Stage.PAID)
         self.assertEqual(IgPaymentEvent.objects.filter(deal=self.deal).count(), 2)
+        episode = self.deal.commercial_episode
+        self.assertEqual(episode.events.filter(event_type="payment_updated").count(), 2)
 
     def test_failure_marks_unpaid(self):
         bot_payments.apply_payment_status(self.deal, "failure")
@@ -287,6 +291,14 @@ class ApplyPaymentStatusTests(TestCase):
         self.c.refresh_from_db()
         self.assertEqual(self.c.purchases_count, 1)
         self.assertEqual(self.c.total_spent, Decimal("700.00"))
+        episode = self.deal.commercial_episode
+        episode.refresh_from_db()
+        self.assertEqual(
+            episode.payment_snapshot["reconciliation_state"],
+            "provider_partially_refunded",
+        )
+        self.assertEqual(episode.payment_snapshot["provider_confirmed_amount"], "700.00")
+        self.assertEqual(episode.payment_snapshot["remaining_amount"], "250.00")
 
     def test_reversed_payment_is_not_paid_truth_and_history_remains(self):
         bot_payments.apply_payment_status(
@@ -313,6 +325,11 @@ class ApplyPaymentStatusTests(TestCase):
         log = IgMetaEventLog.objects.get(deal=self.deal, event_name="Refund")
         self.assertEqual(log.reason, "refund_feedback_requires_explicit_policy")
         self.assertIn(log.status, {IgMetaEventLog.Status.DISABLED, IgMetaEventLog.Status.SKIPPED})
+        episode = self.deal.commercial_episode
+        episode.refresh_from_db()
+        self.assertEqual(episode.payment_snapshot["reconciliation_state"], "provider_reversed")
+        self.assertEqual(episode.payment_snapshot["provider_confirmed_amount"], "0.00")
+        self.assertEqual(episode.payment_snapshot["remaining_amount"], "950.00")
 
     def test_full_refund_from_final_amount_is_not_paid_conversion(self):
         bot_payments.apply_payment_status(

@@ -523,7 +523,20 @@ def _is_review_deal_compatible(deal, product_ids: set[int] | None = None) -> boo
         return False
     if str(getattr(deal, "status", "") or "") not in {"draft", "quoted", "awaiting_payment"}:
         return False
-    if str(getattr(deal, "payment_truth", "") or "") not in {"", "unverified", "pending"}:
+    provider_truth = str(getattr(deal, "payment_truth", "") or "")
+    deal_id = getattr(deal, "pk", None)
+    if deal_id:
+        try:
+            from management.ig_bot_models import IgPaymentProjection
+
+            projection_truth = IgPaymentProjection.objects.filter(
+                deal_id=deal_id
+            ).values_list("truth", flat=True).first()
+            if projection_truth:
+                provider_truth = str(projection_truth)
+        except Exception:
+            return False
+    if provider_truth not in {"", "unverified", "pending"}:
         return False
     if str(getattr(deal, "payment_status", "") or "") in {"paid", "prepaid", "confirmed"}:
         return False
@@ -549,7 +562,25 @@ def _select_review_deal(client, catalog_matches: list[dict]):
     if not client or not product_ids:
         return None
     try:
-        candidates = client.deals.order_by("-id")[:20]
+        from management.ig_bot_models import IgCommercialEpisode
+
+        current_episode = (
+            IgCommercialEpisode.objects.select_related("deal")
+            .filter(client_id=client.pk, open_slot=1)
+            .order_by("-sequence", "-id")
+            .first()
+        )
+        if current_episode is not None:
+            current_deal = current_episode.deal
+            return (
+                current_deal
+                if _is_review_deal_compatible(current_deal, product_ids)
+                else None
+            )
+        candidates = (
+            client.deals.filter(commercial_episode__isnull=True)
+            .order_by("-id")[:20]
+        )
         for deal in candidates:
             if _is_review_deal_compatible(deal, product_ids):
                 return deal
@@ -1183,12 +1214,28 @@ def _alert_text(review, client) -> str:
 
 def _review_keyboard(review) -> dict:
     base = getattr(settings, "MANAGEMENT_BASE_URL", "https://management.twocomms.shop").rstrip("/")
-    rows = [[
-        {"text": "Підтвердити оплату", "callback_data": f"igpay:confirm:{review.pk}"},
-        {"text": "Відхилити", "callback_data": f"igpay:cancel:{review.pk}"},
-    ], [
-        {"text": "Відкрити перевірку", "url": f"{base}/bot/?payment_review={review.pk}"},
-    ]]
+    try:
+        amount_contract = resolve_review_payment_amount(review)
+    except ValueError:
+        amount_contract = None
+    if amount_contract:
+        amount = amount_contract["amount"]
+        scope = amount_contract["scope"]
+        action_label = "передоплату" if scope == "prepayment" else "оплату"
+        rows = [[
+            {
+                "text": f"Підтвердити {action_label} {amount:.2f} грн",
+                "callback_data": f"igpay:confirm:{review.pk}",
+            },
+            {"text": "Відхилити", "callback_data": f"igpay:cancel:{review.pk}"},
+        ], [
+            {"text": "Відкрити перевірку", "url": f"{base}/bot/?payment_review={review.pk}"},
+        ]]
+    else:
+        rows = [[
+            {"text": "Відкрити перевірку", "url": f"{base}/bot/?payment_review={review.pk}"},
+            {"text": "Відхилити", "callback_data": f"igpay:cancel:{review.pk}"},
+        ]]
     evidence = review.evidence if isinstance(getattr(review, "evidence", None), dict) else {}
     matches = evidence.get("catalog_matches") if isinstance(evidence.get("catalog_matches"), list) else []
     if not matches:
@@ -1244,11 +1291,25 @@ def create_payment_review(client, *, watermark: int = 0, messages=None):
     from management.ig_bot_models import IgPaymentConfirmationReview
     from management.models import InstagramBotMessage
 
-    if messages is None:
-        rows = list(
-            InstagramBotMessage.objects.filter(client_id=client.pk)
-            .order_by("-id")[:80]
+    episode_floor = 0
+    try:
+        from management.ig_bot_models import IgCommercialEpisode
+
+        episode_floor = int(
+            IgCommercialEpisode.objects.filter(
+                client_id=client.pk,
+                open_slot=1,
+            ).values_list("opened_watermark_message_id", flat=True).first()
+            or 0
         )
+    except Exception:
+        episode_floor = 0
+
+    if messages is None:
+        message_query = InstagramBotMessage.objects.filter(client_id=client.pk)
+        if episode_floor:
+            message_query = message_query.filter(pk__gte=episode_floor)
+        rows = list(message_query.order_by("-id")[:80])
         rows.reverse()
         messages = [
             {
@@ -1261,6 +1322,21 @@ def create_payment_review(client, *, watermark: int = 0, messages=None):
             }
             for row in rows
         ]
+    elif episode_floor:
+        scoped_messages = []
+        for message in messages:
+            raw_id = (
+                message.get("id")
+                if isinstance(message, dict)
+                else getattr(message, "pk", None) or getattr(message, "id", None)
+            )
+            try:
+                message_id = int(raw_id or 0)
+            except (TypeError, ValueError):
+                message_id = 0
+            if message_id >= episode_floor:
+                scoped_messages.append(message)
+        messages = scoped_messages
     messages = _augment_messages_with_raw_media(client, messages)
     extracted = extract_payment_review_evidence(messages)
     if not extracted["needs_review"]:
@@ -1318,6 +1394,10 @@ def create_payment_review(client, *, watermark: int = 0, messages=None):
                 "watermark_message_id": watermark,
             },
         )
+    if created:
+        from management.services.ig_commercial_episodes import ensure_episode_for_review
+
+        ensure_episode_for_review(review)
     from management.services.instagram_bot import notify_manager
 
     if not created and _review_evidence_needs_refresh(review.status, review.evidence, extracted):
@@ -1340,18 +1420,198 @@ def create_payment_review(client, *, watermark: int = 0, messages=None):
         client=client,
         reply_markup=_review_keyboard(review),
         media=enriched_media,
+        metadata={"payment_candidate": payment_confirmation_candidate(review)},
     )
     return review
 
 
-def _decision_stage_after(client, decision: str) -> str:
+def _decision_stage_after(client, decision: str, verification_scope: str = "") -> str:
     from management.ig_bot_models import IgClient, IgPaymentReviewDecision
 
-    if decision == IgPaymentReviewDecision.Decision.MANAGER_VERIFIED:
+    if (
+        decision == IgPaymentReviewDecision.Decision.MANAGER_VERIFIED
+        and verification_scope in {
+            IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT,
+            IgPaymentReviewDecision.VerificationScope.PREPAYMENT,
+        }
+    ):
         return IgClient.Stage.PAID
     if decision == IgPaymentReviewDecision.Decision.MANAGER_REJECTED:
         return IgClient.Stage.CHECKOUT
     return getattr(client, "stage", "") or IgClient.Stage.CHECKOUT
+
+
+def _positive_money(value) -> Decimal | None:
+    try:
+        raw = Decimal(str(value))
+        if not raw.is_finite() or raw.as_tuple().exponent < -2:
+            return None
+        amount = raw.quantize(Decimal("0.01"))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+    return amount if Decimal("0.00") < amount <= Decimal("9999999999.99") else None
+
+
+def resolve_review_payment_amount(
+    review,
+    *,
+    verification_scope: str = "",
+    confirmed_amount=None,
+) -> dict:
+    """Resolve exact payment money from this review/deal only.
+
+    The function never reads another client or a previous episode. Explicit
+    manager input wins, while server evidence remains attached for audit.
+    """
+    from management.ig_bot_models import IgPaymentReviewDecision
+
+    evidence = review.evidence if isinstance(getattr(review, "evidence", None), dict) else {}
+    draft = evidence.get("order_draft") if isinstance(evidence.get("order_draft"), dict) else {}
+    deal = getattr(review, "deal", None)
+    deal_total = _positive_money(getattr(deal, "amount", None))
+    review_total = _positive_money(draft.get("quoted_total"))
+    if deal_total is not None and review_total is not None and deal_total != review_total:
+        raise ValueError(
+            "Сума угоди та узгоджена сума з переписки суперечать одна одній; потрібна ручна перевірка."
+        )
+    negotiated_total = review_total or deal_total
+    currency = str(
+        getattr(deal, "currency", "") or draft.get("currency") or "UAH"
+    ).strip().upper()[:8] or "UAH"
+
+    inferred_scope = str(verification_scope or "").strip()
+    evidence_amount = None
+    evidence_source = ""
+    evidence_ids = []
+    if deal is not None:
+        if deal.pay_type in {deal.PayType.PREPAYMENT, deal.PayType.PREPAY_200}:
+            inferred_scope = inferred_scope or IgPaymentReviewDecision.VerificationScope.PREPAYMENT
+        elif deal.pay_type == deal.PayType.ONLINE_FULL:
+            inferred_scope = inferred_scope or IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT
+        evidence_amount = _positive_money(deal.payable_amount())
+        if evidence_amount:
+            evidence_source = "deal_requested_amount"
+            evidence_ids = [
+                int(value)
+                for value in (getattr(deal, "requested_payment_evidence_ids", None) or [])
+                if str(value).isdigit()
+            ]
+
+    if evidence_amount is None:
+        payment_rows = []
+        for row in evidence.get("amount_evidence") or []:
+            if not isinstance(row, dict) or row.get("kind") != "payment_evidence":
+                continue
+            amount = _positive_money(row.get("amount"))
+            if amount:
+                payment_rows.append((amount, row.get("message_id")))
+        unique_amounts = {amount for amount, _message_id in payment_rows}
+        if len(unique_amounts) == 1:
+            evidence_amount = next(iter(unique_amounts))
+            evidence_source = "review_payment_evidence"
+            evidence_ids = sorted({
+                int(message_id)
+                for _amount, message_id in payment_rows
+                if str(message_id).isdigit()
+            })
+
+    if (
+        evidence_amount is None
+        and negotiated_total is not None
+        and inferred_scope not in {
+            IgPaymentReviewDecision.VerificationScope.PREPAYMENT,
+            IgPaymentReviewDecision.VerificationScope.PAYMENT_CLAIM,
+        }
+    ):
+        evidence_amount = negotiated_total
+        evidence_source = "review_quoted_total"
+        message_id = draft.get("amount_source_message_id")
+        evidence_ids = [int(message_id)] if str(message_id).isdigit() else []
+
+    exact_amount = _positive_money(confirmed_amount) if confirmed_amount not in (None, "") else evidence_amount
+    if exact_amount is None:
+        raise ValueError("Сума підтвердженого платежу не визначена; відкрийте перевірку та вкажіть її вручну.")
+    if not inferred_scope:
+        if negotiated_total is not None and exact_amount == negotiated_total:
+            inferred_scope = IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT
+        elif negotiated_total is not None and exact_amount < negotiated_total:
+            inferred_scope = IgPaymentReviewDecision.VerificationScope.PREPAYMENT
+        else:
+            inferred_scope = IgPaymentReviewDecision.VerificationScope.PAYMENT_CLAIM
+    if (
+        inferred_scope in {
+            IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT,
+            IgPaymentReviewDecision.VerificationScope.PREPAYMENT,
+        }
+        and negotiated_total is None
+    ):
+        raise ValueError(
+            "Повна вартість замовлення не визначена; підтвердження не може авторизувати виконання."
+        )
+    if (
+        inferred_scope == IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT
+        and negotiated_total is not None
+        and exact_amount != negotiated_total
+    ):
+        raise ValueError("Підтверджена сума повної оплати не збігається з повною вартістю замовлення.")
+    if negotiated_total is not None and exact_amount > negotiated_total:
+        raise ValueError("Підтверджена сума не може перевищувати повну вартість замовлення.")
+    if (
+        inferred_scope == IgPaymentReviewDecision.VerificationScope.PREPAYMENT
+        and negotiated_total is not None
+        and exact_amount >= negotiated_total
+    ):
+        raise ValueError("Передоплата має бути меншою за повну вартість замовлення.")
+    contract = {
+        "amount": exact_amount,
+        "currency": currency,
+        "scope": inferred_scope,
+        "source": "manager_input" if confirmed_amount not in (None, "") else evidence_source,
+        "evidence_message_ids": evidence_ids,
+        "order_total": negotiated_total,
+        "requested_amount": evidence_amount,
+    }
+    digest_payload = {
+        "review_id": int(getattr(review, "pk", 0) or 0),
+        "watermark": int(getattr(review, "watermark_message_id", 0) or 0),
+        "amount": f"{exact_amount:.2f}",
+        "currency": currency,
+        "scope": inferred_scope,
+        "source": contract["source"],
+        "evidence_message_ids": evidence_ids,
+        "order_total": f"{negotiated_total:.2f}" if negotiated_total is not None else "",
+        "requested_amount": f"{evidence_amount:.2f}" if evidence_amount is not None else "",
+    }
+    contract["digest"] = hashlib.sha256(
+        json.dumps(digest_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return contract
+
+
+def payment_confirmation_candidate(review) -> dict:
+    """JSON-safe immutable candidate shared by web UI and Telegram."""
+    try:
+        contract = resolve_review_payment_amount(review)
+    except ValueError:
+        return {}
+    return {
+        "amount": f"{contract['amount']:.2f}",
+        "currency": contract["currency"],
+        "scope": contract["scope"],
+        "source": contract["source"],
+        "evidence_message_ids": contract["evidence_message_ids"],
+        "order_total": (
+            f"{contract['order_total']:.2f}"
+            if contract["order_total"] is not None
+            else ""
+        ),
+        "requested_amount": (
+            f"{contract['requested_amount']:.2f}"
+            if contract["requested_amount"] is not None
+            else ""
+        ),
+        "digest": contract["digest"],
+    }
 
 
 def record_review_decision(
@@ -1360,6 +1620,7 @@ def record_review_decision(
     actor,
     decision: str,
     verification_scope: str = "",
+    confirmed_amount=None,
     reason_code: str = "",
     reason_text: str = "",
     telegram_decision: dict | None = None,
@@ -1415,8 +1676,19 @@ def record_review_decision(
                 raise ValueError("Завершена перевірка не має журналу рішення")
             return locked
 
+        amount_contract = None
+        if decision == IgPaymentReviewDecision.Decision.MANAGER_VERIFIED:
+            amount_contract = resolve_review_payment_amount(
+                locked,
+                verification_scope=verification_scope,
+                confirmed_amount=confirmed_amount,
+            )
+            verification_scope = amount_contract["scope"]
         if not verification_scope:
-            if locked.deal_id and locked.deal.pay_type == locked.deal.PayType.PREPAY_200:
+            if locked.deal_id and locked.deal.pay_type in {
+                locked.deal.PayType.PREPAYMENT,
+                locked.deal.PayType.PREPAY_200,
+            }:
                 verification_scope = IgPaymentReviewDecision.VerificationScope.PREPAYMENT
             elif locked.deal_id and locked.deal.pay_type == locked.deal.PayType.ONLINE_FULL:
                 verification_scope = IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT
@@ -1424,7 +1696,11 @@ def record_review_decision(
                 verification_scope = IgPaymentReviewDecision.VerificationScope.PAYMENT_CLAIM
 
         stage_before = locked.client.stage
-        stage_after = _decision_stage_after(locked.client, decision)
+        stage_after = _decision_stage_after(
+            locked.client,
+            decision,
+            verification_scope,
+        )
         review_status_before = locked.status
         now = timezone.now()
         update_fields = ["status", "updated_at"]
@@ -1444,12 +1720,16 @@ def record_review_decision(
             locked.evidence = {**evidence, "telegram_decision": telegram_decision}
             update_fields.append("evidence")
         locked.save(update_fields=update_fields)
-        IgPaymentReviewDecision.objects.create(
+        decision_row = IgPaymentReviewDecision.objects.create(
             review=locked,
             client=locked.client,
             decision=decision,
             verification_source="manager",
             verification_scope=verification_scope,
+            confirmed_amount=(amount_contract or {}).get("amount"),
+            currency=(amount_contract or {}).get("currency", "UAH"),
+            amount_source=(amount_contract or {}).get("source", ""),
+            amount_evidence_message_ids=(amount_contract or {}).get("evidence_message_ids", []),
             reason_code=reason_code[:64],
             reason_text=(reason_text or reason_code)[:500],
             evidence_watermark_message_id=locked.watermark_message_id or 0,
@@ -1473,6 +1753,9 @@ def record_review_decision(
                 to_stage=stage_after,
                 reason=f"payment_review_{decision}",
             )
+        from management.services.ig_commercial_episodes import sync_episode_payment
+
+        sync_episode_payment(review=locked, deal=locked.deal if locked.deal_id else None)
         from management.services.bot_conversation_analysis import schedule_client_truth_analysis
 
         schedule_client_truth_analysis(locked.client, trigger="manager_payment_decision")
@@ -1480,7 +1763,14 @@ def record_review_decision(
     return locked
 
 
-def confirm_review(review, *, actor, verification_scope="", telegram_decision=None):
+def confirm_review(
+    review,
+    *,
+    actor,
+    verification_scope="",
+    confirmed_amount=None,
+    telegram_decision=None,
+):
     from management.ig_bot_models import IgPaymentConfirmationReview
 
     if isinstance(review, IgPaymentConfirmationReview):
@@ -1489,6 +1779,7 @@ def confirm_review(review, *, actor, verification_scope="", telegram_decision=No
             actor=actor,
             decision="manager_verified",
             verification_scope=verification_scope,
+            confirmed_amount=confirmed_amount,
             telegram_decision=telegram_decision,
         )
 

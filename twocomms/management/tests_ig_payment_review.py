@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -262,11 +263,49 @@ class IgPaymentReviewRulesTests(SimpleTestCase):
         self.assertIn("чеків 1", text)
         self.assertIn("Футболка «Харків Вокзальна»", text)
         keyboard = _review_keyboard(review)
-        self.assertEqual(keyboard["inline_keyboard"][0][0]["text"], "Підтвердити оплату")
+        self.assertEqual(keyboard["inline_keyboard"][0][0]["text"], "Підтвердити оплату 2100.00 грн")
         self.assertEqual(keyboard["inline_keyboard"][0][0]["callback_data"], "igpay:confirm:42")
         self.assertEqual(keyboard["inline_keyboard"][0][1]["callback_data"], "igpay:cancel:42")
         self.assertEqual(keyboard["inline_keyboard"][1][0]["text"], "Відкрити перевірку")
         self.assertEqual(keyboard["inline_keyboard"][2][0]["text"], "Товар: Футболка «Харків Вокзальна»")
+
+    def test_telegram_keyboard_requires_unambiguous_amount_for_direct_confirm(self):
+        from management.services.ig_payment_review import _review_keyboard
+
+        review = SimpleNamespace(pk=43, evidence={})
+        keyboard = _review_keyboard(review)
+        callback_buttons = [
+            button
+            for row in keyboard["inline_keyboard"]
+            for button in row
+            if button.get("callback_data", "").startswith("igpay:confirm:")
+        ]
+
+        self.assertEqual(callback_buttons, [])
+        self.assertEqual(keyboard["inline_keyboard"][0][0]["text"], "Відкрити перевірку")
+
+    def test_confirmation_candidate_has_stable_evidence_digest(self):
+        from management.services.ig_payment_review import resolve_review_payment_amount
+
+        review = SimpleNamespace(
+            pk=44,
+            watermark_message_id=91,
+            evidence={
+                "amount_evidence": [
+                    {"kind": "payment_evidence", "amount": "500", "message_id": 91},
+                ],
+                "order_draft": {"quoted_total": "2100", "currency": "UAH"},
+            },
+        )
+
+        first = resolve_review_payment_amount(review)
+        second = resolve_review_payment_amount(review)
+
+        self.assertEqual(first["amount"], Decimal("500.00"))
+        self.assertEqual(first["scope"], "prepayment")
+        self.assertEqual(first["source"], "review_payment_evidence")
+        self.assertEqual(first["digest"], second["digest"])
+        self.assertEqual(len(first["digest"]), 64)
 
     def test_customer_payment_statement_is_review_evidence_not_provider_paid(self):
         from management.services.ig_payment_review import extract_payment_review_evidence
@@ -312,6 +351,99 @@ class IgPaymentReviewRulesTests(SimpleTestCase):
         self.assertEqual(next_review_status("cancelled", "confirm"), "cancelled")
 
 
+class PaymentReviewEpisodeScopeTests(TestCase):
+    def test_repeat_episode_without_deal_never_reuses_old_same_product_deal(self):
+        from management.ig_bot_models import IgClient, IgCommercialEpisode, IgDeal, IgDealItem
+        from management.services.ig_commercial_episodes import (
+            ensure_episode_for_deal,
+            start_repeat_episode,
+        )
+        from management.services.ig_payment_review import _select_review_deal
+        from storefront.models import Category, Product, ProductStatus
+
+        category = Category.objects.create(name="Футболки review", slug="review-episode")
+        product = Product.objects.create(
+            title="Футболка review",
+            slug="review-episode-product",
+            category=category,
+            price=Decimal("790.00"),
+            status=ProductStatus.PUBLISHED,
+        )
+        client = IgClient.get_or_create_for_sender("review-repeat-episode-scope")
+        old_deal = IgDeal.objects.create(
+            client=client,
+            amount=Decimal("790.00"),
+            status=IgDeal.Status.AWAITING_PAYMENT,
+        )
+        IgDealItem.objects.create(
+            deal=old_deal,
+            product=product,
+            title=product.title,
+            qty=1,
+            unit_price=Decimal("790.00"),
+        )
+        old_episode = ensure_episode_for_deal(old_deal)
+        old_episode.state = IgCommercialEpisode.State.LOST
+        old_episode.open_slot = None
+        old_episode.save(update_fields=["state", "open_slot", "updated_at"])
+        client.current_commercial_episode = None
+        client.save(update_fields=["current_commercial_episode", "updated_at"])
+        repeat = start_repeat_episode(
+            client,
+            repeat_kind=IgCommercialEpisode.RepeatKind.REORDER,
+            evidence_message_ids=[9901],
+            confidence=Decimal("0.97"),
+            analysis_model="gemini-test",
+            analysis_prompt_version="repeat-scope-v1",
+        )
+
+        selected = _select_review_deal(
+            client,
+            [{"status": "matched", "product_id": product.pk}],
+        )
+
+        self.assertIsNone(repeat.deal_id)
+        self.assertIsNone(selected)
+
+    def test_new_episode_review_does_not_rematerialize_old_payment_claim(self):
+        from management.ig_bot_models import IgClient, IgCommercialEpisode
+        from management.models import InstagramBotMessage
+        from management.services.ig_commercial_episodes import start_repeat_episode
+        from management.services.ig_payment_review import create_payment_review
+
+        client = IgClient.get_or_create_for_sender("review-message-episode-scope")
+        InstagramBotMessage.objects.create(
+            client=client,
+            sender_id=client.igsid,
+            role=InstagramBotMessage.Role.USER,
+            text="Я оплатив 790 грн, ось чек",
+        )
+        repeat_message = InstagramBotMessage.objects.create(
+            client=client,
+            sender_id=client.igsid,
+            role=InstagramBotMessage.Role.USER,
+            text="Хочу замовити ще одну футболку",
+        )
+        start_repeat_episode(
+            client,
+            repeat_kind=IgCommercialEpisode.RepeatKind.REORDER,
+            evidence_message_ids=[repeat_message.pk],
+            confidence=Decimal("0.98"),
+            analysis_model="gemini-test",
+            analysis_prompt_version="repeat-review-scope-v1",
+        )
+        current_message = InstagramBotMessage.objects.create(
+            client=client,
+            sender_id=client.igsid,
+            role=InstagramBotMessage.Role.USER,
+            text="Потрібен чорний колір",
+        )
+
+        review = create_payment_review(client, watermark=current_message.pk)
+
+        self.assertIsNone(review)
+
+
 class IgPaymentTelegramCallbackTests(TestCase):
     @override_settings(MANAGEMENT_BASE_URL="https://management.example")
     @patch.dict("os.environ", {"MANAGEMENT_TG_ADMIN_CHAT_ID": "777", "MANAGEMENT_TG_BOT_TOKEN": "token"}, clear=False)
@@ -331,7 +463,19 @@ class IgPaymentTelegramCallbackTests(TestCase):
         IgBotNotification.objects.create(
             dedupe_key=review.dedupe_key,
             event_type="payment_review",
-            payload={"text": "Review", "chat_id": "777", "media": []},
+            payload={
+                "text": "Review",
+                "chat_id": "777",
+                "media": [],
+                "payment_candidate": {
+                    "amount": "2100.00",
+                    "currency": "UAH",
+                    "scope": "full_payment",
+                    "source": "review_quoted_total",
+                    "evidence_message_ids": [],
+                    "digest": "placeholder",
+                },
+            },
             status=IgBotNotification.Status.SENT,
             telegram_message_id="88",
         )
@@ -347,14 +491,80 @@ class IgPaymentTelegramCallbackTests(TestCase):
             }),
             content_type="application/json",
         )
+        from management.services.ig_payment_review import resolve_review_payment_amount
+
+        notification = IgBotNotification.objects.get(dedupe_key=review.dedupe_key)
+        notification.payload["payment_candidate"] = {
+            **notification.payload["payment_candidate"],
+            "digest": resolve_review_payment_amount(review)["digest"],
+        }
+        notification.save(update_fields=["payload", "updated_at"])
         response = management_bot_webhook(request, "token")
         self.assertEqual(response.status_code, 200)
         review.refresh_from_db()
         self.assertEqual(review.status, IgPaymentConfirmationReview.Status.CONFIRMED)
+        decision = review.decisions.get()
+        self.assertEqual(decision.confirmed_amount, Decimal("2100.00"))
+        self.assertEqual(decision.amount_source, "review_quoted_total")
         answer.assert_called_once()
         edit.assert_called_once()
         self.assertIsNone(edit.call_args.kwargs["parse_mode"])
         self.assertIn("ig_payment_review=", edit.call_args.kwargs["reply_markup"]["inline_keyboard"][0][0]["url"])
+
+    @override_settings(MANAGEMENT_BASE_URL="https://management.example")
+    @patch.dict("os.environ", {"MANAGEMENT_TG_ADMIN_CHAT_ID": "777", "MANAGEMENT_TG_BOT_TOKEN": "token"}, clear=False)
+    @patch("management.views._tg_edit_message")
+    @patch("management.views._tg_answer_callback")
+    def test_confirm_button_rejects_stale_amount_candidate(self, answer, edit):
+        from management.ig_bot_models import IgPaymentConfirmationReview
+        from management.models import IgBotNotification, IgClient
+        from management.views import management_bot_webhook
+
+        client = IgClient.get_or_create_for_sender("telegram-stale-candidate")
+        review = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            dedupe_key="telegram-stale-candidate",
+            evidence={"order_draft": {"quoted_total": "2100"}},
+        )
+        IgBotNotification.objects.create(
+            dedupe_key=review.dedupe_key,
+            event_type="payment_review",
+            payload={
+                "text": "Review",
+                "chat_id": "777",
+                "media": [],
+                "payment_candidate": {
+                    "amount": "2000.00",
+                    "currency": "UAH",
+                    "scope": "full_payment",
+                    "source": "review_quoted_total",
+                    "evidence_message_ids": [],
+                    "digest": "stale",
+                },
+            },
+            status=IgBotNotification.Status.SENT,
+            telegram_message_id="92",
+        )
+        request = RequestFactory().post(
+            "/management/telegram/webhook/token",
+            data=json.dumps({
+                "callback_query": {
+                    "id": "cb-stale",
+                    "data": f"igpay:confirm:{review.pk}",
+                    "from": {"id": 777, "username": "owner"},
+                    "message": {"chat": {"id": 777, "type": "private"}, "message_id": 92, "text": "Review"},
+                }
+            }),
+            content_type="application/json",
+        )
+
+        response = management_bot_webhook(request, "token")
+
+        self.assertEqual(response.status_code, 200)
+        review.refresh_from_db()
+        self.assertEqual(review.status, IgPaymentConfirmationReview.Status.PENDING)
+        answer.assert_called_once_with("token", "cb-stale", "Сума змінилася — відкрийте перевірку")
+        edit.assert_not_called()
 
     @patch.dict("os.environ", {"MANAGEMENT_TG_BOT_TOKEN": "token"}, clear=True)
     @patch("management.views._tg_edit_message")
@@ -437,12 +647,27 @@ class IgPaymentTelegramCallbackTests(TestCase):
         review = IgPaymentConfirmationReview.objects.create(
             client=client,
             dedupe_key="telegram-review-retry",
-            evidence={},
+            evidence={"order_draft": {"quoted_total": "2100.00", "currency": "UAH"}},
         )
+        from management.services.ig_payment_review import resolve_review_payment_amount
+
+        candidate = resolve_review_payment_amount(review)
         notification = IgBotNotification.objects.create(
             dedupe_key=review.dedupe_key,
             event_type="payment_review",
-            payload={"text": "Review", "chat_id": "777", "media": []},
+            payload={
+                "text": "Review",
+                "chat_id": "777",
+                "media": [],
+                "payment_candidate": {
+                    "amount": f"{candidate['amount']:.2f}",
+                    "currency": candidate["currency"],
+                    "scope": candidate["scope"],
+                    "source": candidate["source"],
+                    "evidence_message_ids": candidate["evidence_message_ids"],
+                    "digest": candidate["digest"],
+                },
+            },
             status=IgBotNotification.Status.SENT,
             telegram_message_id="90",
         )

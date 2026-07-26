@@ -171,6 +171,8 @@ def normalize_checkout_phone(phone: str) -> str:
 
 def canonicalize_order_pay_type(value: Any) -> str:
     raw = str(value or "").strip().lower()
+    if raw == "prepayment":
+        return "prepayment"
     if raw in {"prepay_200", "prepay", "prepaid", "partial", "partial_payment", "prepay200"}:
         return "prepay_200"
     if raw == "cod":
@@ -201,18 +203,49 @@ def build_order_payment_snapshot(order) -> dict[str, Any]:
     discount_amount = NovaPoshtaDocumentService._as_money(getattr(order, "discount_amount", 0))
     payable_total = max(gross_total - discount_amount, Decimal("0.00"))
     pay_type = canonicalize_order_pay_type(getattr(order, "pay_type", ""))
-    payment_status = canonicalize_payment_status(getattr(order, "payment_status", ""))
+    order_payment_status = canonicalize_payment_status(getattr(order, "payment_status", ""))
+    payment_status = order_payment_status
+    payment_payload = (
+        order.payment_payload if isinstance(getattr(order, "payment_payload", None), dict) else {}
+    )
+    reconciliation = (
+        payment_payload.get("ig_payment_reconciliation")
+        if isinstance(payment_payload.get("ig_payment_reconciliation"), dict)
+        else {}
+    )
+    automatic_fulfillment_blocked = bool(
+        reconciliation.get("automatic_fulfillment_blocked")
+        or reconciliation.get("needs_reconciliation")
+    )
+    manager_confirmed_amount = NovaPoshtaDocumentService._as_money(
+        payment_payload.get("manager_confirmed_amount")
+        or payment_payload.get("effective_confirmed_amount")
+        or 0
+    )
+    manager_payment_verified = bool(
+        not automatic_fulfillment_blocked
+        and
+        payment_payload.get("manual_payment_evidence_confirmed")
+        and manager_confirmed_amount > 0
+        and payment_payload.get("manager_verification_scope") in {"full_payment", "prepayment"}
+    )
+    if payment_status not in {"paid", "prepaid"} and manager_payment_verified:
+        payment_status = (
+            "paid" if manager_confirmed_amount >= payable_total else "prepaid"
+        )
 
     prepayment_amount = Decimal("0.00")
     get_prepayment_amount = getattr(order, "get_prepayment_amount", None)
     if callable(get_prepayment_amount):
         prepayment_amount = NovaPoshtaDocumentService._as_money(get_prepayment_amount())
-    elif pay_type == "prepay_200":
+    elif pay_type in {"prepayment", "prepay_200"}:
         prepayment_amount = Decimal("200.00")
+    if manager_payment_verified and payment_status == "prepaid":
+        prepayment_amount = min(manager_confirmed_amount, payable_total)
 
     if payment_status == "paid":
         cod_amount = Decimal("0.00")
-    elif pay_type == "prepay_200":
+    elif pay_type in {"prepayment", "prepay_200"}:
         cod_amount = max(payable_total - prepayment_amount, Decimal("0.00"))
     elif pay_type == "cod":
         cod_amount = payable_total
@@ -229,6 +262,10 @@ def build_order_payment_snapshot(order) -> dict[str, Any]:
     return {
         "payment_status": payment_status,
         "payment_status_label": get_payment_status_label(payment_status),
+        "order_payment_status": order_payment_status,
+        "manager_payment_verified": manager_payment_verified,
+        "automatic_fulfillment_blocked": automatic_fulfillment_blocked,
+        "manager_confirmed_amount": f"{manager_confirmed_amount:.2f}",
         "pay_type": pay_type,
         # total_sum remains a compatibility alias, now with the unambiguous
         # meaning expected by payment and delivery consumers: amount due.

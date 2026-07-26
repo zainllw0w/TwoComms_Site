@@ -1,4 +1,5 @@
 from decimal import Decimal
+import inspect
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -41,13 +42,15 @@ class InstagramOrderLinkTests(TestCase):
         )
         self.order = self._order(total="2100.00")
 
-    def _order(self, *, total="2100.00"):
+    def _order(self, *, total="2100.00", discount="0.00", payment_status="paid"):
         return Order.objects.create(
             full_name="Яна Ніколаєнко",
             phone="380502034719",
             city="Харків",
             np_office="Відділення №1",
             total_sum=Decimal(total),
+            discount_amount=Decimal(discount),
+            payment_status=payment_status,
             source="manual",
             sale_source="Instagram",
         )
@@ -61,6 +64,30 @@ class InstagramOrderLinkTests(TestCase):
             actor=self.actor,
             override_reason=override_reason,
         )
+
+    def test_all_order_resolution_paths_lock_review_before_projection(self):
+        """Keep one MariaDB row-lock order across provider/manual/link flows."""
+        from management.services.ig_order_links import link_existing_order_to_review
+        from orders.services.order_builder import create_order_from_deal
+        from storefront.views.manual_orders import manual_order_create
+
+        for operation in (
+            create_order_from_deal,
+            manual_order_create,
+            link_existing_order_to_review,
+        ):
+            source = inspect.getsource(operation)
+            review_lock = source.index(
+                "IgPaymentConfirmationReview.objects.select_for_update()"
+            )
+            projection_lock = source.index(
+                "IgPaymentProjection.objects.select_for_update()"
+            )
+            self.assertLess(
+                review_lock,
+                projection_lock,
+                f"{operation.__name__} must lock review before projection",
+            )
 
     def test_exact_order_number_link_is_idempotent_and_attributed(self):
         from management.ig_bot_models import IgOrderAttribution, IgOrderLinkEvent
@@ -83,6 +110,90 @@ class InstagramOrderLinkTests(TestCase):
         self.assertTrue(attribution.identity_digest)
         self.assertEqual(attribution.evidence_watermark_message_id, 91)
         self.assertEqual(IgOrderLinkEvent.objects.filter(order=self.order).count(), 1)
+
+    def test_idempotent_same_order_link_repairs_missing_attribution_and_episode_origin(self):
+        from management.ig_bot_models import IgOrderAttribution
+        from management.services.ig_commercial_episodes import (
+            bind_episode_order,
+            ensure_episode_for_review,
+            episode_payload,
+        )
+
+        self.review.order = self.order
+        self.review.save(update_fields=["order", "updated_at"])
+        self.deal.order = self.order
+        self.deal.save(update_fields=["order", "updated_at"])
+        episode = ensure_episode_for_review(self.review)
+        bind_episode_order(episode, self.order)
+        self.assertFalse(IgOrderAttribution.objects.filter(order=self.order).exists())
+
+        linked = self._link()
+
+        episode.refresh_from_db()
+        self.assertTrue(IgOrderAttribution.objects.filter(order=self.order).exists())
+        attribution = IgOrderAttribution.objects.get(order=self.order)
+        self.assertEqual(linked.pk, self.order.pk)
+        self.assertEqual(episode.order_attribution_id, attribution.pk)
+        payload = episode_payload(episode)
+        self.assertEqual(payload["creation_mode"], "linked_existing")
+        self.assertEqual(payload["payment_source"], "manager_verified")
+
+    def test_reconciliation_conflict_blocks_linking_existing_order(self):
+        from management.ig_bot_models import IgPaymentProjection
+
+        IgPaymentProjection.objects.create(
+            deal=self.deal,
+            client=self.client,
+            truth=self.deal.PaymentTruth.CONFIRMED,
+            gross_amount=Decimal("1800.00"),
+        )
+
+        with self.assertRaisesMessage(ValueError, "звір"):
+            self._link()
+
+    def test_full_payment_amount_mismatch_requires_structured_payment_override(self):
+        from management.ig_bot_models import IgPaymentConfirmationReview
+        from management.services.ig_order_links import link_existing_order_to_review
+        from management.services.ig_payment_review import record_review_decision
+
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.client,
+            dedupe_key="ig-order-link-amount-mismatch",
+            watermark_message_id=190,
+            evidence={"order_draft": {"quoted_total": "500.00"}},
+        )
+        record_review_decision(
+            review,
+            actor=self.actor,
+            decision="manager_verified",
+            verification_scope="full_payment",
+            confirmed_amount="500.00",
+        )
+        order = self._order(total="2000.00", payment_status="paid")
+
+        with self.assertRaisesMessage(ValueError, "структурована причина override"):
+            link_existing_order_to_review(
+                review,
+                order_identifier=order.order_number,
+                actor=self.actor,
+            )
+        with self.assertRaisesMessage(ValueError, "не збігаються"):
+            link_existing_order_to_review(
+                review,
+                order_identifier=order.order_number,
+                actor=self.actor,
+                override_code="manual_review",
+                override_reason="Перевірено вручну",
+            )
+
+        linked = link_existing_order_to_review(
+            review,
+            order_identifier=order.order_number,
+            actor=self.actor,
+            override_code="payment_state_mismatch",
+            override_reason="Менеджер звірив суму з окремою оплатою",
+        )
+        self.assertEqual(linked.pk, order.pk)
 
     def test_payment_review_action_can_link_exact_existing_order(self):
         web_client = Client()
@@ -155,7 +266,7 @@ class InstagramOrderLinkTests(TestCase):
         self.assertIsNone(other_review.order_id)
         self.assertIsNone(other_deal.order_id)
 
-    def test_multiple_review_episodes_can_reference_same_order_for_same_client(self):
+    def test_second_unscoped_review_cannot_claim_order_owned_by_another_episode(self):
         from management.ig_bot_models import IgOrderAttribution, IgOrderLinkEvent, IgPaymentConfirmationReview
         from management.services.ig_payment_review import record_review_decision
 
@@ -163,22 +274,26 @@ class InstagramOrderLinkTests(TestCase):
             client=self.client,
             dedupe_key="ig-order-link-followup-review",
             watermark_message_id=93,
+            evidence={"order_draft": {"quoted_total": "2100.00"}},
         )
         record_review_decision(
             followup_review,
             actor=self.actor,
             decision="manager_verified",
+            verification_scope="full_payment",
+            confirmed_amount="2100.00",
         )
 
         self._link()
-        self._link(followup_review, self.order)
+        with self.assertRaisesMessage(ValueError, "іншою угодою"):
+            self._link(followup_review, self.order)
 
         self.review.refresh_from_db()
         followup_review.refresh_from_db()
         self.assertEqual(self.review.order_id, self.order.pk)
-        self.assertEqual(followup_review.order_id, self.order.pk)
+        self.assertIsNone(followup_review.order_id)
         self.assertEqual(IgOrderAttribution.objects.filter(order=self.order).count(), 1)
-        self.assertEqual(IgOrderLinkEvent.objects.filter(order=self.order).count(), 2)
+        self.assertEqual(IgOrderLinkEvent.objects.filter(order=self.order).count(), 1)
 
     def test_another_deal_for_same_client_cannot_claim_already_attributed_order(self):
         from management.ig_bot_models import IgDeal, IgPaymentConfirmationReview
@@ -218,6 +333,7 @@ class InstagramOrderLinkTests(TestCase):
             self.review,
             order_identifier=self.order.order_number,
             actor=self.actor,
+            override_code="payment_state_mismatch",
             override_reason="Погоджена менеджером знижка",
         )
         second = link_existing_order_to_review(
@@ -228,6 +344,167 @@ class InstagramOrderLinkTests(TestCase):
 
         self.assertEqual(first.pk, second.pk)
         self.assertEqual(IgOrderLinkEvent.objects.filter(order=self.order).count(), 1)
+
+    def test_review_only_full_payment_must_match_selected_order_total(self):
+        from management.ig_bot_models import IgPaymentConfirmationReview
+        from management.services.ig_order_links import link_existing_order_to_review
+        from management.services.ig_payment_review import record_review_decision
+
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.client,
+            dedupe_key="ig-order-link-review-only-amount",
+            evidence={"order_draft": {"quoted_total": "2100.00"}},
+        )
+        record_review_decision(
+            review,
+            actor=self.actor,
+            decision="manager_verified",
+            verification_scope="full_payment",
+            confirmed_amount="2100.00",
+        )
+        mismatched_order = self._order(total="2180.00")
+
+        with self.assertRaisesMessage(ValueError, "не збігаються"):
+            link_existing_order_to_review(
+                review,
+                order_identifier=mismatched_order.order_number,
+                actor=self.actor,
+            )
+
+        linked = link_existing_order_to_review(
+            review,
+            order_identifier=mismatched_order.order_number,
+            actor=self.actor,
+            override_code="payment_state_mismatch",
+            override_reason="Менеджер звірив зміну конфігурації та суми.",
+        )
+        self.assertEqual(linked.pk, mismatched_order.pk)
+
+    def test_review_only_full_payment_matches_discounted_order_final_total_without_override(self):
+        from management.ig_bot_models import IgPaymentConfirmationReview
+        from management.services.ig_order_links import link_existing_order_to_review
+        from management.services.ig_payment_review import record_review_decision
+
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.client,
+            dedupe_key="ig-order-link-discounted-final-total",
+            evidence={"order_draft": {"quoted_total": "2100.00"}},
+        )
+        record_review_decision(
+            review,
+            actor=self.actor,
+            decision="manager_verified",
+            verification_scope="full_payment",
+            confirmed_amount="2100.00",
+        )
+        discounted_order = self._order(total="2180.00", discount="80.00")
+
+        linked = link_existing_order_to_review(
+            review,
+            order_identifier=discounted_order.order_number,
+            actor=self.actor,
+        )
+
+        self.assertEqual(linked.pk, discounted_order.pk)
+
+    def test_link_existing_prepayment_updates_dynamic_order_payment_contract(self):
+        from management.ig_bot_models import IgClient, IgDeal, IgPaymentConfirmationReview
+        from management.services.ig_order_links import link_existing_order_to_review
+        from management.services.ig_payment_review import record_review_decision
+        from orders.nova_poshta_documents import build_order_payment_snapshot
+
+        client = IgClient.get_or_create_for_sender("ig-order-link-dynamic-prepay-client")
+        deal = IgDeal.objects.create(client=client, amount=Decimal("2100.00"))
+        review = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            deal=deal,
+            dedupe_key="ig-order-link-dynamic-prepayment",
+            evidence={"order_draft": {"quoted_total": "2100.00"}},
+        )
+        record_review_decision(
+            review,
+            actor=self.actor,
+            decision="manager_verified",
+            verification_scope="prepayment",
+            confirmed_amount="500.00",
+        )
+
+        order = self._order(total="2100.00", payment_status="unpaid")
+        linked = link_existing_order_to_review(
+            review,
+            order_identifier=order.order_number,
+            actor=self.actor,
+            override_code="payment_state_mismatch",
+            override_reason="Менеджер підтвердив індивідуальну передплату.",
+        )
+
+        linked.refresh_from_db()
+        self.assertEqual(linked.pay_type, "prepayment")
+        self.assertEqual(
+            linked.payment_payload["manager_payment_decision_id"],
+            review.decisions.get().pk,
+        )
+        self.assertEqual(linked.payment_payload["manager_confirmed_amount"], "500.00")
+        self.assertEqual(linked.payment_payload["manager_verification_scope"], "prepayment")
+        snapshot = build_order_payment_snapshot(linked)
+        self.assertEqual(snapshot["paid_amount"], "500.00")
+        self.assertEqual(snapshot["cod_amount"], "1600.00")
+
+    def test_provider_confirmed_dynamic_prepayment_normalizes_existing_order(self):
+        from management.ig_bot_models import (
+            IgClient,
+            IgDeal,
+            IgPaymentConfirmationReview,
+            IgPaymentProjection,
+        )
+        from management.services.ig_order_links import link_existing_order_to_review
+        from management.services.ig_payment_review import record_review_decision
+        from orders.nova_poshta_documents import build_order_payment_snapshot
+
+        client = IgClient.get_or_create_for_sender("ig-order-link-provider-prepay")
+        deal = IgDeal.objects.create(
+            client=client,
+            amount=Decimal("2100.00"),
+            pay_type=IgDeal.PayType.PREPAYMENT,
+            requested_payment_amount=Decimal("500.00"),
+        )
+        IgPaymentProjection.objects.create(
+            client=client,
+            deal=deal,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount=Decimal("500.00"),
+        )
+        review = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            deal=deal,
+            dedupe_key="ig-order-link-provider-prepay-review",
+            evidence={"order_draft": {"quoted_total": "2100.00"}},
+        )
+        record_review_decision(
+            review,
+            actor=self.actor,
+            decision="manager_verified",
+            verification_scope="prepayment",
+            confirmed_amount="500.00",
+        )
+        order = self._order(total="2100.00", payment_status="unpaid")
+
+        linked = link_existing_order_to_review(
+            review,
+            order_identifier=order.order_number,
+            actor=self.actor,
+            override_code="payment_state_mismatch",
+            override_reason="Звірено provider-передплату.",
+        )
+
+        linked.refresh_from_db()
+        self.assertEqual(linked.pay_type, "prepayment")
+        self.assertEqual(linked.payment_status, "prepaid")
+        self.assertTrue(linked.payment_payload["provider_payment_confirmed"])
+        self.assertEqual(linked.payment_payload["paid_value"], "500.00")
+        snapshot = build_order_payment_snapshot(linked)
+        self.assertEqual(snapshot["paid_amount"], "500.00")
+        self.assertEqual(snapshot["cod_amount"], "1600.00")
 
     def test_review_must_still_be_confirmed_when_linking(self):
         from management.ig_bot_models import IgPaymentConfirmationReview
@@ -356,7 +633,8 @@ class InstagramOrderLinkTests(TestCase):
 
         response = web_client.get(reverse("management_bot"), secure=True)
 
-        self.assertContains(response, "Причина розбіжності")
+        self.assertContains(response, "Оберіть причину розбіжності")
+        self.assertContains(response, "override_code")
         self.assertContains(response, "override_reason")
 
     def test_order_primary_key_or_partial_number_is_not_an_exact_identifier(self):
@@ -389,7 +667,7 @@ class InstagramOrderLinkTests(TestCase):
         self.assertFalse(IgOrderAttribution.objects.filter(order=self.order).exists())
         self.assertFalse(IgOrderLinkEvent.objects.filter(order=self.order).exists())
 
-    def test_existing_order_fields_and_items_are_not_mutated_by_link(self):
+    def test_existing_order_business_fields_and_items_are_not_mutated_by_link(self):
         from orders.models import OrderItem
 
         OrderItem.objects.create(
@@ -400,14 +678,14 @@ class InstagramOrderLinkTests(TestCase):
             unit_price=Decimal("1050.00"),
             line_total=Decimal("2100.00"),
         )
-        before_order = {
+        before_business_fields = {
             field: getattr(self.order, field)
             for field in (
                 "full_name", "phone", "city", "np_office", "total_sum",
-                "payment_status", "payment_provider", "payment_payload",
                 "source", "sale_source",
             )
         }
+        before_payment_provider = self.order.payment_provider
         before_items = list(
             self.order.items.order_by("id").values(
                 "product_id", "color_variant_id", "title", "size", "qty",
@@ -425,9 +703,20 @@ class InstagramOrderLinkTests(TestCase):
 
         self.order.refresh_from_db()
         self.assertEqual(
-            {field: getattr(self.order, field) for field in before_order},
-            before_order,
+            {
+                field: getattr(self.order, field)
+                for field in before_business_fields
+            },
+            before_business_fields,
         )
+        self.assertEqual(self.order.payment_status, "paid")
+        self.assertEqual(self.order.payment_provider, before_payment_provider)
+        self.assertTrue(self.order.payment_payload["manual_payment_evidence_confirmed"])
+        self.assertFalse(self.order.payment_payload["provider_payment_confirmed"])
+        self.assertEqual(self.order.payment_payload["manual_payment_preset"], "paid_full")
+        self.assertEqual(self.order.payment_payload["manager_confirmed_amount"], "2100.00")
+        self.assertEqual(self.order.payment_payload["effective_confirmed_amount"], "2100.00")
+        self.assertEqual(self.order.payment_payload["negotiated_order_total"], "2100.00")
         self.assertEqual(
             list(self.order.items.order_by("id").values(*before_items[0].keys())),
             before_items,
@@ -435,6 +724,139 @@ class InstagramOrderLinkTests(TestCase):
 
 
 class InstagramAutomaticOrderProvenanceTests(TestCase):
+    def _provider_deal(self, suffix, *, truth="confirmed", gross="790.00", refunded="0.00"):
+        from management.ig_bot_models import IgClient, IgDeal, IgDealItem, IgPaymentProjection
+
+        client = IgClient.get_or_create_for_sender(f"ig-provider-{suffix}")
+        deal = IgDeal.objects.create(
+            client=client,
+            amount=Decimal("790.00"),
+            requested_payment_amount=Decimal("790.00"),
+            pay_type=IgDeal.PayType.ONLINE_FULL,
+            np_full_name="Яна Ніколаєнко",
+            np_phone="380502034719",
+            np_city="Харків",
+            np_office="Відділення №1",
+        )
+        IgDealItem.objects.create(
+            deal=deal, title="Футболка", qty=1, unit_price=Decimal("790.00")
+        )
+        IgPaymentProjection.objects.create(
+            deal=deal,
+            client=client,
+            truth=truth,
+            gross_amount=Decimal(gross),
+            refunded_amount=Decimal(refunded),
+        )
+        return client, deal
+
+    def test_provider_manager_amount_conflict_blocks_new_and_existing_order_paths(self):
+        from management.ig_bot_models import IgPaymentConfirmationReview
+        from management.services.ig_payment_review import record_review_decision
+        from orders.services.order_builder import create_order_from_deal
+
+        actor = get_user_model().objects.create_user(
+            username="ig-provider-conflict", password="test-password", is_staff=True
+        )
+        client, deal = self._provider_deal("conflict")
+        review = IgPaymentConfirmationReview.objects.create(
+            client=client, deal=deal, dedupe_key="ig-provider-conflict-review"
+        )
+        record_review_decision(
+            review,
+            actor=actor,
+            decision="manager_verified",
+            verification_scope="prepayment",
+            confirmed_amount="315.00",
+        )
+
+        with self.assertRaisesMessage(ValueError, "reconciliation"):
+            create_order_from_deal(deal)
+
+        existing = Order.objects.create(
+            full_name="Яна", phone="380502034719", total_sum=Decimal("790.00")
+        )
+        deal.order = existing
+        deal.save(update_fields=["order", "updated_at"])
+        with self.assertRaisesMessage(ValueError, "reconciliation"):
+            create_order_from_deal(deal)
+
+    def test_partially_refunded_full_payment_cannot_materialize_as_fully_paid(self):
+        from management.ig_bot_models import IgDeal
+        from orders.services.order_builder import create_order_from_deal
+
+        _client, deal = self._provider_deal(
+            "partial-refund",
+            truth=IgDeal.PaymentTruth.PARTIALLY_REFUNDED,
+            gross="790.00",
+            refunded="100.00",
+        )
+
+        with self.assertRaisesMessage(ValueError, "reconciliation"):
+            create_order_from_deal(deal)
+        self.assertFalse(Order.objects.filter(checkout_idempotency_key__startswith="ig-episode:").exists())
+
+    def test_provider_authority_keeps_exact_deal_pay_type_despite_manager_scope(self):
+        from management.ig_bot_models import (
+            IgPaymentConfirmationReview,
+            IgPaymentReviewDecision,
+        )
+        from orders.services.order_builder import create_order_from_deal
+
+        actor = get_user_model().objects.create_user(
+            username="ig-provider-pay-type", password="test-password", is_staff=True
+        )
+        client, deal = self._provider_deal("pay-type")
+        review = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            deal=deal,
+            dedupe_key="ig-provider-pay-type-review",
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+        )
+        IgPaymentReviewDecision.objects.create(
+            review=review,
+            client=client,
+            decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+            verification_source="manager",
+            verification_scope=IgPaymentReviewDecision.VerificationScope.PREPAYMENT,
+            confirmed_amount=Decimal("790.00"),
+            amount_source="manager_input",
+            actor=actor,
+            actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+            actor_external_id=str(actor.pk),
+        )
+
+        order = create_order_from_deal(deal)
+
+        self.assertEqual(order.pay_type, deal.PayType.ONLINE_FULL)
+        self.assertEqual(order.payment_status, "paid")
+
+    def test_nova_poshta_snapshot_does_not_restore_reversed_manager_payment(self):
+        from orders.nova_poshta_documents import build_order_payment_snapshot
+
+        order = Order.objects.create(
+            full_name="Яна",
+            phone="380502034719",
+            total_sum=Decimal("790.00"),
+            pay_type="online_full",
+            payment_status="unpaid",
+            payment_payload={
+                "manual_payment_evidence_confirmed": True,
+                "manager_confirmed_amount": "790.00",
+                "manager_verification_scope": "full_payment",
+                "ig_payment_reconciliation": {
+                    "automatic_fulfillment_blocked": True,
+                    "reason": "provider_reversed",
+                },
+            },
+        )
+
+        snapshot = build_order_payment_snapshot(order)
+
+        self.assertEqual(snapshot["payment_status"], "unpaid")
+        self.assertFalse(snapshot["manager_payment_verified"])
+        self.assertEqual(snapshot["paid_amount"], "0.00")
+
     def test_manager_verified_builder_order_remains_provider_unpaid(self):
         from management.ig_bot_models import IgClient, IgDeal, IgDealItem, IgPaymentConfirmationReview
         from management.services.ig_payment_review import record_review_decision
@@ -458,12 +880,21 @@ class InstagramAutomaticOrderProvenanceTests(TestCase):
         review = IgPaymentConfirmationReview.objects.create(
             client=client, deal=deal, dedupe_key="ig-manager-builder-review"
         )
-        record_review_decision(review, actor=actor, decision="manager_verified")
+        record_review_decision(
+            review,
+            actor=actor,
+            decision="manager_verified",
+            verification_scope="full_payment",
+            confirmed_amount="790.00",
+        )
 
         order = create_order_from_deal(deal, created_by=actor)
 
         self.assertEqual(order.payment_status, "unpaid")
         self.assertFalse(order.payment_payload.get("provider_payment_confirmed", False))
+        self.assertEqual(order.payment_payload["manager_confirmed_amount"], "790.00")
+        self.assertEqual(order.payment_payload["manager_verification_scope"], "full_payment")
+        self.assertEqual(order.payment_payload["effective_confirmed_amount"], "790.00")
         self.assertEqual(order.instagram_attribution.creation_mode, "manager_review")
         self.assertEqual(order.instagram_attribution.payment_source, "manager_verified")
         self.assertEqual(order.payment_provider, "")
@@ -496,7 +927,13 @@ class InstagramAutomaticOrderProvenanceTests(TestCase):
         review = IgPaymentConfirmationReview.objects.create(
             client=client, deal=deal, dedupe_key="ig-manager-price-evidence-review"
         )
-        record_review_decision(review, actor=actor, decision="manager_verified")
+        record_review_decision(
+            review,
+            actor=actor,
+            decision="manager_verified",
+            verification_scope="full_payment",
+            confirmed_amount="790.00",
+        )
 
         order = create_order_from_deal(deal, created_by=actor)
 

@@ -322,6 +322,12 @@ def apply_payment_status(deal, status_value, payload=None, *, source="provider")
         # Authoritative InnoDB truth is already committed. The bounded cron
         # reconciliation repairs non-transactional legacy mirrors.
         pass
+    try:
+        from management.services.ig_commercial_episodes import sync_episode_payment
+
+        sync_episode_payment(deal=deal)
+    except Exception:
+        pass
     if became_verified:
         try:
             from management.models import IgClient
@@ -438,7 +444,11 @@ def _sync_legacy_payment_mirror(projection) -> None:
 
     deal = projection.deal
     mirror_status = {
-        deal.PaymentTruth.CONFIRMED: "prepaid" if deal.pay_type == deal.PayType.PREPAY_200 else "paid",
+        deal.PaymentTruth.CONFIRMED: (
+            "prepaid"
+            if deal.pay_type in {deal.PayType.PREPAYMENT, deal.PayType.PREPAY_200}
+            else "paid"
+        ),
         deal.PaymentTruth.PARTIALLY_REFUNDED: "partially_refunded",
         deal.PaymentTruth.REFUNDED: "refunded",
         deal.PaymentTruth.REVERSED: "reversed",

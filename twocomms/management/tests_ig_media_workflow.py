@@ -636,7 +636,7 @@ class TelegramPaymentReviewGateTests(SimpleTestCase):
 
         self.assertEqual(_payment_review_notification_gate(self._notification(), "-100", 88), "")
 
-    def test_wrong_message_is_rejected_but_failed_media_does_not_block_decision(self):
+    def test_wrong_message_and_failed_media_block_decision(self):
         from management.views import _payment_review_notification_gate
 
         self.assertEqual(
@@ -653,10 +653,10 @@ class TelegramPaymentReviewGateTests(SimpleTestCase):
                 "-100",
                 88,
             ),
-            "",
+            "Докази ще не доставлені — відкрийте перевірку",
         )
 
-    def test_main_alert_can_be_confirmed_while_media_is_still_delivering(self):
+    def test_main_alert_waits_until_receipt_media_is_delivered(self):
         from management.views import _payment_review_notification_gate
 
         notification = self._notification(
@@ -668,7 +668,10 @@ class TelegramPaymentReviewGateTests(SimpleTestCase):
                 "media": [{"delivery_status": "sending"}],
             },
         )
-        self.assertEqual(_payment_review_notification_gate(notification, "-100", 88), "")
+        self.assertEqual(
+            _payment_review_notification_gate(notification, "-100", 88),
+            "Докази ще не доставлені — відкрийте перевірку",
+        )
 
     @patch("management.services.ig_payment_review.transaction.atomic", return_value=nullcontext())
     def test_losing_opposite_transition_cannot_overwrite_winner_audit(self, _atomic):

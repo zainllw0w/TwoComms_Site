@@ -132,13 +132,37 @@ def fulfill_if_ready(deal, created_by=None) -> bool:
         return False
     order = create_order_from_deal(deal, created_by=created_by)
     try:
+        paid_amount = _confirmed_payment_amount(deal)
         notify_manager(
             f"✅ IG: оплачено і створено замовлення {order.order_number} "
-            f"({deal.amount} грн) — {deal.np_full_name}, {deal.np_city}, {deal.np_office}."
+            f"({paid_amount:.2f} грн) — {deal.np_full_name}, {deal.np_city}, {deal.np_office}."
         )
     except Exception:
         pass
     return True
+
+
+def _confirmed_payment_amount(deal) -> Decimal:
+    """Return source-qualified money actually received for this payment event."""
+    from management.services.ig_commercial_episodes import payment_truth_snapshot
+
+    truth = payment_truth_snapshot(deal=deal)
+    for key in ("provider_confirmed_amount", "confirmed_paid_amount"):
+        try:
+            amount = Decimal(str(truth.get(key) or "0")).quantize(Decimal("0.01"))
+        except Exception:
+            amount = Decimal("0.00")
+        if amount > 0:
+            return amount
+    try:
+        legacy_paid = Decimal(str(getattr(deal, "paid_amount", None) or "0")).quantize(
+            Decimal("0.01")
+        )
+    except Exception:
+        legacy_paid = Decimal("0.00")
+    if legacy_paid > 0:
+        return legacy_paid
+    return Decimal(deal.payable_amount() or 0).quantize(Decimal("0.01"))
 
 
 def _queue_delivery_validation_review(deal, reason: str):
@@ -210,8 +234,9 @@ def on_deal_paid(deal) -> None:
         fulfill_if_ready(deal)
     else:
         try:
+            paid_amount = _confirmed_payment_amount(deal)
             notify_manager(
-                f"💸 IG: оплата отримана (угода #{deal.id}, {deal.amount} грн), "
+                f"💸 IG: оплата отримана (угода #{deal.id}, {paid_amount:.2f} грн), "
                 f"але бракує даних доставки — бот збирає ПІБ/телефон/місто/відділення."
             )
         except Exception:
@@ -547,7 +572,21 @@ def _conversation_price_decision(client, product=None, qty: int = 1) -> dict:
     try:
         from management.models import InstagramBotMessage
 
-        messages = list(InstagramBotMessage.objects.filter(client=client).order_by("-id")[:80])
+        queryset = InstagramBotMessage.objects.filter(client=client)
+        from management.ig_bot_models import IgCommercialEpisode
+
+        episode = IgCommercialEpisode.objects.filter(
+            client_id=client.pk, open_slot=1
+        ).only("opened_watermark_message_id").first()
+        if episode and int(episode.opened_watermark_message_id or 0) > 0:
+            queryset = queryset.filter(id__gte=episode.opened_watermark_message_id)
+        elif hasattr(client, "commercial_episodes"):
+            closed_at = client.commercial_episodes.filter(
+                closed_at__isnull=False
+            ).order_by("-closed_at", "-id").values_list("closed_at", flat=True).first()
+            if closed_at:
+                queryset = queryset.filter(created_at__gt=closed_at)
+        messages = list(queryset.order_by("-id")[:80])
         messages.reverse()
     except Exception:
         return {"status": "unavailable", "price": None, "source_message_id": None}
@@ -581,6 +620,122 @@ def _validated_negotiated_price(client, value, *, product=None, qty: int = 1) ->
     return price if accepted == price else None
 
 
+def _conversation_payment_amount_decision(client) -> dict:
+    """Resolve one current-episode prepayment amount from persisted dialogue."""
+    if not client or not getattr(client, "pk", None):
+        return {"status": "none", "amount": None, "evidence_message_ids": []}
+    try:
+        from management.models import InstagramBotMessage
+
+        queryset = InstagramBotMessage.objects.filter(client=client)
+        episode = getattr(client, "current_commercial_episode", None)
+        if episode and int(episode.opened_watermark_message_id or 0) > 0:
+            queryset = queryset.filter(id__gte=episode.opened_watermark_message_id)
+        elif hasattr(client, "commercial_episodes"):
+            closed_at = client.commercial_episodes.filter(
+                closed_at__isnull=False
+            ).order_by("-closed_at", "-id").values_list("closed_at", flat=True).first()
+            if closed_at:
+                queryset = queryset.filter(created_at__gt=closed_at)
+        messages = list(queryset.order_by("-id")[:80])
+        messages.reverse()
+    except Exception:
+        return {"status": "unavailable", "amount": None, "evidence_message_ids": []}
+
+    amount_re = re.compile(r"(?<!\d)(\d{2,6}(?:[.,]\d{1,2})?)\s*(?:грн|uah|₴)", re.IGNORECASE)
+    prepay_re = re.compile(r"\b(передоплат\w*|предоплат\w*|аванс\w*|частков\w*\s+оплат\w*)\b", re.IGNORECASE)
+    acceptance_re = re.compile(r"\b(так|да|ок|добре|погодж\w*|соглас\w*|сплачу|оплачу|внесу|готов\w*)\b", re.IGNORECASE)
+    completed_re = re.compile(r"\b(оплатив|оплатила|сплатив|сплатила|чек|квитанц\w*|receipt|paid)\b", re.IGNORECASE)
+    product_switch_re = re.compile(
+        r"\b(хочу\s+ще|нове\s+замовлення|новый\s+заказ|інш\w*\s+товар|друг\w*\s+товар|"
+        r"обираю|вибираю|беру)\b[^.!?]{0,100}\b(футболк\w*|худі|худи|товар\w*|принт\w*)\b",
+        re.IGNORECASE,
+    )
+    seller_roles = {"manager", "model", "human_manager", "operator", "admin"}
+    customer_roles = {"user", "customer", "client"}
+    decisions = []
+    for index, message in enumerate(messages):
+        text = _message_text(message)
+        amounts = amount_re.findall(text)
+        if not amounts or not prepay_re.search(text):
+            continue
+        try:
+            amount = Decimal(amounts[-1].replace(",", ".")).quantize(Decimal("0.01"))
+        except (InvalidOperation, ValueError):
+            continue
+        if amount <= 0 or amount > MAX_PAYLINK_VALUE:
+            continue
+        role = _message_role(message)
+        accepted = False
+        evidence_ids = [getattr(message, "pk", None)]
+        if role in customer_roles:
+            accepted = bool(acceptance_re.search(text) and not completed_re.search(text))
+        elif role in seller_roles:
+            next_message = next(
+                (later for later in messages[index + 1:] if _message_text(later)),
+                None,
+            )
+            accepted = bool(
+                next_message
+                and _message_role(next_message) in customer_roles
+                and acceptance_re.search(_message_text(next_message))
+            )
+            if accepted:
+                evidence_ids.append(getattr(next_message, "pk", None))
+        decisions.append({
+            "status": "accepted" if accepted else "ambiguous",
+            "amount": amount if accepted else None,
+            "message_index": index,
+            "evidence_message_ids": [int(value) for value in evidence_ids if value],
+        })
+    if not decisions:
+        return {"status": "none", "amount": None, "evidence_message_ids": []}
+    decision = decisions[-1]
+    if any(
+        product_switch_re.search(_message_text(message)) or _is_product_media_switch(message)
+        for message in messages[decision["message_index"] + 1:]
+    ):
+        return {"status": "ambiguous", "amount": None, "evidence_message_ids": []}
+    return {
+        "status": decision["status"],
+        "amount": decision["amount"],
+        "evidence_message_ids": decision["evidence_message_ids"],
+    }
+
+
+def _validated_payment_amount(client, value=None) -> Decimal | None:
+    decision = _conversation_payment_amount_decision(client)
+    accepted = decision.get("amount") if decision.get("status") == "accepted" else None
+    if accepted is None:
+        return None
+    if value is None:
+        return accepted
+    try:
+        requested = Decimal(str(value).replace(",", ".")).quantize(Decimal("0.01"))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+    return accepted if requested == accepted else None
+
+
+def _store_requested_payment(deal, *, prepayment_decision: dict | None = None) -> bool:
+    if deal.pay_type == deal.PayType.PREPAYMENT:
+        decision = prepayment_decision or {}
+        requested = decision.get("amount")
+        if requested is None or requested <= 0 or requested > Decimal(deal.amount or 0):
+            return False
+        deal.requested_payment_amount = requested
+        deal.requested_payment_evidence_ids = decision.get("evidence_message_ids") or []
+    else:
+        deal.requested_payment_amount = deal.amount
+        deal.requested_payment_evidence_ids = []
+    deal.save(update_fields=[
+        "requested_payment_amount",
+        "requested_payment_evidence_ids",
+        "updated_at",
+    ])
+    return True
+
+
 def _create_deal_and_link_unlocked(
     client,
     pay_type: str = "full",
@@ -589,6 +744,7 @@ def _create_deal_and_link_unlocked(
     size: str = "",
     fit_option_code: str = "",
     negotiated_price=None,
+    payment_amount=None,
     items=None,
 ) -> dict:
     """Формує/переюзає угоду клієнта і повертає посилання на оплату Monobank.
@@ -598,8 +754,81 @@ def _create_deal_and_link_unlocked(
     стара чернетка/invoice скидаються при зміні товару чи типу оплати.
     """
     from management.models import IgDeal, IgDealItem
+    from management.ig_bot_models import IgCommercialEpisode
 
-    pt = IgDeal.PayType.PREPAY_200 if pay_type == "prepay" else IgDeal.PayType.ONLINE_FULL
+    current_episode = IgCommercialEpisode.objects.filter(
+        client_id=client.pk, open_slot=1
+    ).first()
+    has_episode_history = IgCommercialEpisode.objects.filter(client_id=client.pk).exists()
+
+    def create_scoped_payment_link(deal):
+        result = create_payment_link(deal)
+        if result.get("ok"):
+            from management.services.ig_commercial_episodes import ensure_episode_for_deal
+
+            ensure_episode_for_deal(deal)
+        return result
+
+    def deal_belongs_to_current_episode(deal):
+        try:
+            episode = deal.commercial_episode
+        except IgCommercialEpisode.DoesNotExist:
+            episode = None
+        if current_episode is None:
+            # Once a client has completed/history episodes, an unscoped legacy
+            # deal is never safe to reuse for a new reply.  The first successful
+            # paylink of the new cycle is synchronously attached below.
+            return bool(episode and episode.open_slot == 1) or not has_episode_history
+        if episode is not None:
+            return episode.pk == current_episode.pk
+        return bool(
+            not current_episode.deal_id
+            and getattr(deal, "created_at", None)
+            and deal.created_at >= current_episode.opened_at
+        )
+
+    def current_open_deals():
+        terminal_truth = {
+            IgDeal.PaymentTruth.PARTIALLY_REFUNDED,
+            IgDeal.PaymentTruth.REFUNDED,
+            IgDeal.PaymentTruth.REVERSED,
+            IgDeal.PaymentTruth.FAILED,
+            IgDeal.PaymentTruth.CANCELLED,
+        }
+        rows = (
+            IgDeal.objects.filter(client=client, order__isnull=True)
+            .exclude(
+                status__in={
+                    IgDeal.Status.PAID,
+                    IgDeal.Status.ORDER_CREATED,
+                    IgDeal.Status.CANCELLED,
+                }
+            )
+            .select_related("payment_projection")
+            .order_by("-id")
+        )
+        current = []
+        for deal in rows:
+            try:
+                projection = deal.payment_projection
+            except Exception:
+                projection = None
+            provider_truth = getattr(projection, "truth", "") or deal.payment_truth
+            if provider_truth in terminal_truth:
+                continue
+            if deal_belongs_to_current_episode(deal):
+                current.append(deal)
+        return current
+
+    prepayment_decision = None
+    if pay_type == "prepay":
+        validated_payment = _validated_payment_amount(client, payment_amount)
+        if validated_payment is None:
+            return {"ok": False, "error": "invalid_payment_amount"}
+        prepayment_decision = _conversation_payment_amount_decision(client)
+        pt = IgDeal.PayType.PREPAYMENT
+    else:
+        pt = IgDeal.PayType.ONLINE_FULL
 
     if items is not None:
         if not isinstance(items, (list, tuple)) or not items:
@@ -747,11 +976,7 @@ def _create_deal_and_link_unlocked(
                     ) if message_id]
                 ),
             })
-        open_deals = list(
-            IgDeal.objects.filter(client=client, order__isnull=True)
-            .exclude(status=IgDeal.Status.PAID)
-            .order_by("-id")
-        )
+        open_deals = current_open_deals()
         desired_signature = sorted(
             (
                 item["product"].pk,
@@ -778,7 +1003,13 @@ def _create_deal_and_link_unlocked(
                 for item in existing.items.all()
             )
             if current_signature == desired_signature:
-                return create_payment_link(existing)
+                if pt == IgDeal.PayType.PREPAYMENT and Decimal(
+                    existing.requested_payment_amount or 0
+                ) != Decimal(prepayment_decision["amount"]):
+                    continue
+                return create_scoped_payment_link(existing)
+        if pt == IgDeal.PayType.PREPAYMENT and Decimal(prepayment_decision["amount"]) > aggregate_value:
+            return {"ok": False, "error": "payment_amount_exceeds_total"}
         deal = IgDeal.objects.create(client=client, pay_type=pt)
         for item in normalized_items:
             IgDealItem.objects.create(
@@ -797,7 +1028,9 @@ def _create_deal_and_link_unlocked(
                 price_evidence_message_ids=item["price_evidence_message_ids"],
             )
         deal.recalc_total()
-        res = create_payment_link(deal)
+        if not _store_requested_payment(deal, prepayment_decision=prepayment_decision):
+            return {"ok": False, "error": "invalid_payment_amount"}
+        res = create_scoped_payment_link(deal)
         if res.get("ok"):
             try:
                 from management.models import IgClient
@@ -836,11 +1069,7 @@ def _create_deal_and_link_unlocked(
             allowed_sizes.add("XS")
         if allowed_sizes and size not in allowed_sizes:
             return {"ok": False, "error": "invalid_size"}
-    open_deals = list(
-        IgDeal.objects.filter(client=client, order__isnull=True)
-        .exclude(status=IgDeal.Status.PAID)
-        .order_by("-id")
-    )
+    open_deals = current_open_deals()
 
     price_decision = _conversation_price_decision(client, product=product, qty=qty) if product else {
         "status": "none", "price": None,
@@ -872,6 +1101,12 @@ def _create_deal_and_link_unlocked(
             intended_price = Decimal(str(product.price or 0)).quantize(Decimal("0.01"))
     if intended_price is not None and intended_price * qty > MAX_PAYLINK_VALUE:
         return {"ok": False, "error": "aggregate_value_limit"}
+    if (
+        pt == IgDeal.PayType.PREPAYMENT
+        and intended_price is not None
+        and Decimal(prepayment_decision["amount"]) > intended_price * qty
+    ):
+        return {"ok": False, "error": "payment_amount_exceeds_total"}
 
     deal = None
     if product is not None:
@@ -887,8 +1122,13 @@ def _create_deal_and_link_unlocked(
                 and d.items.first().qty == qty
                 and (d.items.first().size or "") == size
                 and (d.items.first().fit_option_code or "") == fit_option_code
+                and (
+                    pt != IgDeal.PayType.PREPAYMENT
+                    or Decimal(d.requested_payment_amount or 0)
+                    == Decimal(prepayment_decision["amount"])
+                )
             ):
-                return create_payment_link(d)
+                return create_scoped_payment_link(d)
         # 2) свіжа угода саме під цей товар
         deal = IgDeal.objects.create(client=client, pay_type=pt)
         price = intended_price
@@ -916,15 +1156,35 @@ def _create_deal_and_link_unlocked(
                 break
         if deal is None:
             return {"ok": False, "error": "no_product"}
-        if deal.pay_type == pt and deal.invoice_id and deal.invoice_url:
-            return create_payment_link(deal)
+        if (
+            deal.pay_type == pt
+            and deal.invoice_id
+            and deal.invoice_url
+            and (
+                pt != IgDeal.PayType.PREPAYMENT
+                or Decimal(deal.requested_payment_amount or 0)
+                == Decimal(prepayment_decision["amount"])
+            )
+        ):
+            return create_scoped_payment_link(deal)
         deal.pay_type = pt
+        deal.requested_payment_amount = (
+            prepayment_decision["amount"] if prepayment_decision else None
+        )
+        deal.requested_payment_evidence_ids = (
+            prepayment_decision.get("evidence_message_ids") if prepayment_decision else []
+        )
         deal.invoice_id = ""
         deal.invoice_url = ""
-        deal.save(update_fields=["pay_type", "invoice_id", "invoice_url", "updated_at"])
+        deal.save(update_fields=[
+            "pay_type", "requested_payment_amount", "requested_payment_evidence_ids",
+            "invoice_id", "invoice_url", "updated_at",
+        ])
 
     deal.recalc_total()
-    res = create_payment_link(deal)
+    if not _store_requested_payment(deal, prepayment_decision=prepayment_decision):
+        return {"ok": False, "error": "invalid_payment_amount"}
+    res = create_scoped_payment_link(deal)
     if res.get("ok"):
         try:
             from management.models import IgClient
@@ -943,6 +1203,7 @@ def create_deal_and_link(
     size: str = "",
     fit_option_code: str = "",
     negotiated_price=None,
+    payment_amount=None,
     items=None,
 ) -> dict:
     """Create or reuse one payment deal while serializing the client flow."""
@@ -958,6 +1219,7 @@ def create_deal_and_link(
             size=size,
             fit_option_code=fit_option_code,
             negotiated_price=negotiated_price,
+            payment_amount=payment_amount,
             items=items,
         )
 
@@ -1058,6 +1320,50 @@ def _queue_shipment_manager_review(deal, text: str, *, reason: str, hint: str = 
     return task
 
 
+def _queue_episode_shipment_manager_review(episode, text: str, *, reason: str, hint: str = ""):
+    from management.models import IgFollowUpTask
+
+    scoped_reason = f"{reason}:episode:{episode.pk}"
+    task, created = IgFollowUpTask.objects.get_or_create(
+        client=episode.client,
+        deal=None,
+        kind=IgFollowUpTask.Kind.MANAGER_TASK,
+        reason=scoped_reason,
+        defaults={
+            "due_at": timezone.now(),
+            "status": IgFollowUpTask.Status.SKIPPED,
+            "skip_reason": "human_agent_required",
+            "message_text": text,
+            "last_error": (hint or "")[:500],
+        },
+    )
+    if not created:
+        changed = []
+        if task.message_text != text:
+            task.message_text = text
+            changed.append("message_text")
+        bounded_hint = (hint or "")[:500]
+        if task.last_error != bounded_hint:
+            task.last_error = bounded_hint
+            changed.append("last_error")
+        if changed:
+            changed.append("updated_at")
+            task.save(update_fields=changed)
+    client_label = (
+        episode.client.username
+        or episode.client.display_name
+        or episode.client.igsid
+    )
+    notify_manager(
+        f"📦 IG: потрібна ручна відповідь про відправку для {client_label}. "
+        f"Епізод #{episode.pk}; готовий текст збережено у завданні менеджеру.",
+        dedupe_key=scoped_reason,
+        event_type="shipment_human_review",
+        client=episode.client,
+    )
+    return task
+
+
 def notify_shipped_deals(limit: int = 50) -> int:
     """Сповіщає IG-клієнта в Direct, що замовлення відправлено (з ТТН).
 
@@ -1127,6 +1433,86 @@ def notify_shipped_deals(limit: int = 50) -> int:
         else:
             _queue_shipment_manager_review(
                 deal,
+                text,
+                reason="shipment_delivery_review",
+                hint=f"{kind}:{hint}",
+            )
+    from management.ig_bot_models import IgCommercialEpisode
+    from management.services.ig_commercial_episodes import append_episode_event
+
+    # A deal row that needs manager review or is outside the response window
+    # must not permanently consume the delivery budget for attribution-only
+    # episodes on every poll. Only successful automatic sends consume it.
+    remaining = max(0, int(limit) - sent)
+    episode_qs = (
+        IgCommercialEpisode.objects.filter(
+            deal__isnull=True,
+            intended_order__status="ship",
+            shipment_notified_at__isnull=True,
+            order_attribution__payment_source__in={
+                "provider_projection",
+                "provider_attempt",
+                "manager_verified",
+            },
+        )
+        .exclude(intended_order__tracking_number__isnull=True)
+        .exclude(intended_order__tracking_number="")
+        .select_related("intended_order", "client", "order_attribution")[:remaining]
+    )
+    for episode in episode_qs:
+        order = episode.intended_order
+        ttn = (order.tracking_number or "").strip()
+        if not ttn or not episode.client_id:
+            continue
+        text = _shipment_message(ttn)
+        existing_review = episode.client.followup_tasks.filter(
+            reason__in={
+                f"shipment_human_review:episode:{episode.pk}",
+                f"shipment_delivery_review:episode:{episode.pk}",
+            }
+        ).first()
+        if existing_review:
+            _queue_episode_shipment_manager_review(
+                episode,
+                text,
+                reason=existing_review.reason.split(":episode:", 1)[0],
+                hint=existing_review.last_error,
+            )
+            continue
+        response_deadline = (
+            episode.client.last_message_at + SHIPMENT_RESPONSE_WINDOW
+            if episode.client.last_message_at
+            else None
+        )
+        if not response_deadline or timezone.now() > response_deadline:
+            _queue_episode_shipment_manager_review(
+                episode,
+                text,
+                reason="shipment_human_review",
+                hint="standard_response_window_closed",
+            )
+            continue
+        try:
+            ok, kind, hint = send_text(s, episode.client.igsid, text)
+        except Exception as exc:
+            ok, kind, hint = False, "unknown", repr(exc)
+        if ok:
+            notified_at = timezone.now()
+            IgCommercialEpisode.objects.filter(
+                pk=episode.pk,
+                shipment_notified_at__isnull=True,
+            ).update(shipment_notified_at=notified_at, updated_at=notified_at)
+            append_episode_event(
+                episode,
+                dedupe_key=f"episode:{episode.pk}:shipment:notified",
+                event_type="shipment_notified",
+                source="instagram_response",
+                evidence={"order_id": order.pk, "ttn": ttn},
+            )
+            sent += 1
+        else:
+            _queue_episode_shipment_manager_review(
+                episode,
                 text,
                 reason="shipment_delivery_review",
                 hint=f"{kind}:{hint}",

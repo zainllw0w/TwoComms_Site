@@ -53,6 +53,11 @@ logger = logging.getLogger(__name__)
 
 MAX_ITEMS_PER_ORDER = 50
 MAX_QTY_PER_ITEM = 999
+IG_PRICE_OVERRIDE_CODES = {
+    'manager_repriced_after_review',
+    'customer_changed_configuration',
+    'catalog_price_exception',
+}
 
 # Пресети «способу оплати» для UI. Кожен мапиться на канонічну пару
 # (pay_type, payment_status), яку розуміють снапшот оплати для ТТН і
@@ -77,6 +82,16 @@ PAYMENT_PRESETS = {
         'label': 'Повна оплата, очікується',
         'pay_type': 'online_full',
         'payment_status': 'unpaid',
+    },
+    'manager_prepayment': {
+        'label': 'Передплата за підтвердженою менеджером сумою',
+        'pay_type': 'prepayment',
+        'payment_status': 'unpaid',
+    },
+    'provider_prepayment': {
+        'label': 'Передплата підтверджена платіжним провайдером',
+        'pay_type': 'prepayment',
+        'payment_status': 'prepaid',
     },
     'free': {
         'label': 'Безкоштовно / подарунок',
@@ -130,6 +145,8 @@ def _preset_key_for_order(order):
         return 'paid_full'
     if payment_status in ('prepaid', 'partial'):
         return 'prepaid_200'
+    if pay_type == 'prepayment' and payment_payload.get('manager_confirmed_amount'):
+        return 'manager_prepayment'
     if pay_type == 'cod':
         return 'cod'
     if pay_type in ('online_full', 'full'):
@@ -340,6 +357,47 @@ def _decimal_or_none(raw):
     if value < 0:
         return None
     return value.quantize(Decimal('0.01'))
+
+
+def _review_quoted_total(review):
+    if not review:
+        return None
+    if review.deal_id:
+        amount = _decimal_or_none(review.deal.amount)
+        if amount is not None and amount > 0:
+            return amount
+    evidence = review.evidence if isinstance(review.evidence, dict) else {}
+    draft = evidence.get('order_draft') if isinstance(evidence.get('order_draft'), dict) else {}
+    amount = _decimal_or_none(draft.get('quoted_total'))
+    return amount if amount is not None and amount > 0 else None
+
+
+def _price_override_payload(data, *, quoted_total, actual_total, actor, review):
+    if quoted_total is None or quoted_total == actual_total:
+        return None
+    code = str(data.get('price_override_code') or '').strip().lower()
+    reason = str(data.get('price_override_reason') or '').strip()
+    if code not in IG_PRICE_OVERRIDE_CODES:
+        raise ValueError(
+            f'Сума позицій {actual_total:.2f} грн не збігається з узгодженою '
+            f'сумою {quoted_total:.2f} грн; оберіть структуровану причину зміни.'
+        )
+    if not reason:
+        raise ValueError('Додайте пояснення до структурованої зміни узгодженої суми.')
+    evidence = review.evidence if isinstance(review.evidence, dict) else {}
+    draft = evidence.get('order_draft') if isinstance(evidence.get('order_draft'), dict) else {}
+    evidence_ids = []
+    source_message_id = draft.get('amount_source_message_id')
+    if str(source_message_id).isdigit():
+        evidence_ids.append(int(source_message_id))
+    return {
+        'quoted_total': f'{quoted_total:.2f}',
+        'actual_order_total': f'{actual_total:.2f}',
+        'code': code,
+        'reason': reason[:500],
+        'actor_id': actor.pk,
+        **({'review_id': review.pk, 'evidence_message_ids': evidence_ids} if evidence_ids else {}),
+    }
 
 
 def _coerce_int(raw, *, default=1, minimum=1, maximum=MAX_QTY_PER_ITEM):
@@ -625,7 +683,27 @@ def _authoritative_manager_payment_decision(review):
         return None
     if not str(decision.actor_external_id or "").strip():
         return None
+    if not decision.confirmed_amount or decision.confirmed_amount <= 0:
+        return None
+    if not str(decision.currency or '').strip():
+        return None
+    if decision.verification_scope not in {
+        IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT,
+        IgPaymentReviewDecision.VerificationScope.PREPAYMENT,
+    }:
+        return None
     return decision
+
+
+def _payment_review_needs_reconciliation(review, *, projection=None):
+    from management.services.ig_commercial_episodes import payment_truth_snapshot
+
+    return payment_truth_snapshot(
+        deal=review.deal if review and review.deal_id else None,
+        review=review,
+        order=review.order if review and review.order_id else None,
+        projection=projection,
+    )["needs_reconciliation"]
 
 
 def _normalize_review_fit(product, raw_fit):
@@ -860,6 +938,11 @@ def manual_order_create(request):
                 'success': False,
                 'message': 'Підтвердження оплати не має авторизованого рішення менеджера.',
             }, status=409)
+        if _payment_review_needs_reconciliation(payment_review):
+            return JsonResponse({
+                'success': False,
+                'message': 'Потрібна звірка сум оплати перед створенням замовлення.',
+            }, status=409)
         if payment_review.order_id:
             existing = payment_review.order
             return JsonResponse({
@@ -900,9 +983,9 @@ def manual_order_create(request):
     preset = PAYMENT_PRESETS.get(preset_key, PAYMENT_PRESETS[DEFAULT_PAYMENT_PRESET])
     sale_source = str(data.get('sale_source') or '').strip()[:120]
     manager_comment = str(data.get('manager_comment') or '').strip()
-
     try:
         with transaction.atomic():
+            manager_decision = None
             if payment_review:
                 from management.ig_bot_models import IgPaymentConfirmationReview
 
@@ -916,12 +999,28 @@ def manual_order_create(request):
                     )
                     .first()
                 )
-                if (
-                    not payment_review
-                    or not _authoritative_manager_payment_decision(payment_review)
-                ):
+                manager_decision = (
+                    _authoritative_manager_payment_decision(payment_review)
+                    if payment_review
+                    else None
+                )
+                if not payment_review or not manager_decision:
                     raise ValueError(
                         'Підтвердження оплати не має авторизованого рішення менеджера.'
+                    )
+                projection = None
+                if payment_review.deal_id:
+                    from management.ig_bot_models import IgPaymentProjection
+
+                    projection = IgPaymentProjection.objects.select_for_update().filter(
+                        deal_id=payment_review.deal_id
+                    ).first()
+                if _payment_review_needs_reconciliation(
+                    payment_review,
+                    projection=projection,
+                ):
+                    raise ValueError(
+                        'Потрібна звірка сум оплати перед створенням замовлення.'
                     )
                 if payment_review.order_id:
                     existing = payment_review.order
@@ -932,41 +1031,158 @@ def manual_order_create(request):
                         'order_number': existing.order_number,
                         'redirect_url': f"{reverse('admin_panel')}?section=orders",
                     })
-            order = Order(
-                user=None,
-                full_name=full_name[:200],
-                phone=phone,
-                city=delivery['city'],
-                np_office=delivery['np_office'],
-                pay_type=preset['pay_type'],
-                payment_status=preset['payment_status'],
-                status='new',
-                source='manual',
-                created_by=request.user,
-                sale_source=sale_source,
-                manager_comment=manager_comment,
-                payment_payload={
-                    'manual_payment_preset': preset_key,
-                    **({
-                        'instagram_payment_review_id': payment_review.pk,
-                        'manual_payment_evidence_confirmed': True,
-                        'provider_payment_confirmed': False,
-                    } if payment_review else {}),
-                },
-            )
-            apply_nova_poshta_refs(order, delivery['refs'])
-            order.save()
-
+            provisional_order = Order()
             order_items = []
-            total_sum = Decimal('0')
+            total_sum = Decimal('0.00')
             for raw_item in raw_items:
-                item = _build_order_item(raw_item, order=order, products_map=products_map, variants_map=variants_map)
+                item = _build_order_item(
+                    raw_item,
+                    order=provisional_order,
+                    products_map=products_map,
+                    variants_map=variants_map,
+                )
                 order_items.append(item)
                 total_sum += item.line_total
+            total_sum = total_sum.quantize(Decimal('0.01'))
+            quoted_total = _review_quoted_total(payment_review)
+            price_override = (
+                _price_override_payload(
+                    data,
+                    quoted_total=quoted_total,
+                    actual_total=total_sum,
+                    actor=request.user,
+                    review=payment_review,
+                )
+                if payment_review
+                else None
+            )
+            payment_episode = None
+            if payment_review:
+                from management.services.ig_commercial_episodes import ensure_episode_for_review
 
+                payment_episode = ensure_episode_for_review(payment_review)
+            manager_confirmed_amount = (
+                Decimal(manager_decision.confirmed_amount).quantize(Decimal('0.01'))
+                if manager_decision is not None
+                else Decimal('0.00')
+            )
+            manager_payment_payload = {}
+            if manager_decision is not None:
+                manager_payment_payload = {
+                    'manager_payment_decision_id': manager_decision.pk,
+                    'manager_confirmed_amount': f'{manager_confirmed_amount:.2f}',
+                    'manager_verification_scope': manager_decision.verification_scope,
+                    'manager_verification_source': manager_decision.verification_source,
+                    'manager_amount_source': manager_decision.amount_source or '',
+                    'manager_amount_evidence_message_ids': (
+                        manager_decision.amount_evidence_message_ids or []
+                    ),
+                    'manager_payment_currency': manager_decision.currency or 'UAH',
+                    'effective_confirmed_amount': f'{manager_confirmed_amount:.2f}',
+                    'negotiated_order_total': (
+                        f'{quoted_total:.2f}' if quoted_total is not None else f'{total_sum:.2f}'
+                    ),
+                }
+            effective_pay_type = preset['pay_type']
+            effective_preset_key = preset_key
+            if manager_decision is not None:
+                effective_pay_type = (
+                    'prepayment'
+                    if manager_confirmed_amount < total_sum
+                    else 'online_full'
+                )
+                effective_preset_key = (
+                    'manager_prepayment'
+                    if effective_pay_type == 'prepayment'
+                    else 'unpaid_full'
+                )
+            order_defaults = {
+                'user': None,
+                'full_name': full_name[:200],
+                'phone': phone,
+                'city': delivery['city'],
+                'np_office': delivery['np_office'],
+                'pay_type': effective_pay_type,
+                'payment_status': preset['payment_status'],
+                'status': 'new',
+                'source': 'manual',
+                'created_by': request.user,
+                'sale_source': sale_source,
+                'manager_comment': manager_comment,
+                'payment_payload': {
+                    'manual_payment_preset': effective_preset_key,
+                    **({
+                        'instagram_payment_review_id': payment_review.pk,
+                        'instagram_commercial_episode_id': payment_episode.pk,
+                        'manual_payment_evidence_confirmed': True,
+                        'provider_payment_confirmed': False,
+                        **manager_payment_payload,
+                        **({'instagram_price_override': price_override} if price_override else {}),
+                    } if payment_review else {}),
+                },
+                'total_sum': total_sum,
+            }
+            if payment_episode:
+                order, order_created = Order.objects.get_or_create(
+                    checkout_idempotency_key=f'ig-episode:{payment_episode.pk}',
+                    defaults=order_defaults,
+                )
+            else:
+                order = Order(**order_defaults)
+                order_created = True
+            if not order_created and payment_episode:
+                from orders.services.order_builder import (
+                    assert_order_matches_commercial_contract,
+                )
+
+                assert_order_matches_commercial_contract(
+                    order,
+                    expected_fields={
+                        'full_name': full_name[:200],
+                        'phone': phone,
+                        'city': delivery['city'],
+                        'np_office': delivery['np_office'],
+                    },
+                    expected_items=order_items,
+                    declared_total=total_sum,
+                )
+            if order_created:
+                apply_nova_poshta_refs(order, delivery['refs'])
+                order.save()
+            elif payment_review:
+                from management.services.ig_order_links import create_order_attribution
+
+                payment_review.order = order
+                payment_review.save(update_fields=['order', 'updated_at'])
+                create_order_attribution(
+                    order,
+                    client=payment_review.client,
+                    deal=payment_review.deal,
+                    review=payment_review,
+                    manager_decision=manager_decision,
+                    creation_mode="manager_review",
+                    payment_source="manager_verified",
+                    created_by=request.user,
+                )
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Для цього комерційного циклу вже існує замовлення #{order.order_number}.',
+                    'order_id': order.id,
+                    'order_number': order.order_number,
+                    'redirect_url': f"{reverse('admin_panel')}?section=orders&edit_order={order.pk}",
+                })
+
+            for item in order_items:
+                item.order = order
             OrderItem.objects.bulk_create(order_items)
             order.total_sum = total_sum
-            order.save(update_fields=['total_sum'])
+            if price_override:
+                payload = dict(order.payment_payload or {})
+                payload['instagram_price_override'] = price_override
+                order.payment_payload = payload
+                order.save(update_fields=['total_sum', 'payment_payload'])
+            else:
+                order.save(update_fields=['total_sum'])
             ensure_order_purchase_action(
                 order,
                 metadata={

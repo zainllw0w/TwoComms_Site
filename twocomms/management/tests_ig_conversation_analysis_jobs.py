@@ -13,7 +13,9 @@ from management.models import (
     IgConversationAnalysisSnapshot,
     IgDeal,
     IgFollowUpTask,
+    IgPaymentConfirmationReview,
     IgPaymentProjection,
+    IgPaymentReviewDecision,
     InstagramBotMessage,
     InstagramBotSettings,
 )
@@ -34,6 +36,8 @@ class ConversationAnalysisLeasePolicyTests(SimpleTestCase):
             "order_truth_updated_at": order_truth,
         }
         client.payment_projections.aggregate.return_value = {"updated_at": None}
+        client.payment_review_decisions.aggregate.return_value = {"created_at": None}
+        client.commercial_episodes.aggregate.return_value = {"updated_at": None}
 
         changed_at = analysis._latest_truth_change(client)
 
@@ -71,20 +75,18 @@ class ConversationAnalysisLeasePolicyTests(SimpleTestCase):
         )
 
     @patch("management.models.IgDeal")
-    def test_order_delete_publishes_linked_deal_truth_clock(self, deal_model):
+    def test_order_delete_is_blocked_while_a_deal_owns_it(self, deal_model):
         from management.services.ig_order_truth import publish_order_truth_unlink
 
-        started_at = timezone.now()
-        publish_order_truth_unlink(
-            sender=Mock(),
-            instance=SimpleNamespace(pk=17),
-        )
+        deal_model.objects.filter.return_value.exists.return_value = True
+        with self.assertRaisesMessage(ValueError, "не можна видалити"):
+            publish_order_truth_unlink(
+                sender=Mock(),
+                instance=SimpleNamespace(pk=17),
+            )
 
         deal_model.objects.filter.assert_called_once_with(order_id=17)
-        changed_at = deal_model.objects.filter.return_value.update.call_args.kwargs[
-            "order_truth_updated_at"
-        ]
-        self.assertGreaterEqual(changed_at, started_at)
+        deal_model.objects.filter.return_value.update.assert_not_called()
 
     @patch("management.services.gemini_keys.key_project_groups")
     def test_historical_backfill_requires_explicit_flag_and_complete_mapping(self, groups):
@@ -557,7 +559,7 @@ class ConversationAnalysisJobTests(TestCase):
         self.assertIn("evidence_unverified", snapshot.uncertainties)
 
     @patch("management.services.bot_conversation_analysis.gemini_generate_json")
-    def test_paused_client_is_analyzed_but_hidden_client_is_skipped(self, generate):
+    def test_paused_client_is_analyzed_but_hidden_client_is_not_scheduled(self, generate):
         self.client.bot_paused = True
         self.client.save(update_fields=["bot_paused", "updated_at"])
         paused_message = self.message("Цікавить футболка")
@@ -573,15 +575,21 @@ class ConversationAnalysisJobTests(TestCase):
         self.client.hidden_at = timezone.now()
         self.client.save(update_fields=["hidden_at", "updated_at"])
         hidden_message = self.message("Ще одне повідомлення")
-        analysis.schedule_analysis(self.client, hidden_message, now=timezone.now() - timedelta(minutes=1))
+        hidden_job = analysis.schedule_analysis(
+            self.client,
+            hidden_message,
+            now=timezone.now() - timedelta(minutes=1),
+        )
         generate.reset_mock()
 
         result = analysis.process_due_analysis(limit=1)
 
-        self.assertEqual(result["skipped"], 1)
+        self.assertIsNone(hidden_job)
+        self.assertEqual(result["skipped"], 0)
         generate.assert_not_called()
         job = IgConversationAnalysisJob.objects.get(client=self.client)
-        self.assertEqual(job.skip_reason, "hidden")
+        self.assertEqual(job.status, IgConversationAnalysisJob.Status.DONE)
+        self.assertLess(job.watermark_message_id, hidden_message.pk)
 
     @patch("management.services.bot_conversation_analysis.gemini_generate_json")
     def test_substantive_message_before_reaction_keeps_burst_eligible(self, generate):
@@ -909,7 +917,7 @@ class ConversationAnalysisJobTests(TestCase):
         self.assertEqual(result["queued"], 1)
         self.assertEqual(result["historical_blocked"], 0)
 
-    def test_order_delete_unlocks_missed_event_reconciliation(self):
+    def test_instagram_linked_order_delete_is_blocked_without_losing_truth(self):
         from orders.models import Order
 
         message = self.message("Старий діалог")
@@ -937,14 +945,15 @@ class ConversationAnalysisJobTests(TestCase):
             "analysis_reconcile_after", "analysis_backfill_enabled",
         ])
 
-        order.delete()
-        result = analysis.reconcile_analysis_jobs(now=timezone.now())
+        from django.db import transaction
+
+        with self.assertRaisesMessage(ValueError, "не можна видалити"):
+            with transaction.atomic():
+                order.delete()
 
         deal.refresh_from_db()
-        self.assertIsNone(deal.order_id)
-        self.assertGreaterEqual(deal.order_truth_updated_at, cutoff)
-        self.assertEqual(result["queued"], 1)
-        self.assertEqual(result["historical_blocked"], 0)
+        self.assertEqual(deal.order_id, order.pk)
+        self.assertIsNone(deal.order_truth_updated_at)
 
     def test_shipped_notification_update_fields_advances_order_truth_clock(self):
         from django.utils import timezone as django_timezone
@@ -1100,6 +1109,251 @@ class ConversationAnalysisJobTests(TestCase):
         self.assertEqual(job.revision, revision + 1)
         self.assertNotEqual(job.required_state_fingerprint, fingerprint)
 
+    def test_required_truth_state_exposes_source_qualified_dynamic_amounts(self):
+        deal = IgDeal.objects.create(
+            client=self.client,
+            amount=Decimal("2375.00"),
+            pay_type=IgDeal.PayType.PREPAYMENT,
+            requested_payment_amount=Decimal("750.00"),
+            requested_payment_evidence_ids=[31],
+        )
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.client,
+            deal=deal,
+            dedupe_key="analysis-dynamic-amounts",
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            evidence={"order_draft": {"quoted_total": "2375.00"}},
+        )
+        IgPaymentReviewDecision.objects.create(
+            review=review,
+            client=self.client,
+            decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+            verification_scope=IgPaymentReviewDecision.VerificationScope.PREPAYMENT,
+            confirmed_amount=Decimal("700.00"),
+            currency="UAH",
+            amount_source="manager_input",
+            amount_evidence_message_ids=[32],
+            actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+            actor_external_id="manager:17",
+        )
+        IgPaymentProjection.objects.create(
+            deal=deal,
+            client=self.client,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount=Decimal("750.00"),
+            paid_at=timezone.now(),
+        )
+
+        truth = analysis._required_truth_state(self.client)
+
+        current = truth["current_payment_truth"]
+        self.assertEqual(current["order_total"], "2375.00")
+        self.assertEqual(current["order_total_source"], "deal_negotiated_total")
+        self.assertEqual(current["requested_payment_amount"], "750.00")
+        self.assertEqual(current["requested_payment_source"], "deal_payment_request")
+        self.assertEqual(current["provider_confirmed_amount"], "750.00")
+        self.assertEqual(current["manager_confirmed_amount"], "700.00")
+        self.assertEqual(current["manager_amount_source"], "manager_input")
+        self.assertEqual(current["confirmed_paid_amount"], "")
+        self.assertEqual(current["remaining_amount"], "")
+        self.assertTrue(current["needs_reconciliation"])
+        self.assertEqual(current["reconciliation_state"], "amount_conflict")
+
+    @patch("management.services.bot_conversation_analysis.gemini_generate_json")
+    def test_gemini_payload_receives_dynamic_payment_truth(self, generate):
+        message = self.message("Сплатила 640 грн за посиланням")
+        deal = IgDeal.objects.create(
+            client=self.client,
+            amount=Decimal("1840.00"),
+            pay_type=IgDeal.PayType.PREPAYMENT,
+            requested_payment_amount=Decimal("640.00"),
+            requested_payment_evidence_ids=[message.pk],
+        )
+        IgPaymentProjection.objects.create(
+            deal=deal,
+            client=self.client,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount=Decimal("640.00"),
+            paid_at=timezone.now(),
+        )
+        analysis.schedule_analysis(
+            self.client,
+            message,
+            now=timezone.now() - timedelta(minutes=1),
+        )
+        generate.return_value = {
+            "parsed": {
+                "interaction_type": "payment_pending",
+                "score_band": "checkout",
+                "purchase_probability": 0.9,
+                "confidence": 0.9,
+            },
+            "model": "gemini-3.6-flash",
+            "meta": {},
+        }
+
+        analysis.process_due_analysis(limit=1)
+
+        payload = json.loads(generate.call_args.args[1])
+        current = payload["truth_state"]["current_payment_truth"]
+        self.assertEqual(current["order_total"], "1840.00")
+        self.assertEqual(current["requested_payment_amount"], "640.00")
+        self.assertEqual(current["provider_confirmed_amount"], "640.00")
+        self.assertEqual(current["manager_confirmed_amount"], "0.00")
+        self.assertEqual(current["confirmed_paid_amount"], "640.00")
+        self.assertEqual(current["remaining_amount"], "1200.00")
+        self.assertEqual(current["reconciliation_state"], "provider_verified")
+
+    def test_manager_amount_change_at_same_watermark_queues_new_revision(self):
+        message = self.message("Переказала частину суми")
+        deal = IgDeal.objects.create(
+            client=self.client,
+            amount=Decimal("1900.00"),
+            pay_type=IgDeal.PayType.PREPAYMENT,
+            requested_payment_amount=Decimal("600.00"),
+        )
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.client,
+            deal=deal,
+            dedupe_key="analysis-manager-amount-revision",
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+        )
+        analysis.schedule_analysis(
+            self.client,
+            message,
+            now=timezone.now() - timedelta(minutes=1),
+        )
+        job = IgConversationAnalysisJob.objects.get(client=self.client)
+        revision = job.revision
+        fingerprint = job.required_state_fingerprint
+
+        IgPaymentReviewDecision.objects.create(
+            review=review,
+            client=self.client,
+            decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+            verification_scope=IgPaymentReviewDecision.VerificationScope.PREPAYMENT,
+            confirmed_amount=Decimal("600.00"),
+            currency="UAH",
+            amount_source="receipt",
+            actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+            actor_external_id="manager:18",
+        )
+
+        result = analysis.reconcile_analysis_jobs(now=timezone.now())
+
+        job.refresh_from_db()
+        self.assertEqual(result["queued"], 1)
+        self.assertEqual(job.revision, revision + 1)
+        self.assertNotEqual(job.required_state_fingerprint, fingerprint)
+
+    @patch("management.services.bot_conversation_analysis.gemini_generate_json")
+    def test_payment_amount_change_during_gemini_requeues_without_stale_snapshot(
+        self, generate
+    ):
+        message = self.message("Перевірте, будь ласка, платіж")
+        deal = IgDeal.objects.create(
+            client=self.client,
+            amount=Decimal("1750.00"),
+            pay_type=IgDeal.PayType.PREPAYMENT,
+            requested_payment_amount=Decimal("500.00"),
+        )
+        analysis.schedule_analysis(
+            self.client,
+            message,
+            now=timezone.now() - timedelta(minutes=1),
+        )
+
+        def confirm_during_analysis(*_args, **_kwargs):
+            IgPaymentProjection.objects.create(
+                deal=deal,
+                client=self.client,
+                truth=IgDeal.PaymentTruth.CONFIRMED,
+                gross_amount=Decimal("500.00"),
+                paid_at=timezone.now(),
+            )
+            return {
+                "parsed": {
+                    "interaction_type": "payment_pending",
+                    "score_band": "checkout",
+                },
+                "model": "gemini-3.6-flash",
+                "meta": {},
+            }
+
+        generate.side_effect = confirm_during_analysis
+
+        result = analysis.process_due_analysis(limit=1)
+
+        self.assertEqual(result["superseded"], 1)
+        self.assertFalse(
+            IgConversationAnalysisSnapshot.objects.filter(
+                client=self.client,
+                analysis_model="gemini-3.6-flash",
+            ).exists()
+        )
+        job = IgConversationAnalysisJob.objects.get(client=self.client)
+        self.assertEqual(job.status, IgConversationAnalysisJob.Status.PENDING)
+        self.assertEqual(job.trigger, "payment_truth")
+
+    @patch("management.services.bot_conversation_analysis.gemini_generate_json")
+    def test_repeat_intent_materializes_one_episode_and_replay_keeps_it(self, generate):
+        from management.ig_bot_models import IgCommercialEpisode
+
+        message = self.message("Мені сподобалось, хочу ще одну")
+        analysis.schedule_analysis(
+            self.client,
+            message,
+            now=timezone.now() - timedelta(minutes=1),
+        )
+        generate.return_value = {
+            "parsed": {
+                "interaction_type": "high_intent",
+                "score_band": "high_intent",
+                "purchase_probability": 0.86,
+                "confidence": 0.92,
+                "evidence": [
+                    {"message_id": message.pk, "quote": message.text, "claim": "repeat"},
+                ],
+                "repeat_intent": {
+                    "kind": "explicit_more",
+                    "confidence": 0.95,
+                    "evidence_message_ids": [message.pk],
+                },
+            },
+            "model": "gemini-3.6-flash",
+            "meta": {},
+        }
+
+        first_result = analysis.process_due_analysis(limit=1)
+        first_job = IgConversationAnalysisJob.objects.get(client=self.client)
+        self.assertEqual(
+            first_result["done"],
+            1,
+            {**first_result, "last_error": first_job.last_error},
+        )
+        self.assertEqual(IgCommercialEpisode.objects.filter(client=self.client).count(), 1)
+        snapshot_count = IgConversationAnalysisSnapshot.objects.filter(
+            client=self.client
+        ).count()
+
+        analysis.schedule_analysis(
+            self.client,
+            message,
+            trigger="retry",
+            now=timezone.now() - timedelta(minutes=1),
+            delay_seconds=0,
+        )
+        analysis.process_due_analysis(limit=1)
+
+        self.assertEqual(
+            IgCommercialEpisode.objects.filter(client=self.client).count(),
+            1,
+        )
+        self.assertEqual(
+            IgConversationAnalysisSnapshot.objects.filter(client=self.client).count(),
+            snapshot_count,
+        )
+
     @patch("management.services.bot_conversation_analysis.gemini_generate_json")
     def test_opt_out_during_gemini_is_rechecked_before_snapshot(self, generate):
         message = self.message("Розкажіть про футболку")
@@ -1131,7 +1385,7 @@ class ConversationAnalysisJobTests(TestCase):
         self.assertEqual(IgConversationAnalysisJob.objects.get(client=self.client).skip_reason, "opt_out")
 
     @patch("management.services.bot_conversation_analysis.gemini_generate_json")
-    def test_payment_confirmed_during_gemini_overrides_model_intent(self, generate):
+    def test_payment_confirmed_during_gemini_discards_stale_model_result(self, generate):
         message = self.message("Оплачу пізніше")
         deal = IgDeal.objects.create(client=self.client, amount=Decimal("1000.00"))
         analysis.schedule_analysis(self.client, message, now=timezone.now() - timedelta(minutes=1))
@@ -1157,21 +1411,23 @@ class ConversationAnalysisJobTests(TestCase):
 
         generate.side_effect = pay_while_running
 
-        analysis.process_due_analysis(limit=1)
+        result = analysis.process_due_analysis(limit=1)
 
-        snapshot = IgConversationAnalysisSnapshot.objects.filter(
-            client=self.client, analysis_model="gemini-3.5-flash"
-        ).get()
-        self.assertEqual(snapshot.score_band, IgConversationAnalysisSnapshot.Band.PAID)
-        self.assertEqual(snapshot.purchase_probability, Decimal("1.0000"))
+        self.assertEqual(result["superseded"], 1)
+        self.assertFalse(
+            IgConversationAnalysisSnapshot.objects.filter(
+                client=self.client,
+                analysis_model="gemini-3.5-flash",
+            ).exists()
+        )
         job = IgConversationAnalysisJob.objects.get(client=self.client)
         current_fingerprint = analysis._required_state_fingerprint(
             self.client,
             message.pk,
         )
-        self.assertEqual(snapshot.required_state_fingerprint, current_fingerprint)
         self.assertEqual(job.required_state_fingerprint, current_fingerprint)
-        self.assertEqual(analysis.reconcile_analysis_jobs()["unchanged"], 1)
+        self.assertEqual(job.status, IgConversationAnalysisJob.Status.PENDING)
+        self.assertEqual(job.trigger, "payment_truth")
 
     @patch("management.services.bot_conversation_analysis.gemini_generate_json")
     def test_order_truth_change_during_gemini_requeues_without_stale_snapshot(self, generate):

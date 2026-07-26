@@ -4,6 +4,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -74,6 +75,9 @@ class InstagramPaymentDecisionTests(TestCase):
         decision = IgPaymentReviewDecision.objects.get(review=self.review)
         self.assertEqual(decision.decision, IgPaymentReviewDecision.Decision.MANAGER_VERIFIED)
         self.assertEqual(decision.verification_scope, "full_payment")
+        self.assertEqual(decision.confirmed_amount, Decimal("2100.00"))
+        self.assertEqual(decision.currency, "UAH")
+        self.assertEqual(decision.amount_source, "deal_requested_amount")
         self.assertEqual(decision.evidence_watermark_message_id, 42)
         self.projection.refresh_from_db()
         self.assertEqual(self.projection.truth, "unverified")
@@ -86,6 +90,119 @@ class InstagramPaymentDecisionTests(TestCase):
             reason="payment_review_manager_verified",
         ).exists())
         schedule.assert_called_once_with(self.client, trigger="manager_payment_decision")
+
+    def test_dynamic_prepayment_decision_keeps_exact_amount_and_evidence(self):
+        from management.ig_bot_models import IgDeal, IgPaymentReviewDecision
+        from management.services.ig_payment_review import record_review_decision
+
+        self.deal.pay_type = IgDeal.PayType.PREPAYMENT
+        self.deal.requested_payment_amount = Decimal("500.00")
+        self.deal.requested_payment_evidence_ids = [101, 102]
+        self.deal.save(update_fields=[
+            "pay_type",
+            "requested_payment_amount",
+            "requested_payment_evidence_ids",
+            "updated_at",
+        ])
+
+        record_review_decision(
+            self.review,
+            actor=self.actor,
+            decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+        )
+
+        decision = IgPaymentReviewDecision.objects.get(review=self.review)
+        self.assertEqual(decision.verification_scope, "prepayment")
+        self.assertEqual(decision.confirmed_amount, Decimal("500.00"))
+        self.assertEqual(decision.amount_source, "deal_requested_amount")
+        self.assertEqual(decision.amount_evidence_message_ids, [101, 102])
+
+    def test_full_payment_rejects_amount_that_differs_from_negotiated_total(self):
+        from management.services.ig_payment_review import record_review_decision
+
+        with self.assertRaisesMessage(ValueError, "повною вартістю"):
+            record_review_decision(
+                self.review,
+                actor=self.actor,
+                decision="manager_verified",
+                verification_scope="full_payment",
+                confirmed_amount="500.00",
+            )
+
+        self.assertFalse(self.review.decisions.exists())
+
+    def test_manager_verification_without_any_amount_fails_closed(self):
+        from management.ig_bot_models import IgPaymentConfirmationReview
+        from management.services.ig_payment_review import record_review_decision
+
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.client,
+            dedupe_key="manager-verified-no-amount",
+            evidence={},
+        )
+
+        with self.assertRaisesMessage(ValueError, "Сума підтвердженого платежу"):
+            record_review_decision(
+                review,
+                actor=self.actor,
+                decision="manager_verified",
+                verification_scope="payment_claim",
+            )
+
+        self.assertFalse(review.decisions.exists())
+
+    def test_unknown_order_total_cannot_become_fulfillment_authority(self):
+        from management.ig_bot_models import IgPaymentConfirmationReview
+        from management.services.ig_payment_review import record_review_decision
+
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.client,
+            dedupe_key="manager-verified-unknown-total",
+            evidence={
+                "amount_evidence": [
+                    {"kind": "payment_evidence", "amount": "500", "message_id": 150},
+                ],
+            },
+        )
+
+        with self.assertRaisesMessage(ValueError, "Повна вартість замовлення"):
+            record_review_decision(
+                review,
+                actor=self.actor,
+                decision="manager_verified",
+                verification_scope="prepayment",
+                confirmed_amount="500.00",
+            )
+
+        self.assertFalse(review.decisions.exists())
+
+    def test_exact_payment_claim_without_order_total_does_not_mark_client_paid(self):
+        from management.ig_bot_models import IgPaymentConfirmationReview, IgPaymentReviewDecision
+        from management.services.ig_payment_review import record_review_decision
+
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.client,
+            dedupe_key="manager-payment-claim-only",
+            evidence={
+                "amount_evidence": [
+                    {"kind": "payment_evidence", "amount": "500", "message_id": 151},
+                ],
+            },
+        )
+
+        record_review_decision(
+            review,
+            actor=self.actor,
+            decision="manager_verified",
+            verification_scope="payment_claim",
+            confirmed_amount="500.00",
+        )
+
+        decision = IgPaymentReviewDecision.objects.get(review=review)
+        self.client.refresh_from_db()
+        self.assertEqual(decision.confirmed_amount, Decimal("500.00"))
+        self.assertEqual(decision.verification_scope, "payment_claim")
+        self.assertEqual(self.client.stage, "payment_pending")
 
     def test_rejection_requires_reason_and_returns_to_checkout(self):
         from management.services.ig_payment_review import record_review_decision
@@ -364,6 +481,9 @@ class InstagramPaymentDecisionApiTests(TestCase):
         self.assertEqual(payload["payment"]["provider_truth"], "unverified")
         self.assertEqual(payload["payment"]["verification_source"], "manager")
         self.assertEqual(payload["decision"]["verification_scope"], "full_payment")
+        self.assertEqual(payload["decision"]["confirmed_amount"], "2100.00")
+        self.assertEqual(payload["payment"]["confirmed_paid_amount"], "2100.00")
+        self.assertEqual(payload["payment"]["remaining_amount"], "0.00")
         self.assertEqual(payload["next_action"], "resolve_order")
         self.assertEqual(payload["order_url"], "")
         self.assertTrue(payload["order_resolution"]["required"])
@@ -378,6 +498,62 @@ class InstagramPaymentDecisionApiTests(TestCase):
         self.projection.refresh_from_db()
         self.assertEqual(self.projection.truth, "unverified")
         schedule.assert_called_once()
+
+    def test_manager_verify_api_accepts_dynamic_prepayment_amount(self):
+        from management.ig_bot_models import IgDeal, IgPaymentReviewDecision
+
+        self.deal.pay_type = IgDeal.PayType.PREPAYMENT
+        self.deal.requested_payment_amount = Decimal("500.00")
+        self.deal.requested_payment_evidence_ids = [501]
+        self.deal.save(update_fields=[
+            "pay_type",
+            "requested_payment_amount",
+            "requested_payment_evidence_ids",
+            "updated_at",
+        ])
+
+        response = self.client.post(
+            self.action_url,
+            {
+                "action": "manager_verify",
+                "verification_scope": "prepayment",
+                "confirmed_amount": "500.00",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        decision = IgPaymentReviewDecision.objects.get(review=self.review)
+        self.assertEqual(decision.confirmed_amount, Decimal("500.00"))
+        self.assertEqual(response.json()["payment"]["order_total"], "2100.00")
+        self.assertEqual(response.json()["payment"]["requested_payment_amount"], "500.00")
+        self.assertEqual(response.json()["payment"]["confirmed_paid_amount"], "500.00")
+        self.assertEqual(response.json()["payment"]["remaining_amount"], "1600.00")
+
+    def test_provider_and_manager_amount_conflict_requires_reconciliation(self):
+        from management.ig_bot_models import IgDeal
+
+        self.projection.truth = IgDeal.PaymentTruth.CONFIRMED
+        self.projection.gross_amount = Decimal("500.00")
+        self.projection.refunded_amount = Decimal("0.00")
+        self.projection.save(update_fields=["truth", "gross_amount", "refunded_amount", "updated_at"])
+
+        response = self.client.post(
+            self.action_url,
+            {
+                "action": "manager_verify",
+                "verification_scope": "full_payment",
+                "confirmed_amount": "2100.00",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        payment = response.json()["payment"]
+        self.assertEqual(payment["provider_confirmed_amount"], "500.00")
+        self.assertEqual(payment["manager_confirmed_amount"], "2100.00")
+        self.assertTrue(payment["needs_reconciliation"])
+        self.assertEqual(payment["confirmed_paid_amount"], "")
+        self.assertEqual(payment["remaining_amount"], "")
+        self.assertFalse(payment["authoritative_for_fulfillment"])
 
     def test_manager_reject_requires_structured_reason(self):
         response = self.client.post(self.action_url, {"action": "manager_reject"})

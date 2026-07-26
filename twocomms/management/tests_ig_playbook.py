@@ -1,6 +1,8 @@
 """Тести Phase 4 / Tasks 14-15 — playbook продавця + інжект інструкцій/посилань."""
+from importlib import import_module
 from unittest.mock import patch
 
+from django.apps import apps
 from django.test import SimpleTestCase, TestCase
 
 from management.models import (
@@ -10,6 +12,34 @@ from management.models import (
     InstagramBotSettings,
 )
 from management.services import instagram_bot as bot
+
+
+class SystemPromptMigrationTests(TestCase):
+    def test_fixed_prepayment_rules_are_replaced_without_losing_custom_text(self):
+        old_prepayment_rule = (
+            "• Передоплата 200 грн (решта — накладеним при отриманні) можлива; згадуй коротко, "
+            "деталі (навіщо передоплата) пояснюй лише якщо запитають."
+        )
+        old_paylink_rule = (
+            "• [PAYLINK:full] або [PAYLINK:prepay] — коли клієнт підтвердив товар і готовий "
+            "платити (повна оплата / передоплата 200). Система сформує і надішле посилання."
+        )
+        custom_suffix = "ОСОБИСТА ІНСТРУКЦІЯ МЕНЕДЖЕРА: зберегти дослівно."
+        settings = InstagramBotSettings.objects.create(
+            system_prompt="\n".join((old_prepayment_rule, old_paylink_rule, custom_suffix))
+        )
+
+        migration = import_module(
+            "management.migrations.0108_alter_instagrambotsettings_system_prompt"
+        )
+        migration.replace_fixed_prepayment_instructions(apps, None)
+
+        settings.refresh_from_db()
+        self.assertNotIn(old_prepayment_rule, settings.system_prompt)
+        self.assertNotIn(old_paylink_rule, settings.system_prompt)
+        self.assertIn("точну суму", settings.system_prompt)
+        self.assertIn("[PAYMENT:сума]", settings.system_prompt)
+        self.assertIn(custom_suffix, settings.system_prompt)
 
 
 class PlaybookPromptTests(SimpleTestCase):
@@ -61,6 +91,23 @@ class ContextInjectionTests(TestCase):
         self.assertIn("Працюємо щодня 10-20", sysi)
         self.assertIn("https://ig/hl/h", sysi)
 
+    @patch("management.services.call_ai_analysis.gemini_generate_text")
+    def test_complete_gemini_context_never_advertises_fixed_instagram_prepayment(self, mock_gen):
+        captured = {}
+
+        def _fake(payload, role="chat", manual_key=None, **kwargs):
+            captured["payload"] = payload
+            return {"parsed": "ок", "model": "x", "meta": {}}
+
+        mock_gen.side_effect = _fake
+        s = InstagramBotSettings.load()
+        bot.gemini_generate(s, [{"role": "user", "text": "як оплатити?"}])
+
+        sysi = captured["payload"].get("system_instruction", {}).get("parts", [{}])[0].get("text", "")
+        self.assertNotIn("передоплата 200 грн", sysi.casefold())
+        self.assertIn("точна", sysi.casefold())
+        self.assertIn("погоджен", sysi.casefold())
+
 
 class BrandKnowledgeTests(TestCase):
     def test_brand_md_filled(self):
@@ -71,6 +118,7 @@ class BrandKnowledgeTests(TestCase):
         cache.clear()
         kb = get_brand_knowledge()
         self.assertIn("Пошт", kb)  # Нова Пошта / Новою Поштою
-        self.assertIn("200 грн", kb)
+        self.assertNotIn("передоплата 200 грн", kb.casefold())
+        self.assertIn("погоджен", kb.casefold())
         self.assertIn("передопла", kb.lower())
         self.assertNotIn("TODO", kb)

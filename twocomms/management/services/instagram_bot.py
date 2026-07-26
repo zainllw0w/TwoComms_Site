@@ -355,6 +355,21 @@ def _conversation_negotiated_price(client, control: dict) -> Decimal | None:
         return None
 
 
+def _conversation_payment_amount(client, control: dict) -> Decimal | None:
+    """Validate/infer the exact current-episode prepayment amount."""
+    if not isinstance(control, dict) or not client:
+        return None
+    raw = control.get("payment") if "payment" in control else None
+    if isinstance(raw, bool):
+        return None
+    try:
+        from management.services.bot_orders import _validated_payment_amount
+
+        return _validated_payment_amount(client, raw)
+    except Exception:
+        return None
+
+
 def _wants_paylink(reply: str, control: dict) -> tuple[bool, str]:
     """Чи треба сформувати посилання на оплату і який тип (full/prepay).
     Тригер: тег [PAYLINK:x] АБО обіцянка посилання у тексті бота (фолбек, якщо
@@ -449,7 +464,7 @@ PAYLINK_FALLBACK_TEXT = "Дякую! Уточню деталі щодо опла
 PAYMENT_PROTOCOL_NOTE = (
     "[ПРОТОКОЛ ОПЛАТИ — службове, клієнт цього не бачить]\n"
     "Коли клієнт підтвердив КОНКРЕТНИЙ товар і готовий платити — додай у самому "
-    "кінці відповіді службові теги: [PAYLINK:prepay] (передоплата 200 грн) або "
+    "кінці відповіді службові теги: [PAYLINK:prepay] для погодженої передоплати або "
     "[PAYLINK:full] (повна оплата), і поряд [PRODUCT:<id>], де <id> — число з "
     "рядка каталогу (формат «id=NN»). НЕ вигадуй і НЕ пиши URL оплати власноруч — "
     "система сама сформує справжнє посилання й додасть його до повідомлення. "
@@ -457,6 +472,9 @@ PAYMENT_PROTOCOL_NOTE = (
     "поки не став. Для кожної позиції додай [ITEM:<product_id>|<qty>|<size>|<fit>|<color_variant_id>] "
     "(останнє поле можна залишити порожнім), щоб зберегти кількість, розмір, крій і колір. "
     "Для однієї позиції також дозволено [QTY:n] [SIZE:XS] [FIT:oversize]. "
+    "Для передоплати обов'язково додай [PAYMENT:сума], але лише якщо ця точна "
+    "сума явно погоджена в поточному діалозі. Не використовуй фіксовані 200 грн "
+    "і не перенось суму з попереднього замовлення. "
     "Якщо менеджер явно погодив іншу ціну, додай [PRICE:число] "
     "лише коли це число дослівно є у збереженій переписці; не вигадуй знижку."
 )
@@ -583,6 +601,23 @@ def finalize_paylink(reply: str, control: dict, client, sender_id: str = "") -> 
         except Exception:
             pass
         return _rewrite_failed_paylink(reply)
+    payment_amount = None
+    if pt == "prepay":
+        payment_amount = _conversation_payment_amount(client, control)
+        if payment_amount is None:
+            log("warning", "paylink_payment_amount_gate", f"{sender_id}: missing or unverified prepayment amount")
+            try:
+                notify_manager(
+                    f"⚠️ IG: платіжне посилання для {(client.username or client.display_name or sender_id)} "
+                    "заблоковано: сума передоплати не погоджена доказово в поточному діалозі."
+                )
+            except Exception:
+                pass
+            try:
+                client.set_stage(IgClient.Stage.LEAD_TO_MANAGER, reason="paylink_unverified_payment_amount")
+            except Exception:
+                pass
+            return _rewrite_failed_paylink(reply)
     from management.services import bot_orders
 
     item_specs = _control_item_specs(control)
@@ -595,6 +630,7 @@ def finalize_paylink(reply: str, control: dict, client, sender_id: str = "") -> 
             "pay_type": pt,
             "product_id": _control_product_id(control),
             "negotiated_price": negotiated_price,
+            "payment_amount": payment_amount,
         }
         if item_specs:
             kwargs["items"] = item_specs
@@ -1466,6 +1502,7 @@ def notify_manager(
     client: IgClient | None = None,
     reply_markup: dict | None = None,
     media: list[dict] | None = None,
+    metadata: dict | None = None,
 ) -> bool:
     """Persist one idempotent notification and attempt immediate delivery."""
     text = (text or "").strip()[:3500]
@@ -1475,6 +1512,12 @@ def notify_manager(
         dedupe_key = "generic:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
     chat = os.environ.get("MANAGEMENT_TG_ADMIN_CHAT_ID", "").strip()
     payload = {"text": text, "chat_id": chat}
+    if isinstance(metadata, dict):
+        payload.update({
+            str(key)[:64]: value
+            for key, value in metadata.items()
+            if isinstance(key, str)
+        })
     if isinstance(reply_markup, dict):
         payload["reply_markup"] = reply_markup
     if isinstance(media, list):
@@ -2196,10 +2239,10 @@ def gemini_generate(
     )
     sys_text = (sys_text + "\n\n" + ANTI_HALLUCINATION_NOTE).strip()
     sys_text = (sys_text + "\n\n" + SALES_AUTOMATION_GUARDRAILS).strip()
-    if context_note:
-        sys_text = (sys_text + "\n\n" + context_note).strip()
     if memory_note:
         sys_text = (sys_text + "\n\n" + memory_note).strip()
+    if context_note:
+        sys_text = (sys_text + "\n\n" + context_note).strip()
     if match_hint:
         sys_text = (sys_text + "\n\n" + match_hint).strip()
     if media_hint:

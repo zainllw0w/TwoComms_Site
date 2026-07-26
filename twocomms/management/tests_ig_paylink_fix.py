@@ -61,7 +61,7 @@ class WantsPaylinkTests(SimpleTestCase):
         self.assertEqual(pt, "prepay")
 
     def test_phrase_prepay(self):
-        w, pt = bot._wants_paylink("Зараз сформую посилання на передоплату 200 грн", {})
+        w, pt = bot._wants_paylink("Зараз сформую посилання на передоплату 350 грн", {})
         self.assertTrue(w)
         self.assertEqual(pt, "prepay")
 
@@ -83,13 +83,23 @@ class CreateDealResolvesProductTests(TestCase):
         p = _pub_product("Футболка «Череп з дупою»", "skull-cd")
         mock_resolve.return_value = p
         c = IgClient.get_or_create_for_sender("cd1")
-        res = bot_orders.create_deal_and_link(c, pay_type="prepay", product_id=None)
+        InstagramBotMessage.objects.create(
+            sender_id=c.igsid, client=c, role="manager",
+            text="Передоплата за це замовлення 350 грн",
+        )
+        InstagramBotMessage.objects.create(
+            sender_id=c.igsid, client=c, role="user", text="Так, сплачу 350 грн",
+        )
+        res = bot_orders.create_deal_and_link(
+            c, pay_type="prepay", product_id=None, payment_amount=Decimal("350.00")
+        )
         self.assertTrue(res["ok"])
         deal = IgDeal.objects.filter(client=c).first()
         self.assertIsNotNone(deal)
         self.assertEqual(deal.items.count(), 1)
         self.assertEqual(deal.items.first().product_id, p.id)
-        self.assertEqual(deal.pay_type, IgDeal.PayType.PREPAY_200)
+        self.assertEqual(deal.pay_type, IgDeal.PayType.PREPAYMENT)
+        self.assertEqual(deal.requested_payment_amount, Decimal("350.00"))
 
     def test_no_product_no_items_returns_error(self):
         c = IgClient.get_or_create_for_sender("cd2")
@@ -170,6 +180,50 @@ class FinalizePaylinkTests(TestCase):
         mock_notify.assert_called_once()
         self.c.refresh_from_db()
         self.assertEqual(self.c.stage, IgClient.Stage.LEAD_TO_MANAGER)
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.bot_orders.create_deal_and_link")
+    def test_dynamic_prepayment_is_evidence_bound_and_forwarded(self, mock_link, _notify):
+        product = _pub_product("Футболка з передоплатою", "dynamic-prepayment", price=950)
+        InstagramBotMessage.objects.create(
+            sender_id=self.c.igsid, client=self.c, role="manager",
+            text="Для цього замовлення передоплата 350 грн",
+        )
+        InstagramBotMessage.objects.create(
+            sender_id=self.c.igsid, client=self.c, role="user",
+            text="Так, погоджуюсь на передоплату 350 грн",
+        )
+        mock_link.return_value = {
+            "ok": True,
+            "invoice_url": "https://pay/350",
+            "invoice_id": "350",
+        }
+
+        out = bot.finalize_paylink(
+            "Формую посилання на передоплату",
+            {"paylink": "prepay", "payment": "350", "product": product.pk},
+            self.c,
+            self.c.igsid,
+        )
+
+        self.assertIn("https://pay/350", out)
+        self.assertEqual(mock_link.call_args.kwargs["payment_amount"], Decimal("350.00"))
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.bot_orders.create_deal_and_link")
+    def test_prepayment_without_evidenced_amount_fails_closed(self, mock_link, mock_notify):
+        product = _pub_product("Футболка без суми", "missing-prepayment-amount", price=950)
+
+        out = bot.finalize_paylink(
+            "Формую посилання на передоплату",
+            {"paylink": "prepay", "product": product.pk},
+            self.c,
+            self.c.igsid,
+        )
+
+        self.assertNotIn("посилання на передоплату", out.lower())
+        mock_link.assert_not_called()
+        mock_notify.assert_called_once()
 
     @patch("management.services.bot_orders.create_deal_and_link")
     def test_no_paylink_returns_unchanged(self, mock_link):

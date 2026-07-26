@@ -95,6 +95,43 @@ class OrderEditViewTests(TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(response.json()['order']['payment_preset'], 'free')
 
+    def test_dynamic_manager_prepayment_survives_ordinary_order_edit(self):
+        from orders.nova_poshta_documents import build_order_payment_snapshot
+
+        self.order.source = 'manual'
+        self.order.pay_type = 'prepayment'
+        self.order.payment_status = 'unpaid'
+        self.order.payment_payload = {
+            'manual_payment_preset': 'manager_prepayment',
+            'manual_payment_evidence_confirmed': True,
+            'manager_confirmed_amount': '315.00',
+            'manager_verification_scope': 'prepayment',
+        }
+        self.order.save(update_fields=[
+            'source', 'pay_type', 'payment_status', 'payment_payload',
+        ])
+        initial = self.client.get(reverse('manual_order_edit_data', args=[self.order.id])).json()['order']
+        payload = {
+            'full_name': self.order.full_name,
+            'phone': self.order.phone,
+            'delivery_method': 'keep',
+            'payment_preset': initial['payment_preset'],
+            'items': initial['items'],
+        }
+
+        response, _ = self._edit(payload)
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.pay_type, 'prepayment')
+        self.assertEqual(
+            self.order.payment_payload['manual_payment_preset'],
+            'manager_prepayment',
+        )
+        snapshot = build_order_payment_snapshot(self.order)
+        self.assertEqual(snapshot['paid_amount'], '315.00')
+        self.assertEqual(snapshot['cod_amount'], '565.00')
+
     def test_edit_data_endpoint_requires_staff(self):
         self.client.logout()
         plain = User.objects.create_user(username='plain-edit', password='pass12345')
@@ -385,3 +422,51 @@ class OrderEditButtonRenderTests(TestCase):
         self.assertContains(response, 'fit_option_code: it.fit_option_code')
         self.assertContains(response, 'normalizeCatalogItem(item, prod, false, true)')
         self.assertContains(response, 'variant.sizes_by_fit')
+
+    def test_orders_section_shows_instagram_identity_and_management_link(self):
+        from management.ig_bot_models import IgClient
+        from management.services.ig_order_links import create_order_attribution
+
+        ig_client = IgClient.get_or_create_for_sender(
+            '1735898131060065',
+            defaults={'username': 'olena_twocomms', 'display_name': 'Олена'},
+        )
+        create_order_attribution(
+            self.order,
+            client=ig_client,
+            creation_mode='linked_existing',
+            payment_source='manager_verified',
+            created_by=self.admin,
+        )
+
+        response = self.client.get(reverse('admin_panel') + '?section=orders')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Instagram · Олена')
+        self.assertContains(response, 'UID 1735898131060065')
+        self.assertContains(response, 'section=clients&amp;client_id=%d' % ig_client.pk)
+
+    def test_orders_section_uses_episode_identity_without_attribution(self):
+        from management.ig_bot_models import IgClient
+        from management.services.ig_commercial_episodes import bind_episode_order, start_repeat_episode
+
+        ig_client = IgClient.get_or_create_for_sender(
+            '1735898131060099',
+            defaults={'username': 'episode_buyer', 'display_name': 'Марія'},
+        )
+        episode = start_repeat_episode(
+            ig_client,
+            repeat_kind='reorder',
+            evidence_message_ids=[901],
+            confidence=Decimal('0.91'),
+            analysis_model='gemini-test',
+            analysis_prompt_version='repeat-v1',
+        )
+        bind_episode_order(episode, self.order, creation_mode='manager_review')
+
+        response = self.client.get(reverse('admin_panel') + '?section=orders')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Instagram · Марія')
+        self.assertContains(response, 'UID 1735898131060099')
+        self.assertContains(response, 'section=clients&amp;client_id=%d' % ig_client.pk)
