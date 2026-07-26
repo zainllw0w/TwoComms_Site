@@ -1718,18 +1718,19 @@ def _current_ingress_degradation(s: InstagramBotSettings) -> dict[str, object] |
         value = cache.get(_ingress_degradation_key(s, source))
         if not isinstance(value, dict) or not isinstance(value.get("state"), str):
             continue
+        try:
+            observed_at = float(value.get("at") or 0)
+        except (TypeError, ValueError):
+            observed_at = 0.0
         signals.append({
             "source": source,
             "state": value["state"][:80],
             "reason": str(value.get("reason") or "provider_unavailable")[:240],
-            "at": value.get("at"),
+            "at": observed_at,
         })
     if not signals:
         return None
-    return max(
-        signals,
-        key=lambda item: float(item.get("at") or 0),
-    )
+    return max(signals, key=lambda item: item["at"])
 
 
 def _valid_conv_snapshot(value) -> list[str]:

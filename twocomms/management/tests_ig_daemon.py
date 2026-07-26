@@ -877,6 +877,30 @@ class DaemonStatusTests(TestCase):
                 )
                 cache.delete(cache_key)
 
+    @patch("management.services.instagram_bot.resolve_direct_token", return_value="page-token")
+    def test_malformed_degradation_timestamp_does_not_break_ingress_status(self, _token):
+        settings = InstagramBotSettings.load()
+        settings.page_id = "page"
+        settings.receive_via_poll = True
+        settings.last_poll_at = timezone.now()
+        settings.save(update_fields=["page_id", "receive_via_poll", "last_poll_at", "updated_at"])
+        cache_key = "ig_bot_ingress_refresh_degraded:page"
+        cache.set(
+            cache_key,
+            {
+                "state": "conversation_refresh_failed",
+                "reason": "provider_unavailable",
+                "at": "not-a-timestamp",
+            },
+            600,
+        )
+        self.addCleanup(cache.delete, cache_key)
+
+        status = bot.ingress_status(settings)
+
+        self.assertFalse(status["polling"]["healthy"])
+        self.assertEqual(status["polling"]["state"], "degraded")
+
     def test_disabled_bot_is_not_reported_as_recovery_required(self):
         settings = InstagramBotSettings.load()
         settings.is_enabled = False

@@ -288,6 +288,10 @@ Task 6 active-conversation regression follow-up (2026-07-26):
   fresh `last_poll_at`; daemon liveness therefore remains visible without
   claiming inbound availability or allowing the top-level state to become
   `running`.
+- [x] Independent review reproduced a malformed shared-cache timestamp crashing
+  the status path. Cache timestamps are now normalized fail-safe while retaining
+  the degradation signal, with a RED/GREEN regression proving the management
+  status remains available.
 - [x] Ingress telemetry verification passed **155 focused tests**, the expanded
   client/UI, daemon, webhook, polling, commercial-episode and shipment set
   passed **210 tests**, and the related payment/order/link/post-sale set passed
