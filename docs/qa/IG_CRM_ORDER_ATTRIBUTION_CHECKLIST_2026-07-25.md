@@ -111,6 +111,22 @@ attribution to it. The related suite passed **254 tests** with 2 expected skips;
 `manage.py check`, migration drift, scoped compilation, strict inline JavaScript
 syntax and `git diff --check` also passed.
 
+Task 6 production release proof (2026-07-26, commit `02e577ab`): production
+MariaDB `11.4.12` was backed up to a validated `0600` gzip archive before deploy;
+the server is on the deployed SHA with migrations through `0108`, `manage.py
+check`, collectstatic/compress, Passenger restart, playbook seed, daemon ensure,
+and bounded payment polling completed. Review `2` for client `59` was clarified
+append-only with `2100.00` UAH and amount evidence `[237]`; receipt message `238`
+and watermark `242` are not amount evidence. Existing order `296`,
+`TWC24072026N01`, was linked with `historical_fulfilled_order`; its two lines are
+`1050 + 1050`, attribution mode is `linked_existing`, the client/episode/order
+references are consistent, and the physical order count remained exactly `51`.
+Production staff API returned `200` with one physical order, the exact order URL,
+separate receipt/product media groups, and the same evidence IDs. `/healthz/`
+returned `200`; daemon heartbeat was fresh and pending notification/analysis
+queues were zero. The focused local regression set passed **187 tests** with 2
+expected skips.
+
 ## Completed in this slice
 
 - [x] Explicit `PRODUCT`/`ITEM` IDs are authoritative; missing or unpublished IDs fail closed.
