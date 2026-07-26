@@ -1435,7 +1435,12 @@ def reconcile_duplicate_payment_review(review):
     candidates = list(
         IgPaymentConfirmationReview.objects.filter(client_id=review.client_id)
         .exclude(pk=review.pk)
-        .exclude(status=IgPaymentConfirmationReview.Status.CANCELLED)
+        .exclude(
+            status__in=[
+                IgPaymentConfirmationReview.Status.CANCELLED,
+                IgPaymentConfirmationReview.Status.SUPERSEDED,
+            ]
+        )
         .select_related("order")
     )
     matches = [

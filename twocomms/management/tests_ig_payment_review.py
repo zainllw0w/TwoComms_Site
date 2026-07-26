@@ -401,6 +401,54 @@ class PaymentReviewEpisodeScopeTests(TestCase):
             payment_review_fingerprint(reclassified),
         )
 
+    def test_duplicate_reconciliation_is_idempotent_after_canonicalization(self):
+        from management.ig_bot_models import IgClient, IgPaymentConfirmationReview
+        from management.services.ig_payment_review import reconcile_duplicate_payment_review
+        from orders.models import Order
+
+        client = IgClient.get_or_create_for_sender("review-reconciliation-idempotent")
+        order = Order.objects.create(
+            full_name="Review Client",
+            phone="380501112233",
+            city="Київ",
+            np_office="Відділення 1",
+            total_sum=Decimal("2100.00"),
+            payment_status="paid",
+        )
+        evidence = {
+            "amount_evidence": [{"amount": "2100", "message_id": 237}],
+            "media": [{"role": "receipt", "message_id": 238, "url": "https://cdn.test/receipt.jpg"}],
+            "order_draft": {
+                "quoted_total": "2100",
+                "currency": "UAH",
+                "items": [{"product_id": 111, "fit": "classic", "size": "S", "qty": 1}],
+                "delivery": {"city": "Київ", "office": "Відділення 1"},
+            },
+        }
+        canonical = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            order=order,
+            evidence=evidence,
+            dedupe_key="canonical-reconciliation-idempotent",
+            watermark_message_id=242,
+        )
+        duplicate = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            evidence=evidence,
+            dedupe_key="duplicate-reconciliation-idempotent",
+            watermark_message_id=238,
+        )
+
+        self.assertEqual(reconcile_duplicate_payment_review(duplicate).pk, canonical.pk)
+        canonical.refresh_from_db()
+        self.assertEqual(canonical.status, IgPaymentConfirmationReview.Status.CONFIRMED)
+        self.assertIsNone(canonical.superseded_by_id)
+        self.assertEqual(reconcile_duplicate_payment_review(canonical), None)
+        duplicate.refresh_from_db()
+        self.assertEqual(duplicate.superseded_by_id, canonical.pk)
+
     def test_later_watermark_reuses_strictly_identical_payment_review(self):
         from management.ig_bot_models import IgClient, IgPaymentConfirmationReview
         from management.services.ig_payment_review import create_payment_review
