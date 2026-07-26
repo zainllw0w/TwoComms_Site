@@ -4,7 +4,12 @@ const test = require("node:test");
 require("../twocomms/twocomms_django_theme/static/js/custom-print-preview.js");
 require("../twocomms/twocomms_django_theme/static/js/custom-print-state.js");
 
-const { computeZoneBox } = globalThis.CustomPrintPreview;
+const {
+  boxForFormat,
+  computeZoneBox,
+  requirementsForPlacement,
+  viewForPlacement,
+} = globalThis.CustomPrintPreview;
 const { groups, fromInternal, firstInternal, progressIndex } = globalThis.CustomPrintStateTools;
 
 const formats = {
@@ -39,4 +44,21 @@ test("state tools expose the established eight-stage journey", () => {
   assert.equal(fromInternal("gift"), "gift");
   assert.equal(firstInternal("config"), "config");
   assert.equal(progressIndex("gift"), 6);
+});
+
+test("special placements resolve their garment side without mutating stage state", () => {
+  assert.equal(viewForPlacement({ placement_key: "hem_back" }), "back");
+  assert.equal(viewForPlacement({ placement_key: "hem_front" }), "front");
+  assert.equal(viewForPlacement({ placement_key: "shoulder_left" }), "front");
+  assert.equal(viewForPlacement({ placement_key: "shoulder_right" }), "front");
+});
+
+test("hem text mode does not require an artwork file", () => {
+  assert.deepEqual(requirementsForPlacement({ zone: "hem", mode: "text" }), { requiresFile: false });
+  assert.deepEqual(requirementsForPlacement({ zone: "hem", mode: "A6+" }), { requiresFile: true });
+});
+
+test("A3 plus remains larger than A3 without filling the entire garment", () => {
+  assert.ok(boxForFormat("A3+").scale > boxForFormat("A3").scale);
+  assert.ok(boxForFormat("A3+").scale < 0.92);
 });

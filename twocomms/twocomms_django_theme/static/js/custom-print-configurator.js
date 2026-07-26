@@ -38,15 +38,6 @@
     if (item && item.value) acc[item.value] = item;
     return acc;
   }, {});
-  const CUSTOM_ZONE_PRESETS = (CONFIG.custom_zone_size_presets || []).reduce((acc, item) => {
-    if (item && item.value) acc[item.value] = item;
-    return acc;
-  }, {});
-  const CUSTOM_ZONE_LOCATIONS = [
-    { value: "shoulder", label: "Плече", hint: "Шеврон або невеликий знак" },
-    { value: "hem", label: "Низ виробу", hint: "Біля нижнього краю" },
-    { value: "other", label: "Інше місце", hint: "Опишіть вручну нижче" },
-  ];
   const SLEEVE_MODE_OPTIONS = (CONFIG.sleeve_mode_options || []).reduce((acc, item) => {
     if (item && item.value) acc[item.value] = item;
     return acc;
@@ -108,8 +99,13 @@
     placementNoteWrap: root.querySelector("[data-placement-note-wrap]"),
     placementNoteInput: root.querySelector("[data-placement-note-input]"),
     customZoneWrap: root.querySelector("[data-custom-zone-wrap]"),
-    customLocationList: root.querySelector("[data-custom-location-list]"),
-    customSizeList: root.querySelector("[data-custom-size-list]"),
+    shoulderOptions: root.querySelector("[data-shoulder-options]"),
+    shoulderSideButtons: root.querySelectorAll("[data-shoulder-side]"),
+    hemOptions: root.querySelector("[data-hem-options]"),
+    hemSideButtons: root.querySelectorAll("[data-hem-side]"),
+    hemModeButtons: root.querySelectorAll("[data-hem-mode]"),
+    hemTextWrap: root.querySelector("[data-hem-text-wrap]"),
+    hemTextInput: root.querySelector("[data-hem-text-input]"),
     frontSizeWrap: root.querySelector("[data-front-size-wrap]"),
     frontSizeList: root.querySelector("[data-front-size-list]"),
     backSizeWrap: root.querySelector("[data-back-size-wrap]"),
@@ -368,6 +364,8 @@
     renderFrontSizeOptions();
     renderBackSizeOptions();
     renderSleeveControls();
+    renderShoulderControls();
+    renderHemControls();
     renderAddons();
     renderColorChips();
     renderFitChips();
@@ -691,9 +689,28 @@
     if (!STATE.print.zone_options.custom || typeof STATE.print.zone_options.custom !== "object") {
       STATE.print.zone_options.custom = {};
     }
-    const custom = STATE.print.zone_options.custom;
-    if (!CUSTOM_ZONE_PRESETS[custom.size_preset]) custom.size_preset = "A6";
-    if (!CUSTOM_ZONE_LOCATIONS.some((item) => item.value === custom.location)) custom.location = "shoulder";
+    STATE.print.zone_options.custom = {};
+  }
+
+  function ensureShoulderOptions() {
+    if (!STATE.print.zone_options || typeof STATE.print.zone_options !== "object") STATE.print.zone_options = {};
+    if (!STATE.print.zone_options.shoulder || typeof STATE.print.zone_options.shoulder !== "object") {
+      STATE.print.zone_options.shoulder = { left_enabled: true, right_enabled: false };
+    }
+    const shoulder = STATE.print.zone_options.shoulder;
+    shoulder.left_enabled = !!shoulder.left_enabled;
+    shoulder.right_enabled = !!shoulder.right_enabled;
+  }
+
+  function ensureHemOptions() {
+    if (!STATE.print.zone_options || typeof STATE.print.zone_options !== "object") STATE.print.zone_options = {};
+    if (!STATE.print.zone_options.hem || typeof STATE.print.zone_options.hem !== "object") {
+      STATE.print.zone_options.hem = { side: "", mode: "A6", text: "" };
+    }
+    const hem = STATE.print.zone_options.hem;
+    hem.side = ["front", "back"].includes(hem.side) ? hem.side : "";
+    hem.mode = ["text", "A6", "A6+"].includes(hem.mode) ? hem.mode : "A6";
+    hem.text = hem.mode === "text" ? String(hem.text || "").slice(0, 120) : "";
   }
 
   function ensureSleeveZoneOptions() {
@@ -760,11 +777,36 @@
           zone,
           placement_key: "custom",
           label: (CONFIG.zone_labels && CONFIG.zone_labels.custom) || "Інша зона",
-          size_preset: STATE.print.zone_options.custom.size_preset,
-          location: STATE.print.zone_options.custom.location,
           placement_note: STATE.print.placement_note || "",
           requires_artwork_file: true,
-          scene_preview: getStagePreviewForZone("custom"),
+        });
+        return;
+      }
+      if (zone === "shoulder") {
+        ensureShoulderOptions();
+        ["left", "right"].forEach((side) => {
+          if (!STATE.print.zone_options.shoulder[`${side}_enabled`]) return;
+          placements.push({
+            zone, side, size_preset: "A6",
+            placement_key: `shoulder_${side}`,
+            label: CONFIG.zone_labels?.[`shoulder_${side}`] || `${side} shoulder`,
+            requires_artwork_file: true,
+            scene_preview: getStagePreviewForZone(`shoulder_${side}`),
+          });
+        });
+        return;
+      }
+      if (zone === "hem") {
+        ensureHemOptions();
+        const hem = STATE.print.zone_options.hem;
+        if (!hem.side) return;
+        placements.push({
+          zone, side: hem.side, mode: hem.mode, text: hem.text,
+          placement_key: `hem_${hem.side}`,
+          label: CONFIG.zone_labels?.[`hem_${hem.side}`] || `hem ${hem.side}`,
+          ...(hem.mode === "text" ? {} : { size_preset: hem.mode }),
+          requires_artwork_file: hem.mode !== "text",
+          scene_preview: getStagePreviewForZone(`hem_${hem.side}`),
         });
         return;
       }
@@ -839,6 +881,12 @@
       delete STATE.print.zone_options.sleeve;
     }
 
+    if (STATE.print.zones.includes("shoulder")) ensureShoulderOptions();
+    else if (STATE.print.zone_options.shoulder) delete STATE.print.zone_options.shoulder;
+
+    if (STATE.print.zones.includes("hem")) ensureHemOptions();
+    else if (STATE.print.zone_options.hem) delete STATE.print.zone_options.hem;
+
     const fitKey = STATE.product.fit || cfg?.default_fit || "";
     const fabricOptions = fitKey ? (cfg?.fabrics?.[fitKey] || []) : [];
     const availableFabricOptions = fabricOptions.filter((item) => item.available !== false);
@@ -856,6 +904,15 @@
       if (getSleeveMode("right") === "full_text") deletePlacementFiles("sleeve_right");
       if (!isSleeveSideEnabled("left")) deletePlacementFiles("sleeve_left");
       if (!isSleeveSideEnabled("right")) deletePlacementFiles("sleeve_right");
+    }
+    if (STATE.print.zone_options.shoulder) {
+      ["left", "right"].forEach((side) => {
+        if (!STATE.print.zone_options.shoulder[`${side}_enabled`]) deletePlacementFiles(`shoulder_${side}`);
+      });
+    }
+    if (STATE.print.zone_options.hem?.side) {
+      const hemKey = `hem_${STATE.print.zone_options.hem.side}`;
+      if (STATE.print.zone_options.hem.mode === "text") deletePlacementFiles(hemKey);
     }
 
     const colorValues = new Set(getAllowedColorOptions(cfg).map((item) => item.value));
@@ -880,15 +937,15 @@
   }
 
   function getStagePreviewForZone(zone) {
-    const customSize = zone === "custom" ? (STATE.print.zone_options?.custom?.size_preset || "A6") : "";
+    const hem = STATE.print.zone_options?.hem || {};
     return {
       product_type: STATE.product.type || "",
       fit: getStageFitKey() || "",
       view: STATE.ui.stage_view || "front",
       color: STATE.product.color || "",
       placement_key: zone,
-      size_preset: zone === "front" ? getFrontSizePreset() : zone === "back" ? getBackSizePreset() : customSize,
-      mode: zone.startsWith("sleeve_") ? getSleeveMode(zone.endsWith("left") ? "left" : "right") : "",
+      size_preset: zone === "front" ? getFrontSizePreset() : zone === "back" ? getBackSizePreset() : zone.startsWith("shoulder_") ? "A6" : zone.startsWith("hem_") && hem.mode !== "text" ? hem.mode : "",
+      mode: zone.startsWith("sleeve_") ? getSleeveMode(zone.endsWith("left") ? "left" : "right") : zone.startsWith("hem_") ? hem.mode : "",
     };
   }
 
@@ -906,9 +963,20 @@
       }
       if (zone === "custom") {
         ensureCustomZoneOptions();
-        current.size_preset = STATE.print.zone_options.custom.size_preset;
-        current.location = STATE.print.zone_options.custom.location;
-        current.scene_preview = getStagePreviewForZone("custom");
+      }
+      if (zone === "shoulder") {
+        ensureShoulderOptions();
+        current.left_enabled = !!STATE.print.zone_options.shoulder.left_enabled;
+        current.right_enabled = !!STATE.print.zone_options.shoulder.right_enabled;
+        if (current.left_enabled) current.left_scene_preview = getStagePreviewForZone("shoulder_left");
+        if (current.right_enabled) current.right_scene_preview = getStagePreviewForZone("shoulder_right");
+      }
+      if (zone === "hem") {
+        ensureHemOptions();
+        current.side = STATE.print.zone_options.hem.side;
+        current.mode = STATE.print.zone_options.hem.mode;
+        current.text = STATE.print.zone_options.hem.text;
+        if (current.side) current.scene_preview = getStagePreviewForZone(`hem_${current.side}`);
       }
       if (zone === "sleeve") {
         ensureSleeveZoneOptions();
@@ -970,6 +1038,16 @@
     if (zone === "sleeve") {
       deletePlacementFiles("sleeve_left");
       deletePlacementFiles("sleeve_right");
+      return;
+    }
+    if (zone === "shoulder") {
+      deletePlacementFiles("shoulder_left");
+      deletePlacementFiles("shoulder_right");
+      return;
+    }
+    if (zone === "hem") {
+      deletePlacementFiles("hem_front");
+      deletePlacementFiles("hem_back");
       return;
     }
     if (zone) {
@@ -1642,6 +1720,8 @@
     renderFrontSizeOptions();
     renderBackSizeOptions();
     renderSleeveControls();
+    renderShoulderControls();
+    renderHemControls();
   }
 
   function renderCustomZoneOptions() {
@@ -1650,36 +1730,87 @@
     if (!active) return;
     ensureCustomZoneOptions();
     if (dom.placementNoteInput) dom.placementNoteInput.value = STATE.print.placement_note || "";
-    if (dom.customLocationList) {
-      dom.customLocationList.innerHTML = CUSTOM_ZONE_LOCATIONS.map((item) => `
-        <button type="button" class="cp-custom-location ${STATE.print.zone_options.custom.location === item.value ? "is-active" : ""}" data-custom-location="${item.value}">
-          <strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.hint)}</small>
-        </button>`).join("");
-      dom.customLocationList.querySelectorAll("[data-custom-location]").forEach((button) => {
-        button.addEventListener("click", () => {
-          ensureCustomZoneOptions();
-          STATE.print.zone_options.custom.location = button.dataset.customLocation;
-          renderCustomZoneOptions();
-          refreshAll();
-          persistDraft();
-        });
-      });
-    }
-    if (dom.customSizeList) {
-      dom.customSizeList.innerHTML = Object.values(CUSTOM_ZONE_PRESETS).map((preset) => `
-        <button type="button" class="cp-size-preset cp-custom-size-preset ${STATE.print.zone_options.custom.size_preset === preset.value ? "is-active" : ""}" data-custom-size="${preset.value}">
-          <span class="cp-size-icon"><img src="/static/img/configurator/ui/size-${String(preset.value).toLowerCase()}.svg" alt="${preset.label}" onerror="this.src='/static/img/configurator/ui/size-a4.svg'"></span>
-          <span class="cp-size-details"><strong>${preset.label}</strong><span>${escapeHtml(preset.range_label || "")}</span><em>+${Number(preset.price_delta || 0)} грн</em></span>
-        </button>`).join("");
-      dom.customSizeList.querySelectorAll("[data-custom-size]").forEach((button) => {
-        button.addEventListener("click", () => {
-          ensureCustomZoneOptions();
-          STATE.print.zone_options.custom.size_preset = button.dataset.customSize;
-          renderCustomZoneOptions();
-          refreshAll();
-          persistDraft();
-        });
-      });
+  }
+
+  function renderShoulderControls() {
+    if (!dom.shoulderOptions) return;
+    const active = STATE.print.zones.includes("shoulder");
+    dom.shoulderOptions.hidden = !active;
+    if (!active) return;
+    ensureShoulderOptions();
+    dom.shoulderSideButtons.forEach((button) => {
+      const side = button.dataset.shoulderSide;
+      const enabled = !!STATE.print.zone_options.shoulder[`${side}_enabled`];
+      button.classList.toggle("is-active", enabled);
+      button.setAttribute("aria-pressed", String(enabled));
+      button.onclick = () => {
+        ensureShoulderOptions();
+        const next = !STATE.print.zone_options.shoulder[`${side}_enabled`];
+        STATE.print.zone_options.shoulder[`${side}_enabled`] = next;
+        if (!next) deletePlacementFiles(`shoulder_${side}`);
+        applyStageView("front");
+        clearValidationTargets();
+        renderShoulderControls();
+        renderDropzones();
+        refreshAll();
+        persistDraft();
+      };
+    });
+  }
+
+  function renderHemControls() {
+    if (!dom.hemOptions) return;
+    const active = STATE.print.zones.includes("hem");
+    dom.hemOptions.hidden = !active;
+    if (!active) return;
+    ensureHemOptions();
+    const hem = STATE.print.zone_options.hem;
+    dom.hemSideButtons.forEach((button) => {
+      const selected = hem.side === button.dataset.hemSide;
+      button.classList.toggle("is-active", selected);
+      button.setAttribute("aria-pressed", String(selected));
+      button.onclick = () => {
+        ensureHemOptions();
+        const previousSide = STATE.print.zone_options.hem.side;
+        const nextSide = button.dataset.hemSide;
+        if (previousSide && previousSide !== nextSide) deletePlacementFiles(`hem_${previousSide}`);
+        STATE.print.zone_options.hem.side = nextSide;
+        applyStageView(nextSide);
+        clearValidationTargets();
+        renderHemControls();
+        renderDropzones();
+        refreshAll();
+        persistDraft();
+      };
+    });
+    dom.hemModeButtons.forEach((button) => {
+      const selected = hem.mode === button.dataset.hemMode;
+      button.classList.toggle("is-active", selected);
+      button.setAttribute("aria-pressed", String(selected));
+      button.onclick = () => {
+        ensureHemOptions();
+        STATE.print.zone_options.hem.mode = button.dataset.hemMode;
+        if (STATE.print.zone_options.hem.mode === "text" && STATE.print.zone_options.hem.side) {
+          deletePlacementFiles(`hem_${STATE.print.zone_options.hem.side}`);
+        }
+        if (STATE.print.zone_options.hem.mode !== "text") STATE.print.zone_options.hem.text = "";
+        clearValidationTargets();
+        renderHemControls();
+        renderDropzones();
+        refreshAll();
+        persistDraft();
+      };
+    });
+    if (dom.hemTextWrap) dom.hemTextWrap.hidden = hem.mode !== "text";
+    if (dom.hemTextInput) {
+      dom.hemTextInput.value = hem.text || "";
+      dom.hemTextInput.oninput = () => {
+        ensureHemOptions();
+        STATE.print.zone_options.hem.text = dom.hemTextInput.value.slice(0, 120);
+        clearValidationTargets();
+        refreshAll();
+        persistDraft();
+      };
     }
   }
 
@@ -1707,6 +1838,16 @@
         hint: "Текст або символи на рукаві (можна обидва рукави)",
         icon: '<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" width="22" height="22" aria-hidden="true"><path d="M5 11l4-4h6v18H8l-3-2V11z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M27 11l-4-4h-6v18h7l3-2V11z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>',
       },
+      shoulder: {
+        title: labels.shoulder || "Плече",
+        hint: "Ліве, праве або обидва плеча · максимум A6",
+        icon: '<svg viewBox="0 0 32 32" fill="none" width="22" height="22" aria-hidden="true"><path d="M8 10l5-4h6l5 4 4 4-4 5-3-3v10H11V16l-3 3-4-5 4-4Z" stroke="currentColor" stroke-width="1.6"/><path d="M8 10l5 3M24 10l-5 3" stroke="currentColor" stroke-width="1.4"/></svg>',
+      },
+      hem: {
+        title: labels.hem || "Низ виробу",
+        hint: "Перед або спина · текст, A6 чи A6+",
+        icon: '<svg viewBox="0 0 32 32" fill="none" width="22" height="22" aria-hidden="true"><path d="M9 6h14l3 4-3 4v12H9V14l-3-4 3-4Z" stroke="currentColor" stroke-width="1.6"/><path d="M10 22h12" stroke="currentColor" stroke-width="2"/></svg>',
+      },
       custom: {
         title: labels.custom || "Інша зона",
         hint: "Опишіть нестандартне розміщення в полі нижче",
@@ -1730,9 +1871,12 @@
       if (zone === "front") ensureFrontZoneOptions();
       if (zone === "back") ensureBackZoneOptions();
       if (zone === "sleeve") ensureSleeveZoneOptions();
+      if (zone === "shoulder") ensureShoulderOptions();
+      if (zone === "hem") ensureHemOptions();
       if (zone === "custom") ensureCustomZoneOptions();
       if (zone === "front") applyStageView("front");
       else if (zone === "back") applyStageView("back");
+      else if (zone === "shoulder") applyStageView("front");
     }
     STATE.print.zones = getAvailableZones().filter((item) => current.has(item));
     invalidateAfter("zones");
@@ -2147,6 +2291,10 @@
     if (placement.placement_key === "back") return "Макет для спини";
     if (placement.placement_key === "sleeve_left") return "Макет для лівого рукава";
     if (placement.placement_key === "sleeve_right") return "Макет для правого рукава";
+    if (placement.placement_key === "shoulder_left") return "Макет для лівого плеча";
+    if (placement.placement_key === "shoulder_right") return "Макет для правого плеча";
+    if (placement.placement_key === "hem_front") return "Макет для низу спереду";
+    if (placement.placement_key === "hem_back") return "Макет для низу ззаду";
     return `Макет для ${placement.label.toLowerCase()}`;
   }
 
@@ -2160,6 +2308,8 @@
     if (placement.zone === "sleeve") {
       return "A6 · PDF, AI, EPS, PSD, PNG, JPG, TIFF, SVG";
     }
+    if (placement.zone === "shoulder") return "A6 · PDF, AI, EPS, PSD, PNG, JPG, TIFF, SVG";
+    if (placement.zone === "hem") return `${placement.mode || "A6"} · PDF, AI, EPS, PSD, PNG, JPG, TIFF, SVG`;
     return "PDF, AI, EPS, PSD, PNG, JPG, TIFF, SVG";
   }
 
@@ -2578,7 +2728,8 @@
   }
 
   function getStageTargetView(targetKey) {
-    if (targetKey === "front" || targetKey === "kangaroo" || targetKey === "custom") return "front";
+    if (targetKey === "back" || targetKey === "hem_back") return "back";
+    if (targetKey === "front" || targetKey === "kangaroo" || targetKey === "custom" || targetKey === "hem_front" || targetKey.startsWith("shoulder_")) return "front";
     if (targetKey === "sleeve_left" || targetKey === "sleeve_right") return STATE.ui.stage_view || "front";
     return "back";
   }
@@ -3145,6 +3296,16 @@
           const rightNeedsText = isSleeveSideEnabled("right") && getSleeveMode("right") === "full_text" && !getSleeveText("right").trim();
           if (leftNeedsText || rightNeedsText) return false;
         }
+        if (STATE.print.zones.includes("shoulder")) {
+          ensureShoulderOptions();
+          const shoulder = STATE.print.zone_options.shoulder;
+          if (!shoulder.left_enabled && !shoulder.right_enabled) return false;
+        }
+        if (STATE.print.zones.includes("hem")) {
+          ensureHemOptions();
+          const hem = STATE.print.zone_options.hem;
+          if (!hem.side || (hem.mode === "text" && !hem.text.trim())) return false;
+        }
         return true;
       case "artwork": return getArtworkValidationIssues().length === 0;
       case "quantity":
@@ -3191,6 +3352,23 @@
     if (stepKey === "zones" && STATE.print.zones.includes("sleeve")) {
       const missing = Array.from(dom.sleeveTextInputs || []).find((input) => !input.closest("[hidden]") && !input.value.trim());
       if (missing) return ["Додайте текст для вибраного рукава.", `[data-sleeve-text-input="${missing.dataset.sleeveTextInput}"]`];
+    }
+    if (stepKey === "zones" && STATE.print.zones.includes("shoulder")) {
+      ensureShoulderOptions();
+      const shoulder = STATE.print.zone_options.shoulder;
+      if (!shoulder.left_enabled && !shoulder.right_enabled) {
+        return ["Оберіть ліве, праве або обидва плеча.", "[data-shoulder-options]"];
+      }
+    }
+    if (stepKey === "zones" && STATE.print.zones.includes("hem")) {
+      ensureHemOptions();
+      const hem = STATE.print.zone_options.hem;
+      if (!hem.side) {
+        return ["Оберіть, де буде принт унизу: спереду чи ззаду.", "[data-hem-options]"];
+      }
+      if (hem.mode === "text" && !hem.text.trim()) {
+        return ["Введіть текст для низу виробу.", "[data-hem-text-input]"];
+      }
     }
     if (stepKey === "zones" && STATE.print.zones.includes("custom") && !STATE.print.placement_note.trim()) {
       return ["Опишіть, де саме має бути нестандартний принт.", "[data-placement-note-input]"];
@@ -3643,9 +3821,7 @@
         ? FRONT_SIZE_PRESETS[placement.size_preset]
         : placement.zone === "back"
           ? BACK_SIZE_PRESETS[placement.size_preset]
-          : placement.zone === "custom"
-            ? CUSTOM_ZONE_PRESETS[placement.size_preset]
-            : null;
+          : null;
       const sleevePreset = placement.zone === "sleeve"
         ? SLEEVE_MODE_OPTIONS[placement.mode || SLEEVE_MODE_DEFAULT]
         : null;
@@ -3989,6 +4165,50 @@
         });
         return;
       }
+      if (zone === "shoulder") {
+        ["left", "right"].forEach((side) => {
+          if (!options[`${side}_enabled`]) return;
+          specs.push({
+            zone: "shoulder",
+            placement_key: `shoulder_${side}`,
+            label: CONFIG.zone_labels?.[`shoulder_${side}`] || `shoulder_${side}`,
+            variant: "estimate",
+            is_free: specs.length === 0,
+            format: "custom",
+            size: "A6",
+            size_preset: "A6",
+            side,
+            file_index: artworkFileIndex++,
+            attachment_role: "design",
+            requires_artwork_file: true,
+            ...(options[`${side}_scene_preview`] ? { scene_preview: options[`${side}_scene_preview`] } : {}),
+          });
+        });
+        return;
+      }
+      if (zone === "hem") {
+        if (!["front", "back"].includes(options.side)) return;
+        const mode = ["text", "A6", "A6+"].includes(options.mode) ? options.mode : "A6";
+        const requiresArtworkFile = options.mode !== "text";
+        specs.push({
+          zone: "hem",
+          placement_key: `hem_${options.side}`,
+          label: CONFIG.zone_labels?.[`hem_${options.side}`] || `hem_${options.side}`,
+          variant: "estimate",
+          is_free: specs.length === 0,
+          format: mode === "text" ? "text" : "custom",
+          size: mode === "text" ? "manager_review" : mode,
+          side: options.side,
+          mode,
+          ...(mode === "text" && String(options.text || "").trim() ? { text: String(options.text).trim().slice(0, 120) } : {}),
+          ...(mode !== "text" ? { size_preset: mode } : {}),
+          ...(requiresArtworkFile ? { file_index: artworkFileIndex++ } : {}),
+          attachment_role: "design",
+          requires_artwork_file: requiresArtworkFile,
+          ...(options.scene_preview ? { scene_preview: options.scene_preview } : {}),
+        });
+        return;
+      }
       const spec = {
         zone,
         placement_key: zone,
@@ -4006,9 +4226,7 @@
         spec.size = options.size_preset;
       }
       if (zone === "custom") {
-        spec.size_preset = options.size_preset || "A6";
-        spec.size = spec.size_preset;
-        spec.location = options.location || "shoulder";
+        spec.location = options.location || "";
         spec.placement_note = snapshot.print?.placement_note || "";
       }
       if (options.scene_preview) spec.scene_preview = options.scene_preview;

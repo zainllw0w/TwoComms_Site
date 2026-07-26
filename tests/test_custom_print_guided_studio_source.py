@@ -204,6 +204,11 @@ class CustomPrintGuidedStudioSourceTests(unittest.TestCase):
         self.assertIn("cp-dialog-open", submit_flow)
         self.assertIn("lockDocumentScroll", submit_flow)
         self.assertIn("unlockDocumentScroll", submit_flow)
+        self.assertIn("function finishClose()", submit_flow)
+        self.assertIn("function closeDialog()", submit_flow)
+        self.assertIn('button.addEventListener("click", closeDialog)', submit_flow)
+        self.assertIn("global.requestAnimationFrame(() =>", submit_flow)
+        self.assertIn("global.requestAnimationFrame(() => target?.focus?.({ preventScroll: true }))", submit_flow)
         self.assertIn("overscroll-behavior: contain", self.css)
 
     def test_preview_and_handoff_dialogs_escape_containing_layout(self):
@@ -339,6 +344,72 @@ class CustomPrintGuidedStudioSourceTests(unittest.TestCase):
         self.assertNotIn('data-size-input="${s}"', configurator)
         self.assertIn("is-validation-target", configurator)
         self.assertIn("[data-placement-key=\"${missingPlacement.placement_key}\"]", configurator)
+
+    def test_special_placement_controls_are_typed_and_independent(self):
+        zones_step = self.template.split('data-step="zones"', 1)[1].split('data-step="artwork"', 1)[0]
+        for contract in (
+            "data-shoulder-options",
+            'data-shoulder-side="left"',
+            'data-shoulder-side="right"',
+            "data-hem-options",
+            'data-hem-side="front"',
+            'data-hem-side="back"',
+            'data-hem-mode="text"',
+            'data-hem-mode="A6"',
+            'data-hem-mode="A6+"',
+            "data-hem-text-input",
+            'maxlength="120"',
+            "data-custom-zone-options",
+        ):
+            self.assertIn(contract, zones_step)
+        self.assertGreaterEqual(zones_step.count('aria-pressed="false"'), 7)
+        self.assertNotIn("data-custom-location-list", zones_step)
+        self.assertNotIn("data-custom-size-list", zones_step)
+
+    def test_special_placement_client_contract_matches_server_keys(self):
+        configurator = (REPO_ROOT / "twocomms/twocomms_django_theme/static/js/custom-print-configurator.js").read_text(encoding="utf-8")
+        for contract in (
+            "function ensureShoulderOptions",
+            "function ensureHemOptions",
+            "function renderShoulderControls",
+            "function renderHemControls",
+            "shoulder_left",
+            "shoulder_right",
+            "hem_front",
+            "hem_back",
+            'deletePlacementFiles(`hem_${previousSide}`)',
+            'deletePlacementFiles(`shoulder_${side}`)',
+        ):
+            self.assertIn(contract, configurator)
+        self.assertNotIn("CUSTOM_ZONE_LOCATIONS", configurator)
+        self.assertNotIn("CUSTOM_ZONE_PRESETS", configurator)
+        self.assertNotIn('options.location || "shoulder"', configurator)
+        self.assertIn('if (zone === "shoulder")', configurator)
+        self.assertIn('if (zone === "hem")', configurator)
+        self.assertIn('requiresArtworkFile = options.mode !== "text"', configurator)
+
+    def test_special_placements_have_explicit_validation_targets(self):
+        configurator = (REPO_ROOT / "twocomms/twocomms_django_theme/static/js/custom-print-configurator.js").read_text(encoding="utf-8")
+        for contract in (
+            "Оберіть ліве, праве або обидва плеча.",
+            "[data-shoulder-options]",
+            "Оберіть, де буде принт унизу: спереду чи ззаду.",
+            "[data-hem-options]",
+            "Введіть текст для низу виробу.",
+            "[data-hem-text-input]",
+        ):
+            self.assertIn(contract, configurator)
+
+    def test_special_placement_markers_are_distinct_and_responsive(self):
+        preview = (REPO_ROOT / "twocomms/twocomms_django_theme/static/js/custom-print-preview.js").read_text(encoding="utf-8")
+        self.assertIn("cp-preview-zone--shoulder", preview)
+        self.assertIn("cp-preview-zone--hem", preview)
+        self.assertIn("cp-preview-zone-leader", preview)
+        self.assertIn(".cp-special-side-grid", self.css)
+        self.assertIn(".cp-special-segmented", self.css)
+        self.assertIn(".cp-preview-zone--shoulder", self.css)
+        self.assertIn(".cp-preview-zone--hem", self.css)
+        self.assertRegex(self.css, r"@media \(max-width: 480px\)[\s\S]*?\.cp-special-side-grid")
 
     def test_fleece_switch_and_size_cards_have_wrapping_mobile_geometry(self):
         self.assertIn("grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1fr)", self.css)
