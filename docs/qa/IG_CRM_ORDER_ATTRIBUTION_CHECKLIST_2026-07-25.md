@@ -348,3 +348,22 @@ Task 6 active-conversation regression follow-up (2026-07-26):
 - [ ] Production acceptance requires a fresh signed inbound event. Until the
   real app secret and Advanced Access exist, show `ingress_degraded`; never use
   faster polling to conceal the external blocker.
+
+### Task 7A release evidence (2026-07-26)
+
+- [x] Recovery parameter slice shipped in `efef6b444dc9083e3dfe38c13078cfe1458b9fcc`.
+- [x] A fresh MariaDB backup was created before deploy: archive
+  `qlknpodo_MySQL_DB-20260726.sql.gz`, 19,931,867 bytes, gzip validation passed,
+  mode `0600`.
+- [x] Production deploy completed with migrations clean, `manage.py check`
+  clean, static/compress complete, Passenger restarted and the singleton bot
+  daemon ensured.
+- [x] Live verification: deployed SHA matches, `/healthz/` returned `200`,
+  daemon was online, ingress status was `available`, pending inbound messages,
+  analysis jobs and notification outbox were all `0`, and effective Gemini
+  model was `gemini-3.6-flash`.
+- [x] Production source confirms `CONV_PAGE_LIMIT = 10` and
+  `POLL_MESSAGE_TIMEOUT = 12`; no customer-specific value is embedded.
+- [ ] A fresh signed inbound event has not yet been used as acceptance proof;
+  do not mark webhook-first delivery fully complete until one real event is
+  stored, analyzed and reflected in the local chat/funnel.
