@@ -35,16 +35,16 @@ behavior.
 - [x] The manager explicitly chooses `Прив'язати існуюче` by exact order number or `Створити нове` through the editable form.
 - [x] An order already created manually can be linked to the review/deal/client without creating a duplicate.
 - [x] The persistence model permits one Instagram client to own many distinct attributed orders; one canonical order has at most one active Instagram attribution.
-- [ ] The custom admin shows Instagram origin plus client display name when available and retains a durable IG UID reference/digest.
+- [x] The custom admin shows Instagram origin plus client display name when available and retains a durable IG UID reference/digest.
 - [x] The client workspace shows every linked order number, date, amount, payment, shipment/TTN and creation mode, with a new-tab custom-admin link.
-- [ ] Every linked order belongs to one distinct auditable commercial episode; review count and order count remain separate and physical orders are counted by distinct `order_id`.
-- [ ] A repeat purchase starts a new episode-scoped funnel while every completed stage timeline, product/price fact, payment decision, order and evidence snapshot remains unchanged.
-- [ ] Explicit repeat intent is classified separately from a first purchase and is available to analytics/statistics.
-- [ ] Order-status replies resolve an exact order number or TTN across deal-linked and attribution-only orders and use Order/Nova Poshta truth; ambiguous multi-order references create one clarification task instead of guessing.
-- [ ] Exact existing-order linking blocks cancelled orders and requires a structured manager override for fulfilled/shipped or payment-incompatible orders.
-- [ ] Automatic provider-verified payment creates one idempotent attributed order only after validated products, negotiated totals and canonical delivery data are complete; otherwise it creates manager work without a duplicate.
-- [ ] Negotiated line prices, agreed order total, requested payment amount and actually paid provider/manager amount remain separate and scoped to the exact client episode; no runtime fixture amount or previous-client value is reused, and arbitrary valid prepayments are not coerced to `200 грн`.
-- [ ] Automatic, manager-created and linked-existing orders expose distinct creation modes while sharing the same client/order history contract.
+- [x] Every linked order belongs to one distinct auditable commercial episode; review count and order count remain separate and physical orders are counted by distinct `order_id`.
+- [x] A repeat purchase starts a new episode-scoped funnel while every completed stage timeline, product/price fact, payment decision, order and evidence snapshot remains unchanged.
+- [x] Explicit repeat intent is classified separately from a first purchase and is available to analytics/statistics.
+- [x] Order-status replies resolve an exact order number or TTN across deal-linked and attribution-only orders and use Order/Nova Poshta truth; ambiguous multi-order references create one clarification task instead of guessing.
+- [x] Exact existing-order linking blocks cancelled orders and requires a structured manager override for fulfilled/shipped or payment-incompatible orders.
+- [x] Automatic provider-verified payment creates one idempotent attributed order only after validated products, negotiated totals and canonical delivery data are complete; otherwise it creates manager work without a duplicate.
+- [x] Negotiated line prices, agreed order total, requested payment amount and actually paid provider/manager amount remain separate and scoped to the exact client episode; no runtime fixture amount or previous-client value is reused, and arbitrary valid prepayments are not coerced to `200 грн`.
+- [x] Automatic, manager-created and linked-existing orders expose distinct creation modes while sharing the same client/order history contract.
 
 ## Task 5 UX acceptance
 
@@ -95,6 +95,21 @@ The broad `management` suite ran 1471 tests with 14 failures and 3 errors; a
 clean detached base SHA ran 1379 tests with 15 failures and 3 errors, and every
 remaining failure is a pre-existing unrelated baseline contract. No new Task 6
 failure remains.
+
+Task 6 amount/linking follow-up verification (2026-07-26): legacy manager
+confirmation without an exact amount now enters `amount_clarification` in the
+action queue. The append-only clarification links only to conversation messages
+containing the exact amount and never falls back to a receipt or watermark.
+Ambiguous multi-item totals stay unallocated until a manager enters positive
+line prices; no automatic equal split is invented. Authenticated browser QA at
+1440, 390 and 320 px confirmed the transition from clarification to the compact
+existing-order selector and separate create-new action, complete receipt/history
+reachability and zero page-level horizontal overflow. The preview scenario linked
+the already shipped `TWC24072026N01` through a structured historical override;
+the database retained exactly one order and connected review, client and
+attribution to it. The related suite passed **254 tests** with 2 expected skips;
+`manage.py check`, migration drift, scoped compilation, strict inline JavaScript
+syntax and `git diff --check` also passed.
 
 ## Completed in this slice
 

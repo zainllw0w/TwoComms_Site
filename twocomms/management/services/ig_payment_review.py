@@ -98,6 +98,61 @@ def _amount_evidence_kind(text: str) -> str:
         return "unit_price"
     return "unknown"
 
+
+def _amount_match_evidence_kind(text: str, amount_match) -> str:
+    """Classify one amount by its closest semantic cue in the message.
+
+    A manager can write both the full order total and a prepayment in one
+    message. Classifying the whole message would assign the same meaning to
+    both values, so keep each amount bound to the nearest explicit label.
+    """
+    previous_amounts = [match for match in _AMOUNT_RE.finditer(text) if match.end() <= amount_match.start()]
+    local_start = previous_amounts[-1].end() if previous_amounts else 0
+    local_kind = _amount_evidence_kind(text[local_start:amount_match.end()])
+    if local_kind != "unknown":
+        return local_kind
+
+    cue_patterns = (
+        (
+            "payment_evidence",
+            re.compile(
+                r"\b(передоплат\w*|аванс\w*|оплатив\w*|оплатила\w*|оплачено\w*|"
+                r"сплатив\w*|сплатила\w*|сплачено\w*|чек\w*|квитанц\w*|receipt|paid|"
+                r"переказ\w*|перевод\w*)\b",
+                re.IGNORECASE,
+            ),
+        ),
+        (
+            "order_total",
+            re.compile(
+                r"\b(сума(?:\s+замовлення)?|сумма(?:\s+заказа)?|разом|итого|всього|всего|total)\b",
+                re.IGNORECASE,
+            ),
+        ),
+        (
+            "unit_price",
+            re.compile(r"\b(ціна|цена|вартість|стоимость)\b", re.IGNORECASE),
+        ),
+    )
+    candidates = []
+    for kind, pattern in cue_patterns:
+        for cue in pattern.finditer(text):
+            if cue.end() <= amount_match.start():
+                distance = amount_match.start() - cue.end()
+                direction_penalty = 0
+            elif cue.start() >= amount_match.end():
+                distance = cue.start() - amount_match.end()
+                direction_penalty = 20
+            else:
+                distance = 0
+                direction_penalty = 0
+            candidates.append((distance + direction_penalty, -cue.start(), kind))
+    if candidates:
+        distance, _position, kind = min(candidates)
+        if distance <= 80:
+            return kind
+    return _amount_evidence_kind(text)
+
 _PRODUCT_MEDIA_TYPES = {"ig_post", "share", "ig_reel", "reel", "story_mention", "story"}
 
 
@@ -950,9 +1005,9 @@ def extract_payment_review_evidence(messages) -> dict:
             "attachments": attachments[:500],
             "media": media[:8],
         })
-        amounts = _AMOUNT_RE.findall(text)
-        amount_kind = _amount_evidence_kind(text)
-        for amount in amounts:
+        for amount_match in _AMOUNT_RE.finditer(text):
+            amount = amount_match.group(1)
+            amount_kind = _amount_match_evidence_kind(text, amount_match)
             try:
                 normalized = Decimal(amount.replace(",", ".")).quantize(Decimal("0.01"))
             except (InvalidOperation, ValueError):
@@ -1562,6 +1617,28 @@ def resolve_review_payment_amount(
         and exact_amount >= negotiated_total
     ):
         raise ValueError("Передоплата має бути меншою за повну вартість замовлення.")
+    if confirmed_amount not in (None, ""):
+        # Explicit manager input may differ from the requested amount. Attach
+        # only messages that contain this exact value; a receipt watermark or
+        # a different payment request must never become amount evidence.
+        exact_evidence_ids = set()
+        if negotiated_total is not None and exact_amount == negotiated_total:
+            source_message_id = draft.get("amount_source_message_id")
+            if str(source_message_id).isdigit():
+                exact_evidence_ids.add(int(source_message_id))
+        if deal is not None and _positive_money(getattr(deal, "requested_payment_amount", None)) == exact_amount:
+            exact_evidence_ids.update(
+                int(value)
+                for value in (getattr(deal, "requested_payment_evidence_ids", None) or [])
+                if str(value).isdigit()
+            )
+        for row in evidence.get("amount_evidence") or []:
+            if not isinstance(row, dict) or _positive_money(row.get("amount")) != exact_amount:
+                continue
+            message_id = row.get("message_id")
+            if str(message_id).isdigit():
+                exact_evidence_ids.add(int(message_id))
+        evidence_ids = sorted(exact_evidence_ids)
     contract = {
         "amount": exact_amount,
         "currency": currency,
@@ -1624,6 +1701,7 @@ def record_review_decision(
     reason_code: str = "",
     reason_text: str = "",
     telegram_decision: dict | None = None,
+    allow_amount_clarification: bool = False,
 ):
     """Atomically record one manager decision without mutating provider truth."""
     from management.ig_bot_models import (
@@ -1671,10 +1749,37 @@ def record_review_decision(
         locked._transitioned = False
         if locked.client.hidden_at:
             raise ValueError("Прихований клієнт виключений з операцій.")
+        clarification = False
         if locked.status != IgPaymentConfirmationReview.Status.PENDING:
             if not IgPaymentReviewDecision.objects.filter(review=locked).exists():
                 raise ValueError("Завершена перевірка не має журналу рішення")
-            return locked
+            if allow_amount_clarification and locked.order_id:
+                raise ValueError(
+                    "Суму не можна уточнити: до перевірки замовлення вже прив’язано."
+                )
+            latest = IgPaymentReviewDecision.objects.filter(review=locked).order_by("-id").first()
+            has_authoritative_amount = IgPaymentReviewDecision.objects.filter(
+                review=locked,
+                decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+                verification_source="manager",
+                confirmed_amount__gt=0,
+                verification_scope__in={
+                    IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT,
+                    IgPaymentReviewDecision.VerificationScope.PREPAYMENT,
+                },
+            ).exists()
+            clarification = bool(
+                allow_amount_clarification
+                and locked.status == IgPaymentConfirmationReview.Status.CONFIRMED
+                and decision == IgPaymentReviewDecision.Decision.MANAGER_VERIFIED
+                and latest
+                and latest.decision == IgPaymentReviewDecision.Decision.MANAGER_VERIFIED
+                and not has_authoritative_amount
+            )
+            if not clarification:
+                if allow_amount_clarification and has_authoritative_amount:
+                    raise ValueError("Перевірка вже містить точну суму підтвердженої оплати.")
+                return locked
 
         amount_contract = None
         if decision == IgPaymentReviewDecision.Decision.MANAGER_VERIFIED:
@@ -1703,18 +1808,18 @@ def record_review_decision(
         )
         review_status_before = locked.status
         now = timezone.now()
-        update_fields = ["status", "updated_at"]
-        if decision == IgPaymentReviewDecision.Decision.MANAGER_VERIFIED:
+        update_fields = ["updated_at"]
+        if decision == IgPaymentReviewDecision.Decision.MANAGER_VERIFIED and not clarification:
             locked.status = IgPaymentConfirmationReview.Status.CONFIRMED
             locked.confirmed_by = actor
             locked.confirmed_at = now
-            update_fields.extend(["confirmed_by", "confirmed_at"])
+            update_fields.extend(["status", "confirmed_by", "confirmed_at"])
         elif decision == IgPaymentReviewDecision.Decision.MANAGER_REJECTED:
             locked.status = IgPaymentConfirmationReview.Status.CANCELLED
             locked.cancelled_by = actor
             locked.cancelled_at = now
             locked.cancellation_reason = (reason_text or reason_code or "")[:500]
-            update_fields.extend(["cancelled_by", "cancelled_at", "cancellation_reason"])
+            update_fields.extend(["status", "cancelled_by", "cancelled_at", "cancellation_reason"])
         if telegram_decision:
             evidence = locked.evidence if isinstance(locked.evidence, dict) else {}
             locked.evidence = {**evidence, "telegram_decision": telegram_decision}

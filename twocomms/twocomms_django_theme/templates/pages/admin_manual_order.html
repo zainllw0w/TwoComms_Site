@@ -737,6 +737,7 @@
     <div class="mo-summary__total">
       Разом до сплати
       <b><span id="moTotal">0</span> грн</b>
+      <span id="moAllocationStatus" class="mo-field-hint" aria-live="polite"></span>
     </div>
     <button type="button" class="mo-submit" id="moSubmit">Створити замовлення</button>
   </div>
@@ -1092,7 +1093,7 @@
       var fields = '';
 
       // price
-      fields += field('Ціна, грн', '<input type="number" class="mo-input" min="0" step="1" value="' + it.unit_price + '" data-edit="unit_price">');
+      fields += field('Ціна, грн', '<input type="number" class="mo-input" min="0.01" step="0.01" value="' + (it.unit_price === '' ? '' : it.unit_price) + '" data-edit="unit_price">');
       // qty
       fields += field('Кількість', '<input type="number" class="mo-input" min="1" step="1" value="' + it.qty + '" data-edit="qty">');
 
@@ -1133,7 +1134,7 @@
           '</button>' +
         '</div>' +
         '<div class="mo-line__grid">' + fields + '</div>' +
-        '<div class="mo-line__sub">Сума: <b>' + fmt(it.unit_price * it.qty) + ' грн</b></div>';
+        '<div class="mo-line__sub">Сума: <b>' + (it.unit_price === '' ? '—' : fmt(Number(it.unit_price) * it.qty) + ' грн') + '</b></div>';
 
       // bind edits
       line.querySelectorAll('[data-edit]').forEach(function (input) {
@@ -1158,7 +1159,10 @@
   function onEdit(it, input) {
     var key = input.dataset.edit;
     var val = input.value;
-    if (key === 'unit_price') { it.unit_price = Math.max(0, Number(val) || 0); }
+    if (key === 'unit_price') {
+      if (val === '') { it.unit_price = ''; }
+      else { it.unit_price = Math.max(0, Number(val) || 0); }
+    }
     else if (key === 'qty') { it.qty = Math.max(1, parseInt(val, 10) || 1); }
     else {
       it[key] = val;
@@ -1174,18 +1178,25 @@
     var line = input.closest('.mo-line');
     if (line) {
       var sub = line.querySelector('.mo-line__sub b');
-      if (sub) sub.textContent = fmt(it.unit_price * it.qty) + ' грн';
+      if (sub) sub.textContent = it.unit_price === '' ? '—' : fmt(Number(it.unit_price) * it.qty) + ' грн';
     }
     updateTotal();
   }
 
   function updateTotal() {
-    var total = items.reduce(function (acc, it) { return acc + it.unit_price * it.qty; }, 0);
+    var total = items.reduce(function (acc, it) { return acc + (Number(it.unit_price) || 0) * it.qty; }, 0);
     document.getElementById('moTotal').textContent = fmt(total);
     var overrideBox = document.getElementById('moPriceOverride');
     var quoted = initial && initial.quoted_total ? Number(initial.quoted_total) : 0;
+    var incomplete = items.some(function (it) { return it.unit_price === '' || Number(it.unit_price) <= 0; });
+    var allocation = document.getElementById('moAllocationStatus');
+    if (allocation && quoted > 0) {
+      var remaining = quoted - total;
+      allocation.textContent = 'Розподілено ' + fmt(total) + ' із ' + fmt(quoted) + ' грн · Залишок: ' + fmt(remaining) + ' грн';
+      allocation.style.color = !incomplete && Math.abs(remaining) < 0.005 ? '#86efac' : '#fcd34d';
+    } else if (allocation) { allocation.textContent = ''; }
     if (overrideBox) {
-      overrideBox.style.display = quoted > 0 && Math.abs(total - quoted) >= 0.005 ? 'block' : 'none';
+      overrideBox.style.display = !incomplete && quoted > 0 && Math.abs(total - quoted) >= 0.005 ? 'block' : 'none';
     }
   }
 
@@ -1273,6 +1284,12 @@
     }
 
     if (!items.length) { flash('Додайте хоча б один товар.', 'error'); return; }
+    if (items.some(function (it) { return it.unit_price === '' || Number(it.unit_price) <= 0; })) {
+      flash('Ціни всіх позицій мають бути більшими за нуль.', 'error');
+      var missingPrice = page.querySelector('[data-edit="unit_price"][value=""]');
+      if (missingPrice) missingPrice.focus();
+      return;
+    }
 
     payload.items = items.map(function (it) {
       if (it.kind === 'custom') {

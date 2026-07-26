@@ -231,6 +231,23 @@ class IgPaymentReviewRulesTests(SimpleTestCase):
             [("2100", "order_total"), ("200", "payment_evidence")],
         )
 
+    def test_multiple_amounts_in_one_message_keep_independent_meanings(self):
+        from management.services.ig_payment_review import extract_payment_review_evidence
+
+        result = extract_payment_review_evidence([
+            {
+                "id": 237,
+                "role": "manager",
+                "text": "Сума замовлення 2100 грн, передоплата 200 грн на рахунок ФОП",
+            },
+        ])
+
+        self.assertEqual(result["order_draft"]["quoted_total"], "2100")
+        self.assertEqual(
+            [(item["amount"], item["kind"]) for item in result["amount_evidence"]],
+            [("2100", "order_total"), ("200", "payment_evidence")],
+        )
+
     def test_completed_transfer_amount_does_not_replace_agreed_order_total(self):
         from management.services.ig_payment_review import extract_payment_review_evidence
 

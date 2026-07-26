@@ -555,6 +555,142 @@ class InstagramPaymentDecisionApiTests(TestCase):
         self.assertEqual(payment["remaining_amount"], "")
         self.assertFalse(payment["authoritative_for_fulfillment"])
 
+    @patch("management.services.bot_conversation_analysis.schedule_client_truth_analysis")
+    def test_legacy_confirmed_review_can_append_exact_amount_clarification(self, schedule):
+        from management.ig_bot_models import (
+            IgPaymentConfirmationReview,
+            IgPaymentReviewDecision,
+        )
+
+        self.review.status = IgPaymentConfirmationReview.Status.CONFIRMED
+        self.review.evidence = {
+            "order_draft": {
+                "quoted_total": "2100",
+                "amount_source_message_id": 237,
+                "items": [
+                    {"title": "Базова футболка", "qty": 1, "unit_price": None},
+                    {"title": "Оверсайз", "qty": 1, "unit_price": None},
+                ],
+                "uncertainty_reasons": ["conversation_price_allocation_required"],
+            },
+            "amount_evidence": [
+                {
+                    "message_id": 237,
+                    "role": "manager",
+                    "amount": "2100",
+                    "kind": "order_total",
+                    "quote": "Сума: 2100 грн",
+                }
+            ],
+        }
+        self.review.save(update_fields=["status", "evidence", "updated_at"])
+        IgPaymentReviewDecision.objects.create(
+            review=self.review,
+            client=self.ig_client,
+            decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+            verification_source="manager",
+            verification_scope=IgPaymentReviewDecision.VerificationScope.PAYMENT_CLAIM,
+            confirmed_amount=None,
+            amount_source="",
+            amount_evidence_message_ids=[],
+            evidence_watermark_message_id=238,
+            actor=self.actor,
+            actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+            actor_external_id=str(self.actor.pk),
+            review_status_before=IgPaymentConfirmationReview.Status.PENDING,
+            review_status_after=IgPaymentConfirmationReview.Status.CONFIRMED,
+        )
+
+        response = self.client.post(
+            self.action_url,
+            {
+                "action": "clarify_amount",
+                "verification_scope": "full_payment",
+                "confirmed_amount": "2100.00",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        payload = response.json()
+        self.assertEqual(payload["next_action"], "resolve_order")
+        self.assertTrue(payload["order_resolution"]["required"])
+        self.assertEqual(payload["payment"]["confirmed_paid_amount"], "2100.00")
+        self.assertEqual(IgPaymentReviewDecision.objects.filter(review=self.review).count(), 2)
+        clarified = IgPaymentReviewDecision.objects.filter(review=self.review).order_by("-id").first()
+        self.assertEqual(clarified.confirmed_amount, Decimal("2100.00"))
+        self.assertEqual(clarified.amount_source, "manager_input")
+        self.assertEqual(clarified.amount_evidence_message_ids, [237])
+        self.assertEqual(clarified.review_status_before, "confirmed")
+        self.assertEqual(clarified.review_status_after, "confirmed")
+        schedule.assert_called_once()
+
+    def test_amount_clarification_cannot_replace_an_authoritative_decision(self):
+        from management.services.ig_payment_review import record_review_decision
+
+        record_review_decision(
+            self.review,
+            actor=self.actor,
+            decision="manager_verified",
+            verification_scope="full_payment",
+            confirmed_amount="2100.00",
+        )
+
+        response = self.client.post(
+            self.action_url,
+            {
+                "action": "clarify_amount",
+                "verification_scope": "full_payment",
+                "confirmed_amount": "2000.00",
+            },
+        )
+
+        self.assertEqual(response.status_code, 409, response.content)
+        self.assertIn("вже містить точну суму", response.json()["error"])
+        self.assertEqual(self.review.decisions.count(), 1)
+
+    def test_amount_clarification_cannot_change_a_review_with_linked_order(self):
+        from management.ig_bot_models import (
+            IgPaymentConfirmationReview,
+            IgPaymentReviewDecision,
+        )
+        from orders.models import Order
+
+        order = Order.objects.create(
+            full_name="Яна",
+            phone="380502034719",
+            total_sum=Decimal("2100.00"),
+            payment_status="paid",
+        )
+        self.review.status = IgPaymentConfirmationReview.Status.CONFIRMED
+        self.review.order = order
+        self.review.save(update_fields=["status", "order", "updated_at"])
+        IgPaymentReviewDecision.objects.create(
+            review=self.review,
+            client=self.ig_client,
+            decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+            verification_source="manager",
+            verification_scope=IgPaymentReviewDecision.VerificationScope.PAYMENT_CLAIM,
+            confirmed_amount=None,
+            actor=self.actor,
+            actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+            actor_external_id=str(self.actor.pk),
+            review_status_before=IgPaymentConfirmationReview.Status.PENDING,
+            review_status_after=IgPaymentConfirmationReview.Status.CONFIRMED,
+        )
+
+        response = self.client.post(
+            self.action_url,
+            {
+                "action": "clarify_amount",
+                "verification_scope": "full_payment",
+                "confirmed_amount": "2100.00",
+            },
+        )
+
+        self.assertEqual(response.status_code, 409, response.content)
+        self.assertIn("замовлення вже прив’язано", response.json()["error"])
+        self.assertEqual(self.review.decisions.count(), 1)
+
     def test_manager_reject_requires_structured_reason(self):
         response = self.client.post(self.action_url, {"action": "manager_reject"})
 

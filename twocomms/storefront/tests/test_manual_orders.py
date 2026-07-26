@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from decimal import Decimal
+from pathlib import Path
 from unittest import mock
 
 from django.contrib.auth import get_user_model
@@ -81,6 +82,19 @@ def _delivery_payload():
     },
 )
 class ManualOrderCreateTests(TestCase):
+    def test_manual_order_template_preserves_missing_review_prices_until_manager_input(self):
+        template = (
+            Path(__file__).parents[2]
+            / 'twocomms_django_theme/templates/pages/admin_manual_order.html'
+        ).read_text(encoding='utf-8')
+
+        self.assertIn("it.unit_price === '' ? '' : it.unit_price", template)
+        self.assertIn("if (val === '') { it.unit_price = ''; }", template)
+        self.assertIn("Ціни всіх позицій мають бути більшими за нуль.", template)
+        self.assertIn("Розподілено ", template)
+        self.assertIn("із ", template)
+        self.assertIn("Залишок: ", template)
+
     @classmethod
     def setUpTestData(cls):
         cls.admin = User.objects.create_user(
@@ -203,6 +217,39 @@ class ManualOrderCreateTests(TestCase):
         self.assertEqual(initial['items'][0]['color_variant_id'], self.variant.pk)
         self.assertEqual(initial['items'][0]['unit_price'], 790.0)
         self.assertEqual(initial['payment_preset'], 'unpaid_full')
+
+    def test_ambiguous_multi_item_review_keeps_each_price_for_manual_input(self):
+        from management.ig_bot_models import IgPaymentConfirmationReview
+        from management.models import IgClient
+        from management.services.ig_payment_review import record_review_decision
+        from storefront.views.manual_orders import _build_ig_review_initial
+
+        ig_client = IgClient.get_or_create_for_sender('manual-review-ambiguous-prices')
+        review = IgPaymentConfirmationReview.objects.create(
+            client=ig_client,
+            dedupe_key='manual-review-ambiguous-prices',
+            evidence={
+                'order_draft': {
+                    'quoted_total': '2100.00',
+                    'uncertainty_reasons': ['conversation_price_allocation_required'],
+                    'items': [
+                        {'product_id': self.product.pk, 'title': self.product.title, 'qty': 1},
+                        {'product_id': self.product.pk, 'title': self.product.title, 'qty': 1},
+                    ],
+                },
+            },
+        )
+        record_review_decision(
+            review,
+            actor=self.admin,
+            decision='manager_verified',
+            confirmed_amount='2100.00',
+        )
+
+        initial = _build_ig_review_initial(review)
+
+        self.assertEqual([row['unit_price'] for row in initial['items']], ['', ''])
+        self.assertTrue(all(row['price_requires_input'] for row in initial['items']))
 
     def test_confirmed_review_normalizes_ukrainian_fit_label_to_catalog_code(self):
         from management.ig_bot_models import IgPaymentConfirmationReview

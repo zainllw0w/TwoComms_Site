@@ -967,6 +967,29 @@ def _draft_workspace_reasons(raw_reasons) -> list[str]:
     return result
 
 
+def _amount_workspace_evidence(evidence) -> list[dict]:
+    if not isinstance(evidence, dict):
+        return []
+    result = []
+    for raw in evidence.get("amount_evidence") or []:
+        if not isinstance(raw, dict):
+            continue
+        message_id = _bounded_int(raw.get("message_id"))
+        amount = _bounded_text(raw.get("amount"), 40)
+        if not message_id or not amount:
+            continue
+        result.append({
+            "message_id": message_id,
+            "amount": amount,
+            "kind": _bounded_text(raw.get("kind"), 40),
+            "role": _bounded_text(raw.get("role"), 24),
+            "quote": _bounded_text(raw.get("quote"), 300),
+        })
+        if len(result) >= 20:
+            break
+    return result
+
+
 def _order_workspace_order_payload(order) -> dict:
     if not order:
         return {}
@@ -1148,6 +1171,16 @@ def _payment_review_workspace_payload(review) -> dict:
         and not review.order_id
         and payment["authoritative_for_fulfillment"]
     )
+    needs_amount_clarification = bool(
+        status == review.Status.CONFIRMED
+        and not review.order_id
+        and not payment["needs_reconciliation"]
+        and not payment["authoritative_for_fulfillment"]
+        and decision
+        and decision.decision == "manager_verified"
+    )
+    if needs_amount_clarification:
+        approval_state = "amount_clarification"
     return {
         "id": review.pk,
         "card_key": f"review:{review.pk}",
@@ -1166,12 +1199,14 @@ def _payment_review_workspace_payload(review) -> dict:
             "needs_action": (
                 status == review.Status.PENDING
                 or needs_order_resolution
+                or needs_amount_clarification
                 or payment["needs_reconciliation"]
             ),
             "can_confirm": status == review.Status.PENDING,
             "can_reject": status == review.Status.PENDING,
             "can_link_existing": needs_order_resolution,
             "can_create": needs_order_resolution,
+            "can_clarify_amount": needs_amount_clarification,
             "action_url": action_url,
             "create_order_url": create_order_url if needs_order_resolution else "",
             "link_existing": {
@@ -1191,6 +1226,7 @@ def _payment_review_workspace_payload(review) -> dict:
                 draft.get("uncertainty_reasons"),
             ),
             "catalog_candidates": _catalog_workspace_candidates(evidence),
+            "amount_evidence": _amount_workspace_evidence(evidence),
         },
         "media": _review_media_groups(evidence),
         "payment": payment,
@@ -1215,6 +1251,7 @@ def _payment_review_workspace_payload(review) -> dict:
                 "action"
                 if status == review.Status.PENDING
                 or needs_order_resolution
+                or needs_amount_clarification
                 or payment["needs_reconciliation"]
                 else "confirmed"
             ),
@@ -1476,6 +1513,8 @@ def bot_order_candidates_api(request):
                     "title": item.title,
                     "size": item.size or "",
                     "qty": item.qty,
+                    "unit_price": f"{item.unit_price:.2f}",
+                    "line_total": f"{item.line_total:.2f}",
                 }
                 for item in list(order.items.all())[:8]
             ],
@@ -1548,7 +1587,8 @@ def bot_payment_review_action_api(request, review_id):
             "order_number": order.order_number,
             "order_url": _existing_order_admin_url(order.pk),
         })
-    if action in {"confirm", "manager_verify"}:
+    clarify_amount = action == "clarify_amount"
+    if action in {"confirm", "manager_verify", "clarify_amount"}:
         decision_name = "manager_verified"
         reason_code = ""
         reason_text = ""
@@ -1574,10 +1614,16 @@ def bot_payment_review_action_api(request, review_id):
             confirmed_amount=request.POST.get("confirmed_amount"),
             reason_code=reason_code,
             reason_text=reason_text,
+            allow_amount_clarification=clarify_amount,
         )
     except ValueError as exc:
         error = str(exc)
-        conflict = bool(review.client.hidden_at or "журналу рішення" in error)
+        conflict = bool(
+            review.client.hidden_at
+            or "журналу рішення" in error
+            or "вже містить точну суму" in error
+            or "замовлення вже прив’язано" in error
+        )
         return JsonResponse({"success": False, "error": error}, status=409 if conflict else 400)
     decision = _latest_payment_review_decision(review)
     decision_payload = _payment_review_decision_payload(decision)

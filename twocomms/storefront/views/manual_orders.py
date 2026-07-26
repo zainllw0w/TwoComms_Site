@@ -789,14 +789,14 @@ def _build_ig_review_initial(review):
                 except Exception:
                     image = ""
             raw_price = draft_item.get("unit_price")
-            if raw_price in (None, "") and product:
-                raw_price = getattr(product, "final_price", None) or product.price
+            price_requires_input = raw_price in (None, "")
             items.append({
                 "kind": "catalog" if product else "custom",
                 "product_id": product.pk if product else "",
                 "color_variant_id": (draft_item.get("color_variant_id") or catalog.get("color_variant_id") or "") if product else "",
                 "title": title,
-                "unit_price": float(raw_price or 0),
+                "unit_price": float(raw_price) if not price_requires_input else "",
+                "price_requires_input": price_requires_input,
                 "qty": int(draft_item.get("qty") or 1),
                 "size": draft_item.get("size") or "",
                 "fit_option_code": fit_code,

@@ -60,6 +60,14 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
         self.assertNotIn('id="bot-payment-review"', self.template)
         self.assertNotIn('id="bot-payment-review-list"', self.template)
 
+    def test_amount_evidence_links_never_fall_back_to_receipt_watermark(self):
+        self.assertNotIn(
+            "[decision.evidence_watermark_message_id].filter(Boolean)",
+            self.template,
+        )
+        self.assertIn("Суми, знайдені у переписці", self.template)
+        self.assertIn("amount_evidence.forEach", self.template)
+
     def test_orders_workspace_has_semantic_filters_list_and_contextual_drawer(self):
         for contract in (
             'id="bot-orders-filters"',
@@ -106,6 +114,12 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
         self.assertIn("displayedOrderTotal!=='—'?displayedOrderTotal+' грн':'—'", self.template)
         self.assertIn("function reconciliationMessage(payment)", self.template)
         self.assertIn("Monobank зафіксував часткове повернення", self.template)
+        self.assertIn("Уточнити підтверджену суму", self.template)
+        self.assertIn("action:'clarify_amount'", self.template)
+
+    def test_provider_truth_copy_cannot_read_like_the_manager_rejected_payment(self):
+        self.assertIn("Провайдер не підтвердив оплату", self.template)
+        self.assertIn("Платіж не перевірено провайдером", self.template)
 
     def test_order_detail_explains_the_post_confirmation_next_step(self):
         for contract in (
@@ -827,9 +841,36 @@ class OrdersWorkspaceApiTests(TestCase):
         self.assertEqual(len(item["media"]["unknown"]), 1)
         self.assertIn(f"review={self.pending.id}", item["workspace_url"])
 
+    def test_legacy_amount_clarification_opens_in_action_queue(self):
+        from management.ig_bot_models import IgPaymentReviewDecision
+
+        IgPaymentReviewDecision.objects.create(
+            review=self.confirmed,
+            client=self.customer,
+            decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+            verification_source="manager",
+            verification_scope=IgPaymentReviewDecision.VerificationScope.PAYMENT_CLAIM,
+            confirmed_amount=None,
+            actor=self.admin,
+            actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+            actor_external_id=str(self.admin.pk),
+            review_status_before=IgPaymentConfirmationReview.Status.PENDING,
+            review_status_after=IgPaymentConfirmationReview.Status.CONFIRMED,
+        )
+
+        data = self.client.get(
+            reverse("management_bot_orders_workspace_api")
+            + f"?view=all&review={self.confirmed.pk}"
+        ).json()
+        item = next(row for row in data["items"] if row["review_id"] == self.confirmed.pk)
+
+        self.assertEqual(item["approval"]["state"], "amount_clarification")
+        self.assertTrue(item["approval"]["can_clarify_amount"])
+        self.assertIn("view=action", item["workspace_url"])
+
     def test_order_candidate_exposes_full_payment_amount_conflict_before_link(self):
         from management.services.ig_payment_review import record_review_decision
-        from orders.models import Order
+        from orders.models import Order, OrderItem
 
         review = IgPaymentConfirmationReview.objects.create(
             client=self.customer,
@@ -849,14 +890,50 @@ class OrdersWorkspaceApiTests(TestCase):
             total_sum=Decimal("2000.00"),
             payment_status="paid",
         )
+        OrderItem.objects.create(
+            order=order,
+            title="Базова футболка",
+            size="S",
+            qty=1,
+            unit_price=Decimal("1050.00"),
+            line_total=Decimal("1050.00"),
+        )
+        OrderItem.objects.create(
+            order=order,
+            title="Оверсайз",
+            size="XS",
+            qty=1,
+            unit_price=Decimal("950.00"),
+            line_total=Decimal("950.00"),
+        )
 
         response = self.client.get(
             reverse("management_bot_order_candidates_api"),
             {"client_id": self.customer.pk, "review_id": review.pk},
+            secure=True,
         )
         item = next(row for row in response.json()["items"] if row["id"] == order.pk)
 
         self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(
+            item["items"],
+            [
+                {
+                    "title": "Базова футболка",
+                    "size": "S",
+                    "qty": 1,
+                    "unit_price": "1050.00",
+                    "line_total": "1050.00",
+                },
+                {
+                    "title": "Оверсайз",
+                    "size": "XS",
+                    "qty": 1,
+                    "unit_price": "950.00",
+                    "line_total": "950.00",
+                },
+            ],
+        )
         self.assertTrue(item["requires_override"])
         self.assertIn("payment_amount_mismatch", item["override_conflicts"])
         self.assertEqual(
