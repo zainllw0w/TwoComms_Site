@@ -2571,14 +2571,18 @@ def bot_client_detail_api(request, client_id):
         )
         if active_review is None:
             active_review = _payment_review_workspace_payload(actionable_review_row)
-    attribution_base = _order_attribution_workspace_queryset().filter(
+    all_attribution_base = _order_attribution_workspace_queryset().filter(
         client=c,
-    ).exclude(
+    )
+    attribution_base = all_attribution_base.exclude(
         order_id__in=Subquery(
             review_base.exclude(order_id__isnull=True).values("order_id")
         )
     )
-    attribution_total = attribution_base.count()
+    # The card list intentionally hides attribution rows already represented by
+    # a payment review, but the client contract must report every physical
+    # Instagram-attributed order, including review-linked orders.
+    attribution_total = all_attribution_base.values("order_id").distinct().count()
     attribution_rows = list(attribution_base.order_by("-created_at", "-id")[:20])
     order_cards = _canonical_order_workspace_cards(
         review_rows,

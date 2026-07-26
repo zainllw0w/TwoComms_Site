@@ -451,7 +451,18 @@ class CommercialEpisodeTests(TestCase):
 
         first_review = self._confirmed_review(key="episode-api-first")
         first = ensure_episode_for_review(first_review)
-        bind_episode_order(first, self._order(total="900.00"), creation_mode="linked_existing")
+        order = self._order(total="900.00")
+        bind_episode_order(first, order, creation_mode="linked_existing")
+        from management.services.ig_order_links import create_order_attribution
+
+        create_order_attribution(
+            order,
+            client=self.client,
+            creation_mode="linked_existing",
+            payment_source="manager_verified",
+            review=first_review,
+            created_by=self.actor,
+        )
         start_repeat_episode(
             self.client,
             repeat_kind="gift",
@@ -482,6 +493,7 @@ class CommercialEpisodeTests(TestCase):
             ordered_episode["order"]["amount"],
             "900.00",
         )
+        self.assertEqual(payload["orders"]["attribution_count"], 1)
 
     def test_client_api_exposes_unknown_then_episode_scoped_stale_potential(self):
         from management.services.ig_commercial_episodes import start_repeat_episode
