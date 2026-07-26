@@ -85,18 +85,23 @@ FRONT_SIZE_DEFAULT = "A4"
 BACK_SIZE_PRESETS = [
     {"value": "A4", "label": "A4", "stage_scale": 0.62, "price_delta": 60, "range_label": _("до 21 × 29,7 см")},
     {"value": "A3", "label": "A3", "stage_scale": 0.78, "price_delta": 80, "range_label": _("до 29,7 × 42 см")},
-    {"value": "A2", "label": "A2", "stage_scale": 0.92, "price_delta": 110, "range_label": _("до 42 × 59,4 см")},
+    {"value": "A3+", "label": "A3+", "stage_scale": 0.86, "price_delta": 100, "range_label": _("більше A3, менше A2")},
 ]
 BACK_SIZE_DEFAULT = "A4"
 
-CUSTOM_ZONE_SIZE_PRESETS = [
-    {"value": "A6", "label": "A6", "stage_scale": 0.38, "price_delta": 40, "range_label": _("до 10,5 × 14,8 см"), "hint": _("Шеврон, плече або невеликий знак")},
-    {"value": "A5", "label": "A5", "stage_scale": 0.5, "price_delta": 50, "range_label": _("до 14,8 × 21 см"), "hint": _("Компактна нестандартна зона")},
-    {"value": "A4", "label": "A4", "stage_scale": 0.64, "price_delta": 60, "range_label": _("до 21 × 29,7 см"), "hint": _("Середній формат для акценту")},
-    {"value": "A3", "label": "A3", "stage_scale": 0.78, "price_delta": 80, "range_label": _("до 29,7 × 42 см"), "hint": _("Помітна додаткова композиція")},
-    {"value": "A2", "label": "A2", "stage_scale": 0.92, "price_delta": 110, "range_label": _("до 42 × 59,4 см"), "hint": _("Велика зона — прорахує менеджер")},
-]
-CUSTOM_ZONE_LOCATIONS = {"shoulder", "hem", "other"}
+CUSTOM_ZONE_SIZE_PRESETS = []
+CUSTOM_ZONE_LOCATIONS = {"other"}
+
+SPECIAL_PLACEMENTS = {
+    "shoulder": {
+        "formats": ["A6"],
+        "sides": ["left", "right"],
+    },
+    "hem": {
+        "modes": ["text", "A6", "A6+"],
+        "sides": ["front", "back"],
+    },
+}
 
 SLEEVE_MODE_OPTIONS = [
     {"value": "a6", "label": "A6", "badge": "A6 · +40 грн", "price_delta": 40, "stage_scale": 0.42},
@@ -117,6 +122,12 @@ ZONE_LABELS = {
     "sleeve": _("На рукавах"),
     "sleeve_left": _("Лівий рукав"),
     "sleeve_right": _("Правий рукав"),
+    "shoulder": _("На плечі"),
+    "shoulder_left": _("Ліве плече"),
+    "shoulder_right": _("Праве плече"),
+    "hem": _("Низ виробу"),
+    "hem_front": _("Низ спереду"),
+    "hem_back": _("Низ ззаду"),
     "custom": _("Інша зона"),
 }
 
@@ -298,10 +309,11 @@ def _stage_box(x: float, y: float, width: float, height: float, rotate: float = 
 
 ISO_SIZES = {
     "A6": (105, 148),
+    "A6+": (210, 105),
     "A5": (148, 210),
     "A4": (210, 297),
     "A3": (297, 420),
-    "A2": (420, 594),
+    "A3+": (350, 500),
 }
 
 FORMAT_DIMENSIONS = {
@@ -602,7 +614,7 @@ PRODUCT_MATRIX = {
             ],
         },
         "default_color": "black",
-        "zones": ["front", "back", "custom"],
+        "zones": ["front", "back", "shoulder", "hem", "custom"],
         "default_zones": [],
                 "add_ons": [
             {
@@ -902,7 +914,7 @@ STAGE_PROFILES = {
                         presets={
                             "A4": calc_iso_box("A4", body_width_mm=600, svg_body_width=204, svg_collar_y=140, top_offset_mm=450, radius=22),
                             "A3": calc_iso_box("A3", body_width_mm=600, svg_body_width=204, svg_collar_y=140, top_offset_mm=450, radius=22),
-                            "A2": calc_iso_box("A2", body_width_mm=600, svg_body_width=204, svg_collar_y=140, top_offset_mm=450, radius=24),
+                            "A3+": calc_iso_box("A3+", body_width_mm=600, svg_body_width=204, svg_collar_y=140, top_offset_mm=450, radius=24),
                         },
                     ),
                     "sleeve_left": _stage_anchor(
@@ -988,7 +1000,7 @@ STAGE_PROFILES = {
                         presets={
                             "A4": calc_iso_box("A4", body_width_mm=650, svg_body_width=220, svg_collar_y=140, top_offset_mm=450, radius=20),
                             "A3": calc_iso_box("A3", body_width_mm=650, svg_body_width=220, svg_collar_y=140, top_offset_mm=450, radius=21),
-                            "A2": calc_iso_box("A2", body_width_mm=650, svg_body_width=220, svg_collar_y=140, top_offset_mm=450, radius=22),
+                            "A3+": calc_iso_box("A3+", body_width_mm=650, svg_body_width=220, svg_collar_y=140, top_offset_mm=450, radius=22),
                         },
                     ),
                     "sleeve_left": _stage_anchor(
@@ -1069,7 +1081,7 @@ STAGE_PROFILES = {
                         presets={
                             "A4": _stage_box(50, 43.6, 23.6, 29.8, 0, 20, "panel"),
                             "A3": _stage_box(50, 45.8, 29.2, 36.2, 0, 20, "panel"),
-                            "A2": _stage_box(50, 48.8, 35.2, 43.4, 0, 22, "panel"),
+                            "A3+": _stage_box(50, 47.4, 32.4, 39.8, 0, 22, "panel"),
                         },
                     ),
                     "sleeve_left": _stage_anchor(
@@ -1148,7 +1160,7 @@ STAGE_PROFILES = {
                             # На oversize худи спина шире: svg_body_width ~ 220
                             "A4": calc_iso_box("A4", body_width_mm=650, svg_body_width=220, svg_collar_y=140, top_offset_mm=380, radius=20),
                             "A3": calc_iso_box("A3", body_width_mm=650, svg_body_width=220, svg_collar_y=140, top_offset_mm=380, radius=21),
-                            "A2": calc_iso_box("A2", body_width_mm=650, svg_body_width=220, svg_collar_y=140, top_offset_mm=380, radius=22),
+                            "A3+": calc_iso_box("A3+", body_width_mm=650, svg_body_width=220, svg_collar_y=140, top_offset_mm=380, radius=22),
                         },
                     ),
                     "sleeve_left": _stage_anchor(
@@ -1229,7 +1241,7 @@ STAGE_PROFILES = {
                         presets={
                             "A4": _stage_box(50, 44.4, 24.4, 30.6, 0, 20, "panel"),
                             "A3": _stage_box(50, 46.6, 30.0, 37.8, 0, 21, "panel"),
-                            "A2": _stage_box(50, 49.6, 36.2, 45.0, 0, 22, "panel"),
+                            "A3+": _stage_box(50, 48.0, 33.2, 41.2, 0, 22, "panel"),
                         },
                     ),
                     "sleeve_left": _stage_anchor(
@@ -1295,7 +1307,7 @@ STAGE_PROFILES = {
                         presets={
                             "A4": _stage_box(50, 45.2, 23.8, 30.2, 0, 20, "panel"),
                             "A3": _stage_box(50, 47.6, 29.4, 37.2, 0, 21, "panel"),
-                            "A2": _stage_box(50, 50.8, 35.8, 44.4, 0, 22, "panel"),
+                            "A3+": _stage_box(50, 49.1, 32.8, 40.7, 0, 22, "panel"),
                         },
                     ),
                     "custom": _stage_anchor(
@@ -1318,7 +1330,7 @@ from .custom_print_stage_art import build_stage_art as _build_stage_art
 _BODY_TOP_OFFSETS_MM = {
     # відступ верхнього краю принта від видимої лінії коміра/капюшона
     "front": {"A6": 40, "A5": 65, "A4": 65},
-    "back": {"A4": 45, "A3": 45, "A2": 40},
+    "back": {"A4": 45, "A3": 45, "A3+": 42},
 }
 
 
@@ -1466,6 +1478,7 @@ def build_custom_print_config(
         "back_size_presets": deepcopy(BACK_SIZE_PRESETS),
         "back_size_default": BACK_SIZE_DEFAULT,
         "custom_zone_size_presets": deepcopy(CUSTOM_ZONE_SIZE_PRESETS),
+        "special_placements": deepcopy(SPECIAL_PLACEMENTS),
         "sleeve_mode_options": deepcopy(SLEEVE_MODE_OPTIONS),
         "sleeve_mode_default": SLEEVE_MODE_DEFAULT,
         "stage_meta": deepcopy(STAGE_META),
@@ -1515,6 +1528,48 @@ def _expand_print_placements(snapshot: dict) -> list[dict]:
                 entries.append(entry)
             continue
 
+        if zone == "shoulder":
+            for side in SPECIAL_PLACEMENTS["shoulder"]["sides"]:
+                if not bool(options.get(f"{side}_enabled")):
+                    continue
+                entry = {
+                    "zone": "shoulder",
+                    "placement_key": f"shoulder_{side}",
+                    "label": ZONE_LABELS[f"shoulder_{side}"],
+                    "side": side,
+                    "size_preset": "A6",
+                    "top_level_index": index,
+                }
+                scene_preview = options.get(f"{side}_scene_preview")
+                if isinstance(scene_preview, dict) and scene_preview:
+                    entry["scene_preview"] = deepcopy(scene_preview)
+                entries.append(entry)
+            continue
+
+        if zone == "hem":
+            side = str(options.get("side") or "").strip()
+            if side not in SPECIAL_PLACEMENTS["hem"]["sides"]:
+                continue
+            mode = str(options.get("mode") or "A6").strip()
+            if mode not in SPECIAL_PLACEMENTS["hem"]["modes"]:
+                mode = "A6"
+            entry = {
+                "zone": "hem",
+                "placement_key": f"hem_{side}",
+                "label": ZONE_LABELS[f"hem_{side}"],
+                "side": side,
+                "mode": mode,
+                "text": str(options.get("text") or "").strip()[:120] if mode == "text" else "",
+                "top_level_index": index,
+            }
+            if mode != "text":
+                entry["size_preset"] = mode
+            scene_preview = options.get("scene_preview")
+            if isinstance(scene_preview, dict) and scene_preview:
+                entry["scene_preview"] = deepcopy(scene_preview)
+            entries.append(entry)
+            continue
+
         entry = {
             "zone": zone,
             "placement_key": zone,
@@ -1522,14 +1577,14 @@ def _expand_print_placements(snapshot: dict) -> list[dict]:
             "top_level_index": index,
         }
         size_preset = str(options.get("size_preset") or "").upper()
+        if zone == "back" and size_preset == "A2":
+            size_preset = "A3+"
         if zone == "front" and size_preset in front_sizes:
             entry["size_preset"] = size_preset
         elif zone == "back" and size_preset in back_sizes:
             entry["size_preset"] = size_preset
-        elif zone == "custom" and size_preset in {item["value"] for item in CUSTOM_ZONE_SIZE_PRESETS}:
-            entry["size_preset"] = size_preset
-            location = str(options.get("location") or "shoulder").strip()[:40]
-            entry["location"] = location if location in CUSTOM_ZONE_LOCATIONS else "shoulder"
+        elif zone == "custom":
+            entry["location"] = str(options.get("location") or "").strip()[:120]
         scene_preview = options.get("scene_preview")
         if isinstance(scene_preview, dict) and scene_preview:
             entry["scene_preview"] = deepcopy(scene_preview)
@@ -1543,7 +1598,10 @@ def build_placement_specs(snapshot: dict) -> list[dict]:
     artwork_file_index = 0
     for expanded_index, entry in enumerate(_expand_print_placements(snapshot)):
         zone = entry["zone"]
-        requires_artwork_file = not (zone == "sleeve" and (entry.get("mode") or SLEEVE_MODE_DEFAULT) == "full_text")
+        requires_artwork_file = not (
+            (zone == "sleeve" and (entry.get("mode") or SLEEVE_MODE_DEFAULT) == "full_text")
+            or (zone == "hem" and entry.get("mode") == "text")
+        )
         spec = {
             "zone": zone,
             "placement_key": entry.get("placement_key") or zone,
@@ -1562,8 +1620,19 @@ def build_placement_specs(snapshot: dict) -> list[dict]:
             spec["size_preset"] = entry["size_preset"]
             spec["size"] = entry["size_preset"]
         if zone == "custom":
-            spec["location"] = entry.get("location") or "shoulder"
+            spec["location"] = entry.get("location") or ""
             spec["placement_note"] = str((snapshot.get("print") or {}).get("placement_note") or "").strip()
+        if zone == "shoulder":
+            spec["side"] = entry.get("side")
+            spec["size"] = "A6"
+        if zone == "hem":
+            spec["side"] = entry.get("side")
+            spec["mode"] = entry.get("mode") or "A6"
+            if spec["mode"] == "text":
+                spec["format"] = "text"
+                spec["size"] = "manager_review"
+                if entry.get("text"):
+                    spec["text"] = entry["text"]
         if zone == "sleeve":
             spec["side"] = entry.get("side")
             spec["mode"] = entry.get("mode") or SLEEVE_MODE_DEFAULT
@@ -1640,7 +1709,6 @@ def normalize_custom_print_snapshot(raw_snapshot: dict | None) -> dict:
     raw_zone_options = print_payload.get("zone_options") or {}
     allowed_front_sizes = {item["value"] for item in FRONT_SIZE_PRESETS}
     allowed_back_sizes = {item["value"] for item in BACK_SIZE_PRESETS}
-    allowed_custom_sizes = {item["value"] for item in CUSTOM_ZONE_SIZE_PRESETS}
     allowed_sleeve_modes = {item["value"] for item in SLEEVE_MODE_OPTIONS}
     if isinstance(raw_zone_options, dict):
         for zone, raw_options in raw_zone_options.items():
@@ -1654,14 +1722,30 @@ def normalize_custom_print_snapshot(raw_snapshot: dict | None) -> dict:
                 normalized_options["size_preset"] = size_preset
             elif zone == "back":
                 size_preset = str(raw_options.get("size_preset") or "").upper()
+                if size_preset == "A2":
+                    size_preset = "A3+"
                 if size_preset not in allowed_back_sizes:
                     size_preset = BACK_SIZE_DEFAULT
                 normalized_options["size_preset"] = size_preset
             elif zone == "custom":
-                size_preset = str(raw_options.get("size_preset") or "A6").upper()
-                normalized_options["size_preset"] = size_preset if size_preset in allowed_custom_sizes else "A6"
-                location = str(raw_options.get("location") or "shoulder").strip()[:40]
-                normalized_options["location"] = location if location in CUSTOM_ZONE_LOCATIONS else "shoulder"
+                normalized_options["location"] = str(raw_options.get("location") or "").strip()[:120]
+            elif zone == "shoulder":
+                normalized_options["left_enabled"] = bool(raw_options.get("left_enabled"))
+                normalized_options["right_enabled"] = bool(raw_options.get("right_enabled"))
+                for side in ("left", "right"):
+                    scene_preview = raw_options.get(f"{side}_scene_preview")
+                    if isinstance(scene_preview, dict) and scene_preview:
+                        normalized_options[f"{side}_scene_preview"] = deepcopy(scene_preview)
+            elif zone == "hem":
+                side = str(raw_options.get("side") or "").strip()
+                normalized_options["side"] = side if side in SPECIAL_PLACEMENTS["hem"]["sides"] else ""
+                mode = str(raw_options.get("mode") or "A6").strip()
+                normalized_options["mode"] = mode if mode in SPECIAL_PLACEMENTS["hem"]["modes"] else "A6"
+                normalized_options["text"] = (
+                    str(raw_options.get("text") or "").strip()[:120]
+                    if normalized_options["mode"] == "text"
+                    else ""
+                )
             elif zone == "sleeve":
                 left_enabled = bool(raw_options.get("left_enabled"))
                 right_enabled = bool(raw_options.get("right_enabled"))
@@ -1686,7 +1770,7 @@ def normalize_custom_print_snapshot(raw_snapshot: dict | None) -> dict:
                     if isinstance(scene_preview, dict) and scene_preview:
                         normalized_options[f"{side}_scene_preview"] = deepcopy(scene_preview)
             scene_preview = raw_options.get("scene_preview")
-            if zone in {"front", "back", "custom"} and isinstance(scene_preview, dict) and scene_preview:
+            if zone in {"front", "back", "hem"} and isinstance(scene_preview, dict) and scene_preview:
                 normalized_options["scene_preview"] = deepcopy(scene_preview)
             if normalized_options:
                 zone_options[zone] = normalized_options
@@ -1695,7 +1779,11 @@ def normalize_custom_print_snapshot(raw_snapshot: dict | None) -> dict:
     if "back" in zones and "back" not in zone_options:
         zone_options["back"] = {"size_preset": BACK_SIZE_DEFAULT}
     if "custom" in zones and "custom" not in zone_options:
-        zone_options["custom"] = {"size_preset": "A6", "location": "shoulder"}
+        zone_options["custom"] = {"location": ""}
+    if "shoulder" in zones and "shoulder" not in zone_options:
+        zone_options["shoulder"] = {"left_enabled": False, "right_enabled": False}
+    if "hem" in zones and "hem" not in zone_options:
+        zone_options["hem"] = {"side": "", "mode": "A6", "text": ""}
     if "sleeve" in zones and "sleeve" not in zone_options:
         zone_options["sleeve"] = {
             "left_enabled": True,
