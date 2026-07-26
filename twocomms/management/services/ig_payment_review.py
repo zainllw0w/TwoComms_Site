@@ -1335,6 +1335,172 @@ def _review_evidence_needs_refresh(status: str, current: dict, extracted: dict) 
     )
 
 
+def _fingerprint_text(value) -> str:
+    return " ".join(str(value or "").split()).strip().casefold()
+
+
+def payment_review_fingerprint(review_or_evidence) -> str:
+    """Return a strict, evidence-bound identity for one payment claim.
+
+    Watermarks and the full conversation transcript are intentionally excluded:
+    a later analysis pass may see more messages while still describing the same
+    receipt.  Receipt/payment evidence, negotiated money, commercial lines and
+    delivery identity remain part of the fingerprint so a real repeat purchase
+    cannot be collapsed merely because its amount matches.
+    """
+    evidence = getattr(review_or_evidence, "evidence", review_or_evidence)
+    if not isinstance(evidence, dict):
+        return ""
+    draft = evidence.get("order_draft")
+    if not isinstance(draft, dict):
+        draft = {}
+
+    amount_rows = []
+    for raw in evidence.get("amount_evidence") or []:
+        if not isinstance(raw, dict):
+            continue
+        amount = _positive_money(raw.get("amount"))
+        message_id = raw.get("message_id")
+        if amount is None or not str(message_id).isdigit():
+            continue
+        amount_rows.append((str(amount), int(message_id), _fingerprint_text(raw.get("kind"))))
+
+    receipt_rows = []
+    for raw in evidence.get("media") or []:
+        if not isinstance(raw, dict) or raw.get("role") not in {"receipt", "payment_candidate"}:
+            continue
+        message_id = raw.get("message_id") or raw.get("source_message_id")
+        url = _fingerprint_text(raw.get("url") or raw.get("local_url"))
+        if str(message_id).isdigit() or url:
+            receipt_rows.append((int(message_id) if str(message_id).isdigit() else 0, url))
+
+    item_rows = []
+    for raw in draft.get("items") or []:
+        if not isinstance(raw, dict):
+            continue
+        item_rows.append({
+            "product_id": str(raw.get("product_id") or ""),
+            "variant_id": str(raw.get("variant_id") or raw.get("color_variant_id") or ""),
+            "title": _fingerprint_text(raw.get("title") or raw.get("name")),
+            "fit": _fingerprint_text(raw.get("fit") or raw.get("fit_option_code")),
+            "size": _fingerprint_text(raw.get("size")),
+            "qty": int(raw.get("qty") or 0) if str(raw.get("qty") or "").isdigit() else 0,
+            "unit_price": str(_positive_money(raw.get("unit_price")) or ""),
+            "line_total": str(_positive_money(raw.get("line_total")) or ""),
+        })
+
+    delivery = draft.get("delivery") if isinstance(draft.get("delivery"), dict) else {}
+    payload = {
+        "amount_evidence": sorted(amount_rows),
+        "receipts": sorted(receipt_rows),
+        "quoted_total": str(_positive_money(draft.get("quoted_total")) or ""),
+        "currency": _fingerprint_text(draft.get("currency") or "UAH").upper(),
+        "items": sorted(item_rows, key=lambda row: json.dumps(row, sort_keys=True)),
+        "delivery": {
+            key: _fingerprint_text(delivery.get(key))
+            for key in ("full_name", "phone", "city", "office")
+        },
+    }
+    # A receipt or exact amount is mandatory; otherwise two unrelated drafts
+    # with the same catalog lines could be mistaken for one payment.
+    if not payload["amount_evidence"] and not payload["receipts"]:
+        return ""
+    if not payload["items"] and not payload["quoted_total"]:
+        return ""
+    return hashlib.sha256(
+        json.dumps(payload, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
+def reconcile_duplicate_payment_review(review):
+    """Canonicalize a strict duplicate without weakening episode ownership.
+
+    The older review keeps its decisions/evidence/watermark for audit, receives
+    the canonical order pointer, and becomes non-actionable.  A different order
+    or a cancelled review is never merged.
+    """
+    from management.ig_bot_models import IgPaymentConfirmationReview
+
+    if not review or review.status in {
+        IgPaymentConfirmationReview.Status.CANCELLED,
+        IgPaymentConfirmationReview.Status.SUPERSEDED,
+    }:
+        return getattr(review, "superseded_by", None)
+    fingerprint = payment_review_fingerprint(review)
+    if not fingerprint:
+        return None
+    candidates = list(
+        IgPaymentConfirmationReview.objects.filter(client_id=review.client_id)
+        .exclude(pk=review.pk)
+        .exclude(status=IgPaymentConfirmationReview.Status.CANCELLED)
+        .select_related("order")
+    )
+    matches = [
+        candidate for candidate in candidates
+        if payment_review_fingerprint(candidate) == fingerprint
+        and not (review.order_id and candidate.order_id and review.order_id != candidate.order_id)
+    ]
+    if not matches:
+        return None
+    canonical = sorted(
+        matches,
+        key=lambda row: (
+            bool(row.order_id),
+            row.status == IgPaymentConfirmationReview.Status.CONFIRMED,
+            row.id,
+        ),
+        reverse=True,
+    )[0]
+    # Never supersede a newer unlinked review with an older unlinked one. The
+    # stable create path handles that case before writing a second row.
+    if not canonical.order_id and not review.order_id:
+        return None
+    if canonical.pk == review.pk:
+        return canonical
+    now = timezone.now()
+    update_fields = ["status", "superseded_by", "superseded_at", "supersede_reason", "updated_at"]
+    review.status = IgPaymentConfirmationReview.Status.SUPERSEDED
+    review.superseded_by = canonical
+    review.superseded_at = now
+    review.supersede_reason = "same_payment_evidence"
+    if canonical.order_id and not review.order_id:
+        review.order = canonical.order
+        update_fields.insert(0, "order")
+    review.save(update_fields=update_fields)
+
+    # The orphan episode created by the old watermark is historical duplicate
+    # work, not a second purchase cycle. Close it explicitly and retain its
+    # append-only timeline for analytics/audit.
+    try:
+        from management.ig_bot_models import IgCommercialEpisode
+        from management.services.ig_commercial_episodes import append_episode_event
+
+        episode = IgCommercialEpisode.objects.filter(
+            primary_payment_review_id=review.pk,
+        ).first()
+        canonical_episode = IgCommercialEpisode.objects.filter(
+            primary_payment_review_id=canonical.pk,
+        ).first()
+        if episode and episode.pk != getattr(canonical_episode, "pk", None):
+            episode.open_slot = None
+            episode.state = IgCommercialEpisode.State.LOST
+            episode.outcome = "superseded_duplicate_payment_review"
+            episode.closed_at = now
+            episode.save(update_fields=["open_slot", "state", "outcome", "closed_at", "updated_at"])
+            append_episode_event(
+                episode,
+                dedupe_key=f"episode:{episode.pk}:superseded-by-review:{canonical.pk}",
+                event_type="review_superseded",
+                source="payment_review_reconciliation",
+                evidence={"canonical_review_id": canonical.pk, "fingerprint": fingerprint},
+            )
+    except Exception:
+        # Review canonicalization is the consistency boundary. Historical
+        # episode repair is best-effort so a legacy row cannot block the UI.
+        pass
+    return canonical
+
+
 def create_payment_review(client, *, watermark: int = 0, messages=None):
     """Persist an idempotent review and enqueue its management alert.
 
@@ -1429,23 +1595,57 @@ def create_payment_review(client, *, watermark: int = 0, messages=None):
     extracted["media_audit_v3"] = True
     watermark = int(watermark or max(extracted["message_ids"] or [0]))
     deal = _select_review_deal(client, catalog_matches)
-    dedupe_key = f"ig-payment-review:{client.pk}:{watermark}"
+    review_evidence = {
+        "messages": extracted["evidence"],
+        "amount_evidence": extracted["amount_evidence"],
+        "order_draft": extracted["order_draft"],
+        "media": extracted.get("media", []),
+        "catalog_match": extracted.get("catalog_match", {}),
+        "catalog_matches": extracted.get("catalog_matches", []),
+        "media_audit_v3": True,
+        "deal": _deal_payload(deal),
+    }
+    fingerprint = payment_review_fingerprint(review_evidence)
+    if fingerprint:
+        existing_reviews = list(
+            IgPaymentConfirmationReview.objects.filter(client_id=client.pk)
+            .exclude(status=IgPaymentConfirmationReview.Status.CANCELLED)
+            .select_related("order")
+        )
+        matching = [
+            row for row in existing_reviews
+            if payment_review_fingerprint(row) == fingerprint
+        ]
+        if matching:
+            existing = sorted(
+                matching,
+                key=lambda row: (
+                    bool(row.order_id),
+                    row.status == IgPaymentConfirmationReview.Status.CONFIRMED,
+                    row.id,
+                ),
+                reverse=True,
+            )[0]
+            from management.services.instagram_bot import notify_manager
+
+            notify_manager(
+                _alert_text(existing, client),
+                dedupe_key=existing.dedupe_key,
+                event_type="payment_review",
+                client=client,
+                reply_markup=_review_keyboard(existing),
+                media=(existing.evidence or {}).get("media", []),
+                metadata={"payment_candidate": payment_confirmation_candidate(existing)},
+            )
+            return existing
+    dedupe_key = f"ig-payment-review:{client.pk}:{fingerprint or watermark}"
     with transaction.atomic():
         review, created = IgPaymentConfirmationReview.objects.get_or_create(
             dedupe_key=dedupe_key,
             defaults={
                 "client": client,
                 "deal": deal,
-                "evidence": {
-                    "messages": extracted["evidence"],
-                    "amount_evidence": extracted["amount_evidence"],
-                    "order_draft": extracted["order_draft"],
-                    "media": extracted.get("media", []),
-                    "catalog_match": extracted.get("catalog_match", {}),
-                    "catalog_matches": extracted.get("catalog_matches", []),
-                    "media_audit_v3": True,
-                    "deal": _deal_payload(deal),
-                },
+                "evidence": review_evidence,
                 "watermark_message_id": watermark,
             },
         )

@@ -158,6 +158,20 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
         self.assertIn("PaymentReviewDrawer.open", self.template)
         self.assertNotIn("Категорія діалогу</div><div class=\"bot-category-value\"", self.template)
 
+    def test_client_workspace_exposes_post_sale_state_and_drawer_controls(self):
+        for contract in (
+            "bot-post-sale-strip",
+            "bot-post-sale-card",
+            "Обмін / повернення",
+            "Початковий розмір",
+            "Бажаний розмір",
+            "Пов’язане замовлення",
+            "Зберегти звернення",
+            "postSale.order_choices",
+            "caseItem.action_url",
+        ):
+            self.assertIn(contract, self.template)
+
     def test_client_workspace_has_two_primary_panes_and_context_drawer(self):
         for contract in (
             'class="bot-clients-workspace"',
@@ -1374,6 +1388,106 @@ class OrdersWorkspaceApiTests(TestCase):
 
         self.assertEqual(states[self.confirmed.id], "created_new")
         self.assertEqual(states[linked_review.id], "linked_existing")
+
+    def test_confirmed_duplicate_review_resolves_to_canonical_linked_order(self):
+        """A later watermark must not leave the same payment as a second task."""
+        from management.ig_bot_models import IgOrderAttribution
+        from orders.models import Order
+
+        evidence = {
+            "amount_evidence": [
+                {"kind": "payment_evidence", "amount": "2100", "message_id": 237}
+            ],
+            "media": [
+                {"role": "receipt", "message_id": 238, "url": "https://cdn.test/receipt.jpg"}
+            ],
+            "order_draft": {
+                "quoted_total": "2100",
+                "currency": "UAH",
+                "items": [
+                    {"title": "SXS", "size": "S", "qty": 1, "unit_price": "1050"},
+                    {"title": "SXS", "size": "XS", "qty": 1, "unit_price": "1050"},
+                ],
+                "delivery": {"city": "Харків", "office": "Вокзальна"},
+            },
+        }
+        order = Order.objects.create(
+            full_name="Яна",
+            phone="380502034719",
+            city="Харків",
+            np_office="Вокзальна",
+            total_sum=Decimal("2100.00"),
+            payment_status="paid",
+        )
+        canonical = IgPaymentConfirmationReview.objects.create(
+            client=self.customer,
+            dedupe_key="canonical-payment-review",
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            order=order,
+            evidence=evidence,
+            watermark_message_id=242,
+        )
+        IgOrderAttribution.objects.create(
+            order=order,
+            client=self.customer,
+            payment_review=canonical,
+            creation_mode="linked_existing",
+            payment_source="manager_verified",
+        )
+        duplicate = IgPaymentConfirmationReview.objects.create(
+            client=self.customer,
+            dedupe_key="older-watermark-duplicate",
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            evidence=evidence,
+            watermark_message_id=238,
+        )
+        IgPaymentReviewDecision.objects.create(
+            review=duplicate,
+            client=self.customer,
+            decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+            verification_source="manager",
+            verification_scope=IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT,
+            confirmed_amount=Decimal("2100.00"),
+            amount_source="manager_input",
+            amount_evidence_message_ids=[237],
+            actor=self.admin,
+            actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+            actor_external_id=str(self.admin.pk),
+            review_status_before=IgPaymentConfirmationReview.Status.PENDING,
+            review_status_after=IgPaymentConfirmationReview.Status.CONFIRMED,
+        )
+
+        data = self.client.get(
+            reverse("management_bot_orders_workspace_api")
+            + f"?view=action&review={duplicate.pk}"
+        ).json()
+
+        item = next(row for row in data["items"] if row["review_id"] == duplicate.pk)
+        self.assertEqual(data["counts"]["action"], 2)
+        self.assertEqual(item["approval"]["state"], "superseded")
+        self.assertEqual(item["approval"]["needs_action"], False)
+        self.assertEqual(item["order"]["id"], order.id)
+        duplicate.refresh_from_db()
+        self.assertEqual(duplicate.order_id, order.id)
+        self.assertEqual(duplicate.superseded_by_id, canonical.id)
+
+        candidates = self.client.get(
+            reverse("management_bot_order_candidates_api"),
+            {"client_id": self.customer.pk, "review_id": duplicate.pk},
+            secure=True,
+        ).json()
+        linked_candidate = next(row for row in candidates["items"] if row["id"] == order.pk)
+        self.assertEqual(linked_candidate["blocked_reason"], "already_linked_payment")
+        self.assertIn("вже прив'язана", linked_candidate["blocked_reason_label"])
+
+        replay = self.client.post(
+            reverse("management_bot_payment_review_action_api", args=[duplicate.pk]),
+            {"action": "link_order", "order_identifier": order.order_number},
+        )
+        self.assertEqual(replay.status_code, 200, replay.content)
+        self.assertTrue(replay.json()["idempotent_replay"])
+        self.assertEqual(replay.json()["order_id"], order.id)
+        self.assertEqual(IgOrderAttribution.objects.filter(order=order).count(), 1)
 
     def test_legacy_provider_attempt_is_not_promoted_to_confirmed_truth(self):
         from management.ig_bot_models import IgOrderAttribution

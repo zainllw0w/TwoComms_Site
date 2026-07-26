@@ -79,6 +79,12 @@ reduced-motion suppression and zero console errors/warnings.
 - [x] The chat header restores the evidence-bound client-potential indicator (band, probability, confidence and clear label), including cold/lost/opted-out/spam states; verified payment and physical order state are shown separately and never derived from potential.
 - [x] Existing-order linking offers compact searchable order cards with date, client, items, amount, payment/shipment state and source; selecting a card binds the exact order to this client/episode and keeps exact-number input as an audited fallback.
 - [x] The payment/client drawer has one viewport-bounded scroll surface: all product images, receipt screenshots, evidence/history and bottom actions are reachable at 1440/1280/768/390/320 px, with no nested scroll trap or sticky-action overlap.
+- [x] Strict duplicate payment reviews for one client, receipt/payment evidence, currency, total, items and delivery converge on one canonical review/order; a changed receipt or commercial fingerprint remains a separate purchase episode.
+- [x] Legacy duplicate reviews preserve audit history as `superseded`, point to the canonical review/order, disappear from the action queue and replay idempotently without creating a second order or attribution.
+- [x] Exchange and return are separate post-sale cases attached to the existing client/order/episode; they never rewind payment truth or create another purchase/order.
+- [x] Explicit customer exchange/return messages take priority over the generic paid-waiting category, create one evidence-bound case and merge later details into that active case idempotently.
+- [x] A post-sale case auto-selects an order only when exactly one durable Instagram attribution exists; multiple orders require manager selection and orders attributed to another client are rejected.
+- [x] The conversation shows a compact action-required exchange/return state above the transcript; the right drawer exposes order, original fit/size, desired size, evidence, manager note and lifecycle controls without adding a third permanent pane.
 
 Task 6 local verification (2026-07-26): the final repeat/payment/order/shipment/UI
 acceptance suite passed **555 tests** with 2 expected skips. `manage.py check`,
@@ -126,6 +132,16 @@ separate receipt/product media groups, and the same evidence IDs. `/healthz/`
 returned `200`; daemon heartbeat was fresh and pending notification/analysis
 queues were zero. The focused local regression set passed **187 tests** with 2
 expected skips.
+
+Task 6 duplicate/post-sale follow-up local proof (2026-07-26): strict payment-review
+fingerprints canonicalize the historical double-review case without weakening
+real repeat-order isolation. The post-sale model/API/UI keeps exchange and return
+on the existing order and exposes one manager action in the client queue and
+drawer. The connected payment-review/order-link/commercial-episode/client-UI/
+taxonomy/post-sale suite passed **207 tests**. `manage.py check`, migration drift,
+scoped compilation and `git diff --check` passed. Production proof is recorded
+only after the MariaDB backup, migrations `0109`/`0110`, deploy and live API/DB
+reconciliation complete.
 
 ## Completed in this slice
 

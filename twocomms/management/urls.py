@@ -81,6 +81,7 @@ urlpatterns = [
     path('bot/api/stats/', bot_views.bot_stats_api, name='management_bot_stats_api'),
     path('bot/api/clients/', bot_views.bot_clients_api, name='management_bot_clients_api'),
     path('bot/api/clients/<int:client_id>/', bot_views.bot_client_detail_api, name='management_bot_client_detail_api'),
+    path('bot/api/clients/<int:client_id>/post-sale/<int:case_id>/', bot_views.bot_post_sale_case_api, name='management_bot_post_sale_case_api'),
     path('bot/api/clients/<int:client_id>/pause/', bot_views.bot_client_pause_api, name='management_bot_client_pause_api'),
     path('bot/api/clients/<int:client_id>/resume/', bot_views.bot_client_resume_api, name='management_bot_client_resume_api'),
     path('bot/api/clients/<int:client_id>/hide/', bot_views.bot_client_hide_api, name='management_bot_client_hide_api'),

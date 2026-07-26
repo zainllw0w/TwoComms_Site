@@ -1012,6 +1012,64 @@ def _order_workspace_order_payload(order) -> dict:
     }
 
 
+def _post_sale_case_payload(case) -> dict:
+    order = case.order if case.order_id else None
+    return {
+        "id": case.pk,
+        "case_type": case.case_type,
+        "case_type_label": case.get_case_type_display(),
+        "status": case.status,
+        "status_label": case.get_status_display(),
+        "needs_action": case.status in {"needs_details", "open"},
+        "order": (_order_workspace_order_payload(order) if order else None),
+        "commercial_episode_id": case.commercial_episode_id,
+        "source_message_id": case.source_message_id,
+        "evidence_message_ids": list(case.evidence_message_ids or [])[:20],
+        "source_item_title": case.source_item_title,
+        "source_fit": case.source_fit,
+        "source_size": case.source_size,
+        "requested_fit": case.requested_fit,
+        "requested_size": case.requested_size,
+        "reason": case.reason,
+        "manager_note": case.manager_note,
+        "created_at": case.created_at.isoformat(),
+        "updated_at": case.updated_at.isoformat(),
+        "resolved_at": case.resolved_at.isoformat() if case.resolved_at else "",
+        "action_url": reverse(
+            "management_bot_post_sale_case_api",
+            args=[case.client_id, case.pk],
+        ),
+    }
+
+
+def _post_sale_workspace_payload(client) -> dict:
+    from .ig_bot_models import IgOrderAttribution, IgPostSaleCase
+
+    cases = list(
+        IgPostSaleCase.objects.filter(client=client)
+        .select_related("order", "commercial_episode", "source_message")
+        .order_by("-updated_at", "-id")[:20]
+    )
+    attributions = list(
+        IgOrderAttribution.objects.filter(client=client)
+        .select_related("order")
+        .order_by("-created_at", "-id")[:30]
+    )
+    seen = set()
+    choices = []
+    for attribution in attributions:
+        if attribution.order_id in seen:
+            continue
+        seen.add(attribution.order_id)
+        choices.append(_order_workspace_order_payload(attribution.order))
+    actionable = {IgPostSaleCase.Status.NEEDS_DETAILS, IgPostSaleCase.Status.OPEN}
+    return {
+        "action_count": sum(case.status in actionable for case in cases),
+        "items": [_post_sale_case_payload(case) for case in cases],
+        "order_choices": choices,
+    }
+
+
 def _order_attribution_workspace_payload(attribution) -> dict:
     order = getattr(attribution, "order", None)
     deal = getattr(attribution, "deal", None)
@@ -1135,6 +1193,15 @@ def _order_attribution_workspace_payload(attribution) -> dict:
 
 def _payment_review_workspace_payload(review) -> dict:
     from management.services.ig_payment_review import payment_review_order_url
+    from management.services.ig_payment_review import reconcile_duplicate_payment_review
+
+    canonical_review = reconcile_duplicate_payment_review(review)
+    if canonical_review and review.status == review.Status.SUPERSEDED:
+        # The reconciliation writes the order pointer; keep this response
+        # object coherent without a second query in the hot payload path.
+        if canonical_review.order_id and not review.order_id:
+            review.order_id = canonical_review.order_id
+        review.superseded_by = canonical_review
 
     evidence = review.evidence if isinstance(review.evidence, dict) else {}
     draft = evidence.get("order_draft") if isinstance(evidence.get("order_draft"), dict) else {}
@@ -1148,7 +1215,9 @@ def _payment_review_workspace_payload(review) -> dict:
         attributions = list(review.order_attributions.select_related("order").order_by("-id")[:1])
     attribution = attributions[0] if attributions else None
     status = review.status
-    if status == review.Status.CONFIRMED and payment["needs_reconciliation"]:
+    if status == review.Status.SUPERSEDED:
+        approval_state = "superseded"
+    elif status == review.Status.CONFIRMED and payment["needs_reconciliation"]:
         approval_state = "payment_reconciliation"
     elif review.order_id:
         if attribution and attribution.creation_mode == "linked_existing":
@@ -1207,6 +1276,7 @@ def _payment_review_workspace_payload(review) -> dict:
             "can_link_existing": needs_order_resolution,
             "can_create": needs_order_resolution,
             "can_clarify_amount": needs_amount_clarification,
+            "superseded_by_review_id": review.superseded_by_id if status == review.Status.SUPERSEDED else None,
             "action_url": action_url,
             "create_order_url": create_order_url if needs_order_resolution else "",
             "link_existing": {
@@ -1318,6 +1388,16 @@ def bot_orders_workspace_api(request):
     base = _payment_review_workspace_queryset().filter(
         client__hidden_at__isnull=True,
     )
+    from management.services.ig_payment_review import reconcile_duplicate_payment_review
+
+    # Reconcile legacy watermark duplicates before calculating badges/counts;
+    # otherwise the same receipt remains a false second manager task.
+    duplicate_candidates = base.filter(
+        status=IgPaymentConfirmationReview.Status.CONFIRMED,
+        order_id__isnull=True,
+    )
+    for duplicate_review in duplicate_candidates:
+        reconcile_duplicate_payment_review(duplicate_review)
     attribution_base = _order_attribution_workspace_queryset().filter(
         client__hidden_at__isnull=True,
     )
@@ -1420,7 +1500,12 @@ def bot_order_candidates_api(request):
                 {"success": False, "error": "Перевірку оплати для цього клієнта не знайдено."},
                 status=404,
             )
-        if not authoritative_manager_decision(review):
+        from management.services.ig_payment_review import reconcile_duplicate_payment_review
+
+        reconcile_duplicate_payment_review(review)
+        if not authoritative_manager_decision(review) and not (
+            review.status == review.Status.SUPERSEDED and review.order_id
+        ):
             return JsonResponse(
                 {"success": False, "error": "Спочатку потрібне підтверджене рішення менеджера."},
                 status=409,
@@ -1483,6 +1568,8 @@ def bot_order_candidates_api(request):
             all_owners = deal_owners | review_owners | episode_owners
             if any(owner_id != client.pk for owner_id in all_owners):
                 blocked_reason = "owned_by_other_client"
+            elif review and review.status == IgPaymentConfirmationReview.Status.SUPERSEDED and review.order_id == order.pk:
+                blocked_reason = "already_linked_payment"
             elif review and IgCommercialEpisode.objects.filter(
                 intended_order=order
             ).exclude(primary_payment_review=review).exists():
@@ -1531,6 +1618,12 @@ def bot_order_candidates_api(request):
             "sale_source": order.sale_source,
             "selectable": not blocked_reason,
             "blocked_reason": blocked_reason,
+            "blocked_reason_label": {
+                "already_linked_payment": "Ця оплата вже прив'язана до цього замовлення",
+                "owned_by_other_episode": "Замовлення належить іншому циклу клієнта",
+                "owned_by_other_client": "Замовлення вже прив'язане до іншого клієнта",
+                "cancelled": "Замовлення скасоване",
+            }.get(blocked_reason, ""),
             "requires_override": bool(override_conflicts),
             "override_conflicts": override_conflicts,
             "allowed_override_codes": allowed_override_codes,
@@ -1554,17 +1647,45 @@ def bot_payment_review_action_api(request, review_id):
     if blocked:
         return blocked
     from .ig_bot_models import IgPaymentConfirmationReview
-    from management.services.ig_payment_review import payment_review_order_url, record_review_decision
+    from management.services.ig_payment_review import (
+        payment_review_order_url,
+        reconcile_duplicate_payment_review,
+        record_review_decision,
+    )
 
     action = (request.POST.get("action") or "").strip().lower()
     verification_scope = (request.POST.get("verification_scope") or "").strip()
     review = IgPaymentConfirmationReview.objects.select_related(
-        "client", "deal", "deal__payment_projection"
+        "client", "deal", "deal__payment_projection", "order"
     ).filter(pk=review_id).first()
     if not review:
         return JsonResponse({"success": False, "error": "Перевірку оплати не знайдено."}, status=404)
     if review.client.hidden_at:
         return JsonResponse({"success": False, "error": "Прихований клієнт виключений з операцій."}, status=409)
+    canonical_review = reconcile_duplicate_payment_review(review)
+    if (
+        review.status == IgPaymentConfirmationReview.Status.SUPERSEDED
+        and review.order_id
+        and action in {"link_order", "confirm", "manager_verify", "clarify_amount"}
+    ):
+        order = review.order
+        return JsonResponse({
+            "success": True,
+            "id": review.id,
+            "status": review.status,
+            "status_label": review.get_status_display(),
+            "canonical_review_id": canonical_review.pk if canonical_review else review.superseded_by_id,
+            "idempotent_replay": True,
+            "next_action": "order_linked",
+            "order_id": order.pk,
+            "order_number": order.order_number,
+            "order_url": _existing_order_admin_url(order.pk),
+            "order_resolution": {
+                "required": False,
+                "link_existing": {"action": "", "action_url": ""},
+                "create_new": {"url": "", "editable": False},
+            },
+        })
     if action == "link_order":
         from management.services.ig_order_links import link_existing_order_to_review
 
@@ -1846,6 +1967,7 @@ def _with_latest_interaction(queryset):
     from .ig_bot_models import (
         IgConversationAnalysisSnapshot,
         IgPaymentConfirmationReview,
+        IgPostSaleCase,
     )
     from .models import InstagramBotMessage
 
@@ -1866,6 +1988,10 @@ def _with_latest_interaction(queryset):
             status=IgPaymentConfirmationReview.Status.CONFIRMED,
             order_id__isnull=True,
         )
+    ).exclude(status=IgPaymentConfirmationReview.Status.SUPERSEDED)
+    action_post_sale = IgPostSaleCase.objects.filter(
+        client_id=OuterRef("pk"),
+        status__in=[IgPostSaleCase.Status.NEEDS_DETAILS, IgPostSaleCase.Status.OPEN],
     )
     return queryset.annotate(
         latest_interaction_type=Coalesce(
@@ -1877,7 +2003,7 @@ def _with_latest_interaction(queryset):
             Subquery(latest_message.values("id")[:1]),
             Value(0),
         ),
-        has_manager_action=Exists(action_review),
+        has_manager_action=Exists(action_review) | Exists(action_post_sale),
     )
 
 
@@ -2395,6 +2521,14 @@ def bot_client_detail_api(request, client_id):
         for d in deal_rows
     ]
     review_base = _payment_review_workspace_queryset().filter(client=c)
+    from management.services.ig_payment_review import reconcile_duplicate_payment_review
+
+    for duplicate_review in review_base.filter(
+        status=IgPaymentConfirmationReview.Status.CONFIRMED,
+        order_id__isnull=True,
+    ):
+        reconcile_duplicate_payment_review(duplicate_review)
+    review_base = _payment_review_workspace_queryset().filter(client=c)
     review_counts = review_base.aggregate(
         total=Count("id"),
         pending=Count(
@@ -2603,12 +2737,90 @@ def bot_client_detail_api(request, client_id):
             "items": order_cards,
             "queue_url": _orders_workspace_url(view="all", client_id=c.pk),
         },
+        "post_sale": _post_sale_workspace_payload(c),
         "patterns": {
             "source": "legacy_signal_groups",
             "event_count": len(signal_rows),
             "groups": signals,
             "bounded": True,
         },
+    })
+
+
+@login_required(login_url="management_login")
+@require_POST
+def bot_post_sale_case_api(request, client_id, case_id):
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    from .ig_bot_models import IgCommercialEpisode, IgOrderAttribution, IgPostSaleCase
+
+    with transaction.atomic():
+        case = (
+            IgPostSaleCase.objects.select_for_update()
+            .select_related("client", "order")
+            .filter(pk=case_id, client_id=client_id)
+            .first()
+        )
+        if not case:
+            return JsonResponse({"success": False, "error": "Звернення не знайдено."}, status=404)
+
+        order_value = str(request.POST.get("order_id") or "").strip()
+        if order_value:
+            try:
+                order_id = int(order_value)
+            except (TypeError, ValueError):
+                return JsonResponse({"success": False, "error": "Некоректне замовлення."}, status=400)
+            attribution = (
+                IgOrderAttribution.objects.select_related("order")
+                .filter(client_id=client_id, order_id=order_id)
+                .first()
+            )
+            if not attribution:
+                return JsonResponse({
+                    "success": False,
+                    "error": "Це замовлення не прив’язане до Instagram-клієнта.",
+                }, status=400)
+            case.order = attribution.order
+            case.commercial_episode = (
+                IgCommercialEpisode.objects.filter(order_attribution=attribution).first()
+                or IgCommercialEpisode.objects.filter(intended_order_id=order_id).first()
+            )
+
+        case_type = str(request.POST.get("case_type") or case.case_type).strip()
+        valid_types = {value for value, _label in IgPostSaleCase.CaseType.choices}
+        if case_type not in valid_types:
+            return JsonResponse({"success": False, "error": "Некоректний тип звернення."}, status=400)
+        status = str(request.POST.get("status") or case.status).strip()
+        valid_statuses = {value for value, _label in IgPostSaleCase.Status.choices}
+        if status not in valid_statuses:
+            return JsonResponse({"success": False, "error": "Некоректний статус звернення."}, status=400)
+        if status != IgPostSaleCase.Status.NEEDS_DETAILS and not case.order_id:
+            return JsonResponse({
+                "success": False,
+                "error": "Спочатку оберіть замовлення цього клієнта.",
+            }, status=400)
+
+        case.case_type = case_type
+        case.status = status
+        for field, limit in (
+            ("source_item_title", 255), ("source_fit", 64),
+            ("source_size", 32), ("requested_fit", 64),
+            ("requested_size", 32), ("manager_note", 4000),
+        ):
+            if field in request.POST:
+                setattr(case, field, str(request.POST.get(field) or "").strip()[:limit])
+        terminal = {
+            IgPostSaleCase.Status.COMPLETED, IgPostSaleCase.Status.REJECTED,
+            IgPostSaleCase.Status.CANCELLED,
+        }
+        case.resolved_at = timezone.now() if status in terminal else None
+        case.save()
+
+    return JsonResponse({
+        "success": True,
+        "case": _post_sale_case_payload(case),
+        "post_sale": _post_sale_workspace_payload(case.client),
     })
 
 

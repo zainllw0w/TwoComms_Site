@@ -369,6 +369,83 @@ class IgPaymentReviewRulesTests(SimpleTestCase):
 
 
 class PaymentReviewEpisodeScopeTests(TestCase):
+    def test_later_watermark_reuses_strictly_identical_payment_review(self):
+        from management.ig_bot_models import IgClient, IgPaymentConfirmationReview
+        from management.services.ig_payment_review import create_payment_review
+
+        client = IgClient.get_or_create_for_sender("review-stable-payment-fingerprint")
+        messages = [
+            {"id": 233, "role": "user", "text": "Беру базову S за 790 грн"},
+            {"id": 237, "role": "manager", "text": "До сплати 790 грн"},
+            {
+                "id": 238,
+                "role": "user",
+                "text": "Я оплатила, ось чек",
+                "media": [{"url": "https://cdn.test/receipt-238.jpg", "type": "image"}],
+            },
+        ]
+        with (
+            patch(
+                "management.services.ig_payment_review._persist_review_media",
+                side_effect=lambda rows: rows,
+            ),
+            patch(
+                "management.services.ig_payment_review._resolve_payment_media_candidates",
+                side_effect=lambda rows: rows,
+            ),
+            patch("management.services.instagram_bot.notify_manager"),
+            patch("management.services.ig_commercial_episodes.ensure_episode_for_review"),
+        ):
+            first = create_payment_review(client, watermark=238, messages=messages)
+            replay = create_payment_review(client, watermark=242, messages=messages)
+
+        self.assertEqual(replay.pk, first.pk)
+        self.assertEqual(IgPaymentConfirmationReview.objects.filter(client=client).count(), 1)
+
+    def test_different_receipt_remains_a_separate_payment_review(self):
+        from management.ig_bot_models import IgClient, IgPaymentConfirmationReview
+        from management.services.ig_payment_review import create_payment_review
+
+        client = IgClient.get_or_create_for_sender("review-distinct-payment-fingerprint")
+
+        def messages(receipt_id, receipt_url):
+            return [
+                {"id": 233, "role": "user", "text": "Беру базову S за 790 грн"},
+                {"id": 237, "role": "manager", "text": "До сплати 790 грн"},
+                {
+                    "id": receipt_id,
+                    "role": "user",
+                    "text": "Я оплатила, ось чек",
+                    "media": [{"url": receipt_url, "type": "image"}],
+                },
+            ]
+
+        with (
+            patch(
+                "management.services.ig_payment_review._persist_review_media",
+                side_effect=lambda rows: rows,
+            ),
+            patch(
+                "management.services.ig_payment_review._resolve_payment_media_candidates",
+                side_effect=lambda rows: rows,
+            ),
+            patch("management.services.instagram_bot.notify_manager"),
+            patch("management.services.ig_commercial_episodes.ensure_episode_for_review"),
+        ):
+            first = create_payment_review(
+                client,
+                watermark=238,
+                messages=messages(238, "https://cdn.test/receipt-238.jpg"),
+            )
+            second = create_payment_review(
+                client,
+                watermark=250,
+                messages=messages(250, "https://cdn.test/receipt-250.jpg"),
+            )
+
+        self.assertNotEqual(second.pk, first.pk)
+        self.assertEqual(IgPaymentConfirmationReview.objects.filter(client=client).count(), 2)
+
     def test_repeat_episode_without_deal_never_reuses_old_same_product_deal(self):
         from management.ig_bot_models import IgClient, IgCommercialEpisode, IgDeal, IgDealItem
         from management.services.ig_commercial_episodes import (

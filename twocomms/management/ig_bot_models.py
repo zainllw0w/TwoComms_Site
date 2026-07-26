@@ -41,6 +41,7 @@ __all__ = [
     "IgOrderLinkEvent",
     "IgCommercialEpisode",
     "IgCommercialEpisodeEvent",
+    "IgPostSaleCase",
 ]
 
 
@@ -728,6 +729,7 @@ class IgPaymentConfirmationReview(models.Model):
         PENDING = "pending", _("Очікує підтвердження")
         CONFIRMED = "confirmed", _("Підтверджено менеджером")
         CANCELLED = "cancelled", _("Скасовано менеджером")
+        SUPERSEDED = "superseded", _("Замінено канонічною перевіркою")
 
     client = models.ForeignKey(
         "management.IgClient",
@@ -774,6 +776,16 @@ class IgPaymentConfirmationReview(models.Model):
     )
     cancelled_at = models.DateTimeField(null=True, blank=True)
     cancellation_reason = models.CharField(max_length=500, blank=True, default="")
+    superseded_by = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="superseded_reviews",
+        db_constraint=False,
+    )
+    superseded_at = models.DateTimeField(null=True, blank=True)
+    supersede_reason = models.CharField(max_length=120, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -784,6 +796,7 @@ class IgPaymentConfirmationReview(models.Model):
         indexes = [
             models.Index(fields=["status", "-created_at"], name="ig_payreview_status_dt"),
             models.Index(fields=["client", "-id"], name="ig_payreview_client_id"),
+            models.Index(fields=["superseded_by", "-id"], name="ig_payreview_superseded"),
         ]
 
     @property
@@ -1220,6 +1233,88 @@ class IgCommercialEpisode(models.Model):
     def evidence_message_ids(self):
         """Stable public alias for the bounded episode API/test contract."""
         return list(self.repeat_evidence_message_ids or [])
+
+
+class IgPostSaleCase(models.Model):
+    """Exchange or return request tied to an existing purchase journey."""
+
+    class CaseType(models.TextChoices):
+        EXCHANGE = "exchange", _("Обмін")
+        RETURN = "return", _("Повернення")
+
+    class Status(models.TextChoices):
+        NEEDS_DETAILS = "needs_details", _("Потрібні уточнення")
+        OPEN = "open", _("Відкрито")
+        APPROVED = "approved", _("Погоджено")
+        IN_TRANSIT = "in_transit", _("У дорозі")
+        RECEIVED = "received", _("Отримано")
+        COMPLETED = "completed", _("Завершено")
+        REJECTED = "rejected", _("Відхилено")
+        CANCELLED = "cancelled", _("Скасовано")
+
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.DO_NOTHING,
+        related_name="post_sale_cases",
+        db_constraint=False,
+    )
+    order = models.ForeignKey(
+        "orders.Order",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="instagram_post_sale_cases",
+        db_constraint=False,
+    )
+    commercial_episode = models.ForeignKey(
+        "management.IgCommercialEpisode",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="post_sale_cases",
+        db_constraint=False,
+    )
+    source_message = models.OneToOneField(
+        "management.InstagramBotMessage",
+        on_delete=models.DO_NOTHING,
+        related_name="post_sale_case",
+        db_constraint=False,
+    )
+    case_type = models.CharField(max_length=16, choices=CaseType.choices, db_index=True)
+    status = models.CharField(
+        max_length=24,
+        choices=Status.choices,
+        default=Status.NEEDS_DETAILS,
+        db_index=True,
+    )
+    source_item_title = models.CharField(max_length=255, blank=True, default="")
+    source_fit = models.CharField(max_length=64, blank=True, default="")
+    source_size = models.CharField(max_length=32, blank=True, default="")
+    requested_fit = models.CharField(max_length=64, blank=True, default="")
+    requested_size = models.CharField(max_length=32, blank=True, default="")
+    reason = models.CharField(max_length=500, blank=True, default="")
+    manager_note = models.TextField(blank=True, default="")
+    evidence_message_ids = models.JSONField(default=list, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="ig_post_sale_cases_created",
+        db_constraint=False,
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = _("Післяпродажне звернення Instagram")
+        verbose_name_plural = _("Післяпродажні звернення Instagram")
+        ordering = ["-updated_at", "-id"]
+        indexes = [
+            models.Index(fields=["client", "status", "-updated_at"], name="ig_postsale_client_state"),
+            models.Index(fields=["order", "-updated_at"], name="ig_postsale_order_dt"),
+        ]
 
 
 class _AppendOnlyCommercialEpisodeEventQuerySet(models.QuerySet):

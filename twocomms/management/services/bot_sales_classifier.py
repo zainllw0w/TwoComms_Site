@@ -20,7 +20,7 @@ from management.models import (
     InstagramBotMessage,
 )
 
-ANALYSIS_RULES_VERSION = "2026-07-24.v4"
+ANALYSIS_RULES_VERSION = "2026-07-26.v5"
 
 
 UK_HINTS = (
@@ -467,6 +467,8 @@ def _interaction_type(client: IgClient, result: dict, text: str, role: str) -> s
         return types.OPT_OUT
     if result.get("no_buy"):
         return types.EXPLICIT_NO_BUY
+    if SUPPORT_RE.search(text or ""):
+        return types.SUPPORT_COMPLAINT
     if client_has_verified_payment(client):
         return types.PAID_ORDER_WAITING
     if client.stage == IgClient.Stage.SPAM or client.is_blocked:
@@ -481,8 +483,6 @@ def _interaction_type(client: IgClient, result: dict, text: str, role: str) -> s
         return types.COLLABORATION
     if WHOLESALE_RE.search(text or ""):
         return types.WHOLESALE_B2B
-    if SUPPORT_RE.search(text or ""):
-        return types.SUPPORT_COMPLAINT
     if result.get("intent") == IgClient.Intent.CUSTOM_PRINT:
         return types.CUSTOM_PRINT
     if result.get("intent") == IgClient.Intent.SIZE:
@@ -811,6 +811,14 @@ def classify_message(
     except Exception:
         result["analysis_snapshot_id"] = None
     if isinstance(message, InstagramBotMessage) and not client.hidden_at:
+        try:
+            from management.services.ig_post_sale import open_post_sale_case
+
+            result["post_sale_case_id"] = getattr(
+                open_post_sale_case(client, message), "pk", None
+            )
+        except Exception:
+            result["post_sale_case_id"] = None
         try:
             from management.services.ig_payment_review import create_payment_review
 
