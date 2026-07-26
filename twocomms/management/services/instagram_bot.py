@@ -63,6 +63,7 @@ CONV_MAX_IDS = 500
 CONV_MIN_INTERVAL = 0.5  # Meta Conversations API: at most 2 requests/second.
 CONV_CACHE_TTL = 3600
 CONV_REFRESH_LOCK_TTL = CONV_LIST_TIMEOUT * CONV_MAX_PAGES + 30
+INGRESS_DEGRADATION_TTL = 15 * 60
 _CONV_ID_RE = re.compile(r"^[A-Za-z0-9:_-]{1,255}$")
 _GRAPH_VERSION_PATH_RE = re.compile(r"^/v\d+(?:\.\d+)?(?:/|$)")
 POLL_MESSAGE_TIMEOUT = 5
@@ -1685,6 +1686,52 @@ def _conv_cache_key(s: InstagramBotSettings) -> str:
     return f"ig_bot_conv_ids:{s.page_id or 'unknown'}"
 
 
+def _ingress_degradation_key(s: InstagramBotSettings, source: str) -> str:
+    return f"ig_bot_ingress_{source}_degraded:{s.page_id or 'unknown'}"
+
+
+def _record_ingress_degradation(
+    s: InstagramBotSettings,
+    source: str,
+    *,
+    state: str,
+    reason: str,
+) -> None:
+    cache.set(
+        _ingress_degradation_key(s, source),
+        {
+            "state": state,
+            "reason": _redact_secret_text(reason)[:240],
+            "at": timezone.now().timestamp(),
+        },
+        INGRESS_DEGRADATION_TTL,
+    )
+
+
+def _clear_ingress_degradation(s: InstagramBotSettings, source: str) -> None:
+    cache.delete(_ingress_degradation_key(s, source))
+
+
+def _current_ingress_degradation(s: InstagramBotSettings) -> dict[str, object] | None:
+    signals = []
+    for source in ("refresh", "poll"):
+        value = cache.get(_ingress_degradation_key(s, source))
+        if not isinstance(value, dict) or not isinstance(value.get("state"), str):
+            continue
+        signals.append({
+            "source": source,
+            "state": value["state"][:80],
+            "reason": str(value.get("reason") or "provider_unavailable")[:240],
+            "at": value.get("at"),
+        })
+    if not signals:
+        return None
+    return max(
+        signals,
+        key=lambda item: float(item.get("at") or 0),
+    )
+
+
 def _valid_conv_snapshot(value) -> list[str]:
     if not isinstance(value, list) or len(value) > CONV_MAX_IDS:
         return []
@@ -1751,6 +1798,12 @@ def _refresh_conv_ids_unlocked(s: InstagramBotSettings, page_token: str, stale: 
             time.sleep(CONV_MIN_INTERVAL)
         code, body = _graph_http(page_url, token=page_token, timeout=CONV_LIST_TIMEOUT)
         if code != 200:
+            _record_ingress_degradation(
+                s,
+                "refresh",
+                state="conversation_refresh_failed",
+                reason=f"http_{code}",
+            )
             log("warning", "conversations", f"page={page_index + 1} HTTP {code}; keeping complete cache")
             return stale
         try:
@@ -1780,13 +1833,26 @@ def _refresh_conv_ids_unlocked(s: InstagramBotSettings, page_token: str, stale: 
             next_url = paging.get("next")
             if not next_url:
                 cache.set(_conv_cache_key(s), discovered, CONV_CACHE_TTL)
+                _clear_ingress_degradation(s, "refresh")
                 return discovered
             if not isinstance(next_url, str) or not _valid_conversation_page_url(next_url):
                 raise ValueError("untrusted paging URL")
             page_url = next_url
         except (TypeError, ValueError, json.JSONDecodeError) as exc:
+            _record_ingress_degradation(
+                s,
+                "refresh",
+                state="conversation_refresh_failed",
+                reason=f"malformed:{exc}",
+            )
             log("warning", "conversations", f"page={page_index + 1} malformed; keeping complete cache ({exc})")
             return stale
+    _record_ingress_degradation(
+        s,
+        "refresh",
+        state="conversation_refresh_failed",
+        reason="page_cap",
+    )
     log("warning", "conversations", "page cap reached; keeping complete cache")
     return stale
 
@@ -4083,6 +4149,7 @@ def poll_ingest(s: InstagramBotSettings) -> dict:
             "degraded": True,
         }
     if not conv_ids:
+        _clear_ingress_degradation(s, "poll")
         return {"ok": True, "enqueued": 0, "conversations": 0}
     if s.last_error:
         s.last_error = ""
@@ -4114,6 +4181,12 @@ def poll_ingest(s: InstagramBotSettings) -> dict:
         requests_used += fetched["requests"]
         if not fetched["complete"]:
             degraded = True
+            _record_ingress_degradation(
+                s,
+                "poll",
+                state="message_poll_failed",
+                reason=str(fetched["reason"]),
+            )
             log(
                 "warning",
                 "poll_messages",
@@ -4163,6 +4236,8 @@ def poll_ingest(s: InstagramBotSettings) -> dict:
         cache.set(_poll_offset_cache_key(s), next_offset, CONV_CACHE_TTL)
     else:
         cache.delete(_poll_offset_cache_key(s))
+    if not degraded and not budget_exhausted:
+        _clear_ingress_degradation(s, "poll")
     return {
         "ok": True,
         "enqueued": enq,
@@ -4270,10 +4345,18 @@ def ingress_status(s: InstagramBotSettings, *, now=None) -> dict[str, object]:
     """
     now = now or timezone.now()
     webhook = webhook_signature_status()
+    degradation = _current_ingress_degradation(s)
     if not s.receive_via_poll:
         polling = {"configured": False, "healthy": False, "state": "disabled"}
     elif not resolve_direct_token(s):
         polling = {"configured": True, "healthy": False, "state": "missing_token"}
+    elif degradation:
+        polling = {
+            "configured": True,
+            "healthy": False,
+            "state": "degraded",
+            "degradation": degradation,
+        }
     elif str(s.last_error or "").startswith("polling:"):
         polling = {
             "configured": True,

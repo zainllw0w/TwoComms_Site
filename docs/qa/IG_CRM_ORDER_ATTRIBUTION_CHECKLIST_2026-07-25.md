@@ -275,6 +275,24 @@ Task 6 active-conversation regression follow-up (2026-07-26):
   related payment/order/post-sale tests** (2 expected skips). `manage.py check`,
   migration drift, scoped compilation, inline JavaScript syntax and
   `git diff --check` passed.
+- [x] Reproduced the stale-cache false-positive with RED tests: a failed later
+  conversation-discovery page and an incomplete message page preserved safe
+  data/cursors but emitted no durable degradation signal, so a later successful
+  read of old cached conversation IDs could incorrectly restore `running`.
+- [x] Conversation refresh and message polling now publish independent,
+  page-scoped, bounded-TTL degradation evidence with a redacted reason and
+  timestamp. A complete fresh conversation snapshot clears only refresh
+  degradation; a complete error-free message cycle clears only polling
+  degradation. A budget-limited round-robin cycle cannot clear prior evidence.
+- [x] `ingress_status()` now gives fresh degradation evidence precedence over a
+  fresh `last_poll_at`; daemon liveness therefore remains visible without
+  claiming inbound availability or allowing the top-level state to become
+  `running`.
+- [x] Ingress telemetry verification passed **155 focused tests**, the expanded
+  client/UI, daemon, webhook, polling, commercial-episode and shipment set
+  passed **210 tests**, and the related payment/order/link/post-sale set passed
+  **177 tests** with 2 expected skips. `manage.py check`, migration drift,
+  scoped compilation and `git diff --check` passed.
 - [ ] Production inbound delivery is not yet restored by code alone: the
   runtime still needs the real `IG_APP_SECRET`, and Meta polling currently
   reports Graph `conversations HTTP 500` / `poll_messages http_-1`. Keep the

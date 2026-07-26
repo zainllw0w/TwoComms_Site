@@ -114,6 +114,7 @@ class ConversationDiscoveryTests(TestCase):
 
     def test_failed_later_page_keeps_last_complete_snapshot(self):
         cache.set(bot._conv_cache_key(self.settings), ["old-1", "old-2"], 3600)
+        self.addCleanup(cache.delete, "ig_bot_ingress_refresh_degraded:page")
         first = {"data": [{"id": "new-1"}], "paging": {"next": f"{bot.GRAPH}/next-1"}}
         with patch.object(bot, "_http", side_effect=[(200, json.dumps(first)), (429, "quota")]), \
              patch.object(bot.time, "sleep"):
@@ -121,6 +122,25 @@ class ConversationDiscoveryTests(TestCase):
 
         self.assertEqual(ids, ["old-1", "old-2"])
         self.assertEqual(cache.get(bot._conv_cache_key(self.settings)), ["old-1", "old-2"])
+        self.assertEqual(
+            cache.get("ig_bot_ingress_refresh_degraded:page")["state"],
+            "conversation_refresh_failed",
+        )
+
+    def test_complete_refresh_clears_only_conversation_refresh_degradation(self):
+        refresh_key = "ig_bot_ingress_refresh_degraded:page"
+        poll_key = "ig_bot_ingress_poll_degraded:page"
+        cache.set(refresh_key, {"state": "conversation_refresh_failed"}, 600)
+        cache.set(poll_key, {"state": "message_poll_failed"}, 600)
+        self.addCleanup(cache.delete, refresh_key)
+        self.addCleanup(cache.delete, poll_key)
+
+        with patch.object(bot, "_http", return_value=(200, json.dumps({"data": []}))):
+            ids = bot.refresh_conv_ids(self.settings, "PT")
+
+        self.assertEqual(ids, [])
+        self.assertIsNone(cache.get(refresh_key))
+        self.assertEqual(cache.get(poll_key)["state"], "message_poll_failed")
 
     def test_malformed_first_page_does_not_publish_partial_or_invalid_cache(self):
         cache.set(bot._conv_cache_key(self.settings), ["old"], 3600)
@@ -327,6 +347,7 @@ class ConversationMessagePaginationSafetyTests(TestCase):
 
     def test_failed_later_message_page_does_not_enqueue_or_advance_cursor(self):
         self._cache_conversations("conv-partial")
+        self.addCleanup(cache.delete, "ig_bot_ingress_poll_degraded:page")
         first = {
             "messages": {
                 "data": [_message("m2", 2)],
@@ -344,11 +365,32 @@ class ConversationMessagePaginationSafetyTests(TestCase):
 
         self.assertEqual(result["enqueued"], 0)
         self.assertTrue(result["degraded"])
+        self.assertEqual(
+            cache.get("ig_bot_ingress_poll_degraded:page")["state"],
+            "message_poll_failed",
+        )
         enqueue.assert_not_called()
         self.assertEqual(
             IgPollCursor.objects.get(conversation_id="conv-partial").last_message_id,
             "",
         )
+
+    def test_complete_poll_clears_only_message_poll_degradation(self):
+        self._cache_conversations("conv-complete")
+        refresh_key = "ig_bot_ingress_refresh_degraded:page"
+        poll_key = "ig_bot_ingress_poll_degraded:page"
+        cache.set(refresh_key, {"state": "conversation_refresh_failed"}, 600)
+        cache.set(poll_key, {"state": "message_poll_failed"}, 600)
+        self.addCleanup(cache.delete, refresh_key)
+        self.addCleanup(cache.delete, poll_key)
+
+        with patch.object(bot, "get_page_token", return_value="PT"), \
+             patch.object(bot, "_http", return_value=(200, json.dumps({"messages": {"data": []}}))):
+            result = bot.poll_ingest(self.settings)
+
+        self.assertFalse(result["degraded"])
+        self.assertIsNone(cache.get(poll_key))
+        self.assertEqual(cache.get(refresh_key)["state"], "conversation_refresh_failed")
 
     def test_global_request_budget_rotates_conversations_fairly(self):
         self._cache_conversations("conv-a", "conv-b")
@@ -374,3 +416,26 @@ class ConversationMessagePaginationSafetyTests(TestCase):
         self.assertEqual(len(requested_urls), 2)
         self.assertIn("/conv-a?", requested_urls[0])
         self.assertIn("/conv-b?", requested_urls[1])
+
+    def test_incomplete_budgeted_cycle_does_not_clear_poll_degradation(self):
+        self._cache_conversations("conv-a", "conv-b")
+        poll_key = "ig_bot_ingress_poll_degraded:page"
+        cache.set(
+            poll_key,
+            {"state": "message_poll_failed", "reason": "http_503"},
+            600,
+        )
+        self.addCleanup(cache.delete, poll_key)
+
+        with patch.object(bot, "get_page_token", return_value="PT"), \
+             patch.object(bot, "POLL_MAX_REQUESTS", 1, create=True), \
+             patch.object(bot, "POLL_MAX_SECONDS", 60, create=True), \
+             patch.object(
+                 bot,
+                 "_http",
+                 return_value=(200, json.dumps({"messages": {"data": []}})),
+             ):
+            result = bot.poll_ingest(self.settings)
+
+        self.assertTrue(result["budget_exhausted"])
+        self.assertEqual(cache.get(poll_key)["state"], "message_poll_failed")

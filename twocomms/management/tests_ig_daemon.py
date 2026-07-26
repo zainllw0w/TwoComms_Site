@@ -833,6 +833,50 @@ class DaemonStatusTests(TestCase):
         self.assertFalse(snapshot["running"])
         self.assertEqual(snapshot["ingress"]["polling"]["state"], "degraded")
 
+    @patch("management.services.instagram_bot.resolve_direct_token", return_value="page-token")
+    def test_fresh_poll_timestamp_cannot_hide_independent_ingress_degradation(self, _token):
+        settings = InstagramBotSettings.load()
+        settings.page_id = "page"
+        settings.is_enabled = True
+        settings.receive_via_poll = True
+        settings.heartbeat_at = timezone.now()
+        settings.last_poll_at = timezone.now()
+        settings.last_error = ""
+        settings.save(update_fields=[
+            "page_id",
+            "is_enabled",
+            "receive_via_poll",
+            "heartbeat_at",
+            "last_poll_at",
+            "last_error",
+            "updated_at",
+        ])
+        cache.set(HB_KEY, {"at": time.time()}, 60)
+        signals = (
+            ("ig_bot_ingress_refresh_degraded:page", "conversation_refresh_failed"),
+            ("ig_bot_ingress_poll_degraded:page", "message_poll_failed"),
+        )
+        for cache_key, signal_state in signals:
+            with self.subTest(signal_state=signal_state):
+                cache.set(
+                    cache_key,
+                    {"state": signal_state, "reason": "provider_unavailable", "at": time.time()},
+                    600,
+                )
+                self.addCleanup(cache.delete, cache_key)
+
+                with patch.dict(os.environ, {}, clear=True):
+                    snapshot = bot.status_snapshot()
+
+                self.assertEqual(snapshot["state"], "ingress_degraded")
+                self.assertFalse(snapshot["running"])
+                self.assertFalse(snapshot["ingress"]["polling"]["healthy"])
+                self.assertEqual(
+                    snapshot["ingress"]["polling"]["degradation"]["state"],
+                    signal_state,
+                )
+                cache.delete(cache_key)
+
     def test_disabled_bot_is_not_reported_as_recovery_required(self):
         settings = InstagramBotSettings.load()
         settings.is_enabled = False
