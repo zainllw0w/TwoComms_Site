@@ -786,6 +786,9 @@ class ClientsApiTests(TestCase):
         clients = self.client.get(
             reverse("management_bot_clients_api") + f"?client_id={self.c.id}"
         ).json()
+        active_clients = self.client.get(
+            reverse("management_bot_clients_api") + "?view=active"
+        ).json()
         list_card = next(item for item in clients["clients"] if item["id"] == self.c.id)
 
         for card in (detail["client"], list_card):
@@ -804,6 +807,11 @@ class ClientsApiTests(TestCase):
         self.assertEqual(
             detail["orders"]["items"][0]["approval"]["state"],
             "linked_existing",
+        )
+        self.assertIn(
+            self.c.id,
+            [item["id"] for item in active_clients["clients"]],
+            "A manager-confirmed order must not make its conversation disappear from the default workspace.",
         )
 
     def test_meta_reviewer_cannot_read_commercial_client_detail(self):

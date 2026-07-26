@@ -2468,10 +2468,6 @@ def bot_clients_api(request):
         ])
     elif view == "active":
         qs = qs.exclude(stage__in=[IgClient.Stage.SPAM, IgClient.Stage.COLD])
-        qs = qs.filter(
-            has_verified_payment=False,
-            has_commercial_confirmation=False,
-        )
     qs = qs.order_by("-last_message_at", "-id")
     q = (request.GET.get("q") or "").strip()
     if q:

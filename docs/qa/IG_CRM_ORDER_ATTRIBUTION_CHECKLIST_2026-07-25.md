@@ -206,6 +206,20 @@ Task 6 Yana visibility follow-up (2026-07-26, production release `cd24e6fd`):
   verify a fresh signed inbound message creates the exchange case on the sole
   attributed order `296` without duplicating the order.
 
+Task 6 active-conversation regression follow-up (2026-07-26):
+
+- [x] Reproduced the disappearance with a RED API test: once a client gained a
+  manager-confirmed linked order, the default `active` filter excluded the
+  client even though the conversation and messages remained stored.
+- [x] The default client workspace now keeps all non-hidden, non-spam and
+  non-cold conversations available after payment; `Оплачені` remains an
+  additional focused view rather than the only place to find a paid client.
+- [x] The regression test confirms a manager-confirmed `linked_existing`
+  order stays visible in the default conversation list without a deep-link
+  `client_id` override.
+- [x] Focused regression and the connected client/payment/post-sale suite pass
+  (88 tests), along with Django system check, migration drift and diff checks.
+
 ## Completed in this slice
 
 - [x] Explicit `PRODUCT`/`ITEM` IDs are authoritative; missing or unpublished IDs fail closed.
