@@ -193,7 +193,7 @@ Task 6 Yana visibility follow-up (2026-07-26, production release `cd24e6fd`):
   linked-order strip for `TWC24072026N01`, and the exact custom-admin link to
   order `296`; desktop and 390/320 px mobile widths had no horizontal overflow
   and browser console/page errors were empty.
-- [x] Production MariaDB was backed up before release; server SHA is `cd24e6fd`,
+- [x] Production MariaDB was backed up before release; server SHA is `5c82465d`,
   migrations are current, `/healthz/` returns HTTP 200, daemon is running, and
   notification/analysis queues are empty. The temporary browser-QA staff user
   was deleted and the Yana business rows remained unchanged.
