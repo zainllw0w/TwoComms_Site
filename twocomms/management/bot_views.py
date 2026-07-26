@@ -2196,6 +2196,56 @@ def _client_potential_payload(c, latest_analysis, *, latest_message_id=None) -> 
     }
 
 
+def _operational_client_stage(c) -> tuple[str, str]:
+    """Project the visible funnel stage from the current canonical episode.
+
+    ``IgClient.stage`` remains the append-only conversation-analysis fact. A
+    bound physical order is stronger operational evidence, but an explicitly
+    opened repeat episode must be allowed to restart its own funnel.
+    """
+    from .ig_bot_models import IgCommercialEpisode
+
+    episode = getattr(c, "current_commercial_episode", None)
+    if episode is None:
+        prefetched = getattr(c, "_latest_commercial_episode", None)
+        if isinstance(prefetched, (list, tuple)):
+            episode = prefetched[0] if prefetched else None
+        elif prefetched is not None:
+            episode = prefetched
+    if episode is None and not hasattr(c, "_latest_commercial_episode"):
+        episode = c.commercial_episodes.select_related("intended_order").order_by(
+            "-sequence", "-id"
+        ).first()
+
+    stage = c.stage
+    if episode is not None:
+        if episode.state == IgCommercialEpisode.State.FULFILLED:
+            stage = IgClient.Stage.DONE
+        elif (
+            episode.state == IgCommercialEpisode.State.ORDER_CREATED
+            and episode.intended_order_id
+        ):
+            stage = IgClient.Stage.ORDER_CREATED
+    return stage, str(IgClient.Stage(stage).label)
+
+
+def _funnel_progress_for_stage(c, stage: str) -> list[dict]:
+    order = list(c.FUNNEL_ORDER)
+    try:
+        current_index = [item.value for item in order].index(stage)
+    except ValueError:
+        current_index = -1
+    return [
+        {
+            "stage": item.value,
+            "label": str(item.label),
+            "done": current_index >= 0 and index <= current_index,
+            "current": item.value == stage,
+        }
+        for index, item in enumerate(order)
+    ]
+
+
 def _client_card(c) -> dict:
     from .ig_bot_models import IgConversationAnalysisSnapshot
 
@@ -2280,14 +2330,13 @@ def _client_card(c) -> dict:
         )
     )
     hard_stages = {IgClient.Stage.PAID, IgClient.Stage.ORDER_CREATED, IgClient.Stage.DONE}
-    displayed_stage = c.stage
-    displayed_stage_label = c.get_stage_display()
-    if c.stage in hard_stages and not has_verified_payment:
+    displayed_stage, displayed_stage_label = _operational_client_stage(c)
+    if displayed_stage in hard_stages and not has_verified_payment:
         if payment_truth in {IgDeal.PaymentTruth.REFUNDED, IgDeal.PaymentTruth.REVERSED}:
             displayed_stage = "payment_reversed"
             displayed_stage_label = "Оплату повернено / скасовано"
         elif commercially_confirmed:
-            if c.stage == IgClient.Stage.PAID:
+            if displayed_stage == IgClient.Stage.PAID:
                 displayed_stage_label = "Оплачено менеджером"
         else:
             displayed_stage = "unverified"
@@ -2374,6 +2423,7 @@ def bot_clients_api(request):
     view = (request.GET.get("view") or "active").strip().lower()
     from django.db.models import Prefetch
     from .ig_bot_models import (
+        IgCommercialEpisode,
         IgConversationAnalysisSnapshot,
         IgOrderAttribution,
         IgPaymentConfirmationReview,
@@ -2428,6 +2478,13 @@ def bot_clients_api(request):
             queryset=IgPaymentProjection.objects.select_related("deal").order_by("-updated_at", "-id"),
             to_attr="_payment_projections",
         ),
+        Prefetch(
+            "commercial_episodes",
+            queryset=IgCommercialEpisode.objects.select_related("intended_order").order_by(
+                "-sequence", "-id"
+            )[:1],
+            to_attr="_latest_commercial_episode",
+        ),
         ).annotate(
             has_commercial_confirmation=Exists(manager_verified_orders),
         )
@@ -2468,6 +2525,10 @@ def bot_clients_api(request):
         ])
     elif view == "active":
         qs = qs.exclude(stage__in=[IgClient.Stage.SPAM, IgClient.Stage.COLD])
+        qs = qs.filter(
+            has_verified_payment=False,
+            has_commercial_confirmation=False,
+        )
     qs = qs.order_by("-last_message_at", "-id")
     q = (request.GET.get("q") or "").strip()
     if q:
@@ -2506,7 +2567,9 @@ def bot_client_detail_api(request, client_id):
     from management.services.ig_commercial_episodes import client_episode_payload
 
     c = IgClient.objects.select_related(
-        "current_product", "current_commercial_episode"
+        "current_product",
+        "current_commercial_episode",
+        "current_commercial_episode__intended_order",
     ).filter(id=client_id).first()
     if not c:
         return JsonResponse({"success": False, "error": "Клієнта не знайдено."}, status=404)
@@ -2552,14 +2615,16 @@ def bot_client_detail_api(request, client_id):
     # Інкрементальний режим (live chat): лише нові повідомлення + прапори стану,
     # без важких events/deals/funnel — щоб не вантажити сервер на кожному поллі.
     if after_id:
+        operational_stage, operational_stage_label = _operational_client_stage(c)
         return JsonResponse({
             "success": True,
             "messages": messages,
             "last_message_id": last_message_id,
             "bot_paused": c.bot_paused,
             "manager_takeover": c.manager_takeover,
-            "stage": c.stage,
-            "stage_label": c.get_stage_display(),
+            "stage": operational_stage,
+            "stage_label": operational_stage_label,
+            "funnel": _funnel_progress_for_stage(c, operational_stage),
         })
 
     events = [
@@ -2767,7 +2832,7 @@ def bot_client_detail_api(request, client_id):
         "signal_event_count": len(signal_rows),
         "followups": followups,
         "deals": deals,
-        "funnel": c.funnel_progress(),
+        "funnel": _funnel_progress_for_stage(c, card["stage"]),
         "automation": {
             "owner": automation_owner,
             "bot_paused": c.bot_paused,

@@ -84,6 +84,21 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
         ):
             self.assertIn(contract, self.template)
 
+    def test_client_workspace_exposes_all_non_hidden_conversations_separately(self):
+        self.assertIn('data-client-view="active">Активні', self.template)
+        self.assertIn('data-client-view="all">Усі', self.template)
+        self.assertIn('data-client-view="hidden">Приховані', self.template)
+
+    def test_status_ui_distinguishes_daemon_liveness_from_broken_ingress(self):
+        self.assertIn("st.state==='ingress_degraded'", self.template)
+        self.assertIn("Прийом повідомлень порушено", self.template)
+        self.assertIn("Процес працює, але нові повідомлення не надходять", self.template)
+
+    def test_live_chat_applies_incremental_stage_and_funnel_updates(self):
+        self.assertIn('"funnel": _funnel_progress_for_stage(c, operational_stage)', Path(__file__).with_name("bot_views.py").read_text(encoding="utf-8"))
+        self.assertIn("function applyIncrementalConversationState(d)", self.template)
+        self.assertIn("applyIncrementalConversationState(d)", self.template)
+
     def test_order_resolution_actions_are_explicit_and_rejection_has_reason(self):
         for visible_copy in (
             "Прив'язати існуюче",
@@ -771,7 +786,7 @@ class ClientsApiTests(TestCase):
             review_status_before=IgPaymentConfirmationReview.Status.PENDING,
             review_status_after=IgPaymentConfirmationReview.Status.CONFIRMED,
         )
-        IgOrderAttribution.objects.create(
+        attribution = IgOrderAttribution.objects.create(
             order=order,
             client=self.c,
             payment_review=review,
@@ -779,12 +794,19 @@ class ClientsApiTests(TestCase):
             creation_mode="linked_existing",
             payment_source="manager_verified",
         )
+        from management.services.ig_commercial_episodes import ensure_episode_for_attribution
+
+        episode = ensure_episode_for_attribution(attribution)
+        self.assertEqual(episode.state, "order_created")
 
         detail = self.client.get(
             reverse("management_bot_client_detail_api", args=[self.c.id])
         ).json()
         clients = self.client.get(
             reverse("management_bot_clients_api") + f"?client_id={self.c.id}"
+        ).json()
+        all_clients = self.client.get(
+            reverse("management_bot_clients_api") + "?view=all"
         ).json()
         active_clients = self.client.get(
             reverse("management_bot_clients_api") + "?view=active"
@@ -793,10 +815,14 @@ class ClientsApiTests(TestCase):
 
         for card in (detail["client"], list_card):
             self.assertEqual(card["stage_raw"], IgClient.Stage.PAID)
-            self.assertEqual(card["stage"], IgClient.Stage.PAID)
-            self.assertEqual(card["stage_label"], "Оплачено менеджером")
+            self.assertEqual(card["stage"], IgClient.Stage.ORDER_CREATED)
+            self.assertEqual(card["stage_label"], "Замовлення створено")
             self.assertTrue(card["commercially_confirmed"])
             self.assertEqual(card["commercial_confirmation_source"], "manager_verified_order")
+        funnel = {item["stage"]: item for item in detail["funnel"]}
+        self.assertTrue(funnel[IgClient.Stage.ORDER_CREATED]["current"])
+        self.assertTrue(funnel[IgClient.Stage.ORDER_CREATED]["done"])
+        self.assertFalse(funnel[IgClient.Stage.DONE]["done"])
         self.assertEqual(detail["payment"]["provider_truth"], "unverified")
         self.assertEqual(detail["payment"]["manager_truth"], "manager_verified")
         self.assertTrue(detail["payment"]["authoritative_for_fulfillment"])
@@ -810,9 +836,96 @@ class ClientsApiTests(TestCase):
         )
         self.assertIn(
             self.c.id,
-            [item["id"] for item in active_clients["clients"]],
-            "A manager-confirmed order must not make its conversation disappear from the default workspace.",
+            [item["id"] for item in all_clients["clients"]],
+            "A manager-confirmed order must remain available in the complete conversation archive.",
         )
+        self.assertNotIn(
+            self.c.id,
+            [item["id"] for item in active_clients["clients"]],
+            "A completed paid sale must not remain in the active work queue.",
+        )
+
+    def test_incremental_detail_projects_operational_stage_for_open_chat(self):
+        from orders.models import Order
+        from management.services.ig_commercial_episodes import ensure_episode_for_attribution
+
+        self.c.stage = IgClient.Stage.PAID
+        self.c.save(update_fields=["stage", "updated_at"])
+        order = Order.objects.create(
+            order_number="TWC-INCREMENTAL-STAGE",
+            full_name="Іван",
+            phone="380000000000",
+            total_sum=Decimal("950.00"),
+            payment_status="paid",
+            status="ship",
+        )
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.c,
+            dedupe_key="incremental-stage-review",
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            order=order,
+        )
+        decision = IgPaymentReviewDecision.objects.create(
+            review=review,
+            client=self.c,
+            decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+            verification_source="manager",
+            verification_scope=IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT,
+            confirmed_amount=Decimal("950.00"),
+            amount_source="manager_input",
+            actor=self.admin,
+            actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+            actor_external_id=str(self.admin.pk),
+            review_status_before=IgPaymentConfirmationReview.Status.PENDING,
+            review_status_after=IgPaymentConfirmationReview.Status.CONFIRMED,
+        )
+        attribution = IgOrderAttribution.objects.create(
+            order=order,
+            client=self.c,
+            payment_review=review,
+            manager_decision=decision,
+            creation_mode="linked_existing",
+            payment_source="manager_verified",
+        )
+        episode = ensure_episode_for_attribution(attribution)
+        response = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.c.id])
+            + "?after_id=0"
+        )
+        self.assertEqual(response.status_code, 200)
+
+        response = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.c.id])
+            + f"?after_id={self.c.messages.order_by('id').first().id}"
+        )
+        payload = response.json()
+        self.assertEqual(payload["stage"], IgClient.Stage.ORDER_CREATED)
+        self.assertEqual(payload["stage_label"], "Замовлення створено")
+        funnel = {item["stage"]: item for item in payload["funnel"]}
+        self.assertTrue(funnel[IgClient.Stage.ORDER_CREATED]["current"])
+        self.assertEqual(episode.state, "order_created")
+
+    def test_all_view_includes_every_non_hidden_conversation(self):
+        paid = IgClient.get_or_create_for_sender("ig-all-paid")
+        paid.stage = IgClient.Stage.PAID
+        paid.save(update_fields=["stage", "updated_at"])
+        cold = IgClient.get_or_create_for_sender("ig-all-cold")
+        cold.stage = IgClient.Stage.COLD
+        cold.save(update_fields=["stage", "updated_at"])
+        spam = IgClient.get_or_create_for_sender("ig-all-spam")
+        spam.stage = IgClient.Stage.SPAM
+        spam.save(update_fields=["stage", "updated_at"])
+        hidden = IgClient.get_or_create_for_sender("ig-all-hidden")
+        hidden.hidden_at = timezone.now()
+        hidden.save(update_fields=["hidden_at", "updated_at"])
+
+        data = self.client.get(
+            reverse("management_bot_clients_api") + "?view=all"
+        ).json()
+        ids = {item["id"] for item in data["clients"]}
+
+        self.assertTrue({self.c.id, paid.id, cold.id, spam.id}.issubset(ids))
+        self.assertNotIn(hidden.id, ids)
 
     def test_meta_reviewer_cannot_read_commercial_client_detail(self):
         self.client.logout()
@@ -1749,7 +1862,9 @@ class ClientDetailCursorTests(TestCase):
         data = self.client.get(url).json()
         self.assertEqual([m["text"] for m in data["messages"]], ["відповідь"])
         self.assertEqual(data["last_message_id"], self.m2.id)
-        self.assertNotIn("funnel", data)  # легкий інкрементальний payload
+        self.assertEqual(data["stage"], IgClient.Stage.NEW)
+        self.assertEqual(data["stage_label"], "Написав")
+        self.assertEqual(len(data["funnel"]), len(IgClient.FUNNEL_ORDER))
 
     def test_detail_after_latest_returns_empty(self):
         url = reverse("management_bot_client_detail_api", args=[self.c.id]) + f"?after_id={self.m2.id}"

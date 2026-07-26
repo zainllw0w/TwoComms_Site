@@ -760,10 +760,78 @@ class DaemonStatusTests(TestCase):
         settings.heartbeat_at = timezone.now()
         settings.save(update_fields=["is_enabled", "heartbeat_at"])
 
-        snapshot = bot.status_snapshot()
+        with patch.dict(os.environ, {"IG_APP_SECRET": "test-secret"}, clear=True):
+            snapshot = bot.status_snapshot()
 
         self.assertTrue(snapshot["daemon_online"])
         self.assertEqual(snapshot["state"], "running")
+
+    @patch("management.services.instagram_bot.cache.get", return_value={"at": 100.0})
+    @patch("management.services.instagram_bot.time.time", return_value=110.0)
+    def test_live_daemon_without_a_working_ingress_is_reported_as_degraded(self, _time, _get):
+        settings = InstagramBotSettings.load()
+        settings.is_enabled = True
+        settings.receive_via_poll = False
+        settings.heartbeat_at = timezone.now()
+        settings.save(update_fields=["is_enabled", "receive_via_poll", "heartbeat_at"])
+
+        with patch.dict(os.environ, {}, clear=True):
+            snapshot = bot.status_snapshot()
+
+        self.assertTrue(snapshot["daemon_online"])
+        self.assertFalse(snapshot["running"])
+        self.assertEqual(snapshot["state"], "ingress_degraded")
+        self.assertFalse(snapshot["ingress"]["healthy"])
+        self.assertEqual(snapshot["ingress"]["state"], "unavailable")
+        self.assertEqual(snapshot["ingress"]["webhook"]["state"], "missing_secret")
+        self.assertEqual(snapshot["ingress"]["polling"]["state"], "disabled")
+
+    @patch("management.management.commands.run_instagram_bot.time.time", return_value=100.0)
+    @patch("management.management.commands.run_instagram_bot.bot.poll_ingest", return_value={"ok": True})
+    @patch("management.management.commands.run_instagram_bot.bot_followups.process_due_followups")
+    @patch("management.management.commands.run_instagram_bot.bot.process_pending")
+    @patch("management.management.commands.run_instagram_bot.bot.drain_manager_notifications")
+    def test_poll_cycle_persists_last_poll_telemetry(
+        self, _drain, _pending, _followups, _poll_ingest, _time
+    ):
+        settings = InstagramBotSettings.load()
+        settings.is_enabled = False
+        settings.receive_via_poll = True
+        settings.last_poll_at = None
+        settings.save(update_fields=["is_enabled", "receive_via_poll", "last_poll_at", "updated_at"])
+
+        _run_work_cycle(settings, 0.0)
+
+        settings.refresh_from_db()
+        self.assertIsNotNone(settings.last_poll_at)
+
+    @patch("management.services.instagram_bot.cache.get", return_value={"at": 100.0})
+    @patch("management.services.instagram_bot.time.time", return_value=110.0)
+    @patch("management.services.instagram_bot.resolve_direct_token", return_value="page-token")
+    def test_poll_provider_error_is_exposed_as_degraded_ingress(
+        self, _token, _time, _get
+    ):
+        settings = InstagramBotSettings.load()
+        settings.is_enabled = True
+        settings.receive_via_poll = True
+        settings.heartbeat_at = timezone.now()
+        settings.last_poll_at = timezone.now()
+        settings.last_error = "polling:provider_unavailable"
+        settings.save(update_fields=[
+            "is_enabled",
+            "receive_via_poll",
+            "heartbeat_at",
+            "last_poll_at",
+            "last_error",
+            "updated_at",
+        ])
+
+        with patch.dict(os.environ, {}, clear=True):
+            snapshot = bot.status_snapshot()
+
+        self.assertEqual(snapshot["state"], "ingress_degraded")
+        self.assertFalse(snapshot["running"])
+        self.assertEqual(snapshot["ingress"]["polling"]["state"], "degraded")
 
     def test_disabled_bot_is_not_reported_as_recovery_required(self):
         settings = InstagramBotSettings.load()

@@ -277,6 +277,7 @@ class ConversationMessagePaginationSafetyTests(TestCase):
             result = bot.poll_ingest(self.settings)
 
         self.assertEqual(result["enqueued"], 0)
+        self.assertTrue(result["degraded"])
         enqueue.assert_not_called()
         self.assertEqual(
             IgPollCursor.objects.get(conversation_id="conv-bad-mid").last_message_id,
@@ -342,6 +343,7 @@ class ConversationMessagePaginationSafetyTests(TestCase):
             result = bot.poll_ingest(self.settings)
 
         self.assertEqual(result["enqueued"], 0)
+        self.assertTrue(result["degraded"])
         enqueue.assert_not_called()
         self.assertEqual(
             IgPollCursor.objects.get(conversation_id="conv-partial").last_message_id,

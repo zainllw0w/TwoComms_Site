@@ -26,6 +26,7 @@ from contextlib import contextmanager
 from django.core.cache import cache
 from django.core.management.base import BaseCommand, CommandError
 from django.db import close_old_connections
+from django.utils import timezone
 
 from management.models import InstagramBotSettings
 from management.services import bot_followups
@@ -206,7 +207,23 @@ def _run_work_cycle(settings_obj, last_poll: float) -> tuple[bool, float]:
         bot_followups.process_due_followups(settings_obj)
     now = time.time()
     if settings_obj.receive_via_poll and (now - last_poll) >= interval:
-        bot.poll_ingest(settings_obj)
+        poll_result = bot.poll_ingest(settings_obj)
+        if isinstance(poll_result, dict) and settings_obj.pk:
+            poll_ok = bool(poll_result.get("ok")) and not bool(
+                poll_result.get("degraded") or poll_result.get("refresh_pending")
+            )
+            if poll_ok:
+                settings_obj.last_poll_at = timezone.now()
+                if settings_obj.last_error.startswith("polling:"):
+                    settings_obj.last_error = ""
+            else:
+                reason = (
+                    poll_result.get("error")
+                    or poll_result.get("reason")
+                    or "provider_unavailable"
+                )
+                settings_obj.last_error = f"polling:{reason}"[:2000]
+            settings_obj.save(update_fields=["last_poll_at", "last_error", "updated_at"])
         if enabled:
             bot.process_pending(settings_obj)
             bot_followups.process_due_followups(settings_obj)

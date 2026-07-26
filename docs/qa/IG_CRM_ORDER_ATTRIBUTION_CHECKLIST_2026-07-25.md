@@ -253,3 +253,27 @@ Task 6 active-conversation regression follow-up (2026-07-26):
 - [ ] Add browser coverage for the Telegram-to-management confirmation flow, absolute existing-order navigation, and post-mutation refresh failure handling.
 - [ ] Continue product-image classification and catalog matching audit with stored evidence thumbnails and explicit custom-print/interest versus purchase intent states.
 - [ ] Add funnel/signal aggregates with Ukrainian labels, resolution state, evidence IDs, manager involvement, and no duplicate counting across deal episodes.
+
+## Task 6 active-chat ingress and live-funnel follow-up (2026-07-26)
+
+- [x] Added a visible `Усі` conversation view that includes every non-hidden
+  conversation, including paid, cold, spam and completed histories; `Активні`
+  remains the bounded work queue and no longer hides completed paid clients.
+- [x] Incremental chat polling now returns the operational stage and funnel
+  projection, and the browser applies those values to the open header/funnel
+  without discarding the transcript. A linked `ship` order therefore projects
+  `Замовлення створено`, while raw analysis stage remains available as `stage_raw`.
+- [x] The daemon now persists `last_poll_at` for a successful poll cycle and
+  records provider/refresh failures as `polling:*`; status separates daemon
+  heartbeat from inbound availability and exposes `ingress_degraded`.
+- [x] Focused verification passed **205 tests** for clients/UI, daemon,
+  webhook security, polling, commercial episodes and shipment, plus **171
+  related payment/order/post-sale tests** (2 expected skips). `manage.py check`,
+  migration drift, scoped compilation, inline JavaScript syntax and
+  `git diff --check` passed.
+- [ ] Production inbound delivery is not yet restored by code alone: the
+  runtime still needs the real `IG_APP_SECRET`, and Meta polling currently
+  reports Graph `conversations HTTP 500` / `poll_messages http_-1`. Keep the
+  webhook fail-closed; after credentials/provider recovery, verify a fresh
+  signed Yana message reaches `InstagramBotMessage`, updates analysis and
+  creates an evidence-bound exchange case without a duplicate order.

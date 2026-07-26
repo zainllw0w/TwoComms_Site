@@ -4075,7 +4075,13 @@ def poll_ingest(s: InstagramBotSettings) -> dict:
         return {"ok": False, "error": "no_page_token"}
     conv_ids = get_conv_ids_cached(s)
     if conv_ids is None:
-        return {"ok": True, "enqueued": 0, "conversations": 0, "refresh_pending": True}
+        return {
+            "ok": True,
+            "enqueued": 0,
+            "conversations": 0,
+            "refresh_pending": True,
+            "degraded": True,
+        }
     if not conv_ids:
         return {"ok": True, "enqueued": 0, "conversations": 0}
     if s.last_error:
@@ -4088,6 +4094,7 @@ def poll_ingest(s: InstagramBotSettings) -> dict:
     requests_used = 0
     conversations_checked = 0
     budget_exhausted = False
+    degraded = False
     for cid in ordered_conv_ids:
         if requests_used >= POLL_MAX_REQUESTS or time.monotonic() >= deadline:
             budget_exhausted = True
@@ -4106,6 +4113,7 @@ def poll_ingest(s: InstagramBotSettings) -> dict:
         )
         requests_used += fetched["requests"]
         if not fetched["complete"]:
+            degraded = True
             log(
                 "warning",
                 "poll_messages",
@@ -4162,6 +4170,7 @@ def poll_ingest(s: InstagramBotSettings) -> dict:
         "conversations_checked": conversations_checked,
         "requests_used": requests_used,
         "budget_exhausted": budget_exhausted,
+        "degraded": degraded,
     }
 
 
@@ -4252,6 +4261,47 @@ def meta_capability_status(s: InstagramBotSettings) -> dict[str, object]:
     }
 
 
+def ingress_status(s: InstagramBotSettings, *, now=None) -> dict[str, object]:
+    """Report bounded local evidence for inbound availability.
+
+    This status path must never call Graph. Webhook health is configuration
+    truth; polling health is based on configured credentials and a recent
+    completed poll recorded by the worker.
+    """
+    now = now or timezone.now()
+    webhook = webhook_signature_status()
+    if not s.receive_via_poll:
+        polling = {"configured": False, "healthy": False, "state": "disabled"}
+    elif not resolve_direct_token(s):
+        polling = {"configured": True, "healthy": False, "state": "missing_token"}
+    elif str(s.last_error or "").startswith("polling:"):
+        polling = {
+            "configured": True,
+            "healthy": False,
+            "state": "degraded",
+            "error": str(s.last_error)[len("polling:"):][:240],
+        }
+    elif not s.last_poll_at:
+        polling = {"configured": True, "healthy": False, "state": "not_observed"}
+    else:
+        age = max(0.0, (now - s.last_poll_at).total_seconds())
+        max_age = max(90, int(s.poll_interval_seconds or 3) * 10)
+        healthy = age <= max_age
+        polling = {
+            "configured": True,
+            "healthy": healthy,
+            "state": "healthy" if healthy else "stale",
+            "age_seconds": round(age, 1),
+        }
+    healthy = bool(webhook.get("healthy") or polling.get("healthy"))
+    return {
+        "healthy": healthy,
+        "state": "available" if healthy else "unavailable",
+        "webhook": webhook,
+        "polling": polling,
+    }
+
+
 def status_snapshot() -> dict:
     from management.services.ig_maintenance import maintenance_status
     from management.services.ig_reply_boundary import reply_barrier_telemetry
@@ -4270,10 +4320,13 @@ def status_snapshot() -> dict:
     except (TypeError, ValueError):
         daemon_heartbeat_age = None
     daemon_online = bool(daemon_heartbeat_age is not None and daemon_heartbeat_age < 45)
+    ingress = ingress_status(s, now=now)
     if maintenance["active"]:
         state = "maintenance"
     elif not s.is_enabled:
         state = "disabled"
+    elif daemon_online and not ingress["healthy"]:
+        state = "ingress_degraded"
     elif daemon_online:
         state = "running"
     elif db_heartbeat_fresh:
@@ -4332,8 +4385,11 @@ def status_snapshot() -> dict:
         # worker is alive. A fresh DB timestamp alone is not liveness proof.
         "alive": daemon_online,
         "daemon_online": daemon_online,
-        "running": s.is_enabled and daemon_online and not maintenance["active"],
+        "running": bool(
+            s.is_enabled and daemon_online and ingress["healthy"] and not maintenance["active"]
+        ),
         "state": state,
+        "ingress": ingress,
         "recovery_expected": bool(s.is_enabled and not daemon_online and not maintenance["active"]),
         "maintenance": maintenance,
         "db_heartbeat_fresh": db_heartbeat_fresh,
