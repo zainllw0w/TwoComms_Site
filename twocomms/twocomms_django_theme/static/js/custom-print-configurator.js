@@ -210,24 +210,7 @@
     dom.progressShell.parentNode.insertBefore(progressHome, dom.progressShell);
   }
   const previewController = globalThis.CustomPrintPreview?.create({ root, config: CONFIG, getState: () => STATE }) || null;
-  
-  // 3D viewer initialization (lazy-loaded ES module)
-  let viewer3D = null;
-  const stageFrame = root.querySelector('.cp-stage-frame');
-  if (stageFrame && globalThis.CustomPrint3DViewer) {
-    try {
-      viewer3D = globalThis.CustomPrint3DViewer.create({
-        container: stageFrame,
-        config: CONFIG,
-        getState: () => STATE,
-        tier: 'auto'
-      });
-      console.log('[3D] Viewer initialized');
-    } catch (err) {
-      console.warn('[3D] Failed to initialize viewer:', err);
-    }
-  }
-  
+
   const dialogFlow = globalThis.CustomPrintSubmitFlow?.create(root) || null;
   const mobileShell = globalThis.CustomPrintMobileShell?.create({
     root,
@@ -3308,7 +3291,6 @@
     updateGiftContinueLabel();
     renderMobileBottomBar();
     previewController?.render();
-    viewer3D?.render();
     const studioIndex = stateTools?.progressIndex(STATE.ui.current_step) || 0;
     mobileShell?.update(studioIndex, STUDIO_STEPS.length || 8);
   }

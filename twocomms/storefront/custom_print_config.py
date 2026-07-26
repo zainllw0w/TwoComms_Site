@@ -358,6 +358,45 @@ PREVIEW_CALIBRATION = {
     "longsleeve:regular": _preview_calibration(540, ["front", "back", "sleeve"]),
 }
 
+
+def _custom_ref_asset(stem: str, side: str) -> dict:
+    """Return the browser sources for one normalized Custom Ref render."""
+    suffix = "-b" if side == "back" else ""
+    base = f"/static/img/configurator/custom-ref/{stem}{suffix}"
+    return {"avif": f"{base}.avif", "webp": f"{base}.webp"}
+
+
+def _custom_ref_pair(stem: str) -> dict:
+    return {
+        "front": _custom_ref_asset(stem, "front"),
+        "back": _custom_ref_asset(stem, "back"),
+    }
+
+
+# The supplied renders are the source of truth for the stage. Keep the map
+# explicit so a missing color or side can be resolved safely in the browser.
+CUSTOM_REF_PREVIEW_ASSETS = {
+    "tshirt:regular": {
+        "black": _custom_ref_pair("tshirt-black-standart"),
+    },
+    "tshirt:oversize": {
+        "beige": _custom_ref_pair("tshirt-bej-oversize"),
+        "black": _custom_ref_pair("tshirt-black-oversize"),
+        "white": _custom_ref_pair("tshirt-white-oversize"),
+    },
+    "hoodie:regular": {
+        "black": _custom_ref_pair("hoodie-black"),
+        "pink": _custom_ref_pair("hoodie-pink"),
+    },
+    "hoodie:oversize": {
+        "black": _custom_ref_pair("hoodie-black"),
+        "pink": _custom_ref_pair("hoodie-pink"),
+    },
+    "longsleeve:regular": {
+        "black": _custom_ref_pair("tshirt-black-standart"),
+    },
+}
+
 def calc_iso_box(format_key: str, body_width_mm: float, svg_body_width: float, svg_collar_y: float, top_offset_mm: float = 50, x_center: float = 50, radius: float = 24, shape: str = "panel", padding_mm: float = 0) -> dict:
     w_mm, h_mm = ISO_SIZES.get(format_key, (210, 297))
     scale = svg_body_width / body_width_mm
@@ -463,9 +502,7 @@ PRODUCT_MATRIX = {
         "fit_colors": {
             "regular": [
                 {"value": "black", "label": _("Чорний"), "hex": "#151515"},
-                {"value": "graphite", "label": _("Графіт"), "hex": "#3b3b3f"},
-                {"value": "sand", "label": _("Пісочний"), "hex": "#c8b28d"},
-                {"value": "bone", "label": _("Світлий"), "hex": "#ebe3d6"},
+                {"value": "pink", "label": _("Рожевий"), "hex": "#d98fa8"},
             ],
             "oversize": [
                 {"value": "black", "label": _("Чорний"), "hex": "#151515"},
@@ -554,6 +591,16 @@ PRODUCT_MATRIX = {
             {"value": "white", "label": _("Білий"), "hex": "#f1ede6"},
             {"value": "coyote", "label": _("Койот"), "hex": "#8B6B45"},
         ],
+        "fit_colors": {
+            "regular": [
+                {"value": "black", "label": _("Чорний"), "hex": "#151515"},
+            ],
+            "oversize": [
+                {"value": "black", "label": _("Чорний"), "hex": "#151515"},
+                {"value": "white", "label": _("Білий"), "hex": "#f1ede6"},
+                {"value": "coyote", "label": _("Бежевий"), "hex": "#b9a181"},
+            ],
+        },
         "default_color": "black",
         "zones": ["front", "back", "custom"],
         "default_zones": [],
@@ -1411,6 +1458,7 @@ def build_custom_print_config(
         "progress_steps": deepcopy(PROGRESS_STEPS),
         "ui_strings": deepcopy(UI_STRINGS),
         "preview_assets": deepcopy(PREVIEW_ASSETS),
+        "custom_ref_preview_assets": deepcopy(CUSTOM_REF_PREVIEW_ASSETS),
         "preview_calibration": deepcopy(PREVIEW_CALIBRATION),
         "format_dimensions": deepcopy(FORMAT_DIMENSIONS),
         "front_size_presets": deepcopy(FRONT_SIZE_PRESETS),

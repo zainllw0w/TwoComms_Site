@@ -42,7 +42,7 @@
 
 {% block extra_css %}
   {{ block.super }}
-  <link rel="stylesheet" href="{% static 'css/custom-print-guided-studio.css' %}?v=20260719-responsive-v2">
+  <link rel="stylesheet" href="{% static 'css/custom-print-guided-studio.css' %}?v=20260726-custom-ref-v1">
 {% endblock %}
 
 {% block breadcrumbs %}
@@ -217,8 +217,11 @@
 
           <div class="cp-stage-frame">
             <div class="cp-png-preview" data-png-preview aria-live="polite">
-              <div class="cp-png-preview-color" data-preview-color></div>
-              <img data-preview-garment alt="" width="1200" height="1400">
+              <picture data-preview-picture>
+                <source data-preview-avif type="image/avif">
+                <source data-preview-webp type="image/webp">
+                <img data-preview-garment alt="" width="1200" height="1400" decoding="async">
+              </picture>
               <img data-preview-lacing alt="" width="1200" height="1400" hidden>
               <div class="cp-png-preview-zones" data-preview-zones></div>
             </div>
@@ -875,8 +878,11 @@
         </div>
         <div class="cp-preview-dialog-canvas">
           <div class="cp-png-preview" data-png-preview>
-            <div class="cp-png-preview-color" data-preview-color></div>
-            <img data-preview-garment alt="" width="1200" height="1400">
+            <picture data-preview-picture>
+              <source data-preview-avif type="image/avif">
+              <source data-preview-webp type="image/webp">
+              <img data-preview-garment alt="" width="1200" height="1400" decoding="async">
+            </picture>
             <img data-preview-lacing alt="" width="1200" height="1400" hidden>
             <div class="cp-png-preview-zones" data-preview-zones></div>
           </div>
@@ -1150,10 +1156,9 @@
   {{ block.super }}
   <script src="{% static 'js/custom-print-submission-policy.js' %}" defer></script>
   <script src="{% static 'js/custom-print-state.js' %}?v=20260719-responsive-v2" defer></script>
-  <script src="{% static 'js/custom-print-preview.js' %}?v=20260719-responsive-v2" defer></script>
-  <script type="module" src="{% static 'js/custom-print-3d-viewer.js' %}?v=20260726-3d-viewer"></script>
+  <script src="{% static 'js/custom-print-preview.js' %}?v=20260726-custom-ref-v1" defer></script>
   <script src="{% static 'js/custom-print-mobile-shell.js' %}?v=20260719-responsive-v2" defer></script>
   <script src="{% static 'js/custom-print-submit-flow.js' %}?v=20260719-responsive-v2" defer></script>
-  <script src="{% static 'js/custom-print-configurator.js' %}?v=20260719-responsive-v2" defer></script>
+  <script src="{% static 'js/custom-print-configurator.js' %}?v=20260726-custom-ref-v1" defer></script>
   <script src="{% static 'js/custom-print-telegram-verify.js' %}?v=20260517-tg-verify-portal" defer></script>
 {% endblock %}
