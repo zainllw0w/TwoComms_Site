@@ -376,10 +376,10 @@ Task 7B polling recovery, provenance and profile enrichment (2026-07-29):
   compile and diff checks passed.
 - [ ] Production signed webhook acceptance remains open: live probe found one
   daemon, fresh heartbeat/poll, empty allowlist, page subscription `messages`,
-  and granted legacy `instagram_basic`/`instagram_manage_messages`, but no
-  `IG_APP_SECRET`/`FACEBOOK_APP_SECRET`. Configure the real Meta app secret,
-  deploy migration `0111`, then verify one genuine new non-role inbound through
-  signed webhook -> queue -> analysis -> reply without a synthetic event.
+  and granted legacy `instagram_basic`/`instagram_manage_messages`. The real
+  `IG_APP_SECRET` is now present through the cPanel runtime environment and
+  `token_configured=True` after restart; verify one genuine new non-role inbound
+  through signed webhook -> queue -> analysis -> reply without a synthetic event.
 - [x] Production deploy evidence (2026-07-29): `main` is at `b470cd06`,
   migration `0111_instagrambotmessage_provider_created_at` is applied,
   `manage.py check --deploy` is clean, `/healthz/` returns HTTP 200, the
@@ -391,7 +391,7 @@ Task 7B polling recovery, provenance and profile enrichment (2026-07-29):
   Meta `403 (#200) App does not have Advanced Access to
   instagram_manage_messages...`; the profile batch therefore reports
   `permission_denied`. Grant the approved current permission to the actual
-  app/token (or complete the Instagram Login migration), set the app secret,
+  app/token (or complete the Instagram Login migration), refresh the page token,
   then rerun the profile batch and one consenting non-role end-to-end message.
 - [ ] Recovery discovery uses the page-scoped endpoint, small pages, cursors,
   request/time budgets, adaptive backoff, jitter, Meta error classes and usage
