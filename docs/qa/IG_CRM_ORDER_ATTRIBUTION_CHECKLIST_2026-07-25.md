@@ -374,19 +374,16 @@ Task 7B polling recovery, provenance and profile enrichment (2026-07-29):
   47, webhook-shape 15, webhook-security 9, intelligence 28, post-sale 10,
   payment 25 and shipment 10 tests; `manage.py check`, migration drift,
   compile and diff checks passed.
-- [ ] Production signed webhook acceptance remains open: live probe found one
-  daemon, fresh heartbeat/poll, empty allowlist, page subscription `messages`,
-  and granted legacy `instagram_basic`/`instagram_manage_messages`. The real
-  `IG_APP_SECRET` is now present through the cPanel runtime environment and
-  `token_configured=True` after restart; verify one genuine new non-role inbound
-  through signed webhook -> queue -> analysis -> reply without a synthetic event.
-- [ ] Current live evidence (2026-07-29): Meta webhook POSTs from
-  `facebookexternalua` reach `/bot/webhook/` but receive HTTP 403
-  `bad_signature`. The page token is valid for App ID `2120980214971807`, while
-  `APP_ID|IG_APP_SECRET` returns Graph HTTP 401 `Invalid OAuth access token
-  signature`. Replace the cPanel value with the App Secret from that exact Meta
-  App ID, restart Passenger, then repeat the probe and watch for a real 200
-  webhook delivery.
+- [x] Production secret configuration is corrected (2026-07-29): the App ID
+  `2120980214971807` and App Secret shown in the Meta Basic settings screenshot
+  were verified as a pair; the Graph app probe now returns HTTP 200. The value
+  is stored in the selected `.env.production` (0600) and CloudLinux app env,
+  Passenger and the daemon were restarted, and both runtime fingerprints match.
+- [ ] Production signed webhook acceptance remains open: before the correction,
+  Meta POSTs from `facebookexternalua` reached `/bot/webhook/` with HTTP 403
+  `bad_signature`. No genuine post-correction non-role inbound has appeared in
+  the access log yet. Verify one real event through signed webhook -> queue ->
+  analysis -> reply without a synthetic event, then close this gate.
 - [x] Production deploy evidence (2026-07-29): `main` is at `b470cd06`,
   migration `0111_instagrambotmessage_provider_created_at` is applied,
   `manage.py check --deploy` is clean, `/healthz/` returns HTTP 200, the
