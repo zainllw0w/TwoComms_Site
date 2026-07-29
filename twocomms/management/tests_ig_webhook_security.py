@@ -33,6 +33,14 @@ class WebhookSignatureTests(SimpleTestCase):
             self.assertFalse(bot.verify_signature(body, "sha256=wrong"))
             self.assertFalse(bot.verify_signature(body, ""))
 
+    def test_facebook_app_secret_alias_is_accepted(self):
+        body = b'{"object":"instagram"}'
+        secret = "facebook-alias-secret"
+        digest = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+        with patch.dict(os.environ, {"FACEBOOK_APP_SECRET": secret}, clear=True):
+            self.assertTrue(bot.verify_signature(body, f"sha256={digest}"))
+            self.assertEqual(bot.webhook_signature_status()["state"], "configured")
+
 
 class WebhookEndpointSecurityTests(TestCase):
     def setUp(self):

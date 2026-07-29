@@ -872,7 +872,13 @@ def resolve_gemini_key(s: InstagramBotSettings) -> str:
 
 
 def app_secret() -> str:
-    return os.environ.get("IG_APP_SECRET", "").strip()
+    # Keep the Instagram-specific name canonical, but accept the historical
+    # Facebook alias used by cPanel deployments. Both values are the Meta App
+    # Secret for the same App ID; never fall back to Django SECRET_KEY.
+    return (
+        os.environ.get("IG_APP_SECRET", "").strip()
+        or os.environ.get("FACEBOOK_APP_SECRET", "").strip()
+    )
 
 
 def allow_unsigned_webhooks() -> bool:
