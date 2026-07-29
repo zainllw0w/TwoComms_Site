@@ -401,6 +401,13 @@ Task 7B polling recovery, provenance and profile enrichment (2026-07-29):
   request/time budgets, adaptive backoff, jitter, Meta error classes and usage
   headers. Permission/configuration failures must not be retried every few
   seconds.
+- [x] Production token-path smoke (2026-07-29): the configured system-user
+  token is valid and `/me/accounts` returns the configured Page plus its Page
+  Access Token; `/{page_id}/subscribed_apps` returns HTTP 200 with `messages`.
+  A bounded refresh found 2 conversation IDs and `poll_ingest` checked both
+  conversations in 2 requests with `degraded=False` and `enqueued=0`. Directly
+  using the system-user token on a Page endpoint correctly fails with Graph
+  `(#190)`, so the Page-token exchange must remain the only polling path.
 - [ ] Chat UI reads MariaDB-backed incremental APIs only, pauses/backs off in a
   hidden tab, and never causes a Meta Graph request.
 - [ ] List card, chat header, one-row funnel, review drawer and incremental chat
