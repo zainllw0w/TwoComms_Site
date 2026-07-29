@@ -272,6 +272,10 @@ class IgClient(models.Model):
     # тож для CRM зберігаємо власну копію й віддаємо локальний URL.
     avatar_local = models.CharField(_("Аватар (локально)"), max_length=300, blank=True, default="")
     profile_fetched_at = models.DateTimeField(null=True, blank=True)
+    profile_sync_attempted_at = models.DateTimeField(null=True, blank=True)
+    profile_sync_failures = models.PositiveSmallIntegerField(default=0)
+    profile_sync_next_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    profile_sync_error_kind = models.CharField(max_length=32, blank=True, default="")
 
     # Контакти (для ліда / замовлення)
     phone = models.CharField(_("Телефон"), max_length=50, blank=True, default="")

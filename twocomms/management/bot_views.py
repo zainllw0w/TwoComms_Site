@@ -2578,8 +2578,17 @@ def bot_client_detail_api(request, client_id):
         after_id = int(request.GET.get("after_id") or 0)
     except (TypeError, ValueError):
         after_id = 0
+    try:
+        before_id = int(request.GET.get("before_id") or 0)
+    except (TypeError, ValueError):
+        before_id = 0
 
-    if after_id:
+    if before_id:
+        # Older history is loaded from the local immutable transcript. Keep
+        # the page bounded and expose a cursor so the UI can walk backwards.
+        msg_rows = list(c.messages.filter(id__lt=before_id).order_by("-id")[:100])
+        msg_rows.reverse()
+    elif after_id:
         msg_rows = list(c.messages.filter(id__gt=after_id).order_by("id")[:100])
     else:
         # Останні 300 (а не найстаріші) у хронологічному порядку — для live chat.
@@ -2606,19 +2615,39 @@ def bot_client_detail_api(request, client_id):
             "text": m.text,
             "attachments": m.attachments or "",
             "media": media_by_message.get(m.id, []),
-            "time": m.created_at.isoformat() if m.created_at else "",
+            "time": (m.provider_created_at or m.created_at).isoformat()
+            if (m.provider_created_at or m.created_at)
+            else "",
         }
         for m in msg_rows
     ]
     last_message_id = msg_rows[-1].id if msg_rows else after_id
+    oldest_message_id = msg_rows[0].id if msg_rows else (before_id or last_message_id)
+    newest_message_id = msg_rows[-1].id if msg_rows else (after_id or oldest_message_id)
+    has_older = bool(
+        oldest_message_id
+        and c.messages.filter(id__lt=oldest_message_id).exists()
+    )
 
     # Інкрементальний режим (live chat): лише нові повідомлення + прапори стану,
     # без важких events/deals/funnel — щоб не вантажити сервер на кожному поллі.
+    if before_id:
+        return JsonResponse({
+            "success": True,
+            "messages": messages,
+            "oldest_message_id": oldest_message_id,
+            "newest_message_id": newest_message_id,
+            "has_older": has_older,
+        })
+
     if after_id:
         operational_stage, operational_stage_label = _operational_client_stage(c)
         return JsonResponse({
             "success": True,
             "messages": messages,
+            "oldest_message_id": oldest_message_id,
+            "newest_message_id": newest_message_id,
+            "has_older": has_older,
             "last_message_id": last_message_id,
             "bot_paused": c.bot_paused,
             "manager_takeover": c.manager_takeover,
@@ -2827,6 +2856,9 @@ def bot_client_detail_api(request, client_id):
         "client": card,
         "messages": messages,
         "last_message_id": last_message_id,
+        "oldest_message_id": oldest_message_id,
+        "newest_message_id": newest_message_id,
+        "has_older": has_older,
         "events": events,
         "signals": signals,
         "signal_event_count": len(signal_rows),

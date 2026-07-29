@@ -5,7 +5,7 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.core.cache import cache
 
-from management.models import IgPollCursor, InstagramBotSettings
+from management.models import IgPollCursor, InstagramBotMessage, InstagramBotSettings
 from management.services import instagram_bot as bot
 
 
@@ -279,9 +279,9 @@ class ConversationMessagePaginationSafetyTests(TestCase):
              patch.object(bot, "enqueue_inbound") as enqueue:
             result = bot.poll_ingest(self.settings)
 
-        self.assertEqual(result["enqueued"], 0)
+        self.assertEqual(result["enqueued"], 2)
         self.assertEqual(http.call_count, 2)
-        enqueue.assert_not_called()
+        self.assertEqual(enqueue.call_count, 2)
         self.assertEqual(
             IgPollCursor.objects.get(conversation_id="conv-cycle").last_message_id,
             "",
@@ -363,13 +363,13 @@ class ConversationMessagePaginationSafetyTests(TestCase):
              patch.object(bot, "enqueue_inbound") as enqueue:
             result = bot.poll_ingest(self.settings)
 
-        self.assertEqual(result["enqueued"], 0)
+        self.assertEqual(result["enqueued"], 1)
         self.assertTrue(result["degraded"])
         self.assertEqual(
             cache.get("ig_bot_ingress_poll_degraded:page")["state"],
             "message_poll_failed",
         )
-        enqueue.assert_not_called()
+        enqueue.assert_called_once()
         self.assertEqual(
             IgPollCursor.objects.get(conversation_id="conv-partial").last_message_id,
             "",
@@ -440,3 +440,170 @@ class ConversationMessagePaginationSafetyTests(TestCase):
 
         self.assertTrue(result["budget_exhausted"])
         self.assertEqual(cache.get(poll_key)["state"], "message_poll_failed")
+
+    def test_history_messages_are_persisted_without_reply_queue_or_page_side_effects(self):
+        self._cache_conversations("conv-history")
+        self.settings.reply_after = datetime(2026, 7, 10, 17, 0, tzinfo=timezone.utc)
+        self.settings.save(update_fields=["reply_after"])
+        messages = [
+            _message("old-user", 1, sender="customer"),
+            _message("old-page", 2, sender="page"),
+        ]
+        messages[1]["to"] = {"data": [{"id": "customer"}]}
+        with patch.object(bot, "get_page_token", return_value="PT"), \
+             patch.object(bot, "_http", return_value=(200, json.dumps({"messages": {"data": messages}}))), \
+             patch.object(bot, "enqueue_inbound") as enqueue:
+            result = bot.poll_ingest(self.settings)
+
+        self.assertEqual(result["enqueued"], 0)
+        enqueue.assert_not_called()
+        rows = {
+            row.mid: row
+            for row in InstagramBotMessage.objects.filter(
+                mid__in=["old-user", "old-page"]
+            )
+        }
+        self.assertEqual(rows["old-user"].role, InstagramBotMessage.Role.USER)
+        self.assertEqual(rows["old-page"].role, InstagramBotMessage.Role.MANAGER)
+        client = bot.IgClient.objects.get(igsid="customer")
+        self.assertFalse(client.manager_takeover)
+        self.assertFalse(client.bot_paused)
+
+    def test_page_cap_queues_validated_live_rows_without_cursor_advance(self):
+        self._cache_conversations("conv-long")
+        first_page = {
+            "messages": {
+                "data": [_message("history-1", 1)],
+                "paging": {"next": f"{bot.GRAPH}/next-history"},
+            }
+        }
+        with patch.object(bot, "get_page_token", return_value="PT"), \
+             patch.object(bot, "POLL_MESSAGE_MAX_PAGES", 1), \
+             patch.object(bot, "_http", return_value=(200, json.dumps(first_page))), \
+             patch.object(bot, "_persist_polled_message") as persist, \
+             patch.object(bot, "enqueue_inbound", return_value=True) as enqueue:
+            result = bot.poll_ingest(self.settings)
+
+        self.assertTrue(result["degraded"])
+        persist.assert_not_called()
+        enqueue.assert_called_once()
+        cursor = IgPollCursor.objects.get(conversation_id="conv-long")
+        self.assertEqual(cursor.last_message_id, "")
+
+    def test_page_side_history_is_manager_evidence_with_provider_time(self):
+        message = _message("manager-history", 1, sender="page")
+        message["to"] = {"data": [{"id": "customer"}]}
+
+        self.assertTrue(bot._persist_polled_message(self.settings, message, observed_only=True))
+
+        row = InstagramBotMessage.objects.get(mid="manager-history")
+        self.assertEqual(row.role, InstagramBotMessage.Role.MANAGER)
+        self.assertEqual(row.sender_id, "customer")
+        self.assertEqual(
+            row.provider_created_at,
+            bot._parse_ig_time(message["created_time"]),
+        )
+
+    def test_page_side_without_valid_recipient_does_not_advance_cursor(self):
+        self._cache_conversations("conv-page-no-recipient")
+        message = _message("page-no-recipient", 1, sender="page")
+        with patch.object(bot, "get_page_token", return_value="PT"), \
+             patch.object(
+                 bot,
+                 "_http",
+                 return_value=(200, json.dumps({"messages": {"data": [message]}})),
+             ):
+            result = bot.poll_ingest(self.settings)
+
+        self.assertTrue(result["degraded"])
+        cursor = IgPollCursor.objects.get(conversation_id="conv-page-no-recipient")
+        self.assertEqual(cursor.last_message_id, "")
+
+    def test_live_page_side_message_starts_manager_takeover(self):
+        self._cache_conversations("conv-live-manager")
+        self.settings.allowed_senders = ""
+        self.settings.reply_after = datetime(2026, 7, 9, 14, 0, tzinfo=timezone.utc)
+        self.settings.save(update_fields=["allowed_senders", "reply_after"])
+        message = _message("manager-live", 1, sender="page")
+        message["to"] = {"data": [{"id": "customer-live-manager"}]}
+
+        with patch.object(bot, "get_page_token", return_value="PT"), \
+             patch.object(
+                 bot,
+                 "_http",
+                 return_value=(200, json.dumps({"messages": {"data": [message]}})),
+             ), \
+             patch("management.services.instagram_bot.notify_manager", return_value=True):
+            result = bot.poll_ingest(self.settings)
+
+        self.assertEqual(result["enqueued"], 0)
+        client = bot.IgClient.objects.get(igsid="customer-live-manager")
+        self.assertTrue(client.manager_takeover)
+        self.assertTrue(client.bot_paused)
+        row = InstagramBotMessage.objects.get(mid="manager-live")
+        self.assertEqual(row.role, InstagramBotMessage.Role.MANAGER)
+        self.assertEqual(row.provider_created_at, bot._parse_ig_time(message["created_time"]))
+
+    def test_message_id_longer_than_mariadb_column_is_rejected(self):
+        self._cache_conversations("conv-long-mid")
+        payload = {"messages": {"data": [_message("m" * 256, 1)]}}
+        with patch.object(bot, "get_page_token", return_value="PT"), \
+             patch.object(bot, "_http", return_value=(200, json.dumps(payload))):
+            result = bot.poll_ingest(self.settings)
+
+        self.assertTrue(result["degraded"])
+        self.assertFalse(InstagramBotMessage.objects.exists())
+
+    def test_incomplete_then_complete_poll_queues_live_message_exactly_once(self):
+        self._cache_conversations("conv-live-retry")
+        self.settings.allowed_senders = ""
+        self.settings.reply_after = datetime(2026, 7, 9, 14, 0, tzinfo=timezone.utc)
+        self.settings.save(update_fields=["allowed_senders", "reply_after"])
+        first_page = {
+            "messages": {
+                "data": [_message("live-2", 2)],
+                "paging": {"next": f"{bot.GRAPH}/next-live"},
+            }
+        }
+        last_page = {"messages": {"data": [_message("history-1", 0)]}}
+
+        with patch.object(bot, "get_page_token", return_value="PT"), \
+             patch.object(bot, "_http", side_effect=[
+                 (200, json.dumps(first_page)),
+                 (503, "temporary"),
+                 (200, json.dumps(first_page)),
+                 (200, json.dumps(last_page)),
+             ]), \
+             patch("management.services.bot_sales_classifier.classify_message", return_value={}), \
+             patch("management.services.bot_followups.schedule_after_inbound"):
+            first = bot.poll_ingest(self.settings)
+            second = bot.poll_ingest(self.settings)
+
+        self.assertEqual(first["enqueued"], 1)
+        self.assertEqual(second["enqueued"], 0)
+        rows = InstagramBotMessage.objects.filter(mid="live-2")
+        self.assertEqual(rows.count(), 1)
+        self.assertEqual(rows.get().status, InstagramBotMessage.Status.PENDING)
+        cursor = IgPollCursor.objects.get(conversation_id="conv-live-retry")
+        self.assertEqual(cursor.last_message_id, "live-2")
+
+    def test_incomplete_poll_keeps_pre_boundary_customer_message_observed(self):
+        self._cache_conversations("conv-old-retry")
+        self.settings.reply_after = datetime(2026, 7, 9, 14, 2, tzinfo=timezone.utc)
+        self.settings.save(update_fields=["reply_after"])
+        first_page = {
+            "messages": {
+                "data": [_message("history-1", 1)],
+                "paging": {"next": f"{bot.GRAPH}/next-history"},
+            }
+        }
+
+        with patch.object(bot, "get_page_token", return_value="PT"), \
+             patch.object(bot, "POLL_MESSAGE_MAX_PAGES", 1), \
+             patch.object(bot, "_http", return_value=(200, json.dumps(first_page))):
+            result = bot.poll_ingest(self.settings)
+
+        self.assertEqual(result["enqueued"], 0)
+        row = InstagramBotMessage.objects.get(mid="history-1")
+        self.assertEqual(row.status, InstagramBotMessage.Status.DONE)
+        self.assertEqual(row.source, "poll_history")

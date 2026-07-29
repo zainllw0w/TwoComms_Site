@@ -202,6 +202,12 @@ def _run_work_cycle(settings_obj, last_poll: float) -> tuple[bool, float]:
         # kill switch. The next cycle retries and the error remains visible in
         # the operational log/status surface.
         bot.log("error", "notification_outbox", repr(exc))
+    profile_key = f"ig_profile_batch:{settings_obj.page_id or 'unknown'}"
+    if cache.add(profile_key, "1", timeout=bot.PROFILE_REFRESH_INTERVAL):
+        try:
+            bot.refresh_profiles_batch(settings_obj)
+        except Exception as exc:
+            bot.log("warning", "profile_refresh_batch", repr(exc))
     if enabled:
         bot.process_pending(settings_obj)
         bot_followups.process_due_followups(settings_obj)

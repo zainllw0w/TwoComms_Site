@@ -4,6 +4,7 @@ JSON-API списку карток і детальної (переписка, к
 угоди, замовлення). Доступ лише адмінам.
 """
 from decimal import Decimal
+from datetime import timedelta
 import os
 from pathlib import Path
 import re
@@ -98,6 +99,13 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
         self.assertIn('"funnel": _funnel_progress_for_stage(c, operational_stage)', Path(__file__).with_name("bot_views.py").read_text(encoding="utf-8"))
         self.assertIn("function applyIncrementalConversationState(d)", self.template)
         self.assertIn("applyIncrementalConversationState(d)", self.template)
+
+    def test_evidence_link_auto_pages_bounded_history_without_reversing_rows(self):
+        self.assertIn("async function revealRequestedMessage", self.template)
+        self.assertIn("while(!evidence&&convHasOlder&&pages<20)", self.template)
+        self.assertIn("Повідомлення #'+target+' не знайдено", self.template)
+        self.assertIn("(d.messages||[]).forEach(m=>", self.template)
+        self.assertNotIn("(d.messages||[]).slice().reverse().forEach(m=>", self.template)
 
     def test_order_resolution_actions_are_explicit_and_rejection_has_reason(self):
         for visible_copy in (
@@ -1844,6 +1852,9 @@ class ClientDetailCursorTests(TestCase):
         self.admin = User.objects.create_user("adm_cur", password="x", is_staff=True)
         self.client.force_login(self.admin)
         self.c = IgClient.get_or_create_for_sender("igCur")
+        self.m0 = InstagramBotMessage.objects.create(
+            sender_id="igCur", client=self.c, role="user", text="саме перше", mid="cur0"
+        )
         self.m1 = InstagramBotMessage.objects.create(
             sender_id="igCur", client=self.c, role="user", text="перше", mid="cur1"
         )
@@ -1856,6 +1867,19 @@ class ClientDetailCursorTests(TestCase):
         data = r.json()
         self.assertTrue(all("id" in m for m in data["messages"]))
         self.assertEqual(data["last_message_id"], self.m2.id)
+
+    def test_detail_prefers_provider_message_time_with_local_fallback(self):
+        provider_time = timezone.now() - timedelta(days=30)
+        self.m1.provider_created_at = provider_time
+        self.m1.save(update_fields=["provider_created_at"])
+
+        data = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.c.id])
+        ).json()
+        messages = {message["id"]: message for message in data["messages"]}
+
+        self.assertEqual(messages[self.m1.id]["time"], provider_time.isoformat())
+        self.assertEqual(messages[self.m2.id]["time"], self.m2.created_at.isoformat())
 
     def test_detail_after_id_returns_only_new_messages(self):
         url = reverse("management_bot_client_detail_api", args=[self.c.id]) + f"?after_id={self.m1.id}"
@@ -1871,3 +1895,30 @@ class ClientDetailCursorTests(TestCase):
         data = self.client.get(url).json()
         self.assertEqual(data["messages"], [])
         self.assertEqual(data["last_message_id"], self.m2.id)
+
+    def test_detail_before_id_returns_older_messages_with_cursor_metadata(self):
+        url = reverse("management_bot_client_detail_api", args=[self.c.id]) + f"?before_id={self.m1.id}"
+        data = self.client.get(url).json()
+
+        self.assertEqual([message["id"] for message in data["messages"]], [self.m0.id])
+        self.assertEqual(data["oldest_message_id"], self.m0.id)
+        self.assertEqual(data["newest_message_id"], self.m0.id)
+        self.assertFalse(data["has_older"])
+
+    def test_initial_detail_exposes_older_history_cursor(self):
+        for index in range(301):
+            InstagramBotMessage.objects.create(
+                sender_id="igCur",
+                client=self.c,
+                role="user",
+                text=f"history-{index}",
+                mid=f"history-{index}",
+            )
+
+        data = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.c.id])
+        ).json()
+
+        self.assertEqual(len(data["messages"]), 300)
+        self.assertTrue(data["has_older"])
+        self.assertEqual(data["oldest_message_id"], data["messages"][0]["id"])

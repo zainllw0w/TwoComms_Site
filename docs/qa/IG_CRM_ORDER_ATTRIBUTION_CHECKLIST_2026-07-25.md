@@ -339,9 +339,47 @@ Task 6 active-conversation regression follow-up (2026-07-26):
 - [ ] Customer, manager and bot messages all advance one durable per-client
   analysis watermark. A 30-second debounce coalesces a burst; manager/model
   roles never generate a customer reply.
+- [x] Local transcript recovery now persists validated historical user and
+  page-side messages without reply/classifier side effects, retains fetched
+  pages when a bounded recovery cycle is incomplete, and advances polling
+  cursors only after a complete traversal.
+- [x] Client detail exposes `before_id` cursor metadata and a compact
+  "Завантажити старішу історію" control; the initial 300-message window can
+  be walked backwards without any Graph request from the UI.
+- [x] Profile enrichment is batch/cooldown based: the daemon refreshes bounded
+  name/username/profile-picture batches and stores local avatar copies; a
+  manual `refresh_ig_profiles` command is available for controlled backfill.
 - [x] Manager takeover and explicit opt-out stay immediate local routing
   barriers. Manager evidence is higher-priority operational evidence but is not
   rewritten as customer intent.
+
+Task 7B polling recovery, provenance and profile enrichment (2026-07-29):
+
+- [x] A validated customer message found during an incomplete recovery traversal
+  enters the normal idempotent queue exactly once; the next complete traversal
+  cannot lose it through the unique Meta `mid`, and the cursor still advances
+  only after complete persistence.
+- [x] Historical customer messages remain observed-only, while page-side history
+  is stored as `MANAGER` evidence. A new page-side message uses the same atomic
+  takeover/pause barrier as webhook echoes; known bot echoes remain `MODEL`.
+- [x] Meta `created_time` is stored separately as `provider_created_at`; the chat
+  API renders provider time with a local-ingest fallback, preserving chronology.
+  Webhook and polling sender/message IDs fail closed at MariaDB column limits.
+- [x] Profile refresh is bounded, independent of the reply-enabled gate, and
+  persists exponential per-client backoff plus explicit `no_token` and
+  `permission_denied` batch states. Manual `--force` can override client backoff.
+- [x] Evidence links now auto-page up to 20 local history requests, report a
+  deterministic not-found state, and prepend older rows in provider order.
+- [x] Local Task 7B gate passed: polling 30, profiles 10, client/UI 87, daemon
+  47, webhook-shape 15, webhook-security 9, intelligence 28, post-sale 10,
+  payment 25 and shipment 10 tests; `manage.py check`, migration drift,
+  compile and diff checks passed.
+- [ ] Production signed webhook acceptance remains open: live probe found one
+  daemon, fresh heartbeat/poll, empty allowlist, page subscription `messages`,
+  and granted legacy `instagram_basic`/`instagram_manage_messages`, but no
+  `IG_APP_SECRET`/`FACEBOOK_APP_SECRET`. Configure the real Meta app secret,
+  deploy migration `0111`, then verify one genuine new non-role inbound through
+  signed webhook -> queue -> analysis -> reply without a synthetic event.
 - [ ] Recovery discovery uses the page-scoped endpoint, small pages, cursors,
   request/time budgets, adaptive backoff, jitter, Meta error classes and usage
   headers. Permission/configuration failures must not be retried every few

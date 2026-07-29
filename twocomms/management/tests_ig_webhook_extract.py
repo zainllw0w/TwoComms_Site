@@ -127,3 +127,21 @@ class HandleWebhookPayloadTests(TestCase):
         c = IgClient.objects.get(igsid="u9")
         self.assertEqual(c.ad_id, "42")
         self.assertEqual(c.ad_title, "Tee")
+
+    def test_rejects_sender_longer_than_mariadb_column(self):
+        payload = {"entry": [{"messaging": [{
+            "sender": {"id": "u" * 65},
+            "message": {"mid": "safe-mid", "text": "hello"},
+        }]}]}
+
+        self.assertEqual(bot.handle_webhook_payload(self.s, payload), 0)
+        self.assertFalse(InstagramBotMessage.objects.exists())
+
+    def test_rejects_message_id_longer_than_mariadb_column(self):
+        payload = {"entry": [{"messaging": [{
+            "sender": {"id": "safe-user"},
+            "message": {"mid": "m" * 256, "text": "hello"},
+        }]}]}
+
+        self.assertEqual(bot.handle_webhook_payload(self.s, payload), 0)
+        self.assertFalse(InstagramBotMessage.objects.exists())

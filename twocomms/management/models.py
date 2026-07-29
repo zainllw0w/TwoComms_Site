@@ -3754,6 +3754,10 @@ class InstagramBotMessage(models.Model):
     send_started_at = models.DateTimeField(null=True, blank=True)
     send_completed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    # Provider timestamp is separate from the local immutable ingest time.
+    # Backfill/recovery may persist old messages today, but the chat must show
+    # when Meta says the message was actually created.
+    provider_created_at = models.DateTimeField(null=True, blank=True, db_index=True)
     # Час саме захоплення воркером, а не надходження webhook. Потрібен для
     # безпечного reclaim: старе повідомлення могло довго чекати в pending,
     # але щойно перейти в processing.

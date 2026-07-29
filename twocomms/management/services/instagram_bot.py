@@ -58,20 +58,23 @@ PAGE_TOKEN_TTL = 1200
 HTTP_TIMEOUT = 12
 CONV_LIST_TIMEOUT = 30
 CONV_PAGE_LIMIT = 10
-CONV_MAX_PAGES = 10
+CONV_MAX_PAGES = 50
 CONV_MAX_IDS = 500
 CONV_MIN_INTERVAL = 0.5  # Meta Conversations API: at most 2 requests/second.
 CONV_CACHE_TTL = 3600
 CONV_REFRESH_LOCK_TTL = CONV_LIST_TIMEOUT * CONV_MAX_PAGES + 30
 INGRESS_DEGRADATION_TTL = 15 * 60
 _CONV_ID_RE = re.compile(r"^[A-Za-z0-9:_-]{1,255}$")
+_SENDER_ID_RE = re.compile(r"^[A-Za-z0-9:_-]{1,64}$")
 _GRAPH_VERSION_PATH_RE = re.compile(r"^/v\d+(?:\.\d+)?(?:/|$)")
 POLL_MESSAGE_TIMEOUT = 12
 POLL_MESSAGE_MAX_PAGES = 5
 POLL_MAX_REQUESTS = 40
 POLL_MAX_SECONDS = 20
-MSG_KEEP_ROWS = 2000        # підрізання історії
 AUTOMATION_LEASE_TTL = timedelta(minutes=3)
+PROFILE_REFRESH_INTERVAL = 15 * 60
+PROFILE_REFRESH_BATCH = 25
+PROFILE_PERMISSION_COOLDOWN = 6 * 60 * 60
 
 # Керуючі теги, які модель може додавати у відповідь (вирізаються перед
 # відправкою клієнту). [STAGE:x] просуває воронку, [MANAGER] кличе людину.
@@ -707,7 +710,11 @@ def _handle_echo(
 ) -> None:
     """Echo-подія (повідомлення, надіслане сторінкою). Якщо це НЕ власне відлуння
     бота — значить відповів живий менеджер → ставимо бота на паузу для клієнта."""
-    if not recipient_igsid:
+    recipient_igsid = str(recipient_igsid or "").strip()
+    mid = str(mid or "").strip()
+    if not _SENDER_ID_RE.fullmatch(recipient_igsid):
+        return
+    if mid and not _valid_message_id(mid):
         return
     if text and cache.get(_bot_sent_key(recipient_igsid, text)):
         return  # власне відлуння бота — ігноруємо
@@ -769,6 +776,7 @@ def _handle_echo(
                                 [item.get("url") for item in (attachments or []) if item.get("url")],
                                 ensure_ascii=False,
                             ) if attachments else "",
+                            provider_created_at=received_at,
                             processed_at=timezone.now(),
                         )
                 except IntegrityError:
@@ -1979,7 +1987,8 @@ def _classify_send_error(code: int, body: str) -> tuple[str, str]:
         return (
             "permanent",
             "Meta відхилила нерольового отримувача: немає Advanced Access на "
-            "instagram_manage_messages або отримувач не має ролі в застосунку",
+            "instagram_business_manage_messages (legacy instagram_manage_messages) "
+            "або отримувач не має ролі в застосунку",
         )
     if sub == MESSAGING_WINDOW_CLOSED_SUBCODE:
         return (
@@ -2669,11 +2678,19 @@ def fetch_ig_profile(s: InstagramBotSettings, igsid: str) -> dict:
         timeout=HTTP_TIMEOUT,
     )
     if code != 200:
+        graph_code, graph_subcode = _graph_error_codes(body)
+        if code == 403 or graph_code in {10, 200} or graph_subcode == ADVANCED_ACCESS_SUBCODE:
+            cache.set(
+                f"ig_profile_global_error:{s.page_id or 'unknown'}",
+                "permission_denied",
+                PROFILE_PERMISSION_COOLDOWN,
+            )
         return {}
     try:
         data = json.loads(body)
     except Exception:
         return {}
+    cache.delete(f"ig_profile_global_error:{s.page_id or 'unknown'}")
     return {
         "name": data.get("name") or "",
         "username": data.get("username") or "",
@@ -2714,10 +2731,15 @@ def ensure_profile(s: InstagramBotSettings, client, force: bool = False) -> bool
 
     if not client:
         return False
+    if cache.get(f"ig_profile_global_error:{s.page_id or 'unknown'}"):
+        return False
+    has_identity = bool(client.display_name or client.username)
+    avatar_resolved = bool(client.avatar_local or not client.profile_pic_url)
     fresh = bool(
         client.profile_fetched_at
         and (timezone.now() - client.profile_fetched_at) < timedelta(days=7)
-        and client.avatar_local
+        and (has_identity or bool(client.avatar_local))
+        and avatar_resolved
     )
     if fresh and not force:
         return False
@@ -2740,11 +2762,121 @@ def ensure_profile(s: InstagramBotSettings, client, force: bool = False) -> bool
         if local:
             client.avatar_local = local[:300]
     client.profile_fetched_at = timezone.now()
+    client.profile_sync_attempted_at = client.profile_fetched_at
+    client.profile_sync_failures = 0
+    client.profile_sync_next_at = None
+    client.profile_sync_error_kind = ""
     client.save(update_fields=[
         "display_name", "username", "profile_pic_url", "avatar_local",
-        "profile_fetched_at", "updated_at",
+        "profile_fetched_at", "profile_sync_attempted_at",
+        "profile_sync_failures", "profile_sync_next_at",
+        "profile_sync_error_kind", "updated_at",
     ])
     return True
+
+
+def _record_profile_sync_result(client: IgClient, *, success: bool, error_kind: str = "") -> None:
+    """Persist profile retry state after provider I/O without holding a DB lock."""
+    now = timezone.now()
+    with transaction.atomic():
+        locked = IgClient.objects.select_for_update().get(pk=client.pk)
+        locked.profile_sync_attempted_at = now
+        if success:
+            locked.profile_sync_failures = 0
+            locked.profile_sync_next_at = None
+            locked.profile_sync_error_kind = ""
+        else:
+            failures = min(int(locked.profile_sync_failures or 0) + 1, 16)
+            if error_kind == "permission_denied":
+                delay_seconds = PROFILE_PERMISSION_COOLDOWN
+            else:
+                delay_seconds = min(15 * 60 * (2 ** (failures - 1)), 24 * 60 * 60)
+            locked.profile_sync_failures = failures
+            locked.profile_sync_next_at = now + timedelta(seconds=delay_seconds)
+            locked.profile_sync_error_kind = (error_kind or "provider_error")[:32]
+        locked.save(update_fields=[
+            "profile_sync_attempted_at",
+            "profile_sync_failures",
+            "profile_sync_next_at",
+            "profile_sync_error_kind",
+            "updated_at",
+        ])
+
+
+def refresh_profiles_batch(
+    s: InstagramBotSettings,
+    *,
+    limit: int = PROFILE_REFRESH_BATCH,
+    force: bool = False,
+) -> dict[str, int | str]:
+    """Refresh a bounded batch of IG profiles with a daemon-wide cooldown.
+
+    Profile enrichment is deliberately independent from message polling and
+    chat rendering. A failed Graph/profile-picture request is isolated to one
+    client and never blocks ingress or customer replies.
+    """
+    empty = {"checked": 0, "updated": 0, "failed": 0}
+    if not s or not get_page_token(s):
+        return {**empty, "state": "no_token"}
+    global_error_key = f"ig_profile_global_error:{s.page_id or 'unknown'}"
+    global_error = cache.get(global_error_key)
+    if global_error:
+        return {**empty, "state": str(global_error)}
+    try:
+        limit = max(1, min(int(limit), 100))
+    except (TypeError, ValueError):
+        limit = PROFILE_REFRESH_BATCH
+    now = timezone.now()
+    stale_cutoff = now - timedelta(days=7)
+    candidates_qs = IgClient.objects.filter(hidden_at__isnull=True).filter(
+        Q(profile_fetched_at__isnull=True)
+        | Q(profile_fetched_at__lt=stale_cutoff)
+        | Q(display_name="", username="")
+        | Q(avatar_local="", profile_pic_url__gt="")
+    )
+    if not force:
+        candidates_qs = candidates_qs.filter(
+            Q(profile_sync_next_at__isnull=True)
+            | Q(profile_sync_next_at__lte=now)
+        )
+    candidates = candidates_qs.order_by(
+        "profile_sync_next_at", "profile_fetched_at", "id"
+    )[: min(400, max(limit * 4, limit))]
+    updated = 0
+    checked = 0
+    failed = 0
+    state = "ok"
+    for client in candidates:
+        if checked >= limit:
+            break
+        if not force and cache.get(f"ig_profile_cd:{client.igsid}"):
+            continue
+        checked += 1
+        try:
+            refreshed = ensure_profile(s, client, force=force)
+            if refreshed:
+                updated += 1
+            else:
+                failed += 1
+        except Exception as exc:
+            refreshed = False
+            failed += 1
+            log("warning", "profile_refresh", f"{client.igsid}: {exc!r}")
+        global_error = cache.get(global_error_key)
+        _record_profile_sync_result(
+            client,
+            success=refreshed,
+            error_kind=str(global_error or "provider_error"),
+        )
+        if global_error:
+            state = str(global_error)
+            break
+    return {
+        "checked": checked,
+        "updated": updated,
+        "failed": failed,
+        "state": state,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -2772,8 +2904,11 @@ def enqueue_inbound(
     """Кладе вхідне в чергу (pending). Повертає True, якщо додано нове."""
     text = (text or "").strip()
     sender_id = (sender_id or "").strip()
+    mid = (mid or "").strip()
     attachments = attachments or []
-    if not sender_id:
+    if not _SENDER_ID_RE.fullmatch(sender_id):
+        return False
+    if mid and not _valid_message_id(mid):
         return False
     if not text and not attachments:
         return False  # ні тексту, ні зображення
@@ -2823,6 +2958,7 @@ def enqueue_inbound(
                 ),
                 source=source,
                 attachments=json.dumps(attachments) if attachments else "",
+                provider_created_at=received_at,
                 processed_at=None if reply_eligible else timezone.now(),
             )
             client.touch_inbound()
@@ -3545,7 +3681,7 @@ def _process_one_inside_reply_boundary(
         text=reply,
         status=InstagramBotMessage.Status.DONE,
         source=row.source,
-        processed_at=timezone.now(),
+        processed_at=processed_at,
     )
     s.replies_count = (s.replies_count or 0) + 1
     s.last_reply_at = timezone.now()
@@ -3601,7 +3737,6 @@ def _process_one_inside_reply_boundary(
             f"IGSID: {row.sender_id}\nПитання: {row.text[:400]}"
         )
         log("warning", "escalation", f"{row.sender_id}: викликано менеджера")
-    _trim_messages()
     return True
 
 
@@ -3693,18 +3828,6 @@ def link_orphan_messages_to_clients() -> int:
         InstagramBotMessage.objects.filter(sender_id=sid, client__isnull=True).update(client=client)
         count += 1
     return count
-
-
-def _trim_messages() -> None:
-    try:
-        if InstagramBotMessage.objects.count() > MSG_KEEP_ROWS + 200:
-            ids = list(
-                InstagramBotMessage.objects.order_by("-id").values_list("id", flat=True)[:MSG_KEEP_ROWS]
-            )
-            if ids:
-                InstagramBotMessage.objects.exclude(id__in=ids).delete()
-    except Exception:
-        pass
 
 
 # ---------------------------------------------------------------------------
@@ -3943,6 +4066,129 @@ def _extract_media_urls(msg: dict) -> list[str]:
     return out[:MEDIA_MAX]
 
 
+def _polled_recipient_id(message: dict, page_id: str) -> str:
+    """Return the customer participant for either side of a conversation."""
+    sender = str((message.get("from") or {}).get("id") or "").strip()
+    if sender and sender != str(page_id or "") and _SENDER_ID_RE.fullmatch(sender):
+        return sender
+    recipient_block = message.get("to") or {}
+    if not isinstance(recipient_block, dict):
+        return ""
+    recipients = recipient_block.get("data") or []
+    if not isinstance(recipients, list):
+        return ""
+    for recipient in recipients:
+        if not isinstance(recipient, dict):
+            continue
+        candidate = str((recipient or {}).get("id") or "").strip()
+        if (
+            candidate
+            and candidate != str(page_id or "")
+            and _SENDER_ID_RE.fullmatch(candidate)
+        ):
+            return candidate
+    return ""
+
+
+def _persist_polled_message(
+    s: InstagramBotSettings,
+    message: dict,
+    *,
+    observed_only: bool = False,
+) -> bool:
+    """Persist a provider message without triggering classification or reply.
+
+    This path is used for backfilled pages and page-side messages. It is
+    idempotent by Meta message id and deliberately never enters the customer
+    reply queue, so recovery cannot send historical responses.
+    """
+    mid = str(message.get("id") or "").strip()
+    if not _valid_message_id(mid):
+        return False
+    page_id = str(s.ig_user_id or s.page_id or "").strip()
+    sender = str((message.get("from") or {}).get("id") or "").strip()
+    customer_id = _polled_recipient_id(message, page_id)
+    if not customer_id:
+        return False
+    text = str(message.get("message") or "").strip()
+    attachments = _extract_media_urls(message)
+    if not text and not attachments:
+        text = "(медіа)"
+    is_page_side = bool(sender and sender == page_id)
+    role = InstagramBotMessage.Role.USER
+    if is_page_side:
+        role = (
+            InstagramBotMessage.Role.MODEL
+            if text and cache.get(_bot_sent_key(customer_id, text))
+            else InstagramBotMessage.Role.MANAGER
+        )
+    try:
+        client = IgClient.get_or_create_for_sender(customer_id)
+        row, created = InstagramBotMessage.objects.get_or_create(
+            mid=mid,
+            defaults={
+                "sender_id": customer_id,
+                "client": client,
+                "role": role,
+                "text": text,
+                "status": InstagramBotMessage.Status.DONE,
+                "source": "poll_history" if observed_only else "poll",
+                "attachments": json.dumps(attachments) if attachments else "",
+                "provider_created_at": _parse_ig_time(
+                    message.get("created_time", "")
+                ),
+                "processed_at": timezone.now(),
+            },
+        )
+        if not created:
+            return True
+        provider_created_at = row.provider_created_at
+        if role == InstagramBotMessage.Role.USER:
+            if provider_created_at and (
+                not client.last_message_at
+                or provider_created_at > client.last_message_at
+            ):
+                updates = {
+                    "last_message_at": provider_created_at,
+                    "updated_at": timezone.now(),
+                }
+                if not client.first_contact_at:
+                    updates["first_contact_at"] = provider_created_at
+                IgClient.objects.filter(pk=client.pk).update(**updates)
+        return True
+    except IntegrityError:
+        return False
+
+
+def _handle_polled_page_side(
+    s: InstagramBotSettings,
+    message: dict,
+    *,
+    historical: bool,
+) -> bool:
+    """Persist a page-side message with conservative provenance semantics."""
+    page_id = str(s.ig_user_id or s.page_id or "").strip()
+    customer_id = _polled_recipient_id(message, page_id)
+    if not customer_id:
+        return False
+    text = str(message.get("message") or "").strip()
+    if historical or (text and cache.get(_bot_sent_key(customer_id, text))):
+        return _persist_polled_message(s, message, observed_only=True)
+    try:
+        _handle_echo(
+            customer_id,
+            text,
+            attachments=_echo_media_items(message),
+            mid=str(message.get("id") or "").strip(),
+            received_at=_parse_ig_time(message.get("created_time", "")),
+            persistence_only=True,
+        )
+    except Exception as exc:
+        log("warning", "poll_manager_message", repr(exc))
+        return False
+    return InstagramBotMessage.objects.filter(mid=message.get("id")).exists()
+
+
 def _apply_referral(sender_id: str, ref: dict) -> None:
     """Зберігає атрибуцію реклами (Click-to-IG-Direct) у картку клієнта.
 
@@ -3998,7 +4244,13 @@ def handle_webhook_payload(
                 if persistence_only:
                     raise
             continue
-        if not sender_id:
+        sender_id = str(sender_id or "").strip()
+        message_mid = str(msg.get("mid") or "").strip()
+        if not _SENDER_ID_RE.fullmatch(sender_id):
+            log("warning", "invalid_sender_id", f"[{len(sender_id)} chars]")
+            continue
+        if message_mid and not _valid_message_id(message_mid):
+            log("warning", "invalid_message_id", f"[{len(message_mid)} chars]")
             continue
         if ref:
             try:
@@ -4038,7 +4290,7 @@ def _parse_ig_time(raw: str):
 def _valid_message_id(value) -> bool:
     return bool(
         isinstance(value, str)
-        and 0 < len(value.strip()) <= 512
+        and 0 < len(value.strip()) <= 255
         and all(ord(char) >= 32 and ord(char) != 127 for char in value)
     )
 
@@ -4089,9 +4341,20 @@ def _validate_polled_page(envelope) -> tuple[list[dict], str]:
         sender_id = sender.get("id")
         if (
             not isinstance(sender_id, str)
-            or not _CONV_ID_RE.fullmatch(sender_id.strip())
+            or not _SENDER_ID_RE.fullmatch(sender_id.strip())
         ):
             raise ValueError("malformed sender id")
+        recipients = message.get("to")
+        if recipients is not None:
+            if not isinstance(recipients, dict) or not isinstance(recipients.get("data"), list):
+                raise ValueError("malformed recipients")
+            for recipient in recipients["data"]:
+                recipient_id = recipient.get("id") if isinstance(recipient, dict) else None
+                if (
+                    not isinstance(recipient_id, str)
+                    or not _SENDER_ID_RE.fullmatch(recipient_id.strip())
+                ):
+                    raise ValueError("malformed recipient id")
         text = message.get("message")
         if text is not None and not isinstance(text, str):
             raise ValueError("malformed message text")
@@ -4132,7 +4395,7 @@ def _fetch_polled_conversation(
 ) -> dict:
     page_url = _graph_url(
         f"/{conversation_id}",
-        {"fields": "messages.limit(50){message,from,created_time,id,attachments}"},
+        {"fields": "messages.limit(50){message,from,to,created_time,id,attachments}"},
     )
     all_messages: list[dict] = []
     visited_pages: set[str] = set()
@@ -4140,7 +4403,7 @@ def _fetch_polled_conversation(
     for _page in range(POLL_MESSAGE_MAX_PAGES):
         if requests_used >= request_limit or time.monotonic() >= deadline:
             return {
-                "messages": [],
+                "messages": all_messages,
                 "requests": requests_used,
                 "complete": False,
                 "budget_exhausted": True,
@@ -4148,7 +4411,7 @@ def _fetch_polled_conversation(
             }
         if page_url in visited_pages:
             return {
-                "messages": [],
+                "messages": all_messages,
                 "requests": requests_used,
                 "complete": False,
                 "budget_exhausted": False,
@@ -4161,7 +4424,7 @@ def _fetch_polled_conversation(
         requests_used += 1
         if code != 200:
             return {
-                "messages": [],
+                "messages": all_messages,
                 "requests": requests_used,
                 "complete": False,
                 "budget_exhausted": False,
@@ -4171,7 +4434,7 @@ def _fetch_polled_conversation(
             messages, next_url = _validate_polled_page(json.loads(body))
         except (TypeError, ValueError, json.JSONDecodeError) as exc:
             return {
-                "messages": [],
+                "messages": all_messages,
                 "requests": requests_used,
                 "complete": False,
                 "budget_exhausted": False,
@@ -4199,7 +4462,7 @@ def _fetch_polled_conversation(
             }
         if next_url in visited_pages:
             return {
-                "messages": [],
+                "messages": all_messages,
                 "requests": requests_used,
                 "complete": False,
                 "budget_exhausted": False,
@@ -4207,7 +4470,10 @@ def _fetch_polled_conversation(
             }
         page_url = next_url
     return {
-        "messages": [],
+        # Keep already fetched pages available for persistence. The cursor is
+        # still left untouched by poll_ingest until the conversation is fully
+        # traversed, so a later cycle can safely continue recovery.
+        "messages": all_messages,
         "requests": requests_used,
         "complete": False,
         "budget_exhausted": False,
@@ -4263,6 +4529,41 @@ def poll_ingest(s: InstagramBotSettings) -> dict:
         )
         requests_used += fetched["requests"]
         if not fetched["complete"]:
+            # A partial traversal must not advance the cursor, but a validated
+            # live inbound must still enter the idempotent queue. Persisting it
+            # as observed-only would consume its unique Meta id and the next
+            # complete cycle could never make it reply-eligible.
+            partial_unique = {
+                message["id"]: message for message in fetched.get("messages", [])
+            }
+            page_id = str(s.ig_user_id or s.page_id or "").strip()
+            for message in sorted(partial_unique.values(), key=_polled_message_key):
+                created = _parse_ig_time(message.get("created_time", ""))
+                sender = (message.get("from") or {}).get("id", "")
+                is_page_side = bool(page_id and sender == page_id)
+                is_before_reply_boundary = bool(
+                    reply_after and created and created <= reply_after
+                )
+                if is_page_side:
+                    _handle_polled_page_side(
+                        s,
+                        message,
+                        historical=is_before_reply_boundary,
+                    )
+                    continue
+                if is_before_reply_boundary:
+                    _persist_polled_message(s, message, observed_only=True)
+                    continue
+                if enqueue_inbound(
+                    s,
+                    sender_id=sender,
+                    text=message.get("message", ""),
+                    mid=message["id"],
+                    source="poll",
+                    attachments=_extract_media_urls(message),
+                    received_at=created,
+                ):
+                    enq += 1
             degraded = True
             _record_ingress_degradation(
                 s,
@@ -4285,17 +4586,35 @@ def poll_ingest(s: InstagramBotSettings) -> dict:
             unique[message["id"]] = message
 
         ordered = sorted(unique.values(), key=_polled_message_key)
+        page_id = str(s.ig_user_id or s.page_id or "").strip()
+        conversation_handled = True
         for message in ordered:
             mid = message["id"]
             created = _parse_ig_time(message.get("created_time", ""))
             if cursor_at and _polled_message_key(message) <= (cursor_at, cursor_id):
                 continue
             sender = (message.get("from") or {}).get("id", "")
-            if not sender or sender == s.ig_user_id:
+            if not sender:
                 continue
-            if reply_after and created and created <= reply_after:
+            is_page_side = bool(page_id and sender == page_id)
+            is_before_reply_boundary = bool(
+                reply_after and created and created <= reply_after
+            )
+            if is_page_side:
+                conversation_handled = bool(
+                    _handle_polled_page_side(
+                        s,
+                        message,
+                        historical=is_before_reply_boundary,
+                    )
+                ) and conversation_handled
                 continue
-            if enqueue_inbound(
+            if is_before_reply_boundary:
+                conversation_handled = bool(
+                    _persist_polled_message(s, message, observed_only=True)
+                ) and conversation_handled
+                continue
+            added = enqueue_inbound(
                 s,
                 sender_id=sender,
                 text=message.get("message", ""),
@@ -4303,15 +4622,26 @@ def poll_ingest(s: InstagramBotSettings) -> dict:
                 source="poll",
                 attachments=_extract_media_urls(message),
                 received_at=created,
-            ):
-                enq += 1
+            )
+            enq += int(added)
+            conversation_handled = bool(
+                added or InstagramBotMessage.objects.filter(mid=mid).exists()
+            ) and conversation_handled
 
-        if ordered:
+        if ordered and conversation_handled:
             newest = max(ordered, key=_polled_message_key)
             newest_at, newest_id = _polled_message_key(newest)
             cursor.last_message_at = newest_at if newest_at != datetime.min.replace(tzinfo=dt_timezone.utc) else cursor.last_message_at
             cursor.last_message_id = newest_id
             cursor.save(update_fields=["last_message_at", "last_message_id", "updated_at"])
+        elif ordered:
+            degraded = True
+            _record_ingress_degradation(
+                s,
+                "poll",
+                state="message_poll_failed",
+                reason="persistence_failed",
+            )
     if conversations_checked < len(conv_ids):
         budget_exhausted = True
     next_offset = (start_offset + conversations_checked) % len(conv_ids)
