@@ -21,6 +21,29 @@
     white: "white",
   };
 
+  const FORMAT_SCALES = {
+    A6: 0.28,
+    A5: 0.4,
+    A4: 0.58,
+    A3: 0.74,
+    "A3+": 0.86,
+    "A6+": 0.36,
+  };
+
+  function viewForPlacement(placement = {}) {
+    const key = String(placement.placement_key || "");
+    if (key === "back" || key === "hem_back") return "back";
+    return "front";
+  }
+
+  function requirementsForPlacement(placement = {}) {
+    return { requiresFile: !(placement.zone === "hem" && placement.mode === "text") };
+  }
+
+  function boxForFormat(format) {
+    return { format, scale: FORMAT_SCALES[format] || FORMAT_SCALES.A4 };
+  }
+
   function resolveAsset(config, state) {
     const profiles = config.custom_ref_preview_assets || {};
     const requestedProfile = profileKey(state);
@@ -74,20 +97,47 @@
     }
 
     function appendZone(container, placement, calibration, view) {
+      if (placement.zone === "custom") return;
+      if (viewForPlacement(placement) !== view) return;
       const isBody = placement.zone === "front" || placement.zone === "back";
       if (isBody && placement.zone !== view) return;
       if (placement.zone === "sleeve" && view !== "front") return;
-      const format = placement.zone === "sleeve" ? "A6" : (placement.size_preset || "A4");
+      const format = placement.zone === "sleeve" || placement.zone === "shoulder"
+        ? "A6"
+        : (placement.mode === "text" ? "TEXT" : (placement.size_preset || placement.mode || "A4"));
+      if (placement.zone === "shoulder") {
+        const side = placement.side === "right" ? "right" : "left";
+        const marker = document.createElement("div");
+        marker.className = `cp-preview-zone cp-preview-zone--shoulder cp-preview-zone--shoulder-${side}`;
+        marker.innerHTML = `<i class="cp-preview-zone-leader" aria-hidden="true"></i><strong>A6</strong><span>${side === "left" ? "L" : "R"}</span>`;
+        container.appendChild(marker);
+        return;
+      }
+      if (format === "TEXT") {
+        const marker = document.createElement("div");
+        marker.className = "cp-preview-zone cp-preview-zone--hem cp-preview-zone--text";
+        marker.innerHTML = `<strong>TEXT</strong><span>${String(placement.text || "").slice(0, 24)}</span>`;
+        container.appendChild(marker);
+        return;
+      }
       const box = zoneBox(format, calibration);
       if (!box) return;
-      const anchorKey = placement.zone === "sleeve"
+      if (placement.zone === "hem") {
+        const marker = document.createElement("div");
+        marker.className = "cp-preview-zone cp-preview-zone--hem";
+        marker.style.setProperty("--cp-hem-width", `${Math.min(Math.max(box.width, 12), format === "A6+" ? 30 : 20)}%`);
+        marker.innerHTML = `<strong>${format}</strong><span>${formatCm(box.dimensions.width_mm)} × ${formatCm(box.dimensions.height_mm)} см</span>`;
+        container.appendChild(marker);
+        return;
+      }
+      const anchorKey = placement.zone === "sleeve" || placement.zone === "shoulder"
         ? `sleeve_${placement.side || "left"}`
-        : placement.zone;
+        : placement.zone === "hem" ? view : placement.zone;
       const anchor = calibration.zones[anchorKey] || calibration.zones[view];
       if (!anchor) return;
 
       const zone = document.createElement("div");
-      zone.className = "cp-preview-zone";
+      zone.className = `cp-preview-zone cp-preview-zone--${placement.zone}`;
       zone.style.left = `${anchor.x}%`;
       zone.style.top = `${anchor.y}%`;
       zone.style.width = `${box.width}%`;
@@ -104,6 +154,18 @@
         if (zone === "sleeve") {
           if (options.left_enabled !== false) result.push({ zone, side: "left" });
           if (options.right_enabled) result.push({ zone, side: "right" });
+        } else if (zone === "shoulder") {
+          if (options.left_enabled) result.push({ zone, side: "left", placement_key: "shoulder_left", size_preset: "A6" });
+          if (options.right_enabled) result.push({ zone, side: "right", placement_key: "shoulder_right", size_preset: "A6" });
+        } else if (zone === "hem" && options.side) {
+          result.push({
+            zone,
+            side: options.side,
+            placement_key: `hem_${options.side}`,
+            mode: options.mode || "A6",
+            size_preset: options.mode === "text" ? "" : (options.mode || "A6"),
+            text: options.text || "",
+          });
         } else {
           result.push({ zone, size_preset: options.size_preset || "A4" });
         }
@@ -175,5 +237,5 @@
     return { render };
   }
 
-  global.CustomPrintPreview = { create, computeZoneBox };
+  global.CustomPrintPreview = { boxForFormat, create, computeZoneBox, requirementsForPlacement, viewForPlacement };
 })(globalThis);

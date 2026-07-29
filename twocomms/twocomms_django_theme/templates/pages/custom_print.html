@@ -497,15 +497,38 @@
                   <span>{% trans 'Додаткові зони рахуються окремо' %}</span>
                 </div>
                 <div class="cp-zone-card-grid" data-zone-list></div>
-                <div class="cp-custom-zone-panel" data-custom-zone-wrap hidden>
-                  <div class="cp-subhead"><strong>{% trans 'Нестандартна зона' %}</strong><span>{% trans 'Покажіть менеджеру, де саме має бути принт — наприклад, шеврон на плечі.' %}</span></div>
-                  <div class="cp-custom-location-list" data-custom-location-list></div>
-                  <div class="cp-front-size-row cp-custom-size-list" data-custom-size-list></div>
+                <div class="cp-custom-zone-panel" data-custom-zone-wrap data-custom-zone-options hidden>
+                  <div class="cp-subhead"><strong>{% trans 'Інша зона' %}</strong><span>{% trans 'Менеджер уточнить розміщення перед друком.' %}</span></div>
                   <label class="cp-field" for="cp-placement-note" data-placement-note-wrap>
                     <span>{% trans 'Опишіть точне місце' %} <b aria-hidden="true">*</b></span>
                     <textarea id="cp-placement-note" name="placement_note" rows="3" data-placement-note-input placeholder="{% trans 'Наприклад: зліва на плечі, 8 × 10 см, вертикально' %}"></textarea>
                   </label>
                 </div>
+              </div>
+
+              <div class="cp-config-block cp-special-placement" data-shoulder-options hidden>
+                <div class="cp-subhead"><strong>{% trans 'Плече' %}</strong><span>{% trans 'Максимальний формат A6' %}</span></div>
+                <div class="cp-special-side-grid">
+                  <button type="button" class="cp-mini-chip cp-special-toggle" data-shoulder-side="left" aria-pressed="false"><strong>{% trans 'Ліве плече' %}</strong><small>A6</small></button>
+                  <button type="button" class="cp-mini-chip cp-special-toggle" data-shoulder-side="right" aria-pressed="false"><strong>{% trans 'Праве плече' %}</strong><small>A6</small></button>
+                </div>
+              </div>
+
+              <div class="cp-config-block cp-special-placement" data-hem-options hidden>
+                <div class="cp-subhead"><strong>{% trans 'Низ виробу' %}</strong><span>{% trans 'Оберіть сторону і формат' %}</span></div>
+                <div class="cp-special-segmented" role="group" aria-label="{% trans 'Сторона виробу' %}">
+                  <button type="button" data-hem-side="front" aria-pressed="false">{% trans 'Перед' %}</button>
+                  <button type="button" data-hem-side="back" aria-pressed="false">{% trans 'Спина' %}</button>
+                </div>
+                <div class="cp-special-mode-grid" role="group" aria-label="{% trans 'Формат принта' %}">
+                  <button type="button" data-hem-mode="text" aria-pressed="false">{% trans 'Текст' %}</button>
+                  <button type="button" data-hem-mode="A6" aria-pressed="false">A6</button>
+                  <button type="button" data-hem-mode="A6+" aria-pressed="false">A6+</button>
+                </div>
+                <label class="cp-field" data-hem-text-wrap hidden>
+                  <span>{% trans 'Текст внизу виробу' %}</span>
+                  <input type="text" data-hem-text-input maxlength="120" placeholder="{% trans 'Наприклад: TWOCOMMS' %}">
+                </label>
               </div>
 
               <div class="cp-config-block" data-front-size-wrap hidden>
@@ -1158,7 +1181,7 @@
   <script src="{% static 'js/custom-print-state.js' %}?v=20260719-responsive-v2" defer></script>
   <script src="{% static 'js/custom-print-preview.js' %}?v=20260726-custom-ref-v1" defer></script>
   <script src="{% static 'js/custom-print-mobile-shell.js' %}?v=20260719-responsive-v2" defer></script>
-  <script src="{% static 'js/custom-print-submit-flow.js' %}?v=20260719-responsive-v2" defer></script>
+  <script src="{% static 'js/custom-print-submit-flow.js' %}?v=20260726-dialog-focus-v3" defer></script>
   <script src="{% static 'js/custom-print-configurator.js' %}?v=20260726-custom-ref-v1" defer></script>
   <script src="{% static 'js/custom-print-telegram-verify.js' %}?v=20260517-tg-verify-portal" defer></script>
 {% endblock %}

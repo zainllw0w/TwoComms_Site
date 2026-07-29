@@ -33,17 +33,32 @@
   function wireDialog(dialog) {
     if (!dialog) return null;
     let returnFocus = null;
+    let ownsScrollLock = false;
+    function finishClose() {
+      if (ownsScrollLock) {
+        ownsScrollLock = false;
+        unlockDocumentScroll();
+      }
+      const target = returnFocus;
+      returnFocus = null;
+      global.requestAnimationFrame(() => {
+        global.requestAnimationFrame(() => target?.focus?.({ preventScroll: true }));
+      });
+    }
+    function closeDialog() {
+      if (dialog.open) dialog.close();
+      // Some WebKit/Chromium builds do not dispatch `close` for script-driven
+      // native dialog closure. Cleanup is idempotent, so run it explicitly.
+      finishClose();
+    }
     dialog.querySelectorAll("[data-dialog-close]").forEach((button) => {
-      button.addEventListener("click", () => dialog.close());
+      button.addEventListener("click", closeDialog);
     });
     dialog.addEventListener("cancel", (event) => {
       event.preventDefault();
-      dialog.close();
+      closeDialog();
     });
-    dialog.addEventListener("close", () => {
-      unlockDocumentScroll();
-      returnFocus?.focus?.({ preventScroll: true });
-    });
+    dialog.addEventListener("close", finishClose);
     dialog.addEventListener("keydown", (event) => {
       if (event.key !== "Tab") return;
       const items = Array.from(dialog.querySelectorAll(focusableSelector));
@@ -63,10 +78,11 @@
         if (dialog.open) return;
         returnFocus = trigger || document.activeElement;
         lockDocumentScroll();
+        ownsScrollLock = true;
         try {
           dialog.showModal();
         } catch (error) {
-          unlockDocumentScroll();
+          finishClose();
           throw error;
         }
         dialog.querySelector(focusableSelector)?.focus();

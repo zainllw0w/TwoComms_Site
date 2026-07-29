@@ -547,6 +547,37 @@ summary:focus-visible {
 .cp-preview-zone strong { font-size: 12px; }
 .cp-preview-zone span { font-size: 9px; }
 
+.cp-special-placement { display: grid; gap: 12px; }
+.cp-special-side-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.cp-special-toggle { min-width: 0; min-height: 58px; }
+.cp-special-toggle strong,
+.cp-special-toggle small { display: block; }
+.cp-special-segmented,
+.cp-special-mode-grid { display: grid; gap: 6px; padding: 4px; border: 1px solid rgba(255,255,255,.1); border-radius: 12px; background: rgba(255,255,255,.035); }
+.cp-special-segmented { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cp-special-mode-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cp-special-segmented button,
+.cp-special-mode-grid button { min-width: 0; min-height: 42px; border: 0; border-radius: 8px; background: transparent; color: var(--cp-text); font: inherit; font-weight: 750; }
+.cp-special-segmented button.is-active,
+.cp-special-mode-grid button.is-active { background: rgba(246,220,164,.94); color: #17130e; }
+
+.cp-preview-zone--shoulder { top: 27%; width: 36px; height: 30px; border-style: solid; border-radius: 6px; background: rgba(20,18,29,.88); }
+.cp-preview-zone--shoulder-left { left: 29%; }
+.cp-preview-zone--shoulder-right { left: 71%; }
+.cp-preview-zone--shoulder .cp-preview-zone-leader { position: absolute; top: 50%; width: 46px; height: 1px; background: rgba(231,225,255,.86); }
+.cp-preview-zone--shoulder-left .cp-preview-zone-leader { left: 100%; transform: rotate(18deg); transform-origin: left center; }
+.cp-preview-zone--shoulder-right .cp-preview-zone-leader { right: 100%; transform: rotate(-18deg); transform-origin: right center; }
+.cp-preview-zone--shoulder span { font-size: 8px; }
+.cp-preview-zone--hem { top: 80%; left: 50%; width: var(--cp-hem-width, 24%); min-width: 72px; height: 34px; border-style: solid; background: rgba(20,18,29,.78); }
+.cp-preview-zone--hem.cp-preview-zone--text { width: min(34%, 180px); height: auto; min-height: 34px; padding: 5px 8px; }
+
+@media (max-width: 480px) {
+  .cp-special-side-grid { grid-template-columns: minmax(0, 1fr); }
+  .cp-special-mode-grid { grid-template-columns: minmax(0, 1fr); }
+  .cp-preview-zone--shoulder { width: 30px; height: 27px; }
+  .cp-preview-zone--shoulder .cp-preview-zone-leader { width: 32px; }
+}
+
 .cp-stage-aura,
 .cp-stage-orbit,
 .cp-stage-placeholder,
