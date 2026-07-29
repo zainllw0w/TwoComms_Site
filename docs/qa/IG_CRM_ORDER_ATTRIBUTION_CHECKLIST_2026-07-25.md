@@ -380,6 +380,13 @@ Task 7B polling recovery, provenance and profile enrichment (2026-07-29):
   `IG_APP_SECRET` is now present through the cPanel runtime environment and
   `token_configured=True` after restart; verify one genuine new non-role inbound
   through signed webhook -> queue -> analysis -> reply without a synthetic event.
+- [ ] Current live evidence (2026-07-29): Meta webhook POSTs from
+  `facebookexternalua` reach `/bot/webhook/` but receive HTTP 403
+  `bad_signature`. The page token is valid for App ID `2120980214971807`, while
+  `APP_ID|IG_APP_SECRET` returns Graph HTTP 401 `Invalid OAuth access token
+  signature`. Replace the cPanel value with the App Secret from that exact Meta
+  App ID, restart Passenger, then repeat the probe and watch for a real 200
+  webhook delivery.
 - [x] Production deploy evidence (2026-07-29): `main` is at `b470cd06`,
   migration `0111_instagrambotmessage_provider_created_at` is applied,
   `manage.py check --deploy` is clean, `/healthz/` returns HTTP 200, the
