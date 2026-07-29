@@ -613,8 +613,8 @@ body.bot-drawer-open{overflow:hidden;}
         <aside class="bot-clients-sidebar" aria-label="Список клієнтів">
           <input id="bot-clients-search" class="bot-clients-search" placeholder="Пошук: ім'я / username / телефон">
           <div class="bot-client-filters" id="bot-client-filters">
-            <button type="button" class="bot-mini-btn active" data-client-view="active">Активні</button>
-            <button type="button" class="bot-mini-btn" data-client-view="all">Усі</button>
+            <button type="button" class="bot-mini-btn" data-client-view="active">Активні</button>
+            <button type="button" class="bot-mini-btn active" data-client-view="all">Усі</button>
             <button type="button" class="bot-mini-btn" data-client-view="due">Контакти</button>
             <button type="button" class="bot-mini-btn" data-client-view="paid">Оплачені</button>
             <button type="button" class="bot-mini-btn" data-client-view="delivery-blocked">Потрібна увага</button>
@@ -1049,7 +1049,7 @@ body.bot-drawer-open{overflow:hidden;}
     let requestedClientId=initialQuery.get('section')==='clients'?Number(initialQuery.get('client_id')||0):0;
     let requestedMessageId=initialQuery.get('section')==='clients'?Number(initialQuery.get('message_id')||0):0;
     let activeId=null;
-    let currentView='active';
+    let currentView='all';
     let convId=null,convLastId=0,convOldestId=0,convHasOlder=false,convInFlight=false;
     function node(tag,className,text){const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined)el.textContent=text;return el;}
     function stageCls(s){ return 'st-'+(s||'new'); }
@@ -1251,7 +1251,7 @@ body.bot-drawer-open{overflow:hidden;}
     if(searchEl) searchEl.addEventListener('input',()=>{clearTimeout(t);t=setTimeout(()=>load(searchEl.value.trim()),300);});
     if(filtersEl) filtersEl.querySelectorAll('[data-client-view]').forEach(btn=>{
       btn.addEventListener('click',()=>{
-        currentView=btn.getAttribute('data-client-view')||'active';
+        currentView=btn.getAttribute('data-client-view')||'all';
         filtersEl.querySelectorAll('[data-client-view]').forEach(b=>b.classList.toggle('active', b===btn));
         activeId=null;convId=null;ClientContextDrawer.close();conversationEl.replaceChildren(node('div','bot-client-pane-empty','Оберіть клієнта зі списку.'));contextEl.replaceChildren(node('div','bot-client-pane-empty','Комерційний контекст з’явиться після вибору клієнта.'));setMobilePane('list');
         load(searchEl?searchEl.value.trim():'');

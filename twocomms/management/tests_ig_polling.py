@@ -1,9 +1,10 @@
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 from django.test import TestCase
 from django.core.cache import cache
+from django.utils import timezone as django_timezone
 
 from management.models import IgPollCursor, InstagramBotMessage, InstagramBotSettings
 from management.services import instagram_bot as bot
@@ -87,14 +88,30 @@ class ConversationDiscoveryTests(TestCase):
         self.settings.page_id = "page"
         self.settings.is_enabled = True
         self.settings.receive_via_poll = True
-        self.settings.save(update_fields=["page_id", "is_enabled", "receive_via_poll"])
+        self.settings.conversation_discovery_ids = []
+        self.settings.conversation_discovery_cursor = ""
+        self.settings.save(update_fields=[
+            "page_id",
+            "is_enabled",
+            "receive_via_poll",
+            "conversation_discovery_ids",
+            "conversation_discovery_cursor",
+        ])
         cache.delete(bot._conv_cache_key(self.settings))
+        cache.delete(f"ig_bot_conv_refresh:{self.settings.page_id}")
 
     def tearDown(self):
         cache.delete(bot._conv_cache_key(self.settings))
+        cache.delete(f"ig_bot_conv_refresh:{self.settings.page_id}")
 
     def test_refresh_follows_pages_deduplicates_and_paces_requests(self):
-        first = {"data": [{"id": "c1"}, {"id": "c2"}], "paging": {"next": f"{bot.GRAPH}/next-1"}}
+        first = {
+            "data": [{"id": "c1"}, {"id": "c2"}],
+            "paging": {
+                "cursors": {"after": "CURSOR1"},
+                "next": f"{bot.GRAPH}/page/conversations?platform=instagram&fields=id&limit=2&after=CURSOR1",
+            },
+        }
         second = {"data": [{"id": "c2"}, {"id": "c3"}]}
         with patch.object(bot, "_http", side_effect=[(200, json.dumps(first)), (200, json.dumps(second))]) as http, \
              patch.object(bot.time, "sleep") as sleep:
@@ -104,7 +121,7 @@ class ConversationDiscoveryTests(TestCase):
         self.assertEqual(http.call_count, 2)
         self.assertEqual(
             http.call_args_list[0].args[0],
-            f"{bot.GRAPH}/page/conversations?platform=instagram&fields=id&limit=10",
+            f"{bot.GRAPH}/page/conversations?platform=instagram&fields=id&limit=2",
         )
         self.assertEqual(
             http.call_args_list[0].kwargs["headers"]["Authorization"],
@@ -112,16 +129,31 @@ class ConversationDiscoveryTests(TestCase):
         )
         sleep.assert_called_once_with(0.5)
 
-    def test_failed_later_page_keeps_last_complete_snapshot(self):
+    def test_failed_later_page_keeps_snapshot_and_publishes_validated_ids(self):
         cache.set(bot._conv_cache_key(self.settings), ["old-1", "old-2"], 3600)
         self.addCleanup(cache.delete, "ig_bot_ingress_refresh_degraded:page")
-        first = {"data": [{"id": "new-1"}], "paging": {"next": f"{bot.GRAPH}/next-1"}}
+        first = {
+            "data": [{"id": "new-1"}],
+            "paging": {
+                "cursors": {"after": "CURSOR1"},
+                "next": f"{bot.GRAPH}/page/conversations?platform=instagram&fields=id&limit=2&after=CURSOR1",
+            },
+        }
         with patch.object(bot, "_http", side_effect=[(200, json.dumps(first)), (429, "quota")]), \
              patch.object(bot.time, "sleep"):
             ids = bot.refresh_conv_ids(self.settings, "PT")
 
-        self.assertEqual(ids, ["old-1", "old-2"])
-        self.assertEqual(cache.get(bot._conv_cache_key(self.settings)), ["old-1", "old-2"])
+        self.assertEqual(ids, ["new-1", "old-1", "old-2"])
+        self.assertEqual(
+            cache.get(bot._conv_cache_key(self.settings)),
+            ["new-1", "old-1", "old-2"],
+        )
+        self.settings.refresh_from_db()
+        self.assertEqual(
+            self.settings.conversation_discovery_ids,
+            ["new-1", "old-1", "old-2"],
+        )
+        self.assertEqual(self.settings.conversation_discovery_cursor, "CURSOR1")
         self.assertEqual(
             cache.get("ig_bot_ingress_refresh_degraded:page")["state"],
             "conversation_refresh_failed",
@@ -174,15 +206,313 @@ class ConversationDiscoveryTests(TestCase):
 
     def test_refresh_lock_prevents_overlapping_provider_calls(self):
         cache.set(bot._conv_cache_key(self.settings), ["old"], 3600)
-        lock_key = f"ig_bot_conv_refresh:{self.settings.page_id}"
-        cache.set(lock_key, "busy", 300)
+        self.settings.conversation_discovery_lease_token = "busy"
+        self.settings.conversation_discovery_lease_expires_at = (
+            django_timezone.now() + timedelta(seconds=300)
+        )
+        self.settings.save(update_fields=[
+            "conversation_discovery_lease_token",
+            "conversation_discovery_lease_expires_at",
+        ])
         with patch.object(bot, "_http") as http:
             ids = bot.refresh_conv_ids(self.settings, "PT")
 
         self.assertEqual(ids, ["old"])
         http.assert_not_called()
 
-    def test_cold_cache_does_not_block_poll_worker(self):
+    def test_hot_read_merges_durable_and_cached_conversations(self):
+        self.settings.conversation_discovery_ids = ["db-a", "shared"]
+        self.settings.save(update_fields=["conversation_discovery_ids"])
+        cache.set(bot._conv_cache_key(self.settings), ["shared", "cache-c"], 3600)
+
+        ids = bot.get_conv_ids_cached(self.settings)
+
+        self.assertEqual(ids, ["db-a", "shared", "cache-c"])
+        self.assertEqual(cache.get(bot._conv_cache_key(self.settings)), ids)
+
+    def test_empty_completed_cache_is_a_valid_snapshot(self):
+        cache.set(bot._conv_cache_key(self.settings), [], 3600)
+
+        self.assertEqual(bot.get_conv_ids_cached(self.settings), [])
+        self.assertEqual(cache.get(bot._conv_cache_key(self.settings)), [])
+
+    def test_failed_first_page_repairs_cache_from_durable_snapshot(self):
+        self.settings.conversation_discovery_ids = ["db-a", "db-b"]
+        self.settings.save(update_fields=["conversation_discovery_ids"])
+        cache.set(bot._conv_cache_key(self.settings), ["db-a"], 3600)
+
+        with patch.object(bot, "_http", return_value=(504, "timeout")):
+            ids = bot.refresh_conv_ids(self.settings, "PT")
+
+        self.assertEqual(ids, ["db-a", "db-b"])
+        self.assertEqual(cache.get(bot._conv_cache_key(self.settings)), ids)
+
+    def test_database_lease_allows_only_one_refresh_owner(self):
+        first = bot._claim_conversation_discovery_lease(self.settings)
+        stale = InstagramBotSettings.objects.get(pk=self.settings.pk)
+        second = bot._claim_conversation_discovery_lease(stale)
+
+        self.assertTrue(first)
+        self.assertIsNone(second)
+
+        bot._release_conversation_discovery_lease(self.settings.pk, first)
+        third = bot._claim_conversation_discovery_lease(stale)
+        self.assertTrue(third)
+        bot._release_conversation_discovery_lease(self.settings.pk, third)
+
+    def test_expired_database_lease_can_be_reclaimed_without_stale_release(self):
+        self.settings.conversation_discovery_lease_token = "expired-owner"
+        self.settings.conversation_discovery_lease_expires_at = (
+            django_timezone.now() - timedelta(seconds=1)
+        )
+        self.settings.save(update_fields=[
+            "conversation_discovery_lease_token",
+            "conversation_discovery_lease_expires_at",
+        ])
+
+        new_owner = bot._claim_conversation_discovery_lease(self.settings)
+        self.assertTrue(new_owner)
+        bot._release_conversation_discovery_lease(
+            self.settings.pk,
+            "expired-owner",
+        )
+        self.settings.refresh_from_db()
+        self.assertEqual(
+            self.settings.conversation_discovery_lease_token,
+            new_owner,
+        )
+        bot._release_conversation_discovery_lease(self.settings.pk, new_owner)
+
+    def test_refresh_persists_safe_cursor_and_continues_next_cycle(self):
+        first = {
+            "data": [{"id": "c1"}, {"id": "c2"}],
+            "paging": {
+                "cursors": {"after": "CURSOR1"},
+                "next": f"{bot.GRAPH}/page/conversations?platform=instagram&fields=id&limit=2&after=CURSOR1",
+            },
+        }
+        second = {"data": [{"id": "c3"}]}
+        with patch.object(bot, "CONV_DISCOVERY_PAGES_PER_REFRESH", 1), \
+             patch.object(bot, "_http", return_value=(200, json.dumps(first))) as http:
+            ids = bot.refresh_conv_ids(self.settings, "PT")
+
+        self.assertEqual(ids, ["c1", "c2"])
+        self.settings.refresh_from_db()
+        self.assertEqual(self.settings.conversation_discovery_ids, ["c1", "c2"])
+        self.assertEqual(self.settings.conversation_discovery_cursor, "CURSOR1")
+        self.assertNotIn("CURSOR1", http.call_args_list[0].args[0])
+
+        with patch.object(bot, "CONV_DISCOVERY_PAGES_PER_REFRESH", 1), \
+             patch.object(bot, "_http", return_value=(200, json.dumps(second))) as http:
+            ids = bot.refresh_conv_ids(self.settings, "PT")
+
+        self.assertEqual(ids, ["c1", "c2", "c3"])
+        self.assertIn("after=CURSOR1", http.call_args_list[0].args[0])
+        self.settings.refresh_from_db()
+        self.assertEqual(self.settings.conversation_discovery_ids, ["c1", "c2", "c3"])
+        self.assertEqual(self.settings.conversation_discovery_cursor, "")
+        self.assertEqual(cache.get(bot._conv_cache_key(self.settings)), ["c1", "c2", "c3"])
+
+    def test_completed_multislice_scan_prunes_stale_conversations(self):
+        self.settings.conversation_discovery_page_id = "page"
+        self.settings.conversation_discovery_ids = ["stale"]
+        self.settings.save(update_fields=[
+            "conversation_discovery_page_id",
+            "conversation_discovery_ids",
+        ])
+        first = {
+            "data": [{"id": "new-1"}],
+            "paging": {
+                "cursors": {"after": "CURSOR1"},
+                "next": f"{bot.GRAPH}/page/conversations?platform=instagram&fields=id&limit=2&after=CURSOR1",
+            },
+        }
+        second = {"data": [{"id": "new-2"}]}
+
+        with patch.object(bot, "CONV_DISCOVERY_PAGES_PER_REFRESH", 1), \
+             patch.object(bot, "_http", return_value=(200, json.dumps(first))):
+            self.assertEqual(
+                bot.refresh_conv_ids(self.settings, "PT"),
+                ["new-1", "stale"],
+            )
+        with patch.object(bot, "CONV_DISCOVERY_PAGES_PER_REFRESH", 1), \
+             patch.object(bot, "_http", return_value=(200, json.dumps(second))):
+            self.assertEqual(
+                bot.refresh_conv_ids(self.settings, "PT"),
+                ["new-1", "new-2"],
+            )
+
+        self.settings.refresh_from_db()
+        self.assertEqual(
+            self.settings.conversation_discovery_ids,
+            ["new-1", "new-2"],
+        )
+        self.assertEqual(self.settings.conversation_discovery_scan_ids, [])
+        self.assertTrue(self.settings.conversation_discovery_completed_at)
+
+    def test_page_switch_never_restores_previous_account_discovery(self):
+        self.settings.conversation_discovery_page_id = "old-page"
+        self.settings.conversation_discovery_ids = ["old-conversation"]
+        self.settings.conversation_discovery_cursor = "OLD-CURSOR"
+        self.settings.conversation_discovery_scan_ids = ["old-conversation"]
+        self.settings.save(update_fields=[
+            "conversation_discovery_page_id",
+            "conversation_discovery_ids",
+            "conversation_discovery_cursor",
+            "conversation_discovery_scan_ids",
+        ])
+        cache.set(bot._conv_cache_key(self.settings), ["old-conversation"], 3600)
+        self.settings.page_id = "new-page"
+        self.settings.save(update_fields=["page_id"])
+
+        with patch.object(
+            bot,
+            "_http",
+            return_value=(200, json.dumps({"data": [{"id": "new-conversation"}]})),
+        ):
+            ids = bot.refresh_conv_ids(self.settings, "PT")
+
+        self.assertEqual(ids, ["new-conversation"])
+        self.settings.refresh_from_db()
+        self.assertEqual(self.settings.conversation_discovery_page_id, "new-page")
+        self.assertEqual(
+            self.settings.conversation_discovery_ids,
+            ["new-conversation"],
+        )
+
+    def test_cross_slice_cursor_cycle_is_rejected(self):
+        first = {
+            "data": [{"id": "c1"}],
+            "paging": {
+                "cursors": {"after": "CURSOR1"},
+                "next": f"{bot.GRAPH}/page/conversations?platform=instagram&fields=id&limit=2&after=CURSOR1",
+            },
+        }
+        repeated = {
+            "data": [{"id": "c2"}],
+            "paging": {
+                "cursors": {"after": "CURSOR1"},
+                "next": f"{bot.GRAPH}/page/conversations?platform=instagram&fields=id&limit=2&after=CURSOR1",
+            },
+        }
+        with patch.object(bot, "CONV_DISCOVERY_PAGES_PER_REFRESH", 1), \
+             patch.object(bot, "_http", return_value=(200, json.dumps(first))):
+            self.assertEqual(bot.refresh_conv_ids(self.settings, "PT"), ["c1"])
+        with patch.object(bot, "CONV_DISCOVERY_PAGES_PER_REFRESH", 1), \
+             patch.object(bot, "_http", return_value=(200, json.dumps(repeated))):
+            self.assertEqual(bot.refresh_conv_ids(self.settings, "PT"), ["c1"])
+
+        self.settings.refresh_from_db()
+        self.assertEqual(self.settings.conversation_discovery_cursor, "CURSOR1")
+        self.assertEqual(
+            cache.get("ig_bot_ingress_refresh_degraded:page")["state"],
+            "conversation_refresh_failed",
+        )
+
+    def test_new_discovery_is_not_starved_by_full_stale_snapshot(self):
+        old_ids = [f"old-{index}" for index in range(bot.CONV_MAX_IDS)]
+        self.settings.conversation_discovery_page_id = "page"
+        self.settings.conversation_discovery_ids = old_ids
+        self.settings.save(update_fields=[
+            "conversation_discovery_page_id",
+            "conversation_discovery_ids",
+        ])
+        first = {
+            "data": [{"id": "new-live"}],
+            "paging": {
+                "cursors": {"after": "CURSOR1"},
+                "next": f"{bot.GRAPH}/page/conversations?platform=instagram&fields=id&limit=2&after=CURSOR1",
+            },
+        }
+
+        with patch.object(bot, "CONV_DISCOVERY_PAGES_PER_REFRESH", 1), \
+             patch.object(bot, "_http", return_value=(200, json.dumps(first))):
+            ids = bot.refresh_conv_ids(self.settings, "PT")
+
+        self.assertEqual(len(ids), bot.CONV_MAX_IDS)
+        self.assertEqual(ids[0], "new-live")
+        self.settings.refresh_from_db()
+        self.assertEqual(self.settings.conversation_discovery_scan_ids, ["new-live"])
+        self.assertEqual(self.settings.conversation_discovery_cursor, "CURSOR1")
+
+    def test_page_budget_covers_configured_conversation_cap(self):
+        self.assertGreaterEqual(
+            bot.CONV_MAX_PAGES * bot.CONV_PAGE_LIMIT,
+            bot.CONV_MAX_IDS,
+        )
+
+    def test_discovery_status_exposes_incomplete_scan_without_credentials(self):
+        now = django_timezone.now()
+        self.settings.conversation_discovery_page_id = "page"
+        self.settings.conversation_discovery_ids = ["c1", "c2"]
+        self.settings.conversation_discovery_scan_ids = ["c2"]
+        self.settings.conversation_discovery_cursor = "CURSOR1"
+        self.settings.conversation_discovery_pages_seen = 3
+        self.settings.conversation_discovery_updated_at = now - timedelta(seconds=7)
+        self.settings.save(update_fields=[
+            "conversation_discovery_page_id",
+            "conversation_discovery_ids",
+            "conversation_discovery_scan_ids",
+            "conversation_discovery_cursor",
+            "conversation_discovery_pages_seen",
+            "conversation_discovery_updated_at",
+        ])
+
+        status = bot.conversation_discovery_status(self.settings, now=now)
+
+        self.assertEqual(status["state"], "in_progress")
+        self.assertEqual(status["conversation_count"], 2)
+        self.assertEqual(status["scan_count"], 1)
+        self.assertEqual(status["pages_seen"], 3)
+        self.assertEqual(status["updated_age_seconds"], 7.0)
+        self.assertNotIn("cursor", status)
+
+    def test_partial_refresh_publishes_validated_ids_and_keeps_cursor(self):
+        self.settings.conversation_discovery_ids = ["old"]
+        self.settings.save(update_fields=["conversation_discovery_ids"])
+        cache.set(bot._conv_cache_key(self.settings), ["old"], 3600)
+        first = {
+            "data": [{"id": "old"}, {"id": "new"}],
+            "paging": {
+                "cursors": {"after": "CURSOR2"},
+                "next": f"{bot.GRAPH}/page/conversations?platform=instagram&fields=id&limit=2&after=CURSOR2",
+            },
+        }
+        with patch.object(bot, "CONV_DISCOVERY_PAGES_PER_REFRESH", 2), \
+             patch.object(bot, "_http", side_effect=[(200, json.dumps(first)), (504, "timeout")]), \
+             patch.object(bot.time, "sleep"):
+            ids = bot.refresh_conv_ids(self.settings, "PT")
+
+        self.assertEqual(ids, ["old", "new"])
+        self.assertEqual(cache.get(bot._conv_cache_key(self.settings)), ["old", "new"])
+        self.settings.refresh_from_db()
+        self.assertEqual(self.settings.conversation_discovery_ids, ["old", "new"])
+        self.assertEqual(self.settings.conversation_discovery_cursor, "CURSOR2")
+        self.assertEqual(
+            cache.get("ig_bot_ingress_refresh_degraded:page")["state"],
+            "conversation_refresh_failed",
+        )
+
+    def test_malformed_paging_cursor_keeps_snapshot_without_secret_url_persistence(self):
+        self.settings.conversation_discovery_ids = ["old"]
+        self.settings.save(update_fields=["conversation_discovery_ids"])
+        cache.set(bot._conv_cache_key(self.settings), ["old"], 3600)
+        first = {
+            "data": [{"id": "new"}],
+            "paging": {
+                "cursors": {"after": "CURSOR&access_token=SECRET"},
+                "next": f"{bot.GRAPH}/page/conversations?platform=instagram&fields=id&limit=2&after=CURSOR&access_token=SECRET",
+            },
+        }
+        with patch.object(bot, "_http", return_value=(200, json.dumps(first))):
+            ids = bot.refresh_conv_ids(self.settings, "PT")
+
+        self.assertEqual(ids, ["old"])
+        self.settings.refresh_from_db()
+        self.assertEqual(self.settings.conversation_discovery_ids, ["old"])
+        self.assertEqual(self.settings.conversation_discovery_cursor, "")
+
+    def test_cold_cache_defers_to_background_refresher_without_blocking_poll(self):
         with patch.object(bot, "get_page_token", return_value="PT"), \
              patch.object(bot, "get_conv_ids_cached", return_value=None), \
              patch.object(bot, "refresh_conv_ids") as refresh:
@@ -190,6 +520,23 @@ class ConversationDiscoveryTests(TestCase):
 
         self.assertTrue(result["refresh_pending"])
         refresh.assert_not_called()
+
+    def test_cold_cache_restores_durable_snapshot_and_polls_conversation(self):
+        self.settings.conversation_discovery_ids = ["conv-cold"]
+        self.settings.save(update_fields=["conversation_discovery_ids"])
+        messages = {"messages": {"data": [_message("cold-live", 1)]}}
+
+        with patch.object(bot, "get_page_token", return_value="PT"), \
+             patch.object(bot, "_http", return_value=(200, json.dumps(messages))) as http, \
+             patch.object(bot, "enqueue_inbound", return_value=True) as enqueue:
+            result = bot.poll_ingest(self.settings)
+
+        self.assertEqual(result["conversations"], 1)
+        self.assertEqual(result["conversations_checked"], 1)
+        self.assertEqual(result["requests_used"], 1)
+        self.assertEqual(result["enqueued"], 1)
+        self.assertEqual(http.call_count, 1)
+        enqueue.assert_called_once()
 
 
 class ConversationMessagePaginationSafetyTests(TestCase):
@@ -334,16 +681,18 @@ class ConversationMessagePaginationSafetyTests(TestCase):
                 self.assertEqual(cursor.last_message_id, "")
                 self.assertIsNone(cursor.last_message_at)
 
-    def test_invalid_cached_conversation_ids_request_refresh_without_http(self):
+    def test_invalid_cached_conversation_ids_request_refresh_without_message_fetch(self):
         cache.set(bot._conv_cache_key(self.settings), [123, "conv-valid"], 3600)
 
         with patch.object(bot, "get_page_token", return_value="PT"), \
-             patch.object(bot, "_http") as http:
+             patch.object(bot, "refresh_conv_ids") as refresh, \
+             patch.object(bot, "_fetch_polled_conversation") as fetch:
             result = bot.poll_ingest(self.settings)
 
         self.assertTrue(result["refresh_pending"])
         self.assertEqual(result["conversations"], 0)
-        http.assert_not_called()
+        refresh.assert_not_called()
+        fetch.assert_not_called()
 
     def test_failed_later_message_page_does_not_enqueue_or_advance_cursor(self):
         self._cache_conversations("conv-partial")
@@ -441,6 +790,24 @@ class ConversationMessagePaginationSafetyTests(TestCase):
         self.assertTrue(result["budget_exhausted"])
         self.assertEqual(cache.get(poll_key)["state"], "message_poll_failed")
 
+    def test_advanced_access_failure_is_visible_without_storing_graph_body(self):
+        self._cache_conversations("conv-permission")
+        body = json.dumps({
+            "error": {
+                "code": 200,
+                "message": "App does not have Advanced Access to instagram_manage_messages permission",
+            }
+        })
+
+        with patch.object(bot, "get_page_token", return_value="PT"), \
+             patch.object(bot, "_http", return_value=(403, body)):
+            result = bot.poll_ingest(self.settings)
+
+        self.assertTrue(result["degraded"])
+        evidence = cache.get("ig_bot_ingress_poll_degraded:page")
+        self.assertEqual(evidence["reason"], "meta_advanced_access")
+        self.assertNotIn("Advanced Access", json.dumps(evidence))
+
     def test_history_messages_are_persisted_without_reply_queue_or_page_side_effects(self):
         self._cache_conversations("conv-history")
         self.settings.reply_after = datetime(2026, 7, 10, 17, 0, tzinfo=timezone.utc)
@@ -452,7 +819,10 @@ class ConversationMessagePaginationSafetyTests(TestCase):
         messages[1]["to"] = {"data": [{"id": "customer"}]}
         with patch.object(bot, "get_page_token", return_value="PT"), \
              patch.object(bot, "_http", return_value=(200, json.dumps({"messages": {"data": messages}}))), \
-             patch.object(bot, "enqueue_inbound") as enqueue:
+             patch.object(bot, "enqueue_inbound") as enqueue, \
+             patch(
+                 "management.services.bot_conversation_analysis.schedule_analysis"
+             ) as schedule_analysis:
             result = bot.poll_ingest(self.settings)
 
         self.assertEqual(result["enqueued"], 0)
@@ -468,6 +838,26 @@ class ConversationMessagePaginationSafetyTests(TestCase):
         client = bot.IgClient.objects.get(igsid="customer")
         self.assertFalse(client.manager_takeover)
         self.assertFalse(client.bot_paused)
+        self.assertEqual(schedule_analysis.call_count, 2)
+
+    def test_duplicate_history_backfill_does_not_reschedule_analysis(self):
+        message = _message("history-dedupe", 1)
+
+        with patch(
+            "management.services.bot_conversation_analysis.schedule_analysis"
+        ) as schedule_analysis:
+            self.assertTrue(
+                bot._persist_polled_message(self.settings, message, observed_only=True)
+            )
+            self.assertTrue(
+                bot._persist_polled_message(self.settings, message, observed_only=True)
+            )
+
+        self.assertEqual(
+            InstagramBotMessage.objects.filter(mid="history-dedupe").count(),
+            1,
+        )
+        schedule_analysis.assert_called_once()
 
     def test_page_cap_queues_validated_live_rows_without_cursor_advance(self):
         self._cache_conversations("conv-long")

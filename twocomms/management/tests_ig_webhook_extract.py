@@ -109,6 +109,22 @@ class HandleWebhookPayloadTests(TestCase):
         msg = InstagramBotMessage.objects.get(mid="mm1")
         self.assertEqual(json.loads(msg.attachments), ["https://cdn/post.jpg"])
 
+    def test_enqueues_messages_change_shape(self):
+        payload = {"entry": [{"changes": [{
+            "field": "messages",
+            "value": {
+                "sender": {"id": "u10"},
+                "recipient": {"id": "page"},
+                "timestamp": 1785000000000,
+                "message": {"mid": "changes-mid", "text": "Привіт"},
+            },
+        }]}]}
+
+        self.assertEqual(bot.handle_webhook_payload(self.s, payload), 1)
+        message = InstagramBotMessage.objects.get(mid="changes-mid")
+        self.assertEqual(message.sender_id, "u10")
+        self.assertIsNotNone(message.provider_created_at)
+
     def test_skips_echo(self):
         payload = {"entry": [{"messaging": [{
             "sender": {"id": "u9"},

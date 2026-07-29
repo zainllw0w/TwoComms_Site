@@ -11,7 +11,9 @@ from django.test import TestCase
 from management.models import IgClient, IgDeal, InstagramBotMessage, InstagramBotSettings
 from management.services import bot_orders, bot_payments
 from management.services import instagram_bot as bot
+from management.services.ig_delivery import apply_directory_selection
 from orders.models import Order
+from orders.nova_poshta_checkout import NovaPoshtaDeliverySelection
 
 
 class EndToEndFlowTests(TestCase):
@@ -57,6 +59,19 @@ class EndToEndFlowTests(TestCase):
         deal.np_phone = "0931112233"
         deal.np_city = "Київ"
         deal.np_office = "Відділення 1"
+        apply_directory_selection(
+            deal,
+            NovaPoshtaDeliverySelection(
+                city="Київ",
+                np_office="Відділення 1",
+                settlement_ref="settlement-e2e",
+                city_ref="city-e2e",
+                warehouse_ref="warehouse-e2e",
+                warehouse_kind="branch",
+                city_token="city-token-e2e",
+                warehouse_token="warehouse-token-e2e",
+            ),
+        )
         deal.save()
 
         # 2) Оплата підтверджена → вебхук → pull-verify (status success).

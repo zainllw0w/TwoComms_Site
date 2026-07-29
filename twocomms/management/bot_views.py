@@ -2420,7 +2420,7 @@ def bot_clients_api(request):
 
     from .models import IgClient, IgDeal
 
-    view = (request.GET.get("view") or "active").strip().lower()
+    view = (request.GET.get("view") or "all").strip().lower()
     from django.db.models import Prefetch
     from .ig_bot_models import (
         IgCommercialEpisode,

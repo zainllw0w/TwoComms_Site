@@ -45,6 +45,7 @@ HB_ALIVE_WINDOW = 45                   # демон вважається жив�
 SPAWN_LOCK_KEY = "ig_bot_spawn_lock"
 DAEMON_LOCK_KEY = "ig_bot_daemon_lock"
 CONV_REFRESH_EVERY = 120               # фонове оновлення списку тредів, c
+CONV_REFRESH_PROGRESS_EVERY = 5        # швидко завершуємо resumable scan
 ANALYSIS_RECONCILE_EVERY = 600         # bounded repair of missed scheduling, c
 ANALYSIS_RECONCILE_BATCH = 100
 RELOAD_LOCK_WAIT_SECONDS = 45
@@ -120,10 +121,21 @@ def _daemon_code_current() -> bool:
         return False
 
 
+def _conversation_refresh_wait_seconds(s: InstagramBotSettings) -> int:
+    """Use a short cadence only while a resumable scan is making progress."""
+    if (
+        str(getattr(s, "conversation_discovery_cursor", "") or "").strip()
+        and not bot._current_ingress_degradation(s)
+    ):
+        return CONV_REFRESH_PROGRESS_EVERY
+    return CONV_REFRESH_EVERY
+
+
 def _conv_refresher(stop_event: threading.Event):
     """Фоновий потік: рідко оновлює список тредів (важкий ~25 c виклик),
     тільки коли увімкнено резервний поллінг."""
     while not stop_event.is_set():
+        wait_seconds = CONV_REFRESH_EVERY
         try:
             close_old_connections()
             s = InstagramBotSettings.load()
@@ -131,12 +143,14 @@ def _conv_refresher(stop_event: threading.Event):
                 token = bot.get_page_token(s)
                 if token:
                     bot.refresh_conv_ids(s, token)
+                    s.refresh_from_db(fields=["conversation_discovery_cursor"])
+                    wait_seconds = _conversation_refresh_wait_seconds(s)
         except Exception as exc:
             try:
                 bot.log("warning", "conv_refresh", repr(exc))
             except Exception:
                 pass
-        stop_event.wait(CONV_REFRESH_EVERY)
+        stop_event.wait(wait_seconds)
 
 
 def _analysis_worker(stop_event: threading.Event):

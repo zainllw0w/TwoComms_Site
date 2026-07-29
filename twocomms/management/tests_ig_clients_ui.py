@@ -87,8 +87,9 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
 
     def test_client_workspace_exposes_all_non_hidden_conversations_separately(self):
         self.assertIn('data-client-view="active">Активні', self.template)
-        self.assertIn('data-client-view="all">Усі', self.template)
+        self.assertIn('class="bot-mini-btn active" data-client-view="all">Усі', self.template)
         self.assertIn('data-client-view="hidden">Приховані', self.template)
+        self.assertIn("let currentView='all';", self.template)
 
     def test_status_ui_distinguishes_daemon_liveness_from_broken_ingress(self):
         self.assertIn("st.state==='ingress_degraded'", self.template)
@@ -930,6 +931,26 @@ class ClientsApiTests(TestCase):
         data = self.client.get(
             reverse("management_bot_clients_api") + "?view=all"
         ).json()
+        ids = {item["id"] for item in data["clients"]}
+
+        self.assertTrue({self.c.id, paid.id, cold.id, spam.id}.issubset(ids))
+        self.assertNotIn(hidden.id, ids)
+
+    def test_default_view_includes_every_non_hidden_conversation(self):
+        paid = IgClient.get_or_create_for_sender("ig-default-paid")
+        paid.stage = IgClient.Stage.PAID
+        paid.save(update_fields=["stage", "updated_at"])
+        cold = IgClient.get_or_create_for_sender("ig-default-cold")
+        cold.stage = IgClient.Stage.COLD
+        cold.save(update_fields=["stage", "updated_at"])
+        spam = IgClient.get_or_create_for_sender("ig-default-spam")
+        spam.stage = IgClient.Stage.SPAM
+        spam.save(update_fields=["stage", "updated_at"])
+        hidden = IgClient.get_or_create_for_sender("ig-default-hidden")
+        hidden.hidden_at = timezone.now()
+        hidden.save(update_fields=["hidden_at", "updated_at"])
+
+        data = self.client.get(reverse("management_bot_clients_api")).json()
         ids = {item["id"] for item in data["clients"]}
 
         self.assertTrue({self.c.id, paid.id, cold.id, spam.id}.issubset(ids))

@@ -20,6 +20,8 @@ from django.utils import timezone
 from management.management.commands.run_instagram_bot import (
     ANALYSIS_RECONCILE_BATCH,
     ANALYSIS_RECONCILE_EVERY,
+    CONV_REFRESH_EVERY,
+    CONV_REFRESH_PROGRESS_EVERY,
     DAEMON_LOCK_FILE,
     DAEMON_START_WAIT_SECONDS,
     DAEMON_LOCK_KEY,
@@ -29,6 +31,7 @@ from management.management.commands.run_instagram_bot import (
     Command,
     _daemon_alive,
     _analysis_worker,
+    _conversation_refresh_wait_seconds,
     _process_lock_held,
     _reconcile_commercial_episodes_after_reload,
     _run_work_cycle,
@@ -55,6 +58,28 @@ class DaemonPathTests(SimpleTestCase):
         self.assertTrue(os.path.isabs(MANAGE_PY_PATH))
         self.assertTrue(MANAGE_PY_PATH.endswith(os.path.join("twocomms", "manage.py")))
         self.assertEqual(PROJECT_ROOT, os.path.dirname(MANAGE_PY_PATH))
+
+    def test_conversation_refresh_backs_off_when_provider_is_degraded(self):
+        settings = InstagramBotSettings(conversation_discovery_cursor="CURSOR")
+
+        with patch.object(
+            bot,
+            "_current_ingress_degradation",
+            return_value={"state": "conversation_refresh_failed"},
+        ):
+            self.assertEqual(
+                _conversation_refresh_wait_seconds(settings),
+                CONV_REFRESH_EVERY,
+            )
+
+    def test_conversation_refresh_progresses_quickly_without_degradation(self):
+        settings = InstagramBotSettings(conversation_discovery_cursor="CURSOR")
+
+        with patch.object(bot, "_current_ingress_degradation", return_value=None):
+            self.assertEqual(
+                _conversation_refresh_wait_seconds(settings),
+                CONV_REFRESH_PROGRESS_EVERY,
+            )
 
     @patch("django.core.management.call_command")
     def test_new_daemon_reconciles_release_window_episodes_before_work(self, call_command):

@@ -409,6 +409,101 @@ Task 7B polling recovery, provenance and profile enrichment (2026-07-29):
   conversations in 2 requests with `degraded=False` and `enqueued=0`. Directly
   using the system-user token on a Page endpoint correctly fails with Graph
   `(#190)`, so the Page-token exchange must remain the only polling path.
+
+Task 7C frozen-chat recovery and resumable discovery (2026-07-29):
+
+- [x] Production root cause was verified against MariaDB and Graph before code
+  changes: daemon heartbeat and `last_poll_at` were fresh, but latest stored
+  messages/raw webhook events stopped on July 22-23; Graph `/conversations`
+  timed out with larger pages and returned only with very small `limit=1/2`.
+  The old all-or-nothing refresh preserved a two-conversation cache, so polling
+  repeatedly checked only those old dialogs.
+- [x] Conversation discovery now uses `limit=2`, validates Graph host/version,
+  rejects sensitive query keys, stores only opaque cursor values and persists
+  each validated slice to MariaDB without saving token-bearing paging URLs.
+- [x] Hot polling reads merge MariaDB durable IDs with cache and repair stale or
+  invalid cache entries; an old two-ID cache can no longer suppress a larger
+  durable discovery snapshot.
+- [x] The refresh mutex moved from cache-only `add()` to a MariaDB owner-token
+  lease with expiry and conditional release, preventing two daemon paths from
+  overwriting each other's cursor or deleting a successor lease.
+- [x] Cold polling no longer runs the heavy `/conversations` refresh inside the
+  hot daemon loop. It returns `refresh_pending`, while the background refresher
+  advances resumable discovery and temporarily tightens its interval to finish
+  an in-progress scan.
+- [x] Discovery state is scoped to the current Page ID. Switching the Instagram
+  page resets the cursor/snapshot instead of restoring another account's chats.
+- [x] Multi-slice scans keep a separate in-progress ID list so a completed scan
+  can prune stale dialogs, while partial scans still publish newly found chats
+  ahead of the old snapshot so a full 500-ID stale cache cannot starve a fresh
+  customer conversation.
+- [x] Cross-slice cursor cycles and total page caps are detected with persisted
+  cursor hashes/page counters and surfaced as ingress degradation rather than a
+  false healthy state.
+- [x] `ingress_status()` now exposes token-free discovery status (`not_observed`,
+  `in_progress`, `complete`, `account_changed`), counts, age and lease state so
+  a fresh daemon heartbeat cannot hide an incomplete conversation scan.
+- [x] UI/API default conversation view is `Усі`: every non-hidden client remains
+  visible even after paid/completed/cold/spam classification; focused filters
+  remain separate work queues.
+- [x] Page subscription was verified read-only after the secret correction:
+  `/{page_id}/subscribed_apps` returns app `DIRECT_BOT` subscribed to
+  `messages`. Webhook delivery still requires a genuine new event to close the
+  production acceptance gate.
+- [x] Local verification passed: RED regressions reproduced cache suppression,
+  first-page failure, missing DB lease, stale release and blocking cold path;
+  GREEN runs passed 179 focused polling/client/UI/daemon tests, then 341
+  webhook/polling/UI/daemon/analysis/Gemini tests. `manage.py check`, migration
+  drift, scoped compilation and `git diff --check` passed.
+- [ ] Production release proof for this slice is still pending: deploy the code,
+  apply migration `0112`, restart Passenger/daemon, warm discovery/backfill, and
+  prove current dialogs/messages appear in MariaDB and the management UI without
+  sending replies to old history.
+- [ ] Conversation `851011504321866` is explicitly tracked as a history
+  completeness case: production currently stores only the locally observed
+  slice and the latest visible row is a media/reaction message. A direct
+  page-token read currently returns Meta `403 (#200) App does not have Advanced
+  Access to instagram_manage_messages permission`, so no code may fabricate the
+  missing history. After Meta permission/token recovery, run bounded full-page
+  backfill for this conversation, persist provider timestamps/attachments, and
+  verify the transcript ends at the newest real message rather than the reaction
+  placeholder.
+- [x] Polling now classifies this provider blocker as `meta_advanced_access` in
+  ingress degradation without persisting the Graph response body, so the UI can
+  distinguish an external permission block from a frozen daemon.
+
+Task 7D production delivery gate (2026-07-29):
+
+- [x] Runtime truth was checked against the live MariaDB/daemon: `IG_APP_SECRET`
+  is present and signature status is configured, the daemon heartbeat and
+  `last_poll_at` are fresh, but the last real inbound message is `242` from
+  2026-07-21 and the last raw webhook event is from 2026-07-22. An empty pending
+  queue therefore does not prove that Meta delivered today's messages.
+- [x] The live app token belongs to App ID `2120980214971807` and its debug
+  scopes contain legacy `instagram_manage_messages`, but a real non-role profile
+  and conversation read return Meta `403 (#200) App does not have Advanced
+  Access to instagram_manage_messages permission`. This blocks profile name,
+  avatar, history backfill and replies for non-role users at the provider
+  boundary; the application cannot synthesize those values locally.
+- [x] Read-only Graph checks show `/{page_id}/subscribed_apps` has the Page
+  `messages` field, while `/{app_id}/subscriptions` returns an empty data set.
+  The app-level callback subscription is therefore a separate P0 prerequisite;
+  a Page subscription alone is not accepted as proof of webhook delivery.
+- [ ] Set a private `IG_BOT_VERIFY_TOKEN`, register the exact HTTPS callback
+  `/bot/webhook/` for the approved current Instagram messaging object, verify
+  the callback, and re-check app plus Page subscriptions. Do not mark webhook
+  delivery fixed until a genuine signed customer event creates a new raw event,
+  `InstagramBotMessage`, analysis revision and (when eligible) one reply.
+- [ ] Replace/refresh the Page Token after the approved current permission is
+  visible on the actual App ID; confirm the token debug scopes and a real
+  non-role `/{igsid}` profile read before running the bounded history backfill
+  for conversation `851011504321866`.
+- [ ] Once provider access is restored, run controlled profile enrichment for
+  every non-hidden client (name, username and localized avatar), then verify
+  ordering by provider timestamp and newest-message priority in the `Усі`
+  workspace view. Keep the profile job bounded and never let a profile failure
+  block webhook persistence or customer replies.
+
 - [ ] Chat UI reads MariaDB-backed incremental APIs only, pauses/backs off in a
   hidden tab, and never causes a Meta Graph request.
 - [ ] List card, chat header, one-row funnel, review drawer and incremental chat

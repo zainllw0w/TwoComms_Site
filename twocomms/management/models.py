@@ -3629,6 +3629,19 @@ class InstagramBotSettings(models.Model):
     # бот суто event-driven (webhook), без фонових запитів до IG. Можна
     # увімкнути вручну як backstop, якщо webhook раптом не доставляє.
     receive_via_poll = models.BooleanField(default=False)
+    # Durable, token-free discovery state for the polling backstop. Graph
+    # paging URLs are never stored: only validated conversation ids and the
+    # opaque paging.cursors.after value survive cache/process restarts.
+    conversation_discovery_ids = models.JSONField(default=list, blank=True)
+    conversation_discovery_cursor = models.TextField(blank=True, default="")
+    conversation_discovery_page_id = models.CharField(max_length=64, blank=True, default="")
+    conversation_discovery_scan_ids = models.JSONField(default=list, blank=True)
+    conversation_discovery_cursor_hashes = models.JSONField(default=list, blank=True)
+    conversation_discovery_pages_seen = models.PositiveIntegerField(default=0)
+    conversation_discovery_updated_at = models.DateTimeField(null=True, blank=True)
+    conversation_discovery_completed_at = models.DateTimeField(null=True, blank=True)
+    conversation_discovery_lease_token = models.CharField(max_length=64, blank=True, default="")
+    conversation_discovery_lease_expires_at = models.DateTimeField(null=True, blank=True)
     # Safe Meta CAPI feedback for IG-only funnel stages. Disabled by default until
     # production match-data/env is verified.
     meta_feedback_enabled = models.BooleanField(default=False)

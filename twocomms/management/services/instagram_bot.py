@@ -57,14 +57,16 @@ MAX_ATTEMPTS = 3            # ретраї обробки одного пові�
 PAGE_TOKEN_TTL = 1200
 HTTP_TIMEOUT = 12
 CONV_LIST_TIMEOUT = 30
-CONV_PAGE_LIMIT = 10
-CONV_MAX_PAGES = 50
+CONV_PAGE_LIMIT = 2
+CONV_DISCOVERY_PAGES_PER_REFRESH = 5
 CONV_MAX_IDS = 500
+CONV_MAX_PAGES = (CONV_MAX_IDS + CONV_PAGE_LIMIT - 1) // CONV_PAGE_LIMIT
 CONV_MIN_INTERVAL = 0.5  # Meta Conversations API: at most 2 requests/second.
 CONV_CACHE_TTL = 3600
-CONV_REFRESH_LOCK_TTL = CONV_LIST_TIMEOUT * CONV_MAX_PAGES + 30
+CONV_REFRESH_LOCK_TTL = CONV_LIST_TIMEOUT * CONV_DISCOVERY_PAGES_PER_REFRESH + 30
 INGRESS_DEGRADATION_TTL = 15 * 60
 _CONV_ID_RE = re.compile(r"^[A-Za-z0-9:_-]{1,255}$")
+_CONV_CURSOR_RE = re.compile(r"^[A-Za-z0-9_+=/.:~-]{1,1024}$")
 _SENDER_ID_RE = re.compile(r"^[A-Za-z0-9:_-]{1,64}$")
 _GRAPH_VERSION_PATH_RE = re.compile(r"^/v\d+(?:\.\d+)?(?:/|$)")
 POLL_MESSAGE_TIMEOUT = 12
@@ -1789,90 +1791,351 @@ def _valid_conversation_page_url(value: str) -> bool:
         parsed = urlsplit(value)
     except ValueError:
         return False
+    query_keys = {key.lower() for key, _value in parse_qsl(parsed.query, keep_blank_values=True)}
     return (
         parsed.scheme == "https"
         and parsed.netloc == "graph.facebook.com"
         and parsed.path.startswith(f"/{GRAPH_VERSION}/")
         and not parsed.fragment
+        and not query_keys.intersection(GRAPH_SENSITIVE_QUERY_KEYS)
     )
+
+
+def _valid_conversation_cursor(value) -> str:
+    if not isinstance(value, str):
+        return ""
+    value = value.strip()
+    if not value or not _CONV_CURSOR_RE.fullmatch(value):
+        return ""
+    return value
+
+
+def _merge_conv_ids(*collections) -> list[str]:
+    merged: list[str] = []
+    seen: set[str] = set()
+    for collection in collections:
+        for item in _valid_conv_snapshot(list(collection) if isinstance(collection, tuple) else collection):
+            if item not in seen:
+                seen.add(item)
+                merged.append(item)
+                if len(merged) >= CONV_MAX_IDS:
+                    return merged
+    return merged
+
+
+def _stored_conversation_discovery_ids(s: InstagramBotSettings) -> list[str]:
+    owner_page_id = str(getattr(s, "conversation_discovery_page_id", "") or "").strip()
+    current_page_id = str(s.page_id or "").strip()
+    if owner_page_id and owner_page_id != current_page_id:
+        return []
+    return _valid_conv_snapshot(getattr(s, "conversation_discovery_ids", []))
+
+
+def _stored_conversation_discovery_cursor(s: InstagramBotSettings) -> str:
+    owner_page_id = str(getattr(s, "conversation_discovery_page_id", "") or "").strip()
+    if owner_page_id and owner_page_id != str(s.page_id or "").strip():
+        return ""
+    return _valid_conversation_cursor(
+        getattr(s, "conversation_discovery_cursor", "")
+    )
+
+
+def _valid_conversation_cursor_hashes(value) -> list[str]:
+    if not isinstance(value, list) or len(value) > CONV_MAX_PAGES:
+        return []
+    result: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        if not isinstance(item, str) or not re.fullmatch(r"[0-9a-f]{64}", item):
+            return []
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+
+class _ConversationDiscoveryLeaseLost(RuntimeError):
+    pass
+
+
+def _claim_conversation_discovery_lease(s: InstagramBotSettings) -> str | None:
+    if not s.pk:
+        return None
+    now = timezone.now()
+    token = secrets.token_hex(16)
+    available = (
+        Q(conversation_discovery_lease_token="")
+        | Q(conversation_discovery_lease_expires_at__isnull=True)
+        | Q(conversation_discovery_lease_expires_at__lte=now)
+    )
+    updated = InstagramBotSettings.objects.filter(pk=s.pk).filter(available).update(
+        conversation_discovery_lease_token=token,
+        conversation_discovery_lease_expires_at=(
+            now + timedelta(seconds=CONV_REFRESH_LOCK_TTL)
+        ),
+        updated_at=now,
+    )
+    return token if updated == 1 else None
+
+
+def _release_conversation_discovery_lease(settings_pk: int, token: str) -> None:
+    if not settings_pk or not token:
+        return
+    InstagramBotSettings.objects.filter(
+        pk=settings_pk,
+        conversation_discovery_lease_token=token,
+    ).update(
+        conversation_discovery_lease_token="",
+        conversation_discovery_lease_expires_at=None,
+        updated_at=timezone.now(),
+    )
+
+
+def _save_conversation_discovery(
+    s: InstagramBotSettings,
+    ids: list[str],
+    cursor: str = "",
+    *,
+    lease_token: str,
+    scan_ids: list[str] | None = None,
+    pages_seen: int = 0,
+    cursor_hashes: list[str] | None = None,
+    completed_at=None,
+) -> list[str]:
+    ids = _valid_conv_snapshot(ids)
+    cursor = _valid_conversation_cursor(cursor)
+    scan_ids = _valid_conv_snapshot(scan_ids or [])
+    cursor_hashes = _valid_conversation_cursor_hashes(cursor_hashes or [])
+    pages_seen = max(0, min(int(pages_seen or 0), CONV_MAX_PAGES))
+    now = timezone.now()
+    values = {
+        "conversation_discovery_ids": ids,
+        "conversation_discovery_cursor": cursor,
+        "conversation_discovery_page_id": str(s.page_id or "").strip(),
+        "conversation_discovery_scan_ids": scan_ids,
+        "conversation_discovery_cursor_hashes": cursor_hashes,
+        "conversation_discovery_pages_seen": pages_seen,
+        "conversation_discovery_updated_at": now,
+        "updated_at": now,
+    }
+    if completed_at is not None:
+        values["conversation_discovery_completed_at"] = completed_at
+    updated = InstagramBotSettings.objects.filter(
+        pk=s.pk,
+        conversation_discovery_lease_token=lease_token,
+    ).update(**values)
+    if updated != 1:
+        raise _ConversationDiscoveryLeaseLost("conversation discovery lease lost")
+    for name, value in values.items():
+        setattr(s, name, value)
+    cache.set(_conv_cache_key(s), ids, CONV_CACHE_TTL)
+    return ids
+
+
+def _reset_conversation_discovery_owner(
+    s: InstagramBotSettings,
+    lease_token: str,
+) -> None:
+    _save_conversation_discovery(
+        s,
+        [],
+        "",
+        lease_token=lease_token,
+        scan_ids=[],
+        pages_seen=0,
+        cursor_hashes=[],
+    )
+    InstagramBotSettings.objects.filter(
+        pk=s.pk,
+        conversation_discovery_lease_token=lease_token,
+    ).update(conversation_discovery_completed_at=None)
+    s.conversation_discovery_completed_at = None
+
+
+def _conversation_discovery_url(s: InstagramBotSettings, cursor: str = "") -> str:
+    params = {
+        "platform": "instagram",
+        "fields": "id",
+        "limit": CONV_PAGE_LIMIT,
+    }
+    if cursor:
+        params["after"] = cursor
+    return _graph_url(f"/{s.page_id}/conversations", params)
+
+
+def _validate_conversation_discovery_page(envelope) -> tuple[list[str], str]:
+    if not isinstance(envelope, dict) or not isinstance(envelope.get("data"), list):
+        raise ValueError("malformed data")
+    ids: list[str] = []
+    seen: set[str] = set()
+    for conversation in envelope["data"]:
+        if not isinstance(conversation, dict):
+            raise ValueError("malformed conversation")
+        conversation_id = conversation.get("id")
+        if (
+            not isinstance(conversation_id, str)
+            or not _CONV_ID_RE.fullmatch(conversation_id.strip())
+        ):
+            raise ValueError("malformed conversation id")
+        conversation_id = conversation_id.strip()
+        if conversation_id not in seen:
+            seen.add(conversation_id)
+            ids.append(conversation_id)
+    paging = envelope.get("paging")
+    if paging is None:
+        return ids, ""
+    if not isinstance(paging, dict):
+        raise ValueError("malformed paging")
+    next_url = paging.get("next")
+    if not next_url:
+        return ids, ""
+    if not isinstance(next_url, str) or not _valid_conversation_page_url(next_url):
+        raise ValueError("untrusted paging URL")
+    query_cursor = _valid_conversation_cursor(
+        dict(parse_qsl(urlsplit(next_url).query, keep_blank_values=True)).get("after")
+    )
+    cursors = paging.get("cursors") or {}
+    if not isinstance(cursors, dict):
+        raise ValueError("malformed cursors")
+    cursor = _valid_conversation_cursor(cursors.get("after"))
+    if not cursor or not query_cursor:
+        raise ValueError("malformed cursor")
+    if cursor != query_cursor:
+        raise ValueError("conflicting cursor")
+    return ids, cursor
 
 
 def refresh_conv_ids(s: InstagramBotSettings, page_token: str) -> list[str]:
-    """Refresh a complete bounded conversation snapshot in the background."""
-    stale = _valid_conv_snapshot(cache.get(_conv_cache_key(s)))
-    lock_key = f"ig_bot_conv_refresh:{s.page_id or 'unknown'}"
-    if not cache.add(lock_key, "1", timeout=CONV_REFRESH_LOCK_TTL):
-        return stale
+    """Refresh Instagram conversations in small resumable Graph pages."""
+    lease_token = _claim_conversation_discovery_lease(s)
+    if not lease_token:
+        fresh = InstagramBotSettings.objects.get(pk=s.pk)
+        return get_conv_ids_cached(fresh) or []
     try:
-        return _refresh_conv_ids_unlocked(s, page_token, stale)
+        fresh = InstagramBotSettings.objects.get(pk=s.pk)
+        owner_page_id = str(
+            getattr(fresh, "conversation_discovery_page_id", "") or ""
+        ).strip()
+        if owner_page_id and owner_page_id != str(fresh.page_id or "").strip():
+            _reset_conversation_discovery_owner(fresh, lease_token)
+            fresh.refresh_from_db()
+        stale = _merge_conv_ids(
+            _stored_conversation_discovery_ids(fresh),
+            _valid_conv_snapshot(cache.get(_conv_cache_key(fresh))),
+        )
+        return _refresh_conv_ids_unlocked(fresh, page_token, stale, lease_token)
+    except _ConversationDiscoveryLeaseLost:
+        fresh = InstagramBotSettings.objects.get(pk=s.pk)
+        return get_conv_ids_cached(fresh) or []
     finally:
-        cache.delete(lock_key)
+        _release_conversation_discovery_lease(s.pk, lease_token)
 
 
-def _refresh_conv_ids_unlocked(s: InstagramBotSettings, page_token: str, stale: list[str]) -> list[str]:
-    """Refresh a complete bounded conversation snapshot in the background.
+def _refresh_conv_ids_unlocked(
+    s: InstagramBotSettings,
+    page_token: str,
+    stale: list[str],
+    lease_token: str,
+) -> list[str]:
+    """Advance the durable conversation discovery cursor by a bounded slice.
 
-    A failed later page must never replace a known-good snapshot with partial
-    data: polling a partial list silently drops customers from observation.
+    The old implementation waited for a full list before publishing. In
+    production a heavy first page could fail forever and polling stayed pinned
+    to an old two-thread cache. This function publishes each validated slice
+    while keeping a MariaDB cursor so the next cycle resumes rather than
+    restarts.
     """
-    page_url = _graph_url(
-        f"/{s.page_id}/conversations",
-        {
-            "platform": "instagram",
-            "fields": "id",
-            "limit": CONV_PAGE_LIMIT,
-        },
+    stored = _stored_conversation_discovery_ids(s)
+    cursor = _stored_conversation_discovery_cursor(s)
+    base_snapshot = _merge_conv_ids(stored, stale)
+    discovered = (
+        _valid_conv_snapshot(getattr(s, "conversation_discovery_scan_ids", []))
+        if cursor
+        else []
     )
-    discovered: list[str] = []
-    seen: set[str] = set()
-    visited_pages: set[str] = set()
-    for page_index in range(CONV_MAX_PAGES):
+    seen = set(discovered)
+    published = list(base_snapshot)
+    page_cursor = cursor
+    pages_seen = int(getattr(s, "conversation_discovery_pages_seen", 0) or 0) if cursor else 0
+    cursor_hashes = (
+        _valid_conversation_cursor_hashes(
+            getattr(s, "conversation_discovery_cursor_hashes", [])
+        )
+        if cursor
+        else []
+    )
+    visited_cursor_hashes = set(cursor_hashes)
+    for page_index in range(CONV_DISCOVERY_PAGES_PER_REFRESH):
+        if pages_seen >= CONV_MAX_PAGES:
+            _record_ingress_degradation(
+                s,
+                "refresh",
+                state="conversation_refresh_failed",
+                reason="page_cap",
+            )
+            _save_conversation_discovery(
+                s,
+                published,
+                "",
+                lease_token=lease_token,
+                scan_ids=[],
+                pages_seen=0,
+                cursor_hashes=[],
+            )
+            return published
         if page_index:
             # Fixed conservative spacing is easier to reason about than a
             # provider-header guess and remains within the documented limit.
             time.sleep(CONV_MIN_INTERVAL)
+        page_url = _conversation_discovery_url(s, page_cursor)
         code, body = _graph_http(page_url, token=page_token, timeout=CONV_LIST_TIMEOUT)
         if code != 200:
             _record_ingress_degradation(
                 s,
                 "refresh",
                 state="conversation_refresh_failed",
-                reason=f"http_{code}",
+                reason=_classify_poll_provider_failure(code, body),
             )
-            log("warning", "conversations", f"page={page_index + 1} HTTP {code}; keeping complete cache")
-            return stale
+            log("warning", "conversations", f"page={page_index + 1} HTTP {code}; keeping published cache")
+            cache.set(_conv_cache_key(s), published, CONV_CACHE_TTL)
+            return published
         try:
-            if page_url in visited_pages:
-                raise ValueError("repeated paging URL")
-            visited_pages.add(page_url)
-            envelope = json.loads(body)
-            if not isinstance(envelope, dict) or not isinstance(envelope.get("data"), list):
-                raise ValueError("malformed data")
-            for conversation in envelope["data"]:
-                if not isinstance(conversation, dict):
-                    raise ValueError("malformed conversation")
-                conversation_id = conversation.get("id")
-                if not isinstance(conversation_id, str) or not _CONV_ID_RE.fullmatch(conversation_id.strip()):
-                    raise ValueError("malformed conversation id")
-                conversation_id = conversation_id.strip()
+            page_ids, next_cursor = _validate_conversation_discovery_page(json.loads(body))
+            for conversation_id in page_ids:
                 if conversation_id not in seen:
                     seen.add(conversation_id)
                     discovered.append(conversation_id)
                     if len(discovered) > CONV_MAX_IDS:
                         raise ValueError("conversation cap exceeded")
-            paging = envelope.get("paging")
-            if paging is None:
-                paging = {}
-            if not isinstance(paging, dict):
-                raise ValueError("malformed paging")
-            next_url = paging.get("next")
-            if not next_url:
-                cache.set(_conv_cache_key(s), discovered, CONV_CACHE_TTL)
+            pages_seen += 1
+            if not next_cursor:
+                ids = _save_conversation_discovery(
+                    s,
+                    discovered,
+                    "",
+                    lease_token=lease_token,
+                    scan_ids=[],
+                    pages_seen=0,
+                    cursor_hashes=[],
+                    completed_at=timezone.now(),
+                )
                 _clear_ingress_degradation(s, "refresh")
-                return discovered
-            if not isinstance(next_url, str) or not _valid_conversation_page_url(next_url):
-                raise ValueError("untrusted paging URL")
-            page_url = next_url
+                return ids
+            cursor_hash = hashlib.sha256(next_cursor.encode("utf-8")).hexdigest()
+            if cursor_hash in visited_cursor_hashes:
+                raise ValueError("repeated paging cursor")
+            page_cursor = next_cursor
+            cursor_hashes.append(cursor_hash)
+            visited_cursor_hashes.add(cursor_hash)
+            published = _save_conversation_discovery(
+                s,
+                _merge_conv_ids(discovered, base_snapshot),
+                page_cursor,
+                lease_token=lease_token,
+                scan_ids=discovered,
+                pages_seen=pages_seen,
+                cursor_hashes=cursor_hashes,
+            )
         except (TypeError, ValueError, json.JSONDecodeError) as exc:
             _record_ingress_degradation(
                 s,
@@ -1880,33 +2143,94 @@ def _refresh_conv_ids_unlocked(s: InstagramBotSettings, page_token: str, stale: 
                 state="conversation_refresh_failed",
                 reason=f"malformed:{exc}",
             )
-            log("warning", "conversations", f"page={page_index + 1} malformed; keeping complete cache ({exc})")
-            return stale
-    _record_ingress_degradation(
-        s,
-        "refresh",
-        state="conversation_refresh_failed",
-        reason="page_cap",
-    )
-    log("warning", "conversations", "page cap reached; keeping complete cache")
-    return stale
+            log("warning", "conversations", f"page={page_index + 1} malformed; keeping published cache ({exc})")
+            cache.set(_conv_cache_key(s), published, CONV_CACHE_TTL)
+            return published
+    log("info", "conversations", "page budget reached; cursor saved")
+    return published
 
 
 def get_conv_ids_cached(s: InstagramBotSettings | None = None) -> list[str] | None:
     if s is None:
         return None
     cache_key = _conv_cache_key(s)
+    stored = _stored_conversation_discovery_ids(s)
     value = cache.get(cache_key)
     if value is None:
+        if stored:
+            cache.set(cache_key, stored, CONV_CACHE_TTL)
+            return stored
         return None
     valid = _valid_conv_snapshot(value)
     if value == []:
+        if stored:
+            cache.set(cache_key, stored, CONV_CACHE_TTL)
+            return stored
         return []
     if not valid:
         cache.delete(cache_key)
         log("warning", "poll_cache", "invalid conversation cache discarded")
+        if stored:
+            cache.set(cache_key, stored, CONV_CACHE_TTL)
+            return stored
         return None
-    return valid
+    merged = _merge_conv_ids(stored, valid)
+    if merged != value:
+        cache.set(cache_key, merged, CONV_CACHE_TTL)
+    return merged
+
+
+def conversation_discovery_status(
+    s: InstagramBotSettings,
+    *,
+    now=None,
+) -> dict[str, object]:
+    """Expose token-free discovery progress for operations and the dashboard."""
+    now = now or timezone.now()
+    owner_page_id = str(
+        getattr(s, "conversation_discovery_page_id", "") or ""
+    ).strip()
+    current_page_id = str(s.page_id or "").strip()
+    owner_matches = not owner_page_id or owner_page_id == current_page_id
+    ids = _stored_conversation_discovery_ids(s) if owner_matches else []
+    scan_ids = (
+        _valid_conv_snapshot(getattr(s, "conversation_discovery_scan_ids", []))
+        if owner_matches
+        else []
+    )
+    in_progress = bool(owner_matches and _stored_conversation_discovery_cursor(s))
+    updated_at = getattr(s, "conversation_discovery_updated_at", None)
+    completed_at = getattr(s, "conversation_discovery_completed_at", None)
+    lease_expires_at = getattr(s, "conversation_discovery_lease_expires_at", None)
+    if not owner_matches:
+        state = "account_changed"
+    elif in_progress:
+        state = "in_progress"
+    elif completed_at:
+        state = "complete"
+    else:
+        state = "not_observed"
+    result: dict[str, object] = {
+        "state": state,
+        "conversation_count": len(ids),
+        "scan_count": len(scan_ids),
+        "pages_seen": int(
+            getattr(s, "conversation_discovery_pages_seen", 0) or 0
+        ),
+        "owner_matches": owner_matches,
+        "lease_active": bool(lease_expires_at and lease_expires_at > now),
+    }
+    if updated_at:
+        result["updated_age_seconds"] = round(
+            max(0.0, (now - updated_at).total_seconds()),
+            1,
+        )
+    if completed_at:
+        result["completed_age_seconds"] = round(
+            max(0.0, (now - completed_at).total_seconds()),
+            1,
+        )
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -1980,6 +2304,19 @@ def _graph_error_codes(body: str) -> tuple[int, int]:
         return int(err.get("code", 0) or 0), int(err.get("error_subcode", 0) or 0)
     except Exception:
         return 0, 0
+
+
+def _classify_poll_provider_failure(code: int, body: str) -> str:
+    """Keep operator-visible polling failures actionable without storing body."""
+    graph_code, graph_subcode = _graph_error_codes(body)
+    body_text = str(body or "").lower()
+    if graph_code == 200 and "advanced access" in body_text:
+        return "meta_advanced_access"
+    if graph_subcode == MESSAGING_WINDOW_CLOSED_SUBCODE:
+        return "meta_messaging_window_closed"
+    if code == -1:
+        return "provider_network_error"
+    return f"http_{code}"
 
 
 def _classify_send_error(code: int, body: str) -> tuple[str, str]:
@@ -4161,6 +4498,18 @@ def _persist_polled_message(
                 if not client.first_contact_at:
                     updates["first_contact_at"] = provider_created_at
                 IgClient.objects.filter(pk=client.pk).update(**updates)
+        try:
+            from management.services.bot_conversation_analysis import schedule_analysis
+
+            schedule_analysis(
+                client,
+                row,
+                trigger="poll_history" if observed_only else "poll_backfill",
+            )
+        except DatabaseError:
+            raise
+        except Exception:
+            pass
         return True
     except IntegrityError:
         return False
@@ -4434,7 +4783,7 @@ def _fetch_polled_conversation(
                 "requests": requests_used,
                 "complete": False,
                 "budget_exhausted": False,
-                "reason": f"http_{code}",
+                "reason": _classify_poll_provider_failure(code, body),
             }
         try:
             messages, next_url = _validate_polled_page(json.loads(body))
@@ -4765,6 +5114,7 @@ def ingress_status(s: InstagramBotSettings, *, now=None) -> dict[str, object]:
     now = now or timezone.now()
     webhook = webhook_signature_status()
     degradation = _current_ingress_degradation(s)
+    discovery = conversation_discovery_status(s, now=now)
     if not s.receive_via_poll:
         polling = {"configured": False, "healthy": False, "state": "disabled"}
     elif not resolve_direct_token(s):
@@ -4795,6 +5145,7 @@ def ingress_status(s: InstagramBotSettings, *, now=None) -> dict[str, object]:
             "state": "healthy" if healthy else "stale",
             "age_seconds": round(age, 1),
         }
+    polling["discovery"] = discovery
     healthy = bool(webhook.get("healthy") or polling.get("healthy"))
     return {
         "healthy": healthy,
