@@ -377,8 +377,9 @@ Task 7B polling recovery, provenance and profile enrichment (2026-07-29):
 - [x] Production secret configuration is corrected (2026-07-29): the App ID
   `2120980214971807` and App Secret shown in the Meta Basic settings screenshot
   were verified as a pair; the Graph app probe now returns HTTP 200. The value
-  is stored in the selected `.env.production` (0600) and CloudLinux app env,
-  Passenger and the daemon were restarted, and both runtime fingerprints match.
+  is stored in the selected `.env.production` and CloudLinux app env (both
+  0600), Passenger and the daemon were restarted, and both runtime fingerprints
+  match.
 - [ ] Production signed webhook acceptance remains open: before the correction,
   Meta POSTs from `facebookexternalua` reached `/bot/webhook/` with HTTP 403
   `bad_signature`. No genuine post-correction non-role inbound has appeared in
