@@ -972,30 +972,19 @@ def instagram_login_app_secret() -> str:
 
 
 def parent_meta_app_secret() -> str:
-    """Return the parent Meta app secret used by legacy OAuth/compliance.
-
-    ``META_APP_SECRET`` is the unambiguous production name.  The historical
-    ``FACEBOOK_APP_SECRET`` alias remains supported.  ``IG_APP_SECRET`` is only
-    a legacy fallback when the complete provider contract is explicitly the
-    Page/Facebook transport; under Instagram Login it belongs to the separate
-    Instagram app and must never leak into parent-app OAuth.
-    """
-    secret = (
+    """Return only the parent Meta app secret used by OAuth/compliance."""
+    return (
         os.environ.get("META_APP_SECRET", "").strip()
         or os.environ.get("FACEBOOK_APP_SECRET", "").strip()
     )
-    if secret:
-        return secret
-    if provider_transport(None) == LEGACY_PAGE_TRANSPORT:
-        return os.environ.get("IG_APP_SECRET", "").strip()
-    return ""
 
 
 def app_secret() -> str:
-    """Return the active transport's webhook HMAC secret."""
-    if provider_transport(None) == INSTAGRAM_LOGIN_TRANSPORT:
-        return instagram_login_app_secret()
-    return parent_meta_app_secret()
+    """Return the webhook HMAC secret without access-token inference."""
+    explicit_transport = os.environ.get("IG_PROVIDER_TRANSPORT", "").strip().lower()
+    if explicit_transport == LEGACY_PAGE_TRANSPORT:
+        return parent_meta_app_secret()
+    return instagram_login_app_secret()
 
 
 def facebook_app_secret() -> str:
@@ -1150,6 +1139,30 @@ def meta_rate_limit_status() -> dict[str, object]:
         "last_rate_limited_endpoint": str(last.get("endpoint") or ""),
         "endpoints": endpoints,
     }
+
+
+def _activate_send_rate_limit_backoff() -> None:
+    try:
+        cache.set(
+            "ig_meta_http_last_rate",
+            {"endpoint": "send", "at": timezone.now().isoformat()},
+            META_OBSERVABILITY_TTL,
+        )
+        cache.set(
+            "ig_meta_http_degraded_until",
+            time.time() + META_DEGRADED_TTL,
+            META_DEGRADED_TTL,
+        )
+    except Exception:
+        pass
+
+
+def _send_rate_limit_backoff_active() -> bool:
+    status = meta_rate_limit_status()
+    return bool(
+        status.get("degraded")
+        and status.get("last_rate_limited_endpoint") == "send"
+    )
 
 
 def _valid_provider_request_url(url: str, host: str) -> bool:
@@ -2440,7 +2453,9 @@ def _validate_conversation_discovery_page(
                 not isinstance(participants, dict)
                 or not isinstance(participants.get("data"), list)
             ):
-                raise ValueError("malformed participants")
+                # One malformed participant block must fail that conversation
+                # closed, not leave an older participant mapping poll-eligible.
+                participants = None
             updated_time = conversation.get("updated_time")
             if updated_time is not None and (
                 not isinstance(updated_time, str)
@@ -2523,73 +2538,52 @@ def _sync_discovered_conversation_state(
     if provider_transport(s) != INSTAGRAM_LOGIN_TRANSPORT or not conversations:
         return
     normalized: list[tuple[str, str, str, datetime | None]] = []
-    participant_ids: set[str] = set()
     for conversation in conversations:
         participant_igsid, exclusion = _conversation_participant_state(s, conversation)
-        if participant_igsid:
-            participant_ids.add(participant_igsid)
         normalized.append((
             conversation["id"],
             participant_igsid,
             exclusion,
             _parse_ig_time(conversation.get("updated_time") or ""),
         ))
-    hidden_ids = set(
-        IgClient.objects.filter(
-            igsid__in=participant_ids,
-            hidden_at__isnull=False,
-        ).values_list("igsid", flat=True)
-    )
-    conversation_ids = [item[0] for item in normalized]
-    existing = {
-        cursor.conversation_id: cursor
-        for cursor in IgPollCursor.objects.filter(conversation_id__in=conversation_ids)
-    }
-    missing = [
-        IgPollCursor(conversation_id=conversation_id)
-        for conversation_id in conversation_ids
-        if conversation_id not in existing
-    ]
-    if missing:
-        IgPollCursor.objects.bulk_create(missing, ignore_conflicts=True)
-        existing = {
-            cursor.conversation_id: cursor
-            for cursor in IgPollCursor.objects.filter(conversation_id__in=conversation_ids)
-        }
     now = timezone.now()
-    changed: list[IgPollCursor] = []
     automatic_exclusions = {"client_hidden", "ambiguous_participants"}
     for conversation_id, participant_igsid, exclusion, provider_updated_at in normalized:
-        cursor = existing.get(conversation_id)
-        if cursor is None:
-            continue
-        cursor.participant_igsid = participant_igsid
-        cursor.provider_updated_at = provider_updated_at
-        if participant_igsid in hidden_ids:
-            exclusion = "client_hidden"
-        if exclusion:
-            cursor.excluded_at = cursor.excluded_at or now
-            cursor.excluded_reason = exclusion
-        elif cursor.excluded_reason in automatic_exclusions:
-            cursor.excluded_at = None
-            cursor.excluded_reason = ""
-            cursor.synced_provider_updated_at = None
-            cursor.next_attempt_at = None
-        cursor.updated_at = now
-        changed.append(cursor)
-    if changed:
-        IgPollCursor.objects.bulk_update(
-            changed,
-            [
-                "participant_igsid",
-                "provider_updated_at",
-                "synced_provider_updated_at",
-                "excluded_at",
-                "excluded_reason",
-                "next_attempt_at",
-                "updated_at",
-            ],
-        )
+        with transaction.atomic():
+            client = None
+            if participant_igsid:
+                client = (
+                    IgClient.objects.select_for_update()
+                    .only("id", "hidden_at")
+                    .filter(igsid=participant_igsid)
+                    .first()
+                )
+            cursor, _created = IgPollCursor.objects.get_or_create(
+                conversation_id=conversation_id
+            )
+            cursor = IgPollCursor.objects.select_for_update().get(pk=cursor.pk)
+            update_fields = ["participant_igsid", "provider_updated_at", "updated_at"]
+            cursor.participant_igsid = participant_igsid
+            cursor.provider_updated_at = provider_updated_at
+            if client is not None and client.hidden_at:
+                exclusion = "client_hidden"
+            if exclusion:
+                cursor.excluded_at = cursor.excluded_at or now
+                cursor.excluded_reason = exclusion
+                update_fields.extend(["excluded_at", "excluded_reason"])
+            elif cursor.excluded_reason in automatic_exclusions:
+                cursor.excluded_at = None
+                cursor.excluded_reason = ""
+                cursor.synced_provider_updated_at = None
+                cursor.next_attempt_at = None
+                update_fields.extend([
+                    "excluded_at",
+                    "excluded_reason",
+                    "synced_provider_updated_at",
+                    "next_attempt_at",
+                ])
+            cursor.updated_at = now
+            cursor.save(update_fields=list(dict.fromkeys(update_fields)))
 
 
 def refresh_conv_ids(s: InstagramBotSettings, page_token: str) -> list[str]:
@@ -3069,6 +3063,7 @@ def _queue_payment_link_delivery_review(
 
     now = timezone.now()
     failure_reason = _payment_delivery_failure_reason(hint)
+    cancelled_payment_reminders = 0
     with transaction.atomic():
         IgClient.objects.select_for_update().only("id").get(pk=client.pk)
         task_qs = (
@@ -3102,6 +3097,21 @@ def _queue_payment_link_delivery_review(
                 skip_reason=failure_reason,
                 last_error=(hint or failure_reason)[:500],
             )
+        if deal is not None:
+            cancelled_payment_reminders = IgFollowUpTask.objects.filter(
+                client=client,
+                deal=deal,
+                kind=IgFollowUpTask.Kind.PAYMENT,
+                status=IgFollowUpTask.Status.PENDING,
+            ).update(
+                status=IgFollowUpTask.Status.CANCELLED,
+                skip_reason="payment_link_not_delivered",
+                updated_at=now,
+            )
+    if cancelled_payment_reminders:
+        from management.services import bot_followups
+
+        bot_followups._update_client_next(client)
     try:
         _apply_stage(client, IgClient.Stage.LEAD_TO_MANAGER)
     except Exception:
@@ -3111,12 +3121,14 @@ def _queue_payment_link_delivery_review(
         alert = (
             f"🧍 IG: Meta заблокувала доставку платіжного посилання для {label}.\n"
             "Invoice збережено в завданні менеджеру; надішліть його вручну після перевірки Meta Inbox.\n"
+            f"Платіжне повідомлення:\n{str(reply or '')[:1500]}\n"
             f"Причина: {hint}"
         )
     else:
         alert = (
             f"🧍 IG: платіжне повідомлення для {label} не доставлено.\n"
             "Invoice збережено в окремому завданні менеджеру; перевірте діалог і надішліть його вручну.\n"
+            f"Платіжне повідомлення:\n{str(reply or '')[:1500]}\n"
             f"Причина: {hint}"
         )
     try:
@@ -3133,9 +3145,12 @@ def _queue_payment_link_delivery_review(
 def _classify_poll_provider_failure(code: int, body: str) -> str:
     """Keep operator-visible polling failures actionable without storing body."""
     graph_code, graph_subcode = _graph_error_codes(body)
-    body_text = str(body or "").lower()
-    if graph_code == 200 and "advanced access" in body_text:
+    if graph_subcode == ADVANCED_ACCESS_SUBCODE:
         return "meta_advanced_access"
+    if graph_code == 190:
+        return "provider_token_invalid"
+    if graph_code in {10, 200}:
+        return "meta_permission_error"
     if graph_subcode == MESSAGING_WINDOW_CLOSED_SUBCODE:
         return "meta_messaging_window_closed"
     if code == 429 or graph_code in RATE_LIMIT_CODES:
@@ -3152,8 +3167,10 @@ def _classify_send_error(code: int, body: str) -> tuple[str, str]:
     if code == -1 or code >= 500:
         return "transient", "тимчасова мережева/серверна помилка"
     ec, sub = _graph_error_codes(body)
-    if ec in RATE_LIMIT_CODES:
-        return "transient", "ліміт частоти (retry пізніше)"
+    if code == 429 or ec in RATE_LIMIT_CODES:
+        # Meta explicitly rejected this request before delivery, so the worker
+        # may retry it later without the duplicate risk of a timeout or 5xx.
+        return "retryable", "ліміт частоти (retry пізніше)"
     if sub == ADVANCED_ACCESS_SUBCODE:
         return (
             "permanent",
@@ -3341,6 +3358,12 @@ def send_text(
             _clear_client_delivery_error(recipient_id)
             continue
         kind, hint = _classify_send_error(code, resp)
+        if kind == "retryable" and ok_any:
+            kind = "unknown"
+            hint = (
+                "часткова доставка; автоматичний повтор може дублювати вже "
+                f"доставлені частини: {hint}"
+            )
         if kind == "link_restricted":
             rejected_url = _contains_customer_url(part)
             if rejected_url:
@@ -3487,6 +3510,12 @@ def send_text_tagged(
             _clear_client_delivery_error(recipient_id)
             continue
         kind, hint = _classify_send_error(code, resp)
+        if kind == "retryable" and ok_any:
+            kind = "unknown"
+            hint = (
+                "часткова доставка; автоматичний повтор може дублювати вже "
+                f"доставлені частини: {hint}"
+            )
         if kind == "permanent":
             if ok_any:
                 kind = "unknown"
@@ -4966,6 +4995,11 @@ def _process_one_inside_reply_boundary(
                 f"⚠️ IG бот не зміг відповісти клієнту {row.sender_id} після {row.attempts} спроб. "
                 f"Причина: {hint}. Питання: {row.text[:300]}"
             )
+        elif kind == "retryable":
+            _activate_send_rate_limit_backoff()
+            row.status = InstagramBotMessage.Status.PENDING
+            row.processing_started_at = None
+            row.save(update_fields=["status", "processing_started_at"])
         else:
             row.status = InstagramBotMessage.Status.PENDING
             row.processing_started_at = None
@@ -5061,6 +5095,8 @@ def process_pending(s: InstagramBotSettings | None = None, max_items: int = 15) 
     s = s or InstagramBotSettings.load()
     if not s.is_enabled:
         return 0
+    if _send_rate_limit_backoff_active():
+        return 0
     # Реанімація «зависань» у processing (вбитий демон / надто довгий виклик).
     try:
         reclaim_stale_processing()
@@ -5072,8 +5108,16 @@ def process_pending(s: InstagramBotSettings | None = None, max_items: int = 15) 
         if not row:
             break
         try:
-            if _process_one(s, row):
+            processed = _process_one(s, row)
+            if processed:
                 handled += 1
+            elif InstagramBotMessage.objects.filter(
+                pk=row.pk,
+                status=InstagramBotMessage.Status.PENDING,
+            ).exists():
+                # Do not reclaim the same oldest row repeatedly in one drain.
+                # A later daemon cycle observes provider backoff and retries.
+                break
         except Exception as exc:
             log("error", "process", repr(exc))
             # Після успішного Meta Send рядок уже позначено done. Не можна
@@ -6043,13 +6087,26 @@ def poll_ingest(s: InstagramBotSettings) -> dict:
             failure_counts[failure_reason] = failure_counts.get(failure_reason, 0) + 1
             if instagram_login:
                 _mark_poll_cursor_failure(cursor, failure_reason)
-            if not instagram_login or failure_reason not in {"http_403", "http_404"}:
+            repeated_isolated_failure = bool(
+                instagram_login
+                and failure_reason in {"http_403", "http_404"}
+                and cursor.failure_count >= 2
+            )
+            if (
+                not instagram_login
+                or failure_reason not in {"http_403", "http_404"}
+                or repeated_isolated_failure
+            ):
                 degraded = True
                 _record_ingress_degradation(
                     s,
                     "poll",
                     state="message_poll_failed",
-                    reason=failure_reason,
+                    reason=(
+                        "repeated_conversation_inaccessible"
+                        if repeated_isolated_failure
+                        else failure_reason
+                    ),
                 )
             if fetched["budget_exhausted"]:
                 budget_exhausted = True
@@ -6145,7 +6202,26 @@ def poll_ingest(s: InstagramBotSettings) -> dict:
         cache.delete(_poll_offset_cache_key(s))
     for reason, count in sorted(failure_counts.items()):
         log("warning", "poll_messages", f"{reason}: {count} conversation(s) deferred")
-    if not degraded and (instagram_login or not budget_exhausted):
+    isolated_failure_count = sum(
+        failure_counts.get(reason, 0) for reason in ("http_403", "http_404")
+    )
+    if (
+        instagram_login
+        and conversations_checked >= 2
+        and isolated_failure_count == conversations_checked
+    ):
+        degraded = True
+        _record_ingress_degradation(
+            s,
+            "poll",
+            state="message_poll_failed",
+            reason="all_conversations_inaccessible",
+        )
+    if (
+        not degraded
+        and isolated_failure_count == 0
+        and (instagram_login or not budget_exhausted)
+    ):
         _clear_ingress_degradation(s, "poll")
     return {
         "ok": True,

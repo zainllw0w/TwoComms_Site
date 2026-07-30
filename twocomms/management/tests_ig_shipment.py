@@ -90,6 +90,57 @@ class SendTextTaggedTests(TestCase):
         self.assertFalse(ok)
         self.assertEqual(kind, "permanent")
 
+    @patch("management.services.instagram_bot._http")
+    @patch("management.services.instagram_bot.get_page_token", return_value="PT")
+    def test_explicit_rate_limit_before_tagged_delivery_is_retryable(
+        self, _mock_pt, mock_http
+    ):
+        from management.models import InstagramBotSettings
+
+        mock_http.return_value = (
+            429,
+            json.dumps({"error": {"code": 4, "message": "Request limit"}}),
+        )
+
+        ok, kind, _hint = bot.send_text_tagged(
+            InstagramBotSettings.load(),
+            "u1",
+            "Підтримка",
+            human_authored=True,
+        )
+
+        self.assertFalse(ok)
+        self.assertEqual(kind, "retryable")
+
+    @patch("management.services.instagram_bot._http")
+    @patch("management.services.instagram_bot.get_page_token", return_value="PT")
+    def test_rate_limit_after_partial_tagged_delivery_is_not_replayed(
+        self, _mock_pt, mock_http
+    ):
+        from management.models import InstagramBotSettings
+
+        reply = "Повідомлення підтримки. " * 500
+        self.assertGreater(len(bot._split_for_send(reply)), 1)
+        mock_http.side_effect = [
+            (200, '{"message_id":"m1"}'),
+            (
+                429,
+                json.dumps({"error": {"code": 4, "message": "Request limit"}}),
+            ),
+        ]
+
+        ok, kind, hint = bot.send_text_tagged(
+            InstagramBotSettings.load(),
+            "u1",
+            reply,
+            human_authored=True,
+        )
+
+        self.assertFalse(ok)
+        self.assertEqual(kind, "unknown")
+        self.assertIn("часткова доставка", hint)
+        self.assertEqual(mock_http.call_count, 2)
+
 
 class NotifyShippedDealsTests(TestCase):
     @patch("management.services.bot_orders.notify_manager")

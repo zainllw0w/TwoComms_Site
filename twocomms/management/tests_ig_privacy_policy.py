@@ -49,11 +49,11 @@ class MetaSignedRequestParserTests(SimpleTestCase):
         with patch.dict("os.environ", {"FACEBOOK_APP_SECRET": "test-meta-app-secret"}, clear=True):
             self.assertEqual(_parse_meta_signed_request("%%% .%%%".replace(" ", "")), {})
 
-    def test_ig_app_secret_name_is_used_for_signed_request(self):
+    def test_instagram_app_secret_is_rejected_for_parent_signed_request(self):
         with patch.dict("os.environ", {"IG_APP_SECRET": "test-meta-app-secret"}, clear=True):
             self.assertEqual(
                 _parse_meta_signed_request(self._signed_request({"user_id": "123"})),
-                {"user_id": "123"},
+                {},
             )
 
     def test_instagram_login_uses_parent_secret_for_meta_signed_request(self):

@@ -2679,9 +2679,11 @@ def bot_client_detail_api(request, client_id):
             "discount_percent": f.discount_percent,
             "due_at": f.due_at.isoformat() if f.due_at else "",
             "meta_window_deadline": f.meta_window_deadline.isoformat() if f.meta_window_deadline else "",
+            "message_text": f.message_text,
             "skip_reason": f.skip_reason,
+            "last_error": f.last_error,
         }
-        for f in c.followup_tasks.all()[:50]
+        for f in c.followup_tasks.all().order_by("-created_at", "-id")[:50]
     ]
     deal_rows = list(c.deals.select_related("payment_projection", "order").all()[:20])
     deals = [

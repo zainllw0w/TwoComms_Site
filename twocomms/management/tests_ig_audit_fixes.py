@@ -398,6 +398,69 @@ class SendApiBoundedRetryTests(TestCase):
         self.assertNotIn("заблокувала доставку платіжного посилання", notify_manager.call_args.args[0])
 
     @patch("management.services.instagram_bot.notify_manager")
+    def test_payment_delivery_alert_contains_preserved_invoice_message(
+        self, notify_manager
+    ):
+        deal = IgDeal.objects.create(
+            client=self.client,
+            invoice_id="invoice-visible",
+            invoice_url="https://pay.example/invoice/visible",
+        )
+        reply = f"Оплата: {deal.invoice_url}"
+
+        bot._queue_payment_link_delivery_review(
+            self.client,
+            reply,
+            "Instagram тимчасово обмежив надсилання посилань (code 508, subcode 2534122)",
+        )
+
+        self.assertIn(reply, notify_manager.call_args.args[0])
+
+    @patch("management.services.instagram_bot.notify_manager")
+    def test_payment_delivery_review_cancels_only_failed_deal_payment_reminder(
+        self, _notify_manager
+    ):
+        failed_deal = IgDeal.objects.create(
+            client=self.client,
+            invoice_id="invoice-failed-delivery",
+            invoice_url="https://pay.example/invoice/failed-delivery",
+        )
+        other_deal = IgDeal.objects.create(
+            client=self.client,
+            invoice_id="invoice-other",
+            invoice_url="https://pay.example/invoice/other",
+        )
+        failed_reminder = IgFollowUpTask.objects.create(
+            client=self.client,
+            deal=failed_deal,
+            due_at=timezone.now() + timedelta(minutes=45),
+            status=IgFollowUpTask.Status.PENDING,
+            kind=IgFollowUpTask.Kind.PAYMENT,
+            reason="payment_link_unpaid",
+        )
+        other_reminder = IgFollowUpTask.objects.create(
+            client=self.client,
+            deal=other_deal,
+            due_at=timezone.now() + timedelta(minutes=45),
+            status=IgFollowUpTask.Status.PENDING,
+            kind=IgFollowUpTask.Kind.PAYMENT,
+            reason="payment_link_unpaid",
+        )
+
+        bot._queue_payment_link_delivery_review(
+            self.client,
+            f"Оплата: {failed_deal.invoice_url}",
+            "Instagram тимчасово обмежив надсилання посилань (code 508, subcode 2534122)",
+            deal=failed_deal,
+        )
+
+        failed_reminder.refresh_from_db()
+        other_reminder.refresh_from_db()
+        self.assertEqual(failed_reminder.status, IgFollowUpTask.Status.CANCELLED)
+        self.assertEqual(failed_reminder.skip_reason, "payment_link_not_delivered")
+        self.assertEqual(other_reminder.status, IgFollowUpTask.Status.PENDING)
+
+    @patch("management.services.instagram_bot.notify_manager")
     @patch("management.services.instagram_bot.send_sender_action")
     @patch("management.services.instagram_bot.send_text")
     @patch("management.services.instagram_bot.finalize_paylink")
@@ -529,6 +592,85 @@ class SendApiBoundedRetryTests(TestCase):
         self.assertFalse(ok)
         self.assertEqual(kind, "unknown")
         self.assertIn("не підтверджено", hint)
+
+    @patch("management.services.instagram_bot.get_page_token", return_value="PT")
+    @patch("management.services.instagram_bot._http")
+    def test_explicit_graph_rate_limit_remains_retryable(self, mock_http, _mock_pt):
+        mock_http.return_value = (
+            429,
+            json.dumps({
+                "error": {
+                    "code": 4,
+                    "message": "Application request limit reached",
+                }
+            }),
+        )
+
+        ok, kind, hint = bot.send_text(
+            InstagramBotSettings.load(),
+            "rate-limited-recipient",
+            "Привіт",
+        )
+
+        self.assertFalse(ok)
+        self.assertEqual(kind, "retryable")
+        self.assertIn("ліміт", hint)
+        self.assertEqual(mock_http.call_count, 1)
+
+    @patch("management.services.instagram_bot.get_page_token", return_value="PT")
+    @patch("management.services.instagram_bot._http")
+    def test_rate_limit_after_partial_chunk_delivery_is_not_replayed(
+        self, mock_http, _mock_pt
+    ):
+        reply = "Перша частина. " * 500
+        self.assertGreater(len(bot._split_for_send(reply)), 1)
+        mock_http.side_effect = [
+            (200, "{}"),
+            (
+                429,
+                json.dumps({
+                    "error": {
+                        "code": 4,
+                        "message": "Application request limit reached",
+                    }
+                }),
+            ),
+        ]
+
+        ok, kind, hint = bot.send_text(
+            InstagramBotSettings.load(),
+            "partially-delivered-recipient",
+            reply,
+        )
+
+        self.assertFalse(ok)
+        self.assertEqual(kind, "unknown")
+        self.assertIn("часткова доставка", hint)
+        self.assertEqual(mock_http.call_count, 2)
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch("management.services.instagram_bot.send_text")
+    def test_retryable_send_stops_current_drain_cycle(
+        self, send_text, _sender_action, _notify_manager
+    ):
+        send_text.return_value = (False, "retryable", "ліміт частоти")
+        row = bot.InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=bot.InstagramBotMessage.Role.USER,
+            text="hello",
+            status=bot.InstagramBotMessage.Status.PENDING,
+            source="webhook",
+        )
+
+        self.assertEqual(bot.process_pending(self.settings, max_items=5), 0)
+        self.assertEqual(bot.process_pending(self.settings, max_items=5), 0)
+
+        row.refresh_from_db()
+        self.assertEqual(send_text.call_count, 1)
+        self.assertEqual(row.attempts, 1)
+        self.assertEqual(row.status, bot.InstagramBotMessage.Status.PENDING)
 
     @patch("management.services.instagram_bot.get_page_token", return_value="PT")
     @patch("management.services.instagram_bot._http")

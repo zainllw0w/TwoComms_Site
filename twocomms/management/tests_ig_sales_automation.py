@@ -504,6 +504,59 @@ class SalesCockpitApiTests(TestCase):
 
         self.assertEqual(row["payment_status"], "paid")
 
+    def test_payment_delivery_task_exposes_invoice_message_in_client_detail(self):
+        from management.models import IgFollowUpTask
+
+        invoice_message = "Оплата: https://pay.example/invoice/visible-in-card"
+        IgFollowUpTask.objects.create(
+            client=self.active,
+            due_at=timezone.now(),
+            status=IgFollowUpTask.Status.SKIPPED,
+            kind=IgFollowUpTask.Kind.MANAGER_TASK,
+            reason="payment_link_delivery_review",
+            message_text=invoice_message,
+            skip_reason="meta_link_restriction",
+        )
+
+        data = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.active.id])
+        ).json()
+        task = next(
+            item
+            for item in data["followups"]
+            if item["reason"] == "payment_link_delivery_review"
+        )
+
+        self.assertEqual(task["message_text"], invoice_message)
+
+    def test_recent_payment_delivery_task_is_not_hidden_by_followup_limit(self):
+        from management.models import IgFollowUpTask
+
+        old_due_at = timezone.now() - timedelta(days=2)
+        for index in range(51):
+            IgFollowUpTask.objects.create(
+                client=self.active,
+                due_at=old_due_at,
+                status=IgFollowUpTask.Status.SKIPPED,
+                kind=IgFollowUpTask.Kind.MANAGER_TASK,
+                reason=f"old-review-{index}",
+            )
+        fresh = IgFollowUpTask.objects.create(
+            client=self.active,
+            due_at=timezone.now(),
+            status=IgFollowUpTask.Status.SKIPPED,
+            kind=IgFollowUpTask.Kind.MANAGER_TASK,
+            reason="payment_link_delivery_review",
+            message_text="Оплата: https://pay.example/invoice/fresh",
+        )
+
+        data = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.active.id])
+        ).json()
+
+        self.assertEqual(len(data["followups"]), 50)
+        self.assertIn(fresh.id, {item["id"] for item in data["followups"]})
+
     def test_reversed_payment_is_explicit_and_not_rendered_as_paid(self):
         reversed_client = IgClient.get_or_create_for_sender("api_reversed_payment")
         reversed_client.stage = IgClient.Stage.PAID
@@ -808,6 +861,7 @@ class SalesCockpitApiTests(TestCase):
         self.assertIn("async function runClientAction", html)
         self.assertIn("Клієнта приховано", html)
         self.assertIn("Не вдалося виконати дію", html)
+        self.assertIn("item.message_text", html)
         for label in (
             "Статистика продажів IG Direct",
             "Діалоги",

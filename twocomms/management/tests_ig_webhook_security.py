@@ -37,7 +37,14 @@ class WebhookSignatureTests(SimpleTestCase):
         body = b'{"object":"instagram"}'
         secret = "facebook-alias-secret"
         digest = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
-        with patch.dict(os.environ, {"FACEBOOK_APP_SECRET": secret}, clear=True):
+        with patch.dict(
+            os.environ,
+            {
+                "IG_PROVIDER_TRANSPORT": "legacy_page",
+                "FACEBOOK_APP_SECRET": secret,
+            },
+            clear=True,
+        ):
             self.assertTrue(bot.verify_signature(body, f"sha256={digest}"))
             self.assertEqual(bot.webhook_signature_status()["state"], "configured")
 

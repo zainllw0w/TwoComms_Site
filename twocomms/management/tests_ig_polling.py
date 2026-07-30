@@ -7,7 +7,7 @@ from django.test import TestCase
 from django.core.cache import cache
 from django.utils import timezone as django_timezone
 
-from management.models import IgPollCursor, InstagramBotMessage, InstagramBotSettings
+from management.models import IgClient, IgPollCursor, InstagramBotMessage, InstagramBotSettings
 from management.services import instagram_bot as bot
 
 
@@ -397,6 +397,93 @@ class ConversationDiscoveryTests(TestCase):
         )
         self.assertIsNotNone(cursor.excluded_at)
         self.assertEqual(cursor.excluded_reason, "ambiguous_participants")
+
+    def test_instagram_login_malformed_participants_clears_stale_mapping(self):
+        IgPollCursor.objects.create(
+            conversation_id="conv-malformed-participants",
+            participant_igsid="stale-user",
+        )
+        payload = {
+            "data": [
+                {
+                    "id": "conv-malformed-participants",
+                    "updated_time": "2026-07-30T10:29:26+0000",
+                    "participants": {"data": "invalid"},
+                }
+            ]
+        }
+
+        with patch.object(
+            bot,
+            "provider_transport",
+            return_value=bot.INSTAGRAM_LOGIN_TRANSPORT,
+        ), patch.object(
+            bot,
+            "_http",
+            return_value=(200, json.dumps(payload)),
+        ):
+            bot.refresh_conv_ids(self.settings, "PT")
+
+        cursor = IgPollCursor.objects.get(
+            conversation_id="conv-malformed-participants"
+        )
+        self.assertEqual(cursor.participant_igsid, "")
+        self.assertIsNotNone(cursor.excluded_at)
+        self.assertEqual(cursor.excluded_reason, "ambiguous_participants")
+
+        with patch.object(
+            bot,
+            "provider_transport",
+            return_value=bot.INSTAGRAM_LOGIN_TRANSPORT,
+        ), patch.object(bot, "get_page_token", return_value="PT"), patch.object(
+            bot,
+            "get_conv_ids_cached",
+            return_value=["conv-malformed-participants"],
+        ), patch.object(bot, "_http") as message_http:
+            result = bot.poll_ingest(self.settings)
+
+        self.assertEqual(result["conversations_excluded"], 1)
+        self.assertEqual(result["conversations_checked"], 0)
+        message_http.assert_not_called()
+
+    def test_discovery_sync_locks_client_before_cursor_update(self):
+        client = IgClient.get_or_create_for_sender("lock-order-user")
+        IgPollCursor.objects.create(
+            conversation_id="conv-lock-order",
+            participant_igsid=client.igsid,
+        )
+        conversation = {
+            "id": "conv-lock-order",
+            "updated_time": "2026-07-30T10:29:26+0000",
+            "participants": {
+                "data": [
+                    {"id": self.settings.ig_user_id},
+                    {"id": client.igsid},
+                ]
+            },
+        }
+        lock_order = []
+        client_lock = IgClient.objects.select_for_update
+        cursor_lock = IgPollCursor.objects.select_for_update
+
+        with patch.object(
+            bot,
+            "provider_transport",
+            return_value=bot.INSTAGRAM_LOGIN_TRANSPORT,
+        ), patch.object(
+            IgClient.objects,
+            "select_for_update",
+            side_effect=lambda: lock_order.append("client") or client_lock(),
+        ), patch.object(
+            IgPollCursor.objects,
+            "select_for_update",
+            side_effect=lambda: lock_order.append("cursor") or cursor_lock(),
+        ):
+            bot._sync_discovered_conversation_state(self.settings, [conversation])
+
+        self.assertIn("client", lock_order)
+        self.assertIn("cursor", lock_order)
+        self.assertLess(lock_order.index("client"), lock_order.index("cursor"))
 
     def test_instagram_login_unmapped_cursor_never_fetches_history(self):
         IgPollCursor.objects.create(conversation_id="conv-unmapped")
@@ -1094,6 +1181,107 @@ class ConversationMessagePaginationSafetyTests(TestCase):
         self.assertEqual(cursor.last_error, "http_403")
         self.assertIsNotNone(cursor.next_attempt_at)
 
+    def test_instagram_login_permission_code_is_immediately_degraded(self):
+        self._cache_conversations("conv-permission")
+        IgPollCursor.objects.create(
+            conversation_id="conv-permission",
+            participant_igsid="123456789",
+            provider_updated_at=django_timezone.now(),
+        )
+
+        with patch.object(
+            bot,
+            "provider_transport",
+            return_value=bot.INSTAGRAM_LOGIN_TRANSPORT,
+        ), patch.object(
+            bot,
+            "get_conv_ids_cached",
+            return_value=["conv-permission"],
+        ), patch.object(bot, "get_page_token", return_value="PT"), patch.object(
+            bot,
+            "_http",
+            return_value=(403, json.dumps({"error": {"code": 200}})),
+        ):
+            result = bot.poll_ingest(self.settings)
+
+        self.assertTrue(result["degraded"])
+        self.assertEqual(
+            cache.get(
+                "ig_bot_ingress_poll_degraded:"
+                f"{bot.INSTAGRAM_LOGIN_TRANSPORT}:{self.settings.ig_user_id}"
+            )["reason"],
+            "meta_permission_error",
+        )
+
+    def test_all_inaccessible_conversations_mark_poll_degraded(self):
+        self._cache_conversations("conv-inaccessible-a", "conv-inaccessible-b")
+        for conversation_id in ("conv-inaccessible-a", "conv-inaccessible-b"):
+            IgPollCursor.objects.create(
+                conversation_id=conversation_id,
+                participant_igsid=f"user-{conversation_id[-1]}",
+                provider_updated_at=django_timezone.now(),
+            )
+
+        with patch.object(
+            bot,
+            "provider_transport",
+            return_value=bot.INSTAGRAM_LOGIN_TRANSPORT,
+        ), patch.object(
+            bot,
+            "get_conv_ids_cached",
+            return_value=["conv-inaccessible-a", "conv-inaccessible-b"],
+        ), patch.object(bot, "get_page_token", return_value="PT"), patch.object(
+            bot,
+            "_http",
+            return_value=(403, json.dumps({"error": {"code": 100}})),
+        ):
+            result = bot.poll_ingest(self.settings)
+
+        self.assertTrue(result["degraded"])
+        self.assertEqual(
+            cache.get(
+                "ig_bot_ingress_poll_degraded:"
+                f"{bot.INSTAGRAM_LOGIN_TRANSPORT}:{self.settings.ig_user_id}"
+            )["reason"],
+            "all_conversations_inaccessible",
+        )
+
+    def test_isolated_403_does_not_clear_existing_poll_degradation(self):
+        self._cache_conversations("conv-still-inaccessible")
+        IgPollCursor.objects.create(
+            conversation_id="conv-still-inaccessible",
+            participant_igsid="123456789",
+            provider_updated_at=django_timezone.now(),
+        )
+        poll_key = (
+            "ig_bot_ingress_poll_degraded:"
+            f"{bot.INSTAGRAM_LOGIN_TRANSPORT}:{self.settings.ig_user_id}"
+        )
+        cache.set(
+            poll_key,
+            {"state": "message_poll_failed", "reason": "http_503", "at": 1},
+            600,
+        )
+        self.addCleanup(cache.delete, poll_key)
+
+        with patch.object(
+            bot,
+            "provider_transport",
+            return_value=bot.INSTAGRAM_LOGIN_TRANSPORT,
+        ), patch.object(
+            bot,
+            "get_conv_ids_cached",
+            return_value=["conv-still-inaccessible"],
+        ), patch.object(bot, "get_page_token", return_value="PT"), patch.object(
+            bot,
+            "_http",
+            return_value=(403, json.dumps({"error": {"code": 100}})),
+        ):
+            result = bot.poll_ingest(self.settings)
+
+        self.assertFalse(result["degraded"], result)
+        self.assertEqual(cache.get(poll_key)["reason"], "http_503")
+
     def test_global_request_budget_rotates_conversations_fairly(self):
         self._cache_conversations("conv-a", "conv-b")
         requested_urls = []
@@ -1147,6 +1335,7 @@ class ConversationMessagePaginationSafetyTests(TestCase):
         body = json.dumps({
             "error": {
                 "code": 200,
+                "error_subcode": bot.ADVANCED_ACCESS_SUBCODE,
                 "message": "App does not have Advanced Access to instagram_manage_messages permission",
             }
         })
@@ -1159,6 +1348,19 @@ class ConversationMessagePaginationSafetyTests(TestCase):
         evidence = cache.get("ig_bot_ingress_poll_degraded:page")
         self.assertEqual(evidence["reason"], "meta_advanced_access")
         self.assertNotIn("Advanced Access", json.dumps(evidence))
+
+    def test_advanced_access_phrase_without_exact_subcode_is_generic_permission_error(self):
+        body = json.dumps({
+            "error": {
+                "code": 200,
+                "message": "App does not have Advanced Access to instagram_manage_messages permission",
+            }
+        })
+
+        self.assertEqual(
+            bot._classify_poll_provider_failure(403, body),
+            "meta_permission_error",
+        )
 
     def test_history_messages_are_persisted_without_reply_queue_or_page_side_effects(self):
         self._cache_conversations("conv-history")
