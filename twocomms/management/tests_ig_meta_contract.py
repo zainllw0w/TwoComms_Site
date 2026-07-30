@@ -99,7 +99,7 @@ class InstagramMetaContractTests(SimpleTestCase):
         fake_cache = _MemoryCache()
         settings = SimpleNamespace()
         with patch.object(bot, "cache", fake_cache), \
-             patch.object(bot, "app_secret", return_value="app-secret"), \
+             patch.object(bot, "facebook_app_secret", return_value="app-secret"), \
              patch.object(
                  bot,
                  "resolve_direct_token",
@@ -123,7 +123,7 @@ class InstagramMetaContractTests(SimpleTestCase):
             (200, '{"data":[{"id":"page","access_token":"page-token-b"}]}'),
         ]
         with patch.object(bot, "cache", fake_cache), \
-             patch.object(bot, "app_secret", return_value="app-secret"), \
+             patch.object(bot, "facebook_app_secret", return_value="app-secret"), \
              patch.object(
                  bot,
                  "_effective_user_token",
@@ -136,7 +136,7 @@ class InstagramMetaContractTests(SimpleTestCase):
         self.assertEqual(graph_http.call_count, 2)
 
     @patch("management.services.instagram_bot._graph_http", return_value=(200, '{"access_token":"ll"}'))
-    @patch("management.services.instagram_bot.app_secret", return_value="app-secret")
+    @patch("management.services.instagram_bot.facebook_app_secret", return_value="app-secret")
     def test_long_lived_exchange_keeps_credentials_out_of_graph_query(self, _secret, graph_http):
         self.assertEqual(bot._exchange_long_lived("short-token"), "ll")
         called_url = graph_http.call_args.args[0]

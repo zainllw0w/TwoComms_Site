@@ -217,10 +217,10 @@ def _parse_meta_signed_request(signed_request: str) -> dict:
         return {}
 
     app_secret = (
-        os.environ.get("IG_APP_SECRET")
-        or os.environ.get("FACEBOOK_APP_SECRET")
-        or getattr(settings, "IG_APP_SECRET", "")
+        os.environ.get("FACEBOOK_APP_SECRET")
         or getattr(settings, "FACEBOOK_APP_SECRET", "")
+        or os.environ.get("IG_APP_SECRET")
+        or getattr(settings, "IG_APP_SECRET", "")
     )
     # This callback is public and can create compliance/audit records.  Never
     # accept an unsigned request when the production secret is missing.

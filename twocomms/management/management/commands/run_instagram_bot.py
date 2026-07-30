@@ -139,7 +139,7 @@ def _conv_refresher(stop_event: threading.Event):
         try:
             close_old_connections()
             s = InstagramBotSettings.load()
-            if s.receive_via_poll:
+            if s.receive_via_poll and bot._provider_account_id(s):
                 token = bot.get_page_token(s)
                 if token:
                     bot.refresh_conv_ids(s, token)
@@ -216,7 +216,7 @@ def _run_work_cycle(settings_obj, last_poll: float) -> tuple[bool, float]:
         # kill switch. The next cycle retries and the error remains visible in
         # the operational log/status surface.
         bot.log("error", "notification_outbox", repr(exc))
-    profile_key = f"ig_profile_batch:{settings_obj.page_id or 'unknown'}"
+    profile_key = f"ig_profile_batch:{bot._provider_owner_id(settings_obj)}"
     if cache.add(profile_key, "1", timeout=bot.PROFILE_REFRESH_INTERVAL):
         try:
             bot.refresh_profiles_batch(settings_obj)

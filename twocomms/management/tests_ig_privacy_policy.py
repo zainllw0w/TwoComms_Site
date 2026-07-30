@@ -39,15 +39,22 @@ class MetaSignedRequestParserTests(SimpleTestCase):
             )
 
     def test_valid_signature_returns_payload(self):
-        with patch.dict("os.environ", {"IG_APP_SECRET": "test-meta-app-secret"}, clear=True):
+        with patch.dict("os.environ", {"FACEBOOK_APP_SECRET": "test-meta-app-secret"}, clear=True):
             self.assertEqual(
                 _parse_meta_signed_request(self._signed_request({"user_id": "123"})),
                 {"user_id": "123"},
             )
 
     def test_malformed_signed_request_is_rejected_without_raising(self):
-        with patch.dict("os.environ", {"IG_APP_SECRET": "test-meta-app-secret"}, clear=True):
+        with patch.dict("os.environ", {"FACEBOOK_APP_SECRET": "test-meta-app-secret"}, clear=True):
             self.assertEqual(_parse_meta_signed_request("%%% .%%%".replace(" ", "")), {})
+
+    def test_ig_app_secret_name_is_used_for_signed_request(self):
+        with patch.dict("os.environ", {"IG_APP_SECRET": "test-meta-app-secret"}, clear=True):
+            self.assertEqual(
+                _parse_meta_signed_request(self._signed_request({"user_id": "123"})),
+                {"user_id": "123"},
+            )
 
 
 @override_settings(
@@ -280,7 +287,7 @@ class InstagramBotPrivacyPolicyTests(TestCase):
         payload = {"user_id": "meta-user-123", "algorithm": "HMAC-SHA256"}
         signed_request = self._signed_meta_request(payload)
 
-        with patch.dict("os.environ", {"IG_APP_SECRET": "test-meta-app-secret"}, clear=True):
+        with patch.dict("os.environ", {"FACEBOOK_APP_SECRET": "test-meta-app-secret"}, clear=True):
             response = self.client.post(
                 "/data-deletion/request/",
                 {"signed_request": signed_request},
@@ -300,7 +307,7 @@ class InstagramBotPrivacyPolicyTests(TestCase):
         payload = {"user_id": "meta-user-123", "algorithm": "HMAC-SHA256"}
         signed_request = self._signed_meta_request(payload, secret="correct-secret")
 
-        with patch.dict("os.environ", {"IG_APP_SECRET": "wrong-secret"}, clear=True):
+        with patch.dict("os.environ", {"FACEBOOK_APP_SECRET": "wrong-secret"}, clear=True):
             response = self.client.post(
                 "/data-deletion/request/",
                 {"signed_request": signed_request},

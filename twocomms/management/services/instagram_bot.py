@@ -49,12 +49,18 @@ from management.models import (
 
 GRAPH_VERSION = "v25.0"
 GRAPH = f"https://graph.facebook.com/{GRAPH_VERSION}"
+INSTAGRAM_GRAPH = f"https://graph.instagram.com/{GRAPH_VERSION}"
+LEGACY_PAGE_TRANSPORT = "legacy_page"
+INSTAGRAM_LOGIN_TRANSPORT = "instagram_login"
 GENAI = "https://generativelanguage.googleapis.com/v1beta"
 
 LOG_KEEP_ROWS = 500
 HISTORY_LIMIT = 12          # скільки останніх реплік даємо моделі
 MAX_ATTEMPTS = 3            # ретраї обробки одного повідомлення
 PAGE_TOKEN_TTL = 1200
+INSTAGRAM_TOKEN_REFRESH_INTERVAL = 30 * 24 * 3600
+INSTAGRAM_TOKEN_REFRESH_RETRY = 24 * 3600
+INSTAGRAM_TOKEN_CACHE_TTL = 70 * 24 * 3600
 HTTP_TIMEOUT = 12
 CONV_LIST_TIMEOUT = 30
 CONV_PAGE_LIMIT = 2
@@ -867,6 +873,46 @@ def resolve_direct_token(s: InstagramBotSettings) -> str:
     )
 
 
+def resolve_instagram_login_token() -> str:
+    """Return the Instagram User token for the approved Instagram Login flow.
+
+    The token intentionally has its own cPanel name so it can never be used as
+    the webhook HMAC key.
+    """
+    return os.environ.get("IG_INSTAGRAM_BOT", "").strip()
+
+
+def provider_transport(_s: InstagramBotSettings) -> str:
+    """Select one complete provider contract; deployed legacy tokens fail closed."""
+    explicit = os.environ.get("IG_PROVIDER_TRANSPORT", "").strip().lower()
+    if explicit == LEGACY_PAGE_TRANSPORT:
+        return LEGACY_PAGE_TRANSPORT
+    if explicit == INSTAGRAM_LOGIN_TRANSPORT:
+        return INSTAGRAM_LOGIN_TRANSPORT
+    if resolve_instagram_login_token():
+        return INSTAGRAM_LOGIN_TRANSPORT
+    # The deployed cPanel environment still contains old credentials during
+    # cutover. Their presence must never revive the legacy contract if the new
+    # token is accidentally removed or renamed. Legacy remains available only
+    # via an explicit mode; credential-free local/test fixtures keep their
+    # historical behavior.
+    if os.environ.get("IG_MARKER", "").strip() or os.environ.get("DIRECT_API", "").strip():
+        return INSTAGRAM_LOGIN_TRANSPORT
+    return LEGACY_PAGE_TRANSPORT
+
+
+def provider_token_configured(s: InstagramBotSettings) -> bool:
+    if provider_transport(s) == INSTAGRAM_LOGIN_TRANSPORT:
+        return bool(resolve_instagram_login_token())
+    return bool(resolve_direct_token(s))
+
+
+def _provider_account_id(s: InstagramBotSettings) -> str:
+    if provider_transport(s) == INSTAGRAM_LOGIN_TRANSPORT:
+        return str(getattr(s, "ig_user_id", "") or "").strip()
+    return str(getattr(s, "page_id", "") or "").strip()
+
+
 def resolve_gemini_key(s: InstagramBotSettings) -> str:
     if s.gemini_source == InstagramBotSettings.CredSource.CUSTOM:
         return (s.custom_gemini_key or "").strip()
@@ -874,13 +920,27 @@ def resolve_gemini_key(s: InstagramBotSettings) -> str:
 
 
 def app_secret() -> str:
-    # Keep the Instagram-specific name canonical, but accept the historical
-    # Facebook alias used by cPanel deployments. Both values are the Meta App
-    # Secret for the same App ID; never fall back to Django SECRET_KEY.
+    """Meta App Secret from App settings > Basic for webhook verification.
+
+    ``IG_APP_SECRET`` is the established production name.  The explicit
+    ``FACEBOOK_APP_SECRET`` alias is accepted for compatibility, but a separate
+    Instagram Business Login secret must not be placed here.
+    """
     return (
-        os.environ.get("IG_APP_SECRET", "").strip()
-        or os.environ.get("FACEBOOK_APP_SECRET", "").strip()
+        os.environ.get("FACEBOOK_APP_SECRET", "").strip()
+        or os.environ.get("IG_APP_SECRET", "").strip()
     )
+
+
+def facebook_app_secret() -> str:
+    """Return the same parent Meta App Secret for signed requests/legacy OAuth."""
+    return app_secret()
+
+
+def webhook_secrets() -> tuple[str, ...]:
+    """Return HMAC secrets; access-token variables are intentionally excluded."""
+    secret = app_secret()
+    return (secret,) if secret else ()
 
 
 def allow_unsigned_webhooks() -> bool:
@@ -897,7 +957,7 @@ def allow_unsigned_webhooks() -> bool:
 
 
 def webhook_signature_status() -> dict[str, object]:
-    configured = bool(app_secret())
+    configured = bool(webhook_secrets())
     override = allow_unsigned_webhooks()
     return {
         "configured": configured,
@@ -916,13 +976,19 @@ def verify_signature(raw_body: bytes, header: str) -> bool:
     Missing credentials fail closed. The unsigned bypass is intentionally
     explicit and exists only for local development/test environments.
     """
-    secret = app_secret()
-    if not secret:
+    secrets_ = webhook_secrets()
+    if not secrets_:
         return allow_unsigned_webhooks()
     if not header or not header.startswith("sha256="):
         return False
-    expected = hmac.new(secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(expected, header.split("=", 1)[1].strip())
+    supplied = header.split("=", 1)[1].strip()
+    return any(
+        hmac.compare_digest(
+            hmac.new(secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest(),
+            supplied,
+        )
+        for secret in secrets_
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1020,20 +1086,53 @@ def meta_rate_limit_status() -> dict[str, object]:
     }
 
 
-def _valid_graph_request_url(url: str) -> bool:
+def _valid_provider_request_url(url: str, host: str) -> bool:
     try:
         parsed = urlsplit(url)
     except ValueError:
         return False
     if (
         parsed.scheme != "https"
-        or parsed.netloc != "graph.facebook.com"
+        or parsed.netloc != host
         or not parsed.path.startswith(f"/{GRAPH_VERSION}/")
         or parsed.fragment
     ):
         return False
     query_keys = {key.lower() for key, _value in parse_qsl(parsed.query, keep_blank_values=True)}
     return not query_keys.intersection(GRAPH_SENSITIVE_QUERY_KEYS)
+
+
+def _valid_graph_request_url(url: str) -> bool:
+    return _valid_provider_request_url(url, "graph.facebook.com")
+
+
+def _valid_instagram_graph_request_url(url: str) -> bool:
+    return _valid_provider_request_url(url, "graph.instagram.com")
+
+
+def _valid_instagram_refresh_url(url: str) -> bool:
+    try:
+        parsed = urlsplit(url)
+    except (TypeError, ValueError):
+        return False
+    if (
+        parsed.scheme != "https"
+        or parsed.netloc != "graph.instagram.com"
+        or parsed.path != "/refresh_access_token"
+        or parsed.fragment
+    ):
+        return False
+    pairs = parse_qsl(parsed.query, keep_blank_values=True)
+    if len(pairs) != 2 or {key for key, _value in pairs} != {
+        "grant_type",
+        "access_token",
+    }:
+        return False
+    values = dict(pairs)
+    return bool(
+        values.get("grant_type") == "ig_refresh_token"
+        and values.get("access_token")
+    )
 
 
 def _strip_graph_query_credentials(url: str, token: str = "") -> tuple[str, str]:
@@ -1061,8 +1160,8 @@ def _strip_graph_query_credentials(url: str, token: str = "") -> tuple[str, str]
     return clean_url, extracted_token
 
 
-def _graph_url(path: str, params: dict | None = None) -> str:
-    """Build only v25 Graph URLs; credentials belong in headers/body, never query."""
+def _provider_graph_url(host: str, path: str, params: dict | None = None) -> str:
+    """Build one versioned provider URL with credentials outside the query."""
     parsed = urlsplit(str(path or ""))
     if parsed.scheme or parsed.netloc or not parsed.path.startswith("/"):
         raise ValueError("Graph path must be relative")
@@ -1073,26 +1172,47 @@ def _graph_url(path: str, params: dict | None = None) -> str:
         query.update({str(key): str(value) for key, value in params.items()})
     if {key.lower() for key in query}.intersection(GRAPH_SENSITIVE_QUERY_KEYS):
         raise ValueError("Graph credentials cannot be placed in query")
-    url = urlunsplit(("https", "graph.facebook.com", f"/{GRAPH_VERSION}{parsed.path}", urlencode(query), ""))
-    if not _valid_graph_request_url(url):
+    url = urlunsplit(("https", host, f"/{GRAPH_VERSION}{parsed.path}", urlencode(query), ""))
+    if not _valid_provider_request_url(url, host):
         raise ValueError("invalid versioned Graph URL")
     return url
 
 
-def _graph_http(
+def _graph_url(path: str, params: dict | None = None) -> str:
+    """Build a legacy Facebook Graph URL."""
+    return _provider_graph_url("graph.facebook.com", path, params)
+
+
+def _instagram_graph_url(path: str, params: dict | None = None) -> str:
+    """Build an Instagram Login Graph URL."""
+    return _provider_graph_url("graph.instagram.com", path, params)
+
+
+def _provider_url(
+    s: InstagramBotSettings,
+    path: str,
+    params: dict | None = None,
+) -> str:
+    if provider_transport(s) == INSTAGRAM_LOGIN_TRANSPORT:
+        return _instagram_graph_url(path, params)
+    return _graph_url(path, params)
+
+
+def _provider_graph_http(
     url: str,
     *,
+    host: str,
     token: str = "",
     data: bytes | None = None,
     timeout: int = HTTP_TIMEOUT,
     headers: dict | None = None,
 ):
-    """Call Graph after enforcing host/version and removing query credentials."""
+    """Call one Graph host after enforcing version and removing credentials."""
     try:
         parsed = urlsplit(url)
         if (
             parsed.scheme != "https"
-            or parsed.netloc != "graph.facebook.com"
+            or parsed.netloc != host
             or not parsed.path.startswith(f"/{GRAPH_VERSION}/")
             or parsed.fragment
         ):
@@ -1100,7 +1220,7 @@ def _graph_http(
         clean_url, token = _strip_graph_query_credentials(url, token)
     except (TypeError, ValueError):
         return -1, "graph_url_policy"
-    if not _valid_graph_request_url(clean_url):
+    if not _valid_provider_request_url(clean_url, host):
         return -1, "graph_url_policy"
     request_headers = dict(headers or {})
     if token:
@@ -1111,6 +1231,68 @@ def _graph_http(
     return code, body
 
 
+def _graph_http(
+    url: str,
+    *,
+    token: str = "",
+    data: bytes | None = None,
+    timeout: int = HTTP_TIMEOUT,
+    headers: dict | None = None,
+):
+    return _provider_graph_http(
+        url,
+        host="graph.facebook.com",
+        token=token,
+        data=data,
+        timeout=timeout,
+        headers=headers,
+    )
+
+
+def _instagram_graph_http(
+    url: str,
+    *,
+    token: str = "",
+    data: bytes | None = None,
+    timeout: int = HTTP_TIMEOUT,
+    headers: dict | None = None,
+):
+    return _provider_graph_http(
+        url,
+        host="graph.instagram.com",
+        token=token,
+        data=data,
+        timeout=timeout,
+        headers=headers,
+    )
+
+
+def _provider_http(
+    s: InstagramBotSettings,
+    url: str,
+    *,
+    token: str = "",
+    data: bytes | None = None,
+    timeout: int = HTTP_TIMEOUT,
+    headers: dict | None = None,
+):
+    if provider_transport(s) == INSTAGRAM_LOGIN_TRANSPORT:
+        return _instagram_graph_http(
+            url,
+            token=token,
+            data=data,
+            timeout=timeout,
+            headers=headers,
+        )
+    return _graph_http(
+        url,
+        token=token,
+        data=data,
+        timeout=timeout,
+        headers=headers,
+    )
+
+
 def _http(
     url: str,
     *,
@@ -1118,7 +1300,13 @@ def _http(
     timeout: int = HTTP_TIMEOUT,
     headers: dict | None = None,
 ):
-    if urlsplit(url).netloc == "graph.facebook.com" and not _valid_graph_request_url(url):
+    host = urlsplit(url).netloc
+    if host == "graph.facebook.com" and not _valid_graph_request_url(url):
+        return -1, "graph_url_policy"
+    if host == "graph.instagram.com" and not (
+        _valid_instagram_graph_request_url(url)
+        or _valid_instagram_refresh_url(url)
+    ):
         return -1, "graph_url_policy"
     request_headers = dict(headers or {})
     if data is not None:
@@ -1146,12 +1334,87 @@ def _long_lived_token_cache_key(raw_token: str) -> str:
     return "ig_bot_ll_user_token:" + _credential_fingerprint(
         APP_ID,
         raw_token,
-        app_secret(),
+        facebook_app_secret(),
     )
 
 
+def _instagram_login_token_cache_key(raw_token: str) -> str:
+    return "ig_bot_instagram_user_token:" + _credential_fingerprint(raw_token)
+
+
+def _refresh_instagram_login_token(token: str) -> str:
+    """Refresh a long-lived Instagram User token without logging credentials."""
+    if not token:
+        return ""
+    url = urlunsplit((
+        "https",
+        "graph.instagram.com",
+        "/refresh_access_token",
+        urlencode({
+            "grant_type": "ig_refresh_token",
+            "access_token": token,
+        }),
+        "",
+    ))
+    if not _valid_instagram_refresh_url(url):
+        return ""
+    code, body = _http(url, timeout=HTTP_TIMEOUT)
+    if code != 200:
+        return ""
+    try:
+        refreshed = json.loads(body).get("access_token") or ""
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return ""
+    return refreshed if isinstance(refreshed, str) else ""
+
+
+def _effective_instagram_login_token() -> str:
+    raw = resolve_instagram_login_token()
+    if not raw:
+        return ""
+    cache_key = _instagram_login_token_cache_key(raw)
+    now = time.time()
+    state = cache.get(cache_key)
+    if not isinstance(state, dict):
+        state = {}
+    token = state.get("token") if isinstance(state.get("token"), str) else raw
+    try:
+        refreshed_at = float(state.get("refreshed_at") or 0)
+        attempted_at = float(state.get("attempted_at") or 0)
+    except (TypeError, ValueError):
+        refreshed_at = 0
+        attempted_at = 0
+    refresh_due = not refreshed_at or now - refreshed_at >= INSTAGRAM_TOKEN_REFRESH_INTERVAL
+    retry_due = not attempted_at or now - attempted_at >= INSTAGRAM_TOKEN_REFRESH_RETRY
+    if not refresh_due or not retry_due:
+        return token
+    lock_key = f"{cache_key}:refresh_lock"
+    try:
+        acquired = bool(cache.add(lock_key, 1, INSTAGRAM_TOKEN_REFRESH_RETRY))
+    except Exception:
+        acquired = False
+    if not acquired:
+        return token
+    try:
+        refreshed = _refresh_instagram_login_token(token)
+        state = {
+            "token": refreshed or token,
+            "refreshed_at": now if refreshed else refreshed_at,
+            "attempted_at": now,
+        }
+        cache.set(cache_key, state, INSTAGRAM_TOKEN_CACHE_TTL)
+        return state["token"]
+    finally:
+        cache.delete(lock_key)
+
+
 def _page_token_cache_keys(s: InstagramBotSettings, token: str) -> tuple[str, str]:
-    namespace = _credential_fingerprint(APP_ID, s.page_id, token, app_secret())
+    namespace = _credential_fingerprint(
+        APP_ID,
+        s.page_id,
+        token,
+        facebook_app_secret(),
+    )
     prefix = f"ig_bot_page_token:{namespace}"
     return prefix, f"{prefix}:cooldown"
 
@@ -1159,7 +1422,7 @@ def _page_token_cache_keys(s: InstagramBotSettings, token: str) -> tuple[str, st
 def _exchange_long_lived(user_token: str) -> str:
     """short-lived -> long-lived (60 дн). Потрібен app_secret. Page-токен,
     похідний від long-lived user-токена, не має терміну дії."""
-    secret = app_secret()
+    secret = facebook_app_secret()
     if not secret or not user_token:
         return ""
     body = urlencode({
@@ -1184,7 +1447,7 @@ def _exchange_long_lived(user_token: str) -> str:
 
 def _effective_user_token(s: InstagramBotSettings) -> str:
     raw = resolve_direct_token(s)
-    if not raw or not app_secret():
+    if not raw or not facebook_app_secret():
         return raw  # без секрету не можемо подовжити — використовуємо як є
     cache_key = _long_lived_token_cache_key(raw)
     cached = cache.get(cache_key)
@@ -1729,6 +1992,12 @@ def _repeated_question(sender_id: str, text: str, window: int = 600) -> int:
 
 
 def get_page_token(s: InstagramBotSettings, *, force: bool = False) -> str:
+    if provider_transport(s) == INSTAGRAM_LOGIN_TRANSPORT:
+        # Instagram Login already yields the provider token.  Never pass it
+        # through the legacy Facebook /me/accounts Page-token exchange.
+        if not _provider_account_id(s):
+            return ""
+        return _effective_instagram_login_token()
     token = _effective_user_token(s)
     if not token:
         return ""
@@ -1755,7 +2024,7 @@ def get_page_token(s: InstagramBotSettings, *, force: bool = False) -> str:
                 if pt:
                     # Якщо токен подовжений (є секрет) — page-токен постійний,
                     # кешуємо надовго; інакше — коротко.
-                    ttl = 50 * 24 * 3600 if app_secret() else PAGE_TOKEN_TTL
+                    ttl = 50 * 24 * 3600 if facebook_app_secret() else PAGE_TOKEN_TTL
                     cache.set(ck, pt, ttl)
                     cache.delete(cooldown_key)
                     cache.delete("ig_bot_pt_errsig")
@@ -1765,12 +2034,53 @@ def get_page_token(s: InstagramBotSettings, *, force: bool = False) -> str:
     return ""
 
 
+def ensure_instagram_subscription(s: InstagramBotSettings) -> dict[str, object]:
+    """Install the Instagram Login app on the configured professional account."""
+    if provider_transport(s) != INSTAGRAM_LOGIN_TRANSPORT:
+        return {"ok": False, "http": 0, "state": "legacy_transport"}
+    account_id = _provider_account_id(s)
+    if not account_id:
+        return {"ok": False, "http": 0, "state": "missing_credentials"}
+    token = get_page_token(s)
+    if not token:
+        return {"ok": False, "http": 0, "state": "missing_credentials"}
+    body = urlencode({"subscribed_fields": "messages"}).encode("utf-8")
+    code, response_body = _provider_http(
+        s,
+        _provider_url(s, f"/{account_id}/subscribed_apps"),
+        token=token,
+        data=body,
+        timeout=HTTP_TIMEOUT,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+    if code == 200:
+        try:
+            if json.loads(response_body).get("success") is True:
+                return {"ok": True, "http": 200}
+        except (TypeError, ValueError, json.JSONDecodeError):
+            pass
+    return {
+        "ok": False,
+        "http": int(code),
+        "state": _classify_poll_provider_failure(code, response_body),
+    }
+
+
+def _provider_owner_id(s: InstagramBotSettings) -> str:
+    """Durable, token-free owner identity for caches and discovery cursors."""
+    account_id = _provider_account_id(s) or "unknown"
+    if provider_transport(s) == LEGACY_PAGE_TRANSPORT:
+        # Preserve existing cache/database ownership for the legacy contract.
+        return account_id
+    return f"{INSTAGRAM_LOGIN_TRANSPORT}:{account_id}"
+
+
 def _conv_cache_key(s: InstagramBotSettings) -> str:
-    return f"ig_bot_conv_ids:{s.page_id or 'unknown'}"
+    return f"ig_bot_conv_ids:{_provider_owner_id(s)}"
 
 
 def _ingress_degradation_key(s: InstagramBotSettings, source: str) -> str:
-    return f"ig_bot_ingress_{source}_degraded:{s.page_id or 'unknown'}"
+    return f"ig_bot_ingress_{source}_degraded:{_provider_owner_id(s)}"
 
 
 def _record_ingress_degradation(
@@ -1834,9 +2144,11 @@ def _valid_conv_snapshot(value) -> list[str]:
 
 
 def _valid_conversation_page_url(value: str) -> bool:
+    if not isinstance(value, str):
+        return False
     try:
         parsed = urlsplit(value)
-    except ValueError:
+    except (TypeError, ValueError):
         return False
     query_keys = {key.lower() for key, _value in parse_qsl(parsed.query, keep_blank_values=True)}
     # Meta includes access_token in paging.next. It is stripped before any
@@ -1844,11 +2156,25 @@ def _valid_conversation_page_url(value: str) -> bool:
     query_keys.discard("access_token")
     return (
         parsed.scheme == "https"
-        and parsed.netloc == "graph.facebook.com"
+        and parsed.netloc in {"graph.facebook.com", "graph.instagram.com"}
         and parsed.path.startswith(f"/{GRAPH_VERSION}/")
         and not parsed.fragment
         and not query_keys.intersection(GRAPH_SENSITIVE_QUERY_KEYS)
     )
+
+
+def _valid_provider_conversation_page_url(
+    s: InstagramBotSettings,
+    value: str,
+) -> bool:
+    if not _valid_conversation_page_url(value):
+        return False
+    expected_host = (
+        "graph.instagram.com"
+        if provider_transport(s) == INSTAGRAM_LOGIN_TRANSPORT
+        else "graph.facebook.com"
+    )
+    return urlsplit(value).netloc == expected_host
 
 
 def _valid_conversation_cursor(value) -> str:
@@ -1875,7 +2201,7 @@ def _merge_conv_ids(*collections) -> list[str]:
 
 def _stored_conversation_discovery_ids(s: InstagramBotSettings) -> list[str]:
     owner_page_id = str(getattr(s, "conversation_discovery_page_id", "") or "").strip()
-    current_page_id = str(s.page_id or "").strip()
+    current_page_id = _provider_owner_id(s)
     if owner_page_id and owner_page_id != current_page_id:
         return []
     return _valid_conv_snapshot(getattr(s, "conversation_discovery_ids", []))
@@ -1883,7 +2209,7 @@ def _stored_conversation_discovery_ids(s: InstagramBotSettings) -> list[str]:
 
 def _stored_conversation_discovery_cursor(s: InstagramBotSettings) -> str:
     owner_page_id = str(getattr(s, "conversation_discovery_page_id", "") or "").strip()
-    if owner_page_id and owner_page_id != str(s.page_id or "").strip():
+    if owner_page_id and owner_page_id != _provider_owner_id(s):
         return ""
     return _valid_conversation_cursor(
         getattr(s, "conversation_discovery_cursor", "")
@@ -1961,7 +2287,7 @@ def _save_conversation_discovery(
     values = {
         "conversation_discovery_ids": ids,
         "conversation_discovery_cursor": cursor,
-        "conversation_discovery_page_id": str(s.page_id or "").strip(),
+        "conversation_discovery_page_id": _provider_owner_id(s),
         "conversation_discovery_scan_ids": scan_ids,
         "conversation_discovery_cursor_hashes": cursor_hashes,
         "conversation_discovery_pages_seen": pages_seen,
@@ -2003,17 +2329,27 @@ def _reset_conversation_discovery_owner(
 
 
 def _conversation_discovery_url(s: InstagramBotSettings, cursor: str = "") -> str:
-    params = {
-        "platform": "instagram",
-        "fields": "id",
-        "limit": CONV_PAGE_LIMIT,
-    }
+    if provider_transport(s) == LEGACY_PAGE_TRANSPORT:
+        params = {
+            "platform": "instagram",
+            "fields": "id",
+            "limit": CONV_PAGE_LIMIT,
+        }
+    else:
+        params = {"fields": "id", "limit": CONV_PAGE_LIMIT}
     if cursor:
         params["after"] = cursor
-    return _graph_url(f"/{s.page_id}/conversations", params)
+    return _provider_url(
+        s,
+        f"/{_provider_account_id(s)}/conversations",
+        params,
+    )
 
 
-def _validate_conversation_discovery_page(envelope) -> tuple[list[str], str]:
+def _validate_conversation_discovery_page(
+    envelope,
+    s: InstagramBotSettings | None = None,
+) -> tuple[list[str], str]:
     if not isinstance(envelope, dict) or not isinstance(envelope.get("data"), list):
         raise ValueError("malformed data")
     ids: list[str] = []
@@ -2039,7 +2375,15 @@ def _validate_conversation_discovery_page(envelope) -> tuple[list[str], str]:
     next_url = paging.get("next")
     if not next_url:
         return ids, ""
-    if not isinstance(next_url, str) or not _valid_conversation_page_url(next_url):
+    valid_page_url = bool(
+        isinstance(next_url, str)
+        and (
+            _valid_provider_conversation_page_url(s, next_url)
+            if s is not None
+            else _valid_conversation_page_url(next_url)
+        )
+    )
+    if not isinstance(next_url, str) or not valid_page_url:
         raise ValueError("untrusted paging URL")
     query_cursor = _valid_conversation_cursor(
         dict(parse_qsl(urlsplit(next_url).query, keep_blank_values=True)).get("after")
@@ -2057,6 +2401,14 @@ def _validate_conversation_discovery_page(envelope) -> tuple[list[str], str]:
 
 def refresh_conv_ids(s: InstagramBotSettings, page_token: str) -> list[str]:
     """Refresh Instagram conversations in small resumable Graph pages."""
+    if not _provider_account_id(s):
+        _record_ingress_degradation(
+            s,
+            "refresh",
+            state="conversation_refresh_failed",
+            reason="missing_provider_account_id",
+        )
+        return []
     lease_token = _claim_conversation_discovery_lease(s)
     if not lease_token:
         fresh = InstagramBotSettings.objects.get(pk=s.pk)
@@ -2066,7 +2418,7 @@ def refresh_conv_ids(s: InstagramBotSettings, page_token: str) -> list[str]:
         owner_page_id = str(
             getattr(fresh, "conversation_discovery_page_id", "") or ""
         ).strip()
-        if owner_page_id and owner_page_id != str(fresh.page_id or "").strip():
+        if owner_page_id and owner_page_id != _provider_owner_id(fresh):
             _reset_conversation_discovery_owner(fresh, lease_token)
             fresh.refresh_from_db()
         stale = _merge_conv_ids(
@@ -2138,7 +2490,12 @@ def _refresh_conv_ids_unlocked(
             # provider-header guess and remains within the documented limit.
             time.sleep(CONV_MIN_INTERVAL)
         page_url = _conversation_discovery_url(s, page_cursor)
-        code, body = _graph_http(page_url, token=page_token, timeout=CONV_LIST_TIMEOUT)
+        code, body = _provider_http(
+            s,
+            page_url,
+            token=page_token,
+            timeout=CONV_LIST_TIMEOUT,
+        )
         if code != 200:
             _record_ingress_degradation(
                 s,
@@ -2150,7 +2507,10 @@ def _refresh_conv_ids_unlocked(
             cache.set(_conv_cache_key(s), published, CONV_CACHE_TTL)
             return published
         try:
-            page_ids, next_cursor = _validate_conversation_discovery_page(json.loads(body))
+            page_ids, next_cursor = _validate_conversation_discovery_page(
+                json.loads(body),
+                s,
+            )
             for conversation_id in page_ids:
                 if conversation_id not in seen:
                     seen.add(conversation_id)
@@ -2240,7 +2600,7 @@ def conversation_discovery_status(
     owner_page_id = str(
         getattr(s, "conversation_discovery_page_id", "") or ""
     ).strip()
-    current_page_id = str(s.page_id or "").strip()
+    current_page_id = _provider_owner_id(s)
     owner_matches = not owner_page_id or owner_page_id == current_page_id
     ids = _stored_conversation_discovery_ids(s) if owner_matches else []
     scan_ids = (
@@ -2288,13 +2648,17 @@ def conversation_discovery_status(
 # ---------------------------------------------------------------------------
 def send_sender_action(s: InstagramBotSettings, recipient_id: str, action: str) -> None:
     """typing_on / typing_off / mark_seen — для відчуття миттєвості (best practice)."""
+    account_id = _provider_account_id(s)
+    if not account_id:
+        return
     page_token = get_page_token(s)
     if not page_token:
         return
     try:
         body = json.dumps({"recipient": {"id": recipient_id}, "sender_action": action}).encode("utf-8")
-        _graph_http(
-            _graph_url(f"/{s.page_id}/messages"),
+        _provider_http(
+            s,
+            _provider_url(s, f"/{account_id}/messages"),
             token=page_token,
             data=body,
             timeout=HTTP_TIMEOUT,
@@ -2333,7 +2697,7 @@ ADVANCED_ACCESS_SUBCODE = 2534048
 MESSAGING_WINDOW_CLOSED_SUBCODE = 1545041
 PERMANENT_HINT = {
     200: "немає потрібного дозволу Meta для Instagram Messaging",
-    190: "токен недійсний (онови DIRECT_API/IG_MARKER)",
+    190: "provider token недійсний (онови IG_INSTAGRAM_BOT або явний legacy token)",
     10: "помилка дозволів або політики Meta",
     100: "некоректний параметр запиту",
     551: "отримувач недоступний (блокування, деактивація або обмеження діалогу)",
@@ -2485,9 +2849,14 @@ def send_text(
     permission_boundary_factory=None,
 ) -> tuple[bool, str, str]:
     """Повертає (ok, kind, hint); ``cancelled`` means no provider request ran."""
+    account_id = _provider_account_id(s)
+    if not account_id:
+        hint = "missing_provider_account_id"
+        _remember_send_error(s, hint)
+        return False, "permanent", hint
     page_token = get_page_token(s)
     if not page_token:
-        hint = "немає page-token (перевірте DIRECT_API/IG_MARKER)"
+        hint = "немає provider token (перевірте IG_INSTAGRAM_BOT)"
         _remember_send_error(s, hint)
         return False, "permanent", hint
     parts = _split_for_send(text)
@@ -2509,15 +2878,16 @@ def send_text(
             # Позначаємо ДО відправки: echo цього чанка прийде асинхронно і не має
             # сприйнятись за повідомлення менеджера (виправляє хибний авто-стоп).
             _mark_bot_sent(recipient_id, part)
-            body = json.dumps(
-                {
-                    "recipient": {"id": recipient_id},
-                    "message": {"text": part},
-                    "messaging_type": "RESPONSE",
-                }
-            ).encode("utf-8")
-            code, resp = _graph_http(
-                _graph_url(f"/{s.page_id}/messages"),
+            payload = {
+                "recipient": {"id": recipient_id},
+                "message": {"text": part},
+            }
+            if provider_transport(s) == LEGACY_PAGE_TRANSPORT:
+                payload["messaging_type"] = "RESPONSE"
+            body = json.dumps(payload).encode("utf-8")
+            code, resp = _provider_http(
+                s,
+                _provider_url(s, f"/{account_id}/messages"),
                 token=page_token,
                 data=body,
             )
@@ -2564,6 +2934,11 @@ def send_text_tagged(
             "policy",
             "HUMAN_AGENT дозволено лише для явно підтвердженої відповіді human support",
         )
+    account_id = _provider_account_id(s)
+    if not account_id:
+        hint = "missing_provider_account_id"
+        _remember_send_error(s, hint)
+        return False, "permanent", hint
     page_token = get_page_token(s)
     if not page_token:
         hint = "немає page-token"
@@ -2583,8 +2958,9 @@ def send_text_tagged(
                 "tag": tag,
             }
         ).encode("utf-8")
-        code, resp = _graph_http(
-            _graph_url(f"/{s.page_id}/messages"),
+        code, resp = _provider_http(
+            s,
+            _provider_url(s, f"/{account_id}/messages"),
             token=page_token,
             data=body,
         )
@@ -3059,14 +3435,21 @@ def _maybe_pin_from_match(client, match: dict | None) -> bool:
 # ---------------------------------------------------------------------------
 # Профіль клієнта (IG Graph) — ім'я / username / аватар
 # ---------------------------------------------------------------------------
+def _profile_global_error_key(s: InstagramBotSettings) -> str:
+    return f"ig_profile_global_error:{_provider_owner_id(s)}"
+
+
 def fetch_ig_profile(s: InstagramBotSettings, igsid: str) -> dict:
     """Тягне профіль співрозмовника через Graph (name/username/profile_pic).
     Порожній dict, якщо немає токена або помилка."""
-    page_token = get_page_token(s)
-    if not page_token or not igsid:
+    if not _provider_account_id(s) or not igsid:
         return {}
-    code, body = _graph_http(
-        _graph_url(f"/{igsid}", {"fields": "name,username,profile_pic"}),
+    page_token = get_page_token(s)
+    if not page_token:
+        return {}
+    code, body = _provider_http(
+        s,
+        _provider_url(s, f"/{igsid}", {"fields": "name,username,profile_pic"}),
         token=page_token,
         timeout=HTTP_TIMEOUT,
     )
@@ -3074,7 +3457,7 @@ def fetch_ig_profile(s: InstagramBotSettings, igsid: str) -> dict:
         graph_code, graph_subcode = _graph_error_codes(body)
         if code == 403 or graph_code in {10, 200} or graph_subcode == ADVANCED_ACCESS_SUBCODE:
             cache.set(
-                f"ig_profile_global_error:{s.page_id or 'unknown'}",
+                _profile_global_error_key(s),
                 "permission_denied",
                 PROFILE_PERMISSION_COOLDOWN,
             )
@@ -3083,7 +3466,7 @@ def fetch_ig_profile(s: InstagramBotSettings, igsid: str) -> dict:
         data = json.loads(body)
     except Exception:
         return {}
-    cache.delete(f"ig_profile_global_error:{s.page_id or 'unknown'}")
+    cache.delete(_profile_global_error_key(s))
     return {
         "name": data.get("name") or "",
         "username": data.get("username") or "",
@@ -3124,7 +3507,7 @@ def ensure_profile(s: InstagramBotSettings, client, force: bool = False) -> bool
 
     if not client:
         return False
-    if cache.get(f"ig_profile_global_error:{s.page_id or 'unknown'}"):
+    if cache.get(_profile_global_error_key(s)):
         return False
     has_identity = bool(client.display_name or client.username)
     avatar_resolved = bool(client.avatar_local or not client.profile_pic_url)
@@ -3209,9 +3592,11 @@ def refresh_profiles_batch(
     client and never blocks ingress or customer replies.
     """
     empty = {"checked": 0, "updated": 0, "failed": 0}
-    if not s or not get_page_token(s):
+    if not s or not _provider_account_id(s):
+        return {**empty, "state": "missing_provider_account_id"}
+    if not get_page_token(s):
         return {**empty, "state": "no_token"}
-    global_error_key = f"ig_profile_global_error:{s.page_id or 'unknown'}"
+    global_error_key = _profile_global_error_key(s)
     global_error = cache.get(global_error_key)
     if global_error:
         return {**empty, "state": str(global_error)}
@@ -4701,7 +5086,7 @@ def _valid_message_id(value) -> bool:
 
 
 def _poll_offset_cache_key(s: InstagramBotSettings) -> str:
-    return f"ig_bot_poll_offset:{s.page_id or 'unknown'}"
+    return f"ig_bot_poll_offset:{_provider_owner_id(s)}"
 
 
 def _poll_conversation_order(s: InstagramBotSettings, conv_ids: list[str]) -> tuple[list[str], int]:
@@ -4723,7 +5108,10 @@ def _polled_message_key(message: dict) -> tuple[datetime, str]:
     )
 
 
-def _validate_polled_page(envelope) -> tuple[list[dict], str]:
+def _validate_polled_page(
+    envelope,
+    s: InstagramBotSettings | None = None,
+) -> tuple[list[dict], str]:
     if not isinstance(envelope, dict):
         raise ValueError("malformed envelope")
     messages_block = envelope.get("messages")
@@ -4782,14 +5170,18 @@ def _validate_polled_page(envelope) -> tuple[list[dict], str]:
     if not isinstance(paging, dict):
         raise ValueError("malformed message paging")
     next_url = paging.get("next") or ""
-    if next_url and (
-        not isinstance(next_url, str) or not _valid_conversation_page_url(next_url)
-    ):
+    valid_page_url = (
+        _valid_provider_conversation_page_url(s, next_url)
+        if s is not None and isinstance(next_url, str)
+        else _valid_conversation_page_url(next_url)
+    )
+    if next_url and (not isinstance(next_url, str) or not valid_page_url):
         raise ValueError("untrusted message paging URL")
     return messages, next_url
 
 
 def _fetch_polled_conversation(
+    s: InstagramBotSettings,
     conversation_id: str,
     page_token: str,
     *,
@@ -4798,7 +5190,8 @@ def _fetch_polled_conversation(
     deadline: float,
     request_limit: int,
 ) -> dict:
-    page_url = _graph_url(
+    page_url = _provider_url(
+        s,
         f"/{conversation_id}",
         {"fields": "messages.limit(50){message,from,to,created_time,id,attachments}"},
     )
@@ -4825,7 +5218,12 @@ def _fetch_polled_conversation(
         visited_pages.add(page_url)
         remaining_seconds = max(1, int(deadline - time.monotonic()))
         timeout = min(POLL_MESSAGE_TIMEOUT, remaining_seconds)
-        code, body = _graph_http(page_url, token=page_token, timeout=timeout)
+        code, body = _provider_http(
+            s,
+            page_url,
+            token=page_token,
+            timeout=timeout,
+        )
         requests_used += 1
         if code != 200:
             return {
@@ -4836,7 +5234,7 @@ def _fetch_polled_conversation(
                 "reason": _classify_poll_provider_failure(code, body),
             }
         try:
-            messages, next_url = _validate_polled_page(json.loads(body))
+            messages, next_url = _validate_polled_page(json.loads(body), s)
         except (TypeError, ValueError, json.JSONDecodeError) as exc:
             return {
                 "messages": all_messages,
@@ -4890,6 +5288,8 @@ def poll_ingest(s: InstagramBotSettings) -> dict:
     """Читає інбокс IG і кладе нові вхідні в чергу. Лише коли receive_via_poll."""
     if not s.receive_via_poll:
         return {"ok": True, "enqueued": 0, "skipped": True}
+    if not _provider_account_id(s):
+        return {"ok": False, "error": "missing_provider_account_id"}
     page_token = get_page_token(s)
     if not page_token:
         return {"ok": False, "error": "no_page_token"}
@@ -4925,6 +5325,7 @@ def poll_ingest(s: InstagramBotSettings) -> dict:
         cursor_at = cursor.last_message_at
         cursor_id = cursor.last_message_id or ""
         fetched = _fetch_polled_conversation(
+            s,
             cid,
             page_token,
             cursor_at=cursor_at,
@@ -5146,8 +5547,15 @@ def stop_bot() -> InstagramBotSettings:
 def meta_capability_status(s: InstagramBotSettings) -> dict[str, object]:
     """Expose independent Meta facts without implying public delivery access."""
     return {
+        "transport": provider_transport(s),
+        "provider_account_id": _provider_account_id(s),
         "local_allowlist": "restricted" if allowed_sender_ids(s) else "all_allowed",
-        "token_configured": bool(resolve_direct_token(s)),
+        "token_configured": provider_token_configured(s),
+        "token_source": (
+            "IG_INSTAGRAM_BOT"
+            if provider_transport(s) == INSTAGRAM_LOGIN_TRANSPORT
+            else "legacy"
+        ),
         "token_permission": "unknown",
         "account_access": "unknown",
         "recipient_delivery": "per_recipient",
@@ -5167,7 +5575,7 @@ def ingress_status(s: InstagramBotSettings, *, now=None) -> dict[str, object]:
     discovery = conversation_discovery_status(s, now=now)
     if not s.receive_via_poll:
         polling = {"configured": False, "healthy": False, "state": "disabled"}
-    elif not resolve_direct_token(s):
+    elif not provider_token_configured(s):
         polling = {"configured": True, "healthy": False, "state": "missing_token"}
     elif degradation:
         polling = {
@@ -5319,6 +5727,9 @@ def status_snapshot() -> dict:
         "allow_all": not bool(allowed_sender_ids(s)),
         "last_error": s.last_error,
         "direct_source": s.direct_source,
+        "provider_transport": provider_transport(s),
+        "provider_account_id": _provider_account_id(s),
+        "provider_token_configured": provider_token_configured(s),
         "gemini_source": s.gemini_source,
         "ai_enabled": s.ai_enabled,
         "gemini_model": s.gemini_model,
