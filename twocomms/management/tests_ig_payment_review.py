@@ -631,6 +631,64 @@ class PaymentReviewEpisodeScopeTests(TestCase):
         self.assertIsNone(episode.open_slot)
         self.assertEqual(notification.status, IgBotNotification.Status.RESOLVED)
 
+    def test_historical_paid_archive_rejects_deal_with_active_checkout_proposal(self):
+        from django.contrib.auth import get_user_model
+
+        from management.ig_bot_models import (
+            IgCheckoutProposal,
+            IgClient,
+            IgDeal,
+            IgPaymentConfirmationReview,
+        )
+        from management.services.ig_payment_review import (
+            archive_historical_paid_review,
+            record_review_decision,
+        )
+
+        actor = get_user_model().objects.create_user(
+            "historical-paid-checkout-actor",
+            password="x",
+            is_staff=True,
+        )
+        client = IgClient.get_or_create_for_sender("historical-paid-checkout-client")
+        deal = IgDeal.objects.create(
+            client=client,
+            status=IgDeal.Status.QUOTED,
+            amount=Decimal("1760.00"),
+            requested_payment_amount=Decimal("1760.00"),
+        )
+        review = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            deal=deal,
+            dedupe_key="historical-paid-checkout-review",
+            evidence={"order_draft": {"quoted_total": "1760.00"}},
+            watermark_message_id=1137,
+        )
+        record_review_decision(
+            review,
+            actor=actor,
+            decision="manager_verified",
+            verification_scope="full_payment",
+            confirmed_amount=Decimal("1760.00"),
+        )
+        IgCheckoutProposal.objects.create_current(
+            deal=deal,
+            catalog_total=Decimal("1760.00"),
+            quoted_total=Decimal("1760.00"),
+            requested_payment_amount=Decimal("1760.00"),
+            items_digest="a" * 64,
+        )
+
+        with self.assertRaisesMessage(ValueError, "активну checkout-пропозицію"):
+            archive_historical_paid_review(
+                review,
+                actor=actor,
+                reason="Must not archive an active checkout",
+            )
+
+        review.refresh_from_db()
+        self.assertEqual(review.resolution_kind, "")
+
     def test_different_receipt_remains_a_separate_payment_review(self):
         from management.ig_bot_models import IgClient, IgPaymentConfirmationReview
         from management.services.ig_payment_review import create_payment_review

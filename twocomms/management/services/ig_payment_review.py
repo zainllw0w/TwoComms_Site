@@ -2100,6 +2100,7 @@ def archive_historical_paid_review(review, *, actor, reason: str):
         IgBotNotification,
         IgClient,
         IgCommercialEpisode,
+        IgDeal,
         IgPaymentConfirmationReview,
         IgPaymentReviewDecision,
     )
@@ -2126,6 +2127,13 @@ def archive_historical_paid_review(review, *, actor, reason: str):
         raise ValueError("Прихований клієнт виключений з операцій.")
     if locked.resolution_kind == locked.ResolutionKind.HISTORICAL_PAID_ARCHIVED:
         return locked
+    if locked.deal_id and IgDeal.objects.select_for_update().filter(
+        pk=locked.deal_id,
+        active_checkout_proposal__isnull=False,
+    ).exists():
+        raise ValueError(
+            "Не можна архівувати продаж, поки угода має активну checkout-пропозицію."
+        )
     if locked.status != locked.Status.CONFIRMED:
         raise ValueError("Спочатку підтвердьте оплату менеджерським рішенням.")
     if locked.order_id:
