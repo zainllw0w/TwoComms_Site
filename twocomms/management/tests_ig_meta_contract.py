@@ -26,6 +26,9 @@ class _MemoryCache:
     def set(self, key, value, timeout=None):
         self.values[key] = value
 
+    def delete(self, key):
+        self.values.pop(key, None)
+
 
 class InstagramMetaContractTests(SimpleTestCase):
     def test_graph_url_builder_is_versioned_and_rejects_external_paths(self):
@@ -53,6 +56,84 @@ class InstagramMetaContractTests(SimpleTestCase):
         called_url = http.call_args.args[0]
         self.assertNotIn("access_token", called_url)
         self.assertEqual(http.call_args.kwargs["headers"]["Authorization"], "Bearer secret-token")
+
+    @patch("management.services.instagram_bot._http", return_value=(200, "{}"))
+    def test_graph_transport_strips_paging_access_token_with_header_token(self, http):
+        code, body = bot._graph_http(
+            "https://graph.facebook.com/v25.0/page/conversations?after=cursor&access_token=page-secret",
+            token="current-page-token",
+        )
+
+        self.assertEqual((code, body), (200, "{}"))
+        called_url = http.call_args.args[0]
+        self.assertIn("after=cursor", called_url)
+        self.assertNotIn("access_token", called_url)
+        self.assertEqual(
+            http.call_args.kwargs["headers"]["Authorization"],
+            "Bearer current-page-token",
+        )
+
+    @patch("management.services.instagram_bot._http")
+    def test_graph_transport_rejects_non_access_token_credentials(self, http):
+        code, body = bot._graph_http(
+            "https://graph.facebook.com/v25.0/page?client_secret=leak",
+            token="current-page-token",
+        )
+
+        self.assertEqual((code, body), (-1, "graph_url_policy"))
+        http.assert_not_called()
+
+    def test_conversation_paging_accepts_meta_access_token_but_not_other_secrets(self):
+        self.assertTrue(
+            bot._valid_conversation_page_url(
+                f"{bot.GRAPH}/page/conversations?after=cursor&access_token=provider-token"
+            )
+        )
+        self.assertFalse(
+            bot._valid_conversation_page_url(
+                f"{bot.GRAPH}/page/conversations?after=cursor&client_secret=leak"
+            )
+        )
+
+    def test_long_lived_token_cache_is_namespaced_by_raw_credential(self):
+        fake_cache = _MemoryCache()
+        settings = SimpleNamespace()
+        with patch.object(bot, "cache", fake_cache), \
+             patch.object(bot, "app_secret", return_value="app-secret"), \
+             patch.object(
+                 bot,
+                 "resolve_direct_token",
+                 side_effect=["raw-token-a", "raw-token-b"],
+             ), \
+             patch.object(
+                 bot,
+                 "_exchange_long_lived",
+                 side_effect=["long-lived-a", "long-lived-b"],
+             ) as exchange:
+            self.assertEqual(bot._effective_user_token(settings), "long-lived-a")
+            self.assertEqual(bot._effective_user_token(settings), "long-lived-b")
+
+        self.assertEqual(exchange.call_count, 2)
+
+    def test_page_token_cache_is_namespaced_by_effective_credential(self):
+        fake_cache = _MemoryCache()
+        settings = SimpleNamespace(page_id="page")
+        responses = [
+            (200, '{"data":[{"id":"page","access_token":"page-token-a"}]}'),
+            (200, '{"data":[{"id":"page","access_token":"page-token-b"}]}'),
+        ]
+        with patch.object(bot, "cache", fake_cache), \
+             patch.object(bot, "app_secret", return_value="app-secret"), \
+             patch.object(
+                 bot,
+                 "_effective_user_token",
+                 side_effect=["effective-a", "effective-b"],
+             ), \
+             patch.object(bot, "_graph_http", side_effect=responses) as graph_http:
+            self.assertEqual(bot.get_page_token(settings), "page-token-a")
+            self.assertEqual(bot.get_page_token(settings), "page-token-b")
+
+        self.assertEqual(graph_http.call_count, 2)
 
     @patch("management.services.instagram_bot._graph_http", return_value=(200, '{"access_token":"ll"}'))
     @patch("management.services.instagram_bot.app_secret", return_value="app-secret")

@@ -1036,6 +1036,31 @@ def _valid_graph_request_url(url: str) -> bool:
     return not query_keys.intersection(GRAPH_SENSITIVE_QUERY_KEYS)
 
 
+def _strip_graph_query_credentials(url: str, token: str = "") -> tuple[str, str]:
+    """Remove provider paging credentials before URL policy validation.
+
+    Meta may put the current access token in ``paging.next`` URLs. The request
+    already carries the token in the Authorization header, so retaining that
+    query parameter both leaks a credential and causes our URL policy to reject
+    an otherwise valid page.
+    """
+    parsed = urlsplit(url)
+    query = []
+    extracted_token = token or ""
+    for key, value in parse_qsl(parsed.query, keep_blank_values=True):
+        if key.lower() in GRAPH_SENSITIVE_QUERY_KEYS:
+            if key.lower() != "access_token":
+                raise ValueError("unexpected Graph credential query parameter")
+            if not extracted_token:
+                extracted_token = value
+            continue
+        query.append((key, value))
+    clean_url = urlunsplit(
+        (parsed.scheme, parsed.netloc, parsed.path, urlencode(query), "")
+    )
+    return clean_url, extracted_token
+
+
 def _graph_url(path: str, params: dict | None = None) -> str:
     """Build only v25 Graph URLs; credentials belong in headers/body, never query."""
     parsed = urlsplit(str(path or ""))
@@ -1063,17 +1088,18 @@ def _graph_http(
     headers: dict | None = None,
 ):
     """Call Graph after enforcing host/version and removing query credentials."""
-    if not _valid_graph_request_url(url):
-        try:
-            parsed = urlsplit(url)
-            query = dict(parse_qsl(parsed.query, keep_blank_values=True))
-            if not token:
-                token = query.pop("access_token", "")
-            clean_url = urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(query), ""))
-        except (TypeError, ValueError):
+    try:
+        parsed = urlsplit(url)
+        if (
+            parsed.scheme != "https"
+            or parsed.netloc != "graph.facebook.com"
+            or not parsed.path.startswith(f"/{GRAPH_VERSION}/")
+            or parsed.fragment
+        ):
             return -1, "graph_url_policy"
-    else:
-        clean_url = url
+        clean_url, token = _strip_graph_query_credentials(url, token)
+    except (TypeError, ValueError):
+        return -1, "graph_url_policy"
     if not _valid_graph_request_url(clean_url):
         return -1, "graph_url_policy"
     request_headers = dict(headers or {})
@@ -1110,6 +1136,26 @@ def _http(
 APP_ID = os.environ.get("IG_APP_ID", "2120980214971807")
 
 
+def _credential_fingerprint(*values: str) -> str:
+    """Return a non-reversible cache namespace for credential inputs."""
+    material = "\x00".join(str(value or "") for value in values)
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()[:24]
+
+
+def _long_lived_token_cache_key(raw_token: str) -> str:
+    return "ig_bot_ll_user_token:" + _credential_fingerprint(
+        APP_ID,
+        raw_token,
+        app_secret(),
+    )
+
+
+def _page_token_cache_keys(s: InstagramBotSettings, token: str) -> tuple[str, str]:
+    namespace = _credential_fingerprint(APP_ID, s.page_id, token, app_secret())
+    prefix = f"ig_bot_page_token:{namespace}"
+    return prefix, f"{prefix}:cooldown"
+
+
 def _exchange_long_lived(user_token: str) -> str:
     """short-lived -> long-lived (60 дн). Потрібен app_secret. Page-токен,
     похідний від long-lived user-токена, не має терміну дії."""
@@ -1140,12 +1186,13 @@ def _effective_user_token(s: InstagramBotSettings) -> str:
     raw = resolve_direct_token(s)
     if not raw or not app_secret():
         return raw  # без секрету не можемо подовжити — використовуємо як є
-    cached = cache.get("ig_bot_ll_user_token")
+    cache_key = _long_lived_token_cache_key(raw)
+    cached = cache.get(cache_key)
     if cached:
         return cached
     ll = _exchange_long_lived(raw)
     if ll:
-        cache.set("ig_bot_ll_user_token", ll, 50 * 24 * 3600)  # ~50 днів
+        cache.set(cache_key, ll, 50 * 24 * 3600)  # ~50 днів
         return ll
     return raw
 
@@ -1685,12 +1732,12 @@ def get_page_token(s: InstagramBotSettings, *, force: bool = False) -> str:
     token = _effective_user_token(s)
     if not token:
         return ""
-    ck = "ig_bot_page_token"
+    ck, cooldown_key = _page_token_cache_keys(s, token)
     if not force:
         cached = cache.get(ck)
         if cached:
             return cached
-        if cache.get("ig_bot_pt_cooldown"):
+        if cache.get(cooldown_key):
             return ""
     code, body = _graph_http(
         _graph_url("/me/accounts", {"fields": "name,access_token"}),
@@ -1698,7 +1745,7 @@ def get_page_token(s: InstagramBotSettings, *, force: bool = False) -> str:
         timeout=HTTP_TIMEOUT,
     )
     if code != 200:
-        cache.set("ig_bot_pt_cooldown", 1, 60)
+        cache.set(cooldown_key, 1, 60)
         _log_token_error(s, code, body)
         return ""
     try:
@@ -1710,7 +1757,7 @@ def get_page_token(s: InstagramBotSettings, *, force: bool = False) -> str:
                     # кешуємо надовго; інакше — коротко.
                     ttl = 50 * 24 * 3600 if app_secret() else PAGE_TOKEN_TTL
                     cache.set(ck, pt, ttl)
-                    cache.delete("ig_bot_pt_cooldown")
+                    cache.delete(cooldown_key)
                     cache.delete("ig_bot_pt_errsig")
                 return pt
     except Exception as exc:
@@ -1792,6 +1839,9 @@ def _valid_conversation_page_url(value: str) -> bool:
     except ValueError:
         return False
     query_keys = {key.lower() for key, _value in parse_qsl(parsed.query, keep_blank_values=True)}
+    # Meta includes access_token in paging.next. It is stripped before any
+    # request; other credential-like parameters remain invalid.
+    query_keys.discard("access_token")
     return (
         parsed.scheme == "https"
         and parsed.netloc == "graph.facebook.com"
