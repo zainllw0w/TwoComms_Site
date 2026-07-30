@@ -88,7 +88,7 @@ One active commercial proposal tied to an Instagram deal.
 
 Key fields:
 
-- `client`, `deal`, `commercial_episode`
+- `client`, protected `deal`, `commercial_episode`
 - `public_id` UUID for non-secret clean routing
 - `status`
 - `revision`
@@ -105,6 +105,11 @@ Key fields:
 - `payment_attempt`
 - `superseded_by`
 - created/updated timestamps
+
+`IgDeal.active_checkout_proposal` is the nullable current pointer. The deal can
+retain multiple historical/replacement proposals, but proposal creation locks
+the deal and updates that pointer atomically. This avoids relying on unsupported
+MariaDB partial unique constraints while preserving audit history.
 
 State values:
 
@@ -170,13 +175,25 @@ message because the customer must receive it. The token entrance route validates
 it, stores a signed proposal grant in the browser session, and redirects to a
 clean public-ID URL before Pixel, TikTok, or GA load.
 
+Each signed grant contains an independent random `grant_id` used only for
+per-browser analytics occurrence IDs. It is not the bearer token or session key.
+
+### IgCheckoutInventoryReservation and PromoCodeReservation
+
+Inventory is reserved only when one worker owns invoice creation, for no longer
+than the payable invoice lifetime. Reservations are consumed by verified Order
+materialization and released only after confirmed cancellation, expiry, or
+failure. Limited promo usage is reserved under a PromoCode row lock, consumed
+once after verified payment, and released only after provider truth confirms the
+attempt cannot pay.
+
 ### IgLifecycleEvent
 
 Durable source of truth for post-payment Direct actions:
 
 - event key (unique)
 - kind (`payment_verified`, `ttn_created`, `delivered_review_requested`)
-- client, deal, proposal, order, commercial episode
+- client, deal, proposal, order, commercial episode, order attribution
 - PII-minimal payload and locale
 - state (`pending`, `processing`, `sent`, `waiting_window`, `manager_review`,
   `ambiguous`, `failed`, `cancelled`)
@@ -273,6 +290,9 @@ Rules:
 - Ask only the missing option and, for size, send the applicable size guide.
 - Validate published state, stock, product/variant ownership, size, fit,
   generic options, quantity, and effective price twice.
+- Treat the proposal quote as frozen until expiry. Catalog/availability drift
+  blocks submit and requires a new Direct revision; it never silently reprices
+  an already issued proposal.
 - Catalog pricing is authoritative unless the exact negotiated total is tied to
   current-episode message evidence.
 - For a multi-item negotiated total, represent the difference as an order-level
@@ -385,6 +405,10 @@ Server validation:
 - sends email in Monobank `customerEmails` where supported;
 - sets invoice validity to the remaining proposal lifetime, maximum 12 hours;
 - sets session ownership needed for the secure success page.
+- claims invoice creation with a durable lease before the provider call;
+- persists `invoice_creation_ambiguous` for timeout/crash boundaries and never
+  blindly repeats provider create;
+- reserves inventory and limited promo capacity for the invoice lifetime.
 
 The payment button reads `Continue to payment - <amount>`. Invoice creation is
 never performed on GET, page preload, or crawler access.
@@ -402,24 +426,37 @@ never performed on GET, page preload, or crawler access.
 6. Bind `IgDeal.order`.
 7. Create `IgOrderAttribution(payment_source="provider_attempt")`.
 8. Bind the commercial episode and synchronize payment state.
-9. Move client/deal/proposal to paid state.
+9. Move proposal to `paid`, deal to `order_created`, and client stage to
+   `order_created`; then synchronize episode payment and bind the Order.
 10. Create the unique `payment_verified` lifecycle event.
+
+Every proposal revision atomically updates the matching `IgDeal` payment fields
+and `IgDealItem` snapshots before `ensure_episode_for_deal()` is called. The
+proposal stores that exact episode so payment truth, attribution provenance, and
+order materialization cannot read a stale or empty deal snapshot.
 
 A reconciliation command scans converted Instagram attempts missing any of
 these bindings and repairs them idempotently.
+
+Post-payment external channels are tracked independently: Telegram, receipt
+email, Meta Purchase, TikTok Purchase, and Instagram lifecycle emission each
+have their own pending/confirmed/skipped/failed marker and lease. Success in one
+channel never clears another. A bounded reconciler replays only missing channels
+after process loss.
 
 ## 11. Analytics design
 
 | Event | Trigger | Browser | Server | Event ID |
 | --- | --- | --- | --- | --- |
-| `ViewContent` | meaningful clean proposal render | Pixel | optional CAPI beacon | proposal/revision ID |
-| `InitiateCheckout` | first form interaction | Pixel | CAPI beacon | proposal/revision ID |
+| `ViewContent` | meaningful clean proposal render | Pixel | optional CAPI beacon | proposal/revision/grant HMAC |
+| `InitiateCheckout` | first form interaction per grant | Pixel | CAPI beacon | proposal/revision/grant HMAC |
 | `AddPaymentInfo` | valid invoice creation | Pixel before redirect | CAPI | PaymentAttempt ID |
 | `Purchase` | verified success only | verified success page | CAPI after materialization | Order ID |
 
 Additional rules:
 
-- Pixel and CAPI share the same deterministic event ID for deduplication.
+- Pixel and CAPI share the same deterministic event ID only for the same event
+  occurrence. Separate forwarded grants get separate ViewContent/Initiate IDs.
 - Browser tracking never receives the bearer token or unmasked Instagram data.
 - `utm_source=instagram`, `utm_medium=direct`, and a stable assisted-checkout
   campaign are stored server-side.
@@ -475,9 +512,9 @@ and I will update the proposal.
 Triggered from the verified PaymentAttempt adapter, not browser return:
 
 ```text
-Thank you, payment received. Order <number> is being prepared for <masked
-recipient>, Nova Poshta <city/branch>. I will send the TTN here as soon as it is
-created.
+Thank you, payment received. Order <number> is being prepared for <recipient>,
+phone <phone>, Nova Poshta <city/branch>. I will send the TTN here as soon as it
+is created.
 ```
 
 ### TTN created
@@ -504,6 +541,10 @@ Messages are localized to UA/RU/EN, deterministic, and idempotent. AI may adapt
 tone only within a bounded template; it must never alter order, payment, TTN, or
 delivery facts.
 
+Full recipient facts are sent only to the exact original bound Instagram
+conversation after verified payment. Forwardable browser pages and management
+lists remain masked.
+
 ### Meta policy routing
 
 - Inside the conservative response window: ordinary automatic response.
@@ -511,6 +552,8 @@ delivery facts.
   operational alert.
 - `HUMAN_AGENT`: only explicitly human-authored support, never this worker.
 - Mark sent only on confirmed provider delivery.
+- Capture the provider message ID in a structured receipt and execute sends
+  inside the existing reply/customer boundaries to close opt-out/takeover races.
 - Unknown/ambiguous provider response is not automatically retried.
 
 ## 14. Management workspace
@@ -527,6 +570,8 @@ Extend the existing Orders workspace with `Awaiting payment` visibility:
 - link delivery state and last classified error;
 - actions: open safe preview, issue copy token, resend through bot, revoke,
   inspect audit/revision history;
+- revoke/supersede is blocked while an invoice remains payable or ambiguous and
+  requires provider-confirmed non-payable state;
 - no routine manual step required.
 
 Existing action/confirmed/all views remain intact.
@@ -547,7 +592,8 @@ Existing action/confirmed/all views remain intact.
 | TTN signal crash | Telegram independent | lifecycle reconciler recreates event |
 | Meta window closed | no false sent marker | manager task plus alert |
 | Meta 508 link restriction | proposal persists | classified link-delivery review; never strip payment URL silently |
-| Provider timeout after send | ambiguous | no blind replay, manager review |
+| Provider timeout during invoice create | ambiguous | reference lookup/reconcile; no blind second invoice |
+| Provider timeout after message send | ambiguous | no blind replay, manager review |
 | Payment reversal/refund | fulfillment blocked | existing reversal truth and review path |
 
 ## 16. Security and privacy controls
@@ -575,7 +621,8 @@ Existing action/confirmed/all views remain intact.
 - Rebuilding Monobank webhook verification.
 - Creating Orders before verified payment.
 - Automatic catalog checkout for unresolved Custom Print requests.
-- Reserving global inventory for the whole 12-hour proposal lifetime.
+- Reserving inventory before invoice ownership; proposal viewing alone never
+  blocks stock.
 - Sending prohibited automated `HUMAN_AGENT` messages.
 - Live Meta/TikTok test purchases or events.
 - Refactoring unrelated management dashboard or Custom Print code.
