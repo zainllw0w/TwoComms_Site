@@ -156,6 +156,8 @@ successful command alone is not production proof.
 - [ ] Provide truthful pending-payment polling state.
 - [ ] Provide verified-only success page with order/delivery summary.
 - [ ] Provide cancelled, failed, expired, unavailable, and superseded states.
+- [ ] Provide a cancellation-ambiguous review state with every invalid payment
+  or replacement action suppressed.
 - [ ] Preserve checkout state on browser back/visibility changes.
 - [ ] Refresh current proposal revision on `visibilitychange`.
 - [ ] Use UA/RU/EN based on client locale with safe language switching.
@@ -180,6 +182,8 @@ successful command alone is not production proof.
 - [ ] No infinite shimmer, glow, rotating gradient, or layout-shifting animation.
 - [ ] Verify text never overlaps or overflows at all target viewports.
 - [ ] Verify visible keyboard focus and minimum 44 px controls.
+- [ ] Use `env(safe-area-inset-bottom)` plus terminal scroll padding and verify
+  the sticky CTA never covers focused fields, errors, or the final item row.
 
 ## H. PaymentAttempt and Monobank integration
 
@@ -197,6 +201,9 @@ successful command alone is not production proof.
 - [ ] Freeze product/cart snapshot and pricing into the attempt.
 - [ ] Capture payer browser attribution server-side.
 - [ ] Include customer email in provider payload where supported.
+- [ ] Prove assisted full-payment email reaches PaymentAttempt and Order, sends
+  exactly one receipt after verified materialization, and recovers idempotently
+  after receipt failure, including a forwarded payer.
 - [ ] Limit invoice validity to remaining proposal lifetime, maximum 12 hours.
 - [ ] Reuse one existing invoice for duplicate clicks/browsers.
 - [ ] Reconcile provider amount against `payment_amount`.
@@ -290,6 +297,8 @@ successful command alone is not production proof.
 - [ ] Key delivery idempotency by order and provider status code.
 - [ ] Bind every event to exact Order, attribution, deal, episode, and IgClient.
 - [ ] Localize payment, TTN, and review messages.
+- [ ] Ask whether everything arrived correctly and whether the customer liked
+  the order before politely requesting a review or `@twocomms` story tag.
 - [ ] Keep order/payment/TTN facts deterministic and AI-proof.
 - [ ] Send full confirmed recipient name, phone, and Nova Poshta destination only
   to the exact original bound Instagram conversation; keep forwarded web and
@@ -297,6 +306,8 @@ successful command alone is not production proof.
 - [ ] Persist independent post-payment channel states for Telegram, receipt,
   Meta Purchase, TikTok Purchase, and Instagram lifecycle emission.
 - [ ] Never let one successful channel clear another channel's pending state.
+- [ ] Prove delivered-status Telegram and Instagram outcomes are independent in
+  both success and failure directions.
 - [ ] Lease lifecycle work and revalidate ownership before final save.
 - [ ] Send ordinary RESPONSE only inside conservative Meta window.
 - [ ] Mark sent only after confirmed Meta response/provider ID.
@@ -333,6 +344,8 @@ successful command alone is not production proof.
 - [ ] Fire ViewContent only after clean proposal render.
 - [ ] Fire ViewContent/InitiateCheckout per eligible clean grant, not once for
   the whole proposal.
+- [ ] Fire InitiateCheckout only after the first valid Continue-to-payment
+  submit; render, focus, typing, validation failure, preload, and crawler emit none.
 - [ ] Use HMAC event IDs derived from event/proposal/revision/grant ID.
 - [ ] Keep original and forwarded payer InitiateCheckout IDs distinct while
   deduplicating Pixel/CAPI for the same grant.
@@ -369,7 +382,15 @@ successful command alone is not production proof.
 - [ ] Instagram adapter and reconciliation tests.
 - [ ] Legacy direct invoice regression tests.
 - [ ] Bot intent/control/missing-option/proposal-copy tests.
+- [ ] Product/fit-specific size-grid conversation tests: fit first, exact grid,
+  then size, with no proposal before all choices are resolved.
+- [ ] No-manager happy-path test: one proposal and own-domain URL, zero provider
+  call before web submit, and zero manager task/alert.
+- [ ] Expired-link renewal test creates a fresh proposal/token automatically and
+  never revives the expired bearer token.
 - [ ] Product-media transport payload tests.
+- [ ] UA/RU/EN discovery intent tests prove general requests emit 3-4 catalog
+  images plus one caption and no URL; explicit link requests may emit a URL.
 - [ ] Payment/TTN/delivered lifecycle idempotency tests.
 - [ ] Meta window, HUMAN_AGENT rejection, ambiguous send tests.
 - [ ] Orders workspace API/template tests.
@@ -387,6 +408,10 @@ successful command alone is not production proof.
 - [ ] Capture and inspect 1440x900 screenshot.
 - [ ] Verify 1, 2, 4, and long product lists.
 - [ ] Verify keyboard-only form and Nova Poshta selector.
+- [ ] At 320x568 and 430x932, focus every delivery/promo field and prove the
+  sticky CTA does not occlude the field, error, or terminal content.
+- [ ] Verify cancelled, failed, unavailable, and cancellation-ambiguous states
+  suppress invalid actions and expose the correct Direct/retry/review route.
 - [ ] Verify mocked Nova Poshta city/warehouse APIs, branch/locker switching,
   signed hidden tokens, stale token, and wrong-city rejection through the real
   `nova-poshta-form-bridge.js` path.

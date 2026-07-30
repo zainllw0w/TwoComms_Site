@@ -14,6 +14,9 @@
 
 - Primary agent performs all writes. Subagents are read-only researchers/reviewers.
 - Work only in `/Users/zainllw0w/.config/superpowers/worktrees/site/instagram-assisted-checkout`.
+- Run local Django commands from the worktree's `twocomms/` directory, where
+  `manage.py` lives. Root-level Git, Node, Playwright, and documentation commands
+  continue to run from the worktree root.
 - Preserve legacy direct IG invoices and unrelated worktrees.
 - Use `apply_patch` for manual edits.
 - Follow TDD: failing focused test, minimal implementation, passing focused test,
@@ -186,7 +189,7 @@ DEBUG=1 SECRET_KEY=local-baseline-only \
 
 Expected: 74 tests pass, zero failures.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add twocomms/storefront/views/utils.py \
@@ -194,6 +197,9 @@ git add twocomms/storefront/views/utils.py \
   docs/plans/2026-07-30-instagram-assisted-checkout-research.md
 git commit -m "fix: restore single post-payment dispatch boundary"
 ```
+
+Evidence: committed as `2343d0eb` (`fix: scope Instagram order truth callbacks`)
+after the focused seven-test callback suite and the related 74-test baseline.
 
 ### Task 1: Add proposal, revision, token, and lifecycle models
 
@@ -318,7 +324,7 @@ git diff -- twocomms/management/migrations/
 Expected: dependency on the actual rebased migration graph; no collision with
 another agent's migration and no unsafe engine assumption.
 
-- [x] **Step 4: Run tests and migration drift**
+- [ ] **Step 4: Run tests and migration drift**
 
 ```bash
 DEBUG=1 SECRET_KEY=local-baseline-only \
@@ -553,8 +559,10 @@ git commit -m "feat: add secure Instagram proposal access"
 - [ ] **Step 1: Write failing render/security tests**
 
 Assert real product facts, no Instagram username/chat PII, masked locked state,
-locale, expiry, pending, paid, expired, superseded, image fallback, form labels,
-and absence of token in template context/source.
+locale, expiry, pending, paid, cancelled, failed, expired, unavailable,
+cancellation-ambiguous, superseded, image fallback, form labels, and absence of
+token in template context/source. Every non-payable state suppresses invalid
+payment/replacement actions and exposes only its correct Direct/retry/review path.
 
 - [ ] **Step 2: Run tests to verify failure**
 
@@ -615,7 +623,8 @@ git commit -m "feat: render Instagram checkout proposal states"
 
 Assert explicit aspect ratios, 320 px no-overflow constraints, reduced-motion,
 stable CTA height, no gradients/orbs/infinite animations, clean token-free share
-request, visibility revision refresh, and accessible selectors.
+request, visibility revision refresh, `env(safe-area-inset-bottom)`, terminal
+scroll padding, and accessible selectors.
 
 - [ ] **Step 2: Run to verify failure**
 
@@ -634,6 +643,8 @@ Implement:
 - near-black frame, light form surface, orange CTA, verified green;
 - stable 4:5 media and compact product facts;
 - sticky mobile total/CTA;
+- sticky CTA safe-area padding and sufficient terminal scroll padding so focused
+  delivery/promo fields, field errors, and the last product row remain visible;
 - visible focus and 44 px targets;
 - reduced-motion override.
 
@@ -954,6 +965,7 @@ git commit -m "feat: create idempotent Instagram checkout invoices"
 - Modify: `twocomms/orders/payment_attempts.py`
 - Reuse/modify: `twocomms/management/services/ig_order_links.py`
 - Reuse/modify: `twocomms/management/services/ig_commercial_episodes.py`
+- Modify: `twocomms/orders/email_receipt.py`
 - Test: `twocomms/management/tests_ig_checkout_payments.py`
 - Modify: `twocomms/management/tests_ig_order_links.py`
 
@@ -965,6 +977,10 @@ lifecycle event, sends no second Purchase, and repairs every partial crash state
 Add separate cases for promo full payment, negotiated discount, generic
 prepayment, legacy `prepay_200`, refund/reversal after materialization,
 fulfillment blocking, and the old direct-IG `IGDEAL-*` invoice path.
+For assisted full payment, prove the submitted email reaches PaymentAttempt and
+Order, receives exactly one receipt after verified materialization, and is
+recovered idempotently after receipt-send failure, including when a forwarded
+browser supplied the recipient data.
 Cover reversal after complete Instagram binding and reversal during each partial
 adapter crash boundary; both must converge to one append-only reversal event,
 non-paid commercial truth, blocked unfulfilled fulfillment, and one manager
@@ -1048,6 +1064,7 @@ DEBUG=1 SECRET_KEY=local-baseline-only \
   management.tests_ig_commercial_episodes -v 1
 git add twocomms/management/services/ig_checkout_payments.py \
   twocomms/orders/payment_attempts.py \
+  twocomms/orders/email_receipt.py \
   twocomms/management/services/ig_order_links.py \
   twocomms/management/services/ig_commercial_episodes.py \
   twocomms/management/tests_ig_checkout_payments.py \
@@ -1076,6 +1093,13 @@ Cover `How can I pay?`, missing choices, complete one/multi-item proposal,
 12-hour/share copy, Direct correction, same pre-invoice revision, post-invoice
 supersession, no new direct provider URL, legacy invoice compatibility, Meta 508
 or closed-window proposal delivery fallback, and `[ORDER]` remaining legacy-only.
+Add exact conversation cases proving T-shirt fit is requested first, then the
+correct product-and-fit size grid is sent before size is requested; another
+product's grid is forbidden and no proposal exists until every choice resolves.
+Add the complete no-manager happy path: one proposal, one own-domain outbound
+URL, zero PaymentAttempt/provider call before web submit, and zero manager
+task/alert. Repeated payment intent after expiry creates a fresh proposal/token
+automatically and never revives the expired bearer token.
 
 - [ ] **Step 2: Run to verify failure**
 
@@ -1128,6 +1152,8 @@ Update all prompt authorities together:
   `InstagramBotSettings.system_prompt`, preserving all administrator custom text;
 - `[ORDER]` runtime remains only for legacy `IGDEAL-*` invoices and existing
   post-payment Direct collection.
+- expired assisted-checkout intent validates the latest sellable configuration
+  and issues a new proposal/token automatically without manager participation.
 
 Add migration/idempotency tests and preserve short UA/RU replies plus unrelated
 sales policy.
@@ -1158,15 +1184,21 @@ git commit -m "feat: send TwoComms proposals from Instagram"
 - Modify: `twocomms/management/services/instagram_bot.py`
 - Create: `twocomms/management/services/ig_catalog_media.py`
 - Modify: `twocomms/management/services/bot_catalog.py`
+- Modify: `twocomms/management/services/bot_playbooks.py`
+- Modify: `twocomms/management/management/commands/seed_ig_bot_sales_playbooks.py`
 - Test: `twocomms/management/tests_ig_catalog_media.py`
 - Modify: `twocomms/management/tests_ig_media_workflow.py`
 - Modify: `twocomms/management/tests_ig_instagram_login.py`
+- Modify: `twocomms/management/tests_ig_instructions.py`
 
 - [ ] **Step 1: Write failing selection/transport tests**
 
 Assert 3-4 published product images, selected color image, trusted host/MIME,
 bounded payload, no Gemini external URL, native supported carousel payload, and
-deterministic sequential fallback with partial-send classification.
+deterministic sequential fallback with partial-send classification. Add UA/RU/EN
+discovery-intent cases: a general request to show products emits 3-4 catalog
+media items plus one caption and no product URL; only an explicit link request
+may emit a catalog URL.
 
 - [ ] **Step 2: Run to verify failure**
 
@@ -1195,6 +1227,8 @@ true multi-image message, send a bounded sequence and one caption.
 Parse a strict catalog-ID control such as `[SHOW_PRODUCTS:12,15,18]`. The
 provider send function must return confirmed/partial/ambiguous status and must
 not be mixed into payment-link fallback logic.
+Update and seed all prompt/playbook authorities so product-discovery intent
+actually emits this control rather than ordinary link text.
 
 - [ ] **Step 5: Run tests and commit**
 
@@ -1205,10 +1239,13 @@ DEBUG=1 SECRET_KEY=local-baseline-only \
   management.tests_ig_instagram_login -v 1
 git add twocomms/management/services/ig_catalog_media.py \
   twocomms/management/services/bot_catalog.py \
+  twocomms/management/services/bot_playbooks.py \
+  twocomms/management/management/commands/seed_ig_bot_sales_playbooks.py \
   twocomms/management/services/instagram_bot.py \
   twocomms/management/tests_ig_catalog_media.py \
   twocomms/management/tests_ig_media_workflow.py \
-  twocomms/management/tests_ig_instagram_login.py
+  twocomms/management/tests_ig_instagram_login.py \
+  twocomms/management/tests_ig_instructions.py
 git commit -m "feat: show catalog media in Instagram Direct"
 ```
 
@@ -1228,13 +1265,15 @@ git commit -m "feat: show catalog media in Instagram Direct"
 
 Assert token entrance, crawler/preload, validation failure, ambiguous invoice,
 pending return, and failed/reversed payment send no prohibited event. Each clean
-session grant gets its own ViewContent/InitiateCheckout occurrence; original and
-forwarded payer grants have distinct Initiate IDs, while Pixel/CAPI for the same
-grant share one ID. AddPaymentInfo occurs only after invoice ID/URL are durably
-stored. Verified webhook sends one CAPI Purchase even without browser return;
-repeated verified success pages reuse the Order Purchase ID. Browser events
-respect the site's consent gate and server events respect approved privacy/
-exclusion policy.
+session grant gets its own ViewContent occurrence. `InitiateCheckout` fires only
+after that grant's first valid Continue-to-payment submit and before redirect;
+render, focus, typing, validation failure, preload, and crawler access emit none.
+Original and forwarded payer grants have distinct Initiate IDs, repeated valid
+submits reuse the same grant ID, and Pixel/CAPI for one occurrence share one ID.
+AddPaymentInfo occurs only after invoice ID/URL are durably stored. Verified
+webhook sends one CAPI Purchase even without browser return; repeated verified
+success pages reuse the Order Purchase ID. Browser events respect the site's
+consent gate and server events respect approved privacy/exclusion policy.
 
 - [ ] **Step 2: Run to verify failure**
 
@@ -1485,7 +1524,9 @@ git commit -m "feat: send Instagram TTN lifecycle updates"
 
 Cover canonical delivered StatusCode, localized text mismatch, repeated poll,
 transaction rollback, existing done order, COD compatibility, exact Instagram
-binding, review copy, window fallback, opt-out, and no duplicate request.
+binding, review copy, window fallback, opt-out, and no duplicate request. Prove
+the existing Telegram delivered alert and Instagram review event are independent:
+success or failure of either channel cannot suppress or clear the other.
 
 - [ ] **Step 2: Run to verify failure**
 
@@ -1512,9 +1553,11 @@ Use provider status code in the event key. Do not parse the localized
 
 - [ ] **Step 4: Add deterministic localized review copy**
 
-Request a short review/story tag without discount, pressure, false urgency, or
-invented facts. Keep `@twocomms` explicit. Outside the response window, preserve
-the prepared message in one manager task and one deduplicated alert.
+First ask whether everything arrived correctly and whether the customer liked
+the order, then request a short review/story tag without discount, pressure,
+false urgency, or invented facts. Keep `@twocomms` explicit. Outside the response
+window, preserve the prepared message in one manager task and one deduplicated
+alert.
 
 - [ ] **Step 5: Run and commit**
 
@@ -1747,8 +1790,12 @@ Expected: clean.
 Start on an unused port with mocked Monobank and no live analytics transport.
 Verify screenshots/states at 320x568, 375x812, 430x932, 768x1024, and
 1440x900. Check one/two/four/long item lists, keyboard navigation, reduced
-motion, error/loading/pending/paid/expired/superseded, CSP console, image pixels,
-token-free analytics URLs, and zero overlap/overflow.
+motion, error/loading/pending/paid/cancelled/failed/expired/unavailable/
+cancellation-ambiguous/superseded, CSP console, image pixels, token-free
+analytics URLs, and zero overlap/overflow. Non-payable states must suppress
+invalid actions and show only the correct Direct/retry/review route. At 320x568
+and 430x932, focus every delivery/promo field and prove the sticky CTA plus safe
+area never covers the field, error text, final item row, or terminal controls.
 
 Mock the Nova Poshta city/warehouse endpoints and verify the real
 `nova-poshta-form-bridge.js` integration: city keyboard selection,
@@ -1856,6 +1903,10 @@ Confirm:
 - management Awaiting Payment state loads;
 - daemon heartbeat and queue/outbox are healthy;
 - playbooks are current;
+- a production no-send or rollback-only fixture proves a complete sellable
+  payment-intent episode yields one proposal and own-domain outbound URL, zero
+  provider call before web submit, and zero manager task/alert under the effective
+  seeded playbooks;
 - no duplicate active proposal/invoice/order constraints are violated;
 - no live customer, Meta, TikTok, or Monobank test event was emitted;
 - one approved non-payable preview or controlled fixture renders correctly;

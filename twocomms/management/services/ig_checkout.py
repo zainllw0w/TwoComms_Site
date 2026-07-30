@@ -1,0 +1,645 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+from dataclasses import dataclass
+from datetime import timedelta
+from decimal import Decimal, InvalidOperation
+
+from django.db import transaction
+from django.utils import timezone
+
+
+MAX_CHECKOUT_ITEMS = 12
+MAX_CHECKOUT_QUANTITY = 50
+MAX_CHECKOUT_VALUE = Decimal("1000000.00")
+
+
+class CheckoutConfigurationError(ValueError):
+    def __init__(self, code, message=None, *, missing_fields=None, item_index=None):
+        super().__init__(message or code)
+        self.code = code
+        self.missing_fields = set(missing_fields or ())
+        self.item_index = item_index
+
+
+@dataclass(frozen=True)
+class ValidatedCheckoutItem:
+    product: object
+    color_variant: object | None
+    quantity: int
+    size: str
+    fit_code: str
+    fit_label: str
+    option_values: dict
+    option_labels: dict
+    catalog_unit_price: Decimal
+    catalog_line_total: Decimal
+    product_title: str
+    sku: str
+    image_url: str
+    color_code: str
+    color_label: str
+    evidence_message_ids: tuple[int, ...]
+
+    def digest_payload(self):
+        return {
+            "product_id": self.product.pk,
+            "color_variant_id": self.color_variant.pk if self.color_variant else None,
+            "quantity": self.quantity,
+            "size": self.size,
+            "fit_code": self.fit_code,
+            "option_values": self.option_values,
+            "catalog_unit_price": str(self.catalog_unit_price),
+            "catalog_line_total": str(self.catalog_line_total),
+        }
+
+
+@dataclass(frozen=True)
+class ValidatedQuote:
+    items: tuple[ValidatedCheckoutItem, ...]
+    catalog_total: Decimal
+    negotiated_discount: Decimal
+    quoted_total: Decimal
+    requested_payment_amount: Decimal
+    pay_type: str
+    evidence_message_ids: tuple[int, ...]
+    digest: str
+
+
+def _money(value, *, code="invalid_amount"):
+    try:
+        amount = Decimal(str(value)).quantize(Decimal("0.01"))
+    except (InvalidOperation, TypeError, ValueError):
+        raise CheckoutConfigurationError(code)
+    if amount <= 0 or amount > MAX_CHECKOUT_VALUE:
+        raise CheckoutConfigurationError(code)
+    return amount
+
+
+def _normalize_message_ids(values):
+    result = []
+    for value in values or ():
+        try:
+            number = int(value)
+        except (TypeError, ValueError):
+            continue
+        if number > 0 and number not in result:
+            result.append(number)
+    return tuple(result[:40])
+
+
+def _normalize_options(raw):
+    if raw in (None, ""):
+        return {}
+    if not isinstance(raw, dict) or len(raw) > 12:
+        raise CheckoutConfigurationError("invalid_options")
+    result = {}
+    for key, value in raw.items():
+        key = str(key or "").strip()[:100]
+        value = str(value or "").strip()[:100]
+        if key and value:
+            result[key] = value
+    return result
+
+
+def _snapshot_image_url(product, variant):
+    image = None
+    if variant is not None:
+        row = variant.images.order_by("order", "id").first()
+        image = getattr(row, "image", None) if row is not None else None
+    if not image:
+        image = getattr(product, "display_image", None)
+    try:
+        return str(image.url)[:600] if image else ""
+    except (AttributeError, ValueError):
+        return ""
+
+
+def _validate_negotiated_evidence(*, client, total, message_ids):
+    from management.models import InstagramBotMessage
+
+    rows = list(
+        InstagramBotMessage.objects.filter(
+            client=client,
+            pk__in=message_ids,
+        ).order_by("id")
+    )
+    if len(rows) != len(set(message_ids)):
+        raise CheckoutConfigurationError("invalid_price_evidence")
+    amount_re = re.compile(r"(?<!\d)(\d{2,6}(?:[.,]\d{1,2})?)\s*(?:грн|uah|₴)", re.I)
+    acceptance_re = re.compile(
+        r"\b(так|да|ок|добре|хорошо|домов\w*|погодж\w*|соглас\w*|оформл\w*)\b",
+        re.I,
+    )
+    # A generated assistant message is not commercial authorization. Only a
+    # human/operator-originated offer can support a negotiated total.
+    seller_roles = {"manager", "human_manager", "operator", "admin"}
+    customer_roles = {"user", "customer", "client"}
+    offer_index = None
+    for index, row in enumerate(rows):
+        if str(row.role or "").casefold() not in seller_roles:
+            continue
+        amounts = []
+        for raw in amount_re.findall(row.text or ""):
+            try:
+                amounts.append(Decimal(raw.replace(",", ".")).quantize(Decimal("0.01")))
+            except InvalidOperation:
+                continue
+        if total in amounts:
+            offer_index = index
+    accepted = any(
+        index > (offer_index if offer_index is not None else len(rows))
+        and str(row.role or "").casefold() in customer_roles
+        and acceptance_re.search(row.text or "")
+        for index, row in enumerate(rows)
+    )
+    if offer_index is None or not accepted:
+        raise CheckoutConfigurationError("invalid_price_evidence")
+
+
+def validate_checkout_items(
+    *,
+    client,
+    item_specs,
+    evidence=None,
+    pay_type="online_full",
+    negotiated_total=None,
+    requested_payment_amount=None,
+    allow_promo=False,
+):
+    from fable5.services import effective_cart_unit_price, variant_allows_purchase
+    from productcolors.models import ProductColorVariant
+    from storefront.models import Product, ProductFitOption, ProductStatus
+    from storefront.services.size_guides import resolve_product_sizes
+
+    if not client or not getattr(client, "pk", None):
+        raise CheckoutConfigurationError("invalid_client")
+    if not isinstance(item_specs, (list, tuple)) or not item_specs:
+        raise CheckoutConfigurationError("invalid_items")
+    if len(item_specs) > MAX_CHECKOUT_ITEMS:
+        raise CheckoutConfigurationError("too_many_items")
+
+    evidence = evidence if isinstance(evidence, dict) else {}
+    evidence_ids = _normalize_message_ids(evidence.get("message_ids"))
+    normalized = []
+    identities = set()
+    total_quantity = 0
+    missing_fields = set()
+
+    for index, raw in enumerate(item_specs):
+        if not isinstance(raw, dict):
+            raise CheckoutConfigurationError("invalid_items", item_index=index)
+        try:
+            product_id = int(raw.get("product_id"))
+            quantity = int(raw.get("qty", raw.get("quantity", 1)))
+        except (TypeError, ValueError):
+            raise CheckoutConfigurationError("invalid_items", item_index=index)
+        if product_id <= 0 or quantity <= 0 or quantity > MAX_CHECKOUT_QUANTITY:
+            raise CheckoutConfigurationError("invalid_quantity", item_index=index)
+        total_quantity += quantity
+        if total_quantity > MAX_CHECKOUT_QUANTITY:
+            raise CheckoutConfigurationError("aggregate_quantity_limit")
+
+        product = Product.objects.filter(pk=product_id).first()
+        if product is None:
+            raise CheckoutConfigurationError("invalid_product", item_index=index)
+        if product.status != ProductStatus.PUBLISHED:
+            raise CheckoutConfigurationError("unpublished_product", item_index=index)
+
+        size = str(raw.get("size") or "").strip().upper()[:32]
+        fit_code = str(
+            raw.get("fit_option_code") or raw.get("fit") or ""
+        ).strip().lower()[:64]
+        color_value = raw.get("color_variant_id", raw.get("variant_id"))
+        active_fits = list(
+            ProductFitOption.objects.filter(product=product, is_active=True).order_by("order", "id")
+        )
+        allowed_sizes = {
+            str(value or "").strip().upper()
+            for value in resolve_product_sizes(product)
+            if str(value or "").strip()
+        }
+        has_color_variants = ProductColorVariant.objects.filter(product=product).exists()
+        item_missing = set()
+        if allowed_sizes and not size:
+            item_missing.add("size")
+        if active_fits and not fit_code:
+            item_missing.add("fit")
+        if has_color_variants and color_value in (None, "", False, 0, "0"):
+            item_missing.add("color")
+        if item_missing:
+            missing_fields.update(item_missing)
+            continue
+        if allowed_sizes and size not in allowed_sizes:
+            raise CheckoutConfigurationError("invalid_size", item_index=index)
+
+        fit = None
+        if fit_code:
+            fit = next((row for row in active_fits if row.code == fit_code), None)
+            if fit is None:
+                raise CheckoutConfigurationError("invalid_fit", item_index=index)
+        elif not active_fits and str(raw.get("fit_option_code") or raw.get("fit") or "").strip():
+            raise CheckoutConfigurationError("invalid_fit", item_index=index)
+
+        variant = None
+        if color_value not in (None, "", False, 0, "0"):
+            try:
+                variant_id = int(color_value)
+            except (TypeError, ValueError):
+                raise CheckoutConfigurationError("invalid_color", item_index=index)
+            variant = ProductColorVariant.objects.select_related("color").filter(pk=variant_id).first()
+            if variant is None or variant.product_id != product.pk:
+                raise CheckoutConfigurationError("invalid_color", item_index=index)
+            if int(variant.stock or 0) < quantity:
+                raise CheckoutConfigurationError("insufficient_stock", item_index=index)
+
+        option_values = _normalize_options(raw.get("option_values"))
+        option_labels = _normalize_options(raw.get("option_labels"))
+        if fit_code:
+            option_values["fit"] = fit_code
+            option_labels["fit"] = fit.label
+        if not variant_allows_purchase(
+            product,
+            variant,
+            fit_code=fit_code,
+            size=size,
+            option_values=option_values,
+        ):
+            raise CheckoutConfigurationError("unavailable_selection", item_index=index)
+
+        try:
+            unit_price = Decimal(str(effective_cart_unit_price(
+                product,
+                variant,
+                fit_code=fit_code,
+                option_values=option_values,
+            ))).quantize(Decimal("0.01"))
+        except (InvalidOperation, TypeError, ValueError):
+            raise CheckoutConfigurationError("invalid_catalog_price", item_index=index)
+        if unit_price <= 0:
+            raise CheckoutConfigurationError("invalid_catalog_price", item_index=index)
+        line_total = unit_price * quantity
+        identity = (
+            product.pk,
+            variant.pk if variant else 0,
+            size,
+            fit_code,
+            json.dumps(option_values, ensure_ascii=True, sort_keys=True),
+        )
+        if identity in identities:
+            raise CheckoutConfigurationError("duplicate_items", item_index=index)
+        identities.add(identity)
+
+        color = getattr(variant, "color", None) if variant else None
+        normalized.append(ValidatedCheckoutItem(
+            product=product,
+            color_variant=variant,
+            quantity=quantity,
+            size=size,
+            fit_code=fit_code,
+            fit_label=(fit.label if fit else ""),
+            option_values=option_values,
+            option_labels=option_labels,
+            catalog_unit_price=unit_price,
+            catalog_line_total=line_total,
+            product_title=str(product.title or "")[:255],
+            sku=str(getattr(variant, "sku", "") or f"TC-{product.pk}")[:128],
+            image_url=_snapshot_image_url(product, variant),
+            color_code=str(getattr(color, "primary_hex", "") or "")[:64],
+            color_label=str(getattr(color, "name", "") or "")[:100],
+            evidence_message_ids=evidence_ids,
+        ))
+
+    if missing_fields:
+        raise CheckoutConfigurationError(
+            "missing_configuration",
+            missing_fields=missing_fields,
+        )
+
+    catalog_total = sum((item.catalog_line_total for item in normalized), Decimal("0.00"))
+    if catalog_total <= 0 or catalog_total > MAX_CHECKOUT_VALUE:
+        raise CheckoutConfigurationError("invalid_catalog_total")
+    quoted_total = catalog_total
+    if negotiated_total is not None:
+        quoted_total = _money(negotiated_total, code="invalid_negotiated_total")
+        if quoted_total > catalog_total:
+            raise CheckoutConfigurationError("invalid_negotiated_total")
+        if quoted_total != catalog_total:
+            if not evidence_ids:
+                raise CheckoutConfigurationError("missing_price_evidence")
+            _validate_negotiated_evidence(
+                client=client,
+                total=quoted_total,
+                message_ids=evidence_ids,
+            )
+
+    normalized_pay_type = str(pay_type or "online_full").strip().lower()
+    if normalized_pay_type in {"full", "online_full"}:
+        normalized_pay_type = "online_full"
+    elif normalized_pay_type in {"prepay", "prepayment"}:
+        normalized_pay_type = "prepayment"
+    else:
+        raise CheckoutConfigurationError("invalid_pay_type")
+    payment_amount = (
+        quoted_total
+        if normalized_pay_type == "online_full" and requested_payment_amount is None
+        else _money(requested_payment_amount, code="invalid_payment_amount")
+    )
+    if payment_amount > quoted_total:
+        raise CheckoutConfigurationError("payment_amount_exceeds_total")
+    if normalized_pay_type == "prepayment" and not evidence_ids:
+        raise CheckoutConfigurationError("missing_payment_evidence")
+
+    digest_payload = {
+        "items": [item.digest_payload() for item in normalized],
+        "catalog_total": str(catalog_total),
+        "quoted_total": str(quoted_total),
+        "requested_payment_amount": str(payment_amount),
+        "pay_type": normalized_pay_type,
+        "allow_promo": bool(allow_promo),
+        "evidence_message_ids": evidence_ids,
+    }
+    digest = hashlib.sha256(
+        json.dumps(
+            digest_payload,
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+    ).hexdigest()
+    return ValidatedQuote(
+        items=tuple(normalized),
+        catalog_total=catalog_total,
+        negotiated_discount=catalog_total - quoted_total,
+        quoted_total=quoted_total,
+        requested_payment_amount=payment_amount,
+        pay_type=normalized_pay_type,
+        evidence_message_ids=evidence_ids,
+        digest=digest,
+    )
+
+
+def _deal_item_snapshot(item):
+    return {
+        "product_id": item.product.pk,
+        "color_variant_id": item.color_variant.pk if item.color_variant else None,
+        "title": item.product_title,
+        "size": item.size,
+        "fit_option_code": item.fit_code,
+        "fit_option_label": item.fit_label,
+        "option_values": item.option_values,
+        "option_labels": item.option_labels,
+        "qty": item.quantity,
+        "unit_price": str(item.catalog_unit_price),
+        "line_total": str(item.catalog_line_total),
+        "price_source": (
+            "catalog_with_order_discount" if item.evidence_message_ids else "catalog"
+        ),
+        "price_evidence_message_ids": list(item.evidence_message_ids),
+    }
+
+
+def _revision_snapshot(quote):
+    return {
+        "items": [_deal_item_snapshot(item) for item in quote.items],
+        "catalog_total": str(quote.catalog_total),
+        "negotiated_discount": str(quote.negotiated_discount),
+        "quoted_total": str(quote.quoted_total),
+        "requested_payment_amount": str(quote.requested_payment_amount),
+        "pay_type": quote.pay_type,
+        "digest": quote.digest,
+    }
+
+
+def _sync_deal_and_episode(*, deal, quote):
+    from management.models import IgDeal, IgDealItem
+    from management.services.ig_commercial_episodes import ensure_episode_for_deal
+
+    if deal.invoice_id or deal.invoice_url:
+        raise CheckoutConfigurationError("legacy_invoice_exists")
+    deal.items.all().delete()
+    deal_rows = []
+    for item in quote.items:
+        snapshot = _deal_item_snapshot(item)
+        deal_rows.append(IgDealItem(
+            deal=deal,
+            product=item.product,
+            color_variant=item.color_variant,
+            title=item.product_title,
+            size=item.size,
+            fit_option_code=item.fit_code,
+            fit_option_label=item.fit_label,
+            option_values=item.option_values,
+            option_labels=item.option_labels,
+            qty=item.quantity,
+            unit_price=item.catalog_unit_price,
+            line_total=item.catalog_line_total,
+            price_source=snapshot["price_source"],
+            price_evidence_message_ids=list(item.evidence_message_ids),
+        ))
+    IgDealItem.objects.bulk_create(deal_rows)
+    deal.pay_type = (
+        IgDeal.PayType.PREPAYMENT
+        if quote.pay_type == "prepayment"
+        else IgDeal.PayType.ONLINE_FULL
+    )
+    deal.amount = quote.quoted_total
+    deal.currency = "UAH"
+    deal.requested_payment_amount = quote.requested_payment_amount
+    deal.requested_payment_evidence_ids = list(quote.evidence_message_ids)
+    deal.status = IgDeal.Status.QUOTED
+    deal.save(update_fields=[
+        "pay_type", "amount", "currency", "requested_payment_amount",
+        "requested_payment_evidence_ids", "status", "updated_at",
+    ])
+    episode = ensure_episode_for_deal(deal)
+    episode.product_snapshot = [_deal_item_snapshot(item) for item in quote.items]
+    episode.price_snapshot = {
+        "catalog_total": str(quote.catalog_total),
+        "negotiated_discount": str(quote.negotiated_discount),
+        "negotiated_total": str(quote.quoted_total),
+        "requested_payment_amount": str(quote.requested_payment_amount),
+        "currency": "UAH",
+        "proposal_digest": quote.digest,
+    }
+    episode.save(update_fields=["product_snapshot", "price_snapshot", "updated_at"])
+    return episode
+
+
+def _replace_proposal_items(*, proposal, quote):
+    from management.models import IgCheckoutProposalItem
+
+    proposal.items.all().delete()
+    rows = []
+    for position, item in enumerate(quote.items):
+        rows.append(IgCheckoutProposalItem(
+            proposal=proposal,
+            product=item.product,
+            color_variant=item.color_variant,
+            product_title=item.product_title,
+            sku=item.sku,
+            image_url=item.image_url,
+            color_code=item.color_code,
+            color_label=item.color_label,
+            size=item.size,
+            fit_code=item.fit_code,
+            fit_label=item.fit_label,
+            option_values=item.option_values,
+            option_labels=item.option_labels,
+            quantity=item.quantity,
+            catalog_unit_price=item.catalog_unit_price,
+            catalog_line_total=item.catalog_line_total,
+            quoted_unit_price=item.catalog_unit_price,
+            quoted_line_total=item.catalog_line_total,
+            price_source=(
+                "catalog_with_order_discount"
+                if quote.negotiated_discount > 0
+                else "catalog"
+            ),
+            evidence_message_ids=list(item.evidence_message_ids),
+            position=position,
+        ))
+    IgCheckoutProposalItem.objects.bulk_create(rows)
+
+
+@transaction.atomic
+def create_or_update_proposal(
+    *,
+    client,
+    pay_type,
+    item_specs,
+    negotiated_total=None,
+    requested_payment_amount=None,
+    evidence=None,
+    allow_promo=False,
+):
+    from management.models import (
+        IgCheckoutProposal,
+        IgCheckoutRevision,
+        IgClient,
+        IgDeal,
+    )
+
+    locked_client = IgClient.objects.select_for_update().get(pk=client.pk)
+    quote = validate_checkout_items(
+        client=locked_client,
+        item_specs=item_specs,
+        evidence=evidence,
+        pay_type=pay_type,
+        negotiated_total=negotiated_total,
+        requested_payment_amount=requested_payment_amount,
+        allow_promo=allow_promo,
+    )
+    deal = (
+        IgDeal.objects.select_for_update()
+        .filter(client=locked_client, active_checkout_proposal__isnull=False)
+        .select_related("active_checkout_proposal")
+        .order_by("-id")
+        .first()
+    )
+    proposal = deal.active_checkout_proposal if deal is not None else None
+    if proposal is not None:
+        proposal = IgCheckoutProposal.objects.select_for_update().get(pk=proposal.pk)
+        if proposal.is_expired:
+            if proposal.status not in {
+                IgCheckoutProposal.Status.READY,
+                IgCheckoutProposal.Status.VIEWED,
+                IgCheckoutProposal.Status.DETAILS_LOCKED,
+                IgCheckoutProposal.Status.EXPIRED,
+            } or proposal.payment_attempt_id:
+                raise CheckoutConfigurationError("proposal_expired")
+            if proposal.status != IgCheckoutProposal.Status.EXPIRED:
+                proposal.status = IgCheckoutProposal.Status.EXPIRED
+                proposal.save(update_fields=["status", "updated_at"])
+            deal.active_checkout_proposal = None
+            deal.save(update_fields=["active_checkout_proposal", "updated_at"])
+            proposal = None
+        elif proposal.items_digest == quote.digest and proposal.allow_promo == bool(allow_promo):
+            return proposal
+        if proposal is not None and (
+            proposal.status not in {
+                IgCheckoutProposal.Status.READY,
+                IgCheckoutProposal.Status.VIEWED,
+            }
+            or proposal.payment_attempt_id
+            or deal.invoice_id
+            or deal.invoice_url
+        ):
+            raise CheckoutConfigurationError("proposal_locked")
+    else:
+        deal = IgDeal.objects.create(
+            client=locked_client,
+            status=IgDeal.Status.QUOTED,
+            pay_type=(
+                IgDeal.PayType.PREPAYMENT
+                if quote.pay_type == "prepayment"
+                else IgDeal.PayType.ONLINE_FULL
+            ),
+            amount=quote.quoted_total,
+            requested_payment_amount=quote.requested_payment_amount,
+        )
+
+    episode = _sync_deal_and_episode(deal=deal, quote=quote)
+    if proposal is None:
+        proposal = IgCheckoutProposal.objects.create_current(
+            deal=deal,
+            commercial_episode=episode,
+            catalog_total=quote.catalog_total,
+            negotiated_discount=quote.negotiated_discount,
+            quoted_total=quote.quoted_total,
+            requested_payment_amount=quote.requested_payment_amount,
+            pay_type=quote.pay_type,
+            allow_promo=bool(allow_promo),
+            items_digest=quote.digest,
+        )
+        revision_number = 1
+        revision_source = IgCheckoutRevision.Source.BOT_CREATE
+    else:
+        proposal.revision += 1
+        proposal.catalog_total = quote.catalog_total
+        proposal.negotiated_discount = quote.negotiated_discount
+        proposal.quoted_total = quote.quoted_total
+        proposal.requested_payment_amount = quote.requested_payment_amount
+        proposal.pay_type = quote.pay_type
+        proposal.allow_promo = bool(allow_promo)
+        proposal.items_digest = quote.digest
+        proposal.commercial_episode = episode
+        proposal.full_clean()
+        proposal.save(update_fields=[
+            "revision", "catalog_total", "negotiated_discount", "quoted_total",
+            "requested_payment_amount", "pay_type", "allow_promo", "items_digest",
+            "commercial_episode", "updated_at",
+        ])
+        revision_number = proposal.revision
+        revision_source = IgCheckoutRevision.Source.BOT_UPDATE
+
+    _replace_proposal_items(proposal=proposal, quote=quote)
+    IgCheckoutRevision.objects.create(
+        proposal=proposal,
+        revision=revision_number,
+        digest=quote.digest,
+        snapshot=_revision_snapshot(quote),
+        source=revision_source,
+        evidence_message_ids=list(quote.evidence_message_ids),
+        source_watermark_message_id=max(quote.evidence_message_ids or (0,)),
+    )
+    if locked_client.stage not in {
+        IgClient.Stage.PAID,
+        IgClient.Stage.ORDER_CREATED,
+        IgClient.Stage.DONE,
+    }:
+        locked_client.stage = IgClient.Stage.CHECKOUT
+        locked_client.stage_updated_at = timezone.now()
+        locked_client.save(update_fields=["stage", "stage_updated_at", "updated_at"])
+    return proposal
+
+
+def build_proposal(client, *, items, **kwargs):
+    return create_or_update_proposal(
+        client=client,
+        item_specs=items,
+        pay_type=kwargs.pop("pay_type", "online_full"),
+        **kwargs,
+    )

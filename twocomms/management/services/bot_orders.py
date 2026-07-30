@@ -1225,6 +1225,30 @@ def create_deal_and_link(
         )
 
 
+def create_checkout_proposal(
+    client,
+    *,
+    pay_type="online_full",
+    item_specs,
+    negotiated_total=None,
+    requested_payment_amount=None,
+    evidence=None,
+    allow_promo=False,
+):
+    """Build the first-party proposal path without creating a Monobank invoice."""
+    from management.services.ig_checkout import create_or_update_proposal
+
+    return create_or_update_proposal(
+        client=client,
+        pay_type=pay_type,
+        item_specs=item_specs,
+        negotiated_total=negotiated_total,
+        requested_payment_amount=requested_payment_amount,
+        evidence=evidence,
+        allow_promo=allow_promo,
+    )
+
+
 def fulfill_ready_paid_deals(limit: int = 50) -> int:
     """Safety-net: створює замовлення для ОПЛАЧЕНИХ угод без замовлення, у яких
     уже є повні дані НП (якщо модель не виставила тег [ORDER]). Для крону."""
