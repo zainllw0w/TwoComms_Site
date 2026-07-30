@@ -654,6 +654,10 @@ class SendApiBoundedRetryTests(TestCase):
     def test_retryable_send_stops_current_drain_cycle(
         self, send_text, _sender_action, _notify_manager
     ):
+        self.addCleanup(
+            cache.delete,
+            bot._send_rate_limit_backoff_key(self.settings),
+        )
         send_text.return_value = (False, "retryable", "ліміт частоти")
         row = bot.InstagramBotMessage.objects.create(
             sender_id=self.client.igsid,
@@ -671,6 +675,21 @@ class SendApiBoundedRetryTests(TestCase):
         self.assertEqual(send_text.call_count, 1)
         self.assertEqual(row.attempts, 1)
         self.assertEqual(row.status, bot.InstagramBotMessage.Status.PENDING)
+
+    def test_non_send_rate_observation_does_not_disable_send_backoff(self):
+        self.addCleanup(
+            cache.delete,
+            bot._send_rate_limit_backoff_key(self.settings),
+        )
+
+        bot._activate_send_rate_limit_backoff(self.settings)
+        bot._record_meta_http_observation(
+            "conversations",
+            429,
+            json.dumps({"error": {"code": 4, "message": "Request limit"}}),
+        )
+
+        self.assertTrue(bot._send_rate_limit_backoff_active(self.settings))
 
     @patch("management.services.instagram_bot.get_page_token", return_value="PT")
     @patch("management.services.instagram_bot._http")

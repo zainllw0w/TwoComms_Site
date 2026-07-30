@@ -1141,28 +1141,22 @@ def meta_rate_limit_status() -> dict[str, object]:
     }
 
 
-def _activate_send_rate_limit_backoff() -> None:
+def _send_rate_limit_backoff_key(s: InstagramBotSettings) -> str:
+    return f"ig_bot_send_rate_backoff:{_provider_owner_id(s)}"
+
+
+def _activate_send_rate_limit_backoff(s: InstagramBotSettings) -> None:
     try:
-        cache.set(
-            "ig_meta_http_last_rate",
-            {"endpoint": "send", "at": timezone.now().isoformat()},
-            META_OBSERVABILITY_TTL,
-        )
-        cache.set(
-            "ig_meta_http_degraded_until",
-            time.time() + META_DEGRADED_TTL,
-            META_DEGRADED_TTL,
-        )
+        cache.set(_send_rate_limit_backoff_key(s), 1, META_DEGRADED_TTL)
     except Exception:
         pass
 
 
-def _send_rate_limit_backoff_active() -> bool:
-    status = meta_rate_limit_status()
-    return bool(
-        status.get("degraded")
-        and status.get("last_rate_limited_endpoint") == "send"
-    )
+def _send_rate_limit_backoff_active(s: InstagramBotSettings) -> bool:
+    try:
+        return bool(cache.get(_send_rate_limit_backoff_key(s)))
+    except Exception:
+        return False
 
 
 def _valid_provider_request_url(url: str, host: str) -> bool:
@@ -4996,7 +4990,7 @@ def _process_one_inside_reply_boundary(
                 f"Причина: {hint}. Питання: {row.text[:300]}"
             )
         elif kind == "retryable":
-            _activate_send_rate_limit_backoff()
+            _activate_send_rate_limit_backoff(s)
             row.status = InstagramBotMessage.Status.PENDING
             row.processing_started_at = None
             row.save(update_fields=["status", "processing_started_at"])
@@ -5095,7 +5089,7 @@ def process_pending(s: InstagramBotSettings | None = None, max_items: int = 15) 
     s = s or InstagramBotSettings.load()
     if not s.is_enabled:
         return 0
-    if _send_rate_limit_backoff_active():
+    if _send_rate_limit_backoff_active(s):
         return 0
     # Реанімація «зависань» у processing (вбитий демон / надто довгий виклик).
     try:
