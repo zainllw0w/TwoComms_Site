@@ -26,34 +26,34 @@ successful command alone is not production proof.
 
 ## B. Proposal domain model
 
-- [ ] Add `IgCheckoutProposal` with client/deal/episode ownership.
-- [ ] Persist the exact `ensure_episode_for_deal()` episode on every proposal.
-- [ ] Add explicit ready/viewed/details/invoice/paid/expired/revoked/superseded states.
-- [ ] Add 12-hour expiry and server-side state helpers.
-- [ ] Add monotonic revision and current item digest.
-- [ ] Add locale and currency.
-- [ ] Add catalog total, negotiated discount, quoted total, payment type, and
+- [x] Add `IgCheckoutProposal` with client/deal/episode ownership.
+- [x] Persist the exact `ensure_episode_for_deal()` episode on every proposal.
+- [x] Add explicit ready/viewed/details/invoice/paid/expired/revoked/superseded states.
+- [x] Add 12-hour expiry and server-side state helpers.
+- [x] Add monotonic revision and current item digest.
+- [x] Add locale and currency.
+- [x] Add catalog total, negotiated discount, quoted total, payment type, and
   requested payment amount.
-- [ ] Add explicit `allow_promo`; default false when negotiated discount exists.
-- [ ] Add optional PaymentAttempt link and supersession link.
-- [ ] Use protected historical proposal relations plus exactly one
+- [x] Add explicit `allow_promo`; default false when negotiated discount exists.
+- [x] Add optional PaymentAttempt link and supersession link.
+- [x] Use protected historical proposal relations plus exactly one
   `IgDeal.active_checkout_proposal` pointer serialized under a deal row lock.
-- [ ] Add indexed state/expiry/client timestamps for management queries.
-- [ ] Add `IgCheckoutProposalItem` snapshots with product/variant links.
-- [ ] Snapshot title, SKU, image, color, fit, size, options, quantity, and prices.
-- [ ] Preserve price source and conversation evidence message IDs.
-- [ ] Add append-only `IgCheckoutRevision` audit records.
-- [ ] Prevent update/delete of historical revisions through service/API paths.
-- [ ] Add `IgCheckoutAccessToken` with SHA-256 digest, kind, expiry, revocation,
+- [x] Add indexed state/expiry/client timestamps for management queries.
+- [x] Add `IgCheckoutProposalItem` snapshots with product/variant links.
+- [x] Snapshot title, SKU, image, color, fit, size, options, quantity, and prices.
+- [x] Preserve price source and conversation evidence message IDs.
+- [x] Add append-only `IgCheckoutRevision` audit records.
+- [x] Prevent update/delete of historical revisions through service/API paths.
+- [x] Add `IgCheckoutAccessToken` with SHA-256 digest, kind, expiry, revocation,
   use count, and last use.
-- [ ] Never persist raw token in the token table.
+- [x] Never persist raw token in the token table.
 - [ ] Add invoice-lifetime inventory reservation state with consume/release
   semantics; do not reserve during the whole unopened proposal lifetime.
-- [ ] Add `IgLifecycleEvent` with unique event key, lease, delivery status,
+- [x] Add `IgLifecycleEvent` with unique event key, lease, delivery status,
   provider message ID, and classified errors.
-- [ ] Persist exact `IgOrderAttribution` on every order-bound lifecycle event.
-- [ ] Add model constraints for valid totals, revision, expiry, and payment state.
-- [ ] Add migrations with production-compatible InnoDB/FK boundaries.
+- [x] Persist exact `IgOrderAttribution` on every order-bound lifecycle event.
+- [x] Add model constraints for valid totals, revision, expiry, and payment state.
+- [x] Add migrations with production-compatible InnoDB/FK boundaries.
 - [ ] Add admin or management observability without exposing secrets/PII.
 
 ## C. Strict product configuration

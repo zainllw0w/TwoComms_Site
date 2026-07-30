@@ -204,7 +204,7 @@ git commit -m "fix: restore single post-payment dispatch boundary"
   `makemigrations` from the final rebased migration graph
 - Test: `twocomms/management/tests_ig_checkout_models.py`
 
-- [ ] **Step 1: Write failing model tests**
+- [x] **Step 1: Write failing model tests**
 
 Create `IgCheckoutProposalModelTests` with these exact contracts:
 
@@ -239,7 +239,7 @@ DEBUG=1 SECRET_KEY=local-baseline-only \
 
 Expected: import/model failures.
 
-- [ ] **Step 2: Add model choices and fields**
+- [x] **Step 2: Add model choices and fields**
 
 Use explicit choices and indexes:
 
@@ -305,7 +305,7 @@ Add these complete related records and constraints:
   use `PROTECT` for client/deal/episode relations so financial evidence remains
   queryable after a profile is archived.
 
-- [ ] **Step 3: Generate and inspect migration**
+- [x] **Step 3: Generate and inspect migration**
 
 Run:
 
@@ -318,7 +318,7 @@ git diff -- twocomms/management/migrations/
 Expected: dependency on the actual rebased migration graph; no collision with
 another agent's migration and no unsafe engine assumption.
 
-- [ ] **Step 4: Run tests and migration drift**
+- [x] **Step 4: Run tests and migration drift**
 
 ```bash
 DEBUG=1 SECRET_KEY=local-baseline-only \

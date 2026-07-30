@@ -8,9 +8,15 @@ management/migrations. Перехресні FK задаються рядком (
 """
 from __future__ import annotations
 
+import hashlib
+import secrets
+import uuid
+from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -44,6 +50,12 @@ __all__ = [
     "IgCommercialEpisode",
     "IgCommercialEpisodeEvent",
     "IgPostSaleCase",
+    "IgCheckoutProposal",
+    "IgCheckoutProposalItem",
+    "IgCheckoutRevision",
+    "IgCheckoutAccessToken",
+    "IgCheckoutInventoryReservation",
+    "IgLifecycleEvent",
 ]
 
 
@@ -555,6 +567,13 @@ class IgDeal(models.Model):
         blank=True,
         on_delete=models.SET_NULL,
         related_name="ig_deals",
+    )
+    active_checkout_proposal = models.OneToOneField(
+        "management.IgCheckoutProposal",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="active_for_deal",
     )
 
     # Коли клієнта вже сповістили в Direct про відправку (ТТН) — щоб не дублювати.
@@ -1239,6 +1258,563 @@ class IgCommercialEpisode(models.Model):
     def evidence_message_ids(self):
         """Stable public alias for the bounded episode API/test contract."""
         return list(self.repeat_evidence_message_ids or [])
+
+
+def default_checkout_proposal_expiry():
+    return timezone.now() + timedelta(hours=12)
+
+
+class IgCheckoutProposalQuerySet(models.QuerySet):
+    def delete(self):
+        raise ValueError("IgCheckoutProposal financial evidence cannot be deleted")
+
+
+class IgCheckoutProposalManager(models.Manager.from_queryset(IgCheckoutProposalQuerySet)):
+    def _proposal_values(self, *, deal, **values):
+        from management.services.ig_commercial_episodes import ensure_episode_for_deal
+
+        episode = ensure_episode_for_deal(deal)
+        values.setdefault("client", deal.client)
+        values.setdefault("commercial_episode", episode)
+        values.setdefault("expires_at", default_checkout_proposal_expiry())
+        values.setdefault("catalog_total", values.get("quoted_total"))
+        values.setdefault(
+            "requested_payment_amount",
+            values.get("quoted_total"),
+        )
+        values.setdefault("negotiated_discount", Decimal("0.00"))
+        values.setdefault("revision", 1)
+        return values
+
+    @transaction.atomic
+    def create_current(self, *, deal, **values):
+        deal = (
+            IgDeal.objects.select_for_update()
+            .select_related("client", "active_checkout_proposal")
+            .get(pk=deal.pk)
+        )
+        if deal.active_checkout_proposal_id:
+            raise ValidationError("Deal already has a current proposal")
+        values = self._proposal_values(deal=deal, **values)
+        proposal = self.model(deal=deal, **values)
+        proposal.full_clean()
+        proposal.save(force_insert=True)
+        deal.active_checkout_proposal = proposal
+        deal.save(update_fields=["active_checkout_proposal", "updated_at"])
+        return proposal
+
+    @transaction.atomic
+    def replace_current(self, *, deal, **values):
+        deal = (
+            IgDeal.objects.select_for_update()
+            .select_related("client", "active_checkout_proposal")
+            .get(pk=deal.pk)
+        )
+        current = deal.active_checkout_proposal
+        if current is None:
+            raise ValidationError("Deal has no current proposal to replace")
+        current = self.select_for_update().get(pk=current.pk)
+        if current.status == current.Status.PAID:
+            raise ValidationError("A paid proposal cannot be superseded")
+        if current.status == current.Status.INVOICE_CREATED:
+            raise ValidationError("A payable or ambiguous invoice cannot be replaced")
+        if current.status != current.Status.CANCELLED or not current.invoice_cancelled_at:
+            raise ValidationError("The current proposal is not provider-confirmed cancelled")
+
+        values = self._proposal_values(deal=deal, **values)
+        replacement = self.model(deal=deal, **values)
+        replacement.full_clean()
+        replacement.save(force_insert=True)
+
+        current.status = current.Status.SUPERSEDED
+        current.superseded_by = replacement
+        current.save(update_fields=["status", "superseded_by", "updated_at"])
+        deal.active_checkout_proposal = replacement
+        deal.save(update_fields=["active_checkout_proposal", "updated_at"])
+        return replacement
+
+
+class IgCheckoutProposal(models.Model):
+    """Frozen first-party checkout offer created from an Instagram deal."""
+
+    class Status(models.TextChoices):
+        READY = "ready", _("Готова")
+        VIEWED = "viewed", _("Переглянута")
+        DETAILS_LOCKED = "details_locked", _("Дані зафіксовані")
+        INVOICE_CREATED = "invoice_created", _("Рахунок створено")
+        PAID = "paid", _("Оплачено")
+        CANCELLED = "cancelled", _("Рахунок скасовано")
+        EXPIRED = "expired", _("Протерміновано")
+        REVOKED = "revoked", _("Відкликано")
+        SUPERSEDED = "superseded", _("Замінено")
+
+    class PayType(models.TextChoices):
+        ONLINE_FULL = "online_full", _("Повна онлайн-оплата")
+        PREPAYMENT = "prepayment", _("Передоплата")
+
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.PROTECT,
+        related_name="checkout_proposals",
+    )
+    deal = models.ForeignKey(
+        "management.IgDeal",
+        on_delete=models.PROTECT,
+        related_name="checkout_proposals",
+    )
+    commercial_episode = models.ForeignKey(
+        "management.IgCommercialEpisode",
+        on_delete=models.PROTECT,
+        related_name="checkout_proposals",
+    )
+    status = models.CharField(
+        max_length=24,
+        choices=Status.choices,
+        default=Status.READY,
+        db_index=True,
+    )
+    revision = models.PositiveIntegerField(default=1)
+    locale = models.CharField(max_length=12, default="uk")
+    currency = models.CharField(max_length=8, default="UAH")
+    catalog_total = models.DecimalField(max_digits=12, decimal_places=2)
+    negotiated_discount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+    )
+    quoted_total = models.DecimalField(max_digits=12, decimal_places=2)
+    requested_payment_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    pay_type = models.CharField(
+        max_length=20,
+        choices=PayType.choices,
+        default=PayType.ONLINE_FULL,
+    )
+    allow_promo = models.BooleanField(default=False)
+    items_digest = models.CharField(max_length=64)
+    expires_at = models.DateTimeField(default=default_checkout_proposal_expiry, db_index=True)
+    viewed_at = models.DateTimeField(null=True, blank=True)
+    details_locked_at = models.DateTimeField(null=True, blank=True)
+    invoice_cancelled_at = models.DateTimeField(null=True, blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+    payment_attempt = models.OneToOneField(
+        "orders.PaymentAttempt",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="instagram_checkout_proposal",
+    )
+    superseded_by = models.OneToOneField(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="supersedes",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = IgCheckoutProposalManager()
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [
+            models.Index(fields=["status", "expires_at"], name="ig_prop_status_exp"),
+            models.Index(fields=["client", "-created_at"], name="ig_prop_client_dt"),
+            models.Index(fields=["deal", "-created_at"], name="ig_prop_deal_dt"),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(catalog_total__gt=0),
+                name="ig_prop_catalog_positive",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(quoted_total__gt=0),
+                name="ig_prop_quoted_positive",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(requested_payment_amount__gt=0),
+                name="ig_prop_payment_positive",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(negotiated_discount__gte=0),
+                name="ig_prop_discount_nonnegative",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(revision__gte=1),
+                name="ig_prop_revision_positive",
+            ),
+        ]
+
+    def __str__(self):  # pragma: no cover - trivial representation
+        return f"IgCheckoutProposal#{self.pk} deal={self.deal_id} {self.status}"
+
+    @property
+    def is_expired(self):
+        return self.expires_at <= timezone.now()
+
+    def clean(self):
+        errors = {}
+        if self.deal_id and self.client_id and self.deal.client_id != self.client_id:
+            errors["client"] = "Proposal client must own the deal"
+        if self.commercial_episode_id:
+            episode = self.commercial_episode
+            if self.client_id and episode.client_id != self.client_id:
+                errors["commercial_episode"] = "Episode must belong to the proposal client"
+            if episode.deal_id and self.deal_id and episode.deal_id != self.deal_id:
+                errors["commercial_episode"] = "Episode must be bound to the proposal deal"
+        if self.quoted_total is not None and self.quoted_total <= 0:
+            errors["quoted_total"] = "Active proposal total must be positive"
+        if self.catalog_total is not None and self.catalog_total <= 0:
+            errors["catalog_total"] = "Catalog total must be positive"
+        if (
+            self.requested_payment_amount is not None
+            and self.quoted_total is not None
+            and (
+                self.requested_payment_amount <= 0
+                or self.requested_payment_amount > self.quoted_total
+            )
+        ):
+            errors["requested_payment_amount"] = "Requested payment must fit the quote"
+        if self._state.adding and self.status in {
+            self.Status.READY,
+            self.Status.VIEWED,
+        } and self.expires_at <= timezone.now():
+            errors["expires_at"] = "Active proposal expiry must be in the future"
+        if self.status == self.Status.PAID and self.superseded_by_id:
+            errors["superseded_by"] = "A paid proposal cannot be superseded"
+        if self.status == self.Status.SUPERSEDED and not self.superseded_by_id:
+            errors["superseded_by"] = "Superseded proposal must point to its replacement"
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            previous = type(self).objects.filter(pk=self.pk).values(
+                "status", "superseded_by_id"
+            ).first()
+            if previous and previous["status"] == self.Status.PAID:
+                next_status = self.status
+                next_replacement = self.superseded_by_id
+                if next_status != self.Status.PAID or next_replacement:
+                    raise ValidationError("A paid proposal cannot be superseded")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgCheckoutProposal financial evidence cannot be deleted")
+
+
+class IgCheckoutProposalItem(models.Model):
+    proposal = models.ForeignKey(
+        "management.IgCheckoutProposal",
+        on_delete=models.CASCADE,
+        related_name="items",
+    )
+    product = models.ForeignKey(
+        "storefront.Product",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="instagram_checkout_items",
+    )
+    color_variant = models.ForeignKey(
+        "productcolors.ProductColorVariant",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="instagram_checkout_items",
+    )
+    product_title = models.CharField(max_length=255)
+    sku = models.CharField(max_length=128, blank=True, default="")
+    image_url = models.CharField(max_length=600, blank=True, default="")
+    color_code = models.CharField(max_length=64, blank=True, default="")
+    color_label = models.CharField(max_length=100, blank=True, default="")
+    size = models.CharField(max_length=32, blank=True, default="")
+    fit_code = models.CharField(max_length=64, blank=True, default="")
+    fit_label = models.CharField(max_length=100, blank=True, default="")
+    option_values = models.JSONField(default=dict, blank=True)
+    option_labels = models.JSONField(default=dict, blank=True)
+    quantity = models.PositiveIntegerField(default=1)
+    catalog_unit_price = models.DecimalField(max_digits=12, decimal_places=2)
+    catalog_line_total = models.DecimalField(max_digits=12, decimal_places=2)
+    quoted_unit_price = models.DecimalField(max_digits=12, decimal_places=2)
+    quoted_line_total = models.DecimalField(max_digits=12, decimal_places=2)
+    price_source = models.CharField(max_length=64, blank=True, default="catalog")
+    evidence_message_ids = models.JSONField(default=list, blank=True)
+    position = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["position", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["proposal", "position"],
+                name="ig_prop_item_position_once",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(quantity__gt=0),
+                name="ig_prop_item_qty_positive",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(catalog_unit_price__gte=0)
+                & models.Q(quoted_unit_price__gte=0),
+                name="ig_prop_item_prices_nonneg",
+            ),
+        ]
+
+
+class _AppendOnlyCheckoutRevisionQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValueError("IgCheckoutRevision is append-only")
+
+    def delete(self):
+        raise ValueError("IgCheckoutRevision is append-only")
+
+
+class IgCheckoutRevision(models.Model):
+    class Source(models.TextChoices):
+        BOT_CREATE = "bot_create", _("Створено ботом")
+        BOT_UPDATE = "bot_update", _("Оновлено ботом")
+        SYSTEM_SUPERSEDE = "system_supersede", _("Системна заміна")
+
+    proposal = models.ForeignKey(
+        "management.IgCheckoutProposal",
+        on_delete=models.CASCADE,
+        related_name="revisions",
+    )
+    revision = models.PositiveIntegerField()
+    digest = models.CharField(max_length=64)
+    snapshot = models.JSONField(default=dict)
+    source = models.CharField(max_length=24, choices=Source.choices)
+    evidence_message_ids = models.JSONField(default=list, blank=True)
+    source_watermark_message_id = models.PositiveBigIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    objects = models.Manager.from_queryset(_AppendOnlyCheckoutRevisionQuerySet)()
+
+    class Meta:
+        ordering = ["proposal", "revision"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["proposal", "revision"],
+                name="ig_prop_revision_once",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(revision__gte=1),
+                name="ig_prop_revision_num_pos",
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk and not kwargs.get("force_insert"):
+            raise ValueError("IgCheckoutRevision is append-only")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgCheckoutRevision is append-only")
+
+
+class IgCheckoutAccessToken(models.Model):
+    class Kind(models.TextChoices):
+        BOT = "bot", _("Посилання бота")
+        SHARE = "share", _("Посилання для оплати іншою людиною")
+        REPLACEMENT = "replacement", _("Посилання заміни")
+
+    proposal = models.ForeignKey(
+        "management.IgCheckoutProposal",
+        on_delete=models.CASCADE,
+        related_name="access_tokens",
+    )
+    token_digest = models.CharField(max_length=64, unique=True)
+    kind = models.CharField(max_length=16, choices=Kind.choices, default=Kind.BOT)
+    expires_at = models.DateTimeField(db_index=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    use_count = models.PositiveIntegerField(default=0)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["proposal", "kind", "expires_at"], name="ig_token_prop_exp"),
+        ]
+
+    @classmethod
+    def issue(cls, *, proposal, kind=Kind.BOT, expires_at=None):
+        raw_token = secrets.token_urlsafe(32)
+        digest = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+        token = cls.objects.create(
+            proposal=proposal,
+            token_digest=digest,
+            kind=kind,
+            expires_at=min(expires_at or proposal.expires_at, proposal.expires_at),
+        )
+        return raw_token, token
+
+    @classmethod
+    def digest(cls, raw_token):
+        return hashlib.sha256(str(raw_token or "").encode("utf-8")).hexdigest()
+
+
+class IgCheckoutInventoryReservation(models.Model):
+    class State(models.TextChoices):
+        ACTIVE = "active", _("Зарезервовано")
+        RELEASED = "released", _("Звільнено")
+        CONSUMED = "consumed", _("Використано")
+
+    proposal = models.ForeignKey(
+        "management.IgCheckoutProposal",
+        on_delete=models.PROTECT,
+        related_name="inventory_reservations",
+    )
+    item = models.ForeignKey(
+        "management.IgCheckoutProposalItem",
+        on_delete=models.PROTECT,
+        related_name="inventory_reservations",
+    )
+    product = models.ForeignKey(
+        "storefront.Product",
+        on_delete=models.PROTECT,
+        related_name="instagram_checkout_reservations",
+    )
+    color_variant = models.ForeignKey(
+        "productcolors.ProductColorVariant",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="instagram_checkout_reservations",
+    )
+    quantity = models.PositiveIntegerField()
+    reservation_fingerprint = models.CharField(max_length=64, unique=True)
+    state = models.CharField(
+        max_length=16,
+        choices=State.choices,
+        default=State.ACTIVE,
+        db_index=True,
+    )
+    expires_at = models.DateTimeField(db_index=True)
+    released_at = models.DateTimeField(null=True, blank=True)
+    consumed_at = models.DateTimeField(null=True, blank=True)
+    release_reason = models.CharField(max_length=128, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["state", "expires_at"], name="ig_res_state_exp"),
+            models.Index(fields=["proposal", "state"], name="ig_res_prop_state"),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(quantity__gt=0),
+                name="ig_res_qty_positive",
+            ),
+        ]
+
+
+class IgLifecycleEvent(models.Model):
+    class Kind(models.TextChoices):
+        PAYMENT_VERIFIED = "payment_verified", _("Оплату підтверджено")
+        TTN_CREATED = "ttn_created", _("ТТН створено")
+        DELIVERED_REVIEW_REQUESTED = (
+            "delivered_review_requested",
+            _("Замовлення отримано, запит відгуку"),
+        )
+
+    class State(models.TextChoices):
+        PENDING = "pending", _("Очікує")
+        PROCESSING = "processing", _("Обробляється")
+        SENT = "sent", _("Надіслано")
+        WAITING_WINDOW = "waiting_window", _("Поза вікном відповіді")
+        MANAGER_REVIEW = "manager_review", _("Потрібен менеджер")
+        AMBIGUOUS = "ambiguous", _("Невідомий результат")
+        FAILED = "failed", _("Помилка")
+        CANCELLED = "cancelled", _("Скасовано")
+
+    event_key = models.CharField(max_length=180, unique=True)
+    kind = models.CharField(max_length=40, choices=Kind.choices, db_index=True)
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.PROTECT,
+        related_name="lifecycle_events",
+    )
+    deal = models.ForeignKey(
+        "management.IgDeal",
+        on_delete=models.PROTECT,
+        related_name="lifecycle_events",
+    )
+    proposal = models.ForeignKey(
+        "management.IgCheckoutProposal",
+        on_delete=models.PROTECT,
+        related_name="lifecycle_events",
+    )
+    order = models.ForeignKey(
+        "orders.Order",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="instagram_lifecycle_events",
+    )
+    commercial_episode = models.ForeignKey(
+        "management.IgCommercialEpisode",
+        on_delete=models.PROTECT,
+        related_name="lifecycle_events",
+    )
+    attribution = models.ForeignKey(
+        "management.IgOrderAttribution",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="lifecycle_events",
+    )
+    locale = models.CharField(max_length=12, default="uk")
+    payload = models.JSONField(default=dict, blank=True)
+    state = models.CharField(
+        max_length=24,
+        choices=State.choices,
+        default=State.PENDING,
+        db_index=True,
+    )
+    due_at = models.DateTimeField(default=timezone.now, db_index=True)
+    attempts = models.PositiveIntegerField(default=0)
+    lease_token = models.CharField(max_length=64, blank=True, default="")
+    lease_expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    provider_message_id = models.CharField(max_length=128, blank=True, default="")
+    last_error = models.CharField(max_length=1000, blank=True, default="")
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["due_at", "id"]
+        indexes = [
+            models.Index(fields=["state", "due_at", "id"], name="ig_life_state_due"),
+            models.Index(fields=["client", "-created_at"], name="ig_life_client_dt"),
+            models.Index(fields=["order", "kind"], name="ig_life_order_kind"),
+        ]
+
+    def clean(self):
+        errors = {}
+        if self.deal_id and self.client_id and self.deal.client_id != self.client_id:
+            errors["deal"] = "Lifecycle deal must belong to the client"
+        if self.proposal_id:
+            if self.proposal.client_id != self.client_id:
+                errors["proposal"] = "Lifecycle proposal must belong to the client"
+            if self.proposal.deal_id != self.deal_id:
+                errors["proposal"] = "Lifecycle proposal must belong to the deal"
+            if self.proposal.commercial_episode_id != self.commercial_episode_id:
+                errors["commercial_episode"] = "Lifecycle episode must match proposal"
+        if self.order_id and not self.attribution_id:
+            errors["attribution"] = "Order-bound lifecycle event requires attribution"
+        if self.attribution_id:
+            if self.attribution.order_id != self.order_id:
+                errors["attribution"] = "Attribution must belong to the lifecycle order"
+            if self.attribution.client_id != self.client_id:
+                errors["attribution"] = "Attribution must belong to the lifecycle client"
+            if self.attribution.deal_id and self.attribution.deal_id != self.deal_id:
+                errors["attribution"] = "Attribution must belong to the lifecycle deal"
+        if errors:
+            raise ValidationError(errors)
 
 
 class IgPostSaleCase(models.Model):
