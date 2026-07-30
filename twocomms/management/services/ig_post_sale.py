@@ -57,6 +57,25 @@ def _attributed_orders(client):
     )
 
 
+def _update_active_case(active, message, details):
+    evidence_ids = list(active.evidence_message_ids or [])
+    if message.pk not in evidence_ids:
+        evidence_ids.append(message.pk)
+    active.evidence_message_ids = evidence_ids[-20:]
+    for field in ("source_fit", "source_size", "requested_fit", "requested_size"):
+        value = details.get(field)
+        if value:
+            setattr(active, field, value)
+    active.reason = "\n".join(
+        part for part in (active.reason, details.get("reason")) if part
+    )[-500:]
+    active.save(update_fields=[
+        "evidence_message_ids", "source_fit", "source_size",
+        "requested_fit", "requested_size", "reason", "updated_at",
+    ])
+    return active
+
+
 @transaction.atomic
 def open_post_sale_case(client, message, *, order=None):
     """Create exactly one case from explicit customer evidence.
@@ -71,7 +90,28 @@ def open_post_sale_case(client, message, *, order=None):
         return None
     case_type = detect_post_sale_type(message.text)
     if not case_type:
-        return None
+        active_cases = list(
+            IgPostSaleCase.objects.select_for_update()
+            .filter(
+                client=client,
+                status__in=[IgPostSaleCase.Status.NEEDS_DETAILS, IgPostSaleCase.Status.OPEN],
+            )
+            .order_by("-updated_at", "-id")[:2]
+        )
+        if len(active_cases) != 1:
+            return None
+        sizes = [match.group(1).upper() for match in SIZE_RE.finditer(str(message.text or ""))]
+        fit = FIT_RE.search(str(message.text or ""))
+        if not sizes and not fit:
+            return None
+        details = _extract_details(message.text)
+        details["source_size"] = ""
+        details["source_fit"] = ""
+        if sizes:
+            details["requested_size"] = sizes[-1]
+        if fit:
+            details["requested_fit"] = fit.group(1)[:64]
+        return _update_active_case(active_cases[0], message, details)
 
     existing = IgPostSaleCase.objects.select_for_update().filter(source_message=message).first()
     if existing:
@@ -89,22 +129,7 @@ def open_post_sale_case(client, message, *, order=None):
     )
     if active:
         details = _extract_details(message.text)
-        evidence_ids = list(active.evidence_message_ids or [])
-        if message.pk not in evidence_ids:
-            evidence_ids.append(message.pk)
-        active.evidence_message_ids = evidence_ids[-20:]
-        for field in ("source_fit", "source_size", "requested_size"):
-            value = details.get(field)
-            if value:
-                setattr(active, field, value)
-        active.reason = "\n".join(
-            part for part in (active.reason, details.get("reason")) if part
-        )[-500:]
-        active.save(update_fields=[
-            "evidence_message_ids", "source_fit", "source_size",
-            "requested_size", "reason", "updated_at",
-        ])
-        return active
+        return _update_active_case(active, message, details)
 
     attribution = None
     if order is None:

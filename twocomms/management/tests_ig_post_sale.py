@@ -150,6 +150,23 @@ class PostSaleCaseTests(TestCase):
         self.assertEqual(second.requested_size, "M")
         self.assertEqual(second.evidence_message_ids, [self.message.pk, followup.pk])
 
+    def test_size_only_followup_updates_the_single_active_case(self):
+        from management.services.ig_post_sale import open_post_sale_case
+
+        first = open_post_sale_case(self.client, self.message)
+        followup = InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=InstagramBotMessage.Role.USER,
+            text="Давайте XL розмір",
+        )
+
+        second = open_post_sale_case(self.client, followup)
+
+        self.assertEqual(second.pk, first.pk)
+        self.assertEqual(second.requested_size, "XL")
+        self.assertEqual(second.evidence_message_ids, [self.message.pk, followup.pk])
+
 
 @MGMT
 class PostSaleApiTests(TestCase):
