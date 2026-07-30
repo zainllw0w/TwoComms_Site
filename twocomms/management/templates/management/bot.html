@@ -167,6 +167,8 @@
 .bot-client-row.active{border-color:#2563eb;background:#0f1626;}
 .bot-client-row.needs-action{border-color:#7c5a18;background:#171306;box-shadow:inset 3px 0 0 #f59e0b;}
 .bot-client-row.needs-action::after{content:'!';width:20px;height:20px;display:grid;place-items:center;flex:0 0 auto;border-radius:50%;background:#d97706;color:#fff;font:900 11px/1 inherit;animation:orderActionPulse 1.8s ease-in-out infinite;}
+.bot-client-row.post-sale-action{border-color:#9f3f55;background:#211016;box-shadow:inset 3px 0 0 #fb7185;}
+.bot-client-row.post-sale-action::after{content:'↺';background:#be3455;}
 .bot-client-ava{width:38px;height:38px;border-radius:50%;background:#1e2430;object-fit:cover;flex:0 0 auto;}
 div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3;font-size:14px;text-transform:uppercase;}
 .bot-client-meta{min-width:0;flex:1;}
@@ -187,6 +189,10 @@ div.bot-client-ava{display:grid;place-items:center;font-weight:800;color:#8b97b3
 .bot-category-value{margin-top:3px;font-size:14px;font-weight:800;color:#e7ecf3;}
 .bot-category-meta{margin-top:3px;font-size:11px;color:#8b95a5;line-height:1.4;}
 .bot-stage-chip{font-size:10px;padding:3px 8px;border-radius:20px;background:#1a2233;color:#9fb4d6;white-space:nowrap;font-weight:600;}
+.bot-post-sale-badge{font-size:10px;padding:3px 8px;border-radius:20px;border:1px solid #9f3f55;background:#32131c;color:#fecdd3;white-space:nowrap;font-weight:700;}
+.bot-stats-custom-range{display:flex;align-items:end;gap:8px;flex-wrap:wrap;margin-left:auto;}
+.bot-stats-date{display:grid;gap:4px;color:#8b95a5;font-size:10.5px;font-weight:700;text-transform:uppercase;}
+.bot-stats-date input{min-height:34px;border:1px solid #263044;border-radius:8px;background:#101621;color:#e7ecf3;padding:6px 8px;color-scheme:dark;}
 .st-new,.st-qualifying{background:#13233f;color:#7fb0ff;}
 .st-product_matched,.st-checkout{background:#3a2c10;color:#fbbf24;}
 .st-payment_pending{background:#3a2410;color:#fb923c;}
@@ -680,6 +686,15 @@ body.bot-drawer-open{overflow:hidden;}
         <button type="button" class="bot-mini-btn" data-stats-days="7">7 днів</button>
         <button type="button" class="bot-mini-btn active" data-stats-days="30">30 днів</button>
         <button type="button" class="bot-mini-btn" data-stats-days="0">Увесь час</button>
+        <div class="bot-stats-custom-range">
+          <label class="bot-stats-date">Від
+            <input type="date" id="bot-stats-date-from">
+          </label>
+          <label class="bot-stats-date">До
+            <input type="date" id="bot-stats-date-to">
+          </label>
+          <button type="button" class="bot-mini-btn" id="bot-stats-apply-range">Застосувати</button>
+        </div>
       </div>
       <div id="bot-stats-content" class="bot-empty">Завантаження статистики…</div>
     </div>
@@ -1214,7 +1229,7 @@ body.bot-drawer-open{overflow:hidden;}
       if(url){const image=node('img','bot-client-ava');image.src=url;image.alt='';image.setAttribute('data-avatar','');if(size){image.style.width=size+'px';image.style.height=size+'px';}return image;}
       const fallback=node('div','bot-client-ava',((label.trim()[0])||'?').toUpperCase());if(size){fallback.style.width=size+'px';fallback.style.height=size+'px';}return fallback;
     }
-    function listSubtitle(c){return [c.username||c.igsid,c.current_product_title?('Товар: '+c.current_product_title):'',c.primary_objection?('Заперечення: '+(c.primary_objection_label||c.primary_objection)):'',c.next_followup_at?('Наступний контакт: '+fmt(c.next_followup_at)):'',c.delivery_status_label?('Потрібна увага: '+c.delivery_status_label):''].filter(Boolean).join(' · ');}
+    function listSubtitle(c){return [c.username||c.igsid,c.current_product_title?('Товар: '+c.current_product_title):'',c.primary_objection?('Заперечення: '+(c.primary_objection_label||c.primary_objection)):'',c.post_sale_type_label?('Після продажу: '+c.post_sale_type_label):'',c.next_followup_at?('Наступний контакт: '+fmt(c.next_followup_at)):'',c.delivery_status_label?('Потрібна увага: '+c.delivery_status_label):''].filter(Boolean).join(' · ');}
     async function load(q){
       const params=new URLSearchParams(); params.set('view', currentView); if(q) params.set('q', q);if(requestedClientId)params.set('client_id',String(requestedClientId));
       try{
@@ -1222,9 +1237,9 @@ body.bot-drawer-open{overflow:hidden;}
         setBadge(document.getElementById('badge-clients'),d.total||0);if(totalEl)totalEl.textContent=(d.total||0)+' усього';listEl.replaceChildren();
         let requestedOpen=null;
         (d.clients||[]).forEach(c=>{
-          const row=node('div','bot-client-row'+(c.id===activeId?' active':'')+(c.manager_action_required?' needs-action':''));row.setAttribute('role','button');row.setAttribute('tabindex','0');row.setAttribute('aria-label','Відкрити картку клієнта: '+(c.name||c.username||c.igsid||'без імені')+(c.manager_action_required?' — потрібна дія менеджера':''));
+          const row=node('div','bot-client-row'+(c.id===activeId?' active':'')+(c.manager_action_required?' needs-action':'')+(c.post_sale_needs_action?' post-sale-action':''));row.setAttribute('role','button');row.setAttribute('tabindex','0');row.setAttribute('aria-label','Відкрити картку клієнта: '+(c.name||c.username||c.igsid||'без імені')+(c.post_sale_needs_action?(' — '+(c.post_sale_type_label||'післяпродажне звернення')):(c.manager_action_required?' — потрібна дія менеджера':'')));
           const meta=node('div','bot-client-meta');const name=node('div','bot-client-name',c.name||c.username||c.igsid||'Без імені');const potential=potentialScore(c);const score=node('span','bot-client-score is-'+potential.state,potential.text);meta.append(name,score,node('div','bot-client-sub',listSubtitle(c)));
-          const tags=node('div','bot-client-tags');tags.append(node('span','bot-category-badge cat-'+(c.interaction_tone||'neutral'),c.interaction_type_label||'Не визначено'),node('span','bot-stage-chip '+stageCls(c.stage),c.stage_label||'Новий'));
+          const tags=node('div','bot-client-tags');if(c.post_sale_type_label)tags.append(node('span','bot-post-sale-badge',c.post_sale_type_label));tags.append(node('span','bot-category-badge cat-'+(c.interaction_tone||'neutral'),c.interaction_type_label||'Не визначено'),node('span','bot-stage-chip '+stageCls(c.stage),c.stage_label||'Новий'));
           row.append(avatar(c),meta,tags);const openRow=()=>{activeId=c.id;requestedClientId=0;listEl.querySelectorAll('.bot-client-row').forEach(el=>el.classList.remove('active'));row.classList.add('active');setMobilePane('conversation');detail(c.id);};row.addEventListener('click',openRow);row.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openRow();}});bindAvatarFallback(row,c.name||c.username||c.igsid);listEl.appendChild(row);if(requestedClientId&&Number(c.id)===requestedClientId)requestedOpen=openRow;
         });
         if(!(d.clients||[]).length)listEl.appendChild(node('div','bot-empty','Ще немає клієнтів.'));
@@ -1356,7 +1371,7 @@ body.bot-drawer-open{overflow:hidden;}
       const next=nextAction(d);const nextBlock=node('div','bot-context-next');nextBlock.style.marginTop='9px';nextBlock.append(node('span','','Наступна дія'),node('b','',next[0]),node('span','',next[1]));status.appendChild(nextBlock);const active=d.review&&d.review.active;if(active&&active.approval&&active.approval.needs_action){const review=node('button','bot-client-order-action is-pending');review.type='button';review.append(node('span','',active.approval.state==='needs_order_resolution'?"Потрібно прив'язати замовлення":'Потрібно підтвердити оплату'),node('span','',active.approval.state==='needs_order_resolution'?'Оберіть існуюче або створіть нове':'Звірте чек, товари та суму'));review.addEventListener('click',()=>PaymentReviewDrawer.open(active,review));status.appendChild(review);}
       const controls=section(contextEl,'Керування діалогом');const primary=node('div','bot-action-primary');if(c.hidden){primary.appendChild(node('span','bot-stage-chip st-cold','Бот не обробляє прихованого клієнта'));}else{const pause=node('button','bot-client-action primary '+(c.bot_paused?'resume':'pause'),c.opted_out?'Підтвердити нову згоду':(c.bot_paused?'▶ Відновити бота':'⏸ Зупинити бота'));pause.type='button';pause.dataset.act='resume';if(!c.bot_paused&&!c.opted_out)pause.dataset.act='pause';if(c.opted_out)pause.dataset.optout='1';primary.appendChild(pause);}controls.appendChild(primary);const actions=node('div','bot-action-state-buttons');const visibility=node('button','bot-client-action '+(c.hidden?'restore':'hide'),c.hidden?'↩ Повернути до активних':'Приховати');visibility.type='button';visibility.dataset.act=c.hidden?'unhide':'hide';const lost=node('button','bot-client-action lost','Позначити як втрачено');lost.type='button';lost.dataset.act='lost';actions.append(visibility,lost);controls.appendChild(actions);const feedbackEl=node('div','bot-action-feedback');feedbackEl.id='bot-action-feedback';feedbackEl.setAttribute('role','status');feedbackEl.setAttribute('aria-live','polite');feedbackEl.hidden=true;controls.appendChild(feedbackEl);controls.querySelectorAll('[data-act]').forEach(button=>button.addEventListener('click',()=>runClientAction(id,button.dataset.act,button)));
       renderPostSale(contextEl,d);renderOrders(contextEl,d);if(c.memory){const memory=section(contextEl,'Пам’ять');memory.appendChild(node('div','bot-mem',c.memory));}
-      if((d.signals||[]).length){const analysis=section(contextEl,'Аналіз');const details=node('details','bot-analysis-disclosure');const summary=node('summary','', 'Сигнали та патерни · '+d.signals.length);details.appendChild(summary);const body=node('div','bot-analysis-body');body.appendChild(node('div','bot-hint','Сигнали показують події діалогу, але самі по собі не підтверджують оплату.'));(d.signals||[]).slice(0,18).forEach(signal=>body.appendChild(node('span','bot-signal',(signal.type_label||humanLabel(signalLabels,signal.type,'Інший сигнал'))+' ×'+signal.count+(signal.latest_value?(': '+signal.latest_value):''))));details.appendChild(body);analysis.appendChild(details);}
+      if((d.signals||[]).length||d.patterns){const analysis=section(contextEl,'Аналіз');const details=node('details','bot-analysis-disclosure');const summary=node('summary','', 'Сигнали та патерни · '+(d.signals||[]).length);details.appendChild(summary);const body=node('div','bot-analysis-body');body.appendChild(node('div','bot-hint','Сигнали показують події діалогу, але самі по собі не підтверджують оплату.'));const counts=(d.patterns||{}).message_counts||{};if(Object.keys(counts).length)body.appendChild(node('div','bot-hint','У поточному епізоді: клієнт '+(counts.customer||0)+' · менеджер '+(counts.manager||0)+' · агент '+(counts.agent||0)));(d.signals||[]).slice(0,18).forEach(signal=>body.appendChild(node('span','bot-signal',(signal.type_label||humanLabel(signalLabels,signal.type,'Інший сигнал'))+' ×'+signal.count+(signal.latest_value?(': '+signal.latest_value):''))));details.appendChild(body);analysis.appendChild(details);}
       if((d.followups||[]).length){const followups=section(contextEl,'Заплановані контакти',d.followups.length);d.followups.slice(0,8).forEach(item=>{const row=node('div','bot-deal','#'+item.id+' · '+humanLabel(followupKindLabels,item.kind)+' · '+humanLabel(followupStatusLabels,item.status)+' · '+fmt(item.due_at));if(item.reason)row.appendChild(node('div','bot-hint',humanLabel(followupReasonLabels,item.reason,item.reason)));if(item.message_text)row.appendChild(node('div','bot-mem',item.message_text));followups.appendChild(row);});}
       if((d.deals||[]).length){const deals=section(contextEl,'Угоди',d.deals.length);d.deals.slice(0,8).forEach(item=>deals.appendChild(node('div','bot-deal','#'+item.id+' · '+humanLabel(dealStatusLabels,item.status)+' · '+item.amount+' грн'+(item.order_id?(' · замовлення №'+item.order_id):''))));}
     }
@@ -1646,7 +1661,11 @@ body.bot-drawer-open{overflow:hidden;}
     const box=document.getElementById('bot-stats-content');
     const btn=document.getElementById('bot-stats-refresh');
     const rangeBox=document.getElementById('bot-stats-range');
+    const dateFromEl=document.getElementById('bot-stats-date-from');
+    const dateToEl=document.getElementById('bot-stats-date-to');
+    const applyRangeBtn=document.getElementById('bot-stats-apply-range');
     let rangeDays=30;
+    let customRange=false;
     const objectionLabels={
       price:'Дорого',price_objection:'Дорого',prepayment:'Передоплата',prepayment_objection:'Передоплата',
       size:'Розмір',size_concern:'Розмір',thinking:'Потрібен час подумати',no_reply:'Не відповідає',
@@ -1669,7 +1688,10 @@ body.bot-drawer-open{overflow:hidden;}
     function load(){
       if(!box) return;
       box.innerHTML='<div class="bot-empty">Завантаження статистики…</div>';
-      fetch('{% url "management_bot_stats_api" %}?days='+rangeDays,{headers:{'X-Requested-With':'XMLHttpRequest'}})
+      const params=new URLSearchParams();
+      if(customRange){params.set('date_from',dateFromEl.value);params.set('date_to',dateToEl.value);}
+      else params.set('days',String(rangeDays));
+      fetch('{% url "management_bot_stats_api" %}?'+params.toString(),{headers:{'X-Requested-With':'XMLHttpRequest'}})
         .then(r=>r.json()).then(d=>{
           if(!d.success){ box.innerHTML='<div class="bot-empty">Не вдалося завантажити.</div>'; return; }
           const t=d.totals||{};
@@ -1697,7 +1719,19 @@ body.bot-drawer-open{overflow:hidden;}
       const target=event.target.closest('[data-stats-days]');
       if(!target) return;
       rangeDays=Number(target.dataset.statsDays||30);
+      customRange=false;
+      if(dateFromEl)dateFromEl.value='';
+      if(dateToEl)dateToEl.value='';
       rangeBox.querySelectorAll('[data-stats-days]').forEach(item=>item.classList.toggle('active',item===target));
+      load();
+    });
+    if(applyRangeBtn) applyRangeBtn.addEventListener('click',()=>{
+      if(!dateFromEl||!dateToEl||!dateFromEl.value||!dateToEl.value||dateFromEl.value>dateToEl.value){
+        if(box)box.innerHTML='<div class="bot-empty">Оберіть коректний діапазон дат.</div>';
+        return;
+      }
+      customRange=true;
+      rangeBox.querySelectorAll('[data-stats-days]').forEach(item=>item.classList.remove('active'));
       load();
     });
     return {load:load};

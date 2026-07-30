@@ -54,6 +54,81 @@ class SalesClassifierTests(TestCase):
         )
         self.assertTrue(client.sales_context.get("gift"))
 
+    def test_bare_catalog_print_reference_is_not_custom_print(self):
+        from management.models import IgConversationSignal
+        from management.services import bot_sales_classifier
+
+        client = IgClient.get_or_create_for_sender("sales_cls_catalog_print")
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="Принт ось цей, розмір M",
+        )
+
+        result = bot_sales_classifier.classify_message(client, message=message)
+
+        client.refresh_from_db()
+        self.assertNotEqual(client.intent, IgClient.Intent.CUSTOM_PRINT)
+        self.assertNotEqual(result["interaction_type"], "custom_print")
+        self.assertFalse(
+            IgConversationSignal.objects.filter(
+                client=client,
+                signal_type=IgConversationSignal.Type.CUSTOM_PRINT,
+            ).exists()
+        )
+
+    def test_wrong_print_is_support_not_custom_print(self):
+        from management.services import bot_sales_classifier
+
+        client = IgClient.get_or_create_for_sender("sales_cls_wrong_print")
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="Один принт не той відправили",
+        )
+
+        result = bot_sales_classifier.classify_message(client, message=message)
+
+        client.refresh_from_db()
+        self.assertNotEqual(client.intent, IgClient.Intent.CUSTOM_PRINT)
+        self.assertEqual(result["interaction_type"], "support_complaint")
+
+    def test_dtf_supplier_pitch_is_collaboration_not_custom_print(self):
+        from management.services import bot_sales_classifier
+
+        client = IgClient.get_or_create_for_sender("sales_cls_dtf_supplier")
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="Ми постачальник DTF друку, пропонуємо співпрацю",
+        )
+
+        result = bot_sales_classifier.classify_message(client, message=message)
+
+        client.refresh_from_db()
+        self.assertNotEqual(client.intent, IgClient.Intent.CUSTOM_PRINT)
+        self.assertEqual(result["interaction_type"], "collaboration")
+
+    def test_explicit_request_to_change_own_print_remains_custom_print(self):
+        from management.services import bot_sales_classifier
+
+        client = IgClient.get_or_create_for_sender("sales_cls_explicit_custom_print")
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="Можете змінити принт і надрукувати мій власний дизайн?",
+        )
+
+        result = bot_sales_classifier.classify_message(client, message=message)
+
+        client.refresh_from_db()
+        self.assertEqual(client.intent, IgClient.Intent.CUSTOM_PRINT)
+        self.assertEqual(result["interaction_type"], "custom_print")
+
     def test_stop_or_no_buy_closes_automation_without_rescue_discount(self):
         from management.models import IgFollowUpTask
         from management.services import bot_sales_classifier, bot_followups
@@ -604,6 +679,38 @@ class SalesCockpitApiTests(TestCase):
         self.assertEqual(data["range_days"], 7)
         self.assertTrue(data["range_from"])
         self.assertEqual(data["totals"]["conversations"], 1)
+
+    def test_stats_accepts_inclusive_custom_local_date_range(self):
+        inside = IgClient.get_or_create_for_sender("api_custom_range_inside")
+        outside = IgClient.get_or_create_for_sender("api_custom_range_outside")
+        inside.last_message_at = timezone.make_aware(
+            datetime(2026, 7, 12, 12, 0), KYIV
+        )
+        outside.last_message_at = timezone.make_aware(
+            datetime(2026, 7, 14, 0, 1), KYIV
+        )
+        inside.save(update_fields=["last_message_at", "updated_at"])
+        outside.save(update_fields=["last_message_at", "updated_at"])
+
+        data = self.client.get(
+            reverse("management_bot_stats_api")
+            + "?date_from=2026-07-12&date_to=2026-07-13"
+        ).json()
+
+        self.assertTrue(data["success"])
+        self.assertEqual(data["range_mode"], "custom")
+        self.assertEqual(data["date_from"], "2026-07-12")
+        self.assertEqual(data["date_to"], "2026-07-13")
+        self.assertEqual(data["totals"]["conversations"], 1)
+
+    def test_stats_rejects_reversed_custom_date_range(self):
+        response = self.client.get(
+            reverse("management_bot_stats_api")
+            + "?date_from=2026-07-14&date_to=2026-07-12"
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()["success"])
 
     def test_hide_moves_client_out_of_active_queue_and_statistics(self):
         from management.models import IgFollowUpTask, IgPollCursor

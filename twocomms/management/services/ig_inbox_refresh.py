@@ -609,10 +609,14 @@ def _validate_existing_message(row, *, client, participant, role, provider_creat
             ) > 1
         except (TypeError, ValueError):
             timestamp_mismatch = True
+    compatible_role = row.role == role or (
+        role == InstagramBotMessage.Role.MANAGER
+        and row.role == InstagramBotMessage.Role.MODEL
+    )
     if (
         row.sender_id != participant
         or row.client_id not in {None, client.pk}
-        or row.role != role
+        or not compatible_role
         or timestamp_mismatch
     ):
         raise RefreshIdentityError(f"mid_identity_conflict:{row.mid}")
@@ -770,7 +774,13 @@ def _persist_history(item, fetched, settings_obj, *, now):
             from management.services import bot_followups, bot_sales_classifier
 
             for row in classification_rows:
-                result = bot_sales_classifier.ensure_rule_classification(client, row) or {}
+                if row.role == InstagramBotMessage.Role.MODEL:
+                    continue
+                result = bot_sales_classifier.ensure_rule_classification(
+                    client,
+                    row,
+                    operational_effects=False,
+                ) or {}
                 interaction_type = result.get("interaction_type")
                 terminal_reasons = {
                     "explicit_no_buy": "explicit_no_buy",

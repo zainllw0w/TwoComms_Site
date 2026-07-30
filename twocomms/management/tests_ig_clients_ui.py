@@ -30,6 +30,7 @@ from management.ig_bot_models import (
     IgPaymentConfirmationReview,
     IgPaymentProjection,
     IgPaymentReviewDecision,
+    IgPostSaleCase,
 )
 from management.bot_access import META_REVIEWER_GROUP_NAME
 from management.bot_views import _group_signal_rows, _review_media_groups
@@ -194,6 +195,16 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
             "Зберегти звернення",
             "postSale.order_choices",
             "caseItem.action_url",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_client_list_and_stats_expose_post_sale_and_custom_date_controls(self):
+        for contract in (
+            "post-sale-action",
+            "post_sale_type_label",
+            'id="bot-stats-date-from"',
+            'id="bot-stats-date-to"',
+            'id="bot-stats-apply-range"',
         ):
             self.assertIn(contract, self.template)
 
@@ -627,7 +638,8 @@ class ClientsApiTests(TestCase):
         self.assertEqual(len(data["review"]["active"]["media"]["receipts"]), 1)
         self.assertEqual(len(data["review"]["active"]["media"]["products"]), 1)
         self.assertEqual(data["orders"]["items"][0]["review_id"], review.id)
-        self.assertEqual(data["patterns"]["source"], "legacy_signal_groups")
+        self.assertEqual(data["patterns"]["source"], "episode_message_roles")
+        self.assertIn("message_counts", data["patterns"])
 
     def test_client_detail_finds_actionable_review_older_than_bounded_history(self):
         actionable = IgPaymentConfirmationReview.objects.create(
@@ -701,6 +713,120 @@ class ClientsApiTests(TestCase):
             "ig_payment_review=",
             data["review"]["history"][0]["approval"]["create_order_url"],
         )
+
+    def test_historical_paid_archive_is_green_and_not_actionable_without_fake_order(self):
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.c,
+            dedupe_key="client-historical-paid-archive",
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            evidence={"order_draft": {"quoted_total": "1760.00"}},
+            resolution_kind=IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED,
+            resolution_note="Старе виконане замовлення, локальний Order не збережено",
+            resolved_at=timezone.now(),
+            resolved_by=self.admin,
+        )
+        IgPaymentReviewDecision.objects.create(
+            review=review,
+            client=self.c,
+            decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+            verification_source="manager",
+            verification_scope=IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT,
+            confirmed_amount=Decimal("1760.00"),
+            amount_source="manager_input",
+            actor=self.admin,
+            actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+            actor_external_id=str(self.admin.pk),
+            review_status_before=IgPaymentConfirmationReview.Status.PENDING,
+            review_status_after=IgPaymentConfirmationReview.Status.CONFIRMED,
+        )
+        self.c.stage = IgClient.Stage.PAID
+        self.c.save(update_fields=["stage", "updated_at"])
+
+        detail = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.c.id])
+        ).json()
+        row = next(
+            item
+            for item in self.client.get(
+                reverse("management_bot_clients_api") + "?view=paid"
+            ).json()["clients"]
+            if item["id"] == self.c.id
+        )
+
+        self.assertIsNone(detail["review"]["active"])
+        self.assertEqual(
+            detail["review"]["history"][0]["approval"]["state"],
+            "historical_paid_archived",
+        )
+        self.assertFalse(detail["review"]["history"][0]["approval"]["needs_action"])
+        self.assertEqual(row["stage"], IgClient.Stage.PAID)
+        self.assertTrue(row["commercially_confirmed"])
+
+    def test_paid_client_with_open_exchange_keeps_green_stage_and_post_sale_badge(self):
+        from orders.models import Order
+
+        order = Order.objects.create(
+            full_name="Post Sale Paid",
+            phone="0500000000",
+            city="Київ",
+            np_office="1",
+            total_sum=Decimal("2100.00"),
+            payment_status="paid",
+            status="ship",
+        )
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.c,
+            order=order,
+            dedupe_key="post-sale-paid-review",
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            evidence={"order_draft": {"quoted_total": "2100.00"}},
+        )
+        decision = IgPaymentReviewDecision.objects.create(
+            review=review,
+            client=self.c,
+            decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+            verification_source="manager",
+            verification_scope=IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT,
+            confirmed_amount=Decimal("2100.00"),
+            amount_source="manager_input",
+            actor=self.admin,
+            actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+            actor_external_id=str(self.admin.pk),
+            review_status_before=IgPaymentConfirmationReview.Status.PENDING,
+            review_status_after=IgPaymentConfirmationReview.Status.CONFIRMED,
+        )
+        attribution = IgOrderAttribution.objects.create(
+            order=order,
+            client=self.c,
+            creation_mode="linked_existing",
+            payment_source="manager_verified",
+            payment_review=review,
+            manager_decision=decision,
+        )
+        source = InstagramBotMessage.objects.create(
+            sender_id=self.c.igsid,
+            client=self.c,
+            role=InstagramBotMessage.Role.USER,
+            text="Є розміри для заміни?",
+        )
+        IgPostSaleCase.objects.create(
+            client=self.c,
+            order=order,
+            commercial_episode=getattr(attribution, "commercial_episode", None),
+            source_message=source,
+            case_type=IgPostSaleCase.CaseType.EXCHANGE,
+            status=IgPostSaleCase.Status.OPEN,
+        )
+        self.c.stage = IgClient.Stage.PAID
+        self.c.save(update_fields=["stage", "updated_at"])
+
+        rows = self.client.get(reverse("management_bot_clients_api")).json()["clients"]
+        row = next(item for item in rows if item["id"] == self.c.id)
+
+        self.assertEqual(row["stage"], IgClient.Stage.ORDER_CREATED)
+        self.assertEqual(row["post_sale_type"], IgPostSaleCase.CaseType.EXCHANGE)
+        self.assertEqual(row["post_sale_type_label"], "Обмін")
+        self.assertTrue(row["post_sale_needs_action"])
 
     def test_new_pending_review_does_not_mask_provider_confirmed_truth(self):
         paid_deal = IgDeal.objects.create(

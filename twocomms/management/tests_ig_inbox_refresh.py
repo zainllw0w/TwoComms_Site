@@ -258,11 +258,13 @@ class InboxRefreshWorkerTests(TestCase):
 
     @patch("management.services.ig_inbox_refresh.schedule_analysis")
     @patch("management.services.ig_inbox_refresh.bot.enqueue_inbound")
+    @patch("management.services.bot_sales_classifier.ensure_rule_classification")
     @patch("management.services.ig_inbox_refresh.bot._fetch_polled_conversation")
     @patch("management.services.ig_inbox_refresh.bot.get_page_token", return_value="PT")
     @patch("management.services.ig_inbox_refresh.bot.provider_transport", return_value=bot.INSTAGRAM_LOGIN_TRANSPORT)
     def test_history_is_done_only_respects_cutoff_and_schedules_one_analysis(
-        self, _transport, _token, fetch_history, enqueue_inbound, schedule_analysis
+        self, _transport, _token, fetch_history, ensure_rule_classification,
+        enqueue_inbound, schedule_analysis
     ):
         self.run.status = IgInboxRefreshRun.Status.RUNNING
         self.run.discovery_complete = True
@@ -296,6 +298,10 @@ class InboxRefreshWorkerTests(TestCase):
         self.assertFalse(InstagramBotMessage.objects.filter(mid="mid-after").exists())
         enqueue_inbound.assert_not_called()
         schedule_analysis.assert_called_once()
+        ensure_rule_classification.assert_called_once()
+        self.assertFalse(
+            ensure_rule_classification.call_args.kwargs["operational_effects"]
+        )
         item.refresh_from_db()
         self.assertEqual(item.status, IgInboxRefreshItem.Status.DONE)
         self.assertEqual(item.messages_created, 1)
@@ -468,6 +474,69 @@ class InboxRefreshWorkerTests(TestCase):
         self.assertEqual(item.status, IgInboxRefreshItem.Status.DONE)
         self.assertEqual(existing.client_id, item.client_id)
         self.assertEqual(existing.provider_created_at, live_at)
+        schedule_analysis.assert_called_once()
+
+    @patch("management.services.ig_inbox_refresh.schedule_analysis")
+    @patch("management.services.bot_sales_classifier.ensure_rule_classification")
+    @patch("management.services.ig_inbox_refresh.bot._fetch_polled_conversation")
+    @patch("management.services.ig_inbox_refresh.bot.get_page_token", return_value="PT")
+    @patch("management.services.ig_inbox_refresh.bot.provider_transport", return_value=bot.INSTAGRAM_LOGIN_TRANSPORT)
+    def test_existing_legacy_model_mid_matches_provider_owner_message(
+        self, _transport, _token, fetch_history, ensure_rule_classification,
+        schedule_analysis
+    ):
+        self.run.status = IgInboxRefreshRun.Status.RUNNING
+        self.run.discovery_complete = True
+        self.run.save(update_fields=["status", "discovery_complete", "updated_at"])
+        client = IgClient.get_or_create_for_sender("legacy-model-mid-participant")
+        client.stage = IgClient.Stage.ORDER_CREATED
+        client.intent = IgClient.Intent.PRODUCT
+        client.buying_readiness = 90
+        client.save(update_fields=["stage", "intent", "buying_readiness", "updated_at"])
+        item = IgInboxRefreshItem.objects.create(
+            run=self.run,
+            conversation_id="conv-legacy-model-mid",
+            participant_igsid=client.igsid,
+            client=client,
+        )
+        created = self.cutoff - timedelta(minutes=1)
+        existing = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.MODEL,
+            text="Стара відповідь бота",
+            mid="mid-legacy-model-owner-message",
+            status=InstagramBotMessage.Status.DONE,
+            source="manual_test",
+            provider_created_at=created,
+        )
+        fetch_history.return_value = {
+            "messages": [
+                _message(
+                    existing.mid,
+                    self.settings.ig_user_id,
+                    created,
+                    existing.text,
+                    recipient=client.igsid,
+                )
+            ],
+            "complete": True,
+            "reason": "instagram_latest_window",
+        }
+
+        ig_inbox_refresh.process_refresh_slice(now=self.cutoff)
+
+        item.refresh_from_db()
+        existing.refresh_from_db()
+        self.assertEqual(item.status, IgInboxRefreshItem.Status.DONE)
+        self.assertEqual(item.messages_existing, 1)
+        self.assertEqual(existing.role, InstagramBotMessage.Role.MODEL)
+        self.assertEqual(InstagramBotMessage.objects.filter(mid=existing.mid).count(), 1)
+        client.refresh_from_db()
+        self.assertEqual(client.stage, IgClient.Stage.ORDER_CREATED)
+        self.assertEqual(client.intent, IgClient.Intent.PRODUCT)
+        self.assertEqual(client.buying_readiness, 90)
+        ensure_rule_classification.assert_not_called()
         schedule_analysis.assert_called_once()
 
     @patch("management.services.ig_inbox_refresh.schedule_analysis")
@@ -1339,6 +1408,48 @@ class InboxRefreshWorkerTests(TestCase):
         self.assertEqual(case.case_type, IgPostSaleCase.CaseType.EXCHANGE)
         self.assertEqual(case.source_message.mid, "mid-exchange")
 
+    def test_older_exchange_still_opens_case_without_rewinding_newer_projection(self):
+        from management.services import bot_sales_classifier
+
+        client = IgClient.get_or_create_for_sender("historical-exchange-projection")
+        older = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="Футболка вже у вас. Є розміри для заміни?",
+            status=InstagramBotMessage.Status.DONE,
+            source="manual_refresh",
+            provider_created_at=self.cutoff - timedelta(days=2),
+        )
+        newer = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="Оплату вже підтверджено",
+            status=InstagramBotMessage.Status.DONE,
+            source="webhook",
+            provider_created_at=self.cutoff - timedelta(minutes=2),
+        )
+        client.stage = IgClient.Stage.PAID
+        client.intent = IgClient.Intent.PAYMENT
+        client.buying_readiness = 100
+        client.save(update_fields=["stage", "intent", "buying_readiness", "updated_at"])
+
+        result = bot_sales_classifier.ensure_rule_classification(
+            client,
+            older,
+            operational_effects=False,
+        )
+
+        client.refresh_from_db()
+        self.assertIsNone(result)
+        self.assertEqual(client.stage, IgClient.Stage.PAID)
+        self.assertEqual(client.intent, IgClient.Intent.PAYMENT)
+        self.assertEqual(client.buying_readiness, 100)
+        case = IgPostSaleCase.objects.get(client=client)
+        self.assertEqual(case.source_message_id, older.pk)
+        self.assertGreater(newer.pk, older.pk)
+
     @patch("management.services.ig_inbox_refresh.bot._fetch_polled_conversation")
     @patch("management.services.ig_inbox_refresh.bot.get_page_token", return_value="PT")
     @patch("management.services.ig_inbox_refresh.bot.provider_transport", return_value=bot.INSTAGRAM_LOGIN_TRANSPORT)
@@ -1575,6 +1686,46 @@ class InboxRefreshWebhookRaceTests(TestCase):
         ).exists())
         schedule_analysis.assert_called_once()
         self.assertEqual(schedule_analysis.call_args.args[1].pk, max(history.pk, newer.pk))
+
+    @patch("management.services.bot_conversation_analysis.schedule_analysis")
+    def test_older_webhook_is_observed_after_newer_manager_event(self, schedule_analysis):
+        client = IgClient.get_or_create_for_sender("webhook-older-than-manager")
+        older_at = timezone.now() - timedelta(minutes=10)
+        history = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="старе відновлене повідомлення",
+            mid="mid-older-history-after-manager",
+            status=InstagramBotMessage.Status.DONE,
+            source="manual_refresh",
+            provider_created_at=older_at,
+            processed_at=timezone.now(),
+        )
+        InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.MANAGER,
+            text="Менеджер вже відповів",
+            status=InstagramBotMessage.Status.DONE,
+            source="echo",
+            created_at=timezone.now(),
+        )
+
+        handled = bot.enqueue_inbound(
+            self.settings,
+            sender_id=client.igsid,
+            text=history.text,
+            mid=history.mid,
+            source="webhook",
+            received_at=older_at,
+        )
+
+        self.assertTrue(handled)
+        history.refresh_from_db()
+        self.assertEqual(history.status, InstagramBotMessage.Status.DONE)
+        self.assertEqual(history.source, "manual_refresh")
+        schedule_analysis.assert_called_once()
 
     @patch("management.services.bot_conversation_analysis.schedule_analysis")
     def test_equal_time_webhook_is_observed_when_live_event_has_lower_pk(

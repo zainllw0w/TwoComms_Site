@@ -1298,7 +1298,13 @@ def _payment_review_workspace_payload(review) -> dict:
         attributions = list(review.order_attributions.select_related("order").order_by("-id")[:1])
     attribution = attributions[0] if attributions else None
     status = review.status
-    if status == review.Status.SUPERSEDED:
+    historical_paid_archived = bool(
+        review.resolution_kind
+        == review.ResolutionKind.HISTORICAL_PAID_ARCHIVED
+    )
+    if historical_paid_archived:
+        approval_state = "historical_paid_archived"
+    elif status == review.Status.SUPERSEDED:
         approval_state = "superseded"
     elif status == review.Status.CONFIRMED and payment["needs_reconciliation"]:
         approval_state = "payment_reconciliation"
@@ -1321,11 +1327,13 @@ def _payment_review_workspace_payload(review) -> dict:
     needs_order_resolution = bool(
         status == review.Status.CONFIRMED
         and not review.order_id
+        and not historical_paid_archived
         and payment["authoritative_for_fulfillment"]
     )
     needs_amount_clarification = bool(
         status == review.Status.CONFIRMED
         and not review.order_id
+        and not historical_paid_archived
         and not payment["needs_reconciliation"]
         and not payment["authoritative_for_fulfillment"]
         and decision
@@ -1349,10 +1357,13 @@ def _payment_review_workspace_payload(review) -> dict:
             "status": status,
             "status_label": review.get_status_display(),
             "needs_action": (
-                status == review.Status.PENDING
-                or needs_order_resolution
-                or needs_amount_clarification
-                or payment["needs_reconciliation"]
+                not historical_paid_archived
+                and (
+                    status == review.Status.PENDING
+                    or needs_order_resolution
+                    or needs_amount_clarification
+                    or payment["needs_reconciliation"]
+                )
             ),
             "can_confirm": status == review.Status.PENDING,
             "can_reject": status == review.Status.PENDING,
@@ -1360,6 +1371,9 @@ def _payment_review_workspace_payload(review) -> dict:
             "can_create": needs_order_resolution,
             "can_clarify_amount": needs_amount_clarification,
             "superseded_by_review_id": review.superseded_by_id if status == review.Status.SUPERSEDED else None,
+            "resolution_kind": review.resolution_kind,
+            "resolution_note": review.resolution_note,
+            "resolved_at": review.resolved_at.isoformat() if review.resolved_at else "",
             "action_url": action_url,
             "create_order_url": create_order_url if needs_order_resolution else "",
             "link_existing": {
@@ -1484,6 +1498,10 @@ def bot_orders_workspace_api(request):
     duplicate_candidates = base.filter(
         status=IgPaymentConfirmationReview.Status.CONFIRMED,
         order_id__isnull=True,
+    ).exclude(
+        resolution_kind=(
+            IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
+        )
     )
     for duplicate_review in duplicate_candidates:
         reconcile_duplicate_payment_review(duplicate_review)
@@ -1497,6 +1515,8 @@ def bot_orders_workspace_api(request):
         row.pk
         for row in list(base)
         if row.status == IgPaymentConfirmationReview.Status.CONFIRMED
+        and row.resolution_kind
+        != IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
         and _payment_review_truth_payload(row)["needs_reconciliation"]
     ]
     represented_order_ids = base.exclude(order_id__isnull=True).values("order_id")
@@ -1506,9 +1526,16 @@ def bot_orders_workspace_api(request):
     attributed_count = attribution_base.count()
     action_filter = (
         Q(status=IgPaymentConfirmationReview.Status.PENDING)
-        | Q(
-            status=IgPaymentConfirmationReview.Status.CONFIRMED,
-            order_id__isnull=True,
+        | (
+            Q(
+                status=IgPaymentConfirmationReview.Status.CONFIRMED,
+                order_id__isnull=True,
+            )
+            & ~Q(
+                resolution_kind=(
+                    IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
+                )
+            )
         )
         | Q(pk__in=reconciliation_review_ids)
     )
@@ -2092,11 +2119,20 @@ def _with_latest_interaction(queryset):
             status=IgPaymentConfirmationReview.Status.CONFIRMED,
             order_id__isnull=True,
         )
-    ).exclude(status=IgPaymentConfirmationReview.Status.SUPERSEDED)
+    ).exclude(
+        status=IgPaymentConfirmationReview.Status.SUPERSEDED
+    ).exclude(
+        resolution_kind=(
+            IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
+        )
+    )
     action_post_sale = IgPostSaleCase.objects.filter(
         client_id=OuterRef("pk"),
         status__in=[IgPostSaleCase.Status.NEEDS_DETAILS, IgPostSaleCase.Status.OPEN],
     )
+    latest_post_sale = IgPostSaleCase.objects.filter(
+        client_id=OuterRef("pk")
+    ).order_by("-updated_at", "-id")
     return queryset.annotate(
         latest_interaction_type=Coalesce(
             Subquery(latest_customer.values("interaction_type")[:1]),
@@ -2107,7 +2143,19 @@ def _with_latest_interaction(queryset):
             Subquery(latest_message.values("id")[:1]),
             Value(0),
         ),
+        has_post_sale_action=Exists(action_post_sale),
         has_manager_action=Exists(action_review) | Exists(action_post_sale),
+        latest_post_sale_type=Coalesce(
+            Subquery(latest_post_sale.values("case_type")[:1]),
+            Value(""),
+        ),
+        latest_post_sale_status=Coalesce(
+            Subquery(latest_post_sale.values("status")[:1]),
+            Value(""),
+        ),
+        latest_post_sale_order_id=Subquery(
+            latest_post_sale.values("order_id")[:1]
+        ),
     )
 
 
@@ -2309,6 +2357,8 @@ def _operational_client_stage(c) -> tuple[str, str]:
             and episode.intended_order_id
         ):
             stage = IgClient.Stage.ORDER_CREATED
+    elif getattr(c, "has_physical_order", False):
+        stage = IgClient.Stage.ORDER_CREATED
     return stage, str(IgClient.Stage(stage).label)
 
 
@@ -2330,7 +2380,7 @@ def _funnel_progress_for_stage(c, stage: str) -> list[dict]:
 
 
 def _client_card(c) -> dict:
-    from .ig_bot_models import IgConversationAnalysisSnapshot
+    from .ig_bot_models import IgConversationAnalysisSnapshot, IgPostSaleCase
 
     product = getattr(c, "current_product", None)
     next_followup = getattr(c, "next_followup_at", None)
@@ -2378,7 +2428,11 @@ def _client_card(c) -> dict:
     has_verified_payment = bool(verified_deal)
     commercially_confirmed = getattr(c, "has_commercial_confirmation", None)
     if commercially_confirmed is None:
-        from .ig_bot_models import IgOrderAttribution, IgPaymentReviewDecision
+        from .ig_bot_models import (
+            IgOrderAttribution,
+            IgPaymentConfirmationReview,
+            IgPaymentReviewDecision,
+        )
 
         commercially_confirmed = IgOrderAttribution.objects.filter(
             client=c,
@@ -2402,6 +2456,12 @@ def _client_card(c) -> dict:
                     IgPaymentReviewDecision.ActorSource.TELEGRAM_USER,
                 ),
             )
+        ).exists() or IgPaymentConfirmationReview.objects.filter(
+            client=c,
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            resolution_kind=(
+                IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
+            ),
         ).exists()
     payment_truth = (
         truth_projection.truth
@@ -2429,6 +2489,21 @@ def _client_card(c) -> dict:
         and (not c.opted_in_at or c.opted_in_at < c.opted_out_at)
     )
     interaction_type = latest_analysis.interaction_type if latest_analysis else ""
+    post_sale_type = str(getattr(c, "latest_post_sale_type", "") or "")
+    post_sale_status = str(getattr(c, "latest_post_sale_status", "") or "")
+    post_sale_order_id = getattr(c, "latest_post_sale_order_id", None)
+    post_sale_needs_action = bool(getattr(c, "has_post_sale_action", False))
+    if not hasattr(c, "latest_post_sale_type"):
+        latest_post_sale = c.post_sale_cases.order_by("-updated_at", "-id").first()
+        if latest_post_sale:
+            post_sale_type = latest_post_sale.case_type
+            post_sale_status = latest_post_sale.status
+            post_sale_order_id = latest_post_sale.order_id
+            post_sale_needs_action = latest_post_sale.status in {
+                IgPostSaleCase.Status.NEEDS_DETAILS,
+                IgPostSaleCase.Status.OPEN,
+            }
+    post_sale_labels = dict(IgPostSaleCase.CaseType.choices)
     potential = _client_potential_payload(c, latest_analysis)
     return {
         "id": c.id,
@@ -2465,6 +2540,11 @@ def _client_card(c) -> dict:
         "analysis_at": latest_analysis.analyzed_at.isoformat() if latest_analysis else "",
         "potential": potential,
         "manager_action_required": bool(getattr(c, "has_manager_action", False)),
+        "post_sale_type": post_sale_type,
+        "post_sale_type_label": str(post_sale_labels.get(post_sale_type, "")),
+        "post_sale_status": post_sale_status,
+        "post_sale_needs_action": post_sale_needs_action,
+        "post_sale_order_id": post_sale_order_id,
         "intent_label": c.get_intent_display(),
         "primary_objection": c.primary_objection,
         "primary_objection_label": c.get_primary_objection_display(),
@@ -2536,6 +2616,17 @@ def bot_clients_api(request):
             ),
         )
     )
+    historical_paid_reviews = IgPaymentConfirmationReview.objects.filter(
+        client_id=OuterRef("pk"),
+        status=IgPaymentConfirmationReview.Status.CONFIRMED,
+        resolution_kind=(
+            IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
+        ),
+    )
+    physical_orders = IgOrderAttribution.objects.filter(
+        client_id=OuterRef("pk"),
+        order_id__isnull=False,
+    )
 
     qs = _with_latest_interaction(annotate_verified_payment(
         IgClient.objects.select_related("current_product", "current_commercial_episode").prefetch_related(
@@ -2569,7 +2660,11 @@ def bot_clients_api(request):
             to_attr="_latest_commercial_episode",
         ),
         ).annotate(
-            has_commercial_confirmation=Exists(manager_verified_orders),
+            has_commercial_confirmation=(
+                Exists(manager_verified_orders) | Exists(historical_paid_reviews)
+            ),
+            has_historical_paid_archive=Exists(historical_paid_reviews),
+            has_physical_order=Exists(physical_orders),
         )
     ))
     unfiltered_qs = qs
@@ -2609,8 +2704,11 @@ def bot_clients_api(request):
     elif view == "active":
         qs = qs.exclude(stage__in=[IgClient.Stage.SPAM, IgClient.Stage.COLD])
         qs = qs.filter(
-            has_verified_payment=False,
-            has_commercial_confirmation=False,
+            Q(has_post_sale_action=True)
+            | Q(
+                has_verified_payment=False,
+                has_commercial_confirmation=False,
+            )
         )
     qs = qs.order_by("-last_message_at", "-id")
     q = (request.GET.get("q") or "").strip()
@@ -2641,7 +2739,7 @@ def bot_client_detail_api(request, client_id):
     blocked = _require_admin_json(request)
     if blocked:
         return blocked
-    from .models import IgClient
+    from .models import IgClient, InstagramBotMessage
     from .ig_bot_models import (
         IgConversationAnalysisSnapshot,
         IgPaymentConfirmationReview,
@@ -2758,6 +2856,31 @@ def bot_client_detail_api(request, client_id):
         for s in c.conversation_signals.all().order_by("-created_at", "-id")[:120]
     ]
     signals = _group_signal_rows(signal_rows)
+    pattern_episode = c.current_commercial_episode
+    if pattern_episode is None:
+        pattern_episode = c.commercial_episodes.order_by("-sequence", "-id").first()
+    pattern_messages = c.messages.all()
+    if pattern_episode and pattern_episode.opened_watermark_message_id:
+        pattern_messages = pattern_messages.filter(
+            id__gte=pattern_episode.opened_watermark_message_id
+        )
+    role_counts = {
+        "customer": 0,
+        "manager": 0,
+        "agent": 0,
+    }
+    role_map = {
+        InstagramBotMessage.Role.USER: "customer",
+        InstagramBotMessage.Role.MANAGER: "manager",
+        InstagramBotMessage.Role.MODEL: "agent",
+    }
+    for row in pattern_messages.values("role").annotate(count=Count("id")):
+        bucket = role_map.get(row["role"])
+        if bucket:
+            role_counts[bucket] = int(row["count"] or 0)
+    pattern_evidence_ids = list(
+        pattern_messages.order_by("-id").values_list("id", flat=True)[:20]
+    )
     followups = [
         {
             "id": f.id,
@@ -2792,6 +2915,10 @@ def bot_client_detail_api(request, client_id):
     for duplicate_review in review_base.filter(
         status=IgPaymentConfirmationReview.Status.CONFIRMED,
         order_id__isnull=True,
+    ).exclude(
+        resolution_kind=(
+            IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
+        )
     ):
         reconcile_duplicate_payment_review(duplicate_review)
     review_base = _payment_review_workspace_queryset().filter(client=c)
@@ -2814,14 +2941,26 @@ def bot_client_detail_api(request, client_id):
             filter=Q(
                 status=IgPaymentConfirmationReview.Status.CONFIRMED,
                 order_id__isnull=True,
+            )
+            & ~Q(
+                resolution_kind=(
+                    IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
+                )
             ),
         ),
     )
     actionable_review_row = review_base.filter(
         Q(status=IgPaymentConfirmationReview.Status.PENDING)
-        | Q(
-            status=IgPaymentConfirmationReview.Status.CONFIRMED,
-            order_id__isnull=True,
+        | (
+            Q(
+                status=IgPaymentConfirmationReview.Status.CONFIRMED,
+                order_id__isnull=True,
+            )
+            & ~Q(
+                resolution_kind=(
+                    IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
+                )
+            )
         )
     ).order_by("-created_at", "-id").first()
     review_rows = list(review_base.order_by("-created_at", "-id")[:20])
@@ -3012,7 +3151,10 @@ def bot_client_detail_api(request, client_id):
         },
         "post_sale": _post_sale_workspace_payload(c),
         "patterns": {
-            "source": "legacy_signal_groups",
+            "source": "episode_message_roles",
+            "episode_id": pattern_episode.pk if pattern_episode else None,
+            "message_counts": role_counts,
+            "evidence_message_ids": list(reversed(pattern_evidence_ids)),
             "event_count": len(signal_rows),
             "groups": signals,
             "bounded": True,
@@ -3318,22 +3460,59 @@ def bot_stats_api(request):
     blocked = _require_bot_json(request)
     if blocked:
         return blocked
-    from datetime import timedelta
+    from datetime import date, datetime, time, timedelta
 
     from .models import IgClient, IgConversationSignal, IgDeal, IgFollowUpTask
 
-    try:
-        range_days = int(request.GET.get("days") or 0)
-    except (TypeError, ValueError):
-        range_days = 0
-    if range_days not in {0, 1, 7, 30}:
-        range_days = 0
-    since = None
-    if range_days == 1:
-        local_now = timezone.localtime()
-        since = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif range_days:
-        since = timezone.now() - timedelta(days=range_days)
+    date_from_raw = (request.GET.get("date_from") or "").strip()
+    date_to_raw = (request.GET.get("date_to") or "").strip()
+    range_mode = "all"
+    range_days = 0
+    since = until = None
+    if bool(date_from_raw) != bool(date_to_raw):
+        return JsonResponse(
+            {"success": False, "error": "Потрібно вказати обидві межі діапазону."},
+            status=400,
+        )
+    if date_from_raw and date_to_raw:
+        try:
+            date_from = date.fromisoformat(date_from_raw)
+            date_to = date.fromisoformat(date_to_raw)
+        except ValueError:
+            return JsonResponse(
+                {"success": False, "error": "Дата має бути у форматі YYYY-MM-DD."},
+                status=400,
+            )
+        if date_from > date_to:
+            return JsonResponse(
+                {"success": False, "error": "Початкова дата не може бути пізнішою за кінцеву."},
+                status=400,
+            )
+        local_tz = timezone.get_current_timezone()
+        since = timezone.make_aware(datetime.combine(date_from, time.min), local_tz)
+        until = timezone.make_aware(
+            datetime.combine(date_to + timedelta(days=1), time.min), local_tz
+        )
+        range_mode = "custom"
+    else:
+        try:
+            range_days = int(request.GET.get("days") or 0)
+        except (TypeError, ValueError):
+            range_days = 0
+        if range_days not in {0, 1, 7, 30}:
+            range_days = 0
+        if range_days:
+            local_now = timezone.localtime()
+            local_tomorrow = (local_now + timedelta(days=1)).date()
+            local_start_date = local_now.date() - timedelta(days=range_days - 1)
+            local_tz = timezone.get_current_timezone()
+            since = timezone.make_aware(
+                datetime.combine(local_start_date, time.min), local_tz
+            )
+            until = timezone.make_aware(
+                datetime.combine(local_tomorrow, time.min), local_tz
+            )
+            range_mode = "preset"
 
     active_clients = _with_latest_interaction(annotate_verified_payment(
         IgClient.objects.filter(hidden_at__isnull=True)
@@ -3342,6 +3521,11 @@ def bot_stats_api(request):
         active_clients = active_clients.filter(
             Q(last_message_at__gte=since)
             | Q(last_message_at__isnull=True, created_at__gte=since)
+        )
+    if until:
+        active_clients = active_clients.filter(
+            Q(last_message_at__lt=until)
+            | Q(last_message_at__isnull=True, created_at__lt=until)
         )
     conversations = active_clients.count()
     from .ig_bot_models import IgConversationAnalysisSnapshot
@@ -3370,6 +3554,8 @@ def bot_stats_api(request):
     signal_qs = IgConversationSignal.objects.filter(client__hidden_at__isnull=True)
     if since:
         signal_qs = signal_qs.filter(created_at__gte=since)
+    if until:
+        signal_qs = signal_qs.filter(created_at__lt=until)
     signals = {
         row["signal_type"]: row["count"]
         for row in signal_qs.values("signal_type").annotate(count=Count("id")).order_by()
@@ -3398,12 +3584,22 @@ def bot_stats_api(request):
             Q(deals__payment_projection__paid_at__gte=since)
             | Q(deals__payment_projection__isnull=True, deals__paid_at__gte=since)
         )
+    if until:
+        payment_event_filter &= (
+            Q(deals__payment_projection__paid_at__lt=until)
+            | Q(deals__payment_projection__isnull=True, deals__paid_at__lt=until)
+        )
     revenue_filter = payment_event_filter
     payment_deals = IgDeal.objects.all()
     if since:
         payment_deals = payment_deals.filter(
             Q(payment_projection__paid_at__gte=since)
             | Q(payment_projection__isnull=True, paid_at__gte=since)
+        )
+    if until:
+        payment_deals = payment_deals.filter(
+            Q(payment_projection__paid_at__lt=until)
+            | Q(payment_projection__isnull=True, paid_at__lt=until)
         )
     active_clients = annotate_verified_payment(
         active_clients,
@@ -3415,6 +3611,11 @@ def bot_stats_api(request):
         followup_payment_filter &= (
             Q(client__deals__payment_projection__paid_at__gte=since)
             | Q(client__deals__payment_projection__isnull=True, client__deals__paid_at__gte=since)
+        )
+    if until:
+        followup_payment_filter &= (
+            Q(client__deals__payment_projection__paid_at__lt=until)
+            | Q(client__deals__payment_projection__isnull=True, client__deals__paid_at__lt=until)
         )
     ad_rows = []
     for row in (
@@ -3458,8 +3659,12 @@ def bot_stats_api(request):
     }
     return JsonResponse({
         "success": True,
+        "range_mode": range_mode,
         "range_days": range_days,
         "range_from": since.isoformat() if since else "",
+        "range_to": until.isoformat() if until else "",
+        "date_from": date_from_raw or (since.date().isoformat() if since else ""),
+        "date_to": date_to_raw or ((until - timedelta(days=1)).date().isoformat() if until else ""),
         "totals": totals,
         "stages": stage_counts,
         "interactions": interaction_counts,

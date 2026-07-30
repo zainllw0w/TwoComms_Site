@@ -37,8 +37,16 @@ LEASE_SECONDS = 180
 MAX_ATTEMPTS = 5
 MAX_MESSAGES = 160
 MAX_TRANSCRIPT_CHARS = 30_000
-ANALYSIS_PROMPT_VERSION = "2026-07-25.crm.episode-potential.v2"
+ANALYSIS_PROMPT_VERSION = "2026-07-30.crm.episode-potential.v3"
 RETRY_DELAYS = (60, 180, 600, 1800, 3600)
+
+EXPLICIT_REPEAT_RE = re.compile(
+    r"(?:\b(?:хочу|візьму|возьму|замов\w*|закаж\w*)\b.{0,50}\b(?:ще|еще)\b|"
+    r"\b(?:ще|еще)\s+(?:одн\w*|так\w*)\b|"
+    r"\b(?:повторн\w*|знову|снова)\b.{0,50}\b(?:замов\w*|заказ\w*|куп\w*)\b|"
+    r"\b(?:another\s+one|one\s+more|reorder)\b)",
+    re.I,
+)
 
 SYSTEM_PROMPT = """Ти аналізуєш Instagram-діалог для внутрішньої CRM TwoComms.
 Поверни лише JSON. Відокремлюй намір купити від факту оплати. Навіть підтверджена
@@ -642,6 +650,8 @@ def _normalize(parsed: dict, by_id: dict[int, dict], *, verified_payment: bool) 
     raw_repeat = parsed.get("repeat_intent")
     repeat_intent = {}
     if isinstance(raw_repeat, dict):
+        from management.services.ig_post_sale import detect_post_sale_type
+
         repeat_kind = str(raw_repeat.get("kind") or "").strip()[:32]
         repeat_confidence = _decimal_01(raw_repeat.get("confidence"), "0")
         valid_repeat_kinds = {"explicit_more", "reorder", "gift", "another_recipient"}
@@ -652,9 +662,12 @@ def _normalize(parsed: dict, by_id: dict[int, dict], *, verified_payment: bool) 
             except (TypeError, ValueError):
                 continue
             source = by_id.get(message_id)
+            source_text = str((source or {}).get("text") or "")
             if (
                 source
                 and source.get("role") == "user"
+                and EXPLICIT_REPEAT_RE.search(source_text)
+                and not detect_post_sale_type(source_text)
                 and message_id not in repeat_evidence_ids
             ):
                 repeat_evidence_ids.append(message_id)
@@ -669,6 +682,18 @@ def _normalize(parsed: dict, by_id: dict[int, dict], *, verified_payment: bool) 
                 "evidence_message_ids": repeat_evidence_ids[:20],
             }
     uncertainties = [str(value)[:160] for value in (parsed.get("uncertainties") or []) if str(value).strip()][:20]
+    if interaction_type == IgConversationAnalysisSnapshot.InteractionType.CUSTOM_PRINT:
+        from management.services.bot_sales_classifier import is_explicit_custom_print_request
+
+        has_user_custom_evidence = any(
+            source.get("role") == "user"
+            and is_explicit_custom_print_request(source.get("text") or "")
+            for source in by_id.values()
+            if isinstance(source, dict)
+        )
+        if not has_user_custom_evidence:
+            interaction_type = IgConversationAnalysisSnapshot.InteractionType.INFORMATION_ONLY
+            uncertainties.append("custom_print_user_evidence_missing")
 
     if band == IgConversationAnalysisSnapshot.Band.PAID or interaction_type == IgConversationAnalysisSnapshot.InteractionType.PAID_ORDER_WAITING:
         band = IgConversationAnalysisSnapshot.Band.CHECKOUT

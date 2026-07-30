@@ -1408,7 +1408,11 @@ def payment_review_fingerprint(review_or_evidence) -> str:
     # with the same catalog lines could be mistaken for one payment.
     if not payload["amount_evidence"] and not payload["receipts"]:
         return ""
-    if not payload["items"] and not payload["quoted_total"]:
+    if (
+        not payload["items"]
+        and not payload["quoted_total"]
+        and not payload["receipts"]
+    ):
         return ""
     return hashlib.sha256(
         json.dumps(payload, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -1617,7 +1621,12 @@ def create_payment_review(client, *, watermark: int = 0, messages=None):
     if fingerprint:
         existing_reviews = list(
             IgPaymentConfirmationReview.objects.filter(client_id=client.pk)
-            .exclude(status=IgPaymentConfirmationReview.Status.CANCELLED)
+            .exclude(
+                status__in=[
+                    IgPaymentConfirmationReview.Status.CANCELLED,
+                    IgPaymentConfirmationReview.Status.SUPERSEDED,
+                ]
+            )
             .select_related("order")
         )
         matching = [
@@ -1647,6 +1656,14 @@ def create_payment_review(client, *, watermark: int = 0, messages=None):
             )
             return existing
     dedupe_key = f"ig-payment-review:{client.pk}:{fingerprint or watermark}"
+    if fingerprint and IgPaymentConfirmationReview.objects.filter(
+        dedupe_key=dedupe_key,
+        status__in=[
+            IgPaymentConfirmationReview.Status.CANCELLED,
+            IgPaymentConfirmationReview.Status.SUPERSEDED,
+        ],
+    ).exists():
+        dedupe_key = f"{dedupe_key}:reopened:{watermark}"
     with transaction.atomic():
         review, created = IgPaymentConfirmationReview.objects.get_or_create(
             dedupe_key=dedupe_key,
@@ -2073,6 +2090,134 @@ def record_review_decision(
 
         schedule_client_truth_analysis(locked.client, trigger="manager_payment_decision")
         locked._transitioned = True
+    return locked
+
+
+@transaction.atomic
+def archive_historical_paid_review(review, *, actor, reason: str):
+    """Close a verified legacy sale without fabricating a local Order."""
+    from management.ig_bot_models import (
+        IgBotNotification,
+        IgClient,
+        IgCommercialEpisode,
+        IgPaymentConfirmationReview,
+        IgPaymentReviewDecision,
+    )
+    from management.services.ig_commercial_episodes import (
+        append_episode_event,
+        ensure_episode_for_review,
+    )
+
+    note = str(reason or "").strip()
+    if not note:
+        raise ValueError("Причина архівування старого продажу обов'язкова.")
+    if not actor or not getattr(actor, "pk", None) or not (
+        getattr(actor, "is_staff", False) or getattr(actor, "is_superuser", False)
+    ):
+        raise ValueError("Архівувати старий продаж може лише менеджер.")
+
+    locked = (
+        IgPaymentConfirmationReview.objects.select_for_update()
+        .select_related("client")
+        .get(pk=review.pk)
+    )
+    client = IgClient.objects.select_for_update().get(pk=locked.client_id)
+    if client.hidden_at:
+        raise ValueError("Прихований клієнт виключений з операцій.")
+    if locked.resolution_kind == locked.ResolutionKind.HISTORICAL_PAID_ARCHIVED:
+        return locked
+    if locked.status != locked.Status.CONFIRMED:
+        raise ValueError("Спочатку підтвердьте оплату менеджерським рішенням.")
+    if locked.order_id:
+        raise ValueError("Перевірка вже має пов'язане замовлення і не є історичною.")
+
+    decision = (
+        IgPaymentReviewDecision.objects.filter(
+            review=locked,
+            decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+            verification_source="manager",
+            verification_scope=IgPaymentReviewDecision.VerificationScope.FULL_PAYMENT,
+            confirmed_amount__gt=0,
+            actor_source__in=(
+                IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+                IgPaymentReviewDecision.ActorSource.TELEGRAM_USER,
+            ),
+        )
+        .order_by("-id")
+        .first()
+    )
+    if decision is None:
+        raise ValueError(
+            "Потрібне точне manager-verified рішення про повну оплату."
+        )
+
+    now = timezone.now()
+    locked.resolution_kind = locked.ResolutionKind.HISTORICAL_PAID_ARCHIVED
+    locked.resolution_note = note[:2000]
+    locked.resolved_at = now
+    locked.resolved_by = actor
+    locked.save(
+        update_fields=[
+            "resolution_kind",
+            "resolution_note",
+            "resolved_at",
+            "resolved_by",
+            "updated_at",
+        ]
+    )
+
+    episode = ensure_episode_for_review(locked)
+    episode = IgCommercialEpisode.objects.select_for_update().get(pk=episode.pk)
+    previous_state = episode.state
+    episode.state = IgCommercialEpisode.State.FULFILLED
+    episode.outcome = "historical_paid_archived"
+    episode.open_slot = None
+    episode.closed_at = now
+    episode.save(
+        update_fields=["state", "outcome", "open_slot", "closed_at", "updated_at"]
+    )
+    append_episode_event(
+        episode,
+        dedupe_key=f"episode:{episode.pk}:historical-paid-archived:{locked.pk}",
+        event_type="historical_paid_archived",
+        from_state=previous_state,
+        to_state=episode.state,
+        stage=IgClient.Stage.PAID,
+        source="manager_resolution",
+        evidence={
+            "review_id": locked.pk,
+            "decision_id": decision.pk,
+            "confirmed_amount": str(decision.confirmed_amount),
+        },
+    )
+
+    client.stage = IgClient.Stage.PAID
+    client.stage_updated_at = now
+    if client.current_commercial_episode_id == episode.pk:
+        client.current_commercial_episode = None
+    client.save(
+        update_fields=[
+            "stage",
+            "stage_updated_at",
+            "current_commercial_episode",
+            "updated_at",
+        ]
+    )
+    IgBotNotification.objects.filter(
+        dedupe_key=locked.dedupe_key,
+        event_type="payment_review",
+    ).exclude(
+        status__in=[
+            IgBotNotification.Status.UNKNOWN,
+            IgBotNotification.Status.DEAD_LETTER,
+        ]
+    ).update(
+        status=IgBotNotification.Status.RESOLVED,
+        next_attempt_at=None,
+        last_error="",
+        failure_kind="",
+        updated_at=now,
+    )
     return locked
 
 

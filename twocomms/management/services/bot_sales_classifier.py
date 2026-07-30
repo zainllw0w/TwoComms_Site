@@ -66,7 +66,17 @@ DEFER_RE = re.compile(
 PRICE_RE = re.compile(r"\b(дорого|дорогувато|цена|ціна|сколько|скільки|price|вартість)\b", re.I)
 PREPAY_RE = re.compile(r"\b(предоплат|передоплат|налож|наклад|післяплат|без\s+пред|без\s+перед)\b", re.I)
 SIZE_RE = re.compile(r"\b(размер|розмір|сітка|сетка|оверсайз|regular|регуляр|xs|s|m|l|xl|xxl)\b", re.I)
-CUSTOM_RE = re.compile(r"\b(кастом|custom|свой\s+принт|власн\w*\s+принт|dtf|дтф|печать|друк|принт)\b", re.I)
+CUSTOM_REQUEST_RE = re.compile(
+    r"(?:\b(?:кастом(?:н\w*)?|custom)(?:\s+(?:принт\w*|дизайн\w*))?\b|"
+    r"\b(?:св(?:ой|ій)|власн\w*|мо[йяє]|мій)\s+(?:принт\w*|дизайн\w*)\b|"
+    r"\b(?:зроб(?:іть|ити)|сдел(?:айте|ать)|надрук\w*|напечат\w*|нанес\w*|"
+    r"змін(?:ити|іть|ювати)|измен(?:ить|ите))\b.{0,80}\b"
+    r"(?:принт\w*|дизайн\w*|зображенн\w*|изображен\w*)\b|"
+    r"\b(?:принт\w*|дизайн\w*|зображенн\w*|изображен\w*)\b.{0,80}\b"
+    r"(?:зроб(?:іть|ити)|сдел(?:айте|ать)|надрук\w*|напечат\w*|нанес\w*|"
+    r"змін(?:ити|іть|ювати)|измен(?:ить|ите))\b)",
+    re.I,
+)
 PRODUCT_RE = re.compile(
     r"\b(товар\w*|футболк\w*|худі|худи|лонгслів\w*|одяг\w*|одежд\w*|"
     r"колекц\w*|модель\w*|термохром\w*)\b",
@@ -81,7 +91,8 @@ QTY_RE = re.compile(r"\b(?:x|х|×)?\s*(\d{1,2})\s*(?:шт|штук|pcs|од)\b"
 SIZE_TOKEN_RE = re.compile(r"\b(xs|s|m|l|xl|xxl|xxxl|2xl|3xl)\b", re.I)
 COLLAB_RE = re.compile(
     r"\b(коллаб\w*|колаб\w*|collab\w*|creator|креатор|блогер\w*|інфлюенсер\w*|"
-    r"инфлюенсер\w*|партнерств\w*|партнерств\w*)\b",
+    r"инфлюенсер\w*|партнерств\w*|співпрац\w*|сотруднич\w*|постачальник\w*|"
+    r"поставщик\w*)\b",
     re.I,
 )
 WHOLESALE_RE = re.compile(
@@ -99,7 +110,9 @@ SUPPORT_RE = re.compile(
     r"\bне\s+(?:отримав|отримала|отримали|получил|получила|получили)\s+"
     r"(?:товар\w*|замовлен\w*|заказ\w*|посилк\w*|посылк\w*)\b|"
     r"\b(?:товар\w*|замовлен\w*|заказ\w*|посилк\w*|посылк\w*)\s+не\s+"
-    r"(?:отриман\w*|получен\w*)\b)",
+    r"(?:отриман\w*|получен\w*)\b|"
+    r"\b(?:принт\w*|друк\w*|печать)\s+"
+    r"(?:не\s+то[йяе]|не\s+такий|інш\w*|друг\w*)\b)",
     re.I,
 )
 COMMUNITY_RE = re.compile(
@@ -127,6 +140,16 @@ def is_reaction_only(text: str) -> bool:
         and len(value) <= 24
         and not any(char.isalnum() for char in value)
         and any(mark in value for mark in REACTION_MARKS)
+    )
+
+
+def is_explicit_custom_print_request(text: str) -> bool:
+    """Return true only for explicit manufacturing or design-change intent."""
+    value = str(text or "")
+    return bool(
+        CUSTOM_REQUEST_RE.search(value)
+        and not SUPPORT_RE.search(value)
+        and not COLLAB_RE.search(value)
     )
 
 
@@ -577,6 +600,7 @@ def classify_message(
     text: str | None = None,
     role: str = "",
     media_context: list[dict] | None = None,
+    operational_effects: bool = True,
 ) -> dict:
     """Classify a single message and persist CRM state/signals.
 
@@ -715,7 +739,11 @@ def classify_message(
         intent = IgClient.Intent.PRODUCT
         readiness += 25 if "purchase_candidate" in media_intents else 10
         add(IgConversationSignal.Type.PRODUCT_INTEREST, conf=0.85, value="media")
-    if commercially_actionable and CUSTOM_RE.search(low) and "custom_print_request" not in media_intents:
+    if (
+        commercially_actionable
+        and is_explicit_custom_print_request(low)
+        and "custom_print_request" not in media_intents
+    ):
         intent = IgClient.Intent.CUSTOM_PRINT
         readiness += 30
         add(IgConversationSignal.Type.CUSTOM_PRINT, conf=0.9)
@@ -835,43 +863,54 @@ def classify_message(
             )
         except Exception:
             result["post_sale_case_id"] = None
-        try:
-            from management.services.ig_payment_review import create_payment_review
+        if operational_effects:
+            try:
+                from management.services.ig_payment_review import create_payment_review
 
-            review = create_payment_review(client, watermark=message.pk)
-            evidence = review.evidence if review and isinstance(review.evidence, dict) else {}
-            catalog_match = evidence.get("catalog_match") if isinstance(evidence.get("catalog_match"), dict) else {}
-            if catalog_match.get("status") == "matched":
-                match = {
-                    "product_id": catalog_match.get("product_id"),
-                    "confidence": catalog_match.get("confidence", 0),
-                }
-                sales_context["_media_catalog_match"] = {
-                    "product_id": catalog_match.get("product_id"),
-                    "title": str(catalog_match.get("title") or "")[:255],
-                    "confidence": catalog_match.get("confidence", 0),
-                    "source_message_ids": catalog_match.get("source_message_ids") or [message.pk],
-                    "observed_at": timezone.now().isoformat(),
-                }
-                client.sales_context = sales_context
-                client.save(update_fields=["sales_context", "updated_at"])
-                try:
-                    from management.services import bot_orders
+                review = create_payment_review(client, watermark=message.pk)
+                evidence = (
+                    review.evidence
+                    if review and isinstance(review.evidence, dict)
+                    else {}
+                )
+                catalog_match = (
+                    evidence.get("catalog_match")
+                    if isinstance(evidence.get("catalog_match"), dict)
+                    else {}
+                )
+                if catalog_match.get("status") == "matched":
+                    match = {
+                        "product_id": catalog_match.get("product_id"),
+                        "confidence": catalog_match.get("confidence", 0),
+                    }
+                    sales_context["_media_catalog_match"] = {
+                        "product_id": catalog_match.get("product_id"),
+                        "title": str(catalog_match.get("title") or "")[:255],
+                        "confidence": catalog_match.get("confidence", 0),
+                        "source_message_ids": (
+                            catalog_match.get("source_message_ids") or [message.pk]
+                        ),
+                        "observed_at": timezone.now().isoformat(),
+                    }
+                    client.sales_context = sales_context
+                    client.save(update_fields=["sales_context", "updated_at"])
+                    try:
+                        from management.services import bot_orders
 
-                    if any(
-                        item.get("role") == "product"
-                        and item.get("intent") == "purchase_candidate"
-                        and item.get("catalog_match_allowed") is True
-                        for item in media_context
-                    ):
-                        bot_orders.pin_product(client, match["product_id"])
-                except Exception:
-                    pass
-        except Exception:
-            # Payment review is an operational alert; it must never block
-            # message persistence or the reply boundary.
-            pass
-    if isinstance(message, InstagramBotMessage):
+                        if any(
+                            item.get("role") == "product"
+                            and item.get("intent") == "purchase_candidate"
+                            and item.get("catalog_match_allowed") is True
+                            for item in media_context
+                        ):
+                            bot_orders.pin_product(client, match["product_id"])
+                    except Exception:
+                        pass
+            except Exception:
+                # Payment review is an operational alert; it must never block
+                # message persistence or the reply boundary.
+                pass
+    if operational_effects and isinstance(message, InstagramBotMessage):
         try:
             from management.services.bot_conversation_analysis import schedule_analysis
 
@@ -887,10 +926,18 @@ def ensure_rule_classification(
     message: InstagramBotMessage,
     *,
     media_context: list[dict] | None = None,
+    operational_effects: bool = True,
 ) -> dict | None:
     """Run the deterministic projection once for a durable message watermark."""
     if not client or not message or not getattr(message, "pk", None):
         return None
+    if not client.hidden_at:
+        try:
+            from management.services.ig_post_sale import open_post_sale_case
+
+            open_post_sale_case(client, message)
+        except Exception:
+            pass
     message_event_at = message.provider_created_at or message.created_at
     explicit_opt_out = bool(
         message.role == InstagramBotMessage.Role.USER
@@ -936,4 +983,5 @@ def ensure_rule_classification(
         message=message,
         role=message.role,
         media_context=media_context,
+        operational_effects=operational_effects,
     )

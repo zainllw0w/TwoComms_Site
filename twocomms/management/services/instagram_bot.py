@@ -4278,10 +4278,9 @@ def _promote_manual_refresh_message(
     if existing.provider_created_at is None:
         existing.provider_created_at = provider_time
         update_fields.append("provider_created_at")
-    has_newer_user_event = (
+    has_newer_conversation_event = (
         InstagramBotMessage.objects.filter(
             client_id=client.pk,
-            role=InstagramBotMessage.Role.USER,
         )
         .exclude(pk=existing.pk)
         .annotate(event_at=Coalesce("provider_created_at", "created_at"))
@@ -4291,7 +4290,7 @@ def _promote_manual_refresh_message(
         )
         .exists()
     )
-    if force_observed or has_newer_user_event:
+    if force_observed or has_newer_conversation_event:
         if update_fields:
             existing.save(update_fields=update_fields)
         return "observed"

@@ -1401,6 +1401,91 @@ class RepeatIntentNormalizationTests(TestCase):
                 )
                 self.assertEqual(normalized["repeat_intent"], {})
 
+    def test_repeat_intent_rejects_exchange_or_return_evidence(self):
+        from management.services.bot_conversation_analysis import _normalize
+
+        normalized = _normalize(
+            {
+                "interaction_type": "support_complaint",
+                "score_band": "exploring",
+                "purchase_probability": 0.2,
+                "confidence": 0.9,
+                "repeat_intent": {
+                    "kind": "reorder",
+                    "confidence": 0.96,
+                    "evidence_message_ids": [931],
+                },
+            },
+            {
+                931: {
+                    "role": "user",
+                    "text": "Футболка вже у вас. Є розміри для заміни?",
+                }
+            },
+            verified_payment=True,
+        )
+
+        self.assertEqual(normalized["repeat_intent"], {})
+
+    def test_repeat_intent_accepts_explicit_request_for_one_more_item(self):
+        from management.services.bot_conversation_analysis import _normalize
+
+        normalized = _normalize(
+            {
+                "interaction_type": "product_interest",
+                "score_band": "qualified",
+                "purchase_probability": 0.8,
+                "confidence": 0.9,
+                "repeat_intent": {
+                    "kind": "explicit_more",
+                    "confidence": 0.94,
+                    "evidence_message_ids": [950],
+                },
+            },
+            {950: {"role": "user", "text": "Хочу замовити ще одну футболку"}},
+            verified_payment=True,
+        )
+
+        self.assertEqual(normalized["repeat_intent"]["kind"], "explicit_more")
+
+    def test_custom_print_requires_explicit_user_manufacturing_evidence(self):
+        from management.services.bot_conversation_analysis import _normalize
+
+        normalized = _normalize(
+            {
+                "interaction_type": "custom_print",
+                "score_band": "qualified",
+                "purchase_probability": 0.7,
+                "confidence": 0.9,
+            },
+            {960: {"role": "user", "text": "Принт ось цей, розмір M"}},
+            verified_payment=False,
+        )
+
+        self.assertEqual(normalized["interaction_type"], "information_only")
+        self.assertIn("custom_print_user_evidence_missing", normalized["uncertainties"])
+
+    def test_custom_print_accepts_explicit_user_manufacturing_evidence(self):
+        from management.services.bot_conversation_analysis import _normalize
+
+        normalized = _normalize(
+            {
+                "interaction_type": "custom_print",
+                "score_band": "qualified",
+                "purchase_probability": 0.7,
+                "confidence": 0.9,
+            },
+            {
+                961: {
+                    "role": "user",
+                    "text": "Можете надрукувати мій власний дизайн на футболці?",
+                }
+            },
+            verified_payment=False,
+        )
+
+        self.assertEqual(normalized["interaction_type"], "custom_print")
+
     def test_verified_payment_does_not_overwrite_conversation_potential(self):
         from management.services.bot_conversation_analysis import _normalize
 

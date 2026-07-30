@@ -737,6 +737,13 @@ class IgPaymentConfirmationReview(models.Model):
         CANCELLED = "cancelled", _("Скасовано менеджером")
         SUPERSEDED = "superseded", _("Замінено канонічною перевіркою")
 
+    class ResolutionKind(models.TextChoices):
+        NONE = "", _("Не завершено окремим рішенням")
+        HISTORICAL_PAID_ARCHIVED = (
+            "historical_paid_archived",
+            _("Старий оплачений продаж архівовано"),
+        )
+
     client = models.ForeignKey(
         "management.IgClient",
         on_delete=models.CASCADE,
@@ -792,6 +799,23 @@ class IgPaymentConfirmationReview(models.Model):
     )
     superseded_at = models.DateTimeField(null=True, blank=True)
     supersede_reason = models.CharField(max_length=120, blank=True, default="")
+    resolution_kind = models.CharField(
+        max_length=40,
+        choices=ResolutionKind.choices,
+        blank=True,
+        default=ResolutionKind.NONE,
+        db_index=True,
+    )
+    resolution_note = models.TextField(blank=True, default="")
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="resolved_ig_payment_reviews",
+        db_constraint=False,
+    )
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 

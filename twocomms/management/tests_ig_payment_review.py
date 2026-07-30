@@ -401,6 +401,32 @@ class PaymentReviewEpisodeScopeTests(TestCase):
             payment_review_fingerprint(reclassified),
         )
 
+    def test_receipt_without_catalog_context_still_has_stable_fingerprint(self):
+        from management.services.ig_payment_review import payment_review_fingerprint
+
+        evidence = {
+            "amount_evidence": [{"amount": "1760", "message_id": 1133}],
+            "media": [
+                {
+                    "role": "receipt",
+                    "message_id": 1136,
+                    "url": "https://cdn.test/receipt-1136.jpg",
+                }
+            ],
+            "order_draft": {
+                "quoted_total": "",
+                "currency": "UAH",
+                "items": [],
+                "delivery": {},
+            },
+        }
+
+        self.assertTrue(payment_review_fingerprint(evidence))
+        self.assertEqual(
+            payment_review_fingerprint(evidence),
+            payment_review_fingerprint({**evidence, "watermark_message_id": 1141}),
+        )
+
     def test_duplicate_reconciliation_is_idempotent_after_canonicalization(self):
         from management.ig_bot_models import IgClient, IgPaymentConfirmationReview
         from management.services.ig_payment_review import reconcile_duplicate_payment_review
@@ -481,6 +507,129 @@ class PaymentReviewEpisodeScopeTests(TestCase):
 
         self.assertEqual(replay.pk, first.pk)
         self.assertEqual(IgPaymentConfirmationReview.objects.filter(client=client).count(), 1)
+
+    def test_replay_never_returns_superseded_review_when_canonical_is_cancelled(self):
+        from management.ig_bot_models import IgClient, IgPaymentConfirmationReview
+        from orders.models import Order
+        from management.services.ig_payment_review import (
+            create_payment_review,
+            reconcile_duplicate_payment_review,
+        )
+
+        client = IgClient.get_or_create_for_sender("review-terminal-canonical")
+        messages = [
+            {"id": 10, "role": "manager", "text": "До сплати 790 грн"},
+            {
+                "id": 11,
+                "role": "user",
+                "text": "Я оплатила, ось чек",
+                "media": [{"url": "https://cdn.test/terminal-receipt.jpg", "type": "image"}],
+            },
+        ]
+        with (
+            patch(
+                "management.services.ig_payment_review._persist_review_media",
+                side_effect=lambda rows: rows,
+            ),
+            patch(
+                "management.services.ig_payment_review._resolve_payment_media_candidates",
+                side_effect=lambda rows: rows,
+            ),
+            patch("management.services.instagram_bot.notify_manager"),
+            patch("management.services.ig_commercial_episodes.ensure_episode_for_review"),
+        ):
+            canonical = create_payment_review(client, watermark=11, messages=messages)
+            canonical.status = IgPaymentConfirmationReview.Status.CONFIRMED
+            canonical.order = Order.objects.create(
+                full_name="Cancelled canonical",
+                phone="0500000011",
+                city="Київ",
+                np_office="1",
+                total_sum=Decimal("790.00"),
+            )
+            canonical.save(update_fields=["status", "order", "updated_at"])
+            duplicate = IgPaymentConfirmationReview.objects.create(
+                client=client,
+                status=IgPaymentConfirmationReview.Status.CONFIRMED,
+                evidence=canonical.evidence,
+                dedupe_key="terminal-canonical-duplicate",
+                watermark_message_id=12,
+            )
+            reconcile_duplicate_payment_review(duplicate)
+            canonical.status = IgPaymentConfirmationReview.Status.CANCELLED
+            canonical.save(update_fields=["status", "updated_at"])
+
+            replay = create_payment_review(client, watermark=13, messages=messages)
+
+        duplicate.refresh_from_db()
+        self.assertEqual(duplicate.status, IgPaymentConfirmationReview.Status.SUPERSEDED)
+        self.assertNotIn(
+            replay.pk,
+            {canonical.pk, duplicate.pk},
+        )
+        self.assertEqual(replay.status, IgPaymentConfirmationReview.Status.PENDING)
+
+    def test_historical_paid_archive_requires_verified_review_and_closes_episode(self):
+        from django.contrib.auth import get_user_model
+
+        from management.ig_bot_models import (
+            IgBotNotification,
+            IgClient,
+            IgCommercialEpisode,
+            IgPaymentConfirmationReview,
+        )
+        from management.services.ig_payment_review import (
+            archive_historical_paid_review,
+            record_review_decision,
+        )
+
+        actor = get_user_model().objects.create_user(
+            "historical-paid-actor",
+            password="x",
+            is_staff=True,
+        )
+        client = IgClient.get_or_create_for_sender("historical-paid-client")
+        review = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            dedupe_key="historical-paid-review",
+            evidence={"order_draft": {"quoted_total": "1760.00"}},
+            watermark_message_id=1136,
+        )
+        IgBotNotification.objects.create(
+            client=client,
+            event_type="payment_review",
+            dedupe_key=review.dedupe_key,
+            status=IgBotNotification.Status.SENT,
+        )
+        record_review_decision(
+            review,
+            actor=actor,
+            decision="manager_verified",
+            verification_scope="full_payment",
+            confirmed_amount=Decimal("1760.00"),
+        )
+
+        archived = archive_historical_paid_review(
+            review,
+            actor=actor,
+            reason="Historical fulfilled sale confirmed by operator",
+        )
+
+        archived.refresh_from_db()
+        client.refresh_from_db()
+        episode = IgCommercialEpisode.objects.get(primary_payment_review=review)
+        notification = IgBotNotification.objects.get(dedupe_key=review.dedupe_key)
+        self.assertEqual(
+            archived.resolution_kind,
+            IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED,
+        )
+        self.assertEqual(archived.resolved_by_id, actor.pk)
+        self.assertIsNotNone(archived.resolved_at)
+        self.assertEqual(client.stage, IgClient.Stage.PAID)
+        self.assertEqual(episode.state, IgCommercialEpisode.State.FULFILLED)
+        self.assertEqual(episode.outcome, "historical_paid_archived")
+        self.assertIsNone(episode.open_slot)
+        self.assertEqual(notification.status, IgBotNotification.Status.RESOLVED)
 
     def test_different_receipt_remains_a_separate_payment_review(self):
         from management.ig_bot_models import IgClient, IgPaymentConfirmationReview

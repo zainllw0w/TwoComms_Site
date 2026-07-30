@@ -84,6 +84,23 @@ class ConversationIntelligenceSnapshotTests(TestCase):
         self.assertLess(snapshot.purchase_probability, Decimal("1.00"))
         self.assertIn("payment_unverified", snapshot.uncertainties)
 
+    @patch("management.services.bot_conversation_analysis.schedule_analysis")
+    @patch("management.services.ig_payment_review.create_payment_review")
+    def test_historical_classification_can_skip_operational_side_effects(
+        self, create_payment_review, schedule_analysis
+    ):
+        message = self.message("Я оплатила, ось чек")
+
+        result = classify_message(
+            self.client,
+            message=message,
+            operational_effects=False,
+        )
+
+        self.assertIsNotNone(result["analysis_snapshot_id"])
+        create_payment_review.assert_not_called()
+        schedule_analysis.assert_not_called()
+
     def test_manager_evidence_is_labeled_and_deduplicated(self):
         message = self.message("Підкажемо клієнту розмір", InstagramBotMessage.Role.MANAGER)
 

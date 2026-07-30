@@ -26,6 +26,14 @@ class PostSaleClassifierTests(SimpleTestCase):
             "exchange",
         )
 
+    def test_exchange_noun_is_detected(self):
+        from management.services.ig_post_sale import detect_post_sale_type
+
+        self.assertEqual(
+            detect_post_sale_type("Футболка вже у вас. Є розміри для заміни?"),
+            "exchange",
+        )
+
     def test_paid_customer_exchange_takes_priority_over_paid_waiting(self):
         from management.services.bot_sales_classifier import _interaction_type
 
