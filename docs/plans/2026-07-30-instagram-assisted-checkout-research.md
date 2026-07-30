@@ -288,8 +288,9 @@ claimed unless Meta accepts it.
 ## 9. Analytics findings and required semantics
 
 - `ViewContent`: first meaningful proposal render with real product IDs.
-- `InitiateCheckout`: first active checkout interaction, once per proposal
-  revision.
+- `InitiateCheckout`: first valid Continue-to-payment submit, once per clean
+  browser grant; render, focus, typing, validation failure, preload, and crawler
+  access emit none.
 - `AddPaymentInfo`: valid form submission and invoice creation, using the
   `PaymentAttempt` event ID in browser Pixel and CAPI.
 - `Purchase`: only after provider-verified success, using the deterministic
@@ -355,3 +356,30 @@ Before Task 1 code changes:
 - confirm the final migration dependencies;
 - verify production table engines read-only;
 - do not copy or overwrite another agent's uncommitted files.
+
+## 13. Second source-brief reconciliation
+
+A fresh line-by-line pass against the re-pasted original request added ten
+acceptance details that were previously implicit or too weakly assigned:
+
+1. Product discovery intent is owned by seeded prompt/playbook authorities, not
+   only a media transport parser; general UA/RU/EN requests show 3-4 catalog
+   images and one caption, while explicit link requests may return a product URL.
+2. T-shirt conversation order is fit first, exact product/fit size grid second,
+   size choice third; no proposal exists before resolution.
+3. The automated happy path proves zero manager task/alert and zero provider
+   call before valid website submit.
+4. Repeated payment intent after expiry issues a fresh proposal/token and never
+   revives an expired bearer token.
+5. Assisted full-payment receipt email is covered through PaymentAttempt, Order,
+   verified delivery, forwarded payer, and crash recovery.
+6. The delivered message first asks whether everything arrived correctly and
+   whether the customer liked the order, then asks for a review/story tag.
+7. Telegram delivered alerts and Instagram review lifecycle are independent
+   channels with independent success/failure evidence.
+8. Mobile sticky CTA behavior includes safe-area padding and focused-field
+   occlusion checks at the smallest target viewports.
+9. Cancelled, failed, unavailable, and cancellation-ambiguous states have
+   explicit render and Playwright contracts with invalid actions suppressed.
+10. `InitiateCheckout` occurs on the first valid payment submit, matching the
+    requested funnel boundary, rather than on initial form interaction.

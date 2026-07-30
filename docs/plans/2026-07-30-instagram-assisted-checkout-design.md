@@ -371,6 +371,9 @@ Price summary
 - Verified success uses a short check-draw transition.
 - No infinite shimmer or autonomous motion.
 - `prefers-reduced-motion: reduce` removes all nonessential animation.
+- The mobile sticky action includes `env(safe-area-inset-bottom)` and terminal
+  scroll padding so the CTA never covers a focused field, its error text, or the
+  last product row when the software keyboard is open.
 
 ### Accessibility and resilience
 
@@ -449,7 +452,7 @@ after process loss.
 | Event | Trigger | Browser | Server | Event ID |
 | --- | --- | --- | --- | --- |
 | `ViewContent` | meaningful clean proposal render | Pixel | optional CAPI beacon | proposal/revision/grant HMAC |
-| `InitiateCheckout` | first form interaction per grant | Pixel | CAPI beacon | proposal/revision/grant HMAC |
+| `InitiateCheckout` | first valid Continue-to-payment submit per grant | Pixel | CAPI beacon | proposal/revision/grant HMAC |
 | `AddPaymentInfo` | valid invoice creation | Pixel before redirect | CAPI | PaymentAttempt ID |
 | `Purchase` | verified success only | verified success page | CAPI after materialization | Order ID |
 
@@ -457,6 +460,8 @@ Additional rules:
 
 - Pixel and CAPI share the same deterministic event ID only for the same event
   occurrence. Separate forwarded grants get separate ViewContent/Initiate IDs.
+- Render, focus, typing, validation failure, preload, and crawler access emit no
+  `InitiateCheckout`. Repeated valid submits reuse the same grant event ID.
 - Browser tracking never receives the bearer token or unmasked Instagram data.
 - `utm_source=instagram`, `utm_medium=direct`, and a stable assisted-checkout
   campaign are stored server-side.
@@ -477,7 +482,9 @@ The prompt and playbooks must instruct the bot to:
 1. Detect concrete purchase intent such as `How can I pay?`.
 2. Resolve the exact product(s) from current commercial context.
 3. Ask only missing color, fit, size, or quantity.
-4. Provide the applicable size grid before finalizing T-shirt fit/size.
+4. For T-shirts, ask fit first, then send the exact product-and-fit-specific size
+   grid before asking size. Never use another product's grid or create a proposal
+   while fit/size remains unresolved.
 5. Emit strict controls only after all required choices are sellable.
 6. Create the proposal immediately without a redundant confirmation question.
 7. Send concise customer copy:
@@ -493,6 +500,9 @@ and I will update the proposal.
 
 ### Product discovery media
 
+- Bot playbooks and prompt authorities own this behavior, not only the transport
+  parser: general UA/RU/EN requests to show products emit media controls, while
+  an explicit request for a link may emit a catalog URL.
 - Prefer three or four real catalog/variant images when the customer asks to
   see available products.
 - Use a native supported Instagram media/carousel format when the active
@@ -532,9 +542,9 @@ Track it: <official Nova Poshta tracking URL>
 Triggered by canonical Nova Poshta delivery status:
 
 ```text
-Thank you for choosing TwoComms. We hope everything fits and you enjoy the
-order. If you have a minute, tag @twocomms in a story or send a short review -
-honest customer feedback helps us grow.
+Thank you for choosing TwoComms. Did everything arrive correctly, and did you
+like the order? If you have a minute, tag @twocomms in a story or send a short
+review - honest customer feedback helps us grow.
 ```
 
 Messages are localized to UA/RU/EN, deterministic, and idempotent. AI may adapt
@@ -582,7 +592,7 @@ Existing action/confirmed/all views remain intact.
 | --- | --- | --- |
 | Missing fit/size/color | no proposal | bot asks only missing option |
 | Product unpublished/out of stock | no invoice | proposal blocked, bot proposes correction |
-| Expired token | expired page | request a fresh proposal in Direct |
+| Expired token | expired page | repeated payment intent creates a fresh proposal/token automatically; never revive the old token |
 | Stale open revision | refresh transition | render latest revision |
 | Duplicate submit | same invoice | reuse locked PaymentAttempt |
 | Two payer browsers | first details win | second sees masked locked state |
@@ -595,6 +605,9 @@ Existing action/confirmed/all views remain intact.
 | Provider timeout during invoice create | ambiguous | reference lookup/reconcile; no blind second invoice |
 | Provider timeout after message send | ambiguous | no blind replay, manager review |
 | Payment reversal/refund | fulfillment blocked | existing reversal truth and review path |
+| Cancelled/failed attempt | terminal payment state | suppress payment CTA; show the correct Direct/retry path |
+| Product unavailable | unavailable proposal | suppress payment CTA; return to Direct for a corrected configuration |
+| Cancellation ambiguous | review state | suppress replacement/payment actions until provider truth resolves |
 
 ## 16. Security and privacy controls
 

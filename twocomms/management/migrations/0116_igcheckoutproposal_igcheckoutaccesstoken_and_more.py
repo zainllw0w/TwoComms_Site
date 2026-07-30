@@ -16,6 +16,13 @@ CHECKOUT_TABLES = (
     'management_iglifecycleevent',
 )
 
+CHECKOUT_TRIGGER_NAMES = (
+    'ig_chk_revision_no_update',
+    'ig_chk_revision_no_delete',
+    'ig_chk_lifecycle_no_delete',
+    'ig_chk_lifecycle_identity_no_update',
+)
+
 
 def convert_checkout_tables_to_innodb(apps, schema_editor):
     if schema_editor.connection.vendor != 'mysql':
@@ -35,7 +42,74 @@ def convert_checkout_tables_to_innodb(apps, schema_editor):
                 schema_editor.execute(f'ALTER TABLE {quote(table)} ENGINE=InnoDB')
 
 
+def drop_checkout_evidence_triggers(apps, schema_editor):
+    for name in CHECKOUT_TRIGGER_NAMES:
+        schema_editor.execute(f'DROP TRIGGER IF EXISTS {name}')
+
+
+def create_checkout_evidence_triggers(apps, schema_editor):
+    drop_checkout_evidence_triggers(apps, schema_editor)
+    vendor = schema_editor.connection.vendor
+    if vendor in {'mysql', 'mariadb'}:
+        schema_editor.execute(
+            "CREATE TRIGGER ig_chk_revision_no_update BEFORE UPDATE "
+            "ON management_igcheckoutrevision FOR EACH ROW "
+            "SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'IgCheckoutRevision is append-only'"
+        )
+        schema_editor.execute(
+            "CREATE TRIGGER ig_chk_revision_no_delete BEFORE DELETE "
+            "ON management_igcheckoutrevision FOR EACH ROW "
+            "SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'IgCheckoutRevision is append-only'"
+        )
+        schema_editor.execute(
+            "CREATE TRIGGER ig_chk_lifecycle_no_delete BEFORE DELETE "
+            "ON management_iglifecycleevent FOR EACH ROW "
+            "SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'IgLifecycleEvent is durable'"
+        )
+        schema_editor.execute(
+            "CREATE TRIGGER ig_chk_lifecycle_identity_no_update BEFORE UPDATE "
+            "ON management_iglifecycleevent FOR EACH ROW BEGIN "
+            "IF NOT (OLD.event_key <=> NEW.event_key) OR OLD.kind <> NEW.kind "
+            "OR OLD.client_id <> NEW.client_id OR OLD.deal_id <> NEW.deal_id "
+            "OR OLD.proposal_id <> NEW.proposal_id OR OLD.order_id <> NEW.order_id "
+            "OR OLD.commercial_episode_id <> NEW.commercial_episode_id "
+            "OR OLD.attribution_id <> NEW.attribution_id OR OLD.locale <> NEW.locale "
+            "OR NOT (OLD.payload <=> NEW.payload) THEN "
+            "SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'IgLifecycleEvent identity is immutable'; "
+            "END IF; END"
+        )
+    elif vendor == 'sqlite':
+        schema_editor.execute(
+            "CREATE TRIGGER ig_chk_revision_no_update BEFORE UPDATE "
+            "ON management_igcheckoutrevision BEGIN SELECT RAISE(ABORT, "
+            "'IgCheckoutRevision is append-only'); END"
+        )
+        schema_editor.execute(
+            "CREATE TRIGGER ig_chk_revision_no_delete BEFORE DELETE "
+            "ON management_igcheckoutrevision BEGIN SELECT RAISE(ABORT, "
+            "'IgCheckoutRevision is append-only'); END"
+        )
+        schema_editor.execute(
+            "CREATE TRIGGER ig_chk_lifecycle_no_delete BEFORE DELETE "
+            "ON management_iglifecycleevent BEGIN SELECT RAISE(ABORT, "
+            "'IgLifecycleEvent is durable'); END"
+        )
+        schema_editor.execute(
+            "CREATE TRIGGER ig_chk_lifecycle_identity_no_update BEFORE UPDATE "
+            "ON management_iglifecycleevent WHEN OLD.event_key IS NOT NEW.event_key "
+            "OR OLD.kind IS NOT NEW.kind OR OLD.client_id IS NOT NEW.client_id "
+            "OR OLD.deal_id IS NOT NEW.deal_id OR OLD.proposal_id IS NOT NEW.proposal_id "
+            "OR OLD.order_id IS NOT NEW.order_id "
+            "OR OLD.commercial_episode_id IS NOT NEW.commercial_episode_id "
+            "OR OLD.attribution_id IS NOT NEW.attribution_id OR OLD.locale IS NOT NEW.locale "
+            "OR OLD.payload IS NOT NEW.payload BEGIN SELECT RAISE(ABORT, "
+            "'IgLifecycleEvent identity is immutable'); END"
+        )
+
+
 class Migration(migrations.Migration):
+
+    atomic = False
 
     dependencies = [
         ('management', '0115_ig_inbox_refresh_runs'),
@@ -65,6 +139,7 @@ class Migration(migrations.Migration):
                 ('viewed_at', models.DateTimeField(blank=True, null=True)),
                 ('details_locked_at', models.DateTimeField(blank=True, null=True)),
                 ('invoice_cancelled_at', models.DateTimeField(blank=True, null=True)),
+                ('provider_cancellation_event', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='cancelled_checkout_proposals', to='management.igpaymentevent')),
                 ('paid_at', models.DateTimeField(blank=True, null=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True, db_index=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
@@ -121,8 +196,8 @@ class Migration(migrations.Migration):
                 ('position', models.PositiveIntegerField(default=0)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('color_variant', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='instagram_checkout_items', to='productcolors.productcolorvariant')),
-                ('product', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='instagram_checkout_items', to='storefront.product')),
+                ('color_variant', models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='instagram_checkout_items', to='productcolors.productcolorvariant')),
+                ('product', models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='instagram_checkout_items', to='storefront.product')),
                 ('proposal', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='items', to='management.igcheckoutproposal')),
             ],
             options={
@@ -142,8 +217,8 @@ class Migration(migrations.Migration):
                 ('release_reason', models.CharField(blank=True, default='', max_length=128)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('color_variant', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='instagram_checkout_reservations', to='productcolors.productcolorvariant')),
-                ('product', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='instagram_checkout_reservations', to='storefront.product')),
+                ('color_variant', models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='instagram_checkout_reservations', to='productcolors.productcolorvariant')),
+                ('product', models.ForeignKey(db_constraint=False, on_delete=django.db.models.deletion.PROTECT, related_name='instagram_checkout_reservations', to='storefront.product')),
                 ('proposal', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='inventory_reservations', to='management.igcheckoutproposal')),
                 ('item', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='inventory_reservations', to='management.igcheckoutproposalitem')),
             ],
@@ -183,11 +258,11 @@ class Migration(migrations.Migration):
                 ('completed_at', models.DateTimeField(blank=True, null=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True, db_index=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
-                ('attribution', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='lifecycle_events', to='management.igorderattribution')),
+                ('attribution', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='lifecycle_events', to='management.igorderattribution')),
                 ('client', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='lifecycle_events', to='management.igclient')),
                 ('commercial_episode', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='lifecycle_events', to='management.igcommercialepisode')),
                 ('deal', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='lifecycle_events', to='management.igdeal')),
-                ('order', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, related_name='instagram_lifecycle_events', to='orders.order')),
+                ('order', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='instagram_lifecycle_events', to='orders.order')),
                 ('proposal', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='lifecycle_events', to='management.igcheckoutproposal')),
             ],
             options={
@@ -225,6 +300,14 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name='igcheckoutproposal',
             constraint=models.CheckConstraint(condition=models.Q(('revision__gte', 1)), name='ig_prop_revision_positive'),
+        ),
+        migrations.AddConstraint(
+            model_name='igcheckoutproposal',
+            constraint=models.CheckConstraint(condition=models.Q(('status', 'superseded'), ('superseded_by__isnull', False)) | ~models.Q(('status', 'superseded')), name='ig_prop_superseded_link'),
+        ),
+        migrations.AddConstraint(
+            model_name='igcheckoutproposal',
+            constraint=models.CheckConstraint(condition=~models.Q(('status', 'paid'), ('superseded_by__isnull', False)), name='ig_prop_paid_not_superseded'),
         ),
         migrations.AddIndex(
             model_name='igcheckoutaccesstoken',
@@ -277,5 +360,9 @@ class Migration(migrations.Migration):
         migrations.RunPython(
             convert_checkout_tables_to_innodb,
             migrations.RunPython.noop,
+        ),
+        migrations.RunPython(
+            create_checkout_evidence_triggers,
+            drop_checkout_evidence_triggers,
         ),
     ]

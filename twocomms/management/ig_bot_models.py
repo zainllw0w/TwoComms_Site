@@ -1265,6 +1265,41 @@ def default_checkout_proposal_expiry():
 
 
 class IgCheckoutProposalQuerySet(models.QuerySet):
+    _PROTECTED_UPDATE_FIELDS = {
+        "client",
+        "client_id",
+        "deal",
+        "deal_id",
+        "commercial_episode",
+        "commercial_episode_id",
+        "status",
+        "revision",
+        "catalog_total",
+        "negotiated_discount",
+        "quoted_total",
+        "requested_payment_amount",
+        "pay_type",
+        "allow_promo",
+        "items_digest",
+        "expires_at",
+        "details_locked_at",
+        "invoice_cancelled_at",
+        "provider_cancellation_event",
+        "provider_cancellation_event_id",
+        "paid_at",
+        "payment_attempt",
+        "payment_attempt_id",
+        "superseded_by",
+        "superseded_by_id",
+    }
+
+    def update(self, **kwargs):
+        if self._PROTECTED_UPDATE_FIELDS.intersection(kwargs):
+            raise ValueError(
+                "Instagram checkout proposal state requires a locked transition service"
+            )
+        return super().update(**kwargs)
+
     def delete(self):
         raise ValueError("IgCheckoutProposal financial evidence cannot be deleted")
 
@@ -1318,7 +1353,29 @@ class IgCheckoutProposalManager(models.Manager.from_queryset(IgCheckoutProposalQ
             raise ValidationError("A paid proposal cannot be superseded")
         if current.status == current.Status.INVOICE_CREATED:
             raise ValidationError("A payable or ambiguous invoice cannot be replaced")
-        if current.status != current.Status.CANCELLED or not current.invoice_cancelled_at:
+        attempt = None
+        event = None
+        projection = None
+        if current.payment_attempt_id:
+            from orders.models import PaymentAttempt
+
+            attempt = PaymentAttempt.objects.select_for_update().get(
+                pk=current.payment_attempt_id
+            )
+        if current.provider_cancellation_event_id:
+            event = IgPaymentEvent.objects.select_for_update().get(
+                pk=current.provider_cancellation_event_id
+            )
+            projection = (
+                IgPaymentProjection.objects.select_for_update()
+                .filter(deal_id=deal.pk)
+                .first()
+            )
+        if not current.has_provider_confirmed_cancellation(
+            attempt=attempt,
+            event=event,
+            projection=projection,
+        ):
             raise ValidationError("The current proposal is not provider-confirmed cancelled")
 
         values = self._proposal_values(deal=deal, **values)
@@ -1396,6 +1453,13 @@ class IgCheckoutProposal(models.Model):
     viewed_at = models.DateTimeField(null=True, blank=True)
     details_locked_at = models.DateTimeField(null=True, blank=True)
     invoice_cancelled_at = models.DateTimeField(null=True, blank=True)
+    provider_cancellation_event = models.ForeignKey(
+        "management.IgPaymentEvent",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="cancelled_checkout_proposals",
+    )
     paid_at = models.DateTimeField(null=True, blank=True)
     payment_attempt = models.OneToOneField(
         "orders.PaymentAttempt",
@@ -1444,6 +1508,17 @@ class IgCheckoutProposal(models.Model):
                 condition=models.Q(revision__gte=1),
                 name="ig_prop_revision_positive",
             ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(status="superseded", superseded_by__isnull=False)
+                    | ~models.Q(status="superseded")
+                ),
+                name="ig_prop_superseded_link",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(status="paid", superseded_by__isnull=False),
+                name="ig_prop_paid_not_superseded",
+            ),
         ]
 
     def __str__(self):  # pragma: no cover - trivial representation
@@ -1452,6 +1527,63 @@ class IgCheckoutProposal(models.Model):
     @property
     def is_expired(self):
         return self.expires_at <= timezone.now()
+
+    def has_provider_confirmed_cancellation(
+        self,
+        *,
+        attempt=None,
+        event=None,
+        projection=None,
+    ):
+        if self.status != self.Status.CANCELLED or not self.invoice_cancelled_at:
+            return False
+        attempt = attempt or self.payment_attempt
+        event = event or self.provider_cancellation_event
+        if attempt is None or attempt.order_id or self.deal.order_id:
+            return False
+        if event is None:
+            return False
+        if event.deal_id != self.deal_id or event.client_id != self.client_id:
+            return False
+        invoice_id = str(attempt.monobank_invoice_id or "").strip()
+        status = str(event.provider_status or "").strip().lower()
+        if not invoice_id or event.provider != "monobank":
+            return False
+        if str(event.invoice_id or "").strip() != invoice_id:
+            return False
+        if str(event.source or "").strip().lower() not in {
+            "provider",
+            "provider_pull",
+            "provider_webhook",
+            "signed_webhook",
+            "webhook",
+            "poll",
+        }:
+            return False
+        expected_attempt_status = {
+            "cancelled": attempt.Status.CANCELLED,
+            "canceled": attempt.Status.CANCELLED,
+            "expired": attempt.Status.EXPIRED,
+            "failure": attempt.Status.FAILED,
+            "rejected": attempt.Status.FAILED,
+        }.get(status)
+        if expected_attempt_status is None or attempt.status != expected_attempt_status:
+            return False
+        projection = projection
+        if projection is None:
+            try:
+                projection = self.deal.payment_projection
+            except IgPaymentProjection.DoesNotExist:
+                return False
+        expected_truth = (
+            self.deal.PaymentTruth.CANCELLED
+            if expected_attempt_status in {attempt.Status.CANCELLED, attempt.Status.EXPIRED}
+            else self.deal.PaymentTruth.FAILED
+        )
+        return (
+            projection.last_event_id == event.pk
+            and projection.truth == expected_truth
+        )
 
     def clean(self):
         errors = {}
@@ -1491,13 +1623,44 @@ class IgCheckoutProposal(models.Model):
     def save(self, *args, **kwargs):
         if self.pk:
             previous = type(self).objects.filter(pk=self.pk).values(
-                "status", "superseded_by_id"
+                "client_id",
+                "deal_id",
+                "commercial_episode_id",
+                "status",
+                "revision",
+                "catalog_total",
+                "negotiated_discount",
+                "quoted_total",
+                "requested_payment_amount",
+                "pay_type",
+                "allow_promo",
+                "items_digest",
+                "expires_at",
+                "details_locked_at",
+                "invoice_cancelled_at",
+                "provider_cancellation_event_id",
+                "paid_at",
+                "payment_attempt_id",
+                "superseded_by_id",
             ).first()
-            if previous and previous["status"] == self.Status.PAID:
-                next_status = self.status
-                next_replacement = self.superseded_by_id
-                if next_status != self.Status.PAID or next_replacement:
+            if previous:
+                if previous["status"] == self.Status.PAID:
+                    protected = {
+                        field: getattr(self, field)
+                        for field in (
+                            "client_id", "deal_id", "commercial_episode_id", "revision",
+                            "catalog_total", "negotiated_discount", "quoted_total",
+                            "requested_payment_amount", "pay_type", "allow_promo",
+                            "items_digest", "expires_at", "details_locked_at",
+                            "invoice_cancelled_at", "provider_cancellation_event_id",
+                            "payment_attempt_id", "superseded_by_id",
+                        )
+                    }
+                    if any(protected[field] != previous[field] for field in protected):
+                        raise ValidationError("A paid proposal financial/state record is immutable")
+                if previous["status"] == self.Status.PAID and self.status != self.Status.PAID:
                     raise ValidationError("A paid proposal cannot be superseded")
+        self.full_clean()
         return super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
@@ -1516,6 +1679,7 @@ class IgCheckoutProposalItem(models.Model):
         blank=True,
         on_delete=models.PROTECT,
         related_name="instagram_checkout_items",
+        db_constraint=False,
     )
     color_variant = models.ForeignKey(
         "productcolors.ProductColorVariant",
@@ -1523,6 +1687,7 @@ class IgCheckoutProposalItem(models.Model):
         blank=True,
         on_delete=models.PROTECT,
         related_name="instagram_checkout_items",
+        db_constraint=False,
     )
     product_title = models.CharField(max_length=255)
     sku = models.CharField(max_length=128, blank=True, default="")
@@ -1676,6 +1841,7 @@ class IgCheckoutInventoryReservation(models.Model):
         "storefront.Product",
         on_delete=models.PROTECT,
         related_name="instagram_checkout_reservations",
+        db_constraint=False,
     )
     color_variant = models.ForeignKey(
         "productcolors.ProductColorVariant",
@@ -1683,6 +1849,7 @@ class IgCheckoutInventoryReservation(models.Model):
         blank=True,
         on_delete=models.PROTECT,
         related_name="instagram_checkout_reservations",
+        db_constraint=False,
     )
     quantity = models.PositiveIntegerField()
     reservation_fingerprint = models.CharField(max_length=64, unique=True)
@@ -1710,6 +1877,35 @@ class IgCheckoutInventoryReservation(models.Model):
                 name="ig_res_qty_positive",
             ),
         ]
+
+
+class _IgLifecycleEventQuerySet(models.QuerySet):
+    _IDENTITY_FIELDS = {
+        "event_key",
+        "kind",
+        "client",
+        "client_id",
+        "deal",
+        "deal_id",
+        "proposal",
+        "proposal_id",
+        "order",
+        "order_id",
+        "commercial_episode",
+        "commercial_episode_id",
+        "attribution",
+        "attribution_id",
+        "locale",
+        "payload",
+    }
+
+    def update(self, **kwargs):
+        if self._IDENTITY_FIELDS.intersection(kwargs):
+            raise ValueError("IgLifecycleEvent identity is immutable")
+        return super().update(**kwargs)
+
+    def delete(self):
+        raise ValueError("IgLifecycleEvent is durable")
 
 
 class IgLifecycleEvent(models.Model):
@@ -1750,8 +1946,6 @@ class IgLifecycleEvent(models.Model):
     )
     order = models.ForeignKey(
         "orders.Order",
-        null=True,
-        blank=True,
         on_delete=models.PROTECT,
         related_name="instagram_lifecycle_events",
     )
@@ -1762,8 +1956,6 @@ class IgLifecycleEvent(models.Model):
     )
     attribution = models.ForeignKey(
         "management.IgOrderAttribution",
-        null=True,
-        blank=True,
         on_delete=models.PROTECT,
         related_name="lifecycle_events",
     )
@@ -1785,6 +1977,8 @@ class IgLifecycleEvent(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    objects = models.Manager.from_queryset(_IgLifecycleEventQuerySet)()
+
     class Meta:
         ordering = ["due_at", "id"]
         indexes = [
@@ -1804,17 +1998,60 @@ class IgLifecycleEvent(models.Model):
                 errors["proposal"] = "Lifecycle proposal must belong to the deal"
             if self.proposal.commercial_episode_id != self.commercial_episode_id:
                 errors["commercial_episode"] = "Lifecycle episode must match proposal"
-        if self.order_id and not self.attribution_id:
-            errors["attribution"] = "Order-bound lifecycle event requires attribution"
-        if self.attribution_id:
+            if not self.proposal.payment_attempt_id:
+                errors["proposal"] = "Lifecycle proposal requires a payment attempt"
+            elif self.proposal.payment_attempt.order_id != self.order_id:
+                errors["order"] = "Lifecycle order must match proposal payment attempt"
+        if not self.order_id:
+            errors["order"] = "Lifecycle event requires an order"
+        if not self.attribution_id:
+            errors["attribution"] = "Lifecycle event requires exact attribution"
+        if self.attribution_id and self.order_id:
             if self.attribution.order_id != self.order_id:
                 errors["attribution"] = "Attribution must belong to the lifecycle order"
             if self.attribution.client_id != self.client_id:
                 errors["attribution"] = "Attribution must belong to the lifecycle client"
-            if self.attribution.deal_id and self.attribution.deal_id != self.deal_id:
+            if self.attribution.deal_id != self.deal_id:
                 errors["attribution"] = "Attribution must belong to the lifecycle deal"
         if errors:
             raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            previous = type(self).objects.filter(pk=self.pk).values(
+                "event_key",
+                "kind",
+                "client_id",
+                "deal_id",
+                "proposal_id",
+                "order_id",
+                "commercial_episode_id",
+                "attribution_id",
+                "locale",
+                "payload",
+            ).first()
+            if previous:
+                for field_name in (
+                    "event_key",
+                    "kind",
+                    "client_id",
+                    "deal_id",
+                    "proposal_id",
+                    "order_id",
+                    "commercial_episode_id",
+                    "attribution_id",
+                    "locale",
+                    "payload",
+                ):
+                    if getattr(self, field_name) != previous[field_name]:
+                        raise ValidationError("IgLifecycleEvent identity is immutable")
+        # Leave uniqueness enforcement to the database so duplicate event
+        # delivery raises IntegrityError and remains transaction-safe.
+        self.full_clean(validate_unique=False)
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgLifecycleEvent is durable")
 
 
 class IgPostSaleCase(models.Model):
