@@ -7,7 +7,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("management", "0115_ig_inbox_refresh_runs"),
+        ("management", "0116_igcheckoutproposal_igcheckoutaccesstoken_and_more"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
