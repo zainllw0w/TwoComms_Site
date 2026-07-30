@@ -216,12 +216,7 @@ def _parse_meta_signed_request(signed_request: str) -> dict:
     if not encoded_sig or not encoded_payload:
         return {}
 
-    app_secret = (
-        os.environ.get("FACEBOOK_APP_SECRET")
-        or getattr(settings, "FACEBOOK_APP_SECRET", "")
-        or os.environ.get("IG_APP_SECRET")
-        or getattr(settings, "IG_APP_SECRET", "")
-    )
+    app_secret = bot.parent_meta_app_secret()
     # This callback is public and can create compliance/audit records.  Never
     # accept an unsigned request when the production secret is missing.
     if not app_secret:
@@ -3114,7 +3109,7 @@ def bot_client_hide_api(request, client_id):
         return blocked
     from django.utils import timezone
 
-    from .models import IgClient, InstagramBotMessage
+    from .models import IgClient, IgPollCursor, InstagramBotMessage
     from .services import bot_followups
 
     with transaction.atomic():
@@ -3139,6 +3134,12 @@ def bot_client_hide_api(request, client_id):
             "automation_lease_token", "automation_lease_until",
             "hidden_at", "reply_permission_epoch", "hidden_reason", "updated_at",
         ])
+        IgPollCursor.objects.filter(participant_igsid=c.igsid).update(
+            excluded_at=now,
+            excluded_reason="client_hidden",
+            next_attempt_at=None,
+            updated_at=now,
+        )
         cancelled_followups = bot_followups.cancel_pending(c, reason="hidden")
         # Не залишаємо legacy pending rows, які могли потрапити в чергу до
         # натискання Hide: після успішного Hide вони не мають чекати worker-а.
@@ -3170,7 +3171,7 @@ def bot_client_unhide_api(request, client_id):
     blocked = _require_bot_json(request)
     if blocked:
         return blocked
-    from .models import IgClient
+    from .models import IgClient, IgPollCursor
 
     with transaction.atomic():
         c = IgClient.objects.select_for_update().filter(id=client_id).first()
@@ -3182,6 +3183,18 @@ def bot_client_unhide_api(request, client_id):
         c.save(update_fields=[
             "hidden_at", "reply_permission_epoch", "hidden_reason", "updated_at",
         ])
+        IgPollCursor.objects.filter(
+            participant_igsid=c.igsid,
+            excluded_reason="client_hidden",
+        ).update(
+            excluded_at=None,
+            excluded_reason="",
+            synced_provider_updated_at=None,
+            next_attempt_at=None,
+            failure_count=0,
+            last_error="",
+            updated_at=timezone.now(),
+        )
     return JsonResponse({
         "success": True,
         "hidden": False,

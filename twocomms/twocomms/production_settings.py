@@ -12,15 +12,17 @@ except Exception:
     def load_dotenv(*args, **kwargs):
         return False
 
-# Загрузим переменные окружения из файла репозитория ДО импортирования базовых настроек.
-# Приоритет: DJANGO_ENV_FILE -> .env.production -> .env
+# Загрузим отсутствующие переменные из приватного env-файла ДО импортирования
+# базовых настроек. Переменные процесса (в частности, cPanel) авторитетны:
+# env-файл служит только fallback и не должен незаметно перезаписывать их.
+# Приоритет файлов: DJANGO_ENV_FILE -> .env.production -> .env.
 BASE_DIR = Path(__file__).resolve().parent.parent
 _explicit_env_file = os.environ.get('DJANGO_ENV_FILE')
 _loaded_env = False
 if _explicit_env_file:
     explicit_path = Path(_explicit_env_file)
     if explicit_path.exists():
-        load_dotenv(explicit_path, override=True)
+        load_dotenv(explicit_path, override=False)
         _loaded_env = True
 
 if not _loaded_env:
@@ -31,7 +33,7 @@ if not _loaded_env:
         BASE_DIR.parent / ".env",
     ):
         if candidate.exists():
-            load_dotenv(candidate, override=True)
+            load_dotenv(candidate, override=False)
             os.environ['DJANGO_ENV_FILE'] = str(candidate)
             break
 

@@ -2,6 +2,7 @@
 дубль замовлення, safety-net створення замовлення.
 """
 import json
+from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -9,7 +10,13 @@ from django.core.cache import cache
 from django.test import TestCase
 from django.utils import timezone
 
-from management.models import IgClient, IgDeal, IgDealItem, InstagramBotSettings
+from management.models import (
+    IgClient,
+    IgDeal,
+    IgDealItem,
+    IgFollowUpTask,
+    InstagramBotSettings,
+)
 from management.services import bot_orders
 from management.services import instagram_bot as bot
 from storefront.models import UserAction
@@ -87,6 +94,406 @@ class SendApiErrorClassificationTests(TestCase):
 
         self.assertEqual(kind, "permanent")
         self.assertIn("24-годинне", hint)
+
+    def test_2534122_is_link_restriction_not_advanced_access(self):
+        body = json.dumps({
+            "error": {
+                "code": 508,
+                "error_subcode": 2534122,
+                "message": "The message could not be sent at this time.",
+            }
+        })
+
+        kind, hint = bot._classify_send_error(400, body)
+
+        self.assertEqual(kind, "link_restricted")
+        self.assertIn("тимчас", hint.lower())
+        self.assertNotIn("Advanced Access", hint)
+        self.assertNotIn("нерольов", hint)
+
+    def test_2534122_special_classification_requires_http_400(self):
+        body = json.dumps({
+            "error": {
+                "code": 508,
+                "error_subcode": 2534122,
+                "message": "Invalid message id",
+            }
+        })
+
+        kind, hint = bot._classify_send_error(403, body)
+
+        self.assertEqual(kind, "permanent")
+        self.assertNotIn("тимчасово обмежив надсилання посилань", hint)
+
+    def test_only_advanced_access_failure_claims_non_role_permission_problem(self):
+        generic = bot._permanent_send_alert_text(
+            "відмова Graph API (code 100)",
+            graph_subcode=0,
+        )
+        advanced = bot._permanent_send_alert_text(
+            "Meta відхилила нерольового отримувача",
+            graph_subcode=bot.ADVANCED_ACCESS_SUBCODE,
+        )
+
+        self.assertNotIn("нерольов", generic)
+        self.assertNotIn("Advanced Access", generic)
+        self.assertIn("Advanced Access", advanced)
+
+
+class SendApiBoundedRetryTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.settings = InstagramBotSettings.load()
+        self.settings.is_enabled = True
+        self.settings.ai_enabled = False
+        self.settings.trigger_text = "hello"
+        self.settings.reply_text = "Ось рожеве худі: https://twocomms.shop/product/pink-hoodie/"
+        self.settings.save()
+        self.client = IgClient.get_or_create_for_sender("retry-2534122")
+        self.error_body = json.dumps({
+            "error": {
+                "code": 508,
+                "error_subcode": 2534122,
+                "message": "Invalid message id",
+            }
+        })
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.instagram_bot._provider_account_id", return_value="ig-account")
+    @patch("management.services.instagram_bot.get_page_token", return_value="PT")
+    @patch("management.services.instagram_bot._provider_http")
+    def test_definite_2534122_link_rejection_retries_once_without_url(
+        self, provider_http, _token, _account, notify_manager
+    ):
+        provider_http.side_effect = [(400, self.error_body), (200, "{}")]
+
+        ok, kind, delivered_text = bot.send_text(
+            self.settings,
+            self.client.igsid,
+            self.settings.reply_text,
+            allow_url_fallback=True,
+        )
+
+        self.assertTrue(ok)
+        self.assertEqual(kind, "degraded_link_restriction")
+        self.assertNotIn("https://", delivered_text)
+        self.assertIn("рожеве худі", delivered_text)
+        self.assertEqual(provider_http.call_count, 2)
+        first_payload = json.loads(provider_http.call_args_list[0].kwargs["data"])
+        fallback_payload = json.loads(provider_http.call_args_list[1].kwargs["data"])
+        self.assertIn("https://", first_payload["message"]["text"])
+        self.assertNotIn("https://", fallback_payload["message"]["text"])
+        self.assertNotIn("Advanced Access", str(notify_manager.call_args))
+        self.settings.refresh_from_db()
+        self.assertGreater(self.settings.link_send_blocked_until, timezone.now())
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.instagram_bot._provider_account_id", return_value="ig-account")
+    @patch("management.services.instagram_bot.get_page_token", return_value="PT")
+    @patch("management.services.instagram_bot._provider_http")
+    def test_2534122_plain_text_fallback_is_bounded_to_one_attempt(
+        self, provider_http, _token, _account, notify_manager
+    ):
+        provider_http.return_value = (400, self.error_body)
+
+        ok, kind, hint = bot.send_text(
+            self.settings,
+            self.client.igsid,
+            self.settings.reply_text,
+            allow_url_fallback=True,
+        )
+
+        self.assertFalse(ok)
+        self.assertEqual(kind, "permanent")
+        self.assertEqual(provider_http.call_count, 2)
+        self.assertNotIn("Advanced Access", hint)
+        self.assertNotIn("нерольов", hint)
+        self.assertNotIn("Advanced Access", str(notify_manager.call_args))
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.instagram_bot._provider_account_id", return_value="ig-account")
+    @patch("management.services.instagram_bot.get_page_token", return_value="PT")
+    @patch("management.services.instagram_bot._provider_http", return_value=(200, "{}"))
+    def test_active_link_circuit_breaker_sends_plain_text_without_link_probe(
+        self, provider_http, _token, _account, _notify_manager
+    ):
+        self.settings.link_send_blocked_until = timezone.now() + timedelta(hours=12)
+        self.settings.save(update_fields=["link_send_blocked_until"])
+
+        ok, kind, delivered_text = bot.send_text(
+            self.settings,
+            self.client.igsid,
+            self.settings.reply_text,
+            allow_url_fallback=True,
+        )
+
+        self.assertTrue(ok)
+        self.assertEqual(kind, "degraded_link_restriction")
+        self.assertNotIn("https://", delivered_text)
+        self.assertEqual(provider_http.call_count, 1)
+        payload = json.loads(provider_http.call_args.kwargs["data"])
+        self.assertNotIn("https://", payload["message"]["text"])
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.instagram_bot._provider_account_id", return_value="ig-account")
+    @patch("management.services.instagram_bot.get_page_token", return_value="PT")
+    @patch("management.services.instagram_bot._provider_http", return_value=(200, "{}"))
+    def test_active_catalog_circuit_never_preempts_fail_closed_payment_probe(
+        self, provider_http, _token, _account, _notify_manager
+    ):
+        self.settings.link_send_blocked_until = timezone.now() + timedelta(hours=12)
+        self.settings.save(update_fields=["link_send_blocked_until"])
+        payment_reply = "Оплата: https://pay.example/invoice/critical"
+
+        ok, kind, _hint = bot.send_text(
+            self.settings,
+            self.client.igsid,
+            payment_reply,
+            allow_url_fallback=False,
+        )
+
+        self.assertTrue(ok)
+        self.assertEqual(kind, "")
+        self.assertEqual(provider_http.call_count, 1)
+        payload = json.loads(provider_http.call_args.kwargs["data"])
+        self.assertIn("https://pay.example/invoice/critical", payload["message"]["text"])
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.instagram_bot._provider_account_id", return_value="ig-account")
+    @patch("management.services.instagram_bot.get_page_token", return_value="PT")
+    @patch("management.services.instagram_bot._provider_http")
+    def test_plain_text_2534122_does_not_open_link_circuit_or_retry(
+        self, provider_http, _token, _account, _notify_manager
+    ):
+        provider_http.return_value = (400, self.error_body)
+
+        ok, kind, hint = bot.send_text(
+            self.settings,
+            self.client.igsid,
+            "Звичайна відповідь без посилання",
+            allow_url_fallback=True,
+        )
+
+        self.assertFalse(ok)
+        self.assertEqual(kind, "permanent")
+        self.assertEqual(provider_http.call_count, 1)
+        self.settings.refresh_from_db()
+        self.assertIsNone(self.settings.link_send_blocked_until)
+        self.assertNotIn("Advanced Access", hint)
+
+    def test_real_payment_url_never_allows_linkless_fallback(self):
+        reply = "Дякую! 💳 Посилання на оплату: https://pay.mbnk.biz/example"
+
+        self.assertFalse(bot._allows_linkless_fallback(reply, {}))
+
+    def test_persisted_generic_invoice_url_never_allows_linkless_fallback(self):
+        deal = IgDeal.objects.create(
+            client=self.client,
+            invoice_id="generic-invoice",
+            invoice_url="https://pay.example/invoice/generic",
+        )
+        reply = f"Дякую! Оплатити можна тут: {deal.invoice_url}"
+
+        self.assertFalse(bot._allows_linkless_fallback(reply, {}, self.client))
+
+    @patch("management.services.instagram_bot.notify_manager")
+    def test_blocked_invoices_create_distinct_deal_bound_manager_tasks(
+        self, notify_manager
+    ):
+        first = IgDeal.objects.create(
+            client=self.client,
+            invoice_id="invoice-one",
+            invoice_url="https://pay.example/invoice/one",
+        )
+        second = IgDeal.objects.create(
+            client=self.client,
+            invoice_id="invoice-two",
+            invoice_url="https://pay.example/invoice/two",
+        )
+
+        bot._queue_payment_link_delivery_review(
+            self.client,
+            f"Оплата: {first.invoice_url}",
+            "Instagram тимчасово обмежив надсилання посилань (code 508, subcode 2534122)",
+        )
+        bot._queue_payment_link_delivery_review(
+            self.client,
+            f"Оплата: {second.invoice_url}",
+            "Instagram тимчасово обмежив надсилання посилань (code 508, subcode 2534122)",
+        )
+
+        tasks = list(
+            IgFollowUpTask.objects.filter(
+                client=self.client,
+                reason="payment_link_delivery_review",
+            ).order_by("deal_id")
+        )
+        self.assertEqual(len(tasks), 2)
+        self.assertEqual({task.deal_id for task in tasks}, {first.pk, second.pk})
+        self.assertEqual(notify_manager.call_count, 2)
+
+    @patch("management.services.instagram_bot.notify_manager")
+    def test_replaced_invoice_on_same_deal_creates_distinct_manager_tasks(
+        self, notify_manager
+    ):
+        deal = IgDeal.objects.create(
+            client=self.client,
+            invoice_id="invoice-one",
+            invoice_url="https://pay.example/invoice/one",
+        )
+        first_reply = f"Оплата: {deal.invoice_url}"
+        hint = (
+            "Instagram тимчасово обмежив надсилання посилань "
+            "(code 508, subcode 2534122)"
+        )
+
+        bot._queue_payment_link_delivery_review(self.client, first_reply, hint)
+
+        deal.invoice_id = "invoice-two"
+        deal.invoice_url = "https://pay.example/invoice/two"
+        deal.save(update_fields=["invoice_id", "invoice_url", "updated_at"])
+        second_reply = f"Оплата: {deal.invoice_url}"
+        bot._queue_payment_link_delivery_review(self.client, second_reply, hint)
+
+        tasks = list(
+            IgFollowUpTask.objects.filter(
+                client=self.client,
+                deal=deal,
+                reason="payment_link_delivery_review",
+            ).order_by("id")
+        )
+        self.assertEqual(len(tasks), 2)
+        self.assertEqual(
+            {task.message_text for task in tasks},
+            {first_reply, second_reply},
+        )
+        dedupe_keys = [call.kwargs["dedupe_key"] for call in notify_manager.call_args_list]
+        self.assertEqual(len(dedupe_keys), 2)
+        self.assertEqual(len(set(dedupe_keys)), 2)
+
+    @patch("management.services.instagram_bot.notify_manager")
+    def test_payment_review_preserves_non_link_failure_reason(self, notify_manager):
+        deal = IgDeal.objects.create(
+            client=self.client,
+            invoice_id="advanced-access-invoice",
+            invoice_url="https://pay.example/invoice/advanced",
+        )
+        hint = (
+            "Meta відхилила нерольового отримувача: немає Advanced Access на "
+            "instagram_business_manage_messages"
+        )
+
+        bot._queue_payment_link_delivery_review(
+            self.client,
+            f"Оплата: {deal.invoice_url}",
+            hint,
+        )
+
+        task = IgFollowUpTask.objects.get(
+            client=self.client,
+            deal=deal,
+            reason="payment_link_delivery_review",
+        )
+        self.assertEqual(task.skip_reason, "meta_advanced_access")
+        self.assertNotIn("заблокувала доставку платіжного посилання", notify_manager.call_args.args[0])
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch("management.services.instagram_bot.send_text")
+    @patch("management.services.instagram_bot.finalize_paylink")
+    def test_blocked_payment_url_creates_client_scoped_manager_task(
+        self, finalize_paylink, send_text, _sender_action, _notify_manager
+    ):
+        payment_reply = "Дякую! 💳 Посилання на оплату: https://pay.mbnk.biz/example"
+        self.settings.reply_text = payment_reply
+        self.settings.save(update_fields=["reply_text"])
+        finalize_paylink.return_value = payment_reply
+        send_text.return_value = (
+            False,
+            "permanent",
+            "Instagram тимчасово блокує посилання",
+        )
+        row = bot.InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=bot.InstagramBotMessage.Role.USER,
+            text="hello",
+            status=bot.InstagramBotMessage.Status.PENDING,
+            source="webhook",
+        )
+
+        self.assertEqual(bot.process_pending(self.settings, max_items=1), 0)
+
+        row.refresh_from_db()
+        self.assertEqual(row.status, bot.InstagramBotMessage.Status.FAILED)
+        self.assertFalse(send_text.call_args.kwargs["allow_url_fallback"])
+        task = IgFollowUpTask.objects.get(
+            client=self.client,
+            kind=IgFollowUpTask.Kind.MANAGER_TASK,
+            reason="payment_link_delivery_review",
+        )
+        self.assertEqual(task.status, IgFollowUpTask.Status.SKIPPED)
+        self.assertIn("https://pay.mbnk.biz/example", task.message_text)
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch("management.services.instagram_bot.send_text")
+    def test_current_generic_failure_does_not_reuse_stale_advanced_access_subcode(
+        self, send_text, _sender_action, notify_manager
+    ):
+        self.client.delivery_graph_subcode = bot.ADVANCED_ACCESS_SUBCODE
+        self.client.save(update_fields=["delivery_graph_subcode", "updated_at"])
+        send_text.return_value = (False, "permanent", "поточна відмова Graph API")
+        bot.InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=bot.InstagramBotMessage.Role.USER,
+            text="hello",
+            status=bot.InstagramBotMessage.Status.PENDING,
+            source="webhook",
+        )
+
+        self.assertEqual(bot.process_pending(self.settings, max_items=1), 0)
+
+        alert_text = str(notify_manager.call_args.args[0])
+        self.assertNotIn("Advanced Access", alert_text)
+        self.assertNotIn("нерольов", alert_text)
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch("management.services.instagram_bot.send_text")
+    def test_worker_persists_the_plain_text_that_meta_actually_received(
+        self, send_text, _sender_action, _notify_manager
+    ):
+        delivered = "Ось рожеве худі. Можу допомогти з розміром."
+        send_text.return_value = (True, "degraded_link_restriction", delivered)
+        row = bot.InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=bot.InstagramBotMessage.Role.USER,
+            text="hello",
+            status=bot.InstagramBotMessage.Status.PENDING,
+            source="webhook",
+        )
+
+        self.assertEqual(bot.process_pending(self.settings, max_items=1), 1)
+
+        row.refresh_from_db()
+        self.assertEqual(row.status, bot.InstagramBotMessage.Status.DONE)
+        self.assertTrue(
+            bot.InstagramBotMessage.objects.filter(
+                client=self.client,
+                role=bot.InstagramBotMessage.Role.MODEL,
+                text=delivered,
+            ).exists()
+        )
+        self.assertFalse(
+            bot.InstagramBotMessage.objects.filter(
+                client=self.client,
+                role=bot.InstagramBotMessage.Role.MODEL,
+                text=self.settings.reply_text,
+            ).exists()
+        )
 
     @patch("management.services.instagram_bot.get_page_token", return_value="PT")
     @patch("management.services.instagram_bot._http")
@@ -224,6 +631,12 @@ class SafetyNetTests(TestCase):
             paid_at=timezone.now(),
             np_full_name=("Іван" if with_np else ""), np_phone=("0931112233" if with_np else ""),
             np_city=("Київ" if with_np else ""), np_office=("Відд 1" if with_np else ""),
+            np_settlement_ref=("settlement-ref" if with_np else ""),
+            np_city_ref=("city-ref" if with_np else ""),
+            np_warehouse_ref=("warehouse-ref" if with_np else ""),
+            delivery_status=(IgDeal.DeliveryStatus.VALIDATED if with_np else IgDeal.DeliveryStatus.UNVERIFIED),
+            delivery_source=("nova_poshta_directory" if with_np else ""),
+            delivery_verified_at=(timezone.now() if with_np else None),
         )
         IgDealItem.objects.create(deal=d, title="Худі", qty=1, unit_price=Decimal("950"))
         d.recalc_total()

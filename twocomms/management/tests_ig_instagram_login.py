@@ -136,7 +136,7 @@ class InstagramLoginTransportTests(SimpleTestCase):
         )
         http.assert_not_called()
 
-    def test_conversation_discovery_uses_instagram_account_without_platform(self):
+    def test_conversation_discovery_uses_instagram_account_metadata_without_platform(self):
         with patch.dict(
             os.environ,
             {"IG_INSTAGRAM_BOT": "instagram-user-token"},
@@ -147,7 +147,7 @@ class InstagramLoginTransportTests(SimpleTestCase):
         self.assertEqual(
             url,
             "https://graph.instagram.com/v25.0/17841467101471112/conversations"
-            "?fields=id&limit=2&after=CURSOR",
+            "?fields=id%2Cparticipants%2Cupdated_time&limit=50&after=CURSOR",
         )
         self.assertNotIn("platform=instagram", url)
 
@@ -327,3 +327,38 @@ class InstagramLoginWebhookSecretTests(SimpleTestCase):
             clear=True,
         ):
             self.assertFalse(bot.verify_signature(raw, f"sha256={digest}"))
+
+    def test_instagram_webhook_ignores_parent_and_legacy_secrets(self):
+        raw = b'{"object":"instagram","entry":[]}'
+        instagram_digest = hmac.new(
+            b"instagram-app-secret", raw, hashlib.sha256
+        ).hexdigest()
+        parent_digest = hmac.new(b"parent-meta-secret", raw, hashlib.sha256).hexdigest()
+        legacy_digest = hmac.new(b"legacy-meta-secret", raw, hashlib.sha256).hexdigest()
+
+        with patch.dict(
+            os.environ,
+            {
+                "IG_INSTAGRAM_BOT": "instagram-user-token",
+                "IG_APP_SECRET": "instagram-app-secret",
+                "META_APP_SECRET": "parent-meta-secret",
+                "FACEBOOK_APP_SECRET": "legacy-meta-secret",
+            },
+            clear=True,
+        ):
+            self.assertTrue(bot.verify_signature(raw, f"sha256={instagram_digest}"))
+            self.assertFalse(bot.verify_signature(raw, f"sha256={parent_digest}"))
+            self.assertFalse(bot.verify_signature(raw, f"sha256={legacy_digest}"))
+
+    def test_legacy_oauth_uses_parent_meta_secret(self):
+        with patch.dict(
+            os.environ,
+            {
+                "IG_PROVIDER_TRANSPORT": "legacy_page",
+                "IG_APP_SECRET": "instagram-app-secret",
+                "META_APP_SECRET": "parent-meta-secret",
+                "FACEBOOK_APP_SECRET": "legacy-meta-secret",
+            },
+            clear=True,
+        ):
+            self.assertEqual(bot.facebook_app_secret(), "parent-meta-secret")

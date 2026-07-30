@@ -87,6 +87,13 @@ class SalesClassifierTests(TestCase):
 
 
 class FollowUpPolicyTests(TestCase):
+    def setUp(self):
+        from management.models import InstagramBotSettings
+
+        settings = InstagramBotSettings.load()
+        settings.is_enabled = True
+        settings.save(update_fields=["is_enabled"])
+
     def test_followup_stops_only_for_verified_payment(self):
         from management.services import bot_followups
 
@@ -347,6 +354,11 @@ class ManagerEchoAnalysisTests(TestCase):
 @MGMT
 class SalesCockpitApiTests(TestCase):
     def setUp(self):
+        from management.models import InstagramBotSettings
+
+        settings = InstagramBotSettings.load()
+        settings.is_enabled = True
+        settings.save(update_fields=["is_enabled"])
         self.admin = User.objects.create_user("sales_adm", password="x", is_staff=True)
         self.client.force_login(self.admin)
         self.active = IgClient.get_or_create_for_sender("api_active")
@@ -541,8 +553,13 @@ class SalesCockpitApiTests(TestCase):
         self.assertEqual(data["totals"]["conversations"], 1)
 
     def test_hide_moves_client_out_of_active_queue_and_statistics(self):
-        from management.models import IgFollowUpTask
+        from management.models import IgFollowUpTask, IgPollCursor
         from management.services import instagram_bot
+
+        poll_cursor = IgPollCursor.objects.create(
+            conversation_id="active-conversation",
+            participant_igsid=self.active.igsid,
+        )
 
         IgFollowUpTask.objects.create(
             client=self.active,
@@ -558,6 +575,9 @@ class SalesCockpitApiTests(TestCase):
         self.active.refresh_from_db()
         self.assertIsNotNone(self.active.hidden_at)
         self.assertTrue(instagram_bot._client_blocked(self.active))
+        poll_cursor.refresh_from_db()
+        self.assertIsNotNone(poll_cursor.excluded_at)
+        self.assertEqual(poll_cursor.excluded_reason, "client_hidden")
         self.assertFalse(
             IgFollowUpTask.objects.filter(
                 client=self.active, status=IgFollowUpTask.Status.PENDING
@@ -712,6 +732,15 @@ class SalesCockpitApiTests(TestCase):
         send_text.assert_not_called()
 
     def test_unhide_returns_client_to_active_queue(self):
+        from management.models import IgPollCursor
+
+        poll_cursor = IgPollCursor.objects.create(
+            conversation_id="active-conversation",
+            participant_igsid=self.active.igsid,
+            excluded_at=timezone.now(),
+            excluded_reason="client_hidden",
+            synced_provider_updated_at=timezone.now(),
+        )
         self.client.post(
             reverse("management_bot_client_hide_api", args=[self.active.id]),
             {"reason": "noise"},
@@ -721,6 +750,10 @@ class SalesCockpitApiTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.active.refresh_from_db()
         self.assertIsNone(self.active.hidden_at)
+        poll_cursor.refresh_from_db()
+        self.assertIsNone(poll_cursor.excluded_at)
+        self.assertEqual(poll_cursor.excluded_reason, "")
+        self.assertIsNone(poll_cursor.synced_provider_updated_at)
         active_ids = {
             item["id"]
             for item in self.client.get(reverse("management_bot_clients_api") + "?view=active").json()["clients"]

@@ -56,6 +56,30 @@ class MetaSignedRequestParserTests(SimpleTestCase):
                 {"user_id": "123"},
             )
 
+    def test_instagram_login_uses_parent_secret_for_meta_signed_request(self):
+        payload = {"user_id": "123"}
+        with patch.dict(
+            "os.environ",
+            {
+                "IG_INSTAGRAM_BOT": "instagram-user-token",
+                "IG_APP_SECRET": "instagram-app-secret",
+                "META_APP_SECRET": "parent-meta-secret",
+            },
+            clear=True,
+        ):
+            self.assertEqual(
+                _parse_meta_signed_request(
+                    self._signed_request(payload, secret="parent-meta-secret")
+                ),
+                payload,
+            )
+            self.assertEqual(
+                _parse_meta_signed_request(
+                    self._signed_request(payload, secret="instagram-app-secret")
+                ),
+                {},
+            )
+
 
 @override_settings(
     ALLOWED_HOSTS=["testserver", "management.twocomms.shop"],

@@ -3660,6 +3660,13 @@ class InstagramBotSettings(models.Model):
     last_reply_at = models.DateTimeField(null=True, blank=True)
     replies_count = models.PositiveIntegerField(default=0)
     last_error = models.TextField(blank=True, default="")
+    # Meta may temporarily reject IG Direct messages containing links with
+    # Graph 508/2534122. While this circuit is open, eligible customer replies
+    # are sent as useful plain text instead of probing the same blocked URL on
+    # every message. Payment links remain fail-closed and go to a manager.
+    link_send_blocked_until = models.DateTimeField(null=True, blank=True)
+    link_send_last_error_at = models.DateTimeField(null=True, blank=True)
+    link_send_last_fbtrace_id = models.CharField(max_length=128, blank=True, default="")
     last_gemini_model = models.CharField(max_length=80, blank=True, default="")
     last_gemini_key = models.CharField(max_length=80, blank=True, default="")
     last_gemini_at = models.DateTimeField(null=True, blank=True)

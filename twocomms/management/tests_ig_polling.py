@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlsplit
 
 from django.test import TestCase
 from django.core.cache import cache
@@ -94,6 +95,47 @@ class PollCursorTests(TestCase):
             "m-empty",
         )
 
+    def test_instagram_login_attachment_envelope_is_enqueued(self):
+        message = {
+            **_message("m-image", 5),
+            "attachments": {
+                "data": [
+                    {
+                        "image_data": {
+                            "url": "https://cdn.example/image.jpg",
+                            "preview_url": "https://cdn.example/preview.jpg",
+                            "width": 1080,
+                            "height": 1080,
+                        }
+                    }
+                ],
+                "paging": {},
+            },
+            "to": {"data": [{"id": "page"}]},
+        }
+        seen = []
+
+        with patch.object(bot, "get_page_token", return_value="PT"), \
+             patch.object(bot, "get_conv_ids_cached", return_value=["conv-image"]), \
+             patch.object(
+                 bot,
+                 "_http",
+                 return_value=(200, json.dumps({"messages": {"data": [message]}})),
+             ), \
+             patch.object(
+                 bot,
+                 "enqueue_inbound",
+                 side_effect=lambda _settings, **kwargs: seen.append(kwargs) or True,
+             ):
+            result = bot.poll_ingest(self.settings)
+
+        self.assertFalse(result["degraded"])
+        self.assertEqual(seen[0]["attachments"], ["https://cdn.example/image.jpg"])
+        self.assertEqual(
+            IgPollCursor.objects.get(conversation_id="conv-image").last_message_id,
+            "m-image",
+        )
+
     def test_follows_paging_until_all_messages_are_seen(self):
         first = {"messages": {"data": [_message("m4", 4), _message("m3", 3)], "paging": {"next": f"{bot.GRAPH}/next"}}}
         second = {"messages": {"data": [_message("m2", 2), _message("m1", 1)]}}
@@ -108,6 +150,122 @@ class PollCursorTests(TestCase):
         self.assertEqual(result["enqueued"], 4)
         self.assertEqual([item["mid"] for item in seen], ["m1", "m2", "m3", "m4"])
         self.assertEqual(http.call_count, 2)
+
+    def test_instagram_login_reads_only_the_latest_twenty_message_window(self):
+        IgPollCursor.objects.create(
+            conversation_id="conv-instagram-window",
+            participant_igsid="customer",
+        )
+        recent = django_timezone.now() - timedelta(minutes=5)
+        first = {
+            "messages": {
+                "data": [
+                    {
+                        **_message("m2", 2),
+                        "created_time": recent.strftime("%Y-%m-%dT%H:%M:%S+0000"),
+                    },
+                    {
+                        **_message("m1", 1),
+                        "created_time": (recent - timedelta(minutes=1)).strftime(
+                            "%Y-%m-%dT%H:%M:%S+0000"
+                        ),
+                    },
+                ],
+                "paging": {"next": f"{bot.INSTAGRAM_GRAPH}/old-message-page"},
+            }
+        }
+        seen = []
+
+        with patch.object(
+            bot,
+            "provider_transport",
+            return_value=bot.INSTAGRAM_LOGIN_TRANSPORT,
+        ), patch.object(bot, "get_page_token", return_value="PT"), patch.object(
+            bot,
+            "get_conv_ids_cached",
+            return_value=["conv-instagram-window"],
+        ), patch.object(
+            bot,
+            "_http",
+            return_value=(200, json.dumps(first)),
+        ) as http, patch.object(
+            bot,
+            "enqueue_inbound",
+            side_effect=lambda _settings, **kwargs: seen.append(kwargs) or True,
+        ):
+            result = bot.poll_ingest(self.settings)
+
+        self.assertFalse(result["degraded"])
+        self.assertEqual(http.call_count, 1)
+        fields = parse_qs(urlsplit(http.call_args.args[0]).query)["fields"][0]
+        self.assertIn("messages.limit(20)", fields)
+        self.assertEqual([item["mid"] for item in seen], ["m1", "m2"])
+        self.assertEqual(
+            IgPollCursor.objects.get(
+                conversation_id="conv-instagram-window"
+            ).last_message_id,
+            "m2",
+        )
+
+    def test_instagram_login_locally_caps_oversized_provider_window_at_twenty(self):
+        messages = [_message(f"m{index:02d}", index) for index in range(21)]
+
+        with patch.object(
+            bot,
+            "provider_transport",
+            return_value=bot.INSTAGRAM_LOGIN_TRANSPORT,
+        ):
+            validated, _next = bot._validate_polled_page(
+                {"messages": {"data": messages}},
+                self.settings,
+            )
+
+        self.assertEqual(len(validated), bot.POLL_INSTAGRAM_MESSAGE_LIMIT)
+        self.assertEqual(
+            [item["id"] for item in validated],
+            [item["id"] for item in messages[:20]],
+        )
+
+    def test_instagram_login_old_unseen_message_is_history_only(self):
+        IgPollCursor.objects.create(
+            conversation_id="conv-old-instagram",
+            participant_igsid="customer",
+        )
+        old = django_timezone.now() - timedelta(days=2)
+        message = {
+            **_message("m-old-instagram", 1),
+            "created_time": old.strftime("%Y-%m-%dT%H:%M:%S+0000"),
+        }
+
+        with patch.object(
+            bot,
+            "provider_transport",
+            return_value=bot.INSTAGRAM_LOGIN_TRANSPORT,
+        ), patch.object(bot, "get_page_token", return_value="PT"), patch.object(
+            bot,
+            "get_conv_ids_cached",
+            return_value=["conv-old-instagram"],
+        ), patch.object(
+            bot,
+            "_http",
+            return_value=(
+                200,
+                json.dumps({"messages": {"data": [message]}}),
+            ),
+        ), patch.object(bot, "enqueue_inbound") as enqueue:
+            result = bot.poll_ingest(self.settings)
+
+        self.assertEqual(result["enqueued"], 0)
+        enqueue.assert_not_called()
+        row = InstagramBotMessage.objects.get(mid="m-old-instagram")
+        self.assertEqual(row.status, InstagramBotMessage.Status.DONE)
+        self.assertEqual(row.source, "poll_history")
+        self.assertEqual(
+            IgPollCursor.objects.get(
+                conversation_id="conv-old-instagram"
+            ).last_message_id,
+            "m-old-instagram",
+        )
 
 
 class ConversationDiscoveryTests(TestCase):
@@ -149,13 +307,114 @@ class ConversationDiscoveryTests(TestCase):
         self.assertEqual(http.call_count, 2)
         self.assertEqual(
             http.call_args_list[0].args[0],
-            f"{bot.GRAPH}/page/conversations?platform=instagram&fields=id&limit=2",
+            f"{bot.GRAPH}/page/conversations?platform=instagram&fields=id&limit=50",
         )
         self.assertEqual(
             http.call_args_list[0].kwargs["headers"]["Authorization"],
             "Bearer PT",
         )
         sleep.assert_called_once_with(0.5)
+
+    def test_instagram_login_discovery_syncs_participant_and_hidden_exclusion(self):
+        hidden = bot.IgClient.get_or_create_for_sender("123456789")
+        hidden.hidden_at = django_timezone.now()
+        hidden.hidden_reason = "manual"
+        hidden.save(update_fields=["hidden_at", "hidden_reason", "updated_at"])
+        payload = {
+            "data": [
+                {
+                    "id": "conv-hidden",
+                    "updated_time": "2026-07-30T10:29:26+0000",
+                    "participants": {
+                        "data": [
+                            {"id": self.settings.ig_user_id, "username": "twocomms"},
+                            {"id": hidden.igsid, "username": "hidden"},
+                        ]
+                    },
+                }
+            ]
+        }
+
+        with patch.object(
+            bot,
+            "provider_transport",
+            return_value=bot.INSTAGRAM_LOGIN_TRANSPORT,
+        ), patch.object(
+            bot,
+            "_http",
+            return_value=(200, json.dumps(payload)),
+        ) as http:
+            ids = bot.refresh_conv_ids(self.settings, "PT")
+
+        self.assertEqual(ids, ["conv-hidden"])
+        query = parse_qs(urlsplit(http.call_args.args[0]).query)
+        self.assertEqual(query["limit"], ["50"])
+        self.assertEqual(query["fields"], ["id,participants,updated_time"])
+        cursor = IgPollCursor.objects.get(conversation_id="conv-hidden")
+        self.assertEqual(cursor.participant_igsid, hidden.igsid)
+        self.assertIsNotNone(cursor.provider_updated_at)
+        self.assertIsNotNone(cursor.excluded_at)
+        self.assertEqual(cursor.excluded_reason, "client_hidden")
+
+        with patch.object(
+            bot,
+            "provider_transport",
+            return_value=bot.INSTAGRAM_LOGIN_TRANSPORT,
+        ), patch.object(bot, "get_page_token", return_value="PT"), patch.object(
+            bot,
+            "get_conv_ids_cached",
+            return_value=["conv-hidden"],
+        ), patch.object(bot, "_http") as message_http:
+            result = bot.poll_ingest(self.settings)
+
+        self.assertEqual(result["conversations_excluded"], 1)
+        self.assertEqual(result["conversations_checked"], 0)
+        message_http.assert_not_called()
+
+    def test_instagram_login_discovery_missing_participants_is_fail_closed(self):
+        payload = {
+            "data": [
+                {
+                    "id": "conv-missing-participants",
+                    "updated_time": "2026-07-30T10:29:26+0000",
+                }
+            ]
+        }
+
+        with patch.object(
+            bot,
+            "provider_transport",
+            return_value=bot.INSTAGRAM_LOGIN_TRANSPORT,
+        ), patch.object(
+            bot,
+            "_http",
+            return_value=(200, json.dumps(payload)),
+        ):
+            bot.refresh_conv_ids(self.settings, "PT")
+
+        cursor = IgPollCursor.objects.get(
+            conversation_id="conv-missing-participants"
+        )
+        self.assertIsNotNone(cursor.excluded_at)
+        self.assertEqual(cursor.excluded_reason, "ambiguous_participants")
+
+    def test_instagram_login_unmapped_cursor_never_fetches_history(self):
+        IgPollCursor.objects.create(conversation_id="conv-unmapped")
+
+        with patch.object(
+            bot,
+            "provider_transport",
+            return_value=bot.INSTAGRAM_LOGIN_TRANSPORT,
+        ), patch.object(bot, "get_page_token", return_value="PT"), patch.object(
+            bot,
+            "get_conv_ids_cached",
+            return_value=["conv-unmapped"],
+        ), patch.object(bot, "_http") as message_http:
+            result = bot.poll_ingest(self.settings)
+
+        self.assertEqual(result["conversations_unmapped"], 1)
+        self.assertEqual(result["conversations_checked"], 0)
+        message_http.assert_not_called()
 
     def test_failed_later_page_keeps_snapshot_and_publishes_validated_ids(self):
         cache.set(bot._conv_cache_key(self.settings), ["old-1", "old-2"], 3600)
@@ -769,6 +1028,71 @@ class ConversationMessagePaginationSafetyTests(TestCase):
         self.assertEqual(bot.POLL_MESSAGE_TIMEOUT, 12)
         self.assertIsNone(cache.get(poll_key))
         self.assertEqual(cache.get(refresh_key)["state"], "conversation_refresh_failed")
+
+    def test_instagram_login_unchanged_conversation_skips_provider_io(self):
+        self._cache_conversations("conv-unchanged")
+        provider_updated_at = django_timezone.now()
+        IgPollCursor.objects.create(
+            conversation_id="conv-unchanged",
+            participant_igsid="123456789",
+            provider_updated_at=provider_updated_at,
+            synced_provider_updated_at=provider_updated_at,
+            last_message_id="m-current",
+            last_message_at=provider_updated_at,
+        )
+
+        with patch.object(
+            bot,
+            "provider_transport",
+            return_value=bot.INSTAGRAM_LOGIN_TRANSPORT,
+        ), patch.object(bot, "get_page_token", return_value="PT"), patch.object(
+            bot,
+            "get_conv_ids_cached",
+            return_value=["conv-unchanged"],
+        ), patch.object(
+            bot,
+            "_http",
+        ) as http:
+            result = bot.poll_ingest(self.settings)
+
+        self.assertFalse(result["degraded"])
+        self.assertEqual(result["conversations_unchanged"], 1)
+        self.assertEqual(result["conversations_checked"], 0)
+        http.assert_not_called()
+
+    def test_instagram_login_403_is_isolated_and_backed_off(self):
+        self._cache_conversations("conv-inaccessible")
+        IgPollCursor.objects.create(
+            conversation_id="conv-inaccessible",
+            participant_igsid="123456789",
+            provider_updated_at=django_timezone.now(),
+        )
+
+        with patch.object(
+            bot,
+            "provider_transport",
+            return_value=bot.INSTAGRAM_LOGIN_TRANSPORT,
+        ), patch.object(bot, "get_page_token", return_value="PT"), patch.object(
+            bot,
+            "get_conv_ids_cached",
+            return_value=["conv-inaccessible"],
+        ), patch.object(
+            bot,
+            "_http",
+            return_value=(403, json.dumps({"error": {"code": 100}})),
+        ) as http:
+            first = bot.poll_ingest(self.settings)
+            second = bot.poll_ingest(self.settings)
+
+        self.assertFalse(first["degraded"])
+        self.assertEqual(first["conversations_checked"], 1)
+        self.assertEqual(second["conversations_deferred"], 1)
+        self.assertEqual(second["conversations_checked"], 0)
+        self.assertEqual(http.call_count, 1)
+        cursor = IgPollCursor.objects.get(conversation_id="conv-inaccessible")
+        self.assertEqual(cursor.failure_count, 1)
+        self.assertEqual(cursor.last_error, "http_403")
+        self.assertIsNotNone(cursor.next_attempt_at)
 
     def test_global_request_budget_rotates_conversations_fairly(self):
         self._cache_conversations("conv-a", "conv-b")

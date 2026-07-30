@@ -1584,6 +1584,14 @@ class IgPollCursor(models.Model):
     """Durable per-conversation cursor for the optional polling backstop."""
 
     conversation_id = models.CharField(max_length=255, unique=True)
+    participant_igsid = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    provider_updated_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    synced_provider_updated_at = models.DateTimeField(null=True, blank=True)
+    excluded_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    excluded_reason = models.CharField(max_length=32, blank=True, default="")
+    failure_count = models.PositiveSmallIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    last_error = models.CharField(max_length=80, blank=True, default="")
     last_message_id = models.CharField(max_length=255, blank=True, default="")
     last_message_at = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -37,14 +37,17 @@ class ExtractMediaUrlsTests(SimpleTestCase):
     def test_dedupe_and_cap_three(self):
         msg = {
             "attachments": [
-                {"type": "image", "payload": {"url": "u1"}},
-                {"type": "image", "payload": {"url": "u1"}},  # дубль
-                {"type": "image", "payload": {"url": "u2"}},
-                {"type": "image", "payload": {"url": "u3"}},
-                {"type": "image", "payload": {"url": "u4"}},  # понад ліміт
+                {"type": "image", "payload": {"url": "https://cdn/u1"}},
+                {"type": "image", "payload": {"url": "https://cdn/u1"}},  # дубль
+                {"type": "image", "payload": {"url": "https://cdn/u2"}},
+                {"type": "image", "payload": {"url": "https://cdn/u3"}},
+                {"type": "image", "payload": {"url": "https://cdn/u4"}},  # понад ліміт
             ]
         }
-        self.assertEqual(bot._extract_media_urls(msg), ["u1", "u2", "u3"])
+        self.assertEqual(
+            bot._extract_media_urls(msg),
+            ["https://cdn/u1", "https://cdn/u2", "https://cdn/u3"],
+        )
 
     def test_empty_when_no_media(self):
         self.assertEqual(bot._extract_media_urls({"text": "привіт"}), [])
