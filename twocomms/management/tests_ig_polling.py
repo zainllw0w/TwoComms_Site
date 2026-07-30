@@ -66,6 +66,34 @@ class PollCursorTests(TestCase):
         self.assertEqual(result["enqueued"], 0)
         enqueue.assert_not_called()
 
+    def test_empty_provider_message_is_observed_without_blocking_cursor(self):
+        message = {
+            **_message("m-empty", 4),
+            "message": "",
+            "attachments": [],
+            "to": {"data": [{"id": "page"}]},
+        }
+
+        with patch.object(bot, "get_page_token", return_value="PT"), \
+             patch.object(bot, "get_conv_ids_cached", return_value=["conv-empty"]), \
+             patch.object(
+                 bot,
+                 "_http",
+                 return_value=(200, json.dumps({"messages": {"data": [message]}})),
+             ), \
+             patch.object(bot, "enqueue_inbound") as enqueue:
+            result = bot.poll_ingest(self.settings)
+
+        self.assertFalse(result["degraded"])
+        enqueue.assert_not_called()
+        row = InstagramBotMessage.objects.get(mid="m-empty")
+        self.assertEqual(row.source, "poll_history")
+        self.assertEqual(row.text, "(медіа)")
+        self.assertEqual(
+            IgPollCursor.objects.get(conversation_id="conv-empty").last_message_id,
+            "m-empty",
+        )
+
     def test_follows_paging_until_all_messages_are_seen(self):
         first = {"messages": {"data": [_message("m4", 4), _message("m3", 3)], "paging": {"next": f"{bot.GRAPH}/next"}}}
         second = {"messages": {"data": [_message("m2", 2), _message("m1", 1)]}}

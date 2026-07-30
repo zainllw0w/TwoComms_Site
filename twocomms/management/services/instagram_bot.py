@@ -4962,6 +4962,8 @@ def _handle_polled_page_side(
     if not customer_id:
         return False
     text = str(message.get("message") or "").strip()
+    if not text and not _extract_media_urls(message):
+        return _persist_polled_message(s, message, observed_only=True)
     if historical or (text and cache.get(_bot_sent_key(customer_id, text))):
         return _persist_polled_message(s, message, observed_only=True)
     try:
@@ -5360,13 +5362,18 @@ def poll_ingest(s: InstagramBotSettings) -> dict:
                 if is_before_reply_boundary:
                     _persist_polled_message(s, message, observed_only=True)
                     continue
+                message_text = str(message.get("message") or "").strip()
+                message_attachments = _extract_media_urls(message)
+                if not message_text and not message_attachments:
+                    _persist_polled_message(s, message, observed_only=True)
+                    continue
                 if enqueue_inbound(
                     s,
                     sender_id=sender,
-                    text=message.get("message", ""),
+                    text=message_text,
                     mid=message["id"],
                     source="poll",
-                    attachments=_extract_media_urls(message),
+                    attachments=message_attachments,
                     received_at=created,
                 ):
                     enq += 1
@@ -5420,13 +5427,20 @@ def poll_ingest(s: InstagramBotSettings) -> dict:
                     _persist_polled_message(s, message, observed_only=True)
                 ) and conversation_handled
                 continue
+            message_text = str(message.get("message") or "").strip()
+            message_attachments = _extract_media_urls(message)
+            if not message_text and not message_attachments:
+                conversation_handled = bool(
+                    _persist_polled_message(s, message, observed_only=True)
+                ) and conversation_handled
+                continue
             added = enqueue_inbound(
                 s,
                 sender_id=sender,
-                text=message.get("message", ""),
+                text=message_text,
                 mid=mid,
                 source="poll",
-                attachments=_extract_media_urls(message),
+                attachments=message_attachments,
                 received_at=created,
             )
             enq += int(added)
