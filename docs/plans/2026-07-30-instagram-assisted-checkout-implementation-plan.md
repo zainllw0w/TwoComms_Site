@@ -44,6 +44,33 @@
 | Mobile visual quality is verified on real catalog imagery and all relevant states | Tasks 4, 5, 19 | Playwright screenshots, pixel checks, overflow, keyboard, and reduced-motion evidence |
 | Deployment does not overwrite parallel agent work and is proven on production | Tasks 0, 20 | Rebase audit, migration graph, deployed SHA, runtime, table, route, and marker proof |
 
+## Original brief reconciliation
+
+The re-pasted source brief is the acceptance authority. This table records the
+small details that are easy to lose during context changes.
+
+| Source-brief clause | Locked interpretation | Owner and proof |
+| --- | --- | --- |
+| Do not send the user straight to Monobank checkout | New bot flow emits only a TwoComms own-domain proposal URL; legacy `IGDEAL-*` remains compatible but is never selected for a new proposal | Tasks 8 and 10; provider-call boundary and legacy webhook tests |
+| The page is not the normal cart | Proposal page renders a frozen item snapshot and payment form directly; it never depends on browser cart/session state | Tasks 1, 4, 8; forwarded-browser and clean-page tests |
+| Bot understands one or many products | One normalized item-list path handles one shirt, two shirts, hoodies, and bounded long lists | Task 2; one/multi-item tests |
+| Bot must ask T-shirt fit and then size guide | Classic/oversize fit is mandatory when applicable, followed by the valid product size grid; no default inference | Tasks 2 and 10; missing-fit/size/conversation tests |
+| Show selected color, fit, size, quantity, and exact agreed amount | Current revision snapshots all commercial facts and shows them before delivery fields | Tasks 1 and 4; template/security tests |
+| Collect recipient, phone, first/last name, Nova Poshta, and email for receipt | Required normalized recipient form uses signed city/warehouse selectors and `orders.email_receipt` after verified payment | Task 6 and Task 7; form, receipt-email, and signed-token tests |
+| User checks the proposal and presses one payment action | No redundant final bot confirmation; page CTA creates/reuses one standard PaymentAttempt only after valid submit | Tasks 6 and 8; duplicate-submit/concurrency tests |
+| Promo code may be entered | Promo disclosure is optional, guest eligibility is explicit, negotiated discounts do not stack silently, and usage is reserved atomically | Tasks 2, 6, and 8; promo reservation tests |
+| Link is unique, lasts about 12 hours, can be forwarded/copied | 256-bit token, clean URL grant, separate share token, independent payer browser, expiry state, and copy action | Task 3; token/forwarding/browser tests |
+| Changes are requested in Direct | Before invoice the same proposal revision advances; after invoice only provider-confirmed cancellation permits a replacement | Tasks 2, 8, and 10; revision/supersession race tests |
+| Payment result is visible and thank-you is shown only after real payment | Return page remains pending until server-side provider verification; verified Order enables thank-you and Purchase | Task 12; return/webhook/analytics tests |
+| Instagram client and order must stay linked | Adapter binds Order, `IgDeal`, `IgClient`, commercial episode, `IgOrderAttribution`, and proposal idempotently | Task 9; partial-crash/replay tests |
+| Telegram alert and Instagram message both happen | One committed domain event feeds independent Telegram and Instagram channels; Telegram is never the trigger and one channel cannot clear another | Tasks 0, 13, and 18; channel-outbox/recovery tests |
+| TTN is sent when first created or inserted | First committed non-empty tracking transition emits `ttn_created` with official Nova Poshta URL, independent of `status=ship` and Telegram success | Task 15; transition/duplicate-save tests |
+| Delivery pickup triggers a final review request | Canonical Nova Poshta delivered status after committed `done` emits one review/tag request, with Meta-window manager fallback | Task 16; status-code/idempotency/window tests |
+| Page must be beautiful, mobile-first, light, and animated without overload | Real product imagery, compact facts, stable dimensions, restrained one-time motion, reduced-motion support, no visual clutter or nested card grid | Tasks 4, 5, and 19; Playwright screenshots/pixel/overflow tests |
+| Bot should send catalog photos instead of unnecessary product links | Prefer 3-4 trusted catalog images/carousel; use links only when explicitly useful or requested | Task 11; media payload tests |
+| Manager should not participate in the normal purchase path | Manager workspace is observability/recovery only; happy path is bot → proposal → PaymentAttempt → Order → lifecycle worker | Tasks 10, 13, and 17; no-manager-path tests |
+| Production DB and bot may change during implementation | Task 0 waits for final integration SHA, allocates migrations from the rebased graph, and every later task rechecks overlap before commit/deploy | Tasks 0 and 20; rebase/migration/deployed-SHA proof |
+
 ## Canonical lifecycle trigger contract
 
 Do not call a local HTTP webhook and do not use the Telegram alert as an

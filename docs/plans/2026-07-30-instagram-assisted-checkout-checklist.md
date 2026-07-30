@@ -6,6 +6,8 @@ successful command alone is not production proof.
 
 ## A. Integration and scope safety
 
+- [ ] Reconcile every clause of the re-pasted original brief against the
+  implementation plan's Original brief reconciliation table before coding.
 - [ ] Fetch current `origin/main` immediately before implementation.
 - [ ] Inspect `/private/tmp/twocomms-ig-verify.dIoXh3` and identify whether its
   Instagram Login changes were committed/merged.
