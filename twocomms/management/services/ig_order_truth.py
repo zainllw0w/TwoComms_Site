@@ -56,6 +56,26 @@ def publish_order_truth_change(sender, instance, **kwargs):
     IgDeal.objects.filter(order_id=instance.pk).update(
         order_truth_updated_at=timezone.now()
     )
+
+    # Do not add an after-commit callback for ordinary storefront orders.
+    # Apart from avoiding needless work, this keeps the payment callback
+    # boundary single and makes the Instagram truth path explicitly owned by
+    # an existing deal/attribution/episode link.
+    from management.ig_bot_models import (
+        IgCommercialEpisode,
+        IgOrderAttribution,
+        IgOrderLinkEvent,
+    )
+
+    linked = (
+        IgDeal.objects.filter(order_id=instance.pk).exists()
+        or IgOrderAttribution.objects.filter(order_id=instance.pk).exists()
+        or IgCommercialEpisode.objects.filter(intended_order_id=instance.pk).exists()
+        or IgOrderLinkEvent.objects.filter(order_id=instance.pk).exists()
+    )
+    if not linked:
+        return
+
     order_id = instance.pk
     transaction.on_commit(
         lambda: _publish_instagram_order_truth(order_id)

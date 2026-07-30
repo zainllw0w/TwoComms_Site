@@ -111,7 +111,7 @@ events from persisted order/payment/shipment truth after crashes.
 - Preserve/strengthen assertions in: `twocomms/storefront/tests/test_monobank_webhook.py`
 - Update: `docs/plans/2026-07-30-instagram-assisted-checkout-research.md`
 
-- [ ] **Step 1: Inspect integration state**
+- [x] **Step 1: Inspect integration state**
 
 Run:
 
@@ -128,7 +128,7 @@ agent has either supplied its commit SHA for integration or explicitly confirmed
 that its uncommitted work is out of scope. Record that decision in the research
 document and re-run the migration graph check afterward.
 
-- [ ] **Step 2: Rebase safely**
+- [x] **Step 2: Rebase safely**
 
 Run:
 
@@ -139,7 +139,7 @@ git rebase origin/main
 Expected: clean rebase or explicit conflicts limited to this feature's future
 surface. Resolve by understanding both versions; do not restore stale files.
 
-- [ ] **Step 3: Reproduce the two baseline failures**
+- [x] **Step 3: Reproduce the two baseline failures**
 
 Run:
 
@@ -151,7 +151,7 @@ DEBUG=1 SECRET_KEY=local-baseline-only \
 
 Expected before fix: two callback-count failures (`2 != 1`).
 
-- [ ] **Step 4: Fix the callback boundary, not the assertion**
+- [x] **Step 4: Fix the callback boundary, not the assertion**
 
 Ensure one post-commit dispatcher records durable pending markers for each
 required side effect before any external work. Keep the DB write inside the
@@ -171,7 +171,7 @@ reconciler must keep a row pending until every mandatory marker is confirmed or
 classified as permanently unavailable. Do not weaken the tests to accept
 duplicate callbacks.
 
-- [ ] **Step 5: Run the baseline suite**
+- [x] **Step 5: Run the baseline suite**
 
 Run:
 

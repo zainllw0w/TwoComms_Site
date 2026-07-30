@@ -6,21 +6,21 @@ successful command alone is not production proof.
 
 ## A. Integration and scope safety
 
-- [ ] Reconcile every clause of the re-pasted original brief against the
+- [x] Reconcile every clause of the re-pasted original brief against the
   implementation plan's Original brief reconciliation table before coding.
-- [ ] Fetch current `origin/main` immediately before implementation.
-- [ ] Inspect `/private/tmp/twocomms-ig-verify.dIoXh3` and identify whether its
+- [x] Fetch current `origin/main` immediately before implementation.
+- [x] Inspect `/private/tmp/twocomms-ig-verify.dIoXh3` and identify whether its
   Instagram Login changes were committed/merged.
-- [ ] Obtain the parallel Instagram agent's final commit SHA or explicit
+- [x] Obtain the parallel Instagram agent's final commit SHA or explicit
   no-merge decision before editing overlapping files or allocating migrations.
-- [ ] Rebase the feature branch onto the final integration SHA.
-- [ ] Preserve all unrelated dirty Custom Print and other worktrees.
+- [x] Rebase the feature branch onto the final integration SHA.
+- [x] Preserve all unrelated dirty Custom Print and other worktrees.
 - [ ] Resolve overlapping bot/model/URL files manually; do not copy stale files.
 - [ ] Allocate management and orders migration numbers from the rebased graph.
 - [ ] Record final dependencies on the latest merged management/orders migrations.
 - [ ] Verify production table engines for all new enforced relationships.
-- [ ] Resolve the two pre-existing `PostPaymentEventsDeferralTests` failures.
-- [ ] Run and record a clean focused baseline before feature code.
+- [x] Resolve the two pre-existing `PostPaymentEventsDeferralTests` failures.
+- [x] Run and record a clean focused baseline before feature code.
 - [ ] Keep legacy direct `IGDEAL-*` invoices payable and webhook-compatible.
 - [ ] Prohibit all new direct Monobank URLs from the Instagram bot path.
 

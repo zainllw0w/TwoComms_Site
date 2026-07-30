@@ -2,7 +2,8 @@
 
 **Date:** 2026-07-30
 **Branch:** `codex/instagram-assisted-checkout`
-**Research base:** `origin/main` at `e4cfb80b`
+**Research base:** initial audit at `e4cfb80b`; implementation baseline rebased to
+`origin/main` at `7fe26280`
 **Scope:** Management Instagram bot, first-party checkout proposal, standard
 `PaymentAttempt`, Monobank, Nova Poshta, analytics, and post-sale Direct
 notifications.
@@ -41,8 +42,14 @@ events through a durable, idempotent outbox.
 
 - The original local `main` is 18 commits behind `origin/main` and contains
   unrelated Custom Print work. It must not be used for implementation.
-- This planning worktree starts clean from `e4cfb80b`.
-- Production and `origin/main` were verified at `e4cfb80b` during research.
+- This planning worktree started from `e4cfb80b` and was rebased onto the final
+  Instagram Login integration commit `7fe26280` before runtime changes.
+- The former verification worktree is clean on branch
+  `codex/instagram-login-runtime`; its runtime changes are already represented
+  by `origin/main` at `7fe26280`.
+- Production was verified at `e4cfb80b` during the initial research pass. It
+  must be checked again against the final feature SHA during Task 20; no claim
+  is made here that production already runs `7fe26280`.
 - Production tables `IgClient`, `IgDeal`, `PaymentAttempt`, `Order`, and the
   relevant attribution tables use InnoDB.
 - Production has applied management migrations through `0114` and orders
@@ -77,15 +84,27 @@ DEBUG=1 SECRET_KEY=local-baseline-only \
   storefront.tests.test_monobank_webhook --verbosity 1
 ```
 
-Result: 74 tests, 72 pass, 2 pre-existing failures:
+Initial result after the integration rebase: 74 tests, 72 pass, 2 failures:
 
 - `PostPaymentEventsDeferralTests.test_external_sends_deferred_until_commit`
 - `PostPaymentEventsDeferralTests.test_retail_status_helper_uses_shared_dispatcher_after_commit_once`
 
-Both expect one `transaction.on_commit` callback and currently observe two.
-Because the new adapter touches the same payment boundary, these failures are a
-Task 0 prerequisite. They must be understood and made green without hiding or
-weakening their external-side-effect guarantee.
+Both expected one `transaction.on_commit` callback and observed two. The second
+callback came from `management.services.ig_order_truth`: it scheduled Instagram
+truth reconciliation for every storefront order payment/status change, even
+when no `IgDeal`, `IgOrderAttribution`, `IgCommercialEpisode`, or
+`IgOrderLinkEvent` owned the order.
+
+Task 0 now gates that signal on a persisted Instagram link. Ordinary storefront
+orders retain one post-payment callback, while existing attribution-only tests
+continue to prove that Instagram-linked orders schedule truth reconciliation.
+Verification after the fix:
+
+- `manage.py check`: zero issues;
+- `PostPaymentEventsDeferralTests`: 7/7 pass;
+- `management.tests_ig_paylink_fix management.tests_ig_shipment
+  orders.tests.test_payment_attempts storefront.tests.test_monobank_webhook`:
+  74/74 pass.
 
 ## 3. Existing Instagram purchase flow
 
