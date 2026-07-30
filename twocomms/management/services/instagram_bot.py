@@ -35,6 +35,7 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 from django.core.cache import cache
 from django.db import DatabaseError, IntegrityError, transaction
 from django.db.models import F, Q
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from management.models import (
@@ -4210,6 +4211,103 @@ def _is_allowed(s: InstagramBotSettings, sender_id: str) -> bool:
     return True if not ids else sender_id in ids
 
 
+def _promote_manual_refresh_message(
+    existing: InstagramBotMessage,
+    *,
+    current_settings: InstagramBotSettings,
+    client: IgClient,
+    sender_id: str,
+    text: str,
+    source: str,
+    attachments: list[str],
+    received_at: datetime | None,
+    force_observed: bool = False,
+) -> str:
+    """Promote a matching history row when its delayed live webhook arrives."""
+    if (
+        source != "webhook"
+        or existing.source != "manual_refresh"
+        or existing.sender_id != sender_id
+        or existing.client_id != client.pk
+        or existing.role != InstagramBotMessage.Role.USER
+        or existing.status != InstagramBotMessage.Status.DONE
+        or existing.attempts
+        or existing.processing_started_at is not None
+        or existing.send_state
+        or existing.send_started_at is not None
+        or existing.send_completed_at is not None
+        or not current_settings.is_enabled
+        or not _is_allowed(current_settings, sender_id)
+        or _client_blocked(client)
+    ):
+        return False
+    provider_time = received_at or existing.provider_created_at
+    if provider_time is None:
+        return False
+    if existing.provider_created_at is not None and received_at is not None:
+        try:
+            if abs((received_at - existing.provider_created_at).total_seconds()) > 1:
+                return False
+        except (TypeError, ValueError):
+            return False
+    if current_settings.reply_after and provider_time <= current_settings.reply_after:
+        return False
+    incoming_text = (text or "").strip()
+    existing_text = (existing.text or "").strip()
+    if incoming_text and existing_text not in {"", "(медіа)", "(зображення)"}:
+        if incoming_text != existing_text:
+            return ""
+    update_fields = []
+    if incoming_text and incoming_text != existing.text:
+        existing.text = incoming_text
+        update_fields.append("text")
+    if attachments:
+        try:
+            stored = json.loads(existing.attachments or "[]")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            stored = []
+        merged = list(dict.fromkeys([
+            str(value).strip()
+            for value in [*attachments, *(stored if isinstance(stored, list) else [])]
+            if str(value).strip()
+        ]))
+        merged_json = json.dumps(merged)
+        if merged_json != existing.attachments:
+            existing.attachments = merged_json
+            update_fields.append("attachments")
+    if existing.provider_created_at is None:
+        existing.provider_created_at = provider_time
+        update_fields.append("provider_created_at")
+    has_newer_user_event = (
+        InstagramBotMessage.objects.filter(
+            client_id=client.pk,
+            role=InstagramBotMessage.Role.USER,
+        )
+        .exclude(pk=existing.pk)
+        .annotate(event_at=Coalesce("provider_created_at", "created_at"))
+        .filter(
+            Q(event_at__gt=provider_time)
+            | Q(event_at=provider_time)
+        )
+        .exists()
+    )
+    if force_observed or has_newer_user_event:
+        if update_fields:
+            existing.save(update_fields=update_fields)
+        return "observed"
+    existing.source = "webhook"
+    existing.status = InstagramBotMessage.Status.PENDING
+    existing.provider_created_at = provider_time
+    existing.processed_at = None
+    existing.processing_started_at = None
+    existing.save(update_fields=list(dict.fromkeys([
+        *update_fields,
+        "source", "status", "provider_created_at", "processed_at",
+        "processing_started_at",
+    ])))
+    return "promoted"
+
+
 # ---------------------------------------------------------------------------
 # Черга: постановка вхідних
 # ---------------------------------------------------------------------------
@@ -4253,37 +4351,109 @@ def enqueue_inbound(
             if client.hidden_at:
                 log("info", "skip_hidden", f"[{source}] {sender_id}: прихований клієнт")
                 return False
+            existing = (
+                InstagramBotMessage.objects.select_for_update().filter(mid=mid).first()
+                if mid
+                else None
+            )
+            provider_event_at = received_at or (
+                existing.provider_created_at if existing is not None else None
+            )
+            stale_explicit_opt_out = bool(
+                explicit_opt_out
+                and provider_event_at
+                and client.opted_in_at
+                and client.opted_in_at >= provider_event_at
+            )
             after_resume_cutoff = bool(
-                not received_at
+                not provider_event_at
                 or not current_settings.reply_after
-                or received_at > current_settings.reply_after
+                or provider_event_at > current_settings.reply_after
             )
             reply_eligible = bool(
                 current_settings.is_enabled
                 and after_resume_cutoff
+                and _is_allowed(current_settings, sender_id)
                 and not _client_blocked(client)
+                and not stale_explicit_opt_out
             )
-            msg = InstagramBotMessage.objects.create(
-                sender_id=sender_id,
-                client=client,
-                role=InstagramBotMessage.Role.USER,
-                text=text or "(зображення)",
-                mid=mid or None,
-                status=(
-                    InstagramBotMessage.Status.PENDING
-                    if reply_eligible
-                    else InstagramBotMessage.Status.DONE
-                ),
-                source=source,
-                attachments=json.dumps(attachments) if attachments else "",
-                provider_created_at=received_at,
-                processed_at=None if reply_eligible else timezone.now(),
-            )
-            client.touch_inbound()
+            promoted = False
+            observed_only = False
+            if existing is not None:
+                promotion_state = _promote_manual_refresh_message(
+                    existing,
+                    current_settings=current_settings,
+                    client=client,
+                    sender_id=sender_id,
+                    text=text,
+                    source=source,
+                    attachments=attachments,
+                    received_at=received_at,
+                    force_observed=stale_explicit_opt_out,
+                )
+                if not promotion_state:
+                    return False
+                msg = existing
+                promoted = promotion_state == "promoted"
+                observed_only = promotion_state == "observed"
+                reply_eligible = promoted
+            else:
+                try:
+                    with transaction.atomic():
+                        msg = InstagramBotMessage.objects.create(
+                            sender_id=sender_id,
+                            client=client,
+                            role=InstagramBotMessage.Role.USER,
+                            text=text or "(зображення)",
+                            mid=mid or None,
+                            status=(
+                                InstagramBotMessage.Status.PENDING
+                                if reply_eligible
+                                else InstagramBotMessage.Status.DONE
+                            ),
+                            source=source,
+                            attachments=json.dumps(attachments) if attachments else "",
+                            provider_created_at=received_at,
+                            processed_at=None if reply_eligible else timezone.now(),
+                        )
+                except IntegrityError:
+                    existing = (
+                        InstagramBotMessage.objects.select_for_update().filter(mid=mid).first()
+                        if mid
+                        else None
+                    )
+                    if existing is None:
+                        raise
+                    provider_event_at = received_at or existing.provider_created_at
+                    stale_explicit_opt_out = bool(
+                        explicit_opt_out
+                        and provider_event_at
+                        and client.opted_in_at
+                        and client.opted_in_at >= provider_event_at
+                    )
+                    promotion_state = _promote_manual_refresh_message(
+                        existing,
+                        current_settings=current_settings,
+                        client=client,
+                        sender_id=sender_id,
+                        text=text,
+                        source=source,
+                        attachments=attachments,
+                        received_at=received_at,
+                        force_observed=stale_explicit_opt_out,
+                    )
+                    if not promotion_state:
+                        return False
+                    msg = existing
+                    promoted = promotion_state == "promoted"
+                    observed_only = promotion_state == "observed"
+                    reply_eligible = promoted
+            if not observed_only:
+                client.touch_inbound()
             # Consent is a routing barrier, not best-effort CRM enrichment. If
             # later classification fails, an explicit stop must already be
             # durable and impossible to reach Gemini or customer transport.
-            if explicit_opt_out:
+            if explicit_opt_out and not stale_explicit_opt_out:
                 opted_out_at = timezone.now()
                 client.opted_out_at = opted_out_at
                 client.opt_out_message_id = msg.pk
@@ -4311,17 +4481,63 @@ def enqueue_inbound(
                     raise
                 except Exception:
                     pass
-            if persistence_only:
+            if observed_only:
                 from management.services.bot_conversation_analysis import schedule_analysis
 
+                analysis_message = (
+                    InstagramBotMessage.objects.filter(client_id=client.pk)
+                    .exclude(status=InstagramBotMessage.Status.FAILED)
+                    .order_by("-pk")
+                    .first()
+                ) or msg
+                schedule_analysis(client, analysis_message, trigger="webhook_inbound")
+            elif persistence_only:
+                from management.services.bot_conversation_analysis import schedule_analysis
+
+                if promoted:
+                    interaction_type = (
+                        msg.analysis_snapshots.filter(analysis_model="rules")
+                        .order_by("-id")
+                        .values_list("interaction_type", flat=True)
+                        .first()
+                    )
+                    terminal_followup_reasons = {
+                        "explicit_no_buy": "explicit_no_buy",
+                        "opt_out": "opt_out",
+                        "spam_abuse": "spam_abuse",
+                        "paid_order_waiting": "already_converted",
+                    }
+                    if interaction_type in terminal_followup_reasons:
+                        bot_followups.cancel_pending(
+                            client,
+                            reason=terminal_followup_reasons[interaction_type],
+                        )
+                    if interaction_type in {
+                        "reaction_only",
+                        "explicit_no_buy",
+                        "opt_out",
+                        "spam_abuse",
+                    }:
+                        msg.status = InstagramBotMessage.Status.DONE
+                        msg.processed_at = timezone.now()
+                        msg.save(update_fields=["status", "processed_at"])
+                        reply_eligible = False
                 schedule_analysis(client, msg, trigger="webhook_inbound")
             else:
                 try:
-                    classified = bot_sales_classifier.classify_message(
-                        client,
-                        message=msg,
-                        media_context=_recover_current_message_media(msg),
-                    )
+                    if promoted:
+                        rules_snapshot = msg.analysis_snapshots.filter(
+                            analysis_model="rules"
+                        ).order_by("-id").first()
+                        classified = {
+                            "interaction_type": getattr(rules_snapshot, "interaction_type", "")
+                        }
+                    else:
+                        classified = bot_sales_classifier.classify_message(
+                            client,
+                            message=msg,
+                            media_context=_recover_current_message_media(msg),
+                        )
                     interaction_type = classified.get("interaction_type")
                     terminal_followup_reasons = {
                         "explicit_no_buy": "explicit_no_buy",
@@ -4372,7 +4588,8 @@ def _build_history(sender_id: str) -> list[dict]:
     rows = list(
         InstagramBotMessage.objects.filter(sender_id=sender_id)
         .exclude(status=InstagramBotMessage.Status.FAILED)
-        .order_by("-id")[:HISTORY_LIMIT]
+        .annotate(event_at=Coalesce("provider_created_at", "created_at"))
+        .order_by("-event_at", "-id")[:HISTORY_LIMIT]
     )
     rows.reverse()
     hist = []

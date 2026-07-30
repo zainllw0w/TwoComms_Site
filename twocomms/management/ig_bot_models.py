@@ -28,6 +28,8 @@ __all__ = [
     "IgClientStageEvent",
     "IgFollowUpTask",
     "IgPollCursor",
+    "IgInboxRefreshRun",
+    "IgInboxRefreshItem",
     "IgConversationSignal",
     "IgConversationAnalysisSnapshot",
     "IgConversationAnalysisJob",
@@ -1602,6 +1604,158 @@ class IgPollCursor(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - trivial representation
         return f"IgPollCursor({self.conversation_id})"
+
+
+class IgInboxRefreshRun(models.Model):
+    """Durable administrator-requested recovery of Meta-readable messages."""
+
+    class Status(models.TextChoices):
+        QUEUED = "queued", _("У черзі")
+        DISCOVERING = "discovering", _("Пошук переписок")
+        RUNNING = "running", _("Оновлення повідомлень")
+        CANCELLING = "cancelling", _("Скасування")
+        COMPLETED = "completed", _("Завершено")
+        COMPLETED_ERRORS = "completed_errors", _("Завершено з помилками")
+        CANCELLED = "cancelled", _("Скасовано")
+        FAILED = "failed", _("Помилка")
+
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="ig_inbox_refresh_runs",
+        db_constraint=False,
+    )
+    provider_owner_id = models.CharField(max_length=128, db_index=True)
+    transport = models.CharField(max_length=32, default="instagram_login")
+    # MariaDB permits multiple NULLs but only one value=1 per provider owner.
+    open_slot = models.PositiveSmallIntegerField(null=True, blank=True, default=1)
+    status = models.CharField(
+        max_length=24,
+        choices=Status.choices,
+        default=Status.QUEUED,
+        db_index=True,
+    )
+    recovery_cutoff = models.DateTimeField(db_index=True)
+    discovery_cursor = models.TextField(blank=True, default="")
+    discovery_pages_seen = models.PositiveSmallIntegerField(default=0)
+    discovery_complete = models.BooleanField(default=False)
+    lease_token = models.CharField(max_length=64, blank=True, default="")
+    lease_until = models.DateTimeField(null=True, blank=True, db_index=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    last_error = models.CharField(max_length=1000, blank=True, default="")
+    cancel_requested_at = models.DateTimeField(null=True, blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Оновлення Instagram inbox")
+        verbose_name_plural = _("Оновлення Instagram inbox")
+        ordering = ["-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["provider_owner_id", "open_slot"],
+                name="ig_refresh_one_open_owner",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(open_slot__isnull=True) | models.Q(open_slot=1),
+                name="ig_refresh_open_null_one",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["status", "next_attempt_at", "id"],
+                name="ig_refresh_run_due",
+            ),
+            models.Index(
+                fields=["provider_owner_id", "-created_at"],
+                name="ig_refresh_owner_dt",
+            ),
+        ]
+
+
+class IgInboxRefreshItem(models.Model):
+    """One conversation in a durable inbox recovery run."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", _("Очікує")
+        PROCESSING = "processing", _("Обробка")
+        DONE = "done", _("Готово")
+        SKIPPED = "skipped", _("Пропущено")
+        FAILED = "failed", _("Помилка")
+        CANCELLED = "cancelled", _("Скасовано")
+
+    run = models.ForeignKey(
+        "management.IgInboxRefreshRun",
+        on_delete=models.CASCADE,
+        related_name="items",
+        db_constraint=False,
+    )
+    conversation_id = models.CharField(max_length=255)
+    participant_igsid = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    client = models.ForeignKey(
+        "management.IgClient",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="inbox_refresh_items",
+        db_constraint=False,
+    )
+    provider_updated_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    skip_reason = models.CharField(max_length=64, blank=True, default="")
+    attempts = models.PositiveSmallIntegerField(default=0)
+    next_attempt_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    lease_token = models.CharField(max_length=64, blank=True, default="")
+    lease_until = models.DateTimeField(null=True, blank=True, db_index=True)
+    messages_seen = models.PositiveSmallIntegerField(default=0)
+    messages_created = models.PositiveSmallIntegerField(default=0)
+    messages_existing = models.PositiveSmallIntegerField(default=0)
+    messages_after_cutoff = models.PositiveSmallIntegerField(default=0)
+    analysis_watermark_message_id = models.PositiveBigIntegerField(default=0)
+    history_cursor = models.TextField(blank=True, default="")
+    history_complete = models.BooleanField(default=False)
+    truncated_reason = models.CharField(max_length=64, blank=True, default="")
+    provider_http_status = models.PositiveSmallIntegerField(null=True, blank=True)
+    last_error = models.CharField(max_length=1000, blank=True, default="")
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Переписка оновлення Instagram inbox")
+        verbose_name_plural = _("Переписки оновлення Instagram inbox")
+        ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["run", "conversation_id"],
+                name="ig_refresh_item_run_conv",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["status", "next_attempt_at", "id"],
+                name="ig_refresh_item_due",
+            ),
+            models.Index(
+                fields=["run", "status", "id"],
+                name="ig_refresh_item_run",
+            ),
+            models.Index(
+                fields=["participant_igsid", "status"],
+                name="ig_refresh_item_user",
+            ),
+        ]
 
 
 class IgConversationSignal(models.Model):

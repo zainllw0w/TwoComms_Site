@@ -194,6 +194,28 @@ def _analysis_worker(stop_event: threading.Event):
         stop_event.wait(5)
 
 
+def _inbox_refresh_worker(stop_event: threading.Event):
+    """Drain administrator-requested inbox recovery outside the reply loop."""
+    from management.services.ig_inbox_refresh import process_refresh_slice
+
+    while not stop_event.is_set():
+        worked = False
+        try:
+            close_old_connections()
+            if not maintenance_status(path=MAINTENANCE_FILE)["active"]:
+                result = process_refresh_slice()
+                worked = bool(result.get("worked")) if isinstance(result, dict) else False
+        except Exception as exc:
+            try:
+                bot.log("error", "inbox_refresh", repr(exc))
+            except Exception:
+                pass
+        finally:
+            close_old_connections()
+        if stop_event.wait(0.25 if worked else 2):
+            break
+
+
 def _reconcile_commercial_episodes_after_reload():
     """Repair source rows written by old workers during the deploy window."""
     from django.core.management import call_command
@@ -436,6 +458,12 @@ class Command(BaseCommand):
             daemon=True,
         )
         analysis_worker.start()
+        inbox_refresh_worker = threading.Thread(
+            target=_inbox_refresh_worker,
+            args=(stop_event,),
+            daemon=True,
+        )
+        inbox_refresh_worker.start()
 
         from django.utils import timezone as tz
 

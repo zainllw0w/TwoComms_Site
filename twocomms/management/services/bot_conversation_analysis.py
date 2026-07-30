@@ -18,6 +18,7 @@ from django.db.models import (
     Value,
     When,
 )
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from management.models import (
@@ -321,12 +322,39 @@ def _required_truth_state(client: IgClient) -> dict:
     }
 
 
+def _analysis_message_rows(client_id: int, watermark: int):
+    rows = list(
+        InstagramBotMessage.objects.filter(client_id=client_id, id__lte=watermark)
+        .exclude(status=InstagramBotMessage.Status.FAILED)
+        .annotate(event_at=Coalesce("provider_created_at", "created_at"))
+        .order_by("-event_at", "-id")[:MAX_MESSAGES]
+    )
+    rows.reverse()
+    return rows
+
+
+def _message_state_for_fingerprint(client_id: int, watermark: int) -> list[dict]:
+    return [
+        {
+            "id": row.pk,
+            "role": row.role,
+            "status": row.status,
+            "source": row.source,
+            "text": row.text or "",
+            "attachments": row.attachments or "",
+            "event_at": (row.provider_created_at or row.created_at).isoformat(),
+        }
+        for row in _analysis_message_rows(client_id, watermark)
+    ]
+
+
 def _fingerprint_for_truth(client_id: int, watermark: int, truth_state: dict) -> str:
     payload = {
         "client_id": client_id,
         "watermark": int(watermark or 0),
         "prompt_version": ANALYSIS_PROMPT_VERSION,
         "truth_state": truth_state,
+        "message_state": _message_state_for_fingerprint(client_id, watermark),
     }
     encoded = json.dumps(payload, ensure_ascii=True, sort_keys=True, default=str)
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
@@ -504,12 +532,7 @@ def _skip_reason(
 
 
 def _conversation(client_id: int, watermark: int) -> tuple[list[dict], dict[int, dict], list[dict]]:
-    rows = list(
-        InstagramBotMessage.objects.filter(client_id=client_id, id__lte=watermark)
-        .exclude(status=InstagramBotMessage.Status.FAILED)
-        .order_by("-id")[:MAX_MESSAGES]
-    )
-    rows.reverse()
+    rows = _analysis_message_rows(client_id, watermark)
     total = 0
     classify_media_items = None
     try:

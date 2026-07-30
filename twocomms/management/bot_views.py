@@ -6,7 +6,7 @@ Start/Stop, вибором джерела ключів і онлайн-конс�
 """
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Exists, F, OuterRef, Prefetch, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from django.http import JsonResponse
@@ -325,6 +325,7 @@ def bot_dashboard(request):
             "has_custom_direct_token": bool(settings_obj.custom_direct_token),
             "has_custom_gemini_key": bool(settings_obj.custom_gemini_key),
             "meta_bot_reviewer_mode": reviewer_mode,
+            "bot_is_admin": _is_admin(request.user),
         },
     )
 
@@ -376,6 +377,93 @@ def bot_status_api(request):
         for r in rows
     ]
     return JsonResponse({"success": True, "status": bot.status_snapshot(), "log": items})
+
+
+@login_required(login_url="management_login")
+@require_POST
+def bot_inbox_refresh_start_api(request):
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    from .services.ig_inbox_refresh import create_refresh_run, serialize_refresh_run
+
+    try:
+        run, created = create_refresh_run(request.user)
+    except ValueError as exc:
+        return JsonResponse({"success": False, "error": str(exc)}, status=409)
+    return JsonResponse(
+        {"success": created, "run": serialize_refresh_run(run)},
+        status=202 if created else 409,
+    )
+
+
+@login_required(login_url="management_login")
+@require_GET
+def bot_inbox_refresh_status_api(request):
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    from .services.ig_inbox_refresh import latest_refresh_run, serialize_refresh_run
+
+    return JsonResponse({
+        "success": True,
+        "run": serialize_refresh_run(latest_refresh_run()),
+    })
+
+
+@login_required(login_url="management_login")
+@require_POST
+def bot_inbox_refresh_cancel_api(request, run_id):
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    from .services.ig_inbox_refresh import request_refresh_cancel, serialize_refresh_run
+
+    run = request_refresh_cancel(run_id)
+    if run is None:
+        return JsonResponse({"success": False, "error": "Запуск не знайдено."}, status=404)
+    if run.status not in {
+        run.Status.CANCELLING,
+        run.Status.CANCELLED,
+    }:
+        return JsonResponse(
+            {"success": False, "error": "Цей запуск уже завершено.", "run": serialize_refresh_run(run)},
+            status=409,
+        )
+    return JsonResponse({"success": True, "run": serialize_refresh_run(run)})
+
+
+@login_required(login_url="management_login")
+@require_POST
+def bot_inbox_refresh_retry_api(request, run_id):
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    from .models import IgInboxRefreshRun
+    from .services.ig_inbox_refresh import (
+        refresh_run_for_current_owner,
+        retry_refresh_failures,
+        serialize_refresh_run,
+    )
+
+    before = refresh_run_for_current_owner(run_id)
+    if before is None:
+        return JsonResponse({"success": False, "error": "Запуск не знайдено."}, status=404)
+    if before.status not in {
+        IgInboxRefreshRun.Status.COMPLETED_ERRORS,
+        IgInboxRefreshRun.Status.FAILED,
+    }:
+        return JsonResponse(
+            {"success": False, "error": "Немає помилок для повтору.", "run": serialize_refresh_run(before)},
+            status=409,
+        )
+    try:
+        run = retry_refresh_failures(run_id)
+    except IntegrityError:
+        return JsonResponse({"success": False, "error": "Інше оновлення вже виконується."}, status=409)
+    if run is None:
+        return JsonResponse({"success": False, "error": "Запуск не знайдено."}, status=404)
+    return JsonResponse({"success": True, "run": serialize_refresh_run(run)}, status=202)
 
 
 def _notification_preview(value, limit=280):

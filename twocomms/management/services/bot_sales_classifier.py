@@ -10,6 +10,8 @@ import re
 from decimal import Decimal
 from typing import Iterable
 
+from django.db.models import Q
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from management.models import (
@@ -70,7 +72,7 @@ PRODUCT_RE = re.compile(
     r"колекц\w*|модель\w*|термохром\w*)\b",
     re.I,
 )
-PAYMENT_RE = re.compile(r"\b(оплат|платеж|платіж|ссылка|посилання|линк|лінк|карта|монобанк)\b", re.I)
+PAYMENT_RE = re.compile(r"\b(оплат\w*|платеж\w*|платіж\w*|ссылка|посилання|линк|лінк|карта|монобанк)\b", re.I)
 DELIVERY_RE = re.compile(r"\b(достав|відправ|отправ|нова\s+пошта|новая\s+почта|нп|відділен|отделен)\b", re.I)
 GIFT_RE = re.compile(r"\b(подарок|подарунок|на\s+подар|в\s+подар)\b", re.I)
 SELF_RE = re.compile(r"\b(себе|собі|для\s+себя|для\s+себе)\b", re.I)
@@ -663,7 +665,17 @@ def classify_message(
         client.opted_out_at
         and (not client.opted_in_at or client.opted_in_at < client.opted_out_at)
     )
-    opt_out = bool(not is_manager and is_explicit_opt_out(low))
+    message_event_at = (
+        getattr(message, "provider_created_at", None)
+        or getattr(message, "created_at", None)
+        or timezone.now()
+    )
+    explicit_opt_out = bool(not is_manager and is_explicit_opt_out(low))
+    opt_out = bool(
+        explicit_opt_out
+        and (not client.opted_in_at or client.opted_in_at < message_event_at)
+        and (not client.opted_out_at or client.opted_out_at <= message_event_at)
+    )
     no_buy = bool(not is_manager and NO_BUY_RE.search(low))
     if no_buy:
         objection = IgClient.Objection.NO_BUY
@@ -677,7 +689,7 @@ def classify_message(
             except Exception:
                 client.stage = IgClient.Stage.COLD
     if opt_out:
-        opted_out_at = timezone.now()
+        opted_out_at = message_event_at
         client.opted_out_at = opted_out_at
         client.opt_out_message_id = getattr(message, "pk", None)
         client.bot_paused = True
@@ -782,8 +794,12 @@ def classify_message(
             "reply_permission_epoch", "paused_reason", "paused_at",
         ])
     if is_manager:
-        client.last_manager_message_at = timezone.now()
-        fields.append("last_manager_message_at")
+        if (
+            not client.last_manager_message_at
+            or client.last_manager_message_at < message_event_at
+        ):
+            client.last_manager_message_at = message_event_at
+            fields.append("last_manager_message_at")
     try:
         client.save(update_fields=fields)
     except Exception:
@@ -874,6 +890,41 @@ def ensure_rule_classification(
 ) -> dict | None:
     """Run the deterministic projection once for a durable message watermark."""
     if not client or not message or not getattr(message, "pk", None):
+        return None
+    message_event_at = message.provider_created_at or message.created_at
+    explicit_opt_out = bool(
+        message.role == InstagramBotMessage.Role.USER
+        and is_explicit_opt_out(message.text or "")
+    )
+    if (
+        explicit_opt_out
+        and message_event_at
+        and client.opted_in_at
+        and client.opted_in_at >= message_event_at
+    ):
+        # A later audited opt-in wins over recovered historical consent text.
+        # Do not let mixed wording mutate the current commercial projection.
+        return None
+    has_newer_projection = bool(message_event_at and (
+        InstagramBotMessage.objects.filter(client_id=client.pk)
+        .exclude(pk=message.pk)
+        .annotate(
+            message_event_at=Coalesce(
+                "provider_created_at",
+                "created_at",
+            )
+        )
+        .filter(
+            Q(message_event_at__gt=message_event_at)
+            | Q(message_event_at=message_event_at)
+        )
+        .filter(
+            ~Q(source="manual_refresh")
+            | Q(analysis_snapshots__analysis_model="rules")
+        )
+        .exists()
+    ))
+    if has_newer_projection and not explicit_opt_out:
         return None
     if client.analysis_snapshots.filter(
         analysis_model="rules",
