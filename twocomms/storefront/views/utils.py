@@ -748,6 +748,131 @@ def _record_monobank_status_locked(order, payload, source='api'):
     _save_status_fields(update_fields, 'non_success_transition')
 
 
+def _update_order_telegram_notification_state(order_pk, **changes):
+    """Merge Telegram delivery state without clobbering other payment markers."""
+    from orders.models import Order
+
+    with transaction.atomic():
+        current = Order.objects.select_for_update().get(pk=order_pk)
+        payload = dict(current.payment_payload) if isinstance(current.payment_payload, dict) else {}
+        notifications = dict(payload.get('telegram_notifications') or {})
+        notifications.update(changes)
+        payload['telegram_notifications'] = notifications
+        current.payment_payload = payload
+        current.save(update_fields=['payment_payload'])
+    return current
+
+
+def _claim_order_telegram_delivery(order_pk):
+    """Claim one missing paid-order card with a short, crash-recoverable lease."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+    from django.utils.dateparse import parse_datetime
+
+    from orders.models import Order
+
+    now = timezone.now()
+    with transaction.atomic():
+        order = Order.objects.select_for_update().get(pk=order_pk)
+        payload = dict(order.payment_payload) if isinstance(order.payment_payload, dict) else {}
+        notifications = dict(payload.get('telegram_notifications') or {})
+        if notifications.get('order_notification_sent'):
+            return None, 'already_sent'
+
+        lease_until = parse_datetime(str(notifications.get('delivery_retry_lease_until') or ''))
+        if lease_until and lease_until > now:
+            return None, 'leased'
+
+        notifications.setdefault('order_notification_pending', True)
+        notifications.setdefault('order_notification_pending_at', now.isoformat())
+        notifications['delivery_attempt_count'] = int(
+            notifications.get('delivery_attempt_count') or 0
+        ) + 1
+        notifications['delivery_last_attempt_at'] = now.isoformat()
+        notifications['delivery_retry_lease_until'] = (now + timedelta(minutes=5)).isoformat()
+        payload['telegram_notifications'] = notifications
+        order.payment_payload = payload
+        order.save(update_fields=['payment_payload'])
+    return order, 'claimed'
+
+
+def deliver_pending_order_telegram_notifications(
+    order_pk,
+    *,
+    previous_status='unpaid',
+    pay_type=None,
+):
+    """Deliver the paid status and full order card with durable retry state."""
+    from django.utils import timezone
+
+    try:
+        order, claim_status = _claim_order_telegram_delivery(order_pk)
+    except Exception:
+        monobank_logger.exception('Failed to claim Telegram delivery for order %s', order_pk)
+        return 'failed'
+    if claim_status != 'claimed':
+        return claim_status
+
+    try:
+        from orders.telegram_notifications import TelegramNotifier
+
+        notifier = TelegramNotifier()
+        payload = order.payment_payload if isinstance(order.payment_payload, dict) else {}
+        notifications = payload.get('telegram_notifications') or {}
+
+        if not notifications.get('payment_status_update_sent'):
+            payment_update_sent = notifier.send_admin_payment_status_update(
+                order,
+                old_status=previous_status or 'unpaid',
+                new_status=order.payment_status,
+                pay_type=pay_type or order.pay_type,
+            )
+            if payment_update_sent:
+                order = _update_order_telegram_notification_state(
+                    order.pk,
+                    payment_status_update_sent=True,
+                    payment_status_update_sent_at=timezone.now().isoformat(),
+                )
+
+        delivered = notifier.send_new_order_notification(order)
+        if delivered:
+            _update_order_telegram_notification_state(
+                order.pk,
+                order_notification_sent=True,
+                order_notification_sent_at=timezone.now().isoformat(),
+                order_notification_status=order.payment_status,
+                order_notification_pending=False,
+                delivery_retry_lease_until=None,
+                delivery_last_error=None,
+            )
+            return 'sent'
+
+        _update_order_telegram_notification_state(
+            order.pk,
+            order_notification_pending=True,
+            delivery_retry_lease_until=None,
+            delivery_last_failed_at=timezone.now().isoformat(),
+            delivery_last_error='telegram_delivery_failed',
+        )
+        return 'failed'
+    except Exception:
+        monobank_logger.exception('Failed Telegram delivery for paid order %s', order.order_number)
+        try:
+            _update_order_telegram_notification_state(
+                order.pk,
+                order_notification_pending=True,
+                delivery_retry_lease_until=None,
+                delivery_last_failed_at=timezone.now().isoformat(),
+                delivery_last_error='telegram_delivery_exception',
+            )
+        except Exception:
+            monobank_logger.exception(
+                'Failed to persist Telegram delivery failure for order %s', order.pk
+            )
+        return 'failed'
+
+
 def _dispatch_post_payment_events(order_pk, previous_status, pay_type):
     """
     W2-9 (AN-011): запуск post-payment событий в фоновом daemon-потоке.
@@ -797,59 +922,47 @@ def _send_post_payment_events(order_pk, previous_status, pay_type):
         monobank_logger.error('Post-payment events: order %s not found', order_pk)
         return
 
-    # Уведомление админу о смене статуса оплаты
+    # A request-owned daemon can disappear before any external work starts.
+    # Heal the internal purchase ledger first; this operation is idempotent.
     try:
-        from orders.telegram_notifications import TelegramNotifier
-        notifier = TelegramNotifier()
-        notifier.send_admin_payment_status_update(
+        from storefront.utm_tracking import ensure_order_purchase_action
+
+        ensure_order_purchase_action(
             order,
-            old_status=previous_status or 'unpaid',
-            new_status=order.payment_status,
-            pay_type=pay_type,
+            metadata={
+                'source': 'post_payment_dispatch',
+                'payment_status': order.payment_status,
+            },
         )
     except Exception:
         monobank_logger.exception(
-            f'Failed to send admin payment status update for order {order.order_number}'
+            'Failed to persist Purchase action for order %s', order.order_number
         )
 
-    # Проверяем что Telegram уведомление еще не отправлено (защита от дублирования)
-    payment_payload = order.payment_payload or {}
-    telegram_notifications = payment_payload.get('telegram_notifications', {})
-    telegram_sent = telegram_notifications.get('order_notification_sent', False)
-
-    # 1. Telegram уведомление (только если еще не отправлено)
-    if not telegram_sent:
-        try:
-            from orders.telegram_notifications import TelegramNotifier
-            notifier = TelegramNotifier()
-            delivered = notifier.send_new_order_notification(order)
-
-            if delivered:
-                # Сохраняем в payment_payload что уведомление отправлено
-                if 'telegram_notifications' not in payment_payload:
-                    payment_payload['telegram_notifications'] = {}
-                payment_payload['telegram_notifications']['order_notification_sent'] = True
-                payment_payload['telegram_notifications']['order_notification_sent_at'] = timezone.now().isoformat()
-                payment_payload['telegram_notifications']['order_notification_status'] = order.payment_status
-                order.payment_payload = payment_payload
-                order.save(update_fields=['payment_payload'])
-
-                monobank_logger.info(
-                    f'📱 Telegram notification sent for order {order.order_number} '
-                    f'(status: {previous_status} → {order.payment_status})'
-                )
-            else:
-                monobank_logger.warning(
-                    'Telegram notification delivery failed for order %s',
-                    order.order_number,
-                )
-        except Exception as e:
-            monobank_logger.exception(f'Failed to send Telegram notification for order {order.order_number}: {e}')
-    else:
+    # 1. Telegram is still attempted immediately, but its DB lease/pending
+    # marker makes the delivery recoverable by cron if Passenger stops this
+    # daemon thread before or during the external request.
+    telegram_result = deliver_pending_order_telegram_notifications(
+        order.pk,
+        previous_status=previous_status,
+        pay_type=pay_type,
+    )
+    if telegram_result == 'sent':
         monobank_logger.info(
-            f'⚠️ Order {order.order_number}: Telegram notification already sent '
-            f'(status changed: {previous_status} → {order.payment_status}), skipping duplicate'
+            'Telegram notification sent for order %s (status: %s -> %s)',
+            order.order_number,
+            previous_status,
+            order.payment_status,
         )
+    elif telegram_result == 'failed':
+        monobank_logger.warning(
+            'Telegram notification remains pending for order %s',
+            order.order_number,
+        )
+
+    # The delivery helper writes payment_payload independently. Reload it so
+    # later Meta/TikTok/email saves cannot overwrite Telegram retry markers.
+    order.refresh_from_db()
 
     # 2. Facebook событие
     try:
@@ -943,6 +1056,8 @@ def _send_post_payment_events(order_pk, previous_status, pay_type):
         monobank_logger.exception(
             'Failed to send receipt email for order %s', order.pk
         )
+
+    return telegram_result
 
 
 def _verify_monobank_signature(request):

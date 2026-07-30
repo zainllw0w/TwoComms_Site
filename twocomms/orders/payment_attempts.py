@@ -110,6 +110,13 @@ def materialize_payment_attempt(attempt_id, *, status, payload=None, source='web
                 'history': attempt.payment_history or [],
                 'paid_amount': str(_paid_amount_from_payload(attempt, payload)),
                 'monobank_status': status,
+                # Passenger may stop a request-owned daemon thread before it
+                # reaches Telegram. Keep a durable DB marker so cron can
+                # recover the paid order card without duplicating deliveries.
+                'telegram_notifications': {
+                    'order_notification_pending': True,
+                    'order_notification_pending_at': timezone.now().isoformat(),
+                },
             },
         )
         apply_nova_poshta_refs(order, {

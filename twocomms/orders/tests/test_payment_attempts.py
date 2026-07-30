@@ -107,6 +107,9 @@ class PaymentAttemptLifecycleTests(TestCase):
         self.assertEqual(first.total_sum, Decimal('1000.00'))
         self.assertEqual(first.discount_amount, Decimal('100.00'))
         self.assertEqual(first.final_total, Decimal('900.00'))
+        self.assertTrue(
+            first.payment_payload['telegram_notifications']['order_notification_pending']
+        )
         from orders.facebook_conversions_service import FacebookConversionsService
         self.assertEqual(FacebookConversionsService.__new__(FacebookConversionsService)._extract_paid_amount(first), 900.0)
 
@@ -162,6 +165,7 @@ class PaymentAttemptLifecycleTests(TestCase):
 
     def test_prepaid_order_uses_purchase_event_without_lead(self):
         from storefront.views.utils import _send_post_payment_events
+        from storefront.models import UserAction
 
         order = Order.objects.create(
             user=self.user,
@@ -185,6 +189,13 @@ class PaymentAttemptLifecycleTests(TestCase):
         order.refresh_from_db()
         self.assertTrue(order.payment_payload['facebook_events']['purchase_sent'])
         self.assertNotIn('lead_sent', order.payment_payload.get('facebook_events', {}))
+        self.assertEqual(
+            UserAction.objects.filter(
+                order_id=order.pk,
+                action_type='purchase',
+            ).count(),
+            1,
+        )
 
     def test_failed_attempt_never_creates_order(self):
         from storefront.views.monobank import _apply_payment_attempt_status
