@@ -22,6 +22,57 @@ from orders.models import Order, PaymentAttempt
 
 
 class IgCheckoutProposalModelTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        # test_settings disables migrations, so install the same SQLite
+        # append-only guards used by the checkout migration for raw SQL tests.
+        if connection.vendor == "sqlite":
+            with connection.cursor() as cursor:
+                cursor.execute("DROP TRIGGER IF EXISTS ig_chk_revision_no_update")
+                cursor.execute("DROP TRIGGER IF EXISTS ig_chk_revision_no_delete")
+                cursor.execute("DROP TRIGGER IF EXISTS ig_chk_lifecycle_no_delete")
+                cursor.execute("DROP TRIGGER IF EXISTS ig_chk_lifecycle_identity_no_update")
+                cursor.execute(
+                    "CREATE TRIGGER ig_chk_revision_no_update BEFORE UPDATE "
+                    "ON management_igcheckoutrevision BEGIN SELECT RAISE(ABORT, "
+                    "'IgCheckoutRevision is append-only'); END"
+                )
+                cursor.execute(
+                    "CREATE TRIGGER ig_chk_revision_no_delete BEFORE DELETE "
+                    "ON management_igcheckoutrevision BEGIN SELECT RAISE(ABORT, "
+                    "'IgCheckoutRevision is append-only'); END"
+                )
+                cursor.execute(
+                    "CREATE TRIGGER ig_chk_lifecycle_no_delete BEFORE DELETE "
+                    "ON management_iglifecycleevent BEGIN SELECT RAISE(ABORT, "
+                    "'IgLifecycleEvent is durable'); END"
+                )
+                cursor.execute(
+                    "CREATE TRIGGER ig_chk_lifecycle_identity_no_update BEFORE UPDATE "
+                    "ON management_iglifecycleevent WHEN OLD.event_key IS NOT NEW.event_key "
+                    "OR OLD.kind IS NOT NEW.kind OR OLD.client_id IS NOT NEW.client_id "
+                    "OR OLD.deal_id IS NOT NEW.deal_id OR OLD.proposal_id IS NOT NEW.proposal_id "
+                    "OR OLD.order_id IS NOT NEW.order_id "
+                    "OR OLD.commercial_episode_id IS NOT NEW.commercial_episode_id "
+                    "OR OLD.attribution_id IS NOT NEW.attribution_id OR OLD.locale IS NOT NEW.locale "
+                    "OR OLD.payload IS NOT NEW.payload BEGIN SELECT RAISE(ABORT, "
+                    "'IgLifecycleEvent identity is immutable'); END"
+                )
+
+    @classmethod
+    def tearDownClass(cls):
+        if connection.vendor == "sqlite":
+            with connection.cursor() as cursor:
+                for name in (
+                    "ig_chk_revision_no_update",
+                    "ig_chk_revision_no_delete",
+                    "ig_chk_lifecycle_no_delete",
+                    "ig_chk_lifecycle_identity_no_update",
+                ):
+                    cursor.execute(f"DROP TRIGGER IF EXISTS {name}")
+        super().tearDownClass()
+
     def setUp(self):
         self.client = IgClient.get_or_create_for_sender("ig-checkout-models")
         self.deal = IgDeal.objects.create(
