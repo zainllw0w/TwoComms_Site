@@ -79,6 +79,29 @@ class MetaPixelConfigurationTests(SimpleTestCase):
         self.assertIsNone(service._clean_meta_cookie("not-a-meta-cookie"))
         self.assertIsNone(service._clean_meta_cookie("fb.1.1710000000000.bad value"))
 
+    def test_assisted_checkout_capi_reads_ip_and_user_agent_from_nested_tracking(self):
+        service = FacebookConversionsService.__new__(FacebookConversionsService)
+        order = SimpleNamespace(
+            pk=42,
+            order_number="TWC-TRACKING",
+            user=None,
+            email="buyer@example.com",
+            phone="+380501112233",
+            full_name="Buyer Example",
+            city="Київ",
+            payment_payload={
+                "tracking": {
+                    "client_ip_address": "8.8.8.8",
+                    "client_user_agent": "checkout-browser/1.0",
+                }
+            },
+        )
+
+        user_data = service._prepare_user_data(order)
+
+        self.assertEqual(user_data.client_ip_address, "8.8.8.8")
+        self.assertEqual(user_data.client_user_agent, "checkout-browser/1.0")
+
     def test_local_ukrainian_phone_is_normalized_to_international_digits(self):
         service = FacebookConversionsService.__new__(FacebookConversionsService)
 

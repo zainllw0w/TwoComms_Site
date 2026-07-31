@@ -28,6 +28,7 @@ import time
 import urllib.error
 import urllib.request
 from contextlib import nullcontext
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone as dt_timezone
 from decimal import Decimal, InvalidOperation
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
@@ -87,6 +88,29 @@ AUTOMATION_LEASE_TTL = timedelta(minutes=3)
 PROFILE_REFRESH_INTERVAL = 15 * 60
 PROFILE_REFRESH_BATCH = 25
 PROFILE_PERMISSION_COOLDOWN = 6 * 60 * 60
+
+
+@dataclass(frozen=True)
+class ProviderDeliveryReceipt:
+    """Structured Meta receipt with an explicit legacy tuple projection."""
+
+    ok: bool
+    kind: str
+    hint: str = ""
+    provider_message_id: str = ""
+
+    def as_legacy_tuple(self) -> tuple[bool, str, str]:
+        return self.ok, self.kind, self.hint
+
+
+def _provider_message_id(response_body) -> str:
+    try:
+        payload = json.loads(response_body or "{}") if isinstance(response_body, str) else response_body
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return ""
+    if not isinstance(payload, dict):
+        return ""
+    return str(payload.get("message_id") or payload.get("id") or "").strip()
 
 # Керуючі теги, які модель може додавати у відповідь (вирізаються перед
 # відправкою клієнту). [STAGE:x] просуває воронку, [MANAGER] кличе людину.
@@ -3367,7 +3391,8 @@ def send_text(
     *,
     permission_boundary_factory=None,
     allow_url_fallback: bool = False,
-) -> tuple[bool, str, str]:
+    return_receipt: bool = False,
+) -> tuple[bool, str, str] | ProviderDeliveryReceipt:
     """Повертає (ok, kind, hint/delivered_text).
 
     For the definite Meta 508/2534122 link rejection, an explicitly eligible
@@ -3402,6 +3427,7 @@ def send_text(
     if not parts:
         return False, "permanent", "порожня відповідь"
     ok_any = False
+    provider_message_id = ""
     for part in parts:
         boundary = (
             permission_boundary_factory()
@@ -3432,6 +3458,7 @@ def send_text(
             )
         if code == 200:
             ok_any = True
+            provider_message_id = provider_message_id or _provider_message_id(resp)
             _clear_send_error(s)
             _clear_client_delivery_error(recipient_id)
             continue
@@ -3480,9 +3507,17 @@ def send_text(
                         data=fallback_body,
                     )
                 if fallback_code == 200:
+                    provider_message_id = provider_message_id or _provider_message_id(fallback_resp)
                     _clear_send_error(s)
                     _clear_client_delivery_error(recipient_id)
                     log("warning", "send_link_fallback", f"→ {recipient_id}: URL removed after Meta 508/2534122")
+                    if return_receipt:
+                        return ProviderDeliveryReceipt(
+                            True,
+                            "degraded_link_restriction",
+                            fallback_part,
+                            provider_message_id,
+                        )
                     return True, "degraded_link_restriction", fallback_part
                 fallback_kind, fallback_hint = _classify_send_error(
                     fallback_code, fallback_resp
@@ -3528,7 +3563,16 @@ def send_text(
         log("error", "send", f"HTTP {code} [{kind}] {hint}")
         return False, kind, hint
     if degraded_text:
+        if return_receipt:
+            return ProviderDeliveryReceipt(
+                True,
+                "degraded_link_restriction",
+                degraded_text,
+                provider_message_id,
+            )
         return True, "degraded_link_restriction", degraded_text
+    if return_receipt:
+        return ProviderDeliveryReceipt(True, "", "", provider_message_id)
     return True, "", ""
 
 

@@ -23,7 +23,9 @@ from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.template.loader import render_to_string
+from django.utils import timezone
 
 logger = logging.getLogger('orders.email_receipt')
 
@@ -313,15 +315,33 @@ def send_order_receipt_email(order, *, force: bool = False, recipient: str | Non
     Не дублює відправку (флаг у payment_payload['receipt_email_sent']),
     якщо тільки не force=True.
     """
+    from orders.models import Order
+
+    # Claim before SMTP I/O. A durable ``sending`` state is treated as
+    # unknown on replay because the provider may have accepted the message.
+    try:
+        with transaction.atomic():
+            current = Order.objects.select_for_update().get(pk=order.pk)
+            payload = current.payment_payload if isinstance(current.payment_payload, dict) else {}
+            if payload.get("receipt_email_sent") and not force:
+                return True, None
+            if payload.get("receipt_email_status") in {"sending", "unknown"} and not force:
+                return False, "delivery_unknown"
+            to_email = (recipient or current.email or "").strip()
+            if not _is_valid_email(to_email):
+                return False, "no_valid_email"
+            payload["receipt_email_status"] = "sending"
+            payload["receipt_email_to"] = to_email
+            payload["receipt_email_claimed_at"] = timezone.now().isoformat()
+            current.payment_payload = payload
+            current.save(update_fields=["payment_payload"])
+            order = current
+    except Order.DoesNotExist:
+        return False, "order_not_found"
+
     to_email = (recipient or order.email or "").strip()
     if not _is_valid_email(to_email):
         return False, "no_valid_email"
-
-    # Захист від повторної відправки
-    payload = order.payment_payload if isinstance(order.payment_payload, dict) else {}
-    already_sent = bool(payload.get("receipt_email_sent"))
-    if already_sent and not force:
-        return True, None
 
     try:
         built = build_order_receipt_email(order)
@@ -345,17 +365,33 @@ def send_order_receipt_email(order, *, force: bool = False, recipient: str | Non
         msg.send(fail_silently=False)
     except Exception as exc:
         logger.warning("Failed to send receipt email for order %s to %s: %s", order.pk, to_email, exc)
+        try:
+            with transaction.atomic():
+                failed = Order.objects.select_for_update().get(pk=order.pk)
+                payload = failed.payment_payload if isinstance(failed.payment_payload, dict) else {}
+                payload["receipt_email_status"] = "failed"
+                payload["receipt_email_error"] = str(exc)[:500]
+                failed.payment_payload = payload
+                failed.save(update_fields=["payment_payload"])
+        except Exception:
+            logger.exception("Failed to persist receipt delivery failure for order %s", order.pk)
         return False, str(exc)
 
-    # Позначаємо у payment_payload, що лист відправлено
+    # Mark the provider result only after the send succeeds. If this write
+    # fails, the pre-send claim remains durable and prevents a blind duplicate.
     try:
-        if not isinstance(order.payment_payload, dict):
-            order.payment_payload = {}
-        order.payment_payload["receipt_email_sent"] = True
-        order.payment_payload["receipt_email_to"] = to_email
-        order.save(update_fields=["payment_payload"])
+        with transaction.atomic():
+            sent = Order.objects.select_for_update().get(pk=order.pk)
+            payload = sent.payment_payload if isinstance(sent.payment_payload, dict) else {}
+            payload["receipt_email_sent"] = True
+            payload["receipt_email_status"] = "sent"
+            payload["receipt_email_to"] = to_email
+            payload.pop("receipt_email_error", None)
+            sent.payment_payload = payload
+            sent.save(update_fields=["payment_payload"])
     except Exception:
-        logger.warning("Receipt email sent but failed to flag order %s", order.pk)
+        logger.warning("Receipt email sent but delivery marker is unknown for order %s", order.pk)
+        return False, "delivery_unknown"
 
     logger.info("Receipt email sent for order %s to %s", order.order_number, to_email)
     return True, None

@@ -41,9 +41,6 @@ class Command(BaseCommand):
             payload = order.payment_payload if isinstance(order.payment_payload, dict) else {}
             if not payload.get('attempt_id'):
                 continue
-            notifications = payload.get('telegram_notifications') or {}
-            if notifications.get('order_notification_sent'):
-                continue
             if attempted >= limit:
                 break
 

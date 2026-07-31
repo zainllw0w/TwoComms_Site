@@ -513,7 +513,9 @@ class FacebookConversionsService:
 
         # Client IP address (если есть в payload)
         if raw_tracking and isinstance(raw_tracking, dict):
-            client_ip = raw_tracking.get('client_ip_address')
+            client_ip = tracking_data.get('client_ip_address')
+            if not client_ip:
+                client_ip = raw_tracking.get('client_ip_address')
             if client_ip:
                 try:
                     parsed_ip = ipaddress.ip_address(str(client_ip).strip())
@@ -523,7 +525,9 @@ class FacebookConversionsService:
                     logger.debug("Ignoring invalid client IP for %s", getattr(order, 'order_number', getattr(order, 'reference', order.pk)))
 
             # User Agent
-            user_agent = raw_tracking.get('client_user_agent')
+            user_agent = tracking_data.get('client_user_agent')
+            if not user_agent:
+                user_agent = raw_tracking.get('client_user_agent')
             if user_agent:
                 user_data.client_user_agent = user_agent
 

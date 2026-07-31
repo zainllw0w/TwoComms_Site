@@ -13,6 +13,7 @@ import secrets
 from datetime import timedelta
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from management.models import IgCheckoutProposal, IgLifecycleEvent, IgOrderAttribution
@@ -76,10 +77,25 @@ def _message(event: IgLifecycleEvent) -> str:
     if event.kind == IgLifecycleEvent.Kind.PAYMENT_VERIFIED:
         amount = payload.get("amount") or ""
         recipient = str(order.full_name or "").strip()
+        phone = str(order.phone or "").strip()
+        city = str(order.city or "").strip()
+        office = str(order.np_office or "").strip()
         copies = {
-            "uk": f"Дякуємо, оплату отримано. Замовлення #{order.order_number} готуємо для {recipient}. Я надішлю ТТН сюди, щойно її буде створено.",
-            "ru": f"Спасибо, оплату получили. Заказ #{order.order_number} готовим для {recipient}. Я пришлю ТТН сюда, как только она будет создана.",
-            "en": f"Thank you, payment received. Order #{order.order_number} is being prepared for {recipient}. I will send the tracking number here as soon as it is created.",
+            "uk": (
+                f"Дякуємо, оплату отримано. Замовлення #{order.order_number} готуємо для {recipient}. "
+                f"Доставка: {city}, {office}. Телефон для зв'язку: {phone}. "
+                "Я надішлю ТТН сюди, щойно її буде створено."
+            ),
+            "ru": (
+                f"Спасибо, оплату получили. Заказ #{order.order_number} готовим для {recipient}. "
+                f"Доставка: {city}, {office}. Телефон для связи: {phone}. "
+                "Я пришлю ТТН сюда, как только она будет создана."
+            ),
+            "en": (
+                f"Thank you, payment received. Order #{order.order_number} is being prepared for {recipient}. "
+                f"Delivery: {city}, {office}. Contact phone: {phone}. "
+                "I will send the tracking number here as soon as it is created."
+            ),
         }
         if amount:
             copies["uk"] += f" Сума: {amount} грн."
@@ -134,6 +150,59 @@ def _response_window_open(client, now):
     return bool(last_message_at and now <= last_message_at + RESPONSE_WINDOW)
 
 
+def _queue_manager_task(event: IgLifecycleEvent) -> None:
+    """Persist one actionable, deterministic task for an out-of-window event."""
+    from management.models import IgFollowUpTask
+
+    reason = f"ig_lifecycle:{event.event_key}"
+    IgFollowUpTask.objects.get_or_create(
+        client=event.client,
+        deal=event.deal,
+        kind=IgFollowUpTask.Kind.MANAGER_TASK,
+        reason=reason,
+        defaults={
+            "due_at": timezone.now(),
+            "status": IgFollowUpTask.Status.PENDING,
+            "level": 0,
+            "message_text": _message(event),
+            "meta_window_deadline": timezone.now(),
+        },
+    )
+
+
+def _cancel_event(event_id: int, reason: str) -> str:
+    with transaction.atomic():
+        event = IgLifecycleEvent.objects.select_for_update().get(pk=event_id)
+        if event.state in {
+            IgLifecycleEvent.State.SENT,
+            IgLifecycleEvent.State.CANCELLED,
+        }:
+            return event.state
+        event.state = IgLifecycleEvent.State.CANCELLED
+        event.lease_token = ""
+        event.lease_expires_at = None
+        event.last_error = reason[:1000]
+        event.save(update_fields=[
+            "state", "lease_token", "lease_expires_at", "last_error", "updated_at",
+        ])
+        return event.state
+
+
+def _delivery_result(result):
+    """Normalize legacy tuples and optional structured provider receipts."""
+    provider_message_id = str(getattr(result, "provider_message_id", "") or "")
+    if isinstance(result, tuple):
+        if len(result) >= 4:
+            ok, kind, hint, provider_message_id = result[:4]
+        else:
+            ok, kind, hint = result
+    else:
+        ok = bool(getattr(result, "ok", False))
+        kind = str(getattr(result, "kind", "unknown") or "unknown")
+        hint = str(getattr(result, "hint", "") or "")
+    return bool(ok), str(kind or "unknown"), str(hint or ""), str(provider_message_id or "")
+
+
 def dispatch_lifecycle_event(event_id: int) -> str:
     """Lease and deliver one event; return its durable state value."""
     now = timezone.now()
@@ -149,7 +218,12 @@ def dispatch_lifecycle_event(event_id: int) -> str:
             return "missing"
         if event.state == IgLifecycleEvent.State.SENT:
             return event.state
-        if event.state == IgLifecycleEvent.State.CANCELLED:
+        if event.state in {
+            IgLifecycleEvent.State.CANCELLED,
+            IgLifecycleEvent.State.MANAGER_REVIEW,
+            IgLifecycleEvent.State.AMBIGUOUS,
+            IgLifecycleEvent.State.FAILED,
+        }:
             return event.state
         if event.due_at > now:
             return event.state
@@ -162,59 +236,96 @@ def dispatch_lifecycle_event(event_id: int) -> str:
         event.last_error = ""
         event.save(update_fields=["state", "lease_token", "lease_expires_at", "attempts", "last_error", "updated_at"])
 
-    if not _response_window_open(event.client, now):
-        with transaction.atomic():
-            owned = IgLifecycleEvent.objects.select_for_update().get(pk=event_id)
-            if owned.lease_token != lease:
-                return owned.state
-            owned.state = IgLifecycleEvent.State.WAITING_WINDOW
-            owned.lease_token = ""
-            owned.lease_expires_at = None
-            owned.last_error = "standard_response_window_closed"
-            next_window = getattr(event.client, "last_message_at", None)
-            owned.due_at = max(
-                now + timedelta(minutes=15),
-                (next_window + RESPONSE_WINDOW) if next_window else now + timedelta(hours=6),
-            )
-            owned.save(update_fields=["state", "lease_token", "lease_expires_at", "last_error", "due_at", "updated_at"])
-        try:
-            from management.services.instagram_bot import notify_manager
-
-            notify_manager(
-                f"IG lifecycle event requires operator response: {event.kind} for order #{event.order.order_number}",
-                dedupe_key=f"ig-lifecycle:{event.event_key}",
-                event_type="ig_lifecycle_manager_review",
-                client=event.client,
-            )
-        except Exception:
-            logger.exception("Unable to create manager review for lifecycle event %s", event_id)
-        return IgLifecycleEvent.State.WAITING_WINDOW
-
     try:
         from management.models import InstagramBotSettings
         from management.services.instagram_bot import send_text
+        from management.services.ig_reply_boundary import (
+            customer_send_boundary,
+            reply_execution_boundary,
+        )
 
-        ok, kind, hint = send_text(InstagramBotSettings.load(), event.client.igsid, _message(event))
+        settings = InstagramBotSettings.load()
+        with reply_execution_boundary(settings.pk, event.client_id) as permission:
+            if not permission:
+                if permission.reason == "global_reply_paused":
+                    with transaction.atomic():
+                        owned = IgLifecycleEvent.objects.select_for_update().get(pk=event_id)
+                        if owned.lease_token == lease:
+                            owned.state = IgLifecycleEvent.State.WAITING_WINDOW
+                            owned.lease_token = ""
+                            owned.lease_expires_at = None
+                            owned.last_error = permission.reason
+                            owned.due_at = now + timedelta(minutes=15)
+                            owned.save(update_fields=[
+                                "state", "lease_token", "lease_expires_at", "last_error", "due_at", "updated_at",
+                            ])
+                    return IgLifecycleEvent.State.WAITING_WINDOW
+                return _cancel_event(event_id, permission.reason or "customer_send_not_allowed")
+
+            if not _response_window_open(event.client, now):
+                with transaction.atomic():
+                    owned = IgLifecycleEvent.objects.select_for_update().get(pk=event_id)
+                    if owned.lease_token != lease:
+                        return owned.state
+                    owned.state = IgLifecycleEvent.State.WAITING_WINDOW
+                    owned.lease_token = ""
+                    owned.lease_expires_at = None
+                    owned.last_error = "standard_response_window_closed"
+                    next_window = getattr(event.client, "last_message_at", None)
+                    owned.due_at = max(
+                        now + timedelta(minutes=15),
+                        (next_window + RESPONSE_WINDOW) if next_window else now + timedelta(hours=6),
+                    )
+                    owned.save(update_fields=["state", "lease_token", "lease_expires_at", "last_error", "due_at", "updated_at"])
+                _queue_manager_task(event)
+                try:
+                    from management.services.instagram_bot import notify_manager
+
+                    notify_manager(
+                        f"IG lifecycle event requires operator response: {event.kind} for order #{event.order.order_number}",
+                        dedupe_key=f"ig-lifecycle:{event.event_key}",
+                        event_type="ig_lifecycle_manager_review",
+                        client=event.client,
+                    )
+                except Exception:
+                    logger.exception("Unable to create manager review for lifecycle event %s", event_id)
+                return IgLifecycleEvent.State.WAITING_WINDOW
+
+            result = send_text(
+                settings,
+                event.client.igsid,
+                _message(event),
+                permission_boundary_factory=lambda: customer_send_boundary(
+                    settings.pk, event.client_id, permission
+                ),
+                return_receipt=True,
+            )
+            ok, kind, hint, provider_message_id = _delivery_result(result)
     except Exception as exc:  # provider call is outside the transaction
-        ok, kind, hint = False, "unknown", repr(exc)
+        ok, kind, hint, provider_message_id = False, "unknown", repr(exc), ""
 
-    needs_manager_review = (not ok and kind in {"unknown", "transient", "retryable", "permanent"})
+    needs_manager_review = (not ok and kind in {"unknown", "transient", "permanent"})
     with transaction.atomic():
         owned = IgLifecycleEvent.objects.select_for_update().get(pk=event_id)
         if owned.lease_token != lease:
             return owned.state
         owned.lease_token = ""
         owned.lease_expires_at = None
-        if ok:
+        if ok and provider_message_id:
             owned.state = IgLifecycleEvent.State.SENT
-            owned.provider_message_id = owned.provider_message_id or "meta:confirmed"
+            owned.provider_message_id = provider_message_id[:128]
             owned.completed_at = timezone.now()
             owned.last_error = ""
-        elif kind in {"unknown", "transient", "retryable"}:
-            # Meta has no idempotency key for this transport. A timeout may
-            # have succeeded remotely, so replaying would risk a duplicate
-            # customer message; keep it for operator reconciliation instead.
-            owned.state = IgLifecycleEvent.State.MANAGER_REVIEW
+        elif ok:
+            owned.state = IgLifecycleEvent.State.AMBIGUOUS
+            owned.last_error = "provider_message_id_missing"
+            owned.due_at = timezone.now() + timedelta(hours=6)
+        elif kind == "retryable" and owned.attempts < 3:
+            owned.state = IgLifecycleEvent.State.PENDING
+            owned.due_at = timezone.now() + timedelta(minutes=2 ** owned.attempts)
+            owned.last_error = f"{kind}:{hint}"[:1000]
+        elif kind in {"unknown", "transient"}:
+            owned.state = IgLifecycleEvent.State.AMBIGUOUS
             owned.last_error = f"{kind}:{hint}"[:1000]
             owned.due_at = timezone.now() + timedelta(hours=6)
         else:
@@ -225,10 +336,11 @@ def dispatch_lifecycle_event(event_id: int) -> str:
             "completed_at", "last_error", "due_at", "updated_at",
         ])
         final_state = owned.state
-    if needs_manager_review and final_state in {
-        IgLifecycleEvent.State.MANAGER_REVIEW,
+    if needs_manager_review or final_state in {
+        IgLifecycleEvent.State.AMBIGUOUS,
         IgLifecycleEvent.State.FAILED,
     }:
+        _queue_manager_task(event)
         try:
             from management.services.instagram_bot import notify_manager
 
@@ -250,10 +362,15 @@ def dispatch_due_lifecycle_events(limit: int = 50) -> int:
         IgLifecycleEvent.objects.filter(
             due_at__lte=now,
         ).filter(
-            state__in=[
+            Q(state__in=[
                 IgLifecycleEvent.State.PENDING,
                 IgLifecycleEvent.State.WAITING_WINDOW,
-            ]
+            ])
+            | Q(
+                state=IgLifecycleEvent.State.PROCESSING,
+                lease_expires_at__isnull=False,
+                lease_expires_at__lte=now,
+            )
         ).order_by("due_at", "id").values_list("id", flat=True)[:limit]
     )
     delivered = 0
