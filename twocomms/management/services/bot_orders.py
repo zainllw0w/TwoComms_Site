@@ -953,8 +953,9 @@ def _create_deal_and_link_unlocked(
                 if len(items) > 1:
                     return {"ok": False, "error": "price_allocation_required"}
                 item_override = price_decision.get("price")
-            elif price_decision.get("status") in {"ambiguous", "unavailable"}:
-                return {"ok": False, "error": "ambiguous_conversation_price"}
+            # An ambiguous dialogue price must not block a catalog-priced
+            # proposal.  It only matters when a negotiated amount is
+            # explicitly supplied, which is validated above against evidence.
             try:
                 catalog_price = Decimal(str(effective_cart_unit_price(
                     item_product,
@@ -1057,16 +1058,18 @@ def _create_deal_and_link_unlocked(
     size = str(size or "").strip().upper()[:16]
     fit_option_code = str(fit_option_code or "").strip().lower()[:50]
     fit_option_label = ""
-    if product is not None and fit_option_code:
+    if product is not None:
         from storefront.models import ProductFitOption
 
-        fit_option = ProductFitOption.objects.filter(
-            product=product, code=fit_option_code, is_active=True,
-        ).first()
-        if not fit_option:
-            return {"ok": False, "error": "invalid_fit_option"}
-        fit_option_label = fit_option.label
-    if product is not None and size:
+        active_fits = ProductFitOption.objects.filter(product=product, is_active=True)
+        if fit_option_code:
+            fit_option = active_fits.filter(code=fit_option_code).first()
+            if not fit_option:
+                return {"ok": False, "error": "invalid_fit_option"}
+            fit_option_label = fit_option.label
+        elif active_fits.exists():
+            return {"ok": False, "error": "missing_fit_option"}
+
         from storefront.services.size_guides import resolve_product_sizes
 
         allowed_sizes = {
@@ -1075,8 +1078,21 @@ def _create_deal_and_link_unlocked(
         }
         if fit_option_code == "oversize":
             allowed_sizes.add("XS")
+        if allowed_sizes and not size:
+            return {"ok": False, "error": "missing_size"}
         if allowed_sizes and size not in allowed_sizes:
             return {"ok": False, "error": "invalid_size"}
+
+        from fable5.services import variant_allows_purchase
+
+        if not variant_allows_purchase(
+            product,
+            None,
+            fit_code=fit_option_code,
+            size=size,
+            option_values={"fit": fit_option_code} if fit_option_code else {},
+        ):
+            return {"ok": False, "error": "unavailable_selection"}
     open_deals = current_open_deals()
 
     price_decision = _conversation_price_decision(client, product=product, qty=qty) if product else {
@@ -1091,8 +1107,9 @@ def _create_deal_and_link_unlocked(
             return {"ok": False, "error": "invalid_negotiated_price"}
     elif price_decision.get("status") == "accepted":
         unit_price_override = price_decision.get("price")
-    elif price_decision.get("status") in {"ambiguous", "unavailable"}:
-        return {"ok": False, "error": "ambiguous_conversation_price"}
+    # A prepayment sentence can contain an amount without negotiating the
+    # merchandise unit price.  Fall back to the server catalog in that case;
+    # explicit negotiated prices are still evidence-validated above.
 
     intended_price = unit_price_override
     if product is not None and intended_price is None:

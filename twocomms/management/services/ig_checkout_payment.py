@@ -119,9 +119,9 @@ def _invoice_payload(request, attempt, proposal, *, payment_amount, promo_discou
         "destination": description,
         "basketOrder": basket,
     }
+    # Assisted checkout validates this before invoice creation. Keep the
+    # provider payload explicit so a paid order cannot lose its receipt.
     if attempt.email:
-        # Monobank accepts receipt addresses in merchantPaymInfo.  The field
-        # is optional, so checkout still works when the customer skips email.
         merchant_info["customerEmails"] = [attempt.email]
     return {
         "amount": int((payment_amount * 100).to_integral_value()),
@@ -132,7 +132,7 @@ def _invoice_payload(request, attempt, proposal, *, payment_amount, promo_discou
     }
 
 
-def _validate_payload(proposal, payload):
+def _validate_payload(proposal, payload, *, user=None):
     full_name = _clean(payload.get("full_name"), 200)
     if len(full_name.split()) < 2:
         raise CheckoutPaymentError("full_name", "Вкажіть ім'я та прізвище.", field="full_name")
@@ -145,11 +145,16 @@ def _validate_payload(proposal, payload):
         )
 
     email = _clean(payload.get("email"), 254)
-    if email:
-        try:
-            validate_email(email)
-        except ValidationError as exc:
-            raise CheckoutPaymentError("email", "Перевірте email для чека.", field="email") from exc
+    if not email:
+        raise CheckoutPaymentError(
+            "email",
+            "Вкажіть email — на нього надійде чек і підтвердження замовлення.",
+            field="email",
+        )
+    try:
+        validate_email(email)
+    except ValidationError as exc:
+        raise CheckoutPaymentError("email", "Перевірте email для чека.", field="email") from exc
 
     try:
         delivery = resolve_delivery_selection(payload)
@@ -165,8 +170,24 @@ def _validate_payload(proposal, payload):
         promo = PromoCode.objects.select_for_update().filter(code__iexact=promo_code).first()
         if promo is None or not promo.can_be_used():
             raise CheckoutPaymentError("promo_invalid", "Промокод недействителен или уже использован.", field="promo_code")
-        if promo.one_time_per_user:
-            raise CheckoutPaymentError("promo_requires_account", "Этот промокод доступен только в личном кабинете.", field="promo_code")
+        account_scoped = bool(
+            promo.one_time_per_user
+            or (promo.group_id and getattr(promo.group, "one_per_account", False))
+        )
+        if account_scoped:
+            if not user or not user.is_authenticated:
+                raise CheckoutPaymentError(
+                    "promo_requires_account",
+                    "Этот промокод доступен только в личном кабинете.",
+                    field="promo_code",
+                )
+            eligible, _reason = promo.can_be_used_by_user(user)
+            if not eligible:
+                raise CheckoutPaymentError(
+                    "promo_invalid",
+                    "Промокод недействителен или уже использован.",
+                    field="promo_code",
+                )
         promo_discount = min(
             Decimal(str(promo.calculate_discount(proposal.requested_payment_amount))),
             Decimal(proposal.requested_payment_amount),
@@ -255,6 +276,68 @@ def _snapshot(proposal):
     }
 
 
+def _revalidate_frozen_proposal(proposal):
+    """Reject catalog drift before recipient data or an invoice is locked."""
+    from management.models import IgCheckoutRevision
+    from management.services.ig_checkout import validate_checkout_items
+
+    revision = (
+        IgCheckoutRevision.objects.filter(
+            proposal=proposal,
+            revision=proposal.revision,
+        )
+        .order_by("-id")
+        .first()
+    )
+    # Hand-built historical fixtures may predate revision persistence. Real
+    # bot-created proposals always have a revision and are fully revalidated.
+    if revision is None:
+        return
+
+    item_specs = [
+        {
+            "product_id": item.product_id,
+            "color_variant_id": item.color_variant_id,
+            "qty": item.quantity,
+            "size": item.size,
+            "fit_option_code": item.fit_code,
+            "option_values": item.option_values or {},
+        }
+        for item in proposal.items.order_by("position", "id")
+    ]
+    evidence_ids = list(revision.evidence_message_ids or [])
+    try:
+        quote = validate_checkout_items(
+            client=proposal.client,
+            item_specs=item_specs,
+            evidence={"message_ids": evidence_ids},
+            pay_type=proposal.pay_type,
+            negotiated_total=(
+                proposal.quoted_total
+                if proposal.negotiated_discount > 0
+                else None
+            ),
+            requested_payment_amount=proposal.requested_payment_amount,
+            allow_promo=proposal.allow_promo,
+        )
+    except Exception as exc:
+        raise CheckoutPaymentError(
+            "catalog_changed",
+            "Один із товарів або його умови змінилися. Попросіть бота оновити пропозицію.",
+        ) from exc
+
+    if (
+        quote.digest != proposal.items_digest
+        or quote.catalog_total != proposal.catalog_total
+        or quote.quoted_total != proposal.quoted_total
+        or quote.requested_payment_amount != proposal.requested_payment_amount
+    ):
+        raise CheckoutPaymentError(
+            "catalog_changed",
+            "Один із товарів або його умови змінилися. Попросіть бота оновити пропозицію.",
+        )
+
+
 def _capture_attempt_tracking(request, attempt):
     """Freeze the first valid payer browser before any provider call."""
     try:
@@ -327,7 +410,7 @@ def _lock_attempt_proposal_graph(attempt_id, *, proposal_related=()):
 
 
 @transaction.atomic
-def lock_proposal_details(proposal, *, payload, request):
+def lock_proposal_details(proposal, *, payload, request, grant_id=""):
     """Validate and persist first-submit-wins recipient data."""
     from management.models import IgCheckoutProposal
 
@@ -358,7 +441,8 @@ def lock_proposal_details(proposal, *, payload, request):
     if locked.status not in {locked.Status.READY, locked.Status.VIEWED}:
         raise CheckoutPaymentError("unavailable", "Это предложение больше нельзя оплатить.")
 
-    values = _validate_payload(locked, payload)
+    _revalidate_frozen_proposal(locked)
+    values = _validate_payload(locked, payload, user=request.user)
     if not request.session.session_key:
         request.session.save()
     fingerprint = _fingerprint(
@@ -403,7 +487,14 @@ def lock_proposal_details(proposal, *, payload, request):
         promo_code=values["promo"],
         event_state=_promo_reservation_state(values["promo"]),
     )
-    _capture_attempt_tracking(request, attempt)
+    tracking = _capture_attempt_tracking(request, attempt)
+    if grant_id:
+        tracking["ig_checkout_grant_id"] = str(grant_id)[:64]
+        tracking["ig_initiate_checkout_event_id"] = hashlib.sha256(
+            f"ig:{proposal.pk}:{proposal.revision}:{grant_id}".encode()
+        ).hexdigest()[:40]
+        attempt.tracking_payload = tracking
+        attempt.save(update_fields=["tracking_payload", "updated"])
     if values["promo"] is not None:
         values["promo"].current_uses += 1
         values["promo"].save(update_fields=["current_uses", "updated_at"])
@@ -435,11 +526,13 @@ def lock_proposal_details(proposal, *, payload, request):
     return locked, attempt, values, False
 
 
-def create_or_reuse_invoice(proposal, *, request, payload):
+def create_or_reuse_invoice(proposal, *, request, payload, grant_id=""):
     """Create one standard Monobank invoice for a proposal."""
     from storefront.views.monobank import _monobank_api_request
 
-    locked, attempt, values, reused = lock_proposal_details(proposal, payload=payload, request=request)
+    locked, attempt, values, reused = lock_proposal_details(
+        proposal, payload=payload, request=request, grant_id=grant_id
+    )
     if reused and attempt.invoice_url:
         _send_add_payment_info_if_missing(attempt, request)
         return attempt, attempt.invoice_url, True

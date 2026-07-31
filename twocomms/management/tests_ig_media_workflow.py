@@ -333,6 +333,19 @@ class PaymentLinkGateTests(SimpleTestCase):
         )
         self.assertTrue(payment_link_allowed(client, {"paylink": "full", "product": 111}, "Так, хочу, оформлюйте"))
 
+    def test_explicit_payment_question_with_complete_configuration_can_open_link(self):
+        from management.services.instagram_bot import payment_link_allowed
+
+        client = SimpleNamespace(
+            current_product_id=111,
+            current_size="M",
+            intent="payment",
+            stage="product_matched",
+            buying_readiness=80,
+        )
+        control = {"paylink": "full", "product": 111, "size": "M", "fit": "classic"}
+        self.assertTrue(payment_link_allowed(client, control, "Как я могу оплатить?"))
+
     def test_paid_client_cannot_receive_a_second_invoice(self):
         from management.services.instagram_bot import payment_link_allowed
 

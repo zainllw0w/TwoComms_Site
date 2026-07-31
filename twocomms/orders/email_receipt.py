@@ -208,7 +208,10 @@ def build_order_receipt_context(order) -> dict:
         "subtotal_display": _fmt_money(subtotal),
         "discount_display": _fmt_money(discount),
         "has_discount": discount > 0,
-        "total_display": _fmt_money(total),
+        # ``Order.total_sum`` is the frozen gross catalog amount. The amount
+        # actually charged is the net value after the persisted discount.
+        "gross_total_display": _fmt_money(total),
+        "total_display": _fmt_money(max(total - discount, Decimal("0.00"))),
         "is_prepaid": is_prepaid,
         "prepayment_display": _fmt_money(prepayment),
         "remaining_display": _fmt_money(remaining),

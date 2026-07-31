@@ -26,7 +26,7 @@ class AnalyticsLoaderRegressionTests(SimpleTestCase):
         source = self._loader_source()
 
         self.assertIn(
-            "var isPaidLanding = /[?&](gclid|fbclid|ttclid|wbraid|gbraid|msclkid|utm_source|utm_medium|utm_campaign)=/i.test(win.location.search);",
+            "var isPaidLanding = /[?&](gclid|fbclid|ttclid|wbraid|gbraid|msclkid|utm_source|utm_medium|utm_campaign)=/i.test(win.location.search)",
             source,
         )
         self.assertIn("if (!isLowDevice || isPaidLanding) {", source)
@@ -34,6 +34,12 @@ class AnalyticsLoaderRegressionTests(SimpleTestCase):
             "if (isPaidLanding) {\n    initializePixelsDeferred();\n  } else {",
             source,
         )
+
+    def test_paid_instagram_checkout_is_eager_pixel_landing(self):
+        source = self._loader_source()
+
+        self.assertIn("data-checkout-state') === 'paid'", source)
+        self.assertIn("data-purchase-event-id", source)
 
     def test_base_template_uses_current_analytics_loader_version(self):
         template_path = (

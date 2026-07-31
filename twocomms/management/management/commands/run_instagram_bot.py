@@ -216,6 +216,26 @@ def _inbox_refresh_worker(stop_event: threading.Event):
             break
 
 
+def _checkout_lifecycle_worker(stop_event: threading.Event):
+    """Drain payment/TTN/delivery events without coupling them to inbox replies."""
+    from management.services.ig_lifecycle import dispatch_due_lifecycle_events
+
+    while not stop_event.is_set():
+        try:
+            close_old_connections()
+            if not maintenance_status(path=MAINTENANCE_FILE)["active"]:
+                dispatch_due_lifecycle_events(limit=10)
+        except Exception as exc:
+            try:
+                bot.log("error", "ig_checkout_lifecycle", repr(exc))
+            except Exception:
+                pass
+        finally:
+            close_old_connections()
+        if stop_event.wait(5):
+            break
+
+
 def _reconcile_commercial_episodes_after_reload():
     """Repair source rows written by old workers during the deploy window."""
     from django.core.management import call_command
@@ -464,6 +484,12 @@ class Command(BaseCommand):
             daemon=True,
         )
         inbox_refresh_worker.start()
+        lifecycle_worker = threading.Thread(
+            target=_checkout_lifecycle_worker,
+            args=(stop_event,),
+            daemon=True,
+        )
+        lifecycle_worker.start()
 
         from django.utils import timezone as tz
 

@@ -290,6 +290,24 @@ body.bot-drawer-open{overflow:hidden;}
 .bot-order-state.rejected{border-color:#783743;background:#2d171c;color:#fecaca;}
 .bot-orders-detail{position:relative;min-width:0;background:#0a0e15;border:1px solid #1e2736;border-radius:16px;padding:18px;min-height:620px;overflow:visible;}
 .bot-orders-detail-inner{max-width:900px;margin:0 auto;}
+.bot-checkout-section{margin:0 0 18px;padding:0 0 18px;border-bottom:1px solid #202938;}
+.bot-checkout-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px;}
+.bot-checkout-head h3{margin:0;color:#e7ecf3;font-size:15px;}
+.bot-checkout-head p{margin:4px 0 0;color:#7f8ba0;font-size:11.5px;line-height:1.45;}
+.bot-checkout-grid{display:grid;grid-template-columns:minmax(280px,1fr) minmax(240px,.8fr);gap:10px;}
+.bot-checkout-list{display:flex;flex-direction:column;gap:7px;max-height:330px;overflow:auto;}
+.bot-checkout-row{display:block;width:100%;text-align:left;border:1px solid #202938;background:#0b1018;color:inherit;border-radius:10px;padding:10px;cursor:pointer;}
+.bot-checkout-row:hover,.bot-checkout-row.active{border-color:#3b82f6;background:#101a2a;}
+.bot-checkout-row-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+.bot-checkout-row-title{color:#eef2f8;font-size:12.5px;font-weight:800;overflow-wrap:anywhere;}
+.bot-checkout-row-meta{margin-top:3px;color:#8793a7;font-size:10.5px;line-height:1.45;}
+.bot-checkout-preview{min-width:0;background:#0a0e15;border:1px solid #1e2736;border-radius:10px;padding:12px;min-height:150px;}
+.bot-checkout-preview h4{margin:0 0 8px;color:#f1f5f9;font-size:13px;}
+.bot-checkout-preview dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:5px 10px;margin:0;color:#aeb8c7;font-size:11px;}
+.bot-checkout-preview dt{color:#718096;}.bot-checkout-preview dd{margin:0;overflow-wrap:anywhere;color:#dbe4ef;}
+.bot-checkout-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.bot-checkout-actions .bot-mini-btn{min-height:32px;}
+@media(max-width:720px){.bot-checkout-grid{grid-template-columns:1fr;}.bot-checkout-preview{min-height:0;}}
 .bot-order-detail-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding-bottom:14px;border-bottom:1px solid #202938;}
 .bot-order-detail-title{font-size:18px;font-weight:850;color:#f1f5f9;overflow-wrap:anywhere;}
 .bot-order-detail-meta{margin-top:5px;color:#8793a7;font-size:11.5px;line-height:1.5;}
@@ -711,6 +729,19 @@ body.bot-drawer-open{overflow:hidden;}
         </div>
         <button type="button" class="bot-mini-btn" id="bot-orders-refresh">Оновити</button>
       </div>
+      <section class="bot-checkout-section" aria-labelledby="bot-checkout-title">
+        <div class="bot-checkout-head">
+          <div>
+            <h3 id="bot-checkout-title">Пропозиції Instagram · очікують оплату</h3>
+            <p>Перегляд і відновлення посилання. Оплата проходить напряму через сторінку пропозиції, без ручного втручання.</p>
+          </div>
+          <button type="button" class="bot-mini-btn" id="bot-checkout-refresh">Оновити</button>
+        </div>
+        <div class="bot-checkout-grid">
+          <div id="bot-checkout-list" class="bot-checkout-list" aria-live="polite"><div class="bot-empty">Завантаження пропозицій…</div></div>
+          <aside id="bot-checkout-preview" class="bot-checkout-preview" aria-live="polite"><div class="bot-empty">Оберіть пропозицію.</div></aside>
+        </div>
+      </section>
       <div class="bot-orders-filters" id="bot-orders-filters" role="tablist" aria-label="Фільтр замовлень">
         <button type="button" class="bot-orders-filter" role="tab" aria-selected="true" aria-controls="bot-orders-list bot-orders-detail" data-orders-view="action">Потрібна дія <span class="bot-orders-filter-count" data-orders-count="action">0</span></button>
         <button type="button" class="bot-orders-filter" role="tab" aria-selected="false" aria-controls="bot-orders-list bot-orders-detail" data-orders-view="confirmed">Підтверджені <span class="bot-orders-filter-count" data-orders-count="confirmed">0</span></button>
@@ -807,7 +838,7 @@ body.bot-drawer-open{overflow:hidden;}
     if(btn.dataset.tab==='clients' && !loaded.clients){ loaded.clients=true; Clients.load(''); }
     if(btn.dataset.tab==='kb' && !loaded.kb){ loaded.kb=true; KB.load(); }
     if(btn.dataset.tab==='stats'){ Stats.load(); }
-    if(btn.dataset.tab==='orders'){ loaded.orders=true; Orders.load(); }
+    if(btn.dataset.tab==='orders'){ loaded.orders=true; CheckoutProposals.load(); Orders.load(); }
   }
   tabs.forEach(t=>t.addEventListener('click',()=>activate(t.dataset.tab,true)));
   window.addEventListener('resize',()=>moveInd(tabs.find(t=>t.classList.contains('active'))));
@@ -1428,6 +1459,31 @@ body.bot-drawer-open{overflow:hidden;}
     setInterval(()=>{ if(loaded.clients && !activeId){ load(searchEl?searchEl.value.trim():''); } }, 20000);
     async function refreshClient(id){if(!id||Number(id)!==Number(activeId))return;await detail(id);await load(currentQuery());}
     return {load:load,detail:detail,refreshClient:refreshClient};
+  })();
+
+  /* ============ Instagram checkout proposals ============ */
+  const CheckoutProposals=(function(){
+    const listEl=document.getElementById('bot-checkout-list');
+    const previewEl=document.getElementById('bot-checkout-preview');
+    const refreshEl=document.getElementById('bot-checkout-refresh');
+    const listUrl='{% url "management_bot_checkout_proposals_api" %}';
+    const actionUrl=proposalId=>'{% url "management_bot_checkout_proposal_action_api" proposal_id="00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000',String(proposalId));
+    let rows=[];let selected='';
+    function el(tag,className,text){const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node;}
+    function stateLabel(value){return {ready:'Готова',viewed:'Переглянута',details_locked:'Дані внесені',invoice_created:'Рахунок створено',paid:'Оплачено',expired:'Протерміновано',revoked:'Відкликана',superseded:'Замінена'}[value]||value||'—';}
+    function rowTitle(item){const first=(item.items||[])[0]||{};return (first.title||'Пропозиція')+((item.item_count||0)>1?' · +'+(item.item_count-1):'');}
+    function renderPreview(item){
+      if(!previewEl)return;previewEl.replaceChildren();if(!item){previewEl.appendChild(el('div','bot-empty','Оберіть пропозицію.'));return;}
+      const title=el('h4','',rowTitle(item));previewEl.appendChild(title);const dl=document.createElement('dl');
+      [['Стан',stateLabel(item.state)],['Клієнт',item.client&&item.client.label],['Сума',(item.amount||'—')+' '+(item.currency||'UAH')],['Дійсна до',fmtDateTime(item.expires_at)],['Доставка',item.delivery?[(item.delivery.recipient||''), (item.delivery.city||''), (item.delivery.office||'')].filter(Boolean).join(' · '):'Не внесена']].forEach(([key,value])=>{dl.append(el('dt','',key),el('dd','',value||'—'));});previewEl.appendChild(dl);
+      const actions=el('div','bot-checkout-actions');
+      if(item.actions&&item.actions.can_copy_token){const copy=el('button','bot-mini-btn','Скопіювати посилання');copy.type='button';copy.addEventListener('click',async()=>{const fd=new FormData();fd.append('action','copy_token');const r=await fetch(actionUrl(item.public_id),{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'},body:fd});const data=await r.json().catch(()=>({}));if(r.ok&&data.url){try{await navigator.clipboard.writeText(data.url);}catch(_){window.prompt('Посилання пропозиції',data.url);}copy.textContent='Скопійовано';setTimeout(()=>{copy.textContent='Скопіювати посилання';},1600);}else copy.textContent='Недоступно';});actions.appendChild(copy);}
+      if(item.actions&&item.actions.can_revoke){const revoke=el('button','bot-mini-btn danger','Відкликати');revoke.type='button';revoke.addEventListener('click',async()=>{if(!window.confirm('Відкликати цю пропозицію?'))return;const fd=new FormData();fd.append('action','revoke');const r=await fetch(actionUrl(item.public_id),{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'},body:fd});if(r.ok)load();});actions.appendChild(revoke);}
+      previewEl.appendChild(actions);
+    }
+    function render(){if(!listEl)return;listEl.replaceChildren();if(!rows.length){listEl.appendChild(el('div','bot-empty','Пропозицій, що очікують оплату, немає.'));renderPreview(null);return;}rows.forEach(item=>{const button=el('button','bot-checkout-row');button.type='button';button.classList.toggle('active',String(item.public_id)===selected);const top=el('div','bot-checkout-row-top');top.append(el('span','bot-checkout-row-title',rowTitle(item)),el('span','bot-order-state pending',stateLabel(item.state)));button.appendChild(top);button.appendChild(el('div','bot-checkout-row-meta',(item.amount||'—')+' '+(item.currency||'UAH')+' · до '+fmtDateTime(item.expires_at)));button.addEventListener('click',()=>{selected=String(item.public_id);render();renderPreview(item);});listEl.appendChild(button);});const active=rows.find(item=>String(item.public_id)===selected)||rows[0];selected=String(active.public_id);renderPreview(active);}
+    async function load(){if(!listEl)return;listEl.replaceChildren(el('div','bot-empty','Завантаження пропозицій…'));try{const r=await fetch(listUrl+'?state=awaiting_payment',{headers:{'X-Requested-With':'XMLHttpRequest'}});const data=await r.json();if(!r.ok||!data.success)throw new Error();rows=data.items||[];render();}catch(_){listEl.replaceChildren(el('div','bot-empty','Не вдалося завантажити пропозиції.'));}}
+    if(refreshEl)refreshEl.addEventListener('click',load);return {load:load};
   })();
 
   /* ============ Orders ============ */

@@ -584,6 +584,32 @@ class CreateDealAndLinkTests(TestCase):
         mock_link.assert_not_called()
 
     @patch("management.services.bot_orders.create_payment_link")
+    def test_scalar_missing_size_or_fit_is_rejected_before_deal_creation(self, mock_link):
+        from storefront.models import Category, Product, ProductFitOption, ProductStatus
+
+        category = Category.objects.create(name="Футболки", slug="scalar-strict-config")
+        product = Product.objects.create(
+            title="Футболка", slug="scalar-strict-config", category=category,
+            price=Decimal("950.00"), status=ProductStatus.PUBLISHED,
+        )
+        ProductFitOption.objects.create(
+            product=product, code="classic", label="Класичний", is_active=True,
+        )
+        client = IgClient.get_or_create_for_sender("scalar-strict-config")
+
+        missing_size = bot_orders.create_deal_and_link(
+            client, pay_type="full", product_id=product.pk, fit_option_code="classic",
+        )
+        missing_fit = bot_orders.create_deal_and_link(
+            client, pay_type="full", product_id=product.pk, size="M",
+        )
+
+        self.assertEqual(missing_size, {"ok": False, "error": "missing_size"})
+        self.assertEqual(missing_fit, {"ok": False, "error": "missing_fit_option"})
+        self.assertFalse(IgDeal.objects.filter(client=client).exists())
+        mock_link.assert_not_called()
+
+    @patch("management.services.bot_orders.create_payment_link")
     def test_builds_deal_with_product_and_link(self, mock_link):
         mock_link.return_value = {"ok": True, "invoice_url": "https://pay/x", "invoice_id": "x"}
         from storefront.models import Category, Product, ProductStatus
@@ -658,7 +684,7 @@ class CreateDealAndLinkTests(TestCase):
         )
         result = bot_orders.create_deal_and_link(
             client, pay_type="full", product_id=product.pk,
-            negotiated_price=Decimal("700"),
+            size="M", negotiated_price=Decimal("700"),
         )
         self.assertEqual(result, {"ok": False, "error": "invalid_negotiated_price"})
         mock_link.assert_not_called()
@@ -679,7 +705,7 @@ class CreateDealAndLinkTests(TestCase):
             text="Оплатила передоплату 200 грн, ось чек",
         )
 
-        result = bot_orders.create_deal_and_link(client, product_id=product.pk)
+        result = bot_orders.create_deal_and_link(client, product_id=product.pk, size="M")
 
         self.assertTrue(result["ok"])
         self.assertEqual(IgDeal.objects.get(client=client).items.get().unit_price, Decimal("950.00"))
@@ -704,7 +730,7 @@ class CreateDealAndLinkTests(TestCase):
             text="Так, оформлюйте",
         )
 
-        result = bot_orders.create_deal_and_link(client, product_id=product.pk)
+        result = bot_orders.create_deal_and_link(client, product_id=product.pk, size="M")
 
         self.assertTrue(result["ok"])
         self.assertEqual(IgDeal.objects.get(client=client).items.get().unit_price, Decimal("790.00"))
@@ -740,7 +766,7 @@ class CreateDealAndLinkTests(TestCase):
             text="Добре, оформлюйте",
         )
 
-        result = bot_orders.create_deal_and_link(client, product_id=product.pk)
+        result = bot_orders.create_deal_and_link(client, product_id=product.pk, size="M")
 
         self.assertTrue(result["ok"])
         self.assertEqual(IgDeal.objects.filter(client=client).count(), 2)

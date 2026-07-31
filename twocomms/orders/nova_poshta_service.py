@@ -284,23 +284,11 @@ class NovaPoshtaService:
         """
         Чистая проверка «посылка получена» без сайд-эффектов.
 
-        1. ПРИОРИТЕТ: StatusCode == 9 (надёжно)
-        2. РЕЗЕРВ: ключевые слова в тексте статуса/описания
+        Nova Poshta's numeric StatusCode is the only fulfillment truth. Text
+        is localized and can describe a storage/payment note while the parcel
+        is still in transit, so it must never trigger a delivered hook.
         """
-        if status_code == self.STATUS_RECEIVED:
-            return True
-
-        delivered_keywords = [
-            'отримано', 'получено', 'доставлено', 'вручено',
-            'отримано відправлення', 'получено получателем',
-            'отримано одержувачем', 'вручено адресату',
-        ]
-        status_lower = (status or '').lower().strip()
-        description_lower = (status_description or '').lower().strip()
-        return any(
-            keyword in status_lower or keyword in description_lower
-            for keyword in delivered_keywords
-        )
+        return status_code == self.STATUS_RECEIVED
 
     def update_order_tracking_status(self, order):
         """

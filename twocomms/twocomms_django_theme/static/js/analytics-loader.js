@@ -1446,7 +1446,9 @@
       : ['scroll', 'click', 'touchstart', 'pointerdown', 'keydown']);
   var deviceClass = (doc.documentElement.dataset.deviceClass || '').toLowerCase();
   var isLowDevice = deviceClass === 'low';
-  var isPaidLanding = /[?&](gclid|fbclid|ttclid|wbraid|gbraid|msclkid|utm_source|utm_medium|utm_campaign)=/i.test(win.location.search);
+  var isPaidLanding = /[?&](gclid|fbclid|ttclid|wbraid|gbraid|msclkid|utm_source|utm_medium|utm_campaign)=/i.test(win.location.search)
+    || (doc.documentElement.getAttribute('data-checkout-state') === 'paid'
+      && !!doc.documentElement.getAttribute('data-purchase-event-id'));
 
   function initializePixelsDeferred() {
     if (pixelsLoaded) return;

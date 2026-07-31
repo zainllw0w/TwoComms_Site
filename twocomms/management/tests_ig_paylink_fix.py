@@ -91,7 +91,7 @@ class CreateDealResolvesProductTests(TestCase):
             sender_id=c.igsid, client=c, role="user", text="Так, сплачу 350 грн",
         )
         res = bot_orders.create_deal_and_link(
-            c, pay_type="prepay", product_id=None, payment_amount=Decimal("350.00")
+            c, pay_type="prepay", product_id=None, size="M", payment_amount=Decimal("350.00")
         )
         self.assertTrue(res["ok"])
         deal = IgDeal.objects.filter(client=c).first()
@@ -100,6 +100,42 @@ class CreateDealResolvesProductTests(TestCase):
         self.assertEqual(deal.items.first().product_id, p.id)
         self.assertEqual(deal.pay_type, IgDeal.PayType.PREPAYMENT)
         self.assertEqual(deal.requested_payment_amount, Decimal("350.00"))
+
+    @patch("management.services.bot_orders.resolve_product_for_payment")
+    @patch("management.services.bot_orders.create_payment_link")
+    def test_prepay_uses_catalog_price_when_no_negotiated_price_is_supplied(
+        self, mock_link, mock_resolve
+    ):
+        """A prepayment amount is not itself a negotiated unit price."""
+        mock_link.return_value = {"ok": True, "invoice_url": "https://pay/z2", "invoice_id": "z2"}
+        product = _pub_product("Футболка без знижки", "catalog-prepay")
+        mock_resolve.return_value = product
+        client = IgClient.get_or_create_for_sender("catalog-prepay-client")
+        InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role="manager",
+            text="Передоплата за замовлення 350 грн",
+        )
+        InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role="user",
+            text="Так, сплачу 350 грн",
+        )
+
+        result = bot_orders.create_deal_and_link(
+            client,
+            pay_type="prepay",
+            product_id=None,
+            size="M",
+            payment_amount=Decimal("350.00"),
+        )
+        self.assertTrue(result["ok"])
+        self.assertEqual(
+            IgDeal.objects.get(client=client).items.first().unit_price,
+            Decimal("788.00"),
+        )
 
     def test_no_product_no_items_returns_error(self):
         c = IgClient.get_or_create_for_sender("cd2")

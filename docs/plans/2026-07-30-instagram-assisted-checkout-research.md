@@ -339,6 +339,49 @@ diverge from the negotiated deal.
 Rejected because it duplicates PaymentAttempt idempotency, promo validation,
 tracking, email, Telegram, webhook, and success-page behavior.
 
+## 12. Current implementation checkpoint (2026-07-31)
+
+The active feature worktree is `/Users/zainllw0w/.config/superpowers/worktrees/site/instagram-assisted-checkout`, branch `codex/instagram-assisted-checkout`, with source baseline `770872ec` plus the current uncommitted checkout/UI/email/lifecycle/workspace changes. No CRM/reconciliation files were changed, and no migration was added in this cycle. Management migration `0116` remains frozen; `0117` remains the parallel CRM migration and the server has since advanced to `0118_ig_funnel_reset_audit`.
+
+The current code path now has the following verified behavior:
+
+- email is required before assisted checkout creates a `PaymentAttempt`; the existing `orders.email_receipt` builder/sender and `orders/emails/order_receipt.html` remain the only receipt path, with gross and net payable totals shown separately;
+- the standalone proposal page loads the existing analytics loader with server-derived event IDs, keeps the clean token-free URL, and submits JSON only after durable invoice creation;
+- lifecycle dispatch uses the existing reply permission boundary, requires a provider message ID before marking Direct delivery `sent`, creates a prepared manager task plus alert outside the Meta response window, and reclaims expired processing leases;
+- management proposal API exposes masked awaiting-payment data, safe preview/history, explicit token copy, durable resend, and provider-cancellation-gated revoke actions;
+- Nova Poshta delivery truth is `StatusCode == 9`; localized status text cannot independently trigger the delivered/review lifecycle.
+
+Fresh verification evidence from this checkpoint:
+
+- final focused checkout/IG/payment/order suites: **374 tests, 1 skip, 0 failures**;
+- SQLite migration-disabled model/service strategy: **38 tests, 1 skip, 0 failures**; production trigger SQL remains in migration `0116`;
+- `manage.py check`, `manage.py makemigrations --check --dry-run`, Python compileall, Node syntax check for `instagram-checkout.js`, and `git diff --check`: pass;
+- valid analytics loader/Meta configuration regression subset: **28 tests, 0 failures**. The repository's unrelated `order_success_old.html` regression test still fails because that legacy file is absent; it was not changed in this feature;
+- read-only production SSH inspection: server `HEAD=572ad987696f5a0201675bcd1597dd909607e44d`, MariaDB `11.4.12-MariaDB-cll-lve`, applied management leaf `0118_ig_funnel_reset_audit`, and all eight inspected checkout/lifecycle/payment tables use `InnoDB` with `utf8mb4_unicode_ci`.
+
+No provider, Meta, TikTok, customer email, or live payment event was sent by
+these checks. Push, deploy, production migration, browser screenshots, and
+final unified-HEAD integration remain intentionally open until the parallel
+CRM/P0 branch is agreed.
+
+The receipt decision is intentionally shared with the normal cart flow:
+`orders/email_receipt.py` and `orders/emails/order_receipt.html` remain the only
+receipt builder/template, with the assisted form requiring a valid email before
+the invoice request. The context distinguishes gross catalog value, discount,
+and final net payable amount.
+
+Before recipient data is locked, the adapter revalidates the latest proposal
+revision against the current catalog/fit/size/variant/stock/price services.
+Catalog drift returns `catalog_changed`, keeps the proposal unlocked, and does
+not call Monobank; a new Direct revision is required instead of silent repricing.
+
+The final backend checkpoint also makes promo scope explicit: anonymous payers
+can use only non-account-scoped codes, while `one_time_per_user` and
+`group.one_per_account` codes require an authenticated user and a successful
+`can_be_used_by_user()` check. Payment status polling preserves the separate
+`cancellation_ambiguous` state, and its page has no payment or replacement
+action until provider cancellation truth is verified.
+
 ### Create an unpaid Order when the bot sends the proposal
 
 Rejected because it pollutes order truth, weakens verified-payment semantics,

@@ -773,7 +773,14 @@ class PaylinkProductTests(TestCase):
     @patch("management.services.bot_orders.create_payment_link")
     def test_new_product_not_charged_as_old(self, mock_link):
         mock_link.return_value = {"ok": True, "invoice_url": "https://pay/x", "invoice_id": "x"}
-        bot_orders.create_deal_and_link(self.c, pay_type="full", product_id=self.p2.id)
+        # The assisted checkout contract requires an explicit size before a
+        # paylink can be generated; this fixture has no fit-specific guide.
+        bot_orders.create_deal_and_link(
+            self.c,
+            pay_type="full",
+            product_id=self.p2.id,
+            size="M",
+        )
         billed_deal = mock_link.call_args.args[0]
         titles = [it.title for it in billed_deal.items.all()]
         self.assertIn("Худі Kharkiv", titles)

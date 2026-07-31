@@ -1,6 +1,6 @@
 {% load static %}
 <!doctype html>
-<html lang="{{ html_lang }}" data-checkout-state="{{ checkout_state }}" data-proposal-revision="{{ proposal.revision }}"{% if form_error_field %} data-form-error-field="{{ form_error_field }}"{% endif %}>
+<html lang="{{ html_lang }}" data-checkout-state="{{ checkout_state }}" data-proposal-revision="{{ proposal.revision }}" data-route-name="ig_checkout_proposal" data-page-shell="commerce" data-analytics-mode="default" data-meta-pixel-id="{{ META_PIXEL_ID|default:'' }}" data-tiktok-pixel-id="{{ TIKTOK_PIXEL_ID|default:'' }}" data-view-content-event-id="{{ analytics.view_content_event_id }}" data-initiate-checkout-event-id="{{ analytics.initiate_checkout_event_id }}" data-purchase-event-id="{{ analytics.purchase_event_id }}"{% if form_error_field %} data-form-error-field="{{ form_error_field }}"{% endif %}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="{% static 'css/instagram-checkout.css' %}?v=20260730b">
 </head>
 <body>
-  <main class="ig-page" data-ig-checkout data-proposal-url="{{ proposal_url }}" data-status-url="{{ status_url }}" data-checkout-state="{{ checkout_state }}" data-expires-at="{{ proposal.expires_at_iso }}">
+  <main class="ig-page" data-ig-checkout data-proposal-url="{{ proposal_url }}" data-status-url="{{ status_url }}" data-checkout-state="{{ checkout_state }}" data-expires-at="{{ proposal.expires_at_iso }}" data-analytics-value="{{ analytics.value }}" data-analytics-currency="{{ analytics.currency }}">
     <header class="ig-topbar">
       <a class="ig-brand" href="/" aria-label="TwoComms">
         <img src="{% static 'img/logo.svg' %}" alt="" width="28" height="28">
@@ -85,6 +85,9 @@
             <div><span>{{ copy.catalog_total }}</span><span>{{ proposal.catalog_total }} {{ proposal.currency }}</span></div>
             <div class="ig-totals__discount"><span>{{ copy.discount }}</span><span>−{{ proposal.discount }} {{ proposal.currency }}</span></div>
           {% endif %}
+          {% if proposal.is_prepayment %}
+            <div><span>{{ copy.charge_now }}</span><span>{{ proposal.charge_now }} {{ proposal.currency }}</span></div>
+          {% endif %}
           <div class="ig-totals__final"><span>{{ copy.total }}</span><strong>{{ proposal.total }} {{ proposal.currency }}</strong></div>
         </div>
 
@@ -123,7 +126,7 @@
 
             <div class="ig-field">
               <label for="ig-email">{{ copy.email }} <span class="ig-recommended">{{ copy.recommended }}</span></label>
-              <input id="ig-email" type="email" name="email" autocomplete="email" inputmode="email" maxlength="254" placeholder="{{ copy.email_placeholder }}" value="{{ form_values.email|default:'' }}" aria-describedby="ig-email-hint{% if form_error_field == 'email' %} ig-form-error{% endif %}"{% if form_error_field == 'email' %} aria-invalid="true"{% endif %}>
+              <input id="ig-email" type="email" name="email" autocomplete="email" inputmode="email" maxlength="254" placeholder="{{ copy.email_placeholder }}" value="{{ form_values.email|default:'' }}" aria-describedby="ig-email-hint{% if form_error_field == 'email' %} ig-form-error{% endif %}"{% if form_error_field == 'email' %} aria-invalid="true"{% endif %} required>
               <small id="ig-email-hint">{{ copy.email_hint }}</small>
             </div>
 
@@ -169,11 +172,11 @@
 
           <div class="ig-payment-rail" data-payment-rail>
             <div>
-              <span>{{ copy.total }}</span>
-              <strong>{{ proposal.total }} {{ proposal.currency }}</strong>
+              <span>{% if proposal.is_prepayment %}{{ copy.charge_now }}{% else %}{{ copy.total }}{% endif %}</span>
+              <strong>{% if proposal.is_prepayment %}{{ proposal.charge_now }}{% else %}{{ proposal.total }}{% endif %} {{ proposal.currency }}</strong>
             </div>
             <button class="ig-action ig-action--pay" type="submit" form="ig-checkout-delivery-form" data-payment-submit data-loading-label="{{ copy.pay_loading }}">
-              <span data-action-label>{{ copy.pay }} · {{ proposal.total }} {{ proposal.currency }}</span>
+              <span data-action-label>{{ copy.pay }} · {% if proposal.is_prepayment %}{{ proposal.charge_now }}{% else %}{{ proposal.total }}{% endif %} {{ proposal.currency }}</span>
             </button>
             <p>{{ copy.secure_payment }}</p>
           </div>
@@ -216,6 +219,7 @@
   </main>
 
   <script type="module" src="{% static 'js/modules/nova-poshta-form-bridge.js' %}?v=20260730b"></script>
+  <script defer src="{% static 'js/analytics-loader.js' %}?v=12"></script>
   <script defer src="{% static 'js/instagram-checkout.js' %}?v=20260730b"></script>
 </body>
 </html>

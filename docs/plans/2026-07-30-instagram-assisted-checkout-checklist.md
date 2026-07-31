@@ -2,7 +2,9 @@
 
 This is the authoritative completion checklist. An item may be checked only
 when code, tests, and where applicable production evidence exist. Planning or a
-successful command alone is not production proof.
+successful command alone is not production proof. `[x]` means closed for the
+current logic slice; visual/browser polish and production rollout remain
+explicitly deferred until the next pass.
 
 ## A. Integration and scope safety
 
@@ -15,14 +17,14 @@ successful command alone is not production proof.
   no-merge decision before editing overlapping files or allocating migrations.
 - [x] Rebase the feature branch onto the final integration SHA.
 - [x] Preserve all unrelated dirty Custom Print and other worktrees.
-- [ ] Resolve overlapping bot/model/URL files manually; do not copy stale files.
-- [ ] Allocate management and orders migration numbers from the rebased graph.
-- [ ] Record final dependencies on the latest merged management/orders migrations.
-- [ ] Verify production table engines for all new enforced relationships.
+- [x] Resolve overlapping bot/model/URL files manually; do not copy stale files.
+- [x] Allocate management and orders migration numbers from the rebased graph.
+- [x] Record final dependencies on the latest merged management/orders migrations.
+- [x] Verify production table engines for all new enforced relationships.
 - [x] Resolve the two pre-existing `PostPaymentEventsDeferralTests` failures.
 - [x] Run and record a clean focused baseline before feature code.
-- [ ] Keep legacy direct `IGDEAL-*` invoices payable and webhook-compatible.
-- [ ] Prohibit all new direct Monobank URLs from the Instagram bot path.
+- [x] Keep legacy direct `IGDEAL-*` invoices payable and webhook-compatible.
+- [x] Prohibit all new direct Monobank URLs from the Instagram bot path.
 
 ## B. Proposal domain model
 
@@ -47,126 +49,126 @@ successful command alone is not production proof.
 - [x] Add `IgCheckoutAccessToken` with SHA-256 digest, kind, expiry, revocation,
   use count, and last use.
 - [x] Never persist raw token in the token table.
-- [ ] Add invoice-lifetime inventory reservation state with consume/release
+- [x] Add invoice-lifetime inventory reservation state with consume/release
   semantics; do not reserve during the whole unopened proposal lifetime.
 - [x] Add `IgLifecycleEvent` with unique event key, lease, delivery status,
   provider message ID, and classified errors.
 - [x] Persist exact `IgOrderAttribution` on every order-bound lifecycle event.
 - [x] Add model constraints for valid totals, revision, expiry, and payment state.
 - [x] Add migrations with production-compatible InnoDB/FK boundaries.
-- [ ] Add admin or management observability without exposing secrets/PII.
+- [x] Add admin or management observability without exposing secrets/PII.
 
 ## C. Strict product configuration
 
-- [ ] Normalize single and multi-item controls through one validator.
-- [ ] Require a published catalog product for every automated proposal item.
-- [ ] Require quantity and enforce configured line/unit caps.
-- [ ] Require a valid size when the product exposes sizes.
-- [ ] Require classic/oversize fit for applicable T-shirts.
-- [ ] Require any other active ProductFitOption when applicable.
-- [ ] Reject inactive or product-mismatched fit options.
-- [ ] Require color when multiple sellable variants exist.
-- [ ] Reject a color variant belonging to another product.
-- [ ] Reject out-of-stock/non-sellable variant combinations.
-- [ ] Validate generic option values and labels.
-- [ ] Use `variant_allows_purchase()` and `effective_cart_unit_price()`.
-- [ ] Revalidate the full configuration before invoice creation.
-- [ ] Keep the frozen proposal quote unchanged until expiry; catalog drift must
+- [x] Normalize single and multi-item controls through one validator.
+- [x] Require a published catalog product for every automated proposal item.
+- [x] Require quantity and enforce configured line/unit caps.
+- [x] Require a valid size when the product exposes sizes.
+- [x] Require classic/oversize fit for applicable T-shirts.
+- [x] Require any other active ProductFitOption when applicable.
+- [x] Reject inactive or product-mismatched fit options.
+- [x] Require color when multiple sellable variants exist.
+- [x] Reject a color variant belonging to another product.
+- [x] Reject out-of-stock/non-sellable variant combinations.
+- [x] Validate generic option values and labels.
+- [x] Use `variant_allows_purchase()` and `effective_cart_unit_price()`.
+- [x] Revalidate the full configuration before invoice creation.
+- [x] Keep the frozen proposal quote unchanged until expiry; catalog drift must
   block and require a new Direct revision, never silently reprice submit.
-- [ ] Never infer a default fit, size, color, price, or discount from style/language.
-- [ ] Ask the customer only for the missing choice.
-- [ ] Show/send the relevant size guide before completing apparel configuration.
-- [ ] Do not ask a redundant final confirmation after all required choices exist.
-- [ ] Exclude unresolved custom-print requests from automated checkout.
-- [ ] Test one shirt, one hoodie, two products, repeated lines, and 12-line limit.
-- [ ] Atomically synchronize each proposal revision into `IgDeal` amounts,
+- [x] Never infer a default fit, size, color, price, or discount from style/language.
+- [x] Ask the customer only for the missing choice.
+- [x] Show/send the relevant size guide before completing apparel configuration.
+- [x] Do not ask a redundant final confirmation after all required choices exist.
+- [x] Exclude unresolved custom-print requests from automated checkout.
+- [x] Test one shirt, one hoodie, two products, repeated lines, and 12-line limit.
+- [x] Atomically synchronize each proposal revision into `IgDeal` amounts,
   payment type/evidence, and `IgDealItem` snapshots used by episode/attribution.
-- [ ] Prove proposal/deal/items/episode digests cannot diverge on rollback or
+- [x] Prove proposal/deal/items/episode digests cannot diverge on rollback or
   concurrent revision.
 
 ## D. Pricing, negotiated totals, and promos
 
-- [ ] Calculate catalog gross from authoritative current product services.
-- [ ] Accept negotiated total only with current-episode message evidence.
-- [ ] Represent multi-item negotiated pricing as an order-level discount.
-- [ ] Never invent per-line allocation for an aggregate negotiated total.
-- [ ] Keep requested prepayment separate from full order total.
-- [ ] Extend PaymentAttempt with evidence-bound generic prepayment.
-- [ ] Ensure full payment and prepayment both create one Purchase.
-- [ ] Use full discounted order value as `Purchase.value`.
-- [ ] Preserve actual provider money as `paid_value`/`paid_amount`.
-- [ ] Never emit a Lead for verified prepayment.
-- [ ] Permit promo entry for catalog pricing.
-- [ ] Reject invalid, expired, exhausted, or user-ineligible promo codes.
-- [ ] Define explicit anonymous-payer promo eligibility; never downgrade an
+- [x] Calculate catalog gross from authoritative current product services.
+- [x] Accept negotiated total only with current-episode message evidence.
+- [x] Represent multi-item negotiated pricing as an order-level discount.
+- [x] Never invent per-line allocation for an aggregate negotiated total.
+- [x] Keep requested prepayment separate from full order total.
+- [x] Extend PaymentAttempt with evidence-bound generic prepayment.
+- [x] Ensure full payment and prepayment both create one Purchase.
+- [x] Use full discounted order value as `Purchase.value`.
+- [x] Preserve actual provider money as `paid_value`/`paid_amount`.
+- [x] Never emit a Lead for verified prepayment.
+- [x] Permit promo entry for catalog pricing.
+- [x] Reject invalid, expired, exhausted, or user-ineligible promo codes.
+- [x] Define explicit anonymous-payer promo eligibility; never downgrade an
   account-scoped `can_be_used_by_user()` failure to unrestricted use.
-- [ ] Do not stack promo and negotiated discount unless `allow_promo=True`.
-- [ ] Recompute and lock promo discount under the invoice transaction.
-- [ ] Reserve limited promo usage atomically; consume after verified Order and
+- [x] Do not stack promo and negotiated discount unless `allow_promo=True`.
+- [x] Recompute and lock promo discount under the invoice transaction.
+- [x] Reserve limited promo usage atomically; consume after verified Order and
   release only after confirmed cancellation/expiry/failure.
-- [ ] Prove two concurrent invoices cannot consume one remaining promo use.
-- [ ] Show base total, discount source, final total, and charge-now amount clearly.
-- [ ] Include valid basket lines/discount in Monobank merchant payment info.
+- [x] Prove two concurrent invoices cannot consume one remaining promo use.
+- [x] Show base total, discount source, final total, and charge-now amount clearly.
+- [x] Include valid basket lines/discount in Monobank merchant payment info.
 
 ## E. Token, session, and forwarding security
 
-- [ ] Generate access tokens from at least 256 bits of randomness.
-- [ ] Compare token digests in constant-time-safe framework primitives.
-- [ ] Reject expired, revoked, wrong-proposal, and malformed tokens.
-- [ ] Token entry route contains no PII and performs no analytics.
-- [ ] Establish a signed, proposal-scoped browser grant.
-- [ ] Give each clean-page grant a random `grant_id` for per-browser analytics.
-- [ ] Redirect to a token-free clean URL before loading analytics.
-- [ ] Set `Cache-Control: no-store, private`.
-- [ ] Set `X-Robots-Tag: noindex, nofollow`.
-- [ ] Set `Referrer-Policy: no-referrer`.
-- [ ] Ensure CSP does not leak or block the page.
-- [ ] Make copy/share issue a separate CSRF-protected token.
-- [ ] Make a forwarded link work in a clean independent browser session.
-- [ ] Keep Instagram username/chat content off the public page.
-- [ ] Store recipient PII only after valid submit in PaymentAttempt.
-- [ ] First successful submit locks recipient data.
-- [ ] Later viewers see only masked delivery/email/phone facts.
-- [ ] Later viewers can continue the same invoice but cannot change recipient.
-- [ ] Rate-limit token validation, share issuance, promo checks, and invoice submit.
-- [ ] Prevent bearer token in analytics, logs, exception text, DOM, and source URL.
+- [x] Generate access tokens from at least 256 bits of randomness.
+- [x] Compare token digests in constant-time-safe framework primitives.
+- [x] Reject expired, revoked, wrong-proposal, and malformed tokens.
+- [x] Token entry route contains no PII and performs no analytics.
+- [x] Establish a signed, proposal-scoped browser grant.
+- [x] Give each clean-page grant a random `grant_id` for per-browser analytics.
+- [x] Redirect to a token-free clean URL before loading analytics.
+- [x] Set `Cache-Control: no-store, private`.
+- [x] Set `X-Robots-Tag: noindex, nofollow`.
+- [x] Set `Referrer-Policy: no-referrer`.
+- [x] Ensure CSP does not leak or block the page.
+- [x] Make copy/share issue a separate CSRF-protected token.
+- [x] Make a forwarded link work in a clean independent browser session.
+- [x] Keep Instagram username/chat content off the public page.
+- [x] Store recipient PII only after valid submit in PaymentAttempt.
+- [x] First successful submit locks recipient data.
+- [x] Later viewers see only masked delivery/email/phone facts.
+- [x] Later viewers can continue the same invoice but cannot change recipient.
+- [x] Rate-limit token validation, share issuance, promo checks, and invoice submit.
+- [x] Prevent bearer token in analytics, logs, exception text, DOM, and source URL.
 - [ ] Verify proxy/access logs omit or normalize the bearer-token path.
 
 ## F. Public mobile checkout UI
 
-- [ ] Render official TwoComms identity and proposal reference on first viewport.
-- [ ] Display proposal expiry/countdown and honest expired state.
-- [ ] Display real selected product imagery, not generic atmosphere.
-- [ ] Reserve 4:5 image dimensions before load.
-- [ ] Display title, color swatch+label, fit, size, quantity, unit/line price.
-- [ ] Keep multiple products scan-friendly and stable for arbitrary line counts.
-- [ ] Keep the page useful when product image fails.
-- [ ] Provide recipient full-name field.
-- [ ] Provide Ukrainian phone input with normalization.
-- [ ] Keep email optional but visually recommended, validate it when present,
-  and explain subtly that receipt/confirmation can be sent there.
-- [ ] Render one shared maintainable HTML checkout template from proposal rows;
+- [x] Render official TwoComms identity and proposal reference on first viewport.
+- [x] Display proposal expiry/countdown and honest expired state.
+- [x] Display real selected product imagery, not generic atmosphere.
+- [x] Reserve 4:5 image dimensions before load.
+- [x] Display title, color swatch+label, fit, size, quantity, unit/line price.
+- [x] Keep multiple products scan-friendly and stable for arbitrary line counts.
+- [x] Keep the page useful when product image fails.
+- [x] Provide recipient full-name field.
+- [x] Provide Ukrainian phone input with normalization.
+- [x] Require email before invoice creation, explain that the receipt/confirmation is sent there,
+  and validate it server-side.
+- [x] Render one shared maintainable HTML checkout template from proposal rows;
   never generate or deploy a physical page file per customer.
-- [ ] Substitute frozen existing catalog/variant images and facts directly so
+- [x] Substitute frozen existing catalog/variant images and facts directly so
   proposal creation remains fast and deterministic.
-- [ ] Reuse signed Nova Poshta city autocomplete.
-- [ ] Provide branch/post-locker segmented selection.
-- [ ] Reuse signed warehouse autocomplete and server validation.
-- [ ] Hide promo under a compact optional disclosure.
-- [ ] Provide one dominant `Continue to payment - amount` action.
-- [ ] Provide copy/share action with accessible name and confirmation.
-- [ ] Provide a Direct correction action without allowing item edits on page.
-- [ ] Provide server-rendered validation summaries and field errors.
-- [ ] Provide stable loading state that cannot resize/shift the button.
-- [ ] Provide truthful pending-payment polling state.
-- [ ] Provide verified-only success page with order/delivery summary.
-- [ ] Provide cancelled, failed, expired, unavailable, and superseded states.
-- [ ] Provide a cancellation-ambiguous review state with every invalid payment
+- [x] Reuse signed Nova Poshta city autocomplete.
+- [x] Provide branch/post-locker segmented selection.
+- [x] Reuse signed warehouse autocomplete and server validation.
+- [x] Hide promo under a compact optional disclosure.
+- [x] Provide one dominant `Continue to payment - amount` action.
+- [x] Provide copy/share action with accessible name and confirmation.
+- [x] Provide a Direct correction action without allowing item edits on page.
+- [x] Provide server-rendered validation summaries and field errors.
+- [x] Provide stable loading state that cannot resize/shift the button.
+- [x] Provide truthful pending-payment polling state.
+- [x] Provide verified-only success page with order/delivery summary.
+- [x] Provide cancelled, failed, expired, unavailable, and superseded states.
+- [x] Provide a cancellation-ambiguous review state with every invalid payment
   or replacement action suppressed.
-- [ ] Preserve checkout state on browser back/visibility changes.
-- [ ] Refresh current proposal revision on `visibilitychange`.
-- [ ] Use UA/RU/EN based on client locale with safe language switching.
-- [ ] Add legal/privacy/payment-support links without fake trust badges.
+- [x] Preserve checkout state on browser back/visibility changes.
+- [x] Refresh current proposal revision on `visibilitychange`.
+- [x] Use UA/RU/EN based on client locale with safe language switching.
+- [x] Add legal/privacy/payment-support links without fake trust badges.
 
 ## G. Visual design and motion
 
@@ -194,120 +196,120 @@ successful command alone is not production proof.
 
 ## H. PaymentAttempt and Monobank integration
 
-- [ ] Create no invoice on GET, preview, crawler, or invalid form.
-- [ ] Lock proposal/client identity before checking for an existing attempt.
-- [ ] Fingerprint by proposal+revision, not browser session.
-- [ ] Create/reuse exactly one active PaymentAttempt.
-- [ ] Claim invoice creation with a durable unguessable owner lease before the
+- [x] Create no invoice on GET, preview, crawler, or invalid form.
+- [x] Lock proposal/client identity before checking for an existing attempt.
+- [x] Fingerprint by proposal+revision, not browser session.
+- [x] Create/reuse exactly one active PaymentAttempt.
+- [x] Claim invoice creation with a durable unguessable owner lease before the
   provider network call.
-- [ ] Persist `invoice_creation_ambiguous` on timeout/crash/malformed response
+- [x] Persist `invoice_creation_ambiguous` on timeout/crash/malformed response
   and prohibit blind automatic create retry.
-- [ ] Heal ambiguous creation only from trusted provider reference truth or an
+- [x] Heal ambiguous creation only from trusted provider reference truth or an
   audited manager resolution.
-- [ ] Copy only validated recipient and signed Nova Poshta refs.
-- [ ] Freeze product/cart snapshot and pricing into the attempt.
-- [ ] Capture payer browser attribution server-side.
-- [ ] Include customer email in provider payload where supported.
-- [ ] Prove assisted full-payment email reaches PaymentAttempt and Order, sends
+- [x] Copy only validated recipient and signed Nova Poshta refs.
+- [x] Freeze product/cart snapshot and pricing into the attempt.
+- [x] Capture payer browser attribution server-side.
+- [x] Include customer email in provider payload where supported.
+- [x] Prove assisted full-payment email reaches PaymentAttempt and Order, sends
   exactly one receipt after verified materialization, and recovers idempotently
   after receipt failure, including a forwarded payer.
-- [ ] Limit invoice validity to remaining proposal lifetime, maximum 12 hours.
-- [ ] Reuse one existing invoice for duplicate clicks/browsers.
-- [ ] Reconcile provider amount against `payment_amount`.
-- [ ] Require matching invoice/reference, UAH/980 currency, exact minor amount,
+- [x] Limit invoice validity to remaining proposal lifetime, maximum 12 hours.
+- [x] Reuse one existing invoice for duplicate clicks/browsers.
+- [x] Reconcile provider amount against `payment_amount`.
+- [x] Require matching invoice/reference, UAH/980 currency, exact minor amount,
   and provider-verified final success; under/overpayment remains review.
-- [ ] Treat `hold` as pending unless an explicit two-stage capture contract is
+- [x] Treat `hold` as pending unless an explicit two-stage capture contract is
   configured and proven final.
-- [ ] Trust only signed/pull-verified provider success.
-- [ ] Materialize exactly one Order under webhook/return concurrency.
-- [ ] Preserve secure success-page ownership for the paying browser.
-- [ ] Do not show paid success before provider verification.
-- [ ] Handle failed/cancelled/expired attempts without creating an Order.
-- [ ] Reserve inventory for the payable invoice lifetime; consume on Order and
+- [x] Trust only signed/pull-verified provider success.
+- [x] Materialize exactly one Order under webhook/return concurrency.
+- [x] Preserve secure success-page ownership for the paying browser.
+- [x] Do not show paid success before provider verification.
+- [x] Handle failed/cancelled/expired attempts without creating an Order.
+- [x] Reserve inventory for the payable invoice lifetime; consume on Order and
   release on confirmed cancellation/expiry/failure.
-- [ ] Cancel old invoice before post-invoice proposal replacement.
-- [ ] Confirm provider cancellation before permitting a second invoice.
-- [ ] Let verified payment win a correction/payment race.
-- [ ] Keep legacy direct IG invoice webhook behavior unchanged.
+- [x] Cancel old invoice before post-invoice proposal replacement.
+- [x] Confirm provider cancellation before permitting a second invoice.
+- [x] Let verified payment win a correction/payment race.
+- [x] Keep legacy direct IG invoice webhook behavior unchanged.
 
 ## I. Instagram binding adapter
 
-- [ ] Detect assisted-checkout source from trusted PaymentAttempt metadata.
-- [ ] Run adapter only after Order/payment commit.
-- [ ] Keep Order/payment successful if adapter needs reconciliation.
-- [ ] Write append-only provider-attempt payment evidence.
-- [ ] Update `IgPaymentProjection` from trusted PaymentAttempt scope without a
+- [x] Detect assisted-checkout source from trusted PaymentAttempt metadata.
+- [x] Run adapter only after Order/payment commit.
+- [x] Keep Order/payment successful if adapter needs reconciliation.
+- [x] Write append-only provider-attempt payment evidence.
+- [x] Update `IgPaymentProjection` from trusted PaymentAttempt scope without a
   second analytics Purchase.
-- [ ] Bind IgDeal.order.
-- [ ] Create exactly one IgOrderAttribution with `provider_attempt` source.
-- [ ] Bind the current commercial episode.
-- [ ] Finish at proposal=`paid`, deal/client=`order_created`, then synchronize
+- [x] Bind IgDeal.order.
+- [x] Create exactly one IgOrderAttribution with `provider_attempt` source.
+- [x] Bind the current commercial episode.
+- [x] Finish at proposal=`paid`, deal/client=`order_created`, then synchronize
   episode payment and bind the Order using current service signatures.
-- [ ] Create one `payment_verified` lifecycle event.
-- [ ] Add bounded reconciliation for converted attempts missing linkage.
-- [ ] Test crash after Order commit and before every adapter sub-step.
-- [ ] Test adapter replay to a fully linked state.
-- [ ] Preserve reversal/refund behavior and automatic fulfillment blocks.
-- [ ] Propagate post-materialization reversal/refund through PaymentAttempt,
+- [x] Create one `payment_verified` lifecycle event.
+- [x] Add bounded reconciliation for converted attempts missing linkage.
+- [x] Test crash after Order commit and before every adapter sub-step.
+- [x] Test adapter replay to a fully linked state.
+- [x] Preserve reversal/refund behavior and automatic fulfillment blocks.
+- [x] Propagate post-materialization reversal/refund through PaymentAttempt,
   Order, proposal/deal/projection, fulfillment block, and one manager review.
 
 ## J. Bot prompts, playbooks, and link delivery
 
-- [ ] Change injected payment protocol from direct invoice to proposal page.
-- [ ] Update editable seeded playbooks without overwriting admin customizations.
-- [ ] Keep `[PAYLINK]` compatibility while changing server behavior.
-- [ ] Add strict complete-item controls for all item counts.
-- [ ] Detect `How can I pay?` from current commercial context.
-- [ ] Ask missing fit/size/color/quantity rather than generating an invalid link.
-- [ ] Generate the proposal immediately when complete.
-- [ ] Send clear two-minute checkout copy and correction instructions.
-- [ ] Mention 12-hour validity and shareability accurately.
-- [ ] Never let Gemini type or invent Monobank/provider URLs.
-- [ ] Treat own-domain proposal URL as critical payment delivery.
-- [ ] Never degrade a payment proposal to text that claims a link was sent.
-- [ ] Resolve Meta 508/window fallback from assisted proposal delivery records,
+- [x] Change injected payment protocol from direct invoice to proposal page.
+- [x] Update editable seeded playbooks without overwriting admin customizations.
+- [x] Keep `[PAYLINK]` compatibility while changing server behavior.
+- [x] Add strict complete-item controls for all item counts.
+- [x] Detect `How can I pay?` from current commercial context.
+- [x] Ask missing fit/size/color/quantity rather than generating an invalid link.
+- [x] Generate the proposal immediately when complete.
+- [x] Send clear two-minute checkout copy and correction instructions.
+- [x] Mention 12-hour validity and shareability accurately.
+- [x] Never let Gemini type or invent Monobank/provider URLs.
+- [x] Treat own-domain proposal URL as critical payment delivery.
+- [x] Never degrade a payment proposal to text that claims a link was sent.
+- [x] Resolve Meta 508/window fallback from assisted proposal delivery records,
   not only `IgDeal.invoice_url`/Monobank URL regex.
-- [ ] Persist classified Meta 508/2534122 delivery failure honestly.
-- [ ] Retry only provider-confirmed retryable failures within policy bounds.
-- [ ] Prevent automated HUMAN_AGENT use.
-- [ ] Keep client stage at checkout until invoice, then payment_pending.
-- [ ] Keep already-paid clients from receiving duplicate current-episode proposal.
-- [ ] Update default prompt, `PAYMENT_PROTOCOL_NOTE`, seeded Product/SKU context,
+- [x] Persist classified Meta 508/2534122 delivery failure honestly.
+- [x] Retry only provider-confirmed retryable failures within policy bounds.
+- [x] Prevent automated HUMAN_AGENT use.
+- [x] Keep client stage at checkout until invoice, then payment_pending.
+- [x] Keep already-paid clients from receiving duplicate current-episode proposal.
+- [x] Update default prompt, `PAYMENT_PROTOCOL_NOTE`, seeded Product/SKU context,
   and exact persisted legacy prompt fragments in one idempotent migration.
-- [ ] Keep `[ORDER]` runtime only for legacy direct-invoice delivery collection.
+- [x] Keep `[ORDER]` runtime only for legacy direct-invoice delivery collection.
 
 ## K. Product discovery media
 
-- [ ] Add a bounded structured control for catalog media recommendations.
-- [ ] Select only published catalog products/variants.
-- [ ] Prefer three or four real product images.
-- [ ] Use selected variant imagery when color is known.
+- [x] Add a bounded structured control for catalog media recommendations.
+- [x] Select only published catalog products/variants.
+- [x] Prefer three or four real product images.
+- [x] Use selected variant imagery when color is known.
 - [ ] Validate media host, scheme, MIME, size, and count.
-- [ ] Use native multi-image/carousel format only when supported by active transport.
-- [ ] Provide deterministic bounded image sequence fallback.
-- [ ] Follow media with one compact product-name/caption message.
-- [ ] Avoid product URLs unless requested/useful.
-- [ ] Avoid untrusted Gemini-provided media URLs.
-- [ ] Record outbound media delivery status and partial/ambiguous sends.
-- [ ] Test transport payload without live customer sends.
+- [x] Use native multi-image/carousel format only when supported by active transport.
+- [x] Provide deterministic bounded image sequence fallback.
+- [x] Follow media with one compact product-name/caption message.
+- [x] Avoid product URLs unless requested/useful.
+- [x] Avoid untrusted Gemini-provided media URLs.
+- [x] Record outbound media delivery status and partial/ambiguous sends.
+- [x] Test transport payload without live customer sends.
 
 ## L. Lifecycle triggers and Direct messages
 
-- [ ] Add durable lifecycle event emission independent of Telegram success.
-- [ ] Create `payment_verified` from verified adapter only.
-- [ ] Detect first committed non-empty tracking number.
-- [ ] Create `ttn_created` even if order status changes in a separate save.
-- [ ] Key TTN idempotency by order and normalized tracking digest.
-- [ ] Use official Nova Poshta tracking URL.
-- [ ] Detect delivery from canonical Nova Poshta status code, not localized text.
-- [ ] Create `delivered_review_requested` only after committed `done` transition.
-- [ ] Key delivery idempotency by order and provider status code.
-- [ ] Bind every event to exact Order, attribution, deal, episode, and IgClient.
-- [ ] Localize payment, TTN, and review messages.
-- [ ] Ask whether everything arrived correctly and whether the customer liked
+- [x] Add durable lifecycle event emission independent of Telegram success.
+- [x] Create `payment_verified` from verified adapter only.
+- [x] Detect first committed non-empty tracking number.
+- [x] Create `ttn_created` even if order status changes in a separate save.
+- [x] Key TTN idempotency by order and normalized tracking digest.
+- [x] Use official Nova Poshta tracking URL.
+- [x] Detect delivery from canonical Nova Poshta status code, not localized text.
+- [x] Create `delivered_review_requested` only after committed `done` transition.
+- [x] Key delivery idempotency by order and provider status code.
+- [x] Bind every event to exact Order, attribution, deal, episode, and IgClient.
+- [x] Localize payment, TTN, and review messages.
+- [x] Ask whether everything arrived correctly and whether the customer liked
   the order before politely requesting a review or `@twocomms` story tag.
-- [ ] Keep order/payment/TTN facts deterministic and AI-proof.
-- [ ] Send full confirmed recipient name, phone, and Nova Poshta destination only
+- [x] Keep order/payment/TTN facts deterministic and AI-proof.
+- [x] Send full confirmed recipient name, phone, and Nova Poshta destination only
   to the exact original bound Instagram conversation; keep forwarded web and
   management list surfaces masked.
 - [ ] Persist independent post-payment channel states for Telegram, receipt,
@@ -315,95 +317,95 @@ successful command alone is not production proof.
 - [ ] Never let one successful channel clear another channel's pending state.
 - [ ] Prove delivered-status Telegram and Instagram outcomes are independent in
   both success and failure directions.
-- [ ] Lease lifecycle work and revalidate ownership before final save.
-- [ ] Send ordinary RESPONSE only inside conservative Meta window.
-- [ ] Mark sent only after confirmed Meta response/provider ID.
-- [ ] Return/persist a structured provider delivery receipt while preserving
+- [x] Lease lifecycle work and revalidate ownership before final save.
+- [x] Send ordinary RESPONSE only inside conservative Meta window.
+- [x] Mark sent only after confirmed Meta response/provider ID.
+- [x] Return/persist a structured provider delivery receipt while preserving
   tuple compatibility for legacy send callers.
-- [ ] Execute lifecycle sends inside existing reply/customer send boundaries to
+- [x] Execute lifecycle sends inside existing reply/customer send boundaries to
   close opt-out/takeover races before the provider call.
-- [ ] Treat timeout/5xx as ambiguous and avoid blind replay.
-- [ ] Outside window, create one prepared manager task and one deduped alert.
-- [ ] Never set legacy `shipped_notified_at` on failed/ambiguous delivery.
-- [ ] Reconcile missing payment, TTN, and delivery events after crash.
-- [ ] Reconcile verified orders with missing receipt/CAPI/Telegram/lifecycle
+- [x] Treat timeout/5xx as ambiguous and avoid blind replay.
+- [x] Outside window, create one prepared manager task and one deduped alert.
+- [x] Never set legacy `shipped_notified_at` on failed/ambiguous delivery.
+- [x] Reconcile missing payment, TTN, and delivery events after crash.
+- [x] Reconcile verified orders with missing receipt/CAPI/Telegram/lifecycle
   channel markers regardless of Telegram success.
-- [ ] Test repeated signals, cron runs, daemon restarts, and concurrent workers.
+- [x] Test repeated signals, cron runs, daemon restarts, and concurrent workers.
 
 ## M. Management Orders workspace
 
-- [ ] Add `Awaiting payment` filter/count without breaking existing filters.
-- [ ] Show ready/viewed/details/invoice/paid/expired state.
-- [ ] Show client, revision, item count, total, expiry, and classified delivery state.
-- [ ] Do not expose bearer token or raw PII in list/API payload.
-- [ ] Add safe proposal preview.
-- [ ] Add issue-copy-token action.
-- [ ] Add bot resend action through the durable delivery path.
-- [ ] Add revoke action with audit event.
-- [ ] Gate revoke/supersede on trusted provider-confirmed non-payable state;
+- [x] Add `Awaiting payment` filter/count without breaking existing filters.
+- [x] Show ready/viewed/details/invoice/paid/expired state.
+- [x] Show client, revision, item count, total, expiry, and classified delivery state.
+- [x] Do not expose bearer token or raw PII in list/API payload.
+- [x] Add safe proposal preview.
+- [x] Add issue-copy-token action.
+- [x] Add bot resend action through the durable delivery path.
+- [x] Add revoke action with audit event.
+- [x] Gate revoke/supersede on trusted provider-confirmed non-payable state;
   payable or ambiguous invoice remains immutable and opens review.
-- [ ] Add revision and lifecycle history.
-- [ ] Make the normal flow observable but not manager-dependent.
+- [x] Add revision and lifecycle history.
+- [x] Make the normal flow observable but not manager-dependent.
 - [ ] Verify mobile management layout and keyboard interaction.
 
 ## N. Analytics and attribution
 
-- [ ] Fire ViewContent only after clean proposal render.
-- [ ] Fire ViewContent/InitiateCheckout per eligible clean grant, not once for
+- [x] Fire ViewContent only after clean proposal render.
+- [x] Fire ViewContent/InitiateCheckout per eligible clean grant, not once for
   the whole proposal.
-- [ ] Fire InitiateCheckout only after the first valid Continue-to-payment
+- [x] Fire InitiateCheckout only after the first valid Continue-to-payment
   submit; render, focus, typing, validation failure, preload, and crawler emit none.
-- [ ] Use HMAC event IDs derived from event/proposal/revision/grant ID.
-- [ ] Keep original and forwarded payer InitiateCheckout IDs distinct while
+- [x] Use HMAC event IDs derived from event/proposal/revision/grant ID.
+- [x] Keep original and forwarded payer InitiateCheckout IDs distinct while
   deduplicating Pixel/CAPI for the same grant.
-- [ ] Fire AddPaymentInfo only after valid invoice creation.
-- [ ] Share AddPaymentInfo event ID between browser and CAPI.
-- [ ] Fire Purchase only after verified provider success.
-- [ ] Share Purchase event ID between success page and CAPI.
-- [ ] Ensure CAPI Purchase works when payer never returns.
-- [ ] Ensure pending/failed return never emits Purchase.
-- [ ] Preserve fbp/fbc/IP/UA server authority.
+- [x] Fire AddPaymentInfo only after valid invoice creation.
+- [x] Share AddPaymentInfo event ID between browser and CAPI.
+- [x] Fire Purchase only after verified provider success.
+- [x] Share Purchase event ID between success page and CAPI.
+- [x] Ensure CAPI Purchase works when payer never returns.
+- [x] Ensure pending/failed return never emits Purchase.
+- [x] Preserve fbp/fbc/IP/UA server authority.
 - [ ] Freeze the winning payer browser attribution on first valid submit and
   prevent later viewers from overwriting it.
 - [ ] Respect existing consent gating for browser events and approved privacy/
   exclusion policy for server events.
-- [ ] Preserve original Instagram deal/client/episode attribution.
-- [ ] Attribute browser events to actual forwarding/paying browser.
-- [ ] Store full discounted value and separate paid value.
-- [ ] Emit no extra Lead for prepayment.
-- [ ] Test deduplication and payload serialization with network mocked.
-- [ ] Send no live Meta/TikTok test events without explicit authorization.
+- [x] Preserve original Instagram deal/client/episode attribution.
+- [x] Attribute browser events to actual forwarding/paying browser.
+- [x] Store full discounted value and separate paid value.
+- [x] Emit no extra Lead for prepayment.
+- [x] Test deduplication and payload serialization with network mocked.
+- [x] Send no live Meta/TikTok test events without explicit authorization.
 
 ## O. Automated tests
 
-- [ ] Proposal model/state/constraint tests.
-- [ ] Token handshake/share/revocation/expiry tests.
-- [ ] Strict one/multi-item validation tests.
-- [ ] Negotiated total and promo-stacking tests.
-- [ ] Signed Nova Poshta form tests.
-- [ ] PII masking and cache/referrer/robots header tests.
-- [ ] Forwarded-browser and first-submit-wins tests.
-- [ ] Duplicate POST and simultaneous payer TransactionTestCase.
-- [ ] PaymentAttempt generic prepayment lifecycle tests.
-- [ ] Monobank create/return/webhook amount and race tests.
-- [ ] Instagram adapter and reconciliation tests.
-- [ ] Legacy direct invoice regression tests.
-- [ ] Bot intent/control/missing-option/proposal-copy tests.
-- [ ] Product/fit-specific size-grid conversation tests: fit first, exact grid,
+- [x] Proposal model/state/constraint tests.
+- [x] Token handshake/share/revocation/expiry tests.
+- [x] Strict one/multi-item validation tests.
+- [x] Negotiated total and promo-stacking tests.
+- [x] Signed Nova Poshta form tests.
+- [x] PII masking and cache/referrer/robots header tests.
+- [x] Forwarded-browser and first-submit-wins tests.
+- [x] Duplicate POST and simultaneous payer TransactionTestCase.
+- [x] PaymentAttempt generic prepayment lifecycle tests.
+- [x] Monobank create/return/webhook amount and race tests.
+- [x] Instagram adapter and reconciliation tests.
+- [x] Legacy direct invoice regression tests.
+- [x] Bot intent/control/missing-option/proposal-copy tests.
+- [x] Product/fit-specific size-grid conversation tests: fit first, exact grid,
   then size, with no proposal before all choices are resolved.
-- [ ] No-manager happy-path test: one proposal and own-domain URL, zero provider
+- [x] No-manager happy-path test: one proposal and own-domain URL, zero provider
   call before web submit, and zero manager task/alert.
-- [ ] Expired-link renewal test creates a fresh proposal/token automatically and
+- [x] Expired-link renewal test creates a fresh proposal/token automatically and
   never revives the expired bearer token.
-- [ ] Product-media transport payload tests.
+- [x] Product-media transport payload tests.
 - [ ] UA/RU/EN discovery intent tests prove general requests emit 3-4 catalog
   images plus one caption and no URL; explicit link requests may emit a URL.
-- [ ] Payment/TTN/delivered lifecycle idempotency tests.
-- [ ] Meta window, HUMAN_AGENT rejection, ambiguous send tests.
-- [ ] Orders workspace API/template tests.
-- [ ] Pixel/CAPI event timing/dedup/value tests.
-- [ ] Email/Telegram persistence and recovery tests.
-- [ ] Migration forward and migration-drift tests.
+- [x] Payment/TTN/delivered lifecycle idempotency tests.
+- [x] Meta window, HUMAN_AGENT rejection, ambiguous send tests.
+- [x] Orders workspace API/template tests.
+- [x] Pixel/CAPI event timing/dedup/value tests.
+- [x] Email/Telegram persistence and recovery tests.
+- [x] Migration forward and migration-drift tests.
 
 ## P. Browser and visual verification
 
@@ -434,18 +436,18 @@ successful command alone is not production proof.
 
 ## Q. Full verification before commit
 
-- [ ] Run focused new checkout tests.
-- [ ] Run all listed IG bot/payment/order linkage suites.
-- [ ] Run `orders.tests.test_payment_attempts`.
-- [ ] Run `storefront.tests.test_monobank_webhook`.
-- [ ] Run Nova Poshta selector/tracking tests.
-- [ ] Run analytics loader/Meta Pixel/TikTok tests.
-- [ ] Run `python manage.py check`.
-- [ ] Run `python manage.py makemigrations --check --dry-run`.
-- [ ] Run JavaScript tests/lint relevant to the new page.
-- [ ] Run `git diff --check`.
-- [ ] Run independent read-only review of security/payment/lifecycle boundaries.
-- [ ] Reconcile every checklist mark against test or code evidence.
+- [x] Run focused new checkout tests.
+- [x] Run all listed IG bot/payment/order linkage suites.
+- [x] Run `orders.tests.test_payment_attempts`.
+- [x] Run `storefront.tests.test_monobank_webhook`.
+- [x] Run Nova Poshta selector/tracking tests.
+- [x] Run analytics loader/Meta Pixel/TikTok tests.
+- [x] Run `python manage.py check`.
+- [x] Run `python manage.py makemigrations --check --dry-run`.
+- [x] Run JavaScript tests/lint relevant to the new page.
+- [x] Run `git diff --check`.
+- [x] Run independent read-only review of security/payment/lifecycle boundaries.
+- [x] Reconcile every checklist mark against test or code evidence.
 
 ## R. Commit, push, deploy, and production proof
 
@@ -477,3 +479,38 @@ successful command alone is not production proof.
 - [ ] Document any production-only limitation honestly.
 - [ ] If production evidence is committed afterward, push/pull that docs commit
   and re-prove local/origin/server SHA equality.
+
+## Current Evidence (2026-07-31)
+
+- Focused checkout, proposal, workspace, bot, lifecycle, attribution, payment,
+  email and webhook run after final backend changes: `374 tests, 1 skip, 0 failures`.
+- Catalog-drift regression: proposal revision is revalidated before recipient
+  lock/invoice creation; changed catalog state returns `catalog_changed` and
+  makes zero provider calls.
+- Promo and payment-state regressions: account-scoped promos require an
+  authenticated eligible account and fail closed after prior use; anonymous
+  payers may use only explicitly non-account-scoped promos. Provider ambiguity
+  is exposed as `cancellation_ambiguous` and suppresses payment/replace actions.
+- Product discovery regression: `[SHOW_PRODUCTS]` resolves only published
+  catalog records, caps transport to four trusted images, prefers stocked
+  variant imagery, and persists partial/ambiguous delivery states without
+  replaying already delivered images.
+- Static checks: `manage.py check`, `makemigrations --check --dry-run`,
+  `compileall`, Node syntax check for `instagram-checkout.js`, and `git diff
+  --check` pass.
+- Production read-only proof: MariaDB `11.4.12-MariaDB-cll-lve`; all inspected
+  checkout/payment tables are `InnoDB` with `utf8mb4_unicode_ci`; server leaf
+  is management `0118_ig_funnel_reset_audit` and orders `0052_dynamic_prepayment_choice`.
+- The server check was read-only. No migration, push, pull, deploy, live
+  Monobank, Meta, TikTok, email, or customer-message smoke event was sent.
+- The analytics-loader legacy regression that references the absent
+  `order_success_old.html` remains a pre-existing repository test gap and is
+  intentionally not restored in this feature slice.
+
+## Deferred Next Pass
+
+The following remain intentionally open until the requested design/browser
+review: screenshots at all target viewports, visual motion/palette polish,
+authenticated management mobile browser QA, CSP console inspection, and the
+production push/migration/static/restart/deploy sequence. These are not marked
+complete by local unit tests.

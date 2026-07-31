@@ -79,6 +79,10 @@
                           </tr>
                           {% if has_discount %}
                           <tr>
+                            <td style="font-size:13px;color:#BDBDBD;padding:4px 0;">Вартість товарів</td>
+                            <td align="right" style="font-size:13px;color:#E0E0E0;font-weight:700;padding:4px 0;">{{ gross_total_display }} грн</td>
+                          </tr>
+                          <tr>
                             <td style="font-size:13px;color:#BDBDBD;padding:4px 0;">
                               Знижка{% if promo_code %} <span style="color:#8A8A8A;">(промокод {{ promo_code }})</span>{% endif %}
                             </td>

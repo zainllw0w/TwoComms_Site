@@ -485,6 +485,21 @@ def payment_link_allowed(client, control: dict, reply: str) -> bool:
     stage = str(getattr(client, "stage", "") or "").casefold()
     if intent in {"payment", "checkout"} and stage in {"checkout", "payment_pending"}:
         return True
+    # A direct question such as "How can I pay?" is already a purchase signal
+    # when the conversation has a fully resolved fit/size configuration.  Do
+    # not require the classifier to advance the CRM stage before issuing the
+    # first-party proposal, but still fail closed for a missing choice.
+    if intent in {"payment", "checkout"} and stage == "product_matched":
+        item_specs = explicit_item_specs or _control_item_specs(control)
+        if item_specs:
+            return all(
+                str(item.get("size") or "").strip()
+                and str(item.get("fit_option_code") or "").strip()
+                for item in item_specs
+            )
+        selected_size = str(control.get("size") or getattr(client, "current_size", "") or "").strip()
+        selected_fit = str(control.get("fit") or "").strip()
+        return bool(selected_size and selected_fit)
     return False
 
 
@@ -3049,10 +3064,26 @@ def _strip_customer_urls(text: str) -> str:
 
 
 def _invoice_deal_for_reply(client: IgClient | None, reply: str):
-    """Return the persisted deal whose exact provider invoice URL is in reply."""
+    """Return the persisted deal whose exact payment/proposal URL is in reply."""
     if not client or not getattr(client, "pk", None) or not reply:
         return None
     try:
+        # Assisted checkout links are bearer URLs, so resolve only their
+        # digest to the proposal/deal. Never persist or log the raw token.
+        proposal_match = re.search(r"/offer/a/([^\s/?#]+)/?", str(reply or ""))
+        if proposal_match:
+            from management.ig_bot_models import IgCheckoutAccessToken
+
+            proposal = (
+                IgCheckoutAccessToken.objects.select_related("proposal__deal")
+                .filter(
+                    token_digest=IgCheckoutAccessToken.digest(proposal_match.group(1)),
+                    proposal__client_id=client.pk,
+                )
+                .first()
+            )
+            if proposal and proposal.proposal.deal_id:
+                return proposal.proposal.deal
         deals = (
             client.deals.exclude(invoice_url="")
             .only("id", "client_id", "invoice_id", "invoice_url", "updated_at")

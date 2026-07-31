@@ -8,10 +8,20 @@ from django.test import TestCase
 from django.utils import timezone
 
 from orders.models import Order
-from orders.email_receipt import send_order_receipt_email
+from orders.email_receipt import build_order_receipt_context, send_order_receipt_email
 
 
 class PostPaymentRecoveryTests(TestCase):
+    def test_receipt_context_uses_net_payable_total_and_keeps_gross(self):
+        order = Order.objects.create(
+            full_name="Buyer", email="buyer@example.com", phone="+380501112233",
+            city="Київ", np_office="Відділення №1", pay_type="online_full",
+            payment_status="paid", total_sum=Decimal("1900.00"),
+            discount_amount=Decimal("200.00"), payment_payload={},
+        )
+        context = build_order_receipt_context(order)
+        self.assertEqual(context["gross_total_display"], "1 900")
+        self.assertEqual(context["total_display"], "1 700")
     def test_recovery_does_not_skip_order_when_telegram_is_already_sent(self):
         order = Order.objects.create(
             full_name="Buyer",

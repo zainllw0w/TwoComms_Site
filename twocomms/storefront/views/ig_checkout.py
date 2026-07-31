@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import secrets
 
+from django.conf import settings
 from django.core import signing
 from django.core.cache import cache
 from django.http import Http404, HttpResponse, JsonResponse
@@ -39,6 +42,7 @@ CHECKOUT_COPY = {
         "catalog_total": "Вартість товарів",
         "discount": "Узгоджена знижка",
         "total": "До сплати",
+        "charge_now": "Сума до сплати зараз",
         "delivery_title": "Дані для доставки",
         "delivery_lead": "Заповнення займає близько двох хвилин.",
         "full_name": "Ім'я та прізвище",
@@ -46,9 +50,9 @@ CHECKOUT_COPY = {
         "phone": "Номер телефону",
         "phone_placeholder": "+380 00 000 00 00",
         "email": "Email для чека",
-        "recommended": "Рекомендовано",
+        "recommended": "Обязательно",
         "email_placeholder": "name@example.com",
-        "email_hint": "Не обов'язково, але на цю адресу ми надішлемо чек і підтвердження.",
+        "email_hint": "На цю адресу ми надішлемо чек і підтвердження замовлення.",
         "city": "Місто Нової пошти",
         "city_placeholder": "Почніть вводити місто",
         "city_hint": "Виберіть підтверджений варіант зі списку Нової пошти.",
@@ -117,6 +121,7 @@ CHECKOUT_COPY = {
         "catalog_total": "Стоимость товаров",
         "discount": "Согласованная скидка",
         "total": "К оплате",
+        "charge_now": "Сумма к оплате сейчас",
         "delivery_title": "Данные для доставки",
         "delivery_lead": "Заполнение занимает около двух минут.",
         "full_name": "Имя и фамилия",
@@ -124,9 +129,9 @@ CHECKOUT_COPY = {
         "phone": "Номер телефона",
         "phone_placeholder": "+380 00 000 00 00",
         "email": "Email для чека",
-        "recommended": "Рекомендуем",
+        "recommended": "Обязательно",
         "email_placeholder": "name@example.com",
-        "email_hint": "Не обязательно, но на этот адрес мы отправим чек и подтверждение.",
+        "email_hint": "На этот адрес мы отправим чек и подтверждение заказа.",
         "city": "Город Новой почты",
         "city_placeholder": "Начните вводить город",
         "city_hint": "Выберите подтвержденный вариант из списка Новой почты.",
@@ -195,6 +200,7 @@ CHECKOUT_COPY = {
         "catalog_total": "Items total",
         "discount": "Agreed discount",
         "total": "Total to pay",
+        "charge_now": "Amount due now",
         "delivery_title": "Delivery details",
         "delivery_lead": "This usually takes less than two minutes.",
         "full_name": "Full name",
@@ -202,9 +208,9 @@ CHECKOUT_COPY = {
         "phone": "Phone number",
         "phone_placeholder": "+380 00 000 00 00",
         "email": "Email for receipt",
-        "recommended": "Recommended",
+        "recommended": "Required",
         "email_placeholder": "name@example.com",
-        "email_hint": "Optional, but we can send the receipt and order confirmation here.",
+        "email_hint": "We will send the receipt and order confirmation here.",
         "city": "Nova Poshta city",
         "city_placeholder": "Start typing a city",
         "city_hint": "Choose a verified option from the Nova Poshta list.",
@@ -273,6 +279,7 @@ CHECKOUT_ERROR_COPY = {
         "promo_invalid": "Промокод недійсний або вже використаний.",
         "promo_requires_account": "Цей промокод доступний лише в особистому кабінеті.",
         "provider_error": "Не вдалося створити платіж. Спробуйте ще раз.",
+        "catalog_changed": "Товар або його умови змінилися. Попросіть бота оновити пропозицію.",
         "invalid_amount": "Сума замовлення має бути більшою за нуль.",
         "item_unavailable": "Один із товарів більше недоступний.",
         "empty_items": "У пропозиції немає товарів.",
@@ -291,6 +298,7 @@ CHECKOUT_ERROR_COPY = {
         "promo_invalid": "Промокод недействителен или уже использован.",
         "promo_requires_account": "Этот промокод доступен только в личном кабинете.",
         "provider_error": "Не удалось создать платеж. Попробуйте еще раз.",
+        "catalog_changed": "Товар или его условия изменились. Попросите бота обновить предложение.",
         "invalid_amount": "Сумма заказа должна быть больше нуля.",
         "item_unavailable": "Один из товаров больше недоступен.",
         "empty_items": "В предложении нет товаров.",
@@ -309,6 +317,7 @@ CHECKOUT_ERROR_COPY = {
         "promo_invalid": "The promo code is invalid or already used.",
         "promo_requires_account": "This promo code is available only in an account.",
         "provider_error": "We could not create the payment. Please try again.",
+        "catalog_changed": "An item or its terms changed. Ask the bot for an updated offer.",
         "invalid_amount": "The order total must be greater than zero.",
         "item_unavailable": "One of the items is no longer available.",
         "empty_items": "This offer has no items.",
@@ -319,7 +328,7 @@ CHECKOUT_ERROR_COPY = {
 def _private_headers(response):
     if response.get("Content-Type", "").startswith("text/html"):
         response["Content-Type"] = "text/html; charset=utf-8"
-    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0, private"
     response["Pragma"] = "no-cache"
     response["X-Robots-Tag"] = "noindex, nofollow"
     response["Referrer-Policy"] = "no-referrer"
@@ -434,6 +443,13 @@ def _customer_name(value):
     return parts[0][:50] if parts else ""
 
 
+def _analytics_event_id(event_name, proposal, grant_id=""):
+    """Return a stable, opaque event id without exposing proposal/session data."""
+    secret = str(getattr(settings, "SECRET_KEY", ""))
+    message = f"ig-checkout:v1:{event_name}:{proposal.pk}:{proposal.revision}:{grant_id}".encode()
+    return hmac.new(secret.encode(), message, hashlib.sha256).hexdigest()[:40]
+
+
 def _checkout_state(proposal):
     if proposal.status == proposal.Status.PAID:
         return "paid"
@@ -477,7 +493,7 @@ def _item_context(item):
     }
 
 
-def _proposal_context(proposal, *, request, form_error="", form_error_field="", form_values=None):
+def _proposal_context(proposal, *, request, grant_id="", form_error="", form_error_field="", form_values=None):
     language = _locale(proposal.locale)
     copy = CHECKOUT_COPY[language]
     state = _checkout_state(proposal)
@@ -505,6 +521,7 @@ def _proposal_context(proposal, *, request, form_error="", form_error_field="", 
             "email": _mask_email(attempt.email),
         }
     paid_summary = None
+    purchase_event_id = ""
     if (
         state == "paid"
         and attempt is not None
@@ -521,6 +538,7 @@ def _proposal_context(proposal, *, request, form_error="", form_error_field="", 
                 value for value in (order.city, order.np_office) if value
             ),
         }
+        purchase_event_id = order.get_purchase_event_id()
     return {
         "copy": copy,
         "html_lang": language,
@@ -535,7 +553,9 @@ def _proposal_context(proposal, *, request, form_error="", form_error_field="", 
             "currency": proposal.currency,
             "catalog_total": _money(proposal.catalog_total),
             "discount": _money(proposal.negotiated_discount),
-            "total": _money(proposal.requested_payment_amount),
+            "total": _money(proposal.quoted_total),
+            "charge_now": _money(proposal.requested_payment_amount),
+            "is_prepayment": proposal.pay_type == IgCheckoutProposal.PayType.PREPAYMENT,
             "has_discount": proposal.negotiated_discount > 0,
             "allow_promo": proposal.allow_promo,
             "expires_at": proposal.expires_at,
@@ -569,6 +589,16 @@ def _proposal_context(proposal, *, request, form_error="", form_error_field="", 
         "form_error": form_error,
         "form_error_field": form_error_field,
         "form_values": form_values or {},
+        "analytics": {
+            "view_content_event_id": _analytics_event_id("ViewContent", proposal, grant_id)
+            if state in {"ready", "locked", "pending", "paid"}
+            else "",
+            "initiate_checkout_event_id": _analytics_event_id("InitiateCheckout", proposal, grant_id),
+            "value": _money(proposal.quoted_total),
+            "charge_value": _money(proposal.requested_payment_amount),
+            "currency": proposal.currency,
+            "purchase_event_id": purchase_event_id,
+        },
     }
 
 
@@ -619,7 +649,7 @@ def ig_checkout_proposal(request, proposal_id):
         ).prefetch_related("items"),
         public_id=proposal_id,
     )
-    _grant, _token = _load_grant(request, proposal)
+    grant, _token = _load_grant(request, proposal)
     if request.method == "POST":
         if _rate_limited(request, "submit", identity=str(proposal.public_id), limit=12, window=300):
             return _private_headers(HttpResponse("Спробуйте оформити платіж трохи пізніше.", status=429))
@@ -633,21 +663,40 @@ def ig_checkout_proposal(request, proposal_id):
                 proposal,
                 request=request,
                 payload=request.POST,
+                grant_id=grant.get("grant_id", ""),
             )
         except CheckoutPaymentError as exc:
             proposal.refresh_from_db()
             language = _locale(proposal.locale)
+            if "application/json" in request.headers.get("Accept", ""):
+                return _private_headers(JsonResponse({
+                    "error": exc.code,
+                    "message": _localized_error(language, exc.code, exc.message),
+                    "field": exc.field,
+                }, status=409 if exc.code == "in_progress" else 400))
             context = _proposal_context(
                 proposal,
                 request=request,
+                grant_id=grant.get("grant_id", ""),
                 form_error=_localized_error(language, exc.code, exc.message),
                 form_error_field=exc.field,
                 form_values=request.POST,
             )
             status = 409 if exc.code == "in_progress" else 400
             return _private_headers(render(request, "pages/ig_checkout.html", context, status=status))
+        if "application/json" in request.headers.get("Accept", ""):
+            return _private_headers(JsonResponse({
+                "invoice_url": invoice_url,
+                "reused": bool(_reused),
+                "add_payment_event_id": _attempt.add_payment_event_id,
+                "initiate_event_id": _analytics_event_id(
+                    "InitiateCheckout", proposal, grant.get("grant_id", "")
+                ),
+                "value": str(_attempt.payment_amount),
+                "currency": proposal.currency,
+            }))
         return _private_headers(redirect(invoice_url))
-    context = _proposal_context(proposal, request=request)
+    context = _proposal_context(proposal, request=request, grant_id=grant.get("grant_id", ""))
     return _private_headers(render(request, "pages/ig_checkout.html", context))
 
 
@@ -657,10 +706,21 @@ def ig_checkout_status(request, proposal_id):
     """Expose only state/revision for truthful pending-payment polling."""
     proposal = get_object_or_404(IgCheckoutProposal, public_id=proposal_id)
     _load_grant(request, proposal)
+    ui_state = _checkout_state(proposal)
+    public_state = (
+        "verified" if ui_state == "paid" else
+        "expired" if ui_state == "expired" else
+        "cancellation_ambiguous" if ui_state == "cancellation_ambiguous" else
+        "failed" if ui_state in {"failed", "unavailable", "cancelled", "superseded"} else
+        "pending"
+    )
     response = JsonResponse({
-        "state": _checkout_state(proposal),
+        "state": public_state,
+        "ui_state": ui_state,
         "revision": proposal.revision,
         "expires_at": proposal.expires_at.isoformat(),
+        "redirect": reverse("ig_checkout_proposal", kwargs={"proposal_id": proposal.public_id})
+        if public_state == "verified" else "",
     })
     return _private_headers(response)
 

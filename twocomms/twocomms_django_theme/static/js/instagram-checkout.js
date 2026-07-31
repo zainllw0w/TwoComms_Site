@@ -12,6 +12,22 @@
   };
   const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
 
+  const trackCheckoutEvent = (name, eventId, extra = {}) => {
+    if (!eventId || window.__twcAnalyticsConsent === false || typeof window.trackEvent !== "function") return;
+    window.trackEvent(name, {
+      event_id: eventId,
+      value: Number(root.dataset.analyticsValue || 0),
+      currency: root.dataset.analyticsCurrency || "UAH",
+      ...extra,
+      __meta: { event_id: eventId },
+    });
+  };
+
+  // The bearer entry redirects to a clean URL before this runs. Crawlers do
+  // not execute this browser-only bridge, and repeated loads reuse the event id.
+  trackCheckoutEvent("ViewContent", document.documentElement.dataset.viewContentEventId);
+  trackCheckoutEvent("Purchase", document.documentElement.dataset.purchaseEventId);
+
   const csrfToken = () =>
     document.querySelector('[name="csrfmiddlewaretoken"]')?.value || "";
 
@@ -88,8 +104,11 @@
 
   if (root.dataset.checkoutState === "pending" && root.dataset.statusUrl) {
     let polling = false;
+    let pollCount = 0;
+    const pollDelays = [3000, 5000, 8000, 12000, 18000, 25000, 30000, 30000];
     const pollStatus = async () => {
-      if (polling || document.visibilityState !== "visible") return;
+      if (polling || document.visibilityState !== "visible" || pollCount >= pollDelays.length) return;
+      pollCount += 1;
       polling = true;
       try {
         const response = await fetch(root.dataset.statusUrl, {
@@ -99,7 +118,11 @@
         });
         if (!response.ok) return;
         const payload = await response.json();
-        if (payload.state && payload.state !== root.dataset.checkoutState) {
+        if (payload.state === "verified" && payload.redirect) {
+          window.location.assign(payload.redirect);
+          return;
+        }
+        if (payload.state && ["failed", "expired", "cancellation_ambiguous"].includes(payload.state)) {
           window.location.reload();
         }
       } catch (_error) {
@@ -108,8 +131,16 @@
         polling = false;
       }
     };
-    const pendingTimer = window.setInterval(pollStatus, 30000);
-    window.addEventListener("beforeunload", () => window.clearInterval(pendingTimer), { once: true });
+    let pendingTimer;
+    const schedulePoll = () => {
+      if (pollCount >= pollDelays.length) return;
+      pendingTimer = window.setTimeout(async () => {
+        await pollStatus();
+        schedulePoll();
+      }, pollDelays[pollCount]);
+    };
+    schedulePoll();
+    window.addEventListener("beforeunload", () => window.clearTimeout(pendingTimer), { once: true });
   }
 
   document.querySelectorAll("[data-product-image]").forEach((image) => {
@@ -201,7 +232,10 @@
         return;
       }
 
-      submitted = true;
+      const initiateEventId = document.documentElement.dataset.initiateCheckoutEventId;
+      trackCheckoutEvent("InitiateCheckout", initiateEventId, {
+        num_items: document.querySelectorAll(".ig-item").length,
+      });
       if (paymentButton) {
         paymentButton.disabled = true;
         setActionLabel(
@@ -209,7 +243,34 @@
           paymentButton.dataset.loadingLabel || defaultPaymentLabel,
         );
       }
-      HTMLFormElement.prototype.submit.call(form);
+      try {
+        const response = await fetch(form.action, {
+          method: "POST",
+          body: new FormData(form),
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.invoice_url) {
+          throw new Error(payload.message || "payment_unavailable");
+        }
+        trackCheckoutEvent("AddPaymentInfo", payload.add_payment_event_id, {
+          value: Number(payload.value || root.dataset.analyticsValue || 0),
+        });
+        submitted = true;
+        window.location.assign(payload.invoice_url);
+      } catch (error) {
+        submitted = false;
+        if (paymentButton) {
+          paymentButton.disabled = false;
+          setActionLabel(paymentButton, defaultPaymentLabel);
+        }
+        if (errorBox) {
+          errorBox.textContent = error.message || fallbackErrors[locale] || fallbackErrors.uk;
+          errorBox.hidden = false;
+        }
+      }
     });
   }
 
