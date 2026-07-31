@@ -50,6 +50,7 @@ __all__ = [
     "IgCommercialEpisode",
     "IgCommercialEpisodeEvent",
     "IgPostSaleCase",
+    "IgFunnelResetAudit",
     "IgCheckoutProposal",
     "IgCheckoutProposalItem",
     "IgCheckoutRevision",
@@ -2157,6 +2158,40 @@ class IgPostSaleCase(models.Model):
         indexes = [
             models.Index(fields=["client", "status", "-updated_at"], name="ig_postsale_client_state"),
             models.Index(fields=["order", "-updated_at"], name="ig_postsale_order_dt"),
+        ]
+
+
+class IgFunnelResetAudit(models.Model):
+    """Immutable operator boundary between old CRM inference and a new test run."""
+
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.DO_NOTHING,
+        related_name="funnel_reset_audits",
+        db_constraint=False,
+    )
+    reset_after_message_id = models.PositiveBigIntegerField(default=0, db_index=True)
+    previous_state = models.JSONField(default=dict, blank=True)
+    resulting_stage = models.CharField(max_length=24, blank=True, default="")
+    reason = models.CharField(max_length=255)
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="ig_funnel_reset_audits",
+        db_constraint=False,
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("Скидання воронки Instagram")
+        verbose_name_plural = _("Скидання воронок Instagram")
+        ordering = ["-id"]
+        indexes = [
+            models.Index(
+                fields=["client", "-created_at"],
+                name="ig_funnel_reset_client_dt",
+            ),
         ]
 
 

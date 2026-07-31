@@ -21,6 +21,7 @@ from management.models import (
     IgDeal,
     InstagramBotMessage,
 )
+from management.services.ig_funnel_reset import current_message_floor
 
 ANALYSIS_RULES_VERSION = "2026-07-30.v6"
 
@@ -475,7 +476,10 @@ def reconcile_rules_projection(
         last_analyzed_message_id=watermark,
     ).order_by("-id").first()
     signal_types = list(dict.fromkeys(
-        client.conversation_signals.filter(message_id__lte=watermark)
+        client.conversation_signals.filter(
+            message_id__gte=current_message_floor(client),
+            message_id__lte=watermark,
+        )
         .exclude(signal_type=IgConversationSignal.Type.MANAGER_TAKEOVER)
         .order_by("id")
         .values_list("signal_type", flat=True)
@@ -651,8 +655,12 @@ def classify_message(
     )
 
     signals: list[str] = []
+    # Keep durable sales context for ordinary follow-ups, but custom-print is
+    # episode-scoped and must be re-earned from the current turn's evidence.
     intent = client.intent or IgClient.Intent.UNKNOWN
     objection = client.primary_objection or IgClient.Objection.NONE
+    if not is_manager and not reaction_only and intent == IgClient.Intent.CUSTOM_PRINT:
+        intent = IgClient.Intent.UNKNOWN
     previous_readiness = int(client.buying_readiness or 0)
     readiness = previous_readiness if is_manager or reaction_only else 0
     sales_context = dict(client.sales_context or {})

@@ -91,6 +91,7 @@ urlpatterns = [
     path('bot/api/clients/<int:client_id>/hide/', bot_views.bot_client_hide_api, name='management_bot_client_hide_api'),
     path('bot/api/clients/<int:client_id>/unhide/', bot_views.bot_client_unhide_api, name='management_bot_client_unhide_api'),
     path('bot/api/clients/<int:client_id>/lost/', bot_views.bot_client_mark_lost_api, name='management_bot_client_mark_lost_api'),
+    path('bot/api/clients/<int:client_id>/reset-funnel/', bot_views.bot_client_reset_funnel_api, name='management_bot_client_reset_funnel_api'),
     path('bot/api/kb/', bot_views.bot_kb_api, name='management_bot_kb_api'),
     path('bot/api/kb/save/', bot_views.bot_kb_save_api, name='management_bot_kb_save_api'),
     path('invoices/', views.invoices, name='management_invoices'),

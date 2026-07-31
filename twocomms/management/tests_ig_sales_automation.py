@@ -129,6 +129,80 @@ class SalesClassifierTests(TestCase):
         self.assertEqual(client.intent, IgClient.Intent.CUSTOM_PRINT)
         self.assertEqual(result["interaction_type"], "custom_print")
 
+    def test_neutral_followup_does_not_inherit_legacy_custom_print_intent(self):
+        from management.models import IgConversationSignal
+        from management.services import bot_sales_classifier
+
+        client = IgClient.get_or_create_for_sender("sales_cls_stale_custom_print")
+        client.intent = IgClient.Intent.CUSTOM_PRINT
+        client.save(update_fields=["intent", "updated_at"])
+        old_message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="legacy false custom print",
+        )
+        IgConversationSignal.objects.create(
+            client=client,
+            message=old_message,
+            signal_type=IgConversationSignal.Type.CUSTOM_PRINT,
+            confidence=0.9,
+        )
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="Дякую",
+        )
+
+        result = bot_sales_classifier.classify_message(client, message=message)
+
+        client.refresh_from_db()
+        self.assertEqual(client.intent, IgClient.Intent.UNKNOWN)
+        self.assertEqual(result["interaction_type"], "information_only")
+
+    def test_rules_projection_ignores_custom_print_signal_from_older_episode(self):
+        from management.models import IgCommercialEpisode, IgConversationSignal
+        from management.services import bot_sales_classifier
+
+        client = IgClient.get_or_create_for_sender("rules_old_custom_print_episode")
+        old_message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="legacy custom print",
+        )
+        IgConversationSignal.objects.create(
+            client=client,
+            message=old_message,
+            signal_type=IgConversationSignal.Type.CUSTOM_PRINT,
+            confidence=0.9,
+        )
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="Дякую",
+        )
+        episode = IgCommercialEpisode.objects.create(
+            client=client,
+            sequence=1,
+            materialization_key="rules-old-custom-print-episode",
+            opened_watermark_message_id=message.pk,
+        )
+        client.current_commercial_episode = episode
+        client.intent = IgClient.Intent.UNKNOWN
+        client.save(update_fields=[
+            "current_commercial_episode", "intent", "updated_at",
+        ])
+
+        snapshot = bot_sales_classifier.reconcile_rules_projection(
+            client,
+            watermark=message.pk,
+        )
+
+        self.assertEqual(snapshot.interaction_type, "information_only")
+
     def test_stop_or_no_buy_closes_automation_without_rescue_discount(self):
         from management.models import IgFollowUpTask
         from management.services import bot_sales_classifier, bot_followups
@@ -951,6 +1025,110 @@ class SalesCockpitApiTests(TestCase):
                 client=self.active, status=IgFollowUpTask.Status.PENDING
             ).exists()
         )
+
+    def test_confirmed_funnel_reset_keeps_chat_and_clears_mutable_sales_state(self):
+        from management.models import IgFollowUpTask
+        from management.services.instagram_bot import _build_history
+
+        self.active.intent = IgClient.Intent.CUSTOM_PRINT
+        self.active.language = "ru"
+        self.active.primary_objection = IgClient.Objection.PRICE
+        self.active.current_size = "XL"
+        self.active.current_color = "black"
+        self.active.current_qty = 3
+        self.active.discount_offered_percent = 10
+        self.active.memory_summary = "Стара пам'ять"
+        self.active.sales_context = {"legacy": True}
+        self.active.bot_paused = True
+        self.active.save()
+        old_message = InstagramBotMessage.objects.create(
+            sender_id=self.active.igsid,
+            client=self.active,
+            role=InstagramBotMessage.Role.USER,
+            text="Старий контекст",
+        )
+        followup = IgFollowUpTask.objects.create(
+            client=self.active,
+            due_at=timezone.now() + timedelta(hours=1),
+            kind=IgFollowUpTask.Kind.QUALIFICATION,
+            reason="waiting_for_reply",
+        )
+
+        unconfirmed = self.client.post(
+            f"/bot/api/clients/{self.active.id}/reset-funnel/",
+        )
+        self.assertEqual(unconfirmed.status_code, 409)
+
+        response = self.client.post(
+            f"/bot/api/clients/{self.active.id}/reset-funnel/",
+            {"confirm_reset": "1", "reason": "qa_retest"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.active.refresh_from_db()
+        followup.refresh_from_db()
+        self.assertEqual(self.active.stage, IgClient.Stage.NEW)
+        self.assertEqual(self.active.intent, IgClient.Intent.UNKNOWN)
+        self.assertEqual(self.active.language, "")
+        self.assertEqual(self.active.primary_objection, IgClient.Objection.NONE)
+        self.assertEqual(self.active.buying_readiness, 0)
+        self.assertEqual(self.active.current_size, "")
+        self.assertEqual(self.active.current_color, "")
+        self.assertEqual(self.active.current_qty, 1)
+        self.assertEqual(self.active.discount_offered_percent, 0)
+        self.assertEqual(self.active.memory_summary, "")
+        self.assertEqual(self.active.sales_context, {})
+        self.assertTrue(self.active.bot_paused)
+        self.assertTrue(InstagramBotMessage.objects.filter(pk=old_message.pk).exists())
+        self.assertEqual(followup.status, IgFollowUpTask.Status.CANCELLED)
+        from management.models import IgFunnelResetAudit
+
+        audit = IgFunnelResetAudit.objects.get(client=self.active)
+        self.assertEqual(audit.reset_after_message_id, old_message.pk)
+        self.assertEqual(audit.actor, self.admin)
+        self.assertEqual(audit.reason, "qa_retest")
+
+        new_message = InstagramBotMessage.objects.create(
+            sender_id=self.active.igsid,
+            client=self.active,
+            role=InstagramBotMessage.Role.USER,
+            text="Новий тест",
+        )
+        self.assertEqual(
+            _build_history(self.active.igsid),
+            [{"role": "user", "text": new_message.text}],
+        )
+
+    def test_funnel_reset_preserves_verified_payment_stage(self):
+        paid = IgClient.get_or_create_for_sender("api_reset_paid")
+        paid.stage = IgClient.Stage.ORDER_CREATED
+        paid.intent = IgClient.Intent.CUSTOM_PRINT
+        paid.save(update_fields=["stage", "intent", "updated_at"])
+        IgDeal.objects.create(
+            client=paid,
+            status=IgDeal.Status.PAID,
+            payment_status="paid",
+            paid_at=timezone.now(),
+        )
+
+        response = self.client.post(
+            f"/bot/api/clients/{paid.id}/reset-funnel/",
+            {"confirm_reset": "1", "reason": "qa_retest"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        paid.refresh_from_db()
+        self.assertEqual(paid.stage, IgClient.Stage.PAID)
+        self.assertEqual(paid.intent, IgClient.Intent.UNKNOWN)
+
+    def test_hidden_client_cannot_be_reset(self):
+        response = self.client.post(
+            f"/bot/api/clients/{self.hidden.id}/reset-funnel/",
+            {"confirm_reset": "1", "reason": "qa_retest"},
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertFalse(response.json()["success"])
 
     def test_bot_page_has_ukrainian_action_labels_and_visible_action_feedback(self):
         html = self.client.get(reverse("management_bot")).content.decode("utf-8")
