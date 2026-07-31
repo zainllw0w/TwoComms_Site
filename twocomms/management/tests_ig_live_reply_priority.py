@@ -329,6 +329,54 @@ class LiveReplyKeyPriorityTests(TestCase):
         generate.assert_not_called()
         self.assertEqual(waiting.call_count, 2)
 
+    @patch("management.services.bot_conversation_analysis.gemini_generate_json")
+    def test_analysis_releases_claim_when_live_reply_arrives_before_provider_call(
+        self, generate
+    ):
+        settings = InstagramBotSettings.load()
+        settings.is_enabled = True
+        settings.save(update_fields=["is_enabled"])
+        client = IgClient.get_or_create_for_sender("analysis-race-before-provider")
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="Хочу футболку",
+            status=InstagramBotMessage.Status.DONE,
+        )
+        bot_conversation_analysis.schedule_analysis(client, message, delay_seconds=0)
+
+        original_conversation = bot_conversation_analysis._conversation
+
+        def conversation_with_new_live_reply(*args, **kwargs):
+            output = original_conversation(*args, **kwargs)
+            InstagramBotMessage.objects.create(
+                sender_id="live-arrives-during-analysis",
+                role=InstagramBotMessage.Role.USER,
+                text="Hello, I need help now",
+                status=InstagramBotMessage.Status.PENDING,
+                source="webhook",
+            )
+            return output
+
+        with patch.object(
+            bot_conversation_analysis,
+            "_conversation",
+            side_effect=conversation_with_new_live_reply,
+        ):
+            result = bot_conversation_analysis.process_due_analysis(limit=1)
+
+        job = IgConversationAnalysisJob.objects.get(client=client)
+        self.assertEqual(result, {
+            "done": 0,
+            "failed": 0,
+            "skipped": 0,
+            "superseded": 0,
+        })
+        self.assertEqual(job.status, IgConversationAnalysisJob.Status.PENDING)
+        self.assertEqual(job.attempts, 0)
+        generate.assert_not_called()
+
     @patch(
         "management.services.bot_conversation_analysis._process_claim",
         return_value="done",
@@ -566,6 +614,93 @@ class LiveReplyKeyPriorityTests(TestCase):
         self.assertEqual(result["skipped"], 1)
         self.assertEqual(job.skip_reason, "historical_reconcile")
         generate.assert_not_called()
+
+    @patch("management.services.bot_conversation_analysis.gemini_generate_json")
+    def test_old_high_watermark_cannot_hide_fresh_unanalyzed_message(self, generate):
+        now = timezone.now()
+        settings = InstagramBotSettings.load()
+        settings.analysis_reconcile_after = now - timedelta(days=1)
+        settings.analysis_backfill_enabled = False
+        settings.save(update_fields=[
+            "analysis_reconcile_after", "analysis_backfill_enabled",
+        ])
+        client = IgClient.get_or_create_for_sender("fresh-delta-beats-old-watermark")
+        fresh = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="fresh webhook message needs analysis",
+            source="webhook",
+            provider_created_at=now,
+            status=InstagramBotMessage.Status.DONE,
+        )
+        historical = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="old imported message",
+            source="manual_refresh",
+            provider_created_at=now - timedelta(days=30),
+            status=InstagramBotMessage.Status.DONE,
+        )
+        self.assertGreater(historical.pk, fresh.pk)
+        job = bot_conversation_analysis.schedule_analysis(
+            client,
+            historical,
+            trigger="manual_refresh",
+            now=now,
+            delay_seconds=0,
+        )
+        generate.return_value = {"parsed": {}, "model": "test", "meta": {}}
+
+        result = bot_conversation_analysis.process_due_analysis(limit=1, now=now)
+
+        job.refresh_from_db()
+        self.assertEqual(result["done"], 1)
+        self.assertEqual(job.status, IgConversationAnalysisJob.Status.DONE)
+        self.assertNotEqual(job.skip_reason, "historical_reconcile")
+        generate.assert_called_once()
+
+    def test_historical_guard_preserves_recent_payment_and_order_truth_changes(self):
+        now = timezone.now()
+        settings = InstagramBotSettings.load()
+        settings.analysis_reconcile_after = now - timedelta(days=1)
+        settings.analysis_backfill_enabled = False
+        settings.save(update_fields=[
+            "analysis_reconcile_after", "analysis_backfill_enabled",
+        ])
+
+        for field in ("payment_truth_updated_at", "order_truth_updated_at"):
+            with self.subTest(field=field):
+                client = IgClient.get_or_create_for_sender(
+                    f"historical-{field}-change"
+                )
+                message = InstagramBotMessage.objects.create(
+                    sender_id=client.igsid,
+                    client=client,
+                    role=InstagramBotMessage.Role.USER,
+                    text="old imported message",
+                    source="manual_refresh",
+                    provider_created_at=now - timedelta(days=30),
+                    status=InstagramBotMessage.Status.DONE,
+                )
+                job = bot_conversation_analysis.schedule_analysis(
+                    client,
+                    message,
+                    trigger="manual_refresh",
+                    now=now,
+                    delay_seconds=0,
+                )
+                deal = IgDeal.objects.create(client=client)
+                setattr(deal, field, now)
+                deal.save(update_fields=[field])
+
+                self.assertFalse(
+                    bot_conversation_analysis._historical_reconcile_job(
+                        job,
+                        message.pk,
+                    )
+                )
 
     def test_old_refresh_cannot_replace_pending_fresh_webhook_job(self):
         now = timezone.now()

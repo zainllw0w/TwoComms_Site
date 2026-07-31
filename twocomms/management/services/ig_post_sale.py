@@ -11,12 +11,36 @@ from management.models import InstagramBotMessage
 
 EXCHANGE_RE = re.compile(
     r"\b(?:обмін\w*|обмен\w*|обміняти|обменять|поміняти|поменять|"
-    r"замін(?:а|и|у|ою|ити|ювати)\w*|замен(?:а|ы|у|ой|ить|ять)\w*|"
-    r"exchange\w*|replace\w*|swap\w*)\b",
+    r"замін(?:а|и|у|ою|ити|ювати)\w*|замен(?:а|ы|у|ой|ить|ять)\w*"
+    r")\b",
     re.I,
 )
 RETURN_RE = re.compile(
-    r"\b(?:повернен\w*|возврат\w*|повернути|вернуть|return\w*|refund\w*)\b",
+    r"\b(?:повернен\w*|возврат\w*|повернути|вернуть)\b",
+    re.I,
+)
+ENGLISH_POST_SALE_TERMS_RE = re.compile(
+    r"\b(?:exchange\w*|replace\w*|swap\w*|return\w*|refund\w*)\b",
+    re.I,
+)
+ENGLISH_PRE_SALE_RE = re.compile(
+    r"\b(?:policy|policies)\b|"
+    r"\b(?:before|if)\s+(?:i|we)\s+(?:order|buy|purchase)\b|"
+    r"\breturning\s+(?:customer|client|buyer)\b",
+    re.I,
+)
+ENGLISH_POST_SALE_REQUEST_RE = re.compile(
+    r"\b(?:"
+    r"(?:i|we)\s+(?:need|want|would\s+like|wish|have)\s+(?:to\s+|an?\s+)?"
+    r"(?:exchange|replace|swap|return|refund)\b|"
+    r"(?:can|could|would)\s+(?:i|you)\s+(?:please\s+)?"
+    r"(?:exchange|replace|swap|return|refund)\s+"
+    r"(?:this|my|the|it|an?\s+(?:order|shirt|item|purchase))\b|"
+    r"please\s+(?:exchange|replace|swap|return|refund)\b|"
+    r"(?:exchange|replace|swap|return|refund)\s+"
+    r"(?:this|my|the|it|order|shirt|t-shirt|item|purchase|size)\b|"
+    r"(?:get|receive)\s+(?:a\s+)?refund\b"
+    r")",
     re.I,
 )
 FIT_RE = re.compile(r"\b(oversize|оверсайз|regular|регуляр|classic|класик\w*)\b", re.I)
@@ -29,6 +53,15 @@ TARGET_SIZE_RE = re.compile(
 
 def detect_post_sale_type(text: str) -> str:
     value = str(text or "")
+    # English verbs are polysemous in a storefront conversation.  A case is a
+    # manager workflow, so require an explicit customer request for their item
+    # rather than treating policy and pre-purchase questions as a return.
+    if ENGLISH_POST_SALE_TERMS_RE.search(value):
+        if ENGLISH_PRE_SALE_RE.search(value) or not ENGLISH_POST_SALE_REQUEST_RE.search(value):
+            return ""
+        if re.search(r"\b(?:exchange\w*|replace\w*|swap\w*)\b", value, re.I):
+            return IgPostSaleCase.CaseType.EXCHANGE
+        return IgPostSaleCase.CaseType.RETURN
     if EXCHANGE_RE.search(value):
         return IgPostSaleCase.CaseType.EXCHANGE
     if RETURN_RE.search(value):

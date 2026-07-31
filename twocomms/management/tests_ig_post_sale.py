@@ -41,10 +41,23 @@ class PostSaleClassifierTests(SimpleTestCase):
             "I need to exchange this shirt for size L",
             "Can I return this order?",
             "Please refund order TWC28072026N07",
+            "I want a refund for my order",
         ):
             with self.subTest(phrase=phrase):
                 expected = "exchange" if "exchange" in phrase else "return"
                 self.assertEqual(detect_post_sale_type(phrase), expected)
+
+    def test_english_pre_sale_and_policy_phrases_are_not_post_sale_cases(self):
+        from management.services.ig_post_sale import detect_post_sale_type
+
+        for phrase in (
+            "What is your return policy?",
+            "I am a returning customer and want another shirt",
+            "Do you offer exchanges before I order?",
+            "If I order and it does not fit, could I return it?",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertEqual(detect_post_sale_type(phrase), "")
 
     def test_paid_customer_exchange_takes_priority_over_paid_waiting(self):
         from management.services.bot_sales_classifier import _interaction_type
@@ -144,6 +157,33 @@ class PostSaleCaseTests(TestCase):
 
         self.assertIsNone(case.order_id)
         self.assertEqual(case.status, "needs_details")
+
+    def test_policy_question_does_not_open_case_for_attributed_order(self):
+        from orders.models import Order
+        from management.services.ig_post_sale import open_post_sale_case
+
+        order = Order.objects.create(
+            full_name="Post Sale",
+            phone="0500000000",
+            city="Харків",
+            np_office="1",
+            total_sum=100,
+            status="new",
+        )
+        IgOrderAttribution.objects.create(
+            order=order,
+            client=self.client,
+            creation_mode="linked_existing",
+            payment_source="manager_verified",
+        )
+        policy_question = InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=InstagramBotMessage.Role.USER,
+            text="What is your return policy?",
+        )
+
+        self.assertIsNone(open_post_sale_case(self.client, policy_question))
 
     def test_second_exchange_message_updates_one_active_case(self):
         from management.services.ig_post_sale import open_post_sale_case

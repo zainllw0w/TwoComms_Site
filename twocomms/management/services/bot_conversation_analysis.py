@@ -486,17 +486,25 @@ def _historical_reconcile_job(job: IgConversationAnalysisJob, watermark: int) ->
     settings_obj = InstagramBotSettings.load()
     if _historical_backfill_allowed(settings_obj):
         return False
-    event_at = (
-        InstagramBotMessage.objects.filter(pk=watermark)
+    outstanding_events = list(
+        InstagramBotMessage.objects.filter(
+            client_id=job.client_id,
+            id__gt=max(0, int(job.analyzed_watermark_message_id or 0)),
+            id__lte=max(0, int(watermark or 0)),
+            role__in=[
+                InstagramBotMessage.Role.USER,
+                InstagramBotMessage.Role.MANAGER,
+            ],
+        )
+        .exclude(status=InstagramBotMessage.Status.FAILED)
         .annotate(event_at=Coalesce("provider_created_at", "created_at"))
         .values_list("event_at", flat=True)
-        .first()
     )
-    if not event_at or event_at >= settings_obj.analysis_reconcile_after:
+    if not outstanding_events or any(
+        event_at is None or event_at >= settings_obj.analysis_reconcile_after
+        for event_at in outstanding_events
+    ):
         return False
-    # A later live ingress reschedules the single per-client job with a live
-    # trigger. Merely having some fresh row (including an already analyzed or
-    # model row) must not turn this old import into another Gemini request.
     truth_changed_at = _latest_truth_change(job.client)
     return not (
         truth_changed_at
@@ -950,6 +958,10 @@ def _process_claim(
     except Exception:
         media_images = []
         image_labels = []
+    if _customer_reply_work_waiting():
+        if _defer_claim_for_customer_reply(job.pk, token, now=timezone.now()):
+            return "deferred"
+        return "superseded"
     result = gemini_generate_json(
         SYSTEM_PROMPT,
         json.dumps({
@@ -1294,6 +1306,8 @@ def process_due_analysis(*, limit: int = 2, now=None) -> dict:
             outcome = _process_claim(
                 job, watermark, claimed_revision, token, claim_now
             )
+            if outcome == "deferred":
+                break
             counts[outcome] += 1
         except Exception as exc:
             failure_now = now or timezone.now()
