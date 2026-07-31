@@ -2070,6 +2070,20 @@ def _apply_payment_attempt_status(attempt, status, payload=None, source='webhook
             )
             monobank_logger.error('Payment attempt %s conversion failed: %s', attempt.pk, exc)
             return None, False
+        # A proposal-backed attempt uses the same canonical Order materializer
+        # as the storefront, then projects the verified payment back into the
+        # Instagram commercial episode.  This is deliberately idempotent and
+        # runs on repeated webhook/return deliveries too.
+        try:
+            from management.services.ig_checkout_payment import bind_verified_payment
+
+            bind_verified_payment(attempt.pk, order)
+        except Exception:
+            monobank_logger.exception(
+                'Failed to bind Instagram checkout attempt %s to order %s',
+                attempt.pk,
+                getattr(order, 'pk', None),
+            )
         if created:
             try:
                 mark_checkout_capture_converted(order.session_key)
@@ -2123,7 +2137,16 @@ def monobank_return(request):
             if order:
                 from storefront.views.checkout import remember_order_in_session
                 remember_order_in_session(request, order)
+                try:
+                    proposal = attempt.instagram_checkout_proposal
+                except Exception:
+                    proposal = None
+                proposal_id = getattr(proposal, "public_id", None) or request.session.get(
+                    "ig_checkout_proposal_id"
+                )
                 _cleanup_after_success(request)
+                if proposal_id:
+                    return redirect("ig_checkout_proposal", proposal_id=proposal_id)
                 return redirect('order_success', order_id=order.pk)
         messages.info(request, 'Оплату ще не підтверджено. Спробуйте ще раз після завершення платежу.')
         return redirect('cart')

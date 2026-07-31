@@ -360,3 +360,41 @@ class InstagramCheckoutConfigurationTests(TestCase):
                 item_specs=[self._valid_item(color_variant_id=self.black.pk)],
             )
         self.assertEqual(ctx.exception.code, "proposal_locked")
+
+
+class InstagramCheckoutLinkBoundaryTests(TestCase):
+    def setUp(self):
+        from storefront.models import Category, ProductStatus
+
+        category = Category.objects.create(name="IG offer", slug="ig-offer-link")
+        self.product = Product.objects.create(
+            title="Худі для offer",
+            slug="ig-offer-hoodie",
+            category=category,
+            price=Decimal("950.00"),
+            status=ProductStatus.PUBLISHED,
+        )
+        self.client = IgClient.get_or_create_for_sender("ig-offer-link")
+
+    @patch("storefront.views.monobank._monobank_api_request")
+    def test_bot_deal_path_returns_first_party_offer_without_monobank_call(self, provider):
+        from management.services import bot_orders
+
+        result = bot_orders.create_deal_and_link(
+            self.client,
+            pay_type="full",
+            product_id=self.product.pk,
+            size="M",
+        )
+
+        self.assertTrue(result["ok"], result)
+        self.assertIn("/offer/a/", result["invoice_url"])
+        self.assertEqual(result["invoice_url"], result["proposal_url"])
+        provider.assert_not_called()
+        deal = IgDeal.objects.get(client=self.client)
+        self.assertEqual(deal.invoice_id, "")
+        self.assertEqual(deal.invoice_url, "")
+        self.assertIsNotNone(deal.active_checkout_proposal_id)
+        proposal = deal.active_checkout_proposal
+        self.assertEqual(proposal.status, IgCheckoutProposal.Status.READY)
+        self.assertEqual(proposal.items.count(), 1)

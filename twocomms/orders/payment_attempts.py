@@ -82,6 +82,7 @@ def materialize_payment_attempt(attempt_id, *, status, payload=None, source='web
                 raise PaymentAttemptConversionError('A selected product variant is unavailable')
 
         payment_status = 'prepaid' if attempt.pay_type == PaymentAttempt.PayType.PREPAY_200 else 'paid'
+        is_instagram_proposal = snapshot.get('checkout_surface') == 'instagram_proposal'
         order = Order.objects.create(
             user=attempt.user,
             full_name=attempt.full_name,
@@ -98,6 +99,8 @@ def materialize_payment_attempt(attempt_id, *, status, payload=None, source='web
             payment_status=payment_status,
             payment_provider='monobank_pay',
             payment_invoice_id=attempt.monobank_invoice_id,
+            source='manual' if is_instagram_proposal else 'web',
+            sale_source=(snapshot.get('sale_source') or 'Instagram') if is_instagram_proposal else '',
             utm_source=(attempt.tracking_payload or {}).get('utm_source', ''),
             utm_medium=(attempt.tracking_payload or {}).get('utm_medium', ''),
             utm_campaign=(attempt.tracking_payload or {}).get('utm_campaign', ''),

@@ -9,6 +9,7 @@ management/migrations. Перехресні FK задаються рядком (
 from __future__ import annotations
 
 import hashlib
+import json
 import secrets
 import uuid
 from datetime import timedelta
@@ -16,6 +17,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.signing import salted_hmac
 from django.db import transaction
 from django.db import models
 from django.utils import timezone
@@ -56,7 +58,36 @@ __all__ = [
     "IgCheckoutAccessToken",
     "IgCheckoutInventoryReservation",
     "IgLifecycleEvent",
+    "provider_evidence_signature",
 ]
+
+
+def provider_evidence_signature(
+    *,
+    deal_id,
+    client_id,
+    provider,
+    source,
+    invoice_id,
+    provider_status,
+    payload_digest,
+):
+    """Authenticate provider observations before they can authorize money state."""
+    canonical = json.dumps(
+        {
+            "client_id": int(client_id),
+            "deal_id": int(deal_id),
+            "invoice_id": str(invoice_id or ""),
+            "payload_digest": str(payload_digest or ""),
+            "provider": str(provider or ""),
+            "provider_status": str(provider_status or ""),
+            "source": str(source or ""),
+        },
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return salted_hmac("twocomms.ig_payment_event.v1", canonical).hexdigest()
 
 
 class InstagramBotRawEvent(models.Model):
@@ -1302,6 +1333,7 @@ class IgCheckoutProposalQuerySet(models.QuerySet):
         "negotiated_discount",
         "quoted_total",
         "requested_payment_amount",
+        "currency",
         "pay_type",
         "allow_promo",
         "items_digest",
@@ -1584,6 +1616,22 @@ class IgCheckoutProposal(models.Model):
             "poll",
         }:
             return False
+        from secrets import compare_digest
+
+        expected_signature = provider_evidence_signature(
+            deal_id=self.deal_id,
+            client_id=self.client_id,
+            provider=event.provider,
+            source=event.source,
+            invoice_id=event.invoice_id,
+            provider_status=event.provider_status,
+            payload_digest=event.payload_digest,
+        )
+        if not compare_digest(
+            str((event.evidence or {}).get("signature") or ""),
+            expected_signature,
+        ):
+            return False
         expected_attempt_status = {
             "cancelled": attempt.Status.CANCELLED,
             "canceled": attempt.Status.CANCELLED,
@@ -1656,6 +1704,7 @@ class IgCheckoutProposal(models.Model):
                 "negotiated_discount",
                 "quoted_total",
                 "requested_payment_amount",
+                "currency",
                 "pay_type",
                 "allow_promo",
                 "items_digest",
@@ -1674,16 +1723,24 @@ class IgCheckoutProposal(models.Model):
                         for field in (
                             "client_id", "deal_id", "commercial_episode_id", "revision",
                             "catalog_total", "negotiated_discount", "quoted_total",
-                            "requested_payment_amount", "pay_type", "allow_promo",
+                            "requested_payment_amount", "currency", "pay_type", "allow_promo",
                             "items_digest", "expires_at", "details_locked_at",
                             "invoice_cancelled_at", "provider_cancellation_event_id",
-                            "payment_attempt_id", "superseded_by_id",
+                            "paid_at", "payment_attempt_id", "superseded_by_id",
                         )
                     }
                     if any(protected[field] != previous[field] for field in protected):
                         raise ValidationError("A paid proposal financial/state record is immutable")
                 if previous["status"] == self.Status.PAID and self.status != self.Status.PAID:
                     raise ValidationError("A paid proposal cannot be superseded")
+                if previous["status"] != self.Status.PAID and self.status == self.Status.PAID:
+                    if not self.paid_at or not self.payment_attempt_id:
+                        raise ValidationError("A proposal can be paid only after verified payment")
+                    from orders.models import PaymentAttempt
+
+                    attempt = PaymentAttempt.objects.filter(pk=self.payment_attempt_id).first()
+                    if not attempt or attempt.status != PaymentAttempt.Status.CONVERTED or not attempt.order_id:
+                        raise ValidationError("A proposal can be paid only after verified payment")
         self.full_clean()
         return super().save(*args, **kwargs)
 

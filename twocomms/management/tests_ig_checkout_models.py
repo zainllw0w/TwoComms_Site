@@ -117,7 +117,22 @@ class IgCheckoutProposalModelTests(TestCase):
 
     def _provider_terminal_event(self, attempt, *, provider_status="cancelled", source="provider_pull"):
         from management.models import IgPaymentEvent, IgPaymentProjection
+        from management.ig_bot_models import provider_evidence_signature
 
+        payload_digest = hashlib.sha256(
+            f"payload:{attempt.pk}:{provider_status}:{source}".encode()
+        ).hexdigest()
+
+        evidence = {"status": provider_status}
+        evidence["signature"] = provider_evidence_signature(
+            deal_id=self.deal.pk,
+            client_id=self.client.pk,
+            provider="monobank",
+            source=source,
+            invoice_id=attempt.monobank_invoice_id,
+            provider_status=provider_status,
+            payload_digest=payload_digest,
+        )
         event = IgPaymentEvent.objects.create(
             event_key=hashlib.sha256(
                 f"terminal:{self.deal.pk}:{attempt.pk}:{provider_status}:{source}".encode()
@@ -128,10 +143,8 @@ class IgCheckoutProposalModelTests(TestCase):
             source=source,
             invoice_id=attempt.monobank_invoice_id,
             provider_status=provider_status,
-            evidence={"status": provider_status},
-            payload_digest=hashlib.sha256(
-                f"payload:{attempt.pk}:{provider_status}:{source}".encode()
-            ).hexdigest(),
+            evidence=evidence,
+            payload_digest=payload_digest,
         )
         truth = (
             IgDeal.PaymentTruth.CANCELLED
@@ -267,10 +280,7 @@ class IgCheckoutProposalModelTests(TestCase):
     def test_paid_proposal_cannot_be_superseded(self):
         from management.models import IgCheckoutProposal
 
-        proposal = self._proposal()
-        proposal.status = IgCheckoutProposal.Status.PAID
-        proposal.paid_at = timezone.now()
-        proposal.save(update_fields=["status", "paid_at", "updated_at"])
+        proposal = self._mark_paid(self._proposal())
 
         with self.assertRaisesMessage(ValidationError, "paid"):
             IgCheckoutProposal.objects.replace_current(
@@ -288,10 +298,7 @@ class IgCheckoutProposalModelTests(TestCase):
     def test_paid_proposal_rejects_combined_bulk_state_and_financial_mutation(self):
         from management.models import IgCheckoutProposal
 
-        proposal = self._proposal()
-        proposal.status = IgCheckoutProposal.Status.PAID
-        proposal.paid_at = timezone.now()
-        proposal.save(update_fields=["status", "paid_at", "updated_at"])
+        proposal = self._mark_paid(self._proposal())
 
         with self.assertRaisesMessage(ValueError, "transition"):
             IgCheckoutProposal.objects.filter(pk=proposal.pk).update(
@@ -319,13 +326,63 @@ class IgCheckoutProposalModelTests(TestCase):
             status=IgCheckoutProposal.Status.READY,
         )
         replacement.save(force_insert=True)
-        proposal.status = IgCheckoutProposal.Status.PAID
-        proposal.paid_at = timezone.now()
-        proposal.save(update_fields=["status", "paid_at", "updated_at"])
+        proposal = self._mark_paid(proposal)
         proposal.status = IgCheckoutProposal.Status.SUPERSEDED
         proposal.superseded_by = replacement
         with self.assertRaisesMessage(ValidationError, "paid"):
             proposal.save(update_fields=["status", "superseded_by", "updated_at"])
+
+    def _mark_paid(self, proposal):
+        from management.models import IgCheckoutProposal
+
+        order, _attribution = self._order_and_attribution(proposal=proposal)
+        proposal.status = IgCheckoutProposal.Status.PAID
+        proposal.paid_at = timezone.now()
+        proposal.save(update_fields=["status", "paid_at", "updated_at"])
+        return proposal
+
+    def test_paid_proposal_rejects_paid_at_currency_and_payment_mutation(self):
+        from management.models import IgCheckoutProposal
+
+        proposal = self._mark_paid(self._proposal())
+        proposal.paid_at = None
+        with self.assertRaises(ValidationError):
+            proposal.save(update_fields=["paid_at", "updated_at"])
+        with self.assertRaises(ValueError):
+            IgCheckoutProposal.objects.filter(pk=proposal.pk).update(currency="USD")
+
+    def test_unverified_paid_transition_is_rejected(self):
+        from management.models import IgCheckoutProposal
+
+        proposal = self._proposal()
+        proposal.status = IgCheckoutProposal.Status.PAID
+        proposal.paid_at = timezone.now()
+        with self.assertRaises(ValidationError):
+            proposal.save(update_fields=["status", "paid_at", "updated_at"])
+
+    def test_forged_provider_event_cannot_authorize_replacement(self):
+        from management.models import IgCheckoutProposal, IgPaymentEvent
+
+        attempt = self._terminal_attempt("forged-signature")
+        proposal = self._proposal(
+            status=IgCheckoutProposal.Status.CANCELLED,
+            payment_attempt=attempt,
+            invoice_cancelled_at=timezone.now(),
+        )
+        forged = IgPaymentEvent.objects.create(
+            event_key=hashlib.sha256(b"forged-signature-event").hexdigest(),
+            deal=self.deal,
+            client=self.client,
+            provider="monobank",
+            source="provider_pull",
+            invoice_id=attempt.monobank_invoice_id,
+            provider_status="cancelled",
+            evidence={"status": "cancelled", "signature": "forged"},
+            payload_digest=hashlib.sha256(b"forged-signature-payload").hexdigest(),
+        )
+        proposal.provider_cancellation_event = forged
+        proposal.save(update_fields=["provider_cancellation_event", "updated_at"])
+        self.assertFalse(proposal.has_provider_confirmed_cancellation())
 
     def test_deal_retains_historical_proposals_with_one_active_pointer(self):
         from management.models import IgCheckoutProposal

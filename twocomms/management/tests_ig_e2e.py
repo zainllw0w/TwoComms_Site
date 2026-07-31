@@ -1,19 +1,22 @@
 """Phase 10 / Task 25 — сквозний e2e потік IG-бота (без мережі, з моками).
 
-Перевіряє зчеплення фаз: шер поста → черга з медіа; угода+лінк → оплата (вебхук
-→ pull-verify) → автостворення замовлення (source=manual, sale_source=Instagram).
+Перевіряє зчеплення фаз: шер поста → черга з медіа; угода+proposal →
+PaymentAttempt → provider verification → канонічне Instagram-замовлення.
 """
 from decimal import Decimal
 from unittest.mock import patch
+from urllib.parse import urlparse
 
 from django.test import TestCase
 
 from management.models import IgClient, IgDeal, InstagramBotMessage, InstagramBotSettings
-from management.services import bot_orders, bot_payments
+from management.services import bot_orders
 from management.services import instagram_bot as bot
-from management.services.ig_delivery import apply_directory_selection
-from orders.models import Order
-from orders.nova_poshta_checkout import NovaPoshtaDeliverySelection
+from orders.models import Order, PaymentAttempt
+from orders.nova_poshta_checkout import (
+    build_city_choice_token,
+    build_warehouse_choice_token,
+)
 
 
 class EndToEndFlowTests(TestCase):
@@ -46,39 +49,71 @@ class EndToEndFlowTests(TestCase):
     @patch("storefront.views.monobank._monobank_api_request")
     def test_full_payment_to_order(self, mock_api):
         c = IgClient.get_or_create_for_sender("e2e2")
-        # 1) Формуємо угоду + посилання на оплату.
-        mock_api.return_value = {"invoiceId": "e2einv", "pageUrl": "https://pay/e2e"}
+        # 1) Бот формує first-party proposal. Monobank тут ще не викликається.
         res = bot_orders.create_deal_and_link(c, pay_type="full", product_id=self.product.id, size="M")
         self.assertTrue(res["ok"])
         deal = IgDeal.objects.get(client=c)
-        self.assertEqual(deal.invoice_id, "e2einv")
+        self.assertEqual(deal.invoice_id, "")
+        self.assertIn("/offer/a/", res["proposal_url"])
+        mock_api.assert_not_called()
         self.assertEqual(deal.amount, Decimal("950"))
 
-        # Дані доставки (зібрані в діалозі).
-        deal.np_full_name = "Іван Іванов"
-        deal.np_phone = "0931112233"
-        deal.np_city = "Київ"
-        deal.np_office = "Відділення 1"
-        apply_directory_selection(
-            deal,
-            NovaPoshtaDeliverySelection(
-                city="Київ",
-                np_office="Відділення 1",
-                settlement_ref="settlement-e2e",
-                city_ref="city-e2e",
-                warehouse_ref="warehouse-e2e",
-                warehouse_kind="branch",
-                city_token="city-token-e2e",
-                warehouse_token="warehouse-token-e2e",
-            ),
+        # 2) Клієнт відкриває offer, вводить підписані дані НП і лише тоді
+        # стандартний PaymentAttempt створює один invoice Monobank.
+        entry = self.client.get(urlparse(res["proposal_url"]).path)
+        checkout_path = entry["Location"]
+        self.client.get(checkout_path)
+        city_token = build_city_choice_token({
+            "label": "Київ",
+            "settlement_ref": "settlement-e2e",
+            "city_ref": "city-e2e",
+        })
+        warehouse_token = build_warehouse_choice_token({
+            "label": "Відділення 1",
+            "ref": "warehouse-e2e",
+            "kind": "branch",
+            "city_ref": "city-e2e",
+        })
+        mock_api.return_value = {"invoiceId": "e2einv", "pageUrl": "https://pay/e2e"}
+        with patch(
+            "orders.facebook_conversions_service.get_facebook_conversions_service"
+        ) as fb, patch(
+            "orders.telegram_notifications.TelegramNotifier.send_payment_attempt_notification",
+            return_value=True,
+        ):
+            fb.return_value.send_add_payment_info_event.return_value = True
+            payment = self.client.post(
+                checkout_path,
+                data={
+                    "full_name": "Іван Іванов",
+                    "phone": "0931112233",
+                    "email": "ivan@example.com",
+                    "city": "Київ",
+                    "np_settlement_ref": "settlement-e2e",
+                    "np_city_ref": "city-e2e",
+                    "np_city_token": city_token,
+                    "np_office": "Відділення 1",
+                    "np_warehouse_ref": "warehouse-e2e",
+                    "np_warehouse_token": warehouse_token,
+                },
+            )
+        self.assertEqual(payment["Location"], "https://pay/e2e")
+        mock_api.assert_called_once()
+
+        # 3) Тільки provider-verified PaymentAttempt матеріалізує Order.
+        attempt = PaymentAttempt.objects.get(monobank_invoice_id="e2einv")
+        from storefront.views.monobank import _apply_payment_attempt_status
+
+        order, created = _apply_payment_attempt_status(
+            attempt,
+            "success",
+            payload={"status": "success", "amount": 95000, "paidAmount": 95000},
+            source="test",
         )
-        deal.save()
+        self.assertTrue(created)
+        self.assertIsNotNone(order)
 
-        # 2) Оплата підтверджена → вебхук → pull-verify (status success).
-        mock_api.return_value = {"status": "success", "amount": 95000, "finalAmount": 95000}
-        self.assertTrue(bot_payments.handle_webhook_invoice("e2einv"))
-
-        # 3) Замовлення створено автоматично.
+        # 4) Instagram truth is bound to the exact canonical order.
         deal.refresh_from_db()
         self.assertEqual(deal.status, IgDeal.Status.ORDER_CREATED)
         self.assertIsNotNone(deal.order_id)

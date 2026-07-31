@@ -377,6 +377,11 @@ class NovaPoshtaService:
                 order.refresh_from_db()
                 if order.status == 'done':
                     self._record_purchase_action(order)
+                    self._dispatch_ig_delivery_lifecycle(
+                        order,
+                        status_code=status_code,
+                        shipment_status=full_status,
+                    )
             logger.debug(f"Order {order.order_number}: no changes")
             return False
 
@@ -391,6 +396,11 @@ class NovaPoshtaService:
 
         if delivered_status and order.status == 'done':
             self._record_purchase_action(order)
+            self._dispatch_ig_delivery_lifecycle(
+                order,
+                status_code=status_code,
+                shipment_status=full_status,
+            )
 
         if not decision['notify']:
             return decision['changed']
@@ -411,6 +421,32 @@ class NovaPoshtaService:
             self._send_status_notification(order, decision['old_shipment_status'], full_status)
 
         return True
+
+    @staticmethod
+    def _dispatch_ig_delivery_lifecycle(order, *, status_code=None, shipment_status=''):
+        """Project a committed Nova Poshta delivery into Instagram Direct."""
+        try:
+            from management.ig_bot_models import IgLifecycleEvent
+            from management.services.ig_lifecycle import (
+                dispatch_lifecycle_event,
+                ensure_lifecycle_event,
+            )
+
+            event, _created = ensure_lifecycle_event(
+                order,
+                IgLifecycleEvent.Kind.DELIVERED_REVIEW_REQUESTED,
+                payload={
+                    "status_code": str(status_code or "delivered"),
+                    "status": str(shipment_status or "")[:300],
+                },
+            )
+            if event is not None:
+                dispatch_lifecycle_event(event.pk)
+        except Exception:
+            logger.exception(
+                "Failed to project delivered Instagram lifecycle for order %s",
+                getattr(order, "pk", None),
+            )
 
     def _apply_tracking_update(self, order_pk, status, status_description, status_code, full_status):
         """

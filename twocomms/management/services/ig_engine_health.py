@@ -16,4 +16,18 @@ IG_RUNTIME_TABLES = (
     "management_instagrambotprocessedmessage",
     "management_instagrambotrawevent",
     "management_instagrambotsettings",
+    # Assisted checkout and the transactional parents it locks/refs. Keeping
+    # these in the read-only audit makes the MariaDB preflight fail before a
+    # migration can create a partial FK graph.
+    "management_igcheckoutproposal",
+    "management_igcheckoutaccesstoken",
+    "management_igcheckoutproposalitem",
+    "management_igcheckoutinventoryreservation",
+    "management_igcheckoutrevision",
+    "management_iglifecycleevent",
+    "management_igpaymentevent",
+    "management_igorderattribution",
+    "management_igcommercialepisode",
+    "orders_order",
+    "orders_paymentattempt",
 )

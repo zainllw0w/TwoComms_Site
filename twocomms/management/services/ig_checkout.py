@@ -514,6 +514,8 @@ def create_or_update_proposal(
     requested_payment_amount=None,
     evidence=None,
     allow_promo=False,
+    locale=None,
+    deal=None,
 ):
     from management.models import (
         IgCheckoutProposal,
@@ -523,6 +525,9 @@ def create_or_update_proposal(
     )
 
     locked_client = IgClient.objects.select_for_update().get(pk=client.pk)
+    locale_code = str(locale or getattr(locked_client, "language", "") or "uk").lower().replace("_", "-").split("-", 1)[0]
+    if locale_code not in {"uk", "ru", "en"}:
+        locale_code = "uk"
     quote = validate_checkout_items(
         client=locked_client,
         item_specs=item_specs,
@@ -532,13 +537,23 @@ def create_or_update_proposal(
         requested_payment_amount=requested_payment_amount,
         allow_promo=allow_promo,
     )
-    deal = (
-        IgDeal.objects.select_for_update()
-        .filter(client=locked_client, active_checkout_proposal__isnull=False)
-        .select_related("active_checkout_proposal")
-        .order_by("-id")
-        .first()
-    )
+    if deal is not None:
+        deal = (
+            IgDeal.objects.select_for_update()
+            .filter(pk=deal.pk, client=locked_client)
+            .select_related("active_checkout_proposal")
+            .first()
+        )
+        if deal is None:
+            raise CheckoutConfigurationError("invalid_deal")
+    else:
+        deal = (
+            IgDeal.objects.select_for_update()
+            .filter(client=locked_client, active_checkout_proposal__isnull=False)
+            .select_related("active_checkout_proposal")
+            .order_by("-id")
+            .first()
+        )
     proposal = deal.active_checkout_proposal if deal is not None else None
     if proposal is not None:
         proposal = IgCheckoutProposal.objects.select_for_update().get(pk=proposal.pk)
@@ -557,6 +572,12 @@ def create_or_update_proposal(
             deal.save(update_fields=["active_checkout_proposal", "updated_at"])
             proposal = None
         elif proposal.items_digest == quote.digest and proposal.allow_promo == bool(allow_promo):
+            if proposal.locale != locale_code and proposal.status in {
+                IgCheckoutProposal.Status.READY,
+                IgCheckoutProposal.Status.VIEWED,
+            }:
+                proposal.locale = locale_code
+                proposal.save(update_fields=["locale", "updated_at"])
             return proposal
         if proposal is not None and (
             proposal.status not in {
@@ -568,7 +589,7 @@ def create_or_update_proposal(
             or deal.invoice_url
         ):
             raise CheckoutConfigurationError("proposal_locked")
-    else:
+    elif deal is None:
         deal = IgDeal.objects.create(
             client=locked_client,
             status=IgDeal.Status.QUOTED,
@@ -593,6 +614,7 @@ def create_or_update_proposal(
             pay_type=quote.pay_type,
             allow_promo=bool(allow_promo),
             items_digest=quote.digest,
+            locale=locale_code,
         )
         revision_number = 1
         revision_source = IgCheckoutRevision.Source.BOT_CREATE
@@ -606,11 +628,12 @@ def create_or_update_proposal(
         proposal.allow_promo = bool(allow_promo)
         proposal.items_digest = quote.digest
         proposal.commercial_episode = episode
+        proposal.locale = locale_code
         proposal.full_clean()
         proposal.save(update_fields=[
             "revision", "catalog_total", "negotiated_discount", "quoted_total",
             "requested_payment_amount", "pay_type", "allow_promo", "items_digest",
-            "commercial_episode", "updated_at",
+            "commercial_episode", "locale", "updated_at",
         ])
         revision_number = proposal.revision
         revision_source = IgCheckoutRevision.Source.BOT_UPDATE

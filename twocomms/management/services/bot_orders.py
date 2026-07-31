@@ -763,6 +763,13 @@ def _create_deal_and_link_unlocked(
     has_episode_history = IgCommercialEpisode.objects.filter(client_id=client.pk).exists()
 
     def create_scoped_payment_link(deal):
+        # New Instagram bot deals use the first-party proposal page. The
+        # marker is persisted only in JSON so legacy deal/payment models and
+        # their direct invoice compatibility remain unchanged.
+        payment_payload = dict(deal.payment_payload or {})
+        payment_payload["checkout_surface"] = "instagram_proposal"
+        deal.payment_payload = payment_payload
+        deal.save(update_fields=["payment_payload", "updated_at"])
         result = create_payment_link(deal)
         if result.get("ok"):
             from management.services.ig_commercial_episodes import ensure_episode_for_deal
@@ -1234,6 +1241,8 @@ def create_checkout_proposal(
     requested_payment_amount=None,
     evidence=None,
     allow_promo=False,
+    locale=None,
+    deal=None,
 ):
     """Build the first-party proposal path without creating a Monobank invoice."""
     from management.services.ig_checkout import create_or_update_proposal
@@ -1246,7 +1255,72 @@ def create_checkout_proposal(
         requested_payment_amount=requested_payment_amount,
         evidence=evidence,
         allow_promo=allow_promo,
+        locale=locale or getattr(client, "language", "") or "uk",
+        deal=deal,
     )
+
+
+def create_checkout_proposal_link(
+    client,
+    *,
+    pay_type="online_full",
+    item_specs,
+    negotiated_total=None,
+    requested_payment_amount=None,
+    evidence=None,
+    allow_promo=False,
+    locale=None,
+    deal=None,
+):
+    """Create a first-party offer URL without creating a provider invoice.
+
+    The raw bearer token is returned only in the URL. The proposal stores its
+    digest, expiry, and immutable item snapshot; Monobank is reached later by
+    the page's standard PaymentAttempt submit.
+    """
+    from django.conf import settings
+    from django.urls import reverse
+
+    from management.models import IgCheckoutAccessToken
+    from management.services.ig_checkout import CheckoutConfigurationError
+
+    try:
+        proposal = create_checkout_proposal(
+            client,
+            pay_type=pay_type,
+            item_specs=item_specs,
+            negotiated_total=negotiated_total,
+            requested_payment_amount=requested_payment_amount,
+            evidence=evidence,
+            allow_promo=allow_promo,
+            locale=locale,
+            deal=deal,
+        )
+        raw_token, access_token = IgCheckoutAccessToken.issue(
+            proposal=proposal,
+            kind=IgCheckoutAccessToken.Kind.BOT,
+        )
+    except CheckoutConfigurationError as exc:
+        return {"ok": False, "error": exc.code}
+    except Exception as exc:
+        logger.exception("Failed to create Instagram checkout proposal link", exc_info=True)
+        return {"ok": False, "error": str(exc)[:180] or "proposal_error"}
+
+    base = (
+        getattr(settings, "SITE_BASE_URL", "")
+        or getattr(settings, "BOT_PUBLIC_BASE_URL", "")
+        or "https://twocomms.shop"
+    ).rstrip("/")
+    url = f"{base}{reverse('ig_checkout_token_entry', kwargs={'token': raw_token})}"
+    return {
+        "ok": True,
+        # Keep the compatibility key for the existing bot delivery boundary;
+        # this value is always a TwoComms offer URL, never a Monobank URL.
+        "invoice_url": url,
+        "proposal_url": url,
+        "proposal_id": str(proposal.public_id),
+        "expires_at": access_token.expires_at.isoformat(),
+    }
 
 
 def fulfill_ready_paid_deals(limit: int = 50) -> int:
@@ -1392,7 +1466,7 @@ def _queue_episode_shipment_manager_review(episode, text: str, *, reason: str, h
 def notify_shipped_deals(limit: int = 50) -> int:
     """Сповіщає IG-клієнта в Direct, що замовлення відправлено (з ТТН).
 
-    Лише для IG-угод, чиє замовлення в статусі 'ship' і має tracking_number.
+    Для IG-угод з підтвердженою оплатою, чиє замовлення має tracking_number.
     Усередині response window надсилає звичайний RESPONSE. Поза вікном або
     після непідтвердженої доставки створює завдання менеджеру; автоматичний
     HUMAN_AGENT tag не використовується.
@@ -1405,7 +1479,7 @@ def notify_shipped_deals(limit: int = 50) -> int:
     s = InstagramBotSettings.load()
     qs = (
         IgDeal.objects.filter(
-            order__isnull=False, order__status="ship", shipped_notified_at__isnull=True
+            order__isnull=False, shipped_notified_at__isnull=True
         )
         .filter(verified_payment_q())
         .exclude(order__tracking_number__isnull=True)
@@ -1417,6 +1491,46 @@ def notify_shipped_deals(limit: int = 50) -> int:
         ttn = (deal.order.tracking_number or "").strip()
         if not ttn or not deal.client_id:
             continue
+
+        # Proposal-backed orders use the durable lifecycle event. The legacy
+        # text path below remains for historical IG deals that predate the
+        # assisted checkout migration.
+        try:
+            from management.models import IgCheckoutProposal, IgLifecycleEvent
+            from management.services.ig_lifecycle import (
+                dispatch_lifecycle_event,
+                ensure_lifecycle_event,
+            )
+
+            proposal = IgCheckoutProposal.objects.filter(
+                payment_attempt__order_id=deal.order_id,
+            ).first()
+        except Exception:
+            proposal = None
+        if proposal is not None:
+            event, _created = ensure_lifecycle_event(
+                deal.order,
+                IgLifecycleEvent.Kind.TTN_CREATED,
+                payload={
+                    "tracking_number": ttn,
+                    "order_number": deal.order.order_number,
+                },
+            )
+            if event is not None:
+                state = dispatch_lifecycle_event(event.pk)
+                if state == IgLifecycleEvent.State.SENT:
+                    notified_at = timezone.now()
+                    IgDeal.objects.filter(
+                        pk=deal.pk,
+                        shipped_notified_at__isnull=True,
+                    ).update(
+                        shipped_notified_at=notified_at,
+                        order_truth_updated_at=notified_at,
+                        updated_at=notified_at,
+                    )
+                    sent += 1
+                continue
+
         text = _shipment_message(ttn)
         existing_review = deal.followup_tasks.filter(
             reason__in=SHIPMENT_REVIEW_REASONS

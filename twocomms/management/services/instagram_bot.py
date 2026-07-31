@@ -478,22 +478,97 @@ PAYLINK_FALLBACK_TEXT = "Дякую! Уточню деталі щодо опла
 # Не чіпаємо DEFAULT_BOT_SYSTEM_PROMPT (щоб не робити міграцію й не затирати
 # правки адміна в UI) — інжект застосовується до будь-яких налаштувань.
 PAYMENT_PROTOCOL_NOTE = (
-    "[ПРОТОКОЛ ОПЛАТИ — службове, клієнт цього не бачить]\n"
+    "[ПРОТОКОЛ ПЕРСОНАЛЬНОЇ ПРОПОЗИЦІЇ — службове, клієнт цього не бачить]\n"
+    "Це правило має пріоритет над старими фразами про пряме посилання на оплату. "
     "Коли клієнт підтвердив КОНКРЕТНИЙ товар і готовий платити — додай у самому "
     "кінці відповіді службові теги: [PAYLINK:prepay] для погодженої передоплати або "
     "[PAYLINK:full] (повна оплата), і поряд [PRODUCT:<id>], де <id> — число з "
-    "рядка каталогу (формат «id=NN»). НЕ вигадуй і НЕ пиши URL оплати власноруч — "
-    "система сама сформує справжнє посилання й додасть його до повідомлення. "
-    "Якщо товар ще не визначено однозначно — спершу уточни його, тег [PAYLINK] "
-    "поки не став. Для кожної позиції додай [ITEM:<product_id>|<qty>|<size>|<fit>|<color_variant_id>] "
-    "(останнє поле можна залишити порожнім), щоб зберегти кількість, розмір, крій і колір. "
-    "Для однієї позиції також дозволено [QTY:n] [SIZE:XS] [FIT:oversize]. "
-    "Для передоплати обов'язково додай [PAYMENT:сума], але лише якщо ця точна "
-    "сума явно погоджена в поточному діалозі. Не використовуй фіксовані 200 грн "
-    "і не перенось суму з попереднього замовлення. "
-    "Якщо менеджер явно погодив іншу ціну, додай [PRICE:число] "
-    "лише коли це число дослівно є у збереженій переписці; не вигадуй знижку."
+    "рядка каталогу (формат «id=NN»). Система надішле персональну пропозицію TwoComms "
+    "на власному сайті, а не прямий Monobank checkout. НЕ вигадуй і НЕ пиши URL "
+    "власноруч. На сторінці клієнт перевіряє товари, вводить Нову Пошту та email для "
+    "чека, після чого сам переходить до оплати. Не збирай email, ПІБ, телефон, місто "
+    "чи відділення в Direct для assisted checkout і не став [ORDER] у цьому сценарії. "
+    "Посилання дійсне до 12 годин, його можна переслати; зміни товарів клієнт просить "
+    "у Direct до створення рахунку. Якщо товар ще не визначено однозначно — спершу "
+    "уточни його, тег [PAYLINK] поки не став. Для кожної позиції додай "
+    "[ITEM:<product_id>|<qty>|<size>|<fit>|<color_variant_id>] (останнє поле можна "
+    "залишити порожнім), щоб зберегти кількість, розмір, крій і колір. Для футболки з "
+    "кількома фасонами спочатку обов'язково запитай classic чи oversize, покажи сітку "
+    "саме обраного фасону і лише потім запитуй розмір. Для однієї позиції також дозволено "
+    "[QTY:n] [SIZE:XS] [FIT:oversize]. Для передоплати обов'язково додай "
+    "[PAYMENT:сума], але лише якщо ця точна сума явно погоджена в поточному діалозі. "
+    "Не використовуй фіксовані 200 грн і не перенось суму з попереднього замовлення. "
+    "Якщо менеджер явно погодив іншу ціну, додай [PRICE:число] лише коли це число "
+    "дослівно є у збереженій переписці; не вигадуй знижку."
 )
+
+_ASSISTED_CHECKOUT_COPY = {
+    "uk": {
+        "proposal": (
+            "Перевірте товари в персональній пропозиції TwoComms, додайте дані Нової "
+            "Пошти та email для чека, а потім переходьте до оплати. Це займає до двох "
+            "хвилин. Посилання дійсне до 12 годин, його можна переслати іншій людині. "
+            "Якщо треба щось змінити в товарах, напишіть мені сюди до оплати."
+        ),
+        "missing_fit_option": (
+            "Підкажіть, будь ласка, який фасон обираєте: класичний чи оверсайз? "
+            "Після цього надішлю розмірну сітку саме для обраного фасону."
+        ),
+        "missing_size": "Підкажіть, будь ласка, потрібний розмір - і я одразу підготую пропозицію.",
+        "invalid_size": "Для цього фасону оберіть, будь ласка, розмір із доступної сітки.",
+        "invalid_fit_option": "Підкажіть, будь ласка, класичний чи оверсайз фасон вам потрібен.",
+        "invalid_color_variant": "Підкажіть, будь ласка, потрібний колір, щоб я підготувала точну пропозицію.",
+        "unavailable_selection": "Цей варіант зараз недоступний. Підкажіть інший фасон, розмір або колір.",
+    },
+    "ru": {
+        "proposal": (
+            "Проверьте товары в персональном предложении TwoComms, добавьте данные Новой "
+            "почты и email для чека, а затем переходите к оплате. Это занимает до двух "
+            "минут. Ссылка действует до 12 часов, ее можно переслать другому человеку. "
+            "Если нужно что-то изменить в товарах, напишите мне сюда до оплаты."
+        ),
+        "missing_fit_option": (
+            "Подскажите, пожалуйста, какой фасон выбираете: классический или оверсайз? "
+            "После этого пришлю размерную сетку именно для выбранного фасона."
+        ),
+        "missing_size": "Подскажите, пожалуйста, нужный размер, и я сразу подготовлю предложение.",
+        "invalid_size": "Для этого фасона выберите, пожалуйста, размер из доступной сетки.",
+        "invalid_fit_option": "Подскажите, пожалуйста, классический или оверсайз фасон вам нужен.",
+        "invalid_color_variant": "Подскажите, пожалуйста, нужный цвет, чтобы я подготовила точное предложение.",
+        "unavailable_selection": "Этот вариант сейчас недоступен. Подскажите другой фасон, размер или цвет.",
+    },
+    "en": {
+        "proposal": (
+            "Review the items in your personal TwoComms offer, add Nova Poshta delivery "
+            "details and a receipt email, then continue to payment. It takes about two "
+            "minutes. The link is valid for up to 12 hours and can be forwarded. Message me "
+            "here before paying if you would like to change the items."
+        ),
+        "missing_fit_option": "Which fit would you prefer: classic or oversize? I will then send the right size guide.",
+        "missing_size": "Please tell me the size you need and I will prepare the offer right away.",
+        "invalid_size": "Please choose a size available for this fit.",
+        "invalid_fit_option": "Please choose the fit you need: classic or oversize.",
+        "invalid_color_variant": "Please tell me the color you need so I can prepare the exact offer.",
+        "unavailable_selection": "This option is unavailable right now. Please choose another fit, size, or color.",
+    },
+}
+
+
+def _assisted_checkout_locale(client) -> str:
+    language = str(getattr(client, "language", "") or "").lower()
+    if language.startswith("ru"):
+        return "ru"
+    if language.startswith("en"):
+        return "en"
+    return "uk"
+
+
+def _assisted_checkout_copy(client, key: str) -> str:
+    locale = _assisted_checkout_locale(client)
+    return _ASSISTED_CHECKOUT_COPY.get(locale, _ASSISTED_CHECKOUT_COPY["uk"]).get(
+        key,
+        _ASSISTED_CHECKOUT_COPY["uk"].get(key, ""),
+    )
 
 # Правило точності — інжектимо разом із протоколом оплати. Прямо забороняє
 # «вигадану відмову» (типу «такого немає / це кастом»), як це сталось із реальним
@@ -669,11 +744,17 @@ def finalize_paylink(reply: str, control: dict, client, sender_id: str = "") -> 
 
     if res.get("ok") and res.get("invoice_url"):
         url = res["invoice_url"]
-        reply = _strip_invented_pay_urls(reply, keep_url=url)
-        if url not in reply:
-            reply = (reply.rstrip() + "\n\n💳 Посилання на оплату: " + url).strip()
+        lead = _rewrite_failed_paylink(reply)
+        if lead == PAYLINK_FALLBACK_TEXT:
+            lead = ""
+        proposal_copy = _assisted_checkout_copy(client, "proposal")
+        reply = "\n\n".join(part for part in (lead, proposal_copy, url) if part).strip()
         log("success", "paylink", f"{sender_id}: {url}")
         return reply
+
+    configuration_question = _assisted_checkout_copy(client, str(res.get("error") or ""))
+    if configuration_question:
+        return configuration_question
 
     # Невдача формування: прибираємо висяче обіцяння й ескалюємо на менеджера.
     log("error", "paylink", f"{sender_id}: НЕ сформовано ({res.get('error')})")

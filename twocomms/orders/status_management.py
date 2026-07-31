@@ -126,6 +126,41 @@ def _apply_order_status_update_to_order(
     order.save()
     _sync_loyalty_points(order, old_status=old_status)
 
+    if (order.tracking_number or "").strip() and (order.tracking_number or "").strip() != old_tracking_number:
+        # TTN truth is projected after the order row commits. Legacy deals are
+        # ignored by the lifecycle service and keep their existing notifier.
+        order_id = order.pk
+
+        def _queue_instagram_ttn(order_id=order_id):
+            try:
+                from management.ig_bot_models import IgLifecycleEvent
+                from management.services.ig_lifecycle import (
+                    dispatch_lifecycle_event,
+                    ensure_lifecycle_event,
+                )
+                from orders.models import Order
+
+                committed = Order.objects.get(pk=order_id)
+                event, _created = ensure_lifecycle_event(
+                    committed,
+                    IgLifecycleEvent.Kind.TTN_CREATED,
+                    payload={
+                        "tracking_number": committed.tracking_number.strip(),
+                        "order_number": committed.order_number,
+                    },
+                )
+                if event is not None:
+                    dispatch_lifecycle_event(event.pk)
+            except Exception:
+                import logging
+
+                logging.getLogger(__name__).exception(
+                    "Unable to queue Instagram TTN lifecycle for order %s",
+                    order_id,
+                )
+
+        transaction.on_commit(_queue_instagram_ttn)
+
     return {
         "order": order,
         "old_status": old_status,

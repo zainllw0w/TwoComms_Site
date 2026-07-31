@@ -172,6 +172,49 @@ class FinalizePaylinkTests(TestCase):
 
     @patch("management.services.instagram_bot.notify_manager")
     @patch("management.services.bot_orders.create_deal_and_link")
+    def test_first_party_offer_has_clear_checkout_copy(self, mock_link, _mock_notify):
+        offer_url = "https://twocomms.shop/offer/a/opaque-token/"
+        mock_link.return_value = {
+            "ok": True,
+            "invoice_url": offer_url,
+            "proposal_url": offer_url,
+        }
+
+        out = bot.finalize_paylink(
+            "Готово, зараз надішлю посилання на оплату.",
+            {"paylink": "full", "product": 1},
+            self.c,
+            self.c.igsid,
+        )
+
+        self.assertIn(offer_url, out)
+        self.assertIn("Перевірте товари", out)
+        self.assertIn("до 12 годин", out)
+        self.assertIn("email", out.lower())
+        self.assertNotIn("monobank", out.lower())
+        self.assertNotIn("посилання на оплату", out.lower())
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.bot_orders.create_deal_and_link")
+    def test_missing_fit_returns_a_question_without_manager_handoff(self, mock_link, mock_notify):
+        mock_link.return_value = {"ok": False, "error": "missing_fit_option"}
+
+        out = bot.finalize_paylink(
+            "Оформлюю замовлення.",
+            {"paylink": "full", "product": 1},
+            self.c,
+            self.c.igsid,
+        )
+
+        self.assertIn("фасон", out.lower())
+        self.assertIn("класич", out.lower())
+        self.assertIn("оверсайз", out.lower())
+        mock_notify.assert_not_called()
+        self.c.refresh_from_db()
+        self.assertEqual(self.c.stage, IgClient.Stage.CHECKOUT)
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.bot_orders.create_deal_and_link")
     def test_failure_removes_dangling_promise_and_escalates(self, mock_link, mock_notify):
         mock_link.return_value = {"ok": False, "error": "no_product"}
         reply = "Дякую! Зараз сформую посилання на оплату і скину сюди 🙌"
@@ -387,6 +430,9 @@ class PaymentProtocolInjectionTests(TestCase):
         self.assertIn("розмір", sys_text.lower())
         self.assertIn("крій", sys_text.lower())
         self.assertIn("НЕ вигадуй", sys_text)
+        self.assertIn("персональну пропозицію", sys_text.lower())
+        self.assertIn("до 12 годин", sys_text.lower())
+        self.assertIn("не збирай email", sys_text.lower())
 
 
 # ===========================================================================

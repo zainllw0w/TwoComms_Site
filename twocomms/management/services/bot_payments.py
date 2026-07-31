@@ -30,6 +30,41 @@ def _destination(deal) -> str:
 def create_payment_link(deal, *, force: bool = False) -> dict:
     """Створює invoice Monobank для угоди. Ідемпотентно: якщо invoice вже є —
     повертає його. Повертає {ok, invoice_id, invoice_url, error?, reused?}."""
+    if (deal.payment_payload or {}).get("checkout_surface") == "instagram_proposal":
+        from management.services.bot_orders import create_checkout_proposal_link
+
+        items = [
+            {
+                "product_id": item.product_id,
+                "color_variant_id": item.color_variant_id,
+                "qty": item.qty,
+                "size": item.size or "",
+                "fit_option_code": item.fit_option_code or "",
+            }
+            for item in deal.items.select_related("product", "color_variant").order_by("id")
+        ]
+        evidence_ids = []
+        for item in deal.items.all():
+            for message_id in item.price_evidence_message_ids or []:
+                if message_id not in evidence_ids:
+                    evidence_ids.append(message_id)
+        result = create_checkout_proposal_link(
+            deal.client,
+            deal=deal,
+            pay_type=(
+                "prepayment"
+                if deal.pay_type == deal.PayType.PREPAYMENT
+                else "online_full"
+            ),
+            item_specs=items,
+            negotiated_total=deal.amount,
+            requested_payment_amount=deal.requested_payment_amount or deal.amount,
+            evidence={"message_ids": evidence_ids},
+            locale=getattr(deal.client, "language", "") or "uk",
+        )
+        if result.get("ok"):
+            return result
+        return {"ok": False, "error": result.get("error", "proposal_error")}
     if deal.invoice_id and deal.invoice_url and not force:
         return {
             "ok": True,
@@ -167,14 +202,34 @@ def _payment_event(deal, status: str, payload: dict, *, source: str, amount_vali
         for item in (payload.get("cancelList") or [])
         if isinstance(item, dict)
     ][:20]
+    invoice_id = payload.get("invoiceId") or deal.invoice_id or ""
+    source_value = (source or "provider")[:32]
+    evidence = {
+        "status": status,
+        "amount": payload.get("amount"),
+        "finalAmount": payload.get("finalAmount"),
+        "modifiedDate": payload.get("modifiedDate"),
+        "cancelList": cancel_evidence,
+    }
+    from management.ig_bot_models import provider_evidence_signature
+
+    evidence["signature"] = provider_evidence_signature(
+        deal_id=deal.pk,
+        client_id=deal.client_id,
+        provider="monobank",
+        source=source_value,
+        invoice_id=invoice_id,
+        provider_status=status[:32],
+        payload_digest=payload_digest,
+    )
     event, _created = IgPaymentEvent.objects.get_or_create(
         event_key=event_key,
         defaults={
             "deal": deal,
             "client": deal.client,
             "provider": "monobank",
-            "source": (source or "provider")[:32],
-            "invoice_id": (payload.get("invoiceId") or deal.invoice_id or "")[:128],
+            "source": source_value,
+            "invoice_id": invoice_id[:128],
             "provider_status": status[:32],
             "provider_modified_at": _provider_datetime(payload.get("modifiedDate")),
             "gross_amount": gross,
@@ -182,13 +237,7 @@ def _payment_event(deal, status: str, payload: dict, *, source: str, amount_vali
             "refunded_amount": refunded,
             "amount_valid": amount_valid,
             "currency": deal.currency or "UAH",
-            "evidence": {
-                "status": status,
-                "amount": payload.get("amount"),
-                "finalAmount": payload.get("finalAmount"),
-                "modifiedDate": payload.get("modifiedDate"),
-                "cancelList": cancel_evidence,
-            },
+            "evidence": evidence,
             "payload_digest": payload_digest,
         },
     )
