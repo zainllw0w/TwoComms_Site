@@ -383,6 +383,7 @@ class PaymentAttempt(models.Model):
 
     class PayType(models.TextChoices):
         ONLINE_FULL = 'online_full', _('Онлайн оплата (повна сума)')
+        PREPAYMENT = 'prepayment', _('Передоплата за погодженою сумою')
         PREPAY_200 = 'prepay_200', _('Передплата 200 грн')
 
     fingerprint = models.CharField(max_length=64, unique=True, db_index=True)
@@ -454,6 +455,8 @@ class PaymentAttempt(models.Model):
 
     @property
     def prepayment_amount(self):
+        if self.pay_type == self.PayType.PREPAYMENT:
+            return min(Decimal(self.payment_amount or 0), self.final_amount)
         if self.pay_type == self.PayType.PREPAY_200:
             return min(Decimal('200.00'), self.final_amount)
         return Decimal('0.00')

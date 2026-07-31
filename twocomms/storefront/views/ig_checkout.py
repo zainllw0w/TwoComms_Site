@@ -3,7 +3,9 @@ from __future__ import annotations
 import secrets
 
 from django.core import signing
+from django.core.cache import cache
 from django.http import Http404, HttpResponse, JsonResponse
+from django.utils.crypto import constant_time_compare
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -68,6 +70,9 @@ CHECKOUT_COPY = {
         "share_error": "Не вдалося скопіювати",
         "share_hint": "Посилання можна передати іншій людині для оплати.",
         "change_order": "Змінити замовлення в Direct",
+        "continue_payment": "Продовжити оплату",
+        "order_number": "Номер замовлення",
+        "delivery_destination": "Доставка",
         "privacy": "Політика приватності",
         "support": "Підтримка в Direct",
         "delivery_locked": "Дані доставки зафіксовані",
@@ -143,6 +148,9 @@ CHECKOUT_COPY = {
         "share_error": "Не удалось скопировать",
         "share_hint": "Ссылку можно передать другому человеку для оплаты.",
         "change_order": "Изменить заказ в Direct",
+        "continue_payment": "Продолжить оплату",
+        "order_number": "Номер заказа",
+        "delivery_destination": "Доставка",
         "privacy": "Политика конфиденциальности",
         "support": "Поддержка в Direct",
         "delivery_locked": "Данные доставки зафиксированы",
@@ -218,6 +226,9 @@ CHECKOUT_COPY = {
         "share_error": "Could not copy link",
         "share_hint": "You can forward this link to someone else who will pay.",
         "change_order": "Change order in Direct",
+        "continue_payment": "Continue payment",
+        "order_number": "Order number",
+        "delivery_destination": "Delivery",
         "privacy": "Privacy policy",
         "support": "Support in Direct",
         "delivery_locked": "Delivery details are locked",
@@ -252,6 +263,7 @@ CHECKOUT_ERROR_COPY = {
         "expired": "Термін дії пропозиції завершився.",
         "unavailable": "Цю пропозицію більше не можна оплатити.",
         "in_progress": "Платіж уже створюється. Зачекайте кілька секунд.",
+        "provider_ambiguous": "Банк ще перевіряє платіж. Не повторюйте оплату — ми звіримо статус і повідомимо вас у Direct.",
         "full_name": "Вкажіть ім'я та прізвище.",
         "phone": "Вкажіть коректний український номер телефону.",
         "email": "Перевірте email для чека.",
@@ -269,6 +281,7 @@ CHECKOUT_ERROR_COPY = {
         "expired": "Срок действия предложения истек.",
         "unavailable": "Это предложение больше нельзя оплатить.",
         "in_progress": "Платеж уже создается. Подождите несколько секунд.",
+        "provider_ambiguous": "Банк еще проверяет платеж. Не повторяйте оплату — мы сверим статус и сообщим вам в Direct.",
         "full_name": "Укажите имя и фамилию.",
         "phone": "Укажите корректный украинский номер телефона.",
         "email": "Проверьте email для чека.",
@@ -286,6 +299,7 @@ CHECKOUT_ERROR_COPY = {
         "expired": "This offer has expired.",
         "unavailable": "This offer can no longer be paid.",
         "in_progress": "A payment is already being created. Please wait a few seconds.",
+        "provider_ambiguous": "The bank is still checking this payment. Do not pay again; we will verify it and message you in Direct.",
         "full_name": "Enter your first and last name.",
         "phone": "Enter a valid Ukrainian phone number.",
         "email": "Check the receipt email.",
@@ -310,6 +324,23 @@ def _private_headers(response):
     response["X-Robots-Tag"] = "noindex, nofollow"
     response["Referrer-Policy"] = "no-referrer"
     return response
+
+
+def _rate_limited(request, action, *, identity="", limit=30, window=60):
+    """Bound bearer/payment probes without persisting the bearer or PII."""
+    from twocomms.middleware import _client_rate_limit_ip
+
+    remote = str(_client_rate_limit_ip(request) or "unknown")[:64]
+    digest = IgCheckoutAccessToken.digest(f"{remote}:{identity}")
+    key = f"ig-checkout-rate:{action}:{digest}"
+    try:
+        if cache.add(key, 1, timeout=window):
+            return False
+        count = cache.incr(key)
+        return count > limit
+    except Exception:
+        # Cache outages must not make an otherwise valid payment inaccessible.
+        return False
 
 
 def _grant_session_key(proposal):
@@ -344,8 +375,6 @@ def _load_grant(request, proposal):
         raise Http404("proposal grant invalid")
     if payload.get("proposal_id") != str(proposal.public_id):
         raise Http404("proposal grant invalid")
-    if int(payload.get("revision") or 0) != proposal.revision:
-        raise Http404("proposal revision changed")
     if int(payload.get("expires_at") or 0) <= int(timezone.now().timestamp()):
         raise Http404("proposal grant expired")
     token = IgCheckoutAccessToken.objects.filter(
@@ -356,6 +385,16 @@ def _load_grant(request, proposal):
     ).first()
     if token is None:
         raise Http404("proposal token unavailable")
+    if int(payload.get("revision") or 0) != proposal.revision:
+        if proposal.payment_attempt_id:
+            raise Http404("proposal revision changed after payment started")
+        payload["revision"] = proposal.revision
+        request.session[_grant_session_key(proposal)] = signing.dumps(
+            payload,
+            salt=GRANT_SALT,
+            compress=True,
+        )
+        request.session.modified = True
     return payload, token
 
 
@@ -405,6 +444,8 @@ def _checkout_state(proposal):
     if proposal.status == proposal.Status.EXPIRED or proposal.is_expired:
         return "expired"
     attempt = proposal.payment_attempt
+    if attempt is not None and (attempt.event_state or {}).get("invoice_creation_ambiguous"):
+        return "cancellation_ambiguous"
     if proposal.status == proposal.Status.CANCELLED:
         return (
             "cancelled"
@@ -448,12 +489,37 @@ def _proposal_context(proposal, *, request, form_error="", form_error_field="", 
     }
     payable = state == "ready" and not delivery_locked
     share_allowed = state in {"ready", "locked", "pending"}
+    payment_url = ""
+    if (
+        attempt is not None
+        and state in {"locked", "pending"}
+        and attempt.invoice_url
+        and not (attempt.event_state or {}).get("invoice_creation_ambiguous")
+    ):
+        payment_url = attempt.invoice_url
     masked_delivery = None
     if delivery_locked and attempt is not None:
         masked_delivery = {
             "name": _mask_name(attempt.full_name),
             "phone": _mask_phone(attempt.phone),
             "email": _mask_email(attempt.email),
+        }
+    paid_summary = None
+    if (
+        state == "paid"
+        and attempt is not None
+        and attempt.order_id
+        and request.session.get("ig_checkout_paid_attempt_id") == attempt.pk
+    ):
+        order = attempt.order
+        paid_summary = {
+            "order_number": order.order_number,
+            "recipient": order.full_name,
+            "phone": order.phone,
+            "email": order.email or "—",
+            "destination": " · ".join(
+                value for value in (order.city, order.np_office) if value
+            ),
         }
     return {
         "copy": copy,
@@ -478,6 +544,8 @@ def _proposal_context(proposal, *, request, form_error="", form_error_field="", 
         "items": [_item_context(item) for item in proposal.items.all()],
         "delivery_locked": delivery_locked,
         "masked_delivery": masked_delivery,
+        "paid_summary": paid_summary,
+        "payment_url": payment_url,
         "payable": payable,
         "share_allowed": share_allowed,
         "share_url": reverse(
@@ -489,6 +557,10 @@ def _proposal_context(proposal, *, request, form_error="", form_error_field="", 
                 "ig_checkout_proposal",
                 kwargs={"proposal_id": proposal.public_id},
             )
+        ),
+        "status_url": reverse(
+            "ig_checkout_status",
+            kwargs={"proposal_id": proposal.public_id},
         ),
         "np_city_search_url": reverse("cart_np_city_search"),
         "np_warehouse_search_url": reverse("cart_np_warehouse_search"),
@@ -505,6 +577,8 @@ def _proposal_context(proposal, *, request, form_error="", form_error_field="", 
 def ig_checkout_token_entry(request, token):
     """Consume a bearer URL once, then redirect before page assets load."""
     digest = IgCheckoutAccessToken.digest(token)
+    if _rate_limited(request, "token", identity="entry", limit=30):
+        return _private_headers(HttpResponse("Спробуйте пізніше.", status=429))
     now = timezone.now()
     with __import__("django.db", fromlist=["transaction"]).transaction.atomic():
         access_token = (
@@ -514,6 +588,8 @@ def ig_checkout_token_entry(request, token):
             .first()
         )
         if access_token is None:
+            return _private_headers(HttpResponse("Посилання недійсне.", status=410))
+        if not constant_time_compare(access_token.token_digest, digest):
             return _private_headers(HttpResponse("Посилання недійсне.", status=410))
         proposal = access_token.proposal
         if access_token.expires_at <= now or proposal.expires_at <= now:
@@ -537,6 +613,7 @@ def ig_checkout_proposal(request, proposal_id):
         IgCheckoutProposal.objects.select_related(
             "client",
             "payment_attempt",
+            "payment_attempt__order",
             "provider_cancellation_event",
             "deal",
         ).prefetch_related("items"),
@@ -544,6 +621,8 @@ def ig_checkout_proposal(request, proposal_id):
     )
     _grant, _token = _load_grant(request, proposal)
     if request.method == "POST":
+        if _rate_limited(request, "submit", identity=str(proposal.public_id), limit=12, window=300):
+            return _private_headers(HttpResponse("Спробуйте оформити платіж трохи пізніше.", status=429))
         from management.services.ig_checkout_payment import (
             CheckoutPaymentError,
             create_or_reuse_invoice,
@@ -572,11 +651,27 @@ def ig_checkout_proposal(request, proposal_id):
     return _private_headers(render(request, "pages/ig_checkout.html", context))
 
 
+@require_GET
+@never_cache
+def ig_checkout_status(request, proposal_id):
+    """Expose only state/revision for truthful pending-payment polling."""
+    proposal = get_object_or_404(IgCheckoutProposal, public_id=proposal_id)
+    _load_grant(request, proposal)
+    response = JsonResponse({
+        "state": _checkout_state(proposal),
+        "revision": proposal.revision,
+        "expires_at": proposal.expires_at.isoformat(),
+    })
+    return _private_headers(response)
+
+
 @require_POST
 @never_cache
 def ig_checkout_share_token(request, proposal_id):
     proposal = get_object_or_404(IgCheckoutProposal, public_id=proposal_id)
     _grant, _token = _load_grant(request, proposal)
+    if _rate_limited(request, "share", identity=str(proposal.public_id), limit=6, window=300):
+        return _private_headers(JsonResponse({"error": "rate_limited"}, status=429))
     now = timezone.now()
     if proposal.expires_at <= now or proposal.status not in {
         IgCheckoutProposal.Status.READY,

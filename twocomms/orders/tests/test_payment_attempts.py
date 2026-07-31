@@ -212,6 +212,53 @@ class PaymentAttemptLifecycleTests(TestCase):
         self.assertIsNone(attempt.order_id)
         self.assertFalse(Order.objects.exists())
 
+    def test_hold_status_stays_processing_without_materializing_order(self):
+        from storefront.views.monobank import _apply_payment_attempt_status
+
+        attempt = PaymentAttempt.objects.create(
+            fingerprint='fingerprint-hold', full_name='Buyer', phone='+380501112238',
+            city='Kyiv', np_office='Branch 1', pay_type=PaymentAttempt.PayType.ONLINE_FULL,
+            cart_snapshot=self.snapshot, gross_amount=Decimal('900.00'),
+            payable_amount=Decimal('900.00'), payment_amount=Decimal('900.00'),
+        )
+        order, created = _apply_payment_attempt_status(
+            attempt,
+            'hold',
+            payload={'status': 'hold', 'amount': 90000},
+            source='test',
+        )
+
+        self.assertIsNone(order)
+        self.assertFalse(created)
+        attempt.refresh_from_db()
+        self.assertEqual(attempt.status, PaymentAttempt.Status.PROCESSING)
+        self.assertFalse(Order.objects.exists())
+
+    def test_hold_cannot_bypass_status_adapter_and_materialize_directly(self):
+        from orders.payment_attempts import (
+            PaymentAttemptConversionError,
+            materialize_payment_attempt,
+        )
+
+        attempt = PaymentAttempt.objects.create(
+            fingerprint='fingerprint-hold-direct',
+            full_name='Buyer', phone='+380501112238', city='Kyiv', np_office='Branch 1',
+            pay_type=PaymentAttempt.PayType.ONLINE_FULL,
+            cart_snapshot=self.snapshot, gross_amount=Decimal('900.00'),
+            payable_amount=Decimal('900.00'), payment_amount=Decimal('900.00'),
+        )
+
+        with self.assertRaises(PaymentAttemptConversionError):
+            materialize_payment_attempt(
+                attempt.pk,
+                status='hold',
+                payload={'status': 'hold', 'amount': 90000},
+            )
+
+        attempt.refresh_from_db()
+        self.assertIsNone(attempt.order_id)
+        self.assertFalse(Order.objects.exists())
+
     def test_success_amount_mismatch_stays_processing(self):
         from storefront.views.monobank import _resolve_attempt_invoice_status
 
@@ -228,6 +275,131 @@ class PaymentAttemptLifecycleTests(TestCase):
         self.assertEqual(status, 'processing')
         self.assertEqual(payload['paidAmount'], 89999)
         self.assertFalse(Order.objects.exists())
+
+    def test_success_overpayment_mismatch_stays_processing(self):
+        from storefront.views.monobank import _resolve_attempt_invoice_status
+
+        attempt = PaymentAttempt.objects.create(
+            fingerprint='fingerprint-overpayment', full_name='Buyer', phone='+380501112240',
+            city='Kyiv', np_office='Branch 1', pay_type=PaymentAttempt.PayType.ONLINE_FULL,
+            cart_snapshot=self.snapshot, gross_amount=Decimal('900.00'),
+            payable_amount=Decimal('900.00'), payment_amount=Decimal('900.00'),
+        )
+        with patch('storefront.views.monobank._monobank_api_request', return_value={
+            'status': 'success', 'paidAmount': 90001,
+        }):
+            status, payload = _resolve_attempt_invoice_status(attempt, 'inv-overpayment')
+
+        self.assertEqual(status, 'processing')
+        self.assertEqual(payload['paidAmount'], 90001)
+        self.assertFalse(Order.objects.exists())
+
+    def test_assisted_success_requires_matching_provider_identity_and_currency(self):
+        from storefront.views.monobank import _resolve_attempt_invoice_status
+
+        snapshot = dict(self.snapshot)
+        snapshot['checkout_surface'] = 'instagram_proposal'
+        attempt = PaymentAttempt.objects.create(
+            fingerprint='fingerprint-assisted-provider-identity',
+            full_name='Buyer', phone='+380501112240', city='Kyiv', np_office='Branch 1',
+            pay_type=PaymentAttempt.PayType.ONLINE_FULL,
+            cart_snapshot=snapshot, gross_amount=Decimal('900.00'),
+            payable_amount=Decimal('900.00'), payment_amount=Decimal('900.00'),
+            monobank_invoice_id='inv-assisted-identity',
+        )
+        mismatches = (
+            {'invoiceId': 'other-invoice', 'reference': attempt.reference, 'ccy': 980},
+            {'invoiceId': attempt.monobank_invoice_id, 'reference': 'other-reference', 'ccy': 980},
+            {'invoiceId': attempt.monobank_invoice_id, 'reference': attempt.reference, 'ccy': 840},
+        )
+        for mismatch in mismatches:
+            with self.subTest(mismatch=mismatch), patch(
+                'storefront.views.monobank._monobank_api_request',
+                return_value={'status': 'success', 'paidAmount': 90000, **mismatch},
+            ):
+                status, _payload = _resolve_attempt_invoice_status(
+                    attempt,
+                    attempt.monobank_invoice_id,
+                )
+            self.assertEqual(status, 'processing')
+
+        with patch(
+            'storefront.views.monobank._monobank_api_request',
+            return_value={
+                'status': 'success',
+                'paidAmount': 90000,
+                'invoiceId': attempt.monobank_invoice_id,
+                'reference': attempt.reference,
+                'ccy': 980,
+            },
+        ):
+            status, _payload = _resolve_attempt_invoice_status(
+                attempt,
+                attempt.monobank_invoice_id,
+            )
+        self.assertEqual(status, 'success')
+
+    def test_verified_success_wins_after_earlier_terminal_observation(self):
+        from storefront.views.monobank import _apply_payment_attempt_status
+
+        attempt = PaymentAttempt.objects.create(
+            fingerprint='fingerprint-success-after-failure',
+            full_name='Buyer', phone='+380501112240', city='Kyiv', np_office='Branch 1',
+            pay_type=PaymentAttempt.PayType.ONLINE_FULL,
+            cart_snapshot=self.snapshot, gross_amount=Decimal('900.00'),
+            payable_amount=Decimal('900.00'), payment_amount=Decimal('900.00'),
+        )
+        _apply_payment_attempt_status(
+            attempt,
+            'failure',
+            payload={'status': 'failure'},
+            source='test',
+        )
+        attempt.refresh_from_db()
+        self.assertEqual(attempt.status, PaymentAttempt.Status.FAILED)
+
+        order, created = _apply_payment_attempt_status(
+            attempt,
+            'success',
+            payload={'status': 'success', 'paidAmount': 90000},
+            source='test',
+        )
+
+        self.assertTrue(created)
+        self.assertIsNotNone(order)
+        attempt.refresh_from_db()
+        self.assertEqual(attempt.order_id, order.pk)
+
+    def test_late_failure_cannot_overwrite_converted_attempt(self):
+        from storefront.views.monobank import _apply_payment_attempt_status
+
+        attempt = PaymentAttempt.objects.create(
+            fingerprint='fingerprint-late-failure',
+            full_name='Buyer', phone='+380501112240', city='Kyiv', np_office='Branch 1',
+            pay_type=PaymentAttempt.PayType.ONLINE_FULL,
+            cart_snapshot=self.snapshot, gross_amount=Decimal('900.00'),
+            payable_amount=Decimal('900.00'), payment_amount=Decimal('900.00'),
+        )
+        order, _created = _apply_payment_attempt_status(
+            attempt,
+            'success',
+            payload={'status': 'success', 'paidAmount': 90000},
+            source='test',
+        )
+        PaymentAttempt.objects.filter(pk=attempt.pk).update(
+            status=PaymentAttempt.Status.CONVERTED,
+        )
+
+        _apply_payment_attempt_status(
+            attempt,
+            'failure',
+            payload={'status': 'failure'},
+            source='test',
+        )
+
+        attempt.refresh_from_db()
+        self.assertEqual(attempt.status, PaymentAttempt.Status.CONVERTED)
+        self.assertEqual(attempt.order_id, order.pk)
 
     def test_verified_webhook_materializes_once_and_duplicate_is_noop(self):
         from storefront.views.monobank import monobank_webhook

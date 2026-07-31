@@ -2,21 +2,22 @@ import hashlib
 from decimal import Decimal
 from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
 from management.models import (
     IgCheckoutAccessToken,
+    IgCheckoutInventoryReservation,
     IgCheckoutProposal,
     IgCheckoutProposalItem,
     IgClient,
     IgDeal,
 )
 from management.services.ig_commercial_episodes import ensure_episode_for_deal
-from orders.models import PaymentAttempt
+from orders.models import Order, PaymentAttempt
 from orders.nova_poshta_checkout import build_city_choice_token, build_warehouse_choice_token
-from storefront.models import Category, Product
+from storefront.models import Category, Product, PromoCode
 
 
 class InstagramCheckoutViewTests(TestCase):
@@ -180,6 +181,111 @@ class InstagramCheckoutViewTests(TestCase):
         self.assertNotContains(response, 'name="full_name"')
         self.assertNotContains(response, 'data-payment-submit')
 
+    def test_existing_invoice_can_be_continued_from_forwarded_grant(self):
+        attempt = self._attempt()
+        attempt.invoice_url = "https://pay.example/existing-invoice"
+        attempt.monobank_invoice_id = "existing-invoice"
+        attempt.save(update_fields=["invoice_url", "monobank_invoice_id", "updated"])
+        self.proposal.status = IgCheckoutProposal.Status.INVOICE_CREATED
+        self.proposal.details_locked_at = timezone.now()
+        self.proposal.payment_attempt = attempt
+        self.proposal.save(update_fields=[
+            "status", "details_locked_at", "payment_attempt", "updated_at",
+        ])
+
+        response = self._open()
+
+        self.assertContains(response, 'data-payment-continue')
+        self.assertContains(response, attempt.invoice_url)
+        self.assertNotContains(response, 'data-payment-submit')
+
+    def test_clean_grant_tracks_pre_invoice_revision_without_404(self):
+        self._open()
+        self.proposal.revision += 1
+        self.proposal.items_digest = hashlib.sha256(b"new-revision").hexdigest()
+        self.proposal.save(update_fields=["revision", "items_digest", "updated_at"])
+
+        response = self.client.get(
+            reverse("ig_checkout_proposal", kwargs={"proposal_id": self.proposal.public_id})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'data-proposal-revision="{self.proposal.revision}"')
+
+    def test_invalid_token_rate_limit_bucket_does_not_depend_on_candidate_token(self):
+        with patch("storefront.views.ig_checkout.cache") as checkout_cache:
+            checkout_cache.add.return_value = True
+            first = self.client.get(
+                reverse("ig_checkout_token_entry", kwargs={"token": "invalid-token-one"})
+            )
+            second = self.client.get(
+                reverse("ig_checkout_token_entry", kwargs={"token": "invalid-token-two"})
+            )
+
+        self.assertEqual(first.status_code, 410)
+        self.assertEqual(second.status_code, 410)
+        self.assertEqual(checkout_cache.add.call_count, 2)
+        self.assertEqual(
+            checkout_cache.add.call_args_list[0].args[0],
+            checkout_cache.add.call_args_list[1].args[0],
+        )
+
+    @override_settings(
+        SIMPLE_RATE_LIMIT_TRUSTED_PROXY_CIDRS=("127.0.0.0/8", "::1/128"),
+    )
+    def test_checkout_rate_limit_separates_clients_behind_trusted_proxy(self):
+        from storefront.views.ig_checkout import _rate_limited
+
+        factory = RequestFactory()
+        first = factory.get(
+            "/checkout/",
+            REMOTE_ADDR="::1",
+            HTTP_X_FORWARDED_FOR="198.51.100.10, 127.0.0.2",
+        )
+        second = factory.get(
+            "/checkout/",
+            REMOTE_ADDR="::1",
+            HTTP_X_FORWARDED_FOR="198.51.100.11, 127.0.0.2",
+        )
+
+        with patch("storefront.views.ig_checkout.cache") as checkout_cache:
+            checkout_cache.add.return_value = True
+            self.assertFalse(_rate_limited(first, "submit", identity="proposal", limit=1, window=60))
+            self.assertFalse(_rate_limited(second, "submit", identity="proposal", limit=1, window=60))
+
+        first_key = checkout_cache.add.call_args_list[0].args[0]
+        second_key = checkout_cache.add.call_args_list[1].args[0]
+        self.assertNotEqual(first_key, second_key)
+
+    def test_paid_browser_sees_verified_order_and_delivery_summary(self):
+        order = Order.objects.create(
+            full_name="Іван Петренко",
+            phone="+380501112233",
+            email="ivan.petrenko@example.com",
+            city="Київ",
+            np_office="Відділення №12",
+            pay_type="online_full",
+            payment_status="paid",
+            total_sum=Decimal("1700.00"),
+        )
+        attempt = self._attempt(status=PaymentAttempt.Status.CONVERTED)
+        attempt.order = order
+        attempt.save(update_fields=["order", "updated"])
+        self.proposal.payment_attempt = attempt
+        self.proposal.status = IgCheckoutProposal.Status.PAID
+        self.proposal.paid_at = timezone.now()
+        self.proposal.save(update_fields=["payment_attempt", "status", "paid_at", "updated_at"])
+        session = self.client.session
+        session["ig_checkout_paid_attempt_id"] = attempt.pk
+        session.save()
+
+        response = self._open()
+
+        self.assertContains(response, order.order_number)
+        self.assertContains(response, order.city)
+        self.assertContains(response, order.np_office)
+        self.assertContains(response, 'data-paid-summary')
+
     def test_non_payable_states_have_explicit_markers_and_no_payment_action(self):
         cases = (
             (IgCheckoutProposal.Status.INVOICE_CREATED, "pending"),
@@ -260,6 +366,114 @@ class InstagramCheckoutViewTests(TestCase):
         self.assertEqual(attempt.invoice_payload["request"]["merchantPaymInfo"]["customerEmails"], [payload["email"]])
         self.proposal.refresh_from_db()
         self.assertEqual(self.proposal.status, IgCheckoutProposal.Status.INVOICE_CREATED)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.stage, IgClient.Stage.PAYMENT_PENDING)
+
+    def test_prepayment_proposal_uses_generic_payment_attempt_amount(self):
+        self.proposal.pay_type = IgCheckoutProposal.PayType.PREPAYMENT
+        self.proposal.requested_payment_amount = Decimal("600.00")
+        self.proposal.save(update_fields=["pay_type", "requested_payment_amount", "updated_at"])
+        raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
+        entry = self.client.get(reverse("ig_checkout_token_entry", kwargs={"token": raw}))
+        self.client.get(entry["Location"])
+        with patch("storefront.views.monobank._monobank_api_request", return_value={
+            "invoiceId": "ig-prepay-1", "pageUrl": "https://pay.example/ig-prepay-1",
+        }) as provider, patch(
+            "orders.facebook_conversions_service.get_facebook_conversions_service"
+        ) as fb, patch(
+            "orders.telegram_notifications.TelegramNotifier.send_payment_attempt_notification",
+            return_value=True,
+        ):
+            fb.return_value.send_add_payment_info_event.return_value = True
+            response = self.client.post(
+                reverse("ig_checkout_proposal", kwargs={"proposal_id": self.proposal.public_id}),
+                data=self._delivery_payload(),
+            )
+
+        self.assertEqual(response["Location"], "https://pay.example/ig-prepay-1")
+        provider.assert_called_once()
+        attempt = PaymentAttempt.objects.get(monobank_invoice_id="ig-prepay-1")
+        self.assertEqual(attempt.pay_type, PaymentAttempt.PayType.PREPAYMENT)
+        self.assertEqual(attempt.payment_amount, Decimal("600.00"))
+        self.assertIn("Передоплата", attempt.invoice_payload["request"]["merchantPaymInfo"]["destination"])
+        basket = attempt.invoice_payload["request"]["merchantPaymInfo"]["basketOrder"]
+        self.assertEqual(
+            sum(row["qty"] * row["sum"] for row in basket),
+            attempt.invoice_payload["request"]["amount"],
+        )
+        self.assertEqual(
+            IgCheckoutInventoryReservation.objects.filter(
+                proposal=self.proposal,
+                state=IgCheckoutInventoryReservation.State.ACTIVE,
+            ).count(),
+            2,
+        )
+
+    def test_provider_failure_is_ambiguous_and_does_not_unlock_recipient(self):
+        raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
+        entry = self.client.get(reverse("ig_checkout_token_entry", kwargs={"token": raw}))
+        self.client.get(entry["Location"])
+        self.client.cookies["_fbp"] = "fb.1.1700000000000.ambiguous"
+        with patch(
+            "storefront.views.monobank._monobank_api_request",
+            side_effect=TimeoutError("provider timeout"),
+        ) as provider:
+            response = self.client.post(
+                reverse("ig_checkout_proposal", kwargs={"proposal_id": self.proposal.public_id}),
+                data=self._delivery_payload(),
+                HTTP_USER_AGENT="Checkout Payer Browser",
+                REMOTE_ADDR="198.51.100.42",
+            )
+
+        self.assertEqual(response.status_code, 400)
+        provider.assert_called_once()
+        attempt = PaymentAttempt.objects.get()
+        self.assertEqual(attempt.status, PaymentAttempt.Status.PROCESSING)
+        self.assertTrue((attempt.event_state or {}).get("invoice_creation_ambiguous"))
+        self.assertEqual(attempt.tracking_payload.get("fbp"), "fb.1.1700000000000.ambiguous")
+        self.assertEqual(
+            attempt.tracking_payload.get("client_user_agent"),
+            "Checkout Payer Browser",
+        )
+        self.assertEqual(
+            attempt.tracking_payload.get("client_ip_address"),
+            "198.51.100.42",
+        )
+        self.assertEqual(
+            attempt.tracking_payload.get("add_payment_event_id"),
+            attempt.add_payment_event_id,
+        )
+        self.proposal.refresh_from_db()
+        self.assertEqual(self.proposal.status, IgCheckoutProposal.Status.DETAILS_LOCKED)
+        self.assertIsNotNone(self.proposal.payment_attempt_id)
+
+    def test_deterministic_provider_configuration_failure_unlocks_checkout(self):
+        from storefront.views.monobank import MonobankAPIError
+
+        raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
+        entry = self.client.get(reverse("ig_checkout_token_entry", kwargs={"token": raw}))
+        self.client.get(entry["Location"])
+        with patch(
+            "storefront.views.monobank._monobank_api_request",
+            side_effect=MonobankAPIError("token is not configured", ambiguous=False),
+        ):
+            response = self.client.post(
+                reverse("ig_checkout_proposal", kwargs={"proposal_id": self.proposal.public_id}),
+                data=self._delivery_payload(),
+            )
+
+        self.assertEqual(response.status_code, 400)
+        attempt = PaymentAttempt.objects.get()
+        self.assertEqual(attempt.status, PaymentAttempt.Status.FAILED)
+        self.proposal.refresh_from_db()
+        self.assertEqual(self.proposal.status, IgCheckoutProposal.Status.READY)
+        self.assertIsNone(self.proposal.payment_attempt_id)
+        self.assertFalse(
+            IgCheckoutInventoryReservation.objects.filter(
+                proposal=self.proposal,
+                state=IgCheckoutInventoryReservation.State.ACTIVE,
+            ).exists()
+        )
 
     def test_repeated_post_reuses_invoice_without_second_provider_call(self):
         raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
@@ -287,6 +501,184 @@ class InstagramCheckoutViewTests(TestCase):
         self.assertEqual(first["Location"], second["Location"])
         self.assertEqual(provider.call_count, 1)
         self.assertEqual(PaymentAttempt.objects.count(), 1)
+
+    def test_reused_invoice_retries_missing_add_payment_info_marker(self):
+        raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
+        entry = self.client.get(reverse("ig_checkout_token_entry", kwargs={"token": raw}))
+        self.client.get(entry["Location"])
+        payload = self._delivery_payload()
+        with patch("storefront.views.monobank._monobank_api_request", return_value={
+            "invoiceId": "ig-invoice-capi-retry",
+            "pageUrl": "https://pay.example/ig-capi-retry",
+        }) as provider, patch(
+            "orders.facebook_conversions_service.get_facebook_conversions_service"
+        ) as fb, patch(
+            "orders.telegram_notifications.TelegramNotifier.send_payment_attempt_notification",
+            return_value=True,
+        ):
+            fb.return_value.send_add_payment_info_event.side_effect = [False, True]
+            first = self.client.post(
+                reverse("ig_checkout_proposal", kwargs={"proposal_id": self.proposal.public_id}),
+                data=payload,
+            )
+            second = self.client.post(
+                reverse("ig_checkout_proposal", kwargs={"proposal_id": self.proposal.public_id}),
+                data=payload,
+            )
+
+        self.assertEqual(first["Location"], second["Location"])
+        provider.assert_called_once()
+        self.assertEqual(fb.return_value.send_add_payment_info_event.call_count, 2)
+
+    def test_pending_status_endpoint_requires_grant_and_exposes_no_pii(self):
+        denied = self.client.get(
+            reverse("ig_checkout_status", kwargs={"proposal_id": self.proposal.public_id})
+        )
+        self.assertEqual(denied.status_code, 404)
+
+        self._open()
+        attempt = self._attempt(status=PaymentAttempt.Status.PROCESSING)
+        self.proposal.payment_attempt = attempt
+        self.proposal.status = IgCheckoutProposal.Status.INVOICE_CREATED
+        self.proposal.save(update_fields=["payment_attempt", "status", "updated_at"])
+
+        response = self.client.get(
+            reverse("ig_checkout_status", kwargs={"proposal_id": self.proposal.public_id})
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["state"], "pending")
+        self.assertEqual(response.json()["revision"], self.proposal.revision)
+        serialized = response.content.decode()
+        self.assertNotIn(attempt.full_name, serialized)
+        self.assertNotIn(attempt.phone, serialized)
+        self.assertNotIn(attempt.email, serialized)
+        self.assertIn("no-store", response["Cache-Control"])
+        self.assertIn("private", response["Cache-Control"])
+
+    def test_terminal_provider_failure_releases_invoice_inventory(self):
+        raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
+        entry = self.client.get(reverse("ig_checkout_token_entry", kwargs={"token": raw}))
+        self.client.get(entry["Location"])
+        with patch("storefront.views.monobank._monobank_api_request", return_value={
+            "invoiceId": "ig-invoice-release", "pageUrl": "https://pay.example/ig-release",
+        }), patch(
+            "orders.facebook_conversions_service.get_facebook_conversions_service"
+        ) as fb, patch(
+            "orders.telegram_notifications.TelegramNotifier.send_payment_attempt_notification",
+            return_value=True,
+        ):
+            fb.return_value.send_add_payment_info_event.return_value = True
+            self.client.post(
+                reverse("ig_checkout_proposal", kwargs={"proposal_id": self.proposal.public_id}),
+                data=self._delivery_payload(),
+            )
+
+        attempt = PaymentAttempt.objects.get()
+        self.assertTrue(
+            self.proposal.inventory_reservations.filter(
+                state=IgCheckoutInventoryReservation.State.ACTIVE
+            ).exists()
+        )
+        from storefront.views.monobank import _apply_payment_attempt_status
+
+        _apply_payment_attempt_status(
+            attempt,
+            "failure",
+            payload={"status": "failure", "invoiceId": attempt.monobank_invoice_id},
+            source="test",
+        )
+
+        self.assertFalse(
+            self.proposal.inventory_reservations.filter(
+                state=IgCheckoutInventoryReservation.State.ACTIVE
+            ).exists()
+        )
+        self.assertEqual(
+            set(self.proposal.inventory_reservations.values_list("state", flat=True)),
+            {IgCheckoutInventoryReservation.State.RELEASED},
+        )
+
+    def test_provider_terminal_truth_projects_cancellation_and_releases_promo_capacity(self):
+        promo = PromoCode.objects.create(
+            code="IGLAST",
+            discount_type="percentage",
+            discount_value=Decimal("10.00"),
+            max_uses=1,
+        )
+        raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
+        entry = self.client.get(reverse("ig_checkout_token_entry", kwargs={"token": raw}))
+        self.client.get(entry["Location"])
+        payload = self._delivery_payload()
+        payload["promo_code"] = promo.code
+        with patch("storefront.views.monobank._monobank_api_request", return_value={
+            "invoiceId": "ig-invoice-terminal", "pageUrl": "https://pay.example/ig-terminal",
+        }), patch(
+            "orders.facebook_conversions_service.get_facebook_conversions_service"
+        ) as fb, patch(
+            "orders.telegram_notifications.TelegramNotifier.send_payment_attempt_notification",
+            return_value=True,
+        ):
+            fb.return_value.send_add_payment_info_event.return_value = True
+            response = self.client.post(
+                reverse("ig_checkout_proposal", kwargs={"proposal_id": self.proposal.public_id}),
+                data=payload,
+            )
+
+        self.assertEqual(response.status_code, 302)
+        attempt = PaymentAttempt.objects.get()
+        promo.refresh_from_db()
+        self.assertEqual(promo.current_uses, 1)
+        self.assertEqual(
+            (attempt.event_state or {}).get("promo_reservation", {}).get("state"),
+            "reserved",
+        )
+
+        from management.models import IgPaymentEvent, IgPaymentProjection
+        from storefront.views.monobank import _apply_payment_attempt_status
+
+        _apply_payment_attempt_status(
+            attempt,
+            "cancelled",
+            payload={
+                "status": "cancelled",
+                "invoiceId": attempt.monobank_invoice_id,
+                "reference": attempt.reference,
+                "ccy": 980,
+            },
+            source="provider_pull",
+        )
+
+        attempt.refresh_from_db()
+        promo.refresh_from_db()
+        self.proposal.refresh_from_db()
+        self.deal.refresh_from_db()
+        event = IgPaymentEvent.objects.get(
+            deal=self.deal,
+            provider_status="cancelled",
+        )
+        projection = IgPaymentProjection.objects.get(deal=self.deal)
+        self.assertEqual(attempt.status, PaymentAttempt.Status.CANCELLED)
+        self.assertEqual(promo.current_uses, 0)
+        self.assertEqual(
+            (attempt.event_state or {}).get("promo_reservation", {}).get("state"),
+            "released",
+        )
+        self.assertEqual(self.proposal.status, IgCheckoutProposal.Status.CANCELLED)
+        self.assertEqual(self.proposal.provider_cancellation_event_id, event.pk)
+        self.assertEqual(projection.truth, IgDeal.PaymentTruth.CANCELLED)
+        self.assertEqual(projection.last_event_id, event.pk)
+        self.assertEqual(self.deal.payment_truth, IgDeal.PaymentTruth.CANCELLED)
+        self.assertTrue(self.proposal.has_provider_confirmed_cancellation())
+
+        replacement = IgCheckoutProposal.objects.replace_current(
+            deal=self.deal,
+            catalog_total=Decimal("1700.00"),
+            quoted_total=Decimal("1700.00"),
+            requested_payment_amount=Decimal("1700.00"),
+            items_digest=hashlib.sha256(b"provider-terminal-replacement").hexdigest(),
+        )
+        self.assertNotEqual(replacement.pk, self.proposal.pk)
 
     def test_verified_attempt_binds_order_and_lifecycle_event(self):
         raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)

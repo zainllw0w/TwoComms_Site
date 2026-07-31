@@ -6,12 +6,14 @@ from django.test import TestCase
 from django.utils import timezone
 
 from management.models import (
+    IgCheckoutInventoryReservation,
     IgCheckoutProposal,
     IgClient,
     IgDeal,
     IgDealItem,
     InstagramBotMessage,
 )
+from orders.models import Order, PaymentAttempt
 from productcolors.models import Color, ProductColorVariant
 from storefront.models import Category, Product, ProductFitOption, ProductStatus
 
@@ -78,6 +80,72 @@ class InstagramCheckoutConfigurationTests(TestCase):
                 evidence={},
             )
         self.assertEqual(ctx.exception.missing_fields, {"size", "fit", "color"})
+
+    def test_single_sellable_color_variant_is_selected_without_prompt(self):
+        from management.services.ig_checkout import validate_checkout_items
+
+        self.black.stock = 0
+        self.black.save(update_fields=["stock"])
+        quote = validate_checkout_items(
+            client=self.client,
+            item_specs=[{
+                "product_id": self.shirt.pk,
+                "qty": 1,
+                "size": "M",
+                "fit_option_code": "classic",
+            }],
+            evidence={},
+        )
+
+        self.assertEqual(quote.items[0].color_variant.pk, self.blue.pk)
+
+    def test_no_sellable_color_variant_fails_closed_without_prompting(self):
+        from management.services.ig_checkout import (
+            CheckoutConfigurationError,
+            validate_checkout_items,
+        )
+
+        ProductColorVariant.objects.filter(product=self.shirt).update(stock=0)
+        with self.assertRaises(CheckoutConfigurationError) as ctx:
+            validate_checkout_items(
+                client=self.client,
+                item_specs=[{
+                    "product_id": self.shirt.pk,
+                    "qty": 1,
+                    "size": "M",
+                    "fit_option_code": "classic",
+                }],
+                evidence={},
+            )
+
+        self.assertEqual(ctx.exception.code, "insufficient_stock")
+
+    def test_fit_specific_grid_accepts_size_outside_generic_grid(self):
+        from management.services.ig_checkout import validate_checkout_items
+
+        with patch(
+            "storefront.services.size_guides.resolve_product_sizes",
+            return_value=["S", "M", "L"],
+        ), patch(
+            "fable5.size_grid_services.resolve_option_size_grid",
+            return_value=object(),
+        ), patch(
+            "fable5.size_grid_services.resolve_effective_sizes",
+            return_value=[{"size": "XS", "is_enabled": True}],
+        ), patch(
+            "fable5.services.variant_allows_purchase",
+            return_value=True,
+        ):
+            quote = validate_checkout_items(
+                client=self.client,
+                item_specs=[self._valid_item(
+                    size="XS",
+                    fit_option_code="oversize",
+                )],
+                evidence={},
+            )
+
+        self.assertEqual(quote.items[0].size, "XS")
 
     def test_wrong_variant_inactive_fit_and_invalid_size_fail_closed(self):
         from management.services.ig_checkout import (
@@ -168,6 +236,96 @@ class InstagramCheckoutConfigurationTests(TestCase):
                 ("Чорний", "oversize", "L", 1),
             ],
         )
+
+    def test_inventory_reservation_aggregates_same_variant_across_sizes(self):
+        from management.services.ig_checkout import create_or_update_proposal
+        from management.services.ig_inventory import reserve_proposal_inventory
+
+        proposal = create_or_update_proposal(
+            client=self.client,
+            pay_type="online_full",
+            item_specs=[
+                self._valid_item(qty=3, size="M", fit_option_code="classic"),
+                self._valid_item(qty=3, size="L", fit_option_code="classic"),
+            ],
+        )
+
+        with self.assertRaisesMessage(ValueError, "insufficient_reserved_stock"):
+            reserve_proposal_inventory(proposal)
+
+    def test_consumed_reservation_decrements_variant_stock_once(self):
+        from management.services.ig_checkout import create_or_update_proposal
+        from management.services.ig_inventory import (
+            consume_proposal_inventory,
+            reserve_proposal_inventory,
+        )
+
+        proposal = create_or_update_proposal(
+            client=self.client,
+            pay_type="online_full",
+            item_specs=[self._valid_item(qty=2)],
+        )
+        reserve_proposal_inventory(proposal)
+
+        self.assertEqual(consume_proposal_inventory(proposal), 1)
+        self.assertEqual(consume_proposal_inventory(proposal), 0)
+
+        self.blue.refresh_from_db()
+        self.assertEqual(self.blue.stock, 3)
+
+    def test_stale_terminal_attempt_cannot_release_converted_order_inventory(self):
+        from management.services.ig_checkout import create_or_update_proposal
+        from management.services.ig_inventory import (
+            release_attempt_inventory,
+            reserve_proposal_inventory,
+        )
+
+        proposal = create_or_update_proposal(
+            client=self.client,
+            pay_type="online_full",
+            item_specs=[self._valid_item()],
+        )
+        reserve_proposal_inventory(proposal)
+        attempt = PaymentAttempt.objects.create(
+            fingerprint="stale-terminal-inventory-release",
+            full_name="Instagram Buyer",
+            phone="+380501112233",
+            city="Київ",
+            np_office="Відділення 1",
+            pay_type=PaymentAttempt.PayType.ONLINE_FULL,
+            status=PaymentAttempt.Status.FAILED,
+            cart_snapshot={"checkout_surface": "instagram_proposal", "cart": []},
+            gross_amount=Decimal("950.00"),
+            payable_amount=Decimal("950.00"),
+            payment_amount=Decimal("950.00"),
+        )
+        proposal.payment_attempt = attempt
+        proposal.status = IgCheckoutProposal.Status.DETAILS_LOCKED
+        proposal.details_locked_at = timezone.now()
+        proposal.save(update_fields=[
+            "payment_attempt",
+            "status",
+            "details_locked_at",
+            "updated_at",
+        ])
+        stale_attempt = PaymentAttempt.objects.get(pk=attempt.pk)
+        order = Order.objects.create(
+            full_name=attempt.full_name,
+            phone=attempt.phone,
+            city=attempt.city,
+            np_office=attempt.np_office,
+            pay_type=attempt.pay_type,
+            payment_status="paid",
+            total_sum=attempt.gross_amount,
+        )
+        PaymentAttempt.objects.filter(pk=attempt.pk).update(
+            status=PaymentAttempt.Status.CONVERTED,
+            order=order,
+        )
+
+        self.assertEqual(release_attempt_inventory(stale_attempt), 0)
+        reservation = IgCheckoutInventoryReservation.objects.get(proposal=proposal)
+        self.assertEqual(reservation.state, IgCheckoutInventoryReservation.State.ACTIVE)
 
     def test_negotiated_total_is_order_discount_not_invented_line_price(self):
         from management.services.ig_checkout import create_or_update_proposal
@@ -398,3 +556,5 @@ class InstagramCheckoutLinkBoundaryTests(TestCase):
         proposal = deal.active_checkout_proposal
         self.assertEqual(proposal.status, IgCheckoutProposal.Status.READY)
         self.assertEqual(proposal.items.count(), 1)
+        self.client.refresh_from_db()
+        self.assertEqual(self.client.stage, IgClient.Stage.CHECKOUT)

@@ -7,6 +7,7 @@ from decimal import Decimal, ROUND_HALF_UP
 
 from django.utils import timezone
 from django.db.models.signals import post_save, pre_save
+from django.db import transaction
 from django.dispatch import receiver
 from .models import Order, WholesaleInvoice
 from .tasks import send_telegram_notification_task
@@ -90,3 +91,43 @@ def track_order_changes(sender, instance, **kwargs):
 
         except Order.DoesNotExist:
             pass
+
+    if instance.pk:
+        try:
+            previous_tracking = (Order.objects.only('tracking_number').get(pk=instance.pk).tracking_number or '').strip()
+        except Order.DoesNotExist:
+            previous_tracking = ''
+        instance._ig_ttn_transition = bool(
+            (instance.tracking_number or '').strip() and not previous_tracking
+        )
+    else:
+        instance._ig_ttn_transition = bool((instance.tracking_number or '').strip())
+
+
+@receiver(post_save, sender=Order)
+def project_instagram_tracking_transition(sender, instance, created, **kwargs):
+    """Project every first non-empty TTN save, not only the admin helper path."""
+    if not getattr(instance, '_ig_ttn_transition', False):
+        return
+    order_id = instance.pk
+
+    def _emit():
+        try:
+            from management.ig_bot_models import IgLifecycleEvent
+            from management.services.ig_lifecycle import dispatch_lifecycle_event, ensure_lifecycle_event
+
+            order = Order.objects.get(pk=order_id)
+            event, _created = ensure_lifecycle_event(
+                order,
+                IgLifecycleEvent.Kind.TTN_CREATED,
+                payload={
+                    'tracking_number': (order.tracking_number or '').strip(),
+                    'order_number': order.order_number,
+                },
+            )
+            if event is not None:
+                dispatch_lifecycle_event(event.pk)
+        except Exception:
+            logger.exception('Unable to project Instagram TTN transition for order %s', order_id)
+
+    transaction.on_commit(_emit)

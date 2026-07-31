@@ -124,8 +124,9 @@ def _schedule_missing_add_payment_info(order, request=None):
     )
 
 # Константы статусов Monobank
-MONOBANK_SUCCESS_STATUSES = {'success', 'hold'}
-MONOBANK_PENDING_STATUSES = {'processing'}
+MONOBANK_SUCCESS_STATUSES = {'success'}
+# A hold is not captured money in the current one-stage contract.
+MONOBANK_PENDING_STATUSES = {'processing', 'hold'}
 MONOBANK_FAILURE_STATUSES = {
     'failure', 'expired', 'rejected', 'canceled', 'cancelled', 'reversed'
 }
@@ -521,7 +522,11 @@ def _validate_checkout_payload(raw_payload):
 # ==================== MONOBANK API REQUESTS ====================
 
 class MonobankAPIError(Exception):
-    """Ошибка API Monobank"""
+    """Classified API failure; ambiguous means the provider may have acted."""
+
+    def __init__(self, message, *, ambiguous=False):
+        super().__init__(message)
+        self.ambiguous = bool(ambiguous)
 
 
 def _monobank_api_request(method, endpoint, json_payload=None, params=None, token=None):
@@ -565,14 +570,23 @@ def _monobank_api_request(method, endpoint, json_payload=None, params=None, toke
 
         if response.status_code >= 400:
             error_msg = data.get('errText', data.get('errorDescription', 'Unknown error'))
-            raise MonobankAPIError(f'Monobank API error: {error_msg}')
+            raise MonobankAPIError(
+                f'Monobank API error: {error_msg}',
+                ambiguous=response.status_code >= 500,
+            )
 
         return data
 
     except requests.exceptions.Timeout:
-        raise MonobankAPIError('Timeout при з\'єднанні з Monobank')
+        raise MonobankAPIError(
+            'Timeout при з\'єднанні з Monobank',
+            ambiguous=True,
+        )
     except requests.exceptions.RequestException as e:
-        raise MonobankAPIError(f'Помилка з\'єднання з Monobank: {str(e)}')
+        raise MonobankAPIError(
+            f'Помилка з\'єднання з Monobank: {str(e)}',
+            ambiguous=True,
+        )
 
 
 # ==================== MONOBANK CREATE INVOICE ====================
@@ -2020,6 +2034,33 @@ def _get_payment_attempt_by_refs(invoice_id=None, attempt_ref=None, attempt_id=N
     return None
 
 
+def _request_owns_payment_attempt(request, attempt):
+    """Authorize browser return handling from server-owned session/user facts."""
+    session_attempt_ids = {
+        str(value)
+        for value in (
+            request.session.get('monobank_pending_attempt_id'),
+            request.session.get('monobank_attempt_id'),
+        )
+        if value not in (None, '')
+    }
+    session_invoice = request.session.get('monobank_invoice_id')
+    session_key = request.session.session_key
+    return bool(
+        str(attempt.pk) in session_attempt_ids
+        or (
+            session_invoice
+            and str(session_invoice) == str(attempt.monobank_invoice_id or '')
+        )
+        or (session_key and attempt.session_key and session_key == attempt.session_key)
+        or (
+            request.user.is_authenticated
+            and attempt.user_id
+            and request.user.pk == attempt.user_id
+        )
+    )
+
+
 def _resolve_attempt_invoice_status(attempt, invoice_id, fallback_status=None):
     status_payload = None
     status_value = None
@@ -2038,6 +2079,22 @@ def _resolve_attempt_invoice_status(attempt, invoice_id, fallback_status=None):
         return (fallback if fallback in MONOBANK_PENDING_STATUSES | MONOBANK_FAILURE_STATUSES else None), status_payload
     status_lower = str(status_value).lower()
     if status_lower in MONOBANK_SUCCESS_STATUSES:
+        snapshot = attempt.cart_snapshot if isinstance(attempt.cart_snapshot, dict) else {}
+        if snapshot.get('checkout_surface') == 'instagram_proposal':
+            response_invoice_id = status_payload.get('invoiceId') or status_payload.get('invoice_id')
+            merchant_info = status_payload.get('merchantPaymInfo') or {}
+            response_reference = status_payload.get('reference') or merchant_info.get('reference')
+            response_currency = status_payload.get('ccy') or status_payload.get('currencyCode')
+            if (
+                str(response_invoice_id or '') != str(attempt.monobank_invoice_id or invoice_id or '')
+                or str(response_reference or '') != str(attempt.reference)
+                or str(response_currency or '') not in {'980', 'UAH'}
+            ):
+                monobank_logger.error(
+                    'Assisted attempt %s provider identity/currency mismatch -> checking',
+                    attempt.pk,
+                )
+                return 'processing', status_payload
         expected = attempt.payment_amount
         paid = None
         if isinstance(status_payload, dict):
@@ -2048,16 +2105,35 @@ def _resolve_attempt_invoice_status(attempt, invoice_id, fallback_status=None):
                 paid = status_payload.get('amount')
         if paid is not None:
             try:
-                if int(paid) < int(Decimal(str(expected)) * 100):
+                if int(paid) != int(Decimal(str(expected)) * 100):
                     return 'processing', status_payload
             except (TypeError, ValueError, ArithmeticError):
                 return 'processing', status_payload
     return status_lower, status_payload
 
 
+@transaction.atomic
 def _apply_payment_attempt_status(attempt, status, payload=None, source='webhook'):
     status = (status or '').lower()
+    attempt = (
+        PaymentAttempt.objects.select_for_update()
+        .select_related('order')
+        .get(pk=attempt.pk)
+    )
     if status in MONOBANK_SUCCESS_STATUSES:
+        if not attempt.order_id and attempt.status in {
+            PaymentAttempt.Status.FAILED,
+            PaymentAttempt.Status.EXPIRED,
+            PaymentAttempt.Status.CANCELLED,
+        }:
+            # A later pull-verified success is stronger truth than an earlier
+            # terminal observation. Re-open only while no Order exists.
+            attempt.status = PaymentAttempt.Status.PROCESSING
+            attempt.error_reason = ''
+            attempt.last_status_at = timezone.now()
+            attempt.save(update_fields=[
+                'status', 'error_reason', 'last_status_at', 'updated',
+            ])
         try:
             order, created = materialize_payment_attempt(
                 attempt.pk, status=status, payload=payload, source=source,
@@ -2105,11 +2181,38 @@ def _apply_payment_attempt_status(attempt, status, payload=None, source='webhook
         'expired': PaymentAttempt.Status.EXPIRED,
     }.get(status)
     if terminal_status:
-        PaymentAttempt.objects.filter(pk=attempt.pk).update(
-            status=terminal_status,
-            error_reason=(status or 'failed')[:500],
-            last_status_at=timezone.now(),
-        )
+        if attempt.order_id or attempt.status in {
+            PaymentAttempt.Status.PAID,
+            PaymentAttempt.Status.PREPAID,
+            PaymentAttempt.Status.CONVERTED,
+        }:
+            return None, False
+        attempt.status = terminal_status
+        attempt.error_reason = (status or 'failed')[:500]
+        attempt.last_status_at = timezone.now()
+        attempt.save(update_fields=[
+            'status', 'error_reason', 'last_status_at', 'updated',
+        ])
+        try:
+            from management.services.ig_checkout_payment import (
+                project_terminal_payment,
+                release_attempt_promo,
+            )
+            from management.services.ig_inventory import release_attempt_inventory
+
+            release_attempt_inventory(attempt, reason=f"provider_{status or 'failed'}")
+            release_attempt_promo(attempt, reason=f"provider_{status or 'failed'}")
+            project_terminal_payment(
+                attempt.pk,
+                status=status,
+                payload=payload,
+                source=source,
+            )
+        except Exception:
+            monobank_logger.exception(
+                'Failed to project Instagram checkout terminal status for attempt %s',
+                attempt.pk,
+            )
     elif status in MONOBANK_PENDING_STATUSES:
         PaymentAttempt.objects.filter(pk=attempt.pk).update(
             status=PaymentAttempt.Status.PROCESSING,
@@ -2127,6 +2230,16 @@ def monobank_return(request):
     attempt_id = request.GET.get('attemptId') or request.session.get('monobank_pending_attempt_id')
     attempt = _get_payment_attempt_by_refs(invoice_id=invoice_id, attempt_ref=attempt_ref, attempt_id=attempt_id)
     if attempt:
+        if not _request_owns_payment_attempt(request, attempt):
+            messages.error(request, 'Платіж не знайдено. Спробуйте ще раз.')
+            return redirect('cart')
+        try:
+            proposal = attempt.instagram_checkout_proposal
+        except Exception:
+            proposal = None
+        proposal_id = getattr(proposal, "public_id", None) or request.session.get(
+            "ig_checkout_proposal_id"
+        )
         status_value, status_payload = _resolve_attempt_invoice_status(
             attempt, invoice_id or attempt.monobank_invoice_id,
         )
@@ -2137,18 +2250,14 @@ def monobank_return(request):
             if order:
                 from storefront.views.checkout import remember_order_in_session
                 remember_order_in_session(request, order)
-                try:
-                    proposal = attempt.instagram_checkout_proposal
-                except Exception:
-                    proposal = None
-                proposal_id = getattr(proposal, "public_id", None) or request.session.get(
-                    "ig_checkout_proposal_id"
-                )
+                request.session['ig_checkout_paid_attempt_id'] = attempt.pk
                 _cleanup_after_success(request)
                 if proposal_id:
                     return redirect("ig_checkout_proposal", proposal_id=proposal_id)
                 return redirect('order_success', order_id=order.pk)
         messages.info(request, 'Оплату ще не підтверджено. Спробуйте ще раз після завершення платежу.')
+        if proposal_id:
+            return redirect("ig_checkout_proposal", proposal_id=proposal_id)
         return redirect('cart')
 
     order_ref = request.GET.get('orderRef')

@@ -46,7 +46,10 @@ def _append_history(attempt, status, payload, source):
 def materialize_payment_attempt(attempt_id, *, status, payload=None, source='webhook'):
     """Convert one verified attempt exactly once, returning (order, created)."""
     status = (status or '').lower()
-    if status not in {'success', 'hold'}:
+    # The project uses one-stage Monobank acquiring. ``hold`` only means that
+    # funds are reserved; it is not captured payment truth and must never
+    # materialize an Order, even when this service is called directly.
+    if status != 'success':
         raise PaymentAttemptConversionError(f'Unsupported conversion status: {status}')
 
     with transaction.atomic():
@@ -81,7 +84,14 @@ def materialize_payment_attempt(attempt_id, *, status, payload=None, source='web
             if variant_id and (not variants.get(int(variant_id)) or variants[int(variant_id)].product_id != int(item['product_id'])):
                 raise PaymentAttemptConversionError('A selected product variant is unavailable')
 
-        payment_status = 'prepaid' if attempt.pay_type == PaymentAttempt.PayType.PREPAY_200 else 'paid'
+        payment_status = (
+            'prepaid'
+            if attempt.pay_type in {
+                PaymentAttempt.PayType.PREPAYMENT,
+                PaymentAttempt.PayType.PREPAY_200,
+            }
+            else 'paid'
+        )
         is_instagram_proposal = snapshot.get('checkout_surface') == 'instagram_proposal'
         order = Order.objects.create(
             user=attempt.user,
@@ -112,6 +122,8 @@ def materialize_payment_attempt(attempt_id, *, status, payload=None, source='web
                 'tracking': attempt.tracking_payload or {},
                 'history': attempt.payment_history or [],
                 'paid_amount': str(_paid_amount_from_payload(attempt, payload)),
+                'paid_value': str(_paid_amount_from_payload(attempt, payload)),
+                'requested_payment_amount': str(attempt.payment_amount),
                 'monobank_status': status,
                 # Passenger may stop a request-owned daemon thread before it
                 # reaches Telegram. Keep a durable DB marker so cron can
@@ -153,21 +165,50 @@ def materialize_payment_attempt(attempt_id, *, status, payload=None, source='web
         if custom_ids:
             CustomPrintLead.objects.filter(pk__in=custom_ids).update(order=order)
 
+        promo_reservation = dict((attempt.event_state or {}).get('promo_reservation') or {})
+        promo_was_reserved = (
+            attempt.promo_code_id
+            and promo_reservation.get('state') == 'reserved'
+            and int(promo_reservation.get('promo_id') or 0) == attempt.promo_code_id
+        )
+        if promo_was_reserved:
+            event_state = dict(attempt.event_state or {})
+            promo_reservation.update({
+                'state': 'consumed',
+                'consumed_at': timezone.now().isoformat(),
+                'order_id': order.pk,
+            })
+            event_state['promo_reservation'] = promo_reservation
+            attempt.event_state = event_state
+
         attempt.status = (
             PaymentAttempt.Status.PREPAID
-            if attempt.pay_type == PaymentAttempt.PayType.PREPAY_200
+            if attempt.pay_type in {
+                PaymentAttempt.PayType.PREPAYMENT,
+                PaymentAttempt.PayType.PREPAY_200,
+            }
             else PaymentAttempt.Status.PAID
         )
         attempt.paid_amount = _paid_amount_from_payload(attempt, payload)
         attempt.order = order
         attempt.last_status_at = timezone.now()
         attempt.save(update_fields=[
-            'status', 'paid_amount', 'order', 'payment_history', 'last_status_at', 'updated'
+            'status', 'paid_amount', 'order', 'payment_history', 'event_state',
+            'last_status_at', 'updated'
         ])
 
         if attempt.promo_code and not PromoCodeUsage.objects.filter(order=order).exists():
             try:
-                if attempt.user_id:
+                if promo_was_reserved and attempt.user_id:
+                    PromoCodeUsage.objects.get_or_create(
+                        user=attempt.user,
+                        promo_code=attempt.promo_code,
+                        group=attempt.promo_code.group,
+                        order=order,
+                    )
+                elif promo_was_reserved:
+                    pass
+                elif attempt.user_id:
                     attempt.promo_code.record_usage(attempt.user, order)
                 else:
                     attempt.promo_code.use()

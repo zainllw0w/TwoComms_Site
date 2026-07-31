@@ -1042,7 +1042,7 @@ def _create_deal_and_link_unlocked(
         if res.get("ok"):
             try:
                 from management.models import IgClient
-                deal.client.set_stage(IgClient.Stage.PAYMENT_PENDING, reason="paylink")
+                deal.client.set_stage(IgClient.Stage.CHECKOUT, reason="checkout_proposal")
             except Exception:
                 pass
         return res
@@ -1197,7 +1197,7 @@ def _create_deal_and_link_unlocked(
         try:
             from management.models import IgClient
 
-            deal.client.set_stage(IgClient.Stage.PAYMENT_PENDING, reason="paylink")
+            deal.client.set_stage(IgClient.Stage.CHECKOUT, reason="checkout_proposal")
         except Exception:
             pass
     return res

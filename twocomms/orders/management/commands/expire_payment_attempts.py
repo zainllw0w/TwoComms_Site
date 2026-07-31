@@ -37,4 +37,11 @@ class Command(BaseCommand):
             error_reason='invoice_expired',
             last_status_at=timezone.now(),
         )
+        if updated:
+            from management.services.ig_inventory import release_attempt_inventory
+            from management.services.ig_checkout_payment import release_attempt_promo
+
+            for attempt in PaymentAttempt.objects.filter(pk__in=ids):
+                release_attempt_inventory(attempt, reason='invoice_expired')
+                release_attempt_promo(attempt, reason='invoice_expired')
         self.stdout.write(self.style.SUCCESS(f'Expired {updated} payment attempts.'))

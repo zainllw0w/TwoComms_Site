@@ -170,6 +170,11 @@ def validate_checkout_items(
     allow_promo=False,
 ):
     from fable5.services import effective_cart_unit_price, variant_allows_purchase
+    from fable5.size_grid_services import (
+        normalize_size_value,
+        resolve_effective_sizes,
+        resolve_option_size_grid,
+    )
     from productcolors.models import ProductColorVariant
     from storefront.models import Product, ProductFitOption, ProductStatus
     from storefront.services.size_guides import resolve_product_sizes
@@ -216,50 +221,95 @@ def validate_checkout_items(
         active_fits = list(
             ProductFitOption.objects.filter(product=product, is_active=True).order_by("order", "id")
         )
-        allowed_sizes = {
-            str(value or "").strip().upper()
-            for value in resolve_product_sizes(product)
-            if str(value or "").strip()
-        }
-        has_color_variants = ProductColorVariant.objects.filter(product=product).exists()
         item_missing = set()
-        if allowed_sizes and not size:
-            item_missing.add("size")
-        if active_fits and not fit_code:
-            item_missing.add("fit")
-        if has_color_variants and color_value in (None, "", False, 0, "0"):
-            item_missing.add("color")
-        if item_missing:
-            missing_fields.update(item_missing)
-            continue
-        if allowed_sizes and size not in allowed_sizes:
-            raise CheckoutConfigurationError("invalid_size", item_index=index)
 
         fit = None
-        if fit_code:
+        if active_fits and not fit_code:
+            item_missing.add("fit")
+        elif fit_code:
             fit = next((row for row in active_fits if row.code == fit_code), None)
             if fit is None:
                 raise CheckoutConfigurationError("invalid_fit", item_index=index)
         elif not active_fits and str(raw.get("fit_option_code") or raw.get("fit") or "").strip():
             raise CheckoutConfigurationError("invalid_fit", item_index=index)
 
+        option_values = _normalize_options(raw.get("option_values"))
+        option_labels = _normalize_options(raw.get("option_labels"))
+        if fit_code and fit is not None:
+            option_values["fit"] = fit_code
+            option_labels["fit"] = fit.label
+
+        color_variants = list(
+            ProductColorVariant.objects
+            .select_related("color")
+            .filter(product=product)
+            .order_by("order", "id")
+        )
         variant = None
         if color_value not in (None, "", False, 0, "0"):
             try:
                 variant_id = int(color_value)
             except (TypeError, ValueError):
                 raise CheckoutConfigurationError("invalid_color", item_index=index)
-            variant = ProductColorVariant.objects.select_related("color").filter(pk=variant_id).first()
-            if variant is None or variant.product_id != product.pk:
+            variant = next((row for row in color_variants if row.pk == variant_id), None)
+            if variant is None:
                 raise CheckoutConfigurationError("invalid_color", item_index=index)
             if int(variant.stock or 0) < quantity:
                 raise CheckoutConfigurationError("insufficient_stock", item_index=index)
+        elif color_variants:
+            stocked_variants = [
+                row for row in color_variants if int(row.stock or 0) >= quantity
+            ]
+            sellable_variants = [
+                row
+                for row in stocked_variants
+                if variant_allows_purchase(
+                    product,
+                    row,
+                    fit_code=fit_code,
+                    size=size,
+                    option_values=option_values,
+                )
+            ]
+            if not sellable_variants:
+                code = "insufficient_stock" if not stocked_variants else "unavailable_selection"
+                raise CheckoutConfigurationError(code, item_index=index)
+            if len(sellable_variants) == 1:
+                variant = sellable_variants[0]
+            else:
+                item_missing.add("color")
 
-        option_values = _normalize_options(raw.get("option_values"))
-        option_labels = _normalize_options(raw.get("option_labels"))
-        if fit_code:
-            option_values["fit"] = fit_code
-            option_labels["fit"] = fit.label
+        option_key = f"fit={fit_code}" if fit_code else ""
+        has_effective_grid = bool(
+            option_key
+            and resolve_option_size_grid(product, option_key, variant=variant)
+        )
+        if has_effective_grid:
+            allowed_sizes = {
+                normalize_size_value(row.get("size"))
+                for row in resolve_effective_sizes(
+                    product,
+                    option_key,
+                    variant=variant,
+                )
+                if row.get("is_enabled", True) and normalize_size_value(row.get("size"))
+            }
+            if not allowed_sizes:
+                raise CheckoutConfigurationError("unavailable_selection", item_index=index)
+        else:
+            allowed_sizes = {
+                normalize_size_value(value)
+                for value in resolve_product_sizes(product)
+                if normalize_size_value(value)
+            }
+        if allowed_sizes and not size:
+            item_missing.add("size")
+        if item_missing:
+            missing_fields.update(item_missing)
+            continue
+        if allowed_sizes and normalize_size_value(size) not in allowed_sizes:
+            raise CheckoutConfigurationError("invalid_size", item_index=index)
+
         if not variant_allows_purchase(
             product,
             variant,

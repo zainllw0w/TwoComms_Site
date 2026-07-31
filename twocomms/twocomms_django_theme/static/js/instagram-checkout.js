@@ -86,6 +86,32 @@
     }, 30000);
   }
 
+  if (root.dataset.checkoutState === "pending" && root.dataset.statusUrl) {
+    let polling = false;
+    const pollStatus = async () => {
+      if (polling || document.visibilityState !== "visible") return;
+      polling = true;
+      try {
+        const response = await fetch(root.dataset.statusUrl, {
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: { Accept: "application/json" },
+        });
+        if (!response.ok) return;
+        const payload = await response.json();
+        if (payload.state && payload.state !== root.dataset.checkoutState) {
+          window.location.reload();
+        }
+      } catch (_error) {
+        // A later poll retries without exposing payment or recipient data.
+      } finally {
+        polling = false;
+      }
+    };
+    const pendingTimer = window.setInterval(pollStatus, 30000);
+    window.addEventListener("beforeunload", () => window.clearInterval(pendingTimer), { once: true });
+  }
+
   document.querySelectorAll("[data-product-image]").forEach((image) => {
     const enableFallback = () => {
       image.closest("[data-product-media]")?.classList.add("is-fallback");

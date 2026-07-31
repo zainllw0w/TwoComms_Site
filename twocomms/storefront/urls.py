@@ -74,6 +74,7 @@ def admin_panel_view(request, *args, **kwargs):
 urlpatterns = [
     path('offer/a/<str:token>/', _module_view('storefront.views.ig_checkout', 'ig_checkout_token_entry'), name='ig_checkout_token_entry'),
     path('offer/<uuid:proposal_id>/', _module_view('storefront.views.ig_checkout', 'ig_checkout_proposal'), name='ig_checkout_proposal'),
+    path('offer/<uuid:proposal_id>/status/', _module_view('storefront.views.ig_checkout', 'ig_checkout_status'), name='ig_checkout_status'),
     path('offer/<uuid:proposal_id>/share/', _module_view('storefront.views.ig_checkout', 'ig_checkout_share_token'), name='ig_checkout_share_token'),
     # Legacy support URLs kept as permanent aliases to the canonical localized pages.
     path('help-center/', RedirectView.as_view(pattern_name='help_center', permanent=True), name='legacy_help_center'),

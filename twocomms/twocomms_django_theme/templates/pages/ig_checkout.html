@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="{% static 'css/instagram-checkout.css' %}?v=20260730b">
 </head>
 <body>
-  <main class="ig-page" data-ig-checkout data-proposal-url="{{ proposal_url }}" data-expires-at="{{ proposal.expires_at_iso }}">
+  <main class="ig-page" data-ig-checkout data-proposal-url="{{ proposal_url }}" data-status-url="{{ status_url }}" data-checkout-state="{{ checkout_state }}" data-expires-at="{{ proposal.expires_at_iso }}">
     <header class="ig-topbar">
       <a class="ig-brand" href="/" aria-label="TwoComms">
         <img src="{% static 'img/logo.svg' %}" alt="" width="28" height="28">
@@ -188,6 +188,18 @@
                 <div><dt>{{ copy.contact }}</dt><dd>{{ masked_delivery.phone }}</dd></div>
                 <div><dt>{{ copy.receipt }}</dt><dd>{{ masked_delivery.email }}</dd></div>
               </dl>
+            {% endif %}
+            {% if paid_summary %}
+              <dl class="ig-masked" data-paid-summary>
+                <div><dt>{{ copy.order_number }}</dt><dd>{{ paid_summary.order_number }}</dd></div>
+                <div><dt>{{ copy.recipient }}</dt><dd>{{ paid_summary.recipient }}</dd></div>
+                <div><dt>{{ copy.contact }}</dt><dd>{{ paid_summary.phone }}</dd></div>
+                <div><dt>{{ copy.receipt }}</dt><dd>{{ paid_summary.email }}</dd></div>
+                <div><dt>{{ copy.delivery_destination }}</dt><dd>{{ paid_summary.destination }}</dd></div>
+              </dl>
+            {% endif %}
+            {% if payment_url %}
+              <a class="ig-action ig-action--pay" href="{{ payment_url }}" rel="nofollow noindex" data-payment-continue>{{ copy.continue_payment }}</a>
             {% endif %}
             <a class="ig-action ig-action--primary" href="{{ direct_url }}" target="_blank" rel="noopener noreferrer">{{ copy.change_order }}</a>
           </div>

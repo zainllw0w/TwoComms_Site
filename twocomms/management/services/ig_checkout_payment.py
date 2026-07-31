@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import secrets
 from datetime import timedelta
 from decimal import Decimal
 
@@ -23,6 +24,12 @@ from orders.models import PaymentAttempt
 from orders.nova_poshta_checkout import NovaPoshtaSelectionError, resolve_delivery_selection
 from orders.nova_poshta_documents import normalize_checkout_phone
 from storefront.models import PromoCode
+
+from management.services.ig_inventory import (
+    consume_proposal_inventory,
+    release_proposal_inventory,
+    reserve_proposal_inventory,
+)
 
 logger = logging.getLogger("management.ig_checkout_payment")
 
@@ -86,7 +93,20 @@ def _proposal_basket(proposal, *, promo_discount=Decimal("0.00")):
 
 
 def _invoice_payload(request, attempt, proposal, *, payment_amount, promo_discount):
-    description = f"Оплата замовлення {attempt.reference} на суму {payment_amount:.2f} грн."
+    if attempt.pay_type == PaymentAttempt.PayType.PREPAYMENT:
+        description = (
+            f"Передоплата замовлення {attempt.reference} на суму {payment_amount:.2f} грн. "
+            f"Повна погоджена сума: {proposal.quoted_total:.2f} грн."
+        )
+        basket = [{
+            "name": f"Передоплата за замовленням {attempt.reference}"[:128],
+            "qty": 1,
+            "sum": int((payment_amount * 100).to_integral_value()),
+            "unit": "шт",
+        }]
+    else:
+        description = f"Оплата замовлення {attempt.reference} на суму {payment_amount:.2f} грн."
+        basket = _proposal_basket(proposal, promo_discount=promo_discount)
     public_base = getattr(settings, "MONOBANK_PUBLIC_BASE_URL", "").rstrip("/")
     if public_base:
         return_url = f"{public_base}{reverse('monobank_return')}?attemptId={attempt.pk}"
@@ -97,7 +117,7 @@ def _invoice_payload(request, attempt, proposal, *, payment_amount, promo_discou
     merchant_info = {
         "reference": attempt.reference,
         "destination": description,
-        "basketOrder": _proposal_basket(proposal, promo_discount=promo_discount),
+        "basketOrder": basket,
     }
     if attempt.email:
         # Monobank accepts receipt addresses in merchantPaymInfo.  The field
@@ -167,6 +187,42 @@ def _validate_payload(proposal, payload):
     }
 
 
+def _promo_reservation_state(promo):
+    if promo is None:
+        return {}
+    return {
+        "promo_reservation": {
+            "promo_id": promo.pk,
+            "state": "reserved",
+            "reserved_at": timezone.now().isoformat(),
+        }
+    }
+
+
+@transaction.atomic
+def release_attempt_promo(attempt, *, reason="payment_terminal"):
+    """Release one assisted-checkout promo slot exactly once."""
+    locked = PaymentAttempt.objects.select_for_update().get(pk=attempt.pk)
+    event_state = dict(locked.event_state or {})
+    reservation = dict(event_state.get("promo_reservation") or {})
+    if reservation.get("state") != "reserved":
+        return False
+    promo_id = reservation.get("promo_id") or locked.promo_code_id
+    promo = PromoCode.objects.select_for_update().filter(pk=promo_id).first()
+    if promo is not None and promo.current_uses > 0:
+        promo.current_uses -= 1
+        promo.save(update_fields=["current_uses", "updated_at"])
+    reservation.update({
+        "state": "released",
+        "released_at": timezone.now().isoformat(),
+        "release_reason": str(reason or "payment_terminal")[:128],
+    })
+    event_state["promo_reservation"] = reservation
+    locked.event_state = event_state
+    locked.save(update_fields=["event_state", "updated"])
+    return True
+
+
 def _snapshot(proposal):
     items = []
     for item in proposal.items.all():
@@ -199,14 +255,88 @@ def _snapshot(proposal):
     }
 
 
+def _capture_attempt_tracking(request, attempt):
+    """Freeze the first valid payer browser before any provider call."""
+    try:
+        from storefront.utm_tracking import build_order_tracking_context
+        from twocomms.middleware import _client_rate_limit_ip
+
+        tracking = build_order_tracking_context(request, attempt) or {}
+        trusted_ip = _client_rate_limit_ip(request)
+        if trusted_ip:
+            tracking["client_ip_address"] = trusted_ip
+    except Exception:
+        logger.warning(
+            "Unable to freeze IG checkout tracking context for attempt %s",
+            attempt.pk,
+            exc_info=True,
+        )
+        tracking = {}
+    tracking["external_id"] = tracking.get("external_id") or (
+        f"user:{request.user.pk}"
+        if request.user.is_authenticated
+        else f"session:{request.session.session_key}"
+    )
+    tracking["add_payment_event_id"] = attempt.add_payment_event_id
+    attempt.tracking_payload = tracking
+    attempt.save(update_fields=["tracking_payload", "updated"])
+    return tracking
+
+
+def _send_add_payment_info_if_missing(attempt, request):
+    """Retry the stable AddPaymentInfo event until its durable marker exists."""
+    attempt.refresh_from_db(fields=["event_state", "tracking_payload", "updated"])
+    if (attempt.event_state or {}).get("fb_capi_add_payment_info"):
+        return True
+    try:
+        from orders.facebook_conversions_service import get_facebook_conversions_service
+
+        return bool(get_facebook_conversions_service().send_add_payment_info_event(
+            order=attempt,
+            payment_amount=float(attempt.payment_amount),
+            event_id=attempt.add_payment_event_id,
+            source_url=request.build_absolute_uri(),
+        ))
+    except Exception:
+        logger.warning("Failed to send IG AddPaymentInfo for attempt %s", attempt.pk, exc_info=True)
+        return False
+
+
+def _lock_attempt_proposal_graph(attempt_id, *, proposal_related=()):
+    """Lock an existing payment graph in one InnoDB-safe order."""
+    from management.models import IgCheckoutProposal, IgDeal
+
+    attempt = PaymentAttempt.objects.select_for_update().get(pk=attempt_id)
+    locator = (
+        IgCheckoutProposal.objects.filter(payment_attempt_id=attempt_id)
+        .values("pk", "deal_id")
+        .first()
+    )
+    if locator is None:
+        return attempt, None, None
+    deal = IgDeal.objects.select_for_update().get(pk=locator["deal_id"])
+    proposal_query = IgCheckoutProposal.objects.select_for_update()
+    if proposal_related:
+        proposal_query = proposal_query.select_related(*proposal_related)
+    proposal = proposal_query.filter(
+        pk=locator["pk"],
+        deal_id=deal.pk,
+        payment_attempt_id=attempt.pk,
+    ).first()
+    return attempt, deal, proposal
+
+
 @transaction.atomic
 def lock_proposal_details(proposal, *, payload, request):
     """Validate and persist first-submit-wins recipient data."""
     from management.models import IgCheckoutProposal
 
+    from management.models import IgDeal
+
+    deal = IgDeal.objects.select_for_update().get(pk=proposal.deal_id)
     locked = IgCheckoutProposal.objects.select_for_update().select_related(
-        "payment_attempt", "deal", "client", "commercial_episode"
-    ).get(pk=proposal.pk)
+        "payment_attempt", "client", "commercial_episode"
+    ).get(pk=proposal.pk, deal_id=deal.pk)
     now = timezone.now()
     if locked.expires_at <= now:
         raise CheckoutPaymentError("expired", "Срок действия предложения истек.")
@@ -216,6 +346,11 @@ def lock_proposal_details(proposal, *, payload, request):
         locked.Status.DETAILS_LOCKED,
     } and locked.payment_attempt_id:
         attempt = locked.payment_attempt
+        if (attempt.event_state or {}).get("invoice_creation_ambiguous"):
+            raise CheckoutPaymentError(
+                "provider_ambiguous",
+                "Платіж уже передано банку, але його статус ще потрібно перевірити.",
+            )
         if attempt.invoice_url:
             return locked, attempt, None, True
         if attempt.status in {PaymentAttempt.Status.INITIATED, PaymentAttempt.Status.PROCESSING}:
@@ -255,35 +390,48 @@ def lock_proposal_details(proposal, *, payload, request):
         np_settlement_ref=values["delivery"].settlement_ref,
         np_city_ref=values["delivery"].city_ref,
         np_warehouse_ref=values["delivery"].warehouse_ref,
-        pay_type=PaymentAttempt.PayType.ONLINE_FULL,
+        pay_type=(
+            PaymentAttempt.PayType.PREPAYMENT
+            if locked.pay_type == locked.PayType.PREPAYMENT
+            else PaymentAttempt.PayType.ONLINE_FULL
+        ),
         cart_snapshot=_snapshot(locked),
         gross_amount=locked.catalog_total,
         discount_amount=Decimal(locked.negotiated_discount or 0) + values["promo_discount"],
         payable_amount=values["payable"],
         payment_amount=values["payable"],
         promo_code=values["promo"],
+        event_state=_promo_reservation_state(values["promo"]),
     )
+    _capture_attempt_tracking(request, attempt)
+    if values["promo"] is not None:
+        values["promo"].current_uses += 1
+        values["promo"].save(update_fields=["current_uses", "updated_at"])
     locked.payment_attempt = attempt
     locked.status = locked.Status.DETAILS_LOCKED
     locked.details_locked_at = now
-    locked.deal.np_full_name = values["full_name"]
-    locked.deal.np_phone = values["phone"]
-    locked.deal.np_city = values["delivery"].city
-    locked.deal.np_office = values["delivery"].np_office
-    locked.deal.np_settlement_ref = values["delivery"].settlement_ref
-    locked.deal.np_city_ref = values["delivery"].city_ref
-    locked.deal.np_warehouse_ref = values["delivery"].warehouse_ref
-    locked.deal.np_warehouse_kind = values["delivery"].warehouse_kind
-    locked.deal.delivery_status = locked.deal.DeliveryStatus.VALIDATED
-    locked.deal.delivery_source = "instagram_checkout"
-    locked.deal.status = locked.deal.Status.AWAITING_PAYMENT
-    locked.deal.payment_status = "unpaid"
-    locked.deal.save(update_fields=[
+    deal.np_full_name = values["full_name"]
+    deal.np_phone = values["phone"]
+    deal.np_city = values["delivery"].city
+    deal.np_office = values["delivery"].np_office
+    deal.np_settlement_ref = values["delivery"].settlement_ref
+    deal.np_city_ref = values["delivery"].city_ref
+    deal.np_warehouse_ref = values["delivery"].warehouse_ref
+    deal.np_warehouse_kind = values["delivery"].warehouse_kind
+    deal.delivery_status = deal.DeliveryStatus.VALIDATED
+    deal.delivery_source = "instagram_checkout"
+    deal.status = deal.Status.AWAITING_PAYMENT
+    deal.payment_status = "unpaid"
+    deal.save(update_fields=[
         "np_full_name", "np_phone", "np_city", "np_office", "np_settlement_ref",
         "np_city_ref", "np_warehouse_ref", "np_warehouse_kind", "delivery_status",
         "delivery_source", "status", "payment_status", "updated_at",
     ])
     locked.save(update_fields=["payment_attempt", "status", "details_locked_at", "updated_at"])
+    reserve_proposal_inventory(locked, expires_at=min(
+        locked.expires_at,
+        now + timedelta(hours=12),
+    ))
     return locked, attempt, values, False
 
 
@@ -293,9 +441,46 @@ def create_or_reuse_invoice(proposal, *, request, payload):
 
     locked, attempt, values, reused = lock_proposal_details(proposal, payload=payload, request=request)
     if reused and attempt.invoice_url:
+        _send_add_payment_info_if_missing(attempt, request)
         return attempt, attempt.invoice_url, True
     if values is None:
         raise CheckoutPaymentError("in_progress", "Платеж уже создается. Подождите несколько секунд.")
+
+    # Claim invoice creation before the provider call.  A second browser sees
+    # this durable lease and cannot create a second invoice for the same
+    # proposal while the first request is in flight.
+    lease = secrets.token_urlsafe(24)
+    attempt.refresh_from_db()
+    if attempt.invoice_url:
+        _send_add_payment_info_if_missing(attempt, request)
+        return attempt, attempt.invoice_url, True
+    event_state = dict(attempt.event_state or {})
+    if event_state.get("invoice_creation_ambiguous"):
+        raise CheckoutPaymentError(
+            "provider_ambiguous",
+            "Платіж уже передано банку, але його статус ще потрібно перевірити.",
+        )
+    event_state["invoice_creation_lease"] = lease
+    event_state["invoice_creation_lease_expires_at"] = (
+        timezone.now() + timedelta(minutes=5)
+    ).isoformat()
+    updated = PaymentAttempt.objects.filter(
+        pk=attempt.pk,
+        status=PaymentAttempt.Status.INITIATED,
+        invoice_url="",
+    ).update(
+        status=PaymentAttempt.Status.PROCESSING,
+        event_state=event_state,
+        last_status_at=timezone.now(),
+    )
+    if not updated:
+        attempt.refresh_from_db()
+        if attempt.invoice_url:
+            return attempt, attempt.invoice_url, True
+        raise CheckoutPaymentError(
+            "in_progress",
+            "Платіж уже створюється. Зачекайте кілька секунд.",
+        )
 
     invoice_payload = _invoice_payload(
         request,
@@ -314,36 +499,58 @@ def create_or_reuse_invoice(proposal, *, request, payload):
         if not invoice_id or not invoice_url:
             raise RuntimeError("Monobank returned an invalid invoice")
     except Exception as exc:
+        if not bool(getattr(exc, "ambiguous", True)):
+            failed_at = timezone.now()
+            PaymentAttempt.objects.filter(pk=attempt.pk).update(
+                status=PaymentAttempt.Status.FAILED,
+                error_reason=f"invoice_creation_failed:{exc}"[:500],
+                last_status_at=failed_at,
+            )
+            from management.models import IgCheckoutProposal
+
+            with transaction.atomic():
+                reset = IgCheckoutProposal.objects.select_for_update().get(pk=locked.pk)
+                if reset.payment_attempt_id == attempt.pk and not attempt.invoice_url:
+                    reset.status = IgCheckoutProposal.Status.READY
+                    reset.payment_attempt = None
+                    reset.details_locked_at = None
+                    reset.save(update_fields=[
+                        "status", "payment_attempt", "details_locked_at", "updated_at",
+                    ])
+                    release_proposal_inventory(reset, reason="invoice_creation_failed")
+                    release_attempt_promo(attempt, reason="invoice_creation_failed")
+            raise CheckoutPaymentError(
+                "provider_error",
+                "Не вдалося створити платіж. Спробуйте ще раз пізніше.",
+            ) from exc
+        event_state["invoice_creation_ambiguous"] = True
+        event_state.pop("invoice_creation_lease", None)
+        event_state.pop("invoice_creation_lease_expires_at", None)
         PaymentAttempt.objects.filter(pk=attempt.pk).update(
-            status=PaymentAttempt.Status.FAILED,
-            error_reason=str(exc)[:500],
+            status=PaymentAttempt.Status.PROCESSING,
+            event_state=event_state,
+            error_reason=f"invoice_creation_ambiguous:{exc}"[:500],
             last_status_at=timezone.now(),
         )
-        from management.models import IgCheckoutProposal
-        locked.refresh_from_db()
-        locked.status = IgCheckoutProposal.Status.READY
-        locked.payment_attempt = None
-        locked.details_locked_at = None
-        locked.save(update_fields=["status", "payment_attempt", "details_locked_at", "updated_at"])
-        raise CheckoutPaymentError("provider_error", "Не удалось создать платеж. Попробуйте еще раз.") from exc
+        # Keep the recipient lock and reservation.  A provider timeout can
+        # mean that an invoice exists even when the response was lost.
+        raise CheckoutPaymentError(
+            "provider_ambiguous",
+            "Не вдалося підтвердити відповідь банку. Не повторюйте оплату: ми перевіримо рахунок.",
+        ) from exc
 
-    tracking = {}
-    try:
-        from storefront.utm_tracking import build_order_tracking_context
-        tracking = build_order_tracking_context(request, attempt) or {}
-    except Exception:
-        logger.warning("Unable to build IG checkout tracking context", exc_info=True)
-    tracking["external_id"] = tracking.get("external_id") or (
-        f"user:{request.user.pk}" if request.user.is_authenticated else f"session:{request.session.session_key}"
-    )
-    tracking["add_payment_event_id"] = attempt.add_payment_event_id
+    tracking = dict(attempt.tracking_payload or {})
     now = timezone.now()
+    event_state.pop("invoice_creation_lease", None)
+    event_state.pop("invoice_creation_lease_expires_at", None)
+    event_state.pop("invoice_creation_ambiguous", None)
     PaymentAttempt.objects.filter(pk=attempt.pk).update(
         monobank_invoice_id=str(invoice_id)[:128],
         invoice_url=str(invoice_url)[:600],
         invoice_payload={"request": invoice_payload, "create": creation},
         tracking_payload=tracking,
-        invoice_expires_at=min(locked.expires_at, now + timedelta(hours=24)),
+        invoice_expires_at=min(locked.expires_at, now + timedelta(hours=12)),
+        event_state=event_state,
         status=PaymentAttempt.Status.PROCESSING,
         last_status_at=now,
     )
@@ -351,22 +558,26 @@ def create_or_reuse_invoice(proposal, *, request, payload):
     locked.refresh_from_db()
     locked.status = IgCheckoutProposal.Status.INVOICE_CREATED
     locked.save(update_fields=["status", "updated_at"])
+    try:
+        from management.models import IgClient
+
+        locked.client.set_stage(
+            IgClient.Stage.PAYMENT_PENDING,
+            reason="checkout_invoice_created",
+        )
+    except Exception:
+        logger.warning(
+            "Failed to advance IG client after invoice creation for proposal %s",
+            locked.pk,
+            exc_info=True,
+        )
     request.session["monobank_invoice_id"] = str(invoice_id)
     request.session["monobank_pending_attempt_id"] = attempt.pk
     request.session["monobank_attempt_id"] = attempt.pk
     request.session["ig_checkout_proposal_id"] = str(locked.public_id)
     request.session.modified = True
 
-    try:
-        from orders.facebook_conversions_service import get_facebook_conversions_service
-        get_facebook_conversions_service().send_add_payment_info_event(
-            order=attempt,
-            payment_amount=float(values["payable"]),
-            event_id=attempt.add_payment_event_id,
-            source_url=request.build_absolute_uri(),
-        )
-    except Exception:
-        logger.warning("Failed to send IG AddPaymentInfo for attempt %s", attempt.pk, exc_info=True)
+    _send_add_payment_info_if_missing(attempt, request)
     try:
         from orders.telegram_notifications import TelegramNotifier
         TelegramNotifier().send_payment_attempt_notification(attempt)
@@ -374,6 +585,120 @@ def create_or_reuse_invoice(proposal, *, request, payload):
         logger.warning("Failed to send IG payment attempt notification %s", attempt.pk, exc_info=True)
     attempt.refresh_from_db()
     return attempt, attempt.invoice_url, False
+
+
+@transaction.atomic
+def project_terminal_payment(attempt_id, *, status, payload=None, source="provider_pull"):
+    """Project trusted non-payable provider truth into the Instagram ledger."""
+    from management.models import (
+        IgCheckoutProposal,
+        IgDeal,
+        IgPaymentEvent,
+        IgPaymentProjection,
+        provider_evidence_signature,
+    )
+
+    normalized_status = str(status or "").strip().lower()
+    truth = {
+        "cancelled": IgDeal.PaymentTruth.CANCELLED,
+        "canceled": IgDeal.PaymentTruth.CANCELLED,
+        "expired": IgDeal.PaymentTruth.CANCELLED,
+        "failure": IgDeal.PaymentTruth.FAILED,
+        "rejected": IgDeal.PaymentTruth.FAILED,
+    }.get(normalized_status)
+    canonical_source = {
+        "provider": "provider",
+        "provider_pull": "provider_pull",
+        "provider_webhook": "provider_webhook",
+        "signed_webhook": "signed_webhook",
+        "webhook": "provider_webhook",
+        "return": "provider_pull",
+        "ig_reconcile": "provider_pull",
+        "poll": "provider_pull",
+    }.get(str(source or "").strip().lower())
+    if truth is None or canonical_source is None:
+        return None
+
+    attempt, deal, proposal = _lock_attempt_proposal_graph(
+        attempt_id,
+        proposal_related=("client", "payment_attempt"),
+    )
+    if proposal is None:
+        return None
+    if attempt.order_id or deal.order_id:
+        return None
+
+    raw_payload = payload if isinstance(payload, dict) else {}
+    evidence = {
+        "attempt_id": attempt.pk,
+        "attempt_reference": attempt.reference,
+        "invoice_id": attempt.monobank_invoice_id,
+        "status": normalized_status,
+        "ccy": raw_payload.get("ccy") or raw_payload.get("currency"),
+        "amount": raw_payload.get("paidAmount", raw_payload.get("finalAmount", raw_payload.get("amount"))),
+    }
+    payload_digest = hashlib.sha256(
+        json.dumps(evidence, sort_keys=True, separators=(",", ":"), default=str).encode()
+    ).hexdigest()
+    evidence["signature"] = provider_evidence_signature(
+        deal_id=deal.pk,
+        client_id=proposal.client_id,
+        provider="monobank",
+        source=canonical_source,
+        invoice_id=attempt.monobank_invoice_id,
+        provider_status=normalized_status,
+        payload_digest=payload_digest,
+    )
+    event, _created = IgPaymentEvent.objects.get_or_create(
+        event_key=f"attempt:{attempt.pk}:terminal:{normalized_status}"[:64],
+        defaults={
+            "deal": deal,
+            "client": proposal.client,
+            "provider": "monobank",
+            "source": canonical_source,
+            "invoice_id": str(attempt.monobank_invoice_id or "")[:128],
+            "provider_status": normalized_status,
+            "provider_modified_at": attempt.last_status_at or timezone.now(),
+            "gross_amount": attempt.payment_amount,
+            "final_amount": Decimal("0.00"),
+            "refunded_amount": Decimal("0.00"),
+            "amount_valid": None,
+            "currency": proposal.currency or "UAH",
+            "evidence": evidence,
+            "payload_digest": payload_digest,
+        },
+    )
+    projection, _created = IgPaymentProjection.objects.select_for_update().get_or_create(
+        deal=deal,
+        defaults={"client": proposal.client},
+    )
+    projection.client = proposal.client
+    projection.truth = truth
+    projection.gross_amount = Decimal("0.00")
+    projection.refunded_amount = Decimal("0.00")
+    projection.paid_at = None
+    projection.provider_modified_at = attempt.last_status_at or timezone.now()
+    projection.last_event = event
+    projection.needs_reconciliation = False
+    projection.reconciled_at = timezone.now()
+    projection.save()
+
+    deal.payment_truth = truth
+    deal.payment_status = "unpaid"
+    deal.paid_amount = Decimal("0.00")
+    deal.paid_at = None
+    deal.payment_truth_updated_at = timezone.now()
+    deal.save(update_fields=[
+        "payment_truth", "payment_status", "paid_amount", "paid_at",
+        "payment_truth_updated_at", "updated_at",
+    ])
+    proposal.status = IgCheckoutProposal.Status.CANCELLED
+    proposal.invoice_cancelled_at = proposal.invoice_cancelled_at or timezone.now()
+    proposal.provider_cancellation_event = event
+    proposal.save(update_fields=[
+        "status", "invoice_cancelled_at", "provider_cancellation_event", "updated_at",
+    ])
+    return event
 
 
 @transaction.atomic
@@ -390,16 +715,12 @@ def bind_verified_payment(attempt_id, order):
     )
     from management.services.ig_order_links import create_order_attribution
 
-    proposal = (
-        IgCheckoutProposal.objects.select_for_update()
-        .select_related("deal", "client", "commercial_episode", "payment_attempt")
-        .filter(payment_attempt_id=attempt_id)
-        .first()
+    attempt, deal, proposal = _lock_attempt_proposal_graph(
+        attempt_id,
+        proposal_related=("client", "commercial_episode", "payment_attempt"),
     )
     if proposal is None:
         return None
-    attempt = proposal.payment_attempt
-    deal = IgDeal.objects.select_for_update().get(pk=proposal.deal_id)
     now = timezone.now()
 
     # The generic PaymentAttempt converter has already verified the provider
@@ -476,7 +797,14 @@ def bind_verified_payment(attempt_id, order):
         attempt.save(update_fields=["status", "updated"])
     deal.order_id = order.pk
     deal.status = deal.Status.ORDER_CREATED
-    deal.payment_status = "prepaid" if attempt.pay_type == PaymentAttempt.PayType.PREPAY_200 else "paid"
+    deal.payment_status = (
+        "prepaid"
+        if attempt.pay_type in {
+            PaymentAttempt.PayType.PREPAYMENT,
+            PaymentAttempt.PayType.PREPAY_200,
+        }
+        else "paid"
+    )
     deal.payment_truth = deal.PaymentTruth.CONFIRMED
     deal.paid_amount = attempt.paid_amount or attempt.payment_amount
     deal.paid_at = deal.paid_at or now
@@ -488,6 +816,7 @@ def bind_verified_payment(attempt_id, order):
     proposal.status = proposal.Status.PAID
     proposal.paid_at = proposal.paid_at or now
     proposal.save(update_fields=["status", "paid_at", "updated_at"])
+    consume_proposal_inventory(proposal, order=order)
     event, _created = IgLifecycleEvent.objects.get_or_create(
         event_key=f"payment:{attempt.pk}:verified",
         defaults={

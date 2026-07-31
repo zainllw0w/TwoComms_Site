@@ -18,7 +18,7 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.urls import reverse
 
-from orders.models import Order
+from orders.models import Order, PaymentAttempt
 
 
 def _make_ec_keypair():
@@ -301,6 +301,46 @@ class MonobankReturnSecurityTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.order.refresh_from_db()
         self.assertEqual(self.order.payment_status, 'paid')
+
+    def test_assisted_return_does_not_grant_order_access_from_get_attempt_id(self):
+        attempt = PaymentAttempt.objects.create(
+            fingerprint='foreign-assisted-return-attempt',
+            full_name=self.order.full_name,
+            phone=self.order.phone,
+            city=self.order.city,
+            np_office=self.order.np_office,
+            pay_type=PaymentAttempt.PayType.ONLINE_FULL,
+            status=PaymentAttempt.Status.CONVERTED,
+            cart_snapshot={
+                'checkout_surface': 'instagram_proposal',
+                'cart': [],
+            },
+            gross_amount=Decimal('260.00'),
+            payable_amount=Decimal('260.00'),
+            payment_amount=Decimal('260.00'),
+            paid_amount=Decimal('260.00'),
+            monobank_invoice_id=self.order.payment_invoice_id,
+            order=self.order,
+        )
+
+        with patch(
+            'storefront.views.monobank._resolve_attempt_invoice_status',
+            return_value=('success', {'status': 'success'}),
+        ) as resolve_status:
+            response = self.client.get(
+                self.return_url,
+                {'attemptId': attempt.pk},
+                secure=True,
+            )
+
+        self.assertRedirects(response, reverse('cart'), fetch_redirect_response=False)
+        resolve_status.assert_not_called()
+        self.assertNotIn(self.order.pk, self.client.session.get('recent_order_ids', []))
+        denied = self.client.get(
+            reverse('order_success', kwargs={'order_id': self.order.pk}),
+            secure=True,
+        )
+        self.assertEqual(denied.status_code, 404)
 
 
 class DropshipperMonobankCallbackSecurityTests(TestCase):
