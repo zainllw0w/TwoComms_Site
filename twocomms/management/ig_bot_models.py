@@ -47,6 +47,9 @@ __all__ = [
     "IgPaymentReviewDecision",
     "IgOrderAttribution",
     "IgOrderLinkEvent",
+    "IgOrderAssignment",
+    "IgOrderAssignmentEvent",
+    "IgOrderCustomerEvent",
     "IgCommercialEpisode",
     "IgCommercialEpisodeEvent",
     "IgPostSaleCase",
@@ -1163,6 +1166,205 @@ class IgOrderLinkEvent(models.Model):
 
     def delete(self, *args, **kwargs):
         raise ValueError("IgOrderLinkEvent is append-only")
+
+
+class IgOrderAssignment(models.Model):
+    """Current operational owner of an order in the Instagram workspace."""
+
+    class Source(models.TextChoices):
+        PROVIDER_AUTO = "provider_auto", _("Автоматично за оплатою")
+        CHECKOUT_AUTO = "checkout_auto", _("Автоматично через Direct checkout")
+        MANAGER_PAYMENT_REVIEW = "manager_payment_review", _("Менеджер після перевірки оплати")
+        MANAGER_MANUAL = "manager_manual", _("Менеджер вручну")
+        MANAGER_CREATED = "manager_created", _("Створено менеджером")
+        LEGACY_ATTRIBUTION = "legacy_attribution", _("Імпортовано з атрибуції")
+
+    order = models.OneToOneField(
+        "orders.Order",
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="instagram_assignment",
+    )
+    client = models.ForeignKey(
+        "management.IgClient",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="order_assignments",
+    )
+    source = models.CharField(max_length=32, choices=Source.choices, db_index=True)
+    assigned_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="ig_order_assignments",
+    )
+    assigned_at = models.DateTimeField(default=timezone.now, db_index=True)
+    unassigned_at = models.DateTimeField(null=True, blank=True)
+    version = models.PositiveIntegerField(default=1)
+    last_reason_code = models.CharField(max_length=64, blank=True, default="")
+    last_reason = models.CharField(max_length=500, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-assigned_at", "-id"]
+        indexes = [
+            models.Index(fields=["client", "-assigned_at"], name="ig_assign_client_dt"),
+            models.Index(fields=["source", "-assigned_at"], name="ig_assign_source_dt"),
+        ]
+
+
+class _AppendOnlyOrderAssignmentEventQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValueError("IgOrderAssignmentEvent is append-only")
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        raise ValueError("IgOrderAssignmentEvent is append-only")
+
+    def delete(self):
+        raise ValueError("IgOrderAssignmentEvent is append-only")
+
+
+class IgOrderAssignmentEvent(models.Model):
+    """Immutable audit trail for manager and automatic assignment changes."""
+
+    class Kind(models.TextChoices):
+        LINKED = "linked", _("Прив'язано")
+        UNLINKED = "unlinked", _("Відв'язано")
+        AUTO_CONFIRMED = "auto_confirmed", _("Автоматичну прив'язку підтверджено")
+
+    class ActorSource(models.TextChoices):
+        MANAGEMENT_USER = "management_user", _("Користувач management")
+        AUTOMATION = "automation", _("Автоматизація")
+        MIGRATION = "migration", _("Міграція")
+
+    operation_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    assignment = models.ForeignKey(
+        "management.IgOrderAssignment",
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="events",
+    )
+    order = models.ForeignKey(
+        "orders.Order",
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="instagram_assignment_events",
+    )
+    kind = models.CharField(max_length=24, choices=Kind.choices, db_index=True)
+    from_client = models.ForeignKey(
+        "management.IgClient",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="order_assignment_events_from",
+    )
+    to_client = models.ForeignKey(
+        "management.IgClient",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="order_assignment_events_to",
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="ig_order_assignment_events",
+    )
+    actor_source = models.CharField(max_length=24, choices=ActorSource.choices)
+    assignment_source = models.CharField(max_length=32, choices=IgOrderAssignment.Source.choices)
+    reason_code = models.CharField(max_length=64, blank=True, default="")
+    reason = models.CharField(max_length=500, blank=True, default="")
+    assignment_version = models.PositiveIntegerField()
+    snapshot = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    objects = models.Manager.from_queryset(_AppendOnlyOrderAssignmentEventQuerySet)()
+
+    class Meta:
+        ordering = ["-id"]
+        indexes = [
+            models.Index(fields=["assignment", "-created_at"], name="ig_assign_evt_dt"),
+            models.Index(fields=["order", "-created_at"], name="ig_assign_order_evt"),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk and not kwargs.get("force_insert"):
+            raise ValueError("IgOrderAssignmentEvent is append-only")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgOrderAssignmentEvent is append-only")
+
+
+class IgOrderCustomerEvent(models.Model):
+    """Durable localized customer message derived from current order ownership."""
+
+    class Kind(models.TextChoices):
+        TTN_ASSIGNED = "ttn_assigned", _("ТТН прив'язано")
+        DELIVERED_REVIEW = "delivered_review", _("Запит відгуку після отримання")
+
+    class State(models.TextChoices):
+        PENDING = "pending", _("Очікує")
+        PROCESSING = "processing", _("Обробляється")
+        SENT = "sent", _("Надіслано")
+        WAITING_WINDOW = "waiting_window", _("Очікує вікна відповіді")
+        MANAGER_REVIEW = "manager_review", _("Потрібен менеджер")
+        AMBIGUOUS = "ambiguous", _("Невідомий результат")
+        FAILED = "failed", _("Помилка")
+        CANCELLED = "cancelled", _("Скасовано")
+
+    event_key = models.CharField(max_length=180, unique=True)
+    assignment = models.ForeignKey(
+        "management.IgOrderAssignment",
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="customer_events",
+    )
+    assignment_version = models.PositiveIntegerField()
+    order = models.ForeignKey(
+        "orders.Order",
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="instagram_customer_events",
+    )
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="order_customer_events",
+    )
+    kind = models.CharField(max_length=32, choices=Kind.choices, db_index=True)
+    locale = models.CharField(max_length=12, default="uk")
+    message_snapshot = models.TextField()
+    payload = models.JSONField(default=dict, blank=True)
+    state = models.CharField(max_length=24, choices=State.choices, default=State.PENDING, db_index=True)
+    due_at = models.DateTimeField(default=timezone.now, db_index=True)
+    attempts = models.PositiveIntegerField(default=0)
+    lease_token = models.CharField(max_length=64, blank=True, default="")
+    lease_expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    provider_message_id = models.CharField(max_length=128, blank=True, default="")
+    last_error = models.CharField(max_length=1000, blank=True, default="")
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["due_at", "id"]
+        indexes = [
+            models.Index(fields=["state", "due_at", "id"], name="ig_order_evt_state_due"),
+            models.Index(fields=["client", "-created_at"], name="ig_order_evt_client_dt"),
+            models.Index(fields=["order", "kind"], name="ig_order_evt_kind"),
+        ]
 
 
 class IgCommercialEpisode(models.Model):
