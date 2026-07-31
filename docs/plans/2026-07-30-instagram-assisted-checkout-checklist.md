@@ -143,7 +143,12 @@ successful command alone is not production proof.
 - [ ] Keep the page useful when product image fails.
 - [ ] Provide recipient full-name field.
 - [ ] Provide Ukrainian phone input with normalization.
-- [ ] Require email and explain that receipt/confirmation is sent there.
+- [ ] Keep email optional but visually recommended, validate it when present,
+  and explain subtly that receipt/confirmation can be sent there.
+- [ ] Render one shared maintainable HTML checkout template from proposal rows;
+  never generate or deploy a physical page file per customer.
+- [ ] Substitute frozen existing catalog/variant images and facts directly so
+  proposal creation remains fast and deterministic.
 - [ ] Reuse signed Nova Poshta city autocomplete.
 - [ ] Provide branch/post-locker segmented selection.
 - [ ] Reuse signed warehouse autocomplete and server validation.
@@ -178,6 +183,8 @@ successful command alone is not production proof.
 - [ ] Use 300-400 ms one-time entrance animation only.
 - [ ] Animate only opacity/transform for entrance.
 - [ ] Add short stable loading and verified-success transitions.
+- [ ] Ensure no animated/transformed ancestor changes the containing block of
+  the fixed mobile payment rail.
 - [ ] Disable nonessential movement under `prefers-reduced-motion`.
 - [ ] No infinite shimmer, glow, rotating gradient, or layout-shifting animation.
 - [ ] Verify text never overlaps or overflows at all target viewports.

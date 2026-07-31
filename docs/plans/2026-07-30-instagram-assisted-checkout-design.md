@@ -8,10 +8,13 @@
 
 When an Instagram customer is ready to buy, the bot must stop sending a direct
 Monobank provider URL. It must create a branded, personal TwoComms proposal with
-the agreed products already configured. The customer verifies the immutable
-selection, enters delivery and email data, and continues to Monobank from the
-site. A verified payment creates one real order and completes the Instagram
-commercial chain through payment, TTN, delivery, and review request.
+the agreed products already configured. This is a ready checkout document, not
+a landing page: one maintainable HTML template renders a unique proposal from
+server data and a short-lived access token. The customer verifies the immutable
+selection, enters delivery data and an optional recommended receipt email, and
+continues to Monobank from the site. A verified payment creates one real order
+and completes the Instagram commercial chain through payment, TTN, delivery,
+and review request.
 
 The routine path is fully automated. Manager involvement is an exception for
 ambiguous evidence, provider rejection, expired Meta permissions, or inventory
@@ -34,6 +37,9 @@ the provider did not confirm it.
    locked recipient data or see full sensitive values after submit.
 7. **Mobile first.** The 320-430 px experience is primary; desktop remains
    clear and restrained.
+8. **Fast composition.** The bot creates rows and a token, not a physical HTML
+   file per customer. Existing catalog/variant images and frozen product facts
+   are substituted directly into the shared template.
 
 ## 3. System architecture
 
@@ -322,7 +328,7 @@ Selected products
 Recipient
 Full name
 Phone
-Email  "Receipt and confirmation arrive here"
+Email (optional, recommended)  "Receipt and confirmation can arrive here"
 
 Delivery
 Nova Poshta city autocomplete
@@ -365,7 +371,8 @@ Price summary
 ### Motion
 
 - 300-400 ms one-time stagger on product/form entrance using only opacity and
-  transform.
+  transform. Any ancestor of the fixed mobile payment rail uses opacity only so
+  it never creates a transformed containing block.
 - 150-200 ms field validation transitions.
 - Payment button changes to a stable loading state without resizing.
 - Verified success uses a short check-draw transition.
@@ -391,7 +398,7 @@ Editable fields:
 
 - full recipient name;
 - Ukrainian phone;
-- required email;
+- optional email, normalized and validated when present;
 - Nova Poshta city;
 - branch or post-locker;
 - optional promo code.
@@ -405,7 +412,7 @@ Server validation:
   promo eligibility under a row lock;
 - creates one fingerprint from proposal ID and revision, independent of browser
   session, so forwarded browsers reuse the same attempt;
-- sends email in Monobank `customerEmails` where supported;
+- sends a present email in Monobank `customerEmails` where supported;
 - sets invoice validity to the remaining proposal lifetime, maximum 12 hours;
 - sets session ownership needed for the secure success page.
 - claims invoice creation with a durable lease before the provider call;
@@ -491,9 +498,9 @@ The prompt and playbooks must instruct the bot to:
 
 ```text
 I prepared your TwoComms proposal. Check the products, enter Nova Poshta
-delivery details and the email for your receipt, then continue to protected
-payment. It takes up to two minutes. If you want to change an item, write here
-and I will update the proposal.
+delivery details and, if convenient, an email for your receipt, then continue
+to protected payment. It takes up to two minutes. If you want to change an
+item, write here and I will update the proposal.
 ```
 
 8. Never invent or type a Monobank URL.

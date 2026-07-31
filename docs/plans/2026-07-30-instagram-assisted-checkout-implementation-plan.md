@@ -448,12 +448,12 @@ git commit -m "feat: validate Instagram checkout configurations"
 
 **Files:**
 - Modify: `twocomms/management/services/ig_checkout.py`
-- Create: `twocomms/storefront/views/instagram_checkout.py`
+- Create: `twocomms/storefront/views/ig_checkout.py`
 - Modify: `twocomms/storefront/views/__init__.py`
 - Modify: `twocomms/storefront/urls.py`
 - Modify: `twocomms/twocomms/settings.py` or the established request-rate-limit
   module used by this checkout
-- Test: `twocomms/storefront/tests/test_instagram_checkout_access.py`
+- Test: `twocomms/storefront/tests/test_ig_checkout_access.py`
 
 - [ ] **Step 1: Write failing access tests**
 
@@ -462,8 +462,8 @@ token-free clean URL, independent forwarded session, grant expiry, share-token
 CSRF, and headers.
 
 ```python
-response = self.client.get(reverse("instagram_checkout_access", args=[raw_token]))
-self.assertRedirects(response, reverse("instagram_checkout", args=[proposal.public_id]))
+response = self.client.get(reverse("ig_checkout_token_entry", kwargs={"token": raw_token}))
+self.assertRedirects(response, reverse("ig_checkout_proposal", kwargs={"proposal_id": proposal.public_id}))
 self.assertNotIn(raw_token, response["Location"])
 ```
 
@@ -472,7 +472,7 @@ self.assertNotIn(raw_token, response["Location"])
 ```bash
 DEBUG=1 SECRET_KEY=local-baseline-only \
   /Users/zainllw0w/TwoComms/site/.venv/bin/python manage.py test \
-  storefront.tests.test_instagram_checkout_access -v 2
+  storefront.tests.test_ig_checkout_access -v 2
 ```
 
 Expected: missing routes/services.
@@ -539,22 +539,21 @@ with a captured test log line, not only a response-header assertion.
 ```bash
 DEBUG=1 SECRET_KEY=local-baseline-only \
   /Users/zainllw0w/TwoComms/site/.venv/bin/python manage.py test \
-  storefront.tests.test_instagram_checkout_access -v 2
+  storefront.tests.test_ig_checkout_access -v 2
 git add twocomms/management/services/ig_checkout.py \
-  twocomms/storefront/views/instagram_checkout.py \
+  twocomms/storefront/views/ig_checkout.py \
   twocomms/storefront/views/__init__.py twocomms/storefront/urls.py \
-  twocomms/storefront/tests/test_instagram_checkout_access.py
+  twocomms/storefront/tests/test_ig_checkout_access.py
 git commit -m "feat: add secure Instagram proposal access"
 ```
 
 ### Task 4: Render proposal states and the delivery form
 
 **Files:**
-- Create: `twocomms/twocomms_django_theme/templates/pages/instagram_checkout.html`
-- Create: `twocomms/twocomms_django_theme/templates/pages/instagram_checkout_success.html`
-- Modify: `twocomms/storefront/views/instagram_checkout.py`
-- Test: `twocomms/storefront/tests/test_instagram_checkout_view.py`
-- Test: `tests/test_instagram_checkout_template_source.py`
+- Create: `twocomms/twocomms_django_theme/templates/pages/ig_checkout.html`
+- Modify: `twocomms/storefront/views/ig_checkout.py`
+- Test: `twocomms/storefront/tests/test_ig_checkout_view.py`
+- Test: `tests/instagram-checkout-ui-contract.test.cjs`
 
 - [ ] **Step 1: Write failing render/security tests**
 
@@ -569,8 +568,8 @@ payment/replacement actions and exposes only its correct Direct/retry/review pat
 ```bash
 DEBUG=1 SECRET_KEY=local-baseline-only \
   /Users/zainllw0w/TwoComms/site/.venv/bin/python manage.py test \
-  storefront.tests.test_instagram_checkout_view -v 2
-python -m unittest tests.test_instagram_checkout_template_source -v
+  storefront.tests.test_ig_checkout_view -v 2
+python -m unittest tests.test_ig_checkout_template_source -v
 ```
 
 - [ ] **Step 3: Implement state view models**
@@ -594,18 +593,21 @@ Render no raw token and no unmasked PII after lock.
 Use real form labels, `autocomplete`, `inputmode`, field error associations,
 stable image dimensions, accessible share/Direct actions, and server-rendered
 states. Keep the checkout itself on the first screen; no marketing landing hero.
+Use one shared template populated from proposal/item snapshots rather than a
+generated HTML file per customer. Email is optional but recommended and must be
+validated when non-empty.
 
 - [ ] **Step 5: Run tests and commit**
 
 ```bash
 DEBUG=1 SECRET_KEY=local-baseline-only \
   /Users/zainllw0w/TwoComms/site/.venv/bin/python manage.py test \
-  storefront.tests.test_instagram_checkout_view -v 2
-python -m unittest tests.test_instagram_checkout_template_source -v
-git add twocomms/twocomms_django_theme/templates/pages/instagram_checkout*.html \
-  twocomms/storefront/views/instagram_checkout.py \
-  twocomms/storefront/tests/test_instagram_checkout_view.py \
-  tests/test_instagram_checkout_template_source.py
+  storefront.tests.test_ig_checkout_view -v 2
+python -m unittest tests.test_ig_checkout_template_source -v
+git add twocomms/twocomms_django_theme/templates/pages/ig_checkout*.html \
+  twocomms/storefront/views/ig_checkout.py \
+  twocomms/storefront/tests/test_ig_checkout_view.py \
+  tests/test_ig_checkout_template_source.py
 git commit -m "feat: render Instagram checkout proposal states"
 ```
 
@@ -615,8 +617,7 @@ git commit -m "feat: render Instagram checkout proposal states"
 - Create: `twocomms/twocomms_django_theme/static/css/instagram-checkout.css`
 - Create: `twocomms/twocomms_django_theme/static/js/instagram-checkout.js`
 - Reuse: `twocomms/twocomms_django_theme/static/js/modules/nova-poshta-form-bridge.js`
-- Modify: `twocomms/twocomms_django_theme/templates/pages/instagram_checkout.html`
-- Modify: `twocomms/twocomms_django_theme/templates/pages/instagram_checkout_success.html`
+- Modify: `twocomms/twocomms_django_theme/templates/pages/ig_checkout.html`
 - Test: `tests/instagram-checkout-ui-contract.test.cjs`
 
 - [ ] **Step 1: Write failing source/UI contract tests**
@@ -642,11 +643,15 @@ Implement:
 - 1040 px desktop grid at 42/58;
 - near-black frame, light form surface, orange CTA, verified green;
 - stable 4:5 media and compact product facts;
+- existing frozen catalog/variant images, with no per-proposal asset generation;
 - sticky mobile total/CTA;
 - sticky CTA safe-area padding and sufficient terminal scroll padding so focused
   delivery/promo fields, field errors, and the last product row remain visible;
 - visible focus and 44 px targets;
 - reduced-motion override.
+- opacity-only animation on any ancestor containing the fixed mobile rail;
+  transformed entrance motion is limited to descendants that cannot change the
+  rail containing block.
 
 Do not modify global cart CSS unless an existing shared Nova Poshta selector
 requires a narrowly scoped compatibility rule.
@@ -669,7 +674,7 @@ No framework, token logging, uncontrolled polling, or layout-changing text.
 node --test tests/instagram-checkout-ui-contract.test.cjs
 git add twocomms/twocomms_django_theme/static/css/instagram-checkout.css \
   twocomms/twocomms_django_theme/static/js/instagram-checkout.js \
-  twocomms/twocomms_django_theme/templates/pages/instagram_checkout*.html \
+  twocomms/twocomms_django_theme/templates/pages/ig_checkout*.html \
   tests/instagram-checkout-ui-contract.test.cjs
 git commit -m "feat: style mobile Instagram checkout"
 ```
@@ -677,7 +682,7 @@ git commit -m "feat: style mobile Instagram checkout"
 ### Task 6: Validate Nova Poshta delivery, email, promo, and recipient locking
 
 **Files:**
-- Modify: `twocomms/storefront/views/instagram_checkout.py`
+- Modify: `twocomms/storefront/views/ig_checkout.py`
 - Modify: `twocomms/management/services/ig_checkout.py`
 - Reuse: `twocomms/orders/nova_poshta_checkout.py`
 - Reuse: `twocomms/storefront/views/cart.py`
@@ -687,12 +692,13 @@ git commit -m "feat: style mobile Instagram checkout"
 - Modify: `twocomms/twocomms_django_theme/static/js/modules/nova-poshta-selector.js`
   only to expose the existing signed selection adapter to this isolated page
 - Reuse and initialize: `twocomms/twocomms_django_theme/static/js/modules/nova-poshta-form-bridge.js`
-- Test: `twocomms/storefront/tests/test_instagram_checkout_form.py`
+- Test: `twocomms/storefront/tests/test_ig_checkout_form.py`
 - Modify: `twocomms/storefront/tests/test_nova_poshta_checkout_validation.py`
 
 - [ ] **Step 1: Write failing form tests**
 
-Cover phone/email normalization, missing email, unsigned city/warehouse, branch
+Cover phone/email normalization, an empty optional email, invalid non-empty
+email, unsigned city/warehouse, branch
 versus post-locker, stale revision, expired proposal, promo eligibility,
 negotiated-promo stacking rejection, first-submit-wins, and masked reopen. The
 bridge and browser contract must also cover mocked city/warehouse responses,
@@ -704,7 +710,7 @@ stale-token rejection, and wrong-city warehouse rejection.
 ```bash
 DEBUG=1 SECRET_KEY=local-baseline-only \
   /Users/zainllw0w/TwoComms/site/.venv/bin/python manage.py test \
-  storefront.tests.test_instagram_checkout_form \
+  storefront.tests.test_ig_checkout_form \
   storefront.tests.test_nova_poshta_checkout_validation -v 2
 ```
 
@@ -744,13 +750,13 @@ one remaining use and prove only one invoice receives the discount.
 ```bash
 DEBUG=1 SECRET_KEY=local-baseline-only \
   /Users/zainllw0w/TwoComms/site/.venv/bin/python manage.py test \
-  storefront.tests.test_instagram_checkout_form \
+  storefront.tests.test_ig_checkout_form \
   storefront.tests.test_nova_poshta_checkout_validation -v 1
-git add twocomms/storefront/views/instagram_checkout.py \
+git add twocomms/storefront/views/ig_checkout.py \
   twocomms/management/services/ig_checkout.py \
   twocomms/storefront/models.py twocomms/storefront/migrations/ \
   twocomms/twocomms_django_theme/static/js/modules/nova-poshta-selector.js \
-  twocomms/storefront/tests/test_instagram_checkout_form.py \
+  twocomms/storefront/tests/test_ig_checkout_form.py \
   twocomms/storefront/tests/test_nova_poshta_checkout_validation.py
 git commit -m "feat: validate Instagram checkout delivery"
 ```
@@ -846,9 +852,9 @@ git commit -m "feat: support evidence-bound payment attempts"
 - Modify: `twocomms/storefront/models.py`
 - Create: one migration in `twocomms/storefront/migrations/` for atomic promo
   reservations, named from the final rebased graph
-- Modify: `twocomms/storefront/views/instagram_checkout.py`
+- Modify: `twocomms/storefront/views/ig_checkout.py`
 - Modify: `twocomms/storefront/views/monobank.py`
-- Test: `twocomms/storefront/tests/test_instagram_checkout_payment.py`
+- Test: `twocomms/storefront/tests/test_ig_checkout_payment.py`
 - Modify: `twocomms/storefront/tests/test_monobank_webhook.py`
 
 - [ ] **Step 1: Write failing concurrency tests**
@@ -884,7 +890,7 @@ Use `TransactionTestCase` and two clients/threads to assert:
 ```bash
 DEBUG=1 SECRET_KEY=local-baseline-only \
   /Users/zainllw0w/TwoComms/site/.venv/bin/python manage.py test \
-  storefront.tests.test_instagram_checkout_payment \
+  storefront.tests.test_ig_checkout_payment \
   storefront.tests.test_monobank_webhook -v 2
 ```
 
@@ -945,15 +951,15 @@ and lifecycle review state idempotently.
 ```bash
 DEBUG=1 SECRET_KEY=local-baseline-only \
   /Users/zainllw0w/TwoComms/site/.venv/bin/python manage.py test \
-  storefront.tests.test_instagram_checkout_payment \
+  storefront.tests.test_ig_checkout_payment \
   storefront.tests.test_monobank_webhook -v 1
 git add twocomms/management/services/ig_checkout.py \
   twocomms/orders/models.py twocomms/orders/migrations/ \
   twocomms/orders/payment_attempts.py \
   twocomms/storefront/models.py twocomms/storefront/migrations/ \
-  twocomms/storefront/views/instagram_checkout.py \
+  twocomms/storefront/views/ig_checkout.py \
   twocomms/storefront/views/monobank.py \
-  twocomms/storefront/tests/test_instagram_checkout_payment.py \
+  twocomms/storefront/tests/test_ig_checkout_payment.py \
   twocomms/storefront/tests/test_monobank_webhook.py
 git commit -m "feat: create idempotent Instagram checkout invoices"
 ```
@@ -1252,13 +1258,13 @@ git commit -m "feat: show catalog media in Instagram Direct"
 ### Task 12: Add proposal analytics and verified success behavior
 
 **Files:**
-- Modify: `twocomms/storefront/views/instagram_checkout.py`
-- Modify: `twocomms/twocomms_django_theme/templates/pages/instagram_checkout.html`
-- Modify: `twocomms/twocomms_django_theme/templates/pages/instagram_checkout_success.html`
+- Modify: `twocomms/storefront/views/ig_checkout.py`
+- Modify: `twocomms/twocomms_django_theme/templates/pages/ig_checkout.html`
+- Modify: `twocomms/twocomms_django_theme/templates/pages/ig_checkout_success.html`
 - Modify: `twocomms/twocomms_django_theme/static/js/instagram-checkout.js`
 - Modify: `twocomms/storefront/views/monobank.py`
 - Modify: `twocomms/orders/facebook_conversions_service.py`
-- Test: `twocomms/storefront/tests/test_instagram_checkout_analytics.py`
+- Test: `twocomms/storefront/tests/test_ig_checkout_analytics.py`
 - Modify: `twocomms/storefront/tests/test_meta_pixel_configuration.py`
 
 - [ ] **Step 1: Write failing event-timing tests**
@@ -1280,7 +1286,7 @@ consent gate and server events respect approved privacy/exclusion policy.
 ```bash
 DEBUG=1 SECRET_KEY=local-baseline-only \
   /Users/zainllw0w/TwoComms/site/.venv/bin/python manage.py test \
-  storefront.tests.test_instagram_checkout_analytics \
+  storefront.tests.test_ig_checkout_analytics \
   storefront.tests.test_meta_pixel_configuration -v 2
 ```
 
@@ -1313,15 +1319,15 @@ The browser polls with bounded exponential backoff and no PII.
 ```bash
 DEBUG=1 SECRET_KEY=local-baseline-only \
   /Users/zainllw0w/TwoComms/site/.venv/bin/python manage.py test \
-  storefront.tests.test_instagram_checkout_analytics \
+  storefront.tests.test_ig_checkout_analytics \
   storefront.tests.test_meta_pixel_configuration \
   storefront.tests.test_monobank_webhook -v 1
-git add twocomms/storefront/views/instagram_checkout.py \
+git add twocomms/storefront/views/ig_checkout.py \
   twocomms/storefront/views/monobank.py \
   twocomms/orders/facebook_conversions_service.py \
-  twocomms/twocomms_django_theme/templates/pages/instagram_checkout*.html \
+  twocomms/twocomms_django_theme/templates/pages/ig_checkout*.html \
   twocomms/twocomms_django_theme/static/js/instagram-checkout.js \
-  twocomms/storefront/tests/test_instagram_checkout_analytics.py \
+  twocomms/storefront/tests/test_ig_checkout_analytics.py \
   twocomms/storefront/tests/test_meta_pixel_configuration.py
 git commit -m "feat: track assisted checkout conversions"
 ```
@@ -1735,11 +1741,11 @@ DEBUG=1 SECRET_KEY=local-baseline-only \
   management.tests_ig_checkout_delivery_review \
   management.tests_ig_checkout_workspace \
   management.tests_ig_checkout_reconciliation \
-  storefront.tests.test_instagram_checkout_access \
-  storefront.tests.test_instagram_checkout_view \
-  storefront.tests.test_instagram_checkout_form \
-  storefront.tests.test_instagram_checkout_payment \
-  storefront.tests.test_instagram_checkout_analytics -v 1
+  storefront.tests.test_ig_checkout_access \
+  storefront.tests.test_ig_checkout_view \
+  storefront.tests.test_ig_checkout_form \
+  storefront.tests.test_ig_checkout_payment \
+  storefront.tests.test_ig_checkout_analytics -v 1
 ```
 
 Expected: all pass.
