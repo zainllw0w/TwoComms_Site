@@ -3,6 +3,129 @@ const SEARCH_DEBOUNCE_MS = 250;
 const controllerRegistry = new WeakMap();
 const submitControllerRegistry = new WeakMap();
 
+const COPY = {
+  uk: {
+    cityStart: 'Почніть вводити назву міста.',
+    warehouseStart: 'Після вибору міста почніть вводити номер або адресу відділення.',
+    cityConfirmed: 'Місто підтверджено в довіднику Нової пошти.',
+    warehouseConfirmed: 'Пункт доставки підтверджено в довіднику Нової пошти.',
+    cityChecking: 'Перевіряємо збережене місто в довіднику Нової пошти…',
+    warehouseChecking: 'Перевіряємо збережений пункт доставки в довіднику Нової пошти…',
+    cityChoose: 'Підтвердіть місто, обравши його зі списку Нової пошти.',
+    warehouseChoose: 'Підтвердіть відділення або поштомат, обравши його зі списку.',
+    cityMin: 'Введіть щонайменше 2 символи для пошуку міста.',
+    searchDisabled: 'Довідник Нової пошти тимчасово недоступний. Спробуйте ще раз трохи пізніше.',
+    warehouseSearch: 'Шукаємо відділення або поштомат…',
+    citySearch: 'Шукаємо місто в довіднику Нової пошти…',
+    cityEmpty: 'За цим запитом місто не знайдено. Уточніть назву і виберіть варіант зі списку.',
+    warehouseEmpty: 'За цим запитом нічого не знайдено. Уточніть номер або адресу і виберіть пункт зі списку.',
+    citySelect: 'Оберіть місто зі списку Нової пошти.',
+    warehouseSelect: 'Оберіть відділення або поштомат зі списку Нової пошти.',
+    cityRequired: 'Потрібно обрати місто зі списку Нової пошти.',
+    warehouseRequired: 'Потрібно обрати відділення або поштомат зі списку Нової пошти.',
+    cityError: 'Не вдалося завантажити список міст Нової пошти. Спробуйте ще раз.',
+    warehouseError: 'Не вдалося завантажити список відділень Нової пошти. Спробуйте ще раз.',
+    cityFirst: 'Спочатку оберіть місто зі списку Нової пошти.',
+    warehousesAvailable: 'Доступно пунктів: {count}',
+    branchLabel: 'Відділення',
+    postomatLabel: 'Поштомат',
+  },
+  ru: {
+    cityStart: 'Начните вводить название города.',
+    warehouseStart: 'После выбора города начните вводить номер или адрес отделения.',
+    cityConfirmed: 'Город подтвержден в справочнике Новой почты.',
+    warehouseConfirmed: 'Пункт доставки подтвержден в справочнике Новой почты.',
+    cityChecking: 'Проверяем сохраненный город в справочнике Новой почты…',
+    warehouseChecking: 'Проверяем сохраненный пункт доставки в справочнике Новой почты…',
+    cityChoose: 'Подтвердите город, выбрав его из списка Новой почты.',
+    warehouseChoose: 'Подтвердите отделение или почтомат, выбрав его из списка.',
+    cityMin: 'Введите минимум 2 символа для поиска города.',
+    searchDisabled: 'Справочник Новой почты временно недоступен. Попробуйте позже.',
+    warehouseSearch: 'Ищем отделение или почтомат…',
+    citySearch: 'Ищем город в справочнике Новой почты…',
+    cityEmpty: 'Город не найден. Уточните название и выберите вариант из списка.',
+    warehouseEmpty: 'Ничего не найдено. Уточните номер или адрес и выберите пункт из списка.',
+    citySelect: 'Выберите город из списка Новой почты.',
+    warehouseSelect: 'Выберите отделение или почтомат из списка Новой почты.',
+    cityRequired: 'Нужно выбрать город из списка Новой почты.',
+    warehouseRequired: 'Нужно выбрать отделение или почтомат из списка Новой почты.',
+    cityError: 'Не удалось загрузить список городов Новой почты. Попробуйте еще раз.',
+    warehouseError: 'Не удалось загрузить список отделений Новой почты. Попробуйте еще раз.',
+    cityFirst: 'Сначала выберите город из списка Новой почты.',
+    warehousesAvailable: 'Доступно пунктов: {count}',
+    branchLabel: 'Отделение',
+    postomatLabel: 'Почтомат',
+  },
+  en: {
+    cityStart: 'Start typing a city name.',
+    warehouseStart: 'Choose a city, then type a branch number or address.',
+    cityConfirmed: 'City verified in the Nova Poshta directory.',
+    warehouseConfirmed: 'Pickup point verified in the Nova Poshta directory.',
+    cityChecking: 'Checking the saved city in the Nova Poshta directory…',
+    warehouseChecking: 'Checking the saved pickup point in the Nova Poshta directory…',
+    cityChoose: 'Confirm the city by choosing it from the Nova Poshta list.',
+    warehouseChoose: 'Confirm the branch or locker by choosing it from the list.',
+    cityMin: 'Enter at least 2 characters to search for a city.',
+    searchDisabled: 'The Nova Poshta directory is temporarily unavailable. Try again later.',
+    warehouseSearch: 'Searching branches and lockers…',
+    citySearch: 'Searching the Nova Poshta directory…',
+    cityEmpty: 'No city found. Refine the name and choose an option from the list.',
+    warehouseEmpty: 'No pickup point found. Refine the number or address and choose an option.',
+    citySelect: 'Choose a city from the Nova Poshta list.',
+    warehouseSelect: 'Choose a branch or locker from the Nova Poshta list.',
+    cityRequired: 'Choose a city from the Nova Poshta list.',
+    warehouseRequired: 'Choose a branch or locker from the Nova Poshta list.',
+    cityError: 'We could not load the Nova Poshta city list. Try again.',
+    warehouseError: 'We could not load the Nova Poshta pickup point list. Try again.',
+    cityFirst: 'Choose a city from the Nova Poshta list first.',
+    warehousesAvailable: '{count} pickup points available',
+    branchLabel: 'Branch',
+    postomatLabel: 'Locker',
+  },
+};
+
+const SETTLEMENT_TYPE_COPY = {
+  uk: {
+    city: 'Місто',
+    town: 'Містечко',
+    village: 'Село',
+    settlement: 'Селище',
+  },
+  ru: {
+    city: 'Город',
+    town: 'Городок',
+    village: 'Село',
+    settlement: 'Посёлок',
+  },
+  en: {
+    city: 'City',
+    town: 'Town',
+    village: 'Village',
+    settlement: 'Settlement',
+  },
+};
+
+const SETTLEMENT_TYPE_KEYS = {
+  'місто': 'city',
+  'город': 'city',
+  city: 'city',
+  'містечко': 'town',
+  'городок': 'town',
+  town: 'town',
+  'село': 'village',
+  village: 'village',
+  'селище': 'settlement',
+  'посёлок': 'settlement',
+  'поселок': 'settlement',
+  settlement: 'settlement',
+};
+
+function localizeSettlementType(value, locale) {
+  const normalized = String(value || '').trim().toLowerCase();
+  const key = SETTLEMENT_TYPE_KEYS[normalized];
+  return key ? (SETTLEMENT_TYPE_COPY[locale] || SETTLEMENT_TYPE_COPY.uk)[key] : String(value || '').trim();
+}
+
 function debounce(fn, wait) {
   let timer = null;
   return (...args) => {
@@ -36,6 +159,7 @@ function hideResults(container, input) {
   }
   if (input) {
     input.setAttribute('aria-expanded', 'false');
+    input.removeAttribute('aria-activedescendant');
   }
 }
 
@@ -48,10 +172,14 @@ function showResults(container, input) {
   }
 }
 
-function createOptionButton(item, buildMeta) {
+function createOptionButton(item, buildMeta, { id = '', index = 0 } = {}) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'np-selector-option';
+  button.id = id;
+  button.dataset.optionIndex = String(index);
+  button.setAttribute('role', 'option');
+  button.setAttribute('aria-selected', 'false');
 
   const main = document.createElement('div');
   main.className = 'np-selector-option-main';
@@ -93,10 +221,17 @@ function setFieldError(field, message) {
   }
   field.classList.add('cart-form-input-error');
   field.classList.add('is-invalid');
+  field.setAttribute('aria-invalid', 'true');
   const err = ensureErrorNode(field);
   if (err) {
+    if (!err.id) {
+      err.id = `${field.id || field.name || 'np-field'}-error`;
+    }
     err.textContent = message;
     err.style.display = 'block';
+    const describedBy = new Set(String(field.getAttribute('aria-describedby') || '').split(/\s+/).filter(Boolean));
+    describedBy.add(err.id);
+    field.setAttribute('aria-describedby', [...describedBy].join(' '));
   }
 }
 
@@ -106,6 +241,7 @@ function clearFieldError(field) {
   }
   field.classList.remove('cart-form-input-error');
   field.classList.remove('is-invalid');
+  field.removeAttribute('aria-invalid');
   const wrap = getFieldContainer(field);
   const err = wrap?.querySelector('.cart-form-error');
   if (err) {
@@ -162,6 +298,11 @@ class NovaPoshtaSelectorController {
     this.warehouseTokenInput = form.querySelector('[data-np-warehouse-token]');
     this.kindButtons = Array.from(form.querySelectorAll('[data-np-kind-toggle] [data-kind]'));
     this.optionalSelection = form.dataset.npOptional === '1';
+    const locale = String(form.dataset.locale || document.documentElement.lang || 'uk')
+      .split('-')[0]
+      .toLowerCase();
+    this.locale = COPY[locale] ? locale : 'uk';
+    this.copy = COPY[this.locale];
 
     this.lookupDisabled = false;
     this.selectedSettlementRef = '';
@@ -172,6 +313,7 @@ class NovaPoshtaSelectorController {
     this.selectedWarehouseToken = '';
     this.selectedWarehouseLabel = '';
     this.activeKind = 'all';
+    this.activeResultIndex = { city: -1, warehouse: -1 };
 
     this.skipCityInputHandler = false;
     this.skipWarehouseInputHandler = false;
@@ -227,7 +369,11 @@ class NovaPoshtaSelectorController {
           return;
         }
         this.activeKind = nextKind;
-        this.kindButtons.forEach((item) => item.classList.toggle('is-active', item === button));
+        this.kindButtons.forEach((item) => {
+          const isActive = item === button;
+          item.classList.toggle('is-active', isActive);
+          item.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
         this.clearWarehouseSelection({ preserveInput: false });
         if (this.selectedSettlementRef || this.selectedCityRef) {
           this.fetchWarehouses();
@@ -253,11 +399,30 @@ class NovaPoshtaSelectorController {
       hideResults(container, event.currentTarget);
       return;
     }
-    if (event.key !== 'Enter') {
+    const options = Array.from(container?.querySelectorAll?.('[role="option"]') || []);
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Home' || event.key === 'End') {
+      if (!options.length) return;
+      event.preventDefault();
+      const type = container === this.cityResults ? 'city' : 'warehouse';
+      const direction = event.key === 'ArrowUp' ? -1 : 1;
+      let index = this.activeResultIndex[type];
+      if (event.key === 'Home') index = 0;
+      else if (event.key === 'End') index = options.length - 1;
+      else index = (index + direction + options.length) % options.length;
+      this.activeResultIndex[type] = index;
+      options.forEach((option, optionIndex) => {
+        const active = optionIndex === index;
+        option.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      event.currentTarget.setAttribute('aria-activedescendant', options[index].id);
+      options[index].scrollIntoView({ block: 'nearest' });
       return;
     }
+    if (event.key !== 'Enter') return;
 
-    const firstOption = container?.querySelector?.('[data-item-json]');
+    const type = container === this.cityResults ? 'city' : 'warehouse';
+    const activeIndex = this.activeResultIndex[type] >= 0 ? this.activeResultIndex[type] : 0;
+    const firstOption = options[activeIndex] || container?.querySelector?.('[data-item-json]');
     if (!firstOption) {
       return;
     }
@@ -272,36 +437,36 @@ class NovaPoshtaSelectorController {
 
   async restoreExistingSelection() {
     if (!this.cityInput.value.trim()) {
-      setStatus(this.cityStatus, 'Почніть вводити назву міста.', '');
-      setStatus(this.warehouseStatus, 'Після вибору міста почніть вводити номер або адресу відділення.', '');
+      setStatus(this.cityStatus, this.copy.cityStart, '');
+      setStatus(this.warehouseStatus, this.copy.warehouseStart, '');
       return;
     }
 
     if (this.selectedCityToken && this.selectedWarehouseToken) {
-      setStatus(this.cityStatus, 'Місто підтверджено в довіднику Нової пошти.', 'success');
-      setStatus(this.warehouseStatus, 'Пункт доставки підтверджено в довіднику Нової пошти.', 'success');
+      setStatus(this.cityStatus, this.copy.cityConfirmed, 'success');
+      setStatus(this.warehouseStatus, this.copy.warehouseConfirmed, 'success');
       return;
     }
 
-    setStatus(this.cityStatus, 'Перевіряємо збережене місто в довіднику Нової пошти…', 'loading');
+    setStatus(this.cityStatus, this.copy.cityChecking, 'loading');
     const cityResolved = await this.ensureCitySelection({ silent: true });
     if (!cityResolved) {
-      setStatus(this.cityStatus, 'Підтвердіть місто, обравши його зі списку Нової пошти.', '');
-      setStatus(this.warehouseStatus, 'Після підтвердження міста оберіть відділення або поштомат зі списку.', '');
+      setStatus(this.cityStatus, this.copy.cityChoose, '');
+      setStatus(this.warehouseStatus, this.copy.warehouseChoose, '');
       return;
     }
 
     if (!this.warehouseInput.value.trim()) {
-      setStatus(this.warehouseStatus, 'Після вибору міста почніть вводити номер або адресу відділення.', '');
+      setStatus(this.warehouseStatus, this.copy.warehouseStart, '');
       return;
     }
 
-    setStatus(this.warehouseStatus, 'Перевіряємо збережений пункт доставки в довіднику Нової пошти…', 'loading');
+    setStatus(this.warehouseStatus, this.copy.warehouseChecking, 'loading');
     const warehouseResolved = await this.ensureWarehouseSelection({ silent: true });
     if (!warehouseResolved) {
       setStatus(
         this.warehouseStatus,
-        'Підтвердіть відділення або поштомат, обравши його зі списку Нової пошти.',
+        this.copy.warehouseChoose,
         '',
       );
     }
@@ -322,24 +487,24 @@ class NovaPoshtaSelectorController {
 
     if (!currentValue) {
       hideResults(this.cityResults, this.cityInput);
-      setStatus(this.cityStatus, 'Почніть вводити назву міста.', '');
+      setStatus(this.cityStatus, this.copy.cityStart, '');
       return;
     }
     if (currentValue.length < CITY_MIN_CHARS) {
       hideResults(this.cityResults, this.cityInput);
-      setStatus(this.cityStatus, 'Введіть щонайменше 2 символи для пошуку міста.', '');
+      setStatus(this.cityStatus, this.copy.cityMin, '');
       return;
     }
     if (this.lookupDisabled) {
       setStatus(
         this.cityStatus,
-        'Довідник Нової пошти тимчасово недоступний. Спробуйте ще раз трохи пізніше.',
+        this.copy.searchDisabled,
         'error',
       );
       return;
     }
 
-    setStatus(this.cityStatus, 'Шукаємо місто в довіднику Нової пошти…', 'loading');
+    setStatus(this.cityStatus, this.copy.citySearch, 'loading');
     this.debouncedCityLookup();
   }
 
@@ -358,14 +523,14 @@ class NovaPoshtaSelectorController {
     if (this.lookupDisabled) {
       setStatus(
         this.warehouseStatus,
-        'Довідник Нової пошти тимчасово недоступний. Спробуйте ще раз трохи пізніше.',
+        this.copy.searchDisabled,
         'error',
       );
       return;
     }
 
     if (!currentValue && (this.selectedSettlementRef || this.selectedCityRef)) {
-      setStatus(this.warehouseStatus, 'Почніть вводити номер або адресу відділення.', '');
+      setStatus(this.warehouseStatus, this.copy.warehouseStart, '');
       return;
     }
 
@@ -376,25 +541,25 @@ class NovaPoshtaSelectorController {
             hideResults(this.warehouseResults, this.warehouseInput);
             setStatus(
               this.warehouseStatus,
-              'Спочатку оберіть місто зі списку Нової пошти.',
+              this.copy.cityFirst,
               '',
             );
             return;
           }
-          setStatus(this.warehouseStatus, 'Шукаємо відділення або поштомат…', 'loading');
+          setStatus(this.warehouseStatus, this.copy.warehouseSearch, 'loading');
           this.debouncedWarehouseLookup();
         })
         .catch(() => {
           setStatus(
             this.warehouseStatus,
-            'Не вдалося підготувати пошук відділень Нової пошти. Спробуйте ще раз.',
+            this.copy.warehouseError,
             'error',
           );
         });
       return;
     }
 
-    setStatus(this.warehouseStatus, 'Шукаємо відділення або поштомат…', 'loading');
+    setStatus(this.warehouseStatus, this.copy.warehouseSearch, 'loading');
     this.debouncedWarehouseLookup();
   }
 
@@ -408,7 +573,7 @@ class NovaPoshtaSelectorController {
         if (!resolved) {
           setStatus(
             this.warehouseStatus,
-            'Спочатку оберіть місто зі списку Нової пошти.',
+            this.copy.cityFirst,
             '',
           );
           return;
@@ -418,7 +583,7 @@ class NovaPoshtaSelectorController {
       .catch(() => {
         setStatus(
           this.warehouseStatus,
-          'Не вдалося підготувати пошук відділень Нової пошти. Спробуйте ще раз.',
+          this.copy.warehouseError,
           'error',
         );
       });
@@ -483,7 +648,8 @@ class NovaPoshtaSelectorController {
     this.cityController = new AbortController();
 
     try {
-      const response = await fetch(`${this.cityUrl}?q=${encodeURIComponent(query)}&limit=10`, {
+      const params = new URLSearchParams({ q: query, limit: '10', locale: this.locale });
+      const response = await fetch(`${this.cityUrl}?${params.toString()}`, {
         headers: {
           'X-Requested-With': 'XMLHttpRequest',
           'Cache-Control': 'no-cache',
@@ -498,7 +664,7 @@ class NovaPoshtaSelectorController {
         if (!silent) {
           setStatus(
             this.cityStatus,
-            payload.error || 'Довідник Нової пошти тимчасово недоступний. Спробуйте ще раз трохи пізніше.',
+            this.copy.searchDisabled,
             'error',
           );
           hideResults(this.cityResults, this.cityInput);
@@ -518,7 +684,7 @@ class NovaPoshtaSelectorController {
       if (!silent) {
         setStatus(
           this.cityStatus,
-          'Не вдалося завантажити список міст Нової пошти. Спробуйте ще раз.',
+          this.copy.cityError,
           'error',
         );
       }
@@ -553,6 +719,7 @@ class NovaPoshtaSelectorController {
     }
     params.set('kind', this.activeKind);
     params.set('limit', String(limit));
+    params.set('locale', this.locale);
 
     try {
       const response = await fetch(`${this.warehouseUrl}?${params.toString()}`, {
@@ -570,7 +737,7 @@ class NovaPoshtaSelectorController {
         if (!silent) {
           setStatus(
             this.warehouseStatus,
-            payload.error || 'Довідник Нової пошти тимчасово недоступний. Спробуйте ще раз трохи пізніше.',
+            response.status === 400 ? this.copy.cityFirst : this.copy.searchDisabled,
             response.status === 400 ? '' : 'error',
           );
           hideResults(this.warehouseResults, this.warehouseInput);
@@ -590,7 +757,7 @@ class NovaPoshtaSelectorController {
       if (!silent) {
         setStatus(
           this.warehouseStatus,
-          'Не вдалося завантажити список відділень Нової пошти. Спробуйте ще раз.',
+          this.copy.warehouseError,
           'error',
         );
       }
@@ -604,32 +771,34 @@ class NovaPoshtaSelectorController {
   renderCities(items) {
     if (!items.length) {
       hideResults(this.cityResults, this.cityInput);
-      setStatus(this.cityStatus, 'За цим запитом місто не знайдено. Уточніть назву і виберіть варіант зі списку.', '');
+      setStatus(this.cityStatus, this.copy.cityEmpty, '');
       return;
     }
 
     this.cityResults.innerHTML = '';
-    items.forEach((item) => {
+    items.forEach((item, index) => {
       const button = createOptionButton(item, (current) => {
         const meta = [];
         if (current.settlement_type) {
-          meta.push(current.settlement_type);
+          meta.push(localizeSettlementType(current.settlement_type, this.locale));
         }
         if (current.area || current.region) {
           meta.push([current.area, current.region].filter(Boolean).join(', '));
         }
         if (current.warehouses) {
-          meta.push(`Доступно пунктів: ${current.warehouses}`);
+          meta.push(this.copy.warehousesAvailable.replace('{count}', current.warehouses));
         }
         return meta.join(' • ');
-      });
+      }, { id: `${this.cityInput.id}-option-${index}`, index });
       button.dataset.itemJson = JSON.stringify(item);
       button.addEventListener('click', () => this.selectCity(item));
       this.cityResults.appendChild(button);
     });
 
     showResults(this.cityResults, this.cityInput);
-    setStatus(this.cityStatus, 'Оберіть місто зі списку Нової пошти.', '');
+    this.activeResultIndex.city = -1;
+    this.cityInput.removeAttribute('aria-activedescendant');
+    setStatus(this.cityStatus, this.copy.citySelect, '');
   }
 
   renderWarehouses(items) {
@@ -637,16 +806,16 @@ class NovaPoshtaSelectorController {
       hideResults(this.warehouseResults, this.warehouseInput);
       setStatus(
         this.warehouseStatus,
-        'За цим запитом нічого не знайдено. Уточніть номер або адресу і виберіть пункт зі списку.',
+        this.copy.warehouseEmpty,
         '',
       );
       return;
     }
 
     this.warehouseResults.innerHTML = '';
-    items.forEach((item) => {
+    items.forEach((item, index) => {
       const button = createOptionButton(item, (current) => {
-        const meta = [current.kind === 'postomat' ? 'Поштомат' : 'Відділення'];
+        const meta = [current.kind === 'postomat' ? this.copy.postomatLabel : this.copy.branchLabel];
         if (current.number) {
           meta.push(`№${current.number}`);
         }
@@ -654,14 +823,16 @@ class NovaPoshtaSelectorController {
           meta.push(current.description);
         }
         return meta.join(' • ');
-      });
+      }, { id: `${this.warehouseInput.id}-option-${index}`, index });
       button.dataset.itemJson = JSON.stringify(item);
       button.addEventListener('click', () => this.selectWarehouse(item));
       this.warehouseResults.appendChild(button);
     });
 
     showResults(this.warehouseResults, this.warehouseInput);
-    setStatus(this.warehouseStatus, 'Оберіть відділення або поштомат зі списку Нової пошти.', '');
+    this.activeResultIndex.warehouse = -1;
+    this.warehouseInput.removeAttribute('aria-activedescendant');
+    setStatus(this.warehouseStatus, this.copy.warehouseSelect, '');
   }
 
   selectCity(item, options = {}) {
@@ -695,7 +866,7 @@ class NovaPoshtaSelectorController {
     clearFieldError(this.cityInput);
     setStatus(
       this.cityStatus,
-      'Місто підтверджено в довіднику Нової пошти.',
+      this.copy.cityConfirmed,
       'success',
     );
 
@@ -729,7 +900,7 @@ class NovaPoshtaSelectorController {
     clearFieldError(this.warehouseInput);
     setStatus(
       this.warehouseStatus,
-      `Пункт доставки підтверджено: ${item.kind === 'postomat' ? 'поштомат' : 'відділення'}.`,
+      this.copy.warehouseConfirmed,
       'success',
     );
   }
@@ -770,7 +941,7 @@ class NovaPoshtaSelectorController {
       this.warehouseInput.value = '';
       this.warehouseInput.dispatchEvent(new Event('input', { bubbles: true }));
       this.warehouseInput.dispatchEvent(new Event('change', { bubbles: true }));
-      setStatus(this.warehouseStatus, 'Після вибору міста почніть вводити номер або адресу відділення.', '');
+      setStatus(this.warehouseStatus, this.copy.warehouseStart, '');
     }
   }
 
@@ -788,8 +959,8 @@ class NovaPoshtaSelectorController {
     if (!hasCitySelection || !this.selectedCityToken) {
       valid = false;
       if (showErrors) {
-        setFieldError(this.cityInput, 'Оберіть місто зі списку Нової пошти.');
-        setStatus(this.cityStatus, 'Потрібно обрати місто зі списку Нової пошти.', 'error');
+        setFieldError(this.cityInput, this.copy.citySelect);
+        setStatus(this.cityStatus, this.copy.cityRequired, 'error');
       }
     }
 
@@ -799,10 +970,10 @@ class NovaPoshtaSelectorController {
     if (!hasWarehouseSelection || !this.selectedWarehouseToken) {
       valid = false;
       if (showErrors) {
-        setFieldError(this.warehouseInput, 'Оберіть відділення або поштомат зі списку Нової пошти.');
+        setFieldError(this.warehouseInput, this.copy.warehouseSelect);
         setStatus(
           this.warehouseStatus,
-          'Потрібно обрати відділення або поштомат зі списку Нової пошти.',
+          this.copy.warehouseRequired,
           'error',
         );
       }
@@ -811,7 +982,10 @@ class NovaPoshtaSelectorController {
     if (!valid) {
       const first = this.form.querySelector('.cart-form-input-error');
       if (first && showErrors) {
-        first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        first.scrollIntoView({
+          behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+          block: 'center',
+        });
         first.focus();
       }
     }

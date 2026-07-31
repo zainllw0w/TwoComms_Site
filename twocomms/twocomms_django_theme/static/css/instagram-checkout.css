@@ -1,0 +1,886 @@
+@font-face {
+  font-family: "Inter";
+  src: url("../fonts/Inter-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("../fonts/Inter-SemiBold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("../fonts/Inter-Bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+  font-family: "Inter", system-ui, sans-serif;
+  font-synthesis: none;
+  --ig-frame: #0b0b0b;
+  --ig-frame-soft: #171717;
+  --ig-surface: #f5f2ec;
+  --ig-white: #ffffff;
+  --ig-ink: #171717;
+  --ig-muted: #6a655f;
+  --ig-line: #d8d3cb;
+  --ig-action: #c64018;
+  --ig-action-pressed: #9d3011;
+  --ig-success: #1f7a4d;
+  --ig-warning: #9b5b10;
+  --ig-error: #b73a32;
+  --ig-focus: #2366b1;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: var(--ig-frame);
+  scroll-padding-bottom: 172px;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  overflow-x: hidden;
+  background: var(--ig-frame);
+  color: var(--ig-white);
+  letter-spacing: 0;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input {
+  font: inherit;
+  letter-spacing: 0;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 3px solid var(--ig-focus);
+  outline-offset: 3px;
+}
+
+.ig-page {
+  width: min(100%, 1120px);
+  margin: 0 auto;
+  padding: 0 16px calc(156px + env(safe-area-inset-bottom));
+}
+
+.ig-topbar {
+  min-height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #313131;
+}
+
+.ig-brand {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  color: var(--ig-white);
+  font-size: 17px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.ig-brand img {
+  width: 28px;
+  height: 28px;
+  margin-right: 8px;
+  object-fit: contain;
+}
+
+.ig-brand__accent {
+  color: var(--ig-action);
+}
+
+.ig-offer-meta {
+  min-width: 0;
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+  color: #b9b5ae;
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.ig-countdown {
+  color: var(--ig-white);
+  font-variant-numeric: tabular-nums;
+}
+
+.ig-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+  padding-top: 28px;
+}
+
+.ig-order,
+.ig-checkout-panel {
+  min-width: 0;
+}
+
+.ig-intro {
+  max-width: 560px;
+  animation: ig-settle 360ms ease-out both;
+}
+
+.ig-eyebrow,
+.ig-panel-step {
+  margin: 0 0 10px;
+  color: var(--ig-action);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.ig-intro h1,
+.ig-panel-heading h2,
+.ig-terminal h2 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 30px;
+  line-height: 1.04;
+}
+
+.ig-lead,
+.ig-panel-heading > p,
+.ig-terminal > p {
+  margin: 14px 0 0;
+  color: #b9b5ae;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.ig-greeting {
+  margin: 0 0 8px;
+  color: #ddd8d0;
+  font-size: 13px;
+}
+
+.ig-greeting strong {
+  color: var(--ig-white);
+}
+
+.ig-personal-total {
+  margin: 11px 0 0;
+  color: #918d86;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.ig-personal-total strong {
+  color: #f3b099;
+  font-variant-numeric: tabular-nums;
+}
+
+.ig-state {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: 12px;
+  margin: 22px 0;
+  padding: 14px 0;
+  border-top: 1px solid #313131;
+  border-bottom: 1px solid #313131;
+}
+
+.ig-state__mark {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--ig-action);
+}
+
+.ig-state--paid .ig-state__mark {
+  background: var(--ig-success);
+}
+
+.ig-state--pending .ig-state__mark,
+.ig-state--locked .ig-state__mark,
+.ig-state--cancellation_ambiguous .ig-state__mark {
+  background: #e7a73d;
+}
+
+.ig-state--failed .ig-state__mark,
+.ig-state--unavailable .ig-state__mark,
+.ig-state--expired .ig-state__mark {
+  background: #d85d54;
+}
+
+.ig-state strong {
+  font-size: 13px;
+}
+
+.ig-state p {
+  margin: 4px 0 0;
+  color: #aaa69f;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.ig-products {
+  display: grid;
+  gap: 0;
+}
+
+.ig-item {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: 14px;
+  padding: 16px 0;
+  border-bottom: 1px solid #313131;
+  animation: ig-settle 360ms ease-out both;
+}
+
+.ig-item:nth-child(2) {
+  animation-delay: 60ms;
+}
+
+.ig-item:nth-child(3) {
+  animation-delay: 120ms;
+}
+
+.ig-item__media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #262626;
+}
+
+.ig-item__media img {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+.ig-item__media.is-fallback img {
+  display: none;
+}
+
+.ig-item__fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  color: #f4f0e8;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 0.9;
+  text-align: center;
+}
+
+.ig-item__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 3px 0;
+}
+
+.ig-item__heading {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.ig-item h2 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.ig-item__heading strong {
+  color: #f3b099;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ig-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px 12px;
+  margin: 0;
+}
+
+.ig-facts div {
+  min-width: 0;
+}
+
+.ig-facts dt {
+  margin-bottom: 3px;
+  color: #8e8a84;
+  font-size: 10px;
+}
+
+.ig-facts dd {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #f6f3ed;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ig-swatch {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 12px;
+  border: 1px solid #8d8983;
+  border-radius: 50%;
+  background: var(--swatch);
+}
+
+.ig-totals {
+  display: grid;
+  gap: 10px;
+  padding: 20px 0 6px;
+}
+
+.ig-totals > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  color: #aaa69f;
+  font-size: 12px;
+}
+
+.ig-totals__discount span:last-child {
+  color: #8bd0ad;
+}
+
+.ig-totals .ig-totals__final {
+  align-items: baseline;
+  padding-top: 7px;
+  color: var(--ig-white);
+  font-size: 15px;
+}
+
+.ig-totals__final strong {
+  font-size: 21px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ig-share-block {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.ig-share-block p {
+  margin: 0;
+  color: #8e8a84;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.ig-direct-link {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  color: #e5e1da;
+  font-size: 13px;
+  font-weight: 600;
+  text-underline-offset: 4px;
+}
+
+.ig-checkout-panel {
+  align-self: start;
+  padding: 22px 18px;
+  border-radius: 8px;
+  background: var(--ig-surface);
+  color: var(--ig-ink);
+  animation: ig-panel-fade 360ms 80ms ease-out both;
+}
+
+.ig-panel-heading h2,
+.ig-terminal h2 {
+  font-size: 24px;
+}
+
+.ig-panel-heading > p,
+.ig-terminal > p {
+  color: var(--ig-muted);
+}
+
+.ig-form {
+  display: grid;
+  gap: 17px;
+  margin-top: 24px;
+}
+
+.ig-field {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.ig-field label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ig-field.is-complete label::after {
+  content: "✓";
+  color: var(--ig-success);
+  font-size: 12px;
+}
+
+.ig-recommended {
+  padding: 3px 6px;
+  border: 1px solid #d5a996;
+  border-radius: 4px;
+  color: #8c3e22;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.ig-field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 13px;
+  border: 1px solid #c9c3ba;
+  border-radius: 6px;
+  background: var(--ig-white);
+  color: var(--ig-ink);
+  font-size: 16px;
+}
+
+.ig-field input::placeholder {
+  color: #989188;
+}
+
+.ig-field input:focus {
+  border-color: var(--ig-focus);
+}
+
+.ig-field small,
+.ig-selector-status {
+  color: var(--ig-muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.ig-selector {
+  position: relative;
+}
+
+.ig-selector-results {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 5px);
+  right: 0;
+  left: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid #bbb4aa;
+  border-radius: 6px;
+  background: var(--ig-white);
+  box-shadow: 0 12px 28px rgb(0 0 0 / 18%);
+}
+
+.ig-selector-results button,
+.np-selector-option {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 1px solid #e6e1da;
+  background: var(--ig-white);
+  color: var(--ig-ink);
+  text-align: left;
+}
+
+.ig-selector-results button:hover,
+.ig-selector-results button:focus-visible,
+.np-selector-option:hover,
+.np-selector-option:focus-visible {
+  background: #eee9e2;
+}
+
+.ig-kind {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ig-kind::-webkit-scrollbar {
+  display: none;
+}
+
+.ig-kind button {
+  min-width: 44px;
+  min-height: 44px;
+  flex: 0 0 auto;
+  padding: 0 12px;
+  border: 1px solid #c9c3ba;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ig-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ig-kind button.is-active {
+  border-color: var(--ig-ink);
+  background: var(--ig-ink);
+  color: var(--ig-white);
+}
+
+.ig-promo {
+  border-top: 1px solid var(--ig-line);
+  border-bottom: 1px solid var(--ig-line);
+}
+
+.ig-promo summary {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  color: var(--ig-ink);
+  font-size: 12px;
+  font-weight: 700;
+  list-style: none;
+}
+
+.ig-promo summary::-webkit-details-marker {
+  display: none;
+}
+
+.ig-promo summary::after {
+  content: "+";
+  color: var(--ig-action);
+  font-size: 20px;
+  font-weight: 400;
+}
+
+.ig-promo[open] summary::after {
+  content: "−";
+}
+
+.ig-promo .ig-field {
+  padding: 2px 0 16px;
+}
+
+.ig-form-error {
+  padding: 11px 12px;
+  border-left: 3px solid var(--ig-error);
+  background: #f8e7e4;
+  color: #7e2b26;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.ig-field .cart-form-error {
+  margin-top: 7px;
+  color: #c65a47;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.ig-field .cart-form-input-error,
+.ig-field input.is-invalid {
+  border-color: #c65a47;
+  box-shadow: 0 0 0 1px rgb(198 90 71 / 16%);
+}
+
+.ig-payment-rail {
+  position: fixed;
+  z-index: 30;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  left: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 1.3fr);
+  gap: 10px 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #d3cdc4;
+  border-radius: 8px;
+  background: var(--ig-surface);
+  box-shadow: 0 -12px 30px rgb(0 0 0 / 22%);
+  color: var(--ig-ink);
+  transition: opacity 180ms ease-out, visibility 180ms ease-out;
+}
+
+.ig-payment-rail > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.ig-payment-rail > div span,
+.ig-payment-rail > p {
+  color: var(--ig-muted);
+  font-size: 9px;
+}
+
+.ig-payment-rail > div strong {
+  overflow-wrap: anywhere;
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ig-payment-rail > p {
+  grid-column: 1 / -1;
+  margin: 0;
+  text-align: center;
+}
+
+.is-field-focused .ig-payment-rail {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ig-action {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+}
+
+.ig-action--pay,
+.ig-action--primary {
+  background: var(--ig-action);
+  color: var(--ig-white);
+}
+
+.ig-action--pay:active,
+.ig-action--primary:active {
+  background: var(--ig-action-pressed);
+}
+
+.ig-action--secondary {
+  border: 1px solid #474747;
+  background: transparent;
+  color: var(--ig-white);
+}
+
+.ig-action[disabled] {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.ig-terminal {
+  display: grid;
+  gap: 18px;
+}
+
+.ig-terminal .ig-action {
+  width: 100%;
+}
+
+.ig-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 14px;
+  max-width: 760px;
+  min-height: 44px;
+  margin: 28px auto 0;
+  padding: 8px 0;
+  color: var(--ig-muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+.ig-footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--ig-muted);
+  text-decoration: none;
+}
+
+.ig-footer a:hover,
+.ig-footer a:focus-visible {
+  color: var(--ig-white);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ig-masked {
+  display: grid;
+  gap: 0;
+  margin: 4px 0;
+  border-top: 1px solid var(--ig-line);
+}
+
+.ig-masked div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--ig-line);
+}
+
+.ig-masked dt {
+  color: var(--ig-muted);
+  font-size: 11px;
+}
+
+.ig-masked dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.ig-csrf {
+  display: none;
+}
+
+@keyframes ig-settle {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ig-panel-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (min-width: 720px) {
+  .ig-page {
+    padding-right: 28px;
+    padding-left: 28px;
+  }
+
+  .ig-layout {
+    gap: 34px;
+  }
+
+  .ig-item {
+    grid-template-columns: 132px minmax(0, 1fr);
+  }
+
+  .ig-checkout-panel {
+    padding: 30px;
+  }
+}
+
+@media (min-width: 960px) {
+  html {
+    scroll-padding-bottom: 36px;
+  }
+
+  .ig-page {
+    padding-bottom: 64px;
+  }
+
+  .ig-topbar {
+    min-height: 82px;
+  }
+
+  .ig-layout {
+    grid-template-columns: minmax(0, 42fr) minmax(0, 58fr);
+    gap: 52px;
+    padding-top: 44px;
+  }
+
+  .ig-intro h1 {
+    font-size: 42px;
+  }
+
+  .ig-item {
+    grid-template-columns: 148px minmax(0, 1fr);
+  }
+
+  .ig-checkout-panel {
+    position: sticky;
+    top: 24px;
+    padding: 36px;
+  }
+
+  .ig-payment-rail {
+    position: static;
+    grid-template-columns: minmax(0, 1fr) minmax(180px, 1.2fr);
+    margin-top: 24px;
+    padding: 16px 0 0;
+    border-top: 1px solid var(--ig-line);
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .is-field-focused .ig-payment-rail {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

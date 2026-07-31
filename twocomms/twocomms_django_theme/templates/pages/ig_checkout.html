@@ -1,0 +1,209 @@
+{% load static %}
+<!doctype html>
+<html lang="{{ html_lang }}" data-checkout-state="{{ checkout_state }}" data-proposal-revision="{{ proposal.revision }}"{% if form_error_field %} data-form-error-field="{{ form_error_field }}"{% endif %}>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="referrer" content="no-referrer">
+  <meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
+  <meta name="theme-color" content="#0b0b0b">
+  <title>TwoComms · {{ copy.page_title }}</title>
+  <link rel="preload" href="{% static 'fonts/Inter-Regular.woff2' %}" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="{% static 'fonts/Inter-Bold.woff2' %}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{% static 'css/instagram-checkout.css' %}?v=20260730b">
+</head>
+<body>
+  <main class="ig-page" data-ig-checkout data-proposal-url="{{ proposal_url }}" data-expires-at="{{ proposal.expires_at_iso }}">
+    <header class="ig-topbar">
+      <a class="ig-brand" href="/" aria-label="TwoComms">
+        <img src="{% static 'img/logo.svg' %}" alt="" width="28" height="28">
+        <span class="ig-brand__word">TWO</span><span class="ig-brand__accent">COMMS</span>
+      </a>
+      <div class="ig-offer-meta">
+        <span>{{ copy.proposal_label }} #{{ proposal.reference }}</span>
+        <span class="ig-countdown" data-countdown data-expired-label="{{ copy.expired_short }}">{{ copy.expires_label }}</span>
+      </div>
+    </header>
+
+    <div class="ig-layout">
+      <section class="ig-order" aria-labelledby="ig-order-title">
+        <div class="ig-intro">
+          <p class="ig-eyebrow">{{ copy.eyebrow }}</p>
+          {% if customer_name %}<p class="ig-greeting">{{ copy.greeting }}, <strong>{{ customer_name }}</strong>.</p>{% endif %}
+          <h1 id="ig-order-title">{{ copy.page_title }}</h1>
+          <p class="ig-lead">{{ copy.lead }}</p>
+          {% if customer_name %}<p class="ig-personal-total">{{ copy.order_for }} <strong>{{ proposal.total }} {{ proposal.currency }}</strong>.</p>{% endif %}
+        </div>
+
+        <div class="ig-state ig-state--{{ checkout_state }}" role="status">
+          <span class="ig-state__mark" aria-hidden="true"></span>
+          <div>
+            <strong>{{ state_title }}</strong>
+            <p>{{ state_body }}</p>
+          </div>
+        </div>
+
+        <div class="ig-products" aria-label="{{ copy.order_label }}">
+          {% for item in items %}
+            <article class="ig-item">
+              <div class="ig-item__media{% if not item.image_url %} is-fallback{% endif %}" data-product-media>
+                {% if item.image_url %}
+                  <img src="{{ item.image_url }}" alt="{{ item.title }} · {{ item.color_label }}" width="640" height="800" loading="{% if forloop.first %}eager{% else %}lazy{% endif %}" decoding="async" data-product-image>
+                {% endif %}
+                <span class="ig-item__fallback" aria-hidden="true">TWO<br>COMMS</span>
+              </div>
+              <div class="ig-item__body">
+                <div class="ig-item__heading">
+                  <h2>{{ item.title }}</h2>
+                  <strong>{{ item.line_total }} {{ proposal.currency }}</strong>
+                </div>
+                <dl class="ig-facts">
+                  {% if item.color_label %}
+                    <div>
+                      <dt>{{ copy.color_label }}</dt>
+                      <dd><span class="ig-swatch" style="--swatch: {{ item.color_code|default:'#171717' }}" aria-hidden="true"></span>{{ item.color_label }}</dd>
+                    </div>
+                  {% endif %}
+                  {% if item.fit_label %}
+                    <div><dt>{{ copy.fit_label }}</dt><dd>{{ item.fit_label }}</dd></div>
+                  {% endif %}
+                  {% if item.size %}
+                    <div><dt>{{ copy.size_label }}</dt><dd>{{ item.size }}</dd></div>
+                  {% endif %}
+                  <div><dt>{{ copy.quantity_label }}</dt><dd>{{ item.quantity }}</dd></div>
+                </dl>
+              </div>
+            </article>
+          {% empty %}
+            <div class="ig-empty">{{ state_body }}</div>
+          {% endfor %}
+        </div>
+
+        <div class="ig-totals">
+          {% if proposal.has_discount %}
+            <div><span>{{ copy.catalog_total }}</span><span>{{ proposal.catalog_total }} {{ proposal.currency }}</span></div>
+            <div class="ig-totals__discount"><span>{{ copy.discount }}</span><span>−{{ proposal.discount }} {{ proposal.currency }}</span></div>
+          {% endif %}
+          <div class="ig-totals__final"><span>{{ copy.total }}</span><strong>{{ proposal.total }} {{ proposal.currency }}</strong></div>
+        </div>
+
+        <div class="ig-share-block">
+          {% if share_allowed %}
+            <button class="ig-action ig-action--secondary" type="button" data-share-url="{{ share_url }}" data-share-label="{{ copy.share }}" data-share-done="{{ copy.share_done }}" data-share-error="{{ copy.share_error }}">
+              <span data-action-label>{{ copy.share }}</span>
+            </button>
+            <p>{{ copy.share_hint }}</p>
+          {% endif %}
+          <a class="ig-direct-link" href="{{ direct_url }}" target="_blank" rel="noopener noreferrer">{{ copy.change_order }}</a>
+        </div>
+      </section>
+
+      <section class="ig-checkout-panel" aria-labelledby="ig-delivery-title">
+        {% if payable %}
+          <div class="ig-panel-heading">
+            <p class="ig-panel-step">01 / 01</p>
+            <h2 id="ig-delivery-title">{{ copy.delivery_title }}</h2>
+            <p>{{ copy.delivery_lead }}</p>
+          </div>
+
+          <form class="ig-form" method="post" action="{{ proposal_url }}" id="ig-checkout-delivery-form" novalidate data-np-form="instagram" data-np-city-search-url="{{ np_city_search_url }}" data-np-warehouse-search-url="{{ np_warehouse_search_url }}" data-locale="{{ html_lang }}">
+            {% csrf_token %}
+            <div class="ig-form-error" id="ig-form-error" role="alert" data-form-error{% if not form_error %} hidden{% endif %}>{{ form_error }}</div>
+
+            <div class="ig-field">
+              <label for="ig-full-name">{{ copy.full_name }}</label>
+              <input id="ig-full-name" type="text" name="full_name" autocomplete="name" maxlength="200" placeholder="{{ copy.full_name_placeholder }}" value="{{ form_values.full_name|default:'' }}"{% if form_error_field == 'full_name' %} aria-invalid="true" aria-describedby="ig-form-error"{% endif %} required>
+            </div>
+
+            <div class="ig-field">
+              <label for="ig-phone">{{ copy.phone }}</label>
+              <input id="ig-phone" type="tel" name="phone" autocomplete="tel" inputmode="tel" maxlength="32" placeholder="{{ copy.phone_placeholder }}" value="{{ form_values.phone|default:'' }}" data-uk-phone-field{% if form_error_field == 'phone' %} aria-invalid="true" aria-describedby="ig-form-error"{% endif %} required>
+            </div>
+
+            <div class="ig-field">
+              <label for="ig-email">{{ copy.email }} <span class="ig-recommended">{{ copy.recommended }}</span></label>
+              <input id="ig-email" type="email" name="email" autocomplete="email" inputmode="email" maxlength="254" placeholder="{{ copy.email_placeholder }}" value="{{ form_values.email|default:'' }}" aria-describedby="ig-email-hint{% if form_error_field == 'email' %} ig-form-error{% endif %}"{% if form_error_field == 'email' %} aria-invalid="true"{% endif %}>
+              <small id="ig-email-hint">{{ copy.email_hint }}</small>
+            </div>
+
+            <div class="ig-field">
+              <label for="ig-city">{{ copy.city }}</label>
+              <div class="ig-selector" data-np-city-selector>
+                <input id="ig-city" type="text" name="city" autocomplete="off" spellcheck="false" placeholder="{{ copy.city_placeholder }}" value="{{ form_values.city|default:'' }}" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false" aria-controls="ig-city-results" aria-describedby="ig-city-status{% if form_error_field == 'city' %} ig-form-error{% endif %}"{% if form_error_field == 'city' %} aria-invalid="true"{% endif %} data-np-city-input required>
+                <input type="hidden" name="np_settlement_ref" value="{{ form_values.np_settlement_ref|default:'' }}" data-np-settlement-ref>
+                <input type="hidden" name="np_city_ref" value="{{ form_values.np_city_ref|default:'' }}" data-np-city-ref>
+                <input type="hidden" name="np_city_token" value="{{ form_values.np_city_token|default:'' }}" data-np-city-token>
+                <div class="ig-selector-results" id="ig-city-results" role="listbox" data-np-city-results hidden></div>
+              </div>
+              <small id="ig-city-status" role="status" aria-live="polite" data-np-city-status>{{ copy.city_hint }}</small>
+            </div>
+
+            <div class="ig-field">
+              <label for="ig-warehouse">{{ copy.warehouse }}</label>
+              <div class="ig-selector" data-np-warehouse-selector>
+                <input id="ig-warehouse" type="text" name="np_office" autocomplete="off" spellcheck="false" placeholder="{{ copy.warehouse_placeholder }}" value="{{ form_values.np_office|default:'' }}" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false" aria-controls="ig-warehouse-results" aria-describedby="ig-warehouse-status{% if form_error_field == 'np_office' %} ig-form-error{% endif %}"{% if form_error_field == 'np_office' %} aria-invalid="true"{% endif %} data-np-warehouse-input required>
+                <input type="hidden" name="np_warehouse_ref" value="{{ form_values.np_warehouse_ref|default:'' }}" data-np-warehouse-ref>
+                <input type="hidden" name="np_warehouse_token" value="{{ form_values.np_warehouse_token|default:'' }}" data-np-warehouse-token>
+                <div class="ig-selector-results" id="ig-warehouse-results" role="listbox" data-np-warehouse-results hidden></div>
+              </div>
+              <div class="ig-kind" data-np-kind-toggle role="group" aria-label="{{ copy.warehouse }}">
+                <button type="button" class="is-active" data-kind="all" aria-pressed="true">{{ copy.all_points }}</button>
+                <button type="button" data-kind="branch" aria-pressed="false">{{ copy.branches }}</button>
+                <button type="button" data-kind="postomat" aria-pressed="false">{{ copy.postomats }}</button>
+              </div>
+              <small id="ig-warehouse-status" role="status" aria-live="polite" data-np-warehouse-status>{{ copy.warehouse_hint }}</small>
+            </div>
+
+            {% if proposal.allow_promo %}
+              <details class="ig-promo">
+                <summary>{{ copy.have_promo }}</summary>
+                <div class="ig-field">
+                  <label for="ig-promo">{{ copy.promo }}</label>
+                  <input id="ig-promo" type="text" name="promo_code" autocomplete="off" maxlength="32" placeholder="{{ copy.promo_placeholder }}" value="{{ form_values.promo_code|default:'' }}" aria-describedby="ig-promo-hint">
+                  <small id="ig-promo-hint">{{ copy.promo_hint }}</small>
+                </div>
+              </details>
+            {% endif %}
+          </form>
+
+          <div class="ig-payment-rail" data-payment-rail>
+            <div>
+              <span>{{ copy.total }}</span>
+              <strong>{{ proposal.total }} {{ proposal.currency }}</strong>
+            </div>
+            <button class="ig-action ig-action--pay" type="submit" form="ig-checkout-delivery-form" data-payment-submit data-loading-label="{{ copy.pay_loading }}">
+              <span data-action-label>{{ copy.pay }} · {{ proposal.total }} {{ proposal.currency }}</span>
+            </button>
+            <p>{{ copy.secure_payment }}</p>
+          </div>
+        {% else %}
+          <div class="ig-terminal ig-terminal--{{ checkout_state }}">
+            <p class="ig-panel-step">{{ copy.proposal_label }} #{{ proposal.reference }}</p>
+            <h2 id="ig-delivery-title">{{ state_title }}</h2>
+            <p>{{ state_body }}</p>
+            {% if masked_delivery %}
+              <dl class="ig-masked">
+                <div><dt>{{ copy.recipient }}</dt><dd>{{ masked_delivery.name }}</dd></div>
+                <div><dt>{{ copy.contact }}</dt><dd>{{ masked_delivery.phone }}</dd></div>
+                <div><dt>{{ copy.receipt }}</dt><dd>{{ masked_delivery.email }}</dd></div>
+              </dl>
+            {% endif %}
+            <a class="ig-action ig-action--primary" href="{{ direct_url }}" target="_blank" rel="noopener noreferrer">{{ copy.change_order }}</a>
+          </div>
+        {% endif %}
+      </section>
+    </div>
+
+    <footer class="ig-footer">
+      <a href="{{ privacy_url }}" rel="noopener">{{ copy.privacy|default:'Privacy' }}</a>
+      <span aria-hidden="true">·</span>
+      <a href="{{ direct_url }}" target="_blank" rel="noopener noreferrer">{{ copy.support|default:'Support in Direct' }}</a>
+    </footer>
+    <form class="ig-csrf" aria-hidden="true">{% csrf_token %}</form>
+  </main>
+
+  <script type="module" src="{% static 'js/modules/nova-poshta-form-bridge.js' %}?v=20260730b"></script>
+  <script defer src="{% static 'js/instagram-checkout.js' %}?v=20260730b"></script>
+</body>
+</html>
