@@ -120,7 +120,7 @@ MODEL_HARD_STAGES = {
     IgClient.Stage.ORDER_CREATED,
     IgClient.Stage.DONE,
 }
-_CONTROL_TAG_RE = re.compile(r"\[([A-Z]+)(?::([^\]]+))?\]")
+_CONTROL_TAG_RE = re.compile(r"\[([A-Z][A-Z_]*)(?::([^\]]+))?\]")
 _SECRET_PARAM_RE = re.compile(
     r"((?:access_token|client_secret|api[_-]?key|password|token)=)[^&\s]+",
     re.IGNORECASE,
@@ -523,7 +523,10 @@ PAYMENT_PROTOCOL_NOTE = (
     "[PAYMENT:сума], але лише якщо ця точна сума явно погоджена в поточному діалозі. "
     "Не використовуй фіксовані 200 грн і не перенось суму з попереднього замовлення. "
     "Якщо менеджер явно погодив іншу ціну, додай [PRICE:число] лише коли це число "
-    "дослівно є у збереженій переписці; не вигадуй знижку."
+    "дослівно є у збереженій переписці; не вигадуй знижку. Якщо клієнт просить "
+    "показати товари/фото, додай [SHOW_PRODUCTS:<id1,id2>] з точними id каталогу; "
+    "система надішле 3–4 реальні фото без товарних URL. Додавай [CATALOG_LINK] "
+    "тільки коли клієнт прямо попросив посилання на товар."
 )
 
 _ASSISTED_CHECKOUT_COPY = {
@@ -4980,6 +4983,22 @@ def _renew_client_automation_lease(row: InstagramBotMessage, token: str) -> bool
     return _requeue_for_active_lease(row)
 
 
+def _catalog_media_selection_for_control(control: dict, client):
+    """Resolve an explicit SHOW_PRODUCTS control into trusted catalog media."""
+    if not isinstance(control, dict) or "show_products" not in control:
+        return None
+    from management.services.ig_catalog_media import parse_product_ids, select_catalog_media
+
+    raw = control.get("show_products")
+    product_ids = parse_product_ids(raw)
+    if product_ids is None and raw is True:
+        current_id = getattr(client, "current_product_id", None)
+        product_ids = (int(current_id),) if current_id else ()
+    if not product_ids:
+        return select_catalog_media(())
+    return select_catalog_media(product_ids)
+
+
 def release_client_automation_lease(client_id: int | None, token: str) -> None:
     if not client_id or not token:
         return
@@ -5265,12 +5284,47 @@ def _process_one_inside_reply_boundary(
             row.save(update_fields=["status", "processing_started_at"])
         return False
 
+    from management.services.ig_reply_boundary import customer_send_boundary
+
+    # Product discovery uses a separate media transport. A provider partial or
+    # unknown result must never erase the useful text reply or be replayed
+    # blindly; the durable message remains visible for operator reconciliation.
+    catalog_media_selection = _catalog_media_selection_for_control(control, row.client)
+    if catalog_media_selection and not control.get("paylink"):
+        if not control.get("catalog_link"):
+            reply = _strip_customer_urls(reply)
+        try:
+            from management.services.ig_catalog_media import (
+                CatalogMediaDeliveryState,
+                send_catalog_media,
+            )
+
+            catalog_media_delivery = send_catalog_media(
+                s,
+                row.sender_id,
+                catalog_media_selection,
+                permission_boundary_factory=lambda: customer_send_boundary(
+                    s.pk, row.client_id, permission
+                ),
+            )
+            if catalog_media_delivery.state in {
+                CatalogMediaDeliveryState.PARTIAL,
+                CatalogMediaDeliveryState.AMBIGUOUS,
+                CatalogMediaDeliveryState.FAILED,
+            }:
+                log(
+                    "warning",
+                    "catalog_media_delivery",
+                    f"{row.sender_id}: {catalog_media_delivery.state} "
+                    f"{catalog_media_delivery.error}",
+                )
+        except Exception as exc:
+            log("warning", "catalog_media_delivery", repr(exc))
+
     # Останнє продовження lease прямо перед Meta Send API. Поки send триває,
     # hide не поверне помилковий success: UI отримає чесний retryable-конфлікт.
     if not _renew_client_automation_lease(row, lease_token):
         return False
-    from management.services.ig_reply_boundary import customer_send_boundary
-
     # The global lock is held only across the claim/revalidation.  Each Meta
     # chunk below takes its own short send boundary, so slow generation and
     # unrelated chunks never block a stop for the whole response.

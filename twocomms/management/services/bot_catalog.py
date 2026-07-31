@@ -19,6 +19,37 @@ MAX_CHARS = 16000
 SITE = "https://twocomms.shop"
 
 
+def resolve_catalog_sizes(product) -> dict[str, list[str]]:
+    """Resolve the published size contract for each active fit option."""
+    try:
+        from fable5.size_grid_services import (
+            normalize_size_value,
+            resolve_effective_sizes,
+        )
+        from storefront.services.size_guides import resolve_product_sizes
+
+        fits = list(product.fit_options.filter(is_active=True).order_by("order", "id"))
+        if not fits:
+            values = [normalize_size_value(value) for value in resolve_product_sizes(product)]
+            return {"default": [value for value in values if value]}
+        result: dict[str, list[str]] = {}
+        for fit in fits:
+            rows = resolve_effective_sizes(product, f"fit={fit.code}")
+            values = [
+                normalize_size_value(row.get("size"))
+                for row in rows
+                if isinstance(row, dict) and row.get("is_enabled", True)
+            ]
+            values = [value for value in values if value]
+            if not values:
+                values = [normalize_size_value(value) for value in resolve_product_sizes(product)]
+                values = [value for value in values if value]
+            result[str(fit.code).lower()] = list(dict.fromkeys(values))
+        return result
+    except Exception:
+        return {}
+
+
 def _build() -> str:
     try:
         from storefront.models import Product, ProductStatus
@@ -36,8 +67,8 @@ def _build() -> str:
         return ""
     ids = [p.id for p in products]
 
-    # Кольори + залишки + візуальні відбитки по варіантах одним запитом.
-    colors_by_product: dict[int, list[str]] = {}
+    # Кольори + залишки + службові IDs по варіантах одним запитом.
+    variants_by_product: dict[int, list[object]] = {}
     stock_by_product: dict[int, int] = {}
     fp_by_product: dict[int, list[str]] = {}
     variants = (
@@ -46,11 +77,7 @@ def _build() -> str:
         .only("product_id", "stock", "color__name", "metadata")
     )
     for v in variants:
-        cname = getattr(v.color, "name", "") or ""
-        if cname:
-            colors_by_product.setdefault(v.product_id, [])
-            if cname not in colors_by_product[v.product_id]:
-                colors_by_product[v.product_id].append(cname)
+        variants_by_product.setdefault(v.product_id, []).append(v)
         stock_by_product[v.product_id] = stock_by_product.get(v.product_id, 0) + int(v.stock or 0)
         bv = (v.metadata or {}).get("bot_vision") or {}
         seg = (bv.get("summary") or bv.get("print_subject") or "").strip()
@@ -72,19 +99,31 @@ def _build() -> str:
         except Exception:
             pass
         cat = getattr(p.category, "name", "") or ""
-        colors = colors_by_product.get(p.id, [])
-        colors_s = (", кольори: " + ", ".join(colors[:8])) if colors else ""
         stock = stock_by_product.get(p.id, 0)
         avail = f", на складі: {stock} шт" if stock > 0 else ", під замовлення"
         fps = fp_by_product.get(p.id, [])
         fp_s = (" | принт: " + "; ".join(fps[:3])) if fps else ""
+        variants_s = ", ".join(
+            f"{getattr(getattr(v, 'color', None), 'name', '') or 'колір'} "
+            f"(variant_id={v.pk}, stock={int(v.stock or 0)})"
+            for v in variants_by_product.get(p.id, [])
+            if getattr(getattr(v, "color", None), "name", "")
+        )
+        colors_s = ("; кольори: " + variants_s) if variants_s else ""
+        sizes_by_fit = resolve_catalog_sizes(p)
+        fits_s = "; фасони/розміри: " + "; ".join(
+            f"{code}: {'/'.join(values)}" for code, values in sizes_by_fit.items() if values
+        ) if sizes_by_fit else ""
         url = f"{SITE}/product/{p.slug}/"
-        lines.append(f"• id={p.id} | {p.title} — {price} грн{disc} [{cat}]{colors_s}{avail}{fp_s} | {url}")
+        lines.append(
+            f"• id={p.id} | {p.title} — {price} грн{disc} [{cat}]"
+            f"{colors_s}{avail}{fits_s}{fp_s} | {url}"
+        )
 
     text = "\n".join(lines)
     if len(text) > MAX_CHARS:
         text = text[:MAX_CHARS] + "\n…(перелік скорочено)"
-    return text
+    return text + "\nПравило: не вигадуй variant_id, фасон або розмір; використовуй тільки значення з цього каталогу."
 
 
 def get_catalog_context(force: bool = False) -> str:
