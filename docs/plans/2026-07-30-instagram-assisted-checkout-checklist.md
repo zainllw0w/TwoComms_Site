@@ -31,7 +31,7 @@ explicitly deferred until the next pass.
 - [x] Add `IgCheckoutProposal` with client/deal/episode ownership.
 - [x] Persist the exact `ensure_episode_for_deal()` episode on every proposal.
 - [x] Add explicit ready/viewed/details/invoice/paid/expired/revoked/superseded states.
-- [x] Add 12-hour expiry and server-side state helpers.
+- [x] Add 25-minute expiry and server-side state helpers.
 - [x] Add monotonic revision and current item digest.
 - [x] Add locale and currency.
 - [x] Add catalog total, negotiated discount, quoted total, payment type, and
@@ -213,7 +213,7 @@ explicitly deferred until the next pass.
 - [x] Prove assisted full-payment email reaches PaymentAttempt and Order, sends
   exactly one receipt after verified materialization, and recovers idempotently
   after receipt failure, including a forwarded payer.
-- [x] Limit invoice validity to remaining proposal lifetime, maximum 12 hours.
+- [x] Limit invoice validity to remaining proposal lifetime, maximum 25 minutes.
 - [x] Reuse one existing invoice for duplicate clicks/browsers.
 - [x] Reconcile provider amount against `payment_amount`.
 - [x] Require matching invoice/reference, UAH/980 currency, exact minor amount,
@@ -263,7 +263,7 @@ explicitly deferred until the next pass.
 - [x] Ask missing fit/size/color/quantity rather than generating an invalid link.
 - [x] Generate the proposal immediately when complete.
 - [x] Send clear two-minute checkout copy and correction instructions.
-- [x] Mention 12-hour validity and shareability accurately.
+- [x] Mention 25-minute validity and shareability accurately.
 - [x] Never let Gemini type or invent Monobank/provider URLs.
 - [x] Treat own-domain proposal URL as critical payment delivery.
 - [x] Never degrade a payment proposal to text that claims a link was sent.
@@ -284,7 +284,7 @@ explicitly deferred until the next pass.
 - [x] Select only published catalog products/variants.
 - [x] Prefer three or four real product images.
 - [x] Use selected variant imagery when color is known.
-- [ ] Validate media host, scheme, MIME, size, and count.
+- [x] Validate media host, scheme, MIME, size, and count.
 - [x] Use native multi-image/carousel format only when supported by active transport.
 - [x] Provide deterministic bounded image sequence fallback.
 - [x] Follow media with one compact product-name/caption message.
@@ -312,10 +312,10 @@ explicitly deferred until the next pass.
 - [x] Send full confirmed recipient name, phone, and Nova Poshta destination only
   to the exact original bound Instagram conversation; keep forwarded web and
   management list surfaces masked.
-- [ ] Persist independent post-payment channel states for Telegram, receipt,
+- [x] Persist independent post-payment channel states for Telegram, receipt,
   Meta Purchase, TikTok Purchase, and Instagram lifecycle emission.
-- [ ] Never let one successful channel clear another channel's pending state.
-- [ ] Prove delivered-status Telegram and Instagram outcomes are independent in
+- [x] Never let one successful channel clear another channel's pending state.
+- [x] Prove delivered-status Telegram and Instagram outcomes are independent in
   both success and failure directions.
 - [x] Lease lifecycle work and revalidate ownership before final save.
 - [x] Send ordinary RESPONSE only inside conservative Meta window.
@@ -365,9 +365,9 @@ explicitly deferred until the next pass.
 - [x] Ensure CAPI Purchase works when payer never returns.
 - [x] Ensure pending/failed return never emits Purchase.
 - [x] Preserve fbp/fbc/IP/UA server authority.
-- [ ] Freeze the winning payer browser attribution on first valid submit and
+- [x] Freeze the winning payer browser attribution on first valid submit and
   prevent later viewers from overwriting it.
-- [ ] Respect existing consent gating for browser events and approved privacy/
+- [x] Respect existing consent gating for browser events and approved privacy/
   exclusion policy for server events.
 - [x] Preserve original Instagram deal/client/episode attribution.
 - [x] Attribute browser events to actual forwarding/paying browser.
@@ -398,7 +398,7 @@ explicitly deferred until the next pass.
 - [x] Expired-link renewal test creates a fresh proposal/token automatically and
   never revives the expired bearer token.
 - [x] Product-media transport payload tests.
-- [ ] UA/RU/EN discovery intent tests prove general requests emit 3-4 catalog
+- [x] UA/RU/EN discovery intent tests prove general requests emit 3-4 catalog
   images plus one caption and no URL; explicit link requests may emit a URL.
 - [x] Payment/TTN/delivered lifecycle idempotency tests.
 - [x] Meta window, HUMAN_AGENT rejection, ambiguous send tests.
@@ -411,10 +411,10 @@ explicitly deferred until the next pass.
 
 - [ ] Run checkout with real local catalog imagery and mocked provider create.
 - [ ] Capture and inspect 320x568 screenshot.
-- [ ] Capture and inspect 375x812 screenshot.
+- [x] Capture and inspect 375x812 screenshot.
 - [ ] Capture and inspect 430x932 screenshot.
 - [ ] Capture and inspect 768x1024 screenshot.
-- [ ] Capture and inspect 1440x900 screenshot.
+- [x] Capture and inspect 1440x900 screenshot.
 - [ ] Verify 1, 2, 4, and long product lists.
 - [ ] Verify keyboard-only form and Nova Poshta selector.
 - [ ] At 320x568 and 430x932, focus every delivery/promo field and prove the
@@ -425,7 +425,7 @@ explicitly deferred until the next pass.
   signed hidden tokens, stale token, and wrong-city rejection through the real
   `nova-poshta-form-bridge.js` path.
 - [ ] Verify error, loading, pending, paid, expired, and superseded states.
-- [ ] Verify reduced-motion screenshot/state.
+- [x] Verify reduced-motion screenshot/state.
 - [ ] Verify no overlap, horizontal overflow, clipped text, or layout shift.
 - [ ] Verify product images render and are inspectable.
 - [ ] Verify page-specific animation runs once and remains smooth.
@@ -452,7 +452,7 @@ explicitly deferred until the next pass.
 ## R. Commit, push, deploy, and production proof
 
 - [ ] Re-fetch and rebase/merge current `main` without scope drift.
-- [ ] Confirm staged paths contain only this feature and its plan docs.
+- [x] Confirm staged paths contain only this feature and its plan docs.
 - [ ] Commit in small reviewed checkpoints.
 - [ ] Push the intended feature/main branch as agreed at execution time.
 - [ ] Confirm remote SHA.
@@ -480,7 +480,7 @@ explicitly deferred until the next pass.
 - [ ] If production evidence is committed afterward, push/pull that docs commit
   and re-prove local/origin/server SHA equality.
 
-## Current Evidence (2026-07-31)
+## Current Evidence (2026-08-01)
 
 - Focused checkout, proposal, workspace, bot, lifecycle, attribution, payment,
   email and webhook run after final backend changes: `374 tests, 1 skip, 0 failures`.
@@ -488,13 +488,30 @@ explicitly deferred until the next pass.
   lock/invoice creation; changed catalog state returns `catalog_changed` and
   makes zero provider calls.
 - Promo and payment-state regressions: account-scoped promos require an
-  authenticated eligible account and fail closed after prior use; anonymous
-  payers may use only explicitly non-account-scoped promos. Provider ambiguity
-  is exposed as `cancellation_ambiguous` and suppresses payment/replace actions.
+  authenticated eligible account and fail closed after prior use or an active
+  reservation from another code in the same `one_per_account` group; anonymous
+  payers may use only explicitly non-account-scoped promos. Inactive promo
+  groups fail closed before provider I/O. Provider ambiguity is exposed as
+  `cancellation_ambiguous` and suppresses payment/replace actions.
 - Product discovery regression: `[SHOW_PRODUCTS]` resolves only published
-  catalog records, caps transport to four trusted images, prefers stocked
-  variant imagery, and persists partial/ambiguous delivery states without
-  replaying already delivered images.
+  catalog records, caps transport to four trusted first-party HTTPS images,
+  validates stored MIME and byte size, prefers stocked variant imagery, and
+  persists partial/ambiguous delivery states without replaying already delivered
+  images. UA/RU/EN pipeline tests keep product URLs out unless explicitly asked.
+- Receipt regression: assisted checkout requires a valid email before provider
+  I/O, materializes it on the canonical Order, and post-payment dispatch calls
+  the same `orders.email_receipt.send_order_receipt_email()` and
+  `orders/emails/order_receipt.html` path used by normal cart checkout.
+- Independent-channel regression: Telegram failure does not clear Meta, TikTok,
+  receipt, or Instagram lifecycle state; delivered-status lifecycle failure does
+  not block operational delivery notifications, and the reverse failure direction
+  is also covered.
+- Fresh focused checkout/media/lifecycle/email/Nova Poshta/analytics run after
+  these changes: `115 tests, 0 failures`.
+- Final C3 verification on 2026-08-01: current checkout modules `95 tests,
+  1 skip, 0 failures`; catalog/lifecycle/paylink/receipt/promo/tracking/analytics
+  modules `95 tests, 0 failures`; PaymentAttempt plus Monobank webhook boundary
+  modules `37 tests, 0 failures`; checkout UI contract `5 tests, 0 failures`.
 - Static checks: `manage.py check`, `makemigrations --check --dry-run`,
   `compileall`, Node syntax check for `instagram-checkout.js`, and `git diff
   --check` pass.
@@ -503,14 +520,27 @@ explicitly deferred until the next pass.
   is management `0118_ig_funnel_reset_audit` and orders `0052_dynamic_prepayment_choice`.
 - The server check was read-only. No migration, push, pull, deploy, live
   Monobank, Meta, TikTok, email, or customer-message smoke event was sent.
-- The analytics-loader legacy regression that references the absent
-  `order_success_old.html` remains a pre-existing repository test gap and is
-  intentionally not restored in this feature slice.
+- The obsolete `order_success_old.html` is intentionally absent; its regression
+  now asserts that current contract instead of trying to read a deleted file.
+- C3 browser QA used a real local catalog fixture with mocked provider create:
+  mobile `375x812` and desktop CDP emulation `1440x900`/full-page capture. The
+  mobile run proved no horizontal overflow, a stable 48px CTA, empty-submit
+  focus on `full_name`, non-overlapping validation summary and fixed payment
+  rail, promo disclosure rail handoff, exit-dialog focus restoration, and a
+  terminal disabled expired state. Reduced-motion removed nonessential
+  transitions and the browser console stayed error-free. Screenshots are kept
+  as QA evidence outside Git at `/tmp/ig-checkout-mobile-clean.png`,
+  `/tmp/ig-checkout-mobile-validation.png`,
+  `/tmp/ig-checkout-mobile-promo.png`,
+  `/tmp/ig-checkout-mobile-expired.png`, and
+  `/tmp/ig-checkout-desktop-full.png`.
 
 ## Deferred Next Pass
 
-The following remain intentionally open until the requested design/browser
-review: screenshots at all target viewports, visual motion/palette polish,
-authenticated management mobile browser QA, CSP console inspection, and the
-production push/migration/static/restart/deploy sequence. These are not marked
-complete by local unit tests.
+The following remain intentionally open until the next design/browser pass:
+screenshots at 320x568, 430x932, and 768x1024; arbitrary product-list lengths;
+keyboard-only/Nova Poshta selector QA; terminal-state matrix beyond the tested
+expired fixture; authenticated management mobile browser QA; CSP-specific
+inspection; visual motion/palette polish; and the production
+push/migration/static/restart/deploy sequence. These are not marked complete by
+local unit tests or the two captured viewport checks.

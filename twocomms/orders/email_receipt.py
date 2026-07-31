@@ -350,6 +350,16 @@ def send_order_receipt_email(order, *, force: bool = False, recipient: str | Non
         built = build_order_receipt_email(order)
     except Exception as exc:  # pragma: no cover - безпека рендеру
         logger.exception("Failed to build receipt email for order %s: %s", order.pk, exc)
+        try:
+            with transaction.atomic():
+                failed = Order.objects.select_for_update().get(pk=order.pk)
+                payload = failed.payment_payload if isinstance(failed.payment_payload, dict) else {}
+                payload["receipt_email_status"] = "failed"
+                payload["receipt_email_error"] = str(exc)[:500]
+                failed.payment_payload = payload
+                failed.save(update_fields=["payment_payload"])
+        except Exception:
+            logger.exception("Failed to persist receipt build failure for order %s", order.pk)
         return False, "build_failed"
 
     from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None) or f"TwoComms <{SUPPORT_EMAIL}>"

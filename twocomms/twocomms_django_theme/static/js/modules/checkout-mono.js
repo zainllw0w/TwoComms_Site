@@ -11,7 +11,7 @@
  */
 
 import { getCookie } from './shared.js';
-import { validateNovaPoshtaSelection } from './nova-poshta-selector.js?v=20260422b';
+import { validateNovaPoshtaSelection } from './nova-poshta-selector.js?v=20260801a';
 import { syncUkraineCheckoutPhoneField } from './phone.js?v=20260422c';
 
 function deps() {

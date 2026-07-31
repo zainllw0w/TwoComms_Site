@@ -1,8 +1,10 @@
 import hashlib
+from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import RequestFactory, TestCase, override_settings
 from django.core import signing
 from django.urls import reverse
@@ -20,11 +22,15 @@ from management.models import (
 from management.services.ig_commercial_episodes import ensure_episode_for_deal
 from orders.models import Order, PaymentAttempt
 from orders.nova_poshta_checkout import build_city_choice_token, build_warehouse_choice_token
-from storefront.models import Category, Product, PromoCode, PromoCodeUsage
+from storefront.models import Category, Product, PromoCode, PromoCodeGroup, PromoCodeUsage
 
 
 class InstagramCheckoutViewTests(TestCase):
     def setUp(self):
+        # Bearer-entry throttling is intentionally IP-scoped in production;
+        # isolate the in-memory test cache so one class cannot consume another
+        # test's request budget.
+        cache.clear()
         self.profile = IgClient.get_or_create_for_sender("private-instagram-sender")
         self.profile.display_name = "Марія"
         self.profile.username = "private_handle"
@@ -169,6 +175,22 @@ class InstagramCheckoutViewTests(TestCase):
         )
         self.assertContains(response, "instagram-checkout.css")
         self.assertContains(response, "instagram-checkout.js")
+
+    def test_ready_page_names_monobank_in_protected_payment_copy_for_each_locale(self):
+        expected_copy = {
+            "uk": "Захищена оплата через Monobank",
+            "ru": "Защищенная оплата через Monobank",
+            "en": "Secure payment via Monobank",
+        }
+
+        for locale, expected in expected_copy.items():
+            with self.subTest(locale=locale):
+                self.proposal.locale = locale
+                self.proposal.save(update_fields=["locale", "updated_at"])
+
+                response = self._open()
+
+                self.assertContains(response, expected)
 
     def test_locked_page_masks_recipient_and_suppresses_edit_form(self):
         attempt = self._attempt()
@@ -372,6 +394,7 @@ class InstagramCheckoutViewTests(TestCase):
         self.assertEqual(attempt.gross_amount, Decimal("1900.00"))
         self.assertEqual(attempt.discount_amount, Decimal("200.00"))
         self.assertEqual(attempt.payable_amount, Decimal("1700.00"))
+        self.assertEqual(attempt.invoice_expires_at, self.proposal.expires_at)
         self.assertEqual(attempt.invoice_payload["request"]["merchantPaymInfo"]["customerEmails"], [payload["email"]])
         self.proposal.refresh_from_db()
         self.assertEqual(self.proposal.status, IgCheckoutProposal.Status.INVOICE_CREATED)
@@ -392,6 +415,25 @@ class InstagramCheckoutViewTests(TestCase):
         self.assertEqual(response.status_code, 400)
         provider.assert_not_called()
         self.assertIn("email", response.content.decode().lower())
+        self.assertFalse(PaymentAttempt.objects.exists())
+
+    def test_post_rejects_proposal_that_expires_after_page_was_opened(self):
+        raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
+        entry = self.client.get(reverse("ig_checkout_token_entry", kwargs={"token": raw}))
+        self.client.get(entry["Location"])
+        self.proposal.expires_at = timezone.now() - timedelta(seconds=1)
+        self.proposal.save(update_fields=["expires_at", "updated_at"])
+
+        with patch("storefront.views.monobank._monobank_api_request") as provider:
+            response = self.client.post(
+                reverse("ig_checkout_proposal", kwargs={"proposal_id": self.proposal.public_id}),
+                data=self._delivery_payload(),
+                HTTP_ACCEPT="application/json",
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "expired")
+        provider.assert_not_called()
         self.assertFalse(PaymentAttempt.objects.exists())
 
     def test_post_blocks_catalog_drift_before_provider_call(self):
@@ -519,6 +561,34 @@ class InstagramCheckoutViewTests(TestCase):
         provider.assert_not_called()
         self.assertFalse(PaymentAttempt.objects.exists())
 
+    def test_anonymous_payer_cannot_use_one_per_account_promo_group(self):
+        group = PromoCodeGroup.objects.create(
+            name="Account scoped IG group", one_per_account=True
+        )
+        promo = PromoCode.objects.create(
+            code="GROUPACCOUNT100",
+            discount_type="fixed",
+            discount_value=Decimal("100.00"),
+            one_time_per_user=False,
+            group=group,
+        )
+        raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
+        entry = self.client.get(reverse("ig_checkout_token_entry", kwargs={"token": raw}))
+        self.client.get(entry["Location"])
+        payload = self._delivery_payload()
+        payload["promo_code"] = promo.code
+
+        with patch("storefront.views.monobank._monobank_api_request") as provider:
+            response = self.client.post(
+                reverse("ig_checkout_proposal", kwargs={"proposal_id": self.proposal.public_id}),
+                data=payload,
+                HTTP_ACCEPT="application/json",
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "promo_requires_account")
+        provider.assert_not_called()
+
     def test_authenticated_payer_uses_account_scoped_promo_only_once(self):
         user = get_user_model().objects.create_user(
             username="ig-promo-buyer",
@@ -603,6 +673,84 @@ class InstagramCheckoutViewTests(TestCase):
         self.assertEqual(rejected.json()["error"], "promo_invalid")
         second_provider.assert_not_called()
 
+    def test_authenticated_payer_cannot_reserve_two_codes_from_one_account_group(self):
+        user = get_user_model().objects.create_user(
+            username="ig-group-promo-buyer",
+            email="group-promo@example.com",
+            password="test-password",
+        )
+        group = PromoCodeGroup.objects.create(
+            name="One active IG reservation", one_per_account=True
+        )
+        reserved_promo = PromoCode.objects.create(
+            code="GROUPFIRST",
+            discount_type="fixed",
+            discount_value=Decimal("100.00"),
+            group=group,
+        )
+        requested_promo = PromoCode.objects.create(
+            code="GROUPSECOND",
+            discount_type="fixed",
+            discount_value=Decimal("100.00"),
+            group=group,
+        )
+        reserved_attempt = self._attempt()
+        reserved_attempt.user = user
+        reserved_attempt.promo_code = reserved_promo
+        reserved_attempt.event_state = {
+            "promo_reservation": {
+                "promo_id": reserved_promo.pk,
+                "state": "reserved",
+            }
+        }
+        reserved_attempt.save(update_fields=["user", "promo_code", "event_state", "updated"])
+
+        self.client.force_login(user)
+        raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
+        entry = self.client.get(reverse("ig_checkout_token_entry", kwargs={"token": raw}))
+        self.client.get(entry["Location"])
+        payload = self._delivery_payload()
+        payload["promo_code"] = requested_promo.code
+
+        with patch("storefront.views.monobank._monobank_api_request") as provider:
+            response = self.client.post(
+                reverse("ig_checkout_proposal", kwargs={"proposal_id": self.proposal.public_id}),
+                data=payload,
+                HTTP_ACCEPT="application/json",
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "promo_invalid")
+        provider.assert_not_called()
+        self.assertEqual(PaymentAttempt.objects.count(), 1)
+
+    def test_inactive_promo_group_is_rejected_for_assisted_checkout(self):
+        group = PromoCodeGroup.objects.create(
+            name="Inactive IG group", is_active=False, one_per_account=False
+        )
+        promo = PromoCode.objects.create(
+            code="INACTIVEGROUP",
+            discount_type="fixed",
+            discount_value=Decimal("100.00"),
+            group=group,
+        )
+        raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
+        entry = self.client.get(reverse("ig_checkout_token_entry", kwargs={"token": raw}))
+        self.client.get(entry["Location"])
+        payload = self._delivery_payload()
+        payload["promo_code"] = promo.code
+
+        with patch("storefront.views.monobank._monobank_api_request") as provider:
+            response = self.client.post(
+                reverse("ig_checkout_proposal", kwargs={"proposal_id": self.proposal.public_id}),
+                data=payload,
+                HTTP_ACCEPT="application/json",
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "promo_invalid")
+        provider.assert_not_called()
+
     def test_prepayment_proposal_uses_generic_payment_attempt_amount(self):
         self.proposal.pay_type = IgCheckoutProposal.PayType.PREPAYMENT
         self.proposal.requested_payment_amount = Decimal("600.00")
@@ -684,6 +832,40 @@ class InstagramCheckoutViewTests(TestCase):
         self.assertEqual(self.proposal.status, IgCheckoutProposal.Status.DETAILS_LOCKED)
         self.assertIsNotNone(self.proposal.payment_attempt_id)
 
+    def test_expired_invoice_creation_lease_becomes_ambiguous_without_retry(self):
+        attempt = self._attempt(status=PaymentAttempt.Status.PROCESSING)
+        attempt.event_state = {
+            "invoice_creation_lease": "stale-lease",
+            "invoice_creation_lease_expires_at": (
+                timezone.now() - timedelta(minutes=1)
+            ).isoformat(),
+        }
+        attempt.save(update_fields=["event_state", "updated"])
+        self.proposal.payment_attempt = attempt
+        self.proposal.status = IgCheckoutProposal.Status.DETAILS_LOCKED
+        self.proposal.details_locked_at = timezone.now() - timedelta(minutes=1)
+        self.proposal.save(update_fields=[
+            "payment_attempt", "status", "details_locked_at", "updated_at",
+        ])
+        raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
+        entry = self.client.get(reverse("ig_checkout_token_entry", kwargs={"token": raw}))
+        self.client.get(entry["Location"])
+
+        with patch("storefront.views.monobank._monobank_api_request") as provider:
+            response = self.client.post(
+                reverse("ig_checkout_proposal", kwargs={"proposal_id": self.proposal.public_id}),
+                data=self._delivery_payload(),
+                HTTP_ACCEPT="application/json",
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["error"], "provider_ambiguous")
+        provider.assert_not_called()
+        attempt.refresh_from_db()
+        self.assertTrue((attempt.event_state or {}).get("invoice_creation_ambiguous"))
+        self.assertNotIn("invoice_creation_lease", attempt.event_state)
+        self.assertEqual(attempt.status, PaymentAttempt.Status.PROCESSING)
+
     def test_deterministic_provider_configuration_failure_unlocks_checkout(self):
         from storefront.views.monobank import MonobankAPIError
 
@@ -738,6 +920,48 @@ class InstagramCheckoutViewTests(TestCase):
         self.assertEqual(first["Location"], second["Location"])
         self.assertEqual(provider.call_count, 1)
         self.assertEqual(PaymentAttempt.objects.count(), 1)
+
+    def test_forwarded_payer_cannot_overwrite_first_browser_attribution(self):
+        raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
+        entry = self.client.get(reverse("ig_checkout_token_entry", kwargs={"token": raw}))
+        self.client.get(entry["Location"])
+        payload = self._delivery_payload()
+        self.client.cookies["_fbp"] = "fb.1.1700000000000.first"
+        with patch(
+            "storefront.views.monobank._monobank_api_request",
+            return_value={"invoiceId": "ig-attribution-1", "pageUrl": "https://pay.example/ig-attribution-1"},
+        ) as provider, patch(
+            "orders.facebook_conversions_service.get_facebook_conversions_service"
+        ) as fb, patch(
+            "orders.telegram_notifications.TelegramNotifier.send_payment_attempt_notification",
+            return_value=True,
+        ):
+            fb.return_value.send_add_payment_info_event.return_value = True
+            first = self.client.post(
+                reverse("ig_checkout_proposal", kwargs={"proposal_id": self.proposal.public_id}),
+                data=payload,
+                HTTP_USER_AGENT="First Payer Browser",
+                REMOTE_ADDR="198.51.100.10",
+            )
+            attempt = PaymentAttempt.objects.get()
+            first_tracking = dict(attempt.tracking_payload)
+
+            self.client.cookies["_fbp"] = "fb.1.1700000000000.second"
+            second = self.client.post(
+                reverse("ig_checkout_proposal", kwargs={"proposal_id": self.proposal.public_id}),
+                data=payload,
+                HTTP_USER_AGENT="Forwarded Payer Browser",
+                REMOTE_ADDR="198.51.100.11",
+            )
+
+        self.assertEqual(first["Location"], second["Location"])
+        provider.assert_called_once()
+        self.assertEqual(PaymentAttempt.objects.count(), 1)
+        attempt.refresh_from_db()
+        self.assertEqual(attempt.tracking_payload, first_tracking)
+        self.assertEqual(attempt.tracking_payload["fbp"], "fb.1.1700000000000.first")
+        self.assertEqual(attempt.tracking_payload["client_user_agent"], "First Payer Browser")
+        self.assertEqual(attempt.tracking_payload["client_ip_address"], "198.51.100.10")
 
     def test_reused_invoice_retries_missing_add_payment_info_marker(self):
         raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)

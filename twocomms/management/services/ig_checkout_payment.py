@@ -19,11 +19,16 @@ from django.core.validators import validate_email
 from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 
 from orders.models import PaymentAttempt
 from orders.nova_poshta_checkout import NovaPoshtaSelectionError, resolve_delivery_selection
 from orders.nova_poshta_documents import normalize_checkout_phone
-from storefront.models import PromoCode
+from orders.promo_reservations import (
+    PromoReservationError,
+    release_payment_attempt_promo,
+    reserve_promo_for_checkout,
+)
 
 from management.services.ig_inventory import (
     consume_proposal_inventory,
@@ -42,6 +47,22 @@ class CheckoutPaymentError(ValueError):
         self.code = code
         self.field = field
         self.message = message
+
+
+_STALE_INVOICE_LEASE = object()
+
+
+def _invoice_creation_lease_expired(event_state, *, now=None):
+    """Treat a malformed or elapsed lease as unsafe to retry blindly."""
+    raw_expires_at = (event_state or {}).get("invoice_creation_lease_expires_at")
+    if not raw_expires_at:
+        return False
+    expires_at = parse_datetime(str(raw_expires_at))
+    if expires_at is None:
+        return True
+    if timezone.is_naive(expires_at):
+        expires_at = timezone.make_aware(expires_at, timezone.get_current_timezone())
+    return expires_at <= (now or timezone.now())
 
 
 def _clean(value, limit=255):
@@ -164,34 +185,27 @@ def _validate_payload(proposal, payload, *, user=None):
     promo_code = _clean(payload.get("promo_code"), 32).upper()
     promo = None
     promo_discount = Decimal("0.00")
+    promo_event_state = {}
     if promo_code:
         if not proposal.allow_promo:
             raise CheckoutPaymentError("promo_unavailable", "Промокод для этого предложения недоступен.", field="promo_code")
-        promo = PromoCode.objects.select_for_update().filter(code__iexact=promo_code).first()
-        if promo is None or not promo.can_be_used():
-            raise CheckoutPaymentError("promo_invalid", "Промокод недействителен или уже использован.", field="promo_code")
-        account_scoped = bool(
-            promo.one_time_per_user
-            or (promo.group_id and getattr(promo.group, "one_per_account", False))
-        )
-        if account_scoped:
-            if not user or not user.is_authenticated:
-                raise CheckoutPaymentError(
-                    "promo_requires_account",
-                    "Этот промокод доступен только в личном кабинете.",
-                    field="promo_code",
-                )
-            eligible, _reason = promo.can_be_used_by_user(user)
-            if not eligible:
-                raise CheckoutPaymentError(
-                    "promo_invalid",
-                    "Промокод недействителен или уже использован.",
-                    field="promo_code",
-                )
-        promo_discount = min(
-            Decimal(str(promo.calculate_discount(proposal.requested_payment_amount))),
-            Decimal(proposal.requested_payment_amount),
-        )
+        try:
+            reservation = reserve_promo_for_checkout(
+                code=promo_code,
+                user=user,
+                total_amount=proposal.requested_payment_amount,
+            )
+        except PromoReservationError as exc:
+            error = "promo_requires_account" if exc.reason == "account_required" else "promo_invalid"
+            message = (
+                "Этот промокод доступен только в личном кабинете."
+                if error == "promo_requires_account"
+                else "Промокод недействителен или уже использован."
+            )
+            raise CheckoutPaymentError(error, message, field="promo_code") from exc
+        promo = reservation.promo
+        promo_discount = reservation.discount
+        promo_event_state = reservation.event_state
 
     payable = max(Decimal(proposal.requested_payment_amount) - promo_discount, Decimal("0.00"))
     if payable <= 0:
@@ -204,44 +218,14 @@ def _validate_payload(proposal, payload, *, user=None):
         "promo": promo,
         "promo_code": promo_code,
         "promo_discount": promo_discount,
+        "promo_event_state": promo_event_state,
         "payable": payable,
     }
 
 
-def _promo_reservation_state(promo):
-    if promo is None:
-        return {}
-    return {
-        "promo_reservation": {
-            "promo_id": promo.pk,
-            "state": "reserved",
-            "reserved_at": timezone.now().isoformat(),
-        }
-    }
-
-
-@transaction.atomic
 def release_attempt_promo(attempt, *, reason="payment_terminal"):
     """Release one assisted-checkout promo slot exactly once."""
-    locked = PaymentAttempt.objects.select_for_update().get(pk=attempt.pk)
-    event_state = dict(locked.event_state or {})
-    reservation = dict(event_state.get("promo_reservation") or {})
-    if reservation.get("state") != "reserved":
-        return False
-    promo_id = reservation.get("promo_id") or locked.promo_code_id
-    promo = PromoCode.objects.select_for_update().filter(pk=promo_id).first()
-    if promo is not None and promo.current_uses > 0:
-        promo.current_uses -= 1
-        promo.save(update_fields=["current_uses", "updated_at"])
-    reservation.update({
-        "state": "released",
-        "released_at": timezone.now().isoformat(),
-        "release_reason": str(reason or "payment_terminal")[:128],
-    })
-    event_state["promo_reservation"] = reservation
-    locked.event_state = event_state
-    locked.save(update_fields=["event_state", "updated"])
-    return True
+    return release_payment_attempt_promo(attempt, reason=reason)
 
 
 def _snapshot(proposal):
@@ -437,6 +421,21 @@ def lock_proposal_details(proposal, *, payload, request, grant_id=""):
         if attempt.invoice_url:
             return locked, attempt, None, True
         if attempt.status in {PaymentAttempt.Status.INITIATED, PaymentAttempt.Status.PROCESSING}:
+            if (
+                attempt.status == PaymentAttempt.Status.PROCESSING
+                and _invoice_creation_lease_expired(attempt.event_state)
+            ):
+                event_state = dict(attempt.event_state or {})
+                event_state["invoice_creation_ambiguous"] = True
+                event_state.pop("invoice_creation_lease", None)
+                event_state.pop("invoice_creation_lease_expires_at", None)
+                attempt.event_state = event_state
+                attempt.error_reason = "invoice_creation_ambiguous:stale_lease"
+                attempt.last_status_at = timezone.now()
+                attempt.save(update_fields=[
+                    "event_state", "error_reason", "last_status_at", "updated",
+                ])
+                return locked, attempt, _STALE_INVOICE_LEASE, True
             raise CheckoutPaymentError("in_progress", "Платеж уже создается. Подождите несколько секунд.")
     if locked.status not in {locked.Status.READY, locked.Status.VIEWED}:
         raise CheckoutPaymentError("unavailable", "Это предложение больше нельзя оплатить.")
@@ -485,7 +484,7 @@ def lock_proposal_details(proposal, *, payload, request, grant_id=""):
         payable_amount=values["payable"],
         payment_amount=values["payable"],
         promo_code=values["promo"],
-        event_state=_promo_reservation_state(values["promo"]),
+        event_state=values["promo_event_state"],
     )
     tracking = _capture_attempt_tracking(request, attempt)
     if grant_id:
@@ -495,9 +494,6 @@ def lock_proposal_details(proposal, *, payload, request, grant_id=""):
         ).hexdigest()[:40]
         attempt.tracking_payload = tracking
         attempt.save(update_fields=["tracking_payload", "updated"])
-    if values["promo"] is not None:
-        values["promo"].current_uses += 1
-        values["promo"].save(update_fields=["current_uses", "updated_at"])
     locked.payment_attempt = attempt
     locked.status = locked.Status.DETAILS_LOCKED
     locked.details_locked_at = now
@@ -521,7 +517,7 @@ def lock_proposal_details(proposal, *, payload, request, grant_id=""):
     locked.save(update_fields=["payment_attempt", "status", "details_locked_at", "updated_at"])
     reserve_proposal_inventory(locked, expires_at=min(
         locked.expires_at,
-        now + timedelta(hours=12),
+        now + timedelta(minutes=25),
     ))
     return locked, attempt, values, False
 
@@ -533,6 +529,11 @@ def create_or_reuse_invoice(proposal, *, request, payload, grant_id=""):
     locked, attempt, values, reused = lock_proposal_details(
         proposal, payload=payload, request=request, grant_id=grant_id
     )
+    if values is _STALE_INVOICE_LEASE:
+        raise CheckoutPaymentError(
+            "provider_ambiguous",
+            "Платіж уже передано банку, але його статус ще потрібно перевірити.",
+        )
     if reused and attempt.invoice_url:
         _send_add_payment_info_if_missing(attempt, request)
         return attempt, attempt.invoice_url, True
@@ -642,7 +643,7 @@ def create_or_reuse_invoice(proposal, *, request, payload, grant_id=""):
         invoice_url=str(invoice_url)[:600],
         invoice_payload={"request": invoice_payload, "create": creation},
         tracking_payload=tracking,
-        invoice_expires_at=min(locked.expires_at, now + timedelta(hours=12)),
+        invoice_expires_at=min(locked.expires_at, now + timedelta(minutes=25)),
         event_state=event_state,
         status=PaymentAttempt.Status.PROCESSING,
         last_status_at=now,

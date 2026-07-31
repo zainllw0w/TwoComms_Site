@@ -22,6 +22,65 @@
                                    return params.get('ttq_test') || null;
                                  })();
   var YM_ID = root.getAttribute('data-ym-id');
+  var routeName = (root.getAttribute('data-route-name') || '').toLowerCase();
+  var isInstagramCheckout = routeName === 'ig_checkout_proposal';
+
+  function readConsentCookie() {
+    var prefix = 'twc_analytics_consent=';
+    var cookies = String(doc.cookie || '').split(';');
+    for (var i = 0; i < cookies.length; i++) {
+      var value = cookies[i].trim();
+      if (value.indexOf(prefix) === 0) {
+        return decodeURIComponent(value.substring(prefix.length));
+      }
+    }
+    return '';
+  }
+
+  var consentValue = readConsentCookie();
+  var privacySignalDenied = Boolean(
+    (win.navigator && (win.navigator.globalPrivacyControl === true || win.navigator.doNotTrack === '1'))
+    || win.doNotTrack === '1'
+  );
+  var analyticsConsentGranted = !isInstagramCheckout
+    || (consentValue === 'granted' && !privacySignalDenied);
+  win.__twcAnalyticsConsent = analyticsConsentGranted;
+
+  if (isInstagramCheckout) {
+    var consentPanel = doc.querySelector('[data-analytics-consent]');
+    var consentKnown = consentValue === 'granted' || consentValue === 'denied';
+    if (consentPanel && !consentKnown && !privacySignalDenied) {
+      consentPanel.hidden = false;
+    }
+    var consentCookie = function (value) {
+      var suffix = '; path=/; max-age=31536000; SameSite=Lax';
+      if (win.location && win.location.protocol === 'https:') suffix += '; Secure';
+      doc.cookie = 'twc_analytics_consent=' + encodeURIComponent(value) + suffix;
+    };
+    var acceptConsent = consentPanel && consentPanel.querySelector('[data-analytics-consent-accept]');
+    var rejectConsent = consentPanel && consentPanel.querySelector('[data-analytics-consent-reject]');
+    if (acceptConsent) {
+      acceptConsent.addEventListener('click', function () {
+        consentCookie('granted');
+        win.location.reload();
+      });
+    }
+    if (rejectConsent) {
+      rejectConsent.addEventListener('click', function () {
+        consentCookie('denied');
+        if (consentPanel) consentPanel.hidden = true;
+      });
+    }
+  }
+
+  if (!analyticsConsentGranted) {
+    // Keep checkout functional, but fail closed for marketing pixels and
+    // browser identifiers until the visitor explicitly opts in.
+    win.trackEvent = function () {};
+    win.trackEvent.__consentBlocked = true;
+    win.getTrackingContext = function () { return { fbp: null, fbc: null }; };
+    return;
+  }
 
   function schedule(fn, timeout) {
     if (!fn) {

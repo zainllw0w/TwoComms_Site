@@ -7,7 +7,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 from accounts.models import UserProfile
-from orders.models import CheckoutCapture, Order
+from orders.models import CheckoutCapture, Order, PaymentAttempt
 from orders.nova_poshta_documents import normalize_checkout_phone, normalize_phone, normalize_phone_for_np
 from orders.nova_poshta_checkout import build_city_choice_token, build_warehouse_choice_token
 from fable5.models import ProductOptionProfile, VariantDetails
@@ -178,6 +178,56 @@ class NovaPoshtaCheckoutValidationTests(TestCase):
         monobank_request_mock.assert_called_once()
         notification_mock.assert_called_once()
         facebook_service_mock.return_value.send_add_payment_info_event.assert_called_once()
+
+    @patch('storefront.views.monobank.get_facebook_conversions_service')
+    @patch('orders.telegram_notifications.TelegramNotifier.send_new_order_notification', return_value=True)
+    @patch('storefront.views.monobank.record_lead')
+    @patch('storefront.views.monobank.record_initiate_checkout')
+    @patch('storefront.views.monobank.link_order_to_utm')
+    @patch('storefront.views.monobank._monobank_api_request')
+    def test_monobank_nested_submit_during_provider_call_keeps_one_attempt(
+        self,
+        monobank_request_mock,
+        _link_order_mock,
+        _checkout_mock,
+        _record_lead_mock,
+        _notification_mock,
+        facebook_service_mock,
+    ):
+        self._set_cart()
+        body = json.dumps(self._monobank_payload())
+        nested_responses = []
+
+        def provider(*args, **kwargs):
+            if not nested_responses:
+                nested_responses.append(None)
+                nested_responses.append(
+                    self.client.post(
+                        self.monobank_create_invoice_url,
+                        data=body,
+                        content_type='application/json',
+                        secure=True,
+                    )
+                )
+            return {
+                'invoiceId': 'mono-inflight-1',
+                'pageUrl': 'https://pay.monobank.test/inflight-1',
+            }
+
+        monobank_request_mock.side_effect = provider
+        facebook_service_mock.return_value = Mock()
+
+        response = self.client.post(
+            self.monobank_create_invoice_url,
+            data=body,
+            content_type='application/json',
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(nested_responses[1].status_code, 409)
+        self.assertEqual(PaymentAttempt.objects.count(), 1)
+        self.assertEqual(monobank_request_mock.call_count, 1)
 
     @patch('storefront.views.monobank.get_facebook_conversions_service')
     @patch('orders.telegram_notifications.TelegramNotifier.send_new_order_notification', return_value=True)

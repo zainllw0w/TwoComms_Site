@@ -3,6 +3,7 @@ from datetime import timedelta
 from decimal import Decimal
 from threading import Barrier, Lock, Thread
 from unittest import skipUnless
+from unittest.mock import patch
 
 from django.core.exceptions import ValidationError
 from django.db import (
@@ -198,8 +199,8 @@ class IgCheckoutProposalModelTests(TestCase):
         from management.models import IgCheckoutProposal
 
         for quoted_total, expires_at in (
-            (Decimal("0.00"), timezone.now() + timedelta(hours=12)),
-            (Decimal("-1.00"), timezone.now() + timedelta(hours=12)),
+            (Decimal("0.00"), timezone.now() + timedelta(minutes=25)),
+            (Decimal("-1.00"), timezone.now() + timedelta(minutes=25)),
             (Decimal("790.00"), timezone.now() - timedelta(seconds=1)),
         ):
             proposal = IgCheckoutProposal(
@@ -215,6 +216,18 @@ class IgCheckoutProposalModelTests(TestCase):
             )
             with self.assertRaises(ValidationError):
                 proposal.full_clean()
+
+    def test_default_checkout_proposal_expiry_is_twenty_five_minutes(self):
+        from management.ig_bot_models import default_checkout_proposal_expiry
+
+        fixed_now = timezone.now().replace(microsecond=0)
+        with patch(
+            "management.ig_bot_models.timezone.now",
+            return_value=fixed_now,
+        ):
+            expires_at = default_checkout_proposal_expiry()
+
+        self.assertEqual(expires_at, fixed_now + timedelta(minutes=25))
 
     def test_revision_is_append_only(self):
         from management.models import IgCheckoutRevision

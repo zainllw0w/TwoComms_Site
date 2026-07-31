@@ -9,11 +9,17 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 import json
+import mimetypes
+from pathlib import Path
+from urllib.parse import urlsplit
 
 from django.conf import settings
 
 
 MAX_CATALOG_MEDIA = 4
+MAX_CATALOG_MEDIA_BYTES = 10 * 1024 * 1024
+_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp"}
+_IMAGE_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
 class CatalogMediaState(StrEnum):
@@ -37,6 +43,8 @@ class CatalogMediaItem:
     title: str
     alt: str
     product_id: int
+    mime_type: str = ""
+    size_bytes: int = 0
 
 
 @dataclass(frozen=True)
@@ -81,8 +89,22 @@ def _image_url(image_field) -> str:
         return ""
 
 
-def _variant_urls(variant) -> list[str]:
-    urls: list[str] = []
+def _image_asset(image_field) -> tuple[str, str, int] | None:
+    url = _image_url(image_field)
+    if not url:
+        return None
+    name = str(getattr(image_field, "name", "") or urlsplit(url).path)
+    mime_type = str(mimetypes.guess_type(name)[0] or "").lower()
+    try:
+        size_bytes = int(getattr(image_field, "size", 0) or 0)
+    except (OSError, TypeError, ValueError):
+        size_bytes = 0
+    return url, mime_type, size_bytes
+
+
+def _variant_assets(variant) -> list[tuple[str, str, int]]:
+    assets: list[tuple[str, str, int]] = []
+    urls: set[str] = set()
     images = getattr(variant, "_prefetched_objects_cache", {}).get("images")
     if images is None:
         try:
@@ -90,27 +112,31 @@ def _variant_urls(variant) -> list[str]:
         except Exception:
             images = []
     for image in images:
-        url = _image_url(getattr(image, "image", None))
-        if url and url not in urls:
-            urls.append(url)
-    return urls
+        asset = _image_asset(getattr(image, "image", None))
+        if asset and asset[0] not in urls:
+            assets.append(asset)
+            urls.add(asset[0])
+    return assets
 
 
-def _product_urls(product) -> list[str]:
-    urls: list[str] = []
+def _product_assets(product) -> list[tuple[str, str, int]]:
+    assets: list[tuple[str, str, int]] = []
+    urls: set[str] = set()
     try:
         images = list(product.images.order_by("order", "id")[:MAX_CATALOG_MEDIA])
     except Exception:
         images = []
     for image in images:
-        url = _image_url(getattr(image, "image", None))
-        if url and url not in urls:
-            urls.append(url)
+        asset = _image_asset(getattr(image, "image", None))
+        if asset and asset[0] not in urls:
+            assets.append(asset)
+            urls.add(asset[0])
     for field_name in ("main_image", "home_card_image", "display_image"):
-        url = _image_url(getattr(product, field_name, None))
-        if url and url not in urls:
-            urls.append(url)
-    return urls
+        asset = _image_asset(getattr(product, field_name, None))
+        if asset and asset[0] not in urls:
+            assets.append(asset)
+            urls.add(asset[0])
+    return assets
 
 
 def select_catalog_media(product_ids, *, limit: int = MAX_CATALOG_MEDIA) -> CatalogMediaSelection:
@@ -151,17 +177,17 @@ def select_catalog_media(product_ids, *, limit: int = MAX_CATALOG_MEDIA) -> Cata
         product = by_id.get(product_id)
         if product is None:
             continue
-        candidates: list[str] = []
+        candidates: list[tuple[str, str, int]] = []
         variants = list(
             ProductColorVariant.objects.filter(product_id=product_id, stock__gt=0)
             .prefetch_related("images")
             .order_by("order", "id")
         )
         for variant in variants:
-            candidates.extend(_variant_urls(variant))
+            candidates.extend(_variant_assets(variant))
         if not candidates:
-            candidates = _product_urls(product)
-        for url in candidates:
+            candidates = _product_assets(product)
+        for url, mime_type, size_bytes in candidates:
             if url in seen:
                 continue
             seen.add(url)
@@ -171,6 +197,8 @@ def select_catalog_media(product_ids, *, limit: int = MAX_CATALOG_MEDIA) -> Cata
                     title=str(product.title or "TwoComms")[:200],
                     alt=f"{product.title} — TwoComms"[:240],
                     product_id=product_id,
+                    mime_type=mime_type,
+                    size_bytes=size_bytes,
                 )
             )
             if len(selected) >= max(1, min(int(limit), MAX_CATALOG_MEDIA)):
@@ -210,6 +238,28 @@ def parse_product_ids(raw) -> tuple[int, ...] | None:
     return tuple(values[:12]) if values else None
 
 
+def _trusted_media_item(item: CatalogMediaItem) -> bool:
+    """Keep the Instagram transport limited to first-party image assets."""
+    try:
+        parsed = urlsplit(str(item.url or ""))
+        if parsed.scheme != "https" or not parsed.hostname:
+            return False
+        base_host = urlsplit(_base_url()).hostname
+        configured = getattr(settings, "IG_CATALOG_MEDIA_ALLOWED_HOSTS", ()) or ()
+        allowed_hosts = {str(base_host or "").lower()}
+        allowed_hosts.update(str(value).strip().lower() for value in configured if str(value).strip())
+        if parsed.hostname.lower() not in allowed_hosts:
+            return False
+        if (Path(parsed.path).suffix or "").lower() not in _IMAGE_SUFFIXES:
+            return False
+        if str(item.mime_type or "").lower() not in _IMAGE_MIME_TYPES:
+            return False
+        size = int(item.size_bytes or 0)
+        return 0 < size <= MAX_CATALOG_MEDIA_BYTES
+    except (TypeError, ValueError):
+        return False
+
+
 def send_catalog_media(
     settings_row,
     recipient_id: str,
@@ -228,7 +278,8 @@ def send_catalog_media(
         get_page_token,
     )
 
-    if not selection.items:
+    safe_items = tuple(item for item in selection.items if _trusted_media_item(item))[:MAX_CATALOG_MEDIA]
+    if not safe_items:
         return CatalogMediaDelivery(CatalogMediaDeliveryState.FAILED, error=selection.state)
     account_id = _provider_account_id(settings_row)
     page_token = get_page_token(settings_row)
@@ -238,7 +289,7 @@ def send_catalog_media(
     sent = 0
     attempted = 0
     message_ids: list[str] = []
-    for item in selection.items:
+    for item in safe_items:
         boundary = permission_boundary_factory() if permission_boundary_factory else nullcontext(True)
         with boundary as allowed:
             if not allowed:

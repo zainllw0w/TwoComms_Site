@@ -1,5 +1,5 @@
 import { getCookie, DOMCache, escapeHtml } from './shared.js';
-import { initNovaPoshtaSelectors } from './nova-poshta-selector.js?v=20260422b';
+import { initNovaPoshtaSelectors } from './nova-poshta-selector.js?v=20260801a';
 import {
   normalizeUkraineCheckoutPhoneValue,
   syncUkraineCheckoutPhoneField,

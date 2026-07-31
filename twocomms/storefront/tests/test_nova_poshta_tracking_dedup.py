@@ -99,6 +99,52 @@ class NovaPoshtaTrackingDedupTests(TestCase):
         self.assertEqual(status_notif.call_count, 0)
         self.assertEqual(delivery_notif.call_count, 0)
 
+    def test_delivery_lifecycle_is_emitted_before_telegram_failure(self):
+        with (
+            patch.object(
+                self.service,
+                "get_tracking_info",
+                return_value=_tracking("Відправлення отримано", 9, "одержувачем"),
+            ),
+            patch.object(self.service, "_dispatch_ig_delivery_lifecycle") as lifecycle,
+            patch.object(self.service, "_send_admin_delivery_notification"),
+            patch.object(
+                self.service,
+                "_send_delivery_notification",
+                side_effect=RuntimeError("telegram unavailable"),
+            ),
+            patch.object(self.service, "_send_facebook_purchase_event"),
+            patch.object(self.service, "_send_tiktok_purchase_event"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "telegram unavailable"):
+                self.service.update_order_tracking_status(self.order)
+
+        lifecycle.assert_called_once()
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, "done")
+
+    def test_lifecycle_failure_does_not_block_delivery_notifications(self):
+        with (
+            patch.object(
+                self.service,
+                "get_tracking_info",
+                return_value=_tracking("Відправлення отримано", 9, "одержувачем"),
+            ),
+            patch(
+                "management.services.ig_lifecycle.ensure_lifecycle_event",
+                side_effect=RuntimeError("lifecycle unavailable"),
+            ),
+            patch.object(self.service, "_send_admin_delivery_notification") as admin_notification,
+            patch.object(self.service, "_send_delivery_notification") as delivery_notification,
+            patch.object(self.service, "_send_facebook_purchase_event"),
+            patch.object(self.service, "_send_tiktok_purchase_event"),
+        ):
+            result = self.service.update_order_tracking_status(self.order)
+
+        self.assertTrue(result)
+        admin_notification.assert_called_once()
+        delivery_notification.assert_called_once()
+
     def test_received_heals_purchase_when_order_was_already_paid(self):
         self.order.payment_status = 'paid'
         self.order.save(update_fields=['payment_status'])

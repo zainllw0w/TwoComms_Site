@@ -17,6 +17,7 @@ import logging
 import json
 import base64
 import hashlib
+import secrets
 import threading
 from urllib.parse import urlparse
 from decimal import Decimal
@@ -28,6 +29,7 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.core.cache import cache
 from django.db import transaction
 from django.urls import reverse
@@ -40,6 +42,11 @@ from orders.nova_poshta_data import apply_nova_poshta_refs
 from orders.nova_poshta_documents import normalize_checkout_phone
 from orders.models import Order as OrderModel, OrderItem, PaymentAttempt
 from orders.payment_attempts import materialize_payment_attempt, PaymentAttemptConversionError
+from orders.promo_reservations import (
+    PromoReservationError,
+    release_payment_attempt_promo,
+    reserve_promo_for_checkout,
+)
 from orders.nova_poshta_checkout import NovaPoshtaSelectionError, resolve_delivery_selection
 from orders.facebook_conversions_service import get_facebook_conversions_service
 from accounts.payment import normalize_pay_type
@@ -64,6 +71,29 @@ from .utils import (
 monobank_logger = logging.getLogger('storefront.monobank')
 cart_logger = logging.getLogger('storefront.cart')
 CLIENT_TRACKING_ALLOWED_KEYS = frozenset({'fbp', 'fbc'})
+INVOICE_CREATION_LEASE_DURATION = timedelta(minutes=5)
+
+
+def _invoice_creation_lease_expired(event_state, *, now=None):
+    """Return whether an unfinished provider call is no longer owned safely."""
+    raw_expires_at = (event_state or {}).get('invoice_creation_lease_expires_at')
+    if not raw_expires_at:
+        return False
+    expires_at = parse_datetime(str(raw_expires_at))
+    if expires_at is None:
+        return True
+    if timezone.is_naive(expires_at):
+        expires_at = timezone.make_aware(expires_at, timezone.get_current_timezone())
+    return expires_at <= (now or timezone.now())
+
+
+def _ambiguous_payment_attempt_response():
+    return JsonResponse({
+        'success': False,
+        'provider_ambiguous': True,
+        'retry_after_ms': 5000,
+        'error': 'Платіж уже передано банку. Не повторюйте оплату, ми перевіряємо статус.',
+    }, status=409)
 
 
 def _capi_checkout_source_url(request):
@@ -714,23 +744,7 @@ def _create_payment_attempt_invoice(request):
     if gross <= 0:
         return JsonResponse({'success': False, 'error': 'Сума замовлення повинна бути більше 0.'}, status=400)
 
-    promo = None
-    discount = Decimal('0.00')
     promo_id = request.session.get('promo_code_id')
-    if promo_id:
-        try:
-            promo = PromoCode.objects.get(pk=promo_id)
-            can_use = promo.can_be_used()
-            if can_use and request.user.is_authenticated:
-                can_use, _ = promo.can_be_used_by_user(request.user)
-            if can_use:
-                discount = min(Decimal(str(promo.calculate_discount(gross))), gross)
-        except Exception:
-            promo = None
-            discount = Decimal('0.00')
-
-    payable = max(gross - discount, Decimal('0.00'))
-    payment_amount = min(Decimal('200.00'), payable) if pay_type == 'prepay_200' else payable
     delivery_refs = {
         'np_settlement_ref': delivery.settlement_ref,
         'np_city_ref': delivery.city_ref,
@@ -741,42 +755,95 @@ def _create_payment_attempt_invoice(request):
         phone=phone, email=normalized_email, delivery_refs=delivery_refs,
         city=delivery.city, np_office=delivery.np_office, pay_type=pay_type,
     )
-    with transaction.atomic():
-        _lock_checkout_identity(request)
-        attempt = PaymentAttempt.objects.select_for_update().filter(fingerprint=fingerprint).first()
-        if attempt and attempt.order_id:
-            return _existing_payment_attempt_response(attempt, approved_keys, pending_keys, request)
-        if attempt and attempt.status in {PaymentAttempt.Status.INITIATED, PaymentAttempt.Status.PROCESSING} and attempt.invoice_url:
-            return _existing_payment_attempt_response(attempt, approved_keys, pending_keys, request)
-        if attempt:
-            fingerprint = hashlib.sha256(f'{fingerprint}:{timezone.now().timestamp()}'.encode()).hexdigest()
-        attempt = PaymentAttempt.objects.create(
-            fingerprint=fingerprint,
-            user=request.user if request.user.is_authenticated else None,
-            session_key=request.session.session_key,
-            full_name=full_name,
-            phone=phone,
-            email=normalized_email or None,
-            city=delivery.city,
-            np_office=delivery.np_office,
-            np_settlement_ref=delivery_refs['np_settlement_ref'],
-            np_city_ref=delivery_refs['np_city_ref'],
-            np_warehouse_ref=delivery_refs['np_warehouse_ref'],
-            pay_type=pay_type,
-            cart_snapshot={
-                'cart': snapshot_items,
-                'custom_print_lead_ids': [lead.pk for lead in approved_leads],
-                'custom_print_leads': [
-                    {'lead_number': lead.lead_number, 'price': str(lead.final_price_value), 'qty': int(getattr(lead, 'quantity', 0) or 1)}
-                    for lead in approved_leads
-                ],
-            },
-            gross_amount=gross,
-            discount_amount=discount,
-            payable_amount=payable,
-            payment_amount=payment_amount,
-            promo_code=promo,
-        )
+    try:
+        with transaction.atomic():
+            _lock_checkout_identity(request)
+            attempt = PaymentAttempt.objects.select_for_update().filter(fingerprint=fingerprint).first()
+            if attempt and attempt.order_id:
+                return _existing_payment_attempt_response(attempt, approved_keys, pending_keys, request)
+            if attempt and (attempt.event_state or {}).get('invoice_creation_ambiguous'):
+                return _ambiguous_payment_attempt_response()
+            if attempt and attempt.status in {PaymentAttempt.Status.INITIATED, PaymentAttempt.Status.PROCESSING}:
+                if attempt.invoice_url:
+                    return _existing_payment_attempt_response(attempt, approved_keys, pending_keys, request)
+                if (
+                    attempt.status == PaymentAttempt.Status.PROCESSING
+                    and _invoice_creation_lease_expired(attempt.event_state)
+                ):
+                    event_state = dict(attempt.event_state or {})
+                    event_state['invoice_creation_ambiguous'] = True
+                    event_state.pop('invoice_creation_lease', None)
+                    event_state.pop('invoice_creation_lease_expires_at', None)
+                    PaymentAttempt.objects.filter(pk=attempt.pk).update(
+                        status=PaymentAttempt.Status.PROCESSING,
+                        event_state=event_state,
+                        error_reason='invoice_creation_ambiguous:stale_lease',
+                        last_status_at=timezone.now(),
+                    )
+                    return _ambiguous_payment_attempt_response()
+                return _existing_payment_attempt_response(attempt, approved_keys, pending_keys, request)
+            if attempt:
+                fingerprint = hashlib.sha256(f'{fingerprint}:{timezone.now().timestamp()}'.encode()).hexdigest()
+
+            promo = None
+            discount = Decimal('0.00')
+            promo_event_state = {}
+            if promo_id:
+                reservation = reserve_promo_for_checkout(
+                    promo_id=promo_id,
+                    user=request.user,
+                    total_amount=gross,
+                )
+                promo = reservation.promo
+                discount = reservation.discount
+                promo_event_state = reservation.event_state
+            payable = max(gross - discount, Decimal('0.00'))
+            if payable <= 0:
+                raise PromoReservationError('invalid_amount')
+            payment_amount = min(Decimal('200.00'), payable) if pay_type == 'prepay_200' else payable
+            attempt = PaymentAttempt.objects.create(
+                fingerprint=fingerprint,
+                user=request.user if request.user.is_authenticated else None,
+                session_key=request.session.session_key,
+                full_name=full_name,
+                phone=phone,
+                email=normalized_email or None,
+                city=delivery.city,
+                np_office=delivery.np_office,
+                np_settlement_ref=delivery_refs['np_settlement_ref'],
+                np_city_ref=delivery_refs['np_city_ref'],
+                np_warehouse_ref=delivery_refs['np_warehouse_ref'],
+                pay_type=pay_type,
+                cart_snapshot={
+                    'cart': snapshot_items,
+                    'custom_print_lead_ids': [lead.pk for lead in approved_leads],
+                    'custom_print_leads': [
+                        {'lead_number': lead.lead_number, 'price': str(lead.final_price_value), 'qty': int(getattr(lead, 'quantity', 0) or 1)}
+                        for lead in approved_leads
+                    ],
+                },
+                gross_amount=gross,
+                discount_amount=discount,
+                payable_amount=payable,
+                payment_amount=payment_amount,
+                promo_code=promo,
+                event_state=promo_event_state,
+            )
+            invoice_lease_state = dict(attempt.event_state or {})
+            invoice_lease_state['invoice_creation_lease'] = secrets.token_urlsafe(24)
+            invoice_lease_state['invoice_creation_lease_expires_at'] = (
+                timezone.now() + INVOICE_CREATION_LEASE_DURATION
+            ).isoformat()
+            attempt.status = PaymentAttempt.Status.PROCESSING
+            attempt.event_state = invoice_lease_state
+            attempt.last_status_at = timezone.now()
+            attempt.save(update_fields=['status', 'event_state', 'last_status_at', 'updated'])
+    except PromoReservationError:
+        return JsonResponse({
+            'success': False,
+            'field': 'promo_code',
+            'error': 'Промокод недійсний, неактивний або вже зарезервований.',
+        }, status=400)
 
     record_initiate_checkout(request, float(payable))
     description = (
@@ -807,11 +874,22 @@ def _create_payment_attempt_invoice(request):
         if not invoice_id or not invoice_url:
             raise MonobankAPIError('Monobank returned an invalid invoice')
     except Exception as exc:
+        event_state = dict(attempt.event_state or {})
+        event_state.pop('invoice_creation_lease', None)
+        event_state.pop('invoice_creation_lease_expires_at', None)
+        ambiguous = bool(getattr(exc, 'ambiguous', True))
+        if ambiguous:
+            event_state['invoice_creation_ambiguous'] = True
+        else:
+            event_state.pop('invoice_creation_ambiguous', None)
         PaymentAttempt.objects.filter(pk=attempt.pk).update(
-            status=PaymentAttempt.Status.FAILED,
-            error_reason=str(exc)[:500],
+            status=PaymentAttempt.Status.PROCESSING if ambiguous else PaymentAttempt.Status.FAILED,
+            event_state=event_state,
+            error_reason=(f'invoice_creation_ambiguous:{exc}' if ambiguous else str(exc))[:500],
             last_status_at=timezone.now(),
         )
+        if not ambiguous:
+            release_payment_attempt_promo(attempt, reason='invoice_creation_failed')
         return JsonResponse({'success': False, 'error': f'Помилка створення платежу: {exc}'}, status=502)
 
     # Capture the same first-party attribution context used by paid orders:
@@ -838,12 +916,17 @@ def _create_payment_attempt_invoice(request):
         f'user:{request.user.pk}' if request.user.is_authenticated else f'session:{request.session.session_key}'
     )
     tracking['add_payment_event_id'] = attempt.add_payment_event_id
+    event_state = dict(attempt.event_state or {})
+    event_state.pop('invoice_creation_lease', None)
+    event_state.pop('invoice_creation_lease_expires_at', None)
+    event_state.pop('invoice_creation_ambiguous', None)
     PaymentAttempt.objects.filter(pk=attempt.pk).update(
         monobank_invoice_id=invoice_id,
         invoice_url=invoice_url,
         invoice_payload={'request': payload, 'create': creation},
         tracking_payload=tracking,
         invoice_expires_at=timezone.now() + timedelta(hours=24),
+        event_state=event_state,
         status=PaymentAttempt.Status.PROCESSING,
         last_status_at=timezone.now(),
     )

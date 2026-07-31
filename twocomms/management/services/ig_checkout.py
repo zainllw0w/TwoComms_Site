@@ -117,7 +117,7 @@ def _snapshot_image_url(product, variant):
         return ""
 
 
-def _validate_negotiated_evidence(*, client, total, message_ids):
+def _validate_negotiated_evidence(*, client, total, message_ids, items=()):
     from management.models import InstagramBotMessage
 
     rows = list(
@@ -133,6 +133,16 @@ def _validate_negotiated_evidence(*, client, total, message_ids):
         r"\b(так|да|ок|добре|хорошо|домов\w*|погодж\w*|соглас\w*|оформл\w*)\b",
         re.I,
     )
+    order_total_re = re.compile(
+        r"\b(сума|сумма|разом|итого|всього|всего|total)\b",
+        re.I,
+    )
+    unit_price_re = re.compile(
+        r"\b(кожн\w*|кажд\w*|за\s+(?:одну|один|1|шт\.?|штук\w*|"
+        r"одиниц\w*)|за\s+штуку|per\s+(?:item|unit)|each)\b",
+        re.I,
+    )
+    total_quantity = sum(int(item.quantity or 0) for item in items)
     # A generated assistant message is not commercial authorization. Only a
     # human/operator-originated offer can support a negotiated total.
     seller_roles = {"manager", "human_manager", "operator", "admin"}
@@ -147,7 +157,17 @@ def _validate_negotiated_evidence(*, client, total, message_ids):
                 amounts.append(Decimal(raw.replace(",", ".")).quantize(Decimal("0.01")))
             except InvalidOperation:
                 continue
-        if total in amounts:
+        text = row.text or ""
+        explicit_total = total in amounts and (
+            total_quantity <= 1 or order_total_re.search(text)
+        )
+        explicit_unit_total = bool(
+            len(items) == 1
+            and total_quantity > 1
+            and unit_price_re.search(text)
+            and any(amount * total_quantity == total for amount in amounts)
+        )
+        if explicit_total or explicit_unit_total:
             offer_index = index
     accepted = any(
         index > (offer_index if offer_index is not None else len(rows))
@@ -383,6 +403,7 @@ def validate_checkout_items(
                 client=client,
                 total=quoted_total,
                 message_ids=evidence_ids,
+                items=normalized,
             )
 
     normalized_pay_type = str(pay_type or "online_full").strip().lower()

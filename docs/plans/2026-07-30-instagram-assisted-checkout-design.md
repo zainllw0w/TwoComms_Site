@@ -413,7 +413,7 @@ Server validation:
 - creates one fingerprint from proposal ID and revision, independent of browser
   session, so forwarded browsers reuse the same attempt;
 - sends a present email in Monobank `customerEmails` where supported;
-- sets invoice validity to the remaining proposal lifetime, maximum 12 hours;
+- sets invoice validity to the remaining proposal lifetime, maximum 25 minutes;
 - sets session ownership needed for the secure success page.
 - claims invoice creation with a durable lease before the provider call;
 - persists `invoice_creation_ambiguous` for timeout/crash boundaries and never

@@ -177,15 +177,18 @@ def _cancel_event(event_id: int, reason: str) -> str:
             IgLifecycleEvent.State.SENT,
             IgLifecycleEvent.State.CANCELLED,
         }:
-            return event.state
-        event.state = IgLifecycleEvent.State.CANCELLED
-        event.lease_token = ""
-        event.lease_expires_at = None
-        event.last_error = reason[:1000]
-        event.save(update_fields=[
-            "state", "lease_token", "lease_expires_at", "last_error", "updated_at",
-        ])
-        return event.state
+            state = event.state
+        else:
+            event.state = IgLifecycleEvent.State.CANCELLED
+            event.lease_token = ""
+            event.lease_expires_at = None
+            event.last_error = reason[:1000]
+            event.save(update_fields=[
+                "state", "lease_token", "lease_expires_at", "last_error", "updated_at",
+            ])
+            state = event.state
+    _project_order_channel(event)
+    return state
 
 
 def _delivery_result(result):
@@ -201,6 +204,34 @@ def _delivery_result(result):
         kind = str(getattr(result, "kind", "unknown") or "unknown")
         hint = str(getattr(result, "hint", "") or "")
     return bool(ok), str(kind or "unknown"), str(hint or ""), str(provider_message_id or "")
+
+
+def _project_order_channel(event: IgLifecycleEvent) -> None:
+    """Expose Direct outcome beside the other independent payment channels."""
+    state_map = {
+        IgLifecycleEvent.State.SENT: "sent",
+        IgLifecycleEvent.State.AMBIGUOUS: "ambiguous",
+        IgLifecycleEvent.State.FAILED: "failed",
+        IgLifecycleEvent.State.CANCELLED: "disabled",
+        IgLifecycleEvent.State.MANAGER_REVIEW: "pending",
+        IgLifecycleEvent.State.WAITING_WINDOW: "pending",
+        IgLifecycleEvent.State.PENDING: "pending",
+        IgLifecycleEvent.State.PROCESSING: "pending",
+    }
+    try:
+        from storefront.views.utils import _record_post_payment_channel
+
+        _record_post_payment_channel(
+            event.order_id,
+            "instagram_lifecycle",
+            state_map.get(event.state, "unknown"),
+            error=event.last_error,
+            metadata={"provider_message_id": event.provider_message_id},
+        )
+    except Exception:
+        logger.exception(
+            "Unable to persist Instagram channel state for lifecycle event %s", event.pk
+        )
 
 
 def dispatch_lifecycle_event(event_id: int) -> str:
@@ -259,6 +290,7 @@ def dispatch_lifecycle_event(event_id: int) -> str:
                             owned.save(update_fields=[
                                 "state", "lease_token", "lease_expires_at", "last_error", "due_at", "updated_at",
                             ])
+                    _project_order_channel(owned)
                     return IgLifecycleEvent.State.WAITING_WINDOW
                 return _cancel_event(event_id, permission.reason or "customer_send_not_allowed")
 
@@ -277,6 +309,7 @@ def dispatch_lifecycle_event(event_id: int) -> str:
                         (next_window + RESPONSE_WINDOW) if next_window else now + timedelta(hours=6),
                     )
                     owned.save(update_fields=["state", "lease_token", "lease_expires_at", "last_error", "due_at", "updated_at"])
+                _project_order_channel(owned)
                 _queue_manager_task(event)
                 try:
                     from management.services.instagram_bot import notify_manager
@@ -336,6 +369,7 @@ def dispatch_lifecycle_event(event_id: int) -> str:
             "completed_at", "last_error", "due_at", "updated_at",
         ])
         final_state = owned.state
+    _project_order_channel(owned)
     if needs_manager_review or final_state in {
         IgLifecycleEvent.State.AMBIGUOUS,
         IgLifecycleEvent.State.FAILED,

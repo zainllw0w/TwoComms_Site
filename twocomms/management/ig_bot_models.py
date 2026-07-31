@@ -1316,7 +1316,7 @@ class IgCommercialEpisode(models.Model):
 
 
 def default_checkout_proposal_expiry():
-    return timezone.now() + timedelta(hours=12)
+    return timezone.now() + timedelta(minutes=25)
 
 
 class IgCheckoutProposalQuerySet(models.QuerySet):

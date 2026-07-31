@@ -1101,7 +1101,13 @@ export function initNovaPoshtaSelectors(root) {
     return;
   }
 
-  scope.querySelectorAll('[data-np-form]').forEach((form) => {
+  const forms = [];
+  if (scope.matches?.('[data-np-form]')) {
+    forms.push(scope);
+  }
+  forms.push(...scope.querySelectorAll('[data-np-form]'));
+
+  forms.forEach((form) => {
     if (form.dataset.npInitialized === '1') {
       return;
     }

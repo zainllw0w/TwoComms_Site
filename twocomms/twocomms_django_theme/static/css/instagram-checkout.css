@@ -34,6 +34,7 @@
   --ig-muted: #6a655f;
   --ig-line: #d8d3cb;
   --ig-action: #c64018;
+  --ig-accent-text: #f07950;
   --ig-action-pressed: #9d3011;
   --ig-success: #1f7a4d;
   --ig-warning: #9b5b10;
@@ -113,7 +114,7 @@ input:focus-visible {
 }
 
 .ig-brand__accent {
-  color: var(--ig-action);
+  color: var(--ig-accent-text);
 }
 
 .ig-offer-meta {
@@ -328,6 +329,12 @@ input:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+.ig-item__unit-price {
+  color: #aaa69f;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
 .ig-facts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -488,7 +495,7 @@ input:focus-visible {
 }
 
 .ig-field input::placeholder {
-  color: #989188;
+  color: #756f67;
 }
 
 .ig-field input:focus {
@@ -753,6 +760,61 @@ input:focus-visible {
   text-underline-offset: 3px;
 }
 
+.ig-consent {
+  position: fixed;
+  right: 16px;
+  bottom: calc(118px + env(safe-area-inset-bottom));
+  left: 16px;
+  z-index: 20;
+  display: grid;
+  gap: 12px;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 14px;
+  border: 1px solid #3d3d3d;
+  border-radius: 8px;
+  background: rgba(23, 23, 23, 0.98);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.32);
+}
+
+.ig-consent[hidden] {
+  display: none;
+}
+
+.ig-consent p {
+  margin: 0;
+  color: #d8d3cb;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.ig-consent > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ig-consent button {
+  min-height: 42px;
+  padding: 8px 14px;
+  border: 1px solid #4a4a4a;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ig-consent__accept {
+  border-color: var(--ig-action) !important;
+  background: var(--ig-action);
+  color: var(--ig-white);
+}
+
+.ig-consent__reject {
+  background: transparent;
+  color: #d8d3cb;
+}
+
 .ig-masked {
   display: grid;
   gap: 0;
@@ -825,6 +887,10 @@ input:focus-visible {
 }
 
 @media (min-width: 960px) {
+  .ig-consent {
+    bottom: max(16px, env(safe-area-inset-bottom));
+  }
+
   html {
     scroll-padding-bottom: 36px;
   }
@@ -882,5 +948,222 @@ input:focus-visible {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+.ig-countdown-wrap {
+  min-width: 76px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  color: var(--ig-white);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ig-countdown__visual {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  transform: rotate(-90deg);
+}
+
+.ig-countdown__track,
+.ig-countdown__ring {
+  fill: none;
+  stroke-width: 3;
+}
+
+.ig-countdown__track {
+  stroke: #333333;
+}
+
+.ig-countdown__ring {
+  stroke: var(--ig-action);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 180ms linear, stroke 180ms ease-out;
+}
+
+.ig-countdown-wrap.is-expiring .ig-countdown__ring {
+  stroke: #d89a3b;
+}
+
+.ig-countdown-wrap.is-expired .ig-countdown__ring,
+.is-expired .ig-countdown__ring {
+  stroke: #77736d;
+}
+
+.ig-expiry-explanation {
+  display: block;
+  max-width: 220px;
+  margin-top: 3px;
+  color: #858078;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.ig-form-error {
+  scroll-margin-bottom: 180px;
+}
+
+.ig-form-error:focus {
+  outline: 2px solid var(--ig-error);
+  outline-offset: 3px;
+}
+
+.ig-field input[aria-invalid="true"] {
+  border-color: var(--ig-error);
+  box-shadow: 0 0 0 3px rgb(183 58 50 / 14%);
+}
+
+.ig-direct-help {
+  display: grid;
+  gap: 7px;
+  margin-top: 22px;
+  padding: 14px 0 2px;
+  border-top: 1px solid var(--ig-line);
+}
+
+.ig-direct-help p {
+  margin: 0;
+  color: var(--ig-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.ig-direct-help a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  color: var(--ig-ink);
+  font-size: 12px;
+  font-weight: 700;
+  text-underline-offset: 4px;
+}
+
+.ig-direct-help.is-priority {
+  border-top-color: var(--ig-action);
+}
+
+.ig-payment-rail {
+  isolation: isolate;
+}
+
+.ig-payment-rail__amount {
+  min-width: 0;
+}
+
+.ig-payment-rail__amount strong {
+  color: var(--ig-ink);
+}
+
+.ig-payment-rail__trust {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 18px;
+  color: var(--ig-muted);
+  font-size: 10px;
+}
+
+.ig-action--pay {
+  position: relative;
+  overflow: hidden;
+  gap: 10px;
+  min-width: 0;
+  box-shadow: 0 8px 18px rgb(198 64 24 / 22%);
+}
+
+.ig-action__arrow {
+  font-size: 18px;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+.ig-payment-rail.is-payment-ready .ig-action--pay::after {
+  position: absolute;
+  inset: -40% auto -40% -24%;
+  width: 18px;
+  content: "";
+  background: rgb(255 255 255 / 34%);
+  transform: rotate(18deg) translateX(-44px);
+  pointer-events: none;
+  animation: ig-rail-sheen 620ms ease-out 1;
+}
+
+.ig-payment-rail.is-expired {
+  border-color: #77736d;
+}
+
+.ig-payment-rail.is-expired .ig-action--pay,
+.is-expired .ig-action--pay {
+  background: #77736d;
+  box-shadow: none;
+}
+
+.ig-exit-dialog {
+  width: min(calc(100% - 32px), 420px);
+  padding: 0;
+  border: 1px solid #454545;
+  border-radius: 8px;
+  background: var(--ig-frame-soft);
+  color: var(--ig-white);
+  box-shadow: 0 20px 70px rgb(0 0 0 / 52%);
+}
+
+.ig-exit-dialog::backdrop {
+  background: rgb(0 0 0 / 66%);
+}
+
+.ig-exit-dialog__body {
+  display: grid;
+  gap: 12px;
+  padding: 22px;
+}
+
+.ig-exit-dialog h2,
+.ig-exit-dialog p {
+  margin: 0;
+}
+
+.ig-exit-dialog h2 {
+  font-size: 21px;
+  line-height: 1.1;
+}
+
+.ig-exit-dialog__body > p:not(.ig-panel-step) {
+  color: #c5c0b7;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.ig-exit-dialog__actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 5px;
+}
+
+.ig-exit-dialog__actions .ig-action {
+  width: 100%;
+}
+
+@keyframes ig-rail-sheen {
+  from {
+    transform: rotate(18deg) translateX(-44px);
+  }
+  to {
+    transform: rotate(18deg) translateX(270px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ig-countdown__ring {
+    transition: none;
+  }
+
+  .ig-payment-rail.is-payment-ready .ig-action--pay::after {
+    animation: none;
   }
 }

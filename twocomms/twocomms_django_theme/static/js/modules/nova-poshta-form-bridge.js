@@ -1,4 +1,4 @@
-import { initNovaPoshtaSelectors, validateNovaPoshtaSelection } from './nova-poshta-selector.js?v=20260422b';
+import { initNovaPoshtaSelectors, validateNovaPoshtaSelection } from './nova-poshta-selector.js?v=20260801a';
 import { normalizeUkraineCheckoutPhoneValue, syncUkraineCheckoutPhoneField } from './phone.js';
 
 const LOCALIZED_ERRORS = {

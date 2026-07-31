@@ -1694,6 +1694,8 @@ class PromoCode(models.Model):
         """Проверяет, можно ли использовать промокод (без проверки пользователя)"""
         if not self.is_active:
             return False
+        if self.group_id and self.group and not self.group.is_active:
+            return False
         if not self.is_valid_now():
             return False
         if self.max_uses > 0 and self.current_uses >= self.max_uses:
@@ -1739,15 +1741,13 @@ class PromoCode(models.Model):
         """Записывает использование промокода пользователем"""
         if not user or not user.is_authenticated:
             return None
+        from orders.promo_reservations import record_immediate_promo_usage
 
-        usage = PromoCodeUsage.objects.create(
+        return record_immediate_promo_usage(
+            promo_id=self.pk,
             user=user,
-            promo_code=self,
-            group=self.group,
-            order=order
+            order=order,
         )
-        self.use()
-        return usage
 
     def calculate_discount(self, total_amount):
         """Рассчитывает скидку для указанной суммы"""

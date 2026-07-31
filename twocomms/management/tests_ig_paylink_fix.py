@@ -9,7 +9,14 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase, TestCase
 
-from management.models import IgClient, IgDeal, InstagramBotMessage
+from management.models import (
+    IgCheckoutAccessToken,
+    IgCheckoutProposal,
+    IgClient,
+    IgDeal,
+    InstagramBotMessage,
+)
+from management.services.ig_commercial_episodes import ensure_episode_for_deal
 from management.services import bot_orders
 from management.services import instagram_bot as bot
 
@@ -197,7 +204,7 @@ class FinalizePaylinkTests(TestCase):
         self.c.save(update_fields=["intent", "stage", "updated_at"])
 
     @patch("management.services.instagram_bot.notify_manager")
-    @patch("management.services.bot_orders.create_deal_and_link")
+    @patch("management.services.bot_orders.create_checkout_proposal_link")
     def test_success_appends_real_url_and_strips_fake(self, mock_link, _mock_notify):
         real = "https://pay.mbnk.biz/REALOK"
         mock_link.return_value = {"ok": True, "invoice_url": real, "invoice_id": "z"}
@@ -207,7 +214,7 @@ class FinalizePaylinkTests(TestCase):
         self.assertNotIn("FAKE000", out)
 
     @patch("management.services.instagram_bot.notify_manager")
-    @patch("management.services.bot_orders.create_deal_and_link")
+    @patch("management.services.bot_orders.create_checkout_proposal_link")
     def test_first_party_offer_has_clear_checkout_copy(self, mock_link, _mock_notify):
         offer_url = "https://twocomms.shop/offer/a/opaque-token/"
         mock_link.return_value = {
@@ -225,13 +232,62 @@ class FinalizePaylinkTests(TestCase):
 
         self.assertIn(offer_url, out)
         self.assertIn("Перевірте товари", out)
-        self.assertIn("до 12 годин", out)
+        self.assertIn("25 хвилин", out)
         self.assertIn("email", out.lower())
         self.assertNotIn("monobank", out.lower())
         self.assertNotIn("посилання на оплату", out.lower())
 
     @patch("management.services.instagram_bot.notify_manager")
     @patch("management.services.bot_orders.create_deal_and_link")
+    @patch("management.services.bot_orders.create_checkout_proposal_link")
+    def test_finalize_paylink_never_uses_legacy_direct_invoice_factory(
+        self, proposal_link, legacy_link, _mock_notify
+    ):
+        offer_url = "https://twocomms.shop/offer/a/proposal-token/"
+        proposal_link.return_value = {
+            "ok": True,
+            "invoice_url": offer_url,
+            "proposal_url": offer_url,
+        }
+
+        out = bot.finalize_paylink(
+            "Готово, зараз надішлю посилання.",
+            {"paylink": "full", "product": 1},
+            self.c,
+            self.c.igsid,
+        )
+
+        self.assertIn(offer_url, out)
+        proposal_link.assert_called_once()
+        legacy_link.assert_not_called()
+
+    def test_delivery_review_resolves_first_party_offer_to_its_deal(self):
+        deal = IgDeal.objects.create(
+            client=self.c,
+            status=IgDeal.Status.QUOTED,
+            amount=Decimal("950.00"),
+            requested_payment_amount=Decimal("950.00"),
+        )
+        episode = ensure_episode_for_deal(deal)
+        proposal = IgCheckoutProposal.objects.create_current(
+            deal=deal,
+            commercial_episode=episode,
+            catalog_total=Decimal("950.00"),
+            quoted_total=Decimal("950.00"),
+            requested_payment_amount=Decimal("950.00"),
+            items_digest="b" * 64,
+        )
+        raw, _token = IgCheckoutAccessToken.issue(proposal=proposal)
+
+        resolved = bot._invoice_deal_for_reply(
+            self.c,
+            f"Перевірте пропозицію: https://twocomms.shop/offer/a/{raw}/",
+        )
+
+        self.assertEqual(resolved.pk, deal.pk)
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.bot_orders.create_checkout_proposal_link")
     def test_missing_fit_returns_a_question_without_manager_handoff(self, mock_link, mock_notify):
         mock_link.return_value = {"ok": False, "error": "missing_fit_option"}
 
@@ -250,7 +306,7 @@ class FinalizePaylinkTests(TestCase):
         self.assertEqual(self.c.stage, IgClient.Stage.CHECKOUT)
 
     @patch("management.services.instagram_bot.notify_manager")
-    @patch("management.services.bot_orders.create_deal_and_link")
+    @patch("management.services.bot_orders.create_checkout_proposal_link")
     def test_failure_removes_dangling_promise_and_escalates(self, mock_link, mock_notify):
         mock_link.return_value = {"ok": False, "error": "no_product"}
         reply = "Дякую! Зараз сформую посилання на оплату і скину сюди 🙌"
@@ -261,7 +317,7 @@ class FinalizePaylinkTests(TestCase):
         self.assertEqual(self.c.stage, IgClient.Stage.LEAD_TO_MANAGER)
 
     @patch("management.services.instagram_bot.notify_manager")
-    @patch("management.services.bot_orders.create_deal_and_link")
+    @patch("management.services.bot_orders.create_checkout_proposal_link")
     def test_dynamic_prepayment_is_evidence_bound_and_forwarded(self, mock_link, _notify):
         product = _pub_product("Футболка з передоплатою", "dynamic-prepayment", price=950)
         InstagramBotMessage.objects.create(
@@ -286,10 +342,10 @@ class FinalizePaylinkTests(TestCase):
         )
 
         self.assertIn("https://pay/350", out)
-        self.assertEqual(mock_link.call_args.kwargs["payment_amount"], Decimal("350.00"))
+        self.assertEqual(mock_link.call_args.kwargs["requested_payment_amount"], Decimal("350.00"))
 
     @patch("management.services.instagram_bot.notify_manager")
-    @patch("management.services.bot_orders.create_deal_and_link")
+    @patch("management.services.bot_orders.create_checkout_proposal_link")
     def test_prepayment_without_evidenced_amount_fails_closed(self, mock_link, mock_notify):
         product = _pub_product("Футболка без суми", "missing-prepayment-amount", price=950)
 
@@ -304,7 +360,7 @@ class FinalizePaylinkTests(TestCase):
         mock_link.assert_not_called()
         mock_notify.assert_called_once()
 
-    @patch("management.services.bot_orders.create_deal_and_link")
+    @patch("management.services.bot_orders.create_checkout_proposal_link")
     def test_no_paylink_returns_unchanged(self, mock_link):
         reply = "Привіт! Що бажаєте обрати? 😊"
         out = bot.finalize_paylink(reply, {}, self.c, "fz1")
@@ -312,7 +368,7 @@ class FinalizePaylinkTests(TestCase):
         mock_link.assert_not_called()
 
     @patch("management.services.instagram_bot.notify_manager")
-    @patch("management.services.bot_orders.create_deal_and_link")
+    @patch("management.services.bot_orders.create_checkout_proposal_link")
     def test_explicit_product_validates_price_before_current_product_is_pinned(self, mock_link, _notify):
         product = _pub_product("Футболка зі знижкою", "explicit-price-product", price=950)
         InstagramBotMessage.objects.create(
@@ -333,11 +389,159 @@ class FinalizePaylinkTests(TestCase):
         )
 
         self.assertIn("https://pay/790", out)
-        self.assertEqual(mock_link.call_args.kwargs["product_id"], product.pk)
-        self.assertEqual(mock_link.call_args.kwargs["negotiated_price"], Decimal("790.00"))
+        self.assertEqual(
+            mock_link.call_args.kwargs["item_specs"],
+            [{
+                "product_id": product.pk,
+                "qty": 1,
+                "size": "",
+                "fit_option_code": "",
+                "color_variant_id": None,
+            }],
+        )
+        self.assertEqual(mock_link.call_args.kwargs["negotiated_total"], Decimal("790.00"))
+
+    def test_real_proposal_keeps_explicit_order_total_for_multiple_units(self):
+        product = _pub_product(
+            "Футболка з погодженою сумою",
+            "proposal-explicit-order-total",
+            price=950,
+        )
+        offer = InstagramBotMessage.objects.create(
+            sender_id=self.c.igsid,
+            client=self.c,
+            role="manager",
+            text="За дві футболки сума разом 1500 грн",
+        )
+        accepted = InstagramBotMessage.objects.create(
+            sender_id=self.c.igsid,
+            client=self.c,
+            role="user",
+            text="Так, оформлюйте дві",
+        )
+        decision = bot_orders._conversation_price_decision(
+            self.c, product=product, qty=2,
+        )
+        self.assertEqual(decision["status"], "accepted", decision)
+        self.assertEqual(decision["kind"], "order_total", decision)
+        self.assertEqual(decision["price"], Decimal("1500.00"), decision)
+        self.assertEqual(
+            {decision["source_message_id"], decision["acceptance_message_id"]},
+            {offer.pk, accepted.pk},
+        )
+
+        out = bot.finalize_paylink(
+            "Формую персональну пропозицію",
+            {
+                "paylink": "full",
+                "product": product.pk,
+                "qty": "2",
+                "size": "M",
+                "price": "1500",
+            },
+            self.c,
+            self.c.igsid,
+        )
+
+        self.assertIn("/offer/a/", out)
+        proposal = IgCheckoutProposal.objects.get(client=self.c)
+        self.assertEqual(proposal.catalog_total, Decimal("1900.00"))
+        self.assertEqual(proposal.quoted_total, Decimal("1500.00"))
+        self.assertEqual(proposal.items.get().quantity, 2)
+        self.assertEqual(
+            set(proposal.items.get().evidence_message_ids),
+            {offer.pk, accepted.pk},
+        )
+
+    def test_real_proposal_multiplies_explicit_unit_price_for_multiple_units(self):
+        product = _pub_product(
+            "Футболка з ціною за штуку",
+            "proposal-explicit-unit-price",
+            price=950,
+        )
+        offer = InstagramBotMessage.objects.create(
+            sender_id=self.c.igsid,
+            client=self.c,
+            role="manager",
+            text="Ціна кожної футболки 790 грн за штуку",
+        )
+        accepted = InstagramBotMessage.objects.create(
+            sender_id=self.c.igsid,
+            client=self.c,
+            role="user",
+            text="Так, беру дві",
+        )
+        decision = bot_orders._conversation_price_decision(
+            self.c, product=product, qty=2,
+        )
+        self.assertEqual(decision["status"], "accepted", decision)
+        self.assertEqual(decision["kind"], "unit_price", decision)
+        self.assertEqual(decision["price"], Decimal("790.00"), decision)
+        self.assertEqual(
+            {decision["source_message_id"], decision["acceptance_message_id"]},
+            {offer.pk, accepted.pk},
+        )
+
+        out = bot.finalize_paylink(
+            "Формую персональну пропозицію",
+            {
+                "paylink": "full",
+                "product": product.pk,
+                "qty": "2",
+                "size": "M",
+                "price": "790",
+            },
+            self.c,
+            self.c.igsid,
+        )
+
+        self.assertIn("/offer/a/", out)
+        proposal = IgCheckoutProposal.objects.get(client=self.c)
+        self.assertEqual(proposal.quoted_total, Decimal("1580.00"))
+        self.assertEqual(
+            set(proposal.items.get().evidence_message_ids),
+            {offer.pk, accepted.pk},
+        )
 
     @patch("management.services.instagram_bot.notify_manager")
-    @patch("management.services.bot_orders.create_deal_and_link")
+    def test_multiple_units_with_ambiguous_price_fail_closed(self, notify_manager):
+        product = _pub_product(
+            "Футболка з неоднозначною ціною",
+            "proposal-ambiguous-multi-unit-price",
+            price=950,
+        )
+        InstagramBotMessage.objects.create(
+            sender_id=self.c.igsid,
+            client=self.c,
+            role="manager",
+            text="Ціна футболки 790 грн",
+        )
+        InstagramBotMessage.objects.create(
+            sender_id=self.c.igsid,
+            client=self.c,
+            role="user",
+            text="Так, беру дві",
+        )
+
+        out = bot.finalize_paylink(
+            "Формую персональну пропозицію",
+            {
+                "paylink": "full",
+                "product": product.pk,
+                "qty": "2",
+                "size": "M",
+                "price": "790",
+            },
+            self.c,
+            self.c.igsid,
+        )
+
+        self.assertEqual(out, bot.PAYLINK_FALLBACK_TEXT)
+        self.assertFalse(IgCheckoutProposal.objects.filter(client=self.c).exists())
+        notify_manager.assert_called_once()
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.bot_orders.create_checkout_proposal_link")
     def test_forwards_separate_item_quantity_size_and_fit_records(self, mock_link, _notify):
         product = _pub_product("Футболка Харків", "paylink-multi-fit", price=950)
         mock_link.return_value = {
@@ -360,7 +564,7 @@ class FinalizePaylinkTests(TestCase):
         )
 
         self.assertEqual(
-            mock_link.call_args.kwargs["items"],
+            mock_link.call_args.kwargs["item_specs"],
             [
                 {
                     "product_id": product.pk,
@@ -380,7 +584,7 @@ class FinalizePaylinkTests(TestCase):
         )
 
     @patch("management.services.instagram_bot.notify_manager")
-    @patch("management.services.bot_orders.create_deal_and_link")
+    @patch("management.services.bot_orders.create_checkout_proposal_link")
     def test_malformed_explicit_item_tag_fails_closed(self, mock_link, _notify):
         product = _pub_product("Футболка", "paylink-malformed-item", price=950)
 
@@ -467,7 +671,7 @@ class PaymentProtocolInjectionTests(TestCase):
         self.assertIn("крій", sys_text.lower())
         self.assertIn("НЕ вигадуй", sys_text)
         self.assertIn("персональну пропозицію", sys_text.lower())
-        self.assertIn("до 12 годин", sys_text.lower())
+        self.assertIn("25 хвилин", sys_text.lower())
         self.assertIn("не збирай email", sys_text.lower())
 
 

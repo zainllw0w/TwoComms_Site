@@ -23,7 +23,7 @@ The reliable domain event chain is:
 ```text
 Instagram purchase intent
   -> validated IgDeal and proposal revision
-  -> first-party proposal URL (12 hours)
+  -> first-party proposal URL (25 minutes)
   -> signed Nova Poshta selection and email
   -> one PaymentAttempt and one Monobank invoice
   -> provider-verified payment
@@ -280,7 +280,7 @@ The lifecycle worker must therefore:
    prepared text and one operational Telegram alert.
 6. Never use automated `HUMAN_AGENT` for payment, shipment, or review requests.
 
-The 12-hour proposal lifetime makes payment confirmation normally eligible.
+The 25-minute proposal lifetime makes payment confirmation normally eligible.
 TTN and delivery events commonly occur outside the response window, so their
 event and prepared message are guaranteed; immediate Direct delivery cannot be
 claimed unless Meta accepts it.
@@ -316,7 +316,7 @@ a marketing landing page. It needs:
 - validated recipient, phone, email, city, branch/post-locker selection;
 - a clear note that the email receives receipt/confirmation;
 - optional promo disclosure;
-- 12-hour expiry and share/copy action;
+- 25-minute expiry and share/copy action;
 - a single dominant payment action;
 - truthful pending, paid, expired, superseded, and unavailable states;
 - no unmasked Instagram handle or private chat data on a forwardable page;
@@ -339,9 +339,9 @@ diverge from the negotiated deal.
 Rejected because it duplicates PaymentAttempt idempotency, promo validation,
 tracking, email, Telegram, webhook, and success-page behavior.
 
-## 12. Current implementation checkpoint (2026-07-31)
+## 12. Current implementation checkpoint (2026-08-01)
 
-The active feature worktree is `/Users/zainllw0w/.config/superpowers/worktrees/site/instagram-assisted-checkout`, branch `codex/instagram-assisted-checkout`, with source baseline `770872ec` plus the current uncommitted checkout/UI/email/lifecycle/workspace changes. No CRM/reconciliation files were changed, and no migration was added in this cycle. Management migration `0116` remains frozen; `0117` remains the parallel CRM migration and the server has since advanced to `0118_ig_funnel_reset_audit`.
+The active feature worktree is `/Users/zainllw0w/.config/superpowers/worktrees/site/instagram-assisted-checkout`, branch `codex/instagram-assisted-checkout`, with source baseline `770872ec` plus the checkout/UI/email/lifecycle/workspace changes. No CRM/reconciliation files were changed. Checkout promo atomicity adds only `storefront/0087_promocodegroup_innodb.py`; management migration `0116` remains frozen, `0117` remains the parallel CRM migration, and the server has since advanced to `0118_ig_funnel_reset_audit`.
 
 The current code path now has the following verified behavior:
 
@@ -357,7 +357,7 @@ Fresh verification evidence from this checkpoint:
 - SQLite migration-disabled model/service strategy: **38 tests, 1 skip, 0 failures**; production trigger SQL remains in migration `0116`;
 - `manage.py check`, `manage.py makemigrations --check --dry-run`, Python compileall, Node syntax check for `instagram-checkout.js`, and `git diff --check`: pass;
 - valid analytics loader/Meta configuration regression subset: **28 tests, 0 failures**. The repository's unrelated `order_success_old.html` regression test still fails because that legacy file is absent; it was not changed in this feature;
-- read-only production SSH inspection: server `HEAD=572ad987696f5a0201675bcd1597dd909607e44d`, MariaDB `11.4.12-MariaDB-cll-lve`, applied management leaf `0118_ig_funnel_reset_audit`, and all eight inspected checkout/lifecycle/payment tables use `InnoDB` with `utf8mb4_unicode_ci`.
+- read-only production SSH inspection: server `HEAD=572ad987696f5a0201675bcd1597dd909607e44d`, MariaDB `11.4.12-MariaDB-cll-lve`, applied management leaf `0118_ig_funnel_reset_audit`, and all eight inspected checkout/lifecycle/payment tables use `InnoDB` with `utf8mb4_unicode_ci`; the new promo engine has a forward InnoDB health migration for `storefront_promocodegroup`.
 
 No provider, Meta, TikTok, customer email, or live payment event was sent by
 these checks. Push, deploy, production migration, browser screenshots, and

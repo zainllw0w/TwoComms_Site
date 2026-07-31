@@ -41,6 +41,25 @@ class AnalyticsLoaderRegressionTests(SimpleTestCase):
         self.assertIn("data-checkout-state') === 'paid'", source)
         self.assertIn("data-purchase-event-id", source)
 
+    def test_instagram_checkout_pixels_require_explicit_marketing_consent(self):
+        source = self._loader_source()
+        checkout_path = (
+            Path(__file__).resolve().parents[2]
+            / "twocomms_django_theme"
+            / "static"
+            / "js"
+            / "instagram-checkout.js"
+        )
+        checkout_source = checkout_path.read_text(encoding="utf-8")
+
+        self.assertIn("twc_analytics_consent", source)
+        self.assertIn("globalPrivacyControl", source)
+        self.assertIn("window.__twcAnalyticsConsent !== true", checkout_source)
+        self.assertLess(
+            source.index("if (!analyticsConsentGranted)"),
+            source.index("ensureFbpCookie();"),
+        )
+
     def test_base_template_uses_current_analytics_loader_version(self):
         template_path = (
             Path(__file__).resolve().parents[2]
@@ -89,11 +108,10 @@ class AnalyticsLoaderRegressionTests(SimpleTestCase):
 
         self.assertIn("replace(/[^\\p{L}\\p{N}]/gu, '')", source)
 
-    def test_legacy_order_success_template_is_marked_unrouted(self):
+    def test_legacy_order_success_template_is_absent(self):
         legacy_path = Path(__file__).resolve().parents[2] / "twocomms_django_theme" / "templates" / "pages" / "order_success_old.html"
-        source = legacy_path.read_text(encoding="utf-8")
 
-        self.assertIn("LEGACY/UNROUTED TEMPLATE", source)
+        self.assertFalse(legacy_path.exists())
 
     def test_nova_poshta_selection_is_not_mislabelled_as_meta_find_location(self):
         main_path = Path(__file__).resolve().parents[2] / "twocomms_django_theme" / "static" / "js" / "main.js"

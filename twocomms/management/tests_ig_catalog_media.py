@@ -2,10 +2,12 @@ from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase, TestCase
+from django.utils import timezone
 
 from management.services import bot_catalog
 from management.services import instagram_bot as bot
 from management.services.ig_catalog_media import (
+    CatalogMediaDelivery,
     CatalogMediaDeliveryState,
     CatalogMediaItem,
     CatalogMediaSelection,
@@ -13,6 +15,7 @@ from management.services.ig_catalog_media import (
     send_catalog_media,
     select_catalog_media,
 )
+from management.models import IgClient, InstagramBotMessage, InstagramBotSettings
 from productcolors.models import Color, ProductColorImage, ProductColorVariant
 from storefront.models import Category, Product, ProductFitOption, ProductStatus
 
@@ -109,6 +112,8 @@ class InstagramCatalogMediaTests(TestCase):
         self.assertEqual(len(selection.items), 4)
         self.assertTrue(all(item.url.startswith("https://") for item in selection.items))
         self.assertTrue(all("/product/" not in item.url for item in selection.items))
+        self.assertTrue(all(item.mime_type == "image/jpeg" for item in selection.items))
+        self.assertTrue(all(item.size_bytes > 0 for item in selection.items))
 
     def test_selector_reports_empty_for_missing_or_unpublished_product(self):
         self.product.status = ProductStatus.DRAFT
@@ -120,13 +125,130 @@ class InstagramCatalogMediaTests(TestCase):
         self.assertEqual(selection.items, ())
 
 
+class InstagramCatalogDiscoveryPipelineTests(TestCase):
+    def setUp(self):
+        category = Category.objects.create(name="Футболки", slug="ig-discovery-pipeline")
+        self.product = Product.objects.create(
+            title="Футболка Discovery",
+            slug="ig-discovery-pipeline-shirt",
+            category=category,
+            price=950,
+            status=ProductStatus.PUBLISHED,
+        )
+        color = Color.objects.create(name="Біла", primary_hex="#ffffff")
+        variant = ProductColorVariant.objects.create(
+            product=self.product,
+            color=color,
+            stock=4,
+        )
+        for index in range(4):
+            ProductColorImage.objects.create(
+                variant=variant,
+                order=index,
+                image=SimpleUploadedFile(
+                    f"discovery-{index}.jpg",
+                    b"jpeg-placeholder",
+                    content_type="image/jpeg",
+                ),
+            )
+        self.settings = InstagramBotSettings.load()
+        self.settings.is_enabled = True
+        self.settings.ai_enabled = True
+        self.settings.save(update_fields=["is_enabled", "ai_enabled", "updated_at"])
+
+    def _run(self, *, sender, customer_text, generated_reply):
+        client = IgClient.get_or_create_for_sender(sender)
+        client.profile_fetched_at = timezone.now()
+        client.save(update_fields=["profile_fetched_at", "updated_at"])
+        row = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text=customer_text,
+            status=InstagramBotMessage.Status.PROCESSING,
+            processing_started_at=timezone.now(),
+        )
+        delivery = CatalogMediaDelivery(
+            CatalogMediaDeliveryState.SENT,
+            sent_count=4,
+            attempted_count=4,
+        )
+        with patch(
+            "management.services.bot_sales_classifier.ensure_rule_classification",
+            return_value=None,
+        ), patch(
+            "management.services.instagram_bot._rate_exceeded", return_value=False
+        ), patch(
+            "management.services.instagram_bot._repeated_question", return_value=0
+        ), patch(
+            "management.services.instagram_bot.send_sender_action"
+        ), patch(
+            "management.services.instagram_bot.gemini_generate",
+            return_value=generated_reply,
+        ), patch(
+            "management.services.ig_catalog_media.send_catalog_media",
+            return_value=delivery,
+        ) as send_media, patch(
+            "management.services.instagram_bot.send_text",
+            return_value=(True, "", ""),
+        ) as send_text:
+            handled = bot._process_one(self.settings, row)
+        return handled, send_media, send_text
+
+    def test_ua_ru_en_general_discovery_sends_four_images_and_caption_without_url(self):
+        cases = (
+            ("ua", "Покажи, які футболки є", "Ось добірка"),
+            ("ru", "Покажи, какие футболки есть", "Вот подборка"),
+            ("en", "Show me the T-shirts you have", "Here is the selection"),
+        )
+        for suffix, customer_text, caption in cases:
+            with self.subTest(language=suffix):
+                generated = (
+                    f"{caption}: https://twocomms.shop/product/ignored/ "
+                    f"[SHOW_PRODUCTS:{self.product.pk}]"
+                )
+                handled, send_media, send_text = self._run(
+                    sender=f"ig-discovery-{suffix}",
+                    customer_text=customer_text,
+                    generated_reply=generated,
+                )
+
+                self.assertTrue(handled)
+                selection = send_media.call_args.args[2]
+                self.assertEqual(len(selection.items), 4)
+                sent_caption = send_text.call_args.args[2]
+                self.assertIn(caption, sent_caption)
+                self.assertNotIn("http", sent_caption)
+
+    def test_explicit_catalog_link_control_keeps_product_url(self):
+        url = f"https://twocomms.shop/product/{self.product.slug}/"
+        handled, send_media, send_text = self._run(
+            sender="ig-discovery-link",
+            customer_text="Скинь ссылку на эту футболку",
+            generated_reply=(
+                f"Ось фото і посилання: {url} "
+                f"[SHOW_PRODUCTS:{self.product.pk}] [CATALOG_LINK]"
+            ),
+        )
+
+        self.assertTrue(handled)
+        self.assertEqual(len(send_media.call_args.args[2].items), 4)
+        self.assertIn(url, send_text.call_args.args[2])
+
+
 class InstagramCatalogMediaTransportTests(SimpleTestCase):
     def _selection(self):
         return CatalogMediaSelection(
             state=CatalogMediaState.READY,
             items=(
-                CatalogMediaItem("https://twocomms.shop/media/one.jpg", "One", "One", 1),
-                CatalogMediaItem("https://twocomms.shop/media/two.jpg", "Two", "Two", 2),
+                CatalogMediaItem(
+                    "https://twocomms.shop/media/one.jpg", "One", "One", 1,
+                    mime_type="image/jpeg", size_bytes=1024,
+                ),
+                CatalogMediaItem(
+                    "https://twocomms.shop/media/two.jpg", "Two", "Two", 2,
+                    mime_type="image/jpeg", size_bytes=1024,
+                ),
             ),
             requested_product_ids=(1, 2),
         )
@@ -159,4 +281,62 @@ class InstagramCatalogMediaTransportTests(SimpleTestCase):
         self.assertEqual(result.state, CatalogMediaDeliveryState.AMBIGUOUS)
         self.assertEqual(result.sent_count, 0)
         self.assertEqual(result.attempted_count, 1)
+        provider_http.assert_called_once()
+
+    @patch("management.services.instagram_bot.get_page_token", return_value="token")
+    @patch("management.services.instagram_bot._provider_account_id", return_value="account")
+    @patch(
+        "management.services.instagram_bot._provider_http",
+        return_value=(200, '{"message_id":"mid-safe"}'),
+    )
+    def test_transport_sends_only_bounded_trusted_image_media(
+        self, provider_http, _account, _token
+    ):
+        selection = CatalogMediaSelection(
+            state=CatalogMediaState.READY,
+            items=(
+                CatalogMediaItem(
+                    "https://twocomms.shop/media/safe.jpg", "Safe", "Safe", 1,
+                    mime_type="image/jpeg",
+                    size_bytes=1024,
+                ),
+                CatalogMediaItem(
+                    "http://twocomms.shop/media/insecure.jpg", "HTTP", "HTTP", 2,
+                    mime_type="image/jpeg",
+                    size_bytes=1024,
+                ),
+                CatalogMediaItem(
+                    "https://evil.example/media/foreign.jpg", "Foreign", "Foreign", 3,
+                    mime_type="image/jpeg",
+                    size_bytes=1024,
+                ),
+                CatalogMediaItem(
+                    "https://twocomms.shop/media/not-image.html", "HTML", "HTML", 4,
+                    mime_type="text/html",
+                    size_bytes=1024,
+                ),
+                CatalogMediaItem(
+                    "https://twocomms.shop/media/spoofed.jpg", "Spoofed", "Spoofed", 5,
+                    mime_type="text/html",
+                    size_bytes=1024,
+                ),
+                CatalogMediaItem(
+                    "https://twocomms.shop/media/unknown.jpg", "Unknown", "Unknown", 6,
+                    mime_type="image/jpeg",
+                    size_bytes=0,
+                ),
+                CatalogMediaItem(
+                    "https://twocomms.shop/media/huge.webp", "Huge", "Huge", 7,
+                    mime_type="image/webp",
+                    size_bytes=11 * 1024 * 1024,
+                ),
+            ),
+            requested_product_ids=(1, 2, 3, 4, 5, 6, 7),
+        )
+
+        result = send_catalog_media(object(), "recipient", selection)
+
+        self.assertEqual(result.state, CatalogMediaDeliveryState.SENT)
+        self.assertEqual(result.attempted_count, 1)
+        self.assertEqual(result.sent_count, 1)
         provider_http.assert_called_once()

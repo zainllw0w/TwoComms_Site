@@ -13,6 +13,7 @@ from orders.nova_poshta_data import apply_nova_poshta_refs
 from orders.models import Order, OrderItem
 from orders.nova_poshta_documents import normalize_checkout_phone
 from orders.nova_poshta_checkout import NovaPoshtaSelectionError, resolve_delivery_selection
+from orders.promo_reservations import PromoReservationError
 from storefront.models import Product, PromoCode, CustomPrintLead, CustomPrintModerationStatus
 from productcolors.models import ProductColorVariant
 from accounts.models import UserProfile
@@ -408,8 +409,10 @@ def create_order(request):
             if applied_promo is not None:
                 try:
                     applied_promo.record_usage(request.user, order)
-                except Exception:
-                    logger.warning('Failed to record promo usage for order %s', order.pk, exc_info=True)
+                except PromoReservationError:
+                    order.discount_amount = Decimal('0')
+                    order.promo_code = None
+                    order.save(update_fields=['discount_amount', 'promo_code'])
                 request.session.pop('promo_code_id', None)
                 request.session.pop('promo_code', None)
                 request.session.pop('promo_code_data', None)

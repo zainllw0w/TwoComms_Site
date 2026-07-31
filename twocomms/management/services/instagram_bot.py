@@ -277,6 +277,9 @@ PAYLINK_PHRASES = (
     "тримай посилання", "надішлю посилання", "надсилаю посилання", "лінк на оплат",
     "ссылка на оплат", "ссылку на оплат", "ссылка на предоплат", "ссылку на предоплат",
     "сформирую ссылку", "вот ссылка", "вот ссылку", "держи ссылку",
+    "формую персональну пропозицію", "сформую персональну пропозицію",
+    "формирую персональное предложение", "сформирую персональное предложение",
+    "preparing your personal offer",
 )
 
 _PURCHASE_COMMITMENT_RE = re.compile(
@@ -527,7 +530,7 @@ PAYMENT_PROTOCOL_NOTE = (
     "власноруч. На сторінці клієнт перевіряє товари, вводить Нову Пошту та email для "
     "чека, після чого сам переходить до оплати. Не збирай email, ПІБ, телефон, місто "
     "чи відділення в Direct для assisted checkout і не став [ORDER] у цьому сценарії. "
-    "Посилання дійсне до 12 годин, його можна переслати; зміни товарів клієнт просить "
+    "Посилання дійсне 25 хвилин від створення, його можна переслати; зміни товарів клієнт просить "
     "у Direct до створення рахунку. Якщо товар ще не визначено однозначно — спершу "
     "уточни його, тег [PAYLINK] поки не став. Для кожної позиції додай "
     "[ITEM:<product_id>|<qty>|<size>|<fit>|<color_variant_id>] (останнє поле можна "
@@ -549,7 +552,7 @@ _ASSISTED_CHECKOUT_COPY = {
         "proposal": (
             "Перевірте товари в персональній пропозиції TwoComms, додайте дані Нової "
             "Пошти та email для чека, а потім переходьте до оплати. Це займає до двох "
-            "хвилин. Посилання дійсне до 12 годин, його можна переслати іншій людині. "
+            "хвилин. Посилання дійсне 25 хвилин від створення, його можна переслати іншій людині. "
             "Якщо треба щось змінити в товарах, напишіть мені сюди до оплати."
         ),
         "missing_fit_option": (
@@ -566,7 +569,7 @@ _ASSISTED_CHECKOUT_COPY = {
         "proposal": (
             "Проверьте товары в персональном предложении TwoComms, добавьте данные Новой "
             "почты и email для чека, а затем переходите к оплате. Это занимает до двух "
-            "минут. Ссылка действует до 12 часов, ее можно переслать другому человеку. "
+            "минут. Ссылка действует 25 минут с момента создания, ее можно переслать другому человеку. "
             "Если нужно что-то изменить в товарах, напишите мне сюда до оплаты."
         ),
         "missing_fit_option": (
@@ -583,7 +586,7 @@ _ASSISTED_CHECKOUT_COPY = {
         "proposal": (
             "Review the items in your personal TwoComms offer, add Nova Poshta delivery "
             "details and a receipt email, then continue to payment. It takes about two "
-            "minutes. The link is valid for up to 12 hours and can be forwarded. Message me "
+            "minutes. The link is valid for 25 minutes from creation and can be forwarded. Message me "
             "here before paying if you would like to change the items."
         ),
         "missing_fit_option": "Which fit would you prefer: classic or oversize? I will then send the right size guide.",
@@ -720,7 +723,51 @@ def finalize_paylink(reply: str, control: dict, client, sender_id: str = "") -> 
         except Exception:
             pass
         return _rewrite_failed_paylink(reply)
-    negotiated_price = _conversation_negotiated_price(client, control)
+    from management.services import bot_orders
+
+    item_specs = _control_item_specs(control)
+    if not item_specs:
+        parsed_qty = _control_positive_int(control, "qty")
+        if parsed_qty is None:
+            log("warning", "paylink_qty_gate", f"{sender_id}: invalid explicit quantity")
+            return _rewrite_failed_paylink(reply)
+        item_specs = [{
+            "product_id": _control_product_id(control) or getattr(client, "current_product_id", None),
+            "qty": parsed_qty,
+            "size": str(control.get("size") or "").strip().upper()[:16],
+            "fit_option_code": str(control.get("fit") or "").strip().lower()[:50],
+            "color_variant_id": control.get("color_variant_id") or control.get("variant"),
+        }]
+
+    aggregate_quantity = sum(
+        int(item.get("qty") or item.get("quantity") or 1)
+        for item in item_specs
+    )
+    from storefront.models import Product, ProductStatus
+
+    price_product = None
+    if len(item_specs) == 1:
+        price_product = Product.objects.filter(
+            pk=item_specs[0].get("product_id"),
+            status=ProductStatus.PUBLISHED,
+        ).first()
+    price_decision = bot_orders._conversation_price_decision(
+        client,
+        product=price_product,
+        qty=aggregate_quantity,
+    )
+    negotiated_price = (
+        price_decision.get("price")
+        if price_decision.get("status") == "accepted"
+        else None
+    )
+    if "price" in control:
+        try:
+            requested_price = Decimal(str(control.get("price")).replace(",", ".")).quantize(Decimal("0.01"))
+        except (InvalidOperation, TypeError, ValueError):
+            requested_price = None
+        if requested_price is None or requested_price != negotiated_price:
+            negotiated_price = None
     if "price" in control and negotiated_price is None:
         log("warning", "paylink_price_gate", f"{sender_id}: blocked unverified negotiated price")
         try:
@@ -736,6 +783,7 @@ def finalize_paylink(reply: str, control: dict, client, sender_id: str = "") -> 
         except Exception:
             pass
         return _rewrite_failed_paylink(reply)
+
     payment_amount = None
     if pt == "prepay":
         payment_amount = _conversation_payment_amount(client, control)
@@ -753,33 +801,39 @@ def finalize_paylink(reply: str, control: dict, client, sender_id: str = "") -> 
             except Exception:
                 pass
             return _rewrite_failed_paylink(reply)
-    from management.services import bot_orders
 
-    item_specs = _control_item_specs(control)
-    if item_specs and negotiated_price is not None and len(item_specs) > 1:
-        log("warning", "paylink_multi_price_gate", f"{sender_id}: multi-item price allocation required")
-        return _rewrite_failed_paylink(reply)
+    negotiated_total = None
+    if negotiated_price is not None:
+        if price_decision.get("kind") == "order_total":
+            negotiated_total = negotiated_price
+        elif price_decision.get("kind") == "unit_price" and len(item_specs) == 1:
+            negotiated_total = negotiated_price * aggregate_quantity
+        else:
+            log("warning", "paylink_multi_price_gate", f"{sender_id}: price allocation required")
+            return _rewrite_failed_paylink(reply)
 
     try:
         kwargs = {
             "pay_type": pt,
-            "product_id": _control_product_id(control),
-            "negotiated_price": negotiated_price,
-            "payment_amount": payment_amount,
+            "item_specs": item_specs,
+            "negotiated_total": negotiated_total,
+            "requested_payment_amount": payment_amount,
         }
-        if item_specs:
-            kwargs["items"] = item_specs
-        else:
-            parsed_qty = _control_positive_int(control, "qty")
-            if parsed_qty is None:
-                log("warning", "paylink_qty_gate", f"{sender_id}: invalid explicit quantity")
-                return _rewrite_failed_paylink(reply)
-            kwargs.update({
-                "qty": parsed_qty,
-                "size": str(control.get("size") or "").strip().upper()[:16],
-                "fit_option_code": str(control.get("fit") or "").strip().lower()[:50],
-            })
-        res = bot_orders.create_deal_and_link(client, **kwargs)
+        evidence_ids = []
+        if negotiated_price is not None:
+            evidence_ids.extend(
+                value for value in (
+                    price_decision.get("source_message_id"),
+                    price_decision.get("acceptance_message_id"),
+                ) if value
+            )
+        if payment_amount is not None:
+            payment_decision = bot_orders._conversation_payment_amount_decision(client)
+            evidence_ids.extend(payment_decision.get("evidence_message_ids") or [])
+        evidence_ids = list(dict.fromkeys(int(value) for value in evidence_ids if value))
+        if evidence_ids:
+            kwargs["evidence"] = {"message_ids": evidence_ids}
+        res = bot_orders.create_checkout_proposal_link(client, **kwargs)
     except Exception as exc:
         log("error", "paylink", repr(exc))
         res = {"ok": False, "error": repr(exc)}

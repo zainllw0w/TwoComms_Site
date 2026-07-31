@@ -120,6 +120,10 @@ class InstagramLifecycleTests(TestCase):
         send_text.assert_not_called()
         event.refresh_from_db()
         self.assertEqual(event.last_error, "client_paused")
+        self.order.refresh_from_db()
+        channel = self.order.payment_payload["post_payment_channels"]["instagram_lifecycle"]
+        self.assertEqual(channel["state"], "disabled")
+        self.assertEqual(channel["error"], "client_paused")
 
     @patch("management.services.instagram_bot.notify_manager")
     @patch("management.services.instagram_bot.send_text")
@@ -143,6 +147,10 @@ class InstagramLifecycleTests(TestCase):
         self.assertEqual(IgFollowUpTask.objects.filter(reason=task.reason).count(), 1)
         send_text.assert_not_called()
         notify_manager.assert_called_once()
+        self.order.refresh_from_db()
+        channel = self.order.payment_payload["post_payment_channels"]["instagram_lifecycle"]
+        self.assertEqual(channel["state"], "pending")
+        self.assertEqual(channel["error"], "standard_response_window_closed")
 
     @patch("management.services.instagram_bot.send_text", return_value=(True, "", "", "meta-lifecycle-1"))
     def test_expired_processing_lease_is_reclaimed(self, send_text):
@@ -157,6 +165,18 @@ class InstagramLifecycleTests(TestCase):
         event.refresh_from_db()
         self.assertEqual((result, event.state, event.last_error), (1, IgLifecycleEvent.State.SENT, ""))
         self.assertEqual(event.state, IgLifecycleEvent.State.SENT)
+        send_text.assert_called_once()
+
+    @patch("management.services.instagram_bot.send_text", return_value=(True, "", "", "meta-channel-1"))
+    def test_direct_delivery_updates_independent_order_channel_state(self, send_text):
+        event = self._event()
+
+        self.assertEqual(dispatch_lifecycle_event(event.pk), IgLifecycleEvent.State.SENT)
+
+        self.order.refresh_from_db()
+        channel = self.order.payment_payload["post_payment_channels"]["instagram_lifecycle"]
+        self.assertEqual(channel["state"], "sent")
+        self.assertEqual(channel["provider_message_id"], "meta-channel-1")
         send_text.assert_called_once()
 
     @patch("management.services.instagram_bot.send_text", return_value=(False, "permanent", "blocked"))

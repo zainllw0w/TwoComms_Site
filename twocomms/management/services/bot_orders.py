@@ -427,6 +427,11 @@ def _conversation_price_evidence(messages, *, qty: int = 1, product=None) -> dic
         r"\bза\s+\d{2,6}",
         re.IGNORECASE,
     )
+    explicit_unit_price_re = re.compile(
+        r"\b(кожн\w*|кажд\w*|за\s+(?:одну|один|1|шт\.?|штук\w*|"
+        r"одиниц\w*)|за\s+штуку|per\s+(?:item|unit)|each)\b",
+        re.IGNORECASE,
+    )
     acceptance_re = re.compile(
         r"\b(так|да|ок|добре|хорошо|домов\w*|можемо|погодж\w*|соглас\w*|"
         r"оформл\w*|замовл\w*|заказ\w*|беру|забираю)\b",
@@ -456,7 +461,7 @@ def _conversation_price_evidence(messages, *, qty: int = 1, product=None) -> dic
         kind = "order_total" if re.search(
             r"\b(сума|сумма|разом|итого|всього|всего)\b", text, re.IGNORECASE
         ) else "unit_price"
-        if kind == "order_total" and multi_item:
+        if kind == "unit_price" and multi_item and not explicit_unit_price_re.search(text):
             commercial_rows.append({
                 "status": "ambiguous",
                 "price": None,
@@ -568,7 +573,7 @@ def _accepted_conversation_price(messages, requested=None, *, qty: int = 1, prod
 
 def _conversation_price_decision(client, product=None, qty: int = 1) -> dict:
     """Resolve one accepted merchandise price, excluding receipts/prepayments."""
-    if not client or not getattr(client, "pk", None) or product is None:
+    if not client or not getattr(client, "pk", None):
         return {"status": "none", "price": None, "source_message_id": None}
     try:
         from management.models import InstagramBotMessage
@@ -592,7 +597,7 @@ def _conversation_price_decision(client, product=None, qty: int = 1) -> dict:
     except Exception:
         return {"status": "unavailable", "price": None, "source_message_id": None}
     decision = _conversation_price_evidence(messages, qty=qty, product=product)
-    if decision.get("status") == "accepted":
+    if decision.get("status") == "accepted" and product is not None:
         decision["product_id"] = product.pk
     return decision
 
@@ -610,6 +615,8 @@ def _validated_negotiated_price(client, value, *, product=None, qty: int = 1) ->
         product = getattr(client, "current_product", None)
     decision = _conversation_price_decision(client, product=product, qty=qty)
     accepted = decision.get("price") if decision.get("status") == "accepted" else None
+    if int(qty or 1) > 1 and decision.get("kind") != "unit_price":
+        return None
     if value is None:
         return accepted
     try:

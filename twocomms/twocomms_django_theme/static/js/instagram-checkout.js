@@ -10,10 +10,92 @@
     ru: "Не удалось проверить Новую почту. Обновите страницу.",
     en: "We could not verify Nova Poshta. Refresh the page.",
   };
+  const paymentFallbackErrors = {
+    uk: {
+      expired: "Термін дії пропозиції завершився.",
+      unavailable: "Цю пропозицію більше не можна оплатити.",
+      in_progress: "Платіж уже створюється. Зачекайте кілька секунд.",
+      provider_ambiguous: "Банк ще перевіряє платіж. Не повторюйте оплату — ми звіримо статус і повідомимо вас у Direct.",
+      full_name: "Вкажіть ім'я та прізвище.",
+      phone: "Вкажіть коректний український номер телефону.",
+      email: "Перевірте email для чека.",
+      city: "Оберіть місто зі списку Нової пошти.",
+      np_office: "Оберіть відділення або поштомат зі списку Нової пошти.",
+      promo_unavailable: "Промокод для цієї пропозиції недоступний.",
+      promo_invalid: "Промокод недійсний або вже використаний.",
+      promo_requires_account: "Цей промокод доступний лише в особистому кабінеті.",
+      catalog_changed: "Товар або його умови змінилися. Попросіть бота оновити пропозицію.",
+      invalid_amount: "Сума замовлення має бути більшою за нуль.",
+      item_unavailable: "Один із товарів більше недоступний.",
+      empty_items: "У пропозиції немає товарів.",
+      default: "Не вдалося створити платіж. Спробуйте ще раз.",
+    },
+    ru: {
+      expired: "Срок действия предложения истек.",
+      unavailable: "Это предложение больше нельзя оплатить.",
+      in_progress: "Платеж уже создается. Подождите несколько секунд.",
+      provider_ambiguous: "Банк еще проверяет платеж. Не повторяйте оплату — мы сверим статус и сообщим вам в Direct.",
+      full_name: "Укажите имя и фамилию.",
+      phone: "Укажите корректный украинский номер телефона.",
+      email: "Проверьте email для чека.",
+      city: "Выберите город из списка Новой почты.",
+      np_office: "Выберите отделение или почтомат из списка Новой почты.",
+      promo_unavailable: "Промокод для этого предложения недоступен.",
+      promo_invalid: "Промокод недействителен или уже использован.",
+      promo_requires_account: "Этот промокод доступен только в личном кабинете.",
+      catalog_changed: "Товар или его условия изменились. Попросите бота обновить предложение.",
+      invalid_amount: "Сумма заказа должна быть больше нуля.",
+      item_unavailable: "Один из товаров больше недоступен.",
+      empty_items: "В предложении нет товаров.",
+      default: "Не удалось создать платеж. Попробуйте еще раз.",
+    },
+    en: {
+      expired: "This offer has expired.",
+      unavailable: "This offer can no longer be paid.",
+      in_progress: "A payment is already being created. Please wait a few seconds.",
+      provider_ambiguous: "The bank is still checking this payment. Do not pay again; we will verify it and message you in Direct.",
+      full_name: "Enter your first and last name.",
+      phone: "Enter a valid Ukrainian phone number.",
+      email: "Check the receipt email.",
+      city: "Choose a city from the Nova Poshta list.",
+      np_office: "Choose a branch or locker from the Nova Poshta list.",
+      promo_unavailable: "A promo code is not available for this offer.",
+      promo_invalid: "The promo code is invalid or already used.",
+      promo_requires_account: "This promo code is available only in an account.",
+      catalog_changed: "An item or its terms changed. Ask the bot for an updated offer.",
+      invalid_amount: "The order total must be greater than zero.",
+      item_unavailable: "One of the items is no longer available.",
+      empty_items: "This offer has no items.",
+      default: "We could not create the payment. Please try again.",
+    },
+  };
   const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
 
+  const readJsonResponse = async (response) => {
+    const contentType = String(response.headers?.get("content-type") || "").toLowerCase();
+    if (!contentType.includes("application/json")) return {};
+    try {
+      const payload = await response.json();
+      return payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
+    } catch (_error) {
+      return {};
+    }
+  };
+
+  const paymentErrorMessage = (code) => {
+    const copy = paymentFallbackErrors[locale] || paymentFallbackErrors.uk;
+    const safeCode = typeof code === "string" ? code : "";
+    return copy[safeCode] || copy.default;
+  };
+
+  const paymentErrorField = (code) => ({
+    promo_invalid: 'promo_code',
+    promo_unavailable: 'promo_code',
+    promo_requires_account: 'promo_code',
+  }[code] || code);
+
   const trackCheckoutEvent = (name, eventId, extra = {}) => {
-    if (!eventId || window.__twcAnalyticsConsent === false || typeof window.trackEvent !== "function") return;
+    if (!eventId || window.__twcAnalyticsConsent !== true || typeof window.trackEvent !== "function") return;
     window.trackEvent(name, {
       event_id: eventId,
       value: Number(root.dataset.analyticsValue || 0),
@@ -35,6 +117,11 @@
     const label = button?.querySelector("[data-action-label]");
     if (label) label.textContent = value;
   };
+
+  const paymentRail = document.querySelector("[data-payment-rail]");
+  const paymentButton = document.querySelector("[data-payment-submit]");
+  const checkoutForm = document.querySelector("[data-np-form]");
+  let checkoutExpired = false;
 
   const writeClipboard = async (value) => {
     if (navigator.clipboard?.writeText) {
@@ -66,7 +153,7 @@
             Accept: "application/json",
           },
         });
-        const payload = await response.json();
+        const payload = await readJsonResponse(response);
         if (!response.ok || !payload.url) throw new Error("share_unavailable");
         await writeClipboard(payload.url);
         setActionLabel(button, button.dataset.shareDone || original);
@@ -82,24 +169,61 @@
   });
 
   const countdown = document.querySelector("[data-countdown]");
-  if (countdown && root.dataset.expiresAt) {
-    const expiresAt = Date.parse(root.dataset.expiresAt);
+  const countdownWrap = document.querySelector("[data-countdown-wrap]");
+  const countdownRing = document.querySelector("[data-countdown-ring]");
+  const expiresAt = Date.parse(root.dataset.expiresAt || "");
+  const createdAt = Date.parse(root.dataset.createdAt || "");
+  const countdownDuration = Number.isFinite(expiresAt)
+    ? Math.max(1000, expiresAt - (Number.isFinite(createdAt) ? createdAt : expiresAt - 25 * 60 * 1000))
+    : 0;
+  const ringCircumference = 2 * Math.PI * 17;
+  if (countdownRing) {
+    countdownRing.style.strokeDasharray = `${ringCircumference}`;
+    countdownRing.style.strokeDashoffset = "0";
+  }
+
+  const expireCheckout = () => {
+    if (checkoutExpired) return;
+    checkoutExpired = true;
+    root.classList.add("is-expired");
+    countdownWrap?.classList.add("is-expired");
+    if (paymentRail) paymentRail.classList.add("is-expired");
+    if (paymentButton) {
+      paymentButton.disabled = true;
+      setActionLabel(paymentButton, countdown?.dataset.expiredLabel || "Час завершився");
+    }
+    checkoutForm?.querySelectorAll("input, button, select, textarea").forEach((field) => {
+      if (field !== paymentButton) field.disabled = true;
+    });
+    if (countdown) {
+      countdown.textContent = countdown.dataset.expiredLabel || "00:00";
+      countdown.setAttribute("aria-label", countdown.dataset.expiredLabel || "00:00");
+    }
+    root.querySelector("[data-direct-help]")?.classList.add("is-priority");
+  };
+
+  if (countdown && Number.isFinite(expiresAt)) {
     const renderCountdown = () => {
       const remaining = Math.max(0, expiresAt - Date.now());
+      const remainingSeconds = Math.ceil(remaining / 1000);
+      const minutes = Math.floor(remainingSeconds / 60);
+      const seconds = remainingSeconds % 60;
+      const progress = countdownDuration ? Math.min(1, remaining / countdownDuration) : 0;
+      countdownRing?.style.setProperty("stroke-dashoffset", `${ringCircumference * (1 - progress)}`);
+      root.style.setProperty("--countdown-progress", `${progress}`);
+      countdownWrap?.classList.toggle("is-expiring", remaining > 0 && remaining <= 5 * 60 * 1000);
       if (!remaining) {
-        countdown.textContent = countdown.dataset.expiredLabel || "00:00";
+        expireCheckout();
         return false;
       }
-      const totalMinutes = Math.floor(remaining / 60000);
-      const hours = Math.floor(totalMinutes / 60);
-      const minutes = totalMinutes % 60;
-      countdown.textContent = `${hours}:${String(minutes).padStart(2, "0")}`;
+      countdown.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
       return true;
     };
     renderCountdown();
     const countdownTimer = window.setInterval(() => {
       if (!renderCountdown()) window.clearInterval(countdownTimer);
-    }, 30000);
+    }, 1000);
+    window.addEventListener("beforeunload", () => window.clearInterval(countdownTimer), { once: true });
   }
 
   if (root.dataset.checkoutState === "pending" && root.dataset.statusUrl) {
@@ -117,7 +241,7 @@
           headers: { Accept: "application/json" },
         });
         if (!response.ok) return;
-        const payload = await response.json();
+        const payload = await readJsonResponse(response);
         if (payload.state === "verified" && payload.redirect) {
           window.location.assign(payload.redirect);
           return;
@@ -151,13 +275,51 @@
     if (image.complete && image.naturalWidth === 0) enableFallback();
   });
 
-  const form = document.querySelector("[data-np-form]");
+  const form = checkoutForm;
   if (form) {
     const errorBox = form.querySelector("[data-form-error]");
-    const paymentButton = document.querySelector("[data-payment-submit]");
     const paymentLabel = paymentButton?.querySelector("[data-action-label]");
     const defaultPaymentLabel = paymentLabel?.textContent || "";
     let submitted = false;
+    const validationSummaryCopy = {
+      uk: "Перевірте виділене поле, щоб продовжити.",
+      ru: "Проверьте выделенное поле, чтобы продолжить.",
+      en: "Check the highlighted field to continue.",
+    };
+
+    const showFormError = (message, fieldName = "") => {
+      if (errorBox) {
+        errorBox.textContent = message || validationSummaryCopy[locale] || validationSummaryCopy.uk;
+        errorBox.hidden = false;
+      }
+      focusFirstInvalid(fieldName);
+    };
+
+    const focusFirstInvalid = (fieldName = "") => {
+      const namedField = fieldName ? form.elements.namedItem(fieldName) : null;
+      const field = namedField instanceof HTMLElement
+        ? namedField
+        : form.querySelector("input[aria-invalid='true'], input:invalid, select:invalid, textarea:invalid");
+      if (!(field instanceof HTMLElement)) {
+        errorBox?.focus({ preventScroll: true });
+        return;
+      }
+      field.closest("details")?.setAttribute("open", "");
+      field.setAttribute("aria-invalid", "true");
+      if (errorBox?.id) {
+        const describedBy = new Set(
+          String(field.getAttribute("aria-describedby") || "").split(/\s+/).filter(Boolean),
+        );
+        describedBy.add(errorBox.id);
+        field.setAttribute("aria-describedby", [...describedBy].join(" "));
+      }
+      field.style.scrollMarginBottom = `${(paymentRail?.offsetHeight || 0) + 24}px`;
+      field.scrollIntoView({
+        block: "center",
+        behavior: prefersReducedMotion ? "auto" : "smooth",
+      });
+      window.setTimeout(() => field.focus({ preventScroll: true }), prefersReducedMotion ? 0 : 220);
+    };
 
     const syncServerError = () => {
       const fieldName = document.documentElement.dataset.formErrorField;
@@ -176,6 +338,9 @@
       }
     };
     syncServerError();
+    if (document.documentElement.dataset.formErrorField && errorBox && !errorBox.hidden) {
+      window.setTimeout(() => focusFirstInvalid(document.documentElement.dataset.formErrorField), 0);
+    }
 
     const setFocusedState = () => {
       root.classList.toggle(
@@ -197,40 +362,45 @@
           "is-complete",
           !optionalEmpty && field.value.trim() !== "" && field.checkValidity(),
         );
+        const requiredFields = [...form.querySelectorAll("input[required]")];
+        paymentRail?.classList.toggle(
+          "is-payment-ready",
+          requiredFields.length > 0 && requiredFields.every((requiredField) => requiredField.checkValidity() && requiredField.value.trim()),
+        );
       };
       field.addEventListener("input", syncCompletion);
       field.addEventListener("change", syncCompletion);
       syncCompletion();
     });
 
-    form.addEventListener("submit", async (event) => {
+      form.addEventListener("submit", async (event) => {
       event.preventDefault();
       event.stopImmediatePropagation();
       if (submitted) return;
-      if (errorBox) {
-        errorBox.hidden = true;
-        errorBox.textContent = "";
-      }
-
-      if (!form.reportValidity()) return;
-      const bridge = window.TwoCommsNovaPoshta;
-      if (!bridge?.validateForm) {
         if (errorBox) {
-          errorBox.textContent = fallbackErrors[locale] || fallbackErrors.uk;
-          errorBox.hidden = false;
+          errorBox.hidden = true;
+          errorBox.textContent = "";
         }
-        return;
-      }
 
-      const result = await bridge.validateForm(form);
-      if (!result.ok) {
-        if (errorBox) {
-          errorBox.textContent = result.message;
-          errorBox.hidden = false;
-          errorBox.scrollIntoView({ block: "center", behavior: prefersReducedMotion ? "auto" : "smooth" });
+        if (checkoutExpired) {
+          showFormError(paymentErrorMessage("expired"));
+          return;
         }
-        return;
-      }
+        if (!form.reportValidity()) {
+          showFormError(validationSummaryCopy[locale] || validationSummaryCopy.uk);
+          return;
+        }
+        const bridge = window.TwoCommsNovaPoshta;
+        if (!bridge?.validateForm) {
+          showFormError(fallbackErrors[locale] || fallbackErrors.uk);
+          return;
+        }
+
+        const result = await bridge.validateForm(form);
+        if (!result.ok) {
+          showFormError(result.message, result.field === "delivery" ? "city" : result.field);
+          return;
+        }
 
       const initiateEventId = document.documentElement.dataset.initiateCheckoutEventId;
       trackCheckoutEvent("InitiateCheckout", initiateEventId, {
@@ -251,9 +421,9 @@
           cache: "no-store",
           headers: { Accept: "application/json" },
         });
-        const payload = await response.json();
+        const payload = await readJsonResponse(response);
         if (!response.ok || !payload.invoice_url) {
-          throw new Error(payload.message || "payment_unavailable");
+          throw new Error(typeof payload.error === "string" ? payload.error : "payment_unavailable");
         }
         trackCheckoutEvent("AddPaymentInfo", payload.add_payment_event_id, {
           value: Number(payload.value || root.dataset.analyticsValue || 0),
@@ -266,13 +436,38 @@
           paymentButton.disabled = false;
           setActionLabel(paymentButton, defaultPaymentLabel);
         }
-        if (errorBox) {
-          errorBox.textContent = error.message || fallbackErrors[locale] || fallbackErrors.uk;
-          errorBox.hidden = false;
-        }
+            if (errorBox) {
+              const errorCode = error instanceof Error ? error.message : "";
+              showFormError(paymentErrorMessage(errorCode), paymentErrorField(errorCode));
+            }
       }
     });
   }
+
+  const exitDialog = document.querySelector("[data-exit-dialog]");
+  let exitTrigger = null;
+  document.querySelectorAll("[data-checkout-exit]").forEach((trigger) => {
+    trigger.addEventListener("click", (event) => {
+      if (!exitDialog) return;
+      event.preventDefault();
+      exitTrigger = trigger;
+      if (typeof exitDialog.showModal === "function") {
+        exitDialog.showModal();
+      } else {
+        exitDialog.setAttribute("open", "");
+      }
+      exitDialog.querySelector("[data-checkout-exit-cancel]")?.focus();
+    });
+  });
+  exitDialog?.querySelector("[data-checkout-exit-confirm]")?.addEventListener("click", () => {
+    const target = exitTrigger?.getAttribute("href") || "/";
+    exitDialog.close?.();
+    window.location.assign(target);
+  });
+  exitDialog?.addEventListener("close", () => {
+    exitTrigger?.focus({ preventScroll: true });
+    exitTrigger = null;
+  });
 
   const initializeNovaPoshta = () => {
     window.TwoCommsNovaPoshta?.initScope?.(root);

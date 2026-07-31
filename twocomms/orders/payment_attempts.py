@@ -8,7 +8,7 @@ from django.utils import timezone
 from orders.models import Order, OrderItem, PaymentAttempt
 from orders.nova_poshta_data import apply_nova_poshta_refs
 from productcolors.models import ProductColorVariant
-from storefront.models import CustomPrintLead, Product, PromoCodeUsage
+from storefront.models import CustomPrintLead, Product
 
 
 class PaymentAttemptConversionError(Exception):
@@ -165,21 +165,10 @@ def materialize_payment_attempt(attempt_id, *, status, payload=None, source='web
         if custom_ids:
             CustomPrintLead.objects.filter(pk__in=custom_ids).update(order=order)
 
-        promo_reservation = dict((attempt.event_state or {}).get('promo_reservation') or {})
-        promo_was_reserved = (
-            attempt.promo_code_id
-            and promo_reservation.get('state') == 'reserved'
-            and int(promo_reservation.get('promo_id') or 0) == attempt.promo_code_id
-        )
-        if promo_was_reserved:
-            event_state = dict(attempt.event_state or {})
-            promo_reservation.update({
-                'state': 'consumed',
-                'consumed_at': timezone.now().isoformat(),
-                'order_id': order.pk,
-            })
-            event_state['promo_reservation'] = promo_reservation
-            attempt.event_state = event_state
+        if attempt.promo_code_id:
+            from orders.promo_reservations import consume_payment_attempt_promo
+
+            consume_payment_attempt_promo(attempt, order=order)
 
         attempt.status = (
             PaymentAttempt.Status.PREPAID
@@ -196,24 +185,5 @@ def materialize_payment_attempt(attempt_id, *, status, payload=None, source='web
             'status', 'paid_amount', 'order', 'payment_history', 'event_state',
             'last_status_at', 'updated'
         ])
-
-        if attempt.promo_code and not PromoCodeUsage.objects.filter(order=order).exists():
-            try:
-                if promo_was_reserved and attempt.user_id:
-                    PromoCodeUsage.objects.get_or_create(
-                        user=attempt.user,
-                        promo_code=attempt.promo_code,
-                        group=attempt.promo_code.group,
-                        order=order,
-                    )
-                elif promo_was_reserved:
-                    pass
-                elif attempt.user_id:
-                    attempt.promo_code.record_usage(attempt.user, order)
-                else:
-                    attempt.promo_code.use()
-            except Exception:
-                # Payment remains valid; staff can reconcile a promo counter later.
-                pass
 
         return order, True
