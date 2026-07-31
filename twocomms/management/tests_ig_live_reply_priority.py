@@ -532,6 +532,49 @@ class LiveReplyKeyPriorityTests(TestCase):
         generate.assert_not_called()
 
     @patch("management.services.bot_conversation_analysis.gemini_generate_json")
+    def test_old_prompt_refresh_at_analyzed_watermark_is_skipped_without_ai(
+        self, generate
+    ):
+        now = timezone.now()
+        settings = InstagramBotSettings.load()
+        settings.analysis_reconcile_after = now - timedelta(days=1)
+        settings.analysis_backfill_enabled = False
+        settings.save(update_fields=[
+            "analysis_reconcile_after", "analysis_backfill_enabled",
+        ])
+        client = IgClient.get_or_create_for_sender("old-analyzed-watermark-refresh")
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="old message with a stale prompt snapshot",
+            source="manual_refresh",
+            provider_created_at=now - timedelta(days=30),
+            status=InstagramBotMessage.Status.DONE,
+        )
+        job = IgConversationAnalysisJob.objects.create(
+            client=client,
+            watermark_message_id=message.pk,
+            analyzed_watermark_message_id=message.pk,
+            revision=2,
+            analyzed_revision=1,
+            status=IgConversationAnalysisJob.Status.PENDING,
+            due_at=now,
+            next_attempt_at=now,
+            trigger="reconcile",
+            required_state_fingerprint="stale-prompt-refresh",
+        )
+        generate.return_value = {"parsed": {}, "model": "test", "meta": {}}
+
+        result = bot_conversation_analysis.process_due_analysis(limit=1, now=now)
+
+        job.refresh_from_db()
+        self.assertEqual(result["skipped"], 1)
+        self.assertEqual(job.status, IgConversationAnalysisJob.Status.SKIPPED)
+        self.assertEqual(job.skip_reason, "historical_reconcile")
+        generate.assert_not_called()
+
+    @patch("management.services.bot_conversation_analysis.gemini_generate_json")
     def test_imported_historical_triggers_are_skipped_without_ai(self, generate):
         now = timezone.now()
         settings = InstagramBotSettings.load()

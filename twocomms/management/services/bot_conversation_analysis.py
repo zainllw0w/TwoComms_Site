@@ -464,9 +464,13 @@ def _reconcile_candidate_is_eligible(
     """Keep automatic repair post-rollout unless history was explicitly allowed."""
     if include_history:
         return True
+    # A recovery job can be created today for a years-old imported message.
+    # Its creation time is therefore not business evidence and must not unlock
+    # historical Gemini work. Only a post-cutoff conversation event or an
+    # explicit payment/order truth change may do that.
     return any(
         value is not None and value >= cutoff
-        for value in (latest_message_at, job_created_at, truth_changed_at)
+        for value in (latest_message_at, truth_changed_at)
     )
 
 
@@ -500,7 +504,23 @@ def _historical_reconcile_job(job: IgConversationAnalysisJob, watermark: int) ->
         .annotate(event_at=Coalesce("provider_created_at", "created_at"))
         .values_list("event_at", flat=True)
     )
-    if not outstanding_events or any(
+    if not outstanding_events and watermark:
+        anchor_event = (
+            InstagramBotMessage.objects.filter(
+                client_id=job.client_id,
+                pk=watermark,
+                role__in=[
+                    InstagramBotMessage.Role.USER,
+                    InstagramBotMessage.Role.MANAGER,
+                ],
+            )
+            .annotate(event_at=Coalesce("provider_created_at", "created_at"))
+            .values_list("event_at", flat=True)
+            .first()
+        )
+        if anchor_event is not None:
+            outstanding_events = [anchor_event]
+    if any(
         event_at is None or event_at >= settings_obj.analysis_reconcile_after
         for event_at in outstanding_events
     ):

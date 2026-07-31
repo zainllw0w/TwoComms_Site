@@ -103,7 +103,7 @@ class ConversationAnalysisLeasePolicyTests(SimpleTestCase):
         groups.return_value = {alias: "project-a" for alias in ALL_KEYS}
         self.assertTrue(analysis._historical_backfill_allowed(settings_obj))
 
-    def test_reconcile_cutoff_excludes_history_but_keeps_post_rollout_recovery(self):
+    def test_reconcile_cutoff_excludes_history_but_keeps_post_rollout_events(self):
         cutoff = timezone.now()
         old = cutoff - timedelta(days=1)
         recent = cutoff + timedelta(seconds=1)
@@ -124,7 +124,6 @@ class ConversationAnalysisLeasePolicyTests(SimpleTestCase):
         )
         for override in (
             {"latest_message_at": recent},
-            {"job_created_at": recent},
             {"truth_changed_at": recent},
             {"include_history": True},
         ):
@@ -138,6 +137,16 @@ class ConversationAnalysisLeasePolicyTests(SimpleTestCase):
             }
             with self.subTest(override=override):
                 self.assertTrue(eligible(**values))
+
+        self.assertFalse(
+            eligible(
+                cutoff=cutoff,
+                latest_message_at=old,
+                job_created_at=recent,
+                truth_changed_at=old,
+                include_history=False,
+            )
+        )
 
     def test_claim_ownership_requires_matching_unexpired_processing_lease(self):
         now = timezone.now()
@@ -826,6 +835,40 @@ class ConversationAnalysisJobTests(TestCase):
         self.assertEqual(result["queued"], 0)
         self.assertEqual(result["historical_blocked"], 1)
         self.assertFalse(IgConversationAnalysisJob.objects.filter(client=self.client).exists())
+
+    def test_reconciliation_does_not_reopen_recent_failed_job_for_old_history(self):
+        message = self.message("Старий діалог з невдалою фоновою спробою")
+        cutoff = timezone.now()
+        InstagramBotMessage.objects.filter(pk=message.pk).update(
+            created_at=cutoff - timedelta(days=30)
+        )
+        settings = InstagramBotSettings.load()
+        settings.analysis_reconcile_after = cutoff
+        settings.analysis_backfill_enabled = False
+        settings.save(update_fields=[
+            "analysis_reconcile_after", "analysis_backfill_enabled",
+        ])
+        job = IgConversationAnalysisJob.objects.create(
+            client=self.client,
+            watermark_message_id=message.pk,
+            revision=1,
+            analyzed_revision=0,
+            status=IgConversationAnalysisJob.Status.FAILED,
+            due_at=cutoff,
+            next_attempt_at=cutoff,
+            trigger="reconcile",
+            required_state_fingerprint="stale-fingerprint",
+            last_error="old quota failure",
+        )
+        self.assertGreaterEqual(job.created_at, cutoff)
+
+        result = analysis.reconcile_analysis_jobs(now=cutoff)
+
+        job.refresh_from_db()
+        self.assertEqual(result["queued"], 0)
+        self.assertEqual(result["historical_blocked"], 1)
+        self.assertEqual(job.status, IgConversationAnalysisJob.Status.FAILED)
+        self.assertEqual(job.last_error, "old quota failure")
 
     def test_unrelated_deal_update_does_not_unlock_historical_reconciliation(self):
         message = self.message("Старий діалог")
