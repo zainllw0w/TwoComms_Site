@@ -64,6 +64,13 @@ class IgOrderAssignmentModelTests(TestCase):
         self.assertEqual(assignment.version, 1)
         self.assertIsNone(assignment.unassigned_at)
 
+        with self.assertRaises(ValueError):
+            assignment.delete()
+        with self.assertRaises(ValueError):
+            type(assignment).objects.filter(pk=assignment.pk).delete()
+        with self.assertRaises(ValueError):
+            type(assignment).objects.filter(pk=assignment.pk)._raw_delete("default")
+
     def test_assignment_event_is_append_only(self):
         from management.models import IgOrderAssignmentEvent
 
@@ -91,6 +98,8 @@ class IgOrderAssignmentModelTests(TestCase):
             IgOrderAssignmentEvent.objects.bulk_update([event], ["reason"])
         with self.assertRaises(ValueError):
             IgOrderAssignmentEvent.objects.filter(pk=event.pk).delete()
+        with self.assertRaises(ValueError):
+            IgOrderAssignmentEvent.objects.filter(pk=event.pk)._raw_delete("default")
 
     def test_operation_id_is_unique(self):
         from management.models import IgOrderAssignmentEvent
@@ -132,6 +141,45 @@ class IgOrderAssignmentModelTests(TestCase):
 
         with self.assertRaises(IntegrityError):
             IgOrderCustomerEvent.objects.create(**payload)
+
+    def test_customer_event_identity_is_immutable_but_state_is_mutable(self):
+        from management.models import IgOrderCustomerEvent
+
+        assignment = self._assignment()
+        event = IgOrderCustomerEvent.objects.create(
+            event_key=f"order:{self.order.pk}:ttn:immutable",
+            assignment=assignment,
+            assignment_version=assignment.version,
+            order=self.order,
+            client=self.client,
+            kind=IgOrderCustomerEvent.Kind.TTN_ASSIGNED,
+            locale="en",
+            message_snapshot="Your order has been shipped.",
+            payload={"tracking_number": "20400000000000"},
+        )
+
+        event.state = IgOrderCustomerEvent.State.SENT
+        event.save(update_fields=["state"])
+        self.assertEqual(
+            IgOrderCustomerEvent.objects.get(pk=event.pk).state,
+            IgOrderCustomerEvent.State.SENT,
+        )
+
+        event.event_key = "order:rewritten"
+        with self.assertRaises(ValueError):
+            event.save()
+        with self.assertRaises(ValueError):
+            IgOrderCustomerEvent.objects.filter(pk=event.pk).update(
+                event_key="order:rewritten"
+            )
+        with self.assertRaises(ValueError):
+            IgOrderCustomerEvent.objects.bulk_update([event], ["event_key"])
+        with self.assertRaises(ValueError):
+            event.delete()
+        with self.assertRaises(ValueError):
+            IgOrderCustomerEvent.objects.filter(pk=event.pk).delete()
+        with self.assertRaises(ValueError):
+            IgOrderCustomerEvent.objects.filter(pk=event.pk)._raw_delete("default")
 
 
 class IgOrderAssignmentMigrationTests(SimpleTestCase):
@@ -197,9 +245,30 @@ class IgOrderAssignmentMigrationTests(SimpleTestCase):
             new_apps = executor.loader.project_state([migrate_to]).apps
             Assignment = new_apps.get_model("management", "IgOrderAssignment")
             Event = new_apps.get_model("management", "IgOrderAssignmentEvent")
+            CustomerEvent = new_apps.get_model("management", "IgOrderCustomerEvent")
 
             assignment = Assignment.objects.get(order_id=order.pk)
             event = Event.objects.get(assignment_id=assignment.pk)
+            migration = importlib.import_module(
+                "management.migrations.0119_ig_order_assignments"
+            )
+            with connection.schema_editor() as schema_editor:
+                migration.drop_assignment_event_guards(new_apps, schema_editor)
+                Event.objects.filter(pk=event.pk).delete()
+                migration.backfill_assignments(new_apps, schema_editor)
+                migration.create_assignment_event_guards(new_apps, schema_editor)
+            event = Event.objects.get(assignment_id=assignment.pk)
+            customer_event = CustomerEvent.objects.create(
+                event_key=f"order:{order.pk}:ttn:migration",
+                assignment_id=assignment.pk,
+                assignment_version=assignment.version,
+                order_id=order.pk,
+                client_id=client.pk,
+                kind="ttn_assigned",
+                locale="en",
+                message_snapshot="Your order has been shipped.",
+                payload={"tracking_number": "20400000000000"},
+            )
 
             update_guarded = False
             try:
@@ -222,9 +291,39 @@ class IgOrderAssignmentMigrationTests(SimpleTestCase):
             except DatabaseError:
                 delete_guarded = True
 
-            migration = importlib.import_module(
-                "management.migrations.0119_ig_order_assignments"
-            )
+            customer_update_guarded = False
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "UPDATE management_igordercustomerevent "
+                        "SET event_key = %s WHERE id = %s",
+                        ["order:rewritten", customer_event.pk],
+                    )
+            except DatabaseError:
+                customer_update_guarded = True
+
+            customer_state_update_allowed = False
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "UPDATE management_igordercustomerevent "
+                        "SET state = %s WHERE id = %s",
+                        ["sent", customer_event.pk],
+                    )
+                customer_state_update_allowed = True
+            except DatabaseError:
+                customer_state_update_allowed = False
+
+            customer_delete_guarded = False
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "DELETE FROM management_igordercustomerevent WHERE id = %s",
+                        [customer_event.pk],
+                    )
+            except DatabaseError:
+                customer_delete_guarded = True
+
             with connection.schema_editor() as schema_editor:
                 migration.drop_assignment_event_guards(new_apps, schema_editor)
                 migration.reverse_backfill_assignments(new_apps, schema_editor)
@@ -232,6 +331,7 @@ class IgOrderAssignmentMigrationTests(SimpleTestCase):
             after_handler = {
                 "assignments": Assignment.objects.count(),
                 "events": Event.objects.count(),
+                "customer_events": CustomerEvent.objects.count(),
                 "attributions": new_apps.get_model(
                     "management", "IgOrderAttribution"
                 ).objects.count(),
@@ -259,6 +359,9 @@ class IgOrderAssignmentMigrationTests(SimpleTestCase):
                 "db_guards": {
                     "update": update_guarded,
                     "delete": delete_guarded,
+                    "customer_update": customer_update_guarded,
+                    "customer_state_update_allowed": customer_state_update_allowed,
+                    "customer_delete": customer_delete_guarded,
                 },
                 "after_handler": after_handler,
                 "after_migration_reverse": {
@@ -319,12 +422,22 @@ class IgOrderAssignmentMigrationTests(SimpleTestCase):
                 "snapshot_matches": True,
             },
         )
-        self.assertEqual(payload["db_guards"], {"update": True, "delete": True})
+        self.assertEqual(
+            payload["db_guards"],
+            {
+                "update": True,
+                "delete": True,
+                "customer_update": True,
+                "customer_state_update_allowed": True,
+                "customer_delete": True,
+            },
+        )
         self.assertEqual(
             payload["after_handler"],
             {
-                "assignments": 0,
-                "events": 0,
+                "assignments": 1,
+                "events": 1,
+                "customer_events": 1,
                 "attributions": 1,
                 "payment_status": "paid",
             },

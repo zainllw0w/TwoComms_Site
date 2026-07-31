@@ -1168,6 +1168,14 @@ class IgOrderLinkEvent(models.Model):
         raise ValueError("IgOrderLinkEvent is append-only")
 
 
+class _IgOrderAssignmentQuerySet(models.QuerySet):
+    def delete(self):
+        raise ValueError("IgOrderAssignment is managed by the assignment service")
+
+    def _raw_delete(self, using):
+        raise ValueError("IgOrderAssignment is managed by the assignment service")
+
+
 class IgOrderAssignment(models.Model):
     """Current operational owner of an order in the Instagram workspace."""
 
@@ -1217,6 +1225,11 @@ class IgOrderAssignment(models.Model):
             models.Index(fields=["source", "-assigned_at"], name="ig_assign_source_dt"),
         ]
 
+    objects = models.Manager.from_queryset(_IgOrderAssignmentQuerySet)()
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgOrderAssignment is managed by the assignment service")
+
 
 class _AppendOnlyOrderAssignmentEventQuerySet(models.QuerySet):
     def update(self, **kwargs):
@@ -1226,6 +1239,9 @@ class _AppendOnlyOrderAssignmentEventQuerySet(models.QuerySet):
         raise ValueError("IgOrderAssignmentEvent is append-only")
 
     def delete(self):
+        raise ValueError("IgOrderAssignmentEvent is append-only")
+
+    def _raw_delete(self, using):
         raise ValueError("IgOrderAssignmentEvent is append-only")
 
 
@@ -1306,6 +1322,39 @@ class IgOrderAssignmentEvent(models.Model):
         raise ValueError("IgOrderAssignmentEvent is append-only")
 
 
+class _IgOrderCustomerEventQuerySet(models.QuerySet):
+    _IDENTITY_FIELDS = {
+        "event_key",
+        "assignment",
+        "assignment_id",
+        "assignment_version",
+        "order",
+        "order_id",
+        "client",
+        "client_id",
+        "kind",
+        "locale",
+        "message_snapshot",
+        "payload",
+    }
+
+    def update(self, **kwargs):
+        if self._IDENTITY_FIELDS.intersection(kwargs):
+            raise ValueError("IgOrderCustomerEvent identity is immutable")
+        return super().update(**kwargs)
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        if self._IDENTITY_FIELDS.intersection(fields):
+            raise ValueError("IgOrderCustomerEvent identity is immutable")
+        return super().bulk_update(objs, fields, batch_size=batch_size)
+
+    def delete(self):
+        raise ValueError("IgOrderCustomerEvent is durable")
+
+    def _raw_delete(self, using):
+        raise ValueError("IgOrderCustomerEvent is durable")
+
+
 class IgOrderCustomerEvent(models.Model):
     """Durable localized customer message derived from current order ownership."""
 
@@ -1365,6 +1414,32 @@ class IgOrderCustomerEvent(models.Model):
             models.Index(fields=["client", "-created_at"], name="ig_order_evt_client_dt"),
             models.Index(fields=["order", "kind"], name="ig_order_evt_kind"),
         ]
+
+    objects = models.Manager.from_queryset(_IgOrderCustomerEventQuerySet)()
+
+    _IDENTITY_FIELDS = (
+        "event_key",
+        "kind",
+        "assignment_id",
+        "assignment_version",
+        "order_id",
+        "client_id",
+        "locale",
+        "message_snapshot",
+        "payload",
+    )
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            previous = type(self).objects.filter(pk=self.pk).values(*self._IDENTITY_FIELDS).first()
+            if previous:
+                for field_name in self._IDENTITY_FIELDS:
+                    if getattr(self, field_name) != previous[field_name]:
+                        raise ValueError("IgOrderCustomerEvent identity is immutable")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgOrderCustomerEvent is durable")
 
 
 class IgCommercialEpisode(models.Model):

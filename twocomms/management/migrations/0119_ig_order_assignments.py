@@ -7,8 +7,15 @@ from django.conf import settings
 from django.db import migrations, models
 
 
+ASSIGNMENT_TABLES = (
+    'management_igorderassignment',
+    'management_igorderassignmentevent',
+    'management_igordercustomerevent',
+)
+
+
 def _assignment_source(attribution):
-    if attribution.payment_source.startswith('provider_'):
+    if attribution.creation_mode == 'provider_auto' or attribution.payment_source.startswith('provider_'):
         return 'provider_auto'
     if attribution.creation_mode == 'manager_review':
         return 'manager_payment_review'
@@ -31,7 +38,7 @@ def backfill_assignments(apps, schema_editor):
 
     for attribution in Attribution.objects.order_by('id').iterator(chunk_size=200):
         source = _assignment_source(attribution)
-        assignment, created = Assignment.objects.get_or_create(
+        assignment, _created = Assignment.objects.get_or_create(
             order_id=attribution.order_id,
             defaults={
                 'client_id': attribution.client_id,
@@ -43,24 +50,24 @@ def backfill_assignments(apps, schema_editor):
                 'last_reason': 'Backfilled from immutable Instagram attribution',
             },
         )
-        if not created:
-            continue
-        Event.objects.create(
+        Event.objects.get_or_create(
             operation_id=_backfill_operation_id(attribution.pk),
-            assignment_id=assignment.pk,
-            order_id=attribution.order_id,
-            kind='linked',
-            to_client_id=attribution.client_id,
-            actor_id=attribution.created_by_id,
-            actor_source='migration',
-            assignment_source=source,
-            reason_code='legacy_attribution',
-            reason='Backfilled from immutable Instagram attribution',
-            assignment_version=1,
-            snapshot={
-                'attribution_id': attribution.pk,
-                'creation_mode': attribution.creation_mode,
-                'payment_source': attribution.payment_source,
+            defaults={
+                'assignment_id': assignment.pk,
+                'order_id': attribution.order_id,
+                'kind': 'linked',
+                'to_client_id': attribution.client_id,
+                'actor_id': attribution.created_by_id,
+                'actor_source': 'migration',
+                'assignment_source': source,
+                'reason_code': 'legacy_attribution',
+                'reason': 'Backfilled from immutable Instagram attribution',
+                'assignment_version': 1,
+                'snapshot': {
+                    'attribution_id': attribution.pk,
+                    'creation_mode': attribution.creation_mode,
+                    'payment_source': attribution.payment_source,
+                },
             },
         )
 
@@ -110,11 +117,35 @@ def reverse_backfill_assignments(apps, schema_editor):
         Assignment.objects.filter(pk=assignment.pk).delete()
 
 
+def ensure_assignment_tables_innodb(apps, schema_editor):
+    if schema_editor.connection.vendor != 'mysql':
+        return
+    quote = schema_editor.quote_name
+    with schema_editor.connection.cursor() as cursor:
+        for table in ASSIGNMENT_TABLES:
+            cursor.execute(
+                'SELECT ENGINE FROM information_schema.TABLES '
+                'WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=%s',
+                [table],
+            )
+            row = cursor.fetchone()
+            if row is None:
+                raise RuntimeError(f'required Instagram assignment table is missing: {table}')
+            if str(row[0]).lower() != 'innodb':
+                schema_editor.execute(f'ALTER TABLE {quote(table)} ENGINE=InnoDB')
+
+
 def create_assignment_event_guards(apps, schema_editor):
     vendor = schema_editor.connection.vendor
     drop_assignment_event_guards(apps, schema_editor)
     if vendor in {'mysql', 'mariadb'}:
         schema_editor.execute(
+            "CREATE TRIGGER ig_assignment_no_delete BEFORE DELETE "
+            "ON management_igorderassignment FOR EACH ROW "
+            "SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = "
+            "'IgOrderAssignment is managed by the assignment service'"
+        )
+        schema_editor.execute(
             "CREATE TRIGGER ig_assignment_evt_no_update BEFORE UPDATE "
             "ON management_igorderassignmentevent FOR EACH ROW "
             "SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = "
@@ -125,9 +156,31 @@ def create_assignment_event_guards(apps, schema_editor):
             "ON management_igorderassignmentevent FOR EACH ROW "
             "SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = "
             "'IgOrderAssignmentEvent is append-only'"
+        )
+        schema_editor.execute(
+            "CREATE TRIGGER ig_customer_evt_identity_no_update BEFORE UPDATE "
+            "ON management_igordercustomerevent FOR EACH ROW BEGIN "
+            "IF NOT (OLD.event_key <=> NEW.event_key) OR OLD.assignment_id <> NEW.assignment_id "
+            "OR OLD.assignment_version <> NEW.assignment_version OR OLD.order_id <> NEW.order_id "
+            "OR OLD.client_id <> NEW.client_id OR OLD.kind <> NEW.kind "
+            "OR NOT (OLD.locale <=> NEW.locale) OR NOT (OLD.message_snapshot <=> NEW.message_snapshot) "
+            "OR NOT (OLD.payload <=> NEW.payload) THEN "
+            "SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'IgOrderCustomerEvent identity is immutable'; "
+            "END IF; END"
+        )
+        schema_editor.execute(
+            "CREATE TRIGGER ig_customer_evt_no_delete BEFORE DELETE "
+            "ON management_igordercustomerevent FOR EACH ROW "
+            "SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = "
+            "'IgOrderCustomerEvent is durable'"
         )
     elif vendor == 'sqlite':
         schema_editor.execute(
+            "CREATE TRIGGER ig_assignment_no_delete BEFORE DELETE "
+            "ON management_igorderassignment BEGIN SELECT RAISE(ABORT, "
+            "'IgOrderAssignment is managed by the assignment service'); END"
+        )
+        schema_editor.execute(
             "CREATE TRIGGER ig_assignment_evt_no_update BEFORE UPDATE "
             "ON management_igorderassignmentevent BEGIN SELECT RAISE(ABORT, "
             "'IgOrderAssignmentEvent is append-only'); END"
@@ -136,6 +189,20 @@ def create_assignment_event_guards(apps, schema_editor):
             "CREATE TRIGGER ig_assignment_evt_no_delete BEFORE DELETE "
             "ON management_igorderassignmentevent BEGIN SELECT RAISE(ABORT, "
             "'IgOrderAssignmentEvent is append-only'); END"
+        )
+        schema_editor.execute(
+            "CREATE TRIGGER ig_customer_evt_identity_no_update BEFORE UPDATE "
+            "ON management_igordercustomerevent WHEN OLD.event_key IS NOT NEW.event_key "
+            "OR OLD.assignment_id IS NOT NEW.assignment_id OR OLD.assignment_version IS NOT NEW.assignment_version "
+            "OR OLD.order_id IS NOT NEW.order_id OR OLD.client_id IS NOT NEW.client_id "
+            "OR OLD.kind IS NOT NEW.kind OR OLD.locale IS NOT NEW.locale "
+            "OR OLD.message_snapshot IS NOT NEW.message_snapshot OR OLD.payload IS NOT NEW.payload BEGIN "
+            "SELECT RAISE(ABORT, 'IgOrderCustomerEvent identity is immutable'); END"
+        )
+        schema_editor.execute(
+            "CREATE TRIGGER ig_customer_evt_no_delete BEFORE DELETE "
+            "ON management_igordercustomerevent BEGIN SELECT RAISE(ABORT, "
+            "'IgOrderCustomerEvent is durable'); END"
         )
     elif vendor == 'postgresql':
         schema_editor.execute(
@@ -153,25 +220,74 @@ def create_assignment_event_guards(apps, schema_editor):
             "ON management_igorderassignmentevent FOR EACH ROW "
             "EXECUTE FUNCTION ig_assignment_event_append_only_raise()"
         )
+        schema_editor.execute(
+            "CREATE OR REPLACE FUNCTION ig_assignment_customer_identity_raise() "
+            "RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN "
+            "IF OLD.event_key IS DISTINCT FROM NEW.event_key "
+            "OR OLD.assignment_id IS DISTINCT FROM NEW.assignment_id "
+            "OR OLD.assignment_version IS DISTINCT FROM NEW.assignment_version "
+            "OR OLD.order_id IS DISTINCT FROM NEW.order_id "
+            "OR OLD.client_id IS DISTINCT FROM NEW.client_id "
+            "OR OLD.kind IS DISTINCT FROM NEW.kind "
+            "OR OLD.locale IS DISTINCT FROM NEW.locale "
+            "OR OLD.message_snapshot IS DISTINCT FROM NEW.message_snapshot "
+            "OR OLD.payload IS DISTINCT FROM NEW.payload THEN "
+            "RAISE EXCEPTION 'IgOrderCustomerEvent identity is immutable'; END IF; "
+            "RETURN NEW; END; $$"
+        )
+        schema_editor.execute(
+            "CREATE TRIGGER ig_customer_evt_identity_no_update BEFORE UPDATE "
+            "ON management_igordercustomerevent FOR EACH ROW "
+            "EXECUTE FUNCTION ig_assignment_customer_identity_raise()"
+        )
+        schema_editor.execute(
+            "CREATE OR REPLACE FUNCTION ig_assignment_no_delete_raise() "
+            "RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN "
+            "RAISE EXCEPTION 'IgOrderAssignment is managed by the assignment service'; END; $$"
+        )
+        schema_editor.execute(
+            "CREATE TRIGGER ig_assignment_no_delete BEFORE DELETE "
+            "ON management_igorderassignment FOR EACH ROW "
+            "EXECUTE FUNCTION ig_assignment_no_delete_raise()"
+        )
+        schema_editor.execute(
+            "CREATE OR REPLACE FUNCTION ig_customer_evt_no_delete_raise() "
+            "RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN "
+            "RAISE EXCEPTION 'IgOrderCustomerEvent is durable'; END; $$"
+        )
+        schema_editor.execute(
+            "CREATE TRIGGER ig_customer_evt_no_delete BEFORE DELETE "
+            "ON management_igordercustomerevent FOR EACH ROW "
+            "EXECUTE FUNCTION ig_customer_evt_no_delete_raise()"
+        )
 
 
 def drop_assignment_event_guards(apps, schema_editor):
     vendor = schema_editor.connection.vendor
     if vendor in {'mysql', 'mariadb', 'sqlite'}:
-        schema_editor.execute('DROP TRIGGER IF EXISTS ig_assignment_evt_no_update')
-        schema_editor.execute('DROP TRIGGER IF EXISTS ig_assignment_evt_no_delete')
+        for name in (
+            'ig_assignment_no_delete',
+            'ig_assignment_evt_no_update',
+            'ig_assignment_evt_no_delete',
+            'ig_customer_evt_identity_no_update',
+            'ig_customer_evt_no_delete',
+        ):
+            schema_editor.execute(f'DROP TRIGGER IF EXISTS {name}')
     elif vendor == 'postgresql':
-        schema_editor.execute(
-            'DROP TRIGGER IF EXISTS ig_assignment_evt_no_update '
-            'ON management_igorderassignmentevent'
-        )
-        schema_editor.execute(
-            'DROP TRIGGER IF EXISTS ig_assignment_evt_no_delete '
-            'ON management_igorderassignmentevent'
-        )
-        schema_editor.execute(
-            'DROP FUNCTION IF EXISTS ig_assignment_event_append_only_raise()'
-        )
+        for table, names in (
+            ('management_igorderassignment', ('ig_assignment_no_delete',)),
+            ('management_igorderassignmentevent', ('ig_assignment_evt_no_update', 'ig_assignment_evt_no_delete')),
+            ('management_igordercustomerevent', ('ig_customer_evt_identity_no_update', 'ig_customer_evt_no_delete')),
+        ):
+            for name in names:
+                schema_editor.execute(f'DROP TRIGGER IF EXISTS {name} ON {table}')
+        for function in (
+            'ig_assignment_event_append_only_raise()',
+            'ig_assignment_customer_identity_raise()',
+            'ig_assignment_no_delete_raise()',
+            'ig_customer_evt_no_delete_raise()',
+        ):
+            schema_editor.execute(f'DROP FUNCTION IF EXISTS {function}')
 
 
 class Migration(migrations.Migration):
@@ -284,6 +400,7 @@ class Migration(migrations.Migration):
             model_name='igordercustomerevent',
             index=models.Index(fields=['order', 'kind'], name='ig_order_evt_kind'),
         ),
+        migrations.RunPython(ensure_assignment_tables_innodb, migrations.RunPython.noop),
         migrations.RunPython(backfill_assignments, reverse_backfill_assignments),
         migrations.RunPython(
             create_assignment_event_guards,
