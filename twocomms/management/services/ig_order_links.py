@@ -208,6 +208,25 @@ def create_order_attribution(
         raise ValueError("Замовлення вже прив'язано до іншого Instagram-клієнта")
     if attribution.deal_id and deal and attribution.deal_id != deal.pk:
         raise ValueError("Замовлення вже належить іншій угоді цього Instagram-клієнта")
+    from management.services.ig_order_assignments import (
+        assignment_source_for_attribution,
+        link_order_to_client,
+    )
+
+    link_order_to_client(
+        order,
+        client=client,
+        actor=created_by,
+        source=assignment_source_for_attribution(
+            creation_mode=creation_mode,
+            payment_source=payment_source,
+        ),
+        actor_source=(
+            "management_user" if created_by is not None else "automation"
+        ),
+        reason_code="attribution_created",
+        reason="Created from Instagram attribution",
+    )
     from management.services.ig_commercial_episodes import (
         bind_episode_order,
         ensure_episode_for_attribution,

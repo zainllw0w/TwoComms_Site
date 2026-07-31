@@ -181,6 +181,143 @@ class IgOrderAssignmentModelTests(TestCase):
         with self.assertRaises(ValueError):
             IgOrderCustomerEvent.objects.filter(pk=event.pk)._raw_delete("default")
 
+    def test_link_exact_order_is_idempotent_and_audited(self):
+        from management.models import IgOrderAssignment, IgOrderAssignmentEvent
+        from management.services.ig_order_assignments import link_order_to_client
+
+        operation_id = uuid.uuid4()
+        first = link_order_to_client(
+            self.order,
+            client=self.client,
+            actor=self.actor,
+            source=IgOrderAssignment.Source.MANAGER_MANUAL,
+            operation_id=operation_id,
+        )
+        replay = link_order_to_client(
+            self.order,
+            client=self.client,
+            actor=self.actor,
+            source=IgOrderAssignment.Source.MANAGER_MANUAL,
+            operation_id=operation_id,
+        )
+
+        self.assertEqual(first.pk, replay.pk)
+        self.assertEqual(
+            IgOrderAssignmentEvent.objects.filter(order=self.order).count(),
+            1,
+        )
+        self.assertEqual(first.version, 1)
+
+    def test_link_rejects_another_current_owner(self):
+        from management.services.ig_order_assignments import (
+            AssignmentConflict,
+            link_order_to_client,
+        )
+
+        link_order_to_client(self.order, client=self.client, actor=self.actor)
+        with self.assertRaises(AssignmentConflict):
+            link_order_to_client(
+                self.order,
+                client=self.other_client,
+                actor=self.actor,
+            )
+
+    def test_link_rejects_legacy_attribution_owner_before_projection_backfill(self):
+        from management.models import IgOrderAttribution
+        from management.services.ig_order_assignments import (
+            AssignmentConflict,
+            link_order_to_client,
+        )
+
+        IgOrderAttribution.objects.create(
+            order=self.order,
+            client=self.other_client,
+            creation_mode="linked_existing",
+            payment_source="unknown",
+        )
+        with self.assertRaises(AssignmentConflict):
+            link_order_to_client(self.order, client=self.client, actor=self.actor)
+
+    def test_unlink_requires_reason_and_expected_version_then_allows_relink(self):
+        from management.models import IgOrderAssignment, IgOrderAssignmentEvent
+        from management.services.ig_order_assignments import (
+            AssignmentVersionConflict,
+            link_order_to_client,
+            unlink_order_from_client,
+        )
+
+        assignment = link_order_to_client(
+            self.order,
+            client=self.client,
+            actor=self.actor,
+        )
+        with self.assertRaises(ValueError):
+            unlink_order_from_client(
+                self.order,
+                actor=self.actor,
+                expected_version=assignment.version,
+            )
+        unlink_order_from_client(
+            self.order,
+            actor=self.actor,
+            expected_version=assignment.version,
+            reason_code="manager_correction",
+            reason="The manager selected the wrong Instagram client.",
+        )
+        cleared = IgOrderAssignment.objects.get(order=self.order)
+        self.assertIsNone(cleared.client_id)
+        self.assertEqual(cleared.version, 2)
+        with self.assertRaises(AssignmentVersionConflict):
+            unlink_order_from_client(
+                self.order,
+                actor=self.actor,
+                expected_version=1,
+                reason_code="manager_correction",
+                reason="stale action",
+            )
+        relinked = link_order_to_client(
+            self.order,
+            client=self.other_client,
+            actor=self.actor,
+            source=IgOrderAssignment.Source.MANAGER_MANUAL,
+            expected_version=cleared.version,
+        )
+        self.assertEqual(relinked.client_id, self.other_client.pk)
+        self.assertEqual(relinked.version, 3)
+        self.assertEqual(
+            IgOrderAssignmentEvent.objects.filter(order=self.order).count(),
+            3,
+        )
+
+    def test_provider_attribution_creates_automatic_assignment_without_payment_mutation(self):
+        from management.models import IgOrderAssignment, IgOrderAssignmentEvent
+        from management.services.ig_order_links import create_order_attribution
+
+        before = {
+            "payment_status": self.order.payment_status,
+            "total_sum": self.order.total_sum,
+        }
+        create_order_attribution(
+            self.order,
+            client=self.client,
+            creation_mode="provider_auto",
+            payment_source="provider_monobank",
+        )
+        assignment = IgOrderAssignment.objects.get(order=self.order)
+        self.assertEqual(assignment.client_id, self.client.pk)
+        self.assertEqual(assignment.source, IgOrderAssignment.Source.PROVIDER_AUTO)
+        self.assertEqual(
+            IgOrderAssignmentEvent.objects.get(order=self.order).actor_source,
+            IgOrderAssignmentEvent.ActorSource.AUTOMATION,
+        )
+        self.assertEqual(
+            IgOrderAssignmentEvent.objects.get(order=self.order).kind,
+            IgOrderAssignmentEvent.Kind.AUTO_CONFIRMED,
+        )
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.payment_status, before["payment_status"])
+        self.assertEqual(self.order.total_sum, before["total_sum"])
+
 
 class IgOrderAssignmentMigrationTests(SimpleTestCase):
     def test_legacy_attribution_backfill_is_guarded_and_reversible(self):
