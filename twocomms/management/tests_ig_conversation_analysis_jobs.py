@@ -297,6 +297,10 @@ class ConversationAnalysisLeasePolicyTests(SimpleTestCase):
 
     @patch("management.services.bot_conversation_analysis._finish_failure")
     @patch(
+        "management.services.bot_conversation_analysis._customer_reply_work_waiting",
+        return_value=False,
+    )
+    @patch(
         "management.services.bot_conversation_analysis._process_claim",
         side_effect=["done", RuntimeError("provider failed")],
     )
@@ -304,7 +308,7 @@ class ConversationAnalysisLeasePolicyTests(SimpleTestCase):
     @patch("management.services.bot_conversation_analysis._claim_due")
     @patch("management.services.bot_conversation_analysis.timezone.now")
     def test_batch_uses_fresh_clock_for_each_claim_and_failure(
-        self, now_mock, claim_due, reclaim, process, finish_failure
+        self, now_mock, claim_due, reclaim, process, _reply_waiting, finish_failure
     ):
         base = timezone.datetime(
             2026, 7, 24, 12, 0, tzinfo=timezone.get_current_timezone()

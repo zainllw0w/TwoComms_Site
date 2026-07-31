@@ -508,7 +508,9 @@ ANTI_HALLUCINATION_NOTE = (
 
 SALES_AUTOMATION_GUARDRAILS = (
     "[SALES AUTOMATION GUARDRAILS — службове]\n"
-    "Відповідай короткими Instagram-повідомленнями, мовою клієнта (UA/RU). "
+    "Відповідай короткими Instagram-повідомленнями, мовою клієнта (UA/RU/EN). "
+    "Якщо клієнт пише англійською, відповідай англійською навіть якщо старіша "
+    "базова інструкція згадує лише UA/RU. "
     "Не вигадуй SKU, товар, наявність, ціну, оплату, знижку чи фінальну ціну "
     "кастомного принта. Знижку НЕ пропонуй сам: система окремо керує rescue "
     "оферами 5%, максимум 10% лише як фінальний/узгоджений варіант. Якщо клієнт "
@@ -3538,7 +3540,8 @@ _CHAT_REASONING_PATTERNS = (
         "order_decision",
         re.compile(
             r"\b(замов\w*|заказ\w*|достав\w*|нова\s+пошт\w*|новая\s+почт\w*|"
-            r"відділен\w*|отделен\w*)\b",
+            r"відділен\w*|отделен\w*|order\w*|status|delivery|deliver\w*|"
+            r"ship\w*|tracking|nova\s+poshta|kyiv|kiev)\b",
             re.I,
         ),
     ),
@@ -4603,14 +4606,21 @@ def _build_history(sender_id: str) -> list[dict]:
 
 
 def _claim_next() -> InstagramBotMessage | None:
-    """Атомарно (умовний UPDATE) забирає найстаріше pending-вхідне."""
+    """Atomically claim the oldest row from the freshest active conversation."""
     row = (
         InstagramBotMessage.objects.filter(
             role=InstagramBotMessage.Role.USER,
             status=InstagramBotMessage.Status.PENDING,
             client__hidden_at__isnull=True,
         )
-        .order_by("id")
+        .annotate(
+            conversation_priority_at=Coalesce(
+                "client__last_message_at",
+                "provider_created_at",
+                "created_at",
+            )
+        )
+        .order_by("-conversation_priority_at", "sender_id", "id")
         .first()
     )
     if not row:
@@ -4883,6 +4893,8 @@ def _process_one_inside_reply_boundary(
     lease_token: str = "",
     permission=None,
 ) -> bool:
+    fallback_manager_handoff = False
+    used_ai_failure_fallback = False
     if not InstagramBotSettings.objects.filter(pk=s.pk, is_enabled=True).exists():
         return _skip_observed_row(row, reason="global_reply_paused")
     if row.client_id:
@@ -5097,6 +5109,21 @@ def _process_one_inside_reply_boundary(
     # so hostname heuristics alone are not sufficient here.
     payment_deal = _invoice_deal_for_reply(row.client, reply) if row.client_id else None
 
+    if not reply and s.ai_enabled:
+        try:
+            from management.services.bot_reply_fallback import build_ai_failure_fallback
+
+            reply, fallback_manager_handoff = build_ai_failure_fallback(row)
+            if reply:
+                used_ai_failure_fallback = True
+                log(
+                    "warning",
+                    "gemini_fallback",
+                    f"{row.sender_id}: deterministic fallback after provider failure",
+                )
+        except Exception as exc:
+            log("error", "gemini_fallback", repr(exc))
+
     if not reply:
         # невдача генерації — ретрай або failed
         if row.attempts >= MAX_ATTEMPTS:
@@ -5270,7 +5297,23 @@ def _process_one_inside_reply_boundary(
             from management.services import bot_followups
 
             row.client.refresh_from_db()
-            bot_followups.schedule_after_bot_reply(row.client, reply=reply, control=control)
+            if fallback_manager_handoff:
+                _apply_stage(row.client, IgClient.Stage.LEAD_TO_MANAGER)
+                bot_followups.cancel_pending(
+                    row.client,
+                    reason="ai_fallback_manager_handoff",
+                )
+            elif used_ai_failure_fallback:
+                bot_followups.cancel_pending(
+                    row.client,
+                    reason="ai_fallback_safe_reply",
+                )
+            else:
+                bot_followups.schedule_after_bot_reply(
+                    row.client,
+                    reply=reply,
+                    control=control,
+                )
         except Exception as exc:
             log("warning", "followup_schedule", repr(exc))
         # [ORDER] або safety-net: оплачений клієнт надіслав контактні дані, а

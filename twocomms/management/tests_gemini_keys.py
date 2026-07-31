@@ -177,6 +177,19 @@ class IterAttemptsTests(TestCase):
         self.assertEqual(first[0], "GEMINI_API")
         self.assertEqual(first[2], "gemini-3.6-flash")
 
+    def test_checker_manual_key_cannot_reuse_reserved_chat_secret(self):
+        from management.services import gemini_keys as gk
+
+        env = dict(ENV6)
+        env["GEMINI_API"] = "shared-chat-secret"
+        with patch.dict("os.environ", env, clear=False):
+            self.assertFalse(
+                gk.manual_key_allowed("checker", "shared-chat-secret")
+            )
+            self.assertTrue(
+                gk.manual_key_allowed("chat", "shared-chat-secret")
+            )
+
     def test_chat_falls_to_borrow_when_own_in_cooldown(self):
         from management.services import gemini_keys as gk
         now = timezone.now()
@@ -231,10 +244,13 @@ class IterAttemptsTests(TestCase):
             if key_name not in key_order:
                 key_order.append(key_name)
         self.assertEqual(key_order[:2], ["GEMINI_API5", "GEMINI_API6"])
-        self.assertEqual(set(key_order), set(ENV6))
+        self.assertEqual(
+            set(key_order),
+            {"GEMINI_API3", "GEMINI_API4", "GEMINI_API5", "GEMINI_API6"},
+        )
         self.assertIn("gemini-2.5-flash", [m for _, _, m in combos])
 
-    def test_management_pool_uses_own_then_all_borrowed_keys(self):
+    def test_management_pool_uses_own_then_non_chat_borrowed_keys(self):
         from management.services import gemini_keys as gk
         with patch.dict("os.environ", ENV6, clear=False):
             combos = list(gk.iter_attempts("management"))
@@ -243,7 +259,10 @@ class IterAttemptsTests(TestCase):
             if key_name not in key_order:
                 key_order.append(key_name)
         self.assertEqual(key_order[:2], ["GEMINI_API3", "GEMINI_API4"])
-        self.assertEqual(set(key_order), set(ENV6))
+        self.assertEqual(
+            set(key_order),
+            {"GEMINI_API3", "GEMINI_API4", "GEMINI_API5", "GEMINI_API6"},
+        )
 
     def test_chat_pool_uses_all_six_keys_with_own_priority(self):
         from management.services import gemini_keys as gk

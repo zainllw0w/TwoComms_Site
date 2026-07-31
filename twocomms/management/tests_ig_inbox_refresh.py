@@ -1453,7 +1453,7 @@ class InboxRefreshWorkerTests(TestCase):
     @patch("management.services.ig_inbox_refresh.bot._fetch_polled_conversation")
     @patch("management.services.ig_inbox_refresh.bot.get_page_token", return_value="PT")
     @patch("management.services.ig_inbox_refresh.bot.provider_transport", return_value=bot.INSTAGRAM_LOGIN_TRANSPORT)
-    def test_reconciliation_recovers_failed_analysis_scheduling(
+    def test_reconciliation_does_not_requeue_historical_refresh_for_ai(
         self, _transport, _token, fetch_history
     ):
         from management.services.bot_conversation_analysis import reconcile_analysis_jobs
@@ -1487,10 +1487,14 @@ class InboxRefreshWorkerTests(TestCase):
             ig_inbox_refresh.process_refresh_slice(now=self.cutoff)
         self.assertFalse(IgConversationAnalysisJob.objects.filter(client=client).exists())
 
-        reconcile_analysis_jobs(limit=50, now=self.cutoff + timedelta(seconds=1))
+        result = reconcile_analysis_jobs(
+            limit=50,
+            now=self.cutoff + timedelta(seconds=1),
+        )
 
-        job = IgConversationAnalysisJob.objects.get(client=client)
-        self.assertEqual(job.watermark_message_id, InstagramBotMessage.objects.get(mid="mid-analysis-recovery").pk)
+        self.assertFalse(IgConversationAnalysisJob.objects.filter(client=client).exists())
+        self.assertEqual(result["queued"], 0)
+        self.assertEqual(result["historical_blocked"], 1)
 
 
 class InboxRefreshWebhookRaceTests(TestCase):

@@ -261,37 +261,64 @@ def schedule_after_bot_reply(client: IgClient, *, reply: str = "", control: dict
 
 
 def _lang(client: IgClient) -> str:
-    return "ru" if (client.language or "").lower().startswith("ru") else "uk"
+    language = (client.language or "").lower()
+    if language.startswith("en"):
+        return "en"
+    return "ru" if language.startswith("ru") else "uk"
 
 
 def compose_followup(task: IgFollowUpTask) -> str:
     client = task.client
-    ru = _lang(client) == "ru"
+    language = _lang(client)
+    ru = language == "ru"
+    en = language == "en"
     pct = int(task.discount_percent or 0)
     if task.kind == IgFollowUpTask.Kind.PAYMENT:
+        if en:
+            return (
+                "Reminder: the payment link is still active. If it does not open "
+                "or you need help with payment, reply here and I will help."
+            )
         return (
             "Напомню: ссылка на оплату еще активна. Если что-то не открывается или нужно помочь с оплатой - напишите, подскажу."
             if ru else
             "Нагадаю: посилання на оплату ще активне. Якщо щось не відкривається або треба допомогти з оплатою - напишіть, підкажу."
         )
     if pct == 10:
+        if en:
+            return (
+                "I can offer a final option: 10% off this order. If it does not "
+                "work for you, that is fine and I will not send more reminders."
+            )
         return (
             "Могу предложить финальный вариант: скидка 10% на этот заказ. Если не подходит - все ок, больше не буду вас отвлекать."
             if ru else
             "Можу запропонувати фінальний варіант: знижка 10% на це замовлення. Якщо не підходить - все ок, більше не буду вас відволікати."
         )
     if pct == 5:
+        if en:
+            return (
+                "For a first order, we can offer a small 5% discount. Reply here "
+                "and I will help you place the order."
+            )
         return (
             "Как для первого заказа можем сделать небольшую скидку 5%. Если хотите - помогу быстро оформить."
             if ru else
             "Як для першого замовлення можемо зробити невелику знижку 5%. Якщо хочете - допоможу швидко оформити."
         )
     if task.kind == IgFollowUpTask.Kind.THINKING:
+        if en:
+            return (
+                "Have you had a chance to think about the order? If you have a "
+                "question about size, fabric, or payment, I can help."
+            )
         return (
             "Хотел уточнить, получилось подумать по заказу? Если есть вопрос по размеру, ткани или оплате - подскажу коротко."
             if ru else
             "Хотів уточнити, чи вийшло подумати щодо замовлення? Якщо є питання по розміру, тканині або оплаті - коротко підкажу."
         )
+    if en:
+        return "Is this order still relevant? I can help with the size, color, or payment."
     return (
         "Подскажите, пожалуйста, актуален еще заказ? Могу помочь с размером, цветом или оплатой."
         if ru else

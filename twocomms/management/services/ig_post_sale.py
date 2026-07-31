@@ -11,10 +11,14 @@ from management.models import InstagramBotMessage
 
 EXCHANGE_RE = re.compile(
     r"\b(?:обмін\w*|обмен\w*|обміняти|обменять|поміняти|поменять|"
-    r"замін(?:а|и|у|ою|ити|ювати)\w*|замен(?:а|ы|у|ой|ить|ять)\w*)\b",
+    r"замін(?:а|и|у|ою|ити|ювати)\w*|замен(?:а|ы|у|ой|ить|ять)\w*|"
+    r"exchange\w*|replace\w*|swap\w*)\b",
     re.I,
 )
-RETURN_RE = re.compile(r"\b(?:повернен\w*|возврат\w*|повернути|вернуть)\b", re.I)
+RETURN_RE = re.compile(
+    r"\b(?:повернен\w*|возврат\w*|повернути|вернуть|return\w*|refund\w*)\b",
+    re.I,
+)
 FIT_RE = re.compile(r"\b(oversize|оверсайз|regular|регуляр|classic|класик\w*)\b", re.I)
 SIZE_RE = re.compile(r"\b(3xl|2xl|xxxl|xxl|xl|xs|s|m|l)\b", re.I)
 TARGET_SIZE_RE = re.compile(

@@ -22,7 +22,7 @@ from management.models import (
     InstagramBotMessage,
 )
 
-ANALYSIS_RULES_VERSION = "2026-07-26.v5"
+ANALYSIS_RULES_VERSION = "2026-07-30.v6"
 
 
 UK_HINTS = (
@@ -33,6 +33,15 @@ RU_HINTS = (
     "цена", "сколько", "размер", "подарок", "предоплат", "налож", "отправ",
     "спасибо", "хочу", "можно", "себе", "печать", "футболк",
 )
+EN_HINTS = (
+    "hello", "hi", "greetings", "please", "thanks", "thank", "order",
+    "status", "delivery", "deliver", "ship", "tracking", "return", "refund",
+    "exchange", "collaboration", "partnership", "price", "cost", "want",
+    "need", "help", "what", "how", "where", "when", "can", "could", "yes",
+    "no", "good", "afternoon", "morning", "evening", "show", "interested",
+    "available", "buy",
+)
+URL_RE = re.compile(r"(?:https?://|www\.)\S+", re.I)
 NO_BUY_RE = re.compile(
     r"\b(?:не\s+буду\s+(?:брати|брать|купувати|покупать|замовляти|заказывать)|"
     r"не\s+хочу\s+(?:купувати|покупать|замовляти|заказывать)|"
@@ -49,7 +58,9 @@ OPT_OUT_RE = re.compile(
     r"не\s+хочу\s+(?:більше\s+|больше\s+)?(?:отримувати|получать)\s+(?:повідомлення|сообщения|розсилку|рассылку)|"
     r"відпишіть\s+мене|отпишите\s+меня|відписатися|отписаться|"
     r"приберіть\s+(?:мене\s+)?з\s+розсилки|уберите\s+(?:меня\s+)?из\s+рассылки|"
-    r"unsubscribe|do\s+not\s+(?:message|contact)\s+me)\b|^\s*stop\s*$|\bstop\s+messaging\b)",
+    r"unsubscribe|(?:do\s+not|don['’]?t)\s+(?:message|contact)\s+me(?:\s+again)?|"
+    r"i\s+(?:do\s+not|don['’]?t)\s+want\s+(?:any\s+)?more\s+messages)\b|"
+    r"^\s*stop\s*$|\bstop\s+(?:messaging(?:\s+me)?|sending\s+(?:me\s+)?messages)\b)",
     re.I,
 )
 
@@ -63,9 +74,9 @@ DEFER_RE = re.compile(
     r"немає\s+(?:мого\s+)?(?:розміру|кольору)|нет\s+(?:моего\s+)?(?:размера|цвета))\b",
     re.I,
 )
-PRICE_RE = re.compile(r"\b(дорого|дорогувато|цена|ціна|сколько|скільки|price|вартість)\b", re.I)
+PRICE_RE = re.compile(r"\b(дорого|дорогувато|цена|ціна|сколько|скільки|price|cost|how\s+much|вартість)\b", re.I)
 PREPAY_RE = re.compile(r"\b(предоплат|передоплат|налож|наклад|післяплат|без\s+пред|без\s+перед)\b", re.I)
-SIZE_RE = re.compile(r"\b(размер|розмір|сітка|сетка|оверсайз|regular|регуляр|xs|s|m|l|xl|xxl)\b", re.I)
+SIZE_RE = re.compile(r"\b(размер|розмір|size|size\s+guide|fit|сітка|сетка|oversize|оверсайз|regular|регуляр|xs|s|m|l|xl|xxl)\b", re.I)
 CUSTOM_REQUEST_RE = re.compile(
     r"(?:\b(?:кастом(?:н\w*)?|custom)(?:\s+(?:принт\w*|дизайн\w*))?\b|"
     r"\b(?:св(?:ой|ій)|власн\w*|мо[йяє]|мій)\s+(?:принт\w*|дизайн\w*)\b|"
@@ -79,20 +90,29 @@ CUSTOM_REQUEST_RE = re.compile(
 )
 PRODUCT_RE = re.compile(
     r"\b(товар\w*|футболк\w*|худі|худи|лонгслів\w*|одяг\w*|одежд\w*|"
-    r"колекц\w*|модель\w*|термохром\w*)\b",
+    r"колекц\w*|модель\w*|термохром\w*|product\w*|t-?shirt\w*|shirt\w*|"
+    r"hoodie\w*|longsleeve\w*|clothing)\b",
     re.I,
 )
-PAYMENT_RE = re.compile(r"\b(оплат\w*|платеж\w*|платіж\w*|ссылка|посилання|линк|лінк|карта|монобанк)\b", re.I)
-DELIVERY_RE = re.compile(r"\b(достав|відправ|отправ|нова\s+пошта|новая\s+почта|нп|відділен|отделен)\b", re.I)
+PAYMENT_RE = re.compile(r"\b(оплат\w*|платеж\w*|платіж\w*|payment|pay|checkout|invoice|ссылка|посилання|линк|лінк|link|card|карта|monobank|монобанк)\b", re.I)
+DELIVERY_RE = re.compile(r"\b(достав|відправ|отправ|delivery|deliver\w*|ship\w*|tracking|nova\s+poshta|нова\s+пошта|новая\s+почта|нп|branch|відділен|отделен)\b", re.I)
+ORDER_STATUS_RE = re.compile(
+    r"(?:\b(?:order|замовлен\w*|заказ\w*)\b.{0,80}"
+    r"\b(?:status|where|when|tracking|delivery|deliver\w*|ship\w*|статус|де|где|коли|когда|достав\w*|відправ\w*|отправ\w*)\b|"
+    r"\b(?:status|where|when|tracking|статус|де|где|коли|когда)\b.{0,80}"
+    r"\b(?:order|замовлен\w*|заказ\w*)\b|"
+    r"\bTWC[A-Z0-9-]{5,30}\b)",
+    re.I,
+)
 GIFT_RE = re.compile(r"\b(подарок|подарунок|на\s+подар|в\s+подар)\b", re.I)
 SELF_RE = re.compile(r"\b(себе|собі|для\s+себя|для\s+себе)\b", re.I)
 PHONE_RE = re.compile(r"(?:\+?38)?0\d{9}")
 QTY_RE = re.compile(r"\b(?:x|х|×)?\s*(\d{1,2})\s*(?:шт|штук|pcs|од)\b", re.I)
 SIZE_TOKEN_RE = re.compile(r"\b(xs|s|m|l|xl|xxl|xxxl|2xl|3xl)\b", re.I)
 COLLAB_RE = re.compile(
-    r"\b(коллаб\w*|колаб\w*|collab\w*|creator|креатор|блогер\w*|інфлюенсер\w*|"
+    r"\b(коллаб\w*|колаб\w*|collab\w*|cooperat\w*|partnership\w*|creator|креатор|блогер\w*|інфлюенсер\w*|"
     r"инфлюенсер\w*|партнерств\w*|співпрац\w*|сотруднич\w*|постачальник\w*|"
-    r"поставщик\w*)\b",
+    r"поставщик\w*|supplier\w*|sponsor\w*|influencer\w*)\b",
     re.I,
 )
 WHOLESALE_RE = re.compile(
@@ -101,7 +121,8 @@ WHOLESALE_RE = re.compile(
     re.I,
 )
 SUPPORT_RE = re.compile(
-    r"(?:\b(?:скарг\w*|жалоб\w*|проблем\w*|брак\w*|поверн\w*|обмін\w*|обмен\w*|"
+    r"(?:\b(?:скарг\w*|жалоб\w*|проблем\w*|problem\w*|issue\w*|damaged|wrong|"
+    r"refund\w*|return\w*|exchange\w*|брак\w*|поверн\w*|обмін\w*|обмен\w*|"
     r"верн(?:іть|ите)|пошкодж\w*|підтримк\w*|поддержк\w*)\b|"
     r"\b(?:товар\w*|замовлен\w*|заказ\w*|посилк\w*|посылк\w*)\s+не\s+"
     r"(?:прийш(?:ов|ла|ло|ли)|приш(?:ёл|ел|ла|ло|ли)|доставлен\w*)\b|"
@@ -159,7 +180,15 @@ def _contains_any(text: str, terms: Iterable[str]) -> int:
 
 
 def detect_language(text: str) -> str:
-    low = (text or "").lower()
+    low = URL_RE.sub(" ", (text or "").lower())
+    has_cyrillic = bool(re.search(r"[а-яёіїєґ]", low))
+    if re.search(r"[a-z]", low) and not has_cyrillic:
+        words = re.findall(r"[a-z]+", low)
+        if any(word in EN_HINTS for word in words):
+            return "en"
+        return ""
+    if not has_cyrillic:
+        return ""
     if re.search(r"[їєіґ]", low):
         return "uk"
     uk = _contains_any(low, UK_HINTS)
@@ -442,6 +471,7 @@ def reconcile_rules_projection(
         return None
     existing = client.analysis_snapshots.filter(
         analysis_model="rules",
+        rules_version=ANALYSIS_RULES_VERSION,
         last_analyzed_message_id=watermark,
     ).order_by("-id").first()
     signal_types = list(dict.fromkeys(
@@ -613,10 +643,11 @@ def classify_message(
     role = role or getattr(message, "role", "") or ""
     is_manager = role == InstagramBotMessage.Role.MANAGER
     reaction_only = bool(not is_manager and is_reaction_only(text))
+    detected_language = detect_language(text) if text.strip() else ""
     lang = (
         client.language or "uk"
         if is_manager
-        else detect_language(text) if text.strip() else (client.language or "uk")
+        else detected_language or client.language or "uk"
     )
 
     signals: list[str] = []
@@ -747,10 +778,16 @@ def classify_message(
         intent = IgClient.Intent.CUSTOM_PRINT
         readiness += 30
         add(IgConversationSignal.Type.CUSTOM_PRINT, conf=0.9)
+    elif commercially_actionable and SUPPORT_RE.search(text):
+        intent = IgClient.Intent.SUPPORT
     elif commercially_actionable and (PAYMENT_RE.search(low) or PHONE_RE.search(low)) and "payment_evidence" not in media_intents:
         intent = IgClient.Intent.PAYMENT
         readiness += 40
         add(IgConversationSignal.Type.CHECKOUT_STARTED, conf=0.8)
+    elif commercially_actionable and ORDER_STATUS_RE.search(text):
+        intent = IgClient.Intent.ORDER_STATUS
+    elif commercially_actionable and DELIVERY_RE.search(low):
+        intent = IgClient.Intent.DELIVERY
     elif commercially_actionable and SIZE_RE.search(low):
         intent = IgClient.Intent.SIZE
         readiness += 20
@@ -975,6 +1012,7 @@ def ensure_rule_classification(
         return None
     if client.analysis_snapshots.filter(
         analysis_model="rules",
+        rules_version=ANALYSIS_RULES_VERSION,
         last_analyzed_message_id=message.pk,
     ).exists():
         return None

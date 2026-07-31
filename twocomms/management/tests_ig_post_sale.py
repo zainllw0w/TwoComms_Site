@@ -34,6 +34,18 @@ class PostSaleClassifierTests(SimpleTestCase):
             "exchange",
         )
 
+    def test_english_exchange_and_return_are_detected(self):
+        from management.services.ig_post_sale import detect_post_sale_type
+
+        for phrase in (
+            "I need to exchange this shirt for size L",
+            "Can I return this order?",
+            "Please refund order TWC28072026N07",
+        ):
+            with self.subTest(phrase=phrase):
+                expected = "exchange" if "exchange" in phrase else "return"
+                self.assertEqual(detect_post_sale_type(phrase), expected)
+
     def test_paid_customer_exchange_takes_priority_over_paid_waiting(self):
         from management.services.bot_sales_classifier import _interaction_type
 

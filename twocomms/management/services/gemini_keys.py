@@ -17,6 +17,7 @@ gemini_api_key) обробляються на рівні викликаючог�
 from __future__ import annotations
 
 import datetime
+import copy
 import logging
 import os
 import re
@@ -34,11 +35,12 @@ PT = ZoneInfo("America/Los_Angeles")
 
 # Пули ключів за ролями: own (основні) + borrow (позичання у менш пріоритетної ролі).
 DEFAULT_ROLE_KEY_POOLS = {
-    # Own keys remain first; every role may borrow the other configured keys
-    # after its own pool is exhausted, so a healthy key is never stranded.
+    # Customer replies are the only workload allowed to borrow every configured
+    # key. Background CRM/checker work must never consume the two chat-reserved
+    # aliases and leave a live Instagram message without an answer.
     "chat": {"own": ["GEMINI_API", "GEMINI_API2"], "borrow": ["GEMINI_API3", "GEMINI_API4", "GEMINI_API5", "GEMINI_API6"]},
-    "management": {"own": ["GEMINI_API3", "GEMINI_API4"], "borrow": ["GEMINI_API", "GEMINI_API2", "GEMINI_API5", "GEMINI_API6"]},
-    "checker": {"own": ["GEMINI_API5", "GEMINI_API6"], "borrow": ["GEMINI_API", "GEMINI_API2", "GEMINI_API3", "GEMINI_API4"]},
+    "management": {"own": ["GEMINI_API3", "GEMINI_API4"], "borrow": ["GEMINI_API5", "GEMINI_API6"]},
+    "checker": {"own": ["GEMINI_API5", "GEMINI_API6"], "borrow": ["GEMINI_API3", "GEMINI_API4"]},
 }
 
 # Цепочки моделей за ролями — ЛИШЕ безкоштовні моделі, з деградацією до меншої.
@@ -157,11 +159,77 @@ def project_group(key_name: str) -> str:
     return key_project_groups().get(key_name, "")
 
 
+CHAT_RESERVED_ALIASES = frozenset(("GEMINI_API", "GEMINI_API2"))
+
+
+def _background_reserved_alias(key_name: str) -> bool:
+    """Keep background work off reserved chat aliases and shared identities."""
+    if key_name in CHAT_RESERVED_ALIASES:
+        return True
+    group = project_group(key_name)
+    if group and any(project_group(alias) == group for alias in CHAT_RESERVED_ALIASES):
+        return True
+    value = _key_value(key_name)
+    return bool(value and any(value == _key_value(alias) for alias in CHAT_RESERVED_ALIASES))
+
+
+def manual_key_allowed(role: str, key_value: str | None) -> bool:
+    """Prevent persisted background keys from reusing chat-reserved quota."""
+    value = str(key_value or "").strip()
+    if not value:
+        return False
+    if role == "chat":
+        return True
+    aliases = [alias for alias in ALL_KEYS if _key_value(alias) == value]
+    return not any(_background_reserved_alias(alias) for alias in aliases)
+
+
 # ---------------------------------------------------------------------------
 # Конфіг (з можливістю override через settings)
 # ---------------------------------------------------------------------------
 def role_key_pools() -> dict:
-    return getattr(settings, "GEMINI_ROLE_KEY_POOLS", None) or DEFAULT_ROLE_KEY_POOLS
+    """Return validated pools with live-chat isolation enforced at runtime.
+
+    Deployment settings are allowed to add ordering preferences, but cannot
+    reintroduce the two chat-reserved aliases into background roles.  This is
+    deliberately enforced after settings loading so a stale cPanel override
+    cannot undo the quota boundary.
+    """
+    configured = getattr(settings, "GEMINI_ROLE_KEY_POOLS", None)
+    configured = configured if isinstance(configured, dict) else {}
+    pools = copy.deepcopy(DEFAULT_ROLE_KEY_POOLS)
+    for role in DEFAULT_ROLE_KEY_POOLS:
+        raw = configured.get(role)
+        if not isinstance(raw, dict):
+            continue
+        for tier in ("own", "borrow"):
+            values = raw.get(tier)
+            if isinstance(values, (list, tuple)):
+                pools[role][tier] = list(values) + pools[role][tier]
+
+    def clean(values):
+        result = []
+        for alias in values:
+            alias = str(alias or "").strip()
+            if alias in ALL_KEYS and alias not in result:
+                result.append(alias)
+        return result
+
+    for role, pool in pools.items():
+        pool["own"] = clean(pool.get("own", []))
+        pool["borrow"] = clean(pool.get("borrow", []))
+        pool["borrow"] = [alias for alias in pool["borrow"] if alias not in pool["own"]]
+        if role == "chat":
+            # Chat always has access to all six configured aliases, with the
+            # two primary aliases first. Missing env values are filtered later.
+            ordered = clean(DEFAULT_ROLE_KEY_POOLS["chat"]["own"] + pool["own"])
+            borrowed = clean(DEFAULT_ROLE_KEY_POOLS["chat"]["borrow"] + pool["borrow"])
+            pool["own"] = ordered[:2]
+            pool["borrow"] = [alias for alias in borrowed if alias not in pool["own"]]
+        else:
+            pool["own"] = [alias for alias in pool["own"] if not _background_reserved_alias(alias)]
+            pool["borrow"] = [alias for alias in pool["borrow"] if not _background_reserved_alias(alias)]
+    return pools
 
 
 def role_model_chains() -> dict:

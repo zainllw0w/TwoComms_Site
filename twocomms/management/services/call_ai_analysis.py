@@ -464,6 +464,9 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
     task = reasoning_task or ("customer_chat" if role == "chat" else "reporting_summary")
     policy = reasoning_policy(task)
     payload = copy.deepcopy(payload)
+    manual_key = str(manual_key or "").strip() or None
+    if manual_key and not gemini_keys.manual_key_allowed(role, manual_key):
+        manual_key = None
     payload["_reasoning_task"] = policy["task"]
     log: list[str] = []
     n_attempts = gemini_keys.attempts_per_model(role)
@@ -492,6 +495,7 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
         if rounds > 1:
             _emit(f"коло {round_idx + 1}/{rounds} (моделі: {', '.join(models)})")
 
+        attempted_this_round = False
         if manual_key:
             for model in models:
                 if _over_deadline():
@@ -499,6 +503,7 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
                     break
                 if gemini_keys.is_model_overloaded(model):
                     continue
+                attempted_this_round = True
                 status, res = _call_combo("(manual)", manual_key, model, payload,
                                           n_attempts, grounded, log, parse, call_timeout, log_cb)
                 if status == "ok":
@@ -514,11 +519,17 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
             if _over_deadline():
                 aborted = True
                 break
+            attempted_this_round = True
             status, res = _call_combo(key_name, key_value, model, payload,
                                       n_attempts, grounded, log, parse, call_timeout, log_cb)
             if status == "ok":
                 return res
         if aborted:
+            break
+
+        # A previous 429 may have put every alias into cooldown. Sleeping and
+        # starting another empty round only delays the deterministic fallback.
+        if not attempted_this_round:
             break
 
         if round_idx < rounds - 1:

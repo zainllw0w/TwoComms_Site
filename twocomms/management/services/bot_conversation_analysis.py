@@ -15,6 +15,7 @@ from django.db.models import (
     F,
     Max,
     PositiveSmallIntegerField,
+    Q,
     Value,
     When,
 )
@@ -39,6 +40,13 @@ MAX_MESSAGES = 160
 MAX_TRANSCRIPT_CHARS = 30_000
 ANALYSIS_PROMPT_VERSION = "2026-07-30.crm.episode-potential.v3"
 RETRY_DELAYS = (60, 180, 600, 1800, 3600)
+HISTORICAL_ANALYSIS_TRIGGERS = frozenset({
+    "reconcile",
+    "poll_history",
+    "poll_backfill",
+    "manual_refresh",
+})
+REPLY_PROCESSING_GRACE_SECONDS = 300
 
 EXPLICIT_REPEAT_RE = re.compile(
     r"(?:\b(?:хочу|візьму|возьму|замов\w*|закаж\w*)\b.{0,50}\b(?:ще|еще)\b|"
@@ -126,20 +134,41 @@ def schedule_analysis(
     now = now or timezone.now()
     due_at = now + timedelta(seconds=max(0, min(int(delay_seconds), 3600)))
     provisional_fingerprint = _required_state_fingerprint(client, message.pk)
+    trigger_value = (trigger or "message")[:32]
+    incoming_historical = False
+    if trigger_value in HISTORICAL_ANALYSIS_TRIGGERS:
+        settings_obj = InstagramBotSettings.load()
+        event_at = message.provider_created_at or message.created_at
+        incoming_historical = bool(
+            not _historical_backfill_allowed(settings_obj)
+            and event_at
+            and event_at < settings_obj.analysis_reconcile_after
+        )
     for attempt in range(2):
         try:
             with transaction.atomic():
-                job, _created = IgConversationAnalysisJob.objects.get_or_create(
+                job, created = IgConversationAnalysisJob.objects.get_or_create(
                     client_id=client.pk,
                     defaults={
                         "watermark_message_id": message.pk,
                         "due_at": due_at,
                         "next_attempt_at": due_at,
-                        "trigger": (trigger or "message")[:32],
+                        "trigger": trigger_value,
                         "required_state_fingerprint": provisional_fingerprint,
                     },
                 )
                 job = IgConversationAnalysisJob.objects.select_for_update().get(pk=job.pk)
+                if (
+                    not created
+                    and incoming_historical
+                    and job.trigger not in HISTORICAL_ANALYSIS_TRIGGERS
+                    and job.status in {
+                        IgConversationAnalysisJob.Status.PENDING,
+                        IgConversationAnalysisJob.Status.PROCESSING,
+                        IgConversationAnalysisJob.Status.FAILED,
+                    }
+                ):
+                    return job
                 watermark = max(int(job.watermark_message_id or 0), message.pk)
                 required_state_fingerprint = _required_state_fingerprint(client, watermark)
                 if _job_covers_exact_state(
@@ -151,7 +180,7 @@ def schedule_analysis(
                 job.watermark_message_id = watermark
                 job.revision = int(job.revision or 0) + 1
                 job.due_at = due_at
-                job.trigger = (trigger or "message")[:32]
+                job.trigger = trigger_value
                 job.required_state_fingerprint = required_state_fingerprint
                 job.attempts = 0
                 fields = [
@@ -448,6 +477,31 @@ def _historical_backfill_allowed(settings_obj: InstagramBotSettings) -> bool:
 
     mapping = key_project_groups()
     return bool(ALL_KEYS) and all(alias in mapping for alias in ALL_KEYS)
+
+
+def _historical_reconcile_job(job: IgConversationAnalysisJob, watermark: int) -> bool:
+    """Return whether a queued reconcile job is old recovery data, not live work."""
+    if job.trigger not in HISTORICAL_ANALYSIS_TRIGGERS:
+        return False
+    settings_obj = InstagramBotSettings.load()
+    if _historical_backfill_allowed(settings_obj):
+        return False
+    event_at = (
+        InstagramBotMessage.objects.filter(pk=watermark)
+        .annotate(event_at=Coalesce("provider_created_at", "created_at"))
+        .values_list("event_at", flat=True)
+        .first()
+    )
+    if not event_at or event_at >= settings_obj.analysis_reconcile_after:
+        return False
+    # A later live ingress reschedules the single per-client job with a live
+    # trigger. Merely having some fresh row (including an already analyzed or
+    # model row) must not turn this old import into another Gemini request.
+    truth_changed_at = _latest_truth_change(job.client)
+    return not (
+        truth_changed_at
+        and truth_changed_at >= settings_obj.analysis_reconcile_after
+    )
 
 
 def _latest_truth_change(client: IgClient):
@@ -839,6 +893,8 @@ def _finish_failure(
             "status", "attempts", "next_attempt_at", "lease_token", "lease_until",
             "claimed_watermark_message_id", "claimed_revision", "last_error", "updated_at",
         ])
+
+
 def _process_claim(
     job: IgConversationAnalysisJob,
     watermark: int,
@@ -848,6 +904,15 @@ def _process_claim(
 ) -> str:
     client = IgClient.objects.get(pk=job.client_id)
     analyzed_watermark = int(job.analyzed_watermark_message_id or 0)
+    if _historical_reconcile_job(job, watermark):
+        return _finish_skip(
+            job.pk,
+            token,
+            watermark,
+            claimed_revision,
+            "historical_reconcile",
+            now,
+        )
     reason = _skip_reason(
         client,
         watermark=watermark,
@@ -1151,16 +1216,80 @@ def _process_claim(
     return "done"
 
 
+def _customer_reply_work_waiting() -> bool:
+    if not InstagramBotSettings.load().is_enabled:
+        return False
+    now = timezone.now()
+    cutoff = now - timedelta(seconds=REPLY_PROCESSING_GRACE_SECONDS)
+    active_opt_out = Q(
+        client__opted_out_at__isnull=False,
+    ) & (
+        Q(client__opted_in_at__isnull=True)
+        | Q(client__opted_in_at__lt=F("client__opted_out_at"))
+    )
+    processing = Q(status=InstagramBotMessage.Status.PROCESSING) & (
+        Q(processing_started_at__isnull=True)
+        | Q(processing_started_at__gte=cutoff)
+    )
+    eligible_client = Q(client_id__isnull=True) | Q(
+        role=InstagramBotMessage.Role.USER,
+        client__hidden_at__isnull=True,
+        client__is_blocked=False,
+        client__bot_paused=False,
+    )
+    return InstagramBotMessage.objects.filter(
+        role=InstagramBotMessage.Role.USER,
+    ).filter(eligible_client).exclude(
+        client__stage=IgClient.Stage.SPAM,
+    ).exclude(
+        active_opt_out,
+    ).filter(
+        Q(status=InstagramBotMessage.Status.PENDING) | processing,
+    ).exists()
+
+
+def _defer_claim_for_customer_reply(job_id: int, token: str, now=None) -> bool:
+    """Return a claimed analysis job to pending without consuming an attempt."""
+    now = now or timezone.now()
+    with transaction.atomic():
+        job = IgConversationAnalysisJob.objects.select_for_update().filter(
+            pk=job_id,
+            status=IgConversationAnalysisJob.Status.PROCESSING,
+            lease_token=token,
+        ).first()
+        if not job:
+            return False
+        job.status = IgConversationAnalysisJob.Status.PENDING
+        job.lease_token = ""
+        job.lease_until = None
+        job.claimed_watermark_message_id = 0
+        job.claimed_revision = 0
+        job.attempts = 0
+        job.last_error = "deferred_for_live_reply"
+        job.next_attempt_at = max(job.due_at, now)
+        job.save(update_fields=[
+            "status", "lease_token", "lease_until",
+            "claimed_watermark_message_id", "claimed_revision", "attempts",
+            "last_error", "next_attempt_at", "updated_at",
+        ])
+        return True
+
+
 def process_due_analysis(*, limit: int = 2, now=None) -> dict:
     """Claim and analyze due jobs independently from all customer reply flags."""
     counts = {"done": 0, "failed": 0, "skipped": 0, "superseded": 0}
     for _unused in range(max(0, min(int(limit), 10))):
+        if _customer_reply_work_waiting():
+            break
         claim_now = now or timezone.now()
         _reclaim_stale(claim_now)
         claimed = _claim_due(claim_now)
         if not claimed:
             break
         job, watermark, claimed_revision, token = claimed
+        if _customer_reply_work_waiting():
+            _defer_claim_for_customer_reply(job.pk, token, now=claim_now)
+            break
         try:
             outcome = _process_claim(
                 job, watermark, claimed_revision, token, claim_now
@@ -1195,8 +1324,7 @@ def reconcile_analysis_jobs(*, limit: int = 500, now=None) -> dict:
         )
         .values("client_id")
         .annotate(
-            latest_message_id=Max("id"),
-            latest_message_at=Max("created_at"),
+            latest_message_at=Max(Coalesce("provider_created_at", "created_at")),
         )
         .order_by("client_id")
     )
@@ -1210,16 +1338,27 @@ def reconcile_analysis_jobs(*, limit: int = 500, now=None) -> dict:
     hidden_excluded = 0
     for row in latest_rows:
         client_id = int(row["client_id"])
-        watermark = int(row["latest_message_id"])
         job = IgConversationAnalysisJob.objects.filter(client_id=client_id).first()
         client = IgClient.objects.filter(pk=client_id).first()
         if not client or client.hidden_at:
             hidden_excluded += 1
             continue
-        message = InstagramBotMessage.objects.filter(
-            pk=watermark,
-            client_id=client_id,
-        ).first()
+        message = (
+            InstagramBotMessage.objects.filter(
+                client_id=client_id,
+                role__in=[
+                    InstagramBotMessage.Role.USER,
+                    InstagramBotMessage.Role.MANAGER,
+                ],
+            )
+            .annotate(event_at=Coalesce("provider_created_at", "created_at"))
+            .order_by("-event_at", "-id")
+            .first()
+        )
+        if not message:
+            unchanged += 1
+            continue
+        watermark = int(message.pk)
         truth_changed_at = _latest_truth_change(client) if client else None
         if not _reconcile_candidate_is_eligible(
             cutoff=cutoff,
