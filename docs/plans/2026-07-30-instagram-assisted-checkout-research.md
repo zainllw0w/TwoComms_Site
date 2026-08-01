@@ -345,7 +345,7 @@ The active feature worktree is `/Users/zainllw0w/.config/superpowers/worktrees/s
 
 The current code path now has the following verified behavior:
 
-- email is required before assisted checkout creates a `PaymentAttempt`; the existing `orders.email_receipt` builder/sender and `orders/emails/order_receipt.html` remain the only receipt path, with gross and net payable totals shown separately;
+- email is optional before assisted checkout creates a `PaymentAttempt`; blank values omit provider `customerEmails`, while any supplied address is validated and the existing `orders.email_receipt` builder/sender plus `orders/emails/order_receipt.html` remain the only receipt path, with gross and net payable totals shown separately;
 - the standalone proposal page loads the existing analytics loader with server-derived event IDs, keeps the clean token-free URL, and submits JSON only after durable invoice creation;
 - lifecycle dispatch uses the existing reply permission boundary, requires a provider message ID before marking Direct delivery `sent`, creates a prepared manager task plus alert outside the Meta response window, and reclaims expired processing leases;
 - management proposal API exposes masked awaiting-payment data, safe preview/history, explicit token copy, durable resend, and provider-cancellation-gated revoke actions;
@@ -366,9 +366,10 @@ CRM/P0 branch is agreed.
 
 The receipt decision is intentionally shared with the normal cart flow:
 `orders/email_receipt.py` and `orders/emails/order_receipt.html` remain the only
-receipt builder/template, with the assisted form requiring a valid email before
-the invoice request. The context distinguishes gross catalog value, discount,
-and final net payable amount.
+receipt builder/template. The assisted form accepts a missing or blank email;
+when supplied, it validates the address before the invoice request. The
+context distinguishes gross catalog value, discount, and final net payable
+amount.
 
 Before recipient data is locked, the adapter revalidates the latest proposal
 revision against the current catalog/fit/size/variant/stock/price services.

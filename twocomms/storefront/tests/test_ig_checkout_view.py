@@ -171,16 +171,20 @@ class InstagramCheckoutViewTests(TestCase):
         self.assertContains(response, 'data-meta-pixel-id=')
         self.assertRegex(
             response.content.decode(),
-            r'<input[^>]+name="email"[^>]+required',
+            r'<input[^>]+name="email"',
+        )
+        self.assertNotRegex(
+            response.content.decode(),
+            r'<input[^>]+name="email"[^>]+\srequired(?:\s|=|>)',
         )
         self.assertContains(response, "instagram-checkout.css")
         self.assertContains(response, "instagram-checkout.js")
 
     def test_ready_page_names_monobank_in_protected_payment_copy_for_each_locale(self):
         expected_copy = {
-            "uk": "Захищена оплата через Monobank",
-            "ru": "Защищенная оплата через Monobank",
-            "en": "Secure payment via Monobank",
+            "uk": "Дані картки вводяться на захищеній сторінці Monobank",
+            "ru": "Данные карты вводятся на защищенной странице Monobank",
+            "en": "Card details are entered on Monobank&#x27;s secure page",
         }
 
         for locale, expected in expected_copy.items():
@@ -191,6 +195,30 @@ class InstagramCheckoutViewTests(TestCase):
                 response = self._open()
 
                 self.assertContains(response, expected)
+
+    def test_ready_page_marks_receipt_email_optional_for_each_locale(self):
+        expected_copy = {
+            "uk": ("Email для чека", "Необов'язково", "Якщо вкажете його"),
+            "ru": ("Email для чека", "Необязательно", "Если укажете его"),
+            "en": ("Email for receipt", "Not required", "If you enter it"),
+        }
+
+        for locale, expected in expected_copy.items():
+            with self.subTest(locale=locale):
+                self.proposal.locale = locale
+                self.proposal.save(update_fields=["locale", "updated_at"])
+
+                response = self._open()
+
+                self.assertContains(response, expected[0])
+                self.assertContains(response, expected[1], html=(locale == "uk"))
+                self.assertContains(response, expected[2])
+                self.assertNotRegex(
+                    response.content.decode(),
+                    r'<input[^>]+name="email"[^>]+\srequired(?:\s|=|>)',
+                )
+                self.assertContains(response, 'name="email"')
+                self.assertContains(response, 'aria-required="false"')
 
     def test_locked_page_masks_recipient_and_suppresses_edit_form(self):
         attempt = self._attempt()
@@ -226,7 +254,15 @@ class InstagramCheckoutViewTests(TestCase):
 
         response = self._open()
 
+        self.assertContains(response, 'data-payment-rail')
         self.assertContains(response, 'data-payment-continue')
+        self.assertContains(response, 'data-payment-trust')
+        self.assertContains(response, 'data-checkout-state-banner')
+        self.assertContains(response, 'data-countdown')
+        self.assertRegex(
+            response.content.decode(),
+            r'data-payment-amount[\s\S]*?1700\.00 UAH',
+        )
         self.assertContains(response, attempt.invoice_url)
         self.assertNotContains(response, 'data-payment-submit')
 
@@ -316,16 +352,19 @@ class InstagramCheckoutViewTests(TestCase):
         self.assertContains(response, order.city)
         self.assertContains(response, order.np_office)
         self.assertContains(response, 'data-paid-summary')
+        self.assertContains(response, 'data-state-icon="success"')
+        self.assertNotContains(response, 'data-state-icon="attention"')
 
     def test_non_payable_states_have_explicit_markers_and_no_payment_action(self):
         cases = (
-            (IgCheckoutProposal.Status.INVOICE_CREATED, "pending"),
-            (IgCheckoutProposal.Status.REVOKED, "unavailable"),
-            (IgCheckoutProposal.Status.SUPERSEDED, "superseded"),
-            (IgCheckoutProposal.Status.EXPIRED, "expired"),
-            (IgCheckoutProposal.Status.CANCELLED, "cancellation_ambiguous"),
+            (IgCheckoutProposal.Status.DETAILS_LOCKED, "locked", "progress"),
+            (IgCheckoutProposal.Status.INVOICE_CREATED, "pending", "progress"),
+            (IgCheckoutProposal.Status.REVOKED, "unavailable", "attention"),
+            (IgCheckoutProposal.Status.SUPERSEDED, "superseded", "attention"),
+            (IgCheckoutProposal.Status.EXPIRED, "expired", "attention"),
+            (IgCheckoutProposal.Status.CANCELLED, "cancellation_ambiguous", "attention"),
         )
-        for status, public_state in cases:
+        for status, public_state, state_icon in cases:
             with self.subTest(status=status):
                 self.proposal.status = status
                 if status == IgCheckoutProposal.Status.SUPERSEDED:
@@ -348,6 +387,8 @@ class InstagramCheckoutViewTests(TestCase):
                 self.proposal.save()
                 response = self._open()
                 self.assertContains(response, f'data-checkout-state="{public_state}"')
+                self.assertContains(response, f'data-state-icon="{state_icon}"')
+                self.assertNotContains(response, 'data-state-icon="success"')
                 self.assertNotContains(response, 'data-payment-submit')
 
                 self.proposal.refresh_from_db()
@@ -364,8 +405,35 @@ class InstagramCheckoutViewTests(TestCase):
 
         self.assertContains(response, "Review your order")
         self.assertContains(response, "Email for receipt")
+        self.assertContains(response, "Not required")
         self.assertContains(response, "Copy link")
         self.assertNotContains(response, "Copy payment link")
+
+    def test_checkout_language_switcher_keeps_clean_proposal_url_and_localizes_form(self):
+        self._open()
+
+        switched = self.client.get(
+            f"{reverse('ig_checkout_proposal', kwargs={'proposal_id': self.proposal.public_id})}?lang=en"
+        )
+
+        self.assertEqual(switched.status_code, 200)
+        self.assertContains(switched, '<html lang="en"', html=False)
+        self.assertContains(switched, "Review your order")
+        self.assertContains(switched, "?lang=en")
+        self.assertContains(switched, "?lang=ru")
+        self.assertContains(switched, "img/lang/ptn.png")
+        self.assertNotContains(switched, "offer/a/")
+
+    def test_invalid_checkout_language_falls_back_to_proposal_locale(self):
+        self._open()
+
+        response = self.client.get(
+            f"{reverse('ig_checkout_proposal', kwargs={'proposal_id': self.proposal.public_id})}?lang=de"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '<html lang="uk"', html=False)
+        self.assertContains(response, "Перевірте замовлення")
 
     def test_post_creates_one_standard_attempt_from_frozen_proposal(self):
         raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
@@ -390,6 +458,7 @@ class InstagramCheckoutViewTests(TestCase):
         self.assertEqual(response["Location"], "https://pay.example/ig-1")
         provider.assert_called_once()
         attempt = PaymentAttempt.objects.get()
+        self.assertEqual(attempt.email, payload["email"])
         self.assertEqual(attempt.status, PaymentAttempt.Status.PROCESSING)
         self.assertEqual(attempt.gross_amount, Decimal("1900.00"))
         self.assertEqual(attempt.discount_amount, Decimal("200.00"))
@@ -401,17 +470,89 @@ class InstagramCheckoutViewTests(TestCase):
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.stage, IgClient.Stage.PAYMENT_PENDING)
 
-    def test_post_rejects_missing_receipt_email_before_provider_call(self):
+    def test_post_without_receipt_email_creates_invoice_and_persists_blank_email(self):
         raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
         entry = self.client.get(reverse("ig_checkout_token_entry", kwargs={"token": raw}))
         self.client.get(entry["Location"])
         payload = self._delivery_payload()
         payload.pop("email")
+        with patch("storefront.views.monobank._monobank_api_request", return_value={
+            "invoiceId": "ig-no-email", "pageUrl": "https://pay.example/ig-no-email",
+        }) as provider, patch(
+            "orders.facebook_conversions_service.get_facebook_conversions_service"
+        ) as fb, patch(
+            "orders.telegram_notifications.TelegramNotifier.send_payment_attempt_notification",
+            return_value=True,
+        ):
+            fb.return_value.send_add_payment_info_event.return_value = True
+            response = self.client.post(
+                reverse("ig_checkout_proposal", kwargs={"proposal_id": self.proposal.public_id}),
+                data=payload,
+            )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "https://pay.example/ig-no-email")
+        provider.assert_called_once()
+        attempt = PaymentAttempt.objects.get()
+        self.assertEqual(attempt.email, "")
+        self.assertNotIn(
+            "customerEmails",
+            attempt.invoice_payload["request"]["merchantPaymInfo"],
+        )
+        from storefront.views.monobank import _apply_payment_attempt_status
+
+        order, created = _apply_payment_attempt_status(
+            attempt,
+            "success",
+            payload={"status": "success", "paidAmount": 170000},
+            source="test",
+        )
+        self.assertTrue(created)
+        self.assertEqual(order.email, "")
+
+    def test_post_with_whitespace_receipt_email_creates_invoice_without_customer_emails(self):
+        raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
+        entry = self.client.get(reverse("ig_checkout_token_entry", kwargs={"token": raw}))
+        self.client.get(entry["Location"])
+        payload = self._delivery_payload()
+        payload["email"] = "   "
+
+        with patch("storefront.views.monobank._monobank_api_request", return_value={
+            "invoiceId": "ig-blank-email", "pageUrl": "https://pay.example/ig-blank-email",
+        }) as provider, patch(
+            "orders.facebook_conversions_service.get_facebook_conversions_service"
+        ) as fb, patch(
+            "orders.telegram_notifications.TelegramNotifier.send_payment_attempt_notification",
+            return_value=True,
+        ):
+            fb.return_value.send_add_payment_info_event.return_value = True
+            response = self.client.post(
+                reverse("ig_checkout_proposal", kwargs={"proposal_id": self.proposal.public_id}),
+                data=payload,
+            )
+
+        self.assertEqual(response.status_code, 302)
+        provider.assert_called_once()
+        attempt = PaymentAttempt.objects.get()
+        self.assertEqual(attempt.email, "")
+        self.assertNotIn(
+            "customerEmails",
+            attempt.invoice_payload["request"]["merchantPaymInfo"],
+        )
+
+    def test_post_rejects_malformed_nonblank_email_before_provider_call(self):
+        raw, _token = IgCheckoutAccessToken.issue(proposal=self.proposal)
+        entry = self.client.get(reverse("ig_checkout_token_entry", kwargs={"token": raw}))
+        self.client.get(entry["Location"])
+        payload = self._delivery_payload()
+        payload["email"] = "not-an-email"
+
         with patch("storefront.views.monobank._monobank_api_request") as provider:
             response = self.client.post(
                 reverse("ig_checkout_proposal", kwargs={"proposal_id": self.proposal.public_id}),
                 data=payload,
             )
+
         self.assertEqual(response.status_code, 400)
         provider.assert_not_called()
         self.assertIn("email", response.content.decode().lower())
@@ -1166,6 +1307,7 @@ class InstagramCheckoutViewTests(TestCase):
 
         self.assertTrue(created)
         self.assertIsNotNone(order)
+        self.assertEqual(order.email, self._delivery_payload()["email"])
         self.proposal.refresh_from_db()
         self.deal.refresh_from_db()
         self.assertEqual(self.proposal.status, IgCheckoutProposal.Status.PAID)

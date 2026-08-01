@@ -525,3 +525,28 @@ class PollCommandTests(TestCase):
         out = StringIO()
         call_command("poll_ig_deal_payments", stdout=out)
         self.assertIn("Оплачено угод", out.getvalue())
+
+    @patch("management.services.bot_orders.notify_shipped_deals")
+    @patch("management.services.bot_orders.fulfill_ready_paid_deals")
+    @patch("management.services.bot_payments.poll_pending_deals")
+    @patch("management.services.bot_payments.reconcile_payment_projections")
+    def test_check_only_has_no_provider_writes_or_customer_sends(
+        self,
+        reconcile,
+        poll,
+        fulfill,
+        notify,
+    ):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        out = StringIO()
+        call_command("poll_ig_deal_payments", "--limit", "5", "--check-only", stdout=out)
+
+        reconcile.assert_not_called()
+        poll.assert_not_called()
+        fulfill.assert_not_called()
+        notify.assert_not_called()
+        self.assertIn("check_only=true", out.getvalue())
+        self.assertIn("external_calls=0", out.getvalue())

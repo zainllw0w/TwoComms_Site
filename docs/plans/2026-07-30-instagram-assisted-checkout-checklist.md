@@ -145,8 +145,9 @@ explicitly deferred until the next pass.
 - [x] Keep the page useful when product image fails.
 - [x] Provide recipient full-name field.
 - [x] Provide Ukrainian phone input with normalization.
-- [x] Require email before invoice creation, explain that the receipt/confirmation is sent there,
-  and validate it server-side.
+- [x] Keep receipt email optional, explain that a receipt/confirmation is sent
+  there only when supplied, normalize blank values, and validate any non-empty
+  value before provider I/O.
 - [x] Render one shared maintainable HTML checkout template from proposal rows;
   never generate or deploy a physical page file per customer.
 - [x] Substitute frozen existing catalog/variant images and facts directly so
@@ -172,8 +173,8 @@ explicitly deferred until the next pass.
 
 ## G. Visual design and motion
 
-- [ ] Use a near-black frame, light form surface, orange primary action, and
-  green only for verified/valid states.
+- [x] Use the approved C3 Brand Night system: deep charcoal frame and form
+  surfaces, warm orange primary action, and green only for verified/valid states.
 - [ ] Avoid purple/blue gradient dominance and one-note palette.
 - [ ] Avoid giant hero copy, floating section cards, nested cards, particles,
   or decorative orbs.
@@ -182,7 +183,8 @@ explicitly deferred until the next pass.
 - [ ] Use 8 px or smaller card radii unless existing design requires otherwise.
 - [ ] Use Lucide/existing icon library for copy/share/status actions.
 - [ ] Add tooltip/accessible name for unfamiliar icon actions.
-- [ ] Use 300-400 ms one-time entrance animation only.
+- [x] Use short one-time entrance motion plus one bounded CTA readiness sheen;
+  never use autonomous or infinite motion.
 - [ ] Animate only opacity/transform for entrance.
 - [ ] Add short stable loading and verified-success transitions.
 - [ ] Ensure no animated/transformed ancestor changes the containing block of
@@ -498,10 +500,13 @@ explicitly deferred until the next pass.
   validates stored MIME and byte size, prefers stocked variant imagery, and
   persists partial/ambiguous delivery states without replaying already delivered
   images. UA/RU/EN pipeline tests keep product URLs out unless explicitly asked.
-- Receipt regression: assisted checkout requires a valid email before provider
-  I/O, materializes it on the canonical Order, and post-payment dispatch calls
-  the same `orders.email_receipt.send_order_receipt_email()` and
-  `orders/emails/order_receipt.html` path used by normal cart checkout.
+- Receipt regression: assisted checkout accepts missing/blank email without
+  provider `customerEmails`, persists an empty value through PaymentAttempt ->
+  Order, records receipt delivery as `skipped / no_valid_email`, and continues
+  payment and Instagram lifecycle normally. A supplied non-empty address is
+  validated before provider I/O and uses the same
+  `orders.email_receipt.send_order_receipt_email()` and
+  `orders/emails/order_receipt.html` path as normal cart checkout.
 - Independent-channel regression: Telegram failure does not clear Meta, TikTok,
   receipt, or Instagram lifecycle state; delivered-status lifecycle failure does
   not block operational delivery notifications, and the reverse failure direction
@@ -515,6 +520,10 @@ explicitly deferred until the next pass.
 - Static checks: `manage.py check`, `makemigrations --check --dry-run`,
   `compileall`, Node syntax check for `instagram-checkout.js`, and `git diff
   --check` pass.
+- Final release slice after locale/header and operational safety changes:
+  checkout/payment/lifecycle modules `252 tests, 1 documented skip, 0 failures`;
+  UI contracts `12 tests, 0 failures`. `poll_ig_deal_payments --check-only`
+  performs bounded ORM counts with zero provider calls, writes, or sends.
 - Production read-only proof: MariaDB `11.4.12-MariaDB-cll-lve`; all inspected
   checkout/payment tables are `InnoDB` with `utf8mb4_unicode_ci`; server leaf
   is management `0118_ig_funnel_reset_audit` and orders `0052_dynamic_prepayment_choice`.
@@ -534,6 +543,9 @@ explicitly deferred until the next pass.
   `/tmp/ig-checkout-mobile-promo.png`,
   `/tmp/ig-checkout-mobile-expired.png`, and
   `/tmp/ig-checkout-desktop-full.png`.
+- Narrow-screen release smoke at `320x568` proved all three language icons
+  visible (including the branded RU icon), `scrollWidth == innerWidth == 320`,
+  the C3 payment rail fixed and visible, and no browser console warnings/errors.
 
 ## Deferred Next Pass
 

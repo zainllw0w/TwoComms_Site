@@ -129,17 +129,20 @@ Required fields are:
 
 - full name with at least first and last name;
 - valid Ukrainian telephone number;
-- receipt email;
 - Nova Poshta city selected from a signed result;
 - Nova Poshta branch or parcel locker selected from a signed result.
 
 Email copy is explicit and calm:
 
 - label: `Email для чека`;
-- hint: `Надішлемо сюди чек і підтвердження замовлення. Без розсилок.`
+- optional marker: `Необов'язково`;
+- hint: `Якщо вкажете email, надішлемо сюди чек і підтвердження. Без розсилок.`
 
-Email is required because the assisted flow reuses the ordinary cart receipt
-path and template. It is never presented as newsletter consent.
+Email is optional because forgetting or not having access to an address must not
+block payment. A blank or whitespace-only value is normalized to an empty
+string and omits Monobank `customerEmails`; a non-empty invalid address is
+rejected before provider I/O. When present, the address reuses the ordinary cart
+receipt path and template. It is never presented as newsletter consent.
 
 Nova Poshta autocomplete must preserve the existing signed-selection contract.
 Typing visible city/office text is insufficient: a signed current option must
@@ -368,8 +371,8 @@ Implementation is acceptable only after all of the following pass:
 - TDD coverage for 25-minute default expiry and boundary submit rejection;
 - access/share token and inventory/promo/invoice expiry cap tests;
 - bot-copy and locale contract tests with no obsolete duration;
-- required-field, signed Nova Poshta, promo-focus, double-submit, and safe public
-  error tests;
+- required-field, optional-email, signed Nova Poshta, promo-focus,
+  double-submit, and safe public error tests;
 - Node UI contract tests for countdown, rail, dialog, reduced motion, and CSP;
 - focused Django checkout, PaymentAttempt, receipt, lifecycle, Pixel/CAPI, and
   analytics suites;

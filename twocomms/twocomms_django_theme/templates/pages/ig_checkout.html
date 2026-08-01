@@ -7,29 +7,61 @@
   <meta name="robots" content="noindex, nofollow">
   <meta name="referrer" content="no-referrer">
   <meta name="format-detection" content="telephone=no, date=no, address=no, email=no">
-  <meta name="theme-color" content="#0b0b0b">
+  <meta name="theme-color" content="#080b10">
   <title>TwoComms · {{ copy.page_title }}</title>
   <link rel="preload" href="{% static 'fonts/Inter-Regular.woff2' %}" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="{% static 'fonts/Inter-Bold.woff2' %}" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="{% static 'css/instagram-checkout.css' %}?v=20260801a">
+  <link rel="stylesheet" href="{% static 'css/instagram-checkout.css' %}?v=20260801c4">
 </head>
 <body>
+  <svg class="ig-icon-sprite" aria-hidden="true" focusable="false">
+    <symbol id="ig-icon-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><path d="m8.6 10.6 6.8-4.2M8.6 13.4l6.8 4.2"></path></symbol>
+    <symbol id="ig-icon-external" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></symbol>
+    <symbol id="ig-icon-check-badge" viewBox="0 0 24 24"><path d="M12 3 14.1 5.1 17 4.7l.7 2.8 2.6 1.4-1.4 2.6.4 2.9-2.8.7-1.4 2.6-2.6-1.4-2.9.4-.7-2.8-2.6-1.4 1.4-2.6-.4-2.9 2.8-.7L12 3Z"></path><path d="m9.4 11.8 1.7 1.7 3.8-4"></path></symbol>
+    <symbol id="ig-icon-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"></path></symbol>
+    <symbol id="ig-icon-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"></path><path d="M22 2 11 13"></path></symbol>
+    <symbol id="ig-icon-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></symbol>
+    <symbol id="ig-icon-phone" viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5 13 13 0 0 0 2.8.7 2 2 0 0 1 1.8 2.1Z"></path></symbol>
+    <symbol id="ig-icon-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path></symbol>
+    <symbol id="ig-icon-receipt" viewBox="0 0 24 24"><path d="M6 2v20l3-2 3 2 3-2 3 2V2l-3 2-3-2-3 2Z"></path><path d="M9 9h6M9 13h6"></path></symbol>
+    <symbol id="ig-icon-pin" viewBox="0 0 24 24"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"></path><circle cx="12" cy="10" r="2.5"></circle></symbol>
+    <symbol id="ig-icon-package" viewBox="0 0 24 24"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9Z"></path><path d="m4.3 7.7 7.7 4.4 7.7-4.4M12 12v9"></path></symbol>
+    <symbol id="ig-icon-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l2.5 1.5M9 2h6"></path></symbol>
+    <symbol id="ig-icon-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"></path></symbol>
+    <symbol id="ig-icon-bag" viewBox="0 0 24 24"><path d="M6 8h12l1 13H5Z"></path><path d="M9 8V6a3 3 0 0 1 6 0v2"></path></symbol>
+    <symbol id="ig-icon-alert" viewBox="0 0 24 24"><path d="M12 3 2.8 20h18.4L12 3Z"></path><path d="M12 9v5M12 17.5v.1"></path></symbol>
+  </svg>
+
   <main class="ig-page" data-ig-checkout data-proposal-url="{{ proposal_url }}" data-status-url="{{ status_url }}" data-checkout-state="{{ checkout_state }}" data-created-at="{{ proposal.created_at_iso }}" data-expires-at="{{ proposal.expires_at_iso }}" data-analytics-value="{{ analytics.value }}" data-analytics-currency="{{ analytics.currency }}">
     <header class="ig-topbar">
       <a class="ig-brand" href="/" aria-label="TwoComms" data-checkout-exit>
         <img src="{% static 'img/logo.svg' %}" alt="" width="28" height="28">
         <span class="ig-brand__word">TWO</span><span class="ig-brand__accent">COMMS</span>
       </a>
-      <div class="ig-offer-meta">
-        <span>{{ copy.proposal_label }} #{{ proposal.reference }}</span>
-        <div class="ig-countdown-wrap" data-countdown-wrap aria-label="{{ copy.expires_label }}">
-          <svg class="ig-countdown__visual" viewBox="0 0 42 42" aria-hidden="true" focusable="false">
-            <circle class="ig-countdown__track" cx="21" cy="21" r="17"></circle>
-            <circle class="ig-countdown__ring" data-countdown-ring cx="21" cy="21" r="17"></circle>
-          </svg>
-          <span class="ig-countdown" data-countdown data-expired-label="{{ copy.expired_short }}" aria-live="polite">25:00</span>
-        </div>
-        <small class="ig-expiry-explanation">{{ copy.expires_explanation }}</small>
+      <div class="ig-top-actions">
+        <nav class="ig-language-switcher" aria-label="{{ copy.language_label }}">
+          <span class="ig-language-switcher__label">{{ copy.language_label }}</span>
+          <div class="ig-language-switcher__links" role="group">
+            {% for language in language_options %}
+              <a class="ig-language-switcher__link{% if language.is_current %} is-active{% endif %}" href="{{ language.url }}" lang="{{ language.code }}" hreflang="{{ language.code }}"{% if language.is_current %} aria-current="page"{% endif %} aria-label="{{ language.label }}">
+                {% if language.flag_image %}
+                  <img src="{% static 'img/lang/ptn.png' %}" alt="" width="18" height="18" loading="lazy" decoding="async">
+                {% else %}
+                  <span aria-hidden="true">{{ language.flag }}</span>
+                {% endif %}
+                <span>{{ language.short }}</span>
+              </a>
+            {% endfor %}
+          </div>
+        </nav>
+        {% if share_allowed %}
+          <button class="ig-icon-button" type="button" aria-label="{{ copy.share }}" title="{{ copy.share }}" data-header-share data-share-open data-share-native>
+            <svg aria-hidden="true"><use href="#ig-icon-share"></use></svg>
+          </button>
+        {% endif %}
+        <a class="ig-icon-button" href="/" aria-label="{{ copy.exit_leave }}" title="{{ copy.exit_leave }}" data-checkout-exit>
+          <svg aria-hidden="true"><use href="#ig-icon-external"></use></svg>
+        </a>
       </div>
     </header>
 
@@ -37,20 +69,56 @@
       <section class="ig-order" aria-labelledby="ig-order-title">
         <div class="ig-intro">
           <p class="ig-eyebrow">{{ copy.eyebrow }}</p>
-          {% if customer_name %}<p class="ig-greeting">{{ copy.greeting }}, <strong>{{ customer_name }}</strong>.</p>{% endif %}
-          <h1 id="ig-order-title">{{ copy.page_title }}</h1>
+          {% if customer_name %}<h1 id="ig-order-title">{{ copy.greeting }}, <strong>{{ customer_name }}</strong>.</h1>{% else %}<h1 id="ig-order-title">{{ copy.page_title }}</h1>{% endif %}
           <p class="ig-lead">{{ copy.lead }}</p>
-          {% if customer_name %}<p class="ig-personal-total">{{ copy.order_for }} <strong>{{ proposal.total }} {{ proposal.currency }}</strong>.</p>{% endif %}
         </div>
 
-        <div class="ig-state ig-state--{{ checkout_state }}" role="status">
-          <span class="ig-state__mark" aria-hidden="true"></span>
-          <div>
-            <strong>{{ state_title }}</strong>
-            <p>{{ state_body }}</p>
+        {% if payable %}
+          <button class="ig-state ig-state--ready" type="button" data-price-details data-expired-title="{{ copy.state_expired_title }}" data-expired-body="{{ copy.state_expired_body }}" aria-haspopup="dialog" aria-controls="ig-price-dialog">
+            <span class="ig-state__icon" aria-hidden="true"><svg data-state-icon="success"><use href="#ig-icon-check-badge"></use></svg></span>
+            <span class="ig-state__copy">
+              <strong>{{ copy.fixed_price_title }}</strong>
+              <small><span class="ig-proposal-reference">{{ copy.proposal_label }} #{{ proposal.reference }}</span><span aria-hidden="true"> · </span>{{ copy.fixed_price_hint }}</small>
+            </span>
+            <span class="ig-state__countdown" data-countdown-wrap aria-label="{{ copy.expires_label }}">
+              <svg class="ig-countdown__visual" viewBox="0 0 42 42" aria-hidden="true" focusable="false">
+                <circle class="ig-countdown__track" cx="21" cy="21" r="17"></circle>
+                <circle class="ig-countdown__ring" data-countdown-ring cx="21" cy="21" r="17"></circle>
+              </svg>
+              <span class="ig-countdown" data-countdown data-expired-label="{{ copy.expired_short }}" role="timer" aria-live="off">25:00</span>
+              <span class="ig-visually-hidden" data-expiry-status role="status" aria-live="polite"></span>
+            </span>
+            <svg class="ig-state__chevron" aria-hidden="true"><use href="#ig-icon-chevron"></use></svg>
+          </button>
+        {% else %}
+          <div class="ig-state ig-state--{{ checkout_state }}" role="status" data-checkout-state-banner data-expired-title="{{ copy.state_expired_title }}" data-expired-body="{{ copy.state_expired_body }}">
+            <span class="ig-state__icon" aria-hidden="true">
+              {% if checkout_state == "paid" %}
+                <svg data-state-icon="success"><use href="#ig-icon-check-badge"></use></svg>
+              {% elif checkout_state == "pending" or checkout_state == "locked" %}
+                <svg data-state-icon="progress"><use href="#ig-icon-timer"></use></svg>
+              {% else %}
+                <svg data-state-icon="attention"><use href="#ig-icon-alert"></use></svg>
+              {% endif %}
+            </span>
+            <span class="ig-state__copy"><strong>{{ state_title }}</strong><small>{{ state_body }}</small></span>
+            {% if payment_url %}
+              <span class="ig-state__countdown" data-countdown-wrap aria-label="{{ copy.expires_label }}">
+                <svg class="ig-countdown__visual" viewBox="0 0 42 42" aria-hidden="true" focusable="false">
+                  <circle class="ig-countdown__track" cx="21" cy="21" r="17"></circle>
+                  <circle class="ig-countdown__ring" data-countdown-ring cx="21" cy="21" r="17"></circle>
+                </svg>
+                <span class="ig-countdown" data-countdown data-expired-label="{{ copy.expired_short }}" role="timer" aria-live="off">25:00</span>
+                <span class="ig-visually-hidden" data-expiry-status role="status" aria-live="polite"></span>
+              </span>
+            {% endif %}
           </div>
-        </div>
+        {% endif %}
 
+        <div class="ig-section-head">
+          <h2>{{ copy.order_label }}</h2>
+          <span>{{ items|length }} {% if items|length == 1 %}{{ copy.item_singular }}{% else %}{{ copy.item_plural }}{% endif %}</span>
+        </div>
         <div class="ig-products" aria-label="{{ copy.order_label }}">
           {% for item in items %}
             <article class="ig-item">
@@ -62,26 +130,15 @@
               </div>
               <div class="ig-item__body">
                 <div class="ig-item__heading">
-                  <h2>{{ item.title }}</h2>
+                  <h3>{{ item.title }}</h3>
                   <strong>{{ item.line_total }} {{ proposal.currency }}</strong>
-                  {% if item.quantity > 1 %}
-                    <span class="ig-item__unit-price">{{ item.quantity }} × {{ item.unit_price }} {{ proposal.currency }}</span>
-                  {% endif %}
+                  {% if item.quantity > 1 %}<span class="ig-item__unit-price">{{ item.quantity }} × {{ item.unit_price }} {{ proposal.currency }}</span>{% endif %}
                 </div>
                 <dl class="ig-facts">
-                  {% if item.color_label %}
-                    <div>
-                      <dt>{{ copy.color_label }}</dt>
-                      <dd><span class="ig-swatch" style="--swatch: {{ item.color_code|default:'#171717' }}" aria-hidden="true"></span>{{ item.color_label }}</dd>
-                    </div>
-                  {% endif %}
-                  {% if item.fit_label %}
-                    <div><dt>{{ copy.fit_label }}</dt><dd>{{ item.fit_label }}</dd></div>
-                  {% endif %}
-                  {% if item.size %}
-                    <div><dt>{{ copy.size_label }}</dt><dd>{{ item.size }}</dd></div>
-                  {% endif %}
-                  <div><dt>{{ copy.quantity_label }}</dt><dd>{{ item.quantity }}</dd></div>
+                  {% if item.color_label %}<div data-product-fact><dt>{{ copy.color_label }}</dt><dd><span class="ig-swatch" style="--swatch: {{ item.color_code|default:'#171717' }}" aria-hidden="true"></span>{{ item.color_label }}</dd></div>{% endif %}
+                  {% if item.fit_label %}<div data-product-fact><dt>{{ copy.fit_label }}</dt><dd>{{ item.fit_label }}</dd></div>{% endif %}
+                  {% if item.size %}<div data-product-fact><dt>{{ copy.size_label }}</dt><dd>{{ item.size }}</dd></div>{% endif %}
+                  <div data-product-fact><dt>{{ copy.quantity_label }}</dt><dd>{{ item.quantity }}</dd></div>
                 </dl>
               </div>
             </article>
@@ -95,29 +152,24 @@
             <div><span>{{ copy.catalog_total }}</span><span>{{ proposal.catalog_total }} {{ proposal.currency }}</span></div>
             <div class="ig-totals__discount"><span>{{ copy.discount }}</span><span>−{{ proposal.discount }} {{ proposal.currency }}</span></div>
           {% endif %}
-          {% if proposal.is_prepayment %}
-            <div><span>{{ copy.charge_now }}</span><span>{{ proposal.charge_now }} {{ proposal.currency }}</span></div>
-          {% endif %}
+          {% if proposal.is_prepayment %}<div><span>{{ copy.charge_now }}</span><span>{{ proposal.charge_now }} {{ proposal.currency }}</span></div>{% endif %}
           <div class="ig-totals__final"><span>{{ copy.total }}</span><strong>{{ proposal.total }} {{ proposal.currency }}</strong></div>
         </div>
 
-        <div class="ig-share-block">
-          {% if share_allowed %}
-            <button class="ig-action ig-action--secondary" type="button" data-share-url="{{ share_url }}" data-share-label="{{ copy.share }}" data-share-done="{{ copy.share_done }}" data-share-error="{{ copy.share_error }}">
-              <span data-action-label>{{ copy.share }}</span>
-            </button>
-            <p>{{ copy.share_hint }}</p>
-          {% endif %}
-          <a class="ig-direct-link" href="{{ direct_url }}" target="_blank" rel="noopener noreferrer">{{ copy.change_order }}</a>
-        </div>
+        {% if share_allowed %}
+          <div class="ig-share-card" data-share-card>
+            <svg aria-hidden="true"><use href="#ig-icon-send"></use></svg>
+            <span class="ig-share-card__copy"><strong>{{ copy.share_card_title }}</strong><small>{{ copy.share_card_body }}</small></span>
+            <button type="button" data-share-open><span>{{ copy.share }}</span></button>
+          </div>
+        {% endif %}
       </section>
 
       <section class="ig-checkout-panel" aria-labelledby="ig-delivery-title">
         {% if payable %}
           <div class="ig-panel-heading">
-            <p class="ig-panel-step">01 / 01</p>
-            <h2 id="ig-delivery-title">{{ copy.delivery_title }}</h2>
-            <p>{{ copy.delivery_lead }}</p>
+            <div><p class="ig-panel-step">{{ copy.delivery_step }}</p><h2 id="ig-delivery-title">{{ copy.delivery_title }}</h2></div>
+            <span class="ig-delivery-time" data-delivery-time><svg aria-hidden="true"><use href="#ig-icon-timer"></use></svg>{{ copy.delivery_time }}</span>
           </div>
 
           <form class="ig-form" method="post" action="{{ proposal_url }}" id="ig-checkout-delivery-form" novalidate data-np-form="instagram" data-np-city-search-url="{{ np_city_search_url }}" data-np-warehouse-search-url="{{ np_warehouse_search_url }}" data-locale="{{ html_lang }}">
@@ -125,23 +177,23 @@
             <div class="ig-form-error" id="ig-form-error" role="alert" tabindex="-1" data-form-error data-validation-summary{% if not form_error %} hidden{% endif %}>{{ form_error }}</div>
 
             <div class="ig-field">
-              <label for="ig-full-name">{{ copy.full_name }}</label>
+              <label for="ig-full-name"><svg data-field-icon aria-hidden="true"><use href="#ig-icon-user"></use></svg><span>{{ copy.full_name }}</span><span class="ig-field__complete" data-field-complete aria-hidden="true"><svg><use href="#ig-icon-check"></use></svg></span></label>
               <input id="ig-full-name" type="text" name="full_name" autocomplete="name" maxlength="200" placeholder="{{ copy.full_name_placeholder }}" value="{{ form_values.full_name|default:'' }}"{% if form_error_field == 'full_name' %} aria-invalid="true" aria-describedby="ig-form-error"{% endif %} required>
             </div>
 
             <div class="ig-field">
-              <label for="ig-phone">{{ copy.phone }}</label>
+              <label for="ig-phone"><svg data-field-icon aria-hidden="true"><use href="#ig-icon-phone"></use></svg><span>{{ copy.phone }}</span><span class="ig-field__complete" data-field-complete aria-hidden="true"><svg><use href="#ig-icon-check"></use></svg></span></label>
               <input id="ig-phone" type="tel" name="phone" autocomplete="tel" inputmode="tel" maxlength="32" placeholder="{{ copy.phone_placeholder }}" value="{{ form_values.phone|default:'' }}" data-uk-phone-field{% if form_error_field == 'phone' %} aria-invalid="true" aria-describedby="ig-form-error"{% endif %} required>
             </div>
 
             <div class="ig-field">
-              <label for="ig-email">{{ copy.email }} <span class="ig-recommended">{{ copy.recommended }}</span></label>
-              <input id="ig-email" type="email" name="email" autocomplete="email" inputmode="email" maxlength="254" placeholder="{{ copy.email_placeholder }}" value="{{ form_values.email|default:'' }}" aria-describedby="ig-email-hint{% if form_error_field == 'email' %} ig-form-error{% endif %}"{% if form_error_field == 'email' %} aria-invalid="true"{% endif %} required>
-              <small id="ig-email-hint">{{ copy.email_hint }}</small>
+              <label for="ig-email"><svg data-field-icon aria-hidden="true"><use href="#ig-icon-mail"></use></svg><span>{{ copy.email }}</span><span class="ig-optional">{{ copy.optional }}</span><span class="ig-field__complete" data-field-complete aria-hidden="true"><svg><use href="#ig-icon-check"></use></svg></span></label>
+              <input id="ig-email" type="email" name="email" autocomplete="email" inputmode="email" maxlength="254" placeholder="{{ copy.email_placeholder }}" value="{{ form_values.email|default:'' }}" aria-required="false" data-optional-field aria-describedby="ig-email-hint{% if form_error_field == 'email' %} ig-form-error{% endif %}"{% if form_error_field == 'email' %} aria-invalid="true"{% endif %}>
+              <small id="ig-email-hint"><svg aria-hidden="true"><use href="#ig-icon-receipt"></use></svg>{{ copy.email_hint }}</small>
             </div>
 
             <div class="ig-field">
-              <label for="ig-city">{{ copy.city }}</label>
+              <label for="ig-city"><svg data-field-icon aria-hidden="true"><use href="#ig-icon-pin"></use></svg><span>{{ copy.city }}</span><span class="ig-field__complete" data-field-complete aria-hidden="true"><svg><use href="#ig-icon-check"></use></svg></span></label>
               <div class="ig-selector" data-np-city-selector>
                 <input id="ig-city" type="text" name="city" autocomplete="off" spellcheck="false" placeholder="{{ copy.city_placeholder }}" value="{{ form_values.city|default:'' }}" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false" aria-controls="ig-city-results" aria-describedby="ig-city-status{% if form_error_field == 'city' %} ig-form-error{% endif %}"{% if form_error_field == 'city' %} aria-invalid="true"{% endif %} data-np-city-input required>
                 <input type="hidden" name="np_settlement_ref" value="{{ form_values.np_settlement_ref|default:'' }}" data-np-settlement-ref>
@@ -153,7 +205,7 @@
             </div>
 
             <div class="ig-field">
-              <label for="ig-warehouse">{{ copy.warehouse }}</label>
+              <label for="ig-warehouse"><svg data-field-icon aria-hidden="true"><use href="#ig-icon-package"></use></svg><span>{{ copy.warehouse }}</span><span class="ig-field__complete" data-field-complete aria-hidden="true"><svg><use href="#ig-icon-check"></use></svg></span></label>
               <div class="ig-selector" data-np-warehouse-selector>
                 <input id="ig-warehouse" type="text" name="np_office" autocomplete="off" spellcheck="false" placeholder="{{ copy.warehouse_placeholder }}" value="{{ form_values.np_office|default:'' }}" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false" aria-controls="ig-warehouse-results" aria-describedby="ig-warehouse-status{% if form_error_field == 'np_office' %} ig-form-error{% endif %}"{% if form_error_field == 'np_office' %} aria-invalid="true"{% endif %} data-np-warehouse-input required>
                 <input type="hidden" name="np_warehouse_ref" value="{{ form_values.np_warehouse_ref|default:'' }}" data-np-warehouse-ref>
@@ -172,7 +224,7 @@
               <details class="ig-promo" data-promo-disclosure>
                 <summary>{{ copy.have_promo }}</summary>
                 <div class="ig-field">
-                  <label for="ig-promo">{{ copy.promo }}</label>
+                  <label for="ig-promo"><span>{{ copy.promo }}</span></label>
                   <input id="ig-promo" type="text" name="promo_code" autocomplete="off" maxlength="32" placeholder="{{ copy.promo_placeholder }}" value="{{ form_values.promo_code|default:'' }}" aria-describedby="ig-promo-hint">
                   <small id="ig-promo-hint">{{ copy.promo_hint }}</small>
                 </div>
@@ -200,65 +252,80 @@
             <p class="ig-panel-step">{{ copy.proposal_label }} #{{ proposal.reference }}</p>
             <h2 id="ig-delivery-title">{{ state_title }}</h2>
             <p>{{ state_body }}</p>
-            {% if masked_delivery %}
-              <dl class="ig-masked">
-                <div><dt>{{ copy.recipient }}</dt><dd>{{ masked_delivery.name }}</dd></div>
-                <div><dt>{{ copy.contact }}</dt><dd>{{ masked_delivery.phone }}</dd></div>
-                <div><dt>{{ copy.receipt }}</dt><dd>{{ masked_delivery.email }}</dd></div>
-              </dl>
-            {% endif %}
-            {% if paid_summary %}
-              <dl class="ig-masked" data-paid-summary>
-                <div><dt>{{ copy.order_number }}</dt><dd>{{ paid_summary.order_number }}</dd></div>
-                <div><dt>{{ copy.recipient }}</dt><dd>{{ paid_summary.recipient }}</dd></div>
-                <div><dt>{{ copy.contact }}</dt><dd>{{ paid_summary.phone }}</dd></div>
-                <div><dt>{{ copy.receipt }}</dt><dd>{{ paid_summary.email }}</dd></div>
-                <div><dt>{{ copy.delivery_destination }}</dt><dd>{{ paid_summary.destination }}</dd></div>
-              </dl>
-            {% endif %}
-            {% if payment_url %}
-              <a class="ig-action ig-action--pay" href="{{ payment_url }}" rel="nofollow noindex" data-payment-continue>{{ copy.continue_payment }}</a>
-            {% endif %}
+            {% if masked_delivery %}<dl class="ig-masked"><div><dt>{{ copy.recipient }}</dt><dd>{{ masked_delivery.name }}</dd></div><div><dt>{{ copy.contact }}</dt><dd>{{ masked_delivery.phone }}</dd></div><div><dt>{{ copy.receipt }}</dt><dd>{{ masked_delivery.email }}</dd></div></dl>{% endif %}
+            {% if paid_summary %}<dl class="ig-masked" data-paid-summary><div><dt>{{ copy.order_number }}</dt><dd>{{ paid_summary.order_number }}</dd></div><div><dt>{{ copy.recipient }}</dt><dd>{{ paid_summary.recipient }}</dd></div><div><dt>{{ copy.contact }}</dt><dd>{{ paid_summary.phone }}</dd></div><div><dt>{{ copy.receipt }}</dt><dd>{{ paid_summary.email }}</dd></div><div><dt>{{ copy.delivery_destination }}</dt><dd>{{ paid_summary.destination }}</dd></div></dl>{% endif %}
             <a class="ig-action ig-action--primary" href="{{ direct_url }}" target="_blank" rel="noopener noreferrer">{{ copy.change_order }}</a>
           </div>
+          {% if payment_url %}
+            <div class="ig-payment-rail" data-payment-rail data-payment-continue-rail>
+              <div class="ig-payment-rail__amount" data-payment-amount>
+                <span>{% if proposal.is_prepayment %}{{ copy.charge_now }}{% else %}{{ copy.total }}{% endif %}</span>
+                <strong>{% if proposal.is_prepayment %}{{ proposal.charge_now }}{% else %}{{ proposal.total }}{% endif %} {{ proposal.currency }}</strong>
+              </div>
+              <a class="ig-action ig-action--pay" href="{{ payment_url }}" rel="nofollow noindex" data-payment-continue>
+                <span data-action-label>{{ copy.continue_payment }}</span><span aria-hidden="true" class="ig-action__arrow">→</span>
+              </a>
+              <p class="ig-payment-rail__trust" data-payment-trust>{{ copy.secure_payment }}</p>
+            </div>
+          {% endif %}
         {% endif %}
       </section>
     </div>
 
     <footer class="ig-footer">
-      <a href="{{ returns_url }}" target="_blank" rel="noopener noreferrer">{{ copy.returns }}</a>
-      <span aria-hidden="true">·</span>
-      <a href="{{ delivery_url }}" target="_blank" rel="noopener noreferrer">{{ copy.delivery }}</a>
-      <span aria-hidden="true">·</span>
-      <a href="{{ privacy_url }}" target="_blank" rel="noopener noreferrer">{{ copy.privacy|default:'Privacy' }}</a>
-      <span aria-hidden="true">·</span>
-      <a href="{{ terms_url }}" target="_blank" rel="noopener noreferrer">{{ copy.terms }}</a>
-      <span aria-hidden="true">·</span>
+      <a href="{{ returns_url }}" target="_blank" rel="noopener noreferrer">{{ copy.returns }}</a><span aria-hidden="true">·</span>
+      <a href="{{ delivery_url }}" target="_blank" rel="noopener noreferrer">{{ copy.delivery }}</a><span aria-hidden="true">·</span>
+      <a href="{{ privacy_url }}" target="_blank" rel="noopener noreferrer">{{ copy.privacy|default:'Privacy' }}</a><span aria-hidden="true">·</span>
+      <a href="{{ terms_url }}" target="_blank" rel="noopener noreferrer">{{ copy.terms }}</a><span aria-hidden="true">·</span>
       <a href="{{ direct_url }}" target="_blank" rel="noopener noreferrer">{{ copy.support|default:'Support in Direct' }}</a>
     </footer>
-    <dialog class="ig-exit-dialog" data-exit-dialog aria-labelledby="ig-exit-title" aria-describedby="ig-exit-description">
-      <form method="dialog" class="ig-exit-dialog__body">
-        <p class="ig-panel-step">{{ copy.proposal_label }}</p>
+
+    <dialog class="ig-sheet-dialog" id="ig-price-dialog" data-price-dialog aria-labelledby="ig-price-title" aria-describedby="ig-price-description">
+      <form method="dialog" class="ig-sheet-dialog__body">
+        <span class="ig-sheet-dialog__mark" aria-hidden="true"><svg><use href="#ig-icon-check-badge"></use></svg></span>
+        <h2 id="ig-price-title">{{ copy.price_dialog_title }}</h2>
+        <p id="ig-price-description">{{ copy.price_dialog_body }}</p>
+        <div class="ig-sheet-dialog__note"><svg aria-hidden="true"><use href="#ig-icon-timer"></use></svg><span>{{ copy.expires_explanation }}</span></div>
+        <button type="submit" class="ig-action ig-action--primary" data-dialog-close>{{ copy.price_dialog_close }}</button>
+      </form>
+    </dialog>
+
+    {% if share_allowed %}
+      <dialog class="ig-sheet-dialog" data-share-dialog aria-labelledby="ig-share-title" aria-describedby="ig-share-description">
+        <form method="dialog" class="ig-sheet-dialog__body">
+          <span class="ig-sheet-dialog__mark" aria-hidden="true"><svg><use href="#ig-icon-send"></use></svg></span>
+          <h2 id="ig-share-title">{{ copy.share_dialog_title }}</h2>
+          <p id="ig-share-description">{{ copy.share_dialog_body }}</p>
+          <div class="ig-sheet-dialog__note"><svg aria-hidden="true"><use href="#ig-icon-check-badge"></use></svg><span>{{ copy.share_dialog_note }}</span></div>
+          <div class="ig-sheet-dialog__actions">
+            <button class="ig-action ig-action--primary" type="button" data-share-url="{{ share_url }}" data-share-label="{{ copy.share }}" data-share-done="{{ copy.share_done }}" data-share-error="{{ copy.share_error }}"><span data-action-label>{{ copy.share }}</span></button>
+            <button type="submit" value="cancel" class="ig-action ig-action--secondary" data-dialog-close>{{ copy.share_cancel }}</button>
+          </div>
+        </form>
+      </dialog>
+    {% endif %}
+
+    <dialog class="ig-sheet-dialog" data-exit-dialog aria-labelledby="ig-exit-title" aria-describedby="ig-exit-description">
+      <form method="dialog" class="ig-sheet-dialog__body">
+        <span class="ig-sheet-dialog__mark" aria-hidden="true"><svg><use href="#ig-icon-bag"></use></svg></span>
         <h2 id="ig-exit-title">{{ copy.exit_title }}</h2>
         <p id="ig-exit-description">{{ copy.exit_body }}</p>
-        <div class="ig-exit-dialog__actions">
+        <div class="ig-sheet-dialog__actions">
           <button type="submit" value="cancel" class="ig-action ig-action--primary" data-checkout-exit-cancel>{{ copy.exit_stay }}</button>
           <button type="button" class="ig-action ig-action--secondary" data-checkout-exit-confirm>{{ copy.exit_leave }}</button>
         </div>
       </form>
     </dialog>
+
     <section class="ig-consent" aria-label="{{ copy.analytics_consent_label }}" data-analytics-consent hidden>
       <p>{{ copy.analytics_consent_text }}</p>
-      <div>
-        <button type="button" class="ig-consent__accept" data-analytics-consent-accept>{{ copy.analytics_accept }}</button>
-        <button type="button" class="ig-consent__reject" data-analytics-consent-reject>{{ copy.analytics_reject }}</button>
-      </div>
+      <div><button type="button" class="ig-consent__accept" data-analytics-consent-accept>{{ copy.analytics_accept }}</button><button type="button" class="ig-consent__reject" data-analytics-consent-reject>{{ copy.analytics_reject }}</button></div>
     </section>
     <form class="ig-csrf" aria-hidden="true">{% csrf_token %}</form>
   </main>
 
-  <script type="module" src="{% static 'js/modules/nova-poshta-form-bridge.js' %}?v=20260801a"></script>
+  <script type="module" src="{% static 'js/modules/nova-poshta-form-bridge.js' %}?v=20260801c3"></script>
   <script defer src="{% static 'js/analytics-loader.js' %}?v=12"></script>
-  <script defer src="{% static 'js/instagram-checkout.js' %}?v=20260801a"></script>
+  <script defer src="{% static 'js/instagram-checkout.js' %}?v=20260801c3"></script>
 </body>
 </html>

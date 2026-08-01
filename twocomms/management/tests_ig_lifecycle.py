@@ -179,6 +179,17 @@ class InstagramLifecycleTests(TestCase):
         self.assertEqual(channel["provider_message_id"], "meta-channel-1")
         send_text.assert_called_once()
 
+    def test_delivered_review_copy_includes_next_order_incentive(self):
+        event = self._event(
+            IgLifecycleEvent.Kind.DELIVERED_REVIEW_REQUESTED,
+            payload={"status_code": "9", "status": "delivered"},
+        )
+
+        message = _message(event)
+
+        self.assertIn("10%", message)
+        self.assertIn("@twocomms", message)
+
     @patch("management.services.instagram_bot.send_text", return_value=(False, "permanent", "blocked"))
     def test_permanent_failure_is_operator_only_and_not_replayed(self, send_text):
         event = self._event()

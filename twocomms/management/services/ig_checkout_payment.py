@@ -140,8 +140,8 @@ def _invoice_payload(request, attempt, proposal, *, payment_amount, promo_discou
         "destination": description,
         "basketOrder": basket,
     }
-    # Assisted checkout validates this before invoice creation. Keep the
-    # provider payload explicit so a paid order cannot lose its receipt.
+    # Preserve the canonical cart checkout contract when the customer asks
+    # for an email receipt; Monobank accepts the field as optional.
     if attempt.email:
         merchant_info["customerEmails"] = [attempt.email]
     return {
@@ -166,16 +166,11 @@ def _validate_payload(proposal, payload, *, user=None):
         )
 
     email = _clean(payload.get("email"), 254)
-    if not email:
-        raise CheckoutPaymentError(
-            "email",
-            "Вкажіть email — на нього надійде чек і підтвердження замовлення.",
-            field="email",
-        )
-    try:
-        validate_email(email)
-    except ValidationError as exc:
-        raise CheckoutPaymentError("email", "Перевірте email для чека.", field="email") from exc
+    if email:
+        try:
+            validate_email(email)
+        except ValidationError as exc:
+            raise CheckoutPaymentError("email", "Перевірте email для чека.", field="email") from exc
 
     try:
         delivery = resolve_delivery_selection(payload)
@@ -467,7 +462,7 @@ def lock_proposal_details(proposal, *, payload, request, grant_id=""):
         session_key=request.session.session_key,
         full_name=values["full_name"],
         phone=values["phone"],
-        email=values["email"] or None,
+        email=values["email"],
         city=values["delivery"].city,
         np_office=values["delivery"].np_office,
         np_settlement_ref=values["delivery"].settlement_ref,

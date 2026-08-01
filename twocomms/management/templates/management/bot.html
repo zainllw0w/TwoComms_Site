@@ -308,6 +308,10 @@ body.bot-drawer-open{overflow:hidden;}
 .bot-checkout-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px;}
 .bot-checkout-head h3{margin:0;color:#e7ecf3;font-size:15px;}
 .bot-checkout-head p{margin:4px 0 0;color:#7f8ba0;font-size:11.5px;line-height:1.45;}
+.bot-checkout-filters{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px;}
+.bot-checkout-filter{border:1px solid #263044;background:#0d121c;color:#9aa6b8;border-radius:999px;padding:6px 9px;font:700 10.5px/1 inherit;cursor:pointer;}
+.bot-checkout-filter[aria-selected="true"]{border-color:#3b82f6;background:#132441;color:#dbeafe;}
+.bot-checkout-filter-count{display:inline-grid;place-items:center;min-width:18px;height:18px;margin-left:5px;padding:0 4px;border-radius:999px;background:#1b2433;color:#cdd5e1;font-size:9px;}
 .bot-checkout-grid{display:grid;grid-template-columns:minmax(280px,1fr) minmax(240px,.8fr);gap:10px;}
 .bot-checkout-list{display:flex;flex-direction:column;gap:7px;max-height:330px;overflow:auto;}
 .bot-checkout-row{display:block;width:100%;text-align:left;border:1px solid #202938;background:#0b1018;color:inherit;border-radius:10px;padding:10px;cursor:pointer;}
@@ -315,10 +319,18 @@ body.bot-drawer-open{overflow:hidden;}
 .bot-checkout-row-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
 .bot-checkout-row-title{color:#eef2f8;font-size:12.5px;font-weight:800;overflow-wrap:anywhere;}
 .bot-checkout-row-meta{margin-top:3px;color:#8793a7;font-size:10.5px;line-height:1.45;}
+.bot-checkout-row .bot-order-state.ready,.bot-checkout-row .bot-order-state.viewed{border-color:#315b88;background:#10243a;color:#bfdbfe;}
+.bot-checkout-row .bot-order-state.details_locked,.bot-checkout-row .bot-order-state.invoice_created{border-color:#8a621a;background:#35270e;color:#fde68a;}
+.bot-checkout-row .bot-order-state.paid{border-color:#276749;background:#102b20;color:#bbf7d0;}
+.bot-checkout-row .bot-order-state.expired,.bot-checkout-row .bot-order-state.cancelled,.bot-checkout-row .bot-order-state.revoked,.bot-checkout-row .bot-order-state.superseded{border-color:#4b5563;background:#181d25;color:#aeb8c7;}
 .bot-checkout-preview{min-width:0;background:#0a0e15;border:1px solid #1e2736;border-radius:10px;padding:12px;min-height:150px;}
 .bot-checkout-preview h4{margin:0 0 8px;color:#f1f5f9;font-size:13px;}
 .bot-checkout-preview dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:5px 10px;margin:0;color:#aeb8c7;font-size:11px;}
 .bot-checkout-preview dt{color:#718096;}.bot-checkout-preview dd{margin:0;overflow-wrap:anywhere;color:#dbe4ef;}
+.bot-checkout-preview-section{margin-top:11px;padding-top:10px;border-top:1px solid #202938;}
+.bot-checkout-preview-section h5{margin:0 0 7px;color:#aeb8c7;font-size:10px;text-transform:uppercase;}
+.bot-checkout-preview-list{display:grid;gap:6px;margin:0;padding:0;list-style:none;color:#cbd5e1;font-size:10.5px;line-height:1.45;}
+.bot-checkout-feedback{min-height:17px;margin-top:7px;color:#93c5fd;font-size:10.5px;}
 .bot-checkout-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
 .bot-checkout-actions .bot-mini-btn{min-height:32px;}
 @media(max-width:720px){.bot-checkout-grid{grid-template-columns:1fr;}.bot-checkout-preview{min-height:0;}}
@@ -750,6 +762,12 @@ body.bot-drawer-open{overflow:hidden;}
             <p>Перегляд і відновлення посилання. Оплата проходить напряму через сторінку пропозиції, без ручного втручання.</p>
           </div>
           <button type="button" class="bot-mini-btn" id="bot-checkout-refresh">Оновити</button>
+        </div>
+        <div class="bot-checkout-filters" role="tablist" aria-label="Фільтр пропозицій Instagram">
+          <button type="button" class="bot-checkout-filter" role="tab" aria-selected="true" data-checkout-state="awaiting_payment">Очікують <span class="bot-checkout-filter-count" data-checkout-count="awaiting_payment">0</span></button>
+          <button type="button" class="bot-checkout-filter" role="tab" aria-selected="false" data-checkout-state="ready">Готові <span class="bot-checkout-filter-count" data-checkout-count="ready">0</span></button>
+          <button type="button" class="bot-checkout-filter" role="tab" aria-selected="false" data-checkout-state="paid">Оплачені <span class="bot-checkout-filter-count" data-checkout-count="paid">0</span></button>
+          <button type="button" class="bot-checkout-filter" role="tab" aria-selected="false" data-checkout-state="expired">Протерміновані <span class="bot-checkout-filter-count" data-checkout-count="expired">0</span></button>
         </div>
         <div class="bot-checkout-grid">
           <div id="bot-checkout-list" class="bot-checkout-list" aria-live="polite"><div class="bot-empty">Завантаження пропозицій…</div></div>
@@ -1496,23 +1514,33 @@ body.bot-drawer-open{overflow:hidden;}
     const previewEl=document.getElementById('bot-checkout-preview');
     const refreshEl=document.getElementById('bot-checkout-refresh');
     const listUrl='{% url "management_bot_checkout_proposals_api" %}';
+    const previewUrl=proposalId=>'{% url "management_bot_checkout_proposal_preview_api" proposal_id="00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000',String(proposalId));
     const actionUrl=proposalId=>'{% url "management_bot_checkout_proposal_action_api" proposal_id="00000000-0000-0000-0000-000000000000" %}'.replace('00000000-0000-0000-0000-000000000000',String(proposalId));
-    let rows=[];let selected='';
+    const filterEls=Array.from(document.querySelectorAll('.bot-checkout-filter[data-checkout-state]'));
+    let rows=[];let selected='';let currentState='awaiting_payment';let previewGeneration=0;
     function el(tag,className,text){const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined)node.textContent=text;return node;}
-    function stateLabel(value){return {ready:'Готова',viewed:'Переглянута',details_locked:'Дані внесені',invoice_created:'Рахунок створено',paid:'Оплачено',expired:'Протерміновано',revoked:'Відкликана',superseded:'Замінена'}[value]||value||'—';}
+    function stateLabel(value){return {ready:'Готова',viewed:'Переглянута',details_locked:'Дані внесені',invoice_created:'Рахунок створено',paid:'Оплачено',cancelled:'Скасовано',expired:'Протерміновано',revoked:'Відкликана',superseded:'Замінена'}[value]||value||'—';}
     function rowTitle(item){const first=(item.items||[])[0]||{};return (first.title||'Пропозиція')+((item.item_count||0)>1?' · +'+(item.item_count-1):'');}
+    function section(title,lines){if(!lines.length)return null;const wrap=el('section','bot-checkout-preview-section');wrap.appendChild(el('h5','',title));const list=el('ul','bot-checkout-preview-list');lines.forEach(line=>list.appendChild(el('li','',line)));wrap.appendChild(list);return wrap;}
+    function restoreCheckoutFocus(proposalId){const target=listEl&&listEl.querySelector('[data-checkout-proposal="'+String(proposalId)+'"]');if(target){target.focus();return;}const fallback=listEl&&listEl.querySelector('.bot-checkout-row');if(fallback){fallback.focus();return;}if(refreshEl)refreshEl.focus();}
     function renderPreview(item){
       if(!previewEl)return;previewEl.replaceChildren();if(!item){previewEl.appendChild(el('div','bot-empty','Оберіть пропозицію.'));return;}
       const title=el('h4','',rowTitle(item));previewEl.appendChild(title);const dl=document.createElement('dl');
-      [['Стан',stateLabel(item.state)],['Клієнт',item.client&&item.client.label],['Сума',(item.amount||'—')+' '+(item.currency||'UAH')],['Дійсна до',fmtDateTime(item.expires_at)],['Доставка',item.delivery?[(item.delivery.recipient||''), (item.delivery.city||''), (item.delivery.office||'')].filter(Boolean).join(' · '):'Не внесена']].forEach(([key,value])=>{dl.append(el('dt','',key),el('dd','',value||'—'));});previewEl.appendChild(dl);
+      [['Стан',stateLabel(item.state)],['Ревізія',item.revision],['Клієнт',item.client&&item.client.label],['Сума',(item.amount||'—')+' '+(item.currency||'UAH')],['Дійсна до',fmtDateTime(item.expires_at)],['Рахунок',item.invoice&&item.invoice.has_invoice?((item.invoice.reference||'Створено')+' · '+(item.invoice.status||'—')):'Не створено'],['Доставка',item.delivery?[(item.delivery.recipient||''),(item.delivery.phone||''),(item.delivery.email||''),(item.delivery.city||''),(item.delivery.office||'')].filter(Boolean).join(' · '):'Не внесена']].forEach(([key,value])=>{dl.append(el('dt','',key),el('dd','',value||'—'));});previewEl.appendChild(dl);
+      const products=section('Товари',(item.items||[]).map(product=>[product.title,product.sku,product.color,product.fit,product.size,'×'+product.quantity,product.line_total+' '+(item.currency||'UAH')].filter(Boolean).join(' · ')));if(products)previewEl.appendChild(products);
+      const history=item.history||{};const timeline=section('Історія',[...(history.revisions||[]).map(row=>'Ревізія '+row.revision+' · '+row.source+' · '+fmtDateTime(row.created_at)),...(history.lifecycle||[]).map(row=>stateLabel(row.kind)+' · '+stateLabel(row.state)+' · '+fmtDateTime(row.created_at))]);if(timeline)previewEl.appendChild(timeline);
       const actions=el('div','bot-checkout-actions');
       if(item.actions&&item.actions.can_copy_token){const copy=el('button','bot-mini-btn','Скопіювати посилання');copy.type='button';copy.addEventListener('click',async()=>{const fd=new FormData();fd.append('action','copy_token');const r=await fetch(actionUrl(item.public_id),{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'},body:fd});const data=await r.json().catch(()=>({}));if(r.ok&&data.url){try{await navigator.clipboard.writeText(data.url);}catch(_){window.prompt('Посилання пропозиції',data.url);}copy.textContent='Скопійовано';setTimeout(()=>{copy.textContent='Скопіювати посилання';},1600);}else copy.textContent='Недоступно';});actions.appendChild(copy);}
-      if(item.actions&&item.actions.can_revoke){const revoke=el('button','bot-mini-btn danger','Відкликати');revoke.type='button';revoke.addEventListener('click',async()=>{if(!window.confirm('Відкликати цю пропозицію?'))return;const fd=new FormData();fd.append('action','revoke');const r=await fetch(actionUrl(item.public_id),{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'},body:fd});if(r.ok)load();});actions.appendChild(revoke);}
-      previewEl.appendChild(actions);
+      if(item.actions&&item.actions.can_resend){const resend=el('button','bot-mini-btn primary','Надіслати повторно');resend.type='button';resend.addEventListener('click',async()=>{resend.disabled=true;feedback.textContent='Ставимо повідомлення в чергу…';const fd=new FormData();fd.append('action','resend');const r=await fetch(actionUrl(item.public_id),{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'},body:fd});const data=await r.json().catch(()=>({}));feedback.textContent=r.ok&&data.queued?'Посилання поставлено в чергу Direct.':(data.error==='response_window_closed'?'24-годинне вікно відповіді закрите.':'Не вдалося поставити повідомлення в чергу.');resend.disabled=false;});actions.appendChild(resend);}
+      if(item.actions&&item.actions.can_revoke){const revoke=el('button','bot-mini-btn danger','Відкликати');revoke.type='button';revoke.addEventListener('click',async()=>{if(!window.confirm('Відкликати цю пропозицію?'))return;const fd=new FormData();fd.append('action','revoke');const r=await fetch(actionUrl(item.public_id),{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'},body:fd});if(r.ok)load({restoreFocus:item.public_id});});actions.appendChild(revoke);}else if(item.actions&&item.actions.revoke_blocked_reason==='provider_cancellation_required'){actions.appendChild(el('span','bot-hint','Спочатку потрібне підтверджене скасування рахунку Monobank.'));}
+      const feedback=el('div','bot-checkout-feedback','');previewEl.append(actions,feedback);
     }
-    function render(){if(!listEl)return;listEl.replaceChildren();if(!rows.length){listEl.appendChild(el('div','bot-empty','Пропозицій, що очікують оплату, немає.'));renderPreview(null);return;}rows.forEach(item=>{const button=el('button','bot-checkout-row');button.type='button';button.classList.toggle('active',String(item.public_id)===selected);const top=el('div','bot-checkout-row-top');top.append(el('span','bot-checkout-row-title',rowTitle(item)),el('span','bot-order-state pending',stateLabel(item.state)));button.appendChild(top);button.appendChild(el('div','bot-checkout-row-meta',(item.amount||'—')+' '+(item.currency||'UAH')+' · до '+fmtDateTime(item.expires_at)));button.addEventListener('click',()=>{selected=String(item.public_id);render();renderPreview(item);});listEl.appendChild(button);});const active=rows.find(item=>String(item.public_id)===selected)||rows[0];selected=String(active.public_id);renderPreview(active);}
-    async function load(){if(!listEl)return;listEl.replaceChildren(el('div','bot-empty','Завантаження пропозицій…'));try{const r=await fetch(listUrl+'?state=awaiting_payment',{headers:{'X-Requested-With':'XMLHttpRequest'}});const data=await r.json();if(!r.ok||!data.success)throw new Error();rows=data.items||[];render();}catch(_){listEl.replaceChildren(el('div','bot-empty','Не вдалося завантажити пропозиції.'));}}
-    if(refreshEl)refreshEl.addEventListener('click',load);return {load:load};
+    async function loadPreview(proposalId,{restoreFocus=false}={}){const generation=++previewGeneration;previewEl.replaceChildren(el('div','bot-empty','Завантаження деталей…'));try{const r=await fetch(previewUrl(proposalId),{headers:{'X-Requested-With':'XMLHttpRequest'}});const data=await r.json();if(generation!==previewGeneration)return;if(!r.ok||!data.success)throw new Error();renderPreview(data.proposal);if(restoreFocus)restoreCheckoutFocus(proposalId);}catch(_){if(generation!==previewGeneration)return;previewEl.replaceChildren(el('div','bot-empty','Не вдалося завантажити деталі.'));if(restoreFocus)restoreCheckoutFocus(proposalId);}}
+    function render({focusId=''}={}){if(!listEl)return;listEl.replaceChildren();if(!rows.length){listEl.appendChild(el('div','bot-empty','Пропозицій у цьому стані немає.'));renderPreview(null);return;}const active=rows.find(item=>String(item.public_id)===selected)||rows[0];selected=String(active.public_id);rows.forEach(item=>{const button=el('button','bot-checkout-row');button.type='button';button.dataset.checkoutProposal=String(item.public_id);button.classList.toggle('active',String(item.public_id)===selected);const top=el('div','bot-checkout-row-top');top.append(el('span','bot-checkout-row-title',rowTitle(item)),el('span','bot-order-state '+String(item.state||''),stateLabel(item.state)));button.appendChild(top);button.appendChild(el('div','bot-checkout-row-meta',(item.amount||'—')+' '+(item.currency||'UAH')+' · до '+fmtDateTime(item.expires_at)));button.addEventListener('click',()=>{selected=String(item.public_id);render({focusId:selected});loadPreview(selected,{restoreFocus:true});});listEl.appendChild(button);});if(focusId)restoreCheckoutFocus(focusId);}
+    function updateCounts(counts){filterEls.forEach(button=>{const count=button.querySelector('[data-checkout-count]');if(count)count.textContent=String((counts||{})[button.dataset.checkoutState]||0);button.setAttribute('aria-selected',String(button.dataset.checkoutState===currentState));});}
+    async function load({restoreFocus=''}={}){if(!listEl)return;listEl.replaceChildren(el('div','bot-empty','Завантаження пропозицій…'));try{const r=await fetch(listUrl+'?state='+encodeURIComponent(currentState),{headers:{'X-Requested-With':'XMLHttpRequest'}});const data=await r.json();if(!r.ok||!data.success)throw new Error();rows=data.items||[];updateCounts(data.counts);if(selected&&!rows.some(item=>String(item.public_id)===selected))selected='';render({focusId:restoreFocus});if(rows.length)await loadPreview(selected,{restoreFocus:Boolean(restoreFocus)});}catch(_){listEl.replaceChildren(el('div','bot-empty','Не вдалося завантажити пропозиції.'));}}
+    filterEls.forEach(button=>button.addEventListener('click',()=>{currentState=button.dataset.checkoutState||'awaiting_payment';selected='';load();}));
+    if(refreshEl)refreshEl.addEventListener('click',()=>load({restoreFocus:selected}));return {load:load};
   })();
 
   /* ============ Orders ============ */

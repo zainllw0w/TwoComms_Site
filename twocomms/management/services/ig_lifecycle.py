@@ -112,9 +112,9 @@ def _message(event: IgLifecycleEvent) -> str:
         }
         return copies[locale]
     copies = {
-        "uk": "Дякуємо, що обрали TwoComms. Чи все добре із замовленням і чи вам сподобались речі? Якщо маєте хвилину, відмітьте @twocomms в Instagram або надішліть короткий чесний відгук. Це дуже допомагає нам розвиватися.",
-        "ru": "Спасибо, что выбрали TwoComms. Все ли хорошо с заказом и понравились ли вам вещи? Если будет минутка, отметьте @twocomms в Instagram или отправьте короткий честный отзыв. Это очень помогает нам развиваться.",
-        "en": "Thank you for choosing TwoComms. Did everything arrive correctly, and did you like the order? If you have a minute, tag @twocomms in an Instagram story or send a short honest review. It really helps us grow.",
+        "uk": "Дякуємо, що обрали TwoComms. Чи все добре із замовленням і чи вам сподобались речі? Якщо маєте хвилину, відмітьте @twocomms в Instagram або надішліть короткий чесний відгук. Надішліть посилання чи скрін у Direct — надамо 10% знижки на наступне замовлення.",
+        "ru": "Спасибо, что выбрали TwoComms. Все ли хорошо с заказом и понравились ли вам вещи? Если будет минутка, отметьте @twocomms в Instagram или отправьте короткий честный отзыв. Пришлите ссылку или скрин в Direct — дадим 10% скидки на следующий заказ.",
+        "en": "Thank you for choosing TwoComms. Did everything arrive correctly, and did you like the order? If you have a minute, tag @twocomms in an Instagram story or send a short honest review. Send us the story link or a screenshot in Direct and we will give you 10% off your next order.",
     }
     return copies[locale]
 

@@ -24,6 +24,21 @@ function localizedError(form, key) {
   return LOCALIZED_ERRORS[locale]?.[key] || LOCALIZED_ERRORS.uk[key];
 }
 
+function firstInvalidNovaPoshtaField(form) {
+  if (form?.querySelector?.('[data-np-city-input][aria-invalid="true"]')) {
+    return 'city';
+  }
+  if (form?.querySelector?.('[data-np-warehouse-input][aria-invalid="true"]')) {
+    return 'np_office';
+  }
+
+  const selected = (selector) => form?.querySelector?.(selector)?.value?.trim() || '';
+  return (
+    selected('[data-np-city-token]')
+    && (selected('[data-np-settlement-ref]') || selected('[data-np-city-ref]'))
+  ) ? 'np_office' : 'city';
+}
+
 function initScope(scope = document) {
   const roots = [];
   if (
@@ -75,7 +90,7 @@ async function validateForm(form, options = {}) {
   if (!isDeliveryValid) {
     return {
       ok: false,
-      field: 'delivery',
+      field: firstInvalidNovaPoshtaField(form),
       message: localizedError(form, 'delivery'),
     };
   }

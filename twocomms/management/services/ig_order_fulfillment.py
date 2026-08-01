@@ -22,6 +22,13 @@ LEASE_SECONDS = 300
 RETRY_MINUTES = 15
 RESPONSE_WINDOW = timedelta(hours=23)
 SUPERSEDED_ERROR = "superseded by current order fulfillment state"
+_CANONICAL_LIFECYCLE_ASSIGNMENT_SOURCES = frozenset(
+    {
+        "provider_auto",
+        "checkout_auto",
+        "manager_payment_review",
+    }
+)
 
 
 def _locale(client) -> str:
@@ -55,18 +62,68 @@ def _message(kind: str, locale: str, order, tracking: str) -> str:
         return (
             f"Thank you for your order #{number}! We hope you enjoy it. "
             "Could you leave a review and tag @twocomms in a story with your T-shirt? "
-            "It really helps us."
+            "Send us the story link or a screenshot in Direct and we will give you "
+            "10% off your next order."
         )
     if locale == "ru":
         return (
             f"Спасибо за заказ №{number}! Надеемся, вам понравится. "
             "Будем благодарны за отзыв и отметку @twocomms в сторис с футболкой. "
-            "Это очень помогает нам."
+            "Пришлите ссылку или скрин в Direct — дадим 10% скидки на следующий заказ."
         )
     return (
         f"Дякуємо за замовлення №{number}! Сподіваємося, вам сподобається. "
         "Будемо вдячні за відгук і відмітку @twocomms у сторіс з футболкою. "
-        "Це дуже допомагає нам."
+        "Якщо відмітите нас і надішлете посилання або скрін у Direct, дамо "
+        "10% знижки на наступне замовлення."
+    )
+
+
+def _uses_canonical_lifecycle(assignment) -> bool:
+    """Return whether the assignment has the full assisted-checkout context.
+
+    The assignment source alone is not sufficient: legacy provider and
+    manager-review links use the same source values but have no checkout
+    proposal, so their fulfillment messages must remain on this worker.
+    """
+    if str(getattr(assignment, "source", "") or "") not in _CANONICAL_LIFECYCLE_ASSIGNMENT_SOURCES:
+        return False
+
+    from management.models import IgCheckoutProposal, IgOrderAttribution
+
+    proposal = (
+        IgCheckoutProposal.objects.filter(payment_attempt__order_id=assignment.order_id)
+        .values("client_id", "deal_id")
+        .first()
+    )
+    if not proposal or proposal["client_id"] != assignment.client_id:
+        return False
+    return IgOrderAttribution.objects.filter(
+        order_id=assignment.order_id,
+        client_id=proposal["client_id"],
+        deal_id=proposal["deal_id"],
+    ).exists()
+
+
+def _cancel_redundant_events(assignment, *, now):
+    from management.ig_bot_models import IgOrderCustomerEvent
+
+    active_states = (
+        IgOrderCustomerEvent.State.PENDING,
+        IgOrderCustomerEvent.State.FAILED,
+        IgOrderCustomerEvent.State.WAITING_WINDOW,
+        IgOrderCustomerEvent.State.PROCESSING,
+    )
+    return IgOrderCustomerEvent.objects.filter(
+        assignment_id=assignment.pk,
+        state__in=active_states,
+    ).update(
+        state=IgOrderCustomerEvent.State.CANCELLED,
+        lease_token="",
+        lease_expires_at=None,
+        last_error="canonical Instagram lifecycle event owns this automated checkout",
+        due_at=now,
+        updated_at=now,
     )
 
 
@@ -97,6 +154,9 @@ def ensure_assignment_events(assignment, *, now=None):
 
     now = now or timezone.now()
     if not assignment.client_id or assignment.unassigned_at is not None:
+        return []
+    if _uses_canonical_lifecycle(assignment):
+        _cancel_redundant_events(assignment, now=now)
         return []
     if assignment.version == 1 and assignment.last_reason_code == "legacy_attribution":
         return []

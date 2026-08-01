@@ -4,7 +4,7 @@
 
 **Goal:** Replace new Instagram direct Monobank links with a secure, mobile-first TwoComms proposal that creates a standard PaymentAttempt and drives verified payment, TTN, delivery, and review lifecycle events.
 
-**Architecture:** `IgCheckoutProposal` freezes the Instagram commercial configuration and exposes a 25-minute bearer-token entrance to a clean first-party checkout page. Valid recipient, email, promo, and signed Nova Poshta data atomically create one existing `PaymentAttempt`; verified materialization is then bound back to `IgDeal`, `IgClient`, the commercial episode, and attribution. Payment, TTN, and Nova Poshta delivery transitions create durable lifecycle events consumed by the existing bot transport under Meta policy.
+**Architecture:** `IgCheckoutProposal` freezes the Instagram commercial configuration and exposes a 25-minute bearer-token entrance to a clean first-party checkout page. Valid recipient, optional email, promo, and signed Nova Poshta data atomically create one existing `PaymentAttempt`; verified materialization is then bound back to `IgDeal`, `IgClient`, the commercial episode, and attribution. Payment, TTN, and Nova Poshta delivery transitions create durable lifecycle events consumed by the existing bot transport under Meta policy.
 
 **Tech Stack:** Django 5.2, MariaDB/InnoDB, server-rendered templates, isolated CSS/vanilla JS, existing Nova Poshta directory/signing services, Monobank Acquiring API, Meta Pixel/CAPI, Instagram Login messaging transport, Django test runner, Node source-contract tests, Playwright visual verification.
 
@@ -34,7 +34,7 @@
 | The bot sends a first-party TwoComms proposal, never a new direct Monobank URL | Tasks 3, 8, 10 | URL, legacy compatibility, and provider-call boundary tests |
 | The proposal lasts 25 minutes, is forwardable, and can be paid by another browser | Tasks 3, 6, 8 | Token, grant, forwarded-browser, and first-submit-wins tests |
 | Item changes happen through Direct on the same pre-invoice proposal | Tasks 2, 8, 10 | Revision, stale-page, cancellation, and supersession race tests |
-| The page shows immutable product facts and collects required receipt email and Nova Poshta data | Tasks 4, 5, 6 | Render, form, signed-directory, accessibility, and visual tests |
+| The page shows immutable product facts, accepts optional receipt email, and collects required Nova Poshta data | Tasks 4, 5, 6 | Render, form, optional-email, signed-directory, accessibility, and visual tests |
 | Promo is optional and does not silently stack with a negotiated discount | Tasks 2, 6 | Quote and promo eligibility tests |
 | Monobank is created only after valid customer confirmation through the standard PaymentAttempt path | Tasks 7, 8 | PaymentAttempt, amount, idempotency, return, and webhook tests |
 | Verified payment creates one Order and binds client, deal, episode, and attribution | Task 9 | Adapter, partial-crash, and reconciler tests |
@@ -59,7 +59,7 @@ small details that are easy to lose during context changes.
 | Bot understands one or many products | One normalized item-list path handles one shirt, two shirts, hoodies, and bounded long lists | Task 2; one/multi-item tests |
 | Bot must ask T-shirt fit and then size guide | Classic/oversize fit is mandatory when applicable, followed by the valid product size grid; no default inference | Tasks 2 and 10; missing-fit/size/conversation tests |
 | Show selected color, fit, size, quantity, and exact agreed amount | Current revision snapshots all commercial facts and shows them before delivery fields | Tasks 1 and 4; template/security tests |
-| Collect recipient, phone, first/last name, Nova Poshta, and email for receipt | Required normalized recipient form uses signed city/warehouse selectors and `orders.email_receipt` after verified payment | Task 6 and Task 7; form, receipt-email, and signed-token tests |
+| Collect recipient, phone, first/last name, Nova Poshta, and optional email for receipt | Required delivery fields use normalized recipient data and signed city/warehouse selectors; a supplied email uses `orders.email_receipt` after verified payment | Task 6 and Task 7; form, optional-email, receipt-email, and signed-token tests |
 | User checks the proposal and presses one payment action | No redundant final bot confirmation; page CTA creates/reuses one standard PaymentAttempt only after valid submit | Tasks 6 and 8; duplicate-submit/concurrency tests |
 | Promo code may be entered | Promo disclosure is optional, guest eligibility is explicit, negotiated discounts do not stack silently, and usage is reserved atomically | Tasks 2, 6, and 8; promo reservation tests |
 | Link is unique, lasts about 25 minutes, can be forwarded/copied | 256-bit token, clean URL grant, separate share token, independent payer browser, expiry state, and copy action | Task 3; token/forwarding/browser tests |
@@ -594,8 +594,8 @@ Use real form labels, `autocomplete`, `inputmode`, field error associations,
 stable image dimensions, accessible share/Direct actions, and server-rendered
 states. Keep the checkout itself on the first screen; no marketing landing hero.
 Use one shared template populated from proposal/item snapshots rather than a
-generated HTML file per customer. Email is optional but recommended and must be
-validated when non-empty.
+generated HTML file per customer. Email is optional and must be validated only
+when non-empty.
 
 - [ ] **Step 5: Run tests and commit**
 
@@ -641,7 +641,7 @@ Implement:
 
 - 320-560 px primary column;
 - 1040 px desktop grid at 42/58;
-- near-black frame, light form surface, orange CTA, verified green;
+- C3 Brand Night charcoal surfaces, warm orange CTA, verified green;
 - stable 4:5 media and compact product facts;
 - existing frozen catalog/variant images, with no per-proposal asset generation;
 - sticky mobile total/CTA;
@@ -1632,19 +1632,18 @@ git commit -m "feat: show pending Instagram checkouts"
 ### Task 18: Add expiry and crash reconciliation commands
 
 **Files:**
-- Create: `twocomms/management/management/commands/reconcile_ig_checkouts.py`
+- Create: `twocomms/management/management/commands/reconcile_ig_checkout.py`
 - Create: `twocomms/management/management/commands/process_ig_lifecycle_events.py`
 - Modify: `twocomms/management/management/commands/poll_ig_deal_payments.py`
-- Create: `twocomms/orders/management/commands/reconcile_order_post_payment_events.py`
-- Modify: `twocomms/orders/management/commands/reconcile_order_telegram_notifications.py`
-  into a compatibility wrapper or retire it only after cron migration
+- Reuse: `twocomms/orders/management/commands/reconcile_order_telegram_notifications.py`
+  for existing post-payment recovery compatibility
 - Modify: `twocomms/storefront/views/utils.py`
 - Modify: `twocomms/management/services/ig_checkout.py`
 - Modify: `twocomms/management/services/ig_checkout_payments.py`
 - Modify: `twocomms/management/services/ig_checkout_lifecycle.py`
 - Test: `twocomms/management/tests_ig_checkout_reconciliation.py`
 - Modify: `twocomms/management/tests_ig_polling.py`
-- Create: `twocomms/orders/tests/test_reconcile_order_post_payment_events.py`
+- Test: `twocomms/orders/tests/test_post_payment_recovery.py`
 
 - [ ] **Step 1: Write failing reconciliation tests**
 
@@ -1670,7 +1669,7 @@ DEBUG=1 SECRET_KEY=local-baseline-only \
 
 Commands must accept `--limit`, avoid unbounded full-table scans, print counts,
 and support `--dry-run` with zero external side effects. In normal mode,
-`reconcile_order_post_payment_events` and `process_ig_lifecycle_events` perform
+`reconcile_ig_checkout` and `process_ig_lifecycle_events` perform
 only missing channels through the same idempotent send functions. Dry-run may
 inspect/classify but must not persist delivery markers or call Telegram, email,
 Meta, TikTok, or Instagram providers.
@@ -1696,22 +1695,21 @@ DEBUG=1 SECRET_KEY=local-baseline-only \
   /Users/zainllw0w/TwoComms/site/.venv/bin/python manage.py test \
   management.tests_ig_checkout_reconciliation -v 2
 DEBUG=1 SECRET_KEY=local-baseline-only \
-  /Users/zainllw0w/TwoComms/site/.venv/bin/python manage.py reconcile_ig_checkouts \
+  /Users/zainllw0w/TwoComms/site/.venv/bin/python manage.py reconcile_ig_checkout \
   --limit 20 --dry-run
 DEBUG=1 SECRET_KEY=local-baseline-only \
   /Users/zainllw0w/TwoComms/site/.venv/bin/python manage.py \
-  reconcile_order_post_payment_events --limit 20 --dry-run
+  process_ig_lifecycle_events --limit 20 --dry-run
 ```
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add twocomms/management/management/commands/reconcile_ig_checkouts.py \
+git add twocomms/management/management/commands/reconcile_ig_checkout.py \
   twocomms/management/management/commands/process_ig_lifecycle_events.py \
   twocomms/management/management/commands/poll_ig_deal_payments.py \
-  twocomms/orders/management/commands/reconcile_order_post_payment_events.py \
   twocomms/orders/management/commands/reconcile_order_telegram_notifications.py \
-  twocomms/orders/tests/test_reconcile_order_post_payment_events.py \
+  twocomms/orders/tests/test_post_payment_recovery.py \
   twocomms/storefront/views/utils.py \
   twocomms/management/services/ig_checkout*.py \
   twocomms/management/tests_ig_checkout_reconciliation.py \
@@ -1859,8 +1857,8 @@ python manage.py compress --force
 python manage.py seed_ig_bot_sales_playbooks
 touch tmp/restart.txt
 python manage.py run_instagram_bot --ensure
-python manage.py reconcile_ig_checkouts --limit 100 --dry-run
-python manage.py reconcile_order_post_payment_events --limit 100 --dry-run
+python manage.py reconcile_ig_checkout --limit 100 --dry-run
+python manage.py reconcile_ig_order_fulfillment --limit 100 --no-send
 python manage.py process_ig_lifecycle_events --limit 5 --dry-run
 python manage.py poll_ig_deal_payments --limit 5 --check-only
 ```
@@ -1868,19 +1866,19 @@ python manage.py poll_ig_deal_payments --limit 5 --check-only
 Install guarded recurring execution with the existing production scheduler and
 absolute virtualenv Python path:
 
-- `reconcile_ig_checkouts --limit 100` every two minutes under its own
+- `reconcile_ig_checkout --limit 100` every two minutes under its own
   non-blocking `flock`;
-- `reconcile_order_post_payment_events --limit 100` every two minutes under a
+- `reconcile_ig_order_fulfillment --limit 100` every two minutes under a
   separate non-blocking `flock`;
 - lifecycle delivery stays in the bounded Instagram daemon loop, with the
   standalone command retained for controlled recovery.
 
 Preserve all unrelated cron entries and prove the effective crontab/service
-definition after installation. Add and test `--check-only` before using
-`poll_ig_deal_payments`: the current normal command mutates projections, can
-materialize Orders, and can send Instagram shipment messages. Check-only may
-fetch/classify at most five legacy invoices but must not persist or send
-anything. Do not create a new direct invoice.
+definition after installation. Use the tested `--check-only` mode for
+`poll_ig_deal_payments`: normal mode mutates projections, can materialize Orders,
+and can send Instagram shipment messages, while check-only performs bounded ORM
+candidate counts without provider calls, writes, or sends. Do not create a new
+direct invoice.
 
 Use the user-provided SSH secret through a protected environment variable; do
 not echo, store, or commit it.

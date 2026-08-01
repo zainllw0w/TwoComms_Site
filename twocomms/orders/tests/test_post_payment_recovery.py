@@ -1,6 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
 from io import StringIO
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.core.management import call_command
@@ -8,11 +9,49 @@ from django.test import TestCase
 from django.utils import timezone
 
 from orders.models import Order
-from orders.email_receipt import build_order_receipt_context, send_order_receipt_email
+from orders.email_receipt import (
+    build_order_receipt_context,
+    build_order_receipt_email,
+    send_order_receipt_email,
+)
 from storefront.views.utils import _send_post_payment_events
 
 
 class PostPaymentRecoveryTests(TestCase):
+    def test_dispatcher_records_blank_receipt_email_as_skipped_without_smtp(self):
+        order = Order.objects.create(
+            full_name="Buyer",
+            email="",
+            phone="+380501112233",
+            city="Київ",
+            np_office="Відділення №1",
+            pay_type="online_full",
+            payment_status="paid",
+            payment_provider="monobank_pay",
+            total_sum=Decimal("950.00"),
+            payment_payload={"attempt_id": 42},
+        )
+
+        with patch(
+            "storefront.views.utils.deliver_pending_order_telegram_notifications",
+            return_value="sent",
+        ), patch(
+            "orders.facebook_conversions_service.get_facebook_conversions_service",
+            return_value=SimpleNamespace(enabled=False),
+        ), patch(
+            "orders.tiktok_events_service.get_tiktok_events_service",
+            return_value=SimpleNamespace(enabled=False),
+        ), patch("orders.email_receipt.EmailMultiAlternatives") as email_cls, patch(
+            "storefront.utm_tracking.ensure_order_purchase_action"
+        ):
+            _send_post_payment_events(order.pk, "unpaid", order.pay_type)
+
+        order.refresh_from_db()
+        receipt = order.payment_payload["post_payment_channels"]["receipt_email"]
+        self.assertEqual(receipt["state"], "skipped")
+        self.assertEqual(receipt["error"], "no_valid_email")
+        email_cls.assert_not_called()
+
     def test_receipt_context_uses_net_payable_total_and_keeps_gross(self):
         order = Order.objects.create(
             full_name="Buyer", email="buyer@example.com", phone="+380501112233",
@@ -23,6 +62,22 @@ class PostPaymentRecoveryTests(TestCase):
         context = build_order_receipt_context(order)
         self.assertEqual(context["gross_total_display"], "1 900")
         self.assertEqual(context["total_display"], "1 700")
+
+    def test_valid_receipt_uses_canonical_html_template(self):
+        order = Order.objects.create(
+            full_name="Buyer", email="buyer@example.com", phone="+380501112233",
+            city="Київ", np_office="Відділення №1", pay_type="online_full",
+            payment_status="paid", total_sum=Decimal("950.00"), payment_payload={},
+        )
+
+        with patch(
+            "orders.email_receipt.render_to_string",
+            return_value="<html>receipt</html>",
+        ) as render:
+            built = build_order_receipt_email(order)
+
+        self.assertEqual(render.call_args.args[0], "orders/emails/order_receipt.html")
+        self.assertEqual(built["html"], "<html>receipt</html>")
 
     def test_post_payment_channel_states_are_independent(self):
         order = Order.objects.create(

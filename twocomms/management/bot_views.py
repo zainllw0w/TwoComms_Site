@@ -1725,9 +1725,93 @@ def _mask_checkout_contact(value, *, kind):
         parts = [part for part in value.split() if part]
         if not parts:
             return "—"
-        return f"{parts[0][:1]}***" + (f" {' '.join(parts[1:])}" if len(parts) > 1 else "")
+        masked = []
+        for part in parts:
+            if part.startswith("№"):
+                masked.append("№***")
+            elif part[:1].isalpha():
+                masked.append(f"{part[:1]}***")
+            else:
+                masked.append("***")
+        return " ".join(masked)
     digits = "".join(ch for ch in value if ch.isdigit())
     return f"+380 ** *** ** {digits[-4:]}" if digits else "—"
+
+
+def _checkout_resend_window_deadline(proposal):
+    from management.services.bot_followups import meta_window_deadline
+
+    return meta_window_deadline(proposal.client)
+
+
+def _checkout_proposal_action_capabilities(proposal, *, now=None):
+    now = now or timezone.now()
+    state = proposal.status
+    if proposal.expires_at <= now and state in {
+        proposal.Status.READY,
+        proposal.Status.VIEWED,
+    }:
+        state = proposal.Status.EXPIRED
+
+    link_states = {
+        proposal.Status.READY,
+        proposal.Status.VIEWED,
+        proposal.Status.DETAILS_LOCKED,
+        proposal.Status.INVOICE_CREATED,
+    }
+    link_available = proposal.expires_at > now and state in link_states
+    provider_cancellation_required = bool(
+        proposal.payment_attempt_id
+        and state in {
+            proposal.Status.DETAILS_LOCKED,
+            proposal.Status.INVOICE_CREATED,
+        }
+        and not proposal.has_provider_confirmed_cancellation()
+    )
+    resend_window_deadline = _checkout_resend_window_deadline(proposal)
+    resend_window_closed = bool(
+        link_available
+        and resend_window_deadline
+        and resend_window_deadline <= now
+    )
+    can_revoke = state in {
+        proposal.Status.READY,
+        proposal.Status.VIEWED,
+    } or (
+        state == proposal.Status.DETAILS_LOCKED
+        and not provider_cancellation_required
+    )
+    return {
+        "can_copy_token": link_available,
+        "can_resend": link_available and not resend_window_closed,
+        "resend_blocked_reason": (
+            "response_window_closed" if resend_window_closed else ""
+        ),
+        "can_revoke": can_revoke,
+        "revoke_blocked_reason": (
+            "provider_cancellation_required" if provider_cancellation_required else ""
+        ),
+    }
+
+
+def _checkout_lifecycle_history_entry(event):
+    error_code = ""
+    if event.last_error:
+        error_code = {
+            IgLifecycleEvent.State.WAITING_WINDOW: "response_window_closed",
+            IgLifecycleEvent.State.MANAGER_REVIEW: "manager_review_required",
+            IgLifecycleEvent.State.AMBIGUOUS: "delivery_ambiguous",
+            IgLifecycleEvent.State.FAILED: "delivery_failed",
+            IgLifecycleEvent.State.CANCELLED: "delivery_cancelled",
+        }.get(event.state, "delivery_issue")
+    return {
+        "kind": event.kind,
+        "state": event.state,
+        "attempts": event.attempts,
+        "has_provider_receipt": bool(event.provider_message_id),
+        "error_code": error_code,
+        "created_at": event.created_at,
+    }
 
 
 def _checkout_proposal_workspace_payload(proposal, *, include_history=False):
@@ -1747,6 +1831,7 @@ def _checkout_proposal_workspace_payload(proposal, *, include_history=False):
         }
         for item in proposal.items.order_by("position", "id")
     ]
+    capabilities = _checkout_proposal_action_capabilities(proposal)
     payload = {
         "id": proposal.pk,
         "public_id": str(proposal.public_id),
@@ -1768,16 +1853,7 @@ def _checkout_proposal_workspace_payload(proposal, *, include_history=False):
             "reference": attempt.reference if attempt else "",
             "has_invoice": bool(attempt and attempt.invoice_url),
         },
-        "actions": {
-            "can_copy_token": state in {
-                proposal.Status.READY, proposal.Status.VIEWED,
-                proposal.Status.DETAILS_LOCKED, proposal.Status.INVOICE_CREATED,
-            } and proposal.expires_at > timezone.now(),
-            "can_revoke": state in {
-                proposal.Status.READY, proposal.Status.VIEWED,
-                proposal.Status.DETAILS_LOCKED,
-            } or bool(proposal.has_provider_confirmed_cancellation()),
-        },
+        "actions": capabilities,
     }
     if attempt and attempt.full_name:
         payload["delivery"] = {
@@ -1794,11 +1870,19 @@ def _checkout_proposal_workspace_payload(proposal, *, include_history=False):
                 .order_by("revision", "id")
                 .values("revision", "source", "created_at")
             ),
-            "lifecycle": list(
-                IgLifecycleEvent.objects.filter(proposal=proposal)
+            "lifecycle": [
+                _checkout_lifecycle_history_entry(event)
+                for event in IgLifecycleEvent.objects.filter(proposal=proposal)
+                .only(
+                    "kind",
+                    "state",
+                    "attempts",
+                    "provider_message_id",
+                    "last_error",
+                    "created_at",
+                )
                 .order_by("created_at", "id")
-                .values("kind", "state", "attempts", "provider_message_id", "last_error", "created_at")
-            ),
+            ],
         }
     return payload
 
@@ -1811,18 +1895,29 @@ def bot_checkout_proposals_api(request):
     if blocked:
         return blocked
     state = (request.GET.get("state") or "awaiting_payment").strip().lower()
-    queryset = IgCheckoutProposal.objects.select_related("client", "payment_attempt").prefetch_related("items")
+    now = timezone.now()
+    base_queryset = IgCheckoutProposal.objects.select_related("client", "payment_attempt").prefetch_related("items")
+    awaiting_filter = Q(
+        status__in=[
+            IgCheckoutProposal.Status.DETAILS_LOCKED,
+            IgCheckoutProposal.Status.INVOICE_CREATED,
+        ]
+    ) | Q(
+        status__in=[IgCheckoutProposal.Status.READY, IgCheckoutProposal.Status.VIEWED],
+        expires_at__gt=now,
+    )
+    expired_filter = Q(status=IgCheckoutProposal.Status.EXPIRED) | Q(
+        status__in=[IgCheckoutProposal.Status.READY, IgCheckoutProposal.Status.VIEWED],
+        expires_at__lte=now,
+    )
     if state == "awaiting_payment":
-        queryset = queryset.filter(
-            status__in=[
-                IgCheckoutProposal.Status.READY,
-                IgCheckoutProposal.Status.VIEWED,
-                IgCheckoutProposal.Status.DETAILS_LOCKED,
-                IgCheckoutProposal.Status.INVOICE_CREATED,
-            ]
-        )
+        queryset = base_queryset.filter(awaiting_filter)
+    elif state == IgCheckoutProposal.Status.EXPIRED:
+        queryset = base_queryset.filter(expired_filter)
+    elif state in {IgCheckoutProposal.Status.READY, IgCheckoutProposal.Status.VIEWED}:
+        queryset = base_queryset.filter(status=state, expires_at__gt=now)
     elif state in {choice for choice, _label in IgCheckoutProposal.Status.choices}:
-        queryset = queryset.filter(status=state)
+        queryset = base_queryset.filter(status=state)
     else:
         return JsonResponse({"error": "invalid_state"}, status=400)
     try:
@@ -1830,7 +1925,19 @@ def bot_checkout_proposals_api(request):
     except (TypeError, ValueError):
         limit = 50
     items = [_checkout_proposal_workspace_payload(row) for row in queryset.order_by("expires_at", "id")[:limit]]
-    return JsonResponse({"success": True, "state": state, "count": queryset.count(), "items": items})
+    counts = {
+        "awaiting_payment": base_queryset.filter(awaiting_filter).count(),
+        "ready": base_queryset.filter(status=IgCheckoutProposal.Status.READY, expires_at__gt=now).count(),
+        "paid": base_queryset.filter(status=IgCheckoutProposal.Status.PAID).count(),
+        "expired": base_queryset.filter(expired_filter).count(),
+    }
+    return JsonResponse({
+        "success": True,
+        "state": state,
+        "count": queryset.count(),
+        "counts": counts,
+        "items": items,
+    })
 
 
 @login_required(login_url="management_login")
@@ -1858,11 +1965,9 @@ def bot_checkout_proposal_action_api(request, proposal_id):
     )
     action = str(request.POST.get("action") or "").strip().lower()
     now = timezone.now()
+    capabilities = _checkout_proposal_action_capabilities(proposal, now=now)
     if action == "copy_token":
-        if proposal.expires_at <= now or proposal.status not in {
-            proposal.Status.READY, proposal.Status.VIEWED,
-            proposal.Status.DETAILS_LOCKED, proposal.Status.INVOICE_CREATED,
-        }:
+        if not capabilities["can_copy_token"]:
             return JsonResponse({"error": "unavailable"}, status=409)
         from django.conf import settings
         raw_token, token = IgCheckoutAccessToken.issue(proposal=proposal, kind=IgCheckoutAccessToken.Kind.SHARE)
@@ -1870,13 +1975,11 @@ def bot_checkout_proposal_action_api(request, proposal_id):
         url = f"{base}/offer/a/{raw_token}/"
         return JsonResponse({"success": True, "url": url, "expires_at": token.expires_at.isoformat()})
     if action == "resend":
-        if proposal.expires_at <= now or proposal.status in {proposal.Status.PAID, proposal.Status.REVOKED, proposal.Status.SUPERSEDED}:
-            return JsonResponse({"error": "unavailable"}, status=409)
-        from management.services.bot_followups import meta_window_deadline
-
-        window_deadline = meta_window_deadline(proposal.client)
-        if window_deadline and window_deadline <= now:
-            return JsonResponse({"error": "response_window_closed"}, status=409)
+        if not capabilities["can_resend"]:
+            return JsonResponse({
+                "error": capabilities["resend_blocked_reason"] or "unavailable",
+            }, status=409)
+        window_deadline = _checkout_resend_window_deadline(proposal)
         raw_token, token = IgCheckoutAccessToken.issue(proposal=proposal, kind=IgCheckoutAccessToken.Kind.BOT)
         from django.conf import settings
         base = (getattr(settings, "SITE_BASE_URL", "") or request.build_absolute_uri("/")).rstrip("/")
@@ -1908,10 +2011,13 @@ def bot_checkout_proposal_action_api(request, proposal_id):
                 task.save(update_fields=[*changed, "updated_at"])
         return JsonResponse({"success": True, "queued": True, "url": url, "task_id": task.pk, "expires_at": token.expires_at.isoformat()})
     if action == "revoke":
+        if proposal.status == proposal.Status.REVOKED:
+            return JsonResponse({"success": True, "revoked": True, "idempotent": True})
         if proposal.status in {proposal.Status.PAID, proposal.Status.SUPERSEDED}:
             return JsonResponse({"error": "paid_or_superseded"}, status=409)
-        if proposal.payment_attempt_id and proposal.status in {proposal.Status.INVOICE_CREATED, proposal.Status.DETAILS_LOCKED} and not proposal.has_provider_confirmed_cancellation():
-            return JsonResponse({"error": "provider_cancellation_required"}, status=409)
+        if not capabilities["can_revoke"]:
+            error = capabilities["revoke_blocked_reason"] or "unavailable"
+            return JsonResponse({"error": error}, status=409)
         with transaction.atomic():
             # Keep the same deal -> proposal lock order used by proposal
             # creation/replacement. This prevents a concurrent payment or
@@ -1919,14 +2025,14 @@ def bot_checkout_proposal_action_api(request, proposal_id):
             locked_deal = IgDeal.objects.select_for_update().get(pk=proposal.deal_id)
             locked = IgCheckoutProposal.objects.select_for_update().get(pk=proposal.pk)
             locked.deal = locked_deal
+            locked_capabilities = _checkout_proposal_action_capabilities(locked, now=now)
+            if locked.status == locked.Status.REVOKED:
+                return JsonResponse({"success": True, "revoked": True, "idempotent": True})
             if locked.status in {locked.Status.PAID, locked.Status.SUPERSEDED}:
                 return JsonResponse({"error": "paid_or_superseded"}, status=409)
-            if (
-                locked.payment_attempt_id
-                and locked.status in {locked.Status.INVOICE_CREATED, locked.Status.DETAILS_LOCKED}
-                and not locked.has_provider_confirmed_cancellation()
-            ):
-                return JsonResponse({"error": "provider_cancellation_required"}, status=409)
+            if not locked_capabilities["can_revoke"]:
+                error = locked_capabilities["revoke_blocked_reason"] or "unavailable"
+                return JsonResponse({"error": error}, status=409)
             previous_status = locked.status
             was_revoked = previous_status == locked.Status.REVOKED
             locked.status = locked.Status.REVOKED

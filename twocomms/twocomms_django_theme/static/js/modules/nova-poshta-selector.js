@@ -180,6 +180,7 @@ function createOptionButton(item, buildMeta, { id = '', index = 0 } = {}) {
   button.dataset.optionIndex = String(index);
   button.setAttribute('role', 'option');
   button.setAttribute('aria-selected', 'false');
+  button.tabIndex = -1;
 
   const main = document.createElement('div');
   main.className = 'np-selector-option-main';
@@ -198,7 +199,7 @@ function createOptionButton(item, buildMeta, { id = '', index = 0 } = {}) {
 }
 
 function getFieldContainer(field) {
-  return field?.closest?.('.cart-form-group, .form-group, .ds-input, .ds-np-field') || field?.parentElement || null;
+  return field?.closest?.('.ig-field') || field?.closest?.('.cart-form-group, .form-group, .ds-input, .ds-np-field') || field?.parentElement || null;
 }
 
 function ensureErrorNode(field) {
@@ -936,7 +937,9 @@ class NovaPoshtaSelectorController {
     if (this.warehouseTokenInput) {
       this.warehouseTokenInput.value = '';
     }
-    if (!options.preserveInput) {
+    if (options.preserveInput) {
+      this.warehouseInput.dispatchEvent(new Event('change', { bubbles: true }));
+    } else {
       this.skipWarehouseInputHandler = true;
       this.warehouseInput.value = '';
       this.warehouseInput.dispatchEvent(new Event('input', { bubbles: true }));

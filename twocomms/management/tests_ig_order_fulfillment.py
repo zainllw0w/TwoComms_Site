@@ -64,6 +64,109 @@ class IgOrderFulfillmentTests(TestCase):
         self.assertEqual(send.call_count, 1)
         self.assertEqual(assignment.version, 1)
 
+    def test_automated_checkout_assignment_uses_canonical_lifecycle_only(self):
+        import hashlib
+
+        from management.models import (
+            IgCheckoutProposal,
+            IgDeal,
+            IgOrderAssignment,
+            IgOrderAttribution,
+        )
+        from management.services.ig_commercial_episodes import ensure_episode_for_deal
+        from management.services.ig_order_fulfillment import reconcile_order_customer_events
+        from orders.models import PaymentAttempt
+
+        deal = IgDeal.objects.create(
+            client=self.ig_client,
+            status=IgDeal.Status.QUOTED,
+            amount=self.order.total_sum,
+            requested_payment_amount=self.order.total_sum,
+        )
+        proposal = IgCheckoutProposal.objects.create_current(
+            deal=deal,
+            commercial_episode=ensure_episode_for_deal(deal),
+            catalog_total=self.order.total_sum,
+            quoted_total=self.order.total_sum,
+            requested_payment_amount=self.order.total_sum,
+            items_digest=hashlib.sha256(b"fulfillment-checkout-context").hexdigest(),
+        )
+        attempt = PaymentAttempt.objects.create(
+            fingerprint=hashlib.sha256(b"fulfillment-checkout-attempt").hexdigest(),
+            full_name=self.order.full_name,
+            phone=self.order.phone,
+            pay_type=PaymentAttempt.PayType.ONLINE_FULL,
+            status=PaymentAttempt.Status.PROCESSING,
+            cart_snapshot={"checkout_surface": "instagram_proposal"},
+            gross_amount=self.order.total_sum,
+            payable_amount=self.order.total_sum,
+            payment_amount=self.order.total_sum,
+            order=self.order,
+        )
+        proposal.payment_attempt = attempt
+        proposal.save(update_fields=["payment_attempt", "updated_at"])
+        IgOrderAttribution.objects.create(
+            order=self.order,
+            client=self.ig_client,
+            deal=deal,
+            creation_mode="provider_auto",
+            payment_source="provider_attempt",
+        )
+
+        link_order_to_client(
+            self.order,
+            client=self.ig_client,
+            actor=self.manager,
+            source=IgOrderAssignment.Source.PROVIDER_AUTO,
+        )
+
+        result = reconcile_order_customer_events(order_id=self.order.pk, send=False)
+
+        self.assertEqual(result["created"], 0)
+        self.assertFalse(IgOrderCustomerEvent.objects.filter(order=self.order).exists())
+
+    def test_legacy_provider_auto_assignment_keeps_fulfillment_without_proposal(self):
+        from management.models import IgOrderAssignment
+        from management.services.ig_order_fulfillment import reconcile_order_customer_events
+
+        link_order_to_client(
+            self.order,
+            client=self.ig_client,
+            actor=self.manager,
+            source=IgOrderAssignment.Source.PROVIDER_AUTO,
+        )
+
+        result = reconcile_order_customer_events(order_id=self.order.pk, send=False)
+
+        self.assertEqual(result["created"], 1)
+        self.assertTrue(
+            IgOrderCustomerEvent.objects.filter(
+                order=self.order,
+                kind=IgOrderCustomerEvent.Kind.TTN_ASSIGNED,
+            ).exists()
+        )
+
+    def test_legacy_manager_review_assignment_keeps_fulfillment_without_proposal(self):
+        from management.models import IgOrderAssignment
+        from management.services.ig_order_fulfillment import reconcile_order_customer_events
+
+        link_order_to_client(
+            self.order,
+            client=self.ig_client,
+            actor=self.manager,
+            source=IgOrderAssignment.Source.MANAGER_PAYMENT_REVIEW,
+        )
+
+        result = reconcile_order_customer_events(order_id=self.order.pk, send=False)
+
+        self.assertEqual(result["created"], 1)
+        self.assertTrue(
+            IgOrderCustomerEvent.objects.filter(
+                order=self.order,
+                kind=IgOrderCustomerEvent.Kind.TTN_ASSIGNED,
+            ).exists()
+        )
+
     def test_unlink_cancels_pending_event_and_relink_uses_new_version_key(self):
         from management.services.ig_order_fulfillment import reconcile_order_customer_events
 
@@ -253,6 +356,7 @@ class IgOrderFulfillmentTests(TestCase):
         reconcile_order_customer_events(order_id=self.order.pk, send=False)
         event = IgOrderCustomerEvent.objects.get(kind=IgOrderCustomerEvent.Kind.DELIVERED_REVIEW)
         self.assertIn("Thank you", event.message_snapshot)
+        self.assertIn("10%", event.message_snapshot)
         self.assertEqual(event.locale, "en")
         self.assertFalse(
             IgOrderCustomerEvent.objects.filter(

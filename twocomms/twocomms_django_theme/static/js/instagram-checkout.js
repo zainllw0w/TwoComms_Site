@@ -120,8 +120,63 @@
 
   const paymentRail = document.querySelector("[data-payment-rail]");
   const paymentButton = document.querySelector("[data-payment-submit]");
+  const paymentContinue = document.querySelector("[data-payment-continue]");
   const checkoutForm = document.querySelector("[data-np-form]");
   let checkoutExpired = false;
+  const shareDialog = document.querySelector("[data-share-dialog]");
+  const priceDialog = document.querySelector("[data-price-dialog]");
+  const priceDetails = document.querySelector("[data-price-details]");
+  const checkoutStateBanner = document.querySelector("[data-checkout-state-banner]");
+  let dialogTrigger = null;
+
+  const showCheckoutDialog = (dialog, trigger) => {
+    if (!dialog) return;
+    dialogTrigger = trigger || document.activeElement;
+    if (typeof dialog.showModal === "function") {
+      dialog.showModal();
+    } else {
+      dialog.setAttribute("open", "");
+    }
+    window.setTimeout(() => {
+      dialog.querySelector("button, a[href], input")?.focus({ preventScroll: true });
+    }, 0);
+  };
+
+  const restoreDialogFocus = () => {
+    dialogTrigger?.focus?.({ preventScroll: true });
+    dialogTrigger = null;
+  };
+
+  const closeCheckoutDialog = (dialog) => {
+    if (!dialog || (!dialog.open && !dialog.hasAttribute("open"))) return;
+    if (typeof dialog.close === "function") {
+      dialog.close();
+    } else {
+      dialog.removeAttribute("open");
+    }
+  };
+
+  const bindCheckoutDialog = (dialog) => {
+    dialog?.addEventListener("click", (event) => {
+      if (event.target === dialog) dialog.close?.();
+    });
+    dialog?.addEventListener("close", restoreDialogFocus);
+  };
+
+  bindCheckoutDialog(priceDialog);
+  bindCheckoutDialog(shareDialog);
+  document.querySelectorAll("[data-price-details]").forEach((trigger) => {
+    trigger.addEventListener("click", () => {
+      if (!checkoutExpired) showCheckoutDialog(priceDialog, trigger);
+    });
+  });
+  document.querySelectorAll("[data-share-open]").forEach((trigger) => {
+    trigger.addEventListener("click", () => {
+      if (checkoutExpired) return;
+      if (shareDialog) shareDialog.dataset.preferNative = trigger.hasAttribute("data-share-native") ? "true" : "false";
+      showCheckoutDialog(shareDialog, trigger);
+    });
+  });
 
   const writeClipboard = async (value) => {
     if (navigator.clipboard?.writeText) {
@@ -141,6 +196,7 @@
 
   document.querySelectorAll("[data-share-url]").forEach((button) => {
     button.addEventListener("click", async () => {
+      if (checkoutExpired || !button.dataset.shareUrl) return;
       const original = button.dataset.shareLabel || button.textContent.trim();
       button.disabled = true;
       try {
@@ -155,20 +211,32 @@
         });
         const payload = await readJsonResponse(response);
         if (!response.ok || !payload.url) throw new Error("share_unavailable");
-        await writeClipboard(payload.url);
+        if (checkoutExpired) return;
+        const preferNativeShare = shareDialog?.dataset.preferNative === "true";
+        if (preferNativeShare && navigator.share) {
+          await navigator.share({ url: payload.url });
+        } else {
+          await writeClipboard(payload.url);
+        }
         setActionLabel(button, button.dataset.shareDone || original);
-      } catch (_error) {
-        setActionLabel(button, button.dataset.shareError || original);
+      } catch (error) {
+        setActionLabel(
+          button,
+          error?.name === "AbortError"
+            ? original
+            : (button.dataset.shareError || original),
+        );
       } finally {
         window.setTimeout(() => {
           setActionLabel(button, original);
-          button.disabled = false;
+          button.disabled = checkoutExpired;
         }, 1800);
       }
     });
   });
 
   const countdown = document.querySelector("[data-countdown]");
+  const expiryStatus = document.querySelector("[data-expiry-status]");
   const countdownWrap = document.querySelector("[data-countdown-wrap]");
   const countdownRing = document.querySelector("[data-countdown-ring]");
   const expiresAt = Date.parse(root.dataset.expiresAt || "");
@@ -186,20 +254,63 @@
     if (checkoutExpired) return;
     checkoutExpired = true;
     root.classList.add("is-expired");
+    root.dataset.checkoutState = "expired";
     countdownWrap?.classList.add("is-expired");
+    dialogTrigger = null;
+    closeCheckoutDialog(priceDialog);
+    closeCheckoutDialog(shareDialog);
+    if (priceDetails) {
+      priceDetails.classList.remove("ig-state--ready");
+      priceDetails.classList.add("ig-state--expired");
+      priceDetails.querySelector(".ig-state__copy strong").textContent = priceDetails.dataset.expiredTitle || "";
+      priceDetails.querySelector(".ig-state__copy small").textContent = priceDetails.dataset.expiredBody || "";
+      priceDetails.disabled = true;
+      priceDetails.removeAttribute("aria-haspopup");
+      priceDetails.removeAttribute("aria-controls");
+      const stateIcon = priceDetails.querySelector("[data-state-icon]");
+      stateIcon?.setAttribute("data-state-icon", "attention");
+      stateIcon?.querySelector("use")?.setAttribute("href", "#ig-icon-alert");
+    }
+    if (checkoutStateBanner) {
+      checkoutStateBanner.classList.remove("ig-state--pending", "ig-state--locked");
+      checkoutStateBanner.classList.add("ig-state--expired");
+      checkoutStateBanner.querySelector(".ig-state__copy strong").textContent = checkoutStateBanner.dataset.expiredTitle || "";
+      checkoutStateBanner.querySelector(".ig-state__copy small").textContent = checkoutStateBanner.dataset.expiredBody || "";
+      const stateIcon = checkoutStateBanner.querySelector("[data-state-icon]");
+      stateIcon?.setAttribute("data-state-icon", "attention");
+      stateIcon?.querySelector("use")?.setAttribute("href", "#ig-icon-alert");
+    }
+    document.querySelectorAll("[data-share-open]").forEach((trigger) => {
+      trigger.disabled = true;
+      trigger.setAttribute("aria-disabled", "true");
+    });
+    document.querySelectorAll("[data-share-url]").forEach((button) => {
+      button.disabled = true;
+      button.removeAttribute("data-share-url");
+    });
     if (paymentRail) paymentRail.classList.add("is-expired");
     if (paymentButton) {
       paymentButton.disabled = true;
       setActionLabel(paymentButton, countdown?.dataset.expiredLabel || "Час завершився");
     }
+    if (paymentContinue) {
+      paymentContinue.removeAttribute("href");
+      paymentContinue.setAttribute("aria-disabled", "true");
+      paymentContinue.setAttribute("tabindex", "-1");
+      setActionLabel(paymentContinue, countdown?.dataset.expiredLabel || "Час завершився");
+    }
     checkoutForm?.querySelectorAll("input, button, select, textarea").forEach((field) => {
       if (field !== paymentButton) field.disabled = true;
     });
     if (countdown) {
-      countdown.textContent = countdown.dataset.expiredLabel || "00:00";
+      countdown.textContent = "00:00";
       countdown.setAttribute("aria-label", countdown.dataset.expiredLabel || "00:00");
     }
-    root.querySelector("[data-direct-help]")?.classList.add("is-priority");
+    if (expiryStatus && !expiryStatus.textContent) {
+      expiryStatus.textContent = countdown?.dataset.expiredLabel || "00:00";
+    }
+    const directHelp = root.querySelector("[data-direct-help]");
+    directHelp?.classList.add("is-priority");
   };
 
   if (countdown && Number.isFinite(expiresAt)) {
@@ -281,10 +392,56 @@
     const paymentLabel = paymentButton?.querySelector("[data-action-label]");
     const defaultPaymentLabel = paymentLabel?.textContent || "";
     let submitted = false;
+    const serverErrorFieldName = document.documentElement.dataset.formErrorField || "";
+    const serverErrorField = serverErrorFieldName
+      ? form.elements.namedItem(serverErrorFieldName)
+      : null;
+    let serverErrorPending = Boolean(
+      serverErrorField instanceof HTMLElement
+      && serverErrorField.getAttribute("aria-invalid") === "true",
+    );
     const validationSummaryCopy = {
       uk: "Перевірте виділене поле, щоб продовжити.",
       ru: "Проверьте выделенное поле, чтобы продолжить.",
       en: "Check the highlighted field to continue.",
+    };
+
+    const invalidField = (fieldName = "") => {
+      const namedField = fieldName ? form.elements.namedItem(fieldName) : null;
+      return namedField instanceof HTMLElement
+        ? namedField
+        : form.querySelector("input[aria-invalid='true'], input:invalid, select:invalid, textarea:invalid");
+    };
+
+    const setFieldError = (field, message) => {
+      if (!(field instanceof HTMLElement)) return;
+      const wrapper = field.closest(".ig-field");
+      if (!wrapper) return;
+      let fieldError = wrapper.querySelector("[data-field-error], .cart-form-error");
+      if (!fieldError) {
+        fieldError = document.createElement("small");
+        wrapper.appendChild(fieldError);
+      }
+      fieldError.classList.add("ig-field-error");
+      fieldError.dataset.fieldError = "";
+      if (!fieldError.id) {
+        fieldError.id = `${field.id || field.getAttribute("name") || "ig-field"}-error`;
+      }
+      fieldError.textContent = message || validationSummaryCopy[locale] || validationSummaryCopy.uk;
+      fieldError.hidden = false;
+      field.setAttribute("aria-invalid", "true");
+      const describedBy = new Set(
+        String(field.getAttribute("aria-describedby") || "").split(/\s+/).filter(Boolean),
+      );
+      describedBy.add(fieldError.id);
+      field.setAttribute("aria-describedby", [...describedBy].join(" "));
+    };
+
+    const clearFieldError = (field) => {
+      if (!(field instanceof HTMLElement)) return;
+      const fieldError = field.closest(".ig-field")?.querySelector("[data-field-error], .cart-form-error");
+      if (fieldError) fieldError.hidden = true;
+      if (field.checkValidity?.()) field.removeAttribute("aria-invalid");
     };
 
     const showFormError = (message, fieldName = "") => {
@@ -292,14 +449,12 @@
         errorBox.textContent = message || validationSummaryCopy[locale] || validationSummaryCopy.uk;
         errorBox.hidden = false;
       }
+      setFieldError(invalidField(fieldName), message);
       focusFirstInvalid(fieldName);
     };
 
     const focusFirstInvalid = (fieldName = "") => {
-      const namedField = fieldName ? form.elements.namedItem(fieldName) : null;
-      const field = namedField instanceof HTMLElement
-        ? namedField
-        : form.querySelector("input[aria-invalid='true'], input:invalid, select:invalid, textarea:invalid");
+      const field = invalidField(fieldName);
       if (!(field instanceof HTMLElement)) {
         errorBox?.focus({ preventScroll: true });
         return;
@@ -322,7 +477,8 @@
     };
 
     const syncServerError = () => {
-      const fieldName = document.documentElement.dataset.formErrorField;
+      if (!serverErrorPending) return;
+      const fieldName = serverErrorFieldName;
       if (!fieldName) return;
       const field = form.elements.namedItem(fieldName);
       if (!field || typeof field.setAttribute !== "function") return;
@@ -353,54 +509,85 @@
 
     form.querySelectorAll("input:not([type='hidden'])").forEach((field) => {
       const wrapper = field.closest(".ig-field");
-      const syncCompletion = () => {
-        const optionalEmpty = !field.required && !field.value.trim();
-        if (field.value.trim() && field.getAttribute("aria-invalid") === "true") {
-          field.removeAttribute("aria-invalid");
+      const syncCompletion = (event) => {
+        if (serverErrorPending && serverErrorField === field) {
+          if (!event?.isTrusted) {
+            if (typeof window.queueMicrotask === "function") {
+              window.queueMicrotask(syncServerError);
+            } else {
+              Promise.resolve().then(syncServerError);
+            }
+            return;
+          }
+          serverErrorPending = false;
         }
+        const optionalEmpty = !field.required && !field.value.trim();
+        if (field.value.trim()) clearFieldError(field);
         wrapper?.classList.toggle(
           "is-complete",
           !optionalEmpty && field.value.trim() !== "" && field.checkValidity(),
         );
         const requiredFields = [...form.querySelectorAll("input[required]")];
-        paymentRail?.classList.toggle(
-          "is-payment-ready",
-          requiredFields.length > 0 && requiredFields.every((requiredField) => requiredField.checkValidity() && requiredField.value.trim()),
-        );
+        const deliverySelectionsAreSigned = () => {
+          const value = (selector) => form.querySelector(selector)?.value?.trim() || "";
+          return Boolean(
+            (value("[data-np-settlement-ref]") || value("[data-np-city-ref]"))
+            && value("[data-np-city-token]")
+            && value("[data-np-warehouse-ref]")
+            && value("[data-np-warehouse-token]"),
+          );
+        };
+        const isPaymentReady = requiredFields.length > 0
+          && requiredFields.every((requiredField) => (
+            requiredField.checkValidity()
+            && requiredField.value.trim()
+            && requiredField.getAttribute("aria-invalid") !== "true"
+          ))
+          && deliverySelectionsAreSigned();
+        const wasPaymentReady = paymentRail?.classList.contains("is-payment-ready");
+        paymentRail?.classList.toggle("is-payment-ready", isPaymentReady);
+        if (isPaymentReady && !wasPaymentReady && !prefersReducedMotion) {
+          paymentRail?.classList.remove("has-readiness-sheen");
+          void paymentRail?.offsetWidth;
+          paymentRail?.classList.add("has-readiness-sheen");
+          window.setTimeout(() => paymentRail?.classList.remove("has-readiness-sheen"), 700);
+        }
       };
       field.addEventListener("input", syncCompletion);
       field.addEventListener("change", syncCompletion);
       syncCompletion();
     });
 
-      form.addEventListener("submit", async (event) => {
+    form.addEventListener("submit", async (event) => {
       event.preventDefault();
       event.stopImmediatePropagation();
       if (submitted) return;
-        if (errorBox) {
-          errorBox.hidden = true;
-          errorBox.textContent = "";
-        }
+      if (errorBox) {
+        errorBox.hidden = true;
+        errorBox.textContent = "";
+      }
 
-        if (checkoutExpired) {
-          showFormError(paymentErrorMessage("expired"));
-          return;
-        }
-        if (!form.reportValidity()) {
-          showFormError(validationSummaryCopy[locale] || validationSummaryCopy.uk);
-          return;
-        }
-        const bridge = window.TwoCommsNovaPoshta;
-        if (!bridge?.validateForm) {
-          showFormError(fallbackErrors[locale] || fallbackErrors.uk);
-          return;
-        }
+      if (checkoutExpired) {
+        showFormError(paymentErrorMessage("expired"));
+        return;
+      }
+      if (!form.checkValidity()) {
+        const firstInvalid = invalidField();
+        const invalidName = firstInvalid?.getAttribute("name") || "default";
+        showFormError(paymentErrorMessage(invalidName), invalidName);
+        return;
+      }
+      const bridge = window.TwoCommsNovaPoshta;
+      if (!bridge?.validateForm) {
+        showFormError(fallbackErrors[locale] || fallbackErrors.uk);
+        return;
+      }
 
-        const result = await bridge.validateForm(form);
-        if (!result.ok) {
-          showFormError(result.message, result.field === "delivery" ? "city" : result.field);
-          return;
-        }
+      const result = await bridge.validateForm(form);
+      if (!result.ok) {
+        showFormError(result.message, result.field);
+        return;
+      }
 
       const initiateEventId = document.documentElement.dataset.initiateCheckoutEventId;
       trackCheckoutEvent("InitiateCheckout", initiateEventId, {
@@ -436,10 +623,10 @@
           paymentButton.disabled = false;
           setActionLabel(paymentButton, defaultPaymentLabel);
         }
-            if (errorBox) {
-              const errorCode = error instanceof Error ? error.message : "";
-              showFormError(paymentErrorMessage(errorCode), paymentErrorField(errorCode));
-            }
+        if (errorBox) {
+          const errorCode = error instanceof Error ? error.message : "";
+          showFormError(paymentErrorMessage(errorCode), paymentErrorField(errorCode));
+        }
       }
     });
   }
@@ -451,11 +638,7 @@
       if (!exitDialog) return;
       event.preventDefault();
       exitTrigger = trigger;
-      if (typeof exitDialog.showModal === "function") {
-        exitDialog.showModal();
-      } else {
-        exitDialog.setAttribute("open", "");
-      }
+      showCheckoutDialog(exitDialog, trigger);
       exitDialog.querySelector("[data-checkout-exit-cancel]")?.focus();
     });
   });
@@ -467,6 +650,10 @@
   exitDialog?.addEventListener("close", () => {
     exitTrigger?.focus({ preventScroll: true });
     exitTrigger = null;
+    dialogTrigger = null;
+  });
+  exitDialog?.addEventListener("click", (event) => {
+    if (event.target === exitDialog) exitDialog.close();
   });
 
   const initializeNovaPoshta = () => {

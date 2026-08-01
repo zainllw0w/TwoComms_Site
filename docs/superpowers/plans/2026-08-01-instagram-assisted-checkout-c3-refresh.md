@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Finish the approved C3 assisted-checkout page with one authoritative 25-minute lifetime, an accessible conversion-focused payment rail, strict recoverable delivery validation, truthful promo handling, and complete mobile/browser verification.
+**Goal:** Finish the approved C3 assisted-checkout page with one authoritative 25-minute lifetime, an accessible conversion-focused payment rail, strict recoverable delivery validation with optional receipt email, truthful promo handling, and complete mobile/browser verification.
 
 **Architecture:** Keep the existing `IgCheckoutProposal` -> clean session grant -> signed Nova Poshta form -> atomic `PaymentAttempt` -> Monobank flow. Change only the proposal deadline and presentation contract: server time remains authoritative, all derived tokens/reservations/invoices are capped by the proposal, and the browser renders/focuses stable public validation codes without becoming a financial source of truth. Reuse existing receipt, promo reservation, analytics, Direct, legal-route, and lifecycle services.
 
@@ -157,7 +157,8 @@ Use locale-native text. Ukrainian canonical strings are:
 ```python
 "expires_explanation": "Посилання діє 25 хвилин від створення.",
 "secure_payment": "Дані картки вводяться на захищеній сторінці Monobank",
-"email_hint": "Надішлемо сюди чек і підтвердження замовлення. Без розсилок.",
+"optional": "Необов'язково",
+"email_hint": "Якщо вкажете email, надішлемо сюди чек і підтвердження. Без розсилок.",
 "direct_help": (
     "Щось не так із товаром, розміром, сумою чи доставкою? "
     "Напишіть у той самий Direct — ми оновимо пропозицію або сформуємо нове посилання."
@@ -462,7 +463,8 @@ Use Playwright at `320x568`, `375x812`, `430x932`, `768x1024`, and `1440x900`. V
 Verify:
 
 - empty submit focuses full name above the rail;
-- invalid phone and email show localized field errors without losing values;
+- missing/blank email remains valid, while invalid non-empty email shows a
+  localized field error without losing values or calling the provider;
 - typed-only Nova Poshta city/office is rejected; signed selections pass;
 - invalid promo opens its disclosure and focuses the input;
 - share copies a bounded clean URL and preserves the current form;

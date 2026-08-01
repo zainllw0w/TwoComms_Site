@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import secrets
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.core import signing
@@ -23,15 +24,24 @@ GRANT_SESSION_PREFIX = "ig_checkout_grant:"
 GRANT_MAX_AGE = 60 * 25
 INSTAGRAM_DIRECT_URL = "https://www.instagram.com/twocomms/"
 
+CHECKOUT_LANGUAGES = (
+    {"code": "uk", "label": "Українська", "short": "UA", "flag": "🇺🇦", "flag_image": False},
+    {"code": "ru", "label": "Русский", "short": "RU", "flag": "", "flag_image": True},
+    {"code": "en", "label": "English", "short": "EN", "flag": "🇬🇧", "flag_image": False},
+)
+
 
 CHECKOUT_COPY = {
     "uk": {
         "page_title": "Перевірте замовлення",
-        "eyebrow": "Персональна пропозиція",
-        "lead": "Ми вже зафіксували товари та ціну. Перевірте деталі й додайте дані доставки.",
+        "language_label": "Мова",
+        "eyebrow": "Замовлення готове до оформлення",
+        "lead": "Перевірте товар. Доставка й оплата — нижче.",
         "greeting": "Вітаємо",
         "order_for": "Це замовлення сформовано для вас на суму",
         "order_label": "Ваше замовлення",
+        "item_singular": "товар",
+        "item_plural": "товарів",
         "proposal_label": "Пропозиція",
         "expires_label": "Посилання активне ще",
         "expires_explanation": "Посилання діє 25 хвилин від створення. Його можна передати іншій людині для оплати.",
@@ -44,16 +54,29 @@ CHECKOUT_COPY = {
         "discount": "Узгоджена знижка",
         "total": "До сплати",
         "charge_now": "Сума до сплати зараз",
-        "delivery_title": "Дані для доставки",
+        "fixed_price_title": "Товари й ціна зафіксовані",
+        "fixed_price_hint": "Що це означає?",
+        "price_dialog_title": "Ціна не зміниться",
+        "price_dialog_body": "До завершення строку пропозиція зберігає обрані товари, розміри та погоджену суму.",
+        "price_dialog_close": "Зрозуміло",
+        "share_card_title": "Оплатити може інша людина",
+        "share_card_body": "Передайте їй це захищене посилання",
+        "share_dialog_title": "Передайте посилання для оплати",
+        "share_dialog_body": "Одержувач побачить ці самі товари й суму, зможе ввести дані доставки та оплатити замість вас.",
+        "share_dialog_note": "Після оплати посилання повторно використати не можна.",
+        "share_cancel": "Скасувати",
+        "delivery_step": "Доставка",
+        "delivery_title": "Куди відправити?",
         "delivery_lead": "Заповнення займає близько двох хвилин.",
+        "delivery_time": "до 2 хв",
         "full_name": "Ім'я та прізвище",
         "full_name_placeholder": "Іван Петренко",
         "phone": "Номер телефону",
         "phone_placeholder": "+380 00 000 00 00",
         "email": "Email для чека",
-        "recommended": "Обов'язково",
+        "optional": "Необов'язково",
         "email_placeholder": "name@example.com",
-        "email_hint": "На цю адресу ми надішлемо чек і підтвердження замовлення.",
+        "email_hint": "Email не є обов'язковим. Якщо вкажете його, ми надішлемо чек і підтвердження замовлення. Без розсилок.",
         "city": "Місто Нової пошти",
         "city_placeholder": "Почніть вводити місто",
         "city_hint": "Виберіть підтверджений варіант зі списку Нової пошти.",
@@ -70,7 +93,7 @@ CHECKOUT_COPY = {
         "direct_help": "Щось не так із товаром, розміром, сумою чи доставкою? Напишіть у той самий Direct — ми оновимо пропозицію або сформуємо нове посилання.",
         "pay": "Перейти до оплати",
         "pay_loading": "Перевіряємо дані...",
-        "secure_payment": "Захищена оплата через Monobank",
+        "secure_payment": "Дані картки вводяться на захищеній сторінці Monobank",
         "share": "Скопіювати посилання",
         "share_done": "Посилання скопійовано",
         "share_error": "Не вдалося скопіювати",
@@ -119,11 +142,14 @@ CHECKOUT_COPY = {
     },
     "ru": {
         "page_title": "Проверьте заказ",
-        "eyebrow": "Персональное предложение",
-        "lead": "Мы уже зафиксировали товары и цену. Проверьте детали и добавьте данные доставки.",
+        "language_label": "Язык",
+        "eyebrow": "Заказ готов к оформлению",
+        "lead": "Проверьте товар. Доставка и оплата — ниже.",
         "greeting": "Здравствуйте",
         "order_for": "Этот заказ сформирован для вас на сумму",
         "order_label": "Ваш заказ",
+        "item_singular": "товар",
+        "item_plural": "товаров",
         "proposal_label": "Предложение",
         "expires_label": "Ссылка активна еще",
         "expires_explanation": "Ссылка действует 25 минут с момента создания. Ее можно передать другому человеку для оплаты.",
@@ -136,16 +162,29 @@ CHECKOUT_COPY = {
         "discount": "Согласованная скидка",
         "total": "К оплате",
         "charge_now": "Сумма к оплате сейчас",
-        "delivery_title": "Данные для доставки",
+        "fixed_price_title": "Товары и цена зафиксированы",
+        "fixed_price_hint": "Что это значит?",
+        "price_dialog_title": "Цена не изменится",
+        "price_dialog_body": "До завершения срока предложение сохраняет выбранные товары, размеры и согласованную сумму.",
+        "price_dialog_close": "Понятно",
+        "share_card_title": "Оплатить может другой человек",
+        "share_card_body": "Передайте ему эту защищенную ссылку",
+        "share_dialog_title": "Передайте ссылку для оплаты",
+        "share_dialog_body": "Получатель увидит те же товары и сумму, сможет ввести данные доставки и оплатить вместо вас.",
+        "share_dialog_note": "После оплаты ссылку нельзя использовать повторно.",
+        "share_cancel": "Отмена",
+        "delivery_step": "Доставка",
+        "delivery_title": "Куда отправить?",
         "delivery_lead": "Заполнение занимает около двух минут.",
+        "delivery_time": "до 2 мин",
         "full_name": "Имя и фамилия",
         "full_name_placeholder": "Иван Петренко",
         "phone": "Номер телефона",
         "phone_placeholder": "+380 00 000 00 00",
         "email": "Email для чека",
-        "recommended": "Обязательно",
+        "optional": "Необязательно",
         "email_placeholder": "name@example.com",
-        "email_hint": "На этот адрес мы отправим чек и подтверждение заказа.",
+        "email_hint": "Email не обязателен. Если укажете его, мы отправим чек и подтверждение заказа. Без рассылок.",
         "city": "Город Новой почты",
         "city_placeholder": "Начните вводить город",
         "city_hint": "Выберите подтвержденный вариант из списка Новой почты.",
@@ -162,7 +201,7 @@ CHECKOUT_COPY = {
         "direct_help": "Что-то не так с товаром, размером, суммой или доставкой? Напишите в тот же Direct — мы обновим предложение или сформируем новую ссылку.",
         "pay": "Перейти к оплате",
         "pay_loading": "Проверяем данные...",
-        "secure_payment": "Защищенная оплата через Monobank",
+        "secure_payment": "Данные карты вводятся на защищенной странице Monobank",
         "share": "Скопировать ссылку",
         "share_done": "Ссылка скопирована",
         "share_error": "Не удалось скопировать",
@@ -211,11 +250,14 @@ CHECKOUT_COPY = {
     },
     "en": {
         "page_title": "Review your order",
-        "eyebrow": "Personal offer",
-        "lead": "Your items and price are locked in. Review the details and add delivery information.",
+        "language_label": "Language",
+        "eyebrow": "Your order is ready",
+        "lead": "Review the items. Delivery and payment are below.",
         "greeting": "Hello",
         "order_for": "This order was prepared for you with a total of",
         "order_label": "Your order",
+        "item_singular": "item",
+        "item_plural": "items",
         "proposal_label": "Offer",
         "expires_label": "Link available for",
         "expires_explanation": "This link is valid for 25 minutes from creation. You can forward it to someone else to pay.",
@@ -228,16 +270,29 @@ CHECKOUT_COPY = {
         "discount": "Agreed discount",
         "total": "Total to pay",
         "charge_now": "Amount due now",
-        "delivery_title": "Delivery details",
+        "fixed_price_title": "Items and price are fixed",
+        "fixed_price_hint": "What does this mean?",
+        "price_dialog_title": "The price will not change",
+        "price_dialog_body": "Until this offer expires, it keeps the selected items, sizes, and agreed total.",
+        "price_dialog_close": "Got it",
+        "share_card_title": "Someone else can pay",
+        "share_card_body": "Send them this protected link",
+        "share_dialog_title": "Share the payment link",
+        "share_dialog_body": "The recipient will see the same items and total, enter delivery details, and pay for you.",
+        "share_dialog_note": "The link cannot be used again after payment.",
+        "share_cancel": "Cancel",
+        "delivery_step": "Delivery",
+        "delivery_title": "Where should we ship?",
         "delivery_lead": "This usually takes less than two minutes.",
+        "delivery_time": "under 2 min",
         "full_name": "Full name",
         "full_name_placeholder": "Ivan Petrenko",
         "phone": "Phone number",
         "phone_placeholder": "+380 00 000 00 00",
         "email": "Email for receipt",
-        "recommended": "Required",
+        "optional": "Not required",
         "email_placeholder": "name@example.com",
-        "email_hint": "We will send the receipt and order confirmation here.",
+        "email_hint": "Email is optional. If you enter it, we will send the receipt and order confirmation there. No marketing emails.",
         "city": "Nova Poshta city",
         "city_placeholder": "Start typing a city",
         "city_hint": "Choose a verified option from the Nova Poshta list.",
@@ -254,7 +309,7 @@ CHECKOUT_COPY = {
         "direct_help": "Something wrong with an item, size, amount, or delivery? Message the same Direct chat and we will update the offer or create a new link.",
         "pay": "Continue to payment",
         "pay_loading": "Checking details...",
-        "secure_payment": "Secure payment via Monobank",
+        "secure_payment": "Card details are entered on Monobank's secure page",
         "share": "Copy link",
         "share_done": "Link copied",
         "share_error": "Could not copy link",
@@ -451,6 +506,21 @@ def _locale(value):
     return code if code in CHECKOUT_COPY else "uk"
 
 
+def _checkout_language(request, proposal):
+    """Use an explicit checkout switch without changing proposal ownership."""
+    requested = str(request.GET.get("lang") or "").lower().split("-", 1)[0].split("_", 1)[0]
+    if requested in CHECKOUT_COPY:
+        return requested
+    return _locale(proposal.locale)
+
+
+def _localized_proposal_url(request, proposal, language):
+    base = request.build_absolute_uri(
+        reverse("ig_checkout_proposal", kwargs={"proposal_id": proposal.public_id})
+    )
+    return f"{base}?{urlencode({'lang': language})}"
+
+
 def _localized_error(language, code, fallback):
     return CHECKOUT_ERROR_COPY.get(language, CHECKOUT_ERROR_COPY["uk"]).get(code, fallback)
 
@@ -533,7 +603,7 @@ def _item_context(item):
 
 
 def _proposal_context(proposal, *, request, grant_id="", form_error="", form_error_field="", form_values=None):
-    language = _locale(proposal.locale)
+    language = _checkout_language(request, proposal)
     copy = CHECKOUT_COPY[language]
     state = _checkout_state(proposal)
     attempt = proposal.payment_attempt
@@ -578,9 +648,18 @@ def _proposal_context(proposal, *, request, grant_id="", form_error="", form_err
             ),
         }
         purchase_event_id = order.get_purchase_event_id()
+    language_options = [
+        {
+            **item,
+            "is_current": item["code"] == language,
+            "url": _localized_proposal_url(request, proposal, item["code"]),
+        }
+        for item in CHECKOUT_LANGUAGES
+    ]
     return {
         "copy": copy,
         "html_lang": language,
+        "language_options": language_options,
         "checkout_state": state,
         "state_title": copy[f"state_{state}_title"],
         "state_body": copy[f"state_{state}_body"],
@@ -612,12 +691,7 @@ def _proposal_context(proposal, *, request, grant_id="", form_error="", form_err
             "ig_checkout_share_token",
             kwargs={"proposal_id": proposal.public_id},
         ),
-        "proposal_url": request.build_absolute_uri(
-            reverse(
-                "ig_checkout_proposal",
-                kwargs={"proposal_id": proposal.public_id},
-            )
-        ),
+        "proposal_url": _localized_proposal_url(request, proposal, language),
         "status_url": reverse(
             "ig_checkout_status",
             kwargs={"proposal_id": proposal.public_id},
@@ -710,7 +784,7 @@ def ig_checkout_proposal(request, proposal_id):
             )
         except CheckoutPaymentError as exc:
             proposal.refresh_from_db()
-            language = _locale(proposal.locale)
+            language = _checkout_language(request, proposal)
             if "application/json" in request.headers.get("Accept", ""):
                 return _private_headers(JsonResponse({
                     "error": exc.code,

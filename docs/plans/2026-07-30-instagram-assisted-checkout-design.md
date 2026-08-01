@@ -11,7 +11,7 @@ Monobank provider URL. It must create a branded, personal TwoComms proposal with
 the agreed products already configured. This is a ready checkout document, not
 a landing page: one maintainable HTML template renders a unique proposal from
 server data and a short-lived access token. The customer verifies the immutable
-selection, enters delivery data and an optional recommended receipt email, and
+selection, enters delivery data and an optional receipt email, and
 continues to Monobank from the site. A verified payment creates one real order
 and completes the Instagram commercial chain through payment, TTN, delivery,
 and review request.
@@ -328,7 +328,7 @@ Selected products
 Recipient
 Full name
 Phone
-Email (optional, recommended)  "Receipt and confirmation can arrive here"
+Email (optional)  "Receipt and confirmation can arrive here"
 
 Delivery
 Nova Poshta city autocomplete
@@ -362,7 +362,8 @@ Price summary
 
 ### Visual language
 
-- Near-black frame, white/light form surface, warm orange primary action.
+- C3 Brand Night uses deep charcoal frame and form surfaces, off-white text,
+  an integrated warm highlight, and a warm orange primary action.
 - Green appears only for provider-verified success/valid fields.
 - Neutral gray supports secondary metadata.
 - No purple gradient, decorative orbs, particles, bokeh, or card grid.
@@ -370,8 +371,8 @@ Price summary
 
 ### Motion
 
-- 300-400 ms one-time stagger on product/form entrance using only opacity and
-  transform. Any ancestor of the fixed mobile payment rail uses opacity only so
+- Short one-time product/form entrance motion plus one bounded readiness sheen
+  on the payment action. Any ancestor of the fixed mobile payment rail uses opacity only so
   it never creates a transformed containing block.
 - 150-200 ms field validation transitions.
 - Payment button changes to a stable loading state without resizing.
