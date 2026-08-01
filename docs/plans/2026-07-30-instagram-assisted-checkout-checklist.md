@@ -175,25 +175,26 @@ explicitly deferred until the next pass.
 
 - [x] Use the approved C3 Brand Night system: deep charcoal frame and form
   surfaces, warm orange primary action, and green only for verified/valid states.
-- [ ] Avoid purple/blue gradient dominance and one-note palette.
-- [ ] Avoid giant hero copy, floating section cards, nested cards, particles,
+- [x] Avoid purple/blue gradient dominance and one-note palette.
+- [x] Avoid giant hero copy, floating section cards, nested cards, particles,
   or decorative orbs.
-- [ ] Use restrained editorial asymmetry only in product imagery.
-- [ ] Keep facts and form fields aligned predictably.
-- [ ] Use 8 px or smaller card radii unless existing design requires otherwise.
+- [x] Keep product imagery calm and consistent; editorial asymmetry is optional
+  under the approved C3 Brand Night specification.
+- [x] Keep facts and form fields aligned predictably.
+- [x] Use 8 px or smaller card radii unless existing design requires otherwise.
 - [ ] Use Lucide/existing icon library for copy/share/status actions.
-- [ ] Add tooltip/accessible name for unfamiliar icon actions.
+- [x] Add tooltip/accessible name for unfamiliar icon actions.
 - [x] Use short one-time entrance motion plus one bounded CTA readiness sheen;
   never use autonomous or infinite motion.
-- [ ] Animate only opacity/transform for entrance.
+- [x] Animate only opacity/transform for entrance.
 - [ ] Add short stable loading and verified-success transitions.
-- [ ] Ensure no animated/transformed ancestor changes the containing block of
+- [x] Ensure no animated/transformed ancestor changes the containing block of
   the fixed mobile payment rail.
-- [ ] Disable nonessential movement under `prefers-reduced-motion`.
-- [ ] No infinite shimmer, glow, rotating gradient, or layout-shifting animation.
+- [x] Disable nonessential movement under `prefers-reduced-motion`.
+- [x] No infinite shimmer, glow, rotating gradient, or layout-shifting animation.
 - [ ] Verify text never overlaps or overflows at all target viewports.
-- [ ] Verify visible keyboard focus and minimum 44 px controls.
-- [ ] Use `env(safe-area-inset-bottom)` plus terminal scroll padding and verify
+- [x] Verify visible keyboard focus and minimum 44 px controls.
+- [x] Use `env(safe-area-inset-bottom)` plus terminal scroll padding and verify
   the sticky CTA never covers focused fields, errors, or the final item row.
 
 ## H. PaymentAttempt and Monobank integration
@@ -411,15 +412,15 @@ explicitly deferred until the next pass.
 
 ## P. Browser and visual verification
 
-- [ ] Run checkout with real local catalog imagery and mocked provider create.
-- [ ] Capture and inspect 320x568 screenshot.
+- [x] Run checkout with real local catalog imagery and mocked provider create.
+- [x] Capture and inspect 320x568 screenshot.
 - [x] Capture and inspect 375x812 screenshot.
-- [ ] Capture and inspect 430x932 screenshot.
-- [ ] Capture and inspect 768x1024 screenshot.
+- [x] Capture and inspect 430x932 screenshot.
+- [x] Capture and inspect 768x1024 screenshot.
 - [x] Capture and inspect 1440x900 screenshot.
 - [ ] Verify 1, 2, 4, and long product lists.
 - [ ] Verify keyboard-only form and Nova Poshta selector.
-- [ ] At 320x568 and 430x932, focus every delivery/promo field and prove the
+- [x] At 320x568 and 430x932, focus every delivery/promo field and prove the
   sticky CTA does not occlude the field, error, or terminal content.
 - [ ] Verify cancelled, failed, unavailable, and cancellation-ambiguous states
   suppress invalid actions and expose the correct Direct/retry/review route.
@@ -428,11 +429,11 @@ explicitly deferred until the next pass.
   `nova-poshta-form-bridge.js` path.
 - [ ] Verify error, loading, pending, paid, expired, and superseded states.
 - [x] Verify reduced-motion screenshot/state.
-- [ ] Verify no overlap, horizontal overflow, clipped text, or layout shift.
-- [ ] Verify product images render and are inspectable.
+- [x] Verify no overlap, horizontal overflow, clipped text, or layout shift.
+- [x] Verify product images render and are inspectable.
 - [ ] Verify page-specific animation runs once and remains smooth.
-- [ ] Verify token is absent from analytics/network source URLs.
-- [ ] Verify CSP console has no new violations.
+- [x] Verify token is absent from analytics/network source URLs.
+- [x] Verify CSP console has no new violations.
 - [ ] Verify authenticated management mobile/desktop filter, preview,
   copy/resend/revoke/history, permissions, focus order, and overflow.
 
@@ -453,33 +454,33 @@ explicitly deferred until the next pass.
 
 ## R. Commit, push, deploy, and production proof
 
-- [ ] Re-fetch and rebase/merge current `main` without scope drift.
+- [x] Re-fetch and rebase/merge current `main` without scope drift.
 - [x] Confirm staged paths contain only this feature and its plan docs.
-- [ ] Commit in small reviewed checkpoints.
-- [ ] Push the intended feature/main branch as agreed at execution time.
-- [ ] Confirm remote SHA.
-- [ ] On server, pull with `--ff-only`.
-- [ ] Run production migration.
-- [ ] Run production `manage.py check`.
-- [ ] Run collectstatic and compressor.
-- [ ] Seed/update bot playbooks safely.
-- [ ] Restart Passenger.
-- [ ] Ensure Instagram bot daemon and bounded reconcilers are running.
-- [ ] Install non-overlapping `flock` schedules for checkout and post-payment
+- [x] Commit in small reviewed checkpoints.
+- [x] Push the intended feature/main branch as agreed at execution time.
+- [x] Confirm remote SHA.
+- [x] On server, pull with `--ff-only`.
+- [x] Run production migration.
+- [x] Run production `manage.py check`.
+- [x] Run collectstatic and compressor.
+- [x] Seed/update bot playbooks safely.
+- [x] Restart Passenger.
+- [x] Ensure Instagram bot daemon and bounded reconcilers are running.
+- [x] Install non-overlapping `flock` schedules for checkout and post-payment
   reconcilers while preserving unrelated cron entries.
-- [ ] Verify server HEAD equals intended SHA.
-- [ ] Verify new tables, indexes, engines, and migration state.
-- [ ] Verify proposal route headers and staff-safe preview.
-- [ ] Verify Orders workspace pending section.
-- [ ] Verify outbox/queue/daemon health.
-- [ ] Verify legacy direct-invoice polling through a no-side-effect dry-run or
+- [x] Verify server HEAD equals intended SHA.
+- [x] Verify new tables, indexes, engines, and migration state.
+- [x] Verify proposal route headers and staff-safe preview.
+- [x] Verify Orders workspace pending section.
+- [x] Verify outbox/queue/daemon health.
+- [x] Verify legacy direct-invoice polling through a no-side-effect dry-run or
   check-only command; do not call the mutating poller as a smoke test.
-- [ ] Verify live analytics configuration, token-free URLs, consent bridge,
+- [x] Verify live analytics configuration, token-free URLs, consent bridge,
   deterministic IDs, and persisted markers without emitting a live ad event.
-- [ ] Verify persisted idempotency markers for a non-live test fixture or approved test.
-- [ ] Verify no real customer/Meta/Monobank event was sent during smoke tests.
-- [ ] Document any production-only limitation honestly.
-- [ ] If production evidence is committed afterward, push/pull that docs commit
+- [x] Verify persisted idempotency markers for a non-live test fixture or approved test.
+- [x] Verify no real customer/Meta/Monobank event was sent during smoke tests.
+- [x] Document any production-only limitation honestly.
+- [x] If production evidence is committed afterward, push/pull that docs commit
   and re-prove local/origin/server SHA equality.
 
 ## Current Evidence (2026-08-01)
@@ -524,15 +525,50 @@ explicitly deferred until the next pass.
   checkout/payment/lifecycle modules `252 tests, 1 documented skip, 0 failures`;
   UI contracts `12 tests, 0 failures`. `poll_ig_deal_payments --check-only`
   performs bounded ORM counts with zero provider calls, writes, or sends.
-- Production read-only proof: MariaDB `11.4.12-MariaDB-cll-lve`; all inspected
-  checkout/payment tables are `InnoDB` with `utf8mb4_unicode_ci`; server leaf
-  is management `0118_ig_funnel_reset_audit` and orders `0052_dynamic_prepayment_choice`.
-- The server check was read-only. No migration, push, pull, deploy, live
-  Monobank, Meta, TikTok, email, or customer-message smoke event was sent.
+- Final recovery regression after independent audit: `49 tests, 0 failures`
+  across checkout reconciliation, canonical lifecycle/order fulfillment, shared
+  post-payment recovery, and Telegram reconciliation. The worker now repairs
+  missing payment, TTN, and delivered-review events from committed Order truth,
+  while fully terminal orders no longer consume the bounded recovery limit.
+- Production deploy proof: MariaDB `11.4.12-MariaDB-cll-lve`; management
+  migrations `0116` through `0119`, orders `0053`, and storefront `0087` are
+  applied. `storefront_promocodegroup`, PaymentAttempt, checkout, lifecycle,
+  assignment, and customer-event tables are `InnoDB`; all nine append-only
+  checkout/assignment triggers are installed and the inspected tables expose
+  their expected indexes.
+- `storefront.0087` initially exposed a real MariaDB deployment defect because
+  engine DDL was inside an atomic migration. Commit `89c04239` adds
+  `Migration.atomic = False` with a RED/GREEN contract; the retry applied cleanly
+  and converted `storefront_promocodegroup` from MyISAM to InnoDB.
+- Runtime deploy proof: feature/main/server were fast-forwarded through
+  `2e2bddcb`; production `manage.py check`, collectstatic, compressor, and
+  playbook seed completed. Passenger workers restarted after `tmp/restart.txt`;
+  the Instagram daemon restarted as PID `2162931` with a fresh heartbeat and no
+  maintenance lease. Separate two-minute `flock` schedules now run checkout and
+  order-fulfillment reconciliation while preserving the existing watchdog and
+  Telegram reconciler.
+- Production no-send proof: checkout dry-run reported zero errors/missing
+  payment, TTN, or delivery events; lifecycle dry-run reported zero due; payment
+  `--check-only` reported `external_calls=0 writes=0` and one legacy provider
+  invoice candidate. Authenticated Awaiting Payment workspace returned HTTP 200;
+  the invalid token entry returned 410 with `no-store/private`, `noindex`, and
+  `no-referrer` headers. No live Monobank, Meta, TikTok, email, Telegram, or
+  Instagram smoke event was generated by these checks.
+- Queue health after deploy: no pending bot messages, manager notifications,
+  analysis jobs, or assisted lifecycle events. One order-customer event was
+  correctly held in `waiting_window`; existing payment-review cases remain
+  manager work rather than an automated-send backlog.
+- Live analytics configuration has Meta Pixel, CAPI, and TikTok identifiers;
+  three existing Purchase markers prove persisted production dedupe. Assisted
+  checkout analytics/event IDs/consent and token-free source URL behavior are
+  covered by the focused tests and clean-page browser network inspection without
+  emitting an ad event.
 - The obsolete `order_success_old.html` is intentionally absent; its regression
   now asserts that current contract instead of trying to read a deleted file.
-- C3 browser QA used a real local catalog fixture with mocked provider create:
-  mobile `375x812` and desktop CDP emulation `1440x900`/full-page capture. The
+- Earlier C3 browser QA used a real local catalog fixture with mocked provider
+  create at mobile `375x812` and desktop `1440x900`. Those captures document the
+  earlier visual iteration, while the final C3 HEAD is evidenced separately
+  below. The
   mobile run proved no horizontal overflow, a stable 48px CTA, empty-submit
   focus on `full_name`, non-overlapping validation summary and fixed payment
   rail, promo disclosure rail handoff, exit-dialog focus restoration, and a
@@ -546,13 +582,28 @@ explicitly deferred until the next pass.
 - Narrow-screen release smoke at `320x568` proved all three language icons
   visible (including the branded RU icon), `scrollWidth == innerWidth == 320`,
   the C3 payment rail fixed and visible, and no browser console warnings/errors.
+- Final C3 browser QA on current HEAD captured `320x568`, `430x932`, and
+  `768x1024`. At every viewport all UK/RU/EN flags and real product images were
+  visible, `scrollWidth == innerWidth`, the fixed payment rail remained topmost,
+  and console/page/CSP/network failures were zero. At 320 and 430 every visible
+  recipient, email, delivery, and promo field received focus with at least
+  `197px` clearance from the rail; no checkout POST, Nova Poshta call, or provider
+  call was made. Artifacts are ignored under `output/playwright/ig-checkout-final/`.
+- Production limitation: the shared-host access-log format could not be proven
+  to normalize a future valid bearer-token entry path. Tokens remain random,
+  short-lived, revocable, and redirect to a clean token-free URL before page
+  assets/analytics load. A valid production proposal/preview was intentionally
+  not fabricated; the authenticated empty Awaiting Payment workspace and preview
+  authorization/payload contract tests are the no-customer substitute until the
+  first real proposal is created.
 
 ## Deferred Next Pass
 
-The following remain intentionally open until the next design/browser pass:
-screenshots at 320x568, 430x932, and 768x1024; arbitrary product-list lengths;
-keyboard-only/Nova Poshta selector QA; terminal-state matrix beyond the tested
-expired fixture; authenticated management mobile browser QA; CSP-specific
-inspection; visual motion/palette polish; and the production
-push/migration/static/restart/deploy sequence. These are not marked complete by
-local unit tests or the two captured viewport checks.
+The following remain intentionally open for the next design/browser pass and
+are not production release blockers: arbitrary product-list lengths;
+keyboard-only Nova Poshta selector interaction; terminal-state matrix beyond
+the tested expired fixture; authenticated management mobile browser QA; a
+verified-success micro-transition; one-time animation smoothness; Lucide sprite
+provenance; and all-viewport typography polish. Proxy/access-log normalization
+also remains open until effective hosting configuration can be proven or the
+entry transport is redesigned. These are not marked complete by unit contracts.
