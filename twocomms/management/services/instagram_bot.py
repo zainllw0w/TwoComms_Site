@@ -3845,34 +3845,7 @@ def gemini_generate(
     live = (s.knowledge_base or "").strip()
     if live:
         sys_text += "\n\n[ОПЕРАТИВНІ ДИРЕКТИВИ — найвищий пріоритет, дотримуйся беззаперечно]\n" + live
-    try:
-        from management.services.bot_knowledge import get_brand_knowledge
-
-        kb = get_brand_knowledge()
-        if kb:
-            sys_text += "\n\n[БАЗА ЗНАНЬ ПРО БРЕНД]\n" + kb
-    except Exception:
-        pass
-    try:
-        from management.services.bot_catalog import get_catalog_context
-
-        catalog = get_catalog_context()
-        if catalog:
-            sys_text += "\n\n" + catalog
-    except Exception:
-        pass
-    try:
-        from management.models import BotQuickLink
-        from management.services.bot_playbooks import active_instruction_block
-
-        instr = active_instruction_block(client)
-        if instr:
-            sys_text += "\n\n[ДОДАТКОВІ PLAYBOOK-ІНСТРУКЦІЇ]\n" + instr
-        links = BotQuickLink.active_block()
-        if links:
-            sys_text += "\n\n[ДОСТУПНІ ПОСИЛАННЯ — надсилай доречне за запитом]\n" + links
-    except Exception:
-        pass
+    sys_text += _context_sections(client)
     sys_text = sys_text.strip()
     # Протокол оплати ([PAYLINK]+[PRODUCT], без вигаданих URL) + правило точності.
     sys_text = (
@@ -3978,6 +3951,84 @@ def gemini_generate(
     log("info", "gemini_ok",
         f"{out.get('model')} / {(out.get('meta') or {}).get('key')} за {_time.monotonic() - _t0:.1f}с")
     return text
+
+
+def _prompt_section(source: str, loader) -> str:
+    """Получить один блок контекста промпта; сбой не тихий (F-AI-001).
+
+    Раньше каждый источник был обёрнут в `except Exception: pass`, и при сбое
+    бот уходил в Gemini без каталога, без цен и без правил доставки — то есть
+    уверенно отвечал по общим знаниям модели. Ни warning, ни error в логе.
+    Худшая комбинация: ошибка тихая, последствие денежное.
+
+    Поведение сохранено — промпт всё равно собирается, — но отказ становится
+    видимым и называет источник.
+    """
+    try:
+        return loader() or ""
+    except Exception as exc:
+        log("error", "prompt_context", f"{source}: {exc!r}")
+        return ""
+
+
+def _context_sections(client) -> str:
+    """База знаний + каталог + playbook-инструкции и ссылки.
+
+    Каждый источник независим: падение одного не должно лишать промпт
+    остальных, поэтому блоки собираются по отдельности.
+    """
+    parts: list[str] = []
+
+    def _brand_knowledge() -> str:
+        from management.services.bot_knowledge import get_brand_knowledge
+
+        kb = get_brand_knowledge()
+        return "\n\n[БАЗА ЗНАНЬ ПРО БРЕНД]\n" + kb if kb else ""
+
+    def _catalog() -> str:
+        from management.services.bot_catalog import get_catalog_context
+
+        catalog = get_catalog_context()
+        return "\n\n" + catalog if catalog else ""
+
+    def _playbook() -> str:
+        from management.services.bot_playbooks import active_instruction_block
+
+        instr = active_instruction_block(client)
+        return "\n\n[ДОДАТКОВІ PLAYBOOK-ІНСТРУКЦІЇ]\n" + instr if instr else ""
+
+    def _quick_links() -> str:
+        from management.models import BotQuickLink
+
+        links = BotQuickLink.active_block()
+        return (
+            "\n\n[ДОСТУПНІ ПОСИЛАННЯ — надсилай доречне за запитом]\n" + links
+            if links
+            else ""
+        )
+
+    parts.append(_prompt_section("brand_knowledge", _brand_knowledge))
+    parts.append(_prompt_section("catalog", _catalog))
+    parts.append(_prompt_section("playbook", _playbook))
+    parts.append(_prompt_section("quick_links", _quick_links))
+    return "".join(parts)
+
+
+def _pin_control_product(client, product_id) -> bool:
+    """Закрепить товар для детерминированной оплаты (F-AI-002).
+
+    Собственный комментарий в коде объяснял, что pin нужен, «щоб подальша
+    оплата формувалась детерміновано саме на нього». При тихом сбое ломалось
+    именно то свойство, ради которого код написан: платёжная ссылка могла
+    сформироваться на другой товар. Поэтому сбой обязан быть виден.
+    """
+    from management.services import bot_orders
+
+    try:
+        return bool(bot_orders.pin_product(client, product_id))
+    except Exception as exc:
+        log("error", "pin_product", f"{getattr(client, 'igsid', '')}: {exc!r}")
+        return False
 
 
 def _inbound_log_detail(source: str, sender_id: str, text: str, extra: str) -> str:
@@ -5355,12 +5406,7 @@ def _process_one_inside_reply_boundary(
             or str(getattr(row.client, "stage", "") or "").casefold() in {"checkout", "payment_pending"}
         )
     ):
-        try:
-            from management.services import bot_orders
-
-            bot_orders.pin_product(row.client, _control_product_id(control))
-        except Exception:
-            pass
+        _pin_control_product(row.client, _control_product_id(control))
 
     # [SPAM] — модель розпізнала спам/провокацію: рахуємо страйк (на 3-й — пауза).
     if reply and row.client_id and control.get("spam"):

@@ -69,8 +69,18 @@ def ig_webhook(request):
 
         try:
             payload = json.loads(raw.decode("utf-8", "replace"))
-        except Exception:
-            return HttpResponse("ok")  # все одно 200, щоб Meta не ретраїла
+        except Exception as exc:
+            # 200 остаётся осознанным: ретрай битого payload не поможет.
+            # Но терять наблюдаемость не обязательно (F-CORE-002). Тело
+            # webhook содержит PII, поэтому в лог — только метаданные:
+            # длина, наличие подписи и тип ошибки разбора.
+            logger.warning("ig_bot: bad payload (%s bytes): %r", len(raw), exc)
+            bot.log(
+                "error",
+                "webhook_bad_payload",
+                f"len={len(raw)} signed={bool(sig)} error={type(exc).__name__}",
+            )
+            return HttpResponse("ok")
 
         try:
             settings_obj = InstagramBotSettings.load()

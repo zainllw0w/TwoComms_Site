@@ -589,6 +589,10 @@ class IgDeal(models.Model):
     # Monobank acquiring
     invoice_id = models.CharField(max_length=128, blank=True, default="", db_index=True)
     invoice_url = models.CharField(max_length=600, blank=True, default="")
+    # Инвойсы, которые мы перестали считать актуальными (смена товара или
+    # типа оплаты). Ссылка при этом остаётся оплачиваемой на стороне
+    # Monobank, поэтому платёж по ней обязан находить сделку (F-PAY-001).
+    superseded_invoice_ids = models.JSONField(default=list, blank=True)
     payment_status = models.CharField(max_length=20, default="unpaid")
     payment_payload = models.JSONField(default=dict, blank=True)
     paid_at = models.DateTimeField(null=True, blank=True)

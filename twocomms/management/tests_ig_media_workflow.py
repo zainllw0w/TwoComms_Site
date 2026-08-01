@@ -311,6 +311,13 @@ class ReplyMediaRecoveryTests(SimpleTestCase):
 
 
 class PaymentLinkGateTests(SimpleTestCase):
+    # F-DEBT-005: `finalize_paylink` читает БД (`services/instagram_bot.py`,
+    # поиск сделки по клиенту), поэтому `SimpleTestCase` падал с
+    # `DatabaseOperationForbidden`. Объявляем доступ к БД явно вместо
+    # смены базового класса — так тест остаётся без транзакционной обёртки,
+    # как и был задуман.
+    databases = {"default"}
+
     def test_product_question_cannot_open_payment_link(self):
         from management.services.instagram_bot import payment_link_allowed
 

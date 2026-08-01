@@ -607,6 +607,55 @@ def poll_deal_status(deal) -> str:
     return status
 
 
+SUPERSEDED_INVOICE_HISTORY_LIMIT = 20
+
+
+def supersede_invoice(deal) -> list[str]:
+    """Запомнить текущий `invoice_id` и обнулить ссылку на оплату.
+
+    F-PAY-001: раньше `invoice_id` просто затирался при смене товара или типа
+    оплаты, а инвойс в Monobank оставался оплачиваемым. Платёж по старой
+    ссылке приходил в webhook, сделка по нему не находилась, и деньги
+    оказывались получены без сделки, заказа и уведомления менеджеру.
+
+    Возвращает список изменённых полей — вызывающий включает его в
+    `save(update_fields=...)`.
+    """
+    old = (deal.invoice_id or "").strip()
+    fields = ["invoice_id", "invoice_url"]
+    if old:
+        history = [str(v) for v in (deal.superseded_invoice_ids or [])]
+        if old not in history:
+            history.append(old)
+            deal.superseded_invoice_ids = history[-SUPERSEDED_INVOICE_HISTORY_LIMIT:]
+            fields.append("superseded_invoice_ids")
+    deal.invoice_id = ""
+    deal.invoice_url = ""
+    return fields
+
+
+def _deal_for_superseded_invoice(invoice_id: str):
+    """Найти сделку, для которой этот инвойс был замещён.
+
+    Сравнение строго по элементу списка, а не по подстроке JSON: иначе
+    `mono-invoice-ol` совпал бы с `mono-invoice-old`.
+    """
+    from management.models import IgDeal
+
+    needle = (invoice_id or "").strip()
+    if not needle:
+        return None
+    candidates = (
+        IgDeal.objects.exclude(superseded_invoice_ids=[])
+        .filter(superseded_invoice_ids__icontains=needle)
+        .order_by("-id")[:50]
+    )
+    for deal in candidates:
+        if needle in [str(v) for v in (deal.superseded_invoice_ids or [])]:
+            return deal
+    return None
+
+
 def handle_webhook_invoice(invoice_id, payload=None, request=None) -> bool:
     """Викликається з monobank_webhook, коли invoice не належить Order/накладній.
     Якщо це invoice угоди IG-бота — pull-верифікуємо і застосовуємо. True, якщо
@@ -614,9 +663,43 @@ def handle_webhook_invoice(invoice_id, payload=None, request=None) -> bool:
     from management.models import IgDeal
 
     deal = IgDeal.objects.filter(invoice_id=invoice_id).order_by("-id").first()
-    if not deal:
+    if deal:
+        poll_deal_status(deal)
+        return True
+
+    # Платёж по замещённой ссылке. Деньги пришли, но актуальная сделка
+    # описывает уже другой товар или другой тип оплаты, поэтому решение
+    # обязан принять человек — автоматически применять такое нельзя.
+    superseded = _deal_for_superseded_invoice(invoice_id)
+    if not superseded:
         return False
-    poll_deal_status(deal)
+    import logging
+
+    from management.services import instagram_bot
+
+    poll_deal_status(superseded)
+    client_label = (
+        superseded.client.username
+        or superseded.client.display_name
+        or superseded.client.igsid
+        if superseded.client_id
+        else f"deal#{superseded.pk}"
+    )
+    try:
+        instagram_bot.notify_manager(
+            "⚠️ Оплата за застарілим посиланням\n"
+            f"Клієнт: {client_label}\n"
+            f"Угода #{superseded.pk}, invoice {invoice_id}\n"
+            "Посилання було замінено (зміна товару або типу оплати), "
+            "тому платіж потребує ручного розбору.",
+            dedupe_key=f"superseded-invoice:{invoice_id}",
+            event_type="superseded_invoice_payment",
+            client=superseded.client if superseded.client_id else None,
+        )
+    except Exception:
+        logging.getLogger(__name__).exception(
+            "Failed to alert manager about superseded invoice %s", invoice_id
+        )
     return True
 
 

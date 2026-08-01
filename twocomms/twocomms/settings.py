@@ -593,6 +593,18 @@ LOGGING = {
             'level': 'WARNING',
             'propagate': False,
         },
+        # F-SEC-007 / F-OPS-004: логгер был объявлен в коде
+        # (`management/bot_webhook.py`), но не в конфигурации, поэтому
+        # `logger.warning("ig_bot: bad signature")` уходил в никуда.
+        # Единственным следом оставалась таблица `InstagramBotLog`,
+        # которая обрезается до 500 строк — из-за этого шестидневный
+        # отказ приёма webhook (≈2268 отклонённых запросов Meta)
+        # сохранил в БД лишь 5% записей и был замечен случайно.
+        'ig_bot': {
+            'handlers': ['console', 'app_file', 'app_error_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
         'storefront.social_pipeline': {
             'handlers': ['console', 'app_file'],
             'level': 'INFO',

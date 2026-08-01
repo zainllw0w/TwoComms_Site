@@ -1206,11 +1206,15 @@ def _create_deal_and_link_unlocked(
         deal.requested_payment_evidence_ids = (
             prepayment_decision.get("evidence_message_ids") if prepayment_decision else []
         )
-        deal.invoice_id = ""
-        deal.invoice_url = ""
+        # F-PAY-001: старый invoice остаётся оплачиваемым в Monobank,
+        # поэтому его нельзя просто затирать — иначе платёж по нему
+        # не найдёт сделку.
+        from management.services.bot_payments import supersede_invoice
+
+        superseded_fields = supersede_invoice(deal)
         deal.save(update_fields=[
             "pay_type", "requested_payment_amount", "requested_payment_evidence_ids",
-            "invoice_id", "invoice_url", "updated_at",
+            *superseded_fields, "updated_at",
         ])
 
     deal.recalc_total()
@@ -1392,6 +1396,61 @@ SHIPMENT_RESPONSE_WINDOW = timedelta(hours=23)
 SHIPMENT_REVIEW_REASONS = {"shipment_human_review", "shipment_delivery_review"}
 
 
+def _shipment_active_opt_out(client) -> bool:
+    """Отказ от сообщений активен, если он новее последнего согласия.
+
+    Тот же предикат, что в `ig_order_fulfillment._active_opt_out:237-241` —
+    сознательно повторяем семантику, а не изобретаем свою.
+    """
+    return bool(
+        client.opted_out_at
+        and (not client.opted_in_at or client.opted_in_at < client.opted_out_at)
+    )
+
+
+def _shipment_block_reason(settings_obj, client) -> str | None:
+    """Почему клиенту нельзя писать сейчас. `None` — можно.
+
+    F-CORE-001: этот путь отправлял ТТН в обход всей permission-модели —
+    не читались ни `is_enabled` (то есть кнопка «стоп бота» его не
+    останавливала), ни `bot_paused`, ни `manager_takeover`, ни `is_blocked`,
+    ни `hidden_at`, ни opt-out. Эталон запретов — `deliver_event:337-371`.
+
+    Порядок проверок повторяет эталон: сначала глобальное состояние, потом
+    необратимые запреты клиента, потом временные (пауза/перехват).
+    """
+    if not settings_obj or not settings_obj.is_enabled:
+        return "bot_disabled"
+    if client is None:
+        return "client_missing"
+    if client.hidden_at:
+        return "client_hidden"
+    if client.is_blocked:
+        return "client_blocked"
+    if _shipment_active_opt_out(client):
+        return "client_opted_out"
+    if client.bot_paused:
+        return "bot_paused"
+    if client.manager_takeover:
+        return "manager_takeover"
+    return None
+
+
+def _shipment_permission_boundary(settings_obj, client):
+    """Фабрика boundary для `send_text`, как в `deliver_event:387-401`.
+
+    Без неё отправка шла вне epoch-модели: остановка бота между выборкой
+    сделки и фактической отправкой не отменяла сообщение.
+    """
+    from management.services.ig_reply_boundary import (
+        capture_reply_permission,
+        customer_send_boundary,
+    )
+
+    permission = capture_reply_permission(settings_obj.pk, client.pk)
+    return lambda: customer_send_boundary(settings_obj.pk, client.pk, permission)
+
+
 def _shipment_message(ttn: str) -> str:
     return (
         "📦 Гарна новина — ваше замовлення вже відправлено Новою Поштою! 🚚\n"
@@ -1560,6 +1619,18 @@ def notify_shipped_deals(limit: int = 50) -> int:
                 continue
 
         text = _shipment_message(ttn)
+
+        # F-CORE-001: запреты проверяем ДО любой попытки отправки.
+        block_reason = _shipment_block_reason(s, deal.client)
+        if block_reason:
+            _queue_shipment_manager_review(
+                deal,
+                text,
+                reason="shipment_human_review",
+                hint=f"send_blocked:{block_reason}",
+            )
+            continue
+
         existing_review = deal.followup_tasks.filter(
             reason__in=SHIPMENT_REVIEW_REASONS
         ).first()
@@ -1585,7 +1656,14 @@ def notify_shipped_deals(limit: int = 50) -> int:
             )
             continue
         try:
-            ok, kind, hint = send_text(s, deal.client.igsid, text)
+            ok, kind, hint = send_text(
+                s,
+                deal.client.igsid,
+                text,
+                permission_boundary_factory=_shipment_permission_boundary(
+                    s, deal.client
+                ),
+            )
         except Exception as exc:
             ok, kind, hint = False, "unknown", repr(exc)
         if ok:
@@ -1636,6 +1714,19 @@ def notify_shipped_deals(limit: int = 50) -> int:
         if not ttn or not episode.client_id:
             continue
         text = _shipment_message(ttn)
+
+        # F-CORE-001: вторая ветка отправки (эпизоды без сделки) обязана
+        # соблюдать те же запреты, иначе дыра просто переезжает сюда.
+        block_reason = _shipment_block_reason(s, episode.client)
+        if block_reason:
+            _queue_episode_shipment_manager_review(
+                episode,
+                text,
+                reason="shipment_human_review",
+                hint=f"send_blocked:{block_reason}",
+            )
+            continue
+
         existing_review = episode.client.followup_tasks.filter(
             reason__in={
                 f"shipment_human_review:episode:{episode.pk}",
@@ -1664,7 +1755,14 @@ def notify_shipped_deals(limit: int = 50) -> int:
             )
             continue
         try:
-            ok, kind, hint = send_text(s, episode.client.igsid, text)
+            ok, kind, hint = send_text(
+                s,
+                episode.client.igsid,
+                text,
+                permission_boundary_factory=_shipment_permission_boundary(
+                    s, episode.client
+                ),
+            )
         except Exception as exc:
             ok, kind, hint = False, "unknown", repr(exc)
         if ok:

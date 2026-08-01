@@ -164,6 +164,22 @@ class SendTextTaggedTests(TestCase):
 
 
 class NotifyShippedDealsTests(TestCase):
+    def setUp(self):
+        """Бот включён — это предусловие любой автоотправки.
+
+        До F-CORE-001 `notify_shipped_deals` не читала `is_enabled`, поэтому
+        тесты и не выставляли его (по умолчанию `False`). Теперь путь
+        соблюдает глобальный стоп, как `ig_order_fulfillment.deliver_event`,
+        и предусловие надо выражать явно. Тестам «не отправлять» это тоже
+        на пользу: они теперь доказывают, что блокировка пришла именно от
+        проверяемого условия, а не от выключенного бота.
+        """
+        from management.models import InstagramBotSettings
+
+        settings_row = InstagramBotSettings.load()
+        settings_row.is_enabled = True
+        settings_row.save(update_fields=["is_enabled"])
+
     @patch("management.services.bot_orders.notify_manager")
     @patch("management.services.bot_orders.send_text", create=True)
     def test_active_assignment_is_exclusively_owned_by_fulfillment_queue(
