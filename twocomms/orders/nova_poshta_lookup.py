@@ -112,6 +112,37 @@ class NovaPoshtaDirectoryService:
             self.WAREHOUSE_CACHE_TTL,
         )
 
+    def get_warehouse_by_ref(self, warehouse_ref: str) -> dict[str, Any] | None:
+        """Return one canonical warehouse record for a previously validated Ref."""
+        normalized_ref = str(warehouse_ref or "").strip()
+        if not normalized_ref:
+            return None
+        cache_key = self._cache_key("warehouse_ref", {"ref": normalized_ref})
+        cached = cache.get(cache_key)
+        if cached:
+            return cached
+
+        # Ref responses carry CategoryOfWarehouse/Description, so resolving a
+        # historical order does not need an extra getWarehouseTypes API call.
+        type_map: dict[str, str] = {}
+        last_error: NovaPoshtaLookupError | None = None
+        for model_name in ("Address", "AddressGeneral"):
+            try:
+                payload = self._request(model_name, "getWarehouses", {"Ref": normalized_ref})
+            except NovaPoshtaLookupError as exc:
+                if "many requests" in str(exc).lower():
+                    raise
+                last_error = exc
+                continue
+            records = self._transform_warehouses(payload, type_map=type_map, kind="all")
+            for record in records:
+                if record.get("ref") == normalized_ref:
+                    cache.set(cache_key, record, self.WAREHOUSE_DIRECTORY_CACHE_TTL)
+                    return record
+        if last_error is not None:
+            raise last_error
+        return None
+
     def _search_settlements_uncached(self, query: str, limit: int) -> list[dict[str, Any]]:
         payload = self._request(
             "Address",
@@ -394,16 +425,28 @@ class NovaPoshtaDirectoryService:
                 continue
 
             ref = str(item.get("Ref") or "").strip()
-            label = str(
-                item.get("ShortAddress")
-                or item.get("Description")
-                or item.get("DescriptionRu")
-                or ""
-            ).strip()
-            if not ref or not label:
+            short_address = str(item.get("ShortAddress") or "").strip()
+            description = str(item.get("Description") or item.get("DescriptionRu") or "").strip()
+            if not ref or not (short_address or description):
                 continue
 
             warehouse_kind = self._detect_warehouse_kind(item, type_map)
+            number = str(item.get("Number") or "").strip()
+            point_label = "Поштомат" if warehouse_kind == "postomat" else "Відділення"
+            if number:
+                display_title = f"{point_label} № {number}"
+            else:
+                display_title = description or point_label
+            short_address_folded = short_address.casefold()
+            short_has_point_identity = bool(number and number in short_address) and any(
+                marker in short_address_folded
+                for marker in ("поштомат", "відділен", "отделен", "postomat", "branch")
+            )
+            label = short_address if short_has_point_identity else display_title
+            if short_address and not short_has_point_identity and short_address_folded not in display_title.casefold():
+                label = f"{display_title}: {short_address}"
+            if not label:
+                continue
             if kind != "all" and warehouse_kind != kind:
                 continue
             if ref in seen:
@@ -415,9 +458,9 @@ class NovaPoshtaDirectoryService:
                     "ref": ref,
                     "label": label,
                     "kind": warehouse_kind,
-                    "number": str(item.get("Number") or "").strip(),
-                    "short_address": str(item.get("ShortAddress") or "").strip(),
-                    "description": str(item.get("Description") or "").strip(),
+                    "number": number,
+                    "short_address": short_address,
+                    "description": description,
                     "city_ref": str(item.get("CityRef") or item.get("SettlementRef") or "").strip(),
                 }
             )

@@ -48,6 +48,7 @@ from orders.nova_poshta_documents import (
     canonicalize_payment_status,
     get_payment_status_label,
 )
+from orders.delivery_display import get_order_nova_poshta_point
 from ..models import (
     OfflineStore,
     PageView,
@@ -501,6 +502,10 @@ def _build_orders_context(request):
         order.payment_last_status = last_entry.get('status') or payload.get('last_status')
         order.payment_last_time = last_entry.get('received_at') or last_entry.get('ts') or payload.get('last_update_at')
         order.payment_history_safe = history[-10:]
+        # Keep the delivery card consistent for both new and legacy orders.
+        # ``np_office`` is the source of truth; the display helper also
+        # recovers the point type/number from older labels.
+        order.delivery_display = get_order_nova_poshta_point(order)
         write_offs = getattr(order, 'admin_write_off_requests', [])
         if any(item.status == WriteOffRequest.STATUS_COMPLETED for item in write_offs):
             order.admin_writeoff_state = 'completed'
