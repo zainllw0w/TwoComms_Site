@@ -2066,3 +2066,95 @@ Advanced Access). Значит **месяц, с 14 июня по 10 июля, б
 - **Направление фикса (P2):** диагностику подписки делать без query-токена
   либо через POST; при возможности — маскировать `hub.verify_token` в логах
   веб-сервера. Ротировать verify-токен после этого.
+
+---
+
+# Волна W1 — безопасность данных (внедрено 2026-08-01)
+
+Реализовано в коммите `fix(ig-bot): close anonymous data destruction paths`.
+Ветка `codex/ig-bot-w1-data-safety`, база `b450b5c2` (origin/main).
+Решение по гранулярности прав reviewer — `04_DECISION_LOG.md`, DR-006.
+
+## F-SEC-002 → ЗАКРЫТО
+
+- **Было:** `POST /data-deletion/submit/` без авторизации удалял карточку
+  клиента, всю переписку, сырые события и логи по публично известному
+  Instagram-username.
+- **Стало:** форма создаёт заявку в новом статусе
+  `BotDataDeletionRequest.Status.PENDING_VERIFICATION` и **не удаляет ничего**.
+  Исполнение — `services/ig_data_deletion.fulfill_deletion_request`, вызывается
+  командой `fulfill_ig_data_deletion` (`--list`, `--dry-run`, `--actor`).
+  Актор попадает в `detail` записи-audit. Повторное исполнение поднимает
+  `DeletionRequestNotActionable` — молчаливый no-op скрыл бы двойное нажатие.
+- **Путь Meta не тронут:** `/data-deletion/callback/` со signed_request
+  продолжает удалять сразу — там владение доказано HMAC-подписью.
+- **Совместимость с политикой:** страница уже обещала
+  «We may ask for limited verification information... After verification,
+  we will delete or anonymize eligible bot records». Реализация приведена
+  в соответствие с текстом, а не наоборот.
+- **Red-тест до правки:** анонимный POST удалял карточку — `AssertionError:
+  False is not true : анонимный POST не должен удалять карточку клиента`.
+- **Миграция:** `0120_bot_deletion_pending_verification` — только `choices`,
+  колонка БД не меняется.
+
+## F-SEC-003 → ЗАКРЫТО
+
+- **Было:** `InstagramBotLog.objects.filter(detail__icontains=normalized).delete()`.
+- **Red-тесты воспроизвели оба края дефекта:**
+  - идентификатор `"0"` удалил **5 из 6** строк лога
+    (`AssertionError: 1 != 6`);
+  - лог **другого** клиента, где в тексте упоминался username удаляемого,
+    тоже стирался;
+  - при этом поиск по username **не удалял** логи самого клиента, потому что
+    в `detail` пишется igsid, а не username. Код одновременно и переудалял,
+    и недоудалял.
+- **Стало:** `_log_rows_for_sender_ids` — только структурная принадлежность
+  IGSID. Якорь-двоеточие (`"100:"` не совпадёт с `"1001: ..."`), порог длины
+  `_MIN_IGSID_LEN = 6` и требование `isdigit()`. Совпадение по username,
+  display_name и подстроке свободного текста исключено полностью.
+
+## F-SEC-009 → ЗАКРЫТО в части `InstagramBotLog`
+
+- **Было:** `log("info", event, f"[{source}] {sender_id}: {text[:140]}{extra}")`
+  — телефон, адрес отделения и имя клиента оседали в таблице, которую видит
+  в том числе внешний Meta-reviewer.
+- **Стало:** `_inbound_log_detail(source, sender_id, text, extra)` пишет
+  источник, sender_id, длину текста и метку вложений. Диагностическая ценность
+  сохранена, PII нет.
+- **Не входит в этот срез:** текст в Telegram-уведомлениях менеджеру
+  (`instagram_bot.py:5394, 5527`, `row.text[:300]`). Это рабочий инструмент
+  менеджера — он должен видеть вопрос клиента, чтобы ответить. Убирать нельзя
+  без замены механизма.
+
+## F-SEC-002, слой 3 → ЗАКРЫТО (rate-limit)
+
+- **Было:** `/data-deletion/submit/` попадал в класс `staff_write` = 600/60с.
+- **Стало:** новый класс `public_destructive` = 10/60с,
+  `_RATE_LIMIT_PUBLIC_DESTRUCTIVE_PATHS` проверяется до webhook-ветки.
+- **Red-тест:** `AssertionError: 600 not less than or equal to 30`.
+
+## F-SEC-004 → ЗАКРЫТО частично (см. DR-006)
+
+- **Red-тест до правки:** все 8 мутирующих эндпоинтов отвечали reviewer'у
+  `200` вместо `403`.
+- **Стало:** 403 на pause/resume/hide/unhide/mark_lost реальных карточек;
+  `gemini_model` и `receive_via_poll` reviewer больше не меняет;
+  start/stop и `ai_enabled` оставлены осознанно, но пишут `reviewer_action`
+  с именем актора и уведомляют менеджера.
+- **Остаётся открытым:** reviewer видит список клиентов с PII и консоль лога.
+  Отдельный тестовый клиент для reviewer — отдельная задача.
+
+## F-DEBT-005 (НОВАЯ, P3): пред-существующее падение теста на origin/main
+
+- **Факт:** `management.tests_ig_media_workflow.PaymentLinkGateTests.
+  test_unverified_price_tag_fails_closed_before_provider_invoice` падает с
+  `DatabaseOperationForbidden: Database queries to 'default' are not allowed
+  in SimpleTestCase subclasses`.
+- **Причина:** класс наследует `SimpleTestCase`, а `finalize_paylink`
+  (`services/instagram_bot.py:753`) делает запрос к БД.
+- **Проверено, что это не мои правки:** падение воспроизведено на чистом
+  `origin/main` после `git stash` моих изменений — тот же тест, та же ошибка.
+- **Влияние:** прогон домена нельзя использовать как зелёный gate, пока
+  не исправлено. Из 1262 тестов это единственное падение.
+- **Фикс (P3, одна строка):** заменить базовый класс на `TestCase`
+  либо объявить `databases = {"default"}`.
