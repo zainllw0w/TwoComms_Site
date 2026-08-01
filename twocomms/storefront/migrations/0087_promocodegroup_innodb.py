@@ -30,6 +30,8 @@ def ensure_promocodegroup_innodb(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
+    atomic = False
+
     dependencies = [
         ("storefront", "0086_marketplace_feed_profiles"),
     ]

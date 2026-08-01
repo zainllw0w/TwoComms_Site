@@ -1,5 +1,6 @@
 import json
 from decimal import Decimal
+from importlib import import_module
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -295,4 +296,11 @@ class PromoEngineMigrationContractTests(TestCase):
         self.assertTrue(
             migration.exists(),
             "PromoCodeGroup needs a forward migration because production is MyISAM",
+        )
+        migration_module = import_module(
+            "storefront.migrations.0087_promocodegroup_innodb"
+        )
+        self.assertFalse(
+            migration_module.Migration.atomic,
+            "MySQL/MariaDB engine DDL cannot run inside an atomic migration",
         )
