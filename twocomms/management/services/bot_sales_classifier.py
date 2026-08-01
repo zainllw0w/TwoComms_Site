@@ -319,9 +319,11 @@ def _record_context_provenance(
 
 
 def _analysis_band(client: IgClient, result: dict) -> str:
-    from management.services.bot_payment_truth import client_has_verified_payment
+    from management.services.bot_payment_truth import client_has_confirmed_purchase
 
-    if client_has_verified_payment(client):
+    # CRM presentation, not provider revenue: a purchase confirmed by a manager
+    # is still a purchase for the person we are talking to (IMP-013).
+    if client_has_confirmed_purchase(client):
         return IgConversationAnalysisSnapshot.Band.PAID
     if result.get("interaction_type") == IgConversationAnalysisSnapshot.InteractionType.OPT_OUT:
         return IgConversationAnalysisSnapshot.Band.OPTED_OUT
@@ -413,9 +415,9 @@ def project_observed_stage(
     """Advance CRM stage from stored evidence even while replies are paused."""
     if not client or not getattr(client, "pk", None) or client.hidden_at:
         return getattr(client, "stage", IgClient.Stage.NEW)
-    from management.services.bot_payment_truth import client_has_verified_payment
+    from management.services.bot_payment_truth import client_has_confirmed_purchase
 
-    verified_payment = client_has_verified_payment(client)
+    verified_payment = client_has_confirmed_purchase(client)
     deal_states = set(client.deals.values_list("status", flat=True))
     target = observed_stage_target(
         client.stage,
@@ -437,10 +439,10 @@ def project_observed_stage(
 
 def _aggregate_interaction_type(client: IgClient, signal_types: Iterable[str]) -> str:
     signals = set(signal_types or ())
-    from management.services.bot_payment_truth import client_has_verified_payment
+    from management.services.bot_payment_truth import client_has_confirmed_purchase
 
     types = IgConversationAnalysisSnapshot.InteractionType
-    if client_has_verified_payment(client):
+    if client_has_confirmed_purchase(client):
         return types.PAID_ORDER_WAITING
     if IgConversationSignal.Type.CHECKOUT_STARTED in signals:
         return types.HIGH_INTENT
@@ -515,7 +517,7 @@ def reconcile_rules_projection(
 
 
 def _interaction_type(client: IgClient, result: dict, text: str, role: str) -> str:
-    from management.services.bot_payment_truth import client_has_verified_payment
+    from management.services.bot_payment_truth import client_has_confirmed_purchase
 
     types = IgConversationAnalysisSnapshot.InteractionType
     if role == InstagramBotMessage.Role.MANAGER:
@@ -528,7 +530,7 @@ def _interaction_type(client: IgClient, result: dict, text: str, role: str) -> s
         return types.EXPLICIT_NO_BUY
     if SUPPORT_RE.search(text or ""):
         return types.SUPPORT_COMPLAINT
-    if client_has_verified_payment(client):
+    if client_has_confirmed_purchase(client):
         return types.PAID_ORDER_WAITING
     if client.stage == IgClient.Stage.SPAM or client.is_blocked:
         return types.SPAM_ABUSE
@@ -744,9 +746,10 @@ def classify_message(
         objection = IgClient.Objection.NO_BUY
         client.lost_reason = "no_buy"
         add(IgConversationSignal.Type.LOST, conf=0.95, value="no_buy")
-        from management.services.bot_payment_truth import client_has_verified_payment
+        from management.services.bot_payment_truth import client_has_confirmed_purchase
 
-        if not client_has_verified_payment(client):
+        # A buyer who declines the next offer is not a cold lead.
+        if not client_has_confirmed_purchase(client):
             try:
                 client.set_stage(IgClient.Stage.COLD, reason="no_buy")
             except Exception:
@@ -830,7 +833,7 @@ def classify_message(
         add(IgConversationSignal.Type.SELF_PURCHASE, conf=0.75)
         readiness += 8
 
-    from management.services.bot_payment_truth import client_has_verified_payment
+    from management.services.bot_payment_truth import client_has_confirmed_purchase
 
     readiness = _resolve_readiness(
         previous_readiness,
@@ -842,7 +845,9 @@ def classify_message(
         soft_negative=bool(DEFER_RE.search(low)) and not bool(
             IgConversationSignal.Type.CHECKOUT_STARTED in signals
         ),
-        verified_payment=client_has_verified_payment(client),
+        # F-SCORE-004: six polite messages after a purchase used to decay the
+        # score to zero, because the only guard read provider truth.
+        verified_payment=client_has_confirmed_purchase(client),
     )
     client.language = lang
     client.intent = intent

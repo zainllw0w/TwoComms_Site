@@ -20,6 +20,7 @@ from management.models import (
 from management.services.bot_payment_truth import (
     TERMINAL_NEGATIVE_PAYMENT_TRUTHS,
     client_has_terminal_negative_payment,
+    client_has_confirmed_purchase,
     client_has_verified_payment,
     verified_payment_deals,
 )
@@ -115,7 +116,7 @@ def _client_allows_followup(client: IgClient, *, deal: IgDeal | None = None) -> 
         if truth in TERMINAL_NEGATIVE_PAYMENT_TRUTHS:
             return False, "payment_reversed"
     else:
-        if client_has_verified_payment(client):
+        if client_has_confirmed_purchase(client):
             return False, "already_converted"
         if client_has_terminal_negative_payment(client):
             return False, "payment_reversed"

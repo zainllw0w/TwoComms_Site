@@ -12,7 +12,7 @@ from management.ig_bot_models import (
     IgConversationAnalysisJob,
     IgFunnelResetAudit,
 )
-from management.services.bot_payment_truth import client_has_verified_payment
+from management.services.bot_payment_truth import client_has_confirmed_purchase
 from management.services import bot_followups
 from management.services.ig_reply_boundary import pause_reply_boundary
 
@@ -110,8 +110,17 @@ def reset_funnel(*, client_id: int, actor, reason: str = "manual_reset") -> dict
                 "current_commercial_episode_id": client.current_commercial_episode_id,
             }
 
-            verified = client_has_verified_payment(client)
-            has_order = client.deals.filter(order_id__isnull=False).exists()
+            verified = client_has_confirmed_purchase(client)
+            # A reset must not erase the fact of a purchase. Deals are only one
+            # of the ways an order becomes ours: on production the exchange case
+            # of client #59 hangs on an assignment with no deal at all.
+            has_order = (
+                client.deals.filter(order_id__isnull=False).exists()
+                or client.order_assignments.filter(
+                    unassigned_at__isnull=True, order_id__isnull=False
+                ).exists()
+                or client.order_attributions.filter(order_id__isnull=False).exists()
+            )
             if verified:
                 resulting_stage = (
                     IgClient.Stage.ORDER_CREATED if has_order else IgClient.Stage.PAID

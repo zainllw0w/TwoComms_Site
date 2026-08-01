@@ -402,16 +402,17 @@ def create_order_from_deal(deal, *, created_by=None):
         from management.models import IgClient
 
         c = deal.client
-        update_fields = ["current_product", "updated_at"]
-        if legacy_verified:
-            c.purchases_count = (c.purchases_count or 0) + 1
-            c.total_spent = (c.total_spent or Decimal("0")) + (deal.amount or Decimal("0"))
-            flags = dict(c.conversion_flags or {})
-            flags["is_buyer"] = True
-            c.conversion_flags = flags
-            update_fields.extend(["purchases_count", "total_spent", "conversion_flags"])
         c.current_product = None
-        c.save(update_fields=update_fields)
+        c.save(update_fields=["current_product", "updated_at"])
+        # IMP-013: previously this incremented ``purchases_count`` in place while
+        # ``recalculate_client_payment_aggregates`` recomputed the same fields
+        # from payment projections. Two writers with different units meant the
+        # recompute silently erased the increment. One writer now owns them.
+        from management.services.bot_payment_truth import (
+            recalculate_client_payment_aggregates,
+        )
+
+        recalculate_client_payment_aggregates(c)
         c.set_stage(IgClient.Stage.ORDER_CREATED, reason="order")
     except Exception:
         pass

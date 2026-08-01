@@ -41,7 +41,10 @@ from .models import (
 from .ig_bot_models import IgCheckoutAccessToken, IgCheckoutProposal, IgCheckoutRevision, IgLifecycleEvent, IgFollowUpTask
 from .services import instagram_bot as bot
 from .services.bot_payment_truth import (
+    annotate_confirmed_purchase,
     annotate_verified_payment,
+    client_has_confirmed_purchase,
+    client_has_verified_payment,
     latest_payment_projection,
     latest_legacy_payment_truth_deal,
     latest_verified_payment_deal,
@@ -344,6 +347,20 @@ def app_review_info(request):
     response = render(request, "management/app_review_info.html")
     response["Cache-Control"] = "public, max-age=300"
     return response
+
+
+def _display_band(band, *, verified_payment: bool):
+    """Каким состоянием показывать снапшот в карточке клиента (F-SCORE-003).
+
+    Дубль понижения `paid → checkout`, который жил здесь, затирал «оплачено»
+    даже тогда, когда оплату подтвердила сама система. Теперь понижаем только
+    неподтверждённое утверждение модели.
+    """
+    from .ig_bot_models import IgConversationAnalysisSnapshot
+
+    if band == IgConversationAnalysisSnapshot.Band.PAID and not verified_payment:
+        return IgConversationAnalysisSnapshot.Band.CHECKOUT
+    return band
 
 
 def _require_admin_json(request):
@@ -3093,9 +3110,10 @@ def _client_potential_payload(c, latest_analysis, *, latest_message_id=None) -> 
         if not current_episode_id
         else "historical_episode"
     )
-    band = latest_analysis.score_band
-    if band == IgConversationAnalysisSnapshot.Band.PAID:
-        band = IgConversationAnalysisSnapshot.Band.CHECKOUT
+    band = _display_band(
+        latest_analysis.score_band,
+        verified_payment=client_has_confirmed_purchase(c),
+    )
     if band not in label_by_band:
         band = "unknown"
     return {
@@ -3467,6 +3485,9 @@ def bot_clients_api(request):
             has_physical_order=Exists(physical_orders),
         )
     ))
+    # `client_has_confirmed_purchase` is called once per row further down.
+    # Annotating it here keeps the 200-client list at a constant query count.
+    qs = annotate_confirmed_purchase(qs)
     unfiltered_qs = qs
     if view in {"hidden"}:
         qs = qs.filter(hidden_at__isnull=False)

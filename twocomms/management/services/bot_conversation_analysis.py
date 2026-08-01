@@ -29,7 +29,7 @@ from management.models import (
     InstagramBotMessage,
     InstagramBotSettings,
 )
-from management.services.bot_payment_truth import client_has_verified_payment
+from management.services.bot_payment_truth import client_has_confirmed_purchase
 from management.services.call_ai_analysis import gemini_generate_json
 from management.services.ig_funnel_reset import current_message_floor
 
@@ -354,7 +354,10 @@ def _required_truth_state(client: IgClient) -> dict:
             ),
         })
     return {
-        "verified_payment": client_has_verified_payment(client),
+        # CRM truth (provider OR source-qualified manager confirmation). The
+        # per-source provider/manager amounts stay available below through
+        # ``client_payment_truth_state``, so nothing is hidden from the model.
+        "verified_payment": client_has_confirmed_purchase(client),
         "order_truth": order_truth,
         **client_payment_truth_state(client),
     }
@@ -783,11 +786,27 @@ def _normalize(parsed: dict, by_id: dict[int, dict], *, verified_payment: bool) 
             interaction_type = IgConversationAnalysisSnapshot.InteractionType.INFORMATION_ONLY
             uncertainties.append("custom_print_user_evidence_missing")
 
-    if band == IgConversationAnalysisSnapshot.Band.PAID or interaction_type == IgConversationAnalysisSnapshot.InteractionType.PAID_ORDER_WAITING:
-        band = IgConversationAnalysisSnapshot.Band.CHECKOUT
-        interaction_type = IgConversationAnalysisSnapshot.InteractionType.PAYMENT_PENDING
-        probability = min(probability, Decimal("0.9500"))
-        if not verified_payment:
+    if (
+        band == IgConversationAnalysisSnapshot.Band.PAID
+        or interaction_type
+        == IgConversationAnalysisSnapshot.InteractionType.PAID_ORDER_WAITING
+    ):
+        # F-SCORE-003: понижение имеет смысл, пока «оплачено» — это утверждение
+        # модели: слова клиента деньгами не являются. Но когда факт оплаты
+        # подтверждён самой системой, понижать нечего — мы затирали бы
+        # собственную истину, и клиент навсегда оставался «в процессі оплати».
+        # На проде это и наблюдалось: `score_band='paid'` — 0 записей из 1792.
+        if verified_payment:
+            band = IgConversationAnalysisSnapshot.Band.PAID
+            interaction_type = (
+                IgConversationAnalysisSnapshot.InteractionType.PAID_ORDER_WAITING
+            )
+        else:
+            band = IgConversationAnalysisSnapshot.Band.CHECKOUT
+            interaction_type = (
+                IgConversationAnalysisSnapshot.InteractionType.PAYMENT_PENDING
+            )
+            probability = min(probability, Decimal("0.9500"))
             uncertainties.append("payment_unverified")
 
     evidence = []

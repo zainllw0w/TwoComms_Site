@@ -76,7 +76,19 @@ class FulfillTests(TestCase):
         with self.assertRaisesMessage(ValueError, "provider-confirmed payment"):
             bot_orders.create_order_from_deal(d)
 
-    def test_manager_only_receipt_order_does_not_record_purchase(self):
+    def test_manager_only_receipt_order_is_not_provider_revenue(self):
+        """Чек, перевірений менеджером, не стає виручкою провайдера.
+
+        IMP-013 осознанно змінив третю частину цього тесту. Перші дві —
+        `payment_status="unpaid"` і відсутність `UserAction(purchase)` — це і є
+        захист грошей, вони посилені. А `purchases_count=0` захищав **CRM-поле**
+        грошовою мотивацією, і саме ця злитість двох питань в одну функцію є
+        F-DATA-005: система не знала жодного покупця з 289, включно з клієнтом,
+        який оплатив, отримав товар і вже обмінює розмір.
+
+        Тепер покупка фіксується, але її походження позначене:
+        `purchase_provider_unverified=True`.
+        """
         from management.ig_bot_models import IgPaymentConfirmationReview
         from management.services.ig_payment_review import record_review_decision
         from storefront.models import UserAction
@@ -113,10 +125,23 @@ class FulfillTests(TestCase):
         self.assertFalse(
             UserAction.objects.filter(action_type="purchase", order_id=order.pk).exists()
         )
+        from management.services.bot_payment_truth import (
+            client_has_confirmed_purchase,
+            client_has_verified_payment,
+        )
+
         client.refresh_from_db()
-        self.assertEqual(client.purchases_count, 0)
-        self.assertEqual(client.total_spent, Decimal("0.00"))
-        self.assertFalse((client.conversion_flags or {}).get("is_buyer", False))
+        # Захист грошей: провайдерська істина лишається непідтвердженою.
+        self.assertFalse(client_has_verified_payment(client))
+        # CRM-істина: людина у нас купила, і бот мусить це знати.
+        self.assertTrue(client_has_confirmed_purchase(client))
+        self.assertEqual(client.purchases_count, 1)
+        self.assertEqual(client.total_spent, Decimal("950.00"))
+        self.assertTrue((client.conversion_flags or {}).get("is_buyer", False))
+        self.assertTrue(
+            (client.conversion_flags or {}).get("purchase_provider_unverified", False),
+            "сума, підтверджена лише менеджером, мусить бути позначена як така",
+        )
 
     @patch("management.services.bot_orders.notify_manager")
     def test_provider_prepayment_notification_uses_paid_amount_not_order_total(self, notify):

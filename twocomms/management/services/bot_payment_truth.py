@@ -3,8 +3,23 @@
 Conversation stages are model- and manager-facing workflow state.  They are
 never sufficient evidence of money received.  This module is the single query
 contract for code that needs confirmed payment truth.
+
+Two different questions live here and must not be collapsed into one predicate
+(DR-001, refined by DR-007):
+
+``client_has_verified_payment``
+    "Did the payment provider confirm money for a deal?"  Authoritative for
+    money and fulfillment: invoice creation, order materialization, shipment
+    notification.  A manager looking at a receipt is not a provider ledger.
+
+``client_has_confirmed_purchase``
+    "Has this person bought from us?"  Authoritative for CRM: tone of voice,
+    scoring, funnel state, follow-up suppression.  Wrong answers here cost a
+    relationship, not money, so manager-confirmed evidence counts.
 """
 from __future__ import annotations
+
+from decimal import Decimal, InvalidOperation
 
 from django.db.models import Count, DecimalField, Exists, ExpressionWrapper, F, OuterRef, Q, QuerySet, Sum
 
@@ -23,6 +38,11 @@ TERMINAL_NEGATIVE_PAYMENT_TRUTHS = (
     IgDeal.PaymentTruth.FAILED,
     IgDeal.PaymentTruth.CANCELLED,
 )
+# ``Order.payment_status`` values that mean money actually arrived for that
+# order. ``partial`` is the legacy spelling of ``prepaid``.  Deliberately
+# excludes ``checking``: a receipt under review is not yet a purchase.
+CONFIRMED_ORDER_PAYMENT_STATUSES = ("paid", "prepaid", "partial")
+FULLY_PAID_ORDER_STATUSES = ("paid",)
 
 
 def verified_payment_q(prefix: str = "") -> Q:
@@ -43,7 +63,14 @@ def verified_payment_q(prefix: str = "") -> Q:
 
 
 def manual_confirmation_q(prefix: str = "") -> Q:
-    """Match only a source-qualified manager decision, never status alone."""
+    """Match only a source-qualified manager decision, never status alone.
+
+    Anchored on ``IgDeal``.  Production reality limits its reach: every
+    ``IgPaymentConfirmationReview`` row observed on production carries
+    ``deal_id IS NULL`` (the FK is nullable and reviews are opened from a
+    conversation, not from a deal).  Use ``manager_confirmed_review_q`` when the
+    question is about a client rather than about a deal.
+    """
     relation = f"{prefix}payment_confirmation_reviews__"
     return Q(**{
         relation + "status": "confirmed",
@@ -51,6 +78,21 @@ def manual_confirmation_q(prefix: str = "") -> Q:
         relation + "decisions__verification_source": "manager",
         relation + "decisions__actor_source__in": ("management_user", "telegram_user"),
     }) & ~Q(**{relation + "decisions__actor_external_id": ""})
+
+
+def manager_confirmed_review_q(prefix: str = "") -> Q:
+    """Source-qualified manager confirmation, anchored on the review row itself.
+
+    ``status=confirmed`` alone is not enough: a superseded or pending review can
+    also carry decisions, and a rejection is a decision too.  The actor must be
+    identifiable, otherwise "a manager confirmed it" is unfalsifiable.
+    """
+    return Q(**{
+        f"{prefix}status": "confirmed",
+        f"{prefix}decisions__decision": "manager_verified",
+        f"{prefix}decisions__verification_source": "manager",
+        f"{prefix}decisions__actor_source__in": ("management_user", "telegram_user"),
+    }) & ~Q(**{f"{prefix}decisions__actor_external_id": ""})
 
 
 def verified_payment_deals(queryset: QuerySet | None = None) -> QuerySet:
@@ -125,27 +167,273 @@ def latest_legacy_payment_truth_deal(client):
     ).order_by("-payment_truth_updated_at", "-id").first()
 
 
+def _money(value) -> Decimal:
+    try:
+        return Decimal(str(value if value is not None else "0")).quantize(Decimal("0.01"))
+    except (InvalidOperation, TypeError, ValueError):
+        return Decimal("0.00")
+
+
+def _manager_confirmed_amount(review) -> Decimal | None:
+    """Latest manager-verified amount for one review, or None when unstated.
+
+    A ``payment_claim`` decision intentionally carries no amount: the manager
+    acknowledged the customer's claim without measuring it.  Returning zero
+    there would invent a fact, so absence stays absence.
+    """
+    decision = (
+        review.decisions.filter(
+            decision="manager_verified",
+            confirmed_amount__isnull=False,
+        )
+        .exclude(confirmed_amount=0)
+        .order_by("-id")
+        .first()
+    )
+    return _money(decision.confirmed_amount) if decision else None
+
+
+def _projection_net(projection) -> Decimal:
+    return _money(projection.gross_amount) - _money(projection.refunded_amount)
+
+
+def _linked_order_ids(client) -> set[int]:
+    """Every real order this client is linked to, by any durable relation."""
+    from management.ig_bot_models import IgOrderAssignment, IgOrderAttribution
+
+    ids: set[int] = set()
+    ids.update(
+        IgOrderAssignment.objects.filter(
+            client_id=client.pk,
+            unassigned_at__isnull=True,
+            order_id__isnull=False,
+        ).values_list("order_id", flat=True)
+    )
+    ids.update(
+        IgOrderAttribution.objects.filter(
+            client_id=client.pk,
+            order_id__isnull=False,
+        ).values_list("order_id", flat=True)
+    )
+    ids.update(
+        client.deals.filter(order_id__isnull=False).values_list("order_id", flat=True)
+    )
+    ids.update(
+        client.payment_confirmation_reviews.filter(
+            order_id__isnull=False
+        ).values_list("order_id", flat=True)
+    )
+    return {int(value) for value in ids if value}
+
+
+def confirmed_purchase_units(client) -> list[dict]:
+    """One row per distinct confirmed purchase, with the money evidence behind it.
+
+    The unit of counting is a **real order**, not a review and not a payment
+    projection.  Production shows why: client #59 has a superseded review and a
+    confirmed review pointing at the same ``order=296``, both carrying a
+    ``manager_verified`` decision for 2100.00.  Counting reviews would report
+    two purchases where one happened.
+
+    Amount precedence, most authoritative first:
+
+    1. provider projection net (``gross - refunded``);
+    2. deal amount for a legacy projectionless verified deal;
+    3. manager-confirmed amount;
+    4. order payable total, but only when the order itself is fully paid.
+
+    When none applies the unit still counts as a purchase and its amount stays
+    ``None``.  A partially paid order without a measured amount is a real
+    purchase of an unknown size; writing zero would be a quieter lie.
+    """
+    if not client or not getattr(client, "pk", None):
+        return []
+    from management.services.ig_order_amounts import order_amounts
+    from orders.models import Order
+
+    units: dict[object, dict] = {}
+
+    def unit(key) -> dict:
+        return units.setdefault(
+            key, {"order_id": None, "amount": None, "sources": []}
+        )
+
+    # (1) Provider-confirmed deals — the strictest evidence there is.
+    verified_deals = verified_payment_deals(client.deals.all()).select_related(
+        "payment_projection"
+    )
+    for deal in verified_deals:
+        key = ("order", deal.order_id) if deal.order_id else ("deal", deal.pk)
+        row = unit(key)
+        row["order_id"] = deal.order_id
+        projection = getattr(deal, "payment_projection", None)
+        amount = (
+            _projection_net(projection)
+            if projection is not None
+            else _money(deal.amount)
+        )
+        if amount > 0:
+            row["amount"] = amount
+        row["sources"].append("provider_deal")
+
+    # (2) Manager-confirmed reviews — client-anchored, because reviews on
+    # production are opened from a conversation and carry no deal.
+    reviews = (
+        client.payment_confirmation_reviews.filter(manager_confirmed_review_q())
+        .distinct()
+        .order_by("id")
+    )
+    for review in reviews:
+        key = ("order", review.order_id) if review.order_id else ("review", review.pk)
+        row = unit(key)
+        row["order_id"] = review.order_id
+        row["sources"].append("manager_review")
+        if row["amount"] is None:
+            amount = _manager_confirmed_amount(review)
+            if amount is not None and amount > 0:
+                row["amount"] = amount
+
+    # (3) Linked orders that are themselves marked paid.  These cannot create an
+    # order, so trusting the manager's payment_status here opens no fraud path.
+    linked_ids = _linked_order_ids(client)
+    if linked_ids:
+        orders = Order.objects.filter(pk__in=linked_ids).only(
+            "id", "payment_status", "total_sum", "discount_amount"
+        )
+        for order in orders:
+            status = str(order.payment_status or "")
+            key = ("order", order.pk)
+            if status not in CONFIRMED_ORDER_PAYMENT_STATUSES and key not in units:
+                continue
+            row = unit(key)
+            row["order_id"] = order.pk
+            if status in CONFIRMED_ORDER_PAYMENT_STATUSES:
+                row["sources"].append(f"order_{status}")
+            if row["amount"] is None and status in FULLY_PAID_ORDER_STATUSES:
+                payable = order_amounts(order)["payable"]
+                if payable > 0:
+                    row["amount"] = payable
+
+    return [units[key] for key in sorted(units, key=lambda item: (item[0], item[1]))]
+
+
+def client_has_confirmed_purchase(client) -> bool:
+    """CRM truth: has this person bought from us at all?
+
+    Deliberately broader than ``client_has_verified_payment`` and deliberately
+    kept out of every money path.  Extending the provider predicate instead
+    would have blocked repeat sales: ``payment_link_allowed`` refuses a new
+    invoice for a client with verified payment, and the contact-info safety net
+    would start materializing orders for anyone who ever bought.
+    """
+    if not client or not getattr(client, "pk", None):
+        return False
+    annotated = getattr(client, "has_confirmed_purchase", None)
+    if annotated is not None:
+        return bool(annotated)
+    if client_has_verified_payment(client):
+        return True
+    if client.payment_confirmation_reviews.filter(manager_confirmed_review_q()).exists():
+        return True
+    from management.ig_bot_models import IgOrderAssignment, IgOrderAttribution
+
+    if IgOrderAssignment.objects.filter(
+        client_id=client.pk,
+        unassigned_at__isnull=True,
+        order__payment_status__in=CONFIRMED_ORDER_PAYMENT_STATUSES,
+    ).exists():
+        return True
+    return IgOrderAttribution.objects.filter(
+        client_id=client.pk,
+        order__payment_status__in=CONFIRMED_ORDER_PAYMENT_STATUSES,
+    ).exists()
+
+
+def annotate_confirmed_purchase(
+    queryset: QuerySet,
+    *,
+    alias: str = "has_confirmed_purchase",
+) -> QuerySet:
+    """Annotate client rows with CRM purchase truth.
+
+    ``Exists`` is not a style choice.  A plain
+    ``filter(order_assignments__unassigned_at__isnull=True)`` matches clients
+    with **no** assignments at all, because the LEFT JOIN yields NULL for them.
+    Measured on production that naive form reported 289 buyers out of 289; the
+    correct answer is 2.
+    """
+    from management.ig_bot_models import (
+        IgOrderAssignment,
+        IgOrderAttribution,
+        IgPaymentConfirmationReview,
+    )
+
+    verified_deals = verified_payment_deals(
+        IgDeal.objects.filter(client_id=OuterRef("pk"))
+    )
+    manager_reviews = IgPaymentConfirmationReview.objects.filter(
+        manager_confirmed_review_q(),
+        client_id=OuterRef("pk"),
+    )
+    paid_assignments = IgOrderAssignment.objects.filter(
+        client_id=OuterRef("pk"),
+        unassigned_at__isnull=True,
+        order__payment_status__in=CONFIRMED_ORDER_PAYMENT_STATUSES,
+    )
+    paid_attributions = IgOrderAttribution.objects.filter(
+        client_id=OuterRef("pk"),
+        order__payment_status__in=CONFIRMED_ORDER_PAYMENT_STATUSES,
+    )
+    return queryset.annotate(**{
+        alias: (
+            Exists(verified_deals)
+            | Exists(manager_reviews)
+            | Exists(paid_assignments)
+            | Exists(paid_attributions)
+        )
+    })
+
+
 def recalculate_client_payment_aggregates(client) -> None:
-    """Project current verified payments into legacy client summary fields."""
+    """Project confirmed purchases into the client summary fields.
+
+    Previously computed from ``payment_projections`` alone, which is a provider
+    ledger.  On production that table holds one row against 289 clients, so
+    ``purchases_count`` was 0 for everyone including a customer with a paid
+    order and a size exchange in transit (F-DATA-005).
+    """
     if not client or not getattr(client, "pk", None):
         return
-    net_expression = ExpressionWrapper(
-        F("gross_amount") - F("refunded_amount"),
-        output_field=DecimalField(max_digits=12, decimal_places=2),
+    units = confirmed_purchase_units(client)
+    purchases = len(units)
+    total = sum(
+        (row["amount"] for row in units if row["amount"] is not None),
+        Decimal("0.00"),
     )
-    totals = client.payment_projections.filter(
-        truth__in=VERIFIED_PAYMENT_TRUTHS
-    ).aggregate(purchases=Count("id"), net_paid=Sum(net_expression))
-    purchases = int(totals["purchases"] or 0)
+    amount_unknown = any(row["amount"] is None for row in units)
+    # ``total_spent`` is a money-shaped field fed by non-provider evidence here.
+    # The flag lets the card say "confirmed by a manager" instead of implying a
+    # provider ledger entry that does not exist.
+    provider_unverified = any(
+        "provider_deal" not in row["sources"] for row in units
+    )
     flags = dict(client.conversion_flags or {})
     flags["is_buyer"] = purchases > 0
+    if amount_unknown:
+        flags["purchase_amount_unknown"] = True
+    else:
+        flags.pop("purchase_amount_unknown", None)
+    if provider_unverified:
+        flags["purchase_provider_unverified"] = True
+    else:
+        flags.pop("purchase_provider_unverified", None)
     client.__class__.objects.filter(pk=client.pk).update(
         purchases_count=purchases,
-        total_spent=totals["net_paid"] or 0,
+        total_spent=total,
         conversion_flags=flags,
     )
     client.purchases_count = purchases
-    client.total_spent = totals["net_paid"] or 0
+    client.total_spent = total
     client.conversion_flags = flags
 
 
