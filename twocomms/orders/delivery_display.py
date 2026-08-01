@@ -42,6 +42,9 @@ class NovaPoshtaPointDisplay:
     def telegram_text(self) -> str:
         """Compact, escaped HTML-safe block for Telegram messages."""
         city = html.escape(self.city or "—")
+        if self.kind == "missing":
+            city_line = f"\n   📍 {city}" if self.city else ""
+            return f"{self.icon} <b>{html.escape(self.kind_label)}</b>{city_line}"
         title = html.escape(self.title or self.raw_label or "—")
         address = html.escape(self.address or self.raw_label or "—")
         if self.number:
@@ -61,6 +64,9 @@ class NovaPoshtaPointDisplay:
     def telegram_pre_lines(self) -> str:
         """Fixed-width-friendly lines used by the admin order card."""
         city = html.escape(self.city or "—")
+        if self.kind == "missing":
+            city_line = f"│     📍 Місто: {city}\n" if self.city else ""
+            return f"│     {self.icon} {html.escape(self.kind_label)}\n{city_line}"
         address = html.escape(self.raw_label or self.address or "—")
         number_line = f"│     Номер: № {html.escape(self.number)}\n" if self.number else ""
         return (
@@ -78,7 +84,9 @@ def build_nova_poshta_point(city: Any = "", label: Any = "", *, kind: Any = "") 
     standalone_number_match = _STANDALONE_NUMBER_RE.match(raw_label)
     terse_number_match = _TERSE_LONG_NUMBER_RE.search(raw_label) if len(raw_label) <= 20 else None
     normalized_kind = str(kind or "").strip().lower()
-    if normalized_kind not in {"branch", "postomat", "address"}:
+    if not raw_label:
+        normalized_kind = "missing"
+    elif normalized_kind not in {"branch", "postomat", "address", "missing"}:
         if _POSTOMAT_RE.search(raw_label.lower()):
             normalized_kind = "postomat"
         elif _BRANCH_RE.search(raw_label.lower()) or _NOVA_POSHTA_RE.search(raw_label.lower()):
@@ -113,14 +121,25 @@ def build_nova_poshta_point(city: Any = "", label: Any = "", *, kind: Any = "") 
 
     is_postomat = normalized_kind == "postomat"
     is_address = normalized_kind == "address"
-    kind_label = "Поштомат" if is_postomat else "Адресна доставка" if is_address else "Відділення"
-    icon = "📮" if is_postomat else "📍" if is_address else "🏢"
-    if number:
+    is_missing = normalized_kind == "missing"
+    kind_label = (
+        "Дані доставки не вказані"
+        if is_missing
+        else "Поштомат"
+        if is_postomat
+        else "Адресна доставка"
+        if is_address
+        else "Відділення"
+    )
+    icon = "⚠️" if is_missing else "📮" if is_postomat else "📍" if is_address else "🏢"
+    if is_missing:
+        title = kind_label
+    elif number:
         title = f"{kind_label} № {number}"
     else:
         title = "Адреса доставки" if is_address else kind_label
-    address = _POINT_PREFIX_RE.sub("", raw_label, count=1).strip()
-    address = address or raw_label or title
+    address = "" if is_missing else _POINT_PREFIX_RE.sub("", raw_label, count=1).strip()
+    address = address or raw_label or ("" if is_missing else title)
     return NovaPoshtaPointDisplay(
         city=city_text,
         raw_label=raw_label,

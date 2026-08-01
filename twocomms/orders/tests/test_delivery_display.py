@@ -68,6 +68,21 @@ class NovaPoshtaPointDisplayTests(SimpleTestCase):
         self.assertEqual(point.kind, "branch")
         self.assertEqual(point.number, "8")
 
+    def test_missing_delivery_data_is_not_presented_as_address_delivery(self):
+        point = build_nova_poshta_point("", "")
+
+        self.assertEqual(point.kind, "missing")
+        self.assertEqual(point.kind_label, "Дані доставки не вказані")
+        self.assertEqual(point.number, "")
+        self.assertEqual(point.address, "")
+        self.assertIn("Дані доставки не вказані", point.telegram_text)
+
+    def test_missing_point_keeps_known_city_visible(self):
+        point = build_nova_poshta_point("Харків", "")
+
+        self.assertEqual(point.kind, "missing")
+        self.assertIn("Харків", point.telegram_text)
+
     def test_telegram_values_are_html_escaped(self):
         point = build_nova_poshta_point("Київ & область", "Поштомат №22, вул. <Тестова>")
 

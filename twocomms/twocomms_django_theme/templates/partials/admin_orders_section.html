@@ -121,21 +121,24 @@
 .oadm-kv__row .v a { color:var(--o-text); text-decoration:none; }
 .oadm-kv__row .v a:hover { color:var(--o-accent); }
 .oadm-kv__value--delivery { flex:1 1 auto; min-width:0; }
-.oadm-delivery-point { --delivery-color:#fb923c; --delivery-tint:rgba(249,115,22,.075); --delivery-line:rgba(249,115,22,.32);
-  display:grid; grid-template-columns:36px minmax(0,1fr); gap:10px; margin:1px 0 4px; padding:10px 11px 10px 10px;
+.order-delivery { --delivery-color:#fb923c; --delivery-tint:rgba(249,115,22,.075); --delivery-line:rgba(249,115,22,.32);
+  display:grid; grid-template-columns:36px minmax(0,1fr); gap:10px; padding:10px 11px 10px 10px;
   border-left:3px solid var(--delivery-color); border-radius:5px; background:var(--delivery-tint); }
-.oadm-delivery-point--postomat { --delivery-color:#38bdf8; --delivery-tint:rgba(56,189,248,.075); --delivery-line:rgba(56,189,248,.34); }
-.oadm-delivery-point--address { --delivery-color:#94a3b8; --delivery-tint:rgba(148,163,184,.065); --delivery-line:rgba(148,163,184,.28); }
-.oadm-delivery-point__icon { display:grid; place-items:center; width:36px; height:36px; border:1px solid var(--delivery-line); border-radius:6px;
+.oadm-delivery-point { margin:1px 0 4px; }
+.order-delivery--postomat { --delivery-color:#38bdf8; --delivery-tint:rgba(56,189,248,.075); --delivery-line:rgba(56,189,248,.34); }
+.order-delivery--address { --delivery-color:#94a3b8; --delivery-tint:rgba(148,163,184,.065); --delivery-line:rgba(148,163,184,.28); }
+.order-delivery--missing { --delivery-color:#fbbf24; --delivery-tint:rgba(245,158,11,.075); --delivery-line:rgba(245,158,11,.34); }
+.order-delivery__icon { display:grid; place-items:center; width:36px; height:36px; border:1px solid var(--delivery-line); border-radius:6px;
   background:rgba(8,14,23,.34); color:var(--delivery-color); }
-.oadm-delivery-point__icon svg { width:20px; height:20px; stroke:currentColor; }
-.oadm-delivery-point__meta { display:block; min-width:0; }
-.oadm-delivery-point__top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-.oadm-delivery-point__kind { color:var(--delivery-color); font-size:.68rem; font-weight:800; letter-spacing:0; text-transform:uppercase; }
-.oadm-delivery-point__number { color:#fff; font-size:1.08rem; font-weight:900; font-variant-numeric:tabular-nums; line-height:1.1; }
-.oadm-delivery-point__number--missing { color:#fbbf24; font-size:.72rem; font-weight:800; }
-.oadm-delivery-point__city { display:block; color:#e2e8f0; font-size:.8rem; font-weight:700; line-height:1.3; margin-top:4px; overflow-wrap:anywhere; }
-.oadm-delivery-point__address { display:block; color:var(--o-muted); font-size:.76rem; font-weight:600; line-height:1.4; margin-top:3px; overflow-wrap:anywhere; }
+.order-delivery__icon svg { width:20px; height:20px; stroke:currentColor; }
+.order-delivery__meta { display:block; min-width:0; }
+.order-delivery__top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.order-delivery__kind { color:var(--delivery-color); font-size:.68rem; font-weight:800; letter-spacing:0; text-transform:uppercase; }
+.order-delivery__kind-short { display:none; }
+.order-delivery__number { color:#fff; font-size:1.08rem; font-weight:900; font-variant-numeric:tabular-nums; line-height:1.1; }
+.order-delivery__number--missing { color:#fbbf24; font-size:.72rem; font-weight:800; }
+.order-delivery__city { display:block; color:#e2e8f0; font-size:.8rem; font-weight:700; line-height:1.3; margin-top:4px; overflow-wrap:anywhere; }
+.order-delivery__address { display:block; color:var(--o-muted, #94a3b8); font-size:.76rem; font-weight:600; line-height:1.4; margin-top:3px; overflow-wrap:anywhere; }
 .ttn-info .ttn-pending { color:var(--o-amber); font-weight:600; }
 .delivery-item { display:flex; align-items:baseline; gap:8px; font-size:.9rem; color:var(--o-text); }
 
@@ -424,7 +427,9 @@
   .oadm-kv__row--delivery { display:block; }
   .oadm-kv__row--delivery > .k { display:block; margin-bottom:6px; }
   .oadm-delivery-point { grid-template-columns:34px minmax(0,1fr); gap:9px; padding:9px 10px 9px 9px; }
-  .oadm-delivery-point__icon { width:34px; height:34px; }
+  .oadm-delivery-point .order-delivery__icon { width:34px; height:34px; }
+  .oadm-delivery-point .order-delivery__kind-full { display:none; }
+  .oadm-delivery-point .order-delivery__kind-short { display:inline; }
 }
 </style>
 
@@ -594,9 +599,11 @@
                 <div class="oadm-kv__row"><span class="k">Телефон</span><span class="v"><a href="tel:{{ o.phone }}">{{ o.phone }}</a></span></div>
                 {% if o.user.email %}<div class="oadm-kv__row"><span class="k">Email</span><span class="v">{{ o.user.email }}</span></div>{% endif %}
                 <div class="oadm-kv__row oadm-kv__row--delivery"><span class="k">Доставка</span><div class="v oadm-kv__value--delivery">
-                  <div class="oadm-delivery-point{% if o.delivery_display.kind == 'postomat' %} oadm-delivery-point--postomat{% elif o.delivery_display.kind == 'address' %} oadm-delivery-point--address{% endif %}">
-                    <span class="oadm-delivery-point__icon" aria-hidden="true">
-                      {% if o.delivery_display.kind == 'postomat' %}
+                  <div class="oadm-delivery-point order-delivery{% if o.delivery_display.kind == 'postomat' %} order-delivery--postomat{% elif o.delivery_display.kind == 'address' %} order-delivery--address{% elif o.delivery_display.kind == 'missing' %} order-delivery--missing{% endif %}">
+                    <span class="order-delivery__icon" aria-hidden="true">
+                      {% if o.delivery_display.kind == 'missing' %}
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4M12 17h.01"/></svg>
+                      {% elif o.delivery_display.kind == 'postomat' %}
                         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M4 10h16M12 3v18M8 6h.01M16 6h.01M8 14h.01M16 14h.01"/></svg>
                       {% elif o.delivery_display.kind == 'address' %}
                         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>
@@ -604,13 +611,13 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21h16M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17M9 7h2M13 7h2M9 11h2M13 11h2M10 21v-5h4v5"/></svg>
                       {% endif %}
                     </span>
-                    <span class="oadm-delivery-point__meta">
-                      <span class="oadm-delivery-point__top">
-                        <span class="oadm-delivery-point__kind">{% if o.delivery_display.kind == 'address' %}Адресна доставка{% else %}Нова пошта · {{ o.delivery_display.kind_label }}{% endif %}</span>
-                        {% if o.delivery_display.number %}<strong class="oadm-delivery-point__number">№ {{ o.delivery_display.number }}</strong>{% elif o.delivery_display.kind != 'address' %}<strong class="oadm-delivery-point__number oadm-delivery-point__number--missing">№ не вказано</strong>{% endif %}
+                    <span class="order-delivery__meta">
+                      <span class="order-delivery__top">
+                        <span class="order-delivery__kind">{% if o.delivery_display.kind == 'missing' %}Дані доставки не вказані{% elif o.delivery_display.kind == 'address' %}Адресна доставка{% else %}<span class="order-delivery__kind-full">Нова пошта · {{ o.delivery_display.kind_label }}</span><span class="order-delivery__kind-short">{{ o.delivery_display.kind_label }}</span>{% endif %}</span>
+                        {% if o.delivery_display.kind != 'missing' %}{% if o.delivery_display.number %}<strong class="order-delivery__number">№ {{ o.delivery_display.number }}</strong>{% elif o.delivery_display.kind != 'address' %}<strong class="order-delivery__number order-delivery__number--missing">№ не вказано</strong>{% endif %}{% endif %}
                       </span>
-                      {% if o.delivery_display.city %}<span class="oadm-delivery-point__city">{{ o.delivery_display.city }}</span>{% endif %}
-                      <span class="oadm-delivery-point__address">{{ o.delivery_display.address|default:'Адреса не вказана' }}</span>
+                      {% if o.delivery_display.city %}<span class="order-delivery__city">{{ o.delivery_display.city }}</span>{% endif %}
+                      <span class="order-delivery__address">{{ o.delivery_display.address|default:'Адреса не вказана' }}</span>
                     </span>
                   </div>
                 </div></div>
@@ -1089,20 +1096,6 @@
 .oedit-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .oedit-grid2 .oedit-fld--full { grid-column:1/-1; }
 .oedit-delivery-note { color:#94a3b8; font-size:.7rem; font-weight:700; letter-spacing:0; margin:12px 0 6px; text-transform:uppercase; }
-.oedit-delivery { --delivery-color:#fb923c; --delivery-tint:rgba(249,115,22,.075); --delivery-line:rgba(249,115,22,.32);
-  display:grid; grid-template-columns:36px minmax(0,1fr); gap:10px; padding:10px 11px 10px 10px;
-  border-left:3px solid var(--delivery-color); border-radius:5px; background:var(--delivery-tint); }
-.oedit-delivery--postomat { --delivery-color:#38bdf8; --delivery-tint:rgba(56,189,248,.075); --delivery-line:rgba(56,189,248,.34); }
-.oedit-delivery--address { --delivery-color:#94a3b8; --delivery-tint:rgba(148,163,184,.065); --delivery-line:rgba(148,163,184,.28); }
-.oedit-delivery__icon { display:grid; place-items:center; width:36px; height:36px; border:1px solid var(--delivery-line); border-radius:6px;
-  background:rgba(8,14,23,.34); color:var(--delivery-color); }
-.oedit-delivery__icon svg { width:20px; height:20px; stroke:currentColor; }
-.oedit-delivery__meta { display:block; min-width:0; }
-.oedit-delivery__top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; color:var(--delivery-color); font-size:.68rem; font-weight:800; letter-spacing:0; text-transform:uppercase; }
-.oedit-delivery__top strong { color:#fff; font-size:1.05rem; font-weight:900; font-variant-numeric:tabular-nums; line-height:1.1; }
-.oedit-delivery__top strong.is-missing { color:#fbbf24; font-size:.72rem; font-weight:800; }
-.oedit-delivery__city { display:block; color:#e2e8f0; font-size:.8rem; font-weight:700; line-height:1.3; margin-top:4px; overflow-wrap:anywhere; }
-.oedit-delivery__address { display:block; color:#94a3b8; font-size:.76rem; font-weight:600; line-height:1.4; margin-top:3px; overflow-wrap:anywhere; }
 .oedit-presets { display:flex; flex-direction:column; gap:7px; }
 .oedit-preset { display:flex; align-items:center; gap:9px; border:1px solid rgba(148,163,184,.26); border-radius:11px;
   padding:10px 12px; cursor:pointer; font-size:.86rem; font-weight:600; transition:all .15s ease; }
@@ -1380,6 +1373,9 @@
   }
 
   function deliveryIconSvg(kind) {
+    if (kind === 'missing') {
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4M12 17h.01"/></svg>';
+    }
     if (kind === 'postomat') {
       return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M4 10h16M12 3v18M8 6h.01M16 6h.01M8 14h.01M16 14h.01"/></svg>';
     }
@@ -1392,15 +1388,23 @@
   // ── build static body shell ────────────────────────────
   function buildBody(order) {
     var delivery = order.delivery_display || {};
-    var deliveryClass = delivery.kind === 'postomat' ? ' oedit-delivery--postomat' : '';
-    if (delivery.kind === 'address') deliveryClass = ' oedit-delivery--address';
-    var deliveryNumber = delivery.number ? '<strong>№ ' + esc(delivery.number) + '</strong>' : (delivery.kind === 'address' ? '' : '<strong class="is-missing">№ не вказано</strong>');
-    var deliveryHtml = '<div class="oedit-delivery' + deliveryClass + '">' +
-      '<span class="oedit-delivery__icon" aria-hidden="true">' + deliveryIconSvg(delivery.kind) + '</span>' +
-      '<span class="oedit-delivery__meta"><span class="oedit-delivery__top"><span>' +
-      esc(delivery.kind === 'address' ? 'Адресна доставка' : (delivery.kind_label ? 'Нова пошта · ' + delivery.kind_label : 'Доставка')) + '</span>' + deliveryNumber + '</span>' +
-      (delivery.city ? '<span class="oedit-delivery__city">' + esc(delivery.city) + '</span>' : '') +
-      '<span class="oedit-delivery__address">' + esc(delivery.address || order.delivery_text || 'Адреса не вказана') + '</span></span></div>';
+    var deliveryClass = delivery.kind === 'postomat' ? ' order-delivery--postomat' : '';
+    if (delivery.kind === 'address') deliveryClass = ' order-delivery--address';
+    if (delivery.kind === 'missing') deliveryClass = ' order-delivery--missing';
+    var deliveryKindLabel = delivery.kind_label || 'Доставка';
+    var deliveryKind = delivery.kind === 'missing'
+      ? 'Дані доставки не вказані'
+      : delivery.kind === 'address'
+        ? 'Адресна доставка'
+        : '<span class="order-delivery__kind-full">' + esc('Нова пошта · ' + deliveryKindLabel) + '</span><span class="order-delivery__kind-short">' + esc(deliveryKindLabel) + '</span>';
+    var deliveryNumber = delivery.kind === 'missing' ? '' : (delivery.number ? '<strong class="order-delivery__number">№ ' + esc(delivery.number) + '</strong>' : (delivery.kind === 'address' ? '' : '<strong class="order-delivery__number order-delivery__number--missing">№ не вказано</strong>'));
+    var deliveryAddress = delivery.kind === 'missing' ? 'Адреса не вказана' : (delivery.address || order.delivery_text || 'Адреса не вказана');
+    var deliveryHtml = '<div class="oedit-delivery order-delivery' + deliveryClass + '">' +
+      '<span class="order-delivery__icon" aria-hidden="true">' + deliveryIconSvg(delivery.kind) + '</span>' +
+      '<span class="order-delivery__meta"><span class="order-delivery__top"><span class="order-delivery__kind">' +
+      deliveryKind + '</span>' + deliveryNumber + '</span>' +
+      (delivery.city ? '<span class="order-delivery__city">' + esc(delivery.city) + '</span>' : '') +
+      '<span class="order-delivery__address">' + esc(deliveryAddress) + '</span></span></div>';
     var presetHtml = Object.keys(presets).map(function (key) {
       var checked = key === order.payment_preset ? ' checked' : '';
       var active = key === order.payment_preset ? ' is-active' : '';
