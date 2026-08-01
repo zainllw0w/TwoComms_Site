@@ -4257,6 +4257,24 @@ def bot_post_sale_case_api(request, client_id, case_id):
                     {"success": False, "error": str(exc)}, status=400
                 )
 
+        # ТТН замены, отправленной вручную. Автовывод ноги обмена работает,
+        # только пока кейс открыт, а реальный обмен часто закрывают раньше,
+        # чем кто-то фиксирует номер.
+        replacement_tracking = str(
+            request.POST.get("replacement_tracking_number") or ""
+        ).strip()
+        if replacement_tracking:
+            from management.services.ig_post_sale import record_replacement_shipment
+
+            try:
+                record_replacement_shipment(
+                    case, replacement_tracking, actor=request.user
+                )
+            except ValueError as exc:
+                return JsonResponse(
+                    {"success": False, "error": str(exc)}, status=400
+                )
+
     return JsonResponse({
         "success": True,
         "case": _post_sale_case_payload(case),

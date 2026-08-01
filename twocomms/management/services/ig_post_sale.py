@@ -220,6 +220,64 @@ def record_return_shipment(case, tracking, *, actor=None, evidence_message_id=No
     )
 
 
+def record_replacement_shipment(case, tracking, *, actor=None, note=""):
+    """Record a replacement parcel the manager already sent.
+
+    The automatic derivation only works while the case is open: changing
+    ``Order.tracking_number`` after the case is closed is a correction. But a
+    real exchange can be closed by hand before anyone records the number, and
+    then the replacement tracking exists only as digits in the conversation.
+    This is the field for that case.
+
+    Deliberately does **not** touch ``Order.tracking_number``: the parcel is
+    already on its way and the manager has already told the customer, so moving
+    the field would make the worker send a second notification.
+    """
+    from management.ig_bot_models import IgOrderShipment
+    from management.services.ig_shipments import normalize_tracking
+
+    if case is None or not getattr(case, "pk", None):
+        raise ValueError("Сервісне звернення не знайдено.")
+    if not case.order_id:
+        raise ValueError(
+            "Спочатку прив'яжіть замовлення: ТТН заміни живе на замовленні."
+        )
+    number = normalize_tracking(tracking)
+    if not number:
+        raise ValueError("Це не схоже на номер ТТН Нової Пошти.")
+    order = case.order
+    if number == normalize_tracking(getattr(order, "tracking_number", "")):
+        raise ValueError(
+            "Це поточна ТТН замовлення, а не заміна. Вкажіть номер нової посилки."
+        )
+    existing = IgOrderShipment.objects.filter(
+        order_id=case.order_id,
+        tracking_number=number,
+        direction=IgOrderShipment.Direction.OUTBOUND,
+    ).first()
+    if existing is not None:
+        return existing
+    previous_outbound = (
+        IgOrderShipment.objects.filter(
+            order_id=case.order_id,
+            direction=IgOrderShipment.Direction.OUTBOUND,
+        )
+        .order_by("created_at", "id")
+        .last()
+    )
+    return IgOrderShipment.objects.create(
+        order_id=case.order_id,
+        post_sale_case=case,
+        tracking_number=number,
+        direction=IgOrderShipment.Direction.OUTBOUND,
+        purpose=IgOrderShipment.Purpose.EXCHANGE_REPLACEMENT,
+        supersedes=previous_outbound,
+        source=IgOrderShipment.Source.MANAGER_MANUAL,
+        created_by=actor if getattr(actor, "pk", None) else None,
+        note=str(note or "")[:500],
+    )
+
+
 def post_sale_request_for_client(client, text: str) -> str:
     """Post-sale case type for this client and message, or "".
 

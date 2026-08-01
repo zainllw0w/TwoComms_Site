@@ -582,3 +582,197 @@ class ShipmentBackfillCommandTests(ExchangeShipmentMixin, TestCase):
 
         self.assertEqual(IgOrderShipment.objects.filter(order=order).count(), 1)
         self.assertIn("created=0", second.getvalue())
+
+
+class ManualReplacementShipmentTests(ExchangeShipmentMixin, TestCase):
+    """Фиксация ТТН замены задним числом, когда обмен уже закрыт.
+
+    Автоматический вывод ноги обмена работает только пока кейс открыт: смена
+    `Order.tracking_number` при закрытом кейсе — это `correction`. Но реальный
+    обмен клиента #59 был закрыт менеджером вручную ещё до появления журнала, и
+    ТТН замены существует только текстом в переписке. Без прямого поля эту ТТН
+    некуда вставить, а именно это заказчик и просил.
+    """
+
+    def setUp(self):
+        self.manager = get_user_model().objects.create_user(
+            "manual-replacement-manager", password="x", is_staff=True
+        )
+
+    def test_manager_can_record_a_replacement_after_the_case_is_closed(self):
+        from management.ig_bot_models import IgOrderShipment
+        from management.services.ig_post_sale import record_replacement_shipment
+
+        order = self._order(number="TWC-MANUAL-REPL")
+        case = self._case(
+            self._client("manual-repl-client"),
+            order,
+            status=IgPostSaleCase.Status.COMPLETED,
+        )
+
+        shipment = record_replacement_shipment(
+            case, REPLACEMENT_TTN, actor=self.manager
+        )
+
+        self.assertEqual(shipment.tracking_number, REPLACEMENT_TTN)
+        self.assertEqual(shipment.direction, IgOrderShipment.Direction.OUTBOUND)
+        self.assertEqual(
+            shipment.purpose, IgOrderShipment.Purpose.EXCHANGE_REPLACEMENT
+        )
+        self.assertEqual(shipment.post_sale_case_id, case.pk)
+        self.assertEqual(shipment.source, IgOrderShipment.Source.MANAGER_MANUAL)
+
+    def test_manual_replacement_supersedes_the_previous_outbound(self):
+        from management.ig_bot_models import IgOrderShipment
+        from management.services.ig_post_sale import record_replacement_shipment
+
+        order = self._order(number="TWC-MANUAL-REPL-CHAIN")
+        case = self._case(self._client("manual-chain-client"), order)
+
+        shipment = record_replacement_shipment(
+            case, REPLACEMENT_TTN, actor=self.manager
+        )
+
+        initial = IgOrderShipment.objects.get(
+            order=order, tracking_number=INITIAL_TTN
+        )
+        self.assertEqual(shipment.supersedes_id, initial.pk)
+
+    def test_manual_replacement_does_not_touch_the_order_field(self):
+        """Иначе воркер отправил бы клиенту сообщение про уже отправленную замену."""
+        from management.services.ig_post_sale import record_replacement_shipment
+
+        order = self._order(number="TWC-MANUAL-REPL-FIELD")
+        case = self._case(self._client("manual-field-client"), order)
+
+        record_replacement_shipment(case, REPLACEMENT_TTN, actor=self.manager)
+
+        order.refresh_from_db()
+        self.assertEqual(order.tracking_number, INITIAL_TTN)
+
+    def test_manual_replacement_is_idempotent(self):
+        from management.ig_bot_models import IgOrderShipment
+        from management.services.ig_post_sale import record_replacement_shipment
+
+        order = self._order(number="TWC-MANUAL-REPL-TWICE")
+        case = self._case(self._client("manual-twice-client"), order)
+
+        first = record_replacement_shipment(case, REPLACEMENT_TTN, actor=self.manager)
+        second = record_replacement_shipment(case, REPLACEMENT_TTN, actor=self.manager)
+
+        self.assertEqual(first.pk, second.pk)
+        self.assertEqual(
+            IgOrderShipment.objects.filter(
+                order=order,
+                tracking_number=REPLACEMENT_TTN,
+                direction=IgOrderShipment.Direction.OUTBOUND,
+            ).count(),
+            1,
+        )
+
+    def test_manual_replacement_rejects_a_malformed_tracking(self):
+        from management.services.ig_post_sale import record_replacement_shipment
+
+        order = self._order(number="TWC-MANUAL-REPL-BAD")
+        case = self._case(self._client("manual-bad-client"), order)
+
+        with self.assertRaises(ValueError):
+            record_replacement_shipment(case, "12", actor=self.manager)
+
+    def test_manual_replacement_refuses_the_current_order_tracking(self):
+        """Текущая ТТН заказа — не замена, это та же самая отправка."""
+        from management.services.ig_post_sale import record_replacement_shipment
+
+        order = self._order(number="TWC-MANUAL-REPL-SAME")
+        case = self._case(self._client("manual-same-client"), order)
+
+        with self.assertRaises(ValueError):
+            record_replacement_shipment(case, INITIAL_TTN, actor=self.manager)
+
+
+@override_settings(ROOT_URLCONF="twocomms.urls_management")
+class ReplacementTrackingApiTests(ExchangeShipmentMixin, TestCase):
+    def setUp(self):
+        from django.test import Client as DjangoClient
+
+        self.manager = get_user_model().objects.create_user(
+            "replacement-api-manager", password="x", is_staff=True, is_superuser=True
+        )
+        self.http = DjangoClient()
+        self.http.force_login(self.manager)
+
+    def test_api_records_the_replacement_tracking(self):
+        order = self._order(number="TWC-REPL-API")
+        client = self._client("api-replacement-client")
+        case = self._case(
+            client, order, status=IgPostSaleCase.Status.COMPLETED
+        )
+
+        response = self.http.post(
+            reverse("management_bot_post_sale_case_api", args=[client.pk, case.pk]),
+            {
+                "status": IgPostSaleCase.Status.COMPLETED,
+                "replacement_tracking_number": REPLACEMENT_TTN,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        rows = response.json()["case"]["shipments"]
+        replacement = next(
+            row for row in rows if row["tracking_number"] == REPLACEMENT_TTN
+        )
+        self.assertEqual(replacement["purpose"], "exchange_replacement")
+        self.assertTrue(response.json()["case"]["has_replacement_shipment"])
+
+    def test_api_can_record_both_legs_at_once(self):
+        order = self._order(number="TWC-REPL-API-BOTH")
+        client = self._client("api-both-client")
+        case = self._case(client, order)
+
+        response = self.http.post(
+            reverse("management_bot_post_sale_case_api", args=[client.pk, case.pk]),
+            {
+                "return_tracking_number": RETURN_TTN,
+                "replacement_tracking_number": REPLACEMENT_TTN,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        payload = response.json()["case"]
+        self.assertTrue(payload["has_return_shipment"])
+        self.assertTrue(payload["has_replacement_shipment"])
+        self.assertEqual(
+            [row["purpose_label"] for row in payload["shipments"]],
+            ["Перша відправка", "Повернення від клієнта", "Заміна відправлена"],
+        )
+
+    def test_api_rejects_a_malformed_replacement(self):
+        order = self._order(number="TWC-REPL-API-BAD")
+        client = self._client("api-replacement-bad")
+        case = self._case(client, order)
+
+        response = self.http.post(
+            reverse("management_bot_post_sale_case_api", args=[client.pk, case.pk]),
+            {"replacement_tracking_number": "abc"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()["success"])
+
+    def test_template_has_a_field_for_the_replacement_tracking(self):
+        from pathlib import Path
+
+        from django.conf import settings
+
+        template = (
+            Path(settings.BASE_DIR)
+            / "management"
+            / "templates"
+            / "management"
+            / "bot.html"
+        ).read_text(encoding="utf-8")
+
+        self.assertTrue(
+            "replacement_tracking_number" in template,
+            "менеджеру нема куди вставити ТТН заміни",
+        )
