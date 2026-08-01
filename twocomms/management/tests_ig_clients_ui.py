@@ -200,6 +200,37 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
             self.assertIn(contract, self.template)
         self.assertNotIn("window.prompt('Причина відв'язки", self.template)
 
+    def test_assignment_action_opens_a_dedicated_searchable_order_drawer(self):
+        for contract in (
+            'id="bot-assignment-drawer"',
+            "OrderAssignmentDrawer",
+            "renderAssignmentPicker",
+            "Пошук за номером, клієнтом, телефоном, товаром або ТТН",
+            "Оберіть замовлення зі списку або вставте точний номер вручну",
+            "orderCandidatesBase",
+            "candidate.selectable",
+            "candidate.blocked_reason_label",
+            "limit:'40'",
+            "setAttribute('aria-disabled',candidate.selectable?'false':'true')",
+            "candidates.setAttribute('aria-busy','true')",
+            "const optionRows=()=>Array.from(candidates.querySelectorAll('[role=\"option\"]'))",
+            "function restoreDrawerFocus()",
+            ".bot-drawer .bot-assignment-picker .bot-order-candidates{margin-top:0;max-height:360px;overflow-y:auto",
+        ):
+            self.assertIn(contract, self.template)
+        self.assertIn(
+            "assignmentAction.addEventListener('click',()=>OrderAssignmentDrawer.open(d,assignmentAction))",
+            self.template,
+        )
+        self.assertNotIn(
+            "assignmentAction.addEventListener('click',()=>ClientContextDrawer.open(assignmentAction))",
+            self.template,
+        )
+        self.assertIn(
+            "renderAssignments(contextEl,d,id,{interactive:false})",
+            self.template,
+        )
+
     def test_client_workspace_exposes_post_sale_state_and_drawer_controls(self):
         for contract in (
             "bot-post-sale-strip",
