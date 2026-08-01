@@ -1,5 +1,6 @@
 import hashlib
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.test import TestCase
 from django.utils import timezone
@@ -10,6 +11,8 @@ from management.models import (
     IgCheckoutProposalItem,
     IgClient,
     IgDeal,
+    IgLifecycleEvent,
+    IgOrderAttribution,
 )
 from management.services.ig_commercial_episodes import ensure_episode_for_deal
 from storefront.models import Category, Product
@@ -53,6 +56,142 @@ class InstagramCheckoutReconciliationTests(TestCase):
             quoted_unit_price=Decimal("900.00"),
             quoted_line_total=Decimal("900.00"),
         )
+
+    def _bind_paid_delivered_order(self):
+        order = Order.objects.create(
+            full_name="Delivered Buyer",
+            phone="+380501112299",
+            city="Kyiv",
+            np_office="Branch 9",
+            pay_type="online_full",
+            payment_status="paid",
+            total_sum=Decimal("900.00"),
+        )
+        Order.objects.filter(pk=order.pk).update(
+            status="done",
+            tracking_number="20450000000009",
+            shipment_status="Отримано",
+            payment_payload={
+                "np_tracking": {
+                    "last_status_code": "9",
+                    "last_status_text": "Отримано",
+                },
+            },
+        )
+        order.refresh_from_db()
+        attempt = PaymentAttempt.objects.create(
+            fingerprint=hashlib.sha256(b"paid-delivered-attempt").hexdigest(),
+            full_name=order.full_name,
+            phone=order.phone,
+            city=order.city,
+            np_office=order.np_office,
+            pay_type=PaymentAttempt.PayType.ONLINE_FULL,
+            status=PaymentAttempt.Status.CONVERTED,
+            cart_snapshot={"checkout_surface": "instagram_proposal", "cart": []},
+            gross_amount=Decimal("900.00"),
+            payable_amount=Decimal("900.00"),
+            payment_amount=Decimal("900.00"),
+            paid_amount=Decimal("900.00"),
+            order=order,
+        )
+        self.proposal.payment_attempt = attempt
+        self.proposal.status = IgCheckoutProposal.Status.PAID
+        self.proposal.paid_at = timezone.now()
+        self.proposal.save(update_fields=[
+            "payment_attempt", "status", "paid_at", "updated_at",
+        ])
+        IgOrderAttribution.objects.create(
+            order=order,
+            client=self.client,
+            deal=self.deal,
+            creation_mode="provider_auto",
+            payment_source="provider_attempt",
+        )
+        from management.services.ig_lifecycle import ensure_lifecycle_event
+
+        event, created = ensure_lifecycle_event(
+            order,
+            IgLifecycleEvent.Kind.PAYMENT_VERIFIED,
+            payload={
+                "attempt_id": attempt.pk,
+                "attempt_reference": attempt.reference,
+                "amount": "900.00",
+                "currency": self.proposal.currency,
+            },
+        )
+        self.assertIsNotNone(event)
+        self.assertTrue(created)
+        return order
+
+    @patch("management.services.ig_lifecycle.dispatch_lifecycle_event")
+    def test_paid_delivered_truth_repairs_missing_fulfillment_events_idempotently(
+        self,
+        dispatch_lifecycle_event,
+    ):
+        order = self._bind_paid_delivered_order()
+
+        from management.services.ig_checkout_reconciliation import reconcile_ig_checkout
+
+        first = reconcile_ig_checkout(limit=20, pull_ambiguous=False)
+        second = reconcile_ig_checkout(limit=20, pull_ambiguous=False)
+
+        self.assertEqual(first.get("ttn_events"), 1, first)
+        self.assertEqual(first.get("delivery_events"), 1, first)
+        self.assertEqual(second.get("ttn_events"), 0, second)
+        self.assertEqual(second.get("delivery_events"), 0, second)
+        self.assertEqual(
+            IgLifecycleEvent.objects.filter(
+                order=order,
+                kind=IgLifecycleEvent.Kind.TTN_CREATED,
+            ).count(),
+            1,
+        )
+        self.assertEqual(
+            IgLifecycleEvent.objects.filter(
+                order=order,
+                kind=IgLifecycleEvent.Kind.DELIVERED_REVIEW_REQUESTED,
+            ).count(),
+            1,
+        )
+        ttn_event = IgLifecycleEvent.objects.get(
+            order=order,
+            kind=IgLifecycleEvent.Kind.TTN_CREATED,
+        )
+        delivery_event = IgLifecycleEvent.objects.get(
+            order=order,
+            kind=IgLifecycleEvent.Kind.DELIVERED_REVIEW_REQUESTED,
+        )
+        self.assertEqual(ttn_event.payload["tracking_number"], order.tracking_number)
+        self.assertEqual(delivery_event.payload["status_code"], "9")
+        dispatch_lifecycle_event.assert_not_called()
+
+    @patch("management.services.ig_lifecycle.dispatch_lifecycle_event")
+    def test_paid_delivered_dry_run_reports_missing_events_without_writes(
+        self,
+        dispatch_lifecycle_event,
+    ):
+        order = self._bind_paid_delivered_order()
+
+        from management.services.ig_checkout_reconciliation import reconcile_ig_checkout
+
+        result = reconcile_ig_checkout(
+            limit=20,
+            pull_ambiguous=False,
+            dry_run=True,
+        )
+
+        self.assertEqual(result.get("ttn_events"), 1, result)
+        self.assertEqual(result.get("delivery_events"), 1, result)
+        self.assertFalse(
+            IgLifecycleEvent.objects.filter(
+                order=order,
+                kind__in=[
+                    IgLifecycleEvent.Kind.TTN_CREATED,
+                    IgLifecycleEvent.Kind.DELIVERED_REVIEW_REQUESTED,
+                ],
+            ).exists()
+        )
+        dispatch_lifecycle_event.assert_not_called()
 
     def test_expired_proposal_and_reservation_are_released_idempotently(self):
         reservation = IgCheckoutInventoryReservation.objects.create(

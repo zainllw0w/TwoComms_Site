@@ -145,6 +145,64 @@ class PostPaymentRecoveryTests(TestCase):
 
         dispatch.assert_called_once_with(order.pk, "unpaid", order.pay_type)
 
+    def test_recovery_limit_ignores_older_order_with_terminal_channel_ledger(self):
+        now = timezone.now()
+        older = Order.objects.create(
+            order_number="TWC01082026N01",
+            full_name="Completed Buyer",
+            phone="+380501112233",
+            city="Kyiv",
+            np_office="Branch 1",
+            pay_type="online_full",
+            payment_status="paid",
+            payment_provider="monobank_pay",
+            total_sum=Decimal("950.00"),
+            payment_payload={
+                "attempt_id": 41,
+                "post_payment_channels": {
+                    "telegram": {"state": "sent"},
+                    "meta_purchase": {"state": "disabled"},
+                    "tiktok_purchase": {"state": "unknown"},
+                    "receipt_email": {"state": "skipped"},
+                    "instagram_lifecycle": {"state": "ambiguous"},
+                },
+            },
+        )
+        newer = Order.objects.create(
+            order_number="TWC01082026N02",
+            full_name="Pending Buyer",
+            phone="+380501112234",
+            city="Kyiv",
+            np_office="Branch 2",
+            pay_type="online_full",
+            payment_status="paid",
+            payment_provider="monobank_pay",
+            total_sum=Decimal("950.00"),
+            payment_payload={
+                "attempt_id": 42,
+                "post_payment_channels": {
+                    "telegram": {"state": "failed"},
+                    "meta_purchase": {"state": "sent"},
+                    "tiktok_purchase": {"state": "sent"},
+                    "receipt_email": {"state": "skipped"},
+                    "instagram_lifecycle": {"state": "sent"},
+                },
+            },
+        )
+        Order.objects.filter(pk=older.pk).update(created=now - timedelta(minutes=10))
+        Order.objects.filter(pk=newer.pk).update(created=now - timedelta(minutes=5))
+
+        with patch(
+            "orders.management.commands.reconcile_order_telegram_notifications._send_post_payment_events"
+        ) as dispatch:
+            call_command(
+                "reconcile_order_telegram_notifications",
+                min_age_seconds=0,
+                limit=1,
+            )
+
+        dispatch.assert_called_once_with(newer.pk, "unpaid", newer.pay_type)
+
     def test_receipt_send_marker_prevents_blind_duplicate_after_marker_write_failure(self):
         order = Order.objects.create(
             full_name="Buyer",

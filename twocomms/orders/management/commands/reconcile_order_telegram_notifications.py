@@ -6,7 +6,24 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from orders.models import Order
-from storefront.views.utils import _send_post_payment_events
+from storefront.views.utils import _POST_PAYMENT_CHANNEL_NAMES, _send_post_payment_events
+
+
+_TERMINAL_POST_PAYMENT_STATES = frozenset(
+    {"sent", "skipped", "disabled", "unknown", "ambiguous"}
+)
+
+
+def _has_recoverable_post_payment_channel(payload):
+    channels = payload.get("post_payment_channels")
+    if not isinstance(channels, dict):
+        return True
+    return any(
+        not isinstance(channels.get(channel), dict)
+        or str(channels[channel].get("state") or "").strip().lower()
+        not in _TERMINAL_POST_PAYMENT_STATES
+        for channel in _POST_PAYMENT_CHANNEL_NAMES
+    )
 
 
 class Command(BaseCommand):
@@ -40,6 +57,8 @@ class Command(BaseCommand):
             scanned += 1
             payload = order.payment_payload if isinstance(order.payment_payload, dict) else {}
             if not payload.get('attempt_id'):
+                continue
+            if not _has_recoverable_post_payment_channel(payload):
                 continue
             if attempted >= limit:
                 break

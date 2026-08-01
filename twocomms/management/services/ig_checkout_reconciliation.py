@@ -22,6 +22,8 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
         "expired_proposals": 0,
         "bound_attempts": 0,
         "payment_events": 0,
+        "ttn_events": 0,
+        "delivery_events": 0,
         "ambiguous_checked": 0,
         "ambiguous_pending": 0,
         "missing_attribution": 0,
@@ -116,12 +118,24 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
         proposal_id=OuterRef("pk"),
         kind=IgLifecycleEvent.Kind.PAYMENT_VERIFIED,
     )
+    ttn_event_exists = IgLifecycleEvent.objects.filter(
+        proposal_id=OuterRef("pk"),
+        kind=IgLifecycleEvent.Kind.TTN_CREATED,
+    )
+    delivery_event_exists = IgLifecycleEvent.objects.filter(
+        proposal_id=OuterRef("pk"),
+        kind=IgLifecycleEvent.Kind.DELIVERED_REVIEW_REQUESTED,
+    )
     proposals = list(
         IgCheckoutProposal.objects.select_related(
             "payment_attempt", "payment_attempt__order", "deal", "client"
         )
         .filter(payment_attempt__isnull=False)
-        .annotate(has_payment_event=Exists(payment_event_exists))
+        .annotate(
+            has_payment_event=Exists(payment_event_exists),
+            has_ttn_event=Exists(ttn_event_exists),
+            has_delivery_event=Exists(delivery_event_exists),
+        )
         .filter(
             Q(
                 payment_attempt__order_id__isnull=False,
@@ -134,6 +148,23 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
                 payment_attempt__order_id__isnull=False,
                 status=IgCheckoutProposal.Status.PAID,
                 has_payment_event=False,
+            )
+            | (
+                Q(
+                    payment_attempt__order_id__isnull=False,
+                    status=IgCheckoutProposal.Status.PAID,
+                )
+                & (
+                    (
+                        Q(has_ttn_event=False)
+                        & Q(payment_attempt__order__tracking_number__isnull=False)
+                        & ~Q(payment_attempt__order__tracking_number="")
+                    )
+                    | Q(
+                        has_delivery_event=False,
+                        payment_attempt__order__status="done",
+                    )
+                )
             )
             | Q(payment_attempt__event_state__invoice_creation_ambiguous=True)
         )
@@ -163,6 +194,15 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
             if dry_run:
                 if ambiguous:
                     result["ambiguous_pending"] += 1
+                order = attempt.order if attempt and attempt.order_id else None
+                if proposal.status == proposal.Status.PAID and order is not None:
+                    if (
+                        str(order.tracking_number or "").strip()
+                        and not proposal.has_ttn_event
+                    ):
+                        result["ttn_events"] += 1
+                    if order.status == "done" and not proposal.has_delivery_event:
+                        result["delivery_events"] += 1
                 continue
             if (
                 pull_ambiguous
@@ -192,8 +232,9 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
             if proposal.status == proposal.Status.PAID and attempt.order_id:
                 from management.services.ig_lifecycle import ensure_lifecycle_event
 
+                order = attempt.order
                 event, created = ensure_lifecycle_event(
-                    attempt.order,
+                    order,
                     IgLifecycleEvent.Kind.PAYMENT_VERIFIED,
                     payload={
                         "attempt_id": attempt.pk,
@@ -206,6 +247,49 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
                     result["missing_attribution"] += 1
                 elif created:
                     result["payment_events"] += 1
+
+                tracking_number = str(order.tracking_number or "").strip()
+                if tracking_number and not proposal.has_ttn_event:
+                    event, created = ensure_lifecycle_event(
+                        order,
+                        IgLifecycleEvent.Kind.TTN_CREATED,
+                        payload={
+                            "tracking_number": tracking_number,
+                            "order_number": order.order_number,
+                        },
+                    )
+                    if event is None:
+                        result["missing_attribution"] += 1
+                    elif created:
+                        result["ttn_events"] += 1
+
+                if order.status == "done" and not proposal.has_delivery_event:
+                    payment_payload = (
+                        order.payment_payload
+                        if isinstance(order.payment_payload, dict)
+                        else {}
+                    )
+                    np_tracking = payment_payload.get("np_tracking")
+                    if not isinstance(np_tracking, dict):
+                        np_tracking = {}
+                    event, created = ensure_lifecycle_event(
+                        order,
+                        IgLifecycleEvent.Kind.DELIVERED_REVIEW_REQUESTED,
+                        payload={
+                            "status_code": str(
+                                np_tracking.get("last_status_code") or "done"
+                            ),
+                            "status": str(
+                                np_tracking.get("last_status_text")
+                                or order.shipment_status
+                                or ""
+                            )[:300],
+                        },
+                    )
+                    if event is None:
+                        result["missing_attribution"] += 1
+                    elif created:
+                        result["delivery_events"] += 1
         except Exception:
             result["errors"] += 1
     return result
