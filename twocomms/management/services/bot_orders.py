@@ -1408,6 +1408,10 @@ def notify_shipped_deals(limit: int = 50) -> int:
             order__isnull=False, order__status="ship", shipped_notified_at__isnull=True
         )
         .filter(verified_payment_q())
+        .exclude(
+            order__instagram_assignment__client_id__isnull=False,
+            order__instagram_assignment__unassigned_at__isnull=True,
+        )
         .exclude(order__tracking_number__isnull=True)
         .exclude(order__tracking_number="")
         .select_related("order", "client")[:limit]
@@ -1479,6 +1483,10 @@ def notify_shipped_deals(limit: int = 50) -> int:
                 "provider_attempt",
                 "manager_verified",
             },
+        )
+        .exclude(
+            intended_order__instagram_assignment__client_id__isnull=False,
+            intended_order__instagram_assignment__unassigned_at__isnull=True,
         )
         .exclude(intended_order__tracking_number__isnull=True)
         .exclude(intended_order__tracking_number="")

@@ -227,6 +227,18 @@ def _reconcile_commercial_episodes_after_reload():
         close_old_connections()
 
 
+def _process_order_fulfillment():
+    """Drain bounded durable order notifications without breaking the daemon."""
+    try:
+        from management.services.ig_order_fulfillment import (
+            reconcile_order_customer_events,
+        )
+
+        reconcile_order_customer_events(limit=10, send=True)
+    except Exception as exc:
+        bot.log("error", "order_fulfillment", repr(exc))
+
+
 def _run_work_cycle(settings_obj, last_poll: float) -> tuple[bool, float]:
     """Run durable operational work, then reply work only when enabled."""
     enabled = bool(settings_obj.is_enabled)
@@ -247,6 +259,8 @@ def _run_work_cycle(settings_obj, last_poll: float) -> tuple[bool, float]:
     if enabled:
         bot.process_pending(settings_obj)
         bot_followups.process_due_followups(settings_obj)
+        if settings_obj.pk:
+            _process_order_fulfillment()
     now = time.time()
     if settings_obj.receive_via_poll and (now - last_poll) >= interval:
         poll_result = bot.poll_ingest(settings_obj)

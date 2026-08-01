@@ -147,6 +147,7 @@ def _item_snapshot(items):
     return result
 
 
+@transaction.atomic
 def create_order_attribution(
     order,
     *,

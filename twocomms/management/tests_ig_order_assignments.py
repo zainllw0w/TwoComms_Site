@@ -9,6 +9,7 @@ import uuid
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 from django.test import SimpleTestCase, TestCase
+from django.utils import timezone
 
 from orders.models import Order
 
@@ -37,26 +38,37 @@ class IgOrderAssignmentModelTests(TestCase):
         )
 
     def _assignment(self):
-        from management.models import IgOrderAssignment
+        from management.services.ig_order_assignments import link_order_to_client
 
-        return IgOrderAssignment.objects.create(
-            order=self.order,
+        return link_order_to_client(
+            self.order,
             client=self.client,
-            source=IgOrderAssignment.Source.MANAGER_MANUAL,
-            assigned_by=self.actor,
+            actor=self.actor,
         )
 
-    def test_order_has_one_current_assignment_projection(self):
+    def test_direct_assignment_create_is_rejected_outside_service(self):
         from management.models import IgOrderAssignment
 
-        self._assignment()
-        with self.assertRaises(IntegrityError):
-            with self.captureOnCommitCallbacks(execute=True):
-                IgOrderAssignment.objects.create(
-                    order=self.order,
-                    client=self.other_client,
-                    source=IgOrderAssignment.Source.MANAGER_MANUAL,
-                )
+        with self.assertRaisesRegex(ValueError, "assignment service"):
+            IgOrderAssignment.objects.create(
+                order=self.order,
+                client=self.client,
+                source=IgOrderAssignment.Source.MANAGER_MANUAL,
+            )
+
+    def test_direct_assignment_save_and_queryset_updates_are_rejected(self):
+        from management.models import IgOrderAssignment
+
+        assignment = self._assignment()
+        assignment.client = self.other_client
+        with self.assertRaisesRegex(ValueError, "assignment service"):
+            assignment.save(update_fields=["client", "updated_at"])
+        with self.assertRaisesRegex(ValueError, "assignment service"):
+            IgOrderAssignment.objects.filter(pk=assignment.pk).update(
+                client=self.other_client
+            )
+        with self.assertRaisesRegex(ValueError, "assignment service"):
+            IgOrderAssignment.objects.bulk_update([assignment], ["client"])
 
     def test_assignment_defaults_to_version_one(self):
         assignment = self._assignment()
@@ -222,6 +234,38 @@ class IgOrderAssignmentModelTests(TestCase):
                 actor=self.actor,
             )
 
+    def test_operation_id_cannot_be_reused_for_another_action_or_client(self):
+        from management.services.ig_order_assignments import (
+            OrderAssignmentError,
+            link_order_to_client,
+            unlink_order_from_client,
+        )
+
+        operation_id = uuid.uuid4()
+        assignment = link_order_to_client(
+            self.order,
+            client=self.client,
+            actor=self.actor,
+            operation_id=operation_id,
+        )
+        with self.assertRaises(OrderAssignmentError):
+            link_order_to_client(
+                self.order,
+                client=self.other_client,
+                actor=self.actor,
+                operation_id=operation_id,
+            )
+        with self.assertRaises(OrderAssignmentError):
+            unlink_order_from_client(
+                self.order,
+                client=self.client,
+                actor=self.actor,
+                operation_id=operation_id,
+                expected_version=assignment.version,
+                reason_code="manager_correction",
+                reason="Wrong action id",
+            )
+
     def test_link_rejects_legacy_attribution_owner_before_projection_backfill(self):
         from management.models import IgOrderAttribution
         from management.services.ig_order_assignments import (
@@ -236,6 +280,98 @@ class IgOrderAssignmentModelTests(TestCase):
             payment_source="unknown",
         )
         with self.assertRaises(AssignmentConflict):
+            link_order_to_client(self.order, client=self.client, actor=self.actor)
+
+    def test_explicit_unlink_allows_relink_despite_historical_attribution(self):
+        from management.models import IgOrderAttribution
+        from management.services.ig_order_assignments import (
+            link_order_to_client,
+            unlink_order_from_client,
+        )
+
+        IgOrderAttribution.objects.create(
+            order=self.order,
+            client=self.client,
+            creation_mode="linked_existing",
+            payment_source="unknown",
+        )
+        assignment = link_order_to_client(
+            self.order,
+            client=self.client,
+            actor=self.actor,
+        )
+        unlink_order_from_client(
+            self.order,
+            client=self.client,
+            actor=self.actor,
+            expected_version=assignment.version,
+            reason_code="manager_correction",
+            reason="Website order was matched to the wrong Instagram customer.",
+        )
+
+        relinked = link_order_to_client(
+            self.order,
+            client=self.other_client,
+            actor=self.actor,
+            expected_version=2,
+        )
+
+        self.assertEqual(relinked.client_id, self.other_client.pk)
+        self.assertEqual(relinked.version, 3)
+
+    def test_unlink_rejects_request_from_another_client(self):
+        from management.services.ig_order_assignments import (
+            AssignmentConflict,
+            link_order_to_client,
+            unlink_order_from_client,
+        )
+
+        assignment = link_order_to_client(
+            self.order,
+            client=self.client,
+            actor=self.actor,
+        )
+
+        with self.assertRaises(AssignmentConflict):
+            unlink_order_from_client(
+                self.order,
+                client=self.other_client,
+                actor=self.actor,
+                expected_version=assignment.version,
+                reason_code="manager_correction",
+                reason="Wrong drawer attempted the unlink.",
+            )
+
+    def test_first_link_rejects_a_stale_expected_version(self):
+        from management.services.ig_order_assignments import (
+            AssignmentVersionConflict,
+            link_order_to_client,
+        )
+
+        with self.assertRaises(AssignmentVersionConflict):
+            link_order_to_client(
+                self.order,
+                client=self.client,
+                actor=self.actor,
+                expected_version=7,
+            )
+
+    def test_link_rejects_cancelled_order_and_hidden_client(self):
+        from management.services.ig_order_assignments import (
+            OrderAssignmentError,
+            link_order_to_client,
+        )
+
+        self.order.status = "cancelled"
+        self.order.save(update_fields=["status"])
+        with self.assertRaises(OrderAssignmentError):
+            link_order_to_client(self.order, client=self.client, actor=self.actor)
+
+        self.order.status = "new"
+        self.order.save(update_fields=["status"])
+        self.client.hidden_at = timezone.now()
+        self.client.save(update_fields=["hidden_at", "updated_at"])
+        with self.assertRaises(OrderAssignmentError):
             link_order_to_client(self.order, client=self.client, actor=self.actor)
 
     def test_unlink_requires_reason_and_expected_version_then_allows_relink(self):
@@ -254,11 +390,13 @@ class IgOrderAssignmentModelTests(TestCase):
         with self.assertRaises(ValueError):
             unlink_order_from_client(
                 self.order,
+                client=self.client,
                 actor=self.actor,
                 expected_version=assignment.version,
             )
         unlink_order_from_client(
             self.order,
+            client=self.client,
             actor=self.actor,
             expected_version=assignment.version,
             reason_code="manager_correction",
@@ -270,6 +408,7 @@ class IgOrderAssignmentModelTests(TestCase):
         with self.assertRaises(AssignmentVersionConflict):
             unlink_order_from_client(
                 self.order,
+                client=self.client,
                 actor=self.actor,
                 expected_version=1,
                 reason_code="manager_correction",
@@ -317,6 +456,25 @@ class IgOrderAssignmentModelTests(TestCase):
         self.order.refresh_from_db()
         self.assertEqual(self.order.payment_status, before["payment_status"])
         self.assertEqual(self.order.total_sum, before["total_sum"])
+
+    def test_conflicting_automatic_attribution_rolls_back_without_split_ownership(self):
+        from management.models import IgOrderAttribution
+        from management.services.ig_order_assignments import (
+            AssignmentConflict,
+            link_order_to_client,
+        )
+        from management.services.ig_order_links import create_order_attribution
+
+        link_order_to_client(self.order, client=self.client, actor=self.actor)
+        with self.assertRaises(AssignmentConflict):
+            create_order_attribution(
+                self.order,
+                client=self.other_client,
+                creation_mode="provider_auto",
+                payment_source="provider_monobank",
+            )
+
+        self.assertFalse(IgOrderAttribution.objects.filter(order=self.order).exists())
 
 
 class IgOrderAssignmentMigrationTests(SimpleTestCase):

@@ -3285,6 +3285,7 @@ def send_text(
     text: str,
     *,
     permission_boundary_factory=None,
+    provider_message_callback=None,
     allow_url_fallback: bool = False,
 ) -> tuple[bool, str, str]:
     """Повертає (ok, kind, hint/delivered_text).
@@ -3350,6 +3351,14 @@ def send_text(
                 data=body,
             )
         if code == 200:
+            if provider_message_callback:
+                try:
+                    response_payload = json.loads(resp or "{}")
+                except (TypeError, ValueError):
+                    response_payload = {}
+                message_id = str(response_payload.get("message_id") or "").strip()
+                if message_id:
+                    provider_message_callback(message_id)
             ok_any = True
             _clear_send_error(s)
             _clear_client_delivery_error(recipient_id)
@@ -3399,6 +3408,16 @@ def send_text(
                         data=fallback_body,
                     )
                 if fallback_code == 200:
+                    if provider_message_callback:
+                        try:
+                            fallback_response_payload = json.loads(fallback_resp or "{}")
+                        except (TypeError, ValueError):
+                            fallback_response_payload = {}
+                        message_id = str(
+                            fallback_response_payload.get("message_id") or ""
+                        ).strip()
+                        if message_id:
+                            provider_message_callback(message_id)
                     _clear_send_error(s)
                     _clear_client_delivery_error(recipient_id)
                     log("warning", "send_link_fallback", f"→ {recipient_id}: URL removed after Meta 508/2534122")

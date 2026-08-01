@@ -8,6 +8,7 @@ and customer-fulfillment workers.
 from __future__ import annotations
 
 import uuid
+from functools import wraps
 
 from django.db import transaction
 from django.utils import timezone
@@ -27,6 +28,17 @@ class AssignmentVersionConflict(OrderAssignmentError):
 
 class AssignmentNotFound(OrderAssignmentError):
     """No current assignment exists for the requested order."""
+
+
+def _assignment_mutation(function):
+    @wraps(function)
+    def wrapped(*args, **kwargs):
+        from management.ig_bot_models import _ig_order_assignment_mutation_scope
+
+        with _ig_order_assignment_mutation_scope():
+            return function(*args, **kwargs)
+
+    return wrapped
 
 
 def _uuid(value):
@@ -58,17 +70,16 @@ def _assignment_event_snapshot(assignment, *, reason_code, reason):
     }
 
 
-def _replayed_assignment(operation_id):
+def _replayed_event(operation_id):
     if operation_id is None:
         return None
     from management.ig_bot_models import IgOrderAssignmentEvent
 
-    event = (
+    return (
         IgOrderAssignmentEvent.objects.select_related("assignment")
         .filter(operation_id=operation_id)
         .first()
     )
-    return event.assignment if event else None
 
 
 def _legacy_owner_conflict(order_id, client_id):
@@ -119,6 +130,7 @@ def _locked_order(order):
 
 
 @transaction.atomic
+@_assignment_mutation
 def link_order_to_client(
     order,
     *,
@@ -147,14 +159,27 @@ def link_order_to_client(
     source = source or IgOrderAssignment.Source.MANAGER_MANUAL
     actor_source = _actor_source(actor, actor_source)
     locked_order = _locked_order(order)
-    replay = _replayed_assignment(operation_id)
+    if locked_order.status == "cancelled":
+        raise OrderAssignmentError("Скасоване замовлення не можна прив'язати")
+    if client.hidden_at:
+        raise OrderAssignmentError("Прихованого Instagram-клієнта не можна прив'язати")
+    replay = _replayed_event(operation_id)
     if replay is not None:
         if replay.order_id != locked_order.pk:
             raise OrderAssignmentError("Operation id belongs to another order")
-        return replay
-
-    if _legacy_owner_conflict(locked_order.pk, client.pk):
-        raise AssignmentConflict("Замовлення вже прив'язано до іншого Instagram-клієнта")
+        if replay.kind not in {
+            IgOrderAssignmentEvent.Kind.LINKED,
+            IgOrderAssignmentEvent.Kind.AUTO_CONFIRMED,
+        } or replay.to_client_id != client.pk:
+            raise OrderAssignmentError("Operation id belongs to another assignment action")
+        replayed_assignment = replay.assignment
+        if (
+            replayed_assignment.version != replay.assignment_version
+            or replayed_assignment.client_id != client.pk
+            or replayed_assignment.unassigned_at is not None
+        ):
+            raise AssignmentVersionConflict("Повторена операція вже не є поточною")
+        return replayed_assignment
 
     assignment = (
         IgOrderAssignment.objects.select_for_update()
@@ -162,6 +187,10 @@ def link_order_to_client(
         .first()
     )
     if assignment is None:
+        if expected_version is not None:
+            raise AssignmentVersionConflict("Версія прив'язки вже змінилася")
+        if _legacy_owner_conflict(locked_order.pk, client.pk):
+            raise AssignmentConflict("Замовлення вже прив'язано до іншого Instagram-клієнта")
         assignment = IgOrderAssignment.objects.create(
             order=locked_order,
             client=client,
@@ -179,6 +208,7 @@ def link_order_to_client(
         if assignment.client_id and assignment.client_id != client.pk:
             raise AssignmentConflict("Замовлення вже прив'язано до іншого Instagram-клієнта")
         if assignment.client_id == client.pk and assignment.unassigned_at is None:
+            transaction.on_commit(lambda order_id=locked_order.pk: _kick_fulfillment(order_id))
             return assignment
         previous_client_id = assignment.client_id
         assignment.client = client
@@ -224,13 +254,16 @@ def link_order_to_client(
             reason=reason,
         ),
     )
+    transaction.on_commit(lambda order_id=locked_order.pk: _kick_fulfillment(order_id))
     return assignment
 
 
 @transaction.atomic
+@_assignment_mutation
 def unlink_order_from_client(
     order,
     *,
+    client,
     actor=None,
     actor_source=None,
     operation_id=None,
@@ -248,11 +281,22 @@ def unlink_order_from_client(
     operation_id = _uuid(operation_id)
     actor_source = _actor_source(actor, actor_source)
     locked_order = _locked_order(order)
-    replay = _replayed_assignment(operation_id)
+    replay = _replayed_event(operation_id)
     if replay is not None:
         if replay.order_id != locked_order.pk:
             raise OrderAssignmentError("Operation id belongs to another order")
-        return replay
+        if replay.kind != IgOrderAssignmentEvent.Kind.UNLINKED:
+            raise OrderAssignmentError("Operation id belongs to another assignment action")
+        if replay.from_client_id != client.pk:
+            raise OrderAssignmentError("Operation id belongs to another Instagram client")
+        replayed_assignment = replay.assignment
+        if (
+            replayed_assignment.version != replay.assignment_version
+            or replayed_assignment.client_id is not None
+            or replayed_assignment.unassigned_at is None
+        ):
+            raise AssignmentVersionConflict("Повторена операція вже не є поточною")
+        return replayed_assignment
     assignment = (
         IgOrderAssignment.objects.select_for_update()
         .filter(order_id=locked_order.pk)
@@ -263,7 +307,10 @@ def unlink_order_from_client(
     if expected_version is not None and assignment.version != int(expected_version):
         raise AssignmentVersionConflict("Версія прив'язки вже змінилася")
     if assignment.client_id is None or assignment.unassigned_at is not None:
+        transaction.on_commit(lambda order_id=locked_order.pk: _kick_fulfillment(order_id))
         return assignment
+    if assignment.client_id != client.pk:
+        raise AssignmentConflict("Замовлення прив'язано до іншого Instagram-клієнта")
     if not str(reason_code or "").strip() or not str(reason or "").strip():
         raise ValueError("Для відв'язки потрібні код і пояснення причини")
 
@@ -281,6 +328,25 @@ def unlink_order_from_client(
         "last_reason",
         "updated_at",
     ])
+    from management.ig_bot_models import IgOrderCustomerEvent
+
+    IgOrderCustomerEvent.objects.filter(
+        assignment=assignment,
+        assignment_version__lt=assignment.version,
+    ).exclude(
+        state__in=(
+            IgOrderCustomerEvent.State.SENT,
+            IgOrderCustomerEvent.State.CANCELLED,
+            IgOrderCustomerEvent.State.MANAGER_REVIEW,
+            IgOrderCustomerEvent.State.AMBIGUOUS,
+        )
+    ).update(
+        state=IgOrderCustomerEvent.State.CANCELLED,
+        lease_token="",
+        lease_expires_at=None,
+        last_error="assignment was explicitly unlinked",
+        updated_at=timezone.now(),
+    )
     IgOrderAssignmentEvent.objects.create(
         operation_id=operation_id or uuid.uuid4(),
         assignment=assignment,
@@ -300,7 +366,20 @@ def unlink_order_from_client(
             reason=assignment.last_reason,
         ),
     )
+    transaction.on_commit(lambda order_id=locked_order.pk: _kick_fulfillment(order_id))
     return assignment
+
+
+def _kick_fulfillment(order_id):
+    """Import lazily so assignment mutations stay usable during migrations."""
+    try:
+        from management.services.ig_order_fulfillment import kick_order_fulfillment
+
+        kick_order_fulfillment(order_id)
+    except Exception:
+        # The durable event can still be picked up by the reconciliation
+        # command/cron; a wake-up failure must never roll back ownership.
+        return None
 
 
 def assignment_source_for_attribution(*, creation_mode, payment_source):

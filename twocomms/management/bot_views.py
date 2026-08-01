@@ -6,6 +6,7 @@ Start/Stop, вибором джерела ключів і онлайн-конс�
 """
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
+from django.core import signing
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Exists, F, OuterRef, Prefetch, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
@@ -24,7 +25,7 @@ import os
 import re
 import secrets
 from decimal import Decimal, InvalidOperation
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
 from .bot_access import is_meta_bot_reviewer
 from .models import (
@@ -1095,6 +1096,113 @@ def _order_workspace_order_payload(order) -> dict:
     }
 
 
+def _manual_order_url_for_client(client_id: int) -> str:
+    """Return the signed storefront manual-order URL from management."""
+
+    token = signing.dumps(
+        {"client_id": int(client_id)},
+        salt="storefront.manual-order.ig-client",
+    )
+    try:
+        path = reverse("manual_order_create", urlconf="twocomms.urls")
+    except Exception:
+        return ""
+    base = (getattr(settings, "SITE_BASE_URL", "") or "https://twocomms.shop").rstrip("/")
+    return f"{base}{path}?" + urlencode({
+        "ig_client": int(client_id),
+        "ig_client_token": token,
+    })
+
+
+def _order_ttn_action_url(order_id: int) -> str:
+    """Return the absolute storefront TTN action URL from management."""
+
+    try:
+        path = reverse(
+            "admin_order_nova_poshta_action",
+            args=[int(order_id)],
+            urlconf="twocomms.urls",
+        )
+    except Exception:
+        return ""
+    base = (getattr(settings, "SITE_BASE_URL", "") or "https://twocomms.shop").rstrip("/")
+    return f"{base}{path}"
+
+
+def _assignment_workspace_payload(assignment, *, client_id=None) -> dict:
+    """Serialize current ownership and staff-only fulfillment capabilities."""
+
+    order = assignment.order
+    actor = assignment.assigned_by
+    actor_name = ""
+    if actor is not None:
+        actor_name = actor.get_full_name() or actor.get_username()
+    active = bool(
+        assignment.client_id
+        and assignment.unassigned_at is None
+        and (client_id is None or assignment.client_id == client_id)
+    )
+    ttn_action_url = _order_ttn_action_url(order.pk)
+    tracking_number = (order.tracking_number or "").strip()
+    terminal = order.status in {"done", "cancelled"}
+    source_label = assignment.get_source_display()
+    context_client_id = client_id or assignment.client_id
+    manual_order_url = (
+        _manual_order_url_for_client(context_client_id)
+        if context_client_id
+        else ""
+    )
+    return {
+        "id": assignment.pk,
+        "state": "active" if active else "unassigned",
+        "client_id": assignment.client_id,
+        "version": assignment.version,
+        "source": assignment.source,
+        "source_label": source_label,
+        "actor": {
+            "id": assignment.assigned_by_id,
+            "name": actor_name,
+        },
+        "linked_at": assignment.assigned_at.isoformat() if assignment.assigned_at else "",
+        "unassigned_at": assignment.unassigned_at.isoformat() if assignment.unassigned_at else "",
+        "reason_code": assignment.last_reason_code or "",
+        "reason": assignment.last_reason or "",
+        "order": _order_workspace_order_payload(order),
+        "can_unlink": active,
+        "capabilities": {
+            "can_create_ttn": bool(active and not tracking_number and not terminal),
+            "can_unlink_api_ttn": bool(active and tracking_number and not terminal),
+            "can_edit_manual_ttn": bool(active and not terminal),
+            "ttn_action_url": ttn_action_url,
+            "tracking_url": (
+                f"https://novaposhta.ua/tracking/?cargo_number={tracking_number}"
+                if tracking_number
+                else ""
+            ),
+            "manual_order_url": manual_order_url,
+        },
+    }
+
+
+def _assignment_event_workspace_payload(event) -> dict:
+    actor = event.actor
+    actor_name = ""
+    if actor is not None:
+        actor_name = actor.get_full_name() or actor.get_username()
+    return {
+        "id": event.pk,
+        "kind": event.kind,
+        "kind_label": event.get_kind_display(),
+        "actor": actor_name or event.get_actor_source_display(),
+        "source": event.get_assignment_source_display(),
+        "version": event.assignment_version,
+        "created_at": event.created_at.isoformat() if event.created_at else "",
+        "reason_code": event.reason_code or "",
+        "reason": event.reason or "",
+        "order": _order_workspace_order_payload(event.order),
+    }
+
+
 def _post_sale_case_payload(case) -> dict:
     order = case.order if case.order_id else None
     return {
@@ -1126,22 +1234,36 @@ def _post_sale_case_payload(case) -> dict:
 
 
 def _post_sale_workspace_payload(client) -> dict:
-    from .ig_bot_models import IgOrderAttribution, IgPostSaleCase
+    from .ig_bot_models import IgOrderAssignment, IgOrderAttribution, IgPostSaleCase
 
     cases = list(
         IgPostSaleCase.objects.filter(client=client)
         .select_related("order", "commercial_episode", "source_message")
         .order_by("-updated_at", "-id")[:20]
     )
+    assignments = list(
+        IgOrderAssignment.objects.filter(client=client, unassigned_at__isnull=True)
+        .select_related("order")
+        .order_by("-assigned_at", "-id")[:30]
+    )
+    assigned_order_ids = {row.order_id for row in assignments}
     attributions = list(
-        IgOrderAttribution.objects.filter(client=client)
+        IgOrderAttribution.objects.filter(
+            client=client,
+            order__instagram_assignment__isnull=True,
+        )
         .select_related("order")
         .order_by("-created_at", "-id")[:30]
     )
     seen = set()
     choices = []
+    for assignment in assignments:
+        if assignment.order_id in seen:
+            continue
+        seen.add(assignment.order_id)
+        choices.append(_order_workspace_order_payload(assignment.order))
     for attribution in attributions:
-        if attribution.order_id in seen:
+        if attribution.order_id in seen or attribution.order_id in assigned_order_ids:
             continue
         seen.add(attribution.order_id)
         choices.append(_order_workspace_order_payload(attribution.order))
@@ -1650,6 +1772,9 @@ def bot_order_candidates_api(request):
     queryset = Order.objects.select_related(
         "instagram_attribution",
         "instagram_attribution__client",
+        "instagram_assignment",
+        "instagram_assignment__client",
+        "instagram_assignment__assigned_by",
     ).prefetch_related("items").order_by("-created", "-id")
     if q:
         queryset = queryset.filter(
@@ -1671,9 +1796,17 @@ def bot_order_candidates_api(request):
             attribution = order.instagram_attribution
         except Exception:
             attribution = None
+        assignment = getattr(order, "instagram_assignment", None)
+        assignment_active = bool(
+            assignment
+            and assignment.client_id
+            and assignment.unassigned_at is None
+        )
         blocked_reason = ""
         if order.status == "cancelled":
             blocked_reason = "cancelled"
+        elif assignment_active and assignment.client_id != client.pk:
+            blocked_reason = "owned_by_other_client"
         elif attribution and attribution.client_id != client.pk:
             blocked_reason = "owned_by_other_client"
         if not blocked_reason:
@@ -1759,6 +1892,14 @@ def bot_order_candidates_api(request):
             "override_conflicts": override_conflicts,
             "allowed_override_codes": allowed_override_codes,
             "linked_client_id": attribution.client_id if attribution else None,
+            "current_assignment_id": assignment.pk if assignment_active else None,
+            "assignment_version": assignment.version if assignment_active else None,
+            "assignment_source": assignment.source if assignment_active else "",
+            "assignment": (
+                _assignment_workspace_payload(assignment, client_id=client.pk)
+                if assignment
+                else None
+            ),
             "admin_url": _existing_order_admin_url(order.pk),
         })
     return JsonResponse({
@@ -1768,6 +1909,155 @@ def bot_order_candidates_api(request):
         "query": q,
         "items": items,
         "limit": limit,
+    })
+
+
+@login_required(login_url="management_login")
+@require_POST
+def bot_client_order_link_api(request, client_id):
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    from .ig_bot_models import IgClient, IgOrderAssignment, IgOrderAssignmentEvent
+    from management.services.ig_order_assignments import (
+        AssignmentConflict,
+        AssignmentVersionConflict,
+        link_order_to_client,
+    )
+    from orders.models import Order
+
+    client = IgClient.objects.filter(pk=client_id).first()
+    if not client or client.hidden_at:
+        return JsonResponse(
+            {"success": False, "error_code": "client_not_found", "error": "Instagram-клієнта не знайдено."},
+            status=404,
+        )
+    order_identifier = str(request.POST.get("order_identifier") or "").strip()
+    order = Order.objects.filter(order_number=order_identifier).first()
+    if not order:
+        return JsonResponse(
+            {"success": False, "error_code": "order_not_found", "error": "Замовлення з таким точним номером не знайдено."},
+            status=404,
+        )
+    if order.status == "cancelled":
+        return JsonResponse(
+            {"success": False, "error_code": "order_not_linkable", "error": "Скасоване замовлення не можна прив'язати."},
+            status=409,
+        )
+    expected_version = request.POST.get("expected_version")
+    try:
+        expected_version = int(expected_version) if expected_version not in (None, "") else None
+    except (TypeError, ValueError):
+        return JsonResponse(
+            {"success": False, "error_code": "invalid_version", "error": "Некоректна версія прив'язки."},
+            status=400,
+        )
+    try:
+        assignment = link_order_to_client(
+            order,
+            client=client,
+            actor=request.user,
+            source=IgOrderAssignment.Source.MANAGER_MANUAL,
+            actor_source=IgOrderAssignmentEvent.ActorSource.MANAGEMENT_USER,
+            operation_id=request.POST.get("operation_id") or None,
+            expected_version=expected_version,
+            reason_code=str(request.POST.get("reason_code") or "").strip()[:64],
+            reason=str(request.POST.get("reason") or request.POST.get("reason_text") or "").strip()[:500],
+        )
+    except AssignmentConflict as exc:
+        return JsonResponse(
+            {"success": False, "error_code": "assignment_conflict", "error": str(exc)},
+            status=409,
+        )
+    except AssignmentVersionConflict as exc:
+        return JsonResponse(
+            {"success": False, "error_code": "assignment_version_conflict", "error": str(exc)},
+            status=409,
+        )
+    except ValueError as exc:
+        return JsonResponse(
+            {"success": False, "error_code": "invalid_assignment", "error": str(exc)},
+            status=400,
+        )
+    assignment = IgOrderAssignment.objects.select_related("order", "assigned_by").get(pk=assignment.pk)
+    return JsonResponse({
+        "success": True,
+        "assignment": _assignment_workspace_payload(assignment, client_id=client.pk),
+    })
+
+
+@login_required(login_url="management_login")
+@require_POST
+def bot_client_order_unlink_api(request, client_id, assignment_id):
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    from .ig_bot_models import IgClient, IgOrderAssignment, IgOrderAssignmentEvent
+    from management.services.ig_order_assignments import (
+        AssignmentConflict,
+        AssignmentNotFound,
+        AssignmentVersionConflict,
+        unlink_order_from_client,
+    )
+
+    client = IgClient.objects.filter(pk=client_id).first()
+    assignment = (
+        IgOrderAssignment.objects.select_related("order", "client", "assigned_by")
+        .filter(pk=assignment_id)
+        .first()
+    )
+    if not client or client.hidden_at:
+        return JsonResponse(
+            {"success": False, "error_code": "client_not_found", "error": "Instagram-клієнта не знайдено."},
+            status=404,
+        )
+    if not assignment or assignment.client_id != client.pk or assignment.unassigned_at is not None:
+        return JsonResponse(
+            {"success": False, "error_code": "assignment_not_active", "error": "Активну прив'язку не знайдено."},
+            status=404,
+        )
+    try:
+        expected_version = int(request.POST.get("expected_version"))
+    except (TypeError, ValueError):
+        return JsonResponse(
+            {"success": False, "error_code": "invalid_version", "error": "Некоректна версія прив'язки."},
+            status=400,
+        )
+    try:
+        updated = unlink_order_from_client(
+            assignment.order_id,
+            client=client,
+            actor=request.user,
+            actor_source=IgOrderAssignmentEvent.ActorSource.MANAGEMENT_USER,
+            operation_id=request.POST.get("operation_id") or None,
+            expected_version=expected_version,
+            reason_code=str(request.POST.get("reason_code") or "").strip()[:64],
+            reason=str(request.POST.get("reason") or request.POST.get("reason_text") or "").strip()[:500],
+        )
+    except AssignmentVersionConflict as exc:
+        return JsonResponse(
+            {"success": False, "error_code": "assignment_version_conflict", "error": str(exc)},
+            status=409,
+        )
+    except AssignmentConflict as exc:
+        return JsonResponse(
+            {"success": False, "error_code": "assignment_conflict", "error": str(exc)},
+            status=409,
+        )
+    except AssignmentNotFound as exc:
+        return JsonResponse(
+            {"success": False, "error_code": "assignment_not_active", "error": str(exc)},
+            status=404,
+        )
+    except ValueError as exc:
+        return JsonResponse(
+            {"success": False, "error_code": "invalid_assignment", "error": str(exc)},
+            status=400,
+        )
+    updated = IgOrderAssignment.objects.select_related("order", "assigned_by").get(pk=updated.pk)
+    return JsonResponse({
+        "success": True,
+        "assignment": _assignment_workspace_payload(updated, client_id=client.pk),
     })
 
 
@@ -3002,6 +3292,32 @@ def bot_client_detail_api(request, client_id):
         attribution_rows,
         limit=20,
     )
+    from .ig_bot_models import IgOrderAssignment, IgOrderAssignmentEvent
+
+    assignment_rows = list(
+        IgOrderAssignment.objects.filter(
+            client=c,
+            unassigned_at__isnull=True,
+        )
+        .select_related("order", "assigned_by")
+        .order_by("-assigned_at", "-id")[:20]
+    )
+    assignment_payloads = [
+        _assignment_workspace_payload(row, client_id=c.pk)
+        for row in assignment_rows
+    ]
+    assignment_event_rows = list(
+        IgOrderAssignmentEvent.objects.filter(
+            Q(to_client=c) | Q(from_client=c),
+        )
+        .select_related("order", "actor")
+        .order_by("-created_at", "-id")[:30]
+    )
+    assignment_event_payloads = [
+        _assignment_event_workspace_payload(row)
+        for row in assignment_event_rows
+    ]
+    manual_order_url = _manual_order_url_for_client(c.pk)
     card = _client_card(c)
     card.update({
         "memory": c.memory_summary,
@@ -3155,6 +3471,10 @@ def bot_client_detail_api(request, client_id):
             "review_count": review_counts["total"],
             "attribution_count": attribution_total,
             "items": order_cards,
+            "assignments": assignment_payloads,
+            "assignment_count": len(assignment_payloads),
+            "assignment_history": assignment_event_payloads,
+            "manual_order_url": manual_order_url,
             "queue_url": _orders_workspace_url(view="all", client_id=c.pk),
         },
         "post_sale": _post_sale_workspace_payload(c),

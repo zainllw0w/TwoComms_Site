@@ -11,6 +11,8 @@ from __future__ import annotations
 import hashlib
 import secrets
 import uuid
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import timedelta
 from decimal import Decimal
 
@@ -1168,7 +1170,48 @@ class IgOrderLinkEvent(models.Model):
         raise ValueError("IgOrderLinkEvent is append-only")
 
 
+_ig_order_assignment_mutation_allowed = ContextVar(
+    "ig_order_assignment_mutation_allowed",
+    default=False,
+)
+
+
+@contextmanager
+def _ig_order_assignment_mutation_scope():
+    token = _ig_order_assignment_mutation_allowed.set(True)
+    try:
+        yield
+    finally:
+        _ig_order_assignment_mutation_allowed.reset(token)
+
+
+def _require_ig_order_assignment_mutation_scope():
+    if not _ig_order_assignment_mutation_allowed.get():
+        raise ValueError(
+            "IgOrderAssignment is managed by the assignment service"
+        )
+
+
 class _IgOrderAssignmentQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        _require_ig_order_assignment_mutation_scope()
+        return super().update(**kwargs)
+
+    def bulk_create(self, objs, batch_size=None, ignore_conflicts=False, update_conflicts=False, update_fields=None, unique_fields=None):
+        _require_ig_order_assignment_mutation_scope()
+        return super().bulk_create(
+            objs,
+            batch_size=batch_size,
+            ignore_conflicts=ignore_conflicts,
+            update_conflicts=update_conflicts,
+            update_fields=update_fields,
+            unique_fields=unique_fields,
+        )
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        _require_ig_order_assignment_mutation_scope()
+        return super().bulk_update(objs, fields, batch_size=batch_size)
+
     def delete(self):
         raise ValueError("IgOrderAssignment is managed by the assignment service")
 
@@ -1226,6 +1269,10 @@ class IgOrderAssignment(models.Model):
         ]
 
     objects = models.Manager.from_queryset(_IgOrderAssignmentQuerySet)()
+
+    def save(self, *args, **kwargs):
+        _require_ig_order_assignment_mutation_scope()
+        return super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
         raise ValueError("IgOrderAssignment is managed by the assignment service")
