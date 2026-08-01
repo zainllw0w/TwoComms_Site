@@ -3478,6 +3478,7 @@ def send_text(
     text: str,
     *,
     permission_boundary_factory=None,
+    provider_message_callback=None,
     allow_url_fallback: bool = False,
     return_receipt: bool = False,
 ) -> tuple[bool, str, str] | ProviderDeliveryReceipt:
@@ -3545,6 +3546,14 @@ def send_text(
                 data=body,
             )
         if code == 200:
+            if provider_message_callback:
+                try:
+                    response_payload = json.loads(resp or "{}")
+                except (TypeError, ValueError):
+                    response_payload = {}
+                message_id = str(response_payload.get("message_id") or "").strip()
+                if message_id:
+                    provider_message_callback(message_id)
             ok_any = True
             provider_message_id = provider_message_id or _provider_message_id(resp)
             _clear_send_error(s)
@@ -3596,6 +3605,16 @@ def send_text(
                     )
                 if fallback_code == 200:
                     provider_message_id = provider_message_id or _provider_message_id(fallback_resp)
+                    if provider_message_callback:
+                        try:
+                            fallback_response_payload = json.loads(fallback_resp or "{}")
+                        except (TypeError, ValueError):
+                            fallback_response_payload = {}
+                        message_id = str(
+                            fallback_response_payload.get("message_id") or ""
+                        ).strip()
+                        if message_id:
+                            provider_message_callback(message_id)
                     _clear_send_error(s)
                     _clear_client_delivery_error(recipient_id)
                     log("warning", "send_link_fallback", f"→ {recipient_id}: URL removed after Meta 508/2534122")

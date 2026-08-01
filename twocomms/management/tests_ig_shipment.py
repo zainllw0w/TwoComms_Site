@@ -5,7 +5,13 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.utils import timezone
 
-from management.models import IgClient, IgDeal, IgFollowUpTask, IgPaymentProjection
+from management.models import (
+    IgClient,
+    IgDeal,
+    IgFollowUpTask,
+    IgOrderAttribution,
+    IgPaymentProjection,
+)
 from management.services import bot_orders
 from management.services import instagram_bot as bot
 
@@ -36,6 +42,21 @@ def _verified_deal(client, order):
         paid_at=deal.paid_at,
     )
     return deal
+
+
+def _legacy_attribution_episode(client, order):
+    from management.services.ig_commercial_episodes import (
+        ensure_episode_for_attribution,
+    )
+
+    attribution = IgOrderAttribution.objects.create(
+        order=order,
+        client=client,
+        creation_mode="linked_existing",
+        payment_source="manager_verified",
+    )
+    ensure_episode_for_attribution(attribution)
+    return attribution
 
 
 class SendTextTaggedTests(TestCase):
@@ -144,6 +165,52 @@ class SendTextTaggedTests(TestCase):
 
 class NotifyShippedDealsTests(TestCase):
     @patch("management.services.bot_orders.notify_manager")
+    @patch("management.services.bot_orders.send_text", create=True)
+    def test_active_assignment_is_exclusively_owned_by_fulfillment_queue(
+        self, mock_send, mock_notify
+    ):
+        from management.services.ig_order_assignments import link_order_to_client
+
+        c = IgClient.get_or_create_for_sender("sh-assignment-owner")
+        c.last_message_at = timezone.now()
+        c.save(update_fields=["last_message_at", "updated_at"])
+        order = _order(ttn="59000111999")
+        deal = _verified_deal(c, order)
+        link_order_to_client(order, client=c)
+
+        self.assertEqual(bot_orders.notify_shipped_deals(), 0)
+
+        deal.refresh_from_db()
+        self.assertIsNone(deal.shipped_notified_at)
+        mock_send.assert_not_called()
+        mock_notify.assert_not_called()
+
+    @patch("management.services.bot_orders.notify_manager")
+    @patch("management.services.bot_orders.send_text", create=True)
+    def test_active_assignment_excludes_attribution_episode_from_legacy_worker(
+        self, mock_send, mock_notify
+    ):
+        from management.services.ig_order_links import create_order_attribution
+
+        c = IgClient.get_or_create_for_sender("sh-assignment-episode-owner")
+        c.last_message_at = timezone.now()
+        c.save(update_fields=["last_message_at", "updated_at"])
+        order = _order(ttn="59000111888")
+        attribution = create_order_attribution(
+            order,
+            client=c,
+            creation_mode="linked_existing",
+            payment_source="manager_verified",
+        )
+
+        self.assertEqual(bot_orders.notify_shipped_deals(), 0)
+
+        attribution.commercial_episode.refresh_from_db()
+        self.assertIsNone(attribution.commercial_episode.shipment_notified_at)
+        mock_send.assert_not_called()
+        mock_notify.assert_not_called()
+
+    @patch("management.services.bot_orders.notify_manager")
     @patch("management.services.instagram_bot.send_text_tagged")
     @patch("management.services.bot_orders.send_text", create=True)
     def test_uses_standard_response_inside_window_once(
@@ -234,22 +301,15 @@ class NotifyShippedDealsTests(TestCase):
 
     @patch("management.services.bot_orders.notify_manager")
     @patch("management.services.bot_orders.send_text", create=True)
-    def test_attribution_only_episode_sends_once_and_marks_exact_episode(
+    def test_legacy_attribution_episode_sends_once_and_marks_exact_episode(
         self, mock_send, mock_notify
     ):
-        from management.services.ig_order_links import create_order_attribution
-
         mock_send.return_value = (True, "", "")
         c = IgClient.get_or_create_for_sender("sh-attribution-only")
         c.last_message_at = timezone.now()
         c.save(update_fields=["last_message_at", "updated_at"])
         order = _order(ttn="59000777777")
-        attribution = create_order_attribution(
-            order,
-            client=c,
-            creation_mode="linked_existing",
-            payment_source="manager_verified",
-        )
+        attribution = _legacy_attribution_episode(c, order)
         episode = attribution.commercial_episode
 
         self.assertEqual(bot_orders.notify_shipped_deals(), 1)
@@ -263,19 +323,12 @@ class NotifyShippedDealsTests(TestCase):
 
     @patch("management.services.bot_orders.notify_manager")
     @patch("management.services.bot_orders.send_text", create=True)
-    def test_attribution_only_episode_outside_window_creates_manager_task(
+    def test_legacy_attribution_episode_outside_window_creates_manager_task(
         self, mock_send, mock_notify
     ):
-        from management.services.ig_order_links import create_order_attribution
-
         c = IgClient.get_or_create_for_sender("sh-attribution-review")
         order = _order(ttn="59000777778")
-        attribution = create_order_attribution(
-            order,
-            client=c,
-            creation_mode="linked_existing",
-            payment_source="manager_verified",
-        )
+        attribution = _legacy_attribution_episode(c, order)
 
         self.assertEqual(bot_orders.notify_shipped_deals(), 0)
         mock_send.assert_not_called()
@@ -292,8 +345,6 @@ class NotifyShippedDealsTests(TestCase):
     def test_blocked_deal_does_not_starve_eligible_attribution_episode_at_limit(
         self, mock_send, mock_notify
     ):
-        from management.services.ig_order_links import create_order_attribution
-
         blocked_client = IgClient.get_or_create_for_sender("sh-blocked-deal")
         blocked_order = _order(ttn="59000888881")
         _verified_deal(blocked_client, blocked_order)
@@ -302,12 +353,7 @@ class NotifyShippedDealsTests(TestCase):
         eligible_client.last_message_at = timezone.now()
         eligible_client.save(update_fields=["last_message_at", "updated_at"])
         eligible_order = _order(ttn="59000888882")
-        attribution = create_order_attribution(
-            eligible_order,
-            client=eligible_client,
-            creation_mode="linked_existing",
-            payment_source="manager_verified",
-        )
+        attribution = _legacy_attribution_episode(eligible_client, eligible_order)
         episode = attribution.commercial_episode
         mock_send.return_value = (True, "", "")
 

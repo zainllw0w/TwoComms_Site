@@ -712,6 +712,32 @@ class DaemonHeartbeatTests(SimpleTestCase):
         cache_add.assert_called_once()
         refresh_profiles.assert_called_once_with(settings)
 
+    @patch("management.management.commands.run_instagram_bot.bot.refresh_profiles_batch")
+    @patch("management.management.commands.run_instagram_bot.cache.add", return_value=False)
+    @patch("management.management.commands.run_instagram_bot._process_order_fulfillment")
+    @patch("management.management.commands.run_instagram_bot.bot_followups.process_due_followups")
+    @patch("management.management.commands.run_instagram_bot.bot.process_pending")
+    @patch("management.management.commands.run_instagram_bot.bot.drain_manager_notifications")
+    def test_enabled_daemon_drains_durable_order_notifications(
+        self,
+        _drain,
+        _pending,
+        _followups,
+        process_fulfillment,
+        _cache_add,
+        refresh_profiles,
+    ):
+        settings = InstagramBotSettings(
+            pk=1,
+            is_enabled=True,
+            receive_via_poll=False,
+        )
+
+        _run_work_cycle(settings, 17.0)
+
+        process_fulfillment.assert_called_once_with()
+        refresh_profiles.assert_not_called()
+
     @patch("management.management.commands.run_instagram_bot.time.time", return_value=100.0)
     @patch("management.management.commands.run_instagram_bot.bot.poll_ingest")
     @patch("management.management.commands.run_instagram_bot.bot_followups.process_due_followups")

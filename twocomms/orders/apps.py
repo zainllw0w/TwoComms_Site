@@ -6,6 +6,8 @@ class OrdersConfig(AppConfig):
     name = 'orders'
 
     def ready(self):
+        from . import ig_fulfillment_signals  # noqa: F401
+
         # Підключаємо ТІЛЬКИ сигнали оптових накладних (нарахування комісії
         # при оплаті). Order-нотифікації з orders/signals.py навмисно не
         # активуємо тут — вони шлються вручну з view.

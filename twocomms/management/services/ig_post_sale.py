@@ -85,10 +85,23 @@ def _extract_details(text: str) -> dict:
 
 
 def _attributed_orders(client):
-    from management.ig_bot_models import IgOrderAttribution
+    from management.ig_bot_models import IgOrderAssignment, IgOrderAttribution
 
+    assignments = list(
+        IgOrderAssignment.objects.filter(
+            client=client,
+            unassigned_at__isnull=True,
+        )
+        .select_related("order")
+        .order_by("-assigned_at", "-id")[:3]
+    )
+    if assignments:
+        return assignments
     return list(
-        IgOrderAttribution.objects.filter(client=client)
+        IgOrderAttribution.objects.filter(
+            client=client,
+            order__instagram_assignment__isnull=True,
+        )
         .select_related("order")
         .order_by("-created_at", "-id")[:3]
     )
@@ -172,12 +185,23 @@ def open_post_sale_case(client, message, *, order=None):
     if order is None:
         attributions = _attributed_orders(client)
         if len(attributions) == 1:
-            attribution = attributions[0]
-            order = attribution.order
+            owner = attributions[0]
+            order = owner.order
+            if hasattr(owner, "order_attribution_id"):
+                attribution = owner
     else:
-        from management.ig_bot_models import IgOrderAttribution
+        from management.ig_bot_models import IgOrderAssignment, IgOrderAttribution
 
-        attribution = IgOrderAttribution.objects.filter(client=client, order=order).first()
+        assignment = IgOrderAssignment.objects.filter(order=order).first()
+        if assignment and (
+            assignment.client_id != client.pk or assignment.unassigned_at is not None
+        ):
+            order = None
+        attribution = (
+            IgOrderAttribution.objects.filter(client=client, order=order).first()
+            if order is not None
+            else None
+        )
 
     episode = None
     if attribution is not None:

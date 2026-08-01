@@ -158,6 +158,26 @@ class SendApiBoundedRetryTests(TestCase):
             }
         })
 
+    @patch("management.services.instagram_bot._provider_account_id", return_value="ig-account")
+    @patch("management.services.instagram_bot.get_page_token", return_value="PT")
+    @patch("management.services.instagram_bot._provider_http")
+    def test_successful_meta_json_exposes_provider_message_id(
+        self, provider_http, _token, _account
+    ):
+        provider_http.return_value = (200, json.dumps({"message_id": "mid.real.1"}))
+        provider_ids = []
+
+        ok, kind, _hint = bot.send_text(
+            self.settings,
+            self.client.igsid,
+            "Delivery update",
+            provider_message_callback=provider_ids.append,
+        )
+
+        self.assertTrue(ok)
+        self.assertEqual(kind, "")
+        self.assertEqual(provider_ids, ["mid.real.1"])
+
     @patch("management.services.instagram_bot.notify_manager")
     @patch("management.services.instagram_bot._provider_account_id", return_value="ig-account")
     @patch("management.services.instagram_bot.get_page_token", return_value="PT")

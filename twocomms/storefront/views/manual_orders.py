@@ -23,6 +23,7 @@ import logging
 from decimal import Decimal, InvalidOperation
 
 from django.contrib.admin.views.decorators import staff_member_required
+from django.core import signing
 from django.db import transaction
 from django.db.models import Prefetch
 from django.http import JsonResponse
@@ -58,6 +59,8 @@ IG_PRICE_OVERRIDE_CODES = {
     'customer_changed_configuration',
     'catalog_price_exception',
 }
+IG_MANUAL_CONTEXT_SALT = "storefront.manual-order.ig-client"
+IG_MANUAL_CONTEXT_MAX_AGE = 60 * 60 * 4
 
 # Пресети «способу оплати» для UI. Кожен мапиться на канонічну пару
 # (pay_type, payment_status), яку розуміють снапшот оплати для ТТН і
@@ -885,7 +888,33 @@ def _build_ig_review_initial(review):
     }
 
 
-def _form_context(*, order=None, prefill=None):
+def _resolve_ig_client_context(raw_id, raw_token=""):
+    """Validate the staff-only Instagram context without trusting a URL id."""
+    if raw_id in (None, ""):
+        return None
+    try:
+        client_id = int(str(raw_id).strip())
+    except (TypeError, ValueError):
+        raise ValueError("Некоректний Instagram-клієнт.")
+    try:
+        payload = signing.loads(
+            str(raw_token or ""),
+            salt=IG_MANUAL_CONTEXT_SALT,
+            max_age=IG_MANUAL_CONTEXT_MAX_AGE,
+        )
+    except signing.BadSignature as exc:
+        raise ValueError("Посилання на Instagram-клієнта застаріло. Відкрийте форму ще раз.") from exc
+    if int(payload.get("client_id") or 0) != client_id:
+        raise ValueError("Контекст Instagram-клієнта не збігається.")
+    from management.ig_bot_models import IgClient
+
+    client = IgClient.objects.filter(pk=client_id, hidden_at__isnull=True).first()
+    if client is None:
+        raise ValueError("Instagram-клієнта не знайдено або його приховано.")
+    return client
+
+
+def _form_context(*, order=None, prefill=None, ig_client=None):
     order_initial = _build_order_initial(order) if order is not None else None
     context = {
         'products_json': json.dumps(_build_products_payload(), ensure_ascii=False),
@@ -896,6 +925,15 @@ def _form_context(*, order=None, prefill=None):
         'is_edit': order is not None,
         'edit_order_id': order.id if order is not None else None,
         'order_initial_json': json.dumps(order_initial or prefill, ensure_ascii=False) if (order_initial or prefill) else '',
+        'ig_client_id': ig_client.pk if ig_client is not None else '',
+        'ig_client_token': (
+            signing.dumps({'client_id': ig_client.pk}, salt=IG_MANUAL_CONTEXT_SALT)
+            if ig_client is not None else ''
+        ),
+        'ig_client_label': (
+            ig_client.display_name or ig_client.username or ig_client.igsid
+            if ig_client is not None else ''
+        ),
     }
     return context
 
@@ -905,6 +943,13 @@ def _form_context(*, order=None, prefill=None):
 def manual_order_create(request):
     if request.method == 'GET':
         prefill = None
+        try:
+            ig_client = _resolve_ig_client_context(
+                request.GET.get('ig_client'),
+                request.GET.get('ig_client_token'),
+            )
+        except ValueError:
+            ig_client = None
         review_id = request.GET.get('ig_payment_review')
         if review_id:
             from management.ig_bot_models import IgPaymentConfirmationReview
@@ -916,12 +961,20 @@ def manual_order_create(request):
             )
             if review and _authoritative_manager_payment_decision(review):
                 prefill = _build_ig_review_initial(review)
-        return render(request, 'pages/admin_manual_order.html', _form_context(prefill=prefill))
+        return render(request, 'pages/admin_manual_order.html', _form_context(prefill=prefill, ig_client=ig_client))
 
     # POST — створення замовлення
     data = _parse_request_payload(request)
     if data is None:
         return JsonResponse({'success': False, 'message': 'Некоректний формат запиту.'}, status=400)
+
+    try:
+        ig_client = _resolve_ig_client_context(
+            data.get('ig_client_id'),
+            data.get('ig_client_token'),
+        )
+    except ValueError as exc:
+        return JsonResponse({'success': False, 'message': str(exc)}, status=422)
 
     payment_review = None
     review_id = data.get('payment_review_id')
@@ -942,6 +995,11 @@ def manual_order_create(request):
             return JsonResponse({
                 'success': False,
                 'message': 'Потрібна звірка сум оплати перед створенням замовлення.',
+            }, status=409)
+        if ig_client is not None and payment_review.client_id != ig_client.pk:
+            return JsonResponse({
+                'success': False,
+                'message': 'Instagram-клієнт не збігається з перевіркою оплати.',
             }, status=409)
         if payment_review.order_id:
             existing = payment_review.order
@@ -1164,14 +1222,6 @@ def manual_order_create(request):
                     payment_source="manager_verified",
                     created_by=request.user,
                 )
-                return JsonResponse({
-                    'success': True,
-                    'message': f'Для цього комерційного циклу вже існує замовлення #{order.order_number}.',
-                    'order_id': order.id,
-                    'order_number': order.order_number,
-                    'redirect_url': f"{reverse('admin_panel')}?section=orders&edit_order={order.pk}",
-                })
-
             for item in order_items:
                 item.order = order
             OrderItem.objects.bulk_create(order_items)
@@ -1223,6 +1273,24 @@ def manual_order_create(request):
                     creation_mode="manager_review",
                     payment_source="manager_verified",
                     created_by=request.user,
+                )
+            if ig_client is not None:
+                from management.ig_bot_models import (
+                    IgOrderAssignment,
+                    IgOrderAssignmentEvent,
+                )
+                from management.services.ig_order_assignments import (
+                    link_order_to_client,
+                )
+
+                link_order_to_client(
+                    order,
+                    client=ig_client,
+                    actor=request.user,
+                    source=IgOrderAssignment.Source.MANAGER_CREATED,
+                    actor_source=IgOrderAssignmentEvent.ActorSource.MANAGEMENT_USER,
+                    reason_code='manual_order_context',
+                    reason='Order created from the Instagram client workspace',
                 )
     except ValueError as exc:
         return JsonResponse({'success': False, 'message': str(exc)}, status=422)

@@ -11,6 +11,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import uuid
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -183,6 +184,21 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
             self.assertIn(contract, self.template)
         self.assertIn("PaymentReviewDrawer.open", self.template)
         self.assertNotIn("Категорія діалогу</div><div class=\"bot-category-value\"", self.template)
+
+    def test_client_workspace_has_audited_order_assignment_controls(self):
+        for contract in (
+            "Прив\\'язка замовлень",
+            "Точний номер існуючого замовлення",
+            "management_bot_client_order_link_api",
+            "management_bot_client_order_unlink_api",
+            "bot-assignment-unlink",
+            "Вкажіть причину, щоб зберегти аудит.",
+            "submit.disabled=!reason.value.trim()",
+            "manual_order_url",
+            "assignment_history",
+        ):
+            self.assertIn(contract, self.template)
+        self.assertNotIn("window.prompt('Причина відв'язки", self.template)
 
     def test_client_workspace_exposes_post_sale_state_and_drawer_controls(self):
         for contract in (
@@ -523,6 +539,23 @@ class ClientsApiTests(TestCase):
         data = r.json()
         self.assertTrue(data["success"])
         self.assertTrue(any(cl["name"] == "Іван" for cl in data["clients"]))
+
+    @override_settings(SITE_BASE_URL="https://shop.example.test")
+    def test_client_detail_uses_storefront_urlconf_for_signed_manual_order(self):
+        response = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.c.pk])
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        manual_order_url = response.json()["orders"]["manual_order_url"]
+        self.assertTrue(
+            manual_order_url.startswith(
+                "https://shop.example.test/admin-panel/orders/manual/create/?"
+            ),
+            manual_order_url,
+        )
+        self.assertIn(f"ig_client={self.c.pk}", manual_order_url)
+        self.assertIn("ig_client_token=", manual_order_url)
 
     def analysis(self, client, interaction_type, *, key):
         return IgConversationAnalysisSnapshot.objects.create(
@@ -1213,6 +1246,96 @@ class OrdersWorkspaceApiTests(TestCase):
             dedupe_key="orders-api-confirmed",
             status=IgPaymentConfirmationReview.Status.CONFIRMED,
         )
+
+    @override_settings(SITE_BASE_URL="https://shop.example.test")
+    def test_manual_order_link_reports_origin_version_and_unlink_capability(self):
+        from orders.models import Order
+
+        order = Order.objects.create(
+            full_name="Website buyer",
+            phone="380501112233",
+            total_sum=Decimal("790.00"),
+            payment_status="paid",
+            source="website",
+        )
+        response = self.client.post(
+            reverse(
+                "management_bot_client_order_link_api",
+                args=[self.customer.pk],
+            ),
+            {
+                "order_identifier": order.order_number,
+                "operation_id": str(uuid.uuid4()),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        payload = response.json()["assignment"]
+        self.assertEqual(payload["order"]["number"], order.order_number)
+        self.assertEqual(payload["source"], "manager_manual")
+        self.assertEqual(payload["actor"]["id"], self.admin.pk)
+        self.assertEqual(payload["version"], 1)
+        self.assertTrue(payload["can_unlink"])
+        self.assertEqual(
+            payload["capabilities"]["ttn_action_url"],
+            f"https://shop.example.test/admin-panel/orders/{order.pk}/nova-poshta/",
+        )
+
+        unlink_response = self.client.post(
+            reverse(
+                "management_bot_client_order_unlink_api",
+                args=[self.customer.pk, payload["id"]],
+            ),
+            {
+                "expected_version": payload["version"],
+                "reason_code": "manager_correction",
+                "reason": "The manager selected the wrong order first.",
+            },
+        )
+        self.assertEqual(unlink_response.status_code, 200, unlink_response.content)
+        self.assertEqual(unlink_response.json()["assignment"]["state"], "unassigned")
+        history = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.customer.pk])
+        ).json()["orders"]["assignment_history"]
+        self.assertEqual(history[0]["kind"], "unlinked")
+
+    def test_manual_order_link_conflict_and_stale_unlink_are_409(self):
+        from management.models import IgClient
+        from orders.models import Order
+
+        order = Order.objects.create(
+            full_name="Website buyer",
+            phone="380501112233",
+            total_sum=Decimal("790.00"),
+            payment_status="paid",
+            source="website",
+        )
+        first = self.client.post(
+            reverse("management_bot_client_order_link_api", args=[self.customer.pk]),
+            {"order_identifier": order.order_number},
+        )
+        self.assertEqual(first.status_code, 200, first.content)
+        other = IgClient.get_or_create_for_sender("orders-api-other-client")
+        conflict = self.client.post(
+            reverse("management_bot_client_order_link_api", args=[other.pk]),
+            {"order_identifier": order.order_number},
+        )
+        self.assertEqual(conflict.status_code, 409)
+        self.assertEqual(conflict.json()["error_code"], "assignment_conflict")
+
+        stale = self.client.post(
+            reverse(
+                "management_bot_client_order_unlink_api",
+                args=[self.customer.pk, first.json()["assignment"]["id"]],
+            ),
+            {
+                "expected_version": 0,
+                "reason_code": "manager_correction",
+                "reason": "stale drawer",
+            },
+        )
+        self.assertEqual(stale.status_code, 409)
+        self.assertEqual(stale.json()["error_code"], "assignment_version_conflict")
 
     def test_orders_workspace_has_action_confirmed_all_counts(self):
         response = self.client.get(reverse("management_bot_orders_workspace_api"))

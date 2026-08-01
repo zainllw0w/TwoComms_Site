@@ -237,6 +237,19 @@
   .mo-delivery-pane { display: none; }
   .mo-delivery-pane.is-active { display: block; }
   .mo-field-hint { font-size: 0.78rem; color: var(--mo-muted); margin-top: 2px; }
+  .mo-ig-context {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 18px;
+    padding: 11px 14px;
+    border: 1px solid rgba(96, 165, 250, 0.34);
+    border-radius: 12px;
+    background: rgba(37, 99, 235, 0.12);
+    color: #dbeafe;
+    font-size: 0.86rem;
+  }
+  .mo-ig-context svg { flex: 0 0 auto; color: #93c5fd; }
 
   /* Items */
   .mo-item-tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
@@ -513,7 +526,9 @@
 <div class="mo-page"
      data-np-city-search-url="{% url 'cart_np_city_search' %}"
      data-np-warehouse-search-url="{% url 'cart_np_warehouse_search' %}"
-     data-create-url="{% url 'manual_order_create' %}">
+     data-create-url="{% url 'manual_order_create' %}"
+     data-ig-client-id="{{ ig_client_id|default:'' }}"
+     data-ig-client-token="{{ ig_client_token|default:'' }}">
 
   <div class="mo-topbar">
     <a href="{% url 'admin_panel' %}?section=orders" class="mo-back">
@@ -526,6 +541,13 @@
     <h1 class="mo-title">Створення замовлення вручну</h1>
     <p class="mo-subtitle">Замовлення з продажів поза сайтом (Instagram, Bezet, офлайн тощо). Після створення прийде сповіщення в Telegram із кнопками для ТТН і списання зі складу — так само, як для замовлень із сайту.</p>
   </div>
+
+  {% if ig_client_id %}
+  <div class="mo-ig-context" role="status">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7h-9"/><path d="M20 12h-9"/><path d="M20 17h-9"/><path d="M4 7h.01"/><path d="M4 12h.01"/><path d="M4 17h.01"/></svg>
+    <span>Після створення замовлення його буде автоматично прив'язано до Instagram-клієнта <strong>{{ ig_client_label }}</strong>.</span>
+  </div>
+  {% endif %}
 
   <div class="mo-alert" id="moAlert"></div>
 
@@ -1257,6 +1279,11 @@
       manager_comment: document.getElementById('moComment').value.trim(),
       payment_review_id: initial && initial.review_id ? initial.review_id : ''
     };
+    var pageRoot = document.querySelector('.mo-page');
+    if (pageRoot && pageRoot.dataset.igClientId) {
+      payload.ig_client_id = pageRoot.dataset.igClientId;
+      payload.ig_client_token = pageRoot.dataset.igClientToken || '';
+    }
 
     if (deliveryMethod === 'manual') {
       var mCity = document.getElementById('moManualCity').value.trim();
