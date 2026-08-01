@@ -199,7 +199,16 @@ class InstagramBotPrivacyPolicyTests(TestCase):
         self.assertNotContains(response, "custom_direct_token")
         self.assertNotContains(response, "custom_gemini_key")
 
-    def test_data_deletion_form_deletes_matching_direct_bot_records(self):
+    def test_data_deletion_form_registers_request_and_verified_fulfillment_deletes(self):
+        """Форма регистрирует заявку; удаляет только подтверждённое исполнение.
+
+        Раньше этот тест закреплял удаление прямо из анонимного POST
+        (F-SEC-002). Смысл теста сохранён — удаление действительно работает
+        и охватывает клиента, переписку и сырые события, — но выполняется
+        оно после подтверждения владения, а не по публичному username.
+        """
+        from management.services.ig_data_deletion import fulfill_deletion_request
+
         client = IgClient.objects.create(igsid="123456789", username="delete_me")
         InstagramBotMessage.objects.create(
             sender_id="123456789",
@@ -221,6 +230,18 @@ class InstagramBotPrivacyPolicyTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Deletion Request Status")
         deletion_request = BotDataDeletionRequest.objects.get()
+        self.assertEqual(
+            deletion_request.status,
+            BotDataDeletionRequest.Status.PENDING_VERIFICATION,
+        )
+        self.assertTrue(
+            IgClient.objects.filter(igsid="123456789").exists(),
+            "до подтверждения владения данные остаются на месте",
+        )
+
+        fulfill_deletion_request(deletion_request, actor_label="manager:test")
+
+        deletion_request.refresh_from_db()
         self.assertEqual(deletion_request.status, BotDataDeletionRequest.Status.COMPLETED)
         self.assertEqual(deletion_request.deleted_clients_count, 1)
         self.assertEqual(deletion_request.deleted_messages_count, 1)
@@ -230,6 +251,7 @@ class InstagramBotPrivacyPolicyTests(TestCase):
         self.assertFalse(InstagramBotRawEvent.objects.filter(sender_id="123456789").exists())
 
     def test_data_deletion_preserves_anonymous_payment_decision_audit(self):
+        from management.services.ig_data_deletion import fulfill_deletion_request
         from management.ig_bot_models import (
             IgDeal,
             IgPaymentConfirmationReview,
@@ -275,6 +297,10 @@ class InstagramBotPrivacyPolicyTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
+        fulfill_deletion_request(
+            BotDataDeletionRequest.objects.get(), actor_label="manager:test"
+        )
+
         self.assertFalse(IgClient.objects.filter(pk=client.pk).exists())
         self.assertFalse(IgPaymentConfirmationReview.objects.filter(pk=review.pk).exists())
         decision.refresh_from_db()
@@ -478,6 +504,7 @@ class InstagramBotPrivacyPolicyTests(TestCase):
         settings_obj.system_prompt = "keep-system-prompt"
         settings_obj.allowed_senders = "keep-sender"
         settings_obj.save()
+        model_before = settings_obj.gemini_model
 
         response = self.client.post(
             "/bot/api/settings/",
@@ -497,9 +524,12 @@ class InstagramBotPrivacyPolicyTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         settings_obj.refresh_from_db()
+        # Демо-перемикач основної функції reviewer'у залишений (DR-006).
         self.assertTrue(settings_obj.ai_enabled)
-        self.assertTrue(settings_obj.receive_via_poll)
-        self.assertEqual(settings_obj.gemini_model, "gemini-2.5-flash")
+        # Робоча конфігурація продакшену — ні: транспорт приймання подій
+        # і модель Gemini reviewer змінювати не має (F-SEC-004, DR-006).
+        self.assertFalse(settings_obj.receive_via_poll)
+        self.assertEqual(settings_obj.gemini_model, model_before)
         self.assertEqual(settings_obj.custom_direct_token, "keep-direct-secret")
         self.assertEqual(settings_obj.custom_gemini_key, "keep-gemini-secret")
         self.assertEqual(settings_obj.system_prompt, "keep-system-prompt")

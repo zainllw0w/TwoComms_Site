@@ -135,6 +135,11 @@ class BotDataDeletionRequest(models.Model):
         COMPLETED = "completed", "Completed"
         NO_MATCH = "no_match", "No matching records"
         RECEIVED = "received", "Received"
+        # Заявка принята, но владение идентификатором ещё не подтверждено.
+        # Публичная форма создаёт ТОЛЬКО этот статус: удалять данные по
+        # анонимному POST нельзя (F-SEC-002). Переход в COMPLETED/NO_MATCH
+        # делает менеджер через `services.ig_data_deletion`.
+        PENDING_VERIFICATION = "pending_verification", "Pending ownership verification"
 
     confirmation_code = models.CharField(max_length=32, unique=True, db_index=True)
     source = models.CharField(max_length=24, choices=Source.choices)

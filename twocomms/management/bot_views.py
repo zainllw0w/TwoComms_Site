@@ -114,6 +114,46 @@ def _new_deletion_code() -> str:
     return secrets.token_hex(8).upper()
 
 
+# IGSID Instagram — длинное числовое значение. Всё короче этого порога
+# не может быть идентификатором отправителя, и сопоставлять по нему
+# свободный текст лога запрещено (F-SEC-003).
+_MIN_IGSID_LEN = 6
+
+
+def _log_sender_ids(sender_ids) -> list[str]:
+    """Отобрать из идентификаторов только те, что реально похожи на IGSID.
+
+    `InstagramBotLog.detail` — свободный текст без FK на клиента, поэтому
+    единственная структурная зацепка — соглашение формата `"{sender_id}: ..."`.
+    Сопоставлять по username или подстроке нельзя: идентификатор `"0"` или
+    `"a"` снёс бы почти весь операционный лог, включая записи других
+    клиентов (F-SEC-003).
+    """
+    return sorted(
+        {
+            value
+            for value in sender_ids
+            if value and value.isdigit() and len(value) >= _MIN_IGSID_LEN
+        }
+    )
+
+
+def _log_rows_for_sender_ids(sender_ids):
+    """Логи, структурно принадлежащие этим IGSID, и только они."""
+    from .models import InstagramBotLog
+
+    ids = _log_sender_ids(sender_ids)
+    if not ids:
+        return InstagramBotLog.objects.none()
+    scope = Q()
+    for igsid in ids:
+        # Двоеточие после IGSID — якорь: `"100:"` не совпадёт с `"1001: ..."`.
+        # Первый вариант покрывает формат `"{sender_id}: ..."`,
+        # второй — `"[{source}] {sender_id}: ..."`.
+        scope |= Q(detail__startswith=f"{igsid}:") | Q(detail__contains=f" {igsid}:")
+    return InstagramBotLog.objects.filter(scope)
+
+
 def _delete_direct_bot_records(identifier: str) -> dict:
     from .models import (
         BotDataDeletionRequest,
@@ -158,7 +198,11 @@ def _delete_direct_bot_records(identifier: str) -> dict:
             Q(sender_id__in=sender_ids) | Q(client__in=clients)
         ).delete()
         raw_events_count, _ = InstagramBotRawEvent.objects.filter(sender_id__in=sender_ids).delete()
-        logs_count, _ = InstagramBotLog.objects.filter(detail__icontains=normalized).delete()
+        # Только структурная принадлежность по IGSID, никогда `icontains`
+        # по свободному тексту (F-SEC-003).
+        logs_count, _ = InstagramBotLog.objects.filter(
+            pk__in=list(_log_rows_for_sender_ids(sender_ids).values_list("pk", flat=True))
+        ).delete()
         if mids:
             InstagramBotProcessedMessage.objects.filter(mid__in=mids).delete()
         # Attribution rows are append-only and already contain only a
@@ -187,24 +231,43 @@ def _delete_direct_bot_records(identifier: str) -> dict:
 
 @require_POST
 def data_deletion_submit(request):
-    from .models import BotDataDeletionRequest
+    """Публичная форма удаления данных: регистрирует заявку, НЕ удаляет.
+
+    Раньше этот эндпоинт удалял всю переписку и карточку клиента по одному
+    анонимному POST с публично известным username (F-SEC-002). Владение
+    здесь не подтверждено, поэтому удаление выполняет менеджер после
+    проверки — командой `fulfill_ig_data_deletion`.
+
+    Это приводит реализацию в соответствие с уже опубликованной политикой
+    на самой странице: «We may ask for limited verification information...
+    After verification, we will delete or anonymize eligible bot records».
+    """
+    from .services.ig_data_deletion import register_public_request
 
     identifier = (request.POST.get("identifier") or "").strip()
-    deletion = _delete_direct_bot_records(identifier)
-    deletion_request = BotDataDeletionRequest.objects.create(
-        confirmation_code=_new_deletion_code(),
-        source=BotDataDeletionRequest.Source.MANUAL_FORM,
-        identifier=identifier[:255],
-        normalized_identifier=deletion["normalized_identifier"][:255],
-        status=deletion["status"],
-        deleted_clients_count=deletion["clients"],
-        deleted_messages_count=deletion["messages"],
-        deleted_raw_events_count=deletion["raw_events"],
-        deleted_logs_count=deletion["logs"],
-        detail=deletion["detail"],
+    normalized = _normalize_deletion_identifier(identifier)
+    deletion_request = register_public_request(identifier, normalized)
+
+    try:
+        bot.notify_manager(
+            "🧹 Запит на видалення даних DIRECT_BOT\n"
+            f"Код: {deletion_request.confirmation_code}\n"
+            f"Ідентифікатор: {normalized or '—'}\n"
+            "Підтвердіть володіння і виконайте:\n"
+            f"python manage.py fulfill_ig_data_deletion "
+            f"--code={deletion_request.confirmation_code}",
+            dedupe_key=f"data-deletion:{deletion_request.confirmation_code}",
+            event_type="data_deletion_request",
+        )
+    except Exception:
+        # Заявка уже зарегистрирована и не должна теряться из-за сбоя
+        # доставки уведомления. Менеджер увидит её в списке заявок.
+        pass
+
+    return redirect(
+        "management_data_deletion_status",
+        confirmation_code=deletion_request.confirmation_code,
     )
-    deletion_request.mark_completed()
-    return redirect("management_data_deletion_status", confirmation_code=deletion_request.confirmation_code)
 
 
 def _base64_url_decode(value: str) -> bytes:
@@ -295,6 +358,56 @@ def _require_bot_json(request):
     return None
 
 
+def _require_bot_write_json(request):
+    """Действия над реальными карточками клиентов: reviewer не допускается.
+
+    Внешний Meta-reviewer существует, чтобы посмотреть работу приложения.
+    Чтобы это показать, не нужно ставить на паузу, скрывать или помечать
+    «втрачено» карточку живого покупателя — а раньше он это мог (F-SEC-004).
+
+    Демо-контроль (start/stop, ai_enabled) сознательно НЕ закрыт: см. DR-006.
+    Он остаётся доступным, но становится атрибутируемым через
+    `_audit_reviewer_action`.
+    """
+    blocked = _require_bot_json(request)
+    if blocked:
+        return blocked
+    if _is_reviewer_only(request.user):
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "Режим перевірки Meta: дії над реальними картками недоступні.",
+            },
+            status=403,
+        )
+    return None
+
+
+def _audit_reviewer_action(request, action: str) -> None:
+    """Оставить след, если глобальное состояние изменил внешний reviewer.
+
+    Раньше остановку бота внешним аккаунтом нельзя было отличить от
+    остановки администратором: `start_bot`/`stop_bot` не знают актора.
+    При слабой наблюдаемости (F-OPS-004) это означало, что остановка
+    продажной автоматики оставалась незамеченной.
+    """
+    if not _is_reviewer_only(request.user):
+        return
+    who = getattr(request.user, "username", "") or "unknown"
+    try:
+        bot.log("warning", "reviewer_action", f"{who}: {action}")
+    except Exception:
+        pass
+    try:
+        bot.notify_manager(
+            f"⚠️ Зовнішній Meta-reviewer «{who}» виконав дію: {action}",
+            dedupe_key=f"reviewer-action:{who}:{action}",
+            event_type="reviewer_action",
+        )
+    except Exception:
+        pass
+
+
 def _log_items(limit: int = 80):
     rows = InstagramBotLog.objects.all()[:limit]
     return [
@@ -339,6 +452,7 @@ def bot_start_api(request):
     blocked = _require_bot_json(request)
     if blocked:
         return blocked
+    _audit_reviewer_action(request, "bot_start")
     bot.start_bot()
     return JsonResponse({"success": True, "status": bot.status_snapshot()})
 
@@ -349,6 +463,7 @@ def bot_stop_api(request):
     blocked = _require_bot_json(request)
     if blocked:
         return blocked
+    _audit_reviewer_action(request, "bot_stop")
     bot.stop_bot()
     return JsonResponse({"success": True, "status": bot.status_snapshot()})
 
@@ -2664,14 +2779,26 @@ def bot_settings_save_api(request):
             s.reply_text = reply[:1000]
 
     # AI-режим / модель / правило / білий список.
+    # `ai_enabled` залишається доступним reviewer'у: це демонстрація основної
+    # функції додатка. Дія фіксується через `_audit_reviewer_action`.
+    # Читаємо беззастережно: незнятий чекбокс браузер не надсилає, тому
+    # умовне читання зламало б саме вимикання ШІ.
+    ai_enabled_before = s.ai_enabled
     s.ai_enabled = (request.POST.get("ai_enabled") or "").strip() in {"1", "true", "on", "yes"}
-    s.receive_via_poll = (request.POST.get("receive_via_poll") or "").strip() in {"1", "true", "on", "yes"}
+    if reviewer_mode and s.ai_enabled != ai_enabled_before:
+        _audit_reviewer_action(
+            request, f"ai_enabled={'on' if s.ai_enabled else 'off'}"
+        )
     if not reviewer_mode:
+        # Транспорт приймання подій — робоча конфігурація продакшену,
+        # а не демо-перемикач (F-SEC-004, DR-006).
+        s.receive_via_poll = (request.POST.get("receive_via_poll") or "").strip() in {"1", "true", "on", "yes"}
         s.meta_feedback_enabled = _truthy(request.POST.get("meta_feedback_enabled"))
         if "meta_feedback_test_event_code" in request.POST:
             s.meta_feedback_test_event_code = (request.POST.get("meta_feedback_test_event_code") or "")[:120]
     model = (request.POST.get("gemini_model") or "").strip()
-    if model:
+    if model and not reviewer_mode:
+        # Зміна робочої моделі Gemini — не демо-дія (F-SEC-004, DR-006).
         from management.services.gemini_keys import is_allowed_chat_model
 
         if not is_allowed_chat_model(model):
@@ -3950,7 +4077,7 @@ def bot_post_sale_case_api(request, client_id, case_id):
 @require_POST
 def bot_client_pause_api(request, client_id):
     """Зупинити бота для клієнта (менеджер бере діалог на себе)."""
-    blocked = _require_bot_json(request)
+    blocked = _require_bot_write_json(request)
     if blocked:
         return blocked
     from django.utils import timezone
@@ -3992,7 +4119,7 @@ def bot_client_pause_api(request, client_id):
 @require_POST
 def bot_client_resume_api(request, client_id):
     """Повернути бота клієнту (зняти паузу/перехоплення)."""
-    blocked = _require_bot_json(request)
+    blocked = _require_bot_write_json(request)
     if blocked:
         return blocked
     from django.utils import timezone
@@ -4043,7 +4170,7 @@ def bot_client_resume_api(request, client_id):
 @login_required(login_url="management_login")
 @require_POST
 def bot_client_hide_api(request, client_id):
-    blocked = _require_bot_json(request)
+    blocked = _require_bot_write_json(request)
     if blocked:
         return blocked
     from django.utils import timezone
@@ -4107,7 +4234,7 @@ def bot_client_hide_api(request, client_id):
 @login_required(login_url="management_login")
 @require_POST
 def bot_client_unhide_api(request, client_id):
-    blocked = _require_bot_json(request)
+    blocked = _require_bot_write_json(request)
     if blocked:
         return blocked
     from .models import IgClient, IgPollCursor
@@ -4144,7 +4271,7 @@ def bot_client_unhide_api(request, client_id):
 @login_required(login_url="management_login")
 @require_POST
 def bot_client_mark_lost_api(request, client_id):
-    blocked = _require_bot_json(request)
+    blocked = _require_bot_write_json(request)
     if blocked:
         return blocked
     from .models import IgClient

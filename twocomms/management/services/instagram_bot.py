@@ -3980,6 +3980,19 @@ def gemini_generate(
     return text
 
 
+def _inbound_log_detail(source: str, sender_id: str, text: str, extra: str) -> str:
+    """Строка лога о входящем сообщении БЕЗ его текста (F-SEC-009).
+
+    Раньше сюда писалось `text[:140]`, то есть телефон, адрес отделения и
+    имя клиента оседали в `InstagramBotLog.detail` — таблице, которую видит
+    в том числе внешний Meta-reviewer, и которая не покрыта маскированием
+    PII. Диагностическая ценность записи сохраняется: видно источник,
+    отправителя, факт наличия текста и его объём.
+    """
+    length = len(text or "")
+    return f"[{source}] {sender_id}: {length} симв.{extra}"
+
+
 def download_image(url: str) -> tuple[str, bytes] | None:
     """Завантажує зображення-вкладення для мультимодалу. Ліміт ~6 МБ."""
     try:
@@ -4811,7 +4824,7 @@ def enqueue_inbound(
     s.last_inbound_at = inbound_at
     extra = f" (+{len(attachments)} фото)" if attachments else ""
     event = "queued" if msg.status == InstagramBotMessage.Status.PENDING else "observed"
-    log("info", event, f"[{source}] {sender_id}: {text[:140]}{extra}")
+    log("info", event, _inbound_log_detail(source, sender_id, text, extra))
     return True
 
 

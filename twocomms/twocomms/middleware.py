@@ -332,6 +332,10 @@ class RequestTraceMiddleware(MiddlewareMixin):
 
 _RATE_LIMIT_DEFAULTS = {
     'auth': 20,
+    # Публичные эндпоинты, которые запускают необратимые действия над данными.
+    # Держим лимит жёстким: злоупотребление здесь стоит дороже, чем отказ
+    # обслужить лишний запрос (F-SEC-002).
+    'public_destructive': 10,
     'webhook': 1200,
     'telemetry': 1200,
     'staff_write': 600,
@@ -375,6 +379,10 @@ _RATE_LIMIT_DTF_EXPENSIVE_PREFIXES = (
     '/cabinet/',
     '/admin-panel/',
 )
+_RATE_LIMIT_PUBLIC_DESTRUCTIVE_PATHS = {
+    '/data-deletion/submit/',
+    '/bot/data-deletion/submit/',
+}
 _RATE_LIMIT_WEBHOOK_PREFIXES = (
     '/payments/monobank/webhook/',
     '/wholesale/payment-webhook/',
@@ -440,6 +448,11 @@ def _route_rate_limit_name(request, host):
     host_group = _rate_limit_host_group(host)
     if path in _RATE_LIMIT_AUTH_PATHS and request.method not in _RATE_LIMIT_SAFE_METHODS:
         return 'auth'
+    if (
+        path in _RATE_LIMIT_PUBLIC_DESTRUCTIVE_PATHS
+        and request.method not in _RATE_LIMIT_SAFE_METHODS
+    ):
+        return 'public_destructive'
     if path.startswith(_RATE_LIMIT_WEBHOOK_PREFIXES):
         return 'webhook'
     if path in _RATE_LIMIT_TELEMETRY_PATHS:
