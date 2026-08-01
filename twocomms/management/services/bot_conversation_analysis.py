@@ -75,7 +75,11 @@ SYSTEM_PROMPT = """Ти аналізуєш Instagram-діалог для вну�
 - interaction_type: unknown|reaction_only|information_only|product_interest|
   size_fit_question|custom_print|price_objection|high_intent|payment_pending|
   paid_order_waiting|no_reply|explicit_no_buy|opt_out|spam_abuse|manager_observation|
-  collaboration|wholesale_b2b|support_complaint|community_casual;
+  collaboration|wholesale_b2b|support_complaint|exchange_request|return_request|
+  community_casual;
+  Обмін чи повернення вже купленого товару — це exchange_request/return_request,
+  а не support_complaint. support_complaint лишається для реальної проблеми:
+  посилка не дійшла, брак, не той принт.
 - score_band: cold|exploring|qualified|high_intent|checkout|lost|opted_out;
 - purchase_probability і confidence: числа 0..1;
 - evidence: масив {message_id, quote, claim}; quote має бути дослівним коротким
@@ -798,9 +802,18 @@ def _normalize(parsed: dict, by_id: dict[int, dict], *, verified_payment: bool) 
         # На проде это и наблюдалось: `score_band='paid'` — 0 записей из 1792.
         if verified_payment:
             band = IgConversationAnalysisSnapshot.Band.PAID
-            interaction_type = (
-                IgConversationAnalysisSnapshot.InteractionType.PAID_ORDER_WAITING
-            )
+            # Only a claim about the payment itself is replaced. A more specific
+            # type the model already resolved — an exchange, a return, a real
+            # complaint — carries strictly more information than
+            # «оплачено / очікує товар» and must survive (IMP-015).
+            if interaction_type in {
+                IgConversationAnalysisSnapshot.InteractionType.UNKNOWN,
+                IgConversationAnalysisSnapshot.InteractionType.PAYMENT_PENDING,
+                IgConversationAnalysisSnapshot.InteractionType.PAID_ORDER_WAITING,
+            }:
+                interaction_type = (
+                    IgConversationAnalysisSnapshot.InteractionType.PAID_ORDER_WAITING
+                )
         else:
             band = IgConversationAnalysisSnapshot.Band.CHECKOUT
             interaction_type = (

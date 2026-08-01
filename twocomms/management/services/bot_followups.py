@@ -101,6 +101,35 @@ def cancel_pending_for_deal(deal: IgDeal, *, reason: str = "") -> int:
     return count
 
 
+def _has_open_service_conversation(client: IgClient) -> bool:
+    """Whether this conversation is currently about service, not about buying.
+
+    Two independent signals, because either can exist without the other: a
+    manager may open an exchange case before the customer's next message, and a
+    customer may complain without anyone opening a case yet.
+    """
+    from management.ig_bot_models import IgConversationAnalysisSnapshot
+    from management.services.ig_post_sale import open_service_case
+
+    if open_service_case(client) is not None:
+        return True
+    latest = (
+        client.analysis_snapshots.exclude(
+            interaction_type=(
+                IgConversationAnalysisSnapshot.InteractionType.MANAGER_OBSERVATION
+            )
+        )
+        .order_by("-id")
+        .values_list("interaction_type", flat=True)
+        .first()
+    )
+    return latest in {
+        IgConversationAnalysisSnapshot.InteractionType.SUPPORT_COMPLAINT,
+        IgConversationAnalysisSnapshot.InteractionType.EXCHANGE_REQUEST,
+        IgConversationAnalysisSnapshot.InteractionType.RETURN_REQUEST,
+    }
+
+
 def _client_allows_followup(client: IgClient, *, deal: IgDeal | None = None) -> tuple[bool, str]:
     if client.hidden_at:
         return False, "hidden"
@@ -108,6 +137,11 @@ def _client_allows_followup(client: IgClient, *, deal: IgDeal | None = None) -> 
         return False, "spam"
     if client.manager_takeover or client.bot_paused:
         return False, "manager_takeover"
+    # F-SCORE-009: asking for an exchange used to schedule a 5% rescue offer
+    # twelve hours later. Client #59 was saved from it by manager_takeover,
+    # which is luck, not a rule.
+    if _has_open_service_conversation(client):
+        return False, "service_case_open"
     if deal is not None:
         if verified_payment_deals(IgDeal.objects.filter(pk=deal.pk)).exists():
             return False, "already_converted"

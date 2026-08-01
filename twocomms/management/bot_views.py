@@ -363,6 +363,107 @@ def _display_band(band, *, verified_payment: bool):
     return band
 
 
+TERMINAL_POST_SALE_STATUSES = ("completed", "rejected", "cancelled")
+
+# DR-002: метрика описывает намерение купить, видимое в сообщениях, и остаётся
+# такой. Меняется только подпись: «ймовірність» без контекста читалась как
+# «шанс, что этот человек вообще купит», и у уже купившего давала «0%».
+POTENTIAL_METRIC_LABEL = "намір купити зараз"
+POTENTIAL_METRIC_NOTE_LEAD = (
+    "Показує намір купити в поточному циклі, видимий у повідомленнях клієнта. "
+    "Факт оплати сюда не входить — він окремий."
+)
+POTENTIAL_METRIC_NOTE_BUYER = (
+    "Клієнт уже купив, тому низький відсоток тут означає «зараз нічого не "
+    "обирає», а не «не купить»."
+)
+
+
+def _potential_metric_note(client) -> str:
+    """Explain what the number means, and say so louder for a buyer."""
+    note = POTENTIAL_METRIC_NOTE_LEAD
+    if int(getattr(client, "purchases_count", 0) or 0) > 0:
+        note = f"{note} {POTENTIAL_METRIC_NOTE_BUYER}"
+    return note
+
+
+def _buyer_badge_payload(client) -> dict:
+    """Purchase facts for the card, with the provenance of the money named.
+
+    ``total_spent`` can be fed by a manager decision rather than by a provider
+    ledger, so the badge says so. An unmeasured amount stays empty instead of
+    rendering as 0.00, which would read as "bought for free".
+    """
+    purchases = int(getattr(client, "purchases_count", 0) or 0)
+    flags = getattr(client, "conversion_flags", None) or {}
+    amount_unknown = bool(flags.get("purchase_amount_unknown"))
+    provider_unverified = bool(flags.get("purchase_provider_unverified"))
+    total = str(getattr(client, "total_spent", "") or "")
+    if purchases <= 0:
+        return {
+            "is_buyer": False,
+            "purchases": 0,
+            "total_spent": "",
+            "amount_unknown": False,
+            "provider_unverified": False,
+            "label": "",
+            "amount_note": "",
+        }
+    if amount_unknown:
+        total = ""
+    label = f"Вже купив · {purchases}"
+    if total:
+        label = f"{label} · {total} ₴"
+    if amount_unknown:
+        amount_note = "Сума покупки не зафіксована — уточніть у менеджера."
+    elif provider_unverified:
+        amount_note = "Суму підтвердив менеджер, не платіжний провайдер."
+    else:
+        amount_note = "Суму підтвердив платіжний провайдер."
+    return {
+        "is_buyer": True,
+        "purchases": purchases,
+        "total_spent": total,
+        "amount_unknown": amount_unknown,
+        "provider_unverified": provider_unverified,
+        "label": label,
+        "amount_note": amount_note,
+    }
+
+
+def _display_interaction_type(client, interaction_type):
+    """Overlay a confirmed service fact on top of the model's latest opinion.
+
+    F-SCORE-008 proposed picking a different snapshot. That is worse than it
+    sounds: the snapshot with the right band is also the *older* one, so the
+    card would show stale text. Overlaying keeps the newest analysis and adds
+    the fact the analysis cannot know — an exchange case is open right now.
+
+    A real complaint is never masked: a defect during an exchange is a separate
+    fact and hiding it would trade one wrong card for another.
+    """
+    from .ig_bot_models import IgConversationAnalysisSnapshot, IgPostSaleCase
+
+    types = IgConversationAnalysisSnapshot.InteractionType
+    if interaction_type == types.SUPPORT_COMPLAINT:
+        return interaction_type
+    case = None
+    if getattr(client, "pk", None):
+        try:
+            from management.services.ig_post_sale import open_service_case
+
+            case = open_service_case(client)
+        except Exception:
+            case = None
+    if case is None:
+        return interaction_type
+    if case.case_type == IgPostSaleCase.CaseType.EXCHANGE:
+        return types.EXCHANGE_REQUEST
+    if case.case_type == IgPostSaleCase.CaseType.RETURN:
+        return types.RETURN_REQUEST
+    return interaction_type
+
+
 def _require_admin_json(request):
     if not _is_admin(request.user):
         return JsonResponse({"success": False, "error": "Доступ лише для адміністраторів."}, status=403)
@@ -1338,7 +1439,10 @@ def _assignment_event_workspace_payload(event) -> dict:
 
 
 def _post_sale_case_payload(case) -> dict:
+    from management.services.ig_shipments import order_shipment_rows
+
     order = case.order if case.order_id else None
+    shipments = order_shipment_rows(order)
     return {
         "id": case.pk,
         "case_type": case.case_type,
@@ -1357,6 +1461,15 @@ def _post_sale_case_payload(case) -> dict:
         "requested_size": case.requested_size,
         "reason": case.reason,
         "manager_note": case.manager_note,
+        # Таймлайн отправок отвечает на вопрос, который менеджер задавал глазами:
+        # это тот же заказ, по нему был обмен, вот что уехало и что вернулось.
+        "shipments": shipments,
+        "has_return_shipment": any(
+            row["purpose"] == "return_inbound" for row in shipments
+        ),
+        "has_replacement_shipment": any(
+            row["purpose"] == "exchange_replacement" for row in shipments
+        ),
         "created_at": case.created_at.isoformat(),
         "updated_at": case.updated_at.isoformat(),
         "resolved_at": case.resolved_at.isoformat() if case.resolved_at else "",
@@ -2863,6 +2976,10 @@ def _interaction_tone(interaction_type: str) -> str:
     from .ig_bot_models import IgConversationAnalysisSnapshot
 
     types = IgConversationAnalysisSnapshot.InteractionType
+    if interaction_type in {types.EXCHANGE_REQUEST, types.RETURN_REQUEST}:
+        # Not "support": a red complaint badge on a size exchange is exactly the
+        # misreading the customer complained about.
+        return "service"
     if interaction_type == types.SUPPORT_COMPLAINT:
         return "support"
     if interaction_type in {types.WHOLESALE_B2B, types.COLLABORATION}:
@@ -3061,6 +3178,8 @@ def _client_potential_payload(c, latest_analysis, *, latest_message_id=None) -> 
             "evidence": evidence,
             "evidence_message_ids": evidence_message_ids,
             "uncertainties": [],
+            "metric_label": POTENTIAL_METRIC_LABEL,
+            "metric_note": _potential_metric_note(c),
         }
 
     if not latest_analysis:
@@ -3086,6 +3205,8 @@ def _client_potential_payload(c, latest_analysis, *, latest_message_id=None) -> 
             "evidence": [],
             "evidence_message_ids": [],
             "uncertainties": ["analysis_missing"],
+            "metric_label": POTENTIAL_METRIC_LABEL,
+            "metric_note": _potential_metric_note(c),
         }
 
     watermark = int(latest_analysis.last_analyzed_message_id or 0)
@@ -3142,6 +3263,8 @@ def _client_potential_payload(c, latest_analysis, *, latest_message_id=None) -> 
             if isinstance(latest_analysis.uncertainties, list)
             else []
         )[:20],
+        "metric_label": POTENTIAL_METRIC_LABEL,
+        "metric_note": _potential_metric_note(c),
     }
 
 
@@ -3306,7 +3429,9 @@ def _client_card(c) -> dict:
         c.opted_out_at
         and (not c.opted_in_at or c.opted_in_at < c.opted_out_at)
     )
-    interaction_type = latest_analysis.interaction_type if latest_analysis else ""
+    interaction_type = _display_interaction_type(
+        c, latest_analysis.interaction_type if latest_analysis else ""
+    )
     post_sale_type = str(getattr(c, "latest_post_sale_type", "") or "")
     post_sale_status = str(getattr(c, "latest_post_sale_status", "") or "")
     post_sale_order_id = getattr(c, "latest_post_sale_order_id", None)
@@ -3321,7 +3446,18 @@ def _client_card(c) -> dict:
                 IgPostSaleCase.Status.NEEDS_DETAILS,
                 IgPostSaleCase.Status.OPEN,
             }
+    # Раньше бейдж «Обмін» висел вечно: `latest_post_sale` берёт последний кейс
+    # любого статуса, включая `completed` и `cancelled`. Закрытый обмен — это
+    # история заказа, а не текущее состояние диалога.
+    if post_sale_status in TERMINAL_POST_SALE_STATUSES:
+        post_sale_type = ""
+        post_sale_status = ""
+        post_sale_order_id = None
+        post_sale_needs_action = False
     post_sale_labels = dict(IgPostSaleCase.CaseType.choices)
+    post_sale_status_labels = dict(IgPostSaleCase.Status.choices)
+    post_sale_type_label = str(post_sale_labels.get(post_sale_type, ""))
+    post_sale_status_label = str(post_sale_status_labels.get(post_sale_status, ""))
     potential = _client_potential_payload(c, latest_analysis)
     return {
         "id": c.id,
@@ -3359,9 +3495,18 @@ def _client_card(c) -> dict:
         "potential": potential,
         "manager_action_required": bool(getattr(c, "has_manager_action", False)),
         "post_sale_type": post_sale_type,
-        "post_sale_type_label": str(post_sale_labels.get(post_sale_type, "")),
+        "post_sale_type_label": post_sale_type_label,
         "post_sale_status": post_sale_status,
+        "post_sale_status_label": post_sale_status_label,
+        # Тип без статуса заставлял менеджера открывать карточку, чтобы понять,
+        # ждёт ли обмен его действия или уже едет к клиенту.
+        "post_sale_badge_label": (
+            f"{post_sale_type_label} · {post_sale_status_label}"
+            if post_sale_type_label and post_sale_status_label
+            else post_sale_type_label
+        ),
         "post_sale_needs_action": post_sale_needs_action,
+        "buyer": _buyer_badge_payload(c),
         "post_sale_order_id": post_sale_order_id,
         "intent_label": c.get_intent_display(),
         "primary_objection": c.primary_objection,
@@ -4086,6 +4231,31 @@ def bot_post_sale_case_api(request, client_id, case_id):
         }
         case.resolved_at = timezone.now() if status in terminal else None
         case.save()
+
+        # ТТН обратной посылки приходит текстом от клиента, поэтому её нельзя
+        # вывести из состояния заказа — менеджер подтверждает её одним полем.
+        return_tracking = str(request.POST.get("return_tracking_number") or "").strip()
+        if return_tracking:
+            from management.services.ig_post_sale import record_return_shipment
+
+            evidence_raw = str(
+                request.POST.get("return_tracking_message_id") or ""
+            ).strip()
+            try:
+                evidence_message_id = int(evidence_raw) if evidence_raw else None
+            except (TypeError, ValueError):
+                evidence_message_id = None
+            try:
+                record_return_shipment(
+                    case,
+                    return_tracking,
+                    actor=request.user,
+                    evidence_message_id=evidence_message_id,
+                )
+            except ValueError as exc:
+                return JsonResponse(
+                    {"success": False, "error": str(exc)}, status=400
+                )
 
     return JsonResponse({
         "success": True,

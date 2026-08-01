@@ -57,6 +57,7 @@ __all__ = [
     "IgCommercialEpisode",
     "IgCommercialEpisodeEvent",
     "IgPostSaleCase",
+    "IgOrderShipment",
     "IgFunnelResetAudit",
     "IgCheckoutProposal",
     "IgCheckoutProposalItem",
@@ -1447,6 +1448,10 @@ class IgOrderCustomerEvent(models.Model):
 
     class Kind(models.TextChoices):
         TTN_ASSIGNED = "ttn_assigned", _("ТТН прив'язано")
+        # An exchange replacement is not a second shipment of the order. The
+        # generic text «Ваше замовлення відправлено» reads as a repeat and hides
+        # the fact that this is the size the customer asked for.
+        EXCHANGE_SHIPPED = "exchange_shipped", _("Заміну відправлено")
         DELIVERED_REVIEW = "delivered_review", _("Запит відгуку після отримання")
 
     class State(models.TextChoices):
@@ -2551,6 +2556,122 @@ class IgPostSaleCase(models.Model):
         ]
 
 
+class _AppendOnlyOrderShipmentQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        forbidden = {
+            "order",
+            "order_id",
+            "tracking_number",
+            "direction",
+            "purpose",
+            "supersedes",
+            "supersedes_id",
+        }
+        if forbidden.intersection(kwargs):
+            raise ValueError("IgOrderShipment identity is immutable")
+        return super().update(**kwargs)
+
+    def delete(self):
+        raise ValueError("IgOrderShipment is append-only")
+
+    def _raw_delete(self, using):
+        raise ValueError("IgOrderShipment is append-only")
+
+
+class IgOrderShipment(models.Model):
+    """Every parcel that ever moved for one order, in both directions.
+
+    ``Order.tracking_number`` is a single scalar with no history anywhere in the
+    project, so writing an exchange replacement into it used to erase the
+    original number and with it the fact that there were two shipments.
+
+    An exchange is one purchase and several parcels, which is why this is a
+    journal on the order rather than a second order: a second order would double
+    the revenue and ``purchases_count``.
+    """
+
+    class Direction(models.TextChoices):
+        OUTBOUND = "outbound", _("Ми відправили")
+        INBOUND = "inbound", _("Клієнт відправив нам")
+
+    class Purpose(models.TextChoices):
+        INITIAL = "initial", _("Перша відправка")
+        EXCHANGE_REPLACEMENT = "exchange_replacement", _("Заміна відправлена")
+        RETURN_INBOUND = "return_inbound", _("Повернення від клієнта")
+        CORRECTION = "correction", _("Переоформлена ТТН")
+
+    class Source(models.TextChoices):
+        ORDER_FIELD = "order_field", _("Поле замовлення")
+        MANAGER_MANUAL = "manager_manual", _("Введено менеджером")
+        CUSTOMER_MESSAGE = "customer_message", _("З повідомлення клієнта")
+
+    order = models.ForeignKey(
+        "orders.Order",
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="instagram_shipments",
+    )
+    post_sale_case = models.ForeignKey(
+        "management.IgPostSaleCase",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="shipments",
+    )
+    tracking_number = models.CharField(max_length=64)
+    direction = models.CharField(max_length=16, choices=Direction.choices, db_index=True)
+    purpose = models.CharField(max_length=32, choices=Purpose.choices, db_index=True)
+    supersedes = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        related_name="superseded_by_shipments",
+    )
+    source = models.CharField(
+        max_length=32, choices=Source.choices, default=Source.ORDER_FIELD
+    )
+    evidence_message_id = models.PositiveBigIntegerField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        db_constraint=False,
+        related_name="ig_order_shipments",
+    )
+    note = models.CharField(max_length=500, blank=True, default="")
+    notified_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    objects = models.Manager.from_queryset(_AppendOnlyOrderShipmentQuerySet)()
+
+    class Meta:
+        verbose_name = _("Відправка замовлення Instagram")
+        verbose_name_plural = _("Відправки замовлень Instagram")
+        ordering = ["created_at", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["order", "tracking_number", "direction"],
+                name="ig_shipment_once_per_direction",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["order", "created_at"], name="ig_shipment_order_dt"),
+            models.Index(
+                fields=["post_sale_case", "created_at"], name="ig_shipment_case_dt"
+            ),
+        ]
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgOrderShipment is append-only")
+
+    def __str__(self) -> str:  # pragma: no cover - тривіально
+        return f"{self.tracking_number} ({self.purpose})"
+
+
 class IgFunnelResetAudit(models.Model):
     """Immutable operator boundary between old CRM inference and a new test run."""
 
@@ -3102,6 +3223,12 @@ class IgConversationAnalysisSnapshot(models.Model):
         COLLABORATION = "collaboration", _("Співпраця / creator")
         WHOLESALE_B2B = "wholesale_b2b", _("Опт / B2B")
         SUPPORT_COMPLAINT = "support_complaint", _("Підтримка / скарга")
+        # A size exchange is neither a complaint nor an objection to buying: it
+        # is a service case on top of a purchase that already happened. Keeping
+        # it inside SUPPORT_COMPLAINT made a satisfied customer read as an
+        # unhappy one (F-SCORE-002).
+        EXCHANGE_REQUEST = "exchange_request", _("Обмін товару")
+        RETURN_REQUEST = "return_request", _("Повернення товару")
         COMMUNITY_CASUAL = "community_casual", _("Спільнота / casual")
 
     client = models.ForeignKey(

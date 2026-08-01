@@ -641,6 +641,50 @@ SALES_AUTOMATION_GUARDRAILS = (
     "збери базове ТЗ і переведи в Telegram менеджера, не називаючи фінальну суму."
 )
 
+# F-CTX-002: the block above is injected unconditionally, so a customer in the
+# middle of a size exchange is served by a prompt that explains how to hand out
+# rescue discounts. The service variant keeps every safety rule (language,
+# no invented facts, escalation) and drops only the selling part.
+POST_SALE_SERVICE_GUARDRAILS_TEMPLATE = (
+    "[POST-SALE SERVICE MODE — службове]\n"
+    "Клієнт уже купив, і по його замовленню відкрито сервісне звернення: {case}. "
+    "Зараз це не продаж. Не пропонуй знижок, не пропонуй інший товар, "
+    "не підганяй до нової покупки і не згадуй акції. "
+    "Твоє завдання — довести сервісне звернення до кінця: підтвердити потрібний "
+    "розмір або причину, назвати наступний крок і, якщо потрібне рішення "
+    "людини, передати менеджеру.\n"
+    "Відповідай короткими Instagram-повідомленнями, мовою клієнта (UA/RU/EN). "
+    "Не вигадуй SKU, товар, наявність, ціну, строки, номер ТТН чи умови обміну — "
+    "якщо факту немає в наданому контексті, скажи, що уточниш у менеджера."
+)
+
+_POST_SALE_CASE_LABELS = {
+    "exchange": "обмін товару",
+    "return": "повернення товару",
+}
+
+
+def automation_guardrails(client) -> str:
+    """Pick the guardrail block that matches what this conversation is about."""
+    case = None
+    if getattr(client, "pk", None):
+        try:
+            from management.services.ig_post_sale import open_service_case
+
+            case = open_service_case(client)
+        except Exception:
+            case = None
+    if case is None:
+        return SALES_AUTOMATION_GUARDRAILS
+    label = _POST_SALE_CASE_LABELS.get(str(case.case_type), "сервісне звернення")
+    status = ""
+    try:
+        status = str(case.get_status_display() or "").strip()
+    except Exception:
+        status = ""
+    described = f"{label} ({status})" if status else label
+    return POST_SALE_SERVICE_GUARDRAILS_TEMPLATE.format(case=described)
+
 
 def _strip_invented_pay_urls(text: str, keep_url: str = "") -> str:
     """Прибирає будь-які платіжні URL (monobank/mbnk), КРІМ keep_url (реального).
@@ -3852,7 +3896,7 @@ def gemini_generate(
         (sys_text + "\n\n" + PAYMENT_PROTOCOL_NOTE).strip() if sys_text else PAYMENT_PROTOCOL_NOTE
     )
     sys_text = (sys_text + "\n\n" + ANTI_HALLUCINATION_NOTE).strip()
-    sys_text = (sys_text + "\n\n" + SALES_AUTOMATION_GUARDRAILS).strip()
+    sys_text = (sys_text + "\n\n" + automation_guardrails(client)).strip()
     if memory_note:
         sys_text = (sys_text + "\n\n" + memory_note).strip()
     if context_note:

@@ -16,7 +16,13 @@ EXCHANGE_RE = re.compile(
     re.I,
 )
 RETURN_RE = re.compile(
-    r"\b(?:повернен\w*|возврат\w*|повернути|вернуть)\b",
+    # The imperative forms («поверніть кошти», «верніть гроші») are the most
+    # common way a customer asks for a refund and were not matched at all, so
+    # the request fell through to SUPPORT_RE and became a complaint.
+    # Deliberately enumerated instead of a broad `поверн\w*`: that would also
+    # swallow «повернуся до вас завтра», which is not a refund request.
+    r"\b(?:повернен\w*|возврат\w*|повернути|поверн(?:іть|ите)|"
+    r"верн(?:іть|ите|уть))\b",
     re.I,
 )
 ENGLISH_POST_SALE_TERMS_RE = re.compile(
@@ -51,8 +57,44 @@ TARGET_SIZE_RE = re.compile(
 )
 
 
+PRINT_SUBJECT_RE = re.compile(
+    r"\b(?:принт\w*|дизайн\w*|зображенн\w*|изображен\w*|логотип\w*|надпис\w*)\b",
+    re.I,
+)
+# F-STATE-008 / F-PAT-001 #3: «а можна поміняти розмір на L?» — это вопрос про
+# умови до покупки, а не сервісне звернення. Англійська частина цього фільтра
+# існувала (`ENGLISH_PRE_SALE_RE`), а українська та російська — ні.
+PRE_SALE_HYPOTHETICAL_RE = re.compile(
+    r"(?:\b(?:а\s+)?(?:чи\s+)?(?:можна|можно|мож[еo]те|можете)\s+"
+    r"(?:буде\s+|потім\s+|пізніше\s+|потом\s+|позже\s+)?"
+    r"(?:поміняти|обміняти|замінити|поменять|обменять|заменить|"
+    r"повернути|вернуть|обмін|обмен)\b|"
+    r"\b(?:якщо|если)\s+не\s+(?:підійде|подойдет|подойдёт|сподобається|понравится)\b|"
+    r"\b(?:умови|условия|політика|политика|правила)\s+"
+    r"(?:обміну|обмена|поверненн\w*|возврат\w*)\b|"
+    r"\b(?:у\s+вас\s+)?(?:є|есть)\s+(?:обмін|обмен|поверненн\w*|возврат)\b)",
+    re.I,
+)
+# Але доказ отриманого товару перебиває гіпотетичність: «а можна поміняти, бо
+# не підійшов розмір» — це вже реальне звернення.
+RECEIVED_EVIDENCE_RE = re.compile(
+    r"\b(?:не\s+під(?:ійшов|ійшла|ійшло|ійшли)|"
+    r"не\s+подош(?:ёл|ел|ла|ло|ли)|"
+    r"отрима(?:в|ла|ли)|получи(?:в|л|ла|ли)|"
+    r"прийш(?:ов|ла|ло|ли)|приш(?:ёл|ел|ла|ло|ли)|"
+    r"замал\w*|завелик\w*|тісн\w*|тесн\w*|"
+    r"вже\s+(?:у\s+мене|отримав\w*|прийшл\w*)|уже\s+(?:у\s+меня|получил\w*))\b",
+    re.I,
+)
+
+
 def detect_post_sale_type(text: str) -> str:
     value = str(text or "")
+    # F-PAT-001 #4: EXCHANGE_RE матчит `замін\w*`, поэтому «хочу замінити принт
+    # на свій» открывало постпродажный кейс обмена товара. Замена принта — это
+    # запрос кастома до покупки, а не сервисный кейс по уже купленному.
+    if PRINT_SUBJECT_RE.search(value) and not SIZE_RE.search(value):
+        return ""
     # English verbs are polysemous in a storefront conversation.  A case is a
     # manager workflow, so require an explicit customer request for their item
     # rather than treating policy and pre-purchase questions as a return.
@@ -67,6 +109,134 @@ def detect_post_sale_type(text: str) -> str:
     if RETURN_RE.search(value):
         return IgPostSaleCase.CaseType.RETURN
     return ""
+
+
+TERMINAL_CASE_STATUSES = (
+    IgPostSaleCase.Status.COMPLETED,
+    IgPostSaleCase.Status.REJECTED,
+    IgPostSaleCase.Status.CANCELLED,
+)
+
+
+def open_service_case(client):
+    """Return the client's unresolved exchange/return case, or None.
+
+    "Unresolved" is anything but a terminal status. ``in_transit`` counts:
+    a replacement on its way is still an open obligation, and offering a
+    discount in the middle of it is what the customer complained about.
+
+    Deliberately wider than the ``{needs_details, open}`` set used by the
+    "needs a manager" badge. That set answers "is someone waiting for me to
+    act?"; this one answers "is this conversation still about service?".
+    """
+    if not client or not getattr(client, "pk", None):
+        return None
+    return (
+        IgPostSaleCase.objects.filter(client_id=client.pk)
+        .exclude(status__in=TERMINAL_CASE_STATUSES)
+        .order_by("-updated_at", "-id")
+        .first()
+    )
+
+
+RECIPIENT_ORDER_STATUSES = ("ship", "done")
+
+
+def client_looks_like_recipient(client) -> bool:
+    """Whether anything in the client's state says they already have the goods.
+
+    Deliberately wider than ``client_has_confirmed_purchase``: order attribution
+    exists for 2 clients out of 289 on production, so a recorded purchase is a
+    weak signal of physical delivery. A CRM stage of paid/order_created/done or
+    any linked order already shipped counts too.
+    """
+    if not client or not getattr(client, "pk", None):
+        return False
+    from management.models import IgClient
+    from management.services.bot_payment_truth import client_has_confirmed_purchase
+
+    if client_has_confirmed_purchase(client):
+        return True
+    if client.stage in {
+        IgClient.Stage.PAID,
+        IgClient.Stage.ORDER_CREATED,
+        IgClient.Stage.DONE,
+    }:
+        return True
+    from management.ig_bot_models import IgOrderAssignment, IgOrderAttribution
+
+    if IgOrderAssignment.objects.filter(
+        client_id=client.pk,
+        unassigned_at__isnull=True,
+        order__status__in=RECIPIENT_ORDER_STATUSES,
+    ).exists():
+        return True
+    if IgOrderAttribution.objects.filter(
+        client_id=client.pk,
+        order__status__in=RECIPIENT_ORDER_STATUSES,
+    ).exists():
+        return True
+    return client.deals.filter(
+        order__status__in=RECIPIENT_ORDER_STATUSES
+    ).exists()
+
+
+def record_return_shipment(case, tracking, *, actor=None, evidence_message_id=None):
+    """Record the parcel the customer sent back to us.
+
+    Cannot be derived like the outbound leg: the number arrives as digits inside
+    a chat message, and a bare 14-digit number can be anything. The manager
+    confirms it, which follows the decision already taken for money in this
+    project — a human check instead of automatic trust.
+    """
+    from management.ig_bot_models import IgOrderShipment
+    from management.services.ig_shipments import normalize_tracking
+
+    if case is None or not getattr(case, "pk", None):
+        raise ValueError("Сервісне звернення не знайдено.")
+    if not case.order_id:
+        raise ValueError(
+            "Спочатку прив'яжіть замовлення: ТТН повернення живе на замовленні."
+        )
+    number = normalize_tracking(tracking)
+    if not number:
+        raise ValueError("Це не схоже на номер ТТН Нової Пошти.")
+    existing = IgOrderShipment.objects.filter(
+        order_id=case.order_id,
+        tracking_number=number,
+        direction=IgOrderShipment.Direction.INBOUND,
+    ).first()
+    if existing is not None:
+        return existing
+    return IgOrderShipment.objects.create(
+        order_id=case.order_id,
+        post_sale_case=case,
+        tracking_number=number,
+        direction=IgOrderShipment.Direction.INBOUND,
+        purpose=IgOrderShipment.Purpose.RETURN_INBOUND,
+        source=IgOrderShipment.Source.MANAGER_MANUAL,
+        evidence_message_id=evidence_message_id,
+        created_by=actor if getattr(actor, "pk", None) else None,
+    )
+
+
+def post_sale_request_for_client(client, text: str) -> str:
+    """Post-sale case type for this client and message, or "".
+
+    ``detect_post_sale_type`` answers a question about wording alone, and by
+    itself it cannot tell «Можно поменять оверсайз на regular?» asked before a
+    purchase from the same sentence asked after delivery. Only the client's state
+    disambiguates it, so the hypothetical filter lives here (DR-008).
+    """
+    case_type = detect_post_sale_type(text)
+    if not case_type:
+        return ""
+    value = str(text or "")
+    if not PRE_SALE_HYPOTHETICAL_RE.search(value):
+        return case_type
+    if RECEIVED_EVIDENCE_RE.search(value):
+        return case_type
+    return case_type if client_looks_like_recipient(client) else ""
 
 
 def _extract_details(text: str) -> dict:
@@ -138,7 +308,7 @@ def open_post_sale_case(client, message, *, order=None):
         return None
     if message.role != InstagramBotMessage.Role.USER or message.client_id != client.pk:
         return None
-    case_type = detect_post_sale_type(message.text)
+    case_type = post_sale_request_for_client(client, message.text)
     if not case_type:
         active_cases = list(
             IgPostSaleCase.objects.select_for_update()

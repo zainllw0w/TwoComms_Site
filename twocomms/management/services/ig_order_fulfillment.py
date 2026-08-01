@@ -40,9 +40,31 @@ def _locale(client) -> str:
     return "uk"
 
 
-def _message(kind: str, locale: str, order, tracking: str) -> str:
+def _message(kind: str, locale: str, order, tracking: str, *, exchange_size: str = "") -> str:
     number = order.order_number or str(order.pk)
     tracking_url = f"https://novaposhta.ua/tracking/?cargo_number={tracking}"
+    if kind == "exchange_shipped":
+        size = str(exchange_size or "").strip()
+        if locale == "en":
+            what = f"Your exchange for size {size}" if size else "Your exchange"
+            return (
+                f"{what} has been shipped. New Nova Poshta tracking number: "
+                f"{tracking}. Track it here: {tracking_url}. "
+                "Nothing to pay — the parcel is already covered by your order."
+            )
+        if locale == "ru":
+            what = f"Замена на размер {size}" if size else "Замена"
+            return (
+                f"{what} отправлена. Новый номер ТТН Новой Почты: {tracking}. "
+                f"Отследить: {tracking_url}. "
+                "Доплачивать ничего не нужно — посылка уже оплачена вашим заказом."
+            )
+        what = f"Заміну на розмір {size}" if size else "Заміну"
+        return (
+            f"{what} відправлено. Нова ТТН Нової Пошти: {tracking}. "
+            f"Відстежити: {tracking_url}. "
+            "Доплачувати нічого не потрібно — посилка вже оплачена вашим замовленням."
+        )
     if kind == "ttn_assigned":
         if locale == "en":
             return (
@@ -127,18 +149,57 @@ def _cancel_redundant_events(assignment, *, now):
     )
 
 
+def _exchange_replacement(order, tracking: str):
+    """Return the journal row proving this tracking number is an exchange leg."""
+    from management.ig_bot_models import IgOrderShipment
+
+    return (
+        IgOrderShipment.objects.filter(
+            order_id=order.pk,
+            tracking_number=tracking,
+            direction=IgOrderShipment.Direction.OUTBOUND,
+            purpose=IgOrderShipment.Purpose.EXCHANGE_REPLACEMENT,
+        )
+        .select_related("post_sale_case")
+        .first()
+    )
+
+
 def _event_specs(assignment, *, now):
     order = assignment.order
     client = assignment.client
     locale = _locale(client)
     tracking = str(order.tracking_number or "").strip()
     if tracking and order.status not in {"done", "cancelled"}:
-        yield {
-            "kind": "ttn_assigned",
-            "event_key": f"ig-assignment:{assignment.pk}:v{assignment.version}:ttn:{tracking}",
-            "message": _message("ttn_assigned", locale, order, tracking),
-            "payload": {"tracking_number": tracking, "tracking_url": f"https://novaposhta.ua/tracking/?cargo_number={tracking}"},
-        }
+        # Exactly one outbound kind per current tracking number, so a replacement
+        # never produces both «замовлення відправлено» and «заміну відправлено».
+        replacement = _exchange_replacement(order, tracking)
+        if replacement is not None:
+            case = replacement.post_sale_case
+            size = str(getattr(case, "requested_size", "") or "")
+            yield {
+                "kind": "exchange_shipped",
+                "event_key": (
+                    f"ig-assignment:{assignment.pk}:v{assignment.version}"
+                    f":exchange-ttn:{tracking}"
+                ),
+                "message": _message(
+                    "exchange_shipped", locale, order, tracking, exchange_size=size
+                ),
+                "payload": {
+                    "tracking_number": tracking,
+                    "tracking_url": f"https://novaposhta.ua/tracking/?cargo_number={tracking}",
+                    "post_sale_case_id": replacement.post_sale_case_id,
+                    "exchange_size": size,
+                },
+            }
+        else:
+            yield {
+                "kind": "ttn_assigned",
+                "event_key": f"ig-assignment:{assignment.pk}:v{assignment.version}:ttn:{tracking}",
+                "message": _message("ttn_assigned", locale, order, tracking),
+                "payload": {"tracking_number": tracking, "tracking_url": f"https://novaposhta.ua/tracking/?cargo_number={tracking}"},
+            }
     if order.status == "done":
         yield {
             "kind": "delivered_review",
@@ -251,7 +312,7 @@ def _inside_response_window(client, *, now) -> bool:
 def _matches_current_fulfillment(event, order) -> bool:
     """Return whether the durable snapshot still matches the live order."""
     tracking = str(getattr(order, "tracking_number", "") or "").strip()
-    if event.kind == "ttn_assigned":
+    if event.kind in {"ttn_assigned", "exchange_shipped"}:
         event_tracking = str((event.payload or {}).get("tracking_number") or "").strip()
         return bool(
             order.status not in {"done", "cancelled"}

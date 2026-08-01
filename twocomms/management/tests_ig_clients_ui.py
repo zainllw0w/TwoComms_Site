@@ -364,9 +364,18 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
         self.assertIn("function restoreDrawerFocus()", self.template)
 
     def test_chat_header_shows_potential_and_factual_truth_separately(self):
+        """IMP-019 осознанно заменил подпись «ймовірність».
+
+        Контракт теста — «прогноз и факт показаны раздельно» — сохранён и усилен:
+        прогноз теперь подписан тем, чем он является («намір купити зараз»), а
+        факт покупки получил собственный бейдж. Прежняя безымянная «ймовірність»
+        и была первопричиной жалобы заказчика: у оплатившего клиента она
+        читалась как «0% — не купит» (F-SCORE-001, DR-002).
+        """
         for contract in (
             "bot-potential-strip",
-            "ймовірність",
+            "намір купити зараз",
+            "bot-buyer-badge",
             "впевненість",
             "На чому базується",
             "Provider: ",
@@ -377,6 +386,7 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
         self.assertIn("const p=d.potential||{}", self.template)
         self.assertNotIn("p.factual_payment", self.template)
         self.assertNotIn("p.factual_order_count", self.template)
+        self.assertNotIn("'ймовірність'", self.template)
 
     def test_existing_order_resolution_uses_searchable_cards_and_structured_override(self):
         for contract in (

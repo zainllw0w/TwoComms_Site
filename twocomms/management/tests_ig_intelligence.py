@@ -357,6 +357,15 @@ class ConversationIntelligenceSnapshotTests(TestCase):
         self.assertEqual(self.client.buying_readiness, 0)
 
     def test_interaction_taxonomy_contract_is_complete(self):
+        """Розширення таксономії мусить бути свідомим — саме тому тест існує.
+
+        IMP-015 додав `exchange_request` і `return_request`: обмін і повернення
+        вже купленого товару раніше потрапляли в `support_complaint` разом із
+        реальними скаргами, через що задоволений покупець читався як незадоволений
+        (F-SCORE-002). Кожне нове значення треба додати в усі місця читання —
+        дашборд, фільтри, тон карточки, промпт аналізу, — інакше воно провалиться
+        у `else`-гілку.
+        """
         self.assertEqual(
             {value for value, _label in IgConversationAnalysisSnapshot.InteractionType.choices},
             {
@@ -378,6 +387,8 @@ class ConversationIntelligenceSnapshotTests(TestCase):
                 "collaboration",
                 "wholesale_b2b",
                 "support_complaint",
+                "exchange_request",
+                "return_request",
                 "community_casual",
             },
         )

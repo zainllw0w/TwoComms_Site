@@ -12,6 +12,21 @@ def tags_for_client(client: IgClient | None) -> set[str]:
     tags = {"global", "core", "sales"}
     if not client:
         return tags
+    # F-CTX-002: `sales` used to be unconditional, so sales instructions were
+    # routed into a post-sale conversation. Suppressing the follow-up alone does
+    # not help — the bot still knows about discounts and can offer them in a
+    # reactive reply.
+    service_case = None
+    if getattr(client, "pk", None):
+        try:
+            from management.services.ig_post_sale import open_service_case
+
+            service_case = open_service_case(client)
+        except Exception:
+            service_case = None
+    if service_case is not None:
+        tags.discard("sales")
+        tags.update({"post_sale", "service", str(service_case.case_type)})
     for value in (
         client.intent,
         client.stage,
@@ -36,6 +51,11 @@ def tags_for_client(client: IgClient | None) -> set[str]:
     if client.primary_objection == IgClient.Objection.SIZE:
         tags.add("size")
         tags.add("fit")
+    if service_case is not None:
+        # A stale price objection from the pre-purchase phase must not reopen the
+        # discount playbook while an exchange is in progress.
+        tags.discard("discount")
+        tags.discard("sales")
     return tags
 
 

@@ -70,22 +70,70 @@ def is_explicit_opt_out(text: str) -> bool:
     """Return deterministic consent truth without CRM or provider side effects."""
     return bool(OPT_OUT_RE.search(str(text or "")))
 THINKING_RE = re.compile(r"\b(подумаю|подумаємо|думаю|подума|позже|пізніше|потом)\b", re.I)
+# F-PAT-001 #5: «думаю візьму L» — это решение, а не сомнение. THINKING_RE
+# перетирал возражение и ставил follow-up на 12 часов вместо 2, то есть готовый
+# купить получал задержку и ярлык «сомневается».
+PURCHASE_DECISION_RE = re.compile(
+    r"\b(візьму|беру|買|заберу|оформ(?:ляй|люйте|ляйте|ити|ляю)\w*|"
+    r"давайте|давай|беремо|берем|хочу\s+замовити|хочу\s+заказать|"
+    r"i(?:\s+will|\'ll)\s+take|i\s+take\s+it)\b",
+    re.I,
+)
 DEFER_RE = re.compile(
     r"\b(не\s+зараз|не\s+сейчас|пізніше|позже|подумаю|подумаємо|потом|"
     r"немає\s+(?:мого\s+)?(?:розміру|кольору)|нет\s+(?:моего\s+)?(?:размера|цвета))\b",
     re.I,
 )
-PRICE_RE = re.compile(r"\b(дорого|дорогувато|цена|ціна|сколько|скільки|price|cost|how\s+much|вартість)\b", re.I)
-PREPAY_RE = re.compile(r"\b(предоплат|передоплат|налож|наклад|післяплат|без\s+пред|без\s+перед)\b", re.I)
-SIZE_RE = re.compile(r"\b(размер|розмір|size|size\s+guide|fit|сітка|сетка|oversize|оверсайз|regular|регуляр|xs|s|m|l|xl|xxl)\b", re.I)
+PRICE_RE = re.compile(
+    r"\b(дорого\w*|дорогувато|цена|ціна|ціни|цены|сколько|скільки|price|cost|"
+    r"how\s+much|вартість|вартості)\b",
+    re.I,
+)
+# «Дорого» — это возражение. «Скільки коштує» — это вопрос, и он превращается
+# в возражение только когда речь о цене товара, а не о стоимости доставки
+# (F-PAT-001 #1). Полное разделение вопроса и возражения — задача IMP-057.
+HARD_PRICE_OBJECTION_RE = re.compile(
+    r"\b(дорого\w*|дорогувато|задорого|не\s+по\s+кишені|expensive|too\s+much)\b",
+    re.I,
+)
+# F-PAT-002: закрывающий `\b` после корня требовал границы слова, поэтому
+# «передоплата», «наложкою», «накладний» не матчились вообще. На проде это дало
+# `objection=prepayment` у 0 из 289 клиентов и 0 сигналов PREPAYMENT_OBJECTION
+# из 989. Корень без `\w*` совпадает только с самим корнем как отдельным словом,
+# а такой формы в живой речи не бывает.
+PREPAY_RE = re.compile(
+    r"\b(предоплат\w*|передоплат\w*|налож\w*|наклад\w*|післяплат\w*|"
+    r"без\s+пред\w*|без\s+перед\w*)\b",
+    re.I,
+)
+# F-PAT-001 #2: односимвольные альтернативы `s|m|l` с `\b` превращали «it's ok»
+# в вопрос о размере (апостроф — не-словный символ, «it's» распадается на «it»
+# и «s»). Однобуквенный токен сам по себе размером больше не считается: он
+# осмыслен только рядом со словом «розмір/size», а это уже покрыто SIZE_WORD_RE.
+SIZE_WORD_RE = re.compile(
+    r"\b(размер\w*|розмір\w*|size|sizes|size\s+guide|fit|сітка|сетка|"
+    r"oversize|оверсайз|regular|регуляр)\b",
+    re.I,
+)
+SIZE_VALUE_RE = re.compile(r"\b(xs|xl|xxl|xxxl|2xl|3xl)\b", re.I)
+SIZE_RE = re.compile(
+    r"\b(размер\w*|розмір\w*|size|sizes|size\s+guide|fit|сітка|сетка|"
+    r"oversize|оверсайз|regular|регуляр|xs|xl|xxl|xxxl|2xl|3xl)\b",
+    re.I,
+)
 CUSTOM_REQUEST_RE = re.compile(
     r"(?:\b(?:кастом(?:н\w*)?|custom)(?:\s+(?:принт\w*|дизайн\w*))?\b|"
     r"\b(?:св(?:ой|ій)|власн\w*|мо[йяє]|мій)\s+(?:принт\w*|дизайн\w*)\b|"
     r"\b(?:зроб(?:іть|ити)|сдел(?:айте|ать)|надрук\w*|напечат\w*|нанес\w*|"
+    # F-PAT-001 #4: «замінити принт на свій» — это запрос кастома. Здесь знали
+    # «змінити», но не «замінити», поэтому текст доставался EXCHANGE_RE и
+    # открывал постпродажный кейс обмена товара.
+    r"замін(?:ити|іть|ювати)|замен(?:ить|ите|ять)|"
     r"змін(?:ити|іть|ювати)|измен(?:ить|ите))\b.{0,80}\b"
     r"(?:принт\w*|дизайн\w*|зображенн\w*|изображен\w*)\b|"
     r"\b(?:принт\w*|дизайн\w*|зображенн\w*|изображен\w*)\b.{0,80}\b"
     r"(?:зроб(?:іть|ити)|сдел(?:айте|ать)|надрук\w*|напечат\w*|нанес\w*|"
+    r"замін(?:ити|іть|ювати)|замен(?:ить|ите|ять)|"
     r"змін(?:ити|іть|ювати)|измен(?:ить|ите))\b)",
     re.I,
 )
@@ -96,7 +144,13 @@ PRODUCT_RE = re.compile(
     re.I,
 )
 PAYMENT_RE = re.compile(r"\b(оплат\w*|платеж\w*|платіж\w*|payment|pay|checkout|invoice|ссылка|посилання|линк|лінк|link|card|карта|monobank|монобанк)\b", re.I)
-DELIVERY_RE = re.compile(r"\b(достав|відправ|отправ|delivery|deliver\w*|ship\w*|tracking|nova\s+poshta|нова\s+пошта|новая\s+почта|нп|branch|відділен|отделен)\b", re.I)
+# F-PAT-002, та же ошибка: «доставка», «відправка», «відділення» не матчились.
+# `intent=delivery` — 0 из 289 клиентов прода.
+DELIVERY_RE = re.compile(
+    r"\b(достав\w*|відправ\w*|отправ\w*|delivery|deliver\w*|ship\w*|tracking|"
+    r"nova\s+poshta|нова\s+пошта|новая\s+почта|нп|branch|відділен\w*|отделен\w*)\b",
+    re.I,
+)
 ORDER_STATUS_RE = re.compile(
     r"(?:\b(?:order|замовлен\w*|заказ\w*)\b.{0,80}"
     r"\b(?:status|where|when|tracking|delivery|deliver\w*|ship\w*|статус|де|где|коли|когда|достав\w*|відправ\w*|отправ\w*)\b|"
@@ -108,6 +162,32 @@ ORDER_STATUS_RE = re.compile(
 GIFT_RE = re.compile(r"\b(подарок|подарунок|на\s+подар|в\s+подар)\b", re.I)
 SELF_RE = re.compile(r"\b(себе|собі|для\s+себя|для\s+себе)\b", re.I)
 PHONE_RE = re.compile(r"(?:\+?38)?0\d{9}")
+# F-PAT-001 #8: PHONE_RE стоял в одном `elif` с PAYMENT_RE, поэтому любой номер
+# в тексте давал intent=payment и +40 к готовности — включая «мій друг
+# 0501234567 казав». Номер считается контактными данными только когда клиент
+# отдаёт его как свой или прямо просит оформить.
+CONTACT_HANDOVER_RE = re.compile(
+    r"\b(?:м(?:ій|ой)\s+(?:номер|телефон)|мо[ії]\s+дан(?:і|ные)|"
+    r"мої\s+контакт\w*|тел(?:\.|ефон)?\s*:|номер\s*:|"
+    r"оформ(?:ляй|люйте|ляйте|ити|ляю|ить|ите)\w*|записуйте|запишіть|"
+    r"надсилайте\s+на|my\s+(?:number|phone))\b",
+    re.I,
+)
+THIRD_PARTY_RE = re.compile(
+    r"\b(?:друг|подруг\w*|знайом\w*|знаком\w*|брат|сестр\w*|колег\w*|"
+    r"хлопець|дівчина|чоловік|жінка|друзі|friend)\b",
+    re.I,
+)
+
+
+def phone_is_contact_handover(text: str) -> bool:
+    """Whether a phone number in this message is the client's own contact data."""
+    value = str(text or "")
+    if not PHONE_RE.search(value):
+        return False
+    if THIRD_PARTY_RE.search(value) and not CONTACT_HANDOVER_RE.search(value):
+        return False
+    return bool(CONTACT_HANDOVER_RE.search(value))
 QTY_RE = re.compile(r"\b(?:x|х|×)?\s*(\d{1,2})\s*(?:шт|штук|pcs|од)\b", re.I)
 SIZE_TOKEN_RE = re.compile(r"\b(xs|s|m|l|xl|xxl|xxxl|2xl|3xl)\b", re.I)
 COLLAB_RE = re.compile(
@@ -220,6 +300,21 @@ def _signal(client, signal_type: str, *, message=None, confidence: float = 0.9, 
         )
         return signal
     return IgConversationSignal.objects.create(**fields, **defaults)
+
+
+# Явная таблица приоритетов вместо порядка строк в каскаде `elif` (F-PAT-001).
+# Порядок сохраняет ранее существовавшее поведение каскада, но теперь его можно
+# прочитать в одном месте, оспорить и покрыть тестом.
+INTENT_PRIORITY = {
+    IgClient.Intent.CUSTOM_PRINT: 100,
+    IgClient.Intent.SUPPORT: 90,
+    IgClient.Intent.PAYMENT: 80,
+    IgClient.Intent.ORDER_STATUS: 70,
+    IgClient.Intent.DELIVERY: 60,
+    IgClient.Intent.SIZE: 50,
+    IgClient.Intent.PRICE: 40,
+    IgClient.Intent.PRODUCT: 30,
+}
 
 
 def _resolve_readiness(
@@ -516,7 +611,23 @@ def reconcile_rules_projection(
     return _record_analysis_snapshot(client, message, result, role=message.role)
 
 
+def post_sale_request_type(client: IgClient, text: str, *, role: str = "") -> str:
+    """Return the post-sale case type this customer message asks for, or "".
+
+    The pre-sale filter lives inside ``detect_post_sale_type``, keyed on the
+    wording rather than on whether a purchase is recorded. Requiring a recorded
+    purchase here would disable the mechanism on production, where order
+    attribution exists for 2 clients out of 289 (DR-008).
+    """
+    if role == InstagramBotMessage.Role.MANAGER:
+        return ""
+    from management.services.ig_post_sale import post_sale_request_for_client
+
+    return post_sale_request_for_client(client, text)
+
+
 def _interaction_type(client: IgClient, result: dict, text: str, role: str) -> str:
+    from management.ig_bot_models import IgPostSaleCase
     from management.services.bot_payment_truth import client_has_confirmed_purchase
 
     types = IgConversationAnalysisSnapshot.InteractionType
@@ -528,9 +639,22 @@ def _interaction_type(client: IgClient, result: dict, text: str, role: str) -> s
         return types.OPT_OUT
     if result.get("no_buy"):
         return types.EXPLICIT_NO_BUY
+    # F-SCORE-002: the complaint check used to sit above the purchase check, so
+    # «розмір не підійшов, хочу обмін» from a paying customer never reached
+    # PAID_ORDER_WAITING and was filed under complaints. Order matters here:
+    # establish the purchase first, then classify what the message asks for.
+    is_buyer = client_has_confirmed_purchase(client)
+    if is_buyer:
+        post_sale = post_sale_request_type(client, text, role=role)
+        if post_sale == IgPostSaleCase.CaseType.EXCHANGE:
+            return types.EXCHANGE_REQUEST
+        if post_sale == IgPostSaleCase.CaseType.RETURN:
+            return types.RETURN_REQUEST
+    # A real complaint stays a complaint: an undelivered parcel or a defect is
+    # not a service request and must keep its own signal.
     if SUPPORT_RE.search(text or ""):
         return types.SUPPORT_COMPLAINT
-    if client_has_confirmed_purchase(client):
+    if is_buyer:
         return types.PAID_ORDER_WAITING
     if client.stage == IgClient.Stage.SPAM or client.is_blocked:
         return types.SPAM_ABUSE
@@ -540,10 +664,14 @@ def _interaction_type(client: IgClient, result: dict, text: str, role: str) -> s
         return types.PAYMENT_PENDING
     if IgConversationSignal.Type.CHECKOUT_STARTED in result.get("signals", []):
         return types.HIGH_INTENT
-    if COLLAB_RE.search(text or ""):
-        return types.COLLABORATION
+    # F-PAT-001 #7: COLLAB_RE проверялся раньше, поэтому «є оптом для магазину?
+    # і коллаб цікавить» становилось collaboration и оптовый лид не попадал в
+    # фильтр wholesale_b2b. Опт — это выручка, коллаб — это переговоры о
+    # бартере, поэтому при одновременном совпадении опт важнее.
     if WHOLESALE_RE.search(text or ""):
         return types.WHOLESALE_B2B
+    if COLLAB_RE.search(text or ""):
+        return types.COLLABORATION
     if result.get("intent") == IgClient.Intent.CUSTOM_PRINT:
         return types.CUSTOM_PRINT
     if result.get("intent") == IgClient.Intent.SIZE:
@@ -765,6 +893,12 @@ def classify_message(
         client.paused_at = client.paused_at or opted_out_at
 
     commercially_actionable = not is_manager and not reaction_only and not no_buy and not opt_out
+    # Resolved once: it gates the size objection below and the readiness guard
+    # at the end of this function, and each call is a database round trip.
+    from management.services.bot_payment_truth import client_has_confirmed_purchase
+
+    confirmed_purchase = client_has_confirmed_purchase(client)
+    post_sale_request = post_sale_request_type(client, text, role=role)
     media_intents = {str(item.get("intent") or "") for item in media_context}
     media_roles = {str(item.get("role") or "") for item in media_context}
     if commercially_actionable and "custom_print_request" in media_intents:
@@ -781,36 +915,68 @@ def classify_message(
         intent = IgClient.Intent.PRODUCT
         readiness += 25 if "purchase_candidate" in media_intents else 10
         add(IgConversationSignal.Type.PRODUCT_INTEREST, conf=0.85, value="media")
-    if (
-        commercially_actionable
-        and is_explicit_custom_print_request(low)
-        and "custom_print_request" not in media_intents
-    ):
-        intent = IgClient.Intent.CUSTOM_PRINT
-        readiness += 30
-        add(IgConversationSignal.Type.CUSTOM_PRINT, conf=0.9)
-    elif commercially_actionable and SUPPORT_RE.search(text):
-        intent = IgClient.Intent.SUPPORT
-    elif commercially_actionable and (PAYMENT_RE.search(low) or PHONE_RE.search(low)) and "payment_evidence" not in media_intents:
-        intent = IgClient.Intent.PAYMENT
-        readiness += 40
-        add(IgConversationSignal.Type.CHECKOUT_STARTED, conf=0.8)
-    elif commercially_actionable and ORDER_STATUS_RE.search(text):
-        intent = IgClient.Intent.ORDER_STATUS
-    elif commercially_actionable and DELIVERY_RE.search(low):
-        intent = IgClient.Intent.DELIVERY
-    elif commercially_actionable and SIZE_RE.search(low):
-        intent = IgClient.Intent.SIZE
-        readiness += 20
-    elif commercially_actionable and PRICE_RE.search(low):
-        intent = IgClient.Intent.PRICE
-        readiness += 20
-    elif commercially_actionable and PRODUCT_RE.search(low) and "product" not in media_roles:
-        intent = IgClient.Intent.PRODUCT
-        readiness += 10
-        add(IgConversationSignal.Type.PRODUCT_INTEREST, conf=0.75)
+    # F-PAT-001: раньше это была цепочка `elif` с первым совпадением, поэтому
+    # приоритет был зашит в порядок строк. Добавление паттерна непредсказуемо
+    # меняло результат для соседнего, и текстовая ветка безусловно перетирала
+    # intent, установленный по медиа. Теперь собираем все сработавшие признаки
+    # и выбираем по явной таблице INTENT_PRIORITY.
+    if commercially_actionable:
+        candidates: list[tuple[str, int, tuple | None]] = []
+        if (
+            is_explicit_custom_print_request(low)
+            and "custom_print_request" not in media_intents
+        ):
+            candidates.append((
+                IgClient.Intent.CUSTOM_PRINT,
+                30,
+                (IgConversationSignal.Type.CUSTOM_PRINT, 0.9, ""),
+            ))
+        if SUPPORT_RE.search(text):
+            candidates.append((IgClient.Intent.SUPPORT, 0, None))
+        if "payment_evidence" not in media_intents and (
+            PAYMENT_RE.search(low) or phone_is_contact_handover(text)
+        ):
+            candidates.append((
+                IgClient.Intent.PAYMENT,
+                40,
+                (IgConversationSignal.Type.CHECKOUT_STARTED, 0.8, ""),
+            ))
+        if ORDER_STATUS_RE.search(text):
+            candidates.append((IgClient.Intent.ORDER_STATUS, 0, None))
+        if DELIVERY_RE.search(low):
+            candidates.append((IgClient.Intent.DELIVERY, 0, None))
+        if SIZE_RE.search(low):
+            candidates.append((IgClient.Intent.SIZE, 20, None))
+        if PRICE_RE.search(low):
+            candidates.append((IgClient.Intent.PRICE, 20, None))
+        if PRODUCT_RE.search(low) and "product" not in media_roles:
+            candidates.append((
+                IgClient.Intent.PRODUCT,
+                10,
+                (IgConversationSignal.Type.PRODUCT_INTEREST, 0.75, ""),
+            ))
+        if candidates:
+            winner = max(
+                candidates, key=lambda row: INTENT_PRIORITY.get(row[0], 0)
+            )
+            # Медиа уже могло дать более сильный intent (например кастом-принт по
+            # присланному референсу). Текст его не понижает.
+            if INTENT_PRIORITY.get(winner[0], 0) >= INTENT_PRIORITY.get(intent, 0):
+                intent = winner[0]
+                readiness += winner[1]
+                if winner[2]:
+                    signal_type, conf, value = winner[2]
+                    add(signal_type, conf=conf, value=value)
 
-    if not is_manager and not no_buy and not opt_out and PRICE_RE.search(low):
+    # F-PAT-001 #1: блок возражений — независимый `if`, поэтому «Скільки коштує
+    # доставка?» одновременно получал intent=delivery и objection=price, а
+    # playbook — теги price/discount. Бот предлагал скидку на вопрос о стоимости
+    # доставки. Вопрос о цене доставки ценовым возражением не является.
+    price_hit = bool(PRICE_RE.search(low))
+    hard_price = bool(HARD_PRICE_OBJECTION_RE.search(low))
+    delivery_hit = bool(DELIVERY_RE.search(low))
+    price_objection = hard_price or (price_hit and not delivery_hit)
+    if not is_manager and not no_buy and not opt_out and price_objection:
         objection = IgClient.Objection.PRICE
         readiness += 12
         add(IgConversationSignal.Type.PRICE_OBJECTION, conf=0.85)
@@ -819,11 +985,23 @@ def classify_message(
         readiness += 10
         add(IgConversationSignal.Type.PREPAYMENT_OBJECTION, conf=0.9)
     if not is_manager and not no_buy and not opt_out and SIZE_RE.search(low):
-        if objection == IgClient.Objection.NONE:
+        # F-SCORE-006: «розмір не підійшов, хочу обмін» is not an objection to
+        # buying. The purchase already happened, so filing it under objections
+        # put a completed sale into the «Заперечення клієнтів» table.
+        if objection == IgClient.Objection.NONE and not post_sale_request:
             objection = IgClient.Objection.SIZE
         readiness += 8
         add(IgConversationSignal.Type.SIZE_CONCERN, conf=0.8)
-    if not is_manager and not no_buy and not opt_out and THINKING_RE.search(low):
+    if (
+        not is_manager
+        and not no_buy
+        and not opt_out
+        and THINKING_RE.search(low)
+        # F-PAT-001 #5: «думаю візьму L» — решение, не сомнение. Ярлык THINKING
+        # ставил follow-up на 12 часов вместо 2 и подавал в промпт тег
+        # «сомневается» готовому купить.
+        and not PURCHASE_DECISION_RE.search(low)
+    ):
         objection = IgClient.Objection.THINKING
         readiness = max(readiness, 25)
     if not is_manager and not no_buy and not opt_out and GIFT_RE.search(low):
@@ -832,8 +1010,6 @@ def classify_message(
     if not is_manager and not no_buy and not opt_out and SELF_RE.search(low):
         add(IgConversationSignal.Type.SELF_PURCHASE, conf=0.75)
         readiness += 8
-
-    from management.services.bot_payment_truth import client_has_confirmed_purchase
 
     readiness = _resolve_readiness(
         previous_readiness,
@@ -847,7 +1023,7 @@ def classify_message(
         ),
         # F-SCORE-004: six polite messages after a purchase used to decay the
         # score to zero, because the only guard read provider truth.
-        verified_payment=client_has_confirmed_purchase(client),
+        verified_payment=confirmed_purchase,
     )
     client.language = lang
     client.intent = intent
