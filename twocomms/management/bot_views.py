@@ -2437,6 +2437,9 @@ def _client_potential_payload(c, latest_analysis, *, latest_message_id=None) -> 
     from .ig_bot_models import IgClient, IgConversationAnalysisSnapshot
 
     current_episode = getattr(c, "current_commercial_episode", None)
+    from management.services.ig_funnel_reset import current_message_floor
+
+    current_floor = current_message_floor(c)
     current_episode_id = getattr(c, "current_commercial_episode_id", None)
     latest_message_id = int(
         latest_message_id
@@ -2557,6 +2560,7 @@ def _client_potential_payload(c, latest_analysis, *, latest_message_id=None) -> 
         watermark >= latest_message_id
         and matches_episode
         and (not boundary or watermark >= boundary)
+        and (not current_floor or watermark >= current_floor)
     )
     state = "current" if fresh else "stale"
     scope = (
@@ -3019,6 +3023,7 @@ def bot_client_detail_api(request, client_id):
         IgPaymentReviewDecision,
     )
     from management.services.ig_commercial_episodes import client_episode_payload
+    from management.services.ig_funnel_reset import current_message_floor
 
     c = IgClient.objects.select_related(
         "current_product",
@@ -3119,6 +3124,7 @@ def bot_client_detail_api(request, client_id):
         }
         for e in c.stage_events.all()[:50]
     ]
+    current_floor = current_message_floor(c)
     signal_rows = [
         {
             "type": s.signal_type,
@@ -3126,13 +3132,15 @@ def bot_client_detail_api(request, client_id):
             "value": s.value,
             "time": s.created_at.isoformat() if s.created_at else "",
         }
-        for s in c.conversation_signals.all().order_by("-created_at", "-id")[:120]
+        for s in c.conversation_signals.filter(
+            message_id__gte=current_floor,
+        ).order_by("-created_at", "-id")[:120]
     ]
     signals = _group_signal_rows(signal_rows)
     pattern_episode = c.current_commercial_episode
     if pattern_episode is None:
         pattern_episode = c.commercial_episodes.order_by("-sequence", "-id").first()
-    pattern_messages = c.messages.all()
+    pattern_messages = c.messages.filter(id__gte=current_floor)
     if pattern_episode and pattern_episode.opened_watermark_message_id:
         pattern_messages = pattern_messages.filter(
             id__gte=pattern_episode.opened_watermark_message_id
@@ -3725,6 +3733,38 @@ def bot_client_mark_lost_api(request, client_id):
     c.save(update_fields=["lost_reason", "primary_objection", "updated_at"])
     bot_followups.cancel_pending(c, reason="lost")
     return JsonResponse({"success": True, "stage": c.stage, "lost_reason": c.lost_reason})
+
+
+@login_required(login_url="management_login")
+@require_POST
+def bot_client_reset_funnel_api(request, client_id):
+    """Reset mutable CRM inference only after an explicit operator confirm."""
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    if str(request.POST.get("confirm_reset") or "").lower() not in {"1", "true", "yes"}:
+        return JsonResponse({
+            "success": False,
+            "requires_confirmation": True,
+            "error": "Підтвердіть скидання воронки для цього клієнта.",
+        }, status=409)
+    from .services.ig_funnel_reset import reset_funnel
+
+    result = reset_funnel(
+        client_id=client_id,
+        actor=request.user,
+        reason=request.POST.get("reason") or "manual_reset",
+    )
+    if not result.get("ok"):
+        return JsonResponse({
+            "success": False,
+            "error": result.get("error") or "Не вдалося скинути воронку.",
+        }, status=int(result.get("status") or 400))
+    return JsonResponse({
+        "success": True,
+        "message": "Воронку скинуто. Переписка, оплати та замовлення збережені.",
+        **{key: value for key, value in result.items() if key not in {"ok", "status"}},
+    })
 
 
 @login_required(login_url="management_login")

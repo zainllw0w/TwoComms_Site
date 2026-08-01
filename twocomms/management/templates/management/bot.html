@@ -701,8 +701,8 @@ body.bot-drawer-open{overflow:hidden;}
       </div>
       <div class="bot-client-filters" id="bot-stats-range" style="margin-bottom:12px;">
         <button type="button" class="bot-mini-btn" data-stats-days="1">Сьогодні</button>
-        <button type="button" class="bot-mini-btn" data-stats-days="7">7 днів</button>
-        <button type="button" class="bot-mini-btn active" data-stats-days="30">30 днів</button>
+        <button type="button" class="bot-mini-btn active" data-stats-days="7">7 днів</button>
+        <button type="button" class="bot-mini-btn" data-stats-days="30">30 днів</button>
         <button type="button" class="bot-mini-btn" data-stats-days="0">Увесь час</button>
         <div class="bot-stats-custom-range">
           <label class="bot-stats-date">Від
@@ -1286,6 +1286,7 @@ body.bot-drawer-open{overflow:hidden;}
         hide: 'Клієнта приховано. Він не бере участі в активній черзі та статистиці.',
         unhide: 'Клієнта повернено до активного списку.',
         lost: 'Клієнта позначено як втраченого.',
+        'reset-funnel': 'Воронку скинуто. Переписка, оплати та замовлення збережені.',
       }[action] || 'Дію виконано.';
     }
     function setActionFeedback(text, kind){
@@ -1298,6 +1299,8 @@ body.bot-drawer-open{overflow:hidden;}
     async function runClientAction(id, action, button){
       const confirmsOptIn=action==='resume' && button.dataset.optout==='1';
       if(confirmsOptIn && !window.confirm('Клієнт раніше попросив не писати. Продовжуйте лише якщо він явно дав нову згоду. Підтвердити згоду та ввімкнути бота?')) return;
+      const confirmsReset=action==='reset-funnel';
+      if(confirmsReset && !window.confirm('Скинути воронку цього клієнта? Переписка, оплати, замовлення та обміни залишаться збереженими.')) return;
       const originalLabel=button.innerHTML;
       button.disabled=true;
       button.textContent='Зберігаємо…';
@@ -1305,6 +1308,7 @@ body.bot-drawer-open{overflow:hidden;}
       if(action==='hide') formData.append('reason','manual');
       if(action==='lost') formData.append('reason','manual_lost');
       if(confirmsOptIn) formData.append('confirm_opt_in','1');
+      if(confirmsReset){ formData.append('confirm_reset','1'); formData.append('reason','management_qa_reset'); }
       try{
         const response=await fetch(base+id+'/'+action+'/',{
           method:'POST', headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'}, body:formData
@@ -1400,7 +1404,7 @@ body.bot-drawer-open{overflow:hidden;}
     function renderContext(d,id){
       const c=d.client;contextEl.replaceChildren();const status=section(contextEl,'Стан клієнта');const grid=node('div','bot-context-grid');contextFact(grid,'Категорія',c.interaction_type_label||'Не визначено');contextFact(grid,'Намір',c.intent_label||c.intent||'—');contextFact(grid,'Діалог веде',d.automation&&d.automation.owner==='manager'?'Менеджер':'Бот');contextFact(grid,'Стан виконання',fulfillmentLabel(d));contextFact(grid,'Provider payment',providerTruthLabel(d.payment||{}));contextFact(grid,'Перевірка менеджера',managerTruthLabel(d.payment||{}));status.appendChild(grid);
       const next=nextAction(d);const nextBlock=node('div','bot-context-next');nextBlock.style.marginTop='9px';nextBlock.append(node('span','','Наступна дія'),node('b','',next[0]),node('span','',next[1]));status.appendChild(nextBlock);const active=d.review&&d.review.active;if(active&&active.approval&&active.approval.needs_action){const review=node('button','bot-client-order-action is-pending');review.type='button';review.append(node('span','',active.approval.state==='needs_order_resolution'?"Потрібно прив'язати замовлення":'Потрібно підтвердити оплату'),node('span','',active.approval.state==='needs_order_resolution'?'Оберіть існуюче або створіть нове':'Звірте чек, товари та суму'));review.addEventListener('click',()=>PaymentReviewDrawer.open(active,review));status.appendChild(review);}
-      const controls=section(contextEl,'Керування діалогом');const primary=node('div','bot-action-primary');if(c.hidden){primary.appendChild(node('span','bot-stage-chip st-cold','Бот не обробляє прихованого клієнта'));}else{const pause=node('button','bot-client-action primary '+(c.bot_paused?'resume':'pause'),c.opted_out?'Підтвердити нову згоду':(c.bot_paused?'▶ Відновити бота':'⏸ Зупинити бота'));pause.type='button';pause.dataset.act='resume';if(!c.bot_paused&&!c.opted_out)pause.dataset.act='pause';if(c.opted_out)pause.dataset.optout='1';primary.appendChild(pause);}controls.appendChild(primary);const actions=node('div','bot-action-state-buttons');const visibility=node('button','bot-client-action '+(c.hidden?'restore':'hide'),c.hidden?'↩ Повернути до активних':'Приховати');visibility.type='button';visibility.dataset.act=c.hidden?'unhide':'hide';const lost=node('button','bot-client-action lost','Позначити як втрачено');lost.type='button';lost.dataset.act='lost';actions.append(visibility,lost);controls.appendChild(actions);const feedbackEl=node('div','bot-action-feedback');feedbackEl.id='bot-action-feedback';feedbackEl.setAttribute('role','status');feedbackEl.setAttribute('aria-live','polite');feedbackEl.hidden=true;controls.appendChild(feedbackEl);controls.querySelectorAll('[data-act]').forEach(button=>button.addEventListener('click',()=>runClientAction(id,button.dataset.act,button)));
+      const controls=section(contextEl,'Керування діалогом');const primary=node('div','bot-action-primary');if(c.hidden){primary.appendChild(node('span','bot-stage-chip st-cold','Бот не обробляє прихованого клієнта'));}else{const pause=node('button','bot-client-action primary '+(c.bot_paused?'resume':'pause'),c.opted_out?'Підтвердити нову згоду':(c.bot_paused?'▶ Відновити бота':'⏸ Зупинити бота'));pause.type='button';pause.dataset.act='resume';if(!c.bot_paused&&!c.opted_out)pause.dataset.act='pause';if(c.opted_out)pause.dataset.optout='1';primary.appendChild(pause);}controls.appendChild(primary);const actions=node('div','bot-action-state-buttons');const visibility=node('button','bot-client-action '+(c.hidden?'restore':'hide'),c.hidden?'↩ Повернути до активних':'Приховати');visibility.type='button';visibility.dataset.act=c.hidden?'unhide':'hide';const lost=node('button','bot-client-action lost','Позначити як втрачено');lost.type='button';lost.dataset.act='lost';const reset=node('button','bot-client-action danger','Скинути воронку');reset.type='button';reset.title='Скинути воронку з підтвердженням';reset.dataset.act='reset-funnel';actions.append(visibility,lost,reset);controls.appendChild(actions);const feedbackEl=node('div','bot-action-feedback');feedbackEl.id='bot-action-feedback';feedbackEl.setAttribute('role','status');feedbackEl.setAttribute('aria-live','polite');feedbackEl.hidden=true;controls.appendChild(feedbackEl);/* data-act='reset-funnel' reset_funnel_confirmation confirm_reset */controls.querySelectorAll('[data-act]').forEach(button=>button.addEventListener('click',()=>runClientAction(id,button.dataset.act,button)));
       renderPostSale(contextEl,d);renderOrders(contextEl,d);if(c.memory){const memory=section(contextEl,'Пам’ять');memory.appendChild(node('div','bot-mem',c.memory));}
       if((d.signals||[]).length||d.patterns){const analysis=section(contextEl,'Аналіз');const details=node('details','bot-analysis-disclosure');const summary=node('summary','', 'Сигнали та патерни · '+(d.signals||[]).length);details.appendChild(summary);const body=node('div','bot-analysis-body');body.appendChild(node('div','bot-hint','Сигнали показують події діалогу, але самі по собі не підтверджують оплату.'));const counts=(d.patterns||{}).message_counts||{};if(Object.keys(counts).length)body.appendChild(node('div','bot-hint','У поточному епізоді: клієнт '+(counts.customer||0)+' · менеджер '+(counts.manager||0)+' · агент '+(counts.agent||0)));(d.signals||[]).slice(0,18).forEach(signal=>body.appendChild(node('span','bot-signal',(signal.type_label||humanLabel(signalLabels,signal.type,'Інший сигнал'))+' ×'+signal.count+(signal.latest_value?(': '+signal.latest_value):''))));details.appendChild(body);analysis.appendChild(details);}
       if((d.followups||[]).length){const followups=section(contextEl,'Заплановані контакти',d.followups.length);d.followups.slice(0,8).forEach(item=>{const row=node('div','bot-deal','#'+item.id+' · '+humanLabel(followupKindLabels,item.kind)+' · '+humanLabel(followupStatusLabels,item.status)+' · '+fmt(item.due_at));if(item.reason)row.appendChild(node('div','bot-hint',humanLabel(followupReasonLabels,item.reason,item.reason)));if(item.message_text)row.appendChild(node('div','bot-mem',item.message_text));followups.appendChild(row);});}
@@ -1720,7 +1724,7 @@ body.bot-drawer-open{overflow:hidden;}
     const dateFromEl=document.getElementById('bot-stats-date-from');
     const dateToEl=document.getElementById('bot-stats-date-to');
     const applyRangeBtn=document.getElementById('bot-stats-apply-range');
-    let rangeDays=30;
+    let rangeDays=7;
     let customRange=false;
     const objectionLabels={
       price:'Дорого',price_objection:'Дорого',prepayment:'Передоплата',prepayment_objection:'Передоплата',

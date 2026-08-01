@@ -31,6 +31,7 @@ from management.models import (
 )
 from management.services.bot_payment_truth import client_has_verified_payment
 from management.services.call_ai_analysis import gemini_generate_json
+from management.services.ig_funnel_reset import current_message_floor
 
 
 DEBOUNCE_SECONDS = 30
@@ -360,8 +361,13 @@ def _required_truth_state(client: IgClient) -> dict:
 
 
 def _analysis_message_rows(client_id: int, watermark: int):
+    floor = current_message_floor(client_id)
     rows = list(
-        InstagramBotMessage.objects.filter(client_id=client_id, id__lte=watermark)
+        InstagramBotMessage.objects.filter(
+            client_id=client_id,
+            id__gte=floor,
+            id__lte=watermark,
+        )
         .exclude(status=InstagramBotMessage.Status.FAILED)
         .annotate(event_at=Coalesce("provider_created_at", "created_at"))
         .order_by("-event_at", "-id")[:MAX_MESSAGES]
@@ -1469,6 +1475,7 @@ def reconcile_analysis_jobs(*, limit: int = 500, now=None) -> dict:
             rule_messages = list(
                 InstagramBotMessage.objects.filter(
                     client_id=client_id,
+                    pk__gte=current_message_floor(client),
                     pk__lte=watermark,
                     role__in=[InstagramBotMessage.Role.USER, InstagramBotMessage.Role.MANAGER],
                 ).order_by("-pk")[:MAX_MESSAGES]

@@ -15,6 +15,7 @@ from django.utils import timezone
 
 from management.models import IgClient, InstagramBotMessage
 from management.services.call_ai_analysis import gemini_generate_text
+from management.services.ig_funnel_reset import current_message_floor
 
 RECENT_WINDOW = 10          # скільки останніх реплік даємо дослівно
 TRANSCRIPT_LIMIT = 60       # скільки реплік беремо для стиснення в summary
@@ -40,6 +41,7 @@ def memory_note(client: IgClient) -> str | None:
 def _transcript(client: IgClient, limit: int = TRANSCRIPT_LIMIT) -> str:
     rows = list(
         InstagramBotMessage.objects.filter(client=client)
+        .filter(id__gte=current_message_floor(client))
         .exclude(status=InstagramBotMessage.Status.FAILED)
         .order_by("-id")[:limit]
     )
@@ -91,7 +93,10 @@ def update_client_memory(client: IgClient) -> bool:
 
 def maybe_update_memory(client: IgClient, every: int = MEMORY_EVERY) -> bool:
     """Оновлює пам'ять, коли к-сть повідомлень кратна `every` (дешева евристика)."""
-    count = InstagramBotMessage.objects.filter(client=client).count()
+    count = InstagramBotMessage.objects.filter(
+        client=client,
+        id__gte=current_message_floor(client),
+    ).count()
     if count and every and count % every == 0:
         return update_client_memory(client)
     return False

@@ -208,6 +208,23 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
         ):
             self.assertIn(contract, self.template)
 
+    def test_stats_default_to_seven_days(self):
+        self.assertIn(
+            'class="bot-mini-btn active" data-stats-days="7">7 днів',
+            self.template,
+        )
+        self.assertIn("let rangeDays=7;", self.template)
+        self.assertNotIn(
+            'class="bot-mini-btn active" data-stats-days="30">30 днів',
+            self.template,
+        )
+
+    def test_client_workspace_exposes_confirmed_funnel_reset(self):
+        self.assertIn("Скинути воронку", self.template)
+        self.assertIn("data-act='reset-funnel'", self.template)
+        self.assertIn("reset_funnel_confirmation", self.template)
+        self.assertIn("confirm_reset", self.template)
+
     def test_client_workspace_has_two_primary_panes_and_context_drawer(self):
         for contract in (
             'class="bot-clients-workspace"',

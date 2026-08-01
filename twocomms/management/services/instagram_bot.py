@@ -4800,8 +4800,19 @@ def enqueue_inbound(
 # Воркер: обробка черги
 # ---------------------------------------------------------------------------
 def _build_history(sender_id: str) -> list[dict]:
+    from management.services.ig_funnel_reset import current_message_floor
+
+    client_id = (
+        InstagramBotMessage.objects.filter(sender_id=sender_id)
+        .exclude(client_id__isnull=True)
+        .order_by("-id")
+        .values_list("client_id", flat=True)
+        .first()
+    )
+    floor = current_message_floor(client_id) if client_id else 1
     rows = list(
         InstagramBotMessage.objects.filter(sender_id=sender_id)
+        .filter(id__gte=floor)
         .exclude(status=InstagramBotMessage.Status.FAILED)
         .annotate(event_at=Coalesce("provider_created_at", "created_at"))
         .order_by("-event_at", "-id")[:HISTORY_LIMIT]
