@@ -33,6 +33,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from orders.models import Order, OrderItem
+from orders.delivery_display import get_order_nova_poshta_point
 from orders.nova_poshta_checkout import (
     NovaPoshtaSelectionError,
     format_delivery_selection_address,
@@ -192,6 +193,7 @@ def _build_order_initial(order):
                 'fit_option_label': item.fit_option_label or '',
                 'image': image,
             })
+    delivery_display = get_order_nova_poshta_point(order)
     return {
         'id': order.id,
         'order_number': order.order_number,
@@ -201,6 +203,15 @@ def _build_order_initial(order):
         'manager_comment': order.manager_comment or '',
         'payment_preset': _preset_key_for_order(order),
         'delivery_text': ', '.join(p for p in (order.city, order.np_office) if p),
+        'delivery_display': {
+            'icon': delivery_display.icon,
+            'kind': delivery_display.kind,
+            'kind_label': delivery_display.kind_label,
+            'number': delivery_display.number,
+            'title': delivery_display.title,
+            'city': delivery_display.city,
+            'address': delivery_display.address,
+        },
         'has_tracking': bool(order.tracking_number),
         'items': items,
     }

@@ -18,6 +18,7 @@ from orders.nova_poshta_documents import (
     TELEGRAM_DELETE_NP_WAYBILL_ACTION,
     build_order_payment_snapshot,
 )
+from orders.delivery_display import get_dropshipper_nova_poshta_point, get_order_nova_poshta_point
 from orders.status_management import get_telegram_status_action
 from orders.telegram_status_links import build_order_action_url, build_order_status_action_url
 # W3-1 (TD-015/TD-003): битый импорт удалён. Раньше здесь пытались
@@ -731,6 +732,7 @@ class TelegramNotifier:
 
         # Форматируем информацию об оплате
         payment_info = self._format_payment_info(order)
+        delivery_point = get_order_nova_poshta_point(order)
 
         # Создаем единый блок с всей информацией
         full_block = f"""
@@ -741,8 +743,7 @@ class TelegramNotifier:
 │  👤 КЛИЕНТ:
 │     Имя: {order.full_name}
 │     Телефон: {order.phone}
-│     Город: {order.city}
-│     НП: {order.np_office}
+{delivery_point.telegram_pre_lines}│     🚚 НОВА ПОШТА
 ├─────────────────────────────────────────┤
 │  📋 ДЕТАЛИ ЗАКАЗА:
 │     Статус оплаты: {order.get_payment_status_display()}
@@ -1056,10 +1057,11 @@ class TelegramNotifier:
             item_block = "\n" + "\n".join(item_lines)
         else:
             item_block = "\n• Позиції уточнюються"
+        delivery_point = get_order_nova_poshta_point(attempt)
         message = (
             f"💳 <b>Спроба оплати #{attempt.reference}</b>\n"
             f"👤 {attempt.full_name} · {attempt.phone}\n"
-            f"📦 {attempt.city}, {attempt.np_office}\n"
+            f"🚚 <b>Доставка Новою поштою</b>\n{delivery_point.telegram_text}\n"
             f"🛍 <b>Товар:</b>{item_block}\n"
             f"💰 Товари: {gross} грн · знижка: -{discount} грн\n"
             f"💰 До сплати: <b>{amount} грн</b> · зараз: <b>{payment_amount} грн</b>\n"
@@ -1220,12 +1222,14 @@ class TelegramNotifier:
         successful = new_status in ('paid', 'prepaid', 'partial')
         heading = 'ОПЛАТУ ОТРИМАНО' if successful else 'ОПЛАТА ОНОВЛЕНА'
         paid_now = prepayment if new_status in ('prepaid', 'partial') else payable
+        delivery_point = get_order_nova_poshta_point(order)
 
         message = f"""💳 <b>{heading} #{order.order_number}</b>
 
 👤 {order.full_name}
 📞 {order.phone}
-📍 {order.city}, {order.np_office}
+🚚 <b>Доставка Новою поштою</b>
+{delivery_point.telegram_text}
 
 Тип оплати: {pay_type_label}
 Статус: {old_display} → <b>{new_display}</b>
@@ -1523,6 +1527,7 @@ class TelegramNotifier:
         dropshipper_company = dropshipper_profile.company_name if dropshipper_profile and dropshipper_profile.company_name else order.dropshipper.username
         dropshipper_telegram = dropshipper_profile.telegram if dropshipper_profile and dropshipper_profile.telegram else 'не підключено'
         dropshipper_phone = dropshipper_profile.phone if dropshipper_profile and dropshipper_profile.phone else 'не вказано'
+        delivery_point = get_dropshipper_nova_poshta_point(order)
 
         # Основной блок информации
         full_block = f"""
@@ -1539,8 +1544,7 @@ class TelegramNotifier:
 │     ПІБ: {order.client_name if order.client_name else 'Не вказано'}
 │     Телефон: {order.client_phone if order.client_phone else 'Не вказано'}"""
 
-        if order.client_np_address:
-            full_block += f"\n│     Адреса НП: {order.client_np_address}"
+        full_block += f"\n{delivery_point.telegram_pre_lines}"
 
         full_block += f"""
 ├─────────────────────────────────────────┤
@@ -1802,6 +1806,7 @@ class TelegramNotifier:
 
         # Заголовок
         header = f"🆕 <b>НОВЕ ЗАМОВЛЕННЯ СТВОРЕНО!</b>\n"
+        delivery_point = get_dropshipper_nova_poshta_point(order)
 
         # Основной блок информации
         full_block = f"""
@@ -1813,8 +1818,7 @@ class TelegramNotifier:
 │     ПІБ: {order.client_name if order.client_name else 'Не вказано'}
 │     Телефон: {order.client_phone if order.client_phone else 'Не вказано'}"""
 
-        if order.client_np_address:
-            full_block += f"\n│     Адреса НП: {order.client_np_address}"
+        full_block += f"\n{delivery_point.telegram_pre_lines}"
 
         full_block += f"""
 ├─────────────────────────────────────────┤
