@@ -1,7 +1,7 @@
 # Instagram Product Reselection and Catalog Intelligence
 
 **Date:** 2026-08-02
-**Status:** Approved direction; written specification awaiting review
+**Status:** Approved on 2026-08-02; implementation authorized
 **Surface:** Instagram Direct sales conversation and assisted checkout proposal creation
 
 ## 1. Outcome
@@ -140,6 +140,20 @@ verified. Transitions and proposals store the exact verified revision IDs and
 normalized trait values used, not only a mutable profile pointer or graph
 digest.
 
+A verified alias must identify a product rather than repeat generic catalog
+vocabulary. A single color, size, garment type, fit, or construction word such
+as `black`, `classic`, `классика`, `класична`, or `oversize` is rejected as a
+verified exact alias. Product-specific multiword aliases remain allowed. This
+prevents phrases such as `black classic` from pinning an arbitrary named design
+instead of remaining color and fit constraints.
+
+Revision history also has one deterministic effective head. A verified
+revision may explicitly supersede an earlier effective revision, while a
+revocation is an append-only tombstone that targets that exact revision. After
+revocation, the older traits and aliases are no longer authoritative. Profile
+locking and database constraints prevent two concurrently verified effective
+heads or a cross-profile revocation.
+
 The profile is intentionally limited to semantic facts not already represented
 by product, fit, color, size, print, or warehouse models.
 
@@ -179,6 +193,13 @@ verified candidates.
   proposal.
 - External URLs are treated as conversational evidence, not catalog identity.
 - Model-generated control tags cannot override a trusted customer URL.
+
+Current storefront PDP routes may append canonical option slugs after the
+product slug. The resolver accepts those path segments only when each segment
+resolves to an active option or variant that belongs to the same published
+product. Valid option slugs become exact structured constraints; an unknown,
+foreign-product, duplicated, or contradictory option segment fails closed
+instead of being ignored.
 
 ### 6.2 Structured turn request
 
@@ -342,6 +363,13 @@ reply receipt, proposal, reservation, and escalation result. Replaying the same
 inbound event returns this stored result even if the session revision has since
 advanced.
 
+Decision persistence and delivery are separate durable phases. The decision
+owns an outbox state (`pending`, `sending`, `unknown`, or `sent`) plus every
+provider message ID for text chunks and media. Replay never recomputes commerce
+effects. It may retry the persisted reply only while the transport boundary is
+provably un-crossed; `sending`, timeout/ambiguous, partial delivery, and `sent`
+must reconcile provider truth or require manager review instead of blind resend.
+
 ### 8.1 States
 
 - `browsing`;
@@ -390,6 +418,14 @@ advanced.
   again;
 - pin that product atomically and clear the candidate set;
 - continue from the first genuinely missing configuration field.
+
+Candidate prompts use a separate `candidate_generation` from general session
+revisioning. Information-only turns do not invalidate a still-current choice.
+Whenever transport supplies them, the outbound prompt provider IDs and inbound
+reply-to/quick-reply identity are persisted. A bare number is accepted only for
+the one unchanged latest prompt; a replaced prompt, manager takeover, changed
+graph, unpublished product, or revoked semantic revision forces refreshed
+choices.
 
 **Checkout**
 
@@ -446,6 +482,12 @@ real warehouse-backed garment.
 The matcher must not fall back from exact size or color to a broad category when
 authorizing checkout. Existing graceful warehouse matching remains useful for
 manager assistance, not customer-facing stock truth.
+
+Before any allocation decision, ordered basket lines are grouped by immutable
+allocation identity and their quantities are summed. Two separate lines that
+resolve to one `StockItem` or catalog variant cannot each pass against the same
+last unit. Duplicate identical configured lines are merged canonically or
+rejected before proposal persistence.
 
 ### 9.2 Catalog-variant stock
 
@@ -534,9 +576,11 @@ Idempotency uses separate keys for separate guarantees:
   created manager review.
 - Manager escalation is unique by the semantic block key, not by a volatile
   transition revision.
-- A materially new product, fit, size, color, or semantic constraint changes the
-  semantic key and permits a new relevant decision. An unrelated message or
-  revision increment does not.
+- A materially new product, fit, size, color, quantity, stable basket line, or
+  semantic constraint changes the semantic key and permits a new relevant
+  decision. This lets `2 unavailable` recover when the customer changes to `1`
+  and closes only the obsolete review. An unrelated message or revision
+  increment does not.
 
 The bot must never claim `I will ask a manager` without a persisted manager
 review task visible in management operations.
@@ -551,12 +595,33 @@ review task visible in management operations.
   out-of-stock statement.
 - Concurrent selection messages: optimistic revision check retries the latest
   state once; stale transition output is discarded.
+- A burst already persisted for one client is reduced in provider-event order
+  under one client/session lock. Each inbound gets an idempotent decision, but
+  only the final useful state produces a reply. Complementary short turns such
+  as color, then size, then quantity are composed; a correction in the same
+  burst suppresses the stale unavailable reply it replaces.
 - Concurrent proposal requests: unique revision/evidence idempotency returns the
   existing proposal.
 - Reservation race: row locks decide the winner; the losing request receives
   freshly calculated alternatives.
 - Unknown or external product URL: explain that the exact item was not found and
   ask for its name/photo or a TwoComms product link.
+- A trusted product URL is resolved before any image-based pinning. An attached
+  photo of another product remains non-authoritative evidence and cannot
+  override the URL or an explicit rejection.
+- A verified buyer may start a new commercial episode with an explicit repeat
+  purchase. A requested change to an already paid item remains in the exchange
+  workflow; ambiguous `another/different` wording asks which action is meant.
+- `details_locked`, provider-processing, and invoice-creation-ambiguous states
+  count as possible provider side effects. Reselection stays pending until
+  terminal provider truth permits release or replacement.
+
+A manager resolution is evidence, not inventory authority. An `available`
+resolution must re-run product publication, semantic revision, configuration,
+price, and exact live allocation checks under the same locks used by proposal
+creation. A stale generation, changed selection digest, or depleted allocation
+keeps checkout blocked and records the failed revalidation without rewriting
+the customer's newer choice.
 
 ## 13. Observability and Operations
 
@@ -645,13 +710,30 @@ remain visible for manager review.
 - reversing that write-off restores the same allocation consistently;
 - late payment after release either re-commits exact stock or creates one
   overbooked review without losing payment truth;
+- a multi-line late payment classifies every aggregated allocation atomically,
+  commits still-available allocations, and records one review containing every
+  deficient line instead of partially presenting the order as fulfillable;
 - legacy zero `VariantSizeRule.stock` does not block a warehouse-backed size;
-- concurrent last-item reservations produce one winner.
+- concurrent last-item reservations produce one winner;
+- multiple basket lines sharing one allocation are checked by aggregate
+  quantity.
 
 ### 16.3 Side effects and checkout
 
 - repeated inbound processing creates one reply;
 - replay after the session revision advanced returns the stored turn decision;
+- crash-before-send retries one persisted outbox item, while timeout, partial
+  media/text, success-before-local-save, and other ambiguous boundaries never
+  blind-resend;
+- a persisted burst of correction/configuration turns emits only one final
+  reply without losing complementary fields;
+- mixed Russian/Ukrainian/English turns and common transliteration preserve the
+  same correction, fit, color, quantity, and information-request semantics;
+- candidate prompts survive information-only turns but are invalidated by a
+  changed product/profile/catalog graph, manager takeover, or replacement
+  prompt; a bare number without a current prompt anchor never selects;
+- a trusted exact URL or current textual correction outranks conflicting old
+  shared media and any visual classifier projection;
 - repeated unavailable state is not spammed;
 - manager review is created once and is operationally visible;
 - incomplete configuration never creates a proposal;
@@ -661,7 +743,12 @@ remain visible for manager review.
 - changing selection after a proposal requires the existing safe replacement or
   cancellation lifecycle rather than mutating the frozen proposal.
 - multiple basket lines preserve independent configuration and immutable
-  ordered proposal snapshots.
+  ordered proposal snapshots;
+- an explicit repeat purchase after verified payment opens a new episode and
+  proposal without mutating the paid order; an exchange request does not.
+- changing product, fit, size, color, quantity, semantic constraints, or the
+  active basket line invalidates the corresponding unavailable suppression and
+  stale manager review.
 
 ### 16.4 Integration verification
 
@@ -689,9 +776,14 @@ The work is complete only when:
 8. duplicate unavailable replies and proposals are suppressed;
 9. manual stock adjustments and write-off/reversal cannot steal, double-debit,
    or orphan an active or paid stock allocation;
-10. the final migration graph, focused tests, MariaDB checks, and read-only replay
-   pass on the unified commit;
-11. the scoped result is integrated into `main`, deployed, and verified by
+10. a durable outbound decision survives worker crashes without recomputing
+    effects or blindly resending across an ambiguous provider boundary;
+11. rapid message bursts, repeat purchases, candidate prompt anchoring, and
+    pending invoice cancellation cannot trap a customer in stale product state;
+12. manager review resolution revalidates current commerce truth under lock;
+13. the final migration graph, focused tests, MariaDB checks, and read-only replay
+    pass on the unified commit;
+14. the scoped result is integrated into `main`, deployed, and verified by
     matching local, origin, and server commit SHAs.
 
 ## 18. Explicit Non-Goals

@@ -123,6 +123,26 @@ class ProductSalesSemanticRevisionTests(TestCase):
             ProductSalesSemanticProfileRevision.objects.filter(pk=revision.pk).update(traits={})
         with self.assertRaises(ValueError):
             ProductSalesSemanticProfileRevision.objects.filter(pk=revision.pk).delete()
+
+    def test_generic_fit_color_size_or_garment_word_cannot_be_verified_alias(self):
+        for alias in ("classic", "классика", "класична", "oversize", "black", "чорний", "M"):
+            with self.subTest(alias=alias), self.assertRaises(ValidationError):
+                validate_semantic_revision(
+                    status="verified",
+                    source="manager",
+                    aliases={"uk": [alias]},
+                    traits={},
+                )
+
+    def test_revocation_tombstone_removes_previous_verified_head(self):
+        first = self.create_verified_revision(revision=1)
+        self.create_revocation(revision=2, target=first)
+        self.assertIsNone(first.profile.effective_verified_revision())
+
+    def test_verified_successor_is_the_only_effective_head(self):
+        first = self.create_verified_revision(revision=1)
+        second = self.create_verified_revision(revision=2, supersedes=first)
+        self.assertEqual(first.profile.effective_verified_revision(), second)
 ```
 
 - [ ] **Step 2: Write failing inventory-policy tests**
@@ -181,13 +201,14 @@ class ProductSalesSemanticProfileRevision(models.Model):
     verified_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT)
     verified_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    supersedes = models.OneToOneField("self", null=True, blank=True, on_delete=models.PROTECT)
     objects = models.Manager.from_queryset(_AppendOnlySemanticRevisionQuerySet)()
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=("profile", "revision"), name="product_semantic_revision_once")]
 ```
 
-`validate_semantic_revision()` must accept only controlled keys and codes, normalize locale aliases, reject verified `bot_vision`/free-text provenance, and reject mutation/deletion of an existing verified row. Admin save creates a new revision instead of editing verified history.
+`validate_semantic_revision()` must accept only controlled keys and codes, normalize locale aliases, reject verified `bot_vision`/free-text provenance, and reject mutation/deletion of an existing verified row. Admin save creates a new revision instead of editing verified history. Verified aliases also reject controlled color, size, garment, fit, decoration, and construction vocabulary, including generic multiword combinations, so phrases such as `black classic T-shirt` cannot authorize exact product identity. Product-specific aliases remain valid. Lock the profile while publishing or revoking a revision. A verified replacement explicitly supersedes the current effective head; an append-only revocation tombstone targets that exact same-profile head and clears effective catalog truth. Targetless, cross-profile, and stale-head transitions fail, and graph construction reads only the deterministic effective head.
 
 Implement inventory source explicitly:
 
@@ -274,6 +295,28 @@ class TrustedProductReferenceTests(TestCase):
         self.assertFalse(result.is_exact)
         self.assertEqual(result.reason, "multiple_products")
 
+    def test_canonical_option_path_resolves_exact_product_and_owned_constraints(self):
+        result = resolve_trusted_product_reference(
+            "https://twocomms.shop/product/classic-tshirt/black/classic/"
+        )
+        self.assertEqual(result.product_id, self.product.pk)
+        self.assertEqual(dict(result.constraints), {"color": "black", "fit": "classic"})
+
+    def test_unknown_or_foreign_option_path_fails_closed(self):
+        result = resolve_trusted_product_reference(
+            "https://twocomms.shop/product/classic-tshirt/not-a-real-option/"
+        )
+        self.assertFalse(result.is_exact)
+        self.assertEqual(result.reason, "invalid_product_option")
+
+    def test_conflicting_option_urls_for_same_product_require_clarification(self):
+        result = resolve_trusted_product_reference(
+            "https://twocomms.shop/product/classic-tshirt/black/ "
+            "https://twocomms.shop/product/classic-tshirt/pink/"
+        )
+        self.assertFalse(result.is_exact)
+        self.assertEqual(result.reason, "conflicting_product_options")
+
     def test_graph_digest_changes_only_when_verified_topology_changes(self):
         first = build_catalog_graph()
         self.create_draft_semantics()
@@ -311,6 +354,7 @@ class TrustedProductReference:
     slug: str
     is_exact: bool
     reason: str
+    constraints: tuple[tuple[str, str], ...] = ()
 
 
 def resolve_trusted_product_reference(text: str) -> TrustedProductReference:
@@ -333,14 +377,21 @@ def resolve_trusted_product_reference(text: str) -> TrustedProductReference:
         segments = [unquote(value) for value in parts.path.split("/") if value]
         if segments and segments[0].casefold() in {"uk", "ru", "en"}:
             segments = segments[1:]
-        if len(segments) != 2 or segments[0].casefold() != "product":
+        if len(segments) < 2 or segments[0].casefold() != "product":
             continue
         product = Product.objects.filter(slug__iexact=segments[1], status=ProductStatus.PUBLISHED).first()
-        if product:
-            matches[product.pk] = product.slug
+        constraints = resolve_owned_product_option_segments(product, segments[2:])
+        if product and constraints.is_valid:
+            register_non_conflicting_match(matches, product, constraints.values)
     if len(matches) == 1:
-        product_id, slug = next(iter(matches.items()))
-        return TrustedProductReference(product_id, slug, True, "exact_url")
+        product_id, match = next(iter(matches.items()))
+        return TrustedProductReference(
+            product_id,
+            match.slug,
+            True,
+            "exact_url",
+            tuple(sorted(match.constraints.items())),
+        )
     if len(matches) > 1:
         return TrustedProductReference(None, "", False, "multiple_products")
     return TrustedProductReference(None, "", False, "not_resolved")
@@ -380,6 +431,14 @@ def test_only_exact_url_unique_alias_or_single_hard_match_auto_selects(self):
 def test_negative_back_print_is_never_silently_relaxed(self):
     result = rank_candidates(self.graph, self.request(hard={"back_decoration": "none"}))
     self.assertTrue(all(c.traits["back_decoration"] == "none" for c in result.candidates))
+
+def test_candidate_acceptance_rebuilds_when_product_or_semantic_head_changed(self):
+    prompt = self.persist_candidate_prompt(self.graph)
+    self.product.status = "archived"
+    self.product.save(update_fields=["status"])
+    accepted = accept_candidate_choice(prompt, "1")
+    self.assertEqual(accepted.reason, "candidate_graph_changed")
+    self.assertFalse(accepted.auto_select)
 ```
 
 - [ ] **Step 2: Run RED**
@@ -408,6 +467,9 @@ def rank_candidates(graph, request, availability=None) -> CandidateDecision:
 ```
 
 Never auto-select from `relaxed_alternatives`. Candidate numbering is bound later to session revision and candidate-set digest.
+Acceptance revalidates published state, graph digest, and every effective
+semantic revision used by the prompt; stale candidates are refreshed rather
+than pinned.
 
 - [ ] **Step 4: Run GREEN and commit**
 
@@ -449,6 +511,11 @@ class CommerceAvailabilityTests(TestCase):
         self.link_wrong_size_stock()
         result = resolve_allocation(self.spec(size="M", fit="classic", qty=1))
         self.assertEqual(result.status, AvailabilityStatus.UNAVAILABLE)
+
+    def test_lines_sharing_one_allocation_are_checked_as_aggregate_quantity(self):
+        self.link_blank(quantity=1, size="M", color=self.variant.color)
+        result = resolve_basket_allocations((self.spec(qty=1), self.spec(qty=1)))
+        self.assertEqual(result.status, AvailabilityStatus.UNAVAILABLE)
 ```
 
 - [ ] **Step 2: Run RED**
@@ -486,6 +553,11 @@ def resolve_allocation(spec, *, lock=False) -> AvailabilityDecision:
 
 Add `inventory_source` or equivalent parameter to Fable compatibility helpers so warehouse checkout respects `is_enabled`, fit/options, and size-grid membership but ignores numeric legacy stock fields.
 
+Group requested lines by exact allocation identity before authorizing any one
+of them. Sum quantity per `stock_item_id` or catalog variant so two lines cannot
+both claim the same final unit. Canonically merge identical configured lines or
+reject them before proposal persistence.
+
 Replace checkout authorization and alternative discovery based on raw
 `ProductColorVariant.stock` in `ig_checkout.py`, `bot_orders.py`,
 `instagram_bot.py`, and `bot_catalog.py` with this shared service. Existing
@@ -507,6 +579,7 @@ git commit -m "feat(ig): resolve authoritative garment availability"
 
 **Files:**
 - Modify: `twocomms/management/ig_bot_models.py`
+- Modify: `twocomms/management/services/ig_checkout.py`
 - Modify: `twocomms/management/services/ig_inventory.py`
 - Modify: `twocomms/management/services/ig_checkout_payment.py`
 - Create: `twocomms/management/tests_ig_inventory_allocations.py`
@@ -520,6 +593,13 @@ git commit -m "feat(ig): resolve authoritative garment availability"
 
 ```python
 class IgInventoryAllocationTests(TransactionTestCase):
+    def test_last_unit_is_reserved_when_proposal_is_created_not_when_delivery_is_submitted(self):
+        self.set_warehouse_quantity(1)
+        first = self.create_proposal()
+        second = self.try_create_same_allocation_proposal_for_another_client()
+        self.assertTrue(first.inventory_reservations.filter(state="active").exists())
+        self.assertEqual(second.reason, "unavailable")
+
     def test_warehouse_payment_commits_without_decrement_then_writeoff_decrements_once(self):
         reservation = self.reserve_warehouse(quantity=1, physical=2)
         commit_paid_inventory(reservation.proposal, order=self.order)
@@ -536,6 +616,17 @@ class IgInventoryAllocationTests(TransactionTestCase):
         commit_paid_inventory(reservation.proposal, order=self.order)
         reservation.refresh_from_db()
         self.assertEqual(reservation.state, "overbooked_review")
+
+    def test_two_lines_sharing_one_stock_item_are_checked_as_one_quantity(self):
+        self.set_warehouse_quantity(1)
+        result = self.try_create_proposal(lines=[self.spec(qty=1), self.spec(qty=1)])
+        self.assertEqual(result.reason, "unavailable")
+        self.assertFalse(IgCheckoutInventoryReservation.objects.exists())
+
+    def test_late_multi_line_payment_records_all_deficits_atomically(self):
+        result = self.commit_late_payment_with_partially_available_allocations()
+        self.assertEqual(result.review.reason, "late_payment_overbooked")
+        self.assertEqual(set(result.review.deficient_line_ids), set(self.expected_deficient_line_ids))
 ```
 
 Add warehouse tests proving exact allocation match, negative adjustment guard, and `reverse_write_off()` returning `fulfilled` to `paid_committed` atomically.
@@ -572,6 +663,15 @@ Implement allowed transitions and unconditional uniqueness per immutable proposa
 item, which is MariaDB-compatible. For warehouse allocations, the verified
 payment binding in `ig_checkout_payment.bind_verified_payment` changes state
 only. For catalog-variant allocations, retain guarded payment-time decrement.
+Proposal creation, not the later delivery-details submit, locks the exact live
+allocation and creates the 25-minute active reservation. Concurrent proposal
+creation for the final unit has one winner; the losing client receives a fresh
+unavailable decision and no payable link.
+Before locking, group every proposal line by immutable allocation identity and
+sum its quantity. Duplicate identical configured lines are merged canonically
+or rejected; they are never validated independently against the same stock.
+Late multi-line payment classifies all allocations in one transaction and
+creates one review containing all deficient lines without losing payment truth.
 The migration depends on current `orders.0053` (or its new leaf) and includes a
 data migration: legacy `CONSUMED` rows become `FULFILLED` with
 `catalog_variant`; legacy active/released rows retain state and receive
@@ -588,7 +688,7 @@ Inside `adjust_stock_item`, re-read the exact row with `select_for_update()`. Fo
 ```bash
 python manage.py test --settings=test_settings management.tests_ig_inventory_allocations management.tests_ig_checkout_service management.tests_ig_checkout_reconciliation management.tests_ig_checkout_workspace warehouse.tests.test_sale_flow warehouse.tests.test_write_off warehouse.tests.test_models
 python manage.py makemigrations --check --dry-run
-git add twocomms/management/ig_bot_models.py twocomms/management/services/ig_inventory.py twocomms/management/services/ig_checkout_payment.py twocomms/management/tests_ig_inventory_allocations.py twocomms/management/migrations/0128_ig_inventory_allocations.py twocomms/warehouse/services/inventory.py twocomms/warehouse/views/write_off.py twocomms/warehouse/tests/test_sale_flow.py twocomms/warehouse/tests/test_write_off.py
+git add twocomms/management/ig_bot_models.py twocomms/management/services/ig_checkout.py twocomms/management/services/ig_inventory.py twocomms/management/services/ig_checkout_payment.py twocomms/management/tests_ig_inventory_allocations.py twocomms/management/migrations/0128_ig_inventory_allocations.py twocomms/warehouse/services/inventory.py twocomms/warehouse/views/write_off.py twocomms/warehouse/tests/test_sale_flow.py twocomms/warehouse/tests/test_write_off.py
 git commit -m "feat(ig): bind checkout reservations to warehouse stock"
 ```
 
@@ -626,6 +726,39 @@ class CommerceStateTests(TransactionTestCase):
         stale = apply_turn(self.client, delayed, self.change_product(self.reality))
         self.assertTrue(stale.is_stale)
         self.assertEqual(self.current_session().lines[0]["product_id"], self.classic.pk)
+
+    def test_crash_before_transport_resumes_persisted_outbox_without_reducing_again(self):
+        decision = self.persist_decision_without_starting_transport()
+        replay = resume_turn_delivery(decision.source_message)
+        self.assertEqual(replay.pk, decision.pk)
+        self.assertEqual(self.transition_count(), 1)
+        self.assertEqual(self.transport_calls(), 1)
+
+    def test_ambiguous_or_partially_delivered_outbox_never_blind_resends(self):
+        for state in ("sending", "unknown", "partial", "sent"):
+            with self.subTest(state=state):
+                decision = self.decision_with_outbox_state(state)
+                resume_turn_delivery(decision.source_message)
+                self.assertEqual(self.transport_calls_for(decision), 0)
+
+    def test_information_turn_keeps_candidate_generation_but_replaced_prompt_invalidates_number(self):
+        self.persist_candidate_prompt(provider_ids=["mid-1"])
+        self.apply_information_only_turn()
+        self.assertTrue(self.select_number(1, reply_to="mid-1").accepted)
+        self.replace_candidate_prompt(provider_ids=["mid-2"])
+        self.assertFalse(self.select_number(1, reply_to="mid-1").accepted)
+
+    def test_candidate_generation_survives_information_only_revision(self):
+        prompt = self.create_candidate_prompt()
+        self.apply_info_only_turn("покажи размерную сетку")
+        self.assertEqual(self.current_session().candidate_generation, prompt.generation)
+
+    def test_delivery_outbox_is_separate_from_effect_idempotency(self):
+        decision = self.persist_decision_without_crossing_transport_boundary()
+        replay = claim_decision_delivery(decision)
+        self.assertEqual(replay.pk, decision.pk)
+        self.assertEqual(replay.delivery_state, "sending")
+        self.assertEqual(IgCommerceSelectionTransition.objects.count(), 1)
 ```
 
 - [ ] **Step 2: Run RED**
@@ -636,7 +769,14 @@ python manage.py test --settings=test_settings management.tests_ig_commerce_stat
 
 - [ ] **Step 3: Implement durable models**
 
-Add `IgCommerceSelectionSession`, append-only `IgCommerceSelectionTransition`, unique-source `IgCommerceTurnDecision`, and SLA-backed `IgCommerceManagerReview`. Session stores generation, commercial episode, ordered lines, active index, selection/query constraints, candidate digest, rejected selection, pending field, semantic block key, graph digest, last provider event time/message ID, and optimistic revision. Use nullable `open_slot=1` plus a MariaDB-compatible unique constraint on `(client, open_slot)` so one client has one open generation while closed rows use `NULL`. Constraints to legacy `IgClient` and `InstagramBotMessage` are logical (`db_constraint=False`); new tables remain InnoDB. Effective ordering is provider event time, then message ID. A delayed older message receives a durable stale decision but cannot mutate selection or send a new commerce reply.
+Add `IgCommerceSelectionSession`, append-only `IgCommerceSelectionTransition`, unique-source `IgCommerceTurnDecision`, and SLA-backed `IgCommerceManagerReview`. Session stores generation, commercial episode, ordered lines, active index, selection/query constraints, candidate digest, candidate generation, candidate prompt provider IDs, rejected selection, pending field, semantic block key, graph digest, last provider event time/message ID, and optimistic revision. The inbound message stores reply-to/quick-reply identity when Meta supplies it. The decision owns immutable reply payload plus outbox state (`pending`, `sending`, `unknown`, `partial`, `sent`), provider IDs for every text/media part, attempt timestamps, and reconciliation/review result. Use nullable `open_slot=1` plus a MariaDB-compatible unique constraint on `(client, open_slot)` so one client has one open generation while closed rows use `NULL`. Constraints to legacy `IgClient` and `InstagramBotMessage` are logical (`db_constraint=False`); new tables remain InnoDB. Effective ordering is provider event time, then message ID. A delayed older message receives a durable stale decision but cannot mutate selection or send a new commerce reply.
+
+Store `candidate_generation` separately from session revision, plus outbound
+candidate-prompt provider IDs and inbound reply-to/quick-reply identity where
+Meta supplies them. `IgCommerceTurnDecision` also stores durable delivery state
+(`pending`, `sending`, `unknown`, `sent`), attempt timestamps, text/media chunk
+receipts, and all provider message IDs. Replaying effects never means blindly
+resending across an ambiguous transport boundary.
 
 `ig_commerce_projection.py` provides `bootstrap_session_from_legacy`,
 `authoritative_session_for`, and `project_active_line_to_legacy_client`. The
@@ -665,6 +805,11 @@ Migration `0129` installs MariaDB append-only update/delete triggers for
 transitions and immutable decision identity. Add migration-executor tests and
 raw-SQL MariaDB assertions rather than relying on migration-disabled SQLite
 syncdb to prove production triggers.
+
+Replay returns the stored transition/effects and never reduces the turn again.
+Delivery may resume only from `pending` or a definite pre-request cancellation.
+`sending`, timeout/unknown, partial delivery, and success-before-local-ack require
+provider reconciliation or one manager review; they never blind-resend.
 
 - [ ] **Step 4: Run GREEN and commit**
 
@@ -717,6 +862,23 @@ def test_invalid_gemini_payload_falls_back_to_one_safe_clarification(self):
     request = understand_turn("давай другую обычную", model_payload={"product_id": 999999})
     self.assertIsNone(request.exact_product_id)
     self.assertEqual(request.pending_clarification, "which_product")
+
+def test_quantity_change_resets_only_obsolete_unavailable_block_and_review(self):
+    state = self.unavailable_state(quantity=2, review_open=True)
+    result = reduce_session(state, parse_turn("тогда одну"))
+    self.assertEqual(result.selection["quantity"], 1)
+    self.assertNotEqual(result.semantic_block_key, state.semantic_block_key)
+    self.assertTrue(result.effects.cancel_obsolete_review)
+
+def test_mixed_language_constraints_are_composed_without_guessing_product(self):
+    request = parse_turn("давай black класичну M")
+    self.assertEqual(request.field_updates, {"color": "black", "fit": "classic", "size": "M"})
+    self.assertIsNone(request.exact_product_id)
+
+def test_paid_repeat_purchase_exchange_and_ambiguous_change_are_distinct(self):
+    self.assertTrue(parse_turn("хочу еще одну черную M").new_purchase_requested)
+    self.assertTrue(parse_turn("хочу поменять размер в полученной").exchange_requested)
+    self.assertEqual(parse_turn("хочу другую").pending_clarification, "new_purchase_or_exchange")
 ```
 
 - [ ] **Step 2: Run RED**
@@ -729,7 +891,7 @@ python manage.py test --settings=test_settings management.tests_ig_commerce_turn
 
 `CommerceTurnRequest` must contain separate exact reference, corrections, field updates, info topics, hard constraints, preferences, and checkout/reset/support flags. Deterministic rules handle trusted URL, URL negation/multiple links, correction verbs, classic/oversize, colors, size-guide phrases, and print-placement negation in Russian, Ukrainian, and English. Gemini uses the existing JSON-generation wrapper to fill the same strict schema but returns no authoritative product ID; unknown fields, IDs, invalid enums, and malformed payloads are discarded into the deterministic clarification fallback.
 
-Reducer order is reference/corrections, explicit updates, info response, validation, optional checkout. Use the invalidation matrix from the spec. New product/fit/size/color resets the semantic unavailable key; unrelated turns do not.
+Reducer order is reference/corrections, explicit updates, info response, validation, optional checkout. Use the invalidation matrix from the spec. Product, fit, size, color, quantity, semantic constraints, and stable affected basket-line identity participate in the semantic unavailable key; a relevant change clears only the obsolete block and manager review, while unrelated turns do not. Reduce already-persisted rapid bursts under one client lock in provider-event order, compose complementary fragments, persist a decision for each inbound, and emit only the final useful reply. Deterministic multilingual rules compose mixed-language turns; transliteration that cannot be mapped safely asks one clarification. Paid-history classification is not a permanent sales gate: explicit repeat purchase opens a new commercial episode, exchange wording routes to the existing exchange workflow, and genuinely ambiguous wording asks which action is meant.
 
 - [ ] **Step 4: Run GREEN and commit**
 
@@ -764,6 +926,24 @@ def test_unavailable_pink_can_switch_to_classic_url_without_stale_spam(self):
     self.assertEqual(switched.session.lines[0]["product_id"], self.classic.pk)
     self.assertNotIn("reality", switched.reply.casefold())
     self.assertEqual(self.identical_unavailable_replies(), 1)
+
+def test_persisted_burst_reduces_to_one_final_reply_without_losing_fields(self):
+    self.persist_pending_turns("розовую", "нет, черную", "M", "две")
+    process_client_commerce_batch(self.client)
+    self.assertEqual(self.sent_replies.count(), 1)
+    self.assertEqual(self.session_line(), {"color": "black", "size": "M", "quantity": 2})
+
+def test_trusted_url_wins_over_conflicting_attached_photo(self):
+    result = self.turn(self.classic_url, attachment=self.reality_photo)
+    self.assertEqual(result.session.lines[0]["product_id"], self.classic.pk)
+
+def test_delivery_retry_only_occurs_before_provider_boundary(self):
+    pending = self.crash_before_send()
+    self.replay(pending)
+    self.assertEqual(self.transport_calls(pending), 1)
+    for decision in self.ambiguous_partial_and_sent_decisions():
+        self.replay(decision)
+        self.assertEqual(self.transport_calls(decision), 0)
 ```
 
 Add cases for multi-candidate numbered selection with digest, stale `1`, garment switch, `black classic`, explicit front-logo/no-back-print, unknown mapping, one review, and new selection leaving manager review.
@@ -781,8 +961,18 @@ gate but before generic history/Gemini reply generation, call the commerce
 session service. A handled commerce turn uses its reply/media/proposal and skips
 the legacy `gemini_generate`/`finalize_paylink` path. A non-commerce turn
 continues unchanged. Persist the provider receipt returned by
-`send_text(..., return_receipt=True)` on `IgCommerceTurnDecision`; replay never
-sends again.
+`send_text(..., return_receipt=True)` on `IgCommerceTurnDecision`. Commerce URL
+resolution must run before rule classification or either media/vision pinning
+path can mutate product state. `send_text` returns a structured receipt on all
+early-error paths and the decision stores every text-chunk/media provider ID.
+
+Claim and reduce all already-persisted pending messages for one client in
+provider-event order under the client/session lock. Persist a decision for each
+source event, compose complementary fields, and send only the final useful
+decision. Delivery replay never recomputes transitions, proposals, reservations,
+or reviews; it retries only a persisted `pending` delivery whose provider
+boundary is known not to have been crossed. `sending`, timeout/ambiguous,
+partial, and sent states reconcile or escalate without blind resend.
 
 When an authoritative session is active, `bot_sales_classifier` may still write
 classification evidence but cannot independently mutate commerce `current_*`.
@@ -795,6 +985,11 @@ and funnel reset through the projection/session boundary. Convert
 after all readers migrate.
 
 `ig_commerce_replies.py` localizes safe templates for candidate choices, missing fields, size guide, unavailable, unknown mapping, review already open, and exact URL acknowledgement. It never claims availability or manager action absent the corresponding decision/effect.
+
+Commerce routing precedes the legacy paid/post-sale classifier. An explicit
+repeat purchase opens a new commercial episode/session while leaving the paid
+order immutable; an exchange stays in the existing exchange workflow and an
+ambiguous request asks which one is intended.
 
 - [ ] **Step 4: Run GREEN and commit**
 
@@ -837,9 +1032,23 @@ def test_checkout_revalidates_unpublished_price_and_allocation_changes(self):
     self.product.save(update_fields=["status"])
     with self.assertRaisesMessage(CheckoutConfigurationError, "unpublished_product"):
         create_proposal_from_selection(selection)
+
+def test_processing_or_ambiguous_invoice_keeps_reselection_pending(self):
+    for state in ("details_locked", "processing", "invoice_creation_ambiguous"):
+        old = self.proposal_with_attempt_state(state)
+        result = change_product_after_proposal(self.session, self.new_selection)
+        old.refresh_from_db()
+        self.assertEqual(result.reason, "awaiting_provider_truth")
+        self.assertNotEqual(old.status, "revoked")
+        self.assertFalse(result.replacement_proposal_created)
 ```
 
 Add an invoiced-unpaid case proving replacement waits for provider-confirmed cancellation, and a paid case proving immutability/new episode routing.
+Treat `details_locked`, provider processing, and invoice-creation ambiguity as
+possible provider side effects even when an invoice ID is not yet stored. Keep
+the requested replacement pending and retain the old allocation/link until
+trusted terminal provider truth permits release; only a definite pre-provider
+failure may release and retry safely.
 
 - [ ] **Step 2: Run RED**
 
@@ -884,6 +1093,19 @@ def test_readiness_audit_dry_run_performs_no_writes(self):
     before = self.snapshot_counts()
     call_command("audit_ig_commerce_readiness", "--dry-run")
     self.assertEqual(self.snapshot_counts(), before)
+
+def test_manager_resolution_revalidates_current_stock_and_selection_digest(self):
+    review = self.create_review(reason="inventory_unknown")
+    self.deplete_stock_and_change_active_line()
+    result = resolve_manager_review(review, resolution="available")
+    self.assertEqual(result.reason, "stale_review")
+    self.assertFalse(result.proposal_created)
+
+def test_manager_alternative_requires_customer_acceptance(self):
+    review = self.create_review(reason="inventory_unavailable")
+    result = resolve_manager_review(review, alternative=self.other_product)
+    self.assertEqual(result.session.state, "awaiting_alternative")
+    self.assertNotEqual(result.session.lines[0]["product_id"], self.other_product.pk)
 ```
 
 - [ ] **Step 2: Run RED**
@@ -895,6 +1117,11 @@ python manage.py test --settings=test_settings management.tests_ig_commerce_oper
 - [ ] **Step 3: Implement UI and commands**
 
 The CRM panel shows current line selection, pending field, rejected selection, candidate reasons, review status/SLA, and resolution action without exposing raw transcript/PII JSON. Resolution checks generation and selection digest before applying.
+Every resolution re-runs current inventory policy, exact allocation, published
+state, and effective semantic revisions under lock. A manager's stale
+`available` result cannot bypass checkout authorization, and a substituted
+product/size/color remains an offered alternative until the customer explicitly
+accepts it. Double resolution is idempotent.
 
 `audit_ig_commerce_readiness --dry-run` reports semantic coverage, inventory-policy coverage, missing/ambiguous `VariantBlankLink`, exact size/color allocations, and products blocked only by legacy zero stock. It never auto-verifies free text.
 
