@@ -310,6 +310,26 @@ def backfill_commercial_episodes(apps, schema_editor):
                 )
                 for field, value in expected.items():
                     current_value = getattr(episode, field)
+                    # Пустое `value` — не конфликт, а отсутствие сведений у
+                    # компонента: эпизод просто знает больше. Раньше условие
+                    # `current_value not in {None, value}` при `value=None`
+                    # означало «эпизод обязан быть тоже пустым», и любая связь
+                    # эпизода со сделкой валила весь прогон.
+                    #
+                    # Прод, 02.08.2026: у клиента #5 появился эпизод со сделкой
+                    # (ep#4, deal=5, review=3), а payment review на проде идут с
+                    # `deal_id IS NULL` — все 28 записей. Поэтому команда
+                    # `reconcile_ig_commercial_episodes` начала падать с
+                    # «collision on deal_id», а вместе с ней падал и демон бота:
+                    # она вызывается на каждом старте после reload. В логе это
+                    # выглядело как `daemon_spawn` каждую минуту без ни одного
+                    # `daemon_start`.
+                    #
+                    # Проверка теперь согласована с блоком записи ниже, где
+                    # `updates` формируется через `if value and ...`, то есть
+                    # пустые значения и так игнорируются.
+                    if not value:
+                        continue
                     if current_value not in {None, value}:
                         if (
                             field == "primary_payment_review_id"
@@ -478,12 +498,6 @@ def backfill_commercial_episodes(apps, schema_editor):
                     )
                     episode.opened_at = opened_at
             else:
-                expected = {
-                    "deal_id": getattr(deal, "pk", None),
-                    "primary_payment_review_id": getattr(review, "pk", None),
-                    "order_attribution_id": getattr(attribution, "pk", None),
-                    "intended_order_id": getattr(order, "pk", None),
-                }
                 expected = {
                     "deal_id": getattr(deal, "pk", None),
                     "primary_payment_review_id": getattr(review, "pk", None),
