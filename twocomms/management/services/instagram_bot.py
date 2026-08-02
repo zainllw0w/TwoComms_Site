@@ -1240,6 +1240,7 @@ def finalize_paylink(
     want, pt = _wants_paylink(reply, control, trigger_text=trigger_text)
     if not want:
         return reply
+    from management.services.ig_alerts import alert_dedupe_key
     selection["pay_type"] = pt
     if control.get("_invalid"):
         log("warning", "paylink_control_gate", f"{sender_id}: conflicting control tags")
@@ -1250,7 +1251,13 @@ def finalize_paylink(
             notify_manager(
                 f"⚠️ IG: платіжне посилання для "
                 f"{(client.username or client.display_name or sender_id)} заблоковано: "
-                "не вдалося безпечно розібрати товар, кількість, розмір або крій."
+                "не вдалося безпечно розібрати товар, кількість, розмір або крій.",
+                dedupe_key=alert_dedupe_key(
+                    "paylink_item_gate", client_id=getattr(client, "pk", None),
+                    window_minutes=360,
+                ),
+                event_type="paylink_item_gate",
+                client=client,
             )
         except Exception:
             pass
@@ -1260,7 +1267,13 @@ def finalize_paylink(
         try:
             notify_manager(
                 f"⚠️ IG: платіжне посилання для {(client.username or client.display_name or sender_id)} "
-                "заблоковано: немає підтвердженого purchase candidate або товару."
+                "заблоковано: немає підтвердженого purchase candidate або товару.",
+                dedupe_key=alert_dedupe_key(
+                    "paylink_no_candidate", client_id=getattr(client, "pk", None),
+                    window_minutes=360,
+                ),
+                event_type="paylink_no_candidate",
+                client=client,
             )
         except Exception:
             pass
@@ -1334,7 +1347,13 @@ def finalize_paylink(
             notify_manager(
                 f"⚠️ IG: платіжне посилання для {(client.username or client.display_name or sender_id)} "
                 "заблоковано: модель вказала ціну, але її не підтверджено актуальною перепискою. "
-                "Перевірте погоджену суму вручну."
+                "Перевірте погоджену суму вручну.",
+                dedupe_key=alert_dedupe_key(
+                    "paylink_price_gate", client_id=getattr(client, "pk", None),
+                    window_minutes=360,
+                ),
+                event_type="paylink_price_gate",
+                client=client,
             )
         except Exception:
             pass
@@ -1352,7 +1371,14 @@ def finalize_paylink(
             try:
                 notify_manager(
                     f"⚠️ IG: платіжне посилання для {(client.username or client.display_name or sender_id)} "
-                    "заблоковано: сума передоплати не погоджена доказово в поточному діалозі."
+                    "заблоковано: сума передоплати не погоджена доказово в поточному діалозі.",
+                    dedupe_key=alert_dedupe_key(
+                        "paylink_prepay_gate",
+                        client_id=getattr(client, "pk", None),
+                        window_minutes=360,
+                    ),
+                    event_type="paylink_prepay_gate",
+                    client=client,
                 )
             except Exception:
                 pass
@@ -2728,7 +2754,22 @@ def drain_manager_notifications(*, limit: int = 20) -> int:
         ).order_by("next_attempt_at", "id").values_list("dedupe_key", flat=True)[:limit]
     )
     sent = 0
+    from management.services.ig_alerts import throttle_gate
+
     for dedupe_key in due_ids:
+        # Глобальний ліміт на потік, а не на подію. Без нього цей цикл
+        # відправляв усе, що встиг набрати, а сам він крутиться в демоні кожні
+        # 1.5 секунди — звідси й «спам із 10 штук». Черга не втрачається:
+        # незадоволені лишаються в `pending` і поїдуть наступного вікна.
+        allowed, retry_after = throttle_gate()
+        if not allowed:
+            log(
+                "info",
+                "notification_throttled",
+                f"ліміт потоку алертів; лишилось у черзі {len(due_ids) - sent}, "
+                f"наступна спроба через {retry_after}с",
+            )
+            break
         sent += int(_deliver_manager_notification(dedupe_key))
     return sent
 
@@ -6656,9 +6697,17 @@ def _process_one_inside_reply_boundary(
             row.status = InstagramBotMessage.Status.FAILED
             row.save(update_fields=["status"])
             log("error", "give_up", f"{row.sender_id}: не вдалося згенерувати після {row.attempts} спроб")
+            from management.services.ig_alerts import alert_dedupe_key
+
             notify_manager(
                 f"⚠️ IG бот не зміг згенерувати відповідь клієнту {row.sender_id} "
-                f"(3 спроби). Питання: {row.text[:300]}"
+                f"(3 спроби). Питання: {row.text[:300]}",
+                dedupe_key=alert_dedupe_key(
+                    "generation_failed", client_id=row.client_id,
+                    entity_id=row.pk, window_minutes=0,
+                ),
+                event_type="generation_failed",
+                client=row.client if row.client_id else None,
             )
         else:
             row.status = InstagramBotMessage.Status.PENDING
@@ -6788,9 +6837,16 @@ def _process_one_inside_reply_boundary(
             row.processed_at = timezone.now()
             row.save(update_fields=["status", "send_state", "processed_at"])
             log("error", "send_unknown", f"{row.sender_id}: {hint}; automatic retry disabled")
+            from management.services.ig_alerts import alert_dedupe_key
+
             notify_manager(
                 f"⚠️ IG бот: результат доставки клієнту {row.sender_id} не підтверджено. "
-                "Автоматичний повтор вимкнено, перевірте Meta Inbox."
+                "Автоматичний повтор вимкнено, перевірте Meta Inbox.",
+                dedupe_key=alert_dedupe_key(
+                    "delivery_unknown", client_id=row.client_id, entity_id=row.pk,
+                ),
+                event_type="delivery_unknown",
+                client=row.client if row.client_id else None,
             )
         elif row.attempts >= MAX_ATTEMPTS:
             row.status = InstagramBotMessage.Status.FAILED
@@ -6798,9 +6854,16 @@ def _process_one_inside_reply_boundary(
             row.processed_at = timezone.now()
             row.save(update_fields=["status", "send_state", "processed_at"])
             log("error", "give_up", f"{row.sender_id}: не вдалося відправити після {row.attempts} спроб ({hint})")
+            from management.services.ig_alerts import alert_dedupe_key
+
             notify_manager(
                 f"⚠️ IG бот не зміг відповісти клієнту {row.sender_id} після {row.attempts} спроб. "
-                f"Причина: {hint}. Питання: {row.text[:300]}"
+                f"Причина: {hint}. Питання: {row.text[:300]}",
+                dedupe_key=alert_dedupe_key(
+                    "send_gave_up", client_id=row.client_id, entity_id=row.pk,
+                ),
+                event_type="send_gave_up",
+                client=row.client if row.client_id else None,
             )
         elif kind == "retryable":
             _activate_send_rate_limit_backoff(s)
@@ -6922,9 +6985,36 @@ def _process_one_inside_reply_boundary(
                 _apply_stage(row.client, IgClient.Stage.LEAD_TO_MANAGER)
             except Exception:
                 pass
+        # Найчастіший алерт у системі — і донедавна найменш корисний: у ньому був
+        # лише IGSID, тому менеджер шукав клієнта руками, хоча `client_id` уже
+        # відомий. Тепер ім'я, посилання на картку і дедуп із вікном: та сама
+        # ескалація по тому самому клієнту не повторюється щогодини, але через
+        # годину повернеться, якщо питання досі відкрите.
+        from management.services.ig_alerts import (
+            alert_dedupe_key,
+            client_admin_url,
+            format_alert,
+        )
+
+        who = ""
+        if row.client_id:
+            who = row.client.username or row.client.display_name or ""
         notify_manager(
-            f"🔔 IG Direct — клієнту потрібен менеджер.\n"
-            f"IGSID: {row.sender_id}\nПитання: {row.text[:400]}"
+            format_alert(
+                "🔔 IG Direct — клієнту потрібен менеджер.",
+                lines=[
+                    f"Клієнт: {who or row.sender_id}",
+                    f"Питання: {row.text[:400]}",
+                ],
+                url=client_admin_url(row.client_id),
+                url_label="Картка:",
+            ),
+            dedupe_key=alert_dedupe_key(
+                "escalation", client_id=row.client_id, window_minutes=60,
+                text=row.text or "",
+            ),
+            event_type="escalation",
+            client=row.client if row.client_id else None,
         )
         log("warning", "escalation", f"{row.sender_id}: викликано менеджера")
     return True
