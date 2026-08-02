@@ -53,6 +53,7 @@ __all__ = [
     "IgOrderLinkEvent",
     "IgOrderAssignment",
     "IgOrderAssignmentEvent",
+    "IgUgcReward",
     "IgOrderCustomerEvent",
     "IgCommercialEpisode",
     "IgCommercialEpisodeEvent",
@@ -1413,6 +1414,61 @@ class IgOrderAssignmentEvent(models.Model):
 
     def delete(self, *args, **kwargs):
         raise ValueError("IgOrderAssignmentEvent is append-only")
+
+
+class IgUgcReward(models.Model):
+    """Manager-verified UGC evidence and its bounded promo reward."""
+
+    class EvidenceType(models.TextChoices):
+        DIRECT_MESSAGE = "direct_message", _("Повідомлення Direct")
+        INSTAGRAM_URL = "instagram_url", _("Посилання Instagram")
+
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.PROTECT,
+        related_name="ugc_rewards",
+    )
+    order = models.OneToOneField(
+        "orders.Order",
+        on_delete=models.PROTECT,
+        related_name="instagram_ugc_reward",
+    )
+    assignment = models.ForeignKey(
+        "management.IgOrderAssignment",
+        on_delete=models.PROTECT,
+        related_name="ugc_rewards",
+    )
+    assignment_version = models.PositiveIntegerField()
+    evidence_type = models.CharField(max_length=24, choices=EvidenceType.choices)
+    evidence_message = models.ForeignKey(
+        "management.InstagramBotMessage",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="ugc_rewards",
+    )
+    evidence_url = models.URLField(max_length=500, blank=True, default="")
+    evidence_fingerprint = models.CharField(max_length=64, unique=True)
+    review_note = models.CharField(max_length=1000, blank=True, default="")
+    promo_code = models.OneToOneField(
+        "storefront.PromoCode",
+        on_delete=models.PROTECT,
+        related_name="instagram_ugc_reward",
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="reviewed_ig_ugc_rewards",
+    )
+    reviewed_at = models.DateTimeField(default=timezone.now, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-reviewed_at", "-id"]
+        indexes = [
+            models.Index(fields=["client", "-reviewed_at"], name="ig_ugc_client_dt"),
+            models.Index(fields=["assignment", "assignment_version"], name="ig_ugc_assign_ver"),
+        ]
 
 
 class _IgOrderCustomerEventQuerySet(models.QuerySet):

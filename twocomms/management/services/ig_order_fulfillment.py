@@ -53,22 +53,24 @@ def _message(kind: str, locale: str, order, tracking: str, *, exchange_size: str
         if locale == "en":
             what = f"Your exchange for size {size}" if size else "Your exchange"
             return (
-                f"{what} has been shipped. New Nova Poshta tracking number: "
-                f"{tracking}. Track it here: {tracking_url}. "
-                "Nothing to pay — the parcel is already covered by your order."
+                f"{what} is confirmed and already on its way. "
+                f"New Nova Poshta tracking number: {tracking}. "
+                f"Estimated delivery: 1-3 business days. Track it here: {tracking_url}."
             )
         if locale == "ru":
             what = f"Замена на размер {size}" if size else "Замена"
             return (
-                f"{what} отправлена. Новый номер ТТН Новой Почты: {tracking}. "
-                f"Отследить: {tracking_url}. "
-                "Доплачивать ничего не нужно — посылка уже оплачена вашим заказом."
+                f"{what} подтверждена и уже в пути. "
+                f"Новый номер ТТН Новой Почты: {tracking}. "
+                "Ориентировочный срок доставки: 1-3 рабочих дня. "
+                f"Отследить: {tracking_url}."
             )
-        what = f"Заміну на розмір {size}" if size else "Заміну"
+        what = f"Заміна на розмір {size}" if size else "Заміна"
         return (
-            f"{what} відправлено. Нова ТТН Нової Пошти: {tracking}. "
-            f"Відстежити: {tracking_url}. "
-            "Доплачувати нічого не потрібно — посилка вже оплачена вашим замовленням."
+            f"{what} підтверджена і вже в дорозі. "
+            f"Нова ТТН Нової Пошти: {tracking}. "
+            "Орієнтовний термін доставки: 1-3 робочі дні. "
+            f"Відстежити: {tracking_url}."
         )
     if kind == "payment_confirmed":
         from management.services.ig_order_amounts import order_amounts
@@ -95,36 +97,39 @@ def _message(kind: str, locale: str, order, tracking: str, *, exchange_size: str
     if kind == "ttn_assigned":
         if locale == "en":
             return (
-                f"Your order #{number} has been shipped. Nova Poshta tracking number: "
-                f"{tracking}. Track it here: {tracking_url}"
+                f"Your order #{number} is on its way. Nova Poshta tracking number: {tracking}. "
+                f"Estimated delivery time is 1-3 business days. Track its status here: {tracking_url}"
             )
         if locale == "ru":
             return (
-                f"Ваш заказ №{number} отправлен. Номер ТТН Новой Почты: {tracking}. "
-                f"Отследить: {tracking_url}"
+                f"Ваш заказ №{number} уже в пути. Номер ТТН Новой Почты: {tracking}. "
+                f"Ориентировочный срок доставки - 1-3 рабочих дня. "
+                f"Следить за статусом: {tracking_url}"
             )
         return (
-            f"Ваше замовлення №{number} відправлено. Номер ТТН Нової Пошти: {tracking}. "
-            f"Відстежити: {tracking_url}"
+            f"Ваше замовлення №{number} вже в дорозі. Номер ТТН Нової Пошти: {tracking}. "
+            f"Орієнтовний термін доставки - 1-3 робочі дні. "
+            f"Стежити за статусом: {tracking_url}"
         )
     if locale == "en":
         return (
-            f"Thank you for your order #{number}! We hope you enjoy it. "
-            "Could you leave a review and tag @twocomms in a story with your T-shirt? "
-            "Send us the story link or a screenshot in Direct and we will give you "
-            "10% off your next order."
+            f"Thank you for your order #{number}! How are the quality and fit? "
+            "If you share your T-shirt in a story and tag @twocomms, send us the "
+            "story link or screenshot in Direct. After we verify it, we will issue "
+            "a one-use 10% discount for your next order."
         )
     if locale == "ru":
         return (
-            f"Спасибо за заказ №{number}! Надеемся, вам понравится. "
-            "Будем благодарны за отзыв и отметку @twocomms в сторис с футболкой. "
-            "Пришлите ссылку или скрин в Direct — дадим 10% скидки на следующий заказ."
+            f"Спасибо за заказ №{number}! Довольны ли вы качеством и посадкой? "
+            "Если покажете футболку в сторис и отметите @twocomms, пришлите ссылку "
+            "или скрин в Direct. После проверки выдадим одноразовую скидку 10% "
+            "на следующий заказ."
         )
     return (
-        f"Дякуємо за замовлення №{number}! Сподіваємося, вам сподобається. "
-        "Будемо вдячні за відгук і відмітку @twocomms у сторіс з футболкою. "
-        "Якщо відмітите нас і надішлете посилання або скрін у Direct, дамо "
-        "10% знижки на наступне замовлення."
+        f"Дякуємо за замовлення №{number}! Чи задоволені ви якістю і посадкою? "
+        "Якщо покажете футболку в сторіс і відмітите @twocomms, надішліть посилання "
+        "або скрін у Direct. Після перевірки видамо одноразову знижку 10% "
+        "на наступне замовлення."
     )
 
 

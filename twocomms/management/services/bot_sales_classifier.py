@@ -26,13 +26,29 @@ from management.services.ig_funnel_reset import current_message_floor
 ANALYSIS_RULES_VERSION = "2026-07-30.v6"
 
 
+# Маркери навмисно розширені після прод-інциденту 02.08.2026. Клієнт написав
+# «Дай нове посилання, будь ласка» — жодного слова зі старого набору UK_HINTS
+# там немає, апострофних і/ї/є теж, тому рахунок був 0:0, і функція повертала
+# «ru» як дефолт. Це і зробило українськомовну людину «російськомовною».
+# Слова, спільні для обох мов («хочу», «футболк»), лишились в обох наборах
+# свідомо: вони нейтральні й мають гаситись взаємно, а не тягнути в один бік.
 UK_HINTS = (
     "ціна", "скільки", "розмір", "подарунок", "передоплат", "наклад", "відправ",
     "дякую", "хочу", "можна", "собі", "друк", "футболк",
+    "посилання", "будь ласка", "нове", "нового", "ще", "або", "інш", "дуже",
+    "гарн", "добре", "також", "щоб", "що", "як", "де", "коли", "чому", "чи",
+    "маєте", "хотіла", "хотів", "треба", "потрібно", "давайте", "зараз",
+    "замовлен", "оплат", "вартіст", "кольор", "працює", "надішл", "підкаж",
+    "привіт", "вітаю", "доброго", "так", "цього", "цей", "мені", "вам",
 )
 RU_HINTS = (
     "цена", "сколько", "размер", "подарок", "предоплат", "налож", "отправ",
     "спасибо", "хочу", "можно", "себе", "печать", "футболк",
+    "ссылк", "пожалуйста", "новую", "новое", "еще", "ещё", "или", "друг",
+    "очень", "хорош", "тоже", "чтобы", "что", "как", "где", "когда", "почему",
+    "есть", "хотела", "хотел", "надо", "нужно", "давайте", "сейчас",
+    "заказ", "оплат", "стоимост", "цвет", "работает", "пришл", "подскаж",
+    "привет", "здравствуй", "добрый", "этого", "этот", "мне", "вам",
 )
 EN_HINTS = (
     "hello", "hi", "greetings", "please", "thanks", "thank", "order",
@@ -234,8 +250,15 @@ def _sticky_language(client, detected: str) -> str:
     be sticky about yet.
     """
     current = client.language or ""
+    requested = _requested_language(client)
     if not detected:
-        return current or "uk"
+        return requested or current or "uk"
+    if requested:
+        # Явне прохання не скасовується статистикою наступних реплік: людина
+        # може написати «ок» латиницею, і це не згода повернутись на попередню
+        # мову. Скасувати може лише нове прохання.
+        _record_language_vote(client, detected)
+        return requested
     if not current:
         return detected
     if detected == current:
@@ -245,6 +268,99 @@ def _sticky_language(client, detected: str) -> str:
     if votes.count(detected) >= LANGUAGE_SWITCH_VOTES:
         return detected
     return current
+
+
+def _requested_language(client) -> str:
+    context = client.sales_context if isinstance(client.sales_context, dict) else {}
+    request = context.get(LANGUAGE_REQUEST_CONTEXT_KEY)
+    if not isinstance(request, dict):
+        return ""
+    code = str(request.get("language") or "").strip().lower()
+    return code if code in {"uk", "ru", "en"} else ""
+
+
+LANGUAGE_REQUEST_CONTEXT_KEY = "language_request"
+
+# Прохання про мову формулюють по-різному: прямо («пиши українською»), питанням
+# («чому ти російською?»), скаргою («я не розумію російської»). Спільне в них
+# одне — назва мови поруч зі словом про спілкування. Розпізнаємо саму назву
+# мови, а не заготовлену фразу.
+_LANGUAGE_NAME_PATTERNS = (
+    ("uk", re.compile(
+        r"(?:українськ\w*|укра[иї]нск\w*|ukrainian|українською|укр\.?\b)",
+        re.I,
+    )),
+    ("ru", re.compile(
+        r"(?:російськ\w*|русск\w*|russian|російською)",
+        re.I,
+    )),
+    ("en", re.compile(r"(?:англійськ\w*|английск\w*|english)", re.I)),
+)
+# Форми, які самі по собі означають «мова спілкування», без слова про мовлення:
+# «давай по-русски», «пиши українською», «in english please».
+_LANGUAGE_SELF_SUFFICIENT_PATTERNS = (
+    ("uk", re.compile(r"(?:по-українськи|українською|по-украински)", re.I)),
+    ("ru", re.compile(r"(?:по-русски|російською|по-російськи)", re.I)),
+    ("en", re.compile(r"(?:in\s+english|по-англійськи|по-английски)", re.I)),
+)
+# Контекст «це про мову спілкування», а не про напис на футболці.
+_LANGUAGE_TOPIC_RE = re.compile(
+    r"(?:говор\w*|розмовля\w*|разговарива\w*|пиш\w*|писа\w*|відповіда\w*|"
+    r"отвеча\w*|перекл\w*|перевед\w*|спілку\w*|общат\w*|speak|write|reply|"
+    r"answer|translat\w*|мов\w*|язык\w*|розумі\w*|понима\w*)",
+    re.I,
+)
+# «Чому ти російською?» — прохання перейти на іншу мову, а не на названу.
+_LANGUAGE_COMPLAINT_RE = re.compile(
+    r"(?:чому|чого|why|зачем|зачім|нащо|навіщо|почему|не\s+розумію|не\s+понимаю|"
+    r"don'?t\s+understand)",
+    re.I,
+)
+
+
+def detect_language_request(text: str) -> str:
+    """Мова, якою клієнт прямо просить із ним говорити, або пустий рядок.
+
+    Скарга («чому ти російською?») трактується як прохання перейти на **іншу**
+    мову: людина не просить продовжувати тією, на яку скаржиться.
+    """
+    value = str(text or "")
+    if not value.strip():
+        return ""
+    self_sufficient = [
+        code for code, pattern in _LANGUAGE_SELF_SUFFICIENT_PATTERNS if pattern.search(value)
+    ]
+    if not _LANGUAGE_TOPIC_RE.search(value) and not self_sufficient:
+        return ""
+    named = [code for code, pattern in _LANGUAGE_NAME_PATTERNS if pattern.search(value)]
+    if not named and self_sufficient:
+        named = self_sufficient
+    if not named:
+        return ""
+    if len(named) > 1:
+        # «перекладай з російської на українську» — просять цільову, тобто останню.
+        return named[-1]
+    code = named[0]
+    if _LANGUAGE_COMPLAINT_RE.search(value):
+        detected = detect_language(value)
+        if detected and detected != code:
+            return detected
+        # Мова скарги збігається з тією, на яку скаржаться (або невизначена):
+        # для російської найімовірніша цільова — українська.
+        return "uk" if code == "ru" else code
+    return code
+
+
+def _record_language_request(client, language: str, *, message=None) -> None:
+    context = client.sales_context if isinstance(client.sales_context, dict) else {}
+    from django.utils import timezone as _tz
+
+    context[LANGUAGE_REQUEST_CONTEXT_KEY] = {
+        "language": language,
+        "message_id": getattr(message, "pk", None),
+        "observed_at": _tz.now().isoformat(),
+    }
+    client.sales_context = context
 
 
 def _record_language_vote(client, detected: str) -> list[str]:
@@ -365,6 +481,19 @@ def _contains_any(text: str, terms: Iterable[str]) -> int:
 
 
 def detect_language(text: str) -> str:
+    """Мова повідомлення або пустий рядок, коли впевненості немає.
+
+    Пустий рядок — важливий результат, а не невдача. Раніше остання строка була
+    ``return "uk" if any(ch in low for ch in "іїєґ") else "ru"``, тобто будь-який
+    кириличний текст без апострофних літер оголошувався російським. «Дай нове
+    посилання, будь ласка» → ru. Далі це значення підхоплював гістерезис
+    ``_sticky_language`` і **закріплював** його: голоси ru приходили щоразу, а uk
+    не набирав двох підряд. На проді у клієнта #2 так і лежало
+    ``_lang_votes=['ru','ru','uk']`` при українськомовній переписці.
+
+    Тепер невизначеність не вигадує відповідь: збережена мова діалогу лишається
+    як була, а промпт окремо показує моделі, чим клієнт користується насправді.
+    """
     low = URL_RE.sub(" ", (text or "").lower())
     has_cyrillic = bool(re.search(r"[а-яёіїєґ]", low))
     if re.search(r"[a-z]", low) and not has_cyrillic:
@@ -374,15 +503,23 @@ def detect_language(text: str) -> str:
         return ""
     if not has_cyrillic:
         return ""
-    if re.search(r"[їєіґ]", low):
+    # Літери, яких немає в російській абетці, — однозначний сигнал.
+    if re.search(r"[їєґ]", low) or "'" in low and re.search(r"[а-я]'[а-я]", low):
         return "uk"
+    # «і» окремо: у російській її немає, але вона часто трапляється в латинських
+    # вкрапленнях і транслітерації, тому вимагаємо кириличного оточення.
+    if re.search(r"(?:^|[^a-z])і(?:[^a-z]|$)", low) and re.search(r"[а-яіїєґ]", low):
+        return "uk"
+    # Літери, яких немає в українській абетці.
+    if re.search(r"[ыъэё]", low):
+        return "ru"
     uk = _contains_any(low, UK_HINTS)
     ru = _contains_any(low, RU_HINTS)
     if uk > ru:
         return "uk"
     if ru > uk:
         return "ru"
-    return "uk" if any(ch in low for ch in "іїєґ") else "ru"
+    return ""
 
 
 def _signal(client, signal_type: str, *, message=None, confidence: float = 0.9, value: str = "", payload=None):
@@ -891,6 +1028,16 @@ def classify_message(
         if is_manager
         else _sticky_language(client, detected_language)
     )
+    if not is_manager:
+        # Пряме прохання про мову сильніше і за детектор, і за гістерезис.
+        # Клієнт #2 спитав «Чому ти відповідаєш російською?» — найяскравіший
+        # можливий сигнал, — і система не робила з ним нічого: та сама російська
+        # фраза прийшла ще раз. Тут ми лише фіксуємо факт; вибачається й
+        # переходить на мову модель, своїми словами.
+        requested = detect_language_request(text)
+        if requested:
+            lang = requested
+            _record_language_request(client, requested, message=message)
 
     signals: list[str] = []
     # Keep durable sales context for ordinary follow-ups, but custom-print is

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import sys
 from datetime import datetime, time, timedelta
+from decimal import Decimal, InvalidOperation
 from zoneinfo import ZoneInfo
 
 from django.db import transaction
@@ -386,6 +387,7 @@ def schedule_payment_followup(deal: IgDeal, *, now: datetime | None = None) -> I
         reason="payment_link_unpaid",
         now=now,
         deal=deal,
+        level=0,
     )
 
 
@@ -401,14 +403,37 @@ def schedule_after_bot_reply(client: IgClient, *, reply: str = "", control: dict
     if not allowed:
         cancel_pending(client, reason=why)
         return None
+    now = _now()
+    proposal = None
+    if deal is not None:
+        try:
+            proposal = deal.active_checkout_proposal
+        except Exception:
+            proposal = None
+    if proposal is not None and proposal.status in {
+        proposal.Status.READY,
+        proposal.Status.VIEWED,
+    }:
+        delay = max(proposal.expires_at - now, timedelta(0))
+        return schedule_followup(
+            client,
+            kind=IgFollowUpTask.Kind.PAYMENT,
+            delay=delay,
+            reason="checkout_proposal_abandoned",
+            now=now,
+            deal=deal,
+            level=0,
+        )
     if deal and deal.status == IgDeal.Status.AWAITING_PAYMENT:
-        return schedule_payment_followup(deal)
+        return schedule_payment_followup(deal, now=now)
     if client.stage == IgClient.Stage.PAYMENT_PENDING:
         return schedule_followup(
             client,
             kind=IgFollowUpTask.Kind.PAYMENT,
             delay=timedelta(minutes=45),
             reason="payment_link_unpaid",
+            now=now,
+            level=0,
         )
     if client.primary_objection in {IgClient.Objection.THINKING, IgClient.Objection.PRICE}:
         return schedule_followup(
@@ -416,6 +441,7 @@ def schedule_after_bot_reply(client: IgClient, *, reply: str = "", control: dict
             kind=IgFollowUpTask.Kind.THINKING,
             delay=timedelta(hours=12),
             reason="thinking_or_price_hesitation",
+            now=now,
         )
     if client.stage in {IgClient.Stage.NEW, IgClient.Stage.QUALIFYING, IgClient.Stage.PRODUCT_MATCHED, IgClient.Stage.CHECKOUT}:
         return schedule_followup(
@@ -423,6 +449,7 @@ def schedule_after_bot_reply(client: IgClient, *, reply: str = "", control: dict
             kind=IgFollowUpTask.Kind.QUALIFICATION,
             delay=timedelta(hours=2),
             reason="qualification_unanswered",
+            now=now,
         )
     return None
 
@@ -434,23 +461,117 @@ def _lang(client: IgClient) -> str:
     return "ru" if language.startswith("ru") else "uk"
 
 
-def compose_followup(task: IgFollowUpTask) -> str:
+def _format_money(value) -> str:
+    try:
+        amount = Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        return ""
+    if not amount.is_finite() or amount <= 0:
+        return ""
+    return format(amount, "f").rstrip("0").rstrip(".")
+
+
+def _payment_link_status(task: IgFollowUpTask, *, now: datetime) -> str:
+    deal = task.deal
+    if deal is None:
+        return "unknown"
+    from management.services.bot_payments import invoice_link_state
+
+    state = invoice_link_state(deal, now=now).get("status")
+    if state != "none":
+        return state or "unknown"
+    try:
+        proposal = deal.active_checkout_proposal
+    except Exception:
+        proposal = None
+    if proposal is None:
+        return "unknown"
+    if proposal.status == proposal.Status.PAID:
+        return "paid"
+    return "expired" if now >= proposal.expires_at else "live"
+
+
+def _payment_followup_copy(task: IgFollowUpTask, language: str, *, now: datetime) -> str:
+    if int(task.level or 0) >= 1:
+        return {
+            "uk": (
+                "Підкажіть, будь ласка, чи замовлення ще актуальне? Якщо зупинило "
+                "питання про розмір, доставку або оплату - допоможу коротко і по факту. "
+                "Якщо передумали, напишіть «ні», і більше не турбуватиму."
+            ),
+            "ru": (
+                "Подскажите, пожалуйста, заказ ещё актуален? Если остановил вопрос о "
+                "размере, доставке или оплате - помогу коротко и по делу. Если передумали, "
+                "напишите «нет», и больше не буду беспокоить."
+            ),
+            "en": (
+                "Is the order still relevant? If a question about size, delivery, or payment "
+                "is holding you back, I can help. If you changed your mind, reply 'no' and I "
+                "will not message again."
+            ),
+        }[language]
+
+    status = _payment_link_status(task, now=now)
+    if status == "live":
+        return {
+            "uk": (
+                "Нагадаю: посилання на оплату ще активне. Якщо щось не відкривається "
+                "або потрібна допомога з оплатою - напишіть, підкажу. Якщо передумали, "
+                "просто скажіть, і я не турбуватиму."
+            ),
+            "ru": (
+                "Напомню: ссылка на оплату ещё активна. Если что-то не открывается или "
+                "нужна помощь с оплатой - напишите, подскажу. Если передумали, просто "
+                "скажите, и я не буду беспокоить."
+            ),
+            "en": (
+                "A quick reminder: the payment link is still active. If it does not open or "
+                "you need help with payment, reply here. If you changed your mind, just tell "
+                "me and I will not message again."
+            ),
+        }[language]
+    if status == "expired":
+        return {
+            "uk": (
+                "Персональна пропозиція вже неактивна. Якщо замовлення ще актуальне, "
+                "напишіть «так» - зроблю нову. Товари й параметри збережені, нічого "
+                "повторювати не треба."
+            ),
+            "ru": (
+                "Персональное предложение уже неактивно. Если заказ ещё актуален, "
+                "напишите «да» - сделаю новое. Товары и параметры сохранены, ничего "
+                "повторять не нужно."
+            ),
+            "en": (
+                "The personal offer is no longer active. If the order is still relevant, "
+                "reply 'yes' and I will create a new one. Your items and options are saved, "
+                "so you do not need to repeat anything."
+            ),
+        }[language]
+    return {
+        "uk": (
+            "Не хочу вгадувати стан посилання: перевірю його перед повторною відправкою. "
+            "Якщо оплата не відкривається, напишіть сюди - підготую актуальний варіант."
+        ),
+        "ru": (
+            "Не хочу угадывать состояние ссылки: проверю её перед повторной отправкой. "
+            "Если оплата не открывается, напишите сюда - подготовлю актуальный вариант."
+        ),
+        "en": (
+            "I do not want to guess the link status. I will check it before sending it again. "
+            "If payment does not open, reply here and I will prepare a current option."
+        ),
+    }[language]
+
+
+def compose_followup(task: IgFollowUpTask, *, now: datetime | None = None) -> str:
     client = task.client
     language = _lang(client)
     ru = language == "ru"
     en = language == "en"
     pct = int(task.discount_percent or 0)
     if task.kind == IgFollowUpTask.Kind.PAYMENT:
-        if en:
-            return (
-                "Reminder: the payment link is still active. If it does not open "
-                "or you need help with payment, reply here and I will help."
-            )
-        return (
-            "Напомню: ссылка на оплату еще активна. Если что-то не открывается или нужно помочь с оплатой - напишите, подскажу."
-            if ru else
-            "Нагадаю: посилання на оплату ще активне. Якщо щось не відкривається або треба допомогти з оплатою - напишіть, підкажу."
-        )
+        return _payment_followup_copy(task, language, now=now or _now())
     if pct == 10:
         if en:
             return (
@@ -463,6 +584,23 @@ def compose_followup(task: IgFollowUpTask) -> str:
             "Можу запропонувати фінальний варіант: знижка 10% на це замовлення. Якщо не підходить - все ок, більше не буду вас відволікати."
         )
     if pct == 5:
+        original = _format_money(getattr(task.deal, "amount", None))
+        discounted = ""
+        if original:
+            discounted = _format_money(
+                Decimal(str(task.deal.amount)) * Decimal("0.95")
+            )
+        if original and discounted:
+            if en:
+                return (
+                    f"For a first order, I can offer 5% off: {discounted} UAH instead "
+                    f"of {original} UAH. Shall we place the order?"
+                )
+            return (
+                f"Для первого заказа могу сделать скидку 5%: получится {discounted} грн вместо {original}. Оформляем?"
+                if ru else
+                f"Для першого замовлення можу зробити знижку 5%: вийде {discounted} грн замість {original}. Оформлюємо?"
+            )
         if en:
             return (
                 "For a first order, we can offer a small 5% discount. Reply here "
@@ -476,21 +614,59 @@ def compose_followup(task: IgFollowUpTask) -> str:
     if task.kind == IgFollowUpTask.Kind.THINKING:
         if en:
             return (
-                "Have you had a chance to think about the order? If you have a "
-                "question about size, fabric, or payment, I can help."
+                "I will keep this brief: what is holding you back - size, price, or "
+                "something else? If it is no longer relevant, tell me and I will not "
+                "message again."
             )
         return (
-            "Хотел уточнить, получилось подумать по заказу? Если есть вопрос по размеру, ткани или оплате - подскажу коротко."
+            "Не буду отнимать много времени: подскажите, что остановило - размер, цена или что-то ещё? Если заказ уже не актуален, скажите, и больше не буду писать."
             if ru else
-            "Хотів уточнити, чи вийшло подумати щодо замовлення? Якщо є питання по розміру, тканині або оплаті - коротко підкажу."
+            "Не забиратиму багато часу: підкажіть, що зупинило - розмір, ціна чи щось інше? Якщо замовлення вже не актуальне, скажіть, і більше не писатиму."
         )
     if en:
-        return "Is this order still relevant? I can help with the size, color, or payment."
+        return "Is the order still relevant? If yes, I can place it in two minutes; only the size is left. If not, reply 'no' and I will close it."
     return (
-        "Подскажите, пожалуйста, актуален еще заказ? Могу помочь с размером, цветом или оплатой."
+        "Подскажите, заказ ещё актуален? Если да - оформлю всё за 2 минуты, осталось определить размер. Если нет - напишите «нет», и я закрою вопрос."
         if ru else
-        "Підкажіть, будь ласка, чи актуальне ще замовлення? Можу допомогти з розміром, кольором або оплатою."
+        "Підкажіть, чи ще актуально? Якщо так - я за 2 хвилини все оформлю, залишилось тільки визначитись із розміром. Якщо ні - напишіть «ні», і я закрию питання."
     )
+
+
+def _schedule_next_payment_cascade(
+    task: IgFollowUpTask,
+    client: IgClient,
+    *,
+    now: datetime,
+) -> bool:
+    if task.kind != IgFollowUpTask.Kind.PAYMENT or task.reason not in {
+        "payment_link_unpaid",
+        "checkout_proposal_abandoned",
+    }:
+        return False
+    if int(task.level or 0) == 0:
+        schedule_followup(
+            client,
+            kind=IgFollowUpTask.Kind.PAYMENT,
+            delay=timedelta(hours=18, minutes=5),
+            reason=task.reason,
+            now=now,
+            deal=task.deal,
+            level=1,
+        )
+        return True
+    if int(task.level or 0) == 1:
+        schedule_followup(
+            client,
+            kind=IgFollowUpTask.Kind.MANAGER_TASK,
+            delay=timedelta(hours=1),
+            reason="payment_abandoned_manager_review",
+            now=now,
+            deal=task.deal,
+            level=2,
+            message_text="Перевірити незавершене Instagram-замовлення і вирішити, чи потрібен ручний контакт.",
+        )
+        return True
+    return False
 
 
 def _mark_skipped(task: IgFollowUpTask, reason: str) -> None:
@@ -593,6 +769,7 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
     task_ids = list(
         IgFollowUpTask.objects
         .filter(status=IgFollowUpTask.Status.PENDING, due_at__lte=now)
+        .exclude(kind=IgFollowUpTask.Kind.MANAGER_TASK)
         .filter(Q(next_attempt_at__isnull=True) | Q(next_attempt_at__lte=now))
         .order_by("due_at", "id")[:limit]
         .values_list("id", flat=True)
@@ -713,7 +890,12 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
                 "next_followup_at", "updated_at",
             ])
             sent += 1
-            if not task.discount_percent and task.kind in {
+            cascade_scheduled = _schedule_next_payment_cascade(
+                task,
+                client,
+                now=now,
+            )
+            if not cascade_scheduled and not task.discount_percent and task.kind in {
                 IgFollowUpTask.Kind.QUALIFICATION,
                 IgFollowUpTask.Kind.THINKING,
                 IgFollowUpTask.Kind.PAYMENT,

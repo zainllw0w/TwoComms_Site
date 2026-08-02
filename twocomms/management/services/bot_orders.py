@@ -949,7 +949,13 @@ def _create_deal_and_link_unlocked(
                 ).first()
                 if not color_variant:
                     return {"ok": False, "error": "invalid_color_variant"}
-                if int(color_variant.stock or 0) < item_qty:
+                # Той самий предикат наявності, що й у assisted checkout і на
+                # сайті: нульовий `stock` означає «облік не ведеться», а не
+                # «немає». Інакше два платіжні шляхи відповідали б клієнту
+                # по-різному про один і той самий товар.
+                from management.services.ig_checkout import tracked_stock_shortfall
+
+                if tracked_stock_shortfall(color_variant, item_qty):
                     return {"ok": False, "error": "insufficient_stock"}
             option_values = {"fit": item_fit_code} if item_fit_code else {}
             if not variant_allows_purchase(
@@ -1359,6 +1365,17 @@ def create_checkout_proposal_link(
         or "https://twocomms.shop"
     ).rstrip("/")
     url = f"{base}{reverse('ig_checkout_token_entry', kwargs={'token': raw_token})}"
+    order_summary = {
+        "items": [
+            {
+                "title": str(item.product_title or "").strip(),
+                "size": str(item.size or "").strip(),
+                "quantity": int(item.quantity),
+            }
+            for item in proposal.items.all()
+        ],
+        "quoted_total": str(proposal.quoted_total),
+    }
     return {
         "ok": True,
         # Keep the compatibility key for the existing bot delivery boundary;
@@ -1367,6 +1384,7 @@ def create_checkout_proposal_link(
         "proposal_url": url,
         "proposal_id": str(proposal.public_id),
         "expires_at": access_token.expires_at.isoformat(),
+        "order_summary": order_summary,
     }
 
 

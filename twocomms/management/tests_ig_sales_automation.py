@@ -437,7 +437,7 @@ class FollowUpPolicyTests(TestCase):
             ).exists()
         )
 
-    def test_quiet_hours_move_due_time_to_next_10_kyiv(self):
+    def test_evening_followup_stays_inside_the_approved_window(self):
         from management.models import IgFollowUpTask
         from management.services import bot_followups
 
@@ -455,9 +455,9 @@ class FollowUpPolicyTests(TestCase):
         )
 
         due_local = task.due_at.astimezone(KYIV)
-        self.assertEqual(due_local.hour, 10)
-        self.assertEqual(due_local.minute, 0)
-        self.assertEqual(due_local.date().isoformat(), "2026-07-10")
+        self.assertEqual(due_local.hour, 20)
+        self.assertEqual(due_local.minute, 30)
+        self.assertEqual(due_local.date().isoformat(), "2026-07-09")
         self.assertEqual(task.meta_window_deadline, now + timedelta(hours=23))
 
     def test_discount_ladder_starts_at_5_and_caps_at_10(self):

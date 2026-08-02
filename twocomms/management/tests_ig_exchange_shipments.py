@@ -414,7 +414,7 @@ class ExchangeCustomerMessageTests(ExchangeShipmentMixin, TestCase):
         self.assertIn("амін", text)
         self.assertNotIn("Ваше замовлення №", text)
 
-    def test_exchange_message_says_no_extra_payment_is_needed(self):
+    def test_exchange_message_reports_shipment_without_payment_claims(self):
         from management.services.ig_order_fulfillment import _message
 
         order = self._order(number="TWC-EXCH-MSG-PAY")
@@ -422,7 +422,17 @@ class ExchangeCustomerMessageTests(ExchangeShipmentMixin, TestCase):
             "exchange_shipped", "uk", order, REPLACEMENT_TTN, exchange_size="XL"
         )
 
-        self.assertIn("оплач", text.lower())
+        normalized = text.lower()
+        self.assertIn("заміна на розмір xl", normalized)
+        self.assertIn("вже в дорозі", normalized)
+        self.assertIn(REPLACEMENT_TTN, normalized)
+        self.assertIn("1-3 робочі дні", normalized)
+        self.assertIn(
+            f"https://novaposhta.ua/tracking/?cargo_number={REPLACEMENT_TTN}",
+            normalized,
+        )
+        for phrase in ("оплат", "сплачен", "доплач"):
+            self.assertNotIn(phrase, normalized)
 
     def test_exchange_message_is_localized(self):
         from management.services.ig_order_fulfillment import _message

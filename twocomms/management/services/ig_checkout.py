@@ -179,6 +179,31 @@ def _validate_negotiated_evidence(*, client, total, message_ids, items=()):
         raise CheckoutConfigurationError("invalid_price_evidence")
 
 
+def tracked_stock_shortfall(variant, quantity: int) -> bool:
+    """Чи справді не вистачає товару — за тим самим правилом, що й на сайті.
+
+    `ProductColorVariant.stock` у цьому проєкті **не** є джерелом істини про
+    наявність: на проді `stock > 0` лише в 1 варіанта з 81, тоді як сайт продає
+    усі 71 опублікований товар, бо речі відшиваються під замовлення. Ні
+    `storefront` кошик, ні `variant_allows_purchase` це поле не читають; каталог
+    для бота прямо пише «під замовлення», коли воно нульове.
+
+    Єдиним місцем, де нуль трактувався як заборона, був IG-чекаут. Наслідок був
+    видимий у переписці 02.08: клієнт надсилав посилання на реальний
+    опублікований товар і чув «Выбранный вариант сейчас недоступен в нужном
+    количестве» — чотири рази підряд.
+
+    Тому нуль означає «облік по цьому варіанту не ведеться», а не «немає».
+    Додатне значення менеджер веде свідомо, і його ми поважаємо: коли на складі
+    2, а просять 3, це справжня недостача.
+    """
+    try:
+        tracked = int(getattr(variant, "stock", 0) or 0)
+    except (TypeError, ValueError):
+        return False
+    return 0 < tracked < int(quantity or 1)
+
+
 def validate_checkout_items(
     *,
     client,
@@ -274,16 +299,14 @@ def validate_checkout_items(
             variant = next((row for row in color_variants if row.pk == variant_id), None)
             if variant is None:
                 raise CheckoutConfigurationError("invalid_color", item_index=index)
-            if int(variant.stock or 0) < quantity:
+            if tracked_stock_shortfall(variant, quantity):
                 raise CheckoutConfigurationError("insufficient_stock", item_index=index)
         elif color_variants:
-            stocked_variants = [
-                row for row in color_variants if int(row.stock or 0) >= quantity
-            ]
             sellable_variants = [
                 row
-                for row in stocked_variants
-                if variant_allows_purchase(
+                for row in color_variants
+                if not tracked_stock_shortfall(row, quantity)
+                and variant_allows_purchase(
                     product,
                     row,
                     fit_code=fit_code,
@@ -292,8 +315,7 @@ def validate_checkout_items(
                 )
             ]
             if not sellable_variants:
-                code = "insufficient_stock" if not stocked_variants else "unavailable_selection"
-                raise CheckoutConfigurationError(code, item_index=index)
+                raise CheckoutConfigurationError("unavailable_selection", item_index=index)
             if len(sellable_variants) == 1:
                 variant = sellable_variants[0]
             else:

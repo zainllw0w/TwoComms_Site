@@ -307,8 +307,6 @@ _PAYLINK_CONTEXT_RE = re.compile(
     r"checkout|payment|offer)\b",
     re.IGNORECASE,
 )
-_CLASSIC_FIT_RE = re.compile(r"\b(?:classic|класичн\w*|классич\w*)\b", re.IGNORECASE)
-_OVERSIZE_FIT_RE = re.compile(r"\b(?:oversi[sz]e|оверсайз\w*)\b", re.IGNORECASE)
 _CHECKOUT_SELECTION_CONTEXT_KEY = "assisted_checkout_selection"
 _CHECKOUT_COLOR_PATTERNS = {
     "black": re.compile(r"(?<!\w)(?:black|чорн\w*|черн\w*)(?!\w)", re.IGNORECASE),
@@ -479,15 +477,6 @@ def _looks_like_paylink_request(text: str) -> bool:
     )
 
 
-def _fit_from_customer_text(text: str) -> str:
-    normalized = " ".join(str(text or "").split())
-    classic = bool(_CLASSIC_FIT_RE.search(normalized))
-    oversize = bool(_OVERSIZE_FIT_RE.search(normalized))
-    if classic == oversize:
-        return ""
-    return "classic" if classic else "oversize"
-
-
 def _checkout_selection_state(client, product_id) -> dict:
     context = getattr(client, "sales_context", {})
     if not isinstance(context, dict):
@@ -527,23 +516,68 @@ def _persist_checkout_selection(client, product_id, selection: dict) -> None:
     client.save(update_fields=["sales_context", "updated_at"])
 
 
-def _is_checkout_selection_reply(
-    client,
-    text: str,
-    *,
-    fit_code: str = "",
-    color_variant_id=None,
-) -> bool:
-    if fit_code or color_variant_id:
-        return True
-    normalized = " ".join(str(text or "").split()).casefold()
-    if not normalized:
-        return False
-    color = str(getattr(client, "current_color", "") or "").strip().casefold()
-    if color and color in normalized:
-        return True
-    size = str(getattr(client, "current_size", "") or "").strip().casefold()
-    return bool(size and re.search(rf"(?<!\w){re.escape(size)}(?!\w)", normalized))
+def persist_control_selection(client, control: dict, *, product_id=None) -> list[str]:
+    """Зберегти конфігурацію, яку модель назвала тегами, навіть без [PAYLINK].
+
+    Без цього воронка не рухалась. Модель питала фасон, клієнт відповідав
+    «classic», модель ставила [FIT:classic] — але зберігалось це лише всередині
+    `finalize_paylink`, тобто **тільки** коли того ж ходу створювалось посилання.
+    Хід «уточнили фасон, тепер питаємо розмір» нічого не зберігав, і наступного
+    разу фасон знову був невідомий. Звідси нескінченне коло уточнень.
+
+    Тепер кожен хід, у якому модель дізналась факт, цей факт фіксує. Модель
+    накопичує стан крок за кроком, як це робить продавець у голові.
+    """
+    if not getattr(client, "pk", None) or not isinstance(control, dict):
+        return []
+    if control.get("_invalid"):
+        return []
+    product_id = _control_product_id(control) or product_id or getattr(client, "current_product_id", None)
+    try:
+        product_id = int(product_id or 0)
+    except (TypeError, ValueError):
+        product_id = 0
+    if not product_id:
+        return []
+
+    changed: list[str] = []
+    update_fields: list[str] = []
+
+    size = str(control.get("size") or "").strip().upper()[:16]
+    if size and size != str(getattr(client, "current_size", "") or "").strip().upper():
+        client.current_size = size
+        update_fields.append("current_size")
+        changed.append("size")
+
+    qty = _control_positive_int(control, "qty", default=0)
+    if qty and qty != int(getattr(client, "current_qty", 1) or 1):
+        client.current_qty = qty
+        update_fields.append("current_qty")
+        changed.append("quantity")
+
+    if update_fields:
+        try:
+            client.save(update_fields=[*update_fields, "updated_at"])
+        except Exception as exc:  # noqa: BLE001
+            log("warning", "selection_persist", f"{getattr(client, 'pk', '?')}: {exc!r}")
+            changed = [item for item in changed if item not in {"size", "quantity"}]
+
+    selection = _checkout_selection_state(client, product_id)
+    fit_code = str(control.get("fit") or "").strip().lower()[:50]
+    if fit_code and fit_code != str(selection.get("fit_option_code") or ""):
+        selection["fit_option_code"] = fit_code
+        changed.append("fit")
+    variant_id = control.get("color_variant_id") or control.get("variant")
+    try:
+        variant_id = int(variant_id or 0)
+    except (TypeError, ValueError):
+        variant_id = 0
+    if variant_id > 0 and variant_id != int(selection.get("color_variant_id") or 0):
+        selection["color_variant_id"] = variant_id
+        changed.append("color")
+    if changed and selection:
+        _persist_checkout_selection(client, product_id, selection)
+    return changed
 
 
 def _wants_paylink(
@@ -571,6 +605,28 @@ def _wants_paylink(
     return False, "full"
 
 
+def _has_open_paid_deal(client) -> bool:
+    """Чи є оплачена угода, по якій замовлення ще не завершене.
+
+    Саме це, а не «колись платив», є причиною не створювати новий рахунок:
+    гроші вже прийшли, і другий рахунок став би дублем. Коли ж замовлення
+    закрите (`order_created` + виконане) або скасоване, людина має повне право
+    купити знову — і це нормальний, очікуваний повторний продаж.
+    """
+    if not getattr(client, "pk", None):
+        return False
+    from management.models import IgDeal
+    from management.services.bot_payment_truth import verified_payment_q
+
+    return (
+        IgDeal.objects.filter(client=client)
+        .filter(verified_payment_q())
+        .exclude(status=IgDeal.Status.CANCELLED)
+        .filter(order__isnull=True)
+        .exists()
+    )
+
+
 def payment_link_allowed(client, control: dict, reply: str) -> bool:
     """Require a product and purchase evidence before creating an invoice.
 
@@ -583,10 +639,14 @@ def payment_link_allowed(client, control: dict, reply: str) -> bool:
     if control.get("_invalid"):
         return False
     if getattr(client, "pk", None):
+        # Захист від дубля рахунку по **поточній незакритій** угоді, а не
+        # пожиттєва заборона продавати. Раніше тут стояв
+        # `client_has_verified_payment(client)`, тобто будь-хто, хто колись
+        # оплатив, більше ніколи не міг отримати посилання: постійний клієнт не
+        # мав можливості купити вдруге. W3 навчила систему бачити покупців —
+        # і цей гейт почав різати саме їх.
         try:
-            from management.services.bot_payment_truth import client_has_verified_payment
-
-            if client_has_verified_payment(client):
+            if _has_open_paid_deal(client):
                 return False
         except Exception:
             # A provider-truth lookup failure must not open a new invoice path.
@@ -625,8 +685,10 @@ def payment_link_allowed(client, control: dict, reply: str) -> bool:
     if "custom" in intent:
         return False
     low = " ".join(str(reply or "").split()).casefold()
-    if str(getattr(client, "stage", "") or "").casefold() == "paid":
-        return False
+    # `stage == paid` тут навмисно **не** блокує: стадія означає «є оплачене
+    # замовлення в роботі», а не «ця людина більше нічого не купить». Дубль
+    # рахунку відсікає `_has_open_paid_deal` вище — за фактом грошей, не за
+    # робочим станом воронки.
     if _PURCHASE_COMMITMENT_RE.search(low):
         return True
     stage = str(getattr(client, "stage", "") or "").casefold()
@@ -658,6 +720,11 @@ _PAY_URL_RE = re.compile(r"https?://[^\s]*(?:mbnk|monobank)[^\s]*", re.I)
 # висячою обіцянкою «ось посилання», а м'яко тримаємо діалог поки підключиться
 # менеджер (його одночасно сповіщаємо).
 PAYLINK_FALLBACK_TEXT = "Дякую! Уточню деталі щодо оплати і за мить повернуся до вас 🙌"
+_PAYLINK_FALLBACK_TEXT = {
+    "uk": PAYLINK_FALLBACK_TEXT,
+    "ru": "Спасибо! Уточню детали оплаты и через минуту вернусь к вам 🙌",
+    "en": "Thank you! I will confirm the payment details and get right back to you 🙌",
+}
 
 # Протокол оплати — інжектимо в system_instruction завжди (migration-free), щоб
 # модель давала ЯВНИЙ сигнал товару й типу оплати, а не лише обіцяла лінк текстом.
@@ -681,7 +748,14 @@ PAYMENT_PROTOCOL_NOTE = (
     "залишити порожнім), щоб зберегти кількість, розмір, крій і колір. Для футболки з "
     "кількома фасонами спочатку обов'язково запитай classic чи oversize, покажи сітку "
     "саме обраного фасону і лише потім запитуй розмір. Для однієї позиції також дозволено "
-    "[QTY:n] [SIZE:XS] [FIT:oversize]. Для передоплати обов'язково додай "
+    "[QTY:n] [SIZE:XS] [FIT:oversize]. "
+    "ВАЖЛИВО: став [FIT:...], [SIZE:...], [QTY:...] і [PRODUCT:...] ОДРАЗУ того ходу, "
+    "коли ти дізналась відповідь, навіть якщо до посилання ще далеко і решти даних "
+    "бракує. Ці теги — те, як ти запам'ятовуєш вибір клієнта: без них наступного разу "
+    "ти знову не знатимеш фасону й перепитаєш те саме. Якщо клієнт передумав і назвав "
+    "інший товар — став [PRODUCT:<новий id>], і тоді розмір/колір потрібно уточнити "
+    "заново, бо для нового товару вони можуть бути інші. "
+    "Для передоплати обов'язково додай "
     "[PAYMENT:сума], але лише якщо ця точна сума явно погоджена в поточному діалозі. "
     "Не використовуй фіксовані 200 грн і не перенось суму з попереднього замовлення. "
     "Якщо менеджер явно погодив іншу ціну, додай [PRICE:число] лише коли це число "
@@ -691,69 +765,56 @@ PAYMENT_PROTOCOL_NOTE = (
     "тільки коли клієнт прямо попросив посилання на товар."
 )
 
+# Тексти, які лишились, супроводжують **реальне** посилання на оплату: вони
+# несуть факти (термін дії 25 хвилин, оплата через Monobank, скрин не потрібен),
+# а не ведуть діалог. Усі формулювання-питання («який фасон обираєте», «підкажіть
+# розмір», «варіант недоступний») звідси прибрані свідомо: саме вони підміняли
+# відповідь моделі й приходили клієнту дослівно однаковими, чужою мовою.
 _ASSISTED_CHECKOUT_COPY = {
     "uk": {
         "proposal": (
             "Перевірте товари в персональній пропозиції TwoComms, додайте дані Нової "
-            "Пошти та email для чека за бажанням, а потім переходьте до оплати. Це займає до двох "
+            "Пошти та email для чека за бажанням. Після підтвердження даних безпечна оплата "
+            "відкриється через Monobank; скрин оплати надсилати не потрібно. Це займає до двох "
             "хвилин. Посилання дійсне 25 хвилин від створення, його можна переслати іншій людині. "
             "Якщо треба щось змінити в товарах, напишіть мені сюди до оплати."
         ),
-        "missing_fit_option": (
-            "Підкажіть, будь ласка, який фасон обираєте: класичний чи оверсайз? "
-            "Після цього надішлю розмірну сітку саме для обраного фасону."
+        "proposal_with_summary": (
+            "Перевірте товари в персональній пропозиції TwoComms, додайте дані Нової "
+            "Пошти та email для чека за бажанням. Це займає до двох хвилин. Посилання "
+            "дійсне 25 хвилин від створення, його можна переслати іншій людині. Якщо треба "
+            "щось змінити в товарах, напишіть мені сюди до оплати."
         ),
-        "missing_size": "Підкажіть, будь ласка, потрібний розмір - і я одразу підготую пропозицію.",
-        "invalid_size": "Для цього фасону оберіть, будь ласка, розмір із доступної сітки.",
-        "invalid_fit_option": "Підкажіть, будь ласка, класичний чи оверсайз фасон вам потрібен.",
-        "invalid_color_variant": "Підкажіть, будь ласка, потрібний колір, щоб я підготувала точну пропозицію.",
-        "missing_color": "Підкажіть, будь ласка, потрібний колір, щоб я підготувала точну пропозицію.",
-        "missing_configuration": "Уточніть, будь ласка, фасон, розмір, колір і кількість для замовлення.",
-        "insufficient_stock": "Обраний варіант зараз недоступний у потрібній кількості.",
-        "available_alternatives": "З наявного можу запропонувати: {alternatives}. Який варіант показати?",
-        "no_available_alternatives": "Не хочу вигадувати заміну: напишіть, що для вас важливіше - модель, колір чи фасон, і я перевірю інші варіанти.",
-        "unavailable_selection": "Цей варіант зараз недоступний. Підкажіть інший фасон, розмір або колір.",
     },
     "ru": {
         "proposal": (
             "Проверьте товары в персональном предложении TwoComms, добавьте данные Новой "
-            "почты и email для чека по желанию, а затем переходите к оплате. Это занимает до двух "
+            "почты и email для чека по желанию. После подтверждения данных безопасная оплата "
+            "откроется через Monobank; скрин оплаты присылать не нужно. Это занимает до двух "
             "минут. Ссылка действует 25 минут с момента создания, ее можно переслать другому человеку. "
             "Если нужно что-то изменить в товарах, напишите мне сюда до оплаты."
         ),
-        "missing_fit_option": (
-            "Подскажите, пожалуйста, какой фасон выбираете: классический или оверсайз? "
-            "После этого пришлю размерную сетку именно для выбранного фасона."
+        "proposal_with_summary": (
+            "Проверьте товары в персональном предложении TwoComms, добавьте данные Новой "
+            "почты и email для чека по желанию. Это занимает до двух минут. Ссылка действует "
+            "25 минут с момента создания, ее можно переслать другому человеку. Если нужно "
+            "что-то изменить в товарах, напишите мне сюда до оплаты."
         ),
-        "missing_size": "Подскажите, пожалуйста, нужный размер, и я сразу подготовлю предложение.",
-        "invalid_size": "Для этого фасона выберите, пожалуйста, размер из доступной сетки.",
-        "invalid_fit_option": "Подскажите, пожалуйста, классический или оверсайз фасон вам нужен.",
-        "invalid_color_variant": "Подскажите, пожалуйста, нужный цвет, чтобы я подготовила точное предложение.",
-        "missing_color": "Подскажите, пожалуйста, нужный цвет, чтобы я подготовила точное предложение.",
-        "missing_configuration": "Уточните, пожалуйста, фасон, размер, цвет и количество для заказа.",
-        "insufficient_stock": "Выбранный вариант сейчас недоступен в нужном количестве.",
-        "available_alternatives": "Из того, что есть в наличии, могу предложить: {alternatives}. Какой вариант показать?",
-        "no_available_alternatives": "Не хочу придумывать замену: напишите, что для вас важнее - модель, цвет или фасон, и я проверю другие варианты.",
-        "unavailable_selection": "Этот вариант сейчас недоступен. Подскажите другой фасон, размер или цвет.",
     },
     "en": {
         "proposal": (
             "Review the items in your personal TwoComms offer, add Nova Poshta delivery "
-            "details and an optional receipt email, then continue to payment. It takes about two "
+            "details and an optional receipt email. After you confirm the details, secure payment "
+            "opens through Monobank; you do not need to send a payment screenshot. It takes about two "
             "minutes. The link is valid for 25 minutes from creation and can be forwarded. Message me "
             "here before paying if you would like to change the items."
         ),
-        "missing_fit_option": "Which fit would you prefer: classic or oversize? I will then send the right size guide.",
-        "missing_size": "Please tell me the size you need and I will prepare the offer right away.",
-        "invalid_size": "Please choose a size available for this fit.",
-        "invalid_fit_option": "Please choose the fit you need: classic or oversize.",
-        "invalid_color_variant": "Please tell me the color you need so I can prepare the exact offer.",
-        "missing_color": "Please tell me the color you need so I can prepare the exact offer.",
-        "missing_configuration": "Please confirm the fit, size, color, and quantity for the order.",
-        "insufficient_stock": "The selected option is not available in the requested quantity.",
-        "available_alternatives": "Available alternatives: {alternatives}. Which one would you like to see?",
-        "no_available_alternatives": "I do not want to invent a substitute. Tell me whether the model, color, or fit matters most and I will check other options.",
-        "unavailable_selection": "This option is unavailable right now. Please choose another fit, size, or color.",
+        "proposal_with_summary": (
+            "Review the items in your personal TwoComms offer and add Nova Poshta delivery "
+            "details and an optional receipt email. It takes about two minutes. The link is valid "
+            "for 25 minutes from creation and can be forwarded. Message me here before paying if "
+            "you would like to change the items."
+        ),
     },
 }
 
@@ -773,6 +834,62 @@ def _assisted_checkout_copy(client, key: str) -> str:
         key,
         _ASSISTED_CHECKOUT_COPY["uk"].get(key, ""),
     )
+
+
+def _paylink_fallback(client=None) -> str:
+    locale = _assisted_checkout_locale(client) if client is not None else "uk"
+    return _PAYLINK_FALLBACK_TEXT.get(locale, PAYLINK_FALLBACK_TEXT)
+
+
+def _checkout_offer_details(locale: str, summary: dict) -> str:
+    if not isinstance(summary, dict) or not summary:
+        return ""
+
+    locale = locale if locale in {"uk", "ru", "en"} else "uk"
+    item_parts = []
+    raw_items = summary.get("items")
+    if isinstance(raw_items, (list, tuple)):
+        for raw_item in raw_items:
+            if not isinstance(raw_item, dict):
+                continue
+            title = str(raw_item.get("title") or "").strip()
+            size = str(raw_item.get("size") or "").strip()
+            try:
+                quantity = int(raw_item.get("quantity"))
+            except (TypeError, ValueError):
+                quantity = 0
+            facts = [title] if title else []
+            if size:
+                facts.append({"uk": f"розмір {size}", "ru": f"размер {size}", "en": f"size {size}"}[locale])
+            if quantity > 0:
+                facts.append({"uk": f"{quantity} шт", "ru": f"{quantity} шт", "en": f"{quantity} pcs"}[locale])
+            if facts:
+                item_parts.append(", ".join(facts))
+
+    total = ""
+    try:
+        value = Decimal(str(summary.get("quoted_total")))
+        if value.is_finite() and value >= 0:
+            total = format(value, "f").rstrip("0").rstrip(".") or "0"
+    except (InvalidOperation, TypeError, ValueError):
+        pass
+
+    if not item_parts and not total:
+        return ""
+
+    labels = {
+        "uk": ("Замовлення", "Разом", "грн", "Після перевірки безпечна оплата відкриється через Monobank; скрин підтвердження не потрібен - нічого надсилати не треба."),
+        "ru": ("Заказ", "Итого", "грн", "После проверки безопасная оплата откроется через Monobank; скрин подтверждения не нужен - ничего присылать не надо."),
+        "en": ("Order", "Total", "UAH", "After review, secure payment opens through Monobank. No payment screenshot is needed - there is nothing to send us."),
+    }
+    order_label, total_label, currency, guidance = labels[locale]
+    lines = []
+    if item_parts:
+        lines.append(f"{order_label}: {'; '.join(item_parts)}.")
+    if total:
+        lines.append(f"{total_label}: {total} {currency}.")
+    lines.append(guidance)
+    return "\n".join(lines)
 
 # Правило точності — інжектимо разом із протоколом оплати. Прямо забороняє
 # «вигадану відмову» (типу «такого немає / це кастом»), як це сталось із реальним
@@ -864,14 +981,18 @@ def _strip_invented_pay_urls(text: str, keep_url: str = "") -> str:
     return out
 
 
-def _rewrite_failed_paylink(reply: str) -> str:
+def _rewrite_failed_paylink(reply: str, client=None) -> str:
     """Прибирає висяче обіцяння лінку (фрази-обіцянки) + вигадані платіжні URL.
 
     Якщо після чистки корисного тексту майже не лишилось — повертає безпечний
     холдер (PAYLINK_FALLBACK_TEXT), щоб не надсилати клієнту порожню обіцянку.
     """
     text = _strip_invented_pay_urls(reply or "", keep_url="")
-    chunks = re.split(r"(?<=[.!?])\s+|\n+", text)
+    # Двокрапка — теж межа. Модель зазвичай пише «Ось ваше посилання: <далі
+    # корисне>», і розбиття лише по .!? викидало корисне разом з обіцянкою:
+    # від відповіді не лишалось нічого, і клієнт отримував безликий холдер
+    # замість питання, яке модель насправді задала.
+    chunks = re.split(r"(?<=[.!?:])\s+|\n+", text)
     kept = []
     for ch in chunks:
         low = ch.lower()
@@ -881,7 +1002,7 @@ def _rewrite_failed_paylink(reply: str) -> str:
             kept.append(ch.strip())
     cleaned = re.sub(r"[ \t]{2,}", " ", " ".join(kept)).strip()
     if len(cleaned) < 12:
-        return PAYLINK_FALLBACK_TEXT
+        return _paylink_fallback(client)
     return cleaned
 
 
@@ -935,140 +1056,35 @@ def _current_color_variant_id(client, product_id, quantity, *, trigger_text: str
         return None
 
 
-def _checkout_alternative_labels(item_specs, result, *, limit=3):
-    try:
-        index = int(result.get("item_index") or 0)
-    except (TypeError, ValueError):
-        index = 0
-    if not isinstance(item_specs, (list, tuple)) or not (0 <= index < len(item_specs)):
-        return []
-    spec = item_specs[index] if isinstance(item_specs[index], dict) else {}
-    try:
-        product_id = int(spec.get("product_id") or 0)
-        quantity = max(1, int(spec.get("qty") or spec.get("quantity") or 1))
-    except (TypeError, ValueError):
-        return []
-    try:
-        from fable5.services import variant_allows_purchase
-        from productcolors.models import ProductColorVariant
-        from storefront.models import Product, ProductStatus
-        from storefront.services.size_guides import resolve_product_sizes
-
-        product = Product.objects.select_related("category").filter(pk=product_id).first()
-        if product is None:
-            return []
-        selected_variant_id = spec.get("color_variant_id") or spec.get("variant_id")
-        try:
-            selected_variant_id = int(selected_variant_id or 0)
-        except (TypeError, ValueError):
-            selected_variant_id = 0
-        fit_code = str(spec.get("fit_option_code") or spec.get("fit") or "").strip().lower()
-        size = str(spec.get("size") or "").strip().upper()
-        option_values = {"fit": fit_code} if fit_code else {}
-        labels = []
-        variants = (
-            ProductColorVariant.objects.select_related("color")
-            .filter(product=product, stock__gte=quantity)
-            .exclude(pk=selected_variant_id)
-            .order_by("order", "id")
-        )
-        for variant in variants:
-            if not variant_allows_purchase(
-                product,
-                variant,
-                fit_code=fit_code,
-                size=size,
-                option_values=option_values,
-            ):
-                continue
-            color = str(getattr(getattr(variant, "color", None), "name", "") or "").strip()
-            label = f"{product.title} - {color}" if color else str(product.title)
-            if label not in labels:
-                labels.append(label)
-            if len(labels) >= limit:
-                return labels
-        if product.category_id:
-            alternatives = (
-                Product.objects.filter(
-                    status=ProductStatus.PUBLISHED,
-                    category_id=product.category_id,
-                    color_variants__stock__gte=quantity,
-                )
-                .exclude(pk=product.pk)
-                .distinct()
-                .prefetch_related("color_variants__color", "fit_options")
-                .order_by("-featured", "id")
-            )
-            for alternative in alternatives:
-                if fit_code and not any(
-                    option.code == fit_code and option.is_active
-                    for option in alternative.fit_options.all()
-                ):
-                    continue
-                allowed_sizes = {
-                    str(value or "").strip().upper()
-                    for value in resolve_product_sizes(alternative)
-                }
-                if fit_code == "oversize":
-                    allowed_sizes.add("XS")
-                if size and allowed_sizes and size not in allowed_sizes:
-                    continue
-                purchasable = any(
-                    int(variant.stock or 0) >= quantity
-                    and variant_allows_purchase(
-                        alternative,
-                        variant,
-                        fit_code=fit_code,
-                        size=size,
-                        option_values=option_values,
-                    )
-                    for variant in alternative.color_variants.all()
-                )
-                if not purchasable:
-                    continue
-                label = str(alternative.title or "").strip()
-                if label and label not in labels:
-                    labels.append(label)
-                if len(labels) >= limit:
-                    break
-        return labels
-    except Exception:
-        return []
+# Коди, які означають «діалог ще не завершений», а не «система зламалась».
+# Раніше кожен із них перетворювався на готову фразу з таблиці копій і підміняв
+# відповідь моделі. Тепер це лише класифікація: інцидент чи звичайний хід.
+_CONFIGURATION_GAP_CODES = frozenset({
+    "missing_configuration",
+    "missing_size",
+    "missing_fit_option",
+    "invalid_size",
+    "invalid_fit",
+    "invalid_fit_option",
+    "invalid_color",
+    "invalid_color_variant",
+    "insufficient_stock",
+    "unavailable_selection",
+    "unpublished_product",
+    "invalid_product",
+})
 
 
-def _checkout_configuration_reply(client, result, item_specs):
-    code = str(result.get("error") or "")
-    if code == "missing_configuration":
-        fields = {str(value) for value in (result.get("missing_fields") or [])}
-        for field, copy_key in (
-            ("fit", "missing_fit_option"),
-            ("size", "missing_size"),
-            ("color", "missing_color"),
-        ):
-            if field in fields:
-                return _assisted_checkout_copy(client, copy_key)
-        return _assisted_checkout_copy(client, "missing_configuration")
-    aliases = {
-        "invalid_fit": "invalid_fit_option",
-        "invalid_color": "invalid_color_variant",
-    }
-    mapped = aliases.get(code, code)
-    if mapped in {
-        "insufficient_stock",
-        "unavailable_selection",
-        "unpublished_product",
-        "invalid_product",
-    }:
-        labels = _checkout_alternative_labels(item_specs, result)
-        base_key = "insufficient_stock" if mapped == "insufficient_stock" else "unavailable_selection"
-        base = _assisted_checkout_copy(client, base_key)
-        if labels:
-            alternatives = _assisted_checkout_copy(client, "available_alternatives").format(
-                alternatives="; ".join(labels)
-            )
-            return f"{base} {alternatives}".strip()
-        return f"{base} {_assisted_checkout_copy(client, 'no_available_alternatives')}".strip()
-    return _assisted_checkout_copy(client, mapped)
+def _is_configuration_gap(result) -> bool:
+    """Чи це «ще не вистачає даних від клієнта», а не збій.
+
+    Різниця важлива: у першому випадку менеджера кликати не треба і стадію
+    збивати в `lead_manager` не треба — розмову продовжує бот. У другому
+    (непідтверджена ціна, сума передоплати, битий тег) потрібна людина.
+    """
+    if not isinstance(result, dict):
+        return False
+    return str(result.get("error") or "") in _CONFIGURATION_GAP_CODES
 
 
 def finalize_paylink(
@@ -1096,10 +1112,12 @@ def finalize_paylink(
     selection = _checkout_selection_state(client, product_id)
     control_fit = str(control.get("fit") or "").strip().lower()[:50]
     if control_fit:
+        # Фасон приходить тільки як явний вибір моделі ([FIT:...]).
+        # Раніше сюди ж потрапляло будь-яке *згадування* слова «оверсайз» у
+        # тексті клієнта, і питання «Покажи на оверсайз розмірну сітку» молча
+        # переписувало платіжний вибір з classic на oversize. Це вже не UX-баг,
+        # а гроші: клієнт отримав би рахунок на не той фасон.
         selection["fit_option_code"] = control_fit
-    trigger_fit = _fit_from_customer_text(trigger_text)
-    if trigger_fit:
-        selection["fit_option_code"] = trigger_fit
     selected_color_variant_id = _current_color_variant_id(
         client,
         product_id,
@@ -1113,25 +1131,12 @@ def finalize_paylink(
     if selected_color_variant_id:
         selection["color_variant_id"] = selected_color_variant_id
     want, pt = _wants_paylink(reply, control, trigger_text=trigger_text)
-    if (
-        not want
-        and _is_checkout_selection_reply(
-            client,
-            trigger_text,
-            fit_code=trigger_fit,
-            color_variant_id=selected_color_variant_id,
-        )
-        and str(getattr(client, "intent", "") or "").casefold() in {"payment", "checkout"}
-        and str(getattr(client, "stage", "") or "").casefold() in {"checkout", "payment_pending"}
-    ):
-        stored_pay_type = str(selection.get("pay_type") or "").strip().lower()
-        want, pt = True, stored_pay_type if stored_pay_type in {"full", "prepay"} else "full"
     if not want:
         return reply
     selection["pay_type"] = pt
     if control.get("_invalid"):
         log("warning", "paylink_control_gate", f"{sender_id}: conflicting control tags")
-        return _rewrite_failed_paylink(reply)
+        return _rewrite_failed_paylink(reply, client)
     if "items" in control and not _control_item_specs(control):
         log("warning", "paylink_item_gate", f"{sender_id}: malformed explicit item tags")
         try:
@@ -1142,7 +1147,7 @@ def finalize_paylink(
             )
         except Exception:
             pass
-        return PAYLINK_FALLBACK_TEXT
+        return _paylink_fallback(client)
     if not payment_link_allowed(client, control, reply):
         log("warning", "paylink_gate", f"{sender_id}: blocked without purchase candidate")
         try:
@@ -1152,7 +1157,7 @@ def finalize_paylink(
             )
         except Exception:
             pass
-        return _rewrite_failed_paylink(reply)
+        return _rewrite_failed_paylink(reply, client)
     if selection:
         _persist_checkout_selection(client, product_id, selection)
     from management.services import bot_orders
@@ -1166,7 +1171,7 @@ def finalize_paylink(
         parsed_qty = _control_positive_int(control, "qty", default=persisted_qty)
         if parsed_qty is None:
             log("warning", "paylink_qty_gate", f"{sender_id}: invalid explicit quantity")
-            return _rewrite_failed_paylink(reply)
+            return _rewrite_failed_paylink(reply, client)
         item_specs = [{
             "product_id": _control_product_id(control) or getattr(client, "current_product_id", None),
             "qty": parsed_qty,
@@ -1230,7 +1235,7 @@ def finalize_paylink(
             client.set_stage(IgClient.Stage.LEAD_TO_MANAGER, reason="paylink_unverified_price")
         except Exception:
             pass
-        return _rewrite_failed_paylink(reply)
+        return _rewrite_failed_paylink(reply, client)
 
     payment_amount = None
     if pt == "prepay":
@@ -1248,7 +1253,7 @@ def finalize_paylink(
                 client.set_stage(IgClient.Stage.LEAD_TO_MANAGER, reason="paylink_unverified_payment_amount")
             except Exception:
                 pass
-            return _rewrite_failed_paylink(reply)
+            return _rewrite_failed_paylink(reply, client)
 
     negotiated_total = None
     if negotiated_price is not None:
@@ -1258,7 +1263,7 @@ def finalize_paylink(
             negotiated_total = negotiated_price * aggregate_quantity
         else:
             log("warning", "paylink_multi_price_gate", f"{sender_id}: price allocation required")
-            return _rewrite_failed_paylink(reply)
+            return _rewrite_failed_paylink(reply, client)
 
     try:
         kwargs = {
@@ -1288,21 +1293,39 @@ def finalize_paylink(
 
     if res.get("ok") and res.get("invoice_url"):
         url = res["invoice_url"]
-        lead = _rewrite_failed_paylink(reply)
-        if lead == PAYLINK_FALLBACK_TEXT:
+        lead = _rewrite_failed_paylink(reply, client)
+        if lead == _paylink_fallback(client):
             lead = ""
-        proposal_copy = _assisted_checkout_copy(client, "proposal")
-        reply = "\n\n".join(part for part in (lead, proposal_copy, url) if part).strip()
+        locale = _assisted_checkout_locale(client)
+        order_details = _checkout_offer_details(locale, res.get("order_summary") or {})
+        proposal_key = "proposal_with_summary" if order_details else "proposal"
+        proposal_copy = _assisted_checkout_copy(client, proposal_key)
+        proposal_marker = proposal_copy.split(",", 1)[0].casefold()
+        if proposal_marker and proposal_marker in lead.casefold():
+            proposal_copy = ""
+        reply = "\n\n".join(
+            part for part in (lead, order_details, proposal_copy, url) if part
+        ).strip()
         log("success", "paylink", f"{sender_id}: {url}")
         return reply
 
-    configuration_question = _checkout_configuration_reply(client, res, item_specs)
-    if configuration_question:
-        return configuration_question
+    if _is_configuration_gap(res):
+        # Не інцидент, а звичайний хід діалогу: ще не вистачає фасону, розміру
+        # або кольору. Раніше тут повертався готовий текст із таблиці копій, і
+        # саме він приходив клієнту дослівно однаковим (прод, 02.08: три рази
+        # підряд одна й та сама російська фраза українцеві). Тепер відповідь
+        # лишається за моделлю — вона вже бачила брак у блоці [СТАН ОФОРМЛЕННЯ]
+        # ще до генерації, тому питає своїми словами й мовою клієнта.
+        log(
+            "info",
+            "paylink_awaiting_configuration",
+            f"{sender_id}: {res.get('error')} missing={sorted(res.get('missing_fields') or [])}",
+        )
+        return _rewrite_failed_paylink(reply, client)
 
     # Невдача формування: прибираємо висяче обіцяння й ескалюємо на менеджера.
     log("error", "paylink", f"{sender_id}: НЕ сформовано ({res.get('error')})")
-    safe = _rewrite_failed_paylink(reply)
+    safe = _rewrite_failed_paylink(reply, client)
     try:
         client.set_stage(IgClient.Stage.LEAD_TO_MANAGER, reason="paylink_failed")
     except Exception:
@@ -1621,9 +1644,36 @@ def facebook_app_secret() -> str:
 
 
 def webhook_secrets() -> tuple[str, ...]:
-    """Return HMAC secrets; access-token variables are intentionally excluded."""
-    secret = app_secret()
-    return (secret,) if secret else ()
+    """Усі наші HMAC-секрети, якими Meta може підписати webhook.
+
+    Токени доступу тут навмисно не використовуються — тільки app secret.
+
+    Чому секретів декілька. У Meta підпис `X-Hub-Signature-256` робиться app
+    secret **того додатку, який доставляє подію**, а в нас їх два: Instagram
+    Login app (`IG_APP_SECRET`) і батьківський Meta app (`META_APP_SECRET`).
+    Обидва прописані в оточенні прода, але перевірявся лише перший.
+
+    Наслідок був виміряний по access-логу 02.08.2026: на `/bot/webhook/`
+    **496 відповідей 403 проти 44 успішних**, усі відхилені — від
+    `facebookexternalua` з IPv6-підмереж Meta. Тобто 92% входящих подій
+    відкидалось на порозі, і бот бачив діалоги лише через резервний polling,
+    із затримкою. Це і є справжня причина «бот майже не відповідає»:
+    27 відповідей моделі на 1025 повідомлень клієнтів за тиждень.
+
+    Перебір кількох секретів не послаблює перевірку: кожен із них — наш, а
+    `compare_digest` лишається строгим. Підробити підпис без секрету
+    неможливо так само, як і раніше.
+    """
+    candidates = (
+        instagram_login_app_secret(),
+        parent_meta_app_secret(),
+        app_secret(),
+    )
+    ordered: list[str] = []
+    for secret in candidates:
+        if secret and secret not in ordered:
+            ordered.append(secret)
+    return tuple(ordered)
 
 
 def allow_unsigned_webhooks() -> bool:
@@ -1665,13 +1715,26 @@ def verify_signature(raw_body: bytes, header: str) -> bool:
     if not header or not header.startswith("sha256="):
         return False
     supplied = header.split("=", 1)[1].strip()
-    return any(
-        hmac.compare_digest(
+    labels = ("ig_app", "meta_app", "resolved_app")
+    for index, secret in enumerate(secrets_):
+        if hmac.compare_digest(
             hmac.new(secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest(),
             supplied,
-        )
-        for secret in secrets_
-    )
+        ):
+            # Яким саме секретом підписана подія — операційно важливо: рік тому
+            # відмова ingress була невидимою, і її знайшли випадково, по логах
+            # веб-сервера. Пишемо мітку (не сам секрет) не частіше разу на годину.
+            if index > 0:
+                key = f"ig_bot_webhook_secret_seen:{index}"
+                if not cache.get(key):
+                    cache.set(key, 1, 3600)
+                    log(
+                        "info",
+                        "webhook_signature_source",
+                        f"підпис підтверджено секретом {labels[index] if index < len(labels) else index}",
+                    )
+            return True
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -4264,6 +4327,7 @@ def gemini_generate(
     s: InstagramBotSettings, history: list[dict], images: list[tuple[str, bytes]] | None = None,
     match_hint: str | None = None, memory_note: str | None = None,
     context_note: str | None = None, client=None, media_hint: str | None = None,
+    turn_note: str | None = None,
 ) -> str | None:
     """history: [{'role':'user'|'model','text':str}] хронологічно.
     images: список (mime_type, raw_bytes) для ОСТАННЬОГО (поточного) user-ходу."""
@@ -4295,6 +4359,7 @@ def gemini_generate(
         context_note=context_note,
         match_hint=match_hint,
         media_hint=media_hint,
+        turn_note=turn_note,
     )
 
     payload = {
@@ -4414,6 +4479,7 @@ def assemble_system_instruction(
     context_note: str | None = None,
     match_hint: str | None = None,
     media_hint: str | None = None,
+    turn_note: str | None = None,
 ) -> str:
     """Собрать system_instruction из всех источников.
 
@@ -4436,6 +4502,13 @@ def assemble_system_instruction(
     state_note = client_state_note(client)
     if state_note:
         sys_text = (sys_text + "\n\n" + state_note).strip()
+    # Факти про готовність замовлення — до генерації, а не після. Раніше система
+    # дізнавалась про брак фасону/розміру вже після відповіді моделі й тому
+    # писала клієнту сама. Тепер модель бачить той самий стан і питає своїми
+    # словами.
+    readiness_note = _prompt_section("checkout_readiness", lambda: _checkout_readiness_note(client))
+    if readiness_note:
+        sys_text = (sys_text + "\n\n" + readiness_note).strip()
     if memory_note:
         sys_text = (sys_text + "\n\n" + memory_note).strip()
     if context_note:
@@ -4444,6 +4517,8 @@ def assemble_system_instruction(
         sys_text = (sys_text + "\n\n" + match_hint).strip()
     if media_hint:
         sys_text = (sys_text + "\n\n" + media_hint).strip()
+    if turn_note:
+        sys_text = (sys_text + "\n\n" + turn_note).strip()
     return sys_text
 
 
@@ -4470,6 +4545,175 @@ def build_prompt_snapshot(client=None) -> str:
     )
 
 
+_LANGUAGE_LABELS = {"uk": "українська", "ru": "російська", "en": "англійська"}
+
+
+def _language_state_lines(client) -> list[str]:
+    """Мова — фактами про останні повідомлення, а не однією директивою.
+
+    Прод, клієнт #2: `language='ru'`, `_lang_votes=['ru','ru','uk']`, при тому що
+    людина писала українською. Модель отримувала «мова діалогу: ru» і слухалась.
+    Одне збережене поле виявилось сильнішим за очевидний текст перед очима.
+
+    Тепер у промпт іде і збережена мова, і те, чим клієнт користується
+    насправді, і — якщо є — його пряме прохання. Модель бачить розбіжність і
+    може її вирішити; раніше вона про неї навіть не знала.
+    """
+    stored = str(getattr(client, "language", "") or "").strip().lower()
+    lines = []
+    recent: list[str] = []
+    try:
+        from management.models import InstagramBotMessage
+        from management.services.bot_sales_classifier import detect_language
+
+        rows = (
+            InstagramBotMessage.objects.filter(
+                client=client, role=InstagramBotMessage.Role.USER
+            )
+            .order_by("-id")
+            .values_list("text", flat=True)[:5]
+        )
+        for text in rows:
+            detected = detect_language(text or "")
+            if detected:
+                recent.append(detected)
+    except Exception:
+        recent = []
+
+    if stored:
+        lines.append(f"збережена мова діалогу: {_LANGUAGE_LABELS.get(stored, stored)}")
+    if recent:
+        latest = recent[0]
+        labels = ", ".join(_LANGUAGE_LABELS.get(code, code) for code in recent)
+        lines.append(f"мова останніх повідомлень клієнта (від найновішого): {labels}")
+        if stored and latest != stored:
+            lines.append(
+                f"РОЗБІЖНІСТЬ: збережено {_LANGUAGE_LABELS.get(stored, stored)}, а клієнт "
+                f"щойно писав {_LANGUAGE_LABELS.get(latest, latest)}. Відповідай мовою "
+                "останнього повідомлення клієнта — вона важливіша за збережене значення."
+            )
+    requested = _requested_language(client)
+    if requested:
+        lines.append(
+            f"КЛІЄНТ ПРЯМО ПОПРОСИВ відповідати {_LANGUAGE_LABELS.get(requested, requested)} мовою — "
+            "це найвищий пріоритет. Якщо до цього ти писала іншою, коротко визнай це "
+            "своїми словами й далі тримайся тільки цієї мови."
+        )
+    if not lines:
+        lines.append("мова діалогу: ще не визначена, відповідай мовою повідомлення клієнта")
+    return lines
+
+
+def _requested_language(client) -> str:
+    context = getattr(client, "sales_context", None)
+    if not isinstance(context, dict):
+        return ""
+    request = context.get("language_request")
+    if isinstance(request, dict):
+        code = str(request.get("language") or "").strip().lower()
+        return code if code in _LANGUAGE_LABELS else ""
+    return ""
+
+
+def _checkout_readiness_note(client) -> str:
+    """Блок [СТАН ОФОРМЛЕННЯ] — факти для моделі, а не текст для клієнта."""
+    if not getattr(client, "pk", None):
+        return ""
+    from management.services.ig_checkout_readiness import readiness_prompt_note
+
+    return readiness_prompt_note(client)
+
+
+def notify_size_gap(client) -> bool:
+    """Сказати менеджеру, що клієнт просить розмір, якого немає.
+
+    Бот у такій ситуації обіцяє «уточню в менеджера і повернусь». Обіцянка має
+    бути правдивою, тому тут іде реальне повідомлення. Дедуп на добу за
+    (клієнт, товар, фасон, розмір): повторні згадки того самого розміру в
+    діалозі не мають перетворюватись на потік однакових алертів.
+    """
+    if not getattr(client, "pk", None):
+        return False
+    from management.services.ig_checkout_readiness import checkout_readiness
+
+    state = checkout_readiness(client)
+    size = str((state.get("size") or {}).get("requested_unavailable") or "").strip()
+    if not size:
+        return False
+    product = state.get("product") or {}
+    fit = str((state.get("fit") or {}).get("selected") or "") or "-"
+    key = f"ig_size_gap:{client.pk}:{product.get('id')}:{fit}:{size}"
+    if cache.get(key):
+        return False
+    cache.set(key, 1, 24 * 3600)
+    who = client.username or client.display_name or client.igsid
+    notify_manager(
+        f"📏 IG: клієнт {who} просить розмір {size}, якого немає в наявності.\n"
+        f"Товар: {product.get('title') or product.get('id')}"
+        f"{f' (фасон {fit})' if fit != '-' else ''}.\n"
+        f"Доступні: {', '.join((state.get('size') or {}).get('available') or []) or '—'}.\n"
+        "Бот сказав клієнту, що ви уточните можливість і повернетесь з відповіддю."
+    )
+    log("info", "size_gap", f"{client.igsid}: {product.get('id')} {fit} {size}")
+    return True
+
+
+def customer_turn_note(client, text: str) -> str:
+    """Факти саме про це повідомлення клієнта — насамперед посилання на товар.
+
+    Клієнт #5 надіслав `https://twocomms.shop/product/classic-tshirt/` зі словами
+    «Вот я за этот вариант», а бот далі говорив про попередній товар: URL не
+    читався ніде. Це найточніше можливе висловлення вибору, і воно просто
+    втрачалось.
+    """
+    if not str(text or "").strip():
+        return ""
+    try:
+        from management.services.ig_checkout_readiness import product_reference_from_text
+
+        reference = product_reference_from_text(text)
+    except Exception as exc:  # noqa: BLE001
+        log("warning", "turn_note", repr(exc))
+        return ""
+
+    lines: list[str] = []
+    if reference.get("found"):
+        current_id = int(getattr(client, "current_product_id", 0) or 0) if client is not None else 0
+        lines.append(
+            f"клієнт надіслав посилання на наш товар: {reference.get('title')} "
+            f"(id={reference.get('product_id')})"
+        )
+        if current_id and current_id != int(reference.get("product_id") or 0):
+            lines.append(
+                f"це ІНШИЙ товар, ніж закріплений раніше (id={current_id}). Якщо клієнт "
+                "обирає саме його — підтвердь зміну своїми словами й постав "
+                f"[PRODUCT:{reference.get('product_id')}]; попередній товар більше не "
+                "обговорюй, поки клієнт сам про нього не спитає."
+            )
+        else:
+            lines.append(
+                f"якщо це його вибір — постав [PRODUCT:{reference.get('product_id')}]."
+            )
+    elif reference.get("reason") == "multiple_products":
+        titles = ", ".join(
+            f"{item.get('title')} (id={item.get('product_id')})"
+            for item in reference.get("candidates") or []
+        )
+        lines.append(
+            f"клієнт надіслав посилання на кілька товарів: {titles}. Спитай, який із них "
+            "потрібен, і поки не став [PRODUCT]."
+        )
+    elif reference.get("reason") == "unpublished_or_unknown":
+        lines.append(
+            "клієнт надіслав посилання на наш сайт, але такого товару зараз немає в "
+            "публікації. Скажи це чесно, не вигадуй наявність, і запропонуй разом "
+            "підібрати схоже з каталогу."
+        )
+    if not lines:
+        return ""
+    return "[ПРО ЦЕ ПОВІДОМЛЕННЯ — службове]\n" + "\n".join(lines)
+
+
 def client_state_note(client) -> str:
     """Состояние диалога и записанные сигналы — фактами, а не догадкой.
 
@@ -4487,10 +4731,8 @@ def client_state_note(client) -> str:
 
     from management.ig_bot_models import IgConversationSignal
 
-    lines = [
-        f"стадія: {client.stage}",
-        f"мова діалогу: {client.language or 'uk'}",
-    ]
+    lines = [f"стадія: {client.stage}"]
+    lines.extend(_language_state_lines(client))
     if client.current_size:
         lines.append(f"обраний розмір: {client.current_size}")
     if int(getattr(client, "purchases_count", 0) or 0) > 0:
@@ -5928,6 +6170,9 @@ def _process_one_inside_reply_boundary(
                 s, history, images=images or None, match_hint=match_hint,
                 memory_note=mem_note, context_note=ctx_note, client=row.client if row.client_id else None,
                 media_hint=_media_context_hint(media),
+                turn_note=customer_turn_note(
+                    row.client if row.client_id else None, row.text
+                ),
             )
     else:
         if (row.text or "").strip() != s.trigger_text:
@@ -5952,17 +6197,33 @@ def _process_one_inside_reply_boundary(
 
     # Закріплюємо товар, якщо модель явно вказала [PRODUCT:id] — щоб подальша
     # оплата формувалась детерміновано саме на нього.
-    if (
-        reply
-        and row.client_id
-        and _control_product_id(control)
-        and (
-            _PURCHASE_COMMITMENT_RE.search(reply)
-            or str(getattr(row.client, "intent", "") or "").casefold() in {"payment", "checkout"}
-            or str(getattr(row.client, "stage", "") or "").casefold() in {"checkout", "payment_pending"}
-        )
-    ):
+    # Тег [PRODUCT:id] — це твердження моделі про те, який товар зараз
+    # обговорюється, і воно достатнє саме по собі. Раніше пін вимагав ще й
+    # «слова про покупку» або відповідної стадії, тому в переписці, де клієнт
+    # передумав і назвав інший товар, `current_product_id` лишався старим —
+    # звідси «не змінював товар назад». Опублікованість товару перевіряє
+    # `bot_orders.pin_product`, тому вигаданий id тут не закріпиться.
+    if reply and row.client_id and _control_product_id(control):
         _pin_control_product(row.client, _control_product_id(control))
+
+    # Фіксуємо все, що модель дізналась цим ходом ([FIT:...], [SIZE:...],
+    # [QTY:...]), навіть якщо посилання ще не створюється. Інакше уточнення
+    # фасону губилось, і наступного ходу його знову бракувало — це і був
+    # механізм нескінченного «підкажіть фасон».
+    if reply and row.client_id:
+        try:
+            saved = persist_control_selection(row.client, control)
+            if saved:
+                log("info", "selection_saved", f"{row.sender_id}: {', '.join(saved)}")
+        except Exception as exc:
+            log("warning", "selection_saved", repr(exc))
+        # Якщо потрібного розміру немає, бот каже клієнту, що уточнить у менеджера.
+        # Значить менеджер мусить справді про це дізнатись — інакше обіцянка
+        # порожня, а клієнт чекає відповіді, якої ніхто не готує.
+        try:
+            notify_size_gap(row.client)
+        except Exception as exc:
+            log("warning", "size_gap_notify", repr(exc))
 
     # [SPAM] — модель розпізнала спам/провокацію: рахуємо страйк (на 3-й — пауза).
     if reply and row.client_id and control.get("spam"):

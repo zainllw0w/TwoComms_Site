@@ -82,10 +82,24 @@ class InstagramCheckoutConfigurationTests(TestCase):
         self.assertEqual(ctx.exception.missing_fields, {"size", "fit", "color"})
 
     def test_single_sellable_color_variant_is_selected_without_prompt(self):
+        """Один продаваний варіант обирається без питання клієнту.
+
+        Критерій продаваності — правила вітрини (`variant_allows_purchase`), а не
+        числовий `stock`. На проді `stock > 0` лише в 1 варіанта з 81, тоді як
+        сайт продає всі опубліковані товари: речі відшиваються під замовлення.
+        Раніше цей тест вимикав варіант через `stock = 0`, тобто закріплював
+        трактування нуля як «немає» — саме воно давало клієнту «Выбранный
+        вариант сейчас недоступен» на кожен товар.
+        """
+        from fable5.models import VariantSizeRule
         from management.services.ig_checkout import validate_checkout_items
 
-        self.black.stock = 0
-        self.black.save(update_fields=["stock"])
+        VariantSizeRule.objects.create(
+            variant=self.black,
+            fit_code="classic",
+            size="M",
+            is_enabled=False,
+        )
         quote = validate_checkout_items(
             client=self.client,
             item_specs=[{
@@ -99,13 +113,39 @@ class InstagramCheckoutConfigurationTests(TestCase):
 
         self.assertEqual(quote.items[0].color_variant.pk, self.blue.pk)
 
+    def test_zero_stock_variant_stays_sellable_like_on_the_website(self):
+        """Нульовий `stock` не робить варіант недоступним.
+
+        Це паритет із вітриною: ні кошик storefront, ні `variant_allows_purchase`
+        це поле не читають, а каталог бота прямо пише «під замовлення». Єдиним
+        місцем, де нуль означав заборону, був IG-чекаут.
+        """
+        from management.services.ig_checkout import validate_checkout_items
+
+        ProductColorVariant.objects.filter(product=self.shirt).update(stock=0)
+        quote = validate_checkout_items(
+            client=self.client,
+            item_specs=[self._valid_item()],
+            evidence={},
+        )
+
+        self.assertEqual(quote.items[0].color_variant.pk, self.blue.pk)
+
     def test_no_sellable_color_variant_fails_closed_without_prompting(self):
+        """Якщо жоден варіант не продається за правилами — відмова, не вгадування."""
+        from fable5.models import VariantSizeRule
         from management.services.ig_checkout import (
             CheckoutConfigurationError,
             validate_checkout_items,
         )
 
-        ProductColorVariant.objects.filter(product=self.shirt).update(stock=0)
+        for variant in ProductColorVariant.objects.filter(product=self.shirt):
+            VariantSizeRule.objects.create(
+                variant=variant,
+                fit_code="classic",
+                size="M",
+                is_enabled=False,
+            )
         with self.assertRaises(CheckoutConfigurationError) as ctx:
             validate_checkout_items(
                 client=self.client,
@@ -118,7 +158,7 @@ class InstagramCheckoutConfigurationTests(TestCase):
                 evidence={},
             )
 
-        self.assertEqual(ctx.exception.code, "insufficient_stock")
+        self.assertEqual(ctx.exception.code, "unavailable_selection")
 
     def test_fit_specific_grid_accepts_size_outside_generic_grid(self):
         from management.services.ig_checkout import validate_checkout_items

@@ -4030,7 +4030,8 @@ def bot_client_detail_api(request, client_id):
         attribution_rows,
         limit=20,
     )
-    from .ig_bot_models import IgOrderAssignment, IgOrderAssignmentEvent
+    from .ig_bot_models import IgOrderAssignment, IgOrderAssignmentEvent, IgUgcReward
+    from management.services.ig_ugc_rewards import reward_payload
 
     assignment_rows = list(
         IgOrderAssignment.objects.filter(
@@ -4055,6 +4056,11 @@ def bot_client_detail_api(request, client_id):
         _assignment_event_workspace_payload(row)
         for row in assignment_event_rows
     ]
+    ugc_reward_rows = list(
+        IgUgcReward.objects.filter(client=c)
+        .select_related("order", "assignment", "promo_code", "reviewed_by")
+        .order_by("-reviewed_at", "-id")[:20]
+    )
     manual_order_url = _manual_order_url_for_client(c.pk)
     card = _client_card(c)
     card.update({
@@ -4215,6 +4221,10 @@ def bot_client_detail_api(request, client_id):
             "manual_order_url": manual_order_url,
             "queue_url": _orders_workspace_url(view="all", client_id=c.pk),
         },
+        "ugc_rewards": {
+            "items": [reward_payload(row) for row in ugc_reward_rows],
+            "award_url": reverse("management_bot_client_ugc_reward_api", args=[c.pk]),
+        },
         "post_sale": _post_sale_workspace_payload(c),
         "patterns": {
             "source": "episode_message_roles",
@@ -4225,6 +4235,51 @@ def bot_client_detail_api(request, client_id):
             "groups": signals,
             "bounded": True,
         },
+})
+
+
+@login_required(login_url="management_login")
+@require_POST
+def bot_client_ugc_reward_api(request, client_id):
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+
+    from .models import IgClient
+    from management.services.ig_ugc_rewards import (
+        UgcRewardConflict,
+        award_ugc_reward,
+        reward_payload,
+    )
+    from orders.models import Order
+
+    client = IgClient.objects.filter(pk=client_id).first()
+    if client is None:
+        return JsonResponse({"success": False, "error": "Клієнта не знайдено."}, status=404)
+    try:
+        order_id = int(request.POST.get("order_id") or 0)
+    except (TypeError, ValueError):
+        order_id = 0
+    order = Order.objects.filter(pk=order_id).first()
+    if order is None:
+        return JsonResponse({"success": False, "error": "Замовлення не знайдено."}, status=404)
+
+    try:
+        reward, created = award_ugc_reward(
+            client=client,
+            order=order,
+            actor=request.user,
+            evidence_message_id=request.POST.get("evidence_message_id"),
+            evidence_url=request.POST.get("evidence_url", ""),
+            review_note=request.POST.get("review_note", ""),
+        )
+    except UgcRewardConflict as exc:
+        return JsonResponse({"success": False, "error": str(exc)}, status=400)
+
+    return JsonResponse({
+        "success": True,
+        "created": created,
+        "reward": reward_payload(reward),
     })
 
 

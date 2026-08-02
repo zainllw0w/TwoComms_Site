@@ -293,7 +293,8 @@ class FinalizePaylinkTests(TestCase):
         self.assertIn("Перевірте товари", out)
         self.assertIn("25 хвилин", out)
         self.assertIn("email", out.lower())
-        self.assertNotIn("monobank", out.lower())
+        self.assertIn("monobank", out.lower())
+        self.assertIn("скрин", out.lower())
         self.assertNotIn("посилання на оплату", out.lower())
 
     @patch("management.services.instagram_bot.notify_manager")
@@ -347,19 +348,32 @@ class FinalizePaylinkTests(TestCase):
 
     @patch("management.services.instagram_bot.notify_manager")
     @patch("management.services.bot_orders.create_checkout_proposal_link")
-    def test_missing_fit_returns_a_question_without_manager_handoff(self, mock_link, mock_notify):
-        mock_link.return_value = {"ok": False, "error": "missing_fit_option"}
+    def test_missing_fit_keeps_the_model_reply_and_skips_manager_handoff(
+        self, mock_link, mock_notify
+    ):
+        """Брак фасону — це хід діалогу, а не інцидент, і текст лишається за моделлю.
+
+        Раніше тут перевірялось, що функція **сама** напише клієнту питання про
+        фасон із таблиці копій. Саме це й спричинило прод-інцидент 02.08: питання
+        приходило дослівно однаковим, російською українцеві, і на пряме «Чому ти
+        відповідаєш російською?» приходило ще раз. Модель тепер дізнається про
+        брак фасону з блоку [СТАН ОФОРМЛЕННЯ] **до** генерації — це перевіряється
+        в `CheckoutReadinessNoteTests`.
+        """
+        mock_link.return_value = {
+            "ok": False,
+            "error": "missing_configuration",
+            "missing_fields": ["fit"],
+        }
 
         out = bot.finalize_paylink(
-            "Оформлюю замовлення.",
+            "Оформлюю замовлення. Підкажіть, будь ласка, який крій вам ближче?",
             {"paylink": "full", "product": 1},
             self.c,
             self.c.igsid,
         )
 
-        self.assertIn("фасон", out.lower())
-        self.assertIn("класич", out.lower())
-        self.assertIn("оверсайз", out.lower())
+        self.assertIn("який крій вам ближче", out)
         mock_notify.assert_not_called()
         self.c.refresh_from_db()
         self.assertEqual(self.c.stage, IgClient.Stage.CHECKOUT)
@@ -422,25 +436,34 @@ class FinalizePaylinkTests(TestCase):
         ])
 
         out = bot.finalize_paylink(
-            "Ось ваше персональне посилання для оформлення та оплати:",
+            "Ось ваше персональне посилання для оформлення та оплати: "
+            "спершу підберемо крій, щоб розмір точно сів.",
             {},
             self.c,
             self.c.igsid,
             trigger_text="Дай посилання",
         )
 
-        self.assertIn("фасон", out.lower())
-        self.assertIn("класс", out.lower())
-        self.assertIn("оверсайз", out.lower())
+        # Обіцянка посилання прибрана — клієнт не лишається чекати те, чого немає.
         self.assertNotIn("посилання", out.lower())
+        # Але корисний текст моделі лишився: функція його не переписує.
+        self.assertIn("підберемо крій", out)
         self.assertFalse(IgCheckoutProposal.objects.filter(client=self.c).exists())
         mock_notify.assert_not_called()
 
     @patch("management.services.instagram_bot.notify_manager")
     @patch("management.services.bot_orders.create_checkout_proposal_link")
-    def test_explicit_fit_answer_continues_pending_checkout_without_model_tags(
+    def test_model_fit_tag_continues_pending_checkout(
         self, mock_link, mock_notify
     ):
+        """Фасон береться з тегу моделі, а не зі згадки слова в тексті клієнта.
+
+        Різниця не косметична. Питання «Покажи на оверсайз розмірну сітку»
+        містить слово «оверсайз», і колишня логіка трактувала його як вибір
+        фасону: інформаційний хід молча переписував платіжний вибір і одразу
+        намагався виставити рахунок. На проді 02.08 саме на цьому питанні клієнт
+        отримав відмову по наявності замість розмірної сітки.
+        """
         from storefront.models import ProductFitOption
 
         product = _pub_product("Худі для продовження", "fit-continuation")
@@ -461,8 +484,8 @@ class FinalizePaylinkTests(TestCase):
         mock_link.return_value = {"ok": True, "invoice_url": offer_url}
 
         out = bot.finalize_paylink(
-            "Дякую, зафіксувала вибір.",
-            {},
+            "Дякую, зафіксувала вибір. Ось посилання на оформлення:",
+            {"paylink": "full", "fit": "classic"},
             self.c,
             self.c.igsid,
             trigger_text="Класичний",
@@ -508,8 +531,8 @@ class FinalizePaylinkTests(TestCase):
         mock_link.return_value = {"ok": True, "invoice_url": offer_url}
 
         out = bot.finalize_paylink(
-            "Чудово, колір зафіксовано.",
-            {},
+            "Чудово, колір зафіксовано. Ось посилання на оформлення:",
+            {"paylink": "full"},
             self.c,
             self.c.igsid,
             trigger_text="Рожевий",
@@ -565,8 +588,8 @@ class FinalizePaylinkTests(TestCase):
         mock_link.return_value = {"ok": True, "invoice_url": offer_url}
 
         out = bot.finalize_paylink(
-            "Отлично, цвет записала.",
-            {},
+            "Отлично, цвет записала. Вот ссылка на оформление:",
+            {"paylink": "full"},
             self.c,
             self.c.igsid,
             trigger_text="Розовый",
@@ -641,9 +664,16 @@ class FinalizePaylinkTests(TestCase):
         self.assertIsNone(resolved)
 
     @patch("management.services.instagram_bot.notify_manager")
-    def test_unavailable_color_answer_reports_stock_instead_of_dropping_checkout(
+    def test_zero_stock_color_still_reaches_checkout_like_on_the_website(
         self, mock_notify
     ):
+        """Нульовий `stock` не є відмовою: товар відшивається під замовлення.
+
+        Раніше тест закріплював протилежне — що бот скаже «недоступно». На проді
+        `stock > 0` лише в 1 варіанта з 81, тому це «недоступно» приходило
+        практично на кожен товар, включно з тим, посилання на який клієнт сам
+        щойно надіслав.
+        """
         from productcolors.models import Color, ProductColorVariant
         from storefront.models import ProductFitOption
 
@@ -672,15 +702,15 @@ class FinalizePaylinkTests(TestCase):
         ])
 
         out = bot.finalize_paylink(
-            "Отлично, цвет записала.",
-            {},
+            "Отлично, цвет записала. Вот ссылка на оформление:",
+            {"paylink": "full"},
             self.c,
             self.c.igsid,
             trigger_text="Розовый",
         )
 
-        self.assertIn("недоступ", out.lower())
-        self.assertFalse(IgCheckoutProposal.objects.filter(client=self.c).exists())
+        self.assertIn("/offer/", out)
+        self.assertTrue(IgCheckoutProposal.objects.filter(client=self.c).exists())
         mock_notify.assert_not_called()
 
     @patch("management.services.instagram_bot._conversation_payment_amount")
@@ -699,25 +729,30 @@ class FinalizePaylinkTests(TestCase):
         ])
         mock_payment_amount.return_value = Decimal("350.00")
         mock_link.side_effect = [
-            {"ok": False, "error": "missing_fit_option"},
+            {
+                "ok": False,
+                "error": "missing_configuration",
+                "missing_fields": ["fit"],
+            },
             {"ok": True, "invoice_url": "https://twocomms.shop/offer/a/prepay-fit/"},
         ]
 
         first = bot.finalize_paylink(
-            "Формирую ссылку на предоплату.",
+            "Формирую ссылку на предоплату. Уточните крой, пожалуйста.",
             {"paylink": "prepay", "product": product.pk},
             self.c,
             self.c.igsid,
         )
         second = bot.finalize_paylink(
-            "Спасибо, фасон зафиксирован.",
-            {},
+            "Спасибо, фасон зафиксирован. Вот ссылка на предоплату:",
+            {"paylink": "prepay", "fit": "classic"},
             self.c,
             self.c.igsid,
             trigger_text="Классический",
         )
 
-        self.assertIn("фасон", first.lower())
+        # Текст лишається за моделлю: питання про крій дійшло як вона його написала.
+        self.assertIn("Уточните крой", first)
         self.assertIn("/offer/a/prepay-fit/", second)
         self.assertEqual(mock_link.call_args_list[1].kwargs["pay_type"], "prepay")
         self.assertEqual(
@@ -727,17 +762,22 @@ class FinalizePaylinkTests(TestCase):
         mock_notify.assert_not_called()
 
     @patch("management.services.instagram_bot.notify_manager")
-    def test_insufficient_stock_names_real_published_in_stock_alternative(self, mock_notify):
+    def test_real_shortfall_keeps_model_reply_and_does_not_call_manager(self, mock_notify):
+        """Справжня недостача (облік ведеться, а кількості не вистачає).
+
+        Замінює два тести, які перевіряли, що функція **сама** напише «варіант
+        недоступний» і **сама** перелічить альтернативи з каталогу. Обидва
+        механізми прибрані: підбір альтернатив — робота моделі, у якої каталог уже
+        є в промпті, а формулювання відмови — теж її робота, бо інакше клієнт
+        отримує однакову фразу чужою мовою.
+        """
         from productcolors.models import Color, ProductColorVariant
 
-        requested = _pub_product("Худі без залишку", "oos-requested")
-        alternative = _pub_product("Худі Available Alternative", "oos-alternative")
+        requested = _pub_product("Худі з обліком залишку", "oos-requested")
         pink = Color.objects.create(name="Рожевий", primary_hex="#ff88aa")
-        black = Color.objects.create(name="Чорний", primary_hex="#111111")
-        unavailable_variant = ProductColorVariant.objects.create(
-            product=requested, color=pink, stock=0,
+        tracked_variant = ProductColorVariant.objects.create(
+            product=requested, color=pink, stock=1,
         )
-        ProductColorVariant.objects.create(product=alternative, color=black, stock=4)
         self.c.current_product = requested
         self.c.current_size = "S"
         self.c.language = "ru"
@@ -747,57 +787,21 @@ class FinalizePaylinkTests(TestCase):
         ])
 
         out = bot.finalize_paylink(
-            "Формирую персональное предложение.",
+            "Формирую персональное предложение. Проверю наличие и вернусь.",
             {
                 "paylink": "full",
                 "product": requested.pk,
-                "qty": "1",
+                "qty": "3",
                 "size": "S",
-                "variant": str(unavailable_variant.pk),
+                "variant": str(tracked_variant.pk),
             },
             self.c,
             self.c.igsid,
         )
 
-        self.assertIn("недоступ", out.lower())
-        self.assertIn(alternative.title, out)
+        self.assertIn("Проверю наличие", out)
         self.assertFalse(IgCheckoutProposal.objects.filter(client=self.c).exists())
         mock_notify.assert_not_called()
-
-    def test_alternatives_exclude_variants_incompatible_with_requested_fit(self):
-        from fable5.models import VariantFitRule
-        from productcolors.models import Color, ProductColorVariant
-        from storefront.models import ProductFitOption
-
-        requested = _pub_product("Худі без залишку 2", "oos-requested-fit")
-        incompatible = _pub_product("Худі тільки оверсайз", "oos-incompatible-fit")
-        ProductFitOption.objects.create(
-            product=incompatible,
-            code="classic",
-            label="Класичний",
-            is_active=True,
-        )
-        black = Color.objects.create(name="Чорний", primary_hex="#151515")
-        variant = ProductColorVariant.objects.create(
-            product=incompatible, color=black, stock=4, slug="black",
-        )
-        VariantFitRule.objects.create(
-            variant=variant,
-            fit_code="classic",
-            is_enabled=False,
-        )
-
-        labels = bot._checkout_alternative_labels(
-            [{
-                "product_id": requested.pk,
-                "qty": 1,
-                "size": "S",
-                "fit_option_code": "classic",
-            }],
-            {"item_index": 0},
-        )
-
-        self.assertNotIn(incompatible.title, labels)
 
     @patch("management.services.instagram_bot.notify_manager")
     @patch("management.services.bot_orders.create_checkout_proposal_link")
