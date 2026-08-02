@@ -740,6 +740,25 @@ class VariantBlankLink(models.Model):
         return f"v{self.variant_id}:{self.option_key}:blank{self.storage_subcategory_id}"
 
 
+class ProductInventoryPolicy(models.Model):
+    class Source(models.TextChoices):
+        WAREHOUSE = "warehouse", "Склад"
+        CATALOG_VARIANT = "catalog_variant", "Залишок варіанта каталогу"
+        UNTRACKED = "untracked", "Не відстежується"
+
+    product = models.OneToOneField(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="fable5_inventory_policy",
+        db_constraint=False,
+    )
+    source = models.CharField(max_length=24, choices=Source.choices)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"p{self.product_id}:{self.source}"
+
+
 class ProductSizeRule(models.Model):
     product = models.ForeignKey(
         Product,

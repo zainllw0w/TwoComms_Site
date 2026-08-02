@@ -1245,6 +1245,168 @@ class Product(models.Model):
         ]
 
 
+class ProductSalesSemanticProfile(models.Model):
+    product = models.OneToOneField(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="sales_semantic_profile",
+        db_constraint=False,
+    )
+    effective_revision = models.OneToOneField(
+        "storefront.ProductSalesSemanticProfileRevision",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="effective_for_profile",
+        db_constraint=False,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"p{self.product_id}:sales-semantics"
+
+
+class _AppendOnlySemanticRevisionQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValueError("Product sales semantic revisions are append-only")
+
+    def delete(self):
+        raise ValueError("Product sales semantic revisions are append-only")
+
+    def bulk_create(self, objs, **kwargs):
+        objs = list(objs)
+        for obj in objs:
+            obj.full_clean()
+            if obj.status != ProductSalesSemanticProfileRevision.Status.DRAFT:
+                raise ValueError(
+                    "Verified and revoked revisions require the transactional semantic "
+                    "revision service"
+                )
+        return super().bulk_create(objs, **kwargs)
+
+
+class ProductSalesSemanticProfileRevision(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        VERIFIED = "verified", "Verified"
+        REVOKED = "revoked", "Revoked"
+
+    class Source(models.TextChoices):
+        MANAGER = "manager", "Manager"
+        STRUCTURED_CATALOG = "structured_catalog", "Structured catalog"
+        STRUCTURED_PRINT_LINK = "structured_print_link", "Structured print link"
+        MIGRATION = "migration", "Migration"
+        BOT_VISION = "bot_vision", "Bot vision suggestion"
+        FREE_TEXT = "free_text", "Free text suggestion"
+        GENERATED_DESCRIPTION = "generated_description", "Generated description suggestion"
+
+    profile = models.ForeignKey(
+        ProductSalesSemanticProfile,
+        on_delete=models.PROTECT,
+        related_name="revisions",
+    )
+    supersedes = models.OneToOneField(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="superseded_by_revision",
+    )
+    revision = models.PositiveIntegerField(default=1)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
+    schema_version = models.PositiveIntegerField(default=1)
+    aliases = models.JSONField(default=dict, blank=True)
+    traits = models.JSONField(default=dict, blank=True)
+    source = models.CharField(max_length=32, choices=Source.choices)
+    verified_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="verified_product_sales_semantic_revisions",
+        db_constraint=False,
+    )
+    verified_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    objects = models.Manager.from_queryset(_AppendOnlySemanticRevisionQuerySet)()
+
+    class Meta:
+        ordering = ("profile_id", "revision")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("profile", "revision"),
+                name="product_semantic_revision_once",
+            )
+        ]
+
+    def clean(self):
+        super().clean()
+        from storefront.services.product_sales_semantics import validate_semantic_revision
+
+        normalized = validate_semantic_revision(
+            status=self.status,
+            source=self.source,
+            aliases=self.aliases,
+            traits=self.traits,
+            verified_by=self.verified_by,
+            verified_at=self.verified_at,
+        )
+        self.aliases = normalized["aliases"]
+        self.traits = normalized["traits"]
+
+        if self.status == self.Status.DRAFT and self.supersedes_id:
+            raise ValidationError({"supersedes": "Draft revisions cannot supersede commerce truth."})
+        if self.status == self.Status.REVOKED and not self.supersedes_id:
+            raise ValidationError({"supersedes": "A revocation must target an effective revision."})
+        if self.supersedes_id:
+            target_profile_id = type(self).objects.filter(
+                pk=self.supersedes_id
+            ).values_list("profile_id", flat=True).first()
+            if target_profile_id is not None and target_profile_id != self.profile_id:
+                raise ValidationError({"supersedes": "A revision cannot supersede another profile."})
+
+    def _validate_effective_transition(self, locked_profile):
+        current_id = locked_profile.effective_revision_id
+        if self.status == self.Status.DRAFT:
+            return
+        if self.status == self.Status.VERIFIED:
+            if self.supersedes_id != current_id:
+                raise ValidationError({
+                    "supersedes": "A verified revision must supersede the current effective revision."
+                })
+            return
+        if self.status == self.Status.REVOKED:
+            if current_id is None or self.supersedes_id != current_id:
+                raise ValidationError({
+                    "supersedes": "A revocation must target the current effective revision."
+                })
+
+    def save(self, *args, **kwargs):
+        if self.pk and type(self).objects.filter(pk=self.pk).exists():
+            raise ValidationError("Product sales semantic revisions are append-only")
+        self.full_clean()
+        with transaction.atomic():
+            locked_profile = ProductSalesSemanticProfile.objects.select_for_update().get(
+                pk=self.profile_id
+            )
+            self._validate_effective_transition(locked_profile)
+            result = super().save(*args, **kwargs)
+            if self.status == self.Status.VERIFIED:
+                locked_profile.effective_revision_id = self.pk
+                locked_profile.save(update_fields=("effective_revision",))
+            elif self.status == self.Status.REVOKED:
+                locked_profile.effective_revision_id = None
+                locked_profile.save(update_fields=("effective_revision",))
+            return result
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("Product sales semantic revisions are append-only")
+
+    def __str__(self):
+        return f"{self.profile}:r{self.revision}:{self.status}"
+
+
 class ProductFitOption(models.Model):
     """Editable fit/cut option shown on product detail pages for supported apparel."""
 
