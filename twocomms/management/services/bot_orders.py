@@ -265,9 +265,23 @@ def pin_product(client, product_id) -> bool:
             client.current_product_confidence = 1
             client.save(update_fields=["current_product_confidence", "updated_at"])
         return True
+    sales_context = dict(getattr(client, "sales_context", {}) or {})
+    sales_context.pop("assisted_checkout_selection", None)
     client.current_product = p
     client.current_product_confidence = 1
-    client.save(update_fields=["current_product", "current_product_confidence", "updated_at"])
+    client.current_size = ""
+    client.current_color = ""
+    client.current_qty = 1
+    client.sales_context = sales_context
+    client.save(update_fields=[
+        "current_product",
+        "current_product_confidence",
+        "current_size",
+        "current_color",
+        "current_qty",
+        "sales_context",
+        "updated_at",
+    ])
     return True
 
 
@@ -1329,7 +1343,12 @@ def create_checkout_proposal_link(
             kind=IgCheckoutAccessToken.Kind.BOT,
         )
     except CheckoutConfigurationError as exc:
-        return {"ok": False, "error": exc.code}
+        return {
+            "ok": False,
+            "error": exc.code,
+            "missing_fields": sorted(exc.missing_fields),
+            "item_index": exc.item_index,
+        }
     except Exception as exc:
         logger.exception("Failed to create Instagram checkout proposal link", exc_info=True)
         return {"ok": False, "error": str(exc)[:180] or "proposal_error"}

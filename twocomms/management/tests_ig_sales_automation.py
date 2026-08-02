@@ -26,6 +26,78 @@ KYIV = ZoneInfo("Europe/Kyiv")
 
 
 class SalesClassifierTests(TestCase):
+    def test_explicit_purchase_decision_sets_payment_intent(self):
+        from management.models import IgConversationSignal
+        from management.services import bot_sales_classifier
+
+        client = IgClient.get_or_create_for_sender("sales_cls_purchase_decision")
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="Беру, давайте оформляти",
+        )
+
+        bot_sales_classifier.classify_message(client, message=message)
+
+        client.refresh_from_db()
+        self.assertEqual(client.intent, IgClient.Intent.PAYMENT)
+        self.assertTrue(
+            IgConversationSignal.objects.filter(
+                client=client,
+                message=message,
+                signal_type=IgConversationSignal.Type.CHECKOUT_STARTED,
+            ).exists()
+        )
+
+    def test_deferred_purchase_phrase_does_not_start_checkout(self):
+        from management.models import IgConversationSignal
+        from management.services import bot_sales_classifier
+
+        client = IgClient.get_or_create_for_sender("sales_cls_deferred_decision")
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="Давайте позже",
+        )
+
+        bot_sales_classifier.classify_message(client, message=message)
+
+        client.refresh_from_db()
+        self.assertNotEqual(client.intent, IgClient.Intent.PAYMENT)
+        self.assertFalse(
+            IgConversationSignal.objects.filter(
+                client=client,
+                message=message,
+                signal_type=IgConversationSignal.Type.CHECKOUT_STARTED,
+            ).exists()
+        )
+
+    def test_payment_link_refusal_does_not_start_checkout(self):
+        from management.models import IgConversationSignal
+        from management.services import bot_sales_classifier
+
+        client = IgClient.get_or_create_for_sender("sales_cls_link_refusal")
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="Ссылка на оплату не нужна",
+        )
+
+        bot_sales_classifier.classify_message(client, message=message)
+
+        client.refresh_from_db()
+        self.assertNotEqual(client.intent, IgClient.Intent.PAYMENT)
+        self.assertFalse(
+            IgConversationSignal.objects.filter(
+                client=client,
+                message=message,
+                signal_type=IgConversationSignal.Type.CHECKOUT_STARTED,
+            ).exists()
+        )
+
     def test_detects_language_intent_objection_and_custom_print(self):
         from management.models import IgConversationSignal
         from management.services import bot_sales_classifier

@@ -282,6 +282,55 @@ PAYLINK_PHRASES = (
     "preparing your personal offer",
 )
 
+_PAYLINK_REFERENCE_RE = re.compile(
+    r"\b(?:посилання|лінк\w*|ссылк\w*|link)\b",
+    re.IGNORECASE,
+)
+_PAYLINK_REFUSAL_RE = re.compile(
+    r"(?:\b(?:посилання|лінк\w*|ссылк\w*|link)\b.{0,24}"
+    r"\bне\s+(?:нужн\w*|потрібн\w*|треба|надо)\b|"
+    r"\bне\s+(?:нужн\w*|потрібн\w*|треба|надо|хочу|буду)\b.{0,24}"
+    r"\b(?:посилання|лінк\w*|ссылк\w*|link)\b|"
+    r"\bне\s+(?:присыл\w*|надсила\w*|відправля\w*|отправля\w*)\b.{0,24}"
+    r"\b(?:посилання|лінк\w*|ссылк\w*|link)\b|"
+    r"\b(?:do\s+not|don't|dont)\s+(?:need|want|send)\b.{0,24}\blink\b|"
+    r"\bno\s+(?:payment\s+)?link\b)",
+    re.IGNORECASE,
+)
+_PAYLINK_ACTION_RE = re.compile(
+    r"\b(?:ось|вот|трим\w*|держ\w*|дай\w*|дайте|скин\w*|надішл\w*|"
+    r"пришл\w*|send|share|form\w*|с?форм\w*|персональн\w*|personal)\b",
+    re.IGNORECASE,
+)
+_PAYLINK_CONTEXT_RE = re.compile(
+    r"\b(?:оплат\w*|передоплат\w*|предоплат\w*|оформл\w*|замовл\w*|заказ\w*|"
+    r"checkout|payment|offer)\b",
+    re.IGNORECASE,
+)
+_CLASSIC_FIT_RE = re.compile(r"\b(?:classic|класичн\w*|классич\w*)\b", re.IGNORECASE)
+_OVERSIZE_FIT_RE = re.compile(r"\b(?:oversi[sz]e|оверсайз\w*)\b", re.IGNORECASE)
+_CHECKOUT_SELECTION_CONTEXT_KEY = "assisted_checkout_selection"
+_CHECKOUT_COLOR_PATTERNS = {
+    "black": re.compile(r"(?<!\w)(?:black|чорн\w*|черн\w*)(?!\w)", re.IGNORECASE),
+    "white": re.compile(
+        r"(?<!\w)(?:white|біл(?:ий|а|е|і|ого|ій|ому|им|их|у)?|"
+        r"бел(?:ый|ая|ое|ые|ого|ой|ому|ым|ых|ую)?)(?!\w)",
+        re.IGNORECASE,
+    ),
+    "pink": re.compile(r"(?<!\w)(?:pink|рожев\w*|розов\w*)(?!\w)", re.IGNORECASE),
+    "olive": re.compile(r"(?<!\w)(?:olive|олив\w*)(?!\w)", re.IGNORECASE),
+    "khaki": re.compile(r"(?<!\w)(?:khaki|хакі|хаки)(?!\w)", re.IGNORECASE),
+    "gray": re.compile(
+        r"(?<!\w)(?:gray|grey|сір\w*|"
+        r"сер(?:ый|ая|ое|ые|ого|ой|ому|ым|ых|ую)?)(?!\w)",
+        re.IGNORECASE,
+    ),
+}
+_CHECKOUT_COLOR_NEGATION_PREFIX_RE = re.compile(
+    r"(?:^|\b)(?:не(?:\s+\w+){0,2}|без|кроме|окрім|not|without|except)\s+$",
+    re.IGNORECASE,
+)
+
 _PURCHASE_COMMITMENT_RE = re.compile(
     r"\b(хочу|беру|забираю|оформл\w*|замовл\w*|заказ\w*|купл\w*|куп\w*|"
     r"давайте|підтверджую|подтверждаю)\b",
@@ -413,13 +462,108 @@ def _conversation_payment_amount(client, control: dict) -> Decimal | None:
         return None
 
 
-def _wants_paylink(reply: str, control: dict) -> tuple[bool, str]:
+def _looks_like_paylink_request(text: str) -> bool:
+    normalized = " ".join(str(text or "").split()).casefold()
+    if not normalized:
+        return False
+    if _PAYLINK_REFERENCE_RE.search(normalized) and _PAYLINK_REFUSAL_RE.search(normalized):
+        return False
+    if any(phrase in normalized for phrase in PAYLINK_PHRASES):
+        return True
+    return bool(
+        _PAYLINK_REFERENCE_RE.search(normalized)
+        and (
+            _PAYLINK_ACTION_RE.search(normalized)
+            or _PAYLINK_CONTEXT_RE.search(normalized)
+        )
+    )
+
+
+def _fit_from_customer_text(text: str) -> str:
+    normalized = " ".join(str(text or "").split())
+    classic = bool(_CLASSIC_FIT_RE.search(normalized))
+    oversize = bool(_OVERSIZE_FIT_RE.search(normalized))
+    if classic == oversize:
+        return ""
+    return "classic" if classic else "oversize"
+
+
+def _checkout_selection_state(client, product_id) -> dict:
+    context = getattr(client, "sales_context", {})
+    if not isinstance(context, dict):
+        return {}
+    state = context.get(_CHECKOUT_SELECTION_CONTEXT_KEY)
+    if not isinstance(state, dict):
+        return {}
+    try:
+        state_product_id = int(state.get("product_id") or 0)
+        product_id = int(product_id or 0)
+    except (TypeError, ValueError):
+        return {}
+    return dict(state) if product_id and state_product_id == product_id else {}
+
+
+def _persist_checkout_selection(client, product_id, selection: dict) -> None:
+    if not getattr(client, "pk", None) or not product_id or not selection:
+        return
+    context = dict(getattr(client, "sales_context", {}) or {})
+    value = {
+        "product_id": int(product_id),
+        "fit_option_code": str(selection.get("fit_option_code") or "")[:50],
+    }
+    try:
+        color_variant_id = int(selection.get("color_variant_id") or 0)
+    except (TypeError, ValueError):
+        color_variant_id = 0
+    if color_variant_id > 0:
+        value["color_variant_id"] = color_variant_id
+    pay_type = str(selection.get("pay_type") or "").strip().lower()
+    if pay_type in {"full", "prepay"}:
+        value["pay_type"] = pay_type
+    if context.get(_CHECKOUT_SELECTION_CONTEXT_KEY) == value:
+        return
+    context[_CHECKOUT_SELECTION_CONTEXT_KEY] = value
+    client.sales_context = context
+    client.save(update_fields=["sales_context", "updated_at"])
+
+
+def _is_checkout_selection_reply(
+    client,
+    text: str,
+    *,
+    fit_code: str = "",
+    color_variant_id=None,
+) -> bool:
+    if fit_code or color_variant_id:
+        return True
+    normalized = " ".join(str(text or "").split()).casefold()
+    if not normalized:
+        return False
+    color = str(getattr(client, "current_color", "") or "").strip().casefold()
+    if color and color in normalized:
+        return True
+    size = str(getattr(client, "current_size", "") or "").strip().casefold()
+    return bool(size and re.search(rf"(?<!\w){re.escape(size)}(?!\w)", normalized))
+
+
+def _wants_paylink(
+    reply: str,
+    control: dict,
+    *,
+    trigger_text: str = "",
+) -> tuple[bool, str]:
     """Чи треба сформувати посилання на оплату і який тип (full/prepay).
     Тригер: тег [PAYLINK:x] АБО обіцянка посилання у тексті бота (фолбек, якщо
     модель забула тег). Тип беремо з тегу, інакше визначаємо за словом «передопл»."""
+    if (
+        _PAYLINK_REFERENCE_RE.search(str(trigger_text or ""))
+        and _PAYLINK_REFUSAL_RE.search(str(trigger_text or ""))
+    ):
+        return False, "full"
     val = control.get("paylink")
-    low = (reply or "").lower()
-    if val or any(ph in low for ph in PAYLINK_PHRASES):
+    combined = " ".join(part for part in (str(reply or ""), str(trigger_text or "")) if part)
+    low = combined.casefold()
+    if val or _looks_like_paylink_request(reply) or _looks_like_paylink_request(trigger_text):
         if isinstance(val, str) and val in ("full", "prepay"):
             return True, val
         pt = "prepay" if ("передопл" in low or "предопл" in low) else "full"
@@ -563,6 +707,11 @@ _ASSISTED_CHECKOUT_COPY = {
         "invalid_size": "Для цього фасону оберіть, будь ласка, розмір із доступної сітки.",
         "invalid_fit_option": "Підкажіть, будь ласка, класичний чи оверсайз фасон вам потрібен.",
         "invalid_color_variant": "Підкажіть, будь ласка, потрібний колір, щоб я підготувала точну пропозицію.",
+        "missing_color": "Підкажіть, будь ласка, потрібний колір, щоб я підготувала точну пропозицію.",
+        "missing_configuration": "Уточніть, будь ласка, фасон, розмір, колір і кількість для замовлення.",
+        "insufficient_stock": "Обраний варіант зараз недоступний у потрібній кількості.",
+        "available_alternatives": "З наявного можу запропонувати: {alternatives}. Який варіант показати?",
+        "no_available_alternatives": "Не хочу вигадувати заміну: напишіть, що для вас важливіше - модель, колір чи фасон, і я перевірю інші варіанти.",
         "unavailable_selection": "Цей варіант зараз недоступний. Підкажіть інший фасон, розмір або колір.",
     },
     "ru": {
@@ -580,6 +729,11 @@ _ASSISTED_CHECKOUT_COPY = {
         "invalid_size": "Для этого фасона выберите, пожалуйста, размер из доступной сетки.",
         "invalid_fit_option": "Подскажите, пожалуйста, классический или оверсайз фасон вам нужен.",
         "invalid_color_variant": "Подскажите, пожалуйста, нужный цвет, чтобы я подготовила точное предложение.",
+        "missing_color": "Подскажите, пожалуйста, нужный цвет, чтобы я подготовила точное предложение.",
+        "missing_configuration": "Уточните, пожалуйста, фасон, размер, цвет и количество для заказа.",
+        "insufficient_stock": "Выбранный вариант сейчас недоступен в нужном количестве.",
+        "available_alternatives": "Из того, что есть в наличии, могу предложить: {alternatives}. Какой вариант показать?",
+        "no_available_alternatives": "Не хочу придумывать замену: напишите, что для вас важнее - модель, цвет или фасон, и я проверю другие варианты.",
         "unavailable_selection": "Этот вариант сейчас недоступен. Подскажите другой фасон, размер или цвет.",
     },
     "en": {
@@ -594,6 +748,11 @@ _ASSISTED_CHECKOUT_COPY = {
         "invalid_size": "Please choose a size available for this fit.",
         "invalid_fit_option": "Please choose the fit you need: classic or oversize.",
         "invalid_color_variant": "Please tell me the color you need so I can prepare the exact offer.",
+        "missing_color": "Please tell me the color you need so I can prepare the exact offer.",
+        "missing_configuration": "Please confirm the fit, size, color, and quantity for the order.",
+        "insufficient_stock": "The selected option is not available in the requested quantity.",
+        "available_alternatives": "Available alternatives: {alternatives}. Which one would you like to see?",
+        "no_available_alternatives": "I do not want to invent a substitute. Tell me whether the model, color, or fit matters most and I will check other options.",
         "unavailable_selection": "This option is unavailable right now. Please choose another fit, size, or color.",
     },
 }
@@ -716,7 +875,7 @@ def _rewrite_failed_paylink(reply: str) -> str:
     kept = []
     for ch in chunks:
         low = ch.lower()
-        if any(ph in low for ph in PAYLINK_PHRASES):
+        if _looks_like_paylink_request(low):
             continue
         if ch.strip():
             kept.append(ch.strip())
@@ -726,7 +885,200 @@ def _rewrite_failed_paylink(reply: str) -> str:
     return cleaned
 
 
-def finalize_paylink(reply: str, control: dict, client, sender_id: str = "") -> str:
+def _checkout_color_keys(text: str) -> set[str]:
+    normalized = " ".join(str(text or "").casefold().split())
+    keys = set()
+    for key, pattern in _CHECKOUT_COLOR_PATTERNS.items():
+        for match in pattern.finditer(normalized):
+            prefix = normalized[max(0, match.start() - 48):match.start()]
+            if _CHECKOUT_COLOR_NEGATION_PREFIX_RE.search(prefix):
+                continue
+            keys.add(key)
+            break
+    return keys
+
+
+def _current_color_variant_id(client, product_id, quantity, *, trigger_text: str = ""):
+    if not product_id:
+        return None
+    try:
+        from productcolors.models import ProductColorVariant
+
+        variants = list(
+            ProductColorVariant.objects.filter(
+                product_id=product_id,
+            ).select_related("color").order_by("order", "id")
+        )
+        references = (str(trigger_text or "").strip(),)
+        for reference in references:
+            if not reference:
+                continue
+            normalized = " ".join(reference.casefold().split())
+            reference_keys = _checkout_color_keys(reference)
+            matches = []
+            for variant in variants:
+                color_name = str(getattr(getattr(variant, "color", None), "name", "") or "")
+                slug = str(getattr(variant, "slug", "") or "")
+                candidate_values = {
+                    " ".join(color_name.casefold().split()),
+                    " ".join(slug.casefold().split()),
+                }
+                if normalized in candidate_values or (
+                    reference_keys
+                    and reference_keys.intersection(_checkout_color_keys(f"{color_name} {slug}"))
+                ):
+                    matches.append(variant.pk)
+            if len(matches) == 1:
+                return matches[0]
+        return None
+    except Exception:
+        return None
+
+
+def _checkout_alternative_labels(item_specs, result, *, limit=3):
+    try:
+        index = int(result.get("item_index") or 0)
+    except (TypeError, ValueError):
+        index = 0
+    if not isinstance(item_specs, (list, tuple)) or not (0 <= index < len(item_specs)):
+        return []
+    spec = item_specs[index] if isinstance(item_specs[index], dict) else {}
+    try:
+        product_id = int(spec.get("product_id") or 0)
+        quantity = max(1, int(spec.get("qty") or spec.get("quantity") or 1))
+    except (TypeError, ValueError):
+        return []
+    try:
+        from fable5.services import variant_allows_purchase
+        from productcolors.models import ProductColorVariant
+        from storefront.models import Product, ProductStatus
+        from storefront.services.size_guides import resolve_product_sizes
+
+        product = Product.objects.select_related("category").filter(pk=product_id).first()
+        if product is None:
+            return []
+        selected_variant_id = spec.get("color_variant_id") or spec.get("variant_id")
+        try:
+            selected_variant_id = int(selected_variant_id or 0)
+        except (TypeError, ValueError):
+            selected_variant_id = 0
+        fit_code = str(spec.get("fit_option_code") or spec.get("fit") or "").strip().lower()
+        size = str(spec.get("size") or "").strip().upper()
+        option_values = {"fit": fit_code} if fit_code else {}
+        labels = []
+        variants = (
+            ProductColorVariant.objects.select_related("color")
+            .filter(product=product, stock__gte=quantity)
+            .exclude(pk=selected_variant_id)
+            .order_by("order", "id")
+        )
+        for variant in variants:
+            if not variant_allows_purchase(
+                product,
+                variant,
+                fit_code=fit_code,
+                size=size,
+                option_values=option_values,
+            ):
+                continue
+            color = str(getattr(getattr(variant, "color", None), "name", "") or "").strip()
+            label = f"{product.title} - {color}" if color else str(product.title)
+            if label not in labels:
+                labels.append(label)
+            if len(labels) >= limit:
+                return labels
+        if product.category_id:
+            alternatives = (
+                Product.objects.filter(
+                    status=ProductStatus.PUBLISHED,
+                    category_id=product.category_id,
+                    color_variants__stock__gte=quantity,
+                )
+                .exclude(pk=product.pk)
+                .distinct()
+                .prefetch_related("color_variants__color", "fit_options")
+                .order_by("-featured", "id")
+            )
+            for alternative in alternatives:
+                if fit_code and not any(
+                    option.code == fit_code and option.is_active
+                    for option in alternative.fit_options.all()
+                ):
+                    continue
+                allowed_sizes = {
+                    str(value or "").strip().upper()
+                    for value in resolve_product_sizes(alternative)
+                }
+                if fit_code == "oversize":
+                    allowed_sizes.add("XS")
+                if size and allowed_sizes and size not in allowed_sizes:
+                    continue
+                purchasable = any(
+                    int(variant.stock or 0) >= quantity
+                    and variant_allows_purchase(
+                        alternative,
+                        variant,
+                        fit_code=fit_code,
+                        size=size,
+                        option_values=option_values,
+                    )
+                    for variant in alternative.color_variants.all()
+                )
+                if not purchasable:
+                    continue
+                label = str(alternative.title or "").strip()
+                if label and label not in labels:
+                    labels.append(label)
+                if len(labels) >= limit:
+                    break
+        return labels
+    except Exception:
+        return []
+
+
+def _checkout_configuration_reply(client, result, item_specs):
+    code = str(result.get("error") or "")
+    if code == "missing_configuration":
+        fields = {str(value) for value in (result.get("missing_fields") or [])}
+        for field, copy_key in (
+            ("fit", "missing_fit_option"),
+            ("size", "missing_size"),
+            ("color", "missing_color"),
+        ):
+            if field in fields:
+                return _assisted_checkout_copy(client, copy_key)
+        return _assisted_checkout_copy(client, "missing_configuration")
+    aliases = {
+        "invalid_fit": "invalid_fit_option",
+        "invalid_color": "invalid_color_variant",
+    }
+    mapped = aliases.get(code, code)
+    if mapped in {
+        "insufficient_stock",
+        "unavailable_selection",
+        "unpublished_product",
+        "invalid_product",
+    }:
+        labels = _checkout_alternative_labels(item_specs, result)
+        base_key = "insufficient_stock" if mapped == "insufficient_stock" else "unavailable_selection"
+        base = _assisted_checkout_copy(client, base_key)
+        if labels:
+            alternatives = _assisted_checkout_copy(client, "available_alternatives").format(
+                alternatives="; ".join(labels)
+            )
+            return f"{base} {alternatives}".strip()
+        return f"{base} {_assisted_checkout_copy(client, 'no_available_alternatives')}".strip()
+    return _assisted_checkout_copy(client, mapped)
+
+
+def finalize_paylink(
+    reply: str,
+    control: dict,
+    client,
+    sender_id: str = "",
+    *,
+    trigger_text: str = "",
+) -> str:
     """Узгоджує відповідь бота з результатом формування лінку на оплату.
 
     Гарантія: клієнт НІКОЛИ не отримає обіцянку «ось посилання» без самого лінку
@@ -740,9 +1092,43 @@ def finalize_paylink(reply: str, control: dict, client, sender_id: str = "") -> 
     """
     if not reply or not client:
         return reply
-    want, pt = _wants_paylink(reply, control)
+    product_id = _control_product_id(control) or getattr(client, "current_product_id", None)
+    selection = _checkout_selection_state(client, product_id)
+    control_fit = str(control.get("fit") or "").strip().lower()[:50]
+    if control_fit:
+        selection["fit_option_code"] = control_fit
+    trigger_fit = _fit_from_customer_text(trigger_text)
+    if trigger_fit:
+        selection["fit_option_code"] = trigger_fit
+    selected_color_variant_id = _current_color_variant_id(
+        client,
+        product_id,
+        _control_positive_int(
+            control,
+            "qty",
+            default=getattr(client, "current_qty", 1) or 1,
+        ) or 1,
+        trigger_text=trigger_text,
+    )
+    if selected_color_variant_id:
+        selection["color_variant_id"] = selected_color_variant_id
+    want, pt = _wants_paylink(reply, control, trigger_text=trigger_text)
+    if (
+        not want
+        and _is_checkout_selection_reply(
+            client,
+            trigger_text,
+            fit_code=trigger_fit,
+            color_variant_id=selected_color_variant_id,
+        )
+        and str(getattr(client, "intent", "") or "").casefold() in {"payment", "checkout"}
+        and str(getattr(client, "stage", "") or "").casefold() in {"checkout", "payment_pending"}
+    ):
+        stored_pay_type = str(selection.get("pay_type") or "").strip().lower()
+        want, pt = True, stored_pay_type if stored_pay_type in {"full", "prepay"} else "full"
     if not want:
         return reply
+    selection["pay_type"] = pt
     if control.get("_invalid"):
         log("warning", "paylink_control_gate", f"{sender_id}: conflicting control tags")
         return _rewrite_failed_paylink(reply)
@@ -767,20 +1153,38 @@ def finalize_paylink(reply: str, control: dict, client, sender_id: str = "") -> 
         except Exception:
             pass
         return _rewrite_failed_paylink(reply)
+    if selection:
+        _persist_checkout_selection(client, product_id, selection)
     from management.services import bot_orders
 
     item_specs = _control_item_specs(control)
     if not item_specs:
-        parsed_qty = _control_positive_int(control, "qty")
+        try:
+            persisted_qty = int(getattr(client, "current_qty", 1) or 1)
+        except (TypeError, ValueError):
+            persisted_qty = 1
+        parsed_qty = _control_positive_int(control, "qty", default=persisted_qty)
         if parsed_qty is None:
             log("warning", "paylink_qty_gate", f"{sender_id}: invalid explicit quantity")
             return _rewrite_failed_paylink(reply)
         item_specs = [{
             "product_id": _control_product_id(control) or getattr(client, "current_product_id", None),
             "qty": parsed_qty,
-            "size": str(control.get("size") or "").strip().upper()[:16],
-            "fit_option_code": str(control.get("fit") or "").strip().lower()[:50],
-            "color_variant_id": control.get("color_variant_id") or control.get("variant"),
+            "size": str(control.get("size") or getattr(client, "current_size", "") or "").strip().upper()[:16],
+            "fit_option_code": str(
+                control.get("fit") or selection.get("fit_option_code") or ""
+            ).strip().lower()[:50],
+            "color_variant_id": (
+                control.get("color_variant_id")
+                or control.get("variant")
+                or selection.get("color_variant_id")
+                or _current_color_variant_id(
+                    client,
+                    _control_product_id(control) or getattr(client, "current_product_id", None),
+                    parsed_qty,
+                    trigger_text=trigger_text,
+                )
+            ),
         }]
 
     aggregate_quantity = sum(
@@ -892,7 +1296,7 @@ def finalize_paylink(reply: str, control: dict, client, sender_id: str = "") -> 
         log("success", "paylink", f"{sender_id}: {url}")
         return reply
 
-    configuration_question = _assisted_checkout_copy(client, str(res.get("error") or ""))
+    configuration_question = _checkout_configuration_reply(client, res, item_specs)
     if configuration_question:
         return configuration_question
 
@@ -5572,7 +5976,13 @@ def _process_one_inside_reply_boundary(
     # на успіх додає реальний URL (вирізаючи вигаданий моделлю), на невдачу
     # прибирає висяче обіцяння й кличе менеджера.
     if reply and row.client_id:
-        reply = finalize_paylink(reply, control, row.client, row.sender_id)
+        reply = finalize_paylink(
+            reply,
+            control,
+            row.client,
+            row.sender_id,
+            trigger_text=row.text,
+        )
 
     # Persisted invoice identity is the payment-delivery source of truth.  The
     # provider may return a generic pageUrl that does not contain monobank/mbnk,

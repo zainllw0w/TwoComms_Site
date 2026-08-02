@@ -60,6 +60,33 @@ class ResolveProductTests(TestCase):
     def test_none_when_nothing(self):
         self.assertIsNone(bot_orders.resolve_product_for_payment(self.c, None))
 
+    def test_switching_product_clears_previous_checkout_configuration(self):
+        previous = self.p
+        replacement = _pub_product("Худі для нового вибору", "new-pinned-product")
+        self.c.current_product = previous
+        self.c.current_size = "S"
+        self.c.current_color = "black"
+        self.c.current_qty = 3
+        self.c.sales_context = {
+            "assisted_checkout_selection": {
+                "product_id": previous.pk,
+                "fit_option_code": "classic",
+                "color_variant_id": 12,
+            },
+            "keep_me": True,
+        }
+        self.c.save()
+
+        self.assertTrue(bot_orders.pin_product(self.c, replacement.pk))
+
+        self.c.refresh_from_db()
+        self.assertEqual(self.c.current_product_id, replacement.pk)
+        self.assertEqual(self.c.current_size, "")
+        self.assertEqual(self.c.current_color, "")
+        self.assertEqual(self.c.current_qty, 1)
+        self.assertNotIn("assisted_checkout_selection", self.c.sales_context)
+        self.assertTrue(self.c.sales_context["keep_me"])
+
 
 class WantsPaylinkTests(SimpleTestCase):
     def test_tag(self):
@@ -80,6 +107,38 @@ class WantsPaylinkTests(SimpleTestCase):
     def test_no_phrase(self):
         w, pt = bot._wants_paylink("Привіт, що бажаєте обрати?", {})
         self.assertFalse(w)
+
+    def test_personal_offer_promise_is_not_allowed_to_drop_the_url(self):
+        w, pt = bot._wants_paylink(
+            "Ось ваше персональне посилання для оформлення та оплати замовлення: 👇",
+            {},
+        )
+        self.assertTrue(w)
+        self.assertEqual(pt, "full")
+
+    def test_explicit_customer_link_request_triggers_checkout_without_model_tag(self):
+        w, pt = bot._wants_paylink(
+            "Чудово, зараз усе підготую.",
+            {},
+            trigger_text="Дай посилання",
+        )
+        self.assertTrue(w)
+        self.assertEqual(pt, "full")
+
+    def test_customer_refusal_does_not_trigger_checkout(self):
+        w, _pt = bot._wants_paylink(
+            "Хорошо, учту.",
+            {},
+            trigger_text="Ссылка на оплату не нужна",
+        )
+
+        self.assertFalse(w)
+
+    def test_positive_send_promise_is_not_mistaken_for_refusal(self):
+        w, pt = bot._wants_paylink("Надсилаю посилання на оплату.", {})
+
+        self.assertTrue(w)
+        self.assertEqual(pt, "full")
 
 
 class CreateDealResolvesProductTests(TestCase):
@@ -304,6 +363,441 @@ class FinalizePaylinkTests(TestCase):
         mock_notify.assert_not_called()
         self.c.refresh_from_db()
         self.assertEqual(self.c.stage, IgClient.Stage.CHECKOUT)
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.bot_orders.create_checkout_proposal_link")
+    def test_link_request_without_control_uses_persisted_product_size_and_quantity(
+        self, mock_link, mock_notify
+    ):
+        product = _pub_product("Худі Reality Bends", "reality-bends-persisted")
+        self.c.current_product = product
+        self.c.current_size = "S"
+        self.c.current_qty = 2
+        self.c.language = "ru"
+        self.c.stage = IgClient.Stage.PAYMENT_PENDING
+        self.c.save(update_fields=[
+            "current_product", "current_size", "current_qty", "language", "stage", "updated_at",
+        ])
+        offer_url = "https://twocomms.shop/offer/a/real-production-shape/"
+        mock_link.return_value = {"ok": True, "invoice_url": offer_url}
+
+        out = bot.finalize_paylink(
+            "Ось ваше персональне посилання для оформлення:",
+            {},
+            self.c,
+            self.c.igsid,
+            trigger_text="Дай посилання",
+        )
+
+        self.assertIn(offer_url, out)
+        self.assertEqual(
+            mock_link.call_args.kwargs["item_specs"],
+            [{
+                "product_id": product.pk,
+                "qty": 2,
+                "size": "S",
+                "fit_option_code": "",
+                "color_variant_id": None,
+            }],
+        )
+        mock_notify.assert_not_called()
+
+    @patch("management.services.instagram_bot.notify_manager")
+    def test_real_missing_fit_returns_question_instead_of_linkless_promise(self, mock_notify):
+        from storefront.models import ProductFitOption
+
+        product = _pub_product("Худі з двома фасонами", "missing-fit-real-validator")
+        ProductFitOption.objects.create(
+            product=product, code="classic", label="Класичний", is_active=True,
+        )
+        ProductFitOption.objects.create(
+            product=product, code="oversize", label="Оверсайз", is_active=True,
+        )
+        self.c.current_product = product
+        self.c.current_size = "S"
+        self.c.language = "ru"
+        self.c.stage = IgClient.Stage.PAYMENT_PENDING
+        self.c.save(update_fields=[
+            "current_product", "current_size", "language", "stage", "updated_at",
+        ])
+
+        out = bot.finalize_paylink(
+            "Ось ваше персональне посилання для оформлення та оплати:",
+            {},
+            self.c,
+            self.c.igsid,
+            trigger_text="Дай посилання",
+        )
+
+        self.assertIn("фасон", out.lower())
+        self.assertIn("класс", out.lower())
+        self.assertIn("оверсайз", out.lower())
+        self.assertNotIn("посилання", out.lower())
+        self.assertFalse(IgCheckoutProposal.objects.filter(client=self.c).exists())
+        mock_notify.assert_not_called()
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.bot_orders.create_checkout_proposal_link")
+    def test_explicit_fit_answer_continues_pending_checkout_without_model_tags(
+        self, mock_link, mock_notify
+    ):
+        from storefront.models import ProductFitOption
+
+        product = _pub_product("Худі для продовження", "fit-continuation")
+        ProductFitOption.objects.create(
+            product=product, code="classic", label="Класичний", is_active=True,
+        )
+        ProductFitOption.objects.create(
+            product=product, code="oversize", label="Оверсайз", is_active=True,
+        )
+        self.c.current_product = product
+        self.c.current_size = "S"
+        self.c.language = "uk"
+        self.c.stage = IgClient.Stage.PAYMENT_PENDING
+        self.c.save(update_fields=[
+            "current_product", "current_size", "language", "stage", "updated_at",
+        ])
+        offer_url = "https://twocomms.shop/offer/a/fit-continuation-token/"
+        mock_link.return_value = {"ok": True, "invoice_url": offer_url}
+
+        out = bot.finalize_paylink(
+            "Дякую, зафіксувала вибір.",
+            {},
+            self.c,
+            self.c.igsid,
+            trigger_text="Класичний",
+        )
+
+        self.assertIn(offer_url, out)
+        self.assertEqual(
+            mock_link.call_args.kwargs["item_specs"][0]["fit_option_code"],
+            "classic",
+        )
+        mock_notify.assert_not_called()
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.bot_orders.create_checkout_proposal_link")
+    def test_color_answer_continues_checkout_with_persisted_fit(self, mock_link, mock_notify):
+        from productcolors.models import Color, ProductColorVariant
+        from storefront.models import ProductFitOption
+
+        product = _pub_product("Худі з вибором кольору", "color-continuation")
+        ProductFitOption.objects.create(
+            product=product, code="classic", label="Класичний", is_active=True,
+        )
+        pink = Color.objects.create(name="Рожевий", primary_hex="#ff88aa")
+        black = Color.objects.create(name="Чорний", primary_hex="#111111")
+        pink_variant = ProductColorVariant.objects.create(product=product, color=pink, stock=3)
+        ProductColorVariant.objects.create(product=product, color=black, stock=3)
+        self.c.current_product = product
+        self.c.current_size = "S"
+        self.c.current_color = "Рожевий"
+        self.c.language = "uk"
+        self.c.stage = IgClient.Stage.PAYMENT_PENDING
+        self.c.sales_context = {
+            "assisted_checkout_selection": {
+                "product_id": product.pk,
+                "fit_option_code": "classic",
+            }
+        }
+        self.c.save(update_fields=[
+            "current_product", "current_size", "current_color", "language", "stage",
+            "sales_context", "updated_at",
+        ])
+        offer_url = "https://twocomms.shop/offer/a/color-continuation-token/"
+        mock_link.return_value = {"ok": True, "invoice_url": offer_url}
+
+        out = bot.finalize_paylink(
+            "Чудово, колір зафіксовано.",
+            {},
+            self.c,
+            self.c.igsid,
+            trigger_text="Рожевий",
+        )
+
+        self.assertIn(offer_url, out)
+        self.assertEqual(
+            mock_link.call_args.kwargs["item_specs"][0]["color_variant_id"],
+            pink_variant.pk,
+        )
+        self.assertEqual(
+            mock_link.call_args.kwargs["item_specs"][0]["fit_option_code"],
+            "classic",
+        )
+        mock_notify.assert_not_called()
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.bot_orders.create_checkout_proposal_link")
+    def test_russian_color_answer_matches_ukrainian_catalog_variant(
+        self, mock_link, mock_notify
+    ):
+        from productcolors.models import Color, ProductColorVariant
+        from storefront.models import ProductFitOption
+
+        product = _pub_product("Худі з локалізованим кольором", "localized-color-continuation")
+        ProductFitOption.objects.create(
+            product=product, code="classic", label="Класичний", is_active=True,
+        )
+        pink = Color.objects.create(name="Рожевий", primary_hex="#F7A1B9")
+        black = Color.objects.create(name="Чорний", primary_hex="#111111")
+        pink_variant = ProductColorVariant.objects.create(
+            product=product, color=pink, stock=3, slug="pink",
+        )
+        ProductColorVariant.objects.create(
+            product=product, color=black, stock=3, slug="black",
+        )
+        self.c.current_product = product
+        self.c.current_size = "S"
+        self.c.current_color = ""
+        self.c.language = "ru"
+        self.c.stage = IgClient.Stage.PAYMENT_PENDING
+        self.c.sales_context = {
+            "assisted_checkout_selection": {
+                "product_id": product.pk,
+                "fit_option_code": "classic",
+            }
+        }
+        self.c.save(update_fields=[
+            "current_product", "current_size", "current_color", "language",
+            "stage", "sales_context", "updated_at",
+        ])
+        offer_url = "https://twocomms.shop/offer/a/localized-color-token/"
+        mock_link.return_value = {"ok": True, "invoice_url": offer_url}
+
+        out = bot.finalize_paylink(
+            "Отлично, цвет записала.",
+            {},
+            self.c,
+            self.c.igsid,
+            trigger_text="Розовый",
+        )
+
+        self.assertIn(offer_url, out)
+        self.assertEqual(
+            mock_link.call_args.kwargs["item_specs"][0]["color_variant_id"],
+            pink_variant.pk,
+        )
+        self.c.refresh_from_db()
+        self.assertEqual(
+            self.c.sales_context["assisted_checkout_selection"]["color_variant_id"],
+            pink_variant.pk,
+        )
+        mock_notify.assert_not_called()
+
+    def test_color_alias_does_not_match_inside_unrelated_word(self):
+        from productcolors.models import Color, ProductColorVariant
+
+        product = _pub_product("Худі з сірим кольором", "gray-word-boundary")
+        gray = Color.objects.create(name="Сірий", primary_hex="#777777")
+        ProductColorVariant.objects.create(
+            product=product, color=gray, stock=3, slug="gray",
+        )
+
+        resolved = bot._current_color_variant_id(
+            self.c,
+            product.pk,
+            1,
+            trigger_text="У меня есть сертификат",
+        )
+
+        self.assertIsNone(resolved)
+
+    def test_negated_color_is_not_selected(self):
+        from productcolors.models import Color, ProductColorVariant
+
+        product = _pub_product("Худі без рожевого", "negated-pink")
+        pink = Color.objects.create(name="Рожевий", primary_hex="#F18CAD")
+        ProductColorVariant.objects.create(
+            product=product, color=pink, stock=3, slug="pink",
+        )
+
+        resolved = bot._current_color_variant_id(
+            self.c,
+            product.pk,
+            1,
+            trigger_text="Только не розовый",
+        )
+
+        self.assertIsNone(resolved)
+
+    def test_client_wide_color_is_not_reused_without_current_turn_confirmation(self):
+        from productcolors.models import Color, ProductColorVariant
+
+        product = _pub_product("Нове худі", "stale-color-new-product")
+        black = Color.objects.create(name="Чорний", primary_hex="#111111")
+        ProductColorVariant.objects.create(
+            product=product, color=black, stock=3, slug="black",
+        )
+        self.c.current_color = "black"
+        self.c.save(update_fields=["current_color", "updated_at"])
+
+        resolved = bot._current_color_variant_id(
+            self.c,
+            product.pk,
+            1,
+            trigger_text="Классический",
+        )
+
+        self.assertIsNone(resolved)
+
+    @patch("management.services.instagram_bot.notify_manager")
+    def test_unavailable_color_answer_reports_stock_instead_of_dropping_checkout(
+        self, mock_notify
+    ):
+        from productcolors.models import Color, ProductColorVariant
+        from storefront.models import ProductFitOption
+
+        product = _pub_product("Худі з відсутнім кольором", "unavailable-color-answer")
+        ProductFitOption.objects.create(
+            product=product, code="classic", label="Класичний", is_active=True,
+        )
+        pink = Color.objects.create(name="Рожевий", primary_hex="#F39AB6")
+        ProductColorVariant.objects.create(
+            product=product, color=pink, stock=0, slug="pink",
+        )
+        self.c.current_product = product
+        self.c.current_size = "S"
+        self.c.current_color = ""
+        self.c.language = "ru"
+        self.c.stage = IgClient.Stage.PAYMENT_PENDING
+        self.c.sales_context = {
+            "assisted_checkout_selection": {
+                "product_id": product.pk,
+                "fit_option_code": "classic",
+            }
+        }
+        self.c.save(update_fields=[
+            "current_product", "current_size", "current_color", "language",
+            "stage", "sales_context", "updated_at",
+        ])
+
+        out = bot.finalize_paylink(
+            "Отлично, цвет записала.",
+            {},
+            self.c,
+            self.c.igsid,
+            trigger_text="Розовый",
+        )
+
+        self.assertIn("недоступ", out.lower())
+        self.assertFalse(IgCheckoutProposal.objects.filter(client=self.c).exists())
+        mock_notify.assert_not_called()
+
+    @patch("management.services.instagram_bot._conversation_payment_amount")
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.bot_orders.create_checkout_proposal_link")
+    def test_prepayment_type_survives_fit_clarification(
+        self, mock_link, mock_notify, mock_payment_amount
+    ):
+        product = _pub_product("Худі з передоплатою", "prepay-fit-continuation")
+        self.c.current_product = product
+        self.c.current_size = "S"
+        self.c.language = "ru"
+        self.c.stage = IgClient.Stage.PAYMENT_PENDING
+        self.c.save(update_fields=[
+            "current_product", "current_size", "language", "stage", "updated_at",
+        ])
+        mock_payment_amount.return_value = Decimal("350.00")
+        mock_link.side_effect = [
+            {"ok": False, "error": "missing_fit_option"},
+            {"ok": True, "invoice_url": "https://twocomms.shop/offer/a/prepay-fit/"},
+        ]
+
+        first = bot.finalize_paylink(
+            "Формирую ссылку на предоплату.",
+            {"paylink": "prepay", "product": product.pk},
+            self.c,
+            self.c.igsid,
+        )
+        second = bot.finalize_paylink(
+            "Спасибо, фасон зафиксирован.",
+            {},
+            self.c,
+            self.c.igsid,
+            trigger_text="Классический",
+        )
+
+        self.assertIn("фасон", first.lower())
+        self.assertIn("/offer/a/prepay-fit/", second)
+        self.assertEqual(mock_link.call_args_list[1].kwargs["pay_type"], "prepay")
+        self.assertEqual(
+            mock_link.call_args_list[1].kwargs["requested_payment_amount"],
+            Decimal("350.00"),
+        )
+        mock_notify.assert_not_called()
+
+    @patch("management.services.instagram_bot.notify_manager")
+    def test_insufficient_stock_names_real_published_in_stock_alternative(self, mock_notify):
+        from productcolors.models import Color, ProductColorVariant
+
+        requested = _pub_product("Худі без залишку", "oos-requested")
+        alternative = _pub_product("Худі Available Alternative", "oos-alternative")
+        pink = Color.objects.create(name="Рожевий", primary_hex="#ff88aa")
+        black = Color.objects.create(name="Чорний", primary_hex="#111111")
+        unavailable_variant = ProductColorVariant.objects.create(
+            product=requested, color=pink, stock=0,
+        )
+        ProductColorVariant.objects.create(product=alternative, color=black, stock=4)
+        self.c.current_product = requested
+        self.c.current_size = "S"
+        self.c.language = "ru"
+        self.c.stage = IgClient.Stage.PAYMENT_PENDING
+        self.c.save(update_fields=[
+            "current_product", "current_size", "language", "stage", "updated_at",
+        ])
+
+        out = bot.finalize_paylink(
+            "Формирую персональное предложение.",
+            {
+                "paylink": "full",
+                "product": requested.pk,
+                "qty": "1",
+                "size": "S",
+                "variant": str(unavailable_variant.pk),
+            },
+            self.c,
+            self.c.igsid,
+        )
+
+        self.assertIn("недоступ", out.lower())
+        self.assertIn(alternative.title, out)
+        self.assertFalse(IgCheckoutProposal.objects.filter(client=self.c).exists())
+        mock_notify.assert_not_called()
+
+    def test_alternatives_exclude_variants_incompatible_with_requested_fit(self):
+        from fable5.models import VariantFitRule
+        from productcolors.models import Color, ProductColorVariant
+        from storefront.models import ProductFitOption
+
+        requested = _pub_product("Худі без залишку 2", "oos-requested-fit")
+        incompatible = _pub_product("Худі тільки оверсайз", "oos-incompatible-fit")
+        ProductFitOption.objects.create(
+            product=incompatible,
+            code="classic",
+            label="Класичний",
+            is_active=True,
+        )
+        black = Color.objects.create(name="Чорний", primary_hex="#151515")
+        variant = ProductColorVariant.objects.create(
+            product=incompatible, color=black, stock=4, slug="black",
+        )
+        VariantFitRule.objects.create(
+            variant=variant,
+            fit_code="classic",
+            is_enabled=False,
+        )
+
+        labels = bot._checkout_alternative_labels(
+            [{
+                "product_id": requested.pk,
+                "qty": 1,
+                "size": "S",
+                "fit_option_code": "classic",
+            }],
+            {"item_index": 0},
+        )
+
+        self.assertNotIn(incompatible.title, labels)
 
     @patch("management.services.instagram_bot.notify_manager")
     @patch("management.services.bot_orders.create_checkout_proposal_link")

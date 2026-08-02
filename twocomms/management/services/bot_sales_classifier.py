@@ -144,6 +144,17 @@ PRODUCT_RE = re.compile(
     re.I,
 )
 PAYMENT_RE = re.compile(r"\b(оплат\w*|платеж\w*|платіж\w*|payment|pay|checkout|invoice|ссылка|посилання|линк|лінк|link|card|карта|monobank|монобанк)\b", re.I)
+PAYMENT_LINK_REFUSAL_RE = re.compile(
+    r"(?:\b(?:посилання|лінк\w*|ссылк\w*|link)\b.{0,24}"
+    r"\bне\s+(?:нужн\w*|потрібн\w*|треба|надо)\b|"
+    r"\bне\s+(?:нужн\w*|потрібн\w*|треба|надо|хочу|буду)\b.{0,24}"
+    r"\b(?:посилання|лінк\w*|ссылк\w*|link)\b|"
+    r"\bне\s+(?:присыл\w*|надсила\w*|відправля\w*|отправля\w*)\b.{0,24}"
+    r"\b(?:посилання|лінк\w*|ссылк\w*|link)\b|"
+    r"\b(?:do\s+not|don't|dont)\s+(?:need|want|send)\b.{0,24}\blink\b|"
+    r"\bno\s+(?:payment\s+)?link\b)",
+    re.I,
+)
 # F-PAT-002, та же ошибка: «доставка», «відправка», «відділення» не матчились.
 # `intent=delivery` — 0 из 289 клиентов прода.
 DELIVERY_RE = re.compile(
@@ -1036,7 +1047,12 @@ def classify_message(
         if SUPPORT_RE.search(text):
             candidates.append((IgClient.Intent.SUPPORT, 0, None))
         if "payment_evidence" not in media_intents and (
-            PAYMENT_RE.search(low) or phone_is_contact_handover(text)
+            (PAYMENT_RE.search(low) and not PAYMENT_LINK_REFUSAL_RE.search(low))
+            or (
+                PURCHASE_DECISION_RE.search(low)
+                and not DEFER_RE.search(low)
+            )
+            or phone_is_contact_handover(text)
         ):
             candidates.append((
                 IgClient.Intent.PAYMENT,
@@ -1102,7 +1118,10 @@ def classify_message(
         # F-PAT-001 #5: «думаю візьму L» — решение, не сомнение. Ярлык THINKING
         # ставил follow-up на 12 часов вместо 2 и подавал в промпт тег
         # «сомневается» готовому купить.
-        and not PURCHASE_DECISION_RE.search(low)
+        and not (
+            PURCHASE_DECISION_RE.search(low)
+            and not DEFER_RE.search(low)
+        )
     ):
         objection = IgClient.Objection.THINKING
         readiness = max(readiness, 25)
