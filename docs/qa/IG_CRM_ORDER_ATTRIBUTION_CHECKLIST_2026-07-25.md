@@ -503,6 +503,29 @@ Task 7D production delivery gate (2026-07-29):
   ordering by provider timestamp and newest-message priority in the `Усі`
   workspace view. Keep the profile job bounded and never let a profile failure
   block webhook persistence or customer replies.
+- [x] Webhook ingress review is covered by focused regressions: both
+  `entry[].messaging[]` and `changes[field=messages]` are queued, raw events
+  are captured before parsing, duplicate `mid` deliveries remain idempotent,
+  manager echoes do not trigger customer replies, and no Gemini/Graph/media/
+  Telegram work runs inside the HTTP request.
+- [x] The durable boundary is fail-closed: if analysis scheduling cannot be
+  persisted, the endpoint returns `503` and leaves no partial message row so
+  Meta retries; missing app secrets reject signatures, while the explicit
+  unsigned development override is visible in status. Production currently
+  reports the configured `IG_APP_SECRET` path with the override disabled.
+- [x] The client allowlist is a separate local policy: production is currently
+  empty (all Meta-eligible senders), and an explicit operator list still
+  restricts ingress without changing Meta capability. Hidden clients are
+  excluded deliberately from the active queue, not silently deleted from the
+  `Усі` history view.
+- [x] Local ingress/polling/daemon verification after the delivery-gate review
+  passed **140/140 tests**, including a valid `changes` message fixture and
+  the delivery-validation-aware payment e2e flow.
+- [ ] The live acceptance checkbox remains open until migration `0112` and the
+  resumable discovery release are deployed, the app-level callback is
+  registered, and a genuine new signed customer event proves raw event ->
+  MariaDB message -> daemon/analysis -> UI (and one reply only when the client
+  is not paused or under manager takeover).
 
 - [ ] Chat UI reads MariaDB-backed incremental APIs only, pauses/backs off in a
   hidden tab, and never causes a Meta Graph request.
