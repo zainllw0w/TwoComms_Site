@@ -10,11 +10,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 SITE = (getattr(settings, "BOT_PUBLIC_BASE_URL", "") or "https://twocomms.shop").rstrip("/")
 WEBHOOK_PATH = "/payments/monobank/webhook/"
@@ -594,6 +597,58 @@ def _sync_legacy_payment_mirror(projection) -> None:
     for field, value in mirror.items():
         setattr(deal, field, value)
     recalculate_client_payment_aggregates(deal.client)
+    apply_payment_reversal_to_stage(deal)
+
+
+# Істини, після яких людина перестає бути покупцем за цією угодою.
+# `failed` тут свідомо немає: невдала спроба оплати не скасовує угоду — клієнт
+# може заплатити з другого разу. `partially_refunded` теж немає: часткове
+# повернення не робить покупку такою, що не відбулась.
+REVERSAL_TRUTHS = ("refunded", "reversed")
+
+
+def apply_payment_reversal_to_stage(deal) -> bool:
+    """Відкотити воронку й закрити угоду, коли гроші пішли назад.
+
+    IMP-033, F-STATE-002 і F-STATE-003. До цього стадія лишалась `paid`, а в UI
+    зʼявлялась псевдо-стадія `payment_reversed`, якої немає в переліку
+    `IgClient.Stage`. Тобто система показувала людину покупцем після того, як ми
+    повернули їй кошти — найдорожчий різновид неправди в цьому домені.
+
+    Відкат явний і з причиною: у таймлайні він видимий як `regress` від
+    `payment_provider`, а не як загадкова зміна даних. Нижче `checkout` не
+    опускаємо: людина справді дійшла до вибору оплати, і відкидати її в «щойно
+    написав» було б неправдою в іншу сторону.
+    """
+    truth = str(getattr(deal, "payment_truth", "") or "")
+    if truth not in REVERSAL_TRUTHS:
+        return False
+    changed = False
+    if getattr(deal, "status", None) != deal.Status.CANCELLED:
+        deal.__class__.objects.filter(pk=deal.pk).update(status=deal.Status.CANCELLED)
+        deal.status = deal.Status.CANCELLED
+        changed = True
+
+    client = getattr(deal, "client", None)
+    if client is None or not getattr(client, "pk", None):
+        return changed
+    from management.models import IgClient
+    from management.services.ig_funnel_fsm import regress_stage, stage_rank
+
+    if stage_rank(client.stage) <= stage_rank(IgClient.Stage.CHECKOUT):
+        return changed
+    result = regress_stage(
+        client,
+        IgClient.Stage.CHECKOUT,
+        reason=f"payment_{truth}",
+        actor="payment_provider",
+    )
+    if result.changed:
+        logger.info(
+            "ig funnel regressed for client %s after payment %s: %s -> %s",
+            client.pk, truth, result.from_stage, result.to_stage,
+        )
+    return changed or result.changed
 
 
 def _mark_projection_reconciled(projection_id: int) -> None:

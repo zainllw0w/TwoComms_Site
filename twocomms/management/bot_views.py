@@ -3388,12 +3388,35 @@ def _funnel_progress_for_stage(c, stage: str) -> list[dict]:
         current_index = [item.value for item in order].index(stage)
     except ValueError:
         current_index = -1
+
+    # IMP-034 / F-STATE-005: сервисное обращение (обмен, возврат) — это
+    # параллельная ветвь, а не сброс воронки. Раньше такой клиент выглядел как
+    # «прогресс 0%», хотя он уже оплатил и получил заказ: карточка клиента #59
+    # показывала «cold · Підтримка / скарга · 0%» человеку с оплаченным заказом
+    # и обменом в пути. Прогресс сохраняется, а ветвь помечается отдельным
+    # признаком — тогда видно и то, что путь пройден, и то, где сейчас внимание.
+    side_flow = ""
+    side_flow_label = ""
+    try:
+        from management.services.ig_client_state import resolve_client_state
+
+        state = resolve_client_state(c)
+        side_flow = state.side_flow
+        side_flow_label = state.side_flow_label or state.side_flow
+    except Exception:
+        side_flow = ""
+        side_flow_label = ""
+
+    # Ветвь привязывается к тому шагу, на котором она реально происходит:
+    # обмен и возврат живут после создания заказа, а не в начале воронки.
+    side_flow_stage = c.Stage.ORDER_CREATED.value if side_flow else ""
     return [
         {
             "stage": item.value,
             "label": str(item.label),
             "done": current_index >= 0 and index <= current_index,
             "current": item.value == stage,
+            "side_flow": side_flow_label if side_flow and item.value == side_flow_stage else "",
         }
         for index, item in enumerate(order)
     ]

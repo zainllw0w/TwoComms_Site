@@ -244,11 +244,17 @@ def on_deal_paid(deal) -> None:
             pass
 
 
-def pin_product(client, product_id) -> bool:
+def pin_product(client, product_id, *, switch_reason: str = "") -> bool:
     """Закріплює товар за клієнтом (current_product), якщо він опублікований.
 
     Викликається, коли модель дала [PRODUCT:id] або матчинг фото впевнено
     визначив товар. Робить наступне формування лінку детермінованим.
+
+    `switch_reason` — чому клієнт пішов із попереднього товару. Причину називає
+    той, хто її знає (посилання від клієнта, вибір із фото, відсутність
+    розміру), а не регекс по тексту. Записується в журнал вибору, щоб бот бачив
+    не лише «який товар зараз», а й «як ми до нього дійшли»: два переходи через
+    відсутність вимагають зовсім іншої реакції, ніж два переходи за смаком.
     """
     if not client or not product_id:
         return False
@@ -265,6 +271,12 @@ def pin_product(client, product_id) -> bool:
             client.current_product_confidence = 1
             client.save(update_fields=["current_product_confidence", "updated_at"])
         return True
+    previous_id = client.current_product_id
+    previous_title = ""
+    if previous_id:
+        previous_title = str(
+            Product.objects.filter(pk=previous_id).values_list("title", flat=True).first() or ""
+        )
     sales_context = dict(getattr(client, "sales_context", {}) or {})
     sales_context.pop("assisted_checkout_selection", None)
     client.current_product = p
@@ -282,6 +294,25 @@ def pin_product(client, product_id) -> bool:
         "sales_context",
         "updated_at",
     ])
+    if previous_id:
+        try:
+            from management.services.ig_funnel_journal import (
+                SwitchReason,
+                record_product_switch,
+                resolve_switch_reason,
+            )
+
+            record_product_switch(
+                client,
+                from_product_id=previous_id,
+                to_product_id=p.id,
+                reason=switch_reason or resolve_switch_reason(client, previous_id)
+                or SwitchReason.CUSTOMER_CHOICE,
+                from_title=previous_title,
+                to_title=str(p.title or ""),
+            )
+        except Exception as exc:  # noqa: BLE001 - журнал не має ламати продаж
+            logger.warning("product switch journal failed: %r", exc)
     return True
 
 

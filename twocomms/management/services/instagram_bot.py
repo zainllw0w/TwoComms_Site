@@ -4646,6 +4646,12 @@ def assemble_system_instruction(
     shown_note = _prompt_section("shown_products", lambda: shown_products_note(client))
     if shown_note:
         sys_text = (sys_text + "\n\n" + shown_note).strip()
+    # Історія вибору товару: не «який товар зараз», а «як ми до нього дійшли».
+    # Два переходи через відсутність вимагають іншої реакції, ніж два переходи
+    # за смаком, і модель має бачити різницю.
+    journal_note = _prompt_section("funnel_journal", lambda: _funnel_journal_note(client))
+    if journal_note:
+        sys_text = (sys_text + "\n\n" + journal_note).strip()
     if memory_note:
         sys_text = (sys_text + "\n\n" + memory_note).strip()
     if context_note:
@@ -4680,6 +4686,51 @@ def build_prompt_snapshot(client=None) -> str:
         memory_note=memory_note,
         context_note=context_note,
     )
+
+
+def _coherent_state_lines(client) -> list[str]:
+    """Стан діалогу очима арбітра, а не окремих полів картки.
+
+    F-STATE-001: шість машин стану без арбітра, і клієнт #59 суперечив собі
+    одночасно в пʼяти представленнях. Промпт брав стадію напряму з поля, тому
+    отримував той самий суперечливий зріз. Тепер джерело одне —
+    `resolve_client_state`, з явним приоритетом: повернення грошей вище
+    підтвердженої оплати, оплата вище аналізу діалогу.
+
+    Сервісне звернення (обмін, повернення) свідомо описується як **паралельна
+    гілка**, а не як стадія: воронка не обнуляється від того, що людина міняє
+    розмір.
+    """
+    try:
+        from management.services.ig_client_state import resolve_client_state
+
+        state = resolve_client_state(client)
+    except Exception as exc:  # noqa: BLE001 - без арбітра лишаємось на полі
+        log("warning", "state_arbiter", repr(exc))
+        return [f"стадія: {getattr(client, 'stage', '')}"]
+
+    lines = [f"стадія: {state.stage_label or state.stage} ({state.funnel_progress}% воронки)"]
+    if state.payment_reversed:
+        lines.append(
+            "УВАГА: оплату повернено або скасовано. Людина більше не покупець за цим "
+            "замовленням — не дякуй за покупку і не обіцяй доставку. Якщо клієнт "
+            "питає про гроші, скажи, що передаєш менеджеру, і додай [MANAGER]."
+        )
+    elif state.is_buyer:
+        source = {"provider": "підтверджено платіжною системою",
+                  "manager": "підтверджено менеджером"}.get(state.payment_source, "")
+        lines.append(f"клієнт уже купував{f' ({source})' if source else ''}; покупок: {state.purchases}")
+    if state.side_flow:
+        described = state.side_flow_label or state.side_flow
+        if state.requested_size:
+            described = f"{described} на розмір {state.requested_size}"
+        if state.side_flow_status:
+            described = f"{described}, статус: {state.side_flow_status}"
+        lines.append(
+            f"паралельна гілка: {described}. Це сервіс, не продаж: доведи цю справу "
+            "до кінця й не пропонуй нових товарів і знижок, поки вона відкрита."
+        )
+    return lines
 
 
 _LANGUAGE_LABELS = {"uk": "українська", "ru": "російська", "en": "англійська"}
@@ -4759,6 +4810,15 @@ def _checkout_readiness_note(client) -> str:
     from management.services.ig_checkout_readiness import readiness_prompt_note
 
     return readiness_prompt_note(client)
+
+
+def _funnel_journal_note(client) -> str:
+    """Блок [ІСТОРІЯ ВИБОРУ ТОВАРУ] — переходи між товарами з причинами."""
+    if not getattr(client, "pk", None):
+        return ""
+    from management.services.ig_funnel_journal import journal_prompt_note
+
+    return journal_prompt_note(client)
 
 
 SHOWN_PRODUCTS_CONTEXT_KEY = "shown_products"
@@ -4882,6 +4942,19 @@ def notify_size_gap(client) -> bool:
         return False
     product = state.get("product") or {}
     fit = str((state.get("fit") or {}).get("selected") or "") or "-"
+    # Позначаємо факт відсутності на картці ДО перевірки дедупу: менеджера
+    # турбуємо раз на добу, а причина переходу між товарами потрібна щоразу.
+    try:
+        from management.services.ig_funnel_journal import remember_stock_gap
+
+        remember_stock_gap(
+            client,
+            product_id=product.get("id"),
+            size=size,
+            published=bool(product.get("published", True)),
+        )
+    except Exception as exc:  # noqa: BLE001
+        log("warning", "stock_gap_mark", repr(exc))
     key = f"ig_size_gap:{client.pk}:{product.get('id')}:{fit}:{size}"
     if cache.get(key):
         return False
@@ -4971,7 +5044,7 @@ def client_state_note(client) -> str:
 
     from management.ig_bot_models import IgConversationSignal
 
-    lines = [f"стадія: {client.stage}"]
+    lines = _coherent_state_lines(client)
     lines.extend(_language_state_lines(client))
     if client.current_size:
         lines.append(f"обраний розмір: {client.current_size}")
@@ -5052,7 +5125,43 @@ def _context_sections(client) -> str:
     return "".join(parts)
 
 
-def _pin_control_product(client, product_id) -> bool:
+def _switch_reason_for_turn(client, text: str, product_id) -> str:
+    """Чому клієнт міняє товар — за фактами цього ходу, не за здогадкою.
+
+    Порядок перевірок = порядок надійності факту. Посилання на сайт і вибір
+    позиції з надісланих фото — це однозначні дії клієнта; відсутність розміру
+    знає розрахунок готовності. Якщо жоден факт не підходить, лишається
+    «клієнт сам обрав», і це теж правда, просто менш детальна.
+    """
+    from management.services.ig_funnel_journal import SwitchReason, resolve_switch_reason
+
+    try:
+        product_id = int(product_id or 0)
+    except (TypeError, ValueError):
+        product_id = 0
+
+    stock_reason = resolve_switch_reason(client, getattr(client, "current_product_id", None))
+    if stock_reason:
+        return stock_reason
+    try:
+        from management.services.ig_checkout_readiness import product_reference_from_text
+
+        reference = product_reference_from_text(text)
+        if reference.get("found") and int(reference.get("product_id") or 0) == product_id:
+            return SwitchReason.CUSTOMER_LINK
+    except Exception:  # noqa: BLE001
+        pass
+    context = getattr(client, "sales_context", None)
+    if isinstance(context, dict) and product_id:
+        shown = context.get(SHOWN_PRODUCTS_CONTEXT_KEY)
+        if isinstance(shown, dict):
+            for entry in shown.get("items") or []:
+                if isinstance(entry, dict) and int(entry.get("product_id") or 0) == product_id:
+                    return SwitchReason.PHOTO_PICK
+    return SwitchReason.CUSTOMER_CHOICE
+
+
+def _pin_control_product(client, product_id, *, switch_reason: str = "") -> bool:
     """Закрепить товар для детерминированной оплаты (F-AI-002).
 
     Собственный комментарий в коде объяснял, что pin нужен, «щоб подальша
@@ -5063,7 +5172,9 @@ def _pin_control_product(client, product_id) -> bool:
     from management.services import bot_orders
 
     try:
-        return bool(bot_orders.pin_product(client, product_id))
+        return bool(
+            bot_orders.pin_product(client, product_id, switch_reason=switch_reason)
+        )
     except Exception as exc:
         log("error", "pin_product", f"{getattr(client, 'igsid', '')}: {exc!r}")
         return False
@@ -6451,7 +6562,13 @@ def _process_one_inside_reply_boundary(
     # звідси «не змінював товар назад». Опублікованість товару перевіряє
     # `bot_orders.pin_product`, тому вигаданий id тут не закріпиться.
     if reply and row.client_id and _control_product_id(control):
-        _pin_control_product(row.client, _control_product_id(control))
+        _pin_control_product(
+            row.client,
+            _control_product_id(control),
+            switch_reason=_switch_reason_for_turn(
+                row.client, row.text, _control_product_id(control)
+            ),
+        )
 
     # Фіксуємо все, що модель дізналась цим ходом ([FIT:...], [SIZE:...],
     # [QTY:...]), навіть якщо посилання ще не створюється. Інакше уточнення
