@@ -58,6 +58,7 @@ __all__ = [
     "IgCommercialEpisodeEvent",
     "IgPostSaleCase",
     "IgOrderShipment",
+    "BotPromptRevision",
     "IgFunnelResetAudit",
     "IgCheckoutProposal",
     "IgCheckoutProposalItem",
@@ -2690,6 +2691,85 @@ class IgOrderShipment(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - тривіально
         return f"{self.tracking_number} ({self.purpose})"
+
+
+class _AppendOnlyPromptRevisionQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValueError("BotPromptRevision is append-only")
+
+    def delete(self):
+        raise ValueError("BotPromptRevision is append-only")
+
+
+class BotPromptRevision(models.Model):
+    """Change history for the parts of the prompt that are edited by hand.
+
+    IMP-025 asked to version ``InstagramBotSettings.system_prompt``. Measured on
+    production that field is 3136 of ~26 900 assembled characters (11.7%), is
+    byte-identical to the constant in code, and has never been saved through the
+    form — ``settings_saved`` has zero log entries. The other 88% comes from code
+    and from ``bot_knowledge/brand.md``, both already versioned by git.
+
+    So the audited layer is the one that is genuinely editable and absent from
+    git: ``BotInstruction`` bodies and the live ``knowledge_base``.
+    """
+
+    class Target(models.TextChoices):
+        INSTRUCTION = "instruction", _("Інструкція бота")
+        KNOWLEDGE_BASE = "knowledge_base", _("Оперативні директиви")
+
+    class Kind(models.TextChoices):
+        EDIT = "edit", _("Зміна")
+        ROLLBACK = "rollback", _("Відкат")
+
+    target = models.CharField(max_length=32, choices=Target.choices, db_index=True)
+    target_id = models.PositiveIntegerField(null=True, blank=True, db_index=True)
+    kind = models.CharField(max_length=16, choices=Kind.choices, default=Kind.EDIT)
+    title = models.CharField(max_length=200, blank=True, default="")
+    body = models.TextField(blank=True, default="")
+    previous_body = models.TextField(blank=True, default="")
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        db_constraint=False,
+        related_name="bot_prompt_revisions",
+    )
+    actor_label = models.CharField(max_length=150, blank=True, default="")
+    note = models.CharField(max_length=500, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    objects = models.Manager.from_queryset(_AppendOnlyPromptRevisionQuerySet)()
+
+    class Meta:
+        verbose_name = _("Ревізія промпту бота")
+        verbose_name_plural = _("Ревізії промпту бота")
+        ordering = ["-id"]
+        indexes = [
+            models.Index(fields=["target", "target_id", "-id"], name="bot_prompt_rev_target"),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk and not kwargs.get("force_insert"):
+            raise ValueError("BotPromptRevision is append-only")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("BotPromptRevision is append-only")
+
+    def diff_lines(self) -> list[str]:
+        """Unified diff between the previous and the new body."""
+        import difflib
+
+        return list(
+            difflib.unified_diff(
+                (self.previous_body or "").splitlines(),
+                (self.body or "").splitlines(),
+                lineterm="",
+                n=2,
+            )
+        )
 
 
 class IgFunnelResetAudit(models.Model):

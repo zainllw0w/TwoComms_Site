@@ -190,6 +190,99 @@ def phone_is_contact_handover(text: str) -> bool:
     return bool(CONTACT_HANDOVER_RE.search(value))
 QTY_RE = re.compile(r"\b(?:x|х|×)?\s*(\d{1,2})\s*(?:шт|штук|pcs|од)\b", re.I)
 SIZE_TOKEN_RE = re.compile(r"\b(xs|s|m|l|xl|xxl|xxxl|2xl|3xl)\b", re.I)
+# F-PAT-003: клиенты пишут размер кириллицей чаще, чем латиницей (46 токенов
+# против 43 на 1113 живых сообщений). 41 сообщение содержит только кириллический
+# размер, это 31 клиент, и у 24 из них `current_size` был пуст.
+CYRILLIC_SIZE_MAP = {
+    "хс": "XS",
+    "с": "S",
+    "м": "M",
+    "л": "L",
+    "хл": "XL",
+    "ххл": "XXL",
+    "хххл": "XXXL",
+    "2хл": "2XL",
+    "3хл": "3XL",
+}
+SIZE_TOKEN_CYRILLIC_RE = re.compile(
+    r"\b(хххл|ххл|3хл|2хл|хл|хс|с|м|л)\b", re.I
+)
+
+
+LANGUAGE_SWITCH_VOTES = 2
+LANGUAGE_VOTE_WINDOW = 3
+
+
+def _sticky_language(client, detected: str) -> str:
+    """Resolve the conversation language with hysteresis.
+
+    Without it a single «ок, спасибо» from a Ukrainian-speaking customer flipped
+    the whole conversation to Russian, and the next Ukrainian word flipped it
+    back. A switch now needs to be confirmed by a second recent detection; the
+    very first detection still applies immediately, because there is nothing to
+    be sticky about yet.
+    """
+    current = client.language or ""
+    if not detected:
+        return current or "uk"
+    if not current:
+        return detected
+    if detected == current:
+        _record_language_vote(client, detected)
+        return current
+    votes = _record_language_vote(client, detected)
+    if votes.count(detected) >= LANGUAGE_SWITCH_VOTES:
+        return detected
+    return current
+
+
+def _record_language_vote(client, detected: str) -> list[str]:
+    context = client.sales_context if isinstance(client.sales_context, dict) else {}
+    votes = context.get("_lang_votes")
+    if not isinstance(votes, list):
+        votes = []
+    votes.append(detected)
+    votes = votes[-LANGUAGE_VOTE_WINDOW:]
+    context["_lang_votes"] = votes
+    client.sales_context = context
+    return votes
+
+
+def normalize_size_token(value: str) -> str:
+    """Bring a size to the single latin spelling used everywhere else.
+
+    Every ``sales_context["size"]`` value on production is latin, so a cyrillic
+    token must not be stored as-is: two spellings of one size would silently
+    split the same customer choice into two.
+    """
+    token = str(value or "").strip().lower()
+    if not token:
+        return ""
+    return CYRILLIC_SIZE_MAP.get(token, token.upper())
+
+
+def extract_size_tokens(text: str) -> list[str]:
+    """Sizes mentioned in one message, normalized, latin and cyrillic alike.
+
+    A single cyrillic letter is accepted only with context — a short answer to a
+    size question or the word «розмір» nearby. Without that guard this would
+    reintroduce the «it's ok» defect (F-PAT-001 #2) in the other alphabet:
+    «а с чого починається» would become size S.
+    """
+    value = str(text or "")
+    tokens = [normalize_size_token(match) for match in SIZE_TOKEN_RE.findall(value)]
+    stripped = value.strip()
+    context_allows_single_letter = bool(
+        len(stripped) <= 24 or SIZE_WORD_RE.search(value)
+    )
+    for match in SIZE_TOKEN_CYRILLIC_RE.findall(value):
+        token = match.lower()
+        if len(token) == 1 and not context_allows_single_letter:
+            continue
+        normalized = normalize_size_token(token)
+        if normalized and normalized not in tokens:
+            tokens.append(normalized)
+    return tokens
 COLLAB_RE = re.compile(
     r"\b(коллаб\w*|колаб\w*|collab\w*|cooperat\w*|partnership\w*|creator|креатор|блогер\w*|інфлюенсер\w*|"
     r"инфлюенсер\w*|партнерств\w*|співпрац\w*|сотруднич\w*|постачальник\w*|"
@@ -351,9 +444,9 @@ def _extract_context(text: str) -> dict:
             ctx["quantity"] = max(1, min(99, int(qty.group(1))))
         except Exception:
             pass
-    size = SIZE_TOKEN_RE.search(low)
-    if size:
-        ctx["size"] = size.group(1).upper()
+    sizes = extract_size_tokens(low)
+    if sizes:
+        ctx["size"] = sizes[0]
     for stem, color in COLOR_WORDS.items():
         if stem in low:
             ctx["color"] = color
@@ -778,10 +871,14 @@ def classify_message(
     is_manager = role == InstagramBotMessage.Role.MANAGER
     reaction_only = bool(not is_manager and is_reaction_only(text))
     detected_language = detect_language(text) if text.strip() else ""
+    # F-AI-008: язык перезаписывался каждым определением, поэтому у 99 из 168
+    # клиентов он менялся хотя бы раз (229 переключений всего, у 93 в диалоге
+    # есть и ru, и uk). Бот отвечал то на одном, то на другом. Смена требует
+    # подтверждения: одно неоднозначное сообщение языком диалога не является.
     lang = (
         client.language or "uk"
         if is_manager
-        else detected_language or client.language or "uk"
+        else _sticky_language(client, detected_language)
     )
 
     signals: list[str] = []

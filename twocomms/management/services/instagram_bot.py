@@ -3884,27 +3884,14 @@ def gemini_generate(
             except Exception:
                 pass
 
-    # system_instruction = правило + оперативні директиви + база знань + каталог.
-    sys_text = (s.system_prompt or "").strip()
-    live = (s.knowledge_base or "").strip()
-    if live:
-        sys_text += "\n\n[ОПЕРАТИВНІ ДИРЕКТИВИ — найвищий пріоритет, дотримуйся беззаперечно]\n" + live
-    sys_text += _context_sections(client)
-    sys_text = sys_text.strip()
-    # Протокол оплати ([PAYLINK]+[PRODUCT], без вигаданих URL) + правило точності.
-    sys_text = (
-        (sys_text + "\n\n" + PAYMENT_PROTOCOL_NOTE).strip() if sys_text else PAYMENT_PROTOCOL_NOTE
+    sys_text = assemble_system_instruction(
+        s,
+        client=client,
+        memory_note=memory_note,
+        context_note=context_note,
+        match_hint=match_hint,
+        media_hint=media_hint,
     )
-    sys_text = (sys_text + "\n\n" + ANTI_HALLUCINATION_NOTE).strip()
-    sys_text = (sys_text + "\n\n" + automation_guardrails(client)).strip()
-    if memory_note:
-        sys_text = (sys_text + "\n\n" + memory_note).strip()
-    if context_note:
-        sys_text = (sys_text + "\n\n" + context_note).strip()
-    if match_hint:
-        sys_text = (sys_text + "\n\n" + match_hint).strip()
-    if media_hint:
-        sys_text = (sys_text + "\n\n" + media_hint).strip()
 
     payload = {
         "contents": contents,
@@ -4013,6 +4000,127 @@ def _prompt_section(source: str, loader) -> str:
     except Exception as exc:
         log("error", "prompt_context", f"{source}: {exc!r}")
         return ""
+
+
+def assemble_system_instruction(
+    s,
+    *,
+    client=None,
+    memory_note: str | None = None,
+    context_note: str | None = None,
+    match_hint: str | None = None,
+    media_hint: str | None = None,
+) -> str:
+    """Собрать system_instruction из всех источников.
+
+    Вынесено из `gemini_generate`, чтобы промпт можно было проверять тестами.
+    IMP-026: свойства *ответа* модели непроверяемы (в тестах он замокан
+    константой), а свойства *промпта* — проверяемы и детерминированы.
+    """
+    sys_text = (s.system_prompt or "").strip()
+    live = (s.knowledge_base or "").strip()
+    if live:
+        sys_text += "\n\n[ОПЕРАТИВНІ ДИРЕКТИВИ — найвищий пріоритет, дотримуйся беззаперечно]\n" + live
+    sys_text += _context_sections(client)
+    sys_text = sys_text.strip()
+    # Протокол оплати ([PAYLINK]+[PRODUCT], без вигаданих URL) + правило точності.
+    sys_text = (
+        (sys_text + "\n\n" + PAYMENT_PROTOCOL_NOTE).strip() if sys_text else PAYMENT_PROTOCOL_NOTE
+    )
+    sys_text = (sys_text + "\n\n" + ANTI_HALLUCINATION_NOTE).strip()
+    sys_text = (sys_text + "\n\n" + automation_guardrails(client)).strip()
+    state_note = client_state_note(client)
+    if state_note:
+        sys_text = (sys_text + "\n\n" + state_note).strip()
+    if memory_note:
+        sys_text = (sys_text + "\n\n" + memory_note).strip()
+    if context_note:
+        sys_text = (sys_text + "\n\n" + context_note).strip()
+    if match_hint:
+        sys_text = (sys_text + "\n\n" + match_hint).strip()
+    if media_hint:
+        sys_text = (sys_text + "\n\n" + media_hint).strip()
+    return sys_text
+
+
+def build_prompt_snapshot(client=None) -> str:
+    """The system instruction as it would be assembled for this client right now."""
+    from management.models import InstagramBotSettings
+    from management.services import bot_memory
+
+    settings_obj = InstagramBotSettings.load()
+    memory_note = None
+    context_note = None
+    if getattr(client, "pk", None):
+        try:
+            memory_note = bot_memory.memory_note(client)
+            context_note = bot_memory.client_context_note(client)
+        except Exception:
+            memory_note = None
+            context_note = None
+    return assemble_system_instruction(
+        settings_obj,
+        client=client,
+        memory_note=memory_note,
+        context_note=context_note,
+    )
+
+
+def client_state_note(client) -> str:
+    """Состояние диалога и записанные сигналы — фактами, а не догадкой.
+
+    F-AI-006 был прямым вопросом заказчика: 987 сигналов пишутся и **не читаются**
+    при генерации. Проверено grep'ом по всем пяти файлам сборки промпта — ни
+    одного обращения к `IgConversationSignal`.
+
+    Значение сигнала не показываем: на проде `value` пуст в 149 из 150 записей,
+    а `payload` — в 150 из 150. Показываем тип и давность, потому что это всё,
+    что реально есть.
+    """
+    if not getattr(client, "pk", None):
+        return ""
+    from django.utils import timezone as _tz
+
+    from management.ig_bot_models import IgConversationSignal
+
+    lines = [
+        f"стадія: {client.stage}",
+        f"мова діалогу: {client.language or 'uk'}",
+    ]
+    if client.current_size:
+        lines.append(f"обраний розмір: {client.current_size}")
+    if int(getattr(client, "purchases_count", 0) or 0) > 0:
+        lines.append(f"постійний клієнт, покупок: {client.purchases_count}")
+    try:
+        from management.services.ig_funnel_reset import current_message_floor
+        from management.services.ig_post_sale import open_service_case
+
+        case = open_service_case(client)
+        if case is not None:
+            described = case.get_case_type_display()
+            if case.requested_size:
+                described = f"{described} на розмір {case.requested_size}"
+            lines.append(
+                f"відкрите сервісне звернення: {described} "
+                f"({case.get_status_display()})"
+            )
+        floor = current_message_floor(client)
+        now = _tz.now()
+        signals = (
+            IgConversationSignal.objects.filter(client=client, message_id__gte=floor)
+            .exclude(signal_type=IgConversationSignal.Type.MANAGER_TAKEOVER)
+            .order_by("-created_at")[:10]
+        )
+        signal_lines = []
+        for signal in signals:
+            hours = max(0, int((now - signal.created_at).total_seconds() // 3600))
+            signal_lines.append(f"  • {signal.signal_type} — {hours} год тому")
+    except Exception:
+        signal_lines = []
+    body = "[СТАН ДІАЛОГУ — службове, не переказуй клієнту]\n" + "\n".join(lines)
+    if signal_lines:
+        body += "\n[СИГНАЛИ КЛІЄНТА]\n" + "\n".join(signal_lines)
+    return body
 
 
 def _context_sections(client) -> str:

@@ -59,6 +59,15 @@ def current_message_filter(client, *, field: str = "id") -> dict:
     return {f"{field}__gte": current_message_floor(client)}
 
 
+def _preserved_sales_context(client) -> dict:
+    try:
+        from management.services.bot_memory import preserved_profile
+
+        return preserved_profile(client)
+    except Exception:
+        return {}
+
+
 def reset_funnel(*, client_id: int, actor, reason: str = "manual_reset") -> dict:
     """Reset mutable CRM inference while retaining the immutable transcript/truth.
 
@@ -189,7 +198,10 @@ def reset_funnel(*, client_id: int, actor, reason: str = "manual_reset") -> dict
                 "delivery_failed_at": None,
                 "memory_summary": "",
                 "memory_updated_at": None,
-                "sales_context": {},
+                # Сброс обнуляет выводы системы, но не подтверждённые факты:
+                # названный клиентом размер и высказанное возражение не перестают
+                # быть правдой от того, что оператор перезапустил воронку.
+                "sales_context": _preserved_sales_context(client),
                 "automation_lease_token": "",
                 "automation_lease_until": None,
                 # Invalidate a worker that generated before the reset. The

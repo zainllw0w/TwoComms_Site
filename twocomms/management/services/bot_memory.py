@@ -292,3 +292,78 @@ def client_context_note(client) -> str | None:
     if not parts:
         return None
     return "[КОНТЕКСТ КЛІЄНТА] " + "; ".join(parts) + "."
+
+
+# IMP-030. Профиль живёт под служебным ключом: соглашение в `sales_context` уже
+# существует (`_provenance`, `_media_evidence`, `_media_catalog_match`), а
+# бизнес-ключи там без подчёркивания (`size`, `color`, `gift`).
+PROFILE_KEY = "_profile"
+PROFILE_OBJECTION_LIMIT = 12
+
+
+def update_client_profile(client) -> dict:
+    """Maintain a structured client profile inside the existing `sales_context`.
+
+    The plan framed this as replacing the free-text rolling summary. Measurement
+    says there is nothing to replace: `memory_summary` is filled for **1 client
+    out of 289**, because `maybe_update_memory` only runs after the bot
+    successfully sends a reply — and it has sent 20 replies in total. So this is
+    the first memory the system has, not a substitute for an existing one.
+
+    Deliberately narrow. Half of the originally proposed schema would duplicate
+    existing columns (`current_size`, `language`, `purchases_count`), and a
+    duplicate is a second source of truth waiting to disagree. What is genuinely
+    absent is the **history of objections** — `primary_objection` is a single
+    overwritten field — and structured delivery data.
+    """
+    if not client or not getattr(client, "pk", None):
+        return {}
+    context = client.sales_context if isinstance(client.sales_context, dict) else {}
+    profile = context.get(PROFILE_KEY)
+    if not isinstance(profile, dict):
+        profile = {}
+
+    profile["fit"] = {
+        "size": str(client.current_size or ""),
+        "color": str(client.current_color or ""),
+    }
+    profile["comms"] = {"lang": str(client.language or "uk")}
+    profile["history"] = {
+        "purchases": int(getattr(client, "purchases_count", 0) or 0),
+        "total_spent": str(getattr(client, "total_spent", "") or "0"),
+    }
+
+    objections = profile.get("objections")
+    if not isinstance(objections, list):
+        objections = []
+    current = str(client.primary_objection or "")
+    from management.models import IgClient as _IgClient
+
+    if current and current != _IgClient.Objection.NONE:
+        if not any(
+            isinstance(row, dict) and row.get("type") == current for row in objections
+        ):
+            from django.utils import timezone as _tz
+
+            objections.append({"type": current, "at": _tz.now().isoformat()})
+    profile["objections"] = objections[-PROFILE_OBJECTION_LIMIT:]
+
+    context[PROFILE_KEY] = profile
+    client.sales_context = context
+    client.__class__.objects.filter(pk=client.pk).update(sales_context=context)
+    return profile
+
+
+def preserved_profile(client) -> dict:
+    """Profile part of `sales_context`, meant to survive a funnel reset.
+
+    `reset_funnel` blanks the whole `sales_context`, which is right for inferred
+    state but wrong for confirmed facts: a size the customer stated and an
+    objection they voiced did not stop being true because an operator restarted
+    the funnel.
+    """
+    context = getattr(client, "sales_context", None)
+    if not isinstance(context, dict):
+        return {}
+    profile = context.get(PROFILE_KEY)
+    return {PROFILE_KEY: profile} if isinstance(profile, dict) else {}

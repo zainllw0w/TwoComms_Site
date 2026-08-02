@@ -26,8 +26,16 @@ from management.services.bot_payment_truth import (
 )
 
 KYIV_TZ = ZoneInfo("Europe/Kyiv")
+# IMP-054. Окно инициации автосообщений. Прежние 10:00–19:00 отрезали вечер —
+# самое живое время в Instagram, — и не совпадали со второй конфигурацией тишины
+# в `services/config_versions.py` (21:00–08:00). Одна конфигурация на домен.
 QUIET_START = time(10, 0)
-QUIET_END = time(19, 0)
+QUIET_END = time(21, 30)
+# Аварийное окно шире и используется только когда иначе задача умрёт от
+# 24-часового окна Meta. Разбудить человека в 22:15 хуже, чем не ответить
+# вообще, — но потерять единственную возможность ответить хуже обоих.
+EMERGENCY_START = time(9, 0)
+EMERGENCY_END = time(22, 30)
 META_REPLY_WINDOW = timedelta(hours=23)
 FOLLOWUP_MAX_ATTEMPTS = 4
 FOLLOWUP_RETRY_BASE = timedelta(minutes=5)
@@ -44,14 +52,41 @@ def _local(dt: datetime) -> datetime:
     return dt.astimezone(KYIV_TZ)
 
 
-def next_allowed_send_at(candidate: datetime) -> datetime:
-    """Return the next 10:00-19:00 Kyiv slot for an automated follow-up."""
+def next_allowed_send_at(candidate: datetime, *, deadline: datetime | None = None) -> datetime:
+    """Next Kyiv slot allowed for an automated follow-up.
+
+    A reactive reply to a customer message never passes through here and stays
+    available 24/7: silence hours are about us initiating contact, not about
+    refusing to answer someone who just wrote.
+
+    ``deadline`` widens the window to the emergency one when postponing until
+    the morning would take the task past the Meta reply window — outside it we
+    lose the only chance to answer at all.
+    """
     local = _local(candidate)
-    if local.time() < QUIET_START:
-        local = local.replace(hour=10, minute=0, second=0, microsecond=0)
-    elif local.time() >= QUIET_END:
-        local = (local + timedelta(days=1)).replace(hour=10, minute=0, second=0, microsecond=0)
+    start, end = QUIET_START, QUIET_END
+    if deadline is not None:
+        local_deadline = _local(deadline)
+        morning = _next_window_start(local, QUIET_START)
+        if local_deadline < morning:
+            start, end = EMERGENCY_START, EMERGENCY_END
+    if local.time() < start:
+        local = local.replace(
+            hour=start.hour, minute=start.minute, second=0, microsecond=0
+        )
+    elif local.time() >= end:
+        local = (local + timedelta(days=1)).replace(
+            hour=start.hour, minute=start.minute, second=0, microsecond=0
+        )
     return local.astimezone(timezone.get_current_timezone())
+
+
+def _next_window_start(local: datetime, start: time) -> datetime:
+    """When the next initiation window opens relative to ``local``."""
+    today = local.replace(
+        hour=start.hour, minute=start.minute, second=0, microsecond=0
+    )
+    return today if local < today else today + timedelta(days=1)
 
 
 def meta_window_deadline(client: IgClient) -> datetime | None:
@@ -248,8 +283,8 @@ def schedule_followup(
 ) -> IgFollowUpTask | None:
     """Create one pending follow-up, adjusted for quiet hours and Meta window."""
     now = now or _now()
-    due = next_allowed_send_at(now + delay)
     deadline = meta_window_deadline(client)
+    due = next_allowed_send_at(now + delay, deadline=deadline)
     status = IgFollowUpTask.Status.PENDING
     skip_reason = ""
     task_kind = kind

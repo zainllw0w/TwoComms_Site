@@ -9,7 +9,11 @@
 """
 from __future__ import annotations
 
+import logging
+
 from django.core.cache import cache
+
+logger = logging.getLogger(__name__)
 from django.db.models import Sum
 
 CACHE_KEY = "ig_bot_catalog_ctx"
@@ -120,10 +124,56 @@ def _build() -> str:
             f"{colors_s}{avail}{fits_s}{fp_s} | {url}"
         )
 
-    text = "\n".join(lines)
-    if len(text) > MAX_CHARS:
-        text = text[:MAX_CHARS] + "\n…(перелік скорочено)"
+    text, _dropped = truncate_catalog_lines(lines, limit=MAX_CHARS)
     return text + "\nПравило: не вигадуй variant_id, фасон або розмір; використовуй тільки значення з цього каталогу."
+
+
+def _log_catalog_truncation(dropped: int, total: int, limit: int) -> None:
+    """Make the truncation visible: it used to happen without a trace."""
+    try:
+        from management.services.instagram_bot import log
+
+        log(
+            "warning",
+            "catalog_truncated",
+            f"{dropped} of {total} products dropped to fit {limit} chars",
+        )
+    except Exception:
+        logger.warning(
+            "Instagram catalog truncated: %s of %s products dropped to fit %s chars",
+            dropped,
+            total,
+            limit,
+        )
+
+
+def truncate_catalog_lines(lines: list[str], *, limit: int = MAX_CHARS) -> tuple[str, int]:
+    """Fit the catalog into the budget by whole products, not by characters.
+
+    F-CAT-001: the previous ``text[:MAX_CHARS]`` cut mid-line, so the last
+    product arrived truncated and the model could read a partial price or a
+    partial variant_id. On production the catalog is 16 118 characters against a
+    16 000 limit, which means 22 of 71 published products never reach the prompt
+    — and nothing said so.
+    """
+    total = len(lines)
+    kept: list[str] = []
+    used = 0
+    for line in lines:
+        cost = len(line) + 1
+        if used + cost > limit:
+            break
+        kept.append(line)
+        used += cost
+    dropped = total - len(kept)
+    if not dropped:
+        return "\n".join(kept), 0
+    _log_catalog_truncation(dropped, total, limit)
+    kept.append(
+        f"…(показано {len(kept)} товарів із {total}; {dropped} не вміщено — "
+        "якщо клієнт питає про товар, якого тут немає, скажи що уточниш у менеджера)"
+    )
+    return "\n".join(kept), dropped
 
 
 def get_catalog_context(force: bool = False) -> str:

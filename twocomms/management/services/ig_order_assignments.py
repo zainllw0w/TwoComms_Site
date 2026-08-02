@@ -10,8 +10,12 @@ from __future__ import annotations
 import uuid
 from functools import wraps
 
+import logging
+
 from django.db import transaction
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 
 class OrderAssignmentError(ValueError):
@@ -254,8 +258,49 @@ def link_order_to_client(
             reason=reason,
         ),
     )
+    _advance_stage_from_order(client, locked_order)
     transaction.on_commit(lambda order_id=locked_order.pk: _kick_fulfillment(order_id))
     return assignment
+
+
+def _advance_stage_from_order(client, order) -> None:
+    """Move the CRM stage when a real paid order becomes ours.
+
+    F-STATE-009: the stage was only ever recomputed while classifying an inbound
+    message, so an order paid on the website and linked by a manager left the
+    client at `new`. On production that is exactly client #303: 3428 UAH paid,
+    parcel shipped, stage `new`, readiness 0.
+
+    Never regresses: a client already at `done` stays there.
+    """
+    from management.models import IgClient
+
+    if not client or not getattr(client, "pk", None) or order is None:
+        return
+    paid = str(getattr(order, "payment_status", "") or "") in {
+        "paid",
+        "prepaid",
+        "partial",
+    }
+    if not paid:
+        return
+    target = (
+        IgClient.Stage.DONE
+        if str(getattr(order, "status", "") or "") == "done"
+        else IgClient.Stage.ORDER_CREATED
+    )
+    order_index = list(IgClient.FUNNEL_ORDER)
+    try:
+        current_rank = [item.value for item in order_index].index(client.stage)
+        target_rank = [item.value for item in order_index].index(target)
+    except ValueError:
+        current_rank, target_rank = -1, 0
+    if current_rank >= target_rank:
+        return
+    try:
+        client.set_stage(target, reason="order_linked")
+    except Exception:
+        logger.exception("Could not advance stage for client %s", client.pk)
 
 
 @transaction.atomic

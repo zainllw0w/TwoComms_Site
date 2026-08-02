@@ -20,6 +20,11 @@ logger = logging.getLogger(__name__)
 
 LEASE_SECONDS = 300
 RETRY_MINUTES = 15
+# F-OPS-005: нетерминальное состояние без верхней границы — это тихая потеря.
+# Двенадцать часов и 40 попыток дают менеджеру рабочий день, после чего событие
+# становится его задачей, а не бесконечным ретраем.
+MAX_WAITING_ATTEMPTS = 40
+MAX_WAITING_DURATION = timedelta(hours=12)
 RESPONSE_WINDOW = timedelta(hours=23)
 SUPERSEDED_ERROR = "superseded by current order fulfillment state"
 _CANONICAL_LIFECYCLE_ASSIGNMENT_SOURCES = frozenset(
@@ -482,6 +487,27 @@ def deliver_event(event_id, *, send=True, now=None):
         _finish(event, token=token, state=IgOrderCustomerEvent.State.CANCELLED, now=now, error="client hidden or opted out")
         return "cancelled"
     if client.bot_paused or client.manager_takeover:
+        # F-OPS-005: раньше здесь был безусловный ретрай каждые 15 минут без
+        # верхней границы. На проде событие с ТТН провисело 53 попытки (~13 ч),
+        # клиент оплатил 3428 грн и номер не получил, а состояние
+        # `waiting_window` выглядело как «всё под контролем».
+        stuck_too_long = bool(
+            event.attempts >= MAX_WAITING_ATTEMPTS
+            or (now - event.created_at) >= MAX_WAITING_DURATION
+        )
+        if stuck_too_long:
+            _finish(
+                event,
+                token=token,
+                state=IgOrderCustomerEvent.State.MANAGER_REVIEW,
+                now=now,
+                error=(
+                    "менеджер тримає діалог довше "
+                    f"{int(MAX_WAITING_DURATION.total_seconds() // 3600)} год — "
+                    "надішліть ТТН вручну"
+                ),
+            )
+            return "manager_review"
         _finish(event, token=token, state=IgOrderCustomerEvent.State.WAITING_WINDOW, now=now, due_at=now + timedelta(minutes=RETRY_MINUTES), error="manager currently owns the conversation")
         return "paused"
     if not send:
