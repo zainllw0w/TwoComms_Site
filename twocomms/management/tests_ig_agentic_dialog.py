@@ -543,3 +543,49 @@ class WebhookSecretCoverageTests(TestCase):
                 b"attacker-secret", body, hashlib.sha256
             ).hexdigest()
             self.assertFalse(bot.verify_signature(body, header))
+
+
+class CatalogBudgetTests(TestCase):
+    """Каталог не має обрізати товари, про які клієнт питає."""
+
+    def test_budget_fits_a_full_production_sized_catalog(self):
+        from management.services.bot_catalog import MAX_CHARS
+
+        # На проді при лімiті 16 000 каталог важив 15 977 і в промпт потрапляли
+        # 48 товарів із 71. Найстаріші (базові моделі id=1..3) відрізало, і бот
+        # казав клієнту, що однотонної класики «немає в наявності».
+        self.assertGreaterEqual(MAX_CHARS, 32000)
+
+    def test_zero_stock_is_described_as_made_to_order_not_as_absent(self):
+        from management.services.bot_catalog import get_catalog_context
+
+        category = Category.objects.create(name="Футболки", slug="budget-shirts")
+        Product.objects.create(
+            title="Футболка без обліку залишку",
+            slug="budget-tshirt",
+            category=category,
+            price=880,
+            status=ProductStatus.PUBLISHED,
+        )
+        catalog = get_catalog_context(force=True)
+
+        self.assertIn("під замовлення", catalog)
+        self.assertNotIn("stock=0", catalog)
+
+    def test_every_published_product_reaches_the_prompt(self):
+        from management.services.bot_catalog import get_catalog_context
+
+        category = Category.objects.create(name="Каталог", slug="budget-full")
+        for index in range(40):
+            Product.objects.create(
+                title=f"Товар з довгою назвою для перевірки бюджету {index}",
+                slug=f"budget-item-{index}",
+                category=category,
+                price=880 + index,
+                status=ProductStatus.PUBLISHED,
+            )
+
+        catalog = get_catalog_context(force=True)
+
+        self.assertEqual(catalog.count("• id="), 40)
+        self.assertNotIn("не вміщено", catalog)
