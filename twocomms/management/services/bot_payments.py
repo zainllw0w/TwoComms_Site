@@ -10,13 +10,62 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
+from django.utils import timezone
 
 SITE = (getattr(settings, "BOT_PUBLIC_BASE_URL", "") or "https://twocomms.shop").rstrip("/")
 WEBHOOK_PATH = "/payments/monobank/webhook/"
 RETURN_PATH = "/"
+# IMP-050. Сутки — компромисс между «клиент успеет заплатить утром» и
+# «ссылка не живёт неделю без нашего ведома». Каскад добивки строится на
+# T+23ч, то есть на последнем часе, когда ссылка ещё жива.
+INVOICE_VALIDITY_SECONDS = 86400
+
+
+def _invoice_expired(deal, *, now=None) -> bool:
+    """Whether the stored payment link is past its recorded lifetime.
+
+    A deal created before this field existed has no expiry recorded. Treating
+    that as expired would reissue links for every legacy deal, so absence of a
+    date means "not known to be dead", not "dead".
+    """
+    expires_at = getattr(deal, "invoice_expires_at", None)
+    if not expires_at:
+        return False
+    return (now or timezone.now()) >= expires_at
+
+
+def invoice_link_state(deal, *, now=None) -> dict:
+    """Answer «is the payment link still alive?» with a fact, not an assumption.
+
+    Exists because the bot used to tell customers «посилання ще активне» without
+    checking anything. ``unknown`` is a deliberate outcome: for a link issued
+    before the TTL field existed we do not know, and saying so is cheaper than
+    guessing wrong in front of a customer.
+    """
+    now = now or timezone.now()
+    from management.models import IgDeal
+
+    if deal is None:
+        return {"status": "none", "expired": False, "expires_at": None}
+    if deal.status in (IgDeal.Status.PAID, IgDeal.Status.ORDER_CREATED) or str(
+        deal.payment_status or ""
+    ) in {"paid", "prepaid"}:
+        return {"status": "paid", "expired": False, "expires_at": None}
+    if not deal.invoice_id or not deal.invoice_url:
+        return {"status": "none", "expired": False, "expires_at": None}
+    expires_at = getattr(deal, "invoice_expires_at", None)
+    if not expires_at:
+        return {"status": "unknown", "expired": False, "expires_at": None}
+    expired = now >= expires_at
+    return {
+        "status": "expired" if expired else "live",
+        "expired": expired,
+        "expires_at": expires_at,
+    }
 
 
 def _destination(deal) -> str:
@@ -66,12 +115,23 @@ def create_payment_link(deal, *, force: bool = False) -> dict:
             return result
         return {"ok": False, "error": result.get("error", "proposal_error")}
     if deal.invoice_id and deal.invoice_url and not force:
-        return {
-            "ok": True,
-            "invoice_id": deal.invoice_id,
-            "invoice_url": deal.invoice_url,
-            "reused": True,
-        }
+        # IMP-050: раньше переиспользовалась любая существующая ссылка, включая
+        # мёртвую. Клиент получал «посилання ще активне» и упирался в 404,
+        # а система не знала, что ссылка истекла.
+        if not _invoice_expired(deal):
+            return {
+                "ok": True,
+                "invoice_id": deal.invoice_id,
+                "invoice_url": deal.invoice_url,
+                "reused": True,
+            }
+        # Старый invoice_id уходит в историю: оплата по нему всё ещё возможна
+        # физически, и без истории это станет «потерянным платежом» (F-PAY-001).
+        history = list(deal.superseded_invoice_ids or [])
+        if deal.invoice_id and deal.invoice_id not in history:
+            history.append(deal.invoice_id)
+            deal.superseded_invoice_ids = history[-20:]
+            deal.save(update_fields=["superseded_invoice_ids", "updated_at"])
 
     amount = deal.payable_amount()
     try:
@@ -95,6 +155,9 @@ def create_payment_link(deal, *, force: bool = False) -> dict:
         },
         "redirectUrl": SITE + RETURN_PATH,
         "webHookUrl": SITE + WEBHOOK_PATH,
+        # Без явного срока провайдер держит ссылку по своему усмотрению, и у нас
+        # нет момента, про который можно сказать «посилання закінчилось».
+        "validity": INVOICE_VALIDITY_SECONDS,
     }
 
     from storefront.views.monobank import MonobankAPIError, _monobank_api_request
@@ -116,8 +179,11 @@ def create_payment_link(deal, *, force: bool = False) -> dict:
 
     deal.invoice_id = invoice_id
     deal.invoice_url = invoice_url
+    deal.invoice_expires_at = timezone.now() + timedelta(
+        seconds=INVOICE_VALIDITY_SECONDS
+    )
     deal.save(update_fields=[
-        "invoice_id", "invoice_url", "updated_at",
+        "invoice_id", "invoice_url", "invoice_expires_at", "updated_at",
     ])
     apply_payment_status(
         deal,

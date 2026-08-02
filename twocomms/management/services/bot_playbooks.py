@@ -54,8 +54,14 @@ def tags_for_client(client: IgClient | None) -> set[str]:
     if service_case is not None:
         # A stale price objection from the pre-purchase phase must not reopen the
         # discount playbook while an exchange is in progress.
-        tags.discard("discount")
-        tags.discard("sales")
+        #
+        # `price` is dropped together with `discount`, and that is not belt and
+        # braces: the rescue instruction on production is tagged `price, discount`,
+        # so removing only `discount` left it routed through `price` and the
+        # suppression did nothing. Suppression has to be measured on the resulting
+        # instruction block, not on the tag we intended to remove.
+        for tag in ("sales", "discount", "price"):
+            tags.discard(tag)
     return tags
 
 

@@ -594,6 +594,10 @@ class IgDeal(models.Model):
     # типа оплаты). Ссылка при этом остаётся оплачиваемой на стороне
     # Monobank, поэтому платёж по ней обязан находить сделку (F-PAY-001).
     superseded_invoice_ids = models.JSONField(default=list, blank=True)
+    # IMP-050: без срока жизни ссылки истечение ненаблюдаемо, и бот отвечал
+    # «посилання ще активне», не проверив ничего. NULL означает «не знаем»
+    # (ссылка выдана до появления поля), а не «истекла».
+    invoice_expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
     payment_status = models.CharField(max_length=20, default="unpaid")
     payment_payload = models.JSONField(default=dict, blank=True)
     paid_at = models.DateTimeField(null=True, blank=True)
@@ -1452,6 +1456,9 @@ class IgOrderCustomerEvent(models.Model):
         # generic text «Ваше замовлення відправлено» reads as a repeat and hides
         # the fact that this is the size the customer asked for.
         EXCHANGE_SHIPPED = "exchange_shipped", _("Заміну відправлено")
+        # F-PAY-007: подтверждение оплаты клиенту не было детерминированным —
+        # оно зависело от того, сгенерирует ли модель нужную фразу.
+        PAYMENT_CONFIRMED = "payment_confirmed", _("Оплату підтверджено")
         DELIVERED_REVIEW = "delivered_review", _("Запит відгуку після отримання")
 
     class State(models.TextChoices):

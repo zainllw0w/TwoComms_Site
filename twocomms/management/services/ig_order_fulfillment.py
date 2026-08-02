@@ -65,6 +65,28 @@ def _message(kind: str, locale: str, order, tracking: str, *, exchange_size: str
             f"Відстежити: {tracking_url}. "
             "Доплачувати нічого не потрібно — посилка вже оплачена вашим замовленням."
         )
+    if kind == "payment_confirmed":
+        from management.services.ig_order_amounts import order_amounts
+
+        payable = order_amounts(order)["payable"]
+        if locale == "en":
+            return (
+                f"Payment received, thank you. Order #{number}, {payable} UAH. "
+                "We are packing it now and will send the tracking number as soon "
+                "as the parcel is handed over. If anything needs changing, reply "
+                "here within the next couple of hours."
+            )
+        if locale == "ru":
+            return (
+                f"Оплата получена, спасибо. Заказ №{number}, {payable} грн. "
+                "Собираем и пришлём номер ТТН сразу после отправки. "
+                "Если нужно что-то поменять — напишите здесь в ближайшие пару часов."
+            )
+        return (
+            f"Оплату отримали, дякуємо. Замовлення №{number}, {payable} грн. "
+            "Збираємо і надішлемо номер ТТН відразу після відправки. "
+            "Якщо потрібно щось змінити — напишіть тут найближчі пару годин."
+        )
     if kind == "ttn_assigned":
         if locale == "en":
             return (
@@ -170,6 +192,30 @@ def _event_specs(assignment, *, now):
     client = assignment.client
     locale = _locale(client)
     tracking = str(order.tracking_number or "").strip()
+    # IMP-021: подтверждение оплаты идёт тем же durable-путём, что и ТТН, —
+    # там уже есть идемпотентность по event_key, guard'ы, lease и локализация.
+    # Оно не зависит от того, сформулирует ли модель нужную фразу.
+    #
+    # Только до появления ТТН: как только посылка уехала, клиенту нужен номер
+    # для отслеживания, а «оплату отримали» постфактум читается как сбой
+    # автоматики. Один шаг воронки — одно сообщение.
+    if (
+        not tracking
+        and str(order.payment_status or "") in {"paid", "prepaid", "partial"}
+        and order.status not in {"done", "cancelled"}
+    ):
+        yield {
+            "kind": "payment_confirmed",
+            "event_key": (
+                f"ig-assignment:{assignment.pk}:v{assignment.version}"
+                f":payment:{order.payment_status}"
+            ),
+            "message": _message("payment_confirmed", locale, order, tracking),
+            "payload": {
+                "order_number": order.order_number or str(order.pk),
+                "payment_status": str(order.payment_status or ""),
+            },
+        }
     if tracking and order.status not in {"done", "cancelled"}:
         # Exactly one outbound kind per current tracking number, so a replacement
         # never produces both «замовлення відправлено» and «заміну відправлено».
@@ -318,6 +364,14 @@ def _matches_current_fulfillment(event, order) -> bool:
             order.status not in {"done", "cancelled"}
             and tracking
             and event_tracking == tracking
+        )
+    if event.kind == "payment_confirmed":
+        # Появившаяся ТТН делает неотправленное подтверждение оплаты устаревшим:
+        # теперь актуально сообщение с номером, а не с фактом оплаты.
+        return bool(
+            not tracking
+            and order.status not in {"done", "cancelled"}
+            and str(order.payment_status or "") in {"paid", "prepaid", "partial"}
         )
     if event.kind == "delivered_review":
         return order.status == "done"

@@ -5706,10 +5706,26 @@ def _process_one_inside_reply_boundary(
                     reason="ai_fallback_safe_reply",
                 )
             else:
+                # IMP-048: без `deal=` платёжная ветка добивки была недостижима,
+                # и выбор вида задачи зависел от `set_stage`, обёрнутого в
+                # try/except, — то есть от того, записалась ли стадия.
+                current_deal = None
+                try:
+                    from management.models import IgDeal
+
+                    current_deal = (
+                        IgDeal.objects.filter(client=row.client)
+                        .exclude(status=IgDeal.Status.CANCELLED)
+                        .order_by("-id")
+                        .first()
+                    )
+                except Exception:
+                    current_deal = None
                 bot_followups.schedule_after_bot_reply(
                     row.client,
                     reply=reply,
                     control=control,
+                    deal=current_deal,
                 )
         except Exception as exc:
             log("warning", "followup_schedule", repr(exc))

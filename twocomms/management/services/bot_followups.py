@@ -130,6 +130,68 @@ def _has_open_service_conversation(client: IgClient) -> bool:
     }
 
 
+# IMP-052. Частотный лимит — предохранитель, а не удобство: удлинение каскада
+# без него превращает добивку в спам и ставит под удар само приложение Meta.
+# Считаются только автосообщения клиенту; задача менеджеру сообщением не является.
+MIN_HOURS_BETWEEN_AUTOMATED_TOUCHES = 18
+MAX_AUTOMATED_TOUCHES_PER_30_DAYS = 5
+CUSTOMER_FACING_KINDS = (
+    IgFollowUpTask.Kind.QUALIFICATION,
+    IgFollowUpTask.Kind.PAYMENT,
+    IgFollowUpTask.Kind.THINKING,
+    IgFollowUpTask.Kind.RESCUE,
+    IgFollowUpTask.Kind.FINAL,
+)
+# Стадии, на которых добивать нечего или нельзя.
+SUPPRESSED_STAGES = {
+    IgClient.Stage.COLD: "cold",
+    IgClient.Stage.LEAD_TO_MANAGER: "lead_to_manager",
+}
+
+
+def _active_opt_out(client: IgClient) -> bool:
+    return bool(
+        client.opted_out_at
+        and (not client.opted_in_at or client.opted_in_at < client.opted_out_at)
+    )
+
+
+def _suppressed_interaction(client: IgClient) -> str:
+    """Non-sales conversations must not receive a sales follow-up."""
+    from management.ig_bot_models import IgConversationAnalysisSnapshot
+
+    types = IgConversationAnalysisSnapshot.InteractionType
+    latest = (
+        client.analysis_snapshots.exclude(
+            interaction_type=types.MANAGER_OBSERVATION
+        )
+        .order_by("-id")
+        .values_list("interaction_type", flat=True)
+        .first()
+    )
+    return {
+        types.WHOLESALE_B2B: "wholesale_b2b",
+        types.COLLABORATION: "collaboration",
+    }.get(latest, "")
+
+
+def _frequency_limit_reason(client: IgClient, *, now: datetime | None = None) -> str:
+    now = now or _now()
+    sent = IgFollowUpTask.objects.filter(
+        client=client,
+        status=IgFollowUpTask.Status.SENT,
+        kind__in=CUSTOMER_FACING_KINDS,
+        sent_at__isnull=False,
+    )
+    recent_cutoff = now - timedelta(hours=MIN_HOURS_BETWEEN_AUTOMATED_TOUCHES)
+    if sent.filter(sent_at__gt=recent_cutoff).exists():
+        return "frequency_limit"
+    month_cutoff = now - timedelta(days=30)
+    if sent.filter(sent_at__gt=month_cutoff).count() >= MAX_AUTOMATED_TOUCHES_PER_30_DAYS:
+        return "frequency_limit"
+    return ""
+
+
 def _client_allows_followup(client: IgClient, *, deal: IgDeal | None = None) -> tuple[bool, str]:
     if client.hidden_at:
         return False, "hidden"
@@ -137,11 +199,24 @@ def _client_allows_followup(client: IgClient, *, deal: IgDeal | None = None) -> 
         return False, "spam"
     if client.manager_takeover or client.bot_paused:
         return False, "manager_takeover"
+    # Opt-out как самостоятельная причина: раньше он читался только внутри
+    # платёжной ветки, поэтому отказ «не пишіть» не останавливал остальные виды.
+    if _active_opt_out(client):
+        return False, "opted_out"
+    stage_reason = SUPPRESSED_STAGES.get(client.stage)
+    if stage_reason:
+        return False, stage_reason
     # F-SCORE-009: asking for an exchange used to schedule a 5% rescue offer
     # twelve hours later. Client #59 was saved from it by manager_takeover,
     # which is luck, not a rule.
     if _has_open_service_conversation(client):
         return False, "service_case_open"
+    interaction_reason = _suppressed_interaction(client)
+    if interaction_reason:
+        return False, interaction_reason
+    frequency_reason = _frequency_limit_reason(client)
+    if frequency_reason:
+        return False, frequency_reason
     if deal is not None:
         if verified_payment_deals(IgDeal.objects.filter(pk=deal.pk)).exists():
             return False, "already_converted"
@@ -170,7 +245,7 @@ def schedule_followup(
     discount_percent: int = 0,
     message_text: str = "",
     level: int | None = None,
-) -> IgFollowUpTask:
+) -> IgFollowUpTask | None:
     """Create one pending follow-up, adjusted for quiet hours and Meta window."""
     now = now or _now()
     due = next_allowed_send_at(now + delay)
@@ -178,10 +253,24 @@ def schedule_followup(
     status = IgFollowUpTask.Status.PENDING
     skip_reason = ""
     task_kind = kind
+    task_reason = reason
     if deadline and due > deadline and kind != IgFollowUpTask.Kind.MANAGER_TASK:
+        # IMP-049: раньше здесь ставился SKIPPED, и ≈половина «подумаю»-добивок
+        # исчезала молча — работа существовала, но не была видна как работа.
+        # Задача менеджеру со статусом PENDING остаётся в очереди человека.
         task_kind = IgFollowUpTask.Kind.MANAGER_TASK
-        status = IgFollowUpTask.Status.SKIPPED
-        skip_reason = "meta_window_closed"
+        task_reason = "meta_window_closed"
+
+    # IMP-052: дедуп текста. Один и тот же текст, уже отправленный клиенту,
+    # второй раз выглядит как сбой автоматики, а не как забота.
+    if message_text:
+        already_sent = IgFollowUpTask.objects.filter(
+            client=client,
+            status=IgFollowUpTask.Status.SENT,
+            message_text=message_text,
+        ).exists()
+        if already_sent:
+            return None
 
     with transaction.atomic():
         IgFollowUpTask.objects.filter(
@@ -198,7 +287,7 @@ def schedule_followup(
             status=status,
             kind=task_kind,
             level=client.followup_level if level is None else level,
-            reason=(reason or "")[:120],
+            reason=(task_reason or "")[:120],
             discount_percent=max(0, min(10, int(discount_percent or 0))),
             meta_window_deadline=deadline,
             message_text=message_text or "",
@@ -224,11 +313,19 @@ def schedule_rescue_offer(client: IgClient, *, explicit_negotiation: bool = Fals
     pct = next_discount_percent(client, explicit_negotiation=explicit_negotiation)
     if not pct:
         return None
+    # IMP-047: NEW и QUALIFYING были исключены, поэтому rescue не доходил до
+    # клиента, который ещё не выбрал товар, — а именно там он и нужен.
+    # COLD и LEAD_TO_MANAGER отсекаются раньше, в `_client_allows_followup`.
     if client.stage not in {
+        IgClient.Stage.NEW,
+        IgClient.Stage.QUALIFYING,
         IgClient.Stage.PRODUCT_MATCHED,
         IgClient.Stage.CHECKOUT,
         IgClient.Stage.PAYMENT_PENDING,
     }:
+        return None
+    allowed, _why = _client_allows_followup(client)
+    if not allowed:
         return None
     return schedule_followup(
         client,
