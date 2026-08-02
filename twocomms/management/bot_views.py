@@ -4960,6 +4960,7 @@ def bot_kb_save_api(request):
 
     obj = model.objects.filter(id=obj_id).first() if obj_id else model()
     p = request.POST
+    warnings: list[str] = []
     if kind == "instruction":
         obj.title = (p.get("title") or "")[:200]
         obj.body = p.get("body") or ""
@@ -4969,6 +4970,31 @@ def bot_kb_save_api(request):
             obj.priority = int(p.get("priority") or 100)
         except (TypeError, ValueError):
             obj.priority = 100
+        # Опечатка в теге раньше не проявлялась никак: инструкция сохранялась и
+        # молча не срабатывала никогда. Хуже — правило «пустые теги = всегда»
+        # превращало опечатку в противоположность замысла: администратор хотел
+        # «всегда», написал `globl`, получил «никогда».
+        #
+        # Сохранение не блокируем: терять уже набранный текст из-за опечатки в
+        # теге — та же ошибка, что F-UX-006, где таб чистил поля при ошибке.
+        try:
+            from management.services.bot_instruction_routing import (
+                validate_instruction_tags,
+            )
+
+            issues = validate_instruction_tags(obj.intent_tags)
+            if issues["unknown_tags"]:
+                warnings.append(
+                    "Невідомі теги: " + ", ".join(issues["unknown_tags"])
+                    + ". Інструкція збережена, але за цими тегами не спрацює."
+                )
+            if issues["unknown_triggers"]:
+                warnings.append(
+                    "Невідомі тригери: " + ", ".join(issues["unknown_triggers"])
+                    + ". Перевірте назву після `on:`."
+                )
+        except Exception:
+            pass
     elif kind == "quicklink":
         obj.kind = (p.get("kind") or "other")[:20]
         obj.label = (p.get("label") or "")[:200]
@@ -4988,4 +5014,7 @@ def bot_kb_save_api(request):
         obj.landing_note = p.get("landing_note") or ""
         obj.is_active = _truthy(p.get("is_active", "1"))
     obj.save()
-    return JsonResponse({"success": True, "id": obj.id})
+    payload = {"success": True, "id": obj.id}
+    if warnings:
+        payload["warnings"] = warnings
+    return JsonResponse(payload)

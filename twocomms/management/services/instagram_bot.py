@@ -4486,6 +4486,14 @@ def gemini_generate(
             except Exception:
                 pass
 
+    # Текст поточної репліки клієнта потрібен маршрутизації інструкцій: тригер
+    # `on:size_question` має спрацьовувати від того, що людина щойно спитала, а
+    # не від поля в картці.
+    latest_user_text = ""
+    for item in reversed(history or []):
+        if item.get("role") == "user" and item.get("text"):
+            latest_user_text = str(item["text"])
+            break
     sys_text = assemble_system_instruction(
         s,
         client=client,
@@ -4494,6 +4502,7 @@ def gemini_generate(
         match_hint=match_hint,
         media_hint=media_hint,
         turn_note=turn_note,
+        turn_text=latest_user_text,
     )
 
     payload = {
@@ -4614,6 +4623,7 @@ def assemble_system_instruction(
     match_hint: str | None = None,
     media_hint: str | None = None,
     turn_note: str | None = None,
+    turn_text: str = "",
 ) -> str:
     """Собрать system_instruction из всех источников.
 
@@ -4625,7 +4635,7 @@ def assemble_system_instruction(
     live = (s.knowledge_base or "").strip()
     if live:
         sys_text += "\n\n[ОПЕРАТИВНІ ДИРЕКТИВИ — найвищий пріоритет, дотримуйся беззаперечно]\n" + live
-    sys_text += _context_sections(client)
+    sys_text += _context_sections(client, turn_text=turn_text or "")
     sys_text = sys_text.strip()
     # Протокол оплати ([PAYLINK]+[PRODUCT], без вигаданих URL) + правило точності.
     sys_text = (
@@ -4665,8 +4675,13 @@ def assemble_system_instruction(
     return sys_text
 
 
-def build_prompt_snapshot(client=None) -> str:
-    """The system instruction as it would be assembled for this client right now."""
+def build_prompt_snapshot(client=None, *, turn_text: str = "") -> str:
+    """The system instruction as it would be assembled for this client right now.
+
+    `turn_text` дозволяє побачити промпт саме для конкретної репліки клієнта —
+    інакше превʼю не покаже тригерні інструкції, і адміністратор вирішить, що
+    вони не працюють.
+    """
     from management.models import InstagramBotSettings
     from management.services import bot_memory
 
@@ -4685,6 +4700,8 @@ def build_prompt_snapshot(client=None) -> str:
         client=client,
         memory_note=memory_note,
         context_note=context_note,
+        turn_note=None,
+        turn_text=turn_text,
     )
 
 
@@ -5082,7 +5099,7 @@ def client_state_note(client) -> str:
     return body
 
 
-def _context_sections(client) -> str:
+def _context_sections(client, turn_text: str = "") -> str:
     """База знаний + каталог + playbook-инструкции и ссылки.
 
     Каждый источник независим: падение одного не должно лишать промпт
@@ -5105,7 +5122,11 @@ def _context_sections(client) -> str:
     def _playbook() -> str:
         from management.services.bot_playbooks import active_instruction_block
 
-        instr = active_instruction_block(client)
+        # `turn_text` вмикає тригерні інструкції (`on:size_question` тощо).
+        # Без нього інструкція з тригером не підмішується — і це правильно:
+        # «клієнт питає про розмір зараз» і «в картці лежить objection=size з
+        # минулого тижня» — різні речі, а раніше вони були однією.
+        instr = active_instruction_block(client, turn_text=turn_text or "")
         return "\n\n[ДОДАТКОВІ PLAYBOOK-ІНСТРУКЦІЇ]\n" + instr if instr else ""
 
     def _quick_links() -> str:
