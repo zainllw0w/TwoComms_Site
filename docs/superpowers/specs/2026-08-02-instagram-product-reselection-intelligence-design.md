@@ -4,6 +4,10 @@
 **Status:** Approved on 2026-08-02; implementation authorized
 **Surface:** Instagram Direct sales conversation and assisted checkout proposal creation
 
+> **Recovery status (2026-08-03): design only.** Restored from
+> `codex/instagram-assisted-checkout`, including its latest uncommitted edits.
+> This note does not claim that the design was implemented or deployed.
+
 ## 1. Outcome
 
 The Instagram bot must let a customer browse, ask product questions, replace a

@@ -503,6 +503,12 @@ Task 7D production delivery gate (2026-07-29):
   ordering by provider timestamp and newest-message priority in the `Усі`
   workspace view. Keep the profile job bounded and never let a profile failure
   block webhook persistence or customer replies.
+
+> **Recovered WIP evidence (2026-08-03).** The five checkboxes below were
+> recovered from the uncommitted `codex/ig-crm-master-audit` worktree. Checked
+> items record local test evidence only: the related code slice was not merged or
+> deployed, and the final live acceptance checkbox deliberately remains open.
+
 - [x] Webhook ingress review is covered by focused regressions: both
   `entry[].messaging[]` and `changes[field=messages]` are queued, raw events
   are captured before parsing, duplicate `mid` deliveries remain idempotent,

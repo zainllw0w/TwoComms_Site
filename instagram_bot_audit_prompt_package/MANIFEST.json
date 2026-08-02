@@ -1,0 +1,24 @@
+{
+  "package": "instagram_bot_audit_prompt_package",
+  "generated_on": "2026-08-01",
+  "source_file": "Вставленный текст(1).txt",
+  "audit_task_count": 120,
+  "files": [
+    "00_README.md",
+    "01_MASTER_PROMPT.md",
+    "02_REQUIRED_OUTPUTS_AND_GATES.md",
+    "03_AUDIT_CHECKLIST_120_TASKS.md",
+    "04_SYSTEM_ARCHITECTURE_AND_CODE.md",
+    "05_AI_MEMORY_SALES_AND_FOLLOWUPS.md",
+    "06_FUNNELS_EVENTS_PAYMENTS_NOVA_POSHTA_META.md",
+    "07_SCORING_CLASSIFICATION_AND_ANALYTICS.md",
+    "08_ADMIN_UX_UI_AUDIT.md",
+    "09_FINDINGS_REGISTER_TEMPLATE.md",
+    "10_IMPLEMENTATION_PLAN_TEMPLATE.md",
+    "11_EXECUTION_TEST_COMMIT_DEPLOY_PROTOCOL.md",
+    "12_ACCEPTANCE_TEST_MATRIX.md",
+    "13_TRACEABILITY_MAP.md",
+    "99_ORIGINAL_REQUEST_VERBATIM.txt",
+    "MANIFEST.json"
+  ]
+}
