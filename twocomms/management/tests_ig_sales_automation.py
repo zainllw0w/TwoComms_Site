@@ -858,6 +858,35 @@ class SalesCockpitApiTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertFalse(response.json()["success"])
 
+    def test_stats_period_applies_to_hidden_and_scheduled_followup_metrics(self):
+        from management.models import IgFollowUpTask
+
+        old_hidden = IgClient.get_or_create_for_sender("api_old_hidden_stats")
+        old_hidden.hidden_at = timezone.now() - timedelta(days=60)
+        old_hidden.save(update_fields=["hidden_at", "updated_at"])
+        IgFollowUpTask.objects.create(
+            client=self.active,
+            due_at=timezone.now() - timedelta(days=2),
+            status=IgFollowUpTask.Status.PENDING,
+        )
+        IgFollowUpTask.objects.create(
+            client=self.active,
+            due_at=timezone.now() - timedelta(days=60),
+            status=IgFollowUpTask.Status.PENDING,
+        )
+
+        recent = self.client.get(
+            reverse("management_bot_stats_api") + "?days=7"
+        ).json()
+        all_time = self.client.get(
+            reverse("management_bot_stats_api") + "?days=0"
+        ).json()
+
+        self.assertEqual(recent["totals"]["hidden"], 1)
+        self.assertEqual(recent["totals"]["pending_followups"], 1)
+        self.assertEqual(all_time["totals"]["hidden"], 2)
+        self.assertEqual(all_time["totals"]["pending_followups"], 2)
+
     def test_hide_moves_client_out_of_active_queue_and_statistics(self):
         from management.models import IgFollowUpTask, IgPollCursor
         from management.services import instagram_bot

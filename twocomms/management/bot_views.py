@@ -3787,18 +3787,45 @@ def bot_clients_api(request):
             | Q(igsid__icontains=q)
             | Q(phone__icontains=q)
         )
-    total = qs.count()
-    clients = list(qs[:200])
+    from django.core.paginator import Paginator
+
+    default_page_size = 100
+    try:
+        page_size = int(request.GET.get("page_size") or default_page_size)
+    except (TypeError, ValueError):
+        page_size = default_page_size
+    page_size = max(20, min(page_size, 200))
+    paginator = Paginator(qs, page_size)
+    page_obj = paginator.get_page(request.GET.get("page") or 1)
+    clients = list(page_obj.object_list)
+    total = paginator.count
     try:
         requested_client_id = int(request.GET.get("client_id") or 0)
     except (TypeError, ValueError):
         requested_client_id = 0
+    requested_client_injected = False
     if requested_client_id and all(c.pk != requested_client_id for c in clients):
         requested_client = unfiltered_qs.filter(pk=requested_client_id).first()
         if requested_client:
             clients.insert(0, requested_client)
+            requested_client_injected = True
     rows = [_client_card(c) for c in clients]
-    return JsonResponse({"success": True, "clients": rows, "total": total})
+    return JsonResponse({
+        "success": True,
+        "clients": rows,
+        "total": total,
+        "requested_client_injected": requested_client_injected,
+        "pagination": {
+            "page": page_obj.number,
+            "page_size": page_size,
+            "total_items": total,
+            "total_pages": paginator.num_pages,
+            "start_item": page_obj.start_index(),
+            "end_item": page_obj.end_index(),
+            "has_previous": page_obj.has_previous(),
+            "has_next": page_obj.has_next(),
+        },
+    })
 
 
 @login_required(login_url="management_login")
@@ -4836,6 +4863,23 @@ def bot_stats_api(request):
             Q(client__deals__payment_projection__paid_at__lt=until)
             | Q(client__deals__payment_projection__isnull=True, client__deals__paid_at__lt=until)
         )
+    hidden_clients = IgClient.objects.filter(hidden_at__isnull=False)
+    pending_followups = IgFollowUpTask.objects.filter(
+        status=IgFollowUpTask.Status.PENDING,
+        client__hidden_at__isnull=True,
+    )
+    sent_followups = IgFollowUpTask.objects.filter(
+        status=IgFollowUpTask.Status.SENT,
+        client__hidden_at__isnull=True,
+    )
+    if since:
+        hidden_clients = hidden_clients.filter(hidden_at__gte=since)
+        pending_followups = pending_followups.filter(due_at__gte=since)
+        sent_followups = sent_followups.filter(sent_at__gte=since)
+    if until:
+        hidden_clients = hidden_clients.filter(hidden_at__lt=until)
+        pending_followups = pending_followups.filter(due_at__lt=until)
+        sent_followups = sent_followups.filter(sent_at__lt=until)
     ad_rows = []
     for row in (
         active_clients.exclude(Q(ad_id="") & Q(ad_ref="") & Q(ad_title=""))
@@ -4869,9 +4913,9 @@ def bot_stats_api(request):
         "product_matched": active_clients.filter(current_product__isnull=False).count(),
         "checkout_or_payment": active_clients.filter(stage__in=[IgClient.Stage.CHECKOUT, IgClient.Stage.PAYMENT_PENDING]).count(),
         "paid": active_clients.filter(paid_in_range=True).count(),
-        "hidden": IgClient.objects.filter(hidden_at__isnull=False).count(),
-        "pending_followups": IgFollowUpTask.objects.filter(status=IgFollowUpTask.Status.PENDING, client__hidden_at__isnull=True).count(),
-        "followup_recoveries": IgFollowUpTask.objects.filter(status=IgFollowUpTask.Status.SENT, client__hidden_at__isnull=True).filter(followup_payment_filter).distinct().count(),
+        "hidden": hidden_clients.count(),
+        "pending_followups": pending_followups.count(),
+        "followup_recoveries": sent_followups.filter(followup_payment_filter).distinct().count(),
         "discount_conversions": active_clients.filter(discount_offered_percent__gt=0, paid_in_range=True).count(),
         "manager_takeovers": active_clients.filter(manager_takeover=True).count(),
         "custom_print_handoffs": active_clients.filter(intent=IgClient.Intent.CUSTOM_PRINT, stage=IgClient.Stage.LEAD_TO_MANAGER).count(),

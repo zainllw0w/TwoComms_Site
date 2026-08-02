@@ -58,6 +58,78 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
             self.template.index('data-tab="orders"'),
         )
 
+    def test_clients_workspace_has_bounded_pagination_controls(self):
+        for contract in (
+            'id="bot-clients-pager"',
+            'id="bot-clients-prev"',
+            'id="bot-clients-page-label"',
+            'id="bot-clients-next"',
+            "params.set('page', String(currentPage))",
+            "currentPage=1;load(searchEl.value.trim())",
+            "currentView=btn.getAttribute('data-client-view')||'all';currentPage=1",
+        ):
+            self.assertIn(contract, self.template)
+
+        self.assertIn("'Показано '+pageInfo.start_item+'–'+pageInfo.end_item+' з '+pageInfo.total_items", self.template)
+
+    def test_client_context_is_a_third_desktop_column_and_a_small_screen_drawer(self):
+        for contract in (
+            "grid-template-columns:minmax(260px,320px) minmax(0,1fr) minmax(300px,380px)",
+            'class="bot-client-context-shell"',
+            "window.matchMedia('(min-width:1201px)')",
+            "desktopContext.matches",
+            "contextShell.scrollIntoView({block:'nearest'})",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_mobile_client_drawer_raises_its_owning_workspace_above_global_header(self):
+        for contract in (
+            ".management-body.bot-client-context-open .workspace{z-index:41}",
+            "document.body.classList.add('bot-client-context-open')",
+            "document.body.classList.remove('bot-client-context-open')",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_destructive_actions_require_confirmation_and_report_failures(self):
+        for contract in (
+            "Зупинити відповіді бота для всіх клієнтів?",
+            "Приховати цього клієнта з активної черги",
+            "Позначити цього клієнта як втраченого",
+            "Видалити цю інструкцію без можливості відновлення?",
+            'id="bot-global-feedback"',
+            'id="bot-kb-feedback"',
+            "if(!response.ok||!data.success)throw new Error",
+        ):
+            self.assertIn(contract, self.template)
+
+        self.assertNotIn(".catch(()=>{})", self.template)
+
+    def test_relative_time_distinguishes_future_and_overdue_followups(self):
+        for contract in (
+            "function relativeTime(iso,{due=false}={})",
+            "Прострочено на ",
+            "Через ",
+            "relativeTime(c.next_followup_at,{due:true})",
+            "relativeTime(item.due_at,{due:true})",
+            "bot-time-overdue",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_stats_keep_zero_stages_define_metrics_and_use_accessible_main_tabs(self):
+        for contract in (
+            'id="bot-tabs" role="tablist"',
+            'class="bot-tab active" role="tab" aria-selected="true"',
+            "t.setAttribute('aria-selected',t===btn?'true':'false')",
+            "const funnel=funnelOrder.map(key=>",
+            "unverified:'Оплату ще не підтверджено'",
+            "spam:'Спам'",
+            "cold:'Неактивні'",
+            "function stat(k,v,help)",
+            "title=\"'+esc(help)+'\"",
+            "value===0?0:(value||'')",
+        ):
+            self.assertIn(contract, self.template)
+
     def test_payment_reconciliation_exposes_all_bounded_amount_evidence_links(self):
         self.assertIn("evidenceIds.slice(0,6).forEach", self.template)
         self.assertIn("managerEvidenceIds.slice(0,6).forEach", self.template)
@@ -145,8 +217,8 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
         self.assertIn("action:'clarify_amount'", self.template)
 
     def test_provider_truth_copy_cannot_read_like_the_manager_rejected_payment(self):
-        self.assertIn("Провайдер не підтвердив оплату", self.template)
-        self.assertIn("Платіж не перевірено провайдером", self.template)
+        self.assertIn("Monobank не підтвердив оплату", self.template)
+        self.assertIn("Monobank ще не підтвердив оплату", self.template)
 
     def test_order_detail_explains_the_post_confirmation_next_step(self):
         for contract in (
@@ -378,7 +450,7 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
             "bot-buyer-badge",
             "впевненість",
             "На чому базується",
-            "Provider: ",
+            "Monobank: ",
             "Менеджер: ",
             "Фізичних замовлень: ",
         ):
@@ -428,19 +500,36 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
 
     def test_payment_truth_and_verification_scope_are_not_visually_collapsed(self):
         for visible_copy in (
-            "Provider payment",
+            "Оплата через Monobank",
             "Перевірка менеджера",
-            "Обсяг підтвердження",
+            "Що підтверджено",
             "Повна оплата",
             "Передоплата",
             "Заявлений платіж",
         ):
             self.assertIn(visible_copy, self.template)
+        self.assertNotIn("Provider payment", self.template)
+        self.assertNotIn("Обсяг підтвердження", self.template)
+        for technical_copy in (
+            "Provider: ",
+            "provider не підтверджено",
+            "Provider скасував",
+            "статус provider",
+            "provider-даних",
+            "Структурована причина override",
+            "Обов’язкове пояснення для override",
+            "Пояснення override",
+            "Override не потрібен",
+            "Додайте пояснення до override",
+            "audited fallback",
+            "Бар'єр відповідей",
+        ):
+            self.assertNotIn(technical_copy, self.template)
         self.assertIn("verification_scope", self.template)
         self.assertIn("managerTruthLabel", self.template)
         self.assertIn("providerTruthLabel", self.template)
         self.assertIn(
-            "[['','Оберіть обсяг підтвердження'],['full_payment','Повна оплата'],['prepayment','Передоплата']]",
+            "[['','Оберіть, що підтверджено'],['full_payment','Повна оплата'],['prepayment','Передоплата']]",
             self.template,
         )
         self.assertNotIn(
@@ -580,6 +669,62 @@ class ClientsApiTests(TestCase):
         data = r.json()
         self.assertTrue(data["success"])
         self.assertTrue(any(cl["name"] == "Іван" for cl in data["clients"]))
+
+    def test_clients_list_is_paginated_without_overlap_and_reports_real_range(self):
+        IgClient.objects.bulk_create([
+            IgClient(igsid=f"ig-page-{index:03d}")
+            for index in range(205)
+        ])
+
+        first = self.client.get(reverse("management_bot_clients_api")).json()
+        second = self.client.get(
+            reverse("management_bot_clients_api"), {"page": 2}
+        ).json()
+
+        self.assertEqual(len(first["clients"]), 100)
+        self.assertEqual(first["total"], 206)
+        self.assertEqual(first["pagination"], {
+            "page": 1,
+            "page_size": 100,
+            "total_items": 206,
+            "total_pages": 3,
+            "start_item": 1,
+            "end_item": 100,
+            "has_previous": False,
+            "has_next": True,
+        })
+        self.assertEqual(len(second["clients"]), 100)
+        self.assertEqual(second["pagination"]["start_item"], 101)
+        self.assertEqual(second["pagination"]["end_item"], 200)
+        self.assertTrue(second["pagination"]["has_previous"])
+        self.assertTrue(second["pagination"]["has_next"])
+        self.assertFalse(
+            {row["id"] for row in first["clients"]}
+            & {row["id"] for row in second["clients"]}
+        )
+
+    def test_clients_list_clamps_invalid_page_and_page_size(self):
+        IgClient.objects.bulk_create([
+            IgClient(igsid=f"ig-clamp-{index:03d}")
+            for index in range(45)
+        ])
+
+        response = self.client.get(
+            reverse("management_bot_clients_api"),
+            {"page": 999, "page_size": 20},
+        ).json()
+        invalid = self.client.get(
+            reverse("management_bot_clients_api"),
+            {"page": "broken", "page_size": "broken"},
+        ).json()
+
+        self.assertEqual(len(response["clients"]), 6)
+        self.assertEqual(response["pagination"]["page"], 3)
+        self.assertEqual(response["pagination"]["start_item"], 41)
+        self.assertEqual(response["pagination"]["end_item"], 46)
+        self.assertFalse(response["pagination"]["has_next"])
+        self.assertEqual(invalid["pagination"]["page"], 1)
+        self.assertEqual(invalid["pagination"]["page_size"], 100)
 
     @override_settings(SITE_BASE_URL="https://shop.example.test")
     def test_client_detail_uses_storefront_urlconf_for_signed_manual_order(self):
