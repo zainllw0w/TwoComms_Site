@@ -1125,6 +1125,85 @@ def _safe_media_url(value) -> str:
     return value
 
 
+# Ссылки Meta на вложения подписаны и живут недолго: один и тот же ассет
+# приходит каждый раз с новой `signature`, а через некоторое время перестаёт
+# открываться вовсе. Локальных копий нет (F-DATA-011: 100% HTTP 404 при
+# скачивании), поэтому ассет опознаём по `asset_id`.
+_PROVIDER_MEDIA_HOSTS = ("lookaside.fbsbx.com", "scontent.cdninstagram.com")
+_MESSAGE_MEDIA_LIMIT = 8
+
+
+def _media_asset_key(url: str) -> str:
+    """Stable identity of one attachment across re-signed provider links."""
+    value = str(url or "")
+    try:
+        parsed = urlsplit(value)
+    except ValueError:
+        return value
+    if parsed.hostname in _PROVIDER_MEDIA_HOSTS:
+        for chunk in parsed.query.split("&"):
+            if chunk.startswith("asset_id="):
+                return f"{parsed.hostname}:{chunk}"
+    return value
+
+
+def _is_provider_media_link(url: str) -> bool:
+    try:
+        return urlsplit(str(url or "")).hostname in _PROVIDER_MEDIA_HOSTS
+    except ValueError:
+        return False
+
+
+def _message_media_rows(message, media_evidence) -> list[dict]:
+    """Attachments of one message, taken from the immutable transcript.
+
+    ``sales_context["_media_evidence"]`` is scoring telemetry, not a transcript:
+    its ``source_message_id`` is whatever message ``classify_message`` was called
+    with, so on re-analysis it points at the message being processed rather than
+    at the one the attachment belongs to. That is how two product images ended up
+    glued to a bare «Дякую» on production.
+
+    The evidence still answers a question it can answer — what role and intent
+    were inferred for that asset — and is looked up by asset identity.
+    """
+    raw = str(getattr(message, "attachments", "") or "").strip()
+    if not raw:
+        return []
+    try:
+        urls = json.loads(raw)
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(urls, list):
+        return []
+    meta_by_asset = {}
+    for row in media_evidence if isinstance(media_evidence, list) else []:
+        if not isinstance(row, dict):
+            continue
+        key = _media_asset_key(row.get("url"))
+        if key and key not in meta_by_asset:
+            meta_by_asset[key] = row
+    rows = []
+    seen = set()
+    for candidate in urls:
+        url = _safe_media_url(candidate)
+        if not url:
+            continue
+        key = _media_asset_key(url)
+        if key in seen:
+            continue
+        seen.add(key)
+        meta = meta_by_asset.get(key) or {}
+        rows.append({
+            "url": url,
+            "role": str(meta.get("role") or "other")[:32],
+            "intent": str(meta.get("intent") or "unknown")[:40],
+            "provider_link": _is_provider_media_link(url),
+        })
+        if len(rows) >= _MESSAGE_MEDIA_LIMIT:
+            break
+    return rows
+
+
 def _safe_storefront_url(value) -> str:
     value = _bounded_text(value, 1200)
     relative = _safe_relative_url(value)
@@ -3743,26 +3822,13 @@ def bot_client_detail_api(request, client_id):
         msg_rows = list(c.messages.order_by("-id")[:300])
         msg_rows.reverse()
     media_evidence = (c.sales_context or {}).get("_media_evidence", []) if isinstance(c.sales_context, dict) else []
-    media_by_message = {}
-    for evidence in media_evidence if isinstance(media_evidence, list) else []:
-        if not isinstance(evidence, dict):
-            continue
-        try:
-            source_id = int(evidence.get("source_message_id"))
-        except (TypeError, ValueError):
-            continue
-        media_by_message.setdefault(source_id, []).append({
-            "url": _safe_media_url(evidence.get("url")),
-            "role": str(evidence.get("role") or "other")[:32],
-            "intent": str(evidence.get("intent") or "unknown")[:40],
-        })
     messages = [
         {
             "id": m.id,
             "role": m.role,
             "text": m.text,
             "attachments": m.attachments or "",
-            "media": media_by_message.get(m.id, []),
+            "media": _message_media_rows(m, media_evidence),
             "time": (m.provider_created_at or m.created_at).isoformat()
             if (m.provider_created_at or m.created_at)
             else "",

@@ -132,14 +132,22 @@ def order_shipment_rows(order) -> list[dict]:
         return []
     labels = dict(IgOrderShipment.Purpose.choices)
     direction_labels = dict(IgOrderShipment.Direction.choices)
+    payer_labels = dict(IgOrderShipment.Payer.choices)
     rows = []
     for shipment in IgOrderShipment.objects.filter(order_id=order.pk).order_by(
         "created_at", "id"
     ):
+        purpose_label = str(labels.get(shipment.purpose, ""))
+        if shipment.reuses_outbound_tracking:
+            # Иначе одинаковый номер в двух строках читается как дубль ввода.
+            purpose_label = f"{purpose_label} (швидке повернення тією ж ТТН)"
         rows.append({
             "id": shipment.pk,
             "order_number": order.order_number or str(order.pk),
             "tracking_number": shipment.tracking_number,
+            "payer": shipment.payer,
+            "payer_label": str(payer_labels.get(shipment.payer, "")),
+            "reuses_outbound_tracking": shipment.reuses_outbound_tracking,
             "tracking_url": (
                 "https://novaposhta.ua/tracking/?cargo_number="
                 f"{shipment.tracking_number}"
@@ -147,7 +155,7 @@ def order_shipment_rows(order) -> list[dict]:
             "direction": shipment.direction,
             "direction_label": str(direction_labels.get(shipment.direction, "")),
             "purpose": shipment.purpose,
-            "purpose_label": str(labels.get(shipment.purpose, "")),
+            "purpose_label": purpose_label,
             "post_sale_case_id": shipment.post_sale_case_id,
             "supersedes_id": shipment.supersedes_id,
             "source": shipment.source,

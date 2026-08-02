@@ -2605,6 +2605,11 @@ class IgOrderShipment(models.Model):
         MANAGER_MANUAL = "manager_manual", _("Введено менеджером")
         CUSTOMER_MESSAGE = "customer_message", _("З повідомлення клієнта")
 
+    class Payer(models.TextChoices):
+        SHOP = "shop", _("За наш рахунок")
+        CUSTOMER = "customer", _("За рахунок клієнта")
+        UNKNOWN = "unknown", _("Не визначено")
+
     order = models.ForeignKey(
         "orders.Order",
         on_delete=models.DO_NOTHING,
@@ -2633,6 +2638,14 @@ class IgOrderShipment(models.Model):
     source = models.CharField(
         max_length=32, choices=Source.choices, default=Source.ORDER_FIELD
     )
+    payer = models.CharField(
+        max_length=16, choices=Payer.choices, default=Payer.SHOP
+    )
+    # A Nova Poshta "fast return" travels back on the SAME waybill as the
+    # outbound parcel, and the customer pays nothing for it. One number in two
+    # directions is therefore normal, not a data-entry mistake, and the flag
+    # keeps the timeline from reading like a duplicate.
+    reuses_outbound_tracking = models.BooleanField(default=False)
     evidence_message_id = models.PositiveBigIntegerField(null=True, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

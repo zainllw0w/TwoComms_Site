@@ -776,3 +776,131 @@ class ReplacementTrackingApiTests(ExchangeShipmentMixin, TestCase):
             "replacement_tracking_number" in template,
             "менеджеру нема куди вставити ТТН заміни",
         )
+
+
+class FastReturnSameTrackingTests(ExchangeShipmentMixin, TestCase):
+    """Быстрый возврат Новой Почты идёт по ТОЙ ЖЕ ТТН, что и отправка.
+
+    Уточнение от заказчика по живому кейсу: обратная посылка может ехать по той
+    же накладной, и клиент за неё не платит — это «швидке повернення» НП.
+    Замену мы отправили новой ТТН и оплатили сами.
+
+    Для журнала это значит две вещи: один и тот же номер в обе стороны — норма,
+    а не ошибка ввода; и плательщик у ног обмена разный, поэтому его надо
+    хранить, а не угадывать при чтении.
+    """
+
+    def setUp(self):
+        self.manager = get_user_model().objects.create_user(
+            "fast-return-manager", password="x", is_staff=True
+        )
+
+    def test_return_may_reuse_the_outbound_tracking(self):
+        from management.ig_bot_models import IgOrderShipment
+        from management.services.ig_post_sale import record_return_shipment
+
+        order = self._order(number="TWC-FAST-RETURN")
+        case = self._case(self._client("fast-return-client"), order)
+
+        shipment = record_return_shipment(case, INITIAL_TTN, actor=self.manager)
+
+        self.assertEqual(shipment.tracking_number, INITIAL_TTN)
+        self.assertEqual(shipment.direction, IgOrderShipment.Direction.INBOUND)
+        self.assertEqual(
+            IgOrderShipment.objects.filter(
+                order=order, tracking_number=INITIAL_TTN
+            ).count(),
+            2,
+            "той самий номер у два напрямки — це дві різні посилки",
+        )
+
+    def test_fast_return_is_marked_as_reused_and_paid_by_shop(self):
+        from management.ig_bot_models import IgOrderShipment
+        from management.services.ig_post_sale import record_return_shipment
+
+        order = self._order(number="TWC-FAST-RETURN-FLAGS")
+        case = self._case(self._client("fast-return-flags"), order)
+
+        shipment = record_return_shipment(case, INITIAL_TTN, actor=self.manager)
+
+        self.assertTrue(shipment.reuses_outbound_tracking)
+        self.assertEqual(shipment.payer, IgOrderShipment.Payer.SHOP)
+
+    def test_return_on_a_new_tracking_defaults_to_the_customer_paying(self):
+        from management.ig_bot_models import IgOrderShipment
+        from management.services.ig_post_sale import record_return_shipment
+
+        order = self._order(number="TWC-RETURN-NEW-TTN")
+        case = self._case(self._client("return-new-ttn"), order)
+
+        shipment = record_return_shipment(case, RETURN_TTN, actor=self.manager)
+
+        self.assertFalse(shipment.reuses_outbound_tracking)
+        self.assertEqual(shipment.payer, IgOrderShipment.Payer.CUSTOMER)
+
+    def test_explicit_payer_overrides_the_default(self):
+        from management.ig_bot_models import IgOrderShipment
+        from management.services.ig_post_sale import record_return_shipment
+
+        order = self._order(number="TWC-RETURN-PAYER-OVERRIDE")
+        case = self._case(self._client("return-payer-override"), order)
+
+        shipment = record_return_shipment(
+            case,
+            RETURN_TTN,
+            actor=self.manager,
+            payer=IgOrderShipment.Payer.SHOP,
+        )
+
+        self.assertEqual(shipment.payer, IgOrderShipment.Payer.SHOP)
+
+    def test_replacement_is_paid_by_the_shop(self):
+        from management.ig_bot_models import IgOrderShipment
+        from management.services.ig_post_sale import record_replacement_shipment
+
+        order = self._order(number="TWC-REPL-PAYER")
+        case = self._case(self._client("repl-payer"), order)
+
+        shipment = record_replacement_shipment(
+            case, REPLACEMENT_TTN, actor=self.manager
+        )
+
+        self.assertEqual(shipment.payer, IgOrderShipment.Payer.SHOP)
+
+    def test_timeline_explains_the_fast_return_in_human_words(self):
+        from management.services.ig_post_sale import record_return_shipment
+        from management.services.ig_shipments import order_shipment_rows
+
+        order = self._order(number="TWC-FAST-RETURN-TIMELINE")
+        case = self._case(self._client("fast-return-timeline"), order)
+        record_return_shipment(case, INITIAL_TTN, actor=self.manager)
+
+        rows = order_shipment_rows(order)
+        inbound = next(row for row in rows if row["direction"] == "inbound")
+
+        self.assertIn("тією ж ТТН", inbound["purpose_label"])
+        self.assertEqual(inbound["payer_label"], "За наш рахунок")
+
+    def test_timeline_keeps_plain_label_for_a_separate_return_parcel(self):
+        from management.services.ig_post_sale import record_return_shipment
+        from management.services.ig_shipments import order_shipment_rows
+
+        order = self._order(number="TWC-RETURN-PLAIN-LABEL")
+        case = self._case(self._client("return-plain-label"), order)
+        record_return_shipment(case, RETURN_TTN, actor=self.manager)
+
+        rows = order_shipment_rows(order)
+        inbound = next(row for row in rows if row["direction"] == "inbound")
+
+        self.assertEqual(inbound["purpose_label"], "Повернення від клієнта")
+        self.assertEqual(inbound["payer_label"], "За рахунок клієнта")
+
+    def test_replacement_still_refuses_the_current_order_tracking(self):
+        """Регрес: для ИСХОДЯЩЕЙ ноги та же ТТН по-прежнему не замена."""
+        from management.services.ig_post_sale import record_replacement_shipment
+
+        order = self._order(number="TWC-REPL-SAME-GUARD")
+        case = self._case(self._client("repl-same-guard"), order)
+
+        with self.assertRaises(ValueError):
+            record_replacement_shipment(case, INITIAL_TTN, actor=self.manager)

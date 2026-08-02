@@ -832,9 +832,14 @@ def classify_message(
                 "source_message_id": getattr(message, "pk", None),
                 "observed_at": timezone.now().isoformat(),
             }
+            # Дедуп по ассету, а не по URL целиком: подписанная ссылка Meta на
+            # один и тот же файл каждый раз приходит с новой `signature`, и
+            # сравнение строк плодило дубли (по одному на каждый переанализ).
+            from management.bot_views import _media_asset_key
+
+            asset_key = _media_asset_key(observation["url"])
             if observation["url"] and not any(
-                row.get("url") == observation["url"]
-                and row.get("source_message_id") == observation["source_message_id"]
+                _media_asset_key(row.get("url")) == asset_key
                 for row in observations
                 if isinstance(row, dict)
             ):

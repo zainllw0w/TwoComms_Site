@@ -181,13 +181,20 @@ def client_looks_like_recipient(client) -> bool:
     ).exists()
 
 
-def record_return_shipment(case, tracking, *, actor=None, evidence_message_id=None):
+def record_return_shipment(
+    case, tracking, *, actor=None, evidence_message_id=None, payer=None
+):
     """Record the parcel the customer sent back to us.
 
     Cannot be derived like the outbound leg: the number arrives as digits inside
     a chat message, and a bare 14-digit number can be anything. The manager
     confirms it, which follows the decision already taken for money in this
     project — a human check instead of automatic trust.
+
+    The number may legitimately equal the outbound one: a Nova Poshta "fast
+    return" travels back on the same waybill and costs the customer nothing.
+    That case is recorded, flagged, and billed to the shop by default; a return
+    on a separate waybill defaults to the customer having paid for it.
     """
     from management.ig_bot_models import IgOrderShipment
     from management.services.ig_shipments import normalize_tracking
@@ -208,6 +215,14 @@ def record_return_shipment(case, tracking, *, actor=None, evidence_message_id=No
     ).first()
     if existing is not None:
         return existing
+    reuses = IgOrderShipment.objects.filter(
+        order_id=case.order_id,
+        tracking_number=number,
+        direction=IgOrderShipment.Direction.OUTBOUND,
+    ).exists()
+    resolved_payer = payer or (
+        IgOrderShipment.Payer.SHOP if reuses else IgOrderShipment.Payer.CUSTOMER
+    )
     return IgOrderShipment.objects.create(
         order_id=case.order_id,
         post_sale_case=case,
@@ -215,6 +230,8 @@ def record_return_shipment(case, tracking, *, actor=None, evidence_message_id=No
         direction=IgOrderShipment.Direction.INBOUND,
         purpose=IgOrderShipment.Purpose.RETURN_INBOUND,
         source=IgOrderShipment.Source.MANAGER_MANUAL,
+        payer=resolved_payer,
+        reuses_outbound_tracking=reuses,
         evidence_message_id=evidence_message_id,
         created_by=actor if getattr(actor, "pk", None) else None,
     )
