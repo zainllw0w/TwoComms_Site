@@ -186,6 +186,87 @@ SPAM_STRIKES_LIMIT = 3
 PHONE_RE = re.compile(r"(?:\+?38)?0\d{9}")
 
 
+# Скільки тримати паузу після останньої репліки менеджера. Порахований факт із
+# прода 02.08.2026: у `manager_takeover` перебувало **57 клієнтів із 289** (20%
+# бази), найстаріший — з 19 червня, і зняти це можна було лише руками через
+# адмінку. Тобто одна репліка менеджера півтора місяця тому назавжди виключала
+# автоматику для клієнта, і жодного сигналу про це не було.
+#
+# 12 годин обрані так: жива передача діалогу менеджеру триває хвилини-години,
+# і поки менеджер пише, кожна його репліка зсуває відлік. Якщо ж людина пішла
+# і не повернулась, до наступного дня бот має право відповісти сам — інакше
+# клієнт просто лишається без відповіді.
+MANAGER_TAKEOVER_IDLE_HOURS = 12
+
+
+def maybe_release_stale_takeover(client) -> bool:
+    """Зняти паузу, якщо менеджер давно не писав.
+
+    Ручне «повернути бота» лишається головним шляхом; це — страховка від
+    назавжди замовклого бота, у тому числі від хибного takeover.
+    """
+    if not client or not getattr(client, "pk", None):
+        return False
+    if not client.manager_takeover:
+        return False
+    if str(client.paused_reason or "") != "manager_takeover":
+        return False
+    last = client.last_manager_message_at or client.paused_at
+    if not last:
+        return False
+    idle_hours = (timezone.now() - last).total_seconds() / 3600.0
+    if idle_hours < MANAGER_TAKEOVER_IDLE_HOURS:
+        return False
+    # Явна відмова клієнта від автоматичних повідомлень сильніша за таймаут.
+    active_opt_out = bool(
+        client.opted_out_at
+        and (not client.opted_in_at or client.opted_in_at < client.opted_out_at)
+    )
+    if active_opt_out or client.is_blocked or client.hidden_at:
+        return False
+    from management.services.ig_reply_boundary import pause_reply_boundary
+
+    try:
+        with pause_reply_boundary():
+            with transaction.atomic():
+                fresh = IgClient.objects.select_for_update().filter(pk=client.pk).first()
+                if fresh is None or not fresh.manager_takeover:
+                    return False
+                if str(fresh.paused_reason or "") != "manager_takeover":
+                    return False
+                fresh_last = fresh.last_manager_message_at or fresh.paused_at
+                if fresh_last and (timezone.now() - fresh_last).total_seconds() / 3600.0 < MANAGER_TAKEOVER_IDLE_HOURS:
+                    return False
+                fresh.manager_takeover = False
+                fresh.bot_paused = False
+                fresh.paused_reason = ""
+                fresh.reply_permission_epoch = int(fresh.reply_permission_epoch or 0) + 1
+                fresh.save(update_fields=[
+                    "manager_takeover", "bot_paused", "paused_reason",
+                    "reply_permission_epoch", "updated_at",
+                ])
+    except Exception as exc:  # noqa: BLE001
+        log("warning", "takeover_release", repr(exc))
+        return False
+    client.manager_takeover = False
+    client.bot_paused = False
+    client.paused_reason = ""
+    log(
+        "info",
+        "takeover_released",
+        f"{client.igsid}: менеджер не писав {int(idle_hours)} год — бот повернувся",
+    )
+    notify_manager(
+        f"🤖 IG: бот знову відповідає клієнту {client.username or client.igsid} — "
+        f"від вашої останньої репліки минуло {int(idle_hours)} год. "
+        "Якщо діалог ще ваш, поставте бота на паузу в картці клієнта.",
+        dedupe_key=f"takeover_released:{client.pk}:{int(idle_hours) // 24}",
+        event_type="takeover_released",
+        client=client,
+    )
+    return True
+
+
 def _client_blocked(client) -> bool:
     """Бот не відповідає, якщо клієнта поставлено на паузу або заблоковано."""
     active_opt_out = bool(
@@ -249,6 +330,18 @@ def _bot_sent_key(recipient_id: str, text: str) -> str:
     norm = " ".join((text or "").lower().split())
     h = hashlib.md5((str(recipient_id) + "|" + norm).encode("utf-8")).hexdigest()[:16]
     return "ig_bot_sent:" + h
+
+
+def _register_outgoing_message(message_id: str, recipient_id: str = "", *, kind: str = "text") -> None:
+    """Запам'ятати наш `message_id`, щоб не прийняти власне echo за менеджера."""
+    if not message_id:
+        return
+    try:
+        from management.services.ig_outgoing_registry import register_outgoing
+
+        register_outgoing(message_id, recipient_id=recipient_id, kind=kind)
+    except Exception as exc:  # noqa: BLE001
+        log("warning", "outgoing_registry", repr(exc))
 
 
 def _mark_bot_sent(recipient_id: str, text: str) -> None:
@@ -762,7 +855,21 @@ PAYMENT_PROTOCOL_NOTE = (
     "дослівно є у збереженій переписці; не вигадуй знижку. Якщо клієнт просить "
     "показати товари/фото, додай [SHOW_PRODUCTS:<id1,id2>] з точними id каталогу; "
     "система надішле 3–4 реальні фото без товарних URL. Додавай [CATALOG_LINK] "
-    "тільки коли клієнт прямо попросив посилання на товар."
+    "тільки коли клієнт прямо попросив посилання на товар.\n"
+    "ПОРЯДОК ПОКАЗУ ФОТО. Фото — це відповідь на конкретний запит, а не спосіб "
+    "почати розмову. Спершу з'ясуй текстом, що людині потрібно: тип речі "
+    "(футболка/худі/лонгслів), тематика принта, колір, фасон. Показуй фото, коли "
+    "звужено до 2–3 конкретних товарів або коли клієнт прямо попросив показати. "
+    "Не надсилай фото у відповідь на загальне «порекомендуй» — спочатку задай "
+    "одне уточнююче питання. До кожної відправки фото ОБОВ'ЯЗКОВО додай текст, "
+    "який називає показані товари по порядку («1) …, 2) …») з ціною: клієнт має "
+    "розуміти, що саме бачить, і мати змогу відповісти «беру першу». "
+    "Якщо клієнт просить «звичайну», «класичну», «стандартну», «просту» футболку "
+    "без принта — це базові моделі з логотипом на груді, а не товар із великим "
+    "принтом; знайди в каталозі саме таку позицію (у назві є «класична»/«classic») "
+    "і не підставляй принтований товар. Замість вгадування можна прямо "
+    "запропонувати надіслати посилання на товар із сайту або скриншот — так "
+    "швидше й точніше, ніж перебирати варіанти."
 )
 
 # Тексти, які лишились, супроводжують **реальне** посилання на оплату: вони
@@ -1422,8 +1529,30 @@ def _handle_echo(
         return
     if mid and not _valid_message_id(mid):
         return
-    if text and cache.get(_bot_sent_key(recipient_igsid, text)):
+    # Позитивна ознака «це наше» перевіряється ПЕРШОЮ і до будь-якої зміни
+    # стану клієнта. Раніше єдиною перевіркою був відпечаток по тексту, а в
+    # медіа-echo тексту немає — тому карусель бота вмикала `manager_takeover`,
+    # ставила клієнта на паузу і бот замовкав (прод, 02.08.2026, клієнт #5).
+    from management.services.ig_outgoing_registry import is_our_outgoing
+
+    if mid and is_our_outgoing(mid):
         return  # власне відлуння бота — ігноруємо
+    if text and cache.get(_bot_sent_key(recipient_igsid, text)):
+        return  # сумісність зі старим текстовим відпечатком
+    if not text and attachments and client_automation_busy(
+        IgClient.objects.filter(igsid=recipient_igsid).first()
+    ):
+        # Медіа-echo без тексту, поки активна ліза автоматики саме на цьому
+        # клієнті, — майже напевно наша ж карусель, чий `message_id` не встиг
+        # зареєструватись. Свідомо не тихо: випадок має бути видимий у логу,
+        # інакше ми знову втратимо реальний takeover непоміченим.
+        log(
+            "warning",
+            "echo_media_during_automation",
+            f"{recipient_igsid}: медіа-echo під час активної відповіді бота — "
+            "вважаю власним, takeover не вмикаю",
+        )
+        return
     from management.services.ig_reply_boundary import pause_reply_boundary
 
     now = timezone.now()
@@ -4067,6 +4196,11 @@ def send_text(
                     provider_message_callback(message_id)
             ok_any = True
             provider_message_id = provider_message_id or _provider_message_id(resp)
+            # Реєструємо `message_id` одразу: echo цього чанка прийде асинхронно,
+            # і саме по цьому ідентифікатору ми його впізнаємо. Текстовий
+            # відпечаток лишається, але він не працює для медіа й не переживає
+            # скидання кеша.
+            _register_outgoing_message(_provider_message_id(resp), recipient_id, kind="text")
             _clear_send_error(s)
             _clear_client_delivery_error(recipient_id)
             continue
@@ -4509,6 +4643,9 @@ def assemble_system_instruction(
     readiness_note = _prompt_section("checkout_readiness", lambda: _checkout_readiness_note(client))
     if readiness_note:
         sys_text = (sys_text + "\n\n" + readiness_note).strip()
+    shown_note = _prompt_section("shown_products", lambda: shown_products_note(client))
+    if shown_note:
+        sys_text = (sys_text + "\n\n" + shown_note).strip()
     if memory_note:
         sys_text = (sys_text + "\n\n" + memory_note).strip()
     if context_note:
@@ -4622,6 +4759,109 @@ def _checkout_readiness_note(client) -> str:
     from management.services.ig_checkout_readiness import readiness_prompt_note
 
     return readiness_prompt_note(client)
+
+
+SHOWN_PRODUCTS_CONTEXT_KEY = "shown_products"
+SHOWN_PRODUCTS_LIMIT = 4
+
+
+def record_shown_products(client, sender_id: str, selection, delivery) -> list[dict]:
+    """Запам'ятати, які товари й у якому порядку ми щойно показали фото.
+
+    Без цього «давай першу» не має відповіді в принципі. У переписці клієнта #5
+    бот надіслав дві картинки, а в історію потрапили два однакові рядки
+    «Менеджер: (зображення менеджера)» — без назв, без id, без порядку, ще й
+    позначені як чужі. Далі на «Давай первую» модель могла тільки вгадувати, і
+    описала товар, якого на першій картинці не було.
+
+    Пишемо у двох місцях, бо в них різні задачі: рядок історії робить факт
+    відправки видимим у переписці (і дає echo що впізнавати), а
+    `sales_context` дає моделі коротку таблицю «позиція → товар» для промпта.
+    """
+    items = list(getattr(selection, "items", ()) or ())
+    if not items:
+        return []
+    try:
+        sent_count = int(getattr(delivery, "sent_count", 0) or 0)
+    except (TypeError, ValueError):
+        sent_count = 0
+    if sent_count <= 0:
+        return []
+    delivered = items[:sent_count][:SHOWN_PRODUCTS_LIMIT]
+    provider_ids = list(getattr(delivery, "provider_message_ids", ()) or ())
+
+    shown: list[dict] = []
+    for index, item in enumerate(delivered):
+        shown.append({
+            "position": index + 1,
+            "product_id": int(getattr(item, "product_id", 0) or 0),
+            "title": str(getattr(item, "title", "") or "")[:200],
+            "url": str(getattr(item, "url", "") or "")[:500],
+            "provider_message_id": str(provider_ids[index]) if index < len(provider_ids) else "",
+        })
+
+    # Рядок історії: наші картинки більше не зникають із переписки.
+    for entry in shown:
+        try:
+            InstagramBotMessage.objects.create(
+                sender_id=sender_id,
+                client=client,
+                role=InstagramBotMessage.Role.MODEL,
+                text=f"(фото товару: {entry['title']})",
+                status=InstagramBotMessage.Status.DONE,
+                source="catalog_media",
+                attachments=json.dumps([entry["url"]], ensure_ascii=False),
+                provider_message_id=entry["provider_message_id"],
+                processed_at=timezone.now(),
+            )
+        except Exception as exc:  # noqa: BLE001
+            log("warning", "shown_products_row", repr(exc))
+
+    if getattr(client, "pk", None):
+        try:
+            context = dict(getattr(client, "sales_context", {}) or {})
+            context[SHOWN_PRODUCTS_CONTEXT_KEY] = {
+                "at": timezone.now().isoformat(),
+                "items": [
+                    {k: v for k, v in entry.items() if k in ("position", "product_id", "title")}
+                    for entry in shown
+                ],
+            }
+            client.sales_context = context
+            client.save(update_fields=["sales_context", "updated_at"])
+        except Exception as exc:  # noqa: BLE001
+            log("warning", "shown_products_context", repr(exc))
+    log("info", "shown_products", f"{sender_id}: " + ", ".join(
+        f"{entry['position']}={entry['product_id']}" for entry in shown
+    ))
+    return shown
+
+
+def shown_products_note(client) -> str:
+    """Службовий блок: що саме бачить клієнт на надісланих фото."""
+    context = getattr(client, "sales_context", None)
+    if not isinstance(context, dict):
+        return ""
+    state = context.get(SHOWN_PRODUCTS_CONTEXT_KEY)
+    if not isinstance(state, dict):
+        return ""
+    items = [entry for entry in (state.get("items") or []) if isinstance(entry, dict)]
+    if not items:
+        return ""
+    lines = [
+        "[НАДІСЛАНІ ФОТО — службове]",
+        "Порядок фото, які клієнт бачить у чаті (остання відправка):",
+    ]
+    for entry in items:
+        lines.append(
+            f"  {entry.get('position')}) {entry.get('title')} (id={entry.get('product_id')})"
+        )
+    lines.append(
+        "Якщо клієнт каже «першу», «другу», «оту» або відповідає на фото — це саме "
+        "ці товари в цьому порядку. Не вгадуй і не підставляй інший товар: "
+        "візьми id зі списку вище й постав [PRODUCT:<id>]."
+    )
+    return "\n".join(lines)
 
 
 def notify_size_gap(client) -> bool:
@@ -5435,6 +5675,13 @@ def enqueue_inbound(
     explicit_opt_out = bot_sales_classifier.is_explicit_opt_out(text)
     permission_transition = pause_reply_boundary() if explicit_opt_out else nullcontext()
     client = IgClient.get_or_create_for_sender(sender_id)
+    # Клієнт написав знову — саме момент перевірити, чи не висить пауза від
+    # менеджера, який давно пішов. Інакше повідомлення тихо стане `observed`,
+    # і людина вирішить, що її ігнорують.
+    try:
+        maybe_release_stale_takeover(client)
+    except Exception as exc:  # noqa: BLE001
+        log("warning", "takeover_release", repr(exc))
     try:
         # Opt-out follows the same lock order as send/pause: permission file
         # lock first, then database rows. Normal ingress takes no global lock.
@@ -6314,6 +6561,15 @@ def _process_one_inside_reply_boundary(
                     "catalog_media_delivery",
                     f"{row.sender_id}: {catalog_media_delivery.state} "
                     f"{catalog_media_delivery.error}",
+                )
+            # Фіксуємо порядок показаного одразу після відправки: далі клієнт
+            # може сказати «давай першу», і це має бути фактом, а не догадкою.
+            if row.client_id:
+                record_shown_products(
+                    row.client,
+                    row.sender_id,
+                    catalog_media_selection,
+                    catalog_media_delivery,
                 )
         except Exception as exc:
             log("warning", "catalog_media_delivery", repr(exc))

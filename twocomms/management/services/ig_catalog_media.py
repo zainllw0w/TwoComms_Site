@@ -349,6 +349,16 @@ def send_catalog_media(
             message_id = _provider_message_id(response)
             if message_id:
                 message_ids.append(message_id)
+                # Реєструємо всередині циклу, а не пачкою після нього: echo
+                # першого фото може прийти ще до того, як відправиться друге, і
+                # тоді пізня реєстрація вже не врятує. Саме через відсутність
+                # цього кроку карусель бота 02.08.2026 була прийнята за
+                # повідомлення менеджера — бот поставив себе на паузу, з'їв уже
+                # згенерований текст відповіді, і клієнт отримав два фото без
+                # жодного підпису.
+                from management.services.ig_outgoing_registry import register_outgoing
+
+                register_outgoing(message_id, recipient_id=recipient_id, kind="media")
 
     return CatalogMediaDelivery(
         CatalogMediaDeliveryState.SENT,

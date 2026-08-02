@@ -353,19 +353,32 @@ class PaymentLinkGateTests(SimpleTestCase):
         control = {"paylink": "full", "product": 111, "size": "M", "fit": "classic"}
         self.assertTrue(payment_link_allowed(client, control, "Как я могу оплатить?"))
 
-    def test_paid_client_cannot_receive_a_second_invoice(self):
+    def test_stage_paid_alone_no_longer_blocks_a_repeat_purchase(self):
+        """Стадия `paid` — рабочее состояние воронки, а не факт «больше не купит».
+
+        Раньше здесь закреплялось обратное, и вместе с блокировкой по
+        `client_has_verified_payment` это означало: любой, кто хоть раз оплатил,
+        никогда больше не получит ссылку. Постоянный клиент не мог купить второй
+        раз. Ирония в том, что W3 (IMP-013) как раз научила систему видеть
+        покупателей — и этот гейт начал резать именно их.
+
+        Дубль счёта отсекается точнее: по факту денег, то есть по оплаченной
+        сделке без созданного заказа (`_has_open_paid_deal`), а не по стадии.
+        """
         from management.services.instagram_bot import payment_link_allowed
 
         client = SimpleNamespace(
+            pk=None,
             current_product_id=111,
             intent="payment",
             stage="paid",
             buying_readiness=100,
         )
-        self.assertFalse(payment_link_allowed(client, {"paylink": "full", "product": 111}, "Так, хочу"))
+        self.assertTrue(payment_link_allowed(client, {"paylink": "full", "product": 111}, "Так, хочу"))
 
-    @patch("management.services.bot_payment_truth.client_has_verified_payment", return_value=True)
-    def test_verified_payment_blocks_invoice_even_when_stage_is_stale(self, _verified):
+    @patch("management.services.instagram_bot._has_open_paid_deal", return_value=True)
+    def test_open_paid_deal_blocks_a_duplicate_invoice(self, _open_paid):
+        """Оплаченная сделка без заказа — единственная причина не выдавать ссылку."""
         from management.services.instagram_bot import payment_link_allowed
 
         client = SimpleNamespace(

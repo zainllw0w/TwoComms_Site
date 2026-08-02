@@ -589,3 +589,279 @@ class CatalogBudgetTests(TestCase):
 
         self.assertEqual(catalog.count("• id="), 40)
         self.assertNotIn("не вміщено", catalog)
+
+
+class OwnEchoRecognitionTests(TestCase):
+    """Наше власне echo не має вмикати takeover.
+
+    Прод, 02.08.2026: бот надіслав каруселлю два фото, Meta повернула echo, і
+    система порахувала їх повідомленнями менеджера — увімкнула `manager_takeover`,
+    поставила клієнта на паузу, з'їла вже згенерований текст відповіді. Клієнт #5
+    і клієнт #2 обидва отримали фото без підпису й далі мовчання; наступні
+    повідомлення пішли в `observed`. На той момент у takeover висіло 57 клієнтів
+    із 289, і зняти це можна було лише руками.
+    """
+
+    def setUp(self):
+        self.client_row = _client("own-echo")
+
+    def test_media_echo_with_our_message_id_is_ignored(self):
+        from management.models import IgClient
+        from management.services import instagram_bot as bot
+        from management.services.ig_outgoing_registry import register_outgoing
+
+        message_id = "aWdfZAG1faXRlbTo6our-media-1"
+        register_outgoing(message_id, recipient_id=self.client_row.igsid, kind="media")
+
+        bot._handle_echo(
+            self.client_row.igsid,
+            "",
+            attachments=[{"url": "https://twocomms.shop/media/products/x.webp"}],
+            mid=message_id,
+        )
+
+        fresh = IgClient.objects.get(pk=self.client_row.pk)
+        self.assertFalse(fresh.manager_takeover)
+        self.assertFalse(fresh.bot_paused)
+        self.assertFalse(
+            InstagramBotMessage.objects.filter(
+                client=fresh, role=InstagramBotMessage.Role.MANAGER
+            ).exists()
+        )
+
+    def test_real_manager_media_still_triggers_takeover(self):
+        from management.models import IgClient
+        from management.services import instagram_bot as bot
+
+        bot._handle_echo(
+            self.client_row.igsid,
+            "",
+            attachments=[{"url": "https://lookaside.fbsbx.com/ig_messaging_cdn/?asset_id=1"}],
+            mid="aWdfZAG1faXRlbTo6manager-media-1",
+        )
+
+        fresh = IgClient.objects.get(pk=self.client_row.pk)
+        self.assertTrue(fresh.manager_takeover)
+        self.assertTrue(fresh.bot_paused)
+        self.assertTrue(
+            InstagramBotMessage.objects.filter(
+                client=fresh, role=InstagramBotMessage.Role.MANAGER
+            ).exists()
+        )
+
+    def test_text_echo_of_our_reply_is_ignored_by_message_id(self):
+        from management.models import IgClient
+        from management.services import instagram_bot as bot
+        from management.services.ig_outgoing_registry import register_outgoing
+
+        message_id = "aWdfZAG1faXRlbTo6our-text-1"
+        register_outgoing(message_id, recipient_id=self.client_row.igsid, kind="text")
+
+        bot._handle_echo(self.client_row.igsid, "Ось ваше посилання", mid=message_id)
+
+        self.assertFalse(IgClient.objects.get(pk=self.client_row.pk).manager_takeover)
+
+
+class StaleTakeoverReleaseTests(TestCase):
+    """Пауза від менеджера не має тривати вічно."""
+
+    def setUp(self):
+        self.client_row = _client("stale-takeover")
+
+    def _put_in_takeover(self, hours_ago):
+        moment = timezone.now() - timezone.timedelta(hours=hours_ago)
+        self.client_row.manager_takeover = True
+        self.client_row.bot_paused = True
+        self.client_row.paused_reason = "manager_takeover"
+        self.client_row.paused_at = moment
+        self.client_row.last_manager_message_at = moment
+        self.client_row.save(update_fields=[
+            "manager_takeover", "bot_paused", "paused_reason",
+            "paused_at", "last_manager_message_at", "updated_at",
+        ])
+
+    @patch("management.services.instagram_bot.notify_manager")
+    def test_long_silent_takeover_is_released(self, mock_notify):
+        from management.models import IgClient
+        from management.services import instagram_bot as bot
+
+        self._put_in_takeover(30)
+
+        self.assertTrue(bot.maybe_release_stale_takeover(self.client_row))
+        fresh = IgClient.objects.get(pk=self.client_row.pk)
+        self.assertFalse(fresh.manager_takeover)
+        self.assertFalse(fresh.bot_paused)
+        mock_notify.assert_called_once()
+
+    @patch("management.services.instagram_bot.notify_manager")
+    def test_active_manager_conversation_is_not_interrupted(self, mock_notify):
+        from management.models import IgClient
+        from management.services import instagram_bot as bot
+
+        self._put_in_takeover(2)
+
+        self.assertFalse(bot.maybe_release_stale_takeover(self.client_row))
+        self.assertTrue(IgClient.objects.get(pk=self.client_row.pk).manager_takeover)
+        mock_notify.assert_not_called()
+
+    @patch("management.services.instagram_bot.notify_manager")
+    def test_opted_out_client_is_never_auto_resumed(self, mock_notify):
+        from management.models import IgClient
+        from management.services import instagram_bot as bot
+
+        self._put_in_takeover(48)
+        self.client_row.opted_out_at = timezone.now() - timezone.timedelta(hours=40)
+        self.client_row.save(update_fields=["opted_out_at", "updated_at"])
+
+        self.assertFalse(bot.maybe_release_stale_takeover(self.client_row))
+        self.assertTrue(IgClient.objects.get(pk=self.client_row.pk).manager_takeover)
+        mock_notify.assert_not_called()
+
+
+class ShownProductsMemoryTests(TestCase):
+    """«Давай першу» має розв'язуватись фактом, а не вгадуванням."""
+
+    def setUp(self):
+        self.category = Category.objects.create(name="Футболки", slug="shown-shirts")
+        self.first = Product.objects.create(
+            title="Футболка класична",
+            slug="shown-classic",
+            category=self.category,
+            price=788,
+            status=ProductStatus.PUBLISHED,
+        )
+        self.second = Product.objects.create(
+            title="Футболка «Без жодних сумнівів»",
+            slug="shown-doubts",
+            category=self.category,
+            price=1090,
+            status=ProductStatus.PUBLISHED,
+        )
+        self.client_row = _client("shown-products")
+
+    def _selection_and_delivery(self):
+        from management.services.ig_catalog_media import (
+            CatalogMediaDelivery,
+            CatalogMediaDeliveryState,
+            CatalogMediaItem,
+            CatalogMediaSelection,
+            CatalogMediaState,
+        )
+
+        items = (
+            CatalogMediaItem(
+                url="https://twocomms.shop/media/products/classic.webp",
+                title=self.first.title,
+                alt=self.first.title,
+                product_id=self.first.pk,
+                mime_type="image/webp",
+                size_bytes=1024,
+            ),
+            CatalogMediaItem(
+                url="https://twocomms.shop/media/products/doubts.webp",
+                title=self.second.title,
+                alt=self.second.title,
+                product_id=self.second.pk,
+                mime_type="image/webp",
+                size_bytes=2048,
+            ),
+        )
+        selection = CatalogMediaSelection(state=CatalogMediaState.READY, items=items)
+        delivery = CatalogMediaDelivery(
+            CatalogMediaDeliveryState.SENT,
+            sent_count=2,
+            attempted_count=2,
+            provider_message_ids=("mid-shown-1", "mid-shown-2"),
+        )
+        return selection, delivery
+
+    def test_shown_order_is_persisted_with_product_ids(self):
+        from management.services import instagram_bot as bot
+
+        selection, delivery = self._selection_and_delivery()
+        shown = bot.record_shown_products(
+            self.client_row, self.client_row.igsid, selection, delivery
+        )
+
+        self.assertEqual([entry["position"] for entry in shown], [1, 2])
+        self.assertEqual(
+            [entry["product_id"] for entry in shown], [self.first.pk, self.second.pk]
+        )
+        self.client_row.refresh_from_db()
+        stored = self.client_row.sales_context["shown_products"]["items"]
+        self.assertEqual(stored[0]["product_id"], self.first.pk)
+
+    def test_sent_photos_appear_in_the_transcript_as_ours(self):
+        from management.services import instagram_bot as bot
+
+        selection, delivery = self._selection_and_delivery()
+        bot.record_shown_products(
+            self.client_row, self.client_row.igsid, selection, delivery
+        )
+
+        rows = InstagramBotMessage.objects.filter(
+            client=self.client_row, source="catalog_media"
+        ).order_by("id")
+        self.assertEqual(rows.count(), 2)
+        self.assertEqual(rows[0].role, InstagramBotMessage.Role.MODEL)
+        self.assertEqual(rows[0].provider_message_id, "mid-shown-1")
+        self.assertIn(self.first.title, rows[0].text)
+
+    def test_partial_delivery_records_only_what_was_sent(self):
+        from management.services import instagram_bot as bot
+        from management.services.ig_catalog_media import (
+            CatalogMediaDelivery,
+            CatalogMediaDeliveryState,
+        )
+
+        selection, _ = self._selection_and_delivery()
+        delivery = CatalogMediaDelivery(
+            CatalogMediaDeliveryState.PARTIAL,
+            sent_count=1,
+            attempted_count=2,
+            provider_message_ids=("mid-shown-1",),
+        )
+
+        shown = bot.record_shown_products(
+            self.client_row, self.client_row.igsid, selection, delivery
+        )
+
+        self.assertEqual(len(shown), 1)
+        self.assertEqual(shown[0]["product_id"], self.first.pk)
+
+    def test_prompt_lists_shown_photos_in_order(self):
+        from management.services import instagram_bot as bot
+
+        selection, delivery = self._selection_and_delivery()
+        bot.record_shown_products(
+            self.client_row, self.client_row.igsid, selection, delivery
+        )
+        self.client_row.refresh_from_db()
+
+        note = bot.shown_products_note(self.client_row)
+
+        self.assertIn("1) Футболка класична", note)
+        self.assertIn(f"id={self.first.pk}", note)
+        self.assertIn("2) Футболка «Без жодних сумнівів»", note)
+        self.assertIn("першу", note)
+
+
+class PhotoProtocolTests(TestCase):
+    """Фото — відповідь на конкретний запит, а не спосіб почати розмову."""
+
+    def test_protocol_requires_text_before_photos(self):
+        from management.services.instagram_bot import PAYMENT_PROTOCOL_NOTE
+
+        self.assertIn("ПОРЯДОК ПОКАЗУ ФОТО", PAYMENT_PROTOCOL_NOTE)
+        self.assertIn("Спершу з'ясуй текстом", PAYMENT_PROTOCOL_NOTE)
+
+    def test_protocol_defines_what_a_plain_tshirt_means(self):
+        from management.services.instagram_bot import PAYMENT_PROTOCOL_NOTE
+
+        self.assertIn("класична", PAYMENT_PROTOCOL_NOTE)
+        self.assertIn("логотипом на груді", PAYMENT_PROTOCOL_NOTE)
+
+    def test_protocol_offers_link_or_screenshot_instead_of_guessing(self):
+        from management.services.instagram_bot import PAYMENT_PROTOCOL_NOTE
+
+        self.assertIn("скриншот", PAYMENT_PROTOCOL_NOTE)

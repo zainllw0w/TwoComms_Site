@@ -3762,6 +3762,15 @@ class InstagramBotMessage(models.Model):
     text = models.TextField(blank=True, default="")
     # mid унікальний лише для вхідних; вихідні (model) мають null.
     mid = models.CharField(max_length=255, null=True, blank=True, unique=True)
+    # `message_id`, який Meta повернула на наш Send API. Потрібен, щоб пізніше
+    # впізнати власне echo: у медіа-echo тексту немає, і відпечаток по тексту
+    # (`_bot_sent_key`) там не працює в принципі. Саме через це 02.08.2026
+    # карусель бота була прийнята за повідомлення менеджера, бот став на паузу
+    # і замовк для клієнта. Не `unique`: колізія від провайдера не повинна
+    # ламати запис історії, а перевірка існування від дублів не страждає.
+    provider_message_id = models.CharField(
+        max_length=255, blank=True, default="", db_index=True
+    )
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.DONE)
     source = models.CharField(max_length=16, default="webhook")
     # JSON-список URL зображень-вкладень (для мультимодального аналізу Gemini).
