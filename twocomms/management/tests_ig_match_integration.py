@@ -26,6 +26,42 @@ class MatchHintTextTests(TestCase):
         self.assertIn("Худі Kharkiv", hint)
         self.assertIn("950", hint)
 
+    def test_high_confidence_uses_variant_price_instead_of_product_base(self):
+        from productcolors.models import Color, ProductColorVariant
+
+        color = Color.objects.create(name="Термо-зелена", primary_hex="#A2AB92")
+        ProductColorVariant.objects.create(
+            product=self.p,
+            color=color,
+            price_override=1450,
+            is_default=True,
+        )
+
+        hint = bot._match_hint_text({
+            "product_id": self.p.id,
+            "confidence": 0.9,
+            "reason": "x",
+        })
+
+        self.assertIn("1450", hint)
+        self.assertNotIn("— 950 грн", hint)
+
+    @patch(
+        "management.services.ig_catalog_pricing.resolve_product_pricing",
+        return_value={"display": "", "exact": False},
+    )
+    def test_high_confidence_never_quotes_base_when_variant_price_is_unresolved(
+        self, _pricing
+    ):
+        hint = bot._match_hint_text({
+            "product_id": self.p.id,
+            "confidence": 0.9,
+            "reason": "x",
+        })
+
+        self.assertIn("ціна залежить від конфігурації", hint)
+        self.assertNotIn("950 грн", hint)
+
     def test_low_confidence_says_dont_invent(self):
         hint = bot._match_hint_text({"product_id": None, "confidence": 0.0, "reason": "x"})
         self.assertIn("не вигадуй", hint.lower())

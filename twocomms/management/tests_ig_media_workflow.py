@@ -4,7 +4,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from django.test import SimpleTestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 
 
 class MediaSemanticsTests(SimpleTestCase):
@@ -736,6 +736,39 @@ class TelegramPaymentReviewGateTests(SimpleTestCase):
         self.assertFalse(loser._transitioned)
         self.assertEqual(locked.status, IgPaymentConfirmationReview.Status.CONFIRMED)
         self.assertEqual(locked.evidence["telegram_decision"]["action"], "confirm")
+
+
+class CatalogHydrationPriceTests(TestCase):
+    def test_single_variant_catalog_match_uses_variant_price(self):
+        from management.services.ig_payment_review import _hydrate_catalog_match
+        from productcolors.models import Color, ProductColorVariant
+        from storefront.models import Category, Product, ProductStatus
+
+        category = Category.objects.create(name="Футболки", slug="review-priced")
+        product = Product.objects.create(
+            title="Бойова квіточка",
+            slug="review-priced-flower",
+            category=category,
+            price=1090,
+            status=ProductStatus.PUBLISHED,
+        )
+        color = Color.objects.create(name="Термо-зелена", primary_hex="#A2AB92")
+        variant = ProductColorVariant.objects.create(
+            product=product,
+            color=color,
+            price_override=1450,
+            is_default=True,
+        )
+
+        hydrated = _hydrate_catalog_match(
+            {"product_id": product.pk, "confidence": 0.95, "reason": "збіг"},
+            [],
+            [],
+        )
+
+        self.assertEqual(hydrated["color_variant_id"], variant.pk)
+        self.assertEqual(hydrated["catalog_price"], "1450")
+        self.assertNotEqual(hydrated["catalog_price"], "1090")
 
 
 class CatalogAssignmentTests(SimpleTestCase):

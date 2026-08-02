@@ -838,7 +838,9 @@ PAYMENT_PROTOCOL_NOTE = (
     "у Direct до створення рахунку. Якщо товар ще не визначено однозначно — спершу "
     "уточни його, тег [PAYLINK] поки не став. Для кожної позиції додай "
     "[ITEM:<product_id>|<qty>|<size>|<fit>|<color_variant_id>] (останнє поле можна "
-    "залишити порожнім), щоб зберегти кількість, розмір, крій і колір. Для футболки з "
+    "залишити порожнім лише коли в каталозі товар справді не має variant_id), щоб "
+    "зберегти кількість, розмір, крій і колір. Якщо ціна залежить від кольору/матеріалу "
+    "або фасону, спочатку уточни їх і назви точну ціну саме цієї конфігурації. Для футболки з "
     "кількома фасонами спочатку обов'язково запитай classic чи oversize, покажи сітку "
     "саме обраного фасону і лише потім запитуй розмір. Для однієї позиції також дозволено "
     "[QTY:n] [SIZE:XS] [FIT:oversize]. "
@@ -1175,6 +1177,7 @@ _CONFIGURATION_GAP_CODES = frozenset({
     "invalid_fit_option",
     "invalid_color",
     "invalid_color_variant",
+    "missing_color_variant",
     "insufficient_stock",
     "unavailable_selection",
     "unpublished_product",
@@ -5435,15 +5438,26 @@ def _match_hint_text(match: dict | None) -> str | None:
         except Exception:
             p = None
         if p:
-            try:
-                price = int(getattr(p, "final_price", None) or p.price)
-            except Exception:
-                price = p.price
+            from management.services.ig_catalog_pricing import resolve_product_pricing
+
+            pricing = resolve_product_pricing(p)
             url = f"https://twocomms.shop/product/{p.slug}/"
+            if pricing["display"]:
+                price_note = f"{pricing['display']} грн"
+                price_instruction = (
+                    "Назви цю точну ціну"
+                    if pricing["exact"]
+                    else "Назви діапазон і уточни колір/матеріал та фасон перед точною ціною"
+                )
+            else:
+                price_note = "ціна залежить від конфігурації"
+                price_instruction = (
+                    "Не називай базову ціну; уточни колір/матеріал та фасон/опції"
+                )
             return (
                 f"[ЗБІГ ТОВАРУ ЗА ФОТО — впевненість {int(conf * 100)}%] Клієнт прислав "
-                f"фото/пост, і це товар з каталогу: «{p.title}» — {price} грн, {url}. "
-                f"Назви саме цей товар, дай ціну і за потреби посилання. Веди до покупки."
+                f"фото/пост, і це товар з каталогу: «{p.title}» — {price_note}, {url}. "
+                f"{price_instruction}; за потреби дай посилання. Веди до покупки."
             )
     return (
         "[ФОТО БЕЗ ВПЕВНЕНОГО ЗБІГУ] Клієнт прислав фото/пост, але точно зіставити з "

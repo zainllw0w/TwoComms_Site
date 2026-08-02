@@ -177,6 +177,49 @@ class CheckoutReadinessNoteTests(TestCase):
         self.assertEqual(state["missing"], [])
         self.assertTrue(state["can_issue_link"])
 
+    def test_single_adjusted_variant_price_reaches_prompt_before_generation(self):
+        from management.services.ig_checkout_readiness import (
+            checkout_readiness,
+            readiness_prompt_note,
+        )
+
+        self.variant.price_override = 1450
+        self.variant.save(update_fields=["price_override"])
+        self.client_row.current_size = "M"
+        self.client_row.sales_context = {
+            "assisted_checkout_selection": {
+                "product_id": self.product.pk,
+                "fit_option_code": "classic",
+            }
+        }
+        self.client_row.save(update_fields=["current_size", "sales_context", "updated_at"])
+
+        state = checkout_readiness(self.client_row)
+        note = readiness_prompt_note(self.client_row, readiness=state)
+
+        self.assertEqual(state["product"]["price"], "1450.00")
+        self.assertTrue(state["product"]["price_exact"])
+        self.assertEqual(state["color"]["selected_variant_id"], self.variant.pk)
+        self.assertIn("точна ціна конфігурації: 1450.00 грн", note)
+
+    @patch(
+        "management.services.ig_catalog_pricing.resolve_product_pricing",
+        return_value={"display": "", "exact": False},
+    )
+    def test_unresolved_variant_price_never_falls_back_to_product_base(self, _pricing):
+        from management.services.ig_checkout_readiness import (
+            checkout_readiness,
+            readiness_prompt_note,
+        )
+
+        state = checkout_readiness(self.client_row)
+        note = readiness_prompt_note(self.client_row, readiness=state)
+
+        self.assertEqual(state["product"]["price"], "")
+        self.assertFalse(state["product"]["price_exact"])
+        self.assertIn("ціна конфігурації не визначена", note)
+        self.assertNotIn("880 грн", note)
+
     def test_unavailable_requested_size_is_told_honestly_with_a_next_step(self):
         from fable5.models import SizeGrid, VariantSizeRule
         from management.services.ig_checkout_readiness import readiness_prompt_note

@@ -234,14 +234,23 @@ def client_context_note(client) -> str | None:
             camp = BotAdCampaign.match(ad_id=client.ad_id or None, ref=client.ad_ref or None)
         if camp and camp.product_id:
             p = camp.product
-            try:
-                price = int(getattr(p, "final_price", None) or p.price)
-            except Exception:
-                price = getattr(p, "price", "")
+            from management.services.ig_catalog_pricing import resolve_product_pricing
+
+            pricing = resolve_product_pricing(p)
+            if pricing["display"]:
+                price_kind = (
+                    "точна каталожна ціна" if pricing["exact"] else "діапазон цін"
+                )
+                price_note = f"{price_kind} {pricing['display']} грн"
+            else:
+                price_note = (
+                    "ціна залежить від конфігурації; спочатку уточни "
+                    "колір/матеріал і фасон/опції"
+                )
             title = camp.title or client.ad_title or "реклама"
             parts.append(
                 f"клієнт прийшов з реклами «{title}» — його найімовірніше цікавить "
-                f"«{p.title}» (довідкова каталожна ціна {price} грн, "
+                f"«{p.title}» ({price_note}, "
                 f"https://twocomms.shop/product/{p.slug}/); це не погоджена сума "
                 "поточного замовлення; "
                 f"веди одразу по суті, не починай з «надішліть фото»"

@@ -204,6 +204,32 @@ class BuildMatchCandidatesTests(TestCase):
         c = next(c for c in cands if c["id"] == p.id)
         self.assertIn("Харків", c["fingerprint"])
 
+    def test_variant_price_reaches_visual_match_candidates(self):
+        from productcolors.models import Color, ProductColorVariant
+        from storefront.models import Category, Product, ProductStatus
+
+        category = Category.objects.create(name="Футболки", slug="vision-priced")
+        product = Product.objects.create(
+            title="Бойова квіточка",
+            slug="vision-priced-flower",
+            category=category,
+            price=1090,
+            status=ProductStatus.PUBLISHED,
+        )
+        color = Color.objects.create(name="Термо-зелена", primary_hex="#A2AB92")
+        ProductColorVariant.objects.create(
+            product=product,
+            color=color,
+            price_override=1450,
+            is_default=True,
+        )
+
+        candidates = bot_vision.build_match_candidates()
+
+        candidate = next(row for row in candidates if row["id"] == product.pk)
+        self.assertEqual(candidate["price"], "1450")
+        self.assertNotEqual(candidate["price"], "1090")
+
 
 class MatchTests(TestCase):
     def _cands(self):

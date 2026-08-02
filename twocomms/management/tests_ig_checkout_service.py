@@ -113,6 +113,28 @@ class InstagramCheckoutConfigurationTests(TestCase):
 
         self.assertEqual(quote.items[0].color_variant.pk, self.blue.pk)
 
+    def test_single_price_adjusted_variant_uses_authoritative_variant_price(self):
+        """The automatically selected PDP variant keeps its exact catalog price."""
+        from management.services.ig_checkout import validate_checkout_items
+
+        self.black.delete()
+        self.blue.price_override = 1450
+        self.blue.save(update_fields=["price_override"])
+
+        quote = validate_checkout_items(
+            client=self.client,
+            item_specs=[{
+                "product_id": self.shirt.pk,
+                "qty": 1,
+                "size": "M",
+                "fit_option_code": "classic",
+            }],
+            evidence={},
+        )
+
+        self.assertEqual(quote.items[0].color_variant, self.blue)
+        self.assertEqual(quote.items[0].catalog_unit_price, Decimal("1450.00"))
+
     def test_zero_stock_variant_stays_sellable_like_on_the_website(self):
         """Нульовий `stock` не робить варіант недоступним.
 

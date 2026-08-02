@@ -538,6 +538,83 @@ class CreateDealAndLinkTests(TestCase):
         self.assertEqual(unavailable, {"ok": False, "error": "insufficient_stock"})
 
     @patch("management.services.bot_orders.create_payment_link")
+    def test_unique_variant_is_selected_server_side_before_pricing(self, mock_link):
+        from productcolors.models import Color, ProductColorVariant
+        from storefront.models import Category, Product, ProductStatus
+
+        mock_link.return_value = {
+            "ok": True,
+            "invoice_url": "https://pay/unique-variant",
+            "invoice_id": "unique-variant",
+        }
+        category = Category.objects.create(name="Футболки", slug="unique-priced-variant")
+        product = Product.objects.create(
+            title="Бойова квіточка",
+            slug="unique-priced-variant",
+            category=category,
+            price=Decimal("1090.00"),
+            status=ProductStatus.PUBLISHED,
+        )
+        color = Color.objects.create(name="Термо-зелена", primary_hex="#A2AB92")
+        variant = ProductColorVariant.objects.create(
+            product=product,
+            color=color,
+            price_override=1450,
+            is_default=True,
+        )
+
+        item_client = IgClient.get_or_create_for_sender("unique-variant-item")
+        item_result = bot_orders.create_deal_and_link(item_client, items=[{
+            "product_id": product.pk,
+            "qty": 1,
+            "size": "S",
+            "fit_option_code": "",
+        }])
+        scalar_client = IgClient.get_or_create_for_sender("unique-variant-scalar")
+        scalar_result = bot_orders.create_deal_and_link(
+            scalar_client,
+            product_id=product.pk,
+            size="S",
+        )
+
+        self.assertTrue(item_result["ok"])
+        self.assertTrue(scalar_result["ok"])
+        for client in (item_client, scalar_client):
+            item = IgDeal.objects.get(client=client).items.get()
+            self.assertEqual(item.color_variant_id, variant.pk)
+            self.assertEqual(item.unit_price, Decimal("1450.00"))
+
+    @patch("management.services.bot_orders.create_payment_link")
+    def test_missing_variant_is_rejected_when_multiple_choices_exist(self, mock_link):
+        from productcolors.models import Color, ProductColorVariant
+        from storefront.models import Category, Product, ProductStatus
+
+        category = Category.objects.create(name="Футболки", slug="multiple-priced-variants")
+        product = Product.objects.create(
+            title="Футболка з кольорами",
+            slug="multiple-priced-variants",
+            category=category,
+            price=Decimal("1090.00"),
+            status=ProductStatus.PUBLISHED,
+        )
+        first = Color.objects.create(name="Білий", primary_hex="#FFFFFF")
+        second = Color.objects.create(name="Термо-зелена", primary_hex="#A2AB92")
+        ProductColorVariant.objects.create(product=product, color=first, price_override=1090)
+        ProductColorVariant.objects.create(product=product, color=second, price_override=1450)
+        client = IgClient.get_or_create_for_sender("missing-multiple-variant")
+
+        result = bot_orders.create_deal_and_link(client, items=[{
+            "product_id": product.pk,
+            "qty": 1,
+            "size": "S",
+            "fit_option_code": "",
+        }])
+
+        self.assertEqual(result, {"ok": False, "error": "missing_color_variant"})
+        self.assertFalse(IgDeal.objects.filter(client=client).exists())
+        mock_link.assert_not_called()
+
+    @patch("management.services.bot_orders.create_payment_link")
     def test_duplicate_item_identity_and_global_multi_price_fail_closed(self, mock_link):
         from storefront.models import Category, Product, ProductStatus
 

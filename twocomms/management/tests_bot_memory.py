@@ -124,6 +124,75 @@ class ClientContextNoteTests(TestCase):
         self.assertIn("Худі Kharkiv", note)
         self.assertIn("950", note)
 
+    def test_ad_attribution_uses_sellable_variant_price_not_product_base(self):
+        from management.models import BotAdCampaign
+        from productcolors.models import Color, ProductColorVariant
+        from storefront.models import Category, Product, ProductStatus
+
+        category = Category.objects.create(name="Футболки", slug="cc-priced")
+        product = Product.objects.create(
+            title="Футболка Бойова квіточка",
+            slug="cc-priced-flower",
+            category=category,
+            price=1090,
+            status=ProductStatus.PUBLISHED,
+        )
+        color = Color.objects.create(name="Термо-зелена", primary_hex="#A2AB92")
+        ProductColorVariant.objects.create(
+            product=product,
+            color=color,
+            price_override=1450,
+            is_default=True,
+        )
+        BotAdCampaign.objects.create(
+            ad_id="priced-555",
+            title="Бойова квіточка",
+            product=product,
+        )
+        client = IgClient.get_or_create_for_sender("cc-priced-client")
+        client.ad_id = "priced-555"
+        client.save(update_fields=["ad_id", "updated_at"])
+
+        note = bot_memory.client_context_note(client)
+
+        self.assertIn("1450", note)
+        self.assertNotIn("ціна 1090 грн", note)
+
+    @patch(
+        "management.services.ig_catalog_pricing.resolve_product_pricing",
+        return_value={"display": "", "exact": False},
+    )
+    def test_ad_attribution_does_not_quote_base_when_variant_price_is_unresolved(
+        self, _pricing
+    ):
+        from management.models import BotAdCampaign
+        from productcolors.models import Color, ProductColorVariant
+        from storefront.models import Category, Product, ProductStatus
+
+        category = Category.objects.create(name="Футболки", slug="cc-unresolved")
+        product = Product.objects.create(
+            title="Футболка з опціями",
+            slug="cc-unresolved-shirt",
+            category=category,
+            price=1090,
+            status=ProductStatus.PUBLISHED,
+        )
+        color = Color.objects.create(name="Тестовий", primary_hex="#654321")
+        ProductColorVariant.objects.create(product=product, color=color)
+        BotAdCampaign.objects.create(
+            ad_id="unresolved-555",
+            title="Футболка з опціями",
+            product=product,
+        )
+        client = IgClient.get_or_create_for_sender("cc-unresolved-client")
+        client.ad_id = "unresolved-555"
+        client.save(update_fields=["ad_id", "updated_at"])
+
+        note = bot_memory.client_context_note(client)
+
+        self.assertIn("ціна залежить від конфігурації", note)
+        self.assertNotIn("1090 грн", note)
+
     def test_ad_title_only(self):
         c = IgClient.get_or_create_for_sender("cc2")
         c.ad_title = "Розпродаж футболок"

@@ -273,25 +273,31 @@ def build_match_candidates(limit: int = MATCH_CANDIDATES_LIMIT) -> list[dict]:
     qs = (
         Product.objects.filter(status=ProductStatus.PUBLISHED)
         .select_related("category")
-        .prefetch_related("color_variants")
+        .prefetch_related("color_variants__color")
         .order_by("-featured", "-id")[:limit]
     )
+    from management.services.ig_catalog_pricing import (
+        prepare_pricing_context,
+        resolve_product_pricing,
+    )
+
+    products = list(qs)
+    variants = [variant for p in products for variant in p.color_variants.all()]
+    prepare_pricing_context(products, variants)
     out: list[dict] = []
-    for p in qs:
+    for p in products:
         fp_parts: list[str] = []
         for v in p.color_variants.all():
             bv = (v.metadata or {}).get("bot_vision") or {}
             seg = (bv.get("summary") or bv.get("print_subject") or "").strip()
             if seg:
                 fp_parts.append(seg)
-        try:
-            price = int(getattr(p, "final_price", None) or p.price)
-        except Exception:
-            price = int(p.price or 0)
+        pricing = resolve_product_pricing(p)
         out.append({
             "id": p.id,
             "title": p.title,
-            "price": price,
+            "price": pricing["display"],
+            "price_exact": pricing["exact"],
             "category": getattr(p.category, "name", "") or "",
             "fingerprint": "; ".join(dict.fromkeys(fp_parts))[:300],
             "slug": p.slug,
@@ -303,8 +309,10 @@ def _format_candidates(candidates: list[dict]) -> str:
     lines = []
     for c in candidates:
         fp = f" | візуал: {c['fingerprint']}" if c.get("fingerprint") else ""
+        price = str(c.get("price") or "").strip()
+        price_note = f"{price} грн" if price else "ціна залежить від конфігурації"
         lines.append(
-            f"id={c['id']} | {c.get('title','')} | {c.get('category','')} | {c.get('price','')} грн{fp}"
+            f"id={c['id']} | {c.get('title','')} | {c.get('category','')} | {price_note}{fp}"
         )
     return "\n".join(lines)
 

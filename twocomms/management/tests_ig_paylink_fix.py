@@ -50,6 +50,35 @@ class ResolveProductTests(TestCase):
         self.assertEqual(got.id, self.p.id)
 
     @patch("management.services.bot_orders.gemini_generate_text")
+    def test_product_decision_payload_uses_variant_price_not_product_base(self, mock_gen):
+        from productcolors.models import Color, ProductColorVariant
+
+        color = Color.objects.create(name="Термо-зелена", primary_hex="#A2AB92")
+        ProductColorVariant.objects.create(
+            product=self.p,
+            color=color,
+            price_override=1450,
+            is_default=True,
+        )
+        InstagramBotMessage.objects.create(
+            sender_id="rp1",
+            client=self.c,
+            role="model",
+            text="Оформлюємо товар?",
+        )
+        mock_gen.return_value = {
+            "parsed": '{"product_id": %d, "confidence": 0.9}' % self.p.id
+        }
+
+        got = bot_orders.resolve_product_for_payment(self.c, None)
+
+        self.assertEqual(got.id, self.p.id)
+        payload = mock_gen.call_args.args[0]
+        prompt = payload["contents"][0]["parts"][0]["text"]
+        self.assertIn(f"{self.p.id}|{self.p.title}|1450", prompt)
+        self.assertNotIn(f"{self.p.id}|{self.p.title}|788", prompt)
+
+    @patch("management.services.bot_orders.gemini_generate_text")
     def test_low_confidence_returns_none(self, mock_gen):
         InstagramBotMessage.objects.create(
             sender_id="rp1", client=self.c, role="model", text="Можливо щось підберемо?",

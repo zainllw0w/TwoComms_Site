@@ -3588,3 +3588,52 @@ enum-полей и так добавляются циклом выше. Явна
 коллизия ключа `ig-lifecycle:{event_key}` для двух разных событий; два
 уведомления на одну неудачную отправку (`:6372` и `:6386`); два уведомления в
 `ig_lifecycle` написаны по-английски.
+
+---
+
+## Срочный ценовой срез — вариантная цена (2026-08-02)
+
+### F-CAT-003 (P0, FIXED): бот называл базовую цену, checkout создавал другую
+
+- **Корневая причина:** семь каталоговых читателей (`bot_catalog`,
+  `ig_checkout_readiness`, `_match_hint_text`, `bot_memory`, `bot_vision`,
+  `resolve_product_for_payment`, `_hydrate_catalog_match`) брали
+  `Product.final_price`. Основной assisted checkout уже правильно использовал
+  `effective_cart_unit_price(product, color_variant, fit_code, option_values)`,
+  но legacy `[PAYLINK]`-путь мог вызвать его без варианта и сохранить базовую
+  цену. То есть источники истины расходились и до, и внутри денежной границы.
+- **Production evidence:** `product_id=110` имеет `final_price=1090`, но
+  `variant_id=81` «Термо-зелена» имеет `price_override=1050` + 400 грн за
+  термохромную ткань = **1450 грн**; существующие `IgDealItem#4` и
+  `IgCheckoutProposalItem#2` правильно сохраняют 1450. Второй реальный случай:
+  `product_id=91`, `variant_id=17` — classic 800 грн, oversize 950 грн из-за
+  отдельной надбавки +150.
+- **Исправление:** единый read-model `ig_catalog_pricing` перечисляет ту же
+  матрицу доступных опций, что PDP, и читает итог через
+  `variant_public_context`. Каталог показывает цену каждого `variant_id` и
+  фасона; readiness передаёт точную сумму выбранной конфигурации до генерации;
+  фото-матч, рекламный контекст, product-decision и payment review больше не
+  вставляют базовую цену. Legacy paylink теперь серверно выбирает единственный
+  допустимый вариант и сохраняет его в `IgDealItem`; при нескольких вариантах
+  возвращает `missing_color_variant` до обращения к платёжному провайдеру.
+  При разных суммах модель видит диапазон и обязанность сначала уточнить параметры.
+- **Fail-safe:** если матрица превышает тот же предел 128 комбинаций, что PDP,
+  точная вариантная цена не выдумывается.
+- **Regression:** `tests_bot_catalog.CatalogVariantPriceTests`,
+  `tests_ig_checkout_service`, `tests_ig_agentic_dialog`,
+  `tests_ig_match_integration`, `tests_bot_memory`, `tests_bot_vision`,
+  `tests_ig_paylink_fix`, `tests_ig_media_workflow`, `tests_bot_orders`.
+
+### F-DATA-016 (P1, ОТКРЫТА): белая версия 1090 не оформлена как вариант
+
+- **Production evidence:** глобальный `Color id=26 «Білий»` существует, но у
+  `product_id=110` есть только `variant_id=81 «Термо-зелена»`; белых
+  `ProductColorVariant`, изображений, variant-fit/size rules и исторических
+  `OrderItem` нет. `main_image` совпадает с медиа термо-варианта.
+- **Почему не сделан автоматический backfill:** создать строку цвета без
+  правильных изображений и правил означает показать термо-фото как белый товар
+  и выдумать доступность размеров. Это хуже, чем честно не предлагать вариант.
+- **Нужно:** в Fable5 завести белый вариант как полноценную merchandising-
+  конфигурацию (цена 1090, изображения, доступные фасоны/размеры, default-флаг),
+  затем проверить PDP, bot catalog и assisted checkout. Код IMP-080 подхватит
+  диапазон 1090-1450 автоматически, без новой правки.

@@ -353,13 +353,24 @@ def resolve_product_for_payment(client, product_id=None):
     if not transcript.strip():
         return None
 
+    from management.services.ig_catalog_pricing import (
+        prepare_pricing_context,
+        resolve_product_pricing,
+    )
+
     cat_lines = []
-    for p in Product.objects.filter(status=ProductStatus.PUBLISHED).only("id", "title", "price")[:300]:
-        try:
-            price = int(getattr(p, "final_price", None) or p.price)
-        except Exception:
-            price = p.price
-        cat_lines.append(f"{p.id}|{p.title}|{price}")
+    products = (
+        Product.objects.filter(status=ProductStatus.PUBLISHED)
+        .select_related("category")
+        .prefetch_related("color_variants__color")[:300]
+    )
+    products = list(products)
+    variants = [variant for p in products for variant in p.color_variants.all()]
+    prepare_pricing_context(products, variants)
+    for p in products:
+        pricing = resolve_product_pricing(p)
+        price_note = pricing["display"] or "залежить від конфігурації"
+        cat_lines.append(f"{p.id}|{p.title}|{price_note}")
     if not cat_lines:
         return None
 
@@ -368,7 +379,7 @@ def resolve_product_for_payment(client, product_id=None):
         "Враховуй ТИП (футболка / худі / лонгслів) і назву принта. Поверни лише JSON "
         'без markdown: {"product_id": <id з каталогу або null>, "confidence": <0..1>}. '
         "Якщо не зрозуміло однозначно — product_id:null, confidence:0. "
-        "Каталог (формат id|назва|ціна_грн):\n" + "\n".join(cat_lines)
+        "Каталог (формат id|назва|ціна_або_діапазон_грн):\n" + "\n".join(cat_lines)
     )
     payload = {
         "contents": [{"role": "user", "parts": [{"text": instruction + "\n\nДІАЛОГ:\n" + transcript}]}],
@@ -789,6 +800,64 @@ def _store_requested_payment(deal, *, prepayment_decision: dict | None = None) -
     return True
 
 
+def _resolve_paylink_color_variant(
+    product,
+    *,
+    color_variant_id=0,
+    fit_code="",
+    size="",
+    qty=1,
+):
+    """Resolve one sellable variant before calculating or persisting a price."""
+
+    from fable5.services import variant_allows_purchase
+    from management.services.ig_checkout import tracked_stock_shortfall
+    from productcolors.models import ProductColorVariant
+
+    variants = list(
+        ProductColorVariant.objects.filter(product=product)
+        .select_related("color")
+        .order_by("order", "id")
+    )
+    options = {"fit": fit_code} if fit_code else {}
+    if color_variant_id:
+        selected = next(
+            (row for row in variants if row.pk == int(color_variant_id)),
+            None,
+        )
+        if selected is None:
+            return None, "invalid_color_variant"
+        candidates = [selected]
+    else:
+        candidates = [
+            row for row in variants
+            if variant_allows_purchase(
+                product,
+                row,
+                fit_code=fit_code,
+                size=size,
+                option_values=options,
+            )
+        ]
+        if len(candidates) > 1:
+            return None, "missing_color_variant"
+        if not candidates:
+            return (None, "unavailable_selection") if variants else (None, None)
+
+    selected = candidates[0]
+    if not variant_allows_purchase(
+        product,
+        selected,
+        fit_code=fit_code,
+        size=size,
+        option_values=options,
+    ):
+        return None, "unavailable_selection"
+    if tracked_stock_shortfall(selected, qty):
+        return None, "insufficient_stock"
+    return selected, None
+
+
 def _create_deal_and_link_unlocked(
     client,
     pay_type: str = "full",
@@ -898,8 +967,7 @@ def _create_deal_and_link_unlocked(
         if len(items) > 1 and negotiated_price is not None:
             return {"ok": False, "error": "price_allocation_required"}
         from storefront.models import ProductFitOption
-        from productcolors.models import ProductColorVariant
-        from fable5.services import effective_cart_unit_price, variant_allows_purchase
+        from fable5.services import effective_cart_unit_price
         from storefront.services.size_guides import resolve_product_sizes
 
         prepared_items = []
@@ -973,30 +1041,16 @@ def _create_deal_and_link_unlocked(
             elif ProductFitOption.objects.filter(product=item_product, is_active=True).exists():
                 return {"ok": False, "error": "missing_fit_option"}
             color_variant_id = raw["color_variant_id"]
-            color_variant = None
-            if color_variant_id:
-                color_variant = ProductColorVariant.objects.filter(
-                    pk=color_variant_id, product=item_product,
-                ).first()
-                if not color_variant:
-                    return {"ok": False, "error": "invalid_color_variant"}
-                # Той самий предикат наявності, що й у assisted checkout і на
-                # сайті: нульовий `stock` означає «облік не ведеться», а не
-                # «немає». Інакше два платіжні шляхи відповідали б клієнту
-                # по-різному про один і той самий товар.
-                from management.services.ig_checkout import tracked_stock_shortfall
-
-                if tracked_stock_shortfall(color_variant, item_qty):
-                    return {"ok": False, "error": "insufficient_stock"}
             option_values = {"fit": item_fit_code} if item_fit_code else {}
-            if not variant_allows_purchase(
+            color_variant, variant_error = _resolve_paylink_color_variant(
                 item_product,
-                color_variant,
+                color_variant_id=color_variant_id,
                 fit_code=item_fit_code,
                 size=item_size,
-                option_values=option_values,
-            ):
-                return {"ok": False, "error": "unavailable_selection"}
+                qty=item_qty,
+            )
+            if variant_error:
+                return {"ok": False, "error": variant_error}
             price_decision = _conversation_price_decision(
                 client, product=item_product, qty=item_qty,
             )
@@ -1141,16 +1195,16 @@ def _create_deal_and_link_unlocked(
         if allowed_sizes and size not in allowed_sizes:
             return {"ok": False, "error": "invalid_size"}
 
-        from fable5.services import variant_allows_purchase
-
-        if not variant_allows_purchase(
+        color_variant, variant_error = _resolve_paylink_color_variant(
             product,
-            None,
             fit_code=fit_option_code,
             size=size,
-            option_values={"fit": fit_option_code} if fit_option_code else {},
-        ):
-            return {"ok": False, "error": "unavailable_selection"}
+            qty=qty,
+        )
+        if variant_error:
+            return {"ok": False, "error": variant_error}
+    else:
+        color_variant = None
     open_deals = current_open_deals()
 
     price_decision = _conversation_price_decision(client, product=product, qty=qty) if product else {
@@ -1176,12 +1230,12 @@ def _create_deal_and_link_unlocked(
 
             intended_price = Decimal(str(effective_cart_unit_price(
                 product,
-                None,
+                color_variant,
                 fit_code=fit_option_code,
                 option_values={"fit": fit_option_code} if fit_option_code else {},
             ))).quantize(Decimal("0.01"))
         except Exception:
-            intended_price = Decimal(str(product.price or 0)).quantize(Decimal("0.01"))
+            return {"ok": False, "error": "invalid_catalog_price"}
     if intended_price is not None and intended_price * qty > MAX_PAYLINK_VALUE:
         return {"ok": False, "error": "aggregate_value_limit"}
     if (
@@ -1203,6 +1257,8 @@ def _create_deal_and_link_unlocked(
                 and d.invoice_url
                 and d.items.first().unit_price == intended_price
                 and d.items.first().qty == qty
+                and (d.items.first().color_variant_id or 0)
+                == (color_variant.pk if color_variant is not None else 0)
                 and (d.items.first().size or "") == size
                 and (d.items.first().fit_option_code or "") == fit_option_code
                 and (
@@ -1216,7 +1272,8 @@ def _create_deal_and_link_unlocked(
         deal = IgDeal.objects.create(client=client, pay_type=pt)
         price = intended_price
         IgDealItem.objects.create(
-            deal=deal, product=product, title=product.title, size=size or "",
+            deal=deal, product=product, color_variant=color_variant,
+            title=product.title, size=size or "",
             fit_option_code=fit_option_code,
             fit_option_label=fit_option_label,
             option_values={"fit": fit_option_code} if fit_option_code else {},

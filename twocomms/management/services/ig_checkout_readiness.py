@@ -209,6 +209,7 @@ def _color_rows(product, *, fit_code: str, size: str):
     """
     try:
         from fable5.services import variant_allows_purchase
+        from management.services.ig_catalog_pricing import resolve_product_pricing
         from productcolors.models import ProductColorVariant
 
         rows = list(
@@ -233,13 +234,19 @@ def _color_rows(product, *, fit_code: str, size: str):
             allowed = True
         if not allowed:
             continue
-        result.append(
-            {
-                "variant_id": row.pk,
-                "name": name,
-                "stock": int(getattr(row, "stock", 0) or 0),
-            }
+        pricing = resolve_product_pricing(
+            product,
+            variants=[row],
+            selected_variant_id=row.pk,
+            option_values={"fit": fit_code} if fit_code else {},
         )
+        result.append({
+            "variant_id": row.pk,
+            "name": name,
+            "stock": int(getattr(row, "stock", 0) or 0),
+            "price": pricing["display"],
+            "price_exact": pricing["exact"],
+        })
     return result
 
 
@@ -317,15 +324,12 @@ def checkout_readiness(
         }
         return result
 
-    try:
-        price = product.final_price
-    except Exception:
-        price = getattr(product, "price", None)
     result["has_product"] = True
     result["product"] = {
         "id": product.pk,
         "title": product.title,
-        "price": str(price) if price is not None else "",
+        "price": "",
+        "price_exact": False,
         "published": True,
         "slug": product.slug,
     }
@@ -402,6 +406,21 @@ def checkout_readiness(
     if not selected_variant_id and len(colors) == 1:
         selected_variant_id = colors[0]["variant_id"]
         selected_color_name = colors[0]["name"]
+    from management.services.ig_catalog_pricing import resolve_product_pricing
+
+    selected_pricing = resolve_product_pricing(
+        product,
+        variants=[preselected_variant] if preselected_variant is not None else None,
+        selected_variant_id=selected_variant_id,
+        option_values={"fit": fit_selected} if fit_selected else {},
+    )
+    if selected_pricing["display"]:
+        result["product"]["price"] = (
+            f"{selected_pricing['display']}.00"
+            if selected_pricing["exact"] and "." not in selected_pricing["display"]
+            else selected_pricing["display"]
+        )
+        result["product"]["price_exact"] = selected_pricing["exact"]
     result["color"] = {
         "required": len(colors) > 1,
         "selected": selected_color_name or str(getattr(client, "current_color", "") or ""),
@@ -443,8 +462,19 @@ def readiness_prompt_note(client, *, readiness: dict | None = None) -> str:
     lines = ["[СТАН ОФОРМЛЕННЯ — службове, порахований з каталогу й БД; клієнту не переказуй дослівно]"]
     product = state.get("product") or {}
     if product.get("published"):
-        price = f", {product.get('price')} грн" if product.get("price") else ""
-        lines.append(f"товар: {product.get('title')} (id={product.get('id')}{price})")
+        lines.append(f"товар: {product.get('title')} (id={product.get('id')})")
+        if product.get("price") and product.get("price_exact"):
+            lines.append(f"точна ціна конфігурації: {product.get('price')} грн")
+        elif product.get("price"):
+            lines.append(
+                f"діапазон цін конфігурацій: {product.get('price')} грн; "
+                "точну ціну не називай, доки не обрані колір/матеріал і фасон/опції"
+            )
+        else:
+            lines.append(
+                "ціна конфігурації не визначена; не підставляй базову ціну товару, "
+                "уточни колір/матеріал і фасон/опції або передай менеджеру"
+            )
     elif product.get("id"):
         lines.append(
             f"товар id={product.get('id')} більше не опублікований — не обіцяй його, "
@@ -482,7 +512,8 @@ def readiness_prompt_note(client, *, readiness: dict | None = None) -> str:
     color = state.get("color") or {}
     if color.get("required") or color.get("selected"):
         options = ", ".join(
-            f"{option['name']} (variant_id={option['variant_id']})"
+            f"{option['name']} (variant_id={option['variant_id']}, "
+            f"ціна {option.get('price') or 'уточнюється'} грн)"
             for option in color.get("options") or []
             if option.get("name")
         )

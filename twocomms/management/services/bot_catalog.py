@@ -4,8 +4,9 @@
 не смикати БД на кожне повідомлення.
 
 Джерела:
-- storefront.Product (status=published): назва, ціна (final_price), категорія, slug.
-- productcolors.ProductColorVariant: кольори + залишок (stock) на вітрині.
+- storefront.Product (status=published): назва, категорія, slug.
+- productcolors.ProductColorVariant + Fable5: ціна конфігурації, кольори,
+  фасони/опції та залишок (stock) на вітрині.
 """
 from __future__ import annotations
 
@@ -89,10 +90,10 @@ def _build() -> str:
     variants_by_product: dict[int, list[object]] = {}
     stock_by_product: dict[int, int] = {}
     fp_by_product: dict[int, list[str]] = {}
-    variants = (
+    variants = list(
         ProductColorVariant.objects.filter(product_id__in=ids)
-        .select_related("color")
-        .only("product_id", "stock", "color__name", "metadata")
+        .select_related("color", "product")
+        .order_by("product_id", "order", "id")
     )
     for v in variants:
         variants_by_product.setdefault(v.product_id, []).append(v)
@@ -104,16 +105,31 @@ def _build() -> str:
             if seg not in fp_by_product[v.product_id]:
                 fp_by_product[v.product_id].append(seg)
 
+    from management.services.ig_catalog_pricing import (
+        format_variant_pricing,
+        prepare_pricing_context,
+        resolve_product_pricing,
+    )
+    prepare_pricing_context(products, variants)
+
     lines = ["Каталог TwoComms (актуальні товари, ціни в грн):"]
     for p in products:
-        try:
-            price = p.final_price
-        except Exception:
-            price = p.price
+        pricing = resolve_product_pricing(
+            p,
+            variants=variants_by_product.get(p.id, []),
+        )
+        price_label = (
+            f"{pricing['display']} грн"
+            if pricing["display"]
+            else "ціна залежить від конфігурації"
+        )
         disc = ""
         try:
             if p.has_discount and p.discount_percent:
-                disc = f" (знижка {p.discount_percent}%, було {p.price})"
+                if variants_by_product.get(p.id):
+                    disc = f" (знижка {p.discount_percent}% врахована)"
+                else:
+                    disc = f" (знижка {p.discount_percent}%, було {p.price})"
         except Exception:
             pass
         cat = getattr(p.category, "name", "") or ""
@@ -125,16 +141,8 @@ def _build() -> str:
         fps = fp_by_product.get(p.id, [])
         fp_s = (" | принт: " + "; ".join(fps[:3])) if fps else ""
         # `stock` у рядку варіанта показуємо лише коли він додатний: нуль у цьому
-        # проєкті означає «облік не ведеться», і модель читала його як «немає»,
-        # хоча сайт цей товар продає.
-        variants_s = ", ".join(
-            f"{getattr(getattr(v, 'color', None), 'name', '') or 'колір'} "
-            f"(variant_id={v.pk}"
-            + (f", на складі {int(v.stock or 0)}" if int(getattr(v, "stock", 0) or 0) > 0 else "")
-            + ")"
-            for v in variants_by_product.get(p.id, [])
-            if getattr(getattr(v, "color", None), "name", "")
-        )
+        # проєкті означає «облік не ведеться», і модель читала його як «немає».
+        variants_s = format_variant_pricing(pricing["configurations"])
         colors_s = ("; кольори: " + variants_s) if variants_s else ""
         sizes_by_fit = resolve_catalog_sizes(p)
         fits_s = "; фасони/розміри: " + "; ".join(
@@ -142,12 +150,17 @@ def _build() -> str:
         ) if sizes_by_fit else ""
         url = f"{SITE}/product/{p.slug}/"
         lines.append(
-            f"• id={p.id} | {p.title} — {price} грн{disc} [{cat}]"
+            f"• id={p.id} | {p.title} — {price_label}{disc} [{cat}]"
             f"{colors_s}{avail}{fits_s}{fp_s} | {url}"
         )
 
     text, _dropped = truncate_catalog_lines(lines, limit=MAX_CHARS)
-    return text + "\nПравило: не вигадуй variant_id, фасон або розмір; використовуй тільки значення з цього каталогу."
+    return text + (
+        "\nПравило ціни: точну ціну називай лише для обраної конфігурації "
+        "variant_id + фасон/опції. Якщо в рядку є діапазон або різні ціни, "
+        "спершу уточни параметри; не підмінюй ціну товару базовою. Не вигадуй "
+        "variant_id, фасон або розмір; використовуй тільки значення з каталогу."
+    )
 
 
 def _log_catalog_truncation(dropped: int, total: int, limit: int) -> None:

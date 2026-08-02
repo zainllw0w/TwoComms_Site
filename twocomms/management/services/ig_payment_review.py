@@ -728,11 +728,14 @@ def _hydrate_catalog_match(match: dict, source_rows: list[dict], source_indexes:
         result.update({
             "title": product.title,
             "slug": product.slug,
-            "catalog_price": str(getattr(product, "final_price", None) or product.price),
             "url": f"https://twocomms.shop/product/{product.slug}/",
         })
+        variant_rows = list(
+            ProductColorVariant.objects.filter(product=product)
+            .select_related("color")[:20]
+        )
         variants = []
-        for variant in ProductColorVariant.objects.filter(product=product).select_related("color")[:20]:
+        for variant in variant_rows:
             variants.append({
                 "id": variant.pk,
                 "color": getattr(variant.color, "name", "") or "",
@@ -741,6 +744,16 @@ def _hydrate_catalog_match(match: dict, source_rows: list[dict], source_indexes:
         result["variant_candidates"] = variants
         if len(variants) == 1:
             result["color_variant_id"] = variants[0]["id"]
+        from management.services.ig_catalog_pricing import resolve_product_pricing
+
+        pricing = resolve_product_pricing(
+            product,
+            variants=variant_rows,
+            selected_variant_id=result.get("color_variant_id"),
+        )
+        result["catalog_price"] = (
+            pricing["display"] or "залежить від конфігурації"
+        )
     except Exception:
         result.update({"status": "error", "reason": "catalog_hydration_failed"})
     return result
