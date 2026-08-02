@@ -16,6 +16,8 @@ from storefront.models import (
     ProductStatus,
 )
 from storefront.services.product_sales_semantics import create_semantic_revision
+from management.services.ig_catalog_candidates import rank_candidates
+from management.services.ig_commerce_types import CommerceTurnRequest
 
 
 class CatalogIntelligenceFixture(TestCase):
@@ -170,3 +172,23 @@ class CatalogGraphTests(CatalogIntelligenceFixture):
         snapshot = build_catalog_graph()
 
         self.assertNotIn("invented raven claim", snapshot.canonical_json)
+
+
+class CatalogCandidateTests(CatalogIntelligenceFixture):
+    def test_trusted_product_reference_can_auto_select_one_candidate(self):
+        result = rank_candidates(
+            build_catalog_graph(),
+            CommerceTurnRequest(exact_product_id=self.product.pk),
+        )
+
+        self.assertTrue(result.auto_select)
+        self.assertEqual(result.selected_product_id, self.product.pk)
+
+    def test_negative_back_print_is_hard_and_unverified_products_are_excluded(self):
+        result = rank_candidates(
+            build_catalog_graph(),
+            CommerceTurnRequest(hard={"back_decoration": "none"}),
+        )
+
+        self.assertEqual(result.candidates, ())
+        self.assertFalse(result.auto_select)

@@ -46,3 +46,38 @@ class CatalogGraph:
     products: tuple[CatalogProduct, ...]
     digest: str
     canonical_json: str
+
+
+@dataclass(frozen=True)
+class CommerceTurnRequest:
+    """Bounded language-model output consumed by deterministic commerce code."""
+
+    exact_product_id: int | None = None
+    exact_unique_alias: bool = False
+    field_updates: Mapping[str, str] = field(default_factory=dict)
+    hard: Mapping[str, str] = field(default_factory=dict)
+    preferences: Mapping[str, str] = field(default_factory=dict)
+    semantic_constraints: Mapping[str, str] = field(default_factory=dict)
+    garment_type: str = ""
+
+
+@dataclass(frozen=True)
+class CatalogCandidate:
+    product_id: int
+    slug: str
+    title: str
+    price: int
+    category: str
+    traits: Mapping[str, str] = field(default_factory=dict)
+    score: tuple[int, ...] = ()
+    reasons: tuple[str, ...] = ()
+    relaxed_constraints: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class CandidateDecision:
+    candidates: tuple[CatalogCandidate, ...]
+    auto_select: bool
+    selected_product_id: int | None
+    pending_question: str = ""
+    relaxed_alternatives: tuple[CatalogCandidate, ...] = ()
