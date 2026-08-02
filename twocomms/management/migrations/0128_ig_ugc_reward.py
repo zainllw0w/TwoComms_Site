@@ -106,6 +106,7 @@ class Migration(migrations.Migration):
                 (
                     "reviewed_by",
                     models.ForeignKey(
+                        db_constraint=False,
                         on_delete=django.db.models.deletion.PROTECT,
                         related_name="reviewed_ig_ugc_rewards",
                         to=settings.AUTH_USER_MODEL,

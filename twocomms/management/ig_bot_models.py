@@ -1459,6 +1459,13 @@ class IgUgcReward(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
         related_name="reviewed_ig_ugc_rewards",
+        # `auth_user` на проді — MyISAM, як і ще 204 таблиці цієї бази: рушій
+        # InnoDB отримують лише нові таблиці. FK на MyISAM неможливий, і
+        # міграція падала з errno 150 «Foreign key constraint is incorrectly
+        # formed». Обмеження лишається на рівні ORM, як це вже зроблено для
+        # `RestockSubscription.user` — тобто це прийнятий у проєкті спосіб, а не
+        # виняток заради деплою.
+        db_constraint=False,
     )
     reviewed_at = models.DateTimeField(default=timezone.now, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
