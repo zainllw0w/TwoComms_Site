@@ -41,6 +41,10 @@ The observed migration leaves before implementation are `management.0127`, `stor
 
 ### Task 1: Establish a Clean Baseline and Freeze Contracts
 
+**Current status (2026-08-03): BRANCH-ONLY BASELINE.** Выполнялось в
+`codex/instagram-assisted-checkout` от старого checkpoint; перед интеграцией
+обязателен новый baseline на `origin/main`.
+
 **Files:**
 - Read: `docs/superpowers/specs/2026-08-02-instagram-product-reselection-intelligence-design.md`
 - Read: `docs/plans/2026-07-30-instagram-assisted-checkout-checklist.md`
@@ -79,6 +83,11 @@ python manage.py test --settings=test_settings management.tests_ig_paylink_fix m
 Expected: existing baseline passes or every pre-existing failure is recorded before implementation.
 
 ### Task 2: Add Immutable Verified Product Semantics and Inventory Policy
+
+**Current status (2026-08-03): PARTIAL, commit `61ad2cb8`, NOT INTEGRATED.**
+Базовые модели, миграции и тесты есть в feature-ветке. Новые требования к
+generic aliases, единственному effective head, supersede/revocation и locking,
+добавленные при review, ещё не реализованы.
 
 **Files:**
 - Modify: `twocomms/storefront/models.py`
@@ -263,6 +272,10 @@ Expected: tests pass and only Task 2 files are committed.
 
 ### Task 3: Build Trusted URL Resolution and the Typed Catalog Graph
 
+**Current status (2026-08-03): PARTIAL, commit `a8ccfa63`, NOT INTEGRATED.**
+Trusted resolver, graph и тесты есть в feature-ветке. Canonical option-path,
+принадлежность опций товару и конфликтующие option URL остаются открытыми.
+
 **Files:**
 - Create: `twocomms/management/services/ig_commerce_types.py`
 - Create: `twocomms/management/services/ig_product_references.py`
@@ -409,6 +422,10 @@ git commit -m "feat(ig): build verified catalog knowledge graph"
 
 ### Task 4: Implement Explainable Candidate Filtering and Ranking
 
+**Current status (2026-08-03): PARTIAL, commit `468fe2ba`, NOT INTEGRATED.**
+Фильтрация/ranking реализованы в feature-ветке. Acceptance stale candidate
+после смены published state, graph digest или semantic head не реализован.
+
 **Files:**
 - Create: `twocomms/management/services/ig_catalog_candidates.py`
 - Modify: `twocomms/management/services/ig_commerce_types.py`
@@ -480,6 +497,11 @@ git commit -m "feat(ig): rank explainable catalog candidates"
 ```
 
 ### Task 5: Add Exact Warehouse-Aware Availability
+
+**Current status (2026-08-03): PARTIAL, commit `e9d982df`, NOT INTEGRATED.**
+Typed availability реализована в feature-ветке. Aggregate quantity для строк,
+которые делят одну allocation identity, и полный wiring всех checkout readers
+остаются открытыми.
 
 **Files:**
 - Create: `twocomms/management/services/ig_availability.py`
@@ -576,6 +598,10 @@ git commit -m "feat(ig): resolve authoritative garment availability"
 ```
 
 ### Task 6: Upgrade Reservation and Warehouse Allocation Lifecycle
+
+**Current status (2026-08-03): OPEN.** Production implementation commit
+отсутствует; описанные reservation/state-machine/multi-line guarantees не
+проверялись на актуальном MariaDB graph.
 
 **Files:**
 - Modify: `twocomms/management/ig_bot_models.py`
@@ -693,6 +719,9 @@ git commit -m "feat(ig): bind checkout reservations to warehouse stock"
 ```
 
 ### Task 7: Add Durable Commerce Sessions, Transitions, Decisions, and Reviews
+
+**Current status (2026-08-03): OPEN.** Модели, миграции и durable outbox не
+реализованы.
 
 **Files:**
 - Modify: `twocomms/management/ig_bot_models.py`
@@ -822,6 +851,11 @@ git commit -m "feat(ig): persist reversible commerce selection state"
 
 ### Task 8: Implement Compound-Turn Parsing and Exact State Reduction
 
+**Current status (2026-08-03): PARTIAL, commit `dc9889c3`, NOT INTEGRATED.**
+Детерминированный parser и его unit-тесты есть в feature-ветке. Reducer,
+client/session lock, burst ordering, multilingual composition и durable
+decision per inbound ещё не реализованы.
+
 **Files:**
 - Create: `twocomms/management/services/ig_commerce_turns.py`
 - Modify: `twocomms/management/services/ig_commerce_state.py`
@@ -902,6 +936,9 @@ git commit -m "feat(ig): reduce compound commerce turns safely"
 ```
 
 ### Task 9: Integrate Candidate Choices, Replies, and Manager Recovery
+
+**Current status (2026-08-03): OPEN.** Интеграция до Gemini/legacy classifier,
+provider receipts и manager recovery отсутствуют.
 
 **Files:**
 - Create: `twocomms/management/services/ig_commerce_replies.py`
@@ -1001,6 +1038,9 @@ git commit -m "fix(ig): recover cleanly from product reselection"
 
 ### Task 10: Enforce Proposal Digest Idempotency and Safe Replacement
 
+**Current status (2026-08-03): OPEN.** Payable digest, uniqueness и безопасная
+замена при неоднозначной provider truth не реализованы.
+
 **Files:**
 - Modify: `twocomms/management/ig_bot_models.py`
 - Modify: `twocomms/management/services/ig_checkout.py`
@@ -1073,6 +1113,9 @@ git commit -m "fix(ig): create one proposal per payable selection"
 
 ### Task 11: Add Operational Review UI and Safe Audit/Backfill Commands
 
+**Current status (2026-08-03): OPEN.** UI, resolution revalidation и read-only
+audit/backfill команды отсутствуют.
+
 **Files:**
 - Modify: `twocomms/management/bot_views.py`
 - Modify: `twocomms/management/templates/management/bot.html`
@@ -1136,6 +1179,9 @@ git commit -m "feat(ig): expose commerce recovery operations"
 ```
 
 ### Task 12: Run the Full Regression Matrix and Production-Like MariaDB Proof
+
+**Current status (2026-08-03): OPEN.** Старые focused-тесты отдельных commits
+не заменяют unified regression и MariaDB proof на актуальном `main`.
 
 **Files:**
 - Modify as required by failures only: files already owned by Tasks 2-11
@@ -1240,6 +1286,9 @@ git commit -m "test(ig): verify intelligent product reselection"
 ```
 
 ### Task 13: Integrate, Push, Deploy, and Prove Production
+
+**Current status (2026-08-03): OPEN.** Ни один из пяти branch-only code commits
+не находится в `origin/main` или на production; server SHA остаётся `1380db8e`.
 
 **Files:**
 - No new source files unless final current-main conflicts require a scoped compatibility fix.
