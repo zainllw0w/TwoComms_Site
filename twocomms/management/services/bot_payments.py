@@ -916,21 +916,22 @@ def _deal_for_superseded_invoice(invoice_id: str):
     return None
 
 
-def _materialize_superseded_invoice_lifecycles(limit: int = 100) -> int:
+def _materialize_superseded_invoice_lifecycles(limit: int = 100) -> None:
     """Backfill legacy JSON history into bounded lifecycle rows."""
     from management.models import IgDeal
 
-    created = 0
-    for deal in IgDeal.objects.exclude(superseded_invoice_ids=[]).order_by("id")[: max(1, int(limit or 100))]:
+    for deal in IgDeal.objects.exclude(superseded_invoice_ids=[]).order_by("id")[
+        : max(1, int(limit or 100))
+    ]:
         for invoice_id in deal.superseded_invoice_ids or []:
-            before = _ensure_invoice_lifecycle(
+            invoice_id = str(invoice_id or "").strip()
+            if not invoice_id:
+                continue
+            _ensure_invoice_lifecycle(
                 deal,
                 invoice_id,
                 superseded_at=deal.updated_at or deal.created_at,
             )
-            if before is not None and before.created_at == before.updated_at:
-                created += 1
-    return created
 
 
 def payment_poll_invoice_candidates(limit: int = 50):

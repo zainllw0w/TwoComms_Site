@@ -16,6 +16,7 @@ Production host: `195.191.25.63`, path
 | 2026-08-03 | `59f5a67b` | final validation report included and deployed | docs-only; runtime remains online |
 | 2026-08-03 | `c409f7a3` | canonical checkbox plan, registers and source reconciliation; server pull, Django check, migration-drift check and restart | `running`; daemon online; `instagram_login`; no recorded error |
 | 2026-08-03 | `92d46c5a` | migration `0133`; check/migration drift/collectstatic/compress; backfill 5; silence scan 96; raw-event reconciliation | `running`; heartbeat fresh; `instagram_login`; `last_error=''` |
+| 2026-08-03 | `280c07e8` | migration `0134`; 104 payment/lifecycle tests; superseded invoice polling and check-only proof | `running`; `last_error=''` |
 
 For `6b86e103`, server `git pull --ff-only` completed, `manage.py check` returned
 no issues, `makemigrations --check --dry-run` returned `No changes detected`,
@@ -53,3 +54,11 @@ silence facts. The final MySQL/API check reported 197
 `IgFunnelStepEvent` rows, 96 `IgFunnelDropOff` rows, 17 event types, and
 `status_snapshot()` returned `state='running'`, `daemon_online=True`, a fresh
 heartbeat and empty `last_error`.
+
+For IMP-089, `git pull --ff-only` advanced production through `280c07e8` and
+applied `management.0134_ig_deal_invoice_lifecycle` on MariaDB. The bounded
+check-only command reported `projections=0 provider_invoices=0
+superseded_invoices=0 orders=0`; the lifecycle table had zero rows because no
+historical superseded invoice IDs exist on this production dataset. The daemon
+briefly reported a transient worker error during restart and recovered to
+`running=True` with `last_error=''`; no customer messages were sent.

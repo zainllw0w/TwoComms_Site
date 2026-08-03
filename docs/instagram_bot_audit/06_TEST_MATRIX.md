@@ -44,10 +44,11 @@
 | T37 | Out-of-order webhook | GREEN | idempotent event keys + event-time ordering; IMP-058 regression tests |
 | T38 | Multiple open orders | PARTIAL | model support; durable commerce session IMP-087 |
 | T39 | Forwarded payment link | GREEN | paylink product/intent tests |
-| T40 | Rollback drill | PARTIAL | production contract exists; IMP-089/094 residual |
+| T40 | Rollback drill | PARTIAL | superseded-invoice recovery IMP-089 is GREEN; full deterministic deploy/rollback gate remains IMP-094 |
 
-**Fresh local gate for current checkpoint:** 53 funnel/follow-up tests,
-161 analysis/inbox/intelligence tests, 103 commercial/funnel tests, 45/45
+**Fresh local gate for current checkpoint:** 104 payment/funnel/lifecycle tests,
+53 funnel/follow-up tests, 161 analysis/inbox/intelligence tests, 103
+commercial/funnel tests, 45/45
 `management.tests_ig_audit_fixes`, `manage.py check`, migration drift check and
 compileall. Production migration `0133`, backfill and raw-event reconciliation
 were executed on MariaDB. Full-suite baseline

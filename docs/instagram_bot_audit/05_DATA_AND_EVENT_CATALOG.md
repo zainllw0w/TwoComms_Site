@@ -24,7 +24,7 @@
 | inbound | `message_received`, `echo_received`, `reaction_only` | durable/current |
 | reply | `reply_generated`, `reply_sent`, `reply_unknown`, `reply_blocked` | durable/current |
 | funnel | stage transition, product switch, checkout/readiness | journal/FSM current; analytics `IMP-058` |
-| payment | `checkout_started`, `payment_confirmed`, `payment_reversed`, `invoice_expired` | payment truth/current; analytics gap remains |
+| payment | `checkout_started`, `payment_confirmed`, `payment_reversed`, `invoice_expired` | payment truth and event-time analytics current |
 | follow-up | policy step, claim, sent, manager task, cancelled | durable/current |
 | fulfillment | payment → delivery request, TTN, exchange shipment, delivered | current in W4/W4B/W6 slices |
 | objection | opened, handled, reopened, resolved/abandoned | `IMP-057` current |
@@ -42,8 +42,8 @@
 
 ## Missing or partial data
 
-`F-DATA-015` imported-role provenance, `F-DATA-016` white product variant,
-`F-STAT-001…004` event analytics and `F-PAY-014` superseded invoice polling are
-explicitly open. No backfill is inferred from text where authoritative evidence
-is absent.
-
+`F-DATA-015` imported-role provenance and `F-DATA-016` white product variant
+remain explicitly open. `F-STAT-001…004` event analytics and `F-PAY-014`
+superseded invoice polling are closed by `IMP-058`/`IMP-089` with production
+evidence. No backfill is inferred from text where authoritative evidence is
+absent.

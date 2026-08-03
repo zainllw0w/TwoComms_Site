@@ -1,7 +1,7 @@
 # 07_IMPLEMENTATION_PLAN — план внедрения
 
 > **Канонический per-task статус после восстановления всех веток 2026-08-03.**
-> Всего 99 уникальных `IMP-*`: **71 закрыта, 26 открыты, 2 partial**
+> Всего 99 уникальных `IMP-*`: **72 закрыты, 25 открыты, 2 partial**
 > (`IMP-043`, `IMP-077`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
 > в `03_FINDINGS_REGISTER.md`, общий порядок продолжения — в `00_PROGRESS.md`.
 > Ниже находятся отдельные checkbox-матрицы всех 170 `F-*` и всех 48 `IMPR-*`:
@@ -43,7 +43,7 @@
 | **W4** | Доставка сообщений клиенту | 5 | 5 | 0 | 0 |
 | **W4C** | Диалог ведёт модель, а не скрипт | 10 | 10 | 0 | 0 |
 | **W4D** | Echo/media и автоматическое снятие takeover | 4 | 4 | 0 | 0 |
-| **W4B** | Добивка воронки | 13 | 11 | 2 | 0 |
+| **W4B** | Добивка воронки | 13 | 13 | 0 | 0 |
 | **W5** | Качество продавца, каталог и память | 9 | 7 | 2 | 0 |
 | **W6** | Арбитр состояния и воронка | 5 | 5 | 0 | 0 |
 | **W7** | UX админки | 6 | 6 | 0 | 0 |
@@ -51,7 +51,7 @@
 | **W9** | Product reselection и коммерческая семантика | 8 | 0 | 8 | 0 |
 | **W10** | Неучтённые улучшения: follow-up, retention и аналитический UX | 4 | 0 | 4 | 0 |
 | **W11** | Полное покрытие находок и orphan backlog | 2 | 1 | 1 | 0 |
-| **Итого** | | **99** | **70** | **27** | **2** |
+| **Итого** | | **99** | **72** | **25** | **2** |
 
 ---
 
@@ -409,12 +409,16 @@ F-AI-016 (инструкции без триггеров, 70% клиентов �
   тот же queryset. Production MySQL: единственный invoice имел truth
   `cancelled` и после исправления не попадает в polling (`provider_invoices=0`).
   Проверено 160 связанными тестами; daemon `running`, heartbeat 0.4 с.
-- [ ] **IMP-089 (P1) — открыта, найдена при закрытии IMP-051.** Backstop для
-  `superseded_invoice_ids`: webhook умеет обнаружить оплату по заменённой
-  ссылке, но cron/daemon опрашивают только текущий `invoice_id`. Нужен
-  ограниченный per-invoice lifecycle с terminal marker, чтобы не опрашивать
-  до 20 исторических ID вечно и не потерять платёж при одновременной потере
-  webhook (F-PAY-014).
+- [x] **IMP-089 (P1) — закрыта 2026-08-03, production `eaef5701`.** Для каждого
+  superseded invoice создан bounded `IgDealInvoiceLifecycle` (migration `0134`):
+  webhook и backstop используют один per-invoice ledger, terminal marker,
+  expiry/age cap и идемпотентный manager alert. Старый invoice опрашивается с
+  `apply=False`, поэтому найденная оплата не применяется автоматически к новой
+  конфигурации товара/оплаты. Legacy JSON materialization выполняется
+  ограниченной пачкой. Production `poll_ig_deal_payments --check-only --limit
+  50`: `projections=0 provider_invoices=0 superseded_invoices=0 orders=0`;
+  migration `0134` применена, lifecycle rows = 0 (исторических superseded ID
+  нет), daemon после transient worker error восстановлен в `running=True`.
 - [x] **IMP-052 (P0) — закрыта 2026-08-02.** Suppression расширен до полного списка (F-FUP-010,
   F-CTX-002): `opted_out_at` как самостоятельный флаг, `support_complaint`,
   `wholesale_b2b`, `collaboration`, `LEAD_TO_MANAGER`, `COLD`, открытая
@@ -917,7 +921,7 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 
 ### Finding coverage matrix — 170 уникальных F-идентификаторов
 
-Итог матрицы: **119 `[x]` / 47 `OPEN [ ]` / 4 `PARTIAL [ ]`**. Статус
+Итог матрицы: **120 `[x]` / 46 `OPEN [ ]` / 4 `PARTIAL [ ]`**. Статус
 считается по факту текущего `main`, тестов и production evidence, а не по тому,
 что ID когда-то упоминался в progress или feature-ветке.
 
@@ -1033,7 +1037,7 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 | [x] | F-PAY-011 | FIXED/VERIFIED | IMP-024 |
 | [x] | F-PAY-012 | FIXED/VERIFIED | IMP-013 |
 | [x] | F-PAY-013 | FIXED/VERIFIED | IMP-071 |
-| [ ] | F-PAY-014 | OPEN | IMP-089 |
+| [x] | F-PAY-014 | FIXED/VERIFIED | IMP-089 |
 | [x] | F-SCORE-001 | FIXED/VERIFIED | IMP-019 |
 | [x] | F-SCORE-002 | FIXED/VERIFIED | IMP-015 |
 | [x] | F-SCORE-003 | FIXED/VERIFIED | IMP-014 |

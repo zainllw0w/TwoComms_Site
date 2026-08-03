@@ -4,8 +4,7 @@
 
 Канонический список и checkbox: `07_IMPLEMENTATION_PLAN.md`.
 
-- W4B: `IMP-058` (funnel events/drop-off/cohorts), `IMP-089` (superseded invoice
-  backstop).
+- W4B: закрыта; `IMP-058` и `IMP-089` имеют code, tests и production evidence.
 - W5: `IMP-028` (full size/sales prompt protocol), `IMP-095` (white 1090 грн
   variant data with real images/rules).
 - W8: `IMP-041`, `042`, `044`–`046`, `059`–`061`, `094`, `096`; partial `043`, `077`.

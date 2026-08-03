@@ -76,6 +76,25 @@ class SupersedeInvoiceTests(TestCase):
         self.assertIsNotNone(lifecycle.superseded_at)
         self.assertEqual(lifecycle.status, IgDealInvoiceLifecycle.Status.OPEN)
 
+    def test_legacy_materialization_is_idempotent(self):
+        from management.models import IgDealInvoiceLifecycle
+        from management.services.bot_payments import (
+            _materialize_superseded_invoice_lifecycles,
+        )
+
+        self.deal.superseded_invoice_ids = ["mono-invoice-legacy"]
+        self.deal.save(update_fields=["superseded_invoice_ids", "updated_at"])
+
+        _materialize_superseded_invoice_lifecycles()
+        _materialize_superseded_invoice_lifecycles()
+
+        self.assertEqual(
+            IgDealInvoiceLifecycle.objects.filter(
+                invoice_id="mono-invoice-legacy", deal=self.deal
+            ).count(),
+            1,
+        )
+
 
 class WebhookForSupersededInvoiceTests(TestCase):
     def setUp(self):

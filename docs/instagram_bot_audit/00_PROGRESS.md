@@ -9,11 +9,11 @@
 
 | Поле | Значение |
 |---|---|
-| Текущая фаза | **W4B закрыта по IMP-056…058; активный остаток: IMP-089, затем W8/W9/W10** |
-| Дата старта / обновления | 2026-08-03 (после production closure IMP-058) |
+| Текущая фаза | **W4B закрыта по IMP-056…058, IMP-089; активный остаток: W8/W9/W10** |
+| Дата старта / обновления | 2026-08-03 (после production closure IMP-089) |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
-| База внедрения | `92d46c5a` подтверждён в `origin/main` и на production; включает durable funnel analytics IMP-058 поверх reliability, fulfillment IMP-055, claims IMP-056 и lifecycle возражений IMP-057 |
-| **Статус 99 IMP-задач** | **71 закрыта, 26 открыты, 2 частично закрыты (`IMP-043`, `IMP-077`)** |
+| База внедрения | `280c07e8` подтверждён в `origin/main`; включает bounded superseded-invoice recovery IMP-089 поверх durable funnel analytics IMP-058, reliability, fulfillment IMP-055, claims IMP-056 и lifecycle возражений IMP-057 |
+| **Статус 99 IMP-задач** | **72 закрыты, 25 открыты, 2 частично закрыты (`IMP-043`, `IMP-077`)** |
 | Прод-сервер | `qlknpodo@195.191.25.63`, `/home/qlknpodo/TWC/TwoComms_Site/twocomms` |
 | Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; read-only и rollback-fixture contracts подтверждены |
 | Локальная SQLite | **не источник истины**; не проверяет `varchar(max_length)`, см. F-TEST-003 |
@@ -46,7 +46,7 @@
 
 | Статус | Задачи |
 |---|---|
-| Открыто, W4B | `IMP-089` |
+| Открыто, W4B | — |
 | Открыто, W5 | `IMP-028`, `IMP-095` (production merchandising белого варианта товара 110) |
 | Открыто, W8 | `IMP-041`, `IMP-042`, `IMP-044`–`IMP-046`, `IMP-059`–`IMP-061`, `IMP-094`, `IMP-096` (provenance ролей импорта) |
 | Частично, W8 | `IMP-043`, `IMP-077` |
@@ -86,8 +86,31 @@
 - Focused gates: 53 funnel/follow-up, 161 analysis/inbox/intelligence,
   103 commercial/funnel; `check`, migration drift и compileall зелёные.
 
-Следующий незакрытый пункт W4B — `IMP-089`; старые исторические абзацы ниже
-сохраняют состояние на дату своего среза и не переопределяют эту сводку.
+Срез до закрытия IMP-089 сохранён ниже как исторический журнал и не
+переопределяет текущую сводку.
+
+## IMP-089 закрыта и задеплоена — bounded recovery superseded invoices (2026-08-03)
+
+Для исторических `superseded_invoice_ids` добавлен отдельный
+`IgDealInvoiceLifecycle` и migration `0134`. Webhook и cron/daemon теперь
+используют один ledger: старые invoice ID опрашиваются ограниченно, после
+`paid/failed/cancelled/expired/unknown` получают terminal marker, а старый
+платёж никогда автоматически не меняет новую товарную или платёжную
+конфигурацию сделки. Legacy JSON materialization ограничена batch-лимитом;
+manager alert идемпотентен по invoice ID.
+
+- Локальный gate: 104 теста (`superseded_invoice`, TTL, payment backstop,
+  funnel analytics/journal), `manage.py check`, compileall и `git diff --check`
+  зелёные.
+- Production: migration `0134` применена; `poll_ig_deal_payments --check-only
+  --limit 50` вернул `projections=0 provider_invoices=0
+  superseded_invoices=0 orders=0`; lifecycle rows = 0, потому что исторических
+  superseded ID на сервере нет; daemon `running=True`, `last_error=''` после
+  краткого transient worker error.
+
+Следующий незакрытый блок — W8 (наблюдаемость/долг), затем W9/W10; старые
+исторические абзацы ниже сохраняют состояние на дату своего среза и не
+переопределяют эту сводку.
 
 ## Восстановление веток и WIP (2026-08-03)
 
@@ -493,8 +516,8 @@ read-only те таблицы и регексы, на которые пункт 
    access-логу. Прямая проба корректна, но окно отказов закончилось само до
    рестарта, поэтому наблюдения за реальным потоком пока мало. Именно на этом
    ошиблась W0.
-8. Исторический остаток W4B: IMP-058 и IMP-089; IMP-058 закрыта production-срезом
-   `92d46c5a`, текущий остаток — IMP-089.
+8. Исторический остаток W4B: IMP-058 и IMP-089; позднее IMP-058 закрыта
+   production-срезом `92d46c5a`, а IMP-089 — `280c07e8`; W4B закрыта полностью.
    IMP-051/053/055/056/057 закрыты и задеплоены; следующий по порядку —
    статистика переходов и отвалов IMP-058.
 9. Решения заказчика: checkout-домен, `IgLifecycleEvent`, приоритет W5 против
@@ -549,7 +572,7 @@ read-only те таблицы и регексы, на которые пункт 
 
 На момент этой исторической остановки не было сделано:
 **IMP-051, IMP-053, IMP-055, IMP-056, IMP-057, IMP-058.** Текущий статус выше:
-IMP-051/053/055/056/057/058 позднее закрыты на production; открыта только IMP-089.
+IMP-051/053/055/056/057/058 и позднее IMP-089 закрыты на production.
 
 IMP-022/023/024 и IMP-054 закрыты последующими срезами W4. IMP-047–050/052
 повторно подтверждены 2026-08-03 фокусным прогоном 47/47 тестов; основной
@@ -574,8 +597,8 @@ checklist синхронизирован с этим фактом.
   закрыто на production `2a89d860`.
 
 **Историческая рекомендация этого checkpoint была:** начать с IMP-053, затем
-IMP-051. IMP-053/051/055/056/057/058 выполнены; текущий следующий шаг — IMP-089.
-IMP-089 остаётся отдельным payment-recovery остатком.
+IMP-051. IMP-053/051/055/056/057/058 и IMP-089 теперь выполнены; следующий
+активный блок указан в верхней сводке.
 
 ## Разведка W5 — выводы, которые надо учесть до начала волны
 
@@ -948,7 +971,7 @@ context ниже глобальной шапки.
 **На момент закрытия IMP-053 остатком W4B были:** IMP-056
 (event trigger + двухфазный claim), IMP-057 (жизненный цикл возражений) и
 IMP-058 (cohort/drop-off статистика), а также новый superseded-invoice
-backstop IMP-089. Позднее IMP-056/057/058 закрыты; текущий остаток — IMP-089.
+backstop IMP-089. Позднее IMP-056/057/058/089 закрыты; W4B завершена.
 Реальных сообщений клиентам при production-проверке IMP-053 не отправлялось.
 
 ## IMP-051 закрыта и задеплоена — payment backstop в daemon (2026-08-03)
@@ -962,10 +985,10 @@ backstop IMP-089. Позднее IMP-056/057/058 закрыты; текущий 
 | Проверка | 160/160 связанных тестов, Django check, migration drift, compile и diff check зелёные |
 | Демон | `running=True`, `instagram_login`, DB/cache heartbeat 0.4 с |
 
-При проверке найден новый **F-PAY-014 / IMP-089**: заменённые invoice ID
-восстанавливаются через webhook, но ещё не через polling. Простой цикл по JSON
-не добавлялся, потому что без terminal lifecycle он создаст вечный опрос
-исторических ссылок.
+При проверке IMP-051 был найден **F-PAY-014 / IMP-089**: заменённые invoice ID
+восстанавливались через webhook, но не через polling. Позднее IMP-089 закрыла
+этот остаток bounded per-invoice lifecycle с terminal marker; см. актуальную
+сводку в начале файла.
 
 ## Сверка улучшений больше не является неформальным списком (2026-08-03)
 
