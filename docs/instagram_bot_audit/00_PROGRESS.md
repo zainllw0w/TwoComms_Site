@@ -9,18 +9,18 @@
 
 | Поле | Значение |
 |---|---|
-| Текущая фаза | **IMP-055 опубликована; следующий обязательный срез W4B — IMP-056, затем IMP-057/058 и IMP-089** |
+| Текущая фаза | **IMP-056 частично реализована policy/lease-основой; обязательный остаток — durable event/claim, затем IMP-057/058 и IMP-089** |
 | Дата старта / обновления | 2026-08-03 |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
 | База внедрения | `4ba4212d` подтверждён в `origin/main` и на production; включает fulfillment IMP-055 и исправленный MariaDB rollback-contract поверх IMP-051/053 |
-| **Статус 94 IMP-задач** | **66 закрыты, 26 открыты, 2 частично закрыты (`IMP-043`, `IMP-077`)** |
+| **Статус 96 IMP-задач** | **66 закрыты, 27 открыты, 3 частично закрыты (`IMP-043`, `IMP-056`, `IMP-077`)** |
 | Прод-сервер | `qlknpodo@195.191.25.63`, `/home/qlknpodo/TWC/TwoComms_Site/twocomms` |
 | Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; read-only и rollback-fixture contracts подтверждены |
 | Локальная SQLite | **не источник истины**; не проверяет `varchar(max_length)`, см. F-TEST-003 |
 | Реестр находок | **163 уникальных `F-*` идентификатора**; добавлены F-TEST-002/003, повторные записи сохраняют историю проверки и закрытия |
 | Улучшения / решения | **48 `IMPR-*` / 9 `DR-*`** |
 | Задач чек-листа закрыто | **120 / 120** (домены A–L) |
-| Задач в плане внедрения | **94** в W0–W10, включая W4B/W4C/W4D и IMP-062…094 |
+| Задач в плане внедрения | **96** в W0–W10, включая W4B/W4C/W4D и IMP-062…096 |
 
 ## Документы
 
@@ -31,7 +31,7 @@
 | `04_DECISION_LOG.md` | 9 решений (DR-001…DR-009) с обоснованием отклонённых вариантов |
 | `05_IMPROVEMENTS_REGISTER.md` | 48 улучшений + канонический crosswalk каждого ID к DONE/PARTIAL/OPEN и `IMP-*` |
 | `06_FUNNEL_CLOSING_DESIGN.md` | дизайн добивки: 9 каскадов с текстами, возражения, статистика, контекст-бюджет |
-| `07_IMPLEMENTATION_PLAN.md` | канонический статус всех 94 IMP-задач: 66 закрыты / 26 открыты / 2 partial |
+| `07_IMPLEMENTATION_PLAN.md` | канонический статус всех 96 IMP-задач: 66 закрыты / 27 открыты / 3 partial |
 | `01_SYSTEM_MAP.md` | **не оформлен** — данные собраны в findings, диаграмм нет |
 | `06_TEST_MATRIX.md` | **не создан** — 40 сценариев из задания не расписаны по покрытию |
 | `08`–`11` | **не созданы** (нужны на этапе внедрения) |
@@ -45,9 +45,10 @@
 
 | Статус | Задачи |
 |---|---|
-| Открыто, W4B | `IMP-056`–`IMP-058`, `IMP-089` |
-| Открыто, W5 | `IMP-028` |
-| Открыто, W8 | `IMP-041`, `IMP-042`, `IMP-044`–`IMP-046`, `IMP-059`–`IMP-061`, `IMP-094` |
+| Частично, W4B | `IMP-056`: policy/event vocabulary и client lease есть; durable task claim, event materialization и continuation ещё не опубликованы |
+| Открыто, W4B | `IMP-057`, `IMP-058`, `IMP-089` |
+| Открыто, W5 | `IMP-028`, `IMP-095` (production merchandising белого варианта товара 110) |
+| Открыто, W8 | `IMP-041`, `IMP-042`, `IMP-044`–`IMP-046`, `IMP-059`–`IMP-061`, `IMP-094`, `IMP-096` (provenance ролей импорта) |
 | Частично, W8 | `IMP-043`, `IMP-077` |
 | Открыто, W9 | `IMP-081`–`IMP-088`; `IMP-081`–`IMP-085` имеют branch-only code, но не интегрированы и не задеплоены |
 | Открыто, W10 | `IMP-090`–`IMP-093`; восстановлены из улучшений, которые раньше не имели исполнимой задачи |
@@ -83,6 +84,8 @@
 | `codex/ig-order-fulfillment-links`, `20dd44b2` | Searchable order-assignment drawer семантически присутствует в актуальном `main`: отдельный drawer, поиск кандидатов, blocked reasons, keyboard/focus и тесты | Сам старый коммит не cherry-pick: текущая реализация новее и входит в W7 (`bca7e4e2`) |
 | `codex/ig-bot-w4-completion` dirty W7 | Локальный незавершённый paginator сравнен с `main`; текущий `main` уже имеет Django `Paginator`, API-контракт и полный UI W7 | Не переносить: старый diff удаляет новые метрики, drawer UX и актуальный pagination contract |
 | `.claude/worktrees/ig-bot-w1` dirty W6 | Арбитр, FSM, журнал переходов и funnel-ветви находятся в `main` (`34d1e165`) | Не переносить старый working diff: он основан на W3 и откатывает значительную часть текущего `instagram_bot.py` |
+| `.claude/worktrees/ig-bot-w1` unique `tests_ig_stock_policy.py` | В WIP сохранились полезные требования: quantity-aware `VariantSizeRule`, явный `is_dropship_available=False`, manager/event при реальном дефиците, сохранение `missing_fields` | Восстановить требования тестами поверх актуального `main` в IMP-056/084/086; файл целиком не переносить, потому что его база откатывает IMP-080 и W6 |
+| `codex/ig-refresh-dedup` и stash manual inbox refresh | Durable refresh, poll cursors и link-restriction circuit уже опубликованы более полным коммитом `7fe26280` | Старую ветку/stash не переносить; она отстаёт от `main` и не содержит дополнительного закрытия |
 | `codex/instagram-assisted-checkout` | Добавлены design/plan product reselection, 339 строк поздних уточнений и статусы 13 задач; сохранены ссылки на пять branch-only code-коммитов | 58 прямых checkbox остаются открытыми; code `61ad2cb8`, `a8ccfa63`, `468fe2ba`, `e9d982df`, `dc9889c3` не интегрирован и не задеплоен |
 | `instagram_bot_audit_prompt_package/` | Исходный prompt, 120 audit-задач, gates и acceptance matrix сохранены рядом с репозиторием | Источник требований, не журнал выполнения |
 
@@ -142,7 +145,7 @@
 13. **Восемь конфликтов паттернов классификации** с конкретными примерами:
     «Скільки коштує доставка?» → бот предлагает скидку; «it's ok» → вопрос
     о размере; телефон в тексте → +40 к готовности покупать.
-14. **Много готового и неподключённого:** `RestockRequest`,
+14. **Много готового и неподключённого:** `RestockSubscription`,
     `IgCheckoutAccessToken` (включая `Kind.SHARE`), `IgDealItem`,
     `SizeGrid.guide_data`, `sales_context`, `IgLifecycleEvent`, `manual_confirmation_q`.
     Большинство дешёвых улучшений — подключить существующее, а не писать новое.
