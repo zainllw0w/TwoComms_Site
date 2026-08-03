@@ -3815,13 +3815,14 @@ function updateOrderStatus(orderId, newStatus) {
       }
       return;
     }
+    const normalizedTtn = ttn.trim();
     
-    if (confirm(`Змінити статус замовлення на "${statusText[newStatus]}" з ТТН: ${ttn.trim()}?`)) {
+    if (confirm(`Змінити статус замовлення на "${statusText[newStatus]}" з ТТН: ${normalizedTtn}?`)) {
       /* Отправляем запрос с ТТН */
       const formData = new FormData();
       formData.append('order_id', orderId);
       formData.append('status', newStatus);
-      formData.append('tracking_number', ttn.trim());
+      formData.append('tracking_number', normalizedTtn);
       formData.append('csrfmiddlewaretoken', csrfToken.value);
       
       
@@ -3841,12 +3842,18 @@ function updateOrderStatus(orderId, newStatus) {
             select.value = newStatus;
           }
           /* Обновляем отображение ТТН */
-          const ttnElement = document.querySelector(`[data-order-id="${orderId}"] .delivery-item[data-field="ttn"]`);
-          if (ttnElement) {
-            ttnElement.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 14H4v-4h11v4zm0-5H4V9h11v4zm5 5h-4V9h4v9z"/>
-            </svg>
-            <span>ТТН: ${ttn.trim()}</span>`;
+          const ttnInfo = document.querySelector(`[data-order-id="${orderId}"] .delivery-item[data-field="ttn"] > .ttn-info`);
+          if (ttnInfo) {
+            const trackingLink = document.createElement('a');
+            trackingLink.href = `https://novaposhta.ua/tracking/?cargo_number=${encodeURIComponent(normalizedTtn)}`;
+            trackingLink.target = '_blank';
+            trackingLink.rel = 'noopener';
+            trackingLink.textContent = normalizedTtn;
+
+            const sourceBadge = document.createElement('span');
+            sourceBadge.className = 'oadm-badge oadm-badge--manual';
+            sourceBadge.textContent = 'Ручна ТТН';
+            ttnInfo.replaceChildren(trackingLink, sourceBadge);
           }
         } else {
           showNotification('Помилка: ' + data.error, 'error');
