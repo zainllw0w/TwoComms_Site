@@ -14,6 +14,7 @@ Production host: `195.191.25.63`, path
 | 2026-08-03 | `6b86e103` | check, migration drift, compileall, 45 IG tests | `enabled=True`, `transport=instagram_login`, `last_error=''` |
 | 2026-08-03 | `afd16725` | audit source reconciliation and canonical docs | docs-only; runtime remains online |
 | 2026-08-03 | `59f5a67b` | final validation report included and deployed | docs-only; runtime remains online |
+| 2026-08-03 | `c409f7a3` | canonical checkbox plan, registers and source reconciliation; server pull, Django check, migration-drift check and restart | `running`; daemon online; `instagram_login`; no recorded error |
 
 For `6b86e103`, server `git pull --ff-only` completed, `manage.py check` returned
 no issues, `makemigrations --check --dry-run` returned `No changes detected`,
@@ -30,3 +31,14 @@ not executed on the live DB; the 45/45 result remains the prior isolated gate.
 
 The final validation report commit `59f5a67b` was then pulled with `--ff-only`;
 server HEAD was verified as `59f5a67ba7a4e0b89881141aadd966411832c7ca`.
+
+The canonical-plan commit `c409f7a3` was subsequently pushed and pulled with
+`git pull --ff-only origin main`; server HEAD was verified as
+`c409f7a32d84e02ae9a92d93ba27bb0e176980c4`. `python manage.py check` returned
+no issues, `python manage.py makemigrations --check --dry-run` returned `No
+changes detected`, and `tmp/restart.txt` was touched to request a Passenger
+restart. The runtime evidence was queried through the current
+`management.services.instagram_bot.status_snapshot()` API: `is_enabled=True`,
+`state='running'`, `alive=True`, `running=True`,
+`provider_transport='instagram_login'`, database and daemon heartbeat ages
+`0.0` seconds, and `last_error=''`.

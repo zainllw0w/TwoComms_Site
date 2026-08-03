@@ -33,9 +33,12 @@ is complete.
 
 ## Production evidence
 
-The docs-only consolidation is deployed after push; server SHA, daemon settings
-(`enabled=True`, runtime transport `instagram_login`, fresh heartbeat, empty
-`last_error`) and the exact pull/restart history are recorded in
+The docs-only consolidation commit `c409f7a3` is deployed after push; server
+HEAD is `c409f7a32d84e02ae9a92d93ba27bb0e176980c4`. The current production
+`status_snapshot()` reports `is_enabled=True`, `state='running'`, `alive=True`,
+`running=True`, transport `instagram_login`, database and daemon heartbeat ages
+of `0.0` seconds, and empty `last_error`. The exact pull, Django
+check/migration-drift, and restart history is recorded in
 `09_DEPLOYMENT_LOG.md`.
 
 ## Acceptance decision
