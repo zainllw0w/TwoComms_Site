@@ -12,17 +12,24 @@ from storefront.views.utils import _POST_PAYMENT_CHANNEL_NAMES, _send_post_payme
 _TERMINAL_POST_PAYMENT_STATES = frozenset(
     {"sent", "skipped", "disabled", "unknown", "ambiguous"}
 )
+_RECOVERABLE_DISPATCH_CHANNELS = tuple(
+    channel for channel in _POST_PAYMENT_CHANNEL_NAMES
+    if channel != "instagram_lifecycle"
+)
 
 
 def _has_recoverable_post_payment_channel(payload):
     channels = payload.get("post_payment_channels")
     if not isinstance(channels, dict):
         return True
+    # Instagram lifecycle has its own durable event dispatcher. A waiting
+    # window or manager-review state must not wake this command and replay
+    # already completed Telegram/Meta/TikTok/email work every cron tick.
     return any(
         not isinstance(channels.get(channel), dict)
         or str(channels[channel].get("state") or "").strip().lower()
         not in _TERMINAL_POST_PAYMENT_STATES
-        for channel in _POST_PAYMENT_CHANNEL_NAMES
+        for channel in _RECOVERABLE_DISPATCH_CHANNELS
     )
 
 

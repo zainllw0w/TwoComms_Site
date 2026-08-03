@@ -240,7 +240,7 @@ class FacebookConversionsService:
             payload.get('purchase_event_time'),
         ]
         np_tracking = payload.get('np_tracking') or {}
-        if np_tracking.get('last_status_code') in (9, '9'):
+        if np_tracking.get('last_status_code') in (9, 10, 11, '9', '10', '11'):
             candidates.append(np_tracking.get('last_notified_at'))
         for history_item in reversed(payload.get('history') or []):
             if not isinstance(history_item, dict):
