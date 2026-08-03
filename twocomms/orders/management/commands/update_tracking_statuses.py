@@ -114,19 +114,7 @@ class Command(BaseCommand):
 
     def _update_all_orders(self, service, dry_run):
         """Обновляет статусы всех заказов"""
-        from orders.models import Order
-
-        # Получаем заказы с ТТН
-        orders_with_ttn = Order.objects.filter(
-            tracking_number__isnull=False
-        ).exclude(
-            tracking_number=''
-        ).exclude(
-            status='cancelled'
-        ).exclude(
-            status='done',
-            shipment_status__icontains='отримано'
-        )
+        orders_with_ttn = service.get_orders_with_tracking_queryset()
 
         total_orders = orders_with_ttn.count()
 

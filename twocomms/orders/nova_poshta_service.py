@@ -317,7 +317,10 @@ class NovaPoshtaService:
 
         logger.info(f"Updating tracking status for order {order.order_number}")
 
-        tracking_info = self.get_tracking_info(order.tracking_number)
+        tracking_info = self.get_tracking_info(
+            order.tracking_number,
+            phone=getattr(order, "phone", None),
+        )
 
         if not tracking_info:
             logger.warning(f"Failed to get tracking info for order {order.order_number}")
@@ -942,24 +945,8 @@ class NovaPoshtaService:
 
         return message
 
-    def update_all_tracking_statuses(self):
-        """
-        Обновляет статусы всех заказов с ТТН
-
-        Фильтрует заказы:
-        - У которых есть tracking_number
-        - Которые не в статусе 'done' или 'cancelled'
-
-        Returns:
-            dict: Статистика обновлений:
-                - total_orders: общее количество заказов с ТТН
-                - processed: обработано заказов
-                - updated: обновлено статусов
-                - errors: количество ошибок
-        """
-        logger.info("Starting update of all tracking statuses")
-
-        # Получаем заказы с ТТН
+    def get_orders_with_tracking_queryset(self):
+        """Return the single source of truth for scheduled tracking polls."""
         from storefront.models import UserAction
 
         purchase_order_ids = UserAction.objects.filter(
@@ -973,7 +960,8 @@ class NovaPoshtaService:
         ).exclude(
             status='cancelled'
         )
-        done_received = Q(status='done', shipment_status__icontains='отримано')
+        done_order = Q(status='done')
+        done_received = done_order & Q(shipment_status__icontains='отримано')
         monobank_evidence = (
             Q(payment_provider__startswith='monobank')
             & Q(payment_invoice_id__isnull=False)
@@ -996,7 +984,26 @@ class NovaPoshtaService:
             & ~explicit_free
             & trusted_retry
         )
-        orders_with_ttn = base_orders.filter(~done_received | retry_missing_purchase)
+        return base_orders.filter(~done_order | retry_missing_purchase)
+
+    def update_all_tracking_statuses(self):
+        """
+        Обновляет статусы всех заказов с ТТН
+
+        Фильтрует заказы:
+        - У которых есть tracking_number
+        - Которые не в статусе 'done' или 'cancelled'
+
+        Returns:
+            dict: Статистика обновлений:
+                - total_orders: общее количество заказов с ТТН
+                - processed: обработано заказов
+                - updated: обновлено статусов
+                - errors: количество ошибок
+        """
+        logger.info("Starting update of all tracking statuses")
+
+        orders_with_ttn = self.get_orders_with_tracking_queryset()
 
         close_old_connections()
         order_ids = list(orders_with_ttn.values_list('pk', flat=True))

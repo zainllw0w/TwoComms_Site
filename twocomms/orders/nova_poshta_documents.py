@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+import unicodedata
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
@@ -24,6 +25,44 @@ logger = logging.getLogger(__name__)
 
 TELEGRAM_CREATE_NP_WAYBILL_ACTION = "create-np-waybill"
 TELEGRAM_DELETE_NP_WAYBILL_ACTION = "delete-np-waybill"
+NOVA_POSHTA_DESCRIPTION_MAX_LENGTH = 100
+
+_DESCRIPTION_REPLACEMENTS = str.maketrans({
+    "\u2014": "-",
+    "\u2013": "-",
+    "\u2212": "-",
+    "\u2011": "-",
+    "\u00d7": "x",
+    "\u2026": "...",
+    "\u2018": "'",
+    "\u2019": "'",
+    "\u201c": '"',
+    "\u201d": '"',
+    "\u2122": "",
+    "\u00a9": "",
+    "\u00ae": "",
+})
+_DESCRIPTION_ALLOWED_RE = re.compile(
+    r'''[^0-9A-Za-zА-Яа-яЁёІіЇїЄєҐґ\s.,:;!?()"'«»/&+#\-]'''
+)
+
+
+def normalize_waybill_description(
+    value: object,
+    *,
+    fallback: str = "Одяг бренду TwoComms",
+    max_length: int = NOVA_POSHTA_DESCRIPTION_MAX_LENGTH,
+) -> str:
+    """Return a Nova Poshta-safe, bounded cargo description."""
+    text = unicodedata.normalize("NFKC", str(value or "").translate(_DESCRIPTION_REPLACEMENTS))
+    text = text.replace("%", " відс.")
+    text = _DESCRIPTION_ALLOWED_RE.sub("", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    if not text:
+        text = unicodedata.normalize("NFKC", str(fallback or "Одяг бренду TwoComms"))
+        text = _DESCRIPTION_ALLOWED_RE.sub("", text)
+        text = re.sub(r"\s+", " ", text).strip() or "Одяг бренду TwoComms"
+    return text[:max_length].rstrip() or "Одяг бренду TwoComms"
 
 
 class NovaPoshtaDocumentError(Exception):
@@ -358,7 +397,7 @@ def build_waybill_description(order) -> str:
     total_qty = sum(int(getattr(item, "qty", 0) or 0) for item in items)
     if total_qty == 1 and len(items) == 1:
         title = str(getattr(items[0], "title", "") or "товар").strip()
-        return f"Одяг бренду TwoComms, {title}"[:120]
+        return normalize_waybill_description(f"Одяг бренду TwoComms, {title}")
     custom_items = list(
         getattr(order, "custom_print_leads", []).all()
         if hasattr(getattr(order, "custom_print_leads", None), "all")
@@ -371,12 +410,12 @@ def build_waybill_description(order) -> str:
             title = product_label()
         else:
             title = getattr(custom_items[0], "product_type", "") or "кастомний виріб"
-        return f"Одяг бренду TwoComms, {title}"[:120]
+        return normalize_waybill_description(f"Одяг бренду TwoComms, {title}")
     if total_qty > 1:
-        return f"Одяг бренду TwoComms, у кількості {total_qty} шт."
+        return normalize_waybill_description(f"Одяг бренду TwoComms, у кількості {total_qty} шт.")
     if custom_qty > 1:
-        return f"Одяг бренду TwoComms, кастомних виробів {custom_qty} шт."
-    return "Одяг бренду TwoComms"
+        return normalize_waybill_description(f"Одяг бренду TwoComms, кастомних виробів {custom_qty} шт.")
+    return normalize_waybill_description("Одяг бренду TwoComms")
 
 
 class NovaPoshtaDocumentService:
@@ -505,7 +544,10 @@ class NovaPoshtaDocumentService:
         weight = self._normalize_decimal(payload.get("weight"), fallback=self.DEFAULT_WEIGHT, minimum=Decimal("0.1"))
         declared_cost = self._as_money(payload.get("declared_cost"))
         seats_amount = int(str(payload.get("seats_amount") or "1").strip() or "1")
-        description = str(payload.get("description") or "").strip() or build_waybill_description(order)
+        description = normalize_waybill_description(
+            payload.get("description"),
+            fallback=build_waybill_description(order),
+        )
         cod_amount = self._as_money(payload.get("cod_amount") or "0")
         self._validate_waybill_package(
             recipient_point=recipient_point,
@@ -522,7 +564,7 @@ class NovaPoshtaDocumentService:
             "Weight": self._format_decimal(weight),
             "ServiceType": "WarehouseWarehouse",
             "SeatsAmount": str(max(seats_amount, 1)),
-            "Description": description[:120],
+            "Description": description,
             "Cost": self._format_money(declared_cost),
             "CitySender": sender_point.city_ref,
             "Sender": sender_profile["sender_ref"],
@@ -923,6 +965,12 @@ class NovaPoshtaDocumentService:
 
         errors = [str(item).strip() for item in data.get("errors") or [] if str(item).strip()]
         if errors:
+            if any("description is not valid" in error.casefold() for error in errors):
+                logger.warning("Nova Poshta API rejected InternetDocument.save: invalid_description")
+                raise NovaPoshtaDocumentError(
+                    "Опис відправлення містить символи, які Nova Poshta не приймає. "
+                    "Замініть нестандартні символи й спробуйте ще раз."
+                )
             raise NovaPoshtaDocumentError("; ".join(errors))
         if not data.get("success"):
             raise NovaPoshtaDocumentError("Nova Poshta API не підтвердив створення накладної.")

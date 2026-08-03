@@ -142,6 +142,18 @@ class GenericOptionCartTests(TestCase):
 
         self.assertEqual(item.generic_option_labels, ["Утеплення: Фліс"])
 
+    def test_order_item_suppresses_fit_axis_when_translation_differs(self):
+        from orders.models import OrderItem
+
+        item = OrderItem(
+            option_values={"fit": "classic", "color": "coyote"},
+            option_labels={"Посадка": "Класична", "Колір": "Кайот"},
+            fit_option_code="classic",
+            fit_option_label="Класичний",
+        )
+
+        self.assertEqual(item.generic_option_labels, ["Колір: Кайот"])
+
     def test_authoritative_price_accepts_generic_options(self):
         from fable5.services import effective_cart_unit_price
 

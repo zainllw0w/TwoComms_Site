@@ -118,6 +118,10 @@
     background: rgba(245, 158, 11, 0.16);
   }
 
+  .tg-waybill-page > .tg-waybill-state {
+    margin-top: 24px;
+  }
+
   .tg-waybill-helper {
     margin-top: 18px;
     color: var(--tg-muted);
@@ -558,10 +562,6 @@
       <div class="tg-waybill-state success">{{ success_message }}</div>
     {% endif %}
 
-    {% if error_message %}
-      <div class="tg-waybill-state {% if is_blocked %}blocked{% else %}error{% endif %}">{{ error_message }}</div>
-    {% endif %}
-
     {% if helper_message %}
       <p class="tg-waybill-helper">{{ helper_message }}</p>
     {% endif %}
@@ -575,10 +575,15 @@
     {% endif %}
   </div>
 
+  {% if error_message %}
+    <div class="tg-waybill-state {% if is_blocked %}blocked{% else %}error{% endif %}" data-tg-waybill-page-state>{{ error_message }}</div>
+  {% endif %}
+
   {% if can_submit and form %}
     <form method="post" class="tg-waybill-form" data-tg-waybill-create>
       {% csrf_token %}
       <input type="hidden" name="token" value="{{ token }}">
+      <div data-tg-waybill-form-state aria-live="polite"></div>
 
       {% if form.non_field_errors or hidden_field_errors %}
         <div class="tg-waybill-panel">
@@ -1032,7 +1037,8 @@
 
     const submitButton = form.querySelector('[data-tg-waybill-submit]');
     const labelEl = submitButton ? submitButton.querySelector('.tg-waybill-submit-label') : null;
-    const stateHost = document.querySelector('.tg-waybill-hero');
+    const stateHost = form.querySelector('[data-tg-waybill-form-state]')
+      || document.querySelector('[data-tg-waybill-page-state]');
     let isSubmitting = false;
 
     function setLabel(text) {

@@ -82,6 +82,29 @@ class TelegramOrderStatusActionTests(TestCase):
         self.assertEqual(button["url"], build_order_status_action_url(order, "ship"))
         self.assertTrue(order.payment_payload["telegram_notifications"]["order_notification_sent"])
 
+    @patch("storefront.views.order_actions.NovaPoshtaDocumentService")
+    def test_waybill_live_state_is_attached_to_form(self, service_cls):
+        order = self._create_order()
+        token = build_order_action_token(order.pk, TELEGRAM_CREATE_NP_WAYBILL_ACTION)
+        service_cls.return_value.is_configured.return_value = True
+        service_cls.return_value.build_initial_payload.return_value = {}
+
+        response = self.client.get(
+            reverse(
+                "telegram_order_np_waybill_action",
+                args=[order.pk, TELEGRAM_CREATE_NP_WAYBILL_ACTION],
+            ),
+            {"token": token},
+            secure=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "data-tg-waybill-form-state")
+        self.assertNotContains(
+            response,
+            "const stateHost = document.querySelector('.tg-waybill-hero');",
+        )
+
     @patch("orders.signals._safe_queue_notification")
     def test_signed_ship_action_updates_status_and_tracking_number(self, _queue_mock):
         order = self._create_order()
