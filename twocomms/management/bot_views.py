@@ -4920,6 +4920,9 @@ def bot_stats_api(request):
         "manager_takeovers": active_clients.filter(manager_takeover=True).count(),
         "custom_print_handoffs": active_clients.filter(intent=IgClient.Intent.CUSTOM_PRINT, stage=IgClient.Stage.LEAD_TO_MANAGER).count(),
     }
+    from management.services.ig_funnel_analytics import build_funnel_analytics
+
+    funnel_analytics = build_funnel_analytics(since=since, until=until)
     return JsonResponse({
         "success": True,
         "range_mode": range_mode,
@@ -4935,6 +4938,17 @@ def bot_stats_api(request):
         "signals": signals,
         "products": product_interest,
         "ads": ad_rows,
+        "funnel": funnel_analytics["steps"],
+        "funnel_meta": {
+            "source": "event_cohort",
+            "backfilled": funnel_analytics["backfilled"],
+            "event_types": funnel_analytics["event_types"],
+            "drop_off_reasons": funnel_analytics["drop_off_reasons"],
+            "followup_effectiveness": funnel_analytics["followup_effectiveness"],
+            "discounts": funnel_analytics["discounts"],
+            "manager_vs_bot": funnel_analytics["manager_vs_bot"],
+            "time_on_step": funnel_analytics["time_on_step"],
+        },
     })
 
 

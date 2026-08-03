@@ -293,6 +293,21 @@ def _register_spam(client) -> bool:
         client.paused_at = timezone.now()
         fields += ["bot_paused", "reply_permission_epoch", "paused_reason", "paused_at"]
     client.save(update_fields=fields)
+    try:
+        from management.services.ig_funnel_analytics import record_drop_off_for_client
+
+        record_drop_off_for_client(
+            client,
+            kind="spam",
+            reason_code="spam_marker",
+            occurred_at=timezone.now(),
+            stage=client.stage,
+            actor="bot_classifier",
+            evidence={"spam_strikes": int(client.spam_strikes or 0)},
+            is_recoverable=False,
+        )
+    except DatabaseError:
+        raise
     if blocked:
         try:
             client.set_stage(IgClient.Stage.SPAM, reason="spam")
@@ -546,6 +561,68 @@ def _conversation_negotiated_price(client, control: dict) -> Decimal | None:
         return None
 
 
+def _validated_price_quote(client, control: dict) -> dict | None:
+    """Validate a delivered-price marker against authoritative configuration pricing."""
+    if not client or not isinstance(control, dict) or control.get("_invalid"):
+        return None
+    raw = control.get("price_quoted")
+    if raw is None or isinstance(raw, bool):
+        return None
+    try:
+        amount = Decimal(str(raw).replace(",", ".")).quantize(Decimal("0.01"))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+    if amount <= 0 or amount > Decimal("1000000"):
+        return None
+    product_id = _control_product_id(control) or getattr(client, "current_product_id", None)
+    if not product_id:
+        return None
+    from storefront.models import Product, ProductStatus
+
+    product = Product.objects.filter(pk=product_id, status=ProductStatus.PUBLISHED).first()
+    if product is None:
+        return None
+    selection = _checkout_selection_state(client, product_id)
+    raw_variant_id = (
+        control.get("color_variant_id")
+        or control.get("variant")
+        or selection.get("color_variant_id")
+    )
+    try:
+        variant_id = int(raw_variant_id or 0)
+    except (TypeError, ValueError):
+        return None
+    fit_code = str(
+        control.get("fit") or selection.get("fit_option_code") or ""
+    ).strip().lower()
+    if "price" in control:
+        negotiated = _conversation_negotiated_price(client, control)
+        if negotiated is not None and negotiated == amount:
+            return {
+                "amount": str(amount),
+                "product_id": int(product_id),
+                "color_variant_id": variant_id or None,
+                "fit_option_code": fit_code,
+                "price_source": "conversation_evidence",
+            }
+    from management.services.ig_catalog_pricing import resolve_product_pricing
+
+    pricing = resolve_product_pricing(
+        product,
+        selected_variant_id=variant_id or None,
+        option_values={"fit": fit_code} if fit_code else None,
+    )
+    if not pricing.get("exact") or pricing.get("minimum") != amount:
+        return None
+    return {
+        "amount": str(amount),
+        "product_id": int(product_id),
+        "color_variant_id": variant_id or None,
+        "fit_option_code": fit_code,
+        "price_source": "catalog",
+    }
+
+
 def _conversation_payment_amount(client, control: dict) -> Decimal | None:
     """Validate/infer the exact current-episode prepayment amount."""
     if not isinstance(control, dict) or not client:
@@ -617,7 +694,7 @@ def _persist_checkout_selection(client, product_id, selection: dict) -> None:
     client.save(update_fields=["sales_context", "updated_at"])
 
 
-def persist_control_selection(client, control: dict, *, product_id=None) -> list[str]:
+def _persist_control_selection_unlocked(client, control: dict, *, product_id=None) -> list[str]:
     """Зберегти конфігурацію, яку модель назвала тегами, навіть без [PAYLINK].
 
     Без цього воронка не рухалась. Модель питала фасон, клієнт відповідав
@@ -678,6 +755,79 @@ def persist_control_selection(client, control: dict, *, product_id=None) -> list
         changed.append("color")
     if changed and selection:
         _persist_checkout_selection(client, product_id, selection)
+    return changed
+
+
+def persist_control_selection(
+    client,
+    control: dict,
+    *,
+    product_id=None,
+    source_message_id=None,
+) -> list[str]:
+    """Persist a model-confirmed configuration and append its funnel fact atomically."""
+    from django.db import transaction
+
+    from management.models import IgClient, IgFunnelStepEvent
+    from management.services.ig_commercial_episodes import (
+        ensure_open_episode_for_locked_client,
+    )
+    from management.services.ig_funnel_analytics import (
+        record_client_step_event_in_transaction,
+    )
+
+    if not getattr(client, "pk", None):
+        return []
+    with transaction.atomic():
+        locked = IgClient.objects.select_for_update().get(pk=client.pk)
+        changed = _persist_control_selection_unlocked(
+            locked,
+            control,
+            product_id=product_id,
+        )
+        resolved_product_id = _control_product_id(control) or product_id or locked.current_product_id
+        selection = _checkout_selection_state(locked, resolved_product_id)
+        fit_code = str(selection.get("fit_option_code") or "").strip().lower()
+        size = str(locked.current_size or "").strip().upper()
+        try:
+            variant_id = int(selection.get("color_variant_id") or 0)
+        except (TypeError, ValueError):
+            variant_id = 0
+        if resolved_product_id and size and (fit_code or variant_id > 0):
+            episode = ensure_open_episode_for_locked_client(
+                locked,
+                materialization_prefix="ig-funnel",
+            )
+            event_key = (
+                f"ig-variant-selected:{episode.pk}:{int(resolved_product_id)}:"
+                f"{variant_id}:{fit_code}:{size}:{int(locked.current_qty or 1)}"
+            )
+            evidence = {
+                "product_id": int(resolved_product_id),
+                "color_variant_id": variant_id or None,
+                "fit_option_code": fit_code,
+                "size": size,
+                "qty": int(locked.current_qty or 1),
+            }
+            if source_message_id:
+                evidence["source_message_id"] = int(source_message_id)
+            record_client_step_event_in_transaction(
+                locked,
+                event_type=IgFunnelStepEvent.Type.VARIANT_SELECTED,
+                event_key=event_key,
+                occurred_at=timezone.now(),
+                stage=locked.stage,
+                actor="bot",
+                evidence=evidence,
+            )
+        for field in (
+            "current_product_id",
+            "current_size",
+            "current_color",
+            "current_qty",
+            "sales_context",
+        ):
+            setattr(client, field, getattr(locked, field))
     return changed
 
 
@@ -1436,6 +1586,10 @@ def finalize_paylink(
         res = {"ok": False, "error": repr(exc)}
 
     if res.get("ok") and res.get("invoice_url"):
+        if res.get("proposal_pk"):
+            control["_funnel_proposal_pk"] = int(res["proposal_pk"])
+        if res.get("proposal_id"):
+            control["_funnel_proposal_id"] = str(res["proposal_id"])
         url = res["invoice_url"]
         lead = _rewrite_failed_paylink(reply, client)
         if lead == _paylink_fallback(client):
@@ -1657,6 +1811,25 @@ def _handle_echo(
                     if persistence_only:
                         raise
                     msg = None
+            if takeover_started:
+                from management.models import IgFunnelStepEvent
+                from management.services.ig_funnel_analytics import (
+                    record_client_step_event_in_transaction,
+                )
+
+                record_client_step_event_in_transaction(
+                    client,
+                    event_type=IgFunnelStepEvent.Type.MANAGER_ENGAGED,
+                    event_key=f"ig-manager-engaged:{client.pk}:{int(client.paused_at.timestamp()) if client.paused_at else int(now.timestamp())}",
+                    occurred_at=now,
+                    stage=client.stage,
+                    actor="manager",
+                    evidence={
+                        "manager_message_id": msg.pk if msg else None,
+                        "provider_mid": mid,
+                        "takeover_started": True,
+                    },
+                )
             try:
                 from management.services import bot_followups, bot_sales_classifier
                 from management.services.bot_conversation_analysis import schedule_analysis
@@ -4176,6 +4349,26 @@ def _remember_client_delivery_error(recipient_id: str, hint: str, *, code: int, 
             "delivery_failed_at",
             "updated_at",
         ])
+        from management.services.ig_funnel_analytics import record_drop_off_for_client
+
+        record_drop_off_for_client(
+            client,
+            kind="unreachable",
+            reason_code=client.delivery_status or "send_blocked",
+            occurred_at=client.delivery_failed_at,
+            stage=client.stage,
+            actor="meta_delivery",
+            evidence={
+                "http_code": code,
+                "graph_code": graph_code,
+                "graph_subcode": graph_subcode,
+                "delivery_error": (hint or "")[:500],
+                "is_recoverable": False,
+            },
+            is_recoverable=False,
+        )
+    except DatabaseError:
+        raise
     except Exception:
         pass
 
@@ -6068,6 +6261,25 @@ def enqueue_inbound(
                     reply_eligible = promoted
             if not observed_only:
                 client.touch_inbound()
+                from management.services.ig_funnel_analytics import (
+                    record_client_step_event_in_transaction,
+                )
+                from management.ig_bot_models import IgFunnelStepEvent
+
+                inbound_at = msg.provider_created_at or msg.created_at or timezone.now()
+                record_client_step_event_in_transaction(
+                    client,
+                    event_type=IgFunnelStepEvent.Type.CONVERSATION_STARTED,
+                    event_key=f"ig-inbound:{msg.pk}",
+                    occurred_at=inbound_at,
+                    stage=client.stage,
+                    actor="customer",
+                    evidence={
+                        "message_id": msg.pk,
+                        "mid": msg.mid or "",
+                        "source": source,
+                    },
+                )
             # Consent is a routing barrier, not best-effort CRM enrichment. If
             # later classification fails, an explicit stop must already be
             # durable and impossible to reach Gemini or customer transport.
@@ -6088,6 +6300,21 @@ def enqueue_inbound(
                     "paused_at",
                     "updated_at",
                 ])
+                from management.services.ig_funnel_analytics import (
+                    record_drop_off_for_client_in_transaction,
+                )
+                record_drop_off_for_client_in_transaction(
+                    client,
+                    kind="opt_out",
+                    reason_code="explicit_opt_out",
+                    occurred_at=opted_out_at,
+                    stage=client.stage,
+                    actor="customer",
+                    evidence={
+                        "message_id": msg.pk,
+                    },
+                    is_recoverable=False,
+                )
                 if msg.status == InstagramBotMessage.Status.PENDING:
                     msg.status = InstagramBotMessage.Status.DONE
                     msg.processed_at = opted_out_at
@@ -6119,6 +6346,24 @@ def enqueue_inbound(
                         .values_list("interaction_type", flat=True)
                         .first()
                     )
+                    if interaction_type in {"explicit_no_buy", "spam_abuse"}:
+                        from management.services.ig_funnel_analytics import (
+                            record_drop_off_for_client_in_transaction,
+                        )
+
+                        drop_kind = "spam" if interaction_type == "spam_abuse" else "explicit_refusal"
+                        record_drop_off_for_client_in_transaction(
+                            client,
+                            kind=drop_kind,
+                            reason_code=interaction_type,
+                            occurred_at=msg.provider_created_at or msg.created_at,
+                            stage=client.stage,
+                            actor="customer",
+                            evidence={
+                                "message_id": msg.pk,
+                            },
+                            is_recoverable=False,
+                        )
                     terminal_followup_reasons = {
                         "explicit_no_buy": "explicit_no_buy",
                         "opt_out": "opt_out",
@@ -6157,6 +6402,24 @@ def enqueue_inbound(
                             media_context=_recover_current_message_media(msg),
                         )
                     interaction_type = classified.get("interaction_type")
+                    if interaction_type in {"explicit_no_buy", "spam_abuse"}:
+                        from management.services.ig_funnel_analytics import (
+                            record_drop_off_for_client_in_transaction,
+                        )
+
+                        drop_kind = "spam" if interaction_type == "spam_abuse" else "explicit_refusal"
+                        record_drop_off_for_client_in_transaction(
+                            client,
+                            kind=drop_kind,
+                            reason_code=interaction_type,
+                            occurred_at=msg.provider_created_at or msg.created_at,
+                            stage=client.stage,
+                            actor="customer",
+                            evidence={
+                                "message_id": msg.pk,
+                            },
+                            is_recoverable=False,
+                        )
                     terminal_followup_reasons = {
                         "explicit_no_buy": "explicit_no_buy",
                         "opt_out": "opt_out",
@@ -6740,11 +7003,20 @@ def _process_one_inside_reply_boundary(
     # механізм нескінченного «підкажіть фасон».
     if reply and row.client_id:
         try:
-            saved = persist_control_selection(row.client, control)
+            saved = persist_control_selection(
+                row.client,
+                control,
+                source_message_id=row.pk,
+            )
             if saved:
                 log("info", "selection_saved", f"{row.sender_id}: {', '.join(saved)}")
         except Exception as exc:
             log("warning", "selection_saved", repr(exc))
+        price_quote = _validated_price_quote(row.client, control)
+        if price_quote is not None:
+            control["_funnel_price_quote"] = price_quote
+        elif "price_quoted" in control:
+            log("warning", "price_quote_gate", f"{row.sender_id}: invalid exact price marker")
         # Якщо потрібного розміру немає, бот каже клієнту, що уточнить у менеджера.
         # Значить менеджер мусить справді про це дізнатись — інакше обіцянка
         # порожня, а клієнт чекає відповіді, якої ніхто не готує.
@@ -7009,6 +7281,71 @@ def _process_one_inside_reply_boundary(
             source=row.source,
             processed_at=processed_at,
         )
+        if row.client_id:
+            from management.models import IgClient
+            from management.services.ig_funnel_analytics import (
+                record_first_bot_reply_in_transaction,
+            )
+
+            locked_client = IgClient.objects.select_for_update().get(pk=row.client_id)
+            record_first_bot_reply_in_transaction(
+                locked_client,
+                occurred_at=processed_at,
+                reply_message_id=reply_message.pk,
+                source_message_id=row.pk,
+            )
+            price_quote = control.get("_funnel_price_quote")
+            if isinstance(price_quote, dict):
+                from management.models import IgFunnelStepEvent
+                from management.services.ig_funnel_analytics import (
+                    record_client_step_event_in_transaction,
+                )
+
+                record_client_step_event_in_transaction(
+                    locked_client,
+                    event_type=IgFunnelStepEvent.Type.PRICE_QUOTED,
+                    event_key=f"ig-price-quoted:{reply_message.pk}",
+                    occurred_at=processed_at,
+                    stage=locked_client.stage,
+                    actor="bot",
+                    evidence={
+                        **price_quote,
+                        "reply_message_id": reply_message.pk,
+                        "source_message_id": row.pk,
+                    },
+                )
+            proposal_pk = control.get("_funnel_proposal_pk")
+            proposal_id = control.get("_funnel_proposal_id")
+            if proposal_pk or proposal_id:
+                from management.models import IgCheckoutProposal, IgFunnelStepEvent
+                from management.services.ig_funnel_analytics import (
+                    record_episode_step_event_in_transaction,
+                )
+
+                proposal_lookup = {"pk": proposal_pk} if proposal_pk else {
+                    "public_id": proposal_id
+                }
+                proposal = (
+                    IgCheckoutProposal.objects.select_related("commercial_episode")
+                    .filter(client_id=locked_client.pk, **proposal_lookup)
+                    .first()
+                )
+                if proposal is not None:
+                    record_episode_step_event_in_transaction(
+                        proposal.commercial_episode,
+                        event_type=IgFunnelStepEvent.Type.PAYLINK_ISSUED,
+                        event_key=f"ig-paylink-issued:{proposal.pk}",
+                        occurred_at=processed_at,
+                        stage=IgClient.Stage.CHECKOUT,
+                        actor="bot",
+                        evidence={
+                            "proposal_id": proposal.pk,
+                            "proposal_public_id": str(proposal.public_id),
+                            "reply_message_id": reply_message.pk,
+                            "source_message_id": row.pk,
+                            "quoted_total": str(proposal.quoted_total),
+                        },
+                    )
     if row.client_id:
         try:
             from management.services.ig_objections import record_reply_attempt

@@ -255,11 +255,24 @@ def observe_inbound_objection(
         else max(0, int(readiness_before or 0))
     )
     with transaction.atomic():
+        from management.models import IgClient
+        from management.services.ig_commercial_episodes import (
+            ensure_open_episode_for_locked_client,
+        )
+        from management.services.ig_funnel_analytics import (
+            record_client_step_event_in_transaction,
+        )
+
+        locked_client = IgClient.objects.select_for_update().get(pk=client.pk)
+        episode = ensure_open_episode_for_locked_client(
+            locked_client,
+            materialization_prefix="ig-funnel",
+        )
         row = IgObjection.objects.select_for_update().filter(dedupe_key=key).first()
         if row is None:
-            return IgObjection.objects.create(
+            row = IgObjection.objects.create(
                 client=client,
-                episode_id=getattr(client, "current_commercial_episode_id", None),
+                episode_id=episode.pk,
                 objection_type=objection_type,
                 first_message=message,
                 last_message=message,
@@ -268,6 +281,20 @@ def observe_inbound_objection(
                 opened_watermark_message_id=message.pk,
                 dedupe_key=key,
             )
+            record_client_step_event_in_transaction(
+                locked_client,
+                event_type="objection_raised",
+                event_key=f"ig-objection-raised:{row.pk}:{message.pk}",
+                occurred_at=message.provider_created_at or message.created_at,
+                stage=locked_client.stage,
+                actor="customer",
+                evidence={
+                    "objection_id": row.pk,
+                    "objection_type": objection_type,
+                    "message_id": message.pk,
+                },
+            )
+            return row
         if row.last_message_id == message.pk:
             return row
 
@@ -292,6 +319,19 @@ def observe_inbound_objection(
             "last_message", "repeat_count", "readiness_after", "state",
             "is_true_objection", "outcome", "resolved_at", "updated_at",
         ])
+        record_client_step_event_in_transaction(
+            locked_client,
+            event_type="objection_raised",
+            event_key=f"ig-objection-raised:{row.pk}:{message.pk}",
+            occurred_at=message.provider_created_at or message.created_at,
+            stage=locked_client.stage,
+            actor="customer",
+            evidence={
+                "objection_id": row.pk,
+                "objection_type": objection_type,
+                "message_id": message.pk,
+            },
+        )
         return row
 
 
@@ -367,11 +407,17 @@ def record_reply_attempt(
     if not getattr(reply_message, "pk", None):
         return None
     with transaction.atomic():
+        from management.models import IgClient
+        from management.services.ig_funnel_analytics import (
+            record_client_step_event_in_transaction,
+        )
+
+        locked_client = IgClient.objects.select_for_update().get(pk=client.pk)
         existing = IgObjectionAttempt.objects.filter(reply_message=reply_message).first()
         if existing is not None:
             return existing
         open_rows = list(
-            _current_objections(client)
+            _current_objections(locked_client)
             .select_for_update()
             .filter(state=IgObjection.State.OPEN)
             .order_by("-updated_at", "-id")[:3]
@@ -429,6 +475,22 @@ def record_reply_attempt(
         objection.save(update_fields=[
             "attempts_count", "state", "resolution_method", "updated_at",
         ])
+        if verified:
+            record_client_step_event_in_transaction(
+                locked_client,
+                event_type="objection_handled",
+                event_key=f"ig-objection-handled:{attempt.pk}",
+                occurred_at=reply_message.provider_created_at or reply_message.created_at,
+                stage=locked_client.stage,
+                actor="bot",
+                evidence={
+                    "objection_id": objection.pk,
+                    "attempt_id": attempt.pk,
+                    "reply_message_id": reply_message.pk,
+                    "method": method,
+                    "verified": True,
+                },
+            )
         return attempt
 
 

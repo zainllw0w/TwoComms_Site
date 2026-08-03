@@ -438,6 +438,17 @@ def apply_payment_status(deal, status_value, payload=None, *, source="provider")
         }
         became_verified = is_verified and not was_verified
         became_negative = projection.truth in terminal_truths and previous_truth != projection.truth
+        if became_verified:
+            from management.services.ig_funnel_analytics import (
+                record_verified_payment_in_transaction,
+            )
+
+            record_verified_payment_in_transaction(
+                deal,
+                provider_event=event,
+                projection=projection,
+                occurred_at=event.provider_modified_at or projection.paid_at,
+            )
         if became_negative:
             _reconcile_reversed_order(deal, truth=projection.truth)
             _ensure_reversal_review_outbox(deal, projection.truth)

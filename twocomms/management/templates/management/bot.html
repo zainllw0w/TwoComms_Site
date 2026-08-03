@@ -2131,8 +2131,21 @@ body.bot-drawer-open{overflow:hidden;}
           const funnel=funnelOrder.map(key=>({
             stage:stageLabels[key]||'Невідомий етап',count:Number((d.stages||{})[key]||0),share:t.conversations?Math.round(Number((d.stages||{})[key]||0)*100/t.conversations)+'%':'0%'
           }));
+          const cohort=(d.funnel||[]).map(row=>({
+            stage:row.label||row.step,entered:Number(row.entered||0),advanced:Number(row.advanced||0),
+            dropped:Number(row.drop_off||0),progress:Number(row.in_progress||0),
+            conversion:row.low_sample?'Мало даних':String(row.cr_percent)+'%'
+          }));
           h+=table('Категорії діалогів', d.interactions, [['label','Категорія'],['count','Клієнти']]);
-          h+=table('Воронка продажів', funnel, [['stage','Етап'],['count','Клієнти'],['share','Частка від діалогів']]);
+          h+=table('Когортна воронка', cohort, [['stage','Етап'],['entered','Увійшли'],['advanced','Перейшли'],['dropped','Відвалились'],['progress','У процесі'],['conversion','Конверсія']]);
+          const meta=d.funnel_meta||{};
+          h+=table('Причини відвалу', meta.drop_off_reasons||[], [['stage','Етап'],['kind','Тип'],['reason_code','Причина'],['recoverable','Відновні'],['unrecoverable','Безповоротні'],['recovered','Повернулись']]);
+          h+=table('Час на кроці', meta.time_on_step||[], [['label','Крок'],['sample','Вибірка'],['median_hours','Медіана, год'],['p90_hours','P90, год']]);
+          const manager=meta.manager_vs_bot||{};
+          h+=table('Бот і менеджер', [{name:'Бот відповів',count:manager.bot_replied||0},{name:'Менеджер долучився',count:manager.manager_engaged||0},{name:'Тільки бот',count:manager.bot_only||0},{name:'Спільний цикл',count:manager.manager_touched||0}], [['name','Показник'],['count','Епізоди']]);
+          const discounts=meta.discounts||{};
+          h+=table('Знижки', [{name:'Запропоновано',count:discounts.offered||0},{name:'Купили після пропозиції',count:discounts.bought||0},{name:'Купили без знижки',count:discounts.without_discount_bought||0}], [['name','Показник'],['count','Епізоди']]);
+          h+=table('Поточний стан діалогів', funnel, [['stage','Етап'],['count','Клієнти'],['share','Частка від діалогів']]);
           h+=table('Інтерес до товарів', d.products, [['product_id','Код товару'],['product_title','Товар'],['count','Діалоги']]);
           const ads=(d.ads||[]).map(r=>({...r,revenue:new Intl.NumberFormat('uk-UA',{maximumFractionDigits:0}).format(Number(r.revenue||0))}));
           h+=table('Ефективність реклами', ads, [['ad_id','Ідентифікатор реклами'],['ad_ref','Мітка'],['ad_title','Назва'],['chats','Діалоги'],['paid','Оплачені'],['revenue','Дохід, грн']]);

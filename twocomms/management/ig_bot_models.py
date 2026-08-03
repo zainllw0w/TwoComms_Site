@@ -59,6 +59,8 @@ __all__ = [
     "IgOrderCustomerEvent",
     "IgCommercialEpisode",
     "IgCommercialEpisodeEvent",
+    "IgFunnelStepEvent",
+    "IgFunnelDropOff",
     "IgPostSaleCase",
     "IgOrderShipment",
     "BotPromptRevision",
@@ -2913,6 +2915,154 @@ class IgCommercialEpisodeEvent(models.Model):
 
     def delete(self, *args, **kwargs):
         raise ValueError("IgCommercialEpisodeEvent is append-only")
+
+
+class _AppendOnlyFunnelStepEventQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValueError("IgFunnelStepEvent is append-only")
+
+    def delete(self):
+        raise ValueError("IgFunnelStepEvent is append-only")
+
+
+class IgFunnelStepEvent(models.Model):
+    """Immutable event-time fact for one commercial funnel episode."""
+
+    class Type(models.TextChoices):
+        CONVERSATION_STARTED = "conversation_started", _("Діалог розпочато")
+        BOT_REPLIED_FIRST = "bot_replied_first", _("Перша відповідь бота")
+        PRODUCT_PINNED = "product_pinned", _("Товар визначено")
+        VARIANT_SELECTED = "variant_selected", _("Варіант визначено")
+        PRICE_QUOTED = "price_quoted", _("Ціну названо")
+        PAYLINK_ISSUED = "paylink_issued", _("Посилання на оплату видано")
+        PAYLINK_VIEWED = "paylink_viewed", _("Посилання на оплату відкрито")
+        PAYMENT_CONFIRMED = "payment_confirmed", _("Оплату підтверджено")
+        OBJECTION_RAISED = "objection_raised", _("Заперечення зафіксовано")
+        OBJECTION_HANDLED = "objection_handled", _("Заперечення опрацьовано")
+        DISCOUNT_OFFERED = "discount_offered", _("Знижку запропоновано")
+        MANAGER_ENGAGED = "manager_engaged", _("Менеджер долучився")
+        ORDER_CREATED = "order_created", _("Замовлення створено")
+        TTN_CREATED = "ttn_created", _("ТТН створено")
+        DELIVERED = "delivered", _("Замовлення отримано")
+        DROP_OFF = "drop_off", _("Відвал зафіксовано")
+        RECOVERED = "recovered", _("Клієнт повернувся")
+
+    episode = models.ForeignKey(
+        "management.IgCommercialEpisode",
+        on_delete=models.DO_NOTHING,
+        related_name="funnel_step_events",
+        db_constraint=False,
+    )
+    event_key = models.CharField(max_length=160, unique=True)
+    event_type = models.CharField(max_length=32, choices=Type.choices, db_index=True)
+    stage = models.CharField(max_length=32, blank=True, default="", db_index=True)
+    actor = models.CharField(max_length=40, blank=True, default="")
+    occurred_at = models.DateTimeField(db_index=True)
+    evidence = models.JSONField(default=dict, blank=True)
+    is_backfilled = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    objects = models.Manager.from_queryset(_AppendOnlyFunnelStepEventQuerySet)()
+
+    class Meta:
+        ordering = ["occurred_at", "id"]
+        indexes = [
+            models.Index(fields=["episode", "occurred_at"], name="ig_fstep_episode_dt"),
+            models.Index(fields=["event_type", "occurred_at"], name="ig_fstep_type_dt"),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk and not kwargs.get("force_insert"):
+            raise ValueError("IgFunnelStepEvent is append-only")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgFunnelStepEvent is append-only")
+
+
+class IgFunnelDropOffQuerySet(models.QuerySet):
+    _RECOVERY_FIELDS = {"recovered_at", "recovered_by_followup", "recovery_event"}
+
+    def update(self, **kwargs):
+        if not set(kwargs).issubset(self._RECOVERY_FIELDS):
+            raise ValueError("IgFunnelDropOff identity is immutable")
+        return super().update(**kwargs)
+
+    def delete(self):
+        raise ValueError("IgFunnelDropOff cannot be deleted")
+
+
+class IgFunnelDropOff(models.Model):
+    """Durable classified loss fact; recovery may close it exactly once."""
+
+    class Kind(models.TextChoices):
+        SILENCE = "silence", _("Мовчання")
+        EXPLICIT_REFUSAL = "explicit_refusal", _("Явна відмова")
+        OPT_OUT = "opt_out", _("Відмова від повідомлень")
+        UNREACHABLE = "unreachable", _("Недоступний через доставку")
+        SPAM = "spam", _("Спам")
+        SUPERSEDED = "superseded", _("Цикл заміщено")
+
+    episode = models.ForeignKey(
+        "management.IgCommercialEpisode",
+        on_delete=models.DO_NOTHING,
+        related_name="drop_offs",
+        db_constraint=False,
+    )
+    step_event = models.OneToOneField(
+        "management.IgFunnelStepEvent",
+        on_delete=models.DO_NOTHING,
+        related_name="drop_off",
+        db_constraint=False,
+    )
+    kind = models.CharField(max_length=24, choices=Kind.choices, db_index=True)
+    reason_code = models.CharField(max_length=80, blank=True, default="", db_index=True)
+    stage_at_drop = models.CharField(max_length=32, blank=True, default="", db_index=True)
+    objection_at_drop = models.CharField(max_length=32, blank=True, default="")
+    silence_hours = models.DecimalField(max_digits=8, decimal_places=2, default=0)
+    followups_sent_before = models.PositiveSmallIntegerField(default=0)
+    detected_by = models.CharField(max_length=40, blank=True, default="")
+    is_recoverable = models.BooleanField(default=False, db_index=True)
+    occurred_at = models.DateTimeField(db_index=True)
+    recovered_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    recovered_by_followup = models.BooleanField(default=False)
+    recovery_event = models.ForeignKey(
+        "management.IgFunnelStepEvent",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="recovered_drop_offs",
+        db_constraint=False,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    objects = IgFunnelDropOffQuerySet.as_manager()
+    _IDENTITY_FIELDS = (
+        "episode_id", "step_event_id", "kind", "reason_code", "stage_at_drop",
+        "objection_at_drop", "silence_hours", "followups_sent_before",
+        "detected_by", "is_recoverable", "occurred_at",
+    )
+
+    class Meta:
+        ordering = ["-occurred_at", "-id"]
+        indexes = [
+            models.Index(fields=["episode", "-occurred_at"], name="ig_drop_episode_dt"),
+            models.Index(fields=["kind", "recovered_at"], name="ig_drop_kind_recovery"),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            previous = type(self).objects.filter(pk=self.pk).values(
+                *self._IDENTITY_FIELDS
+            ).first()
+            if previous:
+                for field_name in self._IDENTITY_FIELDS:
+                    if getattr(self, field_name) != previous[field_name]:
+                        raise ValueError("IgFunnelDropOff identity is immutable")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgFunnelDropOff cannot be deleted")
 
 
 class BotInstruction(models.Model):

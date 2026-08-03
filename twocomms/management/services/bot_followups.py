@@ -1676,58 +1676,85 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
                         ])
                         _update_client_next(client)
                 continue
-            msg = InstagramBotMessage.objects.create(
-                sender_id=client.igsid,
-                client=client,
-                role=InstagramBotMessage.Role.MODEL,
-                text=text,
-                provider_message_id=provider_message_id,
-                status=InstagramBotMessage.Status.DONE,
-                source="followup",
-                processed_at=now,
-            )
-            task.status = IgFollowUpTask.Status.SENT
-            task.sent_at = now
-            task.sent_message = msg
-            task.provider_message_id = provider_message_id
-            task.claim_token = ""
-            task.claim_until = None
-            task.next_attempt_at = None
-            task.last_error = ""
-            task.save(update_fields=[
-                "status", "sent_at", "sent_message", "next_attempt_at", "last_error",
-                "provider_message_id", "claim_token", "claim_until", "updated_at",
-            ])
-            sales_followup = task.kind != IgFollowUpTask.Kind.FULFILLMENT
-            if sales_followup:
-                client.followup_level = max(
-                    int(client.followup_level or 0),
-                    int(task.level or 0) + 1,
+            # Provider success is followed by one durable transaction. The
+            # discount event is written beside the task/message transition, so
+            # analytics never counts an offer that was not actually delivered.
+            with transaction.atomic():
+                client = IgClient.objects.select_for_update().get(pk=client.pk)
+                task = IgFollowUpTask.objects.select_for_update().get(pk=task.pk)
+                if task.status != IgFollowUpTask.Status.PENDING:
+                    continue
+                msg = InstagramBotMessage.objects.create(
+                    sender_id=client.igsid,
+                    client=client,
+                    role=InstagramBotMessage.Role.MODEL,
+                    text=text,
+                    provider_message_id=provider_message_id,
+                    status=InstagramBotMessage.Status.DONE,
+                    source="followup",
+                    processed_at=now,
                 )
-            if sales_followup and task.discount_percent:
-                client.discount_offered_percent = max(
-                    int(client.discount_offered_percent or 0), int(task.discount_percent or 0)
-                )
-                try:
-                    IgConversationSignal.objects.create(
-                        client=client,
-                        message=msg,
-                        signal_type=IgConversationSignal.Type.DISCOUNT_OFFER,
-                        value=str(task.discount_percent),
-                        payload={"discount_percent": task.discount_percent},
+                task.status = IgFollowUpTask.Status.SENT
+                task.sent_at = now
+                task.sent_message = msg
+                task.provider_message_id = provider_message_id
+                task.claim_token = ""
+                task.claim_until = None
+                task.next_attempt_at = None
+                task.last_error = ""
+                task.save(update_fields=[
+                    "status", "sent_at", "sent_message", "next_attempt_at", "last_error",
+                    "provider_message_id", "claim_token", "claim_until", "updated_at",
+                ])
+                sales_followup = task.kind != IgFollowUpTask.Kind.FULFILLMENT
+                if sales_followup:
+                    client.followup_level = max(
+                        int(client.followup_level or 0),
+                        int(task.level or 0) + 1,
                     )
-                except Exception:
-                    pass
-            client.last_bot_reply_at = now
-            client.next_followup_at = None
-            client_update_fields = [
-                "last_bot_reply_at", "next_followup_at", "updated_at",
-            ]
-            if sales_followup:
-                client_update_fields.extend(
-                    ["followup_level", "discount_offered_percent"]
-                )
-            client.save(update_fields=client_update_fields)
+                if sales_followup and task.discount_percent:
+                    client.discount_offered_percent = max(
+                        int(client.discount_offered_percent or 0), int(task.discount_percent or 0)
+                    )
+                    if receipt_present and provider_message_id:
+                        IgConversationSignal.objects.create(
+                            client=client,
+                            message=msg,
+                            signal_type=IgConversationSignal.Type.DISCOUNT_OFFER,
+                            value=str(task.discount_percent),
+                            payload={"discount_percent": task.discount_percent},
+                        )
+                        from management.models import IgFunnelStepEvent
+                        from management.services.ig_funnel_analytics import (
+                            record_client_step_event_in_transaction,
+                        )
+
+                        record_client_step_event_in_transaction(
+                            client,
+                            event_type=IgFunnelStepEvent.Type.DISCOUNT_OFFERED,
+                            event_key=f"ig-discount-offered:{task.pk}",
+                            occurred_at=now,
+                            stage=client.stage,
+                            actor="bot_followup",
+                            evidence={
+                                "followup_task_id": task.pk,
+                                "followup_level": int(task.level or 0),
+                                "discount_percent": int(task.discount_percent or 0),
+                                "message_id": msg.pk,
+                                "provider_message_id": provider_message_id,
+                                "delivery_confirmed": True,
+                            },
+                        )
+                client.last_bot_reply_at = now
+                client.next_followup_at = None
+                client_update_fields = [
+                    "last_bot_reply_at", "next_followup_at", "updated_at",
+                ]
+                if sales_followup:
+                    client_update_fields.extend(
+                        ["followup_level", "discount_offered_percent"]
+                    )
+                client.save(update_fields=client_update_fields)
             sent += 1
             _escalate_missing_delivery(task, client)
             policy_completed = _complete_policy_after_send(task, client)

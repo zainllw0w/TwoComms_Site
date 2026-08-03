@@ -749,6 +749,24 @@ def ig_checkout_token_entry(request, token):
             proposal.status = IgCheckoutProposal.Status.VIEWED
             proposal.viewed_at = proposal.viewed_at or now
             proposal.save(update_fields=["status", "viewed_at", "updated_at"])
+            from management.models import IgClient, IgFunnelStepEvent
+            from management.services.ig_funnel_analytics import (
+                record_episode_step_event_in_transaction,
+            )
+
+            record_episode_step_event_in_transaction(
+                proposal.commercial_episode,
+                event_type=IgFunnelStepEvent.Type.PAYLINK_VIEWED,
+                event_key=f"ig-paylink-viewed:{proposal.pk}",
+                occurred_at=proposal.viewed_at,
+                stage=IgClient.Stage.CHECKOUT,
+                actor="customer",
+                evidence={
+                    "proposal_id": proposal.pk,
+                    "proposal_public_id": str(proposal.public_id),
+                    "access_token_id": access_token.pk,
+                },
+            )
     response = redirect("ig_checkout_proposal", proposal_id=proposal.public_id)
     return _private_headers(response)
 
