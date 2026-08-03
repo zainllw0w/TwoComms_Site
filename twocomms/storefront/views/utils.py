@@ -1145,6 +1145,13 @@ def _send_post_payment_events(order_pk, previous_status, pay_type):
                     )
                     _record_post_payment_channel(order.pk, "meta_purchase", "failed", error="provider_rejected")
             elif event_key:
+                # A concurrent retry may have persisted the CAPI envelope
+                # after this dispatcher loaded its snapshot. Re-read before
+                # recording the ledger so the operational event ID is never
+                # replaced by an empty fallback.
+                order.refresh_from_db()
+                payment_payload = order.payment_payload or {}
+                facebook_events = payment_payload.get('facebook_events', {})
                 _record_post_payment_channel(
                     order.pk,
                     "meta_purchase",
