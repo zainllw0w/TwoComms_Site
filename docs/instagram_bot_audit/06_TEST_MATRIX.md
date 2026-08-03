@@ -40,13 +40,15 @@
 | T33 | UI funnel branches | GREEN | W6/FSM/UI tests |
 | T34 | UI follow-up timer | GREEN | W7/policy tests |
 | T35 | Date filters/timezone | GREEN | W7 analytics tests |
-| T36 | Dashboard raw-event reconciliation | OPEN | IMP-058 |
-| T37 | Out-of-order webhook | PARTIAL | guards exist; event analytics IMP-058 |
+| T36 | Dashboard raw-event reconciliation | GREEN | production MySQL: 197 events/96 drop-offs; API raw-event reconciliation, IMP-058 |
+| T37 | Out-of-order webhook | GREEN | idempotent event keys + event-time ordering; IMP-058 regression tests |
 | T38 | Multiple open orders | PARTIAL | model support; durable commerce session IMP-087 |
 | T39 | Forwarded payment link | GREEN | paylink product/intent tests |
 | T40 | Rollback drill | PARTIAL | production contract exists; IMP-089/094 residual |
 
-**Fresh local gate for current checkpoint:** 45/45 `management.tests_ig_audit_fixes`,
-`manage.py check`, migration drift check and compileall. Full-suite baseline
+**Fresh local gate for current checkpoint:** 53 funnel/follow-up tests,
+161 analysis/inbox/intelligence tests, 103 commercial/funnel tests, 45/45
+`management.tests_ig_audit_fixes`, `manage.py check`, migration drift check and
+compileall. Production migration `0133`, backfill and raw-event reconciliation
+were executed on MariaDB. Full-suite baseline
 failures remain documented as `F-TEST-002`; they are not silently reclassified.
-

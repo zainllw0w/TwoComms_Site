@@ -15,6 +15,7 @@ Production host: `195.191.25.63`, path
 | 2026-08-03 | `afd16725` | audit source reconciliation and canonical docs | docs-only; runtime remains online |
 | 2026-08-03 | `59f5a67b` | final validation report included and deployed | docs-only; runtime remains online |
 | 2026-08-03 | `c409f7a3` | canonical checkbox plan, registers and source reconciliation; server pull, Django check, migration-drift check and restart | `running`; daemon online; `instagram_login`; no recorded error |
+| 2026-08-03 | `92d46c5a` | migration `0133`; check/migration drift/collectstatic/compress; backfill 5; silence scan 96; raw-event reconciliation | `running`; heartbeat fresh; `instagram_login`; `last_error=''` |
 
 For `6b86e103`, server `git pull --ff-only` completed, `manage.py check` returned
 no issues, `makemigrations --check --dry-run` returned `No changes detected`,
@@ -42,3 +43,13 @@ restart. The runtime evidence was queried through the current
 `state='running'`, `alive=True`, `running=True`,
 `provider_transport='instagram_login'`, database and daemon heartbeat ages
 `0.0` seconds, and `last_error=''`.
+
+For IMP-058, `origin/main` was advanced through `274c2c61`, `79882368` and
+`92d46c5a`; the server pulled `92d46c5a` fast-forward and applied
+`management.0133_ig_funnel_step_analytics` on MariaDB. Production commands
+reported `{'candidates': 5, 'created': 5, 'applied': True}` for canonical
+backfill and `{'scanned': 100, 'matched': 96, 'applied': True}` for deterministic
+silence facts. The final MySQL/API check reported 197
+`IgFunnelStepEvent` rows, 96 `IgFunnelDropOff` rows, 17 event types, and
+`status_snapshot()` returned `state='running'`, `daemon_online=True`, a fresh
+heartbeat and empty `last_error`.

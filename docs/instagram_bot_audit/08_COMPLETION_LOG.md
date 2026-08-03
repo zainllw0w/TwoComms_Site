@@ -15,5 +15,6 @@ proof. Branch-only work is listed in `12_SOURCE_RECONCILIATION.md`, not here.
 | IMP-057 | `d0098d0b`, `65bbde3e` | objection lifecycle and documentation |
 | Current reliability slice | `6b86e103` | delivery marker rollback, tagged-send boundary, Gemini pooled cooldown |
 | IMP-099 | `66acb900`, `2f1efa4b` | Cyrillic sizes, TTN deadline/stage advance, transcript-bound media, fast-return payer |
+| IMP-058 | `274c2c61`, `79882368`, `92d46c5a` | Durable event-time funnel analytics, classified drop-offs, 17 event types, MySQL backfill/scan proof |
 
 The current canonical status is the checkbox list in `07_IMPLEMENTATION_PLAN.md`.

@@ -1689,10 +1689,10 @@
 | F-OBJ-003 | `Objection.TRUST/DELIVERY/OTHER` — мёртвые choices | P2 | FIXED (`IMP-057`) | high |
 | F-OBJ-004 | Исходное возражение теряется при `no_buy` и при ресете воронки | P1 | FIXED (`IMP-057`) | high |
 | F-OBJ-005 | Возражение — событие, а не жизненный цикл: нет состояния и метода | P1 | FIXED (`IMP-057`) | high |
-| **F-STAT-001** | Статистика считает срез состояний, а не переходы | **P0** | CONFIRMED | high |
-| F-STAT-002 | Период режется по `last_message_at` → суммы по дням неаддитивны | P1 | CONFIRMED | high |
-| F-STAT-003 | `ORDER_CREATED`/`DONE` не пишутся в БД → правый конец воронки недостижим | P1 | CONFIRMED | high |
-| F-STAT-004 | «Молча пропал» не отличается от «явно отказался» — нет события отвала | P1 | CONFIRMED | high |
+| **F-STAT-001** | Статистика считает срез состояний, а не переходы | **P0** | FIXED/VERIFIED (`IMP-058`, `92d46c5a`) | high |
+| F-STAT-002 | Период режется по `last_message_at` → суммы по дням неаддитивны | P1 | FIXED/VERIFIED (`IMP-058`, `92d46c5a`) | high |
+| F-STAT-003 | `ORDER_CREATED`/`DONE` не пишутся в БД → правый конец воронки недостижим | P1 | FIXED/VERIFIED (`IMP-058`, `92d46c5a`) | high |
+| F-STAT-004 | «Молча пропал» не отличается от «явно отказался» — нет события отвала | P1 | FIXED/VERIFIED (`IMP-058`, `92d46c5a`) | high |
 | F-CTX-001 | Промпт до ~56 000 символов на любое сообщение, включая «привіт» | P1 | CONFIRMED | high |
 | **F-CTX-002** | `tags_for_client` безусловно добавляет `sales` → механизм «скидки клиенту с обменом» | **P1** | CONFIRMED | high |
 | F-CTX-003 | Протокол оплаты существует в двух редакциях с расхождением по `[ITEM]` | P1 | CONFIRMED | high |
@@ -1778,7 +1778,17 @@ winback оплативших.
 - **Зависимость, которую важно назвать:** починка F-STATE-004 —
   **предусловие** честной статистики падений, а не отдельная задача.
 - `ig_checkout.py:633` (переход в `CHECKOUT` — «клиент пошёл платить»)
-  не оставляет следа вообще: ни `set_stage`, ни события.
+  не оставлял следа вообще: ни `set_stage`, ни события.
+
+**Статус после IMP-058: FIXED/VERIFIED.** В production `origin/main` на SHA
+`92d46c5a` применена миграция `0133_ig_funnel_step_analytics`. Состояния больше
+не являются источником cohort-метрики: `IgFunnelStepEvent` и
+`IgFunnelDropOff` append-only, event-time API использует `occurred_at`, а
+`ORDER_CREATED`, `TTN_CREATED`, `DELIVERED`, payment, objection, discount,
+manager и recovery факты имеют идемпотентные ключи. MySQL reconciliation после
+backfill/scan: 197 events, 96 drop-offs; API возвращает 17 event types. Тесты:
+53 funnel/follow-up, 161 analysis/inbox/intelligence и 103
+commercial/funnel; production `check`, migration drift и compileall без ошибок.
 
 ## F-CTX-002 (P1): найден точный механизм «скидки клиенту с обменом»
 
