@@ -7,9 +7,9 @@ fix. It does not claim that the open implementation backlog is complete.
 
 ## Local evidence
 
-- `main` and `origin/main`: `afd16725` (docs checkpoint; runtime code remains `6b86e103`).
+- `main` and `origin/main`: `59f5a67b` (final docs checkpoint; runtime code remains `6b86e103`).
 - Unrelated Custom Print and asset WIP remains unstaged and uncommitted.
-- Required audit artifacts `00`–`12` are present after documentation commit `afd16725`.
+- Required audit artifacts `00`–`12` are present after documentation commit `59f5a67b`.
 - `07_IMPLEMENTATION_PLAN.md` is the only task-status authority; `02` is the
   120-item audit coverage authority.
 
@@ -24,7 +24,7 @@ fix. It does not claim that the open implementation backlog is complete.
 
 ## Production evidence
 
-Server HEAD is `afd16725f10a07b18406767061c016eb4e0aaefd`, daemon settings report
+Server HEAD is `59f5a67ba7a4e0b89881141aadd966411832c7ca`, daemon settings report
 `enabled=True`, runtime transport `instagram_login`, fresh heartbeat, and empty
 `last_error` after restart. Full command and timestamp history are in
 `09_DEPLOYMENT_LOG.md`.

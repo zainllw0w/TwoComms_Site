@@ -13,6 +13,7 @@ Production host: `195.191.25.63`, path
 | 2026-08-03 | `65bbde3e` | IMP-057 docs checkpoint | heartbeat observed |
 | 2026-08-03 | `6b86e103` | check, migration drift, compileall, 45 IG tests | `enabled=True`, `transport=instagram_login`, `last_error=''` |
 | 2026-08-03 | `afd16725` | audit source reconciliation and canonical docs | docs-only; runtime remains online |
+| 2026-08-03 | `59f5a67b` | final validation report included and deployed | docs-only; runtime remains online |
 
 For `6b86e103`, server `git pull --ff-only` completed, `manage.py check` returned
 no issues, `makemigrations --check --dry-run` returned `No changes detected`,
@@ -26,3 +27,6 @@ production DB proof after the pull: `enabled=True`, `transport=instagram_login`,
 heartbeat age about 1 second, `last_error=''`. The production user cannot create
 the Django test database (`1044 Access denied`), so the focused test command was
 not executed on the live DB; the 45/45 result remains the prior isolated gate.
+
+The final validation report commit `59f5a67b` was then pulled with `--ff-only`;
+server HEAD was verified as `59f5a67ba7a4e0b89881141aadd966411832c7ca`.
