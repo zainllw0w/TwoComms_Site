@@ -12,13 +12,14 @@ import requests
 import json
 import logging
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta
 from django.conf import settings
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import close_old_connections, transaction
-from django.db.models import Q
+from django.db.models import F, Q
 from .models import Order
 from .telegram_notifications import TelegramNotifier
 
@@ -43,18 +44,34 @@ class NovaPoshtaService:
 
     API_URL = "https://api.novaposhta.ua/v2.0/json/"
 
-    # Коды статусов Nova Poshta (StatusCode)
-    STATUS_ACCEPTED = 1  # Прийнято
-    STATUS_SENT = 2  # Відправлено
-    STATUS_ARRIVED_CITY = 3  # Прибуло в місто
-    STATUS_ARRIVED_WAREHOUSE = 4  # Прибуло в відділення
-    STATUS_RECEIVED_OLD = 5  # Отримано (старый формат)
-    STATUS_REFUSED = 6  # Відмова
-    STATUS_SENT_ALT = 7  # Відправлено (альтернативный)
-    STATUS_UNKNOWN = 8  # Невідомо
-    STATUS_RECEIVED = 9  # Отримано одержувачем (ОСНОВНОЙ КОД ДЛЯ ПОЛУЧЕНИЯ)
-    STATUS_RETURNED = 10  # Повернено відправнику
-    STATUS_REFUSED_ALT = 11  # Відмова (альтернативный)
+    # Коды StatusCode из актуального контракта Nova Poshta. Нельзя сравнивать
+    # их численно: 101 -- промежуточное движение, а 10/11 -- этапы успешного
+    # получения с денежным переводом.
+    STATUS_READY_TO_SEND = 1
+    STATUS_DELETED = 2
+    STATUS_NOT_FOUND = 3
+    STATUS_ACCEPTED = 4
+    STATUS_SENT = 5
+    STATUS_ARRIVED_CITY = 6
+    STATUS_ARRIVED_WAREHOUSE = 7
+    STATUS_ARRIVED_POSTOMAT = 8
+    STATUS_RECEIVED = 9
+    STATUS_MONEY_TRANSFER_SENT = 10
+    STATUS_MONEY_TRANSFER_RECEIVED = 11
+    STATUS_RECEIVED_OLD = STATUS_RECEIVED
+    STATUS_SENT_ALT = STATUS_SENT
+    STATUS_UNKNOWN = 999
+    STATUS_RETURNED = 102
+    STATUS_REFUSED = 103
+    STATUS_REFUSED_ALT = STATUS_REFUSED
+
+    DELIVERY_SUCCESS_CODES = frozenset({9, 10, 11})
+    TERMINAL_FAILURE_CODES = frozenset({2, 103, 105, 118, 130, 155})
+    WAITING_CHECK_CODES = frozenset({7, 8, 99, 102, 104, 106, 110, 111, 112, 113, 114, 115, 116, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149})
+    TRACKING_BATCH_SIZE = 100
+    TRACKING_MAX_AGE = timedelta(days=90)
+    ACTIVE_CHECK_INTERVAL = timedelta(minutes=5)
+    WAITING_CHECK_INTERVAL = timedelta(minutes=15)
 
     # Настройки повторных запросов
     MAX_RETRIES = 3
@@ -263,6 +280,105 @@ class NovaPoshtaService:
         )
         return None
 
+    @staticmethod
+    def _tracking_key(number):
+        return "".join(ch for ch in str(number or "").strip() if ch.isalnum()).casefold()
+
+    @staticmethod
+    def _provider_event_datetime(item):
+        raw = item.get("DateLastMovementStatus") or item.get("DateLastMovement")
+        if not raw:
+            return None
+        parsed = parse_datetime(str(raw).replace("Z", "+00:00"))
+        if parsed is not None:
+            return parsed
+        for fmt in ("%d.%m.%Y %H:%M:%S", "%d.%m.%Y %H:%M"):
+            try:
+                return timezone.make_aware(datetime.strptime(str(raw), fmt))
+            except (TypeError, ValueError):
+                continue
+        return None
+
+    def get_tracking_info_batch(self, documents):
+        """Fetch at most 100 tracking documents and index them by TTN."""
+        documents = [
+            {
+                "DocumentNumber": str(item.get("DocumentNumber") or "").strip(),
+                "Phone": str(item.get("Phone") or "").strip(),
+            }
+            for item in (documents or [])
+            if str(item.get("DocumentNumber") or "").strip()
+        ]
+        if not documents:
+            return {}
+        if len(documents) > self.TRACKING_BATCH_SIZE:
+            raise NovaPoshtaAPIError("Nova Poshta tracking batch cannot contain more than 100 documents")
+        requested_keys = {self._tracking_key(item["DocumentNumber"]) for item in documents}
+        if not self.api_key:
+            raise NovaPoshtaAPIError("NOVA_POSHTA_API_KEY not configured")
+        if not self._check_rate_limit():
+            raise NovaPoshtaAPIError("Nova Poshta tracking rate limit exceeded")
+
+        payload = {
+            "apiKey": self.api_key,
+            "modelName": "TrackingDocument",
+            "calledMethod": "getStatusDocuments",
+            "methodProperties": {"Documents": documents},
+        }
+        session = getattr(self, "_tracking_session", None)
+        owned_session = session is None
+        session = session or requests.Session()
+        last_error = None
+        try:
+            for attempt in range(self.MAX_RETRIES):
+                try:
+                    response = session.post(self.api_url, json=payload, timeout=self.REQUEST_TIMEOUT)
+                    response.raise_for_status()
+                    data = response.json()
+                    errors = [str(item).strip() for item in data.get("errors") or [] if str(item).strip()]
+                    if errors:
+                        raise NovaPoshtaAPIError("; ".join(errors))
+                    if not data.get("success"):
+                        raise NovaPoshtaAPIError("Nova Poshta tracking returned success=false")
+                    raw_items = data.get("data") or []
+                    if isinstance(raw_items, dict):
+                        raw_items = [raw_items]
+                    if not isinstance(raw_items, list):
+                        raise NovaPoshtaAPIError("Nova Poshta tracking returned invalid data")
+
+                    indexed = {}
+                    for item in raw_items:
+                        if not isinstance(item, dict):
+                            continue
+                        key = self._tracking_key(item.get("Number") or item.get("DocumentNumber"))
+                        if not key or key not in requested_keys:
+                            continue
+                        previous = indexed.get(key)
+                        if previous is None:
+                            indexed[key] = item
+                            continue
+                        previous_at = self._provider_event_datetime(previous)
+                        current_at = self._provider_event_datetime(item)
+                        if current_at is not None and (previous_at is None or current_at >= previous_at):
+                            indexed[key] = item
+                    return indexed
+                except NovaPoshtaAPIError:
+                    raise
+                except (requests.exceptions.Timeout, requests.exceptions.RequestException, ValueError) as exc:
+                    last_error = exc
+                    logger.warning(
+                        "Nova Poshta tracking batch attempt %s/%s failed: %s",
+                        attempt + 1,
+                        self.MAX_RETRIES,
+                        exc,
+                    )
+                    if attempt < self.MAX_RETRIES - 1:
+                        time.sleep(self.RETRY_DELAY * (attempt + 1))
+            raise NovaPoshtaAPIError("Nova Poshta tracking request failed") from last_error
+        finally:
+            if owned_session:
+                session.close()
+
     # Длина поля Order.shipment_status (CharField). Текст длиннее усекается,
     # чтобы не падало сохранение и не ломалось сравнение статусов.
     SHIPMENT_STATUS_MAX_LENGTH = 100
@@ -288,7 +404,7 @@ class NovaPoshtaService:
         is localized and can describe a storage/payment note while the parcel
         is still in transit, so it must never trigger a delivered hook.
         """
-        return status_code == self.STATUS_RECEIVED
+        return status_code in self.DELIVERY_SUCCESS_CODES
 
     def update_order_tracking_status(self, order):
         """
@@ -309,8 +425,6 @@ class NovaPoshtaService:
         Returns:
             bool: True если что-то изменилось/отправлено, False если нет
         """
-        self._last_tracking_update_error = False
-
         if not order.tracking_number:
             logger.debug(f"Order {order.order_number}: no tracking number")
             return False
@@ -326,7 +440,14 @@ class NovaPoshtaService:
             logger.warning(f"Failed to get tracking info for order {order.order_number}")
             return False
 
-        # Извлекаем данные из ответа API
+        return self._apply_tracking_info_to_order(order, tracking_info)
+
+    def _apply_tracking_info_to_order(self, order, tracking_info):
+        """Apply one provider result; external notifications stay outside DB locks."""
+        self._last_tracking_update_error = False
+        if not tracking_info:
+            return False
+
         status = (tracking_info.get('Status', '') or '').strip()
         status_description = (tracking_info.get('StatusDescription', '') or '').strip()
         status_code = self._normalize_status_code(
@@ -345,7 +466,12 @@ class NovaPoshtaService:
         try:
             close_old_connections()
             decision = self._apply_tracking_update(
-                order.pk, status, status_description, status_code, full_status
+                order.pk,
+                status,
+                status_description,
+                status_code,
+                full_status,
+                provider_event_at=self._provider_event_datetime(tracking_info),
             )
         except ObjectDoesNotExist:
             logger.warning(f"Order pk={order.pk} disappeared during tracking update")
@@ -383,6 +509,12 @@ class NovaPoshtaService:
         order.payment_status = fresh.payment_status
         order.shipment_status = fresh.shipment_status
         order.shipment_status_updated = fresh.shipment_status_updated
+        order.tracking_status_code = fresh.tracking_status_code
+        order.tracking_checked_at = fresh.tracking_checked_at
+        order.tracking_provider_event_at = fresh.tracking_provider_event_at
+        order.tracking_next_check_at = fresh.tracking_next_check_at
+        order.tracking_failure_count = fresh.tracking_failure_count
+        order.tracking_terminal_at = fresh.tracking_terminal_at
         order.payment_payload = fresh.payment_payload
 
         if delivered_status and order.status == 'done':
@@ -439,7 +571,16 @@ class NovaPoshtaService:
                 getattr(order, "pk", None),
             )
 
-    def _apply_tracking_update(self, order_pk, status, status_description, status_code, full_status):
+    def _apply_tracking_update(
+        self,
+        order_pk,
+        status,
+        status_description,
+        status_code,
+        full_status,
+        *,
+        provider_event_at=None,
+    ):
         """
         Атомарно (с row-lock) применяет изменение статуса к заказу.
 
@@ -474,6 +615,31 @@ class NovaPoshtaService:
                 should_notify = text_changed
 
             update_fields = []
+
+            now = timezone.now()
+            is_terminal = status_code in self.DELIVERY_SUCCESS_CODES or status_code in self.TERMINAL_FAILURE_CODES
+            next_check_at = None if is_terminal else now + (
+                self.WAITING_CHECK_INTERVAL
+                if status_code in self.WAITING_CHECK_CODES
+                else self.ACTIVE_CHECK_INTERVAL
+            )
+            order.tracking_status_code = status_code
+            order.tracking_checked_at = now
+            order.tracking_provider_event_at = provider_event_at
+            order.tracking_next_check_at = next_check_at
+            order.tracking_failure_count = 0
+            if is_terminal and order.tracking_terminal_at is None:
+                order.tracking_terminal_at = now
+            elif not is_terminal:
+                order.tracking_terminal_at = None
+            update_fields += [
+                'tracking_status_code',
+                'tracking_checked_at',
+                'tracking_provider_event_at',
+                'tracking_next_check_at',
+                'tracking_failure_count',
+                'tracking_terminal_at',
+            ]
 
             if text_changed:
                 order.shipment_status = full_status
@@ -949,6 +1115,7 @@ class NovaPoshtaService:
         """Return the single source of truth for scheduled tracking polls."""
         from storefront.models import UserAction
 
+        now = timezone.now()
         purchase_order_ids = UserAction.objects.filter(
             action_type='purchase',
             order_id__isnull=False,
@@ -959,6 +1126,11 @@ class NovaPoshtaService:
             tracking_number=''
         ).exclude(
             status='cancelled'
+        ).filter(
+            created__gte=now - self.TRACKING_MAX_AGE
+        ).filter(
+            Q(tracking_terminal_at__isnull=True)
+            & (Q(tracking_next_check_at__isnull=True) | Q(tracking_next_check_at__lte=now))
         )
         done_order = Q(status='done')
         done_received = done_order & Q(shipment_status__icontains='отримано')
@@ -984,7 +1156,7 @@ class NovaPoshtaService:
             & ~explicit_free
             & trusted_retry
         )
-        return base_orders.filter(~done_order | retry_missing_purchase)
+        return base_orders.filter(~done_order | retry_missing_purchase).order_by('created', 'pk')[:1000]
 
     def update_all_tracking_statuses(self):
         """
@@ -1006,43 +1178,72 @@ class NovaPoshtaService:
         orders_with_ttn = self.get_orders_with_tracking_queryset()
 
         close_old_connections()
-        order_ids = list(orders_with_ttn.values_list('pk', flat=True))
-
-        total_orders = len(order_ids)
+        order_rows = list(
+            orders_with_ttn.values('pk', 'order_number', 'tracking_number', 'phone')
+        )
+        total_orders = len(order_rows)
         updated_count = 0
         error_count = 0
         processed_count = 0
 
         logger.info(f"Found {total_orders} orders with TTN to process")
 
-        for order_pk in order_ids:
-            processed_count += 1
-            close_old_connections()
-            try:
-                order = Order.objects.get(pk=order_pk)
-                logger.debug(
-                    f"Processing order {order.order_number} "
-                    f"({processed_count}/{total_orders})"
-                )
+        self._tracking_session = requests.Session()
+        try:
+            for offset in range(0, total_orders, self.TRACKING_BATCH_SIZE):
+                batch_rows = order_rows[offset:offset + self.TRACKING_BATCH_SIZE]
+                documents = [
+                    {
+                        'DocumentNumber': row['tracking_number'],
+                        'Phone': row.get('phone') or '',
+                    }
+                    for row in batch_rows
+                ]
+                try:
+                    if len(documents) == 1:
+                        single = self.get_tracking_info(
+                            documents[0]['DocumentNumber'],
+                            phone=documents[0]['Phone'],
+                        )
+                        tracking_by_number = {
+                            self._tracking_key(documents[0]['DocumentNumber']): single
+                        } if single else {}
+                    else:
+                        tracking_by_number = self.get_tracking_info_batch(documents)
+                except Exception as exc:
+                    error_count += len(batch_rows)
+                    processed_count += len(batch_rows)
+                    logger.exception("Nova Poshta tracking batch failed (%s rows): %s", len(batch_rows), exc)
+                    self._defer_tracking_rows([row['pk'] for row in batch_rows])
+                    continue
 
-                if self.update_order_tracking_status(order):
-                    updated_count += 1
-                    logger.info(
-                        f"✓ Order {order.order_number} updated "
-                        f"({updated_count} updated so far)"
-                    )
-                if getattr(self, '_last_tracking_update_error', False):
-                    error_count += 1
-
-            except ObjectDoesNotExist:
-                logger.warning(f"Order pk={order_pk} disappeared before tracking update")
-            except Exception as e:
-                error_count += 1
-                logger.exception(
-                    f"✗ Error updating order pk={order_pk}: {e}"
-                )
-            finally:
-                close_old_connections()
+                for row in batch_rows:
+                    processed_count += 1
+                    close_old_connections()
+                    try:
+                        order = Order.objects.get(pk=row['pk'])
+                        key = self._tracking_key(row['tracking_number'])
+                        tracking_info = tracking_by_number.get(key)
+                        if not tracking_info:
+                            error_count += 1
+                            self._defer_tracking_rows([order.pk])
+                            logger.warning("Nova Poshta returned no result for TTN %s", row['tracking_number'])
+                            continue
+                        if self._apply_tracking_info_to_order(order, tracking_info):
+                            updated_count += 1
+                        if getattr(self, '_last_tracking_update_error', False):
+                            error_count += 1
+                    except ObjectDoesNotExist:
+                        logger.warning(f"Order pk={row['pk']} disappeared before tracking update")
+                    except Exception as exc:
+                        error_count += 1
+                        logger.exception("Error updating order pk=%s: %s", row['pk'], exc)
+                    finally:
+                        close_old_connections()
+        finally:
+            session = self._tracking_session
+            self._tracking_session = None
+            session.close()
 
         result = {
             'total_orders': total_orders,
@@ -1056,10 +1257,21 @@ class NovaPoshtaService:
             f"{updated_count}/{total_orders} updated, {error_count} errors"
         )
 
-        # Сохраняем время последнего обновления в кеш
-        cache.set(self.LAST_UPDATE_CACHE_KEY, timezone.now(), timeout=None)
+        if error_count == 0:
+            cache.set(self.LAST_UPDATE_CACHE_KEY, timezone.now(), timeout=None)
+        else:
+            logger.error("Nova Poshta tracking heartbeat not updated because the batch had %s error(s)", error_count)
 
         return result
+
+    def _defer_tracking_rows(self, order_pks):
+        """Back off a failed/partial batch without changing the last known status."""
+        now = timezone.now()
+        Order.objects.filter(pk__in=list(order_pks)).update(
+            tracking_failure_count=F('tracking_failure_count') + 1,
+            tracking_checked_at=now,
+            tracking_next_check_at=now + self.ACTIVE_CHECK_INTERVAL,
+        )
 
     @staticmethod
     def get_last_update_time():

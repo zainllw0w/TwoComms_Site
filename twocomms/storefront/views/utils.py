@@ -808,6 +808,12 @@ def _sync_instagram_lifecycle_channel(order_pk):
             .first()
         )
         if event is None:
+            _record_post_payment_channel(
+                order_pk,
+                "instagram_lifecycle",
+                state="skipped",
+                error="no_instagram_lifecycle_event",
+            )
             return
         state_map = {
             IgLifecycleEvent.State.SENT: "sent",
@@ -1059,6 +1065,7 @@ def _send_post_payment_events(order_pk, previous_status, pay_type):
             "sent": "sent",
             "failed": "failed",
             "leased": "pending",
+            "already_sent": "sent",
         }.get(telegram_result, "unknown"),
         error="telegram_delivery_failed" if telegram_result == "failed" else "",
     )
@@ -1107,9 +1114,11 @@ def _send_post_payment_events(order_pk, previous_status, pay_type):
                     'purchase_event_time',
                     int(timezone.now().timestamp()),
                 )
+                payment_payload['facebook_events'] = facebook_events
+                order.payment_payload = payment_payload
+                order.save(update_fields=['payment_payload'])
                 event_success = send_event(order)
                 if event_success:
-                    payment_payload['facebook_events'] = facebook_events
                     facebook_events[event_key] = True
                     facebook_events[f'{event_key}_at'] = timezone.now().isoformat()
                     order.payment_payload = payment_payload
@@ -1122,7 +1131,13 @@ def _send_post_payment_events(order_pk, previous_status, pay_type):
                         order.pk,
                         "meta_purchase",
                         "sent",
-                        metadata={"event_id": facebook_events.get("purchase_event_id", "")},
+                        metadata={
+                            "event_id": (
+                                ((order.payment_payload or {}).get("fb_conversions_api") or {}).get("event_id")
+                                or facebook_events.get("purchase_event_id", "")
+                                or order.get_purchase_event_id()
+                            )
+                        },
                     )
                 else:
                     monobank_logger.warning(
@@ -1130,7 +1145,19 @@ def _send_post_payment_events(order_pk, previous_status, pay_type):
                     )
                     _record_post_payment_channel(order.pk, "meta_purchase", "failed", error="provider_rejected")
             elif event_key:
-                _record_post_payment_channel(order.pk, "meta_purchase", "sent", metadata={"already_sent": True})
+                _record_post_payment_channel(
+                    order.pk,
+                    "meta_purchase",
+                    "sent",
+                    metadata={
+                        "already_sent": True,
+                        "event_id": (
+                            ((payment_payload.get("fb_conversions_api") or {}).get("event_id"))
+                            or facebook_events.get("purchase_event_id", "")
+                            or order.get_purchase_event_id()
+                        ),
+                    },
+                )
         else:
             _record_post_payment_channel(order.pk, "meta_purchase", "disabled", error="capi_disabled")
             monobank_logger.warning(f'⚠️ Facebook Conversions API not enabled, skipping event')

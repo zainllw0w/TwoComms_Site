@@ -2,6 +2,7 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
+from django.utils import timezone
 from django.urls import reverse
 
 from orders.models import Order, OrderItem
@@ -100,6 +101,8 @@ class TelegramOrderStatusActionTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "data-tg-waybill-form-state")
+        self.assertContains(response, 'aria-live="assertive"')
+        self.assertContains(response, 'role="alert"')
         self.assertNotContains(
             response,
             "const stateHost = document.querySelector('.tg-waybill-hero');",
@@ -282,9 +285,10 @@ class TelegramOrderStatusActionTests(TestCase):
         self.assertEqual(order.tracking_number, "20450012349999")
 
     @patch("storefront.views.order_actions.telegram_notifier.update_order_notification_message", return_value=True)
+    @patch("orders.nova_poshta_service.NovaPoshtaService")
     @patch("storefront.views.order_actions.NovaPoshtaDocumentService")
     @patch("orders.signals._safe_queue_notification")
-    def test_guest_order_can_create_nova_poshta_waybill(self, _queue_mock, service_cls, update_message_mock):
+    def test_guest_order_can_create_nova_poshta_waybill(self, _queue_mock, service_cls, tracking_service_cls, update_message_mock):
         order = self._create_order(
             user=None,
             pay_type="prepay_200",
@@ -341,10 +345,12 @@ class TelegramOrderStatusActionTests(TestCase):
             ),
             "warnings": [],
         }
+        tracking_service_cls.return_value.update_order_tracking_status.return_value = False
 
-        response = self.client.post(
-            reverse("telegram_order_np_waybill_action", args=[order.pk, TELEGRAM_CREATE_NP_WAYBILL_ACTION]),
-            data={
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                reverse("telegram_order_np_waybill_action", args=[order.pk, TELEGRAM_CREATE_NP_WAYBILL_ACTION]),
+                data={
                 "token": token,
                 "recipient_full_name": "Тестовий клієнт",
                 "recipient_phone": "+380991112233",
@@ -368,9 +374,9 @@ class TelegramOrderStatusActionTests(TestCase):
                 "cod_amount": "1099.00",
                 "payer_type": "Recipient",
                 "payment_method": "Cash",
-            },
-            secure=True,
-        )
+                },
+                secure=True,
+            )
 
         self.assertEqual(response.status_code, 200)
         order.refresh_from_db()
@@ -383,6 +389,7 @@ class TelegramOrderStatusActionTests(TestCase):
         self.assertEqual(order.np_city_ref, "recipient-city-ref")
         self.assertEqual(order.np_warehouse_ref, "recipient-warehouse-ref")
         update_message_mock.assert_called_once()
+        tracking_service_cls.return_value.update_order_tracking_status.assert_called_once()
         self.assertContains(response, "ТТН 20451234123456 створено")
 
     @patch("storefront.views.order_actions.telegram_notifier.update_order_notification_message", return_value=True)
@@ -395,6 +402,12 @@ class TelegramOrderStatusActionTests(TestCase):
             nova_poshta_document_ref="00000000-0000-0000-0000-000000000001",
             nova_poshta_recipient_ref="recipient-ref-1",
             nova_poshta_recipient_contact_ref="recipient-contact-ref-1",
+            tracking_status_code=9,
+            tracking_checked_at=timezone.now(),
+            tracking_provider_event_at=timezone.now(),
+            tracking_next_check_at=timezone.now(),
+            tracking_failure_count=3,
+            tracking_terminal_at=timezone.now(),
         )
         token = build_order_action_token(
             order.pk,
@@ -423,6 +436,12 @@ class TelegramOrderStatusActionTests(TestCase):
         self.assertIsNone(order.nova_poshta_document_ref)
         self.assertIsNone(order.nova_poshta_recipient_ref)
         self.assertIsNone(order.nova_poshta_recipient_contact_ref)
+        self.assertIsNone(order.tracking_status_code)
+        self.assertIsNone(order.tracking_checked_at)
+        self.assertIsNone(order.tracking_provider_event_at)
+        self.assertIsNone(order.tracking_next_check_at)
+        self.assertEqual(order.tracking_failure_count, 0)
+        self.assertIsNone(order.tracking_terminal_at)
         update_message_mock.assert_called_once()
         self.assertContains(response, "ТТН 20451234123456 видалено")
 

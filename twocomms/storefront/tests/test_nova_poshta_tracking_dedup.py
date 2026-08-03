@@ -8,9 +8,10 @@
 только при смене именно StatusCode.
 """
 from decimal import Decimal
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from django.test import TestCase, override_settings
+from django.utils import timezone
 
 from orders.models import Order
 from orders.nova_poshta_service import NovaPoshtaService
@@ -23,6 +24,20 @@ def _tracking(status, code, description=""):
         "Status": status,
         "StatusCode": code,
         "StatusDescription": description,
+    }
+
+
+def _order_kwargs(number):
+    return {
+        "order_number": number,
+        "full_name": "Тест Клієнт",
+        "phone": "+380991112233",
+        "city": "Київ",
+        "np_office": "Відділення №4",
+        "total_sum": Decimal("1499.00"),
+        "status": "ship",
+        "payment_status": "unpaid",
+        "tracking_number": number,
     }
 
 
@@ -98,6 +113,106 @@ class NovaPoshtaTrackingDedupTests(TestCase):
         )
         self.assertEqual(status_notif.call_count, 0)
         self.assertEqual(delivery_notif.call_count, 0)
+
+    def test_codes_9_10_11_are_terminal_delivery_successes(self):
+        for index, code in enumerate((9, 10, 11), start=1):
+            with self.subTest(code=code):
+                order = self.order if code == 9 else Order.objects.create(
+                    **_order_kwargs(f"204512341234{index + 5:02d}")
+                )
+                with (
+                    patch.object(self.service, "get_tracking_info", return_value=_tracking("Отримано", code)),
+                    patch.object(self.service, "_send_admin_delivery_notification"),
+                    patch.object(self.service, "_send_delivery_notification"),
+                    patch.object(self.service, "_send_facebook_purchase_event"),
+                    patch.object(self.service, "_send_tiktok_purchase_event"),
+                ):
+                    self.service.update_order_tracking_status(order)
+                order.refresh_from_db()
+                self.assertEqual(order.status, "done")
+                self.assertEqual(order.tracking_status_code, code)
+
+    def test_terminal_failure_is_not_polled_again(self):
+        self.order.tracking_status_code = 103
+        self.order.tracking_terminal_at = timezone.now()
+        self.order.save(update_fields=["tracking_status_code", "tracking_terminal_at"])
+
+        with patch.object(self.service, "get_tracking_info") as get_tracking:
+            result = self.service.update_all_tracking_statuses()
+
+        self.assertEqual(result["processed"], 0)
+        get_tracking.assert_not_called()
+
+    def test_batch_tracking_splits_101_orders_into_100_and_one(self):
+        for index in range(2, 102):
+            Order.objects.create(**_order_kwargs(f"2045123412{index:04d}"))
+
+        numbers = list(Order.objects.filter(tracking_number__isnull=False).values_list("tracking_number", flat=True))
+        calls = []
+
+        def batch(documents):
+            calls.append([item["DocumentNumber"] for item in documents])
+            return {
+                number: _tracking("Відправлено", 5)
+                for number in calls[-1]
+            }
+
+        with (
+            patch.object(self.service, "get_tracking_info_batch", side_effect=batch),
+            patch.object(self.service, "get_tracking_info", return_value=_tracking("Відправлено", 5)) as single,
+            patch.object(self.service, "_send_status_notification"),
+        ):
+            result = self.service.update_all_tracking_statuses()
+
+        self.assertEqual(result["processed"], 101)
+        self.assertEqual([len(call) for call in calls], [100])
+        self.assertEqual(single.call_count, 1)
+        self.assertEqual(len({number for call in calls for number in call}) + single.call_count, 101)
+
+    def test_failed_batch_counts_rows_as_processed_and_increments_failures(self):
+        self.order.tracking_failure_count = 2
+        self.order.save(update_fields=["tracking_failure_count"])
+
+        with patch.object(
+            self.service,
+            "get_tracking_info_batch",
+            side_effect=RuntimeError("provider unavailable"),
+        ):
+            result = self.service.update_all_tracking_statuses()
+
+        self.assertEqual(result["processed"], 1)
+        self.assertEqual(result["errors"], 1)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.tracking_failure_count, 3)
+
+    def test_batch_response_is_matched_by_number_and_keeps_latest_duplicate(self):
+        response = Mock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {
+            "success": True,
+            "data": [
+                {"Number": "20451234999999", "StatusCode": 5, "DateLastMovementStatus": "2026-08-03 10:00:00"},
+                {"Number": "20451234123456", "StatusCode": 4, "DateLastMovementStatus": "2026-08-03 09:00:00"},
+                {"Number": "20451234123456", "StatusCode": 7, "DateLastMovementStatus": "2026-08-03 11:00:00"},
+                {"Number": "99999999999999", "StatusCode": 9},
+            ],
+        }
+        session = Mock()
+        session.post.return_value = response
+
+        with patch("orders.nova_poshta_service.requests.Session", return_value=session):
+            result = self.service.get_tracking_info_batch(
+                [
+                    {"DocumentNumber": "20451234 123456"},
+                    {"DocumentNumber": "20451234999999"},
+                    {"DocumentNumber": "20451234000000"},
+                ]
+            )
+
+        self.assertEqual(result["20451234123456"]["StatusCode"], 7)
+        self.assertEqual(result["20451234999999"]["StatusCode"], 5)
+        self.assertNotIn("20451234000000", result)
+        self.assertNotIn("99999999999999", result)
 
     def test_delivery_lifecycle_is_emitted_before_telegram_failure(self):
         with (

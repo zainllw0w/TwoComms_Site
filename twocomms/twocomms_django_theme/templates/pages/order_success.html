@@ -1902,14 +1902,10 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
     
-    // Проверяем sessionStorage и флаги с сервера
+    // SessionStorage защищает обычный reload; CAPI и Pixel используют один
+    // deterministic event_id, поэтому Meta дедуплицирует повтор из нового браузера.
     var purchaseStorageKey = 'gtm_purchase_' + orderId;
-    var serverPurchaseSent = el.dataset.facebookPurchaseSent === 'true';
-    
-    if (serverPurchaseSent) {
-      sessionStorage.setItem(purchaseStorageKey, 'true');
-    }
-    var purchaseAlreadySent = serverPurchaseSent || sessionStorage.getItem(purchaseStorageKey);
+    var purchaseAlreadySent = sessionStorage.getItem(purchaseStorageKey);
     
     if (purchaseAlreadySent) {
       console.log('GTM Purchase already sent for order:', orderId, 'status:', paymentStatus);
