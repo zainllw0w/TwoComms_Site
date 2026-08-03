@@ -1733,7 +1733,7 @@
 - **Правильное поведение:** такая задача должна быть `PENDING` + `MANAGER_TASK`
   с пометкой дедлайна, то есть видимой работой, а не мёртвой записью.
 
-## F-FUP-004 (P0): оплаченный клиент без данных НП недостижим
+## F-FUP-004 (P0, VERIFIED 2026-08-03): оплаченный клиент без данных НП был недостижим
 
 - `_client_allows_followup` → `already_converted` при подтверждённой оплате
   (`:112-118`). Для продаж верно, для фулфилмента катастрофа: деньги приняты,
@@ -1741,6 +1741,10 @@
 - `collect_np_and_fulfill` (`bot_orders.py:207`) работает только реактивно.
 - **Решение:** отдельный `Kind.FULFILLMENT`, не подавляемый этим правилом.
   Оплата — не причина молчать, а причина писать быстрее.
+- **Закрытие:** `efc0ee10` добавил G1/G2/G3, отдельные guards и idempotent
+  эскалацию; `management.0130` применена на production. SHA `4ba4212d`:
+  MySQL, daemon `running`, `last_error` пуст. На текущих данных нет оплаченных
+  сделок без доставки, поэтому pending fulfillment = 0.
 
 ## F-FUP-008: ситуации без follow-up вообще
 
@@ -3686,8 +3690,9 @@ enum-полей и так добавляются циклом выше. Явна
   (не чаще одного автоматического касания за 18 часов) и окно Meta. Небезопасный
   шаг становится видимой `MANAGER_TASK` с уже подготовленным локализованным
   текстом, а не исчезает.
-- **Честная граница:** F-FUP-004 остаётся открытой до IMP-055 — значения
-  `kind="fulfillment"` сейчас fail-safe превращаются в `MANAGER_TASK`.
+- **Закрытая граница:** F-FUP-004 закрыта IMP-055 (`efc0ee10`):
+  `kind="fulfillment"` теперь сохраняется как отдельный customer-facing kind,
+  а G3 дополнительно создаёт idempotent `IgBotNotification` менеджеру.
   F-FUP-009 и event-часть F-FUP-008 остаются открытыми до IMP-056:
   `invoice_expired`, `restock` и `ttn` ещё требуют событийного layer и
   двухфазного claim.
@@ -3730,3 +3735,35 @@ enum-полей и так добавляются циклом выше. Явна
   ограниченный lifecycle/attempt ledger, expiry и идемпотентный alert.
 - **Задача:** IMP-089. На production в момент проверки superseded ID нет, поэтому
   это подтверждённая code-path дыра, а не текущий клиентский инцидент.
+
+---
+
+## F-TEST-002 (P1, OPEN): полный management-suite не является детерминированным deploy gate
+
+- **Evidence:** полный прогон на `efc0ee10` дал 10 failures и 13 errors, но
+  повтор соответствующих тестов на чистом `origin/main` воспроизвёл те же
+  failures. Десять template errors зависят от cwd; два conversation-analysis
+  теста падают только после полного suite и проходят отдельно, то есть
+  глобальное состояние загрязняется между модулями.
+- **Риск:** новый агент либо принимает настоящую регрессию за baseline, либо
+  объявляет все ошибки «предсуществующими». Число зелёных тестов не является
+  надёжным gate без стабильного списка и одинакового окружения.
+- **Задача:** IMP-094. Нужен детерминированный обязательный пакет, устранение
+  cwd/global-state зависимостей и отдельный MariaDB-run для DB-контрактов.
+
+## F-TEST-003 (P1, VERIFIED 2026-08-03): SQLite пропустил overflow `failure_kind`, MariaDB остановила deploy
+
+- **Evidence:** rollback production-contract сначала был устаревшим: создавал
+  `media.delivery_status="sending"` и не фиксировал payment-candidate digest,
+  поэтому современный callback корректно не выполнял edit. После исправления
+  fixture реальная MariaDB упала с `Data too long for column 'failure_kind'`.
+- **Корень:** callback записывал `payment_review_confirmed_telegram` (33 символа)
+  в `IgBotNotification.failure_kind` / MySQL `varchar(32)`. SQLite локально
+  сохранил строку и 44 смежных теста не увидели нарушение.
+- **Исправление:** `7c8c0434` обновил no-network fixture до доставленных media и
+  стабильного amount digest; `4ba4212d` использует
+  `payment_review_confirmed_tg` и закрепляет длину тестом относительно
+  `field.max_length`.
+- **Production proof:** rollback-fixtures contract полностью прошёл на
+  `qlknpodo_MySQL_DB`, не оставил строк и не вызвал реальный Telegram/Meta;
+  maintenance lease снят, daemon восстановлен.
