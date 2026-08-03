@@ -663,3 +663,54 @@ class FollowupPolicyIntegrationTests(TestCase):
         self.assertEqual(first.pk, second.pk)
         self.assertEqual(first.level, 1)
         self.assertEqual(first.event_key, "restock:event:41:m:1")
+
+    def test_invoice_expiry_continuation_preserves_absolute_t72_offset(self):
+        from management.services.bot_followups import _schedule_next_policy_step
+
+        deal = IgDeal.objects.create(
+            client=self.client_record,
+            status=IgDeal.Status.AWAITING_PAYMENT,
+        )
+        event = IgFollowUpTask.objects.create(
+            client=self.client_record,
+            deal=deal,
+            due_at=self.now,
+            sent_at=self.now,
+            status=IgFollowUpTask.Status.SENT,
+            kind=IgFollowUpTask.Kind.PAYMENT,
+            reason="payment_link_unpaid",
+            level=3,
+            event_key=f"invoice_expired:{deal.pk}:absolute-offset",
+        )
+
+        self.assertTrue(
+            _schedule_next_policy_step(event, self.client_record, now=self.now)
+        )
+        final = IgFollowUpTask.objects.get(
+            client=self.client_record,
+            status=IgFollowUpTask.Status.PENDING,
+            level=4,
+        )
+        self.assertEqual(final.due_at, self.now + timedelta(hours=48))
+
+    def test_restock_confirmation_is_terminal_and_does_not_schedule_no_restock_copy(self):
+        from management.services.bot_followups import (
+            _complete_policy_after_send,
+            _schedule_next_policy_step,
+        )
+
+        event = IgFollowUpTask.objects.create(
+            client=self.client_record,
+            due_at=self.now,
+            sent_at=self.now,
+            status=IgFollowUpTask.Status.SENT,
+            kind=IgFollowUpTask.Kind.QUALIFICATION,
+            reason="restock_wait",
+            level=1,
+            event_key="restock:terminal-event",
+        )
+
+        self.assertTrue(_complete_policy_after_send(event, self.client_record))
+        self.assertFalse(
+            _schedule_next_policy_step(event, self.client_record, now=self.now)
+        )

@@ -9,7 +9,7 @@ from decimal import Decimal, InvalidOperation
 from zoneinfo import ZoneInfo
 
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
 from django.utils import timezone
 
 from management.models import (
@@ -938,6 +938,8 @@ def _schedule_next_policy_step(
     if resolved is None:
         return False
     policy, current = resolved
+    if current.trigger == "event" and current.condition in policy.terminal_conditions:
+        return False
     target_policy = policy
     next_step = next(
         (
@@ -955,6 +957,10 @@ def _schedule_next_policy_step(
     if next_step is None:
         return False
     current_offset = current.offset or timedelta(0)
+    if current.trigger == "event" and current.condition == "invoice_expired":
+        # A4 is observed at the 24-hour invoice TTL. A5 is T+72h from link
+        # issue, therefore it belongs 48h after the expiry event, not 72h.
+        current_offset = timedelta(hours=24)
     delay = max(next_step.offset - current_offset, timedelta(0))
     if (
         _persisted_step_kind(next_step) in SALES_FREQUENCY_LIMITED_KINDS
@@ -990,6 +996,8 @@ def _complete_policy_after_send(task: IgFollowUpTask, client: IgClient) -> bool:
     if resolved is None:
         return False
     policy, step = resolved
+    if step.trigger == "event" and step.condition in policy.terminal_conditions:
+        return True
     if step.index != policy.steps[-1].index:
         return False
     if policy.next_scenario:
@@ -1534,11 +1542,25 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
     )
     # Event steps have no timer of their own. Materialize expired links before
     # selecting the due queue so a daemon restart cannot lose the A4 touch.
+    materialized_expiry_deals = IgFollowUpTask.objects.filter(
+        deal_id=OuterRef("pk"),
+        reason="payment_link_unpaid",
+        level=3,
+        event_key__isnull=False,
+    )
     expired_deals = list(
         IgDeal.objects.filter(
             invoice_expires_at__isnull=False,
             invoice_expires_at__lte=now,
-        ).exclude(status__in={IgDeal.Status.PAID, IgDeal.Status.ORDER_CREATED, IgDeal.Status.CANCELLED})[:limit]
+        ).exclude(
+            status__in={
+                IgDeal.Status.PAID,
+                IgDeal.Status.ORDER_CREATED,
+                IgDeal.Status.CANCELLED,
+            }
+        ).annotate(
+            expiry_event_exists=Exists(materialized_expiry_deals),
+        ).filter(expiry_event_exists=False)[:limit]
     )
     for deal in expired_deals:
         materialize_invoice_expired(deal, now=now)
