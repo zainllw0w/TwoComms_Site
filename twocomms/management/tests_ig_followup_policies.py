@@ -7,9 +7,11 @@ from zoneinfo import ZoneInfo
 from django.test import TestCase
 
 from management.models import (
+    IgBotNotification,
     IgClient,
     IgDeal,
     IgFollowUpTask,
+    IgPaymentProjection,
     InstagramBotSettings,
 )
 
@@ -18,6 +20,22 @@ KYIV = ZoneInfo("Europe/Kyiv")
 
 
 class FollowupPolicyTableTests(TestCase):
+    def test_paid_delivery_steps_use_a_dedicated_fulfillment_kind(self):
+        from management.services.bot_followups import (
+            FOLLOWUP_POLICIES,
+            _persisted_step_kind,
+        )
+
+        kind_values = {value for value, _label in IgFollowUpTask.Kind.choices}
+        self.assertIn("fulfillment", kind_values)
+        self.assertEqual(
+            [
+                _persisted_step_kind(step)
+                for step in FOLLOWUP_POLICIES["paid_missing_delivery"].steps
+            ],
+            ["fulfillment", "fulfillment", "fulfillment"],
+        )
+
     def test_all_nine_designed_scenarios_have_explicit_steps_and_terminals(self):
         from management.services.bot_followups import FOLLOWUP_POLICIES
 
@@ -220,6 +238,171 @@ class FollowupPolicyIntegrationTests(TestCase):
         self.client_record.language = "uk"
         self.client_record.save(
             update_fields=["last_message_at", "language", "updated_at"]
+        )
+
+    def _paid_missing_delivery_deal(self):
+        deal = IgDeal.objects.create(
+            client=self.client_record,
+            status=IgDeal.Status.PAID,
+            payment_status="paid",
+            paid_at=self.now,
+        )
+        IgPaymentProjection.objects.create(
+            client=self.client_record,
+            deal=deal,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+            gross_amount="1090.00",
+            paid_at=self.now,
+        )
+        return deal
+
+    def test_fulfillment_guard_allows_verified_buyer_but_sales_followup_does_not(self):
+        from management.services.bot_followups import _client_allows_followup
+
+        deal = self._paid_missing_delivery_deal()
+
+        allowed, reason = _client_allows_followup(
+            self.client_record,
+            deal=deal,
+            kind="fulfillment",
+        )
+        sales_allowed, sales_reason = _client_allows_followup(
+            self.client_record,
+            deal=deal,
+            kind=IgFollowUpTask.Kind.PAYMENT,
+        )
+
+        self.assertTrue(allowed, reason)
+        self.assertFalse(sales_allowed)
+        self.assertEqual(sales_reason, "already_converted")
+
+    def test_fulfillment_bypasses_sales_frequency_limit(self):
+        from management.services.bot_followups import _client_allows_followup
+
+        deal = self._paid_missing_delivery_deal()
+        IgFollowUpTask.objects.create(
+            client=self.client_record,
+            due_at=self.now - timedelta(hours=1),
+            sent_at=self.now - timedelta(hours=1),
+            status=IgFollowUpTask.Status.SENT,
+            kind=IgFollowUpTask.Kind.QUALIFICATION,
+        )
+
+        allowed, reason = _client_allows_followup(
+            self.client_record,
+            deal=deal,
+            kind="fulfillment",
+        )
+
+        self.assertTrue(allowed, reason)
+
+    @patch("management.services.instagram_bot.send_text", return_value=(True, "", ""))
+    def test_fulfillment_g1_schedules_g2_without_mutating_sales_counters(self, _send_text):
+        from management.services.bot_followups import process_due_followups
+
+        deal = self._paid_missing_delivery_deal()
+        self.client_record.followup_level = 4
+        self.client_record.discount_offered_percent = 5
+        self.client_record.save(
+            update_fields=["followup_level", "discount_offered_percent", "updated_at"]
+        )
+        first = IgFollowUpTask.objects.create(
+            client=self.client_record,
+            deal=deal,
+            due_at=self.now,
+            status=IgFollowUpTask.Status.PENDING,
+            kind="fulfillment",
+            reason="paid_missing_delivery",
+            level=0,
+            meta_window_deadline=self.now + timedelta(hours=23),
+        )
+
+        self.assertEqual(
+            process_due_followups(self.settings, now=self.now, limit=1),
+            1,
+        )
+
+        first.refresh_from_db()
+        self.client_record.refresh_from_db()
+        second = IgFollowUpTask.objects.get(
+            client=self.client_record,
+            status=IgFollowUpTask.Status.PENDING,
+            reason="paid_missing_delivery",
+            level=1,
+        )
+        self.assertEqual(first.status, IgFollowUpTask.Status.SENT)
+        self.assertEqual(second.kind, "fulfillment")
+        self.assertEqual(second.due_at, self.now + timedelta(hours=2, minutes=40))
+        self.assertEqual(self.client_record.followup_level, 4)
+        self.assertEqual(self.client_record.discount_offered_percent, 5)
+
+    @patch("management.services.instagram_bot.send_text")
+    def test_fulfillment_is_skipped_when_delivery_becomes_complete(self, send_text):
+        from management.services.bot_followups import process_due_followups
+
+        deal = self._paid_missing_delivery_deal()
+        task = IgFollowUpTask.objects.create(
+            client=self.client_record,
+            deal=deal,
+            due_at=self.now,
+            status=IgFollowUpTask.Status.PENDING,
+            kind="fulfillment",
+            reason="paid_missing_delivery",
+            level=1,
+            meta_window_deadline=self.now + timedelta(hours=23),
+        )
+        deal.np_full_name = "Олена Тест"
+        deal.np_phone = "+380500000000"
+        deal.np_city = "Київ"
+        deal.np_office = "1"
+        deal.save(
+            update_fields=["np_full_name", "np_phone", "np_city", "np_office", "updated_at"]
+        )
+
+        self.assertEqual(
+            process_due_followups(self.settings, now=self.now, limit=1),
+            0,
+        )
+
+        task.refresh_from_db()
+        self.assertEqual(task.status, IgFollowUpTask.Status.SKIPPED)
+        self.assertEqual(task.skip_reason, "policy_condition_changed")
+        send_text.assert_not_called()
+
+    @patch("management.services.instagram_bot._deliver_manager_notification", return_value=True)
+    @patch("management.services.instagram_bot.send_text", return_value=(True, "", ""))
+    def test_fulfillment_g3_persists_idempotent_manager_escalation(
+        self,
+        _send_text,
+        _deliver_notification,
+    ):
+        from management.services.bot_followups import process_due_followups
+
+        deal = self._paid_missing_delivery_deal()
+        IgFollowUpTask.objects.create(
+            client=self.client_record,
+            deal=deal,
+            due_at=self.now,
+            status=IgFollowUpTask.Status.PENDING,
+            kind="fulfillment",
+            reason="paid_missing_delivery",
+            level=2,
+            meta_window_deadline=self.now + timedelta(hours=23),
+        )
+
+        self.assertEqual(
+            process_due_followups(self.settings, now=self.now, limit=1),
+            1,
+        )
+
+        notification = IgBotNotification.objects.get(
+            dedupe_key=f"fulfillment_missing_delivery:{deal.pk}:g3"
+        )
+        self.assertEqual(notification.event_type, "fulfillment_missing_delivery")
+        self.assertEqual(notification.client_id, self.client_record.pk)
+        self.assertIn(
+            f"/bot/?client={self.client_record.pk}",
+            str(notification.payload.get("text") or ""),
         )
 
     def test_schedule_after_reply_selects_payment_policy_from_deal_truth(self):

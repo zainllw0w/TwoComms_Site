@@ -132,6 +132,11 @@ def fulfill_if_ready(deal, created_by=None) -> bool:
         _queue_delivery_validation_review(deal, reason)
         return False
     order = create_order_from_deal(deal, created_by=created_by)
+    from management.services.bot_followups import (
+        cancel_pending_fulfillment_for_deal,
+    )
+
+    cancel_pending_fulfillment_for_deal(deal, reason="order_created")
     try:
         paid_amount = _confirmed_payment_amount(deal)
         notify_manager(
@@ -234,6 +239,9 @@ def on_deal_paid(deal) -> None:
     if deal_has_np_data(deal):
         fulfill_if_ready(deal)
     else:
+        from management.services.bot_followups import schedule_fulfillment_followup
+
+        schedule_fulfillment_followup(deal)
         try:
             paid_amount = _confirmed_payment_amount(deal)
             notify_manager(

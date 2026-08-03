@@ -273,6 +273,85 @@ class OnDealPaidTests(TestCase):
         self.assertIsNone(d.order_id)
         self.assertTrue(mock_notify.called)
 
+    @patch("management.services.bot_orders.notify_manager")
+    def test_on_paid_without_np_schedules_fulfillment_g1(self, _notify):
+        from management.models import IgFollowUpTask
+
+        _client, deal = _paid_deal("p2-followup", with_np=False)
+
+        bot_orders.on_deal_paid(deal)
+
+        task = IgFollowUpTask.objects.get(deal=deal)
+        self.assertEqual(task.kind, "fulfillment")
+        self.assertEqual(task.reason, "paid_missing_delivery")
+        self.assertEqual(task.level, 0)
+
+    @patch("management.services.bot_orders.notify_manager")
+    def test_duplicate_paid_signal_does_not_postpone_fulfillment_g1(self, _notify):
+        from management.models import IgFollowUpTask
+
+        _client, deal = _paid_deal("p2-followup-idempotent", with_np=False)
+
+        bot_orders.on_deal_paid(deal)
+        first = IgFollowUpTask.objects.get(deal=deal)
+        first_due_at = first.due_at
+        bot_orders.on_deal_paid(deal)
+
+        self.assertEqual(IgFollowUpTask.objects.filter(deal=deal).count(), 1)
+        first.refresh_from_db()
+        self.assertEqual(first.status, IgFollowUpTask.Status.PENDING)
+        self.assertEqual(first.due_at, first_due_at)
+
+    @patch("management.services.bot_orders.notify_manager")
+    def test_order_creation_cancels_pending_fulfillment_without_touching_sales_level(
+        self,
+        _notify,
+    ):
+        from management.models import IgFollowUpTask
+
+        client, deal = _paid_deal("p1-cancel-followup", with_np=True)
+        client.followup_level = 3
+        client.discount_offered_percent = 5
+        client.save(
+            update_fields=["followup_level", "discount_offered_percent", "updated_at"]
+        )
+        task = IgFollowUpTask.objects.create(
+            client=client,
+            deal=deal,
+            due_at=timezone.now(),
+            kind="fulfillment",
+            reason="paid_missing_delivery",
+        )
+
+        bot_orders.on_deal_paid(deal)
+
+        task.refresh_from_db()
+        client.refresh_from_db()
+        self.assertEqual(task.status, IgFollowUpTask.Status.CANCELLED)
+        self.assertEqual(task.skip_reason, "order_created")
+        self.assertEqual(client.followup_level, 3)
+        self.assertEqual(client.discount_offered_percent, 5)
+
+    @patch("management.services.bot_orders.notify_manager")
+    def test_order_creation_cancels_meta_window_fulfillment_handoff(self, _notify):
+        from management.models import IgFollowUpTask
+
+        client, deal = _paid_deal("p1-cancel-handoff", with_np=True)
+        task = IgFollowUpTask.objects.create(
+            client=client,
+            deal=deal,
+            due_at=timezone.now(),
+            kind=IgFollowUpTask.Kind.MANAGER_TASK,
+            reason="paid_missing_delivery",
+            skip_reason="meta_window_closed",
+        )
+
+        bot_orders.on_deal_paid(deal)
+
+        task.refresh_from_db()
+        self.assertEqual(task.status, IgFollowUpTask.Status.CANCELLED)
+        self.assertEqual(task.skip_reason, "order_created")
+
 
 class CreateDealAndLinkTests(TestCase):
     def test_default_prompt_and_seeded_playbook_never_quote_fixed_client_prepayment(self):

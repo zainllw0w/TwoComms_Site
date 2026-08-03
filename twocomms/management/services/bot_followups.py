@@ -154,9 +154,9 @@ FOLLOWUP_POLICIES: dict[str, FollowupPolicy] = {
     "paid_missing_delivery": FollowupPolicy(
         scenario="paid_missing_delivery",
         steps=(
-            _policy_step(0, timedelta(minutes=20), "time", "fulfillment", "paid_delivery_missing", "delivery_g1"),
-            _policy_step(1, timedelta(hours=3), "time", "fulfillment", "paid_delivery_missing", "delivery_g2"),
-            _policy_step(2, timedelta(hours=20), "time", "fulfillment", "paid_delivery_missing", "delivery_g3"),
+            _policy_step(0, timedelta(minutes=20), "time", IgFollowUpTask.Kind.FULFILLMENT, "paid_delivery_missing", "delivery_g1"),
+            _policy_step(1, timedelta(hours=3), "time", IgFollowUpTask.Kind.FULFILLMENT, "paid_delivery_missing", "delivery_g2"),
+            _policy_step(2, timedelta(hours=20), "time", IgFollowUpTask.Kind.FULFILLMENT, "paid_delivery_missing", "delivery_g3"),
         ),
         terminal_conditions=("delivery_complete", "order_created", "manager_takeover"),
         exhausted_reason="paid_delivery_missing",
@@ -410,6 +410,32 @@ def cancel_pending_for_deal(deal: IgDeal, *, reason: str = "") -> int:
     return count
 
 
+def cancel_pending_fulfillment_for_deal(
+    deal: IgDeal,
+    *,
+    reason: str = "",
+) -> int:
+    if not deal:
+        return 0
+    count = IgFollowUpTask.objects.filter(
+        deal=deal,
+        status=IgFollowUpTask.Status.PENDING,
+    ).filter(
+        Q(kind=IgFollowUpTask.Kind.FULFILLMENT)
+        | Q(
+            kind=IgFollowUpTask.Kind.MANAGER_TASK,
+            reason="paid_missing_delivery",
+        )
+    ).update(
+        status=IgFollowUpTask.Status.CANCELLED,
+        skip_reason=(reason or "fulfillment_complete")[:255],
+        updated_at=_now(),
+    )
+    if count and deal.client_id:
+        _update_client_next(deal.client)
+    return count
+
+
 def _has_open_service_conversation(client: IgClient) -> bool:
     """Whether this conversation is currently about service, not about buying.
 
@@ -450,6 +476,11 @@ CUSTOMER_FACING_KINDS = (
     IgFollowUpTask.Kind.THINKING,
     IgFollowUpTask.Kind.RESCUE,
     IgFollowUpTask.Kind.FINAL,
+    IgFollowUpTask.Kind.FULFILLMENT,
+)
+SALES_FREQUENCY_LIMITED_KINDS = tuple(
+    kind for kind in CUSTOMER_FACING_KINDS
+    if kind != IgFollowUpTask.Kind.FULFILLMENT
 )
 # Стадии, на которых добивать нечего или нельзя.
 SUPPRESSED_STAGES = {
@@ -489,7 +520,7 @@ def _frequency_limit_reason(client: IgClient, *, now: datetime | None = None) ->
     sent = IgFollowUpTask.objects.filter(
         client=client,
         status=IgFollowUpTask.Status.SENT,
-        kind__in=CUSTOMER_FACING_KINDS,
+        kind__in=SALES_FREQUENCY_LIMITED_KINDS,
         sent_at__isnull=False,
     )
     recent_cutoff = now - timedelta(hours=MIN_HOURS_BETWEEN_AUTOMATED_TOUCHES)
@@ -501,7 +532,13 @@ def _frequency_limit_reason(client: IgClient, *, now: datetime | None = None) ->
     return ""
 
 
-def _client_allows_followup(client: IgClient, *, deal: IgDeal | None = None) -> tuple[bool, str]:
+def _client_allows_followup(
+    client: IgClient,
+    *,
+    deal: IgDeal | None = None,
+    kind: str | None = None,
+) -> tuple[bool, str]:
+    is_fulfillment = kind == IgFollowUpTask.Kind.FULFILLMENT
     if client.hidden_at:
         return False, "hidden"
     if client.is_blocked or client.stage == IgClient.Stage.SPAM:
@@ -523,18 +560,22 @@ def _client_allows_followup(client: IgClient, *, deal: IgDeal | None = None) -> 
     interaction_reason = _suppressed_interaction(client)
     if interaction_reason:
         return False, interaction_reason
-    frequency_reason = _frequency_limit_reason(client)
-    if frequency_reason:
-        return False, frequency_reason
+    if not is_fulfillment:
+        frequency_reason = _frequency_limit_reason(client)
+        if frequency_reason:
+            return False, frequency_reason
     if deal is not None:
-        if verified_payment_deals(IgDeal.objects.filter(pk=deal.pk)).exists():
+        if (
+            not is_fulfillment
+            and verified_payment_deals(IgDeal.objects.filter(pk=deal.pk)).exists()
+        ):
             return False, "already_converted"
         projection = getattr(deal, "payment_projection", None)
         truth = projection.truth if projection else deal.payment_truth
         if truth in TERMINAL_NEGATIVE_PAYMENT_TRUTHS:
             return False, "payment_reversed"
     else:
-        if client_has_confirmed_purchase(client):
+        if not is_fulfillment and client_has_confirmed_purchase(client):
             return False, "already_converted"
         if client_has_terminal_negative_payment(client):
             return False, "payment_reversed"
@@ -727,7 +768,12 @@ def _policy_condition_holds(
             return False
         return _payment_link_status_for_deal(deal, now=_now()) == "expired"
     if condition == "paid_delivery_missing":
-        return _deal_is_paid(deal) and not _delivery_details_complete(deal)
+        return bool(
+            deal
+            and not deal.order_id
+            and _deal_is_paid(deal)
+            and not _delivery_details_complete(deal)
+        )
     if condition == "delivery_ready_unpaid":
         return _delivery_details_complete(deal) and not _deal_is_paid(deal)
     if condition == "first_reply_unanswered":
@@ -831,7 +877,7 @@ def _schedule_next_policy_step(
     current_offset = current.offset or timedelta(0)
     delay = max(next_step.offset - current_offset, timedelta(0))
     if (
-        _persisted_step_kind(next_step) in CUSTOMER_FACING_KINDS
+        _persisted_step_kind(next_step) in SALES_FREQUENCY_LIMITED_KINDS
         and delay < timedelta(hours=MIN_HOURS_BETWEEN_AUTOMATED_TOUCHES)
     ):
         delay = timedelta(hours=MIN_HOURS_BETWEEN_AUTOMATED_TOUCHES)
@@ -914,12 +960,15 @@ def schedule_rescue_offer(client: IgClient, *, explicit_negotiation: bool = Fals
         IgClient.Stage.PAYMENT_PENDING,
     }:
         return None
-    allowed, _why = _client_allows_followup(client)
+    rescue_kind = (
+        IgFollowUpTask.Kind.RESCUE if pct == 5 else IgFollowUpTask.Kind.FINAL
+    )
+    allowed, _why = _client_allows_followup(client, kind=rescue_kind)
     if not allowed:
         return None
     return schedule_followup(
         client,
-        kind=IgFollowUpTask.Kind.RESCUE if pct == 5 else IgFollowUpTask.Kind.FINAL,
+        kind=rescue_kind,
         delay=timedelta(hours=12),
         reason="discount_rescue",
         now=now,
@@ -931,7 +980,11 @@ def schedule_rescue_offer(client: IgClient, *, explicit_negotiation: bool = Fals
 def schedule_payment_followup(deal: IgDeal, *, now: datetime | None = None) -> IgFollowUpTask | None:
     if not deal or not deal.client_id:
         return None
-    allowed, _why = _client_allows_followup(deal.client, deal=deal)
+    allowed, _why = _client_allows_followup(
+        deal.client,
+        deal=deal,
+        kind=IgFollowUpTask.Kind.PAYMENT,
+    )
     if not allowed:
         return None
     return schedule_policy_followup(
@@ -951,7 +1004,10 @@ def schedule_after_bot_reply(client: IgClient, *, reply: str = "", control: dict
     if not client:
         return None
     scenario = resolve_followup_scenario(client, deal=deal)
-    allowed, why = _client_allows_followup(client, deal=deal)
+    policy = FOLLOWUP_POLICIES.get(scenario)
+    first_step = policy.steps[0] if policy and policy.steps else None
+    kind = _persisted_step_kind(first_step) if first_step else None
+    allowed, why = _client_allows_followup(client, deal=deal, kind=kind)
     if not allowed:
         cancel_pending(client, reason=why)
         return None
@@ -978,6 +1034,39 @@ def schedule_after_bot_reply(client: IgClient, *, reply: str = "", control: dict
     return schedule_policy_followup(
         client,
         scenario,
+        now=now,
+        deal=deal,
+    )
+
+
+def schedule_fulfillment_followup(
+    deal: IgDeal,
+    *,
+    now: datetime | None = None,
+) -> IgFollowUpTask | None:
+    if not deal or not deal.client_id:
+        return None
+    existing = IgFollowUpTask.objects.filter(
+        deal=deal,
+        status=IgFollowUpTask.Status.PENDING,
+        reason="paid_missing_delivery",
+        level=0,
+    ).filter(
+        Q(kind=IgFollowUpTask.Kind.FULFILLMENT)
+        | Q(kind=IgFollowUpTask.Kind.MANAGER_TASK)
+    ).order_by("id").first()
+    if existing is not None:
+        return existing
+    allowed, _why = _client_allows_followup(
+        deal.client,
+        deal=deal,
+        kind=IgFollowUpTask.Kind.FULFILLMENT,
+    )
+    if not allowed:
+        return None
+    return schedule_policy_followup(
+        deal.client,
+        "paid_missing_delivery",
         now=now,
         deal=deal,
     )
@@ -1206,6 +1295,45 @@ def _mark_skipped(task: IgFollowUpTask, reason: str) -> None:
     _update_client_next(task.client)
 
 
+def _escalate_missing_delivery(task: IgFollowUpTask, client: IgClient) -> bool:
+    if not (
+        task.kind == IgFollowUpTask.Kind.FULFILLMENT
+        and task.reason == "paid_missing_delivery"
+        and int(task.level or 0) == 2
+        and task.deal_id
+    ):
+        return False
+    from management.services.ig_alerts import client_admin_url, format_alert
+    from management.services.instagram_bot import notify_manager
+
+    deal = task.deal
+    missing = [
+        label
+        for label, value in (
+            ("ПІБ", deal.np_full_name),
+            ("телефон", deal.np_phone),
+            ("місто", deal.np_city),
+            ("відділення", deal.np_office),
+        )
+        if not str(value or "").strip()
+    ]
+    text = format_alert(
+        "IG: оплачено, але дані доставки не зібрані за 20 годин",
+        lines=(
+            f"Угода #{deal.pk}",
+            f"Бракує: {', '.join(missing) or 'перевірки даних'}",
+        ),
+        url=client_admin_url(client.pk),
+        url_label="Відкрити клієнта:",
+    )
+    return notify_manager(
+        text,
+        dedupe_key=f"fulfillment_missing_delivery:{deal.pk}:g3",
+        event_type="fulfillment_missing_delivery",
+        client=client,
+    )
+
+
 def _claim_due_followup(
     task_id: int, *, now: datetime, automation
 ) -> tuple[IgFollowUpTask, IgClient, str] | None:
@@ -1239,7 +1367,9 @@ def _claim_due_followup(
                 status=IgFollowUpTask.Status.PENDING,
             ).first()
             allowed, why = _client_allows_followup(
-                fresh_client, deal=stale_task.deal if stale_task else None
+                fresh_client,
+                deal=stale_task.deal if stale_task else None,
+                kind=stale_task.kind if stale_task else None,
             )
             if not allowed:
                 if stale_task:
@@ -1258,7 +1388,11 @@ def _claim_due_followup(
         automation.release_client_automation_lease(client.id, lease_token)
         return None
     task.client = client
-    allowed, why = _client_allows_followup(client, deal=task.deal)
+    allowed, why = _client_allows_followup(
+        client,
+        deal=task.deal,
+        kind=task.kind,
+    )
     if not allowed:
         _mark_skipped(task, why)
         automation.release_client_automation_lease(client.id, lease_token)
@@ -1284,7 +1418,11 @@ def _renew_due_followup_claim(
     if not task:
         return None
     task.client = client
-    allowed, why = _client_allows_followup(client, deal=task.deal)
+    allowed, why = _client_allows_followup(
+        client,
+        deal=task.deal,
+        kind=task.kind,
+    )
     if not allowed:
         _mark_skipped(task, why)
         return None
@@ -1405,8 +1543,13 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
             task.save(update_fields=[
                 "status", "sent_at", "sent_message", "next_attempt_at", "last_error", "updated_at",
             ])
-            client.followup_level = max(int(client.followup_level or 0), int(task.level or 0) + 1)
-            if task.discount_percent:
+            sales_followup = task.kind != IgFollowUpTask.Kind.FULFILLMENT
+            if sales_followup:
+                client.followup_level = max(
+                    int(client.followup_level or 0),
+                    int(task.level or 0) + 1,
+                )
+            if sales_followup and task.discount_percent:
                 client.discount_offered_percent = max(
                     int(client.discount_offered_percent or 0), int(task.discount_percent or 0)
                 )
@@ -1422,11 +1565,16 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
                     pass
             client.last_bot_reply_at = now
             client.next_followup_at = None
-            client.save(update_fields=[
-                "followup_level", "discount_offered_percent", "last_bot_reply_at",
-                "next_followup_at", "updated_at",
-            ])
+            client_update_fields = [
+                "last_bot_reply_at", "next_followup_at", "updated_at",
+            ]
+            if sales_followup:
+                client_update_fields.extend(
+                    ["followup_level", "discount_offered_percent"]
+                )
+            client.save(update_fields=client_update_fields)
             sent += 1
+            _escalate_missing_delivery(task, client)
             policy_completed = _complete_policy_after_send(task, client)
             policy_scheduled = False
             if not policy_completed:

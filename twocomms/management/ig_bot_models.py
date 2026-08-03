@@ -3083,6 +3083,7 @@ class IgFollowUpTask(models.Model):
         THINKING = "thinking", _("Клієнт думає")
         RESCUE = "rescue", _("Rescue offer")
         FINAL = "final", _("Фінальний офер")
+        FULFILLMENT = "fulfillment", _("Дані для виконання замовлення")
         MANAGER_TASK = "manager_task", _("Завдання менеджеру")
 
     client = models.ForeignKey(

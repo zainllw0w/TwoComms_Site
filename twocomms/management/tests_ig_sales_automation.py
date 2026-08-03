@@ -507,7 +507,21 @@ class FollowUpPolicyTests(TestCase):
             deal, "success",
             payload={"status": "success", "amount": 90000, "finalAmount": 90000},
         )
-        self.assertFalse(IgFollowUpTask.objects.filter(client=client, status="pending").exists())
+        self.assertFalse(
+            IgFollowUpTask.objects.filter(
+                client=client,
+                kind=IgFollowUpTask.Kind.PAYMENT,
+                status=IgFollowUpTask.Status.PENDING,
+            ).exists()
+        )
+        fulfillment = IgFollowUpTask.objects.get(
+            client=client,
+            deal=deal,
+            kind=IgFollowUpTask.Kind.FULFILLMENT,
+            status=IgFollowUpTask.Status.PENDING,
+        )
+        self.assertEqual(fulfillment.reason, "paid_missing_delivery")
+        self.assertEqual(fulfillment.level, 0)
 
     def test_previous_paid_order_does_not_block_new_deal_payment_followup(self):
         from management.models import IgFollowUpTask, IgPaymentProjection
