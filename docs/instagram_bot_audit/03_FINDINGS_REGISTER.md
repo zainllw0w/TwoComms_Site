@@ -352,12 +352,13 @@
 | **F-PAY-007** | Нет детерминированного текста «оплата получена» — его генерирует LLM | **P0** | CONFIRMED | high |
 | F-PAY-002 | Checkout-домен мёртв: нет резерва стока, TTL ссылки, share-токена | P1 | CONFIRMED | high |
 | F-PAY-003 | Ключ идемпотентности заказа привязан к эпизоду, а не к сделке | P1 | CONFIRMED | high |
-| F-PAY-004 | `poll_pending_deals` видит только `AWAITING_PAYMENT` → слепая зона backstop'а | P1 | CONFIRMED | high |
+| F-PAY-004 | `poll_pending_deals` видит только `AWAITING_PAYMENT` и опрашивает terminal truth | P1 | **FIXED `2a89d860`** | high |
 | F-PAY-005 | У платёжной ссылки нет TTL, а follow-up утверждает «посилання ще активне» | P1 | CONFIRMED | high |
 | F-PAY-006 | По пересланной ссылке может заплатить кто угодно, заказ на исходного клиента | P2 | CONFIRMED | high |
 | F-PAY-008 | Meta CAPI: `event_id` случайный вне order-пути, `meta_feedback_enabled` default False | P1 | CONFIRMED | high |
 | **F-PAY-009** | Тексты денежного контура (ссылка, ТТН, fallback) — только украинский | **P1** | CONFIRMED | high |
 | F-PAY-010 | Сумму предоплаты может подтвердить сам клиент (`seller_roles` включает `model`) | P1 | CONFIRMED | high |
+| F-PAY-014 | Backstop не опрашивает `superseded_invoice_ids`: потеря webhook оставляет заменённый платёж невидимым | P1 | CONFIRMED | high |
 | F-AI-003 | Нет atomic lease Gemini-ключа → параллельные воркеры жгут один ключ | P1 | CONFIRMED | high |
 | F-AI-004 | Backoff без jitter + синхронные круги → thundering herd на 6 ключей | P2 | CONFIRMED | high |
 | **F-AI-005** | В промпт не передаются: стадия, ownership, язык, размеры, обмены/возвраты, expiry ссылки | **P1** | CONFIRMED | high |
@@ -3694,3 +3695,38 @@ enum-полей и так добавляются циклом выше. Явна
   связанных follow-up/FSM тестов; production SHA `cd070cba`, MySQL 11.4.12,
   загружены 9 policies/25 steps, daemon `running`, transport `instagram_login`,
   heartbeat около 1 секунды. Реальных клиентских сообщений в проверке не было.
+
+---
+
+## IMP-051 — daemon payment backstop (2026-08-03)
+
+### F-PAY-004 (P1, FIXED): polling больше не зависит от одного status и не крутит terminal truth
+
+- **Production-подтверждение до фикса:** три сделки всего; один текущий invoice
+  имел `status=awaiting_payment`, но авторитетный `payment_truth=cancelled`.
+  Старый queryset опрашивал его каждые четыре минуты бесконечно. Сделок с
+  invoice в `draft/quoted` на текущем срезе не было, но эти pre-order статусы
+  включены как recovery для legacy/race drift.
+- **Исправление `2a89d860`:** общий queryset читает `IgPaymentProjection`, если
+  она существует, допускает только pre-order deal status и retryable truth,
+  исключает созданный заказ и пустой invoice. Cron и daemon вызывают один
+  `poll_pending_deals_locked`: mutex 30 минут, cadence 4 минуты, provider batch
+  не больше 50. Ошибка освобождает cadence для retry и логируется, не убивая
+  daemon. `--check-only` использует тот же queryset без сетевых вызовов.
+- **Проверка:** RED→GREEN на статусах, terminal truth, projection precedence,
+  стабильном limit, общем lock и disabled-bot path; 160/160 связанных тестов.
+  На production `provider_invoices=0`, daemon `running`, transport
+  `instagram_login`, heartbeat 0.4 с.
+
+### F-PAY-014 (P1, OPEN): superseded invoice имеет webhook recovery, но не polling recovery
+
+- **Evidence:** `invalidate_current_invoice` переносит до 20 ID в
+  `superseded_invoice_ids`; `handle_webhook_invoice` ищет такой ID и создаёт
+  manager alert. `payment_poll_candidates` и `poll_deal_status` работают только
+  с текущим `invoice_id`. Если для оплаты по старой всё ещё доступной ссылке
+  одновременно потерян webhook, backstop её не обнаружит.
+- **Почему не добавлен простой цикл по JSON:** без per-invoice terminal marker
+  демон будет опрашивать до 20 исторических ID одной сделки бесконечно. Нужен
+  ограниченный lifecycle/attempt ledger, expiry и идемпотентный alert.
+- **Задача:** IMP-089. На production в момент проверки superseded ID нет, поэтому
+  это подтверждённая code-path дыра, а не текущий клиентский инцидент.

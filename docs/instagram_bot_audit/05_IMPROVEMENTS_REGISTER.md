@@ -4,6 +4,10 @@
 > разные режимы работы, и смешивать их значит получить только дефекты.
 > Здесь то, что работает без ошибок, но может работать заметно лучше.
 > ID: `IMPR-<домен>-<NNN>`.
+>
+> Тексты «Сейчас» ниже сохранены как исходный audit snapshot. Актуальный статус
+> каждого ID находится в таблице «Каноническое покрытие всех 48 улучшений» в
+> конце файла; именно она предотвращает повторную реализацию уже закрытого.
 
 ## Главное наблюдение
 
@@ -20,9 +24,8 @@
 | `IgLifecycleEvent.PAYMENT_VERIFIED` | `ig_bot_models.py:2263` | детерминированное подтверждение оплаты |
 | `BotInstruction` (инжект в промпт) | `instagram_bot.py:3657` | FAQ без единой строки кода |
 
-**Самая большая незакрытая дыра в цепочке: клиент, который заплатил, не получает
-ничего, пока не появится ТТН.** Это одновременно и дефект (F-PAY-007), и
-улучшение с наилучшим соотношением эффект/затраты.
+**Исторически самой большой дырой была тишина после оплаты.** Она закрыта
+IMP-021; строка сохранена как обоснование приоритета, а не как текущий дефект.
 
 ---
 
@@ -523,3 +526,64 @@ F-OPS-008: один повторяющийся `bad_signature` занял 468 и
 таблицу, и сохраняет читаемость UI.
 
 **Затраты:** S. Объединить с IMP-041/IMP-059.
+
+---
+
+## Каноническое покрытие всех 48 улучшений (2026-08-03)
+
+До этой сверки реестр содержал идеи, но 36 ID не упоминались в
+`07_IMPLEMENTATION_PLAN.md`. Таблица ниже закрывает эту операционную дыру:
+`DONE` означает production, `PARTIAL` — опубликованную основу с явным остатком,
+`OPEN` — исполнимую задачу, `REFRAMED` — исходная предпосылка оказалась ложной,
+но полезная цель сохранена под правильным контрактом.
+
+| Improvement | Статус | Каноническая задача / граница |
+|---|---|---|
+| IMPR-CAT-001 | DONE | IMP-027 |
+| IMPR-CAT-002 | REFRAMED | IMP-067; настоящий учёт варианта — IMP-084/086 |
+| IMPR-CAT-003 | DONE | IMP-080 |
+| IMPR-CAT-004 | OPEN | IMP-082/084 |
+| IMPR-CAT-005 | DONE | IMP-067, catalog completeness `3191e08c` |
+| IMPR-CAT-006 | OPEN | IMP-088 |
+| IMPR-FEAT-001 | OPEN | IMP-082/083/088 |
+| IMPR-FEAT-002 | OPEN | IMP-084/086 |
+| IMPR-FEAT-003 | PARTIAL | IMP-028/053; остаток IMP-056/083 |
+| IMPR-FEAT-004 | OPEN | IMP-056/087 |
+| IMPR-FEAT-005 | PARTIAL | `IgDealItem` есть; остаток IMP-085/087/088 |
+| IMPR-FEAT-006 | PARTIAL | IMP-053; остаток IMP-056 |
+| IMPR-FEAT-007 | DONE | IMP-021 |
+| IMPR-FEAT-008 | OPEN, decision-gated | IMP-091 |
+| IMPR-FEAT-009 | PARTIAL | одношаговый flow IMP-024; двухшаговый — IMP-091 |
+| IMPR-FEAT-010 | OPEN, decision-gated | IMP-091 |
+| IMPR-FEAT-011 | OPEN, decision-gated | IMP-091 |
+| IMPR-FEAT-012 | OPEN | IMP-092 |
+| IMPR-FEAT-013 | PARTIAL | IMP-054/078; операционный остаток IMP-092 |
+| IMPR-FEAT-014 | PARTIAL | hosted checkout `c696ee9e`; остаток IMP-087/088 |
+| IMPR-FEAT-015 | PARTIAL | access token/`Kind.SHARE` есть; E2E — IMP-087/088 |
+| IMPR-FUP-013 | OPEN | IMP-090 после IMP-056 |
+| IMPR-INV-001 | OPEN | IMP-081/084/086 |
+| IMPR-MEM-001 | DONE | IMP-030 |
+| IMPR-OPS-002 | OPEN | IMP-041/059 |
+| IMPR-SALES-001 | PARTIAL | каталог размеров есть; протокол — IMP-028 |
+| IMPR-SALES-002 | PARTIAL | post-sale guard есть; prompt acceptance — IMP-028 |
+| IMPR-SALES-003 | OPEN | IMP-028/085/087 |
+| IMPR-SALES-004 | OPEN | IMP-028 |
+| IMPR-SALES-005 | PARTIAL | policy IMP-053; prompt/lifecycle — IMP-028/057 |
+| IMPR-SALES-006 | PARTIAL | policy IMP-053; выбор/событие — IMP-028/056/083 |
+| IMPR-SALES-007 | OPEN | IMP-028 |
+| IMPR-SALES-008 | PARTIAL | hard limits IMP-052/053; prompt — IMP-028 |
+| IMPR-SALES-009 | PARTIAL | ложный stock убран IMP-067; остаток IMP-028/084 |
+| IMPR-SALES-010 | OPEN | IMP-028 |
+| IMPR-SALES-011 | OPEN | IMP-028 |
+| IMPR-TXT-001 | DONE | IMP-021 |
+| IMPR-TXT-002 | DONE | IMP-022 |
+| IMPR-TXT-003 | DONE | IMP-022 |
+| IMPR-TXT-004 | DONE | IMP-024 |
+| IMPR-TXT-005 | DONE | IMP-053 |
+| IMPR-TXT-006 | OPEN | IMP-028 |
+| IMPR-UX-001 | DONE | IMP-031/035 |
+| IMPR-UX-002 | OPEN | IMP-093 |
+| IMPR-UX-003 | DONE | IMP-034 |
+| IMPR-UX-004 | PARTIAL | shipment timeline IMP-062; единый timeline — IMP-093 |
+| IMPR-UX-005 | PARTIAL | definitions IMP-040; grouping — IMP-093 |
+| IMPR-UX-006 | DONE | IMP-038 |
