@@ -9,7 +9,11 @@
 """
 from __future__ import annotations
 
+import logging
+
 from management.models import BotInstruction, IgClient
+
+logger = logging.getLogger(__name__)
 
 
 def _split_tags(raw: str) -> set[str]:
@@ -70,6 +74,12 @@ def tags_for_client(client: IgClient | None) -> set[str]:
         # instruction block, not on the tag we intended to remove.
         for tag in ("sales", "discount", "price"):
             tags.discard(tag)
+    try:
+        from management.services.ig_objections import objection_tags_for_client
+
+        tags.update(objection_tags_for_client(client))
+    except Exception as exc:
+        logger.warning("Could not project objection playbook tags: %s", exc)
     return tags
 
 

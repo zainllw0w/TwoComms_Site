@@ -147,10 +147,11 @@ def known_tags() -> set[str]:
             "payment", "payment_pending", "discount", "fit", "exchange", "return",
             "stop", "no_buy", "opt_out"}
     try:
-        from management.models import IgClient
+        from management.models import IgClient, IgObjection
 
         for enum in (IgClient.Stage, IgClient.Intent, IgClient.Objection):
             tags.update(str(item.value).lower() for item in enum)
+        tags.update(f"objection_{item.value}" for item in IgObjection.Type)
     except Exception:  # noqa: BLE001 - валідація не має ламати рендер
         pass
     tags.update({"uk", "ru", "en"})

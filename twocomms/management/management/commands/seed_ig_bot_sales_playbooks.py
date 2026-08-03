@@ -4,6 +4,130 @@ from django.core.management.base import BaseCommand
 from management.models import BotInstruction
 
 
+OBJECTION_PLAYBOOKS = [
+    {
+        "title": "IG Objection · Дорого",
+        "intent_tags": "objection_price",
+        "priority": 80,
+        "body": (
+            "Спочатку погодься з відчуттям клієнта, потім поясни цінність без знижки: "
+            "щільна тканина, якісний DTF-друк і власне виробництво. Уточни, чи ціна — "
+            "єдине, що зупиняє. Після фактичного пояснення додай "
+            "[OBJHANDLE:price:value_breakdown]."
+        ),
+    },
+    {
+        "title": "IG Objection · Подумаю",
+        "intent_tags": "objection_thinking",
+        "priority": 81,
+        "body": (
+            "Не тисни. М'яко уточни, над чим саме клієнт думає: ціна, розмір чи принт. "
+            "Після такого уточнення додай [OBJHANDLE:thinking:soft_isolate]."
+        ),
+    },
+    {
+        "title": "IG Objection · Ризик розміру",
+        "intent_tags": "objection_size_risk",
+        "priority": 82,
+        "body": (
+            "Запитай зріст і заміри, допоможи звірити посадку. Гарантію обміну протягом "
+            "14 днів згадуй лише як відповідь на реальний страх помилки. Для консультації "
+            "додай [OBJHANDLE:size_risk:size_consult], для гарантії обміну — "
+            "[OBJHANDLE:size_risk:risk_reversal_exchange]."
+        ),
+    },
+    {
+        "title": "IG Objection · Недовіра передоплаті",
+        "intent_tags": "objection_prepayment_trust",
+        "priority": 83,
+        "body": (
+            "Спокійно поясни призначення погодженої передоплати та не вигадуй суму. "
+            "Після пояснення додай [OBJHANDLE:prepayment_trust:explain_prepay_purpose]. "
+            "Якщо даєш перевірювані факти про сайт або відгуки — "
+            "[OBJHANDLE:prepayment_trust:social_proof]."
+        ),
+    },
+    {
+        "title": "IG Objection · Ризик браку",
+        "intent_tags": "objection_defect_risk",
+        "priority": 84,
+        "body": (
+            "Відповідай лише перевіреними правилами обміну/повернення, без абсолютних "
+            "обіцянок якості. Після конкретного правила 14 днів додай "
+            "[OBJHANDLE:defect_risk:risk_reversal_exchange]."
+        ),
+    },
+    {
+        "title": "IG Objection · Термін доставки",
+        "intent_tags": "objection_delivery_time",
+        "priority": 85,
+        "body": (
+            "Назви тільки перевірений строк Нової пошти 1–3 дні та окремо уточни строк "
+            "виготовлення, якщо він залежить від товару. Додай "
+            "[OBJHANDLE:delivery_time:delivery_timeline]."
+        ),
+    },
+    {
+        "title": "IG Objection · Є дешевше",
+        "intent_tags": "objection_cheaper_elsewhere",
+        "priority": 86,
+        "body": (
+            "Не сперечайся з ціною конкурента. Порівняй склад, щільність, друк і виробництво "
+            "лише за відомими фактами. Додай [OBJHANDLE:cheaper_elsewhere:value_breakdown]."
+        ),
+    },
+    {
+        "title": "IG Objection · Якість принта",
+        "intent_tags": "objection_print_quality",
+        "priority": 87,
+        "body": (
+            "Поясни відомі властивості DTF-друку та догляд після прання, не обіцяй "
+            "невразливість. Додай [OBJHANDLE:print_quality:print_quality]."
+        ),
+    },
+    {
+        "title": "IG Objection · Немає варіанта",
+        "intent_tags": "objection_out_of_stock",
+        "priority": 88,
+        "body": (
+            "Не вигадуй наявність. Запропонуй лише фактично доступну схожу модель, колір "
+            "або чергу поповнення. Після конкретної альтернативи додай "
+            "[OBJHANDLE:out_of_stock:alternative_offer]."
+        ),
+    },
+    {
+        "title": "IG Objection · Після зарплати",
+        "intent_tags": "objection_payday",
+        "priority": 89,
+        "body": (
+            "Не тисни і не створюй штучний дефіцит. Узгодь конкретну доречну дату "
+            "нагадування. Додай [OBJHANDLE:payday:payday_timing]."
+        ),
+    },
+    {
+        "title": "IG Objection · Порівняння брендів",
+        "intent_tags": "objection_compare_brand",
+        "priority": 90,
+        "body": (
+            "Не знецінюй інший бренд. Дай перевірювані відмінності TwoComms: сайт, "
+            "виробництво, тканина, друк. Для доказів додай "
+            "[OBJHANDLE:compare_brand:social_proof], для розкладу цінності — "
+            "[OBJHANDLE:compare_brand:value_breakdown]."
+        ),
+    },
+    {
+        "title": "IG Objection · Порадитися",
+        "intent_tags": "objection_ask_partner",
+        "priority": 91,
+        "body": (
+            "Не тисни на рішення. Запропонуй короткий перевірюваний підсумок товару, "
+            "варіанта і ціни, який зручно показати близькій людині. Додай "
+            "[OBJHANDLE:ask_partner:partner_summary]."
+        ),
+    },
+]
+
+
 PLAYBOOKS = [
     {
         "title": "IG Core Sales",
@@ -79,7 +203,7 @@ PLAYBOOKS = [
             "закрий діалог і не став follow-up. Можна запросити стежити за майбутніми дропами."
         ),
     },
-]
+] + OBJECTION_PLAYBOOKS
 
 # A matching body means the row was created by an older known seed and may be
 # upgraded. Any other body is an administrator's instruction and is untouched.

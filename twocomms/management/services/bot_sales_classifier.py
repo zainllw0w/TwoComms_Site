@@ -6,6 +6,7 @@ to invent product/price facts.
 """
 from __future__ import annotations
 
+import logging
 import re
 from decimal import Decimal
 from typing import Iterable
@@ -23,7 +24,8 @@ from management.models import (
 )
 from management.services.ig_funnel_reset import current_message_floor
 
-ANALYSIS_RULES_VERSION = "2026-07-30.v6"
+ANALYSIS_RULES_VERSION = "2026-08-03.v7"
+logger = logging.getLogger(__name__)
 
 
 # Маркери навмисно розширені після прод-інциденту 02.08.2026. Клієнт написав
@@ -1237,10 +1239,10 @@ def classify_message(
     # доставка?» одновременно получал intent=delivery и objection=price, а
     # playbook — теги price/discount. Бот предлагал скидку на вопрос о стоимости
     # доставки. Вопрос о цене доставки ценовым возражением не является.
-    price_hit = bool(PRICE_RE.search(low))
     hard_price = bool(HARD_PRICE_OBJECTION_RE.search(low))
-    delivery_hit = bool(DELIVERY_RE.search(low))
-    price_objection = hard_price or (price_hit and not delivery_hit)
+    # IMP-057: a product price question is commercial intent, not an objection.
+    # Only explicit negative affordability/value wording may open PRICE.
+    price_objection = hard_price
     if not is_manager and not no_buy and not opt_out and price_objection:
         objection = IgClient.Objection.PRICE
         readiness += 12
@@ -1272,6 +1274,7 @@ def classify_message(
     ):
         objection = IgClient.Objection.THINKING
         readiness = max(readiness, 25)
+        add(IgConversationSignal.Type.THINKING_OBJECTION, conf=0.9)
     if not is_manager and not no_buy and not opt_out and GIFT_RE.search(low):
         add(IgConversationSignal.Type.GIFT, conf=0.85)
         readiness += 10
@@ -1337,6 +1340,39 @@ def classify_message(
         "sales_context": sales_context,
         "media_context": media_context,
     }
+    if isinstance(message, InstagramBotMessage) and not is_manager and not reaction_only:
+        try:
+            from management.services.ig_objections import (
+                detect_objection_types,
+                observe_inbound_objection,
+                observe_inbound_progress,
+            )
+
+            lifecycle_types = detect_objection_types(text)
+            for lifecycle_type in lifecycle_types:
+                observe_inbound_objection(
+                    client,
+                    message,
+                    lifecycle_type,
+                    readiness=readiness,
+                    readiness_before=previous_readiness,
+                )
+            observe_inbound_progress(
+                client,
+                message,
+                objection_types=lifecycle_types,
+                readiness=readiness,
+                purchase_progress=confirmed_purchase,
+                abandoned=no_buy or opt_out,
+            )
+            result["objection_lifecycle_types"] = lifecycle_types
+            result["objection_lifecycle_type"] = (
+                lifecycle_types[0] if lifecycle_types else ""
+            )
+        except Exception as exc:
+            logger.exception("Objection lifecycle projection failed: %s", exc)
+            result["objection_lifecycle_types"] = []
+            result["objection_lifecycle_type"] = ""
     project_observed_stage(
         client,
         signal_types=signals,

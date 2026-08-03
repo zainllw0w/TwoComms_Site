@@ -457,6 +457,18 @@ def apply_payment_status(deal, status_value, payload=None, *, source="provider")
         pass
     if became_verified:
         try:
+            from management.services.ig_objections import (
+                resolve_client_objections_on_purchase,
+            )
+
+            resolve_client_objections_on_purchase(deal.client)
+        except Exception as exc:
+            logger.exception(
+                "Could not resolve objection lifecycle for verified deal %s: %s",
+                deal.pk,
+                exc,
+            )
+        try:
             from management.models import IgClient
 
             deal.client.set_stage(IgClient.Stage.PAID, reason="payment")

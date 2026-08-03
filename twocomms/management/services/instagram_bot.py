@@ -4658,6 +4658,14 @@ def _prompt_section(source: str, loader) -> str:
         return ""
 
 
+def _objection_lifecycle_note(client) -> str:
+    if client is None:
+        return ""
+    from management.services.ig_objections import objection_prompt_note
+
+    return objection_prompt_note(client)
+
+
 def assemble_system_instruction(
     s,
     *,
@@ -4706,6 +4714,12 @@ def assemble_system_instruction(
     journal_note = _prompt_section("funnel_journal", lambda: _funnel_journal_note(client))
     if journal_note:
         sys_text = (sys_text + "\n\n" + journal_note).strip()
+    objection_note = _prompt_section(
+        "objection_lifecycle",
+        lambda: _objection_lifecycle_note(client),
+    )
+    if objection_note:
+        sys_text = (sys_text + "\n\n" + objection_note).strip()
     if memory_note:
         sys_text = (sys_text + "\n\n" + memory_note).strip()
     if context_note:
@@ -6909,15 +6923,24 @@ def _process_one_inside_reply_boundary(
     row.send_state = "sent"
     row.send_completed_at = processed_at
     row.processed_at = processed_at
-    InstagramBotMessage.objects.create(
-        sender_id=row.sender_id,
-        client=row.client,
-        role=InstagramBotMessage.Role.MODEL,
-        text=reply,
-        status=InstagramBotMessage.Status.DONE,
-        source=row.source,
-        processed_at=processed_at,
-    )
+    with transaction.atomic():
+        reply_message = InstagramBotMessage.objects.create(
+            sender_id=row.sender_id,
+            client=row.client,
+            role=InstagramBotMessage.Role.MODEL,
+            text=reply,
+            status=InstagramBotMessage.Status.DONE,
+            source=row.source,
+            processed_at=processed_at,
+        )
+    if row.client_id:
+        try:
+            from management.services.ig_objections import record_reply_attempt
+
+            record_reply_attempt(row.client, reply_message, control, reply)
+        except Exception as exc:
+            # Objection analytics is secondary to the durable provider receipt.
+            log("warning", "objection_attempt", repr(exc))
     s.replies_count = (s.replies_count or 0) + 1
     s.last_reply_at = timezone.now()
     s.save(update_fields=["replies_count", "last_reply_at"])

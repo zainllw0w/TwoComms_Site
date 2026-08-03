@@ -18,7 +18,7 @@ class InteractionCategoryUiContractTests(SimpleTestCase):
         self.assertEqual(_interaction_tone(""), "neutral")
 
     def test_ui_contract_uses_current_rules_version(self):
-        self.assertEqual(ANALYSIS_RULES_VERSION, "2026-07-30.v6")
+        self.assertEqual(ANALYSIS_RULES_VERSION, "2026-08-03.v7")
 
     def test_overview_explanation_uses_runtime_model_truth(self):
         template = (

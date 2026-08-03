@@ -59,13 +59,14 @@ class DeliveryPriceConflictTests(PatternConflictMixin, TestCase):
             IgConversationSignal.Type.PRICE_OBJECTION, self._signal_types(client)
         )
 
-    def test_product_price_question_still_registers_a_price_objection(self):
-        """Регрес: питання про ціну товару лишається ціновим сигналом."""
+    def test_product_price_question_is_intent_not_an_objection(self):
+        """IMP-057: питання про ціну не означає, що клієнту дорого."""
         client, _ = self._classify(
             "скільки коштує ця футболка?", key="pattern-product-price"
         )
 
-        self.assertIn(
+        self.assertEqual(client.intent, IgClient.Intent.PRICE)
+        self.assertNotIn(
             IgConversationSignal.Type.PRICE_OBJECTION, self._signal_types(client)
         )
 

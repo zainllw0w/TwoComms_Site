@@ -41,6 +41,8 @@ __all__ = [
     "IgInboxRefreshRun",
     "IgInboxRefreshItem",
     "IgConversationSignal",
+    "IgObjection",
+    "IgObjectionAttempt",
     "IgConversationAnalysisSnapshot",
     "IgConversationAnalysisJob",
     "IgMetaEventLog",
@@ -3319,6 +3321,7 @@ class IgConversationSignal(models.Model):
         PRICE_OBJECTION = "price_objection", _("Дорого")
         PREPAYMENT_OBJECTION = "prepayment_objection", _("Передоплата")
         SIZE_CONCERN = "size_concern", _("Розмір")
+        THINKING_OBJECTION = "thinking_objection", _("Подумаю")
         GIFT = "gift", _("На подарунок")
         SELF_PURCHASE = "self_purchase", _("Для себе")
         CUSTOM_PRINT = "custom_print", _("Кастомний принт")
@@ -3360,6 +3363,113 @@ class IgConversationSignal(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - тривіально
         return f"{self.client_id}: {self.signal_type}"
+
+
+class IgObjection(models.Model):
+    """One durable objection lifecycle inside a commercial episode."""
+
+    class Type(models.TextChoices):
+        PRICE = "price", _("Дорого")
+        THINKING = "thinking", _("Подумаю")
+        SIZE_RISK = "size_risk", _("Не підійде розмір")
+        PREPAYMENT_TRUST = "prepayment_trust", _("Не довіряє передоплаті")
+        DEFECT_RISK = "defect_risk", _("Боїться браку")
+        DELIVERY_TIME = "delivery_time", _("Довго чекати")
+        CHEAPER_ELSEWHERE = "cheaper_elsewhere", _("Є дешевше")
+        PRINT_QUALITY = "print_quality", _("Якість принта")
+        OUT_OF_STOCK = "out_of_stock", _("Немає розміру/варіанта")
+        PAYDAY = "payday", _("Після зарплати")
+        COMPARE_BRAND = "compare_brand", _("Порівнює з брендом")
+        ASK_PARTNER = "ask_partner", _("Порадиться з близькою людиною")
+
+    class State(models.TextChoices):
+        OPEN = "open", _("Відкрите")
+        HANDLED = "handled", _("Метод застосовано")
+        RESOLVED = "resolved", _("Закрито фактом")
+        ABANDONED = "abandoned", _("Втрачено")
+
+    class Outcome(models.TextChoices):
+        UNRESOLVED = "unresolved", _("Не вирішено")
+        PURCHASED = "purchased", _("Купив")
+        LOST = "lost", _("Втрачено")
+        SILENT = "silent", _("Замовк")
+        MANAGER_TAKEN = "manager_taken", _("Передано менеджеру")
+
+    client = models.ForeignKey(
+        "management.IgClient", on_delete=models.DO_NOTHING,
+        related_name="objection_lifecycles", db_constraint=False,
+    )
+    episode = models.ForeignKey(
+        "management.IgCommercialEpisode", null=True, blank=True,
+        on_delete=models.DO_NOTHING, related_name="objections", db_constraint=False,
+    )
+    objection_type = models.CharField(max_length=32, choices=Type.choices, db_index=True)
+    state = models.CharField(max_length=16, choices=State.choices, default=State.OPEN, db_index=True)
+    is_true_objection = models.BooleanField(default=True)
+    first_message = models.ForeignKey(
+        "management.InstagramBotMessage", null=True, blank=True,
+        on_delete=models.DO_NOTHING, related_name="opened_objections", db_constraint=False,
+    )
+    last_message = models.ForeignKey(
+        "management.InstagramBotMessage", null=True, blank=True,
+        on_delete=models.DO_NOTHING, related_name="latest_objections", db_constraint=False,
+    )
+    repeat_count = models.PositiveIntegerField(default=1)
+    attempts_count = models.PositiveIntegerField(default=0)
+    resolution_method = models.CharField(max_length=48, blank=True, default="")
+    outcome = models.CharField(max_length=24, choices=Outcome.choices, default=Outcome.UNRESOLVED)
+    readiness_before = models.PositiveSmallIntegerField(default=0)
+    readiness_after = models.PositiveSmallIntegerField(default=0)
+    opened_watermark_message_id = models.PositiveBigIntegerField(default=0, db_index=True)
+    dedupe_key = models.CharField(max_length=160, unique=True)
+    opened_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-updated_at", "-id"]
+        indexes = [
+            models.Index(fields=["client", "state", "-id"], name="ig_obj_client_state"),
+            models.Index(fields=["objection_type", "state"], name="ig_obj_type_state"),
+        ]
+
+
+class IgObjectionAttempt(models.Model):
+    """Append-only claimed objection-handling method and observed result."""
+
+    class Result(models.TextChoices):
+        PENDING = "pending", _("Очікує реакції")
+        ACCEPTED = "accepted", _("Прийнято")
+        RE_OBJECTED = "re_objected", _("Повторив заперечення")
+        SILENT = "silent", _("Без відповіді")
+        ESCALATED = "escalated", _("Передано менеджеру")
+        PURCHASED = "purchased", _("Купив")
+        IGNORED = "ignored", _("Метод не застосовано")
+
+    objection = models.ForeignKey(
+        "management.IgObjection", on_delete=models.DO_NOTHING,
+        related_name="attempts", db_constraint=False,
+    )
+    method = models.CharField(max_length=48, default="none", db_index=True)
+    claimed_by = models.CharField(max_length=24, default="model")
+    verified = models.BooleanField(default=False, db_index=True)
+    verification_reason = models.CharField(max_length=255, blank=True, default="")
+    reply_message = models.OneToOneField(
+        "management.InstagramBotMessage", null=True, blank=True,
+        on_delete=models.DO_NOTHING, related_name="objection_attempts", db_constraint=False,
+    )
+    client_response_message = models.ForeignKey(
+        "management.InstagramBotMessage", null=True, blank=True,
+        on_delete=models.DO_NOTHING, related_name="objection_responses", db_constraint=False,
+    )
+    result = models.CharField(max_length=24, choices=Result.choices, default=Result.PENDING)
+    readiness_before = models.PositiveSmallIntegerField(default=0)
+    readiness_after = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-id"]
+        indexes = [models.Index(fields=["objection", "-id"], name="ig_obj_attempt_dt")]
 
 
 class IgConversationAnalysisSnapshot(models.Model):

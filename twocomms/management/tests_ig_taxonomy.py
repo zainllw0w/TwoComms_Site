@@ -59,7 +59,7 @@ class InteractionTaxonomyTests(SimpleTestCase):
                 self.assertNotEqual(self._classify(phrase), "support_complaint")
 
     def test_taxonomy_rules_version_tracks_semantic_change(self):
-        self.assertEqual(ANALYSIS_RULES_VERSION, "2026-07-30.v6")
+        self.assertEqual(ANALYSIS_RULES_VERSION, "2026-08-03.v7")
 
     def test_observed_payment_intent_advances_paused_conversation_to_checkout(self):
         self.assertEqual(
