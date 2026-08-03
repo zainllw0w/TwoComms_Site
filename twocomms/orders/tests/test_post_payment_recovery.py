@@ -92,6 +92,32 @@ class PostPaymentRecoveryTests(TestCase):
             "capi-event-42",
         )
 
+    def test_already_sent_meta_ledger_rehydrates_persisted_capi_event_id(self):
+        order = self._paid_order(
+            payment_payload={
+                "fb_conversions_api": {"event_id": "capi-event-already-42"},
+                "facebook_events": {"purchase_sent": True},
+            }
+        )
+        with patch(
+            "storefront.views.utils.deliver_pending_order_telegram_notifications", return_value="already_sent"
+        ), patch(
+            "orders.facebook_conversions_service.get_facebook_conversions_service",
+            return_value=SimpleNamespace(enabled=True, send_purchase_event=Mock()),
+        ), patch(
+            "orders.tiktok_events_service.get_tiktok_events_service",
+            return_value=SimpleNamespace(enabled=False),
+        ), patch("orders.email_receipt.send_order_receipt_email", return_value=(False, "no_valid_email")), patch(
+            "storefront.utm_tracking.ensure_order_purchase_action"
+        ):
+            _send_post_payment_events(order.pk, "unpaid", order.pay_type)
+
+        order.refresh_from_db()
+        self.assertEqual(
+            order.payment_payload["post_payment_channels"]["meta_purchase"]["event_id"],
+            "capi-event-already-42",
+        )
+
     def test_purchase_event_time_is_saved_before_failed_provider_attempt(self):
         order = self._paid_order()
         with patch(
