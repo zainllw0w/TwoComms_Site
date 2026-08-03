@@ -12,7 +12,7 @@
 | Текущая фаза | **W4B закрыта по IMP-056…058, IMP-089; активный остаток: W8/W9/W10** |
 | Дата старта / обновления | 2026-08-03 (после production closure IMP-089) |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
-| База внедрения | `280c07e8` подтверждён в `origin/main`; включает bounded superseded-invoice recovery IMP-089 поверх durable funnel analytics IMP-058, reliability, fulfillment IMP-055, claims IMP-056 и lifecycle возражений IMP-057 |
+| База внедрения | `6883ac2c` подтверждён в `origin/main` и на production; включает bounded superseded-invoice recovery IMP-089 поверх durable funnel analytics IMP-058, reliability, fulfillment IMP-055, claims IMP-056 и lifecycle возражений IMP-057 |
 | **Статус 99 IMP-задач** | **72 закрыты, 25 открыты, 2 частично закрыты (`IMP-043`, `IMP-077`)** |
 | Прод-сервер | `qlknpodo@195.191.25.63`, `/home/qlknpodo/TWC/TwoComms_Site/twocomms` |
 | Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; read-only и rollback-fixture contracts подтверждены |

@@ -17,6 +17,7 @@ Production host: `195.191.25.63`, path
 | 2026-08-03 | `c409f7a3` | canonical checkbox plan, registers and source reconciliation; server pull, Django check, migration-drift check and restart | `running`; daemon online; `instagram_login`; no recorded error |
 | 2026-08-03 | `92d46c5a` | migration `0133`; check/migration drift/collectstatic/compress; backfill 5; silence scan 96; raw-event reconciliation | `running`; heartbeat fresh; `instagram_login`; `last_error=''` |
 | 2026-08-03 | `280c07e8` | migration `0134`; 104 payment/lifecycle tests; superseded invoice polling and check-only proof | `running`; `last_error=''` |
+| 2026-08-03 | `6883ac2c` | final IMP-089 code/doc checkpoint; server pull, migrate/check, check-only and runtime verification | `running`; heartbeat 0.6s; `last_error=''` |
 
 For `6b86e103`, server `git pull --ff-only` completed, `manage.py check` returned
 no issues, `makemigrations --check --dry-run` returned `No changes detected`,
@@ -62,3 +63,10 @@ superseded_invoices=0 orders=0`; the lifecycle table had zero rows because no
 historical superseded invoice IDs exist on this production dataset. The daemon
 briefly reported a transient worker error during restart and recovered to
 `running=True` with `last_error=''`; no customer messages were sent.
+
+The final consolidation commit `6883ac2c` was then pulled fast-forward. The
+server confirmed migration `0134` as applied, `poll_ig_deal_payments
+--check-only --limit 50` returned zero candidates, lifecycle rows remained 0,
+and `status_snapshot()` reported `is_enabled=True`, `state='running'`,
+daemon_online=True`, heartbeat age about 0.6 seconds, transport
+`instagram_login`, and empty `last_error`.

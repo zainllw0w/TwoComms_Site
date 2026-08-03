@@ -9,7 +9,7 @@ that the remaining implementation backlog is complete.
 
 ## Local evidence
 
-- Current runtime baseline: `280c07e8` (IMP-089 superseded-invoice recovery).
+- Current runtime baseline: `6883ac2c` (IMP-089 superseded-invoice recovery and audit consolidation).
 - Unrelated Custom Print and asset WIP remains unstaged and uncommitted.
 - Required audit artifacts `00`–`12` are present.
 - `07_IMPLEMENTATION_PLAN.md` is the task-status authority and contains
@@ -50,7 +50,8 @@ of `0.0` seconds, and empty `last_error`. The exact pull, Django
 check/migration-drift, and restart history is recorded in
 `09_DEPLOYMENT_LOG.md`.
 
-IMP-089 implementation commit `280c07e8` is in `origin/main` and production.
+IMP-089 implementation commit `280c07e8` and final deployed checkpoint
+`6883ac2c` are in `origin/main` and production.
 MariaDB migration `0134` is applied; bounded check-only reported zero current,
 superseded, projection and order candidates, and the lifecycle table has zero
 rows because this dataset contains no historical superseded invoice IDs. The
