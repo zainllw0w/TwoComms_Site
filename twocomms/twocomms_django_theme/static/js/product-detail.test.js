@@ -5,6 +5,7 @@ const {
   buildOptionKey,
   focusTrapIndex,
   formatAdvisorSummary,
+  galleryDragOffset,
   galleryStatus,
   MODAL_FOCUSABLE_SELECTOR,
   resolveOptionSelection,
@@ -184,10 +185,21 @@ test('size guide selection stays independent and falls back to the first enabled
 });
 
 test('horizontal swipe advances while vertical intent does not', () => {
-  assert.equal(resolveSwipe({ dx: -70, dy: 12 }), 1);
-  assert.equal(resolveSwipe({ dx: 70, dy: 12 }), -1);
+  assert.equal(resolveSwipe({ dx: -70, dy: 12, width: 390 }), 1);
+  assert.equal(resolveSwipe({ dx: 70, dy: 12, width: 390 }), -1);
   assert.equal(resolveSwipe({ dx: -35, dy: 80 }), 0);
   assert.equal(resolveSwipe({ dx: -30, dy: 4 }), 0);
+  assert.equal(resolveSwipe({ dx: -24, dy: 7, width: 430, velocityX: -0.62 }), 1);
+  assert.equal(resolveSwipe({ dx: 22, dy: 31, width: 430, velocityX: 0.72 }), 0);
+  assert.equal(resolveSwipe({ dx: 74, dy: 92, width: 430, horizontalIntent: true }), -1);
+});
+
+test('gallery drag follows the finger and adds bounded resistance at an edge', () => {
+  assert.equal(galleryDragOffset({ dx: -120, width: 390, atEdge: false }), -120);
+  assert.equal(galleryDragOffset({ dx: 520, width: 390, atEdge: false }), 390);
+  const resisted = galleryDragOffset({ dx: 220, width: 390, atEdge: true });
+  assert.ok(resisted > 0);
+  assert.ok(resisted < 47);
 });
 
 test('material story accepts contextual payload and rejects generic fallbacks', () => {

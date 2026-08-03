@@ -126,8 +126,8 @@ namespace + the legacy og:price aliases for the older social parsers.
 {% block extra_css %}
 {% comment %}Above-fold (hero/gallery/buybox/fit-selector) — render-blocking is OK,
    нужен сразу для корректного LCP/CLS.{% endcomment %}
-<link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260724-size-advisor-v1">
-<link rel="stylesheet" href="{% static 'css/product-media-fit.css' %}?v=20260428-media-fit-v1">
+<link rel="stylesheet" href="{% static 'css/product-detail.css' %}?v=20260803-gallery-v2">
+<link rel="stylesheet" href="{% static 'css/product-media-fit.css' %}?v=20260803-gallery-v2">
 {% comment %}
 Phase 19c (2026-05-10) — below-fold CSS lazy-load.
 SEO landing block (Phase 15) и category-seo-blocks стили реально применяются
@@ -154,7 +154,7 @@ CSS rules на mobile FCP/LCP window.
   <div class="tc-pdp-grid">
     <section class="tc-media-panel" aria-label="{% trans 'Галерея товару' %}">
       <div class="tc-gallery-card">
-      <div class="tc-media-stage" id="mainImageWrapper">
+      <div class="tc-media-stage" id="mainImageWrapper" role="group" aria-roledescription="{% trans 'Карусель зображень' %}">
         <div class="tc-media-ambient" aria-hidden="true"></div>
         <div class="tc-media-sparks" aria-hidden="true">
           <span></span><span></span><span></span><span></span><span></span><span></span>
@@ -845,7 +845,7 @@ CSS rules на mobile FCP/LCP window.
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/product-detail.js' %}?v=20260724-size-advisor-v1" defer></script>
-<script src="{% static 'js/product-media-fit.js' %}?v=20260428-media-fit-v1" defer></script>
+<script src="{% static 'js/product-detail.js' %}?v=20260803-gallery-v2" defer></script>
+<script src="{% static 'js/product-media-fit.js' %}?v=20260803-gallery-v2" defer></script>
 <script src="{% static 'js/product-variant-history.js' %}?v=20260509-phase8-v1" defer></script>
 {% endblock %}

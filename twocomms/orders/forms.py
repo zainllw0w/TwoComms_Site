@@ -120,7 +120,7 @@ class TelegramNovaPoshtaWaybillForm(forms.Form):
     sender_warehouse_ref = forms.CharField(max_length=36, required=False, widget=forms.HiddenInput())
     sender_warehouse_token = forms.CharField(max_length=2048, required=False, widget=forms.HiddenInput())
 
-    description = forms.CharField(label="Опис відправлення", max_length=120)
+    description = forms.CharField(label="Опис відправлення", max_length=100)
     declared_cost = forms.DecimalField(label="Оголошена вартість", max_digits=12, decimal_places=2, min_value=0)
     weight = forms.DecimalField(label="Вага, кг", max_digits=6, decimal_places=2, min_value=0.1)
     seats_amount = forms.IntegerField(label="Кількість місць", min_value=1, max_value=1)

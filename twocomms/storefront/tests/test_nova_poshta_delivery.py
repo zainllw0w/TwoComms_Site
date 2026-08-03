@@ -14,6 +14,7 @@ from orders.nova_poshta_documents import (
     NovaPoshtaDocumentService,
     NovaPoshtaResolvedPoint,
     build_waybill_description,
+    normalize_waybill_description,
     normalize_phone,
 )
 from orders.telegram_notifications import TelegramNotifier
@@ -419,6 +420,28 @@ class NovaPoshtaWaybillServiceTests(SimpleTestCase):
         order = self._build_order()
         self.assertEqual(build_waybill_description(order), 'Одяг бренду TwoComms, Худі TwoComms')
 
+    def test_build_waybill_description_normalizes_nova_poshta_unsupported_text(self):
+        order = self._build_order(
+            items=_FakeItems([
+                SimpleNamespace(title='ФУТБОЛКА «мені поЖуй — це філософія» × 100%', qty=1),
+            ])
+        )
+
+        description = build_waybill_description(order)
+
+        self.assertEqual(
+            description,
+            'Одяг бренду TwoComms, ФУТБОЛКА «мені поЖуй - це філософія» x 100 відс.',
+        )
+        self.assertNotIn('—', description)
+        self.assertLessEqual(len(description), 100)
+
+    def test_normalize_waybill_description_uses_safe_fallback(self):
+        self.assertEqual(normalize_waybill_description('™ α 中'), 'Одяг бренду TwoComms')
+
+    def test_waybill_form_matches_nova_poshta_description_limit(self):
+        self.assertEqual(TelegramNovaPoshtaWaybillForm.base_fields['description'].max_length, 100)
+
     def test_build_waybill_description_uses_quantity_for_multiple_items(self):
         items = _FakeItems([
             SimpleNamespace(title='Футболка', qty=2),
@@ -586,7 +609,7 @@ class NovaPoshtaWaybillServiceTests(SimpleTestCase):
             'sender_city_ref': 'sender-city-ref',
             'sender_warehouse': 'Відділення №138',
             'sender_warehouse_ref': 'sender-warehouse-ref',
-            'description': 'Одяг бренду TwoComms',
+            'description': 'Одяг бренду TwoComms — 100%',
             'declared_cost': '1499.00',
             'weight': '1',
             'seats_amount': '1',
@@ -620,6 +643,26 @@ class NovaPoshtaWaybillServiceTests(SimpleTestCase):
         self.assertEqual((model_name, called_method), ('InternetDocument', 'save'))
         self.assertEqual(method_properties['AfterpaymentOnGoodsCost'], '1299')
         self.assertNotIn('BackwardDeliveryData', method_properties)
+        self.assertEqual(
+            method_properties['Description'],
+            'Одяг бренду TwoComms - 100 відс.',
+        )
+
+    @override_settings(NOVA_POSHTA_API_KEY='test-key')
+    def test_description_api_error_is_actionable(self):
+        service = NovaPoshtaDocumentService()
+        response = Mock()
+        response.raise_for_status.return_value = None
+        response.json.return_value = {
+            'success': False,
+            'errors': ['Description is not valid'],
+            'warnings': [],
+            'data': [],
+        }
+
+        with patch('orders.nova_poshta_documents.requests.post', return_value=response):
+            with self.assertRaisesRegex(NovaPoshtaDocumentError, 'символи'):
+                service._request('InternetDocument', 'save', {'Description': 'bad — text'})
 
     @override_settings(NOVA_POSHTA_API_KEY='test-key')
     def test_create_waybill_requires_document_ref(self):

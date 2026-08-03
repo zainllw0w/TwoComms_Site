@@ -99,8 +99,8 @@
 
 @media (max-width: 767.98px) {
   .tc-media-stage.tc-media-fit-wide {
-    min-height: clamp(238px, 63vw, 390px);
-    aspect-ratio: 16 / 10;
+    min-height: clamp(360px, 118vw, 520px);
+    aspect-ratio: 4 / 5;
   }
 
   .tc-media-stage.tc-media-fit-wide picture,
@@ -110,8 +110,8 @@
   }
 
   .tc-media-stage.tc-media-fit-wide .tc-media-hero-img {
-    padding: 0;
-    object-fit: cover;
+    padding: 1.5%;
+    object-fit: contain;
     transform: none;
   }
 
@@ -120,10 +120,15 @@
   }
 }
 
+@media (max-width: 640px) {
+  .tc-media-stage.tc-media-fit-wide {
+    min-height: clamp(340px, 120vw, 470px);
+  }
+}
+
 @media (max-width: 420px) {
   .tc-media-stage.tc-media-fit-wide {
-    min-height: clamp(218px, 66vw, 320px);
-    aspect-ratio: 4 / 3;
+    min-height: clamp(320px, 118vw, 430px);
   }
 }
 

@@ -266,6 +266,26 @@ class NovaPoshtaTrackingDedupTests(TestCase):
             ).exists()
         )
 
+    def test_bulk_scan_excludes_done_order_with_non_delivery_provider_status(self):
+        self.order.status = 'done'
+        self.order.payment_status = 'paid'
+        self.order.shipment_status = 'Номер не знайдено'
+        self.order.payment_payload = {
+            'np_tracking': {'last_status_code': 3},
+        }
+        self.order.save(update_fields=[
+            'status',
+            'payment_status',
+            'shipment_status',
+            'payment_payload',
+        ])
+
+        with patch.object(self.service, 'get_tracking_info') as get_tracking:
+            result = self.service.update_all_tracking_statuses()
+
+        self.assertEqual(result['processed'], 0)
+        get_tracking.assert_not_called()
+
     def test_long_status_text_is_truncated_to_field_limit(self):
         long_desc = "д" * 300
         self._run(_tracking("Прибув на відділення", 4, long_desc))
@@ -320,6 +340,22 @@ class NovaPoshtaTrackingDedupTests(TestCase):
             self.service.update_order_tracking_status(self.order)
 
         self.assertTrue(captured.get("called"))
+
+    def test_tracking_poll_includes_saved_recipient_phone(self):
+        with (
+            patch.object(
+                self.service,
+                "get_tracking_info",
+                return_value=_tracking("Прибув на відділення", 4),
+            ) as get_tracking,
+            patch.object(self.service, "_send_status_notification"),
+        ):
+            self.service.update_order_tracking_status(self.order)
+
+        get_tracking.assert_called_once_with(
+            self.order.tracking_number,
+            phone=self.order.phone,
+        )
 
     def test_apply_update_error_is_counted_and_closes_old_connections(self):
         with (

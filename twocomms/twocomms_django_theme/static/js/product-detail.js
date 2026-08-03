@@ -128,9 +128,33 @@ function recommendTshirtSize({ height, weight, fit, availableSizes = null } = {}
   };
 }
 
-function resolveSwipe({ dx = 0, dy = 0 } = {}) {
-  if (Math.abs(dx) < 42 || Math.abs(dx) <= Math.abs(dy) * 1.25) return 0;
-  return dx < 0 ? 1 : -1;
+function resolveSwipe({
+  dx = 0,
+  dy = 0,
+  width = 0,
+  velocityX = 0,
+  horizontalIntent = false,
+} = {}) {
+  const distanceX = Math.abs(Number(dx) || 0);
+  const distanceY = Math.abs(Number(dy) || 0);
+  const viewportWidth = Math.max(0, Number(width) || 0);
+  const velocity = Math.abs(Number(velocityX) || 0);
+  const distanceThreshold = Math.max(44, Math.min(78, viewportWidth ? viewportWidth * 0.16 : 52));
+  const isHorizontal = horizontalIntent || distanceX > distanceY * 1.08;
+  const isFlick = distanceX >= 18 && velocity >= 0.38;
+
+  if (!isHorizontal || (distanceX < distanceThreshold && !isFlick)) return 0;
+  return Number(dx) < 0 ? 1 : -1;
+}
+
+function galleryDragOffset({ dx = 0, width = 0, atEdge = false } = {}) {
+  const distance = Number(dx) || 0;
+  const viewportWidth = Math.max(1, Number(width) || 1);
+  if (!atEdge) {
+    return Math.max(-viewportWidth, Math.min(viewportWidth, distance));
+  }
+  const limit = Math.max(20, Math.min(48, viewportWidth * 0.12));
+  return Math.sign(distance) * limit * (1 - Math.exp(-Math.abs(distance) / limit));
 }
 
 function resolveMaterialStory(variant) {
@@ -305,6 +329,7 @@ if (typeof module !== 'undefined' && module.exports) {
     buildOptionKey,
     focusTrapIndex,
     formatAdvisorSummary,
+    galleryDragOffset,
     galleryStatus,
     MODAL_FOCUSABLE_SELECTOR,
     resolveGalleryStep,
@@ -348,6 +373,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       videoActive: false,
       viewContentTracked: false,
       galleryIndex: 0,
+      galleryMotionToken: 0,
+      gallerySettling: false,
+      imageChangeToken: 0,
       suppressZoomUntil: 0,
     };
 
@@ -492,6 +520,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     if (images[0]) {
       state.galleryIndex = 0;
       setMainImage(state, images[0], { immediate: true });
+      warmGalleryNeighbors(images, 0);
     }
   }
 
@@ -560,6 +589,16 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     if (state.galleryStatus) {
       state.galleryStatus.textContent = galleryStatus(state.galleryIndex, currentImages.length);
     }
+    const previous = state.root.querySelector('[data-thumb-prev]');
+    const next = state.root.querySelector('[data-thumb-next]');
+    if (previous) {
+      previous.disabled = state.galleryIndex <= 0;
+      previous.setAttribute('aria-disabled', previous.disabled ? 'true' : 'false');
+    }
+    if (next) {
+      next.disabled = state.galleryIndex >= currentImages.length - 1;
+      next.setAttribute('aria-disabled', next.disabled ? 'true' : 'false');
+    }
   }
 
   function appendVideoThumbnail(state) {
@@ -606,14 +645,149 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     if (!images.length) return;
     const nextIndex = Math.max(0, Math.min(images.length - 1, index));
     if (nextIndex === state.galleryIndex && !state.videoActive) return;
+    const direction = Math.sign(nextIndex - state.galleryIndex);
     state.galleryIndex = nextIndex;
     hideVideo(state);
-    setMainImage(state, images[nextIndex]);
+    setMainImage(state, images[nextIndex], { direction });
     syncGalleryPosition(state, images);
-    if (state.thumbs) {
-      const active = state.thumbs.querySelector(`[data-gallery-index="${nextIndex}"]`);
-      if (active) active.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth', block: 'nearest', inline: 'center' });
+    centerActiveThumbnail(state, nextIndex);
+    warmGalleryNeighbors(images, nextIndex);
+  }
+
+  function centerActiveThumbnail(state, index) {
+    if (!state.thumbs) return;
+    const active = state.thumbs.querySelector(`[data-gallery-index="${index}"]`);
+    if (!active) return;
+    const left = active.offsetLeft - (state.thumbs.clientWidth - active.offsetWidth) / 2;
+    if (typeof state.thumbs.scrollTo === 'function') {
+      state.thumbs.scrollTo({
+        left: Math.max(0, left),
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+      });
+    } else {
+      state.thumbs.scrollLeft = Math.max(0, left);
     }
+  }
+
+  function warmGalleryNeighbors(images, index) {
+    [index - 1, index + 1].forEach((candidate) => {
+      const image = normalizeImage(images[candidate]);
+      if (image && image.url) preloadImage(image.url).catch(() => {});
+    });
+  }
+
+  function createGalleryPreview(state, image, className) {
+    const stage = state.root.querySelector('.tc-media-stage');
+    const data = normalizeImage(image);
+    if (!stage || !data || !data.url) return null;
+    const preview = document.createElement('img');
+    preview.className = className;
+    preview.src = data.url;
+    if (data.avifSrcset || data.webpSrcset) {
+      preview.srcset = data.avifSrcset || data.webpSrcset;
+      preview.sizes = data.sizes || '(max-width: 768px) 94vw, 720px';
+    }
+    preview.alt = '';
+    preview.loading = 'eager';
+    preview.decoding = 'async';
+    preview.draggable = false;
+    preview.setAttribute('aria-hidden', 'true');
+    stage.appendChild(preview);
+    return preview;
+  }
+
+  function releaseGalleryPointer(stage, pointerId) {
+    if (
+      pointerId != null &&
+      typeof stage.hasPointerCapture === 'function' &&
+      stage.hasPointerCapture(pointerId) &&
+      typeof stage.releasePointerCapture === 'function'
+    ) {
+      try { stage.releasePointerCapture(pointerId); } catch (_) { }
+    }
+  }
+
+  function clearGallerySwipeVisuals(state) {
+    const stage = state.root.querySelector('.tc-media-stage');
+    if (!stage) return;
+    stage.querySelectorAll('.tc-gallery-swipe-preview').forEach((preview) => preview.remove());
+    stage.style.removeProperty('--tc-gallery-drag-x');
+    stage.classList.remove('is-dragging', 'is-gallery-settling', 'is-gallery-committing');
+  }
+
+  function waitForMainImage(image) {
+    if (!image) return Promise.resolve();
+    if (image.complete && image.naturalWidth) {
+      return image.decode ? image.decode().catch(() => {}) : Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      const done = () => resolve();
+      image.addEventListener('load', done, { once: true });
+      image.addEventListener('error', done, { once: true });
+    });
+  }
+
+  function settleGallerySwipe(state, preview, direction, nextIndex, width) {
+    const stage = state.root.querySelector('.tc-media-stage');
+    const images = imagesForCurrentSelection(state);
+    if (!stage || !preview || !images[nextIndex]) {
+      clearGallerySwipeVisuals(state);
+      state.gallerySettling = false;
+      return;
+    }
+
+    const motionToken = ++state.galleryMotionToken;
+    state.gallerySettling = true;
+    stage.classList.remove('is-dragging');
+    stage.classList.add('is-gallery-settling');
+    stage.style.setProperty('--tc-gallery-drag-x', `${direction > 0 ? -width : width}px`);
+    preview.style.setProperty('--tc-gallery-preview-x', '0px');
+    preview.style.opacity = '1';
+
+    const commit = () => {
+      if (motionToken !== state.galleryMotionToken) return;
+      state.galleryIndex = nextIndex;
+      hideVideo(state);
+      setMainImage(state, images[nextIndex], { immediate: true, preserveSettling: true });
+      syncGalleryPosition(state, images);
+      centerActiveThumbnail(state, nextIndex);
+      warmGalleryNeighbors(images, nextIndex);
+
+      stage.classList.add('is-gallery-committing');
+      stage.style.setProperty('--tc-gallery-drag-x', '0px');
+      const ready = waitForMainImage(state.mainImage);
+      Promise.race([ready, new Promise((resolve) => window.setTimeout(resolve, 180))]).then(() => {
+        if (motionToken !== state.galleryMotionToken) return;
+        preview.classList.add('is-fading');
+        window.setTimeout(() => {
+          if (motionToken !== state.galleryMotionToken) return;
+          clearGallerySwipeVisuals(state);
+          state.gallerySettling = false;
+        }, 140);
+      });
+    };
+
+    if (prefersReducedMotion) commit();
+    else window.setTimeout(commit, 260);
+  }
+
+  function returnGallerySwipe(state, preview, direction, width) {
+    const stage = state.root.querySelector('.tc-media-stage');
+    if (!stage) return;
+    const motionToken = ++state.galleryMotionToken;
+    state.gallerySettling = true;
+    stage.classList.remove('is-dragging');
+    stage.classList.add('is-gallery-settling');
+    stage.style.setProperty('--tc-gallery-drag-x', '0px');
+    if (preview) {
+      preview.style.setProperty('--tc-gallery-preview-x', `${direction * width}px`);
+      preview.style.opacity = '0.35';
+    }
+    window.setTimeout(() => {
+      if (motionToken !== state.galleryMotionToken) return;
+      clearGallerySwipeVisuals(state);
+      state.gallerySettling = false;
+    }, prefersReducedMotion ? 0 : 220);
   }
 
   function initGallerySwipe(state) {
@@ -625,30 +799,31 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     let currentX = 0;
     let currentY = 0;
     let horizontalIntent = false;
+    let preview = null;
+    let previewDirection = 0;
+    let samples = [];
 
-    const reset = () => {
-      const capturedPointer = pointerId;
-      if (
-        capturedPointer != null &&
-        typeof stage.hasPointerCapture === 'function' &&
-        stage.hasPointerCapture(capturedPointer) &&
-        typeof stage.releasePointerCapture === 'function'
-      ) {
-        stage.releasePointerCapture(capturedPointer);
-      }
+    const resetTracking = () => {
       pointerId = null;
       horizontalIntent = false;
-      stage.style.removeProperty('--tc-gallery-drag-x');
-      stage.classList.remove('is-dragging');
+      preview = null;
+      previewDirection = 0;
+      samples = [];
     };
     stage.addEventListener('pointerdown', (event) => {
-      if (event.pointerType === 'mouse' || event.button !== 0 || event.target.closest('button, a, iframe')) return;
+      const images = imagesForCurrentSelection(state);
+      if (
+        state.gallerySettling ||
+        images.length <= 1 ||
+        event.isPrimary === false ||
+        event.pointerType === 'mouse' ||
+        event.button !== 0 ||
+        event.target.closest('button, a, iframe')
+      ) return;
       pointerId = event.pointerId;
-      if (typeof stage.setPointerCapture === 'function') {
-        stage.setPointerCapture(pointerId);
-      }
       startX = currentX = event.clientX;
       startY = currentY = event.clientY;
+      samples = [{ x: currentX, time: event.timeStamp }];
     }, { passive: true });
     stage.addEventListener('pointermove', (event) => {
       if (event.pointerId !== pointerId) return;
@@ -656,27 +831,97 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       currentY = event.clientY;
       const dx = currentX - startX;
       const dy = currentY - startY;
-      if (!horizontalIntent && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.25) {
+      const distanceX = Math.abs(dx);
+      const distanceY = Math.abs(dy);
+      if (!horizontalIntent && distanceY > 10 && distanceY > distanceX * 1.12) {
+        resetTracking();
+        return;
+      }
+      if (!horizontalIntent && distanceX > 8 && distanceX > distanceY * 1.12) {
         horizontalIntent = true;
         stage.classList.add('is-dragging');
+        if (typeof stage.setPointerCapture === 'function') {
+          try { stage.setPointerCapture(pointerId); } catch (_) { }
+        }
       }
       if (horizontalIntent) {
+        event.preventDefault();
         const images = imagesForCurrentSelection(state);
-        const atEdge = (state.galleryIndex === 0 && dx > 0) || (state.galleryIndex === images.length - 1 && dx < 0);
-        stage.style.setProperty('--tc-gallery-drag-x', `${dx * (atEdge ? 0.16 : 0.34)}px`);
+        const direction = dx < 0 ? 1 : -1;
+        const nextIndex = state.galleryIndex + direction;
+        const atEdge = nextIndex < 0 || nextIndex >= images.length;
+        const width = Math.max(1, stage.clientWidth);
+        const visualOffset = galleryDragOffset({ dx, width, atEdge });
+
+        if (!atEdge && (!preview || previewDirection !== direction)) {
+          if (preview) preview.remove();
+          preview = createGalleryPreview(state, images[nextIndex], 'tc-gallery-swipe-preview');
+          previewDirection = direction;
+        } else if (atEdge && preview) {
+          preview.remove();
+          preview = null;
+          previewDirection = 0;
+        }
+
+        stage.style.setProperty('--tc-gallery-drag-x', `${visualOffset}px`);
+        if (preview) {
+          const progress = Math.min(1, Math.abs(visualOffset) / Math.max(1, width * 0.26));
+          preview.style.setProperty('--tc-gallery-preview-x', `${direction * width + visualOffset}px`);
+          preview.style.opacity = String(0.64 + progress * 0.36);
+        }
+        samples.push({ x: currentX, time: event.timeStamp });
+        samples = samples.filter((sample) => event.timeStamp - sample.time <= 120);
       }
-    }, { passive: true });
+    }, { passive: false });
     const finish = (event) => {
       if (event.pointerId !== pointerId) return;
-      const direction = resolveSwipe({ dx: currentX - startX, dy: currentY - startY });
-      if (direction) {
-        showGalleryIndex(state, state.galleryIndex + direction);
-        state.suppressZoomUntil = Date.now() + 450;
+      const capturedPointer = pointerId;
+      const dx = currentX - startX;
+      const dy = currentY - startY;
+      const width = Math.max(1, stage.clientWidth);
+      if (!horizontalIntent) {
+        releaseGalleryPointer(stage, capturedPointer);
+        resetTracking();
+        return;
       }
-      reset();
+      const recent = samples.length > 1 ? samples : [{ x: startX, time: event.timeStamp - 1 }, { x: currentX, time: event.timeStamp }];
+      const first = recent[0];
+      const last = recent[recent.length - 1];
+      const elapsed = Math.max(1, last.time - first.time);
+      const velocityX = (last.x - first.x) / elapsed;
+      const direction = resolveSwipe({ dx, dy, width, velocityX, horizontalIntent });
+      const nextIndex = state.galleryIndex + direction;
+      const validTarget = direction && nextIndex >= 0 && nextIndex < imagesForCurrentSelection(state).length;
+
+      if (horizontalIntent || Math.abs(dx) > 8) state.suppressZoomUntil = Date.now() + 520;
+      releaseGalleryPointer(stage, capturedPointer);
+      if (validTarget && preview && previewDirection === direction) {
+        const settledPreview = preview;
+        resetTracking();
+        settleGallerySwipe(state, settledPreview, direction, nextIndex, width);
+      } else {
+        const returningPreview = preview;
+        const returningDirection = previewDirection || (dx < 0 ? 1 : -1);
+        resetTracking();
+        returnGallerySwipe(state, returningPreview, returningDirection, width);
+      }
     };
     stage.addEventListener('pointerup', finish, { passive: true });
-    stage.addEventListener('pointercancel', reset, { passive: true });
+    stage.addEventListener('pointercancel', (event) => {
+      if (event.pointerId !== pointerId) return;
+      const capturedPointer = pointerId;
+      const returningPreview = preview;
+      const returningDirection = previewDirection || 1;
+      const width = Math.max(1, stage.clientWidth);
+      releaseGalleryPointer(stage, capturedPointer);
+      resetTracking();
+      returnGallerySwipe(state, returningPreview, returningDirection, width);
+    }, { passive: true });
+    stage.addEventListener('keydown', (event) => {
+      if (event.target !== state.mainImage || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+      event.preventDefault();
+      showGalleryIndex(state, state.galleryIndex + (event.key === 'ArrowRight' ? 1 : -1));
+    });
   }
 
   function initThumbnailNav(state) {
@@ -705,6 +950,21 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const url = data ? data.url : '';
     if (!state.mainImage || !url) return;
     const immediate = options && options.immediate;
+    const preserveSettling = options && options.preserveSettling;
+    const direction = Number(options && options.direction) < 0 ? -1 : 1;
+    const stage = state.root.querySelector('.tc-media-stage');
+    const changeToken = ++state.imageChangeToken;
+
+    if (stage) {
+      stage.querySelectorAll('.tc-gallery-transition-preview').forEach((preview) => preview.remove());
+      stage.classList.remove('is-gallery-transitioning');
+      if (!preserveSettling) {
+        stage.classList.remove('is-gallery-committing');
+        stage.style.removeProperty('--tc-gallery-drag-x');
+        state.gallerySettling = false;
+      }
+    }
+
     if ((state.mainImage.getAttribute('src') === url || state.mainImage.currentSrc === url) && !immediate) {
       state.mainImage.alt = data.alt || state.container.dataset.productTitle || '';
       state.mainImage.setAttribute('data-zoom', data.zoomUrl || url);
@@ -725,10 +985,50 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       return;
     }
 
-    state.mainImage.classList.add('is-switching');
+    state.gallerySettling = true;
     preloadImage(url)
-      .then(() => window.setTimeout(apply, 60))
-      .catch(() => window.setTimeout(apply, 90));
+      .catch(() => null)
+      .then(() => {
+        if (changeToken !== state.imageChangeToken) return;
+        const preview = createGalleryPreview(state, data, 'tc-gallery-transition-preview');
+        if (!stage || !preview) {
+          apply();
+          state.gallerySettling = false;
+          return;
+        }
+
+        const width = Math.max(1, stage.clientWidth);
+        const entryOffset = direction * Math.min(44, width * 0.11);
+        preview.style.setProperty('--tc-gallery-preview-x', `${entryOffset}px`);
+        preview.style.opacity = '0';
+        stage.classList.add('is-gallery-transitioning');
+
+        window.requestAnimationFrame(() => {
+          if (changeToken !== state.imageChangeToken) return;
+          stage.style.setProperty('--tc-gallery-drag-x', `${direction * -Math.min(22, width * 0.055)}px`);
+          preview.style.setProperty('--tc-gallery-preview-x', '0px');
+          preview.style.opacity = '1';
+        });
+
+        window.setTimeout(() => {
+          if (changeToken !== state.imageChangeToken) return;
+          apply();
+          stage.classList.add('is-gallery-committing');
+          stage.style.setProperty('--tc-gallery-drag-x', '0px');
+          const ready = waitForMainImage(state.mainImage);
+          Promise.race([ready, new Promise((resolve) => window.setTimeout(resolve, 180))]).then(() => {
+            if (changeToken !== state.imageChangeToken) return;
+            preview.classList.add('is-fading');
+            window.setTimeout(() => {
+              if (changeToken !== state.imageChangeToken) return;
+              preview.remove();
+              stage.classList.remove('is-gallery-transitioning', 'is-gallery-committing');
+              stage.style.removeProperty('--tc-gallery-drag-x');
+              state.gallerySettling = false;
+            }, 140);
+          });
+        }, 240);
+      });
   }
 
   function syncResponsiveSources(image, data) {
