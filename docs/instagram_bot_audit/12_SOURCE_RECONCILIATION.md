@@ -31,6 +31,6 @@ the server, and have a deployed SHA in `09_DEPLOYMENT_LOG.md`.
 ## Reconciliation result
 
 All known sources are represented locally: completed work is in `08_COMPLETION_LOG`
-and `07`, branch-only work is in `10`/this matrix and `07`, findings are in `03`,
-improvements are in `05`, and the next checkpoint is unambiguous in `00`.
-
+and `07`, branch-only work is in `10`/this matrix and `07`, detailed findings are
+in `03`, detailed improvements are in `05`, and `07` contains an individual
+checkbox for every `F-*` and `IMPR-*`. The next checkpoint is unambiguous in `00`.

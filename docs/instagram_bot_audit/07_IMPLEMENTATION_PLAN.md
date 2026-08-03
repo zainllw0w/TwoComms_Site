@@ -1,9 +1,12 @@
 # 07_IMPLEMENTATION_PLAN — план внедрения
 
 > **Канонический per-task статус после восстановления всех веток 2026-08-03.**
-> Всего 97 уникальных `IMP-*`: **69 закрыты, 26 открыты, 2 partial**
+> Всего 99 уникальных `IMP-*`: **70 закрыты, 27 открыты, 2 partial**
 > (`IMP-043`, `IMP-077`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
 > в `03_FINDINGS_REGISTER.md`, общий порядок продолжения — в `00_PROGRESS.md`.
+> Ниже находятся отдельные checkbox-матрицы всех 170 `F-*` и всех 48 `IMPR-*`:
+> `[x]` означает verified completion, `[ ]` — любой незавершённый остаток,
+> включая `PARTIAL`, `REFRAMED` и decision-gated работу.
 
 ## Ключевой принцип версии 2: фикс и улучшение — одним срезом
 
@@ -47,7 +50,8 @@
 | **W8** | Наблюдаемость, аналитика, долг | 13 | 1 | 10 | 2 |
 | **W9** | Product reselection и коммерческая семантика | 8 | 0 | 8 | 0 |
 | **W10** | Неучтённые улучшения: follow-up, retention и аналитический UX | 4 | 0 | 4 | 0 |
-| **Итого** | | **97** | **69** | **26** | **2** |
+| **W11** | Полное покрытие находок и orphan backlog | 2 | 1 | 1 | 0 |
+| **Итого** | | **99** | **70** | **27** | **2** |
 
 ---
 
@@ -327,13 +331,15 @@ Evidence — `03_FINDINGS_REGISTER.md`, раздел «Волна W2».
 футболки, получили по два фото и после этого — тишину. У клиента #2 фото пришли
 вообще без подписи. Evidence — `03_FINDINGS_REGISTER.md`, раздел «Волна W4D».
 
-- [x] **IMP-073 (P0) — своё echo больше не считается менеджером (F-CORE-015).**
+- [x] **IMP-073 (P0) — своё echo больше не считается менеджером (F-CORE-007/015).**
   Распознавание по `message_id` из ответа Send API вместо отпечатка по тексту:
   у медиа-echo текста нет, поэтому прежняя проверка не работала в принципе.
   Новый `services/ig_outgoing_registry.py` (кэш + БД), поле
   `InstagramBotMessage.provider_message_id`, миграция `0129`. Регистрация внутри
   цикла отправки карусели: echo первого фото может прийти раньше, чем отправится
-  второе. Третий слой на случай гонки — активная lease автоматики, с записью в лог.
+  второе. DB fallback переживает сбой/eviction кэша и закрывает риск ложного
+  auto-takeover из F-CORE-007. Третий слой на случай гонки — активная lease
+  автоматики, с записью в лог.
   **Масштаб дефекта:** 57 клиентов из 289 (20% базы) находились в takeover.
 - [x] **IMP-074 (P0) — пауза от менеджера снимается сама (F-CORE-016).**
   `maybe_release_stale_takeover`: 12 часов тишины менеджера → бот возвращается,
@@ -877,6 +883,264 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   определения метрик IMP-040.
 
 ---
+
+## W11 — полное покрытие находок и orphan backlog
+
+- [ ] **IMP-098 (P1/P2) — закрыть находки, которые не имели самостоятельной implementation-задачи.**
+  Текущий orphan-набор: F-CORE-003…006, F-PAY-010, F-SCORE-010 и остатки
+  F-SEC-004/009 (reviewer PII/log sandbox и явная PII-policy для рабочих
+  Telegram/операторских каналов).
+  F-CORE-007 при сверке оказался уже закрыт durable outgoing registry в
+  IMP-073; F-SCORE-012 имеет самостоятельную открытую задачу IMP-046.
+  Для каждого ID обязательны отдельный
+  regression-тест, production-like MariaDB proof и запись deployment SHA.
+  Матрица ниже является checklist границы: `[x]` только для verified/fixed,
+  `[ ]` для open и partial. Она не заменяет подробное evidence в
+  `03_FINDINGS_REGISTER.md`.
+
+- [x] **IMP-099 (P1/P2) — supplemental closures восстановлены из progress-history.**
+  В канонический план возвращены уже реализованные, но раньше не имевшие
+  отдельного `IMP-*`: F-PAT-003, F-OPS-005, F-STATE-009, F-UX-015 и
+  F-OPS-007. Evidence: кириллические размеры с контекстным guard, эскалация
+  зависшей ТТН, продвижение стадии от заказа, transcript-bound media и payer
+  быстрого возврата. Галочка основана на существующем коде/тестах и ранее
+  задеплоенном W4/W5-срезе, а не на одном тексте progress.
+
+### Finding coverage matrix — 170 уникальных F-идентификаторов
+
+Итог матрицы: **115 `[x]` / 51 `OPEN [ ]` / 4 `PARTIAL [ ]`**. Статус
+считается по факту текущего `main`, тестов и production evidence, а не по тому,
+что ID когда-то упоминался в progress или feature-ветке.
+
+| Check | Finding | Status | Canonical task |
+|---|---|---|---|
+| [x] | F-AI-001 | FIXED/VERIFIED | IMP-011 |
+| [x] | F-AI-002 | FIXED/VERIFIED | IMP-011 |
+| [ ] | F-AI-003 | OPEN | IMP-044 |
+| [ ] | F-AI-004 | OPEN | IMP-044 |
+| [x] | F-AI-005 | FIXED/VERIFIED | IMP-029 |
+| [x] | F-AI-006 | FIXED/VERIFIED | IMP-029 |
+| [x] | F-AI-007 | FIXED/VERIFIED | IMP-029 |
+| [x] | F-AI-008 | FIXED/VERIFIED | IMP-029 |
+| [ ] | F-AI-009 | OPEN | IMP-028 |
+| [ ] | F-AI-010 | OPEN | IMP-028 |
+| [ ] | F-AI-011 | OPEN | IMP-028 |
+| [ ] | F-AI-012 | OPEN | IMP-028 |
+| [ ] | F-AI-013 | OPEN | IMP-044 |
+| [x] | F-AI-014 | FIXED/VERIFIED | IMP-064 |
+| [x] | F-AI-015 | FIXED/VERIFIED | IMP-076 |
+| [x] | F-AI-016 | FIXED/VERIFIED | IMP-078 |
+| [x] | F-AI-017 | FIXED/VERIFIED | IMP-097 |
+| [x] | F-CAT-001 | FIXED/VERIFIED | IMP-067 |
+| [x] | F-CAT-002 | FIXED/VERIFIED | IMP-067 |
+| [x] | F-CAT-003 | FIXED/VERIFIED | IMP-080 |
+| [ ] | F-CAT-004 | OPEN | IMP-084/086 |
+| [x] | F-CORE-001 | FIXED/VERIFIED | IMP-008 |
+| [x] | F-CORE-002 | FIXED/VERIFIED | IMP-012 |
+| [ ] | F-CORE-003 | OPEN | IMP-098 |
+| [ ] | F-CORE-004 | OPEN | IMP-098 |
+| [ ] | F-CORE-005 | OPEN | IMP-098 |
+| [ ] | F-CORE-006 | OPEN | IMP-098 |
+| [x] | F-CORE-007 | FIXED/VERIFIED | IMP-073 |
+| [x] | F-CORE-009 | FIXED/VERIFIED | IMP-001 |
+| [x] | F-CORE-010 | FIXED/VERIFIED | IMP-004 |
+| [x] | F-CORE-011 | FIXED/VERIFIED | IMP-001/004/063 |
+| [x] | F-CORE-012 | FIXED/VERIFIED | IMP-063 |
+| [x] | F-CORE-013 | FIXED/VERIFIED | IMP-068 |
+| [x] | F-CORE-014 | FIXED/VERIFIED | IMP-069 |
+| [x] | F-CORE-015 | FIXED/VERIFIED | IMP-073 |
+| [x] | F-CORE-016 | FIXED/VERIFIED | IMP-074 |
+| [x] | F-CORE-017 | FIXED/VERIFIED | IMP-075 |
+| [x] | F-CORE-018 | FIXED/VERIFIED | IMP-097 |
+| [ ] | F-CTX-001 | OPEN | IMP-028 |
+| [x] | F-CTX-002 | FIXED/VERIFIED | IMP-016/052 |
+| [ ] | F-CTX-003 | OPEN | IMP-028 |
+| [x] | F-CTX-004 | FIXED/VERIFIED | IMP-078 |
+| [ ] | F-DATA-001 | OPEN | IMP-046 |
+| [ ] | F-DATA-002 | OPEN | IMP-046 |
+| [ ] | F-DATA-003 | OPEN | IMP-046 |
+| [ ] | F-DATA-004 | OPEN | IMP-046 |
+| [x] | F-DATA-005 | FIXED/VERIFIED | IMP-013 |
+| [x] | F-DATA-006 | FIXED/VERIFIED | IMP-002 |
+| [ ] | F-DATA-009 | OPEN | IMP-046 |
+| [ ] | F-DATA-010 | OPEN | IMP-046 |
+| [x] | F-DATA-011 | FIXED/VERIFIED | IMP-003 |
+| [ ] | F-DATA-012 | OPEN | IMP-044 |
+| [x] | F-DATA-013 | FIXED/VERIFIED | IMP-013 |
+| [x] | F-DATA-014 | FIXED/VERIFIED | IMP-013 |
+| [ ] | F-DATA-015 | OPEN | IMP-096 |
+| [ ] | F-DATA-016 | OPEN | IMP-095 |
+| [ ] | F-DEBT-001 | OPEN | IMP-046 |
+| [ ] | F-DEBT-002 | OPEN | IMP-046 |
+| [ ] | F-DEBT-003 | OPEN | IMP-046 |
+| [ ] | F-DEBT-004 | OPEN | IMP-045 |
+| [x] | F-DEBT-005 | FIXED/VERIFIED | IMP-004 |
+| [ ] | F-DEBT-006 | OPEN | IMP-094 |
+| [ ] | F-DEBT-007 | OPEN | IMP-094 |
+| [x] | F-FUP-001 | FIXED/VERIFIED | IMP-047 |
+| [x] | F-FUP-002 | FIXED/VERIFIED | IMP-048 |
+| [x] | F-FUP-003 | FIXED/VERIFIED | IMP-049 |
+| [x] | F-FUP-004 | FIXED/VERIFIED | IMP-055 |
+| [x] | F-FUP-005 | FIXED/VERIFIED | IMP-053 |
+| [x] | F-FUP-006 | FIXED/VERIFIED | IMP-054 |
+| [x] | F-FUP-007 | FIXED/VERIFIED | IMP-054 |
+| [x] | F-FUP-008 | FIXED/VERIFIED | IMP-053 |
+| [x] | F-FUP-009 | FIXED/VERIFIED | IMP-056 |
+| [x] | F-FUP-010 | FIXED/VERIFIED | IMP-052 |
+| [x] | F-FUP-011 | FIXED/VERIFIED | IMP-050/052 |
+| [x] | F-FUP-012 | FIXED/VERIFIED | IMP-050/052 |
+| [x] | F-OBJ-001 | FIXED/VERIFIED | IMP-057 |
+| [x] | F-OBJ-002 | FIXED/VERIFIED | IMP-057 |
+| [x] | F-OBJ-003 | FIXED/VERIFIED | IMP-057 |
+| [x] | F-OBJ-004 | FIXED/VERIFIED | IMP-057 |
+| [x] | F-OBJ-005 | FIXED/VERIFIED | IMP-057 |
+| [x] | F-OBJ-006 | FIXED/VERIFIED | IMP-057 |
+| [x] | F-OBJ-007 | FIXED/VERIFIED | IMP-057 |
+| [x] | F-OBJ-008 | FIXED/VERIFIED | IMP-057 |
+| [x] | F-OPS-001 | FIXED/VERIFIED | IMP-009/051 |
+| [ ] | F-OPS-002 | OPEN | IMP-046 |
+| [x] | F-OPS-003 | FIXED/VERIFIED | IMP-020 |
+| [ ] | F-OPS-004 | OPEN | IMP-059 |
+| [x] | F-OPS-005 | FIXED/VERIFIED | IMP-099 |
+| [x] | F-OPS-006 | FIXED/VERIFIED | IMP-062 |
+| [x] | F-OPS-007 | FIXED/VERIFIED | IMP-099 |
+| [ ] | F-OPS-008 | OPEN | IMP-059 |
+| [ ] | F-OPS-009 | PARTIAL | IMP-077 |
+| [x] | F-PAT-001 | FIXED/VERIFIED | IMP-017 |
+| [x] | F-PAT-002 | FIXED/VERIFIED | IMP-017 |
+| [x] | F-PAT-003 | FIXED/VERIFIED | IMP-099 |
+| [x] | F-PAT-004 | FIXED/VERIFIED | IMP-017 |
+| [x] | F-PAT-005 | FIXED/VERIFIED | IMP-017 |
+| [x] | F-PAY-001 | FIXED/VERIFIED | IMP-010 |
+| [ ] | F-PAY-002 | OPEN | IMP-087/088 |
+| [ ] | F-PAY-003 | OPEN | IMP-087/088 |
+| [x] | F-PAY-004 | FIXED/VERIFIED | IMP-051 |
+| [x] | F-PAY-005 | FIXED/VERIFIED | IMP-050 |
+| [ ] | F-PAY-006 | OPEN | IMP-087/088 |
+| [x] | F-PAY-007 | FIXED/VERIFIED | IMP-021 |
+| [ ] | F-PAY-008 | OPEN | IMP-043 |
+| [x] | F-PAY-009 | FIXED/VERIFIED | IMP-022 |
+| [ ] | F-PAY-010 | OPEN | IMP-098 |
+| [x] | F-PAY-011 | FIXED/VERIFIED | IMP-024 |
+| [x] | F-PAY-012 | FIXED/VERIFIED | IMP-013 |
+| [x] | F-PAY-013 | FIXED/VERIFIED | IMP-071 |
+| [ ] | F-PAY-014 | OPEN | IMP-089 |
+| [x] | F-SCORE-001 | FIXED/VERIFIED | IMP-019 |
+| [x] | F-SCORE-002 | FIXED/VERIFIED | IMP-015 |
+| [x] | F-SCORE-003 | FIXED/VERIFIED | IMP-014 |
+| [x] | F-SCORE-004 | FIXED/VERIFIED | IMP-013 |
+| [x] | F-SCORE-005 | FIXED/VERIFIED | IMP-013 |
+| [x] | F-SCORE-006 | FIXED/VERIFIED | IMP-015 |
+| [ ] | F-SCORE-007 | OPEN | IMP-093 |
+| [x] | F-SCORE-008 | FIXED/VERIFIED | IMP-018 |
+| [x] | F-SCORE-009 | FIXED/VERIFIED | IMP-016 |
+| [ ] | F-SCORE-010 | OPEN | IMP-098 |
+| [x] | F-SCORE-011 | FIXED/VERIFIED | IMP-034 |
+| [ ] | F-SCORE-012 | OPEN | IMP-046 |
+| [x] | F-SCORE-013 | FIXED/VERIFIED | IMP-040 |
+| [ ] | F-SCORE-014 | PARTIAL | IMP-043 |
+| [x] | F-SCORE-015 | FIXED/VERIFIED | IMP-013/015/019/031 |
+| [ ] | F-SEC-001 | OPEN | IMP-042 |
+| [x] | F-SEC-002 | FIXED/VERIFIED | IMP-005 |
+| [x] | F-SEC-003 | FIXED/VERIFIED | IMP-006 |
+| [ ] | F-SEC-004 | PARTIAL | IMP-007/098 |
+| [ ] | F-SEC-005 | OPEN | IMP-042 |
+| [x] | F-SEC-006 | FIXED/VERIFIED | IMP-025 |
+| [x] | F-SEC-007 | FIXED/VERIFIED | IMP-012 |
+| [ ] | F-SEC-008 | OPEN | IMP-041 |
+| [ ] | F-SEC-009 | PARTIAL | IMP-006/098 |
+| [ ] | F-SEC-010 | OPEN | IMP-061 |
+| [ ] | F-STAT-001 | OPEN | IMP-058 |
+| [ ] | F-STAT-002 | OPEN | IMP-058 |
+| [ ] | F-STAT-003 | OPEN | IMP-058 |
+| [ ] | F-STAT-004 | OPEN | IMP-058 |
+| [x] | F-STATE-001 | FIXED/VERIFIED | IMP-031 |
+| [x] | F-STATE-002 | FIXED/VERIFIED | IMP-033 |
+| [x] | F-STATE-003 | FIXED/VERIFIED | IMP-033 |
+| [x] | F-STATE-004 | FIXED/VERIFIED | IMP-032 |
+| [x] | F-STATE-005 | FIXED/VERIFIED | IMP-034 |
+| [x] | F-STATE-006 | FIXED/VERIFIED | IMP-034 |
+| [x] | F-STATE-007 | FIXED/VERIFIED | IMP-034 |
+| [x] | F-STATE-008 | FIXED/VERIFIED | IMP-018 |
+| [x] | F-STATE-009 | FIXED/VERIFIED | IMP-099 |
+| [x] | F-STATE-010 | FIXED/VERIFIED | IMP-079 |
+| [x] | F-TEST-001 | FIXED/VERIFIED | IMP-022 |
+| [ ] | F-TEST-002 | OPEN | IMP-094 |
+| [x] | F-TEST-003 | FIXED/VERIFIED | IMP-055 |
+| [x] | F-TXT-001 | FIXED/VERIFIED | IMP-022 |
+| [x] | F-UX-001 | FIXED/VERIFIED | IMP-035 |
+| [x] | F-UX-002 | FIXED/VERIFIED | IMP-020 |
+| [x] | F-UX-003 | FIXED/VERIFIED | IMP-020 |
+| [x] | F-UX-004 | FIXED/VERIFIED | IMP-039 |
+| [x] | F-UX-005 | FIXED/VERIFIED | IMP-036 |
+| [x] | F-UX-006 | FIXED/VERIFIED | IMP-037 |
+| [x] | F-UX-007 | FIXED/VERIFIED | IMP-038 |
+| [x] | F-UX-008 | FIXED/VERIFIED | IMP-040 |
+| [x] | F-UX-009 | FIXED/VERIFIED | IMP-037 |
+| [x] | F-UX-010 | FIXED/VERIFIED | IMP-040 |
+| [ ] | F-UX-011 | OPEN | IMP-046 |
+| [x] | F-UX-012 | FIXED/VERIFIED | IMP-040 |
+| [x] | F-UX-013 | FIXED/VERIFIED | IMP-040 |
+| [x] | F-UX-014 | FIXED/VERIFIED | IMP-018 |
+| [x] | F-UX-015 | FIXED/VERIFIED | IMP-099 |
+| [x] | F-UX-016 | FIXED/VERIFIED | IMP-035 |
+
+### Improvement coverage matrix — 48 уникальных IMPR-идентификаторов
+
+Итог матрицы: **14 `[x]` / 34 `[ ]`**. В незакрытый остаток входят
+15 `PARTIAL`, 18 `OPEN` (из них 3 decision-gated) и 1 `REFRAMED`; галочка не
+ставится, пока полезный остаток не реализован и не задеплоен.
+
+| Check | Improvement | Status | Canonical task / остаток |
+|---|---|---|---|
+| [x] | IMPR-CAT-001 | DONE | IMP-027 |
+| [ ] | IMPR-CAT-002 | REFRAMED | IMP-067; настоящий учёт варианта — IMP-084/086 |
+| [x] | IMPR-CAT-003 | DONE | IMP-080 |
+| [ ] | IMPR-CAT-004 | OPEN | IMP-082/084 |
+| [x] | IMPR-CAT-005 | DONE | IMP-067; catalog completeness `3191e08c` |
+| [ ] | IMPR-CAT-006 | OPEN | IMP-088 |
+| [ ] | IMPR-FEAT-001 | OPEN | IMP-082/083/088 |
+| [ ] | IMPR-FEAT-002 | OPEN | IMP-084/086 |
+| [ ] | IMPR-FEAT-003 | PARTIAL | IMP-028/053/056; остаток IMP-083 |
+| [ ] | IMPR-FEAT-004 | PARTIAL | IMP-056; durable subscription/warehouse — IMP-087 |
+| [ ] | IMPR-FEAT-005 | PARTIAL | `IgDealItem` есть; остаток IMP-085/087/088 |
+| [x] | IMPR-FEAT-006 | DONE | IMP-053/056 |
+| [x] | IMPR-FEAT-007 | DONE | IMP-021 |
+| [ ] | IMPR-FEAT-008 | OPEN, decision-gated | IMP-091 |
+| [ ] | IMPR-FEAT-009 | PARTIAL | одношаговый flow IMP-024; двухшаговый — IMP-091 |
+| [ ] | IMPR-FEAT-010 | OPEN, decision-gated | IMP-091 |
+| [ ] | IMPR-FEAT-011 | OPEN, decision-gated | IMP-091 |
+| [ ] | IMPR-FEAT-012 | OPEN | IMP-092 |
+| [ ] | IMPR-FEAT-013 | PARTIAL | IMP-054/078; операционный остаток IMP-092 |
+| [ ] | IMPR-FEAT-014 | PARTIAL | hosted checkout `c696ee9e`; остаток IMP-087/088 |
+| [ ] | IMPR-FEAT-015 | PARTIAL | access token/`Kind.SHARE` есть; E2E — IMP-087/088 |
+| [ ] | IMPR-FUP-013 | OPEN | IMP-090 после IMP-056 |
+| [ ] | IMPR-INV-001 | OPEN | IMP-081/084/086 |
+| [x] | IMPR-MEM-001 | DONE | IMP-030 |
+| [ ] | IMPR-OPS-002 | OPEN | IMP-041/059 |
+| [ ] | IMPR-SALES-001 | PARTIAL | каталог размеров есть; протокол — IMP-028 |
+| [ ] | IMPR-SALES-002 | PARTIAL | post-sale guard есть; prompt acceptance — IMP-028 |
+| [ ] | IMPR-SALES-003 | OPEN | IMP-028/085/087 |
+| [ ] | IMPR-SALES-004 | OPEN | IMP-028 |
+| [ ] | IMPR-SALES-005 | PARTIAL | IMP-053/057; полный prompt-протокол — IMP-028 |
+| [ ] | IMPR-SALES-006 | PARTIAL | IMP-053; выбор/событие — IMP-028/056/083 |
+| [ ] | IMPR-SALES-007 | OPEN | IMP-028 |
+| [ ] | IMPR-SALES-008 | PARTIAL | hard limits IMP-052/053; prompt — IMP-028 |
+| [ ] | IMPR-SALES-009 | PARTIAL | ложный stock убран IMP-067; остаток IMP-028/084 |
+| [ ] | IMPR-SALES-010 | OPEN | IMP-028 |
+| [ ] | IMPR-SALES-011 | OPEN | IMP-028 |
+| [x] | IMPR-TXT-001 | DONE | IMP-021 |
+| [x] | IMPR-TXT-002 | DONE | IMP-022 |
+| [x] | IMPR-TXT-003 | DONE | IMP-022 |
+| [x] | IMPR-TXT-004 | DONE | IMP-024 |
+| [x] | IMPR-TXT-005 | DONE | IMP-053 |
+| [ ] | IMPR-TXT-006 | OPEN | IMP-028 |
+| [x] | IMPR-UX-001 | DONE | IMP-031/035 |
+| [ ] | IMPR-UX-002 | OPEN | IMP-093 |
+| [x] | IMPR-UX-003 | DONE | IMP-034 |
+| [ ] | IMPR-UX-004 | PARTIAL | shipment timeline IMP-062; единый timeline — IMP-093 |
+| [ ] | IMPR-UX-005 | PARTIAL | definitions IMP-040; grouping — IMP-093 |
+| [x] | IMPR-UX-006 | DONE | IMP-038 |
 
 ## Что НЕ входит в план и почему
 

@@ -11,6 +11,8 @@
 - W8: `IMP-041`, `042`, `044`–`046`, `059`–`061`, `094`, `096`; partial `043`, `077`.
 - W9: `IMP-081`–`088` (the first five have branch-only code, not production).
 - W10: `IMP-090`–`093`.
+- W11: `IMP-098` — F-CORE-003…006, F-PAY-010, F-SCORE-010 и partial-остатки
+  F-SEC-004/009. F-CORE-007 уже закрыта IMP-073; F-SCORE-012 остаётся в IMP-046.
 
 ## Product/data blockers
 
@@ -38,4 +40,3 @@
 The full management suite has a separately recorded pre-existing failure set
 (`F-TEST-002`, `IMP-094`). A focused green package is required for each slice;
 no full-suite failure is silently attributed to the current checkpoint.
-

@@ -1,17 +1,23 @@
-# 11_FINAL_VALIDATION_REPORT — checkpoint 2026-08-03
+# 11_FINAL_VALIDATION_REPORT — documentation consolidation checkpoint 2026-08-03
 
 ## Scope
 
-This checkpoint consolidates audit documents and publishes the current reliability
-fix. It does not claim that the open implementation backlog is complete.
+This checkpoint consolidates audit documents and makes `07_IMPLEMENTATION_PLAN.md`
+a self-contained handoff. It does not claim that the open implementation backlog
+is complete.
 
 ## Local evidence
 
-- `main` and `origin/main`: `59f5a67b` (final docs checkpoint; runtime code remains `6b86e103`).
+- Current runtime baseline before this docs-only consolidation: `6b86e103`.
 - Unrelated Custom Print and asset WIP remains unstaged and uncommitted.
-- Required audit artifacts `00`–`12` are present after documentation commit `59f5a67b`.
-- `07_IMPLEMENTATION_PLAN.md` is the only task-status authority; `02` is the
-  120-item audit coverage authority.
+- Required audit artifacts `00`–`12` are present.
+- `07_IMPLEMENTATION_PLAN.md` is the task-status authority and contains
+  individual checkbox matrices for all **170 `F-*` findings** and all **48
+  `IMPR-*` improvements**. Finding status is **115 checked / 51 open / 4
+  partial**; improvement status is **14 checked / 34 unfinished**.
+- Implementation status is **99 `IMP-*`: 70 checked, 27 open, 2 partial**.
+- `02` remains the 120-item audit coverage authority; `03` and `05` remain the
+  detailed finding/improvement evidence registers.
 
 ## Verification evidence
 
@@ -20,17 +26,22 @@ fix. It does not claim that the open implementation backlog is complete.
 - `python manage.py makemigrations --check --dry-run`: no changes detected.
 - `python -m compileall -q` for changed IG service/tests: exit 0.
 - `git diff --check`: exit 0 before code commit.
+- Identifier reconciliation: 170/170 findings and 48/48 improvements match
+  their canonical registers; no missing/extra IDs across refs, worktrees or
+  stashes.
 - Production MySQL migration state through `0132`: applied.
 
 ## Production evidence
 
-Server HEAD is `59f5a67ba7a4e0b89881141aadd966411832c7ca`, daemon settings report
-`enabled=True`, runtime transport `instagram_login`, fresh heartbeat, and empty
-`last_error` after restart. Full command and timestamp history are in
+The docs-only consolidation is deployed after push; server SHA, daemon settings
+(`enabled=True`, runtime transport `instagram_login`, fresh heartbeat, empty
+`last_error`) and the exact pull/restart history are recorded in
 `09_DEPLOYMENT_LOG.md`.
 
 ## Acceptance decision
 
-The documentation checkpoint is published. `IMP-058`, `IMP-089`, product
-data, branch-only reselection and the W8/W9/W10 backlog remain explicitly open;
-the next implementation must start from this file set.
+The documentation checkpoint is published. `IMP-058`, `IMP-089`, product/data
+pricing blockers, branch-only reselection, W8/W9/W10 work and `IMP-098` remain
+explicitly open. The next implementation must start from this file set; no
+status may be inferred from an old branch or progress paragraph without updating
+the checkbox and evidence matrix.
