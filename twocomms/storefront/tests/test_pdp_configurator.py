@@ -239,9 +239,11 @@ class ProductConfiguratorRenderTests(TestCase):
     def test_versioned_pdp_assets_use_one_fresh_release_key(self):
         html = self.client.get(self.url).content.decode()
 
-        self.assertIn("css/product-detail.css?v=20260724-size-advisor-v1", html)
+        self.assertIn("css/product-detail.css?v=20260803-gallery-v2", html)
+        self.assertIn("css/product-media-fit.css?v=20260803-gallery-v2", html)
         self.assertIn("css/product-seo-landing.css?v=20260716-pdp-v2", html)
-        self.assertIn("js/product-detail.js?v=20260724-size-advisor-v1", html)
+        self.assertIn("js/product-detail.js?v=20260803-gallery-v2", html)
+        self.assertIn("js/product-media-fit.js?v=20260803-gallery-v2", html)
         self.assertIn("js/telegram-verify.js?v=20260716-pdp-v2", html)
         self.assertNotIn("20260715-fable5-v1", html)
         self.assertNotIn("20260716-configurator-v1", html)

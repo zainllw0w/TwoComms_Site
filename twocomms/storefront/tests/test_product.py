@@ -125,11 +125,11 @@ class ProductDetailTests(ProductViewTestCase):
         self.assertContains(response, 'data-pdp-tab="delivery"', html=False)
         self.assertContains(response, 'id="panel-delivery"', html=False)
         self.assertContains(response, 'data-add-to-cart=', html=False)
-        self.assertContains(response, 'product-detail.css?v=20260717-breadcrumb-layer-v1', html=False)
-        self.assertContains(response, 'product-media-fit.css?v=20260428-media-fit-v1', html=False)
-        self.assertContains(response, 'product-reviews.css?v=20260510-pdp-reviews-v2', html=False)
-        self.assertContains(response, 'product-detail.js?v=20260428-image-alt-faq-v1', html=False)
-        self.assertContains(response, 'product-media-fit.js?v=20260428-media-fit-v1', html=False)
+        self.assertContains(response, 'product-detail.css?v=20260803-gallery-v2', html=False)
+        self.assertContains(response, 'product-media-fit.css?v=20260803-gallery-v2', html=False)
+        self.assertContains(response, 'product-reviews.css?v=20260511-pdp-layout-v8', html=False)
+        self.assertContains(response, 'product-detail.js?v=20260803-gallery-v2', html=False)
+        self.assertContains(response, 'product-media-fit.js?v=20260803-gallery-v2', html=False)
 
     def test_product_detail_renders_description_collapse_hooks(self):
         self.product.full_description = "\n".join(
