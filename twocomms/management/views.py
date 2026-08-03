@@ -4209,7 +4209,7 @@ def management_bot_webhook(request, token):
             if notification:
                 if notification.status == IgBotNotification.Status.SENT:
                     notification.status = IgBotNotification.Status.RESOLVED
-                    notification.failure_kind = f'payment_review_{review.status}_telegram'
+                    notification.failure_kind = f'payment_review_{review.status}_tg'
                 notification.payload = {
                     **(notification.payload if isinstance(notification.payload, dict) else {}),
                     'review_status': review.status,

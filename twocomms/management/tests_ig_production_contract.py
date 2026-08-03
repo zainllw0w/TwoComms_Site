@@ -82,6 +82,16 @@ class ProductionDatabaseGuardTests(SimpleTestCase):
 
 class PaymentReviewRollbackFixtureTests(TestCase):
     def test_callback_race_fixture_uses_delivered_evidence_and_stable_amount(self):
+        from management.models import IgBotNotification
+
         result = verifier._run_payment_review_contract("test_prod_contract_")
 
         self.assertEqual(result["callback_race"], "proven")
+        notification = IgBotNotification.objects.get(
+            dedupe_key="test_prod_contract_callback-review"
+        )
+        self.assertEqual(notification.failure_kind, "payment_review_confirmed_tg")
+        self.assertLessEqual(
+            len(notification.failure_kind),
+            IgBotNotification._meta.get_field("failure_kind").max_length,
+        )
