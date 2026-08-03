@@ -663,11 +663,11 @@ def backfill_reconstructible_funnel_events(*, limit: int = 1000, apply: bool = F
     for episode in IgCommercialEpisode.objects.select_related("intended_order").order_by("pk")[:limit]:
         order = episode.intended_order
         if order:
-            candidates.append((episode, IgFunnelStepEvent.Type.ORDER_CREATED, f"ig-order-created:{order.pk}", order.created_at, {"order_id": order.pk, "backfill_source": "canonical_order"}))
+            candidates.append((episode, IgFunnelStepEvent.Type.ORDER_CREATED, f"ig-order-created:{order.pk}", order.created, {"order_id": order.pk, "backfill_source": "canonical_order"}))
             if order.tracking_number:
-                candidates.append((episode, IgFunnelStepEvent.Type.TTN_CREATED, f"ig-ttn-created:{order.pk}:{order.tracking_number}", order.shipment_status_updated or order.updated_at, {"order_id": order.pk, "tracking_number": order.tracking_number, "backfill_source": "canonical_order"}))
+                candidates.append((episode, IgFunnelStepEvent.Type.TTN_CREATED, f"ig-ttn-created:{order.pk}:{order.tracking_number}", order.shipment_status_updated or order.updated, {"order_id": order.pk, "tracking_number": order.tracking_number, "backfill_source": "canonical_order"}))
             if order.status == "done":
-                candidates.append((episode, IgFunnelStepEvent.Type.DELIVERED, f"ig-delivered:{order.pk}", order.shipment_status_updated or order.updated_at, {"order_id": order.pk, "tracking_number": order.tracking_number, "backfill_source": "canonical_order"}))
+                candidates.append((episode, IgFunnelStepEvent.Type.DELIVERED, f"ig-delivered:{order.pk}", order.shipment_status_updated or order.updated, {"order_id": order.pk, "tracking_number": order.tracking_number, "backfill_source": "canonical_order"}))
         deal = episode.deal
         projection = (
             IgPaymentProjection.objects.select_related("last_event")

@@ -492,6 +492,36 @@ class IgFunnelAnalyticsApiTests(TestCase):
             1,
         )
 
+    def test_backfill_reads_production_order_timestamp_fields(self):
+        from management.services.ig_commercial_episodes import (
+            bind_episode_order,
+            ensure_episode_for_deal,
+        )
+        from management.services.ig_funnel_analytics import backfill_reconstructible_funnel_events
+        from management.models import IgDeal
+        from orders.models import Order
+
+        client = IgClient.get_or_create_for_sender("ig-backfill-order-fields")
+        deal = IgDeal.objects.create(client=client, amount=Decimal("950.00"))
+        episode = ensure_episode_for_deal(deal)
+        order = Order.objects.create(
+            full_name="Backfill Test",
+            phone="380501112233",
+            city="Київ",
+            np_office="Відділення №1",
+            total_sum=Decimal("950.00"),
+            status="done",
+            tracking_number="20450000000011",
+            source="manual",
+            sale_source="Instagram",
+        )
+        bind_episode_order(episode, order, creation_mode="backfill_test")
+
+        result = backfill_reconstructible_funnel_events(limit=100)
+
+        self.assertEqual(result["candidates"], 3)
+        self.assertFalse(result["applied"])
+
     def test_complete_variant_selection_records_configuration_evidence(self):
         from management.models import IgFunnelStepEvent
         from management.services.instagram_bot import persist_control_selection
