@@ -979,11 +979,15 @@ def _record_order_funnel_facts(episode, order, *, source: str):
         record_episode_step_event_in_transaction,
     )
 
+    # ``orders.Order`` uses ``created``/``updated``.  Keep the fallback for
+    # legacy order-like objects used by import/reconciliation callers.
+    order_created_at = getattr(order, "created", None) or getattr(order, "created_at", None)
+    order_updated_at = getattr(order, "updated", None) or getattr(order, "updated_at", None)
     record_episode_step_event_in_transaction(
         episode,
         event_type=IgFunnelStepEvent.Type.ORDER_CREATED,
         event_key=f"ig-order-created:{order.pk}",
-        occurred_at=getattr(order, "created_at", None),
+        occurred_at=order_created_at,
         stage="order_created",
         actor=source or "order_truth",
         evidence={
@@ -998,7 +1002,7 @@ def _record_order_funnel_facts(episode, order, *, source: str):
             episode,
             event_type=IgFunnelStepEvent.Type.TTN_CREATED,
             event_key=f"ig-ttn-created:{order.pk}:{tracking_number}",
-            occurred_at=order.shipment_status_updated or getattr(order, "updated_at", None),
+            occurred_at=order.shipment_status_updated or order_updated_at,
             stage="order_created",
             actor=source or "order_truth",
             evidence={
@@ -1011,7 +1015,7 @@ def _record_order_funnel_facts(episode, order, *, source: str):
             episode,
             event_type=IgFunnelStepEvent.Type.DELIVERED,
             event_key=f"ig-delivered:{order.pk}",
-            occurred_at=order.shipment_status_updated or getattr(order, "updated_at", None),
+            occurred_at=order.shipment_status_updated or order_updated_at,
             stage="done",
             actor=source or "order_truth",
             evidence={

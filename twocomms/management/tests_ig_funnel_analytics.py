@@ -462,6 +462,13 @@ class IgFunnelAnalyticsApiTests(TestCase):
             IgFunnelStepEvent.objects.filter(
                 episode=episode,
                 event_type=IgFunnelStepEvent.Type.ORDER_CREATED,
+            ).get().occurred_at,
+            order.created,
+        )
+        self.assertEqual(
+            IgFunnelStepEvent.objects.filter(
+                episode=episode,
+                event_type=IgFunnelStepEvent.Type.ORDER_CREATED,
             ).count(),
             1,
         )
