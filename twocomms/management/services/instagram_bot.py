@@ -354,6 +354,14 @@ def _mark_bot_sent(recipient_id: str, text: str) -> None:
         pass
 
 
+def _clear_bot_sent(recipient_id: str, text: str) -> None:
+    """Roll back a speculative echo marker after a definite provider rejection."""
+    try:
+        cache.delete(_bot_sent_key(recipient_id, text))
+    except Exception:
+        pass
+
+
 def _looks_like_contact_info(text: str) -> bool:
     """Евристика: схоже на контактні дані (телефон / адреса Нової Пошти)."""
     raw = (text or "")
@@ -2005,6 +2013,66 @@ def _send_rate_limit_backoff_active(s: InstagramBotSettings) -> bool:
     try:
         return bool(cache.get(_send_rate_limit_backoff_key(s)))
     except Exception:
+        return False
+
+
+def _gemini_backoff_key(s: InstagramBotSettings) -> str:
+    return f"ig_bot_gemini_backoff:{_provider_owner_id(s)}"
+
+
+def _gemini_backoff_active(s: InstagramBotSettings) -> bool:
+    try:
+        if (
+            s.gemini_source == InstagramBotSettings.CredSource.CUSTOM
+            and str(s.custom_gemini_key or "").strip()
+        ):
+            return False
+        return bool(cache.get(_gemini_backoff_key(s)))
+    except Exception:
+        return False
+
+
+def _defer_for_gemini_cooldown(
+    row: InstagramBotMessage,
+    s: InstagramBotSettings,
+) -> bool:
+    """Return the current claim to pending while every pooled chat key cools down."""
+    try:
+        if (
+            s.gemini_source == InstagramBotSettings.CredSource.CUSTOM
+            and str(s.custom_gemini_key or "").strip()
+        ):
+            return False
+
+        from management.services import gemini_keys
+
+        now = timezone.now()
+        if gemini_keys.has_available_key("chat", now=now):
+            return False
+        soonest = gemini_keys.soonest_cooldown("chat", now=now)
+        if not soonest:
+            return False
+        ttl = max(1, min(24 * 60 * 60, int((soonest - now).total_seconds())))
+        cache.set(_gemini_backoff_key(s), 1, ttl)
+        attempts = max(0, int(row.attempts or 0) - 1)
+        updated = _own_processing_claim(row).update(
+            status=InstagramBotMessage.Status.PENDING,
+            attempts=attempts,
+            processing_started_at=None,
+        )
+        if not updated:
+            return False
+        row.status = InstagramBotMessage.Status.PENDING
+        row.attempts = attempts
+        row.processing_started_at = None
+        log(
+            "warning",
+            "gemini_backoff",
+            f"{row.sender_id}: усі chat-ключі в cooldown на {ttl}с",
+        )
+        return True
+    except Exception as exc:
+        log("warning", "gemini_backoff", repr(exc))
         return False
 
 
@@ -4249,6 +4317,8 @@ def send_text(
             _clear_client_delivery_error(recipient_id)
             continue
         kind, hint = _classify_send_error(code, resp)
+        if kind in {"link_restricted", "permanent", "retryable"}:
+            _clear_bot_sent(recipient_id, part)
         if kind == "retryable" and ok_any:
             kind = "unknown"
             hint = (
@@ -4318,6 +4388,8 @@ def send_text(
                 fallback_kind, fallback_hint = _classify_send_error(
                     fallback_code, fallback_resp
                 )
+                if fallback_kind in {"link_restricted", "permanent", "retryable"}:
+                    _clear_bot_sent(recipient_id, fallback_part)
                 if fallback_kind == "transient":
                     fallback_kind = "unknown"
                     fallback_hint = f"результат plain-text fallback не підтверджено: {fallback_hint}"
@@ -4428,6 +4500,8 @@ def send_text_tagged(
             _clear_client_delivery_error(recipient_id)
             continue
         kind, hint = _classify_send_error(code, resp)
+        if kind in {"link_restricted", "permanent", "retryable"}:
+            _clear_bot_sent(recipient_id, part)
         if kind == "retryable" and ok_any:
             kind = "unknown"
             hint = (
@@ -6705,6 +6779,8 @@ def _process_one_inside_reply_boundary(
     payment_deal = _invoice_deal_for_reply(row.client, reply) if row.client_id else None
 
     if not reply and s.ai_enabled:
+        if _defer_for_gemini_cooldown(row, s):
+            return False
         try:
             from management.services.bot_reply_fallback import build_ai_failure_fallback
 
@@ -7062,6 +7138,8 @@ def process_pending(s: InstagramBotSettings | None = None, max_items: int = 15) 
     if not s.is_enabled:
         return 0
     if _send_rate_limit_backoff_active(s):
+        return 0
+    if _gemini_backoff_active(s):
         return 0
     # Реанімація «зависань» у processing (вбитий демон / надто довгий виклик).
     try:

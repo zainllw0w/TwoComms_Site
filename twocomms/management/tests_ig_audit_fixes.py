@@ -301,6 +301,75 @@ class SendApiBoundedRetryTests(TestCase):
         self.assertIsNone(self.settings.link_send_blocked_until)
         self.assertNotIn("Advanced Access", hint)
 
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.instagram_bot._provider_account_id", return_value="ig-account")
+    @patch("management.services.instagram_bot.get_page_token", return_value="PT")
+    @patch("management.services.instagram_bot._provider_http")
+    def test_rejected_send_does_not_suppress_identical_manager_echo(
+        self, provider_http, _token, _account, _notify_manager
+    ):
+        provider_http.return_value = (400, self.error_body)
+
+        ok, kind, _hint = bot.send_text(
+            self.settings,
+            self.client.igsid,
+            self.settings.reply_text,
+            allow_url_fallback=True,
+        )
+
+        self.assertFalse(ok)
+        self.assertEqual(kind, "permanent")
+        bot._handle_echo(self.client.igsid, self.settings.reply_text)
+
+        self.client.refresh_from_db()
+        self.assertTrue(self.client.bot_paused)
+        self.assertTrue(self.client.manager_takeover)
+
+    @patch("management.services.instagram_bot._provider_account_id", return_value="ig-account")
+    @patch("management.services.instagram_bot.get_page_token", return_value="PT")
+    @patch("management.services.instagram_bot._provider_http", return_value=(-1, "timeout"))
+    def test_ambiguous_send_keeps_echo_marker(
+        self, _provider_http, _token, _account
+    ):
+        ok, kind, _hint = bot.send_text(
+            self.settings,
+            self.client.igsid,
+            "Delivery may have succeeded",
+        )
+
+        self.assertFalse(ok)
+        self.assertEqual(kind, "unknown")
+        bot._handle_echo(self.client.igsid, "Delivery may have succeeded")
+
+        self.client.refresh_from_db()
+        self.assertFalse(self.client.bot_paused)
+        self.assertFalse(self.client.manager_takeover)
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.instagram_bot._provider_account_id", return_value="ig-account")
+    @patch("management.services.instagram_bot.get_page_token", return_value="PT")
+    @patch("management.services.instagram_bot._provider_http")
+    def test_rejected_tagged_send_does_not_suppress_identical_manager_echo(
+        self, provider_http, _token, _account, _notify_manager
+    ):
+        provider_http.return_value = (400, self.error_body)
+        text = "Human-authored support reply"
+
+        ok, kind, _hint = bot.send_text_tagged(
+            self.settings,
+            self.client.igsid,
+            text,
+            human_authored=True,
+        )
+
+        self.assertFalse(ok)
+        self.assertIn(kind, {"link_restricted", "permanent"})
+        bot._handle_echo(self.client.igsid, text)
+
+        self.client.refresh_from_db()
+        self.assertTrue(self.client.bot_paused)
+        self.assertTrue(self.client.manager_takeover)
+
     def test_real_payment_url_never_allows_linkless_fallback(self):
         reply = "Дякую! 💳 Посилання на оплату: https://pay.mbnk.biz/example"
 
@@ -774,6 +843,51 @@ class SendApiBoundedRetryTests(TestCase):
 
         logged = "\n".join(str(call.args) for call in mock_log.call_args_list)
         self.assertNotIn(raw_marker, logged)
+
+    @patch("management.services.bot_reply_fallback.build_ai_failure_fallback")
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch("management.services.instagram_bot.gemini_generate", return_value=None)
+    @patch("management.services.gemini_keys.soonest_cooldown")
+    @patch("management.services.gemini_keys.has_available_key", return_value=False)
+    def test_all_gemini_keys_in_cooldown_keeps_message_retryable_without_burning_attempts(
+        self,
+        _has_available_key,
+        soonest_cooldown,
+        generate,
+        _sender_action,
+        fallback,
+    ):
+        self.settings.ai_enabled = True
+        self.settings.gemini_source = InstagramBotSettings.CredSource.ENV
+        self.settings.save(update_fields=["ai_enabled", "gemini_source"])
+        fallback.return_value = ("Тимчасова відповідь", False)
+        soonest_cooldown.return_value = timezone.now() + timedelta(seconds=30)
+        row = bot.InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=bot.InstagramBotMessage.Role.USER,
+            text="Коли буде відправка?",
+            status=bot.InstagramBotMessage.Status.PENDING,
+            source="webhook",
+        )
+
+        self.assertEqual(bot.process_pending(self.settings, max_items=1), 0)
+
+        row.refresh_from_db()
+        self.assertEqual(row.status, bot.InstagramBotMessage.Status.PENDING)
+        self.assertEqual(row.attempts, 0)
+        fallback.assert_not_called()
+
+        self.assertEqual(bot.process_pending(self.settings, max_items=1), 0)
+        self.assertEqual(generate.call_count, 1)
+
+    def test_pooled_gemini_backoff_does_not_block_configured_custom_key(self):
+        self.settings.gemini_source = InstagramBotSettings.CredSource.CUSTOM
+        self.settings.custom_gemini_key = "custom-key"
+        self.settings.save(update_fields=["gemini_source", "custom_gemini_key"])
+        cache.set(bot._gemini_backoff_key(self.settings), 1, 60)
+
+        self.assertFalse(bot._gemini_backoff_active(self.settings))
 
 
 class PaylinkProductTests(TestCase):
