@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.core.management.base import CommandError
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
 
 from management.management.commands import verify_ig_production_contract as verifier
 
@@ -78,3 +78,10 @@ class ProductionDatabaseGuardTests(SimpleTestCase):
     def test_rollback_fixtures_require_maintenance_before_database_write(self, _status):
         with self.assertRaisesMessage(CommandError, "requires an active maintenance lease"):
             verifier._run_rollback_fixtures()
+
+
+class PaymentReviewRollbackFixtureTests(TestCase):
+    def test_callback_race_fixture_uses_delivered_evidence_and_stable_amount(self):
+        result = verifier._run_payment_review_contract("test_prod_contract_")
+
+        self.assertEqual(result["callback_race"], "proven")

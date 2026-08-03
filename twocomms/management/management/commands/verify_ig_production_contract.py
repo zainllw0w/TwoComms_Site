@@ -177,7 +177,10 @@ def _notification_auto_increment():
 def _run_payment_review_contract(prefix: str) -> dict:
     """Exercise payment-review boundaries inside the surrounding rollback."""
     from django.test import RequestFactory
-    from management.services.ig_payment_review import create_payment_review
+    from management.services.ig_payment_review import (
+        create_payment_review,
+        resolve_review_payment_amount,
+    )
     from management.views import management_bot_webhook
 
     client_id = -int(uuid.uuid4().int % 1_000_000_000) - 100
@@ -221,18 +224,30 @@ def _run_payment_review_contract(prefix: str) -> dict:
         id=review_id,
         client=client,
         dedupe_key=prefix + "callback-review",
-        evidence={"provider_truth": "unverified"},
+        evidence={
+            "provider_truth": "unverified",
+            "order_draft": {"quoted_total": "2100.00", "currency": "UAH"},
+        },
     )
+    payment_candidate = resolve_review_payment_amount(review)
     notification = IgBotNotification.objects.create(
         id=notification_id,
         dedupe_key=review.dedupe_key,
         event_type="payment_review",
-        status=IgBotNotification.Status.SENDING,
+        status=IgBotNotification.Status.SENT,
         telegram_message_id="88001",
         payload={
             "chat_id": "123",
             "main_delivery_message_id": "88001",
-            "media": [{"delivery_status": "sending"}],
+            "media": [{"delivery_status": "sent"}],
+            "payment_candidate": {
+                "amount": f"{payment_candidate['amount']:.2f}",
+                "currency": payment_candidate["currency"],
+                "scope": payment_candidate["scope"],
+                "source": payment_candidate["source"],
+                "evidence_message_ids": payment_candidate["evidence_message_ids"],
+                "digest": payment_candidate["digest"],
+            },
         },
     )
     request_factory = RequestFactory()
