@@ -928,7 +928,6 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       }
     };
     stage.addEventListener('pointercancel', cancelGesture, { passive: true });
-    stage.addEventListener('lostpointercapture', cancelGesture, { passive: true });
     stage.addEventListener('keydown', (event) => {
       if (event.target !== state.mainImage || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
       event.preventDefault();
