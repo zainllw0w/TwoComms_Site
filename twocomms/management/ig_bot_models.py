@@ -29,6 +29,7 @@ __all__ = [
     "InstagramBotRawEvent",
     "IgClient",
     "IgDeal",
+    "IgDealInvoiceLifecycle",
     "IgPaymentEvent",
     "IgPaymentProjection",
     "IgDealItem",
@@ -690,6 +691,53 @@ class IgDeal(models.Model):
             # Preserve already-created legacy deals without using 200 for new flows.
             return requested or Decimal("200.00")
         return requested or self.amount
+
+
+class IgDealInvoiceLifecycle(models.Model):
+    """Bounded provider lifecycle for each current or superseded invoice."""
+
+    class Status(models.TextChoices):
+        OPEN = "open", _("Активний моніторинг")
+        PAID = "paid", _("Оплачено")
+        FAILED = "failed", _("Помилка оплати")
+        CANCELLED = "cancelled", _("Скасовано")
+        EXPIRED = "expired", _("Протерміновано")
+        UNKNOWN = "unknown", _("Термін моніторингу вичерпано")
+
+    deal = models.ForeignKey(
+        "management.IgDeal",
+        on_delete=models.CASCADE,
+        related_name="invoice_lifecycles",
+        db_constraint=False,
+    )
+    invoice_id = models.CharField(max_length=128, unique=True, db_index=True)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.OPEN,
+        db_index=True,
+    )
+    provider_status = models.CharField(max_length=32, blank=True, default="")
+    superseded_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    last_polled_at = models.DateTimeField(null=True, blank=True)
+    next_poll_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    terminal_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    poll_attempts = models.PositiveIntegerField(default=0)
+    last_error = models.CharField(max_length=500, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at", "-id"]
+        indexes = [
+            models.Index(fields=["deal", "status"], name="ig_inv_life_deal_status"),
+            models.Index(fields=["status", "next_poll_at"], name="ig_inv_life_poll_due"),
+        ]
+
+    @property
+    def is_terminal(self):
+        return self.status != self.Status.OPEN
 
 
 class AppendOnlyPaymentEventQuerySet(models.QuerySet):

@@ -64,6 +64,18 @@ class SupersedeInvoiceTests(TestCase):
 
         self.assertEqual(self.deal.superseded_invoice_ids, [])
 
+    def test_supersede_materializes_bounded_invoice_lifecycle(self):
+        from management.models import IgDealInvoiceLifecycle
+        from management.services.bot_payments import supersede_invoice
+
+        fields = supersede_invoice(self.deal)
+        self.deal.save(update_fields=[*fields, "updated_at"])
+
+        lifecycle = IgDealInvoiceLifecycle.objects.get(invoice_id="mono-invoice-old")
+        self.assertEqual(lifecycle.deal_id, self.deal.pk)
+        self.assertIsNotNone(lifecycle.superseded_at)
+        self.assertEqual(lifecycle.status, IgDealInvoiceLifecycle.Status.OPEN)
+
 
 class WebhookForSupersededInvoiceTests(TestCase):
     def setUp(self):
@@ -129,3 +141,34 @@ class WebhookForSupersededInvoiceTests(TestCase):
             "management.services.instagram_bot.notify_manager"
         ):
             self.assertFalse(handle_webhook_invoice("mono-invoice-ol"))
+
+    @patch("management.services.bot_payments.apply_payment_status")
+    @patch(
+        "storefront.views.monobank._monobank_api_request",
+        return_value={"status": "success", "invoiceId": "mono-invoice-old"},
+    )
+    def test_superseded_poll_uses_old_invoice_without_applying_to_replacement(
+        self, provider, apply_status
+    ):
+        from management.models import IgDealInvoiceLifecycle
+        from management.services.bot_payments import poll_deal_status, supersede_invoice
+
+        self.deal.invoice_id = "mono-invoice-old"
+        self.deal.save(update_fields=["invoice_id", "updated_at"])
+        fields = supersede_invoice(self.deal)
+        self.deal.save(update_fields=[*fields, "updated_at"])
+
+        status = poll_deal_status(
+            self.deal,
+            invoice_id="mono-invoice-old",
+            apply=False,
+        )
+
+        self.assertEqual(status, "success")
+        provider.assert_called_once()
+        self.assertEqual(provider.call_args.kwargs["params"], {"invoiceId": "mono-invoice-old"})
+        apply_status.assert_not_called()
+        self.assertEqual(
+            IgDealInvoiceLifecycle.objects.get(invoice_id="mono-invoice-old").status,
+            IgDealInvoiceLifecycle.Status.PAID,
+        )
