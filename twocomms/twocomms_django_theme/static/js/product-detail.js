@@ -140,11 +140,17 @@ function resolveSwipe({
   const viewportWidth = Math.max(0, Number(width) || 0);
   const velocity = Math.abs(Number(velocityX) || 0);
   const distanceThreshold = Math.max(44, Math.min(78, viewportWidth ? viewportWidth * 0.16 : 52));
-  const isHorizontal = horizontalIntent || distanceX > distanceY * 1.08;
+  const isHorizontal = horizontalIntent || distanceX > distanceY * 1.18;
   const isFlick = distanceX >= 18 && velocity >= 0.38;
 
   if (!isHorizontal || (distanceX < distanceThreshold && !isFlick)) return 0;
   return Number(dx) < 0 ? 1 : -1;
+}
+
+function galleryHorizontalIntent({ dx = 0, dy = 0 } = {}) {
+  const distanceX = Math.abs(Number(dx) || 0);
+  const distanceY = Math.abs(Number(dy) || 0);
+  return distanceX >= 14 && distanceX > distanceY * 1.24;
 }
 
 function galleryDragOffset({ dx = 0, width = 0, atEdge = false } = {}) {
@@ -330,6 +336,7 @@ if (typeof module !== 'undefined' && module.exports) {
     focusTrapIndex,
     formatAdvisorSummary,
     galleryDragOffset,
+    galleryHorizontalIntent,
     galleryStatus,
     MODAL_FOCUSABLE_SELECTOR,
     resolveGalleryStep,
@@ -809,6 +816,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       preview = null;
       previewDirection = 0;
       samples = [];
+      stage.classList.remove('is-dragging');
     };
     stage.addEventListener('pointerdown', (event) => {
       const images = imagesForCurrentSelection(state);
@@ -833,11 +841,11 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       const dy = currentY - startY;
       const distanceX = Math.abs(dx);
       const distanceY = Math.abs(dy);
-      if (!horizontalIntent && distanceY > 10 && distanceY > distanceX * 1.12) {
+      if (!horizontalIntent && distanceY > 10 && distanceY > distanceX * 1.18) {
         resetTracking();
         return;
       }
-      if (!horizontalIntent && distanceX > 8 && distanceX > distanceY * 1.12) {
+      if (!horizontalIntent && galleryHorizontalIntent({ dx, dy })) {
         horizontalIntent = true;
         stage.classList.add('is-dragging');
         if (typeof stage.setPointerCapture === 'function') {
@@ -845,7 +853,6 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         }
       }
       if (horizontalIntent) {
-        event.preventDefault();
         const images = imagesForCurrentSelection(state);
         const direction = dx < 0 ? 1 : -1;
         const nextIndex = state.galleryIndex + direction;
@@ -907,16 +914,21 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       }
     };
     stage.addEventListener('pointerup', finish, { passive: true });
-    stage.addEventListener('pointercancel', (event) => {
+    const cancelGesture = (event) => {
       if (event.pointerId !== pointerId) return;
       const capturedPointer = pointerId;
       const returningPreview = preview;
       const returningDirection = previewDirection || 1;
       const width = Math.max(1, stage.clientWidth);
+      const hadHorizontalIntent = horizontalIntent;
       releaseGalleryPointer(stage, capturedPointer);
       resetTracking();
-      returnGallerySwipe(state, returningPreview, returningDirection, width);
-    }, { passive: true });
+      if (hadHorizontalIntent) {
+        returnGallerySwipe(state, returningPreview, returningDirection, width);
+      }
+    };
+    stage.addEventListener('pointercancel', cancelGesture, { passive: true });
+    stage.addEventListener('lostpointercapture', cancelGesture, { passive: true });
     stage.addEventListener('keydown', (event) => {
       if (event.target !== state.mainImage || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
       event.preventDefault();
