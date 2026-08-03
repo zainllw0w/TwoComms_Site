@@ -15,6 +15,8 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.cache import cache
+from django.db.models import Q
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -26,6 +28,13 @@ RETURN_PATH = "/"
 # «ссылка не живёт неделю без нашего ведома». Каскад добивки строится на
 # T+23ч, то есть на последнем часе, когда ссылка ещё жива.
 INVOICE_VALIDITY_SECONDS = 86400
+PAYMENT_POLL_CADENCE_SECONDS = 240
+PAYMENT_POLL_BATCH_MAX = 50
+# One provider request may take 30 seconds. Keep the mutex alive for the
+# complete worst-case batch so a slow provider cannot create overlap.
+PAYMENT_POLL_LOCK_SECONDS = 1800
+PAYMENT_POLL_CADENCE_KEY = "ig_payment_poll_backstop:cadence"
+PAYMENT_POLL_LOCK_KEY = "ig_payment_poll_backstop:lock"
 
 
 def _invoice_expired(deal, *, now=None) -> bool:
@@ -824,14 +833,64 @@ def handle_webhook_invoice(invoice_id, payload=None, request=None) -> bool:
     return True
 
 
-def poll_pending_deals(limit: int = 50) -> int:
-    """Backstop-поллінг угод, що очікують оплату (якщо вебхук не дійшов).
-    Повертає к-сть угод, що стали оплаченими."""
+def payment_poll_candidates():
+    """Return active invoices, preferring the transactional payment projection."""
     from management.models import IgDeal
 
-    qs = IgDeal.objects.filter(status=IgDeal.Status.AWAITING_PAYMENT).exclude(invoice_id="")[:limit]
+    retryable_truths = (
+        IgDeal.PaymentTruth.UNVERIFIED,
+        IgDeal.PaymentTruth.PENDING,
+        # A failed card attempt can be retried through the same live invoice.
+        IgDeal.PaymentTruth.FAILED,
+    )
+    return (
+        IgDeal.objects.filter(
+            status__in=(
+                IgDeal.Status.DRAFT,
+                IgDeal.Status.QUOTED,
+                IgDeal.Status.AWAITING_PAYMENT,
+            ),
+            order__isnull=True,
+        )
+        .filter(
+            Q(payment_projection__truth__in=retryable_truths)
+            | Q(payment_projection__isnull=True, payment_truth__in=retryable_truths)
+        )
+        .exclude(invoice_id="")
+        .order_by("id")
+    )
+
+
+def payment_poll_limit(limit: int = 50) -> int:
+    return max(1, min(int(limit or 50), PAYMENT_POLL_BATCH_MAX))
+
+
+def poll_pending_deals(limit: int = 50) -> int:
+    """Poll bounded pre-order invoices whose provider truth can still change."""
+    bounded_limit = payment_poll_limit(limit)
+    qs = payment_poll_candidates()[:bounded_limit]
     paid = 0
     for deal in qs:
         if poll_deal_status(deal) in MONO_SUCCESS:
             paid += 1
     return paid
+
+
+def poll_pending_deals_locked(limit: int = 50) -> int | None:
+    """Run the provider backstop once per cadence across cron and daemon."""
+    if not cache.add(PAYMENT_POLL_LOCK_KEY, "1", timeout=PAYMENT_POLL_LOCK_SECONDS):
+        return None
+    try:
+        if not cache.add(
+            PAYMENT_POLL_CADENCE_KEY,
+            "1",
+            timeout=PAYMENT_POLL_CADENCE_SECONDS,
+        ):
+            return None
+        try:
+            return poll_pending_deals(limit=limit)
+        except Exception:
+            cache.delete(PAYMENT_POLL_CADENCE_KEY)
+            raise
+    finally:
+        cache.delete(PAYMENT_POLL_LOCK_KEY)

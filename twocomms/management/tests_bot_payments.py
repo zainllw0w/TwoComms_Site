@@ -526,6 +526,42 @@ class PollCommandTests(TestCase):
         call_command("poll_ig_deal_payments", stdout=out)
         self.assertIn("Оплачено угод", out.getvalue())
 
+    @patch("management.services.bot_payments.cache", create=True)
+    @patch("management.services.bot_payments.poll_pending_deals")
+    def test_command_uses_shared_payment_poll_lease(self, poll, cache):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        cache.add.return_value = False
+        call_command("poll_ig_deal_payments", "--limit", "7", stdout=StringIO())
+
+        cache.add.assert_called_once()
+        poll.assert_not_called()
+
+    def test_check_only_uses_authoritative_projection_truth(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        client = IgClient.get_or_create_for_sender("poll-check-only")
+        deal = IgDeal.objects.create(
+            client=client,
+            status=IgDeal.Status.AWAITING_PAYMENT,
+            payment_truth=IgDeal.PaymentTruth.PENDING,
+            invoice_id="invoice-already-confirmed",
+        )
+        IgPaymentProjection.objects.create(
+            client=client,
+            deal=deal,
+            truth=IgDeal.PaymentTruth.CONFIRMED,
+        )
+        out = StringIO()
+
+        call_command("poll_ig_deal_payments", "--check-only", stdout=out)
+
+        self.assertIn("provider_invoices=0", out.getvalue())
+
     @patch("management.services.bot_orders.notify_shipped_deals")
     @patch("management.services.bot_orders.fulfill_ready_paid_deals")
     @patch("management.services.bot_payments.poll_pending_deals")
@@ -550,3 +586,77 @@ class PollCommandTests(TestCase):
         notify.assert_not_called()
         self.assertIn("check_only=true", out.getvalue())
         self.assertIn("external_calls=0", out.getvalue())
+
+
+class PollPendingDealsTests(TestCase):
+    def setUp(self):
+        self.client = IgClient.get_or_create_for_sender("poll-candidates")
+
+    def _deal(self, *, status, truth=IgDeal.PaymentTruth.PENDING, invoice=True):
+        return IgDeal.objects.create(
+            client=self.client,
+            status=status,
+            payment_truth=truth,
+            payment_status="checking",
+            invoice_id=f"invoice-{IgDeal.objects.count() + 1}" if invoice else "",
+        )
+
+    @patch("management.services.bot_payments.poll_deal_status", return_value="created")
+    def test_polls_every_pre_order_status_with_retryable_payment_truth(self, poll):
+        expected = [
+            self._deal(status=IgDeal.Status.DRAFT, truth=IgDeal.PaymentTruth.UNVERIFIED),
+            self._deal(status=IgDeal.Status.QUOTED),
+            self._deal(status=IgDeal.Status.AWAITING_PAYMENT, truth=IgDeal.PaymentTruth.FAILED),
+        ]
+
+        bot_payments.poll_pending_deals(limit=50)
+
+        self.assertEqual(
+            [call.args[0].pk for call in poll.call_args_list],
+            [deal.pk for deal in expected],
+        )
+
+    @patch("management.services.bot_payments.poll_deal_status", return_value="created")
+    def test_skips_terminal_deals_and_authoritative_terminal_truth(self, poll):
+        for status in (
+            IgDeal.Status.PAID,
+            IgDeal.Status.ORDER_CREATED,
+            IgDeal.Status.CANCELLED,
+        ):
+            self._deal(status=status)
+        for truth in (
+            IgDeal.PaymentTruth.CONFIRMED,
+            IgDeal.PaymentTruth.PARTIALLY_REFUNDED,
+            IgDeal.PaymentTruth.REFUNDED,
+            IgDeal.PaymentTruth.REVERSED,
+            IgDeal.PaymentTruth.CANCELLED,
+        ):
+            self._deal(status=IgDeal.Status.AWAITING_PAYMENT, truth=truth)
+        self._deal(status=IgDeal.Status.AWAITING_PAYMENT, invoice=False)
+
+        bot_payments.poll_pending_deals(limit=50)
+
+        poll.assert_not_called()
+
+    @patch("management.services.bot_payments.poll_deal_status", return_value="created")
+    def test_candidate_batch_is_bounded_and_stably_ordered(self, poll):
+        deals = [
+            self._deal(status=IgDeal.Status.AWAITING_PAYMENT)
+            for _ in range(3)
+        ]
+
+        bot_payments.poll_pending_deals(limit=2)
+
+        self.assertEqual(
+            [call.args[0].pk for call in poll.call_args_list],
+            [deal.pk for deal in deals[:2]],
+        )
+
+    @patch("management.services.bot_payments.poll_deal_status", return_value="created")
+    def test_provider_batch_never_exceeds_fifty(self, poll):
+        for _ in range(55):
+            self._deal(status=IgDeal.Status.AWAITING_PAYMENT)
+
+        bot_payments.poll_pending_deals(limit=1000)
+
+        self.assertEqual(poll.call_count, 50)

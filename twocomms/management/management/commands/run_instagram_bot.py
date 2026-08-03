@@ -29,7 +29,7 @@ from django.db import close_old_connections
 from django.utils import timezone
 
 from management.models import InstagramBotSettings
-from management.services import bot_followups
+from management.services import bot_followups, bot_payments
 from management.services import instagram_bot as bot
 from management.services.ig_maintenance import (
     DEFAULT_MAINTENANCE_SECONDS,
@@ -270,6 +270,10 @@ def _run_work_cycle(settings_obj, last_poll: float) -> tuple[bool, float]:
         # kill switch. The next cycle retries and the error remains visible in
         # the operational log/status surface.
         bot.log("error", "notification_outbox", repr(exc))
+    try:
+        bot_payments.poll_pending_deals_locked(limit=50)
+    except Exception as exc:
+        bot.log("error", "payment_poll_backstop", repr(exc))
     profile_key = f"ig_profile_batch:{bot._provider_owner_id(settings_obj)}"
     if cache.add(profile_key, "1", timeout=bot.PROFILE_REFRESH_INTERVAL):
         try:

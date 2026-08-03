@@ -678,6 +678,13 @@ class ReplyPermissionEpochModelTests(TestCase):
 
 
 class DaemonHeartbeatTests(SimpleTestCase):
+    def setUp(self):
+        self.payment_backstop_patcher = patch(
+            "management.management.commands.run_instagram_bot.bot_payments",
+        )
+        self.payment_backstop = self.payment_backstop_patcher.start()
+        self.addCleanup(self.payment_backstop_patcher.stop)
+
     @patch("management.management.commands.run_instagram_bot.cache.get", return_value={"at": 100.0})
     @patch("management.management.commands.run_instagram_bot.time.time", return_value=110.0)
     def test_dict_heartbeat_is_supported(self, _time, _get):
@@ -694,6 +701,7 @@ class DaemonHeartbeatTests(SimpleTestCase):
         self.assertFalse(enabled)
         self.assertEqual(last_poll, 17.0)
         drain.assert_called_once_with(limit=10)
+        self.payment_backstop.poll_pending_deals_locked.assert_called_once_with(limit=50)
         pending.assert_not_called()
         followups.assert_not_called()
 

@@ -9,7 +9,7 @@ from management.services import bot_payments
 
 
 class Command(BaseCommand):
-    help = "Поллінг угод IG-бота у статусі awaiting_payment (pull-verify Monobank)."
+    help = "Bounded pull-verification of active IG payment invoices."
 
     def add_arguments(self, parser):
         parser.add_argument("--limit", type=int, default=50)
@@ -33,9 +33,9 @@ class Command(BaseCommand):
                 )
             )
             provider_candidates = bounded_count(
-                IgDeal.objects.filter(status=IgDeal.Status.AWAITING_PAYMENT)
-                .exclude(invoice_id="")
-                .order_by("id")
+                bot_payments.payment_poll_candidates()[
+                    :bot_payments.payment_poll_limit(limit)
+                ]
             )
             order_candidates = bounded_count(
                 IgDeal.objects.filter(status=IgDeal.Status.PAID, order__isnull=True).order_by(
@@ -52,7 +52,8 @@ class Command(BaseCommand):
             return
 
         reconciled = bot_payments.reconcile_payment_projections(limit=limit)
-        paid = bot_payments.poll_pending_deals(limit=limit)
+        paid = bot_payments.poll_pending_deals_locked(limit=limit)
+        paid = int(paid or 0)
         # Safety-net: дотворюємо замовлення для оплачених угод з повними даними НП,
         # якщо модель не виставила тег [ORDER].
         from management.services import bot_orders
