@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sys
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 from decimal import Decimal, InvalidOperation
@@ -42,6 +43,7 @@ META_REPLY_WINDOW = timedelta(hours=23)
 FOLLOWUP_MAX_ATTEMPTS = 4
 FOLLOWUP_RETRY_BASE = timedelta(minutes=5)
 FOLLOWUP_RETRY_CAP = timedelta(hours=1)
+FOLLOWUP_CLAIM_TTL = timedelta(minutes=4)
 
 
 @dataclass(frozen=True, slots=True)
@@ -665,6 +667,7 @@ def schedule_followup(
     deal: IgDeal | None = None,
     discount_percent: int = 0,
     message_text: str = "",
+    event_key: str | None = None,
     level: int | None = None,
     preserve_reason_on_manager_handoff: bool = False,
 ) -> IgFollowUpTask | None:
@@ -698,8 +701,17 @@ def schedule_followup(
             return None
 
     with transaction.atomic():
+        if event_key:
+            existing = IgFollowUpTask.objects.select_for_update().filter(
+                event_key=str(event_key)[:180],
+            ).first()
+            if existing is not None:
+                return existing
         IgFollowUpTask.objects.filter(
-            client=client, status=IgFollowUpTask.Status.PENDING, kind=kind
+            client=client,
+            status=IgFollowUpTask.Status.PENDING,
+            kind=kind,
+            level=client.followup_level if level is None else level,
         ).update(
             status=IgFollowUpTask.Status.CANCELLED,
             skip_reason="replaced",
@@ -716,6 +728,7 @@ def schedule_followup(
             discount_percent=max(0, min(10, int(discount_percent or 0))),
             meta_window_deadline=deadline,
             message_text=message_text or "",
+            event_key=(str(event_key)[:180] if event_key else None),
             skip_reason=skip_reason,
             next_attempt_at=None,
         )
@@ -724,6 +737,73 @@ def schedule_followup(
             task.save(update_fields=["message_text", "updated_at"])
     _update_client_next(client)
     return task
+
+
+def schedule_event_followup(
+    client: IgClient,
+    scenario: str,
+    *,
+    step_index: int,
+    event_key: str,
+    now: datetime | None = None,
+    deal: IgDeal | None = None,
+) -> IgFollowUpTask | None:
+    """Materialize one event-triggered policy step exactly once."""
+    policy = FOLLOWUP_POLICIES.get(str(scenario or ""))
+    if policy is None or step_index < 0 or step_index >= len(policy.steps):
+        return None
+    step = policy.steps[step_index]
+    if step.trigger != "event":
+        return None
+    allowed, _why = _client_allows_followup(
+        client, deal=deal, kind=_persisted_step_kind(step)
+    )
+    if not allowed:
+        return None
+    return schedule_followup(
+        client,
+        kind=_persisted_step_kind(step),
+        delay=timedelta(0),
+        reason=policy.scenario,
+        now=now or _now(),
+        deal=deal,
+        level=step.index,
+        discount_percent=step.discount_percent,
+        event_key=event_key,
+        preserve_reason_on_manager_handoff=True,
+    )
+
+
+def materialize_invoice_expired(deal: IgDeal, *, now: datetime | None = None):
+    """Create the A4 event step after an observed, durable expiry fact."""
+    if not deal or not deal.client_id:
+        return None
+    now = now or _now()
+    if _payment_link_status_for_deal(deal, now=now) != "expired":
+        return None
+    invoice_id = str(deal.invoice_id or "unknown")
+    return schedule_event_followup(
+        deal.client,
+        "payment_link_unpaid",
+        step_index=3,
+        event_key=f"invoice_expired:{deal.pk}:{invoice_id}",
+        now=now,
+        deal=deal,
+    )
+
+
+def materialize_restock(client: IgClient, *, product_id: int, size: str = "", event_id: str | None = None, now: datetime | None = None):
+    """Create the F2 restock event from an explicit inventory event."""
+    if not client or not product_id:
+        return None
+    key = event_id or f"restock:{client.pk}:{product_id}:{str(size or '').strip().upper()}"
+    return schedule_event_followup(
+        client,
+        "restock_wait",
+        step_index=1,
+        event_key=key,
+        now=now,
+    )
 
 
 def _policy_name(reason: str) -> str:
@@ -1349,6 +1429,8 @@ def _claim_due_followup(
         due_at__lte=now,
     ).filter(
         Q(next_attempt_at__isnull=True) | Q(next_attempt_at__lte=now),
+    ).filter(
+        Q(claim_token="") | Q(claim_until__isnull=True) | Q(claim_until__lte=now),
     ).values("client_id").first()
     if not candidate:
         return None
@@ -1376,14 +1458,21 @@ def _claim_due_followup(
                     stale_task.client = fresh_client
                     _mark_skipped(stale_task, why)
         return None
-    task = IgFollowUpTask.objects.select_related("client", "deal").filter(
-        pk=task_id,
-        client_id=client.id,
-        status=IgFollowUpTask.Status.PENDING,
-        due_at__lte=now,
-    ).filter(
-        Q(next_attempt_at__isnull=True) | Q(next_attempt_at__lte=now),
-    ).first()
+    claim_token = uuid.uuid4().hex
+    with transaction.atomic():
+        task = IgFollowUpTask.objects.select_for_update().select_related("client", "deal").filter(
+            pk=task_id,
+            client_id=client.id,
+            status=IgFollowUpTask.Status.PENDING,
+            due_at__lte=now,
+        ).filter(
+            Q(next_attempt_at__isnull=True) | Q(next_attempt_at__lte=now),
+            Q(claim_token="") | Q(claim_until__isnull=True) | Q(claim_until__lte=now),
+        ).first()
+        if task is not None:
+            task.claim_token = claim_token
+            task.claim_until = now + FOLLOWUP_CLAIM_TTL
+            task.save(update_fields=["claim_token", "claim_until", "updated_at"])
     if not task:
         automation.release_client_automation_lease(client.id, lease_token)
         return None
@@ -1401,7 +1490,7 @@ def _claim_due_followup(
 
 
 def _renew_due_followup_claim(
-    task_id: int, client_id: int, lease_token: str, *, now: datetime, automation
+    task_id: int, client_id: int, lease_token: str, *, task_claim_token: str, now: datetime, automation
 ) -> tuple[IgFollowUpTask, IgClient] | None:
     """Last no-I/O check: task remains pending and the client remains active."""
     client = automation.renew_client_automation_lease(client_id, lease_token)
@@ -1414,6 +1503,8 @@ def _renew_due_followup_claim(
         due_at__lte=now,
     ).filter(
         Q(next_attempt_at__isnull=True) | Q(next_attempt_at__lte=now),
+        claim_token=task_claim_token,
+        claim_until__gt=now,
     ).first()
     if not task:
         return None
@@ -1441,6 +1532,25 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
         .order_by("due_at", "id")[:limit]
         .values_list("id", flat=True)
     )
+    # Event steps have no timer of their own. Materialize expired links before
+    # selecting the due queue so a daemon restart cannot lose the A4 touch.
+    expired_deals = list(
+        IgDeal.objects.filter(
+            invoice_expires_at__isnull=False,
+            invoice_expires_at__lte=now,
+        ).exclude(status__in={IgDeal.Status.PAID, IgDeal.Status.ORDER_CREATED, IgDeal.Status.CANCELLED})[:limit]
+    )
+    for deal in expired_deals:
+        materialize_invoice_expired(deal, now=now)
+    if expired_deals:
+        task_ids = list(
+            IgFollowUpTask.objects
+            .filter(status=IgFollowUpTask.Status.PENDING, due_at__lte=now)
+            .exclude(kind=IgFollowUpTask.Kind.MANAGER_TASK)
+            .filter(Q(next_attempt_at__isnull=True) | Q(next_attempt_at__lte=now))
+            .order_by("due_at", "id")[:limit]
+            .values_list("id", flat=True)
+        )
     from management.services import instagram_bot
     from management.services.ig_reply_boundary import (
         customer_send_boundary,
@@ -1452,6 +1562,7 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
         if not claim:
             continue
         task, client, lease_token = claim
+        task_claim_token = task.claim_token
         reply_boundary = reply_execution_boundary(s.pk, client.id)
         reply_boundary_entered = False
         try:
@@ -1464,7 +1575,7 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
                 _mark_skipped(task, "meta_window_closed")
                 continue
             policy_step = _policy_step_for_task(task)
-            if policy_step is not None and not _policy_condition_holds(
+            if policy_step is not None and policy_step[1].trigger != "event" and not _policy_condition_holds(
                 policy_step[1].condition,
                 client,
                 deal=task.deal,
@@ -1479,7 +1590,12 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
                 continue
             text = (task.message_text or "").strip() or compose_followup(task)
             renewed = _renew_due_followup_claim(
-                task.id, client.id, lease_token, now=now, automation=instagram_bot
+                task.id,
+                client.id,
+                lease_token,
+                task_claim_token=task_claim_token,
+                now=now,
+                automation=instagram_bot,
             )
             if not renewed:
                 continue
@@ -1489,18 +1605,30 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
                     _mark_skipped(task, "permission_epoch_changed")
                     continue
             try:
-                ok, kind, hint = instagram_bot.send_text(
+                delivery = instagram_bot.send_text(
                     s,
                     client.igsid,
                     text,
+                    return_receipt=True,
                     permission_boundary_factory=lambda: customer_send_boundary(
                         s.pk, client.id, permission
                     ),
                 )
             except Exception as exc:
-                ok, kind, hint = False, "transient", repr(exc)
+                delivery = False, "transient", repr(exc)
+            if hasattr(delivery, "as_legacy_tuple"):
+                ok, kind, hint = delivery.as_legacy_tuple()
+                provider_message_id = str(getattr(delivery, "provider_message_id", "") or "")
+                receipt_present = True
+            else:
+                ok, kind, hint = delivery
+                provider_message_id = ""
+                receipt_present = False
             if kind == "cancelled":
                 _mark_skipped(task, "permission_epoch_changed")
+                continue
+            if ok and receipt_present and not provider_message_id:
+                _mark_skipped(task, "delivery_receipt_missing")
                 continue
             if not ok:
                 if kind == "permanent":
@@ -1531,6 +1659,7 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
                 client=client,
                 role=InstagramBotMessage.Role.MODEL,
                 text=text,
+                provider_message_id=provider_message_id,
                 status=InstagramBotMessage.Status.DONE,
                 source="followup",
                 processed_at=now,
@@ -1538,10 +1667,14 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
             task.status = IgFollowUpTask.Status.SENT
             task.sent_at = now
             task.sent_message = msg
+            task.provider_message_id = provider_message_id
+            task.claim_token = ""
+            task.claim_until = None
             task.next_attempt_at = None
             task.last_error = ""
             task.save(update_fields=[
-                "status", "sent_at", "sent_message", "next_attempt_at", "last_error", "updated_at",
+                "status", "sent_at", "sent_message", "next_attempt_at", "last_error",
+                "provider_message_id", "claim_token", "claim_until", "updated_at",
             ])
             sales_followup = task.kind != IgFollowUpTask.Kind.FULFILLMENT
             if sales_followup:
@@ -1593,5 +1726,8 @@ def process_due_followups(s: InstagramBotSettings | None = None, *, now: datetim
         finally:
             if reply_boundary_entered:
                 reply_boundary.__exit__(*sys.exc_info())
+            IgFollowUpTask.objects.filter(
+                pk=task_id, claim_token=task_claim_token
+            ).update(claim_token="", claim_until=None, updated_at=_now())
             instagram_bot.release_client_automation_lease(client.id, lease_token)
     return sent

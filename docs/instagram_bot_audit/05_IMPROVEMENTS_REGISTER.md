@@ -419,14 +419,14 @@ IMP-021; строка сохранена как обоснование прио�
 
 **Статус IMPR-FEAT-006:** IMP-053 опубликовала сценарий
 `payment_link_unpaid` с A1-A5, условиями, терминалами и безопасной передачей
-вне окна менеджеру. Улучшение остаётся **partial**, пока IMP-056 не подключит
-event-шаг `invoice_expired`, двухфазный claim и продолжение event/manager-задач.
+вне окна менеджеру. IMP-056 подключила event-шаг `invoice_expired`,
+restock-адаптер, двухфазный claim и продолжение event/manager-задач; улучшение
+теперь **DONE** для текущего IG follow-up контура.
 
 **Связанная post-payment граница закрыта IMP-055:** оплаченная сделка без НП
 теперь получает отдельный fulfillment-каскад G1-G3 и эскалацию менеджеру.
-Это исправление F-FUP-004, а не новый `IMPR-*`: оно не меняет статус
-IMPR-FEAT-006, чей остаток по-прежнему относится к abandoned checkout и
-event/claim слою IMP-056.
+Это исправление F-FUP-004, а не новый `IMPR-*`: оно дополняет отдельный
+fulfillment-каскад и не меняет коммерческие границы abandoned checkout.
 
 ---
 
@@ -553,10 +553,10 @@ F-OPS-008: один повторяющийся `bad_signature` занял 468 и
 | IMPR-CAT-006 | OPEN | IMP-088 |
 | IMPR-FEAT-001 | OPEN | IMP-082/083/088 |
 | IMPR-FEAT-002 | OPEN | IMP-084/086 |
-| IMPR-FEAT-003 | PARTIAL | IMP-028/053; остаток IMP-056/083 |
-| IMPR-FEAT-004 | OPEN | IMP-056/087 |
+| IMPR-FEAT-003 | PARTIAL | IMP-028/053/056; остаток IMP-083 |
+| IMPR-FEAT-004 | PARTIAL | IMP-056: IG restock event adapter; durable subscription/warehouse continuation — IMP-087 |
 | IMPR-FEAT-005 | PARTIAL | `IgDealItem` есть; остаток IMP-085/087/088 |
-| IMPR-FEAT-006 | PARTIAL | IMP-053; остаток IMP-056 |
+| IMPR-FEAT-006 | DONE | IMP-053 + IMP-056 |
 | IMPR-FEAT-007 | DONE | IMP-021 |
 | IMPR-FEAT-008 | OPEN, decision-gated | IMP-091 |
 | IMPR-FEAT-009 | PARTIAL | одношаговый flow IMP-024; двухшаговый — IMP-091 |

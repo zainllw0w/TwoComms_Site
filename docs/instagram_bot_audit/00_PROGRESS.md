@@ -9,11 +9,11 @@
 
 | Поле | Значение |
 |---|---|
-| Текущая фаза | **IMP-056 частично реализована policy/lease-основой; обязательный остаток — durable event/claim, затем IMP-057/058 и IMP-089** |
+| Текущая фаза | **W4B event/claim слой IMP-056 закрыт; активный остаток: IMP-057/058, IMP-089, затем W8/W9/W10** |
 | Дата старта / обновления | 2026-08-03 |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
 | База внедрения | `4ba4212d` подтверждён в `origin/main` и на production; включает fulfillment IMP-055 и исправленный MariaDB rollback-contract поверх IMP-051/053 |
-| **Статус 96 IMP-задач** | **66 закрыты, 27 открыты, 3 частично закрыты (`IMP-043`, `IMP-056`, `IMP-077`)** |
+| **Статус 96 IMP-задач** | **67 закрыты, 26 открыты, 2 частично закрыты (`IMP-043`, `IMP-077`)** |
 | Прод-сервер | `qlknpodo@195.191.25.63`, `/home/qlknpodo/TWC/TwoComms_Site/twocomms` |
 | Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; read-only и rollback-fixture contracts подтверждены |
 | Локальная SQLite | **не источник истины**; не проверяет `varchar(max_length)`, см. F-TEST-003 |
@@ -31,7 +31,7 @@
 | `04_DECISION_LOG.md` | 9 решений (DR-001…DR-009) с обоснованием отклонённых вариантов |
 | `05_IMPROVEMENTS_REGISTER.md` | 48 улучшений + канонический crosswalk каждого ID к DONE/PARTIAL/OPEN и `IMP-*` |
 | `06_FUNNEL_CLOSING_DESIGN.md` | дизайн добивки: 9 каскадов с текстами, возражения, статистика, контекст-бюджет |
-| `07_IMPLEMENTATION_PLAN.md` | канонический статус всех 96 IMP-задач: 66 закрыты / 27 открыты / 3 partial |
+| `07_IMPLEMENTATION_PLAN.md` | канонический статус всех 96 IMP-задач: 67 закрыты / 26 открыты / 2 partial |
 | `01_SYSTEM_MAP.md` | **не оформлен** — данные собраны в findings, диаграмм нет |
 | `06_TEST_MATRIX.md` | **не создан** — 40 сценариев из задания не расписаны по покрытию |
 | `08`–`11` | **не созданы** (нужны на этапе внедрения) |
@@ -45,7 +45,6 @@
 
 | Статус | Задачи |
 |---|---|
-| Частично, W4B | `IMP-056`: policy/event vocabulary и client lease есть; durable task claim, event materialization и continuation ещё не опубликованы |
 | Открыто, W4B | `IMP-057`, `IMP-058`, `IMP-089` |
 | Открыто, W5 | `IMP-028`, `IMP-095` (production merchandising белого варианта товара 110) |
 | Открыто, W8 | `IMP-041`, `IMP-042`, `IMP-044`–`IMP-046`, `IMP-059`–`IMP-061`, `IMP-094`, `IMP-096` (provenance ролей импорта) |
@@ -159,11 +158,28 @@
   платёжных заявлений и не предлагает следующий обмен.
 - UGC-награда выдаётся менеджером вручную только после проверки evidence и
   только для полученного заказа; автоматического Direct/Meta сообщения нет.
-- W4B не закрыта: IMP-056–058 и найденная при payment-аудите IMP-089 открыты;
-  IMP-051/053/055 закрыты отдельными production-срезами
+- W4B не закрыта: IMP-057/058 и найденная при payment-аудите IMP-089 открыты;
+  IMP-051/053/055/056 закрыты отдельными production-срезами
   `2a89d860`/`cd070cba`/`efc0ee10`.
 - Production работает на последующем SHA `4ba4212d`; серверная БД подтверждена
-  как MySQL, миграция `management.0130` применена.
+  как MySQL, миграции `management.0130` и `management.0131` применены.
+
+## IMP-056 закрыта: событийная добивка и durable claim (2026-08-03)
+
+Событийные шаги больше не остаются только в таблице policy. Истечение
+оплатной ссылки материализуется из `invoice_expires_at` с уникальным ключом;
+возврат размера после stock-gap поднимает restock-событие при следующей
+readiness-проверке. Follow-up-задача захватывается атомарно через
+`claim_token`/`claim_until` поверх client lease, поэтому второй daemon не
+отправляет её параллельно. `send_text(return_receipt=True)` сохраняет Meta
+`provider_message_id`; отсутствие подтверждённого receipt и ambiguous outcome
+закрываются fail-closed. Event/manager-шаг после отправки продолжает ту же
+policy, а активные задачи одного `(client, kind, level)` заменяются явно.
+
+Проверки: `python manage.py check`, migration drift check, 72 теста цены,
+policy и event/claim; полный management-suite остаётся нестабильным по
+предсуществующим F-TEST-002 (10 failures/14 errors), поэтому deploy gate —
+фокусный пакет и production MySQL migration/contract check.
 
 ## Что закрыто в этой итерации (было незакрытым)
 

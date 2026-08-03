@@ -3100,6 +3100,13 @@ class IgFollowUpTask(models.Model):
     discount_percent = models.PositiveSmallIntegerField(default=0)
     meta_window_deadline = models.DateTimeField(null=True, blank=True, db_index=True)
     message_text = models.TextField(blank=True, default="")
+    # Durable event identity and two-phase worker claim.  A nullable unique
+    # key lets ordinary time-based tasks coexist while event-triggered tasks
+    # remain idempotent across daemon/cron/retry workers.
+    event_key = models.CharField(max_length=180, null=True, blank=True, unique=True)
+    claim_token = models.CharField(max_length=64, blank=True, default="")
+    claim_until = models.DateTimeField(null=True, blank=True, db_index=True)
+    provider_message_id = models.CharField(max_length=255, blank=True, default="")
     sent_message = models.ForeignKey(
         "management.InstagramBotMessage",
         null=True,

@@ -3773,3 +3773,21 @@ enum-полей и так добавляются циклом выше. Явна
 - **Production proof:** rollback-fixtures contract полностью прошёл на
   `qlknpodo_MySQL_DB`, не оставил строк и не вызвал реальный Telegram/Meta;
   maintenance lease снят, daemon восстановлен.
+
+## IMP-056 closure evidence (2026-08-03)
+
+- **F-FUP-008/F-FUP-009:** event-triggered follow-up steps are now durable.
+  `invoice_expired:<deal_id>:<invoice_id>` is materialized from the recorded
+  expiry fact; restock is materialized from a later readiness check when the
+  previously unavailable size is available again. Both use nullable-unique
+  `IgFollowUpTask.event_key`, so replay is idempotent.
+- **Claim/receipt contract:** `claim_token` + `claim_until` are written under
+  row lock after the existing client lease and checked immediately before the
+  provider call. `ProviderDeliveryReceipt.provider_message_id` is persisted on
+  both `IgFollowUpTask` and the local `InstagramBotMessage`; a successful send
+  without a receipt is skipped as `delivery_receipt_missing`, and ambiguous
+  provider outcomes remain non-retryable.
+- **Verification:** 72 focused price/follow-up/event tests, Django system check,
+  and migration drift check pass. The full 2,464-test management suite still
+  reproduces the pre-existing F-TEST-002 failures/errors; no failure is in the
+  changed follow-up modules.

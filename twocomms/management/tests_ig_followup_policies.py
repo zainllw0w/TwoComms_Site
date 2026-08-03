@@ -592,3 +592,74 @@ class FollowupPolicyIntegrationTests(TestCase):
         self.assertEqual(nxt.reason, "payment_link_unpaid")
         self.assertEqual(nxt.level, 1)
         self.assertGreaterEqual(nxt.due_at - self.now, timedelta(hours=18))
+
+    def test_invoice_expiry_materializes_one_event_task(self):
+        from management.services.bot_followups import materialize_invoice_expired
+
+        deal = IgDeal.objects.create(
+            client=self.client_record,
+            status=IgDeal.Status.AWAITING_PAYMENT,
+            invoice_id="invoice-expired-1",
+            invoice_url="https://pay.example/expired-1",
+            invoice_expires_at=self.now - timedelta(minutes=1),
+        )
+
+        first = materialize_invoice_expired(deal, now=self.now)
+        second = materialize_invoice_expired(deal, now=self.now)
+
+        self.assertIsNotNone(first)
+        self.assertEqual(first.pk, second.pk)
+        self.assertEqual(first.event_key, f"invoice_expired:{deal.pk}:invoice-expired-1")
+        self.assertEqual(
+            IgFollowUpTask.objects.filter(event_key=first.event_key).count(), 1
+        )
+
+    @patch(
+        "management.services.instagram_bot.send_text",
+        return_value=__import__(
+            "management.services.instagram_bot", fromlist=["ProviderDeliveryReceipt"]
+        ).ProviderDeliveryReceipt(True, "", "", "meta-followup-1"),
+    )
+    def test_expired_event_is_sent_once_with_provider_receipt(self, _send_text):
+        from management.services.bot_followups import process_due_followups
+
+        deal = IgDeal.objects.create(
+            client=self.client_record,
+            status=IgDeal.Status.AWAITING_PAYMENT,
+            invoice_id="invoice-expired-2",
+            invoice_url="https://pay.example/expired-2",
+            invoice_expires_at=self.now - timedelta(minutes=1),
+        )
+
+        self.assertEqual(
+            process_due_followups(self.settings, now=self.now, limit=1), 1
+        )
+        task = IgFollowUpTask.objects.get(deal=deal, event_key__startswith="invoice_expired:")
+        self.assertEqual(task.status, IgFollowUpTask.Status.SENT)
+        self.assertEqual(task.provider_message_id, "meta-followup-1")
+        self.assertEqual(task.sent_message.provider_message_id, "meta-followup-1")
+        self.assertEqual(task.claim_token, "")
+        self.assertIsNone(task.claim_until)
+
+    def test_restock_event_is_materialized_with_stable_key(self):
+        from management.services.bot_followups import materialize_restock
+
+        first = materialize_restock(
+            self.client_record,
+            product_id=41,
+            size="m",
+            event_id="restock:event:41:m:1",
+            now=self.now,
+        )
+        second = materialize_restock(
+            self.client_record,
+            product_id=41,
+            size="m",
+            event_id="restock:event:41:m:1",
+            now=self.now,
+        )
+
+        self.assertIsNotNone(first)
+        self.assertEqual(first.pk, second.pk)
+        self.assertEqual(first.level, 1)
+        self.assertEqual(first.event_key, "restock:event:41:m:1")

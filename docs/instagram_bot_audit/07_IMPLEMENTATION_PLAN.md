@@ -1,8 +1,8 @@
 # 07_IMPLEMENTATION_PLAN — план внедрения
 
 > **Канонический per-task статус после восстановления всех веток 2026-08-03.**
-> Всего 96 уникальных `IMP-*`: **66 закрыты, 27 открыты, 3 partial**
-> (`IMP-043`, `IMP-056`, `IMP-077`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
+> Всего 96 уникальных `IMP-*`: **67 закрыты, 26 открыты, 2 partial**
+> (`IMP-043`, `IMP-077`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
 > в `03_FINDINGS_REGISTER.md`, общий порядок продолжения — в `00_PROGRESS.md`.
 
 ## Ключевой принцип версии 2: фикс и улучшение — одним срезом
@@ -40,14 +40,14 @@
 | **W4** | Доставка сообщений клиенту | 5 | 5 | 0 | 0 |
 | **W4C** | Диалог ведёт модель, а не скрипт | 10 | 10 | 0 | 0 |
 | **W4D** | Echo/media и автоматическое снятие takeover | 4 | 4 | 0 | 0 |
-| **W4B** | Добивка воронки | 13 | 9 | 3 | 1 |
+| **W4B** | Добивка воронки | 13 | 10 | 3 | 0 |
 | **W5** | Качество продавца, каталог и память | 9 | 7 | 2 | 0 |
 | **W6** | Арбитр состояния и воронка | 5 | 5 | 0 | 0 |
 | **W7** | UX админки | 6 | 6 | 0 | 0 |
 | **W8** | Наблюдаемость, аналитика, долг | 12 | 0 | 10 | 2 |
 | **W9** | Product reselection и коммерческая семантика | 8 | 0 | 8 | 0 |
 | **W10** | Неучтённые улучшения: follow-up, retention и аналитический UX | 4 | 0 | 4 | 0 |
-| **Итого** | | **96** | **66** | **27** | **3** |
+| **Итого** | | **96** | **67** | **26** | **2** |
 
 ---
 
@@ -425,8 +425,8 @@ F-AI-016 (инструкции без триггеров, 70% клиентов �
   Лимиты IMP-052 не ослаблены: шаги, которые не помещаются в 18-часовой лимит
   или окно Meta, остаются видимыми `MANAGER_TASK` с готовым текстом. Встроены
   тексты uk/ru/en и переход `delivery_ready_unpaid -> payment_link_unpaid/A2`.
-  **Граница закрытия:** настоящий `Kind.FULFILLMENT` остаётся в IMP-055, а
-  event-trigger/двухфазный claim и продолжение manager/event-шагов — в IMP-056.
+  **Граница закрытия:** настоящий `Kind.FULFILLMENT` остаётся в IMP-055; его
+  event/claim контракт теперь закрыт IMP-056.
   Проверено: 15 policy-тестов и 119 связанных тестов; на production MySQL
   загружены 9 policies/25 steps, daemon `running`, transport `instagram_login`.
 - [x] **IMP-054 (P1) — закрыта 2026-08-02.** Quiet hours (F-FUP-006/007): инициация 10:00–21:30,
@@ -445,13 +445,17 @@ F-AI-016 (инструкции без триггеров, 70% клиентов �
   `4ba4212d`: MySQL, migration `0130`, daemon `running`, `last_error` пуст;
   активных оплаченных сделок без доставки сейчас 0, поэтому pending
   fulfillment тоже 0.
-- [ ] **IMP-056 (P1) — PARTIAL.** Уже опубликованы policy vocabulary
-  `trigger ∈ {time,event,reactive}`, client automation lease и provider receipt
-  в `send_text`; TTN/customer lifecycle уже имеет durable `event_key`,
-  `PROCESSING`, lease и `AMBIGUOUS`. Обязательный остаток: materialization
-  `invoice_expired`/`restock`, тот же двухфазный claim для `IgFollowUpTask`,
-  provider message ID, fail-closed unknown outcome, уникальность активной задачи
-  по `(client, kind, level)` и continuation после manager/event шага.
+- [x] **IMP-056 (P1) — закрыта 2026-08-03.** Для `IgFollowUpTask` добавлены
+  nullable-unique `event_key`, двухфазные `claim_token`/`claim_until` и
+  сохранённый provider `message_id`. `process_due_followups` теперь получает
+  structured receipt, не повторяет unknown outcome, атомарно захватывает задачу
+  после client lease и очищает claim в `finally`. Событие истечения ссылки
+  материализуется из `invoice_expires_at` с ключом `invoice_expired:<deal>:<invoice>`;
+  восстановление restock запускается readiness-проверкой после появления размера
+  и использует ключ с фактом gap. Активная задача дедуплицируется по
+  `(client, kind, level)` на scheduling-слое, event/manager continuation идёт
+  по той же policy-таблице. Тесты: idempotent expiry/restock, receipt persistence,
+  claim cleanup; миграция `0131`.
 - [ ] **IMP-057 (P1) — открыта.** Возражения как жизненный цикл (F-OBJ-001…005):
   развести вопрос о цене и возражение по цене; убрать одиночные `s|m|l`
   из детекта; добавить `thinking_objection` и 8 недостающих типов;

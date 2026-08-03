@@ -431,6 +431,36 @@ def checkout_readiness(
         result["missing"].append("color")
 
     result["can_issue_link"] = not result["missing"]
+    # A previous size gap is a durable fact, not a timer.  When the same
+    # readiness check later sees that size available again, materialize the
+    # event-triggered F2 follow-up exactly once and clear the stale gap.
+    try:
+        context = getattr(client, "sales_context", None)
+        gap = context.get("_stock_gap") if isinstance(context, dict) else None
+        gap_product_id = int(gap.get("product_id") or 0) if isinstance(gap, dict) else 0
+        gap_size = str(gap.get("size") or "").strip().upper() if isinstance(gap, dict) else ""
+        available_sizes = set((result.get("size") or {}).get("available") or [])
+        if (
+            isinstance(gap, dict)
+            and gap_product_id == int(product.pk)
+            and gap_size
+            and gap_size in available_sizes
+        ):
+            from management.services.bot_followups import materialize_restock
+            from management.services.ig_funnel_journal import clear_stock_gap
+
+            event_id = f"restock:{client.pk}:{gap_product_id}:{gap_size}:{gap.get('at') or 'unknown'}"
+            materialize_restock(
+                client,
+                product_id=gap_product_id,
+                size=gap_size,
+                event_id=event_id,
+            )
+            clear_stock_gap(client)
+    except Exception:
+        # Readiness must remain fail-open for the dialogue if event recovery
+        # is unavailable; the next check can retry materialization.
+        pass
     return result
 
 
