@@ -694,7 +694,10 @@ class NovaPoshtaWaybillServiceTests(SimpleTestCase):
 
         self.assertEqual(result['tracking_number'], '20451234123456')
         self.assertEqual(request_mock.call_count, 3)
-        self.assertEqual(request_mock.call_args_list[-1].args[2]['Description'], 'Одяг')
+        self.assertEqual(
+            request_mock.call_args_list[-1].args[2]['Description'],
+            'Одяг від TwoComms',
+        )
 
     @override_settings(NOVA_POSHTA_API_KEY='test-key')
     def test_create_waybill_does_not_retry_unrelated_provider_error(self):

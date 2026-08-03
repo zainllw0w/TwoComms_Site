@@ -5,6 +5,7 @@
 """
 from decimal import Decimal
 from unittest.mock import patch
+from types import SimpleNamespace
 
 from django.test import TestCase
 
@@ -18,6 +19,58 @@ from management.models import (
 )
 from management.services import bot_payments
 from management.services.bot_payment_truth import client_has_verified_payment
+from orders.models import Order
+
+
+class IgMetaPurchaseDedupTests(TestCase):
+    def test_persisted_capi_marker_prevents_second_instagram_purchase(self):
+        from management.services import ig_meta_events
+
+        client = IgClient.get_or_create_for_sender("ig-meta-dedup")
+        order = Order.objects.create(
+            order_number="IGMETADEDUP01",
+            full_name="Instagram Buyer",
+            phone="+380991112233",
+            city="Київ",
+            np_office="Відділення №4",
+            total_sum=Decimal("950.00"),
+            pay_type="online_full",
+            payment_status="paid",
+            payment_payload={
+                "fb_conversions_api": {
+                    "event_name": "Purchase",
+                    "event_id": "IGMETADEDUP01_purchase",
+                },
+            },
+        )
+        deal = IgDeal.objects.create(
+            client=client,
+            order=order,
+            pay_type=IgDeal.PayType.ONLINE_FULL,
+        )
+
+        with (
+            patch.object(
+                ig_meta_events.InstagramBotSettings,
+                "load",
+                return_value=SimpleNamespace(meta_feedback_enabled=True),
+            ),
+            patch.object(ig_meta_events, "_has_capi_env", return_value=True),
+            patch(
+                "orders.facebook_conversions_service.FacebookConversionsService"
+            ) as service_cls,
+        ):
+            service_cls.return_value.enabled = True
+            log = ig_meta_events.log_or_send(
+                "Purchase",
+                client=client,
+                deal=deal,
+                order=order,
+            )
+
+        service_cls.return_value.send_purchase_event.assert_not_called()
+        self.assertEqual(log.status, IgMetaEventLog.Status.SENT)
+        self.assertEqual(log.reason, "already_sent_by_retail_payment_flow")
 
 
 class CreatePaymentLinkTests(TestCase):

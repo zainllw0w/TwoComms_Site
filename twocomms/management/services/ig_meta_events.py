@@ -69,8 +69,33 @@ def log_or_send(event_name: str, *, client=None, deal=None, order=None, reason: 
             if normalized_event == "purchase":
                 event_id = order.get_purchase_event_id()
                 payment_payload = getattr(order, "payment_payload", None) or {}
+                if not isinstance(payment_payload, dict):
+                    payment_payload = {}
                 facebook_events = payment_payload.get("facebook_events", {})
-                if facebook_events.get("purchase_sent"):
+                if not isinstance(facebook_events, dict):
+                    facebook_events = {}
+                capi_event = payment_payload.get("fb_conversions_api", {})
+                post_payment_channels = payment_payload.get("post_payment_channels", {})
+                meta_channel = (
+                    post_payment_channels.get("meta_purchase", {})
+                    if isinstance(post_payment_channels, dict)
+                    else {}
+                )
+                purchase_already_sent = bool(
+                    facebook_events.get("purchase_sent")
+                    or (
+                        isinstance(capi_event, dict)
+                        and capi_event.get("event_id")
+                    )
+                    or (
+                        isinstance(meta_channel, dict)
+                        and (
+                            meta_channel.get("state") == "sent"
+                            or meta_channel.get("event_id")
+                        )
+                    )
+                )
+                if purchase_already_sent:
                     return IgMetaEventLog.objects.create(
                         event_name=event_name,
                         event_id=event_id,

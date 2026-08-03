@@ -271,6 +271,113 @@ class NovaPoshtaTrackingDedupTests(TestCase):
             1,
         )
 
+    def test_received_online_prepaid_order_does_not_emit_purchase_events(self):
+        """Delivery completes fulfillment but is never an online conversion."""
+        self.order.pay_type = 'prepay_200'
+        self.order.payment_status = 'prepaid'
+        self.order.payment_provider = 'monobank_pay'
+        self.order.payment_invoice_id = 'invoice-42'
+        self.order.payment_payload = {
+            'post_payment_channels': {
+                'instagram_lifecycle': {'state': 'pending'},
+            },
+        }
+        self.order.save(update_fields=[
+            'pay_type', 'payment_status', 'payment_provider',
+            'payment_invoice_id', 'payment_payload',
+        ])
+
+        with (
+            patch.object(
+                self.service,
+                'get_tracking_info',
+                return_value=_tracking('Відправлення отримано', 9, 'одержувачем'),
+            ),
+            patch.object(self.service, '_send_admin_delivery_notification'),
+            patch.object(self.service, '_send_delivery_notification'),
+            patch.object(self.service, '_send_facebook_purchase_event') as facebook_purchase,
+            patch.object(self.service, '_send_tiktok_purchase_event') as tiktok_purchase,
+        ):
+            self.service.update_order_tracking_status(self.order)
+
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, 'done')
+        self.assertEqual(self.order.payment_status, 'paid')
+        facebook_purchase.assert_not_called()
+        tiktok_purchase.assert_not_called()
+
+    def test_received_manual_instagram_cod_order_does_not_emit_website_purchase(self):
+        """Manual Instagram sales are not eligible for the website COD fallback."""
+        self.order.source = 'manual'
+        self.order.sale_source = 'Instagram'
+        self.order.pay_type = 'cod'
+        self.order.save(update_fields=['source', 'sale_source', 'pay_type'])
+
+        with (
+            patch.object(
+                self.service,
+                'get_tracking_info',
+                return_value=_tracking('Відправлення отримано', 9, 'одержувачем'),
+            ),
+            patch.object(self.service, '_send_admin_delivery_notification'),
+            patch.object(self.service, '_send_delivery_notification'),
+            patch.object(self.service, '_send_facebook_purchase_event') as facebook_purchase,
+            patch.object(self.service, '_send_tiktok_purchase_event') as tiktok_purchase,
+        ):
+            self.service.update_order_tracking_status(self.order)
+
+        facebook_purchase.assert_not_called()
+        tiktok_purchase.assert_not_called()
+
+    def test_received_legacy_web_cod_order_keeps_explicit_purchase_fallback(self):
+        """Only the historical website COD flow can create a delivery Purchase."""
+        self.order.pay_type = 'cod'
+        self.order.source = 'web'
+        self.order.save(update_fields=['pay_type', 'source'])
+
+        with (
+            patch.object(
+                self.service,
+                'get_tracking_info',
+                return_value=_tracking('Відправлення отримано', 9, 'одержувачем'),
+            ),
+            patch.object(self.service, '_send_admin_delivery_notification'),
+            patch.object(self.service, '_send_delivery_notification'),
+            patch.object(self.service, '_send_facebook_purchase_event') as facebook_purchase,
+            patch.object(self.service, '_send_tiktok_purchase_event') as tiktok_purchase,
+        ):
+            self.service.update_order_tracking_status(self.order)
+
+        facebook_purchase.assert_called_once_with(self.order)
+        tiktok_purchase.assert_called_once_with(self.order)
+
+    def test_received_legacy_cod_with_payment_purchase_marker_is_not_reemitted(self):
+        self.order.pay_type = 'cod'
+        self.order.source = 'web'
+        self.order.payment_payload = {
+            'fb_conversions_api': {
+                'event_name': 'Purchase',
+                'event_id': 'TESTNP001_purchase',
+            },
+        }
+        self.order.save(update_fields=['pay_type', 'source', 'payment_payload'])
+
+        with (
+            patch.object(
+                self.service,
+                'get_tracking_info',
+                return_value=_tracking('Відправлення отримано', 9, 'одержувачем'),
+            ),
+            patch.object(self.service, '_send_admin_delivery_notification'),
+            patch.object(self.service, '_send_delivery_notification'),
+            patch.object(self.service, '_send_facebook_purchase_event') as facebook_purchase,
+            patch.object(self.service, '_send_tiktok_purchase_event') as tiktok_purchase,
+        ):
+            self.service.update_order_tracking_status(self.order)
+
+        facebook_purchase.assert_not_called()
+        tiktok_purchase.assert_not_called()
+
     def test_repeated_received_poll_heals_done_order_missing_purchase(self):
         self.order.status = 'done'
         self.order.payment_status = 'paid'
@@ -490,6 +597,9 @@ class NovaPoshtaTrackingDedupTests(TestCase):
         self.assertGreaterEqual(close_old.call_count, 1)
 
     def test_facebook_purchase_save_error_does_not_fallback_to_full_save(self):
+        self.order.pay_type = 'cod'
+        self.order.source = 'web'
+        self.order.save(update_fields=['pay_type', 'source'])
         fake_service = type("FakeFacebookService", (), {
             "enabled": True,
             "send_purchase_event": lambda self, order: True,
@@ -508,6 +618,9 @@ class NovaPoshtaTrackingDedupTests(TestCase):
         self.assertEqual(save_mock.call_args.kwargs, {"update_fields": ["payment_payload"]})
 
     def test_tiktok_purchase_save_error_does_not_fallback_to_full_save(self):
+        self.order.pay_type = 'cod'
+        self.order.source = 'web'
+        self.order.save(update_fields=['pay_type', 'source'])
         fake_service = type("FakeTikTokService", (), {
             "enabled": True,
             "send_purchase_event": lambda self, order: True,
