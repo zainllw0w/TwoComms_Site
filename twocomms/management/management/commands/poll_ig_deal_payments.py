@@ -37,6 +37,9 @@ class Command(BaseCommand):
                     :bot_payments.payment_poll_limit(limit)
                 ]
             )
+            superseded_candidates = bounded_count(
+                bot_payments.payment_poll_invoice_candidates(limit=limit)
+            )
             order_candidates = bounded_count(
                 IgDeal.objects.filter(status=IgDeal.Status.PAID, order__isnull=True).order_by(
                     "id"
@@ -46,7 +49,8 @@ class Command(BaseCommand):
                 self.style.SUCCESS(
                     "IG payment poll: check_only=true external_calls=0 writes=0 "
                     f"limit={limit} projections={projection_candidates} "
-                    f"provider_invoices={provider_candidates} orders={order_candidates}"
+                    f"provider_invoices={provider_candidates} "
+                    f"superseded_invoices={superseded_candidates} orders={order_candidates}"
                 )
             )
             return

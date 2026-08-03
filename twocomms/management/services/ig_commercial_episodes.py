@@ -534,6 +534,30 @@ def _new_episode(
     return episode
 
 
+def ensure_open_episode_for_locked_client(client, *, materialization_prefix: str):
+    """Return the client's open episode while the caller owns its row lock."""
+    from management.ig_bot_models import IgCommercialEpisode
+
+    if not transaction.get_connection().in_atomic_block:
+        raise RuntimeError("ensure_open_episode_for_locked_client requires transaction.atomic")
+    current = (
+        IgCommercialEpisode.objects.select_for_update()
+        .filter(client_id=client.pk, open_slot=1)
+        .first()
+    )
+    if current:
+        if client.current_commercial_episode_id != current.pk:
+            client.current_commercial_episode = current
+            client.save(update_fields=["current_commercial_episode", "updated_at"])
+        return current
+    sequence = _next_sequence(client.pk)
+    return _new_episode(
+        client,
+        materialization_key=f"{materialization_prefix}:{client.pk}:{sequence}",
+        repeat_kind=IgCommercialEpisode.RepeatKind.FIRST_PURCHASE,
+    )
+
+
 def ensure_episode_for_deal(deal):
     from management.ig_bot_models import IgClient, IgCommercialEpisode
 
@@ -557,6 +581,11 @@ def ensure_episode_for_deal(deal):
                 current.save(update_fields=["deal", "product_snapshot", "price_snapshot", "updated_at"])
                 return current
             if current:
+                _mark_superseded_funnel_dropoff(
+                    current,
+                    source="deal_materialization",
+                    reason_code="new_deal_episode",
+                )
                 current.open_slot = None
                 current.save(update_fields=["open_slot", "updated_at"])
             return _new_episode(
@@ -645,6 +674,11 @@ def ensure_episode_for_review(review):
                 < int(current.opened_watermark_message_id)
             )
             if current and not review_is_historical:
+                _mark_superseded_funnel_dropoff(
+                    current,
+                    source="payment_review",
+                    reason_code="new_review_episode",
+                )
                 current.open_slot = None
                 current.save(update_fields=["open_slot", "updated_at"])
             episode = _new_episode(
@@ -737,6 +771,11 @@ def ensure_episode_for_attribution(attribution):
                 open_slot=1,
             ).first()
             if current:
+                _mark_superseded_funnel_dropoff(
+                    current,
+                    source="order_attribution",
+                    reason_code="new_attribution_episode",
+                )
                 current.open_slot = None
                 current.save(update_fields=["open_slot", "updated_at"])
             episode = _new_episode(
@@ -817,6 +856,11 @@ def bind_episode_order(
                     locked.order_attribution = attribution
                 if attribution:
                     locked.save(update_fields=["order_attribution", "updated_at"])
+                _record_order_funnel_facts(
+                    locked,
+                    order,
+                    source=creation_mode or "order_resolution",
+                )
                 return locked
             previous_state = locked.state
             locked.intended_order = order
@@ -861,6 +905,11 @@ def bind_episode_order(
                     "override": override_snapshot if isinstance(override_snapshot, dict) else {},
                 },
             )
+            _record_order_funnel_facts(
+                locked,
+                order,
+                source=creation_mode or "order_resolution",
+            )
             return locked
 
 
@@ -900,6 +949,83 @@ def _fulfillment_projection(order):
     )
 
 
+def _mark_superseded_funnel_dropoff(episode, *, source: str, reason_code: str):
+    """Record replacement of an open commercial cycle before closing its slot."""
+    from management.ig_bot_models import IgFunnelStepEvent
+    from management.services.ig_funnel_analytics import (
+        record_episode_step_event_in_transaction,
+    )
+
+    record_episode_step_event_in_transaction(
+        episode,
+        event_type=IgFunnelStepEvent.Type.DROP_OFF,
+        event_key=f"ig-drop-off:{episode.pk}:superseded:{reason_code}",
+        occurred_at=timezone.now(),
+        stage=(episode.stage_snapshot or {}).get("stage", ""),
+        actor=source,
+        evidence={
+            "kind": "superseded",
+            "reason_code": reason_code,
+            "is_recoverable": False,
+        },
+        is_backfilled=False,
+    )
+
+
+def _record_order_funnel_facts(episode, order, *, source: str):
+    """Record order/TTN/delivery facts from canonical locked Order truth."""
+    from management.ig_bot_models import IgFunnelStepEvent
+    from management.services.ig_funnel_analytics import (
+        record_episode_step_event_in_transaction,
+    )
+
+    # ``orders.Order`` uses ``created``/``updated``.  Keep the fallback for
+    # legacy order-like objects used by import/reconciliation callers.
+    order_created_at = getattr(order, "created", None) or getattr(order, "created_at", None)
+    order_updated_at = getattr(order, "updated", None) or getattr(order, "updated_at", None)
+    record_episode_step_event_in_transaction(
+        episode,
+        event_type=IgFunnelStepEvent.Type.ORDER_CREATED,
+        event_key=f"ig-order-created:{order.pk}",
+        occurred_at=order_created_at,
+        stage="order_created",
+        actor=source or "order_truth",
+        evidence={
+            "order_id": order.pk,
+            "order_number": order.order_number,
+            "creation_mode": source or "order_truth",
+        },
+    )
+    tracking_number = str(order.tracking_number or "").strip()
+    if tracking_number:
+        record_episode_step_event_in_transaction(
+            episode,
+            event_type=IgFunnelStepEvent.Type.TTN_CREATED,
+            event_key=f"ig-ttn-created:{order.pk}:{tracking_number}",
+            occurred_at=order.shipment_status_updated or order_updated_at,
+            stage="order_created",
+            actor=source or "order_truth",
+            evidence={
+                "order_id": order.pk,
+                "tracking_number": tracking_number,
+            },
+        )
+    if order.status == "done":
+        record_episode_step_event_in_transaction(
+            episode,
+            event_type=IgFunnelStepEvent.Type.DELIVERED,
+            event_key=f"ig-delivered:{order.pk}",
+            occurred_at=order.shipment_status_updated or order_updated_at,
+            stage="done",
+            actor=source or "order_truth",
+            evidence={
+                "order_id": order.pk,
+                "tracking_number": tracking_number,
+                "shipment_status": order.shipment_status or "",
+            },
+        )
+
+
 def sync_episode_fulfillment(order_or_id, *, source="order_truth"):
     """Refresh exactly one episode from canonical Order/Nova Poshta truth."""
     from management.ig_bot_models import IgClient, IgCommercialEpisode
@@ -913,6 +1039,7 @@ def sync_episode_fulfillment(order_or_id, *, source="order_truth"):
         with transaction.atomic():
             locked = IgCommercialEpisode.objects.select_for_update().get(pk=episode.pk)
             order = Order.objects.select_for_update().get(pk=order_id)
+            _record_order_funnel_facts(locked, order, source=source)
             previous_state = locked.state
             previous_snapshot = locked.fulfillment_snapshot or {}
             target_state, outcome, closed_at, snapshot = _fulfillment_projection(order)
@@ -1081,6 +1208,11 @@ def start_repeat_episode(
                 open_slot=1,
             ).first()
             if current:
+                _mark_superseded_funnel_dropoff(
+                    current,
+                    source="conversation_analysis",
+                    reason_code="repeat_episode",
+                )
                 current.open_slot = None
                 current.save(update_fields=["open_slot", "updated_at"])
             episode = _new_episode(

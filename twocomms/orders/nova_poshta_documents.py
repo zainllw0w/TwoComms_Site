@@ -69,6 +69,10 @@ class NovaPoshtaDocumentError(Exception):
     """Raised when a Nova Poshta waybill cannot be prepared or created."""
 
 
+class NovaPoshtaInvalidDescriptionError(NovaPoshtaDocumentError):
+    """Provider rejected only the cargo description; one canonical retry is safe."""
+
+
 @dataclass(frozen=True)
 class NovaPoshtaResolvedPoint:
     city_label: str
@@ -593,7 +597,13 @@ class NovaPoshtaDocumentService:
         if cod_amount > 0:
             method_properties["AfterpaymentOnGoodsCost"] = self._format_money(cod_amount)
 
-        response = self._request("InternetDocument", "save", method_properties)
+        try:
+            response = self._request("InternetDocument", "save", method_properties)
+        except NovaPoshtaInvalidDescriptionError:
+            retry_properties = dict(method_properties)
+            retry_properties["Description"] = "Одяг"
+            logger.warning("Retrying Nova Poshta waybill with canonical description")
+            response = self._request("InternetDocument", "save", retry_properties)
         result = next(iter(response.get("data") or []), None) or {}
         tracking_number = str(result.get("IntDocNumber") or "").strip()
         document_ref = str(result.get("Ref") or "").strip()
@@ -965,9 +975,13 @@ class NovaPoshtaDocumentService:
 
         errors = [str(item).strip() for item in data.get("errors") or [] if str(item).strip()]
         if errors:
-            if any("description is not valid" in error.casefold() for error in errors):
+            if (
+                model_name == "InternetDocument"
+                and called_method == "save"
+                and any(error.casefold() == "description is not valid" for error in errors)
+            ):
                 logger.warning("Nova Poshta API rejected InternetDocument.save: invalid_description")
-                raise NovaPoshtaDocumentError(
+                raise NovaPoshtaInvalidDescriptionError(
                     "Опис відправлення містить символи, які Nova Poshta не приймає. "
                     "Замініть нестандартні символи й спробуйте ще раз."
                 )

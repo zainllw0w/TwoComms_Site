@@ -15,6 +15,10 @@ Production host: `195.191.25.63`, path
 | 2026-08-03 | `afd16725` | audit source reconciliation and canonical docs | docs-only; runtime remains online |
 | 2026-08-03 | `59f5a67b` | final validation report included and deployed | docs-only; runtime remains online |
 | 2026-08-03 | `c409f7a3` | canonical checkbox plan, registers and source reconciliation; server pull, Django check, migration-drift check and restart | `running`; daemon online; `instagram_login`; no recorded error |
+| 2026-08-03 | `92d46c5a` | migration `0133`; check/migration drift/collectstatic/compress; backfill 5; silence scan 96; raw-event reconciliation | `running`; heartbeat fresh; `instagram_login`; `last_error=''` |
+| 2026-08-03 | `280c07e8` | migration `0134`; 104 payment/lifecycle tests; superseded invoice polling and check-only proof | `running`; `last_error=''` |
+| 2026-08-03 | `6883ac2c` | final IMP-089 code/doc checkpoint; server pull, migrate/check, check-only and runtime verification | `running`; heartbeat 0.6s; `last_error=''` |
+| 2026-08-03 | `e04c1c24` | final audit evidence checkpoint; docs-only fast-forward | runtime unchanged; `running`; `last_error=''` |
 
 For `6b86e103`, server `git pull --ff-only` completed, `manage.py check` returned
 no issues, `makemigrations --check --dry-run` returned `No changes detected`,
@@ -42,3 +46,28 @@ restart. The runtime evidence was queried through the current
 `state='running'`, `alive=True`, `running=True`,
 `provider_transport='instagram_login'`, database and daemon heartbeat ages
 `0.0` seconds, and `last_error=''`.
+
+For IMP-058, `origin/main` was advanced through `274c2c61`, `79882368` and
+`92d46c5a`; the server pulled `92d46c5a` fast-forward and applied
+`management.0133_ig_funnel_step_analytics` on MariaDB. Production commands
+reported `{'candidates': 5, 'created': 5, 'applied': True}` for canonical
+backfill and `{'scanned': 100, 'matched': 96, 'applied': True}` for deterministic
+silence facts. The final MySQL/API check reported 197
+`IgFunnelStepEvent` rows, 96 `IgFunnelDropOff` rows, 17 event types, and
+`status_snapshot()` returned `state='running'`, `daemon_online=True`, a fresh
+heartbeat and empty `last_error`.
+
+For IMP-089, `git pull --ff-only` advanced production through `280c07e8` and
+applied `management.0134_ig_deal_invoice_lifecycle` on MariaDB. The bounded
+check-only command reported `projections=0 provider_invoices=0
+superseded_invoices=0 orders=0`; the lifecycle table had zero rows because no
+historical superseded invoice IDs exist on this production dataset. The daemon
+briefly reported a transient worker error during restart and recovered to
+`running=True` with `last_error=''`; no customer messages were sent.
+
+The final consolidation commit `6883ac2c` was then pulled fast-forward. The
+server confirmed migration `0134` as applied, `poll_ig_deal_payments
+--check-only --limit 50` returned zero candidates, lifecycle rows remained 0,
+and `status_snapshot()` reported `is_enabled=True`, `state='running'`,
+daemon_online=True`, heartbeat age about 0.6 seconds, transport
+`instagram_login`, and empty `last_error`.

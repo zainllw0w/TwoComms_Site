@@ -1,7 +1,7 @@
 # 07_IMPLEMENTATION_PLAN — план внедрения
 
 > **Канонический per-task статус после восстановления всех веток 2026-08-03.**
-> Всего 99 уникальных `IMP-*`: **70 закрыты, 27 открыты, 2 partial**
+> Всего 99 уникальных `IMP-*`: **72 закрыты, 25 открыты, 2 partial**
 > (`IMP-043`, `IMP-077`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
 > в `03_FINDINGS_REGISTER.md`, общий порядок продолжения — в `00_PROGRESS.md`.
 > Ниже находятся отдельные checkbox-матрицы всех 170 `F-*` и всех 48 `IMPR-*`:
@@ -43,7 +43,7 @@
 | **W4** | Доставка сообщений клиенту | 5 | 5 | 0 | 0 |
 | **W4C** | Диалог ведёт модель, а не скрипт | 10 | 10 | 0 | 0 |
 | **W4D** | Echo/media и автоматическое снятие takeover | 4 | 4 | 0 | 0 |
-| **W4B** | Добивка воронки | 13 | 10 | 3 | 0 |
+| **W4B** | Добивка воронки | 13 | 13 | 0 | 0 |
 | **W5** | Качество продавца, каталог и память | 9 | 7 | 2 | 0 |
 | **W6** | Арбитр состояния и воронка | 5 | 5 | 0 | 0 |
 | **W7** | UX админки | 6 | 6 | 0 | 0 |
@@ -51,7 +51,7 @@
 | **W9** | Product reselection и коммерческая семантика | 8 | 0 | 8 | 0 |
 | **W10** | Неучтённые улучшения: follow-up, retention и аналитический UX | 4 | 0 | 4 | 0 |
 | **W11** | Полное покрытие находок и orphan backlog | 2 | 1 | 1 | 0 |
-| **Итого** | | **99** | **70** | **27** | **2** |
+| **Итого** | | **99** | **72** | **25** | **2** |
 
 ---
 
@@ -409,12 +409,16 @@ F-AI-016 (инструкции без триггеров, 70% клиентов �
   тот же queryset. Production MySQL: единственный invoice имел truth
   `cancelled` и после исправления не попадает в polling (`provider_invoices=0`).
   Проверено 160 связанными тестами; daemon `running`, heartbeat 0.4 с.
-- [ ] **IMP-089 (P1) — открыта, найдена при закрытии IMP-051.** Backstop для
-  `superseded_invoice_ids`: webhook умеет обнаружить оплату по заменённой
-  ссылке, но cron/daemon опрашивают только текущий `invoice_id`. Нужен
-  ограниченный per-invoice lifecycle с terminal marker, чтобы не опрашивать
-  до 20 исторических ID вечно и не потерять платёж при одновременной потере
-  webhook (F-PAY-014).
+- [x] **IMP-089 (P1) — закрыта 2026-08-03, production `eaef5701`.** Для каждого
+  superseded invoice создан bounded `IgDealInvoiceLifecycle` (migration `0134`):
+  webhook и backstop используют один per-invoice ledger, terminal marker,
+  expiry/age cap и идемпотентный manager alert. Старый invoice опрашивается с
+  `apply=False`, поэтому найденная оплата не применяется автоматически к новой
+  конфигурации товара/оплаты. Legacy JSON materialization выполняется
+  ограниченной пачкой. Production `poll_ig_deal_payments --check-only --limit
+  50`: `projections=0 provider_invoices=0 superseded_invoices=0 orders=0`;
+  migration `0134` применена, lifecycle rows = 0 (исторических superseded ID
+  нет), daemon после transient worker error восстановлен в `running=True`.
 - [x] **IMP-052 (P0) — закрыта 2026-08-02.** Suppression расширен до полного списка (F-FUP-010,
   F-CTX-002): `opted_out_at` как самостоятельный флаг, `support_complaint`,
   `wholesale_b2b`, `collaboration`, `LEAD_TO_MANAGER`, `COLD`, открытая
@@ -474,13 +478,22 @@ F-AI-016 (инструкции без триггеров, 70% клиентов �
   `InnoDB`, daemon `running`; 23/23 новых и 147/147 связанных тестов.
   **Инвариант:** в `handled` переводит только `verified=True`, иначе метрика
   «закрыто» станет самообманом.
-- [ ] **IMP-058 (P1) — открыта.** Статистика падений (F-STAT-001…004): `IgFunnelStepEvent`
-  (16 типов событий, запись **в той же транзакции**, что мутация состояния),
-  `IgFunnelDropOff` с разделением «молча пропал» / «явно отказался» /
-  «недоступен по нашей вине», cohort-логика вместо срезов, пороги тишины
-  в рабочих часах, бэкфилл того, что восстановимо.
-  **Зависимость:** требует IMP-032 (полнота событий стадии) — без неё
-  воронка переходов будет с дырами.
+- [x] **IMP-058 (P1) — закрыта 2026-08-03, production `92d46c5a`.** Статистика
+  переходов и падений (F-STAT-001…004) теперь использует append-only
+  `IgFunnelStepEvent` и `IgFunnelDropOff`, записанные в той же транзакции,
+  что и мутация состояния. Cohort-аналитика режется по `occurred_at`,
+  drop-off разделяет silence/refusal/unreachable/spam/opt-out/superseded,
+  а silence измеряется в рабочих часах Kyiv. Добавлены dashboard/API блоки
+  причин, времени на шаге, discount и manager-vs-bot, плюс идемпотентные
+  `backfill_ig_funnel_events` и `scan_ig_funnel_dropoffs`.
+  Фактически в модели **17 типов событий**, потому что к исходным 16
+  добавлен отдельный `payment_confirmed`; это не скрытое расхождение дизайна.
+  Production proof: migration `0133` применена на MariaDB, backfill создал
+  5 канонических событий, silence scan материализовал 96 drop-off фактов;
+  MySQL/API reconciliation видит 197 events, 96 drop-offs и 17 event types.
+  Regression: 53 funnel/follow-up, 161 analysis/inbox/intelligence и 103
+  commercial/funnel tests; `manage.py check`, migration drift и compileall
+  зелёные.
 
 **Критерий приёмки волны:** для клиента с выданной и неоплаченной ссылкой
 в логе видны 5 касаний по расписанию из дизайна, каждое — с подтверждённым
@@ -908,7 +921,7 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 
 ### Finding coverage matrix — 170 уникальных F-идентификаторов
 
-Итог матрицы: **115 `[x]` / 51 `OPEN [ ]` / 4 `PARTIAL [ ]`**. Статус
+Итог матрицы: **120 `[x]` / 46 `OPEN [ ]` / 4 `PARTIAL [ ]`**. Статус
 считается по факту текущего `main`, тестов и production evidence, а не по тому,
 что ID когда-то упоминался в progress или feature-ветке.
 
@@ -1024,7 +1037,7 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 | [x] | F-PAY-011 | FIXED/VERIFIED | IMP-024 |
 | [x] | F-PAY-012 | FIXED/VERIFIED | IMP-013 |
 | [x] | F-PAY-013 | FIXED/VERIFIED | IMP-071 |
-| [ ] | F-PAY-014 | OPEN | IMP-089 |
+| [x] | F-PAY-014 | FIXED/VERIFIED | IMP-089 |
 | [x] | F-SCORE-001 | FIXED/VERIFIED | IMP-019 |
 | [x] | F-SCORE-002 | FIXED/VERIFIED | IMP-015 |
 | [x] | F-SCORE-003 | FIXED/VERIFIED | IMP-014 |
@@ -1050,10 +1063,10 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 | [ ] | F-SEC-008 | OPEN | IMP-041 |
 | [ ] | F-SEC-009 | PARTIAL | IMP-006/098 |
 | [ ] | F-SEC-010 | OPEN | IMP-061 |
-| [ ] | F-STAT-001 | OPEN | IMP-058 |
-| [ ] | F-STAT-002 | OPEN | IMP-058 |
-| [ ] | F-STAT-003 | OPEN | IMP-058 |
-| [ ] | F-STAT-004 | OPEN | IMP-058 |
+| [x] | F-STAT-001 | FIXED/VERIFIED | IMP-058 |
+| [x] | F-STAT-002 | FIXED/VERIFIED | IMP-058 |
+| [x] | F-STAT-003 | FIXED/VERIFIED | IMP-058 |
+| [x] | F-STAT-004 | FIXED/VERIFIED | IMP-058 |
 | [x] | F-STATE-001 | FIXED/VERIFIED | IMP-031 |
 | [x] | F-STATE-002 | FIXED/VERIFIED | IMP-033 |
 | [x] | F-STATE-003 | FIXED/VERIFIED | IMP-033 |

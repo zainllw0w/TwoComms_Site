@@ -2,7 +2,7 @@
 Django management команда для обновления статусов посылок
 """
 import logging
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings
 from django.utils import timezone
 from orders.nova_poshta_service import NovaPoshtaService
@@ -39,14 +39,12 @@ class Command(BaseCommand):
 
         # Проверяем наличие API ключа
         if not getattr(settings, 'NOVA_POSHTA_API_KEY', ''):
-            self.stdout.write(
-                self.style.WARNING(
-                    "NOVA_POSHTA_API_KEY не настроен в settings. "
-                    "Добавьте ключ API Новой Почты в переменные окружения."
-                )
+            message = (
+                "NOVA_POSHTA_API_KEY не настроен в settings. "
+                "Добавьте ключ API Новой Почты в переменные окружения."
             )
             logger.error("NOVA_POSHTA_API_KEY not configured")
-            return
+            raise CommandError(message)
 
         service = NovaPoshtaService()
 
@@ -182,4 +180,9 @@ class Command(BaseCommand):
                 logger.warning(
                     f"Update completed with no updates: {result['total_orders']} total, "
                     f"{result['errors']} errors"
+                )
+
+            if result['errors']:
+                raise CommandError(
+                    f"Nova Poshta tracking batch completed with {result['errors']} error(s)"
                 )

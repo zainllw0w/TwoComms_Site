@@ -81,6 +81,12 @@ class Order(models.Model):
     tracking_number = models.CharField(max_length=50, blank=True, null=True, verbose_name='Номер ТТН')
     shipment_status = models.CharField(max_length=100, blank=True, null=True, verbose_name='Статус посылки')
     shipment_status_updated = models.DateTimeField(null=True, blank=True, verbose_name='Время обновления статуса')
+    tracking_status_code = models.PositiveIntegerField(null=True, blank=True, db_index=True, verbose_name='Код статуса НП')
+    tracking_checked_at = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name='Последняя проверка НП')
+    tracking_provider_event_at = models.DateTimeField(null=True, blank=True, verbose_name='Событие НП')
+    tracking_next_check_at = models.DateTimeField(null=True, blank=True, db_index=True, verbose_name='Следующая проверка НП')
+    tracking_failure_count = models.PositiveIntegerField(default=0, verbose_name='Ошибки проверки НП')
+    tracking_terminal_at = models.DateTimeField(null=True, blank=True, verbose_name='Терминальный статус НП')
     payment_screenshot = models.ImageField(upload_to='payment_screenshots/', blank=True, null=True, verbose_name='Скріншот оплати')
     payment_provider = models.CharField(max_length=50, blank=True, default='')
     payment_invoice_id = models.CharField(max_length=128, blank=True, default='')
@@ -173,6 +179,7 @@ class Order(models.Model):
             models.Index(fields=['-created'], name='idx_order_created_desc'),
             models.Index(fields=['status', '-created'], name='idx_order_status_created'),
             models.Index(fields=['payment_status', '-created'], name='idx_order_payment_created'),
+            models.Index(fields=['tracking_terminal_at', 'tracking_next_check_at'], name='order_track_next'),
         ]
 
     def __str__(self):
@@ -1006,11 +1013,16 @@ class DropshipperOrderItem(models.Model):
     @property
     def generic_option_labels(self):
         fit_label = self.fit_label.casefold()
+        fit_axis_labels = {'fit', 'посадка', 'крій', 'крой'}
         return [
             f"{label}: {value}"
             for label, value in (self.option_labels or {}).items()
             if str(value or '').strip()
             and str(value or '').strip().casefold() != fit_label
+            and not (
+                fit_label
+                and str(label or '').strip().casefold() in fit_axis_labels
+            )
         ]
 
     def save(self, *args, **kwargs):

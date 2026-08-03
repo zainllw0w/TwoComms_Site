@@ -482,6 +482,12 @@ def telegram_order_np_waybill_action(request, order_id: int, action: str):
                     locked_order.tracking_number = None
                     locked_order.shipment_status = None
                     locked_order.shipment_status_updated = None
+                    locked_order.tracking_status_code = None
+                    locked_order.tracking_checked_at = None
+                    locked_order.tracking_provider_event_at = None
+                    locked_order.tracking_next_check_at = None
+                    locked_order.tracking_failure_count = 0
+                    locked_order.tracking_terminal_at = None
                     locked_order.nova_poshta_document_ref = None
                     locked_order.nova_poshta_recipient_ref = None
                     locked_order.nova_poshta_recipient_contact_ref = None
@@ -492,6 +498,12 @@ def telegram_order_np_waybill_action(request, order_id: int, action: str):
                             "tracking_number",
                             "shipment_status",
                             "shipment_status_updated",
+                            "tracking_status_code",
+                            "tracking_checked_at",
+                            "tracking_provider_event_at",
+                            "tracking_next_check_at",
+                            "tracking_failure_count",
+                            "tracking_terminal_at",
                             "nova_poshta_document_ref",
                             "nova_poshta_recipient_ref",
                             "nova_poshta_recipient_contact_ref",

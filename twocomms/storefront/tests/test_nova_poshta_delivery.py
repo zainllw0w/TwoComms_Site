@@ -11,6 +11,7 @@ from orders.nova_poshta_documents import (
     TELEGRAM_CREATE_NP_WAYBILL_ACTION,
     TELEGRAM_DELETE_NP_WAYBILL_ACTION,
     NovaPoshtaDocumentError,
+    NovaPoshtaInvalidDescriptionError,
     NovaPoshtaDocumentService,
     NovaPoshtaResolvedPoint,
     build_waybill_description,
@@ -663,6 +664,57 @@ class NovaPoshtaWaybillServiceTests(SimpleTestCase):
         with patch('orders.nova_poshta_documents.requests.post', return_value=response):
             with self.assertRaisesRegex(NovaPoshtaDocumentError, 'символи'):
                 service._request('InternetDocument', 'save', {'Description': 'bad — text'})
+
+    @override_settings(NOVA_POSHTA_API_KEY='test-key')
+    def test_create_waybill_retries_only_invalid_description_with_canonical_fallback(self):
+        service = NovaPoshtaDocumentService()
+        order = self._build_order(payment_status='paid')
+        sender_point = NovaPoshtaResolvedPoint('Харків', 'Відділення №138', 'ss', 'sc', 'sw', 'branch')
+        recipient_point = NovaPoshtaResolvedPoint('Київ', 'Відділення №4', 'rs', 'rc', 'rw', 'branch')
+        payload = {
+            'recipient_full_name': 'Тестовий клієнт', 'recipient_phone': '+380991112233',
+            'recipient_city': 'Київ', 'recipient_city_ref': 'rc', 'recipient_warehouse': 'Відділення №4',
+            'recipient_warehouse_ref': 'rw', 'sender_city': 'Харків', 'sender_city_ref': 'sc',
+            'sender_warehouse': 'Відділення №138', 'sender_warehouse_ref': 'sw',
+            'description': 'Класичний — Кайот', 'declared_cost': '1499.00', 'weight': '1',
+            'seats_amount': '1', 'length_cm': '30', 'width_cm': '20', 'height_cm': '8',
+            'cod_amount': '', 'payer_type': 'Recipient', 'payment_method': 'Cash',
+        }
+        with (
+            patch.object(service, '_resolve_sender_profile', return_value={'sender_ref': 's', 'contact_ref': 'c', 'phone': '380991112233'}),
+            patch.object(service, '_resolve_point', side_effect=[sender_point, recipient_point]),
+            patch.object(service, '_request') as request_mock,
+        ):
+            request_mock.side_effect = [
+                {'data': [{'Ref': 'recipient-ref', 'ContactPerson': [{'Ref': 'contact-ref'}]}]},
+                NovaPoshtaInvalidDescriptionError('Description is not valid'),
+                {'data': [{'IntDocNumber': '20451234123456', 'Ref': 'document-ref'}], 'warnings': []},
+            ]
+            result = service.create_waybill(order, payload)
+
+        self.assertEqual(result['tracking_number'], '20451234123456')
+        self.assertEqual(request_mock.call_count, 3)
+        self.assertEqual(request_mock.call_args_list[-1].args[2]['Description'], 'Одяг')
+
+    @override_settings(NOVA_POSHTA_API_KEY='test-key')
+    def test_create_waybill_does_not_retry_unrelated_provider_error(self):
+        service = NovaPoshtaDocumentService()
+        order = self._build_order(payment_status='paid')
+        sender_point = NovaPoshtaResolvedPoint('Харків', 'Відділення №138', 'ss', 'sc', 'sw', 'branch')
+        recipient_point = NovaPoshtaResolvedPoint('Київ', 'Відділення №4', 'rs', 'rc', 'rw', 'branch')
+        payload = {'recipient_full_name': 'Тестовий клієнт', 'recipient_phone': '+380991112233', 'recipient_city': 'Київ', 'recipient_city_ref': 'rc', 'recipient_warehouse': 'Відділення №4', 'recipient_warehouse_ref': 'rw', 'sender_city': 'Харків', 'sender_city_ref': 'sc', 'sender_warehouse': 'Відділення №138', 'sender_warehouse_ref': 'sw', 'description': 'Одяг', 'declared_cost': '1499.00', 'weight': '1', 'seats_amount': '1', 'length_cm': '30', 'width_cm': '20', 'height_cm': '8', 'cod_amount': '', 'payer_type': 'Recipient', 'payment_method': 'Cash'}
+        with (
+            patch.object(service, '_resolve_sender_profile', return_value={'sender_ref': 's', 'contact_ref': 'c', 'phone': '380991112233'}),
+            patch.object(service, '_resolve_point', side_effect=[sender_point, recipient_point]),
+            patch.object(service, '_request') as request_mock,
+        ):
+            request_mock.side_effect = [
+                {'data': [{'Ref': 'recipient-ref', 'ContactPerson': [{'Ref': 'contact-ref'}]}]},
+                NovaPoshtaDocumentError('invalid recipient'),
+            ]
+            with self.assertRaisesRegex(NovaPoshtaDocumentError, 'invalid recipient'):
+                service.create_waybill(order, payload)
+        self.assertEqual(request_mock.call_count, 2)
 
     @override_settings(NOVA_POSHTA_API_KEY='test-key')
     def test_create_waybill_requires_document_ref(self):

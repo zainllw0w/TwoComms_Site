@@ -12,6 +12,8 @@
 | `codex/ig-bot-w4-completion` | alert implementation commit `31f8151f`; dirty paginator | alert commit is branch source already recorded; paginator is SUPERSEDED by W7 `bca7e4e2` and must not be cherry-picked |
 | `codex/ig-followup-policies` worktree | dirty W4B event/claim/objection files on old base | functionality IN MAIN via `c00c8c5a`/`d0098d0b`; old diff would delete newer migrations; do not cherry-pick |
 | `codex/ig-bot-variant-pricing` | pricing/follow-up branch and dirty old-base diff | IMP-080 and W4B are IN MAIN; no additional unique deployed requirement found |
+| `codex/ig-bot-imp058-funnel-analytics` | durable funnel event/drop-off analytics, production timestamp regression fix, tests and migration `0133` | IN MAIN and deployed as `274c2c61`/`79882368`/`92d46c5a`; do not resurrect the pre-fix dirty diff |
+| `codex/ig-bot-imp058-funnel-analytics` (IMP-089 continuation) | bounded superseded-invoice lifecycle, migration `0134`, legacy materialization and polling recovery | IN MAIN and deployed as `280c07e8`; 104 focused tests and production check-only proof; no historical lifecycle rows existed to exercise live polling |
 | `codex/ig-order-fulfillment-links` `20dd44b2` | searchable order assignment drawer | Semantics IN MAIN via W7; old commit is not a safe cherry-pick |
 | `codex/instagram-assisted-checkout` | five product-reselection code commits `61ad2cb8`, `a8ccfa63`, `468fe2ba`, `e9d982df`, `dc9889c3` | BRANCH-ONLY; tracked as IMP-081…085, rebase + tests + MySQL + deploy required |
 | assisted-checkout dirty CSS/test | mobile breakpoint 390px | WIP only; not counted and not integrated |

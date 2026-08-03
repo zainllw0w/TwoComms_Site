@@ -274,36 +274,47 @@ def pin_product(client, product_id, *, switch_reason: str = "") -> bool:
         p = None
     if not p:
         return False
-    if client.current_product_id == p.id:
-        if not client.current_product_confidence:
-            client.current_product_confidence = 1
-            client.save(update_fields=["current_product_confidence", "updated_at"])
-        return True
-    previous_id = client.current_product_id
-    previous_title = ""
-    if previous_id:
-        previous_title = str(
-            Product.objects.filter(pk=previous_id).values_list("title", flat=True).first() or ""
-        )
-    sales_context = dict(getattr(client, "sales_context", {}) or {})
-    sales_context.pop("assisted_checkout_selection", None)
-    client.current_product = p
-    client.current_product_confidence = 1
-    client.current_size = ""
-    client.current_color = ""
-    client.current_qty = 1
-    client.sales_context = sales_context
-    client.save(update_fields=[
-        "current_product",
-        "current_product_confidence",
-        "current_size",
-        "current_color",
-        "current_qty",
-        "sales_context",
-        "updated_at",
-    ])
-    if previous_id:
-        try:
+    from django.db import transaction
+    from django.utils import timezone
+
+    from management.models import IgClient, IgFunnelStepEvent
+    from management.services.ig_funnel_analytics import (
+        record_client_step_event_in_transaction,
+    )
+
+    with transaction.atomic():
+        locked = IgClient.objects.select_for_update().get(pk=client.pk)
+        if locked.current_product_id == p.id:
+            if not locked.current_product_confidence:
+                locked.current_product_confidence = 1
+                locked.save(update_fields=["current_product_confidence", "updated_at"])
+            client.current_product_id = locked.current_product_id
+            client.current_product_confidence = locked.current_product_confidence
+            return True
+        previous_id = locked.current_product_id
+        previous_title = ""
+        if previous_id:
+            previous_title = str(
+                Product.objects.filter(pk=previous_id).values_list("title", flat=True).first() or ""
+            )
+        sales_context = dict(getattr(locked, "sales_context", {}) or {})
+        sales_context.pop("assisted_checkout_selection", None)
+        locked.current_product = p
+        locked.current_product_confidence = 1
+        locked.current_size = ""
+        locked.current_color = ""
+        locked.current_qty = 1
+        locked.sales_context = sales_context
+        locked.save(update_fields=[
+            "current_product",
+            "current_product_confidence",
+            "current_size",
+            "current_color",
+            "current_qty",
+            "sales_context",
+            "updated_at",
+        ])
+        if previous_id:
             from management.services.ig_funnel_journal import (
                 SwitchReason,
                 record_product_switch,
@@ -311,16 +322,33 @@ def pin_product(client, product_id, *, switch_reason: str = "") -> bool:
             )
 
             record_product_switch(
-                client,
+                locked,
                 from_product_id=previous_id,
                 to_product_id=p.id,
-                reason=switch_reason or resolve_switch_reason(client, previous_id)
+                reason=switch_reason or resolve_switch_reason(locked, previous_id)
                 or SwitchReason.CUSTOMER_CHOICE,
                 from_title=previous_title,
                 to_title=str(p.title or ""),
             )
-        except Exception as exc:  # noqa: BLE001 - журнал не має ламати продаж
-            logger.warning("product switch journal failed: %r", exc)
+        occurred_at = timezone.now()
+        record_client_step_event_in_transaction(
+            locked,
+            event_type=IgFunnelStepEvent.Type.PRODUCT_PINNED,
+            event_key=f"product-pin:{locked.pk}:{p.pk}:{occurred_at.isoformat()}",
+            occurred_at=occurred_at,
+            actor="bot",
+            evidence={
+                "product_id": p.pk,
+                "previous_product_id": previous_id,
+                "switch_reason": str(switch_reason or "")[:80],
+            },
+        )
+        client.current_product_id = locked.current_product_id
+        client.current_product_confidence = locked.current_product_confidence
+        client.current_size = locked.current_size
+        client.current_color = locked.current_color
+        client.current_qty = locked.current_qty
+        client.sales_context = locked.sales_context
     return True
 
 
@@ -1478,6 +1506,7 @@ def create_checkout_proposal_link(
         # this value is always a TwoComms offer URL, never a Monobank URL.
         "invoice_url": url,
         "proposal_url": url,
+        "proposal_pk": proposal.pk,
         "proposal_id": str(proposal.public_id),
         "expires_at": access_token.expires_at.isoformat(),
         "order_summary": order_summary,

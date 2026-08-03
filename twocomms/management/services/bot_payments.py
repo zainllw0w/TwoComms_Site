@@ -35,6 +35,93 @@ PAYMENT_POLL_BATCH_MAX = 50
 PAYMENT_POLL_LOCK_SECONDS = 1800
 PAYMENT_POLL_CADENCE_KEY = "ig_payment_poll_backstop:cadence"
 PAYMENT_POLL_LOCK_KEY = "ig_payment_poll_backstop:lock"
+SUPERSEDED_INVOICE_MAX_AGE = timedelta(days=7)
+SUPERSEDED_INVOICE_POLL_INTERVAL = timedelta(minutes=15)
+
+
+def _ensure_invoice_lifecycle(
+    deal,
+    invoice_id: str,
+    *,
+    superseded_at=None,
+    expires_at=None,
+):
+    """Materialize one invoice identity without changing payment truth."""
+    from management.models import IgDealInvoiceLifecycle
+
+    invoice_id = str(invoice_id or "").strip()
+    if not invoice_id:
+        return None
+    now = timezone.now()
+    lifecycle, created = IgDealInvoiceLifecycle.objects.get_or_create(
+        invoice_id=invoice_id,
+        defaults={
+            "deal": deal,
+            "superseded_at": superseded_at,
+            "expires_at": expires_at,
+            "next_poll_at": now,
+        },
+    )
+    if lifecycle.deal_id != deal.pk:
+        logger.error(
+            "invoice lifecycle belongs to another deal: invoice=%s deal=%s existing=%s",
+            invoice_id,
+            deal.pk,
+            lifecycle.deal_id,
+        )
+        return None
+    update_fields = []
+    if superseded_at is not None and lifecycle.superseded_at is None:
+        lifecycle.superseded_at = superseded_at
+        update_fields.append("superseded_at")
+    if expires_at is not None and lifecycle.expires_at is None:
+        lifecycle.expires_at = expires_at
+        update_fields.append("expires_at")
+    if created:
+        return lifecycle
+    if update_fields:
+        lifecycle.save(update_fields=[*update_fields, "updated_at"])
+    return lifecycle
+
+
+def _mark_invoice_lifecycle(invoice_id: str, provider_status: str, *, now=None, error=""):
+    from management.models import IgDealInvoiceLifecycle
+
+    lifecycle = IgDealInvoiceLifecycle.objects.filter(invoice_id=invoice_id).first()
+    if lifecycle is None:
+        return None
+    now = now or timezone.now()
+    status = str(provider_status or "").strip().lower()
+    if status in MONO_SUCCESS:
+        lifecycle.status = IgDealInvoiceLifecycle.Status.PAID
+        lifecycle.terminal_at = lifecycle.terminal_at or now
+    elif status in MONO_FAILURE:
+        lifecycle.status = IgDealInvoiceLifecycle.Status.FAILED
+        lifecycle.terminal_at = lifecycle.terminal_at or now
+    elif status in MONO_CANCELLED:
+        lifecycle.status = (
+            IgDealInvoiceLifecycle.Status.EXPIRED
+            if status == "expired"
+            else IgDealInvoiceLifecycle.Status.CANCELLED
+        )
+        lifecycle.terminal_at = lifecycle.terminal_at or now
+    elif status in MONO_REVERSED:
+        lifecycle.status = IgDealInvoiceLifecycle.Status.CANCELLED
+        lifecycle.terminal_at = lifecycle.terminal_at or now
+    lifecycle.provider_status = status[:32]
+    lifecycle.last_polled_at = now
+    lifecycle.next_poll_at = (
+        None
+        if lifecycle.status != IgDealInvoiceLifecycle.Status.OPEN
+        else now + SUPERSEDED_INVOICE_POLL_INTERVAL
+    )
+    lifecycle.poll_attempts = int(lifecycle.poll_attempts or 0) + 1
+    lifecycle.last_error = str(error or "")[:500]
+    lifecycle.save(update_fields=[
+        "status", "provider_status", "last_polled_at", "next_poll_at",
+        "terminal_at", "poll_attempts", "last_error", "updated_at",
+    ])
+    return lifecycle
 
 
 def _invoice_expired(deal, *, now=None) -> bool:
@@ -197,6 +284,11 @@ def create_payment_link(deal, *, force: bool = False) -> dict:
     deal.save(update_fields=[
         "invoice_id", "invoice_url", "invoice_expires_at", "updated_at",
     ])
+    _ensure_invoice_lifecycle(
+        deal,
+        invoice_id,
+        expires_at=deal.invoice_expires_at,
+    )
     apply_payment_status(
         deal,
         "created",
@@ -438,6 +530,17 @@ def apply_payment_status(deal, status_value, payload=None, *, source="provider")
         }
         became_verified = is_verified and not was_verified
         became_negative = projection.truth in terminal_truths and previous_truth != projection.truth
+        if became_verified:
+            from management.services.ig_funnel_analytics import (
+                record_verified_payment_in_transaction,
+            )
+
+            record_verified_payment_in_transaction(
+                deal,
+                provider_event=event,
+                projection=projection,
+                occurred_at=event.provider_modified_at or projection.paid_at,
+            )
         if became_negative:
             _reconcile_reversed_order(deal, truth=projection.truth)
             _ensure_reversal_review_outbox(deal, projection.truth)
@@ -725,10 +828,16 @@ def reconcile_payment_projections(limit: int = 100) -> int:
     return repaired
 
 
-def poll_deal_status(deal) -> str:
+def poll_deal_status(deal, *, invoice_id: str | None = None, apply: bool = True) -> str:
     """Pull-верифікація статусу invoice через acquiring-токен (захист від
-    підробки вебхука) і застосування статусу. Повертає статус (lowercase)."""
-    if not deal.invoice_id:
+    подделки вебхука) і застосування статусу. Повертає статус (lowercase).
+
+    ``apply=False`` is mandatory for a superseded invoice: its payment must be
+    surfaced to a manager, never silently attached to the deal's replacement
+    configuration.
+    """
+    target_invoice_id = str(invoice_id or deal.invoice_id or "").strip()
+    if not target_invoice_id:
         return ""
     token = (
         getattr(settings, "MONOBANK_ACQUIRING_TOKEN", None)
@@ -739,13 +848,16 @@ def poll_deal_status(deal) -> str:
     try:
         data = _monobank_api_request(
             "GET", "/api/merchant/invoice/status",
-            params={"invoiceId": deal.invoice_id}, token=token,
+            params={"invoiceId": target_invoice_id}, token=token,
         )
-    except (MonobankAPIError, Exception):
+    except Exception as exc:
+        _mark_invoice_lifecycle(target_invoice_id, "", error=repr(exc))
         return ""
     status = (data.get("status") or data.get("statusCode") or "").lower()
+    _mark_invoice_lifecycle(target_invoice_id, status)
     if status:
-        apply_payment_status(deal, status, payload=data)
+        if apply:
+            apply_payment_status(deal, status, payload={**data, "invoiceId": target_invoice_id})
     return status
 
 
@@ -766,6 +878,12 @@ def supersede_invoice(deal) -> list[str]:
     old = (deal.invoice_id or "").strip()
     fields = ["invoice_id", "invoice_url"]
     if old:
+        _ensure_invoice_lifecycle(
+            deal,
+            old,
+            superseded_at=timezone.now(),
+            expires_at=getattr(deal, "invoice_expires_at", None),
+        )
         history = [str(v) for v in (deal.superseded_invoice_ids or [])]
         if old not in history:
             history.append(old)
@@ -798,6 +916,61 @@ def _deal_for_superseded_invoice(invoice_id: str):
     return None
 
 
+def _materialize_superseded_invoice_lifecycles(limit: int = 100) -> None:
+    """Backfill legacy JSON history into bounded lifecycle rows."""
+    from management.models import IgDeal
+
+    for deal in IgDeal.objects.exclude(superseded_invoice_ids=[]).order_by("id")[
+        : max(1, int(limit or 100))
+    ]:
+        for invoice_id in deal.superseded_invoice_ids or []:
+            invoice_id = str(invoice_id or "").strip()
+            if not invoice_id:
+                continue
+            _ensure_invoice_lifecycle(
+                deal,
+                invoice_id,
+                superseded_at=deal.updated_at or deal.created_at,
+            )
+
+
+def payment_poll_invoice_candidates(limit: int = 50):
+    """Return due superseded invoices, stopping after expiry or a bounded age."""
+    from django.db.models import Q
+    from management.models import IgDealInvoiceLifecycle
+
+    bounded_limit = payment_poll_limit(limit)
+    _materialize_superseded_invoice_lifecycles(limit=bounded_limit * 2)
+    now = timezone.now()
+    IgDealInvoiceLifecycle.objects.filter(
+        superseded_at__isnull=False,
+        status=IgDealInvoiceLifecycle.Status.OPEN,
+        expires_at__lt=now,
+    ).update(
+        status=IgDealInvoiceLifecycle.Status.EXPIRED,
+        terminal_at=now,
+        next_poll_at=None,
+        updated_at=now,
+    )
+    IgDealInvoiceLifecycle.objects.filter(
+        superseded_at__isnull=False,
+        status=IgDealInvoiceLifecycle.Status.OPEN,
+        expires_at__isnull=True,
+        created_at__lt=now - SUPERSEDED_INVOICE_MAX_AGE,
+    ).update(
+        status=IgDealInvoiceLifecycle.Status.UNKNOWN,
+        terminal_at=now,
+        next_poll_at=None,
+        updated_at=now,
+    )
+    return IgDealInvoiceLifecycle.objects.select_related("deal").filter(
+        superseded_at__isnull=False,
+        status=IgDealInvoiceLifecycle.Status.OPEN,
+    ).filter(
+        Q(next_poll_at__isnull=True) | Q(next_poll_at__lte=now)
+    ).order_by("next_poll_at", "id")[:bounded_limit]
+
+
 def handle_webhook_invoice(invoice_id, payload=None, request=None) -> bool:
     """Викликається з monobank_webhook, коли invoice не належить Order/накладній.
     Якщо це invoice угоди IG-бота — pull-верифікуємо і застосовуємо. True, якщо
@@ -815,11 +988,16 @@ def handle_webhook_invoice(invoice_id, payload=None, request=None) -> bool:
     superseded = _deal_for_superseded_invoice(invoice_id)
     if not superseded:
         return False
+    _ensure_invoice_lifecycle(
+        superseded,
+        invoice_id,
+        superseded_at=timezone.now(),
+    )
     import logging
 
     from management.services import instagram_bot
 
-    poll_deal_status(superseded)
+    poll_deal_status(superseded, invoice_id=invoice_id, apply=False)
     client_label = (
         superseded.client.username
         or superseded.client.display_name
@@ -878,13 +1056,37 @@ def payment_poll_limit(limit: int = 50) -> int:
 
 
 def poll_pending_deals(limit: int = 50) -> int:
-    """Poll bounded pre-order invoices whose provider truth can still change."""
+    """Poll current invoices and bounded superseded invoice lifecycles."""
     bounded_limit = payment_poll_limit(limit)
     qs = payment_poll_candidates()[:bounded_limit]
     paid = 0
     for deal in qs:
         if poll_deal_status(deal) in MONO_SUCCESS:
             paid += 1
+    for lifecycle in payment_poll_invoice_candidates(limit=bounded_limit):
+        status = poll_deal_status(
+            lifecycle.deal,
+            invoice_id=lifecycle.invoice_id,
+            apply=False,
+        )
+        if status not in MONO_SUCCESS:
+            continue
+        try:
+            from management.services import instagram_bot
+
+            client = lifecycle.deal.client
+            label = client.username or client.display_name or client.igsid
+            instagram_bot.notify_manager(
+                "⚠️ Оплата за заміненим посиланням\n"
+                f"Клієнт: {label}\n"
+                f"Угода #{lifecycle.deal_id}, invoice {lifecycle.invoice_id}\n"
+                "Платіж знайдено backstop-перевіркою; потрібен ручний розбір.",
+                dedupe_key=f"superseded-invoice:{lifecycle.invoice_id}",
+                event_type="superseded_invoice_payment",
+                client=client,
+            )
+        except Exception:
+            logger.exception("Failed to alert superseded invoice payment")
     return paid
 
 

@@ -575,16 +575,14 @@
     {% endif %}
   </div>
 
-  {% if error_message %}
-    <div class="tg-waybill-state {% if is_blocked %}blocked{% else %}error{% endif %}" data-tg-waybill-page-state>{{ error_message }}</div>
+  {% if error_message and is_blocked or error_message and not can_submit %}
+    <div class="tg-waybill-state {% if is_blocked %}blocked{% else %}error{% endif %}" data-tg-waybill-page-state role="alert" aria-live="assertive">{{ error_message }}</div>
   {% endif %}
 
   {% if can_submit and form %}
     <form method="post" class="tg-waybill-form" data-tg-waybill-create>
       {% csrf_token %}
       <input type="hidden" name="token" value="{{ token }}">
-      <div data-tg-waybill-form-state aria-live="polite"></div>
-
       {% if form.non_field_errors or hidden_field_errors %}
         <div class="tg-waybill-panel">
           <ul class="tg-waybill-errors">
@@ -910,6 +908,12 @@
         </div>
       </div>
 
+      <div data-tg-waybill-form-state aria-live="assertive" role="alert">
+        {% if error_message and not is_blocked %}
+          <div class="tg-waybill-state error" data-tg-waybill-live-state>{{ error_message }}</div>
+        {% endif %}
+      </div>
+
       <div class="tg-waybill-panel">
         <div class="tg-waybill-actions">
           <p>
@@ -1056,6 +1060,8 @@
         box = document.createElement('div');
         box.className = 'tg-waybill-state';
         box.setAttribute('data-tg-waybill-live-state', '');
+        box.setAttribute('role', 'alert');
+        box.setAttribute('aria-live', 'assertive');
         const helper = stateHost.querySelector('.tg-waybill-helper');
         if (helper) {
           helper.parentNode.insertBefore(box, helper);

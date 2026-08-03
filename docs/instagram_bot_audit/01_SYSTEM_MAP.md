@@ -71,9 +71,9 @@ flowchart LR
 
 ## Known gaps intentionally visible
 
-- Funnel transition/drop-off event analytics is still `IMP-058`.
-- Superseded invoice polling is still `IMP-089`.
+- Funnel transition/drop-off event analytics is implemented by `IMP-058`.
+- Superseded invoice polling is implemented by `IMP-089` with a bounded
+  per-invoice lifecycle and terminal markers.
 - White product variant data is still `F-DATA-016` / `IMP-095`.
 - Product reselection semantics are branch-only `IMP-081…085`; not production.
 - Imported role provenance is still `F-DATA-015` / `IMP-096`.
-

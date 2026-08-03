@@ -358,7 +358,7 @@
 | F-PAY-008 | Meta CAPI: `event_id` случайный вне order-пути, `meta_feedback_enabled` default False | P1 | CONFIRMED | high |
 | **F-PAY-009** | Тексты денежного контура (ссылка, ТТН, fallback) — только украинский | **P1** | CONFIRMED | high |
 | F-PAY-010 | Сумму предоплаты может подтвердить сам клиент (`seller_roles` включает `model`) | P1 | CONFIRMED | high |
-| F-PAY-014 | Backstop не опрашивает `superseded_invoice_ids`: потеря webhook оставляет заменённый платёж невидимым | P1 | CONFIRMED | high |
+| F-PAY-014 | Backstop не опрашивал `superseded_invoice_ids`: потеря webhook оставляла заменённый платёж невидимым | P1 | FIXED/VERIFIED (`IMP-089`) | high |
 | F-AI-003 | Нет atomic lease Gemini-ключа → параллельные воркеры жгут один ключ | P1 | CONFIRMED | high |
 | F-AI-004 | Backoff без jitter + синхронные круги → thundering herd на 6 ключей | P2 | CONFIRMED | high |
 | **F-AI-005** | В промпт не передаются: стадия, ownership, язык, размеры, обмены/возвраты, expiry ссылки | **P1** | CONFIRMED | high |
@@ -1689,10 +1689,10 @@
 | F-OBJ-003 | `Objection.TRUST/DELIVERY/OTHER` — мёртвые choices | P2 | FIXED (`IMP-057`) | high |
 | F-OBJ-004 | Исходное возражение теряется при `no_buy` и при ресете воронки | P1 | FIXED (`IMP-057`) | high |
 | F-OBJ-005 | Возражение — событие, а не жизненный цикл: нет состояния и метода | P1 | FIXED (`IMP-057`) | high |
-| **F-STAT-001** | Статистика считает срез состояний, а не переходы | **P0** | CONFIRMED | high |
-| F-STAT-002 | Период режется по `last_message_at` → суммы по дням неаддитивны | P1 | CONFIRMED | high |
-| F-STAT-003 | `ORDER_CREATED`/`DONE` не пишутся в БД → правый конец воронки недостижим | P1 | CONFIRMED | high |
-| F-STAT-004 | «Молча пропал» не отличается от «явно отказался» — нет события отвала | P1 | CONFIRMED | high |
+| **F-STAT-001** | Статистика считает срез состояний, а не переходы | **P0** | FIXED/VERIFIED (`IMP-058`, `92d46c5a`) | high |
+| F-STAT-002 | Период режется по `last_message_at` → суммы по дням неаддитивны | P1 | FIXED/VERIFIED (`IMP-058`, `92d46c5a`) | high |
+| F-STAT-003 | `ORDER_CREATED`/`DONE` не пишутся в БД → правый конец воронки недостижим | P1 | FIXED/VERIFIED (`IMP-058`, `92d46c5a`) | high |
+| F-STAT-004 | «Молча пропал» не отличается от «явно отказался» — нет события отвала | P1 | FIXED/VERIFIED (`IMP-058`, `92d46c5a`) | high |
 | F-CTX-001 | Промпт до ~56 000 символов на любое сообщение, включая «привіт» | P1 | CONFIRMED | high |
 | **F-CTX-002** | `tags_for_client` безусловно добавляет `sales` → механизм «скидки клиенту с обменом» | **P1** | CONFIRMED | high |
 | F-CTX-003 | Протокол оплаты существует в двух редакциях с расхождением по `[ITEM]` | P1 | CONFIRMED | high |
@@ -1778,7 +1778,17 @@ winback оплативших.
 - **Зависимость, которую важно назвать:** починка F-STATE-004 —
   **предусловие** честной статистики падений, а не отдельная задача.
 - `ig_checkout.py:633` (переход в `CHECKOUT` — «клиент пошёл платить»)
-  не оставляет следа вообще: ни `set_stage`, ни события.
+  не оставлял следа вообще: ни `set_stage`, ни события.
+
+**Статус после IMP-058: FIXED/VERIFIED.** В production `origin/main` на SHA
+`92d46c5a` применена миграция `0133_ig_funnel_step_analytics`. Состояния больше
+не являются источником cohort-метрики: `IgFunnelStepEvent` и
+`IgFunnelDropOff` append-only, event-time API использует `occurred_at`, а
+`ORDER_CREATED`, `TTN_CREATED`, `DELIVERED`, payment, objection, discount,
+manager и recovery факты имеют идемпотентные ключи. MySQL reconciliation после
+backfill/scan: 197 events, 96 drop-offs; API возвращает 17 event types. Тесты:
+53 funnel/follow-up, 161 analysis/inbox/intelligence и 103
+commercial/funnel; production `check`, migration drift и compileall без ошибок.
 
 ## F-CTX-002 (P1): найден точный механизм «скидки клиенту с обменом»
 
@@ -3729,18 +3739,24 @@ enum-полей и так добавляются циклом выше. Явна
   На production `provider_invoices=0`, daemon `running`, transport
   `instagram_login`, heartbeat 0.4 с.
 
-### F-PAY-014 (P1, OPEN): superseded invoice имеет webhook recovery, но не polling recovery
+### F-PAY-014 (P1, FIXED/VERIFIED): superseded invoice имеет bounded webhook и polling recovery
 
-- **Evidence:** `invalidate_current_invoice` переносит до 20 ID в
-  `superseded_invoice_ids`; `handle_webhook_invoice` ищет такой ID и создаёт
-  manager alert. `payment_poll_candidates` и `poll_deal_status` работают только
-  с текущим `invoice_id`. Если для оплаты по старой всё ещё доступной ссылке
-  одновременно потерян webhook, backstop её не обнаружит.
-- **Почему не добавлен простой цикл по JSON:** без per-invoice terminal marker
-  демон будет опрашивать до 20 исторических ID одной сделки бесконечно. Нужен
-  ограниченный lifecycle/attempt ledger, expiry и идемпотентный alert.
-- **Задача:** IMP-089. На production в момент проверки superseded ID нет, поэтому
-  это подтверждённая code-path дыра, а не текущий клиентский инцидент.
+- **Что было:** `invalidate_current_invoice` переносит до 20 ID в
+  `superseded_invoice_ids`; webhook уже умел найти такой ID, но backstop
+  опрашивал только текущий `invoice_id`. Потеря webhook для старой ещё живой
+  ссылки оставляла оплату незамеченной.
+- **Исправление (IMP-089, `280c07e8`):** добавлен bounded
+  `IgDealInvoiceLifecycle` (migration `0134`) с per-invoice status,
+  `poll_attempts`, `next_poll_at`, expiry/age cap, terminal marker и
+  `last_error`. Legacy JSON materialization ограничена batch-лимитом. Webhook
+  и polling используют один ledger; polling старого invoice вызывает
+  `poll_deal_status(..., apply=False)` и не переносит оплату на новую
+  конфигурацию сделки. Manager alert дедуплицирован по invoice ID.
+- **Проверка:** 104 focused tests зелёные; production migration `0134`
+  применена. `poll_ig_deal_payments --check-only --limit 50` вернул
+  `projections=0 provider_invoices=0 superseded_invoices=0 orders=0`,
+  lifecycle rows = 0 (исторических superseded ID нет), daemon после
+  transient worker error восстановлен в `running=True`, `last_error=''`.
 
 ---
 

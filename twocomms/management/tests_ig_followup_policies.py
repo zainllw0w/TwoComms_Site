@@ -641,6 +641,40 @@ class FollowupPolicyIntegrationTests(TestCase):
         self.assertEqual(task.claim_token, "")
         self.assertIsNone(task.claim_until)
 
+    @patch(
+        "management.services.instagram_bot.send_text",
+        return_value=__import__(
+            "management.services.instagram_bot", fromlist=["ProviderDeliveryReceipt"]
+        ).ProviderDeliveryReceipt(True, "", "", "meta-discount-1"),
+    )
+    def test_delivered_discount_followup_records_funnel_fact_atomically(self, _send_text):
+        from management.models import IgFunnelStepEvent
+        from management.services.bot_followups import process_due_followups
+
+        self.client_record.stage = IgClient.Stage.CHECKOUT
+        self.client_record.primary_objection = IgClient.Objection.PRICE
+        self.client_record.save(update_fields=["stage", "primary_objection", "updated_at"])
+        task = IgFollowUpTask.objects.create(
+            client=self.client_record,
+            due_at=self.now,
+            status=IgFollowUpTask.Status.PENDING,
+            kind=IgFollowUpTask.Kind.RESCUE,
+            reason="price_objection",
+            level=0,
+            discount_percent=5,
+            meta_window_deadline=self.now + timedelta(hours=23),
+        )
+
+        self.assertEqual(process_due_followups(self.settings, now=self.now, limit=1), 1)
+
+        event = IgFunnelStepEvent.objects.get(
+            episode__client=self.client_record,
+            event_type=IgFunnelStepEvent.Type.DISCOUNT_OFFERED,
+        )
+        self.assertEqual(event.evidence["followup_task_id"], task.pk)
+        self.assertEqual(event.evidence["provider_message_id"], "meta-discount-1")
+        self.assertTrue(event.evidence["delivery_confirmed"])
+
     def test_restock_event_is_materialized_with_stable_key(self):
         from management.services.bot_followups import materialize_restock
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from django.core.exceptions import ValidationError
@@ -7,6 +8,9 @@ from django.db import transaction
 
 from accounts.models import UserPoints
 from orders.models import Order
+
+
+logger = logging.getLogger(__name__)
 
 
 POINTS_AWARDING_STATUSES = frozenset({"prep", "ship", "done"})
@@ -92,6 +96,22 @@ def _sync_loyalty_points(order: Order, *, old_status: str) -> None:
         order.save(update_fields=["points_awarded"])
 
 
+def _queue_tracking_sync(order_id: int) -> None:
+    """Refresh a newly attached TTN after its local write commits.
+
+    The lookup is deliberately best-effort: the local order is the source of
+    truth for the manager action, while Nova Poshta may be temporarily
+    unavailable or may not have indexed the document yet.
+    """
+    try:
+        from orders.nova_poshta_service import NovaPoshtaService
+
+        committed = Order.objects.get(pk=order_id)
+        NovaPoshtaService().update_order_tracking_status(committed)
+    except Exception:
+        logger.exception("Immediate Nova Poshta lookup failed for order %s", order_id)
+
+
 def _apply_order_status_update_to_order(
     order: Order,
     *,
@@ -120,13 +140,28 @@ def _apply_order_status_update_to_order(
     order.cancellation_reason = cancellation_reason_value
     order.cancellation_comment = cancellation_comment_value
 
+    tracking_changed = bool(normalized_tracking and normalized_tracking != old_tracking_number)
     if normalized_tracking:
         order.tracking_number = normalized_tracking
+
+    if tracking_changed:
+        # A replacement TTN starts a new provider lifecycle. Keeping a prior
+        # terminal marker here would exclude the new shipment from polling.
+        order.shipment_status = None
+        order.shipment_status_updated = None
+        order.tracking_status_code = None
+        order.tracking_checked_at = None
+        order.tracking_provider_event_at = None
+        order.tracking_next_check_at = None
+        order.tracking_failure_count = 0
+        order.tracking_terminal_at = None
 
     order.save()
     _sync_loyalty_points(order, old_status=old_status)
 
-    if (order.tracking_number or "").strip() and (order.tracking_number or "").strip() != old_tracking_number:
+    if tracking_changed:
+        transaction.on_commit(lambda order_id=order.pk: _queue_tracking_sync(order_id))
+
         # TTN truth is projected after the order row commits. Legacy deals are
         # ignored by the lifecycle service and keep their existing notifier.
         order_id = order.pk

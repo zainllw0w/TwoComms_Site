@@ -113,6 +113,13 @@ class AnalyticsLoaderRegressionTests(SimpleTestCase):
 
         self.assertFalse(legacy_path.exists())
 
+    def test_order_success_does_not_suppress_pixel_when_capi_already_sent(self):
+        path = Path(__file__).resolve().parents[2] / "twocomms_django_theme" / "templates" / "pages" / "order_success.html"
+        source = path.read_text(encoding="utf-8")
+
+        self.assertIn("var purchaseAlreadySent = sessionStorage.getItem(purchaseStorageKey);", source)
+        self.assertNotIn("var purchaseAlreadySent = serverPurchaseSent || sessionStorage.getItem(purchaseStorageKey);", source)
+
     def test_nova_poshta_selection_is_not_mislabelled_as_meta_find_location(self):
         main_path = Path(__file__).resolve().parents[2] / "twocomms_django_theme" / "static" / "js" / "main.js"
         source = main_path.read_text(encoding="utf-8")
