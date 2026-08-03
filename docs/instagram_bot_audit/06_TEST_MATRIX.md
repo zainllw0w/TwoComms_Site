@@ -1,0 +1,52 @@
+# 06_TEST_MATRIX — acceptance coverage
+
+Статусы: `GREEN` — есть свежий автоматический evidence; `PARTIAL` — часть
+контракта покрыта; `OPEN` — нужен отдельный implementation/live gate.
+
+| ID | Сценарий | Статус | Evidence / остаток |
+|---|---|---|---|
+| T01 | Новый Instagram-вопрос | GREEN | IG intelligence/reply tests |
+| T02 | UA/RU/EN и смена языка | GREEN | language/prompt tests |
+| T03 | Реклама/ad context | PARTIAL | ad source absent: IMP-043 |
+| T04 | Товар/размер/цвет/количество | PARTIAL | variant price green; full reselection IMP-081…088 |
+| T05 | Payment link и expiry | GREEN | invoice TTL/payment tests |
+| T06 | Успешная оплата | GREEN | payment truth/order tests |
+| T07 | Duplicate payment webhook | GREEN | idempotency/payment tests |
+| T08 | Pixel+CAPI | PARTIAL | related checkout contract; live evidence separate |
+| T09 | Неуспешная оплата | GREEN | payment truth tests |
+| T10 | Manager takeover | GREEN | ownership/takeover tests |
+| T11 | Bot pause | GREEN | pause boundary tests |
+| T12 | Follow-up payment link | GREEN | policy/event/claim tests |
+| T13 | Ответ до timer | GREEN | follow-up suppression tests |
+| T14 | Явный отказ | GREEN | objection/follow-up tests |
+| T15 | «Подумаю» | GREEN | policy tests |
+| T16 | «Дорого» | GREEN | objection lifecycle tests |
+| T17 | Discount eligibility | GREEN | policy/discount tests |
+| T18 | TTN created | GREEN | shipment tests |
+| T19 | Duplicate Nova Poshta event | GREEN | shipment idempotency tests |
+| T20 | Получен / UGC | PARTIAL | delivery copy green; full UGC automation remains |
+| T21 | Promo за отметку | PARTIAL | manual evidence gate, no auto promo |
+| T22 | Exchange | GREEN | post-sale/exchange tests |
+| T23 | Full refund | GREEN | reversal/FSM/payment tests |
+| T24 | Complaint | GREEN | service suppression/escalation tests |
+| T25 | Repeat order | GREEN | episode/repeat tests |
+| T26 | Personal owner message | GREEN | classifier tests |
+| T27 | Collaboration | GREEN | taxonomy tests |
+| T28 | Reaction only | GREEN | reaction tests |
+| T29 | Provider rate limit | GREEN | Meta/send backoff tests |
+| T30 | All Gemini keys unavailable | GREEN | cooldown regression in `tests_ig_audit_fixes` |
+| T31 | Worker restart | GREEN | durable claim/reclaim tests |
+| T32 | UI order dropdown | GREEN | W7/order assignment tests |
+| T33 | UI funnel branches | GREEN | W6/FSM/UI tests |
+| T34 | UI follow-up timer | GREEN | W7/policy tests |
+| T35 | Date filters/timezone | GREEN | W7 analytics tests |
+| T36 | Dashboard raw-event reconciliation | OPEN | IMP-058 |
+| T37 | Out-of-order webhook | PARTIAL | guards exist; event analytics IMP-058 |
+| T38 | Multiple open orders | PARTIAL | model support; durable commerce session IMP-087 |
+| T39 | Forwarded payment link | GREEN | paylink product/intent tests |
+| T40 | Rollback drill | PARTIAL | production contract exists; IMP-089/094 residual |
+
+**Fresh local gate for current checkpoint:** 45/45 `management.tests_ig_audit_fixes`,
+`manage.py check`, migration drift check and compileall. Full-suite baseline
+failures remain documented as `F-TEST-002`; they are not silently reclassified.
+

@@ -3837,3 +3837,45 @@ SHA `d0098d0b`, migration `0132`, `management_igobjection` и
 порядко-зависимом service-case/analysis поведении. `tests_ig_intelligence` после
 обновления rules version проходит изолированно. Задача остаётся `IMP-094`; это
 не объявляется регрессией IMP-057 без baseline proof.
+
+## Reliability checkpoint (2026-08-03)
+
+### F-CORE-018 (P1, VERIFIED): speculative echo-маркер переживал definite provider rejection
+
+До `6b86e103` отправка сначала ставила короткий маркер «сообщение бота» в cache,
+а после HTTP 400/ошибки провайдера не снимала его. Повтор того же текста,
+написанный менеджером, поэтому мог быть ошибочно распознан как echo бота и
+включить `manager_takeover`/паузу. Исправление добавило `_clear_bot_sent()` для
+однозначных `link_restricted`/`permanent`/`retryable` исходов в обоих send-путях;
+для timeout/5xx маркер сохраняется, потому что доставка могла состояться.
+Regression-тесты `test_rejected_send_does_not_suppress_identical_manager_echo` и
+`test_ambiguous_send_keeps_echo_marker` закрепляют обе стороны контракта.
+
+**Verification:** `management.tests_ig_audit_fixes` 45/45, production SHA
+`6b86e103`, daemon online с пустым `last_error`.
+
+### F-AI-017 (P1, VERIFIED): pooled Gemini cooldown блокировал настроенный custom key
+
+Глобальный backoff по пулу Gemini применялся к обработке очереди независимо от
+источника ключа. Если все pooled keys были в cooldown, это ошибочно останавливало
+клиента с явно настроенным `custom_gemini_key`, хотя его ключ не исчерпан.
+`_gemini_backoff_active()` и `_defer_for_gemini_cooldown()` теперь bypass-ят
+pooled cooldown для непустого custom key; для пула сообщение остаётся
+`PENDING`, попытка не расходуется, и вычисляется ближайшее окно retry.
+Тест `test_pooled_gemini_backoff_does_not_block_configured_custom_key` фиксирует
+источник ключа, а cooldown-тест фиксирует отсутствие burn attempts.
+
+**Verification:** `management.tests_ig_audit_fixes` 45/45, production SHA
+`6b86e103`.
+
+### F-CAT-004 (P1, OPEN): W6 stock-policy requirements были только в dirty worktree
+
+В `.claude/worktrees/ig-bot-w1` обнаружены незакоммиченные требования/тесты для
+`VariantSizeRule`: количество должно учитываться явно, `is_dropship_available`
+не может выводиться из нулевого stock, реальный дефицит обязан создавать
+manager/event сигнал, а `missing_fields` должен сохраняться до следующего
+уточнения. Эти требования нельзя считать реализованными: worktree основан на
+старой базе и его полный перенос откатывает актуальные IMP-080 и W6.
+
+**Статус:** требования восстановлены в канонический аудит; реализация должна
+войти через актуальные IMP-084/086 с regression-тестами, MariaDB proof и deploy.

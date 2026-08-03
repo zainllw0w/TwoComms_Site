@@ -1,0 +1,49 @@
+# 05_DATA_AND_EVENT_CATALOG — данные и события
+
+## Канонические сущности
+
+| Сущность | Роль | Источник истины | Примечание |
+|---|---|---|---|
+| `IgClient` | Instagram customer card | CRM + arbiter projection | stage is mutable; history is not inferred from it |
+| `InstagramBotMessage` | inbound/outbound durable message | message row + send state | provider receipt/unknown boundary |
+| `IgCommercialEpisode` | repeat-order episode | episode lifecycle | статистика должна считать episode, не client snapshot |
+| `IgDeal` / `IgDealItem` | proposal and selected items | deal/payment contract | selected variant price is immutable per item |
+| `IgPaymentProjection` | provider payment truth | verified webhook/backstop | refund/reversal is terminal negative truth |
+| `IgFollowUpTask` | scheduled touch/manager task | event key + claim token | one active task per policy identity |
+| `IgObjection` / `IgObjectionAttempt` | objection lifecycle | verified attempt evidence | `[OBJHANDLE]` fingerprint is validated |
+| `IgLifecycleEvent` | event-driven post-payment state | lifecycle event row | event consumers must be idempotent |
+| `IgOrderAssignment` | IG ↔ existing order link | append-only assignment audit | manager-owned/manual contract |
+| `IgOrderShipment` | shipment history | append-only shipment journal | avoids overwriting exchange history |
+| `ProductColorVariant` | color/material/variant identity | catalog variant | price/stock must be variant-aware |
+| `VariantSizeRule` / `SizeGrid` | fit and size availability | fit/size rule | white variant data remains absent in production |
+
+## Current and planned event vocabulary
+
+| Event family | Examples | Current status |
+|---|---|---|
+| inbound | `message_received`, `echo_received`, `reaction_only` | durable/current |
+| reply | `reply_generated`, `reply_sent`, `reply_unknown`, `reply_blocked` | durable/current |
+| funnel | stage transition, product switch, checkout/readiness | journal/FSM current; analytics `IMP-058` |
+| payment | `checkout_started`, `payment_confirmed`, `payment_reversed`, `invoice_expired` | payment truth/current; analytics gap remains |
+| follow-up | policy step, claim, sent, manager task, cancelled | durable/current |
+| fulfillment | payment → delivery request, TTN, exchange shipment, delivered | current in W4/W4B/W6 slices |
+| objection | opened, handled, reopened, resolved/abandoned | `IMP-057` current |
+| drop-off | silence, explicit refusal, opt-out, unreachable, spam, superseded | model/statistics `IMP-058` |
+
+## Data invariants
+
+- A confirmed payment is one purchase; a refund/reversal does not create a second
+  order and a partial refund does not erase the purchase.
+- A payment link is generated only from the selected product/variant/fit/size
+  decision. The conversation price and checkout price must come from one read model.
+- No outbound customer message is sent after a manager/permission epoch change.
+- Ambiguous provider outcomes are never replayed automatically.
+- Local SQLite does not prove MySQL foreign-key, length, engine or lock behavior.
+
+## Missing or partial data
+
+`F-DATA-015` imported-role provenance, `F-DATA-016` white product variant,
+`F-STAT-001…004` event analytics and `F-PAY-014` superseded invoice polling are
+explicitly open. No backfill is inferred from text where authoritative evidence
+is absent.
+

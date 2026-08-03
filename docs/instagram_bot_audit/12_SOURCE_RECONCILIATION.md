@@ -1,0 +1,36 @@
+# 12_SOURCE_RECONCILIATION — main, ветки, worktree и WIP
+
+Проверка выполнена 2026-08-03. Статус `IN MAIN` означает, что результат уже
+доступен из текущего `main`; `SUPERSEDED` означает, что перенос патча откатил
+бы более новую реализацию; `BRANCH-ONLY` означает сохранённый, но не deployed
+код; `WIP` — незакоммиченная работа, не имеющая статуса реализации.
+
+| Источник | Фактическое содержимое | Статус / действие |
+|---|---|---|
+| `codex/ig-bot-w1-data-safety`, W2/W3/W4/W4C/W4D | safety, ingress, buyer truth, model dialogue, echo/media | IN MAIN; отражено IMP-001…024/063…076 |
+| `.claude/worktrees/ig-bot-w1` | old W6 arbiter/FSM/journal + untracked stock-policy tests | Arbiter/FSM/journal IN MAIN via `34d1e165`; stock requirements recorded as F-CAT-004 and IMP-084/086; do not copy old base |
+| `codex/ig-bot-w4-completion` | alert implementation commit `31f8151f`; dirty paginator | alert commit is branch source already recorded; paginator is SUPERSEDED by W7 `bca7e4e2` and must not be cherry-picked |
+| `codex/ig-followup-policies` worktree | dirty W4B event/claim/objection files on old base | functionality IN MAIN via `c00c8c5a`/`d0098d0b`; old diff would delete newer migrations; do not cherry-pick |
+| `codex/ig-bot-variant-pricing` | pricing/follow-up branch and dirty old-base diff | IMP-080 and W4B are IN MAIN; no additional unique deployed requirement found |
+| `codex/ig-order-fulfillment-links` `20dd44b2` | searchable order assignment drawer | Semantics IN MAIN via W7; old commit is not a safe cherry-pick |
+| `codex/instagram-assisted-checkout` | five product-reselection code commits `61ad2cb8`, `a8ccfa63`, `468fe2ba`, `e9d982df`, `dc9889c3` | BRANCH-ONLY; tracked as IMP-081…085, rebase + tests + MySQL + deploy required |
+| assisted-checkout dirty CSS/test | mobile breakpoint 390px | WIP only; not counted and not integrated |
+| `codex/ig-refresh-dedup` / `codex/instagram-login-runtime` | old refresh/runtime history | IN MAIN through `7fe26280` and later main commits; no extra branch closure |
+| `codex/ig-crm-master-audit` dirty worktree | Meta host/token/webhook/account-mode patch on old Facebook-Login base | WIP/SUPERSEDED for current runtime; preserve source branch, do not infer production status; Meta contract remains IMP-041/061 and related findings |
+| current main code slice | delivery marker rollback, tagged-send rollback, pooled Gemini cooldown | IN MAIN and deployed as `6b86e103`; findings F-CORE-018/F-AI-017; IMP-097 |
+| `pre-instagram-audit-consolidation-2026-08-03` stash | pre-consolidation local snapshot | ARCHIVE only; no unique audit IDs after comparison |
+| `codex/ig-refresh-dedup` stash / old detached worktrees | inbox refresh experiments | Historical/superseded; no unique current audit IDs |
+
+## Branch uniqueness rule
+
+Only patch-unique code is considered for integration. A branch's commit message,
+dirty file list or agent report is not evidence of production. For closure, the
+task must exist in current `main`, pass its focused/regression gates, be pulled on
+the server, and have a deployed SHA in `09_DEPLOYMENT_LOG.md`.
+
+## Reconciliation result
+
+All known sources are represented locally: completed work is in `08_COMPLETION_LOG`
+and `07`, branch-only work is in `10`/this matrix and `07`, findings are in `03`,
+improvements are in `05`, and the next checkpoint is unambiguous in `00`.
+
