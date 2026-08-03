@@ -1684,11 +1684,11 @@
 | F-FUP-008 | 10 ситуаций отвала не имеют follow-up вообще | P1 | CONFIRMED | high |
 | F-FUP-009 | Нет двухфазного claim → дубль отправки при падении процесса | P1 | CONFIRMED | high |
 | F-FUP-010 | Нет частотного лимита и дедупа текста follow-up | P1 | CONFIRMED | high |
-| **F-OBJ-001** | `THINKING` («подумаю») не создаёт сигнала — не логируется вообще | **P1** | CONFIRMED | high |
-| F-OBJ-002 | `PRICE_RE`/`SIZE_RE` ловят вопрос как возражение → метрики шум | P1 | CONFIRMED | high |
-| F-OBJ-003 | `Objection.TRUST/DELIVERY/OTHER` — мёртвые choices | P2 | CONFIRMED | high |
-| F-OBJ-004 | Исходное возражение теряется при `no_buy` и при ресете воронки | P1 | CONFIRMED | high |
-| F-OBJ-005 | Возражение — событие, а не жизненный цикл: нет состояния и метода | P1 | CONFIRMED | high |
+| **F-OBJ-001** | `THINKING` («подумаю») не создаёт сигнала — не логируется вообще | **P1** | FIXED (`IMP-057`) | high |
+| F-OBJ-002 | `PRICE_RE`/`SIZE_RE` ловят вопрос как возражение → метрики шум | P1 | FIXED (`IMP-057`) | high |
+| F-OBJ-003 | `Objection.TRUST/DELIVERY/OTHER` — мёртвые choices | P2 | FIXED (`IMP-057`) | high |
+| F-OBJ-004 | Исходное возражение теряется при `no_buy` и при ресете воронки | P1 | FIXED (`IMP-057`) | high |
+| F-OBJ-005 | Возражение — событие, а не жизненный цикл: нет состояния и метода | P1 | FIXED (`IMP-057`) | high |
 | **F-STAT-001** | Статистика считает срез состояний, а не переходы | **P0** | CONFIRMED | high |
 | F-STAT-002 | Период режется по `last_message_at` → суммы по дням неаддитивны | P1 | CONFIRMED | high |
 | F-STAT-003 | `ORDER_CREATED`/`DONE` не пишутся в БД → правый конец воронки недостижим | P1 | CONFIRMED | high |
@@ -3791,3 +3791,49 @@ enum-полей и так добавляются циклом выше. Явна
   and migration drift check pass. The full 2,464-test management suite still
   reproduces the pre-existing F-TEST-002 failures/errors; no failure is in the
   changed follow-up modules.
+
+## IMP-057 closure evidence (2026-08-03)
+
+### F-OBJ-006 (P1, FIXED): compound-turn терял все возражения после первого match
+
+Одно сообщение вроде «дорого і боюся, що розмір не підійде» раньше давало
+только первый тип. `detect_objection_types()` и classifier теперь создают
+отдельный lifecycle для каждого distinct-типа; одиночный API сохранён для
+обратной совместимости.
+
+### F-OBJ-007 (P1, FIXED): checkout-намерение записывалось как подтверждённая покупка
+
+`CHECKOUT_STARTED` ошибочно передавался в `purchase_progress`, поэтому фраза
+«беру» переводила возражение в `resolved/purchased` без денег. Теперь только
+authoritative confirmed payment даёт `purchased`; обычный checkout закрывает
+метод как `accepted`. Это закреплено regression-тестом.
+
+### F-OBJ-008 (P1, FIXED): objection analytics могла откатить отправленный MODEL-ledger
+
+Создание MODEL-сообщения было в одной транзакционной границе с необязательной
+аналитикой. При сбое аналитики локальная запись успешного provider send могла
+исчезнуть. Ledger теперь коммитится отдельно до `record_reply_attempt`, а сбой
+аналитики логируется и не блокирует ответ. Проверено `TransactionTestCase` с
+реальным unique-constraint failure.
+
+### F-OBJ-001…005 (P1/P2, FIXED): lifecycle и evidence-bound handling
+
+Добавлены `thinking_objection` и полный каталог 12 типов, строгая детекция без
+одиночных размеров/вопросов о цене, episode/reset watermark, состояния
+`open → handled → resolved/abandoned`, repeat reopen, 12 редактируемых
+playbooks, fingerprint validator и `[ЗАПЕРЕЧЕННЯ]` в prompt. `handled` возможен
+только после `verified=True`; confirmed payment закрывает активные возражения.
+
+**Verification / production:** 23/23 новых теста, 147/147 связанных тестов;
+SHA `d0098d0b`, migration `0132`, `management_igobjection` и
+`management_igobjectionattempt` = `InnoDB`, 12 active playbooks, daemon
+`running`, heartbeat 0.9 с, `last_error` пуст.
+
+### F-TEST-002 fresh baseline (P1, OPEN)
+
+Полный запуск из корня на текущем `d0098d0b` дал 2490 тестов: **11 failures,
+4 errors, 3 skipped**. Затронутый IG-пакет отдельно зелёный; failures/errors
+остаются в parser/template/weekly-review/points/Gemini/Instagram-Login и в
+порядко-зависимом service-case/analysis поведении. `tests_ig_intelligence` после
+обновления rules version проходит изолированно. Задача остаётся `IMP-094`; это
+не объявляется регрессией IMP-057 без baseline proof.

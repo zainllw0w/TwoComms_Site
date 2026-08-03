@@ -456,12 +456,16 @@ F-AI-016 (инструкции без триггеров, 70% клиентов �
   `(client, kind, level)` на scheduling-слое, event/manager continuation идёт
   по той же policy-таблице. Тесты: idempotent expiry/restock, receipt persistence,
   claim cleanup; миграция `0131`.
-- [ ] **IMP-057 (P1) — открыта.** Возражения как жизненный цикл (F-OBJ-001…005):
+- [x] **IMP-057 (P1) — закрыта 2026-08-03, production `d0098d0b`.** Возражения
+  как жизненный цикл (F-OBJ-001…008):
   развести вопрос о цене и возражение по цене; убрать одиночные `s|m|l`
   из детекта; добавить `thinking_objection` и 8 недостающих типов;
   модели `IgObjection` + `IgObjectionAttempt`; тег `[OBJHANDLE:type:method]`
   с валидатором отпечатков; блок `[ЗАПЕРЕЧЕННЯ]` в промпт (не повторять
-  неработающий метод); 12 `BotInstruction` с готовыми текстами.
+  неработающий метод); 12 `BotInstruction` с готовыми текстами. Дополнительно
+  закрыты compound-turn, ложный `PURCHASED` по `CHECKOUT_STARTED`, тихий сбой
+  lifecycle и rollback MODEL-ledger. Production: migration `0132`, обе таблицы
+  `InnoDB`, daemon `running`; 23/23 новых и 147/147 связанных тестов.
   **Инвариант:** в `handled` переводит только `verified=True`, иначе метрика
   «закрыто» станет самообманом.
 - [ ] **IMP-058 (P1) — открыта.** Статистика падений (F-STAT-001…004): `IgFunnelStepEvent`

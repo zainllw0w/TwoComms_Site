@@ -574,7 +574,7 @@ F-OPS-008: один повторяющийся `bad_signature` занял 468 и
 | IMPR-SALES-002 | PARTIAL | post-sale guard есть; prompt acceptance — IMP-028 |
 | IMPR-SALES-003 | OPEN | IMP-028/085/087 |
 | IMPR-SALES-004 | OPEN | IMP-028 |
-| IMPR-SALES-005 | PARTIAL | policy IMP-053; prompt/lifecycle — IMP-028/057 |
+| IMPR-SALES-005 | PARTIAL | policy/lifecycle IMP-053/057; полный prompt-протокол — IMP-028 |
 | IMPR-SALES-006 | PARTIAL | policy IMP-053; выбор/событие — IMP-028/056/083 |
 | IMPR-SALES-007 | OPEN | IMP-028 |
 | IMPR-SALES-008 | PARTIAL | hard limits IMP-052/053; prompt — IMP-028 |
