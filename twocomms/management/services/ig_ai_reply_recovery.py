@@ -47,6 +47,9 @@ RECOVERY_RETRY_MAX_SECONDS = 300
 # ``send_text`` splits at 950 characters. Recovery deliberately fits one
 # customer message into one non-idempotent Meta request.
 MAX_RECOVERY_REPLY_CHARS = 950
+RECOVERY_APOLOGY_UK = "Вибачте за технічну затримку."
+RECOVERY_APOLOGY_RU = "Извините за техническую задержку."
+RECOVERY_APOLOGY_EN = "Sorry for the technical delay."
 
 _TERMINAL_STATUSES = frozenset({
     IgAiReplyRecoveryJob.Status.SENT,
@@ -86,6 +89,28 @@ def _trim_draft(text: str) -> str:
     )
     shortened = head.rsplit(" ", 1)[0].strip()
     return f"{shortened or head}..."
+
+
+def _ensure_recovery_apology(draft: str, source_text: str) -> str:
+    """Make the promised recovery apology deterministic, not prompt-dependent."""
+    clean = _trim_draft(draft)
+    if not clean:
+        return ""
+    from management.services.bot_sales_classifier import detect_language
+
+    language = detect_language(source_text) or detect_language(clean)
+    prefix = {
+        "ru": RECOVERY_APOLOGY_RU,
+        "en": RECOVERY_APOLOGY_EN,
+    }.get(language, RECOVERY_APOLOGY_UK)
+    prefix_stem = prefix[:-1]
+    suffix = clean[len(prefix_stem):]
+    if (
+        clean.casefold().startswith(prefix_stem.casefold())
+        and suffix[:1] in {".", "!", "?", "…", " ", "\t", "\r", "\n", ""}
+    ):
+        return clean
+    return _trim_draft(f"{prefix} {clean}")
 
 
 def _build_recovery_history(job: IgAiReplyRecoveryJob) -> list[dict]:
@@ -597,7 +622,7 @@ def _generate_recovery_draft(job: IgAiReplyRecoveryJob) -> str:
             "незворотні дії. Відповідай мовою останнього повідомлення клієнта."
         ),
     )
-    return _trim_draft(draft or "")
+    return _ensure_recovery_apology(draft or "", job.source_message.text)
 
 
 def _persist_draft(
@@ -654,6 +679,9 @@ def _persist_draft(
                 "lease_until", "completed_at", "updated_at",
             ])
             return job, "terminalized_existing_delivery"
+        else:
+            job.reply_message.text = job.draft_text
+            job.reply_message.save(update_fields=["text"])
         job.save(update_fields=["draft_text", "reply_message", "updated_at"])
         return job, ""
 
@@ -799,7 +827,11 @@ def process_recovery_job(job_id: int) -> IgAiReplyRecoveryJob | None:
                 consume_attempt=False,
             )
 
-        draft = _trim_draft(job.draft_text) if job.draft_text else _generate_recovery_draft(job)
+        draft = (
+            _ensure_recovery_apology(job.draft_text, job.source_message.text)
+            if job.draft_text
+            else _generate_recovery_draft(job)
+        )
         if not draft:
             return _release_for_retry(job.pk, token, "recovery_generation_failed")
         job, reason = _persist_draft(job.pk, token, draft)

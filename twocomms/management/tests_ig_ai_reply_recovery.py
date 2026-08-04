@@ -155,6 +155,92 @@ class IgAIReplyRecoveryTests(TestCase):
         self.assertIsNone(result.next_attempt_at)
         notify_manager.assert_called_once()
 
+    def test_generated_recovery_always_includes_technical_delay_apology(self):
+        job = self.recovery.schedule_recovery(self.source)
+
+        with patch.object(
+            self.recovery,
+            "gemini_generate",
+            return_value="Вітаю! Чим можу допомогти?",
+        ):
+            draft = self.recovery._generate_recovery_draft(job)
+
+        self.assertTrue(draft.startswith("Вибачте за технічну затримку."))
+        self.assertIn("Вітаю! Чим можу допомогти?", draft)
+
+    def test_generated_recovery_uses_russian_apology_for_russian_turn(self):
+        self.source.text = "Привет, нужна футболка"
+        self.source.save(update_fields=["text"])
+        job = self.recovery.schedule_recovery(self.source)
+
+        with patch.object(
+            self.recovery,
+            "gemini_generate",
+            return_value="Подскажу по наличию.",
+        ):
+            draft = self.recovery._generate_recovery_draft(job)
+
+        self.assertTrue(draft.startswith("Извините за техническую задержку."))
+
+    def test_generated_recovery_prefixes_technical_delay_apology_despite_generic_apology(self):
+        job = self.recovery.schedule_recovery(self.source)
+        generated = "Вітаю! Sorry, що відповідь затрималась. Чим можу допомогти?"
+
+        with patch.object(
+            self.recovery,
+            "gemini_generate",
+            return_value=generated,
+        ):
+            draft = self.recovery._generate_recovery_draft(job)
+
+        self.assertTrue(draft.startswith("Вибачте за технічну затримку."))
+        self.assertIn(generated, draft)
+
+    def test_generated_recovery_does_not_duplicate_exact_localized_apology(self):
+        self.source.text = "Hello, what sizes do you have?"
+        self.source.save(update_fields=["text"])
+        job = self.recovery.schedule_recovery(self.source)
+        generated = "Sorry for the technical delay. I can help you choose a size."
+
+        with patch.object(
+            self.recovery,
+            "gemini_generate",
+            return_value=generated,
+        ):
+            draft = self.recovery._generate_recovery_draft(job)
+
+        self.assertEqual(draft, generated)
+
+    def test_generated_recovery_does_not_duplicate_localized_apology_with_punctuation(self):
+        job = self.recovery.schedule_recovery(self.source)
+        generated = "Вибачте за технічну затримку! Підкажу по наявності."
+
+        with patch.object(
+            self.recovery,
+            "gemini_generate",
+            return_value=generated,
+        ):
+            draft = self.recovery._generate_recovery_draft(job)
+
+        self.assertEqual(draft, generated)
+
+    def test_generated_recovery_with_apology_stays_in_one_meta_chunk(self):
+        job = self.recovery.schedule_recovery(self.source)
+        generated = "Підкажу по наявності. " * 200
+
+        with patch.object(
+            self.recovery,
+            "gemini_generate",
+            return_value=generated,
+        ):
+            draft = self.recovery._generate_recovery_draft(job)
+
+        self.assertTrue(draft.startswith("Вибачте за технічну затримку."))
+        self.assertLessEqual(
+            len(draft.encode("utf-8")),
+            self.recovery.MAX_RECOVERY_REPLY_CHARS,
+        )
+
     def test_newer_inbound_cancels_before_gemini(self):
         job = self.recovery.schedule_recovery(self.source)
         InstagramBotMessage.objects.create(
@@ -221,6 +307,43 @@ class IgAIReplyRecoveryTests(TestCase):
         send.assert_called_once()
         self.client.refresh_from_db()
         self.assertIsNotNone(self.client.last_bot_reply_at)
+
+    def test_persisted_recovery_draft_is_normalized_before_its_first_meta_send(self):
+        job = self.recovery.schedule_recovery(self.source)
+        job.draft_text = "Вітаю! Чим можу допомогти?"
+        reply_message = InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=InstagramBotMessage.Role.MODEL,
+            text=job.draft_text,
+            status=InstagramBotMessage.Status.PROCESSING,
+            source="ai_recovery",
+            send_state="",
+        )
+        job.reply_message = reply_message
+        job.save(update_fields=["draft_text", "reply_message"])
+
+        with patch.object(
+            self.recovery,
+            "_generate_recovery_draft",
+        ) as generate, patch.object(
+            self.recovery,
+            "send_text",
+            return_value=ProviderDeliveryReceipt(True, "", "", "meta-recovery-persisted-1"),
+        ) as send:
+            result = self.recovery.process_recovery_job(job.pk)
+
+        result.refresh_from_db()
+        self.assertEqual(result.status, result.Status.SENT)
+        self.assertTrue(
+            result.draft_text.startswith("Вибачте за технічну затримку.")
+        )
+        self.assertIn("Вітаю! Чим можу допомогти?", result.draft_text)
+        generate.assert_not_called()
+        self.assertEqual(send.call_args.args[2], result.draft_text)
+        result.reply_message.refresh_from_db()
+        self.assertEqual(result.reply_message.text, result.draft_text)
+
 
     def test_missing_provider_receipt_is_ambiguous_and_not_retried(self):
         job = self.recovery.schedule_recovery(self.source)
