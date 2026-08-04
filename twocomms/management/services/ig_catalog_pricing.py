@@ -122,6 +122,8 @@ def _variant_configurations(product, variant) -> list[dict]:
         }
         rows.append({
             "variant_id": variant.pk,
+            "color_id": getattr(variant, "color_id", None),
+            "color_slug": str(getattr(variant, "slug", "") or ""),
             "color": str(getattr(getattr(variant, "color", None), "name", "") or ""),
             "option_values": values,
             "option_labels": labels,
@@ -142,11 +144,13 @@ def resolve_product_pricing(
     variants=None,
     selected_variant_id=None,
     option_values=None,
+    context_prepared=False,
 ) -> dict:
     """Return exact/ranged prices for currently sellable product configurations."""
 
     variant_rows = _variant_rows(product, variants=variants)
-    prepare_pricing_context([product], variant_rows)
+    if not context_prepared:
+        prepare_pricing_context([product], variant_rows)
     configurations = []
     for variant in variant_rows:
         if selected_variant_id and int(variant.pk) != int(selected_variant_id):
@@ -168,6 +172,8 @@ def resolve_product_pricing(
         price = _money(getattr(product, "final_price", getattr(product, "price", 0)))
         configurations = [{
             "variant_id": None,
+            "color_id": None,
+            "color_slug": "",
             "color": "",
             "option_values": selected_options,
             "option_labels": {},
