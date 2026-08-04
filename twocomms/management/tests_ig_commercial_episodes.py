@@ -1010,6 +1010,10 @@ class CommercialEpisodeMigrationContractTests(TestCase):
         migration = import_module("management.migrations.0106_ig_commercial_episodes")
 
         self.assertFalse(migration._is_superseded_review(SimpleNamespace(status="pending")))
+        self.assertTrue(migration._is_superseded_review(SimpleNamespace(status="superseded")))
+        self.assertFalse(
+            migration._has_canonical_supersession(SimpleNamespace(status="superseded"))
+        )
 
     def test_schema_and_data_rollout_are_separate_for_mariadb_recovery(self):
         schema = import_module("management.migrations.0106_ig_commercial_episodes")
@@ -1277,6 +1281,114 @@ class CommercialEpisodeMigrationContractTests(TestCase):
             migration.backfill_until_quiescent(apps, None, max_passes=3),
             {"deals": 0, "reviews": 0, "attributions": 0},
         )
+
+    def test_backfill_prefers_canonical_review_over_later_superseded_reviews(self):
+        from django.apps import apps
+        from management.ig_bot_models import (
+            IgCommercialEpisode,
+            IgOrderAttribution,
+            IgPaymentConfirmationReview,
+        )
+
+        client = IgClient.get_or_create_for_sender("episode-migration-superseded-review")
+        order = Order.objects.create(
+            full_name="Canonical review",
+            phone="380501112299",
+            total_sum=Decimal("1280.00"),
+        )
+        older = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            order=order,
+            dedupe_key="migration-superseded-older",
+        )
+        canonical = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            order=order,
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            dedupe_key="migration-canonical-review",
+        )
+        later = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            order=order,
+            status=IgPaymentConfirmationReview.Status.SUPERSEDED,
+            superseded_by=canonical,
+            dedupe_key="migration-superseded-later",
+        )
+        IgPaymentConfirmationReview.objects.filter(pk=older.pk).update(
+            status=IgPaymentConfirmationReview.Status.SUPERSEDED,
+            superseded_by=canonical,
+        )
+        attribution = IgOrderAttribution.objects.create(
+            order=order,
+            client=client,
+            payment_review=canonical,
+            creation_mode="linked_existing",
+            payment_source="manager_verified",
+        )
+        IgCommercialEpisode.objects.create(
+            client=client,
+            sequence=1,
+            open_slot=None,
+            materialization_key="migration-superseded-older-episode",
+            primary_payment_review=older,
+            state=IgCommercialEpisode.State.LOST,
+        )
+        canonical_episode = IgCommercialEpisode.objects.create(
+            client=client,
+            sequence=2,
+            open_slot=None,
+            materialization_key="migration-canonical-episode",
+            primary_payment_review=canonical,
+            order_attribution=attribution,
+            intended_order=order,
+            state=IgCommercialEpisode.State.ORDER_CREATED,
+        )
+        later_episode = IgCommercialEpisode.objects.create(
+            client=client,
+            sequence=3,
+            open_slot=None,
+            materialization_key="migration-superseded-later-episode",
+            primary_payment_review=later,
+            state=IgCommercialEpisode.State.LOST,
+        )
+        client.current_commercial_episode = later_episode
+        client.save(update_fields=["current_commercial_episode", "updated_at"])
+        migration = import_module("management.migrations.0106_ig_commercial_episodes")
+
+        remaining = migration.backfill_until_quiescent(apps, None, max_passes=3)
+
+        canonical_episode.refresh_from_db()
+        self.assertEqual(canonical_episode.primary_payment_review_id, canonical.pk)
+        self.assertEqual(canonical_episode.order_attribution_id, attribution.pk)
+        self.assertEqual(canonical_episode.intended_order_id, order.pk)
+        client.refresh_from_db()
+        self.assertIsNone(client.current_commercial_episode_id)
+        self.assertEqual(remaining, {"deals": 0, "reviews": 0, "attributions": 0})
+
+    def test_backfill_never_reopens_orphaned_superseded_review(self):
+        from django.apps import apps
+        from management.ig_bot_models import (
+            IgCommercialEpisode,
+            IgPaymentConfirmationReview,
+        )
+
+        client = IgClient.get_or_create_for_sender("episode-migration-orphaned-superseded")
+        duplicate = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            status=IgPaymentConfirmationReview.Status.SUPERSEDED,
+            dedupe_key="migration-orphaned-superseded",
+        )
+        migration = import_module("management.migrations.0106_ig_commercial_episodes")
+
+        migration.backfill_until_quiescent(apps, None, max_passes=3)
+
+        episode = IgCommercialEpisode.objects.get(primary_payment_review=duplicate)
+        client.refresh_from_db()
+        self.assertEqual(episode.state, IgCommercialEpisode.State.LOST)
+        self.assertEqual(episode.outcome, "superseded_duplicate_payment_review")
+        self.assertIsNotNone(episode.closed_at)
+        self.assertIsNone(episode.open_slot)
+        self.assertIsNone(client.current_commercial_episode_id)
 
     def test_backfill_validates_existing_relation_collisions_before_any_new_write(self):
         from django.apps import apps
