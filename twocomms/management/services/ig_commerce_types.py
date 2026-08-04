@@ -39,6 +39,7 @@ class PricingConfiguration:
     color_label: str
     fit_code: str
     option_values: Mapping[str, str]
+    compatible_sizes: tuple[str, ...]
     price: Decimal
     reason: str = ""
     is_thermo: bool = False
@@ -79,6 +80,8 @@ class CatalogProduct:
     category_id: int
     category_slug: str
     category_label: str
+    garment_type: str = ""
+    catalog_priority: int = 0
     aliases: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     traits: Mapping[str, str] = field(default_factory=dict)
     semantic_revision_id: int | None = None
@@ -129,6 +132,8 @@ class CatalogCandidate:
     category_id: int
     category_slug: str
     category_label: str
+    garment_type: str
+    catalog_priority: int
     traits: Mapping[str, str]
     pricing: PriceSnapshot
     constraints: tuple[tuple[str, str], ...] = ()

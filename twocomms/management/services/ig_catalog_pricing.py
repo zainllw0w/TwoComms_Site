@@ -16,11 +16,16 @@ logger = logging.getLogger(__name__)
 MAX_OPTION_COMBINATIONS = 128
 
 PRODUCT_PRICING_LOOKUPS = (
+    "catalog__options__values",
+    "catalog__size_grids__fable5_profile",
     "category__fable5_flows",
     "fit_options",
     "fable5_fit_notes",
     "fable5_option_profiles__i18n",
     "fable5_axis_presentations",
+    "fable5_size_grid_assignments__size_grid__fable5_profile",
+    "fable5_size_rules",
+    "size_grid__fable5_profile",
 )
 VARIANT_PRICING_LOOKUPS = (
     "color__fable5_profile",
@@ -29,6 +34,7 @@ VARIANT_PRICING_LOOKUPS = (
     "fable5_size_rules",
     "fable5_faqs",
     "fable5_combinations__i18n",
+    "fable5_size_grid_assignments__size_grid__fable5_profile",
 )
 
 

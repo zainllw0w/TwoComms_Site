@@ -12,8 +12,11 @@ from fable5.models import (
     GarmentFlow,
     GarmentFlowCategory,
     ProductOptionProfile,
+    ProductOptionSizeGrid,
     VariantDetails,
     VariantFitRule,
+    VariantOptionSizeGrid,
+    VariantSizeRule,
 )
 from management.services.ig_catalog_candidates import rank_candidates
 from management.services.ig_catalog_graph import build_catalog_graph
@@ -25,10 +28,12 @@ from management.services.ig_product_references import (
 from productcolors.models import Color, ProductColorVariant
 from storefront.models import (
     Category,
+    Catalog,
     Product,
     ProductFitOption,
     ProductSalesSemanticProfile,
     ProductStatus,
+    SizeGrid,
 )
 from storefront.services.product_sales_semantics import create_semantic_revision
 
@@ -76,6 +81,28 @@ class CatalogIntelligenceFixture(TestCase):
             verified_at=timezone.now(),
         )
 
+    def size_grid(self, *, sizes, name="Catalog intelligence grid"):
+        catalog = self.product.catalog
+        if catalog is None:
+            catalog = Catalog.objects.create(
+                name=f"Catalog {self.product.pk}",
+                slug=f"catalog-{self.product.pk}",
+            )
+            self.product.catalog = catalog
+            self.product.save(update_fields=("catalog",))
+        return SizeGrid.objects.create(
+            catalog=catalog,
+            name=name,
+            guide_data={
+                "columns": [{"key": "size", "label": "Size"}],
+                "rows": [
+                    {"size": size, "display_size": size}
+                    for size in sizes
+                ],
+            },
+            is_active=True,
+        )
+
 
 class TrustedProductReferenceTests(CatalogIntelligenceFixture):
     def test_exact_localized_storefront_url_resolves_published_slug(self):
@@ -113,6 +140,59 @@ class TrustedProductReferenceTests(CatalogIntelligenceFixture):
 
         self.assertTrue(result.is_exact)
         self.assertEqual(dict(result.constraints), {"color": "black", "fit": "classic"})
+
+    def test_combined_color_fit_and_size_require_one_compatible_configuration(self):
+        ProductFitOption.objects.create(
+            product=self.product,
+            code="oversize",
+            label="Oversize",
+            is_active=True,
+        )
+        VariantFitRule.objects.create(
+            variant=self.variant,
+            fit_code="oversize",
+            is_enabled=False,
+        )
+        classic_grid = self.size_grid(sizes=("M",), name="Black classic")
+        VariantOptionSizeGrid.objects.create(
+            variant=self.variant,
+            option_key="fit=classic",
+            size_grid=classic_grid,
+        )
+
+        valid = resolve_product_reference(
+            "https://twocomms.shop/product/classic-tshirt/black/classic/m/"
+        )
+        wrong_size = resolve_product_reference(
+            "https://twocomms.shop/product/classic-tshirt/black/classic/l/"
+        )
+        wrong_fit = resolve_product_reference(
+            "https://twocomms.shop/product/classic-tshirt/black/oversize/m/"
+        )
+
+        self.assertTrue(valid.is_exact)
+        self.assertEqual(
+            dict(valid.constraints),
+            {"color": "black", "fit": "classic", "size": "M"},
+        )
+        self.assertFalse(wrong_size.is_exact)
+        self.assertEqual(wrong_size.reason, "incompatible_product_options")
+        self.assertFalse(wrong_fit.is_exact)
+        self.assertEqual(wrong_fit.reason, "incompatible_product_options")
+
+    def test_custom_size_code_from_assigned_grid_is_a_trusted_option(self):
+        ProductOptionSizeGrid.objects.create(
+            product=self.product,
+            option_key="fit=classic",
+            size_grid=self.size_grid(sizes=("OS",), name="One size grid"),
+        )
+
+        result = resolve_product_reference(
+            "https://twocomms.shop/product/classic-tshirt/black/classic/os/"
+        )
+
+        self.assertTrue(result.is_exact)
+        self.assertEqual(dict(result.constraints)["size"], "OS")
 
     def test_duplicate_or_unknown_option_segment_fails_closed(self):
         for path in ("black/black/", "not-a-real-option/"):
@@ -348,6 +428,45 @@ class CatalogGraphTests(CatalogIntelligenceFixture):
             self.profile.effective_revision_id,
         )
 
+    def test_revoked_semantics_leave_no_authoritative_aliases_or_traits(self):
+        verified = self.verify_semantics(
+            aliases={"en": ["Raven commerce identity"]},
+            traits={"back_decoration": "none"},
+        )
+        before = build_catalog_graph().products[0]
+        create_semantic_revision(
+            profile=self.profile,
+            status="revoked",
+            source="manager",
+            aliases={},
+            traits={},
+            supersedes=verified,
+            verified_by=self.verifier,
+            verified_at=timezone.now(),
+        )
+
+        after = build_catalog_graph().products[0]
+
+        self.assertTrue(before.aliases)
+        self.assertEqual(after.aliases, {})
+        self.assertEqual(after.traits, {})
+        self.assertIsNone(after.semantic_revision_id)
+
+    def test_bot_vision_semantic_revision_never_enters_authoritative_graph(self):
+        create_semantic_revision(
+            profile=self.profile,
+            status="draft",
+            source="bot_vision",
+            aliases={"en": ["Vision-only raven"]},
+            traits={"back_decoration": "print"},
+        )
+
+        product = build_catalog_graph().products[0]
+
+        self.assertEqual(product.aliases, {})
+        self.assertEqual(product.traits, {})
+        self.assertIsNone(product.semantic_revision_id)
+
     def test_graph_prepares_pricing_once_and_has_bounded_query_growth(self):
         for index in range(3):
             product = Product.objects.create(
@@ -385,8 +504,271 @@ class CatalogGraphTests(CatalogIntelligenceFixture):
             f"catalog graph query budget exceeded: {len(captured)}",
         )
 
+    def test_graph_query_count_does_not_scale_with_variant_count(self):
+        with CaptureQueriesContext(connection) as one_variant_queries:
+            build_catalog_graph()
+
+        for index in range(15):
+            color = Color.objects.create(
+                name=f"Scaling color {index}",
+                primary_hex=f"#{index + 100:06x}",
+            )
+            ProductColorVariant.objects.create(
+                product=self.product,
+                color=color,
+                price_override=790,
+            )
+
+        with CaptureQueriesContext(connection) as many_variant_queries:
+            build_catalog_graph()
+
+        self.assertLessEqual(
+            len(many_variant_queries),
+            len(one_variant_queries) + 3,
+            (
+                "catalog graph queries scaled with variants: "
+                f"one={len(one_variant_queries)} many={len(many_variant_queries)}"
+            ),
+        )
+
 
 class CatalogCandidateTests(CatalogIntelligenceFixture):
+    def test_hard_size_requires_typed_configuration_compatibility(self):
+        unknown = rank_candidates(
+            build_catalog_graph(),
+            CommerceTurnRequest(
+                exact_product_id=self.product.pk,
+                hard={"size": "M"},
+            ),
+        )
+        self.assertEqual(unknown.candidates, ())
+
+        ProductOptionSizeGrid.objects.create(
+            product=self.product,
+            option_key="fit=classic",
+            size_grid=self.size_grid(sizes=("S", "M")),
+        )
+        graph = build_catalog_graph()
+        compatible = rank_candidates(
+            graph,
+            CommerceTurnRequest(
+                exact_product_id=self.product.pk,
+                hard={"size": "M"},
+            ),
+        )
+        incompatible = rank_candidates(
+            graph,
+            CommerceTurnRequest(
+                exact_product_id=self.product.pk,
+                hard={"size": "XXL"},
+            ),
+        )
+
+        self.assertEqual(compatible.candidates[0].product_id, self.product.pk)
+        self.assertEqual(incompatible.candidates, ())
+
+    def test_variant_size_rule_can_make_one_color_fit_size_incompatible(self):
+        grid = self.size_grid(sizes=("M", "L"))
+        VariantOptionSizeGrid.objects.create(
+            variant=self.variant,
+            option_key="fit=classic",
+            size_grid=grid,
+        )
+        VariantSizeRule.objects.create(
+            variant=self.variant,
+            fit_code="classic",
+            size="L",
+            is_enabled=False,
+        )
+        graph = build_catalog_graph()
+
+        allowed = rank_candidates(
+            graph,
+            CommerceTurnRequest(
+                exact_product_id=self.product.pk,
+                hard={"color": "black", "fit": "classic", "size": "M"},
+            ),
+        )
+        blocked = rank_candidates(
+            graph,
+            CommerceTurnRequest(
+                exact_product_id=self.product.pk,
+                hard={"color": "black", "fit": "classic", "size": "L"},
+            ),
+        )
+
+        self.assertEqual(len(allowed.candidates), 1)
+        self.assertEqual(blocked.candidates, ())
+
+    def test_garment_and_category_do_not_match_product_title_or_slug(self):
+        decoy_category = Category.objects.create(name="Accessories", slug="accessories")
+        decoy = Product.objects.create(
+            title="Hoodie-looking accessory",
+            slug="hoodie-decoy",
+            category=decoy_category,
+            price=300,
+            status=ProductStatus.PUBLISHED,
+        )
+        ProductColorVariant.objects.create(
+            product=decoy,
+            color=Color.objects.create(name="Decoy", primary_hex="#abcdef"),
+            price_override=300,
+        )
+        hoodie_category = Category.objects.create(name="Hoodies", slug="hoodie")
+        hoodie = Product.objects.create(
+            title="Typed garment",
+            slug="typed-garment",
+            category=hoodie_category,
+            price=900,
+            status=ProductStatus.PUBLISHED,
+        )
+        ProductColorVariant.objects.create(
+            product=hoodie,
+            color=Color.objects.create(name="Typed", primary_hex="#fedcba"),
+            price_override=900,
+        )
+        graph = build_catalog_graph()
+
+        garment = rank_candidates(
+            graph,
+            CommerceTurnRequest(
+                exact_product_id=decoy.pk,
+                hard={"garment_type": "hoodie"},
+            ),
+        )
+        category = rank_candidates(
+            graph,
+            CommerceTurnRequest(
+                exact_product_id=decoy.pk,
+                hard={"category": "hoodie"},
+            ),
+        )
+        typed = rank_candidates(
+            graph,
+            CommerceTurnRequest(
+                exact_product_id=hoodie.pk,
+                hard={"garment_type": "hoodie"},
+            ),
+        )
+
+        self.assertEqual(garment.candidates, ())
+        self.assertEqual(category.candidates, ())
+        self.assertEqual(typed.candidates[0].product_id, hoodie.pk)
+
+    def test_catalog_priority_is_used_before_stable_product_id(self):
+        category = Category.objects.create(name="Ranking", slug="ranking")
+        low = Product.objects.create(
+            title="Low priority",
+            slug="low-priority",
+            category=category,
+            price=500,
+            priority=1,
+            status=ProductStatus.PUBLISHED,
+        )
+        high = Product.objects.create(
+            title="High priority",
+            slug="high-priority",
+            category=category,
+            price=500,
+            priority=50,
+            status=ProductStatus.PUBLISHED,
+        )
+        for index, product in enumerate((low, high), start=1):
+            ProductColorVariant.objects.create(
+                product=product,
+                color=Color.objects.create(
+                    name=f"Priority {index}",
+                    primary_hex=f"#{index + 200:06x}",
+                ),
+                price_override=500,
+            )
+
+        result = rank_candidates(
+            build_catalog_graph(),
+            CommerceTurnRequest(hard={"category": "ranking"}),
+        )
+
+        self.assertEqual(
+            [candidate.product_id for candidate in result.candidates[:2]],
+            [high.pk, low.pk],
+        )
+
+    def test_preference_match_outranks_priority_without_authorizing_relaxation(self):
+        category = Category.objects.create(name="Preference ranking", slug="preference-ranking")
+        high = Product.objects.create(
+            title="High priority pink",
+            slug="preference-high",
+            category=category,
+            price=500,
+            priority=100,
+            status=ProductStatus.PUBLISHED,
+        )
+        preferred = Product.objects.create(
+            title="Preferred black",
+            slug="preference-black",
+            category=category,
+            price=500,
+            priority=1,
+            status=ProductStatus.PUBLISHED,
+        )
+        ProductColorVariant.objects.create(
+            product=high,
+            color=Color.objects.create(name="Pink", primary_hex="#ff99aa"),
+            slug="pink",
+            price_override=500,
+        )
+        ProductColorVariant.objects.create(
+            product=preferred,
+            color=Color.objects.create(name="Black ranking", primary_hex="#010101"),
+            slug="black",
+            price_override=500,
+        )
+
+        result = rank_candidates(
+            build_catalog_graph(),
+            CommerceTurnRequest(
+                hard={"category": "preference-ranking"},
+                preferences={"color": "black"},
+            ),
+        )
+
+        self.assertEqual(result.candidates[0].product_id, preferred.pk)
+        self.assertIn("preference:color", result.candidates[0].reasons)
+        relaxed = next(row for row in result.candidates if row.product_id == high.pk)
+        self.assertEqual(relaxed.relaxed_constraints, ("color",))
+        self.assertFalse(result.auto_select)
+
+    def test_equal_scores_use_stable_lowest_product_id_tie_breaker(self):
+        category = Category.objects.create(name="Stable ranking", slug="stable-ranking")
+        products = []
+        for index in range(2):
+            product = Product.objects.create(
+                title=f"Stable {index}",
+                slug=f"stable-{index}",
+                category=category,
+                price=500,
+                priority=10,
+                status=ProductStatus.PUBLISHED,
+            )
+            ProductColorVariant.objects.create(
+                product=product,
+                color=Color.objects.create(
+                    name=f"Stable color {index}",
+                    primary_hex=f"#{index + 300:06x}",
+                ),
+                price_override=500,
+            )
+            products.append(product)
+
+        result = rank_candidates(
+            build_catalog_graph(),
+            CommerceTurnRequest(hard={"category": "stable-ranking"}),
+        )
+
+        self.assertEqual(
+            [candidate.product_id for candidate in result.candidates[:2]],
+            [products[0].pk, products[1].pk],
+        )
     def test_color_constraint_removes_other_variant_price_from_candidate(self):
         self.product.price = 1090
         self.product.save(update_fields=("price",))

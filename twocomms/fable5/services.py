@@ -280,7 +280,10 @@ def product_option_context(
         isinstance(axis, dict) and str(axis.get("code") or "").lower() == "fit"
         for axis in raw_axes
     ):
-        fit_options = list(product.fit_options.all().order_by("order", "id"))
+        fit_options = sorted(
+            product.fit_options.all(),
+            key=lambda option: (option.order, option.id),
+        )
         if fit_options:
             raw_axes.append({
                 "code": "fit",

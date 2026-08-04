@@ -6,8 +6,8 @@ import re
 from collections import defaultdict
 from urllib.parse import unquote, urlsplit
 
+from fable5.size_grid_services import normalize_size_value
 from storefront.models import Product, ProductStatus
-from storefront.services.size_guides import resolve_product_sizes
 
 from .ig_commerce_types import ProductReference, ReferenceSource
 
@@ -19,6 +19,10 @@ _PRODUCT_PATH = re.compile(
     re.I,
 )
 _INSTAGRAM_PATH = re.compile(r"^/(?:p|reel|tv)/(?P<code>[A-Za-z0-9_-]+)/?", re.I)
+_KNOWN_SIZE_CODES = frozenset({
+    "XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL", "4XL", "5XL",
+    "ONESIZE", "ONE-SIZE",
+})
 
 
 def _empty(source=ReferenceSource.UNKNOWN, reason="unknown_reference", **kwargs):
@@ -70,6 +74,11 @@ def _parse_owned_url(value: str) -> ProductReference:
         for segment in (match.group("options") or "").strip("/").split("/")
         if segment
     ]
+    product_graph = None
+    if option_segments:
+        from .ig_catalog_graph import build_catalog_graph
+
+        product_graph = build_catalog_graph(product_ids=(product.pk,))
     known: dict[str, list[tuple[str, str]]] = defaultdict(list)
     for variant in product.color_variants.all():
         if variant.slug:
@@ -77,10 +86,16 @@ def _parse_owned_url(value: str) -> ProductReference:
     for option in product.fit_options.all():
         if option.is_active and option.code:
             known[option.code.lower()].append(("fit", option.code.lower()))
-    for size in resolve_product_sizes(product):
-        normalized = str(size or "").strip().lower()
-        if normalized:
-            known[normalized].append(("size", str(size).strip().upper()))
+    for segment in option_segments:
+        normalized_size = normalize_size_value(segment)
+        if normalized_size in _KNOWN_SIZE_CODES:
+            known[segment].append(("size", normalized_size))
+    if product_graph and product_graph.products:
+        for configuration in product_graph.products[0].pricing.configurations:
+            for size in configuration.compatible_sizes:
+                normalized_size = normalize_size_value(size)
+                if normalized_size:
+                    known[normalized_size.lower()].append(("size", normalized_size))
 
     constraints: dict[str, str] = {}
     seen_segments: set[str] = set()
@@ -93,6 +108,20 @@ def _parse_owned_url(value: str) -> ProductReference:
         if key in constraints:
             return _empty(source=source, reason="conflicting_product_options")
         constraints[key] = value
+
+    if constraints:
+        from .ig_catalog_candidates import rank_candidates
+        from .ig_commerce_types import CommerceTurnRequest
+
+        decision = rank_candidates(
+            product_graph,
+            CommerceTurnRequest(
+                exact_product_id=product.pk,
+                hard=constraints,
+            ),
+        )
+        if not decision.candidates:
+            return _empty(source=source, reason="incompatible_product_options")
 
     return ProductReference(
         product_id=int(product.pk),
