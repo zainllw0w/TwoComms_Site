@@ -4,6 +4,15 @@ Production host: `195.191.25.63`, path
 `/home/qlknpodo/TWC/TwoComms_Site/twocomms`, branch `main`, database
 `qlknpodo_MySQL_DB` (MariaDB/MySQL). Secrets are intentionally omitted.
 
+## Pending local checkpoint (2026-08-04)
+
+`codex/ig-bot-imp028-prompt` contains the IMP-094 test-isolation and
+terminal-state changes documented in `00_PROGRESS.md` and
+`03_FINDINGS_REGISTER.md`. The branch is ahead of `origin/main` and has
+**not** been pushed, pulled on the server, restarted, or production-verified.
+No production database was used as a test database. This section is
+intentionally not a deployment claim.
+
 | Date | SHA | Verification | Runtime |
 |---|---|---|---|
 | 2026-08-03 | `2a89d860` | payment backstop/contract | daemon online |

@@ -13,6 +13,7 @@ with a short delay so the social-auth pipeline has time to create the
 import threading
 import time
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import close_old_connections
 from django.db.models.signals import post_save
@@ -68,7 +69,7 @@ def _notify_admins(user_id, username, email):
 
 @receiver(post_save, sender=User, dispatch_uid="notify_admins_new_user")
 def notify_admins_on_registration(sender, instance, created, **kwargs):
-    if not created:
+    if not created or getattr(settings, "TESTING", False):
         return
     threading.Thread(
         target=_notify_admins,

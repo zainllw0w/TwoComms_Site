@@ -72,6 +72,12 @@ class MariaDbTestSettingsContractTests(SimpleTestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("matches a configured production database host", result.stderr)
 
+    def test_rejects_production_localhost_default_when_db_host_is_unset(self):
+        result = self._import_profile(DB_NAME="qlknpodo_MySQL_DB")
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("matches a configured production database host", result.stderr)
+
     def test_rejects_an_equivalent_ipv6_loopback_host(self):
         result = self._import_profile(
             TEST_MARIADB_HOST="0:0:0:0:0:0:0:1",

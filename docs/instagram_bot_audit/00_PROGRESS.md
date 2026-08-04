@@ -67,6 +67,23 @@
 - `[ ] PARTIAL` означает, что опубликована только часть требований, а явно
   перечисленный остаток всё ещё обязателен.
 
+## IMP-094: локальный reliability checkpoint (2026-08-04, не задеплоен)
+
+В рабочей ветке `codex/ig-bot-imp028-prompt` устранены три источника
+ложных падений/гонок в SQLite-gate: ночные тесты с плавающим «сегодня» переведены
+на фиксированное локальное время, регистрационный notifier и post-commit
+fulfillment wake-up отключены только при `TESTING=True`, а recovery-schedule
+failure теперь сохраняет явный `status=FAILED`, `send_state=failed` и
+`processed_at`. Для MariaDB-профиля добавлена защита от эффективного
+production-host `localhost`, когда `DB_HOST` не задан.
+
+Доказательство: полный `management` suite прошёл **2619 тестов, 3 skipped**
+из корня worktree и отдельным запуском из каталога `twocomms` (оба `OK`);
+фокусный regression-пакет — **136 тестов `OK`**, дополнительный smoke-пакет —
+**6 тестов `OK`**. Это только локальная SQLite-проверка: отдельная disposable
+MariaDB не предоставлена, поэтому `IMP-094` и `F-TEST-002` остаются открытыми.
+До push/deploy этот checkpoint не является production evidence.
+
 ## IMP-041 и IMP-059 закрыты и задеплоены (2026-08-04)
 
 Коммиты `f2a84717` и `244cbbd3` находятся в `origin/main` и на production.

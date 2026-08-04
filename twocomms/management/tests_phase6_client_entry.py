@@ -448,51 +448,57 @@ class HomeClientEntryValidationTests(TestCase):
         self.assertEqual(response.json()["latest"]["id"], today_phase.id)
 
     def test_callback_continue_from_today_projection_returns_projection_remove_ids(self):
-        due_at = timezone.localtime(timezone.now()).replace(second=0, microsecond=0) + timedelta(hours=2)
-        source = Client.objects.create(
-            shop_name="Projection Source Shop",
-            phone="+380671112287",
-            website_url="https://projection-source.example.com",
-            full_name="Projection Owner",
-            role=Client.Role.OWNER,
-            source="Instagram",
-            owner=self.user,
-            call_result=Client.CallResult.THINKING,
-            manager_note="Базова нотатка по проєкції.",
-            next_call_at=due_at,
-        )
-        Client.objects.filter(id=source.id).update(created_at=timezone.now() - timedelta(days=1))
-        followup = ClientFollowUp.objects.create(
-            client=source,
-            owner=self.user,
-            due_at=due_at,
-            due_date=due_at.date(),
-            grace_until=due_at + timedelta(hours=2),
-        )
+        tz = timezone.get_current_timezone()
+        now_local = timezone.make_aware(datetime(2026, 3, 20, 11, 0), tz)
+        due_at = timezone.make_aware(datetime(2026, 3, 20, 11, 30), tz)
 
-        response = self.client.post(
-            "/",
-            {
-                "client_id": str(source.id),
-                "phase_action": "continue",
-                "shop_name": source.shop_name,
-                "phone": source.phone,
-                "website_url": source.website_url,
-                "full_name": source.full_name,
-                "role": source.role,
-                "source": "instagram",
-                "call_result": Client.CallResult.NO_ANSWER,
-                "call_result_reason_code": "voicemail",
-                "call_result_reason_note": "Переводимо reminder у реальну сьогоднішню фазу.",
-                "call_result_contact_attempts": "2",
-                "call_result_contact_channel": "phone",
-                "manager_note": source.manager_note,
-                "phase_comment": "Сьогодні дійшли до фактичної обробки.",
-                **self._scheduled_local_payload(hours=5),
-            },
-            secure=True,
-            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
-        )
+        with patch("management.views.timezone.now", return_value=now_local), patch(
+            "management.views.timezone.localdate", return_value=now_local.date()
+        ), patch("management.services.followup_state.timezone.now", return_value=now_local):
+            source = Client.objects.create(
+                shop_name="Projection Source Shop",
+                phone="+380671112287",
+                website_url="https://projection-source.example.com",
+                full_name="Projection Owner",
+                role=Client.Role.OWNER,
+                source="Instagram",
+                owner=self.user,
+                call_result=Client.CallResult.THINKING,
+                manager_note="Базова нотатка по проєкції.",
+                next_call_at=due_at,
+            )
+            Client.objects.filter(id=source.id).update(created_at=now_local - timedelta(days=1))
+            followup = ClientFollowUp.objects.create(
+                client=source,
+                owner=self.user,
+                due_at=due_at,
+                due_date=due_at.date(),
+                grace_until=due_at + timedelta(hours=2),
+            )
+
+            response = self.client.post(
+                "/",
+                {
+                    "client_id": str(source.id),
+                    "phase_action": "continue",
+                    "shop_name": source.shop_name,
+                    "phone": source.phone,
+                    "website_url": source.website_url,
+                    "full_name": source.full_name,
+                    "role": source.role,
+                    "source": "instagram",
+                    "call_result": Client.CallResult.NO_ANSWER,
+                    "call_result_reason_code": "voicemail",
+                    "call_result_reason_note": "Переводимо reminder у реальну сьогоднішню фазу.",
+                    "call_result_contact_attempts": "2",
+                    "call_result_contact_channel": "phone",
+                    "manager_note": source.manager_note,
+                    "phase_comment": "Сьогодні дійшли до фактичної обробки.",
+                    **self._scheduled_local_payload(hours=5),
+                },
+                secure=True,
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
@@ -785,26 +791,32 @@ class HomePageModalMarkupTests(TestCase):
         self.assertContains(response, "Наступна фаза")
 
     def test_home_page_renders_today_projection_row_and_keeps_source_row_passive(self):
-        due_at = timezone.localtime(timezone.now()).replace(second=0, microsecond=0) + timedelta(hours=2)
-        source = Client.objects.create(
-            shop_name="Projection Markup Shop",
-            phone="+380671110201",
-            full_name="Projection Owner",
-            owner=self.user,
-            call_result=Client.CallResult.THINKING,
-            manager_note="Нотатка для reminder-проєкції.",
-            next_call_at=due_at,
-        )
-        Client.objects.filter(id=source.id).update(created_at=timezone.now() - timedelta(days=1))
-        followup = ClientFollowUp.objects.create(
-            client=source,
-            owner=self.user,
-            due_at=due_at,
-            due_date=due_at.date(),
-            grace_until=due_at + timedelta(hours=2),
-        )
+        tz = timezone.get_current_timezone()
+        now_local = timezone.make_aware(datetime(2026, 3, 20, 11, 0), tz)
+        due_at = timezone.make_aware(datetime(2026, 3, 20, 13, 0), tz)
 
-        response = self.client.get("/", secure=True)
+        with patch("management.views.timezone.now", return_value=now_local), patch(
+            "management.views.timezone.localdate", return_value=now_local.date()
+        ), patch("management.services.followup_state.timezone.now", return_value=now_local):
+            source = Client.objects.create(
+                shop_name="Projection Markup Shop",
+                phone="+380671110201",
+                full_name="Projection Owner",
+                owner=self.user,
+                call_result=Client.CallResult.THINKING,
+                manager_note="Нотатка для reminder-проєкції.",
+                next_call_at=due_at,
+            )
+            Client.objects.filter(id=source.id).update(created_at=now_local - timedelta(days=1))
+            followup = ClientFollowUp.objects.create(
+                client=source,
+                owner=self.user,
+                due_at=due_at,
+                due_date=due_at.date(),
+                grace_until=due_at + timedelta(hours=2),
+            )
+
+            response = self.client.get("/", secure=True)
 
         self.assertEqual(response.status_code, 200)
         grouped = response.context["grouped_clients"]

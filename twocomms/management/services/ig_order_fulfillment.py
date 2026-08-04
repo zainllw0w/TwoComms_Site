@@ -12,6 +12,7 @@ import uuid
 from contextlib import contextmanager
 from datetime import timedelta
 
+from django.conf import settings
 from django.db import close_old_connections, transaction
 from django.db.models import F, Q
 from django.utils import timezone
@@ -708,6 +709,9 @@ def reconcile_order_customer_events(*, order_id=None, limit=100, send=True, now=
 
 def kick_order_fulfillment(order_id):
     """Best-effort post-commit wake-up; durable reconciliation remains retryable."""
+    if not getattr(settings, "IG_FULFILLMENT_BACKGROUND_WAKE_ENABLED", True):
+        return
+
     def run():
         close_old_connections()
         try:

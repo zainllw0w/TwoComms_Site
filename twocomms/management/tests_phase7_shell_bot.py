@@ -26,23 +26,29 @@ class HomeShellRenderTests(TestCase):
         return self.client.get("/", secure=True, HTTP_HOST=self.MANAGEMENT_HOST)
 
     def test_home_marks_staff_user_as_admin_and_renders_callback_row(self):
-        user = get_user_model().objects.create_user(username="shell_admin", password="x", is_staff=True)
-        profile = UserProfile.objects.get(user=user)
-        profile.is_manager = False
-        profile.save(update_fields=["is_manager"])
-        self.client.force_login(user)
-        next_call_at = timezone.now() + timedelta(hours=2)
-        client = Client.objects.create(
-            shop_name="Callback Shop",
-            phone="+380671112233",
-            full_name="Owner",
-            owner=user,
-            call_result=Client.CallResult.THINKING,
-            next_call_at=next_call_at,
-        )
-        Client.objects.filter(id=client.id).update(created_at=timezone.now() - timedelta(days=1))
+        tz = timezone.get_current_timezone()
+        now_local = timezone.make_aware(datetime(2026, 3, 20, 11, 0), tz)
+        next_call_at = timezone.make_aware(datetime(2026, 3, 20, 13, 0), tz)
 
-        response = self.get_home()
+        with patch("management.views.timezone.now", return_value=now_local), patch(
+            "management.views.timezone.localdate", return_value=now_local.date()
+        ), patch("management.services.followup_state.timezone.now", return_value=now_local):
+            user = get_user_model().objects.create_user(username="shell_admin", password="x", is_staff=True)
+            profile = UserProfile.objects.get(user=user)
+            profile.is_manager = False
+            profile.save(update_fields=["is_manager"])
+            self.client.force_login(user)
+            client = Client.objects.create(
+                shop_name="Callback Shop",
+                phone="+380671112233",
+                full_name="Owner",
+                owner=user,
+                call_result=Client.CallResult.THINKING,
+                next_call_at=next_call_at,
+            )
+            Client.objects.filter(id=client.id).update(created_at=now_local - timedelta(days=1))
+
+            response = self.get_home()
 
         self.assertEqual(response.status_code, 200)
         grouped = response.context["grouped_clients"]

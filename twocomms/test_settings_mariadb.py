@@ -78,10 +78,16 @@ def _test_database_configuration() -> tuple[str, str, str, str, str]:
         )
 
     test_host = _canonical_host(host)
+    # Django treats an omitted MySQL HOST as ``localhost``. Account for that
+    # effective value only when the matching configured database exists, so a
+    # disposable loopback instance cannot silently point at production.
     production_hosts = {
-        _canonical_host(value)
-        for value in (os.environ.get("DB_HOST"), os.environ.get("DB_HOST_DTF"))
-        if (value or "").strip()
+        _canonical_host((host or "").strip() or "localhost")
+        for database_name, host in (
+            (os.environ.get("DB_NAME"), os.environ.get("DB_HOST")),
+            (os.environ.get("DB_NAME_DTF"), os.environ.get("DB_HOST_DTF")),
+        )
+        if (database_name or "").strip()
     }
     if test_host and test_host in production_hosts:
         raise RuntimeError(
