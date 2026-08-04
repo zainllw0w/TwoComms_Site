@@ -118,10 +118,18 @@ def validate_verified_aliases(aliases):
             tokens = [
                 token.casefold()
                 for token in re.findall(r"[^\W_]+(?:-[^\W_]+)*", alias)
-                if token.casefold() not in GENERIC_ALIAS_CONNECTORS
             ]
-            is_generic_only = bool(tokens) and all(
-                token in GENERIC_COMMERCE_ALIASES for token in tokens
+            identity_tokens = [
+                token for token in tokens if token not in GENERIC_ALIAS_CONNECTORS
+            ]
+            if not identity_tokens:
+                raise ValidationError({
+                    "aliases": (
+                        f"Verified alias '{alias}' ({locale}) has no product identity token."
+                    )
+                })
+            is_generic_only = all(
+                token in GENERIC_COMMERCE_ALIASES for token in identity_tokens
             )
             if alias in GENERIC_COMMERCE_ALIASES or is_generic_only:
                 raise ValidationError({
@@ -147,13 +155,14 @@ def validate_semantic_revision(
         raise ValidationError({"source": "Unsupported semantic revision source."})
     normalized_aliases = normalize_aliases({} if aliases is None else aliases)
     normalized_traits = normalize_traits({} if traits is None else traits)
-    if status == "verified":
+    if status in {"verified", "revoked"}:
         if source in NON_AUTHORITATIVE_SOURCES:
-            raise ValidationError({"source": "Non-authoritative suggestions cannot be verified."})
+            raise ValidationError({"source": "Non-authoritative suggestions cannot change commerce truth."})
         if verified_by is None or verified_at is None:
             raise ValidationError(
-                "Verified semantic revisions require a verifier and verification time."
+                "Commerce-truth revisions require a verifier and verification time."
             )
+    if status == "verified":
         validate_verified_aliases(normalized_aliases)
 
     return {
