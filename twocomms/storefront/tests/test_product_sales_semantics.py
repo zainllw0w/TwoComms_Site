@@ -134,6 +134,22 @@ class ProductSalesSemanticRevisionTests(TestCase):
                     verified_at=timezone.now(),
                 )
 
+    def test_revocation_requires_authoritative_source_and_verification_evidence(self):
+        for source, verified_by, verified_at in (
+            ("bot_vision", self.verifier, timezone.now()),
+            ("manager", None, timezone.now()),
+            ("manager", self.verifier, None),
+        ):
+            with self.subTest(source=source, verified_by=bool(verified_by), verified_at=bool(verified_at)), self.assertRaises(ValidationError):
+                validate_semantic_revision(
+                    status="revoked",
+                    source=source,
+                    aliases={},
+                    traits={},
+                    verified_by=verified_by,
+                    verified_at=verified_at,
+                )
+
     def test_verified_revision_requires_trustworthy_verification_evidence(self):
         for missing in ("verified_by", "verified_at"):
             values = {

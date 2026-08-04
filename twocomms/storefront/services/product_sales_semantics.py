@@ -155,13 +155,14 @@ def validate_semantic_revision(
         raise ValidationError({"source": "Unsupported semantic revision source."})
     normalized_aliases = normalize_aliases({} if aliases is None else aliases)
     normalized_traits = normalize_traits({} if traits is None else traits)
-    if status == "verified":
+    if status in {"verified", "revoked"}:
         if source in NON_AUTHORITATIVE_SOURCES:
-            raise ValidationError({"source": "Non-authoritative suggestions cannot be verified."})
+            raise ValidationError({"source": "Non-authoritative suggestions cannot change commerce truth."})
         if verified_by is None or verified_at is None:
             raise ValidationError(
-                "Verified semantic revisions require a verifier and verification time."
+                "Commerce-truth revisions require a verifier and verification time."
             )
+    if status == "verified":
         validate_verified_aliases(normalized_aliases)
 
     return {
