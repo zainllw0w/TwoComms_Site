@@ -46,6 +46,7 @@ __all__ = [
     "IgObjectionAttempt",
     "IgConversationAnalysisSnapshot",
     "IgConversationAnalysisJob",
+    "IgAiReplyRecoveryJob",
     "IgMetaEventLog",
     "BotDataDeletionRequest",
     "IgBotNotification",
@@ -3836,6 +3837,88 @@ class IgConversationAnalysisJob(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - trivial representation
         return f"{self.client_id}: {self.status}@{self.watermark_message_id}"
+
+
+class IgAiReplyRecoveryJob(models.Model):
+    """One non-replayable recovery intent for a failed customer AI turn.
+
+    A recovery is deliberately separate from sales follow-ups and conversation
+    analysis: it exists only to complete one specific inbound turn after a
+    transient provider failure.  ``SENDING`` means the Meta request boundary
+    was crossed.  It is never retried automatically without a provider receipt.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", _("Очікує відновлення")
+        PROCESSING = "processing", _("Готується відповідь")
+        SENDING = "sending", _("Надсилається")
+        SENT = "sent", _("Надіслано")
+        CANCELLED = "cancelled", _("Скасовано")
+        AMBIGUOUS = "ambiguous", _("Невідомий результат")
+        FAILED = "failed", _("Помилка відновлення")
+
+    source_message = models.OneToOneField(
+        "management.InstagramBotMessage",
+        on_delete=models.CASCADE,
+        related_name="ai_reply_recovery_job",
+        db_constraint=False,
+    )
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.CASCADE,
+        related_name="ai_reply_recovery_jobs",
+        db_constraint=False,
+    )
+    # The generic outage holding reply is allowed to precede the recovery.  A
+    # later substantive model reply still cancels this stale intent.
+    holding_message = models.OneToOneField(
+        "management.InstagramBotMessage",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="ai_recovery_holding_for",
+        db_constraint=False,
+    )
+    # The row is created before the Meta request.  It makes the exact draft
+    # visible for manual reconciliation even if the process dies during I/O.
+    reply_message = models.OneToOneField(
+        "management.InstagramBotMessage",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="ai_recovery_reply_for",
+        db_constraint=False,
+    )
+    dedupe_key = models.CharField(max_length=160, unique=True)
+    status = models.CharField(
+        max_length=16, choices=Status.choices, default=Status.PENDING, db_index=True
+    )
+    draft_text = models.TextField(blank=True, default="")
+    provider_message_id = models.CharField(max_length=255, blank=True, default="", db_index=True)
+    settings_permission_epoch = models.PositiveBigIntegerField(default=0)
+    client_permission_epoch = models.PositiveBigIntegerField(default=0)
+    message_floor = models.PositiveBigIntegerField(default=0)
+    response_window_deadline = models.DateTimeField(null=True, blank=True, db_index=True)
+    lease_token = models.CharField(max_length=40, blank=True, default="")
+    lease_until = models.DateTimeField(null=True, blank=True, db_index=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    last_error = models.CharField(max_length=1000, blank=True, default="")
+    sending_started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Відновлення AI-відповіді IG")
+        verbose_name_plural = _("Відновлення AI-відповідей IG")
+        ordering = ["id"]
+        indexes = [
+            models.Index(fields=["status", "response_window_deadline"], name="ig_ai_recovery_due"),
+            models.Index(fields=["client", "status"], name="ig_ai_recovery_client"),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - trivial representation
+        return f"recovery:{self.source_message_id}:{self.status}"
 
 
 class IgMetaEventLog(models.Model):
