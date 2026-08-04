@@ -263,8 +263,8 @@ class ChatTimeoutTests(TestCase):
         self.assertLess(sum(captured["timeout"]), caa.CHAT_DEADLINE_SECONDS)
         gk.clear_model_overload()
 
-    def test_management_keeps_long_timeout(self):
-        """Аудіо-аналіз (management) лишає довгий таймаут — генерація може бути довгою."""
+    def test_audio_management_keeps_long_timeout(self):
+        """Audio analysis, unlike CRM text analysis, may use the long timeout."""
         captured = {}
 
         class FakeResp:
@@ -280,7 +280,7 @@ class ChatTimeoutTests(TestCase):
 
         with patch.dict("os.environ", ENV6, clear=False), \
              patch("management.services.call_ai_analysis.requests.post", side_effect=fake_post):
-            caa.gemini_generate_json("S", "U", role="management")
+            caa._gemini_analyze(b"audio", "audio/mpeg", "context")
         self.assertEqual(captured["timeout"], caa.GEMINI_TIMEOUT)
         gk.clear_model_overload()
 

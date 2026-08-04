@@ -12,7 +12,7 @@ from management.bot_views import bot_settings_save_api
 
 
 class GeminiChatAuthorityTests(TestCase):
-    @patch("management.services.call_ai_analysis._run_with_pool")
+    @patch("management.services.call_ai_analysis._run_chat_with_pool")
     def test_text_generation_forwards_authoritative_model(self, run_pool):
         run_pool.return_value = {"parsed": "ok", "model": "gemini-3.6-flash", "meta": {}}
 
@@ -31,7 +31,7 @@ class GeminiChatAuthorityTests(TestCase):
         clear=False,
     )
     @patch("management.services.call_ai_analysis._gemini_call_once")
-    def test_selected_model_is_used_by_pooled_keys(self, call_once):
+    def test_retired_chat_model_override_normalizes_to_authoritative_model(self, call_once):
         call_once.return_value = ("ok", {})
 
         ai.gemini_generate_text(
@@ -40,7 +40,7 @@ class GeminiChatAuthorityTests(TestCase):
             model_override="gemini-2.5-flash",
         )
 
-        self.assertEqual(call_once.call_args.args[0], "gemini-2.5-flash")
+        self.assertEqual(call_once.call_args.args[0], "gemini-3.6-flash")
 
 
 class GeminiSettingsAllowlistTests(TestCase):
