@@ -2,6 +2,7 @@
 from django.test import TestCase
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
+from unittest.mock import patch
 
 from management.services.bot_catalog import get_catalog_context
 
@@ -225,3 +226,72 @@ class CatalogVariantPriceTests(TestCase):
         self.assertIn(f"Чорний (variant_id={variant.pk}, ціни:", text)
         self.assertIn("fit=classic=800 грн", text)
         self.assertIn("fit=oversize=950 грн", text)
+
+
+class CompactCatalogPromptTests(TestCase):
+    """Sales prompt may be shorter, but never less specific about a variant."""
+
+    def setUp(self):
+        from productcolors.models import Color, ProductColorVariant
+        from storefront.models import Category, Product, ProductFitOption, ProductStatus
+
+        category = Category.objects.create(name="Футболки", slug="compact-prompt-shirts")
+        self.product = Product.objects.create(
+            title="Футболка Бойова квіточка",
+            slug="compact-prompt-flower",
+            category=category,
+            price=1090,
+            status=ProductStatus.PUBLISHED,
+        )
+        ProductFitOption.objects.create(
+            product=self.product, code="classic", label="Класична", is_default=True,
+        )
+        ProductFitOption.objects.create(
+            product=self.product, code="oversize", label="Оверсайз",
+        )
+        white = Color.objects.create(name="Білий", primary_hex="#FFFFFF")
+        self.white_variant = ProductColorVariant.objects.create(
+            product=self.product,
+            color=white,
+            price_override=1090,
+            metadata={"bot_vision": {"summary": "білий квітковий принт"}},
+        )
+        thermo = Color.objects.create(name="Термо-зелена", primary_hex="#A2AB92")
+        self.thermo_variant = ProductColorVariant.objects.create(
+            product=self.product,
+            color=thermo,
+            price_override=1450,
+            is_default=True,
+            metadata={"bot_vision": {"summary": "термохромний квітковий принт"}},
+        )
+        self.other_product = Product.objects.create(
+            title="Базова чорна футболка",
+            slug="compact-prompt-basic",
+            category=category,
+            price=880,
+            status=ProductStatus.PUBLISHED,
+        )
+
+    @patch(
+        "management.services.bot_catalog.resolve_catalog_sizes",
+        return_value={"classic": ["S", "M"], "oversize": ["M", "L"]},
+    )
+    def test_compact_catalog_preserves_every_purchase_critical_fact(self, _sizes):
+        full = get_catalog_context(force=True)
+        compact = get_catalog_context(force=True, compact=True)
+
+        for product_id in (self.product.pk, self.other_product.pk):
+            self.assertIn(f"id={product_id}", compact)
+        for variant_id in (self.white_variant.pk, self.thermo_variant.pk):
+            self.assertIn(f"variant_id={variant_id}", compact)
+        self.assertIn("ціна 1090 грн", compact)
+        self.assertIn("ціна 1450 грн", compact)
+        self.assertIn("classic: S/M", compact)
+        self.assertIn("oversize: M/L", compact)
+        self.assertIn("термохромний квітковий принт", compact)
+
+        # The full form remains the compatibility default for media/catalog work.
+        self.assertIn("https://twocomms.shop/product/compact-prompt-flower/", full)
+        self.assertNotIn("https://twocomms.shop/product/", compact)
+        self.assertIn("скорочений формат", compact)
+        self.assertNotIn("скорочений формат", full)

@@ -977,6 +977,29 @@ _PAYLINK_FALLBACK_TEXT = {
     "en": "Thank you! I will confirm the payment details and get right back to you 🙌",
 }
 
+# Єдиний порядок джерел потрібен саме в runtime: production зберігає власний
+# `system_prompt`, тому зміна DEFAULT_BOT_SYSTEM_PROMPT не виправить уже живий
+# конфлікт між старою стилістикою, каталогом і редагованими директивами.
+CANONICAL_PROMPT_AUTHORITY_POLICY = (
+    "[ЄДИНИЙ ПОРЯДОК ІСТИНИ — службове]\n"
+    "Якщо джерела суперечать одне одному, застосовуй їх лише в такому порядку: "
+    "(1) підтверджені системою факти про оплату, замовлення та сервісний кейс; "
+    "(2) [СТАН ОФОРМЛЕННЯ] і факт обраної конфігурації з каталогу "
+    "(variant_id, колір/матеріал, фасон, розмір, кількість, точна ціна); "
+    "(3) поточна репліка клієнта та [СТАН ДІАЛОГУ]; "
+    "(4) поточні оперативні директиви й доречні playbook-інструкції; "
+    "(5) старий базовий промпт і стиль. Директива не може скасувати факт з пунктів 1-3.\n"
+    "Явне прохання клієнта писати UA/RU/EN або однозначна мова поточної репліки "
+    "має перевагу над застарілим формулюванням базового промпта чи старою мовою картки.\n"
+    "Якщо ціна залежить від кольору, матеріалу, variant_id, фасону чи іншої опції, "
+    "не називай одну точну суму, доки конфігурацію не визначено; не підмінюй її "
+    "базовою ціною товару. Позначена в каталозі знижка — це лише факт вже "
+    "порахованої ціни, а не дозвіл самостійно пропонувати rescue-знижку.\n"
+    "Не вигадуй товар, залишок, ціну, доставку, оплату чи знижку. В одній відповіді "
+    "має бути не більше одного запитання, одного чіткого CTA і одного доречного "
+    "апселлу; без тиску."
+)
+
 # Протокол оплати — інжектимо в system_instruction завжди (migration-free), щоб
 # модель давала ЯВНИЙ сигнал товару й типу оплати, а не лише обіцяла лінк текстом.
 # Не чіпаємо DEFAULT_BOT_SYSTEM_PROMPT (щоб не робити міграцію й не затирати
@@ -4951,9 +4974,16 @@ def assemble_system_instruction(
     константой), а свойства *промпта* — проверяемы и детерминированы.
     """
     sys_text = (s.system_prompt or "").strip()
-    live = (s.knowledge_base or "").strip()
+    sys_text = (sys_text + "\n\n" + CANONICAL_PROMPT_AUTHORITY_POLICY).strip()
+    live = _bounded_prompt_source(
+        s.knowledge_base or "",
+        limit=MAX_LIVE_DIRECTIVE_CHARS,
+        split_pattern=r"\n\s*\n",
+        separator="\n\n",
+        source_name="оперативних директив",
+    )
     if live:
-        sys_text += "\n\n[ОПЕРАТИВНІ ДИРЕКТИВИ — найвищий пріоритет, дотримуйся беззаперечно]\n" + live
+        sys_text += "\n\n[ОПЕРАТИВНІ ДИРЕКТИВИ — застосовуй у межах порядку істини вище]\n" + live
     sys_text += _context_sections(client, turn_text=turn_text or "")
     sys_text = sys_text.strip()
     # Протокол оплати ([PAYLINK]+[PRODUCT], без вигаданих URL) + правило точності.
@@ -5424,6 +5454,50 @@ def client_state_note(client) -> str:
     return body
 
 
+MAX_BRAND_KNOWLEDGE_CHARS = 3200
+MAX_LIVE_DIRECTIVE_CHARS = 2800
+MAX_QUICK_LINK_CHARS = 1600
+
+
+def _bounded_prompt_source(
+    value: str,
+    *,
+    limit: int,
+    split_pattern: str,
+    separator: str,
+    source_name: str,
+) -> str:
+    """Fit editable prompt text by complete semantic blocks only.
+
+    A character slice can leave a fabricated-looking price, URL or instruction
+    tail in the prompt. Paragraphs are the unit for free text; links are one
+    line each. If the first block itself is too large it is omitted in full,
+    which is safer than silently changing its meaning.
+    """
+    text = str(value or "").strip()
+    if not text or len(text) <= limit:
+        return text
+    blocks = [block.strip() for block in re.split(split_pattern, text) if block.strip()]
+    if not blocks:
+        return ""
+
+    kept: list[str] = []
+    used = 0
+    dropped = 0
+    for index, block in enumerate(blocks):
+        cost = len(block) + (len(separator) if kept else 0)
+        if used + cost > limit:
+            dropped = len(blocks) - index
+            break
+        kept.append(block)
+        used += cost
+
+    if not dropped:
+        return separator.join(kept)
+    notice = f"…({source_name}: {dropped} блок(ів) не вмістилися в бюджет)"
+    return separator.join([*kept, notice]) if kept else notice
+
+
 def _context_sections(client, turn_text: str = "") -> str:
     """База знаний + каталог + playbook-инструкции и ссылки.
 
@@ -5435,13 +5509,21 @@ def _context_sections(client, turn_text: str = "") -> str:
     def _brand_knowledge() -> str:
         from management.services.bot_knowledge import get_brand_knowledge
 
-        kb = get_brand_knowledge()
+        kb = _bounded_prompt_source(
+            get_brand_knowledge(),
+            limit=MAX_BRAND_KNOWLEDGE_CHARS,
+            split_pattern=r"\n\s*\n",
+            separator="\n\n",
+            source_name="бази знань",
+        )
         return "\n\n[БАЗА ЗНАНЬ ПРО БРЕНД]\n" + kb if kb else ""
 
     def _catalog() -> str:
         from management.services.bot_catalog import get_catalog_context
 
-        catalog = get_catalog_context()
+        # Full rows stay available for catalog/media workflows. Sales replies get
+        # the compact form with every purchasable configuration preserved.
+        catalog = get_catalog_context(compact=True)
         return "\n\n" + catalog if catalog else ""
 
     def _playbook() -> str:
@@ -5457,7 +5539,13 @@ def _context_sections(client, turn_text: str = "") -> str:
     def _quick_links() -> str:
         from management.models import BotQuickLink
 
-        links = BotQuickLink.active_block()
+        links = _bounded_prompt_source(
+            BotQuickLink.active_block(),
+            limit=MAX_QUICK_LINK_CHARS,
+            split_pattern=r"\n+",
+            separator="\n",
+            source_name="швидких посилань",
+        )
         return (
             "\n\n[ДОСТУПНІ ПОСИЛАННЯ — надсилай доречне за запитом]\n" + links
             if links

@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-from management.models import IgClient, InstagramBotLog, InstagramBotSettings
+from management.models import BotQuickLink, IgClient, InstagramBotLog, InstagramBotSettings
 
 
 class PromptDegradationVisibilityTests(TestCase):
@@ -91,6 +91,58 @@ class PromptDegradationVisibilityTests(TestCase):
         details = " ".join(d for _, d in self._errors())
         self.assertIn("catalog exploded", details)
         self.assertIn("catalog", details)
+
+
+class PromptContextBudgetTests(TestCase):
+    def setUp(self):
+        self.client_card = IgClient.objects.create(
+            igsid="9000000099", username="prompt_budget_client"
+        )
+
+    def test_catalog_is_requested_in_compact_mode_for_sales_prompt(self):
+        from management.services import instagram_bot as bot
+
+        with patch(
+            "management.services.bot_catalog.get_catalog_context",
+            return_value="CATALOG-ROW",
+        ) as get_catalog:
+            context = bot._context_sections(self.client_card)
+
+        get_catalog.assert_called_once_with(compact=True)
+        self.assertIn("CATALOG-ROW", context)
+
+    def test_brand_knowledge_is_bounded_by_complete_paragraphs(self):
+        from management.services import instagram_bot as bot
+
+        first = "BRAND-ONE " + "a" * 1400
+        second = "BRAND-TWO " + "b" * 1400
+        third = "BRAND-THREE " + "c" * 1400
+        with patch(
+            "management.services.bot_knowledge.get_brand_knowledge",
+            return_value="\n\n".join((first, second, third)),
+        ):
+            context = bot._context_sections(self.client_card)
+
+        self.assertIn(first, context)
+        self.assertIn(second, context)
+        self.assertNotIn("BRAND-THREE", context)
+        self.assertIn("бази знань: 1 блок(ів) не вмістилися", context)
+
+    def test_quick_links_are_bounded_by_complete_lines(self):
+        from management.services import instagram_bot as bot
+
+        urls = []
+        for index in range(3):
+            url = f"https://links.example/{index}/" + chr(97 + index) * 520
+            urls.append(url)
+            BotQuickLink.objects.create(label=f"Link {index}", url=url, order=index)
+
+        context = bot._context_sections(self.client_card)
+
+        self.assertIn(urls[0], context)
+        self.assertIn(urls[1], context)
+        self.assertNotIn(urls[2], context)
+        self.assertIn("швидких посилань: 1 блок(ів) не вмістилися", context)
 
 
 class PinProductVisibilityTests(TestCase):
