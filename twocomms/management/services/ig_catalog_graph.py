@@ -185,10 +185,10 @@ def _configuration_sizes(product, variant, row) -> tuple[str, ...]:
             variant_rules.get((fit_code, size))
             or variant_rules.get(("", size))
         )
-        if variant_rule is not None and (
-            not variant_rule.is_enabled
-            or (variant_rule.stock is not None and variant_rule.stock <= 0)
-        ):
+        # The graph describes catalog compatibility, not live allocation.
+        # Legacy numeric stock is ignored here; IMP-084 resolves inventory
+        # through the product's explicit warehouse/catalog policy.
+        if variant_rule is not None and not variant_rule.is_enabled:
             continue
         resolved.append(size)
     return tuple(resolved)

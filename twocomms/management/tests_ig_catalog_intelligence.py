@@ -600,6 +600,32 @@ class CatalogCandidateTests(CatalogIntelligenceFixture):
         self.assertEqual(len(allowed.candidates), 1)
         self.assertEqual(blocked.candidates, ())
 
+    def test_legacy_zero_size_stock_does_not_remove_catalog_compatibility(self):
+        grid = self.size_grid(sizes=("M",))
+        VariantOptionSizeGrid.objects.create(
+            variant=self.variant,
+            option_key="fit=classic",
+            size_grid=grid,
+        )
+        VariantSizeRule.objects.create(
+            variant=self.variant,
+            fit_code="classic",
+            size="M",
+            is_enabled=True,
+            stock=0,
+        )
+
+        result = rank_candidates(
+            build_catalog_graph(),
+            CommerceTurnRequest(
+                exact_product_id=self.product.pk,
+                hard={"color": "black", "fit": "classic", "size": "M"},
+            ),
+        )
+
+        self.assertEqual(len(result.candidates), 1)
+        self.assertEqual(result.candidates[0].product_id, self.product.pk)
+
     def test_garment_and_category_do_not_match_product_title_or_slug(self):
         decoy_category = Category.objects.create(name="Accessories", slug="accessories")
         decoy = Product.objects.create(
