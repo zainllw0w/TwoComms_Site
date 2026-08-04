@@ -21,13 +21,14 @@ import copy
 import logging
 import os
 import re
+import secrets
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from management.models import GeminiKeyState
+from management.models import GeminiKeyState, GeminiModelState, GeminiRequestAttempt
 
 logger = logging.getLogger("management.gemini_keys")
 
@@ -51,7 +52,7 @@ DEFAULT_ROLE_KEY_POOLS = {
 # 2.5-flash-lite). Ротація КЛЮЧІВ (API3→API4→…) — через model-major перебір в
 # iter_attempts: пріоритетна модель пробується на ВСІХ ключах перш ніж спуститись.
 DEFAULT_ROLE_MODEL_CHAINS = {
-    "chat": ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-2.5-flash-lite"],
+    "chat": ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"],
     "management": ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-2.5-flash-lite"],
     # Grounding (Google Search) безкоштовний ЛИШЕ на 2.5-flash / 2.5-flash-lite.
     "checker": ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
@@ -79,6 +80,7 @@ def max_rounds(role: str) -> int:
 FREE_QUOTA_MODELS = {
     "gemini-3.6-flash",
     "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
     "gemini-3.1-flash-lite",
     "gemini-3.1-flash-lite-preview",
     "gemini-2.5-flash",
@@ -88,10 +90,7 @@ FREE_QUOTA_MODELS = {
 CHAT_MODEL_ALLOWLIST = frozenset({
     "gemini-3.6-flash",
     "gemini-3.5-flash",
-    "gemini-3.1-flash-lite",
-    "gemini-3.1-flash-lite-preview",
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite",
+    "gemini-3.5-flash-lite",
 })
 DEFAULT_CHAT_MODEL = "gemini-3.6-flash"
 
@@ -114,6 +113,9 @@ ALL_KEYS = ["GEMINI_API", "GEMINI_API2", "GEMINI_API3", "GEMINI_API4", "GEMINI_A
 MODEL_OVERLOAD_SECONDS = 60    # 503 → модель «перевантажена» ~1 хв (швидке відновлення для чату)
 DEFAULT_MINUTE_COOLDOWN = 60   # per-minute 429 без retryDelay
 TOPUP_COOLDOWN_SECONDS = 6 * 3600  # платний проект без коштів
+KEY_LEASE_SECONDS = 70
+AUTH_KEY_QUARANTINE_SECONDS = 6 * 3600
+PERMISSION_PROJECT_QUARANTINE_SECONDS = 6 * 3600
 
 # In-process кеш перевантажених моделей: {model: datetime_until_utc}.
 _model_overload: dict[str, datetime.datetime] = {}
@@ -160,6 +162,8 @@ def project_group(key_name: str) -> str:
 
 
 CHAT_RESERVED_ALIASES = frozenset(("GEMINI_API", "GEMINI_API2"))
+CHAT_SHARED_RESERVE_ALIASES = frozenset(("GEMINI_API3", "GEMINI_API4"))
+CHAT_LAST_RESERVE_ALIASES = frozenset(("GEMINI_API5", "GEMINI_API6"))
 
 
 def _background_reserved_alias(key_name: str) -> bool:
@@ -233,7 +237,21 @@ def role_key_pools() -> dict:
 
 
 def role_model_chains() -> dict:
-    return getattr(settings, "GEMINI_ROLE_MODEL_CHAINS", None) or DEFAULT_ROLE_MODEL_CHAINS
+    configured = getattr(settings, "GEMINI_ROLE_MODEL_CHAINS", None)
+    chains = configured if isinstance(configured, dict) else DEFAULT_ROLE_MODEL_CHAINS
+    result = {
+        str(role): list(models) if isinstance(models, (list, tuple)) else []
+        for role, models in chains.items()
+    }
+    # The live-chat pool must never resurrect retired preview names through a
+    # settings override. Other roles keep their explicitly configured models.
+    chat_models = [
+        str(model).strip()
+        for model in result.get("chat", [])
+        if is_allowed_chat_model(str(model).strip())
+    ]
+    result["chat"] = chat_models or list(DEFAULT_ROLE_MODEL_CHAINS["chat"])
+    return result
 
 
 def is_allowed_chat_model(model: str) -> bool:
@@ -329,6 +347,237 @@ def _locked_key_states(aliases: list[str]) -> list[GeminiKeyState]:
         GeminiKeyState.objects.select_for_update()
         .filter(key_name__in=aliases)
         .order_by("key_name")
+    )
+
+
+def acquire_key_lease(
+    key_name: str,
+    *,
+    role: str,
+    now: datetime.datetime | None = None,
+    seconds: int = KEY_LEASE_SECONDS,
+) -> str | None:
+    """Claim a key or its known Google-project siblings without provider I/O."""
+    if key_name not in ALL_KEYS or not _key_value(key_name):
+        return None
+    now = now or timezone.now()
+    aliases = _project_aliases(key_name)
+    token = secrets.token_hex(16)
+    with transaction.atomic():
+        states = _locked_key_states(aliases)
+        if any(
+            state.lease_token and state.lease_until and state.lease_until > now
+            for state in states
+        ):
+            return None
+        lease_until = now + datetime.timedelta(seconds=max(1, int(seconds)))
+        for state in states:
+            state.lease_token = token
+            state.lease_until = lease_until
+            state.lease_role = str(role or "")[:20]
+            state.save(update_fields=["lease_token", "lease_until", "lease_role", "updated_at"])
+    return token
+
+
+def release_key_lease(key_name: str, token: str) -> bool:
+    """Release exactly the lease token that acquired the project group."""
+    if key_name not in ALL_KEYS or not token:
+        return False
+    aliases = _project_aliases(key_name)
+    with transaction.atomic():
+        states = _locked_key_states(aliases)
+        if not states or any(state.lease_token != token for state in states):
+            return False
+        for state in states:
+            state.lease_token = ""
+            state.lease_until = None
+            state.lease_role = ""
+            state.save(update_fields=["lease_token", "lease_until", "lease_role", "updated_at"])
+    return True
+
+
+def ordered_key_candidates(role: str, now: datetime.datetime | None = None) -> list[str]:
+    """Return present, uncooled, unleased aliases in priority/sticky order."""
+    now = now or timezone.now()
+    ordered = _ordered_role_keys(role)
+    seen_groups: set[str] = set()
+    out: list[str] = []
+    for key_name in ordered:
+        if not _key_value(key_name) or not is_available(key_name, now):
+            continue
+        group = project_group(key_name)
+        if group and group in seen_groups:
+            continue
+        st = GeminiKeyState.get(key_name)
+        if st.lease_token and st.lease_until and st.lease_until > now:
+            continue
+        out.append(key_name)
+        if group:
+            seen_groups.add(group)
+    return out
+
+
+def record_key_success(
+    key_name: str,
+    *,
+    latency_ms: int = 0,
+    now: datetime.datetime | None = None,
+) -> GeminiKeyState:
+    state = mark_success(key_name, now=now)
+    latency_ms = max(0, int(latency_ms or 0))
+    state.last_http_code = 200
+    state.last_failure_kind = ""
+    state.consecutive_failures = 0
+    if latency_ms:
+        state.latency_ewma_ms = latency_ms if not state.latency_ewma_ms else int(
+            (state.latency_ewma_ms * 0.7) + (latency_ms * 0.3)
+        )
+    state.save(update_fields=[
+        "last_http_code", "last_failure_kind", "consecutive_failures",
+        "latency_ewma_ms", "updated_at",
+    ])
+    return state
+
+
+def record_key_failure(
+    key_name: str,
+    *,
+    failure_kind: str,
+    http_code: int | None = None,
+    latency_ms: int = 0,
+    now: datetime.datetime | None = None,
+) -> GeminiKeyState:
+    now = now or timezone.now()
+    state = GeminiKeyState.get(key_name)
+    state.last_status = str(failure_kind or "failure")[:32]
+    state.last_failure_kind = str(failure_kind or "failure")[:32]
+    state.last_http_code = int(http_code) if http_code else None
+    state.last_error = state.last_failure_kind
+    state.consecutive_failures = min(65535, int(state.consecutive_failures or 0) + 1)
+    latency_ms = max(0, int(latency_ms or 0))
+    if latency_ms:
+        state.latency_ewma_ms = latency_ms if not state.latency_ewma_ms else int(
+            (state.latency_ewma_ms * 0.7) + (latency_ms * 0.3)
+        )
+    state.save(update_fields=[
+        "last_status", "last_failure_kind", "last_http_code", "last_error",
+        "consecutive_failures", "latency_ewma_ms", "updated_at",
+    ])
+    return state
+
+
+def quarantine_key(
+    key_name: str,
+    *,
+    failure_kind: str,
+    http_code: int | None = None,
+    project_scope: bool = False,
+    seconds: int = AUTH_KEY_QUARANTINE_SECONDS,
+    now: datetime.datetime | None = None,
+) -> GeminiKeyState:
+    """Temporarily remove a known-bad key, or its known project, from rotation."""
+    now = now or timezone.now()
+    aliases = _project_aliases(key_name) if project_scope else [key_name]
+    until = now + datetime.timedelta(seconds=max(1, int(seconds)))
+    scope = "permission" if project_scope else "auth"
+    with transaction.atomic():
+        states = _locked_key_states(aliases)
+        by_name = {state.key_name: state for state in states}
+        for state in states:
+            if not state.cooldown_until or state.cooldown_until < until:
+                state.cooldown_until = until
+            state.cooldown_scope = scope
+            state.last_status = str(failure_kind or "quarantined")[:32]
+            state.last_failure_kind = str(failure_kind or "quarantined")[:32]
+            state.last_http_code = int(http_code) if http_code else None
+            state.last_error = state.last_failure_kind
+            state.consecutive_failures = min(
+                65535, int(state.consecutive_failures or 0) + 1
+            )
+            state.save(update_fields=[
+                "cooldown_until", "cooldown_scope", "last_status",
+                "last_failure_kind", "last_http_code", "last_error",
+                "consecutive_failures", "updated_at",
+            ])
+        return by_name[key_name]
+
+
+def open_model_circuit(
+    model: str,
+    *,
+    reason: str,
+    seconds: int = MODEL_OVERLOAD_SECONDS,
+    project: str = "",
+    now: datetime.datetime | None = None,
+) -> GeminiModelState:
+    now = now or timezone.now()
+    with transaction.atomic():
+        state, _created = GeminiModelState.objects.select_for_update().get_or_create(
+            model_name=str(model or "")[:80]
+        )
+        until = now + datetime.timedelta(seconds=max(1, int(seconds)))
+        if not state.circuit_until or state.circuit_until < until:
+            state.circuit_until = until
+        state.circuit_reason = str(reason or "")[:32]
+        state.transient_failures = min(65535, int(state.transient_failures or 0) + 1)
+        state.last_failure_project = str(project or "")[:80]
+        state.last_failure_at = now
+        state.save()
+    return state
+
+
+def model_circuit_open(model: str, now: datetime.datetime | None = None) -> bool:
+    now = now or timezone.now()
+    state = GeminiModelState.objects.filter(model_name=str(model or "")[:80]).first()
+    return bool(state and state.circuit_until and state.circuit_until > now)
+
+
+def record_model_success(model: str, now: datetime.datetime | None = None) -> GeminiModelState:
+    now = now or timezone.now()
+    state, _created = GeminiModelState.objects.get_or_create(model_name=str(model or "")[:80])
+    state.circuit_until = None
+    state.circuit_reason = ""
+    state.transient_failures = 0
+    state.last_ok_at = now
+    state.save()
+    return state
+
+
+def record_attempt(
+    *,
+    request_id: str,
+    role: str,
+    key_name: str,
+    model: str,
+    outcome: str,
+    failure_kind: str = "",
+    http_code: int | None = None,
+    provider_reason: str = "",
+    decision: str = "",
+    latency_ms: int = 0,
+    remaining_deadline_ms: int = 0,
+    usage: dict | None = None,
+    error_detail: str = "",
+) -> GeminiRequestAttempt:
+    """Persist only bounded classifications, never the supplied raw detail."""
+    usage = usage if isinstance(usage, dict) else {}
+    return GeminiRequestAttempt.objects.create(
+        request_id=str(request_id or "")[:40],
+        role=str(role or "")[:20],
+        key_name=str(key_name or "")[:40],
+        project_group=project_group(key_name)[:80],
+        model=str(model or "")[:80],
+        outcome=str(outcome or "")[:24],
+        failure_kind=str(failure_kind or "")[:32],
+        http_code=int(http_code) if http_code else None,
+        provider_reason=str(provider_reason or "")[:80],
+        decision=str(decision or "")[:48],
+        latency_ms=max(0, int(latency_ms or 0)),
+        remaining_deadline_ms=max(0, int(remaining_deadline_ms or 0)),
+        prompt_tokens=max(0, int(usage.get("promptTokenCount") or 0)),
+        thoughts_tokens=max(0, int(usage.get("thoughtsTokenCount") or 0)),
+        candidates_tokens=max(0, int(usage.get("candidatesTokenCount") or 0)),
+        error_detail=str(failure_kind or "")[:120],
     )
 
 
@@ -483,6 +732,28 @@ def _sticky_order(key_names: list[str]) -> list[str]:
     return sorted(key_names, key=_last_ok, reverse=True)
 
 
+def _ordered_role_keys(role: str) -> list[str]:
+    """Keep chat reserve tiers intact while preferring recent success within each."""
+    pool = role_key_pools().get(role, {"own": [], "borrow": []})
+    own = _sticky_order(list(pool.get("own", [])))
+    borrowed = list(pool.get("borrow", []))
+    if role != "chat":
+        return own + _sticky_order(borrowed)
+    shared = _sticky_order([
+        alias for alias in borrowed if alias in CHAT_SHARED_RESERVE_ALIASES
+    ])
+    last = _sticky_order([
+        alias for alias in borrowed if alias in CHAT_LAST_RESERVE_ALIASES
+    ])
+    remaining = _sticky_order([
+        alias
+        for alias in borrowed
+        if alias not in CHAT_SHARED_RESERVE_ALIASES
+        and alias not in CHAT_LAST_RESERVE_ALIASES
+    ])
+    return own + shared + last + remaining
+
+
 def iter_attempts(role: str, model_chain_override: list[str] | None = None):
     """Генерує (key_name, key_value, model) у порядку пріоритету.
 
@@ -501,11 +772,10 @@ def iter_attempts(role: str, model_chain_override: list[str] | None = None):
     перша ж 503 збила б нас із 3.5 на нижчу модель, чого ми й уникаємо.
     Per-key cooldown (429) перевіряється ліниво — вичерпаний ключ пропускаємо.
     """
-    pool = role_key_pools().get(role, {"own": [], "borrow": []})
     models = list(
         model_chain_override if model_chain_override is not None else model_chain(role)
     )
-    ordered_keys = _sticky_order(list(pool.get("own", []))) + _sticky_order(list(pool.get("borrow", [])))
+    ordered_keys = _ordered_role_keys(role)
     present = [(kn, _key_value(kn)) for kn in ordered_keys]
     present = [(kn, kv) for kn, kv in present if kv]
     overloaded_at_start = {m for m in models if is_model_overloaded(m, timezone.now())}
@@ -522,6 +792,27 @@ def iter_attempts(role: str, model_chain_override: list[str] | None = None):
             if not is_available(key_name, timezone.now()):
                 continue  # ключ у кулдауні (429) → пропускаємо для цієї моделі
             yield (key_name, kv, model)
+
+
+def iter_live_chat_attempts(model_chain_override: list[str] | None = None):
+    """Yield live-chat candidates once per known project and open model circuit."""
+    models = list(
+        model_chain_override
+        if model_chain_override is not None
+        else model_chain("chat")
+    )
+    keys = ordered_key_candidates("chat")
+    for model in models:
+        if (
+            is_model_overloaded(model)
+            or is_model_unavailable(model)
+            or model_circuit_open(model)
+        ):
+            continue
+        for key_name in keys:
+            key_value = _key_value(key_name)
+            if key_value and is_available(key_name):
+                yield key_name, key_value, model
 
 
 def has_available_key(role: str, now: datetime.datetime | None = None) -> bool:

@@ -167,6 +167,9 @@ class IgEngineAuditTests(TestCase):
         self.assertIn("management_igconversationanalysissnapshot", IG_RUNTIME_TABLES)
         self.assertIn("management_igconversationanalysisjob", IG_RUNTIME_TABLES)
         self.assertIn("management_geminikeystate", IG_RUNTIME_TABLES)
+        self.assertIn("management_geminimodelstate", IG_RUNTIME_TABLES)
+        self.assertIn("management_geminirequestattempt", IG_RUNTIME_TABLES)
+        self.assertIn("management_igaireplyrecoveryjob", IG_RUNTIME_TABLES)
 
     def test_read_only_engine_audit_reports_every_runtime_table(self):
         out = StringIO()

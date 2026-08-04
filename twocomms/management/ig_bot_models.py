@@ -3899,6 +3899,10 @@ class IgAiReplyRecoveryJob(models.Model):
     client_permission_epoch = models.PositiveBigIntegerField(default=0)
     message_floor = models.PositiveBigIntegerField(default=0)
     response_window_deadline = models.DateTimeField(null=True, blank=True, db_index=True)
+    # Created before the holding Meta send, then explicitly armed only after
+    # its provider receipt is persisted. A prepared job is never worker-due.
+    activated_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    next_attempt_at = models.DateTimeField(null=True, blank=True, db_index=True)
     lease_token = models.CharField(max_length=40, blank=True, default="")
     lease_until = models.DateTimeField(null=True, blank=True, db_index=True)
     attempts = models.PositiveSmallIntegerField(default=0)
@@ -3914,6 +3918,10 @@ class IgAiReplyRecoveryJob(models.Model):
         ordering = ["id"]
         indexes = [
             models.Index(fields=["status", "response_window_deadline"], name="ig_ai_recovery_due"),
+            models.Index(
+                fields=["status", "activated_at", "next_attempt_at"],
+                name="ig_ai_recovery_ready",
+            ),
             models.Index(fields=["client", "status"], name="ig_ai_recovery_client"),
         ]
 

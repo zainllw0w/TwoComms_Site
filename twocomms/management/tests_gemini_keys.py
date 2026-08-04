@@ -359,6 +359,16 @@ class KeyLevel429Tests(SimpleTestCase):
 
 
 class ModelChainPolicyTests(SimpleTestCase):
+    @override_settings(GEMINI_ROLE_MODEL_CHAINS={
+        "chat": ["gemini-3-flash-preview", "gemini-3.5-flash-lite", "gemini-3.6-flash"],
+    })
+    def test_chat_override_filters_obsolete_models_through_allowlist(self):
+        from management.services import gemini_keys as gk
+
+        chain = gk.model_chain("chat")
+
+        self.assertEqual(chain, ["gemini-3.5-flash-lite", "gemini-3.6-flash"])
+
     def test_management_chain_uses_gemini_36_flash_first(self):
         from management.services import gemini_keys as gk
 
@@ -460,6 +470,63 @@ class ModelChainDegradationTests(SimpleTestCase):
         for m in chain:
             self.assertIn(m, gk.FREE_GROUNDING_MODELS)
         self.assertNotIn("gemini-3.5-flash", chain)
+
+
+class DurableGeminiStateTests(TestCase):
+    def setUp(self):
+        from management.services import gemini_keys as gk
+
+        self.gk = gk
+        self.env = {
+            "GEMINI_API": "chat-key-1",
+            "GEMINI_API2": "chat-key-2",
+            "GEMINI_API3": "analysis-key-1",
+        }
+
+    def test_project_siblings_cannot_hold_the_same_lease(self):
+        acquire = getattr(self.gk, "acquire_key_lease", None)
+        release = getattr(self.gk, "release_key_lease", None)
+        self.assertTrue(callable(acquire), "missing durable key lease acquisition")
+        self.assertTrue(callable(release), "missing durable key lease release")
+
+        with patch.dict("os.environ", self.env, clear=False), override_settings(
+            GEMINI_KEY_PROJECT_GROUPS="GEMINI_API=chat-project,GEMINI_API2=chat-project,GEMINI_API3=analysis-project"
+        ):
+            token = acquire("GEMINI_API", role="chat")
+            self.assertTrue(token)
+            self.assertIsNone(acquire("GEMINI_API2", role="chat"))
+            self.assertFalse(release("GEMINI_API", "wrong-token"))
+            self.assertTrue(release("GEMINI_API", token))
+            self.assertTrue(acquire("GEMINI_API2", role="chat"))
+
+    def test_model_circuit_is_cross_process_state(self):
+        opener = getattr(self.gk, "open_model_circuit", None)
+        is_open = getattr(self.gk, "model_circuit_open", None)
+        self.assertTrue(callable(opener), "missing durable model circuit")
+        self.assertTrue(callable(is_open), "missing durable circuit check")
+
+        opener("gemini-3.6-flash", reason="http_404")
+        self.assertTrue(is_open("gemini-3.6-flash"))
+
+    def test_attempt_telemetry_is_redacted_and_keyed_by_request(self):
+        recorder = getattr(self.gk, "record_attempt", None)
+        self.assertTrue(callable(recorder), "missing Gemini request telemetry")
+
+        row = recorder(
+            request_id="request-redacted-1",
+            role="chat",
+            key_name="GEMINI_API",
+            model="gemini-3.6-flash",
+            outcome="failed",
+            failure_kind="read_timeout",
+            error_detail="api_key=chat-key-1 customer text must not persist",
+            latency_ms=123,
+            remaining_deadline_ms=456,
+        )
+        self.assertEqual(row.request_id, "request-redacted-1")
+        self.assertEqual(row.failure_kind, "read_timeout")
+        self.assertNotIn("chat-key-1", row.error_detail)
+        self.assertNotIn("customer text", row.error_detail)
 
 
 class ModelUnavailableSkipTests(TestCase):

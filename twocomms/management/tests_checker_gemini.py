@@ -89,7 +89,7 @@ class GeminiJsonPoolTests(TestCase):
 
     def test_503_falls_back_to_next_model_same_key(self):
         def fake(model, payload, key, *, parse=True, timeout=None):
-            if model == "gemini-3.5-flash":
+            if model == "gemini-3.6-flash":
                 raise caa._GeminiTransient("HTTP 503")
             return ({"ok": True}, {})
 
@@ -99,8 +99,8 @@ class GeminiJsonPoolTests(TestCase):
             out = caa.gemini_generate_json("S", "U", role="management")
 
         self.assertEqual(out["parsed"], {"ok": True})
-        self.assertNotEqual(out["model"], "gemini-3.5-flash")
-        self.assertTrue(gk.is_model_overloaded("gemini-3.5-flash"))
+        self.assertNotEqual(out["model"], "gemini-3.6-flash")
+        self.assertTrue(gk.is_model_overloaded("gemini-3.6-flash"))
         gk.clear_model_overload()
 
     def test_all_exhausted_raises(self):
@@ -259,7 +259,8 @@ class ChatTimeoutTests(TestCase):
              patch("management.services.call_ai_analysis.requests.post", side_effect=fake_post):
             out = caa.gemini_generate_text({"contents": []}, role="chat")
         self.assertEqual(out["parsed"], "привіт")
-        self.assertEqual(captured["timeout"], caa.CHAT_TIMEOUT)
+        self.assertLessEqual(sum(captured["timeout"]), sum(caa.CHAT_TIMEOUT))
+        self.assertLess(sum(captured["timeout"]), caa.CHAT_DEADLINE_SECONDS)
         gk.clear_model_overload()
 
     def test_management_keeps_long_timeout(self):

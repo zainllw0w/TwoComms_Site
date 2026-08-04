@@ -200,6 +200,27 @@ def _analysis_worker(stop_event: threading.Event):
         stop_event.wait(5)
 
 
+def _ai_reply_recovery_worker(stop_event: threading.Event):
+    """Drain one failed live-reply recovery independently of deep analysis."""
+    from management.services.ig_ai_reply_recovery import process_due_recoveries
+
+    while not stop_event.is_set():
+        worked = False
+        try:
+            close_old_connections()
+            if not maintenance_status(path=MAINTENANCE_FILE)["active"]:
+                worked = bool(process_due_recoveries(limit=1))
+        except Exception as exc:
+            try:
+                bot.log("error", "ai_reply_recovery", repr(exc))
+            except Exception:
+                pass
+        finally:
+            close_old_connections()
+        if stop_event.wait(0.5 if worked else 2):
+            break
+
+
 def _inbox_refresh_worker(stop_event: threading.Event):
     """Drain administrator-requested inbox recovery outside the reply loop."""
     from management.services.ig_inbox_refresh import process_refresh_slice
@@ -503,6 +524,12 @@ class Command(BaseCommand):
             daemon=True,
         )
         analysis_worker.start()
+        recovery_worker = threading.Thread(
+            target=_ai_reply_recovery_worker,
+            args=(stop_event,),
+            daemon=True,
+        )
+        recovery_worker.start()
         inbox_refresh_worker = threading.Thread(
             target=_inbox_refresh_worker,
             args=(stop_event,),

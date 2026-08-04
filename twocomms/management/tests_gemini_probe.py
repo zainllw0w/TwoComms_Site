@@ -1,6 +1,7 @@
 import json
 from unittest.mock import patch
 
+import requests
 from django.core.management import call_command
 from django.test import TestCase
 
@@ -141,6 +142,62 @@ class GeminiProbeClassificationTests(TestCase):
 
         self.assertEqual(status["status"], "quota")
         self.assertNotIn("secret-key-value", json.dumps(status))
+
+
+class GeminiProviderErrorTests(TestCase):
+    def _response(self, code, payload):
+        response = type("Response", (), {})()
+        response.status_code = code
+        response.text = json.dumps(payload)
+        response.json = lambda: payload
+        return response
+
+    @patch("management.services.call_ai_analysis.requests.post")
+    def test_invalid_api_key_400_is_safe_key_error(self, post):
+        post.return_value = self._response(400, {
+            "error": {
+                "status": "INVALID_ARGUMENT",
+                "message": "do not persist this secret-key-value",
+                "details": [{"reason": "API_KEY_INVALID"}],
+            }
+        })
+
+        with self.assertRaises(caa._GeminiFatal) as ctx:
+            caa._gemini_call_once(
+                "gemini-3.6-flash", {"contents": []}, "secret-key-value", parse=False
+            )
+
+        self.assertIn("API_KEY_INVALID", str(ctx.exception))
+        self.assertNotIn("secret-key-value", str(ctx.exception))
+
+    @patch("management.services.call_ai_analysis.requests.post")
+    def test_timeout_is_not_labeled_as_http_503(self, post):
+        post.side_effect = requests.ReadTimeout("read timeout")
+
+        with self.assertRaises(caa._GeminiTransient) as ctx:
+            caa._gemini_call_once(
+                "gemini-3.6-flash", {"contents": []}, "key", parse=False
+            )
+
+        self.assertTrue(str(ctx.exception).startswith("timeout:"))
+        self.assertNotIn("503", str(ctx.exception))
+
+    @patch("management.services.call_ai_analysis.requests.post")
+    def test_permission_error_keeps_provider_status_without_body(self, post):
+        post.return_value = self._response(403, {
+            "error": {
+                "status": "PERMISSION_DENIED",
+                "message": "private provider body",
+            }
+        })
+
+        with self.assertRaises(caa._GeminiModelUnavailable) as ctx:
+            caa._gemini_call_once(
+                "gemini-3.6-flash", {"contents": []}, "key", parse=False
+            )
+
+        self.assertIn("PERMISSION_DENIED", str(ctx.exception))
+        self.assertNotIn("private provider body", str(ctx.exception))
 
 
 class GeminiProbeCommandTests(TestCase):

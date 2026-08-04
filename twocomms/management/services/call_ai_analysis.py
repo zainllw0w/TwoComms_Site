@@ -29,6 +29,7 @@ import os
 import re
 import threading
 import time
+import uuid
 from decimal import Decimal, InvalidOperation
 
 import requests
@@ -66,13 +67,29 @@ BACKOFF_BASE = 2.0          # секунди, експоненційно між 
 CHAT_DEADLINE_SECONDS = 75.0
 MANAGEMENT_TEXT_DEADLINE_SECONDS = 75.0
 
+# Live chat has a separate SLA from the longer-running generic pool.  Keep a
+# usable interval for a quality fallback; a tuple timeout is a *total* budget,
+# because requests can consume both the connect and read portions.
+CHAT_ORDINARY_DEADLINE_SECONDS = 35.0
+CHAT_COMPLEX_DEADLINE_SECONDS = 45.0
+CHAT_MIN_CALL_SECONDS = 2.0
+CHAT_PRIMARY_ATTEMPT_LIMIT = 2
+CHAT_COMPLEX_TASKS = frozenset({
+    "product_decision",
+    "size_fit_decision",
+    "catalog_match",
+    "media_analysis",
+    "payment_decision",
+    "order_decision",
+})
+
 # This is an application policy, not a provider claim about token equivalence.
 # Gemini 3.x consumes the level; Gemini 2.5 fallbacks consume the budget table.
 REASONING_POLICY_VERSION = "2026-07-23.v1"
 _REASONING_BUDGETS = {"minimal": 0, "low": 1024, "medium": 4096, "high": 8192}
 _REASONING_POLICIES = {
     "health_probe": "low",
-    "customer_chat": "medium",
+    "customer_chat": "low",
     "product_decision": "high",
     "size_fit_decision": "high",
     "catalog_match": "high",
@@ -85,6 +102,28 @@ _REASONING_POLICIES = {
     "memory_summary": "medium",
     "reporting_summary": "medium",
 }
+_REASONING_OUTPUT_CAPS = {
+    "customer_chat": 1536,
+    "product_decision": 4096,
+    "size_fit_decision": 4096,
+    "catalog_match": 4096,
+    "media_analysis": 4096,
+    "payment_decision": 4096,
+    "order_decision": 4096,
+}
+
+_BOUNDED_PROVIDER_REASONS = frozenset({
+    "API_KEY_INVALID",
+    "INVALID_ARGUMENT",
+    "UNAUTHENTICATED",
+    "PERMISSION_DENIED",
+    "NOT_FOUND",
+    "RESOURCE_EXHAUSTED",
+    "UNAVAILABLE",
+    "DEADLINE_EXCEEDED",
+    "INTERNAL",
+})
+_HTTP_CODE_RE = re.compile(r"\bHTTP\s+(\d{3})\b", re.IGNORECASE)
 
 
 def reasoning_policy(task: str) -> dict:
@@ -97,6 +136,7 @@ def reasoning_policy(task: str) -> dict:
         "task": key,
         "level": level,
         "thinking_budget": _REASONING_BUDGETS[level],
+        "max_output_tokens": _REASONING_OUTPUT_CAPS.get(key),
         "policy_version": REASONING_POLICY_VERSION,
     }
 
@@ -325,6 +365,8 @@ def _payload_for_model(
     if not isinstance(thinking, dict):
         thinking = {}
         generation["thinkingConfig"] = thinking
+    if policy["max_output_tokens"] is not None:
+        generation["maxOutputTokens"] = policy["max_output_tokens"]
     if str(model or "").startswith("gemini-3"):
         # Gemini 3.x documents thinkingLevel; sending thinkingBudget can turn a
         # valid health/chat request into HTTP 400. Gemini 3 reasoning is also
@@ -374,8 +416,15 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
         except _GeminiTransient as exc:
             dt = time.monotonic() - t0
             log.append(f"{key_name}/{model}: transient {exc} (#{attempt + 1})")
-            _emit(f"{key_name}/{model}: ⚠ перевантаження/503 ({dt:.1f}с) → інша модель")
-            gemini_keys.mark_model_overloaded(model)
+            text = str(exc).lower()
+            if text.startswith("timeout:"):
+                kind = "read timeout"
+            elif text.startswith("transport:"):
+                kind = "transport error"
+            else:
+                kind = "HTTP 5xx"
+                gemini_keys.mark_model_overloaded(model)
+            _emit(f"{key_name}/{model}: ⚠ {kind} ({dt:.1f}с) → інша модель")
             if attempt < n_attempts - 1:
                 time.sleep(BACKOFF_BASE * (2 ** attempt))
             continue
@@ -548,6 +597,328 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
     )
 
 
+def _chat_deadline_seconds(reasoning_task: str) -> float:
+    return (
+        CHAT_COMPLEX_DEADLINE_SECONDS
+        if reasoning_task in CHAT_COMPLEX_TASKS
+        else CHAT_ORDINARY_DEADLINE_SECONDS
+    )
+
+
+def _chat_timeout(remaining: float, *, preserve_fallback: bool) -> tuple[float, float] | None:
+    """Return a connect/read tuple whose *sum* fits the live SLA."""
+    allowance = remaining - (CHAT_MIN_CALL_SECONDS if preserve_fallback else 0.0)
+    if allowance < CHAT_MIN_CALL_SECONDS:
+        return None
+    # Halve the available primary phase per attempt. This prevents the first
+    # request from consuming the complete strong-model phase on a read timeout.
+    if preserve_fallback:
+        allowance /= 2.0
+    allowance = min(float(sum(CHAT_TIMEOUT)), allowance)
+    connect = min(float(CHAT_TIMEOUT[0]), max(0.25, allowance * 0.2))
+    read = allowance - connect
+    if read <= 0:
+        return None
+    return (connect, read)
+
+
+def _chat_key_failure(exc: Exception) -> bool:
+    detail = str(exc).upper()
+    return "API_KEY_INVALID" in detail or "HTTP 401" in detail
+
+
+def _bounded_provider_reason(exc: Exception) -> str:
+    """Keep only a known provider classification out of a typed error string."""
+    detail = str(exc).upper()
+    for reason in _BOUNDED_PROVIDER_REASONS:
+        if reason in detail:
+            return reason
+    return ""
+
+
+def _transient_failure_details(exc: Exception) -> tuple[str, int | None]:
+    """Classify transport/HTTP transient errors without retaining provider text."""
+    detail = str(exc)
+    match = _HTTP_CODE_RE.search(detail)
+    if match:
+        code = int(match.group(1))
+        if code == 408:
+            return "http_408", code
+        if 500 <= code < 600:
+            return "http_5xx", code
+    if detail.lower().startswith("timeout:"):
+        return "read_timeout", None
+    return "transport", None
+
+
+def _chat_result(*, parsed, usage: dict | None, model: str, key_name: str,
+                 attempts: list[str], policy: dict, started_at: float) -> dict:
+    usage = usage if isinstance(usage, dict) else {}
+    return {
+        "parsed": parsed,
+        "raw": parsed,
+        "usage": usage,
+        "model": model,
+        "meta": {
+            "key": key_name,
+            "used_model": model,
+            "attempts": list(attempts),
+            "reasoning_task": policy["task"],
+            "reasoning_level": policy["level"],
+            "reasoning_budget": policy["thinking_budget"],
+            "reasoning_policy_version": policy["policy_version"],
+            "finish_reason": str(usage.get("_finish_reason") or "")[:32],
+            "thoughts_tokens": int(
+                usage.get("thoughtsTokenCount") or usage.get("thoughts_token_count") or 0
+            ),
+            "candidates_tokens": int(
+                usage.get("candidatesTokenCount") or usage.get("candidates_token_count") or 0
+            ),
+            "latency_ms": max(0, int((time.monotonic() - started_at) * 1000)),
+        },
+    }
+
+
+def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
+                        parse: bool = False, log_cb=None,
+                        model_override: str | None = None,
+                        reasoning_task: str = "customer_chat") -> dict:
+    """Run one live reply through a deadline-aware, quality-first pool.
+
+    The generic runner is intentionally not reused here: its three rounds and
+    backoff are valid for background jobs, but were the direct cause of a
+    customer reply spending 75 seconds on three equal 25-second timeouts.
+    """
+    policy = reasoning_policy(reasoning_task)
+    working_payload = copy.deepcopy(payload)
+    working_payload["_reasoning_task"] = policy["task"]
+    manual_key = str(manual_key or "").strip() or None
+    if manual_key and not gemini_keys.manual_key_allowed("chat", manual_key):
+        manual_key = None
+
+    models = gemini_keys.model_chain("chat", model_override)
+    if not models:
+        raise CallAIAnalysisError("Не налаштована модель Gemini для live chat.")
+    attempts: list[str] = []
+    request_id = uuid.uuid4().hex
+    started_at = time.monotonic()
+    deadline = started_at + _chat_deadline_seconds(policy["task"])
+
+    def _emit(message: str) -> None:
+        if log_cb:
+            try:
+                log_cb(message)
+            except Exception:
+                pass
+
+    candidates = list(gemini_keys.iter_live_chat_attempts(
+        model_chain_override=models
+    ))
+    if manual_key:
+        candidates = [
+            ("(manual)", manual_key, model)
+            for model in models
+            if not gemini_keys.model_circuit_open(model)
+        ] + candidates
+
+    def _call(key_name: str, key_value: str, model: str, *, preserve_fallback: bool):
+        if gemini_keys.model_circuit_open(model):
+            attempts.append(f"{key_name}/{model}: model_circuit_open")
+            _emit(f"{key_name}/{model}: model circuit open")
+            return None, "model_circuit_open"
+        remaining = deadline - time.monotonic()
+        timeout = _chat_timeout(remaining, preserve_fallback=preserve_fallback)
+        if timeout is None:
+            return None, "deadline"
+        lease_token = None
+        if key_name in gemini_keys.ALL_KEYS:
+            if not gemini_keys.is_available(key_name):
+                attempts.append(f"{key_name}/{model}: quarantined")
+                _emit(f"{key_name}/{model}: quarantined")
+                return None, "quarantined"
+            lease_token = gemini_keys.acquire_key_lease(key_name, role="chat")
+            if not lease_token:
+                attempts.append(f"{key_name}/{model}: lease_busy")
+                _emit(f"{key_name}/{model}: lease busy")
+                return None, "lease_busy"
+
+        def _release() -> None:
+            if lease_token:
+                try:
+                    gemini_keys.release_key_lease(key_name, lease_token)
+                except Exception:
+                    logger.debug("gemini key lease release unavailable", exc_info=True)
+        request_payload = _payload_for_model(
+            model, working_payload, reasoning_task=policy["task"]
+        )
+        request_payload.pop("_reasoning_task", None)
+        call_started_at = time.monotonic()
+
+        def _audit(outcome: str, *, failure_kind: str = "", http_code: int | None = None,
+                   provider_reason: str = "", decision: str = "",
+                   usage: dict | None = None) -> None:
+            try:
+                gemini_keys.record_attempt(
+                    request_id=request_id,
+                    role="chat",
+                    key_name=key_name,
+                    model=model,
+                    outcome=outcome,
+                    failure_kind=failure_kind,
+                    http_code=http_code,
+                    provider_reason=provider_reason,
+                    decision=decision,
+                    latency_ms=int((time.monotonic() - call_started_at) * 1000),
+                    remaining_deadline_ms=max(0, int((deadline - time.monotonic()) * 1000)),
+                    usage=usage,
+                )
+            except Exception:
+                logger.debug("gemini attempt audit unavailable", exc_info=True)
+
+        try:
+            parsed, usage = _gemini_call_once(
+                model, request_payload, key_value, parse=parse, timeout=timeout
+            )
+        except _GeminiTransient as exc:
+            kind, transient_http_code = _transient_failure_details(exc)
+            attempts.append(f"{key_name}/{model}: {kind}: {exc}")
+            if key_name in gemini_keys.ALL_KEYS:
+                gemini_keys.record_key_failure(
+                    key_name,
+                    failure_kind=kind,
+                    http_code=transient_http_code,
+                    latency_ms=int((time.monotonic() - call_started_at) * 1000),
+                )
+            _audit(
+                "failed", failure_kind=kind,
+                http_code=transient_http_code,
+                provider_reason=_bounded_provider_reason(exc),
+                decision="degrade_model",
+            )
+            _emit(f"{key_name}/{model}: {kind} ({time.monotonic() - call_started_at:.1f}с)")
+            _release()
+            return None, "transient"
+        except _GeminiEmpty as exc:
+            attempts.append(f"{key_name}/{model}: empty: {exc}")
+            _audit("failed", failure_kind="empty", decision="retry_or_degrade")
+            _emit(f"{key_name}/{model}: empty response")
+            _release()
+            return None, "empty"
+        except _Gemini429 as exc:
+            if key_name in gemini_keys.ALL_KEYS and gemini_keys.is_key_level_429(model, False):
+                scope, seconds = gemini_keys.parse_429(str(exc))
+                gemini_keys.mark_429(key_name, scope, seconds, error=str(exc))
+                gemini_keys.record_key_failure(key_name, failure_kind="quota_429", http_code=429)
+            _audit(
+                "failed", failure_kind="quota_429", http_code=429,
+                provider_reason=_bounded_provider_reason(exc),
+                decision="cooldown_project",
+            )
+            attempts.append(f"{key_name}/{model}: quota_429")
+            _emit(f"{key_name}/{model}: quota_429")
+            _release()
+            return None, "quota"
+        except _GeminiModelUnavailable as exc:
+            attempts.append(f"{key_name}/{model}: model_unavailable: {exc}")
+            kind = "model_not_found" if "404" in str(exc) else "permission_denied"
+            if key_name in gemini_keys.ALL_KEYS:
+                if kind == "permission_denied":
+                    gemini_keys.quarantine_key(
+                        key_name,
+                        failure_kind=kind,
+                        http_code=403,
+                        project_scope=True,
+                        seconds=gemini_keys.PERMISSION_PROJECT_QUARANTINE_SECONDS,
+                    )
+                else:
+                    gemini_keys.record_key_failure(
+                        key_name, failure_kind=kind, http_code=404
+                    )
+            if kind == "model_not_found":
+                gemini_keys.open_model_circuit(model, reason=kind, project=gemini_keys.project_group(key_name))
+            _audit(
+                "failed", failure_kind=kind,
+                http_code=404 if kind == "model_not_found" else 403,
+                provider_reason=_bounded_provider_reason(exc),
+                decision="skip_model" if kind == "model_not_found" else "rotate_key",
+            )
+            _emit(f"{key_name}/{model}: model unavailable")
+            _release()
+            return None, "model_unavailable"
+        except _GeminiFatal as exc:
+            kind = "invalid_key" if _chat_key_failure(exc) else "invalid_payload"
+            if kind == "invalid_key" and key_name in gemini_keys.ALL_KEYS:
+                gemini_keys.quarantine_key(
+                    key_name, failure_kind=kind, http_code=401, project_scope=False
+                )
+            _audit(
+                "failed", failure_kind=kind,
+                http_code=401 if kind == "invalid_key" else 400,
+                provider_reason=_bounded_provider_reason(exc),
+                decision="rotate_key" if kind == "invalid_key" else "stop_payload",
+            )
+            if _chat_key_failure(exc):
+                attempts.append(f"{key_name}/{model}: invalid_key")
+                _emit(f"{key_name}/{model}: invalid key")
+                _release()
+                return None, "invalid_key"
+            _release()
+            raise CallAIAnalysisError(f"Помилка запиту до Gemini: {exc}") from exc
+
+        if key_name in gemini_keys.ALL_KEYS:
+            gemini_keys.record_key_success(
+                key_name, latency_ms=int((time.monotonic() - call_started_at) * 1000)
+            )
+        gemini_keys.record_model_success(model)
+        _audit("succeeded", usage=usage)
+        attempts.append(f"{key_name}/{model}: ok")
+        _emit(f"{key_name}/{model}: ok ({time.monotonic() - call_started_at:.1f}с)")
+        result = _chat_result(
+            parsed=parsed, usage=usage, model=model, key_name=key_name,
+            attempts=attempts, policy=policy, started_at=call_started_at,
+        )
+        if lease_token:
+            _release()
+        return result, "ok"
+
+    primary = models[0]
+    primary_attempts = [candidate for candidate in candidates if candidate[2] == primary]
+    slow_primary_calls = 0
+    for key_name, key_value, model in primary_attempts:
+        result, state = _call(key_name, key_value, model, preserve_fallback=True)
+        if result:
+            return result
+        if state in {"deadline", "model_unavailable", "model_circuit_open"}:
+            break
+        if state not in {
+            "invalid_key", "model_unavailable", "quota", "lease_busy", "quarantined",
+        }:
+            slow_primary_calls += 1
+            if slow_primary_calls >= CHAT_PRIMARY_ATTEMPT_LIMIT:
+                break
+
+    # A slow primary-model/transport fault gets one quality fallback phase.  A
+    # fast key failure may still walk the full key list below without spending
+    # the live budget on six long timeouts.
+    for model in models[1:]:
+        for key_name, key_value, _ in (candidate for candidate in candidates if candidate[2] == model):
+            result, state = _call(key_name, key_value, model, preserve_fallback=False)
+            if result:
+                return result
+            if state == "deadline":
+                raise CallAIAnalysisError(
+                    "Перебір Gemini перервано по live дедлайну. Спроби: "
+                    + "; ".join(attempts)
+                )
+            if state in {"model_unavailable", "model_circuit_open"}:
+                break
+
+    raise CallAIAnalysisError(
+        "Усі Gemini-кандидати для live chat недоступні. Спроби: "
+        + "; ".join(attempts)
+    )
+
+
 def gemini_generate_json(system_instruction: str, user_text: str, *,
                          role: str = "management", max_output_tokens: int = 4096,
                          reasoning_task: str | None = None,
@@ -588,7 +959,7 @@ def gemini_generate_json(system_instruction: str, user_text: str, *,
     return _run_with_pool(
         role,
         payload,
-        timeout=MANAGEMENT_TEXT_TIMEOUT if role == "management" else None,
+        timeout=GEMINI_TIMEOUT if role == "management" else None,
         deadline_seconds=(
             MANAGEMENT_TEXT_DEADLINE_SECONDS if role == "management" else None
         ),
@@ -644,6 +1015,15 @@ def gemini_generate_text(payload: dict, *, role: str = "chat",
     """Текстовий (не-JSON) запит для діалогового бота. Пул ключів ролі + цепочка
     моделей. У result['parsed'] — сирий текст відповіді моделі.
     log_cb (опц.) отримує короткі рядки про кожну спробу (для консолі бота)."""
+    if role == "chat":
+        return _run_chat_with_pool(
+            payload,
+            manual_key=(manual_key or "").strip() or None,
+            parse=False,
+            log_cb=log_cb,
+            model_override=model_override,
+            reasoning_task=reasoning_task or "customer_chat",
+        )
     bounded_management = role == "management"
     return _run_with_pool(
         role,
@@ -710,6 +1090,31 @@ def _build_payload(audio_bytes: bytes, mime: str, manager_context: str, manager_
     }
 
 
+def _safe_provider_error_summary(response) -> str:
+    """Extract only provider classifications, never an error message/body."""
+    try:
+        payload = response.json()
+    except (TypeError, ValueError, AttributeError):
+        payload = None
+    error = payload.get("error") if isinstance(payload, dict) else None
+    if not isinstance(error, dict):
+        return "UNKNOWN"
+    parts = []
+    status = str(error.get("status") or "").strip()
+    if status:
+        parts.append(status[:80])
+    for detail in error.get("details") or []:
+        if not isinstance(detail, dict):
+            continue
+        reason = str(detail.get("reason") or "").strip()
+        if reason and reason not in parts:
+            parts.append(reason[:80])
+        retry_delay = str(detail.get("retryDelay") or "").strip()
+        if retry_delay:
+            parts.append(f"retryDelay={retry_delay[:24]}")
+    return ":".join(parts)[:240] or "UNKNOWN"
+
+
 def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True,
                       timeout: tuple | None = None) -> tuple:
     """Один виклик generateContent. Повертає (parsed_json|text, usage) або кидає
@@ -730,15 +1135,15 @@ def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True
 
     code = resp.status_code
     if code != 200:
-        snippet = resp.text[:400]
-        if code in (503, 500, 502, 504):
-            raise _GeminiTransient(f"HTTP {code}")
+        summary = _safe_provider_error_summary(resp)
+        if code == 408 or 500 <= code < 600:
+            raise _GeminiTransient(f"HTTP {code}: {summary}")
         if code == 429:
-            raise _Gemini429(snippet)
+            raise _Gemini429(summary)
         if code in (404, 403):
-            raise _GeminiModelUnavailable(f"HTTP {code}: {snippet}")
+            raise _GeminiModelUnavailable(f"HTTP {code}: {summary}")
         # 400 та інші — проблема нашого запиту.
-        raise _GeminiFatal(f"HTTP {code}: {snippet}")
+        raise _GeminiFatal(f"HTTP {code}: {summary}")
 
     try:
         data = resp.json()

@@ -1367,7 +1367,7 @@ def compose_followup(task: IgFollowUpTask, *, now: datetime | None = None) -> st
             "Не забиратиму багато часу: підкажіть, що зупинило - розмір, ціна чи щось інше? Якщо замовлення вже не актуальне, скажіть, і більше не писатиму."
         )
     if en:
-        return "Is the order still relevant? If yes, I can place it in two minutes; only the size is left. If not, reply 'no' and I will close it."
+        return "Is this order still relevant? If yes, I can place it in two minutes; only the size is left. If not, reply 'no' and I will close it."
     return (
         "Подскажите, заказ ещё актуален? Если да - оформлю всё за 2 минуты, осталось определить размер. Если нет - напишите «нет», и я закрою вопрос."
         if ru else

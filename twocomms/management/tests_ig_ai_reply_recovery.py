@@ -1,6 +1,9 @@
 from datetime import timedelta
+from io import StringIO
 from unittest.mock import patch
 
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.test import TestCase
 from django.utils import timezone
 
@@ -33,6 +36,125 @@ class IgAIReplyRecoveryTests(TestCase):
         self.assertEqual(first.pk, second.pk)
         self.assertEqual(self.recovery.IgAiReplyRecoveryJob.objects.count(), 1)
 
+    def test_prepared_recovery_is_inert_until_holding_delivery_is_confirmed(self):
+        job = self.recovery.schedule_recovery(self.source, activate=False)
+        holding = InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=InstagramBotMessage.Role.MODEL,
+            text="Зараз відновлю деталі.",
+            status=InstagramBotMessage.Status.DONE,
+            source="ai_fallback",
+            send_state="sent",
+            provider_message_id="holding-confirmed-1",
+        )
+
+        with patch.object(self.recovery, "send_text") as send:
+            self.recovery.process_recovery_job(job.pk)
+
+        job.refresh_from_db()
+        self.assertIsNone(job.activated_at)
+        self.assertEqual(job.status, job.Status.PENDING)
+        send.assert_not_called()
+
+        self.recovery.activate_recovery(job, holding_message=holding)
+        with patch.object(
+            self.recovery,
+            "_generate_recovery_draft",
+            return_value="Вибачте за затримку. Уже відповідаю.",
+        ), patch.object(
+            self.recovery,
+            "send_text",
+            return_value=ProviderDeliveryReceipt(True, "", "", "recovery-activated-1"),
+        ) as send:
+            result = self.recovery.process_recovery_job(job.pk)
+
+        result.refresh_from_db()
+        self.assertEqual(result.status, result.Status.SENT)
+        self.assertIsNotNone(result.activated_at)
+        send.assert_called_once()
+
+    def test_unconfirmed_holding_terminalizes_prepared_recovery_without_sending(self):
+        job = self.recovery.schedule_recovery(self.source, activate=False)
+
+        self.recovery.terminalize_prepared_recovery(
+            job,
+            reason="holding_provider_message_id_missing",
+            ambiguous=True,
+        )
+
+        job.refresh_from_db()
+        self.assertEqual(job.status, job.Status.AMBIGUOUS)
+        self.assertEqual(job.last_error, "holding_provider_message_id_missing")
+        self.assertIsNotNone(job.completed_at)
+        self.assertEqual(self.recovery.process_due_recoveries(limit=1), 0)
+
+    def test_worker_reconciles_confirmed_holding_for_prepared_recovery(self):
+        job = self.recovery.schedule_recovery(self.source, activate=False)
+        holding = InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=InstagramBotMessage.Role.MODEL,
+            text="Зараз уточню деталі.",
+            status=InstagramBotMessage.Status.DONE,
+            source="webhook",
+            provider_message_id="holding-reconcile-1",
+        )
+        self.recovery.schedule_recovery(
+            self.source,
+            holding_message=holding,
+            activate=False,
+        )
+
+        with patch.object(
+            self.recovery,
+            "_generate_recovery_draft",
+            return_value="Вибачте за затримку. Вже відповідаю.",
+        ), patch.object(
+            self.recovery,
+            "send_text",
+            return_value=ProviderDeliveryReceipt(True, "", "", "reconciled-recovery-1"),
+        ):
+            self.assertEqual(self.recovery.process_due_recoveries(limit=1), 1)
+
+        job.refresh_from_db()
+        self.assertIsNotNone(job.activated_at)
+        self.assertEqual(job.status, job.Status.SENT)
+
+    def test_generation_failure_is_deferred_before_the_next_recovery_attempt(self):
+        job = self.recovery.schedule_recovery(self.source)
+
+        with patch.object(
+            self.recovery,
+            "_generate_recovery_draft",
+            side_effect=RuntimeError("temporary Gemini failure"),
+        ):
+            result = self.recovery.process_recovery_job(job.pk)
+
+        result.refresh_from_db()
+        self.assertEqual(result.status, result.Status.PENDING)
+        self.assertGreater(result.next_attempt_at, timezone.now())
+        self.assertEqual(self.recovery.process_due_recoveries(limit=1), 0)
+
+    @patch("management.services.ig_ai_reply_recovery.notify_manager")
+    def test_generation_failure_terminalizes_after_bounded_recovery_attempts(self, notify_manager):
+        job = self.recovery.schedule_recovery(self.source)
+        job.attempts = self.recovery.MAX_RECOVERY_ATTEMPTS - 1
+        job.save(update_fields=["attempts"])
+
+        with patch.object(
+            self.recovery,
+            "_generate_recovery_draft",
+            side_effect=RuntimeError("persistent Gemini failure"),
+        ):
+            result = self.recovery.process_recovery_job(job.pk)
+
+        result.refresh_from_db()
+        self.assertEqual(result.status, result.Status.FAILED)
+        self.assertIsNotNone(result.completed_at)
+        self.assertIsNone(result.next_attempt_at)
+        notify_manager.assert_called_once()
+
     def test_newer_inbound_cancels_before_gemini(self):
         job = self.recovery.schedule_recovery(self.source)
         InstagramBotMessage.objects.create(
@@ -49,6 +171,34 @@ class IgAIReplyRecoveryTests(TestCase):
         job.refresh_from_db()
         self.assertEqual(job.status, job.Status.CANCELLED)
         generate.assert_not_called()
+
+    def test_recovery_history_ends_at_the_failed_customer_turn(self):
+        holding = InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=InstagramBotMessage.Role.MODEL,
+            text="Коротка технічна затримка, будь ласка, зачекайте.",
+            status=InstagramBotMessage.Status.DONE,
+            source="ai_fallback",
+            send_state="sent",
+            provider_message_id="holding-1",
+        )
+        later = InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=InstagramBotMessage.Role.USER,
+            text="Нове повідомлення, яке не належить старому turn.",
+            status=InstagramBotMessage.Status.DONE,
+            source="webhook",
+        )
+        job = self.recovery.schedule_recovery(self.source, holding_message=holding)
+
+        history = self.recovery._build_recovery_history(job)
+        texts = [item["text"] for item in history]
+
+        self.assertIn(self.source.text, texts)
+        self.assertNotIn(holding.text, texts)
+        self.assertNotIn(later.text, texts)
 
     def test_confirmed_receipt_finalizes_and_is_idempotent(self):
         job = self.recovery.schedule_recovery(self.source)
@@ -91,6 +241,14 @@ class IgAIReplyRecoveryTests(TestCase):
         self.assertEqual(again.pk, result.pk)
         send.assert_called_once()
 
+    def test_recovery_draft_fits_one_meta_send_request(self):
+        from management.services.instagram_bot import _split_for_send
+
+        draft = self.recovery._trim_draft("слово " * 500)
+
+        self.assertLessEqual(len(draft.encode("utf-8")), 950)
+        self.assertEqual(len(_split_for_send(draft)), 1)
+
     def test_draft_and_history_row_exist_before_meta_request(self):
         job = self.recovery.schedule_recovery(self.source)
 
@@ -126,3 +284,150 @@ class IgAIReplyRecoveryTests(TestCase):
         result.refresh_from_db()
         self.assertEqual(result.status, result.Status.AMBIGUOUS)
         send.assert_not_called()
+
+    def test_command_defaults_to_read_only_dry_run(self):
+        output = StringIO()
+
+        call_command(
+            "recover_ig_ai_reply",
+            source_message=str(self.source.pk),
+            stdout=output,
+        )
+
+        self.assertIn("dry_run", output.getvalue())
+        self.assertFalse(
+            self.recovery.IgAiReplyRecoveryJob.objects.filter(
+                source_message=self.source,
+            ).exists()
+        )
+
+    def test_command_requires_explicit_acknowledgement_for_legacy_unreceipted_holding(self):
+        holding = InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=InstagramBotMessage.Role.MODEL,
+            text="Зараз передам менеджеру.",
+            status=InstagramBotMessage.Status.DONE,
+            source="webhook",
+        )
+
+        with self.assertRaisesMessage(CommandError, "unreceipted_holding_not_acknowledged"):
+            call_command(
+                "recover_ig_ai_reply",
+                source_message=str(self.source.pk),
+                holding_message=str(holding.pk),
+                execute=True,
+            )
+
+        self.assertFalse(
+            self.recovery.IgAiReplyRecoveryJob.objects.filter(
+                source_message=self.source,
+            ).exists()
+        )
+
+    def test_command_recovers_with_explicit_acknowledged_legacy_unreceipted_holding(self):
+        holding = InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=InstagramBotMessage.Role.MODEL,
+            text="Зараз передам менеджеру.",
+            status=InstagramBotMessage.Status.DONE,
+            source="webhook",
+        )
+        output = StringIO()
+
+        with patch.object(
+            self.recovery,
+            "_generate_recovery_draft",
+            return_value="Вибачте за технічну затримку. Я вже на зв'язку.",
+        ), patch.object(
+            self.recovery,
+            "send_text",
+            return_value=ProviderDeliveryReceipt(True, "", "", "meta-recovery-legacy-1"),
+        ) as send:
+            call_command(
+                "recover_ig_ai_reply",
+                source_message=str(self.source.pk),
+                holding_message=str(holding.pk),
+                acknowledge_unreceipted_holding=True,
+                execute=True,
+                stdout=output,
+            )
+
+        job = self.recovery.IgAiReplyRecoveryJob.objects.get(source_message=self.source)
+        self.assertEqual(job.holding_message_id, holding.pk)
+        self.assertEqual(job.status, job.Status.SENT)
+        self.assertEqual(job.provider_message_id, "meta-recovery-legacy-1")
+        self.assertIn('"status": "sent"', output.getvalue())
+        send.assert_called_once()
+
+    def test_command_acknowledgement_links_an_existing_prepared_job(self):
+        self.recovery.schedule_recovery(self.source, activate=False)
+        holding = InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=InstagramBotMessage.Role.MODEL,
+            text="Зараз передам менеджеру.",
+            status=InstagramBotMessage.Status.DONE,
+            source="webhook",
+        )
+
+        with patch.object(
+            self.recovery,
+            "_generate_recovery_draft",
+            return_value="Вибачте за затримку. Я вже на зв'язку.",
+        ), patch.object(
+            self.recovery,
+            "send_text",
+            return_value=ProviderDeliveryReceipt(True, "", "", "meta-recovery-prepared-1"),
+        ):
+            call_command(
+                "recover_ig_ai_reply",
+                source_message=str(self.source.pk),
+                holding_message=str(holding.pk),
+                acknowledge_unreceipted_holding=True,
+                execute=True,
+            )
+
+        job = self.recovery.IgAiReplyRecoveryJob.objects.get(source_message=self.source)
+        self.assertEqual(job.holding_message_id, holding.pk)
+        self.assertEqual(job.status, job.Status.SENT)
+
+    def test_acknowledgement_does_not_exempt_a_confirmed_bot_reply(self):
+        reply = InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=InstagramBotMessage.Role.MODEL,
+            text="Звичайна відповідь бота.",
+            status=InstagramBotMessage.Status.DONE,
+            source="webhook",
+            send_state="sent",
+            provider_message_id="ordinary-reply-1",
+        )
+
+        with self.assertRaisesMessage(CommandError, "holding_must_be_unreceipted"):
+            call_command(
+                "recover_ig_ai_reply",
+                source_message=str(self.source.pk),
+                holding_message=str(reply.pk),
+                acknowledge_unreceipted_holding=True,
+                execute=True,
+            )
+
+    def test_due_worker_drains_pending_recovery_once(self):
+        job = self.recovery.schedule_recovery(self.source)
+        with patch.object(
+            self.recovery,
+            "_generate_recovery_draft",
+            return_value="Вибачте за затримку. Вже відповідаю.",
+        ), patch.object(
+            self.recovery,
+            "send_text",
+            return_value=ProviderDeliveryReceipt(True, "", "", "meta-recovery-due-1"),
+        ) as send:
+            processed = self.recovery.process_due_recoveries(limit=5)
+
+        job.refresh_from_db()
+        self.assertEqual(processed, 1)
+        self.assertEqual(job.status, job.Status.SENT)
+        send.assert_called_once()

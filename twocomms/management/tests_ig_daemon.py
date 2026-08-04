@@ -30,6 +30,7 @@ from management.management.commands.run_instagram_bot import (
     PROJECT_ROOT,
     Command,
     _daemon_alive,
+    _ai_reply_recovery_worker,
     _analysis_worker,
     _conversation_refresh_wait_seconds,
     _process_lock_held,
@@ -337,6 +338,21 @@ class AnalysisWorkerTests(SimpleTestCase):
 
         self.assertEqual(reconcile.call_count, 2)
         self.assertEqual(process.call_count, 3)
+
+
+class AiReplyRecoveryWorkerTests(SimpleTestCase):
+    @patch("management.services.ig_ai_reply_recovery.process_due_recoveries", return_value=1)
+    @patch("management.management.commands.run_instagram_bot.close_old_connections")
+    @patch(
+        "management.management.commands.run_instagram_bot.maintenance_status",
+        return_value={"active": False},
+    )
+    def test_recovery_worker_drains_one_due_job_independently(
+        self, _maintenance, _close, process_due
+    ):
+        _ai_reply_recovery_worker(_BoundedWorkerEvent(cycles=1))
+
+        process_due.assert_called_once_with(limit=1)
 
 
 class DaemonMaintenanceTests(SimpleTestCase):

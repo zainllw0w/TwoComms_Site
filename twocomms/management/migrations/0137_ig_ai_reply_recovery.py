@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("management", "0135_gemini_resilience_state"),
+        ("management", "0136_gemini_resilience_state"),
     ]
 
     operations = [

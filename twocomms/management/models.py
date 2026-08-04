@@ -4028,6 +4028,13 @@ class GeminiKeyState(models.Model):
     last_probe_finish_reason = models.CharField(max_length=32, blank=True)
     last_probe_http_code = models.PositiveSmallIntegerField(null=True, blank=True)
     last_probe_error = models.CharField(max_length=120, blank=True)
+    lease_token = models.CharField(max_length=40, blank=True, default="")
+    lease_until = models.DateTimeField(null=True, blank=True, db_index=True)
+    lease_role = models.CharField(max_length=20, blank=True, default="")
+    last_http_code = models.PositiveSmallIntegerField(null=True, blank=True)
+    last_failure_kind = models.CharField(max_length=32, blank=True, default="")
+    consecutive_failures = models.PositiveSmallIntegerField(default=0)
+    latency_ewma_ms = models.PositiveIntegerField(default=0)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -4041,6 +4048,58 @@ class GeminiKeyState(models.Model):
 
     def __str__(self):
         return f"GeminiKeyState({self.key_name})"
+
+
+class GeminiModelState(models.Model):
+    """Cross-process circuit state for one Gemini model name."""
+
+    model_name = models.CharField(max_length=80, unique=True)
+    circuit_until = models.DateTimeField(null=True, blank=True, db_index=True)
+    circuit_reason = models.CharField(max_length=32, blank=True, default="")
+    transient_failures = models.PositiveSmallIntegerField(default=0)
+    last_failure_project = models.CharField(max_length=80, blank=True, default="")
+    last_failure_at = models.DateTimeField(null=True, blank=True)
+    last_ok_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Стан моделі Gemini")
+        verbose_name_plural = _("Стани моделей Gemini")
+
+    def __str__(self):
+        return f"GeminiModelState({self.model_name})"
+
+
+class GeminiRequestAttempt(models.Model):
+    """Redacted provider-attempt evidence, never customer or provider bodies."""
+
+    request_id = models.CharField(max_length=40, db_index=True)
+    role = models.CharField(max_length=20)
+    key_name = models.CharField(max_length=40)
+    project_group = models.CharField(max_length=80, blank=True, default="")
+    model = models.CharField(max_length=80)
+    outcome = models.CharField(max_length=24)
+    failure_kind = models.CharField(max_length=32, blank=True, default="")
+    http_code = models.PositiveSmallIntegerField(null=True, blank=True)
+    provider_reason = models.CharField(max_length=80, blank=True, default="")
+    decision = models.CharField(max_length=48, blank=True, default="")
+    latency_ms = models.PositiveIntegerField(default=0)
+    remaining_deadline_ms = models.PositiveIntegerField(default=0)
+    prompt_tokens = models.PositiveIntegerField(default=0)
+    thoughts_tokens = models.PositiveIntegerField(default=0)
+    candidates_tokens = models.PositiveIntegerField(default=0)
+    error_detail = models.CharField(max_length=120, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-id"]
+        indexes = [
+            models.Index(fields=["request_id", "-id"], name="gemini_attempt_request"),
+            models.Index(fields=["role", "-id"], name="gemini_attempt_role"),
+        ]
+
+    def __str__(self):
+        return f"GeminiRequestAttempt({self.request_id}:{self.outcome})"
 
 
 class LeadCheckJob(models.Model):

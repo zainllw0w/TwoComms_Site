@@ -107,6 +107,20 @@ class ProviderDeliveryReceipt:
         return self.ok, self.kind, self.hint
 
 
+def _delivery_receipt(result) -> tuple[bool, str, str, str, bool]:
+    """Normalize old tuple callers while making an explicit receipt auditable."""
+    if isinstance(result, ProviderDeliveryReceipt):
+        return (
+            bool(result.ok),
+            str(result.kind or ""),
+            str(result.hint or ""),
+            str(result.provider_message_id or ""),
+            True,
+        )
+    ok, kind, hint = result
+    return bool(ok), str(kind or ""), str(hint or ""), "", False
+
+
 def _provider_message_id(response_body) -> str:
     try:
         payload = json.loads(response_body or "{}") if isinstance(response_body, str) else response_body
@@ -4651,21 +4665,29 @@ def send_text(
                 data=body,
             )
         if code == 200:
+            message_id = _provider_message_id(resp)
+            if return_receipt and not message_id:
+                # A multi-chunk response is confirmed only if every accepted
+                # chunk has its own Meta ID.  Earlier chunks may be delivered,
+                # so this must be terminally unknown rather than a retry.
+                return ProviderDeliveryReceipt(
+                    False, "unknown", "provider_message_id_missing", ""
+                )
             if provider_message_callback:
                 try:
                     response_payload = json.loads(resp or "{}")
                 except (TypeError, ValueError):
                     response_payload = {}
-                message_id = str(response_payload.get("message_id") or "").strip()
-                if message_id:
-                    provider_message_callback(message_id)
+                callback_message_id = str(response_payload.get("message_id") or "").strip()
+                if callback_message_id:
+                    provider_message_callback(callback_message_id)
             ok_any = True
-            provider_message_id = provider_message_id or _provider_message_id(resp)
+            provider_message_id = provider_message_id or message_id
             # Реєструємо `message_id` одразу: echo цього чанка прийде асинхронно,
             # і саме по цьому ідентифікатору ми його впізнаємо. Текстовий
             # відпечаток лишається, але він не працює для медіа й не переживає
             # скидання кеша.
-            _register_outgoing_message(_provider_message_id(resp), recipient_id, kind="text")
+            _register_outgoing_message(message_id, recipient_id, kind="text")
             _clear_send_error(s)
             _clear_client_delivery_error(recipient_id)
             continue
@@ -4716,7 +4738,12 @@ def send_text(
                         data=fallback_body,
                     )
                 if fallback_code == 200:
-                    provider_message_id = provider_message_id or _provider_message_id(fallback_resp)
+                    fallback_message_id = _provider_message_id(fallback_resp)
+                    if return_receipt and not fallback_message_id:
+                        return ProviderDeliveryReceipt(
+                            False, "unknown", "provider_message_id_missing", ""
+                        )
+                    provider_message_id = provider_message_id or fallback_message_id
                     if provider_message_callback:
                         try:
                             fallback_response_payload = json.loads(fallback_resp or "{}")
@@ -4928,14 +4955,38 @@ def select_chat_reasoning_task(
     return "customer_chat"
 
 
+def _gemini_failure_kind(exc: Exception) -> str:
+    """Map the bounded live-pool error summary to a safe routing class.
+
+    ``gemini_generate`` intentionally keeps its historical ``str | None``
+    return contract.  The typed side channel below lets the fallback layer
+    distinguish a provider outage from safety, empty-output, or payload errors
+    without persisting raw provider text.
+    """
+    message = str(exc or "").casefold()
+    transient_markers = (
+        "read_timeout",
+        "transport",
+        "quota_429",
+        "http_408",
+        "http_5xx",
+        "live дедлайн",
+        "live deadline",
+    )
+    return "provider_outage" if any(marker in message for marker in transient_markers) else "generation_error"
+
+
 def gemini_generate(
     s: InstagramBotSettings, history: list[dict], images: list[tuple[str, bytes]] | None = None,
     match_hint: str | None = None, memory_note: str | None = None,
     context_note: str | None = None, client=None, media_hint: str | None = None,
     turn_note: str | None = None,
+    failure_context: dict | None = None,
 ) -> str | None:
     """history: [{'role':'user'|'model','text':str}] хронологічно.
     images: список (mime_type, raw_bytes) для ОСТАННЬОГО (поточного) user-ходу."""
+    if failure_context is not None:
+        failure_context.clear()
     contents = []
     for h in history:
         if h.get("text"):
@@ -5030,13 +5081,19 @@ def gemini_generate(
             reasoning_task=reasoning_task,
         )
     except CallAIAnalysisError as exc:
+        if failure_context is not None:
+            failure_context["kind"] = _gemini_failure_kind(exc)
         log("error", "gemini", f"({_time.monotonic() - _t0:.1f}с) {str(exc)[:300]}")
         return None
     except Exception as exc:
+        if failure_context is not None:
+            failure_context["kind"] = "generation_error"
         log("error", "gemini", f"({_time.monotonic() - _t0:.1f}с) {repr(exc)}")
         return None
     text = (out.get("parsed") or "").strip()
     if not text:
+        if failure_context is not None:
+            failure_context["kind"] = "empty_response"
         log("warning", "gemini_empty", f"порожня відповідь ({_time.monotonic() - _t0:.1f}с)")
         return None
     try:
@@ -7026,6 +7083,9 @@ def _process_one_inside_reply_boundary(
 ) -> bool:
     fallback_manager_handoff = False
     used_ai_failure_fallback = False
+    outage_recovery_required = False
+    outage_recovery_job = None
+    gemini_failure: dict = {}
     if not InstagramBotSettings.objects.filter(pk=s.pk, is_enabled=True).exists():
         return _skip_observed_row(row, reason="global_reply_paused")
     if row.client_id:
@@ -7183,6 +7243,7 @@ def _process_one_inside_reply_boundary(
                 turn_note=customer_turn_note(
                     row.client if row.client_id else None, row.text
                 ),
+                failure_context=gemini_failure,
             )
     else:
         if (row.text or "").strip() != s.trigger_text:
@@ -7279,11 +7340,24 @@ def _process_one_inside_reply_boundary(
         if _defer_for_gemini_cooldown(row, s):
             return False
         try:
-            from management.services.bot_reply_fallback import build_ai_failure_fallback
+            from management.services.bot_reply_fallback import (
+                build_ai_failure_fallback,
+                is_generic_provider_outage,
+            )
 
-            reply, fallback_manager_handoff = build_ai_failure_fallback(row)
+            provider_outage = gemini_failure.get("kind") == "provider_outage"
+            reply, fallback_manager_handoff = build_ai_failure_fallback(
+                row,
+                provider_outage=provider_outage,
+            )
             if reply:
                 used_ai_failure_fallback = True
+                outage_recovery_required = bool(
+                    row.client_id and is_generic_provider_outage(
+                        row,
+                        failure_kind=gemini_failure.get("kind", ""),
+                    )
+                )
                 log(
                     "warning",
                     "gemini_fallback",
@@ -7315,6 +7389,27 @@ def _process_one_inside_reply_boundary(
             row.processing_started_at = None
             row.save(update_fields=["status", "processing_started_at"])
         return False
+
+    if outage_recovery_required:
+        try:
+            from management.services.ig_ai_reply_recovery import schedule_recovery
+
+            # The holding response promises an automatic follow-up. Persist its
+            # recovery intent before the non-idempotent Meta send boundary.
+            outage_recovery_job = schedule_recovery(row, activate=False)
+        except Exception as exc:
+            row.status = InstagramBotMessage.Status.FAILED
+            row.processed_at = timezone.now()
+            row.save(update_fields=["status", "processed_at"])
+            log("error", "recovery_schedule", repr(exc))
+            notify_manager(
+                f"⚠️ IG: не вдалося створити recovery для повідомлення #{row.pk}; "
+                "відповідь клієнту не надсилалась, потрібна ручна перевірка.",
+                dedupe_key=f"ig-ai-recovery-schedule:{row.pk}",
+                event_type="ai_reply_recovery_schedule_failed",
+                client=row.client if row.client_id else None,
+            )
+            return False
 
     from management.services.ig_reply_boundary import customer_send_boundary
 
@@ -7381,7 +7476,7 @@ def _process_one_inside_reply_boundary(
         row.send_state = "sending"
         row.send_started_at = send_started_at
         row.send_completed_at = None
-    ok, kind, hint = send_text(
+    delivery = send_text(
         s,
         row.sender_id,
         reply,
@@ -7392,8 +7487,27 @@ def _process_one_inside_reply_boundary(
         # generated payment link does not: silently stripping it would make a
         # false promise, so payment delivery stays fail-closed for a manager.
         allow_url_fallback=_allows_linkless_fallback(reply, control, row.client),
+        return_receipt=True,
     )
+    ok, kind, hint, provider_message_id, receipt_present = _delivery_receipt(delivery)
+    if ok and receipt_present and not provider_message_id:
+        # The Send API may have accepted the request before returning a malformed
+        # success body. Its delivery is therefore unknown and must not be replayed.
+        ok = False
+        kind = "unknown"
+        hint = "provider_message_id_missing"
     if kind == "cancelled":
+        if outage_recovery_job is not None:
+            try:
+                from management.services.ig_ai_reply_recovery import terminalize_prepared_recovery
+
+                terminalize_prepared_recovery(
+                    outage_recovery_job,
+                    reason="holding_send_cancelled_before_receipt",
+                    ambiguous=False,
+                )
+            except Exception as exc:
+                log("error", "recovery_terminalize", repr(exc))
         cancelled_at = timezone.now()
         if _own_processing_claim(row).update(
             send_state="cancelled",
@@ -7403,6 +7517,17 @@ def _process_one_inside_reply_boundary(
             row.processed_at = cancelled_at
         return _skip_observed_row(row, reason="permission_epoch_changed")
     if not ok:
+        if outage_recovery_job is not None:
+            try:
+                from management.services.ig_ai_reply_recovery import terminalize_prepared_recovery
+
+                terminalize_prepared_recovery(
+                    outage_recovery_job,
+                    reason=f"holding_send_{kind}:{hint}",
+                    ambiguous=kind == "unknown",
+                )
+            except Exception as exc:
+                log("error", "recovery_terminalize", repr(exc))
         if kind == "permanent":
             # Перманентна помилка (напр. #200 немає Advanced Access) — ретраї
             # безглузді. Падаємо одразу з чіткою причиною.
@@ -7496,6 +7621,7 @@ def _process_one_inside_reply_boundary(
     row.send_state = "sent"
     row.send_completed_at = processed_at
     row.processed_at = processed_at
+    recovery_activation_error = ""
     with transaction.atomic():
         reply_message = InstagramBotMessage.objects.create(
             sender_id=row.sender_id,
@@ -7504,6 +7630,7 @@ def _process_one_inside_reply_boundary(
             text=reply,
             status=InstagramBotMessage.Status.DONE,
             source=row.source,
+            provider_message_id=provider_message_id[:255],
             processed_at=processed_at,
         )
         if row.client_id:
@@ -7513,6 +7640,8 @@ def _process_one_inside_reply_boundary(
             )
 
             locked_client = IgClient.objects.select_for_update().get(pk=row.client_id)
+            locked_client.last_bot_reply_at = processed_at
+            locked_client.save(update_fields=["last_bot_reply_at", "updated_at"])
             record_first_bot_reply_in_transaction(
                 locked_client,
                 occurred_at=processed_at,
@@ -7571,6 +7700,27 @@ def _process_one_inside_reply_boundary(
                             "quoted_total": str(proposal.quoted_total),
                         },
                     )
+        if outage_recovery_job is not None:
+            try:
+                from management.services.ig_ai_reply_recovery import schedule_recovery
+
+                # The holding receipt and its activation commit with the
+                # history row. A worker crash afterwards can additionally
+                # reconcile a prepared job from this confirmed receipt.
+                schedule_recovery(row, holding_message=reply_message)
+            except Exception as exc:
+                recovery_activation_error = repr(exc)
+    if recovery_activation_error:
+        # The holding response has already been delivered. Do not invent a
+        # manager handoff, but retain an explicit operational signal.
+        log("error", "recovery_schedule", recovery_activation_error)
+        notify_manager(
+            f"⚠️ IG: не вдалося створити recovery для повідомлення #{row.pk}; "
+            "потрібна ручна перевірка.",
+            dedupe_key=f"ig-ai-recovery-schedule:{row.pk}",
+            event_type="ai_reply_recovery_schedule_failed",
+            client=row.client if row.client_id else None,
+        )
     if row.client_id:
         try:
             from management.services.ig_objections import record_reply_attempt
