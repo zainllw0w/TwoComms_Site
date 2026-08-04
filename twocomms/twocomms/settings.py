@@ -529,6 +529,19 @@ LOGGING = {
             'delay': True,
             'filters': ['pii_redaction'],
         },
+        # The DB-backed bot console is intentionally compact.  Incident
+        # evidence must survive its rotation, so IG operational warnings and
+        # errors also receive a dedicated, PII-redacted file retention window.
+        'ig_bot_file': {
+            'level': 'WARNING',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': str(BASE_DIR / 'ig_bot.log'),
+            'maxBytes': 5 * 1024 * 1024,
+            'backupCount': 12,
+            'encoding': 'utf-8',
+            'delay': True,
+            'filters': ['pii_redaction'],
+        },
         'csp_file': {
             'level': 'WARNING',
             'class': 'logging.handlers.RotatingFileHandler',
@@ -601,7 +614,7 @@ LOGGING = {
         # отказ приёма webhook (≈2268 отклонённых запросов Meta)
         # сохранил в БД лишь 5% записей и был замечен случайно.
         'ig_bot': {
-            'handlers': ['console', 'app_file', 'app_error_file'],
+            'handlers': ['console', 'app_file', 'app_error_file', 'ig_bot_file'],
             'level': 'INFO',
             'propagate': False,
         },

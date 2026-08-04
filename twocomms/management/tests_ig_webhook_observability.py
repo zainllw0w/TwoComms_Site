@@ -117,6 +117,14 @@ class IgBotLoggerWiringTests(TestCase):
                 name, logging_config.get("handlers", {}), f"handler {name} не объявлен"
             )
 
+    def test_ig_bot_logger_has_dedicated_rotating_incident_file(self):
+        logging_config = self._production_logging()
+        handler = logging_config["handlers"].get("ig_bot_file") or {}
+
+        self.assertEqual(handler.get("class"), "logging.handlers.RotatingFileHandler")
+        self.assertGreaterEqual(int(handler.get("backupCount") or 0), 12)
+        self.assertIn("ig_bot_file", logging_config["loggers"]["ig_bot"]["handlers"])
+
     def test_ig_bot_logger_level_captures_warnings(self):
         import logging
 

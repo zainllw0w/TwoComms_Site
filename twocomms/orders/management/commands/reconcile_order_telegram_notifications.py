@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from orders.models import Order
 from storefront.views.utils import _POST_PAYMENT_CHANNEL_NAMES, _send_post_payment_events
+from management.services.ig_task_health import task_heartbeat
 
 
 _TERMINAL_POST_PAYMENT_STATES = frozenset(
@@ -49,42 +50,43 @@ class Command(BaseCommand):
         if max_age_hours <= 0 or min_age_seconds < 0 or limit <= 0:
             raise CommandError('Age and limit options must be positive')
 
-        now = timezone.now()
-        queryset = Order.objects.filter(
-            payment_provider='monobank_pay',
-            payment_status__in=('paid', 'prepaid', 'partial'),
-            created__gte=now - timedelta(hours=max_age_hours),
-            created__lte=now - timedelta(seconds=min_age_seconds),
-        ).exclude(status='cancelled').order_by('created', 'pk')
-        if options.get('order_number'):
-            queryset = queryset.filter(order_number=options['order_number'])
+        with task_heartbeat('order_telegram_reconcile'):
+            now = timezone.now()
+            queryset = Order.objects.filter(
+                payment_provider='monobank_pay',
+                payment_status__in=('paid', 'prepaid', 'partial'),
+                created__gte=now - timedelta(hours=max_age_hours),
+                created__lte=now - timedelta(seconds=min_age_seconds),
+            ).exclude(status='cancelled').order_by('created', 'pk')
+            if options.get('order_number'):
+                queryset = queryset.filter(order_number=options['order_number'])
 
-        scanned = attempted = sent = failed = leased = 0
-        for order in queryset.iterator():
-            scanned += 1
-            payload = order.payment_payload if isinstance(order.payment_payload, dict) else {}
-            if not payload.get('attempt_id'):
-                continue
-            if not _has_recoverable_post_payment_channel(payload):
-                continue
-            if attempted >= limit:
-                break
+            scanned = attempted = sent = failed = leased = 0
+            for order in queryset.iterator():
+                scanned += 1
+                payload = order.payment_payload if isinstance(order.payment_payload, dict) else {}
+                if not payload.get('attempt_id'):
+                    continue
+                if not _has_recoverable_post_payment_channel(payload):
+                    continue
+                if attempted >= limit:
+                    break
 
-            attempted += 1
-            # Replay the shared idempotent dispatcher. Telegram delivery is
-            # the durable recovery gate, while Purchase/Meta/TikTok/email
-            # markers make the adjacent post-payment work safe to heal too.
-            result = _send_post_payment_events(
-                order.pk,
-                'unpaid',
-                order.pay_type,
-            )
-            if result == 'sent':
-                sent += 1
-            elif result == 'leased':
-                leased += 1
-            elif result == 'failed':
-                failed += 1
+                attempted += 1
+                # Replay the shared idempotent dispatcher. Telegram delivery is
+                # the durable recovery gate, while Purchase/Meta/TikTok/email
+                # markers make the adjacent post-payment work safe to heal too.
+                result = _send_post_payment_events(
+                    order.pk,
+                    'unpaid',
+                    order.pay_type,
+                )
+                if result == 'sent':
+                    sent += 1
+                elif result == 'leased':
+                    leased += 1
+                elif result == 'failed':
+                    failed += 1
 
         self.stdout.write(
             'reconcile_order_telegram_notifications: '

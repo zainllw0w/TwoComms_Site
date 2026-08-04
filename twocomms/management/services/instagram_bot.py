@@ -21,6 +21,7 @@ import base64
 import hashlib
 import hmac
 import json
+import logging
 import os
 import re
 import secrets
@@ -1907,9 +1908,39 @@ def _match_allowed(sender_id: str, limit: int = 15, window: int = 3600) -> bool:
 # ---------------------------------------------------------------------------
 # Лог-консоль
 # ---------------------------------------------------------------------------
+_LOG_LEVELS = {
+    "error": logging.ERROR,
+    "warning": logging.WARNING,
+    "success": logging.INFO,
+    "info": logging.INFO,
+}
+_INCIDENT_LOGGER = logging.getLogger("ig_bot")
+
+
 def log(level: str, event: str, detail: str = "") -> None:
+    """Write the compact UI log and a durable, PII-redacted incident trail.
+
+    Routine successful messages intentionally omit detail in the file because
+    the console may contain a customer-facing reply excerpt.  Warnings/errors
+    preserve the diagnostic detail and pass through the global PII filter.
+    """
+    level = str(level or "info").lower()
+    event = str(event or "unknown")[:120]
+    detail = str(detail or "")[:4000]
     try:
-        InstagramBotLog.objects.create(level=level, event=event, detail=(detail or "")[:4000])
+        suffix = f" detail={detail}" if level in {"warning", "error"} and detail else ""
+        _INCIDENT_LOGGER.log(
+            _LOG_LEVELS.get(level, logging.INFO),
+            "ig_bot event=%s level=%s%s",
+            event,
+            level,
+            suffix,
+        )
+    except Exception:
+        # Observability must never block message intake or payment recovery.
+        pass
+    try:
+        InstagramBotLog.objects.create(level=level, event=event, detail=detail)
         if InstagramBotLog.objects.count() > LOG_KEEP_ROWS + 100:
             ids = list(
                 InstagramBotLog.objects.order_by("-id").values_list("id", flat=True)[:LOG_KEEP_ROWS]

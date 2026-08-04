@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 
 from management.services.ig_checkout_reconciliation import reconcile_ig_checkout
+from management.services.ig_task_health import task_heartbeat
 
 
 class Command(BaseCommand):
@@ -16,11 +17,12 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        result = reconcile_ig_checkout(
-            limit=options["limit"],
-            pull_ambiguous=not options["no_provider_pull"],
-            dry_run=options["dry_run"],
-        )
+        with task_heartbeat("ig_checkout_reconcile"):
+            result = reconcile_ig_checkout(
+                limit=options["limit"],
+                pull_ambiguous=not options["no_provider_pull"],
+                dry_run=options["dry_run"],
+            )
         self.stdout.write(self.style.SUCCESS(
             "IG checkout reconciled: "
             + ", ".join(f"{key}={value}" for key, value in result.items())

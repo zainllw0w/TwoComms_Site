@@ -615,6 +615,31 @@ def bot_status_api(request):
     return JsonResponse({"success": True, "status": bot.status_snapshot(), "log": items})
 
 
+@require_GET
+def bot_health(request):
+    """Public, non-sensitive readiness probe for external uptime monitors."""
+    from .services.ig_task_health import task_health_snapshot
+
+    status = bot.status_snapshot()
+    tasks = task_health_snapshot()
+    enabled = bool(InstagramBotSettings.load().is_enabled)
+    bot_healthy = not enabled or status.get("state") == "running"
+    healthy = bool(tasks.get("available") and tasks.get("healthy") and bot_healthy)
+    response = JsonResponse(
+        {
+            "status": "ok" if healthy else "degraded",
+            "service": "instagram-bot",
+            "bot_state": status.get("state") or "unknown",
+            "cron_unhealthy": int(tasks.get("unhealthy_count") or 0),
+            "checked_at": timezone.now().isoformat(),
+        },
+        status=200 if healthy else 503,
+    )
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["X-Robots-Tag"] = "noindex, nofollow"
+    return response
+
+
 @login_required(login_url="management_login")
 @require_POST
 def bot_inbox_refresh_start_api(request):

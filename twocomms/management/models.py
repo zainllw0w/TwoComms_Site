@@ -3720,6 +3720,36 @@ class InstagramBotLog(models.Model):
         return f"[{self.level}] {self.event}"
 
 
+class InstagramBotTaskHeartbeat(models.Model):
+    """Last observed execution of an operational Instagram task.
+
+    This is intentionally one row per task, rather than an unbounded run log:
+    the invariant we need for cron supervision is freshness, not another source
+    of high-volume diagnostics.
+    """
+
+    task_key = models.CharField(max_length=64, unique=True)
+    label = models.CharField(max_length=160)
+    expected_interval_seconds = models.PositiveIntegerField()
+    stale_after_seconds = models.PositiveIntegerField()
+    first_expected_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    last_started_at = models.DateTimeField(null=True, blank=True)
+    last_succeeded_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    last_failed_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    last_duration_ms = models.PositiveIntegerField(default=0)
+    consecutive_failures = models.PositiveIntegerField(default=0)
+    # Only the exception class is persisted, never an arbitrary provider or
+    # customer payload which could contain personal data.
+    last_error_kind = models.CharField(max_length=128, blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["task_key"]
+
+    def __str__(self) -> str:
+        return f"{self.task_key}: {self.last_succeeded_at or 'not observed'}"
+
+
 class InstagramBotProcessedMessage(models.Model):
     """Дедуп оброблених вхідних повідомлень за message id (mid)."""
 
