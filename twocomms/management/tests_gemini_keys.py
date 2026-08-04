@@ -275,6 +275,22 @@ class IterAttemptsTests(TestCase):
         self.assertEqual(key_order[:2], ["GEMINI_API", "GEMINI_API2"])
         self.assertEqual(set(key_order), set(ENV6))
 
+    def test_chat_preserves_hot_shared_and_last_reserve_tiers(self):
+        """Sticky success may reorder a tier, but never promote API5/6 over API3/4."""
+        from management.services import gemini_keys as gk
+
+        gk.mark_success("GEMINI_API5", now=timezone.now())
+        with patch.dict("os.environ", ENV6, clear=False):
+            primary = [
+                key_name
+                for key_name, _, model in gk.iter_attempts("chat")
+                if model == "gemini-3.6-flash"
+            ]
+
+        self.assertEqual(set(primary[:2]), {"GEMINI_API", "GEMINI_API2"})
+        self.assertEqual(set(primary[2:4]), {"GEMINI_API3", "GEMINI_API4"})
+        self.assertEqual(set(primary[4:6]), {"GEMINI_API5", "GEMINI_API6"})
+
     def test_primary_model_tried_on_all_keys_before_lower(self):
         """Model-major: gemini-3.6-flash перебирається на ВСІХ ключах раніше за
         будь-яку нижчу модель. «Нижче 3.6 — лише крайній випадок»."""

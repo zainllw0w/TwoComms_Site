@@ -10,6 +10,13 @@ from django.utils import timezone
 from management.models import IgClient, InstagramBotMessage
 from management.services import instagram_bot as bot
 from management.services import call_ai_analysis as ai
+from management.services import gemini_keys as gk
+
+
+ENV6 = {
+    f"GEMINI_API{suffix}": f"key-{suffix or '1'}"
+    for suffix in ("", "2", "3", "4", "5", "6")
+}
 
 
 def _msg(status, attempts, age_seconds, *, processing_age_seconds=None, client=None):
@@ -185,3 +192,52 @@ class PoolDeadlineTests(SimpleTestCase):
                 manual_key="K", deadline_seconds=0,
             )
         mock_once.assert_not_called()
+
+
+class AdaptiveChatIncidentRegressionTests(TestCase):
+    def setUp(self):
+        gk.clear_model_overload()
+        gk.clear_model_unavailable()
+
+    def _assert_incident_fallback(self, reasoning_task, budget, constant_name):
+        runner = getattr(ai, "_run_chat_with_pool", None)
+        self.assertTrue(callable(runner), "missing adaptive _run_chat_with_pool")
+        self.assertEqual(getattr(ai, constant_name, None), budget)
+        aliases = {value: name for name, value in ENV6.items()}
+        clock = {"now": 0.0}
+        calls = []
+
+        def fake_once(model, payload, key, *, parse=True, timeout=None):
+            calls.append((clock["now"], model, aliases[key], timeout))
+            if model == "gemini-3.6-flash":
+                clock["now"] += float(timeout[1])
+                raise ai._GeminiTransient("timeout: simulated incident")
+            if aliases[key] != "GEMINI_API4":
+                raise ai._GeminiFatal("HTTP 401: API_KEY_INVALID")
+            return ("3.5/API4 recovered", {})
+
+        with patch.dict("os.environ", ENV6, clear=False), \
+             patch.object(ai.time, "monotonic", side_effect=lambda: clock["now"]), \
+             patch.object(ai.time, "sleep") as sleep, \
+             patch.object(ai, "_gemini_call_once", side_effect=fake_once):
+            out = runner({"contents": []}, reasoning_task=reasoning_task)
+
+        primary = [call for call in calls if call[1] == "gemini-3.6-flash"]
+        self.assertEqual(out["parsed"], "3.5/API4 recovered")
+        self.assertEqual((calls[-1][1], calls[-1][2]), ("gemini-3.5-flash", "GEMINI_API4"))
+        self.assertEqual(len(primary), 2)
+        self.assertLess(primary[1][3][1], primary[0][3][1])
+        self.assertLessEqual(clock["now"], budget)
+        for started_at, _, _, timeout in calls:
+            self.assertLessEqual(timeout[1], budget - started_at)
+        sleep.assert_not_called()
+
+    def test_ordinary_incident_recovers_within_35_seconds(self):
+        self._assert_incident_fallback(
+            "customer_chat", 35.0, "CHAT_ORDINARY_DEADLINE_SECONDS"
+        )
+
+    def test_complex_incident_recovers_within_45_seconds(self):
+        self._assert_incident_fallback(
+            "payment_decision", 45.0, "CHAT_COMPLEX_DEADLINE_SECONDS"
+        )

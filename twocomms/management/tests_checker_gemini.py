@@ -299,56 +299,52 @@ class ChatTimeoutTests(TestCase):
         )
 
 
-class ChatRoundsRetryTests(TestCase):
+class AdaptiveChatPlannerTests(TestCase):
     def setUp(self):
         gk.clear_model_overload()
+        gk.clear_model_unavailable()
 
-    def test_chat_cycles_three_rounds_before_error(self):
-        """503 на всіх моделях → чат робить 3 круги (з backoff між ними), тільки потім помилка.
+    def _runner(self):
+        runner = getattr(caa, "_run_chat_with_pool", None)
+        self.assertTrue(callable(runner), "missing adaptive _run_chat_with_pool")
+        return runner
 
-        Model-major: кожен круг — повний свип пулу (усі моделі цепочки × 6 ключів),
-        бо пріоритетну модель пробуємо на ВСІХ ключах. Кількість викликів =
-        len(chain) × 6 ключів × max_rounds. Між кругами clear_model_overload() + backoff 2с, 4с."""
-        calls = {"n": 0}
+    def test_fast_auth_failures_rotate_all_six_aliases_on_36(self):
+        seen = []
+        aliases = {value: name for name, value in ENV6.items()}
 
         def fake(model, payload, key, *, parse=True, timeout=None):
-            calls["n"] += 1
-            raise caa._GeminiTransient("HTTP 503")
+            seen.append((aliases[key], model))
+            raise caa._GeminiFatal("HTTP 401: API_KEY_INVALID")
 
-        sleeps = []
         with patch.dict("os.environ", ENV6, clear=False), \
              patch.object(caa, "_gemini_call_once", side_effect=fake), \
-             patch("management.services.call_ai_analysis.time.sleep", side_effect=lambda s: sleeps.append(s)):
+             patch.object(caa.time, "sleep") as sleep:
             with self.assertRaises(caa.CallAIAnalysisError):
-                caa.gemini_generate_text({"contents": []}, role="chat")
-        # усі моделі цепочки × шість ключів (own API/API2 + усі borrow) × 3 круги
-        n_keys = 6
-        expected = len(gk.role_model_chains()["chat"]) * n_keys * gk.max_rounds("chat")
-        self.assertEqual(calls["n"], expected)
-        self.assertEqual(len(sleeps), 2)
-        self.assertEqual(sleeps, [2.0, 4.0])
-        gk.clear_model_overload()
+                self._runner()({"contents": []}, reasoning_task="customer_chat")
 
-    def test_chat_succeeds_on_second_round(self):
-        state = {"round1_done": False, "n": 0}
+        primary = [alias for alias, model in seen if model == "gemini-3.6-flash"]
+        self.assertEqual(primary, list(ENV6))
+        sleep.assert_not_called()
+
+    def test_slow_transients_degrade_after_at_most_two_primary_calls(self):
+        seen = []
 
         def fake(model, payload, key, *, parse=True, timeout=None):
-            state["n"] += 1
-            if state["n"] <= 3:  # перший круг — усі 503
-                raise caa._GeminiTransient("HTTP 503")
-            return ("відповідь користувачу", {})
+            seen.append(model)
+            if model == "gemini-3.6-flash":
+                raise caa._GeminiTransient("timeout/transport/HTTP 503")
+            return ("fallback", {})
 
         with patch.dict("os.environ", ENV6, clear=False), \
              patch.object(caa, "_gemini_call_once", side_effect=fake), \
-             patch("management.services.call_ai_analysis.time.sleep", return_value=None):
-            out = caa.gemini_generate_text({"contents": []}, role="chat")
-        self.assertEqual(out["parsed"], "відповідь користувачу")
-        gk.clear_model_overload()
+             patch.object(caa.time, "sleep") as sleep:
+            out = self._runner()({"contents": []}, reasoning_task="customer_chat")
 
-    def test_chat_one_attempt_per_combo(self):
-        """attempts_per_model['chat']==1 — на 503 НЕ ретраїть ту саму комбінацію всередині круга."""
-        self.assertEqual(gk.attempts_per_model("chat"), 1)
-        self.assertEqual(gk.max_rounds("chat"), 3)
+        first_fallback = seen.index("gemini-3.5-flash")
+        self.assertEqual(out["parsed"], "fallback")
+        self.assertLessEqual(seen[:first_fallback].count("gemini-3.6-flash"), 2)
+        sleep.assert_not_called()
 
 
 class StickyKeyOrderTests(TestCase):
