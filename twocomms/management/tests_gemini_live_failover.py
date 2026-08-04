@@ -150,6 +150,25 @@ class LiveGeminiFailoverContractsTests(TestCase):
         self.assertIsNotNone(attempt)
         self.assertEqual(attempt.provider_reason, "PERMISSION_DENIED")
 
+    def test_invalid_key_preserves_gemini_http_400_in_telemetry(self):
+        def invalid_key(*_args, **_kwargs):
+            raise ai._GeminiFatal("HTTP 400: INVALID_ARGUMENT:API_KEY_INVALID")
+
+        with patch.dict(os.environ, {"GEMINI_API": "chat-key-1"}, clear=False), patch.object(
+            ai, "_gemini_call_once", side_effect=invalid_key
+        ):
+            with self.assertRaises(ai.CallAIAnalysisError):
+                ai.gemini_generate_text({"contents": []}, role="chat")
+
+        attempt = GeminiRequestAttempt.objects.order_by("-id").first()
+        self.assertIsNotNone(attempt)
+        self.assertEqual(attempt.failure_kind, "invalid_key")
+        self.assertEqual(attempt.http_code, 400)
+        self.assertEqual(
+            gemini_keys.GeminiKeyState.get("GEMINI_API").last_http_code,
+            400,
+        )
+
     def test_http_408_attempt_persists_the_transient_status_code(self):
         def request_timeout(*_args, **_kwargs):
             raise ai._GeminiTransient("HTTP 408: DEADLINE_EXCEEDED")

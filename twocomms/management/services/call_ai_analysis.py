@@ -847,13 +847,20 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             return None, "model_unavailable"
         except _GeminiFatal as exc:
             kind = "invalid_key" if _chat_key_failure(exc) else "invalid_payload"
+            http_match = _HTTP_CODE_RE.search(str(exc))
+            provider_http_code = int(http_match.group(1)) if http_match else (
+                401 if kind == "invalid_key" else 400
+            )
             if kind == "invalid_key" and key_name in gemini_keys.ALL_KEYS:
                 gemini_keys.quarantine_key(
-                    key_name, failure_kind=kind, http_code=401, project_scope=False
+                    key_name,
+                    failure_kind=kind,
+                    http_code=provider_http_code,
+                    project_scope=False,
                 )
             _audit(
                 "failed", failure_kind=kind,
-                http_code=401 if kind == "invalid_key" else 400,
+                http_code=provider_http_code,
                 provider_reason=_bounded_provider_reason(exc),
                 decision="rotate_key" if kind == "invalid_key" else "stop_payload",
             )

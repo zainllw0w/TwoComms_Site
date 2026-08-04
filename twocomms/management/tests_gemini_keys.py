@@ -369,6 +369,14 @@ class ModelChainPolicyTests(SimpleTestCase):
 
         self.assertEqual(chain, ["gemini-3.5-flash-lite", "gemini-3.6-flash"])
 
+    @override_settings(GEMINI_ROLE_MODEL_CHAINS={
+        "chat": ["gemini-3.6-flash", "gemini-3.5-flash"],
+    })
+    def test_partial_chat_override_preserves_management_default_chain(self):
+        from management.services import gemini_keys as gk
+
+        self.assertEqual(gk.model_chain("management")[0], "gemini-3.6-flash")
+
     def test_management_chain_uses_gemini_36_flash_first(self):
         from management.services import gemini_keys as gk
 

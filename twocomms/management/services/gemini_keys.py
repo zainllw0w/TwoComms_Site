@@ -238,11 +238,11 @@ def role_key_pools() -> dict:
 
 def role_model_chains() -> dict:
     configured = getattr(settings, "GEMINI_ROLE_MODEL_CHAINS", None)
-    chains = configured if isinstance(configured, dict) else DEFAULT_ROLE_MODEL_CHAINS
-    result = {
-        str(role): list(models) if isinstance(models, (list, tuple)) else []
-        for role, models in chains.items()
-    }
+    result = copy.deepcopy(DEFAULT_ROLE_MODEL_CHAINS)
+    if isinstance(configured, dict):
+        for role, models in configured.items():
+            if isinstance(models, (list, tuple)):
+                result[str(role)] = list(models)
     # The live-chat pool must never resurrect retired preview names through a
     # settings override. Other roles keep their explicitly configured models.
     chat_models = [
