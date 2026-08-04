@@ -1,4 +1,5 @@
 from django.contrib import admin, messages
+from django.utils import timezone
 from modeltranslation.admin import TabbedTranslationAdmin
 from .models import (
     AnalyticsExclusion,
@@ -20,6 +21,8 @@ from .models import (
     Product,
     ProductFitOption,
     ProductImage,
+    ProductSalesSemanticProfile,
+    ProductSalesSemanticProfileRevision,
     PushNotificationCampaign,
     PushNotificationDelivery,
     RestockSubscription,
@@ -389,6 +392,83 @@ class ProductAdmin(TabbedTranslationAdmin):
             'classes': ('collapse',),
         }),
     )
+
+
+@admin.register(ProductSalesSemanticProfile)
+class ProductSalesSemanticProfileAdmin(admin.ModelAdmin):
+    list_display = ("product", "created_at")
+    search_fields = ("product__title", "product__slug")
+    readonly_fields = ("created_at",)
+
+
+@admin.register(ProductSalesSemanticProfileRevision)
+class ProductSalesSemanticProfileRevisionAdmin(admin.ModelAdmin):
+    list_display = ("profile", "revision", "status", "source", "verified_by", "created_at")
+    list_filter = ("status", "source", "schema_version")
+    search_fields = ("profile__product__title", "profile__product__slug")
+    actions = ("verify_revisions", "revoke_revisions")
+
+    def get_readonly_fields(self, request, obj=None):
+        fields = ("revision", "status", "verified_by", "verified_at", "created_at")
+        if obj is not None:
+            return ("profile",) + fields
+        return fields
+
+    def save_model(self, request, obj, form, change):
+        from storefront.services.product_sales_semantics import create_semantic_revision
+
+        created = create_semantic_revision(
+            profile=obj.profile,
+            status=ProductSalesSemanticProfileRevision.Status.DRAFT,
+            source=obj.source,
+            aliases=obj.aliases,
+            traits=obj.traits,
+            schema_version=obj.schema_version,
+        )
+        obj.pk = created.pk
+        obj.revision = created.revision
+        obj.status = created.status
+        obj.aliases = created.aliases
+        obj.traits = created.traits
+        obj.verified_by = None
+        obj.verified_at = None
+
+    @admin.action(description="Verify as a new semantic revision")
+    def verify_revisions(self, request, queryset):
+        from storefront.services.product_sales_semantics import create_semantic_revision
+
+        for revision in queryset.select_related("profile"):
+            create_semantic_revision(
+                profile=revision.profile,
+                status=ProductSalesSemanticProfileRevision.Status.VERIFIED,
+                source=ProductSalesSemanticProfileRevision.Source.MANAGER,
+                aliases=revision.aliases,
+                traits=revision.traits,
+                schema_version=revision.schema_version,
+                verified_by=request.user,
+                verified_at=timezone.now(),
+            )
+        if hasattr(request, "_messages"):
+            self.message_user(request, "Verified semantic revisions were appended.")
+
+    @admin.action(description="Revoke as a new semantic revision")
+    def revoke_revisions(self, request, queryset):
+        from storefront.services.product_sales_semantics import create_semantic_revision
+
+        for revision in queryset.select_related("profile"):
+            create_semantic_revision(
+                profile=revision.profile,
+                status=ProductSalesSemanticProfileRevision.Status.REVOKED,
+                source=ProductSalesSemanticProfileRevision.Source.MANAGER,
+                aliases=revision.aliases,
+                traits=revision.traits,
+                schema_version=revision.schema_version,
+                supersedes=revision,
+                verified_by=request.user,
+                verified_at=timezone.now(),
+            )
+        if hasattr(request, "_messages"):
+            self.message_user(request, "Revoked semantic revisions were appended.")
 
 
 @admin.register(ProductImage)

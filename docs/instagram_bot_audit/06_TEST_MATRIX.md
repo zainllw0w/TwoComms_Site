@@ -46,6 +46,7 @@
 | T39 | Forwarded payment link | GREEN | paylink product/intent tests |
 | T40 | Rollback drill | PARTIAL | superseded-invoice recovery IMP-089 is GREEN; full deterministic deploy/rollback gate remains IMP-094 |
 | T41 | Full management suite from both working directories | GREEN (SQLite) | 2619 tests, 3 skipped, `OK` from worktree root and from `twocomms`; MariaDB parity remains IMP-094 |
+| T42 | Terminal Telegram outcome and lifecycle alert isolation | GREEN | 75 focused notification/lifecycle/send regressions: no retry for UNKNOWN/DEAD_LETTER, redacted bounded summary, distinct lifecycle keys and one failed-paylink alert; IMP-077 |
 
 **Fresh local gate for current checkpoint:** full `management` suite passed
 2619 tests with 3 skipped from both supported CWDs; focused branch gate passed
@@ -53,3 +54,8 @@
 `git diff --check` is clean. Commit `15147ded` is deployed; production
 `check`/migration-drift and daemon recovery are green. A separate disposable
 MariaDB gate is still missing, so `F-TEST-002` / `IMP-094` remain open.
+
+**W8 update 2026-08-04:** `221cf37d` added the T42 gate; the 75-test focused
+run, `manage.py check` and migration-drift are green after rebase on current
+`main`. Production reports `running=True`, `alive=True`, empty `last_error`
+and zero `UNKNOWN`/`DEAD_LETTER` outbox rows.

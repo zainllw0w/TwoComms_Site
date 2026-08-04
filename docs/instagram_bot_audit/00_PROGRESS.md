@@ -9,11 +9,11 @@
 
 | Поле | Значение |
 |---|---|
-| Текущая фаза | **W4B и P1 reliability/security-срез W8 закрыты; W5 `IMP-028` имеет задеплоенный partial slice, активный остаток: W5/W8/W9/W10** |
+| Текущая фаза | **W4B и P1 reliability/security/alert-срез W8 закрыты; W5 `IMP-028` имеет задеплоенный partial slice, активный остаток: W5/W8/W9/W10** |
 | Дата старта / обновления | 2026-08-04 (после production verification Fernet credential-encryption slice) |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
 | База внедрения | `32985a63` подтверждён в `origin/main` и на production; закрывает Fernet-encryption custom credentials (`IMP-042`) поверх `244cbbd3` (4xx webhook alert), `f2a84717` (health/heartbeat/incident retention), prompt-authority/variant-price IMP-028, bounded superseded-invoice recovery IMP-089, durable funnel analytics IMP-058, fulfillment IMP-055, claims IMP-056 и lifecycle возражений IMP-057 |
-| **Статус 101 IMP-задачи** | **75 закрыты, 24 открыты, 2 частично закрыты (`IMP-043`, `IMP-077`)** |
+| **Статус 101 IMP-задачи** | **76 закрыты, 24 открыты, 1 частично закрыта (`IMP-043`)** |
 | Прод-сервер | `qlknpodo@195.191.25.63`, `/home/qlknpodo/TWC/TwoComms_Site/twocomms` |
 | Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; read-only и rollback-fixture contracts подтверждены |
 | Локальная SQLite | **не источник истины**; не проверяет `varchar(max_length)`, см. F-TEST-003 |
@@ -49,7 +49,7 @@
 | Открыто, W4B | — |
 | Открыто, W5 | `IMP-028` (PARTIAL: authority/budget/variant-price slice задеплоен, sales playbooks и FAQ остаются), `IMP-095` (production merchandising белого варианта товара 110) |
 | Открыто, W8 | `IMP-044`–`IMP-046`, `IMP-060`–`IMP-061`, `IMP-094`, `IMP-096` (provenance ролей импорта), `IMP-100` (дедупликация UI-лога), `IMP-101` (убрать небезопасные config defaults) |
-| Частично, W8 | `IMP-043`, `IMP-077` |
+| Частично, W8 | `IMP-043` |
 | Открыто, W9 | `IMP-081`–`IMP-088`; `IMP-081`–`IMP-085` имеют branch-only code, но не интегрированы и не задеплоены |
 | Открыто, W10/W11 | `IMP-090`–`IMP-093`, `IMP-098`; восстановлены из улучшений и orphan-находок, которые раньше не имели исполнимой задачи |
 
@@ -66,6 +66,19 @@
   перенести на актуальный `main`, перепроверить и задеплоить;
 - `[ ] PARTIAL` означает, что опубликована только часть требований, а явно
   перечисленный остаток всё ещё обязателен.
+
+## IMP-077 / F-OPS-009: W8 alert lifecycle закрыт (2026-08-04)
+
+`221cf37d` находится в `origin/main` и production. Завершены все восемь
+пунктов F-OPS-009: глобальный flow-throttle, windowed entity dedupe, batch
+summary и admin links были в `31f8151f`; финальный срез добавил proactive
+monitor для `UNKNOWN`/`DEAD_LETTER`, раздельные lifecycle keys и украинские
+операторские тексты, а также исключил два Telegram-алерта на один failed
+paylink. Monitor не повторяет terminal provider outcome, а создаёт одну
+почасовую summary-задачу после bounded drain; errors redacted, в summary есть
+ссылка `/bot/`. Local regression: 75 tests; production `manage.py check`,
+`run_instagram_bot --ensure`, SHA `221cf37d`, `running=True`, `alive=True`,
+`instagram_login`, empty `last_error` и terminal outbox counts = 0.
 
 ## IMP-094: reliability checkpoint (2026-08-04, deployed; still OPEN)
 
@@ -892,7 +905,7 @@ InnoDB получают только новые таблицы. FK из InnoDB �
 | IMP-074 | **F-CORE-016 (P0, новая)** | ✅ Пауза от менеджера снимается через 12 часов тишины. Раньше только вручную; самый старый takeover — с 19 июня |
 | IMP-075 | **F-CORE-017 (P0, новая)** | ✅ Система помнит порядок показанных фото. «Давай першу» стало фактом вместо угадывания |
 | IMP-076 | **F-AI-015 (P1, новая)** | ✅ Фото — после уточняющего вопроса и всегда с подписью; «класична/стандартна» = базовая модель с логотипом |
-| — | **F-OPS-009 (P1, открыта)** | Telegram-алерты пачками: до 20 за проход каждые 1.5 с; 12 из 31 точки без дедупа; ссылка в админку у 2 из 31 → IMP-077 (W8) |
+| — | **F-OPS-009 (P1, FIXED / VERIFIED)** | `221cf37d`: завершён alert lifecycle — terminal summary, раздельные lifecycle keys, один actionable alert на failed paylink и единый украинский tone; IMP-077 закрыта |
 | — | **F-AI-016 (P1, открыта)** | Инструкции без триггеров: 70% клиентов получают одну инструкцию из семи; половина маппинга тегов — мёртвый код → IMP-078 (W5) |
 
 **Главное в этой волне — цепочка, а не отдельный баг.** Один незамеченный дефект

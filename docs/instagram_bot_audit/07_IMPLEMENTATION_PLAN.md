@@ -1,10 +1,10 @@
 # 07_IMPLEMENTATION_PLAN — план внедрения
 
 > **Канонический per-task статус после восстановления всех веток 2026-08-03.**
-> Всего 99 уникальных `IMP-*`: **72 закрыты, 25 открыты, 2 partial**
-> (`IMP-043`, `IMP-077`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
+> Всего 101 уникальная `IMP-*`: **76 закрыты, 24 открыты, 1 partial**
+> (`IMP-043`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
 > в `03_FINDINGS_REGISTER.md`, общий порядок продолжения — в `00_PROGRESS.md`.
-> Ниже находятся отдельные checkbox-матрицы всех 170 `F-*` и всех 48 `IMPR-*`:
+> Ниже находятся отдельные checkbox-матрицы всех 171 `F-*` и всех 48 `IMPR-*`:
 > `[x]` означает verified completion, `[ ]` — любой незавершённый остаток,
 > включая `PARTIAL`, `REFRAMED` и decision-gated работу.
 
@@ -47,11 +47,11 @@
 | **W5** | Качество продавца, каталог и память | 9 | 7 | 2 | 0 |
 | **W6** | Арбитр состояния и воронка | 5 | 5 | 0 | 0 |
 | **W7** | UX админки | 6 | 6 | 0 | 0 |
-| **W8** | Наблюдаемость, аналитика, долг | 13 | 1 | 10 | 2 |
+| **W8** | Наблюдаемость, аналитика, долг | 15 | 5 | 9 | 1 |
 | **W9** | Product reselection и коммерческая семантика | 8 | 0 | 8 | 0 |
 | **W10** | Неучтённые улучшения: follow-up, retention и аналитический UX | 4 | 0 | 4 | 0 |
 | **W11** | Полное покрытие находок и orphan backlog | 2 | 1 | 1 | 0 |
-| **Итого** | | **99** | **72** | **25** | **2** |
+| **Итого** | | **101** | **76** | **24** | **1** |
 
 ---
 
@@ -761,8 +761,8 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   - **(P1, не зависит от рекламы)** разделение bot-only / manager-assisted /
     manager-created (F-SCORE-014 — данные в `IgOrderAssignment.Source` есть,
     но не читаются).
-- [ ] **IMP-077 (P1) — PARTIAL 2026-08-02. Telegram-алерты: пачки, дубли, отсутствие ссылок
-  (F-OPS-009).** Жалоба заказчика «сразу спам из 10 штук» воспроизведена по коду:
+- [x] **IMP-077 (P1) — закрыта и задеплоена 2026-08-04 (`221cf37d`). Telegram-алерты: пачки, дубли, ссылки и terminal outcome
+  (F-OPS-009).** Историческая жалоба «сразу спам из 10 штук» была воспроизведена по коду:
   `drain_manager_notifications(limit=10)` вызывается в цикле демона каждые
   1.5 секунды и внутри не имеет ни задержки, ни счётчика — до 20 сообщений за
   проход. Что делать:
@@ -800,9 +800,18 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   эскалацию — самое частое уведомление, где раньше был только IGSID.
   Тесты: `tests_ig_alerts`, 20.
 
-  **Осталось (пункты 5-8 выше):** `DEAD_LETTER`/`UNKNOWN` без мониторинга,
-  коллизия ключа в `ig_lifecycle`, дубль на одну неудачную отправку, язык двух
-  уведомлений.
+  **Финальный срез `221cf37d`:** `UNKNOWN` и `DEAD_LETTER` по-прежнему не
+  переотправляются автоматически, но раз в минуту проверяются bounded monitor'ом
+  и дают один почасовой durable summary со ссылкой в `/bot/`; sample error
+  redacted, а полный count не ограничен sample-лимитом. `ig-lifecycle:window:`
+  и `ig-lifecycle:delivery:` разделяют два разных события; оба operator-text
+  переведены на украинский. Один failed paylink создаёт только actionable
+  payment-review alert: generic permanent и link-circuit Telegram-alert
+  подавлены для того же failed send, а circuit-state всё равно сохраняется.
+  Regression: 75 `tests_ig_notifications`, `tests_ig_lifecycle`,
+  `tests_ig_audit_fixes`; production `check`, daemon `running/alive` и нулевой
+  terminal backlog подтверждены. Отдельный MariaDB test gate остаётся IMP-094,
+  но схема этого среза не менялась.
 - [x] **IMP-059 (P1) — закрыта и задеплоена 2026-08-04 (`f2a84717`,
   `244cbbd3`).** Incident evidence больше не ограничено UI-таблицей на 500
   строк: `ig_bot` имеет отдельный rotating warning/error log, а 4xx webhook
@@ -862,8 +871,11 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 
 ## W9 — Product reselection и проверяемая коммерческая семантика
 
-Источник: `codex/instagram-assisted-checkout`. Design/plan уже восстановлены в
-`main`; пять code-коммитов остаются patch-unique относительно актуальной базы.
+Источник: локальная `codex/instagram-assisted-checkout`. Design/plan уже восстановлены в
+`main`; пять code-коммитов остаются patch-unique относительно актуальной базы,
+но отсутствуют в historical `origin/codex/instagram-assisted-checkout`.
+Source сохранён отдельным remote ref `codex/ig-w9-local-preservation-20260804`
+до любого rebase.
 Ни один пункт ниже нельзя считать закрытым до переноса на актуальный `main`,
 повторных тестов, MariaDB-проверки и production deploy. Полный дизайн и
 13-задачный execution plan:
@@ -875,10 +887,16 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   переносом сверить миграционные leaves и запрет generic aliases.
 - [ ] **IMP-082 (P1) — РЕАЛИЗОВАНО В ВЕТКЕ `a8ccfa63`, НЕ ИНТЕГРИРОВАНО.**
   Trusted product references, typed catalog graph и graph digest. Canonical
-  option-path hardening дописан только в поздней версии спецификации.
+  option-path hardening дописан только в поздней версии спецификации. **P0 guard
+  при переносе:** graph не может читать `Product.final_price`; обязан нести
+  current `variant_public_context`/fit matrix, до выбора показывать диапазон,
+  после выбора — exact price. Regression: товар 110 = 1450 для единственного
+  thermo-варианта, товар 91 = 800–950; иначе вернётся F-CAT-003.
 - [ ] **IMP-083 (P1) — РЕАЛИЗОВАНО В ВЕТКЕ `468fe2ba`, НЕ ИНТЕГРИРОВАНО.**
   Explainable hard-filter/ranking кандидатов; stale candidate acceptance и
-  revalidation ещё требуют реализации.
+  revalidation ещё требуют реализации. Повтор option segment (`/black/black/`)
+  должен fail-closed, а trusted URL color/fit обязан попасть в durable selection,
+  а не остаться только в `exact_reference`.
 - [ ] **IMP-084 (P0/P1) — РЕАЛИЗОВАНО В ВЕТКЕ `e9d982df`, НЕ ИНТЕГРИРОВАНО.**
   Warehouse-aware exact availability. Aggregate quantity для строк с одной
   allocation identity и полный checkout wiring остаются открытыми.
@@ -964,7 +982,7 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 
 ### Finding coverage matrix — 171 уникальный F-идентификатор
 
-Итог матрицы: **122 `[x]` / 42 `OPEN [ ]` / 7 `PARTIAL [ ]`**. Статус
+Итог матрицы: **126 `[x]` / 39 `OPEN [ ]` / 6 `PARTIAL [ ]`**. Статус
 считается по факту текущего `main`, тестов и production evidence, а не по тому,
 что ID когда-то упоминался в progress или feature-ветке.
 
@@ -1061,7 +1079,7 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 | [x] | F-OPS-006 | FIXED/VERIFIED | IMP-062 |
 | [x] | F-OPS-007 | FIXED/VERIFIED | IMP-099 |
 | [x] | F-OPS-008 | FIXED/VERIFIED | IMP-059 |
-| [ ] | F-OPS-009 | PARTIAL | IMP-077 |
+| [x] | F-OPS-009 | FIXED/VERIFIED | IMP-077 |
 | [x] | F-PAT-001 | FIXED/VERIFIED | IMP-017 |
 | [x] | F-PAT-002 | FIXED/VERIFIED | IMP-017 |
 | [x] | F-PAT-003 | FIXED/VERIFIED | IMP-099 |

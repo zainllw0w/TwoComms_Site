@@ -15,6 +15,17 @@ watchdog did not relaunch it promptly; the standard singleton-safe
 `instagram_login`, `last_error=''`. No production database was used for tests;
 the disposable MariaDB gate in IMP-094 remains open.
 
+## IMP-077 / F-OPS-009 deployment checkpoint (2026-08-04)
+
+`221cf37d` was rebased on the then-current `main`, fast-forwarded to production
+with `git pull --ff-only`, and introduced no migrations. Server `manage.py
+check` passed; `run_instagram_bot --ensure` reported `daemon alive — ok`.
+`status_snapshot()` then confirmed `state='running'`, `running=True`,
+`alive=True`, `provider_transport='instagram_login'`, empty `last_error` and
+`notification_pending=notification_failed=notification_unknown=notification_dead_letter=0`.
+The server contains unrelated untracked operational files; no tracked file was
+overwritten outside the fast-forward.
+
 | Date | SHA | Verification | Runtime |
 |---|---|---|---|
 | 2026-08-03 | `2a89d860` | payment backstop/contract | daemon online |
@@ -31,6 +42,7 @@ the disposable MariaDB gate in IMP-094 remains open.
 | 2026-08-03 | `6883ac2c` | final IMP-089 code/doc checkpoint; server pull, migrate/check, check-only and runtime verification | `running`; heartbeat 0.6s; `last_error=''` |
 | 2026-08-03 | `e04c1c24` | final audit evidence checkpoint; docs-only fast-forward | runtime unchanged; `running`; `last_error=''` |
 | 2026-08-04 | `15147ded` | IMP-094 SQLite gate stabilization; production check/migration-drift; daemon recovery | `running`; `alive=True`; `instagram_login`; `last_error=''` |
+| 2026-08-04 | `221cf37d` | IMP-077 terminal monitor/key/dedupe completion; focused 75 tests, production check and daemon ensure | `running`; `alive=True`; terminal outbox `0/0` |
 
 For `6b86e103`, server `git pull --ff-only` completed, `manage.py check` returned
 no issues, `makemigrations --check --dry-run` returned `No changes detected`,

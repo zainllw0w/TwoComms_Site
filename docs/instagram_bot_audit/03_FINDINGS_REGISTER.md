@@ -18,6 +18,7 @@
 | F-OPS-008 | FIXED / VERIFIED | оперативные warning/error теперь сохраняются в rotating file log, поэтому 500 UI-строк больше не ограничивают расследование инцидента |
 | F-SEC-005 | FIXED / VERIFIED | `32985a63`: custom Direct/Gemini credentials хранятся только как versioned Fernet ciphertext; migration `0136` applied on production MariaDB |
 | F-SEC-011 | FIXED / VERIFIED | private `.env`/`.env.production` files with runtime secrets had mode `0664`; on 2026-08-04 all relevant files were changed to `0600` |
+| F-OPS-009 | FIXED / VERIFIED | `221cf37d`: terminal outbox monitor, separated lifecycle dedupe keys, one actionable failed-paylink alert and Ukrainian lifecycle copy; production daemon running with terminal counts = 0 |
 
 Исторические описания ниже сохраняют исходное evidence; текущим источником
 статуса является эта сводка и checkbox в `07_IMPLEMENTATION_PLAN.md`.
@@ -3373,7 +3374,7 @@ F-CAT-001 была зафиксирована в разведке W5 как «к
   с сайта или скриншот.
 - **Regression:** `tests_ig_agentic_dialog.PhotoProtocolTests`.
 
-### F-OPS-009 (P1, ОТКРЫТА): Telegram-алерты уходят пачками и без ссылок
+### F-OPS-009 (P1, историческая находка; закрыта `221cf37d`): Telegram-алерты уходили пачками и без ссылок
 
 Разобрано отдельно, к диалогу отношения не имеет, поэтому не исправлялось в этой
 волне. Факты для следующего агента:
@@ -3402,7 +3403,8 @@ F-CAT-001 была зафиксирована в разведке W5 как «к
 - Коллизия ключа: `ig_lifecycle.py:320` и `:384` используют один
   `dedupe_key=f"ig-lifecycle:{event.event_key}"` для двух разных событий.
 - `DEAD_LETTER` и `UNKNOWN` не подбираются `drain_manager_notifications`
-  (`:2596-2598`) и никем не мониторятся — потеря алерта происходит бесшумно.
+  (`:2596-2598`); на момент находки в UI уже существовали passive counters и
+  staff review, но proactive operator escalation отсутствовала.
 
 ### F-AI-016 (P1, ОТКРЫТА): инструкции бота не имеют триггеров
 
@@ -3629,7 +3631,7 @@ enum-полей и так добавляются циклом выше. Явна
 
 ---
 
-## Волна W8 (частично) — Telegram-алерты (2026-08-02)
+## Волна W8 — Telegram-алерты (закрыта 2026-08-04)
 
 ### F-OPS-009 (P1, FIXED): алерты уходили пачками, дубли терялись, ссылок не было
 
@@ -3677,11 +3679,15 @@ enum-полей и так добавляются циклом выше. Явна
 дедупа истекает, ключ влезает в колонку, ссылка выживает при обрезке, сломанный
 кэш не блокирует, сводка схлопывает.
 
-**Осталось в W8 отдельными задачами** (не входило в этот срез):
-`DEAD_LETTER`/`UNKNOWN` не подбираются дренажом и никем не мониторятся;
-коллизия ключа `ig-lifecycle:{event_key}` для двух разных событий; два
-уведомления на одну неудачную отправку (`:6372` и `:6386`); два уведомления в
-`ig_lifecycle` написаны по-английски.
+**Финальное закрытие `221cf37d` (2026-08-04).** Terminal outcomes не
+переотправляются автоматически: monitor после drain проверяет их не чаще раза
+в минуту и ставит одну durable summary на час с полным count, шестью redacted
+sample и ссылкой в CRM. `ig-lifecycle:window:` и `:delivery:` больше не
+коллидируют; тексты оператора — украинские. Failed paylink сохраняет circuit
+state, но отправляет только payment-review alert, без generic permanent и
+link-circuit дубля. Regression: 75 notification/lifecycle/send tests;
+production SHA `221cf37d`, `check` green, daemon `running/alive`, terminal
+counts `0/0`.
 
 ---
 
