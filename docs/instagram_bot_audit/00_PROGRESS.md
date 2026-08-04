@@ -9,18 +9,18 @@
 
 | Поле | Значение |
 |---|---|
-| Текущая фаза | **W4B закрыта; W5 `IMP-028` имеет задеплоенный partial slice, активный остаток: W5/W8/W9/W10** |
-| Дата старта / обновления | 2026-08-04 (после production verification prompt-authority slice IMP-028) |
+| Текущая фаза | **W4B и reliability-срез W8 закрыты; W5 `IMP-028` имеет задеплоенный partial slice, активный остаток: W5/W8/W9/W10** |
+| Дата старта / обновления | 2026-08-04 (после production verification reliability/4xx-alert slice) |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
-| База внедрения | `042c48c8` подтверждён в `origin/main` и на production; включает prompt-authority/variant-price slice IMP-028 поверх bounded superseded-invoice recovery IMP-089, durable funnel analytics IMP-058, reliability, fulfillment IMP-055, claims IMP-056 и lifecycle возражений IMP-057 |
-| **Статус 99 IMP-задач** | **72 закрыты, 25 открыты, 2 частично закрыты (`IMP-043`, `IMP-077`)** |
+| База внедрения | `244cbbd3` подтверждён в `origin/main` и на production; завершает `f2a84717` (health/heartbeat/incident retention) 4xx webhook-alert'ом поверх prompt-authority/variant-price slice IMP-028, bounded superseded-invoice recovery IMP-089, durable funnel analytics IMP-058, reliability, fulfillment IMP-055, claims IMP-056 и lifecycle возражений IMP-057 |
+| **Статус 100 IMP-задач** | **74 закрыты, 24 открыты, 2 частично закрыты (`IMP-043`, `IMP-077`)** |
 | Прод-сервер | `qlknpodo@195.191.25.63`, `/home/qlknpodo/TWC/TwoComms_Site/twocomms` |
 | Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; read-only и rollback-fixture contracts подтверждены |
 | Локальная SQLite | **не источник истины**; не проверяет `varchar(max_length)`, см. F-TEST-003 |
 | Реестр находок | **170 уникальных `F-*` идентификаторов**; восстановлена пропущенная F-PAT-003, повторные записи сохраняют историю проверки и закрытия |
 | Улучшения / решения | **48 `IMPR-*` / 10 `DR-*`** |
 | Задач чек-листа закрыто | **120 / 120** (домены A–L) |
-| Задач в плане внедрения | **99** в W0–W11, включая W4B/W4C/W4D и IMP-062…099 |
+| Задач в плане внедрения | **100** в W0–W11, включая W4B/W4C/W4D и IMP-062…100 |
 
 ## Документы
 
@@ -31,7 +31,7 @@
 | `04_DECISION_LOG.md` | 10 решений (DR-001…DR-010) с обоснованием отклонённых вариантов |
 | `05_IMPROVEMENTS_REGISTER.md` | 48 улучшений + канонический crosswalk каждого ID к DONE/PARTIAL/OPEN и `IMP-*` |
 | `06_FUNNEL_CLOSING_DESIGN.md` | дизайн добивки: 9 каскадов с текстами, возражения, статистика, контекст-бюджет |
-| `07_IMPLEMENTATION_PLAN.md` | канонический статус 99 IMP-задач; отдельные checkbox-matrix покрывают все 170 F-* и все 48 IMPR-* |
+| `07_IMPLEMENTATION_PLAN.md` | канонический статус 100 IMP-задач; отдельные checkbox-matrix покрывают все 170 F-* и все 48 IMPR-* |
 | `01_SYSTEM_MAP.md` | оформлен; карта production-контуров и границ ответственности |
 | `02_AUDIT_CHECKLIST.md` | оформлен; 120/120 доменных проверок с evidence |
 | `06_TEST_MATRIX.md` | оформлен; 40 acceptance-сценариев и текущие gates |
@@ -48,7 +48,7 @@
 |---|---|
 | Открыто, W4B | — |
 | Открыто, W5 | `IMP-028` (PARTIAL: authority/budget/variant-price slice задеплоен, sales playbooks и FAQ остаются), `IMP-095` (production merchandising белого варианта товара 110) |
-| Открыто, W8 | `IMP-041`, `IMP-042`, `IMP-044`–`IMP-046`, `IMP-059`–`IMP-061`, `IMP-094`, `IMP-096` (provenance ролей импорта) |
+| Открыто, W8 | `IMP-042`, `IMP-044`–`IMP-046`, `IMP-060`–`IMP-061`, `IMP-094`, `IMP-096` (provenance ролей импорта), `IMP-100` (дедупликация UI-лога) |
 | Частично, W8 | `IMP-043`, `IMP-077` |
 | Открыто, W9 | `IMP-081`–`IMP-088`; `IMP-081`–`IMP-085` имеют branch-only code, но не интегрированы и не задеплоены |
 | Открыто, W10/W11 | `IMP-090`–`IMP-093`, `IMP-098`; восстановлены из улучшений и orphan-находок, которые раньше не имели исполнимой задачи |
@@ -66,6 +66,26 @@
   перенести на актуальный `main`, перепроверить и задеплоить;
 - `[ ] PARTIAL` означает, что опубликована только часть требований, а явно
   перечисленный остаток всё ещё обязателен.
+
+## IMP-041 и IMP-059 закрыты и задеплоены (2026-08-04)
+
+Коммиты `f2a84717` и `244cbbd3` находятся в `origin/main` и на production.
+Миграция `management.0135_instagrambottaskheartbeat` применена на MariaDB.
+
+- Каждая из пяти production cron-задач пишет durable heartbeat с длительностью
+  и безопасным типом ошибки; daemon проверяет stale/failure и ставит
+  дедуплицированный Telegram-alert через durable outbox. Публичный
+  `/bot/health/` учитывает daemon, ingress и cron.
+- `ig_bot` пишет warning/error в отдельный rotating `ig_bot.log`, поэтому UI
+  таблица на 500 строк больше не является единственным носителем диагностики.
+  Высокий процент webhook `4xx` за пять минут (не менее 5 и 25%) создаёт один
+  outbox-alert и переводит health в `rejections_degraded`; восстановление
+  возможно только после фактического падения доли ниже порога.
+- Production verification в 17:08 UTC: `db_vendor=mysql`, бот `enabled=True`,
+  пять heartbeat без `last_error`, `/bot/health/` = HTTP 200,
+  `bot_state=running`, `cron_unhealthy=0`.
+- Отдельное улучшение дедупликации повторов именно в UI-таблице **не** выдано
+  за готовое: оно остаётся открытым как `IMPR-OPS-002` / `IMP-100`.
 
 ## IMP-028: authority и бюджет prompt — частично реализовано и задеплоено (2026-08-04)
 

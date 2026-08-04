@@ -9,6 +9,17 @@
 > Confidence: high = подтверждено чтением кода/данных мной лично; medium = подтверждено
 > субагентом со ссылкой на строки, я проверил выборочно; low = гипотеза, нужен тест.
 
+## Production closeout (2026-08-04)
+
+| ID | Status | Подтверждённое закрытие |
+|---|---|---|
+| F-SEC-008 | FIXED / VERIFIED | `f2a84717`: durable heartbeat пяти cron-задач, stale/failure alert через outbox и `/bot/health/`; production MariaDB показывает пять свежих успешных heartbeat, endpoint = HTTP 200 / `running` |
+| F-OPS-004 | FIXED / VERIFIED | `f2a84717` добавил rotating `ig_bot.log`; `244cbbd3` добавил alert при sustained 4xx webhook rate (>=5 и >=25% за 5 минут), не блокирующий Meta handler |
+| F-OPS-008 | FIXED / VERIFIED | оперативные warning/error теперь сохраняются в rotating file log, поэтому 500 UI-строк больше не ограничивают расследование инцидента |
+
+Исторические описания ниже сохраняют исходное evidence; текущим источником
+статуса является эта сводка и checkbox в `07_IMPLEMENTATION_PLAN.md`.
+
 ## Сводный реестр
 
 | ID | Название | Sev | Status | Conf | Файл |
@@ -1368,7 +1379,7 @@ golden-conversations acceptance остаются в `IMP-028`. Статус не
 | F-SEC-005 | Токены Direct/Gemini хранятся в БД plaintext | P1 | CONFIRMED | high |
 | F-SEC-006 | Нет версионирования и аудита изменений системного промпта | P1 | CONFIRMED | high |
 | F-SEC-007 | Логгер `ig_bot` не подключён к handler — часть логов уходит в никуда | P1 | CONFIRMED | high |
-| F-SEC-008 | Нет health-check, нет алертов на смерть демона и cron | P1 | CONFIRMED | high |
+| F-SEC-008 | Health-check и cron heartbeat/alerts отсутствовали | P1 | FIXED / VERIFIED | high |
 | **F-UX-001** | Весь контекст и действия по клиенту спрятаны в overlay-drawer | **P1** | CONFIRMED | high |
 | F-UX-002 | ⇄ и ⚙ открывают одну и ту же панель — иллюзия двух инструментов | P1 | CONFIRMED | high |
 | F-UX-003 | Привязка заказа — ручной ввод номера, хотя API поиска кандидатов уже есть | P1 | CONFIRMED | high |
@@ -2069,7 +2080,7 @@ Advanced Access). Значит **месяц, с 14 июня по 10 июля, б
 
 ---
 
-## F-OPS-004 (P1, НОВАЯ): ротация лога уничтожает доказательства инцидентов
+## F-OPS-004 (P1, FIXED / VERIFIED 2026-08-04): ротация лога уничтожала доказательства инцидентов
 
 - **Evidence:** `LOG_KEEP_ROWS = 500` (`services/instagram_bot.py:59`),
   обрезка в `log()` (`:903-908`). Фактически в таблице 561 строка,
@@ -2091,6 +2102,10 @@ Advanced Access). Значит **месяц, с 14 июня по 10 июля, б
   Минимум: (1) не хранить единственную копию диагностики в таблице на 500 строк;
   (2) алерт на долю 4xx-ответов `/bot/webhook/` за окно;
   (3) подключить `ig_bot` к файловому логу.
+- **Закрытие:** `f2a84717` ввёл rotating `ig_bot.log`, durable task heartbeats,
+  alerting и `/bot/health/`; `244cbbd3` добавил пороговый 4xx detector
+  (`>=5`, `>=25%`, 5 минут) через durable outbox. Целевые тесты и production
+  MariaDB/health evidence приведены в checkpoint 2026-08-04 выше.
 
 ---
 
@@ -3146,7 +3161,7 @@ W3 гоняла `management orders` (2100+ тестов, ~85 секунд) по�
   факт денег.
 - **Regression:** `tests_ig_agentic_dialog.RepeatPurchaseTests`.
 
-### F-OPS-008 (P1, ОТКРЫТА): операционный лог живёт четыре часа
+### F-OPS-008 (P1, FIXED / VERIFIED 2026-08-04): операционный лог жил четыре часа
 
 - **Evidence:** `InstagramBotLog` — ровно 500 строк (`LOG_KEEP_ROWS`), самая
   старая запись на момент проверки была создана **4 часа назад**. За 3 суток
@@ -3158,6 +3173,10 @@ W3 гоняла `management orders` (2100+ тестов, ~85 секунд) по�
 - **Направление:** файловый лог `ig_bot` (объявлен в W2) как основной,
   таблица — только для UI; плюс дедупликация повторяющихся событий со счётчиком
   вместо N строк. Отнести к IMP-041/IMP-059 (W8).
+- **Закрытие finding:** warning/error теперь поступают в отдельный rotating
+  `ig_bot.log`, поэтому retention UI-таблицы не стирает единственное evidence.
+  Не реализованная дедупликация самой UI-таблицы вынесена отдельно в
+  `IMPR-OPS-002` / `IMP-100` и не маскируется как завершённая.
 
 ### F-DATA-015 (P2, ОТКРЫТА): ответы бота записаны как сообщения менеджера
 

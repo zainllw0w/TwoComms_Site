@@ -531,7 +531,8 @@ F-OPS-008: один повторяющийся `bad_signature` занял 468 и
 инкрементировать счётчик вместо новой строки. Это дешевле, чем расширять
 таблицу, и сохраняет читаемость UI.
 
-**Затраты:** S. Объединить с IMP-041/IMP-059.
+**Затраты:** S. Reliability-часть `IMP-041/IMP-059` закрыта отдельно; сама
+дедупликация UI-таблицы остаётся `IMP-100`.
 
 ---
 
@@ -569,7 +570,7 @@ F-OPS-008: один повторяющийся `bad_signature` занял 468 и
 | IMPR-FUP-013 | OPEN | IMP-090 после IMP-056 |
 | IMPR-INV-001 | OPEN | IMP-081/084/086 |
 | IMPR-MEM-001 | DONE | IMP-030 |
-| IMPR-OPS-002 | OPEN | IMP-041/059 |
+| IMPR-OPS-002 | OPEN | IMP-100; incident retention закрыт IMP-041/059 |
 | IMPR-SALES-001 | PARTIAL | каталог размеров есть; протокол — IMP-028 |
 | IMPR-SALES-002 | PARTIAL | post-sale guard есть; prompt acceptance — IMP-028 |
 | IMPR-SALES-003 | PARTIAL | `042c48c8`: максимум один contextual upsell; конкретная вторая позиция/корзина — IMP-085/087 |

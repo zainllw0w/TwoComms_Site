@@ -732,9 +732,12 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   migration drift и compileall; production `enabled=True`,
   `transport=instagram_login`, `last_error=''`.
 
-- [ ] **IMP-041 (P1) — открыта.** Health-check + heartbeat каждой cron-задачи с алертом
-  «не выполнялась дольше N» (F-SEC-008). **Прямой урок F-OPS-001:** исчезновение
-  cron не замечали 24 дня.
+- [x] **IMP-041 (P1) — закрыта и задеплоена 2026-08-04 (`f2a84717`).** Health-check,
+  durable heartbeat каждой production cron-задачи и дедуплицированный alert при
+  stale/failure (F-SEC-008). Добавлены `InstagramBotTaskHeartbeat`, migration
+  `0135`, явные task-specs, `/bot/health/` и проверка здоровья из daemon.
+  Production MariaDB: все пять задач успешно завершены без ошибки; endpoint =
+  HTTP 200, `bot_state=running`, `cron_unhealthy=0`.
 - [ ] **IMP-042 (P1) — открыта.** Шифрование токенов в БД через существующий Fernet из
   `services/pii.py` (F-SEC-005).
 - [ ] **IMP-043 — PARTIAL, разделено после W0 (DR-005):**
@@ -789,9 +792,18 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   **Осталось (пункты 5-8 выше):** `DEAD_LETTER`/`UNKNOWN` без мониторинга,
   коллизия ключа в `ig_lifecycle`, дубль на одну неудачную отправку, язык двух
   уведомлений.
-- [ ] **IMP-059 (P1) — открыта.** Не терять доказательства инцидентов (F-OPS-004).
-  Слить с IMP-041: heartbeat + алерт + файловый лог вместо единственной копии
-  в таблице на 500 строк.
+- [x] **IMP-059 (P1) — закрыта и задеплоена 2026-08-04 (`f2a84717`,
+  `244cbbd3`).** Incident evidence больше не ограничено UI-таблицей на 500
+  строк: `ig_bot` имеет отдельный rotating warning/error log, а 4xx webhook
+  wave (>=5 и >=25% за 5 минут) ставит durable outbox-alert. Health отражает
+  `rejections_degraded` до фактического восстановления доли; 71 профильный
+  тест, production MariaDB и `/bot/health/` подтверждены.
+- [ ] **IMP-100 (P2) — открыта.** Дедуплицировать повторяющиеся записи
+  `InstagramBotLog` для UI по безопасному bounded key `(level, event, detail)`:
+  хранить счётчик/последнее наблюдение вместо N одинаковых строк, явно показать
+  счётчик в admin UI и не менять полный rotating file log. Нужны migration,
+  MariaDB concurrency/retention тест и deploy. Это `IMPR-OPS-002`; не является
+  условием уже закрытой сохранности incident evidence.
 - [ ] **IMP-060 (P2) — открыта.** Вложения (F-DATA-011): не качать URL импортированных
   сообщений, сохранять байты при приёме живого webhook.
 - [ ] **IMP-061 (P2) — открыта.** `hub.verify_token` в access-логе (F-SEC-010):
@@ -1022,11 +1034,11 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 | [x] | F-OPS-001 | FIXED/VERIFIED | IMP-009/051 |
 | [ ] | F-OPS-002 | OPEN | IMP-046 |
 | [x] | F-OPS-003 | FIXED/VERIFIED | IMP-020 |
-| [ ] | F-OPS-004 | OPEN | IMP-059 |
+| [x] | F-OPS-004 | FIXED/VERIFIED | IMP-059 |
 | [x] | F-OPS-005 | FIXED/VERIFIED | IMP-099 |
 | [x] | F-OPS-006 | FIXED/VERIFIED | IMP-062 |
 | [x] | F-OPS-007 | FIXED/VERIFIED | IMP-099 |
-| [ ] | F-OPS-008 | OPEN | IMP-059 |
+| [x] | F-OPS-008 | FIXED/VERIFIED | IMP-059 |
 | [ ] | F-OPS-009 | PARTIAL | IMP-077 |
 | [x] | F-PAT-001 | FIXED/VERIFIED | IMP-017 |
 | [x] | F-PAT-002 | FIXED/VERIFIED | IMP-017 |
@@ -1069,7 +1081,7 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 | [ ] | F-SEC-005 | OPEN | IMP-042 |
 | [x] | F-SEC-006 | FIXED/VERIFIED | IMP-025 |
 | [x] | F-SEC-007 | FIXED/VERIFIED | IMP-012 |
-| [ ] | F-SEC-008 | OPEN | IMP-041 |
+| [x] | F-SEC-008 | FIXED/VERIFIED | IMP-041 |
 | [ ] | F-SEC-009 | PARTIAL | IMP-006/098 |
 | [ ] | F-SEC-010 | OPEN | IMP-061 |
 | [x] | F-STAT-001 | FIXED/VERIFIED | IMP-058 |
@@ -1139,7 +1151,7 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 | [ ] | IMPR-FUP-013 | OPEN | IMP-090 после IMP-056 |
 | [ ] | IMPR-INV-001 | OPEN | IMP-081/084/086 |
 | [x] | IMPR-MEM-001 | DONE | IMP-030 |
-| [ ] | IMPR-OPS-002 | OPEN | IMP-041/059 |
+| [ ] | IMPR-OPS-002 | OPEN | IMP-100; incident retention закрыт IMP-041/059 |
 | [ ] | IMPR-SALES-001 | PARTIAL | каталог размеров есть; протокол — IMP-028 |
 | [ ] | IMPR-SALES-002 | PARTIAL | post-sale guard есть; prompt acceptance — IMP-028 |
 | [ ] | IMPR-SALES-003 | PARTIAL | `042c48c8`: максимум один contextual upsell; конкретная вторая позиция/корзина — IMP-085/087 |

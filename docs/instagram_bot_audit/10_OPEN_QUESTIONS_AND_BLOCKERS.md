@@ -7,7 +7,7 @@
 - W4B: закрыта; `IMP-058` и `IMP-089` имеют code, tests и production evidence.
 - W5: `IMP-028` (full size/sales prompt protocol), `IMP-095` (white 1090 грн
   variant data with real images/rules).
-- W8: `IMP-041`, `042`, `044`–`046`, `059`–`061`, `094`, `096`; partial `043`, `077`.
+- W8: `IMP-042`, `044`–`046`, `060`–`061`, `094`, `096`, `100`; partial `043`, `077`.
 - W9: `IMP-081`–`088` (the first five have branch-only code, not production).
 - W10: `IMP-090`–`093`.
 - W11: `IMP-098` — F-CORE-003…006, F-PAY-010, F-SCORE-010 и partial-остатки
