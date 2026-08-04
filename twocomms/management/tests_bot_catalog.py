@@ -43,6 +43,82 @@ class CatalogProductIdTests(TestCase):
 
 
 class CatalogVariantPriceTests(TestCase):
+    def test_catalog_sizes_are_scoped_to_the_exact_variant_and_fit(self):
+        from fable5.models import ProductOptionSizeGrid, VariantSizeRule
+        from productcolors.models import Color, ProductColorVariant
+        from storefront.models import (
+            Catalog,
+            Category,
+            Product,
+            ProductFitOption,
+            ProductStatus,
+            SizeGrid,
+        )
+
+        category = Category.objects.create(name="Футболки", slug="variant-sizes")
+        catalog = Catalog.objects.create(name="Variant sizes", slug="variant-sizes")
+        product = Product.objects.create(
+            title="Футболка Бойова квіточка",
+            slug="variant-size-flower",
+            category=category,
+            catalog=catalog,
+            price=1090,
+            status=ProductStatus.PUBLISHED,
+        )
+        ProductFitOption.objects.create(
+            product=product,
+            code="oversize",
+            label="Оверсайз",
+            is_active=True,
+            is_default=True,
+        )
+        grid = SizeGrid.objects.create(
+            catalog=catalog,
+            name="Oversize XS-XXL",
+            guide_data={
+                "columns": [{"key": "size", "label": "Розмір"}],
+                "rows": [
+                    {"size": size, "display_size": size}
+                    for size in ("XS", "S", "M", "L", "XL", "XXL")
+                ],
+            },
+            is_active=True,
+        )
+        ProductOptionSizeGrid.objects.create(
+            product=product,
+            option_key="fit=oversize",
+            size_grid=grid,
+        )
+        thermo = Color.objects.create(name="Термо-зелена", primary_hex="#A2AB92")
+        variant = ProductColorVariant.objects.create(
+            product=product,
+            color=thermo,
+            price_override=1450,
+            is_default=True,
+        )
+        for size in ("S", "L", "XL", "XXL"):
+            VariantSizeRule.objects.create(
+                variant=variant,
+                fit_code="oversize",
+                size=size,
+                is_enabled=False,
+            )
+        VariantSizeRule.objects.create(
+            variant=variant,
+            fit_code="oversize",
+            size="M",
+            is_enabled=True,
+        )
+
+        text = get_catalog_context(force=True, compact=True)
+
+        self.assertIn(
+            f"Термо-зелена (variant_id={variant.pk}, ціна 1450 грн, "
+            "фасони/розміри: oversize=XS/M)",
+            text,
+        )
+        self.assertNotIn("oversize: XS/S/M/L/XL/XXL", text)
+
     def test_catalog_variant_pricing_uses_a_bounded_query_graph(self):
         from productcolors.models import Color, ProductColorVariant
         from storefront.models import Category, Product, ProductStatus

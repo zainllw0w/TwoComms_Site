@@ -11,6 +11,8 @@ from itertools import product as option_product
 
 from django.db.models import prefetch_related_objects
 
+from .ig_catalog_compatibility import resolve_configuration_sizes
+
 
 logger = logging.getLogger(__name__)
 MAX_OPTION_COMBINATIONS = 128
@@ -126,7 +128,7 @@ def _variant_configurations(product, variant) -> list[dict]:
             axis["code"]: str(choice.get("label") or choice.get("code") or "")
             for axis, choice in zip(axes, choices)
         }
-        rows.append({
+        row = {
             "variant_id": variant.pk,
             "color_id": getattr(variant, "color_id", None),
             "color_slug": str(getattr(variant, "slug", "") or ""),
@@ -140,7 +142,13 @@ def _variant_configurations(product, variant) -> list[dict]:
             "price_reason": str(resolved.get("price_delta_reason") or "").strip(),
             "is_thermo": bool(resolved.get("is_thermo")),
             "stock": int(getattr(variant, "stock", 0) or 0),
-        })
+        }
+        row["compatible_sizes"] = resolve_configuration_sizes(
+            product,
+            variant,
+            row,
+        )
+        rows.append(row)
     return rows
 
 
@@ -227,7 +235,14 @@ def format_variant_pricing(rows: list[dict]) -> str:
         if len(distinct_prices) == 1:
             detail = f"ціна {options[0]['price_text']} грн"
             fits = list(dict.fromkeys(row.get("fit_code") for row in options if row.get("fit_code")))
-            if fits:
+            sized_fits = list(dict.fromkeys(
+                f"{row['fit_code']}={'/'.join(row['compatible_sizes'])}"
+                for row in options
+                if row.get("fit_code") and row.get("compatible_sizes")
+            ))
+            if sized_fits:
+                detail += f", фасони/розміри: {'; '.join(sized_fits)}"
+            elif fits:
                 detail += f", фасони: {'/'.join(fits)}"
         else:
             parts = []
@@ -237,6 +252,13 @@ def format_variant_pricing(rows: list[dict]) -> str:
                 ) or "базова"
                 parts.append(f"{option_label}={row['price_text']} грн")
             detail = "ціни: " + ", ".join(dict.fromkeys(parts))
+            sized_fits = list(dict.fromkeys(
+                f"{row['fit_code']}={'/'.join(row['compatible_sizes'])}"
+                for row in options
+                if row.get("fit_code") and row.get("compatible_sizes")
+            ))
+            if sized_fits:
+                detail += "; фасони/розміри: " + "; ".join(sized_fits)
         if reasons:
             detail += ", причина: " + "; ".join(reasons)
         stock = int(options[0].get("stock") or 0)
