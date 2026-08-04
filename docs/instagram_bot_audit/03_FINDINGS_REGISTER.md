@@ -3939,12 +3939,15 @@ fulfillment worker не открывают поздние соединения �
 recovery-job оставляет входящее сообщение в явном terminal unsent состоянии
 (`FAILED` + `send_state='failed'`), а не в неоднозначной комбинации полей.
 
-**Evidence (ветка, не production):** `management` suite = **2619 тестов,
+**Local evidence:** `management` suite = **2619 тестов,
 3 skipped, OK** из корня worktree и отдельным запуском из `twocomms`; focused
 gate = **136 OK**, smoke regressions = **6 OK**, `git diff --check` = 0.
-Оба полных прогона используют SQLite. Отдельный disposable MariaDB-run для
-`varchar(max_length)`, locks и constraints не выполнен; production MySQL не
-использовался как test database. Поэтому finding и `IMP-094` не закрываются.
+Оба полных прогона используют SQLite. Commit `15147ded` задеплоен: production
+`check`/migration-drift зелёные, daemon восстановлен штатным `--ensure` и
+сейчас `running=True`, `alive=True`, `last_error=''`. Отдельный disposable
+MariaDB-run для `varchar(max_length)`, locks и constraints не выполнен;
+production MySQL не использовался как test database. Поэтому finding и
+`IMP-094` не закрываются.
 
 ## Reliability checkpoint (2026-08-03)
 

@@ -50,6 +50,6 @@
 **Fresh local gate for current checkpoint:** full `management` suite passed
 2619 tests with 3 skipped from both supported CWDs; focused branch gate passed
 136 tests and the detached-worker/recovery smoke package passed 6 tests.
-`git diff --check` is clean. Existing production migration/backfill evidence
-remains unchanged; this branch has not yet run a separate disposable MariaDB
-gate, so `F-TEST-002` / `IMP-094` remain open.
+`git diff --check` is clean. Commit `15147ded` is deployed; production
+`check`/migration-drift and daemon recovery are green. A separate disposable
+MariaDB gate is still missing, so `F-TEST-002` / `IMP-094` remain open.

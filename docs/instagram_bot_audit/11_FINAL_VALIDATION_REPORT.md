@@ -58,17 +58,19 @@ rows because this dataset contains no historical superseded invoice IDs. The
 daemon recovered from the restart's transient worker error and reports
 `running=True`, `last_error=''`.
 
-## IMP-094 local checkpoint (2026-08-04, not deployed)
+## IMP-094 checkpoint (2026-08-04, deployed; MariaDB gate still open)
 
-The branch-only reliability slice passes the full `management` suite twice:
+The reliability slice passes the full `management` suite twice:
 **2619 tests, 3 skipped, `OK`** from the worktree root and from `twocomms`.
 The focused gate passes **136 tests**, and detached-worker/recovery regressions
 pass **6 tests**. The changes also pass `git diff --check`.
 
-This is SQLite evidence only. A separately provisioned disposable MariaDB
-instance is still required for the DB-contract gate; production MySQL was not
-used for tests. Until that run, `IMP-094` and `F-TEST-002` remain unchecked and
-the branch must not be described as deployed.
+This is SQLite evidence only. Commit `15147ded` is in `main` and production;
+`manage.py check` and migration-drift passed, then the standard `--ensure`
+command restored the restarted daemon to `running=True`, `alive=True` with
+empty `last_error`. A separately provisioned disposable MariaDB instance is
+still required for the DB-contract gate; production MySQL was not used for
+tests. Until that run, `IMP-094` and `F-TEST-002` remain unchecked.
 
 ## Acceptance decision
 

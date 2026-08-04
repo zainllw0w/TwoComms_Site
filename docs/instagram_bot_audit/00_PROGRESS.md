@@ -67,7 +67,7 @@
 - `[ ] PARTIAL` означает, что опубликована только часть требований, а явно
   перечисленный остаток всё ещё обязателен.
 
-## IMP-094: локальный reliability checkpoint (2026-08-04, не задеплоен)
+## IMP-094: reliability checkpoint (2026-08-04, deployed; still OPEN)
 
 В рабочей ветке `codex/ig-bot-imp028-prompt` устранены три источника
 ложных падений/гонок в SQLite-gate: ночные тесты с плавающим «сегодня» переведены
@@ -82,7 +82,10 @@ production-host `localhost`, когда `DB_HOST` не задан.
 фокусный regression-пакет — **136 тестов `OK`**, дополнительный smoke-пакет —
 **6 тестов `OK`**. Это только локальная SQLite-проверка: отдельная disposable
 MariaDB не предоставлена, поэтому `IMP-094` и `F-TEST-002` остаются открытыми.
-До push/deploy этот checkpoint не является production evidence.
+Commit `15147ded` находится в `origin/main` и на production: `manage.py check`
+и migration-drift прошли, после restart штатный `run_instagram_bot --ensure`
+подтвердил `running=True`, `alive=True`, transport `instagram_login` и пустой
+`last_error`. Production MySQL не использовался как test database.
 
 ## IMP-041 и IMP-059 закрыты и задеплоены (2026-08-04)
 

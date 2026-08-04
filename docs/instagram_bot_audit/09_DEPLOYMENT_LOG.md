@@ -4,14 +4,16 @@ Production host: `195.191.25.63`, path
 `/home/qlknpodo/TWC/TwoComms_Site/twocomms`, branch `main`, database
 `qlknpodo_MySQL_DB` (MariaDB/MySQL). Secrets are intentionally omitted.
 
-## Pending local checkpoint (2026-08-04)
+## IMP-094 deployment checkpoint (2026-08-04)
 
-`codex/ig-bot-imp028-prompt` contains the IMP-094 test-isolation and
-terminal-state changes documented in `00_PROGRESS.md` and
-`03_FINDINGS_REGISTER.md`. The branch is ahead of `origin/main` and has
-**not** been pushed, pulled on the server, restarted, or production-verified.
-No production database was used as a test database. This section is
-intentionally not a deployment claim.
+`15147ded` was fast-forwarded to `main` and pulled on production. `manage.py
+check` and `makemigrations --check --dry-run` passed. Touching
+`tmp/restart.txt` stopped the old daemon as designed, but the scheduled
+watchdog did not relaunch it promptly; the standard singleton-safe
+`run_instagram_bot --ensure` restored the worker. Final `status_snapshot()`:
+`is_enabled=True`, `state='running'`, `running=True`, `alive=True`, transport
+`instagram_login`, `last_error=''`. No production database was used for tests;
+the disposable MariaDB gate in IMP-094 remains open.
 
 | Date | SHA | Verification | Runtime |
 |---|---|---|---|
@@ -28,6 +30,7 @@ intentionally not a deployment claim.
 | 2026-08-03 | `280c07e8` | migration `0134`; 104 payment/lifecycle tests; superseded invoice polling and check-only proof | `running`; `last_error=''` |
 | 2026-08-03 | `6883ac2c` | final IMP-089 code/doc checkpoint; server pull, migrate/check, check-only and runtime verification | `running`; heartbeat 0.6s; `last_error=''` |
 | 2026-08-03 | `e04c1c24` | final audit evidence checkpoint; docs-only fast-forward | runtime unchanged; `running`; `last_error=''` |
+| 2026-08-04 | `15147ded` | IMP-094 SQLite gate stabilization; production check/migration-drift; daemon recovery | `running`; `alive=True`; `instagram_login`; `last_error=''` |
 
 For `6b86e103`, server `git pull --ff-only` completed, `manage.py check` returned
 no issues, `makemigrations --check --dry-run` returned `No changes detected`,
