@@ -6,13 +6,14 @@
 > ID: `IMPR-<домен>-<NNN>`.
 >
 > Тексты «Сейчас» ниже сохранены как исходный audit snapshot. Актуальный статус
-> каждого ID находится в таблице «Каноническое покрытие всех 48 улучшений» в
+> каждого ID находится в таблице «Каноническое покрытие всех 50 улучшений» в
 > конце файла; именно она предотвращает повторную реализацию уже закрытого.
 
 > **W9 checkpoint 2026-08-05:** semantic/inventory foundation (`IMP-081`) уже
 > в production, но остаётся PARTIAL до runtime/admin consumer и disposable
-> MariaDB gate. Price-aware graph/candidate slice (`IMP-082/083`) существует в
-> feature worktree и не закрывает связанные IMPR до интеграции и deploy.
+> MariaDB gate. Price-aware graph/candidate foundation (`IMP-082/083`) и точный
+> variant-specific prompt parity deployed on `0ad694bc`; связанные IMPR остаются PARTIAL до runtime/session wiring,
+> exact availability и manager review.
 
 ## Главное наблюдение
 
@@ -501,6 +502,26 @@ fulfillment-каскад и не меняет коммерческие гран�
 
 **Затраты:** M. **Зависимость:** после стабилизации W4C на проде.
 
+### IMPR-FUP-014 (P0/P1): наблюдаемый и разрешаемый lifecycle доставки follow-up
+
+Claim и попытка отправки не доказывают доставку. После timeout/5xx неизвестный
+provider outcome нельзя автоматически повторять: это создаёт дубль, но и
+оставлять задачу навечно в промежуточном состоянии нельзя. Нужны явные
+`PROCESSING/SENT/AMBIGUOUS/COMPLETED`, lease, сохранённый provider receipt,
+recovery протухшей lease и операторское разрешение ambiguous delivery.
+
+Направление: `IMP-102`; blind retry через неоднозначную границу запрещён.
+
+### IMPR-FUP-015 (P1): event-driven продолжение policy без polling и stale-фактов
+
+Follow-up должен продолжать policy от материализованного бизнес-события, а не
+угадывать состояние периодическим scan. Каждая задача хранит точный `event_key`,
+payload и абсолютный policy timeline; непосредственно перед send повторно
+проверяется релевантный invoice/restock факт. Это исключает сообщение по уже
+оплаченному invoice или устаревшему отсутствию товара.
+
+Направление: `IMP-103`, после delivery boundary `IMP-102`.
+
 ### IMPR-INV-001 (P1): склад как источник истины о наличии
 
 W4C привела IG-checkout к паритету с сайтом: нулевой `ProductColorVariant.stock`
@@ -541,7 +562,7 @@ F-OPS-008: один повторяющийся `bad_signature` занял 468 и
 
 ---
 
-## Каноническое покрытие всех 48 улучшений (2026-08-03)
+## Каноническое покрытие всех 50 улучшений (2026-08-05)
 
 До этой сверки реестр содержал идеи, но 36 ID не упоминались в
 `07_IMPLEMENTATION_PLAN.md`. Таблица ниже закрывает эту операционную дыру:
@@ -554,10 +575,10 @@ F-OPS-008: один повторяющийся `bad_signature` занял 468 и
 | IMPR-CAT-001 | DONE | IMP-027 |
 | IMPR-CAT-002 | REFRAMED | IMP-067; настоящий учёт варианта — IMP-084/086 |
 | IMPR-CAT-003 | DONE | IMP-080 |
-| IMPR-CAT-004 | OPEN | IMP-082/084 |
+| IMPR-CAT-004 | PARTIAL | `0ad694bc`: typed graph/ranker + prompt parity; availability wiring — IMP-084 |
 | IMPR-CAT-005 | DONE | IMP-067, catalog completeness `3191e08c` |
 | IMPR-CAT-006 | OPEN | IMP-088 |
-| IMPR-FEAT-001 | OPEN | IMP-082/083/088 |
+| IMPR-FEAT-001 | PARTIAL | `0ad694bc`: explainable candidates + prompt parity; runtime/review — IMP-083/088 |
 | IMPR-FEAT-002 | OPEN | IMP-084/086 |
 | IMPR-FEAT-003 | PARTIAL | IMP-028/053/056; остаток IMP-083 |
 | IMPR-FEAT-004 | PARTIAL | IMP-056: IG restock event adapter; durable subscription/warehouse continuation — IMP-087 |
@@ -573,6 +594,8 @@ F-OPS-008: один повторяющийся `bad_signature` занял 468 и
 | IMPR-FEAT-014 | PARTIAL | hosted checkout `c696ee9e`; остаток IMP-087/088 |
 | IMPR-FEAT-015 | PARTIAL | access token/`Kind.SHARE` есть; E2E — IMP-087/088 |
 | IMPR-FUP-013 | OPEN | IMP-090 после IMP-056 |
+| IMPR-FUP-014 | OPEN | IMP-102 |
+| IMPR-FUP-015 | OPEN | IMP-103 после IMP-102 |
 | IMPR-INV-001 | OPEN | IMP-081/084/086 |
 | IMPR-MEM-001 | DONE | IMP-030 |
 | IMPR-OPS-002 | OPEN | IMP-100; incident retention закрыт IMP-041/059 |

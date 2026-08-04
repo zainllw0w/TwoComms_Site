@@ -24,6 +24,10 @@
 остаток находится только в `07_IMPLEMENTATION_PLAN.md`.
 
 **Checkpoint 2026-08-05:** повторная сверка коммерческих эпизодов и W9 не
-добавила пропущенных исходных A01-L10, но добавила три конкретные находки в
-реестр: F-CAT-005, F-CAT-006 и F-PAY-015. Их implementation-статус и production
-evidence находятся в `03` и `07`; число исходных audit items остаётся 120.
+добавила пропущенных исходных A01-L10, но добавила четыре конкретные находки в
+реестр: F-CAT-005, F-CAT-006, F-CAT-007 и F-PAY-015. Все четыре теперь
+`FIXED / VERIFIED`; для F-CAT-007 production `0ad694bc` доказывает точный
+variant-specific price/size prompt contract. Follow-up source reconciliation
+добавила открытые improvement/implementation requirements `IMPR-FUP-014/015`
+и `IMP-102/103`, но не новые audit items. Число исходных audit items остаётся
+120.

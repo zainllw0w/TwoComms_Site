@@ -1,10 +1,10 @@
 # 07_IMPLEMENTATION_PLAN — план внедрения
 
 > **Канонический per-task статус после recovery/deploy 2026-08-05.**
-> Всего 101 уникальная `IMP-*`: **76 закрыты, 21 открыта, 4 partial**
+> Всего 103 уникальные `IMP-*`: **76 закрыты, 23 открыты, 4 partial**
 > (`IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
 > в `03_FINDINGS_REGISTER.md`, общий порядок продолжения — в `00_PROGRESS.md`.
-> Ниже находятся отдельные checkbox-матрицы всех 174 `F-*` и всех 48 `IMPR-*`:
+> Ниже находятся отдельные checkbox-матрицы всех 175 `F-*` и всех 50 `IMPR-*`:
 > `[x]` означает verified completion, `[ ]` — любой незавершённый остаток,
 > включая `PARTIAL`, `REFRAMED` и decision-gated работу.
 
@@ -51,7 +51,8 @@
 | **W9** | Product reselection и коммерческая семантика | 8 | 0 | 5 | 3 |
 | **W10** | Неучтённые улучшения: follow-up, retention и аналитический UX | 4 | 0 | 4 | 0 |
 | **W11** | Полное покрытие находок и orphan backlog | 2 | 1 | 1 | 0 |
-| **Итого** | | **101** | **76** | **21** | **4** |
+| **W12** | Доказуемая доставка follow-up и event-driven continuation | 2 | 0 | 2 | 0 |
+| **Итого** | | **103** | **76** | **23** | **4** |
 
 ---
 
@@ -889,18 +890,19 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
   `fable5.0008`, три InnoDB tables, 77 policies, UPDATE/DELETE triggers.
   Остаток: полноценный runtime/admin consumer и отдельный disposable MariaDB
   test gate; production БД не используется как тестовая.
-- [ ] **IMP-082 (P1) — PARTIAL, `7b5d5cc7` + `1c4d6d48`, не интегрирован.**
-  Trusted product references, typed catalog graph и graph digest. Canonical
-  option-path hardening и typed compatibility проходят повторный spec review. **P0 guard
-  при переносе:** graph не может читать `Product.final_price`; обязан нести
-  current `variant_public_context`/fit matrix, до выбора показывать диапазон,
-  после выбора — exact price. Regression: товар 110 = 1450 для единственного
-  thermo-варианта, товар 91 = 800–950; иначе вернётся F-CAT-003.
-- [ ] **IMP-083 (P1) — PARTIAL, `7b5d5cc7` + `1c4d6d48`, не интегрирован.**
-  Explainable hard-filter/ranking кандидатов; stale candidate acceptance и
-  revalidation ещё требуют реализации. Повтор option segment (`/black/black/`)
-  должен fail-closed, а trusted URL color/fit обязан попасть в durable selection,
-  а не остаться только в `exact_reference`.
+- [ ] **IMP-082 (P1) — PARTIAL, foundation и prompt parity в `main`/production `0ad694bc`.**
+  `7b5d5cc7` + `1c4d6d48`: trusted product references, typed price-aware graph,
+  graph digest, canonical option-path hardening и combined color/fit/size
+  compatibility. `e44d1440` + `0ad694bc` закрыли F-CAT-007: product 110 prompt
+  = variant 81, thermo green, exact 1450 грн, oversize XS/M, без ложного
+  product-wide ряда. Остаток: полный print/blank/media/canonical-link topology
+  и durable runtime commerce-session consumer.
+- [ ] **IMP-083 (P1) — PARTIAL, foundation в `main`/production `0ad694bc`.**
+  Explainable hard-filter/ranking, catalog priority/preferences, price filtering
+  и fail-closed generic/revoked/BOT_VISION semantics опубликованы. Остаток:
+  relaxed alternatives после hard mismatch, durable candidate/session revision
+  binding, stale revalidation и перенос trusted URL constraints в durable
+  selection вместо временного `exact_reference`.
 - [ ] **IMP-084 (P0/P1) — РЕАЛИЗОВАНО В ВЕТКЕ `e9d982df`, НЕ ИНТЕГРИРОВАНО.**
   Warehouse-aware exact availability. Aggregate quantity для строк с одной
   allocation identity и полный checkout wiring остаются открытыми.
@@ -922,7 +924,8 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
 
 ## W10 — Улучшения, которые раньше были только идеями без IMP-задач
 
-Этот блок добавлен после полной сверки 48 `IMPR-*` с планом. Он не меняет
+Этот блок добавлен после полной сверки существовавших тогда 48 `IMPR-*` с
+планом; текущая матрица после source reconciliation содержит 50. Он не меняет
 порядок W4B: сначала IMP-056–058, затем W9/W10 по зависимостям.
 
 **Coverage gate:** подробный статус каждого ID находится в канонической таблице
@@ -939,7 +942,8 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
   IMPR-SALES-008, IMPR-SALES-009, IMPR-SALES-010, IMPR-SALES-011,
   IMPR-TXT-001, IMPR-TXT-002, IMPR-TXT-003, IMPR-TXT-004,
   IMPR-TXT-005, IMPR-TXT-006;
-- память/инициатива/склад/ops: IMPR-MEM-001, IMPR-FUP-013,
+- память/инициатива/склад/ops: IMPR-MEM-001, IMPR-FUP-013, IMPR-FUP-014,
+  IMPR-FUP-015,
   IMPR-INV-001, IMPR-OPS-002;
 - UX: IMPR-UX-001, IMPR-UX-002, IMPR-UX-003, IMPR-UX-004,
   IMPR-UX-005, IMPR-UX-006.
@@ -984,9 +988,34 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
   быстрого возврата. Галочка основана на существующем коде/тестах и ранее
   задеплоенном W4/W5-срезе, а не на одном тексте progress.
 
-### Finding coverage matrix — 174 уникальных F-идентификатора
+---
 
-Итог матрицы: **129 `[x]` / 39 `OPEN [ ]` / 6 `PARTIAL [ ]`**. Статус
+## W12 — доказуемая доставка follow-up и event-driven continuation
+
+Источник требований: dirty worktree `codex/ig-followup-policies`. Его код и
+migration `0131` основаны на старой схеме и не переносятся wholesale; ниже
+зафиксированы только уникальные требования для свежей реализации на текущем
+`main`.
+
+- [ ] **IMP-102 (P0/P1) — durable follow-up delivery FSM.** Ввести явные
+  `PROCESSING`, `SENT`, `AMBIGUOUS`, `COMPLETED`, атомарную lease/claim boundary
+  и сохранение provider receipt. Blind retry после timeout/неоднозначного
+  provider outcome запрещён. Recovery протухшей lease обязан отличать задачу,
+  которая гарантированно не отправлялась, от ambiguous side effect; для
+  `AMBIGUOUS` нужен наблюдаемый admin queue и ручное audited разрешение.
+  Acceptance: concurrent claim, worker restart, timeout/5xx/receipt, stale
+  lease recovery, manual resolution и MariaDB-safe transitions.
+- [ ] **IMP-103 (P1) — materialized event follow-ups.** Создавать продолжение
+  policy из точного business event с immutable `event_key`, payload и
+  абсолютным policy timeline, а не из polling-угадывания текущего snapshot.
+  Непосредственно перед send повторно проверять invoice/restock fact и
+  отменять/перестраивать stale task без клиентского сообщения. Acceptance:
+  duplicate/out-of-order event idempotency, absolute schedule across restart,
+  paid invoice/restocked item suppression and audited policy continuation.
+
+### Finding coverage matrix — 175 уникальных F-идентификаторов
+
+Итог матрицы: **130 `[x]` / 39 `OPEN [ ]` / 6 `PARTIAL [ ]`**. Статус
 считается по факту текущего `main`, тестов и production evidence, а не по тому,
 что ID когда-то упоминался в progress или feature-ветке.
 
@@ -1015,6 +1044,7 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
 | [ ] | F-CAT-004 | OPEN | IMP-084/086 |
 | [x] | F-CAT-005 | FIXED/VERIFIED | IMP-081 |
 | [x] | F-CAT-006 | FIXED/VERIFIED | IMP-081 |
+| [x] | F-CAT-007 | FIXED/VERIFIED | IMP-082; `e44d1440`/`0ad694bc` |
 | [x] | F-CORE-001 | FIXED/VERIFIED | IMP-008 |
 | [x] | F-CORE-002 | FIXED/VERIFIED | IMP-012 |
 | [ ] | F-CORE-003 | OPEN | IMP-098 |
@@ -1167,10 +1197,10 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
 | [x] | F-UX-015 | FIXED/VERIFIED | IMP-099 |
 | [x] | F-UX-016 | FIXED/VERIFIED | IMP-035 |
 
-### Improvement coverage matrix — 48 уникальных IMPR-идентификаторов
+### Improvement coverage matrix — 50 уникальных IMPR-идентификаторов
 
-Итог матрицы: **14 `[x]` / 34 `[ ]`**. В незакрытый остаток входят
-15 `PARTIAL`, 18 `OPEN` (из них 3 decision-gated) и 1 `REFRAMED`; галочка не
+Итог матрицы: **14 `[x]` / 36 `[ ]`**. В незакрытый остаток входят
+21 `PARTIAL`, 14 `OPEN` (из них 3 decision-gated) и 1 `REFRAMED`; галочка не
 ставится, пока полезный остаток не реализован и не задеплоен.
 
 | Check | Improvement | Status | Canonical task / остаток |
@@ -1178,10 +1208,10 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
 | [x] | IMPR-CAT-001 | DONE | IMP-027 |
 | [ ] | IMPR-CAT-002 | REFRAMED | IMP-067; настоящий учёт варианта — IMP-084/086 |
 | [x] | IMPR-CAT-003 | DONE | IMP-080 |
-| [ ] | IMPR-CAT-004 | OPEN | IMP-082/084 |
+| [ ] | IMPR-CAT-004 | PARTIAL (`0ad694bc`: typed graph/ranker + prompt parity; availability wiring remains) | IMP-082/084 |
 | [x] | IMPR-CAT-005 | DONE | IMP-067; catalog completeness `3191e08c` |
 | [ ] | IMPR-CAT-006 | OPEN | IMP-088 |
-| [ ] | IMPR-FEAT-001 | OPEN | IMP-082/083/088 |
+| [ ] | IMPR-FEAT-001 | PARTIAL (`0ad694bc`: explainable candidate foundation + prompt parity; runtime/review remains) | IMP-082/083/088 |
 | [ ] | IMPR-FEAT-002 | OPEN | IMP-084/086 |
 | [ ] | IMPR-FEAT-003 | PARTIAL | IMP-028/053/056; остаток IMP-083 |
 | [ ] | IMPR-FEAT-004 | PARTIAL | IMP-056; durable subscription/warehouse — IMP-087 |
@@ -1197,6 +1227,8 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
 | [ ] | IMPR-FEAT-014 | PARTIAL | hosted checkout `c696ee9e`; остаток IMP-087/088 |
 | [ ] | IMPR-FEAT-015 | PARTIAL | access token/`Kind.SHARE` есть; E2E — IMP-087/088 |
 | [ ] | IMPR-FUP-013 | OPEN | IMP-090 после IMP-056 |
+| [ ] | IMPR-FUP-014 | OPEN | IMP-102 |
+| [ ] | IMPR-FUP-015 | OPEN | IMP-103 после IMP-102 |
 | [ ] | IMPR-INV-001 | OPEN | IMP-081/084/086 |
 | [x] | IMPR-MEM-001 | DONE | IMP-030 |
 | [ ] | IMPR-OPS-002 | OPEN | IMP-100; incident retention закрыт IMP-041/059 |

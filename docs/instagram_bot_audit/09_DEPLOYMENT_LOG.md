@@ -4,6 +4,36 @@ Production host: `195.191.25.63`, path
 `/home/qlknpodo/TWC/TwoComms_Site/twocomms`, branch `main`, database
 `qlknpodo_MySQL_DB` (MariaDB/MySQL). Secrets are intentionally omitted.
 
+## F-CAT-007 variant-specific prompt parity deploy (2026-08-05)
+
+`e44d1440` bound catalog sizes to exact `variant + fit`; `0ad694bc` separated an
+authoritative empty size contract from absence of a variant-specific source.
+Both commits are in `origin/main` and production. Product 110 now enters the
+bot prompt as `variant_id=81`, thermo green, exact 1450 грн, oversize sizes
+XS/M; the false product-wide `XS/S/M/L/XL/XXL` row is absent.
+
+Verification: 188 focused tests and the full management suite 2675 passed
+(3 skipped); Django check, migration drift, compileall and diff check passed.
+Final production runtime on `0ad694bc`: one daemon, `running=True`,
+`alive=True`, provider `instagram_login`, heartbeat 0.1 s, `last_error=''`,
+pending replies/notifications = `0/0`.
+
+## IMP-082/083 typed graph/ranker historical foundation deploy (2026-08-05)
+
+`29684475` was pushed to `main` and fast-forwarded on production. `migrate`
+reported no pending migrations; `manage.py check`, migration drift and scoped
+compileall passed. `tmp/restart.txt` caused the old daemon to release its lock;
+`run_instagram_bot --ensure` spawned one daemon on the deployed code.
+
+Production MariaDB read-only proof built graph digest
+`38f2c7df99c9c042c179bc96e0736185b03cfb1f29381722b96c8ce41b7a7b8e`:
+product 91 has exact fit prices 800/950 грн; product 110 has only thermo
+`variant_id=81` at exact 1450 грн. Hard `color=termo-zelena`, `fit=oversize`,
+`size=M` resolves one candidate; `size=L` resolves none. Final runtime:
+one daemon, `running=True`, `alive=True`, `instagram_login`, heartbeat 0.5 s,
+`last_error=''`, active reply/notification/analysis queues zero. Server tracked
+files are clean; unrelated untracked operational files remain untouched.
+
 ## F-PAY-015 daemon reconciliation deploy (2026-08-05)
 
 `93ae8684` was pushed to `main` and fast-forwarded on production. `migrate`
@@ -61,6 +91,8 @@ overwritten outside the fast-forward.
 | 2026-08-04 | `15147ded` | IMP-094 SQLite gate stabilization; production check/migration-drift; daemon recovery | `running`; `alive=True`; `instagram_login`; `last_error=''` |
 | 2026-08-04 | `221cf37d` | IMP-077 terminal monitor/key/dedupe completion; focused 75 tests, production check and daemon ensure | `running`; `alive=True`; terminal outbox `0/0` |
 | 2026-08-05 | `93ae8684` | F-PAY-015; 134 local tests, MySQL reconcile x3, static/compress, payment backstop, restart | `running`; `alive=True`; `instagram_login`; heartbeat 1.0s; queues `0/0/0` |
+| 2026-08-05 | `29684475` | IMP-082/083 partial; 31/230/2672/202 local gates, MySQL graph 91=800/950 and 110=1450, hard incompatible size rejected | one daemon; `running`; `alive=True`; heartbeat 0.5s; queues `0/0/0` |
+| 2026-08-05 | `e44d1440` / `0ad694bc` | F-CAT-007 fixed; 188 focused, 2675 full suite, exact variant+fit prompt price/size contract | one daemon; `running`; `alive=True`; heartbeat 0.1s; reply/notification queues `0/0` |
 
 For `6b86e103`, server `git pull --ff-only` completed, `manage.py check` returned
 no issues, `makemigrations --check --dry-run` returned `No changes detected`,

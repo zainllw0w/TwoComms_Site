@@ -8,8 +8,11 @@
 > **Implementation checkpoint 2026-08-05:** historical design sections below
 > сохраняют причины решений. W4B/W6 и funnel analytics уже реализованы; новый
 > F-PAY-015 закрывает startup collision между superseded payment review и
-> canonical episode. Product/price reselection остаётся частичным W9 и не должно
-> считаться готовым только по наличию feature-branch graph code.
+> canonical episode. Product/price reselection остаётся частичным W9: typed
+> graph/ranker foundation и variant-specific prompt price/size parity уже
+> production `0ad694bc`; F-CAT-007 закрыта. Runtime commerce session,
+> availability/reservation, stale candidate binding и provider-evidenced
+> follow-up delivery/event continuation (`IMP-102/103`) ещё не закрыты.
 
 ---
 

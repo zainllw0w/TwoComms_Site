@@ -21,6 +21,7 @@
 | F-OPS-009 | FIXED / VERIFIED | `221cf37d`: terminal outbox monitor, separated lifecycle dedupe keys, one actionable failed-paylink alert and Ukrainian lifecycle copy; production daemon running with terminal counts = 0 |
 | F-CAT-005 | FIXED / VERIFIED | `674d6858`: verified semantic aliases reject empty, generic and punctuation-only values before they can authorize catalog matching |
 | F-CAT-006 | FIXED / VERIFIED | `3678ddf4`: effective semantic revision cannot be revoked without authoritative actor/reason; revocation is audited and fail-closed |
+| F-CAT-007 | FIXED / VERIFIED | `e44d1440` binds prompt sizes to exact variant+fit; `0ad694bc` distinguishes an authoritative empty size contract from a missing variant-specific source; production product 110 = variant 81, thermo green, 1450 грн, oversize XS/M |
 | F-PAY-015 | FIXED / VERIFIED | `93ae8684`: superseded payment review audit links no longer merge commercial episodes; repeated MySQL reconcile is clean and daemon is running |
 
 Исторические описания ниже сохраняют исходное evidence; текущим источником
@@ -4064,6 +4065,33 @@ F-OPS-005, F-STATE-009, F-UX-015 и F-OPS-007 → IMP-099.
 - **Evidence:** код в `main`/production; raw UPDATE/DELETE дополнительно запрещены
   MariaDB triggers `sf_sem_rev_no_update`/`sf_sem_rev_no_delete`.
 - **Связь:** `IMP-081 PARTIAL`.
+
+### F-CAT-007 (P1, FIXED/VERIFIED): prompt-каталог смешивал variant price с product-wide sizes
+
+- **Production symptom:** строка товара 110 в `bot_catalog` показывает точную
+  thermo-цену 1450 грн для `variant_id=81`, но рядом перечисляет
+  `XS/S/M/L/XL/XXL` из product-wide size grid.
+- **Authoritative truth:** production typed graph разрешает для этой
+  configuration только `XS/M`; hard request `size=L` возвращает ноль
+  кандидатов. Checkout также fail-closed проверяет variant-size rules.
+- **Риск:** модель может пообещать S/L/XL/XXL до checkout, а сервер затем
+  отклонит configuration. Это тот же класс разрыва речи и факта, что F-CAT-003,
+  но по размеру, а не по цене.
+- **Причина:** legacy `resolve_catalog_sizes(product)` не принимал variant/fit
+  и рендерился отдельно от price configuration.
+- **Исправление:** `e44d1440` привязал размеры prompt-каталога к точным
+  `variant + fit`; `0ad694bc` разделил authoritative пустой size contract и
+  отсутствие variant-specific источника, не возвращая ложный product-wide
+  fallback.
+- **Production evidence:** SHA `0ad694bc`; product 110 передаётся в prompt как
+  `variant_id=81`, thermo green, 1450 грн, `oversize=XS/M`. Ложный ряд
+  `XS/S/M/L/XL/XXL` отсутствует. Daemon `running=True`, `alive=True`, heartbeat
+  0.1 с, `instagram_login`, `last_error=''`, pending reply/notifications = 0.
+- **Verification:** 188 focused и полный management suite 2675 (3 skipped),
+  Django check, migration drift, compileall и diff check прошли.
+- **Остаток не этой находки:** `IMP-082/083` остаются PARTIAL до durable runtime
+  commerce session, stale candidate binding, relaxed alternatives и полного
+  topology.
 
 ### F-PAY-015 (P0, FIXED/VERIFIED): audit-ссылки superseded review сливали два коммерческих эпизода
 
