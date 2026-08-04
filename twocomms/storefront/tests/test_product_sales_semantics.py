@@ -183,6 +183,23 @@ class ProductSalesSemanticRevisionTests(TestCase):
                     verified_at=timezone.now(),
                 )
 
+    def test_verified_alias_requires_a_non_connector_identity_token(self):
+        for locale, alias in (
+            ("en", "and"),
+            ("uk", "і та"),
+            ("ru", "без"),
+            ("en", "!!!"),
+        ):
+            with self.subTest(locale=locale, alias=alias), self.assertRaises(ValidationError):
+                validate_semantic_revision(
+                    status="verified",
+                    source="manager",
+                    aliases={locale: [alias]},
+                    traits={"back_decoration": "none"},
+                    verified_by=self.verifier,
+                    verified_at=timezone.now(),
+                )
+
     def test_multiword_product_alias_is_valid_for_verification(self):
         normalized = validate_semantic_revision(
             status="verified",

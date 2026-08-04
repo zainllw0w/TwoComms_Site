@@ -118,10 +118,18 @@ def validate_verified_aliases(aliases):
             tokens = [
                 token.casefold()
                 for token in re.findall(r"[^\W_]+(?:-[^\W_]+)*", alias)
-                if token.casefold() not in GENERIC_ALIAS_CONNECTORS
             ]
-            is_generic_only = bool(tokens) and all(
-                token in GENERIC_COMMERCE_ALIASES for token in tokens
+            identity_tokens = [
+                token for token in tokens if token not in GENERIC_ALIAS_CONNECTORS
+            ]
+            if not identity_tokens:
+                raise ValidationError({
+                    "aliases": (
+                        f"Verified alias '{alias}' ({locale}) has no product identity token."
+                    )
+                })
+            is_generic_only = all(
+                token in GENERIC_COMMERCE_ALIASES for token in identity_tokens
             )
             if alias in GENERIC_COMMERCE_ALIASES or is_generic_only:
                 raise ValidationError({
