@@ -65,6 +65,7 @@ def ig_webhook(request):
             _warn_signature_configuration_once()
             logger.warning("ig_bot: bad signature")
             bot.log("warning", "bad_signature", "Невірний підпис webhook — відхилено")
+            bot.record_webhook_response(403, reason="invalid_signature")
             return HttpResponse("forbidden", status=403)
 
         try:
@@ -80,6 +81,7 @@ def ig_webhook(request):
                 "webhook_bad_payload",
                 f"len={len(raw)} signed={bool(sig)} error={type(exc).__name__}",
             )
+            bot.record_webhook_response(200)
             return HttpResponse("ok")
 
         try:
@@ -92,9 +94,11 @@ def ig_webhook(request):
             bot.handle_webhook_payload(settings_obj, payload, persistence_only=True)
         except Exception:
             logger.exception("ig_bot: webhook handler error")
+            bot.record_webhook_response(503, reason="handler_error")
             return HttpResponse("retry", status=503)
 
         # ВІДРАЗУ 200 — головна вимога Meta (інакше повторні доставки).
+        bot.record_webhook_response(200)
         return HttpResponse("ok")
 
     return HttpResponse(status=405)

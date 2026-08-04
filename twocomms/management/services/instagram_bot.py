@@ -74,6 +74,9 @@ CONV_MIN_INTERVAL = 0.5  # Meta Conversations API: at most 2 requests/second.
 CONV_CACHE_TTL = 3600
 CONV_REFRESH_LOCK_TTL = CONV_LIST_TIMEOUT * CONV_DISCOVERY_PAGES_PER_REFRESH + 30
 INGRESS_DEGRADATION_TTL = 15 * 60
+WEBHOOK_ERROR_WINDOW_SECONDS = 5 * 60
+WEBHOOK_ERROR_MIN_COUNT = 5
+WEBHOOK_ERROR_MIN_RATE = 0.25
 _CONV_ID_RE = re.compile(r"^[A-Za-z0-9:_-]{1,255}$")
 _CONV_CURSOR_RE = re.compile(r"^[A-Za-z0-9_+=/.:~-]{1,1024}$")
 _SENDER_ID_RE = re.compile(r"^[A-Za-z0-9:_-]{1,64}$")
@@ -2090,6 +2093,109 @@ def webhook_signature_status() -> dict[str, object]:
         "unsigned_override": override,
         "healthy": configured or override,
         "state": "configured" if configured else ("development_override" if override else "missing_secret"),
+    }
+
+
+def _webhook_status_key(bucket: int, kind: str) -> str:
+    return f"ig_bot_webhook_status:{kind}:{bucket}"
+
+
+def webhook_rejection_status() -> dict[str, object] | None:
+    """Return the current bounded 4xx incident signal, without a Graph call."""
+    value = cache.get("ig_bot_webhook_4xx_degraded")
+    if not isinstance(value, dict):
+        return None
+    try:
+        errors = max(0, int(value.get("errors") or 0))
+        total = max(errors, int(value.get("total") or 0))
+    except (TypeError, ValueError):
+        return None
+    if not errors or not total:
+        return None
+    return {
+        "errors": errors,
+        "total": total,
+        "rate": round(errors / total, 4),
+        "reason": str(value.get("reason") or "")[:64],
+    }
+
+
+def record_webhook_response(status_code: int, *, reason: str = "") -> dict[str, object]:
+    """Count webhook HTTP outcomes and queue one alert for a sustained 4xx rate.
+
+    The handler must stay fast and must never transmit Telegram synchronously.
+    Counters are deliberately cache-only: durable evidence is in ``ig_bot.log``
+    and the alert outbox, while this is a short-lived detection window.
+    """
+    was_degraded = webhook_rejection_status() is not None
+    try:
+        status_code = int(status_code)
+    except (TypeError, ValueError):
+        status_code = 0
+    now = timezone.now()
+    bucket = int(now.timestamp() // WEBHOOK_ERROR_WINDOW_SECONDS)
+    ttl = WEBHOOK_ERROR_WINDOW_SECONDS * 2
+    total_key = _webhook_status_key(bucket, "total")
+    error_key = _webhook_status_key(bucket, "4xx")
+    try:
+        cache.add(total_key, 0, ttl)
+        total = int(cache.incr(total_key))
+        is_client_error = 400 <= status_code < 500
+        if is_client_error:
+            cache.add(error_key, 0, ttl)
+            errors = int(cache.incr(error_key))
+        else:
+            errors = int(cache.get(error_key) or 0)
+    except Exception:
+        return {"available": False, "status_code": status_code}
+
+    rate = errors / total if total else 0.0
+    degraded = errors >= WEBHOOK_ERROR_MIN_COUNT and rate >= WEBHOOK_ERROR_MIN_RATE
+    if degraded:
+        cache.set(
+            "ig_bot_webhook_4xx_degraded",
+            {
+                "errors": errors,
+                "total": total,
+                "reason": str(reason or "http_4xx")[:64],
+                "at": now.timestamp(),
+            },
+            INGRESS_DEGRADATION_TTL,
+        )
+        if not was_degraded:
+            try:
+                from management.services.ig_alerts import alert_dedupe_key, format_alert
+
+                notify_manager(
+                    format_alert(
+                        "🚨 IG webhook: високий рівень 4xx",
+                        lines=(
+                            f"За {WEBHOOK_ERROR_WINDOW_SECONDS // 60} хв: {errors}/{total} "
+                            f"({rate:.0%})",
+                            f"Причина: {str(reason or 'http_4xx')[:64]}",
+                        ),
+                    ),
+                    dedupe_key=alert_dedupe_key(
+                        "ig_webhook_4xx_rate",
+                        window_minutes=15,
+                        text=f"{bucket}:{reason}",
+                    ),
+                    event_type="ig_webhook_4xx_rate",
+                    deliver_immediately=False,
+                )
+            except Exception:
+                pass
+    elif errors < WEBHOOK_ERROR_MIN_COUNT or rate < WEBHOOK_ERROR_MIN_RATE:
+        # Recover only after this bucket actually falls below the incident
+        # threshold. One successful delivery must not hide an ongoing 4xx wave.
+        cache.delete("ig_bot_webhook_4xx_degraded")
+    return {
+        "available": True,
+        "status_code": status_code,
+        "errors": errors,
+        "total": total,
+        "rate": rate,
+        "degraded": degraded,
     }
 
 
@@ -8842,6 +8948,14 @@ def ingress_status(s: InstagramBotSettings, *, now=None) -> dict[str, object]:
     """
     now = now or timezone.now()
     webhook = webhook_signature_status()
+    webhook_rejections = webhook_rejection_status()
+    if webhook_rejections:
+        webhook = {
+            **webhook,
+            "healthy": False,
+            "state": "rejections_degraded",
+            "rejections": webhook_rejections,
+        }
     degradation = _current_ingress_degradation(s)
     discovery = conversation_discovery_status(s, now=now)
     if not s.receive_via_poll:
