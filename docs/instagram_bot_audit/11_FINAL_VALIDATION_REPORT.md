@@ -1,4 +1,4 @@
-# 11_FINAL_VALIDATION_REPORT — IMP-058/089 production validation checkpoint 2026-08-03
+# 11_FINAL_VALIDATION_REPORT — production validation checkpoint through 2026-08-05
 
 ## Scope
 
@@ -9,14 +9,14 @@ that the remaining implementation backlog is complete.
 
 ## Local evidence
 
-- Current runtime baseline: `6883ac2c` (IMP-089 superseded-invoice recovery and audit consolidation).
+- Current runtime baseline: `93ae8684` (commercial episode recovery on top of the consolidated audit baseline).
 - Unrelated Custom Print and asset WIP remains unstaged and uncommitted.
 - Required audit artifacts `00`–`12` are present.
 - `07_IMPLEMENTATION_PLAN.md` is the task-status authority and contains
-  individual checkbox matrices for all **171 `F-*` findings** and all **48
-  `IMPR-*` improvements**. Finding status is **126 checked / 39 open / 6
+  individual checkbox matrices for all **174 `F-*` findings** and all **48
+  `IMPR-*` improvements**. Finding status is **129 checked / 39 open / 6
   partial**; improvement status is **14 checked / 34 unfinished**.
-- Implementation status is **101 `IMP-*`: 76 checked, 24 open, 1 partial**.
+- Implementation status is **101 `IMP-*`: 76 checked, 21 open, 4 partial**.
 - `02` remains the 120-item audit coverage authority; `03` and `05` remain the
   detailed finding/improvement evidence registers.
 
@@ -32,7 +32,7 @@ that the remaining implementation backlog is complete.
 - Production MariaDB: migration `0133` applied; canonical backfill created 5
   events, deterministic silence scan created 96 drop-offs; raw-event/API
   reconciliation reported 197 events and 17 event types.
-- Identifier reconciliation: 170/170 findings and 48/48 improvements match
+- Identifier reconciliation: 174/174 findings and 48/48 improvements match
   their canonical registers; no missing/extra IDs across refs, worktrees or
   stashes.
 - Production MySQL migration state through `0133`: applied.
@@ -58,6 +58,21 @@ rows because this dataset contains no historical superseded invoice IDs. The
 daemon recovered from the restart's transient worker error and reports
 `running=True`, `last_error=''`.
 
+## F-PAY-015 / IMP-081 checkpoint (2026-08-05)
+
+Daemon collision fix `93ae8684` passed 134 local commercial/payment tests,
+check, migration drift and compileall. Production MySQL reconcile in three
+passes returned zero remaining sources; after restart the daemon is
+running/alive on `instagram_login` with empty error and zero active queues.
+Client `59` retains separate canonical and superseded timelines with no current
+terminal pointer.
+
+The `IMP-081` semantic/inventory foundation is also confirmed in production:
+`storefront.0088` and `fable5.0008` are applied, all three tables use InnoDB,
+there are 77 explicit policies (`29 warehouse`, `48 untracked`), and revision
+UPDATE/DELETE triggers exist. It remains PARTIAL because runtime/admin consumers
+and a disposable MariaDB test gate are still missing.
+
 ## IMP-094 checkpoint (2026-08-04, deployed; MariaDB gate still open)
 
 The reliability slice passes the full `management` suite twice:
@@ -74,8 +89,8 @@ tests. Until that run, `IMP-094` and `F-TEST-002` remain unchecked.
 
 ## Acceptance decision
 
-The IMP-058, IMP-089 and IMP-077 slices are verified and deployed. Product/data
-pricing blockers, branch-only reselection, remaining W8/W9/W10 work and
+The IMP-058, IMP-089, IMP-077 and F-PAY-015 slices are verified and deployed.
+Product/data pricing blockers, partial W9 reselection, remaining W8/W9/W10 work and
 `IMP-098` remain explicitly open. The next implementation must start from this file set; no status may be
 inferred from an old branch or historical progress paragraph without updating
 the checkbox and evidence matrix.

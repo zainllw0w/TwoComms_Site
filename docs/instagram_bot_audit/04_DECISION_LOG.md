@@ -517,3 +517,28 @@ MariaDB-контракт проходят на этой базе, (3) серве
 видит старое изменение в worktree и объявляет его уже реализованным, а также
 сохраняет требования (например quantity-aware stock и `missing_fields`) без
 опасного cherry-pick старой ветки.
+
+---
+
+## DR-011: audit reference не является ownership edge коммерческого эпизода
+
+- **Дата:** 2026-08-05 · **Связано с:** F-PAY-015, commercial episode backfill
+
+**Факты:** при дедупликации payment review superseded row сохраняет canonical
+`order_id`/`deal_id`, чтобы оператор видел, к какому реальному заказу относился
+дубликат. Эти ссылки нужны аудиту, но сам duplicate review уже имеет отдельный
+terminal episode `lost / superseded_duplicate_payment_review`.
+
+**Решение:** соединять компоненты backfill только по owning relations текущего
+цикла. Скопированные canonical ссылки superseded review не соединяют его с
+fulfilled episode. `superseded_by` также не схлопывает две timeline: он объясняет
+причину terminal outcome. Stale current pointer очищается отдельно.
+
+**Почему:** объединение уничтожает факт ошибочной второй проверки, ломает
+хронологию и может полностью остановить daemon collision guard. Разделение не
+создаёт второй заказ и не меняет денежную истину: duplicate episode не получает
+canonical `intended_order`.
+
+**Как проверить:** повторить backfill минимум дважды; число episodes не меняется,
+canonical links остаются у fulfilled episode, duplicate остаётся lost, current
+pointer пуст. На production дополнительно обязателен MySQL reconcile и heartbeat.

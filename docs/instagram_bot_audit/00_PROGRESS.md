@@ -10,14 +10,14 @@
 | Поле | Значение |
 |---|---|
 | Текущая фаза | **W4B и P1 reliability/security/alert-срез W8 закрыты; W5 `IMP-028` имеет задеплоенный partial slice, активный остаток: W5/W8/W9/W10** |
-| Дата старта / обновления | 2026-08-04 (после production verification Fernet credential-encryption slice) |
+| Дата старта / обновления | 2026-08-05 (после production recovery коммерческих эпизодов и сверки W9) |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
-| База внедрения | `32985a63` подтверждён в `origin/main` и на production; закрывает Fernet-encryption custom credentials (`IMP-042`) поверх `244cbbd3` (4xx webhook alert), `f2a84717` (health/heartbeat/incident retention), prompt-authority/variant-price IMP-028, bounded superseded-invoice recovery IMP-089, durable funnel analytics IMP-058, fulfillment IMP-055, claims IMP-056 и lifecycle возражений IMP-057 |
-| **Статус 101 IMP-задачи** | **76 закрыты, 24 открыты, 1 частично закрыта (`IMP-043`)** |
+| База внедрения | `93ae8684` подтверждён в `origin/main` и на production; поверх semantic/inventory foundation `bf4e0d80`/`674d6858`/`3678ddf4` исправляет повторный backfill superseded payment review без слияния коммерческих эпизодов |
+| **Статус 101 IMP-задачи** | **76 закрыты, 21 открыта, 4 частично закрыты (`IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`)** |
 | Прод-сервер | `qlknpodo@195.191.25.63`, `/home/qlknpodo/TWC/TwoComms_Site/twocomms` |
 | Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; read-only и rollback-fixture contracts подтверждены |
 | Локальная SQLite | **не источник истины**; не проверяет `varchar(max_length)`, см. F-TEST-003 |
-| Реестр находок | **171 уникальный `F-*` идентификатор**; восстановлена пропущенная F-PAT-003, повторные записи сохраняют историю проверки и закрытия |
+| Реестр находок | **174 уникальных `F-*` идентификатора**; добавлены F-CAT-005, F-CAT-006 и F-PAY-015, повторные записи сохраняют историю проверки и закрытия |
 | Улучшения / решения | **48 `IMPR-*` / 10 `DR-*`** |
 | Задач чек-листа закрыто | **120 / 120** (домены A–L) |
 | Задач в плане внедрения | **101** в W0–W11, включая W4B/W4C/W4D и IMP-062…101 |
@@ -27,7 +27,7 @@
 | Файл | Состояние |
 |---|---|
 | `00_PROGRESS.md` | каноническая точка входа, общий статус и реестр восстановленных источников |
-| `03_FINDINGS_REGISTER.md` | 171 уникальный `F-*` и post-implementation evidence, включая production SQL/API |
+| `03_FINDINGS_REGISTER.md` | 174 уникальных `F-*` и post-implementation evidence, включая production SQL/API |
 | `04_DECISION_LOG.md` | 10 решений (DR-001…DR-010) с обоснованием отклонённых вариантов |
 | `05_IMPROVEMENTS_REGISTER.md` | 48 улучшений + канонический crosswalk каждого ID к DONE/PARTIAL/OPEN и `IMP-*` |
 | `06_FUNNEL_CLOSING_DESIGN.md` | дизайн добивки: 9 каскадов с текстами, возражения, статистика, контекст-бюджет |
@@ -50,7 +50,8 @@
 | Открыто, W5 | `IMP-028` (PARTIAL: authority/budget/variant-price slice задеплоен, sales playbooks и FAQ остаются), `IMP-095` (production merchandising белого варианта товара 110) |
 | Открыто, W8 | `IMP-044`–`IMP-046`, `IMP-060`–`IMP-061`, `IMP-094`, `IMP-096` (provenance ролей импорта), `IMP-100` (дедупликация UI-лога), `IMP-101` (убрать небезопасные config defaults) |
 | Частично, W8 | `IMP-043` |
-| Открыто, W9 | `IMP-081`–`IMP-088`; `IMP-081`–`IMP-085` имеют branch-only code, но не интегрированы и не задеплоены |
+| Частично, W9 | `IMP-081` опубликована как semantic/inventory foundation, но без runtime/admin consumer и disposable MariaDB gate; `IMP-082`/`IMP-083` имеют price-aware branch commits `7b5d5cc7`/`1c4d6d48` и 162-test gate, но ещё не прошли независимый re-review/main/deploy |
+| Открыто, W9 | `IMP-084`–`IMP-088` |
 | Открыто, W10/W11 | `IMP-090`–`IMP-093`, `IMP-098`; восстановлены из улучшений и orphan-находок, которые раньше не имели исполнимой задачи |
 
 Любой новый срез начинается от актуального `origin/main`. При завершении агент
@@ -66,6 +67,34 @@
   перенести на актуальный `main`, перепроверить и задеплоить;
 - `[ ] PARTIAL` означает, что опубликована только часть требований, а явно
   перечисленный остаток всё ещё обязателен.
+
+## F-PAY-015: daemon collision закрыта и задеплоена (2026-08-05)
+
+Production на `d4500dbc` периодически падал при startup-reconcile: audit-ссылки
+superseded payment review на canonical `order/deal` ошибочно становились
+ownership edges и соединяли два коммерческих эпизода клиента `59`. Коммит
+`93ae8684` сохраняет отдельную audit timeline, оставляет duplicate episode в
+`lost / superseded_duplicate_payment_review`, использует `superseded_at` для
+terminal chronology и очищает stale `current_commercial_episode`.
+
+- Fresh local gate: 134 payment/commercial tests, Django check,
+  migration-drift, compileall и `git diff --check`.
+- Production MariaDB: `reconcile_ig_commercial_episodes --passes 3` завершён с
+  `deals=0, reviews=0, attributions=0`; client `59` имеет отдельные episodes
+  `2/3/7`, current pointer пуст.
+- После static/compress/restart новый daemon: `running=True`, `alive=True`,
+  transport `instagram_login`, heartbeat 1.0 с, `last_error=''`, pending reply,
+  notification и analysis queues = 0.
+
+## IMP-081 и catalog authority checkpoint (2026-08-05)
+
+`bf4e0d80`, `674d6858`, `3678ddf4` находятся в `main` и production. Закрыты
+F-CAT-005 (пустые/generic/punctuation aliases) и F-CAT-006 (revocation без
+authoritative actor/reason). На MariaDB применены `storefront.0088` и
+`fable5.0008`; три таблицы InnoDB, 77 inventory policies (`29 warehouse`,
+`48 untracked`), append-only revision table защищена UPDATE/DELETE triggers.
+`IMP-081` остаётся `[ ] PARTIAL`: semantic/policy foundation ещё не имеет
+полного runtime/admin consumer и отдельного disposable MariaDB test gate.
 
 ## IMP-077 / F-OPS-009: W8 alert lifecycle закрыт (2026-08-04)
 

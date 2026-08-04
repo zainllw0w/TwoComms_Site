@@ -9,7 +9,7 @@
 > Confidence: high = подтверждено чтением кода/данных мной лично; medium = подтверждено
 > субагентом со ссылкой на строки, я проверил выборочно; low = гипотеза, нужен тест.
 
-## Production closeout (2026-08-04)
+## Production closeout (2026-08-05)
 
 | ID | Status | Подтверждённое закрытие |
 |---|---|---|
@@ -19,6 +19,9 @@
 | F-SEC-005 | FIXED / VERIFIED | `32985a63`: custom Direct/Gemini credentials хранятся только как versioned Fernet ciphertext; migration `0136` applied on production MariaDB |
 | F-SEC-011 | FIXED / VERIFIED | private `.env`/`.env.production` files with runtime secrets had mode `0664`; on 2026-08-04 all relevant files were changed to `0600` |
 | F-OPS-009 | FIXED / VERIFIED | `221cf37d`: terminal outbox monitor, separated lifecycle dedupe keys, one actionable failed-paylink alert and Ukrainian lifecycle copy; production daemon running with terminal counts = 0 |
+| F-CAT-005 | FIXED / VERIFIED | `674d6858`: verified semantic aliases reject empty, generic and punctuation-only values before they can authorize catalog matching |
+| F-CAT-006 | FIXED / VERIFIED | `3678ddf4`: effective semantic revision cannot be revoked without authoritative actor/reason; revocation is audited and fail-closed |
+| F-PAY-015 | FIXED / VERIFIED | `93ae8684`: superseded payment review audit links no longer merge commercial episodes; repeated MySQL reconcile is clean and daemon is running |
 
 Исторические описания ниже сохраняют исходное evidence; текущим источником
 статуса является эта сводка и checkbox в `07_IMPLEMENTATION_PLAN.md`.
@@ -4038,3 +4041,45 @@ manager/event сигнал, а `missing_fields` должен сохранять�
 
 **Канонические closure-задачи:** F-CORE-007 → IMP-073; F-PAT-003,
 F-OPS-005, F-STATE-009, F-UX-015 и F-OPS-007 → IMP-099.
+
+### F-CAT-005 (P1, FIXED/VERIFIED): generic и punctuation aliases могли стать verified identity
+
+- **Проблема:** verified semantic revision принимала пустые, слишком общие и
+  punctuation-only aliases. Такой alias не доказывает товар и мог превратить
+  слабое совпадение в authoritative catalog identity.
+- **Исправление:** `674d6858` нормализует aliases и отклоняет значения без
+  достаточной лексической информации до публикации revision.
+- **Evidence:** focused semantic/inventory tests, production SHA содержит fix;
+  таблица revisions InnoDB и защищена append-only triggers.
+- **Связь:** `IMP-081 PARTIAL`; сам foundation опубликован, runtime consumer ещё
+  входит в остаток W9.
+
+### F-CAT-006 (P1, FIXED/VERIFIED): effective semantics можно было отозвать без authoritative evidence
+
+- **Проблема:** revocation verified head без подтверждённого actor/reason делала
+  коммерческую семантику изменяемой недоказуемым способом и могла молча вернуть
+  bot к слабому title/description matching.
+- **Исправление:** `3678ddf4` требует authoritative revocation metadata,
+  валидирует effective head и пишет audited immutable revision transition.
+- **Evidence:** код в `main`/production; raw UPDATE/DELETE дополнительно запрещены
+  MariaDB triggers `sf_sem_rev_no_update`/`sf_sem_rev_no_delete`.
+- **Связь:** `IMP-081 PARTIAL`.
+
+### F-PAY-015 (P0, FIXED/VERIFIED): audit-ссылки superseded review сливали два коммерческих эпизода
+
+- **Симптом:** startup reconcile многократно завершался `CommandError:
+  component already spans multiple commercial episodes`; watchdog не мог
+  стабильно удержать worker.
+- **Причина:** superseded review наследовал canonical `order/deal` для аудита,
+  а historical backfill считал эти ссылки ownership edges. Для client `59`
+  компоненты episodes `3` и `7` ошибочно соединялись.
+- **Исправление:** `93ae8684` изолирует superseded review как отдельный
+  non-owning component, сохраняет `lost / superseded_duplicate_payment_review`,
+  учитывает `superseded_at` в terminal chronology, условно очищает stale current
+  pointer и добавляет PII-free collision diagnostics.
+- **Local evidence:** 134 commercial/payment tests `OK`, Django check,
+  migration drift, compileall и diff check.
+- **Production evidence:** MySQL reconcile в 3 прохода дал нулевой остаток;
+  client `59` имеет три раздельных terminal episodes и пустой current pointer.
+  После restart daemon `running/alive`, `instagram_login`, heartbeat 1.0 с,
+  `last_error=''`, рабочие очереди нулевые.

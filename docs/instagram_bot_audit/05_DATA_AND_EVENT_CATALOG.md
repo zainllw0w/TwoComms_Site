@@ -16,6 +16,8 @@
 | `IgOrderShipment` | shipment history | append-only shipment journal | avoids overwriting exchange history |
 | `ProductColorVariant` | color/material/variant identity | catalog variant | price/stock must be variant-aware |
 | `VariantSizeRule` / `SizeGrid` | fit and size availability | fit/size rule | white variant data remains absent in production |
+| `ProductSalesSemanticProfileRevision` | verified aliases/traits revision | append-only manager authority | generic aliases and unauthoritative revocation are rejected |
+| `ProductInventoryPolicy` | source of stock truth per product | explicit warehouse/untracked policy | 77 production rows: 29 warehouse, 48 untracked |
 
 ## Current and planned event vocabulary
 
@@ -38,6 +40,8 @@
   decision. The conversation price and checkout price must come from one read model.
 - No outbound customer message is sent after a manager/permission epoch change.
 - Ambiguous provider outcomes are never replayed automatically.
+- Superseded payment-review links retained for audit are not ownership edges and
+  cannot merge their terminal episode with the canonical fulfilled episode.
 - Local SQLite does not prove MySQL foreign-key, length, engine or lock behavior.
 
 ## Missing or partial data
@@ -47,3 +51,7 @@ remain explicitly open. `F-STAT-001…004` event analytics and `F-PAY-014`
 superseded invoice polling are closed by `IMP-058`/`IMP-089` with production
 evidence. No backfill is inferred from text where authoritative evidence is
 absent.
+
+`IMP-081` is partial rather than open: its semantic revision and inventory
+policy tables are deployed on InnoDB with append-only triggers, but the full
+catalog graph/admin/runtime consumer and disposable MariaDB test gate remain.
