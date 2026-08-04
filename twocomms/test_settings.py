@@ -22,6 +22,8 @@ for _telegram_env_name in (
     'TELEGRAM_ADMIN_ID',
     'TELEGRAM_STORAGE_BOT_TOKEN',
     'TELEGRAM_STORAGE_CHAT_IDS',
+    'MANAGER_TG_BOT_TOKEN',
+    'MANAGEMENT_TG_BOT_TOKEN',
 ):
     os.environ[_telegram_env_name] = ''
 

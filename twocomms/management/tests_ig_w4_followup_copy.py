@@ -6,6 +6,7 @@ from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from django.test import TestCase
+from django.utils import timezone
 
 from management.models import (
     IgCheckoutProposal,
@@ -100,7 +101,10 @@ class FollowupCopyTests(TestCase):
 
 class CheckoutOfferCascadeTests(TestCase):
     def setUp(self):
-        self.now = datetime(2026, 8, 3, 15, 0, tzinfo=KYIV)
+        current = timezone.now().astimezone(KYIV)
+        self.now = current.replace(hour=15, minute=0, second=0, microsecond=0)
+        if self.now <= current:
+            self.now += timedelta(days=1)
         settings = InstagramBotSettings.load()
         settings.is_enabled = True
         settings.save(update_fields=["is_enabled", "updated_at"])

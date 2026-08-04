@@ -88,8 +88,10 @@ class GeminiJsonPoolTests(TestCase):
         self.assertTrue(gk.is_available("GEMINI_API4"))
 
     def test_503_falls_back_to_next_model_same_key(self):
+        failed_model = gk.model_chain("management")[0]
+
         def fake(model, payload, key, *, parse=True, timeout=None):
-            if model == "gemini-3.6-flash":
+            if model == failed_model:
                 raise caa._GeminiTransient("HTTP 503")
             return ({"ok": True}, {})
 
@@ -99,8 +101,8 @@ class GeminiJsonPoolTests(TestCase):
             out = caa.gemini_generate_json("S", "U", role="management")
 
         self.assertEqual(out["parsed"], {"ok": True})
-        self.assertNotEqual(out["model"], "gemini-3.6-flash")
-        self.assertTrue(gk.is_model_overloaded("gemini-3.6-flash"))
+        self.assertNotEqual(out["model"], failed_model)
+        self.assertTrue(gk.is_model_overloaded(failed_model))
         gk.clear_model_overload()
 
     def test_all_exhausted_raises(self):
@@ -261,6 +263,29 @@ class ChatTimeoutTests(TestCase):
         self.assertEqual(out["parsed"], "привіт")
         self.assertLessEqual(sum(captured["timeout"]), sum(caa.CHAT_TIMEOUT))
         self.assertLess(sum(captured["timeout"]), caa.CHAT_DEADLINE_SECONDS)
+        gk.clear_model_overload()
+
+    def test_audio_management_keeps_long_timeout(self):
+        """Audio analysis, unlike CRM text analysis, may use the long timeout."""
+    def test_management_json_uses_bounded_text_timeout(self):
+        """JSON re-analysis must not hold the IG worker on a stalled model."""
+        captured = {}
+
+        class FakeResp:
+            status_code = 200
+            text = "ok"
+
+            def json(self):
+                return {"candidates": [{"content": {"parts": [{"text": '{"a":1}'}]}}]}
+
+        def fake_post(url, **kw):
+            captured["timeout"] = kw.get("timeout")
+            return FakeResp()
+
+        with patch.dict("os.environ", ENV6, clear=False), \
+             patch("management.services.call_ai_analysis.requests.post", side_effect=fake_post):
+            caa.gemini_generate_json("S", "U", role="management")
+        self.assertEqual(captured["timeout"], caa.MANAGEMENT_TEXT_TIMEOUT)
         gk.clear_model_overload()
 
     def test_audio_management_keeps_long_timeout(self):

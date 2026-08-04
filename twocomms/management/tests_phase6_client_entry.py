@@ -649,7 +649,7 @@ class HomePageModalMarkupTests(TestCase):
         self.assertIn("19:00", payload["manager_note_preview"])
         self.assertEqual(payload["hostname_display"], "shop.example.com")
 
-    def test_home_page_renders_callback_phase_contract_with_phase_comment(self):
+    def test_home_page_renders_callback_phase_timeline_with_phase_comment(self):
         phase1 = Client.objects.create(
             shop_name="Phase Shop",
             phone="+380671110188",
@@ -693,9 +693,10 @@ class HomePageModalMarkupTests(TestCase):
         response = self.client.get("/", secure=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'id="client_callback_current_phase"')
+        self.assertContains(response, 'id="client_callback_context"')
+        self.assertContains(response, 'id="client_phase_timeline"')
         self.assertContains(response, 'id="phase_comment"')
-        self.assertContains(response, 'id="client_callback_previous_summary"')
+        self.assertContains(response, 'data-current-phase-label="Фаза 2"')
         grouped = response.context["grouped_clients"]
         items = [item for _, rows in grouped for item in rows if item["phone"] == client.phone]
         payload = next(item for item in items if item["id"] == client.id)

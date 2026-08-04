@@ -216,11 +216,24 @@ def _message_floor(client) -> int:
 
 
 def _current_objections(client):
+    # Opening an episode happens in a locked transaction. Callers commonly
+    # retain the pre-transaction client object, whose FK cache still points to
+    # no episode. Scope by the persisted pointer so a following message can
+    # resolve the objection that was just opened.
+    from management.models import IgClient
+
+    current_client = IgClient.objects.only(
+        "id", "current_commercial_episode"
+    ).filter(pk=getattr(client, "pk", None)).first()
+    if current_client is None:
+        return IgObjection.objects.none()
     qs = IgObjection.objects.filter(
-        client=client,
-        opened_watermark_message_id__gte=_message_floor(client),
+        client_id=current_client.pk,
+        opened_watermark_message_id__gte=_message_floor(current_client),
     )
-    episode_id = int(getattr(client, "current_commercial_episode_id", 0) or 0)
+    episode_id = int(
+        getattr(current_client, "current_commercial_episode_id", 0) or 0
+    )
     if episode_id:
         qs = qs.filter(episode_id=episode_id)
     else:
@@ -342,6 +355,7 @@ def observe_inbound_progress(
     objection_type: str = "",
     objection_types: tuple[str, ...] | list[str] | set[str] | None = None,
     readiness: int,
+    commercial_progress: bool = False,
     purchase_progress: bool = False,
     abandoned: bool = False,
 ) -> None:
@@ -371,7 +385,7 @@ def observe_inbound_progress(
         elif purchase_progress:
             row.state = IgObjection.State.RESOLVED
             row.outcome = IgObjection.Outcome.PURCHASED
-        elif readiness_after > baseline:
+        elif commercial_progress or readiness_after > baseline:
             row.state = IgObjection.State.RESOLVED
             row.outcome = IgObjection.Outcome.UNRESOLVED
         else:

@@ -177,6 +177,7 @@ class CheckoutProposalSummaryTests(SimpleTestCase):
             quantity=2,
         )
         proposal = SimpleNamespace(
+            pk=101,
             public_id=uuid.uuid4(),
             quoted_total=Decimal("1580.00"),
             items=SimpleNamespace(all=lambda: [item]),
@@ -201,6 +202,7 @@ class CheckoutProposalSummaryTests(SimpleTestCase):
                 "quoted_total": "1580.00",
             },
         )
+        self.assertEqual(result["proposal_pk"], 101)
 
 
 class FinalizeOfferCopyTests(TestCase):

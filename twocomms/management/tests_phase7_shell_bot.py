@@ -424,7 +424,9 @@ class HomeShellRenderTests(TestCase):
     def test_home_renders_updated_daily_zones_and_secondary_shell_chips(self):
         user = get_user_model().objects.create_user(username="shell_metrics", password="x", is_staff=True)
         self.client.force_login(user)
-        now = timezone.localtime(timezone.now()).replace(second=0, microsecond=0)
+        now = timezone.localtime(timezone.now()).replace(
+            hour=12, minute=0, second=0, microsecond=0
+        )
         due_today = now.replace(hour=17, minute=15)
         due_now_at = now - timedelta(minutes=20)
         missed_at = now - timedelta(hours=3)
@@ -467,7 +469,10 @@ class HomeShellRenderTests(TestCase):
             grace_until=now - timedelta(minutes=5),
         )
 
-        response = self.get_home()
+        with patch("django.utils.timezone.now", return_value=now), patch(
+            "django.utils.timezone.localdate", return_value=now.date()
+        ):
+            response = self.get_home()
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "0–19")
@@ -535,7 +540,7 @@ class HomeShellRenderTests(TestCase):
             html,
             r'(?s)<nav class="nav-menu nav-menu--primary" id="sidebar-primary-nav">.*?</nav>\s*<button type="button" class="sidebar-collapse-toggle[^"]*" id="sidebar-collapse-toggle"',
         )
-        self.assertEqual(response.content.decode("utf-8").count(">Парсинг<"), 1)
+        self.assertEqual(response.content.decode("utf-8").count(">Лідоген<"), 1)
 
     def test_home_renders_full_bleed_collapse_cue_modifier(self):
         user = get_user_model().objects.create_user(username="shell_cue_modifier", password="x", is_staff=True)

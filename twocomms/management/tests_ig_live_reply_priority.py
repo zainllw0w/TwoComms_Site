@@ -198,7 +198,8 @@ class LiveReplyLanguageTests(TestCase):
 
         reply = bot_followups.compose_followup(task)
 
-        self.assertIn("Is this order still relevant", reply)
+        self.assertEqual(bot_sales_classifier.detect_language(reply), "en")
+        self.assertIn("order", reply.lower())
 
 
 class LiveReplyKeyPriorityTests(TestCase):

@@ -2419,6 +2419,35 @@ def admin_manager_toggle_active_api(request, user_id):
     return JsonResponse({'ok': True, 'is_manager': prof.is_manager})
 
 
+def _notify_manager_weekly_review(review):
+    """Мʼяке повідомлення менеджеру про рішення по тижневій винагороді."""
+    try:
+        manager = review.owner
+        profile = manager.userprofile
+        chat_id = getattr(profile, 'tg_manager_chat_id', None)
+        bot_token = _get_manager_bot_token()
+        if not bot_token or not chat_id:
+            return
+        decision_labels = {
+            'full': 'повна винагорода',
+            'half': 'половина винагороди',
+            'custom': 'індивідуальна сума',
+            'none': 'без винагороди за період',
+        }
+        label = decision_labels.get(review.admin_decision, review.admin_decision)
+        lines = [
+            "📅 <b>Рішення по тижневій винагороді</b>",
+            f"Тиждень: {review.week_start:%d.%m} – {review.week_end:%d.%m}",
+            f"Рішення: {label}",
+            f"Сума: {review.awarded_amount} грн",
+        ]
+        if review.reason:
+            lines.append(f"Коментар: {escape(review.reason)}")
+        _tg_send_message(bot_token, chat_id, "\n".join(lines), parse_mode='HTML')
+    except Exception:
+        pass
+
+
 @login_required(login_url='management_login')
 @require_POST
 def admin_manager_telephony_save_api(request, user_id):
@@ -2457,32 +2486,6 @@ def admin_manager_telephony_save_api(request, user_id):
     except Exception:
         pass
     return JsonResponse({'ok': True, 'binotel_internal_number': raw})
-    """Мʼяке повідомлення менеджеру про рішення по тижневій винагороді."""
-    try:
-        manager = review.owner
-        profile = manager.userprofile
-        chat_id = getattr(profile, 'tg_manager_chat_id', None)
-        bot_token = _get_manager_bot_token()
-        if not bot_token or not chat_id:
-            return
-        decision_labels = {
-            'full': 'повна винагорода',
-            'half': 'половина винагороди',
-            'custom': 'індивідуальна сума',
-            'none': 'без винагороди за період',
-        }
-        label = decision_labels.get(review.admin_decision, review.admin_decision)
-        lines = [
-            "📅 <b>Рішення по тижневій винагороді</b>",
-            f"Тиждень: {review.week_start:%d.%m} – {review.week_end:%d.%m}",
-            f"Рішення: {label}",
-            f"Сума: {review.awarded_amount} грн",
-        ]
-        if review.reason:
-            lines.append(f"Коментар: {escape(review.reason)}")
-        _tg_send_message(bot_token, chat_id, "\n".join(lines), parse_mode='HTML')
-    except Exception:
-        pass
 
 
 @login_required(login_url='management_login')
