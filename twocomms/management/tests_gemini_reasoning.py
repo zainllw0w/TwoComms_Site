@@ -6,10 +6,13 @@ from management.services import call_ai_analysis as ai
 
 
 class GeminiReasoningPolicyTests(SimpleTestCase):
-    def test_customer_chat_is_medium(self):
-        self.assertEqual(ai.reasoning_policy("customer_chat")["level"], "medium")
+    def test_customer_chat_is_low_with_1536_output_cap(self):
+        policy = ai.reasoning_policy("customer_chat")
 
-    def test_high_stakes_tasks_are_high(self):
+        self.assertEqual(policy["level"], "low")
+        self.assertEqual(policy.get("max_output_tokens"), 1536)
+
+    def test_customer_decision_tasks_are_high_with_4096_output_cap(self):
         for task in (
             "product_decision",
             "size_fit_decision",
@@ -17,6 +20,14 @@ class GeminiReasoningPolicyTests(SimpleTestCase):
             "media_analysis",
             "payment_decision",
             "order_decision",
+        ):
+            with self.subTest(task=task):
+                policy = ai.reasoning_policy(task)
+                self.assertEqual(policy["level"], "high")
+                self.assertEqual(policy.get("max_output_tokens"), 4096)
+
+    def test_background_analysis_tasks_remain_high(self):
+        for task in (
             "customer_intelligence",
             "conversion_analysis",
             "conversation_reanalysis",
@@ -31,10 +42,10 @@ class GeminiReasoningPolicyTests(SimpleTestCase):
         with self.assertRaises(ValueError):
             ai.reasoning_policy("invented_task")
 
-    def test_gemini_36_chat_uses_medium_and_removes_legacy_budget(self):
+    def test_gemini_36_chat_uses_low_caps_output_and_removes_legacy_budget(self):
         payload = {
             "generationConfig": {
-                "maxOutputTokens": 1536,
+                "maxOutputTokens": 8192,
                 "thinkingConfig": {"thinkingBudget": 0},
             }
         }
@@ -45,12 +56,19 @@ class GeminiReasoningPolicyTests(SimpleTestCase):
 
         self.assertEqual(
             normalized["generationConfig"]["thinkingConfig"],
-            {"thinkingLevel": "medium"},
+            {"thinkingLevel": "low"},
         )
+        self.assertEqual(normalized["generationConfig"]["maxOutputTokens"], 1536)
+        self.assertEqual(payload["generationConfig"]["maxOutputTokens"], 8192)
         self.assertEqual(payload["generationConfig"]["thinkingConfig"]["thinkingBudget"], 0)
 
     def test_gemini_36_high_stakes_uses_high(self):
-        payload = {"generationConfig": {"thinkingConfig": {"thinkingBudget": 0}}}
+        payload = {
+            "generationConfig": {
+                "maxOutputTokens": 8192,
+                "thinkingConfig": {"thinkingBudget": 0},
+            }
+        }
 
         normalized = ai._payload_for_model(
             "gemini-3.6-flash", payload, reasoning_task="payment_decision"
@@ -60,6 +78,7 @@ class GeminiReasoningPolicyTests(SimpleTestCase):
             normalized["generationConfig"]["thinkingConfig"],
             {"thinkingLevel": "high"},
         )
+        self.assertEqual(normalized["generationConfig"]["maxOutputTokens"], 4096)
 
     def test_gemini_3_removes_deprecated_sampling_but_25_preserves_it(self):
         payload = {

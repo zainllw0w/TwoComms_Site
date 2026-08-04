@@ -409,13 +409,19 @@ class ModelChainDegradationTests(SimpleTestCase):
         for m in chain:
             self.assertIn(m, gk.FREE_QUOTA_MODELS)
 
-    def test_chat_chain_is_free_and_degrading(self):
+    def test_live_chat_chain_contains_only_approved_models_in_quality_order(self):
         from management.services import gemini_keys as gk
+
         chain = gk.role_model_chains()["chat"]
-        self.assertEqual(chain[0], "gemini-3.6-flash")
-        self.assertIn("gemini-2.5-flash-lite", chain)
-        for m in chain:
-            self.assertIn(m, gk.FREE_QUOTA_MODELS)
+
+        self.assertEqual(
+            chain,
+            [
+                "gemini-3.6-flash",
+                "gemini-3.5-flash",
+                "gemini-3.5-flash-lite",
+            ],
+        )
 
     def test_chat_model_allowlist_normalizes_legacy_or_arbitrary_values(self):
         from management.services import gemini_keys as gk
