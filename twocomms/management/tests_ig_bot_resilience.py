@@ -214,6 +214,7 @@ class AdaptiveChatIncidentRegressionTests(TestCase):
                 raise ai._GeminiTransient("timeout: simulated incident")
             if aliases[key] != "GEMINI_API4":
                 raise ai._GeminiFatal("HTTP 401: API_KEY_INVALID")
+            clock["now"] += 1.0
             return ("3.5/API4 recovered", {})
 
         with patch.dict("os.environ", ENV6, clear=False), \
@@ -229,7 +230,15 @@ class AdaptiveChatIncidentRegressionTests(TestCase):
         self.assertLess(primary[1][3][1], primary[0][3][1])
         self.assertLessEqual(clock["now"], budget)
         for started_at, _, _, timeout in calls:
-            self.assertLessEqual(timeout[1], budget - started_at)
+            remaining = budget - started_at
+            self.assertGreaterEqual(remaining, 2.0)
+            self.assertGreater(timeout[0], 0)
+            self.assertGreater(timeout[1], 0)
+            self.assertLessEqual(timeout[0], remaining)
+            self.assertLessEqual(timeout[1], remaining)
+        fallback_started_at = calls[-1][0]
+        self.assertGreaterEqual(budget - fallback_started_at, 2.0)
+        self.assertEqual(clock["now"] - fallback_started_at, 1.0)
         sleep.assert_not_called()
 
     def test_ordinary_incident_recovers_within_35_seconds(self):

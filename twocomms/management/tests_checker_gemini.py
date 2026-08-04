@@ -309,6 +309,20 @@ class AdaptiveChatPlannerTests(TestCase):
         self.assertTrue(callable(runner), "missing adaptive _run_chat_with_pool")
         return runner
 
+    def test_public_chat_text_api_routes_only_to_adaptive_runner(self):
+        with patch.object(caa, "_run_chat_with_pool", create=True) as adaptive, \
+             patch.object(caa, "_run_with_pool") as legacy:
+            adaptive.return_value = {"parsed": "adaptive"}
+            legacy.return_value = {"parsed": "legacy"}
+
+            out = caa.gemini_generate_text(
+                {"contents": []}, role="chat", reasoning_task="customer_chat"
+            )
+
+        self.assertEqual(out["parsed"], "adaptive")
+        adaptive.assert_called_once()
+        legacy.assert_not_called()
+
     def test_fast_auth_failures_rotate_all_six_aliases_on_36(self):
         seen = []
         aliases = {value: name for name, value in ENV6.items()}

@@ -218,7 +218,7 @@ class IterAttemptsTests(TestCase):
         with patch.dict("os.environ", ENV6, clear=False):
             models_for_first_key = [a[2] for a in gk.iter_attempts("chat") if a[0] == "GEMINI_API"]
         self.assertNotIn("gemini-3.5-flash", models_for_first_key)
-        self.assertIn("gemini-3.1-flash-lite", models_for_first_key)
+        self.assertIn("gemini-3.5-flash-lite", models_for_first_key)
         gk.clear_model_overload()
 
     def test_model_chain_override_is_used_for_pooled_attempts(self):
@@ -228,11 +228,11 @@ class IterAttemptsTests(TestCase):
             combos = list(
                 gk.iter_attempts(
                     "chat",
-                    model_chain_override=["gemini-2.5-flash", "gemini-3.6-flash"],
+                    model_chain_override=["gemini-3.5-flash-lite", "gemini-3.6-flash"],
                 )
             )
         self.assertTrue(combos)
-        self.assertEqual(combos[0][2], "gemini-2.5-flash")
+        self.assertEqual(combos[0][2], "gemini-3.5-flash-lite")
 
     def test_checker_chain_uses_25_flash(self):
         from management.services import gemini_keys as gk
@@ -443,12 +443,15 @@ class ModelChainDegradationTests(SimpleTestCase):
         from management.services import gemini_keys as gk
 
         self.assertTrue(gk.is_allowed_chat_model("gemini-3.6-flash"))
+        self.assertTrue(gk.is_allowed_chat_model("gemini-3.5-flash-lite"))
+        self.assertFalse(gk.is_allowed_chat_model("gemini-2.5-flash"))
         self.assertFalse(gk.is_allowed_chat_model("https://attacker.invalid/model"))
         self.assertEqual(gk.normalize_chat_model("gemini-3-flash-preview"), "gemini-3.6-flash")
         self.assertEqual(
             gk.model_chain("chat", "gemini-2.5-flash")[0],
-            "gemini-2.5-flash",
+            "gemini-3.6-flash",
         )
+        self.assertNotIn("gemini-2.5-flash", gk.model_chain("chat", "gemini-2.5-flash"))
 
     def test_checker_chain_uses_only_free_grounding_models(self):
         from management.services import gemini_keys as gk
@@ -488,7 +491,7 @@ class ModelUnavailableSkipTests(TestCase):
             combos = list(gk.iter_attempts("chat"))
         self.assertNotIn("gemini-3.5-flash", [m for _, _, m in combos])
         # нижча модель усе ще доступна
-        self.assertIn("gemini-2.5-flash", [m for _, _, m in combos])
+        self.assertIn("gemini-3.5-flash-lite", [m for _, _, m in combos])
 
     def test_iter_attempts_stops_model_when_marked_unavailable_midpass(self):
         from management.services import gemini_keys as gk
@@ -499,5 +502,5 @@ class ModelUnavailableSkipTests(TestCase):
             # імітуємо: на 1-му ключі модель виявилась платною → позначили
             gk.mark_model_unavailable("gemini-3.6-flash", seconds=600)
             rest = list(gen)
-        # після позначення 3.5-flash більше не пробується на інших ключах
+        # після позначення 3.6-flash вона більше не пробується на інших ключах
         self.assertEqual([(k, m) for k, _, m in rest if m == "gemini-3.6-flash"], [])
