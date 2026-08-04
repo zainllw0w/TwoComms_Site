@@ -1547,6 +1547,25 @@ class OrdersWorkspaceApiTests(TestCase):
         self.assertEqual(len(item["media"]["unknown"]), 1)
         self.assertIn(f"review={self.pending.id}", item["workspace_url"])
 
+    def test_legacy_payment_review_deep_link_resolves_superseded_row_to_canonical_review(self):
+        duplicate = IgPaymentConfirmationReview.objects.create(
+            client=self.customer,
+            dedupe_key="orders-api-superseded-legacy-link",
+            status=IgPaymentConfirmationReview.Status.SUPERSEDED,
+            superseded_by=self.pending,
+        )
+
+        response = self.client.get(
+            reverse("management_bot_payment_reviews_api"),
+            {"id": duplicate.pk},
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        payload = response.json()
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["items"][0]["id"], self.pending.pk)
+        self.assertTrue(payload["items"][0]["selected"])
+
     def test_legacy_amount_clarification_opens_in_action_queue(self):
         from management.ig_bot_models import IgPaymentReviewDecision
 

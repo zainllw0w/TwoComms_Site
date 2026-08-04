@@ -401,6 +401,29 @@ class PaymentReviewEpisodeScopeTests(TestCase):
             payment_review_claim_anchor(refreshed_url),
         )
 
+    def test_claim_anchor_ignores_rotating_attachment_url_when_message_id_known(self):
+        from management.services.ig_payment_review import payment_review_claim_anchor
+
+        first = {
+            "evidence": [{
+                "message_id": 238,
+                "role": "user",
+                "quote": "Я оплатила, ось чек",
+                "attachments": "https://cdn.test/receipt.jpg?expires=one",
+            }],
+        }
+        refreshed_url = {
+            "evidence": [{
+                **first["evidence"][0],
+                "attachments": "https://cdn.test/receipt.jpg?expires=two",
+            }],
+        }
+
+        self.assertEqual(
+            payment_review_claim_anchor(first),
+            payment_review_claim_anchor(refreshed_url),
+        )
+
     def test_payment_fingerprint_ignores_legacy_amount_kind_drift(self):
         from management.services.ig_payment_review import payment_review_fingerprint
 
@@ -580,6 +603,44 @@ class PaymentReviewEpisodeScopeTests(TestCase):
         self.assertEqual(IgPaymentConfirmationReview.objects.filter(client=client).count(), 1)
         self.assertEqual(persist_media.call_count, 1)
         self.assertEqual(resolve_media.call_count, 1)
+
+    def test_receipt_added_after_payment_claim_reuses_pending_episode_review(self):
+        from management.ig_bot_models import IgClient, IgPaymentConfirmationReview
+        from management.services.ig_payment_review import create_payment_review
+
+        client = IgClient.get_or_create_for_sender("review-payment-claim-then-receipt")
+        claim_messages = [
+            {"id": 237, "role": "manager", "text": "До сплати 790 грн"},
+            {"id": 238, "role": "user", "text": "Я оплатила 790 грн"},
+        ]
+        receipt_messages = [
+            *claim_messages,
+            {
+                "id": 239,
+                "role": "user",
+                "text": "Ось чек",
+                "media": [{"url": "https://cdn.test/receipt-239.jpg", "type": "image"}],
+            },
+        ]
+        with (
+            patch(
+                "management.services.ig_payment_review._persist_review_media",
+                side_effect=lambda rows: rows,
+            ) as persist_media,
+            patch(
+                "management.services.ig_payment_review._resolve_payment_media_candidates",
+                side_effect=lambda rows: rows,
+            ) as resolve_media,
+            patch("management.services.instagram_bot.notify_manager"),
+            patch("management.services.ig_commercial_episodes.ensure_episode_for_review"),
+        ):
+            first = create_payment_review(client, watermark=238, messages=claim_messages)
+            receipt = create_payment_review(client, watermark=239, messages=receipt_messages)
+
+        self.assertEqual(receipt.pk, first.pk)
+        self.assertEqual(IgPaymentConfirmationReview.objects.filter(client=client).count(), 1)
+        self.assertEqual(persist_media.call_count, 2)
+        self.assertEqual(resolve_media.call_count, 2)
 
     def test_pending_orderless_duplicate_is_superseded_without_deleting_audit(self):
         from management.ig_bot_models import (

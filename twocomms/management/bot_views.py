@@ -855,6 +855,13 @@ def bot_payment_reviews_api(request):
         "decisions__actor"
     )
     if selected_id.isdigit():
+        selected_row = rows_qs.filter(pk=int(selected_id)).first()
+        if (
+            selected_row
+            and selected_row.status == IgPaymentConfirmationReview.Status.SUPERSEDED
+            and selected_row.superseded_by_id
+        ):
+            selected_id = str(selected_row.superseded_by_id)
         rows_qs = rows_qs.filter(pk=int(selected_id))
     else:
         rows_qs = rows_qs.filter(status=IgPaymentConfirmationReview.Status.PENDING)

@@ -1480,7 +1480,10 @@ def _claim_evidence_rows(extracted_or_evidence) -> list[dict]:
             if source_id or identity:
                 media_rows.append({"source_message_id": source_id, "identity": identity})
         quote = _fingerprint_text(raw.get("quote") or raw.get("text"))
-        attachment = _fingerprint_text(raw.get("attachments"))
+        # Raw attachment payloads commonly contain expiring Meta CDN URLs.
+        # The durable source message id already identifies the evidence, so a
+        # URL refresh must not change the payment-claim identity.
+        attachment = "" if message_id else _fingerprint_text(raw.get("attachments"))
         if message_id or quote or attachment or media_rows:
             result.append({
                 "message_id": message_id,
@@ -1720,7 +1723,7 @@ def reconcile_duplicate_payment_review(
         # The orphan episode created by the old watermark is historical
         # duplicate work, not a second purchase cycle. Retain its timeline.
         try:
-            from management.ig_bot_models import IgCommercialEpisode
+            from management.ig_bot_models import IgClient, IgCommercialEpisode
             from management.services.ig_commercial_episodes import append_episode_event
 
             episode = IgCommercialEpisode.objects.select_for_update().filter(
@@ -1735,6 +1738,13 @@ def reconcile_duplicate_payment_review(
                 episode.outcome = "superseded_duplicate_payment_review"
                 episode.closed_at = now
                 episode.save(update_fields=["open_slot", "state", "outcome", "closed_at", "updated_at"])
+                IgClient.objects.filter(
+                    pk=review.client_id,
+                    current_commercial_episode_id=episode.pk,
+                ).update(
+                    current_commercial_episode_id=None,
+                    updated_at=now,
+                )
                 append_episode_event(
                     episode,
                     dedupe_key=f"episode:{episode.pk}:superseded-by-review:{canonical.pk}",
@@ -1801,6 +1811,22 @@ def _claim_review_context(extracted: dict, *, claim_anchor: str) -> dict:
     }
 
 
+def _pending_review_matches_payment_evidence(review, extracted: dict) -> bool:
+    """Return whether new context continues the pending payment claim."""
+    existing_sources = set(_receipt_source_identities(review))
+    incoming_sources = set(_receipt_source_identities(extracted))
+    if not existing_sources or not incoming_sources:
+        return True
+    incoming_message_sources = sorted(
+        int(identity.split(":", 1)[1])
+        for identity in incoming_sources
+        if identity.startswith("source:") and identity.split(":", 1)[1].isdigit()
+    )
+    if incoming_message_sources:
+        return f"source:{incoming_message_sources[-1]}" in existing_sources
+    return incoming_sources.issubset(existing_sources)
+
+
 def _claim_payment_review(client, *, extracted: dict, watermark: int, claim_anchor: str):
     """Create one durable claim inside the client's current commercial episode."""
     from management.ig_bot_models import IgClient, IgPaymentConfirmationReview
@@ -1813,6 +1839,21 @@ def _claim_payment_review(client, *, extracted: dict, watermark: int, claim_anch
             materialization_prefix="ig-payment-review-v2",
         )
         dedupe_key = f"ig-payment-review:v2:{locked_client.pk}:{episode.pk}:{claim_anchor}"
+        exact = IgPaymentConfirmationReview.objects.select_for_update().filter(
+            dedupe_key=dedupe_key,
+        ).first()
+        if exact:
+            return exact, False
+        # A customer can first state that payment was made and only then add a
+        # receipt image. Those are progressively stronger evidence for one
+        # claim. A genuinely newer receipt source remains a separate review.
+        primary = IgPaymentConfirmationReview.objects.select_for_update().filter(
+            pk=episode.primary_payment_review_id,
+            client_id=locked_client.pk,
+            status=IgPaymentConfirmationReview.Status.PENDING,
+        ).first()
+        if primary and _pending_review_matches_payment_evidence(primary, extracted):
+            return primary, False
         review, created = IgPaymentConfirmationReview.objects.get_or_create(
             dedupe_key=dedupe_key,
             defaults={
@@ -1821,17 +1862,18 @@ def _claim_payment_review(client, *, extracted: dict, watermark: int, claim_anch
                 "watermark_message_id": watermark,
             },
         )
-        primary = episode.primary_payment_review
-        if created and (
-            primary is None
-            or primary.status in {
-                IgPaymentConfirmationReview.Status.CANCELLED,
-                IgPaymentConfirmationReview.Status.SUPERSEDED,
-            }
-        ):
+        if created:
             episode.primary_payment_review = review
             episode.save(update_fields=["primary_payment_review", "updated_at"])
     return review, created
+
+
+def _pending_review_has_new_receipt_evidence(review, extracted: dict) -> bool:
+    """Allow one enrichment pass when a receipt arrives after a text claim."""
+    incoming_sources = set(_receipt_source_identities(extracted))
+    if not incoming_sources:
+        return False
+    return bool(incoming_sources.difference(_receipt_source_identities(review)))
 
 
 def _refresh_pending_review_context(review, extracted: dict, *, watermark: int) -> None:
@@ -1938,7 +1980,13 @@ def create_payment_review(client, *, watermark: int = 0, messages=None):
             # claim. A real resubmission has a new source message and therefore
             # a new claim anchor; replaying this anchor must not reopen it or
             # cross the media/vision boundary again.
-            if review.status != review.Status.PENDING or current_evidence.get("media_audit_v3"):
+            if (
+                review.status != review.Status.PENDING
+                or (
+                    current_evidence.get("media_audit_v3")
+                    and not _pending_review_has_new_receipt_evidence(review, extracted)
+                )
+            ):
                 _refresh_pending_review_context(review, extracted, watermark=watermark)
                 return review
 
@@ -1978,7 +2026,9 @@ def create_payment_review(client, *, watermark: int = 0, messages=None):
         _apply_validated_conversation_price_to_draft(extracted["order_draft"], messages, catalog_matches)
         deal = _select_review_deal(client, catalog_matches)
         review.evidence = {
-            "claim_anchor": claim_anchor,
+            # Keep the original claim identity: later receipt evidence belongs
+            # to this pending episode review and must not mutate its key.
+            "claim_anchor": current_evidence.get("claim_anchor") or claim_anchor,
             "messages": extracted["evidence"],
             "amount_evidence": extracted["amount_evidence"],
             "order_draft": extracted["order_draft"],
