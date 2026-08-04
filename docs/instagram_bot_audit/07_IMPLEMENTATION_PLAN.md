@@ -1,10 +1,10 @@
 # 07_IMPLEMENTATION_PLAN — план внедрения
 
-> **Канонический per-task статус после восстановления всех веток 2026-08-03.**
-> Всего 101 уникальная `IMP-*`: **76 закрыты, 24 открыты, 1 partial**
-> (`IMP-043`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
+> **Канонический per-task статус после recovery/deploy 2026-08-05.**
+> Всего 101 уникальная `IMP-*`: **76 закрыты, 21 открыта, 4 partial**
+> (`IMP-043`, `IMP-081`, `IMP-082`, `IMP-083`). Решения — в `04_DECISION_LOG.md`, находки и evidence —
 > в `03_FINDINGS_REGISTER.md`, общий порядок продолжения — в `00_PROGRESS.md`.
-> Ниже находятся отдельные checkbox-матрицы всех 171 `F-*` и всех 48 `IMPR-*`:
+> Ниже находятся отдельные checkbox-матрицы всех 174 `F-*` и всех 48 `IMPR-*`:
 > `[x]` означает verified completion, `[ ]` — любой незавершённый остаток,
 > включая `PARTIAL`, `REFRAMED` и decision-gated работу.
 
@@ -48,10 +48,10 @@
 | **W6** | Арбитр состояния и воронка | 5 | 5 | 0 | 0 |
 | **W7** | UX админки | 6 | 6 | 0 | 0 |
 | **W8** | Наблюдаемость, аналитика, долг | 15 | 5 | 9 | 1 |
-| **W9** | Product reselection и коммерческая семантика | 8 | 0 | 8 | 0 |
+| **W9** | Product reselection и коммерческая семантика | 8 | 0 | 5 | 3 |
 | **W10** | Неучтённые улучшения: follow-up, retention и аналитический UX | 4 | 0 | 4 | 0 |
 | **W11** | Полное покрытие находок и orphan backlog | 2 | 1 | 1 | 0 |
-| **Итого** | | **101** | **76** | **24** | **1** |
+| **Итого** | | **101** | **76** | **21** | **4** |
 
 ---
 
@@ -882,17 +882,21 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
 `docs/superpowers/specs/2026-08-02-instagram-product-reselection-intelligence-design.md`
 и `docs/superpowers/plans/2026-08-02-instagram-product-reselection-intelligence.md`.
 
-- [ ] **IMP-081 (P1) — РЕАЛИЗОВАНО В ВЕТКЕ `61ad2cb8`, НЕ ИНТЕГРИРОВАНО.**
-  Append-only verified product semantics и явная inventory policy; перед
-  переносом сверить миграционные leaves и запрет generic aliases.
-- [ ] **IMP-082 (P1) — РЕАЛИЗОВАНО В ВЕТКЕ `a8ccfa63`, НЕ ИНТЕГРИРОВАНО.**
+- [ ] **IMP-081 (P1) — PARTIAL, foundation в `main`/production.**
+  `bf4e0d80`, `674d6858`, `3678ddf4`: append-only verified product semantics,
+  explicit inventory policy, запрет generic/punctuation aliases и
+  unauthoritative revocation. Production: migrations `storefront.0088` и
+  `fable5.0008`, три InnoDB tables, 77 policies, UPDATE/DELETE triggers.
+  Остаток: полноценный runtime/admin consumer и отдельный disposable MariaDB
+  test gate; production БД не используется как тестовая.
+- [ ] **IMP-082 (P1) — PARTIAL, `7b5d5cc7` + `1c4d6d48`, не интегрирован.**
   Trusted product references, typed catalog graph и graph digest. Canonical
-  option-path hardening дописан только в поздней версии спецификации. **P0 guard
+  option-path hardening и typed compatibility проходят повторный spec review. **P0 guard
   при переносе:** graph не может читать `Product.final_price`; обязан нести
   current `variant_public_context`/fit matrix, до выбора показывать диапазон,
   после выбора — exact price. Regression: товар 110 = 1450 для единственного
   thermo-варианта, товар 91 = 800–950; иначе вернётся F-CAT-003.
-- [ ] **IMP-083 (P1) — РЕАЛИЗОВАНО В ВЕТКЕ `468fe2ba`, НЕ ИНТЕГРИРОВАНО.**
+- [ ] **IMP-083 (P1) — PARTIAL, `7b5d5cc7` + `1c4d6d48`, не интегрирован.**
   Explainable hard-filter/ranking кандидатов; stale candidate acceptance и
   revalidation ещё требуют реализации. Повтор option segment (`/black/black/`)
   должен fail-closed, а trusted URL color/fit обязан попасть в durable selection,
@@ -980,9 +984,9 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
   быстрого возврата. Галочка основана на существующем коде/тестах и ранее
   задеплоенном W4/W5-срезе, а не на одном тексте progress.
 
-### Finding coverage matrix — 171 уникальный F-идентификатор
+### Finding coverage matrix — 174 уникальных F-идентификатора
 
-Итог матрицы: **126 `[x]` / 39 `OPEN [ ]` / 6 `PARTIAL [ ]`**. Статус
+Итог матрицы: **129 `[x]` / 39 `OPEN [ ]` / 6 `PARTIAL [ ]`**. Статус
 считается по факту текущего `main`, тестов и production evidence, а не по тому,
 что ID когда-то упоминался в progress или feature-ветке.
 
@@ -1009,6 +1013,8 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
 | [x] | F-CAT-002 | FIXED/VERIFIED | IMP-067 |
 | [x] | F-CAT-003 | FIXED/VERIFIED | IMP-080 |
 | [ ] | F-CAT-004 | OPEN | IMP-084/086 |
+| [x] | F-CAT-005 | FIXED/VERIFIED | IMP-081 |
+| [x] | F-CAT-006 | FIXED/VERIFIED | IMP-081 |
 | [x] | F-CORE-001 | FIXED/VERIFIED | IMP-008 |
 | [x] | F-CORE-002 | FIXED/VERIFIED | IMP-012 |
 | [ ] | F-CORE-003 | OPEN | IMP-098 |
@@ -1099,6 +1105,7 @@ Source сохранён отдельным remote ref `codex/ig-w9-local-preserv
 | [x] | F-PAY-012 | FIXED/VERIFIED | IMP-013 |
 | [x] | F-PAY-013 | FIXED/VERIFIED | IMP-071 |
 | [x] | F-PAY-014 | FIXED/VERIFIED | IMP-089 |
+| [x] | F-PAY-015 | FIXED/VERIFIED | `93ae8684` / DR-011 |
 | [x] | F-SCORE-001 | FIXED/VERIFIED | IMP-019 |
 | [x] | F-SCORE-002 | FIXED/VERIFIED | IMP-015 |
 | [x] | F-SCORE-003 | FIXED/VERIFIED | IMP-014 |

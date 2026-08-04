@@ -4,9 +4,11 @@
 **Status:** Approved on 2026-08-02; implementation authorized
 **Surface:** Instagram Direct sales conversation and assisted checkout proposal creation
 
-> **Recovery status (2026-08-03): design only.** Restored from
-> `codex/instagram-assisted-checkout`, including its latest uncommitted edits.
-> This note does not claim that the design was implemented or deployed.
+> **Implementation status (2026-08-05): PARTIAL.** The verified semantic and
+> inventory-policy foundation is deployed (`bf4e0d80`, `674d6858`, `3678ddf4`).
+> A current-base price-aware graph/candidate slice exists in commits `7b5d5cc7`
+> and `1c4d6d48` with 162 focused tests, but it is not yet in `main` or
+> production. Availability, durable session binding and allocation remain open.
 
 ## 1. Outcome
 

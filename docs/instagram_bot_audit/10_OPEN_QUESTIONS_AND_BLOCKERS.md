@@ -8,7 +8,9 @@
 - W5: `IMP-028` (full size/sales prompt protocol), `IMP-095` (white 1090 грн
   variant data with real images/rules).
 - W8: `IMP-044`–`046`, `060`–`061`, `094`, `096`, `100`, `101`; partial `043`, `077`.
-- W9: `IMP-081`–`088` (the first five have branch-only code, not production).
+- W9: partial `IMP-081`–`083`; open `IMP-084`–`088`. `IMP-081` foundation is
+  production, while `IMP-082/083` price-aware graph/candidates remain feature
+  work under spec review and are not production.
 - W10: `IMP-090`–`093`.
 - W11: `IMP-098` — F-CORE-003…006, F-PAY-010, F-SCORE-010 и partial-остатки
   F-SEC-004/009. F-CORE-007 уже закрыта IMP-073; F-SCORE-012 остаётся в IMP-046.
@@ -25,8 +27,10 @@
 
 ## Branch-only / WIP blockers
 
-- Five product-reselection commits are preserved but require rebase, unified
-  tests, MySQL proof and deploy (`IMP-081…085`).
+- Historical product-reselection commits remain preserved. Do not cherry-pick
+  them wholesale: `IMP-081` was ported independently; `IMP-082/083` are being
+  rebuilt price-aware on current semantics; `IMP-084/085` still require a
+  current-base port, unified tests, MySQL proof and deploy.
 - The W6-era untracked stock-policy tests are requirements to port onto current
   main, not production code (`F-CAT-004`, `IMP-084/086`).
 - The assisted-checkout worktree's 390px breakpoint change is uncommitted and

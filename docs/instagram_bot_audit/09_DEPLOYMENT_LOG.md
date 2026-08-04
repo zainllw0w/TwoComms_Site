@@ -4,6 +4,23 @@ Production host: `195.191.25.63`, path
 `/home/qlknpodo/TWC/TwoComms_Site/twocomms`, branch `main`, database
 `qlknpodo_MySQL_DB` (MariaDB/MySQL). Secrets are intentionally omitted.
 
+## F-PAY-015 daemon reconciliation deploy (2026-08-05)
+
+`93ae8684` was pushed to `main` and fast-forwarded on production. `migrate`
+reported no pending migrations, `manage.py check` passed, and
+`reconcile_ig_commercial_episodes --passes 3` returned
+`deals=0, reviews=0, attributions=0`. Static collection, compression, playbook
+seed and bounded payment backstop completed; the backstop processed zero
+projections/orders. After `tmp/restart.txt`, `run_instagram_bot --ensure`
+spawned the new daemon.
+
+Final production evidence: server HEAD `93ae8684`; `running=True`, `alive=True`,
+state `running`, provider `instagram_login`, heartbeat age 1.0 second,
+`last_error=''`, pending replies/notifications/analysis = `0/0/0`. Client `59`
+has separate terminal episodes `2`, `3`, `7`; episodes `2` and `7` are
+`lost / superseded_duplicate_payment_review`, episode `3` is fulfilled, and
+`current_commercial_episode_id` is null.
+
 ## IMP-094 deployment checkpoint (2026-08-04)
 
 `15147ded` was fast-forwarded to `main` and pulled on production. `manage.py
@@ -43,6 +60,7 @@ overwritten outside the fast-forward.
 | 2026-08-03 | `e04c1c24` | final audit evidence checkpoint; docs-only fast-forward | runtime unchanged; `running`; `last_error=''` |
 | 2026-08-04 | `15147ded` | IMP-094 SQLite gate stabilization; production check/migration-drift; daemon recovery | `running`; `alive=True`; `instagram_login`; `last_error=''` |
 | 2026-08-04 | `221cf37d` | IMP-077 terminal monitor/key/dedupe completion; focused 75 tests, production check and daemon ensure | `running`; `alive=True`; terminal outbox `0/0` |
+| 2026-08-05 | `93ae8684` | F-PAY-015; 134 local tests, MySQL reconcile x3, static/compress, payment backstop, restart | `running`; `alive=True`; `instagram_login`; heartbeat 1.0s; queues `0/0/0` |
 
 For `6b86e103`, server `git pull --ff-only` completed, `manage.py check` returned
 no issues, `makemigrations --check --dry-run` returned `No changes detected`,

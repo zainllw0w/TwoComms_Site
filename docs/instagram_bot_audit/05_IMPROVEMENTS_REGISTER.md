@@ -9,6 +9,11 @@
 > каждого ID находится в таблице «Каноническое покрытие всех 48 улучшений» в
 > конце файла; именно она предотвращает повторную реализацию уже закрытого.
 
+> **W9 checkpoint 2026-08-05:** semantic/inventory foundation (`IMP-081`) уже
+> в production, но остаётся PARTIAL до runtime/admin consumer и disposable
+> MariaDB gate. Price-aware graph/candidate slice (`IMP-082/083`) существует в
+> feature worktree и не закрывает связанные IMPR до интеграции и deploy.
+
 ## Главное наблюдение
 
 Большинство дешёвых улучшений — это **не новый код, а тексты, промпт и подключение

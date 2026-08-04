@@ -5,6 +5,12 @@
 > как считать точки падения и как не засорять контекст.
 > Все тексты готовы к вставке. Код не менялся.
 
+> **Implementation checkpoint 2026-08-05:** historical design sections below
+> сохраняют причины решений. W4B/W6 и funnel analytics уже реализованы; новый
+> F-PAY-015 закрывает startup collision между superseded payment review и
+> canonical episode. Product/price reselection остаётся частичным W9 и не должно
+> считаться готовым только по наличию feature-branch graph code.
+
 ---
 
 ## Часть 0. Блокирующее противоречие, найденное до проектирования

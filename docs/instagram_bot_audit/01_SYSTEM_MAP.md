@@ -1,6 +1,6 @@
 # 01_SYSTEM_MAP — карта Instagram-бота и management-контура
 
-> Состояние карты: сверено с `main` `6b86e103` и production на 2026-08-03.
+> Состояние карты: сверено с `main` `93ae8684` и production на 2026-08-05.
 > Секреты и PII намеренно не записываются. Источник требований —
 > `instagram_bot_audit_prompt_package/04_SYSTEM_ARCHITECTURE_AND_CODE.md`.
 
@@ -68,6 +68,10 @@ flowchart LR
    `Product.final_price` is not a safe substitute for a selected variant.
 5. Production is MariaDB/MySQL. Local SQLite is useful for fast unit tests only;
    migration/constraint acceptance requires production-like verification.
+6. Payment review, deal, attribution and order references are ownership edges
+   only when they describe the same commercial cycle. Links copied onto a
+   superseded review are audit references and must not merge its episode into
+   the canonical fulfilled episode.
 
 ## Known gaps intentionally visible
 
@@ -75,5 +79,9 @@ flowchart LR
 - Superseded invoice polling is implemented by `IMP-089` with a bounded
   per-invoice lifecycle and terminal markers.
 - White product variant data is still `F-DATA-016` / `IMP-095`.
-- Product reselection semantics are branch-only `IMP-081…085`; not production.
+- Verified semantic revisions and inventory policy foundation are production
+  `IMP-081 PARTIAL`; runtime/admin consumers and disposable MariaDB tests remain.
+- Price-aware graph/candidate work is `IMP-082/083 PARTIAL` in a feature
+  worktree; it is not production until the remaining compatibility/ranking
+  review gates pass.
 - Imported role provenance is still `F-DATA-015` / `IMP-096`.
