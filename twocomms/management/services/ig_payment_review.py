@@ -1723,7 +1723,7 @@ def reconcile_duplicate_payment_review(
         # The orphan episode created by the old watermark is historical
         # duplicate work, not a second purchase cycle. Retain its timeline.
         try:
-            from management.ig_bot_models import IgCommercialEpisode
+            from management.ig_bot_models import IgClient, IgCommercialEpisode
             from management.services.ig_commercial_episodes import append_episode_event
 
             episode = IgCommercialEpisode.objects.select_for_update().filter(
@@ -1738,6 +1738,13 @@ def reconcile_duplicate_payment_review(
                 episode.outcome = "superseded_duplicate_payment_review"
                 episode.closed_at = now
                 episode.save(update_fields=["open_slot", "state", "outcome", "closed_at", "updated_at"])
+                IgClient.objects.filter(
+                    pk=review.client_id,
+                    current_commercial_episode_id=episode.pk,
+                ).update(
+                    current_commercial_episode_id=None,
+                    updated_at=now,
+                )
                 append_episode_event(
                     episode,
                     dedupe_key=f"episode:{episode.pk}:superseded-by-review:{canonical.pk}",
