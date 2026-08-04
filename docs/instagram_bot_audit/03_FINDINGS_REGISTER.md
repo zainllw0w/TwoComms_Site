@@ -16,6 +16,8 @@
 | F-SEC-008 | FIXED / VERIFIED | `f2a84717`: durable heartbeat пяти cron-задач, stale/failure alert через outbox и `/bot/health/`; production MariaDB показывает пять свежих успешных heartbeat, endpoint = HTTP 200 / `running` |
 | F-OPS-004 | FIXED / VERIFIED | `f2a84717` добавил rotating `ig_bot.log`; `244cbbd3` добавил alert при sustained 4xx webhook rate (>=5 и >=25% за 5 минут), не блокирующий Meta handler |
 | F-OPS-008 | FIXED / VERIFIED | оперативные warning/error теперь сохраняются в rotating file log, поэтому 500 UI-строк больше не ограничивают расследование инцидента |
+| F-SEC-005 | FIXED / VERIFIED | `32985a63`: custom Direct/Gemini credentials хранятся только как versioned Fernet ciphertext; migration `0136` applied on production MariaDB |
+| F-SEC-011 | FIXED / VERIFIED | private `.env`/`.env.production` files with runtime secrets had mode `0664`; on 2026-08-04 all relevant files were changed to `0600` |
 
 Исторические описания ниже сохраняют исходное evidence; текущим источником
 статуса является эта сводка и checkbox в `07_IMPLEMENTATION_PLAN.md`.
@@ -1376,7 +1378,7 @@ golden-conversations acceptance остаются в `IMP-028`. Статус не
 | F-STATE-008 | `open_post_sale_case` без проверки покупки → кейсы обмена у неклиентов | P1 | CONFIRMED | high |
 | **F-PAT-001** | 8 конфликтов паттернов классификации с конкретными примерами текстов | **P1** | CONFIRMED | high |
 | F-SEC-004 | Meta-reviewer может остановить бота, менять модель, править клиентов, читать PII | P1 | CONFIRMED | high |
-| F-SEC-005 | Токены Direct/Gemini хранятся в БД plaintext | P1 | CONFIRMED | high |
+| F-SEC-005 | Токены Direct/Gemini хранились в БД plaintext | P1 | FIXED / VERIFIED | high |
 | F-SEC-006 | Нет версионирования и аудита изменений системного промпта | P1 | CONFIRMED | high |
 | F-SEC-007 | Логгер `ig_bot` не подключён к handler — часть логов уходит в никуда | P1 | CONFIRMED | high |
 | F-SEC-008 | Health-check и cron heartbeat/alerts отсутствовали | P1 | FIXED / VERIFIED | high |
@@ -1576,13 +1578,19 @@ golden-conversations acceptance остаются в `IMP-028`. Статус не
   разграничение непоследовательное.
   **Рекомендация:** reviewer должен иметь read-only sandbox: отдельный тестовый
   клиент, никакого влияния на глобальное состояние и на реальные карточки.
-- **F-SEC-005 (P1) — токены plaintext.** `custom_direct_token` и
-  `custom_gemini_key` — обычные `TextField` (`models.py:3603, 3607`).
+- **F-SEC-005 (P1, FIXED / VERIFIED 2026-08-04) — токены plaintext.**
+  Исторически `custom_direct_token` и `custom_gemini_key` были обычными
+  `TextField` (`models.py:3603, 3607`).
   В проекте уже есть Fernet-шифрование (`services/pii.py:24-35`) и
   `FIELD_ENCRYPTION_KEY` (`settings.py:410`), но применяется только к
   `ManagerPersonalData`. Утечки через API нет (UI write-only, отдаются только
   флаги), `InstagramBotSettings` не зарегистрирован в Django-админке —
   поэтому P1, а не P0. Но дамп БД раскрывает рабочие токены.
+  **Закрытие:** `32985a63` переименовал model field state без изменения
+  DB-колонок, пишет `fernet:v1:<ciphertext>`, предоставляет plaintext только
+  в памяти и мигрирует legacy значения (`0136`). Production key задан в
+  private env, custom поля на момент миграции были пусты; `tests_ig_secret_encryption`
+  закрепляет ciphertext-at-rest и fail-closed UI.
 - **F-SEC-006 (P1) — промпт без версий.** `system_prompt` перезаписывается
   на месте (`bot_views.py:2302-2313`) без истории, diff и актора.
   Откат возможен только из бэкапа БД. Для системы, где промпт напрямую
@@ -2124,6 +2132,26 @@ Advanced Access). Значит **месяц, с 14 июня по 10 июля, б
 - **Направление фикса (P2):** диагностику подписки делать без query-токена
   либо через POST; при возможности — маскировать `hub.verify_token` в логах
   веб-сервера. Ротировать verify-токен после этого.
+
+---
+
+## F-SEC-011 (P1, FIXED / VERIFIED 2026-08-04): private env-файлы были доступны группе
+
+- **Evidence до исправления:** private `.env` и `.env.production` в корне
+  deploy-репозитория и в его внутреннем приложении имели mode `0664`. В этих
+  файлах находятся runtime secrets, включая `FIELD_ENCRYPTION_KEY`; любой
+  процесс или пользователь той же Unix-группы мог прочитать их без отдельного
+  разрешения.
+- **Почему это дефект:** Fernet ciphertext защищает custom credentials в дампе
+  MariaDB только пока ключ шифрования не доступен шире требуемого. Group-readable
+  env-файл отменяет эту границу и также раскрывает прочие application secrets.
+- **Закрытие:** 2026-08-04 права всех трёх private env-файлов на production
+  изменены с `0664` на `0600`. Значения секретов не выводились, не попадали в
+  Git и не записывались в audit-документы. Custom credentials на момент
+  проверки были пусты, рабочий provider-token продолжил читаться из ENV.
+- **Проверка:** режимы перепроверены на сервере без вывода содержимого файлов;
+  daemon остаётся `running`, `/bot/health/` возвращает HTTP 200. Связанный
+  data-at-rest fix — `IMP-042` / `F-SEC-005` (`32985a63`).
 
 ---
 

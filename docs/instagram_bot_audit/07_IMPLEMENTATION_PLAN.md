@@ -738,8 +738,19 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   `0135`, явные task-specs, `/bot/health/` и проверка здоровья из daemon.
   Production MariaDB: все пять задач успешно завершены без ошибки; endpoint =
   HTTP 200, `bot_state=running`, `cron_unhealthy=0`.
-- [ ] **IMP-042 (P1) — открыта.** Шифрование токенов в БД через существующий Fernet из
-  `services/pii.py` (F-SEC-005).
+- [x] **IMP-042 (P1) — закрыта и задеплоена 2026-08-04 (`32985a63`).**
+  Custom Direct/Gemini credentials теперь хранятся исключительно как versioned
+  Fernet ciphertext; runtime property расшифровывает их только в памяти, а UI
+  fail-closed при отсутствующем/некорректном `FIELD_ENCRYPTION_KEY`. Migration
+  `0136` конвертирует legacy plaintext без изменения DB-колонок. Production:
+  key задан в private `.env.production`, env-файлы `0600`, MariaDB migration
+  `[X]`, поля были пусты/ENV provider не затронут, daemon и health `running`.
+- [ ] **IMP-101 (P2) — открыта.** Закрыть F-SEC-001 независимо от encryption:
+  убрать production account IDs, `allowed_senders` и debug reply из model
+  defaults, перенести явные значения в singleton/configuration migration,
+  сделать fresh install безопасным (`allowed_senders=''` = all) и добавить UI
+  warning для непустого whitelist. Нужны regression на fresh settings и
+  production config proof; `IMP-042` этого не делает.
 - [ ] **IMP-043 — PARTIAL, разделено после W0 (DR-005):**
   - **(P3, заблокировано)** атрибуция рекламы: источника данных не существует
     (0 рекламных полей в 438 payload'ах). Нужен ответ заказчика — запущена ли
@@ -828,7 +839,11 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   проверяет (`varchar(max_length)`, locks/constraints), и держать
   `verify_ig_production_contract --rollback-fixtures` отдельным обязательным
   no-network gate. Уже исправленные fixture/digest/media и 32-символьный
-  `failure_kind` не закрывают недетерминированность всего suite.
+  `failure_kind` не закрывают недетерминированность всего suite. Отдельно
+  согласовать `InstagramLoginWebhookSecretTests` с действующим multi-secret
+  ingress contract: два assert всё ещё требуют отвергать parent app secret,
+  хотя `IMP-063` намеренно принимает оба наших secrets после production 4xx
+  incident; это test debt, не регрессия encryption.
 - [ ] **IMP-096 (P2) — provenance ролей импортированной переписки
   (F-DATA-015).** Отделить подтверждённые manager/model сообщения от legacy
   import uncertainty, добавить read-only отчёт и dry-run backfill с точным
@@ -940,9 +955,9 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   быстрого возврата. Галочка основана на существующем коде/тестах и ранее
   задеплоенном W4/W5-срезе, а не на одном тексте progress.
 
-### Finding coverage matrix — 170 уникальных F-идентификаторов
+### Finding coverage matrix — 171 уникальный F-идентификатор
 
-Итог матрицы: **120 `[x]` / 43 `OPEN [ ]` / 7 `PARTIAL [ ]`**. Статус
+Итог матрицы: **122 `[x]` / 42 `OPEN [ ]` / 7 `PARTIAL [ ]`**. Статус
 считается по факту текущего `main`, тестов и production evidence, а не по тому,
 что ID когда-то упоминался в progress или feature-ветке.
 
@@ -1074,16 +1089,17 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 | [x] | F-SCORE-013 | FIXED/VERIFIED | IMP-040 |
 | [ ] | F-SCORE-014 | PARTIAL | IMP-043 |
 | [x] | F-SCORE-015 | FIXED/VERIFIED | IMP-013/015/019/031 |
-| [ ] | F-SEC-001 | OPEN | IMP-042 |
+| [ ] | F-SEC-001 | OPEN | IMP-101 |
 | [x] | F-SEC-002 | FIXED/VERIFIED | IMP-005 |
 | [x] | F-SEC-003 | FIXED/VERIFIED | IMP-006 |
 | [ ] | F-SEC-004 | PARTIAL | IMP-007/098 |
-| [ ] | F-SEC-005 | OPEN | IMP-042 |
+| [x] | F-SEC-005 | FIXED/VERIFIED | IMP-042 |
 | [x] | F-SEC-006 | FIXED/VERIFIED | IMP-025 |
 | [x] | F-SEC-007 | FIXED/VERIFIED | IMP-012 |
 | [x] | F-SEC-008 | FIXED/VERIFIED | IMP-041 |
 | [ ] | F-SEC-009 | PARTIAL | IMP-006/098 |
 | [ ] | F-SEC-010 | OPEN | IMP-061 |
+| [x] | F-SEC-011 | FIXED/VERIFIED | IMP-042 |
 | [x] | F-STAT-001 | FIXED/VERIFIED | IMP-058 |
 | [x] | F-STAT-002 | FIXED/VERIFIED | IMP-058 |
 | [x] | F-STAT-003 | FIXED/VERIFIED | IMP-058 |

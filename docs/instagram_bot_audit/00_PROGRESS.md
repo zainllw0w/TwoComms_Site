@@ -9,29 +9,29 @@
 
 | Поле | Значение |
 |---|---|
-| Текущая фаза | **W4B и reliability-срез W8 закрыты; W5 `IMP-028` имеет задеплоенный partial slice, активный остаток: W5/W8/W9/W10** |
-| Дата старта / обновления | 2026-08-04 (после production verification reliability/4xx-alert slice) |
+| Текущая фаза | **W4B и P1 reliability/security-срез W8 закрыты; W5 `IMP-028` имеет задеплоенный partial slice, активный остаток: W5/W8/W9/W10** |
+| Дата старта / обновления | 2026-08-04 (после production verification Fernet credential-encryption slice) |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
-| База внедрения | `244cbbd3` подтверждён в `origin/main` и на production; завершает `f2a84717` (health/heartbeat/incident retention) 4xx webhook-alert'ом поверх prompt-authority/variant-price slice IMP-028, bounded superseded-invoice recovery IMP-089, durable funnel analytics IMP-058, reliability, fulfillment IMP-055, claims IMP-056 и lifecycle возражений IMP-057 |
-| **Статус 100 IMP-задач** | **74 закрыты, 24 открыты, 2 частично закрыты (`IMP-043`, `IMP-077`)** |
+| База внедрения | `32985a63` подтверждён в `origin/main` и на production; закрывает Fernet-encryption custom credentials (`IMP-042`) поверх `244cbbd3` (4xx webhook alert), `f2a84717` (health/heartbeat/incident retention), prompt-authority/variant-price IMP-028, bounded superseded-invoice recovery IMP-089, durable funnel analytics IMP-058, fulfillment IMP-055, claims IMP-056 и lifecycle возражений IMP-057 |
+| **Статус 101 IMP-задачи** | **75 закрыты, 24 открыты, 2 частично закрыты (`IMP-043`, `IMP-077`)** |
 | Прод-сервер | `qlknpodo@195.191.25.63`, `/home/qlknpodo/TWC/TwoComms_Site/twocomms` |
 | Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; read-only и rollback-fixture contracts подтверждены |
 | Локальная SQLite | **не источник истины**; не проверяет `varchar(max_length)`, см. F-TEST-003 |
-| Реестр находок | **170 уникальных `F-*` идентификаторов**; восстановлена пропущенная F-PAT-003, повторные записи сохраняют историю проверки и закрытия |
+| Реестр находок | **171 уникальный `F-*` идентификатор**; восстановлена пропущенная F-PAT-003, повторные записи сохраняют историю проверки и закрытия |
 | Улучшения / решения | **48 `IMPR-*` / 10 `DR-*`** |
 | Задач чек-листа закрыто | **120 / 120** (домены A–L) |
-| Задач в плане внедрения | **100** в W0–W11, включая W4B/W4C/W4D и IMP-062…100 |
+| Задач в плане внедрения | **101** в W0–W11, включая W4B/W4C/W4D и IMP-062…101 |
 
 ## Документы
 
 | Файл | Состояние |
 |---|---|
 | `00_PROGRESS.md` | каноническая точка входа, общий статус и реестр восстановленных источников |
-| `03_FINDINGS_REGISTER.md` | 170 уникальных `F-*` и post-implementation evidence, включая production SQL/API |
+| `03_FINDINGS_REGISTER.md` | 171 уникальный `F-*` и post-implementation evidence, включая production SQL/API |
 | `04_DECISION_LOG.md` | 10 решений (DR-001…DR-010) с обоснованием отклонённых вариантов |
 | `05_IMPROVEMENTS_REGISTER.md` | 48 улучшений + канонический crosswalk каждого ID к DONE/PARTIAL/OPEN и `IMP-*` |
 | `06_FUNNEL_CLOSING_DESIGN.md` | дизайн добивки: 9 каскадов с текстами, возражения, статистика, контекст-бюджет |
-| `07_IMPLEMENTATION_PLAN.md` | канонический статус 100 IMP-задач; отдельные checkbox-matrix покрывают все 170 F-* и все 48 IMPR-* |
+| `07_IMPLEMENTATION_PLAN.md` | канонический статус 101 IMP-задачи; отдельные checkbox-matrix покрывают все 171 F-* и все 48 IMPR-* |
 | `01_SYSTEM_MAP.md` | оформлен; карта production-контуров и границ ответственности |
 | `02_AUDIT_CHECKLIST.md` | оформлен; 120/120 доменных проверок с evidence |
 | `06_TEST_MATRIX.md` | оформлен; 40 acceptance-сценариев и текущие gates |
@@ -48,7 +48,7 @@
 |---|---|
 | Открыто, W4B | — |
 | Открыто, W5 | `IMP-028` (PARTIAL: authority/budget/variant-price slice задеплоен, sales playbooks и FAQ остаются), `IMP-095` (production merchandising белого варианта товара 110) |
-| Открыто, W8 | `IMP-042`, `IMP-044`–`IMP-046`, `IMP-060`–`IMP-061`, `IMP-094`, `IMP-096` (provenance ролей импорта), `IMP-100` (дедупликация UI-лога) |
+| Открыто, W8 | `IMP-044`–`IMP-046`, `IMP-060`–`IMP-061`, `IMP-094`, `IMP-096` (provenance ролей импорта), `IMP-100` (дедупликация UI-лога), `IMP-101` (убрать небезопасные config defaults) |
 | Частично, W8 | `IMP-043`, `IMP-077` |
 | Открыто, W9 | `IMP-081`–`IMP-088`; `IMP-081`–`IMP-085` имеют branch-only code, но не интегрированы и не задеплоены |
 | Открыто, W10/W11 | `IMP-090`–`IMP-093`, `IMP-098`; восстановлены из улучшений и orphan-находок, которые раньше не имели исполнимой задачи |
@@ -86,6 +86,24 @@
   `bot_state=running`, `cron_unhealthy=0`.
 - Отдельное улучшение дедупликации повторов именно в UI-таблице **не** выдано
   за готовое: оно остаётся открытым как `IMPR-OPS-002` / `IMP-100`.
+
+## IMP-042 закрыта и задеплоена (2026-08-04)
+
+`32985a63` находится в `origin/main` и на production. Миграция
+`management.0136_encrypt_instagram_bot_settings_secrets` применена на MariaDB.
+
+- `custom_direct_token` и `custom_gemini_key` теперь хранятся как versioned
+  Fernet ciphertext в прежних DB-колонках; свойства модели расшифровывают их
+  только для runtime. Legacy plaintext конвертируется миграцией.
+- UI fail-closed: без корректного `FIELD_ENCRYPTION_KEY` новый custom credential
+  не сохраняется. На production key создан только в private `.env.production`;
+  все три private env-файла имеют mode `0600`.
+- На production custom поля были пусты, рабочий provider-token остаётся из ENV;
+  `db_vendor=mysql`, migration `0136=[X]`, daemon `running`, `/bot/health/` =
+  HTTP 200. Профильный пакет: 75 encryption/privacy/runtime и 71
+  observability/daemon тестов зелёные.
+- `F-SEC-001` не был ошибочно закрыт: перенос небезопасных model defaults в
+  явную конфигурацию остаётся открытым как `IMP-101`.
 
 ## IMP-028: authority и бюджет prompt — частично реализовано и задеплоено (2026-08-04)
 
