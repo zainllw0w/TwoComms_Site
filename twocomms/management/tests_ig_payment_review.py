@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
+from django.utils import timezone
 
 
 class IgPaymentReviewRulesTests(SimpleTestCase):
@@ -369,6 +370,37 @@ class IgPaymentReviewRulesTests(SimpleTestCase):
 
 
 class PaymentReviewEpisodeScopeTests(TestCase):
+    def test_claim_anchor_prefers_receipt_source_id_over_temporary_url(self):
+        from management.services.ig_payment_review import payment_review_claim_anchor
+
+        first = {
+            "evidence": [{
+                "message_id": 238,
+                "role": "user",
+                "quote": "Я оплатила, ось чек",
+                "media": [{
+                    "role": "payment_candidate",
+                    "message_id": 238,
+                    "url": "https://cdn.test/receipt.jpg?expires=one",
+                }],
+            }],
+        }
+        refreshed_url = {
+            "evidence": [{
+                **first["evidence"][0],
+                "media": [{
+                    "role": "payment_candidate",
+                    "message_id": 238,
+                    "url": "https://cdn.test/receipt.jpg?expires=two",
+                }],
+            }],
+        }
+
+        self.assertEqual(
+            payment_review_claim_anchor(first),
+            payment_review_claim_anchor(refreshed_url),
+        )
+
     def test_payment_fingerprint_ignores_legacy_amount_kind_drift(self):
         from management.services.ig_payment_review import payment_review_fingerprint
 
@@ -442,6 +474,7 @@ class PaymentReviewEpisodeScopeTests(TestCase):
             payment_status="paid",
         )
         evidence = {
+            "claim_anchor": "b" * 64,
             "amount_evidence": [{"amount": "2100", "message_id": 237}],
             "media": [{"role": "receipt", "message_id": 238, "url": "https://cdn.test/receipt.jpg"}],
             "order_draft": {
@@ -508,7 +541,158 @@ class PaymentReviewEpisodeScopeTests(TestCase):
         self.assertEqual(replay.pk, first.pk)
         self.assertEqual(IgPaymentConfirmationReview.objects.filter(client=client).count(), 1)
 
-    def test_replay_never_returns_superseded_review_when_canonical_is_cancelled(self):
+    def test_later_context_reuses_receipt_review_without_reprocessing_media(self):
+        from management.ig_bot_models import IgClient, IgPaymentConfirmationReview
+        from management.services.ig_payment_review import create_payment_review
+
+        client = IgClient.get_or_create_for_sender("review-stable-claim-anchor")
+        claim_messages = [
+            {"id": 233, "role": "user", "text": "Беру базову S"},
+            {"id": 237, "role": "manager", "text": "До сплати 790 грн"},
+            {
+                "id": 238,
+                "role": "user",
+                "text": "Я оплатила, ось чек",
+                "media": [{"url": "https://cdn.test/receipt-238.jpg", "type": "image"}],
+            },
+        ]
+        later_context = [
+            *claim_messages,
+            {"id": 242, "role": "manager", "text": "Доставка Новою поштою"},
+            {"id": 243, "role": "user", "text": "Київ, відділення 1"},
+        ]
+        with (
+            patch(
+                "management.services.ig_payment_review._persist_review_media",
+                side_effect=lambda rows: rows,
+            ) as persist_media,
+            patch(
+                "management.services.ig_payment_review._resolve_payment_media_candidates",
+                side_effect=lambda rows: rows,
+            ) as resolve_media,
+            patch("management.services.instagram_bot.notify_manager"),
+            patch("management.services.ig_commercial_episodes.ensure_episode_for_review"),
+        ):
+            first = create_payment_review(client, watermark=238, messages=claim_messages)
+            replay = create_payment_review(client, watermark=243, messages=later_context)
+
+        self.assertEqual(replay.pk, first.pk)
+        self.assertEqual(IgPaymentConfirmationReview.objects.filter(client=client).count(), 1)
+        self.assertEqual(persist_media.call_count, 1)
+        self.assertEqual(resolve_media.call_count, 1)
+
+    def test_pending_orderless_duplicate_is_superseded_without_deleting_audit(self):
+        from management.ig_bot_models import (
+            IgBotNotification,
+            IgBotNotificationAudit,
+            IgClient,
+            IgPaymentConfirmationReview,
+        )
+        from management.services.ig_payment_review import reconcile_duplicate_payment_review
+
+        client = IgClient.get_or_create_for_sender("review-pending-legacy-duplicate")
+        evidence = {
+            "claim_anchor": "c" * 64,
+            "amount_evidence": [{"amount": "1760", "message_id": 1133}],
+            "media": [
+                {
+                    "role": "receipt",
+                    "message_id": 1136,
+                    "url": "https://cdn.test/legacy-receipt.jpg",
+                }
+            ],
+            "order_draft": {
+                "quoted_total": "1760",
+                "currency": "UAH",
+                "items": [],
+                "delivery": {},
+            },
+        }
+        canonical = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            evidence=evidence,
+            dedupe_key="pending-legacy-canonical",
+            watermark_message_id=1136,
+        )
+        duplicate = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            evidence={
+                **evidence,
+                "order_draft": {**evidence["order_draft"], "delivery": {"city": "Київ"}},
+            },
+            dedupe_key="pending-legacy-duplicate",
+            watermark_message_id=1141,
+        )
+        notification = IgBotNotification.objects.create(
+            client=client,
+            event_type="payment_review",
+            dedupe_key=duplicate.dedupe_key,
+        )
+
+        result = reconcile_duplicate_payment_review(duplicate)
+
+        self.assertEqual(result.pk, canonical.pk)
+        duplicate.refresh_from_db()
+        self.assertEqual(duplicate.status, IgPaymentConfirmationReview.Status.SUPERSEDED)
+        self.assertEqual(duplicate.superseded_by_id, canonical.pk)
+        notification.refresh_from_db()
+        self.assertEqual(notification.status, IgBotNotification.Status.RESOLVED)
+        self.assertTrue(
+            IgBotNotificationAudit.objects.filter(
+                notification=notification,
+                action="supersede_duplicate",
+            ).exists()
+        )
+        self.assertEqual(
+            IgPaymentConfirmationReview.objects.filter(client=client).count(),
+            2,
+        )
+
+    def test_distinct_receipt_after_closed_episode_creates_new_review(self):
+        from management.ig_bot_models import IgClient, IgPaymentConfirmationReview
+        from management.services.ig_payment_review import create_payment_review
+
+        client = IgClient.get_or_create_for_sender("review-repeat-payment-claim")
+        first_messages = [
+            {"id": 1, "role": "manager", "text": "До сплати 790 грн"},
+            {
+                "id": 2,
+                "role": "user",
+                "text": "Я оплатила, ось чек",
+                "media": [{"url": "https://cdn.test/first-receipt.jpg", "type": "image"}],
+            },
+        ]
+        second_messages = [
+            {"id": 10, "role": "manager", "text": "До сплати 850 грн"},
+            {
+                "id": 11,
+                "role": "user",
+                "text": "Оплатила повторне замовлення, ось чек",
+                "media": [{"url": "https://cdn.test/second-receipt.jpg", "type": "image"}],
+            },
+        ]
+        with (
+            patch(
+                "management.services.ig_payment_review._persist_review_media",
+                side_effect=lambda rows: rows,
+            ),
+            patch(
+                "management.services.ig_payment_review._resolve_payment_media_candidates",
+                side_effect=lambda rows: rows,
+            ),
+            patch("management.services.instagram_bot.notify_manager"),
+        ):
+            first = create_payment_review(client, watermark=2, messages=first_messages)
+            episode = first.commercial_episode
+            episode.open_slot = None
+            episode.closed_at = timezone.now()
+            episode.save(update_fields=["open_slot", "closed_at", "updated_at"])
+            second = create_payment_review(client, watermark=11, messages=second_messages)
+
+        self.assertNotEqual(first.pk, second.pk)
+        self.assertEqual(IgPaymentConfirmationReview.objects.filter(client=client).count(), 2)
+
+    def test_replay_of_a_cancelled_claim_never_reopens_or_reprocesses_the_receipt(self):
         from management.ig_bot_models import IgClient, IgPaymentConfirmationReview
         from orders.models import Order
         from management.services.ig_payment_review import (
@@ -530,11 +714,11 @@ class PaymentReviewEpisodeScopeTests(TestCase):
             patch(
                 "management.services.ig_payment_review._persist_review_media",
                 side_effect=lambda rows: rows,
-            ),
+            ) as persist_media,
             patch(
                 "management.services.ig_payment_review._resolve_payment_media_candidates",
                 side_effect=lambda rows: rows,
-            ),
+            ) as resolve_media,
             patch("management.services.instagram_bot.notify_manager"),
             patch("management.services.ig_commercial_episodes.ensure_episode_for_review"),
         ):
@@ -563,11 +747,11 @@ class PaymentReviewEpisodeScopeTests(TestCase):
 
         duplicate.refresh_from_db()
         self.assertEqual(duplicate.status, IgPaymentConfirmationReview.Status.SUPERSEDED)
-        self.assertNotIn(
-            replay.pk,
-            {canonical.pk, duplicate.pk},
-        )
-        self.assertEqual(replay.status, IgPaymentConfirmationReview.Status.PENDING)
+        self.assertEqual(replay.pk, canonical.pk)
+        self.assertEqual(replay.status, IgPaymentConfirmationReview.Status.CANCELLED)
+        self.assertEqual(IgPaymentConfirmationReview.objects.filter(client=client).count(), 2)
+        self.assertEqual(persist_media.call_count, 1)
+        self.assertEqual(resolve_media.call_count, 1)
 
     def test_historical_paid_archive_requires_verified_review_and_closes_episode(self):
         from django.contrib.auth import get_user_model

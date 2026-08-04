@@ -26,6 +26,53 @@ KYIV = ZoneInfo("Europe/Kyiv")
 
 
 class SalesClassifierTests(TestCase):
+    @patch("management.services.ig_payment_review.create_payment_review")
+    def test_manager_message_never_intakes_payment_review(self, create_review):
+        from management.services import bot_sales_classifier
+
+        client = IgClient.get_or_create_for_sender("sales_cls_manager_payment_boundary")
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.MANAGER,
+            text="Оплату підтверджено, очікуємо доставку",
+        )
+
+        bot_sales_classifier.classify_message(
+            client,
+            message=message,
+            operational_effects=True,
+        )
+
+        create_review.assert_not_called()
+
+    @patch("management.services.ig_payment_review.create_payment_review")
+    @patch("management.services.ig_post_sale.open_post_sale_case")
+    def test_projection_only_classification_creates_no_operational_cases(
+        self,
+        open_post_sale_case,
+        create_review,
+    ):
+        from management.services import bot_sales_classifier
+
+        client = IgClient.get_or_create_for_sender("sales_cls_projection_only")
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="Я оплатила, ось чек",
+        )
+
+        bot_sales_classifier.ensure_rule_classification(
+            client,
+            message,
+            operational_effects=False,
+            allow_post_sale_effects=False,
+        )
+
+        open_post_sale_case.assert_not_called()
+        create_review.assert_not_called()
+
     def test_explicit_purchase_decision_sets_payment_intent(self):
         from management.models import IgConversationSignal
         from management.services import bot_sales_classifier
@@ -1269,7 +1316,7 @@ class SalesCockpitApiTests(TestCase):
             "Товар визначено",
             "Заплановані контакти",
             "Повернення після нагадування",
-            "Воронка продажів",
+            "Когортна воронка",
             "Частка від діалогів",
             "Ефективність реклами",
             "Заперечення клієнтів",

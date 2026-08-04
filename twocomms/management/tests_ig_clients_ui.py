@@ -38,7 +38,10 @@ from management.bot_views import _group_signal_rows, _review_media_groups
 
 User = get_user_model()
 
-MGMT = override_settings(ROOT_URLCONF="twocomms.urls_management")
+MGMT = override_settings(
+    ROOT_URLCONF="twocomms.urls_management",
+    SECURE_SSL_REDIRECT=False,
+)
 
 
 class ClientWorkspaceTemplateContractTests(SimpleTestCase):
@@ -2078,12 +2081,14 @@ class OrdersWorkspaceApiTests(TestCase):
         self.assertEqual(states[self.confirmed.id], "created_new")
         self.assertEqual(states[linked_review.id], "linked_existing")
 
-    def test_confirmed_duplicate_review_resolves_to_canonical_linked_order(self):
-        """A later watermark must not leave the same payment as a second task."""
+    def test_get_endpoints_keep_unsuperseded_review_history_read_only(self):
+        """Legacy repair is explicit; read endpoints do not mutate review history."""
         from management.ig_bot_models import IgOrderAttribution
+        from management.services.ig_payment_review import reconcile_duplicate_payment_review
         from orders.models import Order
 
         evidence = {
+            "claim_anchor": "a" * 64,
             "amount_evidence": [
                 {"kind": "payment_evidence", "amount": "2100", "message_id": 237}
             ],
@@ -2145,60 +2150,59 @@ class OrdersWorkspaceApiTests(TestCase):
             review_status_before=IgPaymentConfirmationReview.Status.PENDING,
             review_status_after=IgPaymentConfirmationReview.Status.CONFIRMED,
         )
-
-        data = self.client.get(
+        response = self.client.get(
             reverse("management_bot_orders_workspace_api")
-            + f"?view=action&review={duplicate.pk}"
-        ).json()
-
-        item = next(row for row in data["items"] if row["review_id"] == duplicate.pk)
-        self.assertEqual(data["counts"]["action"], 2)
-        self.assertEqual(item["approval"]["state"], "superseded")
-        self.assertEqual(item["approval"]["needs_action"], False)
-        self.assertEqual(item["order"]["id"], order.id)
-        duplicate.refresh_from_db()
-        self.assertEqual(duplicate.order_id, order.id)
-        self.assertEqual(duplicate.superseded_by_id, canonical.id)
-
-        detail = self.client.get(
-            reverse("management_bot_client_detail_api", args=[self.customer.pk])
-        ).json()
-        order_ids = [
-            item["order"]["id"]
-            for item in detail["orders"]["items"]
-            if item.get("order") and item["order"].get("id")
-        ]
-        self.assertEqual(order_ids, [order.id])
+            + f"?view=action&review={duplicate.pk}",
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200, response.content)
 
         candidates = self.client.get(
             reverse("management_bot_order_candidates_api"),
             {"client_id": self.customer.pk, "review_id": duplicate.pk},
             secure=True,
-        ).json()
-        linked_candidate = next(row for row in candidates["items"] if row["id"] == order.pk)
-        self.assertEqual(linked_candidate["blocked_reason"], "already_linked_payment")
-        self.assertIn("вже прив'язана", linked_candidate["blocked_reason_label"])
-
-        replay = self.client.post(
-            reverse("management_bot_payment_review_action_api", args=[duplicate.pk]),
-            {"action": "link_order", "order_identifier": order.order_number},
         )
-        self.assertEqual(replay.status_code, 200, replay.content)
-        self.assertTrue(replay.json()["idempotent_replay"])
-        self.assertEqual(replay.json()["order_id"], order.id)
-        self.assertEqual(IgOrderAttribution.objects.filter(order=order).count(), 1)
+        self.assertEqual(candidates.status_code, 200, candidates.content)
 
-        all_rows = self.client.get(
+        detail = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.customer.pk]),
+            secure=True,
+        )
+        self.assertEqual(detail.status_code, 200, detail.content)
+
+        duplicate.refresh_from_db()
+        self.assertEqual(duplicate.status, IgPaymentConfirmationReview.Status.CONFIRMED)
+        self.assertIsNone(duplicate.order_id)
+        self.assertIsNone(duplicate.superseded_by_id)
+
+        self.assertEqual(reconcile_duplicate_payment_review(duplicate).pk, canonical.pk)
+        duplicate.refresh_from_db()
+        self.assertEqual(duplicate.status, IgPaymentConfirmationReview.Status.SUPERSEDED)
+        self.assertEqual(duplicate.superseded_by_id, canonical.pk)
+
+        selected = self.client.get(
             reverse("management_bot_orders_workspace_api")
-            + f"?view=all&client_id={self.customer.pk}"
-        ).json()
-        rendered_order_ids = [
-            row["order"]["id"]
-            for row in all_rows["items"]
-            if row.get("order") and row["order"].get("id")
-        ]
-        self.assertEqual(rendered_order_ids, [order.id])
-        self.assertEqual(all_rows["counts"], {"action": 2, "confirmed": 2, "all": 3})
+            + f"?view=action&review={duplicate.pk}",
+            secure=True,
+        )
+        self.assertEqual(selected.status_code, 200, selected.content)
+        selected_data = selected.json()
+        self.assertEqual(selected_data["selected_review_id"], canonical.pk)
+        self.assertEqual(
+            [item["review_id"] for item in selected_data["items"]],
+            [canonical.pk],
+        )
+
+        detail = self.client.get(
+            reverse("management_bot_client_detail_api", args=[self.customer.pk]),
+            secure=True,
+        )
+        self.assertEqual(detail.status_code, 200, detail.content)
+        detail_data = detail.json()
+        self.assertEqual(detail_data["review"]["total_count"], 3)
+        self.assertEqual(detail_data["orders"]["review_count"], 3)
+        self.assertIn(canonical.pk, [item["review_id"] for item in detail_data["review"]["history"]])
+        self.assertNotIn(duplicate.pk, [item["review_id"] for item in detail_data["review"]["history"]])
 
     def test_legacy_provider_attempt_is_not_promoted_to_confirmed_truth(self):
         from management.ig_bot_models import IgOrderAttribution

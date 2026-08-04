@@ -1750,15 +1750,6 @@ def _order_attribution_workspace_payload(attribution) -> dict:
 
 def _payment_review_workspace_payload(review) -> dict:
     from management.services.ig_payment_review import payment_review_order_url
-    from management.services.ig_payment_review import reconcile_duplicate_payment_review
-
-    canonical_review = reconcile_duplicate_payment_review(review)
-    if canonical_review and review.status == review.Status.SUPERSEDED:
-        # The reconciliation writes the order pointer; keep this response
-        # object coherent without a second query in the hot payload path.
-        if canonical_review.order_id and not review.order_id:
-            review.order_id = canonical_review.order_id
-        review.superseded_by = canonical_review
 
     evidence = review.evidence if isinstance(review.evidence, dict) else {}
     draft = evidence.get("order_draft") if isinstance(evidence.get("order_draft"), dict) else {}
@@ -1964,39 +1955,32 @@ def bot_orders_workspace_api(request):
 
     base = _payment_review_workspace_queryset().filter(
         client__hidden_at__isnull=True,
-    )
-    from management.services.ig_payment_review import reconcile_duplicate_payment_review
-
-    # Reconcile legacy watermark duplicates before calculating badges/counts;
-    # otherwise the same receipt remains a false second manager task.
-    duplicate_candidates = base.filter(
-        status=IgPaymentConfirmationReview.Status.CONFIRMED,
-        order_id__isnull=True,
-    ).exclude(
-        resolution_kind=(
-            IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
-        )
-    )
-    for duplicate_review in duplicate_candidates:
-        reconcile_duplicate_payment_review(duplicate_review)
+    ).exclude(status=IgPaymentConfirmationReview.Status.SUPERSEDED)
     attribution_base = _order_attribution_workspace_queryset().filter(
         client__hidden_at__isnull=True,
     )
     if client_id:
         base = base.filter(client_id=client_id)
         attribution_base = attribution_base.filter(client_id=client_id)
+    # Keep payment conflicts actionable without performing the old implicit
+    # reconciliation writes from this GET endpoint.
     reconciliation_review_ids = [
         row.pk
-        for row in list(base)
-        if row.status == IgPaymentConfirmationReview.Status.CONFIRMED
-        and row.resolution_kind
-        != IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
-        and _payment_review_truth_payload(row)["needs_reconciliation"]
+        for row in base.filter(
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            order_id__isnull=False,
+        ).exclude(
+            resolution_kind=(
+                IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
+            )
+        ).select_related("deal", "order", "deal__payment_projection").prefetch_related("decisions")
+        if _payment_review_truth_payload(
+            row,
+            decision=max(row.decisions.all(), key=lambda decision: decision.pk, default=None),
+        )["needs_reconciliation"]
     ]
     represented_order_ids = base.exclude(order_id__isnull=True).values("order_id")
-    attribution_base = attribution_base.exclude(
-        order_id__in=Subquery(represented_order_ids)
-    )
+    attribution_base = attribution_base.exclude(order_id__in=Subquery(represented_order_ids))
     attributed_count = attribution_base.count()
     action_filter = (
         Q(status=IgPaymentConfirmationReview.Status.PENDING)
@@ -2013,17 +1997,12 @@ def bot_orders_workspace_api(request):
         )
         | Q(pk__in=reconciliation_review_ids)
     )
-    canonical_base = base.exclude(
-        status=IgPaymentConfirmationReview.Status.SUPERSEDED,
-    )
-    canonical_order_count = canonical_base.exclude(
-        order_id__isnull=True,
-    ).values("order_id").distinct().count()
-    canonical_orderless_count = canonical_base.filter(order_id__isnull=True).count()
-    canonical_confirmed_order_count = canonical_base.filter(
+    canonical_order_count = base.exclude(order_id__isnull=True).values("order_id").distinct().count()
+    canonical_orderless_count = base.filter(order_id__isnull=True).count()
+    canonical_confirmed_order_count = base.filter(
         status=IgPaymentConfirmationReview.Status.CONFIRMED,
     ).exclude(order_id__isnull=True).values("order_id").distinct().count()
-    canonical_confirmed_orderless_count = canonical_base.filter(
+    canonical_confirmed_orderless_count = base.filter(
         status=IgPaymentConfirmationReview.Status.CONFIRMED,
         order_id__isnull=True,
     ).count()
@@ -2038,7 +2017,16 @@ def bot_orders_workspace_api(request):
     }
     attribution_rows = []
     if selected_review_id:
-        rows = base.filter(pk=selected_review_id)
+        selected_row = base.filter(pk=selected_review_id).first()
+        if selected_row is None:
+            superseded = IgPaymentConfirmationReview.objects.filter(
+                pk=selected_review_id,
+                status=IgPaymentConfirmationReview.Status.SUPERSEDED,
+            ).values_list("superseded_by_id", flat=True).first()
+            if superseded:
+                selected_row = base.filter(pk=superseded).first()
+        rows = base.filter(pk=selected_row.pk) if selected_row else base.none()
+        selected_review_id = selected_row.pk if selected_row else 0
     elif view == "action":
         rows = base.filter(action_filter)
     elif view == "confirmed":
@@ -2482,9 +2470,6 @@ def bot_order_candidates_api(request):
                 {"success": False, "error": "Перевірку оплати для цього клієнта не знайдено."},
                 status=404,
             )
-        from management.services.ig_payment_review import reconcile_duplicate_payment_review
-
-        reconcile_duplicate_payment_review(review)
         if not authoritative_manager_decision(review) and not (
             review.status == review.Status.SUPERSEDED and review.order_id
         ):
@@ -4030,19 +4015,9 @@ def bot_client_detail_api(request, client_id):
         }
         for d in deal_rows
     ]
-    review_base = _payment_review_workspace_queryset().filter(client=c)
-    from management.services.ig_payment_review import reconcile_duplicate_payment_review
-
-    for duplicate_review in review_base.filter(
-        status=IgPaymentConfirmationReview.Status.CONFIRMED,
-        order_id__isnull=True,
-    ).exclude(
-        resolution_kind=(
-            IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
-        )
-    ):
-        reconcile_duplicate_payment_review(duplicate_review)
-    review_base = _payment_review_workspace_queryset().filter(client=c)
+    review_base = _payment_review_workspace_queryset().filter(
+        client=c,
+    ).exclude(status=IgPaymentConfirmationReview.Status.SUPERSEDED)
     review_counts = review_base.aggregate(
         total=Count("id"),
         pending=Count(
