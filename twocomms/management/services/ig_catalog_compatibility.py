@@ -96,8 +96,12 @@ def _fallback_grid(product, option_key):
     return (exact or neutral or grids)[0]
 
 
-def resolve_configuration_sizes(product, variant, row) -> tuple[str, ...]:
-    """Return enabled sizes for one exact variant/option configuration."""
+def resolve_configuration_size_contract(
+    product,
+    variant,
+    row,
+) -> tuple[tuple[str, ...], bool]:
+    """Return exact sizes and whether an authoritative size source exists."""
 
     option_key = str(row.get("option_key") or "")
     fit_code = str(row.get("fit_code") or "")
@@ -112,6 +116,14 @@ def resolve_configuration_sizes(product, variant, row) -> tuple[str, ...]:
     variant_assignment = variant_assignments.get(option_key)
     product_assignment = product_assignments.get(option_key)
     explicit_variant_grid = variant_assignment is not None
+    catalog = getattr(product, "catalog", None)
+    declared_catalog_grids = _prefetched(catalog, "size_grids") if catalog else []
+    has_declared_grid = bool(
+        variant_assignment is not None
+        or product_assignment is not None
+        or getattr(product, "size_grid_id", None)
+        or declared_catalog_grids
+    )
     grid = _usable_grid(
         variant_assignment.size_grid
         if variant_assignment is not None
@@ -134,6 +146,12 @@ def resolve_configuration_sizes(product, variant, row) -> tuple[str, ...]:
         (rule.fit_code, normalize_size_value(rule.size)): rule
         for rule in _prefetched(variant, "fable5_size_rules")
     }
+    has_contract = bool(
+        has_declared_grid
+        or catalog_sizes
+        or product_rules
+        or variant_rules
+    )
     resolved = []
     for size in sizes:
         product_rule = product_rules.get((option_key, size))
@@ -146,4 +164,15 @@ def resolve_configuration_sizes(product, variant, row) -> tuple[str, ...]:
         if variant_rule is not None and not variant_rule.is_enabled:
             continue
         resolved.append(size)
-    return tuple(resolved)
+    return tuple(resolved), has_contract
+
+
+def resolve_configuration_sizes(product, variant, row) -> tuple[str, ...]:
+    """Return enabled sizes for one exact variant/option configuration."""
+
+    sizes, _has_contract = resolve_configuration_size_contract(
+        product,
+        variant,
+        row,
+    )
+    return sizes

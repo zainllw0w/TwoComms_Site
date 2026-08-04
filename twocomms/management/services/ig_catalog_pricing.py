@@ -11,7 +11,7 @@ from itertools import product as option_product
 
 from django.db.models import prefetch_related_objects
 
-from .ig_catalog_compatibility import resolve_configuration_sizes
+from .ig_catalog_compatibility import resolve_configuration_size_contract
 
 
 logger = logging.getLogger(__name__)
@@ -143,11 +143,13 @@ def _variant_configurations(product, variant) -> list[dict]:
             "is_thermo": bool(resolved.get("is_thermo")),
             "stock": int(getattr(variant, "stock", 0) or 0),
         }
-        row["compatible_sizes"] = resolve_configuration_sizes(
+        compatible_sizes, has_size_contract = resolve_configuration_size_contract(
             product,
             variant,
             row,
         )
+        row["compatible_sizes"] = compatible_sizes
+        row["has_compatible_size_contract"] = has_size_contract
         rows.append(row)
     return rows
 

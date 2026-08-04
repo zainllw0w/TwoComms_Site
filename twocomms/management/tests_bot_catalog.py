@@ -119,6 +119,72 @@ class CatalogVariantPriceTests(TestCase):
         )
         self.assertNotIn("oversize: XS/S/M/L/XL/XXL", text)
 
+    def test_catalog_does_not_restore_generic_sizes_when_variant_blocks_all(self):
+        from fable5.models import ProductOptionSizeGrid, VariantSizeRule
+        from productcolors.models import Color, ProductColorVariant
+        from storefront.models import (
+            Catalog,
+            Category,
+            Product,
+            ProductFitOption,
+            ProductStatus,
+            SizeGrid,
+        )
+
+        category = Category.objects.create(name="Футболки", slug="blocked-sizes")
+        catalog = Catalog.objects.create(name="Blocked sizes", slug="blocked-sizes")
+        product = Product.objects.create(
+            title="Футболка без доступного розміру",
+            slug="blocked-size-shirt",
+            category=category,
+            catalog=catalog,
+            price=1090,
+            status=ProductStatus.PUBLISHED,
+        )
+        ProductFitOption.objects.create(
+            product=product,
+            code="oversize",
+            label="Оверсайз",
+            is_active=True,
+            is_default=True,
+        )
+        grid = SizeGrid.objects.create(
+            catalog=catalog,
+            name="Oversize XS-M",
+            guide_data={
+                "columns": [{"key": "size", "label": "Розмір"}],
+                "rows": [
+                    {"size": size, "display_size": size}
+                    for size in ("XS", "M")
+                ],
+            },
+            is_active=True,
+        )
+        ProductOptionSizeGrid.objects.create(
+            product=product,
+            option_key="fit=oversize",
+            size_grid=grid,
+        )
+        color = Color.objects.create(name="Термо", primary_hex="#A2AB92")
+        variant = ProductColorVariant.objects.create(
+            product=product,
+            color=color,
+            price_override=1450,
+            is_default=True,
+        )
+        for size in ("XS", "M"):
+            VariantSizeRule.objects.create(
+                variant=variant,
+                fit_code="oversize",
+                size=size,
+                is_enabled=False,
+            )
+
+        text = get_catalog_context(force=True, compact=True)
+
+        self.assertIn(f"variant_id={variant.pk}", text)
+        self.assertNotIn("oversize: XS/M", text)
+
     def test_catalog_variant_pricing_uses_a_bounded_query_graph(self):
         from productcolors.models import Color, ProductColorVariant
         from storefront.models import Category, Product, ProductStatus

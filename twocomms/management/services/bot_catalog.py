@@ -145,11 +145,11 @@ def _build(*, compact: bool = False) -> str:
         fps = fp_by_product.get(p.id, [])
         variants_s = format_variant_pricing(pricing["configurations"])
         colors_s = ("; кольори: " + variants_s) if variants_s else ""
-        has_exact_variant_sizes = any(
-            row.get("compatible_sizes")
+        has_variant_size_contract = any(
+            row.get("has_compatible_size_contract")
             for row in pricing["configurations"]
         )
-        sizes_by_fit = {} if has_exact_variant_sizes else resolve_catalog_sizes(p)
+        sizes_by_fit = {} if has_variant_size_contract else resolve_catalog_sizes(p)
         fits_s = "; фасони/розміри: " + "; ".join(
             f"{code}: {'/'.join(values)}" for code, values in sizes_by_fit.items() if values
         ) if sizes_by_fit else ""
