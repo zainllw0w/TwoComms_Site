@@ -966,7 +966,7 @@ def gemini_generate_json(system_instruction: str, user_text: str, *,
     return _run_with_pool(
         role,
         payload,
-        timeout=GEMINI_TIMEOUT if role == "management" else None,
+        timeout=MANAGEMENT_TEXT_TIMEOUT if role == "management" else None,
         deadline_seconds=(
             MANAGEMENT_TEXT_DEADLINE_SECONDS if role == "management" else None
         ),
