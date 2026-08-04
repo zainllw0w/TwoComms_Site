@@ -235,6 +235,53 @@ class InstagramBotNotificationTests(TestCase):
         self.assertEqual(row.failure_kind, "ambiguous_stale_sending")
         http.assert_not_called()
 
+    def test_terminal_notifications_are_proactively_summarized_once_per_hour(self):
+        IgBotNotification.objects.create(
+            dedupe_key="terminal-unknown",
+            event_type="delivery_unknown",
+            payload={"text": "Невідомий результат"},
+            status=IgBotNotification.Status.UNKNOWN,
+            last_error="timeout access_token=secret-value",
+        )
+        IgBotNotification.objects.create(
+            dedupe_key="terminal-dead",
+            event_type="send_gave_up",
+            payload={"text": "Вичерпано спроби"},
+            status=IgBotNotification.Status.DEAD_LETTER,
+            last_error="retry_exhausted",
+        )
+
+        self.assertEqual(bot._monitor_terminal_notifications(force=True), 1)
+        monitor = IgBotNotification.objects.get(event_type="notification_terminal_monitor")
+        self.assertEqual(monitor.status, IgBotNotification.Status.PENDING)
+        self.assertIn("UNKNOWN: 1", monitor.payload["text"])
+        self.assertIn("DEAD_LETTER: 1", monitor.payload["text"])
+        self.assertIn("/bot/", monitor.payload["text"])
+        self.assertNotIn("secret-value", monitor.payload["text"])
+
+        # The same unresolved rows do not produce a second notification inside
+        # the dedupe window.
+        self.assertEqual(bot._monitor_terminal_notifications(force=True), 1)
+        self.assertEqual(
+            IgBotNotification.objects.filter(event_type="notification_terminal_monitor").count(),
+            1,
+        )
+
+    def test_terminal_monitor_reports_full_backlog_beyond_sample_limit(self):
+        IgBotNotification.objects.bulk_create([
+            IgBotNotification(
+                dedupe_key=f"terminal-backlog-{index}",
+                event_type="delivery_unknown",
+                payload={"text": "Невідомий результат"},
+                status=IgBotNotification.Status.UNKNOWN,
+            )
+            for index in range(101)
+        ])
+
+        self.assertEqual(bot._monitor_terminal_notifications(force=True), 1)
+        monitor = IgBotNotification.objects.get(event_type="notification_terminal_monitor")
+        self.assertIn("UNKNOWN: 101", monitor.payload["text"])
+
     @patch.dict(
         "os.environ",
         {"MANAGEMENT_TG_BOT_TOKEN": "test-token", "MANAGEMENT_TG_ADMIN_CHAT_ID": "123"},

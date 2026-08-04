@@ -36,7 +36,7 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
 from django.core.cache import cache
 from django.db import DatabaseError, IntegrityError, transaction
-from django.db.models import F, Q
+from django.db.models import Count, F, Q
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
@@ -2821,6 +2821,9 @@ def _log_token_error(s: InstagramBotSettings, code, body: str) -> None:
 
 NOTIFICATION_STALE_SENDING_SECONDS = 300
 NOTIFICATION_MAX_ATTEMPTS = 5
+NOTIFICATION_TERMINAL_ALERT_WINDOW_MINUTES = 60
+NOTIFICATION_TERMINAL_MONITOR_CACHE_KEY = "ig_notification_terminal_monitor_due"
+NOTIFICATION_TERMINAL_MONITOR_INTERVAL_SECONDS = 60
 
 
 def _telegram_media_url_candidates(media: dict) -> list[str]:
@@ -3189,7 +3192,87 @@ def drain_manager_notifications(*, limit: int = 20) -> int:
             )
             break
         sent += int(_deliver_manager_notification(dedupe_key))
+    # Queue terminal-state monitoring after this pass.  A row that becomes
+    # UNKNOWN/DEAD_LETTER during the current send is thus visible to the next
+    # bounded pass, without recursively sending an alert inside its own drain.
+    _monitor_terminal_notifications()
     return sent
+
+
+def _monitor_terminal_notifications(*, limit: int = 100, force: bool = False) -> int:
+    """Queue one bounded operator summary for unresolved terminal deliveries.
+
+    UNKNOWN and DEAD_LETTER rows are deliberately not replayed: the provider
+    outcome may already be visible to Telegram/Meta, or the retry budget is
+    exhausted.  They still need a durable, periodic signal so an operator can
+    reconcile them instead of relying on a dashboard counter.
+    """
+    if not force:
+        try:
+            if not cache.add(
+                NOTIFICATION_TERMINAL_MONITOR_CACHE_KEY,
+                1,
+                timeout=NOTIFICATION_TERMINAL_MONITOR_INTERVAL_SECONDS,
+            ):
+                return 0
+        except Exception as exc:
+            # A broken cache must not make terminal notifications invisible.
+            logger.warning("Unable to rate-limit terminal notification monitor: %r", exc)
+
+    terminal_statuses = [
+        IgBotNotification.Status.UNKNOWN,
+        IgBotNotification.Status.DEAD_LETTER,
+    ]
+    counts = {status: 0 for status in terminal_statuses}
+    for item in (
+        IgBotNotification.objects.filter(status__in=terminal_statuses)
+        .exclude(event_type="notification_terminal_monitor")
+        .values("status")
+        .annotate(total=Count("id"))
+    ):
+        counts[item["status"]] = item["total"]
+    rows = list(
+        IgBotNotification.objects.filter(status__in=terminal_statuses)
+        .exclude(event_type="notification_terminal_monitor")
+        .order_by("updated_at", "id")
+        .values("id", "status", "event_type", "last_error")[:limit]
+    )
+    if not rows:
+        return 0
+    now = timezone.now()
+    bucket = int(now.timestamp() // (NOTIFICATION_TERMINAL_ALERT_WINDOW_MINUTES * 60))
+    samples = []
+    for row in rows:
+        if len(samples) < 6:
+            samples.append(
+                f"#{row['id']} {row['event_type']}: "
+                f"{_redact_secret_text(row['last_error'] or 'без опису')[:120]}"
+            )
+    lines = [
+        f"UNKNOWN: {counts[IgBotNotification.Status.UNKNOWN]}",
+        f"DEAD_LETTER: {counts[IgBotNotification.Status.DEAD_LETTER]}",
+        "Потрібна ручна звірка в журналі Telegram-алертів.",
+        *samples,
+    ]
+    try:
+        from management.services.ig_alerts import format_alert, management_base_url
+
+        queued = notify_manager(
+            format_alert(
+                "⚠️ IG: є незавершені Telegram-алерти",
+                lines=lines,
+                url=f"{management_base_url()}/bot/",
+                url_label="Перевірка:",
+            ),
+            dedupe_key=f"ig-notification-terminal:w{bucket}",
+            event_type="notification_terminal_monitor",
+            metadata={"terminal_counts": counts, "sample_count": len(samples)},
+            deliver_immediately=False,
+        )
+    except Exception:
+        logger.exception("Unable to queue terminal notification monitor")
+        return 0
+    return int(queued)
 
 
 def notify_manager(
@@ -4268,7 +4351,12 @@ def _link_circuit_active(s: InstagramBotSettings) -> bool:
     return bool(s.link_send_blocked_until and s.link_send_blocked_until > timezone.now())
 
 
-def _activate_link_send_circuit(s: InstagramBotSettings, body: str) -> None:
+def _activate_link_send_circuit(
+    s: InstagramBotSettings,
+    body: str,
+    *,
+    emit_alert: bool = True,
+) -> None:
     now = timezone.now()
     blocked_until = now + LINK_SENDING_CIRCUIT_TTL
     fbtrace_id = _graph_error_fbtrace_id(body)
@@ -4284,17 +4372,18 @@ def _activate_link_send_circuit(s: InstagramBotSettings, body: str) -> None:
         ])
     except Exception:
         pass
-    try:
-        notify_manager(
-            "⚠️ Instagram тимчасово обмежив надсилання посилань у Direct "
-            "(Meta 508/2534122). Бот продовжить відповідати корисним текстом без URL. "
-            "Платіжні посилання не будуть маскуватися; їх потрібно перевірити менеджеру. "
-            "Перевірте Instagram → Налаштування → Статус облікового запису.",
-            dedupe_key=f"ig_link_restriction:{now.date().isoformat()}",
-            event_type="link_send_restriction",
-        )
-    except Exception:
-        pass
+    if emit_alert:
+        try:
+            notify_manager(
+                "⚠️ Instagram тимчасово обмежив надсилання посилань у Direct "
+                "(Meta 508/2534122). Бот продовжить відповідати корисним текстом без URL. "
+                "Платіжні посилання не будуть маскуватися; їх потрібно перевірити менеджеру. "
+                "Перевірте Instagram → Налаштування → Статус облікового запису.",
+                dedupe_key=f"ig_link_restriction:{now.date().isoformat()}",
+                event_type="link_send_restriction",
+            )
+        except Exception:
+            pass
 
 
 def _permanent_send_alert_text(hint: str, *, graph_subcode: int = 0) -> str:
@@ -4343,11 +4432,11 @@ def _queue_payment_link_delivery_review(
     hint: str,
     *,
     deal=None,
-) -> None:
+) -> bool:
     """Preserve a generated invoice URL for a manager; never strip it silently."""
     deal = deal or _invoice_deal_for_reply(client, reply)
     if not client or (deal is None and not _PAY_URL_RE.search(str(reply or ""))):
-        return
+        return False
     from management.models import IgFollowUpTask
 
     now = timezone.now()
@@ -4429,6 +4518,7 @@ def _queue_payment_link_delivery_review(
         )
     except Exception:
         pass
+    return True
 
 
 def _classify_poll_provider_failure(code: int, body: str) -> str:
@@ -4599,6 +4689,7 @@ def send_text(
     permission_boundary_factory=None,
     provider_message_callback=None,
     allow_url_fallback: bool = False,
+    alert_link_restriction: bool = True,
     return_receipt: bool = False,
 ) -> tuple[bool, str, str] | ProviderDeliveryReceipt:
     """Повертає (ok, kind, hint/delivered_text).
@@ -4703,7 +4794,11 @@ def send_text(
         if kind == "link_restricted":
             rejected_url = _contains_customer_url(part)
             if rejected_url:
-                _activate_link_send_circuit(s, resp)
+                _activate_link_send_circuit(
+                    s,
+                    resp,
+                    emit_alert=alert_link_restriction,
+                )
             can_fallback = (
                 allow_url_fallback
                 and not ok_any
@@ -7488,6 +7583,12 @@ def _process_one_inside_reply_boundary(
         # generated payment link does not: silently stripping it would make a
         # false promise, so payment delivery stays fail-closed for a manager.
         allow_url_fallback=_allows_linkless_fallback(reply, control, row.client),
+        # A blocked payment link produces its own manager task with the exact
+        # invoice.  It is the one actionable alert for that failed send, so do
+        # not also emit the generic link-circuit Telegram alert.
+        alert_link_restriction=not bool(
+            payment_deal is not None or _PAY_URL_RE.search(reply)
+        ),
         return_receipt=True,
     )
     ok, kind, hint, provider_message_id, receipt_present = _delivery_receipt(delivery)
@@ -7537,9 +7638,10 @@ def _process_one_inside_reply_boundary(
             row.processed_at = timezone.now()
             row.save(update_fields=["status", "send_state", "processed_at"])
             log("error", "send_blocked", f"{row.sender_id}: {hint}")
+            payment_review_queued = False
             if row.client_id and (payment_deal is not None or _PAY_URL_RE.search(reply)):
                 try:
-                    _queue_payment_link_delivery_review(
+                    payment_review_queued = _queue_payment_link_delivery_review(
                         row.client,
                         reply,
                         hint,
@@ -7548,15 +7650,24 @@ def _process_one_inside_reply_boundary(
                 except Exception as exc:
                     log("error", "payment_link_delivery_review", repr(exc))
             # Системну причину (одна на всіх) не спамимо — алерт раз на годину.
-            if not cache.get("ig_bot_perm_alert"):
+            # Для платіжного повідомлення окреме завдання вже є actionable
+            # алертом; другий загальний текст про ту саму невдачу лише спамить.
+            if not payment_review_queued and not cache.get("ig_bot_perm_alert"):
                 cache.set("ig_bot_perm_alert", 1, 3600)
                 graph_subcode = (
                     ADVANCED_ACCESS_SUBCODE if _is_advanced_access_hint(hint) else 0
                 )
-                notify_manager(_permanent_send_alert_text(
-                    hint,
-                    graph_subcode=graph_subcode,
-                ))
+                from management.services.ig_alerts import alert_dedupe_key
+
+                notify_manager(
+                    _permanent_send_alert_text(hint, graph_subcode=graph_subcode),
+                    dedupe_key=alert_dedupe_key(
+                        "permanent_send_blocked", client_id=row.client_id,
+                        entity_id=row.pk, window_minutes=60,
+                    ),
+                    event_type="permanent_send_blocked",
+                    client=row.client if row.client_id else None,
+                )
         elif kind == "unknown":
             # Never replay a request whose provider result is ambiguous.
             row.status = InstagramBotMessage.Status.FAILED

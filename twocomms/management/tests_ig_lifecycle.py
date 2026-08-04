@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from management.ig_bot_models import IgLifecycleEvent
 from management.models import (
+    IgBotNotification,
     IgCheckoutProposal,
     IgClient,
     IgDeal,
@@ -147,6 +148,11 @@ class InstagramLifecycleTests(TestCase):
         self.assertEqual(IgFollowUpTask.objects.filter(reason=task.reason).count(), 1)
         send_text.assert_not_called()
         notify_manager.assert_called_once()
+        self.assertEqual(
+            notify_manager.call_args.kwargs["dedupe_key"],
+            f"ig-lifecycle:window:{event.event_key}",
+        )
+        self.assertIn("потребує відповіді менеджера", notify_manager.call_args.args[0])
         self.order.refresh_from_db()
         channel = self.order.payment_payload["post_payment_channels"]["instagram_lifecycle"]
         self.assertEqual(channel["state"], "pending")
@@ -190,8 +196,9 @@ class InstagramLifecycleTests(TestCase):
         self.assertIn("10%", message)
         self.assertIn("@twocomms", message)
 
+    @patch("management.services.instagram_bot.notify_manager")
     @patch("management.services.instagram_bot.send_text", return_value=(False, "permanent", "blocked"))
-    def test_permanent_failure_is_operator_only_and_not_replayed(self, send_text):
+    def test_permanent_failure_is_operator_only_and_not_replayed(self, send_text, notify_manager):
         event = self._event()
 
         self.assertEqual(dispatch_lifecycle_event(event.pk), IgLifecycleEvent.State.FAILED)
@@ -202,6 +209,37 @@ class InstagramLifecycleTests(TestCase):
                 client=self.client,
                 reason=f"ig_lifecycle:{event.event_key}",
             ).exists()
+        )
+        self.assertEqual(
+            notify_manager.call_args.kwargs["dedupe_key"],
+            f"ig-lifecycle:delivery:{event.event_key}",
+        )
+        self.assertIn("не вдалося доставити lifecycle-подію", notify_manager.call_args.args[0])
+
+    @patch("management.services.instagram_bot._deliver_manager_notification", return_value=False)
+    @patch("management.services.instagram_bot.send_text", return_value=(False, "permanent", "blocked"))
+    def test_window_and_delivery_reviews_have_distinct_durable_keys(self, _send_text, _deliver):
+        self.client.last_message_at = None
+        self.client.save(update_fields=["last_message_at", "updated_at"])
+        event = self._event()
+
+        self.assertEqual(
+            dispatch_lifecycle_event(event.pk),
+            IgLifecycleEvent.State.WAITING_WINDOW,
+        )
+        self.client.last_message_at = timezone.now()
+        self.client.save(update_fields=["last_message_at", "updated_at"])
+        event.refresh_from_db()
+        event.due_at = timezone.now()
+        event.save(update_fields=["due_at", "updated_at"])
+
+        self.assertEqual(dispatch_lifecycle_event(event.pk), IgLifecycleEvent.State.FAILED)
+        self.assertEqual(
+            set(IgBotNotification.objects.filter(client=self.client).values_list("dedupe_key", flat=True)),
+            {
+                f"ig-lifecycle:window:{event.event_key}",
+                f"ig-lifecycle:delivery:{event.event_key}",
+            },
         )
 
     @patch("management.services.instagram_bot._provider_account_id", return_value="ig-account")

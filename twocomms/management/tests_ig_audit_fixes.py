@@ -579,6 +579,7 @@ class SendApiBoundedRetryTests(TestCase):
         row.refresh_from_db()
         self.assertEqual(row.status, bot.InstagramBotMessage.Status.FAILED)
         self.assertFalse(send_text.call_args.kwargs["allow_url_fallback"])
+        self.assertFalse(send_text.call_args.kwargs["alert_link_restriction"])
         task = IgFollowUpTask.objects.get(
             client=self.client,
             kind=IgFollowUpTask.Kind.MANAGER_TASK,
@@ -586,6 +587,13 @@ class SendApiBoundedRetryTests(TestCase):
         )
         self.assertEqual(task.status, IgFollowUpTask.Status.SKIPPED)
         self.assertIn("https://pay.mbnk.biz/example", task.message_text)
+        # The payment-review alert is the single actionable notification for
+        # this failed send; the generic Meta failure alert must not duplicate it.
+        self.assertEqual(_notify_manager.call_count, 1)
+        self.assertEqual(
+            _notify_manager.call_args.kwargs["event_type"],
+            "payment_link_delivery_review",
+        )
 
     @patch("management.services.instagram_bot.notify_manager")
     @patch("management.services.instagram_bot.send_sender_action")
