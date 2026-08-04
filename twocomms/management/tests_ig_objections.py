@@ -311,6 +311,32 @@ class ObjectionLifecycleTests(TestCase):
         self.assertEqual(attempt.result, IgObjectionAttempt.Result.ACCEPTED)
         self.assertEqual(attempt.client_response_message_id, progress.pk)
 
+    def test_checkout_progress_resolves_without_claiming_purchase(self):
+        reply = self._message(
+            "Щільна тканина і DTF-друк пояснюють цінність речі.",
+            role=InstagramBotMessage.Role.MODEL,
+        )
+        attempt = record_reply_attempt(
+            self.client,
+            reply,
+            {"objhandle": "price:value_breakdown"},
+            reply.text,
+        )
+        progress = self._message("Беру білу в розмірі XL")
+
+        observe_inbound_progress(
+            self.client,
+            progress,
+            readiness=20,
+            commercial_progress=True,
+        )
+
+        self.objection.refresh_from_db()
+        attempt.refresh_from_db()
+        self.assertEqual(self.objection.state, IgObjection.State.RESOLVED)
+        self.assertEqual(self.objection.outcome, IgObjection.Outcome.UNRESOLVED)
+        self.assertEqual(attempt.result, IgObjectionAttempt.Result.ACCEPTED)
+
     def test_explicit_refusal_abandons_open_and_handled_objections(self):
         refusal = self._message("Не буду купувати")
 
@@ -327,19 +353,9 @@ class ObjectionLifecycleTests(TestCase):
         self.assertEqual(self.objection.outcome, IgObjection.Outcome.LOST)
 
     def test_reset_boundary_hides_old_objection_and_allows_new_same_type(self):
-        episode = IgCommercialEpisode.objects.create(
-            client=self.client,
-            sequence=1,
-            materialization_key="objection-reset-boundary",
-            opened_watermark_message_id=self.inbound.pk,
-        )
+        episode = IgCommercialEpisode.objects.get(pk=self.objection.episode_id)
         self.client.current_commercial_episode = episode
         self.client.save(update_fields=["current_commercial_episode", "updated_at"])
-        self.objection.episode = episode
-        self.objection.dedupe_key = (
-            f"ig-objection:{self.client.pk}:episode:{episode.pk}:floor:{self.inbound.pk}:price"
-        )
-        self.objection.save(update_fields=["episode", "dedupe_key", "updated_at"])
         IgFunnelResetAudit.objects.create(
             client=self.client,
             reset_after_message_id=self.inbound.pk,

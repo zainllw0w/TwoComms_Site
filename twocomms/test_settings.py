@@ -22,6 +22,8 @@ for _telegram_env_name in (
     'TELEGRAM_ADMIN_ID',
     'TELEGRAM_STORAGE_BOT_TOKEN',
     'TELEGRAM_STORAGE_CHAT_IDS',
+    'MANAGER_TG_BOT_TOKEN',
+    'MANAGEMENT_TG_BOT_TOKEN',
 ):
     os.environ[_telegram_env_name] = ''
 
@@ -74,6 +76,9 @@ CSRF_COOKIE_DOMAIN = None
 EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
 NOVA_POSHTA_FALLBACK_ENABLED = False
 TESTING = True
+# Post-commit production wake-ups must not start detached workers against the
+# in-memory test database. Their durable reconciliation is tested explicitly.
+IG_FULFILLMENT_BACKGROUND_WAKE_ENABLED = False
 SIMPLE_RATE_LIMIT_ENABLED = False
 COMPRESS_ENABLED = False
 COMPRESS_OFFLINE = False

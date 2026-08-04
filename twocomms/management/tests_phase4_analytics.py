@@ -285,13 +285,10 @@ class AnalyticsUiRegressionTests(TestCase):
         self.assertContains(response, "Відкрити розклад")
         self.assertContains(response, "Подати апеляцію")
 
-    def test_admin_panel_renders_readiness_incidents_and_forecast_widgets(self):
+    def test_admin_panel_keeps_manager_roster_uncluttered(self):
         response = self.client.get("/admin-panel/?tab=managers", secure=True)
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Готовність і інциденти")
-        self.assertContains(response, "Прогнозні діапазони")
-        self.assertContains(response, "Черга дублів")
-        self.assertContains(response, "Пріоритетні черги")
-        self.assertContains(response, "Довіра до прогнозу")
-        self.assertContains(response, "Менеджери під ризиком")
+        self.assertContains(response, "Топ-менеджери")
+        self.assertContains(response, "Усі менеджери")
+        self.assertNotContains(response, "Готовність і інциденти")

@@ -844,6 +844,13 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
   ingress contract: два assert всё ещё требуют отвергать parent app secret,
   хотя `IMP-063` намеренно принимает оба наших secrets после production 4xx
   incident; это test debt, не регрессия encryption.
+  **Локальный progress 2026-08-04 (не закрывает задачу):** ночные time-based
+  тесты стабилизированы; detached User-registration notifier и fulfillment
+  wake-up изолированы при `TESTING=True`; recovery-schedule failure теперь
+  сохраняет terminal unsent state; MariaDB profile fail-closed учитывает
+  Django default `localhost`. Полный `management` suite прошёл 2619 тестов
+  (3 skipped) из двух CWD. Commit `15147ded` находится в `main` и production;
+  остался обязательный отдельный disposable MariaDB run.
 - [ ] **IMP-096 (P2) — provenance ролей импортированной переписки
   (F-DATA-015).** Отделить подтверждённые manager/model сообщения от legacy
   import uncertainty, добавить read-only отчёт и dry-run backfill с точным

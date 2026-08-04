@@ -3929,6 +3929,26 @@ SHA `d0098d0b`, migration `0132`, `management_igobjection` и
 обновления rules version проходит изолированно. Задача остаётся `IMP-094`; это
 не объявляется регрессией IMP-057 без baseline proof.
 
+### F-TEST-002 checkpoint (2026-08-04, still OPEN)
+
+Новый локальный прогон устранил два ранее подтверждённых класса загрязнения
+тестового окружения: три теста с вычислением `now + 2h` больше не зависят от
+часа запуска, а detached notifier новых пользователей и post-commit
+fulfillment worker не открывают поздние соединения к общей in-memory SQLite
+во время suite. Дополнительно regression фиксирует, что ошибка создания
+recovery-job оставляет входящее сообщение в явном terminal unsent состоянии
+(`FAILED` + `send_state='failed'`), а не в неоднозначной комбинации полей.
+
+**Local evidence:** `management` suite = **2619 тестов,
+3 skipped, OK** из корня worktree и отдельным запуском из `twocomms`; focused
+gate = **136 OK**, smoke regressions = **6 OK**, `git diff --check` = 0.
+Оба полных прогона используют SQLite. Commit `15147ded` задеплоен: production
+`check`/migration-drift зелёные, daemon восстановлен штатным `--ensure` и
+сейчас `running=True`, `alive=True`, `last_error=''`. Отдельный disposable
+MariaDB-run для `varchar(max_length)`, locks и constraints не выполнен;
+production MySQL не использовался как test database. Поэтому finding и
+`IMP-094` не закрываются.
+
 ## Reliability checkpoint (2026-08-03)
 
 ### F-CORE-018 (P1, VERIFIED): speculative echo-маркер переживал definite provider rejection

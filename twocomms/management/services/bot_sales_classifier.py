@@ -1362,6 +1362,9 @@ def classify_message(
                 message,
                 objection_types=lifecycle_types,
                 readiness=readiness,
+                commercial_progress=(
+                    IgConversationSignal.Type.CHECKOUT_STARTED in signals
+                ),
                 purchase_progress=confirmed_purchase,
                 abandoned=no_buy or opt_out,
             )

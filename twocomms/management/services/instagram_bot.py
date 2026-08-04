@@ -7399,8 +7399,9 @@ def _process_one_inside_reply_boundary(
             outage_recovery_job = schedule_recovery(row, activate=False)
         except Exception as exc:
             row.status = InstagramBotMessage.Status.FAILED
+            row.send_state = "failed"
             row.processed_at = timezone.now()
-            row.save(update_fields=["status", "processed_at"])
+            row.save(update_fields=["status", "send_state", "processed_at"])
             log("error", "recovery_schedule", repr(exc))
             notify_manager(
                 f"⚠️ IG: не вдалося створити recovery для повідомлення #{row.pk}; "

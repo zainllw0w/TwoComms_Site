@@ -198,7 +198,8 @@ class LiveReplyLanguageTests(TestCase):
 
         reply = bot_followups.compose_followup(task)
 
-        self.assertIn("Is this order still relevant", reply)
+        self.assertEqual(bot_sales_classifier.detect_language(reply), "en")
+        self.assertIn("order", reply.lower())
 
 
 class LiveReplyKeyPriorityTests(TestCase):
@@ -1258,6 +1259,31 @@ class DeterministicReplyFallbackTests(TestCase):
         self.assertEqual(job.status, IgAiReplyRecoveryJob.Status.PENDING)
         self.assertIsNotNone(job.holding_message_id)
         self.assertNotEqual(self.client.stage, IgClient.Stage.LEAD_TO_MANAGER)
+
+    def test_recovery_schedule_failure_is_terminal_with_known_unsent_state(self):
+        source = self._pending("Can you help me choose a T-shirt?", "recovery-schedule-failed")
+
+        def typed_provider_outage(*_args, **kwargs):
+            kwargs["failure_context"]["kind"] = "provider_outage"
+            return None
+
+        with patch(
+            "management.services.instagram_bot.gemini_generate",
+            side_effect=typed_provider_outage,
+        ), patch(
+            "management.services.instagram_bot.send_sender_action"
+        ), patch(
+            "management.services.instagram_bot.send_text"
+        ) as send_text, patch(
+            "management.services.ig_ai_reply_recovery.schedule_recovery",
+            side_effect=RuntimeError("recovery storage unavailable"),
+        ):
+            self.assertEqual(instagram_bot.process_pending(self.settings, max_items=1), 0)
+
+        source.refresh_from_db()
+        self.assertEqual(source.status, InstagramBotMessage.Status.FAILED)
+        self.assertEqual(source.send_state, "failed")
+        send_text.assert_not_called()
 
     @patch("management.services.instagram_bot.send_sender_action")
     @patch("management.services.instagram_bot.gemini_generate", return_value=None)
