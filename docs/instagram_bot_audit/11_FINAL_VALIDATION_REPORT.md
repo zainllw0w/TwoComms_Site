@@ -13,10 +13,10 @@ that the remaining implementation backlog is complete.
 - Unrelated Custom Print and asset WIP remains unstaged and uncommitted.
 - Required audit artifacts `00`–`12` are present.
 - `07_IMPLEMENTATION_PLAN.md` is the task-status authority and contains
-  individual checkbox matrices for all **170 `F-*` findings** and all **48
-  `IMPR-*` improvements**. Finding status is **120 checked / 46 open / 4
+  individual checkbox matrices for all **171 `F-*` findings** and all **48
+  `IMPR-*` improvements**. Finding status is **126 checked / 39 open / 6
   partial**; improvement status is **14 checked / 34 unfinished**.
-- Implementation status is **99 `IMP-*`: 72 checked, 25 open, 2 partial**.
+- Implementation status is **101 `IMP-*`: 76 checked, 24 open, 1 partial**.
 - `02` remains the 120-item audit coverage authority; `03` and `05` remain the
   detailed finding/improvement evidence registers.
 
@@ -74,8 +74,18 @@ tests. Until that run, `IMP-094` and `F-TEST-002` remain unchecked.
 
 ## Acceptance decision
 
-The IMP-058 and IMP-089 slices are verified and deployed. Product/data pricing
-blockers, branch-only reselection, W8/W9/W10 work and `IMP-098` remain explicitly
-open. The next implementation must start from this file set; no status may be
+The IMP-058, IMP-089 and IMP-077 slices are verified and deployed. Product/data
+pricing blockers, branch-only reselection, remaining W8/W9/W10 work and
+`IMP-098` remain explicitly open. The next implementation must start from this file set; no status may be
 inferred from an old branch or historical progress paragraph without updating
 the checkbox and evidence matrix.
+
+## IMP-077 completion (2026-08-04)
+
+`221cf37d` closes F-OPS-009 after the original flow-control slice: terminal
+UNKNOWN/DEAD_LETTER outcomes receive a bounded redacted summary rather than an
+unsafe resend; lifecycle window/delivery alerts have separate keys; a failed
+paylink produces exactly one actionable manager alert. 75 focused tests passed
+after rebase. Production fast-forward, `manage.py check`, daemon ensure and
+`status_snapshot()` are recorded in `09`: bot running/alive on
+`instagram_login`, no last error and zero terminal outbox rows.
