@@ -592,6 +592,15 @@ F-AI-016 (инструкции без триггеров, 70% клиентов �
   честный дефицит только из фактов (IMPR-SALES-009). Плюс устранение противоречий промпта
   (F-AI-009: язык, три «высших приоритета», скидка) и FAQ через `BotInstruction`
   (IMPR-TXT-006 — ноль кода).
+  **Задеплоенный partial 2026-08-04, `042c48c8`:** runtime добавляет единый
+  порядок источников, запрещает выдавать единственную цену до выбора variant/
+  material/fit, отделяет catalog discount от rescue-discount и ограничивает один
+  вопрос/CTA/контекстный upsell. Sales prompt использует compact catalog без
+  потери ни одного товара, `variant_id`, цены конфигурации, fit/size или visual
+  fingerprint (MySQL: 71/71 строк, 19 696 chars; полный каталог 27 157; prompt
+  35 495). Brand/live/directives/links режутся только целыми смысловыми блоками.
+  **Не закрыто:** сами сценарные playbooks, FAQ, concrete close/voice и golden
+  conversations; поэтому checkbox намеренно остаётся `[ ]`.
 - [x] **IMP-029 (P1) — закрыта 2026-08-02.** `[СИГНАЛИ КЛІЄНТА]` передаёт тип,
   confidence и давность фактических сигналов, исключая шумный takeover;
   `[СТАН ДІАЛОГУ]` содержит стадию, липкий язык, размер, повторную покупку и
@@ -921,7 +930,7 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 
 ### Finding coverage matrix — 170 уникальных F-идентификаторов
 
-Итог матрицы: **120 `[x]` / 46 `OPEN [ ]` / 4 `PARTIAL [ ]`**. Статус
+Итог матрицы: **120 `[x]` / 43 `OPEN [ ]` / 7 `PARTIAL [ ]`**. Статус
 считается по факту текущего `main`, тестов и production evidence, а не по тому,
 что ID когда-то упоминался в progress или feature-ветке.
 
@@ -935,7 +944,7 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 | [x] | F-AI-006 | FIXED/VERIFIED | IMP-029 |
 | [x] | F-AI-007 | FIXED/VERIFIED | IMP-029 |
 | [x] | F-AI-008 | FIXED/VERIFIED | IMP-029 |
-| [ ] | F-AI-009 | OPEN | IMP-028 |
+| [ ] | F-AI-009 | PARTIAL (`042c48c8`: runtime authority; остаток сценариев) | IMP-028 |
 | [ ] | F-AI-010 | OPEN | IMP-028 |
 | [ ] | F-AI-011 | OPEN | IMP-028 |
 | [ ] | F-AI-012 | OPEN | IMP-028 |
@@ -965,9 +974,9 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 | [x] | F-CORE-016 | FIXED/VERIFIED | IMP-074 |
 | [x] | F-CORE-017 | FIXED/VERIFIED | IMP-075 |
 | [x] | F-CORE-018 | FIXED/VERIFIED | IMP-097 |
-| [ ] | F-CTX-001 | OPEN | IMP-028 |
+| [ ] | F-CTX-001 | PARTIAL (`042c48c8`: compact/bounded sources; adaptive context остаётся) | IMP-028 |
 | [x] | F-CTX-002 | FIXED/VERIFIED | IMP-016/052 |
-| [ ] | F-CTX-003 | OPEN | IMP-028 |
+| [ ] | F-CTX-003 | PARTIAL (`042c48c8`: order resolves conflicts; duplicate legacy text remains) | IMP-028 |
 | [x] | F-CTX-004 | FIXED/VERIFIED | IMP-078 |
 | [ ] | F-DATA-001 | OPEN | IMP-046 |
 | [ ] | F-DATA-002 | OPEN | IMP-046 |
@@ -1133,14 +1142,14 @@ Production MySQL API вернул page 1 = 100 строк, диапазон 1–
 | [ ] | IMPR-OPS-002 | OPEN | IMP-041/059 |
 | [ ] | IMPR-SALES-001 | PARTIAL | каталог размеров есть; протокол — IMP-028 |
 | [ ] | IMPR-SALES-002 | PARTIAL | post-sale guard есть; prompt acceptance — IMP-028 |
-| [ ] | IMPR-SALES-003 | OPEN | IMP-028/085/087 |
-| [ ] | IMPR-SALES-004 | OPEN | IMP-028 |
+| [ ] | IMPR-SALES-003 | PARTIAL | `042c48c8`: максимум один contextual upsell; конкретная вторая позиция/корзина — IMP-085/087 |
+| [ ] | IMPR-SALES-004 | PARTIAL | `042c48c8`: discount как price fact, не rescue offer; сценарий «дорого» — IMP-028 |
 | [ ] | IMPR-SALES-005 | PARTIAL | IMP-053/057; полный prompt-протокол — IMP-028 |
 | [ ] | IMPR-SALES-006 | PARTIAL | IMP-053; выбор/событие — IMP-028/056/083 |
-| [ ] | IMPR-SALES-007 | OPEN | IMP-028 |
-| [ ] | IMPR-SALES-008 | PARTIAL | hard limits IMP-052/053; prompt — IMP-028 |
+| [ ] | IMPR-SALES-007 | PARTIAL | `042c48c8`: не более одного вопроса; последовательность discovery — IMP-028 |
+| [ ] | IMPR-SALES-008 | PARTIAL | hard limits IMP-052/053 + один CTA/без давления `042c48c8`; remaining dialog acceptance — IMP-028 |
 | [ ] | IMPR-SALES-009 | PARTIAL | ложный stock убран IMP-067; остаток IMP-028/084 |
-| [ ] | IMPR-SALES-010 | OPEN | IMP-028 |
+| [ ] | IMPR-SALES-010 | PARTIAL | `042c48c8`: один чёткий CTA; concrete order summary/close — IMP-028 |
 | [ ] | IMPR-SALES-011 | OPEN | IMP-028 |
 | [x] | IMPR-TXT-001 | DONE | IMP-021 |
 | [x] | IMPR-TXT-002 | DONE | IMP-022 |

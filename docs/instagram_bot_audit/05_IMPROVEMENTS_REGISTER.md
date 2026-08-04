@@ -572,14 +572,14 @@ F-OPS-008: один повторяющийся `bad_signature` занял 468 и
 | IMPR-OPS-002 | OPEN | IMP-041/059 |
 | IMPR-SALES-001 | PARTIAL | каталог размеров есть; протокол — IMP-028 |
 | IMPR-SALES-002 | PARTIAL | post-sale guard есть; prompt acceptance — IMP-028 |
-| IMPR-SALES-003 | OPEN | IMP-028/085/087 |
-| IMPR-SALES-004 | OPEN | IMP-028 |
+| IMPR-SALES-003 | PARTIAL | `042c48c8`: максимум один contextual upsell; конкретная вторая позиция/корзина — IMP-085/087 |
+| IMPR-SALES-004 | PARTIAL | `042c48c8`: discount как price fact, не rescue offer; сценарий «дорого» — IMP-028 |
 | IMPR-SALES-005 | PARTIAL | policy/lifecycle IMP-053/057; полный prompt-протокол — IMP-028 |
 | IMPR-SALES-006 | PARTIAL | policy IMP-053; выбор/событие — IMP-028/056/083 |
-| IMPR-SALES-007 | OPEN | IMP-028 |
-| IMPR-SALES-008 | PARTIAL | hard limits IMP-052/053; prompt — IMP-028 |
+| IMPR-SALES-007 | PARTIAL | `042c48c8`: не более одного вопроса; последовательность discovery — IMP-028 |
+| IMPR-SALES-008 | PARTIAL | hard limits IMP-052/053 + один CTA/без давления `042c48c8`; remaining dialog acceptance — IMP-028 |
 | IMPR-SALES-009 | PARTIAL | ложный stock убран IMP-067; остаток IMP-028/084 |
-| IMPR-SALES-010 | OPEN | IMP-028 |
+| IMPR-SALES-010 | PARTIAL | `042c48c8`: один чёткий CTA; concrete order summary/close — IMP-028 |
 | IMPR-SALES-011 | OPEN | IMP-028 |
 | IMPR-TXT-001 | DONE | IMP-021 |
 | IMPR-TXT-002 | DONE | IMP-022 |

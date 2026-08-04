@@ -365,7 +365,7 @@
 | **F-AI-006** | 987 сигналов пишутся, но НЕ читаются при генерации ответа | **P1** | CONFIRMED | high |
 | F-AI-007 | Память — свободный текст с полной перезаписью, без confidence/источников/версии | P1 | CONFIRMED | high |
 | F-AI-008 | Язык перезаписывается на каждом сообщении, нет липкости | P1 | CONFIRMED | high |
-| F-AI-009 | Противоречия в промпте: язык, три «высших приоритета», скидка | P1 | CONFIRMED | high |
+| F-AI-009 | Противоречия в промпте: язык, три «высших приоритета», скидка | P1 | PARTIALLY FIXED (`042c48c8`) | high |
 | F-AI-010 | Нет structured output: теги регексом `[A-Z]+`, опечатка утекает клиенту | P1 | CONFIRMED | high |
 | F-AI-011 | Нет санитизации входа против prompt injection (защита только текстом промпта) | P2 | CONFIRMED | high |
 | F-AI-012 | Нет учёта стоимости/бюджета: 40k символов промпта на «привіт» | P2 | CONFIRMED | high |
@@ -713,6 +713,18 @@
   4) базовые правила»), убрать дубли и заплатки. Правки промпта требуют
   golden-conversations теста — иначе регрессии не видны. Такой теста сейчас нет
   (задача D10 чек-листа).
+
+**Production update 2026-08-04 (`042c48c8`):** runtime теперь добавляет
+`[ЄДИНИЙ ПОРЯДОК ІСТИНИ]` до live directives: confirmed payment/order/service
+facts → checkout и выбранная catalog configuration → current turn/state →
+directives/playbooks → legacy base prompt. Английский, украинский или русский
+язык текущего хода/явной просьбы выше старого UA/RU текста; catalog discount —
+только факт уже рассчитанной цены, не разрешение на rescue offer. Заголовок
+knowledge base больше не объявляет себя «найвысшим приоритетом».
+
+**Остаток:** в сохранённом DB base prompt по-прежнему есть устаревшие дубли
+платёжного текста; порядок теперь их безопасно разрешает, но полное удаление и
+golden-conversations acceptance остаются в `IMP-028`. Статус не `FIXED`.
 
 ## F-AI-007 / F-AI-008: память и язык
 
@@ -1693,10 +1705,26 @@
 | F-STAT-002 | Период режется по `last_message_at` → суммы по дням неаддитивны | P1 | FIXED/VERIFIED (`IMP-058`, `92d46c5a`) | high |
 | F-STAT-003 | `ORDER_CREATED`/`DONE` не пишутся в БД → правый конец воронки недостижим | P1 | FIXED/VERIFIED (`IMP-058`, `92d46c5a`) | high |
 | F-STAT-004 | «Молча пропал» не отличается от «явно отказался» — нет события отвала | P1 | FIXED/VERIFIED (`IMP-058`, `92d46c5a`) | high |
-| F-CTX-001 | Промпт до ~56 000 символов на любое сообщение, включая «привіт» | P1 | CONFIRMED | high |
+| F-CTX-001 | Промпт до ~56 000 символов на любое сообщение, включая «привіт» | P1 | PARTIALLY FIXED (`042c48c8`) | high |
 | **F-CTX-002** | `tags_for_client` безусловно добавляет `sales` → механизм «скидки клиенту с обменом» | **P1** | CONFIRMED | high |
-| F-CTX-003 | Протокол оплаты существует в двух редакциях с расхождением по `[ITEM]` | P1 | CONFIRMED | high |
+| F-CTX-003 | Протокол оплаты существует в двух редакциях с расхождением по `[ITEM]` | P1 | PARTIALLY FIXED (`042c48c8`) | high |
 | F-CTX-004 | Нет механизма исключающих тегов инструкций (`not:*`) | P2 | CONFIRMED | high |
+
+### Production update 2026-08-04: bounded context and payment authority
+
+- `042c48c8` переключил sales prompt на отдельный compact cache catalog, не
+  урезая список товаров: MySQL verification — 71/71 строк, 19 696 символов
+  compact против 27 157 full. Сохраняются id, variant prices, fit/size и visual
+  fingerprint; full form остаётся для media/workflow.
+- Brand knowledge (3200), live directives (2800), routed playbooks (3500) и
+  quick links (1600) имеют независимые бюджеты по целым абзацам, инструкциям и
+  строкам. Итоговый production prompt — 35 495 символов; canonical authority
+  присутствует. Это уменьшает F-CTX-001, но не делает prompt адаптивным к
+  конкретному intent, поэтому статус только partial.
+- Единый authority block определяет, что verified checkout/payment facts и
+  selected catalog configuration выше старого base prompt. Он устраняет
+  неоднозначность двух payment редакций в момент генерации, но сам legacy текст
+  ещё хранится в БД; его миграция/cleanup и full acceptance остаются в IMP-028.
 
 ## F-FUP-001 (P0): финальный офер 10% никогда не отправлялся
 

@@ -9,10 +9,10 @@
 
 | Поле | Значение |
 |---|---|
-| Текущая фаза | **W4B закрыта по IMP-056…058, IMP-089; активный остаток: W8/W9/W10** |
-| Дата старта / обновления | 2026-08-03 (после production closure IMP-089) |
+| Текущая фаза | **W4B закрыта; W5 `IMP-028` имеет задеплоенный partial slice, активный остаток: W5/W8/W9/W10** |
+| Дата старта / обновления | 2026-08-04 (после production verification prompt-authority slice IMP-028) |
 | Исходный baseline аудита | `2f75f9d9` — исторический, больше не использовать для новых веток |
-| База внедрения | `6883ac2c` подтверждён в `origin/main` и на production; включает bounded superseded-invoice recovery IMP-089 поверх durable funnel analytics IMP-058, reliability, fulfillment IMP-055, claims IMP-056 и lifecycle возражений IMP-057 |
+| База внедрения | `042c48c8` подтверждён в `origin/main` и на production; включает prompt-authority/variant-price slice IMP-028 поверх bounded superseded-invoice recovery IMP-089, durable funnel analytics IMP-058, reliability, fulfillment IMP-055, claims IMP-056 и lifecycle возражений IMP-057 |
 | **Статус 99 IMP-задач** | **72 закрыты, 25 открыты, 2 частично закрыты (`IMP-043`, `IMP-077`)** |
 | Прод-сервер | `qlknpodo@195.191.25.63`, `/home/qlknpodo/TWC/TwoComms_Site/twocomms` |
 | Прод-БД | MariaDB/MySQL `qlknpodo_MySQL_DB`; read-only и rollback-fixture contracts подтверждены |
@@ -47,7 +47,7 @@
 | Статус | Задачи |
 |---|---|
 | Открыто, W4B | — |
-| Открыто, W5 | `IMP-028`, `IMP-095` (production merchandising белого варианта товара 110) |
+| Открыто, W5 | `IMP-028` (PARTIAL: authority/budget/variant-price slice задеплоен, sales playbooks и FAQ остаются), `IMP-095` (production merchandising белого варианта товара 110) |
 | Открыто, W8 | `IMP-041`, `IMP-042`, `IMP-044`–`IMP-046`, `IMP-059`–`IMP-061`, `IMP-094`, `IMP-096` (provenance ролей импорта) |
 | Частично, W8 | `IMP-043`, `IMP-077` |
 | Открыто, W9 | `IMP-081`–`IMP-088`; `IMP-081`–`IMP-085` имеют branch-only code, но не интегрированы и не задеплоены |
@@ -66,6 +66,32 @@
   перенести на актуальный `main`, перепроверить и задеплоить;
 - `[ ] PARTIAL` означает, что опубликована только часть требований, а явно
   перечисленный остаток всё ещё обязателен.
+
+## IMP-028: authority и бюджет prompt — частично реализовано и задеплоено (2026-08-04)
+
+Коммит `042c48c8` находится в `origin/main` и на production. Это не закрывает
+широкий `IMP-028`: закрыт только безопасный runtime-срез, необходимый прежде
+всего для честной цены варианта.
+
+- `get_catalog_context(compact=True)` сохраняет все товарные строки, `variant_id`,
+  цены конфигураций, фасоны/размеры и короткий visual fingerprint; обычный полный
+  каталог не изменён для media/workflow. На production MySQL: 71/71 строк,
+  19 696 символов compact против 27 157 full.
+- В каждый system prompt добавлен единый порядок истины: verified payment/order
+  facts → checkout/selected configuration → current turn/client state → live
+  directives/playbooks → legacy style. Явная UA/RU/EN просьба и язык текущего
+  сообщения выше старой формулировки; скидка каталога означает факт цены, а не
+  право самостоятельно делать rescue-offer.
+- Изменяемые brand knowledge, live directives, playbooks и quick links получили
+  независимые лимиты по целым абзацам/инструкциям/строкам. Ни URL, ни цена, ни
+  правило не режутся посередине. Production prompt с текущими данными: 35 495
+  символов, canonical authority block присутствует.
+- Товар `id=110` не подменён: в production есть только `variant_id=81`
+  «Термо-зелена» за 1450 грн, oversize XS–XXL. Белая конфигурация 1090 грн всё
+  ещё отсутствует в вариантах, media и rules: это `F-DATA-016` / `IMP-095`.
+- Остаток `IMP-028`: реальные playbook-тексты для size/exchange/price/thinking,
+  FAQ в `BotInstruction`, concrete close и voice, golden conversations и
+  production acceptance ответов модели. Поэтому checkbox задачи остаётся `[ ]`.
 
 ## IMP-058 закрыта и задеплоена (2026-08-03)
 
