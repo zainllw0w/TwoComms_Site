@@ -38,9 +38,9 @@ from management.services.instagram_bot import (
 
 RESPONSE_WINDOW = timedelta(hours=23)
 JOB_LEASE_DURATION = timedelta(minutes=5)
-# ``send_text`` can split longer text into several Meta requests.  Recovery is
-# deliberately one customer message and one non-idempotent Meta request.
-MAX_RECOVERY_REPLY_CHARS = 1800
+# ``send_text`` splits at 950 characters. Recovery deliberately fits one
+# customer message into one non-idempotent Meta request.
+MAX_RECOVERY_REPLY_CHARS = 950
 
 _TERMINAL_STATUSES = frozenset({
     IgAiReplyRecoveryJob.Status.SENT,
@@ -71,10 +71,15 @@ def _trim_draft(text: str) -> str:
     """Keep recovery to one Meta text request without silently making controls."""
     clean, _control = _extract_control(str(text or ""))
     clean = clean.strip()
-    if len(clean) <= MAX_RECOVERY_REPLY_CHARS:
+    if len(clean.encode("utf-8")) <= MAX_RECOVERY_REPLY_CHARS:
         return clean
-    shortened = clean[: MAX_RECOVERY_REPLY_CHARS - 3].rsplit(" ", 1)[0].strip()
-    return f"{shortened or clean[:MAX_RECOVERY_REPLY_CHARS - 3]}..."
+    # Meta's limit is byte-based.  Slice bytes and decode losslessly so a
+    # Ukrainian/Russian multibyte character never creates a second chunk.
+    head = clean.encode("utf-8")[: MAX_RECOVERY_REPLY_CHARS - 3].decode(
+        "utf-8", errors="ignore"
+    )
+    shortened = head.rsplit(" ", 1)[0].strip()
+    return f"{shortened or head}..."
 
 
 def _guard_reason(
