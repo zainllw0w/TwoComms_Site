@@ -3588,6 +3588,43 @@ DEFAULT_BOT_SYSTEM_PROMPT = (
 )
 
 
+_BOT_SECRET_PREFIX = "fernet:v1:"
+
+
+class BotSecretEncryptionUnavailable(RuntimeError):
+    """A custom bot credential must never fall back to plaintext storage."""
+
+
+def _encrypt_bot_secret(value: str) -> str:
+    raw = str(value or "")
+    if not raw:
+        return ""
+    from management.services import pii
+
+    try:
+        token = pii.encrypt(raw)
+    except (pii.PIIKeyMissing, ValueError) as exc:
+        raise BotSecretEncryptionUnavailable(
+            "FIELD_ENCRYPTION_KEY is required before storing a custom bot credential"
+        ) from exc
+    if not token:
+        return ""
+    return _BOT_SECRET_PREFIX + token.decode("ascii")
+
+
+def _decrypt_bot_secret(value: str) -> str:
+    stored = str(value or "")
+    if not stored:
+        return ""
+    # A short deployment window can observe a pre-migration row. It remains
+    # readable, but every normal write and the data migration encrypt it.
+    if not stored.startswith(_BOT_SECRET_PREFIX):
+        return stored
+    from management.services import pii
+
+    return pii.decrypt(stored[len(_BOT_SECRET_PREFIX):])
+
+
 class InstagramBotSettings(models.Model):
     """Singleton-налаштування Instagram-бота (одна строка, pk=1)."""
 
@@ -3600,11 +3637,15 @@ class InstagramBotSettings(models.Model):
     direct_source = models.CharField(
         max_length=10, choices=CredSource.choices, default=CredSource.ENV
     )
-    custom_direct_token = models.TextField(blank=True, default="")
+    custom_direct_token_encrypted = models.TextField(
+        db_column="custom_direct_token", blank=True, default=""
+    )
     gemini_source = models.CharField(
         max_length=10, choices=CredSource.choices, default=CredSource.ENV
     )
-    custom_gemini_key = models.TextField(blank=True, default="")
+    custom_gemini_key_encrypted = models.TextField(
+        db_column="custom_gemini_key", blank=True, default=""
+    )
 
     page_id = models.CharField(max_length=64, default="401216546416228")
     ig_user_id = models.CharField(max_length=64, default="17841467101471112")
@@ -3689,6 +3730,45 @@ class InstagramBotSettings(models.Model):
     class Meta:
         verbose_name = "Instagram bot settings"
         verbose_name_plural = "Instagram bot settings"
+
+    @property
+    def custom_direct_token(self) -> str:
+        return _decrypt_bot_secret(self.custom_direct_token_encrypted)
+
+    @custom_direct_token.setter
+    def custom_direct_token(self, value: str) -> None:
+        self.custom_direct_token_encrypted = _encrypt_bot_secret(value)
+
+    @property
+    def custom_gemini_key(self) -> str:
+        return _decrypt_bot_secret(self.custom_gemini_key_encrypted)
+
+    @custom_gemini_key.setter
+    def custom_gemini_key(self, value: str) -> None:
+        self.custom_gemini_key_encrypted = _encrypt_bot_secret(value)
+
+    @property
+    def has_custom_direct_token(self) -> bool:
+        return bool(self.custom_direct_token_encrypted)
+
+    @property
+    def has_custom_gemini_key(self) -> bool:
+        return bool(self.custom_gemini_key_encrypted)
+
+    def save(self, *args, **kwargs):
+        # Keep legacy call sites using the public property names compatible
+        # while the physical fields intentionally describe encrypted storage.
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None:
+            remapped = set(update_fields)
+            if "custom_direct_token" in remapped:
+                remapped.remove("custom_direct_token")
+                remapped.add("custom_direct_token_encrypted")
+            if "custom_gemini_key" in remapped:
+                remapped.remove("custom_gemini_key")
+                remapped.add("custom_gemini_key_encrypted")
+            kwargs["update_fields"] = remapped
+        return super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return f"InstagramBotSettings(enabled={self.is_enabled})"

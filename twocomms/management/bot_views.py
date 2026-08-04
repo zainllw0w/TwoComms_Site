@@ -37,6 +37,7 @@ from .models import (
     IgPaymentProjection,
     InstagramBotLog,
     InstagramBotSettings,
+    BotSecretEncryptionUnavailable,
 )
 from .ig_bot_models import IgCheckoutAccessToken, IgCheckoutProposal, IgCheckoutRevision, IgLifecycleEvent, IgFollowUpTask
 from .services import instagram_bot as bot
@@ -556,8 +557,8 @@ def bot_dashboard(request):
             "log_items": _log_items(),
             "cred_env": InstagramBotSettings.CredSource.ENV,
             "cred_custom": InstagramBotSettings.CredSource.CUSTOM,
-            "has_custom_direct_token": bool(settings_obj.custom_direct_token),
-            "has_custom_gemini_key": bool(settings_obj.custom_gemini_key),
+            "has_custom_direct_token": settings_obj.has_custom_direct_token,
+            "has_custom_gemini_key": settings_obj.has_custom_gemini_key,
             "meta_bot_reviewer_mode": reviewer_mode,
             "bot_is_admin": _is_admin(request.user),
         },
@@ -2992,18 +2993,27 @@ def bot_settings_save_api(request):
         if gemini_source in InstagramBotSettings.CredSource.values:
             s.gemini_source = gemini_source
 
-        if "custom_direct_token" in request.POST:
-            value = (request.POST.get("custom_direct_token") or "").strip()
-            if value:
-                s.custom_direct_token = value
-        if _truthy(request.POST.get("clear_custom_direct_token")):
-            s.custom_direct_token = ""
-        if "custom_gemini_key" in request.POST:
-            value = (request.POST.get("custom_gemini_key") or "").strip()
-            if value:
-                s.custom_gemini_key = value
-        if _truthy(request.POST.get("clear_custom_gemini_key")):
-            s.custom_gemini_key = ""
+        try:
+            if "custom_direct_token" in request.POST:
+                value = (request.POST.get("custom_direct_token") or "").strip()
+                if value:
+                    s.custom_direct_token = value
+            if _truthy(request.POST.get("clear_custom_direct_token")):
+                s.custom_direct_token = ""
+            if "custom_gemini_key" in request.POST:
+                value = (request.POST.get("custom_gemini_key") or "").strip()
+                if value:
+                    s.custom_gemini_key = value
+            if _truthy(request.POST.get("clear_custom_gemini_key")):
+                s.custom_gemini_key = ""
+        except BotSecretEncryptionUnavailable:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "Не налаштовано захист для збереження ключа. Зверніться до адміністратора.",
+                },
+                status=503,
+            )
 
         trigger = (request.POST.get("trigger_text") or "").strip()
         if trigger:
