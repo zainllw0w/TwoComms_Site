@@ -6,6 +6,7 @@ from typing import Optional
 
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
+from django.db.models import Q, Sum
 from django.utils import timezone
 
 from warehouse.models import (
@@ -15,6 +16,43 @@ from warehouse.models import (
     StockMovement,
     WriteOffRequest,
 )
+
+
+def protected_stock_quantity(
+    *,
+    stock_item_id: int,
+    at=None,
+    exclude_proposal_id: Optional[int] = None,
+    exclude_paid_order_id: Optional[int] = None,
+) -> int:
+    """Return warehouse units protected by live or paid IG commitments.
+
+    ACTIVE reservations expire with their proposal. A PAID_COMMITTED row is a
+    durable obligation until warehouse fulfillment, regardless of its
+    original checkout TTL. A write-off may exclude only paid commitments that
+    belong to the exact order being fulfilled.
+    """
+    from management.models import IgCheckoutInventoryReservation
+
+    current_time = at or timezone.now()
+    reservations = IgCheckoutInventoryReservation.objects.filter(
+        allocation_source="warehouse",
+        stock_item_id=stock_item_id,
+    ).filter(
+        Q(
+            state=IgCheckoutInventoryReservation.State.ACTIVE,
+            expires_at__gt=current_time,
+        )
+        | Q(state=IgCheckoutInventoryReservation.State.PAID_COMMITTED)
+    )
+    if exclude_proposal_id is not None:
+        reservations = reservations.exclude(proposal_id=exclude_proposal_id)
+    if exclude_paid_order_id is not None:
+        reservations = reservations.exclude(
+            state=IgCheckoutInventoryReservation.State.PAID_COMMITTED,
+            order_id=exclude_paid_order_id,
+        )
+    return int(reservations.aggregate(total=Sum("quantity"))["total"] or 0)
 
 
 def weighted_average_cost(
@@ -80,6 +118,17 @@ def adjust_stock_item(
         raise ValueError(
             f"Недостатньо залишку: маємо {old_qty}, спроба списати {-delta}"
         )
+    if delta < 0:
+        protected_quantity = protected_stock_quantity(
+            stock_item_id=stock_item.pk,
+            exclude_paid_order_id=getattr(order, "pk", None),
+        )
+        if new_qty < protected_quantity:
+            raise ValueError(
+                "Недостатньо вільного залишку: "
+                f"маємо {old_qty}, захищено резервами {protected_quantity}, "
+                f"спроба списати {-delta}"
+            )
 
     stock_item.quantity = new_qty
     if cost_price_override is not None and delta > 0:

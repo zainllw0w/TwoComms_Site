@@ -4,7 +4,7 @@ from __future__ import annotations
 import hashlib
 
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.utils import timezone
 
 
@@ -124,28 +124,36 @@ def reserve_proposal_inventory(proposal, *, expires_at=None, require_policy=Fals
         required = group["quantity"]
         locked_target = _lock_allocation(allocation)
         if allocation.source == "warehouse":
+            from warehouse.services.inventory import protected_stock_quantity
+
             stock_item = locked_target
             available = int(stock_item.quantity or 0) if stock_item else 0
-            allocation_filter = {"stock_item_id": allocation.stock_item_id}
+            reserved = protected_stock_quantity(
+                stock_item_id=allocation.stock_item_id,
+                at=now,
+                exclude_proposal_id=proposal.pk,
+            )
         else:
             variant = locked_target
             available = int(variant.stock or 0) if variant else 0
             allocation_filter = {"color_variant_id": allocation.color_variant_id}
+            reserved = (
+                IgCheckoutInventoryReservation.objects.filter(
+                    **allocation_filter,
+                )
+                .filter(
+                    Q(
+                        state=IgCheckoutInventoryReservation.State.ACTIVE,
+                        expires_at__gt=now,
+                    )
+                    | Q(state=IgCheckoutInventoryReservation.State.PAID_COMMITTED)
+                )
+                .exclude(proposal_id=proposal.pk)
+                .aggregate(total=Sum("quantity"))["total"]
+                or 0
+            )
         if available <= 0:
             raise InventoryReservationError("insufficient_reserved_stock")
-        reserved = (
-            IgCheckoutInventoryReservation.objects.filter(
-                **allocation_filter,
-                state__in=[
-                    IgCheckoutInventoryReservation.State.ACTIVE,
-                    IgCheckoutInventoryReservation.State.PAID_COMMITTED,
-                ],
-                expires_at__gt=now,
-            )
-            .exclude(proposal_id=proposal.pk)
-            .aggregate(total=Sum("quantity"))["total"]
-            or 0
-        )
         if int(reserved) + required > available:
             raise InventoryReservationError("insufficient_reserved_stock")
 

@@ -1,6 +1,8 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from django.test import TestCase
+from django.utils import timezone
 
 from fable5.models import ProductInventoryPolicy, VariantBlankLink
 from management.models import IgClient, IgCheckoutInventoryReservation
@@ -159,6 +161,126 @@ class IgInventoryAllocationTests(TestCase):
                 proposal__client=other_client,
             ).count(),
             0,
+        )
+
+    def test_expired_paid_commitment_still_blocks_last_warehouse_unit(self):
+        from management.services.ig_inventory import commit_proposal_inventory
+
+        proposal = create_or_update_proposal(
+            client=self.client,
+            pay_type="online_full",
+            item_specs=[self._item()],
+        )
+        commit_proposal_inventory(proposal)
+        proposal.inventory_reservations.update(
+            expires_at=timezone.now() - timedelta(minutes=1),
+        )
+        other_client = IgClient.get_or_create_for_sender("ig-allocation-paid-expired")
+
+        with self.assertRaises(CheckoutConfigurationError) as ctx:
+            create_or_update_proposal(
+                client=other_client,
+                pay_type="online_full",
+                item_specs=[self._item()],
+            )
+
+        self.assertEqual(ctx.exception.code, "insufficient_stock")
+        self.assertEqual(ctx.exception.reason, "insufficient_reserved_stock")
+
+    def test_manual_writeoff_cannot_consume_active_and_paid_commitments(self):
+        from management.services.ig_inventory import commit_proposal_inventory
+
+        self.stock_item.quantity = 3
+        self.stock_item.save(update_fields=["quantity", "updated_at"])
+        paid = create_or_update_proposal(
+            client=self.client,
+            pay_type="online_full",
+            item_specs=[self._item()],
+        )
+        commit_proposal_inventory(paid)
+        active_client = IgClient.get_or_create_for_sender("ig-allocation-active-protected")
+        create_or_update_proposal(
+            client=active_client,
+            pay_type="online_full",
+            item_specs=[self._item()],
+        )
+
+        with self.assertRaises(ValueError):
+            adjust_stock_item(stock_item=self.stock_item, delta=-2)
+
+        self.stock_item.refresh_from_db()
+        self.assertEqual(self.stock_item.quantity, 3)
+
+    def test_matching_order_writeoff_can_consume_own_paid_commitment(self):
+        _proposal, order = self._paid_proposal_with_order()
+
+        movement = adjust_stock_item(
+            stock_item=self.stock_item,
+            delta=-1,
+            reason="order_write_off",
+            order=order,
+        )
+
+        self.stock_item.refresh_from_db()
+        self.assertEqual(self.stock_item.quantity, 0)
+        self.assertEqual(movement.quantity_after, 0)
+
+    def test_matching_order_writeoff_cannot_consume_other_paid_commitment(self):
+        from management.services.ig_inventory import commit_proposal_inventory
+
+        self.stock_item.quantity = 2
+        self.stock_item.save(update_fields=["quantity", "updated_at"])
+        _first_proposal, first_order = self._paid_proposal_with_order()
+        other_client = IgClient.get_or_create_for_sender("ig-allocation-other-paid")
+        other_proposal = create_or_update_proposal(
+            client=other_client,
+            pay_type="online_full",
+            item_specs=[self._item()],
+        )
+        other_order = Order.objects.create(
+            full_name="Other Instagram buyer",
+            phone="+380501112244",
+            city="Київ",
+            np_office="Відділення 2",
+            pay_type="online_full",
+            payment_status="paid",
+            total_sum=Decimal("1090.00"),
+        )
+        commit_proposal_inventory(other_proposal, order=other_order)
+
+        with self.assertRaises(ValueError):
+            adjust_stock_item(
+                stock_item=self.stock_item,
+                delta=-2,
+                reason="order_write_off",
+                order=first_order,
+            )
+
+        self.stock_item.refresh_from_db()
+        self.assertEqual(self.stock_item.quantity, 2)
+
+    def test_expired_unpaid_active_reservation_does_not_block_new_proposal(self):
+        proposal = create_or_update_proposal(
+            client=self.client,
+            pay_type="online_full",
+            item_specs=[self._item()],
+        )
+        proposal.inventory_reservations.update(
+            expires_at=timezone.now() - timedelta(minutes=1),
+        )
+        other_client = IgClient.get_or_create_for_sender("ig-allocation-expired-active")
+
+        other_proposal = create_or_update_proposal(
+            client=other_client,
+            pay_type="online_full",
+            item_specs=[self._item()],
+        )
+
+        self.assertEqual(
+            other_proposal.inventory_reservations.filter(
+                state=IgCheckoutInventoryReservation.State.ACTIVE,
+            ).count(),
+            1,
         )
 
     def test_warehouse_payment_commit_keeps_physical_quantity_until_writeoff(self):
