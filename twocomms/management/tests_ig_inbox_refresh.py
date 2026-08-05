@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import timedelta
 from unittest.mock import Mock, patch
 
@@ -185,10 +186,15 @@ class InboxRefreshApiTests(TestCase):
         self.assertContains(admin_page, "bar.style.width=discovering?'':pct+'%'")
         self.assertContains(admin_page, "function recoverAfterAction")
         self.assertContains(admin_page, "if(result.authRequired)")
-        self.assertContains(
-            admin_page,
-            ".bot-inbox-refresh-progress.is-discovering .bot-inbox-refresh-bar,.bot-inbox-refresh-start.is-running .bot-inbox-refresh-icon{animation:none!important}",
-        )
+        page_css = admin_page.content.decode()
+        for selector in (
+            ".bot-inbox-refresh-progress.is-discovering .bot-inbox-refresh-bar",
+            ".bot-inbox-refresh-start.is-running .bot-inbox-refresh-icon",
+        ):
+            self.assertRegex(
+                page_css,
+                rf"@media\(prefers-reduced-motion:reduce\)\{{[^}}]*{re.escape(selector)}[^}}]*\{{animation:none!important\}}",
+            )
 
         self.client.force_login(self.reviewer)
         reviewer_page = self.client.get(reverse("management_bot"))
