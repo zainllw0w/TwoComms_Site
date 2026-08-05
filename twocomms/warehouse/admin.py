@@ -43,7 +43,7 @@ class StockItemAdmin(admin.ModelAdmin):
     list_filter = ("subcategory__category", "size")
     search_fields = ("subcategory__name", "color__name", "size")
     raw_id_fields = ("color",)
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = ("quantity", "created_at", "updated_at")
 
 
 class PrintColorVariantInline(admin.TabularInline):

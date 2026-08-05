@@ -53,6 +53,28 @@ class CheckoutPaymentError(ValueError):
 _STALE_INVOICE_LEASE = object()
 
 
+def _verified_payment_at(attempt, *, fallback=None):
+    """Return provider payment time from the frozen successful observation."""
+    for observation in reversed(list(attempt.payment_history or [])):
+        if not isinstance(observation, dict):
+            continue
+        if str(observation.get("status") or "").lower() != "success":
+            continue
+        payload = observation.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        parsed = parse_datetime(str(payload.get("modifiedDate") or ""))
+        if parsed is None:
+            continue
+        if timezone.is_naive(parsed):
+            parsed = timezone.make_aware(
+                parsed,
+                timezone.get_current_timezone(),
+            )
+        return parsed
+    return attempt.last_status_at or fallback or timezone.now()
+
+
 def _invoice_creation_lease_expired(event_state, *, now=None):
     """Treat a malformed or elapsed lease as unsafe to retry blindly."""
     raw_expires_at = (event_state or {}).get("invoice_creation_lease_expires_at")
@@ -812,6 +834,7 @@ def bind_verified_payment(attempt_id, order):
     if proposal is None:
         return None
     now = timezone.now()
+    verified_at = _verified_payment_at(attempt, fallback=now)
 
     # The generic PaymentAttempt converter has already verified the provider
     # result. Persist that evidence into the IG append-only projection so CRM
@@ -847,7 +870,7 @@ def bind_verified_payment(attempt_id, order):
             "source": source,
             "invoice_id": attempt.monobank_invoice_id[:128],
             "provider_status": "success",
-            "provider_modified_at": attempt.last_status_at or now,
+            "provider_modified_at": verified_at,
             "gross_amount": paid_amount,
             "final_amount": paid_amount,
             "refunded_amount": Decimal("0.00"),
@@ -865,8 +888,8 @@ def bind_verified_payment(attempt_id, order):
     projection.truth = IgDeal.PaymentTruth.CONFIRMED
     projection.gross_amount = paid_amount
     projection.refunded_amount = Decimal("0.00")
-    projection.paid_at = projection.paid_at or deal.paid_at or now
-    projection.provider_modified_at = attempt.last_status_at or now
+    projection.paid_at = projection.paid_at or deal.paid_at or verified_at
+    projection.provider_modified_at = verified_at
     projection.last_event = payment_event
     projection.needs_reconciliation = False
     projection.reconciled_at = now
@@ -876,7 +899,11 @@ def bind_verified_payment(attempt_id, order):
     # order just because the provider reported success late.  Keep provider
     # truth, mark the allocation for human review, and leave the generic Order
     # unattached to this Instagram deal until stock/refund handling is decided.
-    if mark_overbooked_proposal_inventory(proposal, order=order):
+    if mark_overbooked_proposal_inventory(
+        proposal,
+        order=order,
+        paid_at=verified_at,
+    ):
         if attempt.status != PaymentAttempt.Status.CONVERTED:
             attempt.status = PaymentAttempt.Status.CONVERTED
             attempt.save(update_fields=["status", "updated"])
@@ -891,14 +918,14 @@ def bind_verified_payment(attempt_id, order):
         )
         deal.payment_truth = IgDeal.PaymentTruth.CONFIRMED
         deal.paid_amount = attempt.paid_amount or attempt.payment_amount
-        deal.paid_at = deal.paid_at or now
+        deal.paid_at = deal.paid_at or verified_at
         deal.payment_truth_updated_at = now
         deal.save(update_fields=[
             "status", "payment_status", "payment_truth", "paid_amount", "paid_at",
             "payment_truth_updated_at", "updated_at",
         ])
         proposal.status = proposal.Status.MANAGER_REVIEW
-        proposal.paid_at = proposal.paid_at or now
+        proposal.paid_at = proposal.paid_at or verified_at
         proposal.save(update_fields=["status", "paid_at", "updated_at"])
         return None
 
@@ -928,16 +955,20 @@ def bind_verified_payment(attempt_id, order):
     )
     deal.payment_truth = deal.PaymentTruth.CONFIRMED
     deal.paid_amount = attempt.paid_amount or attempt.payment_amount
-    deal.paid_at = deal.paid_at or now
+    deal.paid_at = deal.paid_at or verified_at
     deal.payment_truth_updated_at = now
     deal.save(update_fields=[
         "order", "status", "payment_status", "payment_truth", "paid_amount", "paid_at",
         "payment_truth_updated_at", "updated_at",
     ])
     proposal.status = proposal.Status.PAID
-    proposal.paid_at = proposal.paid_at or now
+    proposal.paid_at = proposal.paid_at or verified_at
     proposal.save(update_fields=["status", "paid_at", "updated_at"])
-    commit_proposal_inventory(proposal, order=order)
+    commit_proposal_inventory(
+        proposal,
+        order=order,
+        paid_at=verified_at,
+    )
     event, _created = IgLifecycleEvent.objects.get_or_create(
         event_key=f"payment:{attempt.pk}:verified",
         defaults={

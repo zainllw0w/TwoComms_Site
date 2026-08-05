@@ -1,7 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
 
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
 
 from fable5.models import ProductInventoryPolicy, VariantBlankLink
@@ -283,6 +283,175 @@ class IgInventoryAllocationTests(TestCase):
             1,
         )
 
+    def test_payment_after_active_reservation_expiry_requires_review(self):
+        from management.services.ig_inventory import (
+            mark_overbooked_proposal_inventory,
+        )
+
+        proposal = create_or_update_proposal(
+            client=self.client,
+            pay_type="online_full",
+            item_specs=[self._item()],
+        )
+        paid_at = timezone.now()
+        proposal.inventory_reservations.update(
+            expires_at=paid_at - timedelta(seconds=1),
+        )
+
+        self.assertEqual(
+            mark_overbooked_proposal_inventory(
+                proposal,
+                paid_at=paid_at,
+            ),
+            1,
+        )
+        reservation = proposal.inventory_reservations.get()
+        self.assertEqual(
+            reservation.state,
+            IgCheckoutInventoryReservation.State.OVERBOOKED_REVIEW,
+        )
+
+    def test_timely_provider_payment_is_reviewed_when_stock_was_reallocated(self):
+        from management.services.ig_inventory import (
+            mark_overbooked_proposal_inventory,
+        )
+
+        proposal = create_or_update_proposal(
+            client=self.client,
+            pay_type="online_full",
+            item_specs=[self._item()],
+        )
+        expires_at = timezone.now() - timedelta(minutes=1)
+        proposal.inventory_reservations.update(expires_at=expires_at)
+        other_client = IgClient.get_or_create_for_sender(
+            "ig-allocation-reallocated-before-callback"
+        )
+        create_or_update_proposal(
+            client=other_client,
+            pay_type="online_full",
+            item_specs=[self._item()],
+        )
+
+        self.assertEqual(
+            mark_overbooked_proposal_inventory(
+                proposal,
+                paid_at=expires_at - timedelta(seconds=1),
+            ),
+            1,
+        )
+        reservation = proposal.inventory_reservations.get()
+        self.assertEqual(
+            reservation.state,
+            IgCheckoutInventoryReservation.State.OVERBOOKED_REVIEW,
+        )
+
+    def test_timely_catalog_payment_is_reviewed_when_stock_was_reallocated(self):
+        from management.services.ig_inventory import (
+            mark_overbooked_proposal_inventory,
+        )
+
+        policy = ProductInventoryPolicy.objects.get(product=self.product)
+        policy.source = ProductInventoryPolicy.Source.CATALOG_VARIANT
+        policy.save(update_fields=["source", "updated_at"])
+        self.variant.stock = 1
+        self.variant.save(update_fields=["stock"])
+        proposal = create_or_update_proposal(
+            client=self.client,
+            pay_type="online_full",
+            item_specs=[self._item()],
+        )
+        expires_at = timezone.now() - timedelta(minutes=1)
+        proposal.inventory_reservations.update(expires_at=expires_at)
+        other_client = IgClient.get_or_create_for_sender(
+            "ig-catalog-reallocated-before-callback"
+        )
+        create_or_update_proposal(
+            client=other_client,
+            pay_type="online_full",
+            item_specs=[self._item()],
+        )
+
+        self.assertEqual(
+            mark_overbooked_proposal_inventory(
+                proposal,
+                paid_at=expires_at - timedelta(seconds=1),
+            ),
+            1,
+        )
+        reservation = proposal.inventory_reservations.get()
+        self.assertEqual(
+            reservation.state,
+            IgCheckoutInventoryReservation.State.OVERBOOKED_REVIEW,
+        )
+
+    def test_catalog_commit_does_not_consume_stock_reallocated_after_expiry(self):
+        from management.services.ig_inventory import commit_proposal_inventory
+
+        policy = ProductInventoryPolicy.objects.get(product=self.product)
+        policy.source = ProductInventoryPolicy.Source.CATALOG_VARIANT
+        policy.save(update_fields=["source", "updated_at"])
+        self.variant.stock = 1
+        self.variant.save(update_fields=["stock"])
+        proposal = create_or_update_proposal(
+            client=self.client,
+            pay_type="online_full",
+            item_specs=[self._item()],
+        )
+        expires_at = timezone.now() - timedelta(minutes=1)
+        proposal.inventory_reservations.update(expires_at=expires_at)
+        other_client = IgClient.get_or_create_for_sender(
+            "ig-catalog-commit-reallocated-before-callback"
+        )
+        create_or_update_proposal(
+            client=other_client,
+            pay_type="online_full",
+            item_specs=[self._item()],
+        )
+
+        self.assertEqual(
+            commit_proposal_inventory(
+                proposal,
+                paid_at=expires_at - timedelta(seconds=1),
+            ),
+            1,
+        )
+        reservation = proposal.inventory_reservations.get()
+        self.assertEqual(
+            reservation.state,
+            IgCheckoutInventoryReservation.State.OVERBOOKED_REVIEW,
+        )
+        self.variant.refresh_from_db()
+        self.assertEqual(self.variant.stock, 1)
+
+    def test_timely_provider_payment_can_commit_after_callback_delay(self):
+        from management.services.ig_inventory import (
+            commit_proposal_inventory,
+            mark_overbooked_proposal_inventory,
+        )
+
+        proposal = create_or_update_proposal(
+            client=self.client,
+            pay_type="online_full",
+            item_specs=[self._item()],
+        )
+        expires_at = timezone.now() - timedelta(minutes=1)
+        proposal.inventory_reservations.update(expires_at=expires_at)
+        paid_at = expires_at - timedelta(seconds=1)
+
+        self.assertEqual(
+            mark_overbooked_proposal_inventory(proposal, paid_at=paid_at),
+            0,
+        )
+        self.assertEqual(
+            commit_proposal_inventory(proposal, paid_at=paid_at),
+            1,
+        )
+        reservation = proposal.inventory_reservations.get()
+        self.assertEqual(
+            reservation.state,
+            IgCheckoutInventoryReservation.State.PAID_COMMITTED,
+        )
+
     def test_warehouse_payment_commit_keeps_physical_quantity_until_writeoff(self):
         from management.services.ig_inventory import commit_proposal_inventory
 
@@ -341,7 +510,7 @@ class IgInventoryAllocationTests(TestCase):
         release_proposal_inventory(proposal, reason="expired")
 
         self.assertEqual(mark_overbooked_proposal_inventory(proposal), 1)
-        self.assertEqual(mark_overbooked_proposal_inventory(proposal), 0)
+        self.assertEqual(mark_overbooked_proposal_inventory(proposal), 1)
         reservation = proposal.inventory_reservations.get()
         self.assertEqual(
             reservation.state,
@@ -354,6 +523,12 @@ class IgInventoryAllocationTests(TestCase):
             proposal.deal.followup_tasks.filter(
                 reason="inventory_overbooked_review",
             ).exists()
+        )
+        self.assertEqual(
+            IgFollowUpTask.objects.filter(
+                event_key=f"inventory-overbooked:{proposal.pk}",
+            ).count(),
+            1,
         )
 
     def test_fulfillment_shortfall_marks_review_without_negative_stock(self):
@@ -450,4 +625,28 @@ class IgInventoryAllocationTests(TestCase):
         self.assertEqual(
             fulfill_order_inventory_reservations(order, write_off_request=writeoff),
             0,
+        )
+
+
+class VerifiedPaymentTimestampTests(SimpleTestCase):
+    def test_provider_modified_date_wins_over_local_callback_time(self):
+        from types import SimpleNamespace
+
+        from management.services.ig_checkout_payment import _verified_payment_at
+
+        local_callback_at = timezone.now()
+        provider_paid_at = local_callback_at - timedelta(minutes=2)
+        attempt = SimpleNamespace(
+            payment_history=[
+                {
+                    "status": "success",
+                    "payload": {"modifiedDate": provider_paid_at.isoformat()},
+                }
+            ],
+            last_status_at=local_callback_at,
+        )
+
+        self.assertEqual(
+            _verified_payment_at(attempt, fallback=local_callback_at),
+            provider_paid_at,
         )

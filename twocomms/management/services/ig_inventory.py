@@ -246,63 +246,180 @@ def consume_proposal_inventory(proposal, *, order=None):
     return result
 
 
-@transaction.atomic
-def commit_proposal_inventory(proposal, *, order=None):
+def _catalog_variant_protected_quantity(
+    *,
+    color_variant_id,
+    at,
+    exclude_proposal_id=None,
+):
     from management.models import IgCheckoutInventoryReservation
+
+    reservations = IgCheckoutInventoryReservation.objects.filter(
+        allocation_source__in=["catalog_variant", ""],
+        color_variant_id=color_variant_id,
+    ).filter(
+        Q(
+            state=IgCheckoutInventoryReservation.State.ACTIVE,
+            expires_at__gt=at,
+        )
+        | Q(state=IgCheckoutInventoryReservation.State.PAID_COMMITTED)
+    )
+    if exclude_proposal_id is not None:
+        reservations = reservations.exclude(proposal_id=exclude_proposal_id)
+    return int(reservations.aggregate(total=Sum("quantity"))["total"] or 0)
+
+
+def _payment_inventory_targets(candidate_rows):
     from productcolors.models import ProductColorVariant
+    from warehouse.models import StockItem
+
+    variant_ids = sorted(
+        set(
+            candidate_rows.filter(
+                allocation_source__in=["catalog_variant", ""],
+                color_variant_id__isnull=False,
+            ).values_list("color_variant_id", flat=True)
+        )
+    )
+    stock_item_ids = sorted(
+        set(
+            candidate_rows.filter(
+                allocation_source="warehouse",
+                stock_item_id__isnull=False,
+            ).values_list("stock_item_id", flat=True)
+        )
+    )
+    # reserve_proposal_inventory orders allocation keys alphabetically, so
+    # catalog variants must be locked before warehouse rows here as well.
+    variants = {
+        row.pk: row
+        for row in ProductColorVariant.objects.select_for_update()
+        .filter(pk__in=variant_ids)
+        .order_by("pk")
+    }
+    stock_items = {
+        row.pk: row
+        for row in StockItem.objects.select_for_update()
+        .filter(pk__in=stock_item_ids)
+        .order_by("pk")
+    }
+    return variants, stock_items
+
+
+def _reservation_target_key(reservation):
+    if reservation.allocation_source == "warehouse":
+        return "warehouse", reservation.stock_item_id
+    return "catalog_variant", reservation.color_variant_id
+
+
+def _payment_review_reason(
+    reservation,
+    *,
+    stock_item,
+    color_variant,
+    paid_at,
+    now,
+    required_quantity=None,
+):
+    from management.models import IgCheckoutInventoryReservation
+
+    if reservation.state in {
+        IgCheckoutInventoryReservation.State.RELEASED,
+        IgCheckoutInventoryReservation.State.OVERBOOKED_REVIEW,
+    }:
+        return reservation.release_reason or "late_payment_overbooked"
+    if reservation.expires_at and reservation.expires_at <= paid_at:
+        return "late_payment_expired_active"
+    required = int(required_quantity or reservation.quantity or 0)
+    if reservation.allocation_source == "warehouse":
+        from warehouse.services.inventory import protected_stock_quantity
+
+        available = int(stock_item.quantity or 0) if stock_item is not None else 0
+        protected_elsewhere = protected_stock_quantity(
+            stock_item_id=reservation.stock_item_id,
+            at=now,
+            exclude_proposal_id=reservation.proposal_id,
+        )
+    else:
+        available = int(color_variant.stock or 0) if color_variant is not None else 0
+        protected_elsewhere = _catalog_variant_protected_quantity(
+            color_variant_id=reservation.color_variant_id,
+            at=now,
+            exclude_proposal_id=reservation.proposal_id,
+        )
+    if protected_elsewhere + required > available:
+        return "late_payment_stock_reallocated"
+    return ""
+
+
+@transaction.atomic
+def commit_proposal_inventory(proposal, *, order=None, paid_at=None):
+    from management.models import IgCheckoutInventoryReservation
 
     now = timezone.now()
+    paid_at = paid_at or now
+    proposal = type(proposal).objects.select_for_update().get(pk=proposal.pk)
+    candidate_rows = IgCheckoutInventoryReservation.objects.filter(
+        proposal=proposal,
+        state__in=[
+            IgCheckoutInventoryReservation.State.ACTIVE,
+            IgCheckoutInventoryReservation.State.RELEASED,
+        ],
+    )
+    variants, stock_items = _payment_inventory_targets(candidate_rows)
     reservations = list(
-        IgCheckoutInventoryReservation.objects.select_for_update()
-        .filter(
-            proposal=proposal,
-            state__in=[IgCheckoutInventoryReservation.State.ACTIVE,
-                       IgCheckoutInventoryReservation.State.RELEASED],
-        )
-        .order_by("pk")
+        candidate_rows.select_for_update().order_by("pk")
     )
     if not reservations:
         return 0
-    consumed_by_variant = {}
-    warehouse_rows = []
+    required_by_target = {}
     for reservation in reservations:
+        key = _reservation_target_key(reservation)
+        required_by_target[key] = (
+            required_by_target.get(key, 0) + int(reservation.quantity or 0)
+        )
+    consumed_by_variant = {}
+    catalog_rows = []
+    for reservation in reservations:
+        review_reason = _payment_review_reason(
+            reservation,
+            stock_item=stock_items.get(reservation.stock_item_id),
+            color_variant=variants.get(reservation.color_variant_id),
+            paid_at=paid_at,
+            now=now,
+            required_quantity=required_by_target[_reservation_target_key(reservation)],
+        )
+        if review_reason:
+            reservation.state = IgCheckoutInventoryReservation.State.OVERBOOKED_REVIEW
+            reservation.release_reason = review_reason
+            if order is not None:
+                reservation.order_id = order.pk
+            reservation.updated_at = now
+            reservation.save(
+                update_fields=["state", "release_reason", "order", "updated_at"]
+            )
+            continue
         if reservation.allocation_source == "warehouse":
-            warehouse_rows.append(reservation)
+            reservation.state = IgCheckoutInventoryReservation.State.PAID_COMMITTED
+            reservation.paid_committed_at = now
+            if order is not None:
+                reservation.order_id = order.pk
+            reservation.updated_at = now
+            reservation.save(
+                update_fields=["state", "paid_committed_at", "order", "updated_at"]
+            )
         elif reservation.color_variant_id:
+            catalog_rows.append(reservation)
             consumed_by_variant[reservation.color_variant_id] = (
                 consumed_by_variant.get(reservation.color_variant_id, 0)
                 + int(reservation.quantity or 0)
             )
-    variants = {
-        row.pk: row
-        for row in ProductColorVariant.objects.select_for_update()
-        .filter(pk__in=sorted(consumed_by_variant))
-        .order_by("pk")
-    }
     for variant_id, quantity in consumed_by_variant.items():
         variant = variants.get(variant_id)
         if variant is None or int(variant.stock or 0) < quantity:
             raise ValueError("reserved_stock_changed")
         variant.stock = int(variant.stock) - quantity
         variant.save(update_fields=["stock"])
-    if warehouse_rows:
-        for reservation in warehouse_rows:
-            if reservation.state == IgCheckoutInventoryReservation.State.RELEASED:
-                # A payment arriving after expiry is not allowed to create a
-                # negative physical balance. Keep it visible for manager review.
-                reservation.state = IgCheckoutInventoryReservation.State.OVERBOOKED_REVIEW
-                reservation.release_reason = "late_payment_overbooked"
-                if order is not None:
-                    reservation.order_id = order.pk
-                reservation.updated_at = now
-                reservation.save(update_fields=["state", "release_reason", "order", "updated_at"])
-                continue
-            reservation.state = IgCheckoutInventoryReservation.State.PAID_COMMITTED
-            reservation.paid_committed_at = now
-            if order is not None:
-                reservation.order_id = order.pk
-            reservation.updated_at = now
-            reservation.save(update_fields=["state", "paid_committed_at", "order", "updated_at"])
 
     updates = {
         "state": IgCheckoutInventoryReservation.State.FULFILLED,
@@ -314,21 +431,26 @@ def commit_proposal_inventory(proposal, *, order=None):
         # The reservation model intentionally has no order FK in 0116; the
         # payment attempt/proposal remains the durable ownership link.
         updates["release_reason"] = f"order:{order.pk}"[:128]
-    catalog_ids = [reservation.pk for reservation in reservations if reservation.allocation_source != "warehouse"]
-    if not catalog_ids:
-        return len(warehouse_rows)
-    return IgCheckoutInventoryReservation.objects.filter(
-        pk__in=catalog_ids,
-        state__in=[
-            IgCheckoutInventoryReservation.State.ACTIVE,
-            IgCheckoutInventoryReservation.State.RELEASED,
-        ],
-    ).update(**updates)
+    if catalog_rows:
+        IgCheckoutInventoryReservation.objects.filter(
+            pk__in=[reservation.pk for reservation in catalog_rows],
+            state__in=[
+                IgCheckoutInventoryReservation.State.ACTIVE,
+                IgCheckoutInventoryReservation.State.RELEASED,
+            ],
+        ).update(**updates)
+    return len(reservations)
 
 
 @transaction.atomic
-def mark_overbooked_proposal_inventory(proposal, *, order=None, reason="late_payment_overbooked"):
-    """Move released warehouse reservations into an explicit review state.
+def mark_overbooked_proposal_inventory(
+    proposal,
+    *,
+    order=None,
+    reason="late_payment_overbooked",
+    paid_at=None,
+):
+    """Move unsafe payment commitments into explicit inventory review.
 
     Provider payment truth is durable even when the reservation expired.  The
     payment binder must not silently attach that payment to an order; this
@@ -337,21 +459,48 @@ def mark_overbooked_proposal_inventory(proposal, *, order=None, reason="late_pay
     from management.models import IgCheckoutInventoryReservation, IgFollowUpTask
 
     now = timezone.now()
-    rows = list(
-        IgCheckoutInventoryReservation.objects.select_for_update().filter(
-            proposal=proposal,
-            allocation_source="warehouse",
-            state__in=[
-                IgCheckoutInventoryReservation.State.RELEASED,
-                IgCheckoutInventoryReservation.State.OVERBOOKED_REVIEW,
-            ],
-        ).order_by("pk")
+    paid_at = paid_at or now
+    proposal = type(proposal).objects.select_for_update().get(pk=proposal.pk)
+    candidate_rows = IgCheckoutInventoryReservation.objects.filter(
+        proposal=proposal,
+        allocation_source__in=["warehouse", "catalog_variant", ""],
+        state__in=[
+            IgCheckoutInventoryReservation.State.ACTIVE,
+            IgCheckoutInventoryReservation.State.RELEASED,
+            IgCheckoutInventoryReservation.State.OVERBOOKED_REVIEW,
+        ],
     )
-    if not rows:
-        return 0
+    variants, stock_items = _payment_inventory_targets(candidate_rows)
+    rows = list(
+        candidate_rows.select_for_update().order_by("pk")
+    )
+    required_by_target = {}
     for row in rows:
+        key = _reservation_target_key(row)
+        required_by_target[key] = (
+            required_by_target.get(key, 0) + int(row.quantity or 0)
+        )
+    review_rows = []
+    for row in rows:
+        review_reason = _payment_review_reason(
+            row,
+            stock_item=stock_items.get(row.stock_item_id),
+            color_variant=variants.get(row.color_variant_id),
+            paid_at=paid_at,
+            now=now,
+            required_quantity=required_by_target[_reservation_target_key(row)],
+        )
+        if review_reason:
+            row.release_reason = (
+                review_reason
+                if row.state == IgCheckoutInventoryReservation.State.ACTIVE
+                else str(reason or review_reason)[:128]
+            )
+            review_rows.append(row)
+    if not review_rows:
+        return 0
+    for row in review_rows:
         row.state = IgCheckoutInventoryReservation.State.OVERBOOKED_REVIEW
-        row.release_reason = str(reason or "late_payment_overbooked")[:128]
         if order is not None:
             row.order_id = order.pk
         row.updated_at = now
@@ -371,18 +520,18 @@ def mark_overbooked_proposal_inventory(proposal, *, order=None, reason="late_pay
             "event_occurred_at": now,
             "event_payload": {
                 "proposal_id": proposal.pk,
-                "reservation_ids": [row.pk for row in rows],
+                "reservation_ids": [row.pk for row in review_rows],
             },
             "skip_reason": "human_agent_required",
             "message_text": (
                 f"Угода #{deal.pk}: оплату підтверджено, але резерв складу вже звільнений. "
                 "Потрібно перевірити наявність, заміну або повернення коштів."
             ),
-            "last_error": f"reservation_ids={','.join(str(row.pk) for row in rows)}",
+            "last_error": f"reservation_ids={','.join(str(row.pk) for row in review_rows)}",
         },
     )
     if not _created:
-        task.last_error = f"reservation_ids={','.join(str(row.pk) for row in rows)}"
+        task.last_error = f"reservation_ids={','.join(str(row.pk) for row in review_rows)}"
         task.save(update_fields=["last_error", "updated_at"])
 
     def _notify():
@@ -400,11 +549,10 @@ def mark_overbooked_proposal_inventory(proposal, *, order=None, reason="late_pay
             return
 
     transaction.on_commit(_notify)
-    # The event key makes repeated payment/reconciliation callbacks
-    # idempotent. Return a positive transition only when the manager task was
-    # materialized for the first time; callers must not create a second order
-    # or notification on a replay.
-    return len(rows) if _created else 0
+    # The event key and notification dedupe keep side effects idempotent. The
+    # return value must remain positive on replay so payment binders cannot
+    # mistake an existing review state for permission to attach the order.
+    return len(review_rows)
 
 
 @transaction.atomic

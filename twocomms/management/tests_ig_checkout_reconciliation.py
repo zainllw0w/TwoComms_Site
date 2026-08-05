@@ -359,7 +359,7 @@ class InstagramCheckoutReconciliationTests(TestCase):
         ambiguous_attempt.refresh_from_db()
         self.assertTrue((ambiguous_attempt.event_state or {}).get("invoice_creation_ambiguous"))
 
-    def test_late_success_consumes_a_reservation_released_before_provider_truth(self):
+    def test_released_catalog_reservation_without_payment_time_requires_review(self):
         color = Color.objects.create(name="Blue", primary_hex="#2244AA")
         variant = ProductColorVariant.objects.create(
             product=self.product,
@@ -387,6 +387,9 @@ class InstagramCheckoutReconciliationTests(TestCase):
         self.assertEqual(consume_proposal_inventory(self.proposal), 1)
         variant.refresh_from_db()
         reservation.refresh_from_db()
-        self.assertEqual(variant.stock, 0)
-        self.assertEqual(reservation.state, IgCheckoutInventoryReservation.State.CONSUMED)
+        self.assertEqual(variant.stock, 1)
+        self.assertEqual(
+            reservation.state,
+            IgCheckoutInventoryReservation.State.OVERBOOKED_REVIEW,
+        )
         self.assertEqual(consume_proposal_inventory(self.proposal), 0)
