@@ -208,6 +208,57 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
         self.assertIn('data-client-view="hidden">Приховані', self.template)
         self.assertIn("let currentView='all';", self.template)
 
+    def test_client_filters_use_three_primary_choices_and_an_accessible_disclosure(self):
+        self.assertIn('class="bot-client-filter-primary"', self.template)
+        self.assertIn('class="bot-client-filter-disclosure"', self.template)
+        primary_start = self.template.index('class="bot-client-filter-primary"')
+        primary_end = self.template.index('class="bot-client-filter-disclosure"')
+        primary_markup = self.template[primary_start:primary_end]
+        for value in ("all", "active", "paid"):
+            self.assertIn(f'data-client-view="{value}"', primary_markup)
+        for value in (
+            "due",
+            "delivery-blocked",
+            "hidden",
+            "spam-cold",
+            "ads",
+            "complaints",
+            "wholesale",
+            "collaboration",
+            "reactions",
+        ):
+            self.assertNotIn(f'data-client-view="{value}"', primary_markup)
+            self.assertIn(f'data-client-view="{value}"', self.template)
+
+        for contract in (
+            'id="bot-client-filter-toggle"',
+            'aria-expanded="false"',
+            'aria-controls="bot-client-filter-advanced"',
+            'id="bot-client-filter-advanced"',
+            'id="bot-client-filter-active-label"',
+            "function setAdvancedFiltersOpen(open,{restoreFocus=false}={})",
+            "event.key!=='Escape'",
+            "!filtersEl.contains(event.target)",
+            "syncFilterDisclosure(btn)",
+            ".bot-client-filter-primary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_dialog_actions_use_one_primary_and_three_stable_secondary_cells(self):
+        for contract in (
+            ".bot-action-primary>.bot-client-action{width:100%;",
+            ".bot-action-state-buttons{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));",
+            ".bot-client-action.pause{background:#4a3512;",
+            ".bot-client-action.lost{background:#2c1519;",
+            "c.bot_paused?'▶ Відновити':'⏸ Зупинити'",
+            "c.hidden?'↩ Повернути':'Приховати'",
+            "node('button','bot-client-action lost','Втрачено')",
+            "node('button','bot-client-action reset','Скинути')",
+            "lost.setAttribute('aria-label','Позначити клієнта як втрачено')",
+            "reset.setAttribute('aria-label','Скинути воронку')",
+        ):
+            self.assertIn(contract, self.template)
+
     def test_client_rows_render_the_server_commercial_visual_state_without_replacing_actions(self):
         for contract in (
             ".bot-client-row.commercial-paid:not(.needs-action):not(.post-sale-action)",
