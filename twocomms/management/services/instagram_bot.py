@@ -4582,16 +4582,16 @@ def _wait_for_typing_window(
     typing_started_at: float | None,
     now: float | None = None,
     typing_active: bool = True,
-) -> bool:
+) -> str:
     """Wait outside DB/send locks while preserving lease and permission truth."""
     if typing_started_at is None:
-        return True
+        return "allowed"
     if not _renew_client_automation_lease(row, lease_token):
         _stop_typing_indicator(s, row, typing_active)
-        return False
+        return "lease_lost"
     if not _reply_permission_is_current(s, row, permission):
         _stop_typing_indicator(s, row, typing_active)
-        return False
+        return "permission_denied"
     current = time.monotonic() if now is None else now
     remaining = max(
         0.0,
@@ -4603,11 +4603,11 @@ def _wait_for_typing_window(
     # entering the final send boundary, and do not send after a failed check.
     if not _renew_client_automation_lease(row, lease_token):
         _stop_typing_indicator(s, row, typing_active)
-        return False
+        return "lease_lost"
     if not _reply_permission_is_current(s, row, permission):
         _stop_typing_indicator(s, row, typing_active)
-        return False
-    return True
+        return "permission_denied"
+    return "allowed"
 
 
 def _send_with_typing_off(s, row, typing_active: bool, send_callable):
@@ -8053,7 +8053,7 @@ def _process_one_inside_reply_boundary(
     # Keep the ephemeral typing state perceptible, but wait before entering any
     # database transaction or customer send lock.  The helper revalidates both
     # the automation lease and captured permission generation around the wait.
-    if not _wait_for_typing_window(
+    typing_wait_state = _wait_for_typing_window(
         s,
         row,
         lease_token,
@@ -8061,9 +8061,13 @@ def _process_one_inside_reply_boundary(
         reply,
         typing_started_at=typing_started_at,
         typing_active=typing_active,
-    ):
+    )
+    if typing_wait_state == "lease_lost":
         typing_active = False
         return False
+    if typing_wait_state != "allowed":
+        typing_active = False
+        return _skip_observed_row(row, reason="permission_epoch_changed")
 
     # Attempt typing cleanup before writing the durable sending marker.  If the
     # process dies during this advisory action, stale recovery still sees the

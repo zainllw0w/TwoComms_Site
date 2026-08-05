@@ -2,7 +2,7 @@ import json
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
 
 from management.services import instagram_bot as bot
 
@@ -151,7 +151,7 @@ class TypingWindowTests(SimpleTestCase):
             now=100.2,
         )
 
-        self.assertTrue(allowed)
+        self.assertEqual(allowed, "allowed")
         sleep.assert_called_once()
         self.assertAlmostEqual(sleep.call_args.args[0], target - 0.2, places=6)
 
@@ -171,7 +171,7 @@ class TypingWindowTests(SimpleTestCase):
             now=100.0 + bot.TYPING_MAX_VISIBLE_SECONDS + 0.1,
         )
 
-        self.assertTrue(allowed)
+        self.assertEqual(allowed, "allowed")
         sleep.assert_not_called()
 
     @patch("management.services.instagram_bot.time.sleep")
@@ -186,7 +186,7 @@ class TypingWindowTests(SimpleTestCase):
             now=100.0,
         )
 
-        self.assertTrue(allowed)
+        self.assertEqual(allowed, "allowed")
         sleep.assert_not_called()
 
     @patch("management.services.instagram_bot._stop_typing_indicator")
@@ -206,15 +206,18 @@ class TypingWindowTests(SimpleTestCase):
             typing_active=True,
         )
 
-        self.assertFalse(allowed)
+        self.assertEqual(allowed, "lease_lost")
         sleep.assert_not_called()
         stop_typing.assert_called_once_with(self.settings, self.row, True)
 
     @patch("management.services.instagram_bot._stop_typing_indicator")
     @patch("management.services.instagram_bot.time.sleep")
-    @patch("management.services.instagram_bot._reply_permission_is_current", return_value=False)
+    @patch(
+        "management.services.instagram_bot._reply_permission_is_current",
+        side_effect=[True, False],
+    )
     @patch("management.services.instagram_bot._renew_client_automation_lease", return_value=True)
-    def test_cancelled_permission_skips_wait_and_stops_typing(
+    def test_permission_change_during_wait_stops_typing_and_blocks_send(
         self, _renew, _permission, sleep, stop_typing
     ):
         allowed = bot._wait_for_typing_window(
@@ -228,8 +231,8 @@ class TypingWindowTests(SimpleTestCase):
             typing_active=True,
         )
 
-        self.assertFalse(allowed)
-        sleep.assert_not_called()
+        self.assertEqual(allowed, "permission_denied")
+        sleep.assert_called_once()
         stop_typing.assert_called_once_with(self.settings, self.row, True)
 
     def test_typing_off_happens_before_send_callable(self):
@@ -286,3 +289,81 @@ class TypingWindowTests(SimpleTestCase):
         self.assertEqual(marker, 1)
         self.assertEqual(result, "sent")
         self.assertEqual(events, ["typing_off", "send_state_sending", "send_text"])
+
+
+class TypingPermissionTransitionTests(TestCase):
+    def setUp(self):
+        from django.utils import timezone
+
+        self.settings = bot.InstagramBotSettings.load()
+        self.settings.is_enabled = True
+        self.settings.ai_enabled = False
+        self.settings.trigger_text = "hello"
+        self.settings.reply_text = "A reply"
+        self.settings.save(update_fields=[
+            "is_enabled", "ai_enabled", "trigger_text", "reply_text",
+        ])
+        self.row = bot.InstagramBotMessage.objects.create(
+            sender_id="permission-transition-customer",
+            role=bot.InstagramBotMessage.Role.USER,
+            text="hello",
+            status=bot.InstagramBotMessage.Status.PROCESSING,
+            processing_started_at=timezone.now(),
+        )
+
+    @patch(
+        "management.services.instagram_bot.send_text",
+    )
+    @patch(
+        "management.services.instagram_bot.gemini_generate",
+        return_value="A reply",
+    )
+    @patch(
+        "management.services.instagram_bot._reply_permission_is_current",
+        side_effect=[True, False],
+    )
+    @patch("management.services.instagram_bot.time.sleep")
+    @patch("management.services.instagram_bot.send_sender_action")
+    def test_permission_change_during_typing_wait_finishes_claim_without_send(
+        self, sender_action, _sleep, _permission, _gemini, send_text
+    ):
+        sender_action.side_effect = lambda _settings, _sender_id, action: (
+            bot.SenderActionResult(True, 200, "delivered", action)
+        )
+        self.settings.ai_enabled = True
+        self.settings.save(update_fields=["ai_enabled"])
+
+        result = bot._process_one_inside_reply_boundary(
+            self.settings,
+            self.row,
+            lease_token="",
+            permission=SimpleNamespace(settings_epoch=1, client_epoch=None),
+        )
+
+        self.assertFalse(result)
+        self.row.refresh_from_db()
+        self.assertEqual(self.row.status, bot.InstagramBotMessage.Status.DONE)
+        self.assertIsNotNone(self.row.processed_at)
+        send_text.assert_not_called()
+
+    @patch("management.services.instagram_bot.send_text")
+    @patch("management.services.instagram_bot._wait_for_typing_window")
+    def test_lease_loss_keeps_lease_helpers_requeue_result(self, wait, send_text):
+        def lose_lease(*_args, **_kwargs):
+            bot._requeue_for_active_lease(self.row)
+            return "lease_lost"
+
+        wait.side_effect = lose_lease
+
+        result = bot._process_one_inside_reply_boundary(
+            self.settings,
+            self.row,
+            lease_token="",
+            permission=None,
+        )
+
+        self.assertFalse(result)
+        self.row.refresh_from_db()
+        self.assertEqual(self.row.status, bot.InstagramBotMessage.Status.PENDING)
+        self.assertIsNone(self.row.processing_started_at)
+        send_text.assert_not_called()
