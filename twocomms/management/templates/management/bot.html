@@ -52,11 +52,21 @@
 .bot-card-head h2{margin:0;}
 
 /* ---- Metrics ---- */
-.bot-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:14px;}
-.bot-metric{background:#0c0f17;border:1px solid #1a2030;border-radius:12px;padding:12px;text-align:center;}
-.bot-metric .v{font-size:23px;font-weight:700;line-height:1;}
+.bot-overview-status{margin-bottom:16px;}
+.bot-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:#1f2938;border:1px solid #1f2938;border-radius:8px;overflow:hidden;}
+.bot-metric{min-width:0;min-height:92px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0c0f17;padding:12px;text-align:center;}
+.bot-metric .v{max-width:100%;font-size:21px;font-weight:700;line-height:1.2;overflow-wrap:anywhere;word-break:break-word;}
 .bot-metric .v.compact{font-size:14px;line-height:1.25;overflow-wrap:anywhere;}
-.bot-metric .k{font-size:10.5px;color:#8b95a5;text-transform:uppercase;letter-spacing:.04em;margin-top:6px;}
+.bot-metric .k{max-width:100%;font-size:10.5px;color:#8b95a5;text-transform:uppercase;letter-spacing:0;margin-top:6px;overflow-wrap:anywhere;}
+.bot-overview-diagnostics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;margin-top:12px;background:#1f2938;border:1px solid #1f2938;border-radius:8px;overflow:hidden;}
+.bot-overview-diagnostic{min-width:0;padding:8px 10px;background:#0d121a;color:#9aa7b9;font-size:11px;line-height:1.4;overflow-wrap:anywhere;word-break:break-word;}
+.bot-overview-diagnostic.error{color:#f87171;}
+.bot-overview-diagnostic.warning{color:#fbbf24;}
+.bot-overview-diagnostic[hidden]{display:none;}
+.bot-overview-diagnostics[hidden]{display:none;}
+@media(max-width:880px){.bot-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:560px){.bot-overview-diagnostics{grid-template-columns:1fr;}}
+@media(max-width:360px){.bot-metrics{grid-template-columns:minmax(0,1fr);}}
 .bot-stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px;}
 .bot-stat-box{background:#0c0f17;border:1px solid #1a2030;border-radius:12px;padding:12px;}
 .bot-stat-box[title]{cursor:help;}
@@ -553,40 +563,30 @@ body.bot-drawer-open{overflow:hidden;}
 
   <!-- ===== Огляд ===== -->
   <section class="bot-panel active" data-panel="overview">
-    <div class="bot-grid2" style="margin-bottom:16px;">
-      <div class="bot-card">
-        <div class="bot-status-head">
-          <span class="bot-dot" id="bot-dot"></span>
-          <div>
-            <div class="bot-state-text" id="bot-state-text">—</div>
-            <div class="bot-state-sub" id="bot-state-sub">Завантаження…</div>
-          </div>
+    <div class="bot-card bot-overview-status">
+      <div class="bot-status-head">
+        <span class="bot-dot" id="bot-dot"></span>
+        <div>
+          <div class="bot-state-text" id="bot-state-text">—</div>
+          <div class="bot-state-sub" id="bot-state-sub">Завантаження…</div>
         </div>
-        <div class="bot-metrics">
-          <div class="bot-metric"><div class="v" id="bot-replies">{{ status.replies_count }}</div><div class="k">Відповідей</div></div>
-          <div class="bot-metric"><div class="v" id="bot-senders">{{ status.unique_senders }}</div><div class="k">Клієнтів</div></div>
-          <div class="bot-metric"><div class="v" id="bot-pending">{{ status.pending }}</div><div class="k">У черзі</div></div>
-          <div class="bot-metric"><div class="v" id="bot-lastreply">—</div><div class="k">Остання</div></div>
-          <div class="bot-metric"><div class="v" id="bot-heartbeat">—</div><div class="k">Стан зв’язку</div></div>
-          <div class="bot-metric"><div class="v" id="bot-model">—</div><div class="k">Модель</div></div>
-          <div class="bot-metric"><div class="v" id="bot-reasoning">—</div><div class="k">Рівень міркування</div></div>
-          <div class="bot-metric"><div class="v" id="bot-outbox">—</div><div class="k">Сповіщення</div></div>
-          <div class="bot-metric"><div class="v compact" id="bot-reply-barrier">0 · 0</div><div class="k">Перевірка перед відповіддю</div></div>
-        </div>
-        <div class="bot-hint" id="bot-error" style="margin-top:12px;color:#f87171;"></div>
-        <div class="bot-hint" id="bot-outbox-help" style="margin-top:8px;"></div>
-        <div class="bot-hint" id="bot-meta-capability" style="margin-top:8px;"></div>
-        <div class="bot-hint" id="bot-meta-rate" style="margin-top:8px;"></div>
       </div>
-      <div class="bot-card">
-        <h2>Як працює</h2>
-        <div class="bot-note" style="margin:0;">
-          Подієва схема: вхідні повідомлення отримує <b>webhook</b> і кладе в чергу, автоматичний обробник відповідає
-          через <b>Gemini</b> (<b id="bot-explainer-model">поточну перевірену модель</b>) з урахуванням історії,
-          каталогу та памʼяті клієнта. Розуміє переслані пости, матчить фото з товаром,
-          формує оплату й створює замовлення. Якщо список IGSID заповнений —
-          відповідає лише дозволеним відправникам; якщо порожній — усім, кого дозволяє Meta.
-        </div>
+      <div class="bot-metrics">
+        <div class="bot-metric"><div class="v" id="bot-replies">{{ status.replies_count }}</div><div class="k">Відповідей</div></div>
+        <div class="bot-metric"><div class="v" id="bot-senders">{{ status.unique_senders }}</div><div class="k">Клієнтів</div></div>
+        <div class="bot-metric"><div class="v" id="bot-pending">{{ status.pending }}</div><div class="k">У черзі</div></div>
+        <div class="bot-metric"><div class="v" id="bot-lastreply">—</div><div class="k">Остання</div></div>
+        <div class="bot-metric"><div class="v" id="bot-heartbeat">—</div><div class="k">Стан зв’язку</div></div>
+        <div class="bot-metric"><div class="v" id="bot-model">—</div><div class="k">Модель</div></div>
+        <div class="bot-metric"><div class="v" id="bot-reasoning">—</div><div class="k">Рівень міркування</div></div>
+        <div class="bot-metric"><div class="v" id="bot-outbox">—</div><div class="k">Сповіщення</div></div>
+        <div class="bot-metric"><div class="v compact" id="bot-reply-barrier">0 · 0</div><div class="k">Перевірка перед відповіддю</div></div>
+      </div>
+      <div class="bot-overview-diagnostics" id="bot-overview-diagnostics" hidden>
+        <div class="bot-overview-diagnostic error" id="bot-error" hidden></div>
+        <div class="bot-overview-diagnostic" id="bot-outbox-help" hidden></div>
+        <div class="bot-overview-diagnostic" id="bot-meta-capability" hidden></div>
+        <div class="bot-overview-diagnostic" id="bot-meta-rate" hidden></div>
       </div>
     </div>
     <div class="bot-card">
@@ -1003,6 +1003,15 @@ body.bot-drawer-open{overflow:hidden;}
 
   /* ============ Status + Console ============ */
   const box = document.getElementById('bot-console');
+  const overviewDiagnostics=document.getElementById('bot-overview-diagnostics');
+  function setOverviewDiagnostic(element,text,color=''){
+    if(!element)return;
+    element.textContent=text||'';element.hidden=!text;element.style.color=color||'';
+  }
+  function syncOverviewDiagnostics(){
+    if(!overviewDiagnostics)return;
+    overviewDiagnostics.hidden=!Array.from(overviewDiagnostics.children).some(row=>!row.hidden);
+  }
   let lastId = 0;
   function appendLog(items){
     if(!items||!items.length) return;
@@ -1041,8 +1050,6 @@ body.bot-drawer-open{overflow:hidden;}
     document.getElementById('bot-heartbeat').textContent=fmt(st.heartbeat_at);
     const activeModel=st.last_gemini_model||st.gemini_effective_model||'';
     document.getElementById('bot-model').textContent=activeModel||'—';
-    const explainerModel=document.getElementById('bot-explainer-model');
-    if(explainerModel) explainerModel.textContent=activeModel||'поточну перевірену модель';
     const reasoning=document.getElementById('bot-reasoning');
     if(reasoning){
       reasoning.textContent=humanLabel(reasoningLabels,st.last_gemini_reasoning_level,'Ще не визначено');
@@ -1066,12 +1073,12 @@ body.bot-drawer-open{overflow:hidden;}
         : 'Не вдалося прочитати стан таблиці сповіщень';
     }
     if(outboxHelp){
-      outboxHelp.textContent=!outboxAvailable
+      const outboxHelpText=!outboxAvailable
         ? 'Стан сповіщень недоступний. Перевірте міграції та базу даних.'
         : outboxManual
         ? 'Є сповіщення з невідомим результатом або вичерпаними спробами. Перевірте Telegram вручну, щоб не надіслати дубль.'
         : (outboxRetry ? 'Telegram тимчасово недоступний: демон повторить сповіщення автоматично.' : '');
-      outboxHelp.style.color=(!outboxAvailable||outboxManual)?'#fbbf24':'';
+      setOverviewDiagnostic(outboxHelp,outboxHelpText,(!outboxAvailable||outboxManual)?'#fbbf24':'');
     }
     const metaCapability=document.getElementById('bot-meta-capability');
     if(metaCapability){
@@ -1080,15 +1087,13 @@ body.bot-drawer-open{overflow:hidden;}
       const permission=meta.token_permission==='granted'?'дозвіл підтверджено':'дозвіл Meta не перевірено';
       const access=meta.account_access==='advanced_public'?'розширений доступ Meta':'режим доступу не підтверджено';
       const delivery=meta.recipient_delivery==='per_recipient'?'доставка окремо за клієнтом':'стан доставки недоступний';
-      metaCapability.textContent='Meta: '+allowlist+' · '+permission+' · '+access+' · '+delivery;
-      metaCapability.style.color=(meta.token_configured&&meta.token_permission==='granted')?'#86efac':'#fbbf24';
+      setOverviewDiagnostic(metaCapability,'Meta: '+allowlist+' · '+permission+' · '+access+' · '+delivery,(meta.token_configured&&meta.token_permission==='granted')?'#86efac':'#fbbf24');
     }
     const metaRate=document.getElementById('bot-meta-rate');
     if(metaRate){
       const rate=st.meta_rate_limits||{};
       const last=rate.last_rate_limited_endpoint ? ('останній ліміт: '+rate.last_rate_limited_endpoint) : 'лімітів не зафіксовано';
-      metaRate.textContent='Meta API: '+(rate.degraded?'тимчасово обмежено · ':'')+last;
-      metaRate.style.color=rate.degraded?'#f87171':'';
+      setOverviewDiagnostic(metaRate,'Meta API: '+(rate.degraded?'тимчасово обмежено · ':'')+last,rate.degraded?'#f87171':'');
     }
     if(outboxAvailable) renderNotificationReview(outboxManual);
     const replyBarrier=document.getElementById('bot-reply-barrier');
@@ -1098,7 +1103,8 @@ body.bot-drawer-open{overflow:hidden;}
       replyBarrier.textContent='Очікувань: '+waits+' · скасовано: '+aborts;
       replyBarrier.title='Відповідь зачекала, поки завершиться інше надсилання: '+waits+' · скасовано після зміни дозволу: '+aborts;
     }
-    document.getElementById('bot-error').textContent=st.last_error||'';
+    setOverviewDiagnostic(document.getElementById('bot-error'),st.last_error||'','#f87171');
+    syncOverviewDiagnostics();
     document.getElementById('bot-start').disabled=st.is_enabled;
     document.getElementById('bot-stop').disabled=!st.is_enabled;
     setBadge(document.getElementById('badge-pending'), st.pending||0);

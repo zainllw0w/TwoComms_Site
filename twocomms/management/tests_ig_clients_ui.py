@@ -61,6 +61,40 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
             self.template.index('data-tab="orders"'),
         )
 
+    def test_overview_is_one_runtime_surface_with_a_stable_responsive_metric_grid(self):
+        overview_start = self.template.index('data-panel="overview"')
+        console_start = self.template.index('id="bot-console"')
+        overview_status = self.template[overview_start:console_start]
+
+        self.assertIn('class="bot-card bot-overview-status"', overview_status)
+        self.assertNotIn('class="bot-grid2"', overview_status)
+        self.assertNotIn("Як працює", self.template)
+        self.assertNotIn("bot-explainer-model", self.template)
+        for element_id in (
+            "bot-replies",
+            "bot-senders",
+            "bot-pending",
+            "bot-lastreply",
+            "bot-heartbeat",
+            "bot-model",
+            "bot-reasoning",
+            "bot-outbox",
+            "bot-reply-barrier",
+        ):
+            self.assertIn(f'id="{element_id}"', overview_status)
+
+        for contract in (
+            ".bot-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));",
+            "@media(max-width:880px){.bot-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}}",
+            "@media(max-width:360px){.bot-metrics{grid-template-columns:minmax(0,1fr);}",
+            ".bot-metric .v{max-width:100%;",
+            'class="bot-overview-diagnostics" id="bot-overview-diagnostics" hidden',
+            ".bot-overview-diagnostic[hidden]{display:none;}",
+            "function setOverviewDiagnostic(element,text,color='')",
+            "overviewDiagnostics.hidden=!Array.from(overviewDiagnostics.children).some(row=>!row.hidden)",
+        ):
+            self.assertIn(contract, self.template)
+
     def test_clients_workspace_has_bounded_pagination_controls(self):
         for contract in (
             'id="bot-clients-pager"',
