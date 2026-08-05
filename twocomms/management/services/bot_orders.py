@@ -836,6 +836,78 @@ def _store_requested_payment(deal, *, prepayment_decision: dict | None = None) -
     return True
 
 
+def _missing_required_option_axes(product, *, variant=None, option_values=None) -> list[str] | None:
+    """Return unresolved commercial axes before a direct paylink is priced."""
+    try:
+        from fable5.services import product_option_context
+
+        context = product_option_context(
+            product,
+            variant=variant,
+            option_values=option_values or {},
+        )
+    except Exception:
+        return None
+    options = option_values if isinstance(option_values, dict) else {}
+    selected = {
+        str(key).strip().lower()
+        for key, value in options.items()
+        if str(key).strip() and str(value).strip()
+    }
+    known_axes = {
+        str(axis.get("code") or "").strip().lower(): axis
+        for axis in context.get("axes") or []
+        if str(axis.get("code") or "").strip()
+    }
+    for key in selected:
+        if key == "fit":
+            continue
+        axis = known_axes.get(key)
+        if axis is None:
+            return None
+        wanted = str(options[key]).strip().lower()
+        if not any(
+            choice.get("is_enabled")
+            and str(choice.get("code") or "").strip().lower() == wanted
+            for choice in axis.get("choices") or []
+        ):
+            return None
+    missing = []
+    for axis in context.get("axes") or []:
+        code = str(axis.get("code") or "").strip().lower()
+        if not code or code == "fit":
+            continue
+        enabled = [choice for choice in axis.get("choices") or [] if choice.get("is_enabled")]
+        if not enabled:
+            missing.append(code)
+        elif code not in selected and len(enabled) == 1:
+            options[code] = str(enabled[0].get("code") or "").strip().lower()
+            selected.add(code)
+        elif code not in selected:
+            missing.append(code)
+    return missing
+
+
+def _paylink_variant_error(product, *, variant, option_values, error) -> dict:
+    """Expose option-resolution failures through the public paylink contract."""
+    if error != "missing_options":
+        return {"ok": False, "error": error}
+    missing = _missing_required_option_axes(
+        product,
+        variant=variant,
+        option_values=option_values,
+    )
+    if missing is None:
+        return {"ok": False, "error": "configuration_unavailable"}
+    if missing:
+        return {
+            "ok": False,
+            "error": "missing_configuration",
+            "missing_fields": [f"option:{code}" for code in missing],
+        }
+    return {"ok": False, "error": "invalid_options"}
+
+
 def _resolve_paylink_color_variant(
     product,
     *,
@@ -843,6 +915,7 @@ def _resolve_paylink_color_variant(
     fit_code="",
     size="",
     qty=1,
+    option_values=None,
 ):
     """Resolve one sellable variant before calculating or persisting a price."""
 
@@ -855,7 +928,9 @@ def _resolve_paylink_color_variant(
         .select_related("color")
         .order_by("order", "id")
     )
-    options = {"fit": fit_code} if fit_code else {}
+    options = option_values if isinstance(option_values, dict) else {}
+    if fit_code:
+        options["fit"] = fit_code
     if color_variant_id:
         selected = next(
             (row for row in variants if row.pk == int(color_variant_id)),
@@ -878,9 +953,26 @@ def _resolve_paylink_color_variant(
         if len(candidates) > 1:
             return None, "missing_color_variant"
         if not candidates:
-            return (None, "unavailable_selection") if variants else (None, None)
+            if variants:
+                return None, "unavailable_selection"
+            missing_options = _missing_required_option_axes(
+                product,
+                option_values=options,
+            )
+            if missing_options is None:
+                return None, "invalid_options"
+            return (None, "missing_options") if missing_options else (None, None)
 
     selected = candidates[0]
+    missing_options = _missing_required_option_axes(
+        product,
+        variant=selected,
+        option_values=options,
+    )
+    if missing_options is None:
+        return None, "invalid_options"
+    if missing_options:
+        return None, "missing_options"
     if not variant_allows_purchase(
         product,
         selected,
@@ -1024,6 +1116,16 @@ def _create_deal_and_link_unlocked(
                 return {"ok": False, "error": "aggregate_qty_limit"}
             item_size = str(raw.get("size") or "").strip().upper()[:16]
             item_fit_code = str(raw.get("fit_option_code") or "").strip().lower()[:50]
+            raw_options = raw.get("option_values")
+            if raw_options not in (None, "") and not isinstance(raw_options, dict):
+                return {"ok": False, "error": "invalid_options"}
+            option_values = {
+                str(key).strip().lower()[:50]: str(value).strip().lower()[:100]
+                for key, value in (raw_options or {}).items()
+                if str(key).strip() and str(value).strip()
+            }
+            if len(option_values) > 12:
+                return {"ok": False, "error": "invalid_options"}
             color_variant_id = raw.get("color_variant_id")
             if color_variant_id in (None, "", False):
                 normalized_color_id = 0
@@ -1034,7 +1136,13 @@ def _create_deal_and_link_unlocked(
                     return {"ok": False, "error": "invalid_color_variant"}
                 if normalized_color_id <= 0:
                     return {"ok": False, "error": "invalid_color_variant"}
-            identity = (item_product_id, normalized_color_id, item_size, item_fit_code)
+            identity = (
+                item_product_id,
+                normalized_color_id,
+                item_size,
+                item_fit_code,
+                tuple(sorted(option_values.items())),
+            )
             if identity in identities:
                 return {"ok": False, "error": "duplicate_items"}
             identities.add(identity)
@@ -1044,6 +1152,7 @@ def _create_deal_and_link_unlocked(
                 "size": item_size,
                 "fit_option_code": item_fit_code,
                 "color_variant_id": normalized_color_id,
+                "option_values": option_values,
             })
 
         normalized_items = []
@@ -1077,16 +1186,24 @@ def _create_deal_and_link_unlocked(
             elif ProductFitOption.objects.filter(product=item_product, is_active=True).exists():
                 return {"ok": False, "error": "missing_fit_option"}
             color_variant_id = raw["color_variant_id"]
-            option_values = {"fit": item_fit_code} if item_fit_code else {}
+            option_values = dict(raw.get("option_values") or {})
+            if item_fit_code:
+                option_values["fit"] = item_fit_code
             color_variant, variant_error = _resolve_paylink_color_variant(
                 item_product,
                 color_variant_id=color_variant_id,
                 fit_code=item_fit_code,
                 size=item_size,
                 qty=item_qty,
+                option_values=option_values,
             )
             if variant_error:
-                return {"ok": False, "error": variant_error}
+                return _paylink_variant_error(
+                    item_product,
+                    variant=None,
+                    option_values=option_values,
+                    error=variant_error,
+                )
             price_decision = _conversation_price_decision(
                 client, product=item_product, qty=item_qty,
             )
@@ -1124,6 +1241,7 @@ def _create_deal_and_link_unlocked(
                 "size": item_size,
                 "fit_option_code": item_fit_code,
                 "fit_option_label": fit_label,
+                "option_values": option_values,
                 "unit_price": unit_price,
                 "price_source": "conversation_evidence" if item_override is not None else "catalog",
                 "price_evidence_message_ids": (
@@ -1140,6 +1258,7 @@ def _create_deal_and_link_unlocked(
                 item["color_variant"].pk if item["color_variant"] else 0,
                 item["size"],
                 item["fit_option_code"],
+                tuple(sorted((item.get("option_values") or {}).items())),
                 item["qty"],
                 item["unit_price"],
             )
@@ -1154,6 +1273,7 @@ def _create_deal_and_link_unlocked(
                     item.color_variant_id or 0,
                     item.size or "",
                     item.fit_option_code or "",
+                    tuple(sorted((item.option_values or {}).items())),
                     item.qty,
                     item.unit_price,
                 )
@@ -1177,7 +1297,7 @@ def _create_deal_and_link_unlocked(
                 size=item["size"],
                 fit_option_code=item["fit_option_code"],
                 fit_option_label=item["fit_option_label"],
-                option_values={"fit": item["fit_option_code"]} if item["fit_option_code"] else {},
+                option_values=item.get("option_values") or {},
                 option_labels={"fit": item["fit_option_label"]} if item["fit_option_label"] else {},
                 qty=item["qty"],
                 unit_price=item["unit_price"],
@@ -1205,6 +1325,12 @@ def _create_deal_and_link_unlocked(
         return {"ok": False, "error": "invalid_qty"}
     size = str(size or "").strip().upper()[:16]
     fit_option_code = str(fit_option_code or "").strip().lower()[:50]
+    option_values = dict(getattr(client, "sales_context", {}) or {}).get(
+        "assisted_checkout_selection", {}
+    )
+    option_values = dict(option_values.get("option_values") or {}) if isinstance(option_values, dict) else {}
+    if fit_option_code:
+        option_values["fit"] = fit_option_code
     fit_option_label = ""
     if product is not None:
         from storefront.models import ProductFitOption
@@ -1236,9 +1362,15 @@ def _create_deal_and_link_unlocked(
             fit_code=fit_option_code,
             size=size,
             qty=qty,
+            option_values=option_values,
         )
         if variant_error:
-            return {"ok": False, "error": variant_error}
+            return _paylink_variant_error(
+                product,
+                variant=color_variant,
+                option_values=option_values,
+                error=variant_error,
+            )
     else:
         color_variant = None
     open_deals = current_open_deals()
@@ -1268,7 +1400,7 @@ def _create_deal_and_link_unlocked(
                 product,
                 color_variant,
                 fit_code=fit_option_code,
-                option_values={"fit": fit_option_code} if fit_option_code else {},
+                option_values=option_values,
             ))).quantize(Decimal("0.01"))
         except Exception:
             return {"ok": False, "error": "invalid_catalog_price"}
@@ -1297,6 +1429,7 @@ def _create_deal_and_link_unlocked(
                 == (color_variant.pk if color_variant is not None else 0)
                 and (d.items.first().size or "") == size
                 and (d.items.first().fit_option_code or "") == fit_option_code
+                and (d.items.first().option_values or {}) == option_values
                 and (
                     pt != IgDeal.PayType.PREPAYMENT
                     or Decimal(d.requested_payment_amount or 0)
@@ -1312,7 +1445,7 @@ def _create_deal_and_link_unlocked(
             title=product.title, size=size or "",
             fit_option_code=fit_option_code,
             fit_option_label=fit_option_label,
-            option_values={"fit": fit_option_code} if fit_option_code else {},
+            option_values=option_values,
             option_labels={"fit": fit_option_label} if fit_option_label else {},
             qty=qty,
             unit_price=price,
@@ -1493,13 +1626,27 @@ def create_checkout_proposal_link(
         "items": [
             {
                 "title": str(item.product_title or "").strip(),
+                "color_label": str(item.color_label or "").strip(),
+                "fit_code": str(item.fit_code or "").strip(),
+                "fit_label": str(item.fit_label or "").strip(),
                 "size": str(item.size or "").strip(),
                 "quantity": int(item.quantity),
+                "option_values": dict(item.option_values or {}),
+                "option_labels": dict(item.option_labels or {}),
+                "unit_price": str(getattr(item, "quoted_unit_price", getattr(item, "unit_price", ""))),
+                "line_total": str(getattr(item, "quoted_line_total", getattr(item, "line_total", ""))),
             }
             for item in proposal.items.all()
         ],
         "quoted_total": str(proposal.quoted_total),
     }
+    for key, attribute in (
+        ("catalog_total", "catalog_total"),
+        ("discount", "negotiated_discount"),
+        ("payment_amount", "requested_payment_amount"),
+    ):
+        if hasattr(proposal, attribute):
+            order_summary[key] = str(getattr(proposal, attribute))
     return {
         "ok": True,
         # Keep the compatibility key for the existing bot delivery boundary;

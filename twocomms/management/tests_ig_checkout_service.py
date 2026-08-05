@@ -81,6 +81,168 @@ class InstagramCheckoutConfigurationTests(TestCase):
             )
         self.assertEqual(ctx.exception.missing_fields, {"size", "fit", "color"})
 
+    def test_generic_option_axis_is_required_before_pricing(self):
+        from fable5.models import GarmentFlow, GarmentFlowCategory
+        from management.services.ig_checkout import (
+            CheckoutConfigurationError,
+            validate_checkout_items,
+        )
+
+        flow = GarmentFlow.objects.create(
+            code="ig-checkout-material-axis",
+            name="Material axis",
+            axes=[{
+                "code": "material",
+                "label": "Матеріал",
+                "options": [
+                    {"code": "cotton", "label": "Бавовна", "default": True},
+                    {"code": "thermo", "label": "Термохром"},
+                ],
+            }],
+        )
+        GarmentFlowCategory.objects.create(flow=flow, category=self.category)
+
+        with self.assertRaises(CheckoutConfigurationError) as ctx:
+            validate_checkout_items(
+                client=self.client,
+                item_specs=[self._valid_item()],
+                evidence={},
+            )
+
+        self.assertEqual(ctx.exception.code, "missing_configuration")
+        self.assertIn("option:material", ctx.exception.missing_fields)
+
+    def test_selected_generic_option_reaches_authoritative_unit_price(self):
+        from fable5.models import GarmentFlow, GarmentFlowCategory, ProductOptionProfile
+        from management.services.ig_checkout import validate_checkout_items
+
+        flow = GarmentFlow.objects.create(
+            code="ig-checkout-material-price",
+            name="Material price axis",
+            axes=[{
+                "code": "material",
+                "label": "Матеріал",
+                "options": [
+                    {"code": "cotton", "label": "Бавовна", "default": True},
+                    {"code": "thermo", "label": "Термохром"},
+                ],
+            }],
+        )
+        GarmentFlowCategory.objects.create(flow=flow, category=self.category)
+        ProductOptionProfile.objects.create(
+            product=self.shirt,
+            option_key="material=thermo",
+            option_values={"material": "thermo"},
+            price_delta=360,
+        )
+
+        quote = validate_checkout_items(
+            client=self.client,
+            item_specs=[self._valid_item(option_values={"material": "thermo"})],
+            evidence={},
+        )
+
+        self.assertEqual(quote.items[0].option_values["material"], "thermo")
+        self.assertEqual(quote.items[0].option_labels["material"], "Термохром")
+        self.assertEqual(quote.items[0].catalog_unit_price, Decimal("1310.00"))
+
+    @patch("fable5.services.product_option_context", side_effect=RuntimeError("catalog unavailable"))
+    def test_option_context_failure_never_prices_base_configuration(self, _context):
+        from management.services.ig_checkout import (
+            CheckoutConfigurationError,
+            validate_checkout_items,
+        )
+
+        with self.assertRaises(CheckoutConfigurationError) as ctx:
+            validate_checkout_items(
+                client=self.client,
+                item_specs=[self._valid_item()],
+                evidence={},
+            )
+
+        self.assertEqual(ctx.exception.code, "configuration_unavailable")
+
+    def test_generic_option_surcharge_applies_without_a_color_variant(self):
+        from fable5.models import GarmentFlow, GarmentFlowCategory, ProductOptionProfile
+        from management.services.ig_checkout import validate_checkout_items
+
+        plain = Product.objects.create(
+            title="Базова річ без кольорових variants",
+            slug="ig-checkout-no-color-variant",
+            category=self.category,
+            price=1090,
+            status=ProductStatus.PUBLISHED,
+        )
+        flow = GarmentFlow.objects.create(
+            code="ig-checkout-no-variant-material",
+            name="No variant material",
+            axes=[{
+                "code": "material",
+                "label": "Матеріал",
+                "options": [
+                    {"code": "cotton", "label": "Бавовна", "default": True},
+                    {"code": "thermo", "label": "Термохром"},
+                ],
+            }],
+        )
+        GarmentFlowCategory.objects.create(flow=flow, category=self.category)
+        ProductOptionProfile.objects.create(
+            product=plain,
+            option_key="material=thermo",
+            option_values={"material": "thermo"},
+            price_delta=360,
+        )
+
+        quote = validate_checkout_items(
+            client=self.client,
+            item_specs=[{
+                "product_id": plain.pk,
+                "qty": 1,
+                "size": "M",
+                "option_values": {"material": "thermo"},
+            }],
+            evidence={},
+        )
+
+        self.assertIsNone(quote.items[0].color_variant)
+        self.assertEqual(quote.items[0].catalog_unit_price, Decimal("1450.00"))
+
+    def test_unknown_generic_option_cannot_fall_back_to_base_price_without_variant(self):
+        from fable5.models import GarmentFlow, GarmentFlowCategory
+        from management.services.ig_checkout import CheckoutConfigurationError, validate_checkout_items
+
+        plain = Product.objects.create(
+            title="Річ без variant з контрольованими опціями",
+            slug="ig-checkout-unknown-option",
+            category=self.category,
+            price=1090,
+            status=ProductStatus.PUBLISHED,
+        )
+        flow = GarmentFlow.objects.create(
+            code="ig-checkout-unknown-option-flow",
+            name="Unknown option flow",
+            axes=[{
+                "code": "material",
+                "label": "Матеріал",
+                "options": [{"code": "cotton", "label": "Бавовна", "default": True}],
+            }],
+        )
+        GarmentFlowCategory.objects.create(flow=flow, category=self.category)
+
+        with self.assertRaises(CheckoutConfigurationError) as ctx:
+            validate_checkout_items(
+                client=self.client,
+                item_specs=[{
+                    "product_id": plain.pk,
+                    "qty": 1,
+                    "size": "M",
+                    "option_values": {"material": "thermo"},
+                }],
+                evidence={},
+            )
+
+        self.assertEqual(ctx.exception.code, "invalid_options")
+
     def test_single_sellable_color_variant_is_selected_without_prompt(self):
         """Один продаваний варіант обирається без питання клієнту.
 
@@ -620,3 +782,115 @@ class InstagramCheckoutLinkBoundaryTests(TestCase):
         self.assertEqual(proposal.items.count(), 1)
         self.client.refresh_from_db()
         self.assertEqual(self.client.stage, IgClient.Stage.CHECKOUT)
+
+    @patch("storefront.views.monobank._monobank_api_request")
+    def test_bot_deal_path_blocks_missing_generic_option(self, provider):
+        from fable5.models import GarmentFlow, GarmentFlowCategory
+        from management.services import bot_orders
+
+        flow = GarmentFlow.objects.create(
+            code="ig-offer-required-material",
+            name="Required material",
+            axes=[{
+                "code": "material",
+                "label": "Матеріал",
+                "options": [
+                    {"code": "cotton", "label": "Бавовна", "default": True},
+                    {"code": "thermo", "label": "Термохром"},
+                ],
+            }],
+        )
+        GarmentFlowCategory.objects.create(flow=flow, category=self.product.category)
+
+        result = bot_orders.create_deal_and_link(
+            self.client,
+            pay_type="full",
+            product_id=self.product.pk,
+            size="M",
+        )
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"], "missing_configuration")
+        self.assertEqual(result["missing_fields"], ["option:material"])
+        provider.assert_not_called()
+
+    @patch("storefront.views.monobank._monobank_api_request")
+    def test_bot_deal_path_preserves_generic_option_and_price(self, provider):
+        from fable5.models import GarmentFlow, GarmentFlowCategory, ProductOptionProfile
+        from management.services import bot_orders
+
+        flow = GarmentFlow.objects.create(
+            code="ig-offer-priced-material",
+            name="Priced material",
+            axes=[{
+                "code": "material",
+                "label": "Матеріал",
+                "options": [
+                    {"code": "cotton", "label": "Бавовна", "default": True},
+                    {"code": "thermo", "label": "Термохром"},
+                ],
+            }],
+        )
+        GarmentFlowCategory.objects.create(flow=flow, category=self.product.category)
+        ProductOptionProfile.objects.create(
+            product=self.product,
+            option_key="material=thermo",
+            option_values={"material": "thermo"},
+            price_delta=360,
+        )
+        self.client.sales_context = {
+            "assisted_checkout_selection": {
+                "product_id": self.product.pk,
+                "option_values": {"material": "thermo"},
+            }
+        }
+        self.client.save(update_fields=["sales_context", "updated_at"])
+
+        result = bot_orders.create_deal_and_link(
+            self.client,
+            pay_type="full",
+            product_id=self.product.pk,
+            size="M",
+        )
+
+        self.assertTrue(result["ok"], result)
+        proposal = IgCheckoutProposal.objects.get(client=self.client)
+        item = proposal.items.get()
+        self.assertEqual(item.option_values, {"material": "thermo"})
+        self.assertEqual(item.catalog_unit_price, Decimal("1310.00"))
+        provider.assert_not_called()
+
+    @patch("storefront.views.monobank._monobank_api_request")
+    def test_bot_deal_path_prices_a_single_paid_option_instead_of_dropping_the_delta(self, provider):
+        from fable5.models import GarmentFlow, GarmentFlowCategory, ProductOptionProfile
+        from management.services import bot_orders
+
+        flow = GarmentFlow.objects.create(
+            code="ig-offer-single-paid-material",
+            name="Single paid material",
+            axes=[{
+                "code": "material",
+                "label": "Матеріал",
+                "options": [{"code": "thermo", "label": "Термохром"}],
+            }],
+        )
+        GarmentFlowCategory.objects.create(flow=flow, category=self.product.category)
+        ProductOptionProfile.objects.create(
+            product=self.product,
+            option_key="material=thermo",
+            option_values={"material": "thermo"},
+            price_delta=360,
+        )
+
+        result = bot_orders.create_deal_and_link(
+            self.client,
+            pay_type="full",
+            product_id=self.product.pk,
+            size="M",
+        )
+
+        self.assertTrue(result["ok"], result)
+        item = IgCheckoutProposal.objects.get(client=self.client).items.get()
+        self.assertEqual(item.option_values, {"material": "thermo"})
+        self.assertEqual(item.catalog_unit_price, Decimal("1310.00"))
+        provider.assert_not_called()

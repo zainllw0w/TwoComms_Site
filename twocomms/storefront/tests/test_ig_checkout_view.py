@@ -76,6 +76,8 @@ class InstagramCheckoutViewTests(TestCase):
             size="M",
             fit_code="classic",
             fit_label="Класичний",
+            option_values={"material": "thermo"},
+            option_labels={"material": "Термохромний матеріал"},
             quantity=1,
             catalog_unit_price=Decimal("950.00"),
             catalog_line_total=Decimal("950.00"),
@@ -107,6 +109,11 @@ class InstagramCheckoutViewTests(TestCase):
             reverse("ig_checkout_token_entry", kwargs={"token": raw})
         )
         return self.client.get(response["Location"])
+
+    def test_hosted_summary_renders_generic_option_fact(self):
+        response = self._open()
+
+        self.assertContains(response, "Термохромний матеріал")
 
     def _attempt(self, *, status=PaymentAttempt.Status.PROCESSING):
         return PaymentAttempt.objects.create(

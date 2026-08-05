@@ -188,6 +188,8 @@ def create_payment_link(deal, *, force: bool = False) -> dict:
                 "qty": item.qty,
                 "size": item.size or "",
                 "fit_option_code": item.fit_option_code or "",
+                "option_values": dict(item.option_values or {}),
+                "option_labels": dict(item.option_labels or {}),
             }
             for item in deal.items.select_related("product", "color_variant").order_by("id")
         ]
@@ -212,7 +214,12 @@ def create_payment_link(deal, *, force: bool = False) -> dict:
         )
         if result.get("ok"):
             return result
-        return {"ok": False, "error": result.get("error", "proposal_error")}
+        return {
+            "ok": False,
+            "error": result.get("error", "proposal_error"),
+            "missing_fields": result.get("missing_fields") or [],
+            "item_index": result.get("item_index"),
+        }
     if deal.invoice_id and deal.invoice_url and not force:
         # IMP-050: раньше переиспользовалась любая существующая ссылка, включая
         # мёртвую. Клиент получал «посилання ще активне» и упирался в 404,

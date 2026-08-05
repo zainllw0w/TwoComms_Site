@@ -137,6 +137,7 @@
                 <dl class="ig-facts">
                   {% if item.color_label %}<div data-product-fact><dt>{{ copy.color_label }}</dt><dd><span class="ig-swatch" style="--swatch: {{ item.color_code|default:'#171717' }}" aria-hidden="true"></span>{{ item.color_label }}</dd></div>{% endif %}
                   {% if item.fit_label %}<div data-product-fact><dt>{{ copy.fit_label }}</dt><dd>{{ item.fit_label }}</dd></div>{% endif %}
+                  {% for option in item.option_facts %}<div data-product-fact><dt>{{ option.code }}</dt><dd>{{ option.label }}</dd></div>{% endfor %}
                   {% if item.size %}<div data-product-fact><dt>{{ copy.size_label }}</dt><dd>{{ item.size }}</dd></div>{% endif %}
                   <div data-product-fact><dt>{{ copy.quantity_label }}</dt><dd>{{ item.quantity }}</dd></div>
                 </dl>

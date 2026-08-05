@@ -321,6 +321,73 @@ def validate_checkout_items(
             else:
                 item_missing.add("color")
 
+        # Fable5 option axes are commercial facts, not display defaults.  The
+        # public context intentionally chooses a first enabled option for
+        # merchandising, but assisted checkout must reject a missing
+        # multi-choice axis instead of silently pricing that default.
+        try:
+            from fable5.services import product_option_context
+
+            option_context = product_option_context(
+                product,
+                variant=variant,
+                option_values=option_values,
+            )
+        except Exception:
+            # The option graph is part of the commercial price contract. A
+            # transient catalog failure must not become a base-price quote.
+            raise CheckoutConfigurationError(
+                "configuration_unavailable",
+                item_index=index,
+            )
+        known_option_axes = {
+            str(axis.get("code") or "").strip().lower(): axis
+            for axis in option_context.get("axes") or []
+            if str(axis.get("code") or "").strip()
+        }
+        for key, value in option_values.items():
+            axis = known_option_axes.get(key)
+            if axis is None:
+                raise CheckoutConfigurationError("invalid_options", item_index=index)
+            choice = next(
+                (
+                    choice for choice in axis.get("choices") or []
+                    if choice.get("is_enabled")
+                    and str(choice.get("code") or "").strip().lower() == value
+                ),
+                None,
+            )
+            if choice is None:
+                raise CheckoutConfigurationError("invalid_options", item_index=index)
+            option_labels.setdefault(
+                key,
+                str(choice.get("label") or choice.get("code") or value),
+            )
+        for axis_code, axis in known_option_axes.items():
+            if axis_code == "fit":
+                continue
+            enabled_choices = [
+                choice for choice in axis.get("choices") or []
+                if choice.get("is_enabled")
+            ]
+            if not enabled_choices:
+                item_missing.add(f"option:{axis_code}")
+            elif len(enabled_choices) == 1 and axis_code not in option_values:
+                only_choice = enabled_choices[0]
+                option_values[axis_code] = str(
+                    only_choice.get("code") or ""
+                ).strip().lower()
+                option_labels.setdefault(
+                    axis_code,
+                    str(only_choice.get("label") or option_values[axis_code]),
+                )
+            elif (
+                axis_code not in option_values
+                and not axis.get("fixed_choice")
+                and len(enabled_choices) > 1
+            ):
+                item_missing.add(f"option:{axis_code}")
+
         option_key = f"fit={fit_code}" if fit_code else ""
         has_effective_grid = bool(
             option_key

@@ -145,17 +145,23 @@ class OfferCopyTests(SimpleTestCase):
             "items": [
                 {
                     "title": "Reality Bends",
+                    "color_label": "Термохром",
+                    "fit_label": "Оверсайз",
                     "size": "M",
                     "quantity": 2,
+                    "option_values": {"material": "thermo"},
+                    "option_labels": {"material": "Термохром"},
+                    "unit_price": "1450.00",
+                    "line_total": "2900.00",
                 }
             ],
-            "quoted_total": "1580.00",
+            "quoted_total": "2900.00",
         }
 
         expected = {
-            "uk": ("Замовлення", "розмір M", "2 шт.", "1580 грн", "скрин"),
-            "ru": ("Заказ", "размер M", "2 шт.", "1580 грн", "скрин"),
-            "en": ("Order", "size M", "2 pcs", "1580 UAH", "screenshot"),
+            "uk": ("Замовлення", "Термохром", "Оверсайз", "розмір M", "2 шт.", "1450 грн/шт", "2900 грн", "скрин"),
+            "ru": ("Заказ", "Термохром", "Оверсайз", "размер M", "2 шт.", "1450 грн/шт", "2900 грн", "скрин"),
+            "en": ("Order", "Термохром", "Оверсайз", "size M", "2 pcs", "1450 UAH/pc", "2900 UAH", "screenshot"),
         }
         for locale, phrases in expected.items():
             with self.subTest(locale=locale):
@@ -173,13 +179,20 @@ class CheckoutProposalSummaryTests(SimpleTestCase):
     def test_link_result_exposes_only_frozen_proposal_facts(self, create_proposal, issue):
         item = SimpleNamespace(
             product_title="Reality Bends",
+            color_label="Термохром",
+            fit_code="oversize",
+            fit_label="Оверсайз",
             size="M",
             quantity=2,
+            option_values={"fit": "oversize", "material": "thermo"},
+            option_labels={"fit": "Оверсайз", "material": "Термохром"},
+            unit_price=Decimal("1450.00"),
+            line_total=Decimal("2900.00"),
         )
         proposal = SimpleNamespace(
             pk=101,
             public_id=uuid.uuid4(),
-            quoted_total=Decimal("1580.00"),
+            quoted_total=Decimal("2900.00"),
             items=SimpleNamespace(all=lambda: [item]),
         )
         create_proposal.return_value = proposal
@@ -197,9 +210,20 @@ class CheckoutProposalSummaryTests(SimpleTestCase):
             result["order_summary"],
             {
                 "items": [
-                    {"title": "Reality Bends", "size": "M", "quantity": 2}
+                    {
+                        "title": "Reality Bends",
+                        "color_label": "Термохром",
+                        "fit_code": "oversize",
+                        "fit_label": "Оверсайз",
+                        "size": "M",
+                        "quantity": 2,
+                        "option_values": {"fit": "oversize", "material": "thermo"},
+                        "option_labels": {"fit": "Оверсайз", "material": "Термохром"},
+                        "unit_price": "1450.00",
+                        "line_total": "2900.00",
+                    }
                 ],
-                "quoted_total": "1580.00",
+                "quoted_total": "2900.00",
             },
         )
         self.assertEqual(result["proposal_pk"], 101)

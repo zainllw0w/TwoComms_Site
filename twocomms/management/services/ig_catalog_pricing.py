@@ -154,6 +154,59 @@ def _variant_configurations(product, variant) -> list[dict]:
     return rows
 
 
+def _product_configurations_without_variants(product) -> list[dict]:
+    """Build option pricing rows for products that have no colour variants."""
+    from itertools import product as option_product
+
+    from fable5.content_resolution import build_combination_key
+    from fable5.services import effective_cart_unit_price, product_option_context
+
+    option_context = product_option_context(product, variant=None)
+    axes = option_context.get("axes") or []
+    enabled_groups = [
+        [choice for choice in (axis.get("choices") or []) if choice.get("is_enabled")]
+        for axis in axes
+    ]
+    combinations = 1
+    for group in enabled_groups:
+        combinations *= len(group)
+    if enabled_groups and (not all(enabled_groups) or combinations > MAX_OPTION_COMBINATIONS):
+        logger.warning(
+            "IG catalog option matrix unavailable for product=%s combinations=%s",
+            getattr(product, "pk", None), combinations,
+        )
+        return []
+
+    choices_iter = option_product(*enabled_groups) if enabled_groups else [()]
+    rows = []
+    for choices in choices_iter:
+        values = {
+            axis["code"]: choice["code"]
+            for axis, choice in zip(axes, choices)
+        }
+        price = _money(effective_cart_unit_price(product, None, option_values=values))
+        if price <= 0:
+            continue
+        rows.append({
+            "variant_id": None,
+            "color_id": None,
+            "color_slug": "",
+            "color": "",
+            "option_values": values,
+            "option_labels": {
+                axis["code"]: str(choice.get("label") or choice.get("code") or "")
+                for axis, choice in zip(axes, choices)
+            },
+            "option_key": build_combination_key(values),
+            "fit_code": str(values.get("fit") or ""),
+            "price": price,
+            "price_text": money_text(price),
+            "price_reason": "",
+            "is_thermo": False,
+        })
+    return rows
+
+
 def resolve_product_pricing(
     product,
     *,
@@ -185,21 +238,15 @@ def resolve_product_pricing(
         ]
 
     if not configurations and not variant_rows:
-        price = _money(getattr(product, "final_price", getattr(product, "price", 0)))
-        configurations = [{
-            "variant_id": None,
-            "color_id": None,
-            "color_slug": "",
-            "color": "",
-            "option_values": selected_options,
-            "option_labels": {},
-            "option_key": "",
-            "fit_code": str(selected_options.get("fit") or ""),
-            "price": price,
-            "price_text": money_text(price),
-            "price_reason": "",
-            "is_thermo": False,
-        }] if price > 0 else []
+        configurations = _product_configurations_without_variants(product)
+        if selected_options:
+            configurations = [
+                row for row in configurations
+                if all(
+                    row["option_values"].get(key) == value
+                    for key, value in selected_options.items()
+                )
+            ]
 
     prices = sorted({row["price"] for row in configurations})
     minimum = prices[0] if prices else None

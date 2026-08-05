@@ -199,7 +199,7 @@ def _disabled_sizes(variant, fit_code: str) -> list[str]:
         return []
 
 
-def _color_rows(product, *, fit_code: str, size: str):
+def _color_rows(product, *, fit_code: str, size: str, option_values=None):
     """Кольори, які реально можна купити за правилами вітрини.
 
     Свідомо **не** фільтруємо за числовим `ProductColorVariant.stock`: на проді
@@ -220,6 +220,9 @@ def _color_rows(product, *, fit_code: str, size: str):
     except Exception:
         return []
     result = []
+    options = dict(option_values or {})
+    if fit_code:
+        options["fit"] = fit_code
     for row in rows:
         name = str(getattr(getattr(row, "color", None), "name", "") or "").strip()
         try:
@@ -228,17 +231,19 @@ def _color_rows(product, *, fit_code: str, size: str):
                 row,
                 fit_code=fit_code,
                 size=size,
-                option_values={"fit": fit_code} if fit_code else {},
+                option_values=options,
             )
         except Exception:
-            allowed = True
+            # A failed option-rule lookup is not evidence that the variant is
+            # sellable. Let the caller block checkout instead of guessing.
+            raise
         if not allowed:
             continue
         pricing = resolve_product_pricing(
             product,
             variants=[row],
             selected_variant_id=row.pk,
-            option_values={"fit": fit_code} if fit_code else {},
+            option_values=options,
         )
         result.append({
             "variant_id": row.pk,
@@ -290,6 +295,7 @@ def checkout_readiness(
         "fit": {"required": False, "selected": "", "options": []},
         "size": {"required": False, "selected": "", "available": [], "disabled": [], "requested_unavailable": ""},
         "color": {"required": False, "selected": "", "selected_variant_id": None, "options": []},
+        "options": {"required": False, "selected": {}, "missing": [], "axes": []},
         "quantity": 1,
         "missing": [],
         "can_issue_link": False,
@@ -394,7 +400,25 @@ def checkout_readiness(
     if result["size"]["required"] and not size_selected:
         result["missing"].append("size")
 
-    colors = _color_rows(product, fit_code=fit_selected, size=size_selected)
+    selected_option_values = selection.get("option_values")
+    selected_option_values = (
+        {str(key).strip().lower(): str(value).strip().lower() for key, value in selected_option_values.items()
+         if str(key).strip() and str(value).strip()}
+        if isinstance(selected_option_values, dict) else {}
+    )
+    if fit_selected:
+        selected_option_values["fit"] = fit_selected
+    option_context_error = False
+    try:
+        colors = _color_rows(
+            product,
+            fit_code=fit_selected,
+            size=size_selected,
+            option_values=selected_option_values,
+        )
+    except Exception:
+        colors = []
+        option_context_error = True
     selected_variant_id = _int_or_none(selection.get("color_variant_id"))
     selected_color_name = ""
     if selected_variant_id:
@@ -407,12 +431,91 @@ def checkout_readiness(
         selected_variant_id = colors[0]["variant_id"]
         selected_color_name = colors[0]["name"]
     from management.services.ig_catalog_pricing import resolve_product_pricing
+    try:
+        from fable5.services import product_option_context
+        from productcolors.models import ProductColorVariant
 
-    selected_pricing = resolve_product_pricing(
-        product,
-        variants=[preselected_variant] if preselected_variant is not None else None,
-        selected_variant_id=selected_variant_id,
-        option_values={"fit": fit_selected} if fit_selected else {},
+        option_variant = preselected_variant
+        if option_variant is None and selected_variant_id:
+            option_variant = (
+                ProductColorVariant.objects.filter(
+                    pk=selected_variant_id, product=product
+                ).select_related("color").first()
+            )
+        option_context = product_option_context(
+            product,
+            variant=option_variant,
+            option_values=selected_option_values,
+        )
+    except Exception:
+        option_context = None
+    option_axes = []
+    option_missing = []
+    option_selected = dict(selected_option_values)
+    if option_context is None:
+        option_context_error = True
+        option_context = {"axes": []}
+    known_option_axes = {
+        str(axis.get("code") or "").strip().lower()
+        for axis in option_context.get("axes") or []
+        if str(axis.get("code") or "").strip()
+    }
+    for key in list(option_selected):
+        if key != "fit" and key not in known_option_axes:
+            option_missing.append(key)
+    for axis in option_context.get("axes") or []:
+        axis_code = str(axis.get("code") or "").strip().lower()
+        if not axis_code or axis_code == "fit":
+            continue
+        choices = [
+            {
+                "code": str(choice.get("code") or "").strip().lower(),
+                "label": str(choice.get("label") or choice.get("code") or ""),
+                "is_enabled": bool(choice.get("is_enabled")),
+                "is_default": bool(choice.get("is_default")),
+                "price_delta": choice.get("option_price_delta", choice.get("price_delta", 0)),
+            }
+            for choice in axis.get("choices") or []
+            if str(choice.get("code") or "").strip()
+        ]
+        enabled = [choice for choice in choices if choice["is_enabled"]]
+        selected = option_selected.get(axis_code, "")
+        if selected not in {choice["code"] for choice in enabled}:
+            selected = ""
+        fixed = axis.get("fixed_choice")
+        if not selected and fixed:
+            selected = str(fixed.get("code") or "").strip().lower()
+        if not selected and len(enabled) == 1:
+            selected = enabled[0]["code"]
+        if selected:
+            option_selected[axis_code] = selected
+        elif not enabled or len(enabled) > 1:
+            option_missing.append(axis_code)
+        option_axes.append({
+            "code": axis_code,
+            "label": str(axis.get("label") or axis_code),
+            "selected": selected,
+            "choices": choices,
+            "is_fixed": bool(fixed) or len(enabled) == 1,
+        })
+    result["options"] = {
+        "required": bool(option_axes),
+        "selected": option_selected,
+        "missing": option_missing,
+        "axes": option_axes,
+    }
+    if option_context_error:
+        result["options"]["error"] = "unavailable"
+
+    selected_pricing = (
+        {"display": "", "exact": False}
+        if option_context_error
+        else resolve_product_pricing(
+            product,
+            variants=[preselected_variant] if preselected_variant is not None else None,
+            selected_variant_id=selected_variant_id,
+            option_values=option_selected,
+        )
     )
     if selected_pricing["display"]:
         result["product"]["price"] = (
@@ -430,6 +533,9 @@ def checkout_readiness(
     if len(colors) > 1 and not selected_variant_id:
         result["missing"].append("color")
 
+    if option_context_error:
+        result["missing"].append("options_unavailable")
+    result["missing"].extend(f"option:{code}" for code in option_missing)
     result["can_issue_link"] = not result["missing"]
     # A previous size gap is a durable fact, not a timer.  When the same
     # readiness check later sees that size available again, materialize the
@@ -520,6 +626,22 @@ def readiness_prompt_note(client, *, readiness: dict | None = None) -> str:
             lines.append(f"фасон: {fit['selected']} (обрано)")
         else:
             lines.append(f"фасон: не обрано; доступні: {options}")
+
+    option_state = state.get("options") or {}
+    for axis in option_state.get("axes") or []:
+        choices = ", ".join(
+            f"{choice['code']} ({choice['label']})"
+            + (f" +{choice['price_delta']} грн" if choice.get("price_delta") else "")
+            for choice in axis.get("choices") or []
+            if choice.get("is_enabled")
+        )
+        selected = axis.get("selected") or ""
+        if selected:
+            lines.append(f"опція {axis.get('label') or axis.get('code')}: {selected} (обрано)")
+        elif choices:
+            lines.append(
+                f"опція {axis.get('label') or axis.get('code')}: не обрано; доступні: {choices}"
+            )
 
     size = state.get("size") or {}
     if size.get("required"):

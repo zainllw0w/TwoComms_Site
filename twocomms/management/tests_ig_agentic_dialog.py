@@ -25,6 +25,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from management.models import IgClient, InstagramBotMessage
+from fable5.models import GarmentFlow, GarmentFlowCategory
 from productcolors.models import Color, ProductColorVariant
 from storefront.models import Category, Product, ProductFitOption, ProductStatus
 
@@ -133,6 +134,85 @@ class CheckoutReadinessNoteTests(TestCase):
         self.client_row = _client("readiness-note")
         self.client_row.current_product = self.product
         self.client_row.save(update_fields=["current_product", "updated_at"])
+
+    def test_generic_option_axis_is_explicitly_missing_until_selected(self):
+        from management.services.ig_checkout_readiness import checkout_readiness
+
+        flow = GarmentFlow.objects.create(
+            code="tshirt-material-options",
+            name="T-shirt options",
+            axes=[{
+                "code": "material",
+                "label": "Матеріал",
+                "options": [
+                    {"code": "cotton", "label": "Бавовна", "default": True},
+                    {"code": "thermo", "label": "Термохром", "price_delta": 360},
+                ],
+            }],
+        )
+        GarmentFlowCategory.objects.create(flow=flow, category=self.category)
+        self.client_row.sales_context = {
+            "assisted_checkout_selection": {
+                "product_id": self.product.pk,
+                "fit_option_code": "classic",
+            }
+        }
+        self.client_row.save(update_fields=["sales_context", "updated_at"])
+
+        state = checkout_readiness(self.client_row)
+
+        self.assertEqual(state["options"]["missing"], ["material"])
+        self.assertFalse(state["can_issue_link"])
+        self.assertEqual(
+            [choice["code"] for choice in state["options"]["axes"][0]["choices"]],
+            ["cotton", "thermo"],
+        )
+
+    def test_generic_option_axis_with_no_sellable_choices_blocks_checkout(self):
+        from management.services.ig_checkout_readiness import checkout_readiness
+
+        flow = GarmentFlow.objects.create(
+            code="tshirt-material-disabled",
+            name="Disabled material",
+            axes=[{
+                "code": "material",
+                "label": "Матеріал",
+                "options": [],
+            }],
+        )
+        GarmentFlowCategory.objects.create(flow=flow, category=self.category)
+        self.client_row.current_size = "M"
+        self.client_row.sales_context = {
+            "assisted_checkout_selection": {
+                "product_id": self.product.pk,
+                "fit_option_code": "classic",
+            }
+        }
+        self.client_row.save(update_fields=["current_size", "sales_context", "updated_at"])
+
+        state = checkout_readiness(self.client_row)
+
+        self.assertIn("material", state["options"]["missing"])
+        self.assertIn("option:material", state["missing"])
+        self.assertFalse(state["can_issue_link"])
+
+    @patch("fable5.services.product_option_context", side_effect=RuntimeError("catalog unavailable"))
+    def test_option_context_failure_blocks_checkout_instead_of_using_base_price(self, _context):
+        from management.services.ig_checkout_readiness import checkout_readiness
+
+        self.client_row.current_size = "M"
+        self.client_row.sales_context = {
+            "assisted_checkout_selection": {
+                "product_id": self.product.pk,
+                "fit_option_code": "classic",
+            }
+        }
+        self.client_row.save(update_fields=["current_size", "sales_context", "updated_at"])
+
+        state = checkout_readiness(self.client_row)
+
+        self.assertIn("options_unavailable", state["missing"])
+        self.assertFalse(state["can_issue_link"])
 
     def test_missing_fit_is_stated_with_available_options(self):
         from management.services.ig_checkout_readiness import readiness_prompt_note
@@ -369,6 +449,21 @@ class SelectionMemoryTests(TestCase):
         self.client_row.refresh_from_db()
         self.assertEqual(self.client_row.current_size, "M")
         self.assertEqual(self.client_row.current_qty, 2)
+
+    def test_arbitrary_option_tag_is_persisted_with_selection(self):
+        from management.services import instagram_bot as bot
+
+        changed = bot.persist_control_selection(
+            self.client_row,
+            {"options": ["material=thermo"]},
+        )
+
+        self.client_row.refresh_from_db()
+        self.assertIn("option:material", changed)
+        self.assertEqual(
+            self.client_row.sales_context["assisted_checkout_selection"]["option_values"],
+            {"material": "thermo"},
+        )
 
     def test_conflicting_tags_are_not_persisted(self):
         from management.services import instagram_bot as bot

@@ -117,6 +117,230 @@ class ResolveProductTests(TestCase):
         self.assertTrue(self.c.sales_context["keep_me"])
 
 
+class CommercialControlProtocolTests(SimpleTestCase):
+    def test_item_and_option_controls_preserve_arbitrary_configuration(self):
+        clean, control = bot._extract_control(
+            "Формую пропозицію [ITEM:12|2|M|classic|81|lining=fleece;material=thermo] "
+            "[OPTION:lining=fleece]"
+        )
+
+        self.assertEqual(clean, "Формую пропозицію")
+        self.assertEqual(
+            bot._control_item_specs(control),
+            [{
+                "product_id": 12,
+                "qty": 2,
+                "size": "M",
+                "fit_option_code": "classic",
+                "color_variant_id": 81,
+                "option_values": {"lining": "fleece", "material": "thermo"},
+            }],
+        )
+        self.assertEqual(
+            bot._control_option_values(control),
+            {"lining": "fleece"},
+        )
+
+
+
+class AuthoritativePriceClaimTests(TestCase):
+    def setUp(self):
+        from productcolors.models import Color, ProductColorVariant
+
+        self.product = _pub_product("Термохромна футболка", "authoritative-price-claim", price=1090)
+        self.variant = ProductColorVariant.objects.create(
+            product=self.product,
+            color=Color.objects.create(name="Термохром", primary_hex="#222222"),
+            price_override=1450,
+        )
+        self.client_row = IgClient.get_or_create_for_sender("authoritative-price-claim")
+        self.client_row.current_product = self.product
+        self.client_row.sales_context = {
+            "assisted_checkout_selection": {
+                "product_id": self.product.pk,
+                "color_variant_id": self.variant.pk,
+            }
+        }
+        self.client_row.save(update_fields=["current_product", "sales_context", "updated_at"])
+
+    def test_unmarked_exact_price_claim_is_bound_to_authoritative_configuration(self):
+        text, control, quote = bot._extract_authoritative_price_claim(
+            self.client_row,
+            "Точна ціна 1450 грн",
+            {},
+        )
+
+        self.assertEqual(text, "Точна ціна 1450 грн")
+        self.assertEqual(control["price_quoted"], "1450")
+        self.assertEqual(quote["color_variant_id"], self.variant.pk)
+
+    def test_wrong_unmarked_exact_price_claim_fails_closed(self):
+        text, control, quote = bot._extract_authoritative_price_claim(
+            self.client_row,
+            "Точна ціна 1090 грн",
+            {},
+        )
+
+        self.assertIsNone(text)
+        self.assertIsNone(quote)
+        self.assertTrue(control.get("_price_claim_invalid"))
+
+    def test_item_configuration_is_authoritative_before_selection_is_persisted(self):
+        from fable5.models import GarmentFlow, GarmentFlowCategory
+
+        flow = GarmentFlow.objects.create(
+            code="authoritative-price-material",
+            name="Authoritative material",
+            axes=[{
+                "code": "material",
+                "label": "Матеріал",
+                "options": [
+                    {"code": "cotton", "label": "Бавовна", "default": True},
+                    {"code": "thermo", "label": "Термохром"},
+                ],
+            }],
+        )
+        GarmentFlowCategory.objects.create(flow=flow, category=self.product.category)
+        _text, control = bot._extract_control(
+            "Точна ціна 1450 грн "
+            f"[ITEM:{self.product.pk}|1|M||{self.variant.pk}|material=thermo]"
+        )
+
+        text, control, quote = bot._extract_authoritative_price_claim(
+            self.client_row,
+            _text,
+            control,
+        )
+
+        self.assertEqual(text, "Точна ціна 1450 грн")
+        self.assertEqual(quote["product_id"], self.product.pk)
+        self.assertEqual(quote["color_variant_id"], self.variant.pk)
+        self.assertEqual(quote["option_values"]["material"], "thermo")
+
+    def test_text_amount_must_match_explicit_price_marker(self):
+        _text, control = bot._extract_control(
+            "Точна ціна 1090 грн [PRICE_QUOTED:1450]"
+        )
+
+        text, control, quote = bot._extract_authoritative_price_claim(
+            self.client_row,
+            _text,
+            control,
+        )
+
+        self.assertIsNone(text)
+        self.assertIsNone(quote)
+        self.assertTrue(control.get("_price_claim_invalid"))
+
+    def test_prepayment_amount_is_not_treated_as_merchandise_price(self):
+        text, control, quote = bot._extract_authoritative_price_claim(
+            self.client_row,
+            "Передоплата 200 грн",
+            {"paylink": "prepay", "payment": "200"},
+        )
+
+        self.assertEqual(text, "Передоплата 200 грн")
+        self.assertIsNone(quote)
+        self.assertNotIn("price_quoted", control)
+
+    def test_merchandise_and_prepayment_amounts_bind_only_merchandise_price(self):
+        text, control, quote = bot._extract_authoritative_price_claim(
+            self.client_row,
+            "Передоплата 200 грн, повна ціна 1450 грн",
+            {"paylink": "prepay", "payment": "200"},
+        )
+
+        self.assertEqual(text, "Передоплата 200 грн, повна ціна 1450 грн")
+        self.assertEqual(control["price_quoted"], "1450")
+        self.assertEqual(quote["amount"], "1450.00")
+
+    def test_price_range_is_not_bound_as_an_exact_quote(self):
+        text, control, quote = bot._extract_authoritative_price_claim(
+            self.client_row,
+            "Ціна від 1090 до 1450 грн",
+            {},
+        )
+
+        self.assertEqual(text, "Ціна від 1090 до 1450 грн")
+        self.assertIsNone(quote)
+        self.assertNotIn("price_quoted", control)
+
+    def test_item_variant_and_options_bind_price_claim(self):
+        from fable5.models import GarmentFlow, GarmentFlowCategory, ProductOptionProfile
+        from productcolors.models import Color, ProductColorVariant
+
+        product = _pub_product(
+            "Термохромна конфігурація з опцією",
+            "authoritative-item-configuration",
+            price=1090,
+        )
+        flow = GarmentFlow.objects.create(
+            code="authoritative-item-material",
+            name="Material",
+            axes=[{
+                "code": "material",
+                "label": "Матеріал",
+                "options": [
+                    {"code": "cotton", "label": "Бавовна", "default": True},
+                    {"code": "thermo", "label": "Термохром"},
+                ],
+            }],
+        )
+        GarmentFlowCategory.objects.create(flow=flow, category=product.category)
+        ProductOptionProfile.objects.create(
+            product=product,
+            option_key="material=thermo",
+            option_values={"material": "thermo"},
+            price_delta=360,
+        )
+        variant = ProductColorVariant.objects.create(
+            product=product,
+            color=Color.objects.create(name="Термохромний колір", primary_hex="#333333"),
+        )
+        self.client_row.current_product = product
+        self.client_row.sales_context = {
+            "assisted_checkout_selection": {"product_id": product.pk}
+        }
+        self.client_row.save(update_fields=["current_product", "sales_context", "updated_at"])
+        clean, control = bot._extract_control(
+            f"Точна ціна 1450 грн [ITEM:{product.pk}|1|M||{variant.pk}|material=thermo]"
+        )
+
+        _text, control, quote = bot._extract_authoritative_price_claim(
+            self.client_row,
+            clean,
+            control,
+        )
+
+        self.assertEqual(quote["color_variant_id"], variant.pk)
+        self.assertEqual(quote["option_values"], {"material": "thermo"})
+
+    def test_direct_summary_exposes_configuration_unit_and_line_totals(self):
+        summary = {
+            "items": [{
+                "title": "Термохромна футболка",
+                "color_label": "Термохром",
+                "fit_label": "Оверсайз",
+                "size": "M",
+                "quantity": 1,
+                "option_values": {"material": "thermo"},
+                "option_labels": {"material": "Термохромний матеріал"},
+                "unit_price": "1450.00",
+                "line_total": "1450.00",
+            }],
+            "catalog_total": "1450.00",
+            "discount": "0.00",
+            "quoted_total": "1450.00",
+        }
+
+        details = bot._checkout_offer_details("uk", summary)
+
+        self.assertIn("Термохром", details)
+        self.assertIn("Термохромний матеріал", details)
+        self.assertIn("1450 грн/шт", details)
+        self.assertIn("сума 1450 грн", details)
+
+
 class WantsPaylinkTests(SimpleTestCase):
     def test_tag(self):
         w, pt = bot._wants_paylink("ок", {"paylink": "prepay"})
@@ -236,6 +460,40 @@ class CreateDealResolvesProductTests(TestCase):
         c = IgClient.get_or_create_for_sender("cd2")
         res = bot_orders.create_deal_and_link(c, pay_type="full", product_id=None)
         self.assertFalse(res["ok"])
+
+    @patch("management.services.bot_orders.create_payment_link")
+    def test_paylink_requires_explicit_multi_choice_commercial_option(self, mock_link):
+        from fable5.models import GarmentFlow, GarmentFlowCategory
+
+        product = _pub_product("Футболка з вибором матеріалу", "paylink-material-required", 1090)
+        flow = GarmentFlow.objects.create(
+            code="paylink-material-required",
+            name="Paylink material",
+            axes=[{
+                "code": "material",
+                "label": "Матеріал",
+                "options": [
+                    {"code": "cotton", "label": "Бавовна", "default": True},
+                    {"code": "thermo", "label": "Термохром"},
+                ],
+            }],
+        )
+        GarmentFlowCategory.objects.create(flow=flow, category=product.category)
+        client = IgClient.get_or_create_for_sender("paylink-material-required")
+        client.current_product = product
+        client.save(update_fields=["current_product", "updated_at"])
+
+        result = bot_orders.create_deal_and_link(
+            client,
+            pay_type="full",
+            product_id=product.pk,
+            size="M",
+        )
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"], "missing_configuration")
+        self.assertEqual(result["missing_fields"], ["option:material"])
+        mock_link.assert_not_called()
 
 
 # ===========================================================================

@@ -139,6 +139,15 @@ MODEL_HARD_STAGES = {
     IgClient.Stage.DONE,
 }
 _CONTROL_TAG_RE = re.compile(r"\[([A-Z][A-Z_]*)(?::([^\]]+))?\]")
+_PRICE_CLAIM_RE = re.compile(
+    r"(?<![\d])(?P<amount>\d{3,7}(?:[.,]\d{1,2})?)\s*(?:грн|₴|uah)\b",
+    re.IGNORECASE,
+)
+_PRICE_RANGE_RE = re.compile(
+    r"(?:\bвід\b.*\bдо\b|\bfrom\b.*\bto\b|\d\s*[-–/]\s*\d)",
+    re.IGNORECASE | re.DOTALL,
+)
+_OPTION_KEY_RE = re.compile(r"^[a-z][a-z0-9_-]{0,48}$", re.IGNORECASE)
 _SECRET_PARAM_RE = re.compile(
     r"((?:access_token|client_secret|api[_-]?key|password|token)=)[^&\s]+",
     re.IGNORECASE,
@@ -162,6 +171,8 @@ def _extract_control(reply: str) -> tuple[str, dict]:
         val = (m.group(2) or "").strip().lower()
         if name == "item":
             tags.setdefault("items", []).append(val)
+        elif name in {"option", "opt"}:
+            tags.setdefault("options", []).append(val)
         else:
             parsed = val or True
             if name in tags and tags[name] != parsed:
@@ -499,14 +510,14 @@ def _control_positive_int(control: dict, key: str, *, default: int = 1, maximum:
 
 
 def _control_item_specs(control: dict) -> list[dict]:
-    """Parse repeated [ITEM:id|qty|size|fit|color_variant_id] tags."""
+    """Parse repeated [ITEM:id|qty|size|fit|color_variant_id|key=value;...] tags."""
     raw_items = control.get("items") if isinstance(control, dict) else None
     if not isinstance(raw_items, (list, tuple)):
         return []
     specs = []
     for raw in raw_items:
         parts = [part.strip() for part in str(raw or "").split("|")]
-        if len(parts) not in {4, 5}:
+        if len(parts) not in {4, 5, 6}:
             return []
         try:
             product_id = int(parts[0])
@@ -523,14 +534,54 @@ def _control_item_specs(control: dict) -> list[dict]:
                 return []
             if color_variant_id <= 0:
                 return []
-        specs.append({
+        option_values = _parse_option_pairs(parts[5]) if len(parts) > 5 and parts[5] else {}
+        if option_values is None:
+            return []
+        spec = {
             "product_id": product_id,
             "qty": qty,
             "size": parts[2].upper()[:16],
             "fit_option_code": parts[3].lower()[:50],
             "color_variant_id": color_variant_id,
-        })
+        }
+        if option_values:
+            spec["option_values"] = option_values
+        specs.append(spec)
     return specs
+
+
+def _parse_option_pairs(raw) -> dict | None:
+    """Parse bounded ``key=value;key=value`` option payloads from model tags."""
+    value = str(raw or "").strip()
+    if not value:
+        return {}
+    result = {}
+    for pair in value.split(";"):
+        if "=" not in pair:
+            return None
+        key, option = (part.strip().lower() for part in pair.split("=", 1))
+        if not _OPTION_KEY_RE.fullmatch(key) or not option or len(option) > 100:
+            return None
+        if key in result:
+            return None
+        result[key] = option
+    return result if len(result) <= 12 else None
+
+
+def _control_option_values(control: dict) -> dict | None:
+    """Return arbitrary option axes announced by ``[OPTION:key=value]`` tags."""
+    if not isinstance(control, dict):
+        return {}
+    result = {}
+    for raw in control.get("options") or ():
+        parsed = _parse_option_pairs(raw)
+        if parsed is None:
+            return None
+        for key, value in parsed.items():
+            if key in result and result[key] != value:
+                return None
+            result[key] = value
+    return result
 
 
 def _should_pin_product_media(media: list[dict] | None) -> bool:
@@ -592,7 +643,21 @@ def _validated_price_quote(client, control: dict) -> dict | None:
         return None
     if amount <= 0 or amount > Decimal("1000000"):
         return None
-    product_id = _control_product_id(control) or getattr(client, "current_product_id", None)
+    item_specs = None
+    if "items" in control:
+        item_specs = _control_item_specs(control)
+        if len(item_specs) != 1:
+            return None
+    item_spec = item_specs[0] if item_specs else None
+    tagged_product_id = _control_product_id(control)
+    item_product_id = item_spec.get("product_id") if item_spec else None
+    if tagged_product_id and item_product_id and tagged_product_id != item_product_id:
+        return None
+    product_id = (
+        tagged_product_id
+        or item_product_id
+        or getattr(client, "current_product_id", None)
+    )
     if not product_id:
         return None
     from storefront.models import Product, ProductStatus
@@ -604,15 +669,35 @@ def _validated_price_quote(client, control: dict) -> dict | None:
     raw_variant_id = (
         control.get("color_variant_id")
         or control.get("variant")
+        or (item_spec or {}).get("color_variant_id")
         or selection.get("color_variant_id")
     )
     try:
         variant_id = int(raw_variant_id or 0)
     except (TypeError, ValueError):
         return None
+    tagged_fit = str(control.get("fit") or "").strip().lower()
+    item_fit = str((item_spec or {}).get("fit_option_code") or "").strip().lower()
+    if tagged_fit and item_fit and tagged_fit != item_fit:
+        return None
     fit_code = str(
-        control.get("fit") or selection.get("fit_option_code") or ""
+        tagged_fit or item_fit or selection.get("fit_option_code") or ""
     ).strip().lower()
+    control_options = _control_option_values(control)
+    if control_options is None:
+        return None
+    persisted_options = selection.get("option_values")
+    persisted_options = dict(persisted_options) if isinstance(persisted_options, dict) else {}
+    item_options = (item_spec or {}).get("option_values") or {}
+    if not isinstance(item_options, dict):
+        return None
+    for key, value in item_options.items():
+        if key in control_options and control_options[key] != value:
+            # An explicit [OPTION] tag must agree with the item snapshot.
+            return None
+    option_values = {**persisted_options, **item_options, **control_options}
+    if fit_code:
+        option_values["fit"] = fit_code
     if "price" in control:
         negotiated = _conversation_negotiated_price(client, control)
         if negotiated is not None and negotiated == amount:
@@ -621,6 +706,7 @@ def _validated_price_quote(client, control: dict) -> dict | None:
                 "product_id": int(product_id),
                 "color_variant_id": variant_id or None,
                 "fit_option_code": fit_code,
+                "option_values": option_values,
                 "price_source": "conversation_evidence",
             }
     from management.services.ig_catalog_pricing import resolve_product_pricing
@@ -628,7 +714,7 @@ def _validated_price_quote(client, control: dict) -> dict | None:
     pricing = resolve_product_pricing(
         product,
         selected_variant_id=variant_id or None,
-        option_values={"fit": fit_code} if fit_code else None,
+        option_values=option_values or None,
     )
     if not pricing.get("exact") or pricing.get("minimum") != amount:
         return None
@@ -637,8 +723,65 @@ def _validated_price_quote(client, control: dict) -> dict | None:
         "product_id": int(product_id),
         "color_variant_id": variant_id or None,
         "fit_option_code": fit_code,
+        "option_values": option_values,
         "price_source": "catalog",
     }
+
+
+def _extract_authoritative_price_claim(client, reply: str, control: dict):
+    """Bind one exact customer-facing amount to the same catalog truth as checkout.
+
+    Models sometimes omit the hidden ``[PRICE_QUOTED]`` tag while still writing a
+    concrete amount.  A single amount with a currency suffix is therefore
+    treated as an exact claim and validated server-side.  A mismatch is
+    fail-closed so a cheaper base price can never be sent for a surcharge
+    variant.  Ranges (multiple amounts) remain descriptive and are not silently
+    converted into an exact quote.
+    """
+    if not isinstance(control, dict) or not isinstance(reply, str):
+        return reply, control, None
+    matches = list(_PRICE_CLAIM_RE.finditer(reply))
+    if len(matches) == 1:
+        match = matches[0]
+        nearby = reply[max(0, match.start() - 40):match.end() + 40]
+        if _PRICE_RANGE_RE.search(nearby):
+            if "price_quoted" in control:
+                control["_price_claim_invalid"] = True
+                return None, control, None
+            return reply, control, None
+    amounts = [match.group("amount").replace(",", ".") for match in matches]
+    payment_amount = str(control.get("payment") or "").replace(",", ".")
+    if payment_amount:
+        try:
+            payment_decimal = Decimal(payment_amount).quantize(Decimal("0.01"))
+            amounts = [
+                value for value in amounts
+                if Decimal(value).quantize(Decimal("0.01")) != payment_decimal
+            ]
+        except (InvalidOperation, TypeError, ValueError):
+            pass
+    if len(amounts) != 1:
+        if "price_quoted" in control:
+            control["_price_claim_invalid"] = True
+            return None, control, None
+        return reply, control, None
+    raw = amounts[0]
+    explicit_marker = control.get("price_quoted")
+    if explicit_marker is not None:
+        try:
+            if Decimal(str(explicit_marker).replace(",", ".")).quantize(Decimal("0.01")) != Decimal(raw).quantize(Decimal("0.01")):
+                control["_price_claim_invalid"] = True
+                return None, control, None
+        except (InvalidOperation, TypeError, ValueError):
+            control["_price_claim_invalid"] = True
+            return None, control, None
+    if "price_quoted" not in control:
+        control["price_quoted"] = raw
+    quote = _validated_price_quote(client, control)
+    if quote is not None:
+        return reply, control, quote
+    control["_price_claim_invalid"] = True
+    return None, control, None
 
 
 def _conversation_payment_amount(client, control: dict) -> Decimal | None:
@@ -696,6 +839,16 @@ def _persist_checkout_selection(client, product_id, selection: dict) -> None:
         "product_id": int(product_id),
         "fit_option_code": str(selection.get("fit_option_code") or "")[:50],
     }
+    option_values = selection.get("option_values")
+    if isinstance(option_values, dict):
+        normalized_options = _parse_option_pairs(
+            ";".join(
+                f"{key}={value}"
+                for key, value in option_values.items()
+            )
+        )
+        if normalized_options:
+            value["option_values"] = normalized_options
     try:
         color_variant_id = int(selection.get("color_variant_id") or 0)
     except (TypeError, ValueError):
@@ -758,7 +911,7 @@ def _persist_control_selection_unlocked(client, control: dict, *, product_id=Non
             log("warning", "selection_persist", f"{getattr(client, 'pk', '?')}: {exc!r}")
             changed = [item for item in changed if item not in {"size", "quantity"}]
 
-    selection = _checkout_selection_state(client, product_id)
+    selection = _checkout_selection_state(client, product_id) or {"product_id": product_id}
     fit_code = str(control.get("fit") or "").strip().lower()[:50]
     if fit_code and fit_code != str(selection.get("fit_option_code") or ""):
         selection["fit_option_code"] = fit_code
@@ -771,6 +924,16 @@ def _persist_control_selection_unlocked(client, control: dict, *, product_id=Non
     if variant_id > 0 and variant_id != int(selection.get("color_variant_id") or 0):
         selection["color_variant_id"] = variant_id
         changed.append("color")
+    option_values = _control_option_values(control)
+    if option_values is None:
+        return []
+    if option_values:
+        current_options = selection.get("option_values")
+        current_options = dict(current_options) if isinstance(current_options, dict) else {}
+        if any(current_options.get(key) != value for key, value in option_values.items()):
+            current_options.update(option_values)
+            selection["option_values"] = current_options
+            changed.extend(f"option:{key}" for key in option_values)
     if changed and selection:
         _persist_checkout_selection(client, product_id, selection)
     return changed
@@ -1036,10 +1199,14 @@ PAYMENT_PROTOCOL_NOTE = (
     "Посилання дійсне 25 хвилин від створення, його можна переслати; зміни товарів клієнт просить "
     "у Direct до створення рахунку. Якщо товар ще не визначено однозначно — спершу "
     "уточни його, тег [PAYLINK] поки не став. Для кожної позиції додай "
-    "[ITEM:<product_id>|<qty>|<size>|<fit>|<color_variant_id>] (останнє поле можна "
-    "залишити порожнім лише коли в каталозі товар справді не має variant_id), щоб "
-    "зберегти кількість, розмір, крій і колір. Якщо ціна залежить від кольору/матеріалу "
-    "або фасону, спочатку уточни їх і назви точну ціну саме цієї конфігурації. Для футболки з "
+    "[ITEM:<product_id>|<qty>|<size>|<fit>|<color_variant_id>|<key=value;...>] "
+    "(шосте поле можна залишити порожнім лише коли додаткових опцій немає), щоб "
+    "зберегти кількість, розмір, крій, колір і всі осі конфігурації. Для однієї "
+    "позиції додаткові осі також можна передати тегами [OPTION:<key>=<value>]. "
+    "Якщо ціна залежить від кольору/матеріалу або фасону, спочатку уточни їх і "
+    "назви точну ціну саме цієї конфігурації та ОБОВ'ЯЗКОВО додай [PRICE_QUOTED:<сума>] "
+    "у тому ж ходу. Точна сума в тексті без маркера буде перевірена сервером і "
+    "заблокована при несовпадении с каталогом. Для футболки з "
     "кількома фасонами спочатку обов'язково запитай classic чи oversize, покажи сітку "
     "саме обраного фасону і лише потім запитуй розмір. Для однієї позиції також дозволено "
     "[QTY:n] [SIZE:XS] [FIT:oversize]. "
@@ -1161,24 +1328,66 @@ def _checkout_offer_details(locale: str, summary: dict) -> str:
             if not isinstance(raw_item, dict):
                 continue
             title = str(raw_item.get("title") or "").strip()
+            color_label = str(raw_item.get("color_label") or "").strip()
+            fit_label = str(raw_item.get("fit_label") or "").strip()
             size = str(raw_item.get("size") or "").strip()
             try:
                 quantity = int(raw_item.get("quantity"))
             except (TypeError, ValueError):
                 quantity = 0
             facts = [title] if title else []
+            if color_label:
+                facts.append(color_label)
+            if fit_label:
+                facts.append(fit_label)
+            option_labels = raw_item.get("option_labels")
+            option_values = raw_item.get("option_values")
+            if isinstance(option_values, dict):
+                for key, value in option_values.items():
+                    if key == "fit":
+                        continue
+                    label = (
+                        str(option_labels.get(key) or "").strip()
+                        if isinstance(option_labels, dict) else ""
+                    )
+                    facts.append(label or str(value))
             if size:
                 facts.append({"uk": f"розмір {size}", "ru": f"размер {size}", "en": f"size {size}"}[locale])
             if quantity > 0:
-                facts.append({"uk": f"{quantity} шт", "ru": f"{quantity} шт", "en": f"{quantity} pcs"}[locale])
+                facts.append({"uk": f"{quantity} шт.", "ru": f"{quantity} шт.", "en": f"{quantity} pcs"}[locale])
+            try:
+                unit_price = Decimal(str(raw_item.get("unit_price"))).quantize(Decimal("0.01"))
+                line_total = Decimal(str(raw_item.get("line_total"))).quantize(Decimal("0.01"))
+            except (InvalidOperation, TypeError, ValueError):
+                unit_price = line_total = None
+            if unit_price is not None and line_total is not None:
+                unit = format(unit_price, "f").rstrip("0").rstrip(".")
+                line = format(line_total, "f").rstrip("0").rstrip(".")
+                facts.append(
+                    {"uk": f"{unit} грн/шт, сума {line} грн", "ru": f"{unit} грн/шт, сумма {line} грн", "en": f"{unit} UAH/pc, line {line} UAH"}[locale]
+                )
             if facts:
                 item_parts.append(", ".join(facts))
 
     total = ""
+    catalog_total = ""
+    discount = ""
     try:
         value = Decimal(str(summary.get("quoted_total")))
         if value.is_finite() and value >= 0:
             total = format(value, "f").rstrip("0").rstrip(".") or "0"
+    except (InvalidOperation, TypeError, ValueError):
+        pass
+    try:
+        value = Decimal(str(summary.get("catalog_total")))
+        if value.is_finite() and value >= 0:
+            catalog_total = format(value, "f").rstrip("0").rstrip(".") or "0"
+    except (InvalidOperation, TypeError, ValueError):
+        pass
+    try:
+        value = Decimal(str(summary.get("discount")))
+        if value.is_finite() and value > 0:
+            discount = format(value, "f").rstrip("0").rstrip(".") or "0"
     except (InvalidOperation, TypeError, ValueError):
         pass
 
@@ -1195,6 +1404,12 @@ def _checkout_offer_details(locale: str, summary: dict) -> str:
     if item_parts:
         lines.append(f"{order_label}: {'; '.join(item_parts)}.")
     if total:
+        if catalog_total and discount:
+            lines.append({
+                "uk": f"Каталожна сума: {catalog_total} грн. Знижка: -{discount} грн.",
+                "ru": f"Каталожная сумма: {catalog_total} грн. Скидка: -{discount} грн.",
+                "en": f"Catalog subtotal: {catalog_total} UAH. Discount: -{discount} UAH.",
+            }[locale])
         lines.append(f"{total_label}: {total} {currency}.")
     lines.append(guidance)
     return "\n".join(lines)
@@ -1427,6 +1642,15 @@ def finalize_paylink(
         # переписувало платіжний вибір з classic на oversize. Це вже не UX-баг,
         # а гроші: клієнт отримав би рахунок на не той фасон.
         selection["fit_option_code"] = control_fit
+    control_options = _control_option_values(control)
+    if control.get("options") and control_options is None:
+        log("warning", "paylink_option_gate", f"{sender_id}: malformed option controls")
+        return _rewrite_failed_paylink(reply, client)
+    if control_options:
+        persisted_options = selection.get("option_values")
+        persisted_options = dict(persisted_options) if isinstance(persisted_options, dict) else {}
+        persisted_options.update(control_options)
+        selection["option_values"] = persisted_options
     selected_color_variant_id = _current_color_variant_id(
         client,
         product_id,
@@ -1494,7 +1718,7 @@ def finalize_paylink(
         if parsed_qty is None:
             log("warning", "paylink_qty_gate", f"{sender_id}: invalid explicit quantity")
             return _rewrite_failed_paylink(reply, client)
-        item_specs = [{
+        fallback_spec = {
             "product_id": _control_product_id(control) or getattr(client, "current_product_id", None),
             "qty": parsed_qty,
             "size": str(control.get("size") or getattr(client, "current_size", "") or "").strip().upper()[:16],
@@ -1512,7 +1736,10 @@ def finalize_paylink(
                     trigger_text=trigger_text,
                 )
             ),
-        }]
+        }
+        if selection.get("option_values"):
+            fallback_spec["option_values"] = dict(selection["option_values"])
+        item_specs = [fallback_spec]
 
     aggregate_quantity = sum(
         int(item.get("qty") or item.get("quantity") or 1)
@@ -7360,6 +7587,29 @@ def _process_one_inside_reply_boundary(
     if reply:
         reply, control = _extract_control(reply)
     needs_manager = bool(control.get("manager"))
+    if reply and row.client_id:
+        checked_reply, control, price_quote = _extract_authoritative_price_claim(
+            row.client,
+            reply,
+            control,
+        )
+        if checked_reply is None:
+            # Never send a customer-facing amount that could not be tied to the
+            # selected catalog configuration.  Keep the message in a safe
+            # holding state and let the normal manager escalation path handle it.
+            needs_manager = True
+            control["manager"] = True
+            log("warning", "price_claim_gate", f"{row.sender_id}: unverified exact price claim")
+            reply = _paylink_fallback(row.client)
+        else:
+            reply = checked_reply
+            if price_quote is not None:
+                control["_funnel_price_quote"] = price_quote
+        if control.get("options") and _control_option_values(control) is None:
+            needs_manager = True
+            control["manager"] = True
+            log("warning", "option_control_gate", f"{row.sender_id}: malformed option controls")
+            reply = _paylink_fallback(row.client)
 
     # Закріплюємо товар, якщо модель явно вказала [PRODUCT:id] — щоб подальша
     # оплата формувалась детерміновано саме на нього.

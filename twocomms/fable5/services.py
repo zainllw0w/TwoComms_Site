@@ -598,7 +598,19 @@ def effective_cart_unit_price(
     """
 
     if color_variant is None:
-        return _decimal(getattr(product, "final_price", product.price))
+        base_price = _decimal(getattr(product, "final_price", product.price))
+        # Products without colour rows can still expose paid Fable5 axes
+        # (material, lining, etc.).  Keep those surcharges on the same
+        # authoritative path as variant pricing instead of silently dropping
+        # them when checkout has no ``color_variant_id``.
+        breakdown = _price_breakdown(
+            product=product,
+            variant=None,
+            details=None,
+            option_values=option_values,
+            combinations={},
+        )
+        return base_price + breakdown["total_delta"]
     if getattr(color_variant, "product_id", None) != getattr(product, "id", None):
         return _decimal(getattr(product, "final_price", product.price))
     return _decimal(
