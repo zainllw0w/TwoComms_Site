@@ -407,6 +407,46 @@ class CustomerProductLinkTests(TestCase):
         self.assertIn("ІНШИЙ товар", note)
         self.assertIn(f"[PRODUCT:{self.classic.pk}]", note)
 
+    def test_commerce_turn_note_exposes_bounded_facts_before_gemini(self):
+        from management.services import instagram_bot as bot
+
+        note = bot.commerce_turn_note(
+            self.client_row,
+            "black класичну M, без принта сзади, хочу оплатить",
+        )
+
+        self.assertIn("color=black", note)
+        self.assertIn("fit=classic", note)
+        self.assertIn("size=M", note)
+        self.assertIn("back_decoration=none", note)
+        self.assertIn("checkout_requested=true", note)
+
+    def test_commerce_turn_note_does_not_turn_size_guide_into_a_payable_fit(self):
+        from management.services import instagram_bot as bot
+
+        note = bot.commerce_turn_note(
+            self.client_row,
+            "Покажи на оверсайз размерную сетку",
+        )
+
+        self.assertIn("info=size_guide:oversize", note)
+        self.assertNotIn("fit=oversize", note)
+
+    def test_exact_turn_reference_pins_product_before_model_generation(self):
+        from management.services import instagram_bot as bot
+
+        self.client_row.current_product = self.other
+        self.client_row.save(update_fields=["current_product", "updated_at"])
+
+        request = bot.apply_deterministic_commerce_turn(
+            self.client_row,
+            f"https://twocomms.shop/product/{self.classic.slug}/ Вот этот",
+        )
+
+        self.assertEqual(request.exact_product_id, self.classic.pk)
+        self.client_row.refresh_from_db()
+        self.assertEqual(self.client_row.current_product_id, self.classic.pk)
+
 
 class SelectionMemoryTests(TestCase):
     """Факт, названий одного ходу, лишається відомим наступного."""
@@ -574,7 +614,7 @@ class NoScriptedRepliesTests(TestCase):
         from management.services.instagram_bot import _is_configuration_gap
 
         self.assertTrue(_is_configuration_gap({"error": "missing_configuration"}))
-        self.assertTrue(_is_configuration_gap({"error": "insufficient_stock"}))
+        self.assertFalse(_is_configuration_gap({"error": "insufficient_stock"}))
         self.assertFalse(_is_configuration_gap({"error": "no_product"}))
         self.assertFalse(_is_configuration_gap({}))
 

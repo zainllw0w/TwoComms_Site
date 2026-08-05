@@ -113,6 +113,15 @@ class CommerceTurnRequest:
     preferences: Mapping[str, str] = field(default_factory=dict)
     semantic_constraints: Mapping[str, str] = field(default_factory=dict)
     garment_type: str = ""
+    exact_reference: ProductReference | None = None
+    rejected_product_ids: tuple[int, ...] = ()
+    pending_clarification: str = ""
+    info_topics: tuple[str, ...] = ()
+    checkout_requested: bool = False
+    reset_requested: bool = False
+    support_requested: bool = False
+    new_purchase_requested: bool = False
+    exchange_requested: bool = False
 
     def __post_init__(self):
         for field_name in (
@@ -122,6 +131,10 @@ class CommerceTurnRequest:
             "semantic_constraints",
         ):
             object.__setattr__(self, field_name, immutable_mapping(getattr(self, field_name)))
+
+    @property
+    def hard_constraints(self) -> Mapping[str, str]:
+        return self.hard
 
 
 @dataclass(frozen=True)

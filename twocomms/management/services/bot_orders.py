@@ -890,6 +890,12 @@ def _missing_required_option_axes(product, *, variant=None, option_values=None) 
 
 def _paylink_variant_error(product, *, variant, option_values, error) -> dict:
     """Expose option-resolution failures through the public paylink contract."""
+    if error == "insufficient_stock":
+        return {
+            "ok": False,
+            "error": error,
+            "reason": "tracked_stock_shortfall",
+        }
     if error != "missing_options":
         return {"ok": False, "error": error}
     missing = _missing_required_option_axes(
@@ -1611,6 +1617,7 @@ def create_checkout_proposal_link(
             "error": exc.code,
             "missing_fields": sorted(exc.missing_fields),
             "item_index": exc.item_index,
+            "reason": exc.reason,
         }
     except Exception as exc:
         logger.exception("Failed to create Instagram checkout proposal link", exc_info=True)

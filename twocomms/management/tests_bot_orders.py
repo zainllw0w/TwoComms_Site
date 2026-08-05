@@ -614,7 +614,14 @@ class CreateDealAndLinkTests(TestCase):
             "size": "S",
             "fit_option_code": "",
         }])
-        self.assertEqual(unavailable, {"ok": False, "error": "insufficient_stock"})
+        self.assertEqual(
+            unavailable,
+            {
+                "ok": False,
+                "error": "insufficient_stock",
+                "reason": "tracked_stock_shortfall",
+            },
+        )
 
     @patch("management.services.bot_orders.create_payment_link")
     def test_unique_variant_is_selected_server_side_before_pricing(self, mock_link):

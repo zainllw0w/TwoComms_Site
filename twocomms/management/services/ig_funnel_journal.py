@@ -181,6 +181,7 @@ def remember_stock_gap(
     variant_id: int | None = None,
     fit_code: str = "",
     option_values: dict | None = None,
+    reason: str = "",
 ) -> None:
     """Запам'ятати, що на цьому товарі клієнт уперся у відсутність.
 
@@ -201,6 +202,7 @@ def remember_stock_gap(
             "variant_id": int(variant_id) if variant_id else None,
             "fit_code": str(fit_code or "").strip().lower()[:64],
             "option_values": dict(option_values or {}),
+            "reason": str(reason or "")[:128],
             "at": timezone.now().isoformat(),
         }
         client.sales_context = context

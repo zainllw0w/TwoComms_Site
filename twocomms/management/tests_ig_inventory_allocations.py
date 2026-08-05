@@ -93,6 +93,38 @@ class IgInventoryAllocationTests(TestCase):
         self.stock_item.refresh_from_db()
         self.assertEqual(self.stock_item.quantity, 1)
 
+    def test_proposal_without_inventory_policy_keeps_legacy_untracked_checkout(self):
+        ProductInventoryPolicy.objects.filter(product=self.product).delete()
+
+        proposal = create_or_update_proposal(
+            client=self.client,
+            pay_type="online_full",
+            item_specs=[self._item()],
+        )
+
+        self.assertEqual(proposal.items.count(), 1)
+        self.assertFalse(IgCheckoutInventoryReservation.objects.exists())
+
+    def test_revision_releases_old_reservation_before_replacing_protected_item(self):
+        first = create_or_update_proposal(
+            client=self.client,
+            pay_type="online_full",
+            item_specs=[self._item()],
+        )
+        old_reservation = first.inventory_reservations.get()
+
+        second = create_or_update_proposal(
+            client=self.client,
+            pay_type="online_full",
+            item_specs=[self._item(fit="oversize")],
+        )
+
+        self.assertEqual(second.pk, first.pk)
+        old_reservation.refresh_from_db()
+        self.assertEqual(old_reservation.state, IgCheckoutInventoryReservation.State.RELEASED)
+        self.assertIsNone(old_reservation.item_id)
+        self.assertEqual(second.inventory_reservations.filter(state="active").count(), 1)
+
     def test_two_lines_mapped_to_one_stock_item_are_aggregated_before_reserving(self):
         with self.assertRaises(CheckoutConfigurationError) as ctx:
             create_or_update_proposal(
@@ -102,6 +134,7 @@ class IgInventoryAllocationTests(TestCase):
             )
 
         self.assertEqual(ctx.exception.code, "insufficient_stock")
+        self.assertEqual(ctx.exception.reason, "insufficient_reserved_stock")
         self.assertFalse(IgCheckoutInventoryReservation.objects.exists())
 
     def test_second_proposal_cannot_reserve_last_warehouse_unit(self):
@@ -120,6 +153,7 @@ class IgInventoryAllocationTests(TestCase):
             )
 
         self.assertEqual(ctx.exception.code, "insufficient_stock")
+        self.assertEqual(ctx.exception.reason, "insufficient_reserved_stock")
         self.assertEqual(
             IgCheckoutInventoryReservation.objects.filter(
                 proposal__client=other_client,
@@ -149,6 +183,7 @@ class IgInventoryAllocationTests(TestCase):
     def test_late_payment_after_release_is_reviewed_without_negative_stock(self):
         from management.services.ig_inventory import (
             commit_proposal_inventory,
+            mark_overbooked_proposal_inventory,
             release_proposal_inventory,
         )
 
@@ -160,6 +195,7 @@ class IgInventoryAllocationTests(TestCase):
         self.assertEqual(release_proposal_inventory(proposal, reason="expired"), 1)
 
         self.assertEqual(commit_proposal_inventory(proposal), 1)
+        self.assertEqual(mark_overbooked_proposal_inventory(proposal), 1)
         reservation = proposal.inventory_reservations.get()
         self.assertEqual(
             reservation.state,
@@ -167,6 +203,36 @@ class IgInventoryAllocationTests(TestCase):
         )
         self.stock_item.refresh_from_db()
         self.assertEqual(self.stock_item.quantity, 1)
+
+    def test_late_payment_review_creates_one_manager_task(self):
+        from management.services.ig_inventory import (
+            mark_overbooked_proposal_inventory,
+            release_proposal_inventory,
+        )
+        from management.models import IgFollowUpTask
+
+        proposal = create_or_update_proposal(
+            client=self.client,
+            pay_type="online_full",
+            item_specs=[self._item()],
+        )
+        release_proposal_inventory(proposal, reason="expired")
+
+        self.assertEqual(mark_overbooked_proposal_inventory(proposal), 1)
+        self.assertEqual(mark_overbooked_proposal_inventory(proposal), 0)
+        reservation = proposal.inventory_reservations.get()
+        self.assertEqual(
+            reservation.state,
+            IgCheckoutInventoryReservation.State.OVERBOOKED_REVIEW,
+        )
+        task = IgFollowUpTask.objects.get(event_key=f"inventory-overbooked:{proposal.pk}")
+        self.assertEqual(task.status, IgFollowUpTask.Status.SKIPPED)
+        self.assertEqual(task.reason, "inventory_overbooked_review")
+        self.assertTrue(
+            proposal.deal.followup_tasks.filter(
+                reason="inventory_overbooked_review",
+            ).exists()
+        )
 
     def test_fulfillment_shortfall_marks_review_without_negative_stock(self):
         from management.services.ig_inventory import (

@@ -69,6 +69,11 @@ def adjust_stock_item(
     if delta == 0:
         raise ValueError("Delta cannot be zero")
 
+    requested_stock_item = stock_item
+    # Callers may hold a stale instance (for example two warehouse workers
+    # submitting the same order concurrently).  Always calculate from the
+    # row-level lock, never from the caller's snapshot.
+    stock_item = StockItem.objects.select_for_update().get(pk=stock_item.pk)
     old_qty = stock_item.quantity
     new_qty = old_qty + delta
     if new_qty < 0:
@@ -88,6 +93,13 @@ def adjust_stock_item(
         # підсвітити розбіжність із середньозваженою ціною.
         stock_item.last_cost_price = Decimal(cost_price_override)
     stock_item.save(update_fields=["quantity", "cost_price", "last_cost_price", "updated_at"])
+
+    # Keep the caller's object coherent with the row that was actually locked.
+    # This matters for JSON endpoints that serialize it after the adjustment.
+    requested_stock_item.quantity = stock_item.quantity
+    requested_stock_item.cost_price = stock_item.cost_price
+    requested_stock_item.last_cost_price = stock_item.last_cost_price
+    requested_stock_item.updated_at = stock_item.updated_at
 
     return StockMovement.objects.create(
         content_type=ContentType.objects.get_for_model(StockItem),
@@ -118,6 +130,7 @@ def adjust_print_variant(
     if delta == 0:
         raise ValueError("Delta cannot be zero")
 
+    variant = PrintColorVariant.objects.select_for_update().get(pk=variant.pk)
     old_qty = variant.quantity
     new_qty = old_qty + delta
     if new_qty < 0:
@@ -160,6 +173,10 @@ def reverse_write_off(*, write_off_request, user=None) -> int:
     """
     from warehouse.models import WriteOffRequest
 
+    write_off_request = WriteOffRequest.objects.select_for_update().get(
+        pk=write_off_request.pk,
+    )
+
     if write_off_request.status == WriteOffRequest.STATUS_CANCELLED:
         return 0
 
@@ -167,7 +184,9 @@ def reverse_write_off(*, write_off_request, user=None) -> int:
     order_no = getattr(order, "order_number", "") if order else ""
     # Матеріалізуємо список ДО створення зворотних рухів, щоб не зациклитись.
     originals = list(
-        write_off_request.movements.select_related("content_type").filter(delta__lt=0)
+        write_off_request.movements.select_for_update()
+        .select_related("content_type")
+        .filter(delta__lt=0)
     )
 
     reversed_count = 0
@@ -256,8 +275,15 @@ def set_stock_quantity(
     """Встановити абсолютну кількість (для інвентаризації)."""
     if new_quantity < 0:
         raise ValueError("Quantity cannot be negative")
+
+    requested_stock_item = stock_item
+    stock_item = StockItem.objects.select_for_update().get(pk=stock_item.pk)
     delta = new_quantity - stock_item.quantity
     if delta == 0 and cost_price_override is None:
+        requested_stock_item.quantity = stock_item.quantity
+        requested_stock_item.cost_price = stock_item.cost_price
+        requested_stock_item.last_cost_price = stock_item.last_cost_price
+        requested_stock_item.updated_at = stock_item.updated_at
         return None
     if delta == 0 and cost_price_override is not None:
         # тільки оновлення собівартості, не створюємо movement.
@@ -265,6 +291,10 @@ def set_stock_quantity(
         stock_item.cost_price = cost_price_override
         stock_item.last_cost_price = cost_price_override
         stock_item.save(update_fields=["cost_price", "last_cost_price", "updated_at"])
+        requested_stock_item.quantity = stock_item.quantity
+        requested_stock_item.cost_price = stock_item.cost_price
+        requested_stock_item.last_cost_price = stock_item.last_cost_price
+        requested_stock_item.updated_at = stock_item.updated_at
         return None
     return adjust_stock_item(
         stock_item=stock_item,

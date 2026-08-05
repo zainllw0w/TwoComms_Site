@@ -17,11 +17,20 @@ MAX_CHECKOUT_VALUE = Decimal("1000000.00")
 
 
 class CheckoutConfigurationError(ValueError):
-    def __init__(self, code, message=None, *, missing_fields=None, item_index=None):
+    def __init__(
+        self,
+        code,
+        message=None,
+        *,
+        missing_fields=None,
+        item_index=None,
+        reason="",
+    ):
         super().__init__(message or code)
         self.code = code
         self.missing_fields = set(missing_fields or ())
         self.item_index = item_index
+        self.reason = str(reason or "")[:128]
 
 
 @dataclass(frozen=True)
@@ -300,7 +309,11 @@ def validate_checkout_items(
             if variant is None:
                 raise CheckoutConfigurationError("invalid_color", item_index=index)
             if tracked_stock_shortfall(variant, quantity):
-                raise CheckoutConfigurationError("insufficient_stock", item_index=index)
+                raise CheckoutConfigurationError(
+                    "insufficient_stock",
+                    item_index=index,
+                    reason="tracked_stock_shortfall",
+                )
         elif color_variants:
             sellable_variants = [
                 row
@@ -631,6 +644,12 @@ def _sync_deal_and_episode(*, deal, quote):
 def _replace_proposal_items(*, proposal, quote):
     from management.models import IgCheckoutProposalItem
 
+    # A revision replaces the current item rows.  Release the old active
+    # allocation first; the reservation keeps its audit row while SET_NULL on
+    # ``item`` allows the protected current snapshot to be replaced safely.
+    from management.services.ig_inventory import release_proposal_inventory
+
+    release_proposal_inventory(proposal, reason=f"proposal_revision:{proposal.revision}")
     proposal.items.all().delete()
     rows = []
     for position, item in enumerate(quote.items):
@@ -802,20 +821,31 @@ def create_or_update_proposal(
         revision_source = IgCheckoutRevision.Source.BOT_UPDATE
 
     _replace_proposal_items(proposal=proposal, quote=quote)
-    try:
-        from management.services.ig_inventory import (
-            InventoryReservationError,
-            reserve_proposal_inventory,
-        )
+    from fable5.models import ProductInventoryPolicy
+    if ProductInventoryPolicy.objects.filter(
+        product_id__in={item.product_id for item in proposal.items.all() if item.product_id},
+    ).exists():
+        try:
+            from management.services.ig_inventory import (
+                InventoryReservationError,
+                reserve_proposal_inventory,
+            )
 
-        reserve_proposal_inventory(proposal, require_policy=True)
-    except InventoryReservationError as exc:
-        code = (
-            "insufficient_stock"
-            if "insufficient" in exc.reason
-            else "inventory_unavailable"
-        )
-        raise CheckoutConfigurationError(code, item_index=0)
+            # Products without a policy remain legacy/made-to-order: they may
+            # proceed without a warehouse reservation. Explicit warehouse or
+            # catalog policies still fail closed in the resolver above.
+            reserve_proposal_inventory(proposal)
+        except InventoryReservationError as exc:
+            code = (
+                "insufficient_stock"
+                if "insufficient" in exc.reason
+                else "inventory_unavailable"
+            )
+            raise CheckoutConfigurationError(
+                code,
+                item_index=0,
+                reason=exc.reason,
+            )
     IgCheckoutRevision.objects.create(
         proposal=proposal,
         revision=revision_number,

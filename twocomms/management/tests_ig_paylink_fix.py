@@ -765,6 +765,37 @@ class FinalizePaylinkTests(TestCase):
 
     @patch("management.services.instagram_bot.notify_manager")
     @patch("management.services.bot_orders.create_checkout_proposal_link")
+    def test_insufficient_stock_escalates_and_preserves_reason(
+        self, mock_link, mock_notify
+    ):
+        product = _pub_product("Футболка з дефіцитом", "paylink-stock-gap")
+        mock_link.return_value = {
+            "ok": False,
+            "error": "insufficient_stock",
+            "missing_fields": [],
+            "reason": "insufficient_warehouse_stock",
+        }
+
+        out = bot.finalize_paylink(
+            "Оформлюю замовлення. Зараз надішлю посилання на оплату.",
+            {"paylink": "full", "product": product.pk},
+            self.c,
+            self.c.igsid,
+        )
+
+        self.assertNotIn("посилання на оплату", out.lower())
+        self.c.refresh_from_db()
+        self.assertEqual(self.c.stage, IgClient.Stage.LEAD_TO_MANAGER)
+        self.assertEqual(
+            self.c.sales_context["_stock_gap"]["reason"],
+            "insufficient_warehouse_stock",
+        )
+        mock_notify.assert_called_once()
+        self.assertIn("insufficient_stock", mock_notify.call_args.args[0])
+        self.assertIn("insufficient_warehouse_stock", mock_notify.call_args.args[0])
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.bot_orders.create_checkout_proposal_link")
     def test_link_request_without_control_uses_persisted_product_size_and_quantity(
         self, mock_link, mock_notify
     ):
@@ -1147,7 +1178,7 @@ class FinalizePaylinkTests(TestCase):
         mock_notify.assert_not_called()
 
     @patch("management.services.instagram_bot.notify_manager")
-    def test_real_shortfall_keeps_model_reply_and_does_not_call_manager(self, mock_notify):
+    def test_real_shortfall_keeps_model_reply_and_calls_manager(self, mock_notify):
         """Справжня недостача (облік ведеться, а кількості не вистачає).
 
         Замінює два тести, які перевіряли, що функція **сама** напише «варіант
@@ -1186,7 +1217,13 @@ class FinalizePaylinkTests(TestCase):
 
         self.assertIn("Проверю наличие", out)
         self.assertFalse(IgCheckoutProposal.objects.filter(client=self.c).exists())
-        mock_notify.assert_not_called()
+        mock_notify.assert_called_once()
+        self.c.refresh_from_db()
+        self.assertEqual(self.c.stage, IgClient.Stage.LEAD_TO_MANAGER)
+        self.assertEqual(
+            self.c.sales_context["_stock_gap"]["reason"],
+            "tracked_stock_shortfall",
+        )
 
     @patch("management.services.instagram_bot.notify_manager")
     @patch("management.services.bot_orders.create_checkout_proposal_link")

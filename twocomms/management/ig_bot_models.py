@@ -1941,6 +1941,7 @@ class IgCheckoutProposal(models.Model):
         VIEWED = "viewed", _("Переглянута")
         DETAILS_LOCKED = "details_locked", _("Дані зафіксовані")
         INVOICE_CREATED = "invoice_created", _("Рахунок створено")
+        MANAGER_REVIEW = "manager_review", _("Потрібна перевірка менеджера")
         PAID = "paid", _("Оплачено")
         CANCELLED = "cancelled", _("Рахунок скасовано")
         EXPIRED = "expired", _("Протерміновано")
@@ -2407,7 +2408,9 @@ class IgCheckoutInventoryReservation(models.Model):
     )
     item = models.ForeignKey(
         "management.IgCheckoutProposalItem",
-        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
         related_name="inventory_reservations",
     )
     product = models.ForeignKey(

@@ -32,6 +32,7 @@ from orders.promo_reservations import (
 
 from management.services.ig_inventory import (
     commit_proposal_inventory,
+    mark_overbooked_proposal_inventory,
     release_proposal_inventory,
     reserve_proposal_inventory,
 )
@@ -870,6 +871,37 @@ def bind_verified_payment(attempt_id, order):
     projection.needs_reconciliation = False
     projection.reconciled_at = now
     projection.save()
+
+    # A released warehouse reservation cannot be silently converted into an
+    # order just because the provider reported success late.  Keep provider
+    # truth, mark the allocation for human review, and leave the generic Order
+    # unattached to this Instagram deal until stock/refund handling is decided.
+    if mark_overbooked_proposal_inventory(proposal, order=order):
+        if attempt.status != PaymentAttempt.Status.CONVERTED:
+            attempt.status = PaymentAttempt.Status.CONVERTED
+            attempt.save(update_fields=["status", "updated"])
+        deal.status = IgDeal.Status.PAID
+        deal.payment_status = (
+            "prepaid"
+            if attempt.pay_type in {
+                PaymentAttempt.PayType.PREPAYMENT,
+                PaymentAttempt.PayType.PREPAY_200,
+            }
+            else "paid"
+        )
+        deal.payment_truth = IgDeal.PaymentTruth.CONFIRMED
+        deal.paid_amount = attempt.paid_amount or attempt.payment_amount
+        deal.paid_at = deal.paid_at or now
+        deal.payment_truth_updated_at = now
+        deal.save(update_fields=[
+            "status", "payment_status", "payment_truth", "paid_amount", "paid_at",
+            "payment_truth_updated_at", "updated_at",
+        ])
+        proposal.status = proposal.Status.MANAGER_REVIEW
+        proposal.paid_at = proposal.paid_at or now
+        proposal.save(update_fields=["status", "paid_at", "updated_at"])
+        return None
+
     attribution = create_order_attribution(
         order,
         client=proposal.client,

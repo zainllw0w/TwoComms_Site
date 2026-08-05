@@ -1640,10 +1640,15 @@ _CONFIGURATION_GAP_CODES = frozenset({
     "invalid_color",
     "invalid_color_variant",
     "missing_color_variant",
-    "insufficient_stock",
     "unavailable_selection",
     "unpublished_product",
     "invalid_product",
+})
+
+_INVENTORY_ESCALATION_CODES = frozenset({
+    "insufficient_stock",
+    "inventory_unavailable",
+    "unpublished_product",
 })
 
 
@@ -1922,6 +1927,65 @@ def finalize_paylink(
         ).strip()
         log("success", "paylink", f"{sender_id}: {url}")
         return reply
+
+    error_code = str(res.get("error") or "")
+    # Any exact-stock failure is an operational hand-off.  The model's reply
+    # is preserved, while the durable reason lets the manager distinguish a
+    # tracked variant shortfall from a warehouse reservation failure.
+    if error_code in _INVENTORY_ESCALATION_CODES:
+        inventory_reason = str(res.get("reason") or error_code)[:128]
+        safe = _rewrite_failed_paylink(reply, client)
+        try:
+            from management.services.ig_funnel_journal import remember_stock_gap
+
+            remember_stock_gap(
+                client,
+                product_id=product_id,
+                size=str(item_specs[0].get("size") or "") if item_specs else "",
+                published=error_code != "unpublished_product",
+                variant_id=(
+                    item_specs[0].get("color_variant_id") if item_specs else None
+                ),
+                fit_code=(
+                    item_specs[0].get("fit_option_code") if item_specs else ""
+                ),
+                option_values=(
+                    item_specs[0].get("option_values") if item_specs else None
+                ),
+                reason=inventory_reason,
+            )
+        except Exception as exc:  # noqa: BLE001
+            log("warning", "paylink_stock_gap_mark", repr(exc))
+        try:
+            client.set_stage(
+                IgClient.Stage.LEAD_TO_MANAGER,
+                reason="paylink_inventory_unavailable",
+            )
+        except Exception:
+            pass
+        try:
+            notify_manager(
+                f"📦 IG: клієнт "
+                f"{(client.username or client.display_name or sender_id)} хотів "
+                f"оформити товар, але checkout заблоковано через {error_code} "
+                f"({inventory_reason}). Перевірте точну наявність, заміну або "
+                "подальшу дію й поверніться до клієнта.",
+                dedupe_key=alert_dedupe_key(
+                    "paylink_inventory_unavailable",
+                    client_id=getattr(client, "pk", None),
+                    window_minutes=360,
+                ),
+                event_type="paylink_inventory_unavailable",
+                client=client,
+            )
+        except Exception:
+            pass
+        log(
+            "warning",
+            "paylink_inventory_unavailable",
+            f"{sender_id}: {error_code} reason={inventory_reason}",
+        )
+        return safe
 
     if _is_configuration_gap(res):
         # Не інцидент, а звичайний хід діалогу: ще не вистачає фасону, розміру
@@ -6049,6 +6113,119 @@ def notify_size_gap(client) -> bool:
     return True
 
 
+def _commerce_turn_note_from_request(request) -> str:
+    """Render bounded parser facts without copying customer text into a prompt."""
+    lines = ["[ДЕТЕРМИНИРОВАННЫЙ ХОД — службове, не переказуй клієнту]"]
+    reference = getattr(request, "exact_reference", None)
+    exact_product_id = getattr(request, "exact_product_id", None)
+    if reference is not None and getattr(reference, "is_exact", False) and exact_product_id:
+        lines.append(
+            f"точне посилання: product_id={int(exact_product_id)} "
+            f"source={str(getattr(reference, 'source', 'unknown'))}"
+        )
+        constraints = tuple(getattr(reference, "constraints", ()) or ())
+        if constraints:
+            lines.append(
+                "точні параметри посилання: "
+                + ", ".join(f"{key}={value}" for key, value in constraints)
+            )
+    rejected = tuple(getattr(request, "rejected_product_ids", ()) or ())
+    if rejected:
+        lines.append("клієнт відкинув product_id=" + ",".join(str(value) for value in rejected))
+    updates = getattr(request, "field_updates", {}) or {}
+    if updates:
+        lines.append(
+            "нормалізовані ознаки ходу: "
+            + ", ".join(f"{key}={value}" for key, value in sorted(updates.items()))
+        )
+    hard = getattr(request, "hard_constraints", {}) or {}
+    if hard:
+        lines.append(
+            "жорсткі обмеження: "
+            + ", ".join(f"{key}={value}" for key, value in sorted(hard.items()))
+        )
+    for topic in tuple(getattr(request, "info_topics", ()) or ()):
+        lines.append(f"info={topic}")
+    for key, label in (
+        ("checkout_requested", "checkout_requested"),
+        ("new_purchase_requested", "new_purchase_requested"),
+        ("exchange_requested", "exchange_requested"),
+        ("support_requested", "support_requested"),
+    ):
+        if getattr(request, key, False):
+            lines.append(f"{label}=true")
+    pending = str(getattr(request, "pending_clarification", "") or "").strip()
+    if pending:
+        lines.append(f"потрібне уточнення: {pending}")
+    return "\n".join(lines) if len(lines) > 1 else ""
+
+
+def apply_deterministic_commerce_turn(
+    client,
+    text: str,
+    *,
+    media_evidence=None,
+    source_message_id=None,
+):
+    """Apply only trusted URL facts before Gemini and return the parsed turn.
+
+    Free-text color/fit/size hints are prompt evidence, not payment state. An
+    exact first-party product URL is stronger: pin that published product and
+    persist only options encoded in the URL itself. This keeps price selection
+    deterministic while still letting Gemini ask for missing configuration.
+    """
+    from management.services.ig_commerce_turns import understand_turn
+
+    request = understand_turn(text, media_evidence=media_evidence)
+    reference = request.exact_reference
+    if not getattr(request, "exact_product_id", None) or not reference or not reference.is_exact:
+        return request
+    product_id = int(request.exact_product_id)
+    if not _pin_control_product(
+        client,
+        product_id,
+        switch_reason=_switch_reason_for_turn(client, text, product_id),
+    ):
+        return request
+    control = {"product": product_id}
+    constraints = dict(getattr(reference, "constraints", ()) or ())
+    if constraints.get("fit"):
+        control["fit"] = constraints["fit"]
+    if constraints.get("size"):
+        control["size"] = constraints["size"]
+    if constraints.get("color"):
+        variant_id = _current_color_variant_id(
+            client,
+            product_id,
+            getattr(client, "current_qty", 1) or 1,
+            trigger_text=constraints["color"],
+        )
+        if variant_id:
+            control["color_variant_id"] = variant_id
+    if len(control) > 1:
+        persist_control_selection(
+            client,
+            control,
+            product_id=product_id,
+            source_message_id=source_message_id,
+        )
+    return request
+
+
+def commerce_turn_note(client, text: str, *, media_evidence=None) -> str:
+    """Expose parser facts to Gemini while keeping the parser fail-closed."""
+    try:
+        request = apply_deterministic_commerce_turn(
+            client,
+            text,
+            media_evidence=media_evidence,
+        )
+        return _commerce_turn_note_from_request(request)
+    except Exception as exc:  # noqa: BLE001
+        log("warning", "commerce_turn_parse", repr(exc))
+        return ""
+
+
 def customer_turn_note(client, text: str) -> str:
     """Факти саме про це повідомлення клієнта — насамперед посилання на товар.
 
@@ -7825,13 +8002,23 @@ def _process_one_inside_reply_boundary(
                     ctx_note = bot_memory.client_context_note(row.client)
                 except Exception:
                     pass
+            deterministic_turn_note = commerce_turn_note(
+                row.client if row.client_id else None,
+                row.text,
+                media_evidence=media,
+            )
+            customer_turn_context = customer_turn_note(
+                row.client if row.client_id else None,
+                row.text,
+            )
+            turn_notes = "\n".join(
+                note for note in (deterministic_turn_note, customer_turn_context) if note
+            )
             reply = gemini_generate(
                 s, history, images=images or None, match_hint=match_hint,
                 memory_note=mem_note, context_note=ctx_note, client=row.client if row.client_id else None,
                 media_hint=_media_context_hint(media),
-                turn_note=customer_turn_note(
-                    row.client if row.client_id else None, row.text
-                ),
+                turn_note=turn_notes,
                 failure_context=gemini_failure,
             )
     else:

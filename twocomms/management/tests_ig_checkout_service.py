@@ -5,6 +5,7 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.utils import timezone
 
+from fable5.models import ProductInventoryPolicy
 from management.models import (
     IgCheckoutInventoryReservation,
     IgCheckoutProposal,
@@ -17,6 +18,7 @@ from management.models import (
 from orders.models import Order, PaymentAttempt
 from productcolors.models import Color, ProductColorVariant
 from storefront.models import Category, Product, ProductFitOption, ProductStatus
+from management.services.ig_checkout import CheckoutConfigurationError
 
 
 class InstagramCheckoutConfigurationTests(TestCase):
@@ -54,6 +56,10 @@ class InstagramCheckoutConfigurationTests(TestCase):
             color=black,
             stock=5,
             sku="TEE-BLACK",
+        )
+        ProductInventoryPolicy.objects.create(
+            product=self.shirt,
+            source=ProductInventoryPolicy.Source.CATALOG_VARIANT,
         )
         self.client = IgClient.get_or_create_for_sender("ig-checkout-service")
 
@@ -463,20 +469,18 @@ class InstagramCheckoutConfigurationTests(TestCase):
         )
 
     def test_inventory_reservation_aggregates_same_variant_across_sizes(self):
-        from management.services.ig_checkout import create_or_update_proposal
+        from management.services.ig_checkout import CheckoutConfigurationError, create_or_update_proposal
         from management.services.ig_inventory import reserve_proposal_inventory
 
-        proposal = create_or_update_proposal(
-            client=self.client,
-            pay_type="online_full",
-            item_specs=[
-                self._valid_item(qty=3, size="M", fit_option_code="classic"),
-                self._valid_item(qty=3, size="L", fit_option_code="classic"),
-            ],
-        )
-
-        with self.assertRaisesMessage(ValueError, "insufficient_reserved_stock"):
-            reserve_proposal_inventory(proposal)
+        with self.assertRaisesMessage(CheckoutConfigurationError, "insufficient_stock"):
+            create_or_update_proposal(
+                client=self.client,
+                pay_type="online_full",
+                item_specs=[
+                    self._valid_item(qty=3, size="M", fit_option_code="classic"),
+                    self._valid_item(qty=3, size="L", fit_option_code="classic"),
+                ],
+            )
 
     def test_consumed_reservation_decrements_variant_stock_once(self):
         from management.services.ig_checkout import create_or_update_proposal
@@ -778,6 +782,10 @@ class InstagramCheckoutLinkBoundaryTests(TestCase):
             category=category,
             price=Decimal("950.00"),
             status=ProductStatus.PUBLISHED,
+        )
+        ProductInventoryPolicy.objects.create(
+            product=self.product,
+            source=ProductInventoryPolicy.Source.UNTRACKED,
         )
         self.client = IgClient.get_or_create_for_sender("ig-offer-link")
 

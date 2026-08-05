@@ -45,6 +45,28 @@ def _allocation_key(allocation):
     return "untracked"
 
 
+def _lock_allocation(allocation):
+    """Lock one allocation identity after all identities have been ordered.
+
+    Resolving every line with ``SELECT FOR UPDATE`` in proposal-item order lets
+    two baskets acquire the same rows in opposite orders.  Resolve first,
+    then lock the stable identity order here to avoid MariaDB deadlocks.
+    """
+    if allocation.source == "warehouse":
+        from warehouse.models import StockItem
+
+        return StockItem.objects.select_for_update().filter(
+            pk=allocation.stock_item_id,
+        ).first()
+    if allocation.source == "catalog_variant":
+        from productcolors.models import ProductColorVariant
+
+        return ProductColorVariant.objects.select_for_update().filter(
+            pk=allocation.color_variant_id,
+        ).first()
+    return None
+
+
 @transaction.atomic
 def reserve_proposal_inventory(proposal, *, expires_at=None, require_policy=False):
     from management.models import IgCheckoutInventoryReservation
@@ -60,7 +82,9 @@ def reserve_proposal_inventory(proposal, *, expires_at=None, require_policy=Fals
     for item in items:
         policy = ProductInventoryPolicy.objects.filter(product_id=item.product_id).first()
         if policy is None:
-            if require_policy or not item.color_variant_id:
+            if require_policy:
+                raise InventoryReservationError("inventory_policy_missing")
+            if not item.color_variant_id:
                 continue
             # Legacy callers created reservations before ProductInventoryPolicy
             # existed. Keep that catalog-variant behavior explicit and isolated
@@ -75,7 +99,9 @@ def reserve_proposal_inventory(proposal, *, expires_at=None, require_policy=Fals
         elif policy.source == ProductInventoryPolicy.Source.UNTRACKED:
             continue
         else:
-            decision = _allocation_for_item(item, lock=True)
+            # Do not lock in proposal-item order.  The identities are locked in
+            # deterministic order below after this first, non-locking pass.
+            decision = _allocation_for_item(item, lock=False)
             if decision.status.value != "allocatable" or decision.allocation is None:
                 raise InventoryReservationError(decision.reason)
             allocation = decision.allocation
@@ -93,19 +119,16 @@ def reserve_proposal_inventory(proposal, *, expires_at=None, require_policy=Fals
         group["quantity"] += int(item.quantity or 0)
 
     now = timezone.now()
-    for group in groups.values():
+    for group in sorted(groups.values(), key=lambda value: value["allocation_key"]):
         allocation = group["allocation"]
         required = group["quantity"]
+        locked_target = _lock_allocation(allocation)
         if allocation.source == "warehouse":
-            stock_item = StockItem.objects.select_for_update().filter(
-                pk=allocation.stock_item_id,
-            ).first()
+            stock_item = locked_target
             available = int(stock_item.quantity or 0) if stock_item else 0
             allocation_filter = {"stock_item_id": allocation.stock_item_id}
         else:
-            variant = ProductColorVariant.objects.select_for_update().filter(
-                pk=allocation.color_variant_id,
-            ).first()
+            variant = locked_target
             available = int(variant.stock or 0) if variant else 0
             allocation_filter = {"color_variant_id": allocation.color_variant_id}
         if available <= 0:
@@ -296,6 +319,87 @@ def commit_proposal_inventory(proposal, *, order=None):
 
 
 @transaction.atomic
+def mark_overbooked_proposal_inventory(proposal, *, order=None, reason="late_payment_overbooked"):
+    """Move released warehouse reservations into an explicit review state.
+
+    Provider payment truth is durable even when the reservation expired.  The
+    payment binder must not silently attach that payment to an order; this
+    marker is the hand-off to a human who can source stock or refund safely.
+    """
+    from management.models import IgCheckoutInventoryReservation, IgFollowUpTask
+
+    now = timezone.now()
+    rows = list(
+        IgCheckoutInventoryReservation.objects.select_for_update().filter(
+            proposal=proposal,
+            allocation_source="warehouse",
+            state__in=[
+                IgCheckoutInventoryReservation.State.RELEASED,
+                IgCheckoutInventoryReservation.State.OVERBOOKED_REVIEW,
+            ],
+        ).order_by("pk")
+    )
+    if not rows:
+        return 0
+    for row in rows:
+        row.state = IgCheckoutInventoryReservation.State.OVERBOOKED_REVIEW
+        row.release_reason = str(reason or "late_payment_overbooked")[:128]
+        if order is not None:
+            row.order_id = order.pk
+        row.updated_at = now
+        row.save(update_fields=["state", "release_reason", "order", "updated_at"])
+
+    deal = proposal.deal
+    task, _created = IgFollowUpTask.objects.get_or_create(
+        event_key=f"inventory-overbooked:{proposal.pk}",
+        defaults={
+            "client": proposal.client,
+            "deal": deal,
+            "due_at": now,
+            "status": IgFollowUpTask.Status.SKIPPED,
+            "kind": IgFollowUpTask.Kind.MANAGER_TASK,
+            "reason": "inventory_overbooked_review",
+            "trigger": IgFollowUpTask.Trigger.EVENT,
+            "event_occurred_at": now,
+            "event_payload": {
+                "proposal_id": proposal.pk,
+                "reservation_ids": [row.pk for row in rows],
+            },
+            "skip_reason": "human_agent_required",
+            "message_text": (
+                f"Угода #{deal.pk}: оплату підтверджено, але резерв складу вже звільнений. "
+                "Потрібно перевірити наявність, заміну або повернення коштів."
+            ),
+            "last_error": f"reservation_ids={','.join(str(row.pk) for row in rows)}",
+        },
+    )
+    if not _created:
+        task.last_error = f"reservation_ids={','.join(str(row.pk) for row in rows)}"
+        task.save(update_fields=["last_error", "updated_at"])
+
+    def _notify():
+        try:
+            from management.services.instagram_bot import notify_manager
+
+            notify_manager(
+                f"📦 IG: угода #{deal.pk} має оплату після звільнення резерву. "
+                "Потрібна перевірка складу або повернення коштів.",
+                dedupe_key=f"inventory_overbooked_review:{proposal.pk}",
+                event_type="inventory_overbooked_review",
+                client=proposal.client,
+            )
+        except Exception:
+            return
+
+    transaction.on_commit(_notify)
+    # The event key makes repeated payment/reconciliation callbacks
+    # idempotent. Return a positive transition only when the manager task was
+    # materialized for the first time; callers must not create a second order
+    # or notification on a replay.
+    return len(rows) if _created else 0
+
+
+@transaction.atomic
 def fulfill_warehouse_reservation(
     reservation,
     *,
@@ -361,13 +465,17 @@ def fulfill_order_inventory_reservations(order, *, write_off_request=None, user=
     from django.contrib.contenttypes.models import ContentType
     from warehouse.models import StockItem, StockMovement, WriteOffRequest
 
-    if (
-        write_off_request is not None
-        and write_off_request.status == WriteOffRequest.STATUS_CANCELLED
-    ):
-        return 0
     try:
         with transaction.atomic():
+            if write_off_request is not None:
+                # The callback may hold an instance loaded before a reversal.
+                # Re-read it under the transaction lock so a repeated callback
+                # cannot recreate a cancelled write-off.
+                write_off_request = WriteOffRequest.objects.select_for_update().get(
+                    pk=write_off_request.pk,
+                )
+                if write_off_request.status == WriteOffRequest.STATUS_CANCELLED:
+                    return 0
             stock_item_ct = ContentType.objects.get_for_model(StockItem)
             reservations = list(
                 IgCheckoutInventoryReservation.objects.select_for_update().filter(

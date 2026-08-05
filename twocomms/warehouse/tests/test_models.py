@@ -70,6 +70,16 @@ class StockItemTests(TestCase):
         self.assertEqual(m.quantity_after, 5)
         self.assertEqual(m.created_by, self.user)
 
+    def test_adjust_stock_item_refreshes_stale_instance_before_writing(self):
+        item = StockItem.objects.create(subcategory=self.sub, size="M", quantity=2)
+        stale = StockItem.objects.get(pk=item.pk)
+
+        adjust_stock_item(stock_item=item, delta=3, user=self.user, reason=MovementReason.MANUAL_ADD)
+        adjust_stock_item(stock_item=stale, delta=-1, user=self.user, reason=MovementReason.ORDER_WRITE_OFF)
+
+        item.refresh_from_db()
+        self.assertEqual(item.quantity, 4)
+
     def test_adjust_stock_item_cannot_go_negative(self):
         item = StockItem.objects.create(subcategory=self.sub, size="M", quantity=2)
         with self.assertRaises(ValueError):
@@ -86,6 +96,19 @@ class StockItemTests(TestCase):
         movement = StockMovement.objects.filter(object_id=item.pk).order_by("-id").first()
         self.assertIsNotNone(movement)
         self.assertEqual(movement.delta, 7)
+
+    def test_set_stock_quantity_uses_locked_quantity_for_stale_instance(self):
+        item = StockItem.objects.create(subcategory=self.sub, size="M", quantity=2)
+        stale = StockItem.objects.get(pk=item.pk)
+        StockItem.objects.filter(pk=item.pk).update(quantity=5)
+
+        set_stock_quantity(stock_item=stale, new_quantity=8, user=self.user)
+
+        item.refresh_from_db()
+        self.assertEqual(item.quantity, 8)
+        movement = StockMovement.objects.filter(object_id=item.pk).order_by("-id").first()
+        self.assertIsNotNone(movement)
+        self.assertEqual(movement.delta, 3)
 
     def test_weighted_average_cost_pure_helper(self):
         """Класична бухгалтерська формула WAC."""
